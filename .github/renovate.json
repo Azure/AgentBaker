@@ -15,7 +15,7 @@
   "labels": [
     "renovate"
   ],
-  "rebaseWhen": "conflicted",
+  "rebaseWhen": "never",
   "logLevelRemap": [
     {
       "matchMessage": "/^Custom manager fetcher/",
@@ -386,7 +386,7 @@
     },
     {
       "matchPackageNames": [
-        "azure-acr-credential-provider-sysext"
+        "oss/v2/kubernetes/azure-acr-credential-provider-sysext"
       ],
       "groupName": "acr-credential-provider-sysext",
       "assignees": [

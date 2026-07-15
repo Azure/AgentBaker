@@ -897,6 +897,16 @@ func getLocalDnsCriticalFqdns(config *aksnodeconfigv1.Configuration) string {
 	return getStringifiedStringArray(trimmed, ",")
 }
 
+// getLocalDnsHostsPluginRefreshIntervalInSeconds returns the refresh interval in seconds
+// for the LocalDNS hosts plugin timer. Empty string means use the default timer cadence.
+func getLocalDnsHostsPluginRefreshIntervalInSeconds(config *aksnodeconfigv1.Configuration) string {
+	refreshIntervalInSeconds := config.GetLocalDnsProfile().GetHostsPluginRefreshIntervalInSeconds()
+	if refreshIntervalInSeconds <= 0 {
+		return ""
+	}
+	return strconv.FormatInt(int64(refreshIntervalInSeconds), 10)
+}
+
 // ---------------------- End of localdns related helper code ----------------------//
 
 // ---------------------- Start of cse timeout helper code ----------------------//

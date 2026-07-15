@@ -638,6 +638,19 @@ Describe 'Gets the Binaries' {
         $packages["location"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v1.8.22.zip"
     }
 
+    It 'can get the latest Windows package version by name' {
+        $componentsJson.Packages[0] | Add-Member -NotePropertyName "name" -NotePropertyValue "oras"
+        $componentsJson.Packages[0].downloadUris.windows.default.versionsV2 = @(
+            [PSCustomObject]@{
+                latestVersion = "1.3.3"
+            }
+        )
+
+        $version = GetWindowsPackageVersionFromComponentsJson $componentsJson "oras"
+
+        $version | Should -Be "1.3.3"
+    }
+
     It 'given there are two packages in the same directory, it combines them' {
         $testString = '{
   "Packages": [

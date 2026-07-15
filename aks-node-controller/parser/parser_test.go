@@ -236,14 +236,16 @@ oom_score = -999
 			k8sVersion: "1.24.2",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
 				aksNodeConfig.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
-					EnableLocalDns:    true,
-					EnableHostsPlugin: true,
+					EnableLocalDns:                      true,
+					EnableHostsPlugin:                   true,
+					HostsPluginRefreshIntervalInSeconds: to.Ptr(int32(30)),
 				}
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
 				assert.Equal(t, "true", vars["SHOULD_ENABLE_LOCALDNS"])
 				assert.Equal(t, "true", vars["SHOULD_ENABLE_HOSTS_PLUGIN"])
+				assert.Equal(t, "30", vars["LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS"])
 			},
 		},
 		{
