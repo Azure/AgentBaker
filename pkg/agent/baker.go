@@ -2031,7 +2031,7 @@ root = "{{GetDataDir}}"{{- end}}
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
-	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = 2
+	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = 4
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 {{- if IsKata }}
@@ -2099,11 +2099,10 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
-  snapshotter = "overlayfs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
   runtime_type = "io.containerd.kata.v2"
@@ -2115,16 +2114,16 @@ root = "{{GetDataDir}}"{{- end}}
   [proxy_plugins.tardev]
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
   pod_annotations = ["io.katacontainers.*"]
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
-	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
+	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 4
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 {{- if IsKata }}
@@ -2179,11 +2178,10 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
-  snapshotter = "overlayfs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
   runtime_type = "io.containerd.kata.v2"
