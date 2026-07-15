@@ -151,6 +151,8 @@ const (
 	AKSCBLMarinerV2Gen2                     Distro = "aks-cblmariner-v2-gen2"
 	AKSAzureLinuxV2Gen2                     Distro = "aks-azurelinux-v2-gen2"
 	AKSAzureLinuxV3Gen2                     Distro = "aks-azurelinux-v3-gen2"
+	AKSAzureLinuxV3EdgeZone                 Distro = "aks-azurelinux-v3-edgezone"
+	AKSAzureLinuxV3EdgeZoneGen2             Distro = "aks-azurelinux-v3-edgezone-gen2"
 	AKSCBLMarinerV2FIPS                     Distro = "aks-cblmariner-v2-fips"
 	AKSAzureLinuxV2FIPS                     Distro = "aks-azurelinux-v2-fips"
 	AKSAzureLinuxV3FIPS                     Distro = "aks-azurelinux-v3-fips"
@@ -172,6 +174,8 @@ const (
 	AKSUbuntuFipsContainerd2204TLGen2       Distro = "aks-ubuntu-fips-containerd-22.04-tl-gen2"
 	AKSUbuntuEdgeZoneContainerd2204         Distro = "aks-ubuntu-edgezone-containerd-22.04"
 	AKSUbuntuEdgeZoneContainerd2204Gen2     Distro = "aks-ubuntu-edgezone-containerd-22.04-gen2"
+	AKSUbuntuEdgeZoneContainerd2404         Distro = "aks-ubuntu-edgezone-containerd-24.04"
+	AKSUbuntuEdgeZoneContainerd2404Gen2     Distro = "aks-ubuntu-edgezone-containerd-24.04-gen2"
 	AKSUbuntuContainerd2204                 Distro = "aks-ubuntu-containerd-22.04"
 	AKSUbuntuContainerd2204Gen2             Distro = "aks-ubuntu-containerd-22.04-gen2"
 	AKSUbuntuContainerd2004CVMGen2          Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
@@ -260,6 +264,10 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuFipsContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
+	AKSUbuntuEdgeZoneContainerd2404,
+	AKSUbuntuEdgeZoneContainerd2404Gen2,
+	AKSAzureLinuxV3EdgeZone,
+	AKSAzureLinuxV3EdgeZoneGen2,
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,

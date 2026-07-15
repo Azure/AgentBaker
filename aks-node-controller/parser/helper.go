@@ -91,28 +91,36 @@ func getStringFromVMType(enum aksnodeconfigv1.VmType) string {
 	}
 }
 
-//nolint:exhaustive // NetworkPlugin_NETWORK_PLUGIN_NONE and NetworkPlugin_NETWORK_PLUGIN_UNSPECIFIED should both return ""
 func getStringFromNetworkPluginType(enum aksnodeconfigv1.NetworkPlugin) string {
 	switch enum {
 	case aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE:
 		return helpers.NetworkPluginAzure
 	case aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET:
 		return helpers.NetworkPluginKubenet
-	default:
+	case aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_NONE:
+		// The scriptful (NBC/CSE) path emits the raw "none" string for the network
+		// plugin; mirror it here so NETWORK_PLUGIN matches for BYO-CNI clusters.
+		return helpers.NetworkPluginNone
+	case aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_UNSPECIFIED:
 		return ""
 	}
+	return ""
 }
 
-//nolint:exhaustive // NetworkPolicy_NETWORK_POLICY_NONE and NetworkPolicy_NETWORK_POLICY_UNSPECIFIED should both return ""
 func getStringFromNetworkPolicyType(enum aksnodeconfigv1.NetworkPolicy) string {
 	switch enum {
 	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE:
 		return helpers.NetworkPolicyAzure
 	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO:
 		return helpers.NetworkPolicyCalico
-	default:
+	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_NONE:
+		// The scriptful (NBC/CSE) path emits the raw "none" string for the network
+		// policy; mirror it here so NETWORK_POLICY matches when policy is "none".
+		return helpers.NetworkPolicyNone
+	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_UNSPECIFIED:
 		return ""
 	}
+	return ""
 }
 
 //nolint:exhaustive // Default and LoadBalancerConfig_UNSPECIFIED should both return ""

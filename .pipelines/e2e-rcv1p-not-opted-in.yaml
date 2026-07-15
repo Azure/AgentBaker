@@ -1,10 +1,9 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
-# NOTE: Despite the generic filename, this pipeline runs ONLY the "not-opted-in"
-# (negative) RCV1P scenarios by setting rcv1pTagsAutoInjected: false below. The
-# positive/opt-in RCV1P scenarios run via aks-rp's linux-release-orchestration
+# This pipeline runs ONLY the "not-opted-in" (negative) RCV1P scenarios by
+# setting rcv1pTagsAutoInjected: false below. The positive/opt-in RCV1P
+# scenarios run via aks-rp's linux-release-orchestration
 # (--run-tags rcv1pcertmode=true) against the TME-RCV1P subscription that
-# auto-injects the opt-in VMSS tag. A follow-up PR will rename this file to
-# e2e-rcv1p-not-opted-in.yaml to make the intent obvious.
+# auto-injects the opt-in VMSS tag.
 variables:
   TAGS_TO_RUN: "rcv1pcertmode=true"
   SKIP_E2E_TESTS: false
