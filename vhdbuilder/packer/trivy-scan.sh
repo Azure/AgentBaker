@@ -100,7 +100,7 @@ install_azure_cli() {
         export PATH="/home/$TEST_VM_ADMIN_USERNAME/venv/bin:$PATH"
         pip install azure-cli
         CHECKAZ=$(pip freeze | grep "azure-cli==")
-        if [ -z $CHECKAZ ]; then
+        if [ -z "$CHECKAZ" ]; then
             echo "Azure CLI is not installed properly."
             exit 1
         fi
@@ -114,7 +114,7 @@ install_azure_cli() {
             pip install azure-cli
             export PATH="/home/$TEST_VM_ADMIN_USERNAME/.local/bin:$PATH"
             CHECKAZ=$(pip freeze | grep "azure-cli==")
-            if [ -z $CHECKAZ ]; then
+            if [ -z "$CHECKAZ" ]; then
                 echo "Azure CLI is not installed properly."
                 exit 1
             fi
