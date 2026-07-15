@@ -61,20 +61,35 @@ Describe 'cse_install_ubuntu.sh'
             GPU_DKMS_MARKER_FILE="${marker}"
             ldconfig() { echo "mock ldconfig"; }
             systemctl() { echo "mock systemctl $*"; }
-            # Model a live stack: lsmod reports nvidia until every module has been rmmod'd.
-            _loaded="nvidia nvidia_modeset nvidia_uvm nvidia_drm"
-            lsmod() { case "${_loaded}" in *nvidia*) echo "nvidia 104165376 3";; *) echo "";; esac; }
-            rmmod() { echo "mock rmmod $1"; _loaded="${_loaded//$1/}"; }
+            # Realistic kernel model: dependents each hold a ref on nvidia. rmmod of a dependent
+            # succeeds; rmmod of nvidia FAILS (returns 1, module stays) while any dependent is still
+            # loaded -- so if the code attempted nvidia first, it would fail and nvidia_after=true, and
+            # the ordering assertions below would not see the required sequence. Space-delimited set
+            # with guard spaces so removal is exact-token (avoids the "nvidia" substring stripping
+            # "nvidia_modeset"). Each rmmod line is emitted so line-based order can be asserted.
+            _loaded=" nvidia nvidia_modeset nvidia_uvm nvidia_drm nvidia_peermem "
+            _deps_loaded() { case "${_loaded}" in *" nvidia_modeset "*|*" nvidia_uvm "*|*" nvidia_drm "*|*" nvidia_peermem "*) return 0;; *) return 1;; esac; }
+            lsmod() { case "${_loaded}" in *" nvidia "*) echo "nvidia 104165376 4";; *) echo "";; esac; }
+            rmmod() {
+                if [ "$1" = "nvidia" ] && _deps_loaded; then
+                    echo "mock rmmod nvidia FAILED (deps still loaded)"; return 1
+                fi
+                _loaded="${_loaded/ $1 / }"; echo "mock rmmod $1"
+            }
             When call cleanUpPrebakedGPUDriver
             The status should be success
             The output should include "module_before=true"
             # persistenced stopped first (holds a device handle, not a module dependency)
             The output should include "mock systemctl stop nvidia-persistenced"
-            # dependents unloaded before the base nvidia module
-            The output should include "mock rmmod nvidia_drm"
-            The output should include "mock rmmod nvidia_uvm"
-            The output should include "mock rmmod nvidia_modeset"
-            The output should include "mock rmmod nvidia"
+            # ORDER-SENSITIVE: the loop is nvidia_drm, nvidia_uvm, nvidia_modeset, nvidia_peermem, nvidia.
+            # A wrong order (nvidia before its deps) would emit "FAILED" and leave module_after=true.
+            The line 2 of output should equal "mock systemctl stop nvidia-persistenced"
+            The line 3 of output should equal "mock rmmod nvidia_drm"
+            The line 4 of output should equal "mock rmmod nvidia_uvm"
+            The line 5 of output should equal "mock rmmod nvidia_modeset"
+            The line 6 of output should equal "mock rmmod nvidia_peermem"
+            The line 7 of output should equal "mock rmmod nvidia"
+            The output should not include "FAILED"
             # after the full-stack unload the module is gone -> complete
             The output should include "module_after=false"
             The output should include "status=cleaned"
