@@ -25,6 +25,11 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
         The status should eq 0
     End
 
+    It 'passes refresh_location (not the raw positional arg) into determine_cert_endpoint_mode'
+        When run grep -Eq '^cert_endpoint_mode=\$\(determine_cert_endpoint_mode "\$refresh_location"\)$' "$script_path"
+        The status should eq 0
+    End
+
     It 'maps ussec/usnat locations to legacy cert endpoint mode'
         When run grep -Eq 'ussec\*\|usnat\*\) mode="legacy"' "$script_path"
         The status should eq 0
@@ -250,10 +255,13 @@ REPO
             When call init_azurelinux_repo_depot "https://repodepot.example.com"
             The output should be present
             The status should be success
+            The path "${YUM_REPOS_DIR}/azurelinux-amd.repo" should be exist
             The path "${YUM_REPOS_DIR}/azurelinux-base.repo" should be exist
-            The path "${YUM_REPOS_DIR}/azurelinux-nvidia.repo" should be exist
             The path "${YUM_REPOS_DIR}/azurelinux-cloud-native.repo" should be exist
+            The path "${YUM_REPOS_DIR}/azurelinux-extended.repo" should be exist
+            The path "${YUM_REPOS_DIR}/azurelinux-ms-non-oss.repo" should be exist
             The path "${YUM_REPOS_DIR}/azurelinux-ms-oss.repo" should be exist
+            The path "${YUM_REPOS_DIR}/azurelinux-nvidia.repo" should be exist
             The contents of file "${YUM_REPOS_DIR}/azurelinux-base.repo" should include "baseurl=https://repodepot.example.com/azurelinux/"
             The contents of file "${YUM_REPOS_DIR}/azurelinux-base.repo" should not include "packages.microsoft.com"
         End

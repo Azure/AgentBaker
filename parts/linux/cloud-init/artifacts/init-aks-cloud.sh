@@ -1,4 +1,15 @@
 #!/bin/bash
+# Sourcing convention (__SOURCED__):
+#   This script is normally EXECUTED during custom-cloud node provisioning. To make
+#   its helper functions unit-testable, the ShellSpec suite
+#   (spec/parts/linux/cloud-init/artifacts/init_aks_custom_cloud_spec.sh) sources it
+#   with __SOURCED__ set. When __SOURCED__ is non-empty:
+#     - `set -x` is suppressed (line below) so ShellSpec output stays readable, and
+#     - top-level execution stops at the `${__SOURCED__:+return 0}` guard further down,
+#       so only the function definitions are loaded (no provisioning side effects).
+#   WARNING: __SOURCED__ is a TEST-ONLY hook. Do NOT source this file from production
+#   bootstrap code — doing so silently disables `set -x` AND skips everything below the
+#   guard (i.e. the actual provisioning never runs). This file is meant to be executed.
 [ -n "${__SOURCED__:-}" ] || set -x
 
 # Dependency note: `jq` is guaranteed to be present on every AKS VHD (baked in
@@ -80,8 +91,16 @@ IS_ACL=0
 IS_MARINER=0
 IS_AZURELINUX=0
 
-# http://168.63.129.16 is a constant for the host's wireserver endpoint
-WIRESERVER_ENDPOINT="${WIRESERVER_ENDPOINT:-http://168.63.129.16}"
+# http://168.63.129.16 is a constant for the host's wireserver endpoint.
+# Only honor a WIRESERVER_ENDPOINT env override when the script is sourced for tests
+# (__SOURCED__ set). During normal execution the constant is forced, so a stray
+# WIRESERVER_ENDPOINT in the environment cannot redirect certificate retrieval to an
+# unexpected endpoint.
+if [ -n "${__SOURCED__:-}" ]; then
+    WIRESERVER_ENDPOINT="${WIRESERVER_ENDPOINT:-http://168.63.129.16}"
+else
+    WIRESERVER_ENDPOINT="http://168.63.129.16"
+fi
 
 function make_request_with_retry {
     local url="$1"
@@ -299,17 +318,26 @@ function init_ubuntu_main_repo_depot {
     local sources_list_d="${APT_SOURCES_LIST_D_DIR:-/etc/apt/sources.list.d}"
     local os_release_file="${OS_RELEASE_FILE:-/etc/os-release}"
 
-    # Initialize directory for keys
-    mkdir -p "$keyrings_dir"
+    # Initialize directories for keys and apt sources. mkdir -p is a no-op when the
+    # default paths already exist; it makes the *_DIR overrides used by tests robust.
+    mkdir -p "$keyrings_dir" "$sources_list_d"
 
     # This copies the updated bundle to the location used by OpenSSL which is commonly used.
     # On Ubuntu 24.04, ssl_cert_target may be a symlink to ca-certificates.crt (same file),
     # so skip the copy if source and destination resolve to the same inode.
     local src_file="${ssl_certs_dir}/ca-certificates.crt"
-    if [ -f "$src_file" ] && ! [ "$src_file" -ef "$ssl_cert_target" ]; then
+    if [ ! -f "$src_file" ]; then
+        echo "Warning: CA bundle $src_file not found; skipping OpenSSL bundle copy."
+    elif [ "$src_file" -ef "$ssl_cert_target" ]; then
+        echo "OpenSSL bundle $ssl_cert_target already resolves to $src_file; skipping copy."
+    else
         echo "Copying updated bundle to OpenSSL .pem file..."
-        cp "$src_file" "$ssl_cert_target"
-        echo "Updated bundle copied."
+        mkdir -p "$(dirname "$ssl_cert_target")"
+        if cp "$src_file" "$ssl_cert_target"; then
+            echo "Updated bundle copied."
+        else
+            echo "ERROR: failed to copy $src_file to $ssl_cert_target"
+        fi
     fi
 
     # Back up sources.list and sources.list.d contents
@@ -372,6 +400,7 @@ function write_to_sources_file {
     shift 2
     local key_paths=("$@")
     local sources_list_d="${APT_SOURCES_LIST_D_DIR:-/etc/apt/sources.list.d}"
+    mkdir -p "$sources_list_d"
 
     local sources_file_path="${sources_list_d}/${sources_list_d_file}.sources"
     local ubuntuDist
@@ -453,6 +482,7 @@ function init_ubuntu_pmc_repo_depot {
 function init_mariner_repo_depot {
     local repodepot_endpoint="$1"
     local yum_repos_dir="${YUM_REPOS_DIR:-/etc/yum.repos.d}"
+    mkdir -p "$yum_repos_dir"
 
     echo "Adding [extended] repo"
     cp "${yum_repos_dir}/mariner-extras.repo" "${yum_repos_dir}/mariner-extended.repo"
@@ -481,6 +511,7 @@ function init_azurelinux_repo_depot {
     local repodepot_endpoint="$1"
     local yum_repos_dir="${YUM_REPOS_DIR:-/etc/yum.repos.d}"
     local repos=("amd" "base" "cloud-native" "extended" "ms-non-oss" "ms-oss" "nvidia")
+    mkdir -p "$yum_repos_dir"
 
     rm -f "${yum_repos_dir}"/azurelinux*
 
