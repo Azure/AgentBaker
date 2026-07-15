@@ -22,7 +22,10 @@ parts/linux/cloud-init/artifacts/mariner/package-update.timer @Azure/agentbakera
 parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh @Azure/agentbakeradmin @yewmsft @YaoC
 parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.service @Azure/agentbakeradmin @yewmsft @YaoC
 parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.timer @Azure/agentbakeradmin @yewmsft @YaoC
+parts/linux/cloud-init/artifacts/ubuntu/security-update.sh @Azure/agentbakeradmin @yewmsft @YaoC
 parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh @Azure/agentbakeradmin @yewmsft @YaoC
+spec/parts/linux/cloud-init/artifacts/security-update_spec.sh @Azure/agentbakeradmin @yewmsft @YaoC
+spec/parts/linux/cloud-init/artifacts/snapshot-update-service_spec.sh @Azure/agentbakeradmin @yewmsft @YaoC
 spec/parts/linux/cloud-init/artifacts/ubuntu-snapshot-update_spec.sh @Azure/agentbakeradmin @yewmsft @YaoC
 spec/parts/linux/cloud-init/artifacts/mariner-package-update_spec.sh @Azure/agentbakeradmin @yewmsft @YaoC
 
