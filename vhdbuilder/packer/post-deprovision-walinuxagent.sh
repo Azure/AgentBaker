@@ -128,6 +128,13 @@ if [ "$OS_VARIANT_ID" != "OSGUARD" ] && [ "$OS_VARIANT_ID" != "AZURECONTAINERLIN
     # and zip extraction.
     python3 /opt/azure/containers/install_walinuxagent.py "${WALINUXAGENT_DOWNLOAD_DIR}" "${WALINUXAGENT_WIRESERVER_URL}" "${WALINUXAGENT_VERSION}"
 
+    # Stop walinuxagent to avoid it recreating WALinuxAgent-*/ dirs while we
+    # prune/configure. 'waagent -force -deprovision+user' terminates daemon
+    # processes but leaves the systemd unit alive;
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl stop walinuxagent.service waagent.service 2>/dev/null || true
+    fi
+
     # Purge any stale WALinuxAgent-*/ dirs (from the bake VM's daemon auto-updating
     # from wireserver) that survived a racy 'waagent -deprovision+user'. See the
     # header comment for background. This runs AFTER the installer so 'set -e'

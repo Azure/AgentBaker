@@ -1,20 +1,16 @@
 #!/bin/bash
-# shellcheck disable=SC2329
+# shellcheck disable=SC2329,SC2317
 
 # ShellSpec tests for pruneStaleWALinuxAgentDirs (defined in
 # vhdbuilder/packer/post-deprovision-walinuxagent.sh).
 #
 # Background: 'waagent -force -deprovision+user' at the end of a packer bake
-# does NOT remove /var/lib/waagent/WALinuxAgent-*/ directories, and its
-# cleanup step is racy against the running ExtHandler (see ADO build
-# 172134174, stage log 603, 08:25:04: Errno 39 on /var/lib/waagent/events).
-# When the race fires, a newer agent version the daemon fetched from
-# wireserver at bake-VM boot (e.g. WALinuxAgent-2.15.2.1) survives into the
-# captured VHD alongside the pinned version. The customer-node daemon then
-# picks the highest on-disk version regardless of
+# does NOT remove /var/lib/waagent/WALinuxAgent-*/ directories.
+# A newer agent version the daemon fetched from wireserver at bake-VM boot
+# (e.g. WALinuxAgent-2.15.2.1) survives into the captured VHD alongside the pinned version.
+# The customer-node daemon then picks the highest on-disk version regardless of
 # AutoUpdate.UpdateToLatestVersion=n (which only gates network fetches).
-# pruneStaleWALinuxAgentDirs is the belt-and-braces that makes
-# components.json the sole source of truth for on-disk agent code.
+# pruneStaleWALinuxAgentDirs ensures that only the version specified in components.json remains.
 
 Describe 'pruneStaleWALinuxAgentDirs'
   POST_DEPROV_SCRIPT="./vhdbuilder/packer/post-deprovision-walinuxagent.sh"
