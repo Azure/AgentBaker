@@ -128,12 +128,13 @@ func writeMIMEPart(writer *multipart.Writer, contentType, content string) error 
 // enabledFeaturesBlock returns the boothook snippet writing the enabled-features file, or ""
 // when no valid feature is set (keeping custom data byte-identical to the default for VHD
 // compat). Keys are sorted for deterministic output and filtered to valid shell identifiers -
-// the same set the wrapper parses - so an invalid/empty key never emits a features file.
+// the same set the wrapper parses. Entries whose value contains a newline or carriage return
+// are dropped so a single entry can never expand into multiple lines in the heredoc.
 func enabledFeaturesBlock(cfg *aksnodeconfigv1.Configuration) string {
 	features := cfg.GetEnabledFeatures()
 	keys := make([]string, 0, len(features))
-	for k := range features {
-		if isValidFeatureKey(k) {
+	for k, v := range features {
+		if isValidFeatureKey(k) && !strings.ContainsAny(v, "\n\r") {
 			keys = append(keys, k)
 		}
 	}

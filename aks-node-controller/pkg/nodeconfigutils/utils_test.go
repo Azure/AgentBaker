@@ -359,6 +359,24 @@ func TestEnabledFeaturesBlockSkipsInvalidKeys(t *testing.T) {
 	require.NotContains(t, block, "1BAD")
 }
 
+func TestEnabledFeaturesBlockSkipsValuesWithNewlines(t *testing.T) {
+	// A value containing a newline/CR would inject extra lines into the heredoc, so the entry
+	// is dropped. When it's the only entry, no block is emitted.
+	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{
+		"INJECT": "true\nEVIL=1",
+	}}))
+	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{
+		"CR": "a\rb",
+	}}))
+
+	// A clean entry alongside a newline-tainted one keeps only the clean one.
+	block := enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{
+		"INJECT": "x\nEVIL=1", "GOOD_KEY": "1",
+	}})
+	require.Contains(t, block, "GOOD_KEY=1\n")
+	require.NotContains(t, block, "EVIL")
+}
+
 func TestEnabledFeaturesFilePathMatchesWrapperContract(t *testing.T) {
 	// Shared contract with the wrapper's FEATURES_PATH default; if it changes here it must
 	// change there too, or the wrapper will never read the file.

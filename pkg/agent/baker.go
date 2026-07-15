@@ -165,12 +165,13 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 // renderEnabledFeatures serializes the feature toggle map into sorted KEY=VALUE lines for
 // enabled_features.sh. Keys are sorted so the output is deterministic (Go map iteration is
 // randomized) and filtered to valid shell identifiers - the same set the aks-node-controller
-// wrapper accepts - so an invalid/empty key never produces a features file the wrapper would
-// ignore. Returns "" when no valid key remains so custom data stays byte-identical to today.
+// wrapper accepts. Entries whose value contains a newline or carriage return are dropped so a
+// single map entry can never expand into multiple lines (preserving the one-KEY=VALUE-per-line
+// contract). Returns "" when no valid entry remains so custom data stays byte-identical to today.
 func renderEnabledFeatures(features map[string]string) string {
 	keys := make([]string, 0, len(features))
-	for k := range features {
-		if isValidFeatureKey(k) {
+	for k, v := range features {
+		if isValidFeatureKey(k) && !strings.ContainsAny(v, "\n\r") {
 			keys = append(keys, k)
 		}
 	}

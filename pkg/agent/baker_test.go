@@ -1621,6 +1621,25 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(string(decodedPayload)).NotTo(ContainSubstring(enabledFeaturesFilepath))
 	})
 
+	It("should drop enabled_features entries whose value contains a newline", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		// A newline in a value could inject a spurious KEY=VALUE line; such entries are dropped.
+		// The lone tainted entry yields no file; a clean entry alongside it survives.
+		config.EnabledFeatures = map[string]string{"INJECT": "true\nEVIL=1"}
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(decodedPayload)).NotTo(ContainSubstring(enabledFeaturesFilepath))
+
+		config.EnabledFeatures = map[string]string{"INJECT": "x\nEVIL=1", "GOOD_KEY": "1"}
+		payload = templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err = base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+		encodedClean := getBase64EncodedGzippedCustomScriptFromStr("GOOD_KEY=1\n")
+		Expect(string(decodedPayload)).To(ContainSubstring(encodedClean))
+	})
+
 	It("should render valid ignition JSON with the encoded files for scriptless ACL custom data", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
