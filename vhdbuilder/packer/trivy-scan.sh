@@ -118,6 +118,7 @@ install_azure_cli() {
                 echo "Azure CLI is not installed properly."
                 exit 1
             fi
+            return 0
         fi
         if [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "26.04" ]; then
             apt_get_install 5 1 60 ca-certificates curl apt-transport-https lsb-release gnupg
