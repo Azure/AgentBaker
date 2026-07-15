@@ -15,7 +15,7 @@
   "labels": [
     "renovate"
   ],
-  "rebaseWhen": "conflicted",
+  "rebaseWhen": "never",
   "logLevelRemap": [
     {
       "matchMessage": "/^Custom manager fetcher/",
