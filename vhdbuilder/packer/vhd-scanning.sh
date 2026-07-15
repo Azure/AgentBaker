@@ -396,7 +396,8 @@ run_compliance_engine_scan() {
         # Retrieve the JSON result (and the assessor log) for publication.
         az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${result_blob}" --file "${result_local}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login || \
             echo "WARNING: no Compliance Engine result blob for ${key}"
-        az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${log_blob}" --file "compliance-engine-${key}.log" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login || true
+        az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${log_blob}" --file "compliance-engine-${key}.log" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login || \
+            echo "WARNING: no Compliance Engine log blob for ${key}"
 
         # Clean up per-MOF blobs.
         az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${mof_blob}" --auth-mode login || true
