@@ -62,11 +62,16 @@ login_with_user_assigned_managed_identity "--resource-id" "$AZURE_MSI_RESOURCE_S
 
 # The assessor's input hardening (azure-osconfig InputSecurity.cpp) refuses to
 # read the MOF, and refuses to write the --log-file, unless the file and its
-# parent directory are owned by root and are not group/world-writable. This
-# script runs as root under RunShellScript, and `mktemp -d` creates a 0700
-# root-owned directory, so staging the assessor, MOF and log there satisfies
-# those checks. The world-writable /tmp grandparent is not consulted.
-WORK_DIR="$(mktemp -d)"
+# parent directory are owned by root and are not group/world-writable.
+#
+# The work dir must ALSO be on an exec-permitted filesystem: CIS-hardened images
+# mount /tmp (and often /var/tmp, /dev/shm) with 'noexec', so running the
+# assessor from the default mktemp location (/tmp) fails with exit code 126
+# ("cannot execute"). We therefore stage under /root — root's home on the root
+# filesystem, which is exec-permitted and mode 0700 — which also satisfies the
+# assessor's root-owned, non-world-writable parent-directory checks. This script
+# runs as root under RunShellScript, so /root is writable.
+WORK_DIR="$(mktemp -d /root/compliance-engine.XXXXXX)"
 chmod 0700 "$WORK_DIR"
 cleanup() {
     rm -rf "$WORK_DIR" || true
