@@ -28,6 +28,8 @@ import (
 	"github.com/stretchr/testify/require"
 	certv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
+	resourcev1 "k8s.io/api/resource/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -424,6 +426,13 @@ func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string)
 		fmt.Sprintf("sudo ls -1q %s | grep -q '^.*$' && true || false", dirName),
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "either could not find expected file, or something went wrong")
+}
+
+func ValidateEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
+	s.T.Helper()
+	command := fmt.Sprintf("! [ -d '%s' ] || [ -z \"$(ls -A '%s')\" ]", dirName, dirName)
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0,
+		fmt.Sprintf("expected directory %s to be empty or not exist", dirName))
 }
 
 func ValidateInspektorGadget(ctx context.Context, s *Scenario) {
@@ -2734,7 +2743,7 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
 func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
 	nbc := s.Runtime.NBC
-	if nbc != nil && s.VHD.SupportsScriptless() && (nbc.EnableScriptlessCSECmd || nbc.EnableScriptlessNBCCSECmd) {
+	if nbc != nil && s.VHD.SupportsScriptless() && nbc.EnableScriptlessCSECmd && !nbc.EnableScriptlessNBCCSECmd {
 		ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
 	}
 }
@@ -3110,4 +3119,259 @@ func ValidateSecondaryNICDualStack(ctx context.Context, s *Scenario, ifaceName s
 		"expected interface %s to have an IPv6 address, got:\n%s", ifaceName, result.stdout)
 	require.Contains(s.T, result.stdout, "scope global",
 		"expected interface %s to have a global IPv6 address (not just link-local), got:\n%s", ifaceName, result.stdout)
+}
+
+func ValidateDraDriverNvidiaGpuServiceRunning(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating DRA driver NVIDIA GPU systemd service is running")
+
+	command := []string{
+		"set -ex",
+		"systemctl is-active dra-driver-nvidia-gpu.service",
+		"systemctl is-enabled dra-driver-nvidia-gpu.service",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "DRA driver NVIDIA GPU systemd service should be active and enabled")
+}
+
+func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that DRA workloads can be scheduled")
+
+	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
+
+	baseName := strings.ToLower(s.Runtime.VM.KubeName)
+	if len(baseName) > 40 {
+		baseName = baseName[:40]
+	}
+	baseName = strings.TrimRight(baseName, "-")
+	deviceClassName := fmt.Sprintf("gpu-nvidia-%s", baseName)
+	claimName := fmt.Sprintf("single-gpu-%s", baseName)
+	podClaimRefName := "gpu-claim"
+
+	_, err := s.Runtime.Kube.Typed.ResourceV1().DeviceClasses().Create(ctx, &resourcev1.DeviceClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: deviceClassName,
+		},
+		Spec: resourcev1.DeviceClassSpec{},
+	}, metav1.CreateOptions{})
+	require.Truef(s.T, err == nil || apierrors.IsAlreadyExists(err), "failed to create DeviceClass %q: %v", deviceClassName, err)
+	defer func() {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		err := s.Runtime.Kube.Typed.ResourceV1().DeviceClasses().Delete(cleanupCtx, deviceClassName, metav1.DeleteOptions{})
+		if err != nil && !apierrors.IsNotFound(err) {
+			s.T.Errorf("failed to delete DeviceClass %q: %v", deviceClassName, err)
+		}
+	}()
+
+	_, err = s.Runtime.Kube.Typed.ResourceV1().ResourceClaims("default").Create(ctx, &resourcev1.ResourceClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      claimName,
+			Namespace: "default",
+		},
+		Spec: resourcev1.ResourceClaimSpec{
+			Devices: resourcev1.DeviceClaim{
+				Requests: []resourcev1.DeviceRequest{
+					{
+						Name: "gpu",
+						Exactly: &resourcev1.ExactDeviceRequest{
+							DeviceClassName: deviceClassName,
+						},
+					},
+				},
+			},
+		},
+	}, metav1.CreateOptions{})
+	require.Truef(s.T, err == nil || apierrors.IsAlreadyExists(err), "failed to create ResourceClaim %q: %v", claimName, err)
+	defer func() {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		err := s.Runtime.Kube.Typed.ResourceV1().ResourceClaims("default").Delete(cleanupCtx, claimName, metav1.DeleteOptions{})
+		if err != nil && !apierrors.IsNotFound(err) {
+			s.T.Errorf("failed to delete ResourceClaim %q: %v", claimName, err)
+		}
+	}()
+
+	// Create a DRA test pod that consumes the ResourceClaim.
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-dra-test", s.Runtime.VM.KubeName),
+			Namespace: "default",
+		},
+		Spec: corev1.PodSpec{
+			ResourceClaims: []corev1.PodResourceClaim{
+				{
+					Name:              podClaimRefName,
+					ResourceClaimName: &claimName,
+				},
+			},
+			Containers: []corev1.Container{
+				{
+					Name:  "dra-test-container",
+					Image: "mcr.microsoft.com/azuredocs/samples-tf-mnist-demo:gpu",
+					Args: []string{
+						"--max-steps", "1",
+					},
+					Resources: corev1.ResourceRequirements{
+						Claims: []corev1.ResourceClaim{
+							{
+								Name: podClaimRefName,
+							},
+						},
+					},
+				},
+			},
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.VM.KubeName,
+			},
+		},
+	}
+	ValidatePodRunning(ctx, s, pod)
+
+	s.T.Logf("GPU workload is schedulable and runs successfully")
+}
+
+// ValidateRCV1PCertMode validates that the rcv1p certificate endpoint mode was used during
+// Linux node provisioning, certificates were downloaded and installed, and a refresh task was scheduled.
+func ValidateRCV1PCertMode(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Validate the provisioning log shows rcv1p mode was selected
+	ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
+		"Using custom cloud certificate endpoint mode: rcv1p")
+
+	// Validate the subscription is opted in for root certs
+	ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
+		"IsOptedInForRootCerts=true")
+
+	// Validate certificates were downloaded
+	ValidateNonEmptyDirectory(ctx, s, "/root/AzureCACertificates")
+
+	// Validate trust store was updated (distro-specific path)
+	trustStoreDir := rcv1pTrustStoreDir(s)
+	execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		fmt.Sprintf("sudo bash -c 'ls -1 %s/*.{crt,pem} 2>/dev/null' | grep -q .", trustStoreDir),
+		0, fmt.Sprintf("expected certificates in trust store directory %s", trustStoreDir))
+
+	// Validate refresh schedule was created (cron or systemd timer depending on distro)
+	if s.VHD.Flatcar || s.VHD.OS == config.OSACL {
+		// Flatcar and ACL use systemd timer
+		execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"systemctl is-enabled azure-ca-refresh.timer",
+			0, "expected azure-ca-refresh.timer to be enabled")
+	} else {
+		// Ubuntu, Mariner, AzureLinux use cron
+		execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"sudo crontab -l 2>/dev/null | grep -q ca-refresh",
+			0, "expected ca-refresh cron entry")
+	}
+}
+
+// rcv1pTrustStoreDir returns the OS trust store directory for the given scenario's distro.
+func rcv1pTrustStoreDir(s *Scenario) string {
+	switch s.VHD.OS {
+	case config.OSMariner, config.OSAzureLinux, config.OSACL:
+		return "/etc/pki/ca-trust/source/anchors"
+	case config.OSFlatcar:
+		return "/etc/ssl/certs"
+	default:
+		// Ubuntu and anything else
+		return "/usr/local/share/ca-certificates"
+	}
+}
+
+// ValidateRCV1PCertModeWindows validates that the rcv1p certificate endpoint mode was used during
+// Windows node provisioning, certificates were downloaded and installed, and a refresh task was scheduled.
+func ValidateRCV1PCertModeWindows(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Validate CA certificates were downloaded to C:\ca (matches Windows Get-CACertificates
+	// behavior; import into Cert:\LocalMachine\Root is handled out-of-band by the platform/
+	// refresh task, not by CSE).
+	command := []string{
+		"$ErrorActionPreference = 'Stop'",
+		"$caFolder = 'C:\\ca'",
+		"if (-not (Test-Path $caFolder)) { throw 'CA certificates folder C:\\ca does not exist' }",
+		"$certs = Get-ChildItem -Path $caFolder -File",
+		"if ($certs.Count -eq 0) { throw 'No certificates found in C:\\ca folder' }",
+		"Write-Host \"Found $($certs.Count) certificate(s) in $caFolder\"",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected certificates in C:\\ca")
+
+	// Validate the refresh scheduled task exists
+	command = []string{
+		"$ErrorActionPreference = 'Stop'",
+		"$task = Get-ScheduledTask -TaskName 'aks-ca-certs-refresh-task' -ErrorAction SilentlyContinue",
+		"if (-not $task) { throw 'aks-ca-certs-refresh-task scheduled task not found' }",
+		"Write-Host \"Scheduled task found: $($task.TaskName) (State: $($task.State))\"",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected aks-ca-certs-refresh-task scheduled task")
+}
+
+// ValidateRCV1PNotOptedIn validates that when the VM does NOT have the opt-in tag,
+// wireserver returns IsOptedInForRootCerts=false and no certificates are installed,
+// even in the RCV1P subscription with PlatformSettingsOverride registered.
+func ValidateRCV1PNotOptedIn(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Validate the provisioning log shows rcv1p mode was selected
+	ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
+		"Using custom cloud certificate endpoint mode: rcv1p")
+
+	// Validate wireserver reported not opted in
+	ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
+		"Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true")
+
+	// Validate no certificates were downloaded
+	ValidateEmptyDirectory(ctx, s, "/root/AzureCACertificates")
+
+	// Validate no refresh schedule was created
+	if s.VHD.Flatcar || s.VHD.OS == config.OSACL {
+		// Flatcar and ACL use systemd timer for cert refresh (see ValidateRCV1PCertMode).
+		execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"systemctl is-enabled azure-ca-refresh.timer 2>/dev/null",
+			1, "expected azure-ca-refresh.timer to be absent/disabled when not opted in")
+	} else {
+		// Ubuntu, Mariner, AzureLinux use cron.
+		execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"sudo crontab -l 2>/dev/null | grep -q ca-refresh",
+			1, "expected no ca-refresh cron entry when not opted in")
+	}
+}
+
+// ValidateRCV1PNotOptedInWindows validates that when the Windows VM does NOT have the opt-in tag,
+// no certificates are installed to C:\ca and no refresh scheduled task is registered,
+// even in the RCV1P subscription with PlatformSettingsOverride registered.
+func ValidateRCV1PNotOptedInWindows(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Validate the provisioning log shows wireserver was queried
+	ValidateFileHasContent(ctx, s, "C:\\AzureData\\CustomDataSetupScript.log",
+		"IsOptedInForRootCerts wireserver response:")
+
+	// Validate wireserver reported not opted in
+	ValidateFileHasContent(ctx, s, "C:\\AzureData\\CustomDataSetupScript.log",
+		"Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true")
+
+	// Validate C:\ca is empty or does not exist
+	command := []string{
+		"$ErrorActionPreference = 'Stop'",
+		"$caFolder = 'C:\\ca'",
+		"if ((Test-Path $caFolder) -and @(Get-ChildItem -Path $caFolder -File).Count -gt 0) { throw 'Expected C:\\ca to be empty or not exist, but found certificates' }",
+		"Write-Host 'C:\\ca is empty or does not exist as expected'",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected C:\\ca to be empty or not exist when not opted in")
+
+	// Validate no refresh scheduled task was registered
+	command = []string{
+		"$ErrorActionPreference = 'Stop'",
+		"$task = Get-ScheduledTask -TaskName 'aks-ca-certs-refresh-task' -ErrorAction SilentlyContinue",
+		"if ($task) { throw 'Expected no aks-ca-certs-refresh-task but found one' }",
+		"Write-Host 'No aks-ca-certs-refresh-task found as expected'",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected no aks-ca-certs-refresh-task scheduled task when not opted in")
 }

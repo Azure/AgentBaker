@@ -11,11 +11,11 @@
   "branchConcurrentLimit": 0,
   "commitHourlyLimit": 1,
   "separateMinorPatch": true,
-  "recreateWhen": "never",
+  "recreateWhen": "auto",
   "labels": [
     "renovate"
   ],
-  "rebaseWhen": "conflicted",
+  "rebaseWhen": "never",
   "logLevelRemap": [
     {
       "matchMessage": "/^Custom manager fetcher/",
@@ -166,10 +166,16 @@
       "enabled": true,
       "groupName": "kubelet-kubectl",
       "assignees": [
-        "team:aks-node-lifecycle"
+        "haitch",
+        "wenhug",
+        "gaopenghigh",
+        "jack4it"
       ],
       "reviewers": [
-        "team:aks-node-lifecycle"
+        "haitch",
+        "wenhug",
+        "gaopenghigh",
+        "jack4it"
       ]
     },
     {
@@ -183,9 +189,13 @@
       "enabled": true,
       "groupName": "credential-provider-pmc",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ]
     },
@@ -364,21 +374,29 @@
       ],
       "groupName": "acr-credential-provider",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ]
     },
     {
       "matchPackageNames": [
-        "azure-acr-credential-provider-sysext"
+        "oss/v2/kubernetes/azure-acr-credential-provider-sysext"
       ],
       "groupName": "acr-credential-provider-sysext",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ]
     },
@@ -515,10 +533,15 @@
         "**/azure-cloud-node-manager"
       ],
       "groupName": "azure-cloud-node-manager",
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-(?<compatibility>windows-hpc))?-(?<prerelease>\\d+)$",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ]
     },
@@ -618,10 +641,11 @@
       "matchDatasources": [
         "docker"
       ],
-      "versioning": "regex:^(\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)?-(\\w+)-(\\d+)-(\\d+)-(\\d+)-(\\w+-*)(?<compatibility>.*)$",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-main-(?<prerelease>\\d{2}-\\d{2}-\\d{4}-[0-9a-f]+)(?:-(?<compatibility>cfg|targetallocator|ccp|win))?$",
       "groupName": "ama-metrics",
       "automerge": false,
       "enabled": true,
+      "ignoreUnstable": false,
       "assignees": [
         "gracewehner",
         "vishiy",

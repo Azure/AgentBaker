@@ -91,10 +91,12 @@ type Configuration struct {
 	TestGalleryNamePrefix                  string        `env:"TEST_GALLERY_NAME_PREFIX" envDefault:"abe2etest"`
 	TestPreProvision                       bool          `env:"TEST_PRE_PROVISION" envDefault:"false"`
 	TestTimeout                            time.Duration `env:"TEST_TIMEOUT" envDefault:"50m"`
+	VHDMetadataFile                        string        `env:"E2E_VHD_METADATA_FILE"`
 	// Must cover cluster-create AND bastion-create (run serially in prepareCluster, ~10-11m each).
 	TestTimeoutCluster   time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"30m"`
 	TestTimeoutVMSS      time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
 	WindowsAdminPassword string        `env:"WINDOWS_ADMIN_PASSWORD"`
+	vhdMetadata          map[string]vhdMetadataEntry
 }
 
 func (c *Configuration) BlobStorageAccount() string {
@@ -150,6 +152,12 @@ func mustLoadConfig() *Configuration {
 	cfg := &Configuration{}
 	if err := env.Parse(cfg); err != nil {
 		panic(err)
+	}
+	if cfg.VHDMetadataFile != "" {
+		cfg.vhdMetadata, err = loadVHDMetadata(cfg.VHDMetadataFile)
+		if err != nil {
+			panic(fmt.Sprintf("failed to load E2E VHD metadata: %v", err))
+		}
 	}
 	if cfg.SysSSHPublicKey == "" {
 		SysSSHPublicKey = VMSSHPublicKey

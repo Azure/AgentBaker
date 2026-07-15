@@ -252,7 +252,18 @@ try {
 
 $global:OperationId = New-Guid
 
-if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
+# Detect whether the operator has supplied a fully-qualified CSE scripts zip URL
+# (as opposed to a base URL ending in "/"). A fully-qualified URL is a signal to
+# *always* fetch and overwrite the cached scripts on the VHD, which is required
+# for testing branch builds against baked VHDs that already contain a prior
+# version of the CSE scripts. Production RP only ever sets a base URL ending in
+# "/", so this branch is a no-op for production traffic.
+$global:IsExplicitCSEScriptsPackageUrl = $false
+if (-not [string]::IsNullOrWhiteSpace($global:CSEScriptsPackageUrl) -and -not $global:CSEScriptsPackageUrl.EndsWith("/")) {
+    $global:IsExplicitCSEScriptsPackageUrl = $true
+}
+
+if ((-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) -or $global:IsExplicitCSEScriptsPackageUrl) {
     # CSEScriptsPackage is cached on VHD. Previously the cse package version was managed in components.json, whereas RP set the package URL which is a storage account.
     # From 2025-06 The CSE packages is released on the VHD. RP can use fully qualified URL to download CSE scripts package when required out of VHD release cycle.
     # In the transition period, it is important that when deal with older VHD versions, the agentbaker runtime provision script needs to be compatible with the latest known storage account package, 0.0.52.
@@ -261,8 +272,10 @@ if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
     $scriptsZip = $null
     $shouldCleanup = $false
 
-    # Step 1: Try to find cached scripts on VHD
-    if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
+    # Step 1: Try to find cached scripts on VHD (skipped when an explicit
+    # CSEScriptsPackageUrl was supplied, so the operator-provided zip is the
+    # source of truth and always overwrites the cached copy).
+    if (-not $global:IsExplicitCSEScriptsPackageUrl -and $global:CacheDir -and (Test-Path $global:CacheDir)) {
         $searchCachedScripts = [IO.Directory]::GetFiles($global:CacheDir, $WindowsCSEScriptsPackage, [IO.SearchOption]::AllDirectories)
         Write-Log "the directory $global:CacheDir contains the following files:"
         Get-ChildItem -Path $global:CacheDir | ForEach-Object { Write-Log "  $_" }
@@ -306,7 +319,7 @@ if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
         Remove-Item -Path $scriptsZip -Force
     }
 } else {
-    Write-Log "CSE scripts already exist, skipping download"
+    Write-Log "CSE scripts already exist and no explicit CSEScriptsPackageUrl override, skipping download"
 }
 
 # Dot-source cse scripts with functions that are called in this script
@@ -523,9 +536,22 @@ function NodePrep {
     $azureStackConfigFile = [io.path]::Combine($global:KubeDir, "azurestackcloud.json")
     $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
     [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
-
-    Get-CACertificates
     {{end}}
+
+    # Feature-detect Get-CACertificates params for VHD/CSE-zip skew.
+    # Older CSE packages (pre-rcv1p) have Get-CACertificates with no parameters;
+    # newer versions accept -Location (optional) and -FailOnError. Bind only the
+    # parameters the resolved function actually supports so a new VHD paired with
+    # an older CSE zip does not fail with parameter-binding errors.
+    $getCACertsCmd = Get-Command -Name Get-CACertificates -ErrorAction Ignore
+    $getCACertsArgs = @{}
+    if ($getCACertsCmd -and $getCACertsCmd.Parameters.ContainsKey('Location')) {
+        $getCACertsArgs['Location'] = $Location
+    }
+    if ($getCACertsCmd -and $getCACertsCmd.Parameters.ContainsKey('FailOnError')) {
+        $getCACertsArgs['FailOnError'] = $true
+    }
+    Get-CACertificates @getCACertsArgs
 
     Write-CACert -CACertificate $global:CACertificate `
         -KubeDir $global:KubeDir
@@ -598,6 +624,17 @@ function NodePrep {
     # otherwise race PIS-baked VHD first boot and bring kubelet up with the
     # embedded "nodeclient" cert instead of doing TLS bootstrap.
     Register-NodeResetScriptTask
+
+    # Guard against older CSE packages that do not yet export Should-InstallCACertificatesRefreshTask.
+    # If the function is absent (old package), fall back to the previous unconditional behaviour so
+    # that legacy/ussec/usnat clusters continue to register the refresh task.
+    if (Get-Command -Name Should-InstallCACertificatesRefreshTask -ErrorAction Ignore) {
+        if (Should-InstallCACertificatesRefreshTask -Location $Location) {
+            Register-CACertificatesRefreshTask -Location $Location
+        }
+    } elseif (Get-Command -Name Register-CACertificatesRefreshTask -ErrorAction Ignore) {
+        Register-CACertificatesRefreshTask -Location $Location
+    }
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
 

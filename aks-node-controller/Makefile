@@ -1,6 +1,7 @@
 # Run buf in docker, mounting the full repo into the container
 # Emulate running "buf" in the current directory
-BUF = docker run --platform linux/amd64 --volume "$(CURDIR)/../:$(CURDIR)/../" --workdir $(CURDIR) bufbuild/buf:1.47.2
+BUF_VERSION = 1.71.0
+BUF = docker run --rm --platform linux/amd64 --volume "$(CURDIR)/../:$(CURDIR)/../" --workdir $(CURDIR) bufbuild/buf:$(BUF_VERSION)
 
 .PHONY: proto-generate
 proto-generate:
