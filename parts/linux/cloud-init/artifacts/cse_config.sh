@@ -322,7 +322,7 @@ disableSystemdResolved() {
     cat /etc/resolv.conf
     UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
     if [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${UBUNTU_RELEASE}" = "22.04" ] || [ "${UBUNTU_RELEASE}" = "24.04" ] || [ "${UBUNTU_RELEASE}" = "26.04" ]; then
-        echo "Ingoring systemd-resolved query service but using its resolv.conf file"
+        echo "Ignoring systemd-resolved query service but using its resolv.conf file"
         echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
         [ -f /run/systemd/resolve/resolv.conf ] && ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
         ls -ltr /etc/resolv.conf
