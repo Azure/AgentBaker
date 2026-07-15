@@ -883,6 +883,13 @@ func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 		getSigFlatcarImageConfigMapWithOpts(),
 	}
 
+	// frozenVersionsStillMaintained contains versions for distros that have been intentionally
+	// frozen at a specific version (not updated with LinuxSIGImageVersion) but are still
+	// maintained in the SIG gallery and must be replicated.
+	frozenVersionsStillMaintained := map[string]bool{
+		FrozenFlatcarSIGImageVersion: true,
+	}
+
 	maintained := map[Distro]SigImageConfig{}
 	for _, m := range imageConfigMaps {
 		for distro, config := range m {
@@ -891,7 +898,7 @@ func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 				// TODO(26.04): remove once images are published against LinuxSIGImageVersion
 				continue
 			}
-			if config.Version == LinuxSIGImageVersion {
+			if config.Version == LinuxSIGImageVersion || frozenVersionsStillMaintained[config.Version] {
 				maintained[distro] = config
 			}
 		}
