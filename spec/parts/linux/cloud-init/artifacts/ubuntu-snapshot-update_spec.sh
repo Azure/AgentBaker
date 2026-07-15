@@ -13,6 +13,7 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         KUBECTL="kubectl"
         KNEAD_COMPONENT_STATE_FILE="${TEST_DIR}/state/current.json"
         TEST_COMPONENTS_JSON_FILE="${TEST_DIR}/components.json"
+        TEST_KUBECTL_ARGS_FILE="${TEST_DIR}/kubectl-args"
 
         TEST_STATUS=""
         TEST_GOAL=""
@@ -21,7 +22,7 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         printf '%s' '{"components":[]}' > "${TEST_COMPONENTS_JSON_FILE}"
         TEST_SECURITY_STATUS=0
         TEST_ANNOTATE_STATUS=0
-        export KUBECTL KNEAD_COMPONENT_STATE_FILE TEST_COMPONENTS_JSON_FILE
+        export KUBECTL KNEAD_COMPONENT_STATE_FILE TEST_COMPONENTS_JSON_FILE TEST_KUBECTL_ARGS_FILE
         export TEST_STATUS TEST_GOAL TEST_AGENT_POOL TEST_REPO_SERVICE TEST_SECURITY_STATUS TEST_ANNOTATE_STATUS
     }
 
@@ -54,6 +55,7 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
                     '{metadata: {name: $name, labels: {"kubernetes.azure.com/agentpool": $agentPool}, annotations: {"kubernetes.azure.com/live-patching-config-goal-hash": $goal, "kubernetes.azure.com/live-patching-status": $status, "kubernetes.azure.com/live-patching-repo-service": $repoService}}}'
                 ;;
             *"get cm"*)
+                printf '%s' "$*" > "${TEST_KUBECTL_ARGS_FILE}"
                 cat "${TEST_COMPONENTS_JSON_FILE}"
                 ;;
         esac
@@ -133,6 +135,15 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         The output should include '"components":{"securityPatch":{"code":"Succeeded"}}}'
         The output should include 'knead-component completed successfully'
         The contents of file "${KNEAD_COMPONENT_STATE_FILE}" should include '"securityPatch"'
+    End
+
+    It 'reads the dotted ConfigMap key with an escaped JSONPath'
+        set_payload_goal '{"components":[]}'
+
+        When call knead_read_configmap "${TEST_GOAL}"
+        The status should be success
+        The output should equal '{"components":[]}'
+        The contents of file "${TEST_KUBECTL_ARGS_FILE}" should equal 'get cm -n kube-system live-patching-config -o jsonpath={.data.live-patching-config\.json}'
     End
 
     It 'fails before dispatch when the goal hash does not match the ConfigMap payload'
