@@ -1525,6 +1525,10 @@ providers:
       - "*.azurecr.cn"
       - "*.azurecr.de"
       - "*.azurecr.us"
+      - "*.*.geo.azurecr.io"
+      - "*.*.geo.azurecr.cn"
+      - "*.*.geo.azurecr.de"
+      - "*.*.geo.azurecr.us"
       - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
@@ -1545,6 +1549,10 @@ providers:
       - "*.azurecr.cn"
       - "*.azurecr.de"
       - "*.azurecr.us"
+      - "*.*.geo.azurecr.io"
+      - "*.*.geo.azurecr.cn"
+      - "*.*.geo.azurecr.de"
+      - "*.*.geo.azurecr.us"
       - "${MCR_REPOSITORY_BASE}"
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
@@ -1564,6 +1572,10 @@ providers:
       - "*.azurecr.cn"
       - "*.azurecr.de"
       - "*.azurecr.us"
+      - "*.*.geo.azurecr.io"
+      - "*.*.geo.azurecr.cn"
+      - "*.*.geo.azurecr.de"
+      - "*.*.geo.azurecr.us"
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
