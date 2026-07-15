@@ -1871,8 +1871,10 @@ EOF
             *[!0-9]*)
                 ;;
             *)
-                if [ "${hosts_plugin_refresh_interval}" -ge "${min_hosts_plugin_refresh_interval_in_seconds}" ]; then
-                    should_override_refresh_interval="true"
+                should_override_refresh_interval="true"
+                if [ "${hosts_plugin_refresh_interval}" -lt "${min_hosts_plugin_refresh_interval_in_seconds}" ]; then
+                    echo "Warning: LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS must be >= ${min_hosts_plugin_refresh_interval_in_seconds}, got '${hosts_plugin_refresh_interval}'. Clamping to ${min_hosts_plugin_refresh_interval_in_seconds}s."
+                    hosts_plugin_refresh_interval="${min_hosts_plugin_refresh_interval_in_seconds}"
                 fi
                 ;;
         esac
@@ -1896,7 +1898,7 @@ EOF
                 echo "Warning: Failed to update ${hosts_setup_timer_override} with refresh interval ${hosts_plugin_refresh_interval}s"
             fi
         else
-            echo "Warning: LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS must be an integer >= ${min_hosts_plugin_refresh_interval_in_seconds}, got '${hosts_plugin_refresh_interval}'. Using default timer interval."
+            echo "Warning: LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS must be an integer, got '${hosts_plugin_refresh_interval}'. Using default timer interval."
             removeAKSLocalDNSHostsSetupTimerOverride "${hosts_setup_timer_override}"
         fi
     fi

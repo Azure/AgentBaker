@@ -1621,18 +1621,20 @@ OVERRIDE_EOF
             LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS="abc"
             When call enableAKSLocalDNSHostsSetup
             The status should be success
-            The output should include "must be an integer >= 5, got 'abc'. Using default timer interval."
+            The output should include "must be an integer, got 'abc'. Using default timer interval."
             The contents of file "$AKS_LOCALDNS_HOSTS_SETUP_TIMER" should include "OnUnitActiveSec=15min"
             The file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should not be exist
         End
 
-        It 'should keep the default timer when refresh interval is below minimum'
+        It 'should clamp the timer refresh interval when below minimum'
             LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS="1"
             When call enableAKSLocalDNSHostsSetup
             The status should be success
-            The output should include "must be an integer >= 5, got '1'. Using default timer interval."
+            The output should include "must be >= 5, got '1'. Clamping to 5s."
+            The output should include "Configured aks-localdns-hosts-setup timer refresh interval to 5s."
             The contents of file "$AKS_LOCALDNS_HOSTS_SETUP_TIMER" should include "OnUnitActiveSec=15min"
-            The file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should not be exist
+            The contents of file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should include "OnUnitActiveSec=5s"
+            The contents of file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should include "AccuracySec=1s"
         End
 
         It 'should skip when setup script is missing'
