@@ -665,6 +665,83 @@ oom_score = -999
 	}
 }
 
+func Test_containerdConfigFromAKSNodeConfig_Containerd23UsesV4(t *testing.T) {
+	aksnodeconfig := &aksnodeconfigv1.Configuration{
+		NeedsCgroupv2: to.Ptr(true),
+		GpuConfig: &aksnodeconfigv1.GpuConfig{
+			EnableNvidia: to.Ptr(true),
+		},
+		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+			ContainerdVersion: "2.3.2-ubuntu24.04u1",
+		},
+	}
+
+	got, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, false)
+	if err != nil {
+		t.Fatalf("containerdConfigFromAKSNodeConfig() error = %v", err)
+	}
+
+	for _, want := range []string{
+		"version = 4",
+		`[plugins."io.containerd.cri.v1.images".pinned_images]`,
+		`sandbox = ""`,
+		`[plugins."io.containerd.cri.v1.runtime"]`,
+		"enable_cdi = true",
+		`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]`,
+		`[plugins."io.containerd.cri.v1.images".registry.headers]`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("containerdConfigFromAKSNodeConfig() missing %q in:\n%s", want, got)
+		}
+	}
+
+	for _, notWant := range []string{
+		"version = 2",
+		"io.containerd.grpc.v1.cri",
+		"sandbox_image",
+	} {
+		if strings.Contains(got, notWant) {
+			t.Errorf("containerdConfigFromAKSNodeConfig() unexpectedly contains %q in:\n%s", notWant, got)
+		}
+	}
+}
+
+func Test_containerdConfigFromAKSNodeConfig_BeforeContainerd23UsesV2(t *testing.T) {
+	aksnodeconfig := &aksnodeconfigv1.Configuration{
+		NeedsCgroupv2: to.Ptr(true),
+		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+			ContainerdVersion: "2.2.4-4.azl3",
+		},
+	}
+
+	got, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, false)
+	if err != nil {
+		t.Fatalf("containerdConfigFromAKSNodeConfig() error = %v", err)
+	}
+
+	for _, want := range []string{
+		"version = 2",
+		`[plugins."io.containerd.grpc.v1.cri"]`,
+		`sandbox_image = ""`,
+		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]`,
+		`[plugins."io.containerd.grpc.v1.cri".registry.headers]`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("containerdConfigFromAKSNodeConfig() missing %q in:\n%s", want, got)
+		}
+	}
+
+	for _, notWant := range []string{
+		"version = 4",
+		"io.containerd.cri.v1.images",
+		"io.containerd.cri.v1.runtime",
+	} {
+		if strings.Contains(got, notWant) {
+			t.Errorf("containerdConfigFromAKSNodeConfig() unexpectedly contains %q in:\n%s", notWant, got)
+		}
+	}
+}
+
 func Test_getKubenetTemplate(t *testing.T) {
 	tests := []struct {
 		name string

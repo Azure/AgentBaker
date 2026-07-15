@@ -87,9 +87,14 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 		"derefBool":                        deref[bool],
 		"getEnsureNoDupePromiscuousBridge": getEnsureNoDupePromiscuousBridge,
 		"isKubernetesVersionGe":            IsKubernetesVersionGe,
+		"isContainerdVersionGe":            isContainerdVersionGe,
 		"getHasDataDir":                    getHasDataDir,
 		"getEnableNvidia":                  getEnableNvidia,
 	}
+}
+
+func isContainerdVersionGe(containerdConfig *aksnodeconfigv1.ContainerdConfig, version string) bool {
+	return IsKubernetesVersionGe(containerdConfig.GetContainerdVersion(), version)
 }
 
 func getStringFromVMType(enum aksnodeconfigv1.VmType) string {
