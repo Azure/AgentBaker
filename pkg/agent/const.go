@@ -72,6 +72,7 @@ const (
 	bindMountScript                       = "linux/cloud-init/artifacts/bind-mount.sh"
 	bindMountSystemdService               = "linux/cloud-init/artifacts/bind-mount.service"
 	snapshotUpdateScript                  = "linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh"
+	securityUpdateScript                  = "linux/cloud-init/artifacts/ubuntu/security-update.sh"
 	snapshotUpdateSystemdService          = "linux/cloud-init/artifacts/ubuntu/snapshot-update.service"
 	snapshotUpdateSystemdTimer            = "linux/cloud-init/artifacts/ubuntu/snapshot-update.timer"
 	packageUpdateScriptMariner            = "linux/cloud-init/artifacts/mariner/mariner-package-update.sh"
