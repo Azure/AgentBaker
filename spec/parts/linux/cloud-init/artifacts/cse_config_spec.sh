@@ -295,20 +295,23 @@ Describe 'cse_config.sh'
         End
     End
 
-    Describe 'cleanUpGridNodeCudaPrebake'
+    Describe 'cleanUpMismatchedPrebakedGPUDriver'
         # Stub the actual removal so tests assert the keep-vs-teardown DECISION without touching the
         # real filesystem. OS defaults to Ubuntu (the only path this function acts on).
         OS="$UBUNTU_OS_NAME"
-        # shellcheck disable=SC2329 # invoked dynamically by cleanUpGridNodeCudaPrebake.
+        # shellcheck disable=SC2329 # invoked dynamically by cleanUpMismatchedPrebakedGPUDriver.
         cleanUpPrebakedGPUDriver() { echo "STUB_TEARDOWN_CALLED"; }
+
+        # --- driver-KIND mismatch (the original #8919 grid-vs-cuda behavior, preserved) ---
 
         It 'tears down a cuda prebake before installing a GRID driver (A10/GRID outage path)'
             marker="$(mktemp)"
             printf 'driver_kind=cuda\n' > "$marker"
             GPU_DKMS_MARKER_FILE="$marker"
             NVIDIA_GPU_DRIVER_TYPE="grid"
-            When call cleanUpGridNodeCudaPrebake
+            When call cleanUpMismatchedPrebakedGPUDriver
             The output should include "action=teardown"
+            The output should include "reason=driver_kind_mismatch"
             The output should include "marker_kind=cuda"
             The output should include "node_kind=grid"
             The output should include "STUB_TEARDOWN_CALLED"
@@ -320,8 +323,9 @@ Describe 'cse_config.sh'
             printf 'driver_kind=cuda\n' > "$marker"
             GPU_DKMS_MARKER_FILE="$marker"
             NVIDIA_GPU_DRIVER_TYPE="grid-v20"
-            When call cleanUpGridNodeCudaPrebake
+            When call cleanUpMismatchedPrebakedGPUDriver
             The output should include "action=teardown"
+            The output should include "reason=driver_kind_mismatch"
             The output should include "STUB_TEARDOWN_CALLED"
             rm -f "$marker"
         End
@@ -331,19 +335,79 @@ Describe 'cse_config.sh'
             printf 'kernel=5.15.0-1114-azure\n' > "$marker"   # no driver_kind= line
             GPU_DKMS_MARKER_FILE="$marker"
             NVIDIA_GPU_DRIVER_TYPE="grid"
-            When call cleanUpGridNodeCudaPrebake
+            When call cleanUpMismatchedPrebakedGPUDriver
             The output should include "action=teardown"
-            The output should include "marker_kind=none"
+            The output should include "reason=driver_kind_mismatch"
             The output should include "STUB_TEARDOWN_CALLED"
             rm -f "$marker"
         End
 
-        It 'is a no-op on a CUDA node (leaves the cuda prebake for the version-match/library-bump path)'
+        # --- driver-VERSION mismatch, same kind (new behavior) ---
+
+        It 'tears down a same-kind cuda prebake whose baked version differs from the requested version'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\ndriver_version=580.159.04\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            GPU_DV="470.256.02"   # node installs a different cuda driver version than baked
+            When call cleanUpMismatchedPrebakedGPUDriver
+            The output should include "action=teardown"
+            The output should include "reason=driver_version_mismatch"
+            The output should include "marker_version=580.159.04"
+            The output should include "requested_version=470.256.02"
+            The output should include "STUB_TEARDOWN_CALLED"
+            GPU_DV=""
+            rm -f "$marker"
+        End
+
+        It 'is a no-op when the baked version matches the requested version'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\ndriver_version=580.159.04\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            GPU_DV="580.159.04"
+            When call cleanUpMismatchedPrebakedGPUDriver
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            GPU_DV=""
+            rm -f "$marker"
+        End
+
+        # --- backward compatibility: markers with no driver_version= (VHDs built before this change) ---
+
+        It 'falls back to kind-only (keeps a same-kind cuda prebake) when the marker has no version'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"   # no driver_version= line (old VHD)
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            GPU_DV="470.256.02"   # even a different requested version cannot be compared -> keep
+            When call cleanUpMismatchedPrebakedGPUDriver
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            GPU_DV=""
+            rm -f "$marker"
+        End
+
+        It 'does not compare versions when the requested version (GPU_DV) is unknown'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\ndriver_version=580.159.04\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            GPU_DV=""   # requested version not set -> cannot compare -> keep
+            When call cleanUpMismatchedPrebakedGPUDriver
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            rm -f "$marker"
+        End
+
+        # --- matches and no-ops ---
+
+        It 'is a no-op on a CUDA node whose kind matches (leaves the cuda prebake for skip-build)'
             marker="$(mktemp)"
             printf 'driver_kind=cuda\n' > "$marker"
             GPU_DKMS_MARKER_FILE="$marker"
             NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
-            When call cleanUpGridNodeCudaPrebake
+            When call cleanUpMismatchedPrebakedGPUDriver
             The output should not include "STUB_TEARDOWN_CALLED"
             The status should be success
             rm -f "$marker"
@@ -354,7 +418,7 @@ Describe 'cse_config.sh'
             printf 'driver_kind=grid\n' > "$marker"
             GPU_DKMS_MARKER_FILE="$marker"
             NVIDIA_GPU_DRIVER_TYPE="grid"
-            When call cleanUpGridNodeCudaPrebake
+            When call cleanUpMismatchedPrebakedGPUDriver
             The output should not include "STUB_TEARDOWN_CALLED"
             The status should be success
             rm -f "$marker"
@@ -363,7 +427,7 @@ Describe 'cse_config.sh'
         It 'is a no-op when no prebake marker exists'
             GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
             NVIDIA_GPU_DRIVER_TYPE="grid"
-            When call cleanUpGridNodeCudaPrebake
+            When call cleanUpMismatchedPrebakedGPUDriver
             The output should not include "STUB_TEARDOWN_CALLED"
             The status should be success
         End
@@ -374,7 +438,7 @@ Describe 'cse_config.sh'
             GPU_DKMS_MARKER_FILE="$marker"
             OS="MARINER"   # override the Ubuntu default set at the Describe level
             NVIDIA_GPU_DRIVER_TYPE="grid"
-            When call cleanUpGridNodeCudaPrebake
+            When call cleanUpMismatchedPrebakedGPUDriver
             The output should not include "STUB_TEARDOWN_CALLED"
             The status should be success
             OS="$UBUNTU_OS_NAME"   # restore for any subsequent examples
@@ -501,6 +565,21 @@ PubkeyAuthentication no"
             The output should equal "PasswordAuthentication no
 PubkeyAuthentication no"
             The stderr should include "systemctl start sshd.service"
+        End
+    End
+
+    Describe 'normalizeGPUDriverKind'
+        It 'maps cuda and cuda-lts to cuda'
+            When call normalizeGPUDriverKind "cuda-lts"
+            The output should equal "cuda"
+        End
+        It 'maps grid and grid-v20 to grid'
+            When call normalizeGPUDriverKind "grid-v20"
+            The output should equal "grid"
+        End
+        It 'passes through an unknown driver type unchanged'
+            When call normalizeGPUDriverKind "something-else"
+            The output should equal "something-else"
         End
     End
 
