@@ -336,7 +336,7 @@ function init_ubuntu_main_repo_depot {
         if cp "$src_file" "$ssl_cert_target"; then
             echo "Updated bundle copied."
         else
-            echo "ERROR: failed to copy $src_file to $ssl_cert_target"
+            echo "Warning: failed to copy $src_file to $ssl_cert_target" >&2
         fi
     fi
 
