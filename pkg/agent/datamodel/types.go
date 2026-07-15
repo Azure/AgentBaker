@@ -1765,11 +1765,12 @@ type NodeBootstrappingConfiguration struct {
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
-	// EnableProvisioningHotfix, when true, makes the boothook drop the enabled_features.sh
-	// feature-flag file (ENABLE_PROVISIONING_HOTFIX=true) that the aks-node-controller wrapper
-	// reads to gate its provisioning-time check-hotfix step. Default-off, fail-open: when false
-	// no file is dropped and custom data is byte-identical to today.
-	EnableProvisioningHotfix bool
+	// EnabledFeatures is a generic set of feature toggles delivered to the node as KEY=VALUE
+	// lines in enabled_features.sh, which the aks-node-controller wrapper reads and exports as
+	// environment variables (e.g. "ENABLE_PROVISIONING_HOTFIX" -> "true") to gate provisioning
+	// steps such as check-hotfix. Using a map lets RP add new toggles without producer-side code
+	// changes. Empty/nil => no file is written and scriptless custom data is byte-identical to today.
+	EnabledFeatures map[string]string
 	// Version is required for aks-node-controller application to determine the version of the config file.
 	Version string
 

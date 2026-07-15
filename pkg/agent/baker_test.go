@@ -1567,10 +1567,10 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(string(decodedPayload)).To(ContainSubstring(encodedHotfixJSON))
 	})
 
-	It("should embed the enabled_features file in the scriptless NBC boothook when EnableProvisioningHotfix is true", func() {
+	It("should embed the enabled_features file in the scriptless NBC boothook when EnabledFeatures is set", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
-		config.EnableProvisioningHotfix = true
+		config.EnabledFeatures = map[string]string{"ENABLE_PROVISIONING_HOTFIX": "true"}
 
 		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
@@ -1581,10 +1581,24 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(string(decodedPayload)).To(ContainSubstring(encodedEnabledFeatures))
 	})
 
-	It("should not embed the enabled_features file in the scriptless NBC boothook when EnableProvisioningHotfix is false", func() {
+	It("should render multiple enabled features as sorted KEY=VALUE lines", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
-		config.EnableProvisioningHotfix = false
+		config.EnabledFeatures = map[string]string{"ZED_FEATURE": "1", "ENABLE_PROVISIONING_HOTFIX": "true"}
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Keys must be sorted so the rendered file (and thus custom data) is deterministic.
+		encodedSorted := getBase64EncodedGzippedCustomScriptFromStr("ENABLE_PROVISIONING_HOTFIX=true\nZED_FEATURE=1\n")
+		Expect(string(decodedPayload)).To(ContainSubstring(encodedSorted))
+	})
+
+	It("should not embed the enabled_features file in the scriptless NBC boothook when EnabledFeatures is empty", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		config.EnabledFeatures = nil
 
 		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)

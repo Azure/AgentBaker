@@ -121,7 +121,7 @@ const (
 	aksNodeConfigFilepath                = "/opt/azure/containers/aks-node-controller-config.json"
 	aksHotfixJSONFilepath                = "/opt/azure/containers/aks-node-controller-hotfix.json"
 	// enabledFeaturesFilepath is the KEY=VALUE feature-flag file the aks-node-controller wrapper
-	// reads (its FEATURES_PATH). The boothook drops it only when a feature toggle is on.
+	// reads (its FEATURES_PATH). Scriptless custom data drops it only when a feature toggle is set.
 	enabledFeaturesFilepath = "/opt/azure/containers/enabled_features.sh"
 )
 

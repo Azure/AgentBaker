@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/textproto"
+	"sort"
+	"strings"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -124,16 +126,26 @@ func writeMIMEPart(writer *multipart.Writer, contentType, content string) error 
 }
 
 // enabledFeaturesBlock returns the boothook snippet writing the enabled-features file, or ""
-// when no feature is on (keeping custom data byte-identical to the default for VHD compat).
+// when no feature is set (keeping custom data byte-identical to the default for VHD compat).
+// Keys are sorted so the output is deterministic across renders.
 func enabledFeaturesBlock(cfg *aksnodeconfigv1.Configuration) string {
-	if !cfg.GetEnableProvisioningHotfix() {
+	features := cfg.GetEnabledFeatures()
+	if len(features) == 0 {
 		return ""
 	}
+	keys := make([]string, 0, len(features))
+	for k := range features {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var lines strings.Builder
+	for _, k := range keys {
+		fmt.Fprintf(&lines, "%s=%s\n", k, features[k])
+	}
 	return fmt.Sprintf(`cat <<'EOF' >%[1]s
-ENABLE_PROVISIONING_HOTFIX=true
-EOF
+%[2]sEOF
 chmod 0600 %[1]s
-`, EnabledFeaturesFilePath)
+`, EnabledFeaturesFilePath, lines.String())
 }
 
 func MarshalConfigurationV1(cfg *aksnodeconfigv1.Configuration) ([]byte, error) {

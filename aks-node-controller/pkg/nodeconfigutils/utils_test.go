@@ -301,11 +301,11 @@ func decodeBoothook(t *testing.T, cfg *aksnodeconfigv1.Configuration) string {
 }
 
 func TestEnabledFeaturesBlockEmptyWhenDisabled(t *testing.T) {
-	// The empty return is the load-bearing byte-identity guarantee: with the flag off the
+	// The empty return is the load-bearing byte-identity guarantee: with no features set the
 	// boothook template's %[3]s placeholder expands to "", so custom data is byte-identical to
 	// the output produced before this feature existed. This protects the 6-month VHD window.
-	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{}), "expected no features block when EnableProvisioningHotfix is unset/false")
-	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnableProvisioningHotfix: false}))
+	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{}), "expected no features block when EnabledFeatures is unset")
+	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{}}))
 }
 
 func TestCustomDataOmitsEnabledFeaturesWhenHotfixDisabled(t *testing.T) {
@@ -314,15 +314,15 @@ func TestCustomDataOmitsEnabledFeaturesWhenHotfixDisabled(t *testing.T) {
 	require.NotContains(t, off, "enabled_features.sh")
 	require.NotContains(t, off, "ENABLE_PROVISIONING_HOTFIX")
 
-	// Byte-identity: the only difference between disabled and explicitly-false must be nothing.
-	explicitFalse := decodeBoothook(t, &aksnodeconfigv1.Configuration{EnableProvisioningHotfix: false})
-	require.Equal(t, off, explicitFalse)
+	// Byte-identity: an empty features map must produce the same output as an unset one.
+	emptyMap := decodeBoothook(t, &aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{}})
+	require.Equal(t, off, emptyMap)
 }
 
 func TestCustomDataWritesEnabledFeaturesWhenHotfixEnabled(t *testing.T) {
-	on := decodeBoothook(t, &aksnodeconfigv1.Configuration{EnableProvisioningHotfix: true})
+	on := decodeBoothook(t, &aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{"ENABLE_PROVISIONING_HOTFIX": "true"}})
 
-	// Written via a quoted heredoc to the shared feature-flag path, chmod 0600, literal lowercase true.
+	// Written via a quoted heredoc to the shared feature-flag path, chmod 0600, literal KEY=VALUE line.
 	require.Contains(t, on, "cat <<'EOF' >/opt/azure/containers/enabled_features.sh")
 	require.Contains(t, on, "\nENABLE_PROVISIONING_HOTFIX=true\n")
 	require.Contains(t, on, "chmod 0600 /opt/azure/containers/enabled_features.sh")
@@ -333,6 +333,15 @@ func TestCustomDataWritesEnabledFeaturesWhenHotfixEnabled(t *testing.T) {
 	require.NotEqual(t, -1, featuresIdx)
 	require.NotEqual(t, -1, startIdx)
 	require.Less(t, featuresIdx, startIdx, "enabled_features.sh must be written before the service starts")
+}
+
+func TestEnabledFeaturesBlockRendersMultipleSortedFeatures(t *testing.T) {
+	// Multiple toggles render as sorted KEY=VALUE lines so the output is deterministic.
+	block := enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{
+		"ZED_FEATURE":                "1",
+		"ENABLE_PROVISIONING_HOTFIX": "true",
+	}})
+	require.Contains(t, block, "ENABLE_PROVISIONING_HOTFIX=true\nZED_FEATURE=1\n")
 }
 
 func TestEnabledFeaturesFilePathMatchesWrapperContract(t *testing.T) {

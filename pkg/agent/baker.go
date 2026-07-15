@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -130,12 +131,12 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 		encodedHotfixJSON = getBase64EncodedGzippedCustomScriptFromStr(string(b))
 	}
 
-	// enabledFeaturesFile is dropped only when a feature toggle is on. Its KEY=VALUE contents are
-	// read by the aks-node-controller wrapper (FEATURES_PATH). Empty content => skipped by
-	// buildScriptlessCustomData, keeping custom data byte-identical when every toggle is off.
+	// enabledFeaturesFile is dropped only when at least one feature toggle is set. Its KEY=VALUE
+	// contents are read by the aks-node-controller wrapper (FEATURES_PATH). Empty content =>
+	// skipped by buildScriptlessCustomData, keeping custom data byte-identical when no toggle is set.
 	var encodedEnabledFeatures string
-	if config.EnableProvisioningHotfix {
-		encodedEnabledFeatures = getBase64EncodedGzippedCustomScriptFromStr("ENABLE_PROVISIONING_HOTFIX=true\n")
+	if content := renderEnabledFeatures(config.EnabledFeatures); content != "" {
+		encodedEnabledFeatures = getBase64EncodedGzippedCustomScriptFromStr(content)
 	}
 
 	// Use an ordered slice (not a map) so the rendered customData is deterministic
@@ -159,6 +160,25 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(customData))
+}
+
+// renderEnabledFeatures serializes the feature toggle map into sorted KEY=VALUE lines for
+// enabled_features.sh. Keys are sorted so the output is deterministic (Go map iteration is
+// randomized). Returns "" for an empty/nil map so custom data stays byte-identical to today.
+func renderEnabledFeatures(features map[string]string) string {
+	if len(features) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(features))
+	for k := range features {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for _, k := range keys {
+		fmt.Fprintf(&b, "%s=%s\n", k, features[k])
+	}
+	return b.String()
 }
 
 func buildScriptlessCustomData(cloudInitTemplate, fileListTemplate, separator string, encodedFiles []struct {
