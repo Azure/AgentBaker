@@ -70,4 +70,3 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
-

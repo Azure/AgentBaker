@@ -545,7 +545,6 @@ oom_score = -999
       BinaryName = "/usr/bin/runc"
 [metrics]
   address = "0.0.0.0:10257"
-
 `)),
 		},
 		{
@@ -582,7 +581,6 @@ oom_score = -999
       BinaryName = "/usr/bin/nvidia-container-runtime"
 [metrics]
   address = "0.0.0.0:10257"
-
 `)),
 		},
 		{

@@ -232,8 +232,8 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 // The expected output format is: "containerd <source> <version> <commit>"
 // e.g. "containerd containerd.io 1.7.22 c814c75..." or "containerd github.com/containerd/containerd/v2 v2.0.0 ..."
 // Returns the semver version without the leading "v" prefix, or empty string if detection fails.
-func detectContainerdVersion() (string, error) {
-	out, err := exec.CommandContext(context.Background(), "containerd", "--version").Output()
+func detectContainerdVersion(ctx context.Context) (string, error) {
+	out, err := exec.CommandContext(ctx, "containerd", "--version").Output()
 	if err != nil {
 		return "", fmt.Errorf("running containerd --version: %w", err)
 	}
@@ -793,24 +793,38 @@ func removeNewlines(str string) string {
 }
 
 // parseContainerdVersionOutput extracts the semver version from containerd --version output.
+// The output format is: "containerd <source> <version> <commit>"
+// e.g. "containerd containerd.io 1.7.22 c814c75..." or "containerd github.com/containerd/containerd/v2 2.0.0 ..."
+// The version (3rd field) could be in the format "1.6.24-11-ubuntu1~24.04.1" or "2.0.0-6.azl3" or just "2.0.0",
+// we extract the major.minor.patch version only.
 func parseContainerdVersionOutput(output string) string {
-	// Output format: "containerd <source> <version> <commit>"
-	// e.g. "containerd github.com/containerd/containerd/v2 2.3.2-1 fff62f1..."
-	// Find the field that looks like a version (starts with a digit or "v" followed by a digit).
-	// Strip any package revision or pre-release suffix to get a clean major.minor.patch.
 	fields := strings.Fields(strings.TrimSpace(output))
-	for _, field := range fields {
-		clean := strings.TrimPrefix(field, "v")
-		if len(clean) > 0 && clean[0] >= '0' && clean[0] <= '9' && strings.Contains(clean, ".") {
-			// Strip everything after the first "-" (package revision or pre-release suffix).
-			// e.g. "2.3.2-1" -> "2.3.2", "2.0.0-beta.1" -> "2.0.0"
-			if idx := strings.Index(clean, "-"); idx > 0 {
-				clean = clean[:idx]
+	if len(fields) < 3 {
+		return ""
+	}
+	// Take the 3rd field and strip any leading "v" prefix.
+	version := strings.TrimPrefix(fields[2], "v")
+	// Strip everything after the first "-" (package revision or pre-release suffix).
+	// e.g. "2.3.2-1" -> "2.3.2", "2.0.0-beta.1" -> "2.0.0"
+	if idx := strings.Index(version, "-"); idx > 0 {
+		version = version[:idx]
+	}
+	// Validate the result is a valid major.minor.patch version.
+	parts := strings.Split(version, ".")
+	if len(parts) != 3 {
+		return ""
+	}
+	for _, p := range parts {
+		if len(p) == 0 {
+			return ""
+		}
+		for _, c := range p {
+			if c < '0' || c > '9' {
+				return ""
 			}
-			return clean
 		}
 	}
-	return ""
+	return version
 }
 
 // ---------------------- Start of localdns related helper code ----------------------//

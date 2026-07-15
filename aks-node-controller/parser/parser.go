@@ -30,13 +30,13 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 }
 
 //nolint:funlen
-func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
+func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration) map[string]string {
 	// Detect containerd version from the system if not already set in the config.
 	// This allows the correct containerd config template (v1 vs v2) to be selected
 	// on VHDs where the caller doesn't provide the version explicitly.
 	containerdVersion := config.GetContainerdConfig().GetContainerdVersion()
 	if containerdVersion == "" {
-		if version, err := detectContainerdVersion(); err == nil && version != "" {
+		if version, err := detectContainerdVersion(ctx); err == nil && version != "" {
 			containerdVersion = version
 		}
 	}
@@ -306,7 +306,7 @@ func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration) (*e
 	// Convert to one-liner
 	triggerBootstrapScript = strings.ReplaceAll(triggerBootstrapScript, "\n", " ")
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", triggerBootstrapScript)
-	env := mapToEnviron(getCSEEnv(config))
+	env := mapToEnviron(getCSEEnv(ctx, config))
 	cmd.Env = append(os.Environ(), env...) // append existing environment variables
 	sort.Strings(cmd.Env)
 	return cmd, nil
