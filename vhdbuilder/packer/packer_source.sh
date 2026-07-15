@@ -573,6 +573,28 @@ copyPackerFiles() {
     fi
   fi
 
+  # Kata VHDs ship a one-shot systemd unit that stamps the desired Kata + erofs
+  # containerd config onto the node after provisioning completes. This is a stopgap
+  # until the AgentBaker service generates the erofs-aware config directly. The files
+  # are only uploaded on Mariner/AzureLinux kata builds (FEATURE_FLAGS=kata).
+  if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+    KATA_CONTAINERD_CONFIG_SRC=/home/packer/kata-containerd-config.toml
+    KATA_CONTAINERD_CONFIG_DEST=/opt/azure/containers/kata-containerd-config.toml
+    cpAndMode $KATA_CONTAINERD_CONFIG_SRC $KATA_CONTAINERD_CONFIG_DEST 644
+
+    STAMP_KATA_CONTAINERD_SCRIPT_SRC=/home/packer/stamp-kata-containerd-config.sh
+    STAMP_KATA_CONTAINERD_SCRIPT_DEST=/opt/azure/containers/stamp-kata-containerd-config.sh
+    cpAndMode $STAMP_KATA_CONTAINERD_SCRIPT_SRC $STAMP_KATA_CONTAINERD_SCRIPT_DEST 744
+
+    STAMP_KATA_CONTAINERD_SERVICE_SRC=/home/packer/stamp-kata-containerd-config.service
+    STAMP_KATA_CONTAINERD_SERVICE_DEST=/etc/systemd/system/stamp-kata-containerd-config.service
+    cpAndMode $STAMP_KATA_CONTAINERD_SERVICE_SRC $STAMP_KATA_CONTAINERD_SERVICE_DEST 644
+
+    STAMP_KATA_CONTAINERD_PATH_SRC=/home/packer/stamp-kata-containerd-config.path
+    STAMP_KATA_CONTAINERD_PATH_DEST=/etc/systemd/system/stamp-kata-containerd-config.path
+    cpAndMode $STAMP_KATA_CONTAINERD_PATH_SRC $STAMP_KATA_CONTAINERD_PATH_DEST 644
+  fi
+
   # Always copy the VHD cleanup script responsible for prepping the instance for first boot
   # to disk so we can run it again if needed in subsequent builds/releases (prefetch during SIG release)
   cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644

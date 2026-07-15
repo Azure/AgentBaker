@@ -285,6 +285,26 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/kata-containerd-config.toml",
+      "destination": "/home/packer/kata-containerd-config.toml"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/stamp-kata-containerd-config.sh",
+      "destination": "/home/packer/stamp-kata-containerd-config.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/stamp-kata-containerd-config.service",
+      "destination": "/home/packer/stamp-kata-containerd-config.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/stamp-kata-containerd-config.path",
+      "destination": "/home/packer/stamp-kata-containerd-config.path"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/crictl.yaml",
       "destination": "/home/packer/crictl.yaml"
     },

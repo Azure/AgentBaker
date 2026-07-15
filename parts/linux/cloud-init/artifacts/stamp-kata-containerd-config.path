@@ -1,0 +1,11 @@
+[Unit]
+Description=Trigger the Kata containerd config stamp once node provisioning completes
+
+[Path]
+# provision.complete is written by CSE/nodePrep after node provisioning finishes.
+# It does not exist during VHD build, so the stamp only fires on real nodes.
+PathExists=/opt/azure/containers/provision.complete
+Unit=stamp-kata-containerd-config.service
+
+[Install]
+WantedBy=multi-user.target

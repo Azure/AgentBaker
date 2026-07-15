@@ -229,6 +229,11 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
       if [ "${OS}" != "3.0" ]; then
         enableMarinerKata
       fi
+      # Enable the one-shot unit that stamps the desired Kata + erofs containerd config
+      # onto the node once provisioning completes. Enable-only (not started) so it does
+      # not fire during the VHD build; the .path unit activates on the real node's first
+      # boot and triggers when /opt/azure/containers/provision.complete appears.
+      systemctl enable stamp-kata-containerd-config.path || exit 1
     fi
     disableTimesyncd
     disableDNFAutomatic
