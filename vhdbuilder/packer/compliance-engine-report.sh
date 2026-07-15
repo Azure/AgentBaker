@@ -91,6 +91,33 @@ az storage blob download --container-name "$SIG_CONTAINER_NAME" --name "$MOF_BLO
 chmod 0755 "$ASSESSOR_BIN"
 chmod 0644 "$MOF_PATH"
 
+# Diagnostics: exit code 126 ("cannot execute") is almost always an architecture
+# mismatch (binary built for a different arch than this VM) or the work dir being
+# on a 'noexec' mount. Log enough to tell the two apart from the pipeline output.
+echo "----- assessor exec diagnostics -----"
+echo "VM arch (uname -m): $(uname -m)"
+echo "assessor permissions/owner:"; stat -c '  %A  %U:%G  %s bytes  %n' "$ASSESSOR_BIN" 2>/dev/null || echo "  (stat failed)"
+echo "assessor file type:"; file "$ASSESSOR_BIN" 2>/dev/null || echo "  (file(1) not available)"
+# ELF header e_machine lives at byte offset 18 (0x3e=x86-64, 0xb7=AArch64).
+echo "assessor ELF magic + e_machine (offset 0 and 18):"
+od -An -tx1 -N 20 "$ASSESSOR_BIN" 2>/dev/null || true
+# ldd reveals missing shared libraries ("=> not found") or, on an arch mismatch,
+# prints "not a dynamic executable" / an error — useful either way.
+echo "assessor dynamic dependencies (ldd):"
+ldd "$ASSESSOR_BIN" 2>&1 | sed 's/^/  /' || true
+echo "work dir mount options:"; findmnt -no TARGET,OPTIONS --target "$WORK_DIR" 2>/dev/null || mount 2>/dev/null | grep -E " on / " || true
+# noexec self-test: if a trivial script here cannot run, the fs is noexec; if it
+# runs but the assessor does not, the assessor is the wrong arch/format.
+printf '#!/bin/sh\nexit 0\n' > "${WORK_DIR}/.exec-test.sh"
+chmod 0755 "${WORK_DIR}/.exec-test.sh"
+if "${WORK_DIR}/.exec-test.sh" 2>/dev/null; then
+    echo "noexec self-test: PASS (work dir is exec-permitted)"
+else
+    echo "noexec self-test: FAIL (work dir appears to be mounted noexec)"
+fi
+rm -f "${WORK_DIR}/.exec-test.sh"
+echo "-------------------------------------"
+
 # Run the audit. stdout is the pure JSON result; --log-file captures all
 # assessor logging (and disables console logging) so stdout stays parseable.
 # Capture the exit code but never abort: a NonCompliant result is expected and
