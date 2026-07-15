@@ -344,6 +344,21 @@ func TestEnabledFeaturesBlockRendersMultipleSortedFeatures(t *testing.T) {
 	require.Contains(t, block, "ENABLE_PROVISIONING_HOTFIX=true\nZED_FEATURE=1\n")
 }
 
+func TestEnabledFeaturesBlockSkipsInvalidKeys(t *testing.T) {
+	// Keys the wrapper would reject (leading digit, dash, empty) are dropped. When only invalid
+	// keys are present, no block is emitted so custom data stays byte-identical to the default.
+	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{
+		"1BAD": "x", "has-dash": "y", "": "z",
+	}}))
+
+	// A mix keeps only the valid identifier.
+	block := enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{
+		"1BAD": "x", "GOOD_KEY": "1",
+	}})
+	require.Contains(t, block, "GOOD_KEY=1\n")
+	require.NotContains(t, block, "1BAD")
+}
+
 func TestEnabledFeaturesFilePathMatchesWrapperContract(t *testing.T) {
 	// Shared contract with the wrapper's FEATURES_PATH default; if it changes here it must
 	// change there too, or the wrapper will never read the file.

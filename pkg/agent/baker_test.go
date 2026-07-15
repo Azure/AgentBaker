@@ -1598,7 +1598,21 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 	It("should not embed the enabled_features file in the scriptless NBC boothook when EnabledFeatures is empty", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
-		config.EnabledFeatures = nil
+		config.EnabledFeatures = map[string]string{}
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(string(decodedPayload)).NotTo(ContainSubstring(enabledFeaturesFilepath))
+	})
+
+	It("should not embed the enabled_features file when EnabledFeatures has only invalid keys", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		// Keys the wrapper would reject (leading digit, dash, empty) must not produce a file,
+		// preserving the byte-identical-when-no-usable-toggle guarantee.
+		config.EnabledFeatures = map[string]string{"1BAD": "x", "has-dash": "y", "": "z"}
 
 		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)

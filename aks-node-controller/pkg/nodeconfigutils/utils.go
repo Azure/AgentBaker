@@ -126,16 +126,19 @@ func writeMIMEPart(writer *multipart.Writer, contentType, content string) error 
 }
 
 // enabledFeaturesBlock returns the boothook snippet writing the enabled-features file, or ""
-// when no feature is set (keeping custom data byte-identical to the default for VHD compat).
-// Keys are sorted so the output is deterministic across renders.
+// when no valid feature is set (keeping custom data byte-identical to the default for VHD
+// compat). Keys are sorted for deterministic output and filtered to valid shell identifiers -
+// the same set the wrapper parses - so an invalid/empty key never emits a features file.
 func enabledFeaturesBlock(cfg *aksnodeconfigv1.Configuration) string {
 	features := cfg.GetEnabledFeatures()
-	if len(features) == 0 {
-		return ""
-	}
 	keys := make([]string, 0, len(features))
 	for k := range features {
-		keys = append(keys, k)
+		if isValidFeatureKey(k) {
+			keys = append(keys, k)
+		}
+	}
+	if len(keys) == 0 {
+		return ""
 	}
 	sort.Strings(keys)
 	var lines strings.Builder
@@ -146,6 +149,26 @@ func enabledFeaturesBlock(cfg *aksnodeconfigv1.Configuration) string {
 %[2]sEOF
 chmod 0600 %[1]s
 `, EnabledFeaturesFilePath, lines.String())
+}
+
+// isValidFeatureKey reports whether k is a valid shell identifier ([a-zA-Z_][a-zA-Z0-9_]*),
+// matching the keys the aks-node-controller wrapper parses out of enabled_features.sh.
+func isValidFeatureKey(k string) bool {
+	if k == "" {
+		return false
+	}
+	for i, r := range k {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r == '_':
+		case r >= '0' && r <= '9':
+			if i == 0 {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func MarshalConfigurationV1(cfg *aksnodeconfigv1.Configuration) ([]byte, error) {

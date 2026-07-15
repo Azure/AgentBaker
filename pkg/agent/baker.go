@@ -164,14 +164,18 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 
 // renderEnabledFeatures serializes the feature toggle map into sorted KEY=VALUE lines for
 // enabled_features.sh. Keys are sorted so the output is deterministic (Go map iteration is
-// randomized). Returns "" for an empty/nil map so custom data stays byte-identical to today.
+// randomized) and filtered to valid shell identifiers - the same set the aks-node-controller
+// wrapper accepts - so an invalid/empty key never produces a features file the wrapper would
+// ignore. Returns "" when no valid key remains so custom data stays byte-identical to today.
 func renderEnabledFeatures(features map[string]string) string {
-	if len(features) == 0 {
-		return ""
-	}
 	keys := make([]string, 0, len(features))
 	for k := range features {
-		keys = append(keys, k)
+		if isValidFeatureKey(k) {
+			keys = append(keys, k)
+		}
+	}
+	if len(keys) == 0 {
+		return ""
 	}
 	sort.Strings(keys)
 	var b strings.Builder
@@ -179,6 +183,26 @@ func renderEnabledFeatures(features map[string]string) string {
 		fmt.Fprintf(&b, "%s=%s\n", k, features[k])
 	}
 	return b.String()
+}
+
+// isValidFeatureKey reports whether k is a valid shell identifier ([a-zA-Z_][a-zA-Z0-9_]*),
+// matching the keys the aks-node-controller wrapper parses out of enabled_features.sh.
+func isValidFeatureKey(k string) bool {
+	if k == "" {
+		return false
+	}
+	for i, r := range k {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r == '_':
+		case r >= '0' && r <= '9':
+			if i == 0 {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func buildScriptlessCustomData(cloudInitTemplate, fileListTemplate, separator string, encodedFiles []struct {
