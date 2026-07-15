@@ -2136,7 +2136,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.9.1-ubuntu24.04u20"
+                "latestVersion": "1.9.1-ubuntu24.04u21"
               }
             ]
           },
@@ -2144,7 +2144,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.9.1-ubuntu22.04u20"
+                "latestVersion": "1.9.1-ubuntu22.04u21"
               }
             ]
           },
@@ -2152,7 +2152,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.9.1-ubuntu20.04u20"
+                "latestVersion": "1.9.1-ubuntu20.04u21"
               }
             ]
           }
