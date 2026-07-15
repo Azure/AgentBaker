@@ -11,7 +11,7 @@
   "branchConcurrentLimit": 0,
   "commitHourlyLimit": 1,
   "separateMinorPatch": true,
-  "recreateWhen": "never",
+  "recreateWhen": "auto",
   "labels": [
     "renovate"
   ],
@@ -166,10 +166,16 @@
       "enabled": true,
       "groupName": "kubelet-kubectl",
       "assignees": [
-        "team:aks-node-lifecycle"
+        "haitch",
+        "wenhug",
+        "gaopenghigh",
+        "jack4it"
       ],
       "reviewers": [
-        "team:aks-node-lifecycle"
+        "haitch",
+        "wenhug",
+        "gaopenghigh",
+        "jack4it"
       ]
     },
     {
@@ -635,10 +641,11 @@
       "matchDatasources": [
         "docker"
       ],
-      "versioning": "regex:^(\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)?-(\\w+)-(\\d+)-(\\d+)-(\\d+)-(\\w+-*)(?<compatibility>.*)$",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-main-(?<prerelease>\\d{2}-\\d{2}-\\d{4}-[0-9a-f]+)(?:-(?<compatibility>cfg|targetallocator|ccp|win))?$",
       "groupName": "ama-metrics",
       "automerge": false,
       "enabled": true,
+      "ignoreUnstable": false,
       "assignees": [
         "gracewehner",
         "vishiy",

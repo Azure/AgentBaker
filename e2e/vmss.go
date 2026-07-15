@@ -685,6 +685,16 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	s.T.Log(result)
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+
+	// Log VMSS tags for diagnostics (visible in test-log.json via gotestsum --jsonfile).
+	// For RCV1P tests, annotates the opt-in tag to help distinguish our tags from platform-injected ones.
+	vmssID := "<unknown>"
+	if vmssResp.ID != nil {
+		vmssID = *vmssResp.ID
+	}
+	// In the single-subscription model, if the scenario tags RCV1PCertMode we set the opt-in tag ourselves.
+	weSetRCV1PTag := s.Tags.RCV1PCertMode
+	logRCV1PAwareTags(s, "VMSS", "creation", s.Runtime.VMSSName, vmssID, vmssResp.Tags, weSetRCV1PTag, false)
 	if !s.Config.SkipSSHConnectivityValidation {
 		var bastErr error
 		vm.SSHClient, bastErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
@@ -702,12 +712,57 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		return vm, fmt.Errorf("failed to wait for VM to reach running state: %w", err)
 	}
 
+	// Log VM instance tags for diagnostics (visible in test-log.json via gotestsum --jsonfile)
+	vmInstanceID := "<unknown>"
+	if vm.VM.ID != nil {
+		vmInstanceID = *vm.VM.ID
+	}
+	logRCV1PAwareTags(s, "VM instance", "running", *vm.VM.InstanceID, vmInstanceID, vm.VM.Tags, weSetRCV1PTag, true)
+
 	return &ScenarioVM{
 		VMSS:      &vmssResp.VirtualMachineScaleSet,
 		PrivateIP: vm.PrivateIP,
 		VM:        vm.VM,
 		SSHClient: vm.SSHClient,
 	}, nil
+}
+
+// rcv1pTagKey is the VMSS/VM tag that opts a resource into hardened root-cert bootstrap.
+const rcv1pTagKey = "platformsettings.host_environment.service.platform_optedin_for_rootcerts"
+
+// logRCV1PAwareTags logs the tags on a VMSS or VM instance, annotating the RCV1P
+// opt-in tag with provenance (set by us vs. platform-injected, inherited or not).
+// resourceKind is a human-readable kind ("VMSS" or "VM instance"); timingVerb describes
+// when the snapshot was taken ("creation" or "running"). inherited indicates the tags
+// were copied from a parent resource (true for VM instance tags inherited from VMSS).
+func logRCV1PAwareTags(s *Scenario, resourceKind, timingVerb, name, id string, tags map[string]*string, weSetTag, inherited bool) {
+	if tags == nil {
+		s.T.Logf("%s %s (id: %s) has no tags after %s", resourceKind, name, id, timingVerb)
+		return
+	}
+	s.T.Logf("%s %s (id: %s) tags after %s (%d):", resourceKind, name, id, timingVerb, len(tags))
+	inheritedNote := ""
+	if inherited {
+		inheritedNote = "inherited from VMSS, "
+	}
+	for k, v := range tags {
+		val := "<nil>"
+		if v != nil {
+			val = *v
+		}
+		if k == rcv1pTagKey {
+			if weSetTag {
+				s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — %sset by us]", k, val, inheritedNote)
+			} else {
+				s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — %splatform-injected]", k, val, inheritedNote)
+			}
+		} else {
+			s.T.Logf("  tag: %s = %s", k, val)
+		}
+	}
+	if _, hasTag := tags[rcv1pTagKey]; !hasTag && s.Tags.RCV1PCertMode {
+		s.T.Logf("  [RCV1P opt-in tag %q NOT present on %s — this is expected for negative tests]", rcv1pTagKey, resourceKind)
+	}
 }
 
 // waitForVMRunningState polls until the VM reaches "Running" power state or the timeout elapses.
@@ -1028,7 +1083,6 @@ hnsdiag list endpoints >> network_config.txt
 // it then lists the blobs in the container and prints the content of each blob
 func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	if !s.T.Failed() {
-		s.T.Logf("skipping logs extraction from windows VM, as the test didn't fail")
 		return
 	}
 

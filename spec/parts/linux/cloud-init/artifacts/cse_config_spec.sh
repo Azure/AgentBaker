@@ -74,6 +74,93 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'cleanUpGridNodeCudaPrebake'
+        # Stub the actual removal so tests assert the keep-vs-teardown DECISION without touching the
+        # real filesystem. OS defaults to Ubuntu (the only path this function acts on).
+        OS="$UBUNTU_OS_NAME"
+        # shellcheck disable=SC2329 # invoked dynamically by cleanUpGridNodeCudaPrebake.
+        cleanUpPrebakedGPUDriver() { echo "STUB_TEARDOWN_CALLED"; }
+
+        It 'tears down a cuda prebake before installing a GRID driver (A10/GRID outage path)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should include "action=teardown"
+            The output should include "marker_kind=cuda"
+            The output should include "node_kind=grid"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'tears down for a grid-v20 node whose driver-type maps to grid'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid-v20"
+            When call cleanUpGridNodeCudaPrebake
+            The output should include "action=teardown"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'treats a legacy marker without driver_kind as a cuda prebake and tears down on a GRID node'
+            marker="$(mktemp)"
+            printf 'kernel=5.15.0-1114-azure\n' > "$marker"   # no driver_kind= line
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should include "action=teardown"
+            The output should include "marker_kind=none"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'is a no-op on a CUDA node (leaves the cuda prebake for the version-match/library-bump path)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            rm -f "$marker"
+        End
+
+        It 'is a no-op when the prebake is already grid (matches the grid node)'
+            marker="$(mktemp)"
+            printf 'driver_kind=grid\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            rm -f "$marker"
+        End
+
+        It 'is a no-op when no prebake marker exists'
+            GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+        End
+
+        It 'is a no-op on a non-Ubuntu OS even when a mismatched marker is present'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            OS="MARINER"   # override the Ubuntu default set at the Describe level
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            OS="$UBUNTU_OS_NAME"   # restore for any subsequent examples
+            rm -f "$marker"
+        End
+    End
+
     Describe 'configureAzureJson'
         AZURE_JSON_PATH="azure.json"
         AKS_CUSTOM_CLOUD_JSON_PATH="customcloud.json"
@@ -2079,7 +2166,7 @@ SETUP_EOF
             echo "systemctl $@"
         }
 
-        BeforeEach 'MIG_NODE="false"'
+        BeforeEach 'MIG_NODE="false"; ENABLE_MANAGED_GPU_EXPERIENCE="true"; ENABLE_MANAGED_GPU_EXPERIENCE_DRA="false"'
 
         It 'starts the device-plugin blocking but dcgm and dcgm-exporter off the critical path'
             When call startNvidiaManagedExpServices
@@ -2104,6 +2191,20 @@ SETUP_EOF
             The status should be success
             The output should include "warning: nvidia-dcgm could not be enqueued"
             The output should include "warning: nvidia-dcgm-exporter could not be enqueued"
+        End
+
+        It 'starts the DRA driver blocking but dcgm and dcgm-exporter off the critical path in DRA mode'
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call startNvidiaManagedExpServices
+
+            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm 30"
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm-exporter 30"
+            The output should not include "systemctlEnableAndStart nvidia-device-plugin 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm-exporter 30"
         End
     End
 
@@ -2279,6 +2380,78 @@ EOF
             The variable AMD_AMA_DRIVER_PACKAGE should equal \
                 "amd-ama-driver-0:1.5.0_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm"
             The variable AMD_AMA_DRIVER_VERSION should equal "1.5.0"
+        End
+    End
+
+    Describe 'configureSSHPubkeyAuth CIS-compliant sshd_config permissions'
+        # These are static assertions on cse_config.sh to guard against a
+        # regression of the CIS Benchmark 5.1.1 fix, which requires
+        # /etc/ssh/sshd_config to be mode 0600 (or more restrictive) and
+        # owned by root:root. Previously, configureSSHPubkeyAuth used
+        # `install -m 644 ...` which overwrote the VHD-hardened 0600 mode
+        # from configureSsh() in cis.sh, causing CIS control 5.1.1 to fail
+        # on Ubuntu 22.04 and 24.04 nodes.
+        #
+        # If configureSSHPubkeyAuth ever reverts to a non-compliant mode
+        # (e.g. 644, 640, 660, 755) when replacing $SSHD_CONFIG, these
+        # tests will fail and flag the regression before it ships.
+        cse_config_path="./parts/linux/cloud-init/artifacts/cse_config.sh"
+
+        It 'replaces sshd_config with mode 0600 (CIS Benchmark 5.1.1)'
+            When call grep -E '^[[:space:]]*install[[:space:]]+-m[[:space:]]+0?600[[:space:]]+-o[[:space:]]+root[[:space:]]+-g[[:space:]]+root[[:space:]]+"\$TMP"[[:space:]]+"\$SSHD_CONFIG"' "$cse_config_path"
+            The status should be success
+            The output should include 'install'
+            The output should include 'SSHD_CONFIG'
+        End
+
+        It 'does not replace sshd_config with a world/group-readable mode'
+            When call grep -E '^[[:space:]]*install[[:space:]]+-m[[:space:]]+(0?(644|640|660|755|777))[[:space:]].*"\$SSHD_CONFIG"' "$cse_config_path"
+            The status should be failure
+        End
+    End
+
+    Describe 'managedGPUPackageList on Ubuntu'
+        Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
+
+        BeforeEach 'setup'
+        setup() {
+            ENABLE_MANAGED_GPU_EXPERIENCE=""
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA=""
+        }
+
+        It 'returns base managed GPU packages by default'
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should equal 'datacenter-gpu-manager-4-core datacenter-gpu-manager-4-proprietary dcgm-exporter'
+            The output should not include 'nvidia-device-plugin'
+            The output should not include 'dra-driver-nvidia-gpu'
+        End
+
+        It 'includes nvidia-device-plugin when managed GPU experience is enabled'
+            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should include 'datacenter-gpu-manager-4-core'
+            The output should include 'datacenter-gpu-manager-4-proprietary'
+            The output should include 'dcgm-exporter'
+            The output should include 'nvidia-device-plugin'
+            The output should not include 'dra-driver-nvidia-gpu'
+        End
+
+        It 'includes dra-driver-nvidia-gpu when DRA mode is enabled'
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should include 'datacenter-gpu-manager-4-core'
+            The output should include 'datacenter-gpu-manager-4-proprietary'
+            The output should include 'dcgm-exporter'
+            The output should include 'dra-driver-nvidia-gpu'
+            The output should not include 'nvidia-device-plugin'
         End
     End
 End

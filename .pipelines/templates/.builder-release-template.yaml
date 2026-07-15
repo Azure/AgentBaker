@@ -271,6 +271,46 @@ steps:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       DRY_RUN: $(DRY_RUN)
 
+  - bash: |
+      set -euo pipefail
+
+      metadata_dir="$(Build.ArtifactStagingDirectory)/e2e-vhd-metadata"
+      metadata_file="${metadata_dir}/${VHD_ARTIFACT_NAME}.json"
+      mkdir -p "$metadata_dir"
+
+      if [ -z "${MANAGED_SIG_ID}" ]; then
+        echo "##vso[task.logissue type=error]Packer did not return a managed SIG image version ID" >&2
+        exit 1
+      fi
+
+      regions="$(jq -nc \
+        --arg buildLocation "${PACKER_BUILD_LOCATION}" \
+        --arg replications "${REPLICATIONS:-}" \
+        '([$buildLocation] + ($replications | split(",") | map(split("=")[0] | gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))) | unique')"
+
+      jq -n \
+        --arg imageName "${SIG_IMAGE_NAME}" \
+        --arg resourceId "${MANAGED_SIG_ID}" \
+        --arg version "${CAPTURED_SIG_VERSION}" \
+        --argjson regions "$regions" \
+        '{($imageName): {resourceId: $resourceId, version: $version, regions: $regions}}' > "$metadata_file"
+    condition: succeeded()
+    displayName: Create E2E VHD metadata
+    env:
+      VHD_ARTIFACT_NAME: ${{ parameters.artifactName }}
+      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
+      CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
+      MANAGED_SIG_ID: $(MANAGED_SIG_ID)
+      PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
+      REPLICATIONS: $(REPLICATIONS)
+
+  - task: PublishPipelineArtifact@0
+    condition: succeeded()
+    displayName: Publish E2E VHD metadata
+    inputs:
+      artifactName: 'e2e-vhd-metadata-${{ parameters.artifactName }}-stage$(System.StageAttempt)-job$(System.JobAttempt)'
+      targetPath: '$(Build.ArtifactStagingDirectory)/e2e-vhd-metadata/${{ parameters.artifactName }}.json'
+
   - task: AzureCLI@2
     inputs:
       azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)

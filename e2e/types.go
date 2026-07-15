@@ -35,6 +35,7 @@ type Tags struct {
 	Scriptless             bool
 	VHDCaching             bool
 	MockAzureChinaCloud    bool
+	RCV1PCertMode          bool
 	VMSeriesCoverageTest   bool
 }
 

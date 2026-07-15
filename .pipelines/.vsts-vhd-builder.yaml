@@ -308,3 +308,4 @@ stages:
       - template: ./templates/e2e-template.yaml
         parameters:
           IgnoreScenariosWithMissingVhd: true
+          useVhdMetadataArtifacts: true

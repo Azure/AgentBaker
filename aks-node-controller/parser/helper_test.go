@@ -2083,3 +2083,43 @@ func Test_getLocalDnsCriticalFqdns(t *testing.T) {
 		})
 	}
 }
+
+func Test_getStringFromNetworkPluginType(t *testing.T) {
+	tests := []struct {
+		name string
+		enum aksnodeconfigv1.NetworkPlugin
+		want string
+	}{
+		{"azure", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE, helpers.NetworkPluginAzure},
+		{"kubenet", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET, helpers.NetworkPluginKubenet},
+		{"none matches scriptful raw string", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_NONE, helpers.NetworkPluginNone},
+		{"unspecified", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_UNSPECIFIED, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getStringFromNetworkPluginType(tt.enum); got != tt.want {
+				t.Errorf("getStringFromNetworkPluginType() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getStringFromNetworkPolicyType(t *testing.T) {
+	tests := []struct {
+		name string
+		enum aksnodeconfigv1.NetworkPolicy
+		want string
+	}{
+		{"azure", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE, helpers.NetworkPolicyAzure},
+		{"calico", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO, helpers.NetworkPolicyCalico},
+		{"none matches scriptful raw string", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_NONE, helpers.NetworkPolicyNone},
+		{"unspecified", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_UNSPECIFIED, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getStringFromNetworkPolicyType(tt.enum); got != tt.want {
+				t.Errorf("getStringFromNetworkPolicyType() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

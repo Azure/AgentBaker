@@ -16,6 +16,7 @@ Describe 'cse_install_ubuntu.sh'
             GPU_DKMS_MARKER_FILE="${marker}"
             rm() { echo "mock rm $*"; }
             ldconfig() { echo "mock ldconfig"; }
+            lsmod() { echo ""; }  # no nvidia module loaded
             When call cleanUpPrebakedGPUDriver
             The status should be success
             The output should include "Removing pre-baked NVIDIA driver"
@@ -39,6 +40,7 @@ Describe 'cse_install_ubuntu.sh'
             marker="$(mktemp)"
             GPU_DKMS_MARKER_FILE="${marker}"
             ldconfig() { echo "mock ldconfig"; }
+            lsmod() { echo ""; }  # no nvidia module loaded (grid-style prebake)
             When call cleanUpPrebakedGPUDriver
             The status should be success
             The output should include "AKS_GPU_PREBAKE event=teardown"
@@ -46,6 +48,42 @@ Describe 'cse_install_ubuntu.sh'
             The output should include "marker_after=false"
             # the setuid nvidia-modprobe is part of the security-coverage check
             The output should include "modprobe_after=false"
+            The output should include "module_before=false"
+            The output should include "module_after=false"
+        End
+
+        It 'unloads an idle prebaked nvidia module that auto-loaded at boot (cuda/cuda-lts SKUs)'
+            marker="$(mktemp)"
+            GPU_DKMS_MARKER_FILE="${marker}"
+            ldconfig() { echo "mock ldconfig"; }
+            # simulate a loaded-but-idle module: lsmod shows nvidia until rmmod is "run"
+            _nvidia_loaded=true
+            lsmod() { if [ "${_nvidia_loaded}" = true ]; then echo "nvidia 104165376 0"; else echo ""; fi; }
+            cat() { echo "0"; }        # /sys/module/nvidia/refcnt = 0 (idle)
+            ls() { return 1; }          # no /dev/nvidia* device nodes
+            rmmod() { _nvidia_loaded=false; echo "mock rmmod $*"; }
+            When call cleanUpPrebakedGPUDriver
+            The status should be success
+            The output should include "mock rmmod nvidia"
+            The output should include "module_before=true"
+            The output should include "module_after=false"
+            The output should include "status=cleaned"
+        End
+
+        It 'keeps the marker (incomplete) when a busy nvidia module cannot be unloaded'
+            marker="$(mktemp)"
+            GPU_DKMS_MARKER_FILE="${marker}"
+            ldconfig() { echo "mock ldconfig"; }
+            lsmod() { echo "nvidia 104165376 2"; }  # stays loaded (refcnt shows in-use)
+            cat() { echo "2"; }                       # refcnt != 0 -> do not rmmod
+            ls() { return 1; }
+            rmmod() { echo "mock rmmod $*"; }         # should NOT be called
+            When call cleanUpPrebakedGPUDriver
+            The status should be success
+            The output should not include "mock rmmod"
+            The output should include "module_before=true"
+            The output should include "module_after=true"
+            The output should include "status=incomplete"
         End
     End
 End
