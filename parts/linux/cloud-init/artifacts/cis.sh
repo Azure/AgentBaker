@@ -8,7 +8,17 @@ assignRootPW() {
         VERSION=$(grep DISTRIB_RELEASE /etc/*-release | cut -f 2 -d "=")
         SALT=$(openssl rand -base64 5)
         SECRET=$(openssl rand -base64 37)
+
         CMD="import crypt, getpass, pwd; print(crypt.crypt('$SECRET', '\$6\$$SALT\$'))"
+        if [ "${VERSION}" = "26.04" ]; then
+            # Ubuntu 26.04 ships Python 3.14, which removed the 'crypt' module (removed in 3.13).
+            # passlib's sha512_crypt has a pure-Python backend that produces the same SHA-512 ($6$)
+            # hash without needing the crypt module. rounds=5000 matches the crypt(3) default cost.
+            # SALT is base64 and may contain chars (e.g. '+', '=') outside passlib's salt alphabet,
+            # so filter it to sha512_crypt.salt_chars before use.
+            CMD="from passlib.hash import sha512_crypt, getpass, pwd; salt=''.join(c for c in '$SALT' if c in sha512_crypt.salt_chars); print(sha512_crypt.using(salt=salt, rounds=5000).hash('$SECRET'))"
+        fi
+
         if [ "${VERSION}" = "22.04" ] || [ "${VERSION}" = "24.04" ] || [ "${VERSION}" = "26.04" ]; then
             HASH=$(python3 -c "$CMD")
         else
