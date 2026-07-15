@@ -1352,7 +1352,11 @@ cleanUpGridNodeCudaPrebake() {
 }
 
 ensureGPUDrivers() {
-    if [ "$(isARM64)" -eq 1 ]; then
+    # arm64 GPU nodes are the Grace-Blackwell SKUs (GB200/GB300). They install the
+    # driver from the container image via the Ubuntu path in configGPUDrivers -
+    # aks-gpu-cuda-lts now publishes an arm64 variant. Other OSes have no arm64 GPU
+    # driver install path, so continue skipping arm64 there.
+    if [ "$(isARM64)" -eq 1 ] && [ "$OS" != "$UBUNTU_OS_NAME" ]; then
         return
     fi
 
