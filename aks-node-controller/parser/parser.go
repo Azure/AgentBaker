@@ -31,16 +31,7 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 
 //nolint:funlen
 func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration) map[string]string {
-	// Detect containerd version from the system if not already set in the config.
-	// This allows the correct containerd config template (v1 vs v2) to be selected
-	// on VHDs where the caller doesn't provide the version explicitly.
-	containerdVersion := config.GetContainerdConfig().GetContainerdVersion()
-	if containerdVersion == "" {
-		if version, err := detectContainerdVersion(ctx); err == nil && version != "" {
-			containerdVersion = version
-		}
-	}
-
+	containerdVersion, _ := detectContainerdVersion(ctx)
 	cloudProviderSettings := getCloudProviderSettings(config)
 	env := map[string]string{
 		"PROVISION_OUTPUT":                                     "/var/log/azure/cluster-provision-cse-output.log",
