@@ -625,15 +625,24 @@ ensurePodInfraContainerImage() {
 
     mkdir -p ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}
 
+    local is_acl=false
+    if isACL "$OS" "$OS_VARIANT"; then
+        is_acl=true
+    fi
+
     echo "Pulling with authentication for $image"
-    retrycmd_cp_oci_layout_with_oras 10 5 "${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}" "$tag" "$image" || exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
+    retrycmd_cp_oci_layout_with_oras 10 5 "${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}" "$tag" "$image" "$is_acl" || exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
 
     tar -cvf ${POD_INFRA_CONTAINER_IMAGE_TAR} -C ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR} .
-    # --digests imports anonymous (digest-only) referrer manifests (notation/dm-verity
-    # signatures) copied into the OCI layout by the recursive oras cp; without it they are
-    # discarded on import and the EROFS differ cannot find the layer's dm-verity signature.
-    if ctr -n k8s.io image import --digests --base-name $base_name ${POD_INFRA_CONTAINER_IMAGE_TAR}; then
-        ctr -n k8s.io image tag "${base_name}:${tag}" "${pod_infra_container_image}"
+    local -a ctr_import_args=()
+    local -a ctr_tag_args=()
+    if [ "$is_acl" = "true" ]; then
+        # ACL imports signed-image referrers and uses containerd's local image store directly.
+        ctr_import_args+=(--digests)
+        ctr_tag_args+=(--local)
+    fi
+    if ctr -n k8s.io image import "${ctr_import_args[@]}" --base-name "$base_name" "${POD_INFRA_CONTAINER_IMAGE_TAR}"; then
+        ctr -n k8s.io image tag "${ctr_tag_args[@]}" "${base_name}:${tag}" "${pod_infra_container_image}"
         echo "Successfully imported $pod_infra_container_image"
         labelContainerImage "${pod_infra_container_image}" "io.cri-containerd.pinned" "pinned"
     else
