@@ -266,6 +266,12 @@ oom_score = -999
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Set up a fake containerd binary returning v1 so detectContainerdVersion
+			// consistently returns 1.7.22 regardless of the host system.
+			fakeBinDir := t.TempDir()
+			require.NoError(t, os.WriteFile(fakeBinDir+"/containerd", []byte("#!/bin/sh\necho 'containerd containerd.io 1.7.22 c814c75'\n"), 0755))
+			t.Setenv("PATH", fakeBinDir+":"+os.Getenv("PATH"))
+
 			cs := &datamodel.ContainerService{
 				Location: "southcentralus",
 				Type:     "Microsoft.ContainerService/ManagedClusters",
