@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -186,24 +187,13 @@ func renderEnabledFeatures(features map[string]string) string {
 	return b.String()
 }
 
-// isValidFeatureKey reports whether k is a valid shell identifier ([a-zA-Z_][a-zA-Z0-9_]*),
-// matching the keys the aks-node-controller wrapper parses out of enabled_features.sh.
+// featureKeyRe matches a valid shell identifier ([a-zA-Z_][a-zA-Z0-9_]*) - the same set the
+// aks-node-controller wrapper parses out of enabled_features.sh.
+var featureKeyRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+// isValidFeatureKey reports whether k is a valid shell identifier the wrapper would accept.
 func isValidFeatureKey(k string) bool {
-	if k == "" {
-		return false
-	}
-	for i, r := range k {
-		switch {
-		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r == '_':
-		case r >= '0' && r <= '9':
-			if i == 0 {
-				return false
-			}
-		default:
-			return false
-		}
-	}
-	return true
+	return featureKeyRe.MatchString(k)
 }
 
 func buildScriptlessCustomData(cloudInitTemplate, fileListTemplate, separator string, encodedFiles []struct {
