@@ -1130,16 +1130,6 @@ APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
 
-# # If the IMG_SKU does not contain "minimal", installDeps normally
-# # shellcheck disable=SC3010
-# if [[ "$IMG_SKU" != *"minimal"* ]]; then
-#   installDeps
-# else
-#   updateAptWithMicrosoftPkg
-# fi
-
-# TODO(2604): confirm if this is right
-# updateAptWithMicrosoftPkg
 installDeps
 
 CHRONYD_DIR=/etc/systemd/system/chronyd.service.d
