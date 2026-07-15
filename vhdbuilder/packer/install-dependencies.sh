@@ -591,7 +591,7 @@ cachePackageAndBinaryComponents() {
       "aks-secure-tls-bootstrap-client")
         if [ "$OS_VERSION" = "26.04" ]; then
           echo "Ubuntu 26.04 - temporarily skipping aks-secure-tls-bootstrap-client installation"
-          return 0
+          continue
         fi
         for version in ${PACKAGE_VERSIONS[@]}; do
           # removed at provisioning time if secure TLS bootstrapping is disabled
@@ -700,7 +700,7 @@ cachePackageAndBinaryComponents() {
       "dcgm-exporter")
         if [ "$OS_VERSION" = "26.04" ]; then
           echo "Ubuntu 26.04 - temporarily skipping dcgm-exporter installation"
-          return 0
+          continue
         fi
         for version in ${PACKAGE_VERSIONS[@]}; do
           downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
@@ -721,7 +721,7 @@ cachePackageAndBinaryComponents() {
       "acr-mirror")
         if [ "$OS_VERSION" = "26.04" ]; then
           echo "Ubuntu 26.04 - temporarily skipping acr-mirror installation"
-          return 0
+          continue
         fi
         # Artifact streaming (acr-mirror) - version and URLs resolved from components.json,
         # OS filtering handled declaratively by components.json entries (<SKIP> for unsupported OSes).
@@ -744,7 +744,7 @@ cachePackageAndBinaryComponents() {
       "blobfuse"|"blobfuse2")
         if [ "$OS_VERSION" = "26.04" ]; then
           echo "Ubuntu 26.04 - temporarily skipping blobfuse2 installation"
-          return 0
+          continue
         fi
         for version in "${PACKAGE_VERSIONS[@]}"; do
           if isUbuntu "$OS"; then
