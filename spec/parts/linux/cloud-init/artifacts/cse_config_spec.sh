@@ -2198,7 +2198,7 @@ SETUP_EOF
 
     Describe 'ensurePodInfraContainerImage'
         waitForContainerdReady() { return 0; }
-        ctr() { echo ""; return 0; }
+        ctr() { echo "ctr $@"; return 0; }
         mkdir() { echo "mkdir $@"; }
         tar() { echo "tar $@"; return 0; }
         rm() { echo "rm $@"; }
@@ -2237,6 +2237,38 @@ SETUP_EOF
 
             The status should be success
             The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+        End
+
+        It 'preserves signed-image referrers for ACL'
+            get_sandbox_image() { echo "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1"; }
+            OS="AZURELINUX"
+            OS_VARIANT="AZURECONTAINERLINUX"
+            MCR_REPOSITORY_BASE="mcr.microsoft.com"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+
+            When call ensurePodInfraContainerImage
+
+            The status should be success
+            The output should include "retrycmd_cp_oci_layout_with_oras 10 5 /opt/pod-infra-container-image/downloads local myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1 true"
+            The output should include "ctr -n k8s.io image import --digests --base-name"
+            The output should include "ctr -n k8s.io image tag --local"
+        End
+
+        It 'keeps existing ORAS and ctr behavior for non-ACL images'
+            get_sandbox_image() { echo "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1"; }
+            OS="AZURELINUX"
+            OS_VARIANT=""
+            MCR_REPOSITORY_BASE="mcr.microsoft.com"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+
+            When call ensurePodInfraContainerImage
+
+            The status should be success
+            The output should include "retrycmd_cp_oci_layout_with_oras 10 5 /opt/pod-infra-container-image/downloads local myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1 false"
+            The output should include "ctr -n k8s.io image import --base-name"
+            The output should not include "--digests"
+            The output should include "ctr -n k8s.io image tag mcr.microsoft.com/oss/v2/kubernetes/pause:local"
+            The output should not include "--local"
         End
     End
 

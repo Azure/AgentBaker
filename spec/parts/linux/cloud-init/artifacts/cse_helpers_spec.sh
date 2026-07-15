@@ -17,6 +17,41 @@ readContainerImage() {
 
 Describe 'cse_helpers.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Describe 'retrycmd_cp_oci_layout_with_oras'
+        setup() {
+            ORAS_OUTPUT="/tmp/retrycmd_cp_oci_layout_with_oras.output"
+            ORAS_REGISTRY_CONFIG_FILE="/tmp/oras-config.json"
+            rm -f "$ORAS_OUTPUT"
+            rm -rf /tmp/oras-layout-test
+        }
+        cleanup() {
+            rm -f "$ORAS_OUTPUT"
+            rm -rf /tmp/oras-layout-test
+        }
+        timeout() {
+            echo "$*"
+            return 0
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'copies referrers when requested'
+            When call retrycmd_cp_oci_layout_with_oras 2 0 /tmp/oras-layout-test local registry.example/image:v1 true
+            The status should be success
+            The output should include "2 retries"
+            The contents of file "$ORAS_OUTPUT" should include "oras cp --recursive registry.example/image:v1 /tmp/oras-layout-test:local"
+        End
+
+        It 'keeps the default copy behavior when referrers are not requested'
+            When call retrycmd_cp_oci_layout_with_oras 2 0 /tmp/oras-layout-test local registry.example/image:v1 false
+            The status should be success
+            The output should include "2 retries"
+            The contents of file "$ORAS_OUTPUT" should include "oras cp registry.example/image:v1 /tmp/oras-layout-test:local"
+            The contents of file "$ORAS_OUTPUT" should not include "--recursive"
+        End
+    End
+
     Describe 'updatePackageVersions'
         It 'returns downloadURIs.ubuntu.r2204.versionsV2 of package pkgVersionsV2 for UBUNTU 22.04'
             package=$(readPackage "pkgVersionsV2")
