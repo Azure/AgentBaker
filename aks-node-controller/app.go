@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -356,14 +357,14 @@ func diffEnvMaps(pcEnv, nbcEnv map[string]string) []string {
 		nbcVal, inNBC := nbcEnv[key]
 		switch {
 		case inPC && !inNBC:
-			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s", key))
+			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s=%s", key, redactSensitive(pcVal)))
 		case !inPC && inNBC:
 			if !isExpectedDiffCSEVar(key) {
-				diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s", key))
+				diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s=%s", key, redactSensitive(nbcVal)))
 			}
 		case !envValsEqualForKey(key, pcVal, nbcVal):
 			if !isExpectedDiffCSEVar(key) {
-				diffs = append(diffs, fmt.Sprintf("differs: %s", key))
+				diffs = append(diffs, fmt.Sprintf("differs: %s pc=%s nbc=%s", key, redactSensitive(pcVal), redactSensitive(nbcVal)))
 			}
 		}
 	}
@@ -433,6 +434,23 @@ func parseSysctlPairs(content string) map[string]string {
 
 func stripDoubleQuotes(s string) string {
 	return strings.ReplaceAll(s, "\"", "")
+}
+
+// sensitivePatterns matches values that look like GUIDs, secrets, tokens, or other PII.
+var sensitivePatterns = regexp.MustCompile(
+	`(?i)` +
+		// GUIDs: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+		`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}` +
+		// Long base64 strings (likely tokens/secrets, 20+ chars of base64 alphabet)
+		`|[A-Za-z0-9+/=]{20,}` +
+		// Hex strings of 32+ chars (SHA hashes, keys)
+		`|[0-9a-f]{32,}`,
+)
+
+// redactSensitive replaces GUIDs, tokens, long base64 strings, and hex secrets
+// with a [REDACTED] placeholder to avoid logging PII.
+func redactSensitive(s string) string {
+	return sensitivePatterns.ReplaceAllString(s, "[REDACTED]")
 }
 
 // parseEnvVarsFromNBCCmdContent extracts environment variable assignments from an NBC command string.
