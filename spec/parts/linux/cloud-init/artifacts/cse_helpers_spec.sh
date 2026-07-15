@@ -858,6 +858,7 @@ EOF
             export CGROUPV2_MARKER_PATH="${ENSURE_CGROUP_TMPDIR}/cgroup.controllers"
             export KUBELET_SLICE_UNIT_PATH="${ENSURE_CGROUP_TMPDIR}/kubelet.slice"
             export KUBELET_SERVICE_DROPIN_DIR="${ENSURE_CGROUP_TMPDIR}/kubelet.service.d"
+            export CONTAINERD_SERVICE_DROPIN_DIR="${ENSURE_CGROUP_TMPDIR}/containerd.service.d"
             : > "${CGROUPV2_MARKER_PATH}" # cgroupv2 present by default
         }
         cleanup_paths() {
@@ -911,12 +912,17 @@ EOF
             When call ensureKubeletCgroupHierarchy
             slice_contents=$(cat "${KUBELET_SLICE_UNIT_PATH}" 2>/dev/null)
             dropin_contents=$(cat "${KUBELET_SERVICE_DROPIN_DIR}/10-kubelet-slice.conf" 2>/dev/null)
+            containerd_dropin_contents=$(cat "${CONTAINERD_SERVICE_DROPIN_DIR}/10-kubelet-slice.conf" 2>/dev/null)
             cleanup_paths
             The status should be success
             The variable slice_contents should include "Description=Slice for kubelet kube-reserved enforcement"
             The variable slice_contents should include "WantedBy=slices.target"
             The variable dropin_contents should include "Wants=kubelet.slice"
             The variable dropin_contents should include "After=kubelet.slice"
+            The variable dropin_contents should include "Slice=kubelet.slice"
+            The variable containerd_dropin_contents should include "Wants=kubelet.slice"
+            The variable containerd_dropin_contents should include "After=kubelet.slice"
+            The variable containerd_dropin_contents should include "Slice=kubelet.slice"
         End
 
         It 'returns failure when systemctl enable kubelet.slice fails'

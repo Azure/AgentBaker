@@ -1531,6 +1531,7 @@ ensureKubeletCgroupHierarchy() {
     local cgroupv2_marker="${CGROUPV2_MARKER_PATH:-/sys/fs/cgroup/cgroup.controllers}"
     local kubelet_slice_unit="${KUBELET_SLICE_UNIT_PATH:-/etc/systemd/system/kubelet.slice}"
     local kubelet_dropin_dir="${KUBELET_SERVICE_DROPIN_DIR:-/etc/systemd/system/kubelet.service.d}"
+    local containerd_dropin_dir="${CONTAINERD_SERVICE_DROPIN_DIR:-/etc/systemd/system/containerd.service.d}"
 
     # Assert cgroupv2 unified hierarchy. The canonical marker is the presence of
     # /sys/fs/cgroup/cgroup.controllers, which only exists under cgroupv2.
@@ -1588,8 +1589,23 @@ EOF
 [Unit]
 Wants=kubelet.slice
 After=kubelet.slice
+
+[Service]
+Slice=kubelet.slice
 EOF
             chmod 0644 "${kubelet_dropin_dir}/10-kubelet-slice.conf"
+
+            # Drop-in on containerd.service to place it in kubelet.slice as well.
+            mkdir -p "${containerd_dropin_dir}"
+            tee "${containerd_dropin_dir}/10-kubelet-slice.conf" > /dev/null <<'EOF'
+[Unit]
+Wants=kubelet.slice
+After=kubelet.slice
+
+[Service]
+Slice=kubelet.slice
+EOF
+            chmod 0644 "${containerd_dropin_dir}/10-kubelet-slice.conf"
 
             systemctl daemon-reload
 
