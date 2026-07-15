@@ -16,7 +16,7 @@ assignRootPW() {
             # hash without needing the crypt module. rounds=5000 matches the crypt(3) default cost.
             # SALT is base64 and may contain chars (e.g. '+', '=') outside passlib's salt alphabet,
             # so filter it to sha512_crypt.salt_chars before use.
-            CMD="from passlib.hash import sha512_crypt, getpass, pwd; salt=''.join(c for c in '$SALT' if c in sha512_crypt.salt_chars); print(sha512_crypt.using(salt=salt, rounds=5000).hash('$SECRET'))"
+            CMD="import getpass, pwd; from passlib.hash import sha512_crypt; salt=''.join(c for c in '$SALT' if c in sha512_crypt.salt_chars); print(sha512_crypt.using(salt=salt, rounds=5000).hash('$SECRET'))"
         fi
 
         if [ "${VERSION}" = "22.04" ] || [ "${VERSION}" = "24.04" ] || [ "${VERSION}" = "26.04" ]; then
