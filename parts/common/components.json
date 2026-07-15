@@ -1338,7 +1338,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.34.0-ubuntu20.04u4"
+                "latestVersion": "1.34.0-ubuntu20.04u5"
               }
             ]
           },
@@ -1346,7 +1346,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.34.0-ubuntu22.04u4"
+                "latestVersion": "1.34.0-ubuntu22.04u5"
               }
             ]
           },
@@ -1354,7 +1354,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.34.0-ubuntu24.04u4"
+                "latestVersion": "1.34.0-ubuntu24.04u5"
               }
             ]
           }
@@ -1384,7 +1384,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.0-4.azl3"
+                "latestVersion": "1.34.0-5.azl3"
               }
             ]
           },
@@ -1402,7 +1402,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.0-4.azl3"
+                "latestVersion": "1.34.0-5.azl3"
               }
             ]
           }
