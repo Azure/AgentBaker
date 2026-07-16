@@ -102,7 +102,6 @@ var AvailableUbuntu2404Distros = []Distro{
 	AKSUbuntuContainerd2404,
 	AKSUbuntuContainerd2404Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
-	AKSUbuntuArm64GB200Containerd2404Gen2,
 	AKSUbuntuContainerd2404CVMGen2,
 	AKSUbuntuContainerd2404TLGen2,
 	AKSUbuntuEdgeZoneContainerd2404,
@@ -150,7 +149,6 @@ var AvailableContainerdDistros = []Distro{
 	AKSCBLMarinerV2KataGen2TL,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
-	AKSUbuntuArm64GB200Containerd2404Gen2,
 	AKSUbuntuContainerd2404CVMGen2,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
@@ -182,7 +180,6 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuFipsContainerd2204TLGen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
-	AKSUbuntuArm64GB200Containerd2404Gen2,
 	AKSUbuntuContainerd2404CVMGen2,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
@@ -430,9 +427,6 @@ const (
 	FrozenCBLMarinerV2KataGen2SIGImageVersion string = "202509.05.0"
 	FrozenAzureLinuxV2KataGen2SIGImageVersion string = "202509.05.0"
 
-	// Check with Keith and Alex before changing the frozen NVIDIA GB image version.
-	FrozenUbuntuArm64GB200Containerd2404Gen2SIGImageVersion string = "202602.19.0"
-
 	// Flatcar is deprecated on June 8th.
 	FrozenFlatcarSIGImageVersion string = "202607.02.0"
 
@@ -520,14 +514,6 @@ var (
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2404gen2arm64containerd",
 		Version:       LinuxSIGImageVersion,
-	}
-
-	SIGUbuntuArm64GB200Containerd2404Gen2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		// The Go symbol keeps GB200 for API/distro compatibility, but the SIG image definition uses the generalized GB name.
-		Definition: "2404gen2arm64gbcontainerd",
-		Version:    FrozenUbuntuArm64GB200Containerd2404Gen2SIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate = SigImageConfigTemplate{
@@ -943,7 +929,6 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuContainerd2004CVMGen2:          SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuArm64Containerd2204Gen2:        SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuArm64Containerd2404Gen2:        SIGUbuntuArm64Containerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuArm64GB200Containerd2404Gen2:   SIGUbuntuArm64GB200Containerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2404CVMGen2:          SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2204TLGen2:           SIGUbuntuContainerd2204TLGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuEgressContainerd2204Gen2:       SIGUbuntuEgressContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
