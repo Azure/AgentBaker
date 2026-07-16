@@ -1460,7 +1460,8 @@
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.36.2-ubuntu26.04u2"
+                "latestVersion": "1.36.2-ubuntu26.04u2",
+                "previousLatestVersion": "1.36.1-ubuntu26.04u3"
               }
             ]
           },
@@ -1723,6 +1724,11 @@
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:${version}-linux-${CPU_ARCH}",
             "windowsDownloadURL": "https://packages.aks.azure.com/kubernetes/${version}/windowszip/${version}-1int.zip"
           }
+        },
+        "ubuntu": {
+          "r2604": {
+            "versionsV2": []
+          }
         }
       }
     },
@@ -1760,6 +1766,11 @@
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:${version}-linux-${CPU_ARCH}"
+          }
+        },
+        "ubuntu": {
+          "r2604": {
+            "versionsV2": []
           }
         },
         "flatcar": {
