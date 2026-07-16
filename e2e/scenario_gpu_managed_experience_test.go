@@ -88,21 +88,25 @@ type packageOSVariant struct {
 func Test_Version_Consistency_GPU_Managed_Components(t *testing.T) {
 	allPackageVariants := [][]packageOSVariant{
 		{
+			{"nvidia-device-plugin", "ubuntu", "r2604"},
 			{"nvidia-device-plugin", "ubuntu", "r2404"},
 			{"nvidia-device-plugin", "ubuntu", "r2204"},
 			{"nvidia-device-plugin", "azurelinux", "v3.0"},
 		},
 		{
+			{"datacenter-gpu-manager-4-core", "ubuntu", "r2604"},
 			{"datacenter-gpu-manager-4-core", "ubuntu", "r2404"},
 			{"datacenter-gpu-manager-4-core", "ubuntu", "r2204"},
 			{"datacenter-gpu-manager-4-core", "azurelinux", "v3.0"},
 		},
 		{
+			{"datacenter-gpu-manager-4-proprietary", "ubuntu", "r2604"},
 			{"datacenter-gpu-manager-4-proprietary", "ubuntu", "r2404"},
 			{"datacenter-gpu-manager-4-proprietary", "ubuntu", "r2204"},
 			{"datacenter-gpu-manager-4-proprietary", "azurelinux", "v3.0"},
 		},
 		{
+			{"dcgm-exporter", "ubuntu", "r2604"},
 			{"dcgm-exporter", "ubuntu", "r2404"},
 			{"dcgm-exporter", "ubuntu", "r2204"},
 			{"dcgm-exporter", "azurelinux", "v3.0"},

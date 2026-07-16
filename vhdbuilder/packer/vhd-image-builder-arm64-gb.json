@@ -832,6 +832,16 @@
       ]
     },
     {
+      "type": "file",
+      "direction": "download",
+      "source": "/var/log/bcc_installation.log",
+      "destination": "bcc-tools-installation.log"
+    },
+    {
+      "type": "shell",
+      "inline": ["sudo rm /var/log/bcc_installation.log"]
+    },
+    {
       "type": "shell",
       "inline": ["sudo /bin/bash /home/packer/generate-disk-usage.sh"]
     },

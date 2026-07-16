@@ -329,7 +329,7 @@ cacheKubePackageFromPrivateUrl() {
   fi
 }
 
-starteBPFToolsInstallation() {
+startEBPFToolsInstallation() {
   if [ "$OS_VERSION" = "26.04" ]; then
     echo "Ubuntu 26.04 - skipping eBPF tools installation"
     return 0
@@ -349,9 +349,12 @@ starteBPFToolsInstallation() {
   BCC_PID=$!
 }
 
-finisheBPFToolsInstallation() {
+finishEBPFToolsInstallation() {
   if [ "$OS_VERSION" = "26.04" ]; then
     echo "Ubuntu 26.04 - skipping eBPF tools installation"
+    # write out an empty bcc_installation.log since builds currently expect it to be present
+    touch /var/log/bcc_installation.log || true
+    chmod 644 /var/log/bcc_installation.log || true
     return 0
   fi
 
@@ -698,10 +701,6 @@ cachePackageAndBinaryComponents() {
         done
         ;;
       "dcgm-exporter")
-        if [ "$OS_VERSION" = "26.04" ]; then
-          echo "Ubuntu 26.04 - temporarily skipping dcgm-exporter installation"
-          continue
-        fi
         for version in ${PACKAGE_VERSIONS[@]}; do
           downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
           echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
@@ -1237,11 +1236,9 @@ capture_benchmark "${SCRIPT_NAME}_handle_os_specific_configurations"
 echo "VHD will be built with containerd as the container runtime"
 
 # Cache packages and binaries declared within components.json
-# TODO(2604): uncomment once able
 cachePackageAndBinaryComponents
 
 # k8s will use images in the k8s.io namespaces - create it
-# TODO(2604): uncomment all below once able
 ctr namespace create k8s.io
 
 # Fetch and pre-build the NVIDIA CUDA driver BEFORE starting the BCC background build and BEFORE caching
@@ -1254,11 +1251,10 @@ buildNVIDIAKernelModule
 capture_benchmark "${SCRIPT_NAME}_caching_gpu_container_images_and_build_nvidia_kernel_module"
 
 # Start eBPF tool installation in the background while we pull container images in the foreground
-starteBPFToolsInstallation
+startEBPFToolsInstallation
 capture_benchmark "${SCRIPT_NAME}_start_install_ebpf_tools"
 
 # Cache container images declared within components.json
-# TODO(2604): uncomment all below once able
 echo "images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 cacheContainerImageComponents
 capture_benchmark "${SCRIPT_NAME}_caching_container_images"
@@ -1268,11 +1264,9 @@ if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then
   ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 fi
 
-# TODO(2604): uncomment once able
 retagAKSNodeCAWatcher
 capture_benchmark "${SCRIPT_NAME}_retag_aks_node_ca_watcher"
 
-# TODO(2604): uncomment once able
 pinPodSandboxImages
 capture_benchmark "${SCRIPT_NAME}_pin_pod_sandbox_image"
 
@@ -1321,7 +1315,7 @@ fi
 capture_benchmark "${SCRIPT_NAME}_purge_and_update_ubuntu"
 
 # Ensure eBPF tools installed successfully
-finisheBPFToolsInstallation
+finishEBPFToolsInstallation
 capture_benchmark "${SCRIPT_NAME}_finish_installing_ebpf_tools"
 
 configureLsmWithBpf
@@ -1338,7 +1332,6 @@ if [ -n "${PRIVATE_PACKAGES_URL:-}" ]; then
 fi
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 
-# TODO(2604): uncomment once able
 extractAndCacheCoreDnsBinary
 
 collect_grid_compatibility_data
@@ -1350,8 +1343,6 @@ removeNvidiaRepos
 capture_benchmark "${SCRIPT_NAME}_remove_nvidia_repos"
 
 echo "install-dependencies step completed successfully"
-
-# --------------------------------------------------------- INSTALL DEPENDENCIES END ---------------------------------------------------------
 
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks

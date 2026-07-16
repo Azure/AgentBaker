@@ -27,12 +27,6 @@ installBcc() {
     VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     if [ "${VERSION}" = "22.04" ] || [ "${VERSION}" = "24.04" ]; then
         apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev python3 zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
-    elif [ "${VERSION}" = "26.04" ]; then
-        # LLVM is pinned to 20 (not 26.04's default 22): BCC v0.37.0 links the individual clang
-        # static libs, and LLVM 21/22 reorganized clang's driver/options libraries, breaking that
-        # static link (undefined refs to clang::getDriverOptTable / GetResourcesPath / getLastArgIntValue).
-        # 20 is the newest major before that reorg and is in the 26.04 archive.
-        apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm20 llvm-20-dev libclang-20-dev python3 zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     else
         apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev python3-distutils libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
@@ -47,23 +41,12 @@ installBcc() {
       apt_get_install 120 5 300 libpolly-14-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
 
-    # libPolly.a is needed for the make target that runs later, which is not present in the default patch version of llvm-20 that is downloaded for 26.04
-    if [ "${VERSION}" = "26.04" ]; then
-      apt_get_install 120 5 300 libpolly-20-dev || exit $ERR_BCC_INSTALL_TIMEOUT
-    fi
-
-    local bcc_version="v0.29.0"
-    if [ "${VERSION}" = "26.04" ]; then
-        # 26.04 bakes CMake v4 and thus requires a newer bcc version, otherwise CMake will fail with: "Compatibility with CMake < 3.5 has been removed from CMake"
-        bcc_version="v0.37.0"
-    fi
-
     mkdir -p /tmp/bcc
     pushd /tmp/bcc || exit 1
     git clone https://github.com/iovisor/bcc.git
     mkdir bcc/build; cd bcc/build || exit 1
 
-    git checkout ${bcc_version}
+    git checkout v0.29.0
 
     cmake -DENABLE_EXAMPLES=off .. || exit 1
     make
@@ -80,9 +63,6 @@ installBcc() {
     # only ensuring they are installed above.
     if [ "${VERSION}" = "22.04" ] || [ "${VERSION}" = "24.04" ]; then
         apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
-    elif [ "${VERSION}" = "26.04" ]; then
-        # we remove git to keep the image as minimal as possible
-        apt_get_purge 120 5 300 git bison cmake flex libedit-dev libllvm20 llvm-20-dev libclang-20-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     else
         apt_get_purge 120 5 300 git bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
@@ -90,11 +70,6 @@ installBcc() {
     # libPolly.a is needed for the make target that runs later, which is not present in the default patch version of llvm-14 that is downloaded for 24.04
     if [ "${VERSION}" = "24.04" ]; then
       apt_get_purge 120 5 300 libpolly-14-dev || exit $ERR_BCC_INSTALL_TIMEOUT
-    fi
-
-    # libPolly.a is needed for the make target that runs later, which is not present in the default patch version of llvm-20 that is downloaded for 26.04
-    if [ "${VERSION}" = "26.04" ]; then
-      apt_get_purge 120 5 300 libpolly-20-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
 
     rm -rf /tmp/bcc

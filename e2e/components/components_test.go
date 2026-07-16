@@ -126,6 +126,13 @@ func TestDCGMExporterCompatibility(t *testing.T) {
 			parseDeps:   parseDebDeps,
 		},
 		{
+			name:        "Ubuntu2604",
+			os:          "ubuntu",
+			osVersion:   "r2604",
+			downloadURL: "https://packages.microsoft.com/repos/microsoft-ubuntu-resolute-prod/pool/main/d/dcgm-exporter/dcgm-exporter_%s_amd64.deb",
+			parseDeps:   parseDebDeps,
+		},
+		{
 			name:        "AzureLinux3",
 			os:          "azurelinux",
 			osVersion:   "v3.0",
