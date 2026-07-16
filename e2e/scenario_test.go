@@ -2205,6 +2205,284 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2604Minimal(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2604 minimal VHD can be properly bootstrapped with containerd v2",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			Validator: func(ctx context.Context, s *Scenario) {
+				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
+				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
+				ValidateContainerd2Properties(ctx, s, containerdVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
+				ValidateContainerRuntimePlugins(ctx, s)
+				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
+				ValidateSSHServiceEnabled(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a new Ubuntu 2604 minimal node using self contained installer can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_AzureCNI(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2604 minimal VHD can be properly bootstrapped with containerd v2 on an Azure CNI cluster",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
+		Config: Config{
+			Cluster: clusterAzureNetwork,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			Validator: func(ctx context.Context, s *Scenario) {
+				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
+				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
+				ValidateContainerd2Properties(ctx, s, containerdVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
+				ValidateContainerRuntimePlugins(ctx, s)
+				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
+				ValidateSSHServiceEnabled(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_AzureCNI_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a new Ubuntu 2604 minimal node using self contained installer can be properly bootstrapped on an Azure CNI cluster",
+		Config: Config{
+			Cluster: clusterAzureNetwork,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_NPD_Basic(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Test that a node using Ubuntu 26.04 minimal with AKS VM Extension enabled can report simulated node problem detector events",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
+				require.NoError(t, err, "creating AKS VM extension")
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNodeProblemDetector(ctx, s)
+				ValidateNPDFilesystemCorruption(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_SecondaryNIC(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on Ubuntu 26.04 minimal",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			// configureSecondaryNICs is new and not yet baked into released VHDs.
+			// The scriptless_nbc path always uses VHD scripts (DisableCustomData=true),
+			// so it can't pick up the new function until the next VHD release.
+			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.StandardSecondaryNICCount = 1
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				addSecondaryNIC(vmss)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false")
+				ValidateSecondaryNICUp(ctx, s, resolveSecondaryNICName(ctx, s))
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_SecondaryNIC_DualStack(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a dual-stack secondary NIC is properly configured on Ubuntu 26.04 minimal",
+		Config: Config{
+			Cluster:           ClusterAzureOverlayNetworkDualStack,
+			VHD:               config.VHDUbuntu2604MinimalGen2Containerd,
+			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.StandardSecondaryNICCount = 1
+				if nbc.ContainerService.Properties.FeatureFlags == nil {
+					nbc.ContainerService.Properties.FeatureFlags = &datamodel.FeatureFlags{}
+				}
+				nbc.ContainerService.Properties.FeatureFlags.EnableIPv6DualStack = true
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginNone)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginNone)
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/podnetwork-type"] = "overlay"
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = c.VNetResourceGUID
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/azure-cni-overlay"] = "true"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				DualStackVMConfigMutator(vmss)
+				addDualStackSecondaryNIC(vmss)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6: true")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4-overrides:")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6-overrides:")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false")
+				ValidateSecondaryNICDualStack(ctx, s, resolveSecondaryNICName(ctx, s))
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an Ubuntu 2604 minimal Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
+		Tags: Tags{
+			BootstrapTokenFallback: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled:                true,
+					GetAccessTokenTimeout:  (10 * time.Second).String(),
+					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
+				}
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_GPUA10(t *testing.T) {
+	runScenarioUbuntu2604MinimalGRID(t, "Standard_NV6ads_A10_v5")
+}
+
+func Test_Ubuntu2604Minimal_GPU_H100(t *testing.T) {
+	RunScenario(t, runScenarioUbuntu2604MinimalGPUNPD(t, "Standard_ND96isr_H100_v5", "uaenorth", ""))
+}
+
+func Test_Ubuntu2604Minimal_GPU_A100(t *testing.T) {
+	RunScenario(t, runScenarioUbuntu2604MinimalGPUNPD(t, "Standard_ND96asr_v4", "southcentralus", "Standard_D2s_v3"))
+}
+
+func Test_Ubuntu2604MinimalArm64(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2604 minimal ARM64 VHD can be properly bootstrapped with containerd v2",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
+			Validator: func(ctx context.Context, s *Scenario) {
+				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
+				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
+				ValidateContainerd2Properties(ctx, s, containerdVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
+				ValidateContainerRuntimePlugins(ctx, s)
+				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
+				ValidateSSHServiceEnabled(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604MinimalArm64_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a new Ubuntu 2604 minimal ARM64 node using self contained installer can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {},
+		},
+	})
+}
+
+func Test_Ubuntu2604MinimalArm64_AzureCNI(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2604 minimal ARM64 VHD can be properly bootstrapped with containerd v2 on an Azure CNI cluster",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
+		Config: Config{
+			Cluster: clusterAzureNetwork,
+			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
+			Validator: func(ctx context.Context, s *Scenario) {
+				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
+				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
+				ValidateContainerd2Properties(ctx, s, containerdVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
+				ValidateContainerRuntimePlugins(ctx, s)
+				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
+				ValidateSSHServiceEnabled(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604MinimalArm64_AzureCNI_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a new Ubuntu 2604 minimal ARM64 node using self contained installer can be properly bootstrapped on an Azure CNI cluster",
+		Config: Config{
+			Cluster: clusterAzureNetwork,
+			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {},
+		},
+	})
+}
+
+func Test_Ubuntu2604MinimalArm64_NPD_Basic(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Test that a node using Ubuntu 26.04 minimal ARM64 with AKS VM Extension enabled can report simulated node problem detector events",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
+				require.NoError(t, err, "creating AKS VM extension")
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNodeProblemDetector(ctx, s)
+				ValidateNPDFilesystemCorruption(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2404Gen2_McrChinaCloud_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
@@ -2408,6 +2686,36 @@ func runScenarioUbuntu2404GRID(t *testing.T, vmSize string) {
 	})
 }
 
+func runScenarioUbuntu2604MinimalGRID(t *testing.T, vmSize string) {
+	RunScenario(t, &Scenario{
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2604 minimal VHD can be properly bootstrapped, and that the GRID license is valid", vmSize),
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(vmSize)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateNvidiaGRIDLicenseValid(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
+				ValidateNvidiaPersistencedRunning(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2404_GPUA10(t *testing.T) {
 	runScenarioUbuntu2404GRID(t, "Standard_NV6ads_A10_v5")
 }
@@ -2465,11 +2773,11 @@ func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 }
 
 func Test_Ubuntu2404_GPU_H100(t *testing.T) {
-	RunScenario(t, runScenarioGPUNPD(t, "Standard_ND96isr_H100_v5", "uaenorth", ""))
+	RunScenario(t, runScenarioUbuntu2404GPUNPD(t, "Standard_ND96isr_H100_v5", "uaenorth", ""))
 }
 
 func Test_Ubuntu2404_GPU_A100(t *testing.T) {
-	RunScenario(t, runScenarioGPUNPD(t, "Standard_ND96asr_v4", "southcentralus", "Standard_D2s_v3"))
+	RunScenario(t, runScenarioUbuntu2404GPUNPD(t, "Standard_ND96asr_v4", "southcentralus", "Standard_D2s_v3"))
 }
 
 func Test_AzureLinux3_PMC_Install(t *testing.T) {

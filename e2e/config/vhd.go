@@ -171,6 +171,22 @@ var (
 		Gallery: imageGalleryLinux,
 	}
 
+	VHDUbuntu2604MinimalGen2Containerd = &Image{
+		Name:    "2604minimalgen2containerd",
+		OS:      OSUbuntu,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSUbuntuMinimalContainerd2604Gen2,
+		Gallery: imageGalleryLinux,
+	}
+
+	VHDUbuntu2604MinimalArm64Gen2Containerd = &Image{
+		Name:    "2604minimalgen2arm64containerd",
+		OS:      OSUbuntu,
+		Arch:    "arm64",
+		Distro:  datamodel.AKSUbuntuMinimalArm64Containerd2604Gen2,
+		Gallery: imageGalleryLinux,
+	}
+
 	VHDAzureLinuxV3Gen2Arm64 = &Image{
 		Name:         "azurelinuxv3gen2arm64",
 		OS:           OSAzureLinux,
