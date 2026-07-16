@@ -1206,6 +1206,30 @@ providers:
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
+        It 'should configure credential provider for custom cloud network isolated cluster'
+            AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX=".custom.registry.io"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="test.azurecr.io"
+            expected_config='apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+      - "*.custom.registry.io"
+      - "mcr.microsoft.com"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json
+      - --registry-mirror=mcr.microsoft.com:test.azurecr.io'
+            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
+            The output should include "configure credential provider for custom cloud network isolated cluster"
+            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
+        End
+
         It 'should configure credential provider with identity binding enabled and all args'
             SERVICE_ACCOUNT_IMAGE_PULL_ENABLED="true"
             IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI="test.sni.local"
