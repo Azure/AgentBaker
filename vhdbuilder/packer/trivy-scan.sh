@@ -96,6 +96,10 @@ install_azure_cli() {
     fi
 
     if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || { [ "$OS_SKU" = "Ubuntu" ] && [ "$OS_VERSION" = "26.04" ]; }; then
+        if [ "$OS_SKU" = "Ubuntu" ] && [ "$OS_VERSION" = "26.04" ]; then
+            apt_get_update
+            apt_get_install 5 1 60 python3-pip
+        fi
         python3 -m venv "/home/$TEST_VM_ADMIN_USERNAME/venv"
         export PATH="/home/$TEST_VM_ADMIN_USERNAME/venv/bin:$PATH"
         pip install azure-cli

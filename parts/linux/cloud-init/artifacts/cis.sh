@@ -297,7 +297,7 @@ preferClassicSudo() {
     # managed (i.e. sudo-rs is present); a no-op on releases that ship only classic sudo.
     local classic_sudo="/usr/bin/sudo.ws"
     if [ -x "${classic_sudo}" ] && update-alternatives --list sudo >/dev/null 2>&1; then
-        update-alternatives --set sudo "${classic_sudo}" || echo "warning: failed to set ${classic_sudo} as the default sudo implementation"
+        update-alternatives --set sudo "${classic_sudo}" >/dev/null 2>&1 || echo "warning: failed to set ${classic_sudo} as the default sudo implementation"
     fi
 }
 
