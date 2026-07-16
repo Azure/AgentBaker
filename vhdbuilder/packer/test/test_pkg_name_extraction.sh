@@ -16,8 +16,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 # Source cse_helpers.sh for getPackageJSON
 # Set defaults for variables that cse_helpers.sh expects
 OS_VARIANT="${OS_VARIANT:-DEFAULT}"
-source "$REPO_ROOT/parts/linux/cloud-init/artifacts/cse_helpers.sh" 2>/dev/null
-if ! type getPackageJSON >/dev/null 2>&1; then
+if ! source "$REPO_ROOT/parts/linux/cloud-init/artifacts/cse_helpers.sh" 2>/dev/null || ! type getPackageJSON >/dev/null 2>&1; then
   echo "Failed to source cse_helpers.sh: getPackageJSON is not defined" >&2
   exit 1
 fi
