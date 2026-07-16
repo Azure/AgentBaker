@@ -1603,7 +1603,10 @@ Slice=kubelet.slice
 EOF
         chmod 0644 "${containerd_dropin_dir}/10-kubelet-slice.conf"
 
-        systemctl daemon-reload
+        if ! systemctl daemon-reload; then
+            echo "ensureKubeletCgroupHierarchy: failed to daemon-reload systemd"
+            return 1
+        fi
 
         # Enable the slice so it is started on subsequent boots.
         if ! systemctl enable kubelet.slice; then
