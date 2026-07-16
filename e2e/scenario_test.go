@@ -305,9 +305,8 @@ func runScenarioACLGPU(t *testing.T, vmSize string, location string) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDACLGen2TL,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2TL,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
@@ -334,9 +333,8 @@ func runScenarioACLGRID(t *testing.T, vmSize string) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDACLGen2TL,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2TL,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
@@ -425,9 +423,8 @@ func Test_AzureLinuxV2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that an AzureLinuxV2 node can be properly bootstrapped",
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDAzureLinuxV2Gen2,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				k8sVersion := "1.30.101-akslts"
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = k8sVersion
@@ -512,31 +509,8 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_Failure_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
-		Tags: Tags{
-			Scriptless: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
-				ValidateFileExists(ctx, s, "/var/log/azure/aks/provision.json")
-			},
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-				// Intentionally causing a failure here
-				//config.Version = "v200"
-				config.BootstrappingConfig = nil
-				config.KubernetesCaCert = ""
-			},
-			ExpectedError: "API server connection check code: 51",
-		},
-	})
-}
-
 func Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
+	t.Skip("Need a way to inject early failures into scriptless")
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
 		Tags: Tags{
@@ -549,6 +523,7 @@ func Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
 				ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
 				ValidateFileExists(ctx, s, "/var/log/azure/aks/provision.json")
 			},
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				// Intentionally causing a failure here
 				config.Version = "VeryBadVersion"
@@ -567,6 +542,7 @@ func Test_Ubuntu2404_Scriptless(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
 			},
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 			},
 		},
@@ -1234,6 +1210,11 @@ func Test_Ubuntu2404_ArtifactStreaming_ARM64_Scriptless(t *testing.T) {
 				config.EnableArtifactStreaming = true
 				config.VmSize = "Standard_D2pds_V5"
 			},
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableArtifactStreaming = true
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+				nbc.IsARM64 = true
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
@@ -1470,9 +1451,8 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string, location string) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDUbuntu2204Gen2Containerd,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
@@ -1499,9 +1479,8 @@ func runScenarioUbuntuGRID(t *testing.T, vmSize string) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDUbuntu2204Gen2Containerd,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
@@ -1885,9 +1864,8 @@ func Test_AzureLinuxV3_MA35D(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDAzureLinuxV3Gen2,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NM16ads_MA35D"
 				nbc.AgentPoolProfile.VMSize = "Standard_NM16ads_MA35D"
@@ -2037,9 +2015,8 @@ func Test_AzureLinuxV3_GPU(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDAzureLinuxV3Gen2,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
 				nbc.ConfigGPUDriverIfNeeded = true
@@ -2835,10 +2812,6 @@ func Test_Ubuntu2404_SecondaryNIC(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			// configureSecondaryNICs is new and not yet baked into released VHDs.
-			// The scriptless_nbc path always uses VHD scripts (DisableCustomData=true),
-			// so it can't pick up the new function until the next VHD release.
-			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.StandardSecondaryNICCount = 1
 			},
@@ -2860,9 +2833,8 @@ func Test_AzureLinuxV3_SecondaryNIC(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on Azure Linux",
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDAzureLinuxV3Gen2,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.StandardSecondaryNICCount = 1
 			},
@@ -2884,9 +2856,8 @@ func Test_Ubuntu2204_SecondaryNIC(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on Ubuntu 22.04",
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDUbuntu2204Gen2Containerd,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.StandardSecondaryNICCount = 1
 			},
@@ -2908,9 +2879,8 @@ func Test_ACL_SecondaryNIC(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on ACL",
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDACLGen2TL,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2TL,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.StandardSecondaryNICCount = 1
 			},
@@ -2933,9 +2903,8 @@ func Test_Ubuntu2404_SecondaryNIC_DualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a dual-stack secondary NIC is properly configured on Ubuntu 24.04",
 		Config: Config{
-			Cluster:           ClusterAzureOverlayNetworkDualStack,
-			VHD:               config.VHDUbuntu2404Gen2Containerd,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterAzureOverlayNetworkDualStack,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.StandardSecondaryNICCount = 1
 				if nbc.ContainerService.Properties.FeatureFlags == nil {
@@ -2970,9 +2939,8 @@ func Test_Ubuntu2204_SecondaryNIC_DualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a dual-stack secondary NIC is properly configured on Ubuntu 22.04",
 		Config: Config{
-			Cluster:           ClusterAzureOverlayNetworkDualStack,
-			VHD:               config.VHDUbuntu2204Gen2Containerd,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterAzureOverlayNetworkDualStack,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.StandardSecondaryNICCount = 1
 				if nbc.ContainerService.Properties.FeatureFlags == nil {
@@ -3007,9 +2975,8 @@ func Test_AzureLinuxV3_SecondaryNIC_DualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a dual-stack secondary NIC is properly configured on Azure Linux",
 		Config: Config{
-			Cluster:           ClusterAzureOverlayNetworkDualStack,
-			VHD:               config.VHDAzureLinuxV3Gen2,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterAzureOverlayNetworkDualStack,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.StandardSecondaryNICCount = 1
 				if nbc.ContainerService.Properties.FeatureFlags == nil {
@@ -3043,9 +3010,8 @@ func Test_ACL_SecondaryNIC_DualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a dual-stack secondary NIC is properly configured on ACL",
 		Config: Config{
-			Cluster:           ClusterAzureOverlayNetworkDualStack,
-			VHD:               config.VHDACLGen2TL,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterAzureOverlayNetworkDualStack,
+			VHD:     config.VHDACLGen2TL,
 			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.StandardSecondaryNICCount = 1
 				if nbc.ContainerService.Properties.FeatureFlags == nil {

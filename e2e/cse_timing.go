@@ -47,21 +47,6 @@ type CSETimingReport struct {
 	taskIndex map[string]*CSETaskTiming
 }
 
-// cseEventJSON matches the JSON structure written by logs_to_events() in cse_helpers.sh.
-// Despite its name, OperationId stores the task *end* timestamp (not a GUID).
-// This is by design: GA (Guest Agent) requires specific field names, and OperationId
-// was repurposed to carry the end time. See cse_helpers.sh logs_to_events():
-//
-//	--arg Timestamp   "${startTime}"
-//	--arg OperationId "${endTime}"
-type cseEventJSON struct {
-	Timestamp   string `json:"Timestamp"`
-	OperationId string `json:"OperationId"` // end timestamp, not a GUID — see logs_to_events() in cse_helpers.sh
-	TaskName    string `json:"TaskName"`
-	EventLevel  string `json:"EventLevel"`
-	Message     string `json:"Message"`
-}
-
 // GetTask returns the timing for a specific task, or nil if not found.
 func (r *CSETimingReport) GetTask(name string) *CSETaskTiming {
 	if r.taskIndex == nil {
@@ -121,70 +106,103 @@ func (r *CSETimingReport) LogReport(_ context.Context, t interface{ Logf(string,
 func ExtractCSETimings(ctx context.Context, s *Scenario) (*CSETimingReport, error) {
 	report := &CSETimingReport{}
 
-	// Read all event JSON files from the CSE events directory, explicitly
-	// appending a newline after each file so each JSON document is separated.
-	// Search the CustomScript directory tree for any events/ subdirectories,
-	// as the Guest Agent may store events in handler-version subdirectories.
-	listCmd := "sudo find /var/log/azure/Microsoft.Azure.Extensions.CustomScript/ -name '*.json' -path '*/events/*' -exec sh -c 'cat \"$1\"; echo' _ {} \\; 2>/dev/null"
-	result, err := execScriptOnVm(ctx, s, s.Runtime.VM, listCmd)
+	result, err := execScriptOnVm(ctx, s, s.Runtime.VM, "sudo cat /var/log/azure/cluster-provision.log")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read CSE events: %w", err)
+		return nil, fmt.Errorf("failed to read cluster-provision.log: %w", err)
 	}
 
-	// Parse event JSON objects using json.Decoder for robustness — handles both
-	// single-line and multi-line JSON, and doesn't break on embedded newlines.
-	decoder := json.NewDecoder(strings.NewReader(strings.TrimSpace(result.stdout)))
 	var parseErrors int
-	for decoder.More() {
-		var event cseEventJSON
-		if err := decoder.Decode(&event); err != nil {
-			parseErrors++
-			s.T.Logf("WARNING: failed to decode CSE event JSON: %v", err)
-			continue
-		}
-		if event.TaskName == "" || event.Timestamp == "" || event.OperationId == "" {
+	for _, line := range strings.Split(result.stdout, "\n") {
+		if !strings.Contains(line, " echo ") ||
+			!strings.Contains(line, `"TaskName"`) ||
+			!strings.Contains(line, "AKS.CSE.") {
 			continue
 		}
 
-		startTime, err := parseCSETimestamp(event.Timestamp)
-		if err != nil {
+		// Bash xtrace prints each word as a separately quoted shell argument:
+		// + echo '{' '"Timestamp":' '"2026-07-17' '02:22:57.206",' ...
+		// Removing those trace-only single quotes reconstructs the JSON fields.
+		normalized := strings.ReplaceAll(line, "'", "")
+		startTimestamp := extractXtraceJSONField(normalized, "Timestamp")
+		endTimestamp := extractXtraceJSONField(normalized, "OperationId")
+		taskName := extractXtraceJSONField(normalized, "TaskName")
+		if startTimestamp == "" || endTimestamp == "" || !strings.HasPrefix(taskName, "AKS.CSE.") {
 			parseErrors++
-			s.T.Logf("WARNING: failed to parse CSE start timestamp for task %s: %v", event.TaskName, err)
 			continue
 		}
-		endTime, err := parseCSETimestamp(event.OperationId)
+
+		startTime, err := parseCSETimestamp(startTimestamp)
 		if err != nil {
 			parseErrors++
-			s.T.Logf("WARNING: failed to parse CSE end timestamp for task %s: %v", event.TaskName, err)
+			s.T.Logf("WARNING: failed to parse CSE start timestamp for task %s: %v", taskName, err)
+			continue
+		}
+		endTime, err := parseCSETimestamp(endTimestamp)
+		if err != nil {
+			parseErrors++
+			s.T.Logf("WARNING: failed to parse CSE end timestamp for task %s: %v", taskName, err)
 			continue
 		}
 
 		report.Tasks = append(report.Tasks, CSETaskTiming{
-			TaskName:  event.TaskName,
+			TaskName:  taskName,
 			StartTime: startTime,
 			EndTime:   endTime,
 			Duration:  endTime.Sub(startTime),
-			Message:   event.Message,
 		})
 	}
 
 	if parseErrors > 0 {
-		s.T.Logf("WARNING: %d CSE event parse errors encountered", parseErrors)
+		s.T.Logf("WARNING: %d CSE timing lines in cluster-provision.log could not be parsed", parseErrors)
 	}
 	if len(report.Tasks) == 0 {
-		return report, fmt.Errorf("no CSE task timings were parsed (%d parse errors)", parseErrors)
+		return report, fmt.Errorf("no CSE task timings were parsed from cluster-provision.log (%d parse errors)", parseErrors)
 	}
 
-	// Read provision.json for overall boot timing
 	provResult, err := execScriptOnVm(ctx, s, s.Runtime.VM, fmt.Sprintf("sudo cat %s", provisionJSONPath))
-	if err == nil && provResult.stdout != "" {
-		var prov CSEProvisionTiming
-		if json.Unmarshal([]byte(strings.TrimSpace(provResult.stdout)), &prov) == nil {
-			report.Provision = &prov
-		}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", provisionJSONPath, err)
 	}
+
+	var prov CSEProvisionTiming
+	if err := json.Unmarshal([]byte(strings.TrimSpace(provResult.stdout)), &prov); err != nil {
+		return nil, fmt.Errorf("failed to parse %s: %w", provisionJSONPath, err)
+	}
+	report.Provision = &prov
+
+	cseStart, err := parseProvisionTimestamp(prov.CSEStartTime)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse CSEStartTime from %s: %w", provisionJSONPath, err)
+	}
+	execDuration, err := time.ParseDuration(prov.ExecDuration + "s")
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse ExecDuration %q from %s: %w", prov.ExecDuration, provisionJSONPath, err)
+	}
+	report.Tasks = append(report.Tasks, CSETaskTiming{
+		TaskName:  "AKS.CSE.cse_start",
+		StartTime: cseStart,
+		EndTime:   cseStart.Add(execDuration),
+		Duration:  execDuration,
+	})
 
 	return report, nil
+}
+
+func extractXtraceJSONField(line, field string) string {
+	fieldStart := strings.Index(line, `"`+field+`":`)
+	if fieldStart == -1 {
+		return ""
+	}
+	valueStart := strings.Index(line[fieldStart+len(field)+3:], `"`)
+	if valueStart == -1 {
+		return ""
+	}
+	valueStart += fieldStart + len(field) + 4
+	valueEnd := strings.Index(line[valueStart:], `"`)
+	if valueEnd == -1 {
+		return ""
+	}
+	return line[valueStart : valueStart+valueEnd]
 }
 
 // parseCSETimestamp parses the timestamp format used by logs_to_events: "YYYY-MM-DD HH:MM:SS.mmm"
@@ -199,6 +217,19 @@ func parseCSETimestamp(s string) (time.Time, error) {
 		}
 	}
 	return time.Time{}, fmt.Errorf("cannot parse CSE timestamp %q", s)
+}
+
+func parseProvisionTimestamp(s string) (time.Time, error) {
+	layouts := []string{
+		time.RFC3339Nano,
+		"Mon Jan _2 15:04:05 MST 2006",
+	}
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("cannot parse provision timestamp %q", s)
 }
 
 // CSETimingThresholds defines maximum acceptable durations for CSE tasks.

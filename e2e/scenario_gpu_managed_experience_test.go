@@ -543,7 +543,6 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 		Config: Config{
 			Cluster:               ClusterKubenet,
 			VHD:                   config.VHDUbuntu2404Gen2Containerd,
-			SkipScriptlessNBC:     true,
 			WaitForSSHAfterReboot: 5 * time.Minute,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
@@ -619,9 +618,8 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDUbuntu2204Gen2Containerd,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
 				nbc.ConfigGPUDriverIfNeeded = true
@@ -792,9 +790,8 @@ func Test_Ubuntu2404_DraDriverNvidiaGpuRunning(t *testing.T) {
 		},
 
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			SkipScriptlessNBC: true,
-			VHD:               config.VHDUbuntu2404Gen2Containerd,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
 				nbc.ConfigGPUDriverIfNeeded = true

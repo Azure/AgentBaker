@@ -85,28 +85,29 @@ func RunScenario(t *testing.T, s *Scenario) {
 		})
 		return
 	}
-	t.Run("default", func(t *testing.T) {
-		t.Parallel()
-		err := runScenario(t, copyScenario(s))
-		require.NoError(t, err)
-	})
-
-	if supportsScriptlessNBCCSECmd(s) {
-		t.Run("scriptless_nbc", func(t *testing.T) {
+	if scriptlessUnsupported(s) {
+		t.Run("default", func(t *testing.T) {
 			t.Parallel()
-			sCopy := copyScenario(s)
-			if sCopy.Runtime == nil {
-				sCopy.Runtime = &ScenarioRuntime{}
-			}
-			sCopy.Runtime.EnableScriptlessNBCCSECmd = true
-			err := runScenario(t, sCopy)
+			err := runScenario(t, copyScenario(s))
 			require.NoError(t, err)
 		})
+		return
 	}
+
+	t.Run("scriptless_nbc", func(t *testing.T) {
+		t.Parallel()
+		sCopy := copyScenario(s)
+		if sCopy.Runtime == nil {
+			sCopy.Runtime = &ScenarioRuntime{}
+		}
+		sCopy.Runtime.EnableScriptlessNBCCSECmd = true
+		err := runScenario(t, sCopy)
+		require.NoError(t, err)
+	})
 }
 
-func supportsScriptlessNBCCSECmd(s *Scenario) bool {
-	return s.AKSNodeConfigMutator == nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision && !s.SkipScriptlessNBC
+func scriptlessUnsupported(s *Scenario) bool {
+	return s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
 }
 
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) {

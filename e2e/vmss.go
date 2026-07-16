@@ -1017,6 +1017,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"syslog":                               "sudo cat /var/log/" + syslogHandle,
 		"journalctl":                           "sudo journalctl --boot=0 --no-pager",
 		"azure.json":                           "sudo cat /etc/kubernetes/azure.json",
+		"provision.json":                       "sudo cat /var/log/azure/aks/provision.json",
 	}
 	if s.SecureTLSBootstrappingEnabled() {
 		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
