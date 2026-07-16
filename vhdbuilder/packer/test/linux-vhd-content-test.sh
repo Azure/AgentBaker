@@ -1731,9 +1731,14 @@ testContainerImagePrefetchScript() {
 testBccTools () {
   local test="BCCInstallTest"
   os_sku="${1}"
+  os_version="${2}"
   echo "$test: checking if BCC tools were successfully installed"
   if [ "$os_sku" = "AzureLinuxOSGuard" ]; then
     echo "$test: Skipping check on AzureLinuxOSGuard - BCC tools are not installed"
+    return 0
+  fi
+  if [ "$os_version" = "26.04" ]; then
+    echo "$test: Skipping check on Ubuntu 26.04 - BCC tools are not installed"
     return 0
   fi
   for line in '  - bcc-tools' '  - libbcc-examples'; do
@@ -2523,7 +2528,7 @@ testContainerNetworkingPluginsInstalled() {
 # This will keep the VM alive after the tests are run and we can SSH/Bastion into the VM to run the test manually.
 # Therefore, for example, you can run "sudo bash /var/lib/waagent/run-command/download/0/script.sh" to run the tests manually.
 checkPerformanceData
-testBccTools $OS_SKU
+testBccTools $OS_SKU $OS_VERSION
 testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled
