@@ -2677,3 +2677,28 @@ func Test_AzureLinuxV3_MANA(t *testing.T) {
 		},
 	})
 }
+
+func Test_Ubuntu2204_NodeHardening_KubeletSlice(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "validates kubelet and containerd run in kubelet.slice when node hardening cgroup hierarchy is enabled",
+		Config: Config{
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDUbuntu2204Gen2Containerd,
+			SkipScriptlessNBC: true, // VHD scripts may lack the Slice= directive; force fresh upload until VHDs catch up
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.KubeletConfig["--kube-reserved-cgroup"] = "/kubelet.slice"
+				nbc.AgentPoolProfile.CustomKubeletConfig = &datamodel.CustomKubeletConfig{}
+				// Disable scriptless CSE so that the current cse_helpers.sh (with Slice= in the drop-in)
+				// is uploaded via custom data instead of relying on potentially stale VHD scripts.
+				nbc.EnableScriptlessCSECmd = false
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/etc/systemd/system/kubelet.slice")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-kubelet-slice.conf", "Slice=kubelet.slice")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/containerd.service.d/10-kubelet-slice.conf", "Slice=kubelet.slice")
+				ValidateServiceInSlice(ctx, s, "kubelet.service", "kubelet.slice")
+				ValidateServiceInSlice(ctx, s, "containerd.service", "kubelet.slice")
+			},
+		},
+	})
+}
