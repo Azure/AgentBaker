@@ -277,11 +277,17 @@ testPackagesInstalled() {
         # For example, in Ubuntu, we use apt-get to install packages.
         # We can simply execute the command to verify the package version.
         case "$name" in
-          "kubernetes-cri-tools")
-            testCriCtl "$version"
-            ;;
-          "containerd")
-            testContainerd "$version"
+          "kubernetes-cri-tools"|"containerd")
+            # Resolve the actual installed package name from components.json renovateTag.
+            # The components.json "name" field may differ from the real package name
+            # (e.g. "containerd" -> moby-containerd on Ubuntu, containerd2 on Azure Linux 3.0).
+            local pkgName
+            pkgName=$(getPackageJSON "$p" "${OS}" "${OS_VERSION}" "${OS_VARIANT}" | jq -r '.versionsV2[0].renovateTag // empty' | sed -n 's/.*name=\([^,]*\).*/\1/p' | xargs)
+            if [ "$name" = "kubernetes-cri-tools" ]; then
+              testCriCtl "$version" "${pkgName:-}"
+            else
+              testContainerd "$version" "${pkgName:-}"
+            fi
             ;;
         esac
         break
@@ -1964,26 +1970,63 @@ testAKSNodeControllerService() {
   echo "$test:Finish"
 }
 
+# assertPackageVersion verifies that the installed deb/rpm package version matches
+# the expected full version string from components.json (including hotfix suffix).
+# This catches drift between what the package manager installs and what components.json
+# specifies at VHD build time rather than in e2e.
+assertPackageVersion() {
+  local test="$1"
+  local packageName="$2"
+  local expectedVersion="$3"
+
+  local installedVersion=""
+  if command -v dpkg-query >/dev/null 2>&1 && dpkg-query -W -f='${Status}' "$packageName" 2>/dev/null | grep -q "install ok installed"; then
+    # dpkg versions may include an epoch prefix (e.g. "1:..."); strip it for comparison with components.json.
+    installedVersion=$(dpkg-query -W -f='${Version}' "$packageName" 2>/dev/null | sed 's/^[0-9]*://')
+  elif command -v rpm >/dev/null 2>&1 && rpm -q "$packageName" >/dev/null 2>&1; then
+    installedVersion=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' "$packageName" 2>/dev/null)
+  else
+    err "$test" "$packageName is not installed"
+    return 1
+  fi
+
+  echo "$test: checking if installed $packageName version '$installedVersion' matches expected '$expectedVersion'"
+  if [ "$installedVersion" != "$expectedVersion" ]; then
+    err "$test" "installed $packageName version '$installedVersion' does not match expected '$expectedVersion' from components.json"
+    return 1
+  fi
+  return 0
+}
+
 testCriCtl() {
   expectedVersion="${1}"
+  local installedPackageName="${2}"
   local test="testCriCtl"
   echo "$test: Start"
   # If the version defined in components.json is <SKIP>, that means it will use whatever version is installed on the system.
   # Therefore, we will just skip the test.
   if [ "$expectedVersion" = "<SKIP>" ]; then
-    echo "$test: Skipping test for containerd version, as expected version is <SKIP>"
+    echo "$test: Skipping test for crictl version, as expected version is <SKIP>"
     return 0
   fi
-  # the expectedVersion looks like this, "1.32.0-ubuntu24.04u3", need to extract the version number.
-  expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
-  # use command `crictl --version` to get the version
 
-  local crictl_version=$(crictl --version)
+  # Strict match: verify the full deb/rpm package version matches components.json
+  if [ -z "$installedPackageName" ]; then
+    err "$test" "could not resolve package name from components.json renovateTag"
+    return 1
+  fi
+  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
+
+  # Verify the binary reports the expected major.minor.patch version.
+  local expectedMajorMinorPatch
+  expectedMajorMinorPatch=$(echo "$expectedVersion" | cut -d'-' -f1)
+  local crictl_version
+  crictl_version=$(crictl --version)
   # the output of crictl_version looks like this "crictl version 1.32.0", need to extract the version number.
   crictl_version=$(echo $crictl_version | cut -d' ' -f3)
-  echo "$test: checking if crictl version is $expectedVersion"
-  if [ "$crictl_version" != "$expectedVersion" ]; then
-    err "$test: crictl version is not $expectedVersion, instead it is $crictl_version"
+  echo "$test: checking if crictl binary version is $expectedMajorMinorPatch"
+  if [ "$crictl_version" != "$expectedMajorMinorPatch" ]; then
+    err "$test" "crictl binary version is not $expectedMajorMinorPatch, instead it is $crictl_version"
     return 1
   fi
   echo "$test: Test finished successfully."
@@ -1992,6 +2035,7 @@ testCriCtl() {
 
 testContainerd() {
   expectedVersion="${1}"
+  local installedPackageName="${2}"
   local test="testContainerd"
   echo "$test: Start"
   # If the version defined in components.json is <SKIP>, that means it will use whatever version is installed on the system.
@@ -2000,19 +2044,26 @@ testContainerd() {
     echo "$test: Skipping test for containerd version, as expected version is <SKIP>"
     return 0
   fi
-  # the expectedVersion looks like this, "1.6.24-0ubuntu1~24.04.1" or "2.0.0-6.azl3", we need to extract the major.minor.patch version only.
-  expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
-  # use command `containerd --version` to get the version
-  local containerd_version=$(containerd --version)
-  # the output of containerd_version looks like the followings. We need to extract the major.minor.patch version only.
+
+  # Strict match: verify the full deb/rpm package version matches components.json
+  if [ -z "$installedPackageName" ]; then
+    err "$test" "could not resolve package name from components.json renovateTag"
+    return 1
+  fi
+  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
+
+  # Verify the containerd binary reports the expected major.minor.patch version.
+  local expectedMajorMinorPatch
+  expectedMajorMinorPatch=$(echo "$expectedVersion" | cut -d'-' -f1)
+  local containerd_version
+  containerd_version=$(containerd --version)
   # For containerd (v1): containerd github.com/containerd/containerd 1.6.26
   # For containerd (v2): containerd github.com/containerd/containerd/v2 2.0.0
   containerd_version=$(echo $containerd_version | cut -d' ' -f3)
-  # The version could be in the format "1.6.24-11-ubuntu1~24.04.1" or "2.0.0-6.azl3" or just "2.0.0", we need to extract the major.minor.patch version only.
   containerd_version=$(echo "$containerd_version" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
-  echo "$test: checking if containerd version is $expectedVersion"
-  if [ "$containerd_version" != "$expectedVersion" ]; then
-    err "$test: containerd version is not $expectedVersion, instead it is $containerd_version"
+  echo "$test: checking if containerd binary version is $expectedMajorMinorPatch"
+  if [ "$containerd_version" != "$expectedMajorMinorPatch" ]; then
+    err "$test" "containerd binary version is not $expectedMajorMinorPatch, instead it is $containerd_version"
     return 1
   fi
   echo "$test: Test finished successfully."
