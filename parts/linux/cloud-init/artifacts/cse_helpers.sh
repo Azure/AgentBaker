@@ -1561,15 +1561,11 @@ ensureKubeletCgroupHierarchy() {
 
     # /system.slice is a built-in systemd slice; we only need to create kubelet.slice.
     if [ "${KUBE_RESERVED_CGROUP:-}" = "/kubelet.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kubelet.slice" ]; then
-        local needs_reload=0
-        if [ ! -f "${kubelet_slice_unit}" ]; then
-            mkdir -p "$(dirname "${kubelet_slice_unit}")"
-            # [Install] WantedBy=slices.target ensures the slice is pulled in by
-            # systemd on every boot (including post-reboot), not only the current
-            # provisioning boot. Combined with the Before=kubelet.service drop-in
-            # below this guarantees /sys/fs/cgroup/kubelet.slice is materialised
-            # before kubelet starts, so NodeAllocatable enforcement does not race.
-            tee "${kubelet_slice_unit}" > /dev/null <<'EOF'
+        # Write all unit/drop-in files unconditionally (idempotent). This ensures
+        # upgraded nodes that already have an older version of these files get the
+        # latest content (e.g. the Slice= directive added for kubelet/containerd).
+        mkdir -p "$(dirname "${kubelet_slice_unit}")"
+        tee "${kubelet_slice_unit}" > /dev/null <<'EOF'
 [Unit]
 Description=Slice for kubelet kube-reserved enforcement (AKS Node Memory Hardening)
 Before=slices.target
@@ -1580,17 +1576,12 @@ DefaultDependencies=no
 [Install]
 WantedBy=slices.target
 EOF
-            chmod 0644 "${kubelet_slice_unit}"
-            needs_reload=1
+        chmod 0644 "${kubelet_slice_unit}"
 
-
-        fi
-        if [ ! -f "${kubelet_dropin_dir}/10-kubelet-slice.conf" ]; then
-            # Drop-in on kubelet.service so systemd starts kubelet.slice first
-            # on every boot. This survives reboots without depending on the
-            # one-shot `systemctl start` below.
-            mkdir -p "${kubelet_dropin_dir}"
-            tee "${kubelet_dropin_dir}/10-kubelet-slice.conf" > /dev/null <<'EOF'
+        # Drop-in on kubelet.service so systemd starts kubelet.slice first
+        # on every boot and places kubelet inside the slice.
+        mkdir -p "${kubelet_dropin_dir}"
+        tee "${kubelet_dropin_dir}/10-kubelet-slice.conf" > /dev/null <<'EOF'
 [Unit]
 Wants=kubelet.slice
 After=kubelet.slice
@@ -1598,13 +1589,11 @@ After=kubelet.slice
 [Service]
 Slice=kubelet.slice
 EOF
-            chmod 0644 "${kubelet_dropin_dir}/10-kubelet-slice.conf"
-            needs_reload=1
-        fi
-        if [ ! -f "${containerd_dropin_dir}/10-kubelet-slice.conf" ]; then
-            # Drop-in on containerd.service to place it in kubelet.slice as well.
-            mkdir -p "${containerd_dropin_dir}"
-            tee "${containerd_dropin_dir}/10-kubelet-slice.conf" > /dev/null <<'EOF'
+        chmod 0644 "${kubelet_dropin_dir}/10-kubelet-slice.conf"
+
+        # Drop-in on containerd.service to place it in kubelet.slice as well.
+        mkdir -p "${containerd_dropin_dir}"
+        tee "${containerd_dropin_dir}/10-kubelet-slice.conf" > /dev/null <<'EOF'
 [Unit]
 Wants=kubelet.slice
 After=kubelet.slice
@@ -1612,13 +1601,9 @@ After=kubelet.slice
 [Service]
 Slice=kubelet.slice
 EOF
-            chmod 0644 "${containerd_dropin_dir}/10-kubelet-slice.conf"
-            needs_reload=1
-        fi
+        chmod 0644 "${containerd_dropin_dir}/10-kubelet-slice.conf"
 
-        if [ "${needs_reload}" -eq 1 ]; then
-            systemctl daemon-reload
-        fi
+        systemctl daemon-reload
 
         # Enable the slice so it is started on subsequent boots.
         if ! systemctl enable kubelet.slice; then
