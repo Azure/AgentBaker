@@ -1791,6 +1791,23 @@ EOF
 # The timer's systemd service reads LOCALDNS_CRITICAL_FQDNS from /etc/localdns/environment,
 # so this function writes a minimal environment file before starting the timer.
 # generateLocalDNSFiles() (called later by enableLocalDNS) overwrites it with the full content.
+# removeAKSLocalDNSHostsSetupTimerOverride removes the optional systemd drop-in that
+# overrides the default hosts-setup timer cadence.
+removeAKSLocalDNSHostsSetupTimerOverride() {
+    local hosts_setup_timer_override="$1"
+
+    if [ ! -f "${hosts_setup_timer_override}" ]; then
+        return 0
+    fi
+
+    rm -f "${hosts_setup_timer_override}"
+    if systemctl daemon-reload; then
+        echo "Restored default aks-localdns-hosts-setup timer refresh interval."
+    else
+        echo "Warning: Failed to reload systemd after removing ${hosts_setup_timer_override}"
+    fi
+}
+
 enableAKSLocalDNSHostsSetup() {
     # Best-effort setup: log errors but never fail.
     # The corefile will fall back to the no-hosts variant if hosts file is empty.
@@ -1842,8 +1859,52 @@ EOF
     touch "${hosts_file}"
     chmod 0644 "${hosts_file}"
 
-    # Enable the timer for periodic refresh (every 15 minutes)
-    # This will update the hosts file with fresh IPs from live DNS
+    local hosts_plugin_refresh_interval="${LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS:-}"
+    local hosts_setup_timer_override="${hosts_setup_timer}.d/10-refresh-interval.conf"
+    local min_hosts_plugin_refresh_interval_in_seconds=5
+
+    if [ -z "${hosts_plugin_refresh_interval}" ]; then
+        removeAKSLocalDNSHostsSetupTimerOverride "${hosts_setup_timer_override}"
+    else
+        local should_override_refresh_interval="false"
+        case "${hosts_plugin_refresh_interval}" in
+            *[!0-9]*)
+                ;;
+            *)
+                should_override_refresh_interval="true"
+                if [ "${hosts_plugin_refresh_interval}" -lt "${min_hosts_plugin_refresh_interval_in_seconds}" ]; then
+                    echo "Warning: LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS must be >= ${min_hosts_plugin_refresh_interval_in_seconds}, got '${hosts_plugin_refresh_interval}'. Clamping to ${min_hosts_plugin_refresh_interval_in_seconds}s."
+                    hosts_plugin_refresh_interval="${min_hosts_plugin_refresh_interval_in_seconds}"
+                fi
+                ;;
+        esac
+
+        if [ "${should_override_refresh_interval}" = "true" ]; then
+            mkdir -p "$(dirname "${hosts_setup_timer_override}")"
+            cat > "${hosts_setup_timer_override}" <<EOF
+[Timer]
+OnUnitActiveSec=${hosts_plugin_refresh_interval}s
+AccuracySec=1s
+EOF
+            chmod 0644 "${hosts_setup_timer_override}"
+            if grep -q "^OnUnitActiveSec=${hosts_plugin_refresh_interval}s$" "${hosts_setup_timer_override}" &&
+                grep -q "^AccuracySec=1s$" "${hosts_setup_timer_override}"; then
+                if systemctl daemon-reload; then
+                    echo "Configured aks-localdns-hosts-setup timer refresh interval to ${hosts_plugin_refresh_interval}s."
+                else
+                    echo "Warning: Failed to reload systemd after updating ${hosts_setup_timer_override}"
+                fi
+            else
+                echo "Warning: Failed to update ${hosts_setup_timer_override} with refresh interval ${hosts_plugin_refresh_interval}s"
+            fi
+        else
+            echo "Warning: LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS must be an integer, got '${hosts_plugin_refresh_interval}'. Using default timer interval."
+            removeAKSLocalDNSHostsSetupTimerOverride "${hosts_setup_timer_override}"
+        fi
+    fi
+
+    # Enable the timer for periodic refresh.
+    # This will update the hosts file with fresh IPs from live DNS.
     echo "Enabling aks-localdns-hosts-setup timer..."
     if systemctlEnableAndStartNoBlock aks-localdns-hosts-setup.timer 30; then
         echo "aks-localdns-hosts-setup timer enabled successfully."
@@ -1860,6 +1921,7 @@ EOF
 disableAKSLocalDNSHostsSetup() {
     local hosts_file="${AKS_LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
     local hosts_setup_timer="${AKS_LOCALDNS_HOSTS_SETUP_TIMER:-/etc/systemd/system/aks-localdns-hosts-setup.timer}"
+    local hosts_setup_timer_override="${hosts_setup_timer}.d/10-refresh-interval.conf"
 
     echo "disableAKSLocalDNSHostsSetup called, cleaning up hosts plugin state..."
 
@@ -1871,6 +1933,8 @@ disableAKSLocalDNSHostsSetup() {
     else
         echo "aks-localdns-hosts-setup.timer not found on this VHD, skipping"
     fi
+
+    removeAKSLocalDNSHostsSetupTimerOverride "${hosts_setup_timer_override}"
 
     # Remove the hosts file to clean up stale data.
     # select_localdns_corefile() selects based on SHOULD_ENABLE_HOSTS_PLUGIN,

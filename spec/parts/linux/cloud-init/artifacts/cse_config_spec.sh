@@ -1540,27 +1540,38 @@ SETUP_EOF
 
             # Create dummy service and timer files
             touch "$AKS_LOCALDNS_HOSTS_SETUP_SERVICE"
-            touch "$AKS_LOCALDNS_HOSTS_SETUP_TIMER"
+            cat > "$AKS_LOCALDNS_HOSTS_SETUP_TIMER" <<'TIMER_EOF'
+[Unit]
+Description=Run AKS LocalDNS hosts setup periodically
+
+[Timer]
+OnUnitActiveSec=15min
+TIMER_EOF
 
             # Set up test environment
             TARGET_CLOUD="AzurePublicCloud"
             LOCALDNS_CRITICAL_FQDNS="mcr.microsoft.com,packages.microsoft.com,management.azure.com,login.microsoftonline.com,acs-mirror.azureedge.net,packages.aks.azure.com"
+            LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS=""
 
             # Mock systemctl function
             systemctlEnableAndStartNoBlock() {
                 echo "systemctlEnableAndStartNoBlock $@"
                 return 0
             }
+            systemctl() {
+                echo "systemctl $@"
+                return 0
+            }
 
             # Export variables so the real function can use them
             export AKS_LOCALDNS_HOSTS_FILE AKS_LOCALDNS_HOSTS_SETUP_SCRIPT AKS_LOCALDNS_HOSTS_SETUP_SERVICE
-            export AKS_LOCALDNS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD LOCALDNS_CRITICAL_FQDNS
+            export AKS_LOCALDNS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD LOCALDNS_CRITICAL_FQDNS LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS
         }
 
         cleanup() {
             rm -rf "$TEST_TEMP_DIR"
             unset AKS_LOCALDNS_HOSTS_FILE AKS_LOCALDNS_HOSTS_SETUP_SCRIPT AKS_LOCALDNS_HOSTS_SETUP_SERVICE
-            unset AKS_LOCALDNS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD LOCALDNS_CRITICAL_FQDNS
+            unset AKS_LOCALDNS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD LOCALDNS_CRITICAL_FQDNS LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS
         }
 
         BeforeEach 'setup'
@@ -1578,6 +1589,52 @@ SETUP_EOF
             When call enableAKSLocalDNSHostsSetup
             The status should be success
             The output should include "systemctlEnableAndStartNoBlock aks-localdns-hosts-setup.timer 30"
+        End
+
+        It 'should update the timer refresh interval when provided'
+            LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS="30"
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "Configured aks-localdns-hosts-setup timer refresh interval to 30s."
+            The output should include "systemctl daemon-reload"
+            The contents of file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should include "OnUnitActiveSec=30s"
+            The contents of file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should include "AccuracySec=1s"
+            The contents of file "$AKS_LOCALDNS_HOSTS_SETUP_TIMER" should include "OnUnitActiveSec=15min"
+        End
+
+        It 'should restore the default timer when refresh interval is unset'
+            mkdir -p "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d"
+            cat > "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" <<'OVERRIDE_EOF'
+[Timer]
+OnUnitActiveSec=30s
+AccuracySec=1s
+OVERRIDE_EOF
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "Restored default aks-localdns-hosts-setup timer refresh interval."
+            The output should include "systemctl daemon-reload"
+            The contents of file "$AKS_LOCALDNS_HOSTS_SETUP_TIMER" should include "OnUnitActiveSec=15min"
+            The file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should not be exist
+        End
+
+        It 'should keep the default timer when refresh interval is invalid'
+            LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS="abc"
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "must be an integer, got 'abc'. Using default timer interval."
+            The contents of file "$AKS_LOCALDNS_HOSTS_SETUP_TIMER" should include "OnUnitActiveSec=15min"
+            The file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should not be exist
+        End
+
+        It 'should clamp the timer refresh interval when below minimum'
+            LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS="1"
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "must be >= 5, got '1'. Clamping to 5s."
+            The output should include "Configured aks-localdns-hosts-setup timer refresh interval to 5s."
+            The contents of file "$AKS_LOCALDNS_HOSTS_SETUP_TIMER" should include "OnUnitActiveSec=15min"
+            The contents of file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should include "OnUnitActiveSec=5s"
+            The contents of file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should include "AccuracySec=1s"
         End
 
         It 'should skip when setup script is missing'

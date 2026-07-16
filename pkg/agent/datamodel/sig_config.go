@@ -278,6 +278,22 @@ var AvailableAzureLinuxCgroupV2Distros = []Distro{
 }
 
 //nolint:gochecknoglobals
+var AvailableAzureLinuxV3Distros = []Distro{
+	AKSAzureLinuxV3,
+	AKSAzureLinuxV3Gen2,
+	AKSAzureLinuxV3FIPS,
+	AKSAzureLinuxV3Gen2FIPS,
+	AKSAzureLinuxV3Gen2Kata,
+	AKSAzureLinuxV3Arm64Gen2,
+	AKSAzureLinuxV3Arm64Gen2FIPS,
+	AKSAzureLinuxV3Gen2TL,
+	AKSAzureLinuxV3CVMGen2,
+	AKSAzureLinuxV3OSGuardGen2FIPSTL,
+	AKSAzureLinuxV3EdgeZone,
+	AKSAzureLinuxV3EdgeZoneGen2,
+}
+
+//nolint:gochecknoglobals
 var AvailableAzureLinuxOSGuardDistros = []Distro{
 	AKSAzureLinuxV3OSGuardGen2FIPSTL,
 }
