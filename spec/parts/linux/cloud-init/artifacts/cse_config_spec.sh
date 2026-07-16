@@ -1019,7 +1019,7 @@ providers:
     args:
       - /etc/kubernetes/azure.json'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider with default settings"
+            The output should include "configure credential provider"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
@@ -1041,7 +1041,7 @@ providers:
       - /etc/kubernetes/azure.json
       - --registry-mirror=mcr.microsoft.com:test.azurecr.io'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider for network isolated cluster"
+            The output should include "configure credential provider"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
@@ -1062,7 +1062,31 @@ providers:
     args:
       - /etc/kubernetes/azure.json'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider for custom cloud"
+            The output should include "configure credential provider"
+            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
+        End
+
+        It 'should configure credential provider for custom cloud network isolated cluster'
+            AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX=".custom.registry.io"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="test.azurecr.io"
+            expected_config='apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+      - "*.custom.registry.io"
+      - "mcr.microsoft.com"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json
+      - --registry-mirror=mcr.microsoft.com:test.azurecr.io'
+            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
+            The output should include "configure credential provider"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
@@ -1096,7 +1120,7 @@ providers:
       - --ib-default-tenant-id=my-tenant-id
       - --ib-apiserver-ip=apiserver.example.com'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider with default settings"
+            The output should include "configure credential provider"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
@@ -1129,7 +1153,7 @@ providers:
       - --ib-default-tenant-id=my-tenant-id
       - --ib-apiserver-ip=apiserver.example.com'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider with default settings"
+            The output should include "configure credential provider"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
@@ -1162,7 +1186,7 @@ providers:
       - --ib-default-client-id=my-client-id
       - --ib-apiserver-ip=apiserver.example.com'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider with default settings"
+            The output should include "configure credential provider"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
@@ -1194,7 +1218,7 @@ providers:
       - --ib-sni-name=test.sni.local
       - --ib-apiserver-ip=apiserver.example.com'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider with default settings"
+            The output should include "configure credential provider"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
@@ -1231,7 +1255,7 @@ providers:
       - --ib-default-tenant-id=my-tenant-id
       - --ib-apiserver-ip=apiserver.example.com'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider for network isolated cluster"
+            The output should include "configure credential provider"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
@@ -1267,7 +1291,7 @@ providers:
       - --ib-default-tenant-id=my-tenant-id
       - --ib-apiserver-ip=apiserver.example.com'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider for custom cloud"
+            The output should include "configure credential provider"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
@@ -1290,7 +1314,7 @@ providers:
     args:
       - /etc/kubernetes/azure.json'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider with default settings"
+            The output should include "configure credential provider"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
@@ -1313,7 +1337,7 @@ providers:
     args:
       - /etc/kubernetes/azure.json'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider with default settings"
+            The output should include "configure credential provider"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
     End
