@@ -1571,7 +1571,12 @@ writeCredentialProviderConfig() {
       - --registry-mirror=${MCR_REPOSITORY_BASE}:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER"
     fi
 
-    echo "configure credential provider (custom_cloud=$([ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ] && echo true || echo false), network_isolated=$([ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] && echo true || echo false))"
+    local custom_cloud_enabled=false
+    [ -n "${AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX:-}" ] && custom_cloud_enabled=true
+    local network_isolated=false
+    [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:-}" ] && network_isolated=true
+
+    echo "configure credential provider (custom_cloud=${custom_cloud_enabled}, network_isolated=${network_isolated})"
     tee "${config_file_path}" > /dev/null <<EOF
 apiVersion: kubelet.config.k8s.io/v1
 kind: CredentialProviderConfig
