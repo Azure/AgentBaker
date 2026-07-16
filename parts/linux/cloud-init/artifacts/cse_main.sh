@@ -288,15 +288,9 @@ EOF
     # We now have 2 drop-in's, one with the still valid flags that will be applied to all k8s versions,
     # the flags are --runtime-request-timeout, --container-runtime-endpoint, --runtime-cgroups
     # For k8s >= 1.27, the flag --container-runtime will not be passed.
-    # When Node Memory Hardening places containerd in kubelet.slice, update --runtime-cgroups
-    # so kubelet monitors the correct cgroup path for runtime resource accounting.
-    local containerd_runtime_cgroups="/system.slice/containerd.service"
-    if [ "${KUBE_RESERVED_CGROUP:-}" = "/kubelet.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kubelet.slice" ]; then
-        containerd_runtime_cgroups="/kubelet.slice/containerd.service"
-    fi
-    tee "/etc/systemd/system/kubelet.service.d/10-containerd-base-flag.conf" > /dev/null <<EOF
+    tee "/etc/systemd/system/kubelet.service.d/10-containerd-base-flag.conf" > /dev/null <<'EOF'
 [Service]
-Environment="KUBELET_CONTAINERD_FLAGS=--runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=${containerd_runtime_cgroups}"
+Environment="KUBELET_CONTAINERD_FLAGS=--runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
 EOF
 
     if ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.27.0"; then
