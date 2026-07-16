@@ -3118,3 +3118,23 @@ func Test_ACL_SecondaryNIC_DualStack(t *testing.T) {
 		},
 	})
 }
+
+func Test_Ubuntu2204_PMC_CredentialProvider_After_Gate_Change(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests Ubuntu 2204 installs credential provider from PMC at k8s 1.32 after gate lowered",
+		Config: Config{
+			Cluster:         ClusterKubenet,
+			VHD:             config.VHDUbuntu2204Gen2Containerd,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+				// No ShouldEnforceKubePMCInstall — testing the natural version gate
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider/acr-credential-provider")
+				ValidateFileExists(ctx, s, "/usr/bin/azure-acr-credential-provider") // symlink from pkg install
+			},
+		},
+	})
+}

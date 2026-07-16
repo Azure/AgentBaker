@@ -593,6 +593,30 @@ func Test_NetworkIsolatedCluster_Windows_OrasDownload(t *testing.T) {
 				// Verify kubelet binaries were downloaded via ORAS instead of HTTP
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Start to download kubelet binaries with oras")
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Start to download containerd with oras")
+				ValidateFileExists(ctx, s, `/var/lib/kubelet/credential-provider/acr-credential-provider.exe`)
+			},
+		},
+	})
+}
+
+func Test_Windows2022_Dalec_CredentialProvider(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests Windows 2022 node installs credential provider from dalec via components.json for k8s >= 1.33",
+		Config: Config{
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows2022ContainerdGen2,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.33.1"
+				nbc.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", "1.33.1", "1.33.1")
+				nbc.KubeletConfig["--image-credential-provider-config"] = "c:\\k\\credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "c:\\var\\lib\\kubelet\\credential-provider"
+				// Do NOT set WindowsCredentialProviderURL — resolver should use components.json
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, `c:\var\lib\kubelet\credential-provider\acr-credential-provider.exe`)
+				// Assert dalec-specific CSE log line to prove resolver path was taken
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Using dalec credential provider")
 			},
 		},
 	})
