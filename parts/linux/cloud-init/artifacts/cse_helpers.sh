@@ -1561,6 +1561,7 @@ ensureKubeletCgroupHierarchy() {
 
     # /system.slice is a built-in systemd slice; we only need to create kubelet.slice.
     if [ "${KUBE_RESERVED_CGROUP:-}" = "/kubelet.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kubelet.slice" ]; then
+        local needs_reload=0
         if [ ! -f "${kubelet_slice_unit}" ]; then
             mkdir -p "$(dirname "${kubelet_slice_unit}")"
             # [Install] WantedBy=slices.target ensures the slice is pulled in by
@@ -1580,7 +1581,11 @@ DefaultDependencies=no
 WantedBy=slices.target
 EOF
             chmod 0644 "${kubelet_slice_unit}"
+            needs_reload=1
 
+
+        fi
+        if [ ! -f "${kubelet_dropin_dir}/10-kubelet-slice.conf" ]; then
             # Drop-in on kubelet.service so systemd starts kubelet.slice first
             # on every boot. This survives reboots without depending on the
             # one-shot `systemctl start` below.
@@ -1594,7 +1599,9 @@ After=kubelet.slice
 Slice=kubelet.slice
 EOF
             chmod 0644 "${kubelet_dropin_dir}/10-kubelet-slice.conf"
-
+            needs_reload=1
+        fi
+        if [ ! -f "${containerd_dropin_dir}/10-kubelet-slice.conf" ]; then
             # Drop-in on containerd.service to place it in kubelet.slice as well.
             mkdir -p "${containerd_dropin_dir}"
             tee "${containerd_dropin_dir}/10-kubelet-slice.conf" > /dev/null <<'EOF'
@@ -1606,16 +1613,18 @@ After=kubelet.slice
 Slice=kubelet.slice
 EOF
             chmod 0644 "${containerd_dropin_dir}/10-kubelet-slice.conf"
-
-            systemctl daemon-reload
-
-            # Enable the slice so it is started on subsequent boots.
-            if ! systemctl enable kubelet.slice; then
-                echo "ensureKubeletCgroupHierarchy: failed to enable kubelet.slice"
-                return 1
-            fi
+            needs_reload=1
         fi
 
+        if [ "${needs_reload}" -eq 1 ]; then
+            systemctl daemon-reload
+        fi
+
+        # Enable the slice so it is started on subsequent boots.
+        if ! systemctl enable kubelet.slice; then
+            echo "ensureKubeletCgroupHierarchy: failed to enable kubelet.slice"
+            return 1
+        fi
         # Materialise the cgroup tree at /sys/fs/cgroup/kubelet.slice before kubelet starts on this boot.
         if ! systemctl start kubelet.slice; then
             echo "ensureKubeletCgroupHierarchy: failed to start kubelet.slice"

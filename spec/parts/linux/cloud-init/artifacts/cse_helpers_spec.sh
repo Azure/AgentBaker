@@ -904,7 +904,7 @@ EOF
             The output should include "cgroupv2 unified hierarchy not detected"
         End
 
-        It 'creates kubelet.slice and the kubelet.service drop-in for /kubelet.slice'
+        It 'creates kubelet.slice and the kubelet.service and containerd.service drop-in for /kubelet.slice'
             setup_paths
             systemctl() { return 0; }
             KUBE_RESERVED_CGROUP="/kubelet.slice"
@@ -922,6 +922,25 @@ EOF
             The variable dropin_contents should include "Slice=kubelet.slice"
             The variable containerd_dropin_contents should include "Wants=kubelet.slice"
             The variable containerd_dropin_contents should include "After=kubelet.slice"
+            The variable containerd_dropin_contents should include "Slice=kubelet.slice"
+        End
+
+        It 'creates drop-ins even when kubelet.slice already exists (upgrade scenario)'
+            setup_paths
+            # Pre-create kubelet.slice to simulate an older VHD that already has it
+            mkdir -p "$(dirname "${KUBELET_SLICE_UNIT_PATH}")"
+            echo "[Unit]" > "${KUBELET_SLICE_UNIT_PATH}"
+            systemctl() { return 0; }
+            KUBE_RESERVED_CGROUP="/kubelet.slice"
+            SYSTEM_RESERVED_CGROUP="/system.slice"
+            When call ensureKubeletCgroupHierarchy
+            dropin_contents=$(cat "${KUBELET_SERVICE_DROPIN_DIR}/10-kubelet-slice.conf" 2>/dev/null)
+            containerd_dropin_contents=$(cat "${CONTAINERD_SERVICE_DROPIN_DIR}/10-kubelet-slice.conf" 2>/dev/null)
+            cleanup_paths
+            The status should be success
+            The variable dropin_contents should include "Wants=kubelet.slice"
+            The variable dropin_contents should include "Slice=kubelet.slice"
+            The variable containerd_dropin_contents should include "Wants=kubelet.slice"
             The variable containerd_dropin_contents should include "Slice=kubelet.slice"
         End
 
