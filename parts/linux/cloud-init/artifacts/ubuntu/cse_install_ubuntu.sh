@@ -60,7 +60,7 @@ installDeps() {
     fi
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        pkg_list+=("aznfs=3.0.14")
+        pkg_list+=("aznfs=3.0.19")
     fi
 
     # Batch install all packages in a single apt_get_install call instead of
