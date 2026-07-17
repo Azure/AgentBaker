@@ -1400,6 +1400,10 @@ func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) {
 	ValidateInstalledPackageVersion(ctx, s, "moby-runc", versions[0])
 }
 
+func ValidateKubeletArgs(ctx context.Context, s *Scenario) {
+	ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt", "--windows-priorityclass=ABOVE_NORMAL_PRIORITY_CLASS"})
+}
+
 func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, processName string, arguments []string) {
 	steps := []string{
 		fmt.Sprintf("(Get-CimInstance Win32_Process -Filter \"name='%[1]s'\")[0].CommandLine", processName),
