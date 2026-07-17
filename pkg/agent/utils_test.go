@@ -599,7 +599,7 @@ func TestGetKubeletConfigFileNodeMemoryHardeningFields(t *testing.T) {
 	kc["--eviction-soft-grace-period"] = "memory.available=30s,nodefs.available=2m,imagefs.available=2m"
 	kc["--eviction-max-pod-grace-period"] = "60"
 	kc["--enforce-node-allocatable"] = "pods,kube-reserved,system-reserved"
-	kc["--kube-reserved-cgroup"] = "/kubelet.slice"
+	kc["--kube-reserved-cgroup"] = "/kube.slice"
 	kc["--system-reserved-cgroup"] = "/system.slice"
 
 	configFileStr := GetKubeletConfigFileContent(kc, nil)
@@ -643,8 +643,8 @@ func TestGetKubeletConfigFileNodeMemoryHardeningFields(t *testing.T) {
 		t.Errorf("enforceNodeAllocatable mismatch (-want +got):\n%s", diff)
 	}
 
-	if got.KubeReservedCgroup != "/kubelet.slice" {
-		t.Errorf("kubeReservedCgroup=%q, want %q", got.KubeReservedCgroup, "/kubelet.slice")
+	if got.KubeReservedCgroup != "/kube.slice" {
+		t.Errorf("kubeReservedCgroup=%q, want %q", got.KubeReservedCgroup, "/kube.slice")
 	}
 	if got.SystemReservedCgroup != "/system.slice" {
 		t.Errorf("systemReservedCgroup=%q, want %q", got.SystemReservedCgroup, "/system.slice")

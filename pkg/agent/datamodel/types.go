@@ -2326,7 +2326,7 @@ type AKSKubeletConfiguration struct {
 	EnforceNodeAllocatable []string `json:"enforceNodeAllocatable,omitempty"`
 	/* kubeReservedCgroup is the absolute name of the cgroup the kubelet should manage
 	for the kube-reserved compute resources. When enforce-node-allocatable contains
-	"kube-reserved", this cgroup must exist before kubelet starts. Example: "/kubelet.slice".
+	this cgroup must exist before kubelet starts. Example: "/kube.slice".
 	+optional. */
 	KubeReservedCgroup string `json:"kubeReservedCgroup,omitempty"`
 	/* systemReservedCgroup is the absolute name of the cgroup the kubelet should manage

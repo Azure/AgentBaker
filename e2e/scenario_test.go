@@ -2680,25 +2680,26 @@ func Test_AzureLinuxV3_MANA(t *testing.T) {
 
 func Test_Ubuntu2204_NodeHardening_KubeletSlice(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "validates kubelet runs in kubelet.slice and containerd runs in containerd.slice when node hardening cgroup hierarchy is enabled",
+		Description: "validates kubelet and containerd run in kube.slice when node hardening cgroup hierarchy is enabled",
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDUbuntu2204Gen2Containerd,
-			SkipScriptlessNBC: true, // VHD scripts may lack the Slice= directive; force fresh upload until VHDs catch up
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			// Force the "default" (non-scriptless) subtest path so that fresh CSE scripts
+			// with the Slice= drop-ins are uploaded via custom data.
+			CustomDataWriteFiles: []CustomDataWriteFile{{Path: "/etc/aks-node-hardening-test", Content: "sentinel"}},
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.KubeletConfig["--kube-reserved-cgroup"] = "/kubelet.slice"
+				nbc.KubeletConfig["--kube-reserved-cgroup"] = "/kube.slice"
 				nbc.AgentPoolProfile.CustomKubeletConfig = &datamodel.CustomKubeletConfig{}
-				// Disable scriptless CSE so that the current cse_helpers.sh (with Slice= in the drop-in)
+				// Disable scriptless CSE so that the current cse_helpers.sh (with kube.slice drop-in)
 				// is uploaded via custom data instead of relying on potentially stale VHD scripts.
 				nbc.EnableScriptlessCSECmd = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/etc/systemd/system/kubelet.slice")
-				ValidateFileExists(ctx, s, "/etc/systemd/system/containerd.slice")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-kubelet-slice.conf", "Slice=kubelet.slice")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/containerd.service.d/10-containerd-slice.conf", "Slice=containerd.slice")
-				ValidateServiceInSlice(ctx, s, "kubelet.service", "kubelet.slice")
-				ValidateServiceInSlice(ctx, s, "containerd.service", "containerd.slice")
+				ValidateFileExists(ctx, s, "/etc/systemd/system/kube.slice")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-kube-slice.conf", "Slice=kube.slice")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/containerd.service.d/10-kube-slice.conf", "Slice=kube.slice")
+				ValidateServiceInSlice(ctx, s, "kubelet.service", "kube.slice")
+				ValidateServiceInSlice(ctx, s, "containerd.service", "kube.slice")
 			},
 		},
 	})

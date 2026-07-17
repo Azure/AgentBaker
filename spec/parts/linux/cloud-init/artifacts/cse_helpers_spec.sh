@@ -819,9 +819,9 @@ EOF
         It 'extracts cgroup names from KUBELET_FLAGS in flag mode'
             KUBELET_CONFIG_FILE_ENABLED="false"
             KUBELET_CONFIG_FILE_CONTENT=""
-            KUBELET_FLAGS="--kube-reserved-cgroup=/kubelet.slice --system-reserved-cgroup=/system.slice --node-ip=10.0.0.1"
+            KUBELET_FLAGS="--kube-reserved-cgroup=/kube.slice --system-reserved-cgroup=/system.slice --node-ip=10.0.0.1"
             When call resolveKubeletReservedCgroups
-            The variable KUBE_RESERVED_CGROUP should equal "/kubelet.slice"
+            The variable KUBE_RESERVED_CGROUP should equal "/kube.slice"
             The variable SYSTEM_RESERVED_CGROUP should equal "/system.slice"
             The status should be success
         End
@@ -832,7 +832,7 @@ EOF
             # Even though flags carry the values, config-file mode must win.
             KUBELET_FLAGS="--kube-reserved-cgroup=/wrong.slice --system-reserved-cgroup=/wrong.slice"
             When call resolveKubeletReservedCgroups
-            The variable KUBE_RESERVED_CGROUP should equal "/kubelet.slice"
+            The variable KUBE_RESERVED_CGROUP should equal "/kube.slice"
             The variable SYSTEM_RESERVED_CGROUP should equal "/system.slice"
             The status should be success
         End
@@ -856,8 +856,7 @@ EOF
         setup_paths() {
             ENSURE_CGROUP_TMPDIR=$(mktemp -d)
             export CGROUPV2_MARKER_PATH="${ENSURE_CGROUP_TMPDIR}/cgroup.controllers"
-            export KUBELET_SLICE_UNIT_PATH="${ENSURE_CGROUP_TMPDIR}/kubelet.slice"
-            export CONTAINERD_SLICE_UNIT_PATH="${ENSURE_CGROUP_TMPDIR}/containerd.slice"
+            export KUBE_SLICE_UNIT_PATH="${ENSURE_CGROUP_TMPDIR}/kube.slice"
             export KUBELET_SERVICE_DROPIN_DIR="${ENSURE_CGROUP_TMPDIR}/kubelet.service.d"
             export CONTAINERD_SERVICE_DROPIN_DIR="${ENSURE_CGROUP_TMPDIR}/containerd.service.d"
             : > "${CGROUPV2_MARKER_PATH}" # cgroupv2 present by default
@@ -897,7 +896,7 @@ EOF
         It 'fails when the cgroupv2 unified hierarchy is not detected'
             setup_paths
             rm -f "${CGROUPV2_MARKER_PATH}"
-            KUBE_RESERVED_CGROUP="/kubelet.slice"
+            KUBE_RESERVED_CGROUP="/kube.slice"
             SYSTEM_RESERVED_CGROUP=""
             When call ensureKubeletCgroupHierarchy
             cleanup_paths
@@ -905,31 +904,28 @@ EOF
             The output should include "cgroupv2 unified hierarchy not detected"
         End
 
-        It 'creates kubelet.slice, containerd.slice, and the kubelet.service and containerd.service drop-ins'
+        It 'creates kube.slice and the kubelet.service and containerd.service drop-ins'
             setup_paths
             systemctl() { return 0; }
-            KUBE_RESERVED_CGROUP="/kubelet.slice"
+            KUBE_RESERVED_CGROUP="/kube.slice"
             SYSTEM_RESERVED_CGROUP="/system.slice"
             When call ensureKubeletCgroupHierarchy
-            slice_contents=$(cat "${KUBELET_SLICE_UNIT_PATH}" 2>/dev/null)
-            containerd_slice_contents=$(cat "${CONTAINERD_SLICE_UNIT_PATH}" 2>/dev/null)
-            dropin_contents=$(cat "${KUBELET_SERVICE_DROPIN_DIR}/10-kubelet-slice.conf" 2>/dev/null)
-            containerd_dropin_contents=$(cat "${CONTAINERD_SERVICE_DROPIN_DIR}/10-containerd-slice.conf" 2>/dev/null)
+            slice_contents=$(cat "${KUBE_SLICE_UNIT_PATH}" 2>/dev/null)
+            dropin_contents=$(cat "${KUBELET_SERVICE_DROPIN_DIR}/10-kube-slice.conf" 2>/dev/null)
+            containerd_dropin_contents=$(cat "${CONTAINERD_SERVICE_DROPIN_DIR}/10-kube-slice.conf" 2>/dev/null)
             cleanup_paths
             The status should be success
-            The variable slice_contents should include "Description=Slice for kubelet kube-reserved enforcement"
+            The variable slice_contents should include "Description=Slice for kube-reserved enforcement"
             The variable slice_contents should include "WantedBy=slices.target"
-            The variable containerd_slice_contents should include "Description=Slice for containerd cgroup isolation"
-            The variable containerd_slice_contents should include "WantedBy=slices.target"
-            The variable dropin_contents should include "Wants=kubelet.slice"
-            The variable dropin_contents should include "After=kubelet.slice"
-            The variable dropin_contents should include "Slice=kubelet.slice"
-            The variable containerd_dropin_contents should include "Wants=containerd.slice"
-            The variable containerd_dropin_contents should include "After=containerd.slice"
-            The variable containerd_dropin_contents should include "Slice=containerd.slice"
+            The variable dropin_contents should include "Wants=kube.slice"
+            The variable dropin_contents should include "After=kube.slice"
+            The variable dropin_contents should include "Slice=kube.slice"
+            The variable containerd_dropin_contents should include "Wants=kube.slice"
+            The variable containerd_dropin_contents should include "After=kube.slice"
+            The variable containerd_dropin_contents should include "Slice=kube.slice"
         End
 
-        It 'returns failure when systemctl enable kubelet.slice fails'
+        It 'returns failure when systemctl enable kube.slice fails'
             setup_paths
             systemctl() {
                 if [ "$1" = "enable" ]; then
@@ -937,15 +933,15 @@ EOF
                 fi
                 return 0
             }
-            KUBE_RESERVED_CGROUP="/kubelet.slice"
+            KUBE_RESERVED_CGROUP="/kube.slice"
             SYSTEM_RESERVED_CGROUP=""
             When call ensureKubeletCgroupHierarchy
             cleanup_paths
             The status should be failure
-            The output should include "failed to enable kubelet.slice"
+            The output should include "failed to enable kube.slice"
         End
 
-        It 'returns failure when systemctl start kubelet.slice fails'
+        It 'returns failure when systemctl start kube.slice fails'
             setup_paths
             systemctl() {
                 if [ "$1" = "start" ]; then
@@ -953,12 +949,12 @@ EOF
                 fi
                 return 0
             }
-            KUBE_RESERVED_CGROUP="/kubelet.slice"
+            KUBE_RESERVED_CGROUP="/kube.slice"
             SYSTEM_RESERVED_CGROUP=""
             When call ensureKubeletCgroupHierarchy
             cleanup_paths
             The status should be failure
-            The output should include "failed to start kubelet.slice"
+            The output should include "failed to start kube.slice"
         End
     End
 End

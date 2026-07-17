@@ -1484,18 +1484,18 @@ function get_sandbox_image_from_containerd_config() {
 
 # ensureKubeletCgroupHierarchy creates the systemd slices used by kubelet for the
 # kube-reserved and system-reserved enforcement tiers (Node Memory Hardening F2/F5).
-# It MUST be called before kubelet starts so that /kubelet.slice and /system.slice
+# It MUST be called before kubelet starts so that /kube.slice and /system.slice
 # exist and are managed by systemd before the first kubelet enforcement pass.
 #
 # The function:
 #   - Asserts cgroupv2 unified hierarchy (cgroupv1 is not supported by this feature
 #     because mixed/legacy hierarchies cannot reliably enforce per-slice MemoryMax).
-#   - Drops a /etc/systemd/system/kubelet.slice unit (system.slice ships with systemd).
-#   - Triggers `systemctl daemon-reload` and `systemctl start kubelet.slice` so the
-#     cgroup is materialised at /sys/fs/cgroup/kubelet.slice prior to kubelet boot.
+#   - Drops a /etc/systemd/system/kube.slice unit (system.slice ships with systemd).
+#   - Triggers `systemctl daemon-reload` and `systemctl start kube.slice` so the
+#     cgroup is materialised at /sys/fs/cgroup/kube.slice prior to kubelet boot.
 #
 # Inputs (env, all optional — the function is a no-op if the RP did not opt in):
-#   KUBE_RESERVED_CGROUP    — absolute cgroup name, e.g. "/kubelet.slice"
+#   KUBE_RESERVED_CGROUP    — absolute cgroup name, e.g. "/kube.slice"
 #   SYSTEM_RESERVED_CGROUP  — absolute cgroup name, e.g. "/system.slice"
 
 # resolveKubeletReservedCgroups exports KUBE_RESERVED_CGROUP and SYSTEM_RESERVED_CGROUP
@@ -1529,10 +1529,9 @@ ensureKubeletCgroupHierarchy() {
     # Path overrides exist for ShellSpec coverage; production callers leave them at
     # their defaults.
     local cgroupv2_marker="${CGROUPV2_MARKER_PATH:-/sys/fs/cgroup/cgroup.controllers}"
-    local kubelet_slice_unit="${KUBELET_SLICE_UNIT_PATH:-/etc/systemd/system/kubelet.slice}"
+    local kube_slice_unit="${KUBE_SLICE_UNIT_PATH:-/etc/systemd/system/kube.slice}"
     local kubelet_dropin_dir="${KUBELET_SERVICE_DROPIN_DIR:-/etc/systemd/system/kubelet.service.d}"
     local containerd_dropin_dir="${CONTAINERD_SERVICE_DROPIN_DIR:-/etc/systemd/system/containerd.service.d}"
-    local containerd_slice_unit="${CONTAINERD_SLICE_UNIT_PATH:-/etc/systemd/system/containerd.slice}"
 
     # Assert cgroupv2 unified hierarchy. The canonical marker is the presence of
     # /sys/fs/cgroup/cgroup.controllers, which only exists under cgroupv2.
@@ -1541,14 +1540,14 @@ ensureKubeletCgroupHierarchy() {
         return 1
     fi
 
-    # Validate supported values: only /kubelet.slice (or bare kubelet.slice) is
+    # Validate supported values: only /kube.slice (or bare kube.slice) is
     # supported for KUBE_RESERVED_CGROUP, and only /system.slice for
     # SYSTEM_RESERVED_CGROUP (a built-in systemd slice). Reject any other value
     # explicitly so kubelet doesn't fail later with an opaque enforcement error.
     case "${KUBE_RESERVED_CGROUP:-}" in
-        ""|"/kubelet.slice"|"kubelet.slice") ;;
+        ""|"/kube.slice"|"kube.slice") ;;
         *)
-            echo "ensureKubeletCgroupHierarchy: unsupported KUBE_RESERVED_CGROUP=${KUBE_RESERVED_CGROUP}; only /kubelet.slice is supported"
+            echo "ensureKubeletCgroupHierarchy: unsupported KUBE_RESERVED_CGROUP=${KUBE_RESERVED_CGROUP}; only /kube.slice is supported"
             return 1
             ;;
     esac
@@ -1560,15 +1559,15 @@ ensureKubeletCgroupHierarchy() {
             ;;
     esac
 
-    # /system.slice is a built-in systemd slice; we only need to create kubelet.slice.
-    if [ "${KUBE_RESERVED_CGROUP:-}" = "/kubelet.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kubelet.slice" ]; then
+    # /system.slice is a built-in systemd slice; we only need to create kube.slice.
+    if [ "${KUBE_RESERVED_CGROUP:-}" = "/kube.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kube.slice" ]; then
         # Write all unit/drop-in files unconditionally (idempotent). This ensures
         # upgraded nodes that already have an older version of these files get the
         # latest content (e.g. the Slice= directive added for kubelet/containerd).
-        mkdir -p "$(dirname "${kubelet_slice_unit}")"
-        tee "${kubelet_slice_unit}" > /dev/null <<'EOF'
+        mkdir -p "$(dirname "${kube_slice_unit}")"
+        tee "${kube_slice_unit}" > /dev/null <<'EOF'
 [Unit]
-Description=Slice for kubelet kube-reserved enforcement (AKS Node Memory Hardening)
+Description=Slice for kube-reserved enforcement (AKS Node Memory Hardening)
 Before=slices.target
 DefaultDependencies=no
 
@@ -1577,47 +1576,32 @@ DefaultDependencies=no
 [Install]
 WantedBy=slices.target
 EOF
-        chmod 0644 "${kubelet_slice_unit}"
+        chmod 0644 "${kube_slice_unit}"
 
-        # Drop-in on kubelet.service so systemd starts kubelet.slice first
+        # Drop-in on kubelet.service so systemd starts kube.slice first
         # on every boot and places kubelet inside the slice.
         mkdir -p "${kubelet_dropin_dir}"
-        tee "${kubelet_dropin_dir}/10-kubelet-slice.conf" > /dev/null <<'EOF'
+        tee "${kubelet_dropin_dir}/10-kube-slice.conf" > /dev/null <<'EOF'
 [Unit]
-Wants=kubelet.slice
-After=kubelet.slice
+Wants=kube.slice
+After=kube.slice
 
 [Service]
-Slice=kubelet.slice
+Slice=kube.slice
 EOF
-        chmod 0644 "${kubelet_dropin_dir}/10-kubelet-slice.conf"
+        chmod 0644 "${kubelet_dropin_dir}/10-kube-slice.conf"
 
-        # Create containerd.slice so containerd runs in its own dedicated slice.
-        mkdir -p "$(dirname "${containerd_slice_unit}")"
-        tee "${containerd_slice_unit}" > /dev/null <<'EOF'
-[Unit]
-Description=Slice for containerd cgroup isolation (AKS Node Memory Hardening)
-Before=slices.target
-DefaultDependencies=no
-
-[Slice]
-
-[Install]
-WantedBy=slices.target
-EOF
-        chmod 0644 "${containerd_slice_unit}"
-
-        # Drop-in on containerd.service to place it in containerd.slice.
+        # Drop-in on containerd.service to place it in kube.slice.
         mkdir -p "${containerd_dropin_dir}"
-        tee "${containerd_dropin_dir}/10-containerd-slice.conf" > /dev/null <<'EOF'
+        tee "${containerd_dropin_dir}/10-kube-slice.conf" > /dev/null <<'EOF'
 [Unit]
-Wants=containerd.slice
-After=containerd.slice
+Wants=kube.slice
+After=kube.slice
 
 [Service]
-Slice=containerd.slice
+Slice=kube.slice
 EOF
-        chmod 0644 "${containerd_dropin_dir}/10-containerd-slice.conf"
+        chmod 0644 "${containerd_dropin_dir}/10-kube-slice.conf"
 
         if ! systemctl daemon-reload; then
             echo "ensureKubeletCgroupHierarchy: failed to daemon-reload systemd"
@@ -1625,21 +1609,13 @@ EOF
         fi
 
         # Enable the slice so it is started on subsequent boots.
-        if ! systemctl enable kubelet.slice; then
-            echo "ensureKubeletCgroupHierarchy: failed to enable kubelet.slice"
+        if ! systemctl enable kube.slice; then
+            echo "ensureKubeletCgroupHierarchy: failed to enable kube.slice"
             return 1
         fi
-        # Materialise the cgroup tree at /sys/fs/cgroup/kubelet.slice before kubelet starts on this boot.
-        if ! systemctl start kubelet.slice; then
-            echo "ensureKubeletCgroupHierarchy: failed to start kubelet.slice"
-            return 1
-        fi
-        if ! systemctl enable containerd.slice; then
-            echo "ensureKubeletCgroupHierarchy: failed to enable containerd.slice"
-            return 1
-        fi
-        if ! systemctl start containerd.slice; then
-            echo "ensureKubeletCgroupHierarchy: failed to start containerd.slice"
+        # Materialise the cgroup tree at /sys/fs/cgroup/kube.slice before kubelet starts on this boot.
+        if ! systemctl start kube.slice; then
+            echo "ensureKubeletCgroupHierarchy: failed to start kube.slice"
             return 1
         fi
     fi
