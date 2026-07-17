@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #NOTE: Currently, Nvidia library mig-parted (https://github.com/NVIDIA/mig-parted) cannot work properly because of the outdated GPU driver version
-#TODO: Use mig-parted library to do the partition after the above issue is fixed
+#TODO: Use mig-parted library to do the partition after the above issue is fixed 
 
 mig_profile_id() {
     case "$1" in
