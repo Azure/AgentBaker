@@ -528,9 +528,7 @@ downloadPkgFromVersion() {
 }
 
 installContainerd() {
-    packageVersion="${3:-}"
-    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
-    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
+    local packageVersion="${3:-}"
     CONTAINERD_DOWNLOADS_DIR="${1:-$CONTAINERD_DOWNLOADS_DIR}"
     eval containerdOverrideDownloadURL="${2:-}"
 
@@ -539,7 +537,7 @@ installContainerd() {
         installContainerdFromOverride ${containerdOverrideDownloadURL} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
-    installContainerdWithAptGet "${containerdMajorMinorPatchVersion}" "${containerdHotFixVersion}" "${CONTAINERD_DOWNLOADS_DIR}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    installContainerdWithAptGet "${packageVersion}" "${CONTAINERD_DOWNLOADS_DIR}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 
 installContainerdFromOverride() {
@@ -555,15 +553,19 @@ installContainerdFromOverride() {
 }
 
 installContainerdWithAptGet() {
-    local containerdMajorMinorPatchVersion="${1}"
-    local containerdHotFixVersion="${2}"
-    CONTAINERD_DOWNLOADS_DIR="${3:-$CONTAINERD_DOWNLOADS_DIR}"
+    # packageVersion is the full version string from components.json, e.g. "2.3.2-ubuntu24.04u2" or "1.7.33-ubuntu22.04u1".
+    # The major.minor.patch is extracted for version comparison against the currently installed package.
+    local packageVersion="${1}"
+    CONTAINERD_DOWNLOADS_DIR="${2:-$CONTAINERD_DOWNLOADS_DIR}"
+    local containerdMajorMinorPatchVersion
+    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
+
     # Query installed version via dpkg metadata instead of running the containerd
     # binary. `containerd -version` takes ~5.7s to load the full runtime just to
     # print a version string; dpkg-query is instant.
     # dpkg version format: "1.7.31+azure-ubuntu22.04u1" or "1:1.7.31+azure-..."
     # Normalize to pure "major.minor.patch" by stripping epoch, +suffix, -suffix.
-    currentVersion=""
+    local currentVersion=""
     if dpkg -l moby-containerd 2>/dev/null | grep -q "^ii"; then
         currentVersion=$(dpkg-query -W -f='${Version}' moby-containerd 2>/dev/null | sed 's/^[0-9]*://' | cut -d '+' -f1 | cut -d '-' -f1)
     fi
@@ -572,26 +574,21 @@ installContainerdWithAptGet() {
         currentVersion="0.0.0"
     fi
 
+    local currentMajorMinor desiredMajorMinor
     currentMajorMinor="$(echo $currentVersion | tr '.' '\n' | head -n 2 | paste -sd.)"
     desiredMajorMinor="$(echo $containerdMajorMinorPatchVersion | tr '.' '\n' | head -n 2 | paste -sd.)"
     semverCompare "$currentVersion" "$containerdMajorMinorPatchVersion"
-    hasGreaterVersion="$?"
+    local hasGreaterVersion="$?"
 
     if [ "$hasGreaterVersion" = "0" ] && [ "$currentMajorMinor" = "$desiredMajorMinor" ]; then
         echo "currently installed containerd version ${currentVersion} matches major.minor with higher patch ${containerdMajorMinorPatchVersion}. skipping installStandaloneContainerd."
     else
-        echo "installing containerd version ${containerdMajorMinorPatchVersion}"
+        echo "installing containerd version ${packageVersion}"
         logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
 
-        # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
-        # if no files found then try fetching from packages.microsoft repo
-        containerdDebFile=$(find "${CONTAINERD_DOWNLOADS_DIR}" -maxdepth 1 -name "moby-containerd_${containerdMajorMinorPatchVersion}*" -print -quit 2>/dev/null) || containerdDebFile=""
-        if [ -n "${containerdDebFile}" ]; then
-            logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${containerdDebFile}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-            return 0
-        fi
-        logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
-        containerdDebFile=$(find "${CONTAINERD_DOWNLOADS_DIR}" -maxdepth 1 -name "moby-containerd_${containerdMajorMinorPatchVersion}*" -print -quit 2>/dev/null) || containerdDebFile=""
+        # No cached deb found — download from packages.microsoft.com
+        logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${packageVersion}"
+        containerdDebFile=$(find "${CONTAINERD_DOWNLOADS_DIR}" -maxdepth 1 -name "moby-containerd_${packageVersion}*" 2>/dev/null | sort -V | tail -n1)
         if [ -z "${containerdDebFile}" ]; then
             echo "Failed to locate cached containerd deb"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
@@ -618,20 +615,21 @@ installStandaloneContainerd() {
     fi
 
     echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
-    installContainerdWithAptGet "${CONTAINERD_VERSION}" "${CONTAINERD_PATCH_VERSION}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    installContainerdWithAptGet "${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 
 downloadContainerdFromVersion() {
-    # Patch version isn't used here...?
-    CONTAINERD_VERSION=$1
+    # packageVersion is the full version string, e.g. "2.3.2-ubuntu24.04u2" or "1.7.33-ubuntu22.04u1".
+    # The major.minor.patch is extracted for the apt glob pattern.
+    local packageVersion="$1"
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     # Adding updateAptWithMicrosoftPkg since AB e2e uses an older image version with uncached containerd 1.6 so it needs to download from testing repo.
     # And RP no image pull e2e has apt update restrictions that prevent calls to packages.microsoft.com in CSE
     # This won't be called for new VHDs as they have containerd 1.6 cached
     updateAptWithMicrosoftPkg
-    apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    echo "Succeeded to download containerd version ${CONTAINERD_VERSION}"
+    apt_get_download 20 30 moby-containerd=${packageVersion}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    cp -al ${APT_CACHE_DIR}moby-containerd_${packageVersion}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    echo "Succeeded to download containerd version ${packageVersion}"
 }
 
 downloadContainerdFromURL() {
