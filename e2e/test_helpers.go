@@ -86,24 +86,15 @@ func RunScenario(t *testing.T, s *Scenario) {
 		return
 	}
 	if scriptlessUnsupported(s) {
-		t.Run("default", func(t *testing.T) {
-			t.Parallel()
-			err := runScenario(t, copyScenario(s))
-			require.NoError(t, err)
-		})
+		require.NoError(t, runScenario(t, s))
 		return
 	}
 
-	t.Run("scriptless_nbc", func(t *testing.T) {
-		t.Parallel()
-		sCopy := copyScenario(s)
-		if sCopy.Runtime == nil {
-			sCopy.Runtime = &ScenarioRuntime{}
-		}
-		sCopy.Runtime.EnableScriptlessNBCCSECmd = true
-		err := runScenario(t, sCopy)
-		require.NoError(t, err)
-	})
+	if s.Runtime == nil {
+		s.Runtime = &ScenarioRuntime{}
+	}
+	s.Runtime.EnableScriptlessNBCCSECmd = true
+	require.NoError(t, runScenario(t, s))
 }
 
 func scriptlessUnsupported(s *Scenario) bool {
