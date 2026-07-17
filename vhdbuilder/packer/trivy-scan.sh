@@ -127,12 +127,7 @@ install_azure_cli() {
         return 0
     fi
 
-    if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || { [ "$OS_SKU" = "Ubuntu" ] && [ "$OS_VERSION" = "26.04" ]; }; then
-        if [ "$OS_SKU" = "Ubuntu" ] && [ "$OS_VERSION" = "26.04" ]; then
-            # TODO(2604): switch to PMC-based azcli installation after resolute azcli package is published to PMC
-            apt_get_update
-            apt_get_install 5 1 60 python3-pip python3-venv
-        fi
+    if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
         python3 -m venv "/home/$TEST_VM_ADMIN_USERNAME/venv"
         export PATH="/home/$TEST_VM_ADMIN_USERNAME/venv/bin:$PATH"
         pip install azure-cli
@@ -144,7 +139,20 @@ install_azure_cli() {
         return 0
     fi
 
-    installAzCLIFromUbuntuPMC
+    if [ "$OS_VERSION" = "26.04" ]; then
+        # TODO(2604): install azcli from PMC once the resolute package is available
+        apt_get_update
+        apt_get_install 5 1 60 python3-pip
+        pip install azure-cli --break-system-packages
+        export PATH="/home/$TEST_VM_ADMIN_USERNAME/.local/bin:$PATH"
+        CHECKAZ=$(pip freeze | grep "azure-cli==")
+        if [ -z "$CHECKAZ" ]; then
+            echo "Azure CLI is not installed properly."
+            exit 1
+        fi
+    else
+        installAzCLIFromUbuntuPMC
+    fi
 
     # if [ "${ARCHITECTURE,,}" = "arm64" ]; then
     #     if [ "$OS_VERSION" = "22.04" ]; then
