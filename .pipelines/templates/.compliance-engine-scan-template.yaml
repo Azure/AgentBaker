@@ -211,7 +211,7 @@ steps:
     fi
     cp "${assessor_bin}" "${download_root}/compliance-engine-assessor"
     chmod +x "${download_root}/compliance-engine-assessor"
-    echo "Assessor (${arch_label}) staged at ${download_root}/compliance-engine-assessor"
+    echo "Assessor staged at ${download_root}/compliance-engine-assessor"
 
     # Benchmark MOFs: one per key under .benchmarks (each value a
     # '<package>@<version>' pin), renamed to mof/<key>.mof.
