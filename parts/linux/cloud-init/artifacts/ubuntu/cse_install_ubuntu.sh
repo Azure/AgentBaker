@@ -604,8 +604,6 @@ installStandaloneContainerd() {
     # Read UBUNTU_CODENAME from /etc/os-release instead of lsb_release (avoids Python spawn).
     UBUNTU_CODENAME=$(. /etc/os-release && echo "${VERSION_CODENAME}")
     CONTAINERD_VERSION=$1
-    # we always default to the .1 patch versons
-    CONTAINERD_PATCH_VERSION="${2:-1}"
 
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
     CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
@@ -614,8 +612,8 @@ installStandaloneContainerd() {
         return 0
     fi
 
-    echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
-    installContainerdWithAptGet "${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    echo "Using specified Containerd Version: ${CONTAINERD_VERSION}"
+    installContainerdWithAptGet "${CONTAINERD_VERSION}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 
 downloadContainerdFromVersion() {
