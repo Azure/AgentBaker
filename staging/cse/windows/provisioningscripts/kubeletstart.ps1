@@ -47,7 +47,9 @@ $KubeletArgList = $Global:ClusterConfiguration.Kubernetes.Kubelet.ConfigArgs # T
 $KubeletArgList += "--node-labels=$global:KubeletNodeLabels"
 # $KubeletArgList += "--hostname-override=$global:AzureHostname" TODO: remove - dead code?
 $KubeletArgList += "--volume-plugin-dir=$global:VolumePluginDir"
-$KubeletArgList += "--windows-priorityclass=ABOVE_NORMAL_PRIORITY_CLASS"
+if (-not ($KubeletArgList | Where-Object { $_ -like "--windows-priorityclass=*" })) {
+    $KubeletArgList += "--windows-priorityclass=ABOVE_NORMAL_PRIORITY_CLASS"
+}
 # If you are thinking about adding another arg here, you should be considering pkg/engine/defaults-kubelet.go first
 # Only args that need to be calculated or combined with other ones on the Windows agent should be added here.
 
