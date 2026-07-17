@@ -74,7 +74,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/autoscaler/addon-resizer",
-          "latestVersion": "v1.8.23-14"
+          "latestVersion": "v1.8.23-28"
         }
       ],
       "windowsVersions": []
@@ -134,19 +134,19 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.13.2-9"
+          "latestVersion": "v1.14.3-11"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.13.1-9"
+          "latestVersion": "v1.13.1-20"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.12.1-14"
+          "latestVersion": "v1.12.1-25"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.11.3-22"
+          "latestVersion": "v1.11.3-32"
         }
       ],
       "windowsVersions": []
@@ -491,7 +491,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler",
-          "latestVersion": "v1.9.0-12"
+          "latestVersion": "v1.9.0-21"
         }
       ],
       "windowsVersions": []
@@ -1787,8 +1787,8 @@
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.36.3-ubuntu24.04u1",
-                "previousLatestVersion": "1.36.2-ubuntu24.04u1"
+                "latestVersion": "1.36.3-ubuntu24.04u2",
+                "previousLatestVersion": "1.36.3-ubuntu24.04u1"
               }
             ]
           },
@@ -1821,8 +1821,8 @@
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.36.3-ubuntu22.04u1",
-                "previousLatestVersion": "1.36.2-ubuntu22.04u1"
+                "latestVersion": "1.36.3-ubuntu22.04u2",
+                "previousLatestVersion": "1.36.3-ubuntu22.04u1"
               }
             ]
           },
@@ -1891,8 +1891,8 @@
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=azure-acr-credential-provider, os=azurelinux, release=3.0",
-                "latestVersion": "1.36.3-1.azl3",
-                "previousLatestVersion": "1.36.2-1.azl3"
+                "latestVersion": "1.36.3-2.azl3",
+                "previousLatestVersion": "1.36.3-1.azl3"
               }
             ]
           }

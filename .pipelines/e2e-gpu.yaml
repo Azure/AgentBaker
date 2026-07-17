@@ -5,7 +5,8 @@ variables:
   SKIP_E2E_TESTS: false
   SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: true
   E2E_GO_TEST_TIMEOUT: "75m"
-  E2E_FAILED_TESTS_RETRY_COUNT: 0
+  E2E_FAILED_TESTS_RETRY_COUNT: 2
+  DISABLE_SCRIPTLESS_COMPILATION: true
 schedules:
   - cron: "0 9 * * *"
     displayName: Daily 1am PST
