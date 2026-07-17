@@ -989,7 +989,7 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		Name string `json:"unit,omitempty"`
 	}
 	var failedUnits []systemdUnit
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json", 0, fmt.Sprintf("unable to list failed systemd units"))
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json", 0, "unable to list failed systemd units")
 	assert.NoError(s.T, json.Unmarshal([]byte(result.stdout), &failedUnits), `unable to parse and unmarshal "systemctl list-units" command output`)
 	failedUnits = lo.Filter(failedUnits, func(unit systemdUnit, _ int) bool {
 		if unitFailureAllowList[unit.Name] {
