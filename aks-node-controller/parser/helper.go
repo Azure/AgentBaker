@@ -228,6 +228,22 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	return buffer.String(), nil
 }
 
+func getMIGProfiles(gpuConfig *aksnodeconfigv1.GpuConfig) []string {
+	// AKS RP treats gpu_instance_profile and mig_profiles as mutually exclusive.
+	// Prefer mig_profiles when present, but keep the legacy scalar fallback while callers migrate.
+	if len(gpuConfig.GetMigProfiles()) > 0 {
+		return gpuConfig.GetMigProfiles()
+	}
+	if gpuConfig.GetGpuInstanceProfile() != "" {
+		return []string{gpuConfig.GetGpuInstanceProfile()}
+	}
+	return nil
+}
+
+func getIsMIGNode(migProfiles []string) bool {
+	return len(migProfiles) > 0
+}
+
 // detectContainerdVersion runs "containerd --version" and parses the version string.
 // The expected output format is: "containerd <source> <version> <commit>"
 // e.g. "containerd containerd.io 1.7.22 c814c75..." or "containerd github.com/containerd/containerd/v2 v2.0.0 ..."
@@ -248,10 +264,6 @@ func isContainerdV2(version string) bool {
 		return false
 	}
 	return helpers.IsKubernetesVersionGe(version, "2.0.0")
-}
-
-func getIsMIGNode(gpuInstanceProfile string) bool {
-	return gpuInstanceProfile != ""
 }
 
 func getCustomCACertsStatus(customCACerts []string) bool {

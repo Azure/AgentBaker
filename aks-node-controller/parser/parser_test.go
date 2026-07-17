@@ -82,6 +82,23 @@ oom_score = -999
 			},
 		},
 		{
+			name:       "AKSUbuntu2204 containerd with mixed MIG profiles",
+			folder:     "AKSUbuntu2204+Containerd+MIG",
+			k8sVersion: "1.19.13",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.GpuConfig.MigProfiles = []string{"MIG1g", "MIG2g", "MIG4g"}
+				aksNodeConfig.GpuConfig.EnableNvidia = to.Ptr(true)
+				aksNodeConfig.VmSize = "Standard_ND96asr_v4"
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				assertHasKeyWithValue(t, vars, "GPU_NODE", "true")
+				assertHasKeyWithValue(t, vars, "MIG_NODE", "true")
+				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "MIG1g,MIG2g,MIG4g")
+				assertHasKeyWithValue(t, vars, "MIG_PROFILES", "MIG1g,MIG2g,MIG4g")
+			},
+		},
+		{
 			name:       "AKSUbuntu2204 DISABLE_PUBKEY_AUTH with disabled pubkey auth",
 			folder:     "AKSUbuntu2204+DisablePubkeyAuth",
 			k8sVersion: "1.24.2",
@@ -462,6 +479,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "VNET_CNI_PLUGINS_URL", "")
 				assertHasKeyWithValue(t, vars, "GPU_NODE", "false")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
+				assertHasKeyWithValue(t, vars, "MIG_PROFILES", "")
 				assertHasKeyWithValue(t, vars, "CUSTOM_CA_TRUST_COUNT", "0")
 				assertHasKeyWithValue(t, vars, "SHOULD_CONFIGURE_CUSTOM_CA_TRUST", "false")
 				assertHasKeyWithValue(t, vars, "KUBELET_FLAGS", "")

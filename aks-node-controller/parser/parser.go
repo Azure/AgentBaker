@@ -33,6 +33,7 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration) map[string]string {
 	containerdVersion, _ := detectContainerdVersion(ctx)
 	cloudProviderSettings := getCloudProviderSettings(config)
+	migProfiles := getMIGProfiles(config.GetGpuConfig())
 	env := map[string]string{
 		"PROVISION_OUTPUT":                                     "/var/log/azure/cluster-provision-cse-output.log",
 		"MOBY_VERSION":                                         "",
@@ -83,7 +84,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration) map[s
 		"IS_VHD":                                               fmt.Sprintf("%v", getIsVHD(config.IsVhd)),
 		"GPU_NODE":                                             fmt.Sprintf("%v", getEnableNvidia(config)),
 		"SGX_NODE":                                             fmt.Sprintf("%v", getIsSgxEnabledSKU(config.GetVmSize())),
-		"MIG_NODE":                                             fmt.Sprintf("%v", getIsMIGNode(config.GetGpuConfig().GetGpuInstanceProfile())),
+		"MIG_NODE":                                             fmt.Sprintf("%v", getIsMIGNode(migProfiles)),
 		"CONFIG_GPU_DRIVER_IF_NEEDED":                          fmt.Sprintf("%v", config.GetGpuConfig().GetConfigGpuDriver()),
 		"ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED":                   fmt.Sprintf("%v", config.GetGpuConfig().GetGpuDevicePlugin()),
 		"MANAGED_GPU_EXPERIENCE_AFEC_ENABLED":                  fmt.Sprintf("%v", config.GetGpuConfig().GetManagedGpuExperienceAfecEnabled()),
@@ -152,7 +153,8 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration) map[s
 		"SWAP_FILE_SIZE_MB":                                    fmt.Sprintf("%v", config.GetCustomLinuxOsConfig().GetSwapFileSize()),
 		"GPU_DRIVER_VERSION":                                   getGpuDriverVersion(config.GetVmSize()),
 		"GPU_IMAGE_SHA":                                        getGpuImageSha(config.GetVmSize()),
-		"GPU_INSTANCE_PROFILE":                                 config.GetGpuConfig().GetGpuInstanceProfile(),
+		"GPU_INSTANCE_PROFILE":                                 getStringifiedStringArray(migProfiles, ","),
+		"MIG_PROFILES":                                         getStringifiedStringArray(migProfiles, ","),
 		"GPU_DRIVER_TYPE":                                      getGpuDriverType(config.GetVmSize()),
 		"CUSTOM_SEARCH_DOMAIN_NAME":                            config.GetCustomSearchDomainConfig().GetDomainName(),
 		"CUSTOM_SEARCH_REALM_USER":                             config.GetCustomSearchDomainConfig().GetRealmUser(),

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
@@ -257,8 +258,14 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			VnetCniPluginsUrl: vnetCNIPluginURL,
 		},
 		GpuConfig: &aksnodeconfigv1.GpuConfig{
-			ConfigGpuDriver: true,
-			GpuDevicePlugin: false,
+			EnableNvidia:                    to.Ptr(nbc.EnableNvidia),
+			ConfigGpuDriver:                 nbc.ConfigGPUDriverIfNeeded,
+			GpuDevicePlugin:                 nbc.EnableGPUDevicePluginIfNeeded,
+			GpuInstanceProfile:              nbc.GPUInstanceProfile,
+			ManagedGpuExperienceAfecEnabled: nbc.ManagedGPUExperienceAFECEnabled,
+			EnableManagedGpu:                nbc.EnableManagedGPU,
+			MigStrategy:                     nbc.MigStrategy,
+			MigProfiles:                     slices.Clone(nbc.MIGProfiles),
 		},
 		EnableUnattendedUpgrade: enableUnattendedUpgrade,
 		EnableArtifactStreaming: nbc.EnableArtifactStreaming,
