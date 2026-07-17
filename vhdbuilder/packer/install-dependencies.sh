@@ -592,10 +592,6 @@ cachePackageAndBinaryComponents() {
         done
         ;;
       "aks-secure-tls-bootstrap-client")
-        if [ "$OS_VERSION" = "26.04" ]; then
-          echo "Ubuntu 26.04 - temporarily skipping aks-secure-tls-bootstrap-client installation"
-          continue
-        fi
         for version in ${PACKAGE_VERSIONS[@]}; do
           # removed at provisioning time if secure TLS bootstrapping is disabled
           if isUbuntu; then
