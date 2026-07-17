@@ -2282,7 +2282,6 @@ func Test_Ubuntu2604Minimal_SecondaryNIC(t *testing.T) {
 			// configureSecondaryNICs is new and not yet baked into released VHDs.
 			// The scriptless_nbc path always uses VHD scripts (DisableCustomData=true),
 			// so it can't pick up the new function until the next VHD release.
-			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.StandardSecondaryNICCount = 1
 			},
@@ -2304,9 +2303,8 @@ func Test_Ubuntu2604Minimal_SecondaryNIC_DualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a dual-stack secondary NIC is properly configured on Ubuntu 26.04 minimal",
 		Config: Config{
-			Cluster:           ClusterAzureOverlayNetworkDualStack,
-			VHD:               config.VHDUbuntu2604MinimalGen2Containerd,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterAzureOverlayNetworkDualStack,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.StandardSecondaryNICCount = 1
 				if nbc.ContainerService.Properties.FeatureFlags == nil {
