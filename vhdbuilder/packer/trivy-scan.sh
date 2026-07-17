@@ -93,6 +93,22 @@ addPMCAptKey() {
     fi
 }
 
+installAzCLIFromUbuntuPMC() {
+    local arch
+    arch="$(uname -m)"
+
+    apt_get_install 5 1 60 ca-certificates curl apt-transport-https lsb-release gnupg
+
+    if [ "${arch,,}" = "arm64" ]; then
+        echo "deb [arch=arm64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
+    else
+        echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
+    fi
+
+    apt_get_update
+    apt_get_install 5 1 60 azure-cli
+}
+
 install_azure_cli() {
     OS_SKU=${1}
     OS_VERSION=${2}
@@ -128,31 +144,33 @@ install_azure_cli() {
         return 0
     fi
 
-    if [ "${ARCHITECTURE,,}" = "arm64" ]; then
-        if [ "$OS_VERSION" = "22.04" ]; then
-            apt_get_update
-            apt_get_install 5 1 60 python3-pip
-            pip install azure-cli
-            export PATH="/home/$TEST_VM_ADMIN_USERNAME/.local/bin:$PATH"
-            CHECKAZ=$(pip freeze | grep "azure-cli==")
-            if [ -z "$CHECKAZ" ]; then
-                echo "Azure CLI is not installed properly."
-                exit 1
-            fi
-            return 0
-        fi
-        if [ "$OS_VERSION" = "24.04" ]; then
-            apt_get_install 5 1 60 ca-certificates curl apt-transport-https lsb-release gnupg
-            echo "deb [arch=arm64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
-            apt_get_update
-            apt_get_install 5 1 60 azure-cli
-        fi
-    else
-        apt_get_install 5 1 60 ca-certificates curl apt-transport-https lsb-release gnupg
-        echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
-        apt_get_update
-        apt_get_install 5 1 60 azure-cli
-    fi
+    installAzCLIFromUbuntuPMC
+
+    # if [ "${ARCHITECTURE,,}" = "arm64" ]; then
+    #     if [ "$OS_VERSION" = "22.04" ]; then
+    #         apt_get_update
+    #         apt_get_install 5 1 60 python3-pip
+    #         pip install azure-cli
+    #         export PATH="/home/$TEST_VM_ADMIN_USERNAME/.local/bin:$PATH"
+    #         CHECKAZ=$(pip freeze | grep "azure-cli==")
+    #         if [ -z "$CHECKAZ" ]; then
+    #             echo "Azure CLI is not installed properly."
+    #             exit 1
+    #         fi
+    #         return 0
+    #     fi
+    #     if [ "$OS_VERSION" = "24.04" ]; then
+    #         apt_get_install 5 1 60 ca-certificates curl apt-transport-https lsb-release gnupg
+    #         echo "deb [arch=arm64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
+    #         apt_get_update
+    #         apt_get_install 5 1 60 azure-cli
+    #     fi
+    # else
+    #     apt_get_install 5 1 60 ca-certificates curl apt-transport-https lsb-release gnupg
+    #     echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
+    #     apt_get_update
+    #     apt_get_install 5 1 60 azure-cli
+    # fi
 }
 
 login_with_user_assigned_managed_identity() {
