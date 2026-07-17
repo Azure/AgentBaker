@@ -589,3 +589,64 @@ Describe "Update-BaseUrl" {
     $result | Should -Be "https://packages.aks.azure.com/path/to/resource"
   }
 }
+
+Describe "Start-NodeResetScriptTask" {
+  BeforeEach {
+    $script:taskInfoCallCount = 0
+    Mock Start-ScheduledTask -MockWith {}
+    Mock Get-ScheduledTask -MockWith { return [pscustomobject]@{ State = "Ready" } }
+    Mock Get-ScheduledTaskInfo -MockWith {
+      $script:taskInfoCallCount++
+      if ($script:taskInfoCallCount -eq 1) {
+        return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-01"; LastTaskResult = 0 }
+      }
+      return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-02"; LastTaskResult = 0 }
+    }
+    Mock Get-Service -MockWith { return [pscustomobject]@{ Status = "Running" } }
+    Mock Start-Sleep -MockWith {}
+    Mock Write-Log -MockWith {}
+    Mock Set-ExitCode -MockWith {
+      Param($ExitCode, $ErrorMessage)
+      throw $ErrorMessage
+    }
+  }
+
+  It "waits for a new successful run and running kubelet" {
+    Start-NodeResetScriptTask
+
+    Assert-MockCalled -CommandName Start-ScheduledTask -Exactly -Times 1
+    Assert-MockCalled -CommandName Set-ExitCode -Exactly -Times 0
+  }
+
+  It "does not accept Ready before the new run starts" {
+    Mock Get-ScheduledTaskInfo -MockWith {
+      $script:taskInfoCallCount++
+      if ($script:taskInfoCallCount -le 2) {
+        return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-01"; LastTaskResult = 0 }
+      }
+      return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-02"; LastTaskResult = 0 }
+    }
+
+    Start-NodeResetScriptTask
+
+    Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 1
+  }
+
+  It "fails when the task result is nonzero" {
+    Mock Get-ScheduledTaskInfo -MockWith {
+      $script:taskInfoCallCount++
+      if ($script:taskInfoCallCount -eq 1) {
+        return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-01"; LastTaskResult = 0 }
+      }
+      return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-02"; LastTaskResult = 1 }
+    }
+
+    { Start-NodeResetScriptTask } | Should -Throw "*failed with result [1]*"
+  }
+
+  It "fails when kubelet is not running" {
+    Mock Get-Service -MockWith { return [pscustomobject]@{ Status = "Stopped" } }
+
+    { Start-NodeResetScriptTask } | Should -Throw "*kubelet service is not running*"
+  }
+}
