@@ -534,8 +534,30 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 }
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
+	runUbuntu2404NvidiaDevicePluginMIGSingle(t,
+		"Tests that NVIDIA device plugin and DCGM Exporter work with the legacy GPUInstanceProfile field",
+		func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.GPUInstanceProfile = "MIG2g"
+		},
+	)
+}
+
+func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIGProfiles_Single(t *testing.T) {
+	runUbuntu2404NvidiaDevicePluginMIGSingle(t,
+		"Tests that NVIDIA device plugin and DCGM Exporter work with MIGProfiles and the Single MIG strategy",
+		func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.MIGProfiles = []string{"MIG2g"}
+		},
+	)
+}
+
+func runUbuntu2404NvidiaDevicePluginMIGSingle(
+	t *testing.T,
+	description string,
+	setMIGProfile func(*datamodel.NodeBootstrappingConfiguration),
+) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that NVIDIA device plugin and DCGM Exporter work with the Single MIG strategy on Ubuntu 24.04 GPU nodes",
+		Description: description,
 		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
@@ -549,7 +571,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
-				nbc.MIGProfiles = []string{"MIG2g"}
+				setMIGProfile(nbc)
 				nbc.EnableManagedGPU = true
 				nbc.MigStrategy = "Single"
 			},
