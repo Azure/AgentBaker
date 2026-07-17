@@ -384,7 +384,7 @@ net.bridge.bridge-nf-call-iptables = 1
 EOF
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
 
-  # Node Memory Hardening: create kube.slice and drop-ins BEFORE starting
+  # Node Memory Hardening: create kube-reserved.slice and drop-ins BEFORE starting
   # containerd/kubelet so both services start in the correct slice from the
   # beginning — avoids needing a disruptive restart after the fact.
   resolveKubeletReservedCgroups
@@ -879,8 +879,8 @@ EOF
     # Refresh --runtime-cgroups for PIS nodes where basePrep may have baked an older
     # 10-containerd-base-flag.conf pointing at /system.slice/containerd.service.
     local containerd_runtime_cgroups="/system.slice/containerd.service"
-    if [ "${KUBE_RESERVED_CGROUP:-}" = "/kube.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kube.slice" ]; then
-        containerd_runtime_cgroups="/kube.slice/containerd.service"
+    if [ "${KUBE_RESERVED_CGROUP:-}" = "/kube-reserved.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kube-reserved.slice" ]; then
+        containerd_runtime_cgroups="/kube-reserved.slice/containerd.service"
     fi
     tee "/etc/systemd/system/kubelet.service.d/10-containerd-base-flag.conf" > /dev/null <<EOF
 [Service]
