@@ -727,13 +727,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return profile.GetKubernetesLabels()
 		},
 		"GetGPUInstanceProfile": func() string {
-			return strings.Join(config.GetMIGProfiles(), ",")
+			return config.GPUInstanceProfile
 		},
 		"GetMIGProfiles": func() string {
-			return strings.Join(config.GetMIGProfiles(), ",")
+			return strings.Join(config.MigProfiles, ",")
 		},
 		"IsMIGEnabledNode": func() bool {
-			return datamodel.IsMIGNode(config.GetMIGProfiles())
+			return datamodel.IsMIGNode(config.GPUInstanceProfile, config.MigProfiles)
 		},
 		"GetMigStrategy": func() string {
 			return config.MigStrategy

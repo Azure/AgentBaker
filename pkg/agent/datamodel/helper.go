@@ -125,9 +125,9 @@ func getComponentNameFromURL(downloadURL string) (string, error) {
 	return componentName, nil
 }
 
-// IsMIGNode checks if the node should be partitioned from the resolved MIG profile list.
-func IsMIGNode(migProfiles []string) bool {
-	return len(migProfiles) > 0
+// IsMIGNode check if the node should be partitioned.
+func IsMIGNode(gpuInstanceProfile string, migProfiles []string) bool {
+	return gpuInstanceProfile != "" || len(migProfiles) > 0
 }
 
 // returns the CSE timeout value in seconds.

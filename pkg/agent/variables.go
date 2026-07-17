@@ -100,8 +100,6 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		agentPoolProfileWindows = &datamodel.AgentPoolWindowsProfile{}
 	}
 
-	migProfiles := config.GetMIGProfiles()
-
 	return map[string]interface{}{
 		"tenantID":                               config.TenantID,
 		"subscriptionId":                         config.SubscriptionID,
@@ -126,9 +124,9 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"sgxNode":                                strconv.FormatBool(datamodel.IsSgxEnabledSKU(profile.VMSize)),
 		"configGPUDriverIfNeeded":                config.ConfigGPUDriverIfNeeded,
 		"enableGPUDevicePluginIfNeeded":          config.EnableGPUDevicePluginIfNeeded,
-		"migNode":                                strconv.FormatBool(datamodel.IsMIGNode(migProfiles)),
-		"gpuInstanceProfile":                     strings.Join(migProfiles, ","),
-		"migProfiles":                            strings.Join(migProfiles, ","),
+		"migNode":                                strconv.FormatBool(datamodel.IsMIGNode(config.GPUInstanceProfile, config.MigProfiles)),
+		"gpuInstanceProfile":                     config.GPUInstanceProfile,
+		"migProfiles":                            strings.Join(config.MigProfiles, ","),
 		"windowsEnableCSIProxy":                  windowsProfile.IsCSIProxyEnabled(),
 		"windowsPauseImageURL":                   windowsProfile.WindowsPauseImageURL,
 		"windowsCSIProxyURL":                     windowsProfile.CSIProxyURL,

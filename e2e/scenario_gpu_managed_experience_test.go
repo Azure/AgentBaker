@@ -546,7 +546,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIGProfiles_Single(t *testing.T) 
 	runUbuntu2404NvidiaDevicePluginMIGSingle(t,
 		"Tests that NVIDIA device plugin and DCGM Exporter work with MIGProfiles and the Single MIG strategy",
 		func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.MIGProfiles = []string{"MIG2g"}
+			nbc.MigProfiles = []string{"MIG2g"}
 		},
 	)
 }
@@ -594,6 +594,7 @@ func runUbuntu2404NvidiaDevicePluginMIGSingle(
 
 				// Validate that the NVIDIA device plugin systemd service is running
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
+				ValidateNvidiaDevicePluginMIGStrategy(ctx, s, "single")
 
 				// Validate that MIG mode is enabled via nvidia-smi
 				ValidateMIGModeEnabled(ctx, s)
@@ -669,7 +670,6 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 
 				// Validate that the NVIDIA device plugin systemd service is running
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
-
 				// Validate that GPU resources are advertised by the device plugin
 				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
@@ -761,7 +761,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
-				nbc.MIGProfiles = []string{"MIG3g", "MIG2g", "MIG1g", "MIG1g"}
+				nbc.MigProfiles = []string{"MIG3g", "MIG2g", "MIG1g", "MIG1g"}
 				nbc.EnableManagedGPU = true
 				nbc.MigStrategy = "Mixed"
 			},
@@ -786,6 +786,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
 
 				// Validate that MIG mode is enabled via nvidia-smi
+				ValidateNvidiaDevicePluginMIGStrategy(ctx, s, "mixed")
 				ValidateMIGModeEnabled(ctx, s)
 
 				ValidateMIGInstanceProfileCounts(ctx, s, map[string]int{

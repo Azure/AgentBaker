@@ -1750,6 +1750,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableManagedGPU                bool
 	EnableManagedGPUDRA             bool
 	MigStrategy                     string
+	MigProfiles                     []string
 	EnableArtifactStreaming         bool
 	ContainerdVersion               string
 	RuncVersion                     string
@@ -1770,7 +1771,6 @@ type NodeBootstrappingConfiguration struct {
 	KubeproxyConfig                map[string]string
 	EnableRuncShimV2               bool
 	GPUInstanceProfile             string
-	MIGProfiles                    []string
 	PrimaryScaleSetName            string
 	SIGConfig                      SIGConfig
 	IsARM64                        bool
@@ -1830,16 +1830,6 @@ func (config *NodeBootstrappingConfiguration) IsFlatcar() bool {
 
 func (config *NodeBootstrappingConfiguration) IsACL() bool {
 	return config.OSSKU == OSSKUAzureContainerLinux || config.AgentPoolProfile.IsACL()
-}
-
-func (config *NodeBootstrappingConfiguration) GetMIGProfiles() []string {
-	if len(config.MIGProfiles) > 0 {
-		return slices.Clone(config.MIGProfiles)
-	}
-	if config.GPUInstanceProfile != "" {
-		return []string{config.GPUInstanceProfile}
-	}
-	return nil
 }
 
 type SSHStatus int

@@ -40,6 +40,9 @@ func TestBuildCSECmd(t *testing.T) {
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
 				assert.Equal(t, "false", vars["GPU_NODE"])
+				assertHasKeyWithValue(t, vars, "MIG_NODE", "true")
+				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "MIG7g")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILES", "")
 				assert.NotEmpty(t, vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"])
 				// Ensure the containerd config does not use the
 				// nvidia container runtime when skipping the
@@ -94,8 +97,8 @@ oom_score = -999
 				vars := environToMap(cmd.Env)
 				assertHasKeyWithValue(t, vars, "GPU_NODE", "true")
 				assertHasKeyWithValue(t, vars, "MIG_NODE", "true")
-				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "MIG1g,MIG2g,MIG4g")
-				assertHasKeyWithValue(t, vars, "MIG_PROFILES", "MIG1g,MIG2g,MIG4g")
+				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILES", "MIG1g,MIG2g,MIG4g")
 			},
 		},
 		{
@@ -479,7 +482,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "VNET_CNI_PLUGINS_URL", "")
 				assertHasKeyWithValue(t, vars, "GPU_NODE", "false")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
-				assertHasKeyWithValue(t, vars, "MIG_PROFILES", "")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILES", "")
 				assertHasKeyWithValue(t, vars, "CUSTOM_CA_TRUST_COUNT", "0")
 				assertHasKeyWithValue(t, vars, "SHOULD_CONFIGURE_CUSTOM_CA_TRUST", "false")
 				assertHasKeyWithValue(t, vars, "KUBELET_FLAGS", "")

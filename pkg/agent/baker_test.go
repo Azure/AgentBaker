@@ -1486,11 +1486,11 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars).To(HaveKeyWithValue("GPU_NODE", "true"))
 		Expect(vars).To(HaveKeyWithValue("CONFIG_GPU_DRIVER_IF_NEEDED", "true"))
 		Expect(vars).To(HaveKeyWithValue("GPU_INSTANCE_PROFILE", "MIG7g"))
-		Expect(vars).To(HaveKeyWithValue("MIG_PROFILES", "MIG7g"))
+		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_PROFILES", ""))
 	})
 
 	It("should handle mixed MIG GPU profiles", func() {
-		baseConfig.MIGProfiles = []string{"MIG1g", "MIG2g", "MIG4g"}
+		baseConfig.MigProfiles = []string{"MIG1g", "MIG2g", "MIG4g"}
 		baseConfig.ConfigGPUDriverIfNeeded = true
 		baseConfig.EnableNvidia = true
 		baseConfig.AgentPoolProfile.VMSize = "Standard_ND96asr_v4"
@@ -1504,8 +1504,8 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars).To(HaveKeyWithValue("GPU_NODE", "true"))
 		Expect(vars).To(HaveKeyWithValue("CONFIG_GPU_DRIVER_IF_NEEDED", "true"))
 		Expect(vars).To(HaveKeyWithValue("MIG_NODE", "true"))
-		Expect(vars).To(HaveKeyWithValue("GPU_INSTANCE_PROFILE", "MIG1g,MIG2g,MIG4g"))
-		Expect(vars).To(HaveKeyWithValue("MIG_PROFILES", "MIG1g,MIG2g,MIG4g"))
+		Expect(vars).To(HaveKeyWithValue("GPU_INSTANCE_PROFILE", ""))
+		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_PROFILES", "MIG1g,MIG2g,MIG4g"))
 	})
 
 	It("should handle disable unattended upgrades", func() {
