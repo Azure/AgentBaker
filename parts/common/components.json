@@ -720,15 +720,15 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kube-proxy",
-          "latestVersion": "v1.33.13-4"
+          "latestVersion": "v1.33.13-5"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kube-proxy",
-          "latestVersion": "v1.34.9-4"
+          "latestVersion": "v1.34.9-5"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kube-proxy",
-          "latestVersion": "v1.35.6-4"
+          "latestVersion": "v1.35.6-5"
         }
       ],
       "windowsVersions": []
