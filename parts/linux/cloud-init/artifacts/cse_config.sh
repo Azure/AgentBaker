@@ -880,7 +880,7 @@ EOF
     # 10-containerd-base-flag.conf pointing at /system.slice/containerd.service.
     local containerd_runtime_cgroups="/system.slice/containerd.service"
     if [ "${KUBE_RESERVED_CGROUP:-}" = "/kubelet.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kubelet.slice" ]; then
-        containerd_runtime_cgroups="/kubelet.slice/containerd.service"
+        containerd_runtime_cgroups="/containerd.slice/containerd.service"
     fi
     tee "/etc/systemd/system/kubelet.service.d/10-containerd-base-flag.conf" > /dev/null <<EOF
 [Service]

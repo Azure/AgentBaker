@@ -2680,7 +2680,7 @@ func Test_AzureLinuxV3_MANA(t *testing.T) {
 
 func Test_Ubuntu2204_NodeHardening_KubeletSlice(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "validates kubelet and containerd run in kubelet.slice when node hardening cgroup hierarchy is enabled",
+		Description: "validates kubelet runs in kubelet.slice and containerd runs in containerd.slice when node hardening cgroup hierarchy is enabled",
 		Config: Config{
 			Cluster:           ClusterKubenet,
 			VHD:               config.VHDUbuntu2204Gen2Containerd,
@@ -2694,10 +2694,11 @@ func Test_Ubuntu2204_NodeHardening_KubeletSlice(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileExists(ctx, s, "/etc/systemd/system/kubelet.slice")
+				ValidateFileExists(ctx, s, "/etc/systemd/system/containerd.slice")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-kubelet-slice.conf", "Slice=kubelet.slice")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/containerd.service.d/10-kubelet-slice.conf", "Slice=kubelet.slice")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/containerd.service.d/10-containerd-slice.conf", "Slice=containerd.slice")
 				ValidateServiceInSlice(ctx, s, "kubelet.service", "kubelet.slice")
-				ValidateServiceInSlice(ctx, s, "containerd.service", "kubelet.slice")
+				ValidateServiceInSlice(ctx, s, "containerd.service", "containerd.slice")
 			},
 		},
 	})

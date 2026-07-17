@@ -1532,6 +1532,7 @@ ensureKubeletCgroupHierarchy() {
     local kubelet_slice_unit="${KUBELET_SLICE_UNIT_PATH:-/etc/systemd/system/kubelet.slice}"
     local kubelet_dropin_dir="${KUBELET_SERVICE_DROPIN_DIR:-/etc/systemd/system/kubelet.service.d}"
     local containerd_dropin_dir="${CONTAINERD_SERVICE_DROPIN_DIR:-/etc/systemd/system/containerd.service.d}"
+    local containerd_slice_unit="${CONTAINERD_SLICE_UNIT_PATH:-/etc/systemd/system/containerd.slice}"
 
     # Assert cgroupv2 unified hierarchy. The canonical marker is the presence of
     # /sys/fs/cgroup/cgroup.controllers, which only exists under cgroupv2.
@@ -1591,17 +1592,32 @@ Slice=kubelet.slice
 EOF
         chmod 0644 "${kubelet_dropin_dir}/10-kubelet-slice.conf"
 
-        # Drop-in on containerd.service to place it in kubelet.slice as well.
-        mkdir -p "${containerd_dropin_dir}"
-        tee "${containerd_dropin_dir}/10-kubelet-slice.conf" > /dev/null <<'EOF'
+        # Create containerd.slice so containerd runs in its own dedicated slice.
+        mkdir -p "$(dirname "${containerd_slice_unit}")"
+        tee "${containerd_slice_unit}" > /dev/null <<'EOF'
 [Unit]
-Wants=kubelet.slice
-After=kubelet.slice
+Description=Slice for containerd cgroup isolation (AKS Node Memory Hardening)
+Before=slices.target
+DefaultDependencies=no
+
+[Slice]
+
+[Install]
+WantedBy=slices.target
+EOF
+        chmod 0644 "${containerd_slice_unit}"
+
+        # Drop-in on containerd.service to place it in containerd.slice.
+        mkdir -p "${containerd_dropin_dir}"
+        tee "${containerd_dropin_dir}/10-containerd-slice.conf" > /dev/null <<'EOF'
+[Unit]
+Wants=containerd.slice
+After=containerd.slice
 
 [Service]
-Slice=kubelet.slice
+Slice=containerd.slice
 EOF
-        chmod 0644 "${containerd_dropin_dir}/10-kubelet-slice.conf"
+        chmod 0644 "${containerd_dropin_dir}/10-containerd-slice.conf"
 
         if ! systemctl daemon-reload; then
             echo "ensureKubeletCgroupHierarchy: failed to daemon-reload systemd"
@@ -1616,6 +1632,14 @@ EOF
         # Materialise the cgroup tree at /sys/fs/cgroup/kubelet.slice before kubelet starts on this boot.
         if ! systemctl start kubelet.slice; then
             echo "ensureKubeletCgroupHierarchy: failed to start kubelet.slice"
+            return 1
+        fi
+        if ! systemctl enable containerd.slice; then
+            echo "ensureKubeletCgroupHierarchy: failed to enable containerd.slice"
+            return 1
+        fi
+        if ! systemctl start containerd.slice; then
+            echo "ensureKubeletCgroupHierarchy: failed to start containerd.slice"
             return 1
         fi
     fi
