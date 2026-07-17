@@ -1401,6 +1401,7 @@ func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) {
 }
 
 func ValidateKubeletArgs(ctx context.Context, s *Scenario) {
+	s.T.Helper()
 	ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt", "--windows-priorityclass=ABOVE_NORMAL_PRIORITY_CLASS"})
 }
 
