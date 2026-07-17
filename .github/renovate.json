@@ -591,7 +591,8 @@
         "oss/v2/kubernetes/*-sysext"
       ],
       "matchCurrentVersion": "/-azlinux3$/",
-      "extractVersion": "^(?<version>.+-azlinux3)-"
+      "extractVersion": "^(?<version>.+-azlinux3)-x86-64$",
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<compatibility>azlinux3)$"
     },
     {
       "matchPackageNames": [
