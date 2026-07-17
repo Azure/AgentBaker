@@ -91,40 +91,18 @@ az storage blob download --container-name "$SIG_CONTAINER_NAME" --name "$MOF_BLO
 chmod 0755 "$ASSESSOR_BIN"
 chmod 0644 "$MOF_PATH"
 
-# Diagnostics: exit code 126 ("cannot execute") is almost always an architecture
-# mismatch (binary built for a different arch than this VM) or the work dir being
-# on a 'noexec' mount. Log enough to tell the two apart from the pipeline output.
-echo "----- assessor exec diagnostics -----"
-echo "VM arch (uname -m): $(uname -m)"
-echo "assessor permissions/owner:"; stat -c '  %A  %U:%G  %s bytes  %n' "$ASSESSOR_BIN" 2>/dev/null || echo "  (stat failed)"
-echo "assessor file type:"; file "$ASSESSOR_BIN" 2>/dev/null || echo "  (file(1) not available)"
-# ELF header e_machine lives at byte offset 18 (0x3e=x86-64, 0xb7=AArch64).
-echo "assessor ELF magic + e_machine (offset 0 and 18):"
-od -An -tx1 -N 20 "$ASSESSOR_BIN" 2>/dev/null || true
-# ldd reveals missing shared libraries ("=> not found") or, on an arch mismatch,
-# prints "not a dynamic executable" / an error — useful either way.
-echo "assessor dynamic dependencies (ldd):"
-ldd "$ASSESSOR_BIN" 2>&1 | sed 's/^/  /' || true
-echo "work dir mount options:"; findmnt -no TARGET,OPTIONS --target "$WORK_DIR" 2>/dev/null || mount 2>/dev/null | grep -E " on / " || true
-# noexec self-test: if a trivial script here cannot run, the fs is noexec; if it
-# runs but the assessor does not, the assessor is the wrong arch/format.
-printf '#!/bin/sh\nexit 0\n' > "${WORK_DIR}/.exec-test.sh"
-chmod 0755 "${WORK_DIR}/.exec-test.sh"
-if "${WORK_DIR}/.exec-test.sh" 2>/dev/null; then
-    echo "noexec self-test: PASS (work dir is exec-permitted)"
-else
-    echo "noexec self-test: FAIL (work dir appears to be mounted noexec)"
-fi
-rm -f "${WORK_DIR}/.exec-test.sh"
-echo "-------------------------------------"
-
 # Run the audit. stdout is the pure JSON result; --log-file captures all
 # assessor logging (and disables console logging) so stdout stays parseable.
+# --continue-on-error keeps the audit going when an individual rule's procedure
+# fails: without it the assessor aborts the whole MOF on the first rule error
+# (returns 1 and emits no JSON, since the JSON formatter only flushes at the
+# end), which would drop every result. For a shadow, non-blocking scan we want
+# the partial JSON plus a logged error rather than nothing.
 # Capture the exit code but never abort: a NonCompliant result is expected and
 # must not fail the (shadow, non-blocking) scan.
 audit_rc=0
 set +e
-"$ASSESSOR_BIN" --verbose --log-file "$LOG_PATH" --format json audit "$MOF_PATH" > "$RESULT_PATH" 2> "${WORK_DIR}/stderr.log"
+"$ASSESSOR_BIN" --verbose --continue-on-error --log-file "$LOG_PATH" --format json audit "$MOF_PATH" > "$RESULT_PATH" 2> "${WORK_DIR}/stderr.log"
 audit_rc=$?
 set -e
 echo "compliance-engine-assessor exited with code: ${audit_rc}"
@@ -133,6 +111,19 @@ echo "compliance-engine-assessor exited with code: ${audit_rc}"
 echo "----- compliance-engine-assessor stderr -----"
 cat "${WORK_DIR}/stderr.log" 2>/dev/null || true
 echo "---------------------------------------------"
+
+# The assessor disables console logging when --log-file is set, so on a failure
+# or an empty result the reason (e.g. "benchmark is not applicable for the
+# current distribution", or a specific rule's procedure error) lives ONLY in the
+# log file. Surface the error lines and the tail inline so the pipeline output
+# shows the cause without having to open the published log artifact.
+if [ "${audit_rc}" -ne 0 ] || [ ! -s "$RESULT_PATH" ]; then
+    echo "----- compliance-engine-assessor log: error lines -----"
+    grep -iE 'error|abort|not applicable|exception|fatal' "$LOG_PATH" 2>/dev/null | tail -n 40 || true
+    echo "----- compliance-engine-assessor log: tail -----"
+    tail -n 40 "$LOG_PATH" 2>/dev/null || true
+    echo "------------------------------------------------------"
+fi
 
 # Upload the JSON result and the assessor log even if the audit reported
 # NonCompliant or failed, so the agent always has something to publish.

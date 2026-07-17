@@ -197,6 +197,12 @@ steps:
     split_pin "assessor" "${a_pin}"; a_name="${_name}"; a_ver="${_ver}"
     warn_if_stale "compliance-engine-assessor" "${a_ver}"
     download_pkg "${a_name}" "${a_ver}" "${tmp_dir}/assessor"
+
+    # The package currently ships a single assessor binary (it is not
+    # RID-structured with per-architecture subdirectories), so take the one
+    # binary present. TODO: once the package publishes per-RID binaries, select
+    # the one matching the scan VM architecture ($(ARCHITECTURE)) and verify its
+    # ELF machine, so an arm64 build does not pick up an x86-64 binary.
     assessor_bin=$(find "${tmp_dir}/assessor" -name 'compliance-engine-assessor' -type f | head -1)
     if [ -z "${assessor_bin}" ]; then
         echo "##[error]compliance-engine-assessor binary not found in package ${a_name}"
@@ -205,7 +211,7 @@ steps:
     fi
     cp "${assessor_bin}" "${download_root}/compliance-engine-assessor"
     chmod +x "${download_root}/compliance-engine-assessor"
-    echo "Assessor staged at ${download_root}/compliance-engine-assessor"
+    echo "Assessor (${arch_label}) staged at ${download_root}/compliance-engine-assessor"
 
     # Benchmark MOFs: one per key under .benchmarks (each value a
     # '<package>@<version>' pin), renamed to mof/<key>.mof.
