@@ -119,9 +119,7 @@ installDeps() {
         pkg_list+=(irqbalance)
     fi
 
-    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        pkg_list+=("aznfs=3.0.14")
-    elif [ "${OSVERSION}" = "26.04" ]; then
+    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ] || [ "${OSVERSION}" = "26.04" ]; then
         pkg_list+=("aznfs=3.0.19")
     fi
 

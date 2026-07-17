@@ -45,6 +45,13 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	ValidateLeakedSecrets(ctx, s)
 	ValidateIPTablesCompatibleWithCiliumEBPF(ctx, s)
 	ValidateRxBufferDefault(ctx, s)
+
+	// Validate MANA (Accelerated Networking) when hardware is present.
+	// MANA is the standard network adapter on V5+ VM series.
+	if hasMANAHardware(ctx, s) {
+		ValidateMANA(ctx, s)
+	}
+
 	ValidateKernelLogs(ctx, s)
 	ValidateWaagentLog(ctx, s)
 	ValidateScriptlessCSECmd(ctx, s)
