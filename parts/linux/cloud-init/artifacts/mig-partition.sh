@@ -111,7 +111,13 @@ fi
 if [ "${NVIDIA_MIG_STRATEGY:-}" = "Mixed" ]; then
     MIG_LAYOUT="$(mixed_mig_profiles_layout "${SELECTED_MIG_PROFILES}")" || exit 1
 else
-    MIG_PROFILE="$(trim_mig_profile "${SELECTED_MIG_PROFILES%%,*}")"
+    case "${SELECTED_MIG_PROFILES}" in
+        *,*)
+            echo "Single MIG strategy requires exactly one MIG profile" >&2
+            exit 1
+            ;;
+    esac
+    MIG_PROFILE="$(trim_mig_profile "${SELECTED_MIG_PROFILES}")"
     MIG_LAYOUT="$(uniform_mig_profile_layout "${MIG_PROFILE}")" || exit 1
 fi
 

@@ -26,12 +26,19 @@ Describe 'mig-partition.sh'
         End
     End
 
-    It 'uses the first plural profile for the Single strategy and trims whitespace'
-        When run env NVIDIA_MIG_PROFILES="  MIG2g , MIG1g " NVIDIA_MIG_STRATEGY="Single" bash "$SCRIPT_PATH"
+    It 'accepts one plural profile for the Single strategy and trims whitespace'
+        When run env NVIDIA_MIG_PROFILES="  MIG2g  " NVIDIA_MIG_STRATEGY="Single" bash "$SCRIPT_PATH"
 
         The status should be success
         The output should include "nvidia-smi mig -cgi 14,14,14"
         The output should include "nvidia-smi mig -cci"
+    End
+
+    It 'rejects multiple plural profiles for the Single strategy'
+        When run env NVIDIA_MIG_PROFILES="MIG2g,MIG1g" NVIDIA_MIG_STRATEGY="Single" bash "$SCRIPT_PATH"
+
+        The status should be failure
+        The error should include "Single MIG strategy requires exactly one MIG profile"
     End
 
     It 'maps every supported mixed profile and ignores empty CSV elements'

@@ -33,6 +33,7 @@ func TestBuildCSECmd(t *testing.T) {
 			k8sVersion: "1.19.13",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
 				aksNodeConfig.GpuConfig.GpuInstanceProfile = "MIG7g"
+				aksNodeConfig.GpuConfig.MigStrategy = "Single"
 				// Skip GPU driver install
 				aksNodeConfig.GpuConfig.EnableNvidia = to.Ptr(false)
 				aksNodeConfig.VmSize = "Standard_ND96asr_v4"
@@ -43,6 +44,7 @@ func TestBuildCSECmd(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "MIG_NODE", "true")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "MIG7g")
 				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILES", "")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_STRATEGY", "Single")
 				assert.NotEmpty(t, vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"])
 				// Ensure the containerd config does not use the
 				// nvidia container runtime when skipping the
@@ -73,6 +75,25 @@ oom_score = -999
 			},
 		},
 		{
+			name:       "AKSUbuntu2204 containerd with a single MIG profile",
+			folder:     "AKSUbuntu2204+Containerd+MIG",
+			k8sVersion: "1.19.13",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.GpuConfig.MigProfiles = []string{"MIG2g"}
+				aksNodeConfig.GpuConfig.MigStrategy = "Single"
+				aksNodeConfig.GpuConfig.EnableNvidia = to.Ptr(true)
+				aksNodeConfig.VmSize = "Standard_ND96asr_v4"
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				assertHasKeyWithValue(t, vars, "GPU_NODE", "true")
+				assertHasKeyWithValue(t, vars, "MIG_NODE", "true")
+				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILES", "MIG2g")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_STRATEGY", "Single")
+			},
+		},
+		{
 			name:       "AKSUbuntu2204 DisableSSH with enabled ssh",
 			folder:     "AKSUbuntu2204+SSHStatusOn",
 			k8sVersion: "1.24.2",
@@ -90,6 +111,7 @@ oom_score = -999
 			k8sVersion: "1.19.13",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
 				aksNodeConfig.GpuConfig.MigProfiles = []string{"MIG1g", "MIG2g", "MIG4g"}
+				aksNodeConfig.GpuConfig.MigStrategy = "Mixed"
 				aksNodeConfig.GpuConfig.EnableNvidia = to.Ptr(true)
 				aksNodeConfig.VmSize = "Standard_ND96asr_v4"
 			},
@@ -99,6 +121,7 @@ oom_score = -999
 				assertHasKeyWithValue(t, vars, "MIG_NODE", "true")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
 				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILES", "MIG1g,MIG2g,MIG4g")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_STRATEGY", "Mixed")
 			},
 		},
 		{

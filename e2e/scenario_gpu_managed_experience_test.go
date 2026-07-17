@@ -594,16 +594,15 @@ func runUbuntu2404NvidiaDevicePluginMIGSingle(
 
 				// Validate that the NVIDIA device plugin systemd service is running
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
-				ValidateNvidiaDevicePluginMIGStrategy(ctx, s, "single")
 
-				// Validate that MIG mode is enabled via nvidia-smi
+				ValidateMIGInstanceProfileCounts(ctx, s, map[string]int{"MIG 2g.20gb": 3})
+				ValidateNvidiaDevicePluginMIGStrategy(ctx, s, "single")
 				ValidateMIGModeEnabled(ctx, s)
 
-				// Single exposes all three uniform partitions through the generic GPU resource.
-				ValidateMIGInstanceProfileCounts(ctx, s, map[string]int{"MIG 2g.20gb": 3})
+				// Single exposes all three uniform partitions through nvidia.com/gpu and no profile-specific resources.
 				ValidateNodeAdvertisesExactGPUResources(ctx, s, map[string]int64{"nvidia.com/gpu": 3})
 
-				// Validate that MIG workloads can be scheduled
+				// Exercise every advertised MIG partition through the generic resource.
 				ValidateGPUWorkloadSchedulable(ctx, s, 3, "nvidia.com/gpu")
 
 				// Validate that the NVIDIA DCGM packages were installed correctly
@@ -785,17 +784,15 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 				// Validate that the NVIDIA device plugin systemd service is running
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
 
-				// Validate that MIG mode is enabled via nvidia-smi
-				ValidateNvidiaDevicePluginMIGStrategy(ctx, s, "mixed")
-				ValidateMIGModeEnabled(ctx, s)
-
 				ValidateMIGInstanceProfileCounts(ctx, s, map[string]int{
 					"MIG 3g.40gb": 1,
 					"MIG 2g.20gb": 1,
 					"MIG 1g.10gb": 2,
 				})
+				ValidateNvidiaDevicePluginMIGStrategy(ctx, s, "mixed")
+				ValidateMIGModeEnabled(ctx, s)
 
-				// Mixed exposes profile-specific resources and must not retain the generic nvidia.com/gpu resource.
+				// Mixed exposes every profile-specific resource and no generic nvidia.com/gpu resource.
 				ValidateNodeAdvertisesExactGPUResources(ctx, s, map[string]int64{
 					"nvidia.com/mig-3g.40gb": 1,
 					"nvidia.com/mig-2g.20gb": 1,
