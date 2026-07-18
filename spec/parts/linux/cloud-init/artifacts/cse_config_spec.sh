@@ -161,6 +161,67 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'ensureGPUDrivers'
+        # Assert the driver-install DISPATCH decision without running a real install. logs_to_events
+        # is stubbed as a pass-through so the wrapped calls reach our stubs; OS defaults to Ubuntu.
+        OS="$UBUNTU_OS_NAME"
+        # shellcheck disable=SC2068,SC2329 # unquoted $@ mirrors the real logs_to_events word-split.
+        logs_to_events() { shift; $@; }
+        # shellcheck disable=SC2329 # stubs invoked dynamically by ensureGPUDrivers.
+        cleanUpGridNodeCudaPrebake() { :; }
+        # shellcheck disable=SC2329
+        logGPUDriverPrebakeReadiness() { :; }
+        # shellcheck disable=SC2329
+        configGPUDrivers() { echo "CONFIG_GPU_DRIVERS_CALLED"; }
+        # shellcheck disable=SC2329
+        validateGPUDrivers() { echo "VALIDATE_GPU_DRIVERS_CALLED"; }
+        # shellcheck disable=SC2329
+        systemctlEnableAndStart() { echo "MODPROBE_START_CALLED"; }
+
+        It 'skips entirely on arm64 non-Ubuntu (no arm64 driver path there)'
+            # shellcheck disable=SC2329
+            isARM64() { echo 1; }
+            OS="MARINER"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+            When call ensureGPUDrivers
+            The output should not include "CONFIG_GPU_DRIVERS_CALLED"
+            The output should not include "VALIDATE_GPU_DRIVERS_CALLED"
+            The output should not include "MODPROBE_START_CALLED"
+            OS="$UBUNTU_OS_NAME"   # restore for subsequent examples
+        End
+
+        It 'installs via configGPUDrivers on arm64 Ubuntu even when CONFIG_GPU_DRIVER_IF_NEEDED=false'
+            # Regression guard: validateGPUDrivers no-ops on arm64, so the validate branch would
+            # leave no driver installed before nvidia-modprobe starts -> hard failure. arm64 must
+            # always take the container-image install path.
+            # shellcheck disable=SC2329
+            isARM64() { echo 1; }
+            CONFIG_GPU_DRIVER_IF_NEEDED="false"
+            When call ensureGPUDrivers
+            The output should include "CONFIG_GPU_DRIVERS_CALLED"
+            The output should not include "VALIDATE_GPU_DRIVERS_CALLED"
+            The output should include "MODPROBE_START_CALLED"
+        End
+
+        It 'installs via configGPUDrivers on arm64 Ubuntu when CONFIG_GPU_DRIVER_IF_NEEDED=true'
+            # shellcheck disable=SC2329
+            isARM64() { echo 1; }
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+            When call ensureGPUDrivers
+            The output should include "CONFIG_GPU_DRIVERS_CALLED"
+            The output should not include "VALIDATE_GPU_DRIVERS_CALLED"
+        End
+
+        It 'preserves amd64 behavior: validateGPUDrivers when CONFIG_GPU_DRIVER_IF_NEEDED=false'
+            # shellcheck disable=SC2329
+            isARM64() { echo 0; }
+            CONFIG_GPU_DRIVER_IF_NEEDED="false"
+            When call ensureGPUDrivers
+            The output should include "VALIDATE_GPU_DRIVERS_CALLED"
+            The output should not include "CONFIG_GPU_DRIVERS_CALLED"
+        End
+    End
+
     Describe 'configureAzureJson'
         AZURE_JSON_PATH="azure.json"
         AKS_CUSTOM_CLOUD_JSON_PATH="customcloud.json"
