@@ -1352,7 +1352,11 @@ cleanUpGridNodeCudaPrebake() {
 }
 
 ensureGPUDrivers() {
-    if [ "$(isARM64)" -eq 1 ]; then
+    # arm64 GPU nodes are the Grace-Blackwell SKUs (GB200/GB300). They install the
+    # driver from the container image via the Ubuntu path in configGPUDrivers -
+    # aks-gpu-cuda-lts now publishes an arm64 variant. Other OSes have no arm64 GPU
+    # driver install path, so continue skipping arm64 there.
+    if [ "$(isARM64)" -eq 1 ] && [ "$OS" != "$UBUNTU_OS_NAME" ]; then
         return
     fi
 
@@ -1363,7 +1367,10 @@ ensureGPUDrivers() {
         logs_to_events "AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake" cleanUpGridNodeCudaPrebake || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 
-    if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]; then
+    # arm64 (Grace-Blackwell) only has the container-image install path in configGPUDrivers;
+    # validateGPUDrivers has no arm64 support and returns immediately, which would then let
+    # nvidia-modprobe start below with no driver present. Always take the install path on arm64.
+    if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ] || [ "$(isARM64)" -eq 1 ]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
     else
         logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
@@ -2040,6 +2047,35 @@ EOF
         systemctl daemon-reload
 
         logs_to_events "AKS.CSE.start.dra-driver-nvidia-gpu" "systemctlEnableAndStart dra-driver-nvidia-gpu 30" || exit $ERR_DRA_DRIVER_START_FAIL
+
+        # GB (arm64) MNNVL SKUs also need the node-local compute-domain kubelet-plugin
+        # (device class compute-domain.nvidia.com) for cross-node IMEX. The
+        # dra-driver-nvidia-gpu deb ships only gpu-kubelet-plugin, so the version-matched
+        # compute-domain-kubelet-plugin binary is fetched from COMPUTE_DOMAIN_PLUGIN_URL when
+        # set (empty on nodes without ComputeDomains => no-op) and run as its own systemd
+        # unit. The cluster-side ComputeDomain controller is deployed separately. Follow-up:
+        # ship the binary in the deb and grant the plugin's RBAC.
+        if [ "$(isARM64)" -eq 1 ] && [ -n "${COMPUTE_DOMAIN_PLUGIN_URL:-}" ]; then
+            if [ ! -x /usr/bin/compute-domain-kubelet-plugin ]; then
+                retrycmd_if_failure 10 5 60 curl -fsSL -o /usr/bin/compute-domain-kubelet-plugin "${COMPUTE_DOMAIN_PLUGIN_URL}" || exit $ERR_DRA_DRIVER_START_FAIL
+                chmod 0755 /usr/bin/compute-domain-kubelet-plugin
+            fi
+            tee "/etc/systemd/system/compute-domain-nvidia-gpu.service" > /dev/null <<EOF
+[Unit]
+Description=NVIDIA DRA Compute-Domain Kubelet Plugin
+Requires=kubelet.service
+After=kubelet.service dra-driver-nvidia-gpu.service
+[Service]
+Environment="NVIDIA_VISIBLE_DEVICES=void"
+ExecStart=/usr/bin/compute-domain-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --node-name=${NODE_NAME} --namespace ${COMPUTE_DOMAIN_NAMESPACE:-default} --nvidia-driver-root / --container-driver-root /
+Restart=always
+User=root
+[Install]
+WantedBy=multi-user.target
+EOF
+            systemctl daemon-reload
+            logs_to_events "AKS.CSE.start.compute-domain-nvidia-gpu" "systemctlEnableAndStart compute-domain-nvidia-gpu 30" || exit $ERR_DRA_DRIVER_START_FAIL
+        fi
     fi
 
     # 2. Start the nvidia-dcgm service.
