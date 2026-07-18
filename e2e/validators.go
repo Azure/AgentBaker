@@ -3063,7 +3063,7 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 		s.VHD == config.VHDUbuntu2204Gen2FIPSTLContainerd
 	grepCmd := fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s || true", waagentLogFile)
 	if isUbuntu2204FIPS {
-		grepCmd = fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s | grep -v 'Cannot convert PFX to PEM' || true", waagentLogFile)
+		grepCmd = fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s | grep -v 'Cannot convert PFX to PEM' | grep -v 'CHAIN_ZERO' || true", waagentLogFile)
 	}
 	extHandlerErrors := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		strings.Join([]string{

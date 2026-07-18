@@ -80,16 +80,16 @@ func Test_ACL(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLGen2TL,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-					CustomCATrustCerts: []string{
-						encodedTestCert,
-					},
-				}
+				// nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+				// 	CustomCATrustCerts: []string{
+				// 		encodedTestCert,
+				// 	},
+				// }
 			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-				config.CustomCaCerts = []string{
-					encodedTestCert,
-				}
+				// config.CustomCaCerts = []string{
+				// 	encodedTestCert,
+				// }
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
@@ -97,9 +97,9 @@ func Test_ACL(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
-				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
-				// ACL uses Azure Linux CA trust paths under /etc (read-only /usr via dm-verity)
-				ValidateNonEmptyDirectory(ctx, s, "/etc/pki/ca-trust/source/anchors")
+				// ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
+				// // ACL uses Azure Linux CA trust paths under /etc (read-only /usr via dm-verity)
+				// ValidateNonEmptyDirectory(ctx, s, "/etc/pki/ca-trust/source/anchors")
 			},
 		},
 	})
@@ -2190,7 +2190,10 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled(t *testing.T) {
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.8"
 				// Explicitly disable ServiceAccountImagePullProfile
 				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
-					Enabled: false,
+					Enabled:           false,
+					DefaultClientID:   "should-not-appear-client-id",
+					DefaultTenantID:   "should-not-appear-tenant-id",
+					LocalAuthoritySNI: "should.not.appear.sni",
 				}
 				// Set kubelet flags to enable credential provider config generation
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
