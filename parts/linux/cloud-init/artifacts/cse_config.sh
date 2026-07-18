@@ -1367,7 +1367,10 @@ ensureGPUDrivers() {
         logs_to_events "AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake" cleanUpGridNodeCudaPrebake || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 
-    if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]; then
+    # arm64 (Grace-Blackwell) only has the container-image install path in configGPUDrivers;
+    # validateGPUDrivers has no arm64 support and returns immediately, which would then let
+    # nvidia-modprobe start below with no driver present. Always take the install path on arm64.
+    if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ] || [ "$(isARM64)" -eq 1 ]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
     else
         logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
