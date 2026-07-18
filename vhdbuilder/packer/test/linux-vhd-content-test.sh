@@ -1990,16 +1990,24 @@ testAKSNodeControllerService() {
   echo "$test:Start"
 
   # is-enabled returns:
-  # 'enabled' if the service is enabled.
+  # 'disabled' if the service is disabled.
   # empty string if the service is not installed.
   # 'not-found' if the unit files are not present. Encountered with Ubuntu 24.04
-  echo "$test: Checking that $service_name is enabled"
+  #
+  # The unit is kept disabled in the VHD image on purpose: it must only ever be
+  # started by the boothook's explicit "systemctl start --no-block" call, issued
+  # after the provision config/nbc-cmd files exist. If it were enabled (pulled in
+  # via WantedBy=basic.target), systemd could auto-start it before those files
+  # exist; the wrapper's graceful no-op exit would then mark this oneshot unit
+  # "active (exited)", making the boothook's later start call a no-op and
+  # preventing ANC from ever running with the real config.
+  echo "$test: Checking that $service_name is disabled"
   is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
   echo "$test: logging ${is_enabled} here"
-  if [ "${is_enabled}" = "enabled" ]; then
-    echo "$test: $service_name is correctly enabled"
+  if [ "${is_enabled}" = "disabled" ]; then
+    echo "$test: $service_name is correctly disabled"
   else
-    err $test "$service_name is not enabled, instead in state $is_enabled"
+    err $test "$service_name is not disabled, instead in state $is_enabled"
   fi
 
   echo "$test:Finish"

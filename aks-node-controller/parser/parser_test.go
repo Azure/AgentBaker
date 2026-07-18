@@ -124,12 +124,12 @@ oom_score = -999
 			k8sVersion: "1.24.2",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
 				aksNodeConfig.ClusterConfig.Location = "chinaeast2"
-				aksNodeConfig.CustomCloudConfig.CustomCloudEnvName = "AzureChinaCloud"
+				aksNodeConfig.CustomCloudConfig.CustomCloudEnvName = helpers.AzureChinaCloud
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
-				assert.Equal(t, "AzureChinaCloud", vars["TARGET_ENVIRONMENT"])
-				assert.Equal(t, "AzureChinaCloud", vars["TARGET_CLOUD"])
+				assert.Equal(t, helpers.AzureChinaCloud, vars["TARGET_ENVIRONMENT"])
+				assert.Equal(t, helpers.AzureChinaCloud, vars["TARGET_CLOUD"])
 				assert.Equal(t, "false", vars["IS_CUSTOM_CLOUD"])
 				assert.Equal(t, "https://management.chinacloudapi.cn/", vars["ARM_RESOURCE_ENDPOINT"])
 			},

@@ -1266,7 +1266,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 					},
 				},
 			},
-			want: "AzureChinaCloud",
+			want: helpers.AzureChinaCloud,
 		},
 		{
 			name: "Germany location cluster config",
@@ -1278,7 +1278,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 					},
 				},
 			},
-			want: "AzureGermanCloud",
+			want: helpers.AzureGermanCloud,
 		},
 		{
 			name: "usgov location cluster config",
@@ -1290,7 +1290,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 					},
 				},
 			},
-			want: "AzureUSGovernmentCloud",
+			want: helpers.AzureUSGovernmentCloud,
 		},
 	}
 	for _, tt := range tests {

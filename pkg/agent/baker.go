@@ -56,13 +56,18 @@ set -euo pipefail
 
 logger -t aks-boothook "boothook start $(date -Ins)"
 
-mkdir -p /opt/azure/containers
+mkdir -p /opt/azure/containers /var/log/azure
 
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
+#hotfix-marker
 %s
-logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
-systemctl start --no-block aks-node-controller.service
+logger -t aks-boothook "launching aks-node-controller $(date -Ins)"
+if [ -f /opt/azure/containers/aks-node-controller-launcher.sh ]; then
+	nohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh > /var/log/azure/aks-node-controller.output 2>&1 &
+else
+	systemctl start --no-block aks-node-controller.service
+fi
 `
 	// boothookFileEntry is appended to the boothook for each additional file.
 	// It writes gzipped+base64-encoded content to disk before starting aks-node-controller.
@@ -74,8 +79,19 @@ chmod 0600 %[1]s
 `
 	flatcarTemplate = `{
      "ignition": { "version": "3.4.0" },
+     "systemd": {
+       "units": [{
+         "name": "aks-node-controller.service",
+         "enabled": true
+       }]
+     },
      "storage": {
-       "files": [%s]
+       "files": [%s],
+       "links": [{
+         "path": "/etc/systemd/system/basic.target.wants/aks-node-controller.service",
+         "target": "/etc/systemd/system/aks-node-controller.service",
+         "overwrite": true
+       }]
       }
      }`
 	// flatcarFileEntry is an Ignition file entry appended to the files array

@@ -78,8 +78,17 @@ rm -f /etc/cron.daily/logrotate
 systemctlEnableAndStart sync-container-logs.service 30 || exit 1
 capture_benchmark "${SCRIPT_NAME}_enable_and_configure_logging_services"
 
-# enable aks-node-controller.service
-systemctl enable aks-node-controller.service
+# Keep aks-node-controller.service disabled in the VHD image. The unit now has
+# DefaultDependencies=no (see aks-node-controller.service), so if it were enabled
+# via WantedBy=basic.target it could be auto-started by systemd before the
+# boothook has written the provision config/nbc-cmd files, causing the wrapper's
+# graceful no-op exit to mark the oneshot unit "active (exited)" - after which
+# the boothook's own explicit "systemctl start" would be a no-op and ANC would
+# never actually run with the real config. The boothook's explicit
+# "systemctl start --no-block aks-node-controller.service" call (issued only
+# after those files exist) remains the sole trigger for this unit.
+# Sometimes its also started diretly in boothook
+systemctl disable aks-node-controller.service
 
 # First handle Mariner + FIPS
 if isMarinerOrAzureLinux "$OS"; then
@@ -128,6 +137,25 @@ if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; 
   enableCgroupV2forAzureLinux
 fi
 capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
+
+if { isUbuntu "$OS" || isAzureLinux "$OS"; }; then
+  echo "nodelay" | tee -a /etc/dhcpcd.conf
+  tee /etc/systemd/system/cache-warmup.service > /dev/null << 'EOF'
+[Unit]
+Description=Preload Critical Binaries into Page Cache
+DefaultDependencies=no
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /opt/azure/containers/provision_preload.sh
+
+[Install]
+WantedBy=sysinit.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable cache-warmup.service
+fi
 
 # Remove lockdown=integrity from kernel cmdline for Azure Linux 3.0
 # The kernel has an OOT patch that auto-enables lockdown when secure boot is detected
@@ -247,7 +275,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
         echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
         wait_for_apt_locks
-        sudo apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
+        apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
         echo "after installation:"
         dpkg -l | grep "linux-.*-azure-nvidia" || true
       else

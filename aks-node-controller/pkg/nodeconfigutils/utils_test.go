@@ -256,8 +256,9 @@ func TestCustomDataUsesMultipartBoothookAndCloudConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, strings.HasPrefix(string(boothook), "#cloud-boothook\n"))
 	require.Contains(t, string(boothook), "/opt/azure/containers/aks-node-controller-config.json")
-	require.Contains(t, string(boothook), "launching aks-node-controller service")
-	require.Contains(t, string(boothook), "systemctl start --no-block aks-node-controller.service")
+	require.Contains(t, string(boothook), "launching aks-node-controller")
+	require.Contains(t, string(boothook), "aks-node-controller.service")
+	require.Contains(t, string(boothook), "/opt/azure/containers/aks-node-controller-launcher.sh")
 
 	part, err = reader.NextPart()
 	require.NoError(t, err)
