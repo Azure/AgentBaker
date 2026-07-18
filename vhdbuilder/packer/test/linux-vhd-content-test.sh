@@ -2383,17 +2383,19 @@ testInspektorGadgetAssets() {
     err $test "Unit file missing at $unit_file"
   fi
 
-  local service_state
-  service_state=$(systemctl is-enabled "$service_name" 2>/dev/null || true)
-  if [ "$service_state" != "enabled" ]; then
-    err $test "$service_name not enabled, state: ${service_state:-absent}"
-  fi
-
   # Verify gadgets were imported during VHD build (tracking file should exist and have content)
   if [ ! -f "$tracking_file" ]; then
     err $test "Tracking file missing at $tracking_file - gadget import may have failed"
   elif [ ! -s "$tracking_file" ]; then
     err $test "Tracking file is empty at $tracking_file - no gadgets were imported"
+  fi
+
+  local image_list
+  if ! image_list=$(ig image list 2>&1); then
+    err $test "ig image list failed: $image_list"
+  else
+    echo "$test: ig image list"
+    printf '%s\n' "$image_list"
   fi
 
   # Verify ig / ig-gadgets compatibility by upstream IG version.

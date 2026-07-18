@@ -19,11 +19,13 @@ package parser
 
 import (
 	"bytes"
+	"context"
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -51,6 +53,18 @@ var (
 	containerdConfigNoGPUTemplate = template.Must(
 		template.New("nogpucontainerdconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigNoGPUTemplateText),
 	)
+	//go:embed  templates/containerd_v2.toml.gtpl
+	containerdV2ConfigTemplateText string
+	//nolint:gochecknoglobals
+	containerdV2ConfigTemplate = template.Must(
+		template.New("containerdv2config").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdV2ConfigTemplateText),
+	)
+	//go:embed  templates/containerd_v2_no_GPU.toml.gtpl
+	containerdV2ConfigNoGPUTemplateText string
+	//nolint:gochecknoglobals
+	containerdV2ConfigNoGPUTemplate = template.Must(
+		template.New("nogpucontainerdv2config").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdV2ConfigNoGPUTemplateText),
+	)
 
 	//go:embed templates/localdns.toml.gtpl
 	localDnsCorefileTemplateText string
@@ -62,9 +76,9 @@ var (
 
 func getFuncMap() template.FuncMap {
 	return template.FuncMap{
-		"getInitAKSCustomCloudFilepath": getInitAKSCustomCloudFilepath,
-		"getIsAksCustomCloud":           getIsAksCustomCloud,
-		"getCloudLocation":              getCloudLocation,
+		"getInitAKSCloudFilepath": getInitAKSCloudFilepath,
+		"getIsAksCustomCloud":     getIsAksCustomCloud,
+		"getCloudLocation":        getCloudLocation,
 	}
 }
 
@@ -158,12 +172,12 @@ func getKubenetTemplate() string {
 }
 
 // getContainerdConfigBase64 returns the base64 encoded containerd config depending on whether the node is with GPU or not.
-func getContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+func getContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration, containerdVersion string) string {
 	if aksnodeconfig == nil {
 		return ""
 	}
 
-	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, false)
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, false, containerdVersion)
 	if err != nil {
 		return fmt.Sprintf("error getting containerd config from node bootstrap variables: %v", err)
 	}
@@ -172,12 +186,12 @@ func getContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration) str
 }
 
 // getNoGPUContainerdConfigBase64 returns the base64 encoded containerd config depending on whether the node is with GPU or not.
-func getNoGPUContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+func getNoGPUContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration, containerdVersion string) string {
 	if aksnodeconfig == nil {
 		return ""
 	}
 
-	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, true)
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, true, containerdVersion)
 	if err != nil {
 		return fmt.Sprintf("error getting No GPU containerd config from node bootstrap variables: %v", err)
 	}
@@ -185,16 +199,25 @@ func getNoGPUContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration
 	return base64.StdEncoding.EncodeToString([]byte(containerdConfig))
 }
 
-func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, noGPU bool) (string, error) {
+func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, noGPU bool, containerdVersion string) (string, error) {
 	if aksnodeconfig == nil {
 		return "", fmt.Errorf("AKSNodeConfig is nil")
 	}
 
-	// TODO: add containerdv2 support
-	// the containerd config template is different based on whether the node is with GPU or not.
-	_template := containerdConfigTemplate
-	if noGPU {
-		_template = containerdConfigNoGPUTemplate
+	// Select the appropriate containerd config template based on version and GPU presence.
+	// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images/runtime)
+	// compared to containerd 1.x (io.containerd.grpc.v1.cri).
+	var _template *template.Template
+	if isContainerdV2(containerdVersion) {
+		_template = containerdV2ConfigTemplate
+		if noGPU {
+			_template = containerdV2ConfigNoGPUTemplate
+		}
+	} else {
+		_template = containerdConfigTemplate
+		if noGPU {
+			_template = containerdConfigNoGPUTemplate
+		}
 	}
 
 	var buffer bytes.Buffer
@@ -203,6 +226,28 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	}
 
 	return buffer.String(), nil
+}
+
+// detectContainerdVersion runs "containerd --version" and parses the version string.
+// The expected output format is: "containerd <source> <version> <commit>"
+// e.g. "containerd containerd.io 1.7.22 c814c75..." or "containerd github.com/containerd/containerd/v2 v2.0.0 ..."
+// Returns the semver version without the leading "v" prefix, or empty string if detection fails.
+func detectContainerdVersion(ctx context.Context) (string, error) {
+	out, err := exec.CommandContext(ctx, "containerd", "--version").Output()
+	if err != nil {
+		return "", fmt.Errorf("running containerd --version: %w", err)
+	}
+	return parseContainerdVersionOutput(string(out)), nil
+}
+
+// isContainerdV2 returns true if the containerd version string indicates a 2.x release.
+// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images and
+// io.containerd.cri.v1.runtime) compared to 1.x (io.containerd.grpc.v1.cri).
+func isContainerdV2(version string) bool {
+	if version == "" {
+		return false
+	}
+	return helpers.IsKubernetesVersionGe(version, "2.0.0")
 }
 
 func getIsMIGNode(gpuInstanceProfile string) bool {
@@ -726,8 +771,8 @@ func getHasKubeletDiskType(kubeletConfig *aksnodeconfigv1.KubeletConfig) bool {
 	return kubeletConfig.GetKubeletDiskType() == aksnodeconfigv1.KubeletDisk_KUBELET_DISK_TEMP_DISK
 }
 
-func getInitAKSCustomCloudFilepath() string {
-	return initAKSCustomCloudFilepath
+func getInitAKSCloudFilepath() string {
+	return initAKSCloudFilepath
 }
 
 func getGPUNeedsFabricManager(vmSize string) bool {
@@ -745,6 +790,41 @@ func removeNewlines(str string) string {
 	sanitizedStr := strings.ReplaceAll(str, "\n", "")
 	sanitizedStr = strings.ReplaceAll(sanitizedStr, "\r", "")
 	return sanitizedStr
+}
+
+// parseContainerdVersionOutput extracts the semver version from containerd --version output.
+// The output format is: "containerd <source> <version> <commit>"
+// e.g. "containerd containerd.io 1.7.22 c814c75..." or "containerd github.com/containerd/containerd/v2 2.0.0 ..."
+// The version (3rd field) could be in the format "1.6.24-11-ubuntu1~24.04.1" or "2.0.0-6.azl3" or just "2.0.0",
+// we extract the major.minor.patch version only.
+func parseContainerdVersionOutput(output string) string {
+	fields := strings.Fields(strings.TrimSpace(output))
+	if len(fields) < 3 {
+		return ""
+	}
+	// Take the 3rd field and strip any leading "v" prefix.
+	version := strings.TrimPrefix(fields[2], "v")
+	// Strip everything after the first "-" (package revision or pre-release suffix).
+	// e.g. "2.3.2-1" -> "2.3.2", "2.0.0-beta.1" -> "2.0.0"
+	if idx := strings.Index(version, "-"); idx > 0 {
+		version = version[:idx]
+	}
+	// Validate the result is a valid major.minor.patch version.
+	parts := strings.Split(version, ".")
+	if len(parts) != 3 {
+		return ""
+	}
+	for _, p := range parts {
+		if len(p) == 0 {
+			return ""
+		}
+		for _, c := range p {
+			if c < '0' || c > '9' {
+				return ""
+			}
+		}
+	}
+	return version
 }
 
 // ---------------------- Start of localdns related helper code ----------------------//
@@ -918,6 +998,13 @@ func getCSETimeout(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 		cseTimeout = int(aksnodeconfig.GetCseTimeout())
 	}
 	return datamodel.GetCSETimeout(cseTimeout)
+}
+
+func getRepoDepotEndpoint(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	if getIsAksCustomCloud(aksnodeconfig.GetCustomCloudConfig()) {
+		return aksnodeconfig.GetCustomCloudConfig().GetRepoDepotEndpoint()
+	}
+	return ""
 }
 
 // ---------------------- End of cse timeout helper code ----------------------//

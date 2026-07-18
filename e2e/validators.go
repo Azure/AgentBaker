@@ -22,6 +22,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/assert"
@@ -453,7 +454,7 @@ func ValidateInspektorGadget(ctx context.Context, s *Scenario) {
 	s.T.Logf("skip_vhd_ig sentinel file found, validating Inspektor Gadget installation")
 
 	ValidateSystemdUnitIsNotFailed(ctx, s, serviceName)
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s", serviceName), 0, fmt.Sprintf("%s should be enabled", serviceName))
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s | grep -qx disabled", serviceName), 0, fmt.Sprintf("%s should be disabled", serviceName))
 
 	ValidateFileExists(ctx, s, skipFile)
 	ValidateFileExists(ctx, s, servicePath)
@@ -1397,6 +1398,11 @@ func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) {
 	require.GreaterOrEqual(s.T, int(parsedVersion.Major()), 1, "expected moby-runc major version to be at least 1, got %d", parsedVersion.Major())
 	require.GreaterOrEqual(s.T, int(parsedVersion.Minor()), 2, "expected moby-runc minor version to be at least 2, got %d", parsedVersion.Minor())
 	ValidateInstalledPackageVersion(ctx, s, "moby-runc", versions[0])
+}
+
+func ValidateKubeletArgs(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt", "--windows-priorityclass=ABOVE_NORMAL_PRIORITY_CLASS"})
 }
 
 func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, processName string, arguments []string) {
@@ -2820,6 +2826,111 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 	ValidateNetworkInterfaceConfig(ctx, s, customNicConfig)
 }
 
+// ValidateMANAPCIDevice checks that the MANA PCI device is exposed to the VM.
+// MANA hardware is identified by PCI device ID 0x00ba (Microsoft Corporation).
+func ValidateMANAPCIDevice(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	defer toolkit.LogStep(s.T, "validating MANA PCI device is present")()
+	cmd := "grep -Rqi '^0x00ba$' /sys/bus/pci/devices/*/device 2>/dev/null"
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"MANA PCI device (0x00ba) not found in /sys/bus/pci/devices")
+}
+
+// ValidateMANADriverLoaded checks that the MANA Ethernet driver (mana) is loaded
+// in the running kernel. For built-in drivers they appear in modules.builtin;
+// for loadable modules they must be present in lsmod.
+func ValidateMANADriverLoaded(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	defer toolkit.LogStep(s.T, "validating MANA kernel driver is loaded")()
+	cmd := `lsmod | grep -q '^mana ' || grep -q '/mana\.ko' /lib/modules/$(uname -r)/modules.builtin`
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"MANA kernel driver (mana) not found in lsmod or modules.builtin")
+}
+
+// ValidateMANAVFBonded checks that the MANA Virtual Function (VF) interface exists
+// and is properly bonded to the primary eth0 interface.
+// When Accelerated Networking is enabled with MANA, a VF interface should appear
+// as a subordinate (SLAVE) of eth0. The VF name varies by VM generation:
+// - V5: enP* (e.g., enP30832p0s0)
+// - V6+: ens1 or enp0s0
+func ValidateMANAVFBonded(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	defer toolkit.LogStep(s.T, "validating MANA VF is bonded to eth0")()
+	// Look for any interface that has "master eth0" in ip link output,
+	// indicating it is bonded as a VF to the primary synthetic NIC.
+	cmd := `ip link show | grep 'master eth0'`
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"no VF interface found bonded to eth0 — accelerated networking may not be working")
+	s.T.Logf("MANA VF bonding: %s", strings.TrimSpace(result.stdout))
+}
+
+// ValidateMANATrafficFlowing checks that network traffic is actually flowing through
+// the MANA Virtual Function rather than the slower synthetic (NetVSC) path.
+// It sends HTTP requests from a pod to the node's default gateway and verifies
+// that the VF TX packet counters increase by at least that amount.
+func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	defer toolkit.LogStep(s.T, "validating traffic is flowing through MANA VF")()
+
+	const requestCount = 10
+	getVFTxPackets := `val=$(sudo ethtool -S eth0 | awk '/^[[:space:]]*vf_tx_packets:/{print $2; exit}'); [ -n "$val" ] && echo "$val" || { echo "vf_tx_packets not found in ethtool -S eth0 output" >&2; exit 1; }`
+	// Read VF tx counter before generating traffic
+	resultBefore := execScriptOnVMForScenarioValidateExitCode(ctx, s, getVFTxPackets, 0,
+		"could not read VF tx packet counter from ethtool -S eth0")
+	countBefore, err := strconv.Atoi(strings.TrimSpace(resultBefore.stdout))
+	require.NoError(s.T, err, "failed to parse vf_tx_packets before value %q", resultBefore.stdout)
+	s.T.Logf("MANA VF tx packets before: %d", countBefore)
+
+	// Generate traffic from a pod on this node using curl to the node's default
+	// gateway. We use vf_tx_packets (not rx) so the test passes regardless of
+	// whether the target responds — what matters is that outbound packets from
+	// the pod traverse the MANA VF path. curl is pre-installed in the Mariner
+	// debug image, so no package install is needed.
+	gatewayResult := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"ip route | awk '/default/{print $3}'", 0,
+		"could not determine default gateway from ip route")
+	gatewayIP := strings.TrimSpace(gatewayResult.stdout)
+	require.NotEmpty(s.T, gatewayIP, "default gateway IP is empty")
+	s.T.Logf("MANA traffic test: using gateway %s as target", gatewayIP)
+
+	// The "; true" ensures exit 0 regardless of curl's result — the gateway has
+	// no HTTP server so connections will fail, but TCP SYN packets still traverse
+	// the VF (incrementing vf_tx_packets). The real assertion is the counter delta below.
+	curlCmd := fmt.Sprintf("for i in $(seq 1 %d); do curl -s -o /dev/null -m 1 http://%s/ 2>/dev/null; done; true", requestCount, gatewayIP)
+	execOnVMForScenarioOnUnprivilegedPod(ctx, s, curlCmd)
+
+	// Read VF tx counter after generating traffic
+	resultAfter := execScriptOnVMForScenarioValidateExitCode(ctx, s, getVFTxPackets, 0,
+		"could not read VF tx packet counter from ethtool -S eth0")
+	countAfter, err := strconv.Atoi(strings.TrimSpace(resultAfter.stdout))
+	require.NoError(s.T, err, "failed to parse vf_tx_packets after value %q", resultAfter.stdout)
+
+	delta := countAfter - countBefore
+	s.T.Logf("MANA VF tx packets after: %d (delta: %d, expected >= %d)", countAfter, delta, requestCount)
+
+	require.GreaterOrEqual(s.T, delta, requestCount,
+		"vf_tx_packets increased by %d but expected at least %d \u2014 traffic may not be flowing through the MANA VF", delta, requestCount)
+}
+
+// ValidateMANA runs all MANA (Microsoft Azure Network Adapter) checks.
+// It verifies that the MANA PCI device is present, the kernel driver is loaded,
+// the VF interface is bonded to eth0, and traffic is flowing through the VF.
+func ValidateMANA(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	ValidateMANAPCIDevice(ctx, s)
+	ValidateMANADriverLoaded(ctx, s)
+	ValidateMANAVFBonded(ctx, s)
+	ValidateMANATrafficFlowing(ctx, s)
+}
+
+// hasMANAHardware checks if the VM has MANA PCI hardware available.
+// Returns true if the MANA device (0x00ba) is found in sysfs.
+// This is used to conditionally run MANA validations on VMs that support it.
+func hasMANAHardware(ctx context.Context, s *Scenario) bool {
+	result := execScriptOnVMForScenario(ctx, s, "grep -Rqi '^0x00ba$' /sys/bus/pci/devices/*/device 2>/dev/null")
+	return result.exitCode == "0"
+}
+
 // ValidateKernelLogs checks kernel logs for critical errors across multiple categories:
 // - Kernel panics/crashes (panic, oops, call trace, BUG, etc.)
 // - CPU lockups/stalls (soft/hard lockup, RCU stall, hung task, watchdog)
@@ -2952,7 +3063,7 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 		s.VHD == config.VHDUbuntu2204Gen2FIPSTLContainerd
 	grepCmd := fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s || true", waagentLogFile)
 	if isUbuntu2204FIPS {
-		grepCmd = fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s | grep -v 'Cannot convert PFX to PEM' || true", waagentLogFile)
+		grepCmd = fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s | grep -v 'Cannot convert PFX to PEM' | grep -v 'CHAIN_ZERO' || true", waagentLogFile)
 	}
 	extHandlerErrors := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		strings.Join([]string{

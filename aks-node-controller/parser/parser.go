@@ -31,7 +31,7 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 }
 
 //nolint:funlen
-func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
+func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration) map[string]string {
 	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
 	// Clear it from both KubeletFlags and KubeletConfigFileConfig so it doesn't appear
 	// on the command line or in the marshaled config file JSON.
@@ -44,6 +44,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		}
 	}
 
+	containerdVersion, _ := detectContainerdVersion(ctx)
 	cloudProviderSettings := getCloudProviderSettings(config)
 	env := map[string]string{
 		"PROVISION_OUTPUT":                                     "/var/log/azure/cluster-provision-cse-output.log",
@@ -178,8 +179,8 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"AZURE_ENVIRONMENT_FILEPATH":                           getAzureEnvironmentFilepath(config),
 		"KUBE_CA_CRT":                                          config.GetKubernetesCaCert(),
 		"KUBENET_TEMPLATE":                                     getKubenetTemplate(),
-		"CONTAINERD_CONFIG_CONTENT":                            getContainerdConfigBase64(config),
-		"CONTAINERD_CONFIG_NO_GPU_CONTENT":                     getNoGPUContainerdConfigBase64(config),
+		"CONTAINERD_CONFIG_CONTENT":                            getContainerdConfigBase64(config, containerdVersion),
+		"CONTAINERD_CONFIG_NO_GPU_CONTENT":                     getNoGPUContainerdConfigBase64(config, containerdVersion),
 		"IS_KATA":                                              fmt.Sprintf("%v", config.GetIsKata()),
 		"ARTIFACT_STREAMING_ENABLED":                           fmt.Sprintf("%v", config.GetEnableArtifactStreaming()),
 		"SYSCTL_CONTENT":                                       getSysctlContent(config.GetCustomLinuxOsConfig().GetSysctlConfig()),
@@ -210,6 +211,8 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"NETWORK_ISOLATED_CLUSTER_TEST_MODE":           "false", // temp: needs to be added to config
 		"STANDARD_SECONDARY_NIC_COUNT":                 fmt.Sprintf("%d", config.GetNetworkConfig().GetStandardSecondaryNicCount()),
 		"ENABLE_MANAGED_GPU_DRA":                       "false", // TODO: add protobuf field
+		"INIT_AKS_CLOUD_FILEPATH":                      getInitAKSCloudFilepath(),
+		"REPO_DEPOT_ENDPOINT":                          getRepoDepotEndpoint(config),
 	}
 
 	for i, cert := range config.CustomCaCerts {
@@ -310,7 +313,7 @@ func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration) (*e
 	// Convert to one-liner
 	triggerBootstrapScript = strings.ReplaceAll(triggerBootstrapScript, "\n", " ")
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", triggerBootstrapScript)
-	env := mapToEnviron(getCSEEnv(config))
+	env := mapToEnviron(getCSEEnv(ctx, config))
 	cmd.Env = append(os.Environ(), env...) // append existing environment variables
 	sort.Strings(cmd.Env)
 	return cmd, nil

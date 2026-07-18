@@ -12,6 +12,7 @@ import (
 type options struct {
 	componentsPath string
 	outputPath     string
+	postfixPath    string
 }
 
 func (o options) validate() error {
@@ -20,6 +21,9 @@ func (o options) validate() error {
 	}
 	if o.outputPath == "" {
 		return fmt.Errorf("output path must be specified")
+	}
+	if o.postfixPath == "" {
+		return fmt.Errorf("postfix path must be specified")
 	}
 	return nil
 }
@@ -31,6 +35,7 @@ var (
 func parseFlags() {
 	flag.StringVar(&opts.componentsPath, "components-path", "", "path to the component list JSON file.")
 	flag.StringVar(&opts.outputPath, "output-path", "", "where to place the newly generated container image prefetch script.")
+	flag.StringVar(&opts.postfixPath, "postfix-path", "", "path to the script to append to the generated prefetch script.")
 	flag.Parse()
 }
 
@@ -47,7 +52,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	content, err := containerimage.GeneratePrefetchScript(list)
+	postfix, err := os.ReadFile(opts.postfixPath)
+	if err != nil {
+		fmt.Printf("reading postfix script %s: %s", opts.postfixPath, err)
+		os.Exit(1)
+	}
+
+	content, err := containerimage.GeneratePrefetchScript(list, postfix)
 	if err != nil {
 		fmt.Printf("generating container prefetch script content: %s", err)
 		os.Exit(1)

@@ -271,6 +271,118 @@ func TestCustomDataUsesMultipartBoothookAndCloudConfig(t *testing.T) {
 	require.ErrorIs(t, err, io.EOF)
 }
 
+// decodeBoothook extracts the decoded cloud-boothook part from the base64-encoded custom data.
+func decodeBoothook(t *testing.T, cfg *aksnodeconfigv1.Configuration) string {
+	t.Helper()
+	customData, err := CustomData(cfg)
+	require.NoError(t, err)
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	require.NoError(t, err)
+	sections := strings.SplitN(string(decoded), "\r\n\r\n", 2)
+	require.Len(t, sections, 2)
+	message := textproto.MIMEHeader{}
+	for _, line := range strings.Split(sections[0], "\r\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, ": ", 2)
+		require.Len(t, parts, 2)
+		message.Add(parts[0], parts[1])
+	}
+	_, params, err := mime.ParseMediaType(message.Get("Content-Type"))
+	require.NoError(t, err)
+	reader := multipart.NewReader(strings.NewReader(sections[1]), params["boundary"])
+	part, err := reader.NextPart()
+	require.NoError(t, err)
+	require.Equal(t, "text/cloud-boothook", part.Header.Get("Content-Type"))
+	boothook, err := io.ReadAll(part)
+	require.NoError(t, err)
+	return string(boothook)
+}
+
+func TestEnabledFeaturesBlockEmptyWhenDisabled(t *testing.T) {
+	// The empty return is the load-bearing byte-identity guarantee: with no features set the
+	// boothook template's %[3]s placeholder expands to "", so custom data is byte-identical to
+	// the output produced before this feature existed. This protects the 6-month VHD window.
+	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{}), "expected no features block when EnabledFeatures is unset")
+	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{}}))
+}
+
+func TestCustomDataOmitsEnabledFeaturesWhenHotfixDisabled(t *testing.T) {
+	// Off-case: no enabled_features.sh write anywhere in the boothook, and no ENABLE_PROVISIONING_HOTFIX.
+	off := decodeBoothook(t, &aksnodeconfigv1.Configuration{})
+	require.NotContains(t, off, "enabled_features.sh")
+	require.NotContains(t, off, "ENABLE_PROVISIONING_HOTFIX")
+
+	// Byte-identity: an empty features map must produce the same output as an unset one.
+	emptyMap := decodeBoothook(t, &aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{}})
+	require.Equal(t, off, emptyMap)
+}
+
+func TestCustomDataWritesEnabledFeaturesWhenHotfixEnabled(t *testing.T) {
+	on := decodeBoothook(t, &aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{"ENABLE_PROVISIONING_HOTFIX": "true"}})
+
+	// Written via a quoted heredoc to the shared feature-flag path, chmod 0600, literal KEY=VALUE line.
+	require.Contains(t, on, "cat <<'EOF' >/opt/azure/containers/enabled_features.sh")
+	require.Contains(t, on, "\nENABLE_PROVISIONING_HOTFIX=true\n")
+	require.Contains(t, on, "chmod 0600 /opt/azure/containers/enabled_features.sh")
+
+	// The features file must be written BEFORE the service starts, so the wrapper can read it.
+	featuresIdx := strings.Index(on, "enabled_features.sh")
+	startIdx := strings.Index(on, "systemctl start --no-block aks-node-controller.service")
+	require.NotEqual(t, -1, featuresIdx)
+	require.NotEqual(t, -1, startIdx)
+	require.Less(t, featuresIdx, startIdx, "enabled_features.sh must be written before the service starts")
+}
+
+func TestEnabledFeaturesBlockRendersMultipleSortedFeatures(t *testing.T) {
+	// Multiple toggles render as sorted KEY=VALUE lines so the output is deterministic.
+	block := enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{
+		"ZED_FEATURE":                "1",
+		"ENABLE_PROVISIONING_HOTFIX": "true",
+	}})
+	require.Contains(t, block, "ENABLE_PROVISIONING_HOTFIX=true\nZED_FEATURE=1\n")
+}
+
+func TestEnabledFeaturesBlockSkipsInvalidKeys(t *testing.T) {
+	// Keys the wrapper would reject (leading digit, dash, empty) are dropped. When only invalid
+	// keys are present, no block is emitted so custom data stays byte-identical to the default.
+	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{
+		"1BAD": "x", "has-dash": "y", "": "z",
+	}}))
+
+	// A mix keeps only the valid identifier.
+	block := enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{
+		"1BAD": "x", "GOOD_KEY": "1",
+	}})
+	require.Contains(t, block, "GOOD_KEY=1\n")
+	require.NotContains(t, block, "1BAD")
+}
+
+func TestEnabledFeaturesBlockSkipsValuesWithNewlines(t *testing.T) {
+	// A value containing a newline/CR would inject extra lines into the heredoc, so the entry
+	// is dropped. When it's the only entry, no block is emitted.
+	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{
+		"INJECT": "true\nEVIL=1",
+	}}))
+	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{
+		"CR": "a\rb",
+	}}))
+
+	// A clean entry alongside a newline-tainted one keeps only the clean one.
+	block := enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{
+		"INJECT": "x\nEVIL=1", "GOOD_KEY": "1",
+	}})
+	require.Contains(t, block, "GOOD_KEY=1\n")
+	require.NotContains(t, block, "EVIL")
+}
+
+func TestEnabledFeaturesFilePathMatchesWrapperContract(t *testing.T) {
+	// Shared contract with the wrapper's FEATURES_PATH default; if it changes here it must
+	// change there too, or the wrapper will never read the file.
+	require.Equal(t, "/opt/azure/containers/enabled_features.sh", EnabledFeaturesFilePath)
+}
+
 func TestMarshalUnmarshalWithPopulatedConfig(t *testing.T) {
 	t.Run("fully populated config marshals to >100 bytes", func(t *testing.T) {
 		cfg := &aksnodeconfigv1.Configuration{}

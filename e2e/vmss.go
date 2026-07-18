@@ -1017,6 +1017,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"syslog":                               "sudo cat /var/log/" + syslogHandle,
 		"journalctl":                           "sudo journalctl --boot=0 --no-pager",
 		"azure.json":                           "sudo cat /etc/kubernetes/azure.json",
+		"provision.json":                       "sudo cat /var/log/azure/aks/provision.json",
 	}
 	if s.SecureTLSBootstrappingEnabled() {
 		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
@@ -1284,6 +1285,20 @@ func addSecondaryNIC(vmss *armcompute.VirtualMachineScaleSet) {
 			},
 		},
 	)
+}
+
+// enableAcceleratedNetworking explicitly enables Accelerated Networking on the
+// primary NIC of the VMSS. This ensures MANA (Microsoft Azure Network Adapter)
+// is active on the VM, which is required for V5+ VM series.
+func enableAcceleratedNetworking(vmss *armcompute.VirtualMachineScaleSet) {
+	primaryNIC, err := getVMSSNICConfig(vmss)
+	if err != nil {
+		panic(fmt.Sprintf("enableAcceleratedNetworking: unable to get primary NIC config: %v", err))
+	}
+	if primaryNIC.Properties == nil {
+		primaryNIC.Properties = &armcompute.VirtualMachineScaleSetNetworkConfigurationProperties{}
+	}
+	primaryNIC.Properties.EnableAcceleratedNetworking = to.Ptr(true)
 }
 
 // addDualStackSecondaryNIC appends a secondary (non-primary) NIC with both IPv4 and IPv6

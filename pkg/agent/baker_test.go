@@ -991,11 +991,14 @@ var _ = Describe("GetGPUDriverVersion", func() {
 		Expect(GetGPUDriverVersion("Standard_nv36adms_A10_V5")).To(Equal(datamodel.NvidiaGridDriverVersion))
 	})
 	It("should use grid v20 with rtx pro 6000 bse v6", func() {
-		Expect(GetGPUDriverVersion("standard_nc128ds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
-		Expect(GetGPUDriverVersion("Standard_NC320ds_xl_RTXPRO6000BSE_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
+		Expect(GetGPUDriverVersion("standard_nc144ds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
+		Expect(GetGPUDriverVersion("Standard_NC288ds_xl_RTXPRO6000BSE_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
 		// lds (lower-memory) variants share the same GPU/driver
-		Expect(GetGPUDriverVersion("standard_nc128lds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
-		Expect(GetGPUDriverVersion("Standard_NC320lds_xl_RTXPRO6000BSE_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
+		Expect(GetGPUDriverVersion("standard_nc144lds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
+		Expect(GetGPUDriverVersion("Standard_NC288lds_xl_RTXPRO6000BSE_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
+		// smaller GA fractional-GPU sizes also use grid-v20
+		Expect(GetGPUDriverVersion("standard_nc36ds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
+		Expect(GetGPUDriverVersion("standard_nc24lds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
 	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
 	It("should use cuda with nv v1", func() {
@@ -1016,11 +1019,14 @@ var _ = Describe("GetGPUDriverType", func() {
 		Expect(GetGPUDriverType("Standard_nv36adms_A10_V5")).To(Equal("grid"))
 	})
 	It("should use grid-v20 with rtx pro 6000 bse v6", func() {
-		Expect(GetGPUDriverType("standard_nc128ds_xl_rtxpro6000bse_v6")).To(Equal("grid-v20"))
-		Expect(GetGPUDriverType("Standard_NC320ds_xl_RTXPRO6000BSE_v6")).To(Equal("grid-v20"))
+		Expect(GetGPUDriverType("standard_nc144ds_xl_rtxpro6000bse_v6")).To(Equal("grid-v20"))
+		Expect(GetGPUDriverType("Standard_NC288ds_xl_RTXPRO6000BSE_v6")).To(Equal("grid-v20"))
 		// lds (lower-memory) variants share the same GPU/driver
-		Expect(GetGPUDriverType("standard_nc128lds_xl_rtxpro6000bse_v6")).To(Equal("grid-v20"))
-		Expect(GetGPUDriverType("Standard_NC320lds_xl_RTXPRO6000BSE_v6")).To(Equal("grid-v20"))
+		Expect(GetGPUDriverType("standard_nc144lds_xl_rtxpro6000bse_v6")).To(Equal("grid-v20"))
+		Expect(GetGPUDriverType("Standard_NC288lds_xl_RTXPRO6000BSE_v6")).To(Equal("grid-v20"))
+		// preview SKU names are retained as backward-compat aliases
+		Expect(GetGPUDriverType("standard_nc128ds_xl_rtxpro6000bse_v6")).To(Equal("grid-v20"))
+		Expect(GetGPUDriverType("standard_nc320lds_xl_rtxpro6000bse_v6")).To(Equal("grid-v20"))
 	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
 	It("should use cuda-lts with nv v1", func() {
@@ -1033,8 +1039,10 @@ var _ = Describe("GetAKSGPUImageSHA", func() {
 		Expect(GetAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal(datamodel.AKSGPUGridVersionSuffix))
 	})
 	It("should use newest AKSGPUGridV20VersionSuffix with rtx pro 6000 bse v6", func() {
-		Expect(GetAKSGPUImageSHA("standard_nc128ds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.AKSGPUGridV20VersionSuffix))
-		Expect(GetAKSGPUImageSHA("standard_nc128lds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.AKSGPUGridV20VersionSuffix))
+		Expect(GetAKSGPUImageSHA("standard_nc144ds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.AKSGPUGridV20VersionSuffix))
+		Expect(GetAKSGPUImageSHA("standard_nc144lds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.AKSGPUGridV20VersionSuffix))
+		Expect(GetAKSGPUImageSHA("standard_nc288ds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.AKSGPUGridV20VersionSuffix))
+		Expect(GetAKSGPUImageSHA("standard_nc288lds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.AKSGPUGridV20VersionSuffix))
 	})
 	It("should use newest AKSGPUCudaLTSVersionSuffix with non grid SKU", func() {
 		Expect(GetAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaLTSVersionSuffix))
@@ -1606,6 +1614,79 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(string(decodedPayload)).To(ContainSubstring(encodedHotfixJSON))
 	})
 
+	It("should embed the enabled_features file in the scriptless NBC boothook when EnabledFeatures is set", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		config.EnabledFeatures = map[string]string{"ENABLE_PROVISIONING_HOTFIX": "true"}
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		encodedEnabledFeatures := getBase64EncodedGzippedCustomScriptFromStr("ENABLE_PROVISIONING_HOTFIX=true\n")
+		Expect(string(decodedPayload)).To(ContainSubstring(enabledFeaturesFilepath))
+		Expect(string(decodedPayload)).To(ContainSubstring(encodedEnabledFeatures))
+	})
+
+	It("should render multiple enabled features as sorted KEY=VALUE lines", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		config.EnabledFeatures = map[string]string{"ZED_FEATURE": "1", "ENABLE_PROVISIONING_HOTFIX": "true"}
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Keys must be sorted so the rendered file (and thus custom data) is deterministic.
+		encodedSorted := getBase64EncodedGzippedCustomScriptFromStr("ENABLE_PROVISIONING_HOTFIX=true\nZED_FEATURE=1\n")
+		Expect(string(decodedPayload)).To(ContainSubstring(encodedSorted))
+	})
+
+	It("should not embed the enabled_features file in the scriptless NBC boothook when EnabledFeatures is empty", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		config.EnabledFeatures = map[string]string{}
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(string(decodedPayload)).NotTo(ContainSubstring(enabledFeaturesFilepath))
+	})
+
+	It("should not embed the enabled_features file when EnabledFeatures has only invalid keys", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		// Keys the wrapper would reject (leading digit, dash, empty) must not produce a file,
+		// preserving the byte-identical-when-no-usable-toggle guarantee.
+		config.EnabledFeatures = map[string]string{"1BAD": "x", "has-dash": "y", "": "z"}
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(string(decodedPayload)).NotTo(ContainSubstring(enabledFeaturesFilepath))
+	})
+
+	It("should drop enabled_features entries whose value contains a newline", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		// A newline in a value could inject a spurious KEY=VALUE line; such entries are dropped.
+		// The lone tainted entry yields no file; a clean entry alongside it survives.
+		config.EnabledFeatures = map[string]string{"INJECT": "true\nEVIL=1"}
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(decodedPayload)).NotTo(ContainSubstring(enabledFeaturesFilepath))
+
+		config.EnabledFeatures = map[string]string{"INJECT": "x\nEVIL=1", "GOOD_KEY": "1"}
+		payload = templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err = base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+		encodedClean := getBase64EncodedGzippedCustomScriptFromStr("GOOD_KEY=1\n")
+		Expect(string(decodedPayload)).To(ContainSubstring(encodedClean))
+	})
+
 	It("should render valid ignition JSON with the encoded files for scriptless ACL custom data", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
@@ -1634,7 +1715,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(string(decodedPayload)).To(ContainSubstring(encodedAKSNodeConfig))
 	})
 
-	It("should render initAKSCustomCloud file in scriptless custom data for default cloud with Ubuntu", func() {
+	It("should render initAKSCloud file in scriptless custom data for default cloud with Ubuntu", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 		config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
@@ -1645,12 +1726,12 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		renderConfig.EnableScriptlessCSECmd = true
 		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
 
-		Expect(nodeCustomData).To(ContainSubstring(initAKSCustomCloudFilepath))
+		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
 		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
 	})
 
-	It("should render initAKSCustomCloud file in scriptless custom data for default cloud with AzureLinux", func() {
+	It("should render initAKSCloud file in scriptless custom data for default cloud with AzureLinux", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 		config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
@@ -1662,12 +1743,12 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		renderConfig.EnableScriptlessCSECmd = true
 		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
 
-		Expect(nodeCustomData).To(ContainSubstring(initAKSCustomCloudFilepath))
+		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
 		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
 	})
 
-	It("should render initAKSCustomCloud file in scriptless custom data for USSecCloud with Ubuntu", func() {
+	It("should render initAKSCloud file in scriptless custom data for USSecCloud with Ubuntu", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 		config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
@@ -1679,12 +1760,12 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		renderConfig.EnableScriptlessCSECmd = true
 		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
 
-		Expect(nodeCustomData).To(ContainSubstring(initAKSCustomCloudFilepath))
+		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
 		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
 	})
 
-	It("should render initAKSCustomCloud file in scriptless custom data for USSecCloud with AzureLinux", func() {
+	It("should render initAKSCloud file in scriptless custom data for USSecCloud with AzureLinux", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 		config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
@@ -1697,23 +1778,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		renderConfig.EnableScriptlessCSECmd = true
 		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
 
-		Expect(nodeCustomData).To(ContainSubstring(initAKSCustomCloudFilepath))
-		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
-		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
-	})
-
-	It("should render initAKSCustomCloud file in scriptless custom data for non-custom cloud", func() {
-		// RCV1P cert bootstrap must run on all clouds (scriptless or otherwise), so the
-		// init script is dropped unconditionally into customData. Runtime gating inside
-		// the script itself decides whether there is anything to do.
-		templateGenerator := InitializeTemplateGenerator()
-		config := newConfig(false)
-
-		renderConfig := *config
-		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
-
-		Expect(nodeCustomData).To(ContainSubstring(initAKSCustomCloudFilepath))
+		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
 		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
 	})

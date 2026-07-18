@@ -1469,17 +1469,8 @@ disableSSH() {
     systemctlDisableAndStop sshd || exit $ERR_DISABLE_SSH
 }
 
-configureSSHPubkeyAuth() {
-  local disable_pubkey_auth="$1"
-  local ssh_use_pubkey_auth
-
-  # Determine the desired pubkey auth setting
-  if [ "${disable_pubkey_auth}" = "true" ]; then
-    ssh_use_pubkey_auth="no"
-  else
-    ssh_use_pubkey_auth="yes"
-  fi
-  local SSHD_CONFIG="/etc/ssh/sshd_config"
+disableSSHPubkeyAuth() {
+  local SSHD_CONFIG="${SSHD_CONFIG_FILE:-/etc/ssh/sshd_config}"
   local TMP
   TMP="$(mktemp)"
 
@@ -1490,7 +1481,7 @@ configureSSHPubkeyAuth() {
   # PubkeyAuthentication yes
   # AuthorizedKeysCommand /usr/sbin/aad_certhandler %u %k
   # AuthorizedKeysCommandUser root
-  awk -v desired="$ssh_use_pubkey_auth" '
+  awk -v desired="no" '
     BEGIN { in_match=0; replaced=0; inserted=0 }
     /^Match([[:space:]]|$)/ {
       if (!replaced && !inserted) { print "PubkeyAuthentication " desired; inserted=1 }
@@ -1503,6 +1494,12 @@ configureSSHPubkeyAuth() {
     END { if (!replaced && !inserted) print "PubkeyAuthentication " desired }
   ' "$SSHD_CONFIG" > "$TMP"
 
+  local ssh_service="sshd.service"
+  if systemctl cat ssh.service >/dev/null 2>&1; then
+    ssh_service="ssh.service"
+  fi
+  systemctl is-active --quiet "$ssh_service" || systemctl start "$ssh_service" || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
+
   # Validate the candidate config
   sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
 
@@ -1511,8 +1508,8 @@ configureSSHPubkeyAuth() {
   install -m 0600 -o root -g root "$TMP" "$SSHD_CONFIG"
   rm -f "$TMP"
 
-  # Reload sshd
-  systemctl reload sshd || systemctl restart sshd || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
+  # Reload or restart ssh service
+  systemctl reload-or-restart "$ssh_service" || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
 }
 
 # Internal function that writes credential provider config to a specified path

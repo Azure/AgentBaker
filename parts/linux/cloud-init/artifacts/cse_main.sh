@@ -103,11 +103,6 @@ function basePrep {
         systemctl restart systemd-timesyncd
     fi
 
-    # pre-warm coredns by checking its version.
-    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
-        nohup /bin/sh -c '/opt/azure/containers/localdns/binary/coredns --version >/dev/null 2>&1' >/dev/null 2>&1 &
-    fi
-
     # Eval proxy vars to ensure curl commands use proxy if configured.
     # e.g. PROXY_VARS=`export HTTPS_PROXY="https://proxy.example.com:8080"; export http_proxy="http://proxy.example.com:8080"; export NO_PROXY="127.0.0.1,localhost";`
     # Setting vars in etc environment (configureEtcEnvironment) won't take effect in current shell session.
@@ -128,11 +123,10 @@ function basePrep {
 
     logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
 
-    logs_to_events "AKS.CSE.configureSSHPubkeyAuth" configureSSHPubkeyAuth "${DISABLE_PUBKEY_AUTH}"
-
-
     if [ "${DISABLE_SSH}" = "true" ]; then
-        disableSSH || exit $ERR_DISABLE_SSH
+        disableSSH || exit "$ERR_DISABLE_SSH"
+    elif [ "${DISABLE_PUBKEY_AUTH}" = "true" ]; then
+        logs_to_events "AKS.CSE.disableSSHPubkeyAuth" disableSSHPubkeyAuth
     fi
 
     # This involves using proxy, log the config before fetching packages
