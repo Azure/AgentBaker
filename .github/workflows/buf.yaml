@@ -4,12 +4,14 @@ on:
     paths:
       - "aks-node-controller/proto/**"
       - "aks-node-controller/buf.yaml"
+      - "aks-node-controller/.buf-version"
       - ".github/workflows/buf.yaml"
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
       - "aks-node-controller/proto/**"
       - "aks-node-controller/buf.yaml"
+      - "aks-node-controller/.buf-version"
       - ".github/workflows/buf.yaml"
 permissions:
   contents: read
@@ -19,9 +21,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - name: Extract buf version from Makefile
+      - name: Read buf version
         id: buf-version
-        run: echo "version=$(grep '^BUF_VERSION' aks-node-controller/Makefile | cut -d'=' -f2 | tr -d ' ')" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(cat aks-node-controller/.buf-version)" >> "$GITHUB_OUTPUT"
       - uses: bufbuild/buf-action@v1
         with:
           input: aks-node-controller
