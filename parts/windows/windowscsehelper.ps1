@@ -308,15 +308,19 @@ function Start-NodeResetScriptTask
     )
 
     $taskName = "k8s-restart-job"
+    $taskRunningResult = 0x00041301
     $previousRunTime = (Get-ScheduledTaskInfo -TaskName $taskName).LastRunTime
     Start-ScheduledTask -TaskName $taskName
 
     $timer = [Diagnostics.Stopwatch]::StartNew()
     do {
-        $task = Get-ScheduledTask -TaskName $taskName
         $taskInfo = Get-ScheduledTaskInfo -TaskName $taskName
+        $task = Get-ScheduledTask -TaskName $taskName
         if ($task.State -eq "Ready" -and $taskInfo.LastRunTime -ne $previousRunTime) {
-            break
+            $taskInfo = Get-ScheduledTaskInfo -TaskName $taskName
+            if ($taskInfo.LastRunTime -ne $previousRunTime -and $taskInfo.LastTaskResult -ne $taskRunningResult) {
+                break
+            }
         }
 
         if ($timer.Elapsed.TotalSeconds -gt $TimeoutSeconds) {
@@ -329,7 +333,7 @@ function Start-NodeResetScriptTask
     $timer.Stop()
 
     if ($taskInfo.LastTaskResult -ne 0) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask failed with result [$($taskInfo.LastTaskResult)]"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask failed with result $($taskInfo.LastTaskResult)"
     }
 
     $kubeletService = Get-Service -Name "kubelet" -ErrorAction SilentlyContinue

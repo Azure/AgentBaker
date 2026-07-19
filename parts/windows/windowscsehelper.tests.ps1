@@ -632,6 +632,23 @@ Describe "Start-NodeResetScriptTask" {
     Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 1
   }
 
+  It "does not accept stale Ready while the task is running" {
+    Mock Get-ScheduledTaskInfo -MockWith {
+      $script:taskInfoCallCount++
+      if ($script:taskInfoCallCount -eq 1) {
+        return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-01"; LastTaskResult = 0 }
+      }
+      if ($script:taskInfoCallCount -le 3) {
+        return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-02"; LastTaskResult = 0x00041301 }
+      }
+      return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-02"; LastTaskResult = 0 }
+    }
+
+    Start-NodeResetScriptTask
+
+    Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 1
+  }
+
   It "fails when the task result is nonzero" {
     Mock Get-ScheduledTaskInfo -MockWith {
       $script:taskInfoCallCount++
@@ -641,7 +658,7 @@ Describe "Start-NodeResetScriptTask" {
       return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-02"; LastTaskResult = 1 }
     }
 
-    { Start-NodeResetScriptTask } | Should -Throw "*failed with result [1]*"
+    { Start-NodeResetScriptTask } | Should -Throw "*failed with result 1*"
   }
 
   It "fails when kubelet is not running" {
