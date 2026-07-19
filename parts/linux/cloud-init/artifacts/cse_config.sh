@@ -1990,13 +1990,20 @@ EOF
         # GB (arm64) MNNVL SKUs also need the node-local compute-domain kubelet-plugin
         # (device class compute-domain.nvidia.com) for cross-node IMEX. The
         # dra-driver-nvidia-gpu deb ships only gpu-kubelet-plugin, so the version-matched
-        # compute-domain-kubelet-plugin binary is fetched from COMPUTE_DOMAIN_PLUGIN_URL when
-        # set (empty on nodes without ComputeDomains => no-op) and run as its own systemd
-        # unit. The cluster-side ComputeDomain controller is deployed separately. Follow-up:
+        # compute-domain-kubelet-plugin binary is extracted from the DRA driver image
+        # referenced by COMPUTE_DOMAIN_PLUGIN_IMAGE when set (empty on nodes without
+        # ComputeDomains => no-op) and run as its own systemd unit. The image is pulled
+        # via ctr (same path used for the GPU driver install), so no external download.
+        # The cluster-side ComputeDomain controller is deployed separately. Follow-up:
         # ship the binary in the deb and grant the plugin's RBAC.
-        if [ "$(isARM64)" -eq 1 ] && [ -n "${COMPUTE_DOMAIN_PLUGIN_URL:-}" ]; then
+        if [ "$(isARM64)" -eq 1 ] && [ -n "${COMPUTE_DOMAIN_PLUGIN_IMAGE:-}" ]; then
             if [ ! -x /usr/bin/compute-domain-kubelet-plugin ]; then
-                retrycmd_if_failure 10 5 60 curl -fsSL -o /usr/bin/compute-domain-kubelet-plugin "${COMPUTE_DOMAIN_PLUGIN_URL}" || exit $ERR_DRA_DRIVER_START_FAIL
+                retrycmd_if_failure 3 5 120 ctr -n k8s.io image pull "${COMPUTE_DOMAIN_PLUGIN_IMAGE}" || exit $ERR_DRA_DRIVER_START_FAIL
+                COMPUTE_DOMAIN_PLUGIN_MNT="$(mktemp -d)"
+                ctr -n k8s.io image mount "${COMPUTE_DOMAIN_PLUGIN_IMAGE}" "${COMPUTE_DOMAIN_PLUGIN_MNT}" || exit $ERR_DRA_DRIVER_START_FAIL
+                cp "${COMPUTE_DOMAIN_PLUGIN_MNT}/usr/bin/compute-domain-kubelet-plugin" /usr/bin/compute-domain-kubelet-plugin
+                ctr -n k8s.io image unmount "${COMPUTE_DOMAIN_PLUGIN_MNT}"
+                rmdir "${COMPUTE_DOMAIN_PLUGIN_MNT}"
                 chmod 0755 /usr/bin/compute-domain-kubelet-plugin
             fi
             tee "/etc/systemd/system/compute-domain-nvidia-gpu.service" > /dev/null <<EOF
