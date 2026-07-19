@@ -200,6 +200,17 @@ export NVIDIA_DRIVER_IMAGE_SHA="${GPU_IMAGE_SHA:=}"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_GPU_DRIVER_TYPE="${GPU_DRIVER_TYPE:=}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
+# === TEST-ONLY OVERRIDE (DO NOT MERGE): validate aks-gpu#170 on GB300 ===
+# Points the managed driver install at our locally-built arm64 image (FM skipped +
+# nvidia-imex installed on arm64) in an anonymous-pull ACR, instead of the MCR-baked
+# buggy one. Remove after test.
+export NVIDIA_DRIVER_IMAGE="gb300gpufmtest.azurecr.io/aks-gpu-cuda-lts"
+export NVIDIA_DRIVER_IMAGE_TAG="imexfix"
+# TEST-ONLY (DO NOT MERGE): side-load the compute-domain-kubelet-plugin v25.12.0 binary (extracted
+# from the DRA driver image) so the managed-DRA path can start compute-domain-nvidia-gpu.service.
+# Anonymous-pull ACR (no secret); removed once the deb ships the binary.
+export COMPUTE_DOMAIN_PLUGIN_IMAGE="gb300gpufmtest.azurecr.io/k8s-dra-driver-gpu:v25.12.0"
+export COMPUTE_DOMAIN_NAMESPACE="nvidia"
 export CTR_GPU_INSTALL_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
 export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
 APT_CACHE_DIR=/var/cache/apt/archives/
