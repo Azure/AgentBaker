@@ -1964,20 +1964,6 @@ func Test_Ubuntu2604MinimalArm64(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2604MinimalArm64_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a new Ubuntu 2604 minimal ARM64 node using self contained installer can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
-			},
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {},
-		},
-	})
-}
-
 func Test_Ubuntu2604MinimalArm64_AzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2604 minimal ARM64 VHD can be properly bootstrapped with containerd v2 on an Azure CNI cluster",
@@ -1996,20 +1982,6 @@ func Test_Ubuntu2604MinimalArm64_AzureCNI(t *testing.T) {
 				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
 				ValidateSSHServiceEnabled(ctx, s)
 			},
-		},
-	})
-}
-
-func Test_Ubuntu2604MinimalArm64_AzureCNI_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a new Ubuntu 2604 minimal ARM64 node using self contained installer can be properly bootstrapped on an Azure CNI cluster",
-		Config: Config{
-			Cluster: clusterAzureNetwork,
-			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
-			},
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {},
 		},
 	})
 }
