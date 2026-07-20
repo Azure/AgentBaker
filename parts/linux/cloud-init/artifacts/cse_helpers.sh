@@ -1540,14 +1540,14 @@ ensureKubeletCgroupHierarchy() {
         return 1
     fi
 
-    # Validate supported values: /kube-reserved.slice (or bare kube-reserved.slice) and
-    # the legacy /kubelet.slice are accepted for KUBE_RESERVED_CGROUP. Only /system.slice
-    # is supported for SYSTEM_RESERVED_CGROUP (a built-in systemd slice). Reject any other
-    # value explicitly so kubelet doesn't fail later with an opaque enforcement error.
+    # Validate supported values: /kube-reserved.slice (or bare kube-reserved.slice) is
+    # the only value accepted for KUBE_RESERVED_CGROUP. Only /system.slice is supported
+    # for SYSTEM_RESERVED_CGROUP (a built-in systemd slice). Reject any other value
+    # explicitly so kubelet doesn't fail later with an opaque enforcement error.
     case "${KUBE_RESERVED_CGROUP:-}" in
-        ""|"/kube-reserved.slice"|"kube-reserved.slice"|"/kubelet.slice"|"kubelet.slice") ;;
+        ""|"/kube-reserved.slice"|"kube-reserved.slice") ;;
         *)
-            echo "ensureKubeletCgroupHierarchy: unsupported KUBE_RESERVED_CGROUP=${KUBE_RESERVED_CGROUP}; only /kube-reserved.slice (or legacy /kubelet.slice) is supported"
+            echo "ensureKubeletCgroupHierarchy: unsupported KUBE_RESERVED_CGROUP=${KUBE_RESERVED_CGROUP}; only /kube-reserved.slice is supported"
             return 1
             ;;
     esac
@@ -1560,9 +1560,7 @@ ensureKubeletCgroupHierarchy() {
     esac
 
     # /system.slice is a built-in systemd slice; we only need to create kube-reserved.slice.
-    # Accept the legacy /kubelet.slice value for backward compatibility with older RPs.
-    if [ "${KUBE_RESERVED_CGROUP:-}" = "/kube-reserved.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kube-reserved.slice" ] \
-       || [ "${KUBE_RESERVED_CGROUP:-}" = "/kubelet.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kubelet.slice" ]; then
+    if [ "${KUBE_RESERVED_CGROUP:-}" = "/kube-reserved.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kube-reserved.slice" ]; then
         # Write all unit/drop-in files unconditionally (idempotent). This ensures
         # upgraded nodes that already have an older version of these files get the
         # latest content (e.g. the Slice= directive added for kubelet/containerd).

@@ -879,8 +879,7 @@ EOF
     # Refresh --runtime-cgroups for PIS nodes where basePrep may have baked an older
     # 10-containerd-base-flag.conf pointing at /system.slice/containerd.service.
     local containerd_runtime_cgroups="/system.slice/containerd.service"
-    if [ "${KUBE_RESERVED_CGROUP:-}" = "/kube-reserved.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kube-reserved.slice" ] \
-       || [ "${KUBE_RESERVED_CGROUP:-}" = "/kubelet.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kubelet.slice" ]; then
+    if [ "${KUBE_RESERVED_CGROUP:-}" = "/kube-reserved.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kube-reserved.slice" ]; then
         containerd_runtime_cgroups="/kube-reserved.slice/containerd.service"
     fi
     tee "/etc/systemd/system/kubelet.service.d/10-containerd-base-flag.conf" > /dev/null <<EOF
