@@ -117,6 +117,9 @@ if ! docker pull --platform "${IMG_CUSTOMIZER_PLATFORM}" "${IMG_CUSTOMIZER_REF}"
     fi
 fi
 
+# No -v /dev:/dev: IC 1.5's entrypoint mounts its own devtmpfs on /dev, so bind-
+# mounting the host's fails "devtmpfs already mounted on /dev" (exit 32) under
+# QEMU. -v /dev:/dev is only for IC v1.4 and below; v1.5+ uses --privileged alone.
 echo "Converting VHD to COSI using ImageCustomizer ${IMG_CUSTOMIZER_REF} (${IMG_CUSTOMIZER_PLATFORM})"
 docker run \
     --platform "${IMG_CUSTOMIZER_PLATFORM}" \
@@ -124,7 +127,6 @@ docker run \
     --interactive \
     --privileged=true \
     -v "$WORK_DIR:/convert" \
-    -v /dev:/dev \
     "${IMG_CUSTOMIZER_REF}" \
     convert \
         --log-level "debug" \
