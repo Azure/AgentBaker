@@ -3,14 +3,18 @@
 #   This script is normally EXECUTED during custom-cloud node provisioning. To make
 #   its helper functions unit-testable, the ShellSpec suite
 #   (spec/parts/linux/cloud-init/artifacts/init_aks_cloud_spec.sh) sources it
-#   with __SOURCED__ set. When __SOURCED__ is non-empty:
+#   with __SOURCED__ set. When it is sourced with __SOURCED__ non-empty:
 #     - `set -x` is suppressed (line below) so ShellSpec output stays readable, and
-#     - top-level execution stops at the `${__SOURCED__:+return 0}` guard further down,
+#     - top-level execution stops at the sourcing guard further down,
 #       so only the function definitions are loaded (no provisioning side effects).
 #   WARNING: __SOURCED__ is a TEST-ONLY hook. Do NOT source this file from production
 #   bootstrap code — doing so silently disables `set -x` AND skips everything below the
 #   guard (i.e. the actual provisioning never runs). This file is meant to be executed.
-[ -n "${__SOURCED__:-}" ] || set -x
+is_script_sourced=0
+[ "${BASH_SOURCE[0]}" != "$0" ] && is_script_sourced=1
+if [ "$is_script_sourced" -eq 0 ] || [ -z "${__SOURCED__:-}" ]; then
+    set -x
+fi
 
 # Dependency note: `jq` is guaranteed to be present on every AKS VHD (baked in
 # by vhdbuilder/packer/install-dependencies.sh and shipped in the Azure Linux
@@ -96,7 +100,7 @@ IS_AZURELINUX=0
 # (__SOURCED__ set). During normal execution the constant is forced, so a stray
 # WIRESERVER_ENDPOINT in the environment cannot redirect certificate retrieval to an
 # unexpected endpoint.
-if [ -n "${__SOURCED__:-}" ]; then
+if [ "$is_script_sourced" -eq 1 ] && [ -n "${__SOURCED__:-}" ]; then
     WIRESERVER_ENDPOINT="${WIRESERVER_ENDPOINT:-http://168.63.129.16}"
 else
     WIRESERVER_ENDPOINT="http://168.63.129.16"
@@ -575,7 +579,9 @@ function determine_cert_endpoint_mode {
 # Function definitions above this line are sourced and tested in
 # spec/parts/linux/cloud-init/artifacts/init_aks_cloud_spec.sh.
 # shellcheck disable=SC2317
-${__SOURCED__:+return 0}
+if [ "$is_script_sourced" -eq 1 ] && [ -n "${__SOURCED__:-}" ]; then
+    return 0
+fi
 
 # shellcheck disable=SC3010
 if [[ -f /etc/os-release ]]; then
