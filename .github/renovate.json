@@ -828,6 +828,20 @@
     },
     {
       "customType": "regex",
+      "description": "auto update buf version in aks-node-controller/.buf-version",
+      "managerFilePatterns": [
+        "/aks-node-controller/\\.buf-version/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "(?<currentValue>\\S+)"
+      ],
+      "depNameTemplate": "bufbuild/buf",
+      "datasourceTemplate": "docker",
+      "extractVersionTemplate": "^(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
       "description": "update version line in any cse_*.sh",
       "managerFilePatterns": [
         "/^.*cse_.*\\.sh/"
