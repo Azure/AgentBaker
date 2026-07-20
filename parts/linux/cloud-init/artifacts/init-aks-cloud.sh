@@ -314,7 +314,7 @@ function init_ubuntu_main_repo_depot {
     local sources_list="${APT_SOURCES_LIST:-/etc/apt/sources.list}"
     local sources_list_d="${APT_SOURCES_LIST_D_DIR:-/etc/apt/sources.list.d}"
     local os_release_file
-    if [ "$is_script_sourced" -eq 1 ] && [ -n "${__SOURCED__:-}" ]; then
+    if [ "$is_script_sourced" -eq 1 ]; then
         os_release_file="${OS_RELEASE_FILE:-/etc/os-release}"
     else
         os_release_file="/etc/os-release"
