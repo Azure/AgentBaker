@@ -1,22 +1,18 @@
 #!/bin/bash
-# shellcheck disable=SC2329
+# shellcheck disable=SC2016,SC2329
 
-# ShellSpec tests for assertPackageVersion helper function in linux-vhd-content-test.sh.
-# Covers: dpkg path, rpm path, package-not-installed path, version mismatch path, and epoch stripping.
+# ShellSpec tests for assertPackageVersion helper function.
+# The function under test lives in vhdbuilder/packer/test/lib/package_helpers.sh.
+
+# Source the shared helper (provides err + assertPackageVersion).
+# shellcheck source=../../../../vhdbuilder/packer/test/lib/package_helpers.sh
+. "./vhdbuilder/packer/test/lib/package_helpers.sh"
 
 Describe 'assertPackageVersion helper function'
-  # Source the functions by writing extracted content to a temp file (avoids eval expansion issues with ${Status}/${Version}).
-  BeforeAll '
-    _tmpfunc=$(mktemp)
-    sed -n "/^err()/,/^}/p" "./vhdbuilder/packer/test/linux-vhd-content-test.sh" > "$_tmpfunc"
-    sed -n "/^assertPackageVersion()/,/^}/p" "./vhdbuilder/packer/test/linux-vhd-content-test.sh" >> "$_tmpfunc"
-    . "$_tmpfunc"
-    rm -f "$_tmpfunc"
-  '
 
   Describe 'dpkg path (deb-based systems)'
     It 'succeeds when installed deb version matches expected version'
-      # Mock dpkg-query to simulate moby-containerd 2.3.2-ubuntu24.04u2 installed
+      command() { return 0; }
       dpkg-query() {
         case "$3" in
           '${Status}') echo "install ok installed" ;;
@@ -29,6 +25,7 @@ Describe 'assertPackageVersion helper function'
     End
 
     It 'fails when installed deb version does not match expected version'
+      command() { return 0; }
       dpkg-query() {
         case "$3" in
           '${Status}') echo "install ok installed" ;;
@@ -41,6 +38,7 @@ Describe 'assertPackageVersion helper function'
     End
 
     It 'strips epoch prefix from dpkg version before comparison'
+      command() { return 0; }
       dpkg-query() {
         case "$3" in
           '${Status}') echo "install ok installed" ;;
@@ -54,7 +52,6 @@ Describe 'assertPackageVersion helper function'
 
   Describe 'rpm path (RPM-based systems)'
     It 'succeeds when installed rpm version matches expected version'
-      # Mock: dpkg-query not available, rpm available
       dpkg-query() { return 1; }
       command() {
         case "$2" in
