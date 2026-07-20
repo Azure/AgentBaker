@@ -35,5 +35,5 @@ jobs:
       - uses: bufbuild/buf-action@v1
         with:
           input: aks-live-patching
-          # Reuses the buf version from aks-node-controller's Makefile
+          # Reuses the buf version from aks-node-controller/.buf-version
           version: ${{ steps.buf-version.outputs.version }}
