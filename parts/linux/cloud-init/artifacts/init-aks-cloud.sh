@@ -1,17 +1,10 @@
 #!/bin/bash
 # Sourcing convention (__SOURCED__):
-#   This script is normally EXECUTED during custom-cloud node provisioning. To make
-#   its helper functions unit-testable, the ShellSpec suite
-#   (spec/parts/linux/cloud-init/artifacts/init_aks_cloud_spec.sh) sources it
-#   with __SOURCED__ set. The test-only behavior is enabled only when BOTH are true:
-#     - the file is actually sourced (BASH_SOURCE[0] != $0), and
-#     - __SOURCED__ is non-empty.
-#     - `set -x` is suppressed (line below) so ShellSpec output stays readable, and
-#     - top-level execution stops at the sourcing guard further down,
-#       so only the function definitions are loaded (no provisioning side effects).
-#   WARNING: __SOURCED__ is a TEST-ONLY hook. Do NOT source this file from production
-#   bootstrap code — doing so silently disables `set -x` AND skips everything below the
-#   guard (i.e. the actual provisioning never runs). This file is meant to be executed.
+#   Normal path: this script is executed during provisioning.
+#   Test path: when sourced by ShellSpec with __SOURCED__ set, only function definitions
+#   are loaded (no top-level provisioning side effects).
+#   Guard condition: test mode applies only when the file is sourced (BASH_SOURCE[0] != $0)
+#   and __SOURCED__ is non-empty.
 is_script_sourced=0
 [ "${BASH_SOURCE[0]}" != "$0" ] && is_script_sourced=1
 if [ "$is_script_sourced" -eq 0 ] || [ -z "${__SOURCED__:-}" ]; then
