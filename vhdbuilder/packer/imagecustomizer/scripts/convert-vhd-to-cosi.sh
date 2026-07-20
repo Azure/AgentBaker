@@ -71,30 +71,26 @@ else
     exit "$azExitCode"
 fi
 
-# Determine the target architecture once; reused below for the ImageCustomizer
-# container platform and for the publishing-info image_architecture field.
+# Run the arch-matched ImageCustomizer image so its objcopy can read the VHD's
+# UKI kernel cmdline. ARCH_LOWER is reused for image_architecture below.
 ARCH_LOWER="${ARCHITECTURE:-}"
-
-# Match the ImageCustomizer container's architecture to the VHD being converted.
-# ImageCustomizer reads the kernel cmdline from the image's UKI using objcopy,
-# which only understands its own architecture: an x86_64 objcopy cannot parse an
-# aarch64 UKI ("file format not recognized"), so COSI conversion fails for ARM64
-# ACL VHDs on an x86_64 build agent. Running the arch-matched image (under
-# QEMU/binfmt emulation when the agent differs) gives objcopy the matching
-# target. Defaults to amd64 when ARCHITECTURE is unset.
 if [ "${ARCH_LOWER,,}" = "arm64" ]; then
     IMG_CUSTOMIZER_PLATFORM="linux/arm64"
 else
     IMG_CUSTOMIZER_PLATFORM="linux/amd64"
 fi
 
-# Cross-architecture emulation needs binfmt_misc QEMU handlers on the build
-# agent. Fail fast with an actionable message instead of a cryptic "exec format
-# error" from the container runtime.
+# Converting an arm64 image on an x86_64 agent needs the qemu-aarch64 binfmt
+# handler; register it (idempotent). No-op on native arm64 or x86_64 builds.
+QEMU_BINFMT_IMAGE="tonistiigi/binfmt:qemu-v10.2.3"
 HOST_ARCH="$(uname -m)"
 if [ "$IMG_CUSTOMIZER_PLATFORM" = "linux/arm64" ] && [ "$HOST_ARCH" != "aarch64" ] && [ "$HOST_ARCH" != "arm64" ]; then
     if [ ! -e /proc/sys/fs/binfmt_misc/qemu-aarch64 ]; then
-        echo "##vso[task.logissue type=error]ARM64 COSI conversion requires QEMU aarch64 emulation (binfmt_misc qemu-aarch64) on the build agent, but it is not registered"
+        echo "Registering QEMU aarch64 emulation via ${QEMU_BINFMT_IMAGE}"
+        docker run --privileged --rm "${QEMU_BINFMT_IMAGE}" --install arm64 || true
+    fi
+    if [ ! -e /proc/sys/fs/binfmt_misc/qemu-aarch64 ]; then
+        echo "##vso[task.logissue type=error]Failed to register qemu-aarch64 emulation; cannot run the arm64 ImageCustomizer container"
         exit 1
     fi
 fi
