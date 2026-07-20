@@ -127,10 +127,16 @@ Describe 'select_localdns_corefile()'
     End
 End
 
-Describe 'outbound connectivity preflight'
-    It 'allows DNS failover within each attempt'
+Describe 'connectivity preflight timeouts'
+    It 'allows DNS failover during the outbound check'
         When run awk '/retrycmd_if_failure [0-9]+ [0-9]+ [0-9]+ \$OUTBOUND_COMMAND/ { print $2, $3, $4 }' parts/linux/cloud-init/artifacts/cse_main.sh
         The output should eq "20 1 15"
+        The status should be success
+    End
+
+    It 'allows DNS failover during the API server check'
+        When run grep -F 'retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 15 curl' parts/linux/cloud-init/artifacts/cse_main.sh
+        The output should include 'retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 15 curl'
         The status should be success
     End
 End

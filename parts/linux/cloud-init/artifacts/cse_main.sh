@@ -510,11 +510,11 @@ function nodePrep {
     VALIDATION_ERR=0
     # shellcheck disable=SC3010
     if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        API_SERVER_CONN_RETRIES=50
+        API_SERVER_CONN_RETRIES=34
         API_SERVER_DNS_RETRY_TIMEOUT=300
         # shellcheck disable=SC3010
         if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
-           API_SERVER_CONN_RETRIES=100
+           API_SERVER_CONN_RETRIES=68
            API_SERVER_DNS_RETRY_TIMEOUT=600
         fi
         if [ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]; then
@@ -532,7 +532,7 @@ function nodePrep {
                 VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
             fi
         else
-            logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+            logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 15 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
         fi
     else
         # an IP address is provided for the API server, skip the DNS lookup
