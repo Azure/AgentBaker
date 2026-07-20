@@ -178,7 +178,7 @@ Describe 'init-aks-cloud.sh functional tests'
     # without this Include would fall through into the top-level provisioning path
     # (wireserver calls, cron install, exit) and cause side effects. Matches the
     # sourcing convention documented in the script header and used in cse_main_spec.sh.
-    export __SOURCED__=1
+    __SOURCED__=1
     Include "./parts/linux/cloud-init/artifacts/init-aks-cloud.sh"
 
     setup() {
