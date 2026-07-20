@@ -2005,6 +2005,26 @@ func Test_Ubuntu2604MinimalArm64_NPD_Basic(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2604MinimalArm64_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an Ubuntu 2604 minimal ARM64 Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
+		Tags: Tags{
+			BootstrapTokenFallback: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled:                true,
+					GetAccessTokenTimeout:  (10 * time.Second).String(),
+					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
+				}
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2404Gen2_McrChinaCloud(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
