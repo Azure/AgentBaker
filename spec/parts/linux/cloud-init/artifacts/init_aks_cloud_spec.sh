@@ -165,7 +165,7 @@ EOF
     AfterEach 'cleanup_script_level'
 
     It 'passes refresh_location into determine_cert_endpoint_mode and emits legacy mode event'
-        When run env PATH="${MOCK_BIN_DIR}:$PATH" LOCATION="zzzz" bash -c 'script="$1"; events="$2"; bash "$script" ca-refresh usseceast >/dev/null 2>&1; rc=$?; cat "$events"/*.json; exit "$rc"' _ "${SCRIPT_COPY}" "${EVENTS_DIR}"
+        When run env -u __SOURCED__ PATH="${MOCK_BIN_DIR}:$PATH" LOCATION="zzzz" bash -c 'script="$1"; events="$2"; bash "$script" ca-refresh usseceast >/dev/null 2>&1; rc=$?; cat "$events"/*.json; exit "$rc"' _ "${SCRIPT_COPY}" "${EVENTS_DIR}"
         The status should be success
         The stdout should include '"TaskName":"AKS.CSE.rcv1p.certEndpointMode"'
         The stdout should include 'mode=legacy, location=usseceast'
