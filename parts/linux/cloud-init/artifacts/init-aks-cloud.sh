@@ -3,7 +3,9 @@
 #   This script is normally EXECUTED during custom-cloud node provisioning. To make
 #   its helper functions unit-testable, the ShellSpec suite
 #   (spec/parts/linux/cloud-init/artifacts/init_aks_cloud_spec.sh) sources it
-#   with __SOURCED__ set. When it is sourced with __SOURCED__ non-empty:
+#   with __SOURCED__ set. The test-only behavior is enabled only when BOTH are true:
+#     - the file is actually sourced (BASH_SOURCE[0] != $0), and
+#     - __SOURCED__ is non-empty.
 #     - `set -x` is suppressed (line below) so ShellSpec output stays readable, and
 #     - top-level execution stops at the sourcing guard further down,
 #       so only the function definitions are loaded (no provisioning side effects).
