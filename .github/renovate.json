@@ -16,6 +16,12 @@
     "renovate"
   ],
   "rebaseWhen": "never",
+  "hostRules": [
+    {
+      "matchHost": "packages.microsoft.com",
+      "concurrentRequestLimit": 1
+    }
+  ],
   "logLevelRemap": [
     {
       "matchMessage": "/^Custom manager fetcher/",
