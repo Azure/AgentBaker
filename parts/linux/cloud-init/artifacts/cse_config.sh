@@ -887,6 +887,9 @@ EOF
 Environment="KUBELET_CONTAINERD_FLAGS=--runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=${containerd_runtime_cgroups}"
 EOF
 
+    if ! systemctl daemon-reload; then
+        exit $ERR_KUBELET_START_FAIL
+    fi
     # start kubelet.service without waiting for the main process to start, though check whether it has entered a failed state after enablement
     if ! systemctlEnableAndStartNoBlock kubelet 240; then
         # append kubelet status to CSE output to ensure we can see it
