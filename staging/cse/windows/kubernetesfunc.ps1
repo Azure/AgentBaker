@@ -275,7 +275,7 @@ function Check-APIServerConnectivity {
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY -ErrorMessage "Failed to connect to API server $MasterIP after $retryCount retries. Last exception: $lastExceptionMessage"
 }
 
-function Get-CustomCloudCertEndpointModeFromLocation {
+function Get-CertEndpointModeFromLocation {
     Param(
         [Parameter(Mandatory = $true)][string]
         $Location
@@ -301,7 +301,7 @@ function Should-InstallCACertificatesRefreshTask {
     if ([string]::IsNullOrEmpty($Location)) {
         return $true
     }
-    $certEndpointMode = Get-CustomCloudCertEndpointModeFromLocation -Location $Location
+    $certEndpointMode = Get-CertEndpointModeFromLocation -Location $Location
     if ($certEndpointMode -eq "legacy") {
         return $true
     }
@@ -352,7 +352,7 @@ function Get-CACertificates {
         $certEndpointMode = "legacy"
         Write-Log "Get CA certificates. Location not provided, defaulting to legacy endpoint mode"
     } else {
-        $certEndpointMode = Get-CustomCloudCertEndpointModeFromLocation -Location $Location
+        $certEndpointMode = Get-CertEndpointModeFromLocation -Location $Location
         Write-Log "Get CA certificates. Location: $Location. EndpointMode: $certEndpointMode"
     }
 
@@ -360,7 +360,7 @@ function Get-CACertificates {
     # to the local certificate folder. When called with -FailOnError, wireserver unreachable
     # after retries is fatal — silently falling back to the OS default trust store would be a
     # security hole if the customer intended hardened root certs. This matches the Linux
-    # behavior in init-aks-custom-cloud.sh (is_opted_in_for_root_certs return code 2 = fatal).
+    # behavior in init-aks-cloud.sh (is_opted_in_for_root_certs return code 2 = fatal).
     try {
         if ($certEndpointMode -eq "legacy") {
             $uri = 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'

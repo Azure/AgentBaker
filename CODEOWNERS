@@ -30,3 +30,7 @@ spec/parts/linux/cloud-init/artifacts/localdns_spec.sh @saewoni @yewmsft
 # Set components.json & windows_settings.json to no code-owner so that it can be approved and merged by component owner.
 parts/common/components.json
 vhdbuilder/packer/windows/windows_settings.json
+
+# Code owners for localdns exporter.
+parts/linux/cloud-init/artifacts/localdns_exporter.sh @saewoni @yewmsft @jingwenw15
+spec/parts/linux/cloud-init/artifacts/localdns_exporter_spec.sh @saewoni @yewmsft @jingwenw15

@@ -30,6 +30,7 @@ func isExpectedDiffCSEVar(key string) bool {
 		"HYPERKUBE_URL",
 		"MCR_REPOSITORY_BASE",
 		"BLOCK_OUTBOUND_NETWORK",
+		"REPO_DEPOT_ENDPOINT",
 		"SKIP_WAAGENT_HOLD":
 		return true
 	}
