@@ -2018,7 +2018,7 @@ testCriCtl() {
 
   # Strict match: verify the full deb/rpm package version matches components.json
   if [ -z "$installedPackageName" ]; then
-    err "$test" "could not resolve package name from components.json renovateTag"
+    err "$test" "installed package name was not provided"
     return 1
   fi
   assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
@@ -2053,7 +2053,7 @@ testContainerd() {
 
   # Strict match: verify the full deb/rpm package version matches components.json
   if [ -z "$installedPackageName" ]; then
-    err "$test" "could not resolve package name from components.json renovateTag"
+    err "$test" "installed package name was not provided"
     return 1
   fi
   assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
