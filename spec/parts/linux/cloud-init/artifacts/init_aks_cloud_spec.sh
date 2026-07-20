@@ -74,13 +74,11 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
 End
 
 Describe 'init-aks-cloud.sh functional tests'
-    # Set __SOURCED__ before Include so only the function definitions are loaded. The
-    # script's sourcing guard only returns early when the file is sourced and __SOURCED__
-    # is set, so
+    # Include sources the file and loads function definitions only; top-level provisioning
+    # logic is skipped when sourced.
     # without this Include would fall through into the top-level provisioning path
     # (wireserver calls, cron install, exit) and cause side effects. Matches the
     # sourcing convention documented in the script header and used in cse_main_spec.sh.
-    __SOURCED__=1
     Include "./parts/linux/cloud-init/artifacts/init-aks-cloud.sh"
 
     setup() {

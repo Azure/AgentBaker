@@ -1,13 +1,11 @@
 #!/bin/bash
 # Sourcing convention (__SOURCED__):
 #   Normal path: this script is executed during provisioning.
-#   Test path: when sourced by ShellSpec with __SOURCED__ set, only function definitions
-#   are loaded (no top-level provisioning side effects).
-#   Guard condition: test mode applies only when the file is sourced (BASH_SOURCE[0] != $0)
-#   and __SOURCED__ is non-empty.
+#   Sourced path: when this file is sourced, only function definitions are loaded
+#   (no top-level provisioning side effects).
 is_script_sourced=0
 [ "${BASH_SOURCE[0]}" != "$0" ] && is_script_sourced=1
-if [ "$is_script_sourced" -eq 0 ] || [ -z "${__SOURCED__:-}" ]; then
+if [ "$is_script_sourced" -eq 0 ]; then
     set -x
 fi
 
@@ -91,11 +89,11 @@ IS_MARINER=0
 IS_AZURELINUX=0
 
 # http://168.63.129.16 is a constant for the host's wireserver endpoint.
-# Only honor a WIRESERVER_ENDPOINT env override when the script is sourced for tests
-# (__SOURCED__ set). During normal execution the constant is forced, so a stray
+# Only honor a WIRESERVER_ENDPOINT env override when the script is sourced.
+# During normal execution the constant is forced, so a stray
 # WIRESERVER_ENDPOINT in the environment cannot redirect certificate retrieval to an
 # unexpected endpoint.
-if [ "$is_script_sourced" -eq 1 ] && [ -n "${__SOURCED__:-}" ]; then
+if [ "$is_script_sourced" -eq 1 ]; then
     WIRESERVER_ENDPOINT="${WIRESERVER_ENDPOINT:-http://168.63.129.16}"
 else
     WIRESERVER_ENDPOINT="http://168.63.129.16"
@@ -579,7 +577,7 @@ function determine_cert_endpoint_mode {
 # Function definitions above this line are sourced and tested in
 # spec/parts/linux/cloud-init/artifacts/init_aks_cloud_spec.sh.
 # shellcheck disable=SC2317
-if [ "$is_script_sourced" -eq 1 ] && [ -n "${__SOURCED__:-}" ]; then
+if [ "$is_script_sourced" -eq 1 ]; then
     return 0
 fi
 
