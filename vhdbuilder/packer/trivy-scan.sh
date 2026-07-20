@@ -94,12 +94,11 @@ addPMCAptKey() {
 }
 
 installAzCLIFromUbuntuPMC() {
-    local arch
-    arch="$(uname -m)"
+    local ARCHITECTURE=${1}
 
     apt_get_install 5 1 60 ca-certificates curl apt-transport-https lsb-release gnupg
 
-    if [ "${arch,,}" = "arm64" ]; then
+    if [ "${ARCHITECTURE,,}" = "arm64" ]; then
         echo "deb [arch=arm64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
     else
         echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
@@ -151,7 +150,7 @@ install_azure_cli() {
             exit 1
         fi
     else
-        installAzCLIFromUbuntuPMC
+        installAzCLIFromUbuntuPMC "$ARCHITECTURE"
     fi
 }
 
