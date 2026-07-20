@@ -5,6 +5,8 @@ on:
       - "aks-node-controller/proto/**"
       - "aks-node-controller/buf.yaml"
       - "aks-node-controller/.buf-version"
+      - "aks-live-patching/proto/**"
+      - "aks-live-patching/buf.yaml"
       - ".github/workflows/buf.yaml"
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
@@ -12,6 +14,8 @@ on:
       - "aks-node-controller/proto/**"
       - "aks-node-controller/buf.yaml"
       - "aks-node-controller/.buf-version"
+      - "aks-live-patching/proto/**"
+      - "aks-live-patching/buf.yaml"
       - ".github/workflows/buf.yaml"
 permissions:
   contents: read
@@ -27,4 +31,9 @@ jobs:
       - uses: bufbuild/buf-action@v1
         with:
           input: aks-node-controller
+          version: ${{ steps.buf-version.outputs.version }}
+      - uses: bufbuild/buf-action@v1
+        with:
+          input: aks-live-patching
+          # Reuses the buf version from aks-node-controller/.buf-version
           version: ${{ steps.buf-version.outputs.version }}
