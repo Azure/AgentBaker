@@ -2678,7 +2678,7 @@ func Test_AzureLinuxV3_MANA(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_NodeHardening_KubeletSlice(t *testing.T) {
+func Test_Ubuntu2204_NodeHardening_KubeReservedSlice(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "validates kubelet and containerd run in kube-reserved.slice when node hardening cgroup hierarchy is enabled",
 		Config: Config{
