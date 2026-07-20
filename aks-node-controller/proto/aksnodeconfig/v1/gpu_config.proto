@@ -30,4 +30,11 @@ message GpuConfig {
   // Valid values are "None", "Single", "Mixed". Only meaningful when MIG is enabled
   // (i.e., when gpu_instance_profile is set). Defaults to "Single" if not specified.
   string mig_strategy = 8;
+
+  // Specifies whether the managed GPU experience should run in DRA (Dynamic Resource
+  // Allocation) mode instead of the classic device-plugin. Set when the agent pool's
+  // gpuProfile has managementMode=Managed and driverMode=DRA. Drives ENABLE_MANAGED_GPU_DRA
+  // in the CSE, which switches configureManagedGPUExperience to the dra-driver-nvidia-gpu
+  // (+ compute-domain-kubelet-plugin on GB arm64) path.
+  bool enable_managed_gpu_dra = 9;
 }
