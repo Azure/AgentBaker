@@ -320,7 +320,12 @@ function init_ubuntu_main_repo_depot {
     local backup_dir="${APT_BACKUP_DIR:-/etc/apt/backup}"
     local sources_list="${APT_SOURCES_LIST:-/etc/apt/sources.list}"
     local sources_list_d="${APT_SOURCES_LIST_D_DIR:-/etc/apt/sources.list.d}"
-    local os_release_file="${OS_RELEASE_FILE:-/etc/os-release}"
+    local os_release_file
+    if [ "$is_script_sourced" -eq 1 ] && [ -n "${__SOURCED__:-}" ]; then
+        os_release_file="${OS_RELEASE_FILE:-/etc/os-release}"
+    else
+        os_release_file="/etc/os-release"
+    fi
 
     # Initialize directories for keys and apt sources. mkdir -p is a no-op when the
     # default paths already exist; it makes the *_DIR overrides used by tests robust.
@@ -587,15 +592,15 @@ fi
 if [[ -f /etc/os-release ]]; then
     . /etc/os-release
     # shellcheck disable=SC3010
-    if [[ $NAME == *"Ubuntu"* ]]; then
+    if [[ $NAME = *"Ubuntu"* ]]; then
         IS_UBUNTU=1
-    elif [[ $ID == *"flatcar"* ]]; then
+    elif [[ $ID = *"flatcar"* ]]; then
         IS_FLATCAR=1
-    elif [[ $ID == "azurecontainerlinux" ]] || { [[ $ID == "azurelinux" ]] && [[ ${VARIANT_ID:-} == "azurecontainerlinux" ]]; }; then
+    elif [[ $ID = "azurecontainerlinux" ]] || { [[ $ID = "azurelinux" ]] && [[ ${VARIANT_ID:-} = "azurecontainerlinux" ]]; }; then
         IS_ACL=1
-    elif [[ $NAME == *"Mariner"* ]]; then
+    elif [[ $NAME = *"Mariner"* ]]; then
         IS_MARINER=1
-    elif [[ $NAME == *"Microsoft Azure Linux"* ]]; then
+    elif [[ $NAME = *"Microsoft Azure Linux"* ]]; then
         IS_AZURELINUX=1
     else
         echo "Unknown Linux distribution"
