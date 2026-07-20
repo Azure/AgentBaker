@@ -100,6 +100,42 @@ RESPONSE
         ;;
 esac
 EOF
+        cat > "${MOCK_BIN_DIR}/jq" <<'EOF'
+#!/bin/bash
+task=""
+message=""
+while [ $# -gt 0 ]; do
+    if [ "$1" = "--arg" ]; then
+        key="$2"
+        value="$3"
+        case "$key" in
+            TaskName) task="$value" ;;
+            Message) message="$value" ;;
+        esac
+        shift 3
+        continue
+    fi
+    shift
+done
+printf '{"TaskName":"%s","Message":"%s"}\n' "$task" "$message"
+EOF
+        cat > "${MOCK_BIN_DIR}/grep" <<'EOF'
+#!/bin/bash
+if [ "$1" = "-oP" ]; then
+    pattern="$2"
+    case "$pattern" in
+        '(?<=Name\": \")[^\"]*')
+            echo "test.cer"
+            exit 0
+            ;;
+        '(?<=CertBody\": \")[^\"]*')
+            echo "-----BEGIN CERTIFICATE-----\\r\\nMIIB\\r\\n-----END CERTIFICATE-----"
+            exit 0
+            ;;
+    esac
+fi
+exec /usr/bin/grep "$@"
+EOF
         cat > "${MOCK_BIN_DIR}/sleep" <<'EOF'
 #!/bin/bash
 exit 0
@@ -116,7 +152,7 @@ EOF
 #!/bin/bash
 exit 0
 EOF
-        chmod +x "${MOCK_BIN_DIR}/curl" "${MOCK_BIN_DIR}/sleep" \
+        chmod +x "${MOCK_BIN_DIR}/curl" "${MOCK_BIN_DIR}/jq" "${MOCK_BIN_DIR}/grep" "${MOCK_BIN_DIR}/sleep" \
             "${MOCK_BIN_DIR}/cp" "${MOCK_BIN_DIR}/update-ca-certificates" \
             "${MOCK_BIN_DIR}/update-ca-trust"
     }
