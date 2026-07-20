@@ -383,8 +383,9 @@ steps:
         cis-report.txt
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
-  # Compliance Engine native JSON results (+ assessor logs). Non-blocking: the
-  # glob simply matches nothing when the scan is disabled or produced no output.
+  # Compliance Engine native JSON results (+ assessor logs) and rendered JUnit.
+  # Non-blocking: the glob simply matches nothing when the scan is disabled or
+  # produced no output.
   - task: CopyFiles@2
     condition: and(eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'))
     continueOnError: true
@@ -394,7 +395,23 @@ steps:
       Contents: |
         compliance-engine-*.json
         compliance-engine-*.log
+        compliance-engine-*.junit.xml
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+  # Publish the Compliance Engine JUnit to the test tab. Non-blocking: compliance
+  # findings must not fail the build, and the step no-ops (with a warning) when
+  # no JUnit was produced (e.g. an assessor without the `render` subcommand).
+  - task: PublishTestResults@2
+    condition: and(eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'))
+    continueOnError: true
+    displayName: Publish Compliance Engine JUnit Results
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: 'compliance-engine-*.junit.xml'
+      searchFolder: '$(System.DefaultWorkingDirectory)'
+      testRunTitle: 'Compliance Engine Scan - $(OS_SKU) $(OS_VERSION)'
+      failTaskOnFailedTests: false
+      mergeTestResults: true
 
   - task: PublishPipelineArtifact@0
     displayName: Publish Release Notes

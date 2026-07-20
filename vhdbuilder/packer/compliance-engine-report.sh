@@ -91,7 +91,9 @@ az storage blob download --container-name "$SIG_CONTAINER_NAME" --name "$MOF_BLO
 chmod 0755 "$ASSESSOR_BIN"
 chmod 0644 "$MOF_PATH"
 
-# Run the audit. stdout is the pure JSON result; --log-file captures all
+# Run the audit. `audit` emits the canonical result JSON on stdout. No --format
+# flag: --format is render-only and is rejected on audit by current assessors;
+# JUnit is rendered later on the agent from this JSON. --log-file captures all
 # assessor logging (and disables console logging) so stdout stays parseable.
 # --continue-on-error keeps the audit going when an individual rule's procedure
 # fails: without it the assessor aborts the whole MOF on the first rule error
@@ -102,7 +104,7 @@ chmod 0644 "$MOF_PATH"
 # must not fail the (shadow, non-blocking) scan.
 audit_rc=0
 set +e
-"$ASSESSOR_BIN" --verbose --continue-on-error --log-file "$LOG_PATH" --format json audit "$MOF_PATH" > "$RESULT_PATH" 2> "${WORK_DIR}/stderr.log"
+"$ASSESSOR_BIN" --verbose --continue-on-error --log-file "$LOG_PATH" audit "$MOF_PATH" > "$RESULT_PATH" 2> "${WORK_DIR}/stderr.log"
 audit_rc=$?
 set -e
 echo "compliance-engine-assessor exited with code: ${audit_rc}"

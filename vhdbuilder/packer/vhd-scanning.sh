@@ -362,7 +362,7 @@ run_compliance_engine_scan() {
     echo "Uploading Compliance Engine assessor to blob ${assessor_blob}"
     az storage blob upload --container-name "${SIG_CONTAINER_NAME}" --file "${CE_ASSESSOR_LOCAL}" --name "${assessor_blob}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login --overwrite
 
-    local m key mof_blob result_blob log_blob result_local
+    local m key mof_blob result_blob log_blob result_local junit_local
     for m in "${mofs[@]}"; do
         key=$(basename "$m" .mof)
         mof_blob="ce-mof-${key}-${BUILD_ID}-${ce_ts}.mof"
@@ -407,6 +407,18 @@ run_compliance_engine_scan() {
         # Non-blocking validation: warn (never fail) on a missing/invalid result.
         if [ -s "${result_local}" ] && jq -e '.' "${result_local}" >/dev/null 2>&1; then
             echo "Compliance Engine ${key}: valid JSON result at ${result_local}"
+            # Render JUnit centrally on the agent from the canonical JSON. The
+            # assessor's `render` subcommand is root-free and pure over JSON, so
+            # it runs here rather than on the scan VM. Requires a render-capable
+            # assessor; if unsupported (older binary) it is skipped non-blocking
+            # and only the JSON is published.
+            junit_local="compliance-engine-${key}.junit.xml"
+            if "$CE_ASSESSOR_LOCAL" --format junit --suite-name "${key}" render "${result_local}" > "${junit_local}" 2>/dev/null && [ -s "${junit_local}" ]; then
+                echo "Compliance Engine ${key}: rendered JUnit at ${junit_local}"
+            else
+                printf '##vso[task.logissue type=warning]Compliance Engine %s: JUnit render failed or unsupported by the assessor; publishing JSON only.\n' "$key"
+                rm -f "${junit_local}"
+            fi
         else
             printf '##vso[task.logissue type=warning]Compliance Engine %s: missing or invalid JSON result (non-blocking).\n' "$key"
         fi
