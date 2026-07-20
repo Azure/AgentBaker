@@ -2005,7 +2005,7 @@ assertPackageVersion() {
 }
 
 testCriCtl() {
-  expectedVersion="${1}"
+  local expectedVersion="${1}"
   local installedPackageName="${2}"
   local test="testCriCtl"
   echo "$test: Start"
@@ -2040,7 +2040,7 @@ testCriCtl() {
 }
 
 testContainerd() {
-  expectedVersion="${1}"
+  local expectedVersion="${1}"
   local installedPackageName="${2}"
   local test="testContainerd"
   echo "$test: Start"
