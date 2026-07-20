@@ -2,7 +2,7 @@
 # Sourcing convention (__SOURCED__):
 #   This script is normally EXECUTED during custom-cloud node provisioning. To make
 #   its helper functions unit-testable, the ShellSpec suite
-#   (spec/parts/linux/cloud-init/artifacts/init_aks_custom_cloud_spec.sh) sources it
+#   (spec/parts/linux/cloud-init/artifacts/init_aks_cloud_spec.sh) sources it
 #   with __SOURCED__ set. When __SOURCED__ is non-empty:
 #     - `set -x` is suppressed (line below) so ShellSpec output stays readable, and
 #     - top-level execution stops at the `${__SOURCED__:+return 0}` guard further down,
@@ -573,7 +573,7 @@ function determine_cert_endpoint_mode {
 }
 
 # Function definitions above this line are sourced and tested in
-# spec/parts/linux/cloud-init/artifacts/init_aks_custom_cloud_spec.sh.
+# spec/parts/linux/cloud-init/artifacts/init_aks_cloud_spec.sh.
 # shellcheck disable=SC2317
 ${__SOURCED__:+return 0}
 

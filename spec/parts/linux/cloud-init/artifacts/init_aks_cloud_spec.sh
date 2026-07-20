@@ -4,8 +4,10 @@
 #
 # Covers two areas:
 # 1. Structural wiring tests (grep-based) for the ca-refresh mode added by #8096.
-# 2. Functional tests that source the script and exercise repo-depot helpers
-#    (init_ubuntu_main_repo_depot, init_ubuntu_pmc_repo_depot, check_url).
+# 2. Functional tests that source the script and exercise:
+#    - repo-depot helpers (init_ubuntu_main_repo_depot, init_ubuntu_pmc_repo_depot,
+#      init_mariner_repo_depot, init_azurelinux_repo_depot, check_url)
+#    - cloud mode selection helper (determine_cert_endpoint_mode)
 
 Describe 'init-aks-cloud.sh refresh mode wiring'
     script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
@@ -68,6 +70,69 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
     It 'passes LOCATION directly into systemd refresh command'
         When run grep -Eq '^ExecStart=\$script_path ca-refresh \$LOCATION$' "$script_path"
         The status should eq 0
+    End
+End
+
+Describe 'init-aks-cloud.sh script-level wiring'
+    script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
+
+    setup_script_level() {
+        TEST_DIR="$(mktemp -d)"
+        MOCK_BIN_DIR="${TEST_DIR}/mock-bin"
+        EVENTS_DIR="${TEST_DIR}/events"
+        SCRIPT_COPY="${TEST_DIR}/init-aks-cloud.sh"
+        mkdir -p "${MOCK_BIN_DIR}" "${EVENTS_DIR}"
+        cp "${script_path}" "${SCRIPT_COPY}"
+        sed -i "s|^EVENTS_LOGGING_DIR=.*|EVENTS_LOGGING_DIR=\"${EVENTS_DIR}/\"|" "${SCRIPT_COPY}"
+
+        cat > "${MOCK_BIN_DIR}/curl" <<'EOF'
+#!/bin/bash
+url="${*: -1}"
+case "$url" in
+    *"type=cacertificates&ext=json")
+        cat <<'RESPONSE'
+[{"Name": "test.cer", "CertBody": "-----BEGIN CERTIFICATE-----\r\nMIIB\r\n-----END CERTIFICATE-----"}]
+200
+RESPONSE
+        ;;
+    *)
+        printf '\n500\n'
+        ;;
+esac
+EOF
+        cat > "${MOCK_BIN_DIR}/sleep" <<'EOF'
+#!/bin/bash
+exit 0
+EOF
+        cat > "${MOCK_BIN_DIR}/cp" <<'EOF'
+#!/bin/bash
+exit 0
+EOF
+        cat > "${MOCK_BIN_DIR}/update-ca-certificates" <<'EOF'
+#!/bin/bash
+exit 0
+EOF
+        cat > "${MOCK_BIN_DIR}/update-ca-trust" <<'EOF'
+#!/bin/bash
+exit 0
+EOF
+        chmod +x "${MOCK_BIN_DIR}/curl" "${MOCK_BIN_DIR}/sleep" \
+            "${MOCK_BIN_DIR}/cp" "${MOCK_BIN_DIR}/update-ca-certificates" \
+            "${MOCK_BIN_DIR}/update-ca-trust"
+    }
+
+    cleanup_script_level() {
+        rm -rf "${TEST_DIR}"
+    }
+
+    BeforeEach 'setup_script_level'
+    AfterEach 'cleanup_script_level'
+
+    It 'passes refresh_location into determine_cert_endpoint_mode and emits legacy mode event'
+        When run env PATH="${MOCK_BIN_DIR}:$PATH" LOCATION="zzzz" bash -c 'script="$1"; events="$2"; bash "$script" ca-refresh usseceast >/dev/null 2>&1; rc=$?; cat "$events"/*.json; exit "$rc"' _ "${SCRIPT_COPY}" "${EVENTS_DIR}"
+        The status should be success
+        The stdout should include '"TaskName":"AKS.CSE.rcv1p.certEndpointMode"'
+        The stdout should include 'mode=legacy, location=usseceast'
     End
 End
 
