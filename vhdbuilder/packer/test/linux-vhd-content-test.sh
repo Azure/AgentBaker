@@ -277,17 +277,23 @@ testPackagesInstalled() {
         # For example, in Ubuntu, we use apt-get to install packages.
         # We can simply execute the command to verify the package version.
         case "$name" in
-          "kubernetes-cri-tools"|"containerd")
-            # Resolve the actual installed package name from components.json renovateTag.
-            # The components.json "name" field may differ from the real package name
-            # (e.g. "containerd" -> moby-containerd on Ubuntu, containerd2 on Azure Linux 3.0).
+          "kubernetes-cri-tools")
+            testCriCtl "$version" "kubernetes-cri-tools"
+            ;;
+          "containerd")
+            # The deb/rpm package name for containerd varies by OS:
+            #   Ubuntu / Mariner 2.0: moby-containerd
+            #   Azure Linux 3.0+:    containerd2
             local pkgName
-            pkgName=$(getPackageJSON "$p" "${OS}" "${OS_VERSION}" "${OS_VARIANT}" | jq -r '.versionsV2[0].renovateTag // empty' | sed -n 's/.*name=\([^,]*\).*/\1/p' | xargs)
-            if [ "$name" = "kubernetes-cri-tools" ]; then
-              testCriCtl "$version" "${pkgName:-}"
-            else
-              testContainerd "$version" "${pkgName:-}"
-            fi
+            case "$OS" in
+              "$AZURELINUX_OS_NAME")
+                pkgName="containerd2"
+                ;;
+              *)
+                pkgName="moby-containerd"
+                ;;
+            esac
+            testContainerd "$version" "$pkgName"
             ;;
         esac
         break
