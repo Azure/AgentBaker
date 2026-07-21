@@ -36,4 +36,5 @@ jobs:
     parameters:
       name: Linux GPU Tests
       IgnoreScenariosWithMissingVhd: false
+      jobTimeoutInMinutes: 120
       failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}
