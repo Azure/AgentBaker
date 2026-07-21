@@ -10,20 +10,20 @@ parameters:
     default: master
 
 steps:
+  - template: ./.template-override-components-json.yaml
+    parameters:
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}
+
   # For arm64 ACL: publish a source bundle for the separate native-arm64 COSI
-  # convert job. The arm64 pool has no git so `checkout: self` fails there; the
-  # convert job downloads this bundle instead of cloning. Runs first (before any
-  # downloads) so the bundle stays small.
+  # convert job (the arm64 pool has no git, so its `checkout: self` is disabled
+  # and it downloads this bundle instead). Must run AFTER the checkout above but
+  # BEFORE Download CIS scanner (which drops binaries into vhdbuilder/ that
+  # would otherwise bloat the tarball).
   - bash: |
       set -euo pipefail
       cd "$(Build.SourcesDirectory)"
       tar --exclude='./.git' \
-          --exclude='./vhdbuilder/cisassessor*' \
-          --exclude='./kata-containers*.img' \
-          --exclude='./kata-containers-igvm*.img' \
-          --exclude='./kata-containers-cc.img' \
-          --exclude='./kata-containers-initrd-base.img' \
-          --exclude='./igvm-measurement' \
           -czf "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz" .
       ls -lh "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz"
     condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
@@ -33,13 +33,10 @@ steps:
     condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
     displayName: Publish source bundle for arm64 COSI convert
     inputs:
-      artifactName: agentbaker-sources-$(System.JobName)
+      # artifactName is the per-job param (e.g. "acl-arm64-tl-gen2"); using it
+      # here guarantees a unique artifact name per build job at compile time.
+      artifactName: agentbaker-sources-${{ parameters.artifactName }}
       targetPath: $(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz
-
-  - template: ./.template-override-components-json.yaml
-    parameters:
-      overrideBranch: ${{ parameters.overrideBranch }}
-      useOverrides: ${{ parameters.useOverrides }}
 
   - task: UniversalPackages@0
     displayName: Download CIS scanner

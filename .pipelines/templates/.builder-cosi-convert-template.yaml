@@ -17,8 +17,6 @@
 parameters:
   - name: artifactName
     type: string
-  - name: buildJobName
-    type: string
 
 steps:
   - checkout: none
@@ -120,7 +118,7 @@ steps:
   - task: DownloadPipelineArtifact@2
     displayName: Download AgentBaker source bundle
     inputs:
-      artifact: agentbaker-sources-${{ parameters.buildJobName }}
+      artifact: agentbaker-sources-${{ parameters.artifactName }}
       path: $(Pipeline.Workspace)/agentbaker-sources
 
   - bash: |

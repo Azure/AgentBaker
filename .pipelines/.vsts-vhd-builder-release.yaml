@@ -953,7 +953,6 @@ stages:
           - template: ./templates/.builder-cosi-convert-template.yaml
             parameters:
               artifactName: acl-arm64-tl-gen2
-              buildJobName: buildaclarm64tlgen2
       - job: convertaclarm64fipstlgen2
         displayName: Convert ACL ARM64 FIPS TL Gen2 VHD to COSI (native arm64)
         condition: and(succeeded(), eq('${{ parameters.buildaclarm64fipstlgen2 }}', true))
@@ -984,7 +983,6 @@ stages:
           - template: ./templates/.builder-cosi-convert-template.yaml
             parameters:
               artifactName: acl-arm64-fips-tl-gen2
-              buildJobName: buildaclarm64fipstlgen2
       - job: build2404arm64gbgen2containerd
         condition: eq('${{ parameters.build2404arm64gbgen2containerd }}', true)
         dependsOn: [ ]
