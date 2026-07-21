@@ -305,22 +305,9 @@ function init_ubuntu_main_repo_depot {
     mkdir -p "$keyrings_dir" "$sources_list_d"
 
     # This copies the updated bundle to the location used by OpenSSL which is commonly used.
-    # On Ubuntu 24.04, ssl_cert_target may be a symlink to ca-certificates.crt (same file),
-    # so skip the copy if source and destination resolve to the same inode.
-    local src_file="${ssl_certs_dir}/ca-certificates.crt"
-    if [ ! -f "$src_file" ]; then
-        echo "Warning: CA bundle $src_file not found; skipping OpenSSL bundle copy."
-    elif [ "$src_file" -ef "$ssl_cert_target" ]; then
-        echo "OpenSSL bundle $ssl_cert_target already resolves to $src_file; skipping copy."
-    else
-        echo "Copying updated bundle to OpenSSL .pem file..."
-        mkdir -p "$(dirname "$ssl_cert_target")"
-        if cp "$src_file" "$ssl_cert_target"; then
-            echo "Updated bundle copied."
-        else
-            echo "Warning: failed to copy $src_file to $ssl_cert_target" >&2
-        fi
-    fi
+    echo "Copying updated bundle to OpenSSL .pem file..."
+    cp "${ssl_certs_dir}/ca-certificates.crt" "$ssl_cert_target"
+    echo "Updated bundle copied."
 
     # Back up sources.list and sources.list.d contents
     mkdir -p "$backup_dir"
