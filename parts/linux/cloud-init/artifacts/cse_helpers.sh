@@ -1572,10 +1572,6 @@ Before=slices.target
 DefaultDependencies=no
 
 [Slice]
-# Delegate all available controllers (cpu, memory, pids, hugetlb, ...) into this
-# slice's cgroup.subtree_control. Without this, kubelet/runc fail to enforce
-# hugetlb (and other) resource limits on the slice with "missing controllers".
-Delegate=yes
 
 [Install]
 WantedBy=slices.target
