@@ -81,6 +81,7 @@ IS_ACL=0
 IS_MARINER=0
 IS_AZURELINUX=0
 
+# http://168.63.129.16 is a constant for the host's wireserver endpoint.
 WIRESERVER_ENDPOINT="http://168.63.129.16"
 
 function make_request_with_retry {
