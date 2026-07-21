@@ -98,6 +98,7 @@ func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.N
 			return t.getScriptlessNBCCustomData(config)
 		}
 		// if we cannot enable scriptless phase2, we need to fallback to scriptless phase1
+		config.EnableScriptlessNBCCSECmd = false
 		config.EnableScriptlessCSECmd = true
 	}
 
@@ -168,7 +169,7 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 }
 
 func supportsScriptlessPhase2(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return !config.PreProvisionOnly && (config.CustomCATrustConfig == nil || len(config.CustomCATrustConfig.CustomCATrustCerts) == 0)
+	return !config.PreProvisionOnly && !areCustomCATrustCertsPopulated(*config)
 }
 
 // renderEnabledFeatures serializes the feature toggle map into sorted KEY=VALUE lines for

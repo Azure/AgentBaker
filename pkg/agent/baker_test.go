@@ -1736,6 +1736,25 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(string(decodedPayload)).NotTo(ContainSubstring(enabledFeaturesFilepath))
 	})
 
+	It("should disable scriptless NBC when falling back to scriptless CSE", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+			CustomCATrustCerts: []string{"mock cert value"},
+		}
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+		decompressedPayload, err := getGzipDecodedValue(decodedPayload)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(config.EnableScriptlessNBCCSECmd).To(BeFalse())
+		Expect(config.EnableScriptlessCSECmd).To(BeTrue())
+		Expect(string(decompressedPayload)).To(ContainSubstring("/opt/azure/containers/scriptless-cse-overrides.txt"))
+		Expect(string(decompressedPayload)).NotTo(ContainSubstring(aksNbcCmdFilepath))
+	})
+
 	It("should drop enabled_features entries whose value contains a newline", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
