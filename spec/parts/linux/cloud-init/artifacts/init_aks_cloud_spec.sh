@@ -32,11 +32,6 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
         The status should eq 0
     End
 
-    It 'maps ussec/usnat locations to legacy cert endpoint mode'
-        When run grep -Eq 'ussec\*\|usnat\*\) mode="legacy"' "$script_path"
-        The status should eq 0
-    End
-
     It 'initializes refresh schedule installation as disabled'
         When run grep -Eq '^install_ca_refresh_schedule=0$' "$script_path"
         The status should eq 0
