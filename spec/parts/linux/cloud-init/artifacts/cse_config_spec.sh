@@ -2308,6 +2308,24 @@ OVERRIDE_EOF
             The output should include "touch /opt/azure/containers/managed-gpu-experience.enabled"
         End
 
+        It 'should add DRA kubelet node label when ENABLE_MANAGED_GPU_EXPERIENCE_DRA is true'
+            GPU_NODE="true"
+            skip_nvidia_driver_install="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call configureManagedGPUExperience
+
+            The output should include "installNvidiaManagedExpPkgFromCache called"
+            The output should not include "startNvidiaManagedExpServices called"
+            The output should include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
+            The output should include "addKubeletNodeLabel kubernetes.azure.com/gpu-resource-driver=dra"
+            The variable KUBELET_NODE_LABELS should include 'kubernetes.azure.com/dcgm-exporter=enabled'
+            The variable KUBELET_NODE_LABELS should include 'kubernetes.azure.com/gpu-resource-driver=dra'
+            The output should include "mkdir -p /opt/azure/containers"
+            The output should include "touch /opt/azure/containers/managed-gpu-experience.enabled"
+        End
+
         It 'should disable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is false'
             GPU_NODE="true"
             skip_nvidia_driver_install="false"
