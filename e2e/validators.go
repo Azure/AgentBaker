@@ -2757,7 +2757,7 @@ func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
 // ValidateScriptlessNBCCSECmd checks if the node has scriptless NBCCSECmd correctly enabled
 func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 	nbc := s.Runtime.NBC
-	if nbc != nil && nbc.EnableScriptlessNBCCSECmd && s.VHD.SupportsScriptless() {
+	if nbc != nil && nbc.EnableScriptlessNBCCSECmd && s.VHD.SupportsScriptless() && (nbc.CustomCATrustConfig == nil || len(nbc.CustomCATrustConfig.CustomCATrustCerts) == 0) {
 		fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
 		if enableScriptlessCompilation(s) {
 			fileNameToCheck = "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
