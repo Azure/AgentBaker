@@ -11,11 +11,125 @@
 # The consuming job must set the ACL build variables (OS_SKU, OS_VERSION,
 # HYPERV_GENERATION, ARCHITECTURE, IMG_CUSTOMIZER_CONTAINER, etc.) and provide
 # CAPTURED_SIG_VERSION (from the build job's exportCapturedSigVersion output).
+#
+# The arm64 pool has no git, so we skip the built-in `checkout: self` and hydrate
+# the workspace from a source bundle the build job publishes.
 parameters:
   - name: artifactName
     type: string
+  - name: buildJobName
+    type: string
 
 steps:
+  - checkout: none
+
+  # The arm64 pool image is minimal, so bootstrap every tool the convert flow
+  # needs: docker (privileged), az CLI, azcopy, make/tar/curl, and Go. Idempotent
+  # via `command -v` guards, so it's a no-op on any tool that's already present.
+  - bash: |
+      set -euo pipefail
+      echo "==== Bootstrapping tooling on $(uname -a) ===="
+
+      if command -v apt-get >/dev/null 2>&1; then
+          PKG=apt
+      elif command -v tdnf >/dev/null 2>&1; then
+          PKG=tdnf
+      elif command -v dnf >/dev/null 2>&1; then
+          PKG=dnf
+      else
+          echo "##vso[task.logissue type=error]No supported package manager (apt/tdnf/dnf) on this agent"
+          exit 1
+      fi
+      echo "Package manager: $PKG"
+
+      sudo -n true >/dev/null 2>&1 || {
+          echo "##vso[task.logissue type=error]This agent user does not have passwordless sudo; cannot install tools"
+          exit 1
+      }
+
+      pkg_install() {
+          case "$PKG" in
+              apt)  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$@" ;;
+              tdnf) sudo tdnf install -y "$@" ;;
+              dnf)  sudo dnf install -y "$@" ;;
+          esac
+      }
+
+      if [ "$PKG" = apt ]; then
+          sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
+      fi
+
+      # Baseline utilities used by scripts and downloads below.
+      pkg_install ca-certificates curl tar gnupg make jq
+
+      # git isn't used by the convert scripts, but install it so any implicit
+      # agent-side cleanup checkouts don't tank the job.
+      if ! command -v git >/dev/null 2>&1; then
+          pkg_install git
+      fi
+
+      # Docker (must support --privileged for ImageCustomizer's loopback mounts).
+      if ! command -v docker >/dev/null 2>&1; then
+          case "$PKG" in
+              apt)       pkg_install docker.io ;;
+              tdnf|dnf)  pkg_install moby-engine moby-cli || pkg_install docker ;;
+          esac
+      fi
+      sudo systemctl start docker 2>/dev/null || sudo service docker start 2>/dev/null || true
+      # Give the agent user access to the docker socket for the duration of the job.
+      sudo chmod 666 /var/run/docker.sock 2>/dev/null || true
+      docker version
+
+      # Azure CLI.
+      if ! command -v az >/dev/null 2>&1; then
+          case "$PKG" in
+              apt)       curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash ;;
+              tdnf|dnf)  pkg_install azure-cli ;;
+          esac
+      fi
+      az version
+
+      # azcopy static binary.
+      if ! command -v azcopy >/dev/null 2>&1; then
+          case "$(uname -m)" in
+              aarch64|arm64) AZCOPY_URL=https://aka.ms/downloadazcopy-v10-linux-arm64 ;;
+              *)             AZCOPY_URL=https://aka.ms/downloadazcopy-v10-linux ;;
+          esac
+          tmp="$(mktemp -d)"
+          curl -sSL "$AZCOPY_URL" -o "$tmp/azcopy.tgz"
+          tar -xzf "$tmp/azcopy.tgz" -C "$tmp"
+          # extracted dir is like azcopy_linux_arm64_10.x.x/
+          azcopy_bin="$(find "$tmp" -maxdepth 2 -type f -name azcopy | head -n1)"
+          sudo install -m 0755 "$azcopy_bin" /usr/local/bin/azcopy
+          rm -rf "$tmp"
+      fi
+      azcopy --version
+
+      # Go: on Ubuntu, hack/setup_golang.sh will install Microsoft Go via apt.
+      # On tdnf/dnf hosts it expects Go to already be on PATH, so install it here.
+      if ! command -v go >/dev/null 2>&1; then
+          case "$PKG" in
+              tdnf|dnf) pkg_install golang ;;
+          esac
+      fi
+      go version || echo "Go will be installed by hack/setup_golang.sh"
+
+      echo "==== Tooling bootstrap complete ===="
+    displayName: Bootstrap arm64 convert tooling
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download AgentBaker source bundle
+    inputs:
+      artifact: agentbaker-sources-${{ parameters.buildJobName }}
+      path: $(Pipeline.Workspace)/agentbaker-sources
+
+  - bash: |
+      set -euo pipefail
+      mkdir -p "$(Build.SourcesDirectory)"
+      tar -xzf "$(Pipeline.Workspace)/agentbaker-sources/agentbaker-sources.tar.gz" -C "$(Build.SourcesDirectory)"
+      ls "$(Build.SourcesDirectory)"
+    displayName: Extract AgentBaker source bundle
+
   - bash: |
       SKU_NAME=${OS_VERSION} && \
       if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \

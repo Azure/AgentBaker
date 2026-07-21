@@ -10,6 +10,32 @@ parameters:
     default: master
 
 steps:
+  # For arm64 ACL: publish a source bundle for the separate native-arm64 COSI
+  # convert job. The arm64 pool has no git so `checkout: self` fails there; the
+  # convert job downloads this bundle instead of cloning. Runs first (before any
+  # downloads) so the bundle stays small.
+  - bash: |
+      set -euo pipefail
+      cd "$(Build.SourcesDirectory)"
+      tar --exclude='./.git' \
+          --exclude='./vhdbuilder/cisassessor*' \
+          --exclude='./kata-containers*.img' \
+          --exclude='./kata-containers-igvm*.img' \
+          --exclude='./kata-containers-cc.img' \
+          --exclude='./kata-containers-initrd-base.img' \
+          --exclude='./igvm-measurement' \
+          -czf "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz" .
+      ls -lh "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz"
+    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
+    displayName: Bundle source for arm64 COSI convert
+
+  - task: PublishPipelineArtifact@1
+    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
+    displayName: Publish source bundle for arm64 COSI convert
+    inputs:
+      artifactName: agentbaker-sources-$(System.JobName)
+      targetPath: $(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz
+
   - template: ./.template-override-components-json.yaml
     parameters:
       overrideBranch: ${{ parameters.overrideBranch }}
