@@ -1966,6 +1966,7 @@ configureManagedGPUExperience() {
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
         # defer startNvidiaManagedExpServices() after kubelet starts
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
+        addKubeletNodeLabel "kubernetes.azure.com/gpu-resource-driver=dra"
         mkdir -p "$(dirname "${managed_gpu_marker}")"
         touch "${managed_gpu_marker}"
     else
