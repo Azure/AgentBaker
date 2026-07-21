@@ -2688,7 +2688,9 @@ func Test_Ubuntu2204_NodeHardening_KubeReservedSlice(t *testing.T) {
 			// with the Slice= drop-ins are uploaded via custom data.
 			CustomDataWriteFiles: []CustomDataWriteFile{{Path: "/etc/aks-node-hardening-test", Content: "sentinel"}},
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.KubeletConfig["--kube-reserved-cgroup"] = "/kube-reserved.slice"
+				// AgentBaker (not the RP) now owns --kube-reserved-cgroup/--system-reserved-cgroup;
+				// it derives them from --enforce-node-allocatable (see setNodeHardeningCgroupFlags).
+				nbc.KubeletConfig["--enforce-node-allocatable"] = "pods,kube-reserved,system-reserved"
 				nbc.AgentPoolProfile.CustomKubeletConfig = &datamodel.CustomKubeletConfig{}
 				// Disable scriptless CSE so that the current cse_helpers.sh (with kube-reserved.slice drop-in)
 				// is uploaded via custom data instead of relying on potentially stale VHD scripts.
