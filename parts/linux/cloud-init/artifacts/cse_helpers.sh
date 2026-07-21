@@ -692,8 +692,8 @@ semverCompare() {
 
     [ "${VERSION_A}" = "${VERSION_B}" ] && return 0
     sorted=$(echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V )
-    highestVersion=$(IFS= echo "${sorted}" | cut -d$'\n' -f2)
-    [ "${VERSION_A}" = ${highestVersion} ] && return 0
+    highestVersion=$(printf "%s\n" "${sorted}" | tail -n 1)
+    [ "${VERSION_A}" = "${highestVersion}" ] && return 0
     return 1
 }
 

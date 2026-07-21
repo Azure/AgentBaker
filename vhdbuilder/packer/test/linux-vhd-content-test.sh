@@ -1445,14 +1445,18 @@ testNfsServerService() {
 }
 
 # Verify all kernel modules with known LPE vulnerabilities are disabled.
-# Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc).
+# Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc),
+# and Fragnesia (esp4, esp6).
 # To add a new CVE mitigation, append the module to BOTH loops below — the
-# AzureLinux 3.0 absence loop AND the default presence + load-refusal loop.
+# absence loop AND the default presence + load-refusal loop.
 #
 # AzureLinux 3.0 is descoped: kernel 6.6.139.1-1.azl3+ fixes the CVEs upstream and
 # the modprobe blacklist is NOT baked into newly-built AzL3 VHDs (customer workloads
-# require those modules). On AzL3 we therefore assert the blacklist entries are
-# ABSENT. Ubuntu and Mariner (AzL2) still assert presence + load-refusal.
+# require those modules). Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu
+# 24.04 linux-azure 6.8.0-1058-azure include the fixes, so newly-built Ubuntu
+# 22.04/24.04 VHDs also stop baking the blacklist. These fixed streams assert
+# ABSENCE. Mariner/AzureLinux 2.0 and AzureLinux OSGuard still assert presence +
+# load-refusal.
 testVulnerableKernelModulesDisabled() {
   local os_sku="${1:-$OS_SKU}"
   local os_version="${2:-$OS_VERSION}"
@@ -1461,13 +1465,14 @@ testVulnerableKernelModulesDisabled() {
 
   local failed=0
 
-  if [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ]; then
+  if { [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ]; } || \
+     { [ "$os_sku" = "Ubuntu" ] && { [ "$os_version" = "22.04" ] || [ "$os_version" = "24.04" ]; }; }; then
     for mod in algif_aead esp4 esp6 rxrpc; do
       if grep -qsE "^(install ${mod} /bin/false|blacklist ${mod})" /etc/modprobe.d/*.conf 2>/dev/null; then
-        err "$test" "${mod} blacklist entry unexpectedly present in /etc/modprobe.d/*.conf on AzureLinux 3.0 (bake-in removed; kernel 6.6.139.1-1.azl3+ supersedes; no 'install' or 'blacklist' directive should remain)"
+        err "$test" "${mod} blacklist entry unexpectedly present in /etc/modprobe.d/*.conf on ${os_sku} ${os_version} (bake-in removed for fixed kernels; no 'install' or 'blacklist' directive should remain)"
         failed=1
       else
-        echo "$test: ${mod} blacklist correctly absent on AzureLinux 3.0"
+        echo "$test: ${mod} blacklist correctly absent on ${os_sku} ${os_version}"
       fi
     done
 

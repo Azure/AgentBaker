@@ -428,15 +428,20 @@ copyPackerFiles() {
   cpAndMode $ETC_ISSUE_NET_CONFIG_SRC $ETC_ISSUE_NET_CONFIG_DEST 644
   cpAndMode $SSHD_CONFIG_SRC $SSHD_CONFIG_DEST 600
   # CVE-2026-31431 (Copy Fail), DirtyFrag, Fragnesia mitigation: bake modprobe blacklist
-  # for algif_aead / esp4 / esp6 / rxrpc into the VHD.
+  # for algif_aead / esp4 / esp6 / rxrpc into the VHD only for OS streams that still need it.
   #
-  # Skipped on AzureLinux 3.0 because:
-  #   1. The upstream kernel fix in 6.6.139.1-1.azl3+ supersedes the modprobe blacklist.
-  #   2. Customer workloads on AzL3 require those kernel modules; the bake-in actively
-  #      blocks legitimate use cases.
-  # Ubuntu and Mariner (AzL2) still get the bake-in — their kernels are not patched
-  # upstream yet. See https://github.com/Azure/AKS/issues/5753.
-  if isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+  # Skipped on Ubuntu 22.04 / 24.04 and AzureLinux 3.0 because:
+  #   1. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu 24.04 linux-azure
+  #      6.8.0-1058-azure include the fixes. The CSE still applies the deny rules
+  #      at runtime if it detects an older vulnerable Ubuntu kernel.
+  #   2. The upstream kernel fix in 6.6.139.1-1.azl3+ supersedes the modprobe blacklist.
+  #   3. Customer workloads require those kernel modules; the bake-in actively blocks
+  #      legitimate use cases on fixed kernels.
+  # Mariner / AzureLinux 2.0 and AzureLinux OSGuard still get the bake-in. See
+  # https://github.com/Azure/AKS/issues/5753.
+  if isUbuntu "$OS" && { [ "${OS_VERSION}" = "22.04" ] || [ "${OS_VERSION}" = "24.04" ]; }; then
+    echo "Skipping modprobe-CIS.conf bake-in on Ubuntu ${OS_VERSION} (fixed kernels unblock algif_aead / esp4 / esp6 / rxrpc; CSE applies runtime deny rules on older vulnerable kernels)"
+  elif isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
     echo "Skipping modprobe-CIS.conf bake-in on AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix; OSGuard intentionally retains the bake-in)"
   else
     cpAndMode $MODPROBE_CIS_SRC $MODPROBE_CIS_DEST 644

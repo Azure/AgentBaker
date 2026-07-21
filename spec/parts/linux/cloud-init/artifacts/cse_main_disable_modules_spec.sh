@@ -3,6 +3,25 @@
 # Unit tests for disableVulnerableKernelModule() in cse_main.sh
 # and the OS gate that selects which OS variants get the runtime apply.
 
+load_kernel_mitigation_helpers() {
+    UBUNTU_OS_NAME="UBUNTU"
+    MARINER_OS_NAME="MARINER"
+    MARINER_KATA_OS_NAME="MARINERKATA"
+    AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
+    AZURELINUX_OS_NAME="AZURELINUX"
+    FLATCAR_OS_NAME="FLATCAR"
+    ACL_OS_NAME="AZURECONTAINERLINUX"
+    ACL_OS_VARIANT="AZURECONTAINERLINUX"
+    AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
+
+    eval "$(sed -n '/^semverCompare()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
+    eval "$(sed -n '/^isACL()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
+    eval "$(sed -n '/^isMarinerOrAzureLinux()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
+    eval "$(sed -n '/^isAzureLinuxOSGuard()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
+    eval "$(sed -n '/^isUbuntu()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
+    eval "$(sed -n '/^ubuntuKernelNeedsVulnerableModuleMitigation()/,/^}/p' parts/linux/cloud-init/artifacts/cse_main.sh)"
+}
+
 Describe 'disableVulnerableKernelModule()'
     MODPROBE_DIR=""
     PROC_MODULES=""
@@ -72,33 +91,133 @@ Describe 'disableVulnerableKernelModule()'
     End
 End
 
+# Tests the Ubuntu kernel version gate used by the CSE-time runtime apply.
+Describe 'ubuntuKernelNeedsVulnerableModuleMitigation()'
+    setup() {
+        OS=""
+        OS_VERSION=""
+        OS_VARIANT=""
+        UBUNTU_RELEASE=""
+        KERNEL_RELEASE=""
+        load_kernel_mitigation_helpers
+    }
+
+    BeforeEach 'setup'
+
+    get_ubuntu_release() {
+        echo "$UBUNTU_RELEASE"
+    }
+
+    uname() {
+        if [ "$1" = "-r" ]; then
+            echo "$KERNEL_RELEASE"
+        fi
+    }
+
+    It 'requires the mitigation on Ubuntu 22.04 kernels older than 5.15.0-1116-azure'
+        UBUNTU_RELEASE="22.04"
+        KERNEL_RELEASE="5.15.0-1115-azure"
+        When call ubuntuKernelNeedsVulnerableModuleMitigation
+        The status should be success
+        The output should include "older than fixed kernel 5.15.0-1116-azure"
+    End
+
+    It 'skips the mitigation on Ubuntu 22.04 kernels at 5.15.0-1116-azure or newer'
+        UBUNTU_RELEASE="22.04"
+        KERNEL_RELEASE="5.15.0-1116-azure"
+        When call ubuntuKernelNeedsVulnerableModuleMitigation
+        The status should be failure
+        The output should include "includes Copy Fail / DirtyFrag / Fragnesia fixes"
+    End
+
+    It 'skips the mitigation on Ubuntu 24.04 kernels at 6.8.0-1058-azure or newer'
+        UBUNTU_RELEASE="24.04"
+        KERNEL_RELEASE="6.8.0-1058-azure"
+        When call ubuntuKernelNeedsVulnerableModuleMitigation
+        The status should be failure
+        The output should include "includes Copy Fail / DirtyFrag / Fragnesia fixes"
+    End
+
+    It 'keeps the mitigation enabled for unknown Ubuntu kernel flavors'
+        UBUNTU_RELEASE="24.04"
+        KERNEL_RELEASE="6.8.0-1058-custom"
+        When call ubuntuKernelNeedsVulnerableModuleMitigation
+        The status should be success
+        The output should include "Unknown Ubuntu 24.04 kernel flavor"
+    End
+End
+
 # Tests the OS gate that decides whether to call disableVulnerableKernelModule
-# at CSE provisioning time. Apply on: Ubuntu, Mariner/AzureLinux 2.0 (AzL2), AzureLinux OSGuard
-# (defense-in-depth — hardened secure-boot variant intentionally retains the mitigation). Skip on:
-# AzureLinux 3.0 regular/Kata (kernel 6.6.139.1-1.azl3+ has the upstream fix and
-# customers reported the blacklist actively blocks legitimate workloads), ACL, Flatcar.
+# at CSE provisioning time. Apply on: vulnerable Ubuntu kernels, Mariner/AzureLinux 2.0
+# (AzL2), AzureLinux OSGuard (defense-in-depth — hardened secure-boot variant intentionally
+# retains the mitigation). Skip on: fixed Ubuntu kernels, AzureLinux 3.0 regular/Kata
+# (kernel 6.6.139.1-1.azl3+ has the upstream fix and customers reported the blacklist
+# actively blocks legitimate workloads), ACL, Flatcar.
 # See https://github.com/Azure/AKS/issues/5753.
 Describe 'CVE kernel module mitigation OS gate'
-    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    setup() {
+        OS=""
+        OS_VERSION=""
+        OS_VARIANT=""
+        UBUNTU_RELEASE=""
+        KERNEL_RELEASE=""
+        load_kernel_mitigation_helpers
+    }
+
+    BeforeEach 'setup'
+
+    get_ubuntu_release() {
+        echo "$UBUNTU_RELEASE"
+    }
+
+    uname() {
+        if [ "$1" = "-r" ]; then
+            echo "$KERNEL_RELEASE"
+        fi
+    }
 
     gate() {
         # Mirrors the condition in cse_main.sh basePrep — must be kept in sync.
-        if isUbuntu "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
+        if { isUbuntu "$OS" && ubuntuKernelNeedsVulnerableModuleMitigation; } || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
             echo "APPLY"
         else
             echo "SKIP"
         fi
     }
 
-    It 'applies the mitigation on Ubuntu'
+    It 'applies the mitigation on vulnerable Ubuntu kernels'
         OS="${UBUNTU_OS_NAME}"
+        OS_VERSION="22.04"
         OS_VARIANT=""
+        UBUNTU_RELEASE="22.04"
+        KERNEL_RELEASE="5.15.0-1115-azure"
         When call gate
-        The output should equal "APPLY"
+        The output should include "APPLY"
+    End
+
+    It 'skips the mitigation on fixed Ubuntu 22.04 kernels'
+        OS="${UBUNTU_OS_NAME}"
+        OS_VERSION="22.04"
+        OS_VARIANT=""
+        UBUNTU_RELEASE="22.04"
+        KERNEL_RELEASE="5.15.0-1116-azure"
+        When call gate
+        The output should include "SKIP"
+    End
+
+    It 'skips the mitigation on fixed Ubuntu 24.04 kernels'
+        OS="${UBUNTU_OS_NAME}"
+        OS_VERSION="24.04"
+        OS_VARIANT=""
+        UBUNTU_RELEASE="24.04"
+        KERNEL_RELEASE="6.8.0-1058-azure"
+        When call gate
+        The output should include "SKIP"
     End
 
     It 'applies the mitigation on AzureLinux 3.0 OSGuard — defense-in-depth retained'
         OS="${AZURELINUX_OS_NAME}"
+        OS_VERSION="3.0"
         OS_VARIANT="${AZURELINUX_OSGUARD_OS_VARIANT}"
         When call gate
         The output should equal "APPLY"
@@ -120,6 +239,7 @@ Describe 'CVE kernel module mitigation OS gate'
     End
     It 'skips on AzureLinux 3.0 regular (kernel 6.6.139.1-1.azl3+ has upstream fix)'
         OS="${AZURELINUX_OS_NAME}"
+        OS_VERSION="3.0"
         OS_VARIANT=""
         When call gate
         The output should equal "SKIP"
@@ -127,6 +247,7 @@ Describe 'CVE kernel module mitigation OS gate'
 
     It 'skips on AzureLinux 3.0 Kata (same kernel as AzL3 regular)'
         OS="${AZURELINUX_KATA_OS_NAME}"
+        OS_VERSION="3.0"
         OS_VARIANT=""
         When call gate
         The output should equal "SKIP"
