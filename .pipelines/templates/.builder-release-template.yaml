@@ -163,6 +163,15 @@ steps:
     condition: always()
     displayName: Set Post-Build Variables
 
+  # Expose the captured SIG version to the separate native-arm64 COSI convert job
+  # (arm64 ACL COSI conversion can't run under emulation, so it runs on the arm64
+  # pool as its own job that consumes this output variable).
+  - bash: |
+      echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION;isOutput=true]${CAPTURED_SIG_VERSION}"
+    name: exportCapturedSigVersion
+    displayName: Export Captured SIG Version for arm64 COSI convert
+    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
+
   - bash: |
       set -euo pipefail
       if [ "${BUILDER:-}" = "imagecustomizer" ]; then
@@ -404,11 +413,14 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk convert-vhd-to-cosi
+    # arm64 ACL runs this on the native arm64 pool as a separate job (see
+    # convertaclarm64* jobs); it can't run under emulation here.
     condition: |
       and(
         succeeded(),
         eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
-        eq(variables['OS_SKU'], 'AzureContainerLinux')
+        eq(variables['OS_SKU'], 'AzureContainerLinux'),
+        ne(variables['ARCHITECTURE'], 'ARM64')
       )
     displayName: Convert ACL VHD to COSI
     env:
@@ -429,7 +441,8 @@ steps:
       and(
         succeeded(),
         eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
-        eq(variables['OS_SKU'], 'AzureContainerLinux')
+        eq(variables['OS_SKU'], 'AzureContainerLinux'),
+        ne(variables['ARCHITECTURE'], 'ARM64')
       )
     displayName: Upload COSI to PMC
     env:
@@ -441,7 +454,8 @@ steps:
       and(
         succeeded(),
         eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
-        eq(variables['OS_SKU'], 'AzureContainerLinux')
+        eq(variables['OS_SKU'], 'AzureContainerLinux'),
+        ne(variables['ARCHITECTURE'], 'ARM64')
       )
     displayName: Publish COSI Publishing Info
     inputs:
@@ -462,11 +476,14 @@ steps:
         echo "Successfully copied to immutable container"
         # Remove old VHD from staging container after copy to immutable container is complete
         azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
+    # arm64 ACL keeps its staged VHD for the separate native-arm64 COSI convert
+    # job to download; that job performs the immutable copy after conversion.
     condition: |
       and(
         succeeded(),
         eq(variables.ENVIRONMENT, 'tme'),
         eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+        not(and(eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))),
         or(
           eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
           eq(variables.PREFETCH_COMPATIBLE, 'False')
