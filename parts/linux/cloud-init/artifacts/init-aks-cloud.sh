@@ -306,12 +306,7 @@ function init_ubuntu_main_repo_depot {
     local backup_dir="${APT_BACKUP_DIR:-/etc/apt/backup}"
     local sources_list="${APT_SOURCES_LIST:-/etc/apt/sources.list}"
     local sources_list_d="${APT_SOURCES_LIST_D_DIR:-/etc/apt/sources.list.d}"
-    local os_release_file
-    if [ -n "${__SOURCED__:-}" ]; then
-        os_release_file="${OS_RELEASE_FILE:-/etc/os-release}"
-    else
-        os_release_file="/etc/os-release"
-    fi
+    local os_release_file="${OS_RELEASE_FILE:-/etc/os-release}"
 
     # Initialize directories for keys and apt sources. mkdir -p is a no-op when the
     # default paths already exist; it makes the *_DIR overrides used by tests robust.

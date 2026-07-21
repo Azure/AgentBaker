@@ -95,7 +95,6 @@ Describe 'init-aks-cloud.sh functional tests'
 
     cleanup() {
         rm -rf "${TEST_DIR}"
-        unset __SOURCED__
     }
 
     BeforeEach 'setup'
