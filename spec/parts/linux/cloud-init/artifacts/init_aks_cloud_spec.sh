@@ -83,7 +83,6 @@ Describe 'init-aks-cloud.sh functional tests'
         export APT_BACKUP_DIR="${TEST_DIR}/apt/backup"
         export SSL_CERTS_DIR="${TEST_DIR}/ssl-certs"
         export SSL_CERT_TARGET="${TEST_DIR}/ssl-cert-target.pem"
-        export WIRESERVER_ENDPOINT="http://wireserver.local"
         mkdir -p "${APT_SOURCES_LIST_D_DIR}" "${APT_KEYRINGS_DIR}" \
                  "${APT_BACKUP_DIR}" "${SSL_CERTS_DIR}" \
                  "$(dirname "${APT_SOURCES_LIST}")"
