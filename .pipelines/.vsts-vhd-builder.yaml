@@ -234,6 +234,8 @@ stages:
             artifactName: acl-tl-gen2
 
     - job: buildaclarm64tlgen2
+      pool:
+        name: nodesig-tme-pool-arm64-cosi
       timeoutInMinutes: 360
       steps:
         - bash: |
@@ -282,6 +284,8 @@ stages:
             artifactName: acl-fips-tl-gen2
 
     - job: buildaclarm64fipstlgen2
+      pool:
+        name: nodesig-tme-pool-arm64-cosi
       timeoutInMinutes: 360
       steps:
         - bash: |

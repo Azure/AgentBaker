@@ -841,6 +841,8 @@ stages:
       - job: buildaclarm64tlgen2
         condition: eq('${{ parameters.buildaclarm64tlgen2 }}', true)
         dependsOn: [ ]
+        pool:
+          name: nodesig-tme-pool-arm64-cosi
         timeoutInMinutes: 360
         steps:
           - bash: |
@@ -895,6 +897,8 @@ stages:
       - job: buildaclarm64fipstlgen2
         condition: eq('${{ parameters.buildaclarm64fipstlgen2 }}', true)
         dependsOn: [ ]
+        pool:
+          name: nodesig-tme-pool-arm64-cosi
         timeoutInMinutes: 360
         steps:
           - bash: |
