@@ -1482,7 +1482,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
-		"GetSkipWaAgentHold":  func() bool { return supportsScriptlessPhase2(config) },
+		"GetSkipWaAgentHold":  func() bool { return config.EnableScriptlessNBCCSECmd && supportsScriptlessPhase2(config) },
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},

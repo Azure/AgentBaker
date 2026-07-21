@@ -181,6 +181,46 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			})
 		})
 
+		Describe("GetSkipWaAgentHold template func", func() {
+			getSkipWaAgentHold := func() func() bool {
+				funcMap := getContainerServiceFuncMap(config)
+				fn, ok := funcMap["GetSkipWaAgentHold"].(func() bool)
+				Expect(ok).To(BeTrue())
+				return fn
+			}
+
+			It("returns false when scriptless NBC is disabled", func() {
+				config.PreProvisionOnly = false
+				config.EnableScriptlessNBCCSECmd = false
+
+				Expect(getSkipWaAgentHold()()).To(BeFalse())
+			})
+
+			It("returns true when scriptless NBC phase2 is supported", func() {
+				config.PreProvisionOnly = false
+				config.EnableScriptlessNBCCSECmd = true
+
+				Expect(getSkipWaAgentHold()()).To(BeTrue())
+			})
+
+			It("returns false when custom CA certs disable scriptless NBC phase2", func() {
+				config.PreProvisionOnly = false
+				config.EnableScriptlessNBCCSECmd = true
+				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+					CustomCATrustCerts: []string{"mock cert value"},
+				}
+
+				Expect(getSkipWaAgentHold()()).To(BeFalse())
+			})
+
+			It("returns false for pre-provisioning", func() {
+				config.PreProvisionOnly = true
+				config.EnableScriptlessNBCCSECmd = true
+
+				Expect(getSkipWaAgentHold()()).To(BeFalse())
+			})
+		})
+
 		Describe(".isMariner()", func() {
 			It("given an empty string, that is not mariner", func() {
 				Expect(isMariner("")).To(BeFalse())
