@@ -154,25 +154,25 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		})
 
 		Describe(".supportsScriptlessPhase2()", func() {
-			It("given EnableScriptlessNBCCSECmd, PreProvisionOnly is false and an empty list of custom ca certs, it returns true", func() {
+			It("given PreProvisionOnly is false and an empty list of custom ca certs, it returns true", func() {
 				config.PreProvisionOnly = false
 				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
 					CustomCATrustCerts: []string{},
 				}
 				Expect(supportsScriptlessPhase2(config)).To(BeTrue())
 			})
-			It("given EnableScriptlessNBCCSECmd, PreProvisionOnly is false and custom ca certs are populated, it returns false", func() {
+			It("given PreProvisionOnly is false and custom ca certs are populated, it returns false", func() {
 				config.PreProvisionOnly = false
 				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
 					CustomCATrustCerts: []string{"mock cert value"},
 				}
 				Expect(supportsScriptlessPhase2(config)).To(BeFalse())
 			})
-			It("given EnableScriptlessNBCCSECmd, PreProvisionOnly is true and no CustomCATrustConfig, it returns false", func() {
+			It("given PreProvisionOnly is true and no CustomCATrustConfig, it returns false", func() {
 				config.PreProvisionOnly = true
 				Expect(supportsScriptlessPhase2(config)).To(BeFalse())
 			})
-			It("given EnableScriptlessNBCCSECmd, PreProvisionOnly is true and custom ca certs are populated, it returns false", func() {
+			It("given PreProvisionOnly is true and custom ca certs are populated, it returns false", func() {
 				config.PreProvisionOnly = true
 				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
 					CustomCATrustCerts: []string{"mock cert value"},
