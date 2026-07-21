@@ -1,13 +1,6 @@
 #!/bin/bash
-# Sourcing convention (__SOURCED__):
-#   Normal path: this script is executed during provisioning.
-#   Sourced path: when this file is sourced, only function definitions are loaded
-#   (no top-level provisioning side effects).
-is_script_sourced=0
-[ "${BASH_SOURCE[0]}" != "$0" ] && is_script_sourced=1
-if [ "$is_script_sourced" -eq 0 ]; then
-    set -x
-fi
+# functions defined until "${__SOURCED__:+return}" are sourced and tested in -
+# spec/parts/linux/cloud-init/artifacts/init_aks_cloud_spec.sh.
 
 # Dependency note: `jq` is guaranteed to be present on every AKS VHD (baked in
 # by vhdbuilder/packer/install-dependencies.sh and shipped in the Azure Linux
@@ -93,7 +86,7 @@ IS_AZURELINUX=0
 # During normal execution the constant is forced, so a stray
 # WIRESERVER_ENDPOINT in the environment cannot redirect certificate retrieval to an
 # unexpected endpoint.
-if [ "$is_script_sourced" -eq 1 ]; then
+if [ -n "${__SOURCED__:-}" ]; then
     WIRESERVER_ENDPOINT="${WIRESERVER_ENDPOINT:-http://168.63.129.16}"
 else
     WIRESERVER_ENDPOINT="http://168.63.129.16"
@@ -314,7 +307,7 @@ function init_ubuntu_main_repo_depot {
     local sources_list="${APT_SOURCES_LIST:-/etc/apt/sources.list}"
     local sources_list_d="${APT_SOURCES_LIST_D_DIR:-/etc/apt/sources.list.d}"
     local os_release_file
-    if [ "$is_script_sourced" -eq 1 ]; then
+    if [ -n "${__SOURCED__:-}" ]; then
         os_release_file="${OS_RELEASE_FILE:-/etc/os-release}"
     else
         os_release_file="/etc/os-release"
@@ -574,12 +567,9 @@ function determine_cert_endpoint_mode {
     echo "$mode"
 }
 
-# Function definitions above this line are sourced and tested in
-# spec/parts/linux/cloud-init/artifacts/init_aks_cloud_spec.sh.
 # shellcheck disable=SC2317
-if [ "$is_script_sourced" -eq 1 ]; then
-    return 0
-fi
+${__SOURCED__:+return}
+set -x
 
 # shellcheck disable=SC3010
 if [[ -f /etc/os-release ]]; then

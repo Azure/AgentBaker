@@ -74,13 +74,6 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
 End
 
 Describe 'init-aks-cloud.sh functional tests'
-    # Include sources the file and loads function definitions only; top-level provisioning
-    # logic is skipped when sourced.
-    # without this Include would fall through into the top-level provisioning path
-    # (wireserver calls, cron install, exit) and cause side effects. Matches the
-    # sourcing convention documented in the script header and used in cse_main_spec.sh.
-    Include "./parts/linux/cloud-init/artifacts/init-aks-cloud.sh"
-
     setup() {
         TEST_DIR="$(mktemp -d)"
         export OS_RELEASE_FILE="${TEST_DIR}/os-release"
@@ -96,10 +89,13 @@ Describe 'init-aks-cloud.sh functional tests'
                  "$(dirname "${APT_SOURCES_LIST}")"
         # ca-certificates.crt is referenced when copying the bundle
         echo "fake-bundle" > "${SSL_CERTS_DIR}/ca-certificates.crt"
+        # shellcheck disable=SC1090
+        __SOURCED__=1 . "./parts/linux/cloud-init/artifacts/init-aks-cloud.sh"
     }
 
     cleanup() {
         rm -rf "${TEST_DIR}"
+        unset __SOURCED__
     }
 
     BeforeEach 'setup'
