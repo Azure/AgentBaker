@@ -522,7 +522,7 @@ type KubeletConfigFileConfig struct {
 	EvictionMaxPodGracePeriod int32 `protobuf:"varint,43,opt,name=eviction_max_pod_grace_period,json=evictionMaxPodGracePeriod,proto3" json:"eviction_max_pod_grace_period,omitempty"`
 	// kubeReservedCgroup is the absolute name of the cgroup the kubelet should manage for the
 	// kube-reserved compute resources. When enforce-node-allocatable contains "kube-reserved",
-	// this cgroup must exist before kubelet starts. Example: "/kube-reserved.slice".
+	// this cgroup must exist before kubelet starts. Example: "/kubereserved.slice".
 	// Used by AKS Node Memory Hardening (F2/F5).
 	// +optional.
 	KubeReservedCgroup string `protobuf:"bytes,44,opt,name=kube_reserved_cgroup,json=kubeReservedCgroup,proto3" json:"kube_reserved_cgroup,omitempty"`

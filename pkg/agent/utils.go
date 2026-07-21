@@ -489,7 +489,7 @@ func IsKubeletServingCertificateRotationEnabled(config *datamodel.NodeBootstrapp
 // is what actually creates (or validates) the systemd slice unit on the node, so
 // the name must be decided here rather than accepted verbatim from the RP.
 const (
-	nodeHardeningKubeReservedCgroup   = "/kube-reserved.slice"
+	nodeHardeningKubeReservedCgroup   = "/kubereserved.slice"
 	nodeHardeningSystemReservedCgroup = "/system.slice"
 )
 
