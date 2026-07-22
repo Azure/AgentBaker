@@ -18,6 +18,10 @@ parameters:
     type: number
     displayName: Number of times to retry failed E2E tests
     default: 0
+  - name: jobTimeoutInMinutes
+    type: number
+    displayName: Maximum duration of the E2E job
+    default: 90
   - name: useVhdMetadataArtifacts
     type: boolean
     displayName: Resolve VHDs from metadata artifacts produced by this pipeline
@@ -45,7 +49,7 @@ jobs:
           value: ${{parameters.subscriptionId}}
     pool:
       name: $(E2E_POOL_NAME)
-    timeoutInMinutes: 90
+    timeoutInMinutes: ${{ parameters.jobTimeoutInMinutes }}
     displayName: Run AgentBaker E2E ${{parameters.name}}
     steps:
       - checkout: self
