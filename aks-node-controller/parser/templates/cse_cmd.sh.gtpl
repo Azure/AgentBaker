@@ -1,4 +1,5 @@
 echo $(date),$(hostname) > ${PROVISION_OUTPUT};
+export LOCATION="${LOCATION}";
 if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]; then
 	"${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1 || exit $?;
 fi;
