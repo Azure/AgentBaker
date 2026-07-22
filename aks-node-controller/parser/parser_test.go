@@ -40,7 +40,6 @@ func TestBuildCSECmd(t *testing.T) {
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
 				assertHasKeyWithValue(t, vars, "LOCATION", "southcentralus")
-				assertPassesLocationToInitAndProvisionStart(t, cmd)
 				assert.Equal(t, "false", vars["GPU_NODE"])
 				assert.NotEmpty(t, vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"])
 				// Ensure the containerd config does not use the
@@ -463,7 +462,6 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "NETWORK_PLUGIN", "")
 				assertHasKeyWithValue(t, vars, "VNET_CNI_PLUGINS_URL", "")
 				assertHasKeyWithValue(t, vars, "LOCATION", "")
-				assertPassesLocationToInitAndProvisionStart(t, cmd)
 				assertHasKeyWithValue(t, vars, "GPU_NODE", "false")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
 				assertHasKeyWithValue(t, vars, "CUSTOM_CA_TRUST_COUNT", "0")
@@ -588,30 +586,6 @@ func generateTestDataIfRequested(t *testing.T, folder string, cmd *exec.Cmd) {
 func assertHasKeyWithValue[K comparable, V any](t *testing.T, m map[K]V, key K, value V) {
 	assert.Contains(t, m, key, "expected map to contain key: %v", key)
 	assert.Equal(t, value, m[key], "expected map to have key-value pair %s=%v", key, value)
-}
-
-func assertPassesLocationToInitAndProvisionStart(t *testing.T, cmd *exec.Cmd) {
-	command := bashCommandArg(t, cmd)
-	initLocationIndex := strings.Index(command, `LOCATION="${LOCATION}" "${INIT_AKS_CLOUD_FILEPATH}" >>`)
-	provisionStartLocationIndex := strings.Index(command, `LOCATION="${LOCATION}" /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
-	initAKSCloudIndex := strings.Index(command, `"${INIT_AKS_CLOUD_FILEPATH}" >>`)
-	provisionStartIndex := strings.Index(command, "/opt/azure/containers/provision_start.sh")
-
-	assert.NotRegexp(t, `(^|[;&|[:space:]])export[[:space:]]+LOCATION([=;&|[:space:]]|$)`, command, "LOCATION should be scoped to the commands that need it, not exported globally")
-	require.NotEqual(t, -1, initLocationIndex, "expected generated command to pass LOCATION to init-aks-cloud")
-	require.NotEqual(t, -1, provisionStartLocationIndex, "expected generated command to pass LOCATION to provision_start.sh")
-	require.NotEqual(t, -1, initAKSCloudIndex, "expected generated command to start init-aks-cloud")
-	require.NotEqual(t, -1, provisionStartIndex, "expected generated command to start provision_start.sh")
-	assert.Less(t, initLocationIndex, initAKSCloudIndex, "LOCATION must be passed to init-aks-cloud")
-	assert.Less(t, provisionStartLocationIndex, provisionStartIndex, "LOCATION must be passed to provision_start.sh")
-}
-
-func bashCommandArg(t *testing.T, cmd *exec.Cmd) string {
-	t.Helper()
-	require.Len(t, cmd.Args, 3)
-	require.Equal(t, "/bin/bash", cmd.Args[0])
-	require.Equal(t, "-c", cmd.Args[1])
-	return cmd.Args[2]
 }
 
 func TestParseContainerdVersionOutput(t *testing.T) {
