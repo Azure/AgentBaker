@@ -60,6 +60,15 @@ steps:
       # Baseline utilities used by scripts and downloads below.
       pkg_install ca-certificates curl tar gnupg make jq
 
+      # Microsoft Go (installed later by hack/setup_golang.sh) defaults to
+      # GOEXPERIMENT=systemcrypto, which needs CGO + a C compiler + OpenSSL dev
+      # headers to build. Without them, `go build ./cmd/cosi-upload` fails with
+      # "undefined: systemFIPSMode" in crypto/internal/backend/fips140.
+      case "$PKG" in
+          apt)       pkg_install build-essential libssl-dev pkg-config ;;
+          tdnf|dnf)  pkg_install gcc make openssl-devel pkg-config ;;
+      esac
+
       # git isn't used by the convert scripts, but install it so any implicit
       # agent-side cleanup checkouts don't tank the job.
       if ! command -v git >/dev/null 2>&1; then
