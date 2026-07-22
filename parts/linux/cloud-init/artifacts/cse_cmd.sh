@@ -20,11 +20,10 @@ INIT_AKS_CLOUD_FILEPATH="{{GetInitAKSCloudFilepath}}";
 if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]; then
 	REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}" LOCATION={{GetVariable "location"}} "${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1 || exit $?;
 fi;
-{{/*
-Keep the environment assignments below contiguous through the nohup invocation at the end of this file.
-The CSE command is flattened into one shell command, so runtime control flow or command separators
-between these assignments and nohup can stop variables from reaching provision_start.sh.
-*/}}ADMINUSER={{GetParameter "linuxAdminUsername"}}
+{{/* Keep the environment assignments below contiguous through the nohup invocation at the end of this file. */ -}}
+{{/* The CSE command is flattened into one shell command, so all assignments below are passed to nohup. */ -}}
+{{/* Be careful not to add runtime control flow or command separators that break the flattening logic. */ -}}
+ADMINUSER={{GetParameter "linuxAdminUsername"}}
 MOBY_VERSION={{GetParameter "mobyVersion"}}
 TENANT_ID={{GetVariable "tenantID"}}
 KUBERNETES_VERSION={{GetParameter "kubernetesVersion"}}
