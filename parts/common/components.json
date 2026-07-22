@@ -2494,14 +2494,6 @@
                 "latestVersion": "2.5.4"
               }
             ]
-          },
-          "r2604": {
-            "versionsV2": [
-              {
-                "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "2.5.3"
-              }
-            ]
           }
         }
       }

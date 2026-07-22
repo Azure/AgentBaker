@@ -714,10 +714,7 @@ cachePackageAndBinaryComponents() {
         fi
         ;;
       "acr-mirror")
-        if [ "$OS_VERSION" = "26.04" ]; then
-          echo "Ubuntu 26.04 - temporarily skipping acr-mirror installation"
-          continue
-        fi
+        # TODO(2604): install acr-mirror for artifact streaming support once acr-mirror is available in resolute PMC repos
         # Artifact streaming (acr-mirror) - version and URLs resolved from components.json,
         # OS filtering handled declaratively by components.json entries (<SKIP> for unsupported OSes).
         for version in ${PACKAGE_VERSIONS[@]}; do
@@ -737,10 +734,7 @@ cachePackageAndBinaryComponents() {
         installAznfsPackage || exit $ERR_AZNFS_INSTALL_FAIL
         ;;
       "blobfuse"|"blobfuse2")
-        if [ "$OS_VERSION" = "26.04" ]; then
-          echo "Ubuntu 26.04 - temporarily skipping blobfuse2 installation"
-          continue
-        fi
+       # TODO(2604): install blobfuse2 for azure blob CSI driver support when package is made available in resolute PMC repos
         for version in "${PACKAGE_VERSIONS[@]}"; do
           if isUbuntu "$OS"; then
             if ! apt_get_install 10 2 120 "${name}=${version}"; then
