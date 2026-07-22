@@ -1,7 +1,7 @@
 #!/bin/bash
 
-Describe 'init-aks-custom-cloud.sh refresh mode wiring'
-    script_path='./parts/linux/cloud-init/artifacts/init-aks-custom-cloud.sh'
+Describe 'init-aks-cloud.sh refresh mode wiring'
+    script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
 
     It 'parses action argument after deriving location, with init default'
         When run grep -Eq '^action=\$\{1:-init\}$' "$script_path"

@@ -16,9 +16,9 @@ Auto-detects what needs a hotfix and generates the version numbers for it:
    bumped using the same base-version + tag-collision algorithm as `version`.
 
 3. Writes the resulting {"version", "scripts_version"} (omitting fields that don't
-   apply) to parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json, the
-   file pkg/agent/baker.go embeds directly into every scriptless customData render
-   (see hotfixJSONFile in pkg/agent/const.go).
+   apply) to parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json only
+   when there is an active hotfix. If no hotfix applies, the file is removed/left
+   absent so scriptless customData does not embed an empty hotfix artifact.
 
 Usage: python3 hotfix/hotfix_generate.py <base_ref>
   base_ref: git ref to diff against for changed-script/changed-code detection
@@ -28,6 +28,7 @@ This script is called by the hotfix-generate GH Action.
 """
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -84,7 +85,7 @@ SOURCE_TO_VARKEY = {
     "validate-kubelet-credentials.sh": "validateKubeletCredentialsScript",
     "setup-custom-search-domains.sh": "customSearchDomainsScript",
     "configure-azure-network.sh": "configureAzureNetworkScript",
-    "init-aks-custom-cloud.sh": "initAKSCustomCloud",
+    "init-aks-cloud.sh": "initAKSCloud",
     # Distro-specific scripts
     "ubuntu/ubuntu-snapshot-update.sh": "snapshotUpdateScript",
     "mariner/mariner-package-update.sh": "packageUpdateScriptMariner",
@@ -167,22 +168,30 @@ def path_changed(base_ref, path):
 
 
 def write_hotfix_file(version, scripts_version):
-    """Write the resolved {version, scripts_version} to TARGET_FILE, the file
-    pkg/agent/baker.go embeds directly at customData-render time."""
+    """Write the resolved {version, scripts_version} to TARGET_FILE when active.
+
+    When no hotfix applies, remove TARGET_FILE if present. An empty JSON object is
+    still embedded as a real scriptless customData file, which changes payload
+    shape even though there is no hotfix for the wrapper to consume.
+    """
     payload = {}
     if version:
         payload["version"] = version
     if scripts_version:
         payload["scripts_version"] = scripts_version
 
-    with open(TARGET_FILE, "w") as f:
-        json.dump(payload, f, indent=4)
-        f.write("\n")
-
     if payload:
+        with open(TARGET_FILE, "w") as f:
+            json.dump(payload, f, indent=4)
+            f.write("\n")
         print(f"Wrote {payload} to {TARGET_FILE}", file=sys.stderr)
-    else:
-        print(f"No active hotfix; reset {TARGET_FILE} to {{}}", file=sys.stderr)
+        return
+
+    try:
+        os.remove(TARGET_FILE)
+        print(f"No active hotfix; removed {TARGET_FILE}", file=sys.stderr)
+    except FileNotFoundError:
+        print(f"No active hotfix; {TARGET_FILE} already absent", file=sys.stderr)
 
 
 def detect_changed_varkeys(base_ref):

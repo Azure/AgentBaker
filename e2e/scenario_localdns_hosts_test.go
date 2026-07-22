@@ -41,49 +41,11 @@ func Test_LocalDNSHostsPlugin(t *testing.T) {
 						nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
 						nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
 					},
-					VMConfigMutator: tt.vmConfigMutator,
-				},
-			})
-		})
-	}
-}
-
-// Test_LocalDNSHostsPlugin_Scriptless tests the localdns hosts plugin across all supported distros
-// on the scriptless (aks-node-controller) bootstrap path.
-// The base AKSNodeConfig from nbcToAKSNodeConfigV1 already includes a full LocalDnsProfile with
-// DNS overrides, so the mutator only needs to enable the hosts plugin.
-//
-// Run a single distro with: go test -run "Test_LocalDNSHostsPlugin_Scriptless/Ubuntu2204" -v
-func Test_LocalDNSHostsPlugin_Scriptless(t *testing.T) {
-	tests := []struct {
-		name            string
-		vhd             *config.Image
-		vmConfigMutator func(*armcompute.VirtualMachineScaleSet)
-	}{
-		{name: "Ubuntu2204", vhd: config.VHDUbuntu2204Gen2Containerd},
-		{name: "Ubuntu2404", vhd: config.VHDUbuntu2404Gen2Containerd},
-		{name: "AzureLinuxV3", vhd: config.VHDAzureLinuxV3Gen2},
-		{name: "ACL", vhd: config.VHDACLGen2TL, vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
-		}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			RunScenario(t, &Scenario{
-				Description: "Tests that localdns hosts plugin works correctly on " + tt.name + " (scriptless)",
-				Config: Config{
-					Cluster:         ClusterKubenet,
-					VHD:             tt.vhd,
-					VMConfigMutator: tt.vmConfigMutator,
-					BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-						nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
-						nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
-					},
 					AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 						config.LocalDnsProfile.EnableHostsPlugin = true
 						config.LocalDnsProfile.EnableLocalDns = true
 					},
+					VMConfigMutator: tt.vmConfigMutator,
 				},
 			})
 		})

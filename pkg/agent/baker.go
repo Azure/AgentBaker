@@ -93,8 +93,13 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 }
 
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
-	if config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly {
-		return t.getScriptlessNBCCustomData(config)
+	if config.EnableScriptlessNBCCSECmd {
+		if supportsScriptlessPhase2(config) {
+			return t.getScriptlessNBCCustomData(config)
+		}
+		// if we cannot enable scriptless phase2, we need to fallback to scriptless phase1
+		config.EnableScriptlessNBCCSECmd = false
+		config.EnableScriptlessCSECmd = true
 	}
 
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
@@ -161,6 +166,10 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(customData))
+}
+
+func supportsScriptlessPhase2(config *datamodel.NodeBootstrappingConfiguration) bool {
+	return !config.PreProvisionOnly && (config.CustomCATrustConfig == nil || len(config.CustomCATrustConfig.CustomCATrustCerts) == 0)
 }
 
 // renderEnabledFeatures serializes the feature toggle map into sorted KEY=VALUE lines for
@@ -440,7 +449,7 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 	if config.AgentPoolProfile.IsWindows() {
 		return t.getWindowsNodeCSECommand(config)
 	}
-	if config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly {
+	if config.EnableScriptlessNBCCSECmd && supportsScriptlessPhase2(config) {
 		return "/opt/azure/containers/aks-node-controller provision-wait"
 	}
 	return t.getLinuxNodeCSECommand(config)
@@ -1122,11 +1131,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsAKSCustomCloud": func() bool {
 			return cs.IsAKSCustomCloud()
 		},
-		"GetInitAKSCustomCloudFilepath": func() string {
-			return initAKSCustomCloudFilepath
+		"GetInitAKSCloudFilepath": func() string {
+			return initAKSCloudFilepath
 		},
 		"AKSCustomCloudRepoDepotEndpoint": func() string {
-			return cs.Properties.CustomCloudEnv.RepoDepotEndpoint
+			if cs.IsAKSCustomCloud() {
+				return cs.Properties.CustomCloudEnv.RepoDepotEndpoint
+			}
+			return ""
 		},
 		"AKSCustomCloudManagementPortalURL": func() string {
 			return cs.Properties.CustomCloudEnv.ManagementPortalURL
@@ -1474,7 +1486,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
-		"GetSkipWaAgentHold":  func() bool { return config.EnableScriptlessNBCCSECmd },
+		"GetSkipWaAgentHold":  func() bool { return config.EnableScriptlessCSECmd && supportsScriptlessPhase2(config) },
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},

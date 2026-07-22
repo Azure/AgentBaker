@@ -76,9 +76,9 @@ var (
 
 func getFuncMap() template.FuncMap {
 	return template.FuncMap{
-		"getInitAKSCustomCloudFilepath": getInitAKSCustomCloudFilepath,
-		"getIsAksCustomCloud":           getIsAksCustomCloud,
-		"getCloudLocation":              getCloudLocation,
+		"getInitAKSCloudFilepath": getInitAKSCloudFilepath,
+		"getIsAksCustomCloud":     getIsAksCustomCloud,
+		"getCloudLocation":        getCloudLocation,
 	}
 }
 
@@ -771,8 +771,8 @@ func getHasKubeletDiskType(kubeletConfig *aksnodeconfigv1.KubeletConfig) bool {
 	return kubeletConfig.GetKubeletDiskType() == aksnodeconfigv1.KubeletDisk_KUBELET_DISK_TEMP_DISK
 }
 
-func getInitAKSCustomCloudFilepath() string {
-	return initAKSCustomCloudFilepath
+func getInitAKSCloudFilepath() string {
+	return initAKSCloudFilepath
 }
 
 func getGPUNeedsFabricManager(vmSize string) bool {
@@ -998,6 +998,13 @@ func getCSETimeout(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 		cseTimeout = int(aksnodeconfig.GetCseTimeout())
 	}
 	return datamodel.GetCSETimeout(cseTimeout)
+}
+
+func getRepoDepotEndpoint(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	if getIsAksCustomCloud(aksnodeconfig.GetCustomCloudConfig()) {
+		return aksnodeconfig.GetCustomCloudConfig().GetRepoDepotEndpoint()
+	}
+	return ""
 }
 
 // ---------------------- End of cse timeout helper code ----------------------//

@@ -2786,15 +2786,14 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
 func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
 	nbc := s.Runtime.NBC
-	if nbc != nil && s.VHD.SupportsScriptless() && nbc.EnableScriptlessCSECmd && !nbc.EnableScriptlessNBCCSECmd {
+	if nbc != nil && s.VHD.SupportsScriptless() && nbc.EnableScriptlessCSECmd && !usesScriptlessNBCCSECmd(s) {
 		ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
 	}
 }
 
 // ValidateScriptlessNBCCSECmd checks if the node has scriptless NBCCSECmd correctly enabled
 func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
-	nbc := s.Runtime.NBC
-	if nbc != nil && nbc.EnableScriptlessNBCCSECmd && s.VHD.SupportsScriptless() {
+	if usesScriptlessNBCCSECmd(s) {
 		fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
 		if enableScriptlessCompilation(s) {
 			fileNameToCheck = "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
@@ -2807,7 +2806,7 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 // ValidateScriptlessPhase3 validates that there are not diffs between ANC generated cse cmd NBC cse cmd vars
 func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) {
 	s.T.Helper()
-	if s.Runtime.AKSNodeConfig != nil && s.Runtime.NBC.EnableScriptlessNBCCSECmd {
+	if s.Runtime.AKSNodeConfig != nil && usesScriptlessNBCCSECmd(s) {
 		logFile := "/var/log/azure/aks-node-controller.log"
 		if !fileHasContent(ctx, s, logFile, "env compare: no differences found between provision-config and nbc-cmd env vars") {
 			// Grep for all env-compare diff markers to show what's different.
@@ -3100,7 +3099,7 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 		s.VHD == config.VHDUbuntu2204Gen2FIPSTLContainerd
 	grepCmd := fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s || true", waagentLogFile)
 	if isUbuntu2204FIPS {
-		grepCmd = fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s | grep -v 'Cannot convert PFX to PEM' || true", waagentLogFile)
+		grepCmd = fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s | grep -v 'Cannot convert PFX to PEM' | grep -v 'CHAIN_ZERO' || true", waagentLogFile)
 	}
 	extHandlerErrors := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		strings.Join([]string{
