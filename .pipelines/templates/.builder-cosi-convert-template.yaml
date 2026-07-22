@@ -60,12 +60,10 @@ steps:
       # Baseline utilities used by scripts and downloads below.
       pkg_install ca-certificates curl tar gnupg make jq
 
-      # CGO deps for `go build ./cmd/cosi-upload` (MS Go / azl3 golang enables
-      # systemcrypto, which needs a C compiler + libc + OpenSSL headers).
-      case "$PKG" in
-          apt)       pkg_install build-essential libssl-dev pkg-config ;;
-          tdnf|dnf)  pkg_install gcc make glibc-devel openssl-devel pkg-config ;;
-      esac
+      # cosi-upload is built with `GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0`
+      # (see packer.mk build-cosi-upload), matching every other Go binary in this
+      # repo. That keeps FIPS/OpenSSL crypto compliance while avoiding a build-time
+      # C toolchain, so no gcc/binutils/libc/OpenSSL-dev packages are needed here.
 
       # git isn't used by the convert scripts, but install it so any implicit
       # agent-side cleanup checkouts don't tank the job.
