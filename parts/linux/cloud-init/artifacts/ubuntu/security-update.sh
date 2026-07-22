@@ -83,6 +83,8 @@ security_patch_repo_endpoint() {
     fi
 }
 
+# Returns success when the desired security patch timestamp for this node's
+# agent pool matches the timestamp in the locally checkpointed component state.
 securityPatchIsCurrent() {
     local desired_payload="$1"
     local current_payload="$2"
@@ -104,11 +106,14 @@ securityPatchIsCurrent() {
     [ "${desired_timestamp}" = "${current_timestamp}" ]
 }
 
+# Applies the security patch timestamp selected for this node's agent pool and,
+# after patching succeeds, updates the legacy annotation consumed by the RP.
 updateSecurityPatch() {
     local component_payload="${1:-}"
     local node_json="${2:-}"
     local agent_pool
     local golden_timestamp
+    local node_name
     local repo_endpoint
     local code_name
     local apt_opts="-o Acquire::http::Timeout=300 -o Acquire::https::Timeout=300 -o Acquire::Retries=3"
@@ -123,6 +128,10 @@ updateSecurityPatch() {
     fi
     if [ -z "${agent_pool}" ]; then
         echo "node agent pool label is not set"
+        return 1
+    fi
+    if ! node_name="$(printf '%s' "${node_json}" | jq -er '.metadata.name // empty')"; then
+        echo "node name is not set"
         return 1
     fi
 
@@ -154,6 +163,13 @@ updateSecurityPatch() {
     fi
     if ! security_patch_unattended_upgrade; then
         echo "unattended_upgrade failed"
+        return 1
+    fi
+
+    # Keep the legacy RP status channel current during migration to live-patching-status.
+    # shellcheck disable=SC2086
+    if ! $KUBECTL annotate --overwrite node "${node_name}" "kubernetes.azure.com/live-patching-current-timestamp=${golden_timestamp}"; then
+        echo "failed to update legacy securityPatch status annotation"
         return 1
     fi
 
