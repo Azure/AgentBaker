@@ -485,11 +485,12 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		require.NoError(s.T, err)
 	}
 
+	scriptlessNBCCSECmdEnabled := usesScriptlessNBCCSECmd(s)
 	if s.Runtime.AKSNodeConfig != nil {
 		cse = nodeconfigutils.CSE
 		aksNodeConfig := s.Runtime.AKSNodeConfig
 
-		if s.Runtime.NBC.EnableScriptlessNBCCSECmd {
+		if scriptlessNBCCSECmdEnabled {
 			cse = nodeBootstrapping.CSE
 		}
 
@@ -497,7 +498,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 			if config.Config.DisableScriptLessCompilation {
 				var data string
 				var err error
-				if s.Runtime.NBC.EnableScriptlessNBCCSECmd {
+				if scriptlessNBCCSECmdEnabled {
 					return nodeBootstrapping.CustomData
 				}
 				if s.VHD.Flatcar {
@@ -510,7 +511,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 			}
 			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 			require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
-			if s.Runtime.NBC.EnableScriptlessNBCCSECmd {
+			if scriptlessNBCCSECmdEnabled {
 				customData := nodeBootstrapping.CustomData
 				customData, err = CustomDataWithNBCCmdHack(s, customData, binaryURL)
 				require.NoError(s.T, err, "failed to generate custom data with NBC cmd hack")
@@ -534,7 +535,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 			customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
 			require.NoError(s.T, err, "failed to inject customData write_files entries")
 		}
-		if s.Runtime.NBC.EnableScriptlessCSECmd && !s.Runtime.NBC.EnableScriptlessNBCCSECmd && s.VHD.SupportsScriptless() {
+		if !scriptlessNBCCSECmdEnabled && s.VHD.SupportsScriptless() {
 			// Validate that the custom data doesn't contain any script content,
 			// which indicates that the scriptless CSE is working as intended
 			decodedCustomData, err := base64.StdEncoding.DecodeString(customData)
@@ -589,6 +590,17 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementNvmeDisk)
 	}
 	return model
+}
+
+func usesScriptlessNBCCSECmd(s *Scenario) bool {
+	if s == nil || s.Runtime == nil || s.Runtime.NBC == nil || s.VHD == nil {
+		return false
+	}
+	nbc := s.Runtime.NBC
+	return nbc.EnableScriptlessNBCCSECmd &&
+		!nbc.PreProvisionOnly &&
+		s.VHD.SupportsScriptless() &&
+		(nbc.CustomCATrustConfig == nil || len(nbc.CustomCATrustConfig.CustomCATrustCerts) == 0)
 }
 
 func enableScriptlessCompilation(s *Scenario) bool {

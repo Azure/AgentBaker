@@ -98,6 +98,7 @@ func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.N
 			return t.getScriptlessNBCCustomData(config)
 		}
 		// if we cannot enable scriptless phase2, we need to fallback to scriptless phase1
+		config.EnableScriptlessNBCCSECmd = false
 		config.EnableScriptlessCSECmd = true
 	}
 
@@ -1482,7 +1483,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
-		"GetSkipWaAgentHold":  func() bool { return supportsScriptlessPhase2(config) },
+		"GetSkipWaAgentHold":  func() bool { return config.EnableScriptlessCSECmd && supportsScriptlessPhase2(config) },
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},

@@ -303,7 +303,7 @@ func (i *Image) String() string {
 }
 
 func (i *Image) SupportsScriptless() bool {
-	return !i.Flatcar && !i.Distro.IsWindowsDistro()
+	return !i.Flatcar && !i.Distro.IsWindowsDistro() && i.Distro != datamodel.AKSAzureLinuxV2Gen2
 }
 
 func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourceID, error) {

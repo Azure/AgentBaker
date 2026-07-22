@@ -95,12 +95,22 @@ jobs:
               continue
             fi
             CHANGED=1
-            CONTENT=$(base64 -w 0 "$FILE")
             # For a brand-new file the Contents API lookup 404s (no sha yet); the
             # step runs under `bash -e`, so guard the lookup and only pass -f sha
             # when the file already exists on the branch, otherwise the PUT must
             # omit sha entirely to create the file.
             SHA=$(gh api "repos/${{ github.repository }}/contents/${FILE}?ref=${{ github.head_ref }}" --jq '.sha' 2>/dev/null || true)
+            if [ ! -e "$FILE" ]; then
+              if [ -n "$SHA" ]; then
+                gh api "repos/${{ github.repository }}/contents/${FILE}" \
+                  -X DELETE \
+                  -f message="chore: auto-generate hotfix content for ${FILE}" \
+                  -f branch="${{ github.head_ref }}" \
+                  -f sha="$SHA"
+              fi
+              continue
+            fi
+            CONTENT=$(base64 -w 0 "$FILE")
             if [ -n "$SHA" ]; then
               gh api "repos/${{ github.repository }}/contents/${FILE}" \
                 -X PUT \
