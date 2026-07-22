@@ -160,27 +160,10 @@ def bump_version(base_version):
         patch += 1
 
 
-def path_changed(base_ref, path):
-    """Return True if path differs between the working tree and base_ref."""
-    result = subprocess.run(["git", "diff", "--quiet", base_ref, "--", path])
+def path_changed(base_ref, *paths):
+    """Return True if any selected path differs from the working tree and base_ref."""
+    result = subprocess.run(["git", "diff", "--quiet", base_ref, "--", *paths])
     return result.returncode != 0
-
-
-def changed_paths(base_ref, path):
-    """Return paths changed between the working tree and base_ref under path."""
-    result = subprocess.run(
-        ["git", "diff", "--name-only", "-z", base_ref, "--", path],
-        capture_output=True, text=True, check=True,
-    )
-    return [changed_path for changed_path in result.stdout.split("\0") if changed_path]
-
-
-def anc_production_changed(base_ref):
-    """Return True when ANC changes include files outside tests and testdata."""
-    return any(
-        not path.endswith("_test.go") and "/testdata/" not in path
-        for path in changed_paths(base_ref, ANC_DIR)
-    )
 
 
 def write_hotfix_file(version, scripts_version):
@@ -427,7 +410,12 @@ def main():
     base_version = read_base_version()
 
     version = ""
-    if anc_production_changed(base_ref):
+    if path_changed(
+        base_ref,
+        ANC_DIR,
+        f":(exclude,glob){ANC_DIR}**/*_test.go",
+        f":(exclude,glob){ANC_DIR}**/testdata/**",
+    ):
         version = bump_version(base_version)
         print(f"aks-node-controller/ production files changed vs {base_ref}; "
               f"version={version}", file=sys.stderr)
