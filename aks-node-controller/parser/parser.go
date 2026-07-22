@@ -298,7 +298,7 @@ func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration) (*e
 		return nil, fmt.Errorf("failed to execute the template: %w", err)
 	}
 	// Convert to one-liner
-	triggerBootstrapScript = strings.ReplaceAll(triggerBootstrapScript, "\n", " ")
+	triggerBootstrapScript = strings.TrimSpace(strings.ReplaceAll(triggerBootstrapScript, "\n", " "))
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", triggerBootstrapScript)
 	env := mapToEnviron(getCSEEnv(ctx, config))
 	cmd.Env = append(os.Environ(), env...) // append existing environment variables

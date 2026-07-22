@@ -16,12 +16,11 @@ else
 	exit ${cloudInitExitCode};
 fi;
 {{end}}
-export REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}";
-export LOCATION="{{GetVariable "location"}}";
 INIT_AKS_CLOUD_FILEPATH="{{GetInitAKSCloudFilepath}}";
 if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]; then
-	"${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1 || exit $?;
+	REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}" LOCATION={{GetVariable "location"}} "${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1 || exit $?;
 fi;
+LOCATION={{GetVariable "location"}}
 ADMINUSER={{GetParameter "linuxAdminUsername"}}
 MOBY_VERSION={{GetParameter "mobyVersion"}}
 TENANT_ID={{GetVariable "tenantID"}}
