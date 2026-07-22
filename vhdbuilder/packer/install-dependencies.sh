@@ -403,7 +403,7 @@ configureLsmWithBpf() {
       return 0
     fi
 
-    local new_lsm="bpf,$current_lsm"
+    local new_lsm="${current_lsm},bpf"
     echo "New LSM configuration: $new_lsm"
 
     if [ "$OS" = "$UBUNTU_OS_NAME" ] && { [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "26.04" ]; }; then

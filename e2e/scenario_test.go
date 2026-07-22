@@ -1793,6 +1793,7 @@ func Test_Ubuntu2604Minimal(t *testing.T) {
 			VMSeriesCoverageTest: true,
 		},
 		Config: Config{
+			// TODO(2604): use latest (1.36) until 1.36 becomes default in test regions since 26.04 requires 1.36+ - applies to all Ubuntu2604Minimal E2E tests
 			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			Validator: func(ctx context.Context, s *Scenario) {
