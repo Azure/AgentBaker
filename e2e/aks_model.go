@@ -22,57 +22,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 )
 
-// getLatestGAKubernetesVersion returns the highest GA Kubernetes version for the given location.
-func getLatestGAKubernetesVersion(ctx context.Context, location string) (string, error) {
-	versions, err := config.Azure.AKS.ListKubernetesVersions(context.Background(), location, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to list Kubernetes versions: %w", err)
-	}
-	if len(versions.Values) == 0 {
-		return "", fmt.Errorf("no Kubernetes versions available")
-	}
-
-	var latestPatchVersion string
-	msg := fmt.Sprintf("Available Kubernetes versions for location %s:\n", location)
-	defer func() { toolkit.Logf(ctx, "%s", msg) }()
-	// Iterate through the available versions to find the latest GA version
-	for _, k8sVersion := range versions.Values {
-		if k8sVersion == nil {
-			continue
-		}
-		msg += fmt.Sprintf("- %s\n", *k8sVersion.Version)
-
-		// Skip preview versions
-		if k8sVersion.IsPreview != nil && *k8sVersion.IsPreview {
-			msg += " - - is in preview, skipping\n"
-			continue
-		}
-		for patchVersion := range k8sVersion.PatchVersions {
-			if patchVersion == "" {
-				continue
-			}
-			msg += fmt.Sprintf(" - - %s\n", patchVersion)
-			// Initialize latestVersion with first GA version found
-			if latestPatchVersion == "" {
-				latestPatchVersion = patchVersion
-				msg += fmt.Sprintf(" - - first latest found, updating to: %s\n", latestPatchVersion)
-				continue
-			}
-			// Compare versions
-			if agent.IsKubernetesVersionGe(patchVersion, latestPatchVersion) {
-				latestPatchVersion = patchVersion
-				msg += fmt.Sprintf(" - - new latest found, updating to: %s\n", latestPatchVersion)
-			}
-		}
-	}
-
-	if latestPatchVersion == "" {
-		return "", fmt.Errorf("no GA Kubernetes version found")
-	}
-	msg += fmt.Sprintf("Latest GA Kubernetes version for location %s: %s\n", location, latestPatchVersion)
-	return latestPatchVersion, nil
-}
-
 // getLatestKubernetesVersionClusterModel returns a cluster model with the latest GA Kubernetes version.
 func getLatestKubernetesVersionClusterModel(ctx context.Context, name, location, k8sSystemPoolSKU string) (*armcontainerservice.ManagedCluster, error) {
 	version, err := getLatestGAKubernetesVersion(ctx, location)
@@ -85,26 +34,52 @@ func getLatestKubernetesVersionClusterModel(ctx context.Context, name, location,
 }
 
 func getKubenetClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
-	model := getBaseClusterModel(name, location, k8sSystemPoolSKU)
+	return kubenetClusterModelMutator(getBaseClusterModel(name, location, k8sSystemPoolSKU))
+}
+
+func getAzureOverlayNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	return azureOverlayNetworkClusterModelMutator(getBaseClusterModel(name, location, k8sSystemPoolSKU))
+}
+
+func getAzureOverlayNetworkDualStackClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	return azureOverlayNetworkClusterModelMutator(getBaseClusterModel(name, location, k8sSystemPoolSKU))
+}
+
+func getAzureNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	return azureNetworkClusterModelMutator(getBaseClusterModel(name, location, k8sSystemPoolSKU))
+}
+
+func getCiliumNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
+	return ciliumNetworkClusterModelMutator(getBaseClusterModel(name, location, k8sSystemPoolSKU))
+}
+
+func kubenetClusterModelMutator(model *armcontainerservice.ManagedCluster) *armcontainerservice.ManagedCluster {
 	model.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginKubenet)
 	return model
 }
 
-func getAzureOverlayNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
-	model := getBaseClusterModel(name, location, k8sSystemPoolSKU)
+func azureNetworkClusterModelMutator(model *armcontainerservice.ManagedCluster) *armcontainerservice.ManagedCluster {
+	model.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
+	if model.Properties.AgentPoolProfiles != nil {
+		for _, app := range model.Properties.AgentPoolProfiles {
+			app.MaxPods = to.Ptr[int32](30)
+		}
+	}
+	return model
+}
+
+func azureOverlayNetworkClusterModelMutator(model *armcontainerservice.ManagedCluster) *armcontainerservice.ManagedCluster {
 	model.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
 	model.Properties.NetworkProfile.NetworkPluginMode = to.Ptr(armcontainerservice.NetworkPluginModeOverlay)
 	return model
 }
 
-func getAzureOverlayNetworkDualStackClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
-	model := getAzureOverlayNetworkClusterModel(name, location, k8sSystemPoolSKU)
-
+func azureOverlayNetworkDualStackClusterModelMutator(model *armcontainerservice.ManagedCluster) *armcontainerservice.ManagedCluster {
+	model = azureOverlayNetworkClusterModelMutator(model)
 	model.Properties.NetworkProfile.IPFamilies = []*armcontainerservice.IPFamily{
 		to.Ptr(armcontainerservice.IPFamilyIPv4),
 		to.Ptr(armcontainerservice.IPFamilyIPv6),
 	}
-
 	networkProfile := model.Properties.NetworkProfile
 	networkProfile.PodCidr = to.Ptr("10.244.0.0/16")
 	networkProfile.PodCidrs = []*string{
@@ -116,31 +91,19 @@ func getAzureOverlayNetworkDualStackClusterModel(name, location, k8sSystemPoolSK
 		networkProfile.ServiceCidr,
 		to.Ptr("fd12:3456:789a:1::/108"),
 	}
-
 	return model
 }
 
-func getAzureNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
-	cluster := getBaseClusterModel(name, location, k8sSystemPoolSKU)
-	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
-	if cluster.Properties.AgentPoolProfiles != nil {
-		for _, app := range cluster.Properties.AgentPoolProfiles {
+func ciliumNetworkClusterModelMutator(model *armcontainerservice.ManagedCluster) *armcontainerservice.ManagedCluster {
+	model.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
+	model.Properties.NetworkProfile.NetworkDataplane = to.Ptr(armcontainerservice.NetworkDataplaneCilium)
+	model.Properties.NetworkProfile.NetworkPolicy = to.Ptr(armcontainerservice.NetworkPolicyCilium)
+	if model.Properties.AgentPoolProfiles != nil {
+		for _, app := range model.Properties.AgentPoolProfiles {
 			app.MaxPods = to.Ptr[int32](30)
 		}
 	}
-	return cluster
-}
-func getCiliumNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
-	cluster := getBaseClusterModel(name, location, k8sSystemPoolSKU)
-	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
-	cluster.Properties.NetworkProfile.NetworkDataplane = to.Ptr(armcontainerservice.NetworkDataplaneCilium)
-	cluster.Properties.NetworkProfile.NetworkPolicy = to.Ptr(armcontainerservice.NetworkPolicyCilium)
-	if cluster.Properties.AgentPoolProfiles != nil {
-		for _, app := range cluster.Properties.AgentPoolProfiles {
-			app.MaxPods = to.Ptr[int32](30)
-		}
-	}
-	return cluster
+	return model
 }
 
 func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
@@ -190,6 +153,57 @@ func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcon
 			Type: to.Ptr(armcontainerservice.ResourceIdentityTypeSystemAssigned),
 		},
 	}
+}
+
+// getLatestGAKubernetesVersion returns the highest GA Kubernetes version for the given location.
+func getLatestGAKubernetesVersion(ctx context.Context, location string) (string, error) {
+	versions, err := config.Azure.AKS.ListKubernetesVersions(context.Background(), location, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to list Kubernetes versions: %w", err)
+	}
+	if len(versions.Values) == 0 {
+		return "", fmt.Errorf("no Kubernetes versions available")
+	}
+
+	var latestPatchVersion string
+	msg := fmt.Sprintf("Available Kubernetes versions for location %s:\n", location)
+	defer func() { toolkit.Logf(ctx, "%s", msg) }()
+	// Iterate through the available versions to find the latest GA version
+	for _, k8sVersion := range versions.Values {
+		if k8sVersion == nil {
+			continue
+		}
+		msg += fmt.Sprintf("- %s\n", *k8sVersion.Version)
+
+		// Skip preview versions
+		if k8sVersion.IsPreview != nil && *k8sVersion.IsPreview {
+			msg += " - - is in preview, skipping\n"
+			continue
+		}
+		for patchVersion := range k8sVersion.PatchVersions {
+			if patchVersion == "" {
+				continue
+			}
+			msg += fmt.Sprintf(" - - %s\n", patchVersion)
+			// Initialize latestVersion with first GA version found
+			if latestPatchVersion == "" {
+				latestPatchVersion = patchVersion
+				msg += fmt.Sprintf(" - - first latest found, updating to: %s\n", latestPatchVersion)
+				continue
+			}
+			// Compare versions
+			if agent.IsKubernetesVersionGe(patchVersion, latestPatchVersion) {
+				latestPatchVersion = patchVersion
+				msg += fmt.Sprintf(" - - new latest found, updating to: %s\n", latestPatchVersion)
+			}
+		}
+	}
+
+	if latestPatchVersion == "" {
+		return "", fmt.Errorf("no GA Kubernetes version found")
+	}
+	msg += fmt.Sprintf("Latest GA Kubernetes version for location %s: %s\n", location, latestPatchVersion)
+	return latestPatchVersion, nil
 }
 
 func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID string) *armnetwork.AzureFirewall {

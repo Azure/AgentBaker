@@ -336,7 +336,7 @@ func Test_RCV1P_Ubuntu2604Minimal(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:         ClusterKubenet,
+			Cluster:         ClusterLatestKubernetesVersionKubenet,
 			VHD:             config.VHDUbuntu2604MinimalGen2Containerd,
 			VMConfigMutator: rcv1pVMConfigMutator(),
 			Validator: func(ctx context.Context, s *Scenario) {

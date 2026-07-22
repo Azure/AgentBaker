@@ -33,10 +33,14 @@ func Test_LocalDNSHostsPlugin(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			cluster := ClusterKubenet
+			if tt.name == "Ubuntu2604Minimal" {
+				cluster = ClusterLatestKubernetesVersionKubenet
+			}
 			RunScenario(t, &Scenario{
 				Description: "Tests that localdns hosts plugin works correctly on " + tt.name,
 				Config: Config{
-					Cluster: ClusterKubenet,
+					Cluster: cluster,
 					VHD:     tt.vhd,
 					BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 						nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true

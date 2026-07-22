@@ -1793,7 +1793,7 @@ func Test_Ubuntu2604Minimal(t *testing.T) {
 			VMSeriesCoverageTest: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			Validator: func(ctx context.Context, s *Scenario) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
@@ -1814,7 +1814,7 @@ func Test_Ubuntu2604Minimal_AzureCNI(t *testing.T) {
 			VMSeriesCoverageTest: true,
 		},
 		Config: Config{
-			Cluster: clusterAzureNetwork,
+			Cluster: ClusterLatestKubernetesVersionAzureNetwork,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			Validator: func(ctx context.Context, s *Scenario) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
@@ -1833,7 +1833,7 @@ func Test_Ubuntu2604Minimal_NPD_Basic(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Test that a node using Ubuntu 26.04 minimal with AKS VM Extension enabled can report simulated node problem detector events",
 		Config: Config{
-			Cluster: ClusterKubenet,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
@@ -1852,7 +1852,7 @@ func Test_Ubuntu2604Minimal_SecondaryNIC(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on Ubuntu 26.04 minimal",
 		Config: Config{
-			Cluster: ClusterKubenet,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			// configureSecondaryNICs is new and not yet baked into released VHDs.
 			// The scriptless_nbc path always uses VHD scripts (DisableCustomData=true),
@@ -1878,7 +1878,7 @@ func Test_Ubuntu2604Minimal_SecondaryNIC_DualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a dual-stack secondary NIC is properly configured on Ubuntu 26.04 minimal",
 		Config: Config{
-			Cluster: ClusterAzureOverlayNetworkDualStack,
+			Cluster: ClusterLatestKubernetesVersionAzureOverlayNetworkDualStack,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.StandardSecondaryNICCount = 1
@@ -1917,7 +1917,7 @@ func Test_Ubuntu2604Minimal_SecureTLSBootstrapping_BootstrapToken_Fallback(t *te
 			BootstrapTokenFallback: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
@@ -1949,7 +1949,7 @@ func Test_Ubuntu2604MinimalArm64(t *testing.T) {
 			VMSeriesCoverageTest: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
 			Validator: func(ctx context.Context, s *Scenario) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
@@ -1971,7 +1971,7 @@ func Test_Ubuntu2604MinimalArm64_AzureCNI(t *testing.T) {
 			VMSeriesCoverageTest: true,
 		},
 		Config: Config{
-			Cluster: clusterAzureNetwork,
+			Cluster: ClusterLatestKubernetesVersionAzureNetwork,
 			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
 			Validator: func(ctx context.Context, s *Scenario) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
@@ -1990,7 +1990,7 @@ func Test_Ubuntu2604MinimalArm64_NPD_Basic(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Test that a node using Ubuntu 26.04 minimal ARM64 with AKS VM Extension enabled can report simulated node problem detector events",
 		Config: Config{
-			Cluster: ClusterKubenet,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
@@ -2012,7 +2012,7 @@ func Test_Ubuntu2604MinimalArm64_SecureTLSBootstrapping_BootstrapToken_Fallback(
 			BootstrapTokenFallback: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
@@ -2213,7 +2213,7 @@ func runScenarioUbuntu2604MinimalGRID(t *testing.T, vmSize string) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize

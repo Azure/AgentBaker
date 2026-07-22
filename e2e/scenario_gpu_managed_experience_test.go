@@ -327,7 +327,7 @@ func Test_Ubuntu2604Minimal_NvidiaDevicePluginRunning(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
@@ -636,7 +636,7 @@ func Test_Ubuntu2604Minimal_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster:               ClusterKubenet,
+			Cluster:               ClusterLatestKubernetesVersionKubenet,
 			VHD:                   config.VHDUbuntu2604MinimalGen2Containerd,
 			WaitForSSHAfterReboot: 5 * time.Minute,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
@@ -906,7 +906,7 @@ func Test_Ubuntu2604Minimal_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster:               ClusterKubenet,
+			Cluster:               ClusterLatestKubernetesVersionKubenet,
 			VHD:                   config.VHDUbuntu2604MinimalGen2Containerd,
 			WaitForSSHAfterReboot: 5 * time.Minute,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
@@ -1020,7 +1020,7 @@ func Test_Ubuntu2604Minimal_DraDriverNvidiaGpuRunning(t *testing.T) {
 		},
 
 		Config: Config{
-			Cluster: ClusterKubenet,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"

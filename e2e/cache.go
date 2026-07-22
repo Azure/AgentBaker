@@ -153,6 +153,39 @@ func clusterLatestKubernetesVersion(ctx context.Context, request ClusterRequest)
 	return prepareCluster(ctx, model, false, false)
 }
 
+var ClusterLatestKubernetesVersionKubenet = cachedFunc(clusterLatestKubernetesVersionKubenet)
+
+func clusterLatestKubernetesVersionKubenet(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-kubernetes-version-kubenet-v1", request.Location, request.K8sSystemPoolSKU)
+	if err != nil {
+		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
+	}
+	model = kubenetClusterModelMutator(model)
+	return prepareCluster(ctx, model, false, false)
+}
+
+var ClusterLatestKubernetesVersionAzureNetwork = cachedFunc(clusterLatestKubernetesVersionAzureNetwork)
+
+func clusterLatestKubernetesVersionAzureNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-kubernetes-version-azure-network-v1", request.Location, request.K8sSystemPoolSKU)
+	if err != nil {
+		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
+	}
+	model = azureNetworkClusterModelMutator(model)
+	return prepareCluster(ctx, model, false, false)
+}
+
+var ClusterLatestKubernetesVersionAzureOverlayNetworkDualStack = cachedFunc(clusterLatestKubernetesVersionAzureOverlayNetworkDualStack)
+
+func clusterLatestKubernetesVersionAzureOverlayNetworkDualStack(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-kubernetes-version-azure-overlay-dualstack-v1", request.Location, request.K8sSystemPoolSKU)
+	if err != nil {
+		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
+	}
+	model = azureOverlayNetworkDualStackClusterModelMutator(model)
+	return prepareCluster(ctx, model, false, false)
+}
+
 var ClusterKubenet = cachedFunc(clusterKubenet)
 
 // clusterKubenet creates a basic cluster using kubenet networking with shared VNet
@@ -196,7 +229,6 @@ func clusterAzureOverlayNetwork(ctx context.Context, request ClusterRequest) (*C
 
 var ClusterAzureOverlayNetworkDualStack = cachedFunc(clusterAzureOverlayNetworkDualStack)
 
-// clusterAzureOverlayNetworkDualStack creates a dual-stack (IPv4+IPv6) Azure CNI Overlay cluster
 func clusterAzureOverlayNetworkDualStack(ctx context.Context, request ClusterRequest) (*Cluster, error) {
 	model := getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack-v6", request.Location, request.K8sSystemPoolSKU)
 	return prepareCluster(ctx, model, false, false)

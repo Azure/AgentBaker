@@ -1085,7 +1085,7 @@ func runScenarioUbuntu2604MinimalGPUNPD(t *testing.T, vmSize, location, k8sSyste
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
