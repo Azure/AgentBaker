@@ -40,7 +40,7 @@ func TestBuildCSECmd(t *testing.T) {
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
 				assertHasKeyWithValue(t, vars, "LOCATION", "southcentralus")
-				assertExportsLocationBeforeProvisionStart(t, cmd)
+				assertExportsLocationBeforeInitAndProvisionStart(t, cmd)
 				assert.Equal(t, "false", vars["GPU_NODE"])
 				assert.NotEmpty(t, vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"])
 				// Ensure the containerd config does not use the
@@ -463,7 +463,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "NETWORK_PLUGIN", "")
 				assertHasKeyWithValue(t, vars, "VNET_CNI_PLUGINS_URL", "")
 				assertHasKeyWithValue(t, vars, "LOCATION", "")
-				assertExportsLocationBeforeProvisionStart(t, cmd)
+				assertExportsLocationBeforeInitAndProvisionStart(t, cmd)
 				assertHasKeyWithValue(t, vars, "GPU_NODE", "false")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
 				assertHasKeyWithValue(t, vars, "CUSTOM_CA_TRUST_COUNT", "0")
@@ -590,13 +590,16 @@ func assertHasKeyWithValue[K comparable, V any](t *testing.T, m map[K]V, key K, 
 	assert.Equal(t, value, m[key], "expected map to have key-value pair %s=%v", key, value)
 }
 
-func assertExportsLocationBeforeProvisionStart(t *testing.T, cmd *exec.Cmd) {
+func assertExportsLocationBeforeInitAndProvisionStart(t *testing.T, cmd *exec.Cmd) {
 	command := cmd.String()
 	locationExportIndex := strings.Index(command, `export LOCATION="${LOCATION}";`)
+	initAKSCloudIndex := strings.Index(command, `"${INIT_AKS_CLOUD_FILEPATH}" >>`)
 	provisionStartIndex := strings.Index(command, "/opt/azure/containers/provision_start.sh")
 
 	require.NotEqual(t, -1, locationExportIndex, "expected generated command to export LOCATION")
+	require.NotEqual(t, -1, initAKSCloudIndex, "expected generated command to start init-aks-cloud")
 	require.NotEqual(t, -1, provisionStartIndex, "expected generated command to start provision_start.sh")
+	assert.Less(t, locationExportIndex, initAKSCloudIndex, "LOCATION must be exported before init-aks-cloud starts")
 	assert.Less(t, locationExportIndex, provisionStartIndex, "LOCATION must be exported before provision_start.sh starts")
 }
 
