@@ -343,7 +343,7 @@ echo "11. Verifying graceful connection teardown (curl exit code)..."
 TEARDOWN_ITERATIONS=5
 for i in $(seq 1 "$TEARDOWN_ITERATIONS"); do
     CURL_RC=0
-    curl -s -o /dev/null "http://${LISTEN_ADDR}/metrics" || CURL_RC=$?
+    curl -s -o /dev/null --connect-timeout 5 --max-time 10 "http://${LISTEN_ADDR}/metrics" || CURL_RC=$?
     if [ "$CURL_RC" -ne 0 ]; then
         echo "   ❌ ERROR: curl exited $CURL_RC on scrape $i/${TEARDOWN_ITERATIONS}"
         if [ "$CURL_RC" -eq 56 ]; then
