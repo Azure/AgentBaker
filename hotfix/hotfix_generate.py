@@ -163,7 +163,11 @@ def bump_version(base_version):
 def path_changed(base_ref, *paths):
     """Return True if any selected path differs from the working tree and base_ref."""
     result = subprocess.run(["git", "diff", "--quiet", base_ref, "--", *paths])
-    return result.returncode != 0
+    if result.returncode == 0:
+        return False
+    if result.returncode == 1:
+        return True
+    raise subprocess.CalledProcessError(result.returncode, result.args)
 
 
 def write_hotfix_file(version, scripts_version):
