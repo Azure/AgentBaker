@@ -34,3 +34,4 @@ vhdbuilder/packer/windows/windows_settings.json
 # Code owners for localdns exporter.
 parts/linux/cloud-init/artifacts/localdns_exporter.sh @saewoni @yewmsft @jingwenw15
 spec/parts/linux/cloud-init/artifacts/localdns_exporter_spec.sh @saewoni @yewmsft @jingwenw15
+e2e/localdns/validate-localdns-exporter-metrics.sh @saewoni @yewmsft @jingwenw15
