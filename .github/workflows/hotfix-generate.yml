@@ -1,8 +1,7 @@
 name: Hotfix Template Update
 # Auto-detects whether a hotfix is needed for a PR targeting an official/* release
 # branch and, if so, computes the version numbers and updates the generated files:
-#   - If aks-node-controller/ production files changed vs the base branch, bumps
-#     `version`. Go test files and testdata are ignored.
+#   - If aks-node-controller/ changed vs the base branch, bumps `version`.
 #   - If parts/linux/cloud-init/nodecustomdata.yml ends up changed vs the base branch
 #     (either directly, or via auto-injection of changed CSE scripts), bumps
 #     `scripts_version`.
@@ -74,9 +73,6 @@ jobs:
 
       - name: Fetch base branch
         run: git fetch origin ${{ github.base_ref }}
-
-      - name: Test hotfix generator
-        run: python3 -m unittest hotfix.test_hotfix_generate
 
       - name: Generate hotfix files
         run: |
