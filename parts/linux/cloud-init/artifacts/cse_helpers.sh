@@ -1541,8 +1541,8 @@ ensureKubeletCgroupHierarchy() {
     fi
 
     # Validate supported values: /kubereserved.slice (or bare kubereserved.slice) is
-    # the only value accepted for KUBE_RESERVED_CGROUP. Only /system.slice is supported
-    # for SYSTEM_RESERVED_CGROUP (a built-in systemd slice). Reject any other value
+    # the only value accepted for KUBE_RESERVED_CGROUP. Only /system.slice (or bare system.slice)
+    # is supported for SYSTEM_RESERVED_CGROUP (a built-in systemd slice). Reject any other value
     # explicitly so kubelet doesn't fail later with an opaque enforcement error.
     case "${KUBE_RESERVED_CGROUP:-}" in
         ""|"/kubereserved.slice"|"kubereserved.slice") ;;
