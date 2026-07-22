@@ -32,6 +32,7 @@ createGuestAgentEvent() {
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
     echo "${json_string}" > "${EVENTS_LOGGING_DIR}${eventsFileName}.json"
+    chmod 0640 "${EVENTS_LOGGING_DIR}${eventsFileName}.json"
 }
 
 emitTLSBootstrappingCompletedEvent() {

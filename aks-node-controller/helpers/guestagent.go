@@ -96,7 +96,7 @@ func (l *EventLogger) LogEvent(taskName, message string, eventLevel EventLevel, 
 
 	// Event log files need to be readable by Azure monitoring services.
 	// #nosec G306 -- Operational event data without sensitive information
-	if err := os.WriteFile(eventFilePath, data, 0644); err != nil {
+	if err := os.WriteFile(eventFilePath, data, 0640); err != nil {
 		slog.Error("failed to write guest agent event file", "path", eventFilePath, "error", err)
 	}
 }

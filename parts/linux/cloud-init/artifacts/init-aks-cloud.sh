@@ -41,6 +41,7 @@ logs_to_events() {
 
     mkdir -p "${EVENTS_LOGGING_DIR}"
     echo "${json_string}" > "${EVENTS_LOGGING_DIR}${eventsFileName}.json"
+    chmod 0640 "${EVENTS_LOGGING_DIR}${eventsFileName}.json"
 
     if [ "$ret" -ne 0 ]; then
         return $ret
@@ -72,6 +73,7 @@ emit_event() {
 
     mkdir -p "${EVENTS_LOGGING_DIR}"
     echo "${json_string}" > "${EVENTS_LOGGING_DIR}${eventsFileName}.json"
+    chmod 0640 "${EVENTS_LOGGING_DIR}${eventsFileName}.json"
 }
 
 IS_FLATCAR=0

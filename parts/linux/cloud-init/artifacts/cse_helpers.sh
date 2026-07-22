@@ -760,6 +760,7 @@ logs_to_events() {
 
     mkdir -p ${EVENTS_LOGGING_DIR}
     echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
+    chmod 0640 ${EVENTS_LOGGING_DIR}${eventsFileName}.json
 
     # this allows an error from the command at ${@} to be returned and correct code assigned in cse_main
     if [ "$ret" -ne 0 ]; then

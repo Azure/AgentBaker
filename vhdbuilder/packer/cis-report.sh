@@ -56,8 +56,14 @@ pushd "$(dirname "$CISASSESSOR_TARBALL_PATH")" || exit 1
 
 # Disable GuestConfig agent to avoid interference with CIS checks
 systemctl disable --now gcd.service || true
-# Fix permissions of log files
-find /var/log -type f -exec chmod 640 {} \;
+# Fix permissions of log files. Re-run before each assessor pass because
+# periodic telemetry timers (e.g. cgroup-*-telemetry, every 5 min) write new
+# 0644 event files into /var/log after this initial pass, which would otherwise
+# flake the "access to all logfiles" CIS control (6.1.3.1 / 6.1.4.1).
+normalize_log_perms() {
+    find /var/log -type f -exec chmod 640 {} \;
+}
+normalize_log_perms
 
 tar xzf "$CISASSESSOR_TARBALL_PATH"
 
@@ -68,6 +74,7 @@ latest_report() {
     find "$REPORT_DIR" -name "$pattern" -printf '%T@ %p\n' | sort -n | tail -n1 | cut -d' ' -f2-
 }
 
+normalize_log_perms
 LEVEL=1 cisassessor/launch-cis.sh
 L1_TXT_REPORT=$(latest_report "*.txt")
 if [ -z "$L1_TXT_REPORT" ] || [ ! -f "$L1_TXT_REPORT" ]; then
@@ -75,6 +82,7 @@ if [ -z "$L1_TXT_REPORT" ] || [ ! -f "$L1_TXT_REPORT" ]; then
     exit 1
 fi
 
+normalize_log_perms
 LEVEL=2 cisassessor/launch-cis.sh
 L2_TXT_REPORT=$(latest_report "*.txt")
 if [ -z "$L2_TXT_REPORT" ] || [ ! -f "$L2_TXT_REPORT" ]; then

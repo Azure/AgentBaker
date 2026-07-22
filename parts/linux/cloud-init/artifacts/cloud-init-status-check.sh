@@ -62,6 +62,7 @@ handleCloudInitStatus() {
     )
     mkdir -p ${EVENTS_LOGGING_DIR}
     echo ${jsonString} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
+    chmod 0640 ${EVENTS_LOGGING_DIR}${eventsFileName}.json
 
     if [ "$cloudInitExitCode" -eq 1 ]; then 
         # if cloud-init exited with code 1, we exit with ERR_CLOUD_INIT_FAILED indicating non-recoverable error in cloud init
