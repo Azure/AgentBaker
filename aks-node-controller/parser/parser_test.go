@@ -40,6 +40,7 @@ func TestBuildCSECmd(t *testing.T) {
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
+				assertHasKeyWithValue(t, vars, "LOCATION", "southcentralus")
 				assert.Equal(t, "false", vars["GPU_NODE"])
 				assertHasKeyWithValue(t, vars, "MIG_NODE", "true")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "MIG7g")
@@ -503,6 +504,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "NETWORK_POLICY", "")
 				assertHasKeyWithValue(t, vars, "NETWORK_PLUGIN", "")
 				assertHasKeyWithValue(t, vars, "VNET_CNI_PLUGINS_URL", "")
+				assertHasKeyWithValue(t, vars, "LOCATION", "")
 				assertHasKeyWithValue(t, vars, "GPU_NODE", "false")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
 				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILES", "")
