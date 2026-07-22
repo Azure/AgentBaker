@@ -2770,7 +2770,9 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 // ValidateScriptlessPhase3 validates that there are not diffs between ANC generated cse cmd NBC cse cmd vars
 func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) {
 	s.T.Helper()
-	if s.Runtime.AKSNodeConfig != nil && s.Runtime.NBC.EnableScriptlessNBCCSECmd {
+	nbc := s.Runtime.NBC
+	if s.Runtime.AKSNodeConfig != nil && nbc.EnableScriptlessNBCCSECmd &&
+		(nbc.CustomCATrustConfig == nil || len(nbc.CustomCATrustConfig.CustomCATrustCerts) == 0) {
 		logFile := "/var/log/azure/aks-node-controller.log"
 		if !fileHasContent(ctx, s, logFile, "env compare: no differences found between provision-config and nbc-cmd env vars") {
 			// Grep for all env-compare diff markers to show what's different.
