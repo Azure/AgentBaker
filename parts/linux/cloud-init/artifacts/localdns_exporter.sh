@@ -28,6 +28,17 @@ if ! read -r -t 5 REQUEST_LINE; then
 fi
 REQUEST_PATH=$(echo "$REQUEST_LINE" | awk '{print $2}')
 
+# Drain the remaining HTTP request headers up to the blank line that terminates them.
+# The client sends request headers (Host, User-Agent, Accept, ...) after the request line.
+# If we leave those bytes unread in the socket receive buffer, the kernel sends a TCP RST
+# instead of a FIN when this worker exits and systemd close()s the connection. Scrapers --
+# and the API-server konnectivity proxy path -- log that as "connection reset by peer" on
+# every otherwise-successful scrape. Consuming the request lets the socket close gracefully.
+while IFS= read -r -t 5 REQUEST_HEADER; do
+    REQUEST_HEADER=${REQUEST_HEADER%$'\r'}
+    [ -z "$REQUEST_HEADER" ] && break
+done
+
 # Only serve metrics at /metrics endpoint (Prometheus convention)
 if [ "$REQUEST_PATH" != "/metrics" ]; then
     printf "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n"
