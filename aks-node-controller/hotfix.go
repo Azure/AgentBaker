@@ -44,11 +44,43 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 			"path", hotfixPath, "error", err)
 		return nil
 	}
+	// Applying node custom data is best-effort/fail-open: it must never block the
+	// binary hotfix download below, or provisioning as a whole.
+	if err := a.applyNodeCustomDataIfNeeded(cfg); err != nil {
+		slog.Warn("failed to apply node custom data", "path", hotfixPath, "error", err)
+	}
+	return a.downloadBinaryHotfixIfNeeded(ctx, cfg)
+}
+
+func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
+	hotfixVersion := strings.TrimSpace(cfg.ScriptsVersion)
+	if hotfixVersion == "" {
+		slog.Info("hotfix config does not request a scripts version for this base, skipping nodecustomdata apply", "current", Version)
+		return nil
+	}
+
+	// Patch-only matching: only upgrade if same YYYYMM.DD base and hotfix has
+	// a strictly higher PATCH. Parse errors (e.g. "dev" builds) result in skip.
+	shouldUpgrade, err := shouldUpgradeToHotfix(Version, hotfixVersion)
+	if err != nil {
+		slog.Warn("failed to compare versions, skipping nodecustomdata apply",
+			"current", Version, "hotfix", hotfixVersion, "error", err)
+		return nil
+	}
+	if !shouldUpgrade {
+		slog.Info("CSE scripts version not targeted by hotfix, skipping nodecustomdata apply",
+			"current", Version, "hotfix", hotfixVersion)
+		return nil
+	}
+
+	return applyNodeCustomData(a.getNodeCustomDataPath())
+}
+
+func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfig) error {
 	hotfixVersion := cfg.resolveVersion(Version)
 
 	if hotfixVersion == "" {
-		slog.Info("hotfix config does not request a version for this base, skipping download",
-			"path", hotfixPath, "current", Version)
+		slog.Info("hotfix config does not request a version for this base, skipping download", "current", Version)
 		return nil
 	}
 
@@ -87,6 +119,9 @@ type hotfixConfig struct {
 	// is empty, preserving backward compatibility with the original config shape.
 	Version string `json:"version,omitempty"`
 
+	// ScriptsVersion is override version for cse scripts
+	ScriptsVersion string `json:"scripts_version,omitempty"`
+
 	// Hotfixes maps an ANC version base ("YYYYMM.DD") to the hotfix version
 	// ("YYYYMM.DD.PATCH") to apply to nodes whose baked ANC version shares that base.
 	// A single config can thus pin hotfixes for multiple VHD bases at once; a base
@@ -109,7 +144,7 @@ func hotfixBaseFromVersion(version string) (string, error) {
 	return parts[0] + "." + parts[1], nil
 }
 
-// resolveVersion picks the hotfix version that applies to the given current ANC version.
+// resolveVersion picks the hotfix ANC version that applies to the given current ANC version.
 // When the base->version map is populated it takes precedence: the entry matching the
 // current version's "YYYYMM.DD" base is returned, while an absent base (or an unparseable
 // current version) yields "" so provisioning proceeds with no hotfix. When the map is
@@ -130,22 +165,22 @@ func (cfg hotfixConfig) resolveVersion(current string) string {
 
 // readHotfixConfig reads and parses the JSON hotfix config from the given path.
 // Returns a zero-value config if the file doesn't exist or is empty.
-func readHotfixConfig(path string) (hotfixConfig, error) {
+func readHotfixConfig(path string) (*hotfixConfig, error) {
 	var cfg hotfixConfig
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return cfg, nil
+			return &cfg, nil
 		}
-		return cfg, err
+		return &cfg, err
 	}
 	if len(strings.TrimSpace(string(data))) == 0 {
-		return cfg, nil
+		return &cfg, nil
 	}
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return cfg, fmt.Errorf("parsing hotfix config %s: %w", path, err)
+		return &cfg, fmt.Errorf("parsing hotfix config %s: %w", path, err)
 	}
-	return cfg, nil
+	return &cfg, nil
 }
 
 // packageManager represents a supported system package manager.
@@ -158,11 +193,16 @@ const (
 )
 
 // detectPackageManager returns the package manager for the current OS.
-// It reads /etc/os-release to determine whether to use apt-get (Ubuntu) or dnf/tdnf (AzureLinux/Mariner).
-func detectPackageManager() (packageManager, error) {
-	data, err := os.ReadFile("/etc/os-release")
+// It reads /etc/os-release (or a.osReleasePath override, for testing) to determine
+// whether to use apt-get (Ubuntu) or dnf/tdnf (AzureLinux/Mariner).
+func (a *App) detectPackageManager() (packageManager, error) {
+	osReleasePath := a.osReleasePath
+	if osReleasePath == "" {
+		osReleasePath = "/etc/os-release"
+	}
+	data, err := os.ReadFile(osReleasePath)
 	if err != nil {
-		return "", fmt.Errorf("reading /etc/os-release: %w", err)
+		return "", fmt.Errorf("reading %s: %w", osReleasePath, err)
 	}
 	content := string(data)
 	for _, line := range strings.Split(content, "\n") {
@@ -180,7 +220,7 @@ func detectPackageManager() (packageManager, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("ID not found in /etc/os-release")
+	return "", fmt.Errorf("ID not found in %s", osReleasePath)
 }
 
 // preferredRpmManager returns dnf if available, falling back to tdnf (used by OS Guard).
@@ -193,7 +233,7 @@ func preferredRpmManager() packageManager {
 
 // installFromPMC installs the hotfix package from PMC using the system package manager.
 func (a *App) installFromPMC(ctx context.Context, version string) error {
-	pkgMgr, err := detectPackageManager()
+	pkgMgr, err := a.detectPackageManager()
 	if err != nil {
 		return err
 	}

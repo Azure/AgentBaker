@@ -74,6 +74,215 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'cleanUpGridNodeCudaPrebake'
+        # Stub the actual removal so tests assert the keep-vs-teardown DECISION without touching the
+        # real filesystem. OS defaults to Ubuntu (the only path this function acts on).
+        OS="$UBUNTU_OS_NAME"
+        # shellcheck disable=SC2329 # invoked dynamically by cleanUpGridNodeCudaPrebake.
+        cleanUpPrebakedGPUDriver() { echo "STUB_TEARDOWN_CALLED"; }
+
+        It 'tears down a cuda prebake before installing a GRID driver (A10/GRID outage path)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should include "action=teardown"
+            The output should include "marker_kind=cuda"
+            The output should include "node_kind=grid"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'tears down for a grid-v20 node whose driver-type maps to grid'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid-v20"
+            When call cleanUpGridNodeCudaPrebake
+            The output should include "action=teardown"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'treats a legacy marker without driver_kind as a cuda prebake and tears down on a GRID node'
+            marker="$(mktemp)"
+            printf 'kernel=5.15.0-1114-azure\n' > "$marker"   # no driver_kind= line
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should include "action=teardown"
+            The output should include "marker_kind=none"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'is a no-op on a CUDA node (leaves the cuda prebake for the version-match/library-bump path)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            rm -f "$marker"
+        End
+
+        It 'is a no-op when the prebake is already grid (matches the grid node)'
+            marker="$(mktemp)"
+            printf 'driver_kind=grid\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            rm -f "$marker"
+        End
+
+        It 'is a no-op when no prebake marker exists'
+            GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+        End
+
+        It 'is a no-op on a non-Ubuntu OS even when a mismatched marker is present'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            OS="MARINER"   # override the Ubuntu default set at the Describe level
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            OS="$UBUNTU_OS_NAME"   # restore for any subsequent examples
+            rm -f "$marker"
+        End
+    End
+
+    Describe 'disableSSHPubkeyAuth'
+        setup() {
+            SSHD_CONFIG_FILE="$(mktemp)"
+            SSH_SERVICE_ACTIVE="true"
+            SSH_SERVICE_EXISTS="true"
+        }
+
+        cleanup() {
+            rm -f "${SSHD_CONFIG_FILE}"
+            unset SSHD_CONFIG_FILE
+            unset SSH_SERVICE_ACTIVE
+            unset SSH_SERVICE_EXISTS
+        }
+
+        systemctl() {
+            echo "systemctl $*" >&2
+            if [ "$1" = "cat" ] && [ "${SSH_SERVICE_EXISTS}" != "true" ]; then
+                return 1
+            fi
+            if [ "$1" = "is-active" ] && [ "${SSH_SERVICE_ACTIVE}" != "true" ]; then
+                return 3
+            fi
+            return 0
+        }
+
+        sshd() {
+            echo "sshd $*" >&2
+            return 0
+        }
+
+        install() {
+            while [ "$#" -gt 2 ]; do
+                shift
+            done
+            command cp "$1" "$2"
+        }
+
+        run_disable_ssh_pubkey_auth() {
+            disableSSHPubkeyAuth
+            cat "${SSHD_CONFIG_FILE}"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'disables the global setting without changing a Match block'
+            cat > "${SSHD_CONFIG_FILE}" <<'EOF'
+PasswordAuthentication no
+PubkeyAuthentication yes
+Match User entra
+  AuthenticationMethods publickey
+  PubkeyAuthentication yes
+EOF
+            expected='PasswordAuthentication no
+PubkeyAuthentication no
+Match User entra
+  AuthenticationMethods publickey
+  PubkeyAuthentication yes'
+
+            When call run_disable_ssh_pubkey_auth
+
+            The status should be success
+            The output should equal "${expected}"
+            The stderr should include "sshd -t -f"
+        End
+
+        It 'inserts the global setting before the first Match block'
+            cat > "${SSHD_CONFIG_FILE}" <<'EOF'
+PasswordAuthentication no
+Match User entra
+  PubkeyAuthentication yes
+EOF
+            expected='PasswordAuthentication no
+PubkeyAuthentication no
+Match User entra
+  PubkeyAuthentication yes'
+
+            When call run_disable_ssh_pubkey_auth
+
+            The status should be success
+            The output should equal "${expected}"
+            The stderr should include "sshd -t -f"
+        End
+
+        It 'appends the setting when the config has no Match block'
+            echo "PasswordAuthentication no" > "${SSHD_CONFIG_FILE}"
+            expected='PasswordAuthentication no
+PubkeyAuthentication no'
+
+            When call run_disable_ssh_pubkey_auth
+
+            The status should be success
+            The output should equal "${expected}"
+            The stderr should include "sshd -t -f"
+        End
+
+        It 'starts ssh.service when the Ubuntu service is not active'
+            echo "PasswordAuthentication no" > "${SSHD_CONFIG_FILE}"
+            SSH_SERVICE_ACTIVE="false"
+
+            When call run_disable_ssh_pubkey_auth
+
+            The status should be success
+            The output should equal "PasswordAuthentication no
+PubkeyAuthentication no"
+            The stderr should include "systemctl start ssh.service"
+        End
+
+        It 'starts sshd.service when ssh.service does not exist'
+            echo "PasswordAuthentication no" > "${SSHD_CONFIG_FILE}"
+            SSH_SERVICE_ACTIVE="false"
+            SSH_SERVICE_EXISTS="false"
+
+            When call run_disable_ssh_pubkey_auth
+
+            The status should be success
+            The output should equal "PasswordAuthentication no
+PubkeyAuthentication no"
+            The stderr should include "systemctl start sshd.service"
+        End
+    End
+
     Describe 'configureAzureJson'
         AZURE_JSON_PATH="azure.json"
         AKS_CUSTOM_CLOUD_JSON_PATH="customcloud.json"
@@ -1453,27 +1662,38 @@ SETUP_EOF
 
             # Create dummy service and timer files
             touch "$AKS_LOCALDNS_HOSTS_SETUP_SERVICE"
-            touch "$AKS_LOCALDNS_HOSTS_SETUP_TIMER"
+            cat > "$AKS_LOCALDNS_HOSTS_SETUP_TIMER" <<'TIMER_EOF'
+[Unit]
+Description=Run AKS LocalDNS hosts setup periodically
+
+[Timer]
+OnUnitActiveSec=15min
+TIMER_EOF
 
             # Set up test environment
             TARGET_CLOUD="AzurePublicCloud"
             LOCALDNS_CRITICAL_FQDNS="mcr.microsoft.com,packages.microsoft.com,management.azure.com,login.microsoftonline.com,acs-mirror.azureedge.net,packages.aks.azure.com"
+            LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS=""
 
             # Mock systemctl function
             systemctlEnableAndStartNoBlock() {
                 echo "systemctlEnableAndStartNoBlock $@"
                 return 0
             }
+            systemctl() {
+                echo "systemctl $@"
+                return 0
+            }
 
             # Export variables so the real function can use them
             export AKS_LOCALDNS_HOSTS_FILE AKS_LOCALDNS_HOSTS_SETUP_SCRIPT AKS_LOCALDNS_HOSTS_SETUP_SERVICE
-            export AKS_LOCALDNS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD LOCALDNS_CRITICAL_FQDNS
+            export AKS_LOCALDNS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD LOCALDNS_CRITICAL_FQDNS LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS
         }
 
         cleanup() {
             rm -rf "$TEST_TEMP_DIR"
             unset AKS_LOCALDNS_HOSTS_FILE AKS_LOCALDNS_HOSTS_SETUP_SCRIPT AKS_LOCALDNS_HOSTS_SETUP_SERVICE
-            unset AKS_LOCALDNS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD LOCALDNS_CRITICAL_FQDNS
+            unset AKS_LOCALDNS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD LOCALDNS_CRITICAL_FQDNS LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS
         }
 
         BeforeEach 'setup'
@@ -1491,6 +1711,52 @@ SETUP_EOF
             When call enableAKSLocalDNSHostsSetup
             The status should be success
             The output should include "systemctlEnableAndStartNoBlock aks-localdns-hosts-setup.timer 30"
+        End
+
+        It 'should update the timer refresh interval when provided'
+            LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS="30"
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "Configured aks-localdns-hosts-setup timer refresh interval to 30s."
+            The output should include "systemctl daemon-reload"
+            The contents of file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should include "OnUnitActiveSec=30s"
+            The contents of file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should include "AccuracySec=1s"
+            The contents of file "$AKS_LOCALDNS_HOSTS_SETUP_TIMER" should include "OnUnitActiveSec=15min"
+        End
+
+        It 'should restore the default timer when refresh interval is unset'
+            mkdir -p "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d"
+            cat > "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" <<'OVERRIDE_EOF'
+[Timer]
+OnUnitActiveSec=30s
+AccuracySec=1s
+OVERRIDE_EOF
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "Restored default aks-localdns-hosts-setup timer refresh interval."
+            The output should include "systemctl daemon-reload"
+            The contents of file "$AKS_LOCALDNS_HOSTS_SETUP_TIMER" should include "OnUnitActiveSec=15min"
+            The file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should not be exist
+        End
+
+        It 'should keep the default timer when refresh interval is invalid'
+            LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS="abc"
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "must be an integer, got 'abc'. Using default timer interval."
+            The contents of file "$AKS_LOCALDNS_HOSTS_SETUP_TIMER" should include "OnUnitActiveSec=15min"
+            The file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should not be exist
+        End
+
+        It 'should clamp the timer refresh interval when below minimum'
+            LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS="1"
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "must be >= 5, got '1'. Clamping to 5s."
+            The output should include "Configured aks-localdns-hosts-setup timer refresh interval to 5s."
+            The contents of file "$AKS_LOCALDNS_HOSTS_SETUP_TIMER" should include "OnUnitActiveSec=15min"
+            The contents of file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should include "OnUnitActiveSec=5s"
+            The contents of file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should include "AccuracySec=1s"
         End
 
         It 'should skip when setup script is missing'
@@ -2079,7 +2345,7 @@ SETUP_EOF
             echo "systemctl $@"
         }
 
-        BeforeEach 'MIG_NODE="false"'
+        BeforeEach 'MIG_NODE="false"; ENABLE_MANAGED_GPU_EXPERIENCE="true"; ENABLE_MANAGED_GPU_EXPERIENCE_DRA="false"'
 
         It 'starts the device-plugin blocking but dcgm and dcgm-exporter off the critical path'
             When call startNvidiaManagedExpServices
@@ -2104,6 +2370,20 @@ SETUP_EOF
             The status should be success
             The output should include "warning: nvidia-dcgm could not be enqueued"
             The output should include "warning: nvidia-dcgm-exporter could not be enqueued"
+        End
+
+        It 'starts the DRA driver blocking but dcgm and dcgm-exporter off the critical path in DRA mode'
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call startNvidiaManagedExpServices
+
+            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm 30"
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm-exporter 30"
+            The output should not include "systemctlEnableAndStart nvidia-device-plugin 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm-exporter 30"
         End
     End
 
@@ -2279,6 +2559,78 @@ EOF
             The variable AMD_AMA_DRIVER_PACKAGE should equal \
                 "amd-ama-driver-0:1.5.0_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm"
             The variable AMD_AMA_DRIVER_VERSION should equal "1.5.0"
+        End
+    End
+
+    Describe 'configureSSHPubkeyAuth CIS-compliant sshd_config permissions'
+        # These are static assertions on cse_config.sh to guard against a
+        # regression of the CIS Benchmark 5.1.1 fix, which requires
+        # /etc/ssh/sshd_config to be mode 0600 (or more restrictive) and
+        # owned by root:root. Previously, configureSSHPubkeyAuth used
+        # `install -m 644 ...` which overwrote the VHD-hardened 0600 mode
+        # from configureSsh() in cis.sh, causing CIS control 5.1.1 to fail
+        # on Ubuntu 22.04 and 24.04 nodes.
+        #
+        # If configureSSHPubkeyAuth ever reverts to a non-compliant mode
+        # (e.g. 644, 640, 660, 755) when replacing $SSHD_CONFIG, these
+        # tests will fail and flag the regression before it ships.
+        cse_config_path="./parts/linux/cloud-init/artifacts/cse_config.sh"
+
+        It 'replaces sshd_config with mode 0600 (CIS Benchmark 5.1.1)'
+            When call grep -E '^[[:space:]]*install[[:space:]]+-m[[:space:]]+0?600[[:space:]]+-o[[:space:]]+root[[:space:]]+-g[[:space:]]+root[[:space:]]+"\$TMP"[[:space:]]+"\$SSHD_CONFIG"' "$cse_config_path"
+            The status should be success
+            The output should include 'install'
+            The output should include 'SSHD_CONFIG'
+        End
+
+        It 'does not replace sshd_config with a world/group-readable mode'
+            When call grep -E '^[[:space:]]*install[[:space:]]+-m[[:space:]]+(0?(644|640|660|755|777))[[:space:]].*"\$SSHD_CONFIG"' "$cse_config_path"
+            The status should be failure
+        End
+    End
+
+    Describe 'managedGPUPackageList on Ubuntu'
+        Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
+
+        BeforeEach 'setup'
+        setup() {
+            ENABLE_MANAGED_GPU_EXPERIENCE=""
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA=""
+        }
+
+        It 'returns base managed GPU packages by default'
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should equal 'datacenter-gpu-manager-4-core datacenter-gpu-manager-4-proprietary dcgm-exporter'
+            The output should not include 'nvidia-device-plugin'
+            The output should not include 'dra-driver-nvidia-gpu'
+        End
+
+        It 'includes nvidia-device-plugin when managed GPU experience is enabled'
+            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should include 'datacenter-gpu-manager-4-core'
+            The output should include 'datacenter-gpu-manager-4-proprietary'
+            The output should include 'dcgm-exporter'
+            The output should include 'nvidia-device-plugin'
+            The output should not include 'dra-driver-nvidia-gpu'
+        End
+
+        It 'includes dra-driver-nvidia-gpu when DRA mode is enabled'
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should include 'datacenter-gpu-manager-4-core'
+            The output should include 'datacenter-gpu-manager-4-proprietary'
+            The output should include 'dcgm-exporter'
+            The output should include 'dra-driver-nvidia-gpu'
+            The output should not include 'nvidia-device-plugin'
         End
     End
 End

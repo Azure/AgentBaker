@@ -172,7 +172,11 @@ function Pull-OCIArtifact
             New-Item -ItemType Directory $global:aksTempDir -Force
         }
 
-        $orasVersion = '1.2.3'
+        $orasVersion = $global:orasVersion
+        if ([string]::IsNullOrEmpty($orasVersion)) {
+            throw "Unable to resolve ORAS version from components.json"
+        }
+
         $orasZip = "oras_${orasVersion}_windows_amd64.zip"
         $orasUrl = "https://github.com/oras-project/oras/releases/download/v${orasVersion}/${orasZip}"
 

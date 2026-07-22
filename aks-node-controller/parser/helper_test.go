@@ -499,7 +499,168 @@ oom_score = -999
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getContainerdConfigBase64(tt.args.aksnodeconfig); got != tt.want {
+			if got := getContainerdConfigBase64(tt.args.aksnodeconfig, ""); got != tt.want {
+				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getContainerdConfigV2(t *testing.T) {
+	type args struct {
+		aksnodeconfig *aksnodeconfigv1.Configuration
+		noGpu         bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "Containerd v2 default config",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+						ContainerdVersion: "2.0.0",
+					},
+				},
+			},
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+oom_score = -999
+[plugins."io.containerd.cri.v1.images"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = ""
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[plugins."io.containerd.cri.v1.runtime".containerd]
+    default_runtime_name = "runc"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+[metrics]
+  address = "0.0.0.0:10257"
+`)),
+		},
+		{
+			name: "Containerd v2 with GPU",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					NeedsCgroupv2: to.Ptr(true),
+					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+						ContainerdVersion: "2.0.1",
+					},
+					GpuConfig: &aksnodeconfigv1.GpuConfig{
+						EnableNvidia: to.Ptr(true),
+					},
+				},
+				noGpu: false,
+			},
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+oom_score = -999
+[plugins."io.containerd.cri.v1.images"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = ""
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[plugins."io.containerd.cri.v1.runtime".containerd]
+    default_runtime_name = "nvidia-container-runtime"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+[metrics]
+  address = "0.0.0.0:10257"
+`)),
+		},
+		{
+			name: "Containerd v2 no GPU template",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+						ContainerdVersion: "2.0.0",
+					},
+					GpuConfig: &aksnodeconfigv1.GpuConfig{
+						EnableNvidia: to.Ptr(true),
+					},
+				},
+				noGpu: true,
+			},
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+oom_score = -999
+[plugins."io.containerd.cri.v1.images"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = ""
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[plugins."io.containerd.cri.v1.runtime".containerd]
+    default_runtime_name = "runc"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+[metrics]
+  address = "0.0.0.0:10257"
+`)),
+		},
+		{
+			name: "Containerd v1 still uses old templates",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					NeedsCgroupv2: to.Ptr(true),
+					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+						ContainerdVersion: "1.7.22",
+					},
+				},
+			},
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+oom_score = -999
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+  enable_cdi = true
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    default_runtime_name = "runc"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+  [plugins."io.containerd.grpc.v1.cri".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+  address = "0.0.0.0:10257"
+`)),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			containerdVersion := tt.args.aksnodeconfig.GetContainerdConfig().GetContainerdVersion()
+			var got string
+			if tt.args.noGpu {
+				got = getNoGPUContainerdConfigBase64(tt.args.aksnodeconfig, containerdVersion)
+			} else {
+				got = getContainerdConfigBase64(tt.args.aksnodeconfig, containerdVersion)
+			}
+			if got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
 			}
 		})
@@ -2079,6 +2240,101 @@ func Test_getLocalDnsCriticalFqdns(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getLocalDnsCriticalFqdns(tt.args.config); got != tt.want {
 				t.Errorf("getLocalDnsCriticalFqdns() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getLocalDnsHostsPluginRefreshIntervalInSeconds(t *testing.T) {
+	type args struct {
+		config *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "returns empty string when config is nil",
+			args: args{config: nil},
+			want: "",
+		},
+		{
+			name: "returns empty string when LocalDnsProfile is nil",
+			args: args{config: &aksnodeconfigv1.Configuration{}},
+			want: "",
+		},
+		{
+			name: "returns empty string when refresh interval is nil",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{},
+			}},
+			want: "",
+		},
+		{
+			name: "returns empty string when refresh interval is non-positive",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					HostsPluginRefreshIntervalInSeconds: to.Ptr(int32(0)),
+				},
+			}},
+			want: "",
+		},
+		{
+			name: "returns the refresh interval in seconds",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					HostsPluginRefreshIntervalInSeconds: to.Ptr(int32(45)),
+				},
+			}},
+			want: "45",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getLocalDnsHostsPluginRefreshIntervalInSeconds(tt.args.config); got != tt.want {
+				t.Errorf("getLocalDnsHostsPluginRefreshIntervalInSeconds() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getStringFromNetworkPluginType(t *testing.T) {
+	tests := []struct {
+		name string
+		enum aksnodeconfigv1.NetworkPlugin
+		want string
+	}{
+		{"azure", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE, helpers.NetworkPluginAzure},
+		{"kubenet", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET, helpers.NetworkPluginKubenet},
+		{"none matches scriptful raw string", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_NONE, helpers.NetworkPluginNone},
+		{"unspecified", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_UNSPECIFIED, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getStringFromNetworkPluginType(tt.enum); got != tt.want {
+				t.Errorf("getStringFromNetworkPluginType() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getStringFromNetworkPolicyType(t *testing.T) {
+	tests := []struct {
+		name string
+		enum aksnodeconfigv1.NetworkPolicy
+		want string
+	}{
+		{"azure", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE, helpers.NetworkPolicyAzure},
+		{"calico", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO, helpers.NetworkPolicyCalico},
+		{"none matches scriptful raw string", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_NONE, helpers.NetworkPolicyNone},
+		{"unspecified", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_UNSPECIFIED, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getStringFromNetworkPolicyType(tt.enum); got != tt.want {
+				t.Errorf("getStringFromNetworkPolicyType() = %q, want %q", got, tt.want)
 			}
 		})
 	}

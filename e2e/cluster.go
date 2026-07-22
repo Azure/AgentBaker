@@ -181,9 +181,7 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		debugDeps = append(debugDeps, acrNonAnon, acrAnon)
 	}
 	proxyURL := dag.Go1(g, kubeForDebug, func(ctx context.Context, k *Kubeclient) (string, error) {
-		if err := k.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location)); err != nil {
-			return "", err
-		}
+		k.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location))
 		if isNetworkIsolated {
 			return "", nil
 		}

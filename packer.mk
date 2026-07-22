@@ -139,7 +139,7 @@ cleanup-prefetch: az-login
 
 generate-prefetch-scripts:
 	@echo "${MODE}: Generating prefetch scripts"
-	@bash -c "pushd vhdbuilder/prefetch; go run cmd/main.go --components-path=../../parts/common/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
+	@bash -c "pushd vhdbuilder/prefetch; go run cmd/main.go --components-path=../../parts/common/components.json --postfix-path=../../parts/linux/cloud-init/artifacts/cse_preload.sh --output-path=../packer/prefetch.sh || exit 1; popd"
 
 setup-golang:
 	@echo "Setting up Go environment"
@@ -147,14 +147,14 @@ setup-golang:
 
 build-aks-node-controller:
 	@echo "Building aks-node-controller binaries"
-	@bash -c "pushd aks-node-controller && \
-	go test ./... && \
-	ANC_VERSION=\"$${IMAGE_VERSION:-$$(date +%Y%m.%d.0)}\"; \
-	ANC_LDFLAGS=\"-X main.Version=$${ANC_VERSION}\"; \
-	echo \"Stamping ANC version: $${ANC_VERSION}\"; \
-	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags \"$${ANC_LDFLAGS}\" -o bin/aks-node-controller-linux-amd64 && \
-	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags \"$${ANC_LDFLAGS}\" -o bin/aks-node-controller-linux-arm64 && \
-	popd"
+	@bash -c 'set -euo pipefail; \
+	cd aks-node-controller; \
+	go test ./...; \
+	ANC_VERSION="$${IMAGE_VERSION:-$$(date +%Y%m.%d.0)}"; \
+	ANC_LDFLAGS="-X main.Version=$${ANC_VERSION}"; \
+	echo "Stamping ANC version: $${ANC_VERSION}"; \
+	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$${ANC_LDFLAGS}" -o bin/aks-node-controller-linux-amd64; \
+	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "$${ANC_LDFLAGS}" -o bin/aks-node-controller-linux-arm64'
 
 build-image-fetcher:
 	@echo "Building image-fetcher binaries"

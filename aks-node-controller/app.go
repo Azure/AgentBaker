@@ -30,6 +30,7 @@ func isExpectedDiffCSEVar(key string) bool {
 		"HYPERKUBE_URL",
 		"MCR_REPOSITORY_BASE",
 		"BLOCK_OUTBOUND_NETWORK",
+		"REPO_DEPOT_ENDPOINT",
 		"SKIP_WAAGENT_HOLD":
 		return true
 	}
@@ -47,6 +48,8 @@ type App struct {
 	hotfixVersionPath string
 	// aptSourcesDir overrides the default APT sources directory for testing.
 	aptSourcesDir string
+	// osReleasePath overrides the default /etc/os-release path for testing.
+	osReleasePath string
 	// nodeCustomDataPath overrides the default nodecustomdata path for testing.
 	nodeCustomDataPath string
 	// nodeConfigPath overrides the default AKSNodeConfig path for testing. It is the
@@ -587,12 +590,6 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 
 	var cmd *exec.Cmd
 	if flags.NBCCmd != "" {
-		if err := applyNodeCustomData(a.getNodeCustomDataPath()); err != nil {
-			provisionResult.ExitCode = strconv.Itoa(240)
-			provisionResult.Error = err.Error()
-			return provisionResult, err
-		}
-
 		var err error
 		cmd, err = buildCmdFromNBCCmd(ctx, flags.NBCCmd)
 		if err != nil {

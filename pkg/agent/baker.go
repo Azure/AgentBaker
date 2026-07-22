@@ -11,6 +11,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -54,74 +56,33 @@ mkdir -p /opt/azure/containers
 
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
-cat <<'EOF' | base64 -d | gzip -d >%[1]s
-%[2]s
-EOF
-chmod 0600 %[1]s
-
-cat <<'EOF' | base64 -d | gzip -d >%[3]s
-%[4]s
-EOF
-chmod 0600 %[3]s
-%[5]s
-if [ "%[6]s" != "%[7]s" ] && [ -f "%[6]s" ]; then mv -f "%[6]s" "%[7]s"; fi
+%s
 logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
 `
-	// aksNodeConfigBlock is appended to the boothook when AKSNodeConfig is provided.
-	// It writes the gzipped+base64-encoded JSON config to disk so the wrapper script
-	// can pass --provision-config alongside --nbc-cmd for env comparison.
-	aksNodeConfigBlockFmt = `
+	// boothookFileEntry is appended to the boothook for each additional file.
+	// It writes gzipped+base64-encoded content to disk before starting aks-node-controller.
+	boothookFileEntry = `
 cat <<'EOF' | base64 -d | gzip -d >%[1]s
 %[2]s
 EOF
 chmod 0600 %[1]s
 `
-	flatcarAKSCustomCloudRenameUnitContents = `[Unit]\n` +
-		`Description=Rename AKS custom cloud init script\n` +
-		`DefaultDependencies=no\n` +
-		`After=local-fs.target\n` +
-		`Before=aks-node-controller.service\n\n` +
-		`[Service]\n` +
-		`Type=oneshot\n` +
-		`ExecStart=/bin/sh -c 'if [ \"%[4]s\" != \"%[5]s\" ] && ` +
-		`[ -f \"%[4]s\" ]; then mv -f \"%[4]s\" \"%[5]s\"; fi'\n` +
-		`RemainAfterExit=yes\n\n` +
-		`[Install]\n` +
-		`WantedBy=multi-user.target`
 	flatcarTemplate = `{
      "ignition": { "version": "3.4.0" },
      "storage": {
-       "files": [{
-        "path": "/opt/azure/containers/aks-node-controller-nbc-cmd.sh",
-        "mode": 384,
-        "contents": { "compression": "gzip","source": "data:;base64,%[1]s" }
-       },
-	   {
-        "path": "/opt/azure/containers/nodecustomdata.yml",
-        "mode": 384,
-        "contents": { "compression": "gzip","source": "data:;base64,%[2]s" }
-       }%[3]s]
-      },
-      "systemd": {
-       "units": [{
-        "name": "aks-custom-cloud-init-rename.service",
-        "enabled": true,
-        "contents": "` + flatcarAKSCustomCloudRenameUnitContents + `"
-       }]
+       "files": [%s]
       }
      }`
-	// flatcarAKSNodeConfigEntry is an Ignition file entry appended to the files array
-	// when AKSNodeConfig is provided for env comparison.
-	flatcarAKSNodeConfigEntry = `,
+	// flatcarFileEntry is an Ignition file entry appended to the files array
+	// when additional files are provided. Entries are joined with "," by
+	// buildScriptlessCustomData to form a valid JSON array.
+	flatcarFileEntry = `
 	   {
-        "path": "/opt/azure/containers/aks-node-controller-config.json",
+        "path": "%[1]s",
         "mode": 384,
-        "contents": { "compression": "gzip","source": "data:;base64,%s" }
+        "contents": { "compression": "gzip","source": "data:;base64,%[2]s" }
        }`
-	nodeCustomDataPath = "/opt/azure/containers/nodecustomdata.yml"
-	nbcCmdFilePath     = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
-	aksNodeConfigPath  = "/opt/azure/containers/aks-node-controller-config.json"
 )
 
 func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
@@ -132,8 +93,12 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 }
 
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
-	if config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly {
-		return t.getScriptlessNBCCustomData(config)
+	if config.EnableScriptlessNBCCSECmd {
+		if supportsScriptlessPhase2(config) {
+			return t.getScriptlessNBCCustomData(config)
+		}
+		// if we cannot enable scriptless phase2, we need to fallback to scriptless phase1
+		config.EnableScriptlessCSECmd = true
 	}
 
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
@@ -164,46 +129,94 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 		encodedAKSNodeConfig = getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
 	}
 
-	var aksCustomCloudFilePath string
-	if datamodel.GetCloudTargetEnv(config.ContainerService.Location) == datamodel.USSecCloud || datamodel.GetCloudTargetEnv(config.ContainerService.Location) == datamodel.USNatCloud {
-		aksCustomCloudFilePath = initAKSCustomCloudFilepath
-	} else {
-		aksCustomCloudFilePath = initAKSCustomCloudOperationRequestsFilepath
+	// hotfixJSONFile is optional: only VHDs that bake a static default hotfix
+	// pointer ship this file. Skip silently when it's absent from the embedded parts FS.
+	var encodedHotfixJSON string
+	if b, err := parts.Templates.ReadFile(hotfixJSONFile); err == nil {
+		encodedHotfixJSON = getBase64EncodedGzippedCustomScriptFromStr(string(b))
 	}
+
+	// enabledFeaturesFile is dropped only when at least one feature toggle is set. Its KEY=VALUE
+	// contents are read by the aks-node-controller wrapper (FEATURES_PATH). Empty content =>
+	// skipped by buildScriptlessCustomData, keeping custom data byte-identical when no toggle is set.
+	var encodedEnabledFeatures string
+	if content := renderEnabledFeatures(config.EnabledFeatures); content != "" {
+		encodedEnabledFeatures = getBase64EncodedGzippedCustomScriptFromStr(content)
+	}
+
+	// Use an ordered slice (not a map) so the rendered customData is deterministic
+	// across runs/tests instead of depending on Go's randomized map iteration order.
+	encodedFiles := []struct {
+		path    string
+		content string
+	}{
+		{aksNbcCmdFilepath, encodedNBCCMD},
+		{aksNodeCustomDataFilepath, encodedNodeCustomData},
+		{aksNodeConfigFilepath, encodedAKSNodeConfig},
+		{aksHotfixJSONFilepath, encodedHotfixJSON},
+		{enabledFeaturesFilepath, encodedEnabledFeatures},
+	}
+
 	var customData string
 	if config.IsFlatcar() || config.IsACL() {
-		customData = buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, aksCustomCloudFilePath)
+		customData = buildScriptlessCustomData(flatcarTemplate, flatcarFileEntry, ",", encodedFiles)
 	} else {
-		customData = buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, aksCustomCloudFilePath)
+		customData = buildScriptlessCustomData(boothookTemplate, boothookFileEntry, "\n", encodedFiles)
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(customData))
 }
 
-func buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, aksCustomCloudFilePath string) string {
-	var flatcarAKSNodeConfigBlock string
-	if encodedAKSNodeConfig != "" {
-		flatcarAKSNodeConfigBlock = fmt.Sprintf(flatcarAKSNodeConfigEntry, encodedAKSNodeConfig)
-	}
-	return fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData, flatcarAKSNodeConfigBlock, aksCustomCloudFilePath, initAKSCustomCloudFilepath)
+func supportsScriptlessPhase2(config *datamodel.NodeBootstrappingConfiguration) bool {
+	return !config.PreProvisionOnly && (config.CustomCATrustConfig == nil || len(config.CustomCATrustConfig.CustomCATrustCerts) == 0)
 }
 
-func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, aksCustomCloudFilePath string) string {
-	var aksNodeConfigBlock string
-	if encodedAKSNodeConfig != "" {
-		aksNodeConfigBlock = fmt.Sprintf(aksNodeConfigBlockFmt, aksNodeConfigPath, encodedAKSNodeConfig)
+// renderEnabledFeatures serializes the feature toggle map into sorted KEY=VALUE lines for
+// enabled_features.sh. Keys are sorted so the output is deterministic (Go map iteration is
+// randomized) and filtered to valid shell identifiers - the same set the aks-node-controller
+// wrapper accepts. Entries whose value contains a newline or carriage return are dropped so a
+// single map entry can never expand into multiple lines (preserving the one-KEY=VALUE-per-line
+// contract). Returns "" when no valid entry remains so custom data stays byte-identical to today.
+func renderEnabledFeatures(features map[string]string) string {
+	keys := make([]string, 0, len(features))
+	for k, v := range features {
+		if isValidFeatureKey(k) && !strings.ContainsAny(v, "\n\r") {
+			keys = append(keys, k)
+		}
+	}
+	if len(keys) == 0 {
+		return ""
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for _, k := range keys {
+		fmt.Fprintf(&b, "%s=%s\n", k, features[k])
+	}
+	return b.String()
+}
+
+// featureKeyRe matches a valid shell identifier ([a-zA-Z_][a-zA-Z0-9_]*) - the same set the
+// aks-node-controller wrapper parses out of enabled_features.sh.
+var featureKeyRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+// isValidFeatureKey reports whether k is a valid shell identifier the wrapper would accept.
+func isValidFeatureKey(k string) bool {
+	return featureKeyRe.MatchString(k)
+}
+
+func buildScriptlessCustomData(cloudInitTemplate, fileListTemplate, separator string, encodedFiles []struct {
+	path    string
+	content string
+}) string {
+	var fileList []string
+	for _, f := range encodedFiles {
+		if f.content == "" {
+			continue
+		}
+		fileList = append(fileList, fmt.Sprintf(fileListTemplate, f.path, f.content))
 	}
 
-	return fmt.Sprintf(
-		boothookTemplate,
-		nodeCustomDataPath,
-		encodedNodeCustomData,
-		nbcCmdFilePath,
-		encodedNBCCMD,
-		aksNodeConfigBlock,
-		aksCustomCloudFilePath,
-		initAKSCustomCloudFilepath,
-	)
+	return fmt.Sprintf(cloudInitTemplate, strings.Join(fileList, separator))
 }
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
@@ -435,7 +448,7 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 	if config.AgentPoolProfile.IsWindows() {
 		return t.getWindowsNodeCSECommand(config)
 	}
-	if config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly {
+	if config.EnableScriptlessNBCCSECmd && supportsScriptlessPhase2(config) {
 		return "/opt/azure/containers/aks-node-controller provision-wait"
 	}
 	return t.getLinuxNodeCSECommand(config)
@@ -1053,7 +1066,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetContainerdConfigContent": func() string {
 			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
-				if profile.Is2404VHDDistro() {
+				if profile.IsContainerdV2Distro() {
 					return containerdV2ConfigTemplate
 				}
 				return containerdV1ConfigTemplate
@@ -1065,7 +1078,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetContainerdConfigNoGPUContent": func() string {
 			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
-				if profile.Is2404VHDDistro() {
+				if profile.IsContainerdV2Distro() {
 					return containerdV2NoGPUConfigTemplate
 				}
 				return containerdV1NoGPUConfigTemplate
@@ -1114,11 +1127,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsAKSCustomCloud": func() bool {
 			return cs.IsAKSCustomCloud()
 		},
-		"GetInitAKSCustomCloudFilepath": func() string {
-			return initAKSCustomCloudFilepath
+		"GetInitAKSCloudFilepath": func() string {
+			return initAKSCloudFilepath
 		},
 		"AKSCustomCloudRepoDepotEndpoint": func() string {
-			return cs.Properties.CustomCloudEnv.RepoDepotEndpoint
+			if cs.IsAKSCustomCloud() {
+				return cs.Properties.CustomCloudEnv.RepoDepotEndpoint
+			}
+			return ""
 		},
 		"AKSCustomCloudManagementPortalURL": func() string {
 			return cs.Properties.CustomCloudEnv.ManagementPortalURL
@@ -1395,6 +1411,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsEnableManagedGPU": func() bool {
 			return config.EnableManagedGPU
 		},
+		"IsEnableManagedGPUDRA": func() bool {
+			return config.EnableManagedGPUDRA
+		},
 		"EnableIMDSRestriction": func() bool {
 			return config.EnableIMDSRestriction
 		},
@@ -1451,9 +1470,19 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return strings.Join(criticalFQDNs, ",")
 		},
+		"GetLocalDNSHostsPluginRefreshIntervalInSeconds": func() string {
+			if profile.LocalDNSProfile == nil || profile.LocalDNSProfile.HostsPluginRefreshIntervalInSeconds == nil {
+				return ""
+			}
+			refreshIntervalInSeconds := *profile.LocalDNSProfile.HostsPluginRefreshIntervalInSeconds
+			if refreshIntervalInSeconds <= 0 {
+				return ""
+			}
+			return strconv.FormatInt(int64(refreshIntervalInSeconds), 10)
+		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
-		"GetSkipWaAgentHold":  func() bool { return config.EnableScriptlessNBCCSECmd },
+		"GetSkipWaAgentHold":  func() bool { return supportsScriptlessPhase2(config) },
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},
@@ -1833,44 +1862,44 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
 {{- end}}
-[plugins."io.containerd.cri.v1.images".pinned_images]
-  sandbox = "{{GetPodInfraContainerSpec}}"
-{{- if IsKubernetesVersionGe "1.22.0"}}
-[plugins."io.containerd.cri.v1.images".registry]
-  config_path = "/etc/containerd/certs.d"
-{{- end}}
-[plugins."io.containerd.cri.v1.images".registry.headers]
-  X-Meta-Source-Client = ["azure/aks"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = "{{GetPodInfraContainerSpec}}"
+  {{- if IsKubernetesVersionGe "1.22.0"}}
+  [plugins."io.containerd.cri.v1.images".registry]
+    config_path = "/etc/containerd/certs.d"
+  {{- end}}
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
 [plugins."io.containerd.cri.v1.runtime".containerd]
-  {{- if IsNSeriesSKU }}
-  default_runtime_name = "nvidia-container-runtime"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
-    BinaryName = "/usr/bin/nvidia-container-runtime"
-    SystemdCgroup = true
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
-    BinaryName = "/usr/bin/nvidia-container-runtime"
-{{- else}}
-  default_runtime_name = "runc"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
-    BinaryName = "/usr/bin/runc"
-    SystemdCgroup = true
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
-    BinaryName = "/usr/bin/runc"
-{{- end}}
-{{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
-[plugins."io.containerd.cri.v1.runtime".cni]
-  bin_dir = "/opt/cni/bin"
-  conf_dir = "/etc/cni/net.d"
-  conf_template = "/etc/containerd/kubenet_template.conf"
-{{- end}}
+    {{- if IsNSeriesSKU }}
+    default_runtime_name = "nvidia-container-runtime"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+    {{- else}}
+    default_runtime_name = "runc"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+    {{- end}}
+  {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
+  [plugins."io.containerd.cri.v1.runtime".cni]
+    bin_dir = "/opt/cni/bin"
+    conf_dir = "/etc/cni/net.d"
+    conf_template = "/etc/containerd/kubenet_template.conf"
+  {{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 {{- if IsArtifactStreamingEnabled }}
@@ -1906,31 +1935,31 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
 {{- end}}
-[plugins."io.containerd.cri.v1.images".pinned_images]
-  sandbox = "{{GetPodInfraContainerSpec}}"
-{{- if IsKubernetesVersionGe "1.22.0"}}
-[plugins."io.containerd.cri.v1.images".registry]
-  config_path = "/etc/containerd/certs.d"
-{{- end}}
-[plugins."io.containerd.cri.v1.images".registry.headers]
-  X-Meta-Source-Client = ["azure/aks"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = "{{GetPodInfraContainerSpec}}"
+  {{- if IsKubernetesVersionGe "1.22.0"}}
+  [plugins."io.containerd.cri.v1.images".registry]
+    config_path = "/etc/containerd/certs.d"
+  {{- end}}
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
 [plugins."io.containerd.cri.v1.runtime".containerd]
-  default_runtime_name = "runc"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
-    BinaryName = "/usr/bin/runc"
-    SystemdCgroup = true
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
-    BinaryName = "/usr/bin/runc"
-{{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
-[plugins."io.containerd.cri.v1.runtime".cni]
-  bin_dir = "/opt/cni/bin"
-  conf_dir = "/etc/cni/net.d"
-  conf_template = "/etc/containerd/kubenet_template.conf"
-{{- end}}
+    default_runtime_name = "runc"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+  {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
+  [plugins."io.containerd.cri.v1.runtime".cni]
+    bin_dir = "/opt/cni/bin"
+    conf_dir = "/etc/cni/net.d"
+    conf_template = "/etc/containerd/kubenet_template.conf"
+  {{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 {{- if IsArtifactStreamingEnabled }}

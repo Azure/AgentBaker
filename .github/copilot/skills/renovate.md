@@ -47,9 +47,11 @@ The `renovateTag` field in `components.json` tells Renovate how to find and upda
   - Example: `"OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node"`
 - **Azure Linux RPM packages**: `"renovateTag": "RPM_registry=<repodata-url>, name=<pkg-name>, os=azurelinux, release=3.0"`
   - Example: `"RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=containernetworking-plugins, os=azurelinux, release=3.0"`
-  - The `RPM_registry` URL varies by package category (`base`, `cloud-native`, `ms-oss`)
+  - The `RPM_registry` URL varies by package category (`base`, `cloud-native`, `ms-oss`, `extended`)
   - For Mariner 2.0: replace `azurelinux/3.0` with `cbl-mariner/2.0` in the URL
-- **Disabled**: `"renovateTag": "<DO_NOT_UPDATE>"` — Renovate ignores this entry
+  - ⚠️ **Do NOT use the Ubuntu-style `repository=production` key for Azure Linux.** A tag like `name=azure-acr-credential-provider, repository=production, os=azurelinux, release=3.0` does not resolve against the RPM feed — Renovate silently finds no versions and never opens a PR. Azure Linux entries **must** use `RPM_registry=<repodata-url>` instead.
+  - ⚠️ **The category (`base`/`cloud-native`/`ms-oss`/`extended`) in the `RPM_registry` URL must match the repo that actually publishes the package**, or the lookup returns `no-result` even though the version exists. Verify by fetching `repodata/repomd.xml` -> `primary.xml.gz` for the category and grepping `<name>...</name>`. (Real bug: `azure-acr-credential-provider` was pointed at `ms-oss`, which does not contain it — it actually lives in `cloud-native`. `dcgm-exporter`, `containernetworking-plugins`, and `kubernetes-cri-tools` for azurelinux 3.0 are also in `cloud-native`.)
+- **Disabled**: `"renovateTag": "<DO_NOT_UPDATE>"` — Renovate ignores this entry. Use sparingly: this pins the entry forever, so Renovate will never propose *any* future version (not just the one you wanted to skip). Prefer closing individual PRs over `<DO_NOT_UPDATE>` when you only want to reject one version.
 
 **Critical rule**: `renovateTag` must immediately precede `latestVersion` with no intervening keys. The regex parser depends on this adjacency.
 
@@ -297,13 +299,25 @@ Changes to `renovate.json` or `components.json` must be merged to AgentBaker's `
 
 This lets you iterate quickly without risking the production Renovate configuration.
 
+### "Renovate failed to look up ... no-result"
+
+A `no-result` warning means the datasource returned zero releases for that package. Two very different causes — diagnose before acting:
+
+1. **Real, persistent config bug** — the package genuinely isn't reachable at the configured location. Confirm by fetching the feed yourself and grepping for the package:
+   - Ubuntu/PMC deb: `https://packages.microsoft.com/ubuntu/<ver>/prod/dists/<focal|jammy|noble>/main/binary-amd64/Packages` (served as `application/octet-stream`; decode bytes as UTF-8, or gunzip if gzip magic `1f 8b`), grep `^Package: <name>`.
+   - Azure Linux RPM: fetch `<RPM_registry>/repomd.xml` -> `primary.xml.gz`, grep `<name><pkg></name>`. **Most common real bug: wrong category** in the `RPM_registry` URL (e.g. `ms-oss` vs `cloud-native`) — the version exists but not in that repo.
+   - If the package IS present at the configured URL, it's not a config bug -> cause #2.
+2. **Transient PMC/upstream hiccup** — the large plain-text `Packages` datasource (and NVIDIA/PMC feeds) intermittently return errors/timeouts/partial bodies during a run, surfacing as `no-result` for a scattered subset of packages. These self-resolve on the next Renovate run. Signal it's transient: the package exists at its feed right now, the datasource has produced successful PRs recently, and only some (not all) packages sharing that datasource failed.
+
+Rule of thumb: if you can fetch the feed and see the version, and the failures are a scattered subset across multiple datasources, treat it as transient and wait for the next run. If one specific package fails every run, it's a real config bug (usually wrong category/URL/tag format).
+
 ### "Why isn't Renovate creating a PR?"
 
 1. **Check `renovateTag`** — must match expected format exactly (order matters: `registry=`, `name=` for containers; `name=`, `repository=`, `os=`, `release=` for Ubuntu packages; `RPM_registry=`, `name=`, `os=`, `release=` for Azure Linux RPMs)
 2. **Run locally**: `npx renovate --platform=local --dry-run=true` with `$Env:LOG_LEVEL='trace'`
 3. **Check stability**: RPM/deb versions with suffixes may be classified unstable — add `"ignoreUnstable": false`
 4. **Check package rules**: a broader rule may be disabling the update type (specific-to-generic ordering matters)
-5. **Verify datasource**: confirm the package exists in the datasource URL (check PMC endpoint, MCR tags list)
+5. **Verify datasource**: confirm the package exists in the datasource URL (check PMC endpoint, MCR tags list) — for Azure Linux RPMs, confirm the **category** (`base`/`cloud-native`/`ms-oss`/`extended`) is the one that publishes the package
 6. **Check matchStrings regex**: `renovateTag` must immediately precede `latestVersion` with no intervening keys
 
 ### Common Issues
@@ -313,6 +327,9 @@ This lets you iterate quickly without risking the production Renovate configurat
 - **`previousLatestVersion` not rotating**: Check `autoReplaceStringTemplate` includes the `{{#if depType}}` conditional block.
 - **"This branch is out-of-date with the base branch"**: In the PR description, check the checkbox labelled `If you want to rebase/retry this PR, check this box`. Renovate will rebase the branch with latest main within a few minutes and update the PR. Avoid clicking GitHub's `Update branch` button manually — Renovate treats that as you "taking over" the branch and will stop managing it.
 - **PR stuck / not picking up latest version**: If a Renovate PR is stuck (e.g., not fetching the latest version despite it being available), it may be because the PR was previously modified by a user or other factors caused Renovate to stop managing it correctly. **Workaround**: rename the PR title, then close the PR. Renovate will detect the component needs updating and recreate a fresh PR with the latest version.
+- **Closed PR never comes back, even for newer versions**: Caused by the global `recreateWhen: "never"` setting. `never` suppresses *every* closed/ignored PR permanently — so once you close a PR, that branch is blocked forever, including for newer versions that appear later (observed: CoreDNS stalled ~2 months after a close). Fix: use `recreateWhen: "auto"` (Renovate's default), where closing a PR only ignores that specific version and a fresh PR is created once a newer version appears. Only use `never` if you truly want closes to be permanent.
+- **Renaming a *closed* Renovate PR's title spawns a duplicate**: Renovate matches its own PRs by branch name + expected title. If you rename a closed Renovate PR, the link breaks and Renovate opens a brand-new PR on the same branch (observed: renaming closed #8501 caused #8892 to be created minutes later). Don't rename closed Renovate PRs you want to stay ignored. (This is the same mechanism the "PR stuck" workaround above exploits on purpose.)
+- **Grouped entries sharing one `renovateTag` come as a single bundled PR**: When multiple `components.json` entries share the same `renovateTag` and a `groupName`, Renovate collapses them onto one branch/PR (e.g. the 4 CoreDNS k8s-version lines all share one tag -> one `renovate/patch-coredns` PR). You cannot reject one line without rejecting the whole bundle, and Renovate may propose cross-line jumps (e.g. `1.13.1 -> 1.13.2`). Options: (a) manually take over the Renovate branch and set the versions you want — Renovate detects the edit and stops overwriting it (don't tick the rebase checkbox); or (b) split into per-line `packageRules` using `matchCurrentVersion` + `allowedVersions` regexes with distinct `groupName`s. Option (b) removes recurring toil but hardcodes version lines that must be updated manually when a k8s line rolls forward, and remember you cannot combine `matchUpdateTypes` with `allowedVersions` in the same rule (see guardrail #3).
 
 ## Risk Assessment Framework
 
@@ -355,6 +372,7 @@ When reviewing changes to `renovate.json` itself (not component bumps), verify:
 11. `autoReplaceStringTemplate` must use Handlebars syntax and preserve the `depType` hack for `previousLatestVersion` rotation
 12. **Pre-release/timestamped versions**: Set `"ignoreUnstable": false` for packages whose valid versions have suffixes that Renovate classifies as unstable (e.g., GPU container images with timestamped suffixes, Azure Linux RPM packages with `-X.azl3` suffixes). Without this, Renovate silently skips those versions.
 13. **Renovate only monitors the default branch** (main/master). Config changes on feature branches have no effect until merged.
+14. **`recreateWhen` should be `"auto"`** (the default), not `"never"`. `"never"` permanently suppresses any closed PR — including newer versions of the same package — which silently stalls updates after any single close. Only set `"never"` if permanent suppression of all closes is genuinely intended.
 
 ## Dependencies
 

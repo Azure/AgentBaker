@@ -141,6 +141,42 @@ Describe 'localdns_exporter.sh HTTP request routing'
         The output should equal ""
     End
 
+    It 'should exit cleanly when client closes during metrics response'
+        When run bash -o pipefail -c '
+            tmp_dir=$(mktemp -d)
+            trap "rm -rf ${tmp_dir}" EXIT
+            {
+                echo "# HELP localdns_service_status CoreDNS process status (1=active, 0=inactive)"
+                echo "# TYPE localdns_service_status gauge"
+                for i in $(seq 1 1000); do
+                    echo "localdns_service_status{status=\"running\",sample=\"${i}\"} 1"
+                done
+            } > "${tmp_dir}/resources.prom"
+            {
+                echo "# HELP localdns_vnetdns_forward_info VnetDNS forward plugin IP address from corefile"
+                echo "# TYPE localdns_vnetdns_forward_info gauge"
+                echo "localdns_vnetdns_forward_info{ip=\"168.63.129.16\",block=\".:53\",status=\"ok\"} 1"
+                echo "# HELP localdns_kubedns_forward_info KubeDNS forward plugin IP address from corefile"
+                echo "# TYPE localdns_kubedns_forward_info gauge"
+                echo "localdns_kubedns_forward_info{ip=\"10.0.0.10\",block=\"cluster.local:53\",status=\"ok\"} 1"
+            } > "${tmp_dir}/forward_ips.prom"
+            printf "GET /metrics HTTP/1.1\r\n\r\n" | LOCALDNS_SCRIPT_PATH="${tmp_dir}" '"$SCRIPT_PATH"' | head -n 1 >/dev/null
+        '
+        The status should be success
+    End
+
+    It 'should drain request headers so the request buffer is fully consumed'
+        # A full HTTP request (request line + headers + blank-line terminator) must be
+        # entirely consumed. Leaving header bytes unread would make the kernel emit a TCP
+        # RST instead of a FIN on close, which scrapers log as "connection reset by peer".
+        # Feed a complete request with headers and confirm the drain loop consumes them
+        # and still serves metrics rather than hanging or failing on the trailing input.
+        When run bash -c "printf 'GET /metrics HTTP/1.1\r\nHost: x\r\nUser-Agent: t\r\nAccept: */*\r\n\r\n' | $SCRIPT_PATH"
+        The status should be success
+        The output should include "HTTP/1.1 200 OK"
+        The output should include "localdns_service_status"
+    End
+
     It 'should return 200 and Prometheus metrics for /metrics path'
         When run bash -c "echo 'GET /metrics HTTP/1.1' | $SCRIPT_PATH"
         The status should be success
