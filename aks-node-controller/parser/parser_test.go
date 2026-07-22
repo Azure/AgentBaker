@@ -39,6 +39,7 @@ func TestBuildCSECmd(t *testing.T) {
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
+				assertHasKeyWithValue(t, vars, "LOCATION", "southcentralus")
 				assert.Equal(t, "false", vars["GPU_NODE"])
 				assert.NotEmpty(t, vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"])
 				// Ensure the containerd config does not use the
@@ -460,6 +461,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "NETWORK_POLICY", "")
 				assertHasKeyWithValue(t, vars, "NETWORK_PLUGIN", "")
 				assertHasKeyWithValue(t, vars, "VNET_CNI_PLUGINS_URL", "")
+				assertHasKeyWithValue(t, vars, "LOCATION", "")
 				assertHasKeyWithValue(t, vars, "GPU_NODE", "false")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
 				assertHasKeyWithValue(t, vars, "CUSTOM_CA_TRUST_COUNT", "0")

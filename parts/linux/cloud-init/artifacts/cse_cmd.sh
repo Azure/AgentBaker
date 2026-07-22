@@ -16,12 +16,13 @@ else
 	exit ${cloudInitExitCode};
 fi;
 {{end}}
-REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
-LOCATION={{GetVariable "location"}}
 INIT_AKS_CLOUD_FILEPATH="{{GetInitAKSCloudFilepath}}";
 if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]; then
-	"${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1 || exit $?;
+	REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}" LOCATION={{GetVariable "location"}} "${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1 || exit $?;
 fi;
+{{/* Keep the environment assignments below contiguous through the nohup invocation at the end of this file. */ -}}
+{{/* The CSE command is flattened into one shell command, so all assignments below are passed to nohup. */ -}}
+{{/* Be careful not to add runtime control flow or command separators that break the flattening logic. */ -}}
 ADMINUSER={{GetParameter "linuxAdminUsername"}}
 MOBY_VERSION={{GetParameter "mobyVersion"}}
 TENANT_ID={{GetVariable "tenantID"}}
@@ -34,6 +35,7 @@ KUBEPROXY_URL={{GetParameter "kubeProxySpec"}}
 APISERVER_PUBLIC_KEY={{GetParameter "apiServerCertificate"}}
 SUBSCRIPTION_ID={{GetVariable "subscriptionId"}}
 RESOURCE_GROUP={{GetVariable "resourceGroup"}}
+LOCATION={{GetVariable "location"}}
 VM_TYPE={{GetVariable "vmType"}}
 SUBNET={{GetVariable "subnetName"}}
 NETWORK_SECURITY_GROUP={{GetVariable "nsgName"}}
