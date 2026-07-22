@@ -1608,14 +1608,12 @@ EOF
             return 1
         fi
 
-        # Enable the slice so it is started on subsequent boots.
-        if ! systemctl enable kubereserved.slice; then
-            echo "ensureKubeletCgroupHierarchy: failed to enable kubereserved.slice"
-            return 1
-        fi
-        # Materialise the cgroup tree at /sys/fs/cgroup/kubereserved.slice before kubelet starts on this boot.
-        if ! systemctl start kubereserved.slice; then
-            echo "ensureKubeletCgroupHierarchy: failed to start kubereserved.slice"
+        # Enable the slice for subsequent boots AND materialise the cgroup tree
+        # at /sys/fs/cgroup/kubereserved.slice on this boot before kubelet starts.
+        # systemctlEnableAndStart wraps both operations with retry logic to
+        # survive transient systemd failures during CSE.
+        if ! systemctlEnableAndStart kubereserved.slice 30; then
+            echo "ensureKubeletCgroupHierarchy: failed to enable and start kubereserved.slice"
             return 1
         fi
     fi

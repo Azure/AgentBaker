@@ -907,6 +907,7 @@ EOF
         It 'creates kubereserved.slice and the kubelet.service and containerd.service drop-ins'
             setup_paths
             systemctl() { return 0; }
+            systemctlEnableAndStart() { return 0; }
             KUBE_RESERVED_CGROUP="/kubereserved.slice"
             SYSTEM_RESERVED_CGROUP="/system.slice"
             When call ensureKubeletCgroupHierarchy
@@ -925,36 +926,16 @@ EOF
             The variable containerd_dropin_contents should include "Slice=kubereserved.slice"
         End
 
-        It 'returns failure when systemctl enable kubereserved.slice fails'
+        It 'returns failure when systemctlEnableAndStart kubereserved.slice fails'
             setup_paths
-            systemctl() {
-                if [ "$1" = "enable" ]; then
-                    return 1
-                fi
-                return 0
-            }
+            systemctl() { return 0; }
+            systemctlEnableAndStart() { return 1; }
             KUBE_RESERVED_CGROUP="/kubereserved.slice"
             SYSTEM_RESERVED_CGROUP=""
             When call ensureKubeletCgroupHierarchy
             cleanup_paths
             The status should be failure
-            The output should include "failed to enable kubereserved.slice"
-        End
-
-        It 'returns failure when systemctl start kubereserved.slice fails'
-            setup_paths
-            systemctl() {
-                if [ "$1" = "start" ]; then
-                    return 1
-                fi
-                return 0
-            }
-            KUBE_RESERVED_CGROUP="/kubereserved.slice"
-            SYSTEM_RESERVED_CGROUP=""
-            When call ensureKubeletCgroupHierarchy
-            cleanup_paths
-            The status should be failure
-            The output should include "failed to start kubereserved.slice"
+            The output should include "failed to enable and start kubereserved.slice"
         End
     End
 End
