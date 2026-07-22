@@ -396,14 +396,10 @@
       ],
       "groupName": "acr-credential-provider-sysext",
       "assignees": [
-        "anndono",
-        "Liunardy",
-        "nilo19"
+        "aadhar-agarwal"
       ],
       "reviewers": [
-        "anndono",
-        "Liunardy",
-        "nilo19"
+        "aadhar-agarwal"
       ]
     },
     {
