@@ -1,7 +1,5 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
-  TAGS_TO_RUN: "gpu=true"
-  TAGS_TO_SKIP: "os=windows,os=azurelinux,os=azurecontainerlinux"
   SKIP_E2E_TESTS: false
   SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: true
   E2E_GO_TEST_TIMEOUT: "75m"
@@ -32,10 +30,32 @@ pr:
     include:
       - e2e/**
       - '**/*.go'
-jobs:
-  - template: ./templates/e2e-template.yaml
-    parameters:
-      name: Ubuntu GPU Tests
-      IgnoreScenariosWithMissingVhd: false
-      jobTimeoutInMinutes: 120
-      failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}
+stages:
+  - stage: UbuntuGPU
+    displayName: Ubuntu GPU
+    variables:
+      TAGS_TO_RUN: "gpu=true"
+      TAGS_TO_SKIP: "os=windows,os=azurelinux,os=azurecontainerlinux"
+    jobs:
+      - template: ./templates/e2e-template.yaml
+        parameters:
+          name: Ubuntu GPU Tests
+          IgnoreScenariosWithMissingVhd: false
+          jobTimeoutInMinutes: 120
+          failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}
+
+  - stage: AzureLinuxAndACLGPU
+    displayName: Azure Linux and ACL GPU
+    dependsOn: UbuntuGPU
+    condition: always()
+    variables:
+      TAGS_TO_RUN: "gpu=true"
+      TAGS_TO_SKIP: "os=windows,os=ubuntu"
+    jobs:
+      - template: ./templates/e2e-template.yaml
+        parameters:
+          name: Azure Linux and ACL GPU Tests
+          IgnoreScenariosWithMissingVhd: false
+          jobTimeoutInMinutes: 120
+          failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}
+          jobCondition: "and(always(), ne(variables.SKIP_E2E_TESTS, 'true'))"
