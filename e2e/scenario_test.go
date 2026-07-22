@@ -1167,6 +1167,39 @@ func Test_Ubuntu2204_ArtifactStreaming_NetworkIsolatedCluster(t *testing.T) {
 	})
 }
 
+// Test_Ubuntu2204_ArtifactStreaming_ImagePull goes beyond the other artifact-streaming scenarios
+// (which only assert the overlaybd/acr-mirror services are running on a freshly bootstrapped node)
+// by actually launching a pod from an overlaybd-converted image and proving on the node that the
+// image was streamed on demand (TCMU-backed block device) rather than downloaded into overlayfs.
+//
+// It uses ClusterAzureBootstrapProfileCache because that cluster attaches a Premium private ACR
+// (required for `az acr artifact-streaming`), including an anonymous-pull ACR that the validator
+// uses so acr-mirror can serve the streaming manifest without a node managed identity — without the
+// added complexity of full network isolation.
+func Test_Ubuntu2204_ArtifactStreaming_ImagePull(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that an artifact streaming node actually streams an overlaybd image on pod launch (TCMU-backed), not just that the streaming services are running",
+		Config: Config{
+			Cluster: ClusterAzureBootstrapProfileCache,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableArtifactStreaming = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Node bootstrap sanity (same checks as the other streaming scenarios).
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+
+				// The actual streaming validation: pull an overlaybd image in a pod and confirm it streamed.
+				ValidateArtifactStreamingImagePull(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
