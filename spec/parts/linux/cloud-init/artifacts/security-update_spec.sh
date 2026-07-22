@@ -6,7 +6,7 @@ Describe 'security-update.sh'
         local repo_service="${1:-}"
 
         jq -nc --arg repoService "${repo_service}" \
-            '{metadata: {labels: {"kubernetes.azure.com/agentpool": "ap1"}, annotations: {"kubernetes.azure.com/live-patching-repo-service": $repoService}}}'
+            '{metadata: {name: "aks-node-1", labels: {"kubernetes.azure.com/agentpool": "ap1"}, annotations: {"kubernetes.azure.com/live-patching-repo-service": $repoService}}}'
     }
 
     setup() {
@@ -18,8 +18,10 @@ Describe 'security-update.sh'
         SECURITY_PATCH_CONFIG_DIR="${TEST_DIR}/security-patch"
         TEST_NODE_JSON="$(security_patch_test_node_json)"
         TEST_APT_UPDATE_STATUS=0
-        export SECURITY_PATCH_CONFIG_DIR TEST_NODE_JSON
-        export TEST_APT_UPDATE_STATUS
+        TEST_ANNOTATE_STATUS=0
+        KUBECTL="kubectl"
+        export SECURITY_PATCH_CONFIG_DIR TEST_NODE_JSON KUBECTL
+        export TEST_APT_UPDATE_STATUS TEST_ANNOTATE_STATUS
     }
 
     cleanup() {
@@ -41,6 +43,11 @@ Describe 'security-update.sh'
         echo "sleep called"
     End
 
+    Mock kubectl
+        echo "kubectl called with args: $*"
+        exit "${TEST_ANNOTATE_STATUS}"
+    End
+
     apt_get_update_with_opts() {
         echo "apt_get_update_with_opts called with args: $*"
         return "${TEST_APT_UPDATE_STATUS}"
@@ -51,6 +58,7 @@ Describe 'security-update.sh'
         The status should be success
         The output should include 'apt_get_update_with_opts called with args: -o Acquire::http::Timeout=300 -o Acquire::https::Timeout=300 -o Acquire::Retries=3'
         The output should include 'unattended-upgrade called'
+        The output should include 'kubectl called with args: annotate --overwrite node aks-node-1 kubernetes.azure.com/live-patching-current-timestamp=20260710T000000Z'
         The output should include 'securityPatch update completed successfully: 20260710T000000Z'
         The contents of file "${SECURITY_PATCH_CONFIG_DIR}/sources.list" should include 'deb https://snapshot.ubuntu.com/ubuntu/20260710T000000Z jammy main restricted'
         The contents of file "${SECURITY_PATCH_CONFIG_DIR}/apt.conf" should include "Dir::Etc::sourcelist \"${SECURITY_PATCH_CONFIG_DIR}/sources.list\";"
@@ -145,6 +153,19 @@ Describe 'security-update.sh'
         The status should be failure
         The output should include 'apt_get_update_with_opts failed'
         The output should not include 'unattended-upgrade called'
+        The output should not include 'kubectl called'
+    End
+
+    It 'returns failure when the legacy status annotation cannot be updated'
+        TEST_ANNOTATE_STATUS=1
+        export TEST_ANNOTATE_STATUS
+
+        When call updateSecurityPatch '{"agentPools":{"ap1":{"goldenTimestamp":"20260710T000000Z"}}}' "${TEST_NODE_JSON}"
+        The status should be failure
+        The output should include 'unattended-upgrade called'
+        The output should include 'kubectl called with args: annotate --overwrite node aks-node-1 kubernetes.azure.com/live-patching-current-timestamp=20260710T000000Z'
+        The output should include 'failed to update legacy securityPatch status annotation'
+        The output should not include 'securityPatch update completed successfully'
     End
 
     It 'returns failure before apt update when apt configuration cannot be written'
