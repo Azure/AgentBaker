@@ -4,10 +4,12 @@ Combined ANC hotfix generator.
 
 Auto-detects what needs a hotfix and generates the version numbers for it:
 
-1. If aks-node-controller/ (the Go module) has changes vs the base branch, bumps the
-   patch of the current pkg/agent/datamodel/linux_sig_version.json version to the
-   first patch number that isn't already tagged in the repo (e.g. 202607.02.0 ->
-   202607.02.1, or .2/.3/... if those tags already exist), and uses that as `version`.
+1. If aks-node-controller/ (the Go module) has production changes vs the base
+   branch, bumps the patch of the current pkg/agent/datamodel/linux_sig_version.json
+   version to the first patch number that isn't already tagged in the repo (e.g.
+   202607.02.0 -> 202607.02.1, or .2/.3/... if those tags already exist), and uses
+   that as `version`. Go test files (*_test.go) and files under testdata directories
+   do not affect the production binary and are ignored for this decision.
 
 2. Detects which CSE provisioning scripts changed vs the base branch and injects their
    write_files entries into the EnableScriptlessCSECmd section of
@@ -165,6 +167,37 @@ def path_changed(base_ref, path):
     """Return True if path differs between the working tree and base_ref."""
     result = subprocess.run(["git", "diff", "--quiet", base_ref, "--", path])
     return result.returncode != 0
+
+
+def changed_paths(base_ref, path):
+    """Return paths changed between the working tree and base_ref under path."""
+    result = subprocess.run(
+        ["git", "diff", "--name-only", "-z", base_ref, "--", path],
+        capture_output=True, text=True, check=True,
+    )
+    return [changed_path for changed_path in result.stdout.split("\0") if changed_path]
+
+
+def is_anc_test_only_path(path):
+    """Return whether an ANC path is excluded from Go production builds as test data."""
+    normalized_path = path.replace("\\", "/")
+    relative_path = normalized_path.removeprefix(ANC_DIR)
+    path_parts = relative_path.split("/")
+    return relative_path.endswith("_test.go") or "testdata" in path_parts
+
+
+def anc_production_changed(base_ref):
+    """Return True when ANC changes include anything other than Go test-only files."""
+    changed_files = changed_paths(base_ref, ANC_DIR)
+    production_changes = [
+        path for path in changed_files
+        if not is_anc_test_only_path(path)
+    ]
+    if changed_files and not production_changes:
+        print("Only aks-node-controller test files changed:", file=sys.stderr)
+        for path in changed_files:
+            print(f"  {path}", file=sys.stderr)
+    return bool(production_changes)
 
 
 def write_hotfix_file(version, scripts_version):
@@ -411,11 +444,13 @@ def main():
     base_version = read_base_version()
 
     version = ""
-    if path_changed(base_ref, ANC_DIR):
+    if anc_production_changed(base_ref):
         version = bump_version(base_version)
-        print(f"aks-node-controller/ changed vs {base_ref}; version={version}", file=sys.stderr)
+        print(f"aks-node-controller/ production files changed vs {base_ref}; "
+              f"version={version}", file=sys.stderr)
     else:
-        print(f"aks-node-controller/ unchanged vs {base_ref}; version not set", file=sys.stderr)
+        print(f"aks-node-controller/ has no production changes vs {base_ref}; "
+              "version not set", file=sys.stderr)
 
     scripts_version = ""
     if path_changed(base_ref, TEMPLATE):
