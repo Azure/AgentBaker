@@ -1454,9 +1454,9 @@ testNfsServerService() {
 # the modprobe blacklist is NOT baked into newly-built AzL3 VHDs (customer workloads
 # require those modules). Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu
 # 24.04 linux-azure 6.8.0-1058-azure include the fixes, so newly-built Ubuntu
-# 22.04/24.04 VHDs also stop baking the blacklist. These fixed streams assert
-# ABSENCE. Mariner/AzureLinux 2.0 and AzureLinux OSGuard still assert presence +
-# load-refusal.
+# 22.04/24.04 VHDs also stop baking the vulnerable-module blacklist while keeping
+# the baseline CIS module deny list. These fixed streams assert ABSENCE.
+# Mariner/AzureLinux 2.0 and AzureLinux OSGuard still assert presence + load-refusal.
 testVulnerableKernelModulesDisabled() {
   local os_sku="${1:-$OS_SKU}"
   local os_version="${2:-$OS_VERSION}"
@@ -1475,6 +1475,20 @@ testVulnerableKernelModulesDisabled() {
         echo "$test: ${mod} blacklist correctly absent on ${os_sku} ${os_version}"
       fi
     done
+
+    if [ "$os_sku" = "Ubuntu" ]; then
+      for mod in cramfs freevxfs jffs2 hfs hfsplus usb-storage; do
+        if ! grep -qsE "^install ${mod} /bin/true" /etc/modprobe.d/*.conf 2>/dev/null; then
+          err "$test" "${mod} CIS disable rule not found in /etc/modprobe.d/*.conf"
+          failed=1
+        elif ! grep -qsE "^blacklist ${mod}" /etc/modprobe.d/*.conf 2>/dev/null; then
+          err "$test" "${mod} CIS blacklist rule not found in /etc/modprobe.d/*.conf"
+          failed=1
+        else
+          echo "$test: CIS modprobe config correctly blocks ${mod}"
+        fi
+      done
+    fi
 
     if [ "$failed" -ne 0 ]; then
       return 1
