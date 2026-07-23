@@ -17,8 +17,6 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/prometheus/common/expfmt"
-	"github.com/prometheus/common/model"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 
@@ -2323,10 +2321,16 @@ func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL 
 }
 
 func validateNodeExporterMetrics(metricsText string) error {
-	parser := expfmt.NewTextParser(model.LegacyValidation)
-	metricFamilies, err := parser.TextToMetricFamilies(strings.NewReader(metricsText))
-	if err != nil {
-		return fmt.Errorf("parse node-exporter metrics: %w", err)
+	metricNames := make(map[string]struct{})
+	for line := range strings.SplitSeq(metricsText, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		if end := strings.IndexAny(line, "{ \t"); end > 0 {
+			metricNames[line[:end]] = struct{}{}
+		}
 	}
 
 	requiredMetrics := []string{
@@ -2347,8 +2351,7 @@ func validateNodeExporterMetrics(metricsText string) error {
 		"node_filesystem_size_bytes",
 	}
 	for _, name := range requiredMetrics {
-		family := metricFamilies[name]
-		if family == nil || len(family.GetMetric()) == 0 {
+		if _, exists := metricNames[name]; !exists {
 			return fmt.Errorf("required metric %q is missing", name)
 		}
 	}

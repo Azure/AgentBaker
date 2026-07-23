@@ -16,7 +16,7 @@ func TestValidateNodeExporterMetrics(t *testing.T) {
 }
 
 func TestValidateNodeExporterMetricsRejectsMissingMetric(t *testing.T) {
-	metrics := strings.Replace(validNodeExporterMetrics(), "node_network_receive_bytes_total", "missing_network_receive_bytes_total", -1)
+	metrics := strings.Replace(validNodeExporterMetrics(), `node_network_receive_bytes_total{device="eth0"} 1`, "", 1)
 
 	err := validateNodeExporterMetrics(metrics)
 
