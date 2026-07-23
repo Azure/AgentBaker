@@ -2589,26 +2589,29 @@ func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenar
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not returning "+metric)
 }
 
-func ValidateMIGModeEnabled(ctx context.Context, s *Scenario) {
+func ValidateMIGModeEnabled(ctx context.Context, s *Scenario, gpuCountExpected int) {
 	s.T.Helper()
-	s.T.Logf("validating that MIG mode is enabled")
+	s.T.Logf("validating that MIG mode is enabled on %d GPUs", gpuCountExpected)
 
 	command := []string{
 		"set -ex",
-		// Grep to verify it contains 'Enabled' - this will fail if MIG is disabled
-		"sudo nvidia-smi --query-gpu=mig.mode.current --format=csv,noheader | grep -i 'Enabled'",
+		"sudo nvidia-smi --query-gpu=mig.mode.current --format=csv,noheader",
 	}
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "MIG mode is not enabled")
 
 	stdout := strings.TrimSpace(execResult.stdout)
 	s.T.Logf("MIG mode status: %s", stdout)
-	require.Contains(s.T, stdout, "Enabled", "expected MIG mode to be enabled, but got: %s", stdout)
-	s.T.Logf("MIG mode is enabled")
+	gpuStatuses := strings.Split(stdout, "\n")
+	require.Len(s.T, gpuStatuses, gpuCountExpected, "expected MIG status for %d GPUs, but got: %s", gpuCountExpected, stdout)
+	for gpuIndex, gpuStatus := range gpuStatuses {
+		require.Equalf(s.T, "Enabled", strings.TrimSpace(gpuStatus), "expected MIG mode to be enabled on GPU %d", gpuIndex)
+	}
+	s.T.Logf("MIG mode is enabled on %d GPUs", gpuCountExpected)
 }
 
-func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile string) {
+func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile string, instanceCountExpected int) {
 	s.T.Helper()
-	s.T.Logf("validating that MIG instances are created with profile %s", migProfile)
+	s.T.Logf("validating that %d MIG instances are created with profile %s", instanceCountExpected, migProfile)
 
 	command := []string{
 		"set -ex",
@@ -2620,9 +2623,10 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "MIG instances with profile "+migProfile+" were not found")
 
 	stdout := execResult.stdout
-	require.Contains(s.T, stdout, migProfile, "expected to find MIG profile %s in output, but did not.\nOutput:\n%s", migProfile, stdout)
+	instanceCount := strings.Count(stdout, migProfile)
+	require.Equal(s.T, instanceCountExpected, instanceCount, "expected %d MIG instances with profile %s, but found %d.\nOutput:\n%s", instanceCountExpected, migProfile, instanceCount, stdout)
 	require.NotContains(s.T, stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout)
-	s.T.Logf("MIG instances with profile %s are created", migProfile)
+	s.T.Logf("%d MIG instances with profile %s are created", instanceCountExpected, migProfile)
 }
 
 // ValidateIPTablesCompatibleWithCiliumEBPF validates that all iptables rules in each table match the provided patterns which are accounted for
