@@ -2300,7 +2300,7 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	metricsURL := fmt.Sprintf("http://%s:19100/metrics", s.Runtime.VM.PrivateIP)
 	scrapeAndValidateNodeExporter(ctx, s, metricsURL)
 
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-active node-exporter.service", 0,
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-active %s", serviceName), 0,
 		"node-exporter should remain active after scraping")
 
 	s.T.Logf("node-exporter validation passed")
