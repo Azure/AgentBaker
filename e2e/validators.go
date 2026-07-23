@@ -2314,7 +2314,12 @@ func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL 
 		"node-exporter scrape failed\nstdout: %s\nstderr: %s", result.stdout, result.stderr)
 
 	err := validateNodeExporterMetrics(result.stdout)
-	require.NoError(s.T, err, "node-exporter scrape did not satisfy the AKS Prometheus metrics contract")
+	const previewLimit = 2000
+	responsePreview := result.stdout
+	if len(responsePreview) > previewLimit {
+		responsePreview = responsePreview[:previewLimit] + "\n... response truncated"
+	}
+	require.NoErrorf(s.T, err, "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview)
 }
 
 func validateNodeExporterMetrics(metricsText string) error {
