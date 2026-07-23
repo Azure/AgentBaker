@@ -2050,14 +2050,6 @@
       "downloadLocation": "/opt/nvidia-device-plugin/downloads",
       "downloadURIs": {
         "ubuntu": {
-          "r2604": {
-            "versionsV2": [
-              {
-                "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "0.19.3-ubuntu26.04u6"
-              }
-            ]
-          },
           "r2404": {
             "versionsV2": [
               {
@@ -2092,14 +2084,6 @@
       "downloadLocation": "/opt/dra-driver-nvidia-gpu/downloads",
       "downloadURIs": {
         "ubuntu": {
-          "r2604": {
-            "versionsV2": [
-              {
-                "renovateTag": "name=dra-driver-nvidia-gpu, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "0.4.1-ubuntu26.04u5"
-              }
-            ]
-          },
           "r2404": {
             "versionsV2": [
               {
