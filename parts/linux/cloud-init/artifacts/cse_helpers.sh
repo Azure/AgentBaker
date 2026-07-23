@@ -697,6 +697,61 @@ semverCompare() {
     return 1
 }
 
+get_ubuntu_release() {
+    lsb_release -r -s 2>/dev/null || echo ""
+}
+
+# Return 0 when the running Ubuntu kernel still needs the Copy Fail / DirtyFrag /
+# Fragnesia module deny mitigation, and 1 once the kernel includes the fixes.
+ubuntuKernelNeedsVulnerableModuleMitigation() {
+    local ubuntu_release
+    local kernel_release
+    local fixed_kernel
+
+    ubuntu_release="$(get_ubuntu_release)"
+    kernel_release="$(uname -r 2>/dev/null || echo "")"
+
+    if [ -z "$kernel_release" ]; then
+        echo "Unable to detect Ubuntu kernel version; keeping vulnerable kernel module mitigation enabled"
+        return 0
+    fi
+
+    case "$ubuntu_release" in
+        22.04)
+            case "$kernel_release" in
+                *-azure*) fixed_kernel="5.15.0-1116-azure" ;;
+                *-generic*) fixed_kernel="5.15.0-181-generic" ;;
+                *)
+                    echo "Unknown Ubuntu 22.04 kernel flavor '${kernel_release}'; keeping vulnerable kernel module mitigation enabled"
+                    return 0
+                    ;;
+            esac
+            ;;
+        24.04)
+            case "$kernel_release" in
+                *-azure*) fixed_kernel="6.8.0-1058-azure" ;;
+                *-generic*) fixed_kernel="6.8.0-124-generic" ;;
+                *)
+                    echo "Unknown Ubuntu 24.04 kernel flavor '${kernel_release}'; keeping vulnerable kernel module mitigation enabled"
+                    return 0
+                    ;;
+            esac
+            ;;
+        *)
+            echo "Unknown Ubuntu release '${ubuntu_release}'; keeping vulnerable kernel module mitigation enabled"
+            return 0
+            ;;
+    esac
+
+    if semverCompare "$kernel_release" "$fixed_kernel"; then
+        echo "Ubuntu ${ubuntu_release} kernel ${kernel_release} includes Copy Fail / DirtyFrag / Fragnesia fixes; skipping vulnerable kernel module mitigation"
+        return 1
+    fi
+
+    echo "Ubuntu ${ubuntu_release} kernel ${kernel_release} is older than fixed kernel ${fixed_kernel}; keeping vulnerable kernel module mitigation enabled"
+    return 0
+}
+
 getCPUArch() {
     arch=$(uname -m)
     # shellcheck disable=SC3010

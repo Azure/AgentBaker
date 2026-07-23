@@ -46,61 +46,6 @@ source "${CSE_INSTALL_FILEPATH}"
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 source "${CSE_CONFIG_FILEPATH}"
 
-get_ubuntu_release() {
-    lsb_release -r -s 2>/dev/null || echo ""
-}
-
-# Return 0 when the running Ubuntu kernel still needs the Copy Fail / DirtyFrag /
-# Fragnesia module deny mitigation, and 1 once the kernel includes the fixes.
-ubuntuKernelNeedsVulnerableModuleMitigation() {
-    local ubuntu_release
-    local kernel_release
-    local fixed_kernel
-
-    ubuntu_release="$(get_ubuntu_release)"
-    kernel_release="$(uname -r 2>/dev/null || echo "")"
-
-    if [ -z "$kernel_release" ]; then
-        echo "Unable to detect Ubuntu kernel version; keeping vulnerable kernel module mitigation enabled"
-        return 0
-    fi
-
-    case "$ubuntu_release" in
-        22.04)
-            case "$kernel_release" in
-                *-azure*) fixed_kernel="5.15.0-1116-azure" ;;
-                *-generic*) fixed_kernel="5.15.0-181-generic" ;;
-                *)
-                    echo "Unknown Ubuntu 22.04 kernel flavor '${kernel_release}'; keeping vulnerable kernel module mitigation enabled"
-                    return 0
-                    ;;
-            esac
-            ;;
-        24.04)
-            case "$kernel_release" in
-                *-azure*) fixed_kernel="6.8.0-1058-azure" ;;
-                *-generic*) fixed_kernel="6.8.0-124-generic" ;;
-                *)
-                    echo "Unknown Ubuntu 24.04 kernel flavor '${kernel_release}'; keeping vulnerable kernel module mitigation enabled"
-                    return 0
-                    ;;
-            esac
-            ;;
-        *)
-            echo "Unknown Ubuntu release '${ubuntu_release}'; keeping vulnerable kernel module mitigation enabled"
-            return 0
-            ;;
-    esac
-
-    if semverCompare "$kernel_release" "$fixed_kernel"; then
-        echo "Ubuntu ${ubuntu_release} kernel ${kernel_release} includes Copy Fail / DirtyFrag / Fragnesia fixes; skipping vulnerable kernel module mitigation"
-        return 1
-    fi
-
-    echo "Ubuntu ${ubuntu_release} kernel ${kernel_release} is older than fixed kernel ${fixed_kernel}; keeping vulnerable kernel module mitigation enabled"
-    return 0
-}
-
 # Disable a single kernel module with a known LPE vulnerability.
 # Writes a modprobe blacklist rule and unloads the module if loaded.
 # Applies to existing VHDs that don't yet have the fix baked into modprobe-CIS.conf.
@@ -368,8 +313,9 @@ EOF
     # Ubuntu 22.04 picked up the fixes in linux-azure 5.15.0-1116-azure (generic
     # fallback 5.15.0-181-generic); Ubuntu 24.04 picked up the fixes in linux-azure
     # 6.8.0-1058-azure (generic fallback 6.8.0-124-generic). Keep the CSE-time
-    # apply for older or unknown Ubuntu kernels so in-support vulnerable VHDs remain
-    # protected, but stop blocking legitimate module use once the running kernel is fixed.
+    # apply for older or unknown Ubuntu kernels so in-support vulnerable VHDs without
+    # baked rules remain protected. Fixed Ubuntu kernels skip this runtime apply, but
+    # VHDs that already baked modprobe-CIS.conf keep those static rules until rebuilt.
     #
     # AzureLinux 3.0 (regular and Kata) is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy
     # Fail / DirtyFrag / Fragnesia upstream, so the runtime modprobe blacklist is no longer

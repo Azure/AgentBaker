@@ -3189,18 +3189,18 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 			`  exit $failed`,
 			`fi`,
 		}, "\n")
-		script += "\n" + ubuntuKernelModuleFullBlockValidationScript()
+		script += "\n" + kernelModuleFullBlockValidationScript()
 		execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
 			"Ubuntu vulnerable kernel module validation failed (fixed kernels should have no blacklist; older/unknown kernels should keep algif_aead/esp4/esp6/rxrpc blocked)")
 		return
 	}
 
-	script := ubuntuKernelModuleFullBlockValidationScript()
+	script := kernelModuleFullBlockValidationScript()
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
 		"Vulnerable kernel module mitigation validation failed (algif_aead/esp4/esp6/rxrpc)")
 }
 
-func ubuntuKernelModuleFullBlockValidationScript() string {
+func kernelModuleFullBlockValidationScript() string {
 	script := strings.Join([]string{
 		`failed=0`,
 		`for mod in algif_aead esp4 esp6 rxrpc; do`,
