@@ -61,18 +61,6 @@ echo $JSON_STRING | tee /var/log/azure/aks/provision.json
 # Cleanup cache file
 rm -f /opt/azure/containers/imds_instance_metadata_cache.json || true
 
-# Create stage marker for two-stage workflow
-if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
-    # Stage 1: Create marker indicating Stage 2 is needed
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete
-    echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
-    echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
-    exit 0
-fi
-
-# provision.complete is the marker for the second stage of the workflow
-mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
-
 # messsage_string is here because GA only accepts strings in Message.
 message_string=$( jq -n \
 --arg EXECUTION_DURATION                  "${EXECUTION_DURATION}" \
@@ -126,6 +114,19 @@ upload_logs() {
 }
 if [ "$EXIT_CODE" -ne 0 ]; then
     upload_logs
+    exit "$EXIT_CODE"
 fi
+
+# Create stage marker for two-stage workflow
+if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
+    # Stage 1: Create marker indicating Stage 2 is needed
+    mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete
+    echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
+    echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
+    exit "$EXIT_CODE"
+fi
+
+# provision.complete is the marker for the second stage of the workflow
+mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 
 exit "$EXIT_CODE"
