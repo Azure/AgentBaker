@@ -1,0 +1,2 @@
+Release notes for security patch 20260720T000000Z timestamp
+Package difference between 20260706T000000Z and 20260720T000000Z
