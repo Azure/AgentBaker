@@ -54,7 +54,10 @@ RESOLV_CONF="/run/systemd/resolve/resolv.conf"
 
 # Curl check if localdns is running.
 # This is used by start_localdns_watchdog and wait_for_localdns_ready.
-CURL_COMMAND="curl -s http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready"
+# Declared as an array so it expands with correct word-splitting/quoting; --noproxy ensures
+# the request to the node-local listener bypasses any system-wide HTTP proxy (inherited via
+# systemd DefaultEnvironment on http-proxy clusters), which cannot route to a link-local address.
+CURL_COMMAND=(curl -s --noproxy "${LOCALDNS_NODE_LISTENER_IP}" --connect-timeout 5 --max-time 10 "http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready")
 
 # Constant for networkctl reload command.
 # This is used by disable_dhcp_use_clusterlistener and cleanup_localdns_configs functions.
@@ -442,7 +445,7 @@ wait_for_localdns_ready() {
     local starttime=$(date +%s)
 
     echo "Waiting for localdns to start and be able to serve traffic."
-    until [ "$($CURL_COMMAND)" = "OK" ]; do
+    until [ "$("${CURL_COMMAND[@]}")" = "OK" ]; do
         if [ $attempts -ge $maxattempts ]; then
             echo "Localdns failed to come online after $maxattempts attempts."
             return 1
@@ -867,7 +870,7 @@ start_localdns_watchdog() {
         # If health check failed 5 consecutive times or failed 10 times in a 10 minute sliding window, watchdog restarts the systemd unit.
         while true; do
             health_check_passed=true
-            if [ "$($CURL_COMMAND)" != "OK" ]; then
+            if [ "$("${CURL_COMMAND[@]}")" != "OK" ]; then
                 echo "Health check failed: HTTP ready endpoint not responding."
                 health_check_passed=false
             fi

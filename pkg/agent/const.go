@@ -90,13 +90,8 @@ const (
 	dhcpv6SystemdService      = "linux/cloud-init/artifacts/dhcpv6.service"
 	dhcpv6ConfigurationScript = "linux/cloud-init/artifacts/enable-dhcpv6.sh"
 
-	// scripts for initializing specifically within AKS stack cloud environments (AGC).
-	initAKSCustomCloudScript        = "linux/cloud-init/artifacts/init-aks-custom-cloud.sh"
-	initAKSCustomCloudMarinerScript = "linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh"
-
-	// scripts for initializing specifically within AKS custom cloud environments other than stack cloud (e.g. Bleu).
-	initAKSCustomCloudOperationRequestsScript        = "linux/cloud-init/artifacts/init-aks-custom-cloud-operation-requests.sh"
-	initAKSCustomCloudOperationRequestsMarinerScript = "linux/cloud-init/artifacts/init-aks-custom-cloud-operation-requests-mariner.sh"
+	// script for initializing the AKS node cloud environment (cert bootstrap + repo init); runs on all clouds.
+	initAKSCloudScript = "linux/cloud-init/artifacts/init-aks-cloud.sh"
 
 	ensureNoDupEbtablesScript  = "linux/cloud-init/artifacts/ensure-no-dup.sh"
 	ensureNoDupEbtablesService = "linux/cloud-init/artifacts/ensure-no-dup.service"
@@ -106,6 +101,8 @@ const (
 	azureNetworkUdevRule        = "linux/cloud-init/artifacts/99-azure-network.rules"
 
 	componentManifestFile = "linux/cloud-init/artifacts/manifest.json"
+
+	hotfixJSONFile = "linux/cloud-init/artifacts/aks-node-controller-hotfix.json"
 )
 
 // cloud-init destination file references.
@@ -118,7 +115,14 @@ const (
 	customSearchDomainsCSEScriptFilepath = "/opt/azure/containers/setup-custom-search-domains.sh"
 	dhcpV6ServiceCSEScriptFilepath       = "/etc/systemd/system/dhcpv6.service"
 	dhcpV6ConfigCSEScriptFilepath        = "/opt/azure/containers/enable-dhcpv6.sh"
-	initAKSCustomCloudFilepath           = "/opt/azure/containers/init-aks-custom-cloud.sh"
+	initAKSCloudFilepath                 = "/opt/azure/containers/init-aks-cloud.sh"
+	aksNbcCmdFilepath                    = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
+	aksNodeCustomDataFilepath            = "/opt/azure/containers/nodecustomdata.yml"
+	aksNodeConfigFilepath                = "/opt/azure/containers/aks-node-controller-config.json"
+	aksHotfixJSONFilepath                = "/opt/azure/containers/aks-node-controller-hotfix.json"
+	// enabledFeaturesFilepath is the KEY=VALUE feature-flag file the aks-node-controller wrapper
+	// reads (its FEATURES_PATH). Scriptless custom data drops it only when a feature toggle is set.
+	enabledFeaturesFilepath = "/opt/azure/containers/enabled_features.sh"
 )
 
 const (

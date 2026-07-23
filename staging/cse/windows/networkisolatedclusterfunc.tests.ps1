@@ -53,7 +53,7 @@ Describe "Install-Oras" {
     }
 
     Mock Get-ChildItem -MockWith {
-      return [pscustomobject]@{ Name = "oras_1.3.0_windows_amd64.zip"; FullName = "C:\akse-cache\oras\oras_1.3.0_windows_amd64.zip" }
+      return [pscustomobject]@{ Name = "oras_1.3.3_windows_amd64.zip"; FullName = "C:\akse-cache\oras\oras_1.3.3_windows_amd64.zip" }
     }
 
     Mock Expand-Archive -MockWith {
@@ -95,7 +95,7 @@ Describe "Install-Oras" {
     }
 
     Mock Get-ChildItem -MockWith {
-      return [pscustomobject]@{ Name = "oras_1.3.0_windows_amd64.tar.gz"; FullName = "C:\akse-cache\oras\oras_1.3.0_windows_amd64.tar.gz" }
+      return [pscustomobject]@{ Name = "oras_1.3.3_windows_amd64.tar.gz"; FullName = "C:\akse-cache\oras\oras_1.3.3_windows_amd64.tar.gz" }
     }
 
     Mock tar -MockWith { $global:LASTEXITCODE = 1 }

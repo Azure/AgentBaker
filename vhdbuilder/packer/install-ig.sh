@@ -108,6 +108,27 @@ ig_enable_service_unit() {
     return 0
 }
 
+ig_disable_service_unit() {
+    local unit_path="/usr/lib/systemd/system/${IG_SERVICE_NAME}"
+
+    if [[ ! -f "${unit_path}" ]]; then
+        echo "[ig] ${IG_SERVICE_NAME} not present; skipping disablement"
+        return 0
+    fi
+
+    if ! systemctl daemon-reload; then
+        echo "[ig] systemctl daemon-reload failed"
+        return 1
+    fi
+
+    if ! systemctl disable --now "${IG_SERVICE_NAME}"; then
+        echo "[ig] Failed to disable ${IG_SERVICE_NAME}"
+        return 1
+    fi
+
+    return 0
+}
+
 ig_import_gadgets() {
     if [[ ! -x /usr/share/inspektor-gadget/import_gadgets.sh ]]; then
         echo "[ig] import_gadgets.sh not found"
@@ -220,8 +241,8 @@ installIG() {
         fi
     fi
 
-    # Enable the systemd service (baseline files copied by packer_source.sh)
-    ig_enable_service_unit || echo "[ig] Failed to enable ${IG_SERVICE_NAME}"
+    # disable the systemd service (baseline files copied by packer_source.sh)
+    ig_disable_service_unit || echo "[ig] Failed to disable ${IG_SERVICE_NAME}"
     ig_import_gadgets || echo "[ig] Gadget import failed during build"
 
     # Create skip sentinel file to indicate IG was installed from VHD

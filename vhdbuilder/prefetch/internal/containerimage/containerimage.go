@@ -17,9 +17,12 @@ var (
 )
 
 // GeneratePrefetchScript generates the container image prefetch script based on the specified component list.
-func GeneratePrefetchScript(list *components.List) ([]byte, error) {
+func GeneratePrefetchScript(list *components.List, postfix []byte) ([]byte, error) {
 	if list == nil {
 		return nil, fmt.Errorf("components list must be non-nil")
+	}
+	if len(postfix) == 0 {
+		return nil, fmt.Errorf("postfix script must be non-empty")
 	}
 	var args TemplateArgs
 	for _, image := range list.Images {
@@ -54,5 +57,12 @@ func GeneratePrefetchScript(list *components.List) ([]byte, error) {
 	if err := prefetchScriptTemplate.Execute(&buf, args); err != nil {
 		return nil, fmt.Errorf("unable to execute container image prefetch template: %w", err)
 	}
+	if bytes.HasPrefix(postfix, []byte("#!")) {
+		if newline := bytes.IndexByte(postfix, '\n'); newline >= 0 {
+			postfix = postfix[newline+1:]
+		}
+	}
+	buf.WriteByte('\n')
+	buf.Write(postfix)
 	return buf.Bytes(), nil
 }

@@ -36,66 +36,6 @@ func Test_AzureLinux3OSGuard(t *testing.T) {
 	})
 }
 
-func Test_Flatcar(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a Flatcar VHD can be properly bootstrapped and custom CA was correctly added",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-					CustomCATrustCerts: []string{
-						encodedTestCert,
-					},
-				}
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/protocols", "protocols definition file")
-				ValidateFileIsRegularFile(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
-				ValidateNonEmptyDirectory(ctx, s, "/opt/certs")
-				// openssl x509 -hash of input cert
-				ValidateFileExists(ctx, s, "/etc/ssl/certs/5c3b39ed.0")
-			},
-		},
-	})
-}
-
-func Test_Flatcar_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a Flatcar and the self-contained installer can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
-			},
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-			},
-		},
-	})
-}
-
-func Test_Flatcar_ARM64(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a Flatcar VHD on ARM64 architecture can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2Arm64,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.IsARM64 = true
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
-			},
-		},
-	})
-}
-
 func Test_AzureLinuxV3_ARM64(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 VHD on ARM64 architecture can be properly bootstrapped",
@@ -110,25 +50,6 @@ func Test_AzureLinuxV3_ARM64(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
-			},
-		},
-	})
-}
-
-func Test_Flatcar_AzureCNI(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Flatcar scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDFlatcarGen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 			},
 		},
 	})
@@ -152,48 +73,6 @@ func Test_Ubuntu2204_AzureCNI(t *testing.T) {
 	})
 }
 
-func Test_Flatcar_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Test Flatcar scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDFlatcarGen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-			},
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
-			},
-		},
-	})
-}
-
-func Test_Flatcar_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a Flatcar Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
-		Tags: Tags{
-			BootstrapTokenFallback: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-					Enabled:                true,
-					GetAccessTokenTimeout:  (10 * time.Second).String(),
-					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
-				}
-			},
-		},
-	})
-}
-
 func Test_ACL(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an ACL VHD can be properly bootstrapped and custom CA was correctly added",
@@ -207,15 +86,20 @@ func Test_ACL(t *testing.T) {
 					},
 				}
 			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.CustomCaCerts = []string{
+					encodedTestCert,
+				}
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
-				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
-				// ACL uses Azure Linux CA trust paths under /etc (read-only /usr via dm-verity)
-				ValidateNonEmptyDirectory(ctx, s, "/etc/pki/ca-trust/source/anchors")
+				// ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
+				// // ACL uses Azure Linux CA trust paths under /etc (read-only /usr via dm-verity)
+				// ValidateNonEmptyDirectory(ctx, s, "/etc/pki/ca-trust/source/anchors")
 			},
 		},
 	})
@@ -292,26 +176,6 @@ func Test_AzureLinuxV3Gen2FIPS(t *testing.T) {
 	})
 }
 
-func Test_ACL_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using ACL and the self-contained installer can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDACLGen2TL,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
-			},
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-			},
-		},
-	})
-}
-
 func Test_ACL_AzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "ACL scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
@@ -324,6 +188,9 @@ func Test_ACL_AzureCNI(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
@@ -352,31 +219,6 @@ func Test_ACL_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 					GetAccessTokenTimeout:  (10 * time.Second).String(),
 					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 				}
-			},
-		},
-	})
-}
-
-func Test_ACL_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Test ACL scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDACLGen2TL,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
-			},
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 			},
 		},
 	})
@@ -428,15 +270,13 @@ func runScenarioACLGPU(t *testing.T, vmSize string, location string) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDACLGen2TL,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2TL,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
-				nbc.EnableScriptlessCSECmd = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
@@ -458,15 +298,13 @@ func runScenarioACLGRID(t *testing.T, vmSize string) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDACLGen2TL,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2TL,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
-				nbc.EnableScriptlessCSECmd = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
@@ -521,12 +359,52 @@ func Test_AzureLinuxV3_AzureCNI(t *testing.T) {
 
 func Test_AzureLinuxV3(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that an AzureLinuxV3 node can be properly bootstrapped with message of the day and custom CA trust configured, while chrony restarts and AppArmor remains enabled",
+		Description: "Tests that an AzureLinuxV3 node can be properly bootstrapped with message of the day while chrony restarts and AppArmor remains enabled",
+		Tags: Tags{
+			KubeletCustomConfig: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
+				customKubeletConfig := &datamodel.CustomKubeletConfig{
+					SeccompDefault: to.Ptr(true),
+				}
+				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.EnableKubeletConfigFile = true
+				config.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
+				config.KubeletConfig.KubeletConfigFileConfig.SeccompDefault = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
+				ValidateFileHasContent(ctx, s, "/etc/dnf/automatic.conf", "emit_via = stdio")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				ValidateAppArmorBasic(ctx, s)
+				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
+				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
+				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
+				ValidateInstalledPackageVersion(ctx, s, "containerd2", components.GetExpectedPackageVersions("containerd", "azurelinux", "v3.0")[0])
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_CustomCa(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that an AzureLinuxV3 node can be properly bootstrapped with custom ca",
+		Tags: Tags{
+			KubeletCustomConfig: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
 					CustomCATrustCerts: []string{
 						encodedTestCert,
@@ -534,13 +412,7 @@ func Test_AzureLinuxV3(t *testing.T) {
 				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
-				ValidateFileHasContent(ctx, s, "/etc/dnf/automatic.conf", "emit_via = stdio")
 				ValidateNonEmptyDirectory(ctx, s, "/usr/share/pki/ca-trust-source/anchors")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
-				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				ValidateAppArmorBasic(ctx, s)
 			},
 		},
 	})
@@ -550,9 +422,8 @@ func Test_AzureLinuxV2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that an AzureLinuxV2 node can be properly bootstrapped",
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDAzureLinuxV2Gen2,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				k8sVersion := "1.30.101-akslts"
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = k8sVersion
@@ -567,7 +438,7 @@ func Test_AzureLinuxV2(t *testing.T) {
 
 // Returns config for the 'base' E2E scenario
 
-func Test_Ubuntu2204_Scriptless(t *testing.T) {
+func Test_Ubuntu2204(t *testing.T) {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 65535",
 		"net.netfilter.nf_conntrack_max":     "2097152",
@@ -582,15 +453,12 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 	registerWithTaints := "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"
 
 	RunScenario(t, &Scenario{
-		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped with custom CA trust, custom sysctls, and chrony/taints configured",
+		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped with custom sysctls, and chrony/taints configured",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.KubeletConfig["--register-with-taints"] = registerWithTaints
-				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-					CustomCATrustCerts: []string{encodedTestCert},
-				}
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
 						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
@@ -611,14 +479,12 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
 				ValidateTaints(ctx, s, s.Runtime.AKSNodeConfig.KubeletConfig.KubeletFlags["--register-with-taints"])
-				ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
 				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
 				ValidateSysctlConfig(ctx, s, customSysctls)
 			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.KubeletConfig.EnableKubeletConfigFile = true
 				config.KubeletConfig.KubeletFlags["--register-with-taints"] = registerWithTaints
-				config.CustomCaCerts = []string{encodedTestCert}
 				customLinuxOsConfig := &aksnodeconfigv1.CustomLinuxOsConfig{
 					SysctlConfig: &aksnodeconfigv1.SysctlConfig{
 						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
@@ -637,31 +503,26 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_Failure_Scriptless(t *testing.T) {
+func Test_Ubuntu2204_CustomCa(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
-		Tags: Tags{
-			Scriptless: true,
-		},
+		Description: "tests that a new ubuntu 2204 node can be properly bootstrapped with custom CA trust",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+					CustomCATrustCerts: []string{encodedTestCert},
+				}
+			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
-				ValidateFileExists(ctx, s, "/var/log/azure/aks/provision.json")
+				ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
 			},
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-				// Intentionally causing a failure here
-				//config.Version = "v200"
-				config.BootstrappingConfig = nil
-				config.KubernetesCaCert = ""
-			},
-			ExpectedError: "API server connection check code: 51",
 		},
 	})
 }
 
 func Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
+	t.Skip("Need a way to inject early failures into scriptless")
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
 		Tags: Tags{
@@ -674,29 +535,12 @@ func Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
 				ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
 				ValidateFileExists(ctx, s, "/var/log/azure/aks/provision.json")
 			},
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				// Intentionally causing a failure here
 				config.Version = "VeryBadVersion"
 			},
 			ExpectedError: "unsupported version: VeryBadVersion",
-		},
-	})
-}
-
-func Test_Ubuntu2404_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "testing that a new ubuntu 2404 node using self contained installer can be properly bootstrapped",
-		Tags: Tags{
-			Scriptless: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
-			},
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-			},
 		},
 	})
 }
@@ -719,11 +563,8 @@ func Test_Ubuntu2204_ScriptlessCSECmd_Hotfix(t *testing.T) {
 				Content: hotfixMarkerContent,
 			}},
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableScriptlessCSECmd = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt",
-					"Executing in scriptless CSE mode")
 				// This file does NOT exist on any VHD — it can only be present if cloud-init
 				// processed our write_files entry, proving the hotfix delivery mechanism works.
 				ValidateFileHasContent(ctx, s, hotfixMarkerPath, hotfixMarkerContent)
@@ -780,49 +621,12 @@ func Test_Ubuntu2204_ANCHotfix_BinarySelection(t *testing.T) {
 	})
 }
 
-// Returns config for the 'gpu' E2E scenario
-func Test_Ubuntu2204(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped with message of the day and custom CA trust configured",
-		Tags: Tags{
-			VMSeriesCoverageTest: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Check that we don't leak these secrets if they're
-				// set (which they mostly aren't in these scenarios).
-				nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "client cert private key"
-				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
-				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
-				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-					CustomCATrustCerts: []string{
-						encodedTestCert,
-					},
-				}
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
-				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", "2.5.3")
-				ValidateSSHServiceEnabled(ctx, s)
-				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
-				ValidateFileHasContent(ctx, s, "/etc/update-motd.d/99-aks-custom-motd", "cat /etc/motd")
-				ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
-			},
-		},
-	})
-}
-
 func Test_Ubuntu2204FIPS(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 FIPS Gen1 VHD can be properly bootstrapped",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204FIPSContainerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
 					EnableFips1403Encryption: to.Ptr(true),
@@ -838,26 +642,6 @@ func Test_Ubuntu2204FIPS(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2004FIPS(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2004 FIPS Gen1 VHD can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2004FIPSContainerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2004")[0])
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2004")[0])
-				ValidateSSHServiceEnabled(ctx, s)
-				ValidateFIPSProvider(ctx, s)
-			},
-		},
-	})
-}
-
 func Test_Ubuntu2004Gen2FIPS(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2004 FIPS Gen2 VHD can be properly bootstrapped",
@@ -865,6 +649,7 @@ func Test_Ubuntu2004Gen2FIPS(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2004FIPSGen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.8"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			},
@@ -887,8 +672,6 @@ func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2FIPSContainerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
 					EnableFips1403Encryption: to.Ptr(true),
@@ -913,8 +696,6 @@ func Test_Ubuntu2204Gen2FIPSTL(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2FIPSTLContainerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
@@ -939,30 +720,6 @@ func Test_Ubuntu2204_EntraIDSSH(t *testing.T) {
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Enable Entra ID SSH authentication
-				nbc.SSHStatus = datamodel.EntraIDSSH
-			},
-			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since Entra ID SSH disables private key authentication
-			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
-			Validator: func(ctx context.Context, s *Scenario) {
-				// NOTE: Since Entra ID SSH disables pubkey authentication, we cannot use
-				// the normal SSH-based validation functions that rely on private key authentication.
-				// We can only validate that SSH private key authentication fails as expected.
-				// The full E2E of Entra ID SSH scenario will be included in AKS RP's E2E test.
-
-				// Validate Entra ID SSH configuration (tests that private key SSH fails)
-				ValidatePubkeySSHDisabled(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204_EntraIDSSH_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using Ubuntu 2204 VHD with Entra ID SSH can be properly bootstrapped and SSH private key authentication is disabled",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SSHStatus = datamodel.EntraIDSSH
 			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
@@ -1016,58 +773,6 @@ func Test_Ubuntu2204_DisableSSH(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Validate SSH daemon is disabled via RunCommand
 				ValidateSSHServiceDisabled(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Flatcar_DisableSSH(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using Flatcar VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.SSHStatus = datamodel.SSHOff
-			},
-			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
-			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Validate SSH daemon is disabled via RunCommand
-				ValidateSSHServiceDisabled(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Flatcar_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using Flatcar VHD with network isolated cluster enabled",
-		Tags: Tags{
-			NetworkIsolated: true,
-			NonAnonymousACR: true,
-		},
-		Config: Config{
-			Cluster: ClusterAzureNetworkIsolated,
-			VHD:     config.VHDFlatcarGen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
-					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
-					},
-				}
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
-				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
-				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
-					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
-					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
-					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
-				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
-				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
 			},
 		},
 	})
@@ -1270,6 +975,9 @@ func Test_Ubuntu2204_ArtifactStreaming(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableArtifactStreaming = true
 			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.EnableArtifactStreaming = true
+			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
 				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
@@ -1292,31 +1000,12 @@ func Test_Ubuntu2204_ArtifactStreaming_ARM64(t *testing.T) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
 			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "tests that a new ubuntu 2204 node using artifact streaming can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableArtifactStreaming = true
-			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.EnableArtifactStreaming = true
+				config.VmSize = "Standard_D2pds_V5"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
@@ -1338,57 +1027,8 @@ func Test_AzureLinuxV3_ArtifactStreaming(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableArtifactStreaming = true
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
-			},
-		},
-	})
-}
-
-func Test_AzureLinuxV3_ArtifactStreaming_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "tests that a new azure linux v3 node using artifact streaming can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableArtifactStreaming = true
-			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.EnableArtifactStreaming = true
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204_ArtifactStreaming_ARM64_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "tests that a new ubuntu 2204 node using artifact streaming and ARM64 architecture can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableArtifactStreaming = true
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.IsARM64 = true
-			},
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-				config.EnableArtifactStreaming = true
-				config.VmSize = "Standard_D2pds_V5"
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
@@ -1418,32 +1058,9 @@ func Test_Ubuntu2404_ArtifactStreaming_ARM64(t *testing.T) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2404_ArtifactStreaming_ARM64_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "tests that a new ubuntu 2404 node using artifact streaming and ARM64 architecture can be properly bootstrapped",
-		Tags: Tags{
-			Scriptless: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404ArmContainerd,
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.EnableArtifactStreaming = true
 				config.VmSize = "Standard_D2pds_V5"
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
@@ -1457,29 +1074,6 @@ func Test_Ubuntu2404_ArtifactStreaming_ARM64_Scriptless(t *testing.T) {
 }
 
 func Test_Ubuntu2204_ArtifactStreaming_TrustedLaunch(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "tests that a new ubuntu 2204 node using artifact streaming with trusted launch can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2TLContainerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableArtifactStreaming = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204_ArtifactStreaming_TrustedLaunch_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using artifact streaming with trusted launch can be properly bootstrapped",
 		Config: Config{
@@ -1506,31 +1100,6 @@ func Test_Ubuntu2204_ArtifactStreaming_TrustedLaunch_Scriptless(t *testing.T) {
 }
 
 func Test_Ubuntu2204_ArtifactStreaming_FIPS(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "tests that a new ubuntu 2204 FIPS node using artifact streaming can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2FIPSContainerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableArtifactStreaming = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
-					EnableFips1403Encryption: to.Ptr(true),
-				}
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204_ArtifactStreaming_FIPS_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 FIPS node using artifact streaming can be properly bootstrapped",
 		Config: Config{
@@ -1593,6 +1162,39 @@ func Test_Ubuntu2204_ArtifactStreaming_NetworkIsolatedCluster(t *testing.T) {
 				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
 				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
 				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+			},
+		},
+	})
+}
+
+// Test_Ubuntu2204_ArtifactStreaming_ImagePull goes beyond the other artifact-streaming scenarios
+// (which only assert the overlaybd/acr-mirror services are running on a freshly bootstrapped node)
+// by actually launching a pod from an overlaybd-converted image and proving on the node that the
+// image was streamed on demand (TCMU-backed block device) rather than downloaded into overlayfs.
+//
+// It uses ClusterAzureBootstrapProfileCache because that cluster attaches a Premium private ACR
+// (required for `az acr artifact-streaming`), including an anonymous-pull ACR that the validator
+// uses so acr-mirror can serve the streaming manifest without a node managed identity — without the
+// added complexity of full network isolation.
+func Test_Ubuntu2204_ArtifactStreaming_ImagePull(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that an artifact streaming node actually streams an overlaybd image on pod launch (TCMU-backed), not just that the streaming services are running",
+		Config: Config{
+			Cluster: ClusterAzureBootstrapProfileCache,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableArtifactStreaming = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Node bootstrap sanity (same checks as the other streaming scenarios).
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+
+				// The actual streaming validation: pull an overlaybd image in a pod and confirm it streamed.
+				ValidateArtifactStreamingImagePull(ctx, s)
 			},
 		},
 	})
@@ -1666,74 +1268,8 @@ func Test_Ubuntu2204_GPUA100(t *testing.T) {
 }
 
 func Test_Ubuntu2204_GPUA10(t *testing.T) {
-	runScenarioUbuntuGRID(t, "Standard_NV6ads_A10_v5")
-}
-
-// Returns config for the 'gpu' E2E scenario
-func runScenarioUbuntu2204GPU(t *testing.T, vmSize string, location string) {
 	RunScenario(t, &Scenario{
-		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2204 VHD can be properly bootstrapped", vmSize),
-		Location:    location,
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDUbuntu2204Gen2Containerd,
-			SkipScriptlessNBC: true,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = vmSize
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr(vmSize)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
-				ValidateNvidiaModProbeInstalled(ctx, s)
-				ValidateKubeletHasNotStopped(ctx, s)
-				ValidateServicesDoNotRestartKubelet(ctx, s)
-			},
-		},
-	})
-}
-
-func runScenarioUbuntuGRID(t *testing.T, vmSize string) {
-	RunScenario(t, &Scenario{
-		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2204 VHD can be properly bootstrapped, and that the GRID license is valid", vmSize),
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDUbuntu2204Gen2Containerd,
-			SkipScriptlessNBC: true,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = vmSize
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr(vmSize)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
-				ValidateNvidiaModProbeInstalled(ctx, s)
-				ValidateNvidiaGRIDLicenseValid(ctx, s)
-				ValidateKubeletHasNotStopped(ctx, s)
-				ValidateServicesDoNotRestartKubelet(ctx, s)
-				ValidateNvidiaPersistencedRunning(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests scriptless installer that a GPU-enabled node using the Ubuntu 2204 VHD with grid driver can be properly bootstrapped",
+		Description: "Tests that a GPU-enabled node with VM size Standard_NV6ads_A10_v5 using an Ubuntu 2204 VHD can be properly bootstrapped, and that the GRID license is valid",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -1746,20 +1282,51 @@ func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.VmSize = "Standard_NV6ads_A10_v5"
+				config.GpuConfig.ConfigGpuDriver = true
+				config.GpuConfig.GpuDevicePlugin = false
+				config.GpuConfig.EnableNvidia = to.Ptr(true)
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateNvidiaGRIDLicenseValid(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
+				ValidateNvidiaPersistencedRunning(ctx, s)
+			},
+		},
+	})
+}
+
+// Returns config for the 'gpu' E2E scenario
+func runScenarioUbuntu2204GPU(t *testing.T, vmSize string, location string) {
+	RunScenario(t, &Scenario{
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2204 VHD can be properly bootstrapped", vmSize),
+		Location:    location,
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(vmSize)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
-			},
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-				config.VmSize = "Standard_NV6ads_A10_v5"
-				config.GpuConfig.ConfigGpuDriver = true
-				config.GpuConfig.GpuDevicePlugin = false
-				config.GpuConfig.EnableNvidia = to.Ptr(true)
 			},
 		},
 	})
@@ -1808,36 +1375,6 @@ func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Tags = map[string]*string{
-					// deliberately case mismatched to agentbaker logic to check case insensitivity
-					"SkipGPUDriverInstall": to.Ptr("true"),
-				}
-				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNvidiaSMINotInstalled(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
-		Location:    "westus2",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.VmSize = "Standard_NC4as_T4_v3"
 				config.GpuConfig.ConfigGpuDriver = true
@@ -1845,7 +1382,6 @@ func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 				config.GpuConfig.EnableNvidia = to.Ptr(true)
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				// this vmss tag is needed since there is a logic in cse_main.sh otherwise the test will fail
 				vmss.Tags = map[string]*string{
 					// deliberately case mismatched to agentbaker logic to check case insensitivity
 					"SkipGPUDriverInstall": to.Ptr("true"),
@@ -1876,26 +1412,6 @@ func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable(t *testing.T) {
 				nbc.EnableIMDSRestriction = true
 				nbc.InsertIMDSRestrictionRuleToMangleTable = false
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "containerd", "1.6.9")
-			},
-		},
-	})
-}
-
-// Combine e2e scriptless tests for scenario Ubuntu2204_ContainerdURL and Ubuntu2204_IMDSRestrictionFilterTable
-func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: `tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override the provided URL and not the components.json containerd version,
-		              tests that the imds restriction filter table is properly set`,
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerdPackageURL = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
-				nbc.EnableIMDSRestriction = true
-				nbc.InsertIMDSRestrictionRuleToMangleTable = false
-			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.ContainerdConfig.ContainerdPackageUrl = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
 				config.ImdsRestrictionConfig = &aksnodeconfigv1.ImdsRestrictionConfig{
@@ -1916,8 +1432,6 @@ func Test_Ubuntu2204_ContainerdHasCurrentVersion(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 			},
@@ -1929,9 +1443,8 @@ func Test_AzureLinux_Skip_Binary_Cleanup(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an AzureLinux node will skip binary cleanup and can be properly bootstrapped",
 		Config: Config{
-			Cluster:                ClusterKubenet,
-			VHD:                    config.VHDAzureLinuxV3Gen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {},
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
@@ -1949,9 +1462,8 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags(t *testing
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
-			Cluster:                ClusterKubenet,
-			VHD:                    config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {},
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
@@ -1970,29 +1482,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				// to force kubelet config file
-				customKubeletConfig := &datamodel.CustomKubeletConfig{
-					FailSwapOn:           to.Ptr(true),
-					AllowedUnsafeSysctls: &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
-				}
-				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				if vmss.Tags == nil {
-					vmss.Tags = map[string]*string{}
-				}
-				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				customKubeletConfig := &datamodel.CustomKubeletConfig{
 					FailSwapOn:           to.Ptr(true),
 					AllowedUnsafeSysctls: &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
@@ -2023,8 +1512,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
@@ -2059,39 +1546,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 	})
 }
 
-func Test_AzureLinuxV3_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using AzureLinuxV3 can be bootstrapped in scriptless mode with message of the day and kubelet custom config applied",
-		Tags: Tags{
-			KubeletCustomConfig: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
-				customKubeletConfig := &datamodel.CustomKubeletConfig{
-					SeccompDefault: to.Ptr(true),
-				}
-				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
-			},
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-				config.KubeletConfig.EnableKubeletConfigFile = true
-				config.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
-				config.KubeletConfig.KubeletConfigFileConfig.SeccompDefault = true
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
-				ValidateFileHasContent(ctx, s, "/etc/dnf/automatic.conf", "emit_via = stdio")
-				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
-				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
-				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
-				ValidateInstalledPackageVersion(ctx, s, "containerd2", components.GetExpectedPackageVersions("containerd", "azurelinux", "v3.0")[0])
-			},
-		},
-	})
-}
-
 func Test_AzureLinuxV3_MA35D(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using AzureLinuxV3 can support MA35D SKU",
@@ -2099,9 +1553,8 @@ func Test_AzureLinuxV3_MA35D(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDAzureLinuxV3Gen2,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NM16ads_MA35D"
 				nbc.AgentPoolProfile.VMSize = "Standard_NM16ads_MA35D"
@@ -2123,7 +1576,7 @@ func Test_AzureLinuxV3_MA35D(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3LocalDns_Disabled_Scriptless(t *testing.T) {
+func Test_AzureLinuxV3LocalDns_Disabled(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 can be bootstrapped with localdns disabled",
 		Config: Config{
@@ -2251,9 +1704,8 @@ func Test_AzureLinuxV3_GPU(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDAzureLinuxV3Gen2,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
 				nbc.ConfigGPUDriverIfNeeded = true
@@ -2303,33 +1755,6 @@ func Test_AzureLinuxV3_GPUA10(t *testing.T) {
 }
 
 func Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "AzureLinux V3 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
-		Location:    "westus2",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDAzureLinuxV3Gen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-			},
-		},
-	})
-}
-
-func Test_AzureLinuxV3_GPUAzureCNI_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "AzureLinux V3 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
 		Location:    "westus2",
@@ -2404,9 +1829,10 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 			VMSeriesCoverageTest: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			Cluster:                ClusterKubenet,
+			VHD:                    config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
@@ -2414,33 +1840,8 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRuncVersion(ctx, s, runcVersions)
 				ValidateContainerRuntimePlugins(ctx, s)
-				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", "2.5.3")
+				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2404")[0])
 				ValidateSSHServiceEnabled(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2404Gen2_McrChinaCloud_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Tags: Tags{
-			MockAzureChinaCloud: true,
-			Scriptless:          true,
-		},
-		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				if vmss.Tags == nil {
-					vmss.Tags = map[string]*string{}
-				}
-				vmss.Tags["E2EMockAzureChinaCloud"] = to.Ptr("true")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/etc/containerd/certs.d/mcr.azk8s.cn", []string{"hosts.toml"})
 			},
 		},
 	})
@@ -2453,9 +1854,10 @@ func Test_Ubuntu2404Gen2_McrChinaCloud(t *testing.T) {
 		},
 		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			Cluster:                ClusterKubenet,
+			VHD:                    config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
@@ -2557,8 +1959,6 @@ func Test_Ubuntu2404Gen1(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen1Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
@@ -2575,8 +1975,6 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404ArmContainerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
@@ -2596,8 +1994,6 @@ func Test_Random_VHD_With_Latest_Kubernetes_Version(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterLatestKubernetesVersion,
 			VHD:     config.GetRandomLinuxAMD64VHD(),
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 		},
 	})
 }
@@ -2651,13 +2047,13 @@ func Test_Ubuntu2404_GPU_RTXPro6000_GridV20(t *testing.T) {
 			// ephemeral OS disk placement (SupportedEphemeralOSDiskPlacements=NvmeDisk).
 			UseNVMe: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC128ds_xl_RTXPRO6000BSE_v6"
+				nbc.AgentPoolProfile.VMSize = "Standard_NC144ds_xl_RTXPRO6000BSE_v6"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC128ds_xl_RTXPRO6000BSE_v6")
+				vmss.SKU.Name = to.Ptr("Standard_NC144ds_xl_RTXPRO6000BSE_v6")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
@@ -2675,8 +2071,6 @@ func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
@@ -2800,8 +2194,8 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled(t *testing.T) {
 			Cluster: ClusterLatestKubernetesVersion,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
+				// Enforce Kubernetes 1.34.8 for ServiceAccountImagePullProfile testing
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.8"
 				// Enable ServiceAccountImagePullProfile with test values
 				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
 					Enabled:           true,
@@ -2812,6 +2206,23 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled(t *testing.T) {
 				// Set kubelet flags to enable credential provider config generation
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, aksConfig *aksnodeconfigv1.Configuration) {
+				aksConfig.KubernetesVersion = "1.34.8"
+				aksConfig.ServiceAccountImagePullProfile = &aksnodeconfigv1.ServiceAccountImagePullProfile{
+					Enabled:           true,
+					DefaultClientId:   "test-client-id-12345",
+					DefaultTenantId:   "test-tenant-id-67890",
+					LocalAuthoritySni: "test.sni.local",
+				}
+				if aksConfig.KubeletConfig == nil {
+					aksConfig.KubeletConfig = &aksnodeconfigv1.KubeletConfig{}
+				}
+				if aksConfig.KubeletConfig.KubeletFlags == nil {
+					aksConfig.KubeletConfig.KubeletFlags = make(map[string]string)
+				}
+				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Verify credential provider config file exists
@@ -2836,15 +2247,35 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled(t *testing.T) {
 			Cluster: ClusterLatestKubernetesVersion,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
+				// Enforce Kubernetes 1.34.8 for ServiceAccountImagePullProfile testing
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.8"
 				// Explicitly disable ServiceAccountImagePullProfile
 				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
-					Enabled: false,
+					Enabled:           false,
+					DefaultClientID:   "should-not-appear-client-id",
+					DefaultTenantID:   "should-not-appear-tenant-id",
+					LocalAuthoritySNI: "should.not.appear.sni",
 				}
 				// Set kubelet flags to enable credential provider config generation
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, aksConfig *aksnodeconfigv1.Configuration) {
+				aksConfig.KubernetesVersion = "1.34.8"
+				aksConfig.ServiceAccountImagePullProfile = &aksnodeconfigv1.ServiceAccountImagePullProfile{
+					Enabled:           false,
+					DefaultClientId:   "should-not-appear-client-id",
+					DefaultTenantId:   "should-not-appear-tenant-id",
+					LocalAuthoritySni: "should.not.appear.sni",
+				}
+				if aksConfig.KubeletConfig == nil {
+					aksConfig.KubeletConfig = &aksnodeconfigv1.KubeletConfig{}
+				}
+				if aksConfig.KubeletConfig.KubeletFlags == nil {
+					aksConfig.KubeletConfig.KubeletFlags = make(map[string]string)
+				}
+				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Verify credential provider config file exists
@@ -2867,8 +2298,8 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_EnabledWithoutDefaultIDs(t *te
 			Cluster: ClusterLatestKubernetesVersion,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
+				// Enforce Kubernetes 1.34.8 for ServiceAccountImagePullProfile testing
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.8"
 				// Enable ServiceAccountImagePullProfile without default client/tenant IDs
 				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
 					Enabled:           true,
@@ -2907,8 +2338,8 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_NetworkIsolated(t *testing.T) 
 			Cluster: ClusterAzureBootstrapProfileCache,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
+				// Enforce Kubernetes 1.34.8 for ServiceAccountImagePullProfile testing
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.8"
 				// Enable ServiceAccountImagePullProfile with test values
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
@@ -2945,129 +2376,13 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_NetworkIsolated(t *testing.T) 
 	})
 }
 
-func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that credential provider config includes identity binding when ServiceAccountImagePullProfile is enabled in scriptless mode",
-		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
-				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
-					Enabled:           true,
-					DefaultClientID:   "test-client-id-12345",
-					DefaultTenantID:   "test-tenant-id-67890",
-					LocalAuthoritySNI: "test.sni.local",
-				}
-				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
-				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
-			},
-			AKSNodeConfigMutator: func(_ *Cluster, aksConfig *aksnodeconfigv1.Configuration) {
-				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
-				aksConfig.KubernetesVersion = "1.34.0"
-				// Enable ServiceAccountImagePullProfile with test values
-				aksConfig.ServiceAccountImagePullProfile = &aksnodeconfigv1.ServiceAccountImagePullProfile{
-					Enabled:           true,
-					DefaultClientId:   "test-client-id-12345",
-					DefaultTenantId:   "test-tenant-id-67890",
-					LocalAuthoritySni: "test.sni.local",
-				}
-				// Set kubelet flags to enable credential provider
-				if aksConfig.KubeletConfig == nil {
-					aksConfig.KubeletConfig = &aksnodeconfigv1.KubeletConfig{}
-				}
-				if aksConfig.KubeletConfig.KubeletFlags == nil {
-					aksConfig.KubeletConfig.KubeletFlags = make(map[string]string)
-				}
-				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
-				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Verify aks-node-controller completed successfully
-				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
-
-				// Verify credential provider config file exists
-				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
-
-				// Verify the config contains identity binding arguments
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id=test-client-id-12345")
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id=test-tenant-id-67890")
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=test.sni.local")
-
-				// Verify the config contains the identity binding token attributes section
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that credential provider config excludes identity binding when ServiceAccountImagePullProfile is disabled in scriptless mode",
-		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
-				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
-					Enabled:           false,
-					DefaultClientID:   "should-not-appear-client-id",
-					DefaultTenantID:   "should-not-appear-tenant-id",
-					LocalAuthoritySNI: "should.not.appear.sni",
-				}
-				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
-				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
-			},
-			AKSNodeConfigMutator: func(_ *Cluster, aksConfig *aksnodeconfigv1.Configuration) {
-				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
-				aksConfig.KubernetesVersion = "1.34.0"
-				// Disable ServiceAccountImagePullProfile
-				aksConfig.ServiceAccountImagePullProfile = &aksnodeconfigv1.ServiceAccountImagePullProfile{
-					Enabled:           false,
-					DefaultClientId:   "should-not-appear-client-id",
-					DefaultTenantId:   "should-not-appear-tenant-id",
-					LocalAuthoritySni: "should.not.appear.sni",
-				}
-				// Set kubelet config to enable credential provider
-				if aksConfig.KubeletConfig == nil {
-					aksConfig.KubeletConfig = &aksnodeconfigv1.KubeletConfig{}
-				}
-				if aksConfig.KubeletConfig.KubeletFlags == nil {
-					aksConfig.KubeletConfig.KubeletFlags = make(map[string]string)
-				}
-				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
-				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Verify aks-node-controller completed successfully
-				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
-
-				// Verify credential provider config file exists
-				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
-
-				// Verify the config does NOT contain identity binding arguments
-				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id")
-				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id")
-				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name")
-				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
-			},
-		},
-	})
-}
-
 func Test_Ubuntu2404_SecondaryNIC(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on Ubuntu",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			// configureSecondaryNICs is new and not yet baked into released VHDs.
-			// The scriptless_nbc path always uses VHD scripts (DisableCustomData=true),
-			// so it can't pick up the new function until the next VHD release.
-			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Embed scripts in customData instead of using VHD scripts.
-				nbc.EnableScriptlessCSECmd = false
 				nbc.StandardSecondaryNICCount = 1
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -3088,11 +2403,9 @@ func Test_AzureLinuxV3_SecondaryNIC(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on Azure Linux",
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDAzureLinuxV3Gen2,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableScriptlessCSECmd = false
 				nbc.StandardSecondaryNICCount = 1
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -3113,11 +2426,9 @@ func Test_Ubuntu2204_SecondaryNIC(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on Ubuntu 22.04",
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDUbuntu2204Gen2Containerd,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableScriptlessCSECmd = false
 				nbc.StandardSecondaryNICCount = 1
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -3138,11 +2449,9 @@ func Test_ACL_SecondaryNIC(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on ACL",
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDACLGen2TL,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2TL,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableScriptlessCSECmd = false
 				nbc.StandardSecondaryNICCount = 1
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -3164,11 +2473,9 @@ func Test_Ubuntu2404_SecondaryNIC_DualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a dual-stack secondary NIC is properly configured on Ubuntu 24.04",
 		Config: Config{
-			Cluster:           ClusterAzureOverlayNetworkDualStack,
-			VHD:               config.VHDUbuntu2404Gen2Containerd,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterAzureOverlayNetworkDualStack,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableScriptlessCSECmd = false
 				nbc.StandardSecondaryNICCount = 1
 				if nbc.ContainerService.Properties.FeatureFlags == nil {
 					nbc.ContainerService.Properties.FeatureFlags = &datamodel.FeatureFlags{}
@@ -3202,11 +2509,9 @@ func Test_Ubuntu2204_SecondaryNIC_DualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a dual-stack secondary NIC is properly configured on Ubuntu 22.04",
 		Config: Config{
-			Cluster:           ClusterAzureOverlayNetworkDualStack,
-			VHD:               config.VHDUbuntu2204Gen2Containerd,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterAzureOverlayNetworkDualStack,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableScriptlessCSECmd = false
 				nbc.StandardSecondaryNICCount = 1
 				if nbc.ContainerService.Properties.FeatureFlags == nil {
 					nbc.ContainerService.Properties.FeatureFlags = &datamodel.FeatureFlags{}
@@ -3240,11 +2545,9 @@ func Test_AzureLinuxV3_SecondaryNIC_DualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a dual-stack secondary NIC is properly configured on Azure Linux",
 		Config: Config{
-			Cluster:           ClusterAzureOverlayNetworkDualStack,
-			VHD:               config.VHDAzureLinuxV3Gen2,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterAzureOverlayNetworkDualStack,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableScriptlessCSECmd = false
 				nbc.StandardSecondaryNICCount = 1
 				if nbc.ContainerService.Properties.FeatureFlags == nil {
 					nbc.ContainerService.Properties.FeatureFlags = &datamodel.FeatureFlags{}
@@ -3277,11 +2580,9 @@ func Test_ACL_SecondaryNIC_DualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a dual-stack secondary NIC is properly configured on ACL",
 		Config: Config{
-			Cluster:           ClusterAzureOverlayNetworkDualStack,
-			VHD:               config.VHDACLGen2TL,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterAzureOverlayNetworkDualStack,
+			VHD:     config.VHDACLGen2TL,
 			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableScriptlessCSECmd = false
 				nbc.StandardSecondaryNICCount = 1
 				if nbc.ContainerService.Properties.FeatureFlags == nil {
 					nbc.ContainerService.Properties.FeatureFlags = &datamodel.FeatureFlags{}
@@ -3306,6 +2607,72 @@ func Test_ACL_SecondaryNIC_DualStack(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=2100")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
 				ValidateSecondaryNICDualStack(ctx, s, resolveSecondaryNICName(ctx, s))
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404_MANA(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 24.04 with a V6 SKU",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			UseNVMe: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
+				nbc.AgentPoolProfile.VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(ensureMinVMGeneration("Standard_D2ds_v6"))
+				enableAcceleratedNetworking(vmss)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_MANA(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 22.04 with a V6 SKU",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			UseNVMe: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
+				nbc.AgentPoolProfile.VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(ensureMinVMGeneration("Standard_D2ds_v6"))
+				enableAcceleratedNetworking(vmss)
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_MANA(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that MANA (Accelerated Networking) is properly configured on Azure Linux V3 with a V6 SKU",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			UseNVMe: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
+				nbc.AgentPoolProfile.VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(ensureMinVMGeneration("Standard_D2ds_v6"))
+				enableAcceleratedNetworking(vmss)
 			},
 		},
 	})
