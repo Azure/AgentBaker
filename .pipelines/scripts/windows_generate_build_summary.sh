@@ -139,7 +139,7 @@ read_setting() {
 				esac
 				# extract filename (first field) and size (last field)
 				fname=$(echo "$line" | awk '{print $1}')
-				size_bytes=$(echo "$line" | awk '{print $NF}')
+				size_bytes=$(echo "$line" | awk '{print $NF}' | tr -d '\r')
 				if [ -z "$fname" ] || [ -z "$size_bytes" ]; then
 					continue
 				fi
@@ -163,7 +163,7 @@ read_setting() {
 				short_name=$(echo "$fname" | sed 's|c:\\akse-cache\\||' | sed 's|c:/akse-cache/||')
 				echo "| \`${short_name}\` | ${human_size} |"
 			fi
-		done < <(tr -d '\r' <"$RELEASE_NOTES_FILE")
+		done <"$RELEASE_NOTES_FILE"
 
 		echo ""
 		if [ "$total_bytes" -ge 1073741824 ]; then
