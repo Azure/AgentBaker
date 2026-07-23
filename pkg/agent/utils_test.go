@@ -26,35 +26,34 @@ import (
 
 func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 	kc := map[string]string{
-		"--address":                           "0.0.0.0",
-		"--pod-manifest-path":                 "/etc/kubernetes/manifests",
-		"--cluster-domain":                    "cluster.local",
-		"--cluster-dns":                       "10.0.0.10",
-		"--cgroups-per-qos":                   "true",
-		"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
-		"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-		"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
-		"--max-pods":                          "110",
-		"--node-status-update-frequency":      "10s",
-		"--image-gc-high-threshold":           "85",
-		"--image-gc-low-threshold":            "80",
-		"--event-qps":                         "0",
-		"--pod-max-pids":                      "-1",
-		"--enforce-node-allocatable":          "pods",
-		"--streaming-connection-idle-timeout": "4h0m0s",
-		"--rotate-certificates":               "true",
-		"--rotate-server-certificates":        "true",
-		"--read-only-port":                    "10255",
-		"--protect-kernel-defaults":           "true",
-		"--resolv-conf":                       "/etc/resolv.conf",
-		"--anonymous-auth":                    "false",
-		"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
-		"--authentication-token-webhook":      "true",
-		"--authorization-mode":                "Webhook",
-		"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", //nolint:lll // what if you turn off dynamic kubelet using dynamic kubelet?
-		"--system-reserved":                   "cpu=2,memory=1Gi",
-		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+		"--address":                      "0.0.0.0",
+		"--pod-manifest-path":            "/etc/kubernetes/manifests",
+		"--cluster-domain":               "cluster.local",
+		"--cluster-dns":                  "10.0.0.10",
+		"--cgroups-per-qos":              "true",
+		"--tls-cert-file":                "/etc/kubernetes/certs/kubeletserver.crt",
+		"--tls-private-key-file":         "/etc/kubernetes/certs/kubeletserver.key",
+		"--tls-cipher-suites":            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+		"--max-pods":                     "110",
+		"--node-status-update-frequency": "10s",
+		"--image-gc-high-threshold":      "85",
+		"--image-gc-low-threshold":       "80",
+		"--event-qps":                    "0",
+		"--pod-max-pids":                 "-1",
+		"--enforce-node-allocatable":     "pods",
+		"--rotate-certificates":          "true",
+		"--rotate-server-certificates":   "true",
+		"--read-only-port":               "10255",
+		"--protect-kernel-defaults":      "true",
+		"--resolv-conf":                  "/etc/resolv.conf",
+		"--anonymous-auth":               "false",
+		"--client-ca-file":               "/etc/kubernetes/certs/ca.crt",
+		"--authentication-token-webhook": "true",
+		"--authorization-mode":           "Webhook",
+		"--eviction-hard":                "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+		"--feature-gates":                "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", // what if you turn off dynamic kubelet using dynamic kubelet?
+		"--system-reserved":              "cpu=2,memory=1Gi",
+		"--kube-reserved":                "cpu=100m,memory=1638Mi",
 	}
 	customKc := &datamodel.CustomKubeletConfig{
 		CPUManagerPolicy:      "static",
@@ -77,73 +76,146 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 	}
 }
 
+func TestGetKubeletConfigFileContent_MergesFlagsWithoutOverwritingContent(t *testing.T) {
+	kc := map[string]string{
+		"--image-gc-high-threshold": "85",
+		"--max-pods":                "110",
+	}
+	customKc := &datamodel.CustomKubeletConfig{
+		ImageGcHighThreshold: to.Int32Ptr(90),
+	}
+
+	configFileStr := GetKubeletConfigFileContent(kc, customKc)
+
+	var merged datamodel.AKSKubeletConfiguration
+	err := json.Unmarshal([]byte(configFileStr), &merged)
+	if err != nil {
+		t.Fatalf("failed to parse generated kubelet config json: %v", err)
+	}
+
+	if merged.ImageGCHighThresholdPercent == nil || *merged.ImageGCHighThresholdPercent != 90 {
+		t.Fatalf("expected content value to win for imageGCHighThresholdPercent, got %v", merged.ImageGCHighThresholdPercent)
+	}
+	if merged.MaxPods != 110 {
+		t.Fatalf("expected missing content field maxPods to be backfilled from flags, got %v", merged.MaxPods)
+	}
+}
+
+// TestGetKubeletConfigFileContent_PrecedenceRules validates precedence when generating kubelet config file content:
+// Priority 1 (highest): CustomKubeletConfig — user-specified values via AKS API.
+// Priority 2: KubeletConfig flags — RP-provided defaults, backfills fields not set by CustomKC.
+// Priority 3: kubelet v1beta1 defaults — applied by kubelet for remaining unset fields.
+func TestGetKubeletConfigFileContent_PrecedenceRules(t *testing.T) {
+	kc := map[string]string{
+		"--image-gc-high-threshold": "85",
+		"--image-gc-low-threshold":  "80",
+		"--max-pods":                "110",
+		"--event-qps":               "0",
+		"--cluster-dns":             "172.16.0.10",
+		"--eviction-hard":           "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+	}
+	customKc := &datamodel.CustomKubeletConfig{
+		ImageGcHighThreshold: to.Int32Ptr(90), // conflicts with flag value 85
+		ImageGcLowThreshold:  to.Int32Ptr(70), // conflicts with flag value 80
+		// maxPods, eventRecordQPS, clusterDNS, evictionHard NOT set — must come from flags
+	}
+
+	configFileStr := GetKubeletConfigFileContent(kc, customKc)
+
+	var merged datamodel.AKSKubeletConfiguration
+	err := json.Unmarshal([]byte(configFileStr), &merged)
+	if err != nil {
+		t.Fatalf("failed to parse generated kubelet config json: %v", err)
+	}
+
+	// Priority 1: CustomKC wins over flags when both set the same field.
+	if merged.ImageGCHighThresholdPercent == nil || *merged.ImageGCHighThresholdPercent != 90 {
+		t.Errorf("Priority 1 violated: expected imageGCHighThresholdPercent=90 (CustomKC), got %v", merged.ImageGCHighThresholdPercent)
+	}
+	if merged.ImageGCLowThresholdPercent == nil || *merged.ImageGCLowThresholdPercent != 70 {
+		t.Errorf("Priority 1 violated: expected imageGCLowThresholdPercent=70 (CustomKC), got %v", merged.ImageGCLowThresholdPercent)
+	}
+
+	// Priority 2: Flags backfill fields not set by CustomKC.
+	if merged.MaxPods != 110 {
+		t.Errorf("Priority 2 violated: expected maxPods=110 (from flags), got %v", merged.MaxPods)
+	}
+	if merged.EventRecordQPS == nil || *merged.EventRecordQPS != 0 {
+		t.Errorf("Priority 2 violated: expected eventRecordQPS=0 (from flags), got %v", merged.EventRecordQPS)
+	}
+	if len(merged.ClusterDNS) == 0 || merged.ClusterDNS[0] != "172.16.0.10" {
+		t.Errorf("Priority 2 violated: expected clusterDNS=[172.16.0.10] (from flags), got %v", merged.ClusterDNS)
+	}
+	if merged.EvictionHard == nil || merged.EvictionHard["memory.available"] != "750Mi" {
+		t.Errorf("Priority 2 violated: expected evictionHard to be backfilled from flags, got %v", merged.EvictionHard)
+	}
+}
+
 func getExampleKcWithNodeStatusReportFrequency() map[string]string {
 	kc := map[string]string{
-		"--address":                           "0.0.0.0",
-		"--pod-manifest-path":                 "/etc/kubernetes/manifests",
-		"--cluster-domain":                    "cluster.local",
-		"--cluster-dns":                       "10.0.0.10",
-		"--cgroups-per-qos":                   "true",
-		"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
-		"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-		"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
-		"--max-pods":                          "110",
-		"--node-status-update-frequency":      "10s",
-		"--node-status-report-frequency":      "5m0s",
-		"--image-gc-high-threshold":           "85",
-		"--image-gc-low-threshold":            "80",
-		"--event-qps":                         "0",
-		"--pod-max-pids":                      "-1",
-		"--enforce-node-allocatable":          "pods",
-		"--streaming-connection-idle-timeout": "4h0m0s",
-		"--rotate-certificates":               "true",
-		"--read-only-port":                    "10255",
-		"--protect-kernel-defaults":           "true",
-		"--resolv-conf":                       "/etc/resolv.conf",
-		"--anonymous-auth":                    "false",
-		"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
-		"--authentication-token-webhook":      "true",
-		"--authorization-mode":                "Webhook",
-		"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false",
-		"--system-reserved":                   "cpu=2,memory=1Gi",
-		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+		"--address":                      "0.0.0.0",
+		"--pod-manifest-path":            "/etc/kubernetes/manifests",
+		"--cluster-domain":               "cluster.local",
+		"--cluster-dns":                  "10.0.0.10",
+		"--cgroups-per-qos":              "true",
+		"--tls-cert-file":                "/etc/kubernetes/certs/kubeletserver.crt",
+		"--tls-private-key-file":         "/etc/kubernetes/certs/kubeletserver.key",
+		"--tls-cipher-suites":            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+		"--max-pods":                     "110",
+		"--node-status-update-frequency": "10s",
+		"--node-status-report-frequency": "5m0s",
+		"--image-gc-high-threshold":      "85",
+		"--image-gc-low-threshold":       "80",
+		"--event-qps":                    "0",
+		"--pod-max-pids":                 "-1",
+		"--enforce-node-allocatable":     "pods",
+		"--rotate-certificates":          "true",
+		"--read-only-port":               "10255",
+		"--protect-kernel-defaults":      "true",
+		"--resolv-conf":                  "/etc/resolv.conf",
+		"--anonymous-auth":               "false",
+		"--client-ca-file":               "/etc/kubernetes/certs/ca.crt",
+		"--authentication-token-webhook": "true",
+		"--authorization-mode":           "Webhook",
+		"--eviction-hard":                "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+		"--feature-gates":                "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false",
+		"--system-reserved":              "cpu=2,memory=1Gi",
+		"--kube-reserved":                "cpu=100m,memory=1638Mi",
 	}
 	return kc
 }
 
 func getExampleKcWithContainerLogMaxSize() map[string]string {
 	kc := map[string]string{
-		"--address":                           "0.0.0.0",
-		"--pod-manifest-path":                 "/etc/kubernetes/manifests",
-		"--cluster-domain":                    "cluster.local",
-		"--cluster-dns":                       "10.0.0.10",
-		"--cgroups-per-qos":                   "true",
-		"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
-		"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-		"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
-		"--max-pods":                          "110",
-		"--node-status-update-frequency":      "10s",
-		"--image-gc-high-threshold":           "85",
-		"--image-gc-low-threshold":            "80",
-		"--event-qps":                         "0",
-		"--pod-max-pids":                      "-1",
-		"--enforce-node-allocatable":          "pods",
-		"--streaming-connection-idle-timeout": "4h0m0s",
-		"--rotate-certificates":               "true",
-		"--rotate-server-certificates":        "true",
-		"--read-only-port":                    "10255",
-		"--protect-kernel-defaults":           "true",
-		"--resolv-conf":                       "/etc/resolv.conf",
-		"--anonymous-auth":                    "false",
-		"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
-		"--authentication-token-webhook":      "true",
-		"--authorization-mode":                "Webhook",
-		"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false",
-		"--system-reserved":                   "cpu=2,memory=1Gi",
-		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
-		"--container-log-max-size":            "50M",
+		"--address":                      "0.0.0.0",
+		"--pod-manifest-path":            "/etc/kubernetes/manifests",
+		"--cluster-domain":               "cluster.local",
+		"--cluster-dns":                  "10.0.0.10",
+		"--cgroups-per-qos":              "true",
+		"--tls-cert-file":                "/etc/kubernetes/certs/kubeletserver.crt",
+		"--tls-private-key-file":         "/etc/kubernetes/certs/kubeletserver.key",
+		"--tls-cipher-suites":            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+		"--max-pods":                     "110",
+		"--node-status-update-frequency": "10s",
+		"--image-gc-high-threshold":      "85",
+		"--image-gc-low-threshold":       "80",
+		"--event-qps":                    "0",
+		"--pod-max-pids":                 "-1",
+		"--enforce-node-allocatable":     "pods",
+		"--rotate-certificates":          "true",
+		"--rotate-server-certificates":   "true",
+		"--read-only-port":               "10255",
+		"--protect-kernel-defaults":      "true",
+		"--resolv-conf":                  "/etc/resolv.conf",
+		"--anonymous-auth":               "false",
+		"--client-ca-file":               "/etc/kubernetes/certs/ca.crt",
+		"--authentication-token-webhook": "true",
+		"--authorization-mode":           "Webhook",
+		"--eviction-hard":                "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+		"--feature-gates":                "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false",
+		"--system-reserved":              "cpu=2,memory=1Gi",
+		"--kube-reserved":                "cpu=100m,memory=1638Mi",
+		"--container-log-max-size":       "50M",
 	}
 	return kc
 }
@@ -186,7 +258,6 @@ var expectedKubeletJSON = `{
     "clusterDNS": [
         "10.0.0.10"
     ],
-    "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
     "imageGCHighThresholdPercent": 90,
     "imageGCLowThresholdPercent": 70,
@@ -267,7 +338,6 @@ var expectedKubeletJSONWithNodeStatusReportFrequency = `{
     "clusterDNS": [
         "10.0.0.10"
     ],
-    "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
     "nodeStatusReportFrequency": "5m0s",
     "imageGCHighThresholdPercent": 90,
@@ -347,7 +417,6 @@ var expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags = `{
     "clusterDNS": [
         "10.0.0.10"
     ],
-    "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
     "imageGCHighThresholdPercent": 90,
     "imageGCLowThresholdPercent": 70,
@@ -681,6 +750,33 @@ func TestGetTLSBootstrapTokenForKubeConfig(t *testing.T) {
 	}
 }
 
+func TestGetCloudTargetEnv(t *testing.T) {
+	cases := []struct {
+		location string
+		expected string
+	}{
+		{location: "chinaeast", expected: "AzureChinaCloud"},
+		{location: "chinanorth2", expected: "AzureChinaCloud"},
+		{location: "germanynortheast", expected: "AzureGermanCloud"},
+		{location: "germanycentral", expected: "AzureGermanCloud"},
+		{location: "usgovvirginia", expected: "AzureUSGovernmentCloud"},
+		{location: "usdodcentral", expected: "AzureUSGovernmentCloud"},
+		{location: "bleufrancecentral", expected: "AzureBleuCloud"},
+		{location: "deloseast", expected: "AzureGermanyCloud"},
+		{location: "singaporenorth", expected: "AzureSingaporeCloud"},
+		{location: "Singapore North", expected: "AzureSingaporeCloud"},
+		{location: "westus2", expected: "AzurePublicCloud"},
+		{location: "", expected: "AzurePublicCloud"},
+	}
+
+	for _, c := range cases {
+		actual := GetCloudTargetEnv(c.location)
+		if actual != c.expected {
+			t.Errorf("GetCloudTargetEnv(%q): expected=%s, actual=%s", c.location, c.expected, actual)
+		}
+	}
+}
+
 var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 	It("should return expected kubelet config when custom configuration is not set", func() {
 		config := &datamodel.NodeBootstrappingConfiguration{
@@ -699,7 +795,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
 		}
 		actucalStr := GetOrderedKubeletConfigFlagString(config)
-		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=10s "
+		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=10s"
 		Expect(expectStr).To(Equal(actucalStr))
 	})
 
@@ -719,9 +815,8 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 						KubernetesConfigurations: map[string]*datamodel.ComponentConfiguration{
 							"kubelet": {
 								Config: map[string]string{
-									"--node-status-update-frequency":      "20s",
-									"--streaming-connection-idle-timeout": "4h0m0s",
-									"--seccomp-default":                   "true",
+									"--node-status-update-frequency": "20s",
+									"--seccomp-default":              "true",
 								},
 							},
 						},
@@ -732,7 +827,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
 		}
 
-		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --seccomp-default=true --streaming-connection-idle-timeout=4h0m0s "
+		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --seccomp-default=true"
 		actucalStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectStr).To(Equal(actucalStr))
 	})
@@ -760,7 +855,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
 		}
 
-		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus "
+		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus"
 		actualStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectedStr).To(Equal(actualStr))
 	})
@@ -795,7 +890,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 			},
 		}
 
-		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus --seccomp-default=true "
+		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus --seccomp-default=true"
 		actualStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectedStr).To(Equal(actualStr))
 	})
@@ -1242,4 +1337,198 @@ func cseValidateBashSyntax(t *testing.T, script string, decoded []byte) {
 		t.Errorf("bash -n syntax check FAILED for %s after removeComments + round-trip:\n%s\n%s",
 			script, string(output), err)
 	}
+}
+
+func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTimeout(t *testing.T) { //nolint:gocognit
+	testCases := []struct {
+		name          string
+		version       string
+		isWindows     bool
+		expectRemoved bool
+	}{
+		{
+			name:          "linux k8s 1.33 keeps streaming-connection-idle-timeout",
+			version:       "1.33.0",
+			isWindows:     false,
+			expectRemoved: false,
+		},
+		{
+			name:          "linux k8s 1.34.0 removes streaming-connection-idle-timeout",
+			version:       "1.34.0",
+			isWindows:     false,
+			expectRemoved: true,
+		},
+		{
+			name:          "linux k8s 1.35.0 removes streaming-connection-idle-timeout",
+			version:       "1.35.0",
+			isWindows:     false,
+			expectRemoved: true,
+		},
+		{
+			name:          "windows k8s 1.33 keeps streaming-connection-idle-timeout",
+			version:       "1.33.0",
+			isWindows:     true,
+			expectRemoved: false,
+		},
+		{
+			name:          "windows k8s 1.34.0 removes streaming-connection-idle-timeout",
+			version:       "1.34.0",
+			isWindows:     true,
+			expectRemoved: true,
+		},
+		{
+			name:          "windows k8s 1.35.0 removes streaming-connection-idle-timeout",
+			version:       "1.35.0",
+			isWindows:     true,
+			expectRemoved: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			config := &datamodel.NodeBootstrappingConfiguration{
+				ContainerService: &datamodel.ContainerService{
+					Properties: &datamodel.Properties{
+						OrchestratorProfile: &datamodel.OrchestratorProfile{
+							OrchestratorVersion: tc.version,
+						},
+					},
+				},
+				KubeletConfig: map[string]string{
+					"--streaming-connection-idle-timeout": "4h0m0s",
+					"--feature-gates":                     "",
+				},
+			}
+
+			if tc.isWindows {
+				validateAndSetWindowsNodeBootstrappingConfiguration(config)
+			} else {
+				ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+			}
+
+			_, exists := config.KubeletConfig["--streaming-connection-idle-timeout"]
+			if tc.expectRemoved && exists {
+				t.Fatalf("expected --streaming-connection-idle-timeout to be removed for k8s %s (%s)", tc.version, map[bool]string{true: "windows", false: "linux"}[tc.isWindows])
+			}
+			if !tc.expectRemoved && !exists {
+				t.Fatalf("expected --streaming-connection-idle-timeout to be kept for k8s %s (%s)", tc.version, map[bool]string{true: "windows", false: "linux"}[tc.isWindows])
+			}
+		})
+	}
+
+	// Verify that when RP already omits the flag (>= 1.34 behavior),
+	// AgentBaker does not re-introduce it.
+	t.Run("linux k8s 1.34 with flag absent from input - not re-introduced", func(t *testing.T) {
+		config := &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.34.0",
+					},
+				},
+			},
+			KubeletConfig: map[string]string{
+				"--event-qps":     "0",
+				"--feature-gates": "",
+			},
+		}
+
+		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+
+		_, exists := config.KubeletConfig["--streaming-connection-idle-timeout"]
+		if exists {
+			t.Fatalf("AgentBaker should not re-introduce --streaming-connection-idle-timeout when RP already omits it")
+		}
+	})
+
+	t.Run("windows k8s 1.34 with flag absent from input - not re-introduced", func(t *testing.T) {
+		config := &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.34.0",
+					},
+				},
+			},
+			KubeletConfig: map[string]string{
+				"--event-qps":     "0",
+				"--feature-gates": "",
+			},
+		}
+
+		validateAndSetWindowsNodeBootstrappingConfiguration(config)
+
+		_, exists := config.KubeletConfig["--streaming-connection-idle-timeout"]
+		if exists {
+			t.Fatalf("AgentBaker should not re-introduce --streaming-connection-idle-timeout when RP already omits it")
+		}
+	})
+
+	// End-to-end: verify the flag does not appear in the final command line string
+	// generated by GetOrderedKubeletConfigFlagString after baker removes it.
+	t.Run("linux k8s 1.34 streaming flag absent from final command line output", func(t *testing.T) {
+		config := &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.34.0",
+					},
+					AgentPoolProfiles: []*datamodel.AgentPoolProfile{
+						{Name: "pool1"},
+					},
+				},
+			},
+			AgentPoolProfile: &datamodel.AgentPoolProfile{Name: "pool1"},
+			KubeletConfig: map[string]string{
+				"--streaming-connection-idle-timeout": "4h0m0s",
+				"--event-qps":                         "0",
+				"--feature-gates":                     "",
+			},
+		}
+
+		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+
+		cmdLine := GetOrderedKubeletConfigFlagString(config)
+		if strings.Contains(cmdLine, "streaming-connection-idle-timeout") {
+			t.Fatalf("streaming-connection-idle-timeout must not appear in final kubelet command line for k8s >= 1.34, got: %s", cmdLine)
+		}
+	})
+
+	// Verify streaming flag is also removed from CustomConfiguration path
+	t.Run("linux k8s 1.34 streaming flag removed from custom configuration", func(t *testing.T) {
+		config := &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.34.0",
+					},
+					AgentPoolProfiles: []*datamodel.AgentPoolProfile{
+						{Name: "pool1"},
+					},
+					CustomConfiguration: &datamodel.CustomConfiguration{
+						KubernetesConfigurations: map[string]*datamodel.ComponentConfiguration{
+							"kubelet": {
+								Config: map[string]string{
+									"--streaming-connection-idle-timeout": "4h0m0s",
+									"--event-qps":                         "0",
+								},
+							},
+						},
+					},
+				},
+			},
+			AgentPoolProfile: &datamodel.AgentPoolProfile{Name: "pool1"},
+			KubeletConfig: map[string]string{
+				"--event-qps":     "0",
+				"--feature-gates": "",
+			},
+		}
+
+		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+
+		cmdLine := GetOrderedKubeletConfigFlagString(config)
+		if strings.Contains(cmdLine, "streaming-connection-idle-timeout") {
+			t.Fatalf("streaming-connection-idle-timeout must not appear in final kubelet command line via custom configuration for k8s >= 1.34, got: %s", cmdLine)
+		}
+	})
 }

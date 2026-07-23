@@ -9,6 +9,7 @@ import (
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/pkg/namespaces"
 	"github.com/containerd/platforms"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 const (
@@ -86,12 +87,15 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 		return fmt.Errorf("fetch failed: %w", err)
 	}
 
+	image := containerd.NewImageWithPlatform(client, imageMeta, platformMatcher)
+	if err := validateImagePlatform(ctx, image, p); err != nil {
+		return err
+	}
+
 	if fetchOnly {
 		fmt.Printf("OK    %s -> %s (fetched)\n", imageMeta.Name, imageMeta.Target.Digest)
 		return nil
 	}
-
-	image := containerd.NewImage(client, imageMeta)
 
 	size, err := image.Size(ctx)
 	if err != nil {
@@ -112,6 +116,20 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 		fmt.Printf("OK    %s -> %s (pulled, %s)\n", imageMeta.Name, imageMeta.Target.Digest, formatSize(size))
 	} else {
 		fmt.Printf("OK    %s -> %s (fetched, %s)\n", imageMeta.Name, imageMeta.Target.Digest, formatSize(size))
+	}
+
+	return nil
+}
+
+func validateImagePlatform(ctx context.Context, image containerd.Image, expected ocispec.Platform) error {
+	spec, err := image.Spec(ctx)
+	if err != nil {
+		return fmt.Errorf("read image config: %w", err)
+	}
+
+	actual := spec.Platform
+	if !platforms.OnlyStrict(expected).Match(actual) {
+		return fmt.Errorf("image platform mismatch: selected manifest for %s, but image config is %s", platforms.Format(expected), platforms.Format(actual))
 	}
 
 	return nil

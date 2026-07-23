@@ -103,11 +103,6 @@ function basePrep {
         systemctl restart systemd-timesyncd
     fi
 
-    # pre-warm coredns by checking its version.
-    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
-        nohup /bin/sh -c '/opt/azure/containers/localdns/binary/coredns --version >/dev/null 2>&1' >/dev/null 2>&1 &
-    fi
-
     # Eval proxy vars to ensure curl commands use proxy if configured.
     # e.g. PROXY_VARS=`export HTTPS_PROXY="https://proxy.example.com:8080"; export http_proxy="http://proxy.example.com:8080"; export NO_PROXY="127.0.0.1,localhost";`
     # Setting vars in etc environment (configureEtcEnvironment) won't take effect in current shell session.
@@ -128,11 +123,10 @@ function basePrep {
 
     logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
 
-    logs_to_events "AKS.CSE.configureSSHPubkeyAuth" configureSSHPubkeyAuth "${DISABLE_PUBKEY_AUTH}"
-
-
     if [ "${DISABLE_SSH}" = "true" ]; then
-        disableSSH || exit $ERR_DISABLE_SSH
+        disableSSH || exit "$ERR_DISABLE_SSH"
+    elif [ "${DISABLE_PUBKEY_AUTH}" = "true" ]; then
+        logs_to_events "AKS.CSE.disableSSHPubkeyAuth" disableSSHPubkeyAuth
     fi
 
     # This involves using proxy, log the config before fetching packages
@@ -387,14 +381,14 @@ function nodePrep {
 
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
         # Depends on configureK8s, ensureKubeCACert, and installSecureTLSBootstrapClient
-        logs_to_events "AKS.CSE.configureAndStartSecureTLSBootstrapping" configureAndStartSecureTLSBootstrapping
+        logs_to_events "AKS.CSE.configureAndEnableSecureTLSBootstrapping" configureAndEnableSecureTLSBootstrapping
     fi
 
     if [ -n "${OUTBOUND_COMMAND}" ]; then
         if [ -n "${PROXY_VARS}" ]; then
             eval $PROXY_VARS
         fi
-        retrycmd_if_failure 60 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
+        retrycmd_if_failure 20 1 15 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
     fi
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         # This file indicates the cluster doesn't have outbound connectivity and should be excluded in future external outbound checks
@@ -404,6 +398,12 @@ function nodePrep {
 
     # Configure Azure network settings (udev rules for NIC configuration)
     logs_to_events "AKS.CSE.ensureAzureNetworkConfig" ensureAzureNetworkConfig
+
+    # Bring up secondary Standard-type NICs (if any) via IMDS metadata.
+    # Only runs when the RP signals that secondary NICs were attached.
+    if [ "${STANDARD_SECONDARY_NIC_COUNT:-0}" -gt 0 ]; then
+        logs_to_events "AKS.CSE.configureSecondaryNICs" configureSecondaryNICs || exit $ERR_SECONDARY_NIC_CONFIG_FAIL
+    fi
 
     # Determine if GPU driver installation should be skipped
     export -f should_skip_nvidia_drivers
@@ -485,6 +485,12 @@ function nodePrep {
             ENABLE_MANAGED_GPU_EXPERIENCE="true"
         fi
 
+        if [ "${ENABLE_MANAGED_GPU_DRA,,}" = "true" ]; then
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+        fi
+
+        echo "Fully Managed GPU device plugin mode: ${ENABLE_MANAGED_GPU_EXPERIENCE}, DRA mode: ${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}"
+
         logs_to_events "AKS.CSE.configureManagedGPUExperience" configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
 
         echo $(date),$(hostname), "End configuring GPU drivers"
@@ -504,11 +510,11 @@ function nodePrep {
     VALIDATION_ERR=0
     # shellcheck disable=SC3010
     if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        API_SERVER_CONN_RETRIES=50
+        API_SERVER_CONN_RETRIES=34
         API_SERVER_DNS_RETRY_TIMEOUT=300
         # shellcheck disable=SC3010
         if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
-           API_SERVER_CONN_RETRIES=100
+           API_SERVER_CONN_RETRIES=68
            API_SERVER_DNS_RETRY_TIMEOUT=600
         fi
         if [ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]; then
@@ -526,7 +532,7 @@ function nodePrep {
                 VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
             fi
         else
-            logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+            logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 15 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
         fi
     else
         # an IP address is provided for the API server, skip the DNS lookup
@@ -576,6 +582,11 @@ function nodePrep {
     fi
 
     checkServiceHealth kubelet || exit $ERR_KUBELET_FAIL
+
+    # defer starting DRA driver services after kubelet.
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+        logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $?
+    fi
 
     if systemctl cat aks-log-collector.timer &>/dev/null; then
         systemctlEnableAndStartNoBlock aks-log-collector.timer 30 || echo "Warning: Could not start aks-log-collector.timer"

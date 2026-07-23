@@ -474,9 +474,18 @@ while IFS= read -r p; do
     "aks-secure-tls-bootstrap-client")
       for version in ${PACKAGE_VERSIONS[@]}; do
         # removed at provisioning time if secure TLS bootstrapping is disabled
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadSecureTLSBootstrapClient "${downloadDir}" "${evaluatedURL}" "${version}"
-        echo "  - aks-secure-tls-bootstrap-client version ${version}" >> ${VHD_LOGS_FILEPATH}
+        if isUbuntu; then
+          downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+          installPackageFromCache "${name}" "${version}" "/opt/bin/${name}" || exit $?
+        elif isMarinerOrAzureLinux; then
+          downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+          installRPMPackageFromFile "${name}" "${version}" "/opt/bin/${name}" || exit $?
+        elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
+          installSecureTLSBootstrapClientSysext "${version}" || exit $?
+        fi
+        echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "azure-acr-credential-provider")
@@ -545,6 +554,14 @@ while IFS= read -r p; do
           downloadPkgFromVersion "${K8S_DEVICE_PLUGIN_PKG}" "${version}" "${downloadDir}"
         fi
         echo "  - ${K8S_DEVICE_PLUGIN_PKG} version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "dra-driver-nvidia-gpu")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isAzureLinux "$OS"; then
+          downloadPkgFromVersion "dra-driver-nvidia-gpu" "${version}" "${downloadDir}"
+        fi
+        echo "  - dra-driver-nvidia-gpu version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "datacenter-gpu-manager-4-core")
@@ -646,6 +663,8 @@ installAndConfigureArtifactStreaming() {
   /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
   /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
   systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  # Remove the bundled overlaybd installer packages (~55-58 MB); install.sh already installed them and they're unused at runtime.
+  rm -f /opt/acr/tools/overlaybd/bin/*.deb /opt/acr/tools/overlaybd/bin/*.rpm
   echo "  - acr-mirror version ${version}" >> ${VHD_LOGS_FILEPATH}
 }
 
@@ -697,7 +716,7 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
     # shellcheck disable=SC2001
     imageName=$(echo "$downloadURL" | sed 's/:.*$//')
 
-    if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-cuda" ]; then
+    if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-cuda-lts" ]; then
       latestVersion=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
       NVIDIA_DRIVER_IMAGE="$imageName"
       NVIDIA_DRIVER_IMAGE_TAG="$latestVersion"
@@ -707,7 +726,7 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
 
   # Check if the NVIDIA_DRIVER_IMAGE and NVIDIA_DRIVER_IMAGE_TAG were found
   if [ -z "$NVIDIA_DRIVER_IMAGE" ] || [ -z "$NVIDIA_DRIVER_IMAGE_TAG" ]; then
-    echo "Error: Unable to find aks-gpu-cuda image in components.json"
+    echo "Error: Unable to find aks-gpu-cuda-lts image in components.json"
     exit 1
   fi
 
@@ -718,6 +737,33 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
     cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
+
+  # Opt-in: pre-build the NVIDIA kernel module into the VHD so node provisioning skips the
+  # ~100s in-CSE DKMS compile. The aks-gpu container is run in "build-only" mode: it compiles
+  # and DKMS-registers the kernel module + stages userspace libs against THIS VHD's kernel,
+  # performs NO device access (safe on the GPU-less Packer builder), and writes the marker
+  # /opt/azure/aks-gpu/dkms-marker. At node boot, configGPUDrivers passes "install-skip-build"
+  # when that marker matches, running only the device-dependent steps.
+  # The driver image is intentionally LEFT in the VHD: boot-time device init still sources the
+  # container toolkit debs, fabric manager, containerd runtime config and udev rules from it.
+  # Dropping the image is a separate, deferred size optimization.
+  if grep -q "NVIDIA_CUDA_PREBAKE" <<< "$FEATURE_FLAGS"; then
+    echo "Pre-building NVIDIA CUDA kernel module into the VHD (build-only) for kernel $(uname -r)"
+    # nvidia-installer needs gcc/make + libc6-dev to compile; the builder lacks them here, so install
+    # them. A boot-time fallback recompile (marker mismatch) still has them: the VHD ships
+    # build-essential -> libc6-dev (release-notes manifests) -- the toolchain baseline GPU nodes compile
+    # with at boot (installDeps runs apt --no-install-recommends, so gcc alone doesn't pull libc6-dev).
+    apt_get_install 10 2 300 gcc make libc6-dev || exit 1
+    CTR_GPU_PREBUILD_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
+    retrycmd_if_failure 3 10 600 bash -c "$CTR_GPU_PREBUILD_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuprebuild /entrypoint.sh build-only" || exit 1
+    if [ ! -f /opt/azure/aks-gpu/dkms-marker ]; then
+      echo "Error: NVIDIA CUDA prebake did not produce /opt/azure/aks-gpu/dkms-marker"
+      exit 1
+    fi
+    cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - nvidia-cuda-driver-prebaked=${NVIDIA_DRIVER_IMAGE_TAG} (kernel $(uname -r))
+EOF
+  fi
 fi
 
 if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
@@ -861,7 +907,16 @@ while IFS= read -r imageToBePulled; do
   done
 done <<< "$ContainerImages"
 echo "Waiting for container image pulls to finish. PID: ${image_pids[@]}"
-wait ${image_pids[@]}
+while [ "$(jobs -p | wc -l)" -gt 0 ]; do
+  wait -n || {
+    ret=$?
+    echo "A background job pullContainerImage failed: ${ret}. Exiting..." >&2
+    for pid in "${image_pids[@]}"; do
+      kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
+    done
+    exit "${ret}"
+  }
+done
 capture_benchmark "${SCRIPT_NAME}_caching_container_images"
 
 retagAKSNodeCAWatcher() {

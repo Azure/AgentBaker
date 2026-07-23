@@ -29,8 +29,13 @@ var (
 	Azure          = mustNewAzureClient()
 	VMIdentityName = "abe2e-vm-identity"
 
+	// Poll long-running ARM operations every 15s rather than every 1s. The E2E suite runs
+	// with -parallel 60, so a 1s cadence across dozens of concurrent VMSS create/delete
+	// operations floods ARM and triggers ResourceCollectionRequestsThrottled (429), which
+	// stalls provisioning past TestTimeoutVMSS and surfaces as "context deadline exceeded".
+	// These operations take minutes, so 15s polling is ample and cuts ARM request volume ~15x.
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
-		Frequency: time.Second,
+		Frequency: 15 * time.Second,
 	}
 	VMSSHPublicKey, VMSSHPrivateKey, SysSSHPublicKey, SysSSHPrivateKey []byte
 	VMSSHPrivateKeyFileName, SysSSHPrivateKeyFileName                  string
@@ -57,9 +62,10 @@ type Configuration struct {
 	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e"`
 	BuildID                                string        `env:"BUILD_ID" envDefault:"local"`
 	DefaultLocation                        string        `env:"E2E_LOCATION" envDefault:"westus3"`
-	DefaultPollInterval                    time.Duration `env:"DEFAULT_POLL_INTERVAL" envDefault:"1s"`
+	DefaultPollInterval                    time.Duration `env:"DEFAULT_POLL_INTERVAL" envDefault:"15s"`
 	DefaultSubnetName                      string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
 	DefaultVMSKU                           string        `env:"DEFAULT_VM_SKU" envDefault:"Standard_D2ds_v5"`
+	DisableScriptless                      bool          `env:"DISABLE_SCRIPTLESS"`
 	DisableScriptLessCompilation           bool          `env:"DISABLE_SCRIPTLESS_COMPILATION"`
 	E2ELoggingDir                          string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
 	EnableSecureTLSBootstrapping           bool          `env:"ENABLE_SECURE_TLS_BOOTSTRAPPING" envDefault:"true"`
@@ -85,10 +91,12 @@ type Configuration struct {
 	TestGalleryNamePrefix                  string        `env:"TEST_GALLERY_NAME_PREFIX" envDefault:"abe2etest"`
 	TestPreProvision                       bool          `env:"TEST_PRE_PROVISION" envDefault:"false"`
 	TestTimeout                            time.Duration `env:"TEST_TIMEOUT" envDefault:"50m"`
+	VHDMetadataFile                        string        `env:"E2E_VHD_METADATA_FILE"`
 	// Must cover cluster-create AND bastion-create (run serially in prepareCluster, ~10-11m each).
 	TestTimeoutCluster   time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"30m"`
 	TestTimeoutVMSS      time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
 	WindowsAdminPassword string        `env:"WINDOWS_ADMIN_PASSWORD"`
+	vhdMetadata          map[string]vhdMetadataEntry
 }
 
 func (c *Configuration) BlobStorageAccount() string {
@@ -144,6 +152,12 @@ func mustLoadConfig() *Configuration {
 	cfg := &Configuration{}
 	if err := env.Parse(cfg); err != nil {
 		panic(err)
+	}
+	if cfg.VHDMetadataFile != "" {
+		cfg.vhdMetadata, err = loadVHDMetadata(cfg.VHDMetadataFile)
+		if err != nil {
+			panic(fmt.Sprintf("failed to load E2E VHD metadata: %v", err))
+		}
 	}
 	if cfg.SysSSHPublicKey == "" {
 		SysSSHPublicKey = VMSSHPublicKey

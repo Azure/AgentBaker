@@ -121,4 +121,26 @@ Describe 'apt_get_install budget timeout'
             The stderr should include "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
         End
     End
+
+    Describe 'apt_get_dist_upgrade phased updates'
+        wait_for_apt_locks() { :; }
+        dpkg() { :; }
+
+        It "passes APT::Get::Always-Include-Phased-Updates=true to dist-upgrade"
+            apt-get() {
+                # Only echo args for the dist-upgrade invocation so the assertion is unambiguous.
+                for arg in "$@"; do
+                    if [ "$arg" = "dist-upgrade" ]; then
+                        echo "$@"
+                        return 0
+                    fi
+                done
+                return 0
+            }
+            When call apt_get_dist_upgrade
+            The status should eq 0
+            The stdout should include "APT::Get::Always-Include-Phased-Updates=true"
+            The stdout should include "dist-upgrade"
+        End
+    End
 End

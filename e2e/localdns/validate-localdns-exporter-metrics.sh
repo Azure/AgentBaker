@@ -34,13 +34,14 @@ echo ""
 
 # Check if socket is listening
 echo "1. Checking if port 9353 is listening..."
-if ! ss -tln | grep -q ':9353[[:space:]]'; then
+SS_LISTEN_OUTPUT=$(ss -tln)
+if ! grep -q ':9353[[:space:]]' <<< "$SS_LISTEN_OUTPUT"; then
     echo "   ❌ ERROR: Port 9353 not listening"
-    ss -tln | grep -E ':(9353|53)[[:space:]]' || true
+    grep -E ':(9353|53)[[:space:]]' <<< "$SS_LISTEN_OUTPUT" || true
     exit 1
 fi
 # Detect the actual listen address (may be node IP via CSE drop-in, not 127.0.0.1)
-LISTEN_ADDR=$(ss -tln | grep ':9353[[:space:]]' | awk '{print $4}' | head -1)
+LISTEN_ADDR=$(awk '/:9353[[:space:]]/ {print $4; exit}' <<< "$SS_LISTEN_OUTPUT")
 LISTEN_ADDR=${LISTEN_ADDR//\*/127.0.0.1}
 LISTEN_ADDR=${LISTEN_ADDR//0.0.0.0/127.0.0.1}
 echo "   ✓ Port 9353 is listening on ${LISTEN_ADDR}"
@@ -101,26 +102,29 @@ fi
 echo "   ✓ Metrics fetched successfully"
 echo ""
 
+# Use here-strings when inspecting shell variables. With pipefail enabled,
+# `echo "$METRICS" | grep -q ...` can return a false negative if grep exits
+# early and the writer gets SIGPIPE on a large metrics payload.
 # Validate CPU usage metric — check data line exists and value is a valid number.
 echo "5. Validating CPU usage metric..."
-CPU_LINE=$(echo "$METRICS" | grep -E "^localdns_cpu_usage_seconds_total " || true)
+CPU_LINE=$(grep -E "^localdns_cpu_usage_seconds_total " <<< "$METRICS" || true)
 if [ -z "$CPU_LINE" ]; then
     echo "   ❌ ERROR: Missing localdns_cpu_usage_seconds_total data point"
     echo "   (found only comments/metadata or metric not present at all)"
-    echo "$METRICS" | grep "localdns_cpu" || true
+    grep "localdns_cpu" <<< "$METRICS" || true
     exit 1
 fi
-CPU_VALUE=$(echo "$CPU_LINE" | awk '{print $2}')
+CPU_VALUE=$(awk '{print $2}' <<< "$CPU_LINE")
 echo "   Raw metric: $CPU_LINE"
 echo "   Value: $CPU_VALUE"
 
-if ! echo "$CPU_VALUE" | grep -Eq '^[0-9]+\.?[0-9]*(e[+-]?[0-9]+)?$'; then
+if ! grep -Eq '^[0-9]+\.?[0-9]*(e[+-]?[0-9]+)?$' <<< "$CPU_VALUE"; then
     echo "   ❌ ERROR: CPU metric value is not a valid non-negative number: $CPU_VALUE"
     exit 1
 fi
 # Verify the exporter reports a non-zero CPU value — confirms the resources.prom pipeline is working
 # (localdns.sh writes real systemd cgroup data to the .prom file, exporter reads it)
-if echo "$CPU_VALUE" | grep -Eq '^0+(\.0+)?$'; then
+if grep -Eq '^0+(\.0+)?$' <<< "$CPU_VALUE"; then
     echo "   ❌ ERROR: Exported CPU metric is zero ($CPU_VALUE) — resources.prom pipeline may be broken"
     echo "   Raw systemd CPUUsageNSec was $RAW_CPU_NS (from step 2)"
     exit 1
@@ -130,23 +134,23 @@ echo ""
 
 # Validate memory usage metric — check data line exists and value is a valid number.
 echo "6. Validating memory usage metric..."
-MEM_LINE=$(echo "$METRICS" | grep -E "^localdns_memory_usage_bytes " || true)
+MEM_LINE=$(grep -E "^localdns_memory_usage_bytes " <<< "$METRICS" || true)
 if [ -z "$MEM_LINE" ]; then
     echo "   ❌ ERROR: Missing localdns_memory_usage_bytes data point"
     echo "   (found only comments/metadata or metric not present at all)"
-    echo "$METRICS" | grep "localdns_memory" || true
+    grep "localdns_memory" <<< "$METRICS" || true
     exit 1
 fi
-MEM_VALUE=$(echo "$MEM_LINE" | awk '{print $2}')
+MEM_VALUE=$(awk '{print $2}' <<< "$MEM_LINE")
 echo "   Raw metric: $MEM_LINE"
 echo "   Value: $MEM_VALUE"
 
-if ! echo "$MEM_VALUE" | grep -Eq '^[0-9]+\.?[0-9]*(e[+-]?[0-9]+)?$'; then
+if ! grep -Eq '^[0-9]+\.?[0-9]*(e[+-]?[0-9]+)?$' <<< "$MEM_VALUE"; then
     echo "   ❌ ERROR: Memory metric value is not a valid non-negative number: $MEM_VALUE"
     exit 1
 fi
 # Verify the exporter reports a non-zero memory value — confirms the resources.prom pipeline is working
-if echo "$MEM_VALUE" | grep -Eq '^0+(\.0+)?$'; then
+if grep -Eq '^0+(\.0+)?$' <<< "$MEM_VALUE"; then
     echo "   ❌ ERROR: Exported memory metric is zero ($MEM_VALUE) — resources.prom pipeline may be broken"
     echo "   Raw systemd MemoryCurrent was $RAW_MEM_BYTES (from step 2)"
     exit 1
@@ -156,13 +160,13 @@ echo ""
 
 # Validate staleness timestamp metric — check data line exists and value is a valid recent timestamp.
 echo "6b. Validating metrics staleness timestamp..."
-TIMESTAMP_LINE=$(echo "$METRICS" | grep -E "^localdns_metrics_last_update_timestamp_seconds " || true)
+TIMESTAMP_LINE=$(grep -E "^localdns_metrics_last_update_timestamp_seconds " <<< "$METRICS" || true)
 if [ -z "$TIMESTAMP_LINE" ]; then
     echo "   ❌ ERROR: Missing localdns_metrics_last_update_timestamp_seconds data point"
-    echo "$METRICS" | grep "localdns_metrics" || true
+    grep "localdns_metrics" <<< "$METRICS" || true
     exit 1
 fi
-TIMESTAMP_VALUE=$(echo "$TIMESTAMP_LINE" | awk '{print $2}')
+TIMESTAMP_VALUE=$(awk '{print $2}' <<< "$TIMESTAMP_LINE")
 echo "   Raw metric: $TIMESTAMP_LINE"
 CURRENT_TIME=$(date +%s)
 # Timestamp should be within the last 120 seconds (2 watchdog cycles)
@@ -176,20 +180,20 @@ echo ""
 
 # Check for VnetDNS forward IP metric
 echo "7. Validating VnetDNS forward IP metric..."
-if ! echo "$METRICS" | grep -q "localdns_vnetdns_forward_info"; then
+if ! grep -q "localdns_vnetdns_forward_info" <<< "$METRICS"; then
     echo "   ❌ ERROR: Missing localdns_vnetdns_forward_info"
     echo "   Available metrics:"
-    echo "$METRICS" | grep "^localdns_" | head -10
+    awk '/^localdns_/ { print; if (++count == 10) exit }' <<< "$METRICS"
     exit 1
 fi
 echo "   ✓ VnetDNS forward metric present"
 
 # Check for KubeDNS forward IP metric
 echo "8. Validating KubeDNS forward IP metric..."
-if ! echo "$METRICS" | grep -q "localdns_kubedns_forward_info"; then
+if ! grep -q "localdns_kubedns_forward_info" <<< "$METRICS"; then
     echo "   ❌ ERROR: Missing localdns_kubedns_forward_info"
     echo "   Available metrics:"
-    echo "$METRICS" | grep "^localdns_" | head -10
+    awk '/^localdns_/ { print; if (++count == 10) exit }' <<< "$METRICS"
     exit 1
 fi
 echo "   ✓ KubeDNS forward metric present"
@@ -207,7 +211,7 @@ validate_forward_metrics() {
 
     # Get all data lines (not comments) for this metric
     local data_lines
-    data_lines=$(echo "$METRICS" | grep "^${metric_name}{" || true)
+    data_lines=$(grep "^${metric_name}{" <<< "$METRICS" || true)
     if [ -z "$data_lines" ]; then
         echo "   ❌ ERROR: No data lines found for ${metric_name}" >&2
         exit 1
@@ -219,9 +223,9 @@ validate_forward_metrics() {
 
     # Check the first line to determine overall status
     local first_line
-    first_line=$(echo "$data_lines" | head -n 1)
+    first_line=$(sed -n '1p' <<< "$data_lines")
     local first_status
-    first_status=$(echo "$first_line" | sed -n 's/.*status="\([^"]*\)".*/\1/p')
+    first_status=$(sed -n 's/.*status="\([^"]*\)".*/\1/p' <<< "$first_line")
 
     if [ "$first_status" = "ok" ]; then
         # Validate every "ok" line has valid ip, block, and value
@@ -229,10 +233,10 @@ validate_forward_metrics() {
         while IFS= read -r line; do
             line_num=$((line_num + 1))
             local ip status block value
-            ip=$(echo "$line" | sed -n 's/.*ip="\([^"]*\)".*/\1/p')
-            status=$(echo "$line" | sed -n 's/.*status="\([^"]*\)".*/\1/p')
-            block=$(echo "$line" | sed -n 's/.*block="\([^"]*\)".*/\1/p')
-            value=$(echo "$line" | awk '{print $NF}')
+            ip=$(sed -n 's/.*ip="\([^"]*\)".*/\1/p' <<< "$line")
+            status=$(sed -n 's/.*status="\([^"]*\)".*/\1/p' <<< "$line")
+            block=$(sed -n 's/.*block="\([^"]*\)".*/\1/p' <<< "$line")
+            value=$(awk '{print $NF}' <<< "$line")
 
             if [ "$status" != "ok" ]; then
                 echo "   ❌ ERROR: ${display_name} line $line_num has unexpected status: $status" >&2
@@ -242,7 +246,7 @@ validate_forward_metrics() {
                 echo "   ❌ ERROR: ${display_name} line $line_num status=ok but IP is missing or unknown" >&2
                 exit 1
             fi
-            if ! echo "$ip" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+            if ! grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' <<< "$ip"; then
                 echo "   ❌ ERROR: ${display_name} line $line_num IP is not a valid IPv4: $ip" >&2
                 exit 1
             fi
@@ -255,7 +259,7 @@ validate_forward_metrics() {
                 exit 1
             fi
             # Block should contain :53 (zone format from corefile)
-            if ! echo "$block" | grep -q ':53$'; then
+            if ! grep -q ':53$' <<< "$block"; then
                 echo "   ❌ ERROR: ${display_name} line $line_num block label does not end with :53: $block" >&2
                 exit 1
             fi
@@ -265,7 +269,7 @@ validate_forward_metrics() {
     elif [ "$first_status" = "missing" ]; then
         echo "   ⚠️  ${display_name} forward not configured in corefile (expected for some cluster configs)" >&2
         local value
-        value=$(echo "$first_line" | awk '{print $NF}')
+        value=$(awk '{print $NF}' <<< "$first_line")
         if [ "$value" != "0" ]; then
             echo "   ❌ ERROR: ${display_name} not configured but value is not 0" >&2
             exit 1
@@ -273,7 +277,7 @@ validate_forward_metrics() {
     elif [ "$first_status" = "file_missing" ]; then
         echo "   ⚠️  Forward IPs .prom file is missing (may occur during initial setup)" >&2
         local value
-        value=$(echo "$first_line" | awk '{print $NF}')
+        value=$(awk '{print $NF}' <<< "$first_line")
         if [ "$value" != "0" ]; then
             echo "   ❌ ERROR: File missing but value is not 0" >&2
             exit 1
@@ -300,20 +304,117 @@ echo ""
 echo "=== ✓ All LocalDNS Metrics Validation Checks Passed ==="
 if [ "$VNETDNS_STATUS" = "ok" ] && [ "$KUBEDNS_STATUS" = "ok" ]; then
     echo "VnetDNS forwards:"
-    echo "$METRICS" | grep "^localdns_vnetdns_forward_info{" | sed 's/^/  /'
+    sed -n '/^localdns_vnetdns_forward_info{/s/^/  /p' <<< "$METRICS"
     echo "KubeDNS forwards:"
-    echo "$METRICS" | grep "^localdns_kubedns_forward_info{" | sed 's/^/  /'
+    sed -n '/^localdns_kubedns_forward_info{/s/^/  /p' <<< "$METRICS"
 elif [ "$VNETDNS_STATUS" = "ok" ]; then
     echo "VnetDNS forwards:"
-    echo "$METRICS" | grep "^localdns_vnetdns_forward_info{" | sed 's/^/  /'
+    sed -n '/^localdns_vnetdns_forward_info{/s/^/  /p' <<< "$METRICS"
     echo "KubeDNS: forward not configured (expected)"
 elif [ "$KUBEDNS_STATUS" = "ok" ]; then
     echo "VnetDNS: forward not configured (expected)"
     echo "KubeDNS forwards:"
-    echo "$METRICS" | grep "^localdns_kubedns_forward_info{" | sed 's/^/  /'
+    sed -n '/^localdns_kubedns_forward_info{/s/^/  /p' <<< "$METRICS"
 else
     echo "Both VnetDNS and KubeDNS forward not configured (may be expected for cluster config)"
 fi
+echo ""
+
+# ---------------------------------------------------------------------------
+# 11. Connection teardown regression check (client-visible RST vs FIN).
+#
+# The exporter serves a correct 200 body regardless of how the TCP connection is
+# later closed, so every step above -- which only asserts the status code and
+# body, each behind `curl ... || true` -- stays green even when the teardown is
+# broken. A prior defect left the HTTP request headers unread in the socket
+# receive buffer, so the kernel sent a TCP RST instead of a FIN on close.
+# Scrapers -- and the API-server konnectivity proxy path -- logged that as
+# "connection reset by peer" on every otherwise-successful scrape (~35k/day/
+# region after clusters rolled to k8s 1.36.1).
+#
+# With `Connection: close` and no Content-Length, curl relies on a clean close
+# to know the body is complete, so it reports a mid- or post-body RST as a
+# receive error (exit 56). A non-zero curl exit here is therefore a teardown
+# regression. We deliberately do NOT append `|| true`: the exit code is the
+# assertion. tcpdump-level FIN/RST inspection is only feasible in manual
+# testing; this exit-code check is the CI-usable proxy for it.
+# ---------------------------------------------------------------------------
+echo "11. Verifying graceful connection teardown (curl exit code)..."
+TEARDOWN_ITERATIONS=5
+for i in $(seq 1 "$TEARDOWN_ITERATIONS"); do
+    CURL_RC=0
+    curl -s -o /dev/null --connect-timeout 5 --max-time 10 "http://${LISTEN_ADDR}/metrics" || CURL_RC=$?
+    if [ "$CURL_RC" -ne 0 ]; then
+        echo "   ❌ ERROR: curl exited $CURL_RC on scrape $i/${TEARDOWN_ITERATIONS}"
+        if [ "$CURL_RC" -eq 56 ]; then
+            echo "   curl exit 56 = 'failure receiving network data' — the exporter closed the"
+            echo "   connection with a TCP RST instead of a FIN. This is the 'connection reset"
+            echo "   by peer' regression: the worker is not draining the full HTTP request"
+            echo "   before responding, so unread request bytes force an RST on close. The"
+            echo "   metrics body may be correct, but every scraper/konnectivity connection is"
+            echo "   being reset."
+        fi
+        exit 1
+    fi
+done
+echo "   ✓ curl exited 0 on all ${TEARDOWN_ITERATIONS} scrapes (connection closed with FIN, not RST)"
+echo ""
+
+# ---------------------------------------------------------------------------
+# 12. Socket-activated worker must not be left in a failed state.
+#
+# Each scrape spawns a per-connection `localdns-exporter@<n>.service` worker.
+# A prior defect made the worker exit non-zero ("cat: write error: Broken pipe")
+# when a scrape client closed the socket while the worker was still writing the
+# response, leaving the unit `failed`. None of the functional steps above assert
+# on unit state, so this surfaced only as a recurring, misattributed E2E flake
+# (localdns-exporter-systemd-failed-state). Asserting zero failed exporter units
+# turns that silent flake into a hard, correctly-attributed signal.
+#
+# We first clear any pre-existing failed instances so the assertion reflects only
+# what this check produces, then drive a burst of scrapes that close early (read
+# just the status line, then drop the connection) to exercise the client-
+# disconnect path, and finally assert no worker was left failed. `nc` is present
+# on all AKS VHD distros (Ubuntu, AzureLinux, Flatcar); we avoid bash /dev/tcp
+# because Flatcar builds bash without net redirections.
+# ---------------------------------------------------------------------------
+echo "12. Verifying scrape client-disconnect does not leave a failed worker unit..."
+HOLD_HOST="${LISTEN_ADDR%%:*}"
+HOLD_PORT="${LISTEN_ADDR##*:}"
+
+# Clear any previously-failed exporter instances so the assertion below only
+# reflects the disconnect burst we are about to generate.
+systemctl reset-failed 'localdns-exporter@*.service' 2>/dev/null || true
+
+DISCONNECT_ITERATIONS=30
+for i in $(seq 1 "$DISCONNECT_ITERATIONS"); do
+    # Send a complete request, then read only the first response line and close.
+    # If the worker mishandles the client going away mid-response, it exits
+    # non-zero and systemd records the instance as failed.
+    printf 'GET /metrics HTTP/1.1\r\nHost: %s\r\nUser-Agent: e2e-earlyclose\r\nAccept: */*\r\n\r\n' "$HOLD_HOST" \
+        | timeout 3 nc "$HOLD_HOST" "$HOLD_PORT" 2>/dev/null \
+        | head -n 1 >/dev/null 2>&1 || true
+done
+
+# Give systemd a moment to reap the transient instances and record any failures.
+sleep 2
+
+FAILED_UNITS=$(systemctl list-units --all --state=failed 'localdns-exporter@*.service' \
+    --no-legend --no-pager --plain 2>/dev/null | awk '{print $1}' || true)
+if [ -n "$FAILED_UNITS" ]; then
+    echo "   ❌ ERROR: exporter worker unit(s) left in failed state after client disconnects:"
+    while IFS= read -r unit; do
+        [ -z "$unit" ] && continue
+        echo "     - $unit"
+        systemctl status "$unit" --no-pager --lines=10 2>/dev/null | sed 's/^/       /' || true
+    done <<< "$FAILED_UNITS"
+    echo "   A client disconnecting mid-response must be treated as a normal termination"
+    echo "   (SIGPIPE/broken pipe => exit 0), not a unit failure."
+    # Clear the units so a retry starts from a clean slate.
+    systemctl reset-failed 'localdns-exporter@*.service' 2>/dev/null || true
+    exit 1
+fi
+echo "   ✓ No exporter worker units left in failed state after ${DISCONNECT_ITERATIONS} early-close scrapes"
 echo ""
 
 echo "=== ✓ All localdns exporter functional validations passed ==="

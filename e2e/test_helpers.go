@@ -10,12 +10,14 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -83,28 +85,20 @@ func RunScenario(t *testing.T, s *Scenario) {
 		})
 		return
 	}
-	t.Run("default", func(t *testing.T) {
-		t.Parallel()
-		err := runScenario(t, copyScenario(s))
-		require.NoError(t, err)
-	})
-
-	if supportsScriptlessNBCCSECmd(s) {
-		t.Run("scriptless_nbc", func(t *testing.T) {
-			t.Parallel()
-			sCopy := copyScenario(s)
-			if sCopy.Runtime == nil {
-				sCopy.Runtime = &ScenarioRuntime{}
-			}
-			sCopy.Runtime.EnableScriptlessNBCCSECmd = true
-			err := runScenario(t, sCopy)
-			require.NoError(t, err)
-		})
+	if scriptlessUnsupported(s) {
+		require.NoError(t, runScenario(t, s))
+		return
 	}
+
+	if s.Runtime == nil {
+		s.Runtime = &ScenarioRuntime{}
+	}
+	s.Runtime.EnableScriptlessNBCCSECmd = true
+	require.NoError(t, runScenario(t, s))
 }
 
-func supportsScriptlessNBCCSECmd(s *Scenario) bool {
-	return s.AKSNodeConfigMutator == nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision && !s.SkipScriptlessNBC
+func scriptlessUnsupported(s *Scenario) bool {
+	return s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
 }
 
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
@@ -146,11 +140,18 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 			vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
 		}
 	}
-	if original.BootstrapConfigMutator != nil {
+	if original.BootstrapConfigMutator != nil || original.PreProvisionBootstrapConfigMutator != nil {
 		firstStage.BootstrapConfigMutator = func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			original.BootstrapConfigMutator(cluster, nbc)
+			if original.BootstrapConfigMutator != nil {
+				original.BootstrapConfigMutator(cluster, nbc)
+			}
 			nbc.PreProvisionOnly = true
 			nbc.EnableScriptlessNBCCSECmd = false
+			// Bake-stage-only mutation: lets a scenario deliberately diverge bake-time
+			// state from provision-time state (e.g. a stale sentinel bootstrap token).
+			if original.PreProvisionBootstrapConfigMutator != nil {
+				original.PreProvisionBootstrapConfigMutator(cluster, nbc)
+			}
 		}
 	}
 	if original.AKSNodeConfigMutator != nil {
@@ -230,11 +231,24 @@ func runScenario(t testing.TB, s *Scenario) error {
 	// need to find the root cause and fix it, this should help to catch such cases
 	require.NotNil(t, cluster)
 
+	// Log cluster identity for debugging
+	clusterName := *cluster.Model.Name
+	clusterLocation := *cluster.Model.Location
+	resourceGroup := config.ResourceGroupName(clusterLocation)
+	subscriptionID := config.Config.SubscriptionID
+	t.Logf("using cluster %s in rg=%s sub=%s", clusterName, resourceGroup, subscriptionID)
+	t.Logf("portal: https://portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters/%s/overview",
+		subscriptionID, resourceGroup, clusterName)
+
 	if s.Runtime == nil {
 		s.Runtime = &ScenarioRuntime{}
 	}
 	s.Runtime.Cluster = cluster
 	s.Runtime.VMSSName = generateVMSSName(s)
+
+	testKube, err := cluster.NewKubeclientForTest()
+	require.NoError(t, err, "creating per-test kubeclient")
+	s.Runtime.Kube = testKube
 
 	// use shorter timeout for faster feedback on test failures
 	vmssCtx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
@@ -258,10 +272,12 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	defer toolkit.LogStep(s.T, "preparing AKS node")()
 
 	var err error
-	nbc, err := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
+	nbc, err := getBaseNBC(ctx, s.T, s.Runtime.Cluster, s.VHD)
 	require.NoError(s.T, err)
 
-	nbc.EnableScriptlessCSECmd = true
+	if !config.Config.DisableScriptless {
+		nbc.EnableScriptlessCSECmd = true
+	}
 	if s.Runtime != nil && s.Runtime.EnableScriptlessNBCCSECmd {
 		nbc.EnableScriptlessNBCCSECmd = true
 		nbc.EnableScriptlessCSECmd = false
@@ -279,10 +295,18 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		nodeconfig := nbcToAKSNodeConfigV1(nbc)
 		s.AKSNodeConfigMutator(s.Runtime.Cluster, nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
-		// AKSNodeConfig scenarios use aks-node-controller, not GetNodeBootstrapping.
-		// Clear NBC so validators that check NBC fields (e.g., ValidateScriptlessCSECmd)
-		// don't fire incorrectly — those validations only apply to NBC-based provisioning.
-		s.Runtime.NBC = nil
+
+		aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(nodeconfig)
+		require.NoError(s.T, err)
+		s.Runtime.NBC.AKSNodeConfigJSON = string(aksNodeConfigJSON)
+
+		nbc.EnableScriptlessCSECmd = false
+
+		// for scriptless phase 2.5, we are using nbc cse cmd for provisioning but passing aksnodeconfig and nbc cse cmd to compare env variables
+		// scriptless tag means provisioning with aksnodeconfig is used
+		if !s.Tags.Scriptless && s.BootstrapConfigMutator != nil {
+			nbc.EnableScriptlessNBCCSECmd = true
+		}
 	}
 
 	publicKeyData := datamodel.PublicKey{KeyData: string(config.VMSSHPublicKey)}
@@ -337,7 +361,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	if !s.Config.SkipDefaultValidation {
 		vmssCreatedAt := time.Now()         // Record the start time
 		creationElapse := time.Since(start) // Calculate the elapsed time
-		scenarioVM.KubeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
+		scenarioVM.KubeName = s.Runtime.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
 		readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
 		totalElapse := time.Since(start)
 		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, creationElapse, readyElapse))
@@ -352,9 +376,6 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
 	s.Tags.VHDCaching = s.VHDCaching
-	if s.AKSNodeConfigMutator != nil {
-		s.Tags.Scriptless = true
-	}
 
 	if config.Config.TagsToRun != "" {
 		matches, err := s.Tags.MatchesFilters(config.Config.TagsToRun)
@@ -446,19 +467,59 @@ func validateVM(ctx context.Context, s *Scenario) {
 }
 
 func getCustomScriptExtensionStatus(s *Scenario, vmssVM *armcompute.VirtualMachineScaleSetVM) error {
+	// Re-fetch the VM with instance view to ensure we have fresh extension status data.
+	// The VM object passed in may have been fetched before the CSE finished executing,
+	// so the extension status message could be empty or stale.
+	if vmssVM.InstanceID != nil {
+		// Bounded fresh context (matches other diagnostic/cleanup paths in this file):
+		// this re-fetch collects post-mortem CSE status, so it should complete even if
+		// the caller's ctx was cancelled (e.g., test timeout), but must not hang the
+		// suite indefinitely on a stalled ARM call.
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		freshVM, err := config.Azure.VMSSVM.Get(ctx,
+			*s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
+			s.Runtime.VMSSName,
+			*vmssVM.InstanceID,
+			&armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+				Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
+			})
+		if err == nil && freshVM.Properties != nil && freshVM.Properties.InstanceView != nil {
+			vmssVM.Properties.InstanceView = freshVM.Properties.InstanceView
+		} else if err != nil {
+			s.T.Logf("warning: failed to re-fetch VM instance view for CSE status: %v", err)
+		}
+	}
+
 	for _, extension := range vmssVM.Properties.InstanceView.Extensions {
+		// Only process the CSE extension, skip other extensions (e.g., ManagedIdentity)
+		// whose empty status messages would overwrite the actual CSE output file.
+		// The extension name in InstanceView is typically "vmssCSE" (matching the resource name)
+		// but may also appear as the handler type. Match on known CSE identifiers.
+		if extension.Name == nil {
+			continue
+		}
+		name := strings.ToLower(*extension.Name)
+		isCSE := name == "vmsscse" ||
+			strings.Contains(name, "customscript") ||
+			strings.Contains(name, "aksnode")
+		if !isCSE {
+			continue
+		}
 		for _, status := range extension.Statuses {
 			if s.IsWindows() {
-				// Save the CSE output for Windows VMs for better troubleshooting
-				if status.Message != nil {
-					logDir := filepath.Join("scenario-logs", s.T.Name())
+				// Save the CSE output for Windows VMs for better troubleshooting.
+				// Only write when the message has actual content to avoid overwriting
+				// with an empty file from a status entry that has no output.
+				if status.Message != nil && *status.Message != "" {
+					logDir := testDir(s.T)
 					if err := os.MkdirAll(logDir, 0755); err == nil {
 						logFile := filepath.Join(logDir, "windows-cse-output.log")
 						err = os.WriteFile(logFile, []byte(*status.Message), 0644)
 						if err != nil {
 							s.T.Logf("failed to save Windows CSE output to %s: %v", logFile, err)
 						} else {
-							s.T.Logf("saved Windows CSE output to %s", logFile)
+							s.T.Logf("saved Windows CSE output to %s (%d bytes)", logFile, len(*status.Message))
 						}
 					}
 				}
@@ -1012,4 +1073,36 @@ func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) 
 				ValidateNPDIBLinkFlappingAfterFailure(ctx, s)
 			},
 		}}
+}
+
+func vmSKUGeneration(sku string) (int, error) {
+	// Extract the generation number from the SKU string (e.g., "Standard_D2s_v3" -> 3)
+	sku = strings.ToLower(sku)
+	idx := strings.LastIndex(sku, "_v")
+	if idx < 0 {
+		return 0, fmt.Errorf("invalid SKU format: %s", sku)
+	}
+	gen, err := strconv.Atoi(sku[idx+2:])
+	if err != nil {
+		return 0, fmt.Errorf("SKU %q has non-numeric generation suffix: %w", sku, err)
+	}
+	return gen, nil
+}
+
+func ensureMinVMGeneration(minSku string) string {
+	// Ensure that the VM SKU used is at least the minimum generation required for the test
+	// Get the minimum generation for the specified SKU
+	defaultGen, err := vmSKUGeneration(config.Config.DefaultVMSKU)
+	if err != nil {
+		panic(fmt.Sprintf("Warning: No minimum generation found for SKU %s", config.Config.DefaultVMSKU))
+	}
+	minGen, err := vmSKUGeneration(minSku)
+	if err != nil {
+		panic(fmt.Sprintf("Warning: No minimum generation found for SKU %s", minSku))
+	}
+	if defaultGen < minGen {
+		return minSku
+	} else {
+		return config.Config.DefaultVMSKU
+	}
 }

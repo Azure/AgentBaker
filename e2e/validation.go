@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -44,10 +45,18 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	ValidateLeakedSecrets(ctx, s)
 	ValidateIPTablesCompatibleWithCiliumEBPF(ctx, s)
 	ValidateRxBufferDefault(ctx, s)
+
+	// Validate MANA (Accelerated Networking) when hardware is present.
+	// MANA is the standard network adapter on V5+ VM series.
+	if hasMANAHardware(ctx, s) {
+		ValidateMANA(ctx, s)
+	}
+
 	ValidateKernelLogs(ctx, s)
 	ValidateWaagentLog(ctx, s)
 	ValidateScriptlessCSECmd(ctx, s)
 	ValidateScriptlessNBCCSECmd(ctx, s)
+	ValidateScriptlessPhase3(ctx, s)
 	ValidateNodeExporter(ctx, s)
 
 	ValidateSysctlConfig(ctx, s, map[string]string{
@@ -139,7 +148,7 @@ func ValidateCommonWindows(ctx context.Context, s *Scenario) {
 }
 
 func validatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) error {
-	kube := s.Runtime.Cluster.Kube
+	kube := s.Runtime.Kube
 	truncatePodName(s.T, pod)
 	start := time.Now()
 
@@ -185,7 +194,7 @@ func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName s
 		case <-ctx.Done():
 			s.T.Fatalf("context cancelled: %v", ctx.Err())
 		case <-ticker.C:
-			node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+			node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 			require.NoError(s.T, err, "failed to get node %q", nodeName)
 
 			if isResourceAvailable(node, resourceName) {
@@ -231,6 +240,7 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 		"filter": {
 			`-A FORWARD -d 168.63.129.16/32 -p tcp -m tcp --dport 32526 -j DROP`,
 			`-A FORWARD -d 168.63.129.16/32 -p tcp -m tcp --dport 80 -j DROP`,
+			`-A INPUT -p udp --dport 68 -j ACCEPT`,
 		},
 		"mangle": {
 			`-A FORWARD -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 80 -j DROP`,
@@ -262,6 +272,7 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 		`^-A .* -j IP-MASQ-AGENT`,
 		`^.*--comment.*cilium:`,
 		`^.*--comment.*cilium-feeder:`,
+		`^-A CILIUM_\S+ `,
 		`-A FORWARD ! -s (?:\d{1,3}\.){3}\d{1,3}/32 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP`,
 	}
 
@@ -290,7 +301,7 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 	defer toolkit.LogStep(s.T, "validating wireserver is blocked from unprivileged pods")()
 
-	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
+	nonHostPod, err := s.Runtime.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
 	require.NoError(s.T, err, "failed to get non host debug pod for wireserver validation")
 
 	type wireServerCheck struct {
@@ -300,11 +311,11 @@ func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 
 	checks := []wireServerCheck{
 		{
-			cmd:  "curl http://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4",
+			cmd:  "curl http://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4 --max-time 8",
 			desc: "wireserver port 80 goalstate",
 		},
 		{
-			cmd:  "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4",
+			cmd:  "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4 --max-time 8",
 			desc: "wireserver port 32526 vmSettings",
 		},
 	}
@@ -313,10 +324,19 @@ func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 
 	for _, check := range checks {
 		var execResult *podExecResult
-		pollErr := wait.PollUntilContextTimeout(ctx, 5*time.Second, 30*time.Second, true, func(ctx context.Context) (bool, error) {
-			r, execErr := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, check.cmd)
+		// Per-attempt cap (15s) prevents a single SPDY/exec hang from consuming the entire
+		// poll budget. Derived from the poll's inner ctx so it honors both the per-attempt
+		// cap and the overall poll deadline, whichever fires first.
+		pollErr := wait.PollUntilContextTimeout(ctx, 5*time.Second, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
+			attemptCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+			defer cancel()
+			r, execErr := execOnUnprivilegedPod(attemptCtx, s.Runtime.Kube, nonHostPod.Namespace, nonHostPod.Name, check.cmd)
 			if execErr != nil {
-				s.T.Logf("wireserver check %q: exec error (retrying): %v", check.desc, execErr)
+				if errors.Is(execErr, context.DeadlineExceeded) {
+					s.T.Logf("wireserver check %q: exec attempt timed out after 15s (retrying): %v", check.desc, execErr)
+				} else {
+					s.T.Logf("wireserver check %q: exec error (retrying): %v", check.desc, execErr)
+				}
 				return false, nil
 			}
 			execResult = r

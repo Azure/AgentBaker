@@ -32,6 +32,10 @@ parameters:
   - name: architecture
     type: string
     displayName: CPU Architecture - X86_64 or ARM64
+  - name: enableTrustedLaunch
+    type: boolean
+    displayName: Enable Trusted Launch on the SIG image definition
+    default: False
   - name: skipExtensionCheck
     displayName: Skip Extension Check
     type: boolean
@@ -83,6 +87,7 @@ stages:
               windowsSku: ${{ parameters.windowsSku }}
               hyperVGeneration: ${{ parameters.hyperVGeneration }}
               architecture: ${{ parameters.architecture }}
+              enableTrustedLaunch: ${{ parameters.enableTrustedLaunch }}
               buildVmSize: ${{ parameters.buildVmSize }}
               build: ${{ parameters.build }}
               vhddebug: ${{ parameters.vhddebug }}

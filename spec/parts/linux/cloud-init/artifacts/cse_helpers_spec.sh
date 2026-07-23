@@ -282,7 +282,7 @@ Describe 'cse_helpers.sh'
             The status should be success
             The stdout should include "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
         End
-        It 'should fail if access token is an error'
+        It 'should fail if access token fails for all endpoints'
             retrycmd_can_oras_ls_acr_anonymously() {
                 return 1
             }
@@ -296,9 +296,10 @@ Describe 'cse_helpers.sh'
             local tenant_id="mytenantID"
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
-            The stdout should include "failed to retrieve kubelet identity token"
+            The stdout should include "failed to get access token with endpoint"
+            The stdout should include "failed to obtain tokens with all endpoints"
         End
-        It 'should fail if refresh token is an error'
+        It 'should fail if refresh token is an error for all endpoints'
             retrycmd_can_oras_ls_acr_anonymously() {
                 return 1
             }
@@ -313,7 +314,94 @@ Describe 'cse_helpers.sh'
             local tenant_id="failureID"
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
-            The stdout should include "failed to retrieve refresh token"
+            The stdout should include "failed to retrieve refresh token with endpoint"
+            The stdout should include "failed to obtain tokens with all endpoints"
+        End
+        It 'should fallback to ARM endpoint when ACR endpoint fails access token'
+            retrycmd_can_oras_ls_acr_anonymously() {
+                return 1
+            }
+            retrycmd_get_aad_access_token(){
+                url=$3
+                # Use the URL to distinguish which endpoint is being called (subshell-safe)
+                if echo "$url" | grep -q "containerregistry.azure.net"; then
+                    echo "failed for acr endpoint"
+                    return $ERR_ORAS_PULL_UNAUTHORIZED
+                fi
+                echo "{\"access_token\":\"armAccessToken\"}"
+            }
+            retrycmd_get_refresh_token_for_oras(){
+                echo "{\"refresh_token\":\"myRefreshToken\"}"
+            }
+            retrycmd_oras_login(){
+                return 0
+            }
+            local acr_url="fallback.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="mytenantID"
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be success
+            The stdout should include "failed to get access token with endpoint https://containerregistry.azure.net"
+            The stdout should include "successfully obtained acr refresh tokens with endpoint: https://management.azure.com/"
+            The stdout should include "successfully logged in to acr '$acr_url' with identity token"
+            The stderr should be present
+        End
+        It 'should fallback to ARM endpoint when ACR endpoint fails refresh token'
+            retrycmd_can_oras_ls_acr_anonymously() {
+                return 1
+            }
+            retrycmd_get_aad_access_token(){
+                url=$3
+                # Return different tokens based on endpoint so refresh token mock can distinguish
+                if echo "$url" | grep -q "containerregistry.azure.net"; then
+                    echo "{\"access_token\":\"acrAccessToken\"}"
+                else
+                    echo "{\"access_token\":\"armAccessToken\"}"
+                fi
+            }
+            retrycmd_get_refresh_token_for_oras(){
+                access_token=$5
+                # Use the access token value to distinguish which endpoint is being used
+                if [ "$access_token" = "acrAccessToken" ]; then
+                    echo "{\"error\":\"invalid_request\"}"
+                    return 0
+                fi
+                echo "{\"refresh_token\":\"myRefreshToken\"}"
+            }
+            retrycmd_oras_login(){
+                return 0
+            }
+            local acr_url="fallback.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="mytenantID"
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be success
+            The stdout should include "failed to retrieve refresh token with endpoint https://containerregistry.azure.net"
+            The stdout should include "successfully obtained acr refresh tokens with endpoint: https://management.azure.com/"
+            The stdout should include "successfully logged in to acr '$acr_url' with identity token"
+            The stderr should be present
+        End
+        It 'should succeed with ACR endpoint on first try'
+            retrycmd_can_oras_ls_acr_anonymously() {
+                return 1
+            }
+            retrycmd_get_aad_access_token(){
+                echo "{\"access_token\":\"myAccessToken\"}"
+            }
+            retrycmd_get_refresh_token_for_oras(){
+                echo "{\"refresh_token\":\"myRefreshToken\"}"
+            }
+            retrycmd_oras_login(){
+                return 0
+            }
+            local acr_url="success.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="mytenantID"
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be success
+            The stdout should include "successfully obtained acr refresh tokens with endpoint: https://containerregistry.azure.net"
+            The stdout should include "successfully logged in to acr '$acr_url' with identity token"
+            The stderr should be present
         End
         It 'should fail if oras cannot login'
             retrycmd_can_oras_ls_acr_anonymously() {
@@ -335,25 +423,35 @@ Describe 'cse_helpers.sh'
             The status should be failure
             The stdout should include "failed to login to acr '$acr_url' with identity token"
         End
-        It 'should succeed if oras can login'
+        It 'should fallback to ARM endpoint when refresh token retrieval returns non-zero for ACR endpoint'
+            retrycmd_can_oras_ls_acr_anonymously() {
+                return 1
+            }
             retrycmd_get_aad_access_token(){
-                echo "{\"access_token\":\"myAccessToken\"}"
+                url=$3
+                if echo "$url" | grep -q "containerregistry.azure.net"; then
+                    echo "{\"access_token\":\"acrAccessToken\"}"
+                else
+                    echo "{\"access_token\":\"armAccessToken\"}"
+                fi
             }
             retrycmd_get_refresh_token_for_oras(){
+                access_token=$5
+                if [ "$access_token" = "acrAccessToken" ]; then
+                    return $ERR_ORAS_PULL_NETWORK_TIMEOUT
+                fi
                 echo "{\"refresh_token\":\"myRefreshToken\"}"
             }
             retrycmd_oras_login(){
                 return 0
             }
-            retrycmd_can_oras_ls_acr_anonymously() {
-                return 1
-            }
-
-            local acr_url="success.azurecr.io"
+            local acr_url="fallback.azurecr.io"
             local client_id="myclientID"
             local tenant_id="mytenantID"
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be success
+            The stdout should include "failed to retrieve refresh token with endpoint https://containerregistry.azure.net"
+            The stdout should include "successfully obtained acr refresh tokens with endpoint: https://management.azure.com/"
             The stdout should include "successfully logged in to acr '$acr_url' with identity token"
             The stderr should be present
         End

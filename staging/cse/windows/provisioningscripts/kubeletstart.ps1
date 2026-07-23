@@ -24,7 +24,6 @@ $global:SecureTLSBootstrappingGetInstanceDataTimeout = $Global:ClusterConfigurat
 $global:SecureTLSBootstrappingGetNonceTimeout = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.GetNonceTimeout
 $global:SecureTLSBootstrappingGetAttestedDataTimeout = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.GetAttestedDataTimeout
 $global:SecureTLSBootstrappingGetCredentialTimeout = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.GetCredentialTimeout
-$global:SecureTLSBootstrappingDeadline = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.Deadline
 
 $global:AzureCNIDir = [Io.path]::Combine("$global:KubeDir", "azurecni")
 $global:AzureCNIBinDir = [Io.path]::Combine("$global:AzureCNIDir", "bin")
@@ -48,6 +47,9 @@ $KubeletArgList = $Global:ClusterConfiguration.Kubernetes.Kubelet.ConfigArgs # T
 $KubeletArgList += "--node-labels=$global:KubeletNodeLabels"
 # $KubeletArgList += "--hostname-override=$global:AzureHostname" TODO: remove - dead code?
 $KubeletArgList += "--volume-plugin-dir=$global:VolumePluginDir"
+if (-not ($KubeletArgList | Where-Object { $_ -like "--windows-priorityclass=*" })) {
+    $KubeletArgList += "--windows-priorityclass=ABOVE_NORMAL_PRIORITY_CLASS"
+}
 # If you are thinking about adding another arg here, you should be considering pkg/engine/defaults-kubelet.go first
 # Only args that need to be calculated or combined with other ones on the Windows agent should be added here.
 
@@ -87,7 +89,8 @@ if ($global:NetworkPlugin -eq "azure") {
 
     if ($global:IsSkipCleanupNetwork) {
         Write-Host "Skipping legacy code: kubeletstart.ps1 invokes cleanupnetwork.ps1"
-    } else {
+    }
+    else {
         # Legacy codes
         # Find if network created by CNI exists, if yes, remove it
         # This is required to keep the network non-persistent behavior
@@ -110,8 +113,8 @@ if ($global:NetworkPlugin -eq "azure") {
 # unless secure TLS bootstrapping succeeds.
 if ($global:EnableSecureTLSBootstrapping) {
     Write-Host "Secure TLS bootstrapping is enabled, calling c:\k\securetlsbootstrap.ps1"
-    $SecureTLSBootstrappingArgs= @{
-        KubeDir = "$global:KubeDir"
+    $SecureTLSBootstrappingArgs = @{
+        KubeDir  = "$global:KubeDir"
         MasterIP = "$global:MasterIP"
     }
     if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingAADResource)) {
@@ -138,9 +141,6 @@ if ($global:EnableSecureTLSBootstrapping) {
     if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingGetCredentialTimeout)) {
         $SecureTLSBootstrappingArgs["GetCredentialTimeout"] = "$global:SecureTLSBootstrappingGetCredentialTimeout"
     }
-    if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingDeadline)) {
-        $SecureTLSBootstrappingArgs["Deadline"] = "$global:SecureTLSBootstrappingDeadline"
-    }
     & "c:\k\securetlsbootstrap.ps1" @SecureTLSBootstrappingArgs
 }
 
@@ -150,7 +150,8 @@ if ($global:EnableSecureTLSBootstrapping) {
 # otherwise load class from cs file (for CI/testing)
 if (Test-Path "$global:KubeDir\runprocess.dll") {
     [System.Reflection.Assembly]::LoadFrom("$global:KubeDir\runprocess.dll")
-} else {
+}
+else {
     Add-Type -Path "$global:KubeDir\run-process.cs"
 }
 $exe = "$global:KubeDir\kubelet.exe"

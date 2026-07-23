@@ -305,12 +305,14 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 	Context("GetDistroSigImageConfig", func() {
 		var (
-			ubuntuDistros     []datamodel.Distro
-			marinerDistros    []datamodel.Distro
-			azureLinuxDistros []datamodel.Distro
-			flatcarDistros    []datamodel.Distro
-			aclDistros        []datamodel.Distro
-			allLinuxDistros   []datamodel.Distro
+			ubuntuDistros             []datamodel.Distro
+			marinerDistros            []datamodel.Distro
+			azureLinuxDistros         []datamodel.Distro
+			flatcarDistros            []datamodel.Distro
+			aclDistros                []datamodel.Distro
+			ubuntuEdgeZoneDistros     []datamodel.Distro
+			azureLinuxEdgeZoneDistros []datamodel.Distro
+			allLinuxDistros           []datamodel.Distro
 		)
 
 		BeforeEach(func() {
@@ -369,6 +371,18 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				datamodel.AKSACLArm64Gen2FIPSTL,
 			}
 
+			ubuntuEdgeZoneDistros = []datamodel.Distro{
+				datamodel.AKSUbuntuEdgeZoneContainerd2204,
+				datamodel.AKSUbuntuEdgeZoneContainerd2204Gen2,
+				datamodel.AKSUbuntuEdgeZoneContainerd2404,
+				datamodel.AKSUbuntuEdgeZoneContainerd2404Gen2,
+			}
+
+			azureLinuxEdgeZoneDistros = []datamodel.Distro{
+				datamodel.AKSAzureLinuxV3EdgeZone,
+				datamodel.AKSAzureLinuxV3EdgeZoneGen2,
+			}
+
 			allLinuxDistros = append(allLinuxDistros, ubuntuDistros...)
 			allLinuxDistros = append(allLinuxDistros, marinerDistros...)
 			allLinuxDistros = append(allLinuxDistros, azureLinuxDistros...)
@@ -421,6 +435,28 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				config := configs[distro]
 				Expect(config.Gallery).To(Equal("aksazurelinux"))
 			}
+
+			// EdgeZone distros use a hardcoded gallery and resource group (not the
+			// gallery config map), so they are validated separately from allLinuxDistros.
+			for _, distro := range ubuntuEdgeZoneDistros {
+				Expect(configs).To(HaveKey(distro))
+				config := configs[distro]
+				Expect(config.SubscriptionID).To(Equal("somesubid"))
+				Expect(config.Version).ToNot(BeEmpty())
+				Expect(config.Definition).ToNot(BeEmpty())
+				Expect(config.Gallery).To(Equal("AKSUbuntuEdgeZone"))
+				Expect(config.ResourceGroup).To(Equal("AKS-Ubuntu-EdgeZone"))
+			}
+
+			for _, distro := range azureLinuxEdgeZoneDistros {
+				Expect(configs).To(HaveKey(distro))
+				config := configs[distro]
+				Expect(config.SubscriptionID).To(Equal("somesubid"))
+				Expect(config.Version).ToNot(BeEmpty())
+				Expect(config.Definition).ToNot(BeEmpty())
+				Expect(config.Gallery).To(Equal("AKSAzureLinuxEdgeZone"))
+				Expect(config.ResourceGroup).To(Equal("AKS-AzureLinux-EdgeZone"))
+			}
 		})
 
 		It("should return correct value for all existing distros with linux node image version override", func() {
@@ -446,6 +482,12 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			}
 			for _, distro := range aclDistros {
 				imageVersionOverrides[distro] = aclOverrideVersion
+			}
+			for _, distro := range ubuntuEdgeZoneDistros {
+				imageVersionOverrides[distro] = ubuntuOverrideVersion
+			}
+			for _, distro := range azureLinuxEdgeZoneDistros {
+				imageVersionOverrides[distro] = azureLinuxOverrideVersion
 			}
 			toggles := &testToggles{
 				nodeImageVersionOverrides: imageVersionOverrides,
@@ -498,6 +540,21 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				config := configs[distro]
 				Expect(config.Gallery).To(Equal("aksazurelinux"))
 				Expect(config.Version).To(Equal(aclOverrideVersion))
+			}
+
+			// Validate the version override is applied to EdgeZone distros too.
+			for _, distro := range ubuntuEdgeZoneDistros {
+				config := configs[distro]
+				Expect(config.Gallery).To(Equal("AKSUbuntuEdgeZone"))
+				Expect(config.ResourceGroup).To(Equal("AKS-Ubuntu-EdgeZone"))
+				Expect(config.Version).To(Equal(ubuntuOverrideVersion))
+			}
+
+			for _, distro := range azureLinuxEdgeZoneDistros {
+				config := configs[distro]
+				Expect(config.Gallery).To(Equal("AKSAzureLinuxEdgeZone"))
+				Expect(config.ResourceGroup).To(Equal("AKS-AzureLinux-EdgeZone"))
+				Expect(config.Version).To(Equal(azureLinuxOverrideVersion))
 			}
 		})
 

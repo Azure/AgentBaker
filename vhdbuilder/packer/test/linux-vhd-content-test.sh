@@ -33,6 +33,35 @@ err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
 
+# assertPackageVersion verifies that the installed deb/rpm package version matches
+# the expected full version string from components.json (including hotfix suffix).
+# This catches drift between what the package manager installs and what components.json
+# specifies at VHD build time rather than in e2e.
+# shellcheck disable=SC2016
+assertPackageVersion() {
+  local test="$1"
+  local packageName="$2"
+  local expectedVersion="$3"
+
+  local installedVersion=""
+  if command -v dpkg-query >/dev/null 2>&1 && dpkg-query -W -f='${Status}' "$packageName" 2>/dev/null | grep -q "install ok installed"; then
+    # dpkg versions may include an epoch prefix (e.g. "1:..."); strip it for comparison with components.json.
+    installedVersion=$(dpkg-query -W -f='${Version}' "$packageName" 2>/dev/null | sed 's/^[0-9]*://')
+  elif command -v rpm >/dev/null 2>&1 && rpm -q "$packageName" >/dev/null 2>&1; then
+    installedVersion=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' "$packageName" 2>/dev/null)
+  else
+    err "$test" "$packageName is not installed"
+    return 1
+  fi
+
+  echo "$test: checking if installed $packageName version '$installedVersion' matches expected '$expectedVersion'"
+  if [ "$installedVersion" != "$expectedVersion" ]; then
+    err "$test" "installed $packageName version '$installedVersion' does not match expected '$expectedVersion' from components.json"
+    return 1
+  fi
+  return 0
+}
+
 # Clone the repo and checkout the branch provided.
 # Simply clone with just the branch doesn't work for pull requests, but this technique works
 # with everything we've tested so far.
@@ -245,6 +274,10 @@ testPackagesInstalled() {
         testPkgDownloaded "${name%-pmc}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
+      "aks-secure-tls-bootstrap-client")
+        testSecureTLSBootstrapClientInstalled
+        continue
+        ;;
       "kubelet"|\
       "kubectl")
         testPkgDownloaded "${name}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
@@ -274,10 +307,22 @@ testPackagesInstalled() {
         # We can simply execute the command to verify the package version.
         case "$name" in
           "kubernetes-cri-tools")
-            testCriCtl "$version"
+            testCriCtl "$version" "kubernetes-cri-tools"
             ;;
           "containerd")
-            testContainerd "$version"
+            # The deb/rpm package name for containerd varies by OS:
+            #   Ubuntu / Mariner 2.0: moby-containerd
+            #   Azure Linux 3.0+:    containerd2
+            local pkgName
+            case "$OS" in
+              "$AZURELINUX_OS_NAME")
+                pkgName="containerd2"
+                ;;
+              *)
+                pkgName="moby-containerd"
+                ;;
+            esac
+            testContainerd "$version" "$pkgName"
             ;;
         esac
         break
@@ -534,6 +579,27 @@ testAuditDNotPresent() {
     echo "AuditD is not present, as expected"
   else
     err $test "AuditD is active with status ${status}"
+  fi
+  echo "$test:Finish"
+}
+
+testArtifactStreamingPackagesCleanedUp() {
+  local test="testArtifactStreamingPackagesCleanedUp"
+  echo "$test:Start"
+  local overlaybdBinDir="/opt/acr/tools/overlaybd/bin"
+  # Skip if artifact streaming (acr-mirror) isn't installed on this VHD.
+  if [ ! -d "$overlaybdBinDir" ]; then
+    echo "$overlaybdBinDir not present; artifact streaming not installed on this VHD, skipping"
+    echo "$test:Finish"
+    return
+  fi
+  # The bundled overlaybd installer packages are unused at runtime and must be removed after install.
+  local leftovers
+  leftovers=$(find "$overlaybdBinDir" -maxdepth 1 -type f \( -name '*.deb' -o -name '*.rpm' \) 2>/dev/null)
+  if [ -n "$leftovers" ]; then
+    err $test "Leftover overlaybd install packages found (should be removed after install): ${leftovers}"
+  else
+    echo "No leftover overlaybd .deb/.rpm packages found, as expected"
   fi
   echo "$test:Finish"
 }
@@ -994,6 +1060,21 @@ testAppArmorInstalled() {
     echo "$test: Skipping - Test is currently limited to Azure Linux 3.0 only (Current: $os_sku $os_version)"
   fi
 
+  echo "$test:Finish"
+}
+
+testSecureTLSBootstrapClientInstalled() {
+  local test="testSecureTLSBootstrapClientInstalled"
+  local binary="/opt/bin/aks-secure-tls-bootstrap-client"
+  echo "$test:Start"
+  if [ ! -x "${binary}" ]; then
+    err "$test" "${binary} does not exist or is not executable"
+    echo "$test:Finish"
+    return
+  fi
+  if ! "${binary}" -h >/dev/null 2>&1; then
+    err "$test" "${binary} -h failed to execute successfully"
+  fi
   echo "$test:Finish"
 }
 
@@ -1877,6 +1958,32 @@ testAKSNodeControllerBinary () {
   echo "$test: aks-node-controller go binary exists at $go_binary_path"
 }
 
+testAKSNodeControllerVersion() {
+  local test="testAKSNodeControllerVersion"
+  local go_binary_path="/opt/azure/containers/aks-node-controller"
+  local ancVersionRaw
+  local ancVersion
+
+  ancVersionRaw=$("${go_binary_path}" version 2>&1)
+  if [ "$?" -ne 0 ]; then
+    err "$test" "failed to run '${go_binary_path} version': ${ancVersionRaw}"
+    return 1
+  fi
+
+  ancVersion=$(printf '%s' "$ancVersionRaw" | tr -d '\r\n')
+  if [ -z "$ancVersion" ]; then
+    err "$test" "aks-node-controller version is empty"
+    return 1
+  fi
+
+  if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]{6}\.[0-9]{2}\.[0-9]+$'; then
+    err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected 'YYYYMM.DD.PATCH'"
+    return 1
+  fi
+
+  echo "$test: aks-node-controller version '${ancVersion}' is valid"
+}
+
 testAKSNodeControllerService() {
   local test="testNBCParserService"
   local service_name="aks-node-controller.service"
@@ -1899,25 +2006,34 @@ testAKSNodeControllerService() {
 }
 
 testCriCtl() {
-  expectedVersion="${1}"
+  local expectedVersion="${1}"
+  local installedPackageName="${2}"
   local test="testCriCtl"
   echo "$test: Start"
   # If the version defined in components.json is <SKIP>, that means it will use whatever version is installed on the system.
   # Therefore, we will just skip the test.
   if [ "$expectedVersion" = "<SKIP>" ]; then
-    echo "$test: Skipping test for containerd version, as expected version is <SKIP>"
+    echo "$test: Skipping test for crictl version, as expected version is <SKIP>"
     return 0
   fi
-  # the expectedVersion looks like this, "1.32.0-ubuntu24.04u3", need to extract the version number.
-  expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
-  # use command `crictl --version` to get the version
 
-  local crictl_version=$(crictl --version)
+  # Strict match: verify the full deb/rpm package version matches components.json
+  if [ -z "$installedPackageName" ]; then
+    err "$test" "installed package name was not provided"
+    return 1
+  fi
+  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
+
+  # Verify the binary reports the expected major.minor.patch version.
+  local expectedMajorMinorPatch
+  expectedMajorMinorPatch=$(echo "$expectedVersion" | cut -d'-' -f1)
+  local crictl_version
+  crictl_version=$(crictl --version)
   # the output of crictl_version looks like this "crictl version 1.32.0", need to extract the version number.
   crictl_version=$(echo $crictl_version | cut -d' ' -f3)
-  echo "$test: checking if crictl version is $expectedVersion"
-  if [ "$crictl_version" != "$expectedVersion" ]; then
-    err "$test: crictl version is not $expectedVersion, instead it is $crictl_version"
+  echo "$test: checking if crictl binary version is $expectedMajorMinorPatch"
+  if [ "$crictl_version" != "$expectedMajorMinorPatch" ]; then
+    err "$test" "crictl binary version is not $expectedMajorMinorPatch, instead it is $crictl_version"
     return 1
   fi
   echo "$test: Test finished successfully."
@@ -1925,7 +2041,8 @@ testCriCtl() {
 }
 
 testContainerd() {
-  expectedVersion="${1}"
+  local expectedVersion="${1}"
+  local installedPackageName="${2}"
   local test="testContainerd"
   echo "$test: Start"
   # If the version defined in components.json is <SKIP>, that means it will use whatever version is installed on the system.
@@ -1934,19 +2051,26 @@ testContainerd() {
     echo "$test: Skipping test for containerd version, as expected version is <SKIP>"
     return 0
   fi
-  # the expectedVersion looks like this, "1.6.24-0ubuntu1~24.04.1" or "2.0.0-6.azl3", we need to extract the major.minor.patch version only.
-  expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
-  # use command `containerd --version` to get the version
-  local containerd_version=$(containerd --version)
-  # the output of containerd_version looks like the followings. We need to extract the major.minor.patch version only.
+
+  # Strict match: verify the full deb/rpm package version matches components.json
+  if [ -z "$installedPackageName" ]; then
+    err "$test" "installed package name was not provided"
+    return 1
+  fi
+  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
+
+  # Verify the containerd binary reports the expected major.minor.patch version.
+  local expectedMajorMinorPatch
+  expectedMajorMinorPatch=$(echo "$expectedVersion" | cut -d'-' -f1)
+  local containerd_version
+  containerd_version=$(containerd --version)
   # For containerd (v1): containerd github.com/containerd/containerd 1.6.26
   # For containerd (v2): containerd github.com/containerd/containerd/v2 2.0.0
-  containerd_version=$(echo $containerd_version | cut -d' ' -f3)
-  # The version could be in the format "1.6.24-11-ubuntu1~24.04.1" or "2.0.0-6.azl3" or just "2.0.0", we need to extract the major.minor.patch version only.
-  containerd_version=$(echo "$containerd_version" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
-  echo "$test: checking if containerd version is $expectedVersion"
-  if [ "$containerd_version" != "$expectedVersion" ]; then
-    err "$test: containerd version is not $expectedVersion, instead it is $containerd_version"
+  # Extract the semver from anywhere in the output (works for both v1 and v2).
+  containerd_version=$(echo "$containerd_version" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)
+  echo "$test: checking if containerd binary version is $expectedMajorMinorPatch"
+  if [ "$containerd_version" != "$expectedMajorMinorPatch" ]; then
+    err "$test" "containerd binary version is not $expectedMajorMinorPatch, instead it is $containerd_version"
     return 1
   fi
   echo "$test: Test finished successfully."
@@ -2317,17 +2441,19 @@ testInspektorGadgetAssets() {
     err $test "Unit file missing at $unit_file"
   fi
 
-  local service_state
-  service_state=$(systemctl is-enabled "$service_name" 2>/dev/null || true)
-  if [ "$service_state" != "enabled" ]; then
-    err $test "$service_name not enabled, state: ${service_state:-absent}"
-  fi
-
   # Verify gadgets were imported during VHD build (tracking file should exist and have content)
   if [ ! -f "$tracking_file" ]; then
     err $test "Tracking file missing at $tracking_file - gadget import may have failed"
   elif [ ! -s "$tracking_file" ]; then
     err $test "Tracking file is empty at $tracking_file - no gadgets were imported"
+  fi
+
+  local image_list
+  if ! image_list=$(ig image list 2>&1); then
+    err $test "ig image list failed: $image_list"
+  else
+    echo "$test: ig image list"
+    printf '%s\n' "$image_list"
   fi
 
   # Verify ig / ig-gadgets compatibility by upstream IG version.
@@ -2502,6 +2628,7 @@ testUmaskSettings
 testContainerImagePrefetchScript
 testNodeExporter $OS_SKU
 testAKSNodeControllerBinary
+testAKSNodeControllerVersion
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testAutologinDisabled $OS_SKU
@@ -2512,3 +2639,4 @@ testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive
 testVulnerableKernelModulesDisabled $OS_SKU $OS_VERSION
+testArtifactStreamingPackagesCleanedUp

@@ -155,9 +155,9 @@ func execOnUnprivilegedPod(ctx context.Context, kube *Kubeclient, namespace stri
 
 func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd string) *podExecResult {
 	s.T.Helper()
-	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
+	nonHostPod, err := s.Runtime.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
 	require.NoError(s.T, err, "failed to get non host debug pod name")
-	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, cmd)
+	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Kube, nonHostPod.Namespace, nonHostPod.Name, cmd)
 	require.NoErrorf(s.T, err, "failed to execute command on pod: %v", cmd)
 	return execResult
 }
@@ -220,7 +220,7 @@ func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string,
 }
 
 func attemptExecOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string, command []string) (*podExecResult, error) {
-	req := kube.Typed.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
+	req := kube.Typed.CoreV1().RESTClient().Get().Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
 
 	option := &corev1.PodExecOptions{
 		Command: command,
@@ -233,9 +233,9 @@ func attemptExecOnPod(ctx context.Context, kube *Kubeclient, namespace, podName 
 		scheme.ParameterCodec,
 	)
 
-	exec, err := remotecommand.NewSPDYExecutor(kube.RESTConfig, "POST", req.URL())
+	exec, err := remotecommand.NewWebSocketExecutor(kube.RESTConfig, "GET", req.URL().String())
 	if err != nil {
-		return nil, fmt.Errorf("unable to create new SPDY executor for pod exec: %w", err)
+		return nil, fmt.Errorf("unable to create new WebSocket executor for pod exec: %w", err)
 	}
 
 	var (
