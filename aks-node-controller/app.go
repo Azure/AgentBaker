@@ -358,16 +358,16 @@ func diffEnvMaps(pcEnv, nbcEnv map[string]string) []string {
 		switch {
 		case inPC && !inNBC:
 			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s", key))
-			slog.Info("env diff", "only-in-pc", "key:", key, "pcVal:", pcVal)
+			slog.Info("env diff", "type", "only-in-pc", "key", key, "pcVal", pcVal)
 		case !inPC && inNBC:
 			if !isExpectedDiffCSEVar(key) {
 				diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s", key))
-				slog.Info("env diff", "only-in-nbc", "key:", key, "nbcVal:", nbcVal)
+				slog.Info("env diff", "type", "only-in-nbc", "key", key, "nbcVal", nbcVal)
 			}
 		case !envValsEqualForKey(key, pcVal, nbcVal):
 			if !isExpectedDiffCSEVar(key) {
 				diffs = append(diffs, fmt.Sprintf("differs: %s", key))
-				slog.Info("env diff", "differs", "key:", key, "pcVal:", pcVal, "nbcVal:", nbcVal)
+				slog.Info("env diff", "type", "differs", "key", key, "pcVal", pcVal, "nbcVal", nbcVal)
 			}
 		}
 	}
