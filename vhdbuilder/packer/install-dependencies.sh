@@ -432,7 +432,7 @@ configureLsmWithBpf() {
         echo "Warning: /etc/default/grub not found, skipping LSM configuration"
       fi
     else
-      echo "LSM BPF configuration is only enabled for Ubuntu 24.04 and Azure Linux 3.0, skipping"
+      echo "LSM BPF configuration is only enabled for Ubuntu 24.04, Ubuntu 26.04, and Azure Linux 3.0, skipping"
     fi
 
     echo "LSM configuration update completed"
