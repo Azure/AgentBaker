@@ -146,7 +146,7 @@ var ClusterLatestKubernetesVersion = cachedFunc(clusterLatestKubernetesVersion)
 
 // clusterLatestKubernetesVersion creates a cluster with the latest available Kubernetes version
 func clusterLatestKubernetesVersion(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-kubernetes-version-v2", request.Location, request.K8sSystemPoolSKU)
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-k8s-v2", request.Location, request.K8sSystemPoolSKU)
 	if err != nil {
 		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
 	}
@@ -167,7 +167,7 @@ func clusterLatestKubernetesVersionKubenet(ctx context.Context, request ClusterR
 var ClusterLatestKubernetesVersionAzureNetwork = cachedFunc(clusterLatestKubernetesVersionAzureNetwork)
 
 func clusterLatestKubernetesVersionAzureNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-kubernetes-version-azure-network-v1", request.Location, request.K8sSystemPoolSKU)
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-k8s-azure-network-v1", request.Location, request.K8sSystemPoolSKU)
 	if err != nil {
 		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
 	}
@@ -178,7 +178,7 @@ func clusterLatestKubernetesVersionAzureNetwork(ctx context.Context, request Clu
 var ClusterLatestKubernetesVersionAzureOverlayNetworkDualStack = cachedFunc(clusterLatestKubernetesVersionAzureOverlayNetworkDualStack)
 
 func clusterLatestKubernetesVersionAzureOverlayNetworkDualStack(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-kubernetes-version-azure-overlay-ds-v1", request.Location, request.K8sSystemPoolSKU)
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-k8s-azure-overlay-dualstack-v1", request.Location, request.K8sSystemPoolSKU)
 	if err != nil {
 		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
 	}
