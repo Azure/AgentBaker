@@ -613,15 +613,15 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_MultiGPU(t *testing.T) {
 	const (
-		gpuCount           = 8
+		gpuCount           = 2
 		migInstancesPerGPU = 3
 		totalMIGInstances  = gpuCount * migInstancesPerGPU
-		multiGPUA100VMSize = "Standard_ND96asr_v4"
+		multiGPUA100VMSize = "Standard_NC48ads_A100_v4"
 	)
 
 	RunScenario(t, &Scenario{
 		Description:      "Tests that a MIG profile is applied to every GPU on an Ubuntu 24.04 multi-GPU VM",
-		Location:         "southcentralus",
+		Location:         "westus3",
 		K8sSystemPoolSKU: "Standard_D2s_v3",
 		Tags: Tags{
 			GPU: true,
@@ -652,9 +652,8 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_MultiGPU(t *testing.T) {
 				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
 
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
-				ValidateSystemdUnitIsRunning(ctx, s, "nvidia-fabricmanager.service")
 				ValidateMIGModeEnabled(ctx, s, gpuCount)
-				ValidateMIGInstancesCreated(ctx, s, "MIG 2g.10gb", totalMIGInstances)
+				ValidateMIGInstancesCreated(ctx, s, "MIG 2g.20gb", totalMIGInstances)
 				ValidateNodeAdvertisesGPUResources(ctx, s, totalMIGInstances, "nvidia.com/gpu")
 				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
 			},
