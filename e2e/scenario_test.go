@@ -1952,6 +1952,9 @@ func Test_Ubuntu2604MinimalArm64(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
@@ -1974,6 +1977,9 @@ func Test_Ubuntu2604MinimalArm64_AzureCNI(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterLatestKubernetesVersionAzureNetwork,
 			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
@@ -1994,6 +2000,7 @@ func Test_Ubuntu2604MinimalArm64_NPD_Basic(t *testing.T) {
 			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
@@ -2015,6 +2022,9 @@ func Test_Ubuntu2604MinimalArm64_SecureTLSBootstrapping_BootstrapToken_Fallback(
 		Config: Config{
 			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
 					Enabled:                true,
