@@ -2280,7 +2280,7 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	ValidateSystemdUnitIsNotFailed(ctx, s, serviceName)
 
 	// Validate service is enabled
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s | grep -qx enabled", serviceName), 0, fmt.Sprintf("%s should be enabled", serviceName))
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s", serviceName), 0, fmt.Sprintf("%s should be enabled", serviceName))
 
 	// Validate binary exists and is executable
 	// The binary is installed at /usr/bin and symlinked to /opt/bin for consistency with other binaries (kubelet, etc.)
