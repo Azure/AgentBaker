@@ -460,14 +460,38 @@
       ],
       "groupName": "nvidia-device-plugin",
       "assignees": [
-        "djsly",
         "ganeshkumarashok",
-        "surajssd"
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
       ],
       "reviewers": [
-        "djsly",
         "ganeshkumarashok",
-        "surajssd"
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "dra-driver-nvidia-gpu"
+      ],
+      "groupName": "dra-driver-nvidia-gpu",
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
       ]
     },
     {
@@ -491,14 +515,18 @@
       ],
       "groupName": "nvidia-dcgm",
       "assignees": [
-        "djsly",
         "ganeshkumarashok",
-        "surajssd"
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
       ],
       "reviewers": [
-        "djsly",
         "ganeshkumarashok",
-        "surajssd"
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
       ]
     },
     {
@@ -610,7 +638,21 @@
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
       "automerge": false,
       "enabled": true,
-      "ignoreUnstable": false
+      "ignoreUnstable": false,
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
     },
     {
       "matchPackageNames": [
@@ -621,7 +663,21 @@
       "allowedVersions": "/^580\\./",
       "automerge": false,
       "enabled": true,
-      "ignoreUnstable": false
+      "ignoreUnstable": false,
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
     },
     {
       "matchPackageNames": [
@@ -631,7 +687,21 @@
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
       "automerge": false,
       "enabled": true,
-      "ignoreUnstable": false
+      "ignoreUnstable": false,
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
     },
     {
       "matchPackageNames": [
@@ -641,7 +711,21 @@
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
       "automerge": false,
       "enabled": true,
-      "ignoreUnstable": false
+      "ignoreUnstable": false,
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
     },
     {
       "matchPackageNames": [
