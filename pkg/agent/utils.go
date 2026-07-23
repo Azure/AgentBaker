@@ -382,7 +382,11 @@ func GetOrderedKubeletConfigFlagString(config *datamodel.NodeBootstrappingConfig
 	configuration with the customized one. */
 	kubeletCustomConfigurations := getKubeletCustomConfiguration(cs.Properties)
 	if kubeletCustomConfigurations != nil {
-		return getOrderedKubeletConfigFlagWithCustomConfigurationString(kubeletCustomConfigurations, k)
+		var version string
+		if cs.Properties.OrchestratorProfile != nil {
+			version = cs.Properties.OrchestratorProfile.OrchestratorVersion
+		}
+		return getOrderedKubeletConfigFlagWithCustomConfigurationString(kubeletCustomConfigurations, k, version)
 	}
 
 	if k == nil {
@@ -407,7 +411,7 @@ func GetOrderedKubeletConfigFlagString(config *datamodel.NodeBootstrappingConfig
 	return strings.Join(pairs, " ")
 }
 
-func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defaultConfig map[string]string) string {
+func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defaultConfig map[string]string, k8sVersion string) string {
 	config := customConfig
 
 	for k, v := range defaultConfig {
@@ -417,10 +421,13 @@ func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defa
 		}
 	}
 
+	// Filter out deprecated flags at output time rather than mutating the caller's CustomConfiguration.
+	deprecatedFlags := getDeprecatedKubeletFlags(k8sVersion)
+
 	keys := []string{}
 	ommitedKubletConfigFlags := datamodel.GetCommandLineOmittedKubeletConfigFlags()
 	for key := range config {
-		if !ommitedKubletConfigFlags[key] {
+		if !ommitedKubletConfigFlags[key] && !deprecatedFlags[key] {
 			keys = append(keys, key)
 		}
 	}
@@ -448,6 +455,17 @@ func getKubeletCustomConfiguration(properties *datamodel.Properties) map[string]
 		return nil
 	}
 	return kubeletConfigurations.Config
+}
+
+// getDeprecatedKubeletFlags returns flags that have been removed from KubeletConfiguration
+// at the given k8s version and must not appear on the command line.
+func getDeprecatedKubeletFlags(k8sVersion string) map[string]bool {
+	flags := map[string]bool{}
+	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
+	if IsKubernetesVersionGe(k8sVersion, "1.34.0") {
+		flags["--streaming-connection-idle-timeout"] = true
+	}
+	return flags
 }
 
 // IsKubeletConfigFileEnabled get if dynamic kubelet is supported in AKS and toggle is on.

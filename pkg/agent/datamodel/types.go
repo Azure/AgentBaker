@@ -2107,13 +2107,11 @@ type AKSKubeletConfiguration struct {
 	Default: nil
 	+optional. */
 	ClusterDNS []string `json:"clusterDNS,omitempty"`
-	/* streamingConnectionIdleTimeout is the maximum time a streaming connection
-	can be idle before the connection is automatically closed.
-	Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-	it may impact components that rely on infrequent updates over streaming
-	connections to the Kubelet server.
-	Default: "4h"
-	+optional. */
+	/* Deprecated: streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34.
+		Retained for backward compatibility with k8s < 1.34. Do not use for new code.
+		For k8s >= 1.34, this field is cleared by baker/ANC and omitted from the config file via omitempty.
+		Default: "4h"
+	   +optional. */
 	StreamingConnectionIdleTimeout Duration `json:"streamingConnectionIdleTimeout,omitempty"`
 	/* nodeStatusUpdateFrequency is the frequency that kubelet computes node
 	status. If node lease feature is not enabled, it is also the frequency that
