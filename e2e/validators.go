@@ -2309,7 +2309,7 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL string) {
 	s.T.Helper()
 
-	result := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("curl --noproxy '*' -fsS --max-time 10 %s", metricsURL))
+	result := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("curl --noproxy '*' -sS --max-time 10 %q", metricsURL))
 	require.Equal(s.T, "0", result.exitCode,
 		"node-exporter scrape failed\nstdout: %s\nstderr: %s", result.stdout, result.stderr)
 
