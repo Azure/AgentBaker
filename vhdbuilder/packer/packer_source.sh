@@ -1,12 +1,14 @@
 #!/bin/bash
 
+VULNERABLE_KERNEL_MODULE_DENY_PATTERN='^(install|blacklist)[[:space:]]+(algif_aead|esp4|esp6|rxrpc)([[:space:]]|$)'
+
 removeVulnerableKernelModuleDenyRulesFromModprobeDirectory() {
   local modprobe_conf
   local tmp_modprobe_conf
   for modprobe_conf in /etc/modprobe.d/*.conf; do
     [ -f "$modprobe_conf" ] || continue
     tmp_modprobe_conf="${modprobe_conf}.tmp"
-    sed -E '/^(install|blacklist)[[:space:]]+(algif_aead|esp4|esp6|rxrpc)([[:space:]]|$)/d' "$modprobe_conf" > "$tmp_modprobe_conf" || return "$ERR_PACKER_COPY_FILE"
+    sed -E "/$VULNERABLE_KERNEL_MODULE_DENY_PATTERN/d" "$modprobe_conf" > "$tmp_modprobe_conf" || return "$ERR_PACKER_COPY_FILE"
     cat "$tmp_modprobe_conf" > "$modprobe_conf" || return "$ERR_PACKER_COPY_FILE"
     rm -f "$tmp_modprobe_conf"
   done
@@ -456,17 +458,26 @@ copyPackerFiles() {
   # https://github.com/Azure/AKS/issues/5753.
   if isUbuntu "$OS" && { [ "${OS_VERSION}" = "22.04" ] || [ "${OS_VERSION}" = "24.04" ]; }; then
     MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC=/home/packer/modprobe-CIS-without-vulnerable-kernel-modules.conf
-    sed '/^# CVE-2026-31431 (Copy Fail):/,/^blacklist rxrpc$/d' "$MODPROBE_CIS_SRC" > "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" || exit "$ERR_PACKER_COPY_FILE"
-    if grep -qE "^(install|blacklist)[[:space:]]+(algif_aead|esp4|esp6|rxrpc)([[:space:]]|$)" "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC"; then
+    sed -E \
+      -e '/^# CVE-2026-31431 \(Copy Fail\):/d' \
+      -e '/^# until kernel fix is available\. See https:\/\/ubuntu\.com\/blog\/copy-fail-vulnerability-fixes-available$/d' \
+      -e '/^# DirtyFrag \/ CopyFail2:/d' \
+      -e '/^# write LPE vulnerabilities\. rxrpc path bypasses AppArmor userns restrictions\.$/d' \
+      -e '/^# AKS platform components do not require kernel IPsec ESP\/XFRM or AFS\/RxRPC\.$/d' \
+      -e '/^# Disabling these modules prevents workloads that rely on those protocols from working$/d' \
+      -e '/^# on the node\. See https:\/\/github\.com\/V4bel\/dirtyfrag$/d' \
+      -e "/$VULNERABLE_KERNEL_MODULE_DENY_PATTERN/d" \
+      "$MODPROBE_CIS_SRC" > "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" || exit "$ERR_PACKER_COPY_FILE"
+    if grep -qE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC"; then
       echo "Failed to remove vulnerable module deny rules from $MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC"
       exit "$ERR_PACKER_COPY_FILE"
     fi
     echo "Copying modprobe-CIS.conf without algif_aead / esp4 / esp6 / rxrpc on Ubuntu ${OS_VERSION} (fixed kernels unblock these modules; CSE applies runtime deny rules on older vulnerable kernels)"
     cpAndMode "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" "$MODPROBE_CIS_DEST" 644
     removeVulnerableKernelModuleDenyRulesFromModprobeDirectory || exit "$ERR_PACKER_COPY_FILE"
-    if grep -qsE "^(install|blacklist)[[:space:]]+(algif_aead|esp4|esp6|rxrpc)([[:space:]]|$)" /etc/modprobe.d/*.conf 2>/dev/null; then
+    if grep -qsE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf 2>/dev/null; then
       echo "Failed to remove vulnerable module deny rules from /etc/modprobe.d/*.conf"
-      grep -nE "^(install|blacklist)[[:space:]]+(algif_aead|esp4|esp6|rxrpc)([[:space:]]|$)" /etc/modprobe.d/*.conf || true
+      grep -nE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf || true
       exit "$ERR_PACKER_COPY_FILE"
     fi
   elif isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
