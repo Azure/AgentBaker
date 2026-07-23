@@ -145,6 +145,14 @@ Describe 'ubuntuKernelNeedsVulnerableModuleMitigation()'
         The status should be success
         The output should include "Unknown Ubuntu 24.04 kernel flavor"
     End
+
+    It 'keeps the mitigation enabled when a fixed Ubuntu azure kernel has an unexpected suffix'
+        UBUNTU_RELEASE="22.04"
+        KERNEL_RELEASE="5.15.0-1116-azure-custom"
+        When call ubuntuKernelNeedsVulnerableModuleMitigation
+        The status should be success
+        The output should include "Unknown Ubuntu 22.04 kernel flavor"
+    End
 End
 
 # Tests the OS gate that decides whether to call disableVulnerableKernelModule
@@ -213,6 +221,16 @@ Describe 'CVE kernel module mitigation OS gate'
         KERNEL_RELEASE="6.8.0-1058-azure"
         When call gate
         The output should include "SKIP"
+    End
+
+    It 'applies the mitigation when a fixed Ubuntu generic kernel has an unexpected suffix'
+        OS="${UBUNTU_OS_NAME}"
+        OS_VERSION="24.04"
+        OS_VARIANT=""
+        UBUNTU_RELEASE="24.04"
+        KERNEL_RELEASE="6.8.0-124-generic-custom"
+        When call gate
+        The output should include "APPLY"
     End
 
     It 'applies the mitigation on AzureLinux 3.0 OSGuard — defense-in-depth retained'

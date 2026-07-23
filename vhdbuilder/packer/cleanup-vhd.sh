@@ -35,15 +35,15 @@ ubuntuKernelIncludesVulnerableModuleFixes() {
   case "$os_version" in
     22.04)
       case "$kernel_release" in
-        *-azure*) fixed_kernel="5.15.0-1116-azure" ;;
-        *-generic*) fixed_kernel="5.15.0-181-generic" ;;
+        *-azure) fixed_kernel="5.15.0-1116-azure" ;;
+        *-generic) fixed_kernel="5.15.0-181-generic" ;;
         *) return 1 ;;
       esac
       ;;
     24.04)
       case "$kernel_release" in
-        *-azure*) fixed_kernel="6.8.0-1058-azure" ;;
-        *-generic*) fixed_kernel="6.8.0-124-generic" ;;
+        *-azure) fixed_kernel="6.8.0-1058-azure" ;;
+        *-generic) fixed_kernel="6.8.0-124-generic" ;;
         *) return 1 ;;
       esac
       ;;

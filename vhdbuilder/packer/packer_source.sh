@@ -2,6 +2,47 @@
 
 VULNERABLE_KERNEL_MODULE_DENY_PATTERN='^(install|blacklist)[[:space:]]+(algif_aead|esp4|esp6|rxrpc)([[:space:]]|$)'
 
+kernelVersionGe() {
+  local version_a="$1"
+  local version_b="$2"
+  local sorted
+  local highest_version
+
+  sorted=$(printf "%s\n%s\n" "$version_a" "$version_b" | sort -V)
+  highest_version=$(printf "%s\n" "$sorted" | tail -n 1)
+  [ "$version_a" = "$highest_version" ]
+}
+
+ubuntuKernelIncludesVulnerableModuleFixes() {
+  local kernel_release
+  local fixed_kernel
+
+  kernel_release="$(uname -r 2>/dev/null || true)"
+  if [ -z "$kernel_release" ]; then
+    return 1
+  fi
+
+  case "${OS_VERSION}" in
+    22.04)
+      case "$kernel_release" in
+        *-azure) fixed_kernel="5.15.0-1116-azure" ;;
+        *-generic) fixed_kernel="5.15.0-181-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    24.04)
+      case "$kernel_release" in
+        *-azure) fixed_kernel="6.8.0-1058-azure" ;;
+        *-generic) fixed_kernel="6.8.0-124-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    *) return 1 ;;
+  esac
+
+  kernelVersionGe "$kernel_release" "$fixed_kernel"
+}
+
 removeVulnerableKernelModuleDenyRulesFromModprobeDirectory() {
   local modprobe_conf
   local tmp_modprobe_conf
@@ -446,7 +487,7 @@ copyPackerFiles() {
   # Keep the rest of the CIS module deny list on fixed Ubuntu VHDs; those entries are
   # unrelated to the 2026 kernel CVEs and are required for the CIS baseline.
   #
-  # The vulnerable-module block is omitted on Ubuntu 22.04 / 24.04 and
+  # The vulnerable-module block is omitted only on fixed Ubuntu 22.04 / 24.04 kernels and
   # the whole file is skipped on AzureLinux 3.0 because:
   #   1. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu 24.04 linux-azure
   #      6.8.0-1058-azure include the fixes. The CSE still applies the deny rules
@@ -456,7 +497,7 @@ copyPackerFiles() {
   #      legitimate use cases on fixed kernels.
   # Mariner / AzureLinux 2.0 and AzureLinux OSGuard still get the bake-in. See
   # https://github.com/Azure/AKS/issues/5753.
-  if isUbuntu "$OS" && { [ "${OS_VERSION}" = "22.04" ] || [ "${OS_VERSION}" = "24.04" ]; }; then
+  if isUbuntu "$OS" && ubuntuKernelIncludesVulnerableModuleFixes; then
     MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC=/home/packer/modprobe-CIS-without-vulnerable-kernel-modules.conf
     sed -E \
       -e '/^# CVE-2026-31431 \(Copy Fail\):/d' \
