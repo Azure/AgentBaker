@@ -115,10 +115,13 @@ fi
 skipCloudInitReadyReport || exit 1
 
 if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-  install -m 0644 /home/packer/DataSourceAzure.py \
-    /usr/lib/python3/dist-packages/cloudinit/sources/DataSourceAzure.py || exit 1
-  python3 -m py_compile /usr/lib/python3/dist-packages/cloudinit/sources/DataSourceAzure.py || exit 1
-  rm -f /home/packer/DataSourceAzure.py
+  # Install cloud-init patched with experimental_skip_ready_report and
+  # runtime datasource-option support, backported from
+  # https://github.com/peytonr18/cloud-init/tree/probertson/jammy-runtime-ds-options-skip-ready
+  # (Jammy/22.04 only; base package version: 26.1-0ubuntu1~22.04.1).
+  CLOUD_INIT_DEB=/home/packer/cloud-init_26.1-0ubuntu1~22.04.1_all.deb
+  dpkg -i "${CLOUD_INIT_DEB}" || apt-get install -f -y || exit 1
+  rm -f "${CLOUD_INIT_DEB}"
 fi
 
 # ACL inherits Azure Linux behaviors but isMarinerOrAzureLinux returns false,

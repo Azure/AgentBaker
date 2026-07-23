@@ -117,8 +117,8 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/ubuntu/cloudinit/DataSourceAzure.py",
-      "destination": "/home/packer/DataSourceAzure.py"
+      "source": "vhdbuilder/packer/ubuntu/cloudinit/cloud-init_26.1-0ubuntu1~22.04.1_all.deb",
+      "destination": "/home/packer/cloud-init_26.1-0ubuntu1~22.04.1_all.deb"
     },
     {
       "type": "file",
