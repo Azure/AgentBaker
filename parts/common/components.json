@@ -965,7 +965,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=aks-secure-tls-bootstrap-client, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.1.4-ubuntu24.04u1"
+                "latestVersion": "1.1.4-ubuntu24.04u2"
               }
             ]
           },
@@ -973,7 +973,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=aks-secure-tls-bootstrap-client, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.1.4-ubuntu22.04u1"
+                "latestVersion": "1.1.4-ubuntu22.04u2"
               }
             ]
           },
@@ -981,7 +981,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=aks-secure-tls-bootstrap-client, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.1.4-ubuntu20.04u1"
+                "latestVersion": "1.1.4-ubuntu20.04u2"
               }
             ]
           }
@@ -991,7 +991,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/ms-oss/x86_64/repodata, name=aks-secure-tls-bootstrap-client, os=azurelinux, release=3.0",
-                "latestVersion": "1.1.4-1.azl3"
+                "latestVersion": "1.1.4-2.azl3"
               }
             ]
           }
@@ -1001,7 +1001,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/ms-oss/x86_64/repodata, name=aks-secure-tls-bootstrap-client, os=azurelinux, release=3.0",
-                "latestVersion": "1.1.4-1.azl3"
+                "latestVersion": "1.1.4-2.azl3"
               }
             ]
           }
@@ -1011,7 +1011,7 @@
             "versionsV2": [
               {
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext",
-                "latestVersion": "v1.1.4-1-azlinux3"
+                "latestVersion": "v1.1.4-2-azlinux3"
               }
             ],
             "downloadURL": "mcr.microsoft.com/aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext:${version}-${SYSTEMD_ARCH}"
