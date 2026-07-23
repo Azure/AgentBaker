@@ -22,6 +22,7 @@ import (
 	errorsk8s "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -589,6 +590,18 @@ func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 						Image:   image,
 						Command: []string{"python3", "/opt/proxy/proxy.py"},
 						Ports:   []corev1.ContainerPort{{ContainerPort: int32(proxyPort), HostPort: int32(proxyPort)}},
+						// Gate readiness on the proxy actually accepting TCP connections on :8888.
+						ReadinessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(proxyPort)},
+							},
+						},
+						// Restart the container if probe fails
+						LivenessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(proxyPort)},
+							},
+						},
 						VolumeMounts: []corev1.VolumeMount{
 							{Name: "proxy-script", MountPath: "/opt/proxy", ReadOnly: true},
 						},
