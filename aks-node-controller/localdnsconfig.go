@@ -176,17 +176,16 @@ func (a *App) fetchLocalDNSConfigFromLPS(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, lpsFetchTimeout)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx,
+	conn, err := grpc.NewClient(
 		net.JoinHostPort(lpsSNIHost, lpsAPIServerPort),
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
 		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
 			dialer := &net.Dialer{Timeout: lpsDialTimeout}
 			return dialer.DialContext(ctx, "tcp", dialAddr)
 		}),
-		grpc.WithBlock(),
 	)
 	if err != nil {
-		return "", fmt.Errorf("dial LPS: %w", err)
+		return "", fmt.Errorf("creating LPS client: %w", err)
 	}
 	defer conn.Close()
 
@@ -220,11 +219,24 @@ func (a *App) localDNSCorefileUpdateFromConfig(config string) (localDNSCorefileU
 	if config == "" {
 		return localDNSCorefileUpdate{}, nil
 	}
+
 	var payload localDNSConfigPayload
 	if err := json.Unmarshal([]byte(config), &payload); err != nil {
 		return localDNSCorefileUpdate{}, fmt.Errorf("parsing localDNS LPS config: %w", err)
 	}
 
+	selected, found, err := a.selectLocalDNSAgentPoolConfig(payload)
+	if err != nil || !found {
+		return localDNSCorefileUpdate{}, err
+	}
+
+	update := localDNSCorefileUpdate{
+		desiredVersion: firstNonEmpty(selected.CorefileVersion, selected.ConfigChecksum),
+	}
+	return a.localDNSCorefileUpdateFromAgentPoolConfig(selected, update)
+}
+
+func (a *App) selectLocalDNSAgentPoolConfig(payload localDNSConfigPayload) (localDNSAgentPoolConfig, bool, error) {
 	selected := localDNSAgentPoolConfig{
 		Corefile:           payload.Corefile,
 		CorefileBase64:     payload.CorefileBase64,
@@ -233,24 +245,24 @@ func (a *App) localDNSCorefileUpdateFromConfig(config string) (localDNSCorefileU
 		LocalDNSProfile:    payload.LocalDNSProfile,
 		LocalDNSProfileAlt: payload.LocalDNSProfileAlt,
 	}
-	if len(payload.AgentPools) > 0 || len(payload.Profiles) > 0 {
-		agentPool, err := a.nodeAgentPoolName()
-		if err != nil {
-			return localDNSCorefileUpdate{}, err
-		}
-		var ok bool
-		selected, ok = payload.AgentPools[agentPool]
-		if !ok {
-			selected, ok = payload.Profiles[agentPool]
-		}
-		if !ok {
-			return localDNSCorefileUpdate{}, nil
-		}
-	}
-	update := localDNSCorefileUpdate{
-		desiredVersion: firstNonEmpty(selected.CorefileVersion, selected.ConfigChecksum),
+	if len(payload.AgentPools) == 0 && len(payload.Profiles) == 0 {
+		return selected, true, nil
 	}
 
+	agentPool, err := a.nodeAgentPoolName()
+	if err != nil {
+		return localDNSAgentPoolConfig{}, false, err
+	}
+	if selected, ok := payload.AgentPools[agentPool]; ok {
+		return selected, true, nil
+	}
+	if selected, ok := payload.Profiles[agentPool]; ok {
+		return selected, true, nil
+	}
+	return localDNSAgentPoolConfig{}, false, nil
+}
+
+func (a *App) localDNSCorefileUpdateFromAgentPoolConfig(selected localDNSAgentPoolConfig, update localDNSCorefileUpdate) (localDNSCorefileUpdate, error) {
 	switch {
 	case strings.TrimSpace(selected.Corefile) != "":
 		update.corefile = selected.Corefile
@@ -290,7 +302,7 @@ func (a *App) localDNSCorefileUpdateFromConfig(config string) (localDNSCorefileU
 	}
 	includeHostsPlugin := profile.GetEnableHostsPlugin()
 	if includeHostsPlugin {
-		if _, err := os.Stat(localDNSHostsFilePath); err != nil {
+		if _, statErr := os.Stat(localDNSHostsFilePath); statErr != nil {
 			includeHostsPlugin = false
 		}
 	}
@@ -416,5 +428,5 @@ func writeLocalDNSCorefileVersion(path string, version string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return fmt.Errorf("create parent directory: %w", err)
 	}
-	return os.WriteFile(path, []byte(strings.TrimSpace(version)+"\n"), 0644)
+	return os.WriteFile(path, []byte(strings.TrimSpace(version)+"\n"), 0600)
 }

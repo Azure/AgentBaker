@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func writeLocalDNSTestNodeConfig(t *testing.T, app *App, agentPool string) {
+func writeLocalDNSTestNodeConfig(t *testing.T, app *App) {
 	t.Helper()
 	p := filepath.Join(t.TempDir(), "aks-node-controller-config.json")
 	require.NoError(t, os.WriteFile(p, []byte(fmt.Sprintf(`{
@@ -22,7 +22,7 @@ func writeLocalDNSTestNodeConfig(t *testing.T, app *App, agentPool string) {
       "kubernetes.azure.com/agentpool": %q
     }
   }
-}`, agentPool)), 0o600))
+}`, "pool1")), 0o600))
 	app.nodeConfigPath = p
 }
 
@@ -45,7 +45,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 
 	t.Run("agent pool corefileBase64 rewrites output", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
-		writeLocalDNSTestNodeConfig(t, tt.App, "pool1")
+		writeLocalDNSTestNodeConfig(t, tt.App)
 		want := ".:53 {\n    forward . 168.63.129.16\n    reload\n}\n"
 		tt.App.fetchLocalDNSConfigFn = func(context.Context) (string, error) {
 			return `{"agentPools":{"pool1":{"corefileVersion":"abc123","corefileBase64":"` +
@@ -66,7 +66,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 
 	t.Run("already current version skips rewrite", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
-		writeLocalDNSTestNodeConfig(t, tt.App, "pool1")
+		writeLocalDNSTestNodeConfig(t, tt.App)
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
 		original := ".:53 {\n    forward . 1.1.1.1\n}\n"
 		require.NoError(t, os.WriteFile(out, []byte(original), 0o644))
@@ -86,7 +86,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 
 	t.Run("agent pool version only config is no-op", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
-		writeLocalDNSTestNodeConfig(t, tt.App, "pool1")
+		writeLocalDNSTestNodeConfig(t, tt.App)
 		tt.App.fetchLocalDNSConfigFn = func(context.Context) (string, error) {
 			return `{"agentPools":{"pool1":{"corefileVersion":"abc123"}}}`, nil
 		}
@@ -101,7 +101,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 
 	t.Run("agent pool localDnsProfile renders corefile", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
-		writeLocalDNSTestNodeConfig(t, tt.App, "pool1")
+		writeLocalDNSTestNodeConfig(t, tt.App)
 		tt.App.fetchLocalDNSConfigFn = func(context.Context) (string, error) {
 			return `{
   "agentPools": {
@@ -154,7 +154,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 
 	t.Run("other agent pool config is no-op", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
-		writeLocalDNSTestNodeConfig(t, tt.App, "pool1")
+		writeLocalDNSTestNodeConfig(t, tt.App)
 		tt.App.fetchLocalDNSConfigFn = func(context.Context) (string, error) {
 			return `{"agentPools":{"pool2":{"corefileBase64":"` + base64.StdEncoding.EncodeToString([]byte("ignored")) + `"}}}`, nil
 		}
