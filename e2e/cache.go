@@ -156,7 +156,7 @@ func clusterLatestKubernetesVersion(ctx context.Context, request ClusterRequest)
 var ClusterLatestKubernetesVersionKubenet = cachedFunc(clusterLatestKubernetesVersionKubenet)
 
 func clusterLatestKubernetesVersionKubenet(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-kubernetes-version-kubenet-v1", request.Location, request.K8sSystemPoolSKU)
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-k8s-kubenet-v1", request.Location, request.K8sSystemPoolSKU)
 	if err != nil {
 		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
 	}
@@ -178,7 +178,7 @@ func clusterLatestKubernetesVersionAzureNetwork(ctx context.Context, request Clu
 var ClusterLatestKubernetesVersionAzureOverlayNetworkDualStack = cachedFunc(clusterLatestKubernetesVersionAzureOverlayNetworkDualStack)
 
 func clusterLatestKubernetesVersionAzureOverlayNetworkDualStack(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-kubernetes-version-azure-overlay-dualstack-v1", request.Location, request.K8sSystemPoolSKU)
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-kubernetes-version-azure-overlay-ds-v1", request.Location, request.K8sSystemPoolSKU)
 	if err != nil {
 		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
 	}

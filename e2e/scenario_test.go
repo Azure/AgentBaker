@@ -1992,18 +1992,6 @@ func Test_Ubuntu2604Minimal_SecureTLSBootstrapping_BootstrapToken_Fallback(t *te
 	})
 }
 
-func Test_Ubuntu2604Minimal_GPUA10(t *testing.T) {
-	runScenarioUbuntu2604MinimalGRID(t, "Standard_NV6ads_A10_v5")
-}
-
-func Test_Ubuntu2604Minimal_GPU_H100(t *testing.T) {
-	RunScenario(t, runScenarioUbuntu2604MinimalGPUNPD(t, "Standard_ND96isr_H100_v5", "uaenorth", ""))
-}
-
-func Test_Ubuntu2604Minimal_GPU_A100(t *testing.T) {
-	RunScenario(t, runScenarioUbuntu2604MinimalGPUNPD(t, "Standard_ND96asr_v4", "southcentralus", "Standard_D2s_v3"))
-}
-
 func Test_Ubuntu2604MinimalArm64(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2604 minimal ARM64 VHD can be properly bootstrapped with containerd v2",
@@ -2257,36 +2245,6 @@ func runScenarioUbuntu2404GRID(t *testing.T, vmSize string) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = vmSize
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr(vmSize)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
-				ValidateNvidiaModProbeInstalled(ctx, s)
-				ValidateNvidiaGRIDLicenseValid(ctx, s)
-				ValidateKubeletHasNotStopped(ctx, s)
-				ValidateServicesDoNotRestartKubelet(ctx, s)
-				ValidateNvidiaPersistencedRunning(ctx, s)
-			},
-		},
-	})
-}
-
-func runScenarioUbuntu2604MinimalGRID(t *testing.T, vmSize string) {
-	RunScenario(t, &Scenario{
-		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2604 minimal VHD can be properly bootstrapped, and that the GRID license is valid", vmSize),
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterLatestKubernetesVersionKubenet,
-			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true

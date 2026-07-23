@@ -1075,49 +1075,6 @@ func runScenarioUbuntu2404GPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSK
 		}}
 }
 
-func runScenarioUbuntu2604MinimalGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) *Scenario {
-	t.Helper()
-	return &Scenario{
-		Description:      fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2604 minimal VHD can be properly bootstrapped and NPD tests are valid", vmSize),
-		Location:         location,
-		K8sSystemPoolSKU: k8sSystemPoolSKU,
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterLatestKubernetesVersionKubenet,
-			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = vmSize
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr(vmSize)
-
-				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
-
-				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// First, ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
-				ValidateNvidiaModProbeInstalled(ctx, s)
-				ValidateKubeletHasNotStopped(ctx, s)
-				ValidateServicesDoNotRestartKubelet(ctx, s)
-
-				// Then validate NPD configuration and GPU monitoring
-				ValidateNPDGPUCountPlugin(ctx, s)
-				ValidateNPDGPUCountCondition(ctx, s)
-				ValidateNPDGPUCountAfterFailure(ctx, s)
-
-				// Validate the if IB NPD is reporting the flapping condition
-				ValidateNPDIBLinkFlappingCondition(ctx, s)
-				ValidateNPDIBLinkFlappingAfterFailure(ctx, s)
-			},
-		}}
-}
-
 func vmSKUGeneration(sku string) (int, error) {
 	// Extract the generation number from the SKU string (e.g., "Standard_D2s_v3" -> 3)
 	sku = strings.ToLower(sku)

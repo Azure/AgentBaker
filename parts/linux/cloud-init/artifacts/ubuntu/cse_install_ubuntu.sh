@@ -68,6 +68,7 @@ blobfuseFallbackPackages() {
 }
 
 # Installs any required dependencies needed to build the particular Ubuntu minimal image (currently only 26.04)
+# These dependencies are needed specifically in order to run various commands required to build the VHD.
 installMinimalBuildDeps() {
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
@@ -106,12 +107,17 @@ installDeps() {
 
     pkg_list=(apparmor-utils bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r))
 
-    if [ "${OSVERSION}" != "26.04" ]; then
-        # linux-modules-extra-* content is bundled into linux-modules-* on 26.04 (resolute)
-        pkg_list+=(linux-modules-extra-$(uname -r))
+    if [ "${OSVERSION}" == "26.04" ]; then
+        if isMinimalImage; then
+            # libc6-dev is needed for GPU driver installation at runtime and is not included on the 26.04 minimal base image
+            pkg_list+=(libc6-dev)
+            # cron/crontab is needed by init-aks-cloud.sh (RCV1P) since we create a ca-refresh cron job and is not included on the 26.04 minimal base image
+            # init-aks-cloud.sh should be refactored to use systemd timers instead to align with AzureLinux
+            pkg_list+=(cron)
+        fi
     else
-        # libc6-dev is needed for GPU driver installation at runtime and is not included on the 26.04 minimal base image
-        pkg_list+=(libc6-dev)
+        # linux-modules-extra-* content is bundled into linux-modules-* on the 7.x kernel (Ubuntu 26.04)
+        pkg_list+=(linux-modules-extra-$(uname -r))
     fi
 
     while IFS= read -r fallback_pkg; do

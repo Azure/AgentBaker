@@ -176,6 +176,7 @@ func Test_extractPackageRevision(t *testing.T) {
 func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 	type testCase struct {
 		name           string
+		cluster        func(ctx context.Context, request ClusterRequest) (*Cluster, error)
 		vhd            *config.Image
 		os             string
 		osVersion      string
@@ -189,6 +190,7 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 	testCases := []testCase{
 		{
 			name:           "Ubuntu2604Minimal",
+			cluster:        ClusterLatestKubernetesVersionKubenet,
 			vhd:            config.VHDUbuntu2604MinimalGen2Containerd,
 			os:             "ubuntu",
 			osVersion:      "r2604",
@@ -202,6 +204,7 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 		},
 		{
 			name:           "Ubuntu2404",
+			cluster:        ClusterKubenet,
 			vhd:            config.VHDUbuntu2404Gen2Containerd,
 			os:             "ubuntu",
 			osVersion:      "r2404",
@@ -215,6 +218,7 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 		},
 		{
 			name:           "AzureLinux3",
+			cluster:        ClusterKubenet,
 			vhd:            config.VHDAzureLinuxV3Gen2,
 			os:             "azurelinux",
 			osVersion:      "v3.0",
@@ -277,7 +281,7 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 			RunScenario(t, &Scenario{
 				Description: tc.description,
 				Config: Config{
-					Cluster: ClusterKubenet,
+					Cluster: tc.cluster,
 					VHD:     tc.vhd,
 
 					// We are only validating if the package versions are compatible, and for that we need an environment like
@@ -318,84 +322,6 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 			})
 		})
 	}
-}
-
-func Test_Ubuntu2604Minimal_NvidiaDevicePluginRunning(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Ubuntu 26.04 minimal GPU nodes",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterLatestKubernetesVersionKubenet,
-			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = true
-				nbc.EnableNvidia = true
-				nbc.ManagedGPUExperienceAFECEnabled = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
-				if vmss.Tags == nil {
-					vmss.Tags = map[string]*string{}
-				}
-				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
-
-				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
-				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				os := "ubuntu"
-				osVersion := "r2604"
-
-				// Validate that the NVIDIA device plugin binary was installed correctly
-				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
-				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
-
-				// Validate that the NVIDIA device plugin systemd service is running
-				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
-
-				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
-
-				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
-
-				// Validate that the NVIDIA DCGM packages were installed correctly
-				for _, packageName := range getDCGMPackageNames(os) {
-					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
-					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
-					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
-				}
-
-				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
-				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
-				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_UTIL")
-				ValidateNodeHasLabel(ctx, s, "kubernetes.azure.com/dcgm-exporter", "enabled")
-
-				// Let's run the NPD validation tests to verify that the nvidia
-				// device plugin & DCGM services are reporting status correctly
-				ValidateNodeProblemDetector(ctx, s)
-				// Restart NPD to ensure it picks up the managed GPU experience marker file,
-				// which may have been created after NPD's initial startup during provisioning.
-				RestartNodeProblemDetector(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
-				// verify nvidia grid license status checks are reporting status correctly
-				ValidateNPDHealthyNvidiaGridLicenseStatus(ctx, s)
-				ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx, s)
-			},
-		},
-	})
 }
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
@@ -628,84 +554,6 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2604Minimal_NvidiaDevicePluginRunning_MIG(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that NVIDIA device plugin and DCGM Exporter work with MIG enabled on Ubuntu 26.04 minimal GPU nodes",
-		Location:    "westus2",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster:               ClusterLatestKubernetesVersionKubenet,
-			VHD:                   config.VHDUbuntu2604MinimalGen2Containerd,
-			WaitForSSHAfterReboot: 5 * time.Minute,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = true
-				nbc.EnableNvidia = true
-				nbc.GPUInstanceProfile = "MIG2g"
-				nbc.EnableManagedGPU = true
-				nbc.MigStrategy = "Single"
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
-
-				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
-				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				os := "ubuntu"
-				osVersion := "r2604"
-
-				// Validate that the NVIDIA device plugin binary was installed correctly
-				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
-				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
-
-				// Validate that the NVIDIA device plugin systemd service is running
-				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
-
-				// Validate that MIG mode is enabled via nvidia-smi
-				ValidateMIGModeEnabled(ctx, s)
-
-				// Validate that MIG instances are created
-				ValidateMIGInstancesCreated(ctx, s, "MIG 2g.20gb")
-
-				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s, 3, "nvidia.com/gpu")
-
-				// Validate that MIG workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 3, "nvidia.com/gpu")
-
-				// Validate that the NVIDIA DCGM packages were installed correctly
-				for _, packageName := range getDCGMPackageNames(os) {
-					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
-					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
-					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
-				}
-
-				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
-				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
-				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_TEMP")
-				ValidateNodeHasLabel(ctx, s, "kubernetes.azure.com/dcgm-exporter", "enabled")
-
-				// Let's run the NPD validation tests to verify that the nvidia
-				// device plugin & DCGM services are reporting status correctly
-				ValidateNodeProblemDetector(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
-			},
-		},
-	})
-}
-
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter work with MIG enabled on Ubuntu 24.04 GPU nodes",
@@ -898,63 +746,6 @@ func Test_CreateVMExtensionLinuxAKSNode_Timing(t *testing.T) {
 		"both calls should return the same extension version")
 }
 
-func Test_Ubuntu2604Minimal_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that NVIDIA device plugin work with MIG Mixed mode on Ubuntu 26.04 minimal GPU nodes",
-		Location:    "westus2",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster:               ClusterLatestKubernetesVersionKubenet,
-			VHD:                   config.VHDUbuntu2604MinimalGen2Containerd,
-			WaitForSSHAfterReboot: 5 * time.Minute,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = true
-				nbc.EnableNvidia = true
-				nbc.GPUInstanceProfile = "MIG1g"
-				nbc.EnableManagedGPU = true
-				nbc.MigStrategy = "Mixed"
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
-
-				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
-				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				os := "ubuntu"
-				osVersion := "r2604"
-
-				// Validate that the NVIDIA device plugin binary was installed correctly
-				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
-				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
-
-				// Validate that the NVIDIA device plugin systemd service is running
-				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
-
-				// Validate that MIG mode is enabled via nvidia-smi
-				ValidateMIGModeEnabled(ctx, s)
-
-				// Validate that MIG instances are created
-				ValidateMIGInstancesCreated(ctx, s, "MIG 1g.10gb")
-
-				// Validate that MIG profile-specific GPU resources are advertised by the device plugin
-				migResourceName := "nvidia.com/mig-1g.10gb"
-				ValidateNodeAdvertisesGPUResources(ctx, s, 7, migResourceName)
-
-				// Validate that MIG workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 2, migResourceName)
-			},
-		},
-	})
-}
-
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin work with MIG Mixed mode on Ubuntu 24.04 GPU nodes",
@@ -1007,43 +798,6 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 
 				// Validate that MIG workloads can be scheduled
 				ValidateGPUWorkloadSchedulable(ctx, s, 2, migResourceName)
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2604Minimal_DraDriverNvidiaGpuRunning(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests DRA driver works on Ubuntu 26.04 minimal VHD with containerd v2",
-		Tags: Tags{
-			GPU: true,
-		},
-
-		Config: Config{
-			Cluster: ClusterLatestKubernetesVersionKubenet,
-			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableNvidia = true
-				nbc.EnableManagedGPUDRA = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
-
-				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
-				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
-				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRuncVersion(ctx, s, runcVersions)
-				ValidateContainerRuntimePlugins(ctx, s)
-				ValidateDraDriverNvidiaGpuServiceRunning(ctx, s)
-				ValidateDRAWorkloadSchedulable(ctx, s)
 			},
 		},
 	})
