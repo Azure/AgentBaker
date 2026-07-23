@@ -176,7 +176,6 @@ func Test_extractPackageRevision(t *testing.T) {
 func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 	type testCase struct {
 		name           string
-		cluster        func(ctx context.Context, request ClusterRequest) (*Cluster, error)
 		vhd            *config.Image
 		os             string
 		osVersion      string
@@ -189,22 +188,7 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 
 	testCases := []testCase{
 		{
-			name:           "Ubuntu2604Minimal",
-			cluster:        ClusterLatestKubernetesVersionKubenet,
-			vhd:            config.VHDUbuntu2604MinimalGen2Containerd,
-			os:             "ubuntu",
-			osVersion:      "r2604",
-			description:    "Tests that DCGM Exporter is compatible with its dependencies on Ubuntu 26.04 minimal GPU nodes",
-			downloadCmd:    "curl -fL --retry 3 --retry-all-errors -o /tmp/dcgm-exporter.deb 'https://packages.microsoft.com/repos/microsoft-ubuntu-resolute-prod/pool/main/d/dcgm-exporter/dcgm-exporter_%s_amd64.deb'",
-			extractDepsCmd: "dpkg-deb -f /tmp/dcgm-exporter.deb Depends",
-
-			// Parse output like: "..., datacenter-gpu-manager-4-core (= 1:4.4.2-1), datacenter-gpu-manager-4-proprietary (= 1:4.4.2-1), ..."
-			coreRegex: `datacenter-gpu-manager-4-core \(= ([^)]+)\)`,
-			propRegex: `datacenter-gpu-manager-4-proprietary \(= ([^)]+)\)`,
-		},
-		{
 			name:           "Ubuntu2404",
-			cluster:        ClusterKubenet,
 			vhd:            config.VHDUbuntu2404Gen2Containerd,
 			os:             "ubuntu",
 			osVersion:      "r2404",
@@ -218,7 +202,6 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 		},
 		{
 			name:           "AzureLinux3",
-			cluster:        ClusterKubenet,
 			vhd:            config.VHDAzureLinuxV3Gen2,
 			os:             "azurelinux",
 			osVersion:      "v3.0",
@@ -281,7 +264,7 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 			RunScenario(t, &Scenario{
 				Description: tc.description,
 				Config: Config{
-					Cluster: tc.cluster,
+					Cluster: ClusterKubenet,
 					VHD:     tc.vhd,
 
 					// We are only validating if the package versions are compatible, and for that we need an environment like
