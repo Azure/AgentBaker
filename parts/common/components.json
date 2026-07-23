@@ -2134,19 +2134,11 @@
       "downloadLocation": "/opt/datacenter-gpu-manager-4-core/downloads",
       "downloadURIs": {
         "ubuntu": {
-          "r2604": {
-            "versionsV2": [
-              {
-                "renovateTag": "name=datacenter-gpu-manager-4-core, repository=nvidia, os=ubuntu, release=26.04",
-                "latestVersion": "1:4.6.0-1"
-              }
-            ]
-          },
           "r2404": {
             "versionsV2": [
               {
                 "renovateTag": "name=datacenter-gpu-manager-4-core, repository=nvidia, os=ubuntu, release=24.04",
-                "latestVersion": "1:4.6.0-1"
+                "latestVersion": "1:4.5.3-1"
               }
             ]
           },
@@ -2154,7 +2146,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=datacenter-gpu-manager-4-core, repository=nvidia, os=ubuntu, release=22.04",
-                "latestVersion": "1:4.6.0-1"
+                "latestVersion": "1:4.5.3-1"
               }
             ]
           }
@@ -2164,7 +2156,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=datacenter-gpu-manager-4-core, repository=nvidia, os=azurelinux, release=3.0",
-                "latestVersion": "1:4.6.0-1"
+                "latestVersion": "1:4.5.3-1"
               }
             ]
           }
@@ -2180,7 +2172,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=datacenter-gpu-manager-4-proprietary, repository=nvidia, os=ubuntu, release=26.04",
-                "latestVersion": "1:4.6.0-1"
+                "latestVersion": "1:4.5.3-1"
               }
             ]
           },
@@ -2188,7 +2180,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=datacenter-gpu-manager-4-proprietary, repository=nvidia, os=ubuntu, release=24.04",
-                "latestVersion": "1:4.6.0-1"
+                "latestVersion": "1:4.5.3-1"
               }
             ]
           },
@@ -2196,7 +2188,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=datacenter-gpu-manager-4-proprietary, repository=nvidia, os=ubuntu, release=22.04",
-                "latestVersion": "1:4.6.0-1"
+                "latestVersion": "1:4.5.3-1"
               }
             ]
           }
@@ -2206,7 +2198,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=datacenter-gpu-manager-4-proprietary, repository=nvidia, os=azurelinux, release=3.0",
-                "latestVersion": "1:4.6.0-1"
+                "latestVersion": "1:4.5.3-1"
               }
             ]
           }
