@@ -687,18 +687,38 @@ systemctlDisableAndStop() {
 
 # return true if a >= b
 semverCompare() {
-    VERSION_A=$(echo $1 | cut -d "+" -f 1 | cut -d "~" -f 1)
-    VERSION_B=$(echo $2 | cut -d "+" -f 1 | cut -d "~" -f 1)
+    local VERSION_A
+    local VERSION_B
+    local sorted
+    local highestVersion
+
+    VERSION_A=$(printf "%s" "$1" | cut -d "+" -f 1 | cut -d "~" -f 1)
+    VERSION_B=$(printf "%s" "$2" | cut -d "+" -f 1 | cut -d "~" -f 1)
 
     [ "${VERSION_A}" = "${VERSION_B}" ] && return 0
-    sorted=$(echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V )
+    sorted=$(printf "%s\n%s\n" "${VERSION_A}" "${VERSION_B}" | sort -V)
     highestVersion=$(printf "%s\n" "${sorted}" | tail -n 1)
     [ "${VERSION_A}" = "${highestVersion}" ] && return 0
     return 1
 }
 
 get_ubuntu_release() {
-    lsb_release -r -s 2>/dev/null || echo ""
+    local ubuntu_release
+
+    if [ -r /etc/os-release ]; then
+        ubuntu_release="$(awk -F= '$1 == "VERSION_ID" { gsub(/"/, "", $2); print $2; exit }' /etc/os-release)"
+        if [ -n "$ubuntu_release" ]; then
+            echo "$ubuntu_release"
+            return 0
+        fi
+    fi
+
+    if command -v lsb_release >/dev/null 2>&1; then
+        lsb_release -r -s 2>/dev/null || true
+        return 0
+    fi
+
+    echo ""
 }
 
 # Return 0 when the running Ubuntu kernel still needs the Copy Fail / DirtyFrag /
