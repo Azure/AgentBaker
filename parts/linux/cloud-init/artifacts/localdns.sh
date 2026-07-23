@@ -69,6 +69,10 @@ START_LOCALDNS_TIMEOUT=10
 DNS_HEALTH_CHECK_TIMEOUT=2
 DNS_HEALTH_CHECK_TRIES=2
 
+AKS_NODE_CONTROLLER_BINARY="/opt/azure/containers/aks-node-controller"
+LOCALDNS_LIVE_PATCHING_COMPONENT_NAME="localDNS"
+LOCALDNS_LIVE_PATCHING_STATUS_ANNOTATION="kubernetes.azure.com/live-patching-status"
+
 # Function definitions used in this file.
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
 # spec/parts/linux/cloud-init/artifacts/localdns_spec.sh.
@@ -302,6 +306,117 @@ replace_azurednsip_in_corefile() {
     echo "Persisted upstream DNS servers to ${upstream_dns_file}: ${UPSTREAM_VNET_DNS_SERVERS}"
 
     return 0
+}
+
+refresh_localdns_corefile_from_lps() {
+    if [ -z "${LOCALDNS_CORE_FILE:-}" ]; then
+        echo "LOCALDNS_CORE_FILE is not set or is empty."
+        return 1
+    fi
+
+    if [ ! -x "${AKS_NODE_CONTROLLER_BINARY}" ]; then
+        echo "AKS node controller binary not found at ${AKS_NODE_CONTROLLER_BINARY}; skipping LocalDNS LPS config fetch."
+        return 0
+    fi
+
+    if "${AKS_NODE_CONTROLLER_BINARY}" fetch-localdns-config --output "${LOCALDNS_CORE_FILE}"; then
+        echo "Completed LocalDNS LPS config fetch."
+        return 0
+    fi
+
+    echo "LocalDNS LPS config fetch failed; continuing with existing corefile."
+    return 0
+}
+
+localdns_corefile_version_file() {
+    echo "${LOCALDNS_CORE_FILE}.version"
+}
+
+wait_for_kubeconfig_and_node() {
+    if [ ! -x /opt/bin/kubectl ]; then
+        echo "kubectl binary not found at /opt/bin/kubectl, skipping annotation." >&2
+        return 1
+    fi
+
+    local kubeconfig="${KUBECONFIG:-/var/lib/kubelet/kubeconfig}"
+    local wait_count=0
+    local max_wait="${KUBECONFIG_WAIT_ATTEMPTS:-60}"
+    while [ ! -f "${kubeconfig}" ]; do
+        if [ $wait_count -ge $max_wait ]; then
+            echo "Timeout waiting for kubeconfig at ${kubeconfig} after ${max_wait} attempts, skipping annotation." >&2
+            return 1
+        fi
+        echo "Waiting for TLS bootstrapping to complete (attempt $((wait_count + 1))/${max_wait})..." >&2
+        sleep 3
+        wait_count=$((wait_count + 1))
+    done
+    echo "Kubeconfig found at ${kubeconfig}" >&2
+
+    local node_name
+    node_name=$(hostname)
+    if [ -z "${node_name}" ]; then
+        echo "Cannot get node name, skipping annotation." >&2
+        return 1
+    fi
+    node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
+
+    echo "Waiting for node ${node_name} to be registered in the cluster..." >&2
+    local node_wait_count=0
+    local max_node_wait="${NODE_REGISTRATION_WAIT_ATTEMPTS:-30}"
+    while [ $node_wait_count -lt $max_node_wait ]; do
+        if /opt/bin/kubectl --kubeconfig "${kubeconfig}" get node "${node_name}" >/dev/null 2>&1; then
+            echo "${kubeconfig}|${node_name}"
+            return 0
+        fi
+        echo "Waiting for node registration (attempt $((node_wait_count + 1))/${max_node_wait})..." >&2
+        sleep 3
+        node_wait_count=$((node_wait_count + 1))
+    done
+
+    echo "Timeout waiting for node ${node_name} to be registered after ${max_node_wait} attempts, skipping annotation." >&2
+    return 1
+}
+
+annotate_node_with_localdns_livepatch_status() {
+    local version_file
+    version_file="$(localdns_corefile_version_file)"
+    if [ ! -s "${version_file}" ]; then
+        echo "LocalDNS corefile version file not found at ${version_file}, skipping live patching status annotation."
+        return 0
+    fi
+
+    local corefile_version
+    corefile_version="$(tr -d '[:space:]' < "${version_file}")"
+    if [ -z "${corefile_version}" ]; then
+        echo "LocalDNS corefile version file is empty, skipping live patching status annotation."
+        return 0
+    fi
+
+    local kube_node
+    kube_node="$(wait_for_kubeconfig_and_node)" || return 0
+    local kubeconfig="${kube_node%%|*}"
+    local node_name="${kube_node#*|}"
+    local current_status
+    current_status=$(/opt/bin/kubectl --kubeconfig "${kubeconfig}" get node "${node_name}" -o "jsonpath={.metadata.annotations['kubernetes\.azure\.com/live-patching-status']}" 2>/dev/null || true)
+    if [ -z "${current_status}" ]; then
+        current_status='{}'
+    fi
+
+    local updated_status
+    if ! updated_status="$(printf '%s' "${current_status}" | jq -c \
+        --arg component "${LOCALDNS_LIVE_PATCHING_COMPONENT_NAME}" \
+        --arg current "${corefile_version}" \
+        '.components = (.components // {}) | .components[$component].current = $current')"; then
+        echo "Failed to render LocalDNS live patching status annotation."
+        return 0
+    fi
+
+    echo "Setting LocalDNS live patching current version ${corefile_version} for node ${node_name}."
+    if /opt/bin/kubectl --kubeconfig "${kubeconfig}" annotate --overwrite node "${node_name}" "${LOCALDNS_LIVE_PATCHING_STATUS_ANNOTATION}=${updated_status}"; then
+        echo "Successfully set LocalDNS live patching status annotation."
+    else
+        echo "Warning: Failed to set LocalDNS live patching status annotation (this is non-fatal)."
+    fi
 }
 
 # Build iptables rules to skip conntrack for DNS traffic to localdns.
@@ -1026,6 +1141,12 @@ if ! wait_for_localdns_removed_from_resolv_conf 5; then
     exit $ERR_LOCALDNS_FAIL
 fi
 
+# Fetch LocalDNS config from LPS if present. This is fail-open: no config or fetch errors keep the
+# locally generated corefile. If LPS returns a usable profile/corefile, LOCALDNS_CORE_FILE is updated
+# before VNET DNS replacement builds UPDATED_LOCALDNS_CORE_FILE for CoreDNS.
+# ---------------------------------------------------------------------------------------------------------------------
+refresh_localdns_corefile_from_lps
+
 # Replace AzureDNSIP in corefile with VNET DNS ServerIPs.
 # ---------------------------------------------------------------------------------------------------------------------
 replace_azurednsip_in_corefile || exit $ERR_LOCALDNS_FAIL
@@ -1072,6 +1193,12 @@ echo "Startup complete - serving node and pod DNS traffic."
 
 # Export initial resource metrics so the exporter has data before the first watchdog tick.
 export_resource_metrics
+
+# Set LocalDNS live-patching current version if a version was applied from LPS.
+# --------------------------------------------------------------------------------------------------------------------
+annotate_node_with_localdns_livepatch_status &
+LOCALDNS_LIVEPATCH_ANNOTATION_PID=$!
+echo "Started LocalDNS live-patching status annotation in background (PID: ${LOCALDNS_LIVEPATCH_ANNOTATION_PID})"
 
 # Set node annotation to indicate hosts plugin is in use (if applicable).
 # --------------------------------------------------------------------------------------------------------------------
