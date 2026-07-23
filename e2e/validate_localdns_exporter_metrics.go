@@ -29,7 +29,7 @@ func ValidateLocalDNSExporterMetrics(ctx context.Context, s *Scenario) {
 	// so it's visible in test output rather than silently passing.
 	// If the label IS present, the exporter must be fully working — any failure is a real bug.
 	const exporterLabelKey = "kubernetes.azure.com/localdns-exporter"
-	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
 
 	if _, exists := node.Labels[exporterLabelKey]; !exists {

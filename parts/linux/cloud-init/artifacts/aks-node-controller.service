@@ -1,6 +1,6 @@
 [Unit]
 Description=Parse contract and run csecmd
-After=network-online.target ssh.service sshd.service
+After=network-online.target
 Wants=network-online.target
 
 [Service]

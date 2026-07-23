@@ -28,6 +28,11 @@ message LocalDnsProfile {
   // List of critical FQDNs to resolve for the hosts plugin.
   // Passed from RP so the script doesn't need cloud-specific logic.
   repeated string critical_fqdns = 7;
+
+  // Optional refresh interval in seconds for the hosts plugin timer.
+  // When set to a positive value, provisioning rewrites aks-localdns-hosts-setup.timer
+  // before enabling it.
+  optional int32 hosts_plugin_refresh_interval_in_seconds = 8;
 }
 
 // Represents DNS override settings for both VnetDNS and KubeDNS traffic.

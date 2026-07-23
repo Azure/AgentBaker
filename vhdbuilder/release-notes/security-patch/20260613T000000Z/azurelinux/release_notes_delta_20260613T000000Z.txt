@@ -1,0 +1,77 @@
+Release notes for security patch 20260613T000000Z timestamp
+Package difference between 20260524T000000Z and 20260613T000000Z
+
+No reboot required
+
+
+=== Package Updates ===
+gnutls  3.8.3-11.azl3  azurelinux-official-base
+curl-libs  8.11.1-7.azl3  azurelinux-official-base
+curl  8.11.1-7.azl3  azurelinux-official-base
+containerd2  2.2.4-2.azl3  azurelinux-official-base
+binutils-devel  2.41-13.azl3  azurelinux-official-base
+binutils  2.41-13.azl3  azurelinux-official-base
+azurelinux-release  3.0-45.azl3  azurelinux-official-base
+WALinuxAgent  2.11.1.4-4.azl3  azurelinux-official-base
+systemd-networkd  255-30.azl3  azurelinux-official-base
+systemd-resolved  255-30.azl3  azurelinux-official-base
+systemd-udev  255-30.azl3  azurelinux-official-base
+systemd-rpm-macros  255-30.azl3  azurelinux-official-base
+systemd-pam  255-30.azl3  azurelinux-official-base
+systemd-libs  255-30.azl3  azurelinux-official-base
+systemd  255-30.azl3  azurelinux-official-base
+python3-curses  3.12.9-11.azl3  azurelinux-official-base
+python3-libs  3.12.9-11.azl3  azurelinux-official-base
+python3  3.12.9-11.azl3  azurelinux-official-base
+perl-vars  1.05-510.azl3  azurelinux-official-base
+perl-podlators  1:5.01-510.azl3  azurelinux-official-base
+perl-parent  1:0.241-510.azl3  azurelinux-official-base
+perl-overloading  0.02-510.azl3  azurelinux-official-base
+perl-overload  1.37-510.azl3  azurelinux-official-base
+perl-mro  1.28-510.azl3  azurelinux-official-base
+perl-macros  4:5.38.2-510.azl3  azurelinux-official-base
+perl-locale  1.10-510.azl3  azurelinux-official-base
+perl-if  0.61.000-510.azl3  azurelinux-official-base
+perl-constant  1.33-510.azl3  azurelinux-official-base
+perl-Time-Local  2:1.300-510.azl3  azurelinux-official-base
+perl-Text-Tabs+Wrap  2021.0814-510.azl3  azurelinux-official-base
+perl-Text-ParseWords  3.31-510.azl3  azurelinux-official-base
+perl-Term-Cap  1.18-510.azl3  azurelinux-official-base
+perl-Term-ANSIColor  5.01-510.azl3  azurelinux-official-base
+perl-Symbol  1.09-510.azl3  azurelinux-official-base
+perl-Storable  1:3.32-510.azl3  azurelinux-official-base
+perl-Socket  4:2.036-510.azl3  azurelinux-official-base
+perl-SelectSaver  1.02-510.azl3  azurelinux-official-base
+perl-Scalar-List-Utils  5:1.63-510.azl3  azurelinux-official-base
+perl-Pod-Usage  4:2.03-510.azl3  azurelinux-official-base
+perl-Pod-Simple  1:3.43-510.azl3  azurelinux-official-base
+perl-Pod-Perldoc  3.28.01-510.azl3  azurelinux-official-base
+perl-Pod-Escapes  1:1.07-510.azl3  azurelinux-official-base
+perl-PathTools  3.89-510.azl3  azurelinux-official-base
+perl-POSIX  2.13-510.azl3  azurelinux-official-base
+perl-NDBM_File  1.16-510.azl3  azurelinux-official-base
+perl-MIME-Base64  3.16-510.azl3  azurelinux-official-base
+perl-IPC-Open3  1.22-510.azl3  azurelinux-official-base
+perl-IO  1.52-510.azl3  azurelinux-official-base
+perl-HTTP-Tiny  0.086-510.azl3  azurelinux-official-base
+perl-Getopt-Std  1.13-510.azl3  azurelinux-official-base
+perl-Getopt-Long  1:2.54-510.azl3  azurelinux-official-base
+perl-File-stat  1.13-510.azl3  azurelinux-official-base
+perl-File-Temp  1:0.231.100-510.azl3  azurelinux-official-base
+perl-File-Path  2.18-510.azl3  azurelinux-official-base
+perl-File-Basename  2.86-510.azl3  azurelinux-official-base
+perl-Fcntl  1.15-510.azl3  azurelinux-official-base
+perl-Exporter  5.77-510.azl3  azurelinux-official-base
+perl-interpreter  4:5.38.2-510.azl3  azurelinux-official-base
+perl-libs  4:5.38.2-510.azl3  azurelinux-official-base
+perl-Errno  1.37-510.azl3  azurelinux-official-base
+perl-Encode  4:3.19-510.azl3  azurelinux-official-base
+perl-DynaLoader  1.54-510.azl3  azurelinux-official-base
+perl-Class-Struct  0.68-510.azl3  azurelinux-official-base
+perl-Carp  1.54-510.azl3  azurelinux-official-base
+node-exporter-kubernetes  1.11.1-5.azl3  azurelinux-official-cloud-native
+librelp  1.11.0-2.azl3  azurelinux-official-base
+krb5  1.21.3-4.azl3  azurelinux-official-base
+jq  1.7.1-6.azl3  azurelinux-official-base
+ig-gadgets  0.53.0-1.azl3  azurelinux-official-cloud-native
+ig  0.53.0-2.azl3  azurelinux-official-cloud-native

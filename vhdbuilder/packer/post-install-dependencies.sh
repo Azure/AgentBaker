@@ -19,7 +19,7 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
-if [ "$OS" = "$FLATCAR_OS_NAME" ] || isACL "$OS" "$OS_VARIANT" || grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+if [ "$OS" = "$FLATCAR_OS_NAME" ] || isACL "$OS" "$OS_VARIANT" || grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
   MAX_BLOCK_COUNT=60397977 # 60 GB
   DISK_SIZE_GB=60
 else
@@ -29,7 +29,7 @@ fi
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 if [ $OS = $UBUNTU_OS_NAME ]; then
-  # We do not purge extra kernels from the Ubuntu 24.04 ARM images, since those images must dual-boot for GB200.
+  # We do not purge extra kernels from the Ubuntu 24.04 ARM images, since those images must dual-boot for NVIDIA GB.
   if [ $CPU_ARCH != "arm64" ] || [ $UBUNTU_RELEASE != "24.04" ]; then
     # shellcheck disable=SC2021
     current_kernel="$(uname -r | cut -d- -f-2)"
@@ -39,8 +39,8 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
     else
       dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "linux-\(headers\|modules\|image\)-azure" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
     fi
-  elif grep -q "GB200" <<< "$FEATURE_FLAGS"; then
-    # However, for the 24.04 ARM images, we MUST have both -azure and -azure-nvidia kernels, so that we can run on either vanilla ARM64 hardware or GB200.
+  elif grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
+    # However, for the 24.04 ARM images, we MUST have both -azure and -azure-nvidia kernels, so that we can run on either vanilla ARM64 hardware or NVIDIA GB.
     if [ $(dpkg --get-selections | grep -c "linux-image") -lt 2 ]; then
       echo "ERROR: Ubuntu 24.04 ARM image is missing either the -azure or -azure-nvidia kernel, cannot continue!" && exit 1
     fi
@@ -48,6 +48,14 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
 
   # remove apport
   retrycmd_if_failure 10 2 60 apt-get purge --auto-remove apport open-vm-tools -y || exit 1
+
+  # Remove PackageKit: an unused desktop D-Bus package manager whose apt hook (/etc/apt/apt.conf.d/20packagekit)
+  # runs `gdbus call --system` after every apt update. During early-boot CSE the system bus isn't ready yet, so
+  # that benign `Error connecting: ... Broken pipe` stderr trips the node-bootstrap apt error-check -> CSE exit 99
+  # -> node never joins. Purging it also drops packagekit-tools + software-properties-common (add-apt-repository,
+  # unused at node runtime; the build's only add-apt-repository usage is earlier in pre-install-dependencies.sh).
+  # No-op on the minimal image, which does not ship these.
+  retrycmd_if_failure 10 2 60 apt-get purge --auto-remove packagekit packagekit-tools software-properties-common -y || exit 1
 
   # strip old kernels/packages
   retrycmd_if_failure 10 2 60 apt-get -y autoclean || exit 1

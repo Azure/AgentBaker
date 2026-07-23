@@ -518,10 +518,10 @@ ensureKubeCACert() {
     chmod 0600 "${KUBE_CA_FILE}"
 }
 
-# file paths defined outside so configureAndStartSecureTLSBootstrapping can be unit tested
+# file paths defined outside so configureAndEnableSecureTLSBootstrapping can be unit tested
 SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE="/etc/default/secure-tls-bootstrap"
 SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
-configureAndStartSecureTLSBootstrapping() {
+configureAndEnableSecureTLSBootstrapping() {
     BOOTSTRAP_CLIENT_FLAGS="--aad-resource=${SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
     if [ -n "${SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID}" ]; then
         BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --user-assigned-identity-id=$SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID"
@@ -544,9 +544,6 @@ configureAndStartSecureTLSBootstrapping() {
     if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT}" ]; then
         BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-credential-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT}"
     fi
-    if [ -n "${SECURE_TLS_BOOTSTRAPPING_DEADLINE}" ]; then
-        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --deadline=${SECURE_TLS_BOOTSTRAPPING_DEADLINE}"
-    fi
 
     mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}")"
     touch "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
@@ -565,12 +562,16 @@ Before=kubelet.service
 [Service]
 EnvironmentFile=${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}
 [Install]
+# this configuration has secure-tls-bootstrap.service only start when kubelet.service is started
 # once bootstrap tokens are no longer a fallback, kubelet.service needs to be a RequiredBy=
 WantedBy=kubelet.service
 EOF
 
-    # explicitly start secure TLS bootstrapping ahead of kubelet
-    systemctlEnableAndStartNoBlock secure-tls-bootstrap 30 || exit $ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE
+    # enable the service so it runs ahead of kubelet on next boot; do not start it now
+    if ! retrycmd_if_failure 120 5 25 systemctl enable secure-tls-bootstrap; then
+        echo "secure-tls-bootstrap could not be enabled by systemctl"
+        exit $ERR_SECURE_TLS_BOOTSTRAP_ENABLE_FAILURE
+    fi
 
     # once bootstrap tokens are no longer a fallback, we can unset TLS_BOOTSTRAP_TOKEN here if needed
 }
@@ -617,7 +618,9 @@ ensurePodInfraContainerImage() {
     base_name="${pod_infra_container_image%:*}"
     tag="local"
 
-    image="${pod_infra_container_image//mcr.microsoft.com/${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}}"
+    MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
+    MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
+    image="${pod_infra_container_image//${MCR_REPOSITORY_BASE}/${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}}"
     acr_url=$(echo "$image" | cut -d/ -f1)
 
     mkdir -p ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}
@@ -852,6 +855,17 @@ EOF
     local tls_bootstrapping_start_time_filepath="/opt/azure/containers/tls-bootstrap-start-time"
     date +"%F %T.%3N" > "${tls_bootstrapping_start_time_filepath}"
 
+    # Node Memory Hardening (F2/F5): if the RP rendered --kube-reserved-cgroup or
+    # --system-reserved-cgroup, ensure the corresponding systemd slices exist before
+    # kubelet starts so its NodeAllocatable enforcement loop can find them. The
+    # helper is a no-op when neither value is present (back-compat with non-hardened pools).
+    resolveKubeletReservedCgroups
+    if [ -n "${KUBE_RESERVED_CGROUP}" ] || [ -n "${SYSTEM_RESERVED_CGROUP}" ]; then
+        if ! logs_to_events "AKS.CSE.ensureKubelet.ensureKubeletCgroupHierarchy" ensureKubeletCgroupHierarchy; then
+            exit $ERR_KUBELET_START_FAIL
+        fi
+    fi
+
     # start kubelet.service without waiting for the main process to start, though check whether it has entered a failed state after enablement
     if ! systemctlEnableAndStartNoBlock kubelet 240; then
         # append kubelet status to CSE output to ensure we can see it
@@ -868,7 +882,7 @@ EOF
 }
 
 ensureSnapshotUpdate() {
-    systemctlEnableAndStart snapshot-update.timer 30 || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
+    systemctlEnableAndStartNoBlock snapshot-update.timer 30 || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
 }
 
 ensureMigPartition(){
@@ -923,6 +937,196 @@ ensureAzureNetworkConfig() {
 
     # Give udev time to process and trigger the systemd service
     udevadm settle --timeout=10
+}
+
+configureSecondaryNICs() {
+    # Read NIC list from cached IMDS metadata.
+    # IMDS reports all NICs attached to the VM, including secondary ones.
+    # On a vanilla Azure VM cloud-init would configure these automatically,
+    # but AKS VHDs disable cloud-init network management (apply_network_config: false
+    # on Ubuntu, hardcoded Name=eth0 in networkd on AzureLinux). This function
+    # fills the gap for Standard-type secondary NICs that need OS-level DHCP.
+    local nic_count
+    nic_count=$(jq -r '.network.interface | length' "$IMDS_INSTANCE_METADATA_CACHE_FILE") || {
+        echo "Failed to parse NIC count from IMDS cache file: $IMDS_INSTANCE_METADATA_CACHE_FILE" >&2
+        return $ERR_SECONDARY_NIC_CONFIG_FAIL
+    }
+    if ! [ "$nic_count" -eq "$nic_count" ] 2>/dev/null; then
+        echo "Invalid NIC count '$nic_count' from IMDS cache file: $IMDS_INSTANCE_METADATA_CACHE_FILE" >&2
+        return $ERR_SECONDARY_NIC_CONFIG_FAIL
+    fi
+
+    if [ "$nic_count" -le 1 ]; then
+        echo "No secondary NICs detected, skipping"
+        return 0
+    fi
+
+    echo "Detected $nic_count NICs, configuring secondary interfaces..."
+
+    local is_netplan=false
+    # Ubuntu netplan primary NIC default metric is ~100,
+    # so secondary NICs use 200, 300, etc. (base 100).
+    # AzureLinux/Mariner networkd primary NIC DHCP default metric is 1024,
+    # so secondary NICs must use >1024 to avoid asymmetric routing.
+    local metric_base=2000
+    if isUbuntu; then
+        is_netplan=true
+        metric_base=100
+    fi
+
+    # Collect resolved interface names for networkctl up calls after reload.
+    local secondary_ifaces=""
+
+    for i in $(seq 1 $((nic_count - 1))); do
+        local mac
+        mac=$(jq -r ".network.interface[$i].macAddress" "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+        # IMDS returns MAC without colons (e.g. "7CED8D8A4DCE"), convert to colon-separated lowercase
+        mac=$(echo "$mac" | sed 's/\(..\)/\1:/g; s/:$//' | tr '[:upper:]' '[:lower:]')
+        local metric=$(( metric_base + i * 100 ))
+
+        # Resolve the actual kernel interface name by matching the MAC address against
+        # /sys/class/net/*/address. This is necessary because SR-IOV virtual functions
+        # can claim eth1 before the secondary NIC is attached, so we cannot assume
+        # secondary NIC $i is eth${i}.
+        local iface_name=""
+        for sys_path in /sys/class/net/*/address; do
+            local sys_dir
+            sys_dir=$(dirname "$sys_path")
+            # Skip SR-IOV VFs (enslaved interfaces) — they share the MAC of their master
+            # but don't hold an IP address themselves.
+            [ -e "$sys_dir/master" ] && continue
+            if [ "$(cat "$sys_path" 2>/dev/null | tr '[:upper:]' '[:lower:]')" = "$mac" ]; then
+                iface_name=$(basename "$sys_dir")
+                break
+            fi
+        done
+        if [ -z "$iface_name" ]; then
+            echo "Warning: could not find interface for MAC ${mac}, using eth${i} as fallback for logging"
+            iface_name="eth${i}"
+        fi
+
+        # Check if this NIC has IPv6 addresses configured in IMDS
+        local ipv6_count
+        ipv6_count=$(jq -r ".network.interface[$i].ipv6.ipAddress | length" "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+        local has_ipv6=false
+        if [ "$ipv6_count" -gt 0 ]; then
+            has_ipv6=true
+        fi
+
+        if [ "$is_netplan" = true ]; then
+            # Ubuntu: generate netplan config for the secondary NIC.
+            # Match by MAC address so we configure the right device regardless of
+            # kernel naming (SR-IOV VFs can shift ethN indices).
+            local netplan_file="/etc/netplan/60-secondary-nic-${i}.yaml"
+            {
+                cat <<NETPLAN_EOF
+network:
+  ethernets:
+    secondary-nic-${i}:
+      match:
+        macaddress: "${mac}"
+      dhcp4: true
+      dhcp4-overrides:
+        route-metric: ${metric}
+        use-dns: false
+NETPLAN_EOF
+                if [ "$has_ipv6" = true ]; then
+                    cat <<NETPLAN_V6_EOF
+      dhcp6: true
+      dhcp6-overrides:
+        route-metric: ${metric}
+        use-dns: false
+NETPLAN_V6_EOF
+                fi
+            } > "$netplan_file"
+            chmod 600 "$netplan_file"
+        else
+            # AzureLinux/Mariner: generate networkd .network unit.
+            # Prefix 10- so it takes precedence over the VHD's 99-dhcp-en.network.
+            # Match by MAC address so we configure the right device regardless of
+            # kernel naming (SR-IOV VFs can shift ethN indices).
+            local networkd_file="/etc/systemd/network/10-secondary-nic-${i}.network"
+            if [ "$has_ipv6" = true ]; then
+                cat > "$networkd_file" <<NETWORKD_EOF
+[Match]
+MACAddress=${mac}
+
+[Network]
+DHCP=yes
+IPv6AcceptRA=yes
+
+[DHCPv4]
+RouteMetric=${metric}
+UseDNS=false
+UseDomains=false
+SendRelease=false
+
+[DHCPv6]
+RouteMetric=${metric}
+UseDNS=false
+UseDomains=false
+NETWORKD_EOF
+            else
+                cat > "$networkd_file" <<NETWORKD_EOF
+[Match]
+MACAddress=${mac}
+
+[Network]
+DHCP=ipv4
+
+[DHCPv4]
+RouteMetric=${metric}
+UseDNS=false
+UseDomains=false
+SendRelease=false
+NETWORKD_EOF
+            fi
+        fi
+
+        echo "Configured secondary NIC ${iface_name} (mac=${mac}, metric=${metric})"
+        # Only track interfaces that actually exist and are not SR-IOV VFs for
+        # the networkctl up loop. The .network files match by MAC and will
+        # auto-activate once the real interface appears, so a missing or VF
+        # interface should not block or fail the reload path.
+        if [ -d "/sys/class/net/${iface_name}" ] && [ ! -e "/sys/class/net/${iface_name}/master" ]; then
+            secondary_ifaces="${secondary_ifaces} ${iface_name}"
+        fi
+    done
+
+    # Apply all configs in a single operation to avoid repeated network restarts.
+    if [ "$is_netplan" = true ]; then
+        if ! retrycmd_if_failure 5 3 10 netplan apply; then
+            echo "Failed to apply netplan config for secondary NICs" >&2
+            return $ERR_SECONDARY_NIC_CONFIG_FAIL
+        fi
+    else
+        if isACL; then
+            # On ACL (Flatcar-based), networkctl's control socket is often broken
+            # ("Transport endpoint is not connected") because systemd-networkd's
+            # varlink socket is torn down during the initrd→real-root pivot and may
+            # never recover. Bypass the broken socket entirely by restarting the
+            # systemd-networkd service, which talks to PID-1's (always-working)
+            # D-Bus socket instead. The restart re-reads all .network files and
+            # brings up matching interfaces automatically — no separate
+            # networkctl up/reload calls needed.
+            if ! retrycmd_if_failure 5 5 30 systemctl restart systemd-networkd; then
+                echo "Failed to restart systemd-networkd for secondary NICs" >&2
+                return $ERR_SECONDARY_NIC_CONFIG_FAIL
+            fi
+        else
+            local reload_retries=5 reload_sleep=3
+            if ! retrycmd_if_failure $reload_retries $reload_sleep 10 networkctl reload; then
+                echo "Failed to reload networkd for secondary NICs" >&2
+                return $ERR_SECONDARY_NIC_CONFIG_FAIL
+            fi
+            for iface in $secondary_ifaces; do
+                if ! retrycmd_if_failure $reload_retries $reload_sleep 10 networkctl up "$iface"; then
+                    echo "Failed to bring up ${iface}" >&2
+                    return $ERR_SECONDARY_NIC_CONFIG_FAIL
+                fi
+            done
+        fi
+    fi
 }
 
 ensureK8sControlPlane() {
@@ -999,33 +1203,53 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
+# Wrapped as functions so logs_to_events can time each step; the install's
+# bash -c command can't be passed to logs_to_events inline (it word-splits args).
+pullGPUDriverImage() {
+    # Cache-miss path only. Retry to ride out a transient blip, but stay tight: a truly missing image
+    # should fail fast rather than eat the shared CSE window the driver install needs next. retrycmd
+    # also self-caps to the CSE budget, so this can't overrun provisioning.
+    retrycmd_if_failure 3 5 120 ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+}
+
+installGPUDriverImage() {
+    retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
+}
+
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
         mkdir -p /opt/{actions,gpu}
-        ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-        retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
+        # Normally the image is baked into the VHD; only pull on a cache miss (expected under VHD/CSE
+        # version skew). ctr run does not auto-pull, so a failed pull must exit here rather than
+        # resurface as an opaque install error. name== is an exact match, not an `images ls` substring.
+        if [ -z "$(ctr -n k8s.io images ls -q "name==${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}")" ]; then
+            logs_to_events "AKS.CSE.configGPUDrivers.pullGPUDriverImage" pullGPUDriverImage || exit $ERR_GPU_DRIVERS_START_FAIL
+        fi
+        logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImage" installGPUDriverImage
         ret=$?
         if [ "$ret" -ne 0 ]; then
             echo "Failed to install GPU driver, exiting..."
             exit $ERR_GPU_DRIVERS_START_FAIL
         fi
-        ctr -n k8s.io images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        # Drop the driver image reference so containerd can reclaim its space, but skip --sync so
+        # garbage collection runs asynchronously instead of blocking node provisioning.
+        ctr -n k8s.io images rm $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
     elif isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-        downloadGPUDrivers
-        installNvidiaContainerToolkit
+        logs_to_events "AKS.CSE.configGPUDrivers.downloadGPUDrivers" downloadGPUDrivers
+        logs_to_events "AKS.CSE.configGPUDrivers.installNvidiaContainerToolkit" installNvidiaContainerToolkit
         enableNvidiaPersistenceMode
     elif isACL "$OS" "$OS_VARIANT"; then
-        installNvidiaContainerToolkitSysext
-        installGPUDriverSysext
+        logs_to_events "AKS.CSE.configGPUDrivers.installNvidiaContainerToolkitSysext" installNvidiaContainerToolkitSysext
+        logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverSysext" installGPUDriverSysext
         enableNvidiaPersistenceMode
     else
         echo "os $OS $OS_VARIANT not supported at this time. skipping configGPUDrivers"
         exit 1
     fi
 
-    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 30 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+    logs_to_events "AKS.CSE.configGPUDrivers.waitForNvidiaModprobe" "retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0" || exit $ERR_GPU_DRIVERS_START_FAIL
+    logs_to_events "AKS.CSE.configGPUDrivers.waitForNvidiaSmi" "retrycmd_if_failure 120 5 30 nvidia-smi" || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
     # Fix the NVIDIA /dev/char link issue (Mariner/AzureLinux only)
@@ -1071,9 +1295,72 @@ validateGPUDrivers() {
     fi
 }
 
+# logGPUDriverPrebakeReadiness emits a stage-1 observability signal on a managed GPU node: whether
+# the aks-gpu prebake marker is present and matches this node's driver kind -- i.e. whether stage-2
+# (skip-build) would take the fast path. Lets the rollout confirm managed CUDA GPU nodes are ready
+# before enabling consume. Observability only; no behavior change.
+logGPUDriverPrebakeReadiness() {
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    local marker_present=false driver_kind_match=false m_kind node_kind
+    # Map the AgentBaker driver-type to the aks-gpu marker's driver_kind (the container's DRIVER_KIND
+    # build arg): image variants "cuda-lts" and "grid-v20" bake markers as "cuda"/"grid" respectively.
+    case "${NVIDIA_GPU_DRIVER_TYPE}" in
+        cuda*) node_kind=cuda ;;
+        grid*) node_kind=grid ;;
+        *) node_kind="${NVIDIA_GPU_DRIVER_TYPE}" ;;
+    esac
+    if [ -f "${marker}" ]; then
+        marker_present=true
+        m_kind="$(sed -n 's/^driver_kind=//p' "${marker}" | head -n1)"
+        # require both sides non-empty so a marker missing driver_kind= (or an unset
+        # NVIDIA_GPU_DRIVER_TYPE) does not falsely report a match (empty = empty).
+        if [ -n "${m_kind}" ] && [ -n "${node_kind}" ] && [ "${m_kind}" = "${node_kind}" ]; then
+            driver_kind_match=true
+        fi
+    fi
+    echo "AKS_GPU_PREBAKE event=managed_gpu driver_type=${NVIDIA_GPU_DRIVER_TYPE:-} marker_present=${marker_present} driver_kind_match=${driver_kind_match}"
+}
+
+# cleanUpGridNodeCudaPrebake tears down a cuda-lts driver pre-baked into the shared Ubuntu VHD when
+# THIS node installs a GRID driver. The shared VHD bakes only the cuda(-lts) driver + a DKMS marker;
+# a GRID/converged (A10, NVv5) node then installs the grid driver on top, and the stale prebaked
+# cuda module + its /usr/bin/lib64 userspace libs collide with the grid driver -> nvidia-smi fails
+# with "Failed to initialize NVML: Driver/library version mismatch". This is a pure driver-KIND
+# mismatch (grid vs cuda), so no version comparison is needed. A legacy marker with no driver_kind=
+# line is treated as a cuda prebake (the only kind the VHD bakes today). No-op unless the node is
+# GRID and a prebake marker exists. Reuses cleanUpPrebakedGPUDriver (from cse_install_ubuntu.sh) for
+# the actual removal. NAP/agentpool cuda nodes are intentionally untouched here.
+cleanUpGridNodeCudaPrebake() {
+    [ "$OS" = "$UBUNTU_OS_NAME" ] || return 0
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    [ -f "${marker}" ] || return 0
+
+    local node_kind m_kind
+    case "${NVIDIA_GPU_DRIVER_TYPE:-}" in
+        grid*) node_kind=grid ;;
+        *) return 0 ;;
+    esac
+    m_kind="$(sed -n 's/^driver_kind=//p' "${marker}" | head -n1)"
+
+    # Keep only when the prebake is explicitly grid (matches this grid node). An empty marker kind is
+    # a legacy cuda prebake; a "cuda" marker is a cuda prebake -- both mismatch a grid node, tear down.
+    if [ "${m_kind}" = "grid" ]; then
+        return 0
+    fi
+    echo "AKS_GPU_PREBAKE event=grid_cuda_prebake_teardown driver_type=${NVIDIA_GPU_DRIVER_TYPE:-} marker_kind=${m_kind:-none} node_kind=${node_kind} action=teardown"
+    cleanUpPrebakedGPUDriver
+}
+
 ensureGPUDrivers() {
     if [ "$(isARM64)" -eq 1 ]; then
         return
+    fi
+
+    # Tear down a mismatched cuda-lts VHD prebake before a GRID node installs its own driver, or the
+    # stale module/libs collide with the grid driver (NVML version mismatch). Runs before the dispatch
+    # below so it covers both the configGPUDrivers and validateGPUDrivers paths.
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        logs_to_events "AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake" cleanUpGridNodeCudaPrebake || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 
     if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]; then
@@ -1083,16 +1370,22 @@ ensureGPUDrivers() {
     fi
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe 30" || exit $ERR_GPU_DRIVERS_START_FAIL
+        logGPUDriverPrebakeReadiness
     fi
 }
 
 # Install AMD AMA core SW package for MA35D (Supernova GPU SKU)
-# Note that this depends on access to download.microsoft.com, so network-isolated clusters are not supported
-dnf_install_amd_ama_core() {
-    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+dnf_install_amd_ama_core_package() {
+    ver=$1; retries=$2; wait_sleep=$3; timeout=$4; shift && shift && shift && shift
+    # Currently version 1.5.0 is supported.  Add more versions as they become available.
+    if [ "$ver" = "1.5.0" ]; then
+        AMD_AMA_CORE_PACKAGE="https://download.microsoft.com/download/f030c57a-a582-4bcc-9c7c-593c9a486814/amd-ama-core_1.5.0-20260424092403.x86_64.rpm"
+    else
+        return 1
+    fi
     for i in $(seq 1 $retries); do
         # RPM_FRONTEND env variable needed to disable license agreement prompt
-        RPM_FRONTEND=noninteractive dnf install -y https://download.microsoft.com/download/16b04fa7-883e-4a94-88c2-801881a47b28/amd-ama-core_1.3.0-2503242033-amd64.rpm && break || \
+        RPM_FRONTEND=noninteractive dnf install -y $AMD_AMA_CORE_PACKAGE && break || \
         if [ $i -eq $retries ]; then
             return 1
         else
@@ -1110,18 +1403,35 @@ setupAmdAma() {
         return
     fi
 
-    if isMarinerOrAzureLinux "$OS"; then
-        # Install driver - currently version 1.3.0 is supported
+    if isAzureLinux "$OS"; then
+        # Install MA35D packages - currently version 1.5 and above are supported
+        # This install script will extract the driver version/build number to find
+        # the corresponding core/FW packages
+
+        # Get driver package name from internal AMD repo
         if ! dnf_install 30 1 600 azurelinux-repos-amd; then
           echo "Unable to install Azure Linux AMD package repo, exiting..."
           exit $ERR_AMDAMA_INSTALL_FAIL
         fi
         KERNEL_VERSION=$(uname -r | sed 's/-/./g')
-        AMD_AMA_DRIVER_PACKAGE=$(dnf repoquery -y --available "amd-ama-driver-1.3.0*" | grep -E "amd-ama-driver-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
+        AMD_AMA_DRIVER_PACKAGE=$(dnf repoquery -y --available "amd-ama-driver-*" | grep -E "amd-ama-driver-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
         if [ -z "$AMD_AMA_DRIVER_PACKAGE" ]; then
             echo "Unable to find AMD AMA driver package for current kernel version, exiting..."
             exit $ERR_AMDAMA_DRIVER_NOT_FOUND
         fi
+
+        # Install FW package
+        AMD_AMA_FIRMWARE_PACKAGE="${AMD_AMA_DRIVER_PACKAGE/driver/firmware}"
+        if [ -z "$AMD_AMA_FIRMWARE_PACKAGE" ] || [ "$AMD_AMA_FIRMWARE_PACKAGE" = "$AMD_AMA_DRIVER_PACKAGE" ]; then
+            echo "Unable to find AMD AMA firmware package for current kernel version, exiting..."
+            exit $ERR_AMDAMA_DRIVER_NOT_FOUND
+        fi
+        if ! dnf_install 30 1 600 $AMD_AMA_FIRMWARE_PACKAGE; then
+          echo "Unable to install AMD AMA FW package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+
+        # Install driver package
         if ! dnf_install 30 1 600 $AMD_AMA_DRIVER_PACKAGE; then
           echo "Unable to install AMD AMA driver package, exiting..."
           exit $ERR_AMDAMA_INSTALL_FAIL
@@ -1132,7 +1442,8 @@ setupAmdAma() {
           echo "Unable to install Azure Linux packages required for AMD AMA core package, exiting..."
           exit $ERR_AMDAMA_INSTALL_FAIL
         fi
-        if ! dnf_install_amd_ama_core 30 1 600; then
+        TMP="${AMD_AMA_DRIVER_PACKAGE#amd-ama-driver-*:}"; AMD_AMA_DRIVER_VERSION="${TMP%%_*}"
+        if ! dnf_install_amd_ama_core_package $AMD_AMA_DRIVER_VERSION 30 1 600; then
           echo "Unable to install AMD AMA core package, exiting..."
           exit $ERR_AMDAMA_INSTALL_FAIL
         fi
@@ -1158,17 +1469,8 @@ disableSSH() {
     systemctlDisableAndStop sshd || exit $ERR_DISABLE_SSH
 }
 
-configureSSHPubkeyAuth() {
-  local disable_pubkey_auth="$1"
-  local ssh_use_pubkey_auth
-
-  # Determine the desired pubkey auth setting
-  if [ "${disable_pubkey_auth}" = "true" ]; then
-    ssh_use_pubkey_auth="no"
-  else
-    ssh_use_pubkey_auth="yes"
-  fi
-  local SSHD_CONFIG="/etc/ssh/sshd_config"
+disableSSHPubkeyAuth() {
+  local SSHD_CONFIG="${SSHD_CONFIG_FILE:-/etc/ssh/sshd_config}"
   local TMP
   TMP="$(mktemp)"
 
@@ -1179,7 +1481,7 @@ configureSSHPubkeyAuth() {
   # PubkeyAuthentication yes
   # AuthorizedKeysCommand /usr/sbin/aad_certhandler %u %k
   # AuthorizedKeysCommandUser root
-  awk -v desired="$ssh_use_pubkey_auth" '
+  awk -v desired="no" '
     BEGIN { in_match=0; replaced=0; inserted=0 }
     /^Match([[:space:]]|$)/ {
       if (!replaced && !inserted) { print "PubkeyAuthentication " desired; inserted=1 }
@@ -1192,15 +1494,22 @@ configureSSHPubkeyAuth() {
     END { if (!replaced && !inserted) print "PubkeyAuthentication " desired }
   ' "$SSHD_CONFIG" > "$TMP"
 
+  local ssh_service="sshd.service"
+  if systemctl cat ssh.service >/dev/null 2>&1; then
+    ssh_service="ssh.service"
+  fi
+  systemctl is-active --quiet "$ssh_service" || systemctl start "$ssh_service" || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
+
   # Validate the candidate config
   sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
 
-  # Replace the original with the candidate (permissions 644, owned by root)
-  install -m 644 -o root -g root "$TMP" "$SSHD_CONFIG"
+  # Replace the original with the candidate (permissions 600, owned by root)
+  # Mode 0600 is required by CIS Benchmark control 5.1.1
+  install -m 0600 -o root -g root "$TMP" "$SSHD_CONFIG"
   rm -f "$TMP"
 
-  # Reload sshd
-  systemctl reload sshd || systemctl restart sshd || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
+  # Reload or restart ssh service
+  systemctl reload-or-restart "$ssh_service" || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
 }
 
 # Internal function that writes credential provider config to a specified path
@@ -1251,6 +1560,10 @@ providers:
       - "*.azurecr.cn"
       - "*.azurecr.de"
       - "*.azurecr.us"
+      - "*.*.geo.azurecr.io"
+      - "*.*.geo.azurecr.cn"
+      - "*.*.geo.azurecr.de"
+      - "*.*.geo.azurecr.us"
       - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
@@ -1259,6 +1572,8 @@ providers:
 EOF
     elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         echo "configure credential provider for network isolated cluster"
+        MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
+        MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
         tee "${config_file_path}" > /dev/null <<EOF
 apiVersion: kubelet.config.k8s.io/v1
 kind: CredentialProviderConfig
@@ -1269,12 +1584,16 @@ providers:
       - "*.azurecr.cn"
       - "*.azurecr.de"
       - "*.azurecr.us"
-      - "mcr.microsoft.com"
+      - "*.*.geo.azurecr.io"
+      - "*.*.geo.azurecr.cn"
+      - "*.*.geo.azurecr.de"
+      - "*.*.geo.azurecr.us"
+      - "${MCR_REPOSITORY_BASE}"
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
       - /etc/kubernetes/azure.json
-      - --registry-mirror=mcr.microsoft.com:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER${ib_args}
+      - --registry-mirror=${MCR_REPOSITORY_BASE}:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER${ib_args}
 EOF
     else
         echo "configure credential provider with default settings"
@@ -1288,6 +1607,10 @@ providers:
       - "*.azurecr.cn"
       - "*.azurecr.de"
       - "*.azurecr.us"
+      - "*.*.geo.azurecr.io"
+      - "*.*.geo.azurecr.cn"
+      - "*.*.geo.azurecr.de"
+      - "*.*.geo.azurecr.us"
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
@@ -1477,6 +1800,23 @@ EOF
 # The timer's systemd service reads LOCALDNS_CRITICAL_FQDNS from /etc/localdns/environment,
 # so this function writes a minimal environment file before starting the timer.
 # generateLocalDNSFiles() (called later by enableLocalDNS) overwrites it with the full content.
+# removeAKSLocalDNSHostsSetupTimerOverride removes the optional systemd drop-in that
+# overrides the default hosts-setup timer cadence.
+removeAKSLocalDNSHostsSetupTimerOverride() {
+    local hosts_setup_timer_override="$1"
+
+    if [ ! -f "${hosts_setup_timer_override}" ]; then
+        return 0
+    fi
+
+    rm -f "${hosts_setup_timer_override}"
+    if systemctl daemon-reload; then
+        echo "Restored default aks-localdns-hosts-setup timer refresh interval."
+    else
+        echo "Warning: Failed to reload systemd after removing ${hosts_setup_timer_override}"
+    fi
+}
+
 enableAKSLocalDNSHostsSetup() {
     # Best-effort setup: log errors but never fail.
     # The corefile will fall back to the no-hosts variant if hosts file is empty.
@@ -1528,8 +1868,52 @@ EOF
     touch "${hosts_file}"
     chmod 0644 "${hosts_file}"
 
-    # Enable the timer for periodic refresh (every 15 minutes)
-    # This will update the hosts file with fresh IPs from live DNS
+    local hosts_plugin_refresh_interval="${LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS:-}"
+    local hosts_setup_timer_override="${hosts_setup_timer}.d/10-refresh-interval.conf"
+    local min_hosts_plugin_refresh_interval_in_seconds=5
+
+    if [ -z "${hosts_plugin_refresh_interval}" ]; then
+        removeAKSLocalDNSHostsSetupTimerOverride "${hosts_setup_timer_override}"
+    else
+        local should_override_refresh_interval="false"
+        case "${hosts_plugin_refresh_interval}" in
+            *[!0-9]*)
+                ;;
+            *)
+                should_override_refresh_interval="true"
+                if [ "${hosts_plugin_refresh_interval}" -lt "${min_hosts_plugin_refresh_interval_in_seconds}" ]; then
+                    echo "Warning: LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS must be >= ${min_hosts_plugin_refresh_interval_in_seconds}, got '${hosts_plugin_refresh_interval}'. Clamping to ${min_hosts_plugin_refresh_interval_in_seconds}s."
+                    hosts_plugin_refresh_interval="${min_hosts_plugin_refresh_interval_in_seconds}"
+                fi
+                ;;
+        esac
+
+        if [ "${should_override_refresh_interval}" = "true" ]; then
+            mkdir -p "$(dirname "${hosts_setup_timer_override}")"
+            cat > "${hosts_setup_timer_override}" <<EOF
+[Timer]
+OnUnitActiveSec=${hosts_plugin_refresh_interval}s
+AccuracySec=1s
+EOF
+            chmod 0644 "${hosts_setup_timer_override}"
+            if grep -q "^OnUnitActiveSec=${hosts_plugin_refresh_interval}s$" "${hosts_setup_timer_override}" &&
+                grep -q "^AccuracySec=1s$" "${hosts_setup_timer_override}"; then
+                if systemctl daemon-reload; then
+                    echo "Configured aks-localdns-hosts-setup timer refresh interval to ${hosts_plugin_refresh_interval}s."
+                else
+                    echo "Warning: Failed to reload systemd after updating ${hosts_setup_timer_override}"
+                fi
+            else
+                echo "Warning: Failed to update ${hosts_setup_timer_override} with refresh interval ${hosts_plugin_refresh_interval}s"
+            fi
+        else
+            echo "Warning: LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS must be an integer, got '${hosts_plugin_refresh_interval}'. Using default timer interval."
+            removeAKSLocalDNSHostsSetupTimerOverride "${hosts_setup_timer_override}"
+        fi
+    fi
+
+    # Enable the timer for periodic refresh.
+    # This will update the hosts file with fresh IPs from live DNS.
     echo "Enabling aks-localdns-hosts-setup timer..."
     if systemctlEnableAndStartNoBlock aks-localdns-hosts-setup.timer 30; then
         echo "aks-localdns-hosts-setup timer enabled successfully."
@@ -1546,6 +1930,7 @@ EOF
 disableAKSLocalDNSHostsSetup() {
     local hosts_file="${AKS_LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
     local hosts_setup_timer="${AKS_LOCALDNS_HOSTS_SETUP_TIMER:-/etc/systemd/system/aks-localdns-hosts-setup.timer}"
+    local hosts_setup_timer_override="${hosts_setup_timer}.d/10-refresh-interval.conf"
 
     echo "disableAKSLocalDNSHostsSetup called, cleaning up hosts plugin state..."
 
@@ -1557,6 +1942,8 @@ disableAKSLocalDNSHostsSetup() {
     else
         echo "aks-localdns-hosts-setup.timer not found on this VHD, skipping"
     fi
+
+    removeAKSLocalDNSHostsSetupTimerOverride "${hosts_setup_timer_override}"
 
     # Remove the hosts file to clean up stale data.
     # select_localdns_corefile() selects based on SHOULD_ENABLE_HOSTS_PLUGIN,
@@ -1576,6 +1963,10 @@ configureManagedGPUExperience() {
     if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
         return
     fi
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+        echo "Error: ENABLE_MANAGED_GPU_EXPERIENCE and ENABLE_MANAGED_GPU_EXPERIENCE_DRA cannot both be true"
+        exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
+    fi
     local managed_gpu_marker="/opt/azure/containers/managed-gpu-experience.enabled"
     if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
@@ -1583,10 +1974,19 @@ configureManagedGPUExperience() {
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
         mkdir -p "$(dirname "${managed_gpu_marker}")"
         touch "${managed_gpu_marker}"
+    elif [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+        logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
+        # defer startNvidiaManagedExpServices() after kubelet starts
+        addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
+        mkdir -p "$(dirname "${managed_gpu_marker}")"
+        touch "${managed_gpu_marker}"
     else
         # EnableManagedGPUExperience is mutable, so services may have been
         # installed on a previous CSE run. Stop them if they exist.
+        # systemctlDisableAndStop check if the service exists before attempting to stop it,
+        # so this is safe to call even if the services were never installed.
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
+        logs_to_events "AKS.CSE.stop.dra-driver-nvidia-gpu" "systemctlDisableAndStop dra-driver-nvidia-gpu"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
         rm -f "${managed_gpu_marker}"
@@ -1594,49 +1994,70 @@ configureManagedGPUExperience() {
 }
 
 startNvidiaManagedExpServices() {
-    # 1. Start the nvidia-device-plugin service.
-    # Create systemd override directory to configure device plugin
-    NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR="/etc/systemd/system/nvidia-device-plugin.service.d"
-    mkdir -p "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}"
+    # 1. Start the nvidia-device-plugin service or dra-driver-nvidia-gpu service.
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
+        # Create systemd override directory to configure device plugin
+        NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR="/etc/systemd/system/nvidia-device-plugin.service.d"
+        mkdir -p "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}"
 
-    if [ "${MIG_NODE}" = "true" ]; then
-        # Configure with MIG strategy for MIG nodes.
-        # MIG strategy controls how nvidia-device-plugin exposes MIG instances to Kubernetes:
-        #   - "single": All MIG devices exposed as generic nvidia.com/gpu resources
-        #   - "mixed": MIG devices exposed with specific types like nvidia.com/mig-1g.5gb
-        #
-        # We only use "mixed" when explicitly specified via NVIDIA_MIG_STRATEGY.
-        # Otherwise, we default to "single" which is the safer/simpler option.
-        # Note: NVIDIA_MIG_STRATEGY values from RP are "None", "Single", "Mixed".
-        # "None" and "Single" both result in using the "single" strategy.
-        if [ "${NVIDIA_MIG_STRATEGY}" = "Mixed" ]; then
-            MIG_STRATEGY_FLAG="--mig-strategy mixed"
-        else
-            # Default to "single" for "Single", "None", empty, or any other value
-            MIG_STRATEGY_FLAG="--mig-strategy single"
-        fi
+        if [ "${MIG_NODE}" = "true" ]; then
+            # Configure with MIG strategy for MIG nodes.
+            # MIG strategy controls how nvidia-device-plugin exposes MIG instances to Kubernetes:
+            #   - "single": All MIG devices exposed as generic nvidia.com/gpu resources
+            #   - "mixed": MIG devices exposed with specific types like nvidia.com/mig-1g.5gb
+            #
+            # We only use "mixed" when explicitly specified via NVIDIA_MIG_STRATEGY.
+            # Otherwise, we default to "single" which is the safer/simpler option.
+            # Note: NVIDIA_MIG_STRATEGY values from RP are "None", "Single", "Mixed".
+            # "None" and "Single" both result in using the "single" strategy.
+            if [ "${NVIDIA_MIG_STRATEGY}" = "Mixed" ]; then
+                MIG_STRATEGY_FLAG="--mig-strategy mixed"
+            else
+                # Default to "single" for "Single", "None", empty, or any other value
+                MIG_STRATEGY_FLAG="--mig-strategy single"
+            fi
 
-        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<EOF
+            tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<EOF
 [Service]
 ExecStart=
 ExecStart=/usr/bin/nvidia-device-plugin ${MIG_STRATEGY_FLAG} --pass-device-specs
 EOF
-    else
-        # Configure with pass-device-specs for non-MIG nodes
-        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
+        else
+            # Configure with pass-device-specs for non-MIG nodes
+            tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
 [Service]
 ExecStart=
 ExecStart=/usr/bin/nvidia-device-plugin --pass-device-specs
 EOF
+        fi
+
+        # Reload systemd to pick up the override
+        systemctl daemon-reload
+
+        logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+    elif [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+        DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR="/etc/systemd/system/dra-driver-nvidia-gpu.service.d"
+        mkdir -p "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}"
+
+        tee "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<EOF
+[Unit]
+Requires=kubelet.service
+After=kubelet.service
+[Service]
+ExecStart=
+ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name "" --node-name=${NODE_NAME}
+EOF
+
+        # Reload systemd to pick up the override
+        systemctl daemon-reload
+
+        logs_to_events "AKS.CSE.start.dra-driver-nvidia-gpu" "systemctlEnableAndStart dra-driver-nvidia-gpu 30" || exit $ERR_DRA_DRIVER_START_FAIL
     fi
 
-    # Reload systemd to pick up the override
-    systemctl daemon-reload
-
-    logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-
     # 2. Start the nvidia-dcgm service.
-    logs_to_events "AKS.CSE.start.nvidia-dcgm" "systemctlEnableAndStart nvidia-dcgm 30" || exit $ERR_NVIDIA_DCGM_FAIL
+    # DCGM is monitoring/telemetry and does not gate GPU workload scheduling, so start it without
+    # blocking node provisioning and treat a slow/failed start as non-fatal.
+    logs_to_events "AKS.CSE.start.nvidia-dcgm" "systemctlEnableAndStartNoBlock nvidia-dcgm 30" || echo "warning: nvidia-dcgm could not be enqueued; GPU monitoring will start asynchronously"
 
     # 3. Start the nvidia-dcgm-exporter service.
     # Create systemd drop-in directory for nvidia-dcgm-exporter service
@@ -1658,7 +2079,9 @@ EOF
     systemctl daemon-reload
 
     # Start the nvidia-dcgm-exporter service.
-    logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStart nvidia-dcgm-exporter 30" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
+    # The exporter is telemetry only and does not gate scheduling, so start it off the critical
+    # path and treat a slow/failed start as non-fatal.
+    logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStartNoBlock nvidia-dcgm-exporter 30" || echo "warning: nvidia-dcgm-exporter could not be enqueued; GPU metrics will start asynchronously"
 }
 
 get_compute_sku() {

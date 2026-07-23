@@ -10,6 +10,7 @@ import (
 	"hash/fnv"
 	"math/rand"
 	neturl "net/url"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -142,60 +143,64 @@ type Distro string
 
 // Distro string consts.
 const (
-	Ubuntu                                Distro = "ubuntu"
-	AKSCBLMarinerV1                       Distro = "aks-cblmariner-v1"
-	AKSCBLMarinerV2                       Distro = "aks-cblmariner-v2"
-	AKSAzureLinuxV2                       Distro = "aks-azurelinux-v2"
-	AKSAzureLinuxV3                       Distro = "aks-azurelinux-v3"
-	AKSCBLMarinerV2Gen2                   Distro = "aks-cblmariner-v2-gen2"
-	AKSAzureLinuxV2Gen2                   Distro = "aks-azurelinux-v2-gen2"
-	AKSAzureLinuxV3Gen2                   Distro = "aks-azurelinux-v3-gen2"
-	AKSCBLMarinerV2FIPS                   Distro = "aks-cblmariner-v2-fips"
-	AKSAzureLinuxV2FIPS                   Distro = "aks-azurelinux-v2-fips"
-	AKSAzureLinuxV3FIPS                   Distro = "aks-azurelinux-v3-fips"
-	AKSCBLMarinerV2Gen2FIPS               Distro = "aks-cblmariner-v2-gen2-fips"
-	AKSAzureLinuxV2Gen2FIPS               Distro = "aks-azurelinux-v2-gen2-fips"
-	AKSAzureLinuxV3Gen2FIPS               Distro = "aks-azurelinux-v3-gen2-fips"
-	AKSCBLMarinerV2Gen2Kata               Distro = "aks-cblmariner-v2-gen2-kata"
-	AKSAzureLinuxV2Gen2Kata               Distro = "aks-azurelinux-v2-gen2-kata"
-	AKSAzureLinuxV3Gen2Kata               Distro = "aks-azurelinux-v3-gen2-kata"
-	AKSCBLMarinerV2Gen2TL                 Distro = "aks-cblmariner-v2-gen2-tl"
-	AKSAzureLinuxV2Gen2TL                 Distro = "aks-azurelinux-v2-gen2-tl"
-	AKSAzureLinuxV3Gen2TL                 Distro = "aks-azurelinux-v3-gen2-tl"
-	AKSAzureLinuxV3OSGuardGen2FIPSTL      Distro = "aks-azurelinux-v3-osguard-gen2-fips-tl"
-	AKSCBLMarinerV2KataGen2TL             Distro = "aks-cblmariner-v2-kata-gen2-tl"
-	AKSUbuntuFipsContainerd2004           Distro = "aks-ubuntu-fips-containerd-20.04"
-	AKSUbuntuFipsContainerd2004Gen2       Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
-	AKSUbuntuFipsContainerd2204           Distro = "aks-ubuntu-fips-containerd-22.04"
-	AKSUbuntuFipsContainerd2204Gen2       Distro = "aks-ubuntu-fips-containerd-22.04-gen2"
-	AKSUbuntuFipsContainerd2204TLGen2     Distro = "aks-ubuntu-fips-containerd-22.04-tl-gen2"
-	AKSUbuntuEdgeZoneContainerd2204       Distro = "aks-ubuntu-edgezone-containerd-22.04"
-	AKSUbuntuEdgeZoneContainerd2204Gen2   Distro = "aks-ubuntu-edgezone-containerd-22.04-gen2"
-	AKSUbuntuContainerd2204               Distro = "aks-ubuntu-containerd-22.04"
-	AKSUbuntuContainerd2204Gen2           Distro = "aks-ubuntu-containerd-22.04-gen2"
-	AKSUbuntuContainerd2004CVMGen2        Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
-	AKSUbuntuArm64Containerd2204Gen2      Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
-	AKSUbuntuArm64Containerd2404Gen2      Distro = "aks-ubuntu-arm64-containerd-24.04-gen2"
-	AKSUbuntuArm64GB200Containerd2404Gen2 Distro = "aks-ubuntu-arm64-gb200-containerd-24.04-gen2"
-	AKSUbuntuContainerd2404CVMGen2        Distro = "aks-ubuntu-containerd-24.04-cvm-gen2"
-	AKSCBLMarinerV2Arm64Gen2              Distro = "aks-cblmariner-v2-arm64-gen2"
-	AKSAzureLinuxV2Arm64Gen2              Distro = "aks-azurelinux-v2-arm64-gen2"
-	AKSAzureLinuxV3Arm64Gen2              Distro = "aks-azurelinux-v3-arm64-gen2"
-	AKSAzureLinuxV3Arm64Gen2FIPS          Distro = "aks-azurelinux-v3-arm64-gen2-fips"
-	AKSUbuntuContainerd2204TLGen2         Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
-	AKSUbuntuMinimalContainerd2204        Distro = "aks-ubuntu-minimal-containerd-22.04"
-	AKSUbuntuMinimalContainerd2204Gen2    Distro = "aks-ubuntu-minimal-containerd-22.04-gen2"
-	AKSUbuntuEgressContainerd2204Gen2     Distro = "aks-ubuntu-egress-containerd-22.04-gen2"
-	AKSUbuntuContainerd2404               Distro = "aks-ubuntu-containerd-24.04"
-	AKSUbuntuContainerd2404Gen2           Distro = "aks-ubuntu-containerd-24.04-gen2"
-	AKSAzureLinuxV3CVMGen2                Distro = "aks-azurelinux-v3-cvm-gen2"
-	AKSUbuntuContainerd2404TLGen2         Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
-	AKSFlatcarGen2                        Distro = "aks-flatcar-gen2"
-	AKSFlatcarArm64Gen2                   Distro = "aks-flatcar-arm64-gen2"
-	AKSACLGen2TL                          Distro = "aks-acl-gen2-tl"
-	AKSACLArm64Gen2TL                     Distro = "aks-acl-arm64-gen2-tl"
-	AKSACLGen2FIPSTL                      Distro = "aks-acl-gen2-fips-tl"
-	AKSACLArm64Gen2FIPSTL                 Distro = "aks-acl-arm64-gen2-fips-tl"
+	Ubuntu                                  Distro = "ubuntu"
+	AKSCBLMarinerV1                         Distro = "aks-cblmariner-v1"
+	AKSCBLMarinerV2                         Distro = "aks-cblmariner-v2"
+	AKSAzureLinuxV2                         Distro = "aks-azurelinux-v2"
+	AKSAzureLinuxV3                         Distro = "aks-azurelinux-v3"
+	AKSCBLMarinerV2Gen2                     Distro = "aks-cblmariner-v2-gen2"
+	AKSAzureLinuxV2Gen2                     Distro = "aks-azurelinux-v2-gen2"
+	AKSAzureLinuxV3Gen2                     Distro = "aks-azurelinux-v3-gen2"
+	AKSAzureLinuxV3EdgeZone                 Distro = "aks-azurelinux-v3-edgezone"
+	AKSAzureLinuxV3EdgeZoneGen2             Distro = "aks-azurelinux-v3-edgezone-gen2"
+	AKSCBLMarinerV2FIPS                     Distro = "aks-cblmariner-v2-fips"
+	AKSAzureLinuxV2FIPS                     Distro = "aks-azurelinux-v2-fips"
+	AKSAzureLinuxV3FIPS                     Distro = "aks-azurelinux-v3-fips"
+	AKSCBLMarinerV2Gen2FIPS                 Distro = "aks-cblmariner-v2-gen2-fips"
+	AKSAzureLinuxV2Gen2FIPS                 Distro = "aks-azurelinux-v2-gen2-fips"
+	AKSAzureLinuxV3Gen2FIPS                 Distro = "aks-azurelinux-v3-gen2-fips"
+	AKSCBLMarinerV2Gen2Kata                 Distro = "aks-cblmariner-v2-gen2-kata"
+	AKSAzureLinuxV2Gen2Kata                 Distro = "aks-azurelinux-v2-gen2-kata"
+	AKSAzureLinuxV3Gen2Kata                 Distro = "aks-azurelinux-v3-gen2-kata"
+	AKSCBLMarinerV2Gen2TL                   Distro = "aks-cblmariner-v2-gen2-tl"
+	AKSAzureLinuxV2Gen2TL                   Distro = "aks-azurelinux-v2-gen2-tl"
+	AKSAzureLinuxV3Gen2TL                   Distro = "aks-azurelinux-v3-gen2-tl"
+	AKSAzureLinuxV3OSGuardGen2FIPSTL        Distro = "aks-azurelinux-v3-osguard-gen2-fips-tl"
+	AKSCBLMarinerV2KataGen2TL               Distro = "aks-cblmariner-v2-kata-gen2-tl"
+	AKSUbuntuFipsContainerd2004             Distro = "aks-ubuntu-fips-containerd-20.04"
+	AKSUbuntuFipsContainerd2004Gen2         Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
+	AKSUbuntuFipsContainerd2204             Distro = "aks-ubuntu-fips-containerd-22.04"
+	AKSUbuntuFipsContainerd2204Gen2         Distro = "aks-ubuntu-fips-containerd-22.04-gen2"
+	AKSUbuntuFipsContainerd2204TLGen2       Distro = "aks-ubuntu-fips-containerd-22.04-tl-gen2"
+	AKSUbuntuEdgeZoneContainerd2204         Distro = "aks-ubuntu-edgezone-containerd-22.04"
+	AKSUbuntuEdgeZoneContainerd2204Gen2     Distro = "aks-ubuntu-edgezone-containerd-22.04-gen2"
+	AKSUbuntuEdgeZoneContainerd2404         Distro = "aks-ubuntu-edgezone-containerd-24.04"
+	AKSUbuntuEdgeZoneContainerd2404Gen2     Distro = "aks-ubuntu-edgezone-containerd-24.04-gen2"
+	AKSUbuntuContainerd2204                 Distro = "aks-ubuntu-containerd-22.04"
+	AKSUbuntuContainerd2204Gen2             Distro = "aks-ubuntu-containerd-22.04-gen2"
+	AKSUbuntuContainerd2004CVMGen2          Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
+	AKSUbuntuArm64Containerd2204Gen2        Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
+	AKSUbuntuArm64Containerd2404Gen2        Distro = "aks-ubuntu-arm64-containerd-24.04-gen2"
+	AKSUbuntuArm64GB200Containerd2404Gen2   Distro = "aks-ubuntu-arm64-gb200-containerd-24.04-gen2"
+	AKSUbuntuContainerd2404CVMGen2          Distro = "aks-ubuntu-containerd-24.04-cvm-gen2"
+	AKSCBLMarinerV2Arm64Gen2                Distro = "aks-cblmariner-v2-arm64-gen2"
+	AKSAzureLinuxV2Arm64Gen2                Distro = "aks-azurelinux-v2-arm64-gen2"
+	AKSAzureLinuxV3Arm64Gen2                Distro = "aks-azurelinux-v3-arm64-gen2"
+	AKSAzureLinuxV3Arm64Gen2FIPS            Distro = "aks-azurelinux-v3-arm64-gen2-fips"
+	AKSUbuntuContainerd2204TLGen2           Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
+	AKSUbuntuEgressContainerd2204Gen2       Distro = "aks-ubuntu-egress-containerd-22.04-gen2"
+	AKSUbuntuContainerd2404                 Distro = "aks-ubuntu-containerd-24.04"
+	AKSUbuntuContainerd2404Gen2             Distro = "aks-ubuntu-containerd-24.04-gen2"
+	AKSUbuntuMinimalContainerd2604Gen2      Distro = "aks-ubuntu-minimal-containerd-26.04-gen2"
+	AKSUbuntuMinimalArm64Containerd2604Gen2 Distro = "aks-ubuntu-minimal-arm64-containerd-26.04-gen2"
+	AKSAzureLinuxV3CVMGen2                  Distro = "aks-azurelinux-v3-cvm-gen2"
+	AKSUbuntuContainerd2404TLGen2           Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
+	AKSFlatcarGen2                          Distro = "aks-flatcar-gen2"
+	AKSFlatcarArm64Gen2                     Distro = "aks-flatcar-arm64-gen2"
+	AKSACLGen2TL                            Distro = "aks-acl-gen2-tl"
+	AKSACLArm64Gen2TL                       Distro = "aks-acl-arm64-gen2-tl"
+	AKSACLGen2FIPSTL                        Distro = "aks-acl-gen2-fips-tl"
+	AKSACLArm64Gen2FIPSTL                   Distro = "aks-acl-arm64-gen2-fips-tl"
 
 	// Windows string const.
 	// AKSWindows2019 stands for distro of windows server 2019 SIG image with docker.
@@ -214,6 +219,8 @@ const (
 	AKSWindows2025 Distro = "aks-windows-2025"
 	// AKSWindows2025Gen2 stands for distro for windows server 2025 Gen 2 SIG image.
 	AKSWindows2025Gen2 Distro = "aks-windows-2025-gen2"
+	// AKSWindows2025Gen2TL stands for distro for windows server 2025 Gen 2 Trusted Launch SIG image.
+	AKSWindows2025Gen2TL Distro = "aks-windows-2025-gen2-tl"
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker.
 	AKSWindows2019PIR            Distro = "aks-windows-2019-pir"
 	CustomizedImage              Distro = "CustomizedImage"
@@ -257,6 +264,10 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuFipsContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
+	AKSUbuntuEdgeZoneContainerd2404,
+	AKSUbuntuEdgeZoneContainerd2404Gen2,
+	AKSAzureLinuxV3EdgeZone,
+	AKSAzureLinuxV3EdgeZoneGen2,
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
@@ -270,11 +281,11 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSAzureLinuxV3Arm64Gen2,
 	AKSAzureLinuxV3Arm64Gen2FIPS,
 	AKSUbuntuContainerd2204TLGen2,
-	AKSUbuntuMinimalContainerd2204,
-	AKSUbuntuMinimalContainerd2204Gen2,
 	AKSUbuntuContainerd2404,
 	AKSUbuntuContainerd2404Gen2,
 	AKSUbuntuContainerd2404TLGen2,
+	AKSUbuntuMinimalContainerd2604Gen2,
+	AKSUbuntuMinimalArm64Containerd2604Gen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
@@ -291,40 +302,24 @@ const (
 )
 
 func (d Distro) IsVHDDistro() bool {
-	for _, distro := range AKSDistrosAvailableOnVHD {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AKSDistrosAvailableOnVHD, d)
 }
 
 func (d Distro) Is2204VHDDistro() bool {
-	for _, distro := range AvailableUbuntu2204Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableUbuntu2204Distros, d)
 }
 
 // This function will later be consumed by CSE to determine cgroupv2 usage.
 func (d Distro) Is2404VHDDistro() bool {
-	for _, distro := range AvailableUbuntu2404Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableUbuntu2404Distros, d)
+}
+
+func (d Distro) Is2604VHDDistro() bool {
+	return slices.Contains(AvailableUbuntu2604Distros, d)
 }
 
 func (d Distro) IsAzureLinuxCgroupV2VHDDistro() bool {
-	for _, distro := range AvailableAzureLinuxCgroupV2Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableAzureLinuxCgroupV2Distros, d)
 }
 
 func (d Distro) IsKataDistro() bool {
@@ -332,30 +327,19 @@ func (d Distro) IsKataDistro() bool {
 }
 
 func (d Distro) IsFlatcarDistro() bool {
-	for _, distro := range AvailableFlatcarDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableFlatcarDistros, d)
 }
 
 func (d Distro) IsACLDistro() bool {
-	for _, distro := range AvailableACLDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableACLDistros, d)
 }
 
 func (d Distro) IsAzureLinuxOSGuardDistro() bool {
-	for _, distro := range AvailableAzureLinuxOSGuardDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableAzureLinuxOSGuardDistros, d)
+}
+
+func (d Distro) IsAzureLinuxV3Distro() bool {
+	return slices.Contains(AvailableAzureLinuxV3Distros, d)
 }
 
 /*
@@ -1207,6 +1191,18 @@ func (a *AgentPoolProfile) Is2404VHDDistro() bool {
 	return a.Distro.Is2404VHDDistro()
 }
 
+// Is2604VHDDistro returns true if the distro uses 2604 VHD.
+func (a *AgentPoolProfile) Is2604VHDDistro() bool {
+	return a.Distro.Is2604VHDDistro()
+}
+
+func (a *AgentPoolProfile) IsContainerdV2Distro() bool {
+	if a.Distro.IsKataDistro() {
+		return false
+	}
+	return a.Distro.Is2404VHDDistro() || a.Distro.IsACLDistro() || a.Distro.IsAzureLinuxV3Distro()
+}
+
 // IsAzureLinuxCgroupV2VHDDistro returns true if the distro uses Azure Linux CgrpupV2 VHD.
 func (a *AgentPoolProfile) IsAzureLinuxCgroupV2VHDDistro() bool {
 	return a.Distro.IsAzureLinuxCgroupV2VHDDistro()
@@ -1752,6 +1748,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableAMDGPU                    bool
 	ManagedGPUExperienceAFECEnabled bool
 	EnableManagedGPU                bool
+	EnableManagedGPUDRA             bool
 	MigStrategy                     string
 	EnableArtifactStreaming         bool
 	ContainerdVersion               string
@@ -1787,6 +1784,12 @@ type NodeBootstrappingConfiguration struct {
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
+	// EnabledFeatures is a generic set of feature toggles delivered to the node as KEY=VALUE
+	// lines in enabled_features.sh, which the aks-node-controller wrapper reads and exports as
+	// environment variables (e.g. "ENABLE_PROVISIONING_HOTFIX" -> "true") to gate provisioning
+	// steps such as check-hotfix. Using a map lets RP add new toggles without producer-side code
+	// changes. Empty/nil => no file is written and scriptless custom data is byte-identical to today.
+	EnabledFeatures map[string]string
 	// Version is required for aks-node-controller application to determine the version of the config file.
 	Version string
 
@@ -1805,6 +1808,15 @@ type NodeBootstrappingConfiguration struct {
 	// EnableScriptlessNBCCSECmd enables scriptless phase 2 in which the cse cmd generated from NBC is passed to
 	// AKS Node Controller and uses the NBC cmd to start provisioning.
 	EnableScriptlessNBCCSECmd bool
+	// Pass AKSNodeConfig as serialized JSON string to compare generated provisioning with NBC cse cmd for scriptless phase 3
+	AKSNodeConfigJSON string
+
+	// StandardSecondaryNICCount is the number of Standard-type secondary network
+	// interfaces configured on the agent pool. The node bootstrapping scripts use
+	// this to detect and configure the additional NICs at the OS level.
+	// Dynamic-type secondary NICs are not included in this count as they are
+	// configured by CNS rather than the node bootstrapping scripts.
+	StandardSecondaryNICCount int
 }
 
 func (config *NodeBootstrappingConfiguration) IsAzureLinux() bool {
@@ -1895,13 +1907,6 @@ type SecureTLSBootstrappingConfig struct {
 	// GetCredentialTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
 	// This is the amount of time given to the bootstrap client to retrieve a credential from the bootstrap server.
 	GetCredentialTimeout string `json:"secureTLSBootstrappingGetCredentialTimeout,omitempty"`
-
-	// Deadline is an optional override passed to the secure TLS bootstrap client during provisioning.
-	// This is the amount of time we let secure TLS bootstrapping attempt to succeed before falling back
-	// to using the bootstrap token. This will be removed once bootstrap tokens are no longer a viable fall-back.
-	//
-	// Deprecated: Use individual RPC timeouts instead.
-	Deadline string `json:"secureTLSBootstrappingDeadline,omitempty"`
 }
 
 func (c *SecureTLSBootstrappingConfig) GetEnabled() bool {
@@ -1972,13 +1977,6 @@ func (c *SecureTLSBootstrappingConfig) GetGetCredentialTimeout() string {
 		return ""
 	}
 	return c.GetCredentialTimeout
-}
-
-func (c *SecureTLSBootstrappingConfig) GetDeadline() string {
-	if c == nil {
-		return ""
-	}
-	return c.Deadline
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set.
@@ -2109,13 +2107,11 @@ type AKSKubeletConfiguration struct {
 	Default: nil
 	+optional. */
 	ClusterDNS []string `json:"clusterDNS,omitempty"`
-	/* streamingConnectionIdleTimeout is the maximum time a streaming connection
-	can be idle before the connection is automatically closed.
-	Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-	it may impact components that rely on infrequent updates over streaming
-	connections to the Kubelet server.
-	Default: "4h"
-	+optional. */
+	/* Deprecated: streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34.
+		Retained for backward compatibility with k8s < 1.34. Do not use for new code.
+		For k8s >= 1.34, this field is cleared by baker/ANC and omitted from the config file via omitempty.
+		Default: "4h"
+	   +optional. */
 	StreamingConnectionIdleTimeout Duration `json:"streamingConnectionIdleTimeout,omitempty"`
 	/* nodeStatusUpdateFrequency is the frequency that kubelet computes node
 	status. If node lease feature is not enabled, it is also the frequency that
@@ -2229,6 +2225,24 @@ type AKSKubeletConfiguration struct {
 	  imagefs.available: "15%"
 	+optional. */
 	EvictionHard map[string]string `json:"evictionHard,omitempty"`
+	/* evictionSoft is a map of signal names to quantities that defines soft eviction thresholds.
+	For example: {"memory.available": "300Mi"}.
+	Each signal listed here must also have a corresponding entry in evictionSoftGracePeriod.
+	Soft eviction terminates pods gracefully (respecting terminationGracePeriodSeconds, capped by
+	evictionMaxPodGracePeriod) once the threshold is breached for the configured grace period.
+	+optional. */
+	EvictionSoft map[string]string `json:"evictionSoft,omitempty"`
+	/* evictionSoftGracePeriod is a map of signal names to durations defining how long the soft
+	eviction threshold must be breached before triggering eviction. Example:
+	{"memory.available": "30s", "nodefs.available": "2m"}.
+	Each entry must correspond to a signal listed in evictionSoft.
+	+optional. */
+	EvictionSoftGracePeriod map[string]string `json:"evictionSoftGracePeriod,omitempty"`
+	/* evictionMaxPodGracePeriod is the maximum allowed grace period (in seconds) to use when
+	terminating pods in response to a soft eviction threshold being met. Setting this value
+	caps the pod's terminationGracePeriodSeconds during soft eviction.
+	+optional. */
+	EvictionMaxPodGracePeriod int32 `json:"evictionMaxPodGracePeriod,omitempty"`
 	/* protectKernelDefaults, if true, causes the Kubelet to error if kernel
 	flags are not as it expects. Otherwise the Kubelet will attempt to modify
 	kernel flags to match its expectation.
@@ -2308,6 +2322,16 @@ type AKSKubeletConfiguration struct {
 	Default: ["pods"]
 	+optional. */
 	EnforceNodeAllocatable []string `json:"enforceNodeAllocatable,omitempty"`
+	/* kubeReservedCgroup is the absolute name of the cgroup the kubelet should manage
+	for the kube-reserved compute resources. When enforce-node-allocatable contains
+	"kube-reserved", this cgroup must exist before kubelet starts. Example: "/kubelet.slice".
+	+optional. */
+	KubeReservedCgroup string `json:"kubeReservedCgroup,omitempty"`
+	/* systemReservedCgroup is the absolute name of the cgroup the kubelet should manage
+	for the system-reserved compute resources. When enforce-node-allocatable contains
+	"system-reserved", this cgroup must exist before kubelet starts. Example: "/system.slice".
+	+optional. */
+	SystemReservedCgroup string `json:"systemReservedCgroup,omitempty"`
 	/* A comma separated whitelist of unsafe sysctls or sysctl patterns (ending in *).
 	Unsafe sysctl groups are kernel.shm*, kernel.msg*, kernel.sem, fs.mqueue.*, and net.*.
 	These sysctls are namespaced but not allowed by default.
@@ -2552,6 +2576,9 @@ type LocalDNSProfile struct {
 	// CriticalFQDNs is the list of critical FQDNs to resolve for the hosts plugin.
 	// Passed from RP so the script doesn't need cloud-specific logic.
 	CriticalFQDNs []string `json:"criticalFQDNs,omitempty"`
+
+	// HostsPluginRefreshIntervalInSeconds overrides the default hosts plugin timer cadence.
+	HostsPluginRefreshIntervalInSeconds *int32 `json:"hostsPluginRefreshIntervalInSeconds,omitempty"`
 }
 
 type LocalDNSCoreFileData struct {

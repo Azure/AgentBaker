@@ -56,8 +56,8 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 {{- if .GetEnableArtifactStreaming }}
 [proxy_plugins]
   [proxy_plugins.overlaybd]
-	type = "snapshot"
-	address = "/run/overlaybd-snapshotter/overlaybd.sock"
+    type = "snapshot"
+    address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if .GetIsKata }}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]

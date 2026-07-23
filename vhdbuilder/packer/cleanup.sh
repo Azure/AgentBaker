@@ -172,9 +172,9 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
     for image_version in $(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${image_definition} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | head -n 15 | tr -d '\"' || ""); do
       image_version_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image_definition}/versions/${image_version}"
 
-      # TODO: remove 2404gen2arm64gb200containerd exemption once released to official production galleries
+      # TODO: remove 2404gen2arm64gbcontainerd exemption once released to official production galleries
       # shellcheck disable=SC3010
-      if [ "${image_definition,,}" = "2404gen2arm64gb200containerd" ] && [[ "$image_version" == "1.1."* ]]; then
+      if [ "${image_definition,,}" = "2404gen2arm64gbcontainerd" ] && [[ "$image_version" == "1.1."* ]]; then
         echo "Will not consider garbage collection of image: ${image_version_id}"
         continue
       fi

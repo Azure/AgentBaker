@@ -12,62 +12,181 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestReadHotfixVersion(t *testing.T) {
-	t.Run("file does not exist", func(t *testing.T) {
-		version, err := readHotfixVersion("/nonexistent/path")
+func TestReadHotfixConfig(t *testing.T) {
+	t.Run("file does not exist returns zero config", func(t *testing.T) {
+		cfg, err := readHotfixConfig("/nonexistent/path")
 		assert.NoError(t, err)
-		assert.Equal(t, "", version)
+		assert.Equal(t, &hotfixConfig{}, cfg)
 	})
 
-	t.Run("file is empty", func(t *testing.T) {
+	t.Run("empty file returns zero config", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "hotfix-config.json")
-		require.NoError(t, os.WriteFile(path, []byte(""), 0644))
-		version, err := readHotfixVersion(path)
+		require.NoError(t, os.WriteFile(path, []byte("  \n"), 0644))
+		cfg, err := readHotfixConfig(path)
 		assert.NoError(t, err)
-		assert.Equal(t, "", version)
+		assert.Equal(t, &hotfixConfig{}, cfg)
 	})
 
-	t.Run("file has version", func(t *testing.T) {
+	t.Run("parses legacy version field", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "hotfix-config.json")
-		require.NoError(t, os.WriteFile(path, []byte(`{"version": "202603.30.0-hotfix1"}`), 0644))
-		version, err := readHotfixVersion(path)
-		assert.NoError(t, err)
-		assert.Equal(t, "202603.30.0-hotfix1", version)
+		require.NoError(t, os.WriteFile(path, []byte(`{"version": "202604.01.1"}`), 0644))
+		cfg, err := readHotfixConfig(path)
+		require.NoError(t, err)
+		assert.Equal(t, "202604.01.1", cfg.Version)
+		assert.Empty(t, cfg.Hotfixes)
 	})
 
-	t.Run("file has empty version field", func(t *testing.T) {
+	t.Run("parses base->version map", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "hotfix-config.json")
-		require.NoError(t, os.WriteFile(path, []byte(`{"version": ""}`), 0644))
-		version, err := readHotfixVersion(path)
-		assert.NoError(t, err)
-		assert.Equal(t, "", version)
+		require.NoError(t, os.WriteFile(path, []byte(`{"hotfixes": {"202604.01": "202604.01.1", "202605.30": "202605.30.2"}}`), 0644))
+		cfg, err := readHotfixConfig(path)
+		require.NoError(t, err)
+		assert.Equal(t, map[string]string{"202604.01": "202604.01.1", "202605.30": "202605.30.2"}, cfg.Hotfixes)
 	})
 
-	t.Run("file has invalid JSON", func(t *testing.T) {
+	t.Run("invalid JSON errors", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "hotfix-config.json")
 		require.NoError(t, os.WriteFile(path, []byte("not json"), 0644))
-		_, err := readHotfixVersion(path)
+		_, err := readHotfixConfig(path)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "parsing hotfix config")
 	})
 
-	t.Run("file has extra fields (forward compat)", func(t *testing.T) {
+	t.Run("ignores extra fields (forward compat)", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "hotfix-config.json")
-		require.NoError(t, os.WriteFile(path, []byte(`{"version": "1.0.0", "sha256": "abc123"}`), 0644))
-		version, err := readHotfixVersion(path)
-		assert.NoError(t, err)
-		assert.Equal(t, "1.0.0", version)
+		require.NoError(t, os.WriteFile(path, []byte(`{"version": "202604.01.1", "sha256": "abc123"}`), 0644))
+		cfg, err := readHotfixConfig(path)
+		require.NoError(t, err)
+		assert.Equal(t, "202604.01.1", cfg.Version)
+	})
+}
+
+func TestHotfixBaseFromVersion(t *testing.T) {
+	tests := []struct {
+		name    string
+		version string
+		want    string
+		wantErr bool
+	}{
+		{"standard version", "202604.01.1", "202604.01", false},
+		{"preserves leading zero day", "202604.01.0", "202604.01", false},
+		{"two-digit day", "202605.30.2", "202605.30", false},
+		{"trims whitespace", "  202604.01.1  ", "202604.01", false},
+		{"too few segments", "202604.01", "", true},
+		{"empty patch segment", "202604.01.", "", true},
+		{"single segment", "dev", "", true},
+		{"empty", "", "", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := hotfixBaseFromVersion(tc.version)
+			if tc.wantErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tc.want, got)
+			}
+		})
+	}
+}
+
+func TestHotfixConfigResolveVersion(t *testing.T) {
+	t.Run("empty map falls back to legacy Version field", func(t *testing.T) {
+		cfg := hotfixConfig{Version: "202604.01.1"}
+		assert.Equal(t, "202604.01.1", cfg.resolveVersion("202604.01.0"))
+	})
+
+	t.Run("empty config resolves to empty", func(t *testing.T) {
+		cfg := hotfixConfig{}
+		assert.Equal(t, "", cfg.resolveVersion("202604.01.0"))
+	})
+
+	t.Run("map hit returns matching base entry", func(t *testing.T) {
+		cfg := hotfixConfig{Hotfixes: map[string]string{
+			"202604.01": "202604.01.1",
+			"202605.30": "202605.30.2",
+		}}
+		assert.Equal(t, "202604.01.1", cfg.resolveVersion("202604.01.0"))
+		assert.Equal(t, "202605.30.2", cfg.resolveVersion("202605.30.0"))
+	})
+
+	t.Run("map miss returns empty (default deny for unlisted base)", func(t *testing.T) {
+		cfg := hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.1"}}
+		assert.Equal(t, "", cfg.resolveVersion("202606.09.0"))
+	})
+
+	t.Run("map preserves leading-zero day matching", func(t *testing.T) {
+		cfg := hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.1"}}
+		assert.Equal(t, "202604.01.1", cfg.resolveVersion("202604.01.0"))
+	})
+
+	t.Run("map takes precedence over legacy Version field", func(t *testing.T) {
+		cfg := hotfixConfig{
+			Version:  "202604.01.9",
+			Hotfixes: map[string]string{"202604.01": "202604.01.1"},
+		}
+		assert.Equal(t, "202604.01.1", cfg.resolveVersion("202604.01.0"))
+	})
+
+	t.Run("unparseable current version with map returns empty (fail-open)", func(t *testing.T) {
+		cfg := hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.1"}}
+		assert.Equal(t, "", cfg.resolveVersion("dev"))
 	})
 }
 
 func TestDetectPackageManager(t *testing.T) {
-	// This test reads the real /etc/os-release so it's OS-dependent.
-	// We just verify it doesn't error on the current host.
-	pkgMgr, err := detectPackageManager()
-	if err != nil {
-		t.Skipf("skipping on unsupported OS: %v", err)
-	}
-	assert.Contains(t, []packageManager{pkgMgrApt, pkgMgrDnf, pkgMgrTdnf}, pkgMgr)
+	t.Run("real host os-release", func(t *testing.T) {
+		// This exercises the real /etc/os-release so it's OS-dependent.
+		// We just verify it doesn't error on the current host.
+		a := &App{}
+		pkgMgr, err := a.detectPackageManager()
+		if err != nil {
+			t.Skipf("skipping on unsupported OS: %v", err)
+		}
+		assert.Contains(t, []packageManager{pkgMgrApt, pkgMgrDnf, pkgMgrTdnf}, pkgMgr)
+	})
+
+	t.Run("ubuntu returns apt", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "os-release")
+		require.NoError(t, os.WriteFile(path, []byte("ID=ubuntu\nVERSION_ID=\"22.04\"\n"), 0644))
+		a := &App{osReleasePath: path}
+		pkgMgr, err := a.detectPackageManager()
+		require.NoError(t, err)
+		assert.Equal(t, pkgMgrApt, pkgMgr)
+	})
+
+	t.Run("mariner or azurelinux returns dnf or tdnf", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "os-release")
+		require.NoError(t, os.WriteFile(path, []byte(`ID="azurelinux"`+"\n"), 0644))
+		a := &App{osReleasePath: path}
+		pkgMgr, err := a.detectPackageManager()
+		require.NoError(t, err)
+		assert.Contains(t, []packageManager{pkgMgrDnf, pkgMgrTdnf}, pkgMgr)
+	})
+
+	t.Run("unsupported OS errors", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "os-release")
+		require.NoError(t, os.WriteFile(path, []byte("ID=windows\n"), 0644))
+		a := &App{osReleasePath: path}
+		_, err := a.detectPackageManager()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported OS")
+	})
+
+	t.Run("missing ID line errors", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "os-release")
+		require.NoError(t, os.WriteFile(path, []byte("VERSION_ID=1\n"), 0644))
+		a := &App{osReleasePath: path}
+		_, err := a.detectPackageManager()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "ID not found")
+	})
+
+	t.Run("unreadable os-release errors", func(t *testing.T) {
+		a := &App{osReleasePath: filepath.Join(t.TempDir(), "does-not-exist")}
+		_, err := a.detectPackageManager()
+		require.Error(t, err)
+	})
 }
 
 func TestResolveMicrosoftProdSourceListPath(t *testing.T) {
@@ -174,6 +293,11 @@ func TestDownloadHotfix_MatchingBaseUpgrades(t *testing.T) {
 	require.NoError(t, os.MkdirAll(aptDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(aptDir, "microsoft-prod.list"), []byte("deb ..."), 0o644))
 
+	// Provide a fake /etc/os-release so detectPackageManager resolves deterministically
+	// to apt-get regardless of the host OS running this test (e.g. macOS dev machines).
+	osReleasePath := filepath.Join(dir, "os-release")
+	require.NoError(t, os.WriteFile(osReleasePath, []byte("ID=ubuntu\n"), 0o644))
+
 	installCalled := false
 	tt := NewTestApp(t, TestAppConfig{
 		RunFunc: func(cmd *exec.Cmd) error {
@@ -183,6 +307,7 @@ func TestDownloadHotfix_MatchingBaseUpgrades(t *testing.T) {
 	})
 	tt.App.hotfixVersionPath = path
 	tt.App.aptSourcesDir = aptDir
+	tt.App.osReleasePath = osReleasePath
 	// Will fail at copyBinaryAlongside since pkgBinaryPath doesn't exist in test,
 	// but install should have been called.
 	err := tt.App.downloadHotfix(context.Background())
@@ -190,16 +315,167 @@ func TestDownloadHotfix_MatchingBaseUpgrades(t *testing.T) {
 	assert.True(t, installCalled, "should proceed when base matches and hotfix patch is higher")
 }
 
-func TestDownloadHotfix_UnreadableFile(t *testing.T) {
+func TestDownloadHotfix_UnreadableFileFailsOpen(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.0"
+	defer func() { Version = origVersion }()
+
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hotfix-config.json")
-	require.NoError(t, os.WriteFile(path, []byte(`{"version": "1.0.0"}`), 0o644))
+	require.NoError(t, os.WriteFile(path, []byte(`{"version": "202604.01.1"}`), 0o644))
 	require.NoError(t, os.Chmod(path, 0o000))
 	t.Cleanup(func() { _ = os.Chmod(path, 0o644) })
+	if _, err := os.ReadFile(path); err == nil {
+		require.NoError(t, os.Remove(path))
+		require.NoError(t, os.Mkdir(path, 0o755))
+	}
 
-	tt := NewTestApp(t, TestAppConfig{})
+	aptDir := filepath.Join(dir, "sources.list.d")
+	require.NoError(t, os.MkdirAll(aptDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(aptDir, "microsoft-prod.list"), []byte("deb ..."), 0o644))
+
+	installCalled := false
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(*exec.Cmd) error {
+			installCalled = true
+			return nil
+		},
+	})
 	tt.App.hotfixVersionPath = path
-	require.Error(t, tt.App.downloadHotfix(context.Background()))
+	tt.App.aptSourcesDir = aptDir
+	// Fail-open: an unreadable config must skip the hotfix without erroring,
+	// so download-hotfix never blocks provisioning.
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+	assert.False(t, installCalled, "should skip install when the config cannot be read")
+}
+
+func TestDownloadHotfix_InvalidJSONFailsOpen(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.0"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hotfix-config.json")
+	require.NoError(t, os.WriteFile(path, []byte("not json"), 0o644))
+
+	aptDir := filepath.Join(dir, "sources.list.d")
+	require.NoError(t, os.MkdirAll(aptDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(aptDir, "microsoft-prod.list"), []byte("deb ..."), 0o644))
+
+	installCalled := false
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(*exec.Cmd) error {
+			installCalled = true
+			return nil
+		},
+	})
+	tt.App.hotfixVersionPath = path
+	tt.App.aptSourcesDir = aptDir
+	// Fail-open: malformed JSON must skip the hotfix without erroring.
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+	assert.False(t, installCalled, "should skip install when the config is invalid JSON")
+}
+
+func TestDownloadHotfix_MapBaseNotPresentSkips(t *testing.T) {
+	origVersion := Version
+	Version = "202606.09.0"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hotfix-config.json")
+	require.NoError(t, os.WriteFile(path, []byte(`{"hotfixes": {"202604.01": "202604.01.1"}}`), 0o644))
+
+	installCalled := false
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(cmd *exec.Cmd) error {
+			installCalled = true
+			return nil
+		},
+	})
+	tt.App.hotfixVersionPath = path
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+	assert.False(t, installCalled, "should skip when VHD base is not a key in the hotfixes map")
+}
+
+func TestDownloadHotfix_MapMatchingBaseUpgrades(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.0"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hotfix-config.json")
+	require.NoError(t, os.WriteFile(path, []byte(`{"hotfixes": {"202604.01": "202604.01.1", "202605.30": "202605.30.2"}}`), 0o644))
+
+	aptDir := filepath.Join(dir, "sources.list.d")
+	require.NoError(t, os.MkdirAll(aptDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(aptDir, "microsoft-prod.list"), []byte("deb ..."), 0o644))
+
+	// Provide a fake /etc/os-release so detectPackageManager resolves deterministically
+	// to apt-get regardless of the host OS running this test (e.g. macOS dev machines).
+	osReleasePath := filepath.Join(dir, "os-release")
+	require.NoError(t, os.WriteFile(osReleasePath, []byte("ID=ubuntu\n"), 0o644))
+
+	installCalled := false
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(cmd *exec.Cmd) error {
+			installCalled = true
+			return nil
+		},
+	})
+	tt.App.hotfixVersionPath = path
+	tt.App.aptSourcesDir = aptDir
+	tt.App.osReleasePath = osReleasePath
+	// Will fail at copyBinaryAlongside since pkgBinaryPath doesn't exist in test,
+	// but install should have been called for the matching base entry.
+	err := tt.App.downloadHotfix(context.Background())
+	require.Error(t, err)
+	assert.True(t, installCalled, "should install the hotfix for the matching base entry")
+}
+
+func TestDownloadHotfix_MapPatchNotHigherSkips(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.2"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hotfix-config.json")
+	// Map entry resolves for this base, but patch (1) is not strictly higher than baked (2).
+	require.NoError(t, os.WriteFile(path, []byte(`{"hotfixes": {"202604.01": "202604.01.1"}}`), 0o644))
+
+	installCalled := false
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(cmd *exec.Cmd) error {
+			installCalled = true
+			return nil
+		},
+	})
+	tt.App.hotfixVersionPath = path
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+	assert.False(t, installCalled, "should skip when resolved hotfix patch is not strictly higher")
+}
+
+func TestDownloadHotfix_MapMisconfiguredValueBaseSkips(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.0"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hotfix-config.json")
+	// Misconfigured entry: the value's base (202605.30) does not match its key (202604.01).
+	// resolveVersion selects it by key for a node on base 202604.01, but shouldUpgradeToHotfix
+	// must reject it because the YYYYMM.DD bases differ, so no wrong-base binary is installed.
+	require.NoError(t, os.WriteFile(path, []byte(`{"hotfixes": {"202604.01": "202605.30.2"}}`), 0o644))
+
+	installCalled := false
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(cmd *exec.Cmd) error {
+			installCalled = true
+			return nil
+		},
+	})
+	tt.App.hotfixVersionPath = path
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+	assert.False(t, installCalled, "should skip when the map value's base does not match the node's base")
 }
 
 func TestRetryCommand_SuccessOnFirstAttempt(t *testing.T) {
@@ -335,9 +611,9 @@ func TestShouldUpgradeToHotfix(t *testing.T) {
 		wantErr bool
 	}{
 		// Positive: same base, hotfix has higher patch
-		{"base .0 → hotfix .1", "202604.01.0", "202604.01.1", true, false},
-		{"base .0 → hotfix .2", "202604.01.0", "202604.01.2", true, false},
-		{"hotfix .1 → hotfix .2", "202604.01.1", "202604.01.2", true, false},
+		{"base .0 -> hotfix .1", "202604.01.0", "202604.01.1", true, false},
+		{"base .0 -> hotfix .2", "202604.01.0", "202604.01.2", true, false},
+		{"hotfix .1 -> hotfix .2", "202604.01.1", "202604.01.2", true, false},
 
 		// Negative: same version
 		{"same version .0", "202604.01.0", "202604.01.0", false, false},

@@ -13,7 +13,7 @@ blobfuseFallbackPackages() {
     # This combination is unlikely, so this fallback can be removed
     # 6 months after the April 2026 release.
     local LEGACY_FALLBACK_BLOBFUSE_VERSION="1.4.5"
-    local LEGACY_FALLBACK_BLOBFUSE2_VERSION="2.5.3"
+    local LEGACY_FALLBACK_BLOBFUSE2_VERSION="2.5.4"
     local HAS_BLOBFUSE_COMPONENT="false"
     local HAS_BLOBFUSE2_COMPONENT="false"
 
@@ -60,7 +60,7 @@ installDeps() {
     fi
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        pkg_list+=("aznfs=3.0.14")
+        pkg_list+=("aznfs=3.0.19")
     fi
 
     # Batch install all packages in a single apt_get_install call instead of
@@ -179,18 +179,26 @@ isPackageInstalled() {
 }
 
 managedGPUPackageList() {
-    packages=(
-        nvidia-device-plugin
+    local packages=(
         datacenter-gpu-manager-4-core
         datacenter-gpu-manager-4-proprietary
         dcgm-exporter
     )
+
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE:-false}" = "true" ]; then
+        packages+=(nvidia-device-plugin)
+    elif [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA:-false}" = "true" ]; then
+        packages+=(dra-driver-nvidia-gpu)
+    fi
+
     echo "${packages[@]}"
 }
 
 installNvidiaManagedExpPkgFromCache() {
     # Ensure kubelet device-plugins directory exists BEFORE package installation
     mkdir -p /var/lib/kubelet/device-plugins
+    mkdir -p /var/lib/kubelet/plugins_registry
+    mkdir -p /var/lib/kubelet/plugins
 
     for packageName in $(managedGPUPackageList); do
         downloadDir="/opt/${packageName}/downloads"
@@ -223,12 +231,89 @@ removeNvidiaRepos() {
     fi
 }
 
+# cleanUpPrebakedGPUDriver removes a CUDA driver pre-baked into the shared VHD on any node that does
+# NOT install the AKS-managed driver -- the cleanUpGPUDrivers path (GPU_NODE != true OR
+# skip_nvidia_driver_install=true): non-GPU VMs, and GPU VMs opted out via --gpu-driver None or the
+# skip toggle/tag. There the driver is dead weight (wasted disk; nvidia.ko rebuilt on every kernel
+# patch) and, on an opted-out GPU node, unused attack surface.
+#
+# The prebaked module MAY already be loaded when we run: cuda(-lts) prebakes auto-load nvidia.ko at
+# boot (~5s, well before CSE), so on a cuda/cuda-lts SKU opted out via --gpu-driver None the module
+# is resident even though ensureGPUDrivers never ran. (grid prebakes do not auto-load, so grid nodes
+# arrive here with no module.) Deleting the on-disk .ko then leaves a stale loaded module -- unused
+# (refcnt 0, no /dev/nvidia*) but resident until reboot, and a landmine for a subsequent GPU Operator
+# install. So we rmmod it first, when idle, before removing the files. No-op unless the marker exists.
+cleanUpPrebakedGPUDriver() {
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    if [ ! -f "${marker}" ]; then
+        return 0
+    fi
+    echo "Removing pre-baked NVIDIA driver inherited from shared VHD (node does not install the managed driver)"
+    local dkms_before=false module_before=false module_after=false
+    [ -d /var/lib/dkms/nvidia ] && dkms_before=true
+
+    # Unload the prebaked nvidia module if it auto-loaded at boot (cuda/cuda-lts SKUs). Only when idle
+    # (refcnt 0 and no device nodes) -- this node doesn't install a driver, so nothing should be using
+    # it; if something is, leave it and let module_after=true flag an incomplete teardown. Unload the
+    # dependent modules first (modeset/uvm/drm) so nvidia's refcnt drops to 0. Best-effort; failures
+    # do not abort provisioning.
+    if lsmod | grep -q '^nvidia'; then
+        module_before=true
+        if [ "$(cat /sys/module/nvidia/refcnt 2>/dev/null || echo 0)" = "0" ] && ! ls /dev/nvidia* >/dev/null 2>&1; then
+            for mod in nvidia_uvm nvidia_drm nvidia_modeset nvidia_peermem nvidia; do
+                rmmod "${mod}" 2>/dev/null || true
+            done
+        fi
+    fi
+    lsmod | grep -q '^nvidia' && module_after=true
+
+    # Deregister the nvidia DKMS module by removing its source tree (avoids the slow `dkms remove
+    # --all`, ~35s). Any loaded module was unloaded above, so no depmod/initramfs refresh is needed.
+    rm -rf /var/lib/dkms/nvidia || true
+    rm -f /lib/modules/*/updates/dkms/nvidia*.ko* 2>/dev/null || true
+    # The prebake stages libs under the aks-gpu *container's* GPU_DEST=/usr/bin (aks-gpu config.sh),
+    # NOT this script's GPU_DEST=/usr/local/nvidia -- so clear /usr/bin.
+    rm -rf /usr/bin/lib64 || true
+    # Remove the driver binaries too (same /usr/bin) so the node is genuinely driver-free -- else
+    # e.g. nvidia-smi stays on PATH but errors once its libs are gone.
+    for nvidiaBin in nvidia-smi nvidia-debugdump nvidia-persistenced nvidia-cuda-mps-control \
+                     nvidia-cuda-mps-server nvidia-modprobe nvidia-bug-report.sh nvidia-powerd \
+                     nvidia-ngx-updater nvidia-sleep.sh; do
+        rm -f "/usr/bin/${nvidiaBin}" || true
+    done
+    rm -f /etc/ld.so.conf.d/nvidia.conf || true
+    ldconfig || true
+
+    # Stage-1 observability + retry: assess completeness BEFORE dropping the marker. status=incomplete
+    # means the DKMS registration, the setuid nvidia-modprobe binary, or a still-resident nvidia
+    # module lingered (a security-coverage alert). On an incomplete teardown we KEEP the marker so the
+    # next provision re-runs this cleanup (the marker is the "still needs cleanup" flag); on a clean
+    # teardown we drop it. status=cleaned counts toward fleet-wide coverage. Greppable AKS_GPU_PREBAKE.
+    local dkms_after=false modprobe_after=false marker_after=true status=cleaned
+    [ -d /var/lib/dkms/nvidia ] && dkms_after=true
+    [ -e /usr/bin/nvidia-modprobe ] && modprobe_after=true
+    if [ "${dkms_after}" = false ] && [ "${modprobe_after}" = false ] && [ "${module_after}" = false ]; then
+        rm -f "${marker}" || true
+        [ -f "${marker}" ] || marker_after=false
+    fi
+    if [ "${marker_after}" = true ] || [ "${dkms_after}" = true ] || [ "${modprobe_after}" = true ] || [ "${module_after}" = true ]; then
+        status=incomplete
+    fi
+    echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=${status} dkms_before=${dkms_before} module_before=${module_before} module_after=${module_after} marker_after=${marker_after} dkms_after=${dkms_after} modprobe_after=${modprobe_after}"
+}
+
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
 
     for packageName in $(managedGPUPackageList); do
         rm -rf "/opt/${packageName}"
     done
+
+    # A CUDA driver pre-baked into a shared Ubuntu VHD is dead weight on a node that doesn't install
+    # the managed driver (non-GPU, or GPU opted out via --gpu-driver None / skip), and while
+    # DKMS-registered it forces an nvidia.ko rebuild on every kernel patch. Tear it down here.
+    # No-op on VHDs without the aks-gpu prebake marker.
+    cleanUpPrebakedGPUDriver
 }
 
 installCriCtlPackage() {
@@ -376,8 +461,8 @@ installPkgWithAptGet() {
 
         # update pmc repo to get latest versions
         updatePMCRepository "${packageVersion}"
-        # query all package versions and get the latest version for matching k8s version
-        fullPackageVersion=$(apt list "${packageName}" --all-versions | grep "${packageVersion}" | awk '{print $2}' | sort -V | tail -n 1)
+        # query all package versions and get the latest version for matching k8s version and cpu architecture
+        fullPackageVersion=$(apt list "${packageName}" --all-versions | grep "${packageVersion}" | grep "$(getCPUArch)" | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${packageVersion}"
             return 1
@@ -443,9 +528,7 @@ downloadPkgFromVersion() {
 }
 
 installContainerd() {
-    packageVersion="${3:-}"
-    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
-    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
+    local packageVersion="${3:-}"
     CONTAINERD_DOWNLOADS_DIR="${1:-$CONTAINERD_DOWNLOADS_DIR}"
     eval containerdOverrideDownloadURL="${2:-}"
 
@@ -454,7 +537,7 @@ installContainerd() {
         installContainerdFromOverride ${containerdOverrideDownloadURL} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
-    installContainerdWithAptGet "${containerdMajorMinorPatchVersion}" "${containerdHotFixVersion}" "${CONTAINERD_DOWNLOADS_DIR}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    installContainerdWithAptGet "${packageVersion}" "${CONTAINERD_DOWNLOADS_DIR}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 
 installContainerdFromOverride() {
@@ -470,15 +553,19 @@ installContainerdFromOverride() {
 }
 
 installContainerdWithAptGet() {
-    local containerdMajorMinorPatchVersion="${1}"
-    local containerdHotFixVersion="${2}"
-    CONTAINERD_DOWNLOADS_DIR="${3:-$CONTAINERD_DOWNLOADS_DIR}"
+    # packageVersion is the full version string from components.json, e.g. "2.3.2-ubuntu24.04u2" or "1.7.33-ubuntu22.04u1".
+    # The major.minor.patch is extracted for version comparison against the currently installed package.
+    local packageVersion="${1}"
+    CONTAINERD_DOWNLOADS_DIR="${2:-$CONTAINERD_DOWNLOADS_DIR}"
+    local containerdMajorMinorPatchVersion
+    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
+
     # Query installed version via dpkg metadata instead of running the containerd
     # binary. `containerd -version` takes ~5.7s to load the full runtime just to
     # print a version string; dpkg-query is instant.
     # dpkg version format: "1.7.31+azure-ubuntu22.04u1" or "1:1.7.31+azure-..."
     # Normalize to pure "major.minor.patch" by stripping epoch, +suffix, -suffix.
-    currentVersion=""
+    local currentVersion=""
     if dpkg -l moby-containerd 2>/dev/null | grep -q "^ii"; then
         currentVersion=$(dpkg-query -W -f='${Version}' moby-containerd 2>/dev/null | sed 's/^[0-9]*://' | cut -d '+' -f1 | cut -d '-' -f1)
     fi
@@ -487,26 +574,21 @@ installContainerdWithAptGet() {
         currentVersion="0.0.0"
     fi
 
+    local currentMajorMinor desiredMajorMinor
     currentMajorMinor="$(echo $currentVersion | tr '.' '\n' | head -n 2 | paste -sd.)"
     desiredMajorMinor="$(echo $containerdMajorMinorPatchVersion | tr '.' '\n' | head -n 2 | paste -sd.)"
     semverCompare "$currentVersion" "$containerdMajorMinorPatchVersion"
-    hasGreaterVersion="$?"
+    local hasGreaterVersion="$?"
 
     if [ "$hasGreaterVersion" = "0" ] && [ "$currentMajorMinor" = "$desiredMajorMinor" ]; then
         echo "currently installed containerd version ${currentVersion} matches major.minor with higher patch ${containerdMajorMinorPatchVersion}. skipping installStandaloneContainerd."
     else
-        echo "installing containerd version ${containerdMajorMinorPatchVersion}"
+        echo "installing containerd version ${packageVersion}"
         logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
 
-        # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
-        # if no files found then try fetching from packages.microsoft repo
-        containerdDebFile=$(find "${CONTAINERD_DOWNLOADS_DIR}" -maxdepth 1 -name "moby-containerd_${containerdMajorMinorPatchVersion}*" -print -quit 2>/dev/null) || containerdDebFile=""
-        if [ -n "${containerdDebFile}" ]; then
-            logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${containerdDebFile}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-            return 0
-        fi
-        logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
-        containerdDebFile=$(find "${CONTAINERD_DOWNLOADS_DIR}" -maxdepth 1 -name "moby-containerd_${containerdMajorMinorPatchVersion}*" -print -quit 2>/dev/null) || containerdDebFile=""
+        # No cached deb found — download from packages.microsoft.com
+        logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${packageVersion}"
+        containerdDebFile=$(find "${CONTAINERD_DOWNLOADS_DIR}" -maxdepth 1 -name "moby-containerd_${packageVersion}*" 2>/dev/null | sort -V | tail -n1)
         if [ -z "${containerdDebFile}" ]; then
             echo "Failed to locate cached containerd deb"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
@@ -522,8 +604,6 @@ installStandaloneContainerd() {
     # Read UBUNTU_CODENAME from /etc/os-release instead of lsb_release (avoids Python spawn).
     UBUNTU_CODENAME=$(. /etc/os-release && echo "${VERSION_CODENAME}")
     CONTAINERD_VERSION=$1
-    # we always default to the .1 patch versons
-    CONTAINERD_PATCH_VERSION="${2:-1}"
 
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
     CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
@@ -532,21 +612,22 @@ installStandaloneContainerd() {
         return 0
     fi
 
-    echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
-    installContainerdWithAptGet "${CONTAINERD_VERSION}" "${CONTAINERD_PATCH_VERSION}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    echo "Using specified Containerd Version: ${CONTAINERD_VERSION}"
+    installContainerdWithAptGet "${CONTAINERD_VERSION}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 
 downloadContainerdFromVersion() {
-    # Patch version isn't used here...?
-    CONTAINERD_VERSION=$1
+    # packageVersion is the full version string, e.g. "2.3.2-ubuntu24.04u2" or "1.7.33-ubuntu22.04u1".
+    # The major.minor.patch is extracted for the apt glob pattern.
+    local packageVersion="$1"
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     # Adding updateAptWithMicrosoftPkg since AB e2e uses an older image version with uncached containerd 1.6 so it needs to download from testing repo.
     # And RP no image pull e2e has apt update restrictions that prevent calls to packages.microsoft.com in CSE
     # This won't be called for new VHDs as they have containerd 1.6 cached
     updateAptWithMicrosoftPkg
-    apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    echo "Succeeded to download containerd version ${CONTAINERD_VERSION}"
+    apt_get_download 20 30 moby-containerd=${packageVersion}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    cp -al ${APT_CACHE_DIR}moby-containerd_${packageVersion}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    echo "Succeeded to download containerd version ${packageVersion}"
 }
 
 downloadContainerdFromURL() {

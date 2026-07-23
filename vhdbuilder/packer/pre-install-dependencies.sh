@@ -66,9 +66,10 @@ if isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; then
     cp /etc/waagent.conf{,.new}
     mv /etc/waagent.conf{.new,}
 fi
-# enable AKS log collector
+# disable AKS log collector and waagent collection
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
-systemctlEnableAndStart aks-log-collector.timer 30 || exit 1
+systemctl disable --now aks-log-collector.service || exit 1
+systemctl disable --now aks-log-collector.timer || exit 1
 
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
 systemctlEnableAndStart logrotate.timer 30 || exit 1
@@ -198,14 +199,14 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   fi
   NVIDIA_KERNEL_PACKAGE="linux-azure-nvidia"
   if [[ "${CPU_ARCH}" == "arm64" && "${UBUNTU_RELEASE}" = "24.04" ]]; then
-    # This is the ubuntu 2404arm64gen2containerd image or the 2404arm64gb200 image
+    # This is the ubuntu 2404arm64gen2containerd image or the 2404arm64gb image
     # The Ubuntu PPA has early access to new kernels, such as the one in the GB300 CRD.
     # Uncomment if we have trouble finding the kernel package.
     # add-apt-repository ppa:canonical-kernel-team/ppa
-    if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+    if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
       add-apt-repository ppa:canonical-kernel-team/ppa
       apt-get update
-      BOM_PATH="gb200-mai-bom.json"
+      BOM_PATH="gb-mai-bom.json"
       if [ -n "$(jq -r '.["kernel-versions"] | keys[]' $BOM_PATH)" ]; then
         NVIDIA_KERNEL_PACKAGE=$(jq -r '.["kernel-versions"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
       fi
