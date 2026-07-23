@@ -320,4 +320,101 @@ else
 fi
 echo ""
 
+# ---------------------------------------------------------------------------
+# 11. Connection teardown regression check (client-visible RST vs FIN).
+#
+# The exporter serves a correct 200 body regardless of how the TCP connection is
+# later closed, so every step above -- which only asserts the status code and
+# body, each behind `curl ... || true` -- stays green even when the teardown is
+# broken. A prior defect left the HTTP request headers unread in the socket
+# receive buffer, so the kernel sent a TCP RST instead of a FIN on close.
+# Scrapers -- and the API-server konnectivity proxy path -- logged that as
+# "connection reset by peer" on every otherwise-successful scrape (~35k/day/
+# region after clusters rolled to k8s 1.36.1).
+#
+# With `Connection: close` and no Content-Length, curl relies on a clean close
+# to know the body is complete, so it reports a mid- or post-body RST as a
+# receive error (exit 56). A non-zero curl exit here is therefore a teardown
+# regression. We deliberately do NOT append `|| true`: the exit code is the
+# assertion. tcpdump-level FIN/RST inspection is only feasible in manual
+# testing; this exit-code check is the CI-usable proxy for it.
+# ---------------------------------------------------------------------------
+echo "11. Verifying graceful connection teardown (curl exit code)..."
+TEARDOWN_ITERATIONS=5
+for i in $(seq 1 "$TEARDOWN_ITERATIONS"); do
+    CURL_RC=0
+    curl -s -o /dev/null --connect-timeout 5 --max-time 10 "http://${LISTEN_ADDR}/metrics" || CURL_RC=$?
+    if [ "$CURL_RC" -ne 0 ]; then
+        echo "   ❌ ERROR: curl exited $CURL_RC on scrape $i/${TEARDOWN_ITERATIONS}"
+        if [ "$CURL_RC" -eq 56 ]; then
+            echo "   curl exit 56 = 'failure receiving network data' — the exporter closed the"
+            echo "   connection with a TCP RST instead of a FIN. This is the 'connection reset"
+            echo "   by peer' regression: the worker is not draining the full HTTP request"
+            echo "   before responding, so unread request bytes force an RST on close. The"
+            echo "   metrics body may be correct, but every scraper/konnectivity connection is"
+            echo "   being reset."
+        fi
+        exit 1
+    fi
+done
+echo "   ✓ curl exited 0 on all ${TEARDOWN_ITERATIONS} scrapes (connection closed with FIN, not RST)"
+echo ""
+
+# ---------------------------------------------------------------------------
+# 12. Socket-activated worker must not be left in a failed state.
+#
+# Each scrape spawns a per-connection `localdns-exporter@<n>.service` worker.
+# A prior defect made the worker exit non-zero ("cat: write error: Broken pipe")
+# when a scrape client closed the socket while the worker was still writing the
+# response, leaving the unit `failed`. None of the functional steps above assert
+# on unit state, so this surfaced only as a recurring, misattributed E2E flake
+# (localdns-exporter-systemd-failed-state). Asserting zero failed exporter units
+# turns that silent flake into a hard, correctly-attributed signal.
+#
+# We first clear any pre-existing failed instances so the assertion reflects only
+# what this check produces, then drive a burst of scrapes that close early (read
+# just the status line, then drop the connection) to exercise the client-
+# disconnect path, and finally assert no worker was left failed. `nc` is present
+# on all AKS VHD distros (Ubuntu, AzureLinux, Flatcar); we avoid bash /dev/tcp
+# because Flatcar builds bash without net redirections.
+# ---------------------------------------------------------------------------
+echo "12. Verifying scrape client-disconnect does not leave a failed worker unit..."
+HOLD_HOST="${LISTEN_ADDR%%:*}"
+HOLD_PORT="${LISTEN_ADDR##*:}"
+
+# Clear any previously-failed exporter instances so the assertion below only
+# reflects the disconnect burst we are about to generate.
+systemctl reset-failed 'localdns-exporter@*.service' 2>/dev/null || true
+
+DISCONNECT_ITERATIONS=30
+for i in $(seq 1 "$DISCONNECT_ITERATIONS"); do
+    # Send a complete request, then read only the first response line and close.
+    # If the worker mishandles the client going away mid-response, it exits
+    # non-zero and systemd records the instance as failed.
+    printf 'GET /metrics HTTP/1.1\r\nHost: %s\r\nUser-Agent: e2e-earlyclose\r\nAccept: */*\r\n\r\n' "$HOLD_HOST" \
+        | timeout 3 nc "$HOLD_HOST" "$HOLD_PORT" 2>/dev/null \
+        | head -n 1 >/dev/null 2>&1 || true
+done
+
+# Give systemd a moment to reap the transient instances and record any failures.
+sleep 2
+
+FAILED_UNITS=$(systemctl list-units --all --state=failed 'localdns-exporter@*.service' \
+    --no-legend --no-pager --plain 2>/dev/null | awk '{print $1}' || true)
+if [ -n "$FAILED_UNITS" ]; then
+    echo "   ❌ ERROR: exporter worker unit(s) left in failed state after client disconnects:"
+    while IFS= read -r unit; do
+        [ -z "$unit" ] && continue
+        echo "     - $unit"
+        systemctl status "$unit" --no-pager --lines=10 2>/dev/null | sed 's/^/       /' || true
+    done <<< "$FAILED_UNITS"
+    echo "   A client disconnecting mid-response must be treated as a normal termination"
+    echo "   (SIGPIPE/broken pipe => exit 0), not a unit failure."
+    # Clear the units so a retry starts from a clean slate.
+    systemctl reset-failed 'localdns-exporter@*.service' 2>/dev/null || true
+    exit 1
+fi
+echo "   ✓ No exporter worker units left in failed state after ${DISCONNECT_ITERATIONS} early-close scrapes"
+echo ""
+
 echo "=== ✓ All localdns exporter functional validations passed ==="
