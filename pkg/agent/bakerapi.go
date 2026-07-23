@@ -49,6 +49,22 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 		CSE:        templateGenerator.getNodeBootstrappingCmd(config),
 	}
 
+	// Record CustomData size metrics and emit log warnings if approaching VMSS limit.
+	osType := "linux"
+	if config.AgentPoolProfile.IsWindows() {
+		osType = "windows"
+	}
+	pool := ""
+	if config.AgentPoolProfile != nil {
+		pool = config.AgentPoolProfile.Name
+	}
+	recordCustomDataSize(nodeBootstrapping.CustomData, osType, string(config.AgentPoolProfile.Distro), customDataContext{
+		SubscriptionID: config.SubscriptionID,
+		ResourceGroup:  config.ResourceGroupName,
+		VMSSName:       config.PrimaryScaleSetName,
+		PoolName:       pool,
+	})
+
 	distro := config.AgentPoolProfile.Distro
 	if distro == datamodel.CustomizedWindowsOSImage ||
 		distro == datamodel.CustomizedImage ||
