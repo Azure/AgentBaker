@@ -109,6 +109,9 @@ installDeps() {
     if [ "${OSVERSION}" != "26.04" ]; then
         # linux-modules-extra-* content is bundled into linux-modules-* on 26.04 (resolute)
         pkg_list+=(linux-modules-extra-$(uname -r))
+    else
+        # libc6-dev is needed for GPU driver installation at runtime and is not included on the 26.04 minimal base image
+        pkg_list+=(libc6-dev)
     fi
 
     while IFS= read -r fallback_pkg; do
