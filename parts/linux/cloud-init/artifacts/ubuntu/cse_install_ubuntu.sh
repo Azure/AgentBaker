@@ -375,8 +375,6 @@ removeAmdRocmAptRepos() {
     rm -f /etc/apt/preferences.d/repo-radeon-pin-600
     rm -f /etc/apt/keyrings/rocm.gpg
     rm -f /var/lib/apt/lists/*repo.radeon.com*
-    rm -f /var/lib/apt/lists/*packages.microsoft.com*
-    rm -f /var/lib/apt/lists/*packages.aks.azure.com*
 }
 
 amdRocmBinaryPath() {
@@ -437,6 +435,7 @@ ensureAmdGpuDrivers() {
     local rocminfo_package_version="${AMD_ROCM_ROCMINFO_VERSION:-1.0.0.70204-93~24.04}"
     local rocm_smi_lib_package_version="${AMD_ROCM_SMI_LIB_VERSION:-7.8.0.70204-93~24.04}"
     local kernel_version
+    local marker_file="${AMD_ROCM_MARKER_FILE:-/opt/azure/amd-rocm/version}"
     local ubuntu_release
     local err
     kernel_version="$(uname -r)"
@@ -449,10 +448,11 @@ ensureAmdGpuDrivers() {
     isAmdRocmSupportedSku || exit $ERR_AMD_ROCM_UNSUPPORTED_OS
     ensureAmdRocmModuleAutoload
 
-    if [ -f /opt/azure/amd-rocm/version ] && validateAmdRocmDriver; then
+    if [ -f "${marker_file}" ] && validateAmdRocmDriver; then
         echo "AMD ROCm driver is already installed and validated"
         return 0
     fi
+    rm -f "${marker_file}"
 
     setupAmdRocmAptRepos "${rocm_version}" "${amdgpu_repo_version}" || { err=$?; removeAmdRocmAptRepos; exit $err; }
 
@@ -465,8 +465,10 @@ ensureAmdGpuDrivers() {
         "rocm-smi-lib=${rocm_smi_lib_package_version}" || { removeAmdRocmAptRepos; exit $ERR_AMD_ROCM_INSTALL_TIMEOUT; }
     ldconfig || { removeAmdRocmAptRepos; exit $ERR_AMD_ROCM_INSTALL_TIMEOUT; }
 
-    mkdir -p /opt/azure/amd-rocm
-    cat > /opt/azure/amd-rocm/version <<EOF
+    validateAmdRocmDriver || { removeAmdRocmAptRepos; exit $ERR_AMD_ROCM_VALIDATE_FAIL; }
+
+    mkdir -p "$(dirname "${marker_file}")"
+    cat > "${marker_file}" <<EOF
 install_mode=cse
 package_set=minimal-host
 rocm_version=${rocm_version}
@@ -476,9 +478,8 @@ libdrm_amdgpu_dev_version=${libdrm_amdgpu_dev_version}
 kernel=${kernel_version}
 installed_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 EOF
-    chmod 644 /opt/azure/amd-rocm/version
+    chmod 644 "${marker_file}"
 
-    validateAmdRocmDriver || { removeAmdRocmAptRepos; exit $ERR_AMD_ROCM_VALIDATE_FAIL; }
     removeAmdRocmAptRepos
 }
 

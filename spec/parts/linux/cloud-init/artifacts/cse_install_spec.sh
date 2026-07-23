@@ -366,4 +366,15 @@ Describe 'cse_install.sh'
             The output line 3 should include "mock exit calling with 207"
         End
     End
+
+    Describe 'ensureAmdGpuDrivers fallback'
+        It 'fails with the unsupported OS code when the distro has no AMD implementation'
+            OS="AZURELINUX"
+
+            When run ensureAmdGpuDrivers
+
+            The status should equal 244
+            The output should include "AMD ROCm CSE install is not supported on OS=AZURELINUX"
+        End
+    End
 End

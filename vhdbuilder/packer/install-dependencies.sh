@@ -827,15 +827,6 @@ EOF
   fi
 fi
 
-if grep -q "AMD_ROCM" <<< "$FEATURE_FLAGS"; then
-  echo "Installing AMD ROCm and AMDGPU driver into the VHD"
-  installAmdRocmPrebake
-  cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - amd-rocm-prebake=$(cat /opt/azure/amd-rocm/version | tr '\n' ' ')
-EOF
-fi
-capture_benchmark "${SCRIPT_NAME}_install_amd_rocm_prebake"
-
 if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then
   ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 fi

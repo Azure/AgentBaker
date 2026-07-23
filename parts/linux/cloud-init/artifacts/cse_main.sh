@@ -418,7 +418,7 @@ function nodePrep {
     REBOOTREQUIRED=false
 
     # Install and configure AMD GPU drivers if this is an AMD GPU node.
-    if [ "${AMD_GPU_NODE}" = "true" ]; then
+    if [ "${AMD_GPU_NODE:-false}" = "true" ]; then
         echo $(date),$(hostname), "Start configuring AMD GPU drivers"
         logs_to_events "AKS.CSE.ensureAmdGpuDrivers" ensureAmdGpuDrivers
         echo $(date),$(hostname), "End configuring AMD GPU drivers"

@@ -72,7 +72,7 @@ oom_score = -999
 			},
 		},
 		{
-			name:       "AKSUbuntu2204 containerd with AMD GPU",
+			name:       "CSE environment with AMD GPU enabled",
 			folder:     "AKSUbuntu2204+Containerd+MIG",
 			k8sVersion: "1.19.13",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {

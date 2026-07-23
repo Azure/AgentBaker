@@ -2514,83 +2514,6 @@ testDiskQueueServiceIsActive() {
   echo "$test:Finish"
 }
 
-testAmdRocmPrebake() {
-  local test="testAmdRocmPrebake"
-  echo "$test: Start"
-
-  if ! echo "$FEATURE_FLAGS" | grep -q "AMD_ROCM"; then
-    echo "$test: Skipping - AMD_ROCM feature flag not set"
-    echo "$test: Finish"
-    return 0
-  fi
-
-  if [ "$OS_SKU" != "Ubuntu" ] || [ "$OS_VERSION" != "24.04" ]; then
-    err "$test" "AMD_ROCM should only be used with Ubuntu 24.04, got OS_SKU=$OS_SKU OS_VERSION=$OS_VERSION"
-    return 1
-  fi
-
-  if [ ! -f /opt/azure/amd-rocm/version ]; then
-    err "$test" "/opt/azure/amd-rocm/version marker is missing"
-    return 1
-  fi
-
-  for package_name in amdgpu-dkms libdrm-amdgpu-dev rocm-core rocminfo rocm-smi-lib; do
-    if ! dpkg-query -W "${package_name}" >/dev/null 2>&1; then
-      err "$test" "${package_name} package is not installed"
-      return 1
-    fi
-  done
-
-  if ! dkms status amdgpu | grep -q "$(uname -r).*installed"; then
-    err "$test" "amdgpu DKMS module is not installed for kernel $(uname -r)"
-    return 1
-  fi
-
-  if ! modinfo amdgpu >/dev/null 2>&1; then
-    err "$test" "amdgpu kernel module metadata is not available"
-    return 1
-  fi
-
-  if grep -qsE '^[[:space:]]*(blacklist[[:space:]]+amdgpu|install[[:space:]]+amdgpu[[:space:]]+/bin/false)([[:space:]]|$)' /etc/modprobe.d/*.conf 2>/dev/null; then
-    err "$test" "amdgpu is still disabled in /etc/modprobe.d"
-    return 1
-  fi
-
-  if ! grep -qx amdgpu /etc/modules-load.d/amdgpu.conf; then
-    err "$test" "amdgpu is not configured to load on boot"
-    return 1
-  fi
-
-  if ! command -v rocminfo >/dev/null 2>&1 && [ ! -x /opt/rocm/bin/rocminfo ]; then
-    err "$test" "rocminfo is not available on PATH or at /opt/rocm/bin/rocminfo"
-    return 1
-  fi
-
-  if ! command -v rocm-smi >/dev/null 2>&1 && [ ! -x /opt/rocm/bin/rocm-smi ]; then
-    err "$test" "rocm-smi is not available on PATH or at /opt/rocm/bin/rocm-smi"
-    return 1
-  fi
-
-  if grep -R "repo.radeon.com" /etc/apt/sources.list /etc/apt/sources.list.d /etc/apt/preferences /etc/apt/preferences.d >/dev/null 2>&1; then
-    err "$test" "repo.radeon.com apt source or pin is still present on the VHD"
-    return 1
-  fi
-
-  if [ -e /etc/apt/keyrings/rocm.gpg ]; then
-    err "$test" "/etc/apt/keyrings/rocm.gpg should be removed after VHD build"
-    return 1
-  fi
-
-  if find /var/lib/apt/lists -maxdepth 1 -name '*repo.radeon.com*' | grep -q .; then
-    err "$test" "repo.radeon.com apt package indexes should be removed after VHD build"
-    return 1
-  fi
-
-  echo "$test: AMD ROCm prebake marker: $(tr '\n' ' ' < /opt/azure/amd-rocm/version)"
-  echo "$test: Finish"
-  return 0
-}
-
 testCNIPluginsInstalled() {
   local test="testCNIPluginsInstalled"
   echo "$test: Start"
@@ -2715,6 +2638,5 @@ testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive
-testAmdRocmPrebake
 testVulnerableKernelModulesDisabled $OS_SKU $OS_VERSION
 testArtifactStreamingPackagesCleanedUp
