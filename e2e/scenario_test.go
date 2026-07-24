@@ -2023,7 +2023,7 @@ func Test_Ubuntu2604Minimal_DisableKubeletServingCertificateRotationWithTags(t *
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2604 minimal bootstrapped with kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
@@ -2039,7 +2039,7 @@ func Test_Ubuntu2604Minimal_DisableKubeletServingCertificateRotationWithTags_Cus
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2604 minimal bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				// to force kubelet config file
@@ -2071,7 +2071,7 @@ func Test_Ubuntu2604Minimal_DisableKubeletServingCertificateRotationWithTags_Alr
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2604 minimal bootstrapped with kubelet serving certificate rotation disabled will disable certificate rotation regardless of nodepool tags",
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
@@ -2087,7 +2087,7 @@ func Test_Ubuntu2604Minimal_DisableKubeletServingCertificateRotationWithTags_Alr
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2604 minimal bootstrapped with kubelet serving certificate rotation disabled and custom kubelet config will disable certificate rotation regardless of nodepool tags",
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				// to force kubelet config file
@@ -2111,7 +2111,7 @@ func Test_Ubuntu2604Minimal_VHDCaching(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "T",
 		Config: Config{
-			Cluster:                ClusterLatestKubernetesVersion,
+			Cluster:                ClusterLatestKubernetesVersionKubenet,
 			VHD:                    config.VHDUbuntu2604MinimalGen2Containerd,
 			VHDCaching:             true,
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
@@ -2135,7 +2135,7 @@ func Test_Ubuntu2604Minimal_CustomCa(t *testing.T) {
 			KubeletCustomConfig: true,
 		},
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
@@ -2166,7 +2166,7 @@ func Test_Ubuntu2604Minimal_CustomSysctls(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an ubuntu 2604 minimal VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
@@ -2198,7 +2198,7 @@ func Test_Ubuntu2604Minimal_MANA(t *testing.T) {
 			VMSeriesCoverageTest: true,
 		},
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersion,
+			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			UseNVMe: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
