@@ -596,7 +596,7 @@ func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 								TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(proxyPort)},
 							},
 						},
-						// Restart the container if probe fails
+						// Restart the container if it stops serving on :8888.
 						LivenessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(proxyPort)},
@@ -625,16 +625,15 @@ func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 	var proxyURL string
 	var lastPodStatuses []string
+	selfHealDelay := 3 * time.Minute
+	start := time.Now()
+	selfHealed := false
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
-		pods, err := k.Typed.CoreV1().Pods("default").List(ctx, metav1.ListOptions{
+		pods, err := k.Typed.CoreV1().Pods(defaultNamespace).List(ctx, metav1.ListOptions{
 			LabelSelector: "app=" + proxyAppLabel,
 		})
 		if err != nil {
 			return false, fmt.Errorf("listing proxy pods: %w", err)
-		}
-		if len(pods.Items) == 0 {
-			lastPodStatuses = []string{"no proxy pods found"}
-			return false, nil
 		}
 		lastPodStatuses = lastPodStatuses[:0]
 		for _, pod := range pods.Items {
@@ -646,6 +645,18 @@ func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 			}
 			lastPodStatuses = append(lastPodStatuses, formatPodDiagnostics(&pod))
 		}
+		if len(pods.Items) == 0 {
+			lastPodStatuses = []string{"no proxy pods found"}
+		}
+		// Self-heal once if no proxy pod becomes ready within the grace period
+		if !selfHealed && time.Since(start) >= selfHealDelay {
+			selfHealed = true
+			if rerr := k.recreateProxyPods(ctx); rerr != nil {
+				toolkit.Logf(ctx, "failed to recreate proxy pods after %s: %v", selfHealDelay, rerr)
+			} else {
+				toolkit.Logf(ctx, "recreated proxy pods after %s without a ready proxy", selfHealDelay)
+			}
+		}
 		return false, nil
 	})
 	if err != nil {
@@ -653,6 +664,23 @@ func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("waiting for proxy pod to be ready: %w", err)
 	}
 	return proxyURL, nil
+}
+
+// recreateProxyPods deletes all proxy pods so the DaemonSet reschedules fresh ones
+func (k *Kubeclient) recreateProxyPods(ctx context.Context) error {
+	pods, err := k.Typed.CoreV1().Pods(defaultNamespace).List(ctx, metav1.ListOptions{
+		LabelSelector: "app=" + proxyAppLabel,
+	})
+	if err != nil {
+		return fmt.Errorf("listing proxy pods for recreate: %w", err)
+	}
+	for i := range pods.Items {
+		name := pods.Items[i].Name
+		if err := k.Typed.CoreV1().Pods(defaultNamespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !errorsk8s.IsNotFound(err) {
+			return fmt.Errorf("deleting proxy pod %s for recreate: %w", name, err)
+		}
+	}
+	return nil
 }
 
 func formatPodDiagnostics(pod *corev1.Pod) string {
