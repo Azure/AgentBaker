@@ -42,7 +42,7 @@ func getAzureOverlayNetworkClusterModel(name, location, k8sSystemPoolSKU string)
 }
 
 func getAzureOverlayNetworkDualStackClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
-	return azureOverlayNetworkClusterModelMutator(getBaseClusterModel(name, location, k8sSystemPoolSKU))
+	return azureOverlayNetworkDualStackClusterModelMutator(getBaseClusterModel(name, location, k8sSystemPoolSKU))
 }
 
 func getAzureNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {

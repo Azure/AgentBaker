@@ -83,12 +83,14 @@ retrycmd_if_failure() {
 addPMCAptKey() {
     local OS_VERSION=${1}
 
-    retrycmd_if_failure 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+    retrycmd_if_failure 120 5 25 curl -fsSL -o /tmp/microsoft.asc https://packages.microsoft.com/keys/microsoft.asc || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+    gpg --dearmor < /tmp/microsoft.asc > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
 
     if [ "${OS_VERSION}" = "26.04" ]; then
         # Ubuntu 26.04 (Resolute) PMC repo is signed with Microsoft's newer 2025 gpg key
-        retrycmd_if_failure 120 5 25 curl https://packages.microsoft.com/keys/microsoft-2025.asc | gpg --dearmor > /tmp/microsoft-2025.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+        retrycmd_if_failure 120 5 25 curl -fsSL -o /tmp/microsoft-2025.asc https://packages.microsoft.com/keys/microsoft-2025.asc || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+        gpg --dearmor < /tmp/microsoft-2025.asc > /tmp/microsoft-2025.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
         retrycmd_if_failure 10 5 10 cp /tmp/microsoft-2025.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     fi
 }
