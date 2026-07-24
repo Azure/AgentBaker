@@ -381,6 +381,43 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2604_GPUCUDA(t *testing.T) {
+	require.NotEmpty(t, config.Config.GPUDriverImageRegistry, "GPU_DRIVER_IMAGE_REGISTRY must point to the test aks-gpu repository prefix")
+	RunScenario(t, &Scenario{
+		Description: "Tests that an R595 CUDA driver compiles and initializes on an Ubuntu 26.04 GPU node",
+		Location:    "westus3",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster:                       ClusterKubenet,
+			VHD:                           config.VHDUbuntu2604Gen2Containerd,
+			SkipDefaultValidation:         true,
+			SkipSSHConnectivityValidation: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableNvidia = true
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.PrivateAzureRegistryServer = config.Config.GPUDriverImageRegistry
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				view, err := RunCommand(ctx, s, `#!/bin/bash
+set -euo pipefail
+grep -q '^VERSION_ID=26.04$' /etc/os-release
+command -v nvidia-modprobe
+output=$(nvidia-smi)
+grep -Eq 'Driver Version: 595\.' <<<"$output"
+`)
+				require.NoError(s.T, err)
+				require.NoError(s.T, runCommandScriptError(view))
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Ubuntu 22.04 GPU nodes",

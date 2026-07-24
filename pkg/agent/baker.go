@@ -727,6 +727,7 @@ all business logic is implemented in the underlying func. */
 func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration) template.FuncMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
+	gpuDriver := getGPUDriverConfig(profile.VMSize, profile.Distro)
 	return template.FuncMap{
 		// This was DisableUnattendedUpgrade when we had UU enabled by default in image.
 		// Now we don't, so we have to deliberately enable it.
@@ -1339,13 +1340,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return GPUNeedsFabricManager(profile.VMSize)
 		},
 		"GPUDriverVersion": func() string {
-			return GetGPUDriverVersion(profile.VMSize)
+			return gpuDriver.version
 		},
 		"GPUImageSHA": func() string {
-			return GetAKSGPUImageSHA(profile.VMSize)
+			return gpuDriver.imageSuffix
 		},
 		"GPUDriverType": func() string {
-			return GetGPUDriverType(profile.VMSize)
+			return gpuDriver.imageType
 		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			// Only need to enable HNSRemediator for Windows 2019
@@ -1550,21 +1551,36 @@ func getPortRangeEndValue(portRange string) int {
 	return num
 }
 
+type gpuDriverConfig struct {
+	version     string
+	imageSuffix string
+	imageType   string
+}
+
+// getGPUDriverConfig selects one coherent aks-gpu image identity for a VM SKU and node OS.
+// Ubuntu 26.04 CUDA nodes require R595 for kernel 7.x; existing OS releases retain R580 LTS.
+func getGPUDriverConfig(size string, distro datamodel.Distro) gpuDriverConfig {
+	if useGridV20Drivers(size) {
+		return gpuDriverConfig{datamodel.NvidiaGridV20DriverVersion, datamodel.AKSGPUGridV20VersionSuffix, "grid-v20"}
+	}
+	if useGridDrivers(size) {
+		return gpuDriverConfig{datamodel.NvidiaGridDriverVersion, datamodel.AKSGPUGridVersionSuffix, "grid"}
+	}
+	if isStandardNCv1(size) {
+		return gpuDriverConfig{datamodel.Nvidia470CudaDriverVersion, datamodel.AKSGPUCudaVersionSuffix, "cuda"}
+	}
+	if distro.Is2604VHDDistro() {
+		return gpuDriverConfig{datamodel.NvidiaCudaDriverVersion, datamodel.AKSGPUCudaVersionSuffix, "cuda"}
+	}
+	return gpuDriverConfig{datamodel.NvidiaCudaLTSDriverVersion, datamodel.AKSGPUCudaLTSVersionSuffix, "cuda-lts"}
+}
+
 // NV series GPUs target graphics workloads vs NC which targets compute.
 // they typically use GRID, not CUDA drivers, and will fail to install CUDA drivers.
 // NVv1 seems to run with CUDA, NVv5 requires GRID.
 // NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
 func GetGPUDriverVersion(size string) string {
-	if useGridV20Drivers(size) {
-		return datamodel.NvidiaGridV20DriverVersion
-	}
-	if useGridDrivers(size) {
-		return datamodel.NvidiaGridDriverVersion
-	}
-	if isStandardNCv1(size) {
-		return datamodel.Nvidia470CudaDriverVersion
-	}
-	return datamodel.NvidiaCudaLTSDriverVersion
+	return getGPUDriverConfig(size, "").version
 }
 
 func isStandardNCv1(size string) bool {
@@ -1583,13 +1599,7 @@ func useGridV20Drivers(size string) bool {
 }
 
 func GetAKSGPUImageSHA(size string) string {
-	if useGridV20Drivers(size) {
-		return datamodel.AKSGPUGridV20VersionSuffix
-	}
-	if useGridDrivers(size) {
-		return datamodel.AKSGPUGridVersionSuffix
-	}
-	return datamodel.AKSGPUCudaLTSVersionSuffix
+	return getGPUDriverConfig(size, "").imageSuffix
 }
 
 // GetGPUDriverType maps a GPU VM size to the aks-gpu image variant used to install its driver.
@@ -1599,16 +1609,7 @@ func GetAKSGPUImageSHA(size string) string {
 // R595 line drops, is supported through Aug 2028, and is the branch the VHD driver prebake is built
 // against. Legacy NCv1 (K80) keeps the separate "cuda" path with its pinned R470 driver.
 func GetGPUDriverType(size string) string {
-	if useGridV20Drivers(size) {
-		return "grid-v20"
-	}
-	if useGridDrivers(size) {
-		return "grid"
-	}
-	if isStandardNCv1(size) {
-		return "cuda"
-	}
-	return "cuda-lts"
+	return getGPUDriverConfig(size, "").imageType
 }
 
 func GPUNeedsFabricManager(size string) bool {

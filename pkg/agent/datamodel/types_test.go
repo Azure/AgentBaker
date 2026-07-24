@@ -1037,6 +1037,13 @@ func TestAgentPoolProfileIs2604VHDDistro(t *testing.T) {
 		expected bool
 	}{
 		{
+			name: "26.04 Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2604Gen2,
+			},
+			expected: true,
+		},
+		{
 			name: "26.04 minimal Gen2 VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSUbuntuMinimalContainerd2604Gen2,

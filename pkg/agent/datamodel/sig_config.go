@@ -111,6 +111,7 @@ var AvailableUbuntu2404Distros = []Distro{
 
 //nolint:gochecknoglobals
 var AvailableUbuntu2604Distros = []Distro{
+	AKSUbuntuContainerd2604Gen2,
 	AKSUbuntuMinimalContainerd2604Gen2,
 	AKSUbuntuMinimalArm64Containerd2604Gen2,
 }
@@ -171,6 +172,7 @@ var AvailableContainerdDistros = []Distro{
 	AKSAzureLinuxV3CVMGen2,
 	AKSUbuntuContainerd2404TLGen2,
 	AKSAzureLinuxV3OSGuardGen2FIPSTL,
+	AKSUbuntuContainerd2604Gen2,
 	AKSUbuntuMinimalContainerd2604Gen2,
 	AKSUbuntuMinimalArm64Containerd2604Gen2,
 }
@@ -192,6 +194,7 @@ var AvailableGen2Distros = []Distro{
 	AKSAzureLinuxV3EdgeZoneGen2,
 	AKSUbuntuContainerd2404Gen2,
 	AKSUbuntuContainerd2404TLGen2,
+	AKSUbuntuContainerd2604Gen2,
 	AKSUbuntuMinimalContainerd2604Gen2,
 	AKSUbuntuMinimalArm64Containerd2604Gen2,
 	AKSFlatcarGen2,
@@ -586,6 +589,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGUbuntuContainerd2604Gen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2604gen2containerd",
+		Version:       LinuxSIGImageVersion,
+	}
+
 	SIGUbuntuContainerd2404TLGen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
@@ -917,9 +927,8 @@ func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 	maintained := map[Distro]SigImageConfig{}
 	for _, m := range imageConfigMaps {
 		for distro, config := range m {
-			if distro.Is2604VHDDistro() {
-				// 26.04 images don't exist yet
-				// TODO(26.04): remove once images are published against LinuxSIGImageVersion
+			if distro == AKSUbuntuMinimalContainerd2604Gen2 || distro == AKSUbuntuMinimalArm64Containerd2604Gen2 {
+				// Minimal 26.04 images aren't built yet.
 				continue
 			}
 			if config.Version == LinuxSIGImageVersion {
@@ -949,6 +958,7 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuEgressContainerd2204Gen2:       SIGUbuntuEgressContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2404:                 SIGUbuntuContainerd2404ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2404Gen2:             SIGUbuntuContainerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2604Gen2:             SIGUbuntuContainerd2604Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2404TLGen2:           SIGUbuntuContainerd2404TLGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuMinimalContainerd2604Gen2:      SIGUbuntuMinimalContainerd2604Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuMinimalArm64Containerd2604Gen2: SIGUbuntuMinimalArm64Containerd2604Gen2ImageConfigTemplate.WithOptions(opts...),

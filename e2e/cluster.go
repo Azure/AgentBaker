@@ -79,6 +79,9 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	defer toolkit.LogStepCtx(ctx, "preparing cluster")()
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
 	defer cancel()
+	if config.Config.ClusterName != "" {
+		return prepareExistingCluster(ctx, config.Config.ClusterName, *clusterModel.Location, isNetworkIsolated)
+	}
 
 	infra, err := configureSharedVNet(ctx, clusterModel, *clusterModel.Location)
 	if err != nil {
@@ -202,6 +205,65 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		Bastion:          bastion.MustGet(),
 		ProxyURL:         proxyURL.MustGet(),
 		TenantID:         infra.TenantID,
+	}, nil
+}
+
+// prepareExistingCluster loads connection, network, and identity data without mutating or recreating
+// a cluster explicitly supplied through CLUSTER_NAME.
+func prepareExistingCluster(ctx context.Context, name, location string, isNetworkIsolated bool) (*Cluster, error) {
+	cluster, err := getExistingCluster(ctx, location, name)
+	if err != nil {
+		return nil, err
+	}
+	if cluster == nil {
+		return nil, fmt.Errorf("explicit cluster %q does not exist in %s", name, config.ResourceGroupName(location))
+	}
+	kubeconfig, err := getClusterKubeconfigBytes(ctx, config.ResourceGroupName(location), name)
+	if err != nil {
+		return nil, err
+	}
+	kube, err := NewKubeclient(kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+	kube.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, location))
+	proxyURL := ""
+	if !isNetworkIsolated {
+		proxyURL, err = kube.GetProxyURL(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+	identity, err := getClusterKubeletIdentity(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	vnet, err := getClusterVNet(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	bastion, err := getOrCreateBastion(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	params, err := extractClusterParameters(ctx, cluster, kube)
+	if err != nil {
+		return nil, err
+	}
+	tenantID := ""
+	if cluster.Identity != nil && cluster.Identity.TenantID != nil {
+		tenantID = *cluster.Identity.TenantID
+	}
+	return &Cluster{
+		Model:            cluster,
+		kubeconfig:       kubeconfig,
+		KubeletIdentity:  identity,
+		SubnetID:         vnet.subnetId,
+		VNetResourceGUID: vnet.resourceGUID,
+		ClusterParams:    params,
+		Bastion:          bastion,
+		ProxyURL:         proxyURL,
+		TenantID:         tenantID,
 	}, nil
 }
 
@@ -728,14 +790,40 @@ type VNet struct {
 	addressPrefix string
 }
 
-// getClusterVNet returns VNet info for the cluster by parsing the VnetSubnetID from the agent pool.
+// getClusterVNet returns the cluster VNet and subnet. Clusters using AKS-managed
+// networking may omit VnetSubnetID, so their default subnet is discovered in the node resource group.
 func getClusterVNet(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (VNet, error) {
 	for _, pool := range cluster.Properties.AgentPoolProfiles {
 		if pool.VnetSubnetID != nil && *pool.VnetSubnetID != "" {
 			return vnetFromSubnetID(ctx, *pool.VnetSubnetID)
 		}
 	}
-	return VNet{}, fmt.Errorf("no VnetSubnetID found on any agent pool profile")
+	if cluster.Properties.NodeResourceGroup == nil || *cluster.Properties.NodeResourceGroup == "" {
+		return VNet{}, fmt.Errorf("cluster has neither VnetSubnetID nor node resource group")
+	}
+
+	var subnetIDs []string
+	pager := config.Azure.VNet.NewListPager(*cluster.Properties.NodeResourceGroup, nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return VNet{}, fmt.Errorf("listing VNets in node resource group: %w", err)
+		}
+		for _, vnet := range page.Value {
+			if vnet.Properties == nil {
+				continue
+			}
+			for _, subnet := range vnet.Properties.Subnets {
+				if subnet.Name != nil && *subnet.Name == config.Config.DefaultSubnetName && subnet.ID != nil {
+					subnetIDs = append(subnetIDs, *subnet.ID)
+				}
+			}
+		}
+	}
+	if len(subnetIDs) != 1 {
+		return VNet{}, fmt.Errorf("expected one subnet named %q in node resource group %q, found %d", config.Config.DefaultSubnetName, *cluster.Properties.NodeResourceGroup, len(subnetIDs))
+	}
+	return vnetFromSubnetID(ctx, subnetIDs[0])
 }
 
 func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kube *Kubeclient) error {

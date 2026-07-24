@@ -158,6 +158,9 @@ var ClusterKubenet = cachedFunc(clusterKubenet)
 // clusterKubenet creates a basic cluster using kubenet networking with shared VNet
 func clusterKubenet(ctx context.Context, request ClusterRequest) (*Cluster, error) {
 	clusterName := "abe2e-kubenet-v5"
+	if config.Config.ClusterName != "" {
+		clusterName = config.Config.ClusterName
+	}
 	model := getKubenetClusterModel(clusterName, request.Location, request.K8sSystemPoolSKU)
 	return prepareCluster(ctx, model, false, false)
 }

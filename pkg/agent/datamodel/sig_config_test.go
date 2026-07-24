@@ -20,6 +20,7 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSUbuntuContainerd2004CVMGen2:    SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuContainerd2404:           SIGUbuntuContainerd2404ImageConfigTemplate.WithOptions(),
 			AKSUbuntuContainerd2404Gen2:       SIGUbuntuContainerd2404Gen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd2604Gen2:       SIGUbuntuContainerd2604Gen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuContainerd2404CVMGen2:    SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuContainerd2204TLGen2:     SIGUbuntuContainerd2204TLGen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuContainerd2404TLGen2:     SIGUbuntuContainerd2404TLGen2ImageConfigTemplate.WithOptions(),
@@ -43,7 +44,7 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			Expect(actual).To(HaveKeyWithValue(distro, config))
 		}
 
-		// TODO(26.04): add the 26.04 distros back to expected list once published against LinuxSIGImageVersion
+		// Minimal 26.04 images aren't built yet.
 		Expect(actual).To(Not(HaveKey(AKSUbuntuMinimalContainerd2604Gen2)))
 		Expect(actual).To(Not(HaveKey(AKSUbuntuMinimalArm64Containerd2604Gen2)))
 
@@ -98,7 +99,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(sigConfig.SigTenantID).To(Equal("sometenantid"))
 		Expect(sigConfig.SubscriptionID).To(Equal("somesubid"))
 
-		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(19))
+		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(20))
 
 		Expect(len(sigConfig.SigCBLMarinerImageConfig)).To(Equal(9))
 
@@ -379,6 +380,12 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntu2404Gen2Containerd.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntu2404Gen2Containerd.Definition).To(Equal("2404gen2containerd"))
 		Expect(aksUbuntu2404Gen2Containerd.Version).To(Equal(LinuxSIGImageVersion))
+
+		aksUbuntu2604Gen2Containerd := sigConfig.SigUbuntuImageConfig[AKSUbuntuContainerd2604Gen2]
+		Expect(aksUbuntu2604Gen2Containerd.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(aksUbuntu2604Gen2Containerd.Gallery).To(Equal("aksubuntu"))
+		Expect(aksUbuntu2604Gen2Containerd.Definition).To(Equal("2604gen2containerd"))
+		Expect(aksUbuntu2604Gen2Containerd.Version).To(Equal(LinuxSIGImageVersion))
 
 		azurelinuxV3CVMGen2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3CVMGen2]
 		Expect(azurelinuxV3CVMGen2.ResourceGroup).To(Equal("resourcegroup"))

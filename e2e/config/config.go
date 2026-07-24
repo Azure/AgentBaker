@@ -61,6 +61,7 @@ type Configuration struct {
 	BlobContainer                          string        `env:"BLOB_CONTAINER" envDefault:"abe2e"`
 	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e"`
 	BuildID                                string        `env:"BUILD_ID" envDefault:"local"`
+	ClusterName                            string        `env:"CLUSTER_NAME"`
 	DefaultLocation                        string        `env:"E2E_LOCATION" envDefault:"westus3"`
 	DefaultPollInterval                    time.Duration `env:"DEFAULT_POLL_INTERVAL" envDefault:"15s"`
 	DefaultSubnetName                      string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
@@ -70,6 +71,7 @@ type Configuration struct {
 	E2ELoggingDir                          string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
 	EnableSecureTLSBootstrapping           bool          `env:"ENABLE_SECURE_TLS_BOOTSTRAPPING" envDefault:"true"`
 	ExtendedTests                          string        `env:"EXTENDED_TESTS" envDefault:""`
+	GPUDriverImageRegistry                 string        `env:"GPU_DRIVER_IMAGE_REGISTRY"`
 	GalleryNameLinux                       string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
 	GalleryNameWindows                     string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
 	GalleryResourceGroupNameLinux          string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`

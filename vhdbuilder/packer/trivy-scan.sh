@@ -17,6 +17,9 @@ TRIVY_DEB_2204_VERSION="0.70.0-ubuntu22.04u9"
 # renovate: datasource=custom.deb2404 depName=trivy versioning=deb
 TRIVY_DEB_2404_VERSION="0.70.0-ubuntu24.04u9"
 
+# renovate: datasource=custom.deb2604 depName=trivy versioning=deb
+TRIVY_DEB_2604_VERSION="0.70.0-ubuntu26.04u12"
+
 # renovate: datasource=rpm depName=trivy registryUrl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata
 TRIVY_RPM_VERSION="0.70.0-9.azl3"
 
@@ -99,7 +102,7 @@ install_azure_cli() {
         echo "deb [arch=arm64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
         apt_get_update
         apt_get_install 5 1 60 azure-cli
-    elif [ "$OS_SKU" = "Ubuntu" ] && { [ "$OS_VERSION" = "20.04" ] || [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "24.04" ]; } && [ "${ARCHITECTURE,,}" != "arm64" ]; then
+    elif [ "$OS_SKU" = "Ubuntu" ] && { [ "$OS_VERSION" = "20.04" ] || [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "26.04" ]; } && [ "${ARCHITECTURE,,}" != "arm64" ]; then
         apt_get_install 5 1 60 ca-certificates curl apt-transport-https lsb-release gnupg
         curl -sL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
         echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
@@ -181,6 +184,7 @@ install_trivy() {
                 20.04) deb_version="${TRIVY_DEB_2004_VERSION}" ;;
                 22.04) deb_version="${TRIVY_DEB_2204_VERSION}" ;;
                 24.04) deb_version="${TRIVY_DEB_2404_VERSION}" ;;
+                26.04) deb_version="${TRIVY_DEB_2604_VERSION}" ;;
                 *)
                     echo "No tracked trivy deb version for Ubuntu $os_version, downloading from GitHub"
                     install_trivy_from_github

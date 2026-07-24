@@ -746,7 +746,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
-        "latestVersion": "580.126.09-20260430040408"
+        "latestVersion": "595.71.05-20260724165225"
       }
     },
     {
@@ -1065,6 +1065,14 @@
       "windowsDownloadLocation": "c:\\akse-cache\\containerd\\",
       "downloadURIs": {
         "ubuntu": {
+          "r2604": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=26.04",
+                "latestVersion": "2.0.10-ubuntu26.04u2"
+              }
+            ]
+          },
           "r2404": {
             "versionsV2": [
               {

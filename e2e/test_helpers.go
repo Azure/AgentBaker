@@ -93,7 +93,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	if s.Runtime == nil {
 		s.Runtime = &ScenarioRuntime{}
 	}
-	s.Runtime.EnableScriptlessNBCCSECmd = true
+	s.Runtime.EnableScriptlessNBCCSECmd = !config.Config.DisableScriptless
 	require.NoError(t, runScenario(t, s))
 }
 

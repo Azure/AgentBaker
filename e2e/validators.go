@@ -420,6 +420,16 @@ func ValidateNvidiaGridV20DriverInstalled(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "expected grid-v20 (595.x) NVIDIA driver version")
 }
 
+func ValidateNvidiaR595DriverInstalled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		"driver_version=$(sudo nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -n1 | tr -d '[:space:]')",
+		"case \"$driver_version\" in 595.*) ;; *) echo \"expected R595 driver, got '$driver_version'\"; exit 1 ;; esac",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "expected R595 NVIDIA driver version")
+}
+
 func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
 	s.T.Helper()
 	command := []string{

@@ -1035,6 +1035,12 @@ var _ = Describe("GetGPUDriverVersion", func() {
 })
 
 var _ = Describe("GetGPUDriverType", func() {
+	It("should use R595 cuda on Ubuntu 26.04", func() {
+		config := getGPUDriverConfig("standard_nc4as_t4_v3", datamodel.AKSUbuntuMinimalContainerd2604Gen2)
+		Expect(config.imageType).To(Equal("cuda"))
+		Expect(config.version).To(Equal(datamodel.NvidiaCudaDriverVersion))
+		Expect(config.imageSuffix).To(Equal(datamodel.AKSGPUCudaVersionSuffix))
+	})
 
 	It("should use cuda-lts with nc v3", func() {
 		Expect(GetGPUDriverType("standard_nc6_v3")).To(Equal("cuda-lts"))
