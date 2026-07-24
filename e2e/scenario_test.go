@@ -2220,7 +2220,7 @@ func Test_Ubuntu2604Gen2_McrChinaCloud(t *testing.T) {
 		},
 		Description: "Tests that a node using the Ubuntu 2604 minimal VHD can be properly bootstrapped with containerd v2",
 		Config: Config{
-			Cluster:                ClusterLatestKubernetesVersion,
+			Cluster:                ClusterLatestKubernetesVersionKubenet,
 			VHD:                    config.VHDUbuntu2604MinimalGen2Containerd,
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
