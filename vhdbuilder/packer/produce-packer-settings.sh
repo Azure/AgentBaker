@@ -21,7 +21,9 @@ if [ -f "${PUBLISHER_BASE_IMAGE_VERSION_JSON}" ]; then
   if [ -s "${PUBLISHER_BASE_IMAGE_VERSION_JSON}" ]; then
     # For IMG_SKUs that dont exist in the file, this is a no-op, therefore Windows/Mariner wont be affected and their IMG_VERSION will always be 'latest'
     echo "The publisher_base_image_version.json is not empty, therefore, use the publisher base images specified there, if they exist"
-    PUBLISHER_BASE_IMAGE_VERSION=$(jq -r --arg key "${IMG_SKU}" 'if has($key) then .[$key] else empty end' "${PUBLISHER_BASE_IMAGE_VERSION_JSON}")
+    PUBLISHER_BASE_IMAGE_VERSION=$(jq -r --arg offer "${IMG_OFFER}" --arg sku "${IMG_SKU}" \
+      'if has($offer) then .[$offer] elif has($sku) then .[$sku] else empty end' \
+      "${PUBLISHER_BASE_IMAGE_VERSION_JSON}")
     if [ -n "${PUBLISHER_BASE_IMAGE_VERSION}" ]; then
       echo "Change publisher base image version to ${PUBLISHER_BASE_IMAGE_VERSION} for ${IMG_SKU}"
       IMG_VERSION=${PUBLISHER_BASE_IMAGE_VERSION}
