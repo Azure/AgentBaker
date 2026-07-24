@@ -368,6 +368,12 @@ EOF
     fi
   fi
 
+  if isACL "$OS" "$OS_VARIANT" &&
+     ! grep -Fq '/usr/share/containerd2/acl-erofs.toml' /etc/containerd/config.toml; then
+    sed -i '/^version = 2$/a imports = ["/usr/share/containerd2/acl-erofs.toml"]' \
+      /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  fi
+
   export -f should_e2e_mock_azure_china_cloud
   E2EMockAzureChinaCloud=$(should_e2e_mock_azure_china_cloud)
   if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
