@@ -680,6 +680,37 @@ validateKubeletNodeLabels() {
     KUBELET_NODE_LABELS="$validated_labels"
 }
 
+# logKubeletActiveFlags captures the flags kubelet actually started with -- as printed by kubelet's
+# klog at startup ("FLAG: --name=\"value\"" lines in `journalctl -u kubelet`) -- and emits them as a
+# single structured, greppable event so the effective kubelet configuration can be queried per node
+# from Kusto without SSHing into each node. This is primarily a fleet-wide rollout-verification probe
+# for the flags-to-config-file migration (enable-kubelet-config-file toggle): it makes it easy to
+# confirm whether kubelet is running with `--config=<file>` versus inline flags across all nodes.
+logKubeletActiveFlags() {
+    # kubelet is started with --no-block, so its startup FLAG lines may not be in the journal yet.
+    # Poll briefly (bounded, breaking as soon as they appear) rather than delaying node startup.
+    local max_attempts="${KUBELET_FLAGS_LOG_MAX_ATTEMPTS:-10}"
+    local wait_sleep="${KUBELET_FLAGS_LOG_WAIT_SLEEP:-2}"
+    local flags="" attempt
+    for attempt in $(seq 1 "${max_attempts}"); do
+        # Extract everything after "FLAG: " on each line (preserving values that contain spaces),
+        # de-duplicate lines emitted across kubelet restarts while keeping order, then join into one
+        # KUBELET_FLAGS-style line.
+        flags="$(journalctl -u kubelet --no-pager 2>/dev/null | sed -n 's/.*FLAG: \(--.*\)$/\1/p' | awk '!seen[$0]++' | tr '\n' ' ')"
+        if [ -n "${flags}" ]; then
+            break
+        fi
+        sleep "${wait_sleep}"
+    done
+    # Strip trailing whitespace for a clean single-line event.
+    flags="$(printf '%s' "${flags}" | sed 's/[[:space:]]*$//')"
+    local found=false
+    if [ -n "${flags}" ]; then
+        found=true
+    fi
+    echo "AKS_KUBELET_CONFIG event=kubelet_active_flags found=${found} flags=\"${flags}\""
+}
+
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
@@ -879,6 +910,11 @@ EOF
         rm -f "${tls_bootstrapping_start_time_filepath}"
         echo "failed to start measure-tls-bootstrapping-latency.service"
     fi
+
+    # Emit kubelet's effective startup flags as a structured event so the active kubelet
+    # configuration is queryable per node from Kusto (rollout verification for the
+    # flags-to-config-file migration). Best-effort: never fail node provisioning on this.
+    logs_to_events "AKS.CSE.ensureKubelet.logKubeletActiveFlags" logKubeletActiveFlags || true
 }
 
 ensureSnapshotUpdate() {

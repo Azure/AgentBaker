@@ -74,6 +74,47 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'logKubeletActiveFlags'
+        # Keep the not-found retry loop fast and non-blocking during tests.
+        KUBELET_FLAGS_LOG_MAX_ATTEMPTS=2
+        KUBELET_FLAGS_LOG_WAIT_SLEEP=0
+        sleep() { :; }   # never actually sleep in tests
+
+        It 'emits the kubelet flags parsed from journalctl as a single structured event'
+            journalctl() {
+                cat <<'EOF'
+Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213493    6736 flags.go:64] FLAG: --address="0.0.0.0"
+Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213575    6736 flags.go:64] FLAG: --anonymous-auth="false"
+Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213600    6736 flags.go:64] FLAG: --config="/etc/default/kubeletconfig.json"
+EOF
+            }
+            When call logKubeletActiveFlags
+            The output should include "AKS_KUBELET_CONFIG event=kubelet_active_flags"
+            The output should include "found=true"
+            The output should include '--address="0.0.0.0"'
+            The output should include '--config="/etc/default/kubeletconfig.json"'
+        End
+
+        It 'de-duplicates flags repeated across kubelet restarts'
+            journalctl() {
+                cat <<'EOF'
+Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213493    6736 flags.go:64] FLAG: --address="0.0.0.0"
+Jul 15 21:10:03 node kubelet[7001]: I0715 21:10:03.100000    7001 flags.go:64] FLAG: --address="0.0.0.0"
+EOF
+            }
+            When call logKubeletActiveFlags
+            # Exactly one occurrence of the flag despite two restart blocks.
+            The output should equal 'AKS_KUBELET_CONFIG event=kubelet_active_flags found=true flags="--address="0.0.0.0""'
+        End
+
+        It 'reports found=false with empty flags when kubelet logged no FLAG lines'
+            journalctl() { echo "-- No entries --"; }
+            When call logKubeletActiveFlags
+            The output should include "found=false"
+            The output should include 'flags=""'
+        End
+    End
+
     Describe 'cleanUpGridNodeCudaPrebake'
         # Stub the actual removal so tests assert the keep-vs-teardown DECISION without touching the
         # real filesystem. OS defaults to Ubuntu (the only path this function acts on).
