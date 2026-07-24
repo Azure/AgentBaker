@@ -97,10 +97,10 @@ if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     VM_OPTIONS="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
-# GB200 specific VM options for scanning (uses standard ARM64 VM for now)
-if [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
-    echo "GB200: Using standard ARM64 VM options for scanning"
-    # Additional GB200-specific VM options can be added here when GB200 SKUs are available
+# NVIDIA GB specific VM options for scanning (uses standard ARM64 VM for now)
+if [ "${OS_TYPE}" = "Linux" ] && grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
+    echo "NVIDIA GB: Using standard ARM64 VM options for scanning"
+    # Additional NVIDIA GB-specific VM options can be added here when GB SKUs are available
 fi
 
 SCANNING_NIC_ID=$(az network nic create --resource-group $RESOURCE_GROUP_NAME --name "scanning${CURRENT_TIME}${RANDOM}" --subnet $SCANNING_SUBNET_ID | jq -r '.NewNIC.id')
@@ -505,6 +505,18 @@ ret=$(az vm run-command invoke \
 echo "$ret"
 msg=$(echo -E "$ret" | jq -r '.value[].message')
 echo "$msg"
+
+if printf '%s\n' "$msg" | grep -q "The selected assessment content is limited by the terms of the associated CIS license key" && \
+    printf '%s\n' "$msg" | grep -q "Assessment 1 Exit Value: 122"; then
+    printf '##vso[task.logissue type=warning]Skipping CIS report comparison because CIS-CAT license does not allow the selected assessment content.\n'
+    printf 'CIS assessment skipped: CIS-CAT license does not allow the selected assessment content.\n' > cis-report.txt
+    printf '<html><body>CIS assessment skipped: CIS-CAT license does not allow the selected assessment content.</body></html>\n' > cis-report.html
+    az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CISASSESSOR_BLOB_NAME}" --auth-mode login
+    capture_benchmark "${SCRIPT_NAME}_cis_report_license_limited"
+    capture_benchmark "${SCRIPT_NAME}_overall" true
+    process_benchmarks
+    exit 0
+fi
 
 # Download CIS report files to working directory
 az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L1_TXT_NAME}" --file "${CIS_REPORT_L1_LOCAL}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login

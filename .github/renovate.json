@@ -11,11 +11,17 @@
   "branchConcurrentLimit": 0,
   "commitHourlyLimit": 1,
   "separateMinorPatch": true,
-  "recreateWhen": "never",
+  "recreateWhen": "auto",
   "labels": [
     "renovate"
   ],
-  "rebaseWhen": "conflicted",
+  "rebaseWhen": "never",
+  "hostRules": [
+    {
+      "matchHost": "packages.microsoft.com",
+      "concurrentRequestLimit": 1
+    }
+  ],
   "logLevelRemap": [
     {
       "matchMessage": "/^Custom manager fetcher/",
@@ -146,26 +152,10 @@
       "automerge": false,
       "enabled": true,
       "assignees": [
-        "devinwong",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220",
-        "pdamianov-dev",
-        "SriHarsha001"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "devinwong",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220",
-        "pdamianov-dev",
-        "SriHarsha001"
+        "team:aks-node-lifecycle"
       ]
     },
     {
@@ -182,10 +172,16 @@
       "enabled": true,
       "groupName": "kubelet-kubectl",
       "assignees": [
-        "team:aks-node-lifecycle"
+        "haitch",
+        "wenhug",
+        "gaopenghigh",
+        "jack4it"
       ],
       "reviewers": [
-        "team:aks-node-lifecycle"
+        "haitch",
+        "wenhug",
+        "gaopenghigh",
+        "jack4it"
       ]
     },
     {
@@ -199,9 +195,13 @@
       "enabled": true,
       "groupName": "credential-provider-pmc",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ]
     },
@@ -237,10 +237,14 @@
         "oss/v2/azure/ip-masq-agent-v2"
       ],
       "reviewers": [
-        "robogatikov"
+        "robogatikov",
+        "jumpinthefire",
+        "levimm"
       ],
       "assignees": [
-        "robogatikov"
+        "robogatikov",
+        "jumpinthefire",
+        "levimm"
       ]
     },
     {
@@ -376,21 +380,29 @@
       ],
       "groupName": "acr-credential-provider",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ]
     },
     {
       "matchPackageNames": [
-        "azure-acr-credential-provider-sysext"
+        "oss/v2/kubernetes/azure-acr-credential-provider-sysext"
       ],
       "groupName": "acr-credential-provider-sysext",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ]
     },
@@ -408,7 +420,8 @@
     },
     {
       "matchPackageNames": [
-        "ig"
+        "ig",
+        "ig-gadgets"
       ],
       "matchUpdateTypes": [
         "patch"
@@ -425,7 +438,8 @@
     },
     {
       "matchPackageNames": [
-        "ig"
+        "ig",
+        "ig-gadgets"
       ],
       "matchUpdateTypes": [
         "minor"
@@ -446,14 +460,51 @@
       ],
       "groupName": "nvidia-device-plugin",
       "assignees": [
-        "djsly",
         "ganeshkumarashok",
-        "surajssd"
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
       ],
       "reviewers": [
-        "djsly",
         "ganeshkumarashok",
-        "surajssd"
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "dra-driver-nvidia-gpu"
+      ],
+      "groupName": "dra-driver-nvidia-gpu",
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "aks-secure-tls-bootstrap-client",
+        "aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext"
+      ],
+      "groupName": "aks-secure-tls-bootstrap-client",
+      "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
       ]
     },
     {
@@ -464,14 +515,18 @@
       ],
       "groupName": "nvidia-dcgm",
       "assignees": [
-        "djsly",
         "ganeshkumarashok",
-        "surajssd"
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
       ],
       "reviewers": [
-        "djsly",
         "ganeshkumarashok",
-        "surajssd"
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
       ]
     },
     {
@@ -513,10 +568,15 @@
         "**/azure-cloud-node-manager"
       ],
       "groupName": "azure-cloud-node-manager",
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-(?<compatibility>windows-hpc))?-(?<prerelease>\\d+)$",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ]
     },
@@ -563,20 +623,61 @@
         "docker"
       ],
       "matchPackageNames": [
-        "oss/v2/kubernetes/*-sysext"
+        "oss/v2/kubernetes/*-sysext",
+        "aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext"
       ],
       "matchCurrentVersion": "/-azlinux3$/",
-      "extractVersion": "^(?<version>.+-azlinux3)-"
+      "extractVersion": "^(?<version>.+-azlinux3)-x86-64$",
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<compatibility>azlinux3)$"
+    },
+    {
+      "matchPackageNames": [
+        "aks/aks-gpu-cuda-lts"
+      ],
+      "groupName": "nvidia-gpu-cuda-lts",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
+      "automerge": false,
+      "enabled": true,
+      "ignoreUnstable": false,
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
     },
     {
       "matchPackageNames": [
         "aks/aks-gpu-cuda"
       ],
-      "groupName": "nvidia-gpu-cuda",
+      "groupName": "nvidia-gpu-cuda-legacy",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
-      "automerge": true,
+      "allowedVersions": "/^580\\./",
+      "automerge": false,
       "enabled": true,
-      "ignoreUnstable": false
+      "ignoreUnstable": false,
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
     },
     {
       "matchPackageNames": [
@@ -586,7 +687,45 @@
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
       "automerge": false,
       "enabled": true,
-      "ignoreUnstable": false
+      "ignoreUnstable": false,
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "aks/aks-gpu-grid-v20"
+      ],
+      "groupName": "nvidia-gpu-grid-v20",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
+      "automerge": false,
+      "enabled": true,
+      "ignoreUnstable": false,
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
     },
     {
       "matchPackageNames": [
@@ -595,10 +734,11 @@
       "matchDatasources": [
         "docker"
       ],
-      "versioning": "regex:^(\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)?-(\\w+)-(\\d+)-(\\d+)-(\\d+)-(\\w+-*)(?<compatibility>.*)$",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-main-(?<prerelease>\\d{2}-\\d{2}-\\d{4}-[0-9a-f]+)(?:-(?<compatibility>cfg|targetallocator|ccp|win))?$",
       "groupName": "ama-metrics",
       "automerge": false,
       "enabled": true,
+      "ignoreUnstable": false,
       "assignees": [
         "gracewehner",
         "vishiy",
@@ -780,6 +920,20 @@
     },
     {
       "customType": "regex",
+      "description": "auto update buf version in aks-node-controller/.buf-version",
+      "managerFilePatterns": [
+        "/aks-node-controller/\\.buf-version/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "(?<currentValue>\\S+)"
+      ],
+      "depNameTemplate": "bufbuild/buf",
+      "datasourceTemplate": "docker",
+      "extractVersionTemplate": "^(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
       "description": "update version line in any cse_*.sh",
       "managerFilePatterns": [
         "/^.*cse_.*\\.sh/"
@@ -787,6 +941,17 @@
       "matchStringsStrategy": "any",
       "matchStrings": [
         "#\\s*renovate:\\s*(datasource=(?<datasource>.*?) )?depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\s*.*?version.*\\\"(?<currentValue>.*)\\\""
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "auto update ig-gadgets versions in install-ig.sh from PMC",
+      "managerFilePatterns": [
+        "/install-ig\\.sh/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s*\\n[^\\n]*IG_GADGETS_[A-Z_]+_VERSION=\\\"(?<currentValue>[^\\\"]+)\\\""
       ]
     },
     {

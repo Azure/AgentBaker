@@ -54,7 +54,7 @@ disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GR
 capture_benchmark "${SCRIPT_NAME}_set_variables_for_converting_to_disk"
 
 echo "Converting $sig_resource_id to $disk_resource_id"
-if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
+if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
   az resource create --id $disk_resource_id  --api-version 2024-03-02 --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
@@ -84,9 +84,9 @@ elif [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
       } \
     } \
   }"
-elif [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
-  echo "GB200: Creating standard disk from SIG image"
-  # GB200 uses standard disk creation for now, but can be customized in the future if needed
+elif [ "${OS_TYPE}" = "Linux" ] && grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
+  echo "NVIDIA GB: Creating standard disk from SIG image"
+  # NVIDIA GB uses standard disk creation for now, but can be customized in the future if needed
   az resource create --id $disk_resource_id  --api-version 2024-03-02 --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \

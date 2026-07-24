@@ -16,11 +16,12 @@ IG_SKIP_FILE="/etc/ig.d/skip_vhd_ig"
 # distro/package revisions can differ. The PMC feeds typically publish multiple
 # ig revisions per OS while ig-gadgets is published once per upstream release.
 # Example: ig 0.51.0-4.azl3 is compatible with ig-gadgets 0.51.0-1.azl3.
-# Since ig-gadgets is NOT in components.json (no Renovate coverage), its version
-# must still be updated manually here whenever ig moves to a new upstream
-# release. testInspektorGadgetAssets should catch any mismatch.
-IG_GADGETS_DEB_VERSION="0.51.0-ubuntu20.04u1"
-IG_GADGETS_RPM_VERSION="0.51.0-1.azl3"
+# Since ig-gadgets has a different publishing pattern, keep it out of
+# components.json and let Renovate manage the pinned package versions here.
+# renovate: datasource=custom.deb2004 depName=ig-gadgets versioning=deb
+IG_GADGETS_DEB_VERSION="0.53.2-ubuntu20.04u1"
+# renovate: datasource=rpm depName=ig-gadgets registryUrl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata
+IG_GADGETS_RPM_VERSION="0.53.2-1.azl3"
 
 ig_detect_arch() {
     CPU_ARCH=$(getCPUArch)
@@ -101,6 +102,27 @@ ig_enable_service_unit() {
 
     if ! systemctl enable "${IG_SERVICE_NAME}"; then
         echo "[ig] Failed to enable ${IG_SERVICE_NAME}"
+        return 1
+    fi
+
+    return 0
+}
+
+ig_disable_service_unit() {
+    local unit_path="/usr/lib/systemd/system/${IG_SERVICE_NAME}"
+
+    if [[ ! -f "${unit_path}" ]]; then
+        echo "[ig] ${IG_SERVICE_NAME} not present; skipping disablement"
+        return 0
+    fi
+
+    if ! systemctl daemon-reload; then
+        echo "[ig] systemctl daemon-reload failed"
+        return 1
+    fi
+
+    if ! systemctl disable --now "${IG_SERVICE_NAME}"; then
+        echo "[ig] Failed to disable ${IG_SERVICE_NAME}"
         return 1
     fi
 
@@ -219,8 +241,8 @@ installIG() {
         fi
     fi
 
-    # Enable the systemd service (baseline files copied by packer_source.sh)
-    ig_enable_service_unit || echo "[ig] Failed to enable ${IG_SERVICE_NAME}"
+    # disable the systemd service (baseline files copied by packer_source.sh)
+    ig_disable_service_unit || echo "[ig] Failed to disable ${IG_SERVICE_NAME}"
     ig_import_gadgets || echo "[ig] Gadget import failed during build"
 
     # Create skip sentinel file to indicate IG was installed from VHD

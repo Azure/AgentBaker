@@ -11,6 +11,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 )
 
@@ -30,10 +31,23 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 }
 
 //nolint:funlen
-func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
+func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration) map[string]string {
+	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
+	// Clear it from both KubeletFlags and KubeletConfigFileConfig so it doesn't appear
+	// on the command line or in the marshaled config file JSON.
+	if helpers.IsKubernetesVersionGe(config.GetKubernetesVersion(), "1.34.0") {
+		if kc := config.GetKubeletConfig(); kc != nil {
+			delete(kc.KubeletFlags, "--streaming-connection-idle-timeout")
+			if kcfg := kc.GetKubeletConfigFileConfig(); kcfg != nil {
+				kcfg.StreamingConnectionIdleTimeout = ""
+			}
+		}
+	}
+
+	containerdVersion, _ := detectContainerdVersion(ctx)
 	cloudProviderSettings := getCloudProviderSettings(config)
 	env := map[string]string{
-		"PROVISION_OUTPUT":                                     "/var/log/azure/cluster-provision.log",
+		"PROVISION_OUTPUT":                                     "/var/log/azure/cluster-provision-cse-output.log",
 		"MOBY_VERSION":                                         "",
 		"CLOUDPROVIDER_BACKOFF":                                fmt.Sprintf("%v", cloudProviderSettings.backoff),
 		"CLOUDPROVIDER_BACKOFF_MODE":                           cloudProviderSettings.backoffMode,
@@ -47,7 +61,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"CLOUDPROVIDER_RATELIMIT_BUCKET":                       fmt.Sprintf("%v", cloudProviderSettings.rateLimitBucket),
 		"CLOUDPROVIDER_RATELIMIT_BUCKET_WRITE":                 fmt.Sprintf("%v", cloudProviderSettings.rateLimitBucketWrite),
 		"CLI_TOOL":                                             "ctr",
-		"NETWORK_MODE":                                         "transparent",
+		"NETWORK_MODE":                                         "",
 		"ADMINUSER":                                            getLinuxAdminUsername(config.GetLinuxAdminUsername()),
 		"TENANT_ID":                                            config.GetAuthConfig().GetTenantId(),
 		"KUBERNETES_VERSION":                                   config.GetKubernetesVersion(),
@@ -137,51 +151,50 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT":           config.GetBootstrappingConfig().GetSecureTlsBootstrappingGetNonceTimeout(),
 		"SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT":   config.GetBootstrappingConfig().GetSecureTlsBootstrappingGetAttestedDataTimeout(),
 		"SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT":      config.GetBootstrappingConfig().GetSecureTlsBootstrappingGetCredentialTimeout(),
-		//nolint:staticcheck // keeping for now for backwards compatibility - will soon be removed
-		"SECURE_TLS_BOOTSTRAPPING_DEADLINE":                   config.GetBootstrappingConfig().GetSecureTlsBootstrappingDeadline(),
-		"CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL": config.GetBootstrappingConfig().GetSecureTlsBootstrappingCustomClientDownloadUrl(),
-		"ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION":         fmt.Sprintf("%v", config.GetKubeletConfig().GetKubeletConfigFileConfig().GetServerTlsBootstrap()),
-		"DHCPV6_SERVICE_FILEPATH":                             getDHCPV6ServiceFilepath(),
-		"DHCPV6_CONFIG_FILEPATH":                              getDHCPV6ConfigFilepath(),
-		"THP_ENABLED":                                         config.GetCustomLinuxOsConfig().GetTransparentHugepageSupport(),
-		"THP_DEFRAG":                                          config.GetCustomLinuxOsConfig().GetTransparentDefrag(),
-		"SERVICE_PRINCIPAL_FILE_CONTENT":                      config.GetAuthConfig().GetServicePrincipalSecret(),
-		"KUBELET_CLIENT_CONTENT":                              config.GetKubeletConfig().GetKubeletClientKey(),
-		"KUBELET_CLIENT_CERT_CONTENT":                         config.GetKubeletConfig().GetKubeletClientCertContent(),
-		"KUBELET_CONFIG_FILE_ENABLED":                         fmt.Sprintf("%v", config.GetKubeletConfig().GetEnableKubeletConfigFile()),
-		"KUBELET_CONFIG_FILE_CONTENT":                         getKubeletConfigFileContentBase64(config.GetKubeletConfig()),
-		"SWAP_FILE_SIZE_MB":                                   fmt.Sprintf("%v", config.GetCustomLinuxOsConfig().GetSwapFileSize()),
-		"GPU_DRIVER_VERSION":                                  getGpuDriverVersion(config.GetVmSize()),
-		"GPU_IMAGE_SHA":                                       getGpuImageSha(config.GetVmSize()),
-		"GPU_INSTANCE_PROFILE":                                config.GetGpuConfig().GetGpuInstanceProfile(),
-		"GPU_DRIVER_TYPE":                                     getGpuDriverType(config.GetVmSize()),
-		"CUSTOM_SEARCH_DOMAIN_NAME":                           config.GetCustomSearchDomainConfig().GetDomainName(),
-		"CUSTOM_SEARCH_REALM_USER":                            config.GetCustomSearchDomainConfig().GetRealmUser(),
-		"CUSTOM_SEARCH_REALM_PASSWORD":                        config.GetCustomSearchDomainConfig().GetRealmPassword(),
-		"MESSAGE_OF_THE_DAY":                                  config.GetMessageOfTheDay(),
-		"HAS_KUBELET_DISK_TYPE":                               fmt.Sprintf("%v", getHasKubeletDiskType(config.GetKubeletConfig())),
-		"NEEDS_CGROUPV2":                                      fmt.Sprintf("%v", config.GetNeedsCgroupv2()),
-		"KUBELET_FLAGS":                                       getKubeletFlags(config.GetKubeletConfig()),
-		"NETWORK_POLICY":                                      getStringFromNetworkPolicyType(config.GetNetworkConfig().GetNetworkPolicy()),
-		"KUBELET_NODE_LABELS":                                 createSortedKeyValuePairs(config.GetKubeletConfig().GetKubeletNodeLabels(), ","),
-		"AZURE_ENVIRONMENT_FILEPATH":                          getAzureEnvironmentFilepath(config),
-		"KUBE_CA_CRT":                                         config.GetKubernetesCaCert(),
-		"KUBENET_TEMPLATE":                                    getKubenetTemplate(),
-		"CONTAINERD_CONFIG_CONTENT":                           getContainerdConfigBase64(config),
-		"CONTAINERD_CONFIG_NO_GPU_CONTENT":                    getNoGPUContainerdConfigBase64(config),
-		"IS_KATA":                                             fmt.Sprintf("%v", config.GetIsKata()),
-		"ARTIFACT_STREAMING_ENABLED":                          fmt.Sprintf("%v", config.GetEnableArtifactStreaming()),
-		"SYSCTL_CONTENT":                                      getSysctlContent(config.GetCustomLinuxOsConfig().GetSysctlConfig()),
-		"PRIVATE_EGRESS_PROXY_ADDRESS":                        config.GetPrivateEgressProxyAddress(),
-		"BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER":         config.GetBootstrapProfileContainerRegistryServer(),
-		"ENABLE_IMDS_RESTRICTION":                             fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetEnableImdsRestriction()),
-		"INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE":        fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetInsertImdsRestrictionRuleToMangleTable()),
-		"PRE_PROVISION_ONLY":                                  fmt.Sprintf("%v", config.GetPreProvisionOnly()),
-		"SHOULD_ENABLE_LOCALDNS":                              shouldEnableLocalDns(config),
-		"SHOULD_ENABLE_HOSTS_PLUGIN":                          shouldEnableHostsPlugin(config),
-		"LOCALDNS_CPU_LIMIT":                                  getLocalDnsCpuLimitInPercentage(config),
-		"LOCALDNS_MEMORY_LIMIT":                               getLocalDnsMemoryLimitInMb(config),
-		"LOCALDNS_CRITICAL_FQDNS":                             getLocalDnsCriticalFqdns(config),
+		"CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL":  config.GetBootstrappingConfig().GetSecureTlsBootstrappingCustomClientDownloadUrl(),
+		"ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION":          fmt.Sprintf("%v", config.GetKubeletConfig().GetKubeletConfigFileConfig().GetServerTlsBootstrap()),
+		"DHCPV6_SERVICE_FILEPATH":                              getDHCPV6ServiceFilepath(),
+		"DHCPV6_CONFIG_FILEPATH":                               getDHCPV6ConfigFilepath(),
+		"THP_ENABLED":                                          config.GetCustomLinuxOsConfig().GetTransparentHugepageSupport(),
+		"THP_DEFRAG":                                           config.GetCustomLinuxOsConfig().GetTransparentDefrag(),
+		"SERVICE_PRINCIPAL_FILE_CONTENT":                       config.GetAuthConfig().GetServicePrincipalSecret(),
+		"KUBELET_CLIENT_CONTENT":                               config.GetKubeletConfig().GetKubeletClientKey(),
+		"KUBELET_CLIENT_CERT_CONTENT":                          config.GetKubeletConfig().GetKubeletClientCertContent(),
+		"KUBELET_CONFIG_FILE_ENABLED":                          fmt.Sprintf("%v", config.GetKubeletConfig().GetEnableKubeletConfigFile()),
+		"KUBELET_CONFIG_FILE_CONTENT":                          getKubeletConfigFileContentBase64(config.GetKubeletConfig()),
+		"SWAP_FILE_SIZE_MB":                                    fmt.Sprintf("%v", config.GetCustomLinuxOsConfig().GetSwapFileSize()),
+		"GPU_DRIVER_VERSION":                                   getGpuDriverVersion(config.GetVmSize()),
+		"GPU_IMAGE_SHA":                                        getGpuImageSha(config.GetVmSize()),
+		"GPU_INSTANCE_PROFILE":                                 config.GetGpuConfig().GetGpuInstanceProfile(),
+		"GPU_DRIVER_TYPE":                                      getGpuDriverType(config.GetVmSize()),
+		"CUSTOM_SEARCH_DOMAIN_NAME":                            config.GetCustomSearchDomainConfig().GetDomainName(),
+		"CUSTOM_SEARCH_REALM_USER":                             config.GetCustomSearchDomainConfig().GetRealmUser(),
+		"CUSTOM_SEARCH_REALM_PASSWORD":                         config.GetCustomSearchDomainConfig().GetRealmPassword(),
+		"MESSAGE_OF_THE_DAY":                                   config.GetMessageOfTheDay(),
+		"HAS_KUBELET_DISK_TYPE":                                fmt.Sprintf("%v", getHasKubeletDiskType(config.GetKubeletConfig())),
+		"NEEDS_CGROUPV2":                                       fmt.Sprintf("%v", config.GetNeedsCgroupv2()),
+		"KUBELET_FLAGS":                                        getKubeletFlags(config.GetKubeletConfig()),
+		"NETWORK_POLICY":                                       getStringFromNetworkPolicyType(config.GetNetworkConfig().GetNetworkPolicy()),
+		"KUBELET_NODE_LABELS":                                  createSortedKeyValuePairs(config.GetKubeletConfig().GetKubeletNodeLabels(), ","),
+		"AZURE_ENVIRONMENT_FILEPATH":                           getAzureEnvironmentFilepath(config),
+		"KUBE_CA_CRT":                                          config.GetKubernetesCaCert(),
+		"KUBENET_TEMPLATE":                                     getKubenetTemplate(),
+		"CONTAINERD_CONFIG_CONTENT":                            getContainerdConfigBase64(config, containerdVersion),
+		"CONTAINERD_CONFIG_NO_GPU_CONTENT":                     getNoGPUContainerdConfigBase64(config, containerdVersion),
+		"IS_KATA":                                              fmt.Sprintf("%v", config.GetIsKata()),
+		"ARTIFACT_STREAMING_ENABLED":                           fmt.Sprintf("%v", config.GetEnableArtifactStreaming()),
+		"SYSCTL_CONTENT":                                       getSysctlContent(config.GetCustomLinuxOsConfig().GetSysctlConfig()),
+		"PRIVATE_EGRESS_PROXY_ADDRESS":                         config.GetPrivateEgressProxyAddress(),
+		"BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER":          config.GetBootstrapProfileContainerRegistryServer(),
+		"ENABLE_IMDS_RESTRICTION":                              fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetEnableImdsRestriction()),
+		"INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE":         fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetInsertImdsRestrictionRuleToMangleTable()),
+		"PRE_PROVISION_ONLY":                                   fmt.Sprintf("%v", config.GetPreProvisionOnly()),
+		"SHOULD_ENABLE_LOCALDNS":                               shouldEnableLocalDns(config),
+		"SHOULD_ENABLE_HOSTS_PLUGIN":                           shouldEnableHostsPlugin(config),
+		"LOCALDNS_CPU_LIMIT":                                   getLocalDnsCpuLimitInPercentage(config),
+		"LOCALDNS_MEMORY_LIMIT":                                getLocalDnsMemoryLimitInMb(config),
+		"LOCALDNS_CRITICAL_FQDNS":                              getLocalDnsCriticalFqdns(config),
+		"LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS":    getLocalDnsHostsPluginRefreshIntervalInSeconds(config),
 		// LOCALDNS_GENERATED_COREFILE is the legacy key read by older VHDs that predate the hosts plugin.
 		// It must remain the base (no hosts plugin) corefile for backward compatibility.
 		// LOCALDNS_COREFILE_BASE is the new explicit name used by the dynamic corefile selection logic.
@@ -195,6 +208,11 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI":        config.GetServiceAccountImagePullProfile().GetLocalAuthoritySni(),
 		"CSE_TIMEOUT":                                  getCSETimeout(config),
 		"SKIP_WAAGENT_HOLD":                            "true",
+		"NETWORK_ISOLATED_CLUSTER_TEST_MODE":           "false", // temp: needs to be added to config
+		"STANDARD_SECONDARY_NIC_COUNT":                 fmt.Sprintf("%d", config.GetNetworkConfig().GetStandardSecondaryNicCount()),
+		"ENABLE_MANAGED_GPU_DRA":                       "false", // TODO: add protobuf field
+		"INIT_AKS_CLOUD_FILEPATH":                      getInitAKSCloudFilepath(),
+		"REPO_DEPOT_ENDPOINT":                          getRepoDepotEndpoint(config),
 	}
 
 	for i, cert := range config.CustomCaCerts {
@@ -295,7 +313,7 @@ func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration) (*e
 	// Convert to one-liner
 	triggerBootstrapScript = strings.ReplaceAll(triggerBootstrapScript, "\n", " ")
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", triggerBootstrapScript)
-	env := mapToEnviron(getCSEEnv(config))
+	env := mapToEnviron(getCSEEnv(ctx, config))
 	cmd.Env = append(os.Environ(), env...) // append existing environment variables
 	sort.Strings(cmd.Env)
 	return cmd, nil

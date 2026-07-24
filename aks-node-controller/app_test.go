@@ -526,6 +526,12 @@ func TestParseEnvVarsFromNBCCmdContent(t *testing.T) {
 		assert.Equal(t, "false", got["GPU_NEEDS_FABRIC_MANAGER"])
 		assert.Equal(t, "900", got["CSE_TIMEOUT"])
 	})
+
+	t.Run("single-quoted values", func(t *testing.T) {
+		content := `PROXY_VARS='export HTTPS_PROXY="https://proxy:8443"; export http_proxy="http://proxy:8080";'`
+		got := parseEnvVarsFromNBCCmdContent(content)
+		assert.Equal(t, `export HTTPS_PROXY="https://proxy:8443"; export http_proxy="http://proxy:8080";`, got["PROXY_VARS"])
+	})
 }
 
 // compareEnvsConfigEnv builds a CSE env map from the test provision config,

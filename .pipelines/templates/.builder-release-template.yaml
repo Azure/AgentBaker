@@ -21,7 +21,7 @@ steps:
       command: download
       vstsFeed: AzCoreLinux-Compliance
       vstsFeedPackage: cisassessor
-      vstsPackageVersion: '0.0.141'
+      vstsPackageVersion: '0.0.230'
       downloadDirectory: vhdbuilder/
 
   - task: DownloadPipelineArtifact@2
@@ -77,7 +77,7 @@ steps:
       SKU_NAME=${OS_VERSION} && \
       if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
       if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
-      if grep -q "GB200" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}gb200"; fi && \
+      if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}gb"; fi && \
       if [[ "${ENABLE_FIPS,,}" == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
       if grep -q "cvm" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}CVM"; fi && \
       if [[ "${IMG_SKU}" == *"minimal"* ]]; then SKU_NAME="${SKU_NAME}minimal"; fi && \
@@ -271,6 +271,46 @@ steps:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       DRY_RUN: $(DRY_RUN)
 
+  - bash: |
+      set -euo pipefail
+
+      metadata_dir="$(Build.ArtifactStagingDirectory)/e2e-vhd-metadata"
+      metadata_file="${metadata_dir}/${VHD_ARTIFACT_NAME}.json"
+      mkdir -p "$metadata_dir"
+
+      if [ -z "${MANAGED_SIG_ID}" ]; then
+        echo "##vso[task.logissue type=error]Packer did not return a managed SIG image version ID" >&2
+        exit 1
+      fi
+
+      regions="$(jq -nc \
+        --arg buildLocation "${PACKER_BUILD_LOCATION}" \
+        --arg replications "${REPLICATIONS:-}" \
+        '([$buildLocation] + ($replications | split(",") | map(split("=")[0] | gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))) | unique')"
+
+      jq -n \
+        --arg imageName "${SIG_IMAGE_NAME}" \
+        --arg resourceId "${MANAGED_SIG_ID}" \
+        --arg version "${CAPTURED_SIG_VERSION}" \
+        --argjson regions "$regions" \
+        '{($imageName): {resourceId: $resourceId, version: $version, regions: $regions}}' > "$metadata_file"
+    condition: succeeded()
+    displayName: Create E2E VHD metadata
+    env:
+      VHD_ARTIFACT_NAME: ${{ parameters.artifactName }}
+      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
+      CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
+      MANAGED_SIG_ID: $(MANAGED_SIG_ID)
+      PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
+      REPLICATIONS: $(REPLICATIONS)
+
+  - task: PublishPipelineArtifact@0
+    condition: succeeded()
+    displayName: Publish E2E VHD metadata
+    inputs:
+      artifactName: 'e2e-vhd-metadata-${{ parameters.artifactName }}-stage$(System.StageAttempt)-job$(System.JobAttempt)'
+      targetPath: '$(Build.ArtifactStagingDirectory)/e2e-vhd-metadata/${{ parameters.artifactName }}.json'
+
   - task: AzureCLI@2
     inputs:
       azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
@@ -295,6 +335,7 @@ steps:
       SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
       SKU_NAME: $(SKU_NAME)
       STORAGE_ACCOUNT_BLOB_URL: $(CLASSIC_BLOB)
+      STORAGE_ACCOUNT_BLOB_URL_STAGING: $(CLASSIC_BLOB_STAGING)
       VHD_NAME: $(VHD_NAME)
       IMAGE_BUILDER_IDENTITY_ID: $(AZURE_MSI_RESOURCE_STRING)
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
@@ -302,6 +343,7 @@ steps:
       HYPERV_GENERATION: $(HYPERV_GENERATION)
       FEATURE_FLAGS: $(FEATURE_FLAGS)
       ENABLE_TRUSTED_LAUNCH: $(ENABLE_TRUSTED_LAUNCH)
+      WORKLOAD_OPTIMIZATION_SCRIPT_URL: $(PREFETCH_WORKLOAD_OPTIMIZATION_SCRIPT_URL)
 
   - task: AzureCLI@2
     inputs:
@@ -352,7 +394,7 @@ steps:
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: CopyFiles@2
-    condition: and(eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'), in(variables.FEATURE_FLAGS, 'None', 'cvm', 'GB200'))
+    condition: and(eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'), in(variables.FEATURE_FLAGS, 'None', 'cvm', 'NVIDIA_GB', 'NVIDIA_CUDA_PREBAKE'))
     displayName: Copy CIS Reports
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'

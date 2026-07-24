@@ -27,6 +27,8 @@
   base_image_version:    string
   windows_image_name:    string
   patches_to_apply:      #WindowsPatches
+  sig_source_gallery_name?:      string
+  skip_vhd?:                     bool
 }
 
 #WindowsComments: [...string]
@@ -36,6 +38,7 @@
   "2022-containerd-gen2": #WindowsBaseVersion
   "2025": #WindowsBaseVersion
   "2025-gen2": #WindowsBaseVersion
+  "2025-gen2-tl": #WindowsBaseVersion
 }
 
 #WindowsDefenderInfo: {

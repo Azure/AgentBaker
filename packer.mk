@@ -1,7 +1,5 @@
 SHELL=/bin/bash -o pipefail
 
-export AZCLI_VERSION_OVERRIDE ?= 2.77.0
-
 GOARCH=amd64
 ifeq (${ARCHITECTURE},ARM64)
 	GOARCH=arm64
@@ -12,9 +10,9 @@ build-packer: setup-golang generate-prefetch-scripts build-image-fetcher build-a
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
-ifeq ($(findstring GB200,$(FEATURE_FLAGS)),GB200)
-	@echo "Using packer template file vhd-image-builder-arm64-gb200.json"
-	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gb200.json
+ifeq ($(findstring NVIDIA_GB,$(FEATURE_FLAGS)),NVIDIA_GB)
+	@echo "Using packer template file vhd-image-builder-arm64-gb.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gb.json
 else
 	@echo "Using packer template file vhd-image-builder-arm64-gen2.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
@@ -25,9 +23,6 @@ else ifeq (${OS_SKU},CBLMariner)
 else ifeq (${OS_SKU},AzureLinux)
 	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
-else ifeq (${OS_SKU},Flatcar)
-	@echo "Using packer template file vhd-image-builder-flatcar-arm64.json"
-	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-flatcar-arm64.json
 else ifeq (${OS_SKU},AzureContainerLinux)
 	@echo "Using packer template file vhd-image-builder-acl-arm64.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-acl-arm64.json
@@ -61,9 +56,6 @@ else
 	@echo "Using packer template file vhd-image-builder-mariner.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
 endif
-else ifeq (${OS_SKU},Flatcar)
-	@echo "Using packer template file vhd-image-builder-flatcar.json"
-	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-flatcar.json
 else ifeq (${OS_SKU},AzureContainerLinux)
 	@echo "Using packer template file vhd-image-builder-acl.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-acl.json
@@ -98,7 +90,7 @@ az-login:
 	@az account set -s ${SUBSCRIPTION_ID}
 
 init-packer:
-	@./vhdbuilder/packer/produce-packer-settings.sh ${AZCLI_VERSION_OVERRIDE}
+	@./vhdbuilder/packer/produce-packer-settings.sh
 
 run-packer: az-login
 	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
@@ -135,7 +127,7 @@ cleanup-prefetch: az-login
 
 generate-prefetch-scripts:
 	@echo "${MODE}: Generating prefetch scripts"
-	@bash -c "pushd vhdbuilder/prefetch; go run cmd/main.go --components-path=../../parts/common/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
+	@bash -c "pushd vhdbuilder/prefetch; go run cmd/main.go --components-path=../../parts/common/components.json --postfix-path=../../parts/linux/cloud-init/artifacts/cse_preload.sh --output-path=../packer/prefetch.sh || exit 1; popd"
 
 setup-golang:
 	@echo "Setting up Go environment"
@@ -143,14 +135,14 @@ setup-golang:
 
 build-aks-node-controller:
 	@echo "Building aks-node-controller binaries"
-	@bash -c "pushd aks-node-controller && \
-	go test ./... && \
-	ANC_VERSION=\"$${IMAGE_VERSION:-$$(date +%Y%m.%d.0)}\"; \
-	ANC_LDFLAGS=\"-X main.Version=$${ANC_VERSION}\"; \
-	echo \"Stamping ANC version: $${ANC_VERSION}\"; \
-	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags \"$${ANC_LDFLAGS}\" -o bin/aks-node-controller-linux-amd64 && \
-	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags \"$${ANC_LDFLAGS}\" -o bin/aks-node-controller-linux-arm64 && \
-	popd"
+	@bash -c 'set -euo pipefail; \
+	cd aks-node-controller; \
+	go test ./...; \
+	ANC_VERSION="$${IMAGE_VERSION:-$$(date +%Y%m.%d.0)}"; \
+	ANC_LDFLAGS="-X main.Version=$${ANC_VERSION}"; \
+	echo "Stamping ANC version: $${ANC_VERSION}"; \
+	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$${ANC_LDFLAGS}" -o bin/aks-node-controller-linux-amd64; \
+	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "$${ANC_LDFLAGS}" -o bin/aks-node-controller-linux-arm64'
 
 build-image-fetcher:
 	@echo "Building image-fetcher binaries"
@@ -162,10 +154,6 @@ build-image-fetcher:
 build-lister-binary:
 	@echo "Building lister binary for $(GOARCH)"
 	@bash -c "pushd vhdbuilder/lister && GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"
-
-generate-flatcar-customdata: vhdbuilder/packer/flatcar-customdata.json
-vhdbuilder/packer/flatcar-customdata.json: vhdbuilder/packer/flatcar-customdata.yaml | hack/tools/bin/butane
-	@hack/tools/bin/butane --strict $< -o $@
 
 generate-acl-customdata: vhdbuilder/packer/acl-customdata.json
 vhdbuilder/packer/acl-customdata.json: vhdbuilder/packer/acl-customdata.yaml | hack/tools/bin/butane

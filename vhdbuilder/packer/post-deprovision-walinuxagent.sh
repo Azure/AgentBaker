@@ -15,6 +15,27 @@ RESOLV_CONF_SYMLINK_RAW=""         # raw symlink value (preserves relative paths
 RESOLV_CONF_SYMLINK_RESOLVED=""    # resolved target path (for reading/writing content)
 RESOLV_CONF_BAK="/etc/resolv.conf.pre-waagent-install"
 
+# Remove every /var/lib/waagent/WALinuxAgent-*/ directory whose version suffix
+# does not match the pinned version in components.json. Safe to run when
+# the base dir is missing or empty. Only touches versioned agent code dirs;
+# never touches /etc/waagent.conf or other siblings under /var/lib/waagent/
+# (state, certs, extensions, events, history, etc.).
+
+pruneStaleWALinuxAgentDirs() {
+    local pinned_version="$1"
+    local base_dir="${2:-/var/lib/waagent}"
+    if [ -z "${pinned_version}" ]; then
+        echo "pruneStaleWALinuxAgentDirs: pinned version arg required" >&2
+        return 1
+    fi
+    if [ ! -d "${base_dir}" ]; then
+        return 0
+    fi
+    find "${base_dir}" -mindepth 1 -maxdepth 1 -type d -name 'WALinuxAgent-*' \
+        ! -name "WALinuxAgent-${pinned_version}" \
+        -exec rm -rf -- {} +
+}
+
 # Ensure cleanup and sync always run, even if the script errors (bash -e).
 # This guarantees resolv.conf is restored, VHD build files are removed,
 # and writes are flushed before VHD capture regardless of success or failure.
@@ -106,6 +127,19 @@ if [ "$OS_VARIANT_ID" != "OSGUARD" ] && [ "$OS_VARIANT_ID" != "AZURECONTAINERLIN
     # Uses a standalone Python script (stdlib only) for wireserver HTTP, XML parsing,
     # and zip extraction.
     python3 /opt/azure/containers/install_walinuxagent.py "${WALINUXAGENT_DOWNLOAD_DIR}" "${WALINUXAGENT_WIRESERVER_URL}" "${WALINUXAGENT_VERSION}"
+
+    # Stop walinuxagent to avoid it recreating WALinuxAgent-*/ dirs while we
+    # prune/configure. 'waagent -force -deprovision+user' terminates daemon
+    # processes but leaves the systemd unit alive;
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl stop walinuxagent.service waagent.service 2>/dev/null || true
+    fi
+
+    # Purge any stale WALinuxAgent-*/ dirs (from the bake VM's daemon auto-updating
+    # from wireserver) that survived a racy 'waagent -deprovision+user'. See the
+    # header comment for background. This runs AFTER the installer so 'set -e'
+    # aborts before we would prune anything if the install failed.
+    pruneStaleWALinuxAgentDirs "${WALINUXAGENT_VERSION}"
 
     # Configure waagent.conf to pick up the pre-cached agent from disk:
     # - AutoUpdate.Enabled=y tells the daemon to look for newer agent versions on disk

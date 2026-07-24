@@ -10,12 +10,14 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -83,28 +85,20 @@ func RunScenario(t *testing.T, s *Scenario) {
 		})
 		return
 	}
-	t.Run("default", func(t *testing.T) {
-		t.Parallel()
-		err := runScenario(t, copyScenario(s))
-		require.NoError(t, err)
-	})
-
-	if supportsScriptlessNBCCSECmd(s) {
-		t.Run("scriptless_nbc", func(t *testing.T) {
-			t.Parallel()
-			sCopy := copyScenario(s)
-			if sCopy.Runtime == nil {
-				sCopy.Runtime = &ScenarioRuntime{}
-			}
-			sCopy.Runtime.EnableScriptlessNBCCSECmd = true
-			err := runScenario(t, sCopy)
-			require.NoError(t, err)
-		})
+	if scriptlessUnsupported(s) {
+		require.NoError(t, runScenario(t, s))
+		return
 	}
+
+	if s.Runtime == nil {
+		s.Runtime = &ScenarioRuntime{}
+	}
+	s.Runtime.EnableScriptlessNBCCSECmd = true
+	require.NoError(t, runScenario(t, s))
 }
 
-func supportsScriptlessNBCCSECmd(s *Scenario) bool {
-	return s.AKSNodeConfigMutator == nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision && !s.SkipScriptlessNBC
+func scriptlessUnsupported(s *Scenario) bool {
+	return s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
 }
 
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
@@ -146,11 +140,18 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 			vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
 		}
 	}
-	if original.BootstrapConfigMutator != nil {
+	if original.BootstrapConfigMutator != nil || original.PreProvisionBootstrapConfigMutator != nil {
 		firstStage.BootstrapConfigMutator = func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			original.BootstrapConfigMutator(cluster, nbc)
+			if original.BootstrapConfigMutator != nil {
+				original.BootstrapConfigMutator(cluster, nbc)
+			}
 			nbc.PreProvisionOnly = true
 			nbc.EnableScriptlessNBCCSECmd = false
+			// Bake-stage-only mutation: lets a scenario deliberately diverge bake-time
+			// state from provision-time state (e.g. a stale sentinel bootstrap token).
+			if original.PreProvisionBootstrapConfigMutator != nil {
+				original.PreProvisionBootstrapConfigMutator(cluster, nbc)
+			}
 		}
 	}
 	if original.AKSNodeConfigMutator != nil {
@@ -230,11 +231,24 @@ func runScenario(t testing.TB, s *Scenario) error {
 	// need to find the root cause and fix it, this should help to catch such cases
 	require.NotNil(t, cluster)
 
+	// Log cluster identity for debugging
+	clusterName := *cluster.Model.Name
+	clusterLocation := *cluster.Model.Location
+	resourceGroup := config.ResourceGroupName(clusterLocation)
+	subscriptionID := config.Config.SubscriptionID
+	t.Logf("using cluster %s in rg=%s sub=%s", clusterName, resourceGroup, subscriptionID)
+	t.Logf("portal: https://portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters/%s/overview",
+		subscriptionID, resourceGroup, clusterName)
+
 	if s.Runtime == nil {
 		s.Runtime = &ScenarioRuntime{}
 	}
 	s.Runtime.Cluster = cluster
 	s.Runtime.VMSSName = generateVMSSName(s)
+
+	testKube, err := cluster.NewKubeclientForTest()
+	require.NoError(t, err, "creating per-test kubeclient")
+	s.Runtime.Kube = testKube
 
 	// use shorter timeout for faster feedback on test failures
 	vmssCtx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
@@ -258,10 +272,12 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	defer toolkit.LogStep(s.T, "preparing AKS node")()
 
 	var err error
-	nbc, err := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
+	nbc, err := getBaseNBC(ctx, s.T, s.Runtime.Cluster, s.VHD)
 	require.NoError(s.T, err)
 
-	nbc.EnableScriptlessCSECmd = true
+	if !config.Config.DisableScriptless {
+		nbc.EnableScriptlessCSECmd = true
+	}
 	if s.Runtime != nil && s.Runtime.EnableScriptlessNBCCSECmd {
 		nbc.EnableScriptlessNBCCSECmd = true
 		nbc.EnableScriptlessCSECmd = false
@@ -279,10 +295,18 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		nodeconfig := nbcToAKSNodeConfigV1(nbc)
 		s.AKSNodeConfigMutator(s.Runtime.Cluster, nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
-		// AKSNodeConfig scenarios use aks-node-controller, not GetNodeBootstrapping.
-		// Clear NBC so validators that check NBC fields (e.g., ValidateScriptlessCSECmd)
-		// don't fire incorrectly — those validations only apply to NBC-based provisioning.
-		s.Runtime.NBC = nil
+
+		aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(nodeconfig)
+		require.NoError(s.T, err)
+		s.Runtime.NBC.AKSNodeConfigJSON = string(aksNodeConfigJSON)
+
+		nbc.EnableScriptlessCSECmd = false
+
+		// for scriptless phase 2.5, we are using nbc cse cmd for provisioning but passing aksnodeconfig and nbc cse cmd to compare env variables
+		// scriptless tag means provisioning with aksnodeconfig is used
+		if !s.Tags.Scriptless && s.BootstrapConfigMutator != nil {
+			nbc.EnableScriptlessNBCCSECmd = true
+		}
 	}
 
 	publicKeyData := datamodel.PublicKey{KeyData: string(config.VMSSHPublicKey)}
@@ -337,7 +361,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	if !s.Config.SkipDefaultValidation {
 		vmssCreatedAt := time.Now()         // Record the start time
 		creationElapse := time.Since(start) // Calculate the elapsed time
-		scenarioVM.KubeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
+		scenarioVM.KubeName = s.Runtime.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
 		readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
 		totalElapse := time.Since(start)
 		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, creationElapse, readyElapse))
@@ -352,9 +376,6 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
 	s.Tags.VHDCaching = s.VHDCaching
-	if s.AKSNodeConfigMutator != nil {
-		s.Tags.Scriptless = true
-	}
 
 	if config.Config.TagsToRun != "" {
 		matches, err := s.Tags.MatchesFilters(config.Config.TagsToRun)
@@ -446,19 +467,59 @@ func validateVM(ctx context.Context, s *Scenario) {
 }
 
 func getCustomScriptExtensionStatus(s *Scenario, vmssVM *armcompute.VirtualMachineScaleSetVM) error {
+	// Re-fetch the VM with instance view to ensure we have fresh extension status data.
+	// The VM object passed in may have been fetched before the CSE finished executing,
+	// so the extension status message could be empty or stale.
+	if vmssVM.InstanceID != nil {
+		// Bounded fresh context (matches other diagnostic/cleanup paths in this file):
+		// this re-fetch collects post-mortem CSE status, so it should complete even if
+		// the caller's ctx was cancelled (e.g., test timeout), but must not hang the
+		// suite indefinitely on a stalled ARM call.
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		freshVM, err := config.Azure.VMSSVM.Get(ctx,
+			*s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
+			s.Runtime.VMSSName,
+			*vmssVM.InstanceID,
+			&armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+				Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
+			})
+		if err == nil && freshVM.Properties != nil && freshVM.Properties.InstanceView != nil {
+			vmssVM.Properties.InstanceView = freshVM.Properties.InstanceView
+		} else if err != nil {
+			s.T.Logf("warning: failed to re-fetch VM instance view for CSE status: %v", err)
+		}
+	}
+
 	for _, extension := range vmssVM.Properties.InstanceView.Extensions {
+		// Only process the CSE extension, skip other extensions (e.g., ManagedIdentity)
+		// whose empty status messages would overwrite the actual CSE output file.
+		// The extension name in InstanceView is typically "vmssCSE" (matching the resource name)
+		// but may also appear as the handler type. Match on known CSE identifiers.
+		if extension.Name == nil {
+			continue
+		}
+		name := strings.ToLower(*extension.Name)
+		isCSE := name == "vmsscse" ||
+			strings.Contains(name, "customscript") ||
+			strings.Contains(name, "aksnode")
+		if !isCSE {
+			continue
+		}
 		for _, status := range extension.Statuses {
 			if s.IsWindows() {
-				// Save the CSE output for Windows VMs for better troubleshooting
-				if status.Message != nil {
-					logDir := filepath.Join("scenario-logs", s.T.Name())
+				// Save the CSE output for Windows VMs for better troubleshooting.
+				// Only write when the message has actual content to avoid overwriting
+				// with an empty file from a status entry that has no output.
+				if status.Message != nil && *status.Message != "" {
+					logDir := testDir(s.T)
 					if err := os.MkdirAll(logDir, 0755); err == nil {
 						logFile := filepath.Join(logDir, "windows-cse-output.log")
 						err = os.WriteFile(logFile, []byte(*status.Message), 0644)
 						if err != nil {
 							s.T.Logf("failed to save Windows CSE output to %s: %v", logFile, err)
 						} else {
-							s.T.Logf("saved Windows CSE output to %s", logFile)
+							s.T.Logf("saved Windows CSE output to %s (%d bytes)", logFile, len(*status.Message))
 						}
 					}
 				}
@@ -599,43 +660,188 @@ func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armc
 	}, nil
 }
 
-// RunCommand executes a command on the VMSS VM with instance ID "0" and returns the raw JSON response from Azure
-// Unlike default approach, it doesn't use SSH and uses Azure tooling
-// This approach is generally slower, but it works even if SSH is not available
-func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.RunCommandResult, error) {
+// RunCommand executes a script on the VMSS VM with the configured instance ID via the
+// Azure VMSS RunCommand v2 API (VirtualMachineRunCommand resource). This is the API
+// already used by production aks-rp PIS code; using it here keeps test and production
+// on the same surface and avoids the v1 RunCommand extension's failure modes
+// (e.g. the Microsoft.CPlat.Core/RunCommandWindows "Keyset does not exist" error
+// fixed by ADO PR https://msazure.visualstudio.com/CloudNativeCompute/_git/aks-rp/pullrequest/15721814).
+//
+// Unlike SSH-based exec, this works even when WinRM/SSH are unavailable (e.g. mid-sysprep).
+// It is generally slower than SSH because each call creates a VirtualMachineRunCommand
+// resource on the VM and waits for it to provision.
+func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.VirtualMachineRunCommandInstanceView, error) {
 	s.T.Helper()
+	rg := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
+	instanceID := *s.Runtime.VM.VM.InstanceID
+	// VirtualMachineRunCommand resources persist on the VM until explicitly deleted;
+	// use a unique name per call so concurrent / repeated calls don't collide, and
+	// best-effort delete it on the way out below.
+	runCommandName := fmt.Sprintf("e2e-runcmd-%d", time.Now().UnixNano())
 	start := time.Now()
 	defer func() {
-		elapsed := time.Since(start)
-		toolkit.Logf(ctx, "Command %q took %s", command, elapsed)
+		toolkit.Logf(ctx, "RunCommand %s took %s", runCommandName, time.Since(start))
 	}()
 
-	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{
-		CommandID: func() *string {
-			if s.IsWindows() {
-				return to.Ptr("RunPowerShellScript")
-			}
-			return to.Ptr("RunShellScript")
-		}(),
-		Script: []*string{to.Ptr(command)},
-	}, nil)
-	if err != nil {
-		return armcompute.RunCommandResult{}, fmt.Errorf("failed to run command on Windows VM for image creation: %w", err)
+	runCmd := armcompute.VirtualMachineRunCommand{
+		Location: to.Ptr(s.Location),
+		Properties: &armcompute.VirtualMachineRunCommandProperties{
+			Source: &armcompute.VirtualMachineRunCommandScriptSource{
+				Script: to.Ptr(command),
+			},
+			AsyncExecution: to.Ptr(false),
+		},
 	}
 
-	runResp, err := runPoller.PollUntilDone(ctx, nil)
+	poller, err := config.Azure.VMSSVMRunCommands.BeginCreateOrUpdate(ctx, rg, s.Runtime.VMSSName, instanceID, runCommandName, runCmd, nil)
 	if err != nil {
-		return runResp.RunCommandResult, fmt.Errorf("failed to run command on Windows VM for image creation: %w", err)
+		return armcompute.VirtualMachineRunCommandInstanceView{}, fmt.Errorf("failed to start RunCommand on VMSS VM: %w", err)
 	}
-	return runResp.RunCommandResult, err
+	defer func() {
+		// Best-effort cleanup: VirtualMachineRunCommand resources persist on the VM
+		// otherwise and can accumulate across many RunCommand calls in a single run.
+		// Use a fresh context so we still clean up if the caller's ctx is cancelled.
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		if _, derr := config.Azure.VMSSVMRunCommands.BeginDelete(cleanupCtx, rg, s.Runtime.VMSSName, instanceID, runCommandName, nil); derr != nil {
+			toolkit.Logf(ctx, "best-effort RunCommand %s delete failed: %v", runCommandName, derr)
+		}
+	}()
+	if _, err := poller.PollUntilDone(ctx, nil); err != nil {
+		return armcompute.VirtualMachineRunCommandInstanceView{}, fmt.Errorf("failed to wait for RunCommand on VMSS VM: %w", err)
+	}
+
+	// CreateOrUpdate (PUT) never includes InstanceView in the response — it's only
+	// returned by Get when $expand=instanceView is set. Fetch it explicitly so we
+	// get stdout/stderr/exit code.
+	getResp, err := config.Azure.VMSSVMRunCommands.Get(ctx, rg, s.Runtime.VMSSName, instanceID, runCommandName, &armcompute.VirtualMachineScaleSetVMRunCommandsClientGetOptions{
+		Expand: to.Ptr("instanceView"),
+	})
+	if err != nil {
+		return armcompute.VirtualMachineRunCommandInstanceView{}, fmt.Errorf("failed to get RunCommand instance view: %w", err)
+	}
+	if getResp.Properties == nil || getResp.Properties.InstanceView == nil {
+		return armcompute.VirtualMachineRunCommandInstanceView{}, errors.New("RunCommand result missing instance view")
+	}
+	view := *getResp.Properties.InstanceView
+	return view, runCommandScriptError(view)
 }
+
+// runCommandScriptError converts a RunCommand instance view into an error if the
+// script itself failed. The ARM CreateOrUpdate operation reports success as long as
+// the extension was able to run the script — a non-zero exit, throw, or timeout
+// inside the script lives in ExecutionState / ExitCode and is otherwise invisible
+// to callers using require.NoError. See:
+// https://learn.microsoft.com/en-us/azure/virtual-machines/windows/run-command-managed
+// ("InstanceView.ExecutionState: Status of user's Run Command script. ...
+//
+//	ProvisioningState: Status of general extension provisioning end to end").
+func runCommandScriptError(view armcompute.VirtualMachineRunCommandInstanceView) error {
+	state := armcompute.ExecutionStateUnknown
+	if view.ExecutionState != nil {
+		state = *view.ExecutionState
+	}
+	exitCode := int32(0)
+	if view.ExitCode != nil {
+		exitCode = *view.ExitCode
+	}
+	if state == armcompute.ExecutionStateSucceeded && exitCode == 0 {
+		return nil
+	}
+	output := ""
+	if view.Output != nil {
+		output = strings.TrimSpace(*view.Output)
+	}
+	stderr := ""
+	if view.Error != nil {
+		stderr = strings.TrimSpace(*view.Error)
+	}
+	msg := ""
+	if view.ExecutionMessage != nil {
+		msg = strings.TrimSpace(*view.ExecutionMessage)
+	}
+	return fmt.Errorf("RunCommand script failed: executionState=%s exitCode=%d message=%q stdout=%q stderr=%q",
+		state, exitCode, msg, output, stderr)
+}
+
+// windowsSysprepScript runs Sysprep /generalize on the test VM. It pre-emptively drops
+// any SysPrepExternal\Generalize provider entry pointing at VMAgentDisabler.dll: when
+// the DLL can't be loaded, Sysprep stalls past our vmssCtx deadline. The same workaround
+// has lived in vhdbuilder/packer/windows/sysprep.ps1 since 2020 (PR #429).
+//
+// Pre-cleanup of C:\Windows\Panther and unattend.xml follows
+// https://learn.microsoft.com/en-us/azure/virtual-machines/generalize, which notes
+// that stale Panther logs can cause Sysprep to fail and that custom answer files
+// aren't supported in this step. The ImageState poll handles Server 2022 where
+// Sysprep /quit can return before background SetupHost.exe finishes generalizing.
+const windowsSysprepScript = `
+$ErrorActionPreference = 'Stop'
+
+# Best-effort: drop broken SysPrepExternal\Generalize providers that point at
+# VMAgentDisabler.dll. When the DLL can't be loaded Sysprep /generalize hangs
+# ~14m. Registry cleanup failures are logged but must not abort sysprep itself.
+try {
+    $path = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\SysPrepExternal\Generalize'
+    if (Test-Path $path) {
+        foreach ($name in (Get-Item -Path $path).Property) {
+            $value = Get-ItemPropertyValue -Path $path -Name $name
+            if ($value -like '*VMAgentDisabler.dll*') {
+                Write-Host "Removing broken generalize provider $name -> $value"
+                Remove-ItemProperty -Path $path -Name $name
+            }
+        }
+    }
+} catch {
+    Write-Warning "Failed to clean SysPrepExternal\Generalize entries: $_"
+}
+
+# Per https://learn.microsoft.com/en-us/azure/virtual-machines/generalize:
+# stale Panther logs can cause Sysprep to fail; custom unattend files unsupported.
+Remove-Item "$env:SystemRoot\Panther" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item "$env:SystemRoot\System32\Sysprep\unattend.xml" -Force -ErrorAction SilentlyContinue
+
+# /quit (not /shutdown) so RunCommand can return; deallocate happens separately.
+# $LASTEXITCODE isn't reliable after Sysprep.exe /quit — sysprep launches a
+# background SetupHost.exe and returns before generalization completes. The
+# ImageState poll below is the authoritative success signal (same as
+# vhdbuilder/packer/windows/sysprep.ps1).
+& "$env:SystemRoot\System32\Sysprep\Sysprep.exe" /oobe /generalize /mode:vm /quiet /quit
+
+# On Server 2022, sysprep /quit can return before background SetupHost.exe
+# finishes generalizing. Wait for the registry state to confirm before letting
+# the caller deallocate and capture the disk. Same pattern as
+# vhdbuilder/packer/windows/sysprep.ps1 (in-tree since 2020).
+$deadline = (Get-Date).AddMinutes(10)
+$last = $null
+while ($true) {
+    $state = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State').ImageState
+    if ($state -ne $last) {
+        Write-Host "ImageState=$state"
+        $last = $state
+    }
+    if ($state -eq 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { break }
+    if ((Get-Date) -gt $deadline) {
+        throw "Sysprep did not reach IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE within 10 minutes (last state: $state)"
+    }
+    Start-Sleep -Seconds 10
+}
+`
 
 func CreateImage(ctx context.Context, s *Scenario) *config.Image {
 	if s.IsWindows() {
 		s.T.Log("Running sysprep on Windows VM...")
-		res, err := RunCommand(ctx, s, `C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;`)
-		resJson, _ := json.MarshalIndent(res, "", "  ")
-		s.T.Logf("Sysprep result: %s", string(resJson))
+		res, err := RunCommand(ctx, s, windowsSysprepScript)
+		var stdout, stderr string
+		if res.Output != nil {
+			stdout = strings.TrimSpace(*res.Output)
+		}
+		if res.Error != nil {
+			stderr = strings.TrimSpace(*res.Error)
+		}
+		s.T.Logf("Sysprep stdout: %s", stdout)
+		if stderr != "" {
+			s.T.Logf("Sysprep stderr: %s", stderr)
+		}
 		require.NoErrorf(s.T, err, "failed to run sysprep on Windows VM for image creation")
 	}
 
@@ -867,4 +1073,36 @@ func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) 
 				ValidateNPDIBLinkFlappingAfterFailure(ctx, s)
 			},
 		}}
+}
+
+func vmSKUGeneration(sku string) (int, error) {
+	// Extract the generation number from the SKU string (e.g., "Standard_D2s_v3" -> 3)
+	sku = strings.ToLower(sku)
+	idx := strings.LastIndex(sku, "_v")
+	if idx < 0 {
+		return 0, fmt.Errorf("invalid SKU format: %s", sku)
+	}
+	gen, err := strconv.Atoi(sku[idx+2:])
+	if err != nil {
+		return 0, fmt.Errorf("SKU %q has non-numeric generation suffix: %w", sku, err)
+	}
+	return gen, nil
+}
+
+func ensureMinVMGeneration(minSku string) string {
+	// Ensure that the VM SKU used is at least the minimum generation required for the test
+	// Get the minimum generation for the specified SKU
+	defaultGen, err := vmSKUGeneration(config.Config.DefaultVMSKU)
+	if err != nil {
+		panic(fmt.Sprintf("Warning: No minimum generation found for SKU %s", config.Config.DefaultVMSKU))
+	}
+	minGen, err := vmSKUGeneration(minSku)
+	if err != nil {
+		panic(fmt.Sprintf("Warning: No minimum generation found for SKU %s", minSku))
+	}
+	if defaultGen < minGen {
+		return minSku
+	} else {
+		return config.Config.DefaultVMSKU
+	}
 }

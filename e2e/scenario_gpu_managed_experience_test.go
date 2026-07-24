@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,6 +47,38 @@ func extractMajorMinorPatchVersion(version string) string {
 	return ""
 }
 
+// extractPackageRevision returns the distro rebuild-revision counter from a
+// version string. This is the integer that MUST stay in lockstep across OS
+// variants of the same package: a Renovate bump is expected to move Ubuntu and
+// Azure Linux together, so a divergence here means only one OS was updated.
+//
+// Examples:
+//
+//	"4.8.2-ubuntu24.04u2" -> "2"  (Ubuntu PMC rebuild counter)
+//	"4.8.2-1.azl3"        -> "1"  (Azure Linux rebuild counter)
+//	"1:4.5.3-1"           -> "1"  (handles epoch prefix)
+func extractPackageRevision(version string) string {
+	// Remove epoch prefix (e.g., "1:" in "1:4.4.1-1")
+	version = regexp.MustCompile(`^\d+:`).ReplaceAllString(version, "")
+
+	// The rebuild revision lives in the trailing token after the last "-".
+	idx := strings.LastIndex(version, "-")
+	if idx == -1 {
+		return ""
+	}
+	rev := version[idx+1:] // e.g. "ubuntu24.04u2", "1.azl3", "1"
+
+	// Ubuntu scheme: "...uN" at the end of the token.
+	if m := regexp.MustCompile(`u(\d+)$`).FindStringSubmatch(rev); m != nil {
+		return m[1]
+	}
+	// Azure Linux / plain scheme: leading integer (e.g. "1.azl3", "1").
+	if m := regexp.MustCompile(`^(\d+)`).FindStringSubmatch(rev); m != nil {
+		return m[1]
+	}
+	return ""
+}
+
 type packageOSVariant struct {
 	pkgName   string
 	osName    string
@@ -78,6 +111,7 @@ func Test_Version_Consistency_GPU_Managed_Components(t *testing.T) {
 
 	for _, packageGroup := range allPackageVariants {
 		expectedVersion := ""
+		expectedRevision := ""
 		for _, pkgVar := range packageGroup {
 			componentVersions := components.GetExpectedPackageVersions(pkgVar.pkgName, pkgVar.osName, pkgVar.osRelease)
 			require.Lenf(t, componentVersions, 1,
@@ -88,15 +122,50 @@ func Test_Version_Consistency_GPU_Managed_Components(t *testing.T) {
 			require.NotEmptyf(t, pkgVersion, "Failed to extract major.minor.patch version from %s for %s %s",
 				componentVersions[0], pkgVar.osName, pkgVar.osRelease)
 
-			// For the first iteration, set the expectedVersion
+			pkgRevision := extractPackageRevision(componentVersions[0])
+			require.NotEmptyf(t, pkgRevision, "Failed to extract rebuild revision from %s for %s %s",
+				componentVersions[0], pkgVar.osName, pkgVar.osRelease)
+
+			// For the first iteration, set the expected values
 			if expectedVersion == "" {
 				expectedVersion = pkgVersion
+				expectedRevision = pkgRevision
 				continue
 			}
 			require.Equalf(t, expectedVersion, pkgVersion,
 				"Expected all %s versions to have the same major.minor.patch version, but found mismatch: %s vs %s for %s.%s",
 				pkgVar.pkgName, expectedVersion, pkgVersion, pkgVar.osName, pkgVar.osRelease)
+
+			// The trailing rebuild revision must also stay in lockstep across OS variants.
+			// A divergence here means Renovate (or a manual bump) updated one OS but not the
+			// others - e.g. Ubuntu moved to ...u2 while Azure Linux stayed at ...-1.azl3.
+			require.Equalf(t, expectedRevision, pkgRevision,
+				"Partial OS update detected for %s: rebuild revision %q (%s.%s) does not match %q from the first OS variant. "+
+					"Renovate likely updated one OS but not the others - align ALL OS entries in components.json for this package (or revert the partial bump).",
+				pkgVar.pkgName, pkgRevision, pkgVar.osName, pkgVar.osRelease, expectedRevision)
 		}
+	}
+}
+
+func Test_extractPackageRevision(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{input: "4.8.2-ubuntu24.04u2", expected: "2"},
+		{input: "4.8.2-ubuntu22.04u2", expected: "2"},
+		{input: "4.8.2-1.azl3", expected: "1"},
+		{input: "1:4.5.3-1", expected: "1"},
+		{input: "0.19.2-ubuntu22.04u10", expected: "10"},
+		{input: "4.6.0-3.azl3", expected: "3"},
+		{input: "", expected: ""},
+		{input: "4.8.2", expected: ""},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("extractPackageRevision(%q)=%q", test.input, test.expected), func(t *testing.T) {
+			require.Equal(t, test.expected, extractPackageRevision(test.input))
+		})
 	}
 }
 
@@ -191,9 +260,8 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 			RunScenario(t, &Scenario{
 				Description: tc.description,
 				Config: Config{
-					Cluster:                ClusterKubenet,
-					VHD:                    tc.vhd,
-					BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {},
+					Cluster: ClusterKubenet,
+					VHD:     tc.vhd,
 
 					// We are only validating if the package versions are compatible, and for that we need an environment like
 					// Ubuntu or Az Linux, and nothing else. This test doesn't care about any other validation.
@@ -393,6 +461,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Azure Linux v3 GPU nodes",
+		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -400,14 +469,14 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
 				nbc.ManagedGPUExperienceAFECEnabled = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
@@ -474,7 +543,6 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 		Config: Config{
 			Cluster:               ClusterKubenet,
 			VHD:                   config.VHDUbuntu2404Gen2Containerd,
-			SkipScriptlessNBC:     true,
 			WaitForSSHAfterReboot: 5 * time.Minute,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
@@ -550,9 +618,8 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDUbuntu2204Gen2Containerd,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
 				nbc.ConfigGPUDriverIfNeeded = true
@@ -710,6 +777,43 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 
 				// Validate that MIG workloads can be scheduled
 				ValidateGPUWorkloadSchedulable(ctx, s, 2, migResourceName)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404_DraDriverNvidiaGpuRunning(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests DRA driver works on Ubuntu 24.04 VHD with containerd v2",
+		Tags: Tags{
+			GPU: true,
+		},
+
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableNvidia = true
+				nbc.EnableManagedGPUDRA = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+
+				// Enable the AKS VM extension for GPU nodes
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
+				require.NoError(t, err, "creating AKS VM extension")
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
+				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
+				ValidateContainerd2Properties(ctx, s, containerdVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
+				ValidateContainerRuntimePlugins(ctx, s)
+				ValidateDraDriverNvidiaGpuServiceRunning(ctx, s)
+				ValidateDRAWorkloadSchedulable(ctx, s)
 			},
 		},
 	})

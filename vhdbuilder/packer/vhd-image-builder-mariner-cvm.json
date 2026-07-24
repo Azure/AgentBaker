@@ -179,6 +179,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_preload.sh",
+      "destination": "/home/packer/provision_preload.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_start.sh",
       "destination": "/home/packer/provision_start.sh"
     },
@@ -239,8 +244,8 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/init-aks-custom-cloud.sh",
-      "destination": "/home/packer/init-aks-custom-cloud.sh"
+      "source": "parts/linux/cloud-init/artifacts/init-aks-cloud.sh",
+      "destination": "/home/packer/init-aks-cloud.sh"
     },
     {
       "type": "file",

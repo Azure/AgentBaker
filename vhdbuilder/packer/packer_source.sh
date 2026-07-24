@@ -156,13 +156,13 @@ copyPackerFiles() {
   CSE_SEND_DEST=/opt/azure/containers/provision_send_logs.py
   cpAndMode $CSE_SEND_SRC $CSE_SEND_DEST 0744
 
-  INIT_CUSTOM_CLOUD_SRC=/home/packer/init-aks-custom-cloud.sh
-  INIT_CUSTOM_CLOUD_DEST=/opt/azure/containers/init-aks-custom-cloud.sh
-  cpAndMode $INIT_CUSTOM_CLOUD_SRC $INIT_CUSTOM_CLOUD_DEST 0744
+  INIT_CLOUD_SRC=/home/packer/init-aks-cloud.sh
+  INIT_CLOUD_DEST=/opt/azure/containers/init-aks-cloud.sh
+  cpAndMode $INIT_CLOUD_SRC $INIT_CLOUD_DEST 0744
 
   PVT_HOST_SVC_SRC=/home/packer/reconcile-private-hosts.service
   PVT_HOST_SVC_DEST=/etc/systemd/system/reconcile-private-hosts.service
-  cpAndMode $CSE_REDACT_SRC $CSE_REDACT_DEST 600
+  cpAndMode $PVT_HOST_SVC_SRC $PVT_HOST_SVC_DEST 600
 
   if grep -q "kata" <<< "$FEATURE_FLAGS"; then
     # KataCC SPEC file assumes kata config points to the files exactly under this path
@@ -240,6 +240,10 @@ copyPackerFiles() {
   CSE_MAIN_SRC=/home/packer/provision.sh
   CSE_MAIN_DEST=/opt/azure/containers/provision.sh
   cpAndMode $CSE_MAIN_SRC $CSE_MAIN_DEST 0744
+
+  CSE_PRELOAD_SRC=/home/packer/provision_preload.sh
+  CSE_PRELOAD_DEST=/opt/azure/containers/provision_preload.sh
+  cpAndMode $CSE_PRELOAD_SRC $CSE_PRELOAD_DEST 0744
 
   CSE_START_SRC=/home/packer/provision_start.sh
   CSE_START_DEST=/opt/azure/containers/provision_start.sh
@@ -516,7 +520,7 @@ copyPackerFiles() {
     cpAndMode $NOTICE_SRC $NOTICE_DEST 444
   fi
 
-  if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+  if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
     FMT_SH_SRC=/home/packer/format-mount-nvme-root.sh
     FMT_SH_DEST=/opt/azure/containers/format-mount-nvme-root.sh
     cpAndMode $FMT_SH_SRC $FMT_SH_DEST 0544
@@ -537,7 +541,7 @@ copyPackerFiles() {
       cpAndMode $NVIDIA_ASC_SRC $NVIDIA_ASC_DEST 644
 
       # This will only currently work if changes are applied to the subscription
-      # the node runs in. Otherwise, until the GB200 is recognized as a GPU SKU,
+      # the node runs in. Otherwise, until NVIDIA GB is recognized as a GPU SKU,
       # it'll be overwritten by a containerd configuration that doesn't support
       # running GPU workloads.
       CONTAINERD_NVIDIA_TOML_SRC=/home/packer/containerd-nvidia.toml
@@ -556,8 +560,15 @@ copyPackerFiles() {
       NVIDIA_MODPROBE_PARAMETERS_DEST=/etc/modprobe.d/nvidia.conf
       cpAndMode $NVIDIA_MODPROBE_PARAMETERS_SRC $NVIDIA_MODPROBE_PARAMETERS_DEST 644
 
-      BOM_SRC=/home/packer/gb200-mai-bom.json
-      BOM_DEST=/opt/azure/containers/gb200-mai-bom.json
+      # Force-load nvidia_peermem at boot via systemd-modules-load.service.
+      # The softdep in /etc/modprobe.d/nvidia.conf is unreliable because `nvidia`
+      # is autoloaded by PCI modalias before the OFED RDMA stack is available.
+      NVIDIA_PEERMEM_MODULES_LOAD_SRC=/home/packer/nvidia-peermem.conf
+      NVIDIA_PEERMEM_MODULES_LOAD_DEST=/etc/modules-load.d/nvidia-peermem.conf
+      cpAndMode $NVIDIA_PEERMEM_MODULES_LOAD_SRC $NVIDIA_PEERMEM_MODULES_LOAD_DEST 644
+
+      BOM_SRC=/home/packer/gb-mai-bom.json
+      BOM_DEST=/opt/azure/containers/gb-mai-bom.json
       cpAndMode $BOM_SRC $BOM_DEST 644
     fi
   fi

@@ -167,7 +167,14 @@ apt_get_dist_upgrade() {
     dpkg --configure -a --force-confdef
     apt-get -f -y install
     dpkg --get-selections | awk '$2=="hold"{print $1}'
-    ! (apt-get -o Dpkg::Options::="--force-confnew" dist-upgrade -y 2>&1 | tee $apt_dist_upgrade_output | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
+    # Disable APT phased updates for the VHD build dist-upgrade. By default apt holds back a
+    # percentage of -updates packages (phasing), which makes VHD builds non-deterministic and can
+    # leave the captured image missing the latest patched packages. Always-Include-Phased-Updates
+    # tells apt to ignore the phasing percentage and install all available updates. This is passed
+    # inline (not via /etc/apt/apt.conf.d) so it does not leak into the captured VHD or change node
+    # runtime apt behavior. apt_get_dist_upgrade is only invoked during VHD build.
+    # https://ubuntu.com/server/docs/explanation/software/about-apt-upgrade-and-phased-updates/#how-do-i-turn-off-phased-updates
+    ! (apt-get -o Dpkg::Options::="--force-confnew" -o APT::Get::Always-Include-Phased-Updates=true dist-upgrade -y 2>&1 | tee $apt_dist_upgrade_output | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
     cat $apt_dist_upgrade_output && break || \
     cat $apt_dist_upgrade_output
     if [ $i -eq $retries ]; then

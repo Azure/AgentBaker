@@ -16,6 +16,9 @@ e2e/scenario-logs
 **/vhd-publishing-info.json
 out/
 build/
+coverage/
+test-results/
+.devcontainer/devcontainer-lock.json
 
 test/junit/
 coverage/
@@ -29,6 +32,9 @@ cmd/_test_output
 *.test
 *.coverprofile
 **/junit.xml
+test-results
+coverage
+staging/cse/windows/containerdfunc.tests.suites
 
 .idea
 .vs

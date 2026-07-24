@@ -16,19 +16,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/Masterminds/semver/v3"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	certv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
+	resourcev1 "k8s.io/api/resource/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -152,7 +154,7 @@ func validateKubeletServingCertificateRotationWindows(ctx context.Context, s *Sc
 
 func validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx context.Context, s *Scenario) {
 	fieldSelector := fmt.Sprintf("spec.signerName=%s", certv1.KubeAPIServerClientKubeletSignerName)
-	kubeletClientCSRs, err := s.Runtime.Cluster.Kube.Typed.CertificatesV1().CertificateSigningRequests().List(ctx, metav1.ListOptions{
+	kubeletClientCSRs, err := s.Runtime.Kube.Typed.CertificatesV1().CertificateSigningRequests().List(ctx, metav1.ListOptions{
 		FieldSelector: fieldSelector,
 	})
 	require.NoError(s.T, err, "failed to list CSRs with field selector: %s", fieldSelector)
@@ -403,6 +405,21 @@ func ValidateNvidiaPersistencedRunning(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate nvidia-persistenced.service status")
 }
 
+// ValidateNvidiaGridV20DriverInstalled asserts the node installed the grid-v20
+// (595.x) driver from the aks-gpu-grid-v20 image rather than falling back to a
+// cuda/grid driver. This is the grid-v20-specific check: if SKU->driver-type
+// selection regressed, nvidia-smi would report a different driver major.
+func ValidateNvidiaGridV20DriverInstalled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		"driver_version=$(sudo nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -n1 | tr -d '[:space:]')",
+		"echo \"nvidia driver_version=$driver_version\"",
+		"case \"$driver_version\" in 595.*) ;; *) echo \"expected grid-v20 595.x driver, got '$driver_version'\"; exit 1 ;; esac",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "expected grid-v20 (595.x) NVIDIA driver version")
+}
+
 func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
 	s.T.Helper()
 	command := []string{
@@ -410,6 +427,13 @@ func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string)
 		fmt.Sprintf("sudo ls -1q %s | grep -q '^.*$' && true || false", dirName),
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "either could not find expected file, or something went wrong")
+}
+
+func ValidateEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
+	s.T.Helper()
+	command := fmt.Sprintf("! [ -d '%s' ] || [ -z \"$(ls -A '%s')\" ]", dirName, dirName)
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0,
+		fmt.Sprintf("expected directory %s to be empty or not exist", dirName))
 }
 
 func ValidateInspektorGadget(ctx context.Context, s *Scenario) {
@@ -430,7 +454,7 @@ func ValidateInspektorGadget(ctx context.Context, s *Scenario) {
 	s.T.Logf("skip_vhd_ig sentinel file found, validating Inspektor Gadget installation")
 
 	ValidateSystemdUnitIsNotFailed(ctx, s, serviceName)
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s", serviceName), 0, fmt.Sprintf("%s should be enabled", serviceName))
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s | grep -qx disabled", serviceName), 0, fmt.Sprintf("%s should be disabled", serviceName))
 
 	ValidateFileExists(ctx, s, skipFile)
 	ValidateFileExists(ctx, s, servicePath)
@@ -925,7 +949,7 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 }
 
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
-	if s.VHD != nil && s.VHD.Skip2004Validations {
+	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
 		return
 	}
 	unitFailureAllowList := map[string]bool{
@@ -1045,7 +1069,7 @@ func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) {
 	stdout := execResult.stdout
 
 	// Search for "--node-ip" flag and its value.
-	matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.,]*)`).FindStringSubmatch(stdout)
+	matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.:,]*)`).FindStringSubmatch(stdout)
 	require.NotNil(s.T, matches, "could not find kubelet flag --node-ip\nStdout: \n%s", stdout)
 	require.GreaterOrEqual(s.T, len(matches), 2, "could not find kubelet flag --node-ip.\nStdout: \n%s", stdout)
 
@@ -1148,7 +1172,7 @@ func validateNPDCondition(ctx context.Context, s *Scenario, conditionType, condi
 	// Wait for NPD to report initial condition
 	var condition *corev1.NodeCondition
 	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
 			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
 			return false, nil // Continue polling on transient errors
@@ -1376,6 +1400,11 @@ func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) {
 	ValidateInstalledPackageVersion(ctx, s, "moby-runc", versions[0])
 }
 
+func ValidateKubeletArgs(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt", "--windows-priorityclass=ABOVE_NORMAL_PRIORITY_CLASS"})
+}
+
 func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, processName string, arguments []string) {
 	steps := []string{
 		fmt.Sprintf("(Get-CimInstance Win32_Process -Filter \"name='%[1]s'\")[0].CommandLine", processName),
@@ -1535,7 +1564,7 @@ func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName str
 // ValidateTaints checks if the node has the expected taints that are set in the kubelet config with --register-with-taints flag
 func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
 	s.T.Helper()
-	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
 	var taints []string
 	for _, taint := range node.Spec.Taints {
@@ -1711,7 +1740,7 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 	maxAttempts := 33 // ~5 minutes: first 4 attempts use 1+2+4+8=15s, then ~29 attempts at 10s cap = ~305s
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		node, err = s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		node, err = s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
 
 		annotationValue, exists = node.Annotations[annotationKey]
@@ -1952,29 +1981,118 @@ echo "IPv6 entries in hosts file are correctly served by CoreDNS hosts plugin"
 		"CoreDNS hosts plugin should serve IPv6 entries from hosts file")
 }
 
-// ValidateLocalDNSHostsPluginColdStart verifies that localdns works correctly when restarted
+// ValidateLocalDNSHostsPluginColdStart verifies that localdns works correctly when started
 // with an empty hosts file — the exact scenario that occurs when localdns starts before
 // aks-localdns-hosts-setup finishes resolving FQDNs.
 //
 // Test flow:
-//  1. Truncate hosts file, restart localdns — CoreDNS starts fresh with empty hosts file and empty cache
+//  1. Truncate hosts file, stop/start localdns — CoreDNS starts fresh with empty hosts file and empty cache
 //  2. Verify critical and non-critical FQDNs resolve via fallthrough (upstream DNS)
 //  3. Populate hosts file with a canary entry (simulates aks-localdns-hosts-setup completing)
 //  4. Wait for CoreDNS reload (5s), verify canary resolves (hosts plugin picks up new file)
-//  5. Restore original hosts file and restart localdns to leave node in clean state
+//  5. Restore original hosts file and stop/start localdns to leave node in clean state
 func ValidateLocalDNSHostsPluginColdStart(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
 	s.T.Log("Testing localdns cold start with empty hosts file then population")
 
-	script := `set -euo pipefail
+	script := `#!/bin/bash
+set -euo pipefail
 hosts_file="/etc/localdns/hosts"
 canary_fqdn="canary.localdns.test"
 canary_ip="192.0.2.99"
+localdns_ip="169.254.10.10"
+resolv_conf="/run/systemd/resolve/resolv.conf"
 
 # Helper: validate that dig output contains at least one valid IP address (not error text).
 has_valid_ip() {
     echo "$1" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
+}
+
+# Helper: dump localdns state for debugging.
+dump_localdns_diagnostics() {
+    echo "--- localdns service status ---"
+    sudo systemctl status localdns --no-pager 2>&1 || true
+    echo "--- localdns journal (last 50 lines) ---"
+    sudo journalctl -u localdns --no-pager -n 50 2>&1 || true
+}
+
+# Helper: wait for localdns teardown side effects to settle before starting again.
+# localdns stop triggers cleanup that removes the DNS drop-in, reloads network config,
+# tears down the dummy interface, and exits CoreDNS. Some of that state converges
+# asynchronously outside the systemd unit, so we explicitly wait for it here instead of
+# relying on a one-shot systemctl restart.
+wait_for_localdns_shutdown_stability() {
+    local reason="$1"
+    local max_wait_seconds=30
+    local attempt=1
+    local current_dns systemd_state interface_present
+
+    echo "Waiting for localdns teardown to settle (${reason})..."
+    while [ "$attempt" -le "$max_wait_seconds" ]; do
+        current_dns=$(awk '/^nameserver/ {print $2}' "$resolv_conf" 2>/dev/null | paste -sd' ')
+        systemd_state=$(sudo systemctl is-active localdns 2>&1 || true)
+        interface_present="false"
+        if ip link show dev localdns >/dev/null 2>&1; then
+            interface_present="true"
+        fi
+
+        if [ "$systemd_state" != "active" ] && [ "$systemd_state" != "activating" ] && [ "$systemd_state" != "deactivating" ] && \
+            ! grep -qwF "$localdns_ip" <<< "$current_dns" && [ "$interface_present" = "false" ]; then
+            echo "localdns teardown settled after ${attempt}s (${reason}); systemd=${systemd_state}, DNS=${current_dns:-<none>}"
+            return 0
+        fi
+
+        sleep 1
+        attempt=$((attempt + 1))
+    done
+
+    echo "ERROR: localdns teardown did not settle after ${max_wait_seconds}s (${reason})" >&2
+    echo "systemctl is-active localdns: $(sudo systemctl is-active localdns 2>&1 || true)"
+    echo "Current DNS: $(awk '/^nameserver/ {print $2}' "$resolv_conf" 2>/dev/null | paste -sd' ')"
+    if ip link show dev localdns >/dev/null 2>&1; then
+        echo "localdns interface is still present"
+    else
+        echo "localdns interface has been removed"
+    fi
+    return 1
+}
+
+# Helper: cold-start localdns by splitting restart into stop -> wait for stable teardown -> start.
+# This targets the actual flaky edge in the E2E: external DNS/network state settling after stop.
+restart_localdns_cleanly() {
+    local reason="$1"
+    local rc=0
+
+    echo "Stopping localdns (${reason})..."
+    if sudo systemctl stop localdns; then
+        :
+    else
+        rc=$?
+        echo "ERROR: localdns stop failed (${reason}, rc=$rc)" >&2
+        dump_localdns_diagnostics
+        return "$rc"
+    fi
+
+    if ! wait_for_localdns_shutdown_stability "$reason"; then
+        dump_localdns_diagnostics
+        return 1
+    fi
+
+    sudo systemctl reset-failed localdns || true
+
+    echo "Starting localdns (${reason})..."
+    if sudo systemctl start localdns; then
+        :
+    else
+        rc=$?
+        echo "ERROR: localdns start failed (${reason}, rc=$rc)" >&2
+        dump_localdns_diagnostics
+        return "$rc"
+    fi
+
+    echo "localdns start completed (${reason})"
+    return 0
 }
 
 echo "=== Testing localdns cold start with empty hosts file ==="
@@ -1990,11 +2108,11 @@ saved_content=$(cat "$hosts_file")
 echo "Saved hosts file ($(echo "$saved_content" | wc -l) lines)"
 echo ""
 
-# Step 1: Truncate hosts file and restart localdns (clears both hosts map and DNS cache)
-echo "Step 1: Truncating hosts file and restarting localdns..."
+# Step 1: Truncate hosts file and cold-start localdns (clears both hosts map and DNS cache)
+echo "Step 1: Truncating hosts file and cold-starting localdns..."
 sudo truncate -s 0 "$hosts_file"
-sudo systemctl restart localdns
-echo "localdns restarted with empty hosts file"
+restart_localdns_cleanly "start with empty hosts file"
+echo "localdns started with empty hosts file"
 echo ""
 
 # Wait for localdns to be fully ready
@@ -2006,12 +2124,9 @@ for i in $(seq 1 30); do
     fi
     if [ "$i" -eq 30 ]; then
         echo "ERROR: localdns did not become ready after 30s"
-        echo "--- localdns service status ---"
-        sudo systemctl status localdns --no-pager 2>&1 || true
-        echo "--- localdns journal (last 30 lines) ---"
-        sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+        dump_localdns_diagnostics
         echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
-        sudo systemctl restart localdns
+        restart_localdns_cleanly "restore after readiness timeout" || true
         exit 1
     fi
     sleep 1
@@ -2026,12 +2141,9 @@ critical_result=$(dig "$critical_fqdn" @169.254.10.10 -t A +short +timeout=5 +tr
 echo "Critical FQDN ($critical_fqdn): '$critical_result'"
 if ! has_valid_ip "$critical_result"; then
     echo "ERROR: Critical FQDN did not return a valid IP after cold start with empty hosts file"
-    echo "--- localdns service status ---"
-    sudo systemctl status localdns --no-pager 2>&1 || true
-    echo "--- localdns journal (last 30 lines) ---"
-    sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+    dump_localdns_diagnostics
     echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
-    sudo systemctl restart localdns
+    restart_localdns_cleanly "restore after critical FQDN failure" || true
     exit 1
 fi
 echo "✓ Critical FQDN resolves via fallthrough"
@@ -2041,12 +2153,9 @@ noncritical_result=$(dig "$noncritical_fqdn" @169.254.10.10 -t A +short +timeout
 echo "Non-critical FQDN ($noncritical_fqdn): '$noncritical_result'"
 if ! has_valid_ip "$noncritical_result"; then
     echo "ERROR: Non-critical FQDN did not return a valid IP after cold start with empty hosts file"
-    echo "--- localdns service status ---"
-    sudo systemctl status localdns --no-pager 2>&1 || true
-    echo "--- localdns journal (last 30 lines) ---"
-    sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+    dump_localdns_diagnostics
     echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
-    sudo systemctl restart localdns
+    restart_localdns_cleanly "restore after non-critical FQDN failure" || true
     exit 1
 fi
 echo "✓ Non-critical FQDN resolves via fallthrough"
@@ -2082,23 +2191,20 @@ if [ "$canary_resolved" != "true" ]; then
     echo "ERROR: Canary did not resolve after 60s — hot-reload after cold start broken"
     echo "Expected: $canary_ip"
     echo "Last dig result: '$canary_result'"
-    echo "--- localdns service status ---"
-    sudo systemctl status localdns --no-pager 2>&1 || true
-    echo "--- localdns journal (last 30 lines) ---"
-    sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+    dump_localdns_diagnostics
     echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
-    sudo systemctl restart localdns
+    restart_localdns_cleanly "restore after canary failure" || true
     exit 1
 fi
 echo ""
 
-# Step 5: Cleanup — restore original hosts file and restart localdns
-echo "Step 5: Cleaning up — restoring original hosts file and restarting localdns..."
+# Step 5: Cleanup — restore original hosts file and cold-start localdns
+echo "Step 5: Cleaning up — restoring original hosts file and cold-starting localdns..."
 echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
-sudo systemctl restart localdns
+restart_localdns_cleanly "final cleanup restore"
 echo ""
 
-# Wait for localdns to be ready after final restart
+# Wait for localdns to be ready after final cold start
 for i in $(seq 1 30); do
     if dig "health-check.localdns.local" @169.254.10.10 +short +timeout=1 +tries=1 >/dev/null 2>&1; then
         echo "localdns is ready after cleanup"
@@ -2106,17 +2212,14 @@ for i in $(seq 1 30); do
     fi
     if [ "$i" -eq 30 ]; then
         echo "WARNING: localdns did not become ready after cleanup (30s)"
-        echo "--- localdns service status ---"
-        sudo systemctl status localdns --no-pager 2>&1 || true
-        echo "--- localdns journal (last 30 lines) ---"
-        sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+        dump_localdns_diagnostics
     fi
     sleep 1
 done
 
 echo "=== SUCCESS ==="
 echo "localdns cold start with empty hosts file verified:"
-echo "  1. Restart with empty hosts file: DNS resolves via fallthrough"
+echo "  1. Start with empty hosts file: DNS resolves via fallthrough"
 echo "  2. Hosts file populated later: CoreDNS picks it up via reload"
 `
 
@@ -2267,7 +2370,7 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 	// our start should detect it. Use 8 minutes as a safety margin.
 	var filesystemCorruptionProblem *corev1.NodeCondition
 	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 8*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
 			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
 			return false, nil // Continue polling on transient errors
@@ -2314,7 +2417,7 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCou
 
 	// Get the node using the Kubernetes client from the test framework
 	nodeName := s.Runtime.VM.KubeName
-	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	require.NoError(s.T, err, "failed to get node %q", nodeName)
 
 	// Check if the node advertises GPU capacity
@@ -2383,16 +2486,12 @@ else
     exit 1
 fi`)
 	require.NoError(s.T, err, "Failed to run command to check sshd_config")
-	respJson, err := resp.MarshalJSON()
-	require.NoError(s.T, err, "Failed to marshal response")
-	s.T.Logf("Run command output: %s", string(respJson))
-
-	// Parse the JSON response to extract the output and exit code
-	respString := string(respJson)
+	stdout := lo.FromPtr(resp.Output)
+	s.T.Logf("Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
 	// Check if the command execution was successful by looking for our success message in the output
-	if !strings.Contains(respString, "SUCCESS: PubkeyAuthentication is disabled") {
-		s.T.Fatalf("PubkeyAuthentication is not properly disabled. Full response: %s", respString)
+	if !strings.Contains(stdout, "SUCCESS: PubkeyAuthentication is disabled") {
+		s.T.Fatalf("PubkeyAuthentication is not properly disabled. stdout: %s", stdout)
 	}
 
 	// Part 2. Check cannot SSH with private key (expect failure)
@@ -2411,9 +2510,7 @@ func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) {
 
 	// Use VMSS RunCommand to check SSH service status directly on the node
 	// Ubuntu uses 'ssh' as service name, while AzureLinux and Mariner use 'sshd'
-	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{
-		CommandID: to.Ptr("RunShellScript"),
-		Script: []*string{to.Ptr(`#!/bin/bash
+	resp, err := RunCommand(ctx, s, `#!/bin/bash
 # Determine the correct SSH service name based on the distro
 # Ubuntu uses 'ssh', AzureLinux and Mariner use 'sshd'
 if [ -f /etc/os-release ]; then
@@ -2447,24 +2544,14 @@ if echo "$status_output" | grep -q "Active: inactive (dead)"; then
 else
     echo "FAILED: SSH service is not inactive"
     exit 1
-fi`)},
-	}, nil)
+fi`)
 	require.NoError(s.T, err, "Failed to run command to check SSH service status")
-
-	runResp, err := runPoller.PollUntilDone(ctx, nil)
-	require.NoError(s.T, err, "Failed to complete command to check SSH service status")
-
-	// Parse the response to check the result
-	respJson, err := runResp.MarshalJSON()
-	require.NoError(s.T, err, "Failed to marshal run command response")
-	s.T.Logf("Run command output: %s", string(respJson))
-
-	// Parse the JSON response to extract the output
-	respString := string(respJson)
+	stdout := lo.FromPtr(resp.Output)
+	s.T.Logf("Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
 	// Check if the command execution was successful by looking for our success message in the output
-	if !strings.Contains(respString, "SUCCESS: SSH service is disabled and stopped") {
-		s.T.Fatalf("SSH service is not properly disabled and stopped. Full response: %s", respString)
+	if !strings.Contains(stdout, "SUCCESS: SSH service is disabled and stopped") {
+		s.T.Fatalf("SSH service is not properly disabled and stopped. stdout: %s", stdout)
 	}
 
 	s.T.Logf("SSH service is properly disabled and stopped as expected")
@@ -2651,7 +2738,7 @@ func truncatePodName(t testing.TB, pod *corev1.Pod) {
 // ValidateNodeHasLabel checks if the node has the expected label with the expected value
 func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedValue string) {
 	s.T.Helper()
-	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
 
 	actualValue, exists := node.Labels[labelKey]
@@ -2662,21 +2749,34 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
 func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
 	nbc := s.Runtime.NBC
-	if nbc != nil && s.VHD.SupportsScriptless() && (nbc.EnableScriptlessCSECmd || nbc.EnableScriptlessNBCCSECmd) {
+	if nbc != nil && s.VHD.SupportsScriptless() && nbc.EnableScriptlessCSECmd && !usesScriptlessNBCCSECmd(s) {
 		ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
 	}
 }
 
 // ValidateScriptlessNBCCSECmd checks if the node has scriptless NBCCSECmd correctly enabled
 func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
-	nbc := s.Runtime.NBC
-	if nbc != nil && nbc.EnableScriptlessNBCCSECmd && s.VHD.SupportsScriptless() {
+	if usesScriptlessNBCCSECmd(s) {
 		fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
-		if !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated {
+		if enableScriptlessCompilation(s) {
 			fileNameToCheck = "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
 		}
 		ValidateFileExists(ctx, s, fileNameToCheck)
 		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "Using NBC command for scriptless phase 2")
+	}
+}
+
+// ValidateScriptlessPhase3 validates that there are not diffs between ANC generated cse cmd NBC cse cmd vars
+func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	if s.Runtime.AKSNodeConfig != nil && usesScriptlessNBCCSECmd(s) {
+		logFile := "/var/log/azure/aks-node-controller.log"
+		if !fileHasContent(ctx, s, logFile, "env compare: no differences found between provision-config and nbc-cmd env vars") {
+			// Grep for all env-compare diff markers to show what's different.
+			diffCmd := "sudo grep -E 'differs|only-in-pc|only-in-nbc|env var differences' " + logFile + " || true"
+			result := execScriptOnVMForScenarioValidateExitCode(ctx, s, diffCmd, 0, "could not grep for differences in aks-node-controller.log")
+			s.T.Fatalf("expected no env var differences between provision-config and nbc-cmd, but found differences:\n%s", result.stdout)
+		}
 	}
 }
 
@@ -2725,6 +2825,111 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 	ValidateNetworkInterfaceConfig(ctx, s, customNicConfig)
 }
 
+// ValidateMANAPCIDevice checks that the MANA PCI device is exposed to the VM.
+// MANA hardware is identified by PCI device ID 0x00ba (Microsoft Corporation).
+func ValidateMANAPCIDevice(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	defer toolkit.LogStep(s.T, "validating MANA PCI device is present")()
+	cmd := "grep -Rqi '^0x00ba$' /sys/bus/pci/devices/*/device 2>/dev/null"
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"MANA PCI device (0x00ba) not found in /sys/bus/pci/devices")
+}
+
+// ValidateMANADriverLoaded checks that the MANA Ethernet driver (mana) is loaded
+// in the running kernel. For built-in drivers they appear in modules.builtin;
+// for loadable modules they must be present in lsmod.
+func ValidateMANADriverLoaded(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	defer toolkit.LogStep(s.T, "validating MANA kernel driver is loaded")()
+	cmd := `lsmod | grep -q '^mana ' || grep -q '/mana\.ko' /lib/modules/$(uname -r)/modules.builtin`
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"MANA kernel driver (mana) not found in lsmod or modules.builtin")
+}
+
+// ValidateMANAVFBonded checks that the MANA Virtual Function (VF) interface exists
+// and is properly bonded to the primary eth0 interface.
+// When Accelerated Networking is enabled with MANA, a VF interface should appear
+// as a subordinate (SLAVE) of eth0. The VF name varies by VM generation:
+// - V5: enP* (e.g., enP30832p0s0)
+// - V6+: ens1 or enp0s0
+func ValidateMANAVFBonded(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	defer toolkit.LogStep(s.T, "validating MANA VF is bonded to eth0")()
+	// Look for any interface that has "master eth0" in ip link output,
+	// indicating it is bonded as a VF to the primary synthetic NIC.
+	cmd := `ip link show | grep 'master eth0'`
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"no VF interface found bonded to eth0 — accelerated networking may not be working")
+	s.T.Logf("MANA VF bonding: %s", strings.TrimSpace(result.stdout))
+}
+
+// ValidateMANATrafficFlowing checks that network traffic is actually flowing through
+// the MANA Virtual Function rather than the slower synthetic (NetVSC) path.
+// It sends HTTP requests from a pod to the node's default gateway and verifies
+// that the VF TX packet counters increase by at least that amount.
+func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	defer toolkit.LogStep(s.T, "validating traffic is flowing through MANA VF")()
+
+	const requestCount = 10
+	getVFTxPackets := `val=$(sudo ethtool -S eth0 | awk '/^[[:space:]]*vf_tx_packets:/{print $2; exit}'); [ -n "$val" ] && echo "$val" || { echo "vf_tx_packets not found in ethtool -S eth0 output" >&2; exit 1; }`
+	// Read VF tx counter before generating traffic
+	resultBefore := execScriptOnVMForScenarioValidateExitCode(ctx, s, getVFTxPackets, 0,
+		"could not read VF tx packet counter from ethtool -S eth0")
+	countBefore, err := strconv.Atoi(strings.TrimSpace(resultBefore.stdout))
+	require.NoError(s.T, err, "failed to parse vf_tx_packets before value %q", resultBefore.stdout)
+	s.T.Logf("MANA VF tx packets before: %d", countBefore)
+
+	// Generate traffic from a pod on this node using curl to the node's default
+	// gateway. We use vf_tx_packets (not rx) so the test passes regardless of
+	// whether the target responds — what matters is that outbound packets from
+	// the pod traverse the MANA VF path. curl is pre-installed in the Mariner
+	// debug image, so no package install is needed.
+	gatewayResult := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"ip route | awk '/default/{print $3}'", 0,
+		"could not determine default gateway from ip route")
+	gatewayIP := strings.TrimSpace(gatewayResult.stdout)
+	require.NotEmpty(s.T, gatewayIP, "default gateway IP is empty")
+	s.T.Logf("MANA traffic test: using gateway %s as target", gatewayIP)
+
+	// The "; true" ensures exit 0 regardless of curl's result — the gateway has
+	// no HTTP server so connections will fail, but TCP SYN packets still traverse
+	// the VF (incrementing vf_tx_packets). The real assertion is the counter delta below.
+	curlCmd := fmt.Sprintf("for i in $(seq 1 %d); do curl -s -o /dev/null -m 1 http://%s/ 2>/dev/null; done; true", requestCount, gatewayIP)
+	execOnVMForScenarioOnUnprivilegedPod(ctx, s, curlCmd)
+
+	// Read VF tx counter after generating traffic
+	resultAfter := execScriptOnVMForScenarioValidateExitCode(ctx, s, getVFTxPackets, 0,
+		"could not read VF tx packet counter from ethtool -S eth0")
+	countAfter, err := strconv.Atoi(strings.TrimSpace(resultAfter.stdout))
+	require.NoError(s.T, err, "failed to parse vf_tx_packets after value %q", resultAfter.stdout)
+
+	delta := countAfter - countBefore
+	s.T.Logf("MANA VF tx packets after: %d (delta: %d, expected >= %d)", countAfter, delta, requestCount)
+
+	require.GreaterOrEqual(s.T, delta, requestCount,
+		"vf_tx_packets increased by %d but expected at least %d \u2014 traffic may not be flowing through the MANA VF", delta, requestCount)
+}
+
+// ValidateMANA runs all MANA (Microsoft Azure Network Adapter) checks.
+// It verifies that the MANA PCI device is present, the kernel driver is loaded,
+// the VF interface is bonded to eth0, and traffic is flowing through the VF.
+func ValidateMANA(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	ValidateMANAPCIDevice(ctx, s)
+	ValidateMANADriverLoaded(ctx, s)
+	ValidateMANAVFBonded(ctx, s)
+	ValidateMANATrafficFlowing(ctx, s)
+}
+
+// hasMANAHardware checks if the VM has MANA PCI hardware available.
+// Returns true if the MANA device (0x00ba) is found in sysfs.
+// This is used to conditionally run MANA validations on VMs that support it.
+func hasMANAHardware(ctx context.Context, s *Scenario) bool {
+	result := execScriptOnVMForScenario(ctx, s, "grep -Rqi '^0x00ba$' /sys/bus/pci/devices/*/device 2>/dev/null")
+	return result.exitCode == "0"
+}
+
 // ValidateKernelLogs checks kernel logs for critical errors across multiple categories:
 // - Kernel panics/crashes (panic, oops, call trace, BUG, etc.)
 // - CPU lockups/stalls (soft/hard lockup, RCU stall, hung task, watchdog)
@@ -2733,7 +2938,7 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	if s.VHD != nil && s.VHD.Skip2004Validations {
+	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
 		return
 	}
 
@@ -2820,7 +3025,7 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") {
+	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") || s.VHD.SkipOldVHDValidations {
 		s.T.Logf("Skipping waagent log validation: not applicable for %s", s.VHD.Distro)
 		return
 	}
@@ -2857,7 +3062,7 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 		s.VHD == config.VHDUbuntu2204Gen2FIPSTLContainerd
 	grepCmd := fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s || true", waagentLogFile)
 	if isUbuntu2204FIPS {
-		grepCmd = fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s | grep -v 'Cannot convert PFX to PEM' || true", waagentLogFile)
+		grepCmd = fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s | grep -v 'Cannot convert PFX to PEM' | grep -v 'CHAIN_ZERO' || true", waagentLogFile)
 	}
 	extHandlerErrors := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		strings.Join([]string{
@@ -2929,7 +3134,7 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 	// blacklist and the bake-in has been removed because customers need those modules. Assert
 	// the blacklist entries are NOT present on freshly-built AzL3 VHDs. AzureLinux OSGuard is
 	// intentionally kept in-scope (falls through to the full presence + load-refusal check below).
-	if s.VHD.OS == config.OSAzureLinux && !s.VHD.Distro.IsAzureLinuxOSGuardDistro() {
+	if s.VHD.OS == config.OSAzureLinux && !s.VHD.Distro.IsAzureLinuxOSGuardDistro() && s.VHD.Distro != datamodel.AKSAzureLinuxV2Gen2 {
 		script := strings.Join([]string{
 			`failed=0`,
 			`for mod in algif_aead esp4 esp6 rxrpc; do`,
@@ -2975,4 +3180,308 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
 		"Vulnerable kernel module mitigation validation failed (algif_aead/esp4/esp6/rxrpc)")
+}
+
+// resolveSecondaryNICName discovers the kernel interface name of the secondary NIC
+// (IMDS interface index 1) by matching its MAC address against /sys/class/net/*/address.
+// This avoids hardcoding "eth1" which can be wrong when SR-IOV VFs or predictable
+// naming (ens*/enP*) are in use.
+func resolveSecondaryNICName(ctx context.Context, s *Scenario) string {
+	s.T.Helper()
+	// Get the secondary NIC's MAC from IMDS, then look it up in sysfs.
+	// -sf makes curl fail with non-zero exit on HTTP errors (403/404) instead
+	// of silently returning the error body as the "MAC".
+	// Skip SR-IOV VFs (enslaved interfaces with /sys/class/net/<iface>/master)
+	// which share the MAC of their master but don't hold an IP address.
+	// Exit 1 if no matching interface is found rather than falling back to a
+	// hardcoded name that could target a VF or wrong interface.
+	cmd := `mac=$(curl -sf -H "Metadata:true" "http://169.254.169.254/metadata/instance/network/interface/1/macAddress?api-version=2021-02-01&format=text") || { echo "IMDS MAC lookup failed" >&2; exit 1; }; mac_lower=$(echo "$mac" | sed 's/\(..\)/\1:/g; s/:$//' | tr '[:upper:]' '[:lower:]'); for f in /sys/class/net/*/address; do d=$(dirname "$f"); [ -e "$d/master" ] && continue; if [ "$(cat "$f" 2>/dev/null)" = "$mac_lower" ]; then basename "$d"; exit 0; fi; done; echo "no interface found for MAC $mac_lower" >&2; exit 1`
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"failed to resolve secondary NIC interface name")
+	ifaceName := strings.TrimSpace(result.stdout)
+	require.NotEmpty(s.T, ifaceName, "resolved secondary NIC name should not be empty")
+	return ifaceName
+}
+
+// ValidateSecondaryNICUp checks that the given network interface is UP and has an IPv4 address.
+func ValidateSecondaryNICUp(ctx context.Context, s *Scenario, ifaceName string) {
+	s.T.Helper()
+	cmd := fmt.Sprintf("ip addr show %s", ifaceName)
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		fmt.Sprintf("failed to get interface info for %s", ifaceName))
+	require.Contains(s.T, result.stdout, "state UP",
+		"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout)
+	require.Contains(s.T, result.stdout, "inet ",
+		"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout)
+}
+
+// ValidateSecondaryNICDualStack checks that the given network interface is UP and has both IPv4 and IPv6 addresses.
+func ValidateSecondaryNICDualStack(ctx context.Context, s *Scenario, ifaceName string) {
+	s.T.Helper()
+	cmd := fmt.Sprintf("ip addr show %s", ifaceName)
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		fmt.Sprintf("failed to get interface info for %s", ifaceName))
+	require.Contains(s.T, result.stdout, "state UP",
+		"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout)
+	require.Contains(s.T, result.stdout, "inet ",
+		"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout)
+	require.Contains(s.T, result.stdout, "inet6 ",
+		"expected interface %s to have an IPv6 address, got:\n%s", ifaceName, result.stdout)
+	require.Contains(s.T, result.stdout, "scope global",
+		"expected interface %s to have a global IPv6 address (not just link-local), got:\n%s", ifaceName, result.stdout)
+}
+
+func ValidateDraDriverNvidiaGpuServiceRunning(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating DRA driver NVIDIA GPU systemd service is running")
+
+	command := []string{
+		"set -ex",
+		"systemctl is-active dra-driver-nvidia-gpu.service",
+		"systemctl is-enabled dra-driver-nvidia-gpu.service",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "DRA driver NVIDIA GPU systemd service should be active and enabled")
+}
+
+func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that DRA workloads can be scheduled")
+
+	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
+
+	baseName := strings.ToLower(s.Runtime.VM.KubeName)
+	if len(baseName) > 40 {
+		baseName = baseName[:40]
+	}
+	baseName = strings.TrimRight(baseName, "-")
+	deviceClassName := fmt.Sprintf("gpu-nvidia-%s", baseName)
+	claimName := fmt.Sprintf("single-gpu-%s", baseName)
+	podClaimRefName := "gpu-claim"
+
+	_, err := s.Runtime.Kube.Typed.ResourceV1().DeviceClasses().Create(ctx, &resourcev1.DeviceClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: deviceClassName,
+		},
+		Spec: resourcev1.DeviceClassSpec{},
+	}, metav1.CreateOptions{})
+	require.Truef(s.T, err == nil || apierrors.IsAlreadyExists(err), "failed to create DeviceClass %q: %v", deviceClassName, err)
+	defer func() {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		err := s.Runtime.Kube.Typed.ResourceV1().DeviceClasses().Delete(cleanupCtx, deviceClassName, metav1.DeleteOptions{})
+		if err != nil && !apierrors.IsNotFound(err) {
+			s.T.Errorf("failed to delete DeviceClass %q: %v", deviceClassName, err)
+		}
+	}()
+
+	_, err = s.Runtime.Kube.Typed.ResourceV1().ResourceClaims("default").Create(ctx, &resourcev1.ResourceClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      claimName,
+			Namespace: "default",
+		},
+		Spec: resourcev1.ResourceClaimSpec{
+			Devices: resourcev1.DeviceClaim{
+				Requests: []resourcev1.DeviceRequest{
+					{
+						Name: "gpu",
+						Exactly: &resourcev1.ExactDeviceRequest{
+							DeviceClassName: deviceClassName,
+						},
+					},
+				},
+			},
+		},
+	}, metav1.CreateOptions{})
+	require.Truef(s.T, err == nil || apierrors.IsAlreadyExists(err), "failed to create ResourceClaim %q: %v", claimName, err)
+	defer func() {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		err := s.Runtime.Kube.Typed.ResourceV1().ResourceClaims("default").Delete(cleanupCtx, claimName, metav1.DeleteOptions{})
+		if err != nil && !apierrors.IsNotFound(err) {
+			s.T.Errorf("failed to delete ResourceClaim %q: %v", claimName, err)
+		}
+	}()
+
+	// Create a DRA test pod that consumes the ResourceClaim.
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-dra-test", s.Runtime.VM.KubeName),
+			Namespace: "default",
+		},
+		Spec: corev1.PodSpec{
+			ResourceClaims: []corev1.PodResourceClaim{
+				{
+					Name:              podClaimRefName,
+					ResourceClaimName: &claimName,
+				},
+			},
+			Containers: []corev1.Container{
+				{
+					Name:  "dra-test-container",
+					Image: "mcr.microsoft.com/azuredocs/samples-tf-mnist-demo:gpu",
+					Args: []string{
+						"--max-steps", "1",
+					},
+					Resources: corev1.ResourceRequirements{
+						Claims: []corev1.ResourceClaim{
+							{
+								Name: podClaimRefName,
+							},
+						},
+					},
+				},
+			},
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.VM.KubeName,
+			},
+		},
+	}
+	ValidatePodRunning(ctx, s, pod)
+
+	s.T.Logf("GPU workload is schedulable and runs successfully")
+}
+
+// ValidateRCV1PCertMode validates that the rcv1p certificate endpoint mode was used during
+// Linux node provisioning, certificates were downloaded and installed, and a refresh task was scheduled.
+func ValidateRCV1PCertMode(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Validate the provisioning log shows rcv1p mode was selected
+	ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
+		"Using custom cloud certificate endpoint mode: rcv1p")
+
+	// Validate the subscription is opted in for root certs
+	ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
+		"IsOptedInForRootCerts=true")
+
+	// Validate certificates were downloaded
+	ValidateNonEmptyDirectory(ctx, s, "/root/AzureCACertificates")
+
+	// Validate trust store was updated (distro-specific path)
+	trustStoreDir := rcv1pTrustStoreDir(s)
+	execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		fmt.Sprintf("sudo bash -c 'ls -1 %s/*.{crt,pem} 2>/dev/null' | grep -q .", trustStoreDir),
+		0, fmt.Sprintf("expected certificates in trust store directory %s", trustStoreDir))
+
+	// Validate refresh schedule was created (cron or systemd timer depending on distro)
+	if s.VHD.Flatcar || s.VHD.OS == config.OSACL {
+		// Flatcar and ACL use systemd timer
+		execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"systemctl is-enabled azure-ca-refresh.timer",
+			0, "expected azure-ca-refresh.timer to be enabled")
+	} else {
+		// Ubuntu, Mariner, AzureLinux use cron
+		execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"sudo crontab -l 2>/dev/null | grep -q ca-refresh",
+			0, "expected ca-refresh cron entry")
+	}
+}
+
+// rcv1pTrustStoreDir returns the OS trust store directory for the given scenario's distro.
+func rcv1pTrustStoreDir(s *Scenario) string {
+	switch s.VHD.OS {
+	case config.OSMariner, config.OSAzureLinux, config.OSACL:
+		return "/etc/pki/ca-trust/source/anchors"
+	case config.OSFlatcar:
+		return "/etc/ssl/certs"
+	default:
+		// Ubuntu and anything else
+		return "/usr/local/share/ca-certificates"
+	}
+}
+
+// ValidateRCV1PCertModeWindows validates that the rcv1p certificate endpoint mode was used during
+// Windows node provisioning, certificates were downloaded and installed, and a refresh task was scheduled.
+func ValidateRCV1PCertModeWindows(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Validate CA certificates were downloaded to C:\ca (matches Windows Get-CACertificates
+	// behavior; import into Cert:\LocalMachine\Root is handled out-of-band by the platform/
+	// refresh task, not by CSE).
+	command := []string{
+		"$ErrorActionPreference = 'Stop'",
+		"$caFolder = 'C:\\ca'",
+		"if (-not (Test-Path $caFolder)) { throw 'CA certificates folder C:\\ca does not exist' }",
+		"$certs = Get-ChildItem -Path $caFolder -File",
+		"if ($certs.Count -eq 0) { throw 'No certificates found in C:\\ca folder' }",
+		"Write-Host \"Found $($certs.Count) certificate(s) in $caFolder\"",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected certificates in C:\\ca")
+
+	// Validate the refresh scheduled task exists
+	command = []string{
+		"$ErrorActionPreference = 'Stop'",
+		"$task = Get-ScheduledTask -TaskName 'aks-ca-certs-refresh-task' -ErrorAction SilentlyContinue",
+		"if (-not $task) { throw 'aks-ca-certs-refresh-task scheduled task not found' }",
+		"Write-Host \"Scheduled task found: $($task.TaskName) (State: $($task.State))\"",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected aks-ca-certs-refresh-task scheduled task")
+}
+
+// ValidateRCV1PNotOptedIn validates that when the VM does NOT have the opt-in tag,
+// wireserver returns IsOptedInForRootCerts=false and no certificates are installed,
+// even in the RCV1P subscription with PlatformSettingsOverride registered.
+func ValidateRCV1PNotOptedIn(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Validate the provisioning log shows rcv1p mode was selected
+	ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
+		"Using custom cloud certificate endpoint mode: rcv1p")
+
+	// Validate wireserver reported not opted in
+	ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
+		"Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true")
+
+	// Validate no certificates were downloaded
+	ValidateEmptyDirectory(ctx, s, "/root/AzureCACertificates")
+
+	// Validate no refresh schedule was created
+	if s.VHD.Flatcar || s.VHD.OS == config.OSACL {
+		// Flatcar and ACL use systemd timer for cert refresh (see ValidateRCV1PCertMode).
+		execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"systemctl is-enabled azure-ca-refresh.timer 2>/dev/null",
+			1, "expected azure-ca-refresh.timer to be absent/disabled when not opted in")
+	} else {
+		// Ubuntu, Mariner, AzureLinux use cron.
+		execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"sudo crontab -l 2>/dev/null | grep -q ca-refresh",
+			1, "expected no ca-refresh cron entry when not opted in")
+	}
+}
+
+// ValidateRCV1PNotOptedInWindows validates that when the Windows VM does NOT have the opt-in tag,
+// no certificates are installed to C:\ca and no refresh scheduled task is registered,
+// even in the RCV1P subscription with PlatformSettingsOverride registered.
+func ValidateRCV1PNotOptedInWindows(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Validate the provisioning log shows wireserver was queried
+	ValidateFileHasContent(ctx, s, "C:\\AzureData\\CustomDataSetupScript.log",
+		"IsOptedInForRootCerts wireserver response:")
+
+	// Validate wireserver reported not opted in
+	ValidateFileHasContent(ctx, s, "C:\\AzureData\\CustomDataSetupScript.log",
+		"Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true")
+
+	// Validate C:\ca is empty or does not exist
+	command := []string{
+		"$ErrorActionPreference = 'Stop'",
+		"$caFolder = 'C:\\ca'",
+		"if ((Test-Path $caFolder) -and @(Get-ChildItem -Path $caFolder -File).Count -gt 0) { throw 'Expected C:\\ca to be empty or not exist, but found certificates' }",
+		"Write-Host 'C:\\ca is empty or does not exist as expected'",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected C:\\ca to be empty or not exist when not opted in")
+
+	// Validate no refresh scheduled task was registered
+	command = []string{
+		"$ErrorActionPreference = 'Stop'",
+		"$task = Get-ScheduledTask -TaskName 'aks-ca-certs-refresh-task' -ErrorAction SilentlyContinue",
+		"if ($task) { throw 'Expected no aks-ca-certs-refresh-task but found one' }",
+		"Write-Host 'No aks-ca-certs-refresh-task found as expected'",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected no aks-ca-certs-refresh-task scheduled task when not opted in")
 }

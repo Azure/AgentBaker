@@ -79,6 +79,7 @@ ERR_ENABLE_MANAGED_GPU_EXPERIENCE=123 # Error confguring managed GPU experience
 ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
 
 ERR_NODE_EXPORTER_START_FAIL=128 # Error starting or enabling node-exporter service
+ERR_DRA_DRIVER_START_FAIL=129 # dra-driver-nvidia-gpu could not be started by systemctl
 
 ERR_SWAP_CREATE_FAIL=130 # Error allocating swap file
 ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 # Error insufficient disk space for swap file creation
@@ -140,7 +141,7 @@ ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 # Localdns slicefile not found.
 ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 # ----------------------------------------------------------------------------------
 
-ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS bootstrap systemd service
+ERR_SECURE_TLS_BOOTSTRAP_ENABLE_FAILURE=220 # Error enabling the secure TLS bootstrap systemd service
 
 ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 1 in cse_cmd.sh
 ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install should be skipped
@@ -160,6 +161,7 @@ ERR_SYSEXT_VERSION_ID_NOT_FOUND=232 # VERSION_ID not found in /etc/os-release, r
 ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
 ERR_AZNFS_RPM_DOWNLOAD_TIMEOUT=241 # Timeout downloading aznfs RPM from PMC
 ERR_AZNFS_INSTALL_FAIL=242 # Failed to install aznfs RPM package
+ERR_SECONDARY_NIC_CONFIG_FAIL=243 # Error configuring secondary NIC network interface
 # -----------------------------------------------------------------------------
 
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.
@@ -677,7 +679,7 @@ waitForContainerdReady() {
 }
 
 systemctlDisableAndStop() {
-    if systemctl list-units --full --all | grep -q "$1.service"; then
+    if systemctl cat "$1" &>/dev/null; then
         systemctl_stop 20 5 25 $1 || echo "$1 could not be stopped"
         systemctl_disable 20 5 25 $1 || echo "$1 could not be disabled"
     fi
@@ -1282,34 +1284,61 @@ oras_login_with_kubelet_identity() {
     fi
 
     set +x
+    # Try ACR endpoint (containerregistry.azure.net) first, fall back to ARM endpoint (management.azure.com)
+    local acr_endpoint="https://containerregistry.azure.net"
     local arm_endpoint="${ARM_RESOURCE_ENDPOINT:-https://management.azure.com/}"
-    access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=${arm_endpoint}&client_id=$client_id"
-    raw_access_token=$(retrycmd_get_aad_access_token 5 15 $access_url)
-    ret_code=$?
-    if [ "$ret_code" -ne 0 ]; then
-        echo $raw_access_token
-        return $ret_code
-    fi
-    ACCESS_TOKEN=$(echo "$raw_access_token" | jq -r .access_token)
-    if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
-        echo "failed to parse access token"
-        return $ERR_ORAS_PULL_UNAUTHORIZED
-    fi
+    local endpoints=("$acr_endpoint" "$arm_endpoint")
+    local ACCESS_TOKEN=""
+    local REFRESH_TOKEN=""
+    local last_ret_code=0
 
-    raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
-    ret_code=$?
-    if [ "$ret_code" -ne 0 ]; then
-        echo "failed to retrieve refresh token: $ret_code"
-        return $ret_code
-    fi
-    # shellcheck disable=SC3010
-    if [[ "$raw_refresh_token" == *"error"* ]]; then
-        echo "failed to retrieve refresh token"
-        return $ERR_ORAS_PULL_UNAUTHORIZED
-    fi
-    REFRESH_TOKEN=$(echo "$raw_refresh_token" | jq -r .refresh_token)
-    if [ -z "$REFRESH_TOKEN" ] || [ "$REFRESH_TOKEN" = "null" ]; then
-        echo "failed to parse refresh token"
+    for endpoint in "${endpoints[@]}"; do
+        last_ret_code=0
+        echo "attempting to get access token with endpoint: $endpoint"
+        access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=${endpoint}&client_id=$client_id"
+        raw_access_token=$(retrycmd_get_aad_access_token 5 15 $access_url)
+        ret_code=$?
+        if [ "$ret_code" -ne 0 ]; then
+            echo "failed to get access token with endpoint $endpoint, ret_code: $ret_code"
+            last_ret_code=$ret_code
+            continue
+        fi
+        ACCESS_TOKEN=$(echo "$raw_access_token" | jq -r .access_token)
+        if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
+            echo "failed to parse access token with endpoint $endpoint"
+            continue
+        fi
+
+        raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
+        ret_code=$?
+        if [ "$ret_code" -ne 0 ]; then
+            echo "failed to retrieve refresh token with endpoint $endpoint, ret_code: $ret_code"
+            last_ret_code=$ret_code
+            ACCESS_TOKEN=""
+            continue
+        fi
+        # shellcheck disable=SC3010
+        if [[ "$raw_refresh_token" == *"error"* ]]; then
+            echo "failed to retrieve refresh token with endpoint $endpoint: $(echo "$raw_refresh_token" | jq -r '.error // empty'): $(echo "$raw_refresh_token" | jq -r '.error_description // empty')"
+            ACCESS_TOKEN=""
+            continue
+        fi
+        REFRESH_TOKEN=$(echo "$raw_refresh_token" | jq -r .refresh_token)
+        if [ -z "$REFRESH_TOKEN" ] || [ "$REFRESH_TOKEN" = "null" ]; then
+            echo "failed to parse refresh token with endpoint $endpoint"
+            ACCESS_TOKEN=""
+            continue
+        fi
+
+        echo "successfully obtained acr refresh tokens with endpoint: $endpoint"
+        break
+    done
+
+    if [ -z "$ACCESS_TOKEN" ] || [ -z "$REFRESH_TOKEN" ]; then
+        echo "failed to obtain tokens with all endpoints"
+        if [ "$last_ret_code" -ne 0 ]; then
+            return $last_ret_code
+        fi
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 
@@ -1451,5 +1480,133 @@ function get_sandbox_image_from_containerd_config() {
     fi
 
     echo "$sandbox_image"
+}
+
+# ensureKubeletCgroupHierarchy creates the systemd slices used by kubelet for the
+# kube-reserved and system-reserved enforcement tiers (Node Memory Hardening F2/F5).
+# It MUST be called before kubelet starts so that /kubelet.slice and /system.slice
+# exist and are managed by systemd before the first kubelet enforcement pass.
+#
+# The function:
+#   - Asserts cgroupv2 unified hierarchy (cgroupv1 is not supported by this feature
+#     because mixed/legacy hierarchies cannot reliably enforce per-slice MemoryMax).
+#   - Drops a /etc/systemd/system/kubelet.slice unit (system.slice ships with systemd).
+#   - Triggers `systemctl daemon-reload` and `systemctl start kubelet.slice` so the
+#     cgroup is materialised at /sys/fs/cgroup/kubelet.slice prior to kubelet boot.
+#
+# Inputs (env, all optional — the function is a no-op if the RP did not opt in):
+#   KUBE_RESERVED_CGROUP    — absolute cgroup name, e.g. "/kubelet.slice"
+#   SYSTEM_RESERVED_CGROUP  — absolute cgroup name, e.g. "/system.slice"
+
+# resolveKubeletReservedCgroups exports KUBE_RESERVED_CGROUP and SYSTEM_RESERVED_CGROUP
+# from either the kubelet config-file JSON (when KUBELET_CONFIG_FILE_ENABLED=true) or
+# from KUBELET_FLAGS as a fallback. Both vars are unset (empty string) when the RP did
+# not opt the pool into Node Memory Hardening, which keeps ensureKubeletCgroupHierarchy
+# a no-op for non-hardened pools.
+#
+# When kubelet config-file mode is enabled, --kube-reserved-cgroup /
+# --system-reserved-cgroup are filtered out of KUBELET_FLAGS by the RP
+# (TranslatedKubeletConfigFlags) and rendered into kubeletconfig.json instead, so
+# we must source the cgroup names from the JSON in that mode.
+resolveKubeletReservedCgroups() {
+    KUBE_RESERVED_CGROUP=""
+    SYSTEM_RESERVED_CGROUP=""
+    if [ "${KUBELET_CONFIG_FILE_ENABLED:-}" = "true" ] && [ -n "${KUBELET_CONFIG_FILE_CONTENT:-}" ]; then
+        KUBE_RESERVED_CGROUP=$(echo "${KUBELET_CONFIG_FILE_CONTENT}" | base64 -d | jq -r '.kubeReservedCgroup // ""')
+        SYSTEM_RESERVED_CGROUP=$(echo "${KUBELET_CONFIG_FILE_CONTENT}" | base64 -d | jq -r '.systemReservedCgroup // ""')
+    else
+        KUBE_RESERVED_CGROUP=$(extract_value_from_kubelet_flags "${KUBELET_FLAGS:-}" "kube-reserved-cgroup")
+        SYSTEM_RESERVED_CGROUP=$(extract_value_from_kubelet_flags "${KUBELET_FLAGS:-}" "system-reserved-cgroup")
+    fi
+    export KUBE_RESERVED_CGROUP SYSTEM_RESERVED_CGROUP
+}
+
+ensureKubeletCgroupHierarchy() {
+    if [ -z "${KUBE_RESERVED_CGROUP:-}" ] && [ -z "${SYSTEM_RESERVED_CGROUP:-}" ]; then
+        return 0
+    fi
+
+    # Path overrides exist for ShellSpec coverage; production callers leave them at
+    # their defaults.
+    local cgroupv2_marker="${CGROUPV2_MARKER_PATH:-/sys/fs/cgroup/cgroup.controllers}"
+    local kubelet_slice_unit="${KUBELET_SLICE_UNIT_PATH:-/etc/systemd/system/kubelet.slice}"
+    local kubelet_dropin_dir="${KUBELET_SERVICE_DROPIN_DIR:-/etc/systemd/system/kubelet.service.d}"
+
+    # Assert cgroupv2 unified hierarchy. The canonical marker is the presence of
+    # /sys/fs/cgroup/cgroup.controllers, which only exists under cgroupv2.
+    if [ ! -f "${cgroupv2_marker}" ]; then
+        echo "ensureKubeletCgroupHierarchy: cgroupv2 unified hierarchy not detected; node memory hardening cgroup enforcement requires cgroupv2"
+        return 1
+    fi
+
+    # Validate supported values: only /kubelet.slice (or bare kubelet.slice) is
+    # supported for KUBE_RESERVED_CGROUP, and only /system.slice for
+    # SYSTEM_RESERVED_CGROUP (a built-in systemd slice). Reject any other value
+    # explicitly so kubelet doesn't fail later with an opaque enforcement error.
+    case "${KUBE_RESERVED_CGROUP:-}" in
+        ""|"/kubelet.slice"|"kubelet.slice") ;;
+        *)
+            echo "ensureKubeletCgroupHierarchy: unsupported KUBE_RESERVED_CGROUP=${KUBE_RESERVED_CGROUP}; only /kubelet.slice is supported"
+            return 1
+            ;;
+    esac
+    case "${SYSTEM_RESERVED_CGROUP:-}" in
+        ""|"/system.slice"|"system.slice") ;;
+        *)
+            echo "ensureKubeletCgroupHierarchy: unsupported SYSTEM_RESERVED_CGROUP=${SYSTEM_RESERVED_CGROUP}; only /system.slice is supported"
+            return 1
+            ;;
+    esac
+
+    # /system.slice is a built-in systemd slice; we only need to create kubelet.slice.
+    if [ "${KUBE_RESERVED_CGROUP:-}" = "/kubelet.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kubelet.slice" ]; then
+        if [ ! -f "${kubelet_slice_unit}" ]; then
+            mkdir -p "$(dirname "${kubelet_slice_unit}")"
+            # [Install] WantedBy=slices.target ensures the slice is pulled in by
+            # systemd on every boot (including post-reboot), not only the current
+            # provisioning boot. Combined with the Before=kubelet.service drop-in
+            # below this guarantees /sys/fs/cgroup/kubelet.slice is materialised
+            # before kubelet starts, so NodeAllocatable enforcement does not race.
+            tee "${kubelet_slice_unit}" > /dev/null <<'EOF'
+[Unit]
+Description=Slice for kubelet kube-reserved enforcement (AKS Node Memory Hardening)
+Before=slices.target
+DefaultDependencies=no
+
+[Slice]
+
+[Install]
+WantedBy=slices.target
+EOF
+            chmod 0644 "${kubelet_slice_unit}"
+
+            # Drop-in on kubelet.service so systemd starts kubelet.slice first
+            # on every boot. This survives reboots without depending on the
+            # one-shot `systemctl start` below.
+            mkdir -p "${kubelet_dropin_dir}"
+            tee "${kubelet_dropin_dir}/10-kubelet-slice.conf" > /dev/null <<'EOF'
+[Unit]
+Wants=kubelet.slice
+After=kubelet.slice
+EOF
+            chmod 0644 "${kubelet_dropin_dir}/10-kubelet-slice.conf"
+
+            systemctl daemon-reload
+
+            # Enable the slice so it is started on subsequent boots.
+            if ! systemctl enable kubelet.slice; then
+                echo "ensureKubeletCgroupHierarchy: failed to enable kubelet.slice"
+                return 1
+            fi
+        fi
+
+        # Materialise the cgroup tree at /sys/fs/cgroup/kubelet.slice before kubelet starts on this boot.
+        if ! systemctl start kubelet.slice; then
+            echo "ensureKubeletCgroupHierarchy: failed to start kubelet.slice"
+            return 1
+        fi
+    fi
+
+    return 0
 }
 #HELPERSEOF

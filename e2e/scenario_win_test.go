@@ -65,7 +65,7 @@ func Test_Windows2022_AzureNetwork(t *testing.T) {
 				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateKubeletArgs(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
@@ -89,7 +89,7 @@ func Test_Windows2022AzureOverlayNetworkDualStack(t *testing.T) {
 				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateKubeletArgs(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
@@ -111,7 +111,7 @@ func Test_Windows2022Gen2AzureNetwork(t *testing.T) {
 				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateKubeletArgs(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
@@ -136,7 +136,7 @@ func Test_Windows2022Gen2AzureOverlayNetworkDualStack(t *testing.T) {
 				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateKubeletArgs(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
@@ -180,7 +180,7 @@ func Test_Windows2025(t *testing.T) {
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
 				ValidateWindowsDisplayVersion(ctx, s, "24H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateKubeletArgs(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
@@ -205,7 +205,34 @@ func Test_Windows2025Gen2(t *testing.T) {
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
 				ValidateWindowsDisplayVersion(ctx, s, "24H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateKubeletArgs(ctx, s)
+				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Windows2025Gen2TrustedLaunch(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Windows Server 2025 Gen2 Trusted Launch (Secure Boot + vTPM)",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDWindows2025Gen2TL,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
+				Windows2025BootstrapConfigMutator(t, configuration)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2-tl")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "24H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateKubeletArgs(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
@@ -236,7 +263,7 @@ func Test_Windows2025Gen2_WindowsCiliumNetworking(t *testing.T) {
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
 				ValidateWindowsDisplayVersion(ctx, s, "24H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateKubeletArgs(ctx, s)
 				ValidateWindowsCiliumIsRunning(ctx, s)
 			},
 		},
@@ -256,7 +283,7 @@ func Test_Windows2022_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
 					Enabled:                true,
-					Deadline:               (10 * time.Second).String(),
+					GetAccessTokenTimeout:  (10 * time.Second).String(),
 					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 				}
 			},
@@ -320,7 +347,35 @@ func Test_Windows2022_VHDCaching(t *testing.T) {
 				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateKubeletArgs(ctx, s)
+				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Windows2025Gen2_VHDCaching(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "VHD Caching - Windows Server 2025 Gen2",
+		Config: Config{
+			Cluster:    ClusterAzureNetwork,
+			VHD:        config.VHDWindows2025Gen2,
+			VHDCaching: true,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Capacity = to.Ptr[int64](2)
+			},
+			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
+				Windows2025BootstrapConfigMutator(t, configuration)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "24H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateKubeletArgs(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
@@ -335,7 +390,19 @@ func Test_Windows2022_VHDCaching(t *testing.T) {
 // to use the legacy bootstrap-token path. Catches regressions in the two-stage
 // CSE flow that only surface when no secure-tls-bootstrap client is around to
 // overwrite the temporary kubeconfig.
+//
+// It also positively guards the BasePrep->NodePrep kubeconfig fix: a stale
+// sentinel bootstrap token is baked during the pre-provision (BasePrep) stage,
+// while the real cluster token is used at provision time. If bootstrap-config
+// were written in BasePrep (the buggy behaviour), the cached VHD would carry the
+// stale token and the node would fail to register; because it is written in
+// NodePrep, the live token wins and the sentinel must never reach the node.
 func Test_Windows2022_VHDCaching_LegacyTLSBootstrap(t *testing.T) {
+	// Deliberately bogus but correctly-formatted ([a-z0-9]{6}.[a-z0-9]{16}) token.
+	// Baked into the VHD at BasePrep time only; must be overwritten by the live
+	// token in NodePrep. The bake stage is PreProvisionOnly (no kubelet start), so
+	// this bogus value never breaks stage 1.
+	const staleBakeTimeToken = "baketk.000000000000bake"
 	RunScenario(t, &Scenario{
 		Description: "VHD Caching with secure TLS bootstrap disabled",
 		Config: Config{
@@ -350,6 +417,17 @@ func Test_Windows2022_VHDCaching_LegacyTLSBootstrap(t *testing.T) {
 					nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{}
 				}
 				nbc.SecureTLSBootstrappingConfig.Enabled = false
+			},
+			// Bake stage only: inject the stale sentinel token so the provision-stage
+			// validator can prove bootstrap-config is (re)written from the live token.
+			PreProvisionBootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.KubeletClientTLSBootstrapToken = to.Ptr(staleBakeTimeToken)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// The provisioned node must use the live token written in NodePrep,
+				// never the stale token baked during VHD creation.
+				ValidateFileHasContent(ctx, s, "C:\\k\\bootstrap-config", s.GetTLSBootstrapToken())
+				ValidateFileExcludesContent(ctx, s, "C:\\k\\bootstrap-config", staleBakeTimeToken)
 			},
 		},
 	})
@@ -426,7 +504,7 @@ func Test_Windows2025Gen2_McrChinaCloud_Windows(t *testing.T) {
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
 				ValidateWindowsDisplayVersion(ctx, s, "24H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateKubeletArgs(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\docker.io\hosts.toml`)

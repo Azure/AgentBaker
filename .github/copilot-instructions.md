@@ -19,6 +19,8 @@ Windows VHD is configured through [VHD](./vhdbuilder/packer/windows/windows-vhd-
 
 windows generates its CSE package using [script](./parts/windows/kuberneteswindowssetup.ps1).
 
+Both CSE scripts run in two phases — Windows `BasePrep`/`NodePrep` (`kuberneteswindowssetup.ps1`) and Linux `basePrep`/`nodePrep` (`cse_main.sh`). `basePrep` is gated only by the `base_prep.complete` marker, so it is **skipped on a PIS-cached VHD** (the marker is baked in); `nodePrep` runs whenever `PreProvisionOnly` is false — every real node. So node-specific, secret, or expiring data (e.g. the TLS bootstrap token / kubeconfig) must be written in `nodePrep`, not `basePrep`, or the baked copy goes stale. On PIS the phases are separate VM runs — variables re-initialize from the real node's live CustomData, so `nodePrep` can't rely on `basePrep` state. (Non-PIS: both run sequentially in one execution, no reboot between phases.)
+
 The webserver is also used to determine the latest version of Linux VHDs available for provisioning within AKS clusters.
 
 ## Code Structure
@@ -40,6 +42,10 @@ Tags of AgentBaker and corresponding Linux VHDs are released every week. Linux V
 
 Windows VHD are released separately, following windows patch tuesday schedule.
 
+## Contributing
+
+When opening a pull request against this repository, the PR's head branch must live in `Azure/AgentBaker` itself — **not in a fork**. Push your branch directly to a branch in `Azure/AgentBaker` (this requires write access to the repo) and open the PR from there; do not rely on a specific remote name, since `origin` often points at a personal fork. The `validate-pull-request-source` CI check (`.github/workflows/validate-pull-request-source.yml`) fails any PR whose head branch lives in a forked repository.
+
 ## Guidelines
 
 ### SRE Guidelines
@@ -52,6 +58,8 @@ The operational goals of this project are:
 - avoid node provisioning performance regression when making any changes
 
 When making changes, reason whether the file is used in VHD building stage, or provision stage, or both. Make sure the changes are valid in its life stage. as an example, [windows-vhd-configuration.ps1](./vhdbuilder/packer/windows/windows-vhd-configuration.ps1) defines container images to be cached in VHD, while [configure-windows-vhd.ps1](./vhdbuilder/packer/windows/configure-windows-vhd.ps1) executes commands at provision time.
+
+VHD cleanup steps in `cleanup-vhd.sh` must not silently ignore failures. Verify removal of security-sensitive components and fail the build if expected state is not achieved.
 
 One way to debug / explore / just for fun is to run [e2e](./e2e/) tests. To run locally, follow the readme file under that folder.
 
@@ -68,12 +76,16 @@ The SRE guidelines ground other coding guidelines and practices.
 
 ### ShellScripts Guidelines
 
-- use shellcheck for sanity checking
-- use ShellSpec for testing
+- use shellcheck for sanity checking — **all shell scripts must pass the CI shellcheck gate** (`make validate-shell`). This enforces POSIX compliance even in `#!/bin/bash` scripts (e.g., use `[ ]` not `[[ ]]`, use `=` not `==` for string comparison). Use `# shellcheck disable=SCXXXX` inline comments only when necessary and with justification.
+- use ShellSpec for testing — all shell script changes should have corresponding tests in `spec/parts/linux/`
 - the shell scripts are used on both azure linux/mariner and ubuntu and cross platform portability is critical.
 - when using functions defined in other files, ensure it is sourced properly.
+- for scriptless provisioning compatibility, security hotfix functions must be defined in `cse_main.sh` (not sourced from other scripts) so they work standalone.
+- prefer simple single-purpose functions with positional args over complex data-driven designs with associative arrays or encoded strings.
+- use `isUbuntu()`, `isMarinerOrAzureLinux()`, and `isACL()` helper functions for OS detection instead of raw string comparisons.
 - use local variables rather than constants when their scoping allows for it.
 - avoid using variables declared inside another function, even they are visible. It is hard to reason and might introduce subtle bugs.
+- define functions at top-level scope, not nested inside other functions.
 
 ## Pull Request Review Guidelines
 
@@ -132,7 +144,21 @@ Analyze PRs for these compatibility scenarios:
   - Missing feature detection to determine which mode is running
   - Hardcoded paths that differ between deployment modes
 
-**4. Cross-OS Compatibility**
+**4. PIS / VHD Caching — basePrep vs nodePrep split (Windows + Linux)**
+- **Context**: PIS bakes a VHD from a temporary VM, then boots many real nodes from it. Same model in Windows `parts/windows/kuberneteswindowssetup.ps1` (`BasePrep`/`NodePrep`) and Linux `parts/linux/cloud-init/artifacts/cse_main.sh` (`basePrep`/`nodePrep`):
+  - `basePrep` — gated only by the `base_prep.complete` marker (`C:\AzureData\` Windows, `/opt/azure/containers/` Linux). **Skipped on PIS real nodes** because the marker is baked into the VHD.
+  - `nodePrep` — runs whenever `PreProvisionOnly` is false (every real node); skipped only on the bake VM.
+  - The bake run sets `PreProvisionOnly=true` (`{{GetPreProvisionOnly}}`) and writes the marker after `basePrep` succeeds (Windows `finally`; Linux `cse_start.sh`).
+  - On PIS, basePrep and nodePrep are separate VM runs: variables re-initialize from the real node's live CustomData, so `basePrep` in-memory state is gone. (Non-PIS: both run in one execution, no reboot between phases, so state carries — but don't rely on it.)
+- **Breaking signals**:
+  - Perishable data written in `basePrep`: TLS bootstrap tokens, any kubeconfig embedding a token (e.g. Windows `Write-BootstrapKubeConfig` → `c:\k\bootstrap-config`), secrets, expiring SAS URLs/creds, per-node identity/name/certs. Baked into the VHD and never refreshed (real nodes skip `basePrep`) → stale. Write it in `nodePrep`.
+  - `nodePrep` reading a variable that only `basePrep` set (not re-derived from CustomData) — empty on PIS nodes.
+  - A service/scheduled task enabled in `basePrep` that auto-starts on the real node before `nodePrep` refreshes its config — it runs against the stale baked config (e.g. a kubelet unit starting from the bake-time `bootstrap-config` before `nodePrep` rewrites the token).
+  - Heavy node-agnostic work (package/binary downloads, image pulls) moved into `nodePrep` — defeats caching, slows provisioning. Keep it in `basePrep`.
+- **Rule**: `basePrep` = static, non-secret, valid for every node booting weeks later. `nodePrep` = node-specific, secret, expiring, or CustomData-derived.
+- **Don't flag**: plain variable reads (live on the real node from CustomData); cached binaries/packages/images; the `base_prep.complete` marker; cluster-wide non-secrets (CA cert, apiserver FQDN, service CIDR); pre-existing `basePrep` writes unless the PR newly depends on them.
+
+**5. Cross-OS Compatibility**
 - **What to check**: Changes work on Ubuntu, Azure Linux/Mariner, and Windows
 - **Breaking signals**:
   - Linux commands that don't work on both Ubuntu and Azure Linux/Mariner
@@ -140,7 +166,7 @@ Analyze PRs for these compatibility scenarios:
   - Package manager assumptions (apt vs dnf/tdnf)
   - Systemd differences between distributions
 
-**5. Package/Dependency Update PRs (Renovate)**
+**6. Package/Dependency Update PRs (Renovate)**
 - **Context**: Renovate bot automatically creates PRs to update component versions in `parts/common/components.json`. These components are cached on VHDs during build and directly affect node stability, GPU workloads, networking, and security. Updated packages are downloaded from `packages.aks.azure.com` or upstream registries during VHD build.
 - **What to check**: Every version bump—even patch versions—can introduce regressions that affect production nodes.
 - **`renovate.json` syntax guardrails**:
