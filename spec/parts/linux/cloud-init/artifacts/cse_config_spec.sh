@@ -74,13 +74,13 @@ Describe 'cse_config.sh'
         End
     End
 
-    Describe 'logKubeletActiveFlags'
+    Describe 'getKubeletActiveFlagsSummary'
         # Keep the not-found retry loop fast and non-blocking during tests.
         KUBELET_FLAGS_LOG_MAX_ATTEMPTS=2
         KUBELET_FLAGS_LOG_WAIT_SLEEP=0
         sleep() { :; }   # never actually sleep in tests
 
-        It 'emits the kubelet flags parsed from journalctl as a single structured event'
+        It 'reports config-file mode, the config path and the flag count when kubelet uses --config'
             journalctl() {
                 cat <<'EOF'
 Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213493    6736 flags.go:64] FLAG: --address="0.0.0.0"
@@ -88,30 +88,44 @@ Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213575    6736 flags.go:64] F
 Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213600    6736 flags.go:64] FLAG: --config="/etc/default/kubeletconfig.json"
 EOF
             }
-            When call logKubeletActiveFlags
-            The output should include "AKS_KUBELET_CONFIG event=kubelet_active_flags"
-            The output should include "found=true"
-            The output should include '--address="0.0.0.0"'
-            The output should include '--config="/etc/default/kubeletconfig.json"'
+            When call getKubeletActiveFlagsSummary
+            The output should equal 'uses_config_file=true config_path=/etc/default/kubeletconfig.json flag_count=3 found=true'
         End
 
-        It 'de-duplicates flags repeated across kubelet restarts'
+        It 'reports uses_config_file=false when --config is empty (inline-flags mode)'
+            journalctl() {
+                cat <<'EOF'
+Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213493    6736 flags.go:64] FLAG: --address="0.0.0.0"
+Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213600    6736 flags.go:64] FLAG: --config=""
+EOF
+            }
+            When call getKubeletActiveFlagsSummary
+            The output should equal 'uses_config_file=false config_path= flag_count=2 found=true'
+        End
+
+        It 'de-duplicates flags repeated across kubelet restarts when counting'
             journalctl() {
                 cat <<'EOF'
 Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213493    6736 flags.go:64] FLAG: --address="0.0.0.0"
 Jul 15 21:10:03 node kubelet[7001]: I0715 21:10:03.100000    7001 flags.go:64] FLAG: --address="0.0.0.0"
 EOF
             }
-            When call logKubeletActiveFlags
-            # Exactly one occurrence of the flag despite two restart blocks.
-            The output should equal 'AKS_KUBELET_CONFIG event=kubelet_active_flags found=true flags="--address="0.0.0.0""'
+            When call getKubeletActiveFlagsSummary
+            # flag_count is 1 despite two restart blocks logging the same flag.
+            The output should equal 'uses_config_file=false config_path= flag_count=1 found=true'
         End
 
-        It 'reports found=false with empty flags when kubelet logged no FLAG lines'
+        It 'reports found=false when kubelet logged no FLAG lines'
             journalctl() { echo "-- No entries --"; }
-            When call logKubeletActiveFlags
-            The output should include "found=false"
-            The output should include 'flags=""'
+            When call getKubeletActiveFlagsSummary
+            The output should equal 'uses_config_file=false config_path= flag_count=0 found=false'
+        End
+    End
+
+    Describe 'reportKubeletActiveFlags'
+        It 'prefixes the summary with the queryable event marker so it lands in the event Message'
+            When call reportKubeletActiveFlags "uses_config_file=true config_path=/etc/default/kubeletconfig.json flag_count=82 found=true"
+            The output should equal 'AKS_KUBELET_CONFIG event=kubelet_active_flags uses_config_file=true config_path=/etc/default/kubeletconfig.json flag_count=82 found=true'
         End
     End
 

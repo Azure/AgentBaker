@@ -680,35 +680,49 @@ validateKubeletNodeLabels() {
     KUBELET_NODE_LABELS="$validated_labels"
 }
 
-# logKubeletActiveFlags captures the flags kubelet actually started with -- as printed by kubelet's
-# klog at startup ("FLAG: --name=\"value\"" lines in `journalctl -u kubelet`) -- and emits them as a
-# single structured, greppable event so the effective kubelet configuration can be queried per node
-# from Kusto without SSHing into each node. This is primarily a fleet-wide rollout-verification probe
-# for the flags-to-config-file migration (enable-kubelet-config-file toggle): it makes it easy to
-# confirm whether kubelet is running with `--config=<file>` versus inline flags across all nodes.
-logKubeletActiveFlags() {
+# getKubeletActiveFlagsSummary inspects the flags kubelet actually started with -- the
+# "FLAG: --name=\"value\"" lines kubelet's klog prints at startup, read from `journalctl -u kubelet`
+# -- and echoes a compact, parseable key=value summary of the effective kubelet configuration:
+#   uses_config_file=<bool> config_path=<path> flag_count=<n> found=<bool>
+# It deliberately emits a small summary (not the full flag dump) so the payload fits comfortably in
+# the GuestAgentGenericLogs event Message (Context1), which is capped around a few KB.
+getKubeletActiveFlagsSummary() {
     # kubelet is started with --no-block, so its startup FLAG lines may not be in the journal yet.
     # Poll briefly (bounded, breaking as soon as they appear) rather than delaying node startup.
     local max_attempts="${KUBELET_FLAGS_LOG_MAX_ATTEMPTS:-10}"
     local wait_sleep="${KUBELET_FLAGS_LOG_WAIT_SLEEP:-2}"
     local flags="" attempt
     for attempt in $(seq 1 "${max_attempts}"); do
-        # Extract everything after "FLAG: " on each line (preserving values that contain spaces),
-        # de-duplicate lines emitted across kubelet restarts while keeping order, then join into one
-        # KUBELET_FLAGS-style line.
-        flags="$(journalctl -u kubelet --no-pager 2>/dev/null | sed -n 's/.*FLAG: \(--.*\)$/\1/p' | awk '!seen[$0]++' | tr '\n' ' ')"
+        # Extract everything after "FLAG: " on each line, de-duplicating flags emitted across kubelet
+        # restarts while keeping order. One flag per line.
+        flags="$(journalctl -u kubelet --no-pager 2>/dev/null | sed -n 's/.*FLAG: \(--.*\)$/\1/p' | awk '!seen[$0]++')"
         if [ -n "${flags}" ]; then
             break
         fi
         sleep "${wait_sleep}"
     done
-    # Strip trailing whitespace for a clean single-line event.
-    flags="$(printf '%s' "${flags}" | sed 's/[[:space:]]*$//')"
-    local found=false
+
+    local found=false uses_config_file=false config_path="" flag_count=0
     if [ -n "${flags}" ]; then
         found=true
+        flag_count="$(printf '%s\n' "${flags}" | grep -c '^--')"
+        # kubelet prints the config file it loaded as: --config="/path". Empty (--config="") means
+        # kubelet is still running purely from inline flags.
+        config_path="$(printf '%s\n' "${flags}" | sed -n 's/^--config="\(.*\)"$/\1/p' | head -n1)"
+        if [ -n "${config_path}" ]; then
+            uses_config_file=true
+        fi
     fi
-    echo "AKS_KUBELET_CONFIG event=kubelet_active_flags found=${found} flags=\"${flags}\""
+    echo "uses_config_file=${uses_config_file} config_path=${config_path} flag_count=${flag_count} found=${found}"
+}
+
+# reportKubeletActiveFlags is a trivial pass-through emitter: it echoes its arguments (the summary
+# produced by getKubeletActiveFlagsSummary). It exists so the summary can be handed to logs_to_events
+# as arguments -- logs_to_events records the event Message as "Completed: <args>", which lands in
+# GuestAgentGenericLogs.Context1 and is therefore queryable from Kusto (a bare function name with no
+# args would only record "Completed: <name>", losing the payload).
+reportKubeletActiveFlags() {
+    echo "AKS_KUBELET_CONFIG event=kubelet_active_flags $*"
 }
 
 ensureKubelet() {
@@ -911,10 +925,13 @@ EOF
         echo "failed to start measure-tls-bootstrapping-latency.service"
     fi
 
-    # Emit kubelet's effective startup flags as a structured event so the active kubelet
-    # configuration is queryable per node from Kusto (rollout verification for the
-    # flags-to-config-file migration). Best-effort: never fail node provisioning on this.
-    logs_to_events "AKS.CSE.ensureKubelet.logKubeletActiveFlags" logKubeletActiveFlags || true
+    # Emit a compact summary of kubelet's effective startup configuration as a structured event so
+    # it is queryable per node from Kusto (rollout verification for the flags-to-config-file
+    # migration). The summary is passed as arguments to logs_to_events so it lands in the event
+    # Message (GuestAgentGenericLogs.Context1). Best-effort: never fail node provisioning on this.
+    local kubeletFlagsSummary
+    kubeletFlagsSummary="$(getKubeletActiveFlagsSummary)"
+    logs_to_events "AKS.CSE.ensureKubelet.kubeletActiveFlags" reportKubeletActiveFlags "${kubeletFlagsSummary}" || true
 }
 
 ensureSnapshotUpdate() {
