@@ -23,6 +23,15 @@ Describe "Containerd Functions Tests" {
       # Do nothing in tests - just a stub
     }
 
+    # Shadow Out-File with a plain function before mocking it below. The real Out-File
+    # cmdlet's -Encoding parameter carries an ArgumentTransformationAttribute (string
+    # encoding name -> System.Text.Encoding) that Pester's Mock proxy does not preserve,
+    # causing "Cannot convert the "ascii" value ... to type System.Text.Encoding" errors.
+    # Mocking this untyped stub instead avoids that binding issue.
+    function Out-File {
+      param($InputObject, $FilePath, $Encoding)
+    }
+
     # Mock Set-Content to avoid permission denied errors
     Mock Set-Content -MockWith {
       param($Path, $Value)

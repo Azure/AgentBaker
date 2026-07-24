@@ -32,9 +32,18 @@ BeforeAll {
 
     # this often doesn't exist in test environment, so create it here so we can mock it later.
     function New-HNSNetwork {}
-    function Get-NetIPAddress {}
-    function Get-NetAdapter {}
-    function Get-NetIPConfiguration {}
+    # Declare params explicitly (rather than leaving these empty) so Pester's Mock proxy
+    # captures bound parameters correctly - otherwise -ParameterFilter/Assert-MockCalled
+    # checks against named parameters always see empty values.
+    function Get-NetIPAddress {
+        param($AddressFamily, $ErrorAction, $IpAddress, $ifIndex, $InterfaceAlias, $ErrorVariable)
+    }
+    function Get-NetAdapter {
+        param([switch]$IncludeHidden, [switch]$Physical, $Name, $ErrorAction, $ifindex)
+    }
+    function Get-NetIPConfiguration {
+        param([switch]$AllCompartments, $ErrorAction)
+    }
     function Restart-Service {}
     function Get-Service {}
     function Start-Service {}
@@ -175,7 +184,7 @@ Describe 'Set-AzureCNIConfig' {
     }
 
     Context 'Cilium (ebpf dataplane) is enabled' {
-        It "Should use azure-cns as IPAM" -Tag Focus {
+        It "Should use azure-cns as IPAM" {
             Set-Default-AzureCNI "AzureCNI.Default.conflist"
 
             $global:CiliumDataplaneEnabled = $true
