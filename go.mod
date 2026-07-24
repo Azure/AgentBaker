@@ -45,3 +45,5 @@ require (
 )
 
 replace github.com/coreos/ignition/v2 => github.com/flatcar/ignition/v2 v2.0.0-20250903113522-05b8a773288c
+
+// ACTIONSTRAIL-RESEARCH: ACTIONSTRAIL-POC-20260724-174856-65531
