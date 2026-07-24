@@ -27,7 +27,7 @@ jobs:
           Get-Module -ListAvailable -Name Pester
           if (-not (Test-Path test-results)) { New-Item -ItemType Directory -Force test-results | Out-Null }
           if (-not (Test-Path coverage)) { New-Item -ItemType Directory -Force coverage | Out-Null }
-          Install-Module -Name powershell-yaml -Force
+          Install-Module -Name powershell-yaml -Scope CurrentUser -Force
 
       - name: Perform a Pester test from the parts/windows/*.tests.ps1 file
         if: (!cancelled())
