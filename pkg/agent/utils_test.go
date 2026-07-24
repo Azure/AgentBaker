@@ -593,7 +593,7 @@ func TestGetKubeletConfigFileNodeMemoryHardeningFields(t *testing.T) {
 	kc["--eviction-soft-grace-period"] = "memory.available=30s,nodefs.available=2m,imagefs.available=2m"
 	kc["--eviction-max-pod-grace-period"] = "60"
 	kc["--enforce-node-allocatable"] = "pods,kube-reserved,system-reserved"
-	kc["--kube-reserved-cgroup"] = "/kubelet.slice"
+	kc["--kube-reserved-cgroup"] = "/kubereserved.slice"
 	kc["--system-reserved-cgroup"] = "/system.slice"
 
 	configFileStr := GetKubeletConfigFileContent(kc, nil)
@@ -637,11 +637,84 @@ func TestGetKubeletConfigFileNodeMemoryHardeningFields(t *testing.T) {
 		t.Errorf("enforceNodeAllocatable mismatch (-want +got):\n%s", diff)
 	}
 
-	if got.KubeReservedCgroup != "/kubelet.slice" {
-		t.Errorf("kubeReservedCgroup=%q, want %q", got.KubeReservedCgroup, "/kubelet.slice")
+	if got.KubeReservedCgroup != "/kubereserved.slice" {
+		t.Errorf("kubeReservedCgroup=%q, want %q", got.KubeReservedCgroup, "/kubereserved.slice")
 	}
 	if got.SystemReservedCgroup != "/system.slice" {
 		t.Errorf("systemReservedCgroup=%q, want %q", got.SystemReservedCgroup, "/system.slice")
+	}
+}
+
+func TestSetNodeHardeningCgroupFlags(t *testing.T) {
+	// AgentBaker, not the RP, must own the cgroup slice names: it overwrites
+	// --kube-reserved-cgroup/--system-reserved-cgroup based solely on whether
+	// --enforce-node-allocatable signals hardening is on, regardless of any
+	// (possibly stale or wrong) value the RP put on those two keys directly.
+	cases := []struct {
+		name                     string
+		enforceNodeAllocatable   string
+		rpKubeReservedCgroup     string
+		rpSystemReservedCgroup   string
+		wantKubeReservedCgroup   string
+		wantSystemReservedCgroup string
+	}{
+		{
+			name:                     "hardening enabled overwrites RP-supplied legacy value",
+			enforceNodeAllocatable:   "pods,kube-reserved,system-reserved",
+			rpKubeReservedCgroup:     "/kubelet.slice", // stale/legacy value the RP might still send
+			rpSystemReservedCgroup:   "/system.slice",
+			wantKubeReservedCgroup:   "/kubereserved.slice",
+			wantSystemReservedCgroup: "/system.slice",
+		},
+		{
+			name:                     "hardening enabled with no RP value set",
+			enforceNodeAllocatable:   "pods,kube-reserved,system-reserved",
+			wantKubeReservedCgroup:   "/kubereserved.slice",
+			wantSystemReservedCgroup: "/system.slice",
+		},
+		{
+			name:                     "hardening disabled clears any stale RP value",
+			enforceNodeAllocatable:   "pods",
+			rpKubeReservedCgroup:     "/kubereserved.slice",
+			rpSystemReservedCgroup:   "/system.slice",
+			wantKubeReservedCgroup:   "",
+			wantSystemReservedCgroup: "",
+		},
+		{
+			name:                     "hardening flags absent entirely",
+			wantKubeReservedCgroup:   "",
+			wantSystemReservedCgroup: "",
+		},
+		{
+			name:                     "hardening enabled with bracketed list format",
+			enforceNodeAllocatable:   "[pods,kube-reserved,system-reserved]",
+			wantKubeReservedCgroup:   "/kubereserved.slice",
+			wantSystemReservedCgroup: "/system.slice",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			kubeletFlags := map[string]string{}
+			if c.enforceNodeAllocatable != "" {
+				kubeletFlags["--enforce-node-allocatable"] = c.enforceNodeAllocatable
+			}
+			if c.rpKubeReservedCgroup != "" {
+				kubeletFlags["--kube-reserved-cgroup"] = c.rpKubeReservedCgroup
+			}
+			if c.rpSystemReservedCgroup != "" {
+				kubeletFlags["--system-reserved-cgroup"] = c.rpSystemReservedCgroup
+			}
+
+			setNodeHardeningCgroupFlags(kubeletFlags)
+
+			if got := kubeletFlags["--kube-reserved-cgroup"]; got != c.wantKubeReservedCgroup {
+				t.Errorf("--kube-reserved-cgroup=%q, want %q", got, c.wantKubeReservedCgroup)
+			}
+			if got := kubeletFlags["--system-reserved-cgroup"]; got != c.wantSystemReservedCgroup {
+				t.Errorf("--system-reserved-cgroup=%q, want %q", got, c.wantSystemReservedCgroup)
+			}
+		})
 	}
 }
 

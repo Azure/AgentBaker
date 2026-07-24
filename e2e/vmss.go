@@ -535,9 +535,9 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 			customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
 			require.NoError(s.T, err, "failed to inject customData write_files entries")
 		}
-		if !scriptlessNBCCSECmdEnabled && s.VHD.SupportsScriptless() {
-			// Validate that the custom data doesn't contain any script content,
-			// which indicates that the scriptless CSE is working as intended
+		if s.Runtime.NBC.EnableScriptlessCSECmd && !scriptlessNBCCSECmdEnabled && s.VHD.SupportsScriptless() {
+			// Validate that the custom data indicates scriptless CSE is enabled by checking
+			// for the scriptless overrides sentinel file path.
 			decodedCustomData, err := base64.StdEncoding.DecodeString(customData)
 			require.NoError(s.T, err, "failed to decode custom data")
 			reader, err := gzip.NewReader(bytes.NewReader(decodedCustomData))

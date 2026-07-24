@@ -502,6 +502,62 @@ func IsKubeletServingCertificateRotationEnabled(config *datamodel.NodeBootstrapp
 	return config.KubeletConfig["--rotate-server-certificates"] == "true"
 }
 
+// Node Hardening cgroup slice names. AgentBaker is the single
+// source of truth for these values: cse_helpers.sh::ensureKubeletCgroupHierarchy
+// is what actually creates (or validates) the systemd slice unit on the node, so
+// the name must be decided here rather than accepted verbatim from the RP.
+const (
+	nodeHardeningKubeReservedCgroup   = "/kubereserved.slice"
+	nodeHardeningSystemReservedCgroup = "/system.slice"
+)
+
+// isNodeHardeningEnabled reports whether the RP has requested Node Hardening
+// cgroup enforcement for this node. The RP signals intent solely via
+// --enforce-node-allocatable containing both "kube-reserved" and "system-reserved"
+// (see ApplyNodeAllocatableEnforcement in aks-rp); any values it may additionally
+// send for --kube-reserved-cgroup/--system-reserved-cgroup are ignored, since
+// AgentBaker owns those slice names (see setNodeHardeningCgroupFlags).
+//
+// TODO: this detection is a proxy inferred from a flag the RP happens to set
+// today. If/when Node Hardening's own logic (the enable/disable decision,
+// --system-reserved formula, etc.) moves into AgentBaker, this should be
+// replaced with a real, explicit signal (e.g. a typed field on
+// CustomKubeletConfig) instead of inferring intent from --enforce-node-allocatable.
+func isNodeHardeningEnabled(kubeletFlags map[string]string) bool {
+	raw := strings.TrimSpace(kubeletFlags["--enforce-node-allocatable"])
+	raw = strings.TrimPrefix(raw, "[")
+	raw = strings.TrimSuffix(raw, "]")
+	enforced := strings.Split(raw, ",")
+	hasKubeReserved, hasSystemReserved := false, false
+	for _, v := range enforced {
+		switch strings.TrimSpace(v) {
+		case "kube-reserved":
+			hasKubeReserved = true
+		case "system-reserved":
+			hasSystemReserved = true
+		}
+	}
+	return hasKubeReserved && hasSystemReserved
+}
+
+// setNodeHardeningCgroupFlags assigns (or clears) --kube-reserved-cgroup and
+// --system-reserved-cgroup based solely on whether Node Hardening is
+// enabled (isNodeHardeningEnabled), overwriting/deleting any value the RP
+// may have set for these two keys directly.
+func setNodeHardeningCgroupFlags(kubeletFlags map[string]string) {
+	if isNodeHardeningEnabled(kubeletFlags) {
+		kubeletFlags["--kube-reserved-cgroup"] = nodeHardeningKubeReservedCgroup
+		kubeletFlags["--system-reserved-cgroup"] = nodeHardeningSystemReservedCgroup
+		// TODO: this is currently the only piece of Node Hardening logic owned by
+		// AgentBaker; --enforce-node-allocatable, --system-reserved, --kube-reserved,
+		// and the eviction-soft* flags are still computed and sent as raw values by
+		// the RP. If/when that logic moves into AgentBaker too, set those flags here.
+		return
+	}
+	delete(kubeletFlags, "--kube-reserved-cgroup")
+	delete(kubeletFlags, "--system-reserved-cgroup")
+}
+
 func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfiguration {
 	kubeletConfig := &datamodel.AKSKubeletConfiguration{
 		APIVersion:    "kubelet.config.k8s.io/v1beta1",

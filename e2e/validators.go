@@ -3485,3 +3485,18 @@ func ValidateRCV1PNotOptedInWindows(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		"expected no aks-ca-certs-refresh-task scheduled task when not opted in")
 }
+
+// ValidateServiceInSlice asserts that the given systemd service is running in the expected slice.
+func ValidateServiceInSlice(ctx context.Context, s *Scenario, service, expectedSlice string) {
+	s.T.Helper()
+	// Avoid accidental shell injection / option smuggling.
+	if !regexp.MustCompile(`^[A-Za-z0-9_.@:-]+$`).MatchString(service) {
+		s.T.Fatalf("invalid systemd unit name: %q", service)
+	}
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		fmt.Sprintf("systemctl show --property=Slice --value -- %s", service), 0,
+		fmt.Sprintf("could not query Slice property of %s", service))
+	actual := strings.TrimSpace(result.stdout)
+	require.Equal(s.T, expectedSlice, actual,
+		"expected %s to be in %s, but got %s", service, expectedSlice, actual)
+}

@@ -670,6 +670,15 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
 	}
 
+	// Node Hardening: AgentBaker, not the RP, owns the cgroup slice
+	// names that --kube-reserved-cgroup/--system-reserved-cgroup resolve to, since
+	// AgentBaker is what actually creates (or doesn't create) the systemd slice unit
+	// on the node (see cse_helpers.sh::ensureKubeletCgroupHierarchy). The RP only
+	// signals intent via --enforce-node-allocatable=pods,kube-reserved,system-reserved;
+	// any value it may still send for the two cgroup flags themselves is ignored and
+	// overwritten here so there is a single source of truth for the slice names.
+	setNodeHardeningCgroupFlags(kubeletFlags)
+
 	/* ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but
 	deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s
 		version 1.20 or higher */
