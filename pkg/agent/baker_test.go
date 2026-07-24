@@ -494,6 +494,7 @@ health-check.localdns.local:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
+    reload
     cache 3600 {
         success 9984
         denial 9984
@@ -521,6 +522,7 @@ cluster.local:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
+    reload
     cache 3600 {
         success 9984
         denial 9984
@@ -538,6 +540,7 @@ testdomain456.com:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
+    reload
     cache 3600 {
         success 9984
         denial 9984
@@ -563,6 +566,7 @@ testdomain456.com:53 {
         max_concurrent 2000
     }
     ready 169.254.10.11:8181
+    reload
     cache 3600 {
         success 9984
         denial 9984
@@ -683,6 +687,7 @@ health-check.localdns.local:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
+    reload
     cache 3600 {
         success 9984
         denial 9984
@@ -710,6 +715,7 @@ cluster.local:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
+    reload
     cache 3600 {
         success 9984
         denial 9984
@@ -727,6 +733,7 @@ testdomain456.com:53 {
         max_concurrent 1000
     }
     ready 169.254.10.10:8181
+    reload
     cache 3600 {
         success 9984
         denial 9984
@@ -752,6 +759,7 @@ testdomain456.com:53 {
         max_concurrent 1000
     }
     ready 169.254.10.11:8181
+    reload
     cache 3600 {
         success 9984
         denial 9984
@@ -779,6 +787,7 @@ cluster.local:53 {
         max_concurrent 1000
     }
     ready 169.254.10.11:8181
+    reload
     cache 3600 {
         success 9984
         denial 9984
@@ -796,6 +805,7 @@ testdomain567.com:53 {
         max_concurrent 1000
     }
     ready 169.254.10.11:8181
+    reload
     cache 3600 {
         success 9984
         denial 9984

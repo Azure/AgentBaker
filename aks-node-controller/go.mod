@@ -4,13 +4,15 @@ go 1.25.11
 
 require (
 	github.com/Azure/agentbaker v0.20240503.0
+	github.com/Azure/agentbaker/aks-live-patching v0.0.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.1
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/google/go-cmp v0.7.0
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v3 v3.8.0
-	google.golang.org/protobuf v1.36.7
+	google.golang.org/grpc v1.82.0
+	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -30,9 +32,14 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/vincent-petithory/dataurl v1.0.0 // indirect
+	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478 // indirect
 )
 
 replace github.com/Azure/agentbaker => ../
+
+replace github.com/Azure/agentbaker/aks-live-patching => ../aks-live-patching
 
 replace github.com/coreos/ignition/v2 => github.com/flatcar/ignition/v2 v2.0.0-20250903113522-05b8a773288c

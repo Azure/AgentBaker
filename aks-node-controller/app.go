@@ -63,6 +63,8 @@ type App struct {
 	// Authorization header for the check-hotfix LPS fetch. When nil, the real IMDS endpoint
 	// is queried.
 	fetchAttestedToken func(ctx context.Context) (string, error)
+	// fetchLocalDNSConfigFn overrides the real LPS LocalDNS config fetch for tests.
+	fetchLocalDNSConfigFn localDNSConfigFetcher
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
@@ -163,6 +165,19 @@ func (a *App) Run(ctx context.Context, args []string) int {
 						slog.Warn("ignoring unexpected check-hotfix arguments", "args", strings.Join(extra, " "))
 					}
 					return a.runCheckHotfixCommand(ctx)
+				},
+			},
+			{
+				Name:  "fetch-localdns-config",
+				Usage: "Read the LocalDNS config from the live-patching-service and update the Corefile (fail-open)",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "output", Usage: "path to write the LocalDNS Corefile"},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if extra := cmd.Args().Slice(); len(extra) > 0 {
+						slog.Warn("ignoring unexpected fetch-localdns-config arguments", "args", strings.Join(extra, " "))
+					}
+					return a.runFetchLocalDNSConfigCommand(ctx, cmd.String("output"))
 				},
 			},
 		},

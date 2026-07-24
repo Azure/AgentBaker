@@ -1,12 +1,18 @@
 package e2e
 
 import (
+	"context"
+	"strings"
 	"testing"
+	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // Test_LocalDNSHostsPlugin tests the localdns hosts plugin across all supported distros
@@ -50,4 +56,93 @@ func Test_LocalDNSHostsPlugin(t *testing.T) {
 			})
 		})
 	}
+}
+
+// Test_LocalDNSLPSBootstrapPatch validates the node-side LocalDNS live-patching
+// bootstrap path. It simulates LPS by temporarily replacing aks-node-controller
+// with a small fetch-localdns-config stub, then restarts localdns and verifies
+// that localdns.sh:
+//  1. invokes the fetcher before CoreDNS starts,
+//  2. uses the supplied Corefile content when building updated.localdns.corefile,
+//  3. persists the paired corefileVersion, and
+//  4. stamps components.localDNS.current after kubeconfig/node registration.
+func Test_LocalDNSLPSBootstrapPatch(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests LocalDNS LPS bootstrap patching applies Corefile and reports corefileVersion",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.LocalDnsProfile.EnableLocalDns = true
+			},
+			Validator: validateLocalDNSLPSBootstrapPatch,
+		},
+	})
+}
+
+func validateLocalDNSLPSBootstrapPatch(ctx context.Context, s *Scenario) {
+	const (
+		desiredVersion  = "e2e-localdns-corefile-version"
+		marker          = "e2e-localdns-lps-patched-corefile"
+		corefile        = "/opt/azure/containers/localdns/localdns.corefile"
+		updatedCorefile = "/opt/azure/containers/localdns/updated.localdns.corefile"
+		ancBinary       = "/opt/azure/containers/aks-node-controller"
+		ancBackup       = "/opt/azure/containers/aks-node-controller.e2e-backup"
+	)
+
+	patchScript := `set -euo pipefail
+sudo cp ` + ancBinary + ` ` + ancBackup + `
+sudo tee ` + ancBinary + ` >/dev/null <<'EOF'
+#!/bin/bash
+set -euo pipefail
+if [ "${1:-}" != "fetch-localdns-config" ]; then
+    exec ` + ancBackup + ` "$@"
+fi
+output=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --output)
+            output="$2"
+            shift 2
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+if [ -z "$output" ]; then
+    echo "missing --output" >&2
+    exit 1
+fi
+cp "$output" "$output.tmp"
+cat <<'CORE' >> "$output.tmp"
+# ` + marker + `
+CORE
+mv "$output.tmp" "$output"
+printf '%s\n' '` + desiredVersion + `' > "$output.version"
+EOF
+sudo chmod +x ` + ancBinary + `
+sudo systemctl restart localdns.service
+`
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, patchScript, 0, "failed to install fake LocalDNS LPS fetcher and restart localdns")
+
+	defer execScriptOnVMForScenario(ctx, s, `sudo mv `+ancBackup+` `+ancBinary+` 2>/dev/null || true`)
+
+	ValidateFileHasContent(ctx, s, updatedCorefile, marker)
+	ValidateFileHasContent(ctx, s, corefile+".version", desiredVersion)
+	ValidateLocalDNSService(ctx, s, "enabled")
+	ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
+
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+		node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
+		status := node.Annotations["kubernetes.azure.com/live-patching-status"]
+		return strings.Contains(status, `"localDNS":{"current":"`+desiredVersion+`"}`), nil
+	})
+	require.NoError(s.T, err, "node did not report LocalDNS live-patching current version %q", desiredVersion)
 }
