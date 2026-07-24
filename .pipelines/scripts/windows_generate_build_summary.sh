@@ -2,7 +2,7 @@
 # Generates a markdown build summary card for Windows VHD builds.
 # Uploaded via ##vso[task.addattachment type=Distributedtask.Core.Summary] to appear as an extension tab in ADO.
 
-set -eu
+set -euo pipefail
 
 DEFAULT_SUMMARY_FILE="$(pwd)/build-summary.md"
 SUMMARY_FILE="${SUMMARY_FILE:-$DEFAULT_SUMMARY_FILE}"
@@ -181,4 +181,4 @@ read_setting() {
 } >"$SUMMARY_FILE"
 
 echo "Build summary written to ${SUMMARY_FILE}"
-echo "##vso[task.addattachment type=Distributedtask.Core.Summary;name=${WINDOWS_SKU};]${SUMMARY_FILE}"
+echo "##vso[task.addattachment type=Distributedtask.Core.Summary;name=${WINDOWS_SKU:-Windows};]${SUMMARY_FILE}"
