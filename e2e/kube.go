@@ -590,6 +590,12 @@ func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 						Image:   image,
 						Command: []string{"python3", "/opt/proxy/proxy.py"},
 						Ports:   []corev1.ContainerPort{{ContainerPort: int32(proxyPort), HostPort: int32(proxyPort)}},
+						// Check whether proxy has started before starting the readiness and readiness probes 
+						StartupProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(proxyPort)},
+							},
+						},
 						// Gate readiness on the proxy actually accepting TCP connections on :8888.
 						ReadinessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
@@ -648,8 +654,9 @@ func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 		if len(pods.Items) == 0 {
 			lastPodStatuses = []string{"no proxy pods found"}
 		}
-		// Self-heal once if no proxy pod becomes ready within the grace period
-		if !selfHealed && time.Since(start) >= selfHealDelay {
+		// Self-heal once: if pods exist but none became ready within the grace
+		// period, delete them so the DaemonSet reschedules fresh ones
+		if !selfHealed && len(pods.Items) > 0 && time.Since(start) >= selfHealDelay {
 			selfHealed = true
 			if rerr := k.recreateProxyPods(ctx); rerr != nil {
 				toolkit.Logf(ctx, "failed to recreate proxy pods after %s: %v", selfHealDelay, rerr)
