@@ -582,6 +582,18 @@
     },
     {
       "matchPackageNames": [
+        "oras-project/oras"
+      ],
+      "groupName": "oras",
+      "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "windows/nanoserver",
         "windows/servercore"
       ],
