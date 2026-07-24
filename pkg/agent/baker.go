@@ -810,7 +810,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
 		},
 		"IsCgroupV2": func() bool {
-			return profile.Is2204VHDDistro() || profile.Is2404VHDDistro() ||
+			return profile.Is2204VHDDistro() || profile.Is2404VHDDistro() || profile.Is2604VHDDistro() ||
 				config.IsAzureLinux() || config.IsFlatcar() || config.IsACL()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
@@ -867,9 +867,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				sb.WriteString(fmt.Sprintf("LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory))
 			}
 			if ulimitConfig.NoFile != "" {
-				// ulimit is removed in containerd 2.0+, which is available only in ubuntu2404 distro
+				// ulimit is removed in containerd 2.0+, which is available only in ubuntu2404/ubuntu2604 distros
 				// https://github.com/containerd/containerd/blob/main/docs/containerd-2.0.md#limitnofile-configuration-has-been-removed
-				if !profile.Is2404VHDDistro() {
+				if !profile.Is2404VHDDistro() && !profile.Is2604VHDDistro() {
 					sb.WriteString(fmt.Sprintf("LimitNOFILE=%s\n", ulimitConfig.NoFile))
 				}
 			}
