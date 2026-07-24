@@ -199,11 +199,7 @@ export GPU_DEST=/usr/local/nvidia
 export NVIDIA_DRIVER_IMAGE_SHA="${GPU_IMAGE_SHA:=}"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_GPU_DRIVER_TYPE="${GPU_DRIVER_TYPE:=}"
-# PrivateAzureRegistryServer is an optional registry/repository prefix. It lets
-# disconnected environments and E2E runs mirror the aks-gpu repositories while
-# preserving MCR as the default.
-export NVIDIA_DRIVER_IMAGE_REGISTRY="${AZURE_PRIVATE_REGISTRY_SERVER:-mcr.microsoft.com/aks}"
-export NVIDIA_DRIVER_IMAGE="${NVIDIA_DRIVER_IMAGE_REGISTRY}/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
+export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
 export CTR_GPU_INSTALL_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
 export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
 APT_CACHE_DIR=/var/cache/apt/archives/

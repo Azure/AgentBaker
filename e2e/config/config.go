@@ -71,7 +71,6 @@ type Configuration struct {
 	E2ELoggingDir                          string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
 	EnableSecureTLSBootstrapping           bool          `env:"ENABLE_SECURE_TLS_BOOTSTRAPPING" envDefault:"true"`
 	ExtendedTests                          string        `env:"EXTENDED_TESTS" envDefault:""`
-	GPUDriverImageRegistry                 string        `env:"GPU_DRIVER_IMAGE_REGISTRY"`
 	GalleryNameLinux                       string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
 	GalleryNameWindows                     string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
 	GalleryResourceGroupNameLinux          string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`

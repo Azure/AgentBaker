@@ -382,7 +382,6 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 }
 
 func Test_Ubuntu2604_GPUCUDA(t *testing.T) {
-	require.NotEmpty(t, config.Config.GPUDriverImageRegistry, "GPU_DRIVER_IMAGE_REGISTRY must point to the test aks-gpu repository prefix")
 	RunScenario(t, &Scenario{
 		Description: "Tests that an R595 CUDA driver compiles and initializes on an Ubuntu 26.04 GPU node",
 		Location:    "westus3",
@@ -398,7 +397,6 @@ func Test_Ubuntu2604_GPUCUDA(t *testing.T) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableNvidia = true
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.PrivateAzureRegistryServer = config.Config.GPUDriverImageRegistry
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
