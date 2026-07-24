@@ -1,7 +1,7 @@
 #!/usr/bin/env shellspec
 
-# Unit tests for disableVulnerableKernelModule() in cse_main.sh
-# and the OS gate that selects which OS variants get the runtime apply.
+# Unit tests for vulnerable kernel module mitigation helpers in cse_main.sh
+# and the OS gate that selects which OS variants get runtime apply or cleanup.
 
 load_kernel_mitigation_helpers() {
     UBUNTU_OS_NAME="UBUNTU"
@@ -91,6 +91,61 @@ Describe 'disableVulnerableKernelModule()'
     End
 End
 
+# Tests cleanup of stale baked deny rules on fixed Ubuntu kernels.
+Describe 'removeVulnerableKernelModuleDenyRules()'
+    MODPROBE_DIR=""
+
+    setup() {
+        MODPROBE_DIR="$(mktemp -d)"
+        eval "$(sed -n '/^removeVulnerableKernelModuleDenyRules()/,/^}/p' parts/linux/cloud-init/artifacts/cse_main.sh | \
+            sed "s|/etc/modprobe.d|${MODPROBE_DIR}|g")"
+    }
+
+    cleanup() {
+        rm -rf "$MODPROBE_DIR"
+    }
+
+    BeforeEach 'setup'
+    AfterEach 'cleanup'
+
+    It 'removes stale Copy Fail / DirtyFrag / Fragnesia deny rules'
+        cat > "${MODPROBE_DIR}/modprobe-CIS.conf" <<'EOF'
+install cramfs /bin/true
+install algif_aead /bin/false
+blacklist algif_aead
+install esp4 /bin/false
+blacklist esp4
+install esp6 /bin/false
+blacklist esp6
+install rxrpc /bin/false
+blacklist rxrpc
+blacklist dccp
+EOF
+
+        When call removeVulnerableKernelModuleDenyRules
+        The status should be success
+        The output should include "Removed Copy Fail / DirtyFrag / Fragnesia module deny rules"
+        The contents of file "${MODPROBE_DIR}/modprobe-CIS.conf" should not include "algif_aead"
+        The contents of file "${MODPROBE_DIR}/modprobe-CIS.conf" should not include "esp4"
+        The contents of file "${MODPROBE_DIR}/modprobe-CIS.conf" should not include "esp6"
+        The contents of file "${MODPROBE_DIR}/modprobe-CIS.conf" should not include "rxrpc"
+        The contents of file "${MODPROBE_DIR}/modprobe-CIS.conf" should include "install cramfs /bin/true"
+        The contents of file "${MODPROBE_DIR}/modprobe-CIS.conf" should include "blacklist dccp"
+    End
+
+    It 'preserves non-deny entries for the affected modules'
+        cat > "${MODPROBE_DIR}/custom.conf" <<'EOF'
+install esp4 /sbin/modprobe --ignore-install esp4
+options rxrpc debug=1
+EOF
+
+        When call removeVulnerableKernelModuleDenyRules
+        The status should be success
+        The contents of file "${MODPROBE_DIR}/custom.conf" should include "install esp4 /sbin/modprobe --ignore-install esp4"
+        The contents of file "${MODPROBE_DIR}/custom.conf" should include "options rxrpc debug=1"
+    End
+End
+
 # Tests the Ubuntu kernel version gate used by the CSE-time runtime apply.
 Describe 'ubuntuKernelNeedsVulnerableModuleMitigation()'
     setup() {
@@ -156,9 +211,10 @@ Describe 'ubuntuKernelNeedsVulnerableModuleMitigation()'
 End
 
 # Tests the OS gate that decides whether to call disableVulnerableKernelModule
-# at CSE provisioning time. Apply on: vulnerable Ubuntu kernels, Mariner/AzureLinux 2.0
-# (AzL2), AzureLinux OSGuard (defense-in-depth — hardened secure-boot variant intentionally
-# retains the mitigation). Skip on: fixed Ubuntu kernels, AzureLinux 3.0 regular/Kata
+# or clean up stale baked rules at CSE provisioning time. Apply on: vulnerable Ubuntu
+# kernels, Mariner/AzureLinux 2.0 (AzL2), AzureLinux OSGuard (defense-in-depth —
+# hardened secure-boot variant intentionally retains the mitigation). Cleanup on:
+# fixed Ubuntu kernels. Skip on: AzureLinux 3.0 regular/Kata
 # (kernel 6.6.139.1-1.azl3+ has the upstream fix and customers reported the blacklist
 # actively blocks legitimate workloads), ACL, Flatcar.
 # See https://github.com/Azure/AKS/issues/5753.
@@ -186,7 +242,13 @@ Describe 'CVE kernel module mitigation OS gate'
 
     gate() {
         # Mirrors the condition in cse_main.sh basePrep — must be kept in sync.
-        if { isUbuntu "$OS" && ubuntuKernelNeedsVulnerableModuleMitigation; } || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
+        if isUbuntu "$OS"; then
+            if ubuntuKernelNeedsVulnerableModuleMitigation; then
+                echo "APPLY"
+            else
+                echo "CLEANUP"
+            fi
+        elif isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
             echo "APPLY"
         else
             echo "SKIP"
@@ -203,24 +265,24 @@ Describe 'CVE kernel module mitigation OS gate'
         The output should include "APPLY"
     End
 
-    It 'skips the mitigation on fixed Ubuntu 22.04 kernels'
+    It 'cleans stale deny rules on fixed Ubuntu 22.04 kernels'
         OS="${UBUNTU_OS_NAME}"
         OS_VERSION="22.04"
         OS_VARIANT=""
         UBUNTU_RELEASE="22.04"
         KERNEL_RELEASE="5.15.0-1116-azure"
         When call gate
-        The output should include "SKIP"
+        The output should include "CLEANUP"
     End
 
-    It 'skips the mitigation on fixed Ubuntu 24.04 kernels'
+    It 'cleans stale deny rules on fixed Ubuntu 24.04 kernels'
         OS="${UBUNTU_OS_NAME}"
         OS_VERSION="24.04"
         OS_VARIANT=""
         UBUNTU_RELEASE="24.04"
         KERNEL_RELEASE="6.8.0-1058-azure"
         When call gate
-        The output should include "SKIP"
+        The output should include "CLEANUP"
     End
 
     It 'applies the mitigation when a fixed Ubuntu generic kernel has an unexpected suffix'

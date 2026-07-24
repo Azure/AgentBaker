@@ -68,6 +68,50 @@ disableVulnerableKernelModule() {
     fi
 }
 
+removeVulnerableKernelModuleDenyRules() {
+    local modprobe_file
+    local tmp_file
+    local next_file
+    local mod
+
+    for modprobe_file in /etc/modprobe.d/*.conf; do
+        [ -e "$modprobe_file" ] || continue
+
+        tmp_file="${modprobe_file}.tmp.$$"
+        next_file="${tmp_file}.next"
+        cp "$modprobe_file" "$tmp_file" || return 1
+
+        for mod in algif_aead esp4 esp6 rxrpc; do
+            sed "/^install[[:space:]][[:space:]]*${mod}[[:space:]][[:space:]]*\/bin\/false[[:space:]]*$/d;/^blacklist[[:space:]][[:space:]]*${mod}[[:space:]]*$/d" "$tmp_file" > "$next_file" || {
+                rm -f "$tmp_file" "$next_file"
+                return 1
+            }
+            mv "$next_file" "$tmp_file" || {
+                rm -f "$tmp_file" "$next_file"
+                return 1
+            }
+        done
+
+        if cmp -s "$modprobe_file" "$tmp_file"; then
+            rm -f "$tmp_file"
+        else
+            cat "$tmp_file" > "$modprobe_file" || {
+                rm -f "$tmp_file"
+                return 1
+            }
+            rm -f "$tmp_file"
+            echo "Removed Copy Fail / DirtyFrag / Fragnesia module deny rules from ${modprobe_file}"
+        fi
+    done
+
+    for mod in algif_aead esp4 esp6 rxrpc; do
+        if grep -qsE "^(install[[:space:]]+${mod}[[:space:]]+/bin/false|blacklist[[:space:]]+${mod})([[:space:]]|$)" /etc/modprobe.d/*.conf 2>/dev/null; then
+            echo "Failed to remove ${mod} vulnerable module deny rule from /etc/modprobe.d"
+            return 1
+        fi
+    done
+}
+
 # ====== BASE PREP: BASE IMAGE PREPARATION ======
 # This stage prepares the base VHD image with all necessary components and configurations.
 # IMPORTANT: This stage must NOT join the node to the cluster.
@@ -314,8 +358,8 @@ EOF
     # fallback 5.15.0-181-generic); Ubuntu 24.04 picked up the fixes in linux-azure
     # 6.8.0-1058-azure (generic fallback 6.8.0-124-generic). Keep the CSE-time
     # apply for older or unknown Ubuntu kernels so in-support vulnerable VHDs without
-    # baked rules remain protected. Fixed Ubuntu kernels skip this runtime apply, but
-    # VHDs that already baked modprobe-CIS.conf keep those static rules until rebuilt.
+    # baked rules remain protected. Fixed Ubuntu kernels actively remove stale deny
+    # rules that may have been baked into older VHDs before the fixed kernel arrived.
     #
     # AzureLinux 3.0 (regular and Kata) is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy
     # Fail / DirtyFrag / Fragnesia upstream, so the runtime modprobe blacklist is no longer
@@ -333,7 +377,16 @@ EOF
     # Keep the CSE-time runtime apply enabled for AzL2/Mariner while those images remain supported.
     # See https://github.com/Azure/AKS/issues/5753.
     #
-    if { isUbuntu "$OS" && ubuntuKernelNeedsVulnerableModuleMitigation; } || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
+    if isUbuntu "$OS"; then
+        if ubuntuKernelNeedsVulnerableModuleMitigation; then
+            disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
+            disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
+            disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
+            disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
+        else
+            removeVulnerableKernelModuleDenyRules || exit $ERR_MODPROBE_FAIL
+        fi
+    elif isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
         disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
         disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
         disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
