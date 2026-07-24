@@ -1,5 +1,29 @@
 #!/bin/bash
 
+logACLProvisioningScriptState() {
+  local phase="$1"
+  local path="$2"
+
+  if ! isACL "$OS" "$OS_VARIANT"; then
+    return 0
+  fi
+
+  {
+    echo "ACL_DIAGNOSTIC phase=${phase} path=${path}"
+    if [ -f "$path" ]; then
+      sha256sum "$path" || true
+      wc -l -c "$path" || true
+      if grep -Fq '/usr/share/containerd2/acl-erofs.toml' "$path"; then
+        echo "ACL_DIAGNOSTIC acl_erofs_import_marker=present"
+      else
+        echo "ACL_DIAGNOSTIC acl_erofs_import_marker=absent"
+      fi
+    else
+      echo "ACL_DIAGNOSTIC file_state=absent"
+    fi
+  } | tee -a "${VHD_LOGS_FILEPATH:-/opt/azure/vhd-install.complete}"
+}
+
 copyPackerFiles() {
   SYSCTL_CONFIG_SRC=/home/packer/sysctl-d-60-CIS.conf
   SYSCTL_CONFIG_DEST=/etc/sysctl.d/60-CIS.conf
@@ -255,7 +279,10 @@ copyPackerFiles() {
 
   CSE_CONFIG_SRC=/home/packer/provision_configs.sh
   CSE_CONFIG_DEST=/opt/azure/containers/provision_configs.sh
+  logACLProvisioningScriptState "before-copy-source" "$CSE_CONFIG_SRC"
+  logACLProvisioningScriptState "before-copy-destination" "$CSE_CONFIG_DEST"
   cpAndMode $CSE_CONFIG_SRC $CSE_CONFIG_DEST 0744
+  logACLProvisioningScriptState "after-copy-destination" "$CSE_CONFIG_DEST"
 
   CSE_INSTALL_SRC=/home/packer/provision_installs.sh
   CSE_INSTALL_DEST=/opt/azure/containers/provision_installs.sh

@@ -75,6 +75,15 @@
   ],
   "provisioners": [
     {
+      "type": "shell-local",
+      "inline": [
+        "echo ACL_DIAGNOSTIC phase=packer-local-source git_head=$(git rev-parse HEAD)",
+        "sha256sum parts/linux/cloud-init/artifacts/cse_config.sh",
+        "wc -l -c parts/linux/cloud-init/artifacts/cse_config.sh",
+        "if grep -Fq '/usr/share/containerd2/acl-erofs.toml' parts/linux/cloud-init/artifacts/cse_config.sh; then echo ACL_DIAGNOSTIC acl_erofs_import_marker=present; else echo ACL_DIAGNOSTIC acl_erofs_import_marker=absent; fi"
+      ]
+    },
+    {
       "type": "shell",
       "inline": [
         "sudo mkdir -p /opt/azure/containers",

@@ -330,6 +330,30 @@ disableSystemdResolved() {
     fi
 }
 
+logACLContainerdConfigState() {
+  local phase="$1"
+  local config_path="/etc/containerd/config.toml"
+  local profile_path="/usr/share/containerd2/acl-erofs.toml"
+
+  echo "ACL_DIAGNOSTIC phase=${phase} os=${OS} os_variant=${OS_VARIANT}"
+  for path in "$config_path" "$profile_path"; do
+    if [ -f "$path" ]; then
+      sha256sum "$path" || true
+      wc -l -c "$path" || true
+      grep -nE '^[[:space:]]*(version|imports|snapshotter|differ|dmverity_mode|enable_dmverity|enable_dmverity_referrers|require_signatures)[[:space:]]*=' "$path" || true
+    else
+      echo "ACL_DIAGNOSTIC file_state=absent path=${path}"
+    fi
+  done
+
+  if [ "$phase" = "after-acl-import" ] && command -v containerd >/dev/null 2>&1; then
+    echo "ACL_DIAGNOSTIC effective_containerd_config=begin"
+    containerd config dump 2>&1 |
+      grep -E '^[[:space:]]*(version|imports|snapshotter|differ|dmverity_mode|enable_dmverity|enable_dmverity_referrers|require_signatures)[[:space:]]*=' || true
+    echo "ACL_DIAGNOSTIC effective_containerd_config=end"
+  fi
+}
+
 ensureContainerd() {
   mkdir -p "/etc/systemd/system/containerd.service.d"
   # Explicitly set LimitNOFILE=1048576 (the value that 'infinity' resolves to on Ubuntu 22.04) for both Ubuntu and Mariner/AzureLinux.
@@ -345,6 +369,10 @@ LimitNOFILE=1048576
 EOF
 
   mkdir -p /etc/containerd
+
+  if isACL "$OS" "$OS_VARIANT"; then
+    logACLContainerdConfigState "before-generation"
+  fi
 
   if grep -q 'BinaryName = "/usr/bin/nvidia-container-runtime"' /etc/containerd/config.toml 2>/dev/null; then
     echo "NVIDIA containerd config already exists at /etc/containerd/config.toml, skipping generation"
@@ -368,10 +396,18 @@ EOF
     fi
   fi
 
+  if isACL "$OS" "$OS_VARIANT"; then
+    logACLContainerdConfigState "after-generation"
+  fi
+
   if isACL "$OS" "$OS_VARIANT" &&
      ! grep -Fq '/usr/share/containerd2/acl-erofs.toml' /etc/containerd/config.toml; then
     sed -i '/^version = 2$/a imports = ["/usr/share/containerd2/acl-erofs.toml"]' \
       /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  fi
+
+  if isACL "$OS" "$OS_VARIANT"; then
+    logACLContainerdConfigState "after-acl-import"
   fi
 
   export -f should_e2e_mock_azure_china_cloud
