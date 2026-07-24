@@ -110,10 +110,11 @@ jobs:
           $result
           $result.Failed | Format-Table
 
-      - name: Publish Test Results
+      - name: Publish Unit Test Results
         uses: EnricoMi/publish-unit-test-result-action/windows@v2
         if: (!cancelled())
         with:
+          check_name: Windows Unit Test Results
           files: |
             test-results/parts_windows.xml
             test-results/vhdbuilder_packer_windows.xml
