@@ -22,6 +22,7 @@ test-results/
 
 test/junit/
 coverage/
+coverage.xml
 test-results/
 test/e2e/kubernetes/junit.xml
 _logs/
