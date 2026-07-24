@@ -590,7 +590,7 @@ func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 						Image:   image,
 						Command: []string{"python3", "/opt/proxy/proxy.py"},
 						Ports:   []corev1.ContainerPort{{ContainerPort: int32(proxyPort), HostPort: int32(proxyPort)}},
-						// Check whether proxy has started before starting the readiness and readiness probes 
+						// Check whether proxy has started before starting the readiness and liveness probes.
 						StartupProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(proxyPort)},
