@@ -15,15 +15,19 @@ set -euo pipefail
 # In addition, the e2e test framework reads a whole lot of environment variables.
 # These are defined in: e2e/config/config.go
 
+E2E_SUBSCRIPTION_ID="${E2E_SUBSCRIPTION_ID:?E2E_SUBSCRIPTION_ID must be set}"
 az account set -s "${E2E_SUBSCRIPTION_ID}"
 echo "Using subscription ${E2E_SUBSCRIPTION_ID} for e2e tests"
 
 # Setup go
-export GOPATH="$(go env GOPATH)"
+GOPATH="$(go env GOPATH)"
+export GOPATH
 go version
 
 # specify the logging directory so logs go to the right place
-export LOGGING_DIR="scenario-logs-$(date +%s)"
+DefaultWorkingDirectory="${DefaultWorkingDirectory:?DefaultWorkingDirectory must be set}"
+LOGGING_DIR="scenario-logs-$(date +%s)"
+export LOGGING_DIR
 echo "setting logging dir to $LOGGING_DIR"
 # tell DevOps to set the variable so later pipeline steps can use it.
 
@@ -35,7 +39,6 @@ mkdir -p "${DefaultWorkingDirectory}/e2e/${LOGGING_DIR}"
 VHD_BUILD_ID="${VHD_BUILD_ID:-}"
 IGNORE_SCENARIOS_WITH_MISSING_VHD="${IGNORE_SCENARIOS_WITH_MISSING_VHD:-}"
 LOGGING_DIR="${LOGGING_DIR:-}"
-E2E_SUBSCRIPTION_ID="${E2E_SUBSCRIPTION_ID:-}"
 ENABLE_SECURE_TLS_BOOTSTRAPPING="${ENABLE_SECURE_TLS_BOOTSTRAPPING:-true}"
 TAGS_TO_SKIP="${TAGS_TO_SKIP:-}"
 TAGS_TO_RUN="${TAGS_TO_RUN:-}"
@@ -109,12 +112,20 @@ rm -f "$temp_file"
 # Run the tests! Yey!
 test_exit_code=0
 rerun_fails=""
+rerun_fails_report=""
+set -- --format testdox --junitfile "${BUILD_SRC_DIR}/e2e/report.xml" --jsonfile "${BUILD_SRC_DIR}/e2e/test-log.json"
 if [ "${E2E_FAILED_TESTS_RETRY_COUNT}" -gt 0 ]; then
   rerun_fails="${E2E_FAILED_TESTS_RETRY_COUNT}"
+  rerun_fails_report="${BUILD_SRC_DIR}/e2e/rerun-fails-report.json"
+  set -- "$@" "--rerun-fails=$rerun_fails" --packages=. "--rerun-fails-report=$rerun_fails_report" --debug
 fi
-./bin/gotestsum --format testdox --junitfile "${BUILD_SRC_DIR}/e2e/report.xml" --jsonfile "${BUILD_SRC_DIR}/e2e/test-log.json" \
-  ${rerun_fails:+--rerun-fails=$rerun_fails} ${rerun_fails:+--packages=.} \
-  -- -parallel 60 -timeout "${E2E_GO_TEST_TIMEOUT}" || test_exit_code=$?
+./bin/gotestsum "$@" -- -parallel 60 -timeout "${E2E_GO_TEST_TIMEOUT}" || test_exit_code=$?
+
+if [ -n "$rerun_fails_report" ] && [ -s "$rerun_fails_report" ]; then
+  echo "gotestsum rerun-fails report:"
+  cat "$rerun_fails_report"
+  echo "##vso[artifact.upload containerfolder=test-results;artifactname=e2e-rerun-fails-report]$rerun_fails_report"
+fi
 
 # Upload test results as Azure DevOps artifacts
 echo "##vso[artifact.upload containerfolder=test-results;artifactname=e2e-test-log]${BUILD_SRC_DIR}/e2e/test-log.json"
