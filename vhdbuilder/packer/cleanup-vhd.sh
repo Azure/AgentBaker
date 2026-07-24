@@ -1,6 +1,6 @@
 #!/bin/bash -eux
 
-VULNERABLE_KERNEL_MODULE_DENY_PATTERN='^(install|blacklist)[[:space:]]+(algif_aead|esp4|esp6|rxrpc)([[:space:]]|$)'
+VULNERABLE_KERNEL_MODULE_DENY_PATTERN='^(install[[:space:]]+(algif_aead|esp4|esp6|rxrpc)[[:space:]]+[/]bin[/]false|blacklist[[:space:]]+(algif_aead|esp4|esp6|rxrpc))[[:space:]]*$'
 
 get_os_release_value() {
   local key="$1"
