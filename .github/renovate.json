@@ -582,30 +582,63 @@
     },
     {
       "matchPackageNames": [
+        "oras-project/oras"
+      ],
+      "groupName": "oras",
+      "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "windows/nanoserver",
         "windows/servercore"
       ],
-      "groupName": "windowsbase",
+      "groupName": "windows_nanoserver_servercore",
       "assignees": [
-        "timmy-wright"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "timmy-wright"
+        "team:aks-node-lifecycle"
       ],
       "enabled": true,
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<compatibility>\\d+)\\.(?<patch>\\d+)$"
     },
     {
       "matchPackageNames": [
-        "windows/servercore/iis",
-        "oss/v2/kubernetes/windows-gmsa-webhook"
+        "windows/servercore/iis"
       ],
-      "groupName": "windowscached",
+      "groupName": "windows_cached_iis",
+      "enabled": true,
+      "automerge": true,
+      "matchUpdateTypes": [
+        "patch"
+      ],
       "assignees": [
-        "timmy-wright"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "timmy-wright"
+        "team:aks-node-lifecycle"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "oss/v2/kubernetes/windows-gmsa-webhook"
+      ],
+      "groupName": "windows_cached_gmsa",
+      "enabled": true,
+      "automerge": true,
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
       ]
     },
     {
