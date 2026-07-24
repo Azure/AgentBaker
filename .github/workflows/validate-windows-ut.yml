@@ -25,6 +25,9 @@ jobs:
         run: |
 
           Get-Module -ListAvailable -Name Pester
+          Install-Module -Name Pester -MinimumVersion 5.0.0 -Scope CurrentUser -Force
+          Import-Module Pester -MinimumVersion 5.0.0
+
           if (-not (Test-Path test-results)) { New-Item -ItemType Directory -Force test-results | Out-Null }
           if (-not (Test-Path coverage)) { New-Item -ItemType Directory -Force coverage | Out-Null }
           Install-Module -Name powershell-yaml -Scope CurrentUser -Force
