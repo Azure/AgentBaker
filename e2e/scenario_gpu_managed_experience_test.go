@@ -383,7 +383,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 
 func Test_Ubuntu2604_GPUCUDA(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that an R595 CUDA driver compiles and initializes on an Ubuntu 26.04 GPU node",
+		Description: "Tests that the R580 CUDA driver compiles and initializes on an Ubuntu 26.04 GPU node",
 		Location:    "westus3",
 		Tags: Tags{
 			GPU: true,
@@ -407,7 +407,7 @@ set -euo pipefail
 grep -q '^VERSION_ID=26.04$' /etc/os-release
 command -v nvidia-modprobe
 output=$(nvidia-smi)
-grep -Eq 'Driver Version: 595\.' <<<"$output"
+			grep -Eq 'Driver Version: 580\.' <<<"$output"
 `)
 				require.NoError(s.T, err)
 				require.NoError(s.T, runCommandScriptError(view))

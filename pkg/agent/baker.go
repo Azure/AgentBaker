@@ -1558,7 +1558,6 @@ type gpuDriverConfig struct {
 }
 
 // getGPUDriverConfig selects one coherent aks-gpu image identity for a VM SKU and node OS.
-// Ubuntu 26.04 CUDA nodes require R595 for kernel 7.x; existing OS releases retain R580 LTS.
 func getGPUDriverConfig(size string, distro datamodel.Distro) gpuDriverConfig {
 	if useGridV20Drivers(size) {
 		return gpuDriverConfig{datamodel.NvidiaGridV20DriverVersion, datamodel.AKSGPUGridV20VersionSuffix, "grid-v20"}
@@ -1605,9 +1604,8 @@ func GetAKSGPUImageSHA(size string) string {
 // GetGPUDriverType maps a GPU VM size to the aks-gpu image variant used to install its driver.
 // The value becomes NVIDIA_GPU_DRIVER_TYPE at provision time, which selects the container image
 // mcr.microsoft.com/aks/aks-gpu-<type>. Modern CUDA compute SKUs (T4, V100, A100, H100, H200, ...)
-// use the R580 LTS image (aks-gpu-cuda-lts): it retains Volta/V100 support that the newer aks-gpu-cuda
-// R595 line drops, is supported through Aug 2028, and is the branch the VHD driver prebake is built
-// against. Legacy NCv1 (K80) keeps the separate "cuda" path with its pinned R470 driver.
+// use the R580 LTS image (aks-gpu-cuda-lts), while Ubuntu 26.04 uses the R580 aks-gpu-cuda image.
+// Legacy NCv1 (K80) keeps the separate "cuda" path with its pinned R470 driver.
 func GetGPUDriverType(size string) string {
 	return getGPUDriverConfig(size, "").imageType
 }
