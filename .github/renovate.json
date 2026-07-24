@@ -614,6 +614,9 @@
       "groupName": "windows_cached_iis",
       "enabled": true,
       "automerge": true,
+      "matchUpdateTypes": [
+        "patch"
+      ],
       "assignees": [
         "team:aks-node-lifecycle"
       ],
@@ -628,6 +631,9 @@
       "groupName": "windows_cached_gmsa",
       "enabled": true,
       "automerge": true,
+      "matchUpdateTypes": [
+        "patch"
+      ],
       "assignees": [
         "team:aks-node-lifecycle"
       ],
