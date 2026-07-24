@@ -225,7 +225,9 @@ Describe 'CVE kernel module mitigation OS gate'
         OS_VARIANT=""
         UBUNTU_RELEASE=""
         KERNEL_RELEASE=""
+        GATE_ACTIONS=""
         load_kernel_mitigation_helpers
+        eval "$(sed -n '/^reconcileVulnerableKernelModuleMitigation()/,/^}/p' parts/linux/cloud-init/artifacts/cse_main.sh)"
     }
 
     BeforeEach 'setup'
@@ -240,18 +242,20 @@ Describe 'CVE kernel module mitigation OS gate'
         fi
     }
 
+    disableVulnerableKernelModule() {
+        GATE_ACTIONS="${GATE_ACTIONS}APPLY:${1} "
+    }
+
+    removeVulnerableKernelModuleDenyRules() {
+        GATE_ACTIONS="${GATE_ACTIONS}CLEANUP "
+    }
+
     gate() {
-        # Mirrors the condition in cse_main.sh basePrep — must be kept in sync.
-        if isUbuntu "$OS"; then
-            if ubuntuKernelNeedsVulnerableModuleMitigation; then
-                echo "APPLY"
-            else
-                echo "CLEANUP"
-            fi
-        elif isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
-            echo "APPLY"
-        else
+        reconcileVulnerableKernelModuleMitigation
+        if [ -z "${GATE_ACTIONS}" ]; then
             echo "SKIP"
+        else
+            echo "${GATE_ACTIONS}"
         fi
     }
 
@@ -262,7 +266,10 @@ Describe 'CVE kernel module mitigation OS gate'
         UBUNTU_RELEASE="22.04"
         KERNEL_RELEASE="5.15.0-1115-azure"
         When call gate
-        The output should include "APPLY"
+        The output should include "APPLY:algif_aead"
+        The output should include "APPLY:esp4"
+        The output should include "APPLY:esp6"
+        The output should include "APPLY:rxrpc"
     End
 
     It 'cleans stale deny rules on fixed Ubuntu 22.04 kernels'
@@ -273,6 +280,7 @@ Describe 'CVE kernel module mitigation OS gate'
         KERNEL_RELEASE="5.15.0-1116-azure"
         When call gate
         The output should include "CLEANUP"
+        The output should not include "APPLY"
     End
 
     It 'cleans stale deny rules on fixed Ubuntu 24.04 kernels'
@@ -283,6 +291,7 @@ Describe 'CVE kernel module mitigation OS gate'
         KERNEL_RELEASE="6.8.0-1058-azure"
         When call gate
         The output should include "CLEANUP"
+        The output should not include "APPLY"
     End
 
     It 'applies the mitigation when a fixed Ubuntu generic kernel has an unexpected suffix'
@@ -292,7 +301,7 @@ Describe 'CVE kernel module mitigation OS gate'
         UBUNTU_RELEASE="24.04"
         KERNEL_RELEASE="6.8.0-124-generic-custom"
         When call gate
-        The output should include "APPLY"
+        The output should include "APPLY:algif_aead"
     End
 
     It 'applies the mitigation on AzureLinux 3.0 OSGuard — defense-in-depth retained'
@@ -300,7 +309,10 @@ Describe 'CVE kernel module mitigation OS gate'
         OS_VERSION="3.0"
         OS_VARIANT="${AZURELINUX_OSGUARD_OS_VARIANT}"
         When call gate
-        The output should equal "APPLY"
+        The output should include "APPLY:algif_aead"
+        The output should include "APPLY:esp4"
+        The output should include "APPLY:esp6"
+        The output should include "APPLY:rxrpc"
     End
 
     It 'applies the mitigation on Mariner/AzureLinux 2.0 (AzL2) — VHDs are frozen so CSE-time apply is required'
@@ -308,21 +320,29 @@ Describe 'CVE kernel module mitigation OS gate'
         OS_VARIANT=""
         OS_VERSION="2.0"
         When call gate
-        The output should equal "APPLY"
+        The output should include "APPLY:algif_aead"
+        The output should include "APPLY:esp4"
+        The output should include "APPLY:esp6"
+        The output should include "APPLY:rxrpc"
     End
     It 'applies the mitigation on Mariner Kata (AzL2) — VHDs are frozen so CSE-time apply is required'
         OS="${MARINER_KATA_OS_NAME}"
         OS_VARIANT=""
         OS_VERSION="2.0"
         When call gate
-        The output should equal "APPLY"
+        The output should include "APPLY:algif_aead"
+        The output should include "APPLY:esp4"
+        The output should include "APPLY:esp6"
+        The output should include "APPLY:rxrpc"
     End
     It 'skips on AzureLinux 3.0 regular (kernel 6.6.139.1-1.azl3+ has upstream fix)'
         OS="${AZURELINUX_OS_NAME}"
         OS_VERSION="3.0"
         OS_VARIANT=""
         When call gate
-        The output should equal "SKIP"
+        The output should include "SKIP"
+        The output should not include "APPLY"
+        The output should not include "CLEANUP"
     End
 
     It 'skips on AzureLinux 3.0 Kata (same kernel as AzL3 regular)'
@@ -330,20 +350,43 @@ Describe 'CVE kernel module mitigation OS gate'
         OS_VERSION="3.0"
         OS_VARIANT=""
         When call gate
-        The output should equal "SKIP"
+        The output should include "SKIP"
+        The output should not include "APPLY"
+        The output should not include "CLEANUP"
     End
 
     It 'skips on ACL (Flatcar-based; never in scope)'
         OS="${ACL_OS_NAME}"
         OS_VARIANT=""
         When call gate
-        The output should equal "SKIP"
+        The output should include "SKIP"
+        The output should not include "APPLY"
+        The output should not include "CLEANUP"
     End
 
     It 'skips on Flatcar (never in scope)'
         OS="${FLATCAR_OS_NAME}"
         OS_VARIANT=""
         When call gate
-        The output should equal "SKIP"
+        The output should include "SKIP"
+        The output should not include "APPLY"
+        The output should not include "CLEANUP"
+    End
+End
+
+Describe 'CVE kernel module mitigation phase coverage'
+    phase_body() {
+        local phase="${1}"
+        sed -n "/^function ${phase}/,/^}/p" parts/linux/cloud-init/artifacts/cse_main.sh
+    }
+
+    It 'runs reconciliation from basePrep so VHD bakes keep the intended mitigation state'
+        When call phase_body "basePrep"
+        The output should include "reconcileVulnerableKernelModuleMitigation"
+    End
+
+    It 'runs reconciliation from nodePrep so PIS nodes clean stale baked deny rules'
+        When call phase_body "nodePrep"
+        The output should include "reconcileVulnerableKernelModuleMitigation"
     End
 End

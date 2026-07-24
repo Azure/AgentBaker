@@ -112,6 +112,51 @@ removeVulnerableKernelModuleDenyRules() {
     done
 }
 
+reconcileVulnerableKernelModuleMitigation() {
+    # Disable kernel modules with known LPE vulnerabilities (CVE-2026-31431, DirtyFrag, Fragnesia).
+    # Applied at CSE provisioning time on vulnerable Ubuntu kernels, AzureLinux OSGuard, and AzureLinux 2.0 / Mariner.
+    # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
+    #
+    # Ubuntu 22.04 picked up the fixes in linux-azure 5.15.0-1116-azure (generic
+    # fallback 5.15.0-181-generic); Ubuntu 24.04 picked up the fixes in linux-azure
+    # 6.8.0-1058-azure (generic fallback 6.8.0-124-generic). Keep the CSE-time
+    # apply for older or unknown Ubuntu kernels so in-support vulnerable VHDs without
+    # baked rules remain protected. Fixed Ubuntu kernels actively remove stale deny
+    # rules that may have been baked into older VHDs before the fixed kernel arrived.
+    #
+    # AzureLinux 3.0 (regular and Kata) is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy
+    # Fail / DirtyFrag / Fragnesia upstream, so the runtime modprobe blacklist is no longer
+    # required. Newly-built AzL3 VHDs also no longer ship the four entries in modprobe-CIS.conf —
+    # customers reported the blacklist actively blocks legitimate workloads that use
+    # algif_aead / esp4 / esp6 / rxrpc on the patched kernel. Existing in-support AzL3 VHDs
+    # (built before this change) still have the bake-in until they are rolled; no CSE-time active
+    # removal is performed — customers will get the unblocked configuration on their next AzL3
+    # VHD upgrade. AzureLinux OSGuard (hardened secure-boot variant) is intentionally kept in
+    # scope as defense-in-depth: OSGuard workloads are security-sensitive and do not require
+    # the affected kernel modules.
+    #
+    # Mariner / AzureLinux 2.0 (AzL2) images are frozen (see FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion=202512.06.0),
+    # so they cannot pick up new modprobe-CIS.conf entries for these 2026 CVEs via VHD refresh.
+    # Keep the CSE-time runtime apply enabled for AzL2/Mariner while those images remain supported.
+    # See https://github.com/Azure/AKS/issues/5753.
+    #
+    if isUbuntu "$OS"; then
+        if ubuntuKernelNeedsVulnerableModuleMitigation; then
+            disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
+            disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
+            disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
+            disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
+        else
+            removeVulnerableKernelModuleDenyRules || exit $ERR_MODPROBE_FAIL
+        fi
+    elif isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
+        disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
+        disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
+        disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
+        disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
+    fi
+}
+
 # ====== BASE PREP: BASE IMAGE PREPARATION ======
 # This stage prepares the base VHD image with all necessary components and configurations.
 # IMPORTANT: This stage must NOT join the node to the cluster.
@@ -350,48 +395,7 @@ EOF
 
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
-    # Disable kernel modules with known LPE vulnerabilities (CVE-2026-31431, DirtyFrag, Fragnesia).
-    # Applied at CSE provisioning time on vulnerable Ubuntu kernels, AzureLinux OSGuard, and AzureLinux 2.0 / Mariner.
-    # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
-    #
-    # Ubuntu 22.04 picked up the fixes in linux-azure 5.15.0-1116-azure (generic
-    # fallback 5.15.0-181-generic); Ubuntu 24.04 picked up the fixes in linux-azure
-    # 6.8.0-1058-azure (generic fallback 6.8.0-124-generic). Keep the CSE-time
-    # apply for older or unknown Ubuntu kernels so in-support vulnerable VHDs without
-    # baked rules remain protected. Fixed Ubuntu kernels actively remove stale deny
-    # rules that may have been baked into older VHDs before the fixed kernel arrived.
-    #
-    # AzureLinux 3.0 (regular and Kata) is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy
-    # Fail / DirtyFrag / Fragnesia upstream, so the runtime modprobe blacklist is no longer
-    # required. Newly-built AzL3 VHDs also no longer ship the four entries in modprobe-CIS.conf —
-    # customers reported the blacklist actively blocks legitimate workloads that use
-    # algif_aead / esp4 / esp6 / rxrpc on the patched kernel. Existing in-support AzL3 VHDs
-    # (built before this change) still have the bake-in until they are rolled; no CSE-time active
-    # removal is performed — customers will get the unblocked configuration on their next AzL3
-    # VHD upgrade. AzureLinux OSGuard (hardened secure-boot variant) is intentionally kept in
-    # scope as defense-in-depth: OSGuard workloads are security-sensitive and do not require
-    # the affected kernel modules.
-    #
-    # Mariner / AzureLinux 2.0 (AzL2) images are frozen (see FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion=202512.06.0),
-    # so they cannot pick up new modprobe-CIS.conf entries for these 2026 CVEs via VHD refresh.
-    # Keep the CSE-time runtime apply enabled for AzL2/Mariner while those images remain supported.
-    # See https://github.com/Azure/AKS/issues/5753.
-    #
-    if isUbuntu "$OS"; then
-        if ubuntuKernelNeedsVulnerableModuleMitigation; then
-            disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
-            disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
-            disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
-            disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
-        else
-            removeVulnerableKernelModuleDenyRules || exit $ERR_MODPROBE_FAIL
-        fi
-    elif isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
-        disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
-        disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
-        disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
-        disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
-    fi
+    reconcileVulnerableKernelModuleMitigation
 
     if [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
         if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
@@ -427,6 +431,8 @@ EOF
 # IMPORTANT: This stage should only run when actually joining a node to the cluster. This step should not be run when creating a VHD image
 function nodePrep {
     logs_to_events "AKS.CSE.fetch_and_cache_imds_instance_metadata" fetch_and_cache_imds_instance_metadata
+    reconcileVulnerableKernelModuleMitigation
+
     # IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels,
     # which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
     logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
