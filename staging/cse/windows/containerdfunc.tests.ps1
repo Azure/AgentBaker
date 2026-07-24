@@ -27,9 +27,26 @@ Describe "Containerd Functions Tests" {
     # cmdlet's -Encoding parameter carries an ArgumentTransformationAttribute (string
     # encoding name -> System.Text.Encoding) that Pester's Mock proxy does not preserve,
     # causing "Cannot convert the "ascii" value ... to type System.Text.Encoding" errors.
-    # Mocking this untyped stub instead avoids that binding issue.
+    # Mocking this untyped stub instead avoids that binding issue. It still performs a
+    # real write (bypassing the mocked Set-Content) for the tests that rely on Out-File's
+    # unmocked/fallthrough behavior (e.g. ProcessAndWriteContainerdConfig writing config.toml) -
+    # tests that need to assert on the written content/path explicitly re-Mock this stub.
     function Out-File {
-      param($InputObject, $FilePath, $Encoding)
+      param(
+        [Parameter(ValueFromPipeline = $true)]
+        $InputObject,
+        $FilePath,
+        $Encoding
+      )
+      begin { $lines = [System.Collections.Generic.List[string]]::new() }
+      process { $lines.Add([string]$InputObject) }
+      end {
+        $dir = Split-Path -Path $FilePath -Parent
+        if ($dir -and -not (Test-Path -Path $dir)) {
+          New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        }
+        [System.IO.File]::WriteAllLines($FilePath, [string[]]$lines)
+      }
     }
 
     # Mock Set-Content to avoid permission denied errors
