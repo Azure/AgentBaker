@@ -746,6 +746,11 @@ function Get-AKS-NetworkAdapter {
         return Get-NetworkAdapter-Fallback
     }
 
+    if (!$netIP) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "No IP address info found for ip address ${ipv4Address}. Reverting to old way to configure network"
+        return Get-NetworkAdapter-Fallback
+    }
+
     try {
         $na = Invoke-WithRetry -Command { Get-NetAdapter -IncludeHidden -ifindex $netIP.ifIndex -ErrorAction stop } -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -MaxRetries 300 -DelaySeconds 1
     }

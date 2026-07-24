@@ -1562,9 +1562,10 @@ Describe 'Get-AKS-NetworkAdapter' {
             $result.ifIndex | Should -Be 5
 
             Assert-MockCalled -CommandName "Get-Node-Ipv4-Address" -Exactly -Times 1
+            # Note: -ErrorAction is a PowerShell common parameter, so Pester never exposes it
+            # to -ParameterFilter (see Pester's IsCommonParameter) - it can't be asserted here.
             Assert-MockCalled -CommandName "Get-NetIPAddress" -Exactly -Times 1 -ParameterFilter {
                 $AddressFamily -eq "IPv4" -and
-                $ErrorAction -eq "Stop" -and
                 $IpAddress -eq $mockIPv4Address
             }
             Assert-MockCalled -CommandName "Get-NetAdapter" -Exactly -Times 1 -ParameterFilter {
