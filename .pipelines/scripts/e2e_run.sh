@@ -103,7 +103,7 @@ gotestsum_archive="gotestsum_${gotestsum_version}_linux_${architecture}.tar.gz"
 gotestsum_url="https://github.com/gotestyourself/gotestsum/releases/download/v${gotestsum_version}/${gotestsum_archive}"
 
 temp_file="$(mktemp)"
-curl -fsSL "$gotestsum_url" -o "$temp_file"
+curl --fail --silent --show-error --location --retry 5 --retry-delay 10 --retry-max-time 300 --retry-connrefused "$gotestsum_url" -o "$temp_file"
 tar -xzf "$temp_file" -C bin
 chmod +x bin/gotestsum
 rm -f "$temp_file"
