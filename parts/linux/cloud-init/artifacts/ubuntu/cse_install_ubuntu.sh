@@ -116,7 +116,7 @@ installDeps() {
             pkg_list+=(cron)
         fi
     else
-        # linux-modules-extra-* content is bundled into linux-modules-* on the 7.x kernel (Ubuntu 26.04)
+        # linux-modules-extra-* isn't bundled into linux-modules-* on Ubuntu releases < 26.04
         pkg_list+=(linux-modules-extra-$(uname -r))
     fi
 

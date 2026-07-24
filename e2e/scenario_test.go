@@ -1982,8 +1982,8 @@ func Test_Ubuntu2604Minimal_KubeletCustomConfig(t *testing.T) {
 			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-minimal-containerd-26.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-minimal-containerd-26.04-gen2"
 				customKubeletConfig := &datamodel.CustomKubeletConfig{
 					SeccompDefault: to.Ptr(true),
 				}
@@ -2232,8 +2232,8 @@ func Test_Ubuntu2604Gen2_McrChinaCloud(t *testing.T) {
 				vmss.Tags["E2EMockAzureChinaCloud"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
+				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
+				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRuncVersion(ctx, s, runcVersions)
 				ValidateContainerRuntimePlugins(ctx, s)
