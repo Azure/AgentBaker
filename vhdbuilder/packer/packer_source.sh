@@ -515,6 +515,7 @@ copyPackerFiles() {
     fi
     echo "Copying modprobe-CIS.conf without algif_aead / esp4 / esp6 / rxrpc on Ubuntu ${OS_VERSION} (fixed kernels unblock these modules; CSE applies runtime deny rules on older vulnerable kernels)"
     cpAndMode "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" "$MODPROBE_CIS_DEST" 644
+    rm -f "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" || exit "$ERR_PACKER_COPY_FILE"
     removeVulnerableKernelModuleDenyRulesFromModprobeDirectory || exit "$ERR_PACKER_COPY_FILE"
     if grep -qsE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf 2>/dev/null; then
       echo "Failed to remove vulnerable module deny rules from /etc/modprobe.d/*.conf"
