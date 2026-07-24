@@ -680,27 +680,39 @@ validateKubeletNodeLabels() {
     KUBELET_NODE_LABELS="$validated_labels"
 }
 
-# getKubeletActiveFlagsSummary inspects the flags kubelet actually started with -- the
-# "FLAG: --name=\"value\"" lines kubelet's klog prints at startup, read from `journalctl -u kubelet`
-# -- and echoes a compact, parseable key=value summary of the effective kubelet configuration:
-#   uses_config_file=<bool> config_path=<path> flag_count=<n> found=<bool>
-# It deliberately emits a small summary (not the full flag dump) so the payload fits comfortably in
-# the GuestAgentGenericLogs event Message (Context1), which is capped around a few KB.
-getKubeletActiveFlagsSummary() {
+# KUBELET_TRACKED_FLAGS is the curated set of kubelet flags whose effective values we surface
+# individually in the emitted event, for config/version tracking dashboards. It is intentionally a
+# curated list (not the full flag dump, which can be ~150 flags) so the JSON payload stays well
+# within the GuestAgentGenericLogs event Message (Context1) size limit (~a few KB).
+KUBELET_TRACKED_FLAGS="config cgroup-driver kube-reserved kube-reserved-cgroup system-reserved enforce-node-allocatable max-pods rotate-certificates rotate-server-certificates tls-cipher-suites container-runtime-endpoint pod-infra-container-image resolv-conf feature-gates cloud-provider protect-kernel-defaults streaming-connection-idle-timeout node-status-update-frequency image-gc-high-threshold image-gc-low-threshold eviction-hard"
+
+# getKubeletActiveFlagLines reads the flags kubelet actually started with -- the
+# "FLAG: --name=\"value\"" lines kubelet's klog prints at startup, from `journalctl -u kubelet` --
+# and echoes them one "--name=\"value\"" per line, de-duplicated across restarts (order preserved).
+getKubeletActiveFlagLines() {
     # kubelet is started with --no-block, so its startup FLAG lines may not be in the journal yet.
     # Poll briefly (bounded, breaking as soon as they appear) rather than delaying node startup.
     local max_attempts="${KUBELET_FLAGS_LOG_MAX_ATTEMPTS:-10}"
     local wait_sleep="${KUBELET_FLAGS_LOG_WAIT_SLEEP:-2}"
     local flags="" attempt
     for attempt in $(seq 1 "${max_attempts}"); do
-        # Extract everything after "FLAG: " on each line, de-duplicating flags emitted across kubelet
-        # restarts while keeping order. One flag per line.
         flags="$(journalctl -u kubelet --no-pager 2>/dev/null | sed -n 's/.*FLAG: \(--.*\)$/\1/p' | awk '!seen[$0]++')"
         if [ -n "${flags}" ]; then
             break
         fi
         sleep "${wait_sleep}"
     done
+    printf '%s' "${flags}"
+}
+
+# getKubeletActiveFlagsJSON builds a compact JSON object (emitted as a single-line string)
+# describing kubelet's effective configuration:
+#   { found, uses_config_file, config_path, flag_count, flags: { <tracked flag>: <value>, ... } }
+# It is emitted verbatim into the GuestAgentGenericLogs event Message (Context1) so it can be
+# consumed directly with parse_json() from Kusto, mirroring AKS.Runtime.memory_telemetry_cgroupv2.
+getKubeletActiveFlagsJSON() {
+    local flags
+    flags="$(getKubeletActiveFlagLines)"
 
     local found=false uses_config_file=false config_path="" flag_count=0
     if [ -n "${flags}" ]; then
@@ -713,16 +725,48 @@ getKubeletActiveFlagsSummary() {
             uses_config_file=true
         fi
     fi
-    echo "uses_config_file=${uses_config_file} config_path=${config_path} flag_count=${flag_count} found=${found}"
+
+    # Build a { name: value } object of the curated tracked flags kubelet actually printed.
+    local flags_json="{}" name value
+    for name in ${KUBELET_TRACKED_FLAGS}; do
+        if printf '%s\n' "${flags}" | grep -q "^--${name}="; then
+            value="$(printf '%s\n' "${flags}" | sed -n "s/^--${name}=\"\(.*\)\"\$/\1/p" | head -n1)"
+            flags_json="$(printf '%s' "${flags_json}" | jq -c --arg k "${name}" --arg v "${value}" '. + {($k): $v}')"
+        fi
+    done
+
+    jq -cn \
+        --argjson found "${found}" \
+        --argjson uses_config_file "${uses_config_file}" \
+        --arg config_path "${config_path}" \
+        --argjson flag_count "${flag_count}" \
+        --argjson flags "${flags_json}" \
+        '{found: $found, uses_config_file: $uses_config_file, config_path: $config_path, flag_count: $flag_count, flags: $flags}'
 }
 
-# reportKubeletActiveFlags is a trivial pass-through emitter: it echoes its arguments (the summary
-# produced by getKubeletActiveFlagsSummary). It exists so the summary can be handed to logs_to_events
-# as arguments -- logs_to_events records the event Message as "Completed: <args>", which lands in
-# GuestAgentGenericLogs.Context1 and is therefore queryable from Kusto (a bare function name with no
-# args would only record "Completed: <name>", losing the payload).
-reportKubeletActiveFlags() {
-    echo "AKS_KUBELET_CONFIG event=kubelet_active_flags $*"
+# emitKubeletActiveFlagsEvent writes a guest agent event whose Message is the kubelet config JSON
+# (from getKubeletActiveFlagsJSON), so it lands verbatim -- as pure JSON -- in
+# GuestAgentGenericLogs.Context1, ready for parse_json() from Kusto. It writes the event file
+# directly (like the AKS.Runtime cgroup/TLS telemetry) rather than via logs_to_events, which would
+# prefix the Message with "Completed: " and break parse_json().
+emitKubeletActiveFlagsEvent() {
+    local task="AKS.CSE.ensureKubelet.kubeletActiveFlags"
+    local message now eventsFileName
+    message="$(getKubeletActiveFlagsJSON)"
+    now="$(date +"%F %T.%3N")"
+    eventsFileName="$(date +%s%3N)"
+    mkdir -p "${EVENTS_LOGGING_DIR}"
+    jq -n \
+        --arg Timestamp   "${now}" \
+        --arg OperationId "${now}" \
+        --arg Version     "1.23" \
+        --arg TaskName    "${task}" \
+        --arg EventLevel  "Informational" \
+        --arg Message     "${message}" \
+        --arg EventPid    "0" \
+        --arg EventTid    "0" \
+        '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}' \
+        > "${EVENTS_LOGGING_DIR}${eventsFileName}.json"
 }
 
 ensureKubelet() {
@@ -925,13 +969,11 @@ EOF
         echo "failed to start measure-tls-bootstrapping-latency.service"
     fi
 
-    # Emit a compact summary of kubelet's effective startup configuration as a structured event so
-    # it is queryable per node from Kusto (rollout verification for the flags-to-config-file
-    # migration). The summary is passed as arguments to logs_to_events so it lands in the event
-    # Message (GuestAgentGenericLogs.Context1). Best-effort: never fail node provisioning on this.
-    local kubeletFlagsSummary
-    kubeletFlagsSummary="$(getKubeletActiveFlagsSummary)"
-    logs_to_events "AKS.CSE.ensureKubelet.kubeletActiveFlags" reportKubeletActiveFlags "${kubeletFlagsSummary}" || true
+    # Emit kubelet's effective startup configuration as a structured JSON event so it is queryable
+    # per node from Kusto (rollout verification for the flags-to-config-file migration, and config/
+    # version tracking dashboards). The JSON lands verbatim in GuestAgentGenericLogs.Context1 and is
+    # consumable with parse_json(). Best-effort: never fail node provisioning on this.
+    emitKubeletActiveFlagsEvent || true
 }
 
 ensureSnapshotUpdate() {
