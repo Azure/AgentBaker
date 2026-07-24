@@ -1972,6 +1972,33 @@ func Test_Ubuntu2604Minimal_SecondaryNIC_DualStack(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2604Minimal_KubeletCustomConfig(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			KubeletCustomConfig: true,
+		},
+		Description: "tests that a node on ubuntu 2604 minimal bootstrapped with kubelet custom config for seccomp set to non default values",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersionKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+				customKubeletConfig := &datamodel.CustomKubeletConfig{
+					SeccompDefault: to.Ptr(true),
+				}
+				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
+				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
+				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2604Minimal_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Ubuntu 2604 minimal Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
@@ -1987,6 +2014,231 @@ func Test_Ubuntu2604Minimal_SecureTLSBootstrapping_BootstrapToken_Fallback(t *te
 					GetAccessTokenTimeout:  (10 * time.Second).String(),
 					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 				}
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_DisableKubeletServingCertificateRotationWithTags(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersion,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a node on ubuntu 2604 minimal bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersion,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// to force kubelet config file
+				customKubeletConfig := &datamodel.CustomKubeletConfig{
+					FailSwapOn:           to.Ptr(true),
+					AllowedUnsafeSysctls: &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+				}
+				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.EnableKubeletConfigFile = true
+				config.KubeletConfig.KubeletConfigFileConfig.FailSwapOn = to.Ptr(true)
+				config.KubeletConfig.KubeletConfigFileConfig.AllowedUnsafeSysctls = []string{"kernel.msg*", "net.ipv4.route.min_pmtu"}
+				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = true
+				config.KubeletConfig.KubeletConfigFileConfig.FeatureGates = map[string]bool{"RotateKubeletServerCertificate": true}
+				config.EnableUnattendedUpgrade = false
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_DisableKubeletServingCertificateRotationWithTags_AlreadyDisabled(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a node on ubuntu 2604 minimal bootstrapped with kubelet serving certificate rotation disabled will disable certificate rotation regardless of nodepool tags",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersion,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_DisableKubeletServingCertificateRotationWithTags_AlreadyDisabled_CustomKubeletConfig(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a node on ubuntu 2604 minimal bootstrapped with kubelet serving certificate rotation disabled and custom kubelet config will disable certificate rotation regardless of nodepool tags",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersion,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// to force kubelet config file
+				customKubeletConfig := &datamodel.CustomKubeletConfig{
+					FailSwapOn:           to.Ptr(true),
+					AllowedUnsafeSysctls: &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+				}
+				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_VHDCaching(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "T",
+		Config: Config{
+			Cluster:                ClusterLatestKubernetesVersion,
+			VHD:                    config.VHDUbuntu2604MinimalGen2Containerd,
+			VHDCaching:             true,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				// If the VHD has incorrect settings (like network misconfiguration)
+				// deploying more than one VM may expose the issue.
+				// This check is not always reliable, since only one VM is created per test run in the current framework.
+				// Therefore, tests may incorrectly pass more often than they fail in these cases.
+				vmss.SKU.Capacity = to.Ptr[int64](2)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_CustomCa(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that an Ubuntu 2604 minimal node can be properly bootstrapped with custom ca",
+		Tags: Tags{
+			KubeletCustomConfig: true,
+		},
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersion,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+					CustomCATrustCerts: []string{
+						encodedTestCert,
+					},
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/usr/share/pki/ca-trust-source/anchors")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_CustomSysctls(t *testing.T) {
+	customSysctls := map[string]string{
+		"net.ipv4.ip_local_port_range":       "32768 65535",
+		"net.netfilter.nf_conntrack_max":     "2097152",
+		"net.netfilter.nf_conntrack_buckets": "524288",
+		"net.ipv4.tcp_keepalive_intvl":       "90",
+		"net.ipv4.ip_local_reserved_ports":   "65330",
+	}
+	customContainerdUlimits := map[string]string{
+		"LimitMEMLOCK": "75000",
+		"LimitNOFILE":  "1048",
+	}
+	RunScenario(t, &Scenario{
+		Description: "tests that an ubuntu 2604 minimal VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersion,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
+					Sysctls: &datamodel.SysctlConfig{
+						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
+						NetNetfilterNfConntrackBuckets: to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
+						NetIpv4IpLocalPortRange:        customSysctls["net.ipv4.ip_local_port_range"],
+						NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
+					},
+					UlimitConfig: &datamodel.UlimitConfig{
+						MaxLockedMemory: "75000",
+						NoFile:          "1048",
+					},
+				}
+				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
+				ValidateSysctlConfig(ctx, s, customSysctls)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_MANA(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 26.04 minimal with a V6 SKU",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersion,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			UseNVMe: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
+				nbc.AgentPoolProfile.VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(ensureMinVMGeneration("Standard_D2ds_v6"))
+				enableAcceleratedNetworking(vmss)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Gen2_McrChinaCloud(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			MockAzureChinaCloud: true,
+		},
+		Description: "Tests that a node using the Ubuntu 2604 minimal VHD can be properly bootstrapped with containerd v2",
+		Config: Config{
+			Cluster:                ClusterLatestKubernetesVersion,
+			VHD:                    config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["E2EMockAzureChinaCloud"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
+				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
+				ValidateContainerd2Properties(ctx, s, containerdVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
+				ValidateContainerRuntimePlugins(ctx, s)
+				ValidateSSHServiceEnabled(ctx, s)
+				ValidateDirectoryContent(ctx, s, "/etc/containerd/certs.d/mcr.azk8s.cn", []string{"hosts.toml"})
 			},
 		},
 	})
