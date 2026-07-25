@@ -1,4 +1,4 @@
-package e2e
+package nodeexporter
 
 import (
 	"strings"
@@ -7,23 +7,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidateNodeExporterMetrics(t *testing.T) {
-	metrics := validNodeExporterMetrics()
-
-	err := validateNodeExporterMetrics(metrics)
+func TestValidateMetrics(t *testing.T) {
+	err := ValidateMetrics(validMetrics())
 
 	require.NoError(t, err)
 }
 
-func TestValidateNodeExporterMetricsRejectsMissingMetric(t *testing.T) {
-	metrics := strings.Replace(validNodeExporterMetrics(), `node_network_receive_bytes_total{device="eth0"} 1`, "", 1)
+func TestValidateMetricsRejectsMissingMetric(t *testing.T) {
+	metrics := strings.Replace(validMetrics(), `node_network_receive_bytes_total{device="eth0"} 1`, "", 1)
 
-	err := validateNodeExporterMetrics(metrics)
+	err := ValidateMetrics(metrics)
 
 	require.ErrorContains(t, err, `required metric "node_network_receive_bytes_total" is missing`)
 }
 
-func validNodeExporterMetrics() string {
+func validMetrics() string {
 	return `# TYPE node_disk_read_time_seconds_total counter
 node_disk_read_time_seconds_total{device="sda"} 1
 # TYPE node_disk_reads_completed_total counter

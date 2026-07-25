@@ -22,6 +22,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/nodeexporter"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -2311,52 +2312,13 @@ func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL 
 	require.Equal(s.T, "0", result.exitCode,
 		"node-exporter scrape failed\nstdout: %s\nstderr: %s", result.stdout, result.stderr)
 
-	err := validateNodeExporterMetrics(result.stdout)
+	err := nodeexporter.ValidateMetrics(result.stdout)
 	const previewLimit = 2000
 	responsePreview := result.stdout
 	if len(responsePreview) > previewLimit {
 		responsePreview = responsePreview[:previewLimit] + "\n... response truncated"
 	}
 	require.NoErrorf(s.T, err, "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview)
-}
-
-func validateNodeExporterMetrics(metricsText string) error {
-	metricNames := make(map[string]struct{})
-	for line := range strings.SplitSeq(metricsText, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		if end := strings.IndexAny(line, "{ \t"); end > 0 {
-			metricNames[line[:end]] = struct{}{}
-		}
-	}
-
-	requiredMetrics := []string{
-		"node_disk_read_time_seconds_total",
-		"node_disk_reads_completed_total",
-		"node_disk_write_time_seconds_total",
-		"node_disk_writes_completed_total",
-		"node_memory_MemAvailable_bytes",
-		"node_network_receive_bytes_total",
-		"node_network_receive_errs_total",
-		"node_network_receive_packets_total",
-		"node_network_transmit_bytes_total",
-		"node_network_transmit_errs_total",
-		"node_network_transmit_packets_total",
-		"node_netstat_Tcp_RetransSegs",
-		"node_pressure_cpu_waiting_seconds_total",
-		"node_filesystem_free_bytes",
-		"node_filesystem_size_bytes",
-	}
-	for _, name := range requiredMetrics {
-		if _, exists := metricNames[name]; !exists {
-			return fmt.Errorf("required metric %q is missing", name)
-		}
-	}
-
-	return nil
 }
 
 func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
