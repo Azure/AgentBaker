@@ -854,6 +854,15 @@ Components installed at node provisioning time (CSE) for supported GPU VM sizes 
 EOF
 fi
 
+if [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$(isARM64)" -ne 1 ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT" && ! isACL "$OS" "$OS_VARIANT"; then
+  AZURELINUX_NVIDIA_DRIVER_RELEASE_NOTES=$(getAzureLinuxNvidiaDriverReleaseNotes)
+  if [ -n "$AZURELINUX_NVIDIA_DRIVER_RELEASE_NOTES" ]; then
+    printf '%s\n' "$AZURELINUX_NVIDIA_DRIVER_RELEASE_NOTES" >> "${VHD_LOGS_FILEPATH}"
+  else
+    echo "Warning: no Azure Linux NVIDIA GPU driver packages found for kernel $(uname -r)" | tee -a "${VHD_LOGS_FILEPATH}" >&2
+  fi
+fi
+
 echo "images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_pull_nvidia_driver_and_start_ebpf_downloads"
 

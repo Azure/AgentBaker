@@ -101,6 +101,49 @@ downloadGridDrivers() {
     dnf_install 30 1 600 ${GRID_PACKAGE} || exit $ERR_APT_INSTALL_TIMEOUT
 }
 
+getLatestAzureLinuxNvidiaDriverPackageForKernel() {
+    local package_query=$1
+    local package_regex=$2
+    local kernel_version=$3
+
+    dnf repoquery -y --available "${package_query}" 2>/dev/null | \
+        grep -E "${package_regex}" | grep -F "_${kernel_version}." | sort -V | tail -n 1 || true
+}
+
+getAzureLinuxNvidiaDriverVersionFromPackage() {
+    local package=$1
+    local package_prefix=$2
+
+    echo "${package#"${package_prefix}"}" | cut -d- -f1
+}
+
+getAzureLinuxNvidiaDriverReleaseNotes() {
+    local kernel_version
+    kernel_version=$(uname -r | sed 's/-/./g')
+
+    local cuda_open_package
+    local cuda_package
+    local grid_package
+    cuda_open_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda-open*" "^cuda-open-[0-9]" "${kernel_version}")
+    cuda_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda-[0-9]*" "^cuda-[0-9]" "${kernel_version}")
+    grid_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "nvidia-vgpu-guest-driver*" "^nvidia-vgpu-guest-driver-[0-9]" "${kernel_version}")
+
+    if [ -z "${cuda_open_package}" ] && [ -z "${cuda_package}" ] && [ -z "${grid_package}" ]; then
+        return 0
+    fi
+
+    echo "NVIDIA GPU driver versions available at VHD build time for supported Azure Linux GPU VM sizes:"
+    if [ -n "${cuda_open_package}" ]; then
+        echo "  - nvidia-cuda-open-driver version $(getAzureLinuxNvidiaDriverVersionFromPackage "${cuda_open_package}" "cuda-open-")"
+    fi
+    if [ -n "${cuda_package}" ]; then
+        echo "  - nvidia-cuda-driver version $(getAzureLinuxNvidiaDriverVersionFromPackage "${cuda_package}" "cuda-")"
+    fi
+    if [ -n "${grid_package}" ]; then
+        echo "  - nvidia-grid-driver version $(getAzureLinuxNvidiaDriverVersionFromPackage "${grid_package}" "nvidia-vgpu-guest-driver-")"
+    fi
+}
+
 downloadGPUDrivers() {
     # Mariner CUDA rpm name comes in the following format:
     #

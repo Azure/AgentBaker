@@ -1246,6 +1246,34 @@ testVHDBuildLogsExist() {
   echo "$test:Finish"
 }
 
+testAzureLinuxNvidiaGPUDriverReleaseNotes() {
+  local test="testAzureLinuxNvidiaGPUDriverReleaseNotes"
+  local enable_fips="${ENABLE_FIPS,,}"
+
+  if [ "$OS_SKU" != "AzureLinux" ] || [ "$OS_VERSION" != "3.0" ] || [ "$enable_fips" = "true" ] || [ "$(isARM64)" -eq 1 ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
+    echo "$test: Skipping check for $OS_SKU $OS_VERSION (fips=$ENABLE_FIPS, feature_flags=$FEATURE_FLAGS)"
+    return 0
+  fi
+
+  if ! grep -F -q "NVIDIA GPU driver versions available at VHD build time for supported Azure Linux GPU VM sizes" "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Azure Linux NVIDIA GPU driver release-note section was not found"
+  fi
+
+  if ! grep -E -q '^  - nvidia-cuda-open-driver version [0-9]' "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Expected Azure Linux CUDA open driver release-note line was not found"
+  fi
+
+  if ! grep -E -q '^  - nvidia-cuda-driver version [0-9]' "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Expected Azure Linux proprietary CUDA driver release-note line was not found"
+  fi
+
+  if ! grep -E -q '^  - nvidia-grid-driver version [0-9]' "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Expected Azure Linux GRID driver release-note line was not found"
+  fi
+
+  echo "$test:Finish"
+}
+
 # Ensures that /etc/login.defs is valid. This is a best-effort test, as we aren't going to
 # re-implement everything that uses this file.
 testLoginDefs() {
@@ -2585,6 +2613,7 @@ testContainerNetworkingPluginsInstalled() {
 checkPerformanceData
 testBccTools $OS_SKU
 testVHDBuildLogsExist
+testAzureLinuxNvidiaGPUDriverReleaseNotes
 testCriticalTools
 testPackagesInstalled
 testFuseInstalled
