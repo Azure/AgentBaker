@@ -764,6 +764,19 @@ func runCommandScriptError(view armcompute.VirtualMachineRunCommandInstanceView)
 		state, exitCode, msg, output, stderr)
 }
 
+func runCommandTerminalError(view armcompute.VirtualMachineRunCommandInstanceView) error {
+	if view.ExitCode != nil && *view.ExitCode != 0 {
+		return runCommandScriptError(view)
+	}
+	if view.ExecutionState != nil {
+		switch *view.ExecutionState {
+		case armcompute.ExecutionStateFailed, armcompute.ExecutionStateCanceled, armcompute.ExecutionStateTimedOut:
+			return runCommandScriptError(view)
+		}
+	}
+	return nil
+}
+
 // windowsSysprepScript runs Sysprep /generalize on the test VM. It pre-emptively drops
 // any SysPrepExternal\Generalize provider entry pointing at VMAgentDisabler.dll: when
 // the DLL can't be loaded, Sysprep stalls past our vmssCtx deadline. The same workaround
@@ -772,8 +785,7 @@ func runCommandScriptError(view armcompute.VirtualMachineRunCommandInstanceView)
 // Pre-cleanup of C:\Windows\Panther and unattend.xml follows
 // https://learn.microsoft.com/en-us/azure/virtual-machines/generalize, which notes
 // that stale Panther logs can cause Sysprep to fail and that custom answer files
-// aren't supported in this step. The ImageState poll handles Server 2022 where
-// Sysprep /quit can return before background SetupHost.exe finishes generalizing.
+// aren't supported in this step.
 const windowsSysprepScript = `
 $ErrorActionPreference = 'Stop'
 
@@ -800,37 +812,78 @@ try {
 Remove-Item "$env:SystemRoot\Panther" -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item "$env:SystemRoot\System32\Sysprep\unattend.xml" -Force -ErrorAction SilentlyContinue
 
-# /quit (not /shutdown) so RunCommand can return; deallocate happens separately.
-# $LASTEXITCODE isn't reliable after Sysprep.exe /quit — sysprep launches a
-# background SetupHost.exe and returns before generalization completes. The
-# ImageState poll below is the authoritative success signal (same as
-# vhdbuilder/packer/windows/sysprep.ps1).
-& "$env:SystemRoot\System32\Sysprep\Sysprep.exe" /oobe /generalize /mode:vm /quiet /quit
-
-# On Server 2022, sysprep /quit can return before background SetupHost.exe
-# finishes generalizing. Wait for the registry state to confirm before letting
-# the caller deallocate and capture the disk. Same pattern as
-# vhdbuilder/packer/windows/sysprep.ps1 (in-tree since 2020).
-$deadline = (Get-Date).AddMinutes(10)
-$last = $null
-while ($true) {
-    $state = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State').ImageState
-    if ($state -ne $last) {
-        Write-Host "ImageState=$state"
-        $last = $state
-    }
-    if ($state -eq 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { break }
-    if ((Get-Date) -gt $deadline) {
-        throw "Sysprep did not reach IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE within 10 minutes (last state: $state)"
-    }
-    Start-Sleep -Seconds 10
+& "$env:SystemRoot\System32\Sysprep\Sysprep.exe" /oobe /generalize /mode:vm /quiet /shutdown
+if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
 }
 `
+
+func runWindowsSysprep(ctx context.Context, s *Scenario) (armcompute.VirtualMachineRunCommandInstanceView, error) {
+	rg := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
+	instanceID := *s.Runtime.VM.VM.InstanceID
+	runCommandName := fmt.Sprintf("e2e-sysprep-%d", time.Now().UnixNano())
+	runCmd := armcompute.VirtualMachineRunCommand{
+		Location: to.Ptr(s.Location),
+		Properties: &armcompute.VirtualMachineRunCommandProperties{
+			Source: &armcompute.VirtualMachineRunCommandScriptSource{
+				Script: to.Ptr(windowsSysprepScript),
+			},
+			TimeoutInSeconds: to.Ptr(int32(10 * 60)),
+			AsyncExecution:   to.Ptr(true),
+		},
+	}
+
+	poller, err := config.Azure.VMSSVMRunCommands.BeginCreateOrUpdate(ctx, rg, s.Runtime.VMSSName, instanceID, runCommandName, runCmd, nil)
+	if err != nil {
+		return armcompute.VirtualMachineRunCommandInstanceView{}, fmt.Errorf("failed to start sysprep on VMSS VM: %w", err)
+	}
+	if _, err := poller.PollUntilDone(ctx, nil); err != nil {
+		return armcompute.VirtualMachineRunCommandInstanceView{}, fmt.Errorf("failed to create sysprep RunCommand on VMSS VM: %w", err)
+	}
+
+	ticker := time.NewTicker(config.Config.DefaultPollInterval)
+	defer ticker.Stop()
+	var view armcompute.VirtualMachineRunCommandInstanceView
+	for {
+		vm, err := config.Azure.VMSSVM.Get(ctx, rg, s.Runtime.VMSSName, instanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+			Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
+		})
+		if err != nil {
+			return view, fmt.Errorf("failed to verify VM shutdown after sysprep: %w", err)
+		}
+		if vm.Properties != nil && vm.Properties.InstanceView != nil {
+			for _, status := range vm.Properties.InstanceView.Statuses {
+				if status.Code != nil && *status.Code == "PowerState/stopped" {
+					return view, nil
+				}
+			}
+		}
+
+		getResp, err := config.Azure.VMSSVMRunCommands.Get(ctx, rg, s.Runtime.VMSSName, instanceID, runCommandName, &armcompute.VirtualMachineScaleSetVMRunCommandsClientGetOptions{
+			Expand: to.Ptr("instanceView"),
+		})
+		if err != nil {
+			return view, fmt.Errorf("failed to verify sysprep result while waiting for VM shutdown: %w", err)
+		}
+		if getResp.Properties != nil && getResp.Properties.InstanceView != nil {
+			view = *getResp.Properties.InstanceView
+			if err := runCommandTerminalError(view); err != nil {
+				return view, err
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return view, fmt.Errorf("VMSS VM did not shut down after sysprep: %w", ctx.Err())
+		case <-ticker.C:
+		}
+	}
+}
 
 func CreateImage(ctx context.Context, s *Scenario) *config.Image {
 	if s.IsWindows() {
 		s.T.Log("Running sysprep on Windows VM...")
-		res, err := RunCommand(ctx, s, windowsSysprepScript)
+		res, err := runWindowsSysprep(ctx, s)
 		var stdout, stderr string
 		if res.Output != nil {
 			stdout = strings.TrimSpace(*res.Output)
