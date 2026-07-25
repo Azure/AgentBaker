@@ -15,10 +15,12 @@ func TestValidateMetrics(t *testing.T) {
 
 func TestValidateMetricsRejectsMissingMetric(t *testing.T) {
 	metrics := strings.Replace(validMetrics(), `node_network_receive_bytes_total{device="eth0"} 1`, "", 1)
+	metrics = strings.Replace(metrics, "node_memory_MemAvailable_bytes 1", "", 1)
 
 	err := ValidateMetrics(metrics)
 
-	require.ErrorContains(t, err, `required metric "node_network_receive_bytes_total" is missing`)
+	require.ErrorContains(t, err, "node_memory_MemAvailable_bytes")
+	require.ErrorContains(t, err, "node_network_receive_bytes_total")
 }
 
 func validMetrics() string {

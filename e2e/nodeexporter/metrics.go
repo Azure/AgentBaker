@@ -37,10 +37,14 @@ func ValidateMetrics(metricsText string) error {
 		"node_filesystem_free_bytes",
 		"node_filesystem_size_bytes",
 	}
+	var missingMetrics []string
 	for _, name := range requiredMetrics {
 		if _, exists := metricNames[name]; !exists {
-			return fmt.Errorf("required metric %q is missing", name)
+			missingMetrics = append(missingMetrics, name)
 		}
+	}
+	if len(missingMetrics) > 0 {
+		return fmt.Errorf("required metrics are missing: %s", strings.Join(missingMetrics, ", "))
 	}
 
 	return nil
