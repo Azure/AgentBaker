@@ -777,6 +777,9 @@ func runCommandTerminalError(view armcompute.VirtualMachineRunCommandInstanceVie
 	return nil
 }
 
+// windowsSysprepTimeout matches the 10-minute AKS RP Windows PIS Sysprep ceiling.
+const windowsSysprepTimeout = 10 * time.Minute
+
 // windowsSysprepScript runs Sysprep /generalize on the test VM. It pre-emptively drops
 // any SysPrepExternal\Generalize provider entry pointing at VMAgentDisabler.dll: when
 // the DLL can't be loaded, Sysprep stalls past our vmssCtx deadline. The same workaround
@@ -786,8 +789,6 @@ func runCommandTerminalError(view armcompute.VirtualMachineRunCommandInstanceVie
 // https://learn.microsoft.com/en-us/azure/virtual-machines/generalize, which notes
 // that stale Panther logs can cause Sysprep to fail and that custom answer files
 // aren't supported in this step.
-const windowsSysprepTimeout = 10 * time.Minute
-
 const windowsSysprepScript = `
 $ErrorActionPreference = 'Stop'
 
@@ -820,6 +821,9 @@ if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) {
 }
 `
 
+// runWindowsSysprep mirrors AKS RP PIS: Sysprep shuts down the guest, then ARM
+// observes PowerState/stopped before deallocation and capture. This intentionally
+// differs from Packer's in-guest ImageState polling because Packer owns that lifecycle.
 func runWindowsSysprep(ctx context.Context, s *Scenario) (armcompute.VirtualMachineRunCommandInstanceView, error) {
 	ctx, cancel := context.WithTimeout(ctx, windowsSysprepTimeout)
 	defer cancel()
@@ -856,12 +860,12 @@ func runWindowsSysprep(ctx context.Context, s *Scenario) (armcompute.VirtualMach
 		if err != nil {
 			return view, fmt.Errorf("failed to verify VM shutdown after sysprep: %w", err)
 		}
-		if vm.Properties != nil && vm.Properties.InstanceView != nil {
-			for _, status := range vm.Properties.InstanceView.Statuses {
-				if status.Code != nil && *status.Code == "PowerState/stopped" {
-					return view, nil
-				}
-			}
+		powerState := vmPowerState(vm.VirtualMachineScaleSetVM)
+		if powerState == "stopped" {
+			return view, nil
+		}
+		if powerState != "" {
+			toolkit.Logf(ctx, "VM is in power state: %s, waiting for stopped state...", powerState)
 		}
 
 		getResp, err := config.Azure.VMSSVMRunCommands.Get(ctx, rg, s.Runtime.VMSSName, instanceID, runCommandName, &armcompute.VirtualMachineScaleSetVMRunCommandsClientGetOptions{

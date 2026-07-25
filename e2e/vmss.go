@@ -777,6 +777,18 @@ func logRCV1PAwareTags(s *Scenario, resourceKind, timingVerb, name, id string, t
 	}
 }
 
+func vmPowerState(vm armcompute.VirtualMachineScaleSetVM) string {
+	if vm.Properties == nil || vm.Properties.InstanceView == nil {
+		return ""
+	}
+	for _, status := range vm.Properties.InstanceView.Statuses {
+		if status.Code != nil && strings.HasPrefix(*status.Code, "PowerState/") {
+			return strings.TrimPrefix(*status.Code, "PowerState/")
+		}
+	}
+	return ""
+}
+
 // waitForVMRunningState polls until the VM reaches "Running" power state or the timeout elapses.
 func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.VirtualMachineScaleSetVM) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, 3*time.Minute)
@@ -793,19 +805,14 @@ func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.
 		})
 
 		if err == nil {
-			// Check if the VM has instance view and statuses
-			if vm.Properties != nil && vm.Properties.InstanceView != nil && vm.Properties.InstanceView.Statuses != nil {
-				for _, status := range vm.Properties.InstanceView.Statuses {
-					if status.Code != nil && strings.HasPrefix(*status.Code, "PowerState/") {
-						powerState := strings.TrimPrefix(*status.Code, "PowerState/")
-						if powerState == "running" {
-							toolkit.Logf(ctxTimeout, "VM reached running state")
-							*vmssVM = vm.VirtualMachineScaleSetVM
-							return nil
-						}
-						toolkit.Logf(ctxTimeout, "VM is in power state: %s, waiting for running state...", powerState)
-					}
-				}
+			powerState := vmPowerState(vm.VirtualMachineScaleSetVM)
+			if powerState == "running" {
+				toolkit.Logf(ctxTimeout, "VM reached running state")
+				*vmssVM = vm.VirtualMachineScaleSetVM
+				return nil
+			}
+			if powerState != "" {
+				toolkit.Logf(ctxTimeout, "VM is in power state: %s, waiting for running state...", powerState)
 			}
 		}
 

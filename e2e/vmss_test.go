@@ -15,6 +15,35 @@ func TestCSEExitCodeOutboundConnFail(t *testing.T) {
 	require.Equal(t, "50", cseExitCodeOutboundConnFail)
 }
 
+func TestVMPowerState(t *testing.T) {
+	tests := []struct {
+		name string
+		vm   armcompute.VirtualMachineScaleSetVM
+		want string
+	}{
+		{name: "missing instance view"},
+		{
+			name: "stopped",
+			vm: armcompute.VirtualMachineScaleSetVM{
+				Properties: &armcompute.VirtualMachineScaleSetVMProperties{
+					InstanceView: &armcompute.VirtualMachineScaleSetVMInstanceView{
+						Statuses: []*armcompute.InstanceViewStatus{
+							{Code: to.Ptr("ProvisioningState/succeeded")},
+							{Code: to.Ptr("PowerState/stopped")},
+						},
+					},
+				},
+			},
+			want: "stopped",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, vmPowerState(tt.vm))
+		})
+	}
+}
+
 // TestParseLinuxCSEMessageOutboundExitCode verifies that parseLinuxCSEMessage extracts the
 // outbound-connectivity exit code from a real CustomScript extension instance-view status.
 // getLinuxCSEExitCode relies on this parsing to classify the retryable e2e flake, so a
