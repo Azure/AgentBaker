@@ -89,7 +89,7 @@ Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213600    6736 flags.go:64] F
 EOF
             }
             When call getKubeletActiveFlagsJSON
-            The output should equal '{"found":true,"uses_config_file":true,"config_path":"/etc/default/kubeletconfig.json","flag_count":3,"flags":{"config":"/etc/default/kubeletconfig.json"}}'
+            The output should equal '{"found":true,"uses_config_file":true,"config_path":"/etc/default/kubeletconfig.json","flag_count":3,"flags":{"config":"/etc/default/kubeletconfig.json"},"config_file":{}}'
         End
 
         It 'reports uses_config_file=false and surfaces tracked flag values in inline-flags mode'
@@ -102,7 +102,7 @@ Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213603    6736 flags.go:64] F
 EOF
             }
             When call getKubeletActiveFlagsJSON
-            The output should equal '{"found":true,"uses_config_file":false,"config_path":"","flag_count":4,"flags":{"config":"","cgroup-driver":"systemd","kube-reserved":"cpu=100m,memory=1638Mi","max-pods":"110"}}'
+            The output should equal '{"found":true,"uses_config_file":false,"config_path":"","flag_count":4,"flags":{"config":"","cgroup-driver":"systemd","kube-reserved":"cpu=100m,memory=1638Mi","max-pods":"110"},"config_file":{}}'
         End
 
         It 'de-duplicates flags repeated across kubelet restarts when counting'
@@ -114,13 +114,13 @@ EOF
             }
             When call getKubeletActiveFlagsJSON
             # flag_count is 1 despite two restart blocks logging the same flag.
-            The output should equal '{"found":true,"uses_config_file":false,"config_path":"","flag_count":1,"flags":{}}'
+            The output should equal '{"found":true,"uses_config_file":false,"config_path":"","flag_count":1,"flags":{},"config_file":{}}'
         End
 
         It 'reports found=false when kubelet logged no FLAG lines'
             journalctl() { echo "-- No entries --"; }
             When call getKubeletActiveFlagsJSON
-            The output should equal '{"found":false,"uses_config_file":false,"config_path":"","flag_count":0,"flags":{}}'
+            The output should equal '{"found":false,"uses_config_file":false,"config_path":"","flag_count":0,"flags":{},"config_file":{}}'
         End
     End
 
