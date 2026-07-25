@@ -3,12 +3,16 @@ package e2e
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 )
 
 func TestWindowsSysprepScriptShutsDownAfterGeneralization(t *testing.T) {
+	if windowsSysprepTimeout != 10*time.Minute {
+		t.Fatalf("windowsSysprepTimeout = %s, want 10m", windowsSysprepTimeout)
+	}
 	const tail = `& "$env:SystemRoot\System32\Sysprep\Sysprep.exe" /oobe /generalize /mode:vm /quiet /shutdown
 if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE

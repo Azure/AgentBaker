@@ -786,6 +786,8 @@ func runCommandTerminalError(view armcompute.VirtualMachineRunCommandInstanceVie
 // https://learn.microsoft.com/en-us/azure/virtual-machines/generalize, which notes
 // that stale Panther logs can cause Sysprep to fail and that custom answer files
 // aren't supported in this step.
+const windowsSysprepTimeout = 10 * time.Minute
+
 const windowsSysprepScript = `
 $ErrorActionPreference = 'Stop'
 
@@ -819,6 +821,9 @@ if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) {
 `
 
 func runWindowsSysprep(ctx context.Context, s *Scenario) (armcompute.VirtualMachineRunCommandInstanceView, error) {
+	ctx, cancel := context.WithTimeout(ctx, windowsSysprepTimeout)
+	defer cancel()
+
 	rg := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
 	instanceID := *s.Runtime.VM.VM.InstanceID
 	runCommandName := fmt.Sprintf("e2e-sysprep-%d", time.Now().UnixNano())
@@ -828,7 +833,7 @@ func runWindowsSysprep(ctx context.Context, s *Scenario) (armcompute.VirtualMach
 			Source: &armcompute.VirtualMachineRunCommandScriptSource{
 				Script: to.Ptr(windowsSysprepScript),
 			},
-			TimeoutInSeconds: to.Ptr(int32(10 * 60)),
+			TimeoutInSeconds: to.Ptr(int32(windowsSysprepTimeout / time.Second)),
 			AsyncExecution:   to.Ptr(true),
 		},
 	}
