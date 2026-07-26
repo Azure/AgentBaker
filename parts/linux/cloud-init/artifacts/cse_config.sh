@@ -330,25 +330,39 @@ disableSystemdResolved() {
     fi
 }
 
+# ACL only. Observes the package-owned EROFS/dm-verity activation; never mutates it.
+# The containerd2-erofs subpackage owns activation end to end: it ships the
+# composition root and a 90- systemd drop-in that points CONTAINERD_CONFIG at it.
+# CSE's only job is to generate the base config that the root imports first.
 logACLContainerdConfigState() {
   local phase="$1"
-  local config_path="/etc/containerd/config.toml"
-  local profile_path="/usr/share/containerd2/acl-erofs.toml"
+  local base_config="/etc/containerd/config.toml"
+  local acl_root="/usr/share/containerd2/acl-config.toml"
+  local acl_profile="/usr/share/containerd2/acl-erofs.toml"
+  local acl_dropin="/usr/lib/systemd/system/containerd.service.d/90-acl-profile.conf"
 
   echo "ACL_DIAGNOSTIC phase=${phase} os=${OS} os_variant=${OS_VARIANT}"
-  for path in "$config_path" "$profile_path"; do
+  for path in "$base_config" "$acl_root" "$acl_profile" "$acl_dropin"; do
     if [ -f "$path" ]; then
       sha256sum "$path" || true
       wc -l -c "$path" || true
-      grep -nE '^[[:space:]]*(version|imports|snapshotter|differ|dmverity_mode|enable_dmverity|enable_dmverity_referrers|require_signatures)[[:space:]]*=' "$path" || true
+      grep -nE '^[[:space:]]*(version|imports|snapshotter|differ|dmverity_mode|enable_dmverity|enable_dmverity_referrers|require_signatures|Environment)[[:space:]]*=' "$path" || true
     else
       echo "ACL_DIAGNOSTIC file_state=absent path=${path}"
     fi
   done
 
-  if [ "$phase" = "after-acl-import" ] && command -v containerd >/dev/null 2>&1; then
+  # An absent drop-in or unset variable means the subpackage did not land, which
+  # is the failure this whole diagnostic exists to catch.
+  systemctl show containerd -p DropInPaths 2>/dev/null || true
+  systemctl show containerd -p Environment 2>/dev/null | tr ' ' '\n' | grep CONTAINERD_CONFIG ||
+    echo "ACL_DIAGNOSTIC containerd_config_env=unset"
+
+  if [ "$phase" = "after-generation" ] && [ -f "$acl_root" ] && command -v containerd >/dev/null 2>&1; then
+    # Must dump through the composition root. A bare 'containerd config dump'
+    # reads the default path and would miss the ACL delta entirely.
     echo "ACL_DIAGNOSTIC effective_containerd_config=begin"
-    containerd config dump 2>&1 |
+    containerd --config "$acl_root" config dump 2>&1 |
       grep -E '^[[:space:]]*(version|imports|snapshotter|differ|dmverity_mode|enable_dmverity|enable_dmverity_referrers|require_signatures)[[:space:]]*=' || true
     echo "ACL_DIAGNOSTIC effective_containerd_config=end"
   fi
@@ -398,16 +412,6 @@ EOF
 
   if isACL "$OS" "$OS_VARIANT"; then
     logACLContainerdConfigState "after-generation"
-  fi
-
-  if isACL "$OS" "$OS_VARIANT" &&
-     ! grep -Fq '/usr/share/containerd2/acl-erofs.toml' /etc/containerd/config.toml; then
-    sed -i '/^version = 2$/a imports = ["/usr/share/containerd2/acl-erofs.toml"]' \
-      /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
-  fi
-
-  if isACL "$OS" "$OS_VARIANT"; then
-    logACLContainerdConfigState "after-acl-import"
   fi
 
   export -f should_e2e_mock_azure_china_cloud

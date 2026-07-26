@@ -6,33 +6,6 @@ export CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s) # Export 
 
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 mkdir -p $EVENTS_LOGGING_DIR
-
-if [ -f /usr/share/containerd2/acl-erofs.toml ]; then
-    {
-        echo "ACL_DIAGNOSTIC phase=node-bootstrap-start"
-        for script in \
-            /opt/azure/containers/provision.sh \
-            /opt/azure/containers/provision_start.sh \
-            /opt/azure/containers/provision_configs.sh \
-            /opt/azure/containers/provision_installs.sh \
-            /opt/azure/containers/provision_source.sh \
-            /opt/azure/containers/provision_installs_distro.sh \
-            /opt/azure/containers/provision_source_distro.sh; do
-            if [ -f "$script" ]; then
-                sha256sum "$script" || true
-                wc -l -c "$script" || true
-            else
-                echo "ACL_DIAGNOSTIC file_state=absent path=${script}"
-            fi
-        done
-        if grep -Fq '/usr/share/containerd2/acl-erofs.toml' /opt/azure/containers/provision_configs.sh; then
-            echo "ACL_DIAGNOSTIC acl_erofs_import_marker=present"
-        else
-            echo "ACL_DIAGNOSTIC acl_erofs_import_marker=absent"
-        fi
-    } >> /var/log/azure/cluster-provision.log 2>&1
-fi
-
 # this is the "global" CSE execution timeout - we allow CSE to run for some time (default 15 minutes) before timeout will attempt to kill the script. We exit early from some of the retry loops using `check_cse_timeout` in `cse_helpers.sh`.`
 timeout -k5s "${CSE_TIMEOUT:-15m}" /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
