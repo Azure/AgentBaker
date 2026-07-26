@@ -68,6 +68,14 @@
       "Type": "DWORD"
     },
     {
+      "Comment": "Hardening: disable automatic Certificate Trust List (root certificate) updates. Separate auto-update mechanism from WindowsUpdate\\AU (see Disable-WindowsUpdates), not covered by NoAutoUpdate. https://learn.microsoft.com/en-us/windows-server/identity/ad-cs/certificate-trust",
+      "WindowsSkuMatch": "*",
+      "Path": "HKLM:\\Software\\Policies\\Microsoft\\SystemCertificates\\AuthRoot",
+      "Name": "DisableRootAutoUpdate",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
       "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
       "WindowsSkuMatch": "2022*",
       "Path": "HKLM:\\Software\\Microsoft\\Cryptography\\Wintrust\\Config",
