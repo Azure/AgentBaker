@@ -383,6 +383,17 @@ net.ipv6.conf.all.forwarding = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
+
+  # Node Memory Hardening: create kubereserved.slice and drop-ins BEFORE starting
+  # containerd/kubelet so both services start in the correct slice from the
+  # beginning — avoids needing a disruptive restart after the fact.
+  resolveKubeletReservedCgroups
+  if [ -n "${KUBE_RESERVED_CGROUP}" ] || [ -n "${SYSTEM_RESERVED_CGROUP}" ]; then
+      if ! logs_to_events "AKS.CSE.ensureKubelet.ensureKubeletCgroupHierarchy" ensureKubeletCgroupHierarchy; then
+          exit $ERR_KUBELET_START_FAIL
+      fi
+  fi
+
   systemctlEnableAndStartNoBlock containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
@@ -855,10 +866,9 @@ EOF
     local tls_bootstrapping_start_time_filepath="/opt/azure/containers/tls-bootstrap-start-time"
     date +"%F %T.%3N" > "${tls_bootstrapping_start_time_filepath}"
 
-    # Node Memory Hardening (F2/F5): if the RP rendered --kube-reserved-cgroup or
-    # --system-reserved-cgroup, ensure the corresponding systemd slices exist before
-    # kubelet starts so its NodeAllocatable enforcement loop can find them. The
-    # helper is a no-op when neither value is present (back-compat with non-hardened pools).
+    # Node Memory Hardening (F2/F5): idempotent refresh for PIS real nodes booting
+    # from older cached VHDs where basePrep (ensureContainerd) may not have created
+    # the Slice= drop-ins. No-op when neither value is set (non-hardened pools).
     resolveKubeletReservedCgroups
     if [ -n "${KUBE_RESERVED_CGROUP}" ] || [ -n "${SYSTEM_RESERVED_CGROUP}" ]; then
         if ! logs_to_events "AKS.CSE.ensureKubelet.ensureKubeletCgroupHierarchy" ensureKubeletCgroupHierarchy; then
@@ -866,6 +876,20 @@ EOF
         fi
     fi
 
+    # Refresh --runtime-cgroups for PIS nodes where basePrep may have baked an older
+    # 10-containerd-base-flag.conf pointing at /system.slice/containerd.service.
+    local containerd_runtime_cgroups="/system.slice/containerd.service"
+    if [ "${KUBE_RESERVED_CGROUP:-}" = "/kubereserved.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kubereserved.slice" ]; then
+        containerd_runtime_cgroups="/kubereserved.slice/containerd.service"
+    fi
+    tee "/etc/systemd/system/kubelet.service.d/10-containerd-base-flag.conf" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_CONTAINERD_FLAGS=--runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=${containerd_runtime_cgroups}"
+EOF
+
+    if ! systemctl daemon-reload; then
+        exit $ERR_KUBELET_START_FAIL
+    fi
     # start kubelet.service without waiting for the main process to start, though check whether it has entered a failed state after enablement
     if ! systemctlEnableAndStartNoBlock kubelet 240; then
         # append kubelet status to CSE output to ensure we can see it

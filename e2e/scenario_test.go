@@ -2699,3 +2699,95 @@ func Test_AzureLinuxV3_MANA(t *testing.T) {
 		},
 	})
 }
+
+// Test_Ubuntu2204_NodeHardening_KubeReservedSlice_ConfigFile validates the config-file
+// kubelet path (kubelet reads /etc/default/kubeletconfig.json), which is selected whenever
+// AgentPoolProfile.CustomKubeletConfig is non-nil (see IsKubeletConfigFileEnabled).
+func Test_Ubuntu2204_NodeHardening_KubeReservedSlice_ConfigFile(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "validates kubelet and containerd run in kubereserved.slice when node hardening cgroup hierarchy is enabled (kubelet config-file mode)",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			// Force the "default" (non-scriptless) subtest path so that fresh CSE scripts
+			// with the Slice= drop-ins are uploaded via custom data.
+			CustomDataWriteFiles: []CustomDataWriteFile{{Path: "/etc/aks-node-hardening-test", Content: "sentinel"}},
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// AgentBaker (not the RP) now owns --kube-reserved-cgroup/--system-reserved-cgroup;
+				// it derives them from --enforce-node-allocatable (see setNodeHardeningCgroupFlags).
+				nbc.KubeletConfig["--enforce-node-allocatable"] = "pods,kube-reserved,system-reserved"
+				// kubelet refuses to enforce limits on a reserved cgroup unless a matching
+				// resource list is also supplied; the base config only sets --kube-reserved,
+				// so --system-reserved must be added here too or kubelet fails to start with
+				// "system.slice cgroup is not configured properly".
+				nbc.KubeletConfig["--system-reserved"] = "cpu=200m,memory=500Mi"
+				// Simulate the RP still sending its legacy (stale) cgroup slice name today;
+				// setNodeHardeningCgroupFlags must overwrite these with the values AgentBaker
+				// owns rather than trusting them, or the node would end up in the wrong slice.
+				nbc.KubeletConfig["--kube-reserved-cgroup"] = "/kubelet.slice"
+				nbc.KubeletConfig["--system-reserved-cgroup"] = "/kubelet.slice"
+				// Non-nil (even empty) CustomKubeletConfig switches AgentBaker to the
+				// config-file (kubeletconfig.json) path instead of CLI flags.
+				nbc.AgentPoolProfile.CustomKubeletConfig = &datamodel.CustomKubeletConfig{}
+				// Disable scriptless CSE so that the current cse_helpers.sh (with kubereserved.slice drop-in)
+				// is uploaded via custom data instead of relying on potentially stale VHD scripts.
+				nbc.EnableScriptlessCSECmd = false
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/containerd.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", `"kubeReservedCgroup": "/kubereserved.slice"`)
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", `"systemReservedCgroup": "/system.slice"`)
+				ValidateServiceInSlice(ctx, s, "kubelet.service", "kubereserved.slice")
+				ValidateServiceInSlice(ctx, s, "containerd.service", "kubereserved.slice")
+			},
+		},
+	})
+}
+
+// Test_Ubuntu2204_NodeHardening_KubeReservedSlice_CLIFlags validates the legacy CLI-flags
+// kubelet path (kubelet reads flags from /etc/default/kubelet's KUBELET_FLAGS), which is
+// used whenever AgentPoolProfile.CustomKubeletConfig/CustomLinuxOSConfig are both nil.
+func Test_Ubuntu2204_NodeHardening_KubeReservedSlice_CLIFlags(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "validates kubelet and containerd run in kubereserved.slice when node hardening cgroup hierarchy is enabled (kubelet CLI-flags mode)",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			// Force the "default" (non-scriptless) subtest path so that fresh CSE scripts
+			// with the Slice= drop-ins are uploaded via custom data.
+			CustomDataWriteFiles: []CustomDataWriteFile{{Path: "/etc/aks-node-hardening-test", Content: "sentinel"}},
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// AgentBaker (not the RP) now owns --kube-reserved-cgroup/--system-reserved-cgroup;
+				// it derives them from --enforce-node-allocatable (see setNodeHardeningCgroupFlags).
+				nbc.KubeletConfig["--enforce-node-allocatable"] = "pods,kube-reserved,system-reserved"
+				// kubelet refuses to enforce limits on a reserved cgroup unless a matching
+				// resource list is also supplied; the base config only sets --kube-reserved,
+				// so --system-reserved must be added here too or kubelet fails to start with
+				// "system.slice cgroup is not configured properly".
+				nbc.KubeletConfig["--system-reserved"] = "cpu=200m,memory=500Mi"
+				// Simulate the RP still sending its legacy (stale) cgroup slice name today;
+				// setNodeHardeningCgroupFlags must overwrite these with the values AgentBaker
+				// owns rather than trusting them, or the node would end up in the wrong slice.
+				nbc.KubeletConfig["--kube-reserved-cgroup"] = "/kubelet.slice"
+				nbc.KubeletConfig["--system-reserved-cgroup"] = "/kubelet.slice"
+				// CustomKubeletConfig/CustomLinuxOSConfig left nil so kubelet reads its
+				// flags from the CLI (KUBELET_FLAGS in /etc/default/kubelet) instead of
+				// the config-file path.
+				// Disable scriptless CSE so that the current cse_helpers.sh (with kubereserved.slice drop-in)
+				// is uploaded via custom data instead of relying on potentially stale VHD scripts.
+				nbc.EnableScriptlessCSECmd = false
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/containerd.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--kube-reserved-cgroup=/kubereserved.slice")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--system-reserved-cgroup=/system.slice")
+				ValidateServiceInSlice(ctx, s, "kubelet.service", "kubereserved.slice")
+				ValidateServiceInSlice(ctx, s, "containerd.service", "kubereserved.slice")
+			},
+		},
+	})
+}

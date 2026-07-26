@@ -980,7 +980,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 				// VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
 				VnetCNIWindowsPluginsDownloadURL:     "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
 				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1",
-				WindowsProvisioningScriptsPackageURL: "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip",
+				WindowsProvisioningScriptsPackageURL: "",
 				WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
 			},
 			EndpointConfig: datamodel.AzureEndpointConfig{
@@ -1070,12 +1070,19 @@ func pruneKubeletConfig(kubernetesVersion string, datamodel *datamodel.NodeBoots
 	if err != nil {
 		return nil, err
 	}
-	constraint, err := semver.NewConstraint(">= 1.30.0")
+	constraint130, err := semver.NewConstraint(">= 1.30.0")
 	if err != nil {
 		return nil, err
 	}
-	if constraint.Check(version) {
+	if constraint130.Check(version) {
 		delete(datamodel.KubeletConfig, "--azure-container-registry-config")
+	}
+	constraint134, err := semver.NewConstraint(">= 1.34.0")
+	if err != nil {
+		return nil, err
+	}
+	if constraint134.Check(version) {
+		delete(datamodel.KubeletConfig, "--streaming-connection-idle-timeout")
 	}
 	return datamodel, nil
 }

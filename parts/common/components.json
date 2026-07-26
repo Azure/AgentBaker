@@ -398,7 +398,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
-          "latestVersion": "3.4.0"
+          "latestVersion": "3.5.0"
         }
       ],
       "windowsVersions": []
@@ -542,8 +542,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.35.5",
-          "previousLatestVersion": "v1.35.4"
+          "latestVersion": "v1.35.6",
+          "previousLatestVersion": "v1.35.5"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
@@ -552,15 +552,15 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.34.6",
-          "previousLatestVersion": "v1.34.5"
+          "latestVersion": "v1.34.7",
+          "previousLatestVersion": "v1.34.6"
         }
       ],
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.35.5-windows-hp",
-          "previousLatestVersion": "v1.35.4-windows-hp"
+          "latestVersion": "v1.35.6-windows-hp",
+          "previousLatestVersion": "v1.35.5-windows-hp"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
@@ -569,8 +569,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.34.6-windows-hp",
-          "previousLatestVersion": "v1.34.5-windows-hp"
+          "latestVersion": "v1.34.7-windows-hp",
+          "previousLatestVersion": "v1.34.6-windows-hp"
         }
       ]
     },
@@ -709,7 +709,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/windows-gmsa-webhook",
-          "latestVersion": "v0.12.1-15"
+          "latestVersion": "v0.12.1-16"
         }
       ],
       "windowsVersions": []

@@ -670,6 +670,15 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
 	}
 
+	// Node Hardening: AgentBaker, not the RP, owns the cgroup slice
+	// names that --kube-reserved-cgroup/--system-reserved-cgroup resolve to, since
+	// AgentBaker is what actually creates (or doesn't create) the systemd slice unit
+	// on the node (see cse_helpers.sh::ensureKubeletCgroupHierarchy). The RP only
+	// signals intent via --enforce-node-allocatable=pods,kube-reserved,system-reserved;
+	// any value it may still send for the two cgroup flags themselves is ignored and
+	// overwritten here so there is a single source of truth for the slice names.
+	setNodeHardeningCgroupFlags(kubeletFlags)
+
 	/* ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but
 	deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s
 		version 1.20 or higher */
@@ -680,6 +689,12 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.20.0") &&
 		!IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
 		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
+	}
+
+	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
+	// It must not appear on the command line or in the config file for those versions.
+	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
+		delete(kubeletFlags, "--streaming-connection-idle-timeout")
 	}
 }
 
@@ -705,6 +720,11 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 
 		if IsKubeletServingCertificateRotationEnabled(config) {
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
+		}
+
+		// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
+		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
+			delete(kubeletFlags, "--streaming-connection-idle-timeout")
 		}
 	}
 }
