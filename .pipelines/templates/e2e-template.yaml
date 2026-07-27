@@ -92,7 +92,7 @@ jobs:
           BUILD_SRC_DIR: $(System.DefaultWorkingDirectory)
           DefaultWorkingDirectory: $(Build.SourcesDirectory)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
-          E2E_SUBSCRIPTION_ID_OVERRIDE: ${{parameters.subscriptionId}}
+          SUBSCRIPTION_ID_OVERRIDE: ${{parameters.subscriptionId}}
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
           E2E_FAILED_TESTS_RETRY_COUNT: ${{parameters.failedTestsRetryCount}}
           RCV1P_TAGS_AUTO_INJECTED: ${{parameters.rcv1pTagsAutoInjected}}
