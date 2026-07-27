@@ -19,6 +19,7 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/fsnotify/fsnotify"
 	"github.com/urfave/cli/v3"
@@ -221,6 +222,27 @@ func (a *App) runDownloadHotfixCommand(ctx context.Context) error {
 	return nil
 }
 
+// gpuComponentsFilePath is where the VHD build places components.json (see
+// vhdbuilder/packer/install-dependencies.sh). Older VHDs built before this file was
+// introduced won't have it; that is expected and not a fatal error, since aks-node-controller
+// must keep working against VHDs published in the last 6 months.
+const gpuComponentsFilePath = "/opt/azure/components.json"
+
+// loadGPUConfig reads and parses the GPU driver-version metadata baked into the VHD.
+// Errors are returned explicitly rather than hidden behind a package-level side effect,
+// so callers can decide how to handle a missing or malformed file.
+func loadGPUConfig() (*gpu.GPUConfiguration, error) {
+	data, err := os.ReadFile(gpuComponentsFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", gpuComponentsFilePath, err)
+	}
+	gpuConfig, err := gpu.LoadConfig(data)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", gpuComponentsFilePath, err)
+	}
+	return gpuConfig, nil
+}
+
 func buildCmdFromProvisionConfig(ctx context.Context, path string) (*exec.Cmd, error) {
 	inputJSON, err := os.ReadFile(path)
 	if err != nil {
@@ -251,7 +273,14 @@ func buildCmdFromProvisionConfig(ctx context.Context, path string) (*exec.Cmd, e
 		slog.Error("v0 version is deprecated, please use v1 instead")
 	}
 
-	return parser.BuildCSECmd(ctx, config)
+	gpuConfig, err := loadGPUConfig()
+	if err != nil {
+		// Not fatal: GPU env vars will simply be empty, which is only a problem for GPU
+		// node pools, and older VHDs are not expected to have components.json at all.
+		slog.Warn("failed to load GPU configuration; GPU driver env vars will be empty", "error", err)
+	}
+
+	return parser.BuildCSECmd(ctx, config, gpuConfig)
 }
 
 func buildCmdFromNBCCmd(ctx context.Context, path string) (*exec.Cmd, error) {

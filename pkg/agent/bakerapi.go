@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/agent/toggles"
 )
@@ -18,14 +19,20 @@ type AgentBaker interface {
 }
 
 type agentBakerImpl struct {
-	toggles toggles.Toggles
+	toggles   toggles.Toggles
+	gpuConfig *gpu.GPUConfiguration
 }
 
 var _ AgentBaker = (*agentBakerImpl)(nil)
 
 func NewAgentBaker() (*agentBakerImpl, error) {
+	gpuConfig, err := datamodel.LoadGPUConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load GPU configuration: %w", err)
+	}
 	return &agentBakerImpl{
-		toggles: toggles.NewDefaultToggles(),
+		toggles:   toggles.NewDefaultToggles(),
+		gpuConfig: gpuConfig,
 	}, nil
 }
 
@@ -36,6 +43,11 @@ func (agentBaker *agentBakerImpl) WithToggles(toggles toggles.Toggles) *agentBak
 
 //nolint:revive, nolintlint // ctx is not used, but may be in the future
 func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
+	// GPUConfig is populated internally (never trusted from caller-supplied JSON, see
+	// its json:"-" tag) so that GPU driver versions always come from this process's own
+	// loaded components.json rather than whatever the request happened to send.
+	config.GPUConfig = agentBaker.gpuConfig
+
 	// validate and fix input before passing config to the template generator.
 	if config.AgentPoolProfile.IsWindows() {
 		validateAndSetWindowsNodeBootstrappingConfiguration(config)

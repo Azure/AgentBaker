@@ -25,7 +25,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"os/exec"
 	"sort"
 	"strconv"
@@ -38,20 +37,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"google.golang.org/protobuf/encoding/protojson"
 )
-
-const componentsFilePath = "/opt/azure/components.json"
-
-//nolint:gochecknoinits
-func init() {
-	data, err := os.ReadFile(componentsFilePath)
-	if err != nil {
-		log.Printf("parser: could not read %s (GPU version vars will be empty): %v", componentsFilePath, err)
-		return
-	}
-	if err := gpu.LoadGPUConfig(data); err != nil {
-		log.Printf("parser: failed to parse GPU config from %s: %v", componentsFilePath, err)
-	}
-}
 
 var (
 	//go:embed templates/kubenet-cni.json.gtpl
@@ -574,16 +559,20 @@ func getMaxLBRuleCount(lb *aksnodeconfigv1.LoadBalancerConfig) int32 {
 	return lb.GetMaxLoadBalancerRuleCount()
 }
 
-func getGpuImageSha(vmSize string) string {
-	return gpu.GetAKSGPUImageSHA(vmSize)
+// getGpuImageSha is nil-safe with respect to gpuConfig: it returns "" when no
+// GPU configuration was loaded (e.g. on older VHDs without components.json).
+func getGpuImageSha(vmSize string, gpuConfig *gpu.GPUConfiguration) string {
+	return gpuConfig.GetAKSGPUImageSHA(vmSize)
 }
 
 func getGpuDriverType(vmSize string) string {
 	return gpu.GetGPUDriverType(vmSize)
 }
 
-func getGpuDriverVersion(vmSize string) string {
-	return gpu.GetGPUDriverVersion(vmSize)
+// getGpuDriverVersion is nil-safe with respect to gpuConfig: it returns "" when no
+// GPU configuration was loaded (e.g. on older VHDs without components.json).
+func getGpuDriverVersion(vmSize string, gpuConfig *gpu.GPUConfiguration) string {
+	return gpuConfig.GetGPUDriverVersion(vmSize)
 }
 
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support.

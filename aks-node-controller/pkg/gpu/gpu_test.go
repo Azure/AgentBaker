@@ -37,20 +37,10 @@ const testComponentsJSON = `{
 	]
 }`
 
-func TestLoadGPUConfig(t *testing.T) {
-	// Reset globals before test
-	NvidiaCudaDriverVersion = ""
-	NvidiaCudaLTSDriverVersion = ""
-	NvidiaGridDriverVersion = ""
-	NvidiaGridV20DriverVersion = ""
-	AKSGPUCudaVersionSuffix = ""
-	AKSGPUCudaLTSVersionSuffix = ""
-	AKSGPUGridVersionSuffix = ""
-	AKSGPUGridV20VersionSuffix = ""
-
-	err := LoadGPUConfig([]byte(testComponentsJSON))
+func TestLoadConfig(t *testing.T) {
+	config, err := LoadConfig([]byte(testComponentsJSON))
 	if err != nil {
-		t.Fatalf("LoadGPUConfig failed: %v", err)
+		t.Fatalf("LoadConfig failed: %v", err)
 	}
 
 	checks := []struct {
@@ -58,14 +48,14 @@ func TestLoadGPUConfig(t *testing.T) {
 		got  string
 		want string
 	}{
-		{"NvidiaCudaLTSDriverVersion", NvidiaCudaLTSDriverVersion, "580.11.07"},
-		{"AKSGPUCudaLTSVersionSuffix", AKSGPUCudaLTSVersionSuffix, "20240101120000"},
-		{"NvidiaCudaDriverVersion", NvidiaCudaDriverVersion, "535.54.03"},
-		{"AKSGPUCudaVersionSuffix", AKSGPUCudaVersionSuffix, "20240201130000"},
-		{"NvidiaGridDriverVersion", NvidiaGridDriverVersion, "550.90.12"},
-		{"AKSGPUGridVersionSuffix", AKSGPUGridVersionSuffix, "20240301140000"},
-		{"NvidiaGridV20DriverVersion", NvidiaGridV20DriverVersion, "595.58.03"},
-		{"AKSGPUGridV20VersionSuffix", AKSGPUGridV20VersionSuffix, "20240401150000"},
+		{"NvidiaCudaLTSDriverVersion", config.NvidiaCudaLTSDriverVersion, "580.11.07"},
+		{"AKSGPUCudaLTSVersionSuffix", config.AKSGPUCudaLTSVersionSuffix, "20240101120000"},
+		{"NvidiaCudaDriverVersion", config.NvidiaCudaDriverVersion, "535.54.03"},
+		{"AKSGPUCudaVersionSuffix", config.AKSGPUCudaVersionSuffix, "20240201130000"},
+		{"NvidiaGridDriverVersion", config.NvidiaGridDriverVersion, "550.90.12"},
+		{"AKSGPUGridVersionSuffix", config.AKSGPUGridVersionSuffix, "20240301140000"},
+		{"NvidiaGridV20DriverVersion", config.NvidiaGridV20DriverVersion, "595.58.03"},
+		{"AKSGPUGridV20VersionSuffix", config.AKSGPUGridV20VersionSuffix, "20240401150000"},
 	}
 	for _, c := range checks {
 		if c.got != c.want {
@@ -74,30 +64,35 @@ func TestLoadGPUConfig(t *testing.T) {
 	}
 }
 
-func TestLoadGPUConfig_InvalidJSON(t *testing.T) {
-	err := LoadGPUConfig([]byte("not json"))
+func TestLoadConfig_InvalidJSON(t *testing.T) {
+	_, err := LoadConfig([]byte("not json"))
 	if err == nil {
 		t.Fatal("expected error for invalid JSON")
 	}
 }
 
-func TestLoadGPUConfig_SkipsMalformedVersions(t *testing.T) {
-	NvidiaCudaLTSDriverVersion = ""
+func TestLoadConfig_SkipsMalformedVersions(t *testing.T) {
 	json := `{"GPUContainerImages": [{"downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda-lts:nodash", "gpuVersion": {"latestVersion": "nodash"}}]}`
-	err := LoadGPUConfig([]byte(json))
+	config, err := LoadConfig([]byte(json))
 	if err != nil {
-		t.Fatalf("LoadGPUConfig failed: %v", err)
+		t.Fatalf("LoadConfig failed: %v", err)
 	}
-	if NvidiaCudaLTSDriverVersion != "" {
-		t.Errorf("expected empty, got %q", NvidiaCudaLTSDriverVersion)
+	if config.NvidiaCudaLTSDriverVersion != "" {
+		t.Errorf("expected empty, got %q", config.NvidiaCudaLTSDriverVersion)
 	}
 }
 
+func testGPUConfig(t *testing.T) *GPUConfiguration {
+	t.Helper()
+	config, err := LoadConfig([]byte(testComponentsJSON))
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+	return config
+}
+
 func TestGetGPUDriverVersion(t *testing.T) {
-	// Set up known versions
-	NvidiaGridV20DriverVersion = "595.58.03"
-	NvidiaGridDriverVersion = "550.90.12"
-	NvidiaCudaLTSDriverVersion = "580.11.07"
+	config := testGPUConfig(t)
 
 	tests := []struct {
 		size string
@@ -117,8 +112,29 @@ func TestGetGPUDriverVersion(t *testing.T) {
 		{"Standard_ND96asr_v4", "580.11.07"},
 	}
 	for _, tt := range tests {
-		if got := GetGPUDriverVersion(tt.size); got != tt.want {
+		if got := config.GetGPUDriverVersion(tt.size); got != tt.want {
 			t.Errorf("GetGPUDriverVersion(%q) = %q, want %q", tt.size, got, tt.want)
+		}
+	}
+}
+
+func TestGetGPUDriverVersion_NilReceiver(t *testing.T) {
+	var config *GPUConfiguration
+
+	tests := []struct {
+		size string
+		want string
+	}{
+		// NCv1 is a pinned constant, unaffected by a nil/unloaded config.
+		{"standard_nc6", Nvidia470CudaDriverVersion},
+		// Anything sourced from components.json is empty when unloaded, not a panic.
+		{"standard_nv6ads_a10_v5", ""},
+		{"standard_nc144ds_xl_rtxpro6000bse_v6", ""},
+		{"standard_nc6_v3", ""},
+	}
+	for _, tt := range tests {
+		if got := config.GetGPUDriverVersion(tt.size); got != tt.want {
+			t.Errorf("nil.GetGPUDriverVersion(%q) = %q, want %q", tt.size, got, tt.want)
 		}
 	}
 }
@@ -141,9 +157,7 @@ func TestGetGPUDriverType(t *testing.T) {
 }
 
 func TestGetAKSGPUImageSHA(t *testing.T) {
-	AKSGPUGridV20VersionSuffix = "20240401150000"
-	AKSGPUGridVersionSuffix = "20240301140000"
-	AKSGPUCudaLTSVersionSuffix = "20240101120000"
+	config := testGPUConfig(t)
 
 	tests := []struct {
 		size string
@@ -154,9 +168,16 @@ func TestGetAKSGPUImageSHA(t *testing.T) {
 		{"standard_nc6_v3", "20240101120000"},
 	}
 	for _, tt := range tests {
-		if got := GetAKSGPUImageSHA(tt.size); got != tt.want {
+		if got := config.GetAKSGPUImageSHA(tt.size); got != tt.want {
 			t.Errorf("GetAKSGPUImageSHA(%q) = %q, want %q", tt.size, got, tt.want)
 		}
+	}
+}
+
+func TestGetAKSGPUImageSHA_NilReceiver(t *testing.T) {
+	var config *GPUConfiguration
+	if got := config.GetAKSGPUImageSHA("standard_nc6_v3"); got != "" {
+		t.Errorf("nil.GetAKSGPUImageSHA(...) = %q, want empty string", got)
 	}
 }
 

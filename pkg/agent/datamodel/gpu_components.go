@@ -7,13 +7,19 @@ import (
 	"github.com/Azure/agentbaker/parts"
 )
 
-//nolint:gochecknoinits
-func init() {
+// LoadGPUConfig reads the embedded components.json and parses it into a GPUConfiguration.
+// Callers (e.g. NewAgentBaker) must call this explicitly and propagate any error, rather
+// than relying on a package-level init() that panics: the embedded file is static and
+// controlled by this repo, so a failure here indicates a real bug that should surface as
+// an explicit, handleable error instead of crashing the whole process.
+func LoadGPUConfig() (*gpu.GPUConfiguration, error) {
 	data, err := parts.Templates.ReadFile("common/components.json")
 	if err != nil {
-		panic(fmt.Sprintf("Failed to read components.json: %v", err))
+		return nil, fmt.Errorf("failed to read components.json: %w", err)
 	}
-	if err := gpu.LoadGPUConfig(data); err != nil {
-		panic(fmt.Sprintf("Failed to load GPU configuration: %v", err))
+	gpuConfig, err := gpu.LoadConfig(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load GPU configuration: %w", err)
 	}
+	return gpuConfig, nil
 }

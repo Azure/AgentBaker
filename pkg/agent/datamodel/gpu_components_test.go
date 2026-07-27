@@ -3,11 +3,14 @@ package datamodel
 import (
 	"regexp"
 	"testing"
-
-	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
 )
 
-func TestGPUConfigLoaded(t *testing.T) {
+func TestLoadGPUConfig(t *testing.T) {
+	config, err := LoadGPUConfig()
+	if err != nil {
+		t.Fatalf("LoadGPUConfig failed: %v", err)
+	}
+
 	versionPattern := regexp.MustCompile(`^\d+\.\d+\.\d+$`)
 	suffixPattern := regexp.MustCompile(`^\d{14}$`)
 
@@ -16,14 +19,14 @@ func TestGPUConfigLoaded(t *testing.T) {
 		value string
 		re    *regexp.Regexp
 	}{
-		{"NvidiaCudaDriverVersion", gpu.NvidiaCudaDriverVersion, versionPattern},
-		{"NvidiaCudaLTSDriverVersion", gpu.NvidiaCudaLTSDriverVersion, versionPattern},
-		{"NvidiaGridDriverVersion", gpu.NvidiaGridDriverVersion, versionPattern},
-		{"NvidiaGridV20DriverVersion", gpu.NvidiaGridV20DriverVersion, versionPattern},
-		{"AKSGPUCudaVersionSuffix", gpu.AKSGPUCudaVersionSuffix, suffixPattern},
-		{"AKSGPUCudaLTSVersionSuffix", gpu.AKSGPUCudaLTSVersionSuffix, suffixPattern},
-		{"AKSGPUGridVersionSuffix", gpu.AKSGPUGridVersionSuffix, suffixPattern},
-		{"AKSGPUGridV20VersionSuffix", gpu.AKSGPUGridV20VersionSuffix, suffixPattern},
+		{"NvidiaCudaDriverVersion", config.NvidiaCudaDriverVersion, versionPattern},
+		{"NvidiaCudaLTSDriverVersion", config.NvidiaCudaLTSDriverVersion, versionPattern},
+		{"NvidiaGridDriverVersion", config.NvidiaGridDriverVersion, versionPattern},
+		{"NvidiaGridV20DriverVersion", config.NvidiaGridV20DriverVersion, versionPattern},
+		{"AKSGPUCudaVersionSuffix", config.AKSGPUCudaVersionSuffix, suffixPattern},
+		{"AKSGPUCudaLTSVersionSuffix", config.AKSGPUCudaLTSVersionSuffix, suffixPattern},
+		{"AKSGPUGridVersionSuffix", config.AKSGPUGridVersionSuffix, suffixPattern},
+		{"AKSGPUGridV20VersionSuffix", config.AKSGPUGridV20VersionSuffix, suffixPattern},
 	}
 
 	for _, c := range checks {

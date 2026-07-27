@@ -1010,71 +1010,71 @@ var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
 
 var _ = Describe("GetGPUDriverVersion", func() {
 	It("should use 470 with nc v1", func() {
-		Expect(GetGPUDriverVersion("standard_nc6")).To(Equal(gpu.Nvidia470CudaDriverVersion))
+		Expect(testGPUConfig.GetGPUDriverVersion("standard_nc6")).To(Equal(gpu.Nvidia470CudaDriverVersion))
 	})
 	It("should use cuda with nc v3", func() {
-		Expect(GetGPUDriverVersion("standard_nc6_v3")).To(Equal(gpu.NvidiaCudaLTSDriverVersion))
+		Expect(testGPUConfig.GetGPUDriverVersion("standard_nc6_v3")).To(Equal(testGPUConfig.NvidiaCudaLTSDriverVersion))
 	})
 	It("should use grid with nv v5", func() {
-		Expect(GetGPUDriverVersion("standard_nv6ads_a10_v5")).To(Equal(gpu.NvidiaGridDriverVersion))
-		Expect(GetGPUDriverVersion("Standard_nv36adms_A10_V5")).To(Equal(gpu.NvidiaGridDriverVersion))
+		Expect(testGPUConfig.GetGPUDriverVersion("standard_nv6ads_a10_v5")).To(Equal(testGPUConfig.NvidiaGridDriverVersion))
+		Expect(testGPUConfig.GetGPUDriverVersion("Standard_nv36adms_A10_V5")).To(Equal(testGPUConfig.NvidiaGridDriverVersion))
 	})
 	It("should use grid v20 with rtx pro 6000 bse v6", func() {
-		Expect(GetGPUDriverVersion("standard_nc144ds_xl_rtxpro6000bse_v6")).To(Equal(gpu.NvidiaGridV20DriverVersion))
-		Expect(GetGPUDriverVersion("Standard_NC288ds_xl_RTXPRO6000BSE_v6")).To(Equal(gpu.NvidiaGridV20DriverVersion))
+		Expect(testGPUConfig.GetGPUDriverVersion("standard_nc144ds_xl_rtxpro6000bse_v6")).To(Equal(testGPUConfig.NvidiaGridV20DriverVersion))
+		Expect(testGPUConfig.GetGPUDriverVersion("Standard_NC288ds_xl_RTXPRO6000BSE_v6")).To(Equal(testGPUConfig.NvidiaGridV20DriverVersion))
 		// lds (lower-memory) variants share the same GPU/driver
-		Expect(GetGPUDriverVersion("standard_nc144lds_xl_rtxpro6000bse_v6")).To(Equal(gpu.NvidiaGridV20DriverVersion))
-		Expect(GetGPUDriverVersion("Standard_NC288lds_xl_RTXPRO6000BSE_v6")).To(Equal(gpu.NvidiaGridV20DriverVersion))
+		Expect(testGPUConfig.GetGPUDriverVersion("standard_nc144lds_xl_rtxpro6000bse_v6")).To(Equal(testGPUConfig.NvidiaGridV20DriverVersion))
+		Expect(testGPUConfig.GetGPUDriverVersion("Standard_NC288lds_xl_RTXPRO6000BSE_v6")).To(Equal(testGPUConfig.NvidiaGridV20DriverVersion))
 		// smaller GA fractional-GPU sizes also use grid-v20
-		Expect(GetGPUDriverVersion("standard_nc36ds_xl_rtxpro6000bse_v6")).To(Equal(gpu.NvidiaGridV20DriverVersion))
-		Expect(GetGPUDriverVersion("standard_nc24lds_xl_rtxpro6000bse_v6")).To(Equal(gpu.NvidiaGridV20DriverVersion))
+		Expect(testGPUConfig.GetGPUDriverVersion("standard_nc36ds_xl_rtxpro6000bse_v6")).To(Equal(testGPUConfig.NvidiaGridV20DriverVersion))
+		Expect(testGPUConfig.GetGPUDriverVersion("standard_nc24lds_xl_rtxpro6000bse_v6")).To(Equal(testGPUConfig.NvidiaGridV20DriverVersion))
 	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
 	It("should use cuda with nv v1", func() {
-		Expect(GetGPUDriverVersion("standard_nv6")).To(Equal(gpu.NvidiaCudaLTSDriverVersion))
+		Expect(testGPUConfig.GetGPUDriverVersion("standard_nv6")).To(Equal(testGPUConfig.NvidiaCudaLTSDriverVersion))
 	})
 })
 
 var _ = Describe("GetGPUDriverType", func() {
 
 	It("should use cuda-lts with nc v3", func() {
-		Expect(GetGPUDriverType("standard_nc6_v3")).To(Equal("cuda-lts"))
+		Expect(gpu.GetGPUDriverType("standard_nc6_v3")).To(Equal("cuda-lts"))
 	})
 	It("should keep cuda (legacy R470) with nc v1 (K80)", func() {
-		Expect(GetGPUDriverType("standard_nc6")).To(Equal("cuda"))
+		Expect(gpu.GetGPUDriverType("standard_nc6")).To(Equal("cuda"))
 	})
 	It("should use grid with nv v5", func() {
-		Expect(GetGPUDriverType("standard_nv6ads_a10_v5")).To(Equal("grid"))
-		Expect(GetGPUDriverType("Standard_nv36adms_A10_V5")).To(Equal("grid"))
+		Expect(gpu.GetGPUDriverType("standard_nv6ads_a10_v5")).To(Equal("grid"))
+		Expect(gpu.GetGPUDriverType("Standard_nv36adms_A10_V5")).To(Equal("grid"))
 	})
 	It("should use grid-v20 with rtx pro 6000 bse v6", func() {
-		Expect(GetGPUDriverType("standard_nc144ds_xl_rtxpro6000bse_v6")).To(Equal("grid-v20"))
-		Expect(GetGPUDriverType("Standard_NC288ds_xl_RTXPRO6000BSE_v6")).To(Equal("grid-v20"))
+		Expect(gpu.GetGPUDriverType("standard_nc144ds_xl_rtxpro6000bse_v6")).To(Equal("grid-v20"))
+		Expect(gpu.GetGPUDriverType("Standard_NC288ds_xl_RTXPRO6000BSE_v6")).To(Equal("grid-v20"))
 		// lds (lower-memory) variants share the same GPU/driver
-		Expect(GetGPUDriverType("standard_nc144lds_xl_rtxpro6000bse_v6")).To(Equal("grid-v20"))
-		Expect(GetGPUDriverType("Standard_NC288lds_xl_RTXPRO6000BSE_v6")).To(Equal("grid-v20"))
+		Expect(gpu.GetGPUDriverType("standard_nc144lds_xl_rtxpro6000bse_v6")).To(Equal("grid-v20"))
+		Expect(gpu.GetGPUDriverType("Standard_NC288lds_xl_RTXPRO6000BSE_v6")).To(Equal("grid-v20"))
 		// preview SKU names are retained as backward-compat aliases
-		Expect(GetGPUDriverType("standard_nc128ds_xl_rtxpro6000bse_v6")).To(Equal("grid-v20"))
-		Expect(GetGPUDriverType("standard_nc320lds_xl_rtxpro6000bse_v6")).To(Equal("grid-v20"))
+		Expect(gpu.GetGPUDriverType("standard_nc128ds_xl_rtxpro6000bse_v6")).To(Equal("grid-v20"))
+		Expect(gpu.GetGPUDriverType("standard_nc320lds_xl_rtxpro6000bse_v6")).To(Equal("grid-v20"))
 	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
 	It("should use cuda-lts with nv v1", func() {
-		Expect(GetGPUDriverType("standard_nv6")).To(Equal("cuda-lts"))
+		Expect(gpu.GetGPUDriverType("standard_nv6")).To(Equal("cuda-lts"))
 	})
 })
 
 var _ = Describe("GetAKSGPUImageSHA", func() {
 	It("should use newest AKSGPUGridVersionSuffix with nv v5", func() {
-		Expect(GetAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal(gpu.AKSGPUGridVersionSuffix))
+		Expect(testGPUConfig.GetAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal(testGPUConfig.AKSGPUGridVersionSuffix))
 	})
 	It("should use newest AKSGPUGridV20VersionSuffix with rtx pro 6000 bse v6", func() {
-		Expect(GetAKSGPUImageSHA("standard_nc144ds_xl_rtxpro6000bse_v6")).To(Equal(gpu.AKSGPUGridV20VersionSuffix))
-		Expect(GetAKSGPUImageSHA("standard_nc144lds_xl_rtxpro6000bse_v6")).To(Equal(gpu.AKSGPUGridV20VersionSuffix))
-		Expect(GetAKSGPUImageSHA("standard_nc288ds_xl_rtxpro6000bse_v6")).To(Equal(gpu.AKSGPUGridV20VersionSuffix))
-		Expect(GetAKSGPUImageSHA("standard_nc288lds_xl_rtxpro6000bse_v6")).To(Equal(gpu.AKSGPUGridV20VersionSuffix))
+		Expect(testGPUConfig.GetAKSGPUImageSHA("standard_nc144ds_xl_rtxpro6000bse_v6")).To(Equal(testGPUConfig.AKSGPUGridV20VersionSuffix))
+		Expect(testGPUConfig.GetAKSGPUImageSHA("standard_nc144lds_xl_rtxpro6000bse_v6")).To(Equal(testGPUConfig.AKSGPUGridV20VersionSuffix))
+		Expect(testGPUConfig.GetAKSGPUImageSHA("standard_nc288ds_xl_rtxpro6000bse_v6")).To(Equal(testGPUConfig.AKSGPUGridV20VersionSuffix))
+		Expect(testGPUConfig.GetAKSGPUImageSHA("standard_nc288lds_xl_rtxpro6000bse_v6")).To(Equal(testGPUConfig.AKSGPUGridV20VersionSuffix))
 	})
 	It("should use newest AKSGPUCudaLTSVersionSuffix with non grid SKU", func() {
-		Expect(GetAKSGPUImageSHA("standard_nc6_v3")).To(Equal(gpu.AKSGPUCudaLTSVersionSuffix))
+		Expect(testGPUConfig.GetAKSGPUImageSHA("standard_nc6_v3")).To(Equal(testGPUConfig.AKSGPUCudaLTSVersionSuffix))
 	})
 })
 

@@ -1346,16 +1346,16 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return false
 		},
 		"GPUNeedsFabricManager": func() bool {
-			return GPUNeedsFabricManager(profile.VMSize)
+			return gpu.GPUNeedsFabricManager(profile.VMSize)
 		},
 		"GPUDriverVersion": func() string {
-			return GetGPUDriverVersion(profile.VMSize)
+			return config.GPUConfig.GetGPUDriverVersion(profile.VMSize)
 		},
 		"GPUImageSHA": func() string {
-			return GetAKSGPUImageSHA(profile.VMSize)
+			return config.GPUConfig.GetAKSGPUImageSHA(profile.VMSize)
 		},
 		"GPUDriverType": func() string {
-			return GetGPUDriverType(profile.VMSize)
+			return gpu.GetGPUDriverType(profile.VMSize)
 		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			// Only need to enable HNSRemediator for Windows 2019
@@ -1559,12 +1559,6 @@ func getPortRangeEndValue(portRange string) int {
 	}
 	return num
 }
-
-// NV series GPUs target graphics workloads vs NC which targets compute.
-func GetGPUDriverVersion(size string) string { return gpu.GetGPUDriverVersion(size) }
-func GetAKSGPUImageSHA(size string) string   { return gpu.GetAKSGPUImageSHA(size) }
-func GetGPUDriverType(size string) string    { return gpu.GetGPUDriverType(size) }
-func GPUNeedsFabricManager(size string) bool { return gpu.GPUNeedsFabricManager(size) }
 
 func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {
 	return config.CustomCATrustConfig != nil && len(config.CustomCATrustConfig.CustomCATrustCerts) > 0

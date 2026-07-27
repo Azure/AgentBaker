@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/Masterminds/semver/v3"
 )
@@ -1817,6 +1818,13 @@ type NodeBootstrappingConfiguration struct {
 	// Dynamic-type secondary NICs are not included in this count as they are
 	// configured by CNS rather than the node bootstrapping scripts.
 	StandardSecondaryNICCount int
+
+	// GPUConfig holds the NVIDIA driver versions and AKS GPU image suffixes used to
+	// render the GPU-related CSE template functions (GPUDriverVersion, GPUImageSHA, etc.).
+	// It is populated internally by agentBakerImpl.GetNodeBootstrapping from the
+	// aks-node-controller/pkg/gpu package, not from caller-supplied JSON, so it is
+	// excluded from wire (de)serialization.
+	GPUConfig *gpu.GPUConfiguration `json:"-"`
 }
 
 func (config *NodeBootstrappingConfiguration) IsAzureLinux() bool {
