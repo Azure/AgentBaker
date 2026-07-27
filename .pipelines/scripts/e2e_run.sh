@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # if anything goes wrong, then abort.
-set -exuo pipefail
+set -euo pipefail
 
 # This script runs the AgentBaker e2e tests for a VHD. It uses the following environment variables:
 # * E2E_SUBSCRIPTION_ID: this variable contains the subscription to run the e2e tests in
