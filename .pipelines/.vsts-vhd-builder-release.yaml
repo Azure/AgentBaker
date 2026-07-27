@@ -120,11 +120,11 @@ parameters:
   - name: build2604minimalgen2containerd
     displayName: Build 2604 Minimal Gen2 Containerd
     type: boolean
-    default: false
+    default: true
   - name: build2604minimalarm64gen2containerd
     displayName: Build 2604 Minimal ARM64 Gen2 Containerd
     type: boolean
-    default: false
+    default: true
   - name: buildacltlgen2
     displayName: Build Azure Container Linux TL Gen2
     type: boolean
