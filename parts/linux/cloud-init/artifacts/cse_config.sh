@@ -746,7 +746,11 @@ getKubeletActiveFlagsJSON() {
 
     # Assemble the full payload, then enforce a size cap. Context1 in GuestAgentGenericLogs is
     # limited to ~3.5 KB; if we exceed that the Guest Agent truncates and parse_json() breaks.
-    local max_message_bytes=3500
+    # GuestAgentGenericLogs.Context1 is hard-truncated at 3072 bytes (3 KiB) by the Guest Agent /
+    # Geneva pipeline — verified empirically: 16M events over 3h, max Context1 length = 3072 with a
+    # truncation cliff (93 rows at exactly 3072, zero above). We cap at 3000 to leave ~72 bytes of
+    # margin for any envelope/encoding edge cases.
+    local max_message_bytes=3000
     local payload
     payload="$(jq -cn \
         --argjson found "${found}" \
