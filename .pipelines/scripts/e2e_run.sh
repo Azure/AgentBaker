@@ -4,9 +4,9 @@
 set -euo pipefail
 
 # This script runs the AgentBaker e2e tests for a VHD. It uses the following environment variables:
-# * E2E_SUBSCRIPTION_ID: this variable contains the subscription to run the e2e tests in
-# * E2E_SUBSCRIPTION_ID_OVERRIDE: optional. When non-empty it takes precedence over
-#   E2E_SUBSCRIPTION_ID. This lets a calling pipeline override the subscription at runtime
+# * SUBSCRIPTION_ID: this variable contains the subscription to run the e2e tests in
+# * SUBSCRIPTION_ID_OVERRIDE: optional. When non-empty it takes precedence over
+#   SUBSCRIPTION_ID. This lets a calling pipeline override the subscription at runtime
 #   (e.g. a queue-time variable) since compile-time template expressions cannot see such overrides.
 # * DefaultWorkingDirectory: this variable contains the default working directory. Likely "." is sufficient
 # * VHD_BUILD_ID - the build identifier for the pipeline. This is optional and if it is missing then the latest build from
@@ -26,8 +26,8 @@ if [ -n "${SUBSCRIPTION_ID_OVERRIDE}" ]; then
   SUBSCRIPTION_ID="${SUBSCRIPTION_ID_OVERRIDE}"
 fi
 
-az account set -s "${E2E_SUBSCRIPTION_ID}"
-echo "Using subscription ${E2E_SUBSCRIPTION_ID} for e2e tests"
+az account set -s "${SUBSCRIPTION_ID}"
+echo "Using subscription ${SUBSCRIPTION_ID} for e2e tests"
 
 # Setup go
 export GOPATH="$(go env GOPATH)"
