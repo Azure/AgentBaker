@@ -57,6 +57,8 @@ type App struct {
 	// source for check-hotfix's LPS endpoint (apiserver FQDN + cluster CA) and the
 	// cold-start fallback pointer.
 	nodeConfigPath string
+	// gpuComponentsFilePath overrides the default GPU components.json location for testing.
+	gpuComponentsFilePath string
 	// checkHotfixFetcher overrides the real LPS hotfix-pointer GET for testing, letting
 	// unit tests inject a canned pointer body or errors without real networking.
 	checkHotfixFetcher func(ctx context.Context) ([]byte, error)
@@ -222,23 +224,28 @@ func (a *App) runDownloadHotfixCommand(ctx context.Context) error {
 	return nil
 }
 
-// gpuComponentsFilePath is where the VHD build places components.json (see vhdbuilder/packer/install-dependencies.sh)
-const gpuComponentsFilePath = "/opt/azure/components.json"
+// defaultGPUComponentsFilePath is where the VHD build places components.json (see
+// vhdbuilder/packer/install-dependencies.sh). All scriptless VHDs are expected to have
+// this file baked in, so a missing or malformed file indicates a real build/provisioning
+// bug rather than an expected legacy-VHD gap.
+const defaultGPUComponentsFilePath = "/opt/azure/components.json"
 
 // loadGPUConfig reads and parses the GPU driver-version metadata baked into the VHD.
-func loadGPUConfig() (*gpu.GPUConfiguration, error) {
-	data, err := os.ReadFile(gpuComponentsFilePath)
+// Errors are returned explicitly rather than hidden behind a package-level side effect,
+// so callers can decide how to handle a missing or malformed file.
+func loadGPUConfig(path string) (*gpu.GPUConfiguration, error) {
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", gpuComponentsFilePath, err)
+		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	gpuConfig, err := gpu.LoadConfig(data)
 	if err != nil {
-		return nil, fmt.Errorf("parse %s: %w", gpuComponentsFilePath, err)
+		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	return gpuConfig, nil
 }
 
-func buildCmdFromProvisionConfig(ctx context.Context, path string) (*exec.Cmd, error) {
+func buildCmdFromProvisionConfig(ctx context.Context, path string, gpuComponentsFilePath string) (*exec.Cmd, error) {
 	inputJSON, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("open provision file %s: %w", path, err)
@@ -268,7 +275,7 @@ func buildCmdFromProvisionConfig(ctx context.Context, path string) (*exec.Cmd, e
 		slog.Error("v0 version is deprecated, please use v1 instead")
 	}
 
-	gpuConfig, err := loadGPUConfig()
+	gpuConfig, err := loadGPUConfig(gpuComponentsFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load GPU config: %w", err)
 	}
@@ -301,19 +308,26 @@ func (a *App) getNodeCustomDataPath() string {
 	return defaultNodeCustomDataPath
 }
 
+func (a *App) getGPUComponentsFilePath() string {
+	if a.gpuComponentsFilePath != "" {
+		return a.gpuComponentsFilePath
+	}
+	return defaultGPUComponentsFilePath
+}
+
 // compareEnvs compares the environment variables between the ProvisionConfig and NBCCmd command paths.
 // It logs variables that are only in one environment or that have different values between the two.
 // A summary of all differences is also emitted as a guest agent event for Kusto querying.
 // This function is best-effort: any error is logged and returned from,
 // so it never blocks provisioning.
-func compareEnvs(ctx context.Context, flags ProvisionFlags, eventLogger *helpers.EventLogger) {
+func compareEnvs(ctx context.Context, flags ProvisionFlags, eventLogger *helpers.EventLogger, gpuComponentsFilePath string) {
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("compareEnvs panicked", "panic", r)
 		}
 	}()
 
-	provisionConfigCmd, err := buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig)
+	provisionConfigCmd, err := buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig, gpuComponentsFilePath)
 	if err != nil {
 		slog.Error("compareEnvs: failed to build cmd from provision config", "error", err)
 		return
@@ -624,7 +638,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	// If NBC command is provided, we prioritize it over the aks node config for provisioning.
 	if flags.ProvisionConfig != "" && flags.NBCCmd == "" {
 		var err error
-		cmd, err = buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig)
+		cmd, err = buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig, a.getGPUComponentsFilePath())
 		if err != nil {
 			provisionResult.ExitCode = strconv.Itoa(240)
 			provisionResult.Error = err.Error()
@@ -645,7 +659,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	// This is best-effort and should not block provisioning.
 	if flags.ProvisionConfig != "" && flags.NBCCmd != "" {
 		slog.Info("ProvisionConfig and NBCCmd both provided, comparing envs")
-		compareEnvs(ctx, flags, a.eventLogger)
+		compareEnvs(ctx, flags, a.eventLogger, a.getGPUComponentsFilePath())
 	}
 
 	slog.Info("CSE finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)

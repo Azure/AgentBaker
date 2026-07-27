@@ -93,6 +93,27 @@ type TestApp struct {
 	eventLogger *helpers.EventLogger
 }
 
+// testGPUComponentsJSON is minimal valid components.json content. GPU config loading
+// is fatal (see loadGPUConfig), so any test that builds a CSE command via
+// buildCmdFromProvisionConfig needs a valid file to read.
+const testGPUComponentsJSON = `{
+	"GPUContainerImages": [
+		{
+			"downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda-lts:580.11.07-20240101120000",
+			"gpuVersion": {"renovateTag": "name=aks-gpu-cuda-lts", "latestVersion": "580.11.07-20240101120000"}
+		}
+	]
+}`
+
+// writeTestGPUComponentsFile writes a minimal valid components.json to a temp file
+// and returns its path.
+func writeTestGPUComponentsFile(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "components.json")
+	require.NoError(t, os.WriteFile(path, []byte(testGPUComponentsJSON), 0o600))
+	return path
+}
+
 func NewTestApp(t *testing.T, cfg TestAppConfig) *TestApp {
 	eventsDir := t.TempDir()
 	runFunc := cfg.RunFunc
@@ -103,8 +124,9 @@ func NewTestApp(t *testing.T, cfg TestAppConfig) *TestApp {
 	return &TestApp{
 		eventLogger: eventLogger,
 		App: &App{
-			cmdRun:      runFunc,
-			eventLogger: eventLogger,
+			cmdRun:                runFunc,
+			eventLogger:           eventLogger,
+			gpuComponentsFilePath: writeTestGPUComponentsFile(t),
 		},
 	}
 }
@@ -310,8 +332,9 @@ func TestApp_Provision(t *testing.T) {
 		require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/bash\necho provisioned after panic\n"), 0o600))
 
 		app := &App{
-			cmdRun:      cmdRunner,
-			eventLogger: nil, // nil to trigger panic inside compareEnvs
+			cmdRun:                cmdRunner,
+			eventLogger:           nil, // nil to trigger panic inside compareEnvs
+			gpuComponentsFilePath: writeTestGPUComponentsFile(t),
 		}
 		result, err := app.Provision(context.Background(), ProvisionFlags{
 			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
@@ -538,7 +561,7 @@ func TestParseEnvVarsFromNBCCmdContent(t *testing.T) {
 // filtering out OS env vars (same as compareEnvs does).
 func compareEnvsConfigEnv(t *testing.T) map[string]string {
 	t.Helper()
-	cmd, err := buildCmdFromProvisionConfig(context.Background(), "parser/testdata/test_aksnodeconfig.json")
+	cmd, err := buildCmdFromProvisionConfig(context.Background(), "parser/testdata/test_aksnodeconfig.json", writeTestGPUComponentsFile(t))
 	require.NoError(t, err)
 	osEnv := envSliceToMap(os.Environ())
 	allEnv := envSliceToMap(cmd.Env)
@@ -591,7 +614,7 @@ func TestCompareEnvs_MatchingEnvs(t *testing.T) {
 	compareEnvs(context.Background(), ProvisionFlags{
 		ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 		NBCCmd:          nbcPath,
-	}, tt.eventLogger)
+	}, tt.eventLogger, tt.App.gpuComponentsFilePath)
 
 	records := logCap.getRecords()
 	var foundNoOp bool
@@ -626,7 +649,7 @@ func TestCompareEnvs_OnlyInProvisionConfig(t *testing.T) {
 	compareEnvs(context.Background(), ProvisionFlags{
 		ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 		NBCCmd:          nbcPath,
-	}, tt.eventLogger)
+	}, tt.eventLogger, tt.App.gpuComponentsFilePath)
 
 	records := logCap.getRecords()
 	var foundDiff bool
@@ -659,7 +682,7 @@ func TestCompareEnvs_OnlyInNBCCmd(t *testing.T) {
 	compareEnvs(context.Background(), ProvisionFlags{
 		ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 		NBCCmd:          nbcPath,
-	}, tt.eventLogger)
+	}, tt.eventLogger, tt.App.gpuComponentsFilePath)
 
 	records := logCap.getRecords()
 	var foundDiff bool
@@ -692,7 +715,7 @@ func TestCompareEnvs_DifferingValues(t *testing.T) {
 	compareEnvs(context.Background(), ProvisionFlags{
 		ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 		NBCCmd:          nbcPath,
-	}, tt.eventLogger)
+	}, tt.eventLogger, tt.App.gpuComponentsFilePath)
 
 	records := logCap.getRecords()
 	var foundDiff bool
@@ -730,7 +753,7 @@ func TestCompareEnvs_MultipleDifferences(t *testing.T) {
 	compareEnvs(context.Background(), ProvisionFlags{
 		ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 		NBCCmd:          nbcPath,
-	}, tt.eventLogger)
+	}, tt.eventLogger, tt.App.gpuComponentsFilePath)
 
 	records := logCap.getRecords()
 	var foundSummary bool
