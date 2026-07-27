@@ -3114,8 +3114,11 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 // vulnerabilities (CVE-2026-31431 / DirtyFrag / Fragnesia: algif_aead, esp4, esp6, rxrpc)
 // are handled correctly per OS:
 //
-//   - Ubuntu / Mariner: full check — modprobe config entries are present, modules are
-//     NOT loaded, and modprobe refuses to load them.
+//   - Ubuntu fixed kernels: assert ABSENCE of the four modprobe blacklist entries. Ubuntu
+//     22.04 linux-azure 5.15.0-1116-azure and Ubuntu 24.04 linux-azure 6.8.0-1058-azure
+//     include the fixes, so new VHDs must stop blocking legitimate module use.
+//   - Ubuntu vulnerable/unknown kernels / Mariner: full check — modprobe config entries are
+//     present, modules are NOT loaded, and modprobe refuses to load them.
 //   - AzureLinux 3.0: assert ABSENCE of the four modprobe blacklist entries. AzL3 is
 //     descoped from the mitigation because kernel 6.6.139.1-1.azl3 and later fix all
 //     three CVEs upstream, AND customer workloads on AzL3 require those modules (the
@@ -3124,7 +3127,7 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 //     VHDs. See https://github.com/Azure/AKS/issues/5753.
 //
 // To add a new CVE mitigation, append the module name to BOTH lists below —
-// the AzureLinux 3.0 absence-check list AND the default presence + load-refusal list.
+// the absence-check list AND the default presence + load-refusal list.
 func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
@@ -3155,6 +3158,51 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 		return
 	}
 
+	if s.VHD.OS == config.OSUbuntu {
+		script := strings.Join([]string{
+			`failed=0`,
+			`. /etc/os-release`,
+			`kernel_release="$(uname -r)"`,
+			`fixed_kernel=""`,
+			`case "$VERSION_ID" in`,
+			`  22.04)`,
+			`    case "$kernel_release" in`,
+			`      *-azure) fixed_kernel="5.15.0-1116-azure" ;;`,
+			`      *-generic) fixed_kernel="5.15.0-181-generic" ;;`,
+			`    esac`,
+			`    ;;`,
+			`  24.04)`,
+			`    case "$kernel_release" in`,
+			`      *-azure) fixed_kernel="6.8.0-1058-azure" ;;`,
+			`      *-generic) fixed_kernel="6.8.0-124-generic" ;;`,
+			`    esac`,
+			`    ;;`,
+			`esac`,
+			`if [ -n "$fixed_kernel" ] && [ "$(printf '%s\n%s\n' "$fixed_kernel" "$kernel_release" | sort -V | head -n1)" = "$fixed_kernel" ]; then`,
+			`  echo "PASS: Ubuntu ${VERSION_ID} kernel ${kernel_release} includes Copy Fail / DirtyFrag / Fragnesia fixes; blacklist should be absent"`,
+			`  for mod in algif_aead esp4 esp6 rxrpc; do`,
+			`    if grep -qsE "^(install ${mod} /bin/false|blacklist ${mod})" /etc/modprobe.d/*.conf 2>/dev/null; then`,
+			`      echo "FAIL: ${mod} blacklist entry unexpectedly present on fixed Ubuntu kernel ${kernel_release}"`,
+			`      failed=1`,
+			`    else`,
+			`      echo "PASS: ${mod} blacklist correctly absent on fixed Ubuntu kernel ${kernel_release}"`,
+			`    fi`,
+			`  done`,
+			`  exit $failed`,
+			`fi`,
+		}, "\n")
+		script += "\n" + kernelModuleFullBlockValidationScript()
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+			"Ubuntu vulnerable kernel module validation failed (fixed kernels should have no blacklist; older/unknown kernels should keep algif_aead/esp4/esp6/rxrpc blocked)")
+		return
+	}
+
+	script := kernelModuleFullBlockValidationScript()
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"Vulnerable kernel module mitigation validation failed (algif_aead/esp4/esp6/rxrpc)")
+}
+
+func kernelModuleFullBlockValidationScript() string {
 	script := strings.Join([]string{
 		`failed=0`,
 		`for mod in algif_aead esp4 esp6 rxrpc; do`,
@@ -3180,9 +3228,7 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 		`done`,
 		`exit $failed`,
 	}, "\n")
-
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"Vulnerable kernel module mitigation validation failed (algif_aead/esp4/esp6/rxrpc)")
+	return script
 }
 
 // resolveSecondaryNICName discovers the kernel interface name of the secondary NIC

@@ -46,10 +46,6 @@ source "${CSE_INSTALL_FILEPATH}"
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 source "${CSE_CONFIG_FILEPATH}"
 
-get_ubuntu_release() {
-    lsb_release -r -s 2>/dev/null || echo ""
-}
-
 # Disable a single kernel module with a known LPE vulnerability.
 # Writes a modprobe blacklist rule and unloads the module if loaded.
 # Applies to existing VHDs that don't yet have the fix baked into modprobe-CIS.conf.
@@ -69,6 +65,95 @@ disableVulnerableKernelModule() {
         else
             echo "${desc}: failed to unload ${mod} (in use), reboot required for full mitigation"
         fi
+    fi
+}
+
+removeVulnerableKernelModuleDenyRules() {
+    local modprobe_file
+    local tmp_file
+    local next_file
+    local mod
+
+    for modprobe_file in /etc/modprobe.d/*.conf; do
+        [ -e "$modprobe_file" ] || continue
+
+        tmp_file="${modprobe_file}.tmp.$$"
+        next_file="${tmp_file}.next"
+        cp "$modprobe_file" "$tmp_file" || return 1
+
+        for mod in algif_aead esp4 esp6 rxrpc; do
+            sed "/^install[[:space:]][[:space:]]*${mod}[[:space:]][[:space:]]*\/bin\/false[[:space:]]*$/d;/^blacklist[[:space:]][[:space:]]*${mod}[[:space:]]*$/d" "$tmp_file" > "$next_file" || {
+                rm -f "$tmp_file" "$next_file"
+                return 1
+            }
+            mv "$next_file" "$tmp_file" || {
+                rm -f "$tmp_file" "$next_file"
+                return 1
+            }
+        done
+
+        if cmp -s "$modprobe_file" "$tmp_file"; then
+            rm -f "$tmp_file"
+        else
+            cat "$tmp_file" > "$modprobe_file" || {
+                rm -f "$tmp_file"
+                return 1
+            }
+            rm -f "$tmp_file"
+            echo "Removed Copy Fail / DirtyFrag / Fragnesia module deny rules from ${modprobe_file}"
+        fi
+    done
+
+    for mod in algif_aead esp4 esp6 rxrpc; do
+        if grep -qsE "^(install[[:space:]]+${mod}[[:space:]]+/bin/false|blacklist[[:space:]]+${mod})([[:space:]]|$)" /etc/modprobe.d/*.conf 2>/dev/null; then
+            echo "Failed to remove ${mod} vulnerable module deny rule from /etc/modprobe.d"
+            return 1
+        fi
+    done
+}
+
+reconcileVulnerableKernelModuleMitigation() {
+    # Disable kernel modules with known LPE vulnerabilities (CVE-2026-31431, DirtyFrag, Fragnesia).
+    # Applied at CSE provisioning time on vulnerable Ubuntu kernels, AzureLinux OSGuard, and AzureLinux 2.0 / Mariner.
+    # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
+    #
+    # Ubuntu 22.04 picked up the fixes in linux-azure 5.15.0-1116-azure (generic
+    # fallback 5.15.0-181-generic); Ubuntu 24.04 picked up the fixes in linux-azure
+    # 6.8.0-1058-azure (generic fallback 6.8.0-124-generic). Keep the CSE-time
+    # apply for older or unknown Ubuntu kernels so in-support vulnerable VHDs without
+    # baked rules remain protected. Fixed Ubuntu kernels actively remove stale deny
+    # rules that may have been baked into older VHDs before the fixed kernel arrived.
+    #
+    # AzureLinux 3.0 (regular and Kata) is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy
+    # Fail / DirtyFrag / Fragnesia upstream, so the runtime modprobe blacklist is no longer
+    # required. Newly-built AzL3 VHDs also no longer ship the four entries in modprobe-CIS.conf —
+    # customers reported the blacklist actively blocks legitimate workloads that use
+    # algif_aead / esp4 / esp6 / rxrpc on the patched kernel. Existing in-support AzL3 VHDs
+    # (built before this change) still have the bake-in until they are rolled; no CSE-time active
+    # removal is performed — customers will get the unblocked configuration on their next AzL3
+    # VHD upgrade. AzureLinux OSGuard (hardened secure-boot variant) is intentionally kept in
+    # scope as defense-in-depth: OSGuard workloads are security-sensitive and do not require
+    # the affected kernel modules.
+    #
+    # Mariner / AzureLinux 2.0 (AzL2) images are frozen (see FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion=202512.06.0),
+    # so they cannot pick up new modprobe-CIS.conf entries for these 2026 CVEs via VHD refresh.
+    # Keep the CSE-time runtime apply enabled for AzL2/Mariner while those images remain supported.
+    # See https://github.com/Azure/AKS/issues/5753.
+    #
+    if isUbuntu "$OS"; then
+        if ubuntuKernelNeedsVulnerableModuleMitigation; then
+            disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
+            disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
+            disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
+            disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
+        else
+            removeVulnerableKernelModuleDenyRules || exit $ERR_MODPROBE_FAIL
+        fi
+    elif isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
+        disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
+        disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
+        disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
+        disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
     fi
 }
 
@@ -310,32 +395,7 @@ EOF
 
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
-    # Disable kernel modules with known LPE vulnerabilities (CVE-2026-31431, DirtyFrag, Fragnesia).
-    # Applied at CSE provisioning time on Ubuntu, AzureLinux OSGuard, and AzureLinux 2.0 / Mariner.
-    # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
-    #
-    # AzureLinux 3.0 (regular and Kata) is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy
-    # Fail / DirtyFrag / Fragnesia upstream, so the runtime modprobe blacklist is no longer
-    # required. Newly-built AzL3 VHDs also no longer ship the four entries in modprobe-CIS.conf —
-    # customers reported the blacklist actively blocks legitimate workloads that use
-    # algif_aead / esp4 / esp6 / rxrpc on the patched kernel. Existing in-support AzL3 VHDs
-    # (built before this change) still have the bake-in until they are rolled; no CSE-time active
-    # removal is performed — customers will get the unblocked configuration on their next AzL3
-    # VHD upgrade. AzureLinux OSGuard (hardened secure-boot variant) is intentionally kept in
-    # scope as defense-in-depth: OSGuard workloads are security-sensitive and do not require
-    # the affected kernel modules.
-    #
-    # Mariner / AzureLinux 2.0 (AzL2) images are frozen (see FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion=202512.06.0),
-    # so they cannot pick up new modprobe-CIS.conf entries for these 2026 CVEs via VHD refresh.
-    # Keep the CSE-time runtime apply enabled for AzL2/Mariner while those images remain supported.
-    # See https://github.com/Azure/AKS/issues/5753.
-    #
-    if isUbuntu "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
-        disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
-        disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
-        disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
-        disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
-    fi
+    reconcileVulnerableKernelModuleMitigation
 
     if [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
         if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
@@ -371,6 +431,8 @@ EOF
 # IMPORTANT: This stage should only run when actually joining a node to the cluster. This step should not be run when creating a VHD image
 function nodePrep {
     logs_to_events "AKS.CSE.fetch_and_cache_imds_instance_metadata" fetch_and_cache_imds_instance_metadata
+    reconcileVulnerableKernelModuleMitigation
+
     # IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels,
     # which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
     logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing

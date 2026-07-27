@@ -1446,14 +1446,61 @@ testNfsServerService() {
 }
 
 # Verify all kernel modules with known LPE vulnerabilities are disabled.
-# Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc).
+# Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc),
+# and Fragnesia (esp4, esp6).
 # To add a new CVE mitigation, append the module to BOTH loops below — the
-# AzureLinux 3.0 absence loop AND the default presence + load-refusal loop.
+# absence loop AND the default presence + load-refusal loop.
 #
 # AzureLinux 3.0 is descoped: kernel 6.6.139.1-1.azl3+ fixes the CVEs upstream and
 # the modprobe blacklist is NOT baked into newly-built AzL3 VHDs (customer workloads
-# require those modules). On AzL3 we therefore assert the blacklist entries are
-# ABSENT. Ubuntu and Mariner (AzL2) still assert presence + load-refusal.
+# require those modules). Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu
+# 24.04 linux-azure 6.8.0-1058-azure include the fixes, so newly-built Ubuntu
+# 22.04/24.04 VHDs with a fixed running kernel also stop baking the vulnerable-module
+# blacklist while keeping the baseline CIS module deny list. Fixed Ubuntu kernels assert
+# ABSENCE; unknown or vulnerable Ubuntu kernels assert presence + load-refusal.
+# Mariner/AzureLinux 2.0 and AzureLinux OSGuard still assert presence + load-refusal.
+kernelVersionGe() {
+  local version_a="$1"
+  local version_b="$2"
+  local sorted
+  local highest_version
+
+  sorted=$(printf "%s\n%s\n" "$version_a" "$version_b" | sort -V)
+  highest_version=$(printf "%s\n" "$sorted" | tail -n 1)
+  [ "$version_a" = "$highest_version" ]
+}
+
+ubuntuKernelIncludesVulnerableModuleFixes() {
+  local os_version="$1"
+  local kernel_release
+  local fixed_kernel
+
+  kernel_release="$(uname -r 2>/dev/null || true)"
+  if [ -z "$kernel_release" ]; then
+    return 1
+  fi
+
+  case "$os_version" in
+    22.04)
+      case "$kernel_release" in
+        *-azure) fixed_kernel="5.15.0-1116-azure" ;;
+        *-generic) fixed_kernel="5.15.0-181-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    24.04)
+      case "$kernel_release" in
+        *-azure) fixed_kernel="6.8.0-1058-azure" ;;
+        *-generic) fixed_kernel="6.8.0-124-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    *) return 1 ;;
+  esac
+
+  kernelVersionGe "$kernel_release" "$fixed_kernel"
+}
+
 testVulnerableKernelModulesDisabled() {
   local os_sku="${1:-$OS_SKU}"
   local os_version="${2:-$OS_VERSION}"
@@ -1462,15 +1509,30 @@ testVulnerableKernelModulesDisabled() {
 
   local failed=0
 
-  if [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ]; then
+  if { [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ]; } || \
+     { [ "$os_sku" = "Ubuntu" ] && ubuntuKernelIncludesVulnerableModuleFixes "$os_version"; }; then
     for mod in algif_aead esp4 esp6 rxrpc; do
       if grep -qsE "^(install ${mod} /bin/false|blacklist ${mod})" /etc/modprobe.d/*.conf 2>/dev/null; then
-        err "$test" "${mod} blacklist entry unexpectedly present in /etc/modprobe.d/*.conf on AzureLinux 3.0 (bake-in removed; kernel 6.6.139.1-1.azl3+ supersedes; no 'install' or 'blacklist' directive should remain)"
+        err "$test" "${mod} blacklist entry unexpectedly present in /etc/modprobe.d/*.conf on ${os_sku} ${os_version} (bake-in removed for fixed kernels only; no 'install' or 'blacklist' directive should remain)"
         failed=1
       else
-        echo "$test: ${mod} blacklist correctly absent on AzureLinux 3.0"
+        echo "$test: ${mod} blacklist correctly absent on ${os_sku} ${os_version}"
       fi
     done
+
+    if [ "$os_sku" = "Ubuntu" ]; then
+      for mod in cramfs freevxfs jffs2 hfs hfsplus usb-storage; do
+        if ! grep -qsE "^install ${mod} /bin/true" /etc/modprobe.d/*.conf 2>/dev/null; then
+          err "$test" "${mod} CIS disable rule not found in /etc/modprobe.d/*.conf"
+          failed=1
+        elif ! grep -qsE "^blacklist ${mod}" /etc/modprobe.d/*.conf 2>/dev/null; then
+          err "$test" "${mod} CIS blacklist rule not found in /etc/modprobe.d/*.conf"
+          failed=1
+        else
+          echo "$test: CIS modprobe config correctly blocks ${mod}"
+        fi
+      done
+    fi
 
     if [ "$failed" -ne 0 ]; then
       return 1

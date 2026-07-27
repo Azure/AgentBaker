@@ -1,5 +1,100 @@
 #!/bin/bash -eux
 
+VULNERABLE_KERNEL_MODULE_DENY_PATTERN='^(install[[:space:]]+(algif_aead|esp4|esp6|rxrpc)[[:space:]]+[/]bin[/]false|blacklist[[:space:]]+(algif_aead|esp4|esp6|rxrpc))[[:space:]]*$'
+
+get_os_release_value() {
+  local key="$1"
+  awk -F= -v key="$key" '$1 == key { gsub(/"/, "", $2); print $2; exit }' /etc/os-release 2>/dev/null || true
+}
+
+kernelVersionGe() {
+  local version_a="$1"
+  local version_b="$2"
+  local sorted
+  local highest_version
+
+  sorted=$(printf "%s\n%s\n" "$version_a" "$version_b" | sort -V)
+  highest_version=$(printf "%s\n" "$sorted" | tail -n 1)
+  [ "$version_a" = "$highest_version" ]
+}
+
+ubuntuKernelIncludesVulnerableModuleFixes() {
+  local os_id
+  local os_version
+  local kernel_release
+  local fixed_kernel
+
+  os_id="$(get_os_release_value ID)"
+  os_version="$(get_os_release_value VERSION_ID)"
+  kernel_release="$(uname -r 2>/dev/null || true)"
+
+  if [ "$os_id" != "ubuntu" ] || [ -z "$kernel_release" ]; then
+    return 1
+  fi
+
+  case "$os_version" in
+    22.04)
+      case "$kernel_release" in
+        *-azure) fixed_kernel="5.15.0-1116-azure" ;;
+        *-generic) fixed_kernel="5.15.0-181-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    24.04)
+      case "$kernel_release" in
+        *-azure) fixed_kernel="6.8.0-1058-azure" ;;
+        *-generic) fixed_kernel="6.8.0-124-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    *) return 1 ;;
+  esac
+
+  kernelVersionGe "$kernel_release" "$fixed_kernel"
+}
+
+vulnerableKernelModuleDenyRulesRemain() {
+  local modprobe_conf
+
+  for modprobe_conf in /etc/modprobe.d/*.conf; do
+    [ -f "$modprobe_conf" ] || continue
+    if grep -Eq "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" "$modprobe_conf"; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+removeVulnerableKernelModuleDenyRulesFromModprobeDirectory() {
+  local modprobe_conf
+  local tmp_modprobe_conf
+
+  for modprobe_conf in /etc/modprobe.d/*.conf; do
+    [ -f "$modprobe_conf" ] || continue
+    tmp_modprobe_conf="${modprobe_conf}.tmp"
+    sed -E "/$VULNERABLE_KERNEL_MODULE_DENY_PATTERN/d" "$modprobe_conf" > "$tmp_modprobe_conf"
+    cat "$tmp_modprobe_conf" > "$modprobe_conf"
+    rm -f "$tmp_modprobe_conf"
+  done
+}
+
+cleanupFixedUbuntuVulnerableKernelModuleDenyRules() {
+  if ! ubuntuKernelIncludesVulnerableModuleFixes; then
+    return 0
+  fi
+
+  echo "cleanup-vhd: removing Copy Fail / DirtyFrag / Fragnesia module deny rules from fixed Ubuntu kernel image"
+  removeVulnerableKernelModuleDenyRulesFromModprobeDirectory
+  if vulnerableKernelModuleDenyRulesRemain; then
+    echo "cleanup-vhd: vulnerable kernel module deny rules remain after cleanup" >&2
+    grep -RE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf >&2 || true
+    exit 1
+  fi
+}
+
+cleanupFixedUbuntuVulnerableKernelModuleDenyRules
+
 systemctl daemon-reload
 systemctl disable --now containerd
 
