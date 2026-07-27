@@ -19,6 +19,7 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/fsnotify/fsnotify"
 	"github.com/urfave/cli/v3"
@@ -221,6 +222,22 @@ func (a *App) runDownloadHotfixCommand(ctx context.Context) error {
 	return nil
 }
 
+// gpuComponentsFilePath is where the VHD build places components.json (see vhdbuilder/packer/install-dependencies.sh)
+const gpuComponentsFilePath = "/opt/azure/components.json"
+
+// loadGPUConfig reads and parses the GPU driver-version metadata baked into the VHD.
+func loadGPUConfig() (*gpu.GPUConfiguration, error) {
+	data, err := os.ReadFile(gpuComponentsFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", gpuComponentsFilePath, err)
+	}
+	gpuConfig, err := gpu.LoadConfig(data)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", gpuComponentsFilePath, err)
+	}
+	return gpuConfig, nil
+}
+
 func buildCmdFromProvisionConfig(ctx context.Context, path string) (*exec.Cmd, error) {
 	inputJSON, err := os.ReadFile(path)
 	if err != nil {
@@ -251,7 +268,12 @@ func buildCmdFromProvisionConfig(ctx context.Context, path string) (*exec.Cmd, e
 		slog.Error("v0 version is deprecated, please use v1 instead")
 	}
 
-	return parser.BuildCSECmd(ctx, config)
+	gpuConfig, err := loadGPUConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load GPU config: %w", err)
+	}
+
+	return parser.BuildCSECmd(ctx, config, gpuConfig)
 }
 
 func buildCmdFromNBCCmd(ctx context.Context, path string) (*exec.Cmd, error) {

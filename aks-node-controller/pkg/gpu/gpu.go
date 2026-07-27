@@ -9,8 +9,10 @@ import (
 
 const Nvidia470CudaDriverVersion = "cuda-470.82.01"
 
-//nolint:gochecknoglobals
-var (
+// GPUConfiguration holds the NVIDIA driver versions and AKS GPU image suffixes
+// parsed from components.json. Load one with LoadConfig and pass it explicitly
+// to the methods below; there is no shared/global state.
+type GPUConfiguration struct {
 	NvidiaCudaDriverVersion    string
 	NvidiaCudaLTSDriverVersion string
 	NvidiaGridDriverVersion    string
@@ -19,7 +21,7 @@ var (
 	AKSGPUCudaLTSVersionSuffix string
 	AKSGPUGridVersionSuffix    string
 	AKSGPUGridV20VersionSuffix string
-)
+}
 
 type gpuVersion struct {
 	RenovateTag   string `json:"renovateTag"`
@@ -35,17 +37,20 @@ type componentsConfig struct {
 	GPUContainerImages []gpuContainerImage `json:"GPUContainerImages"`
 }
 
-// LoadGPUConfig parses GPU driver versions from the raw JSON content of components.json.
-func LoadGPUConfig(data []byte) error {
+// LoadConfig parses GPU driver versions from the raw JSON content of components.json
+// and returns a GPUConfiguration. Callers should propagate the error explicitly rather
+// than ignoring it; there is no fallback global state to silently fall back to.
+func LoadConfig(data []byte) (*GPUConfiguration, error) {
 	var config componentsConfig
 	if err := json.Unmarshal(data, &config); err != nil {
-		return fmt.Errorf("failed to unmarshal components.json: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal components.json: %w", err)
 	}
 
 	const driverIndex = 0
 	const suffixIndex = 1
 	const expectedLength = 2
 
+	gpuConfig := &GPUConfiguration{}
 	for _, image := range config.GPUContainerImages {
 		versionParts := strings.Split(image.GPUVersion.LatestVersion, "-")
 		if len(versionParts) != expectedLength {
@@ -55,20 +60,20 @@ func LoadGPUConfig(data []byte) error {
 
 		switch gpuImageRepo(image.DownloadURL) {
 		case "aks-gpu-cuda-lts":
-			NvidiaCudaLTSDriverVersion = version
-			AKSGPUCudaLTSVersionSuffix = suffix
+			gpuConfig.NvidiaCudaLTSDriverVersion = version
+			gpuConfig.AKSGPUCudaLTSVersionSuffix = suffix
 		case "aks-gpu-cuda":
-			NvidiaCudaDriverVersion = version
-			AKSGPUCudaVersionSuffix = suffix
+			gpuConfig.NvidiaCudaDriverVersion = version
+			gpuConfig.AKSGPUCudaVersionSuffix = suffix
 		case "aks-gpu-grid":
-			NvidiaGridDriverVersion = version
-			AKSGPUGridVersionSuffix = suffix
+			gpuConfig.NvidiaGridDriverVersion = version
+			gpuConfig.AKSGPUGridVersionSuffix = suffix
 		case "aks-gpu-grid-v20":
-			NvidiaGridV20DriverVersion = version
-			AKSGPUGridV20VersionSuffix = suffix
+			gpuConfig.NvidiaGridV20DriverVersion = version
+			gpuConfig.AKSGPUGridV20VersionSuffix = suffix
 		}
 	}
-	return nil
+	return gpuConfig, nil
 }
 
 // gpuImageRepo extracts the bare repo name from a download URL such as
@@ -85,17 +90,29 @@ func gpuImageRepo(downloadURL string) string {
 }
 
 // GetGPUDriverVersion returns the NVIDIA driver version string for a given VM size.
-func GetGPUDriverVersion(size string) string {
+// It is safe to call on a nil receiver (e.g. when no GPUConfiguration was loaded),
+// in which case it returns the zero value for any driver version sourced from
+// components.json, while SKU-only lookups (like the pinned NCv1 470 driver) still work.
+func (c *GPUConfiguration) GetGPUDriverVersion(size string) string {
 	if UseGridV20Drivers(size) {
-		return NvidiaGridV20DriverVersion
+		if c == nil {
+			return ""
+		}
+		return c.NvidiaGridV20DriverVersion
 	}
 	if UseGridDrivers(size) {
-		return NvidiaGridDriverVersion
+		if c == nil {
+			return ""
+		}
+		return c.NvidiaGridDriverVersion
 	}
 	if IsStandardNCv1(size) {
 		return Nvidia470CudaDriverVersion
 	}
-	return NvidiaCudaLTSDriverVersion
+	if c == nil {
+		return ""
+	}
+	return c.NvidiaCudaLTSDriverVersion
 }
 
 // IsStandardNCv1 reports whether the VM size is a legacy NCv1 (K80) SKU.
@@ -115,17 +132,22 @@ func UseGridV20Drivers(size string) bool {
 }
 
 // GetAKSGPUImageSHA returns the image version suffix for the appropriate GPU container image.
-func GetAKSGPUImageSHA(size string) string {
+// It is safe to call on a nil receiver, returning "" in that case.
+func (c *GPUConfiguration) GetAKSGPUImageSHA(size string) string {
+	if c == nil {
+		return ""
+	}
 	if UseGridV20Drivers(size) {
-		return AKSGPUGridV20VersionSuffix
+		return c.AKSGPUGridV20VersionSuffix
 	}
 	if UseGridDrivers(size) {
-		return AKSGPUGridVersionSuffix
+		return c.AKSGPUGridVersionSuffix
 	}
-	return AKSGPUCudaLTSVersionSuffix
+	return c.AKSGPUCudaLTSVersionSuffix
 }
 
 // GetGPUDriverType maps a GPU VM size to the aks-gpu image variant.
+// NV series GPUs target graphics workloads vs NC which targets compute.
 func GetGPUDriverType(size string) string {
 	if UseGridV20Drivers(size) {
 		return "grid-v20"

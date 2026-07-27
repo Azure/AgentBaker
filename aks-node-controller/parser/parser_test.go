@@ -360,7 +360,7 @@ oom_score = -999
 				tt.aksNodeConfigUpdator(aksNodeConfig)
 			}
 
-			cseCMD, err := BuildCSECmd(context.TODO(), aksNodeConfig)
+			cseCMD, err := BuildCSECmd(context.TODO(), aksNodeConfig, nil)
 			require.NoError(t, err)
 
 			generateTestDataIfRequested(t, tt.folder, cseCMD)
@@ -376,7 +376,7 @@ func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
 	secret := "super-secret-value"
 	cmd, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{
 		AuthConfig: &aksnodeconfigv1.AuthConfig{ServicePrincipalSecret: secret},
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	vars := environToMap(cmd.Env)
@@ -422,7 +422,7 @@ func TestBuildCSECmd_StreamingConnectionIdleTimeout_VersionGated(t *testing.T) {
 				},
 			}
 
-			cmd, err := BuildCSECmd(context.TODO(), config)
+			cmd, err := BuildCSECmd(context.TODO(), config, nil)
 			require.NoError(t, err)
 
 			vars := environToMap(cmd.Env)
@@ -510,7 +510,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cseCMD, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{})
+			cseCMD, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{}, nil)
 			require.NoError(t, err)
 
 			generateTestDataIfRequested(t, tt.folder, cseCMD)
@@ -678,7 +678,7 @@ func TestBuildCSECmd_DetectsContainerdV2FromSystem(t *testing.T) {
 		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{},
 	}
 
-	cmd, err := BuildCSECmd(context.TODO(), config)
+	cmd, err := BuildCSECmd(context.TODO(), config, nil)
 	require.NoError(t, err)
 
 	vars := environToMap(cmd.Env)
@@ -701,7 +701,7 @@ func TestBuildCSECmd_FallsBackToV1WhenContainerdDetectionFails(t *testing.T) {
 	}
 
 	// BuildCSECmd should NOT return an error even when containerd detection fails.
-	cmd, err := BuildCSECmd(context.TODO(), config)
+	cmd, err := BuildCSECmd(context.TODO(), config, nil)
 	require.NoError(t, err)
 
 	vars := environToMap(cmd.Env)
