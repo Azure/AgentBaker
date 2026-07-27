@@ -12,7 +12,7 @@ parameters:
     default: ab-e2e
   - name: subscriptionId
     type: string
-    displayName: Subscription ID to use for E2E tests (empty = use variable group default)
+    displayName: Subscription ID override to use for E2E tests (empty = use variable group default)
     default: ""
   - name: failedTestsRetryCount
     type: number
