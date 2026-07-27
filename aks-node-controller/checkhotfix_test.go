@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"net/http"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -13,10 +13,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
 )
 
 // testCAPEM is a self-signed CA certificate used to exercise the provision-config TLS
-// trust path in buildLPSHTTPClient.
+// trust path of the LPS gRPC dial.
 const testCAPEM = `-----BEGIN CERTIFICATE-----
 MIIBVDCB+6ADAgECAgEBMAoGCCqGSM49BAMCMBIxEDAOBgNVBAMTB3Rlc3QtY2Ew
 HhcNMjYwNjE5MjEwNDM4WhcNMzYwNjE2MjEwNDM4WjASMRAwDgYDVQQDEwd0ZXN0
@@ -156,16 +157,17 @@ func TestCheckHotfix_LegacyOnlyPointerReportsNoHotfixForBase(t *testing.T) {
 }
 
 func TestCheckHotfix_LPSUnavailableIsBenign(t *testing.T) {
-	// A reachable LPS that has no hotfix published for this node (HTTP 401, 403, 404) is the
-	// expected steady state. It must be a benign no-op: outcome noHotfixAvailable, no error,
-	// nothing staged, and NO cold-start overlay even when the node config carries an embedded
-	// pointer.
-	statuses := map[string]int{
-		"401 unauthorized": http.StatusUnauthorized,
-		"403 forbidden":    http.StatusForbidden,
-		"404 not found":    http.StatusNotFound,
+	// A reachable LPS that has no hotfix published for this node is the expected steady state.
+	// It must be a benign no-op: outcome noHotfixAvailable, no error, nothing staged, and NO
+	// cold-start overlay even when the node config carries an embedded pointer. The benign
+	// signal is the errLPSUnavailable sentinel; which gRPC codes map to it is covered by the
+	// gRPC transport tests. Both the bare sentinel and a code-wrapped form must classify as
+	// benign (errors.Is through the wrap).
+	fetchErrs := map[string]error{
+		"bare sentinel":     errLPSUnavailable,
+		"wrapped with code": fmt.Errorf("%w (code %s)", errLPSUnavailable, codes.NotFound),
 	}
-	for name, code := range statuses {
+	for name, fetchErr := range fetchErrs {
 		t.Run(name, func(t *testing.T) {
 			tt := NewTestApp(t, TestAppConfig{})
 			path := filepath.Join(t.TempDir(), "hotfix.json")
@@ -178,7 +180,7 @@ func TestCheckHotfix_LPSUnavailableIsBenign(t *testing.T) {
 			tt.App.nodeConfigPath = nodeConfig
 
 			tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
-				return nil, &lpsUnavailableError{statusCode: code}
+				return nil, fetchErr
 			}
 
 			outcome, err := tt.App.checkHotfix(context.Background())
@@ -296,10 +298,10 @@ func TestCheckHotfix_FallbackOnlyForUnreachableLPS(t *testing.T) {
 		wantOutcome checkHotfixOutcome
 		wantStaged  bool
 	}{
-		{"5xx falls back to cold-start", &lpsHTTPError{statusCode: 503}, outcomeCustomDataFallback, true},
+		{"server Unavailable falls back to cold-start", &lpsGRPCStatusError{code: codes.Unavailable, fallbackAllowed: true}, outcomeCustomDataFallback, true},
 		{"transport error falls back to cold-start", errors.New("dial tcp: connection refused"), outcomeCustomDataFallback, true},
-		{"non-benign 4xx does not fall back", &lpsHTTPError{statusCode: 429}, outcomeFailed, false},
-		{"400 does not fall back", &lpsHTTPError{statusCode: 400}, outcomeFailed, false},
+		{"ResourceExhausted does not fall back", &lpsGRPCStatusError{code: codes.ResourceExhausted, fallbackAllowed: false}, outcomeFailed, false},
+		{"InvalidArgument does not fall back", &lpsGRPCStatusError{code: codes.InvalidArgument, fallbackAllowed: false}, outcomeFailed, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -472,46 +474,6 @@ func TestLPSTargetFromNodeConfig(t *testing.T) {
 		tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nope.json")
 		_, _, err := tt.App.lpsTargetFromNodeConfig()
 		require.Error(t, err)
-	})
-}
-
-func TestBuildLPSHTTPClient(t *testing.T) {
-	t.Run("invalid CA PEM is an error", func(t *testing.T) {
-		_, _, err := buildLPSHTTPClient("myapi.example.com", []byte("not a pem"))
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "cluster CA PEM")
-	})
-
-	t.Run("valid CA pins ServerName and reports provision-config trust", func(t *testing.T) {
-		// A real (self-signed) cert PEM so AppendCertsFromPEM succeeds.
-		client, caSource, err := buildLPSHTTPClient("myapi.example.com", []byte(testCAPEM))
-		require.NoError(t, err)
-		assert.Equal(t, "provision-config", caSource)
-		assert.Equal(t, lpsFetchTimeout, client.Timeout)
-		tr, ok := client.Transport.(*http.Transport)
-		require.True(t, ok)
-		assert.Equal(t, lpsSNIHost, tr.TLSClientConfig.ServerName)
-		assert.False(t, tr.TLSClientConfig.InsecureSkipVerify)
-		// The shared base transport must apply the fail-fast per-phase budgets and disable proxying.
-		assert.Nil(t, tr.Proxy)
-		assert.Equal(t, lpsTLSHandshakeTimeout, tr.TLSHandshakeTimeout)
-		assert.Equal(t, lpsResponseHeaderTimeout, tr.ResponseHeaderTimeout)
-	})
-
-	t.Run("no CA is a hard error (no insecure fallback)", func(t *testing.T) {
-		_, _, err := buildLPSHTTPClient("myapi.example.com", nil)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "cluster CA unavailable")
-	})
-
-	t.Run("dialHost with an existing port is normalized", func(t *testing.T) {
-		// api_server_name may carry a port; the client must still build (no insecure
-		// fallback) and JoinHostPort must not produce an invalid "[host:443]:443" address.
-		client, _, err := buildLPSHTTPClient("myapi.example.com:443", []byte(testCAPEM))
-		require.NoError(t, err)
-		tr, ok := client.Transport.(*http.Transport)
-		require.True(t, ok)
-		assert.Equal(t, lpsSNIHost, tr.TLSClientConfig.ServerName)
 	})
 }
 
