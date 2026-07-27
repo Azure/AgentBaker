@@ -1,12 +1,5 @@
 #!/bin/bash
 
-create_completion_marker() {
-    local marker_path="$1"
-    mkdir -p "${marker_path%/*}" && touch "$marker_path"
-}
-
-${__SOURCED__:+return}
-
 CSE_STARTTIME=$(date)
 CSE_STARTTIME_FORMATTED=$(date +"%F %T.%3N")
 export CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s) # Export for child processes, used in early retry loop exits
@@ -127,21 +120,13 @@ fi
 # Create stage marker for two-stage workflow
 if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
     # Stage 1: Create marker indicating Stage 2 is needed
-    if ! create_completion_marker "/opt/azure/containers/base_prep.complete"; then
-        echo "Failed to create base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
-        upload_logs
-        exit 1
-    fi
+    mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete || exit 1
     echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
     echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
     exit "$EXIT_CODE"
 fi
 
 # provision.complete is the marker for the second stage of the workflow
-if ! create_completion_marker "/opt/azure/containers/provision.complete"; then
-    echo "Failed to create provision.complete marker file" >> /var/log/azure/cluster-provision.log
-    upload_logs
-    exit 1
-fi
+mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete || exit 1
 
 exit "$EXIT_CODE"
