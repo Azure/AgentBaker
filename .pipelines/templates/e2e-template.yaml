@@ -107,6 +107,7 @@ jobs:
           testResultsFiles: "$(Build.SourcesDirectory)/e2e/report.xml"
 
       - publish: $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
+        displayName: Upload scenario logs
         artifact: $(LOGGING_DIR)
         condition: always()
         continueOnError: true
