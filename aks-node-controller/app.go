@@ -189,7 +189,15 @@ func (a *App) runProvisionCommand(ctx context.Context, flags ProvisionFlags, dry
 		slog.Info("aks-node-controller finished successfully.")
 		// Emit kubelet active flags as a structured event for Kusto querying.
 		// Best-effort: never block provisioning on telemetry.
-		go a.eventLogger.EmitKubeletActiveFlagsEvent()
+		done := make(chan struct{})
+		go func() {
+			a.eventLogger.EmitKubeletActiveFlagsEvent()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(1 * time.Second):
+		}
 	}
 	return err
 }
