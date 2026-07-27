@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"os"
@@ -38,87 +39,109 @@ type KubeletActiveFlagsPayload struct {
 	ConfigFile     any               `json:"config_file"`
 }
 
-// kubeletTrackedFlags is the curated set of CLI flags to surface individually.
-var kubeletTrackedFlags = []string{
-	"config", "cgroup-driver", "kube-reserved", "kube-reserved-cgroup",
-	"system-reserved", "enforce-node-allocatable", "max-pods",
-	"rotate-certificates", "rotate-server-certificates", "tls-cipher-suites",
-	"container-runtime-endpoint", "pod-infra-container-image", "resolv-conf",
-	"feature-gates", "cloud-provider", "protect-kernel-defaults",
-	"streaming-connection-idle-timeout", "node-status-update-frequency",
-	"image-gc-high-threshold", "image-gc-low-threshold", "eviction-hard",
+// getKubeletTrackedFlags returns the curated set of CLI flags to surface individually.
+func getKubeletTrackedFlags() []string {
+	return []string{
+		"config", "cgroup-driver", "kube-reserved", "kube-reserved-cgroup",
+		"system-reserved", "enforce-node-allocatable", "max-pods",
+		"rotate-certificates", "rotate-server-certificates", "tls-cipher-suites",
+		"container-runtime-endpoint", "pod-infra-container-image", "resolv-conf",
+		"feature-gates", "cloud-provider", "protect-kernel-defaults",
+		"streaming-connection-idle-timeout", "node-status-update-frequency",
+		"image-gc-high-threshold", "image-gc-low-threshold", "eviction-hard",
+	}
 }
 
 // EmitKubeletActiveFlagsEvent reads kubelet's active startup flags from journalctl,
 // reads the config file if present, and emits a structured guest agent event.
 // Best-effort: never returns an error that should block provisioning.
 func (l *EventLogger) EmitKubeletActiveFlagsEvent() {
-	flags := pollKubeletFlags()
+	payload := buildKubeletFlagsPayload()
+	messageBytes := marshalWithSizeGuard(payload)
+	if messageBytes == nil {
+		return
+	}
+	now := time.Now()
+	l.LogEvent(kubeletActiveFlagsTaskName, string(messageBytes), EventLevelInformational, now, now)
+}
 
+// buildKubeletFlagsPayload assembles the payload from journalctl FLAG lines and config file.
+func buildKubeletFlagsPayload() KubeletActiveFlagsPayload {
+	flags := pollKubeletFlags()
 	payload := KubeletActiveFlagsPayload{
 		Flags:      make(map[string]string),
 		ConfigFile: map[string]any{},
 	}
+	if len(flags) == 0 {
+		return payload
+	}
 
-	if len(flags) > 0 {
-		payload.Found = true
-		payload.FlagCount = len(flags)
+	payload.Found = true
+	payload.FlagCount = len(flags)
 
-		// Extract config path
-		if configVal, ok := flags["config"]; ok && configVal != "" {
-			payload.UsesConfigFile = true
-			payload.ConfigPath = configVal
-		}
+	if configVal, ok := flags["config"]; ok && configVal != "" {
+		payload.UsesConfigFile = true
+		payload.ConfigPath = configVal
+	}
 
-		// Pick tracked flags
-		for _, name := range kubeletTrackedFlags {
-			if val, ok := flags[name]; ok {
-				payload.Flags[name] = val
-			}
-		}
-
-		// Read config file if present
-		configPath := payload.ConfigPath
-		if configPath == "" {
-			configPath = kubeletConfigFilePath
-		}
-		if payload.UsesConfigFile {
-			if data, err := os.ReadFile(configPath); err == nil {
-				var configContent any
-				if json.Unmarshal(data, &configContent) == nil {
-					payload.ConfigFile = configContent
-				}
-			}
+	for _, name := range getKubeletTrackedFlags() {
+		if val, ok := flags[name]; ok {
+			payload.Flags[name] = val
 		}
 	}
 
+	payload.ConfigFile = readKubeletConfigFile(payload.ConfigPath, payload.UsesConfigFile)
+	return payload
+}
+
+// readKubeletConfigFile reads and parses the kubelet config JSON file.
+func readKubeletConfigFile(configPath string, usesConfigFile bool) any {
+	if !usesConfigFile {
+		return map[string]any{}
+	}
+	if configPath == "" {
+		configPath = kubeletConfigFilePath
+	}
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return map[string]any{}
+	}
+	var content any
+	if json.Unmarshal(data, &content) != nil {
+		return map[string]any{}
+	}
+	return content
+}
+
+// marshalWithSizeGuard marshals the payload, dropping config_file if it exceeds the size cap.
+func marshalWithSizeGuard(payload KubeletActiveFlagsPayload) []byte {
 	messageBytes, err := json.Marshal(payload)
 	if err != nil {
 		slog.Error("failed to marshal kubelet active flags payload", "error", err)
-		return
+		return nil
+	}
+	if len(messageBytes) <= maxMessageBytes {
+		return messageBytes
 	}
 
-	// Size guard: if payload exceeds Context1 cap, drop config_file content
-	if len(messageBytes) > maxMessageBytes {
-		slog.Warn("kubelet active flags payload exceeded size cap, dropping config_file",
-			"size", len(messageBytes), "cap", maxMessageBytes)
-		payload.ConfigFile = "truncated:exceeded_size_cap"
-		messageBytes, err = json.Marshal(payload)
-		if err != nil {
-			slog.Error("failed to marshal truncated kubelet active flags payload", "error", err)
-			return
-		}
+	slog.Warn("kubelet active flags payload exceeded size cap, dropping config_file",
+		"size", len(messageBytes), "cap", maxMessageBytes)
+	payload.ConfigFile = "truncated:exceeded_size_cap"
+	messageBytes, err = json.Marshal(payload)
+	if err != nil {
+		slog.Error("failed to marshal truncated kubelet active flags payload", "error", err)
+		return nil
 	}
-
-	now := time.Now()
-	l.LogEvent(kubeletActiveFlagsTaskName, string(messageBytes), EventLevelInformational, now, now)
+	return messageBytes
 }
 
 // pollKubeletFlags polls journalctl for kubelet's FLAG lines, retrying until they appear.
 // Returns a map of flag-name -> value.
 func pollKubeletFlags() map[string]string {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(kubeletFlagsPollMaxAttempts)*kubeletFlagsPollInterval)
+	defer cancel()
 	for range kubeletFlagsPollMaxAttempts {
-		flags := readKubeletFlags()
+		flags := readKubeletFlagsFromJournal(ctx)
 		if len(flags) > 0 {
 			return flags
 		}
@@ -127,10 +150,10 @@ func pollKubeletFlags() map[string]string {
 	return nil
 }
 
-// readKubeletFlags runs journalctl and parses FLAG lines.
-func readKubeletFlags() map[string]string {
+// readKubeletFlagsFromJournal runs journalctl and parses FLAG lines.
+func readKubeletFlagsFromJournal(ctx context.Context) map[string]string {
 	// #nosec G204 -- fixed command, no user input
-	cmd := exec.Command("journalctl", "-u", "kubelet", "--no-pager")
+	cmd := exec.CommandContext(ctx, "journalctl", "-u", "kubelet", "--no-pager")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil
@@ -157,4 +180,3 @@ func readKubeletFlags() map[string]string {
 	}
 	return flags
 }
-
