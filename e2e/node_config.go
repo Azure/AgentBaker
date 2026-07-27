@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Masterminds/semver/v3"
 
@@ -266,7 +265,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
 		},
-		OutboundCommand:  helpers.GetDefaultOutboundCommand(),
+		OutboundCommand:  "curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/",
 		KubernetesCaCert: base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.CaCertificate)),
 		KubeBinaryConfig: &aksnodeconfigv1.KubeBinaryConfig{
 			KubeBinaryUrl:             k8sConfig.CustomKubeBinaryURL,

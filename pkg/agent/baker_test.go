@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -1009,28 +1010,28 @@ var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
 
 var _ = Describe("GetGPUDriverVersion", func() {
 	It("should use 470 with nc v1", func() {
-		Expect(GetGPUDriverVersion("standard_nc6")).To(Equal(datamodel.Nvidia470CudaDriverVersion))
+		Expect(GetGPUDriverVersion("standard_nc6")).To(Equal(gpu.Nvidia470CudaDriverVersion))
 	})
 	It("should use cuda with nc v3", func() {
-		Expect(GetGPUDriverVersion("standard_nc6_v3")).To(Equal(datamodel.NvidiaCudaLTSDriverVersion))
+		Expect(GetGPUDriverVersion("standard_nc6_v3")).To(Equal(gpu.NvidiaCudaLTSDriverVersion))
 	})
 	It("should use grid with nv v5", func() {
-		Expect(GetGPUDriverVersion("standard_nv6ads_a10_v5")).To(Equal(datamodel.NvidiaGridDriverVersion))
-		Expect(GetGPUDriverVersion("Standard_nv36adms_A10_V5")).To(Equal(datamodel.NvidiaGridDriverVersion))
+		Expect(GetGPUDriverVersion("standard_nv6ads_a10_v5")).To(Equal(gpu.NvidiaGridDriverVersion))
+		Expect(GetGPUDriverVersion("Standard_nv36adms_A10_V5")).To(Equal(gpu.NvidiaGridDriverVersion))
 	})
 	It("should use grid v20 with rtx pro 6000 bse v6", func() {
-		Expect(GetGPUDriverVersion("standard_nc144ds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
-		Expect(GetGPUDriverVersion("Standard_NC288ds_xl_RTXPRO6000BSE_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
+		Expect(GetGPUDriverVersion("standard_nc144ds_xl_rtxpro6000bse_v6")).To(Equal(gpu.NvidiaGridV20DriverVersion))
+		Expect(GetGPUDriverVersion("Standard_NC288ds_xl_RTXPRO6000BSE_v6")).To(Equal(gpu.NvidiaGridV20DriverVersion))
 		// lds (lower-memory) variants share the same GPU/driver
-		Expect(GetGPUDriverVersion("standard_nc144lds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
-		Expect(GetGPUDriverVersion("Standard_NC288lds_xl_RTXPRO6000BSE_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
+		Expect(GetGPUDriverVersion("standard_nc144lds_xl_rtxpro6000bse_v6")).To(Equal(gpu.NvidiaGridV20DriverVersion))
+		Expect(GetGPUDriverVersion("Standard_NC288lds_xl_RTXPRO6000BSE_v6")).To(Equal(gpu.NvidiaGridV20DriverVersion))
 		// smaller GA fractional-GPU sizes also use grid-v20
-		Expect(GetGPUDriverVersion("standard_nc36ds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
-		Expect(GetGPUDriverVersion("standard_nc24lds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
+		Expect(GetGPUDriverVersion("standard_nc36ds_xl_rtxpro6000bse_v6")).To(Equal(gpu.NvidiaGridV20DriverVersion))
+		Expect(GetGPUDriverVersion("standard_nc24lds_xl_rtxpro6000bse_v6")).To(Equal(gpu.NvidiaGridV20DriverVersion))
 	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
 	It("should use cuda with nv v1", func() {
-		Expect(GetGPUDriverVersion("standard_nv6")).To(Equal(datamodel.NvidiaCudaLTSDriverVersion))
+		Expect(GetGPUDriverVersion("standard_nv6")).To(Equal(gpu.NvidiaCudaLTSDriverVersion))
 	})
 })
 
@@ -1064,16 +1065,16 @@ var _ = Describe("GetGPUDriverType", func() {
 
 var _ = Describe("GetAKSGPUImageSHA", func() {
 	It("should use newest AKSGPUGridVersionSuffix with nv v5", func() {
-		Expect(GetAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal(datamodel.AKSGPUGridVersionSuffix))
+		Expect(GetAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal(gpu.AKSGPUGridVersionSuffix))
 	})
 	It("should use newest AKSGPUGridV20VersionSuffix with rtx pro 6000 bse v6", func() {
-		Expect(GetAKSGPUImageSHA("standard_nc144ds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.AKSGPUGridV20VersionSuffix))
-		Expect(GetAKSGPUImageSHA("standard_nc144lds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.AKSGPUGridV20VersionSuffix))
-		Expect(GetAKSGPUImageSHA("standard_nc288ds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.AKSGPUGridV20VersionSuffix))
-		Expect(GetAKSGPUImageSHA("standard_nc288lds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.AKSGPUGridV20VersionSuffix))
+		Expect(GetAKSGPUImageSHA("standard_nc144ds_xl_rtxpro6000bse_v6")).To(Equal(gpu.AKSGPUGridV20VersionSuffix))
+		Expect(GetAKSGPUImageSHA("standard_nc144lds_xl_rtxpro6000bse_v6")).To(Equal(gpu.AKSGPUGridV20VersionSuffix))
+		Expect(GetAKSGPUImageSHA("standard_nc288ds_xl_rtxpro6000bse_v6")).To(Equal(gpu.AKSGPUGridV20VersionSuffix))
+		Expect(GetAKSGPUImageSHA("standard_nc288lds_xl_rtxpro6000bse_v6")).To(Equal(gpu.AKSGPUGridV20VersionSuffix))
 	})
 	It("should use newest AKSGPUCudaLTSVersionSuffix with non grid SKU", func() {
-		Expect(GetAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaLTSVersionSuffix))
+		Expect(GetAKSGPUImageSHA("standard_nc6_v3")).To(Equal(gpu.AKSGPUCudaLTSVersionSuffix))
 	})
 })
 
