@@ -17,6 +17,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -1560,69 +1561,10 @@ func getPortRangeEndValue(portRange string) int {
 }
 
 // NV series GPUs target graphics workloads vs NC which targets compute.
-// they typically use GRID, not CUDA drivers, and will fail to install CUDA drivers.
-// NVv1 seems to run with CUDA, NVv5 requires GRID.
-// NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
-func GetGPUDriverVersion(size string) string {
-	if useGridV20Drivers(size) {
-		return datamodel.NvidiaGridV20DriverVersion
-	}
-	if useGridDrivers(size) {
-		return datamodel.NvidiaGridDriverVersion
-	}
-	if isStandardNCv1(size) {
-		return datamodel.Nvidia470CudaDriverVersion
-	}
-	return datamodel.NvidiaCudaLTSDriverVersion
-}
-
-func isStandardNCv1(size string) bool {
-	tmp := strings.ToLower(size)
-	return strings.HasPrefix(tmp, "standard_nc") && !strings.Contains(tmp, "_v")
-}
-
-func useGridDrivers(size string) bool {
-	return datamodel.ConvergedGPUDriverSizes[strings.ToLower(size)]
-}
-
-// useGridV20Drivers reports whether the SKU needs the GRID v20 (595.x) driver
-// image (aks-gpu-grid-v20) rather than the standard GRID image (aks-gpu-grid).
-func useGridV20Drivers(size string) bool {
-	return datamodel.RTXPro6000GPUDriverSizes[strings.ToLower(size)]
-}
-
-func GetAKSGPUImageSHA(size string) string {
-	if useGridV20Drivers(size) {
-		return datamodel.AKSGPUGridV20VersionSuffix
-	}
-	if useGridDrivers(size) {
-		return datamodel.AKSGPUGridVersionSuffix
-	}
-	return datamodel.AKSGPUCudaLTSVersionSuffix
-}
-
-// GetGPUDriverType maps a GPU VM size to the aks-gpu image variant used to install its driver.
-// The value becomes NVIDIA_GPU_DRIVER_TYPE at provision time, which selects the container image
-// mcr.microsoft.com/aks/aks-gpu-<type>. Modern CUDA compute SKUs (T4, V100, A100, H100, H200, ...)
-// use the R580 LTS image (aks-gpu-cuda-lts): it retains Volta/V100 support that the newer aks-gpu-cuda
-// R595 line drops, is supported through Aug 2028, and is the branch the VHD driver prebake is built
-// against. Legacy NCv1 (K80) keeps the separate "cuda" path with its pinned R470 driver.
-func GetGPUDriverType(size string) string {
-	if useGridV20Drivers(size) {
-		return "grid-v20"
-	}
-	if useGridDrivers(size) {
-		return "grid"
-	}
-	if isStandardNCv1(size) {
-		return "cuda"
-	}
-	return "cuda-lts"
-}
-
-func GPUNeedsFabricManager(size string) bool {
-	return datamodel.FabricManagerGPUSizes[strings.ToLower(size)]
-}
+func GetGPUDriverVersion(size string) string { return gpu.GetGPUDriverVersion(size) }
+func GetAKSGPUImageSHA(size string) string   { return gpu.GetAKSGPUImageSHA(size) }
+func GetGPUDriverType(size string) string    { return gpu.GetGPUDriverType(size) }
+func GPUNeedsFabricManager(size string) bool { return gpu.GPUNeedsFabricManager(size) }
 
 func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {
 	return config.CustomCATrustConfig != nil && len(config.CustomCATrustConfig.CustomCATrustCerts) > 0

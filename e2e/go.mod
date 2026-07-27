@@ -4,7 +4,7 @@ go 1.26.4
 
 require (
 	github.com/Azure/agentbaker v0.20240503.0
-	github.com/Azure/agentbaker/aks-node-controller v0.0.0-20241215075802-f13a779d5362
+	github.com/Azure/agentbaker/aks-node-controller v0.0.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.20.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v3 v3.0.0-beta.2
