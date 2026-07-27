@@ -26,6 +26,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	MaxCustomDataLength = 87380
+)
+
 // TemplateGenerator represents the object that performs the template generation.
 type TemplateGenerator struct{}
 
@@ -95,11 +99,14 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.EnableScriptlessNBCCSECmd {
 		if supportsScriptlessPhase2(config) {
-			return t.getScriptlessNBCCustomData(config)
+			if customData := t.getScriptlessNBCCustomData(config); len(customData) < MaxCustomDataLength {
+				return customData
+			}
 		}
 		// if we cannot enable scriptless phase2, we need to fallback to scriptless phase1
 		config.EnableScriptlessNBCCSECmd = false
 		config.EnableScriptlessCSECmd = true
+		config.DisableCustomData = false
 	}
 
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
@@ -169,7 +176,7 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 }
 
 func supportsScriptlessPhase2(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return !config.PreProvisionOnly && (config.CustomCATrustConfig == nil || len(config.CustomCATrustConfig.CustomCATrustCerts) == 0)
+	return config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly
 }
 
 // renderEnabledFeatures serializes the feature toggle map into sorted KEY=VALUE lines for
@@ -449,7 +456,7 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 	if config.AgentPoolProfile.IsWindows() {
 		return t.getWindowsNodeCSECommand(config)
 	}
-	if config.EnableScriptlessNBCCSECmd && supportsScriptlessPhase2(config) {
+	if supportsScriptlessPhase2(config) {
 		return "/opt/azure/containers/aks-node-controller provision-wait"
 	}
 	return t.getLinuxNodeCSECommand(config)
@@ -1503,7 +1510,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
-		"GetSkipWaAgentHold":  func() bool { return config.EnableScriptlessCSECmd && supportsScriptlessPhase2(config) },
+		"GetSkipWaAgentHold":  func() bool { return supportsScriptlessPhase2(config) },
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},

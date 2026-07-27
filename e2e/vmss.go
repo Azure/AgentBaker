@@ -486,7 +486,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	}
 
 	scriptlessNBCCSECmdEnabled := usesScriptlessNBCCSECmd(s)
-	if s.Runtime.AKSNodeConfig != nil {
+	if s.Runtime.AKSNodeConfig != nil && scriptlessNBCCSECmdEnabled {
 		cse = nodeconfigutils.CSE
 		aksNodeConfig := s.Runtime.AKSNodeConfig
 
@@ -599,8 +599,7 @@ func usesScriptlessNBCCSECmd(s *Scenario) bool {
 	nbc := s.Runtime.NBC
 	return nbc.EnableScriptlessNBCCSECmd &&
 		!nbc.PreProvisionOnly &&
-		s.VHD.SupportsScriptless() &&
-		(nbc.CustomCATrustConfig == nil || len(nbc.CustomCATrustConfig.CustomCATrustCerts) == 0)
+		s.VHD.SupportsScriptless()
 }
 
 func enableScriptlessCompilation(s *Scenario) bool {
