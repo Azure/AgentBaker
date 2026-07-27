@@ -2,7 +2,7 @@ name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
   SKIP_E2E_TESTS: false
   E2E_FAILED_TESTS_RETRY_COUNT: 2
-  SUBSCRIPTION_ID: ""
+  SUBSCRIPTION_ID_OVERRIDE: ""
 
 jobs:
   - template: ./templates/e2e-template.yaml
@@ -11,5 +11,5 @@ jobs:
       IgnoreScenariosWithMissingVhd: false
       failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}
       variableGroup: ab-e2e-tme
-      subscriptionId: $(SUBSCRIPTION_ID)
+      subscriptionId: $(SUBSCRIPTION_ID_OVERRIDE)
 
