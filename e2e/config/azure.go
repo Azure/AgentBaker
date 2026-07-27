@@ -428,7 +428,22 @@ func (a *AzureClient) CreateVMManagedIdentityInRG(ctx context.Context, resourceG
 }
 
 func (a *AzureClient) createBlobStorageAccount(ctx context.Context) error {
-	poller, err := a.StorageAccounts.BeginCreate(ctx, ResourceGroupName(Config.DefaultLocation), Config.BlobStorageAccount(), armstorage.AccountCreateParameters{
+	resourceGroup := ResourceGroupName(Config.DefaultLocation)
+	accountName := Config.BlobStorageAccount()
+
+	// Storage account names are globally unique, so BeginCreate fails with a conflict
+	// (e.g. "StorageAccountAlreadyTaken") when the account already exists from a prior run.
+	// Check for an existing account in our resource group first and skip creation if present.
+	if _, err := a.StorageAccounts.GetProperties(ctx, resourceGroup, accountName, nil); err == nil {
+		return nil
+	} else {
+		var respErr *azcore.ResponseError
+		if !errors.As(err, &respErr) || respErr.StatusCode != http.StatusNotFound {
+			return fmt.Errorf("check existing storage account: %w", err)
+		}
+	}
+
+	poller, err := a.StorageAccounts.BeginCreate(ctx, resourceGroup, accountName, armstorage.AccountCreateParameters{
 		Kind:     to.Ptr(armstorage.KindStorageV2),
 		Location: to.Ptr(Config.DefaultLocation),
 		SKU: &armstorage.SKU{
