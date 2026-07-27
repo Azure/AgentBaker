@@ -2,7 +2,6 @@ name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
   SKIP_E2E_TESTS: false
   E2E_FAILED_TESTS_RETRY_COUNT: 2
-  SUBSCRIPTION_ID_OVERRIDE: ""
 
 jobs:
   - template: ./templates/e2e-template.yaml
