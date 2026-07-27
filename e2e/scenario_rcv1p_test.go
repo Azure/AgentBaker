@@ -310,7 +310,7 @@ func rcv1pOptInVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet) {
 func Test_RCV1P_Ubuntu2204(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Ubuntu 22.04 with VM opt-in tag",
+		Description: "Tests RCV1P cert mode on Ubuntu 22.04 with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -325,13 +325,34 @@ func Test_RCV1P_Ubuntu2204(t *testing.T) {
 	})
 }
 
+// Test_RCV1P_Ubuntu2604Minimal validates RCV1P cert download and trust store installation on Ubuntu 26.04 minimal.
+// Covers the newer Ubuntu LTS release to ensure the cert endpoint and trust store integration
+// work correctly across Ubuntu versions.
+func Test_RCV1P_Ubuntu2604Minimal(t *testing.T) {
+	skipIfRCV1PNotConfigured(t)
+	RunScenario(t, &Scenario{
+		Description: "Tests RCV1P cert mode on Ubuntu 26.04 minimal with VM opt-in tag",
+		Tags: Tags{
+			RCV1PCertMode: true,
+		},
+		Config: Config{
+			Cluster:         ClusterLatestKubernetesVersionKubenet,
+			VHD:             config.VHDUbuntu2604MinimalGen2Containerd,
+			VMConfigMutator: rcv1pVMConfigMutator(),
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateRCV1PCertMode(ctx, s)
+			},
+		},
+	})
+}
+
 // Test_RCV1P_Ubuntu2404 validates RCV1P cert download and trust store installation on Ubuntu 24.04.
 // Covers the newer Ubuntu LTS release to ensure the cert endpoint and trust store integration
 // work correctly across Ubuntu versions.
 func Test_RCV1P_Ubuntu2404(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Ubuntu 24.04 with VM opt-in tag",
+		Description: "Tests RCV1P cert mode on Ubuntu 24.04 with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -352,7 +373,7 @@ func Test_RCV1P_Ubuntu2404(t *testing.T) {
 func Test_RCV1P_AzureLinuxV3(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Azure Linux V3 with VM opt-in tag",
+		Description: "Tests RCV1P cert mode on Azure Linux V3 with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -373,7 +394,7 @@ func Test_RCV1P_AzureLinuxV3(t *testing.T) {
 func Test_RCV1P_ACL(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on ACL with VM opt-in tag",
+		Description: "Tests RCV1P cert mode on ACL with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -403,7 +424,7 @@ func Test_RCV1P_ACL(t *testing.T) {
 func Test_RCV1P_NotOptedIn(t *testing.T) {
 	skipIfRCV1PNotExplicit(t)
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode without VM opt-in tag; expects no cert installation",
+		Description: "Tests RCV1P cert mode without VM opt-in tag; expects no cert installation",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},

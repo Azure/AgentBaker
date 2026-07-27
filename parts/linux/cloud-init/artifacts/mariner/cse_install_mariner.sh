@@ -674,6 +674,10 @@ cleanUpGPUDrivers() {
   done
 }
 
+installMinimalBuildDeps() {
+    echo "installMinimalBuildDeps not implemented for mariner"
+}
+
 downloadContainerdFromVersion() {
     echo "downloadContainerdFromVersion not implemented for mariner"
 }

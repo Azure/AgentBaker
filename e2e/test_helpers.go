@@ -1032,7 +1032,7 @@ func attemptSSHConnection(ctx context.Context, s *Scenario) error {
 	return nil
 }
 
-func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) *Scenario {
+func runScenarioUbuntu2404GPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) *Scenario {
 	t.Helper()
 	return &Scenario{
 		Description:      fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2404 VHD can be properly bootstrapped and NPD tests are valid", vmSize),

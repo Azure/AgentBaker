@@ -803,6 +803,7 @@ testLtsKernel() {
     elif [ "$os_version" = "24.04" ]; then
       expected_kernel="6.8"
     else
+      # TODO(2604): update once 26.04 LTS kernel metapackage is available
       echo "LTS kernel not installed for: $os_version"
     fi
 
@@ -930,8 +931,8 @@ testLSMBPF() {
   os_sku=$1
   os_version=$2
 
-  # Only test on Ubuntu 24.04 and Azure Linux 3.0 that LSM BPF is configured correctly
-  if { [ "$os_sku" != "Ubuntu" ] || [ "$os_version" != "24.04" ]; } && { [ "$os_sku" != "AzureLinux" ] || [ "$os_version" != "3.0" ]; }; then
+  # Only test on Ubuntu 24.04/26.04 and Azure Linux 3.0 that LSM BPF is configured correctly
+  if { [ "$os_sku" != "Ubuntu" ] || { [ "$os_version" != "24.04" ] && [ "$os_version" != "26.04" ]; }; } && { [ "$os_sku" != "AzureLinux" ] || [ "$os_version" != "3.0" ]; }; then
     echo "$test: will not test for BPF to be present within LSM modules for SKU: $os_sku, version: $os_version"
     echo "$test:Finish"
     return 0
@@ -1772,9 +1773,14 @@ testContainerImagePrefetchScript() {
 testBccTools () {
   local test="BCCInstallTest"
   os_sku="${1}"
+  os_version="${2}"
   echo "$test: checking if BCC tools were successfully installed"
   if [ "$os_sku" = "AzureLinuxOSGuard" ]; then
     echo "$test: Skipping check on AzureLinuxOSGuard - BCC tools are not installed"
+    return 0
+  fi
+  if [ "$os_version" = "26.04" ]; then
+    echo "$test: Skipping check on Ubuntu 26.04 - BCC tools are not installed"
     return 0
   fi
   for line in '  - bcc-tools' '  - libbcc-examples'; do
@@ -2583,7 +2589,7 @@ testContainerNetworkingPluginsInstalled() {
 # This will keep the VM alive after the tests are run and we can SSH/Bastion into the VM to run the test manually.
 # Therefore, for example, you can run "sudo bash /var/lib/waagent/run-command/download/0/script.sh" to run the tests manually.
 checkPerformanceData
-testBccTools $OS_SKU
+testBccTools $OS_SKU $OS_VERSION
 testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled

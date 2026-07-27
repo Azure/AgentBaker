@@ -989,7 +989,7 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		Name string `json:"unit,omitempty"`
 	}
 	var failedUnits []systemdUnit
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json", 0, fmt.Sprintf("unable to list failed systemd units"))
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json", 0, "unable to list failed systemd units")
 	assert.NoError(s.T, json.Unmarshal([]byte(result.stdout), &failedUnits), `unable to parse and unmarshal "systemctl list-units" command output`)
 	failedUnits = lo.Filter(failedUnits, func(unit systemdUnit, _ int) bool {
 		if unitFailureAllowList[unit.Name] {
@@ -2958,8 +2958,11 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 	patterns := map[string]categoryPattern{
 		"PANIC/CRASH": {
 			pattern: `(kernel: )?(panic|oops|call trace|backtrace|general protection fault|BUG:|RIP:)`,
-			// exclude boot parameters like "panic=-1" and dm-verity's "panic-on-corruption" (used by ACL for verified boot)
-			exclude: `panic[-=]`,
+			// exclude boot parameters like "panic=-1" and dm-verity's "panic-on-corruption" (used by ACL for verified boot).
+			// Also exclude the benign DRM panic-handler registration messages ("Registered N planes with drm panic")
+			// emitted by simple-framebuffer/hyperv_drm on kernels with CONFIG_DRM_PANIC (6.10+, e.g. Ubuntu 26.04 /
+			// linux-azure 7.0). These log the drm_panic screen handler registering its planes at boot, not a kernel panic.
+			exclude: `panic[-=]|drm panic`,
 		},
 		"LOCKUP/STALL": {pattern: `(soft|hard) lockup|rcu.*(stall|detected stalls)|hung task|watchdog.*(detected|stuck)`},
 		"MEMORY":       {pattern: `oom[- ]killer|Out of memory:|page allocation failure|memory corruption`},
