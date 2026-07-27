@@ -112,21 +112,19 @@ upload_logs() {
         python3 /opt/azure/containers/provision_send_logs.py >/dev/null 2>&1
     fi
 }
-if [ "$EXIT_CODE" -ne 0 ]; then
-    upload_logs
-    exit "$EXIT_CODE"
-fi
-
-# Create stage marker for two-stage workflow
+# Create the marker for the completed provisioning stage.
 if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
     # Stage 1: Create marker indicating Stage 2 is needed
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete || exit 1
+    mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete
     echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
     echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
-    exit "$EXIT_CODE"
+else
+    # provision.complete signals that a normal provisioning attempt finished.
+    mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 fi
 
-# provision.complete is the marker for the second stage of the workflow
-mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete || exit 1
+if [ "$EXIT_CODE" -ne 0 ]; then
+    upload_logs
+fi
 
 exit "$EXIT_CODE"
