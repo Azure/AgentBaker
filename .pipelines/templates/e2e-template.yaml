@@ -98,6 +98,7 @@ jobs:
           BUILD_SRC_DIR: $(System.DefaultWorkingDirectory)
           DefaultWorkingDirectory: $(Build.SourcesDirectory)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
+          E2E_SUBSCRIPTION_ID: $(E2E_SUBSCRIPTION_ID)
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
           E2E_FAILED_TESTS_RETRY_COUNT: ${{parameters.failedTestsRetryCount}}
           RCV1P_TAGS_AUTO_INJECTED: ${{parameters.rcv1pTagsAutoInjected}}
@@ -115,13 +116,3 @@ jobs:
         artifact: $(LOGGING_DIR)
         condition: always()
         continueOnError: true
-
-      - task: AzureCLI@2
-        inputs:
-          azureSubscription: $(E2E_ARM_SERVICE_CONNECTION)
-          scriptType: bash
-          scriptLocation: inlineScript
-          inlineScript: |
-            bash .pipelines/scripts/e2e_delete_vmss.sh
-        displayName: ensure vmss deletion
-        condition: always()
