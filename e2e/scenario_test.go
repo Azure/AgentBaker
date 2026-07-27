@@ -80,6 +80,27 @@ func Test_ACL(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLGen2TL,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
+			},
+		},
+	})
+}
+
+func Test_ACL_CustomCA(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an ACL VHD can be properly bootstrapped and custom CA was correctly added",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2TL,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
 					CustomCATrustCerts: []string{
 						encodedTestCert,
@@ -97,9 +118,10 @@ func Test_ACL(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
-				// ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
-				// // ACL uses Azure Linux CA trust paths under /etc (read-only /usr via dm-verity)
-				// ValidateNonEmptyDirectory(ctx, s, "/etc/pki/ca-trust/source/anchors")
+				ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh")
+				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
+				// ACL uses Azure Linux CA trust paths under /etc (read-only /usr via dm-verity)
+				ValidateNonEmptyDirectory(ctx, s, "/etc/pki/ca-trust/source/anchors")
 			},
 		},
 	})
@@ -395,7 +417,7 @@ func Test_AzureLinuxV3(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_CustomCa(t *testing.T) {
+func Test_AzureLinuxV3_CustomCA(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that an AzureLinuxV3 node can be properly bootstrapped with custom ca",
 		Tags: Tags{
@@ -413,6 +435,7 @@ func Test_AzureLinuxV3_CustomCa(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/usr/share/pki/ca-trust-source/anchors")
+				ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh")
 			},
 		},
 	})
@@ -503,7 +526,7 @@ func Test_Ubuntu2204(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_CustomCa(t *testing.T) {
+func Test_Ubuntu2204_CustomCA(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node can be properly bootstrapped with custom CA trust",
 		Config: Config{
@@ -516,6 +539,7 @@ func Test_Ubuntu2204_CustomCa(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
+				ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh")
 			},
 		},
 	})
