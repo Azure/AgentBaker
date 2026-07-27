@@ -81,7 +81,7 @@ Describe 'cse_config.sh'
         sleep() { :; }   # never actually sleep in tests
 
         It 'reports config-file mode, the config path and tracked flags when kubelet uses --config'
-            journalctl() {
+            getKubeletJournalLogs() {
                 cat <<'EOF'
 Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213493    6736 flags.go:64] FLAG: --address="0.0.0.0"
 Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213575    6736 flags.go:64] FLAG: --anonymous-auth="false"
@@ -93,7 +93,7 @@ EOF
         End
 
         It 'reports uses_config_file=false and surfaces tracked flag values in inline-flags mode'
-            journalctl() {
+            getKubeletJournalLogs() {
                 cat <<'EOF'
 Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213600    6736 flags.go:64] FLAG: --config=""
 Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213601    6736 flags.go:64] FLAG: --cgroup-driver="systemd"
@@ -106,7 +106,7 @@ EOF
         End
 
         It 'de-duplicates flags repeated across kubelet restarts when counting'
-            journalctl() {
+            getKubeletJournalLogs() {
                 cat <<'EOF'
 Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213493    6736 flags.go:64] FLAG: --address="0.0.0.0"
 Jul 15 21:10:03 node kubelet[7001]: I0715 21:10:03.100000    7001 flags.go:64] FLAG: --address="0.0.0.0"
@@ -118,7 +118,7 @@ EOF
         End
 
         It 'reports found=false when kubelet logged no FLAG lines'
-            journalctl() { echo "-- No entries --"; }
+            getKubeletJournalLogs() { echo "-- No entries --"; }
             When call getKubeletActiveFlagsJSON
             The output should equal '{"found":false,"uses_config_file":false,"config_path":"","flag_count":0,"flags":{},"config_file":{}}'
         End
@@ -131,7 +131,7 @@ EOF
 
         It 'writes a guest agent event whose Message is the kubelet config JSON'
             EVENTS_LOGGING_DIR="$(mktemp -d)/"
-            journalctl() {
+            getKubeletJournalLogs() {
                 cat <<'EOF'
 Jul 15 20:57:27 node kubelet[6736]: I0715 20:57:27.213600    6736 flags.go:64] FLAG: --config="/etc/default/kubeletconfig.json"
 EOF

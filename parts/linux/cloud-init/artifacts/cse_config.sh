@@ -695,15 +695,22 @@ getKubeletActiveFlagLines() {
     # Poll briefly (bounded, breaking as soon as they appear) rather than delaying node startup.
     local max_attempts="${KUBELET_FLAGS_LOG_MAX_ATTEMPTS:-10}"
     local wait_sleep="${KUBELET_FLAGS_LOG_WAIT_SLEEP:-2}"
-    local flags="" attempt
+    local flags="" attempt raw
     for attempt in $(seq 1 "${max_attempts}"); do
-        flags="$(journalctl -u kubelet -b --no-pager -r 2>/dev/null | sed -n 's/.*FLAG: \(--.*\)$/\1/p' | awk '!seen[$0]++')"
+        raw="$(getKubeletJournalLogs)"
+        flags="$(printf '%s\n' "${raw}" | sed -n 's/.*FLAG: \(--.*\)$/\1/p' | awk '!seen[$0]++')"
         if [ -n "${flags}" ]; then
             break
         fi
         sleep "${wait_sleep}"
     done
     printf '%s\n' "${flags}"
+}
+
+# getKubeletJournalLogs fetches kubelet's journal output. Extracted as a separate function
+# so ShellSpec tests can mock it without relying on shell function shadowing of external binaries.
+getKubeletJournalLogs() {
+    journalctl -u kubelet -b --no-pager -r 2>/dev/null
 }
 
 # getKubeletActiveFlagsJSON builds a compact JSON object (emitted as a single-line string)
