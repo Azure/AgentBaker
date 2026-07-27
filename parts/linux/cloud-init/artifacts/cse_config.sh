@@ -703,6 +703,7 @@ getKubeletActiveFlagLines() {
         fi
         sleep "${wait_sleep}"
     done
+    printf '%s\n' "${flags}"
 }
 
 # getKubeletActiveFlagsJSON builds a compact JSON object (emitted as a single-line string)
