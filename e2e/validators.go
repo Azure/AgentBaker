@@ -205,7 +205,7 @@ func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 		"service principal secret": base64.StdEncoding.EncodeToString([]byte(s.GetServicePrincipalSecret())),
 		"bootstrap token":          s.GetTLSBootstrapToken(),
 	}
-	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log"} {
+	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log", "/var/log/azure/aks-node-controller.output"} {
 		for _, secretValue := range secrets {
 			if secretValue != "" {
 				ValidateFileExcludesExactContent(ctx, s, logFile, secretValue)
@@ -2775,10 +2775,10 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 	if usesScriptlessNBCCSECmd(s) {
 		fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
 		ValidateFileExists(ctx, s, fileNameToCheck)
-		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "Using NBC command for scriptless phase 2")
+		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2")
 		if enableScriptlessCompilation(s) {
 			ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-hotfix")
-			ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "Using hotfix binary")
+			ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using hotfix binary")
 		}
 	}
 }
@@ -2787,11 +2787,11 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	if s.Runtime.AKSNodeConfig != nil && usesScriptlessNBCCSECmd(s) {
-		logFile := "/var/log/azure/aks-node-controller.log"
+		logFile := "/var/log/azure/aks-node-controller.output"
 		if !fileHasContent(ctx, s, logFile, "env compare: no differences found between provision-config and nbc-cmd env vars") {
 			// Grep for all env-compare diff markers to show what's different.
 			diffCmd := "sudo grep -E 'differs|only-in-pc|only-in-nbc|env var differences' " + logFile + " || true"
-			result := execScriptOnVMForScenarioValidateExitCode(ctx, s, diffCmd, 0, "could not grep for differences in aks-node-controller.log")
+			result := execScriptOnVMForScenarioValidateExitCode(ctx, s, diffCmd, 0, "could not grep for differences in aks-node-controller.output")
 			s.T.Fatalf("expected no env var differences between provision-config and nbc-cmd, but found differences:\n%s", result.stdout)
 		}
 	}

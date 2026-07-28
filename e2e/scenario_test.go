@@ -401,7 +401,7 @@ func Test_AzureLinuxV3(t *testing.T) {
 				config.KubeletConfig.KubeletConfigFileConfig.SeccompDefault = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "aks-node-controller finished successfully")
 				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
 				ValidateFileHasContent(ctx, s, "/etc/dnf/automatic.conf", "emit_via = stdio")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
@@ -497,7 +497,7 @@ func Test_Ubuntu2204(t *testing.T) {
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "aks-node-controller finished successfully")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
