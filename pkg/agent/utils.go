@@ -382,7 +382,11 @@ func GetOrderedKubeletConfigFlagString(config *datamodel.NodeBootstrappingConfig
 	configuration with the customized one. */
 	kubeletCustomConfigurations := getKubeletCustomConfiguration(cs.Properties)
 	if kubeletCustomConfigurations != nil {
-		return getOrderedKubeletConfigFlagWithCustomConfigurationString(kubeletCustomConfigurations, k)
+		var version string
+		if cs.Properties.OrchestratorProfile != nil {
+			version = cs.Properties.OrchestratorProfile.OrchestratorVersion
+		}
+		return getOrderedKubeletConfigFlagWithCustomConfigurationString(kubeletCustomConfigurations, k, version)
 	}
 
 	if k == nil {
@@ -407,7 +411,7 @@ func GetOrderedKubeletConfigFlagString(config *datamodel.NodeBootstrappingConfig
 	return strings.Join(pairs, " ")
 }
 
-func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defaultConfig map[string]string) string {
+func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defaultConfig map[string]string, k8sVersion string) string {
 	config := customConfig
 
 	for k, v := range defaultConfig {
@@ -417,10 +421,13 @@ func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defa
 		}
 	}
 
+	// Filter out deprecated flags at output time rather than mutating the caller's CustomConfiguration.
+	deprecatedFlags := getDeprecatedKubeletFlags(k8sVersion)
+
 	keys := []string{}
 	ommitedKubletConfigFlags := datamodel.GetCommandLineOmittedKubeletConfigFlags()
 	for key := range config {
-		if !ommitedKubletConfigFlags[key] {
+		if !ommitedKubletConfigFlags[key] && !deprecatedFlags[key] {
 			keys = append(keys, key)
 		}
 	}
@@ -448,6 +455,17 @@ func getKubeletCustomConfiguration(properties *datamodel.Properties) map[string]
 		return nil
 	}
 	return kubeletConfigurations.Config
+}
+
+// getDeprecatedKubeletFlags returns flags that have been removed from KubeletConfiguration
+// at the given k8s version and must not appear on the command line.
+func getDeprecatedKubeletFlags(k8sVersion string) map[string]bool {
+	flags := map[string]bool{}
+	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
+	if IsKubernetesVersionGe(k8sVersion, "1.34.0") {
+		flags["--streaming-connection-idle-timeout"] = true
+	}
+	return flags
 }
 
 // IsKubeletConfigFileEnabled get if dynamic kubelet is supported in AKS and toggle is on.
@@ -482,6 +500,62 @@ func IsKubeletServingCertificateRotationEnabled(config *datamodel.NodeBootstrapp
 		return false
 	}
 	return config.KubeletConfig["--rotate-server-certificates"] == "true"
+}
+
+// Node Hardening cgroup slice names. AgentBaker is the single
+// source of truth for these values: cse_helpers.sh::ensureKubeletCgroupHierarchy
+// is what actually creates (or validates) the systemd slice unit on the node, so
+// the name must be decided here rather than accepted verbatim from the RP.
+const (
+	nodeHardeningKubeReservedCgroup   = "/kubereserved.slice"
+	nodeHardeningSystemReservedCgroup = "/system.slice"
+)
+
+// isNodeHardeningEnabled reports whether the RP has requested Node Hardening
+// cgroup enforcement for this node. The RP signals intent solely via
+// --enforce-node-allocatable containing both "kube-reserved" and "system-reserved"
+// (see ApplyNodeAllocatableEnforcement in aks-rp); any values it may additionally
+// send for --kube-reserved-cgroup/--system-reserved-cgroup are ignored, since
+// AgentBaker owns those slice names (see setNodeHardeningCgroupFlags).
+//
+// TODO: this detection is a proxy inferred from a flag the RP happens to set
+// today. If/when Node Hardening's own logic (the enable/disable decision,
+// --system-reserved formula, etc.) moves into AgentBaker, this should be
+// replaced with a real, explicit signal (e.g. a typed field on
+// CustomKubeletConfig) instead of inferring intent from --enforce-node-allocatable.
+func isNodeHardeningEnabled(kubeletFlags map[string]string) bool {
+	raw := strings.TrimSpace(kubeletFlags["--enforce-node-allocatable"])
+	raw = strings.TrimPrefix(raw, "[")
+	raw = strings.TrimSuffix(raw, "]")
+	enforced := strings.Split(raw, ",")
+	hasKubeReserved, hasSystemReserved := false, false
+	for _, v := range enforced {
+		switch strings.TrimSpace(v) {
+		case "kube-reserved":
+			hasKubeReserved = true
+		case "system-reserved":
+			hasSystemReserved = true
+		}
+	}
+	return hasKubeReserved && hasSystemReserved
+}
+
+// setNodeHardeningCgroupFlags assigns (or clears) --kube-reserved-cgroup and
+// --system-reserved-cgroup based solely on whether Node Hardening is
+// enabled (isNodeHardeningEnabled), overwriting/deleting any value the RP
+// may have set for these two keys directly.
+func setNodeHardeningCgroupFlags(kubeletFlags map[string]string) {
+	if isNodeHardeningEnabled(kubeletFlags) {
+		kubeletFlags["--kube-reserved-cgroup"] = nodeHardeningKubeReservedCgroup
+		kubeletFlags["--system-reserved-cgroup"] = nodeHardeningSystemReservedCgroup
+		// TODO: this is currently the only piece of Node Hardening logic owned by
+		// AgentBaker; --enforce-node-allocatable, --system-reserved, --kube-reserved,
+		// and the eviction-soft* flags are still computed and sent as raw values by
+		// the RP. If/when that logic moves into AgentBaker too, set those flags here.
+		return
+	}
+	delete(kubeletFlags, "--kube-reserved-cgroup")
+	delete(kubeletFlags, "--system-reserved-cgroup")
 }
 
 func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfiguration {

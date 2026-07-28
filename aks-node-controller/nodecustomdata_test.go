@@ -53,11 +53,18 @@ write_files:
 	assert.Equal(t, "gzip-content", string(gzipContent))
 }
 
-func TestProvisionAppliesRenderedWriteFilesBeforeNBCCmd(t *testing.T) {
+// TestDownloadHotfixAppliesRenderedWriteFilesWhenScriptsVersionMatches verifies that
+// downloadHotfix applies the rendered nodecustomdata write_files when the hotfix config's
+// scripts_version targets the current ANC version's YYYYMM.DD base with a strictly higher patch.
+func TestDownloadHotfixAppliesRenderedWriteFilesWhenScriptsVersionMatches(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.0"
+	defer func() { Version = origVersion }()
+
 	tempDir := t.TempDir()
 	markerPath := filepath.Join(tempDir, "marker.txt")
 	renderedPath := filepath.Join(tempDir, "nodecustomdata.yml")
-	scriptPath := filepath.Join(tempDir, "test_nbccmd.sh")
+	hotfixPath := filepath.Join(tempDir, "hotfix-config.json")
 
 	rendered := fmt.Sprintf(`#cloud-config
 write_files:
@@ -68,14 +75,83 @@ write_files:
     rendered-marker
 `, markerPath)
 	require.NoError(t, os.WriteFile(renderedPath, []byte(rendered), 0o600))
+	require.NoError(t, os.WriteFile(hotfixPath, []byte(`{"scripts_version": "202604.01.1"}`), 0o644))
 
-	script := fmt.Sprintf("#!/bin/bash\ngrep -qx 'rendered-marker' %s\n", markerPath)
-	require.NoError(t, os.WriteFile(scriptPath, []byte(script), 0o700))
-
-	tt := NewTestApp(t, TestAppConfig{RunFunc: cmdRunner})
+	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.nodeCustomDataPath = renderedPath
+	tt.App.hotfixVersionPath = hotfixPath
 
-	result, err := tt.App.Provision(context.Background(), ProvisionFlags{NBCCmd: scriptPath})
+	// No Hotfixes/Version set, so downloadBinaryHotfixIfNeeded is a no-op and downloadHotfix
+	// should return nil while still having applied the rendered custom data.
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+
+	markerContent, err := os.ReadFile(markerPath)
 	require.NoError(t, err)
-	assert.Equal(t, "0", result.ExitCode)
+	assert.Equal(t, "rendered-marker\n", string(markerContent))
+}
+
+// TestDownloadHotfixSkipsRenderedWriteFilesWhenScriptsVersionAbsent verifies that no
+// nodecustomdata is applied when the hotfix config does not set scripts_version.
+func TestDownloadHotfixSkipsRenderedWriteFilesWhenScriptsVersionAbsent(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.0"
+	defer func() { Version = origVersion }()
+
+	tempDir := t.TempDir()
+	markerPath := filepath.Join(tempDir, "marker.txt")
+	renderedPath := filepath.Join(tempDir, "nodecustomdata.yml")
+	hotfixPath := filepath.Join(tempDir, "hotfix-config.json")
+
+	rendered := fmt.Sprintf(`#cloud-config
+write_files:
+- path: %s
+  permissions: "0644"
+  owner: root
+  content: |
+    rendered-marker
+`, markerPath)
+	require.NoError(t, os.WriteFile(renderedPath, []byte(rendered), 0o600))
+	require.NoError(t, os.WriteFile(hotfixPath, []byte(`{}`), 0o644))
+
+	tt := NewTestApp(t, TestAppConfig{})
+	tt.App.nodeCustomDataPath = renderedPath
+	tt.App.hotfixVersionPath = hotfixPath
+
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+
+	_, err := os.Stat(markerPath)
+	assert.True(t, os.IsNotExist(err), "marker file should not be written when scripts_version is absent")
+}
+
+// TestDownloadHotfixSkipsRenderedWriteFilesWhenBaseDiffers verifies that a scripts_version
+// targeting a different YYYYMM.DD base than the current ANC version is not applied.
+func TestDownloadHotfixSkipsRenderedWriteFilesWhenBaseDiffers(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.0"
+	defer func() { Version = origVersion }()
+
+	tempDir := t.TempDir()
+	markerPath := filepath.Join(tempDir, "marker.txt")
+	renderedPath := filepath.Join(tempDir, "nodecustomdata.yml")
+	hotfixPath := filepath.Join(tempDir, "hotfix-config.json")
+
+	rendered := fmt.Sprintf(`#cloud-config
+write_files:
+- path: %s
+  permissions: "0644"
+  owner: root
+  content: |
+    rendered-marker
+`, markerPath)
+	require.NoError(t, os.WriteFile(renderedPath, []byte(rendered), 0o600))
+	require.NoError(t, os.WriteFile(hotfixPath, []byte(`{"scripts_version": "202605.30.1"}`), 0o644))
+
+	tt := NewTestApp(t, TestAppConfig{})
+	tt.App.nodeCustomDataPath = renderedPath
+	tt.App.hotfixVersionPath = hotfixPath
+
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+
+	_, err := os.Stat(markerPath)
+	assert.True(t, os.IsNotExist(err), "marker file should not be written when scripts_version base differs from current")
 }

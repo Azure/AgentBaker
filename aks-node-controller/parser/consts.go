@@ -26,7 +26,7 @@ const (
 	customSearchDomainsCSEScriptFilepath = "/opt/azure/containers/setup-custom-search-domains.sh"
 	dhcpV6ServiceCSEScriptFilepath       = "/etc/systemd/system/dhcpv6.service"
 	dhcpV6ConfigCSEScriptFilepath        = "/opt/azure/containers/enable-dhcpv6.sh"
-	initAKSCustomCloudFilepath           = "/opt/azure/containers/init-aks-custom-cloud.sh"
+	initAKSCloudFilepath                 = "/opt/azure/containers/init-aks-cloud.sh"
 )
 
 const (

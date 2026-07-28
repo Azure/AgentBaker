@@ -9,16 +9,19 @@ CVE_LIST_QUERY_OUTPUT_PATH=${TRIVY_REPORT_DIRNAME}/cve-list.txt
 TRIVY_DB_REPOSITORIES="mcr.microsoft.com/mirror/ghcr/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,public.ecr.aws/aquasecurity/trivy-db"
 
 # renovate: datasource=custom.deb2004 depName=trivy versioning=deb
-TRIVY_DEB_2004_VERSION="0.70.0-ubuntu20.04u3"
+TRIVY_DEB_2004_VERSION="0.70.0-ubuntu20.04u9"
 
 # renovate: datasource=custom.deb2204 depName=trivy versioning=deb
-TRIVY_DEB_2204_VERSION="0.70.0-ubuntu22.04u3"
+TRIVY_DEB_2204_VERSION="0.70.0-ubuntu22.04u9"
 
 # renovate: datasource=custom.deb2404 depName=trivy versioning=deb
-TRIVY_DEB_2404_VERSION="0.70.0-ubuntu24.04u3"
+TRIVY_DEB_2404_VERSION="0.70.0-ubuntu24.04u9"
+
+# renovate: datasource=custom.deb2604 depName=trivy versioning=deb
+TRIVY_DEB_2604_VERSION="0.70.0-ubuntu26.04u12"
 
 # renovate: datasource=rpm depName=trivy registryUrl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata
-TRIVY_RPM_VERSION="0.70.0-3.azl3"
+TRIVY_RPM_VERSION="0.70.0-9.azl3"
 
 # Fallback version for SKUs without PMC packages (Flatcar, AzureContainerLinux, AzureLinuxOSGuard).
 # This MUST match an actual upstream GitHub release tag — PMC versions (0.68.x) don't exist on GitHub.
@@ -77,50 +80,79 @@ retrycmd_if_failure() {
     echo Executed \"$@\" $i times;
 }
 
+addPMCAptKey() {
+    local OS_VERSION=${1}
+
+    retrycmd_if_failure 120 5 25 curl -fsSL -o /tmp/microsoft.asc https://packages.microsoft.com/keys/microsoft.asc || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+    gpg --dearmor < /tmp/microsoft.asc > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+    retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+
+    if [ "${OS_VERSION}" = "26.04" ]; then
+        # Ubuntu 26.04 (Resolute) PMC repo is signed with Microsoft's newer 2025 gpg key
+        retrycmd_if_failure 120 5 25 curl -fsSL -o /tmp/microsoft-2025.asc https://packages.microsoft.com/keys/microsoft-2025.asc || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+        gpg --dearmor < /tmp/microsoft-2025.asc > /tmp/microsoft-2025.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+        retrycmd_if_failure 10 5 10 cp /tmp/microsoft-2025.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+    fi
+}
+
+installAzCLIFromUbuntuPMC() {
+    local ARCHITECTURE=${1}
+
+    apt_get_install 5 1 60 ca-certificates curl apt-transport-https lsb-release gnupg
+
+    if [ "${ARCHITECTURE,,}" = "arm64" ]; then
+        echo "deb [arch=arm64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
+    else
+        echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
+    fi
+
+    apt_get_update
+    apt_get_install 5 1 60 azure-cli
+}
+
 install_azure_cli() {
     OS_SKU=${1}
     OS_VERSION=${2}
     ARCHITECTURE=${3}
     TEST_VM_ADMIN_USERNAME=${4}
 
-    if [ "$OS_SKU" = "Ubuntu" ] && [ "$OS_VERSION" = "22.04" ] && [ "${ARCHITECTURE,,}" = "arm64" ]; then
-        apt_get_update
-        apt_get_install 5 1 60 python3-pip
-        pip install azure-cli
-        export PATH="/home/$TEST_VM_ADMIN_USERNAME/.local/bin:$PATH"
-        CHECKAZ=$(pip freeze | grep "azure-cli==")
-        if [ -z $CHECKAZ ]; then
-            echo "Azure CLI is not installed properly."
-            exit 1
-        fi
-    elif [ "$OS_SKU" = "Ubuntu" ] && [ "$OS_VERSION" = "24.04" ] && [ "${ARCHITECTURE,,}" = "arm64" ]; then
-        apt_get_install 5 1 60 ca-certificates curl apt-transport-https lsb-release gnupg
-        curl -sL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-        echo "deb [arch=arm64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
-        apt_get_update
-        apt_get_install 5 1 60 azure-cli
-    elif [ "$OS_SKU" = "Ubuntu" ] && { [ "$OS_VERSION" = "20.04" ] || [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "24.04" ]; } && [ "${ARCHITECTURE,,}" != "arm64" ]; then
-        apt_get_install 5 1 60 ca-certificates curl apt-transport-https lsb-release gnupg
-        curl -sL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-        echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
-        apt_get_update
-        apt_get_install 5 1 60 azure-cli
-    elif [ "$OS_SKU" = "CBLMariner" ] || [ "$OS_SKU" = "AzureLinux" ]; then
+    if [ "$OS_SKU" != "Ubuntu" ] && [ "$OS_SKU" != "CBLMariner" ] && [ "$OS_SKU" != "AzureLinux" ] && [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureContainerLinux" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
+        echo "Unrecognized OS SKU for downloading az: $OS_SKU $OS_VERSION $ARCHITECTURE"
+        exit 1
+    fi
+
+    if [ "$OS_SKU" = "CBLMariner" ] || [ "$OS_SKU" = "AzureLinux" ]; then
         sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
         sudo sh -c 'echo -e "[azure-cli]\nname=Azure CLI\nbaseurl=https://packages.microsoft.com/yumrepos/azure-cli\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/azure-cli.repo'
         sudo dnf install -y azure-cli
-    elif [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
+        return 0
+    fi
+
+    if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
         python3 -m venv "/home/$TEST_VM_ADMIN_USERNAME/venv"
         export PATH="/home/$TEST_VM_ADMIN_USERNAME/venv/bin:$PATH"
         pip install azure-cli
         CHECKAZ=$(pip freeze | grep "azure-cli==")
-        if [ -z $CHECKAZ ]; then
+        if [ -z "$CHECKAZ" ]; then
+            echo "Azure CLI is not installed properly."
+            exit 1
+        fi
+        return 0
+    fi
+
+    if [ "$OS_VERSION" = "26.04" ]; then
+        # TODO(2604): install azcli from PMC once the resolute package is available
+        apt_get_update
+        apt_get_install 5 1 60 python3-pip
+        pip install azure-cli --break-system-packages
+        export PATH="/home/$TEST_VM_ADMIN_USERNAME/.local/bin:$PATH"
+        CHECKAZ=$(pip freeze | grep "azure-cli==")
+        if [ -z "$CHECKAZ" ]; then
             echo "Azure CLI is not installed properly."
             exit 1
         fi
     else
-        echo "Unrecognized SKU, Version, and Architecture combination for downloading az: $OS_SKU $OS_VERSION $ARCHITECTURE"
-        exit 1
+        installAzCLIFromUbuntuPMC "$ARCHITECTURE"
     fi
 }
 
@@ -136,14 +168,14 @@ login_with_user_assigned_managed_identity() {
    echo "logging into azure with flags: $LOGIN_FLAGS"
    az login $LOGIN_FLAGS
 }
+
 login_with_umsi_object_id() {
     login_with_user_assigned_managed_identity "--object-id" "$1"
 }
+
 login_with_umsi_resource_id() {
     login_with_user_assigned_managed_identity "--resource-id" "$1"
 }
-
-install_azure_cli $OS_SKU $OS_VERSION $ARCHITECTURE $TEST_VM_ADMIN_USERNAME
 
 install_trivy_from_github() {
     # Use the dedicated GitHub fallback version — PMC versions (e.g., 0.68.2) don't have
@@ -181,6 +213,7 @@ install_trivy() {
                 20.04) deb_version="${TRIVY_DEB_2004_VERSION}" ;;
                 22.04) deb_version="${TRIVY_DEB_2204_VERSION}" ;;
                 24.04) deb_version="${TRIVY_DEB_2404_VERSION}" ;;
+                26.04) deb_version="${TRIVY_DEB_2604_VERSION}" ;;
                 *)
                     echo "No tracked trivy deb version for Ubuntu $os_version, downloading from GitHub"
                     install_trivy_from_github
@@ -200,6 +233,12 @@ install_trivy() {
             ;;
     esac
 }
+
+if [ "$OS_SKU" = "Ubuntu" ]; then
+    addPMCAptKey $OS_VERSION
+fi
+
+install_azure_cli $OS_SKU $OS_VERSION $ARCHITECTURE $TEST_VM_ADMIN_USERNAME
 
 install_trivy "$OS_SKU" "$OS_VERSION"
 

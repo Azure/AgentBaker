@@ -1,6 +1,6 @@
 #!/bin/bash
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
-OS_VARIANT=$(sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
+OS=$(sort -r /etc/*-release | sed -n 's/^ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
+OS_VARIANT=$(sort -r /etc/*-release | sed -n 's/^VARIANT_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
 UBUNTU_OS_NAME="UBUNTU"
 FLATCAR_OS_NAME="FLATCAR"
 ACL_OS_NAME="AZURECONTAINERLINUX"
@@ -48,6 +48,16 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
 
   # remove apport
   retrycmd_if_failure 10 2 60 apt-get purge --auto-remove apport open-vm-tools -y || exit 1
+
+  if ! isMinimalImage; then
+    # Remove PackageKit: an unused desktop D-Bus package manager whose apt hook (/etc/apt/apt.conf.d/20packagekit)
+    # runs `gdbus call --system` after every apt update. During early-boot CSE the system bus isn't ready yet, so
+    # that benign `Error connecting: ... Broken pipe` stderr trips the node-bootstrap apt error-check -> CSE exit 99
+    # -> node never joins. Purging it also drops packagekit-tools + software-properties-common (add-apt-repository,
+    # unused at node runtime; the build's only add-apt-repository usage is earlier in pre-install-dependencies.sh).
+    # No-op on the minimal image, which does not ship these.
+    retrycmd_if_failure 10 2 60 apt-get purge --auto-remove packagekit packagekit-tools software-properties-common -y || exit 1
+  fi
 
   # strip old kernels/packages
   retrycmd_if_failure 10 2 60 apt-get -y autoclean || exit 1

@@ -323,7 +323,7 @@ Describe 'cse_install_mariner.sh'
             # is captured as a status instead of aborting the example.
             ERR_NVIDIA_DRIVER_INSTALL=224
             NVIDIA_GPU_DRIVER_TYPE="grid-v20"
-            MOCK_VM_SKU="Standard_NC128ds_xl_RTXPRO6000BSE_v6"
+            MOCK_VM_SKU="Standard_NC144ds_xl_RTXPRO6000BSE_v6"
             When run downloadGPUDrivers
             The status should equal "$ERR_NVIDIA_DRIVER_INSTALL"
             The output should include "only supported on Ubuntu"
@@ -411,6 +411,49 @@ Describe 'cse_install_mariner.sh'
             When call installAznfsPackage
             The output should include "aznfs RPM not found"
             The status should equal 242
+        End
+    End
+
+    Describe 'managedGPUPackageList on Mariner'
+        BeforeEach 'setup'
+        setup() {
+            ENABLE_MANAGED_GPU_EXPERIENCE=""
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA=""
+        }
+
+        It 'returns base managed GPU packages by default'
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should equal 'datacenter-gpu-manager-4-core datacenter-gpu-manager-4-proprietary dcgm-exporter'
+            The output should not include 'nvidia-device-plugin'
+            The output should not include 'dra-driver-nvidia-gpu'
+        End
+
+        It 'includes nvidia-device-plugin when managed GPU experience is enabled'
+            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should include 'datacenter-gpu-manager-4-core'
+            The output should include 'datacenter-gpu-manager-4-proprietary'
+            The output should include 'dcgm-exporter'
+            The output should include 'nvidia-device-plugin'
+            The output should not include 'dra-driver-nvidia-gpu'
+        End
+
+        It 'includes dra-driver-nvidia-gpu when DRA mode is enabled'
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should include 'datacenter-gpu-manager-4-core'
+            The output should include 'datacenter-gpu-manager-4-proprietary'
+            The output should include 'dcgm-exporter'
+            The output should include 'dra-driver-nvidia-gpu'
+            The output should not include 'nvidia-device-plugin'
         End
     End
 End

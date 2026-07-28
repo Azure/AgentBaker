@@ -454,7 +454,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 						CloudProviderRateLimitBucketWrite: 100,
 						CloudProviderDisableOutboundSNAT:  to.Ptr(false),
 						NodeStatusUpdateFrequency:         "",
-						LoadBalancerSku:                   "Standard",
+						LoadBalancerSku:                   "standard",
 						ExcludeMasterFromStandardLB:       nil,
 						AzureCNIURLLinux:                  "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-linux-amd64-v1.6.21.tgz",
 						AzureCNIURLARM64Linux:             "",
@@ -852,10 +852,6 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 					GalleryName:   "AKSUbuntuEdgeZone",
 					ResourceGroup: "AKS-Ubuntu-EdgeZone",
 				},
-				"AKSFlatcar": {
-					GalleryName:   "aksflatcar",
-					ResourceGroup: "resourcegroup",
-				},
 			},
 		},
 		IsARM64:                   false,
@@ -893,7 +889,7 @@ func baseTemplateWindows(t testing.TB, location string) *datamodel.NodeBootstrap
 						AzureCNIURLWindows:   "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
 						ClusterSubnet:        "10.224.0.0/16",
 						DNSServiceIP:         "172.16.0.10",
-						LoadBalancerSku:      "Standard",
+						LoadBalancerSku:      "standard",
 						NetworkPlugin:        "azure",
 						NetworkPluginMode:    "overlay",
 						ServiceCIDR:          "172.16.0.0/16",
@@ -984,7 +980,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 				// VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
 				VnetCNIWindowsPluginsDownloadURL:     "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
 				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1",
-				WindowsProvisioningScriptsPackageURL: "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip",
+				WindowsProvisioningScriptsPackageURL: "",
 				WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
 			},
 			EndpointConfig: datamodel.AzureEndpointConfig{
@@ -1060,10 +1056,6 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 					GalleryName:   "AKSUbuntuEdgeZone",
 					ResourceGroup: "AKS-Ubuntu-EdgeZone",
 				},
-				"AKSFlatcar": {
-					GalleryName:   "aksflatcar",
-					ResourceGroup: "resourcegroup",
-				},
 			},
 		},
 	}
@@ -1078,12 +1070,19 @@ func pruneKubeletConfig(kubernetesVersion string, datamodel *datamodel.NodeBoots
 	if err != nil {
 		return nil, err
 	}
-	constraint, err := semver.NewConstraint(">= 1.30.0")
+	constraint130, err := semver.NewConstraint(">= 1.30.0")
 	if err != nil {
 		return nil, err
 	}
-	if constraint.Check(version) {
+	if constraint130.Check(version) {
 		delete(datamodel.KubeletConfig, "--azure-container-registry-config")
+	}
+	constraint134, err := semver.NewConstraint(">= 1.34.0")
+	if err != nil {
+		return nil, err
+	}
+	if constraint134.Check(version) {
+		delete(datamodel.KubeletConfig, "--streaming-connection-idle-timeout")
 	}
 	return datamodel, nil
 }

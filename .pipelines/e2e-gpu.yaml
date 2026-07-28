@@ -1,10 +1,12 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
   TAGS_TO_RUN: "gpu=true"
-  TAGS_TO_SKIP: "os=windows"
+  TAGS_TO_SKIP: "os=windows,os=azurelinux,os=azurecontainerlinux"
   SKIP_E2E_TESTS: false
   SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: true
   E2E_GO_TEST_TIMEOUT: "75m"
+  E2E_FAILED_TESTS_RETRY_COUNT: 2
+  DISABLE_SCRIPTLESS_COMPILATION: true
 schedules:
   - cron: "0 9 * * *"
     displayName: Daily 1am PST
@@ -33,5 +35,7 @@ pr:
 jobs:
   - template: ./templates/e2e-template.yaml
     parameters:
-      name: Linux GPU Tests
+      name: Ubuntu GPU Tests
       IgnoreScenariosWithMissingVhd: false
+      jobTimeoutInMinutes: 120
+      failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}

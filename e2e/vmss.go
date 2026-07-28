@@ -74,11 +74,129 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 	return f, nil
 }
 
+// maxOutboundCSERetries bounds how many times node provisioning is retried when the
+// CSE outbound connectivity preflight check fails (ERR_OUTBOUND_CONN_FAIL / exit 50).
+// This is a known transient e2e-infrastructure flake; a genuine product regression
+// fails on every attempt and still surfaces once the budget is exhausted.
+const maxOutboundCSERetries = 2
+
 func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
-	vm, err := CreateVMSSWithRetry(ctx, s)
+	vm, err := createVMSSRecreatingOnOutboundCSEFlake(ctx, s)
+
+	// Register teardown once, for the terminal VMSS (successful attempt, or an exhausted /
+	// non-retryable failure). Intermediate exit-50 retry attempts are deleted synchronously
+	// inside createVMSSRecreatingOnOutboundCSEFlake, so registering here avoids stale cleanup
+	// handlers that would otherwise re-extract logs from and re-delete a VMSS that was already
+	// replaced during the retry loop.
+	s.T.Cleanup(func() {
+		defer cleanupBastionTunnel(vm.SSHClient)
+		cleanupVMSS(ctx, s, vm)
+	})
+
 	skipTestIfSKUNotAvailableErr(s.T, err)
 
 	return vm, err
+}
+
+// createVMSSRecreatingOnOutboundCSEFlake creates the VMSS and, on the known transient e2e-infra
+// outbound flake, recreates the node a bounded number of times.
+//
+// The CSE outbound connectivity preflight check (curl mcr.microsoft.com, optionally via the e2e
+// proxy) intermittently fails all of its own retries and exits ERR_OUTBOUND_CONN_FAIL (50) before
+// kubelet starts. Recreating the node up to maxOutboundCSERetries times reduces PR-gate noise
+// without masking real regressions: a genuine product regression fails on every attempt and still
+// surfaces once the retry budget is exhausted.
+//
+// The returned VMSS is the terminal one (successful attempt, or an exhausted / non-retryable
+// failure); the caller is responsible for registering its teardown.
+func createVMSSRecreatingOnOutboundCSEFlake(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
+	var vm *ScenarioVM
+	var err error
+	for attempt := 0; ; attempt++ {
+		vm, err = CreateVMSSWithRetry(ctx, s)
+		if err == nil {
+			return vm, nil
+		}
+		if attempt >= maxOutboundCSERetries || s.IsWindows() || config.Config.KeepVMSS {
+			return vm, err
+		}
+		// The VMExtensionProvisioningError returned by the create operation does not reliably
+		// embed the CSE status JSON, so classify the failure from the extension instance view
+		// (the same source getCustomScriptExtensionStatus parses) rather than string-matching
+		// the ARM error. Only the outbound preflight exit code is treated as retryable.
+		exitCode, ok := getLinuxCSEExitCode(ctx, s)
+		if !ok || exitCode != cseExitCodeOutboundConnFail {
+			return vm, err
+		}
+		toolkit.Logf(ctx, "CSE failed with ERR_OUTBOUND_CONN_FAIL (exit %s) on VMSS %q: known transient e2e outbound flake, recreating node (attempt %d/%d)", exitCode, s.Runtime.VMSSName, attempt+1, maxOutboundCSERetries)
+		// Close this attempt's bastion tunnel before recreating: the SSH client is established
+		// even on an exit-50 failure (the node booted, only the CSE preflight failed). The single
+		// cleanup registered by the caller covers only the terminal VM, so without this the
+		// detached "az network bastion tunnel" process and SSH client would leak until test exit
+		// and could interfere with subsequent retries.
+		cleanupBastionTunnel(vm.SSHClient)
+		deleteVMSSAndWait(ctx, s)
+	}
+}
+
+// getLinuxCSEExitCode queries the VMSS instance view and returns the Linux CSE exit code
+// parsed from the CustomScript extension status. It reports ok=false when no parseable CSE
+// exit code is available (e.g. Windows, a non-CSE failure, or the instance view is not yet
+// populated). This is the reliable source of the exit code because the ARM provisioning
+// error does not consistently carry the full CSE status payload.
+func getLinuxCSEExitCode(ctx context.Context, s *Scenario) (string, bool) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+	defer cancel()
+	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetVMsClientListOptions{
+		Expand: to.Ptr("instanceView"),
+	})
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return "", false
+		}
+		for _, vmssVM := range page.Value {
+			if vmssVM.Properties == nil || vmssVM.Properties.InstanceView == nil {
+				continue
+			}
+			for _, extension := range vmssVM.Properties.InstanceView.Extensions {
+				// Only inspect the CSE extension; other extensions attached by a scenario must not
+				// be mistaken for the CSE status this classifier depends on.
+				if extension == nil || extension.Name == nil || *extension.Name != cseExtensionName {
+					continue
+				}
+				for _, status := range extension.Statuses {
+					if status == nil {
+						continue
+					}
+					cseStatus, err := parseLinuxCSEMessage(*status)
+					if err != nil || cseStatus == nil || cseStatus.ExitCode == "" {
+						continue
+					}
+					return cseStatus.ExitCode, true
+				}
+			}
+		}
+	}
+	return "", false
+}
+
+// deleteVMSSAndWait synchronously deletes the scenario's VMSS so the same name can be
+// safely reused on the next provisioning attempt. Unlike deleteVMSS (fire-and-forget at
+// test cleanup), this waits for the delete to complete to avoid a create/delete conflict.
+func deleteVMSSAndWait(ctx context.Context, s *Scenario) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
+	defer cancel()
+	poller, err := config.Azure.VMSS.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+		ForceDeletion: to.Ptr(true),
+	})
+	if err != nil {
+		s.T.Logf("failed to begin delete of vmss %q for retry: %s", s.Runtime.VMSSName, err)
+		return
+	}
+	if _, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions); err != nil {
+		s.T.Logf("failed to wait for delete of vmss %q for retry: %s", s.Runtime.VMSSName, err)
+	}
 }
 
 // CustomDataWithHack is similar to nodeconfigutils.CustomData, but it uses a hack to run new aks-node-controller binary.
@@ -367,11 +485,12 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		require.NoError(s.T, err)
 	}
 
-	if s.Runtime.AKSNodeConfig != nil {
+	scriptlessNBCCSECmdEnabled := usesScriptlessNBCCSECmd(s)
+	if s.Runtime.AKSNodeConfig != nil && scriptlessNBCCSECmdEnabled {
 		cse = nodeconfigutils.CSE
 		aksNodeConfig := s.Runtime.AKSNodeConfig
 
-		if s.Runtime.NBC.EnableScriptlessNBCCSECmd {
+		if scriptlessNBCCSECmdEnabled {
 			cse = nodeBootstrapping.CSE
 		}
 
@@ -379,7 +498,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 			if config.Config.DisableScriptLessCompilation {
 				var data string
 				var err error
-				if s.Runtime.NBC.EnableScriptlessNBCCSECmd {
+				if scriptlessNBCCSECmdEnabled {
 					return nodeBootstrapping.CustomData
 				}
 				if s.VHD.Flatcar {
@@ -392,7 +511,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 			}
 			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 			require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
-			if s.Runtime.NBC.EnableScriptlessNBCCSECmd {
+			if scriptlessNBCCSECmdEnabled {
 				customData := nodeBootstrapping.CustomData
 				customData, err = CustomDataWithNBCCmdHack(s, customData, binaryURL)
 				require.NoError(s.T, err, "failed to generate custom data with NBC cmd hack")
@@ -416,9 +535,9 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 			customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
 			require.NoError(s.T, err, "failed to inject customData write_files entries")
 		}
-		if s.Runtime.NBC.EnableScriptlessCSECmd && !s.Runtime.NBC.EnableScriptlessNBCCSECmd && s.VHD.SupportsScriptless() {
-			// Validate that the custom data doesn't contain any script content,
-			// which indicates that the scriptless CSE is working as intended
+		if s.Runtime.NBC.EnableScriptlessCSECmd && !scriptlessNBCCSECmdEnabled && s.VHD.SupportsScriptless() {
+			// Validate that the custom data indicates scriptless CSE is enabled by checking
+			// for the scriptless overrides sentinel file path.
 			decodedCustomData, err := base64.StdEncoding.DecodeString(customData)
 			require.NoError(s.T, err, "failed to decode custom data")
 			reader, err := gzip.NewReader(bytes.NewReader(decodedCustomData))
@@ -471,6 +590,16 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementNvmeDisk)
 	}
 	return model
+}
+
+func usesScriptlessNBCCSECmd(s *Scenario) bool {
+	if s == nil || s.Runtime == nil || s.Runtime.NBC == nil || s.VHD == nil {
+		return false
+	}
+	nbc := s.Runtime.NBC
+	return nbc.EnableScriptlessNBCCSECmd &&
+		!nbc.PreProvisionOnly &&
+		s.VHD.SupportsScriptless()
 }
 
 func enableScriptlessCompilation(s *Scenario) bool {
@@ -552,10 +681,9 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		return vm, fmt.Errorf("failed to get VM private IP address: %w", err)
 	}
 
-	s.T.Cleanup(func() {
-		defer cleanupBastionTunnel(vm.SSHClient)
-		cleanupVMSS(ctx, s, vm)
-	})
+	// NOTE: teardown (log extraction + VMSS deletion) is registered once by the caller
+	// ConfigureAndCreateVMSS after the outbound-flake retry loop settles, not here per attempt,
+	// to avoid stale cleanup handlers from retried/recreated VMSS instances.
 
 	result := "SSH Instructions: (may take a few minutes for the VM to be ready for SSH)\n========================\n"
 	if config.Config.KeepVMSS {
@@ -568,6 +696,16 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	s.T.Log(result)
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+
+	// Log VMSS tags for diagnostics (visible in test-log.json via gotestsum --jsonfile).
+	// For RCV1P tests, annotates the opt-in tag to help distinguish our tags from platform-injected ones.
+	vmssID := "<unknown>"
+	if vmssResp.ID != nil {
+		vmssID = *vmssResp.ID
+	}
+	// In the single-subscription model, if the scenario tags RCV1PCertMode we set the opt-in tag ourselves.
+	weSetRCV1PTag := s.Tags.RCV1PCertMode
+	logRCV1PAwareTags(s, "VMSS", "creation", s.Runtime.VMSSName, vmssID, vmssResp.Tags, weSetRCV1PTag, false)
 	if !s.Config.SkipSSHConnectivityValidation {
 		var bastErr error
 		vm.SSHClient, bastErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
@@ -585,12 +723,57 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		return vm, fmt.Errorf("failed to wait for VM to reach running state: %w", err)
 	}
 
+	// Log VM instance tags for diagnostics (visible in test-log.json via gotestsum --jsonfile)
+	vmInstanceID := "<unknown>"
+	if vm.VM.ID != nil {
+		vmInstanceID = *vm.VM.ID
+	}
+	logRCV1PAwareTags(s, "VM instance", "running", *vm.VM.InstanceID, vmInstanceID, vm.VM.Tags, weSetRCV1PTag, true)
+
 	return &ScenarioVM{
 		VMSS:      &vmssResp.VirtualMachineScaleSet,
 		PrivateIP: vm.PrivateIP,
 		VM:        vm.VM,
 		SSHClient: vm.SSHClient,
 	}, nil
+}
+
+// rcv1pTagKey is the VMSS/VM tag that opts a resource into hardened root-cert bootstrap.
+const rcv1pTagKey = "platformsettings.host_environment.service.platform_optedin_for_rootcerts"
+
+// logRCV1PAwareTags logs the tags on a VMSS or VM instance, annotating the RCV1P
+// opt-in tag with provenance (set by us vs. platform-injected, inherited or not).
+// resourceKind is a human-readable kind ("VMSS" or "VM instance"); timingVerb describes
+// when the snapshot was taken ("creation" or "running"). inherited indicates the tags
+// were copied from a parent resource (true for VM instance tags inherited from VMSS).
+func logRCV1PAwareTags(s *Scenario, resourceKind, timingVerb, name, id string, tags map[string]*string, weSetTag, inherited bool) {
+	if tags == nil {
+		s.T.Logf("%s %s (id: %s) has no tags after %s", resourceKind, name, id, timingVerb)
+		return
+	}
+	s.T.Logf("%s %s (id: %s) tags after %s (%d):", resourceKind, name, id, timingVerb, len(tags))
+	inheritedNote := ""
+	if inherited {
+		inheritedNote = "inherited from VMSS, "
+	}
+	for k, v := range tags {
+		val := "<nil>"
+		if v != nil {
+			val = *v
+		}
+		if k == rcv1pTagKey {
+			if weSetTag {
+				s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — %sset by us]", k, val, inheritedNote)
+			} else {
+				s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — %splatform-injected]", k, val, inheritedNote)
+			}
+		} else {
+			s.T.Logf("  tag: %s = %s", k, val)
+		}
+	}
+	if _, hasTag := tags[rcv1pTagKey]; !hasTag && s.Tags.RCV1PCertMode {
+		s.T.Logf("  [RCV1P opt-in tag %q NOT present on %s — this is expected for negative tests]", rcv1pTagKey, resourceKind)
+	}
 }
 
 // waitForVMRunningState polls until the VM reaches "Running" power state or the timeout elapses.
@@ -743,17 +926,22 @@ func cleanupVMSS(ctx context.Context, s *Scenario, vm *ScenarioVM) {
 func extractLogsFromVM(ctx context.Context, s *Scenario, vm *ScenarioVM) {
 	if s.IsWindows() {
 		extractLogsFromVMWindows(ctx, s)
+		return
+	}
+	// When provisioning fails before an SSH connection is established (e.g. the VMSS create
+	// or VM allocation itself failed), there is no SSH client to collect in-VM logs with.
+	// Skip SSH-based extraction in that case to avoid a burst of noisy "ssh client is nil"
+	// errors that would otherwise obscure the real provisioning failure. Boot diagnostics are
+	// still collected best-effort below, and VMSS deletion is handled by the caller.
+	if vm == nil || vm.SSHClient == nil {
+		s.T.Logf("skipping SSH log extraction for VMSS %q: no SSH connection (provisioning likely failed before SSH was established)", s.Runtime.VMSSName)
+	} else if err := extractLogsFromVMLinux(ctx, s, vm); err != nil {
+		s.T.Logf("failed to extract logs from VM: %s", err)
 	} else {
-		err := extractLogsFromVMLinux(ctx, s, vm)
-		if err != nil {
-			s.T.Logf("failed to extract logs from VM: %s", err)
-		} else {
-			s.T.Logf("extracted VM logs to %s", testDir(s.T))
-		}
-		err = extractBootDiagnostics(ctx, s)
-		if err != nil {
-			s.T.Logf("failed to extract boot diagnostics from VM: %s", err)
-		}
+		s.T.Logf("extracted VM logs to %s", testDir(s.T))
+	}
+	if err := extractBootDiagnostics(ctx, s); err != nil {
+		s.T.Logf("failed to extract boot diagnostics from VM: %s", err)
 	}
 }
 
@@ -840,6 +1028,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"syslog":                               "sudo cat /var/log/" + syslogHandle,
 		"journalctl":                           "sudo journalctl --boot=0 --no-pager",
 		"azure.json":                           "sudo cat /etc/kubernetes/azure.json",
+		"provision.json":                       "sudo cat /var/log/azure/aks/provision.json",
 	}
 	if s.SecureTLSBootstrappingEnabled() {
 		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
@@ -906,7 +1095,6 @@ hnsdiag list endpoints >> network_config.txt
 // it then lists the blobs in the container and prints the content of each blob
 func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	if !s.T.Failed() {
-		s.T.Logf("skipping logs extraction from windows VM, as the test didn't fail")
 		return
 	}
 
@@ -1108,6 +1296,20 @@ func addSecondaryNIC(vmss *armcompute.VirtualMachineScaleSet) {
 			},
 		},
 	)
+}
+
+// enableAcceleratedNetworking explicitly enables Accelerated Networking on the
+// primary NIC of the VMSS. This ensures MANA (Microsoft Azure Network Adapter)
+// is active on the VM, which is required for V5+ VM series.
+func enableAcceleratedNetworking(vmss *armcompute.VirtualMachineScaleSet) {
+	primaryNIC, err := getVMSSNICConfig(vmss)
+	if err != nil {
+		panic(fmt.Sprintf("enableAcceleratedNetworking: unable to get primary NIC config: %v", err))
+	}
+	if primaryNIC.Properties == nil {
+		primaryNIC.Properties = &armcompute.VirtualMachineScaleSetNetworkConfigurationProperties{}
+	}
+	primaryNIC.Properties.EnableAcceleratedNetworking = to.Ptr(true)
 }
 
 // addDualStackSecondaryNIC appends a secondary (non-primary) NIC with both IPv4 and IPv6
@@ -1426,7 +1628,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 		model.Properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{
 			Extensions: []*armcompute.VirtualMachineScaleSetExtension{
 				{
-					Name: to.Ptr("vmssCSE"),
+					Name: to.Ptr(cseExtensionName),
 					Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
 						Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
 						Type:                    to.Ptr("CustomScript"),

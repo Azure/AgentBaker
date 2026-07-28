@@ -55,7 +55,6 @@ var expectedKubeletConfigFlags = "--address=0.0.0.0" +
 	" --resolv-conf=/etc/resolv.conf" +
 	" --rotate-certificates=true" +
 	" --rotate-server-certificates=true" +
-	" --streaming-connection-idle-timeout=4h0m0s" +
 	" --system-reserved=cpu=2,memory=1Gi" +
 	" --tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt" +
 	" --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256," +
@@ -99,7 +98,6 @@ var expectedKubeletJSON = `{
     "clusterDNS": [
         "10.0.0.10"
     ],
-    "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
     "imageGCHighThresholdPercent": 90,
     "imageGCLowThresholdPercent": 70,
@@ -499,7 +497,168 @@ oom_score = -999
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getContainerdConfigBase64(tt.args.aksnodeconfig); got != tt.want {
+			if got := getContainerdConfigBase64(tt.args.aksnodeconfig, ""); got != tt.want {
+				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getContainerdConfigV2(t *testing.T) {
+	type args struct {
+		aksnodeconfig *aksnodeconfigv1.Configuration
+		noGpu         bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "Containerd v2 default config",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+						ContainerdVersion: "2.0.0",
+					},
+				},
+			},
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+oom_score = -999
+[plugins."io.containerd.cri.v1.images"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = ""
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[plugins."io.containerd.cri.v1.runtime".containerd]
+    default_runtime_name = "runc"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+[metrics]
+  address = "0.0.0.0:10257"
+`)),
+		},
+		{
+			name: "Containerd v2 with GPU",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					NeedsCgroupv2: to.Ptr(true),
+					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+						ContainerdVersion: "2.0.1",
+					},
+					GpuConfig: &aksnodeconfigv1.GpuConfig{
+						EnableNvidia: to.Ptr(true),
+					},
+				},
+				noGpu: false,
+			},
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+oom_score = -999
+[plugins."io.containerd.cri.v1.images"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = ""
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[plugins."io.containerd.cri.v1.runtime".containerd]
+    default_runtime_name = "nvidia-container-runtime"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+[metrics]
+  address = "0.0.0.0:10257"
+`)),
+		},
+		{
+			name: "Containerd v2 no GPU template",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+						ContainerdVersion: "2.0.0",
+					},
+					GpuConfig: &aksnodeconfigv1.GpuConfig{
+						EnableNvidia: to.Ptr(true),
+					},
+				},
+				noGpu: true,
+			},
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+oom_score = -999
+[plugins."io.containerd.cri.v1.images"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = ""
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[plugins."io.containerd.cri.v1.runtime".containerd]
+    default_runtime_name = "runc"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+[metrics]
+  address = "0.0.0.0:10257"
+`)),
+		},
+		{
+			name: "Containerd v1 still uses old templates",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					NeedsCgroupv2: to.Ptr(true),
+					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+						ContainerdVersion: "1.7.22",
+					},
+				},
+			},
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+oom_score = -999
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+  enable_cdi = true
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    default_runtime_name = "runc"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+  [plugins."io.containerd.grpc.v1.cri".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+  address = "0.0.0.0:10257"
+`)),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			containerdVersion := tt.args.aksnodeconfig.GetContainerdConfig().GetContainerdVersion()
+			var got string
+			if tt.args.noGpu {
+				got = getNoGPUContainerdConfigBase64(tt.args.aksnodeconfig, containerdVersion)
+			} else {
+				got = getContainerdConfigBase64(tt.args.aksnodeconfig, containerdVersion)
+			}
+			if got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1380,18 +1539,17 @@ func Test_getKubeletConfigFileContent(t *testing.T) {
 						ClusterDns: []string{
 							"10.0.0.10",
 						},
-						StreamingConnectionIdleTimeout: "4h0m0s",
-						NodeStatusUpdateFrequency:      "10s",
-						ImageGcHighThresholdPercent:    to.Ptr(int32(90)),
-						ImageGcLowThresholdPercent:     to.Ptr(int32(70)),
-						CgroupsPerQos:                  to.Ptr(true),
-						CpuManagerPolicy:               "static",
-						TopologyManagerPolicy:          "best-effort",
-						MaxPods:                        to.Ptr(int32(110)),
-						PodPidsLimit:                   to.Ptr(int32(12345)),
-						ResolvConf:                     "/etc/resolv.conf",
-						CpuCfsQuota:                    to.Ptr(false),
-						CpuCfsQuotaPeriod:              "200ms",
+						NodeStatusUpdateFrequency:   "10s",
+						ImageGcHighThresholdPercent: to.Ptr(int32(90)),
+						ImageGcLowThresholdPercent:  to.Ptr(int32(70)),
+						CgroupsPerQos:               to.Ptr(true),
+						CpuManagerPolicy:            "static",
+						TopologyManagerPolicy:       "best-effort",
+						MaxPods:                     to.Ptr(int32(110)),
+						PodPidsLimit:                to.Ptr(int32(12345)),
+						ResolvConf:                  "/etc/resolv.conf",
+						CpuCfsQuota:                 to.Ptr(false),
+						CpuCfsQuotaPeriod:           "200ms",
 						EvictionHard: map[string]string{
 							"memory.available":  "750Mi",
 							"nodefs.available":  "10%",
@@ -1463,35 +1621,34 @@ func Test_getKubeletFlags(t *testing.T) {
 			args: args{
 				kubeletConfig: &aksnodeconfigv1.KubeletConfig{
 					KubeletFlags: map[string]string{
-						"--address":                           "0.0.0.0",
-						"--pod-manifest-path":                 "/etc/kubernetes/manifests",
-						"--cluster-domain":                    "cluster.local",
-						"--cluster-dns":                       "10.0.0.10",
-						"--cgroups-per-qos":                   "true",
-						"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
-						"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-						"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
-						"--max-pods":                          "110",
-						"--node-status-update-frequency":      "10s",
-						"--image-gc-high-threshold":           "85",
-						"--image-gc-low-threshold":            "80",
-						"--event-qps":                         "0",
-						"--pod-max-pids":                      "-1",
-						"--enforce-node-allocatable":          "pods",
-						"--streaming-connection-idle-timeout": "4h0m0s",
-						"--rotate-certificates":               "true",
-						"--rotate-server-certificates":        "true",
-						"--read-only-port":                    "10255",
-						"--protect-kernel-defaults":           "true",
-						"--resolv-conf":                       "/etc/resolv.conf",
-						"--anonymous-auth":                    "false",
-						"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
-						"--authentication-token-webhook":      "true",
-						"--authorization-mode":                "Webhook",
-						"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-						"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", //nolint:lll // what if you turn off dynamic kubelet using dynamic kubelet?
-						"--system-reserved":                   "cpu=2,memory=1Gi",
-						"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+						"--address":                      "0.0.0.0",
+						"--pod-manifest-path":            "/etc/kubernetes/manifests",
+						"--cluster-domain":               "cluster.local",
+						"--cluster-dns":                  "10.0.0.10",
+						"--cgroups-per-qos":              "true",
+						"--tls-cert-file":                "/etc/kubernetes/certs/kubeletserver.crt",
+						"--tls-private-key-file":         "/etc/kubernetes/certs/kubeletserver.key",
+						"--tls-cipher-suites":            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+						"--max-pods":                     "110",
+						"--node-status-update-frequency": "10s",
+						"--image-gc-high-threshold":      "85",
+						"--image-gc-low-threshold":       "80",
+						"--event-qps":                    "0",
+						"--pod-max-pids":                 "-1",
+						"--enforce-node-allocatable":     "pods",
+						"--rotate-certificates":          "true",
+						"--rotate-server-certificates":   "true",
+						"--read-only-port":               "10255",
+						"--protect-kernel-defaults":      "true",
+						"--resolv-conf":                  "/etc/resolv.conf",
+						"--anonymous-auth":               "false",
+						"--client-ca-file":               "/etc/kubernetes/certs/ca.crt",
+						"--authentication-token-webhook": "true",
+						"--authorization-mode":           "Webhook",
+						"--eviction-hard":                "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+						"--feature-gates":                "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", //nolint:lll // what if you turn off dynamic kubelet using dynamic kubelet?
+						"--system-reserved":              "cpu=2,memory=1Gi",
+						"--kube-reserved":                "cpu=100m,memory=1638Mi",
 					},
 				},
 			},
@@ -2079,6 +2236,101 @@ func Test_getLocalDnsCriticalFqdns(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getLocalDnsCriticalFqdns(tt.args.config); got != tt.want {
 				t.Errorf("getLocalDnsCriticalFqdns() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getLocalDnsHostsPluginRefreshIntervalInSeconds(t *testing.T) {
+	type args struct {
+		config *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "returns empty string when config is nil",
+			args: args{config: nil},
+			want: "",
+		},
+		{
+			name: "returns empty string when LocalDnsProfile is nil",
+			args: args{config: &aksnodeconfigv1.Configuration{}},
+			want: "",
+		},
+		{
+			name: "returns empty string when refresh interval is nil",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{},
+			}},
+			want: "",
+		},
+		{
+			name: "returns empty string when refresh interval is non-positive",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					HostsPluginRefreshIntervalInSeconds: to.Ptr(int32(0)),
+				},
+			}},
+			want: "",
+		},
+		{
+			name: "returns the refresh interval in seconds",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					HostsPluginRefreshIntervalInSeconds: to.Ptr(int32(45)),
+				},
+			}},
+			want: "45",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getLocalDnsHostsPluginRefreshIntervalInSeconds(tt.args.config); got != tt.want {
+				t.Errorf("getLocalDnsHostsPluginRefreshIntervalInSeconds() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getStringFromNetworkPluginType(t *testing.T) {
+	tests := []struct {
+		name string
+		enum aksnodeconfigv1.NetworkPlugin
+		want string
+	}{
+		{"azure", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE, helpers.NetworkPluginAzure},
+		{"kubenet", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET, helpers.NetworkPluginKubenet},
+		{"none matches scriptful raw string", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_NONE, helpers.NetworkPluginNone},
+		{"unspecified", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_UNSPECIFIED, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getStringFromNetworkPluginType(tt.enum); got != tt.want {
+				t.Errorf("getStringFromNetworkPluginType() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getStringFromNetworkPolicyType(t *testing.T) {
+	tests := []struct {
+		name string
+		enum aksnodeconfigv1.NetworkPolicy
+		want string
+	}{
+		{"azure", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE, helpers.NetworkPolicyAzure},
+		{"calico", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO, helpers.NetworkPolicyCalico},
+		{"none matches scriptful raw string", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_NONE, helpers.NetworkPolicyNone},
+		{"unspecified", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_UNSPECIFIED, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getStringFromNetworkPolicyType(tt.enum); got != tt.want {
+				t.Errorf("getStringFromNetworkPolicyType() = %q, want %q", got, tt.want)
 			}
 		})
 	}
