@@ -3114,11 +3114,12 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 // vulnerabilities (CVE-2026-31431 / DirtyFrag / Fragnesia: algif_aead, esp4, esp6, rxrpc)
 // are handled correctly per OS:
 //
-//   - Ubuntu fixed kernels: assert ABSENCE of the four modprobe blacklist entries. Ubuntu
-//     22.04 linux-azure 5.15.0-1116-azure and Ubuntu 24.04 linux-azure 6.8.0-1058-azure
-//     include the fixes, so new VHDs must stop blocking legitimate module use.
-//   - Ubuntu vulnerable/unknown kernels / Mariner: full check — modprobe config entries are
-//     present, modules are NOT loaded, and modprobe refuses to load them.
+//   - Ubuntu fixed kernels and future Ubuntu releases: assert ABSENCE of the four modprobe
+//     blacklist entries. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu 24.04
+//     linux-azure 6.8.0-1058-azure include the fixes, so new VHDs must stop blocking
+//     legitimate module use. Future Ubuntu releases do not inherit this mitigation by default.
+//   - Ubuntu 20.04 and vulnerable/unknown 22.04 / 24.04 kernels / Mariner: full check —
+//     modprobe config entries are present, modules are NOT loaded, and modprobe refuses to load them.
 //   - AzureLinux 3.0: assert ABSENCE of the four modprobe blacklist entries. AzL3 is
 //     descoped from the mitigation because kernel 6.6.139.1-1.azl3 and later fix all
 //     three CVEs upstream, AND customer workloads on AzL3 require those modules (the
@@ -3164,7 +3165,10 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 			`. /etc/os-release`,
 			`kernel_release="$(uname -r)"`,
 			`fixed_kernel=""`,
+			`expect_absent="false"`,
 			`case "$VERSION_ID" in`,
+			`  20.04)`,
+			`    ;;`,
 			`  22.04)`,
 			`    case "$kernel_release" in`,
 			`      *-azure) fixed_kernel="5.15.0-1116-azure" ;;`,
@@ -3177,9 +3181,19 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 			`      *-generic) fixed_kernel="6.8.0-124-generic" ;;`,
 			`    esac`,
 			`    ;;`,
+			`  *)`,
+			`    expect_absent="true"`,
+			`    ;;`,
 			`esac`,
 			`if [ -n "$fixed_kernel" ] && [ "$(printf '%s\n%s\n' "$fixed_kernel" "$kernel_release" | sort -V | head -n1)" = "$fixed_kernel" ]; then`,
-			`  echo "PASS: Ubuntu ${VERSION_ID} kernel ${kernel_release} includes Copy Fail / DirtyFrag / Fragnesia fixes; blacklist should be absent"`,
+			`  expect_absent="true"`,
+			`fi`,
+			`if [ "$expect_absent" = "true" ]; then`,
+			`  if [ -n "$fixed_kernel" ]; then`,
+			`    echo "PASS: Ubuntu ${VERSION_ID} kernel ${kernel_release} includes Copy Fail / DirtyFrag / Fragnesia fixes; blacklist should be absent"`,
+			`  else`,
+			`    echo "PASS: Ubuntu ${VERSION_ID} is not in Copy Fail / DirtyFrag / Fragnesia mitigation scope; blacklist should be absent"`,
+			`  fi`,
 			`  for mod in algif_aead esp4 esp6 rxrpc; do`,
 			`    if grep -qsE "^(install ${mod} /bin/false|blacklist ${mod})" /etc/modprobe.d/*.conf 2>/dev/null; then`,
 			`      echo "FAIL: ${mod} blacklist entry unexpectedly present on fixed Ubuntu kernel ${kernel_release}"`,
@@ -3193,7 +3207,7 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 		}, "\n")
 		script += "\n" + kernelModuleFullBlockValidationScript()
 		execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-			"Ubuntu vulnerable kernel module validation failed (fixed kernels should have no blacklist; older/unknown kernels should keep algif_aead/esp4/esp6/rxrpc blocked)")
+			"Ubuntu vulnerable kernel module validation failed (fixed/future Ubuntu should have no blacklist; Ubuntu 20.04 and older/unknown 22.04/24.04 kernels should keep algif_aead/esp4/esp6/rxrpc blocked)")
 		return
 	}
 

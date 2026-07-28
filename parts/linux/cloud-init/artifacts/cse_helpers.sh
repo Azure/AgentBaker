@@ -722,7 +722,8 @@ get_ubuntu_release() {
 }
 
 # Return 0 when the running Ubuntu kernel still needs the Copy Fail / DirtyFrag /
-# Fragnesia module deny mitigation, and 1 once the kernel includes the fixes.
+# Fragnesia module deny mitigation. Future Ubuntu releases are not in scope by
+# default; add them explicitly only if they ship a vulnerable kernel.
 ubuntuKernelNeedsVulnerableModuleMitigation() {
     local ubuntu_release
     local kernel_release
@@ -737,6 +738,10 @@ ubuntuKernelNeedsVulnerableModuleMitigation() {
     fi
 
     case "$ubuntu_release" in
+        20.04)
+            echo "Ubuntu 20.04 remains in scope for Copy Fail / DirtyFrag / Fragnesia vulnerable kernel module mitigation"
+            return 0
+            ;;
         22.04)
             case "$kernel_release" in
                 *-azure) fixed_kernel="5.15.0-1116-azure" ;;
@@ -758,8 +763,8 @@ ubuntuKernelNeedsVulnerableModuleMitigation() {
             esac
             ;;
         *)
-            echo "Unknown Ubuntu release '${ubuntu_release}'; keeping vulnerable kernel module mitigation enabled"
-            return 0
+            echo "Ubuntu release '${ubuntu_release}' is not in the Copy Fail / DirtyFrag / Fragnesia mitigation scope; skipping vulnerable kernel module mitigation"
+            return 1
             ;;
     esac
 
