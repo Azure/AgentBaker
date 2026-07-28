@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VULNERABLE_KERNEL_MODULE_DENY_PATTERN='^(install[[:space:]]+(algif_aead|esp4|esp6|rxrpc)[[:space:]]+[/]bin[/]false|blacklist[[:space:]]+(algif_aead|esp4|esp6|rxrpc))[[:space:]]*$'
+VULNERABLE_KERNEL_MODULE_DENY_PATTERN='^(install[[:space:]]+(algif_aead|esp4|esp6|rxrpc)[[:space:]]+[/]bin[/]false|blacklist[[:space:]]+(algif_aead|esp4|esp6|rxrpc))([[:space:]]+.*)?$'
 
 kernelVersionGe() {
   local version_a="$1"
@@ -44,6 +44,25 @@ ubuntuKernelIncludesVulnerableModuleFixes() {
   esac
 
   kernelVersionGe "$kernel_release" "$fixed_kernel"
+}
+
+removeVulnerableKernelModuleDenyRulesFromModprobeDirectory() {
+  local modprobe_conf
+  local tmp_modprobe_conf
+
+  for modprobe_conf in /etc/modprobe.d/*.conf; do
+    [ -f "$modprobe_conf" ] || continue
+    tmp_modprobe_conf="${modprobe_conf}.tmp.$$"
+    sed -E "/$VULNERABLE_KERNEL_MODULE_DENY_PATTERN/d" "$modprobe_conf" > "$tmp_modprobe_conf" || {
+      rm -f "$tmp_modprobe_conf"
+      return "$ERR_PACKER_COPY_FILE"
+    }
+    cat "$tmp_modprobe_conf" > "$modprobe_conf" || {
+      rm -f "$tmp_modprobe_conf"
+      return "$ERR_PACKER_COPY_FILE"
+    }
+    rm -f "$tmp_modprobe_conf" || return "$ERR_PACKER_COPY_FILE"
+  done
 }
 
 copyPackerFiles() {
@@ -508,6 +527,12 @@ copyPackerFiles() {
     echo "Copying modprobe-CIS.conf without algif_aead / esp4 / esp6 / rxrpc on Ubuntu ${OS_VERSION} (fixed or future Ubuntu kernels are not in mitigation scope)"
     cpAndMode "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" "$MODPROBE_CIS_DEST" 644
     rm -f "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" || exit "$ERR_PACKER_COPY_FILE"
+    removeVulnerableKernelModuleDenyRulesFromModprobeDirectory || exit "$ERR_PACKER_COPY_FILE"
+    if grep -qsE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf 2>/dev/null; then
+      echo "Failed to remove vulnerable module deny rules from /etc/modprobe.d/*.conf"
+      grep -nE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf || true
+      exit "$ERR_PACKER_COPY_FILE"
+    fi
   elif isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
     echo "Skipping modprobe-CIS.conf bake-in on AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix; OSGuard intentionally retains the bake-in)"
   else
