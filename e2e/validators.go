@@ -2227,6 +2227,22 @@ echo "  2. Hosts file populated later: CoreDNS picks it up via reload"
 		"localdns should work after cold start with empty hosts file and pick up populated file")
 }
 
+// ValidateANCLauncherOutput checks that the aks-node-controller-launcher.sh output contains
+// expectedContent, regardless of how the VHD launches it:
+//   - ACL/Flatcar VHDs still launch the launcher via the aks-node-controller.service systemd unit
+//     (ignition doesn't support cloud-boothooks), so its stdout/stderr only lands in the journal.
+//   - All other VHDs launch the launcher as a direct fork from the cloud-boothook (not a systemd
+//     unit, for faster dispatch - see baker.go boothookTemplate), with stdout/stderr redirected to
+//     /var/log/azure/aks-node-controller.output.
+func ValidateANCLauncherOutput(ctx context.Context, s *Scenario, expectedContent string) {
+	s.T.Helper()
+	if s.VHD.Flatcar {
+		ValidateJournalctlOutput(ctx, s, "aks-node-controller.service", expectedContent)
+		return
+	}
+	ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", expectedContent)
+}
+
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
 func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) {
 	s.T.Helper()
@@ -2758,11 +2774,12 @@ func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
 func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 	if usesScriptlessNBCCSECmd(s) {
 		fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
-		if enableScriptlessCompilation(s) {
-			fileNameToCheck = "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
-		}
 		ValidateFileExists(ctx, s, fileNameToCheck)
 		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "Using NBC command for scriptless phase 2")
+		if enableScriptlessCompilation(s) {
+			ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-hotfix")
+			ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "Using hotfix binary")
+		}
 	}
 }
 
