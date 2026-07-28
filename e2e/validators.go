@@ -22,6 +22,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/nodeexporter"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -2282,8 +2283,8 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	serviceName := "node-exporter.service"
 
 	// Check if node-exporter is installed on this VHD by looking for the skip sentinel file.
-	// The skip file is only present on VHDs that have node-exporter installed (Ubuntu, Mariner, Azure Linux).
-	// Flatcar, ACL, OSGuard, and older VHDs do not have node-exporter installed and will not have the skip file.
+	// The skip file is only present on supported Ubuntu and Azure Linux 3 VHDs with node-exporter installed.
+	// Mariner, Flatcar, ACL, OSGuard, Kata, and older VHDs do not have the skip file.
 	if !fileExist(ctx, s, skipFile) {
 		s.T.Logf("Skipping node-exporter validation: sentinel file %s not found (VHD does not have node-exporter installed)", skipFile)
 		return
@@ -2308,23 +2309,32 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	ValidateFileExists(ctx, s, skipFile)
 	ValidateFileExists(ctx, s, "/etc/node-exporter.d/web-config.yml")
 
-	// Validate that node-exporter is listening on port 19100 and serving metrics on the node ip.
-	// TLS is disabled by default (opt-in via NODE_EXPORTER_TLS_ENABLED=true in /etc/default/node-exporter),
-	// so we validate by making a plain HTTP request to the metrics endpoint.
-	// We avoid curl -sf here so that diagnostic messages (e.g. "Client sent an HTTP request to an HTTPS server")
-	// are visible in test logs rather than silently swallowed.
-	// We curl the node's private IP directly rather than discovering the listen address from ss,
-	// so we validate that the metrics endpoint is reachable on the actual node IP used by monitoring infrastructure.
-	s.T.Logf("Validating node-exporter is listening on port 19100 and serving metrics")
-	command := []string{
-		"set -ex",
-		fmt.Sprintf("echo \"node IP: %s\"", s.Runtime.VM.PrivateIP),
-		fmt.Sprintf("curl -sS --max-time 10 http://%s:19100/metrics 2>&1 | head -20", s.Runtime.VM.PrivateIP),
-		fmt.Sprintf("curl -sS --max-time 10 http://%s:19100/metrics 2>&1 | grep -q 'node_'", s.Runtime.VM.PrivateIP),
-	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100 and serving metrics over HTTP")
+	// Validate the metrics contract consumed by the AKS Prometheus default profile. Scrape the node IP directly
+	// so this also verifies that the endpoint is reachable on the address used by monitoring infrastructure.
+	s.T.Logf("Validating node-exporter metrics on port 19100")
+	metricsURL := fmt.Sprintf("http://%s:19100/metrics", s.Runtime.VM.PrivateIP)
+	scrapeAndValidateNodeExporter(ctx, s, metricsURL)
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-active %s", serviceName), 0,
+		"node-exporter should remain active after scraping")
 
 	s.T.Logf("node-exporter validation passed")
+}
+
+func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL string) {
+	s.T.Helper()
+
+	result := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("curl --noproxy '*' -sS --max-time 10 %q", metricsURL))
+	require.Equal(s.T, "0", result.exitCode,
+		"node-exporter scrape failed\nstdout: %s\nstderr: %s", result.stdout, result.stderr)
+
+	err := nodeexporter.ValidateMetrics(result.stdout)
+	const previewLimit = 2000
+	responsePreview := result.stdout
+	if len(responsePreview) > previewLimit {
+		responsePreview = responsePreview[:previewLimit] + "\n... response truncated"
+	}
+	require.NoErrorf(s.T, err, "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview)
 }
 
 func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
