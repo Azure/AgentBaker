@@ -174,15 +174,22 @@ func marshalWithSizeGuard(payload KubeletActiveFlagsPayload) []byte {
 }
 
 // pollKubeletFlags polls journalctl for kubelet's FLAG lines, retrying until they appear.
-// Returns a map of flag-name -> value.
+// Returns a map of flag-name -> value. A nil return from readKubeletFlagsFromJournal means
+// journalctl itself is unavailable (not installed, permission denied, etc.) — retrying won't
+// help, so we bail immediately.
 func pollKubeletFlags() map[string]string {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(kubeletFlagsPollMaxAttempts)*kubeletFlagsPollInterval)
 	defer cancel()
 	for i := 0; i < kubeletFlagsPollMaxAttempts; i++ {
 		flags := readKubeletFlagsFromJournal(ctx)
+		if flags == nil {
+			// journalctl unavailable — no point retrying
+			return nil
+		}
 		if len(flags) > 0 {
 			return flags
 		}
+		// journalctl succeeded but no FLAG lines yet — kubelet may still be starting
 		if ctx.Err() != nil {
 			break
 		}
