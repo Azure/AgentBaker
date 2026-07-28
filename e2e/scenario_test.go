@@ -545,6 +545,28 @@ func Test_Ubuntu2204_CustomCA(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_PreProvisionFailureIsReported(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a pre-provision failure is reported by CSE",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			CustomDataWriteFiles: []CustomDataWriteFile{{
+				Path:        "/opt/scripts/update_certs.sh",
+				Permissions: "0755",
+				Content:     "#!/bin/sh\nexit 1",
+			}},
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.PreProvisionOnly = true
+				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+					CustomCATrustCerts: []string{encodedTestCert},
+				}
+			},
+			ExpectedError: "command terminated with exit status=161",
+		},
+	})
+}
+
 func Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
 	t.Skip("Need a way to inject early failures into scriptless")
 	RunScenario(t, &Scenario{
