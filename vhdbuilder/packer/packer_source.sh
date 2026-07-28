@@ -16,17 +16,27 @@ kernelVersionGe() {
 ubuntuKernelIncludesVulnerableModuleFixes() {
   local kernel_release
   local fixed_kernel
+  local os_version
 
   kernel_release="$(uname -r 2>/dev/null || true)"
   if [ -z "$kernel_release" ]; then
     return 1
   fi
 
-  if [ -z "${OS_VERSION}" ]; then
+  # Prefer the OS_VERSION env var, but fall back to /etc/os-release when it is empty.
+  # copyPackerFiles runs in environments where OS_VERSION is not always exported, so
+  # relying on it alone made out-of-scope releases (e.g. Ubuntu 26.04) fall through to the
+  # default bake path and ship the deny rules. Reading /etc/os-release keeps this gate
+  # consistent with cleanup-vhd.sh and cse_helpers.sh, which detect the release the same way.
+  os_version="${OS_VERSION}"
+  if [ -z "$os_version" ]; then
+    os_version="$(awk -F= '$1 == "VERSION_ID" { gsub(/"/, "", $2); print $2; exit }' /etc/os-release 2>/dev/null || true)"
+  fi
+  if [ -z "$os_version" ]; then
     return 1
   fi
 
-  case "${OS_VERSION}" in
+  case "$os_version" in
     20.04) return 1 ;;
     22.04)
       case "$kernel_release" in
