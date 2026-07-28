@@ -146,6 +146,7 @@ EOF
         The contents of file "${MODPROBE_DIR}/custom.conf" should include "blacklist udf"
         The contents of file "${MODPROBE_DIR}/custom.conf" should not include "algif_aead"
         The contents of file "${MODPROBE_DIR}/custom.conf" should not include "esp4"
+        The output should include "Removed Copy Fail / DirtyFrag / Fragnesia module deny rules"
     End
 End
 
