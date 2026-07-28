@@ -2617,15 +2617,18 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 		"set -ex",
 		// List MIG devices using nvidia-smi
 		"sudo nvidia-smi mig -lgi",
-		// Ensure the output contains the expected MIG profile (will fail if "No MIG-enabled devices found")
-		"sudo nvidia-smi mig -lgi | grep -v 'No MIG-enabled devices found' | grep -q '" + migProfile + "'",
 	}
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "MIG instances with profile "+migProfile+" were not found")
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to list MIG instances")
 
 	stdout := execResult.stdout
-	instanceCount := strings.Count(stdout, migProfile)
-	require.Equal(s.T, instanceCountExpected, instanceCount, "expected %d MIG instances with profile %s, but found %d.\nOutput:\n%s", instanceCountExpected, migProfile, instanceCount, stdout)
 	require.NotContains(s.T, stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout)
+	instanceCount := 0
+	for _, line := range strings.Split(stdout, "\n") {
+		if strings.Contains(line, migProfile) {
+			instanceCount++
+		}
+	}
+	require.Equal(s.T, instanceCountExpected, instanceCount, "expected %d MIG instances with profile %s, but found %d.\nOutput:\n%s", instanceCountExpected, migProfile, instanceCount, stdout)
 	s.T.Logf("%d MIG instances with profile %s are created", instanceCountExpected, migProfile)
 }
 
