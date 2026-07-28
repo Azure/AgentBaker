@@ -538,7 +538,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 
 	RunScenario(t, &Scenario{
 		Description: "Tests capacity-aware MIG partitioning and the NVIDIA device plugin on Ubuntu 24.04 GPU nodes",
-		Location:    "westus2",
+		Location:    "westus3",
 		Tags: Tags{
 			GPU: true,
 		},

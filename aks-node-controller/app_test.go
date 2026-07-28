@@ -704,6 +704,18 @@ func TestCompareEnvs_OnlyInNBCCmd(t *testing.T) {
 	assert.True(t, found, "expected CompareEnvs guest agent event")
 }
 
+func TestDiffEnvMaps_AllowsTotalGPUInstanceSlicesOnlyInNBCCmd(t *testing.T) {
+	diffs := diffEnvMaps(
+		map[string]string{"GPU_INSTANCE_PROFILE": "MIG2g"},
+		map[string]string{
+			"GPU_INSTANCE_PROFILE":      "MIG2g",
+			"TOTAL_GPU_INSTANCE_SLICES": "7",
+		},
+	)
+
+	assert.Empty(t, diffs)
+}
+
 func TestCompareEnvs_DifferingValues(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	logCap := installLogCapturer(t)
