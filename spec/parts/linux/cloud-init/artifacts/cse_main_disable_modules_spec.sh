@@ -1,7 +1,7 @@
 #!/usr/bin/env shellspec
 
 # Unit tests for vulnerable kernel module mitigation helpers in cse_main.sh
-# and the OS gate that selects which OS variants get VHD-build-time apply.
+# and the OS gate that selects which OS variants get mitigation apply or cleanup.
 
 load_kernel_mitigation_helpers() {
     UBUNTU_OS_NAME="UBUNTU"
@@ -91,7 +91,65 @@ Describe 'disableVulnerableKernelModule()'
     End
 End
 
-# Tests the Ubuntu kernel version gate used by the VHD-build-time apply.
+Describe 'removeVulnerableKernelModuleDenyRules()'
+    MODPROBE_DIR=""
+
+    setup() {
+        MODPROBE_DIR="$(mktemp -d)"
+        eval "$(sed -n '/^removeVulnerableKernelModuleDenyRules()/,/^}/p' parts/linux/cloud-init/artifacts/cse_main.sh | \
+            sed "s|/etc/modprobe.d|${MODPROBE_DIR}|g")"
+    }
+
+    cleanup() {
+        rm -rf "$MODPROBE_DIR"
+    }
+
+    BeforeEach 'setup'
+    AfterEach 'cleanup'
+
+    It 'removes stale Copy Fail / DirtyFrag / Fragnesia deny rules'
+        cat > "${MODPROBE_DIR}/modprobe-CIS.conf" <<'EOF'
+install algif_aead /bin/false
+blacklist algif_aead
+install esp4 /bin/false
+blacklist esp4
+install esp6 /bin/false
+blacklist esp6
+install rxrpc /bin/false
+blacklist rxrpc
+install cramfs /bin/false
+blacklist cramfs
+EOF
+        When call removeVulnerableKernelModuleDenyRules
+        The status should be success
+        The contents of file "${MODPROBE_DIR}/modprobe-CIS.conf" should not include "algif_aead"
+        The contents of file "${MODPROBE_DIR}/modprobe-CIS.conf" should not include "esp4"
+        The contents of file "${MODPROBE_DIR}/modprobe-CIS.conf" should not include "esp6"
+        The contents of file "${MODPROBE_DIR}/modprobe-CIS.conf" should not include "rxrpc"
+        The contents of file "${MODPROBE_DIR}/modprobe-CIS.conf" should include "install cramfs /bin/false"
+        The contents of file "${MODPROBE_DIR}/modprobe-CIS.conf" should include "blacklist cramfs"
+        The output should include "Removed Copy Fail / DirtyFrag / Fragnesia module deny rules"
+    End
+
+    It 'removes stale deny rules with trailing comments and preserves unrelated content'
+        cat > "${MODPROBE_DIR}/custom.conf" <<'EOF'
+# keep this comment
+install algif_aead /bin/false # stale mitigation
+blacklist esp4 # stale mitigation
+options dummy value=1
+blacklist udf
+EOF
+        When call removeVulnerableKernelModuleDenyRules
+        The status should be success
+        The contents of file "${MODPROBE_DIR}/custom.conf" should include "# keep this comment"
+        The contents of file "${MODPROBE_DIR}/custom.conf" should include "options dummy value=1"
+        The contents of file "${MODPROBE_DIR}/custom.conf" should include "blacklist udf"
+        The contents of file "${MODPROBE_DIR}/custom.conf" should not include "algif_aead"
+        The contents of file "${MODPROBE_DIR}/custom.conf" should not include "esp4"
+    End
+End
+
+# Tests the Ubuntu kernel version gate used by the runtime apply/cleanup decision.
 Describe 'ubuntuKernelNeedsVulnerableModuleMitigation()'
     setup() {
         OS=""

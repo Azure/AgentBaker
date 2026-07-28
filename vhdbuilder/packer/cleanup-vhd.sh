@@ -57,9 +57,20 @@ removeVulnerableKernelModuleDenyRulesFromModprobeDirectory() {
   for modprobe_conf in /etc/modprobe.d/*.conf; do
     [ -f "$modprobe_conf" ] || continue
     tmp_modprobe_conf="${modprobe_conf}.tmp.$$"
-    sed -E "/$VULNERABLE_KERNEL_MODULE_DENY_PATTERN/d" "$modprobe_conf" > "$tmp_modprobe_conf"
-    cat "$tmp_modprobe_conf" > "$modprobe_conf"
-    rm -f "$tmp_modprobe_conf"
+    sed -E "/$VULNERABLE_KERNEL_MODULE_DENY_PATTERN/d" "$modprobe_conf" > "$tmp_modprobe_conf" || {
+      echo "Failed to update vulnerable module deny rules in ${modprobe_conf}"
+      rm -f "$tmp_modprobe_conf"
+      return 1
+    }
+    cat "$tmp_modprobe_conf" > "$modprobe_conf" || {
+      echo "Failed to write updated vulnerable module deny rules to ${modprobe_conf}"
+      rm -f "$tmp_modprobe_conf"
+      return 1
+    }
+    rm -f "$tmp_modprobe_conf" || {
+      echo "Failed to remove temporary modprobe file ${tmp_modprobe_conf}"
+      return 1
+    }
   done
 
   if grep -qsE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf 2>/dev/null; then
