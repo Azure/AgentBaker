@@ -169,4 +169,10 @@ message Configuration {
 
   // CSE timeout override in seconds. If not specified, defaults to 15 minutes with a maximum of 360 minutes (6 hours).
   optional int32 cse_timeout = 44;
+
+  // enabled_features is a generic set of feature toggles delivered to the node as KEY=VALUE
+  // lines in enabled_features.sh, read by the aks-node-controller wrapper. Each entry becomes
+  // an exported environment variable (e.g. "ENABLE_PROVISIONING_HOTFIX" -> "true"). Using a map
+  // lets new toggles be added without producer-side code changes. Empty/absent => no file, no-op.
+  map<string, string> enabled_features = 45;
 }

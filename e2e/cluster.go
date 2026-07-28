@@ -181,9 +181,7 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		debugDeps = append(debugDeps, acrNonAnon, acrAnon)
 	}
 	proxyURL := dag.Go1(g, kubeForDebug, func(ctx context.Context, k *Kubeclient) (string, error) {
-		if err := k.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location)); err != nil {
-			return "", err
-		}
+		k.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location))
 		if isNetworkIsolated {
 			return "", nil
 		}
@@ -351,6 +349,10 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 			return &existingCluster.ManagedCluster, nil
 		}
 		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s has deleting or missing node resource group %s, deleting cluster", clusterName, *existingCluster.Properties.NodeResourceGroup)
+		nodeResourceGroup := *existingCluster.Properties.NodeResourceGroup
+		if cleanupErr := detachNodeResourceGroupReferencesFromClusterSubnet(ctx, *existingCluster.Location, *existingCluster.Name, nodeResourceGroup); cleanupErr != nil {
+			toolkit.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
+		}
 		if err := deleteCluster(ctx, clusterName, resourceGroupName); err != nil {
 			return nil, err
 		}
@@ -362,8 +364,12 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 			return nil, fmt.Errorf("failed waiting for cluster deletion: %w", err)
 		}
 		return nil, nil
-	case "Failed":
+	case "Failed", "Deleting":
 		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s in Failed state, deleting", clusterName)
+		nodeResourceGroup := *existingCluster.Properties.NodeResourceGroup
+		if cleanupErr := detachNodeResourceGroupReferencesFromClusterSubnet(ctx, *existingCluster.Location, *existingCluster.Name, nodeResourceGroup); cleanupErr != nil {
+			toolkit.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
+		}
 		if err := deleteCluster(ctx, clusterName, resourceGroupName); err != nil {
 			return nil, err
 		}
@@ -375,9 +381,20 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 			return nil, fmt.Errorf("failed waiting for cluster deletion: %w", err)
 		}
 		return nil, nil
+
+	case "Creating":
+		// For Creating state, wait for the cluster to become ready.
+		toolkit.Logf(ctx, "Cluster is currently being created. Will wait for creation to finish: %s", clusterName)
+		return waitUntilClusterReady(ctx, clusterName, location)
+
+	case "Starting":
+		// For Starting state, wait for the cluster to become ready.
+		toolkit.Logf(ctx, "Cluster is currently being started. Will wait for start to finish: %s", clusterName)
+		return waitUntilClusterReady(ctx, clusterName, location)
+
 	default:
-		// other provisioning state,  deleting, , stopping,,cancaled,cancelling,"Creating", "Updating", "Scaling", "Migrating", "Upgrading", "Starting", "Restoring": .. plus many others.
-		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Unexpected cluster provisioning state %s: %s", clusterName, *existingCluster.Properties.ProvisioningState)
+		// For other non-terminal provisioning states (e.g., Updating, Scaling, Migrating, Upgrading, Restoring), wait for the cluster to become ready.
+		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Unexpected cluster provisioning state for cluster %s: %s", clusterName, *existingCluster.Properties.ProvisioningState)
 		return waitUntilClusterReady(ctx, clusterName, location)
 	}
 }
@@ -437,7 +454,7 @@ func waitUntilClusterReady(ctx context.Context, name, location string) (*armcont
 		switch *cluster.ManagedCluster.Properties.ProvisioningState {
 		case "Succeeded":
 			return true, nil
-		case "Updating", "Assigned", "Creating", "Deleting", "Canceling":
+		case "Updating", "Assigned", "Creating", "Deleting", "Canceling", "Starting":
 			return false, nil
 		case "Canceled":
 			return false, fmt.Errorf("cluster %s is in state %s, won't retry", name, *cluster.ManagedCluster.Properties.ProvisioningState)
@@ -457,6 +474,10 @@ func waitUntilClusterReady(ctx context.Context, name, location string) (*armcont
 			return nil, err
 		}
 		if !nodeRGExists {
+			nodeResourceGroup := *cluster.ManagedCluster.Properties.NodeResourceGroup
+			if cleanupErr := detachNodeResourceGroupReferencesFromClusterSubnet(ctx, *cluster.Location, *cluster.Name, nodeResourceGroup); cleanupErr != nil {
+				toolkit.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
+			}
 			resourceGroupName := config.ResourceGroupName(location)
 			toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s became ready with deleting or missing node resource group %s, deleting cluster", name, *cluster.ManagedCluster.Properties.NodeResourceGroup)
 			if err := deleteCluster(ctx, name, resourceGroupName); err != nil {
@@ -615,7 +636,13 @@ func isRetryableClusterError(err error) bool {
 
 func isResourceGroupBeingDeletedError(err error) bool {
 	var respErr *azcore.ResponseError
-	return errors.As(err, &respErr) && respErr.StatusCode == http.StatusConflict && respErr.ErrorCode == "ResourceGroupBeingDeleted"
+	if !errors.As(err, &respErr) {
+		return false
+	}
+	if respErr.ErrorCode == "ResourceGroupBeingDeleted" || respErr.ErrorCode == "ResourceGroupDeletionBlocked" {
+		return true
+	}
+	return false
 }
 
 func isClusterCreateOperationInProgressError(err error) bool {

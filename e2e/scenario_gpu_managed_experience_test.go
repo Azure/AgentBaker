@@ -260,9 +260,8 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 			RunScenario(t, &Scenario{
 				Description: tc.description,
 				Config: Config{
-					Cluster:                ClusterKubenet,
-					VHD:                    tc.vhd,
-					BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {},
+					Cluster: ClusterKubenet,
+					VHD:     tc.vhd,
 
 					// We are only validating if the package versions are compatible, and for that we need an environment like
 					// Ubuntu or Az Linux, and nothing else. This test doesn't care about any other validation.
@@ -462,6 +461,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Azure Linux v3 GPU nodes",
+		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -469,14 +469,14 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
 				nbc.ManagedGPUExperienceAFECEnabled = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
@@ -543,7 +543,6 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 		Config: Config{
 			Cluster:               ClusterKubenet,
 			VHD:                   config.VHDUbuntu2404Gen2Containerd,
-			SkipScriptlessNBC:     true,
 			WaitForSSHAfterReboot: 5 * time.Minute,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
@@ -619,9 +618,8 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster:           ClusterKubenet,
-			VHD:               config.VHDUbuntu2204Gen2Containerd,
-			SkipScriptlessNBC: true,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
 				nbc.ConfigGPUDriverIfNeeded = true
@@ -779,6 +777,43 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 
 				// Validate that MIG workloads can be scheduled
 				ValidateGPUWorkloadSchedulable(ctx, s, 2, migResourceName)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404_DraDriverNvidiaGpuRunning(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests DRA driver works on Ubuntu 24.04 VHD with containerd v2",
+		Tags: Tags{
+			GPU: true,
+		},
+
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableNvidia = true
+				nbc.EnableManagedGPUDRA = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+
+				// Enable the AKS VM extension for GPU nodes
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
+				require.NoError(t, err, "creating AKS VM extension")
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
+				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
+				ValidateContainerd2Properties(ctx, s, containerdVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
+				ValidateContainerRuntimePlugins(ctx, s)
+				ValidateDraDriverNvidiaGpuServiceRunning(ctx, s)
+				ValidateDRAWorkloadSchedulable(ctx, s)
 			},
 		},
 	})

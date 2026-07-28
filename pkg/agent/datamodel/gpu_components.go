@@ -13,9 +13,11 @@ const Nvidia470CudaDriverVersion = "cuda-470.82.01"
 //nolint:gochecknoglobals
 var (
 	NvidiaCudaDriverVersion    string
+	NvidiaCudaLTSDriverVersion string
 	NvidiaGridDriverVersion    string
 	NvidiaGridV20DriverVersion string
 	AKSGPUCudaVersionSuffix    string
+	AKSGPUCudaLTSVersionSuffix string
 	AKSGPUGridVersionSuffix    string
 	AKSGPUGridV20VersionSuffix string
 )
@@ -62,7 +64,13 @@ func LoadConfig() error {
 		// repos sharing a prefix (e.g. "aks-gpu-grid" vs "aks-gpu-grid-v20") are not
 		// confused by substring matching.
 		switch gpuImageRepo(image.DownloadURL) {
+		case "aks-gpu-cuda-lts":
+			NvidiaCudaLTSDriverVersion = version
+			AKSGPUCudaLTSVersionSuffix = suffix
 		case "aks-gpu-cuda":
+			// Pre-LTS CUDA image, pinned to the R580 line (V100-capable). Loaded so its version is
+			// available if a SKU is ever routed to the "cuda" image in CSE; the default managed CUDA
+			// image is aks-gpu-cuda-lts (see GetGPUDriverType / GetGPUDriverVersion in baker.go).
 			NvidiaCudaDriverVersion = version
 			AKSGPUCudaVersionSuffix = suffix
 		case "aks-gpu-grid":
@@ -119,11 +127,30 @@ var ConvergedGPUDriverSizes = map[string]bool{
 /* RTXPro6000GPUDriverSizes : NC_RTXPRO6000BSE_v6 (RTX PRO 6000 Blackwell Server
 Edition) SKUs require the GRID v20 (595.x) driver, published as the
 aks-gpu-grid-v20 image. All other GRID SKUs continue to use aks-gpu-grid.
-Each size ships as a ds (higher-memory) and lds (lower-memory) pair; both use
-the same GPU and therefore the same driver, so both are listed here.
+The family ships General Purpose (ds) and Compute Optimized (lds) sizes across
+fractional and whole GPU allocations (1/4, 1/2, 1, 2 GPUs); all use the same
+RTX PRO 6000 Blackwell GPU and therefore the same driver, so every size is
+listed here.
+
+Post-GA the sizes were renamed (128->144, 256/320->288 vCPU) and smaller sizes
+were added. The GA names are the primary entries; the original preview names
+are retained as backward-compat aliases so driver selection stays correct if an
+older node pool or template still reports them (same physical GPU, same grid-v20
+driver). Azure no longer deploys the preview sizes.
 */
 //nolint:gochecknoglobals
 var RTXPro6000GPUDriverSizes = map[string]bool{
+	// GA sizes (General Purpose "ds" + Compute Optimized "lds").
+	"standard_nc24lds_xl_rtxpro6000bse_v6":  true,
+	"standard_nc36ds_xl_rtxpro6000bse_v6":   true,
+	"standard_nc36lds_xl_rtxpro6000bse_v6":  true,
+	"standard_nc72ds_xl_rtxpro6000bse_v6":   true,
+	"standard_nc72lds_xl_rtxpro6000bse_v6":  true,
+	"standard_nc144ds_xl_rtxpro6000bse_v6":  true,
+	"standard_nc144lds_xl_rtxpro6000bse_v6": true,
+	"standard_nc288ds_xl_rtxpro6000bse_v6":  true,
+	"standard_nc288lds_xl_rtxpro6000bse_v6": true,
+	// Preview sizes, retained as backward-compat aliases (see doc comment above).
 	"standard_nc128ds_xl_rtxpro6000bse_v6":  true,
 	"standard_nc128lds_xl_rtxpro6000bse_v6": true,
 	"standard_nc256ds_xl_rtxpro6000bse_v6":  true,

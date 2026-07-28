@@ -53,7 +53,7 @@ Describe "Install-Oras" {
     }
 
     Mock Get-ChildItem -MockWith {
-      return [pscustomobject]@{ Name = "oras_1.3.0_windows_amd64.zip"; FullName = "C:\akse-cache\oras\oras_1.3.0_windows_amd64.zip" }
+      return [pscustomobject]@{ Name = "oras_1.3.3_windows_amd64.zip"; FullName = "C:\akse-cache\oras\oras_1.3.3_windows_amd64.zip" }
     }
 
     Mock Expand-Archive -MockWith {
@@ -95,7 +95,7 @@ Describe "Install-Oras" {
     }
 
     Mock Get-ChildItem -MockWith {
-      return [pscustomobject]@{ Name = "oras_1.3.0_windows_amd64.tar.gz"; FullName = "C:\akse-cache\oras\oras_1.3.0_windows_amd64.tar.gz" }
+      return [pscustomobject]@{ Name = "oras_1.3.3_windows_amd64.tar.gz"; FullName = "C:\akse-cache\oras\oras_1.3.3_windows_amd64.tar.gz" }
     }
 
     Mock tar -MockWith { $global:LASTEXITCODE = 1 }
@@ -228,6 +228,47 @@ Describe "Set-PodInfraContainerImage" {
     } | Should -Throw "*Set-ExitCode:82:Failed to pull*"
     Assert-MockCalled -CommandName 'Start-Sleep' -Times 9
     $script:CtrExeInvocations.Count | Should -Be 1
+  }
+  It "should replace MCR base (default mcr.microsoft.com) with bootstrap profile registry" {
+    $script:CtrExeMock = { param($Args) return @() }
+
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+      $script:orasImageArg = $Args[1]
+      $global:LASTEXITCODE = 0
+      return "oras ok"
+    }
+
+    $global:MCRRepositoryBase = $null
+    { Set-PodInfraContainerImage } | Should -Not -Throw
+    $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+  }
+
+  It "should use MCRRepositoryBase (and trim trailing slash) for image replacement" {
+    Mock Get-Content -MockWith {
+      @'
+{
+  "Cri": {
+    "Images": {
+      "Pause": "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.1"
+    }
+  }
+}
+'@
+    }
+
+    $script:CtrExeMock = { param($Args) return @() }
+
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+      $script:orasImageArg = $Args[1]
+      $global:LASTEXITCODE = 0
+      return "oras ok"
+    }
+
+    $global:MCRRepositoryBase = "mcr.microsoft.us/"
+    { Set-PodInfraContainerImage } | Should -Not -Throw
+    $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
   }
 }
 

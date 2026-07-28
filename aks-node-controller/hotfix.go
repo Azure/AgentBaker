@@ -36,13 +36,51 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 	if hotfixPath == "" {
 		hotfixPath = defaultHotfixVersionPath
 	}
-	hotfixVersion, err := readHotfixVersion(hotfixPath)
+	cfg, err := readHotfixConfig(hotfixPath)
 	if err != nil {
-		return fmt.Errorf("read hotfix version from %s: %w", hotfixPath, err)
+		// Fail-open: an unreadable or malformed hotfix config must never block
+		// provisioning. Log and skip so the node boots on its VHD-baked binary.
+		slog.Warn("failed to read hotfix config, skipping hotfix download",
+			"path", hotfixPath, "error", err)
+		return nil
+	}
+	// Applying node custom data is best-effort/fail-open: it must never block the
+	// binary hotfix download below, or provisioning as a whole.
+	if err := a.applyNodeCustomDataIfNeeded(cfg); err != nil {
+		slog.Warn("failed to apply node custom data", "path", hotfixPath, "error", err)
+	}
+	return a.downloadBinaryHotfixIfNeeded(ctx, cfg)
+}
+
+func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
+	hotfixVersion := strings.TrimSpace(cfg.ScriptsVersion)
+	if hotfixVersion == "" {
+		slog.Info("hotfix config does not request a scripts version for this base, skipping nodecustomdata apply", "current", Version)
+		return nil
 	}
 
+	// Patch-only matching: only upgrade if same YYYYMM.DD base and hotfix has
+	// a strictly higher PATCH. Parse errors (e.g. "dev" builds) result in skip.
+	shouldUpgrade, err := shouldUpgradeToHotfix(Version, hotfixVersion)
+	if err != nil {
+		slog.Warn("failed to compare versions, skipping nodecustomdata apply",
+			"current", Version, "hotfix", hotfixVersion, "error", err)
+		return nil
+	}
+	if !shouldUpgrade {
+		slog.Info("CSE scripts version not targeted by hotfix, skipping nodecustomdata apply",
+			"current", Version, "hotfix", hotfixVersion)
+		return nil
+	}
+
+	return applyNodeCustomData(a.getNodeCustomDataPath())
+}
+
+func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfig) error {
+	hotfixVersion := cfg.resolveVersion(Version)
+
 	if hotfixVersion == "" {
-		slog.Info("hotfix config does not request a version, skipping download", "path", hotfixPath)
+		slog.Info("hotfix config does not request a version for this base, skipping download", "current", Version)
 		return nil
 	}
 
@@ -77,27 +115,72 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 // hotfixConfig is the JSON structure of the hotfix configuration file.
 // Using JSON allows future extension (e.g., adding checksum, source URL) without format changes.
 type hotfixConfig struct {
-	Version string `json:"version"`
+	// Version is the legacy single-version pointer. It is still honored when Hotfixes
+	// is empty, preserving backward compatibility with the original config shape.
+	Version string `json:"version,omitempty"`
+
+	// ScriptsVersion is override version for cse scripts
+	ScriptsVersion string `json:"scripts_version,omitempty"`
+
+	// Hotfixes maps an ANC version base ("YYYYMM.DD") to the hotfix version
+	// ("YYYYMM.DD.PATCH") to apply to nodes whose baked ANC version shares that base.
+	// A single config can thus pin hotfixes for multiple VHD bases at once; a base
+	// whose key is absent gets no hotfix (default deny). When non-empty, this map
+	// takes precedence over Version.
+	Hotfixes map[string]string `json:"hotfixes,omitempty"`
 }
 
-// readHotfixVersion reads and parses the JSON hotfix config from the given path.
-// Returns empty string if the file doesn't exist or contains an empty version.
-func readHotfixVersion(path string) (string, error) {
+// hotfixBaseFromVersion extracts the "YYYYMM.DD" base from an ANC version string of
+// the form "YYYYMM.DD.PATCH". It splits on "." rather than parsing semver so the literal
+// day segment - including any leading zero such as "01" - is preserved to match map keys
+// exactly (semver parsing would drop the leading zero, e.g. "202604.01" -> minor 1).
+// All three segments must be non-empty; a present-but-empty patch (e.g. "202604.01.")
+// is rejected so an obviously malformed current version never selects a map entry.
+func hotfixBaseFromVersion(version string) (string, error) {
+	parts := strings.SplitN(strings.TrimSpace(version), ".", 3)
+	if len(parts) < 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+		return "", fmt.Errorf("version %q is not in YYYYMM.DD.PATCH form", version)
+	}
+	return parts[0] + "." + parts[1], nil
+}
+
+// resolveVersion picks the hotfix ANC version that applies to the given current ANC version.
+// When the base->version map is populated it takes precedence: the entry matching the
+// current version's "YYYYMM.DD" base is returned, while an absent base (or an unparseable
+// current version) yields "" so provisioning proceeds with no hotfix. When the map is
+// empty it falls back to the legacy single Version field. The returned version is still
+// subject to shouldUpgradeToHotfix's patch-only-strictly-higher gating in the caller.
+func (cfg hotfixConfig) resolveVersion(current string) string {
+	if len(cfg.Hotfixes) > 0 {
+		base, err := hotfixBaseFromVersion(current)
+		if err != nil {
+			slog.Warn("cannot derive hotfix base from current version, skipping hotfix",
+				"current", current, "error", err)
+			return ""
+		}
+		return strings.TrimSpace(cfg.Hotfixes[base])
+	}
+	return strings.TrimSpace(cfg.Version)
+}
+
+// readHotfixConfig reads and parses the JSON hotfix config from the given path.
+// Returns a zero-value config if the file doesn't exist or is empty.
+func readHotfixConfig(path string) (*hotfixConfig, error) {
+	var cfg hotfixConfig
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", nil
+			return &cfg, nil
 		}
-		return "", err
+		return &cfg, err
 	}
 	if len(strings.TrimSpace(string(data))) == 0 {
-		return "", nil
+		return &cfg, nil
 	}
-	var cfg hotfixConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return "", fmt.Errorf("parsing hotfix config %s: %w", path, err)
+		return &cfg, fmt.Errorf("parsing hotfix config %s: %w", path, err)
 	}
-	return strings.TrimSpace(cfg.Version), nil
+	return &cfg, nil
 }
 
 // packageManager represents a supported system package manager.
@@ -110,11 +193,16 @@ const (
 )
 
 // detectPackageManager returns the package manager for the current OS.
-// It reads /etc/os-release to determine whether to use apt-get (Ubuntu) or dnf/tdnf (AzureLinux/Mariner).
-func detectPackageManager() (packageManager, error) {
-	data, err := os.ReadFile("/etc/os-release")
+// It reads /etc/os-release (or a.osReleasePath override, for testing) to determine
+// whether to use apt-get (Ubuntu) or dnf/tdnf (AzureLinux/Mariner).
+func (a *App) detectPackageManager() (packageManager, error) {
+	osReleasePath := a.osReleasePath
+	if osReleasePath == "" {
+		osReleasePath = "/etc/os-release"
+	}
+	data, err := os.ReadFile(osReleasePath)
 	if err != nil {
-		return "", fmt.Errorf("reading /etc/os-release: %w", err)
+		return "", fmt.Errorf("reading %s: %w", osReleasePath, err)
 	}
 	content := string(data)
 	for _, line := range strings.Split(content, "\n") {
@@ -132,7 +220,7 @@ func detectPackageManager() (packageManager, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("ID not found in /etc/os-release")
+	return "", fmt.Errorf("ID not found in %s", osReleasePath)
 }
 
 // preferredRpmManager returns dnf if available, falling back to tdnf (used by OS Guard).
@@ -145,7 +233,7 @@ func preferredRpmManager() packageManager {
 
 // installFromPMC installs the hotfix package from PMC using the system package manager.
 func (a *App) installFromPMC(ctx context.Context, version string) error {
-	pkgMgr, err := detectPackageManager()
+	pkgMgr, err := a.detectPackageManager()
 	if err != nil {
 		return err
 	}
@@ -297,10 +385,10 @@ func copyBinaryAlongside(src, dst, refPath string) error {
 // ANC versions use the format YYYYMM.DD.PATCH which is valid semver (Major.Minor.Patch).
 //
 // This ensures the hotfix only targets the specific VHD it was built for:
-//   - Older VHDs (different base) are skipped — remediated via VHD republish
-//   - Newer VHDs (different base) are skipped — fix is already baked in
-//   - Same version is skipped — already at hotfix
-//   - Unparseable versions (e.g. "dev") return an error — caller should skip
+//   - Older VHDs (different base) are skipped - remediated via VHD republish
+//   - Newer VHDs (different base) are skipped - fix is already baked in
+//   - Same version is skipped - already at hotfix
+//   - Unparseable versions (e.g. "dev") return an error - caller should skip
 func shouldUpgradeToHotfix(current, hotfix string) (bool, error) {
 	cv, err := semver.NewVersion(strings.TrimSpace(current))
 	if err != nil {

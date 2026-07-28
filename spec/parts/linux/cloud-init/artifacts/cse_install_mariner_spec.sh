@@ -95,7 +95,69 @@ Describe 'cse_install_mariner.sh'
             desiredVersion="1.99.0"
             When call installRPMPackageFromFile kubelet "$desiredVersion"
             The output should include "Failed to find valid kubelet version for 1.99.0"
+            The error should include "Failed to query kubelet versions (non-retryable error):"
             The status should equal 1
+        End
+
+        It 'strips RPM epoch before matching and downloading package version'
+            fallbackToKubeBinaryInstall() { return 1; }
+            dnf() {
+                echo "kubelet.x86_64 1:1.34.8-2.azl3 azurelinux-official-cloud-native"
+                return 0
+            }
+            desiredVersion="1.34.8"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            kubeletRpm="$rpmDir/kubelet-${desiredVersion}-2.azl3.x86_64.rpm"
+            downloadPkgFromVersion() {
+                echo "downloadPkgFromVersion $1 $2 $3"
+                touch "$kubeletRpm"
+            }
+
+            When call installRPMPackageFromFile kubelet "$desiredVersion"
+
+            The output should include "downloadPkgFromVersion kubelet 1.34.8-2.azl3 $rpmDir"
+            The output should include "extractBinaryFromRPM $kubeletRpm kubelet /opt/bin/kubelet"
+            The output should not include "1:1.34.8-2.azl3"
+            The status should equal 0
+        End
+
+        It 'retries dnf list after a transient repo metadata GPG error'
+            fallbackToKubeBinaryInstall() { return 1; }
+            dnf_makecache() { echo "dnf makecache"; }
+            sleep() { echo "sleep $1"; }
+            dnfListCallsFile="$RPM_PACKAGE_CACHE_BASE_DIR/dnf-list-calls"
+            echo 0 > "$dnfListCallsFile"
+            dnf() {
+                if [ "$1" = "clean" ]; then
+                    echo "dnf clean $2"
+                    return 0
+                fi
+
+                if [ "$1" = "list" ]; then
+                    dnfListCalls=$(cat "$dnfListCallsFile")
+                    dnfListCalls=$((dnfListCalls + 1))
+                    echo "$dnfListCalls" > "$dnfListCallsFile"
+                    if [ "$dnfListCalls" -eq 1 ]; then
+                        echo "Error: Failed to download metadata for repo 'azurelinux-official-cloud-native': repomd.xml GPG signature verification error: Bad GPG signature"
+                        return 1
+                    fi
+                    echo "kubelet.x86_64 1.34.8-2.azl3 azurelinux-official-cloud-native"
+                    return 0
+                fi
+            }
+            desiredVersion="1.34.8"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            kubeletRpm="$rpmDir/kubelet-${desiredVersion}-2.azl3.x86_64.rpm"
+            downloadPkgFromVersion() { touch "$kubeletRpm"; }
+
+            When call installRPMPackageFromFile kubelet "$desiredVersion"
+
+            The output should include "sleep 10"
+            The error should include "repo metadata error"
+            The error should include "dnf clean metadata"
+            The error should include "dnf makecache"
+            The output should include "extractBinaryFromRPM $kubeletRpm kubelet /opt/bin/kubelet"
+            The status should equal 0
         End
     End
 
@@ -261,7 +323,7 @@ Describe 'cse_install_mariner.sh'
             # is captured as a status instead of aborting the example.
             ERR_NVIDIA_DRIVER_INSTALL=224
             NVIDIA_GPU_DRIVER_TYPE="grid-v20"
-            MOCK_VM_SKU="Standard_NC128ds_xl_RTXPRO6000BSE_v6"
+            MOCK_VM_SKU="Standard_NC144ds_xl_RTXPRO6000BSE_v6"
             When run downloadGPUDrivers
             The status should equal "$ERR_NVIDIA_DRIVER_INSTALL"
             The output should include "only supported on Ubuntu"
@@ -349,6 +411,49 @@ Describe 'cse_install_mariner.sh'
             When call installAznfsPackage
             The output should include "aznfs RPM not found"
             The status should equal 242
+        End
+    End
+
+    Describe 'managedGPUPackageList on Mariner'
+        BeforeEach 'setup'
+        setup() {
+            ENABLE_MANAGED_GPU_EXPERIENCE=""
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA=""
+        }
+
+        It 'returns base managed GPU packages by default'
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should equal 'datacenter-gpu-manager-4-core datacenter-gpu-manager-4-proprietary dcgm-exporter'
+            The output should not include 'nvidia-device-plugin'
+            The output should not include 'dra-driver-nvidia-gpu'
+        End
+
+        It 'includes nvidia-device-plugin when managed GPU experience is enabled'
+            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should include 'datacenter-gpu-manager-4-core'
+            The output should include 'datacenter-gpu-manager-4-proprietary'
+            The output should include 'dcgm-exporter'
+            The output should include 'nvidia-device-plugin'
+            The output should not include 'dra-driver-nvidia-gpu'
+        End
+
+        It 'includes dra-driver-nvidia-gpu when DRA mode is enabled'
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should include 'datacenter-gpu-manager-4-core'
+            The output should include 'datacenter-gpu-manager-4-proprietary'
+            The output should include 'dcgm-exporter'
+            The output should include 'dra-driver-nvidia-gpu'
+            The output should not include 'nvidia-device-plugin'
         End
     End
 End

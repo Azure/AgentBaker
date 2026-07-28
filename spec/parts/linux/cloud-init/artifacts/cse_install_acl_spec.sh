@@ -131,7 +131,7 @@ Describe 'cse_install_acl.sh'
             # through to the cuda sysext on a vGPU node. Use 'run' so the guard's
             # exit is captured as a status instead of aborting the example.
             NVIDIA_GPU_DRIVER_TYPE="grid-v20"
-            MOCK_VM_SKU="Standard_NC128ds_xl_RTXPRO6000BSE_v6"
+            MOCK_VM_SKU="Standard_NC144ds_xl_RTXPRO6000BSE_v6"
             When run installGPUDriverSysext
             The status should equal "$ERR_NVIDIA_DRIVER_INSTALL"
             The output should include "only supported on Ubuntu"

@@ -38,6 +38,7 @@
   "2022-containerd-gen2": #WindowsBaseVersion
   "2025": #WindowsBaseVersion
   "2025-gen2": #WindowsBaseVersion
+  "2025-gen2-tl": #WindowsBaseVersion
 }
 
 #WindowsDefenderInfo: {

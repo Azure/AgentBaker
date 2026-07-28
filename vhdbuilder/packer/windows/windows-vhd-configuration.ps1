@@ -85,6 +85,7 @@ if (-not ($validSKU -contains $windowsSKU))
 # specified by AKS PR for most of the cases. BUT as long as there's a new unpacked image version, we should keep the
 # versions synced.
 $global:defaultContainerdPackageUrl = GetDefaultContainerDFromComponentsJson $componentsJson
+$global:orasVersion = GetWindowsPackageVersionFromComponentsJson $componentsJson "oras"
 
 # defenderUpdateUrl refers to the latest windows defender platform update
 $global:defenderUpdateUrl = GetDefenderUpdateUrl $windowsSettingsJson
@@ -101,4 +102,3 @@ $global:excludeHashComparisionListInAzureChinaCloud = @(
     # so we can ignore the different hash values.
     "v1.26.0-1int.zip"
 )
-

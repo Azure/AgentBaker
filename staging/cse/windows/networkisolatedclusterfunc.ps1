@@ -89,7 +89,8 @@ function Set-PodInfraContainerImage {
 
     $image = $podInfraContainerImage
     if (-not [string]::IsNullOrWhiteSpace($global:BootstrapProfileContainerRegistryServer)) {
-        $image = $podInfraContainerImage.Replace("mcr.microsoft.com", $global:BootstrapProfileContainerRegistryServer)
+        $mcrBase = if ($global:MCRRepositoryBase) { $global:MCRRepositoryBase.TrimEnd("/") } else { "mcr.microsoft.com" }
+        $image = $podInfraContainerImage.Replace($mcrBase, $global:BootstrapProfileContainerRegistryServer)
     }
 
     if (-not (Test-Path -Path $podInfraContainerImageDownloadDir)) {

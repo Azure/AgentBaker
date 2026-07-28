@@ -26,12 +26,12 @@ write_files:
     Example: {{GetCSEHelpersScriptFilepath}}
 
 {{if IsAKSCustomCloud}}
-- path: {{GetInitAKSCustomCloudFilepath}}
+- path: {{GetInitAKSCloudFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
+    {{GetVariableProperty "cloudInitData" "initAKSCloud"}}
 {{end}}
 
 {{- else }}
@@ -147,12 +147,12 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
 
-- path: {{GetInitAKSCustomCloudFilepath}}
+- path: {{GetInitAKSCloudFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
+    {{GetVariableProperty "cloudInitData" "initAKSCloud"}}
 
 - path: /etc/systemd/system/reconcile-private-hosts.service
   permissions: "0644"

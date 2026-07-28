@@ -115,7 +115,8 @@ downloadGPUDrivers() {
     #
     # NVIDIA_GPU_DRIVER_TYPE is set by AgentBaker based on the GPU SKU maps in
     # gpu_components.go. Converged sizes get "grid"; RTX PRO 6000 BSE v6 gets
-    # "grid-v20" (Ubuntu-only, rejected below); all others get "cuda".
+    # "grid-v20" (Ubuntu-only, rejected below); modern CUDA SKUs get "cuda-lts" and legacy
+    # NCv1 gets "cuda". Only grid vs non-grid matters here, so both take the CUDA path below.
     # Legacy GPUs (T4, V100) require proprietary CUDA drivers; A100+ use NVIDIA open drivers.
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
     VM_SKU=$(get_compute_sku)
@@ -418,12 +419,18 @@ isPackageInstalled() {
 }
 
 managedGPUPackageList() {
-    packages=(
-        nvidia-device-plugin
+    local packages=(
         datacenter-gpu-manager-4-core
         datacenter-gpu-manager-4-proprietary
         dcgm-exporter
     )
+
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE:-false}" = "true" ]; then
+        packages+=(nvidia-device-plugin)
+    elif [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA:-false}" = "true" ]; then
+        packages+=(dra-driver-nvidia-gpu)
+    fi
+
     echo "${packages[@]}"
 }
 
@@ -435,6 +442,8 @@ installNvidiaManagedExpPkgFromCache() {
 
   # Ensure kubelet device-plugins directory exists BEFORE package installation
   mkdir -p /var/lib/kubelet/device-plugins
+  mkdir -p /var/lib/kubelet/plugins_registry
+  mkdir -p /var/lib/kubelet/plugins
 
   for packageName in $(managedGPUPackageList); do
     downloadDir="$(getPackageDownloadDir "${packageName}")"
@@ -512,7 +521,7 @@ installRPMPackageFromFile() {
     if [ -z "${rpmFile}" ]; then
         # query all package versions and get the latest version for matching k8s version
         # e.g. 1.34.0-5.azl3
-        fullPackageVersion=$(dnf list ${packageName} --showduplicates | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        fullPackageVersion=$(getLatestRPMPackageVersion "${packageName}" "${desiredVersion}")
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${desiredVersion}"
             return 1
@@ -560,6 +569,43 @@ installPackageFromCache() {
     logs_to_events "AKS.CSE.install${packageName}.extractBinaryFromRPM" "extractBinaryFromRPM ${rpmFile} ${packageName} ${targetPath}" || exit "$ERR_APT_INSTALL_TIMEOUT"
     rm -rf "${downloadDir}"
     rm -f /opt/bin/"${packageName}"-* &
+}
+
+getLatestRPMPackageVersion() {
+    local packageName="${1}"
+    local desiredVersion="${2}"
+    local retries="${3:-5}"
+    local waitSleep="${4:-10}"
+    local dnfListOutput=""
+    local fullPackageVersion=""
+
+    local i
+    for i in $(seq 1 "${retries}"); do
+        dnfListOutput=$(dnf list "${packageName}" --showduplicates 2>&1)
+        fullPackageVersion=$(printf '%s\n' "${dnfListOutput}" | awk -v dv="${desiredVersion}" '{ver=$2; sub(/^[0-9]+:/,"",ver); if (index(ver, dv "-")==1) print ver}' | sort -V | tail -n 1)
+        if [ -n "${fullPackageVersion}" ]; then
+            echo "${fullPackageVersion}"
+            return 0
+        fi
+
+        if ! printf '%s\n' "${dnfListOutput}" | grep -qiE "Failed to download metadata|repomd\\.xml.*GPG signature|Bad GPG signature|GPG signature verification error|Cannot download repomd\\.xml"; then
+            echo "Failed to query ${packageName} versions (non-retryable error):" >&2
+            echo "${dnfListOutput}" >&2
+            return 1
+        fi
+
+        echo "Attempt ${i}/${retries}: failed to query ${packageName} versions due to repo metadata error" >&2
+        echo "${dnfListOutput}" >&2
+        if [ "${i}" -eq "${retries}" ]; then
+            return 1
+        fi
+
+        dnf clean metadata >&2 || echo "Warning: dnf clean metadata failed" >&2
+        dnf_makecache >&2 || echo "Warning: dnf_makecache failed" >&2
+        sleep "${waitSleep}"
+    done
+
+    return 1
 }
 
 downloadPkgFromVersion() {
@@ -626,6 +672,10 @@ cleanUpGPUDrivers() {
   for packageName in $(managedGPUPackageList); do
     rm -rf "$(getPackageCacheDir "${packageName}")"
   done
+}
+
+installMinimalBuildDeps() {
+    echo "installMinimalBuildDeps not implemented for mariner"
 }
 
 downloadContainerdFromVersion() {

@@ -10,6 +10,31 @@ parameters:
     type: string
     displayName: Variable group to use for e2e tests
     default: ab-e2e
+  - name: subscriptionId
+    type: string
+    displayName: Subscription ID override to use for E2E tests (empty = use variable group default)
+    default: ""
+  - name: failedTestsRetryCount
+    type: number
+    displayName: Number of times to retry failed E2E tests
+    default: 0
+  - name: jobTimeoutInMinutes
+    type: number
+    displayName: Maximum duration of the E2E job
+    default: 90
+  - name: useVhdMetadataArtifacts
+    type: boolean
+    displayName: Resolve VHDs from metadata artifacts produced by this pipeline
+    default: false
+  - name: rcv1pTagsAutoInjected
+    type: boolean
+    displayName: |
+      Set to true when the target subscription auto-injects the RCV1P opt-in VMSS tag
+      (platformsettings.host_environment.service.platform_optedin_for_rootcerts).
+      When true, RCV1P negative tests (e.g. Test_RCV1P_Windows_NotOptedIn) are skipped
+      because they cannot verify the not-opted-in behavior on such subscriptions.
+      Msft tenant E2E subs auto-inject; the RCV1P subscription does not.
+    default: true
 
 jobs:
   - job: e2e
@@ -18,7 +43,7 @@ jobs:
       - group: ${{parameters.variableGroup}} # all variables prefixed with E2E_* come from this variable group
     pool:
       name: $(E2E_POOL_NAME)
-    timeoutInMinutes: 90
+    timeoutInMinutes: ${{ parameters.jobTimeoutInMinutes }}
     displayName: Run AgentBaker E2E ${{parameters.name}}
     steps:
       - checkout: self
@@ -27,6 +52,31 @@ jobs:
         path: s
         fetchTags: false
         fetchDepth: 1
+
+      - ${{ if eq(parameters.useVhdMetadataArtifacts, true) }}:
+        - task: DownloadPipelineArtifact@2
+          displayName: Download E2E VHD metadata
+          inputs:
+            buildType: current
+            itemPattern: 'e2e-vhd-metadata-*/**/*.json'
+            targetPath: $(Pipeline.Workspace)/e2e-vhd-metadata
+
+        - bash: |
+            set -euo pipefail
+
+            metadata_dir="$(Pipeline.Workspace)/e2e-vhd-metadata"
+            metadata_file="$(Build.SourcesDirectory)/e2e-vhd-metadata.json"
+            # Pipeline artifacts are immutable, so rerun attempts publish uniquely suffixed
+            # artifacts. Sort naturally by attempt so metadata from the latest attempt wins.
+            mapfile -d '' metadata_files < <(find "$metadata_dir" -type f -name '*.json' -print0 | sort -zV)
+            if [ "${#metadata_files[@]}" -eq 0 ]; then
+              echo "##vso[task.logissue type=error]No E2E VHD metadata artifacts were downloaded" >&2
+              exit 1
+            fi
+
+            jq -s 'reduce .[] as $item ({}; . * $item)' "${metadata_files[@]}" > "$metadata_file"
+            echo "##vso[task.setvariable variable=E2E_VHD_METADATA_FILE]$metadata_file"
+          displayName: Merge E2E VHD metadata
 
       - task: AzureCLI@2
         inputs:
@@ -37,13 +87,17 @@ jobs:
             bash .pipelines/scripts/e2e_run.sh
         displayName: Run AgentBaker E2E
         env:
-          E2E_SUBSCRIPTION_ID: $(E2E_SUBSCRIPTION_ID)
           SYS_SSH_PUBLIC_KEY: $(SYS_SSH_PUBLIC_KEY)
           SYS_SSH_PRIVATE_KEY_B64: $(SYS_SSH_PRIVATE_KEY_B64)
           BUILD_SRC_DIR: $(System.DefaultWorkingDirectory)
           DefaultWorkingDirectory: $(Build.SourcesDirectory)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
+          SUBSCRIPTION_ID_OVERRIDE: ${{parameters.subscriptionId}}
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
+          E2E_FAILED_TESTS_RETRY_COUNT: ${{parameters.failedTestsRetryCount}}
+          RCV1P_TAGS_AUTO_INJECTED: ${{parameters.rcv1pTagsAutoInjected}}
+          ${{ if eq(parameters.useVhdMetadataArtifacts, true) }}:
+            E2E_VHD_METADATA_FILE: $(E2E_VHD_METADATA_FILE)
 
       - task: PublishTestResults@2
         displayName: Upload test results
@@ -53,16 +107,7 @@ jobs:
           testResultsFiles: "$(Build.SourcesDirectory)/e2e/report.xml"
 
       - publish: $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
+        displayName: Upload scenario logs
         artifact: $(LOGGING_DIR)
         condition: always()
         continueOnError: true
-
-      - task: AzureCLI@2
-        inputs:
-          azureSubscription: $(E2E_ARM_SERVICE_CONNECTION)
-          scriptType: bash
-          scriptLocation: inlineScript
-          inlineScript: |
-            bash .pipelines/scripts/e2e_delete_vmss.sh
-        displayName: ensure vmss deletion
-        condition: always()

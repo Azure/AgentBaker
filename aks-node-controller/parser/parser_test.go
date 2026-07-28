@@ -13,7 +13,6 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,6 +38,7 @@ func TestBuildCSECmd(t *testing.T) {
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
+				assertHasKeyWithValue(t, vars, "LOCATION", "southcentralus")
 				assert.Equal(t, "false", vars["GPU_NODE"])
 				assert.NotEmpty(t, vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"])
 				// Ensure the containerd config does not use the
@@ -123,12 +123,12 @@ oom_score = -999
 			k8sVersion: "1.24.2",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
 				aksNodeConfig.ClusterConfig.Location = "chinaeast2"
-				aksNodeConfig.CustomCloudConfig.CustomCloudEnvName = "AzureChinaCloud"
+				aksNodeConfig.CustomCloudConfig.CustomCloudEnvName = helpers.AzureChinaCloud
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
-				assert.Equal(t, "AzureChinaCloud", vars["TARGET_ENVIRONMENT"])
-				assert.Equal(t, "AzureChinaCloud", vars["TARGET_CLOUD"])
+				assert.Equal(t, helpers.AzureChinaCloud, vars["TARGET_ENVIRONMENT"])
+				assert.Equal(t, helpers.AzureChinaCloud, vars["TARGET_CLOUD"])
 				assert.Equal(t, "false", vars["IS_CUSTOM_CLOUD"])
 				assert.Equal(t, "https://management.chinacloudapi.cn/", vars["ARM_RESOURCE_ENDPOINT"])
 			},
@@ -236,14 +236,16 @@ oom_score = -999
 			k8sVersion: "1.24.2",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
 				aksNodeConfig.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
-					EnableLocalDns:    true,
-					EnableHostsPlugin: true,
+					EnableLocalDns:                      true,
+					EnableHostsPlugin:                   true,
+					HostsPluginRefreshIntervalInSeconds: to.Ptr(int32(30)),
 				}
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
 				assert.Equal(t, "true", vars["SHOULD_ENABLE_LOCALDNS"])
 				assert.Equal(t, "true", vars["SHOULD_ENABLE_HOSTS_PLUGIN"])
+				assert.Equal(t, "30", vars["LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS"])
 			},
 		},
 		{
@@ -266,81 +268,12 @@ oom_score = -999
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cs := &datamodel.ContainerService{
-				Location: "southcentralus",
-				Type:     "Microsoft.ContainerService/ManagedClusters",
-				Properties: &datamodel.Properties{
-					OrchestratorProfile: &datamodel.OrchestratorProfile{
-						OrchestratorType:    datamodel.Kubernetes,
-						OrchestratorVersion: tt.k8sVersion,
-						KubernetesConfig:    &datamodel.KubernetesConfig{},
-					},
-					HostedMasterProfile: &datamodel.HostedMasterProfile{
-						DNSPrefix: "uttestdom",
-					},
-					AgentPoolProfiles: []*datamodel.AgentPoolProfile{
-						{
-							Name:                "agent2",
-							VMSize:              "Standard_DS1_v2",
-							StorageProfile:      "ManagedDisks",
-							OSType:              datamodel.Linux,
-							VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
-							AvailabilityProfile: datamodel.VirtualMachineScaleSets,
-							Distro:              datamodel.AKSUbuntuContainerd2404,
-						},
-					},
-					LinuxProfile: &datamodel.LinuxProfile{
-						AdminUsername: "azureuser",
-					},
-					ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
-						ClientID: "ClientID",
-						Secret:   "Secret",
-					},
-				},
-			}
-			cs.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{{
-				KeyData: "testsshkey",
-			}}
+			// Set up a fake containerd binary returning v1 so detectContainerdVersion
+			// consistently returns 1.7.22 regardless of the host system.
+			fakeBinDir := t.TempDir()
+			require.NoError(t, os.WriteFile(fakeBinDir+"/containerd", []byte("#!/bin/sh\necho 'containerd containerd.io 1.7.22 c814c75'\n"), 0755))
+			t.Setenv("PATH", fakeBinDir+":"+os.Getenv("PATH"))
 
-			agentPool := cs.Properties.AgentPoolProfiles[0]
-
-			kubeletConfig := map[string]string{
-				"--address":                           "0.0.0.0",
-				"--pod-manifest-path":                 "/etc/kubernetes/manifests",
-				"--cloud-provider":                    "azure",
-				"--cloud-config":                      "/etc/kubernetes/azure.json",
-				"--azure-container-registry-config":   "/etc/kubernetes/azure.json",
-				"--cluster-domain":                    "cluster.local",
-				"--cluster-dns":                       "10.0.0.10",
-				"--cgroups-per-qos":                   "true",
-				"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
-				"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-				"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
-				"--max-pods":                          "110",
-				"--node-status-update-frequency":      "10s",
-				"--image-gc-high-threshold":           "85",
-				"--image-gc-low-threshold":            "80",
-				"--event-qps":                         "0",
-				"--pod-max-pids":                      "-1",
-				"--enforce-node-allocatable":          "pods",
-				"--streaming-connection-idle-timeout": "4h0m0s",
-				"--rotate-certificates":               "true",
-				"--read-only-port":                    "10255",
-				"--protect-kernel-defaults":           "true",
-				"--resolv-conf":                       "/etc/resolv.conf",
-				"--anonymous-auth":                    "false",
-				"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
-				"--authentication-token-webhook":      "true",
-				"--authorization-mode":                "Webhook",
-				"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-				"--feature-gates":                     "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
-				"--system-reserved":                   "cpu=2,memory=1Gi",
-				"--kube-reserved":                     "cpu=100m,memory=1638Mi",
-				"--container-log-max-size":            "50M",
-				"--register-with-taints":              "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule",
-			}
-
-			helpers.ValidateAndSetLinuxKubeletFlags(kubeletConfig, cs, agentPool)
 			aksNodeConfig := &aksnodeconfigv1.Configuration{
 				LinuxAdminUsername: "azureuser",
 				VmSize:             "Standard_DS1_v2",
@@ -375,12 +308,50 @@ oom_score = -999
 				KubernetesVersion:       tt.k8sVersion,
 				ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 					ContainerdDownloadUrlBase: "https://storage.googleapis.com/cri-containerd-release/",
+					ContainerdVersion:         "1.7.22",
 				},
-				OutboundCommand: helpers.GetDefaultOutboundCommand(),
+				OutboundCommand: "curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/",
 				KubeletConfig: &aksnodeconfigv1.KubeletConfig{
 					EnableKubeletConfigFile: false,
-					KubeletFlags:            helpers.GetKubeletConfigFlag(kubeletConfig, cs, agentPool, false),
-					KubeletNodeLabels:       helpers.GetKubeletNodeLabels(agentPool),
+					KubeletFlags: map[string]string{
+						"--address":                           "0.0.0.0",
+						"--pod-manifest-path":                 "/etc/kubernetes/manifests",
+						"--cloud-provider":                    "azure",
+						"--cloud-config":                      "/etc/kubernetes/azure.json",
+						"--azure-container-registry-config":   "/etc/kubernetes/azure.json",
+						"--cluster-domain":                    "cluster.local",
+						"--cluster-dns":                       "10.0.0.10",
+						"--cgroups-per-qos":                   "true",
+						"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
+						"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
+						"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+						"--max-pods":                          "110",
+						"--node-status-update-frequency":      "10s",
+						"--image-gc-high-threshold":           "85",
+						"--image-gc-low-threshold":            "80",
+						"--event-qps":                         "0",
+						"--pod-max-pids":                      "-1",
+						"--enforce-node-allocatable":          "pods",
+						"--streaming-connection-idle-timeout": "4h0m0s",
+						"--rotate-certificates":               "true",
+						"--read-only-port":                    "10255",
+						"--protect-kernel-defaults":           "true",
+						"--resolv-conf":                       "/etc/resolv.conf",
+						"--anonymous-auth":                    "false",
+						"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
+						"--authentication-token-webhook":      "true",
+						"--authorization-mode":                "Webhook",
+						"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+						"--feature-gates":                     "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
+						"--system-reserved":                   "cpu=2,memory=1Gi",
+						"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+						"--container-log-max-size":            "50M",
+						"--register-with-taints":              "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule",
+					},
+					KubeletNodeLabels: map[string]string{
+						"agentpool":                      "agent2",
+						"kubernetes.azure.com/agentpool": "agent2",
+					},
 				},
 				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
 			}
@@ -389,7 +360,7 @@ oom_score = -999
 				tt.aksNodeConfigUpdator(aksNodeConfig)
 			}
 
-			cseCMD, err := BuildCSECmd(context.TODO(), aksNodeConfig)
+			cseCMD, err := BuildCSECmd(context.TODO(), aksNodeConfig, nil)
 			require.NoError(t, err)
 
 			generateTestDataIfRequested(t, tt.folder, cseCMD)
@@ -405,7 +376,7 @@ func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
 	secret := "super-secret-value"
 	cmd, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{
 		AuthConfig: &aksnodeconfigv1.AuthConfig{ServicePrincipalSecret: secret},
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	vars := environToMap(cmd.Env)
@@ -413,6 +384,64 @@ func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
 	// The value should be exactly the secret, without additional base64 encoding.
 	// Actually the client which passes the secret to aks-node-controller should have base64 encoded it first.
 	assert.Equal(t, secret, vars["SERVICE_PRINCIPAL_FILE_CONTENT"])
+}
+
+func TestBuildCSECmd_StreamingConnectionIdleTimeout_VersionGated(t *testing.T) {
+	testCases := []struct {
+		name           string
+		k8sVersion     string
+		expectInConfig bool
+	}{
+		{
+			name:           "k8s 1.33 keeps streamingConnectionIdleTimeout in config file",
+			k8sVersion:     "1.33.0",
+			expectInConfig: true,
+		},
+		{
+			name:           "k8s 1.34.0 removes streamingConnectionIdleTimeout from config file",
+			k8sVersion:     "1.34.0",
+			expectInConfig: false,
+		},
+		{
+			name:           "k8s 1.35.0 removes streamingConnectionIdleTimeout from config file",
+			k8sVersion:     "1.35.0",
+			expectInConfig: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			config := &aksnodeconfigv1.Configuration{
+				KubernetesVersion: tc.k8sVersion,
+				KubeletConfig: &aksnodeconfigv1.KubeletConfig{
+					EnableKubeletConfigFile: true,
+					KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
+						StreamingConnectionIdleTimeout: "4h",
+						ClusterDomain:                  "cluster.local",
+					},
+				},
+			}
+
+			cmd, err := BuildCSECmd(context.TODO(), config, nil)
+			require.NoError(t, err)
+
+			vars := environToMap(cmd.Env)
+			configContent := vars["KUBELET_CONFIG_FILE_CONTENT"]
+			require.NotEmpty(t, configContent, "KUBELET_CONFIG_FILE_CONTENT should not be empty")
+
+			decoded, err := base64.StdEncoding.DecodeString(configContent)
+			require.NoError(t, err)
+
+			configJSON := string(decoded)
+			if tc.expectInConfig {
+				assert.Contains(t, configJSON, "streamingConnectionIdleTimeout",
+					"expected streamingConnectionIdleTimeout in config file for k8s %s", tc.k8sVersion)
+			} else {
+				assert.NotContains(t, configJSON, "streamingConnectionIdleTimeout",
+					"expected streamingConnectionIdleTimeout to be absent from config file for k8s %s", tc.k8sVersion)
+			}
+		})
+	}
 }
 
 func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
@@ -451,6 +480,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "NETWORK_POLICY", "")
 				assertHasKeyWithValue(t, vars, "NETWORK_PLUGIN", "")
 				assertHasKeyWithValue(t, vars, "VNET_CNI_PLUGINS_URL", "")
+				assertHasKeyWithValue(t, vars, "LOCATION", "")
 				assertHasKeyWithValue(t, vars, "GPU_NODE", "false")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
 				assertHasKeyWithValue(t, vars, "CUSTOM_CA_TRUST_COUNT", "0")
@@ -474,14 +504,13 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT", "")
 				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT", "")
 				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT", "")
-				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_DEADLINE", "")
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cseCMD, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{})
+			cseCMD, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{}, nil)
 			require.NoError(t, err)
 
 			generateTestDataIfRequested(t, tt.folder, cseCMD)
@@ -576,4 +605,113 @@ func generateTestDataIfRequested(t *testing.T, folder string, cmd *exec.Cmd) {
 func assertHasKeyWithValue[K comparable, V any](t *testing.T, m map[K]V, key K, value V) {
 	assert.Contains(t, m, key, "expected map to contain key: %v", key)
 	assert.Equal(t, value, m[key], "expected map to have key-value pair %s=%v", key, value)
+}
+
+func TestParseContainerdVersionOutput(t *testing.T) {
+	tests := []struct {
+		name   string
+		output string
+		want   string
+	}{
+		{
+			name:   "containerd v2 with package revision",
+			output: "containerd github.com/containerd/containerd/v2 2.3.2-1 fff62f14765df376e5fc36f5a8f8e795b5670f61",
+			want:   "2.3.2",
+		},
+		{
+			name:   "containerd v2 without package revision",
+			output: "containerd github.com/containerd/containerd/v2 v2.0.0 abc123",
+			want:   "2.0.0",
+		},
+		{
+			name:   "containerd v1 with package revision",
+			output: "containerd containerd.io 1.7.22-1 c814c75abc123",
+			want:   "1.7.22",
+		},
+		{
+			name:   "containerd v1 without package revision",
+			output: "containerd containerd.io 1.7.22 c814c75abc123",
+			want:   "1.7.22",
+		},
+		{
+			name:   "containerd v2 pre-release suffix",
+			output: "containerd github.com/containerd/containerd/v2 2.0.0-beta.1 abc123",
+			want:   "2.0.0",
+		},
+		{
+			name:   "containerd v2 rc suffix",
+			output: "containerd github.com/containerd/containerd/v2 v2.1.0-rc.2 abc123",
+			want:   "2.1.0",
+		},
+		{
+			name:   "empty output",
+			output: "",
+			want:   "",
+		},
+		{
+			name:   "unexpected format",
+			output: "not a valid output",
+			want:   "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseContainerdVersionOutput(tt.output)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestBuildCSECmd_DetectsContainerdV2FromSystem(t *testing.T) {
+	// Create a fake containerd binary that outputs a v2 version string.
+	tmpDir := t.TempDir()
+	fakeBin := tmpDir + "/containerd"
+	err := os.WriteFile(fakeBin, []byte("#!/bin/sh\necho 'containerd github.com/containerd/containerd/v2 2.3.2-1 fff62f14765df376e5fc36f5a8f8e795b5670f61'\n"), 0755)
+	require.NoError(t, err)
+
+	// Prepend tmpDir to PATH so our fake binary is found first.
+	t.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
+
+	config := &aksnodeconfigv1.Configuration{
+		NeedsCgroupv2: to.Ptr(true),
+		// ContainerdVersion is intentionally NOT set — should be auto-detected.
+		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{},
+	}
+
+	cmd, err := BuildCSECmd(context.TODO(), config, nil)
+	require.NoError(t, err)
+
+	vars := environToMap(cmd.Env)
+
+	// Verify the v2 containerd config template was used (uses "io.containerd.cri.v1.images" path).
+	containerdConfig, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
+	require.NoError(t, err)
+	assert.Contains(t, containerdConfig, `plugins."io.containerd.cri.v1.images"`)
+	assert.NotContains(t, containerdConfig, `plugins."io.containerd.grpc.v1.cri"`)
+}
+
+func TestBuildCSECmd_FallsBackToV1WhenContainerdDetectionFails(t *testing.T) {
+	// Ensure no containerd binary is found by setting PATH to an empty temp dir.
+	tmpDir := t.TempDir()
+	t.Setenv("PATH", tmpDir)
+
+	config := &aksnodeconfigv1.Configuration{
+		// ContainerdVersion is intentionally NOT set and detection will fail.
+		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{},
+	}
+
+	// BuildCSECmd should NOT return an error even when containerd detection fails.
+	cmd, err := BuildCSECmd(context.TODO(), config, nil)
+	require.NoError(t, err)
+
+	vars := environToMap(cmd.Env)
+
+	// Version should remain empty (detection failed gracefully).
+	assert.Equal(t, "", vars["CONTAINERD_VERSION"])
+
+	// Verify the v1 containerd config template was used (uses "io.containerd.grpc.v1.cri" path).
+	containerdConfig, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
+	require.NoError(t, err)
+	assert.Contains(t, containerdConfig, `plugins."io.containerd.grpc.v1.cri"`)
+	assert.NotContains(t, containerdConfig, `plugins."io.containerd.cri.v1.images"`)
 }

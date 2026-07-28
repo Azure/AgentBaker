@@ -15,6 +15,48 @@ function SafeReplaceString {
     return $stringToReplace
 }
 
+function GetWindowsDownloadPartForPackage
+{
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $package
+    )
+
+    $downloadUrls = $package.downloadURIs.windows
+    if ($downloadUrls -eq $null)
+    {
+        return $package.downloadURIs.default.current
+    }
+
+    $part = $downloadUrls.default
+    switch -Regex ($windowsSku)
+    {
+        "2019-containerd" {
+            $part = $downloadUrls.ws2019
+            break
+        }
+        "2022-containerd*" {
+            $part = $downloadUrls.ws2022
+            break
+        }
+        "23H2*" {
+            $part = $downloadUrls.ws32h2
+            break
+        }
+        "2025*" {
+            $part = $downloadUrls.ws2025
+            break
+        }
+    }
+
+    if ($part -eq $null)
+    {
+        return $downloadUrls.default
+    }
+
+    return $part
+}
+
 
 function GetComponentsFromComponentsJson
 {
@@ -86,40 +128,7 @@ function GetPackagesFromComponentsJson
             $thisList = New-Object System.Collections.ArrayList
         }
 
-        $downloadUrls = $package.downloadURIs.windows
-        if ($downloadUrls -eq $null)
-        {
-            $part = $package.downloadURIs.default.current
-        }
-        else
-        {
-            $part = $downloadUrls.default
-            switch -Regex ($windowsSku)
-            {
-                "2019-containerd" {
-                    $part = $downloadUrls.ws2019
-                    break
-                }
-                "2022-containerd*" {
-                    $part = $downloadUrls.ws2022
-                    break
-                }
-                "23H2*" {
-                    $part = $downloadUrls.ws32h2
-                    break
-                }
-                "2025*" {
-                    $part = $downloadUrls.ws2025
-                    break
-                }
-            }
-
-            if ($part -eq $null)
-            {
-                $part = $downloadUrls.default
-            }
-        }
-
+        $part = GetWindowsDownloadPartForPackage $package
         $downloadUrl = $part.windowsDownloadUrl
         $items = $part.versionsV2
 
@@ -150,6 +159,41 @@ function GetPackagesFromComponentsJson
     }
 
     return $output
+}
+
+function GetWindowsPackageVersionFromComponentsJson
+{
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $componentsJsonContent,
+
+        [Parameter(Mandatory = $true)][String]
+        $packageName
+    )
+
+    foreach ($package in $componentsJsonContent.Packages)
+    {
+        if ($package.name -ne $packageName)
+        {
+            continue
+        }
+
+        $part = GetWindowsDownloadPartForPackage $package
+        if ($part -eq $null -or $part.versionsV2 -eq $null -or $part.versionsV2.Count -eq 0)
+        {
+            throw "Could not find Windows versions for package '$packageName' in components.json"
+        }
+
+        $latestVersion = $part.versionsV2[0].latestVersion
+        if ([string]::IsNullOrEmpty($latestVersion) -or $latestVersion -eq "<SKIP>")
+        {
+            throw "Could not find a valid Windows version for package '$packageName' in components.json"
+        }
+
+        return $latestVersion
+    }
+
+    throw "Could not find package '$packageName' in components.json"
 }
 
 function GetOCIArtifactsFromComponentsJson

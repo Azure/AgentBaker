@@ -29,8 +29,13 @@ var (
 	Azure          = mustNewAzureClient()
 	VMIdentityName = "abe2e-vm-identity"
 
+	// Poll long-running ARM operations every 15s rather than every 1s. The E2E suite runs
+	// with -parallel 60, so a 1s cadence across dozens of concurrent VMSS create/delete
+	// operations floods ARM and triggers ResourceCollectionRequestsThrottled (429), which
+	// stalls provisioning past TestTimeoutVMSS and surfaces as "context deadline exceeded".
+	// These operations take minutes, so 15s polling is ample and cuts ARM request volume ~15x.
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
-		Frequency: time.Second,
+		Frequency: 15 * time.Second,
 	}
 	VMSSHPublicKey, VMSSHPrivateKey, SysSSHPublicKey, SysSSHPrivateKey []byte
 	VMSSHPrivateKeyFileName, SysSSHPrivateKeyFileName                  string
@@ -57,7 +62,7 @@ type Configuration struct {
 	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e"`
 	BuildID                                string        `env:"BUILD_ID" envDefault:"local"`
 	DefaultLocation                        string        `env:"E2E_LOCATION" envDefault:"westus3"`
-	DefaultPollInterval                    time.Duration `env:"DEFAULT_POLL_INTERVAL" envDefault:"1s"`
+	DefaultPollInterval                    time.Duration `env:"DEFAULT_POLL_INTERVAL" envDefault:"15s"`
 	DefaultSubnetName                      string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
 	DefaultVMSKU                           string        `env:"DEFAULT_VM_SKU" envDefault:"Standard_D2ds_v5"`
 	DisableScriptless                      bool          `env:"DISABLE_SCRIPTLESS"`
@@ -86,19 +91,76 @@ type Configuration struct {
 	TestGalleryNamePrefix                  string        `env:"TEST_GALLERY_NAME_PREFIX" envDefault:"abe2etest"`
 	TestPreProvision                       bool          `env:"TEST_PRE_PROVISION" envDefault:"false"`
 	TestTimeout                            time.Duration `env:"TEST_TIMEOUT" envDefault:"50m"`
+	VHDMetadataFile                        string        `env:"E2E_VHD_METADATA_FILE"`
 	// Must cover cluster-create AND bastion-create (run serially in prepareCluster, ~10-11m each).
 	TestTimeoutCluster   time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"30m"`
 	TestTimeoutVMSS      time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
 	WindowsAdminPassword string        `env:"WINDOWS_ADMIN_PASSWORD"`
+	vhdMetadata          map[string]vhdMetadataEntry
 }
 
 func (c *Configuration) BlobStorageAccount() string {
+	// Storage account names are GLOBALLY unique in Azure (not per-subscription).
+	// Two subscriptions cannot own an account with the same name; the second
+	// one to call BeginCreate fails with StorageAccountAlreadyTaken even
+	// though BeginCreate is otherwise idempotent within a single sub.
+	//
+	// This bites whenever a pipeline that normally targets subscription A
+	// (with BLOB_STORAGE_ACCOUNT_PREFIX baked into a variable group) is
+	// redirected at runtime to subscription B — for example when the aks-rp
+	// orchestrator routes the RCV1P phase to its dedicated testing sub via
+	// --subscription-id. The prefix was chosen for sub A, the account
+	// "<prefix><location>" already exists in sub A, and creation in sub B
+	// fails before any test can run.
+	//
+	// Embedding a deterministic subscription-derived suffix in the account
+	// name guarantees a globally-unique name per subscription with zero
+	// per-environment configuration: every new sub gets its own account
+	// the first time it runs and reuses it thereafter. The framework stays
+	// completely agnostic to which subscription is "special" — there is no
+	// subscription identity check anywhere in this repo.
+	//
+	// DefaultLocation is included for the historical reason captured below
+	// (the blob client is keyed off the storage account URL, which is per
+	// location, even though tests run across multiple locations).
+	//
 	// Here DefaultLocation is used because the azure blob client requires the
 	// full URL to the storage account, which means creating a new client per
 	// location. While everything else for running AB tests is sharded per
 	// location, but we continue to use the same storage account for all
 	// locations.
-	return c.BlobStorageAccountPrefix + c.DefaultLocation
+	suffix := subscriptionSuffix(c.SubscriptionID)
+	base := c.BlobStorageAccountPrefix + c.DefaultLocation
+	// Azure storage account names are limited to 24 chars (lowercase alphanumeric).
+	// Truncate the base portion if a long region name + prefix would otherwise
+	// overflow once the deterministic suffix is appended. The suffix is kept whole
+	// so two subscriptions never collide; truncation is deterministic too, so the
+	// same (prefix, location, sub) always resolves to the same account name.
+	if maxBase := 24 - len(suffix); len(base) > maxBase {
+		if maxBase < 0 {
+			maxBase = 0
+		}
+		base = base[:maxBase]
+	}
+	return base + suffix
+}
+
+// subscriptionSuffix returns a short, deterministic suffix derived from the
+// subscription ID, suitable for embedding in resource names that have
+// global-uniqueness constraints (e.g. storage accounts). It takes the first
+// 6 hex characters of the subscription UUID after stripping hyphens, which
+// keeps the resulting name within the Azure storage account length limit
+// (3-24 chars) while giving ~16M-way collision resistance — sufficient for
+// the handful of subscriptions this test framework will ever run against.
+//
+// Lowercase hex is also valid for storage account names (lowercase
+// alphanumeric only), so no further sanitization is required.
+func subscriptionSuffix(subscriptionID string) string {
+	cleaned := strings.ToLower(strings.ReplaceAll(subscriptionID, "-", ""))
+	if len(cleaned) < 6 {
+		return cleaned
+	}
+	return cleaned[:6]
 }
 
 func (c *Configuration) IsLocalBuild() bool {
@@ -145,6 +207,12 @@ func mustLoadConfig() *Configuration {
 	cfg := &Configuration{}
 	if err := env.Parse(cfg); err != nil {
 		panic(err)
+	}
+	if cfg.VHDMetadataFile != "" {
+		cfg.vhdMetadata, err = loadVHDMetadata(cfg.VHDMetadataFile)
+		if err != nil {
+			panic(fmt.Sprintf("failed to load E2E VHD metadata: %v", err))
+		}
 	}
 	if cfg.SysSSHPublicKey == "" {
 		SysSSHPublicKey = VMSSHPublicKey

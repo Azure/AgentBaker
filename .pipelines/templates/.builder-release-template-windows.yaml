@@ -58,6 +58,9 @@ parameters:
   - name: csePackageFileName
     type: string
     displayName: CSE package filename.
+  - name: enableTrustedLaunch
+    type: boolean
+    displayName: Enable Trusted Launch on the SIG image definition.
 
 steps:
   - bash: |
@@ -126,6 +129,7 @@ steps:
       SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
       SIG_FOR_PRODUCTION: $(SIG_FOR_PRODUCTION)
       HYPERV_GENERATION: ${{ parameters.hyperVGeneration }}
+      ENABLE_TRUSTED_LAUNCH: ${{ parameters.enableTrustedLaunch }}
       VNET_RESOURCE_GROUP_NAME: $(VNET_RESOURCE_GROUP_NAME)
       WINDOWS_PATCH_URL: $(WINDOWS_PATCH_URL)
       WINDOWS_BASE_IMAGE_URL: ${{ parameters.windowsBaseImageUrl }}
@@ -173,6 +177,7 @@ steps:
       INSTALL_OPEN_SSH_SERVER: ${{ parameters.installOpenSshServer }}
       SKIPVALIDATEREOFFERUPDATE: $(SKIPVALIDATEREOFFERUPDATE)
       OS_TYPE: "Windows"
+      ENABLE_TRUSTED_LAUNCH: ${{ parameters.enableTrustedLaunch }}
       MODE: $(MODE)
       FEATURE_FLAGS: $(FEATURE_FLAGS)
       VHD_DEBUG: ${{ parameters.vhddebug }}
@@ -214,6 +219,17 @@ steps:
       artifactName: 'vhd-image-list-${{ parameters.artifactName }}'
       targetPath: '$(AKS_WINDOWS_IMAGE_VERSION)-image-list.json'
 
+  - bash: |
+      bash ./.pipelines/scripts/windows_generate_build_summary.sh
+    displayName: Generate build summary card
+    condition: and(succeeded(), ne(variables.skipping_vhd_build, 'true'))
+    continueOnError: true
+    env:
+      WINDOWS_SKU: ${{ parameters.windowsSku }}
+      HYPERV_GENERATION: ${{ parameters.hyperVGeneration }}
+      ARCHITECTURE: ${{ parameters.architecture }}
+      AKS_WINDOWS_IMAGE_VERSION: $(AKS_WINDOWS_IMAGE_VERSION)
+
   # Moved conversion to VHD before cleanup.
   # Gen 2 packer outputs a sig in destination. This step: dest sig=>disk=>VHD in classic SA for publishing.
   # Credentials and resource group name come from the BUILD_**** pipeline variables because source sig is in the build subscription.
@@ -237,6 +253,7 @@ steps:
       LOCATION: $(AZURE_BUILD_LOCATION)
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       OS_TYPE: "Windows"
+      ENABLE_TRUSTED_LAUNCH: ${{ parameters.enableTrustedLaunch }}
       CLASSIC_BLOB: $(STORAGE_ACCT_BLOB_URL)
       DESTINATION_STORAGE_CONTAINER: $(STORAGE_ACCT_BLOB_URL)
       SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
