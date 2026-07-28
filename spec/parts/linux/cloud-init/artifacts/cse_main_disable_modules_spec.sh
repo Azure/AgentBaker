@@ -205,6 +205,30 @@ Describe 'ubuntuKernelNeedsVulnerableModuleMitigation()'
         The output should include "includes Copy Fail / DirtyFrag / Fragnesia fixes"
     End
 
+    It 'skips the mitigation on Ubuntu 24.04 CVM azure-fde kernels at the fixed ABI or newer'
+        UBUNTU_RELEASE="24.04"
+        KERNEL_RELEASE="6.8.0-1061-azure-fde"
+        When call ubuntuKernelNeedsVulnerableModuleMitigation
+        The status should be failure
+        The output should include "includes Copy Fail / DirtyFrag / Fragnesia fixes"
+    End
+
+    It 'requires the mitigation on Ubuntu 24.04 CVM azure-fde kernels older than the fixed ABI'
+        UBUNTU_RELEASE="24.04"
+        KERNEL_RELEASE="6.8.0-1050-azure-fde"
+        When call ubuntuKernelNeedsVulnerableModuleMitigation
+        The status should be success
+        The output should include "older than fixed kernel 6.8.0-1058-azure"
+    End
+
+    It 'skips the mitigation on Ubuntu 22.04 azure-fips kernels at the fixed ABI or newer'
+        UBUNTU_RELEASE="22.04"
+        KERNEL_RELEASE="5.15.0-1116-azure-fips"
+        When call ubuntuKernelNeedsVulnerableModuleMitigation
+        The status should be failure
+        The output should include "includes Copy Fail / DirtyFrag / Fragnesia fixes"
+    End
+
     It 'keeps the mitigation enabled for unknown Ubuntu kernel flavors'
         UBUNTU_RELEASE="24.04"
         KERNEL_RELEASE="6.8.0-1058-custom"

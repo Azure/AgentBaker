@@ -750,7 +750,8 @@ ubuntuKernelNeedsVulnerableModuleMitigation() {
             ;;
         22.04)
             case "$kernel_release" in
-                *-azure) fixed_kernel="5.15.0-1116-azure" ;;
+                # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+                *-azure|*-azure-fde|*-azure-fips) fixed_kernel="5.15.0-1116-azure" ;;
                 *-generic) fixed_kernel="5.15.0-181-generic" ;;
                 *)
                     echo "Unknown Ubuntu 22.04 kernel flavor '${kernel_release}'; keeping vulnerable kernel module mitigation enabled"
@@ -760,7 +761,8 @@ ubuntuKernelNeedsVulnerableModuleMitigation() {
             ;;
         24.04)
             case "$kernel_release" in
-                *-azure) fixed_kernel="6.8.0-1058-azure" ;;
+                # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+                *-azure|*-azure-fde|*-azure-fips) fixed_kernel="6.8.0-1058-azure" ;;
                 *-generic) fixed_kernel="6.8.0-124-generic" ;;
                 *)
                     echo "Unknown Ubuntu 24.04 kernel flavor '${kernel_release}'; keeping vulnerable kernel module mitigation enabled"

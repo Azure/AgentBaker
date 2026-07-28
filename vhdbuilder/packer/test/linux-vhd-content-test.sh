@@ -1485,14 +1485,16 @@ ubuntuKernelIncludesVulnerableModuleFixes() {
     20.04) return 1 ;;
     22.04)
       case "$kernel_release" in
-        *-azure) fixed_kernel="5.15.0-1116-azure" ;;
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="5.15.0-1116-azure" ;;
         *-generic) fixed_kernel="5.15.0-181-generic" ;;
         *) return 1 ;;
       esac
       ;;
     24.04)
       case "$kernel_release" in
-        *-azure) fixed_kernel="6.8.0-1058-azure" ;;
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="6.8.0-1058-azure" ;;
         *-generic) fixed_kernel="6.8.0-124-generic" ;;
         *) return 1 ;;
       esac
