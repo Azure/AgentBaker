@@ -57,10 +57,10 @@ pushd "$(dirname "$CISASSESSOR_TARBALL_PATH")" || exit 1
 # Disable GuestConfig agent to avoid interference with CIS checks
 systemctl disable --now gcd.service || true
 
-# Normalize /var/log permissions to satisfy the CIS logfile-access control
+# Reset /var/log permissions to satisfy the CIS logfile-access control
 # (6.1.3.1 / 6.1.4.1), which requires generic /var/log files to be 0640 or
 # more restrictive.
-normalize_log_perms() {
+reset_log_perms() {
     find /var/log -type f -exec chmod 640 {} \;
 }
 
@@ -69,10 +69,10 @@ normalize_log_perms() {
 # can reset a /var/log file to 0644 mid-scan, which intermittently flakes the
 # logfile-access control. A single up-front chmod is not enough because the
 # offending write can land during the ~13s assessor pass. Hold the permissions
-# at 0640 for the entire assessment phase by re-normalizing in the background,
+# at 0640 for the entire assessment phase by resetting them in the background,
 # then stop the guard before reading/uploading the reports.
-normalize_log_perms
-( while :; do normalize_log_perms; sleep 2; done ) &
+reset_log_perms
+( while :; do reset_log_perms; sleep 2; done ) &
 PERMS_GUARD_PID=$!
 stop_perms_guard() {
     [ -n "${PERMS_GUARD_PID:-}" ] || return 0
