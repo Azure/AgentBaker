@@ -710,7 +710,7 @@ getKubeletActiveFlagLines() {
 # getKubeletJournalLogs fetches kubelet's journal output. Extracted as a separate function
 # so ShellSpec tests can mock it without relying on shell function shadowing of external binaries.
 getKubeletJournalLogs() {
-    journalctl -u kubelet -b --no-pager -r 2>/dev/null
+    journalctl -u kubelet -b --no-pager -r -n 500 2>/dev/null
 }
 
 # getKubeletActiveFlagsJSON builds a compact JSON object (emitted as a single-line string)
@@ -1013,7 +1013,7 @@ EOF
     # per node from Kusto (rollout verification for the flags-to-config-file migration, and config/
     # version tracking dashboards). The JSON lands verbatim in GuestAgentGenericLogs.Context1 and is
     # consumable with parse_json(). Best-effort: never fail node provisioning on this.
-    emitKubeletActiveFlagsEvent || true
+(emitKubeletActiveFlagsEvent || true) &
 }
 
 ensureSnapshotUpdate() {

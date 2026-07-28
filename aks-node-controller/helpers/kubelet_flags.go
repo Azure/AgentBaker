@@ -14,8 +14,7 @@ const (
 	// kubeletActiveFlagsTaskName is the event TaskName for the kubelet active flags telemetry.
 	// Scriptless (aks-node-controller) and shell CSE use different TaskName values; keep this in sync
 	// with the query patterns documented in the PR description.
-	kubeletActiveFlagsTaskName = "ensureKubelet.kubeletActiveFlags"
-
+	kubeletActiveFlagsTaskName = "AKS.AKSNodeController.ensureKubelet.kubeletActiveFlags"
 	// kubeletFlagsPollMaxAttempts is how many times to poll journalctl for FLAG lines.
 	kubeletFlagsPollMaxAttempts = 10
 
@@ -192,11 +191,8 @@ func pollKubeletFlags() map[string]string {
 	return nil
 }
 
-// readKubeletFlagsFromJournal runs journalctl and parses FLAG lines.
-func readKubeletFlagsFromJournal(ctx context.Context) map[string]string {
 	// #nosec G204 -- fixed command, no user input
-	cmd := exec.CommandContext(ctx, "journalctl", "-u", "kubelet", "-b", "--no-pager", "-r")
-	output, err := cmd.Output()
+	cmd := exec.CommandContext(ctx, "journalctl", "-u", "kubelet", "-b", "--no-pager", "-r", "-n", "500")
 	if err != nil {
 		return nil
 	}
