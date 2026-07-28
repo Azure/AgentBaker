@@ -40,6 +40,7 @@ func TestBuildCSECmd(t *testing.T) {
 				vars := environToMap(cmd.Env)
 				assertHasKeyWithValue(t, vars, "LOCATION", "southcentralus")
 				assert.Equal(t, "false", vars["GPU_NODE"])
+				assertHasKeyWithValue(t, vars, "TOTAL_GPU_INSTANCE_SLICES", "7")
 				assert.NotEmpty(t, vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"])
 				// Ensure the containerd config does not use the
 				// nvidia container runtime when skipping the
@@ -370,6 +371,23 @@ oom_score = -999
 			}
 		})
 	}
+}
+
+func TestGetCSEEnvTotalGPUInstanceSlices(t *testing.T) {
+	t.Run("defaults when GPU config is absent", func(t *testing.T) {
+		env := getCSEEnv(context.Background(), &aksnodeconfigv1.Configuration{}, nil)
+		assert.Equal(t, "7", env["TOTAL_GPU_INSTANCE_SLICES"])
+	})
+
+	totalGPUInstanceSlices := int32(4)
+	config := &aksnodeconfigv1.Configuration{
+		GpuConfig: &aksnodeconfigv1.GpuConfig{
+			TotalGpuInstanceSlices: &totalGPUInstanceSlices,
+		},
+	}
+
+	env := getCSEEnv(context.Background(), config, nil)
+	assert.Equal(t, "4", env["TOTAL_GPU_INSTANCE_SLICES"])
 }
 
 func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {

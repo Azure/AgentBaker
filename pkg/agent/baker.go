@@ -781,6 +781,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetGPUInstanceProfile": func() string {
 			return config.GPUInstanceProfile
 		},
+		"GetTotalGPUInstanceSlices": func() int32 {
+			return datamodel.GetTotalGPUInstanceSlices(config.TotalGPUInstanceSlices)
+		},
 		"IsMIGEnabledNode": func() bool {
 			return config.GPUInstanceProfile != ""
 		},

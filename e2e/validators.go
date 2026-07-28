@@ -2651,6 +2651,36 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 	s.T.Logf("MIG instances with profile %s are created", migProfile)
 }
 
+func ValidateMIGInstanceCount(ctx context.Context, s *Scenario, migProfile string, expectedCount int) {
+	s.T.Helper()
+	s.T.Logf("validating that exactly %d MIG instances are created with profile %s", expectedCount, migProfile)
+
+	execResult := execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		"sudo nvidia-smi mig -lgi",
+		0,
+		"failed to list MIG instances",
+	)
+
+	actualCount := 0
+	for _, line := range strings.Split(execResult.stdout, "\n") {
+		if strings.Contains(line, migProfile) {
+			actualCount++
+		}
+	}
+	require.Equal(
+		s.T,
+		expectedCount,
+		actualCount,
+		"expected %d MIG instances with profile %s, but found %d.\nOutput:\n%s",
+		expectedCount,
+		migProfile,
+		actualCount,
+		execResult.stdout,
+	)
+}
+
 // ValidateIPTablesCompatibleWithCiliumEBPF validates that all iptables rules in each table match the provided patterns which are accounted for
 // when eBPF host routing is enabled.
 func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) {

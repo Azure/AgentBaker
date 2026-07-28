@@ -256,8 +256,10 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			VnetCniPluginsUrl: vnetCNIPluginURL,
 		},
 		GpuConfig: &aksnodeconfigv1.GpuConfig{
-			ConfigGpuDriver: true,
-			GpuDevicePlugin: false,
+			ConfigGpuDriver:        true,
+			GpuDevicePlugin:        false,
+			GpuInstanceProfile:     nbc.GPUInstanceProfile,
+			TotalGpuInstanceSlices: nbc.TotalGPUInstanceSlices,
 		},
 		EnableUnattendedUpgrade: enableUnattendedUpgrade,
 		EnableArtifactStreaming: nbc.EnableArtifactStreaming,

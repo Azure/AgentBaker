@@ -142,6 +142,7 @@ const (
 
 // CSE Constants.
 const (
-	DefaultCSETimeout = 900   // 15 minutes
-	MaxCSETimeout     = 21600 // 6 hours
+	DefaultCSETimeout             = 900   // 15 minutes
+	MaxCSETimeout                 = 21600 // 6 hours
+	DefaultTotalGPUInstanceSlices = 7
 )

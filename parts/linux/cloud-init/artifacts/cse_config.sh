@@ -915,6 +915,7 @@ ensureMigPartition(){
     tee /etc/systemd/system/mig-partition.service.d/10-mig-profile.conf > /dev/null <<EOF
 [Service]
 Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
+Environment="TOTAL_GPU_INSTANCE_SLICES=${TOTAL_GPU_INSTANCE_SLICES}"
 EOF
     # this is expected to fail and work only on next reboot
     # it MAY succeed, only due to unreliability of systemd

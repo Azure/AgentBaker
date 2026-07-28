@@ -10,6 +10,46 @@ import (
 	"github.com/pkg/errors"
 )
 
+func TestGetTotalGPUInstanceSlices(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    *int32
+		expected int32
+	}{
+		{
+			name:     "defaults an absent value",
+			expected: DefaultTotalGPUInstanceSlices,
+		},
+		{
+			name:     "preserves a positive value",
+			input:    int32Ptr(4),
+			expected: 4,
+		},
+		{
+			name:     "preserves zero for script validation",
+			input:    int32Ptr(0),
+			expected: 0,
+		},
+		{
+			name:     "preserves a negative value for script validation",
+			input:    int32Ptr(-1),
+			expected: -1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if actual := GetTotalGPUInstanceSlices(tt.input); actual != tt.expected {
+				t.Fatalf("expected %d, got %d", tt.expected, actual)
+			}
+		})
+	}
+}
+
+func int32Ptr(value int32) *int32 {
+	return &value
+}
+
 func TestValidateDNSPrefix(t *testing.T) {
 	cases := []struct {
 		name        string

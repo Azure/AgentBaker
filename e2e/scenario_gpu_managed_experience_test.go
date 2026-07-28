@@ -534,8 +534,10 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 }
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
+	totalGPUInstanceSlices := int32(4)
+
 	RunScenario(t, &Scenario{
-		Description: "Tests that NVIDIA device plugin and DCGM Exporter work with MIG enabled on Ubuntu 24.04 GPU nodes",
+		Description: "Tests capacity-aware MIG partitioning and the NVIDIA device plugin on Ubuntu 24.04 GPU nodes",
 		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
@@ -550,6 +552,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
 				nbc.GPUInstanceProfile = "MIG2g"
+				nbc.TotalGPUInstanceSlices = &totalGPUInstanceSlices
 				nbc.EnableManagedGPU = true
 				nbc.MigStrategy = "Single"
 			},
@@ -578,12 +581,13 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 
 				// Validate that MIG instances are created
 				ValidateMIGInstancesCreated(ctx, s, "MIG 2g.20gb")
+				ValidateMIGInstanceCount(ctx, s, "MIG 2g.20gb", 2)
 
 				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s, 3, "nvidia.com/gpu")
+				ValidateNodeAdvertisesGPUResources(ctx, s, 2, "nvidia.com/gpu")
 
 				// Validate that MIG workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 3, "nvidia.com/gpu")
+				ValidateGPUWorkloadSchedulable(ctx, s, 2, "nvidia.com/gpu")
 
 				// Validate that the NVIDIA DCGM packages were installed correctly
 				for _, packageName := range getDCGMPackageNames(os) {

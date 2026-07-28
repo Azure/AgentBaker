@@ -130,6 +130,15 @@ func IsMIGNode(gpuInstanceProfile string) bool {
 	return gpuInstanceProfile != ""
 }
 
+// GetTotalGPUInstanceSlices returns the configured VM-wide MIG slice capacity,
+// defaulting only when the caller does not provide one.
+func GetTotalGPUInstanceSlices(totalGPUInstanceSlices *int32) int32 {
+	if totalGPUInstanceSlices == nil {
+		return DefaultTotalGPUInstanceSlices
+	}
+	return *totalGPUInstanceSlices
+}
+
 // returns the CSE timeout value in seconds.
 // if empty or invalid value is provided, it returns the default timeout value of 15minutes or 900 seconds.
 // Maximum allowed timeout is 360 minutes or 6 hours or 21600 seconds.
