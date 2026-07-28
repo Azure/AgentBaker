@@ -62,8 +62,46 @@ func (l *EventLogger) EmitKubeletActiveFlagsEvent() {
 	if messageBytes == nil {
 		return
 	}
+
+	if err := os.MkdirAll(l.Dir, 0755); err != nil {
+		slog.Error("failed to create events logging directory", "path", l.Dir, "error", err)
+		return
+	}
+
 	now := time.Now()
-	l.LogEvent(kubeletActiveFlagsTaskName, string(messageBytes), EventLevelInformational, now, now)
+	ts := now.Format("2006-01-02 15:04:05.000")
+	event := GuestAgentEvent{
+		Timestamp:   ts,
+		OperationId: ts,
+		Version:     "1.23",
+		TaskName:    kubeletActiveFlagsTaskName,
+		EventLevel:  string(EventLevelInformational),
+		Message:     string(messageBytes),
+		EventPid:    "0",
+		EventTid:    "0",
+	}
+
+	data, err := json.Marshal(event)
+	if err != nil {
+		slog.Error("failed to marshal kubelet active flags event", "error", err)
+		return
+	}
+
+	f, err := os.CreateTemp(l.Dir, "kubelet-active-flags-*.json")
+	if err != nil {
+		slog.Error("failed to create kubelet active flags event file", "dir", l.Dir, "error", err)
+		return
+	}
+	defer func() { _ = f.Close() }()
+
+	if _, err := f.Write(data); err != nil {
+		slog.Error("failed to write kubelet active flags event", "file", f.Name(), "error", err)
+		return
+	}
+	// Event files must be readable by Azure monitoring services.
+	if err := f.Chmod(0644); err != nil {
+		slog.Error("failed to chmod kubelet active flags event file", "file", f.Name(), "error", err)
+	}
 }
 
 // buildKubeletFlagsPayload assembles the payload from journalctl FLAG lines and config file.

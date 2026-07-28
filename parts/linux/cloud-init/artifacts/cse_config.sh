@@ -769,7 +769,7 @@ getKubeletActiveFlagsJSON() {
         '{found: $found, uses_config_file: $uses_config_file, config_path: $config_path, flag_count: $flag_count, flags: $flags, config_file: $config_file}')"
 
     if [ "${#payload}" -gt "${max_message_bytes}" ]; then
-        echo "kubelet active flags payload exceeded ${max_message_bytes} bytes (${#payload}), dropping config_file content"
+        echo "kubelet active flags payload exceeded ${max_message_bytes} bytes (${#payload}), dropping config_file content" >&2
         # Fallback: drop config_file content to stay within the size cap.
         payload="$(jq -cn \
             --argjson found "${found}" \
