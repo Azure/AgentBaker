@@ -1775,6 +1775,9 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 	})
 
 	It("should render valid ignition JSON with the encoded files for scriptless ACL custom data", func() {
+		hotfixJSON, err := parts.Templates.ReadFile(hotfixJSONFile)
+		Expect(err).NotTo(HaveOccurred())
+
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 		config.AKSNodeConfigJSON = `{"foo":"bar"}`
@@ -1795,11 +1798,15 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(ok).To(BeTrue())
 		files, ok := storage["files"].([]interface{})
 		Expect(ok).To(BeTrue())
-		Expect(len(files)).To(Equal(3)) // nbc-cmd, nodecustomdata, aks-node-config (no hotfix file present)
+		Expect(len(files)).To(Equal(4)) // nbc-cmd, nodecustomdata, aks-node-config, hotfix JSON
 
 		encodedAKSNodeConfig := getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
 		Expect(string(decodedPayload)).To(ContainSubstring(aksNodeConfigFilepath))
 		Expect(string(decodedPayload)).To(ContainSubstring(encodedAKSNodeConfig))
+
+		encodedHotfixJSON := getBase64EncodedGzippedCustomScriptFromStr(string(hotfixJSON))
+		Expect(string(decodedPayload)).To(ContainSubstring(aksHotfixJSONFilepath))
+		Expect(string(decodedPayload)).To(ContainSubstring(encodedHotfixJSON))
 	})
 
 	It("should render initAKSCloud file in scriptless custom data for default cloud with Ubuntu", func() {

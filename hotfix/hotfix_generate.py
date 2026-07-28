@@ -8,6 +8,9 @@ Auto-detects what needs a hotfix and generates the version numbers for it:
    patch of the current pkg/agent/datamodel/linux_sig_version.json version to the
    first patch number that isn't already tagged in the repo (e.g. 202607.02.0 ->
    202607.02.1, or .2/.3/... if those tags already exist), and uses that as `version`.
+   If the module is unchanged, a PR may instead request a pointer-only hotfix by
+   changing `version` in aks-node-controller-hotfix.json. The requested version must
+   be a strictly higher patch in the current VHD's YYYYMM.DD stream.
 
 2. Detects which CSE provisioning scripts changed vs the base branch and injects their
    write_files entries into the EnableScriptlessCSECmd section of
@@ -165,6 +168,71 @@ def path_changed(base_ref, path):
     """Return True if path differs between the working tree and base_ref."""
     result = subprocess.run(["git", "diff", "--quiet", base_ref, "--", path])
     return result.returncode != 0
+
+
+def target_file_changed(base_ref):
+    """Return True when TARGET_FILE differs from the base, including a new file."""
+    if path_changed(base_ref, TARGET_FILE):
+        return True
+    if not os.path.exists(TARGET_FILE):
+        return False
+
+    result = subprocess.run(
+        ["git", "cat-file", "-e", f"{base_ref}:{TARGET_FILE}"],
+        capture_output=True,
+    )
+    return result.returncode != 0
+
+
+def validate_pointer_only_version(base_version, requested_version):
+    """Validate an explicit no-code hotfix pointer against the VHD base version."""
+    if not VERSION_RE.match(requested_version):
+        raise ValueError(
+            f"requested version '{requested_version}' is invalid; expected YYYYMM.DD.PATCH"
+        )
+
+    base_parts = base_version.split(".")
+    requested_parts = requested_version.split(".")
+    if requested_parts[:2] != base_parts[:2]:
+        raise ValueError(
+            f"requested version '{requested_version}' must use base "
+            f"'{base_parts[0]}.{base_parts[1]}'"
+        )
+    if int(requested_parts[2]) <= int(base_parts[2]):
+        raise ValueError(
+            f"requested version '{requested_version}' must have a higher patch than "
+            f"base version '{base_version}'"
+        )
+    return requested_version
+
+
+def read_pointer_only_version(base_ref, base_version):
+    """Read a deliberately changed legacy version pointer from TARGET_FILE.
+
+    TARGET_FILE remains the generated output, but when ANC source is unchanged its
+    changed `version` field is also the explicit request for a pointer-only hotfix.
+    Other fields remain generator-owned.
+    """
+    if not target_file_changed(base_ref):
+        return ""
+
+    try:
+        with open(TARGET_FILE) as f:
+            payload = json.load(f)
+    except FileNotFoundError:
+        return ""
+
+    if not isinstance(payload, dict):
+        raise ValueError(f"{TARGET_FILE} must contain a JSON object")
+
+    requested_version = payload.get("version", "")
+    if not isinstance(requested_version, str):
+        raise ValueError(f"{TARGET_FILE} version must be a string")
+    requested_version = requested_version.strip()
+    if not requested_version:
+        return ""
+
+    return validate_pointer_only_version(base_version, requested_version)
 
 
 def write_hotfix_file(version, scripts_version):
@@ -415,7 +483,19 @@ def main():
         version = bump_version(base_version)
         print(f"aks-node-controller/ changed vs {base_ref}; version={version}", file=sys.stderr)
     else:
-        print(f"aks-node-controller/ unchanged vs {base_ref}; version not set", file=sys.stderr)
+        try:
+            version = read_pointer_only_version(base_ref, base_version)
+        except (OSError, json.JSONDecodeError, ValueError) as err:
+            print(f"ERROR: invalid pointer-only hotfix request: {err}", file=sys.stderr)
+            sys.exit(1)
+        if version:
+            print(
+                f"aks-node-controller/ unchanged vs {base_ref}; "
+                f"preserving requested pointer-only version={version}",
+                file=sys.stderr,
+            )
+        else:
+            print(f"aks-node-controller/ unchanged vs {base_ref}; version not set", file=sys.stderr)
 
     scripts_version = ""
     if path_changed(base_ref, TEMPLATE):
