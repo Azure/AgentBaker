@@ -74,7 +74,7 @@ func TestMarshalWithSizeGuard_SmallPayload(t *testing.T) {
 func TestMarshalWithSizeGuard_TruncatesLargePayload(t *testing.T) {
 	// Create a payload that exceeds maxMessageBytes
 	largeConfig := make(map[string]any)
-	for i := range 500 {
+	for i := 0; i < 500; i++ {
 		largeConfig[strings.Repeat("k", 15)+string(rune('a'+i%26))+string(rune('a'+i/26%26))] = strings.Repeat("v", 50)
 	}
 
