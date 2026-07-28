@@ -1,10 +1,10 @@
 #!/usr/bin/env shellspec
 
-Describe 'aks-node-controller-wrapper.sh'
-    SCRIPT="./parts/linux/cloud-init/artifacts/aks-node-controller-wrapper.sh"
+Describe 'aks-node-controller-launcher.sh'
+    SCRIPT="./parts/linux/cloud-init/artifacts/aks-node-controller-launcher.sh"
 
     setup_wrapper_test() {
-        TEST_DIR="${SHELLSPEC_WORKDIR}/aks-node-controller-wrapper"
+        TEST_DIR="${SHELLSPEC_WORKDIR}/aks-node-controller-launcher"
         BIN_DIR="${TEST_DIR}/bin"
         mkdir -p "$BIN_DIR"
 
