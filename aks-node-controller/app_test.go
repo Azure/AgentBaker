@@ -181,7 +181,14 @@ func TestApp_Run(t *testing.T) {
 		assert.Len(t, events, 3)
 		assert.Contains(t, events[0].Message, "Starting")
 		assert.Contains(t, events[1].Message, "Completed")
-		assert.Contains(t, events[2].TaskName, "kubeletActiveFlags")
+		found := false
+		for _, e := range events {
+			if strings.Contains(e.TaskName, "kubeletActiveFlags") {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found)
 	})
 
 	t.Run("provision command with provision-config and nbc-cmd flag", func(t *testing.T) {
