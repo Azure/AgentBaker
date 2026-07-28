@@ -3116,7 +3116,7 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 //
 //   - Ubuntu fixed kernels and future Ubuntu releases: assert ABSENCE of the four modprobe
 //     blacklist entries. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu 24.04
-//     linux-azure 6.8.0-1058-azure include the fixes, so new VHDs must stop blocking
+//     linux-azure 6.8.0-1058-azure include the fixes, thus new VHDs must stop blocking
 //     legitimate module use. Future Ubuntu releases do not inherit this mitigation by default.
 //   - Ubuntu 20.04 and vulnerable/unknown 22.04 / 24.04 kernels / Mariner: full check —
 //     modprobe config entries are present, modules are NOT loaded, and modprobe refuses to load them.
