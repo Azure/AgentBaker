@@ -140,3 +140,11 @@ Describe 'connectivity preflight timeouts'
         The status should be success
     End
 End
+
+Describe 'AMD GPU routing compatibility'
+    It 'defaults AMD_GPU_NODE to false for older CustomData'
+        When run grep -F 'if [ "${AMD_GPU_NODE:-false}" = "true" ]; then' parts/linux/cloud-init/artifacts/cse_main.sh
+        The status should be success
+        The output should include 'AMD_GPU_NODE:-false'
+    End
+End

@@ -830,6 +830,11 @@ EOF
 # These functions are only invoked on GPU-enabled VM SKUs during provisioning;
 # they are safe to define on all distros (no execution at source time).
 
+ensureAmdGpuDrivers() {
+    echo "AMD ROCm CSE install is not supported on OS=${OS:-unknown}"
+    exit $ERR_AMD_ROCM_UNSUPPORTED_OS
+}
+
 should_use_nvidia_open_drivers() {
     # Checks if the VM SKU should use NVIDIA open drivers (vs proprietary drivers).
     # Legacy GPUs (T4, V100) use NVIDIA proprietary drivers; A100+ use NVIDIA open drivers.

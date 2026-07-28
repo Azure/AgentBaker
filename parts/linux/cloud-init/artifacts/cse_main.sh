@@ -479,8 +479,14 @@ function nodePrep {
     # By default, never reboot new nodes.
     REBOOTREQUIRED=false
 
-    # Install and configure GPU drivers if this is a GPU node
-    if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
+    # Install and configure AMD GPU drivers if this is an AMD GPU node.
+    if [ "${AMD_GPU_NODE:-false}" = "true" ]; then
+        echo $(date),$(hostname), "Start configuring AMD GPU drivers"
+        logs_to_events "AKS.CSE.ensureAmdGpuDrivers" ensureAmdGpuDrivers
+        echo $(date),$(hostname), "End configuring AMD GPU drivers"
+
+    # Install and configure NVIDIA GPU drivers if this is an NVIDIA GPU node.
+    elif [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
         echo $(date),$(hostname), "Start configuring GPU drivers"
 
         # Install GPU drivers

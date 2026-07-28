@@ -1181,6 +1181,20 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars).To(HaveKeyWithValue("GPU_DRIVER_TYPE", "cuda-lts"))
 	})
 
+	It("should handle AMD GPU configuration", func() {
+		baseConfig.EnableAMDGPU = true
+		baseConfig.AgentPoolProfile.VMSize = "Standard_ND96isr_MI300X_v5"
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("GPU_NODE", "false"))
+		Expect(vars).To(HaveKeyWithValue("AMD_GPU_NODE", "true"))
+	})
+
 	It("should handle custom cloud environment", func() {
 		baseConfig.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
 			Name:                    "akscustom",

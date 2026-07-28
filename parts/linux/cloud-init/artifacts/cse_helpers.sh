@@ -162,6 +162,11 @@ ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
 ERR_AZNFS_RPM_DOWNLOAD_TIMEOUT=241 # Timeout downloading aznfs RPM from PMC
 ERR_AZNFS_INSTALL_FAIL=242 # Failed to install aznfs RPM package
 ERR_SECONDARY_NIC_CONFIG_FAIL=243 # Error configuring secondary NIC network interface
+ERR_AMD_ROCM_UNSUPPORTED_OS=244 # AMD ROCm CSE install is only supported on Ubuntu 24.04 amd64
+ERR_AMD_ROCM_GPG_KEY_DOWNLOAD_TIMEOUT=245 # Timeout waiting for AMD ROCm GPG key download
+ERR_AMD_ROCM_INSTALL_TIMEOUT=246 # Timeout waiting for AMD ROCm package install
+ERR_AMD_ROCM_VALIDATE_FAIL=247 # AMD ROCm CSE validation failed
+ERR_AMD_ROCM_REPO_CONFIG_INVALID=248 # AMD ROCm apt source or key configuration is invalid
 # -----------------------------------------------------------------------------
 
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.

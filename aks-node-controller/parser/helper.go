@@ -790,6 +790,13 @@ func getEnableNvidia(config *aksnodeconfigv1.Configuration) bool {
 	return false
 }
 
+func getEnableAmdGpu(config *aksnodeconfigv1.Configuration) bool {
+	if config.GpuConfig != nil && config.GpuConfig.EnableAmdGpu != nil {
+		return *config.GpuConfig.EnableAmdGpu
+	}
+	return false
+}
+
 func removeNewlines(str string) string {
 	sanitizedStr := strings.ReplaceAll(str, "\n", "")
 	sanitizedStr = strings.ReplaceAll(sanitizedStr, "\r", "")
