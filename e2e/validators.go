@@ -205,7 +205,7 @@ func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 		"service principal secret": base64.StdEncoding.EncodeToString([]byte(s.GetServicePrincipalSecret())),
 		"bootstrap token":          s.GetTLSBootstrapToken(),
 	}
-	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log"} {
+	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log", "/var/log/azure/aks-node-controller.output"} {
 		for _, secretValue := range secrets {
 			if secretValue != "" {
 				ValidateFileExcludesExactContent(ctx, s, logFile, secretValue)
@@ -2227,6 +2227,22 @@ echo "  2. Hosts file populated later: CoreDNS picks it up via reload"
 		"localdns should work after cold start with empty hosts file and pick up populated file")
 }
 
+// ValidateANCLauncherOutput checks that the aks-node-controller-launcher.sh output contains
+// expectedContent, regardless of how the VHD launches it:
+//   - ACL/Flatcar VHDs still launch the launcher via the aks-node-controller.service systemd unit
+//     (ignition doesn't support cloud-boothooks), so its stdout/stderr only lands in the journal.
+//   - All other VHDs launch the launcher as a direct fork from the cloud-boothook (not a systemd
+//     unit, for faster dispatch - see baker.go boothookTemplate), with stdout/stderr redirected to
+//     /var/log/azure/aks-node-controller.output.
+func ValidateANCLauncherOutput(ctx context.Context, s *Scenario, expectedContent string) {
+	s.T.Helper()
+	if s.VHD.Flatcar {
+		ValidateJournalctlOutput(ctx, s, "aks-node-controller.service", expectedContent)
+		return
+	}
+	ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", expectedContent)
+}
+
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
 func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) {
 	s.T.Helper()
@@ -2758,11 +2774,12 @@ func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
 func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 	if usesScriptlessNBCCSECmd(s) {
 		fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
-		if enableScriptlessCompilation(s) {
-			fileNameToCheck = "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
-		}
 		ValidateFileExists(ctx, s, fileNameToCheck)
-		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "Using NBC command for scriptless phase 2")
+		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2")
+		if enableScriptlessCompilation(s) {
+			ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-hotfix")
+			ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using hotfix binary")
+		}
 	}
 }
 
@@ -2770,11 +2787,11 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	if s.Runtime.AKSNodeConfig != nil && usesScriptlessNBCCSECmd(s) {
-		logFile := "/var/log/azure/aks-node-controller.log"
+		logFile := "/var/log/azure/aks-node-controller.output"
 		if !fileHasContent(ctx, s, logFile, "env compare: no differences found between provision-config and nbc-cmd env vars") {
 			// Grep for all env-compare diff markers to show what's different.
 			diffCmd := "sudo grep -E 'differs|only-in-pc|only-in-nbc|env var differences' " + logFile + " || true"
-			result := execScriptOnVMForScenarioValidateExitCode(ctx, s, diffCmd, 0, "could not grep for differences in aks-node-controller.log")
+			result := execScriptOnVMForScenarioValidateExitCode(ctx, s, diffCmd, 0, "could not grep for differences in aks-node-controller.output")
 			s.T.Fatalf("expected no env var differences between provision-config and nbc-cmd, but found differences:\n%s", result.stdout)
 		}
 	}
@@ -3166,6 +3183,7 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 			`kernel_release="$(uname -r)"`,
 			`fixed_kernel=""`,
 			`expect_absent="false"`,
+			`absent_reason=""`,
 			`case "$VERSION_ID" in`,
 			`  20.04)`,
 			`    ;;`,
@@ -3183,23 +3201,21 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 			`    ;;`,
 			`  *)`,
 			`    expect_absent="true"`,
+			`    absent_reason="Ubuntu ${VERSION_ID} is not in Copy Fail / DirtyFrag / Fragnesia mitigation scope"`,
 			`    ;;`,
 			`esac`,
 			`if [ -n "$fixed_kernel" ] && [ "$(printf '%s\n%s\n' "$fixed_kernel" "$kernel_release" | sort -V | head -n1)" = "$fixed_kernel" ]; then`,
 			`  expect_absent="true"`,
+			`  absent_reason="Ubuntu ${VERSION_ID} kernel ${kernel_release} includes Copy Fail / DirtyFrag / Fragnesia fixes"`,
 			`fi`,
 			`if [ "$expect_absent" = "true" ]; then`,
-			`  if [ -n "$fixed_kernel" ]; then`,
-			`    echo "PASS: Ubuntu ${VERSION_ID} kernel ${kernel_release} includes Copy Fail / DirtyFrag / Fragnesia fixes; blacklist should be absent"`,
-			`  else`,
-			`    echo "PASS: Ubuntu ${VERSION_ID} is not in Copy Fail / DirtyFrag / Fragnesia mitigation scope; blacklist should be absent"`,
-			`  fi`,
+			`  echo "PASS: ${absent_reason}; blacklist should be absent"`,
 			`  for mod in algif_aead esp4 esp6 rxrpc; do`,
 			`    if grep -qsE "^(install ${mod} /bin/false|blacklist ${mod})" /etc/modprobe.d/*.conf 2>/dev/null; then`,
-			`      echo "FAIL: ${mod} blacklist entry unexpectedly present on fixed Ubuntu kernel ${kernel_release}"`,
+			`      echo "FAIL: ${mod} blacklist entry unexpectedly present (${absent_reason})"`,
 			`      failed=1`,
 			`    else`,
-			`      echo "PASS: ${mod} blacklist correctly absent on fixed Ubuntu kernel ${kernel_release}"`,
+			`      echo "PASS: ${mod} blacklist correctly absent (${absent_reason})"`,
 			`    fi`,
 			`  done`,
 			`  exit $failed`,

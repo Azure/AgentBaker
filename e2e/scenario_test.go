@@ -401,7 +401,7 @@ func Test_AzureLinuxV3(t *testing.T) {
 				config.KubeletConfig.KubeletConfigFileConfig.SeccompDefault = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "aks-node-controller finished successfully")
 				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
 				ValidateFileHasContent(ctx, s, "/etc/dnf/automatic.conf", "emit_via = stdio")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
@@ -497,7 +497,7 @@ func Test_Ubuntu2204(t *testing.T) {
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "aks-node-controller finished successfully")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
@@ -541,6 +541,28 @@ func Test_Ubuntu2204_CustomCA(t *testing.T) {
 				ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
 				ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh")
 			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_PreProvisionFailureIsReported(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a pre-provision failure is reported by CSE",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			CustomDataWriteFiles: []CustomDataWriteFile{{
+				Path:        "/opt/scripts/update_certs.sh",
+				Permissions: "0755",
+				Content:     "#!/bin/sh\nexit 1",
+			}},
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.PreProvisionOnly = true
+				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+					CustomCATrustCerts: []string{encodedTestCert},
+				}
+			},
+			ExpectedError: "command terminated with exit status=161",
 		},
 	})
 }
@@ -592,54 +614,6 @@ func Test_Ubuntu2204_ScriptlessCSECmd_Hotfix(t *testing.T) {
 				// This file does NOT exist on any VHD — it can only be present if cloud-init
 				// processed our write_files entry, proving the hotfix delivery mechanism works.
 				ValidateFileHasContent(ctx, s, hotfixMarkerPath, hotfixMarkerContent)
-			},
-		},
-	})
-}
-
-// Test_Ubuntu2204_ANCHotfix_BinarySelection tests that the wrapper script correctly
-// selects a pre-existing hotfix binary over the VHD-baked binary. This validates the
-// wrapper's binary selection logic without requiring an actual PMC download.
-// A stub script at the hotfix binary path delegates to the real ANC binary.
-//
-// Note: In the EnableScriptlessCSECmd (non-NBC) path, the wrapper runs at boot and
-// performs binary selection, but exits before provisioning because no config/nbc-cmd
-// file exists at that point. Provisioning happens later via CSE → provision.sh.
-// This test validates the wrapper's selection logic; node readiness (implicit in
-// RunScenario) confirms provisioning succeeded via the CSE path.
-func Test_Ubuntu2204_ANCHotfix_BinarySelection(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "tests that the wrapper selects a pre-seeded hotfix binary",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			CustomDataWriteFiles: []CustomDataWriteFile{
-				{
-					// Hotfix JSON — triggers download-hotfix, but a real hotfix install
-					// should be skipped because this intentionally old version will not
-					// target the VHD base version. The pre-seeded binary below will still
-					// be found and selected by the wrapper.
-					Path:    "/opt/azure/containers/aks-node-controller-hotfix.json",
-					Content: `{"version":"200001.01.1"}`,
-				},
-				{
-					// Pre-seed the hotfix binary path with a stub script that delegates
-					// to the real VHD-baked ANC binary. This simulates a successful
-					// hotfix download without needing PMC.
-					Path:        "/opt/azure/containers/aks-node-controller-hotfix",
-					Permissions: "0755",
-					Content:     "#!/bin/bash\nexec /opt/azure/containers/aks-node-controller \"$@\"",
-				},
-			},
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableScriptlessNBCCSECmd = true
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Wrapper found the pre-seeded hotfix binary and selected it
-				ValidateJournalctlOutput(ctx, s, "aks-node-controller.service", "Using hotfix binary")
-				// download-hotfix was triggered by the hotfix JSON
-				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log",
-					"aks-node-controller hotfix download finished")
 			},
 		},
 	})
@@ -3201,9 +3175,6 @@ func Test_Ubuntu2204_NodeHardening_KubeReservedSlice_ConfigFile(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			// Force the "default" (non-scriptless) subtest path so that fresh CSE scripts
-			// with the Slice= drop-ins are uploaded via custom data.
-			CustomDataWriteFiles: []CustomDataWriteFile{{Path: "/etc/aks-node-hardening-test", Content: "sentinel"}},
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				// AgentBaker (not the RP) now owns --kube-reserved-cgroup/--system-reserved-cgroup;
 				// it derives them from --enforce-node-allocatable (see setNodeHardeningCgroupFlags).
@@ -3221,9 +3192,6 @@ func Test_Ubuntu2204_NodeHardening_KubeReservedSlice_ConfigFile(t *testing.T) {
 				// Non-nil (even empty) CustomKubeletConfig switches AgentBaker to the
 				// config-file (kubeletconfig.json) path instead of CLI flags.
 				nbc.AgentPoolProfile.CustomKubeletConfig = &datamodel.CustomKubeletConfig{}
-				// Disable scriptless CSE so that the current cse_helpers.sh (with kubereserved.slice drop-in)
-				// is uploaded via custom data instead of relying on potentially stale VHD scripts.
-				nbc.EnableScriptlessCSECmd = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice")
@@ -3247,9 +3215,6 @@ func Test_Ubuntu2204_NodeHardening_KubeReservedSlice_CLIFlags(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			// Force the "default" (non-scriptless) subtest path so that fresh CSE scripts
-			// with the Slice= drop-ins are uploaded via custom data.
-			CustomDataWriteFiles: []CustomDataWriteFile{{Path: "/etc/aks-node-hardening-test", Content: "sentinel"}},
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				// AgentBaker (not the RP) now owns --kube-reserved-cgroup/--system-reserved-cgroup;
 				// it derives them from --enforce-node-allocatable (see setNodeHardeningCgroupFlags).
@@ -3264,12 +3229,6 @@ func Test_Ubuntu2204_NodeHardening_KubeReservedSlice_CLIFlags(t *testing.T) {
 				// owns rather than trusting them, or the node would end up in the wrong slice.
 				nbc.KubeletConfig["--kube-reserved-cgroup"] = "/kubelet.slice"
 				nbc.KubeletConfig["--system-reserved-cgroup"] = "/kubelet.slice"
-				// CustomKubeletConfig/CustomLinuxOSConfig left nil so kubelet reads its
-				// flags from the CLI (KUBELET_FLAGS in /etc/default/kubelet) instead of
-				// the config-file path.
-				// Disable scriptless CSE so that the current cse_helpers.sh (with kubereserved.slice drop-in)
-				// is uploaded via custom data instead of relying on potentially stale VHD scripts.
-				nbc.EnableScriptlessCSECmd = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice")

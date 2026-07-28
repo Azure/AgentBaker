@@ -723,7 +723,8 @@ get_ubuntu_release() {
 
 # Return 0 when the running Ubuntu kernel still needs the Copy Fail / DirtyFrag /
 # Fragnesia module deny mitigation. Future Ubuntu releases are not in scope by
-# default; add them explicitly only if they ship a vulnerable kernel.
+# default; add them explicitly only if they ship a vulnerable kernel. If release
+# detection fails, keep the mitigation enabled.
 ubuntuKernelNeedsVulnerableModuleMitigation() {
     local ubuntu_release
     local kernel_release
@@ -731,6 +732,11 @@ ubuntuKernelNeedsVulnerableModuleMitigation() {
 
     ubuntu_release="$(get_ubuntu_release)"
     kernel_release="$(uname -r 2>/dev/null || echo "")"
+
+    if [ -z "$ubuntu_release" ]; then
+        echo "Unable to detect Ubuntu release; keeping vulnerable kernel module mitigation enabled"
+        return 0
+    fi
 
     if [ -z "$kernel_release" ]; then
         echo "Unable to detect Ubuntu kernel version; keeping vulnerable kernel module mitigation enabled"

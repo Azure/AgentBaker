@@ -11,8 +11,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
 )
 
 var (
@@ -31,11 +31,11 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 }
 
 //nolint:funlen
-func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration) map[string]string {
+func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuConfig *gpu.GPUConfiguration) map[string]string {
 	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
 	// Clear it from both KubeletFlags and KubeletConfigFileConfig so it doesn't appear
 	// on the command line or in the marshaled config file JSON.
-	if helpers.IsKubernetesVersionGe(config.GetKubernetesVersion(), "1.34.0") {
+	if IsKubernetesVersionGe(config.GetKubernetesVersion(), "1.34.0") {
 		if kc := config.GetKubeletConfig(); kc != nil {
 			delete(kc.KubeletFlags, "--streaming-connection-idle-timeout")
 			if kcfg := kc.GetKubeletConfigFileConfig(); kcfg != nil {
@@ -163,8 +163,8 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration) map[s
 		"KUBELET_CONFIG_FILE_ENABLED":                          fmt.Sprintf("%v", config.GetKubeletConfig().GetEnableKubeletConfigFile()),
 		"KUBELET_CONFIG_FILE_CONTENT":                          getKubeletConfigFileContentBase64(config.GetKubeletConfig()),
 		"SWAP_FILE_SIZE_MB":                                    fmt.Sprintf("%v", config.GetCustomLinuxOsConfig().GetSwapFileSize()),
-		"GPU_DRIVER_VERSION":                                   getGpuDriverVersion(config.GetVmSize()),
-		"GPU_IMAGE_SHA":                                        getGpuImageSha(config.GetVmSize()),
+		"GPU_DRIVER_VERSION":                                   getGpuDriverVersion(config.GetVmSize(), gpuConfig),
+		"GPU_IMAGE_SHA":                                        getGpuImageSha(config.GetVmSize(), gpuConfig),
 		"GPU_INSTANCE_PROFILE":                                 config.GetGpuConfig().GetGpuInstanceProfile(),
 		"GPU_DRIVER_TYPE":                                      getGpuDriverType(config.GetVmSize()),
 		"CUSTOM_SEARCH_DOMAIN_NAME":                            config.GetCustomSearchDomainConfig().GetDomainName(),
@@ -305,7 +305,7 @@ func mapToEnviron(input map[string]string) []string {
 	return env
 }
 
-func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration) (*exec.Cmd, error) {
+func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuConfig *gpu.GPUConfiguration) (*exec.Cmd, error) {
 	triggerBootstrapScript, err := executeBootstrapTemplate(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute the template: %w", err)
@@ -313,7 +313,7 @@ func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration) (*e
 	// Convert to one-liner
 	triggerBootstrapScript = strings.ReplaceAll(triggerBootstrapScript, "\n", " ")
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", triggerBootstrapScript)
-	env := mapToEnviron(getCSEEnv(ctx, config))
+	env := mapToEnviron(getCSEEnv(ctx, config, gpuConfig))
 	cmd.Env = append(os.Environ(), env...) // append existing environment variables
 	sort.Strings(cmd.Env)
 	return cmd, nil

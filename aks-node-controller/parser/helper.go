@@ -33,8 +33,8 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
-	"github.com/Azure/agentbaker/pkg/agent"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
+	"github.com/Masterminds/semver/v3"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -86,7 +86,7 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 	return template.FuncMap{
 		"derefBool":                        deref[bool],
 		"getEnsureNoDupePromiscuousBridge": getEnsureNoDupePromiscuousBridge,
-		"isKubernetesVersionGe":            helpers.IsKubernetesVersionGe,
+		"isKubernetesVersionGe":            IsKubernetesVersionGe,
 		"getHasDataDir":                    getHasDataDir,
 		"getEnableNvidia":                  getEnableNvidia,
 	}
@@ -247,7 +247,7 @@ func isContainerdV2(version string) bool {
 	if version == "" {
 		return false
 	}
-	return helpers.IsKubernetesVersionGe(version, "2.0.0")
+	return IsKubernetesVersionGe(version, "2.0.0")
 }
 
 func getIsMIGNode(gpuInstanceProfile string) bool {
@@ -559,16 +559,20 @@ func getMaxLBRuleCount(lb *aksnodeconfigv1.LoadBalancerConfig) int32 {
 	return lb.GetMaxLoadBalancerRuleCount()
 }
 
-func getGpuImageSha(vmSize string) string {
-	return agent.GetAKSGPUImageSHA(vmSize)
+// getGpuImageSha is nil-safe with respect to gpuConfig: it returns "" when no
+// GPU configuration was loaded (e.g. on older VHDs without components.json).
+func getGpuImageSha(vmSize string, gpuConfig *gpu.GPUConfiguration) string {
+	return gpuConfig.GetAKSGPUImageSHA(vmSize)
 }
 
 func getGpuDriverType(vmSize string) string {
-	return agent.GetGPUDriverType(vmSize)
+	return gpu.GetGPUDriverType(vmSize)
 }
 
-func getGpuDriverVersion(vmSize string) string {
-	return agent.GetGPUDriverVersion(vmSize)
+// getGpuDriverVersion is nil-safe with respect to gpuConfig: it returns "" when no
+// GPU configuration was loaded (e.g. on older VHDs without components.json).
+func getGpuDriverVersion(vmSize string, gpuConfig *gpu.GPUConfiguration) string {
+	return gpuConfig.GetGPUDriverVersion(vmSize)
 }
 
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support.
@@ -776,7 +780,7 @@ func getInitAKSCloudFilepath() string {
 }
 
 func getGPUNeedsFabricManager(vmSize string) bool {
-	return agent.GPUNeedsFabricManager(vmSize)
+	return gpu.GPUNeedsFabricManager(vmSize)
 }
 
 func getEnableNvidia(config *aksnodeconfigv1.Configuration) bool {
@@ -991,13 +995,13 @@ func getLocalDnsHostsPluginRefreshIntervalInSeconds(config *aksnodeconfigv1.Conf
 
 // ---------------------- Start of cse timeout helper code ----------------------//
 
-// getCSETimeout returns the CSE timeout value in minutes.
+// getCSETimeout returns the CSE timeout value in seconds.
 func getCSETimeout(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	cseTimeout := 0
 	if aksnodeconfig != nil {
 		cseTimeout = int(aksnodeconfig.GetCseTimeout())
 	}
-	return datamodel.GetCSETimeout(cseTimeout)
+	return GetCSETimeout(cseTimeout)
 }
 
 func getRepoDepotEndpoint(aksnodeconfig *aksnodeconfigv1.Configuration) string {
@@ -1008,3 +1012,26 @@ func getRepoDepotEndpoint(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 }
 
 // ---------------------- End of cse timeout helper code ----------------------//
+
+// IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
+func IsKubernetesVersionGe(actualVersion, version string) bool {
+	v1, err := semver.NewVersion(actualVersion)
+	if err != nil {
+		return false
+	}
+	v2, err := semver.NewVersion(version)
+	if err != nil {
+		return false
+	}
+	return v1.GreaterThanEqual(v2)
+}
+
+// returns the CSE timeout value in seconds.
+// if empty or invalid value is provided, it returns the default timeout value of 15minutes or 900 seconds.
+// Maximum allowed timeout is 360 minutes or 6 hours or 21600 seconds.
+func GetCSETimeout(cseTimeout int) string {
+	if cseTimeout <= 0 || cseTimeout > maxCSETimeout {
+		cseTimeout = defaultCSETimeout
+	}
+	return fmt.Sprintf("%d", cseTimeout)
+}

@@ -70,8 +70,8 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-node-controller.service
       destination: /etc/systemd/system/aks-node-controller.service
       permissions: 600
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-node-controller-wrapper.sh
-      destination: /opt/azure/containers/aks-node-controller-wrapper.sh
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-node-controller-launcher.sh
+      destination: /opt/azure/containers/aks-node-controller-launcher.sh
       permissions: 755
     # Fix systemd resolved caching
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/resolv-uplink-override.service
@@ -338,7 +338,6 @@ os:
     - measure-tls-bootstrapping-latency
     - systemd-sysext
     - ipv6_nftables
-    - aks-node-controller
     - update_certs.path
     - disk_queue
     - ci-syslog-watcher.path
@@ -349,6 +348,7 @@ os:
     # Disable Azure Linux iptables service so k8s has control
     - iptables
     - auditd
+    - aks-node-controller
 
 previewFeatures:
   - uki
