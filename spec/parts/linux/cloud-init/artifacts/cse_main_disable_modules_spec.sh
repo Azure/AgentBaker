@@ -162,6 +162,14 @@ Describe 'ubuntuKernelNeedsVulnerableModuleMitigation()'
         The output should include "Unknown Ubuntu 22.04 kernel flavor"
     End
 
+    It 'keeps the mitigation enabled when the Ubuntu release cannot be detected'
+        UBUNTU_RELEASE=""
+        KERNEL_RELEASE="6.8.0-1058-azure"
+        When call ubuntuKernelNeedsVulnerableModuleMitigation
+        The status should be success
+        The output should include "Unable to detect Ubuntu release"
+    End
+
     It 'skips the mitigation on future Ubuntu releases by default'
         UBUNTU_RELEASE="26.04"
         KERNEL_RELEASE="6.14.0-1000-azure"
@@ -171,13 +179,13 @@ Describe 'ubuntuKernelNeedsVulnerableModuleMitigation()'
     End
 End
 
-# Tests the OS gate that decides whether to call disableVulnerableKernelModule
-# during VHD build. Apply on: Ubuntu 20.04, vulnerable Ubuntu 22.04 / 24.04
+# Tests the OS gate that decides whether to apply or remove vulnerable-module
+# deny rules during VHD build and provisioning. Apply on: Ubuntu 20.04, vulnerable Ubuntu 22.04 / 24.04
 # kernels, Mariner/AzureLinux 2.0 (AzL2), AzureLinux OSGuard (defense-in-depth —
-# hardened secure-boot variant intentionally retains the mitigation). Skip on:
-# fixed Ubuntu 22.04 / 24.04 kernels, future Ubuntu releases, AzureLinux 3.0 regular/Kata
-# (kernel 6.6.139.1-1.azl3+ has the upstream fix and customers reported the blacklist
-# actively blocks legitimate workloads), ACL, Flatcar.
+# hardened secure-boot variant intentionally retains the mitigation). Remove stale deny rules on
+# fixed Ubuntu 22.04 / 24.04 kernels and future Ubuntu releases. Skip on AzureLinux
+# 3.0 regular/Kata (kernel 6.6.139.1-1.azl3+ has the upstream fix and customers reported
+# the blacklist actively blocks legitimate workloads), ACL, Flatcar.
 # See https://github.com/Azure/AKS/issues/5753.
 Describe 'CVE kernel module mitigation OS gate'
     setup() {
@@ -188,7 +196,7 @@ Describe 'CVE kernel module mitigation OS gate'
         KERNEL_RELEASE=""
         GATE_ACTIONS=""
         load_kernel_mitigation_helpers
-        eval "$(sed -n '/^applyVulnerableKernelModuleMitigation()/,/^}/p' parts/linux/cloud-init/artifacts/cse_main.sh)"
+        eval "$(sed -n '/^reconcileVulnerableKernelModuleMitigation()/,/^}/p' parts/linux/cloud-init/artifacts/cse_main.sh)"
     }
 
     BeforeEach 'setup'
@@ -207,8 +215,12 @@ Describe 'CVE kernel module mitigation OS gate'
         GATE_ACTIONS="${GATE_ACTIONS}APPLY:${1} "
     }
 
+    removeVulnerableKernelModuleDenyRules() {
+        GATE_ACTIONS="${GATE_ACTIONS}REMOVE "
+    }
+
     gate() {
-        applyVulnerableKernelModuleMitigation
+        reconcileVulnerableKernelModuleMitigation
         if [ -z "${GATE_ACTIONS}" ]; then
             echo "SKIP"
         else
@@ -242,25 +254,25 @@ Describe 'CVE kernel module mitigation OS gate'
         The output should include "APPLY:rxrpc"
     End
 
-    It 'skips on fixed Ubuntu 22.04 kernels'
+    It 'removes stale deny rules on fixed Ubuntu 22.04 kernels'
         OS="${UBUNTU_OS_NAME}"
         OS_VERSION="22.04"
         OS_VARIANT=""
         UBUNTU_RELEASE="22.04"
         KERNEL_RELEASE="5.15.0-1116-azure"
         When call gate
-        The output should include "SKIP"
+        The output should include "REMOVE"
         The output should not include "APPLY"
     End
 
-    It 'skips on fixed Ubuntu 24.04 kernels'
+    It 'removes stale deny rules on fixed Ubuntu 24.04 kernels'
         OS="${UBUNTU_OS_NAME}"
         OS_VERSION="24.04"
         OS_VARIANT=""
         UBUNTU_RELEASE="24.04"
         KERNEL_RELEASE="6.8.0-1058-azure"
         When call gate
-        The output should include "SKIP"
+        The output should include "REMOVE"
         The output should not include "APPLY"
     End
 
@@ -274,14 +286,14 @@ Describe 'CVE kernel module mitigation OS gate'
         The output should include "APPLY:algif_aead"
     End
 
-    It 'skips on future Ubuntu releases by default'
+    It 'removes stale deny rules on future Ubuntu releases by default'
         OS="${UBUNTU_OS_NAME}"
         OS_VERSION="26.04"
         OS_VARIANT=""
         UBUNTU_RELEASE="26.04"
         KERNEL_RELEASE="6.14.0-1000-azure"
         When call gate
-        The output should include "SKIP"
+        The output should include "REMOVE"
         The output should not include "APPLY"
     End
 
@@ -357,13 +369,13 @@ Describe 'CVE kernel module mitigation phase coverage'
         sed -n "/^function ${phase}/,/^}/p" parts/linux/cloud-init/artifacts/cse_main.sh
     }
 
-    It 'runs mitigation from basePrep so VHD bakes keep the intended mitigation state'
+    It 'reconciles mitigation from basePrep so VHD bakes keep the intended mitigation state'
         When call phase_body "basePrep"
-        The output should include "applyVulnerableKernelModuleMitigation"
+        The output should include "reconcileVulnerableKernelModuleMitigation"
     End
 
-    It 'does not run mitigation from nodePrep because this is not an AgentBakerSvc hotfix'
+    It 'reconciles mitigation from nodePrep for PIS and already-released VHDs'
         When call phase_body "nodePrep"
-        The output should not include "applyVulnerableKernelModuleMitigation"
+        The output should include "reconcileVulnerableKernelModuleMitigation"
     End
 End

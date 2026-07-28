@@ -48,7 +48,7 @@ source "${CSE_CONFIG_FILEPATH}"
 
 # Disable a single kernel module with a known LPE vulnerability.
 # Writes a modprobe blacklist rule and unloads the module if loaded.
-# Safe to run repeatedly during VHD build; idempotent (overwrites with same content if already present).
+# Safe to run repeatedly during VHD build or provisioning; idempotent (overwrites with same content if already present).
 # Defined in cse_main.sh (not sourced) to support scriptless provisioning.
 #
 # Usage: disableVulnerableKernelModule <module_name> <description>
@@ -67,19 +67,54 @@ disableVulnerableKernelModule() {
     fi
 }
 
-applyVulnerableKernelModuleMitigation() {
+removeVulnerableKernelModuleDenyRules() {
+    local modprobe_file
+    local tmp_file
+    local deny_pattern
+
+    deny_pattern='^(install[[:space:]]+(algif_aead|esp4|esp6|rxrpc)[[:space:]]+[/]bin[/]false|blacklist[[:space:]]+(algif_aead|esp4|esp6|rxrpc))([[:space:]]+.*)?$'
+
+    for modprobe_file in /etc/modprobe.d/*.conf; do
+        [ -f "$modprobe_file" ] || continue
+
+        tmp_file="${modprobe_file}.tmp.$$"
+        sed -E "/$deny_pattern/d" "$modprobe_file" > "$tmp_file" || {
+            rm -f "$tmp_file"
+            return 1
+        }
+
+        if cmp -s "$modprobe_file" "$tmp_file"; then
+            rm -f "$tmp_file"
+        else
+            cat "$tmp_file" > "$modprobe_file" || {
+                rm -f "$tmp_file"
+                return 1
+            }
+            rm -f "$tmp_file"
+            echo "Removed Copy Fail / DirtyFrag / Fragnesia module deny rules from ${modprobe_file}"
+        fi
+    done
+
+    if grep -qsE "$deny_pattern" /etc/modprobe.d/*.conf 2>/dev/null; then
+        echo "Failed to remove vulnerable module deny rules from /etc/modprobe.d"
+        return 1
+    fi
+}
+
+reconcileVulnerableKernelModuleMitigation() {
     # Disable kernel modules with known LPE vulnerabilities (CVE-2026-31431, DirtyFrag, Fragnesia).
-    # Applied while building future VHDs for vulnerable Ubuntu kernels, AzureLinux OSGuard,
-    # and AzureLinux 2.0 / Mariner.
+    # Reconciled during both basePrep and nodePrep: basePrep bakes the intended state into
+    # future VHDs, while nodePrep covers PIS-cached or already-released VHDs that may skip
+    # basePrep or carry stale modprobe files.
     # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
     #
     # Ubuntu 20.04 remains in scope. Future Ubuntu releases are intentionally skipped
     # unless explicitly added here so they do not inherit this deny mitigation by default.
     # Ubuntu 22.04 picked up the fixes in linux-azure 5.15.0-1116-azure (generic
     # fallback 5.15.0-181-generic); Ubuntu 24.04 picked up the fixes in linux-azure
-    # 6.8.0-1058-azure (generic fallback 6.8.0-124-generic). Keep the VHD-build
-    # apply for older or unknown 22.04 / 24.04 kernel flavors. Fixed 22.04 / 24.04
-    # kernels skip the mitigation so future VHDs no longer block legitimate module use.
+    # 6.8.0-1058-azure (generic fallback 6.8.0-124-generic). Keep the apply for older
+    # or unknown 22.04 / 24.04 kernel flavors. Fixed 22.04 / 24.04 kernels remove stale
+    # deny rules so in-support VHDs no longer block legitimate module use after the fix.
     #
     # AzureLinux 3.0 (regular and Kata) is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy
     # Fail / DirtyFrag / Fragnesia upstream, so the modprobe blacklist is no longer
@@ -94,7 +129,7 @@ applyVulnerableKernelModuleMitigation() {
     #
     # Mariner / AzureLinux 2.0 (AzL2) images are frozen (see FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion=202512.06.0),
     # so they cannot pick up new modprobe-CIS.conf entries for these 2026 CVEs via VHD refresh.
-    # Keep the basePrep apply enabled for AzL2/Mariner while those images remain supported.
+    # Keep the runtime apply enabled for AzL2/Mariner while those images remain supported.
     # See https://github.com/Azure/AKS/issues/5753.
     #
     if isUbuntu "$OS"; then
@@ -103,6 +138,8 @@ applyVulnerableKernelModuleMitigation() {
             disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
             disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
             disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
+        else
+            removeVulnerableKernelModuleDenyRules || exit $ERR_MODPROBE_FAIL
         fi
     elif isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
         disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
@@ -350,7 +387,7 @@ EOF
 
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
-    applyVulnerableKernelModuleMitigation
+    reconcileVulnerableKernelModuleMitigation
 
     if [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
         if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
@@ -386,6 +423,7 @@ EOF
 # IMPORTANT: This stage should only run when actually joining a node to the cluster. This step should not be run when creating a VHD image
 function nodePrep {
     logs_to_events "AKS.CSE.fetch_and_cache_imds_instance_metadata" fetch_and_cache_imds_instance_metadata
+    reconcileVulnerableKernelModuleMitigation
 
     # IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels,
     # which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.

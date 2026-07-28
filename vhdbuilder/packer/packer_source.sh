@@ -22,6 +22,10 @@ ubuntuKernelIncludesVulnerableModuleFixes() {
     return 1
   fi
 
+  if [ -z "${OS_VERSION}" ]; then
+    return 1
+  fi
+
   case "${OS_VERSION}" in
     20.04) return 1 ;;
     22.04)
