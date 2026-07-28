@@ -13,7 +13,6 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -275,81 +274,6 @@ oom_score = -999
 			require.NoError(t, os.WriteFile(fakeBinDir+"/containerd", []byte("#!/bin/sh\necho 'containerd containerd.io 1.7.22 c814c75'\n"), 0755))
 			t.Setenv("PATH", fakeBinDir+":"+os.Getenv("PATH"))
 
-			cs := &datamodel.ContainerService{
-				Location: "southcentralus",
-				Type:     "Microsoft.ContainerService/ManagedClusters",
-				Properties: &datamodel.Properties{
-					OrchestratorProfile: &datamodel.OrchestratorProfile{
-						OrchestratorType:    datamodel.Kubernetes,
-						OrchestratorVersion: tt.k8sVersion,
-						KubernetesConfig:    &datamodel.KubernetesConfig{},
-					},
-					HostedMasterProfile: &datamodel.HostedMasterProfile{
-						DNSPrefix: "uttestdom",
-					},
-					AgentPoolProfiles: []*datamodel.AgentPoolProfile{
-						{
-							Name:                "agent2",
-							VMSize:              "Standard_DS1_v2",
-							StorageProfile:      "ManagedDisks",
-							OSType:              datamodel.Linux,
-							VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
-							AvailabilityProfile: datamodel.VirtualMachineScaleSets,
-							Distro:              datamodel.AKSUbuntuContainerd2404,
-						},
-					},
-					LinuxProfile: &datamodel.LinuxProfile{
-						AdminUsername: "azureuser",
-					},
-					ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
-						ClientID: "ClientID",
-						Secret:   "Secret",
-					},
-				},
-			}
-			cs.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{{
-				KeyData: "testsshkey",
-			}}
-
-			agentPool := cs.Properties.AgentPoolProfiles[0]
-
-			kubeletConfig := map[string]string{
-				"--address":                           "0.0.0.0",
-				"--pod-manifest-path":                 "/etc/kubernetes/manifests",
-				"--cloud-provider":                    "azure",
-				"--cloud-config":                      "/etc/kubernetes/azure.json",
-				"--azure-container-registry-config":   "/etc/kubernetes/azure.json",
-				"--cluster-domain":                    "cluster.local",
-				"--cluster-dns":                       "10.0.0.10",
-				"--cgroups-per-qos":                   "true",
-				"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
-				"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-				"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
-				"--max-pods":                          "110",
-				"--node-status-update-frequency":      "10s",
-				"--image-gc-high-threshold":           "85",
-				"--image-gc-low-threshold":            "80",
-				"--event-qps":                         "0",
-				"--pod-max-pids":                      "-1",
-				"--enforce-node-allocatable":          "pods",
-				"--streaming-connection-idle-timeout": "4h0m0s",
-				"--rotate-certificates":               "true",
-				"--read-only-port":                    "10255",
-				"--protect-kernel-defaults":           "true",
-				"--resolv-conf":                       "/etc/resolv.conf",
-				"--anonymous-auth":                    "false",
-				"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
-				"--authentication-token-webhook":      "true",
-				"--authorization-mode":                "Webhook",
-				"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-				"--feature-gates":                     "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
-				"--system-reserved":                   "cpu=2,memory=1Gi",
-				"--kube-reserved":                     "cpu=100m,memory=1638Mi",
-				"--container-log-max-size":            "50M",
-				"--register-with-taints":              "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule",
-			}
-
-			helpers.ValidateAndSetLinuxKubeletFlags(kubeletConfig, cs, agentPool)
 			aksNodeConfig := &aksnodeconfigv1.Configuration{
 				LinuxAdminUsername: "azureuser",
 				VmSize:             "Standard_DS1_v2",
@@ -386,11 +310,48 @@ oom_score = -999
 					ContainerdDownloadUrlBase: "https://storage.googleapis.com/cri-containerd-release/",
 					ContainerdVersion:         "1.7.22",
 				},
-				OutboundCommand: helpers.GetDefaultOutboundCommand(),
+				OutboundCommand: "curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/",
 				KubeletConfig: &aksnodeconfigv1.KubeletConfig{
 					EnableKubeletConfigFile: false,
-					KubeletFlags:            helpers.GetKubeletConfigFlag(kubeletConfig, cs, agentPool, false),
-					KubeletNodeLabels:       helpers.GetKubeletNodeLabels(agentPool),
+					KubeletFlags: map[string]string{
+						"--address":                           "0.0.0.0",
+						"--pod-manifest-path":                 "/etc/kubernetes/manifests",
+						"--cloud-provider":                    "azure",
+						"--cloud-config":                      "/etc/kubernetes/azure.json",
+						"--azure-container-registry-config":   "/etc/kubernetes/azure.json",
+						"--cluster-domain":                    "cluster.local",
+						"--cluster-dns":                       "10.0.0.10",
+						"--cgroups-per-qos":                   "true",
+						"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
+						"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
+						"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+						"--max-pods":                          "110",
+						"--node-status-update-frequency":      "10s",
+						"--image-gc-high-threshold":           "85",
+						"--image-gc-low-threshold":            "80",
+						"--event-qps":                         "0",
+						"--pod-max-pids":                      "-1",
+						"--enforce-node-allocatable":          "pods",
+						"--streaming-connection-idle-timeout": "4h0m0s",
+						"--rotate-certificates":               "true",
+						"--read-only-port":                    "10255",
+						"--protect-kernel-defaults":           "true",
+						"--resolv-conf":                       "/etc/resolv.conf",
+						"--anonymous-auth":                    "false",
+						"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
+						"--authentication-token-webhook":      "true",
+						"--authorization-mode":                "Webhook",
+						"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+						"--feature-gates":                     "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
+						"--system-reserved":                   "cpu=2,memory=1Gi",
+						"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+						"--container-log-max-size":            "50M",
+						"--register-with-taints":              "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule",
+					},
+					KubeletNodeLabels: map[string]string{
+						"agentpool":                      "agent2",
+						"kubernetes.azure.com/agentpool": "agent2",
+					},
 				},
 				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
 			}
@@ -399,7 +360,7 @@ oom_score = -999
 				tt.aksNodeConfigUpdator(aksNodeConfig)
 			}
 
-			cseCMD, err := BuildCSECmd(context.TODO(), aksNodeConfig)
+			cseCMD, err := BuildCSECmd(context.TODO(), aksNodeConfig, nil)
 			require.NoError(t, err)
 
 			generateTestDataIfRequested(t, tt.folder, cseCMD)
@@ -415,7 +376,7 @@ func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
 	secret := "super-secret-value"
 	cmd, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{
 		AuthConfig: &aksnodeconfigv1.AuthConfig{ServicePrincipalSecret: secret},
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	vars := environToMap(cmd.Env)
@@ -461,7 +422,7 @@ func TestBuildCSECmd_StreamingConnectionIdleTimeout_VersionGated(t *testing.T) {
 				},
 			}
 
-			cmd, err := BuildCSECmd(context.TODO(), config)
+			cmd, err := BuildCSECmd(context.TODO(), config, nil)
 			require.NoError(t, err)
 
 			vars := environToMap(cmd.Env)
@@ -549,7 +510,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cseCMD, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{})
+			cseCMD, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{}, nil)
 			require.NoError(t, err)
 
 			generateTestDataIfRequested(t, tt.folder, cseCMD)
@@ -717,7 +678,7 @@ func TestBuildCSECmd_DetectsContainerdV2FromSystem(t *testing.T) {
 		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{},
 	}
 
-	cmd, err := BuildCSECmd(context.TODO(), config)
+	cmd, err := BuildCSECmd(context.TODO(), config, nil)
 	require.NoError(t, err)
 
 	vars := environToMap(cmd.Env)
@@ -740,7 +701,7 @@ func TestBuildCSECmd_FallsBackToV1WhenContainerdDetectionFails(t *testing.T) {
 	}
 
 	// BuildCSECmd should NOT return an error even when containerd detection fails.
-	cmd, err := BuildCSECmd(context.TODO(), config)
+	cmd, err := BuildCSECmd(context.TODO(), config, nil)
 	require.NoError(t, err)
 
 	vars := environToMap(cmd.Env)
