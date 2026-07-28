@@ -191,8 +191,11 @@ func pollKubeletFlags() map[string]string {
 	return nil
 }
 
+// readKubeletFlagsFromJournal runs journalctl and parses FLAG lines.
+func readKubeletFlagsFromJournal(ctx context.Context) map[string]string {
 	// #nosec G204 -- fixed command, no user input
 	cmd := exec.CommandContext(ctx, "journalctl", "-u", "kubelet", "-b", "--no-pager", "-r", "-n", "500")
+	output, err := cmd.Output()
 	if err != nil {
 		return nil
 	}
