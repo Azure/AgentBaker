@@ -3,7 +3,7 @@
 #NOTE: Currently, Nvidia library mig-parted (https://github.com/NVIDIA/mig-parted) cannot work properly because of the outdated GPU driver version
 #TODO: Use mig-parted library to do the partition after the above issue is fixed 
 MIG_PROFILE=${1}
-NVIDIA_MIG_TOTAL_SLICES=${NVIDIA_MIG_TOTAL_SLICES:-7}
+NVIDIA_MIG_TOTAL_SLICES=${2:-7}
 
 case ${NVIDIA_MIG_TOTAL_SLICES} in
     ''|*[!0-9]*)

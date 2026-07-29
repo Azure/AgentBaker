@@ -616,7 +616,6 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_NonSevenSlices(t *testing.T) 
 
 	RunScenario(t, &Scenario{
 		Description: "Tests capacity-aware MIG partitioning on a GPU with fewer than seven slices",
-		Location:    "westus3",
 		Tags: Tags{
 			GPU: true,
 		},
