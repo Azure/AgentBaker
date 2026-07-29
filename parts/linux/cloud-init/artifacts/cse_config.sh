@@ -1240,20 +1240,10 @@ installGPUDriverImage() {
     retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
 }
 
-# nvidia-container-toolkit 1.18.0 ships nvidia-cdi-refresh.{path,service} and its packaging
-# auto-starts them the moment the toolkit is installed. On AKS GPU nodes the toolkit is installed
-# (by the aks-gpu driver container) BEFORE the NVIDIA driver userspace libraries (libnvidia-ml.so)
-# are staged, so the auto-triggered `nvidia-ctk cdi generate` runs too early and fails with NVML
-# ERROR_LIBRARY_NOT_FOUND. With the toolkit's default start-rate-limit it exhausts its restarts
-# within a few seconds and the units are left in a permanent "failed" state -- even though the
-# driver becomes ready shortly afterwards.
-# Drop in an override (written BEFORE the toolkit is installed) that removes the start-rate limit and
-# keeps retrying on failure, so the unit recovers on its own once the driver is staged. The retry is
-# cheap (cdi generate fails fast until then) and -- crucially -- NON-BLOCKING: it must not delay the
-# toolkit's own install. (An ExecStartPre that waits for the driver would deadlock, because the
-# toolkit's postinst synchronously starts this unit and the driver install is sequenced AFTER it.)
-# The override is inert on VHDs whose toolkit predates these units (systemd ignores drop-ins for
-# absent units).
+# nvidia-container-toolkit 1.18.0 starts nvidia-cdi-refresh.service while the aks-gpu
+# container is still staging the NVIDIA userspace libraries. Temporarily retry the oneshot
+# service without rate limiting so the package postinst remains non-blocking. This drop-in is
+# removed and CDI generation is verified synchronously after the driver is ready.
 configureNvidiaCDIRefresh() {
     local systemd_unit_dir="${SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
     local service_dropin_dir="${systemd_unit_dir}/nvidia-cdi-refresh.service.d"
@@ -1266,33 +1256,128 @@ StartLimitIntervalSec=0
 Restart=on-failure
 RestartSec=10
 EOF
-    local path_dropin_dir="${systemd_unit_dir}/nvidia-cdi-refresh.path.d"
-    mkdir -p "$path_dropin_dir" || return 1
-    cat > "${path_dropin_dir}/10-aks-no-start-limit.conf" <<'EOF' || return 1
-[Unit]
-StartLimitIntervalSec=0
-EOF
     systemctl daemon-reload
+}
+
+removeNvidiaCDIRefreshDropins() {
+    local systemd_unit_dir="${SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
+    local service_dropin_dir="${systemd_unit_dir}/nvidia-cdi-refresh.service.d"
+    local path_dropin_dir="${systemd_unit_dir}/nvidia-cdi-refresh.path.d"
+    rm -f \
+        "${service_dropin_dir}/10-aks-retry-until-driver-ready.conf" \
+        "${path_dropin_dir}/10-aks-no-start-limit.conf" || return 1
+    rmdir "$service_dropin_dir" "$path_dropin_dir" 2>/dev/null || true
+}
+
+cleanupNvidiaCDIRefresh() {
+    local service_unit="nvidia-cdi-refresh.service"
+    local path_unit="nvidia-cdi-refresh.path"
+    local service_load_state
+    local path_load_state
+    local cleanup_status=0
+
+    service_load_state=$(systemctl show --property=LoadState --value "$service_unit") || cleanup_status=1
+    path_load_state=$(systemctl show --property=LoadState --value "$path_unit") || cleanup_status=1
+
+    if [ "$path_load_state" = "loaded" ]; then
+        systemctl stop "$path_unit" || cleanup_status=1
+    fi
+    if [ "$service_load_state" = "loaded" ]; then
+        systemctl stop "$service_unit" || cleanup_status=1
+    fi
+
+    removeNvidiaCDIRefreshDropins || cleanup_status=1
+    systemctl daemon-reload || cleanup_status=1
+
+    if [ "$service_load_state" = "loaded" ]; then
+        systemctl reset-failed "$service_unit" || cleanup_status=1
+    fi
+    if [ "$path_load_state" = "loaded" ]; then
+        systemctl reset-failed "$path_unit" || cleanup_status=1
+    fi
+
+    return "$cleanup_status"
+}
+
+exitGPUDriverConfigFailure() {
+    local exit_code=$1
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        cleanupNvidiaCDIRefresh || echo "Warning: failed to fully clean up temporary NVIDIA CDI refresh configuration"
+    fi
+    exit "$exit_code"
+}
+
+finalizeNvidiaCDIRefresh() {
+    local service_unit="nvidia-cdi-refresh.service"
+    local path_unit="nvidia-cdi-refresh.path"
+    local cdi_spec_path="${NVIDIA_CDI_SPEC_PATH:-/var/run/cdi/nvidia.yaml}"
+    local service_load_state
+    local path_load_state
+    local cdi_devices
+    local cdi_list_status
+    local validation_dir
+
+    service_load_state=$(systemctl show --property=LoadState --value "$service_unit") || return 1
+    path_load_state=$(systemctl show --property=LoadState --value "$path_unit") || return 1
+
+    if [ "$service_load_state" = "not-found" ] && [ "$path_load_state" = "not-found" ]; then
+        removeNvidiaCDIRefreshDropins || return 1
+        systemctl daemon-reload
+        return
+    fi
+    if [ "$service_load_state" != "loaded" ] || [ "$path_load_state" != "loaded" ]; then
+        echo "Unexpected NVIDIA CDI unit state: service=${service_load_state}, path=${path_load_state}"
+        return 1
+    fi
+
+    cleanupNvidiaCDIRefresh || return 1
+
+    # A successful oneshot can still mean its conditions skipped. Remove any stale output and
+    # require the synchronous run to generate a usable NVIDIA CDI device.
+    rm -f "$cdi_spec_path" || return 1
+    systemctl start "$service_unit" || return 1
+    if [ ! -s "$cdi_spec_path" ]; then
+        echo "NVIDIA CDI refresh did not generate ${cdi_spec_path}"
+        return 1
+    fi
+
+    validation_dir=$(mktemp -d) || return 1
+    if ! cp "$cdi_spec_path" "${validation_dir}/nvidia.yaml"; then
+        rm -rf "$validation_dir"
+        return 1
+    fi
+    cdi_devices=$(nvidia-ctk cdi list --spec-dir="$validation_dir")
+    cdi_list_status=$?
+    rm -rf "$validation_dir"
+    if [ "$cdi_list_status" -ne 0 ]; then
+        return 1
+    fi
+    if ! grep -q '^nvidia.com/gpu=' <<< "$cdi_devices"; then
+        echo "NVIDIA CDI refresh generated no NVIDIA GPU devices"
+        return 1
+    fi
+
+    systemctl start "$path_unit"
 }
 
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-        waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
+        waitForContainerdReady || exitGPUDriverConfigFailure $ERR_GPU_DRIVERS_START_FAIL
         mkdir -p /opt/{actions,gpu}
         # Normally the image is baked into the VHD; only pull on a cache miss (expected under VHD/CSE
         # version skew). ctr run does not auto-pull, so a failed pull must exit here rather than
         # resurface as an opaque install error. name== is an exact match, not an `images ls` substring.
         if [ -z "$(ctr -n k8s.io images ls -q "name==${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}")" ]; then
-            logs_to_events "AKS.CSE.configGPUDrivers.pullGPUDriverImage" pullGPUDriverImage || exit $ERR_GPU_DRIVERS_START_FAIL
+            logs_to_events "AKS.CSE.configGPUDrivers.pullGPUDriverImage" pullGPUDriverImage || exitGPUDriverConfigFailure $ERR_GPU_DRIVERS_START_FAIL
         fi
         # Make the toolkit's nvidia-cdi-refresh units resilient to the driver-not-yet-staged race
         # before the aks-gpu container installs the toolkit (which auto-triggers them).
-        logs_to_events "AKS.CSE.configGPUDrivers.configureNvidiaCDIRefresh" configureNvidiaCDIRefresh || exit $ERR_GPU_DRIVERS_START_FAIL
+        logs_to_events "AKS.CSE.configGPUDrivers.configureNvidiaCDIRefresh" configureNvidiaCDIRefresh || exitGPUDriverConfigFailure $ERR_GPU_DRIVERS_START_FAIL
         logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImage" installGPUDriverImage
         ret=$?
         if [ "$ret" -ne 0 ]; then
             echo "Failed to install GPU driver, exiting..."
-            exit $ERR_GPU_DRIVERS_START_FAIL
+            exitGPUDriverConfigFailure $ERR_GPU_DRIVERS_START_FAIL
         fi
         # Drop the driver image reference so containerd can reclaim its space, but skip --sync so
         # garbage collection runs asynchronously instead of blocking node provisioning.
@@ -1310,9 +1395,12 @@ configGPUDrivers() {
         exit 1
     fi
 
-    logs_to_events "AKS.CSE.configGPUDrivers.waitForNvidiaModprobe" "retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0" || exit $ERR_GPU_DRIVERS_START_FAIL
-    logs_to_events "AKS.CSE.configGPUDrivers.waitForNvidiaSmi" "retrycmd_if_failure 120 5 30 nvidia-smi" || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+    logs_to_events "AKS.CSE.configGPUDrivers.waitForNvidiaModprobe" "retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0" || exitGPUDriverConfigFailure $ERR_GPU_DRIVERS_START_FAIL
+    logs_to_events "AKS.CSE.configGPUDrivers.waitForNvidiaSmi" "retrycmd_if_failure 120 5 30 nvidia-smi" || exitGPUDriverConfigFailure $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 25 ldconfig || exitGPUDriverConfigFailure $ERR_GPU_DRIVERS_START_FAIL
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        logs_to_events "AKS.CSE.configGPUDrivers.finalizeNvidiaCDIRefresh" finalizeNvidiaCDIRefresh || exitGPUDriverConfigFailure $ERR_GPU_DRIVERS_START_FAIL
+    fi
 
     # Fix the NVIDIA /dev/char link issue (Mariner/AzureLinux only)
     if isMarinerOrAzureLinux "$OS"; then
