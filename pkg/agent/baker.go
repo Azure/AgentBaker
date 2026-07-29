@@ -1221,24 +1221,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString([]byte(kubenetCniTemplate))
 		},
 		"GetContainerdConfigContent": func() string {
-			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
-				if profile.IsContainerdV2Distro() {
-					return containerdV2ConfigTemplate
-				}
-				return containerdV1ConfigTemplate
-			}(profile))
+			output, err := containerdConfigFromTemplate(config, profile, containerdConfigTemplateForVersion(config, false))
 			if err != nil {
 				panic(err)
 			}
 			return output
 		},
 		"GetContainerdConfigNoGPUContent": func() string {
-			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
-				if profile.IsContainerdV2Distro() {
-					return containerdV2NoGPUConfigTemplate
-				}
-				return containerdV1NoGPUConfigTemplate
-			}(profile))
+			output, err := containerdConfigFromTemplate(config, profile, containerdConfigTemplateForVersion(config, true))
 			if err != nil {
 				panic(err)
 			}
@@ -1921,6 +1911,19 @@ const kubenetCniTemplate = `{
 `
 
 type ContainerdConfigTemplate string
+
+func containerdConfigTemplateForVersion(config *datamodel.NodeBootstrappingConfiguration, noGPU bool) ContainerdConfigTemplate {
+	if config != nil && IsKubernetesVersionGe(config.ContainerdVersion, "2.3.0") {
+		if noGPU {
+			return containerdV2NoGPUConfigTemplate
+		}
+		return containerdV2ConfigTemplate
+	}
+	if noGPU {
+		return containerdV1NoGPUConfigTemplate
+	}
+	return containerdV1ConfigTemplate
+}
 
 // this pains me, but to make it respect mutability of vmss tags,
 // we cannot use go templates at runtime.

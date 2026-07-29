@@ -98,6 +98,50 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			})
 		})
 
+		Describe(".containerdConfigTemplateForVersion()", func() {
+			renderContainerdConfig := func(containerdVersion string) string {
+				config.ContainerdVersion = containerdVersion
+				encoded, err := containerdConfigFromTemplate(config, config.AgentPoolProfile, containerdConfigTemplateForVersion(config, false))
+				Expect(err).NotTo(HaveOccurred())
+				decoded, err := base64.StdEncoding.DecodeString(encoded)
+				Expect(err).NotTo(HaveOccurred())
+				return string(decoded)
+			}
+
+			It("uses schema v2 when containerd version is empty", func() {
+				containerdConfig := renderContainerdConfig("")
+				Expect(containerdConfig).To(ContainSubstring(`version = 2`))
+				Expect(containerdConfig).To(ContainSubstring(`[plugins."io.containerd.grpc.v1.cri"]`))
+				Expect(containerdConfig).NotTo(ContainSubstring(`version = 4`))
+				Expect(containerdConfig).NotTo(ContainSubstring(`io.containerd.cri.v1.images`))
+			})
+
+			It("uses schema v2 when containerd version is invalid", func() {
+				containerdConfig := renderContainerdConfig("not-a-version")
+				Expect(containerdConfig).To(ContainSubstring(`version = 2`))
+				Expect(containerdConfig).To(ContainSubstring(`[plugins."io.containerd.grpc.v1.cri"]`))
+				Expect(containerdConfig).NotTo(ContainSubstring(`version = 4`))
+				Expect(containerdConfig).NotTo(ContainSubstring(`io.containerd.cri.v1.images`))
+			})
+
+			It("uses schema v2 for containerd versions before 2.3", func() {
+				containerdConfig := renderContainerdConfig("2.2.4-4.azl3")
+				Expect(containerdConfig).To(ContainSubstring(`version = 2`))
+				Expect(containerdConfig).To(ContainSubstring(`[plugins."io.containerd.grpc.v1.cri"]`))
+				Expect(containerdConfig).NotTo(ContainSubstring(`version = 4`))
+				Expect(containerdConfig).NotTo(ContainSubstring(`io.containerd.cri.v1.images`))
+			})
+
+			It("uses schema v4 for containerd 2.3 and newer", func() {
+				containerdConfig := renderContainerdConfig("2.3.2-ubuntu24.04u1")
+				Expect(containerdConfig).To(ContainSubstring(`version = 4`))
+				Expect(containerdConfig).To(ContainSubstring(`[plugins."io.containerd.cri.v1.images".pinned_images]`))
+				Expect(containerdConfig).To(ContainSubstring(`io.containerd.cri.v1.runtime`))
+				Expect(containerdConfig).NotTo(ContainSubstring(`version = 2`))
+				Expect(containerdConfig).NotTo(ContainSubstring(`io.containerd.grpc.v1.cri`))
+			})
+		})
+
 		Describe(".GetKubernetesEndpoint()", func() {
 			It("given there is no profile, it returns an empty string", func() {
 				Expect(GetKubernetesEndpoint(config.ContainerService)).To(BeEmpty())
