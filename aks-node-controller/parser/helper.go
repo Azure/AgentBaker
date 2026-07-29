@@ -54,6 +54,18 @@ var (
 	containerdConfigNoGPUTemplate = template.Must(
 		template.New("nogpucontainerdconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigNoGPUTemplateText),
 	)
+	//go:embed  templates/containerd_v2.toml.gtpl
+	containerdV2ConfigTemplateText string
+	//nolint:gochecknoglobals
+	containerdV2ConfigTemplate = template.Must(
+		template.New("containerdv2config").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdV2ConfigTemplateText),
+	)
+	//go:embed  templates/containerd_v2_no_GPU.toml.gtpl
+	containerdV2ConfigNoGPUTemplateText string
+	//nolint:gochecknoglobals
+	containerdV2ConfigNoGPUTemplate = template.Must(
+		template.New("nogpucontainerdv2config").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdV2ConfigNoGPUTemplateText),
+	)
 
 	//go:embed templates/localdns.toml.gtpl
 	localDnsCorefileTemplateText string
@@ -212,6 +224,12 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	if noGPU {
 		_template = containerdConfigNoGPUTemplate
 	}
+	if isContainerdV2BeforeV23(aksnodeconfig.GetContainerdConfig().GetContainerdVersion()) {
+		_template = containerdV2ConfigTemplate
+		if noGPU {
+			_template = containerdV2ConfigNoGPUTemplate
+		}
+	}
 
 	var buffer bytes.Buffer
 	if err := _template.Execute(&buffer, aksnodeconfig); err != nil {
@@ -235,6 +253,18 @@ func configWithContainerdVersionFallback(aksnodeconfig *aksnodeconfigv1.Configur
 	}
 	clonedConfig.ContainerdConfig.ContainerdVersion = containerdVersion
 	return clonedConfig, nil
+}
+
+func isContainerdV2BeforeV23(containerdVersion string) bool {
+	containerdVersion = containerdSemverCore(containerdVersion)
+	if containerdVersion == "" {
+		return false
+	}
+	version, err := semver.NewVersion(containerdVersion)
+	if err != nil {
+		return false
+	}
+	return version.Major() == 2 && !IsKubernetesVersionGe(containerdVersion, "2.3.0")
 }
 
 // detectContainerdVersion runs "containerd --version" and parses the version string.
