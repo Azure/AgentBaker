@@ -826,6 +826,18 @@ func Test_containerdConfigFromAKSNodeConfig_ContainerdVersionFallback(t *testing
 			notWantContains:   "version = 2",
 			wantOriginalValue: "1:2.3.2+azure",
 		},
+		{
+			name: "uses RP supplied 2.3 version with Debian prerelease suffix",
+			aksnodeconfig: &aksnodeconfigv1.Configuration{
+				ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+					ContainerdVersion: "2.3.0~beta.0-ubuntu24.04u1",
+				},
+			},
+			fallbackVersion:   "2.2.4-4.azl3",
+			wantContains:      "version = 4",
+			notWantContains:   "version = 2",
+			wantOriginalValue: "2.3.0~beta.0-ubuntu24.04u1",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

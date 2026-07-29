@@ -153,6 +153,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				expectSchemaV4(renderContainerdConfig("2.3.0-ubuntu24.04u1", datamodel.AKSUbuntuContainerd2204))
 				expectSchemaV4(renderContainerdConfig("2.3.2-ubuntu24.04u1", datamodel.AKSUbuntuContainerd2204))
 				expectSchemaV4(renderContainerdConfig("1:2.3.2+azure", datamodel.AKSUbuntuContainerd2204))
+				expectSchemaV4(renderContainerdConfig("2.3.0~beta.0-ubuntu24.04u1", datamodel.AKSUbuntuContainerd2204))
 			})
 
 			It("keeps kata-cc runtime in schema v4 no-GPU configs", func() {
