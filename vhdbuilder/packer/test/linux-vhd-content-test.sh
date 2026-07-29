@@ -1456,8 +1456,9 @@ testNfsServerService() {
 # require those modules). Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu
 # 24.04 linux-azure 6.8.0-1058-azure include the fixes, so newly-built Ubuntu
 # 22.04/24.04 VHDs with a fixed running kernel also stop baking the vulnerable-module
-# blacklist while keeping the baseline CIS module deny list. Fixed Ubuntu kernels assert
-# ABSENCE; unknown or vulnerable Ubuntu kernels assert presence + load-refusal.
+# blacklist while keeping the baseline CIS module deny list. Ubuntu 20.04 and vulnerable
+# 22.04/24.04 kernels assert presence + load-refusal; fixed 22.04/24.04 kernels and
+# future Ubuntu releases assert ABSENCE so future releases do not inherit the mitigation.
 # Mariner/AzureLinux 2.0 and AzureLinux OSGuard still assert presence + load-refusal.
 kernelVersionGe() {
   local version_a="$1"
@@ -1481,21 +1482,24 @@ ubuntuKernelIncludesVulnerableModuleFixes() {
   fi
 
   case "$os_version" in
+    20.04) return 1 ;;
     22.04)
       case "$kernel_release" in
-        *-azure) fixed_kernel="5.15.0-1116-azure" ;;
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="5.15.0-1116-azure" ;;
         *-generic) fixed_kernel="5.15.0-181-generic" ;;
         *) return 1 ;;
       esac
       ;;
     24.04)
       case "$kernel_release" in
-        *-azure) fixed_kernel="6.8.0-1058-azure" ;;
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="6.8.0-1058-azure" ;;
         *-generic) fixed_kernel="6.8.0-124-generic" ;;
         *) return 1 ;;
       esac
       ;;
-    *) return 1 ;;
+    *) return 0 ;;
   esac
 
   kernelVersionGe "$kernel_release" "$fixed_kernel"
@@ -1513,7 +1517,7 @@ testVulnerableKernelModulesDisabled() {
      { [ "$os_sku" = "Ubuntu" ] && ubuntuKernelIncludesVulnerableModuleFixes "$os_version"; }; then
     for mod in algif_aead esp4 esp6 rxrpc; do
       if grep -qsE "^(install ${mod} /bin/false|blacklist ${mod})" /etc/modprobe.d/*.conf 2>/dev/null; then
-        err "$test" "${mod} blacklist entry unexpectedly present in /etc/modprobe.d/*.conf on ${os_sku} ${os_version} (bake-in removed for fixed kernels only; no 'install' or 'blacklist' directive should remain)"
+        err "$test" "${mod} blacklist entry unexpectedly present in /etc/modprobe.d/*.conf on ${os_sku} ${os_version} (bake-in removed for fixed/future Ubuntu and AzL3 kernels; no 'install' or 'blacklist' directive should remain)"
         failed=1
       else
         echo "$test: ${mod} blacklist correctly absent on ${os_sku} ${os_version}"

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VULNERABLE_KERNEL_MODULE_DENY_PATTERN='^(install[[:space:]]+(algif_aead|esp4|esp6|rxrpc)[[:space:]]+[/]bin[/]false|blacklist[[:space:]]+(algif_aead|esp4|esp6|rxrpc))[[:space:]]*$'
+VULNERABLE_KERNEL_MODULE_DENY_PATTERN='^(install[[:space:]]+(algif_aead|esp4|esp6|rxrpc)[[:space:]]+[/]bin[/]false|blacklist[[:space:]]+(algif_aead|esp4|esp6|rxrpc))([[:space:]]+.*)?$'
 
 kernelVersionGe() {
   local version_a="$1"
@@ -16,28 +16,47 @@ kernelVersionGe() {
 ubuntuKernelIncludesVulnerableModuleFixes() {
   local kernel_release
   local fixed_kernel
+  local os_version
 
   kernel_release="$(uname -r 2>/dev/null || true)"
   if [ -z "$kernel_release" ]; then
     return 1
   fi
 
-  case "${OS_VERSION}" in
+  # Prefer the OS_VERSION env var, but fall back to /etc/os-release when it is empty.
+  # copyPackerFiles runs in environments where OS_VERSION is not always exported, so
+  # relying on it alone made out-of-scope releases (e.g. Ubuntu 26.04) fall through to the
+  # default bake path and ship the deny rules. Reading /etc/os-release keeps this gate
+  # consistent with cleanup-vhd.sh and cse_helpers.sh, which detect the release the same way.
+  os_version="${OS_VERSION}"
+  if [ -z "$os_version" ]; then
+    os_version="$(awk -F= '$1 == "VERSION_ID" { gsub(/"/, "", $2); print $2; exit }' /etc/os-release 2>/dev/null || true)"
+  fi
+  if [ -z "$os_version" ]; then
+    return 1
+  fi
+
+  case "$os_version" in
+    20.04) return 1 ;;
     22.04)
       case "$kernel_release" in
-        *-azure) fixed_kernel="5.15.0-1116-azure" ;;
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="5.15.0-1116-azure" ;;
         *-generic) fixed_kernel="5.15.0-181-generic" ;;
         *) return 1 ;;
       esac
       ;;
     24.04)
       case "$kernel_release" in
-        *-azure) fixed_kernel="6.8.0-1058-azure" ;;
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="6.8.0-1058-azure" ;;
         *-generic) fixed_kernel="6.8.0-124-generic" ;;
         *) return 1 ;;
       esac
       ;;
-    *) return 1 ;;
+    # Future Ubuntu releases are not in this mitigation scope by default; if a
+    # future release needs the deny rules, add an explicit case above.
+    *) return 0 ;;
   esac
 
   kernelVersionGe "$kernel_release" "$fixed_kernel"
@@ -46,12 +65,19 @@ ubuntuKernelIncludesVulnerableModuleFixes() {
 removeVulnerableKernelModuleDenyRulesFromModprobeDirectory() {
   local modprobe_conf
   local tmp_modprobe_conf
+
   for modprobe_conf in /etc/modprobe.d/*.conf; do
     [ -f "$modprobe_conf" ] || continue
-    tmp_modprobe_conf="${modprobe_conf}.tmp"
-    sed -E "/$VULNERABLE_KERNEL_MODULE_DENY_PATTERN/d" "$modprobe_conf" > "$tmp_modprobe_conf" || return "$ERR_PACKER_COPY_FILE"
-    cat "$tmp_modprobe_conf" > "$modprobe_conf" || return "$ERR_PACKER_COPY_FILE"
-    rm -f "$tmp_modprobe_conf"
+    tmp_modprobe_conf="${modprobe_conf}.tmp.$$"
+    sed -E "/$VULNERABLE_KERNEL_MODULE_DENY_PATTERN/d" "$modprobe_conf" > "$tmp_modprobe_conf" || {
+      rm -f "$tmp_modprobe_conf"
+      return "$ERR_PACKER_COPY_FILE"
+    }
+    cat "$tmp_modprobe_conf" > "$modprobe_conf" || {
+      rm -f "$tmp_modprobe_conf"
+      return "$ERR_PACKER_COPY_FILE"
+    }
+    rm -f "$tmp_modprobe_conf" || return "$ERR_PACKER_COPY_FILE"
   done
 }
 
@@ -487,7 +513,8 @@ copyPackerFiles() {
   # Keep the rest of the CIS module deny list on fixed Ubuntu VHDs; those entries are
   # unrelated to the 2026 kernel CVEs and are required for the CIS baseline.
   #
-  # The vulnerable-module block is omitted only on fixed Ubuntu 22.04 / 24.04 kernels and
+  # The vulnerable-module block is omitted on fixed Ubuntu 22.04 / 24.04 kernels,
+  # and by default on future Ubuntu releases that are not explicitly in mitigation scope.
   # the whole file is skipped on AzureLinux 3.0 because:
   #   1. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu 24.04 linux-azure
   #      6.8.0-1058-azure include the fixes. The CSE still applies the deny rules
@@ -495,7 +522,7 @@ copyPackerFiles() {
   #   2. The upstream kernel fix in 6.6.139.1-1.azl3+ supersedes the modprobe blacklist.
   #   3. Customer workloads require those kernel modules; the bake-in actively blocks
   #      legitimate use cases on fixed kernels.
-  # Mariner / AzureLinux 2.0 and AzureLinux OSGuard still get the bake-in. See
+  # Ubuntu 20.04, Mariner / AzureLinux 2.0, and AzureLinux OSGuard still get the bake-in. See
   # https://github.com/Azure/AKS/issues/5753.
   if isUbuntu "$OS" && ubuntuKernelIncludesVulnerableModuleFixes; then
     MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC=/home/packer/modprobe-CIS-without-vulnerable-kernel-modules.conf
@@ -513,7 +540,7 @@ copyPackerFiles() {
       echo "Failed to remove vulnerable module deny rules from $MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC"
       exit "$ERR_PACKER_COPY_FILE"
     fi
-    echo "Copying modprobe-CIS.conf without algif_aead / esp4 / esp6 / rxrpc on Ubuntu ${OS_VERSION} (fixed kernels unblock these modules; CSE applies runtime deny rules on older vulnerable kernels)"
+    echo "Copying modprobe-CIS.conf without algif_aead / esp4 / esp6 / rxrpc on Ubuntu ${OS_VERSION} (fixed or future Ubuntu kernels are not in mitigation scope)"
     cpAndMode "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" "$MODPROBE_CIS_DEST" 644
     rm -f "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" || exit "$ERR_PACKER_COPY_FILE"
     removeVulnerableKernelModuleDenyRulesFromModprobeDirectory || exit "$ERR_PACKER_COPY_FILE"
