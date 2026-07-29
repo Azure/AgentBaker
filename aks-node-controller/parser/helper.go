@@ -83,7 +83,11 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 }
 
 func isContainerdVersionGe(containerdConfig *aksnodeconfigv1.ContainerdConfig, version string) bool {
-	return IsKubernetesVersionGe(containerdConfig.GetContainerdVersion(), version)
+	containerdVersion := containerdSemverCore(containerdConfig.GetContainerdVersion())
+	if containerdVersion == "" {
+		return false
+	}
+	return IsKubernetesVersionGe(containerdVersion, version)
 }
 
 func getStringFromVMType(enum aksnodeconfigv1.VmType) string {
@@ -801,14 +805,14 @@ func parseContainerdVersionOutput(output string) string {
 	if len(fields) < 3 {
 		return ""
 	}
-	// Take the 3rd field and strip any leading "v" prefix.
-	version := strings.TrimPrefix(fields[2], "v")
-	// Strip everything after the first "-" (package revision or pre-release suffix).
-	// e.g. "2.3.2-1" -> "2.3.2", "2.0.0-beta.1" -> "2.0.0"
+	return containerdSemverCore(fields[2])
+}
+
+func containerdSemverCore(version string) string {
+	version = strings.TrimPrefix(strings.TrimSpace(version), "v")
 	if idx := strings.Index(version, "-"); idx > 0 {
 		version = version[:idx]
 	}
-	// Validate the result is a valid major.minor.patch version.
 	parts := strings.Split(version, ".")
 	if len(parts) != 3 {
 		return ""
