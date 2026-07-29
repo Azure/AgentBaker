@@ -7,6 +7,9 @@ version = 4
 [plugins."io.containerd.cri.v1.images".pinned_images]
     sandbox = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2"
 
+[plugins."io.containerd.cri.v1.runtime"]
+    enable_cdi = true
+
 [plugins."io.containerd.cri.v1.runtime".containerd]
     default_runtime_name = "nvidia"
 
