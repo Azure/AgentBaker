@@ -116,7 +116,7 @@ Describe 'cse_install_ubuntu.sh'
             touch "$downloadDir/kubelet_1.34.12-1ubuntu22.04u1_amd64.deb"
 
             result() {
-                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9.]|$)" | sort -V | tail -n 1
+                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1
             }
             When call result
             The output should equal "kubelet_1.34.1-1ubuntu22.04u1_amd64.deb"
@@ -130,7 +130,7 @@ Describe 'cse_install_ubuntu.sh'
             touch "$downloadDir/kubelet_1.34.1-2ubuntu22.04u1_amd64.deb"
 
             result() {
-                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9.]|$)" | sort -V | tail -n 1
+                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1
             }
             When call result
             The output should equal "kubelet_1.34.1-2ubuntu22.04u1_amd64.deb"
@@ -144,7 +144,7 @@ Describe 'cse_install_ubuntu.sh'
             touch "$downloadDir/kubelet_1.34.2-1ubuntu22.04u1_amd64.deb"
 
             result() {
-                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9.]|$)" | sort -V | tail -n 1
+                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1
             }
             When call result
             The output should equal ""
@@ -158,7 +158,7 @@ Describe 'cse_install_ubuntu.sh'
             touch "$downloadDir/kubelet_1.34.10+azure-1_amd64.deb"
 
             result() {
-                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9.]|$)" | sort -V | tail -n 1
+                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1
             }
             When call result
             The output should equal "kubelet_1.34.1+azure-1_amd64.deb"
