@@ -9,6 +9,11 @@ version = {{if $isContainerdConfigV4}}4{{else}}2{{end}}
 oom_score = -999{{if getHasDataDir .KubeletConfig}}
 root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 {{- if $isContainerdConfigV4 }}
+[plugins."{{$imagesPlugin}}"]
+  {{- if .GetEnableArtifactStreaming }}
+  snapshotter = "overlaybd"
+  disable_snapshot_annotations = false
+  {{- end}}
 [plugins."{{$imagesPlugin}}".pinned_images]
   sandbox = "{{ .KubeBinaryConfig.GetPodInfraContainerImageUrl }}"
 {{- else }}
@@ -16,11 +21,11 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
   sandbox_image = "{{ .KubeBinaryConfig.GetPodInfraContainerImageUrl }}"
 {{- end }}
   [plugins."{{$runtimePlugin}}".containerd]
-    {{- if .GetIsKata }}
+    {{- if and .GetIsKata (not $isContainerdConfigV4) }}
     disable_snapshot_annotations = false
     snapshotter = "overlayfs"
     {{- end}}
-    {{- if .GetEnableArtifactStreaming }}
+    {{- if and .GetEnableArtifactStreaming (not $isContainerdConfigV4) }}
     snapshotter = "overlaybd"
     disable_snapshot_annotations = false
     {{- end}}

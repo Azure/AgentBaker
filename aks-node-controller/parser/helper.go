@@ -36,6 +36,7 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
 	"github.com/Masterminds/semver/v3"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -52,18 +53,6 @@ var (
 	//nolint:gochecknoglobals
 	containerdConfigNoGPUTemplate = template.Must(
 		template.New("nogpucontainerdconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigNoGPUTemplateText),
-	)
-	//go:embed  templates/containerd_v2.toml.gtpl
-	containerdV2ConfigTemplateText string
-	//nolint:gochecknoglobals
-	containerdV2ConfigTemplate = template.Must(
-		template.New("containerdv2config").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdV2ConfigTemplateText),
-	)
-	//go:embed  templates/containerd_v2_no_GPU.toml.gtpl
-	containerdV2ConfigNoGPUTemplateText string
-	//nolint:gochecknoglobals
-	containerdV2ConfigNoGPUTemplate = template.Must(
-		template.New("nogpucontainerdv2config").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdV2ConfigNoGPUTemplateText),
 	)
 
 	//go:embed templates/localdns.toml.gtpl
@@ -208,21 +197,12 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	if aksnodeconfig == nil {
 		return "", fmt.Errorf("AKSNodeConfig is nil")
 	}
+	aksnodeconfig = configWithContainerdVersionFallback(aksnodeconfig, containerdVersion)
 
-	// Select the appropriate containerd config template based on version and GPU presence.
-	// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images/runtime)
-	// compared to containerd 1.x (io.containerd.grpc.v1.cri).
 	var _template *template.Template
-	if isContainerdV2(containerdVersion) {
-		_template = containerdV2ConfigTemplate
-		if noGPU {
-			_template = containerdV2ConfigNoGPUTemplate
-		}
-	} else {
-		_template = containerdConfigTemplate
-		if noGPU {
-			_template = containerdConfigNoGPUTemplate
-		}
+	_template = containerdConfigTemplate
+	if noGPU {
+		_template = containerdConfigNoGPUTemplate
 	}
 
 	var buffer bytes.Buffer
@@ -231,6 +211,19 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	}
 
 	return buffer.String(), nil
+}
+
+func configWithContainerdVersionFallback(aksnodeconfig *aksnodeconfigv1.Configuration, containerdVersion string) *aksnodeconfigv1.Configuration {
+	if aksnodeconfig.GetContainerdConfig().GetContainerdVersion() != "" || containerdVersion == "" {
+		return aksnodeconfig
+	}
+
+	clonedConfig := proto.Clone(aksnodeconfig).(*aksnodeconfigv1.Configuration)
+	if clonedConfig.ContainerdConfig == nil {
+		clonedConfig.ContainerdConfig = &aksnodeconfigv1.ContainerdConfig{}
+	}
+	clonedConfig.ContainerdConfig.ContainerdVersion = containerdVersion
+	return clonedConfig
 }
 
 // detectContainerdVersion runs "containerd --version" and parses the version string.
@@ -245,18 +238,8 @@ func detectContainerdVersion(ctx context.Context) (string, error) {
 	return parseContainerdVersionOutput(string(out)), nil
 }
 
-// isContainerdV2 returns true if the containerd version string indicates a 2.x release.
-// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images and
-// io.containerd.cri.v1.runtime) compared to 1.x (io.containerd.grpc.v1.cri).
-func isContainerdV2(version string) bool {
-	if version == "" {
-		return false
-	}
-	return IsKubernetesVersionGe(version, "2.0.0")
-}
-
-func getIsMIGNode(gpuInstanceProfile string, migProfileLayout []string) bool {
-	return gpuInstanceProfile != "" || len(migProfileLayout) > 0
+func getIsMIGNode(gpuInstanceProfile string) bool {
+	return gpuInstanceProfile != ""
 }
 
 func getCustomCACertsStatus(customCACerts []string) bool {
