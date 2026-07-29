@@ -446,6 +446,70 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'repairNvidiaCDIRefreshAfterDriverReady'
+        setup() {
+            NVIDIA_CDI_UNITS=""
+            NVIDIA_CDI_START_FAIL_UNIT=""
+            SYSTEMCTL_CALLS="$(mktemp)"
+        }
+
+        cleanup() {
+            rm -f "${SYSTEMCTL_CALLS}"
+            unset NVIDIA_CDI_UNITS
+            unset NVIDIA_CDI_START_FAIL_UNIT
+            unset SYSTEMCTL_CALLS
+        }
+
+        systemctl() {
+            printf 'systemctl %s\n' "$*" >> "${SYSTEMCTL_CALLS}"
+            case "$1" in
+                cat)
+                    case " ${NVIDIA_CDI_UNITS} " in
+                        *" $2 "*) return 0 ;;
+                        *) return 1 ;;
+                    esac
+                    ;;
+                start)
+                    if [ "$2" = "${NVIDIA_CDI_START_FAIL_UNIT}" ]; then
+                        return 1
+                    fi
+                    ;;
+            esac
+            return 0
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'is a no-op when the NVIDIA CDI refresh units are not installed'
+            When call repairNvidiaCDIRefreshAfterDriverReady
+            The status should be success
+            The contents of file "${SYSTEMCTL_CALLS}" should include "systemctl cat nvidia-cdi-refresh.service"
+            The contents of file "${SYSTEMCTL_CALLS}" should include "systemctl cat nvidia-cdi-refresh.path"
+            The contents of file "${SYSTEMCTL_CALLS}" should not include "systemctl start"
+        End
+
+        It 'clears and restarts installed NVIDIA CDI refresh units after the driver is ready'
+            NVIDIA_CDI_UNITS="nvidia-cdi-refresh.service nvidia-cdi-refresh.path"
+            When call repairNvidiaCDIRefreshAfterDriverReady
+            The status should be success
+            The output should include "Refreshing NVIDIA CDI spec after GPU driver is ready"
+            The contents of file "${SYSTEMCTL_CALLS}" should include "systemctl reset-failed nvidia-cdi-refresh.service"
+            The contents of file "${SYSTEMCTL_CALLS}" should include "systemctl start nvidia-cdi-refresh.service"
+            The contents of file "${SYSTEMCTL_CALLS}" should include "systemctl reset-failed nvidia-cdi-refresh.path"
+            The contents of file "${SYSTEMCTL_CALLS}" should include "systemctl start nvidia-cdi-refresh.path"
+        End
+
+        It 'fails when the NVIDIA CDI refresh service cannot be repaired'
+            NVIDIA_CDI_UNITS="nvidia-cdi-refresh.service"
+            NVIDIA_CDI_START_FAIL_UNIT="nvidia-cdi-refresh.service"
+            When call repairNvidiaCDIRefreshAfterDriverReady
+            The status should be failure
+            The output should include "Refreshing NVIDIA CDI spec after GPU driver is ready"
+            The error should include "Failed to refresh NVIDIA CDI spec after GPU driver is ready"
+        End
+    End
+
     Describe 'disableSSHPubkeyAuth'
         setup() {
             SSHD_CONFIG_FILE="$(mktemp)"
