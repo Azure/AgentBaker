@@ -120,6 +120,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(containerdConfig).To(ContainSubstring(`version = 4`))
 				Expect(containerdConfig).To(ContainSubstring(`[plugins."io.containerd.cri.v1.images".pinned_images]`))
 				Expect(containerdConfig).To(ContainSubstring(`io.containerd.cri.v1.runtime`))
+				Expect(containerdConfig).To(ContainSubstring(`enable_cdi = true`))
 				Expect(containerdConfig).NotTo(ContainSubstring(`version = 2`))
 				Expect(containerdConfig).NotTo(ContainSubstring(`io.containerd.grpc.v1.cri`))
 			}
@@ -150,6 +151,16 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			It("uses schema v4 for containerd 2.3 and newer", func() {
 				expectSchemaV4(renderContainerdConfig("2.3.0-ubuntu24.04u1", datamodel.AKSUbuntuContainerd2204))
 				expectSchemaV4(renderContainerdConfig("2.3.2-ubuntu24.04u1", datamodel.AKSUbuntuContainerd2204))
+			})
+
+			It("keeps kata-cc runtime in schema v4 no-GPU configs", func() {
+				config.ContainerdVersion = "2.3.0-ubuntu24.04u1"
+				config.AgentPoolProfile.Distro = datamodel.AKSAzureLinuxV3Gen2Kata
+				encoded, err := containerdConfigFromTemplate(config, config.AgentPoolProfile, containerdConfigTemplateForVersion(config, true))
+				Expect(err).NotTo(HaveOccurred())
+				decoded, err := base64.StdEncoding.DecodeString(encoded)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(decoded)).To(ContainSubstring(`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]`))
 			})
 		})
 

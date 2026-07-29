@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"log/slog"
 	"os"
@@ -779,4 +780,54 @@ func TestCompareEnvs_MultipleDifferences(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "expected CompareEnvs guest agent event")
+}
+
+func TestEnvValsEqualForKey_ContainerdContentIgnoresOrderAndWhitespace(t *testing.T) {
+	pcConfig := `
+version = 4
+
+[plugins."io.containerd.cri.v1.images"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
+[plugins."io.containerd.cri.v1.runtime".containerd]
+  default_runtime_name = "runc"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+    runtime_type = "io.containerd.runc.v2"
+`
+	nbcConfig := `
+version = 4
+
+[plugins."io.containerd.cri.v1.runtime".containerd]
+default_runtime_name = "runc"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+runtime_type = "io.containerd.runc.v2"
+
+[plugins."io.containerd.cri.v1.images"]
+[plugins."io.containerd.cri.v1.images".pinned_images]
+sandbox = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
+`
+
+	pcValue := base64.StdEncoding.EncodeToString([]byte(pcConfig))
+	nbcValue := base64.StdEncoding.EncodeToString([]byte(nbcConfig))
+
+	assert.True(t, envValsEqualForKey("CONTAINERD_CONFIG_CONTENT", pcValue, nbcValue))
+	assert.True(t, envValsEqualForKey("CONTAINERD_CONFIG_NO_GPU_CONTENT", pcValue, nbcValue))
+}
+
+func TestEnvValsEqualForKey_ContainerdContentDetectsSemanticDiff(t *testing.T) {
+	pcConfig := `
+version = 4
+[plugins."io.containerd.cri.v1.images".pinned_images]
+sandbox = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
+`
+	nbcConfig := `
+version = 4
+[plugins."io.containerd.cri.v1.images".pinned_images]
+sandbox = "mcr.microsoft.com/oss/kubernetes/pause:3.9"
+`
+
+	pcValue := base64.StdEncoding.EncodeToString([]byte(pcConfig))
+	nbcValue := base64.StdEncoding.EncodeToString([]byte(nbcConfig))
+
+	assert.False(t, envValsEqualForKey("CONTAINERD_CONFIG_CONTENT", pcValue, nbcValue))
 }
