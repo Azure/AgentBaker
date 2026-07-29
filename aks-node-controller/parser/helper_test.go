@@ -690,15 +690,28 @@ func Test_containerdConfigFromAKSNodeConfig_Containerd23ArtifactStreamingUsesIma
 		got, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, noGPU, aksnodeconfig.GetContainerdConfig().GetContainerdVersion())
 		require.NoError(t, err)
 
-		assert.Contains(t, got, `[plugins."io.containerd.cri.v1.images"]`)
-		assert.Contains(t, got, `snapshotter = "overlaybd"`)
-		assert.Contains(t, got, `disable_snapshot_annotations = false`)
+		imagesTable := containerdTableBody(t, got, `[plugins."io.containerd.cri.v1.images"]`)
+		assert.Regexp(t, regexp.MustCompile(`(?m)^[ \t]*snapshotter[ \t]*=[ \t]*"overlaybd"`), imagesTable)
+		assert.Regexp(t, regexp.MustCompile(`(?m)^[ \t]*disable_snapshot_annotations[ \t]*=[ \t]*false`), imagesTable)
 		assert.Contains(t, got, `[plugins."io.containerd.cri.v1.images".pinned_images]`)
-		assert.NotContains(t, got, `[plugins."io.containerd.cri.v1.runtime".containerd]
-    snapshotter = "overlaybd"`)
-		assert.NotContains(t, got, `[plugins."io.containerd.cri.v1.runtime".containerd]
-    disable_snapshot_annotations = false`)
+
+		runtimeContainerdTable := containerdTableBody(t, got, `[plugins."io.containerd.cri.v1.runtime".containerd]`)
+		assert.NotRegexp(t, regexp.MustCompile(`(?m)^[ \t]*snapshotter[ \t]*=`), runtimeContainerdTable)
+		assert.NotRegexp(t, regexp.MustCompile(`(?m)^[ \t]*disable_snapshot_annotations[ \t]*=`), runtimeContainerdTable)
 	}
+}
+
+func containerdTableBody(t *testing.T, config, tableHeader string) string {
+	t.Helper()
+
+	start := strings.Index(config, tableHeader)
+	require.NotEqualf(t, -1, start, "containerd config missing table %s in:\n%s", tableHeader, config)
+
+	body := config[start+len(tableHeader):]
+	if nextTable := regexp.MustCompile(`(?m)^[ \t]*\[`).FindStringIndex(body); nextTable != nil {
+		body = body[:nextTable[0]]
+	}
+	return body
 }
 
 func Test_containerdConfigFromAKSNodeConfig_BeforeContainerd23UsesV2(t *testing.T) {
