@@ -854,7 +854,7 @@ func containerdSemverCore(version string) string {
 		}
 	}
 	version = strings.TrimPrefix(version, "v")
-	if idx := strings.IndexAny(version, "-+"); idx > 0 {
+	if idx := strings.IndexAny(version, "-+~"); idx > 0 {
 		version = version[:idx]
 	}
 	parts := strings.Split(version, ".")
