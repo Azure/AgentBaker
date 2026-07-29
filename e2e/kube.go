@@ -591,22 +591,34 @@ func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 						Command: []string{"python3", "/opt/proxy/proxy.py"},
 						Ports:   []corev1.ContainerPort{{ContainerPort: int32(proxyPort), HostPort: int32(proxyPort)}},
 						// Check whether proxy has started before starting the readiness and liveness probes.
+						// Allow up to 60s total (5 + 12×5) for a slow-starting proxy before giving up.
 						StartupProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(proxyPort)},
 							},
+							InitialDelaySeconds: 5,
+							PeriodSeconds:       5,
+							FailureThreshold:    12,
 						},
 						// Gate readiness on the proxy actually accepting TCP connections on :8888.
 						ReadinessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(proxyPort)},
 							},
+							InitialDelaySeconds: 5,
+							PeriodSeconds:       5,
+							FailureThreshold:    3,
+							SuccessThreshold:    1,
 						},
 						// Restart the container if it stops serving on :8888.
+						// Only restart after sustained failure (30s delay + 3×10s) to avoid restart loops on transient blips.
 						LivenessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(proxyPort)},
 							},
+							InitialDelaySeconds: 30,
+							PeriodSeconds:       10,
+							FailureThreshold:    3,
 						},
 						VolumeMounts: []corev1.VolumeMount{
 							{Name: "proxy-script", MountPath: "/opt/proxy", ReadOnly: true},
