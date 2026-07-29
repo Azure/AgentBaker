@@ -142,6 +142,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 			It("uses schema v2 when containerd version is invalid", func() {
 				expectSchemaV2(renderContainerdConfig("not-a-version", datamodel.AKSUbuntuContainerd2404))
+				expectSchemaV2(renderContainerdConfig("source:2.3.2", datamodel.AKSUbuntuContainerd2404))
 			})
 
 			It("uses schema v2 for containerd versions before 2.3", func() {
@@ -151,6 +152,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			It("uses schema v4 for containerd 2.3 and newer", func() {
 				expectSchemaV4(renderContainerdConfig("2.3.0-ubuntu24.04u1", datamodel.AKSUbuntuContainerd2204))
 				expectSchemaV4(renderContainerdConfig("2.3.2-ubuntu24.04u1", datamodel.AKSUbuntuContainerd2204))
+				expectSchemaV4(renderContainerdConfig("1:2.3.2+azure", datamodel.AKSUbuntuContainerd2204))
 			})
 
 			It("keeps kata-cc runtime in schema v4 no-GPU configs", func() {

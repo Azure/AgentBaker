@@ -809,8 +809,22 @@ func parseContainerdVersionOutput(output string) string {
 }
 
 func containerdSemverCore(version string) string {
-	version = strings.TrimPrefix(strings.TrimSpace(version), "v")
-	if idx := strings.Index(version, "-"); idx > 0 {
+	version = strings.TrimSpace(version)
+	if idx := strings.Index(version, ":"); idx > 0 {
+		epoch := version[:idx]
+		validEpoch := true
+		for _, c := range epoch {
+			if c < '0' || c > '9' {
+				validEpoch = false
+				break
+			}
+		}
+		if validEpoch {
+			version = version[idx+1:]
+		}
+	}
+	version = strings.TrimPrefix(version, "v")
+	if idx := strings.IndexAny(version, "-+"); idx > 0 {
 		version = version[:idx]
 	}
 	parts := strings.Split(version, ".")
