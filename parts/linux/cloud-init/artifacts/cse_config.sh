@@ -1478,21 +1478,37 @@ installGPUDriverImage() {
     retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
 }
 
-# nvidia-cdi-refresh.service (nvidia-container-toolkit-base) is Type=oneshot with Restart=on-failure
-# and StartLimitBurst=5/10s, so one nvidia-ctk failure burns the start limit in ~5s and leaves it and
-# its .path unit permanently failed and unstartable -- which fails install.sh's `systemctl restart`
-# (CSE 84) and kills the .path trigger that would otherwise regenerate the spec later. Tolerate the
-# three known codes: 1 (MIG mode on with no MIG instances, which never succeeds), 2 (panic before the
-# driver userspace is ready), 127 (nvidia-smi missing on pre-reorder aks-gpu images). Anything else
-# still fails the unit. GPU pods reach the device via containerd's nvidia-container-runtime, not CDI.
-NVIDIA_CDI_REFRESH_DROP_IN="/etc/systemd/system/nvidia-cdi-refresh.service.d/10-aks-tolerate-generate-failure.conf"
+nvidiaCDIRefreshUnitExists() {
+    local unit="${1}"
+    systemctl cat "${unit}" >/dev/null 2>&1
+}
 
-configureNvidiaCDIRefresh() {
-    mkdir -p "$(dirname "$NVIDIA_CDI_REFRESH_DROP_IN")" || return 1
-    printf '[Service]\nSuccessExitStatus=1 2 127\n' > "$NVIDIA_CDI_REFRESH_DROP_IN" || return 1
-    # Drop-ins are read when systemd loads a unit, so writing this before the toolkit is installed
-    # means the unit picks it up on its very first start.
-    systemctl daemon-reload || true
+repairNvidiaCDIRefreshAfterDriverReady() {
+    local service_unit="nvidia-cdi-refresh.service"
+    local path_unit="nvidia-cdi-refresh.path"
+
+    if ! command -v systemctl >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if nvidiaCDIRefreshUnitExists "${service_unit}"; then
+        echo "Refreshing NVIDIA CDI spec after GPU driver is ready"
+        systemctl reset-failed "${service_unit}" || true
+        if ! systemctl start "${service_unit}"; then
+            echo "Failed to refresh NVIDIA CDI spec after GPU driver is ready" >&2
+            return $ERR_GPU_DRIVERS_START_FAIL
+        fi
+    fi
+
+    if nvidiaCDIRefreshUnitExists "${path_unit}"; then
+        systemctl reset-failed "${path_unit}" || true
+        if ! systemctl start "${path_unit}"; then
+            echo "Failed to restart NVIDIA CDI refresh path unit after GPU driver is ready" >&2
+            return $ERR_GPU_DRIVERS_START_FAIL
+        fi
+    fi
+
+    return 0
 }
 
 configGPUDrivers() {
@@ -1538,6 +1554,8 @@ configGPUDrivers() {
     if isMarinerOrAzureLinux "$OS"; then
         createNvidiaSymlinkToAllDeviceNodes
     fi
+
+    logs_to_events "AKS.CSE.configGPUDrivers.repairNvidiaCDIRefreshAfterDriverReady" repairNvidiaCDIRefreshAfterDriverReady || exit $ERR_GPU_DRIVERS_START_FAIL
 
     # GRID vGPU licensing: start nvidia-gridd service to ensure license configuration
     if (isMarinerOrAzureLinux "$OS" || isACL "$OS" "$OS_VARIANT") && [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then
