@@ -1913,7 +1913,7 @@ const kubenetCniTemplate = `{
 type ContainerdConfigTemplate string
 
 func containerdConfigTemplateForVersion(config *datamodel.NodeBootstrappingConfiguration, noGPU bool) ContainerdConfigTemplate {
-	if config != nil && IsKubernetesVersionGe(config.ContainerdVersion, "2.3.0") {
+	if shouldUseContainerdV4Config(config) {
 		if noGPU {
 			return containerdV2NoGPUConfigTemplate
 		}
@@ -1923,6 +1923,19 @@ func containerdConfigTemplateForVersion(config *datamodel.NodeBootstrappingConfi
 		return containerdV1NoGPUConfigTemplate
 	}
 	return containerdV1ConfigTemplate
+}
+
+func shouldUseContainerdV4Config(config *datamodel.NodeBootstrappingConfiguration) bool {
+	if config == nil {
+		return false
+	}
+	if IsKubernetesVersionGe(config.ContainerdVersion, "2.3.0") {
+		return true
+	}
+	if strings.TrimSpace(config.ContainerdVersion) != "" {
+		return false
+	}
+	return config.AgentPoolProfile != nil && (config.AgentPoolProfile.Is2404VHDDistro() || config.AgentPoolProfile.Is2604VHDDistro())
 }
 
 // this pains me, but to make it respect mutability of vmss tags,
