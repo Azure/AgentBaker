@@ -18,7 +18,7 @@ Describe 'mig-partition.sh'
         End
 
         Example "maps $1 to its existing layout"
-            When run bash "$SCRIPT_PATH" "$1" '7'
+            When run bash "$SCRIPT_PATH" "$1"
 
             The status should be success
             The output should include "nvidia-smi mig -cgi $2"
@@ -36,7 +36,10 @@ Describe 'mig-partition.sh'
         End
 
         Example "uses floor division for $1 on a $2-slice VM"
-            When run bash "$SCRIPT_PATH" "$1" "$2"
+            NVIDIA_MIG_TOTAL_SLICES="$2"
+            export NVIDIA_MIG_TOTAL_SLICES
+
+            When run bash "$SCRIPT_PATH" "$1"
 
             The status should be success
             The output should include "nvidia-smi mig -cgi $3"
@@ -45,7 +48,10 @@ Describe 'mig-partition.sh'
     End
 
     It 'rejects an invalid profile before invoking nvidia-smi'
-        When run bash "$SCRIPT_PATH" 'MIG6g' '7'
+        NVIDIA_MIG_TOTAL_SLICES='7'
+        export NVIDIA_MIG_TOTAL_SLICES
+
+        When run bash "$SCRIPT_PATH" 'MIG6g'
 
         The status should be failure
         The error should include 'not a valid GPU instance profile: MIG6g'
@@ -53,7 +59,10 @@ Describe 'mig-partition.sh'
     End
 
     It 'rejects a profile wider than the VM capacity before invoking nvidia-smi'
-        When run bash "$SCRIPT_PATH" 'MIG4g' '3'
+        NVIDIA_MIG_TOTAL_SLICES='3'
+        export NVIDIA_MIG_TOTAL_SLICES
+
+        When run bash "$SCRIPT_PATH" 'MIG4g'
 
         The status should be failure
         The error should include 'GPU instance profile MIG4g requires more than 3 slices'
@@ -61,7 +70,10 @@ Describe 'mig-partition.sh'
     End
 
     It 'rejects zero capacity before invoking nvidia-smi'
-        When run bash "$SCRIPT_PATH" 'MIG1g' '0'
+        NVIDIA_MIG_TOTAL_SLICES='0'
+        export NVIDIA_MIG_TOTAL_SLICES
+
+        When run bash "$SCRIPT_PATH" 'MIG1g'
 
         The status should be failure
         The error should include 'total GPU instance slices must be a positive integer: 0'
@@ -69,7 +81,10 @@ Describe 'mig-partition.sh'
     End
 
     It 'rejects negative capacity before invoking nvidia-smi'
-        When run bash "$SCRIPT_PATH" 'MIG1g' '-1'
+        NVIDIA_MIG_TOTAL_SLICES='-1'
+        export NVIDIA_MIG_TOTAL_SLICES
+
+        When run bash "$SCRIPT_PATH" 'MIG1g'
 
         The status should be failure
         The error should include 'total GPU instance slices must be a positive integer: -1'
