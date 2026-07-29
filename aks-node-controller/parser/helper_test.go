@@ -518,7 +518,7 @@ func Test_getContainerdConfigV2(t *testing.T) {
 		notWantContains []string
 	}{
 		{
-			name: "Containerd 2.0 default config stays on legacy schema",
+			name: "Containerd 2.0 default config uses scriptless v2 schema",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
 					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
@@ -528,18 +528,19 @@ func Test_getContainerdConfigV2(t *testing.T) {
 			},
 			wantContains: []string{
 				`version = 2`,
-				`[plugins."io.containerd.grpc.v1.cri"]`,
-				`sandbox_image = ""`,
-				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]`,
+				`[plugins."io.containerd.cri.v1.images"]`,
+				`sandbox = ""`,
+				`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]`,
+				`[plugins."io.containerd.cri.v1.images".registry.headers]`,
 			},
 			notWantContains: []string{
-				`io.containerd.cri.v1.images`,
-				`io.containerd.cri.v1.runtime`,
+				`io.containerd.grpc.v1.cri`,
+				`sandbox_image`,
 				`version = 4`,
 			},
 		},
 		{
-			name: "Containerd 2.0 with GPU stays on legacy schema",
+			name: "Containerd 2.0 with GPU uses scriptless v2 schema",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
 					NeedsCgroupv2: to.Ptr(true),
@@ -554,19 +555,18 @@ func Test_getContainerdConfigV2(t *testing.T) {
 			},
 			wantContains: []string{
 				`version = 2`,
-				`[plugins."io.containerd.grpc.v1.cri"]`,
+				`[plugins."io.containerd.cri.v1.images"]`,
 				`default_runtime_name = "nvidia-container-runtime"`,
-				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]`,
+				`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]`,
 				`BinaryName = "/usr/bin/nvidia-container-runtime"`,
 			},
 			notWantContains: []string{
-				`io.containerd.cri.v1.images`,
-				`io.containerd.cri.v1.runtime`,
+				`io.containerd.grpc.v1.cri`,
 				`version = 4`,
 			},
 		},
 		{
-			name: "Containerd 2.0 no GPU template stays on legacy schema",
+			name: "Containerd 2.0 no GPU template uses scriptless v2 schema",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
 					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
@@ -580,13 +580,12 @@ func Test_getContainerdConfigV2(t *testing.T) {
 			},
 			wantContains: []string{
 				`version = 2`,
-				`[plugins."io.containerd.grpc.v1.cri"]`,
+				`[plugins."io.containerd.cri.v1.images"]`,
 				`default_runtime_name = "runc"`,
-				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]`,
+				`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]`,
 			},
 			notWantContains: []string{
-				`io.containerd.cri.v1.images`,
-				`io.containerd.cri.v1.runtime`,
+				`io.containerd.grpc.v1.cri`,
 				`nvidia-container-runtime`,
 				`version = 4`,
 			},
@@ -729,10 +728,10 @@ func Test_containerdConfigFromAKSNodeConfig_BeforeContainerd23UsesV2(t *testing.
 
 	for _, want := range []string{
 		"version = 2",
-		`[plugins."io.containerd.grpc.v1.cri"]`,
-		`sandbox_image = ""`,
-		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]`,
-		`[plugins."io.containerd.grpc.v1.cri".registry.headers]`,
+		`[plugins."io.containerd.cri.v1.images"]`,
+		`sandbox = ""`,
+		`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]`,
+		`[plugins."io.containerd.cri.v1.images".registry.headers]`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("containerdConfigFromAKSNodeConfig() missing %q in:\n%s", want, got)
@@ -741,8 +740,8 @@ func Test_containerdConfigFromAKSNodeConfig_BeforeContainerd23UsesV2(t *testing.
 
 	for _, notWant := range []string{
 		"version = 4",
-		"io.containerd.cri.v1.images",
-		"io.containerd.cri.v1.runtime",
+		"io.containerd.grpc.v1.cri",
+		"sandbox_image",
 	} {
 		if strings.Contains(got, notWant) {
 			t.Errorf("containerdConfigFromAKSNodeConfig() unexpectedly contains %q in:\n%s", notWant, got)
