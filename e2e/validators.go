@@ -2984,15 +2984,6 @@ func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
 	ValidateAcceleratedNetworkingTrafficFlowing(ctx, s)
 }
 
-// ValidateCiscoAcceleratedNetworking runs guest-visible accelerated networking
-// checks for AMD v7 Cisco fabric coverage.
-func ValidateCiscoAcceleratedNetworking(ctx context.Context, s *Scenario) {
-	s.T.Helper()
-	ValidateAcceleratedNetworkingVFBonded(ctx, s)
-	ValidateAcceleratedNetworkingVFHardware(ctx, s)
-	ValidateAcceleratedNetworkingTrafficFlowing(ctx, s)
-}
-
 // ValidateMANA runs all MANA (Microsoft Azure Network Adapter) checks.
 // It verifies that the MANA PCI device is present, the kernel driver is loaded,
 // the VF interface is bonded to eth0, and traffic is flowing through the VF.
@@ -3001,6 +2992,7 @@ func ValidateMANA(ctx context.Context, s *Scenario) {
 	ValidateMANAPCIDevice(ctx, s)
 	ValidateMANADriverLoaded(ctx, s)
 	ValidateMANAVFBonded(ctx, s)
+	ValidateAcceleratedNetworkingVFHardware(ctx, s)
 	ValidateMANATrafficFlowing(ctx, s)
 }
 
