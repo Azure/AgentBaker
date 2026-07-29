@@ -178,17 +178,9 @@ func TestApp_Run(t *testing.T) {
 		assert.Equal(t, 0, exitCode)
 
 		events := tt.eventLogger.Events()
-		assert.Len(t, events, 3)
+		assert.Len(t, events, 2)
 		assert.Contains(t, events[0].Message, "Starting")
 		assert.Contains(t, events[1].Message, "Completed")
-		found := false
-		for _, e := range events {
-			if strings.Contains(e.TaskName, "kubeletActiveFlags") {
-				found = true
-				break
-			}
-		}
-		assert.True(t, found)
 	})
 
 	t.Run("provision command with provision-config and nbc-cmd flag", func(t *testing.T) {
@@ -198,10 +190,9 @@ func TestApp_Run(t *testing.T) {
 		assert.Equal(t, 0, exitCode)
 
 		events := tt.eventLogger.Events()
-		assert.Len(t, events, 3)
+		assert.Len(t, events, 2)
 		assert.Contains(t, events[0].Message, "Starting")
 		assert.Contains(t, events[1].Message, "Completed")
-		assert.Contains(t, events[2].TaskName, "kubeletActiveFlags")
 	})
 
 	t.Run("provision command with command runner error", func(t *testing.T) {

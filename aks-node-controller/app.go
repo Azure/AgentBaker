@@ -187,9 +187,6 @@ func (a *App) runProvisionCommand(ctx context.Context, flags ProvisionFlags, dry
 	} else {
 		a.eventLogger.LogEvent("Provision", "Completed", helpers.EventLevelInformational, startTime, endTime)
 		slog.Info("aks-node-controller finished successfully.")
-		// Emit kubelet active flags as a structured event for Kusto querying.
-		// Best-effort: telemetry failures do not fail provisioning.
-		a.eventLogger.EmitKubeletActiveFlagsEvent()
 	}
 	return err
 }
