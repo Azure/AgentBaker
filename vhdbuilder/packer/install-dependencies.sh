@@ -812,6 +812,26 @@ cacheContainerImageComponents() {
   done
 }
 
+configureNvidiaCDIRefreshPreDriverReadinessGuard() {
+  if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)" -ne 1 ]; then # No ARM64 SKU with GPU now
+    local systemd_version
+
+    systemd_version=$(systemctl --version | awk 'NR == 1 { print $2 }')
+    mkdir -p /etc/systemd/system/nvidia-cdi-refresh.service.d
+    cat << 'EOF' > /etc/systemd/system/nvidia-cdi-refresh.service.d/aks-driver-ready.conf
+[Unit]
+ConditionPathExists=/proc/driver/nvidia/version
+EOF
+
+    if [ "${systemd_version:-0}" -ge 243 ]; then
+      cat << 'EOF' >> /etc/systemd/system/nvidia-cdi-refresh.service.d/aks-driver-ready.conf
+[Service]
+ExecCondition=/bin/sh -c 'command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1'
+EOF
+    fi
+  fi
+}
+
 cacheGPUContainerImageComponents() {
   # Download/install GPU container image components
   GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
@@ -858,6 +878,7 @@ cacheGPUContainerImageComponents() {
     mkdir -p /opt/{actions,gpu}
 
     /opt/azure/containers/image-fetcher "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+    configureNvidiaCDIRefreshPreDriverReadinessGuard
 
       cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
