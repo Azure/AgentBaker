@@ -456,4 +456,52 @@ Describe 'cse_install_mariner.sh'
             The output should not include 'nvidia-device-plugin'
         End
     End
+
+    Describe 'installPackageFromCache version matching'
+        rpm_version_cache="/tmp/shellspec-rpm-version-cache-$$"
+
+        setup_version_cache() {
+            RPM_PACKAGE_CACHE_BASE_DIR="$rpm_version_cache"
+            mkdir -p "$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+        }
+
+        cleanup_version_cache() {
+            rm -rf "$rpm_version_cache"
+        }
+
+        BeforeEach 'setup_version_cache'
+        AfterEach 'cleanup_version_cache'
+
+        It 'does not match version 1.34.10 when requesting 1.34.1'
+            desiredVersion="1.34.1"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            touch "$rpmDir/kubelet-1.34.1-5.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.10-2.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.11-1.azl3.x86_64.rpm"
+            When call installPackageFromCache kubelet "$desiredVersion"
+            The output should include "extractBinaryFromRPM $rpmDir/kubelet-1.34.1-5.azl3.x86_64.rpm kubelet /opt/bin/kubelet"
+            The output should not include "1.34.10"
+            The output should not include "1.34.11"
+        End
+
+        It 'selects the latest release of the exact version requested'
+            desiredVersion="1.34.1"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            touch "$rpmDir/kubelet-1.34.1-1.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.1-3.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.10-2.azl3.x86_64.rpm"
+            When call installPackageFromCache kubelet "$desiredVersion"
+            The output should include "extractBinaryFromRPM $rpmDir/kubelet-1.34.1-3.azl3.x86_64.rpm kubelet /opt/bin/kubelet"
+        End
+
+        It 'returns failure when only a longer version exists in cache'
+            desiredVersion="1.34.1"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            touch "$rpmDir/kubelet-1.34.10-2.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.12-1.azl3.x86_64.rpm"
+            When call installPackageFromCache kubelet "$desiredVersion"
+            The output should include "Failed to find cached rpm file for kubelet version 1.34.1"
+            The status should equal 1
+        End
+    End
 End
