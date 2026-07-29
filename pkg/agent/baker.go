@@ -1929,13 +1929,43 @@ func shouldUseContainerdV4Config(config *datamodel.NodeBootstrappingConfiguratio
 	if config == nil {
 		return false
 	}
-	if IsKubernetesVersionGe(config.ContainerdVersion, "2.3.0") {
+	if isContainerdVersionGe(config.ContainerdVersion, "2.3.0") {
 		return true
 	}
 	if strings.TrimSpace(config.ContainerdVersion) != "" {
 		return false
 	}
 	return config.AgentPoolProfile != nil && (config.AgentPoolProfile.Is2404VHDDistro() || config.AgentPoolProfile.Is2604VHDDistro())
+}
+
+func isContainerdVersionGe(actualVersion, version string) bool {
+	actualVersion = containerdSemverCore(actualVersion)
+	if actualVersion == "" {
+		return false
+	}
+	return IsKubernetesVersionGe(actualVersion, version)
+}
+
+func containerdSemverCore(version string) string {
+	version = strings.TrimPrefix(strings.TrimSpace(version), "v")
+	if idx := strings.Index(version, "-"); idx > 0 {
+		version = version[:idx]
+	}
+	parts := strings.Split(version, ".")
+	if len(parts) != 3 {
+		return ""
+	}
+	for _, part := range parts {
+		if part == "" {
+			return ""
+		}
+		for _, c := range part {
+			if c < '0' || c > '9' {
+				return ""
+			}
+		}
+	}
+	return version
 }
 
 // this pains me, but to make it respect mutability of vmss tags,

@@ -148,6 +148,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			})
 
 			It("uses schema v4 for containerd 2.3 and newer", func() {
+				expectSchemaV4(renderContainerdConfig("2.3.0-ubuntu24.04u1", datamodel.AKSUbuntuContainerd2204))
 				expectSchemaV4(renderContainerdConfig("2.3.2-ubuntu24.04u1", datamodel.AKSUbuntuContainerd2204))
 			})
 		})

@@ -644,7 +644,7 @@ func Test_containerdConfigFromAKSNodeConfig_Containerd23UsesV4(t *testing.T) {
 			EnableNvidia: to.Ptr(true),
 		},
 		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
-			ContainerdVersion: "2.3.2-ubuntu24.04u1",
+			ContainerdVersion: "2.3.0-ubuntu24.04u1",
 		},
 	}
 
