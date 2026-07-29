@@ -238,8 +238,13 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	if enableScriptlessCompilation(s) {
 		binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 		require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
-		customData, err = CustomDataWithNBCCmdHack(s, customData, binaryURL)
-		require.NoError(s.T, err, "failed to generate custom data with NBC cmd hack")
+		if agent.UseCSEScriptlessPhase2 {
+			binaryDownloadCmd := fmt.Sprintf("curl -fSL --retry 10 --retry-delay 2 --retry-connrefused \"%s\" -o /opt/azure/containers/aks-node-controller-hotfix && chmod +x /opt/azure/containers/aks-node-controller-hotfix", binaryURL)
+			cse = binaryDownloadCmd + " && " + cse
+		} else {
+			customData, err = CustomDataWithNBCCmdHack(s, customData, binaryURL)
+			require.NoError(s.T, err, "failed to generate custom data with NBC cmd hack")
+		}
 	}
 	if len(s.Config.CustomDataWriteFiles) > 0 {
 		customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
