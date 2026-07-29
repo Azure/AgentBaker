@@ -107,11 +107,6 @@ func Test_ACL_CustomCA(t *testing.T) {
 					},
 				}
 			},
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-				config.CustomCaCerts = []string{
-					encodedTestCert,
-				}
-			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
