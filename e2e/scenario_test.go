@@ -2191,7 +2191,7 @@ func Test_Ubuntu2604Minimal_CustomSysctls(t *testing.T) {
 
 func Test_Ubuntu2604Minimal_MANA(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 26.04 minimal with a V6 SKU",
+		Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 26.04 minimal with a V6+ SKU",
 		Tags: Tags{
 			VMSeriesCoverageTest: true,
 		},
@@ -3102,7 +3102,7 @@ func Test_ACL_SecondaryNIC_DualStack(t *testing.T) {
 
 func Test_Ubuntu2404_MANA(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 24.04 with a V6 SKU",
+		Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 24.04 with a V6+ SKU",
 		Tags: Tags{
 			VMSeriesCoverageTest: true,
 		},
@@ -3124,7 +3124,7 @@ func Test_Ubuntu2404_MANA(t *testing.T) {
 
 func Test_Ubuntu2204_MANA(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 22.04 with a V6 SKU",
+		Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 22.04 with a V6+ SKU",
 		Tags: Tags{
 			VMSeriesCoverageTest: true,
 		},
@@ -3146,7 +3146,7 @@ func Test_Ubuntu2204_MANA(t *testing.T) {
 
 func Test_AzureLinuxV3_MANA(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that MANA (Accelerated Networking) is properly configured on Azure Linux V3 with a V6 SKU",
+		Description: "Tests that MANA (Accelerated Networking) is properly configured on Azure Linux V3 with a V6+ SKU",
 		Tags: Tags{
 			VMSeriesCoverageTest: true,
 		},
