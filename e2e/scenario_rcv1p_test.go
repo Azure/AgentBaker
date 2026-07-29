@@ -172,8 +172,26 @@ var (
 func getOrBuildBranchCSEPackageURL(t *testing.T) string {
 	t.Helper()
 	branchCSEZipOnce.Do(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		// 5m covers a cold-start storage account create (~30-90s) plus the zip build/upload.
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
+		// Windows scenarios construct this mutator at scenario-struct-init time, which runs
+		// BEFORE RunScenario -> CachedCreateVMManagedIdentity (which creates the per-sub blob
+		// storage account on first use). On a brand-new region/subscription combo the storage
+		// account does not exist yet, so the upload below fails with NXDOMAIN. Ensure storage
+		// exists first by piggybacking on the same cached identity-creation path Linux tests use.
+		//
+		// CachedCreateVMManagedIdentity depends on the per-location resource group already
+		// existing (runScenario ensures it later, too late for this init-time path). Ensure
+		// the RG first so the identity/storage-account creation succeeds on a fresh sub/region.
+		if _, err := CachedEnsureResourceGroup(ctx, config.Config.DefaultLocation); err != nil {
+			branchCSEZipErr = fmt.Errorf("ensure shared resource group: %w", err)
+			return
+		}
+		if _, err := CachedCreateVMManagedIdentity(ctx, config.Config.DefaultLocation); err != nil {
+			branchCSEZipErr = fmt.Errorf("ensure shared storage account: %w", err)
+			return
+		}
 		branchCSEZipURL, branchCSEZipErr = buildAndUploadCSEZip(ctx)
 	})
 	if branchCSEZipErr != nil {

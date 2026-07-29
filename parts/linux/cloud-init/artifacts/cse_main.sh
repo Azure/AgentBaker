@@ -48,8 +48,7 @@ source "${CSE_CONFIG_FILEPATH}"
 
 # Disable a single kernel module with a known LPE vulnerability.
 # Writes a modprobe blacklist rule and unloads the module if loaded.
-# Applies to existing VHDs that don't yet have the fix baked into modprobe-CIS.conf.
-# Safe to run unconditionally — idempotent (overwrites with same content if already present).
+# Safe to run repeatedly during VHD build or provisioning; idempotent (overwrites with same content if already present).
 # Defined in cse_main.sh (not sourced) to support scriptless provisioning.
 #
 # Usage: disableVulnerableKernelModule <module_name> <description>
@@ -71,26 +70,18 @@ disableVulnerableKernelModule() {
 removeVulnerableKernelModuleDenyRules() {
     local modprobe_file
     local tmp_file
-    local next_file
-    local mod
+    local deny_pattern
+
+    deny_pattern='^(install[[:space:]]+(algif_aead|esp4|esp6|rxrpc)[[:space:]]+[/]bin[/]false|blacklist[[:space:]]+(algif_aead|esp4|esp6|rxrpc))([[:space:]]+.*)?$'
 
     for modprobe_file in /etc/modprobe.d/*.conf; do
-        [ -e "$modprobe_file" ] || continue
+        [ -f "$modprobe_file" ] || continue
 
         tmp_file="${modprobe_file}.tmp.$$"
-        next_file="${tmp_file}.next"
-        cp "$modprobe_file" "$tmp_file" || return 1
-
-        for mod in algif_aead esp4 esp6 rxrpc; do
-            sed "/^install[[:space:]][[:space:]]*${mod}[[:space:]][[:space:]]*\/bin\/false[[:space:]]*$/d;/^blacklist[[:space:]][[:space:]]*${mod}[[:space:]]*$/d" "$tmp_file" > "$next_file" || {
-                rm -f "$tmp_file" "$next_file"
-                return 1
-            }
-            mv "$next_file" "$tmp_file" || {
-                rm -f "$tmp_file" "$next_file"
-                return 1
-            }
-        done
+        sed -E "/$deny_pattern/d" "$modprobe_file" > "$tmp_file" || {
+            rm -f "$tmp_file"
+            return 1
+        }
 
         if cmp -s "$modprobe_file" "$tmp_file"; then
             rm -f "$tmp_file"
@@ -104,40 +95,41 @@ removeVulnerableKernelModuleDenyRules() {
         fi
     done
 
-    for mod in algif_aead esp4 esp6 rxrpc; do
-        if grep -qsE "^(install[[:space:]]+${mod}[[:space:]]+/bin/false|blacklist[[:space:]]+${mod})([[:space:]]|$)" /etc/modprobe.d/*.conf 2>/dev/null; then
-            echo "Failed to remove ${mod} vulnerable module deny rule from /etc/modprobe.d"
-            return 1
-        fi
-    done
+    if grep -qsE "$deny_pattern" /etc/modprobe.d/*.conf 2>/dev/null; then
+        echo "Failed to remove vulnerable module deny rules from /etc/modprobe.d"
+        return 1
+    fi
 }
 
 reconcileVulnerableKernelModuleMitigation() {
     # Disable kernel modules with known LPE vulnerabilities (CVE-2026-31431, DirtyFrag, Fragnesia).
-    # Applied at CSE provisioning time on vulnerable Ubuntu kernels, AzureLinux OSGuard, and AzureLinux 2.0 / Mariner.
+    # Reconciled during both basePrep and nodePrep: basePrep bakes the intended state into
+    # future VHDs, while nodePrep covers PIS-cached or already-released VHDs that may skip
+    # basePrep or carry stale modprobe files.
     # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
     #
+    # Ubuntu 20.04 remains in scope. Future Ubuntu releases are intentionally skipped
+    # unless explicitly added here so they do not inherit this deny mitigation by default.
     # Ubuntu 22.04 picked up the fixes in linux-azure 5.15.0-1116-azure (generic
     # fallback 5.15.0-181-generic); Ubuntu 24.04 picked up the fixes in linux-azure
-    # 6.8.0-1058-azure (generic fallback 6.8.0-124-generic). Keep the CSE-time
-    # apply for older or unknown Ubuntu kernels so in-support vulnerable VHDs without
-    # baked rules remain protected. Fixed Ubuntu kernels actively remove stale deny
-    # rules that may have been baked into older VHDs before the fixed kernel arrived.
+    # 6.8.0-1058-azure (generic fallback 6.8.0-124-generic). Keep the apply for older
+    # or unknown 22.04 / 24.04 kernel flavors. Fixed 22.04 / 24.04 kernels remove stale
+    # deny rules so in-support VHDs no longer block legitimate module use after the fix.
     #
     # AzureLinux 3.0 (regular and Kata) is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy
-    # Fail / DirtyFrag / Fragnesia upstream, so the runtime modprobe blacklist is no longer
-    # required. Newly-built AzL3 VHDs also no longer ship the four entries in modprobe-CIS.conf —
+    # Fail / DirtyFrag / Fragnesia upstream, so the modprobe blacklist is no longer
+    # required. Newly-built AzL3 VHDs also no longer ship the four entries in modprobe-CIS.conf;
     # customers reported the blacklist actively blocks legitimate workloads that use
     # algif_aead / esp4 / esp6 / rxrpc on the patched kernel. Existing in-support AzL3 VHDs
     # (built before this change) still have the bake-in until they are rolled; no CSE-time active
-    # removal is performed — customers will get the unblocked configuration on their next AzL3
+    # removal is performed, so customers get the unblocked configuration on their next AzL3
     # VHD upgrade. AzureLinux OSGuard (hardened secure-boot variant) is intentionally kept in
     # scope as defense-in-depth: OSGuard workloads are security-sensitive and do not require
     # the affected kernel modules.
     #
     # Mariner / AzureLinux 2.0 (AzL2) images are frozen (see FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion=202512.06.0),
     # so they cannot pick up new modprobe-CIS.conf entries for these 2026 CVEs via VHD refresh.
-    # Keep the CSE-time runtime apply enabled for AzL2/Mariner while those images remain supported.
+    # Keep the runtime apply enabled for AzL2/Mariner while those images remain supported.
     # See https://github.com/Azure/AKS/issues/5753.
     #
     if isUbuntu "$OS"; then
