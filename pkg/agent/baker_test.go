@@ -99,8 +99,9 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		})
 
 		Describe(".containerdConfigTemplateForVersion()", func() {
-			renderContainerdConfig := func(containerdVersion string) string {
+			renderContainerdConfig := func(containerdVersion string, distro datamodel.Distro) string {
 				config.ContainerdVersion = containerdVersion
+				config.AgentPoolProfile.Distro = distro
 				encoded, err := containerdConfigFromTemplate(config, config.AgentPoolProfile, containerdConfigTemplateForVersion(config, false))
 				Expect(err).NotTo(HaveOccurred())
 				decoded, err := base64.StdEncoding.DecodeString(encoded)
@@ -108,37 +109,46 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				return string(decoded)
 			}
 
-			It("uses schema v2 when containerd version is empty", func() {
-				containerdConfig := renderContainerdConfig("")
+			expectSchemaV2 := func(containerdConfig string) {
 				Expect(containerdConfig).To(ContainSubstring(`version = 2`))
 				Expect(containerdConfig).To(ContainSubstring(`[plugins."io.containerd.grpc.v1.cri"]`))
 				Expect(containerdConfig).NotTo(ContainSubstring(`version = 4`))
 				Expect(containerdConfig).NotTo(ContainSubstring(`io.containerd.cri.v1.images`))
-			})
+			}
 
-			It("uses schema v2 when containerd version is invalid", func() {
-				containerdConfig := renderContainerdConfig("not-a-version")
-				Expect(containerdConfig).To(ContainSubstring(`version = 2`))
-				Expect(containerdConfig).To(ContainSubstring(`[plugins."io.containerd.grpc.v1.cri"]`))
-				Expect(containerdConfig).NotTo(ContainSubstring(`version = 4`))
-				Expect(containerdConfig).NotTo(ContainSubstring(`io.containerd.cri.v1.images`))
-			})
-
-			It("uses schema v2 for containerd versions before 2.3", func() {
-				containerdConfig := renderContainerdConfig("2.2.4-4.azl3")
-				Expect(containerdConfig).To(ContainSubstring(`version = 2`))
-				Expect(containerdConfig).To(ContainSubstring(`[plugins."io.containerd.grpc.v1.cri"]`))
-				Expect(containerdConfig).NotTo(ContainSubstring(`version = 4`))
-				Expect(containerdConfig).NotTo(ContainSubstring(`io.containerd.cri.v1.images`))
-			})
-
-			It("uses schema v4 for containerd 2.3 and newer", func() {
-				containerdConfig := renderContainerdConfig("2.3.2-ubuntu24.04u1")
+			expectSchemaV4 := func(containerdConfig string) {
 				Expect(containerdConfig).To(ContainSubstring(`version = 4`))
 				Expect(containerdConfig).To(ContainSubstring(`[plugins."io.containerd.cri.v1.images".pinned_images]`))
 				Expect(containerdConfig).To(ContainSubstring(`io.containerd.cri.v1.runtime`))
 				Expect(containerdConfig).NotTo(ContainSubstring(`version = 2`))
 				Expect(containerdConfig).NotTo(ContainSubstring(`io.containerd.grpc.v1.cri`))
+			}
+
+			It("uses schema v2 when containerd version is empty for older or unknown distros", func() {
+				expectSchemaV2(renderContainerdConfig("", datamodel.AKSUbuntuContainerd2204))
+				expectSchemaV2(renderContainerdConfig("", datamodel.AKSAzureLinuxV3))
+			})
+
+			for _, distro := range []datamodel.Distro{
+				datamodel.AKSUbuntuContainerd2404,
+				datamodel.AKSUbuntuMinimalContainerd2604Gen2,
+			} {
+				distro := distro
+				It(fmt.Sprintf("uses schema v4 when containerd version is empty for %s", distro), func() {
+					expectSchemaV4(renderContainerdConfig("", distro))
+				})
+			}
+
+			It("uses schema v2 when containerd version is invalid", func() {
+				expectSchemaV2(renderContainerdConfig("not-a-version", datamodel.AKSUbuntuContainerd2404))
+			})
+
+			It("uses schema v2 for containerd versions before 2.3", func() {
+				expectSchemaV2(renderContainerdConfig("2.2.4-4.azl3", datamodel.AKSUbuntuContainerd2404))
+			})
+
+			It("uses schema v4 for containerd 2.3 and newer", func() {
+				expectSchemaV4(renderContainerdConfig("2.3.2-ubuntu24.04u1", datamodel.AKSUbuntuContainerd2204))
 			})
 		})
 
