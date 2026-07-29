@@ -779,6 +779,18 @@ func Test_containerdConfigFromAKSNodeConfig_ContainerdVersionFallback(t *testing
 			wantOriginalValue: "2.2.4-4.azl3",
 		},
 		{
+			name: "does not treat nonnumeric prefix as package epoch",
+			aksnodeconfig: &aksnodeconfigv1.Configuration{
+				ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+					ContainerdVersion: "source:2.3.2",
+				},
+			},
+			fallbackVersion:   "2.2.4-4.azl3",
+			wantContains:      "version = 2",
+			notWantContains:   "version = 4",
+			wantOriginalValue: "source:2.3.2",
+		},
+		{
 			name: "does not let fallback downgrade RP supplied 2.3 version",
 			aksnodeconfig: &aksnodeconfigv1.Configuration{
 				ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
@@ -789,6 +801,18 @@ func Test_containerdConfigFromAKSNodeConfig_ContainerdVersionFallback(t *testing
 			wantContains:      "version = 4",
 			notWantContains:   "version = 2",
 			wantOriginalValue: "2.3.2-ubuntu24.04u1",
+		},
+		{
+			name: "uses RP supplied 2.3 version with epoch and build metadata",
+			aksnodeconfig: &aksnodeconfigv1.Configuration{
+				ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+					ContainerdVersion: "1:2.3.2+azure",
+				},
+			},
+			fallbackVersion:   "2.2.4-4.azl3",
+			wantContains:      "version = 4",
+			notWantContains:   "version = 2",
+			wantOriginalValue: "1:2.3.2+azure",
 		},
 	}
 	for _, tt := range tests {
