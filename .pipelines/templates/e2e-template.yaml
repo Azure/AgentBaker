@@ -35,17 +35,10 @@ parameters:
       because they cannot verify the not-opted-in behavior on such subscriptions.
       Msft tenant E2E subs auto-inject; the RCV1P subscription does not.
     default: true
-  - name: matrix
-    type: object
-    displayName: Optional job matrix for running the same E2E selection with different variables
-    default: {}
 
 jobs:
   - job: e2e
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
-    ${{ if gt(length(parameters.matrix), 0) }}:
-      strategy:
-        matrix: ${{ parameters.matrix }}
     variables:
       - group: ${{parameters.variableGroup}} # all variables prefixed with E2E_* come from this variable group
     pool:
