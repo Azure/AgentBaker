@@ -1,19 +1,6 @@
 version = 2
 oom_score = -999{{if getHasDataDir .KubeletConfig}}
 root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
-{{- if .GetIsKata }}
-[plugins."io.containerd.snapshotter.v1.erofs"]
-  default_size = "10G"
-  enable_fsverity = false
-  ovl_mount_options = []
-
-[plugins."io.containerd.service.v1.diff-service"]
-  default = ["erofs", "walking"]
-
-[plugins."io.containerd.differ.v1.erofs"]
-  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
-  enable_tar_index = false
-{{- end}}
 [plugins."io.containerd.cri.v1.images"]
 {{- if .GetEnableArtifactStreaming }}
   snapshotter = "overlaybd"
@@ -56,15 +43,8 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
-  snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
-  runtime_type = "io.containerd.kata.v2"
-  privileged_without_host_devices = true
-  snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
-    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
