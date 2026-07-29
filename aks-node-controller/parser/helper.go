@@ -197,7 +197,11 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	if aksnodeconfig == nil {
 		return "", fmt.Errorf("AKSNodeConfig is nil")
 	}
-	aksnodeconfig = configWithContainerdVersionFallback(aksnodeconfig, containerdVersion)
+	var err error
+	aksnodeconfig, err = configWithContainerdVersionFallback(aksnodeconfig, containerdVersion)
+	if err != nil {
+		return "", fmt.Errorf("error setting containerd version fallback: %w", err)
+	}
 
 	var _template *template.Template
 	_template = containerdConfigTemplate
@@ -213,17 +217,20 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	return buffer.String(), nil
 }
 
-func configWithContainerdVersionFallback(aksnodeconfig *aksnodeconfigv1.Configuration, containerdVersion string) *aksnodeconfigv1.Configuration {
+func configWithContainerdVersionFallback(aksnodeconfig *aksnodeconfigv1.Configuration, containerdVersion string) (*aksnodeconfigv1.Configuration, error) {
 	if aksnodeconfig.GetContainerdConfig().GetContainerdVersion() != "" || containerdVersion == "" {
-		return aksnodeconfig
+		return aksnodeconfig, nil
 	}
 
-	clonedConfig := proto.Clone(aksnodeconfig).(*aksnodeconfigv1.Configuration)
+	clonedConfig, ok := proto.Clone(aksnodeconfig).(*aksnodeconfigv1.Configuration)
+	if !ok {
+		return nil, fmt.Errorf("unexpected cloned AKSNodeConfig type")
+	}
 	if clonedConfig.ContainerdConfig == nil {
 		clonedConfig.ContainerdConfig = &aksnodeconfigv1.ContainerdConfig{}
 	}
 	clonedConfig.ContainerdConfig.ContainerdVersion = containerdVersion
-	return clonedConfig
+	return clonedConfig, nil
 }
 
 // detectContainerdVersion runs "containerd --version" and parses the version string.
