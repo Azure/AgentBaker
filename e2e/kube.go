@@ -714,9 +714,61 @@ func (k *Kubeclient) logProxyTimeoutDiagnostics(ctx context.Context, lastPodStat
 	for _, s := range lastPodStatuses {
 		toolkit.Logf(ctx, "    %s", s)
 	}
-	// Log ALL nodes with labels and conditions to diagnose scheduling issues
+
 	listCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
+	ds, err := k.Typed.AppsV1().DaemonSets(defaultNamespace).Get(listCtx, proxyAppLabel, metav1.GetOptions{})
+	if err != nil {
+		toolkit.Logf(ctx, "    (failed to get proxy daemonset: %v)", err)
+	} else {
+		toolkit.Logf(
+			ctx,
+			"    --- proxy daemonset status: desired=%d current=%d updated=%d ready=%d available=%d unavailable=%d ---",
+			ds.Status.DesiredNumberScheduled,
+			ds.Status.CurrentNumberScheduled,
+			ds.Status.UpdatedNumberScheduled,
+			ds.Status.NumberReady,
+			ds.Status.NumberAvailable,
+			ds.Status.NumberUnavailable,
+		)
+		for _, condition := range ds.Status.Conditions {
+			toolkit.Logf(ctx, "    condition(%s=%s reason=%s message=%s)", condition.Type, condition.Status, condition.Reason, condition.Message)
+		}
+	}
+
+	events, err := k.Typed.CoreV1().Events(defaultNamespace).List(listCtx, metav1.ListOptions{})
+	if err != nil {
+		toolkit.Logf(ctx, "    (failed to list proxy events: %v)", err)
+	} else {
+		eventCount := 0
+		for _, event := range events.Items {
+			isProxyDaemonSet := event.InvolvedObject.Kind == "DaemonSet" && event.InvolvedObject.Name == proxyAppLabel
+			isProxyPod := event.InvolvedObject.Kind == "Pod" && strings.HasPrefix(event.InvolvedObject.Name, proxyAppLabel+"-")
+			if !isProxyDaemonSet && !isProxyPod {
+				continue
+			}
+			if eventCount == 0 {
+				toolkit.Logf(ctx, "    --- proxy daemonset and pod events ---")
+			}
+			eventCount++
+			toolkit.Logf(
+				ctx,
+				"    type=%s object=%s/%s reason=%s count=%d message=%s",
+				event.Type,
+				event.InvolvedObject.Kind,
+				event.InvolvedObject.Name,
+				event.Reason,
+				event.Count,
+				event.Message,
+			)
+		}
+		if eventCount == 0 {
+			toolkit.Logf(ctx, "    --- no proxy daemonset or pod events found ---")
+		}
+	}
+
+	// Log ALL nodes with labels and conditions to diagnose scheduling issues
 	nodes, err := k.Typed.CoreV1().Nodes().List(listCtx, metav1.ListOptions{})
 	if err != nil {
 		toolkit.Logf(ctx, "    (failed to list nodes: %v)", err)
