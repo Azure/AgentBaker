@@ -175,12 +175,13 @@ message KubeletConfigFileConfig {
 
   /* streamingConnectionIdleTimeout is the maximum time a streaming connection
    can be idle before the connection is automatically closed.
-   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-   it may impact components that rely on infrequent updates over streaming
-   connections to the Kubelet server.
+   Deprecated since k8s 1.25, removed from KubeletConfiguration in k8s 1.34.
+   This field is cleared by aks-node-controller for k8s >= 1.34 and will not
+   appear in the marshaled config file. Retained in proto for backward
+   compatibility with k8s < 1.34.
    Default: "4h"
    +optional. */
-  string streaming_connection_idle_timeout = 16;
+  string streaming_connection_idle_timeout = 16 [deprecated = true];
 
   /* nodeStatusUpdateFrequency is the frequency that kubelet computes node
    status. If node lease feature is not enabled, it is also the frequency that
@@ -416,7 +417,7 @@ message KubeletConfigFileConfig {
 
   /* kubeReservedCgroup is the absolute name of the cgroup the kubelet should manage for the
    kube-reserved compute resources. When enforce-node-allocatable contains "kube-reserved",
-   this cgroup must exist before kubelet starts. Example: "/kubelet.slice".
+   this cgroup must exist before kubelet starts. Example: "/kubereserved.slice".
    Used by AKS Node Memory Hardening (F2/F5).
    +optional. */
   string kube_reserved_cgroup = 44;

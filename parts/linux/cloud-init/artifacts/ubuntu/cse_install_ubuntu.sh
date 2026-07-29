@@ -4,6 +4,33 @@ removeContainerd() {
     apt_get_purge 10 5 300 moby-containerd
 }
 
+# Batch install all packages in a single apt_get_install call instead of looping one-by-one.
+# On failure, fall back to individual installs for diagnostic clarity. A return code of 2 from
+# apt_get_install signals a CSE timeout and is propagated immediately by exiting the script.
+aptGetBatchInstallPackagesWithFallback() {
+    local -a pkg_list=("$@")
+
+    apt_get_install 30 1 600 "${pkg_list[@]}"
+    local batch_rc=$?
+    if [ "$batch_rc" -eq 2 ]; then
+        exit "$batch_rc"
+    elif [ "$batch_rc" -ne 0 ]; then
+        echo "Batch install failed, falling back to individual package install"
+        local apt_package
+        for apt_package in "${pkg_list[@]}"; do
+            apt_get_install 30 1 600 "$apt_package"
+            local pkg_rc=$?
+            if [ "$pkg_rc" -eq 2 ]; then
+                exit "$pkg_rc"
+            elif [ "$pkg_rc" -ne 0 ]; then
+                tail -n 200 /var/log/apt/term.log || true
+                tail -n 200 /var/log/dpkg.log || true
+                exit $ERR_APT_INSTALL_TIMEOUT
+            fi
+        done
+    fi
+}
+
 blobfuseFallbackPackages() {
     local OSVERSION="${1}"
     # blobfuse/blobfuse2 started to be centralized in components.json around April 2026.
@@ -40,6 +67,33 @@ blobfuseFallbackPackages() {
     fi
 }
 
+# Installs any required dependencies needed to build the particular Ubuntu minimal image (currently only 26.04)
+# These dependencies are needed specifically in order to run various commands required to build the VHD.
+installMinimalBuildDeps() {
+    local OSVERSION
+    OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+
+    if [ "${OSVERSION}" = "26.04" ]; then
+        installUbuntu2604MinimalBuildDeps
+        return 0
+    fi
+
+    echo "Unrecognized Ubuntu minimal version ${OSVERSION} - cannot install minimal build dependencies"
+    exit 1
+}
+
+installUbuntu2604MinimalBuildDeps() {
+    wait_for_apt_locks
+    retrycmd_silent 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+    retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
+
+    holdWALinuxAgent hold
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+
+    local -a pkg_list=(rsyslog gpg)
+    aptGetBatchInstallPackagesWithFallback "${pkg_list[@]}"
+}
+
 installDeps() {
     wait_for_apt_locks
     retrycmd_silent 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
@@ -48,44 +102,39 @@ installDeps() {
     holdWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
-    pkg_list=(apparmor-utils bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
+    local OSVERSION
+    OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
 
-    local OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+    pkg_list=(apparmor-utils bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r))
+
+    if [ "${OSVERSION}" = "26.04" ]; then
+        if isMinimalImage; then
+            # libc6-dev is needed for GPU driver installation at runtime and is not included on the 26.04 minimal base image
+            pkg_list+=(libc6-dev)
+            # cron/crontab is needed by init-aks-cloud.sh (RCV1P) since we create a ca-refresh cron job and is not included on the 26.04 minimal base image
+            # init-aks-cloud.sh should be refactored to use systemd timers instead to align with AzureLinux
+            pkg_list+=(cron)
+        fi
+    else
+        # linux-modules-extra-* isn't bundled into linux-modules-* on Ubuntu releases < 26.04
+        pkg_list+=(linux-modules-extra-$(uname -r))
+    fi
+
     while IFS= read -r fallback_pkg; do
         [ -n "${fallback_pkg}" ] && pkg_list+=("${fallback_pkg}")
     done < <(blobfuseFallbackPackages "${OSVERSION}")
 
-    if [ "${OSVERSION}" = "24.04" ]; then
+    if [ "${OSVERSION}" = "24.04" ] || [ "${OSVERSION}" = "26.04" ]; then
         pkg_list+=(irqbalance)
     fi
 
-    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
+    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ] || [ "${OSVERSION}" = "26.04" ]; then
         pkg_list+=("aznfs=3.0.19")
     fi
 
-    # Batch install all packages in a single apt_get_install call instead of
-    # looping one-by-one. On failure, fall back to individual installs for
-    # diagnostic clarity. Exit immediately on return code 2 (CSE timeout).
-    apt_get_install 30 1 600 "${pkg_list[@]}"
-    local batch_rc=$?
-    if [ "$batch_rc" -eq 2 ]; then
-        exit "$batch_rc"
-    elif [ "$batch_rc" -ne 0 ]; then
-        echo "Batch install failed, falling back to individual package install"
-        for apt_package in "${pkg_list[@]}"; do
-            apt_get_install 30 1 600 "$apt_package"
-            local pkg_rc=$?
-            if [ "$pkg_rc" -eq 2 ]; then
-                exit "$pkg_rc"
-            elif [ "$pkg_rc" -ne 0 ]; then
-                tail -n 200 /var/log/apt/term.log || true
-                tail -n 200 /var/log/dpkg.log || true
-                exit $ERR_APT_INSTALL_TIMEOUT
-            fi
-        done
-    fi
+    aptGetBatchInstallPackagesWithFallback "${pkg_list[@]}"
 
-    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
+    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ] || [ "${OSVERSION}" = "26.04" ]; then
         # disable aznfswatchdog since aznfs install and enable aznfswatchdog and aznfswatchdogv4 services at the same time while we only need aznfswatchdogv4
         systemctl disable aznfswatchdog
         systemctl stop aznfswatchdog
@@ -93,6 +142,9 @@ installDeps() {
 }
 
 updateAptWithMicrosoftPkg() {
+    local OSVERSION
+    OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+
     retrycmd_silent 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
 
@@ -100,6 +152,13 @@ updateAptWithMicrosoftPkg() {
 
     retrycmd_silent 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+
+    if [ "${OSVERSION}" = "26.04" ]; then
+        # Ubuntu 26.04 (Resolute) PMC repo is signed with Microsoft's newer 2025 gpg key
+        retrycmd_silent 120 5 25 curl https://packages.microsoft.com/keys/microsoft-2025.asc | gpg --dearmor > /tmp/microsoft-2025.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+        retrycmd_if_failure 10 5 10 cp /tmp/microsoft-2025.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+    fi
+
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
@@ -132,7 +191,7 @@ updatePMCRepository() {
 }
 
 updateAptWithNvidiaPkg() {
-    readonly nvidia_gpg_keyring_path="/etc/apt/keyrings/nvidia.pub"
+    readonly nvidia_gpg_keyring_path="/etc/apt/keyrings/nvidia.gpg"
     mkdir -p "$(dirname "${nvidia_gpg_keyring_path}")"
 
     readonly nvidia_sources_list_path="/etc/apt/sources.list.d/nvidia.list"
@@ -153,6 +212,8 @@ updateAptWithNvidiaPkg() {
         nvidia_ubuntu_release="ubuntu2204"
     elif [ "${UBUNTU_RELEASE}" = "24.04" ]; then
         nvidia_ubuntu_release="ubuntu2404"
+    elif [ "${UBUNTU_RELEASE}" = "26.04" ]; then
+        nvidia_ubuntu_release="ubuntu2604"
     else
         echo "NVIDIA repo setup is not supported on Ubuntu ${UBUNTU_RELEASE}"
         return
@@ -162,10 +223,21 @@ updateAptWithNvidiaPkg() {
     echo "deb [arch=${cpu_arch} signed-by=${nvidia_gpg_keyring_path}] https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch} /" > ${nvidia_sources_list_path}
 
     # Add NVIDIA repository
-    local nvidia_gpg_key_url="https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch}/3bf863cc.pub"
+    local nvidia_gpg_key_name="3bf863cc.pub"
+    if [ "${UBUNTU_RELEASE}" = "26.04" ]; then
+        nvidia_gpg_key_name="60DF8A40.pub"
+    fi
+    local nvidia_gpg_key_url="https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch}/${nvidia_gpg_key_name}"
 
-    # Download and add the GPG key for the NVIDIA repository
-    retrycmd_curl_file 120 5 25 ${nvidia_gpg_keyring_path} ${nvidia_gpg_key_url} 300 || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
+    # Download the armored NVIDIA repo key and dearmor it into a binary keyring.
+    # apt only accepts a signed-by keyring with a .gpg (binary) or .asc (armored) extension;
+    # NVIDIA publishes an ASCII-armored *.pub, so a raw .pub file is rejected as an "unsupported
+    # filetype" and the key is ignored (the repo then fails to verify with NO_PUBKEY). Newer apt
+    # (e.g. 3.x on Ubuntu 26.04) enforces this strictly, so dearmor to nvidia.gpg.
+    local nvidia_gpg_key_tmp="/tmp/${nvidia_gpg_key_name}"
+    retrycmd_curl_file 120 5 25 "${nvidia_gpg_key_tmp}" "${nvidia_gpg_key_url}" 300 || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
+    gpg --dearmor < "${nvidia_gpg_key_tmp}" > "${nvidia_gpg_keyring_path}" || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
+    rm -f "${nvidia_gpg_key_tmp}"
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
@@ -225,9 +297,13 @@ removeNvidiaRepos() {
         rm -f /etc/apt/sources.list.d/nvidia.list
         echo "Removed NVIDIA apt repository"
     fi
+    if [ -f /etc/apt/keyrings/nvidia.gpg ]; then
+        rm -f /etc/apt/keyrings/nvidia.gpg
+        echo "Removed NVIDIA GPG key (nvidia.gpg)"
+    fi
     if [ -f /etc/apt/keyrings/nvidia.pub ]; then
         rm -f /etc/apt/keyrings/nvidia.pub
-        echo "Removed NVIDIA GPG key"
+        echo "Removed NVIDIA GPG key (nvidia.pub)"
     fi
 }
 

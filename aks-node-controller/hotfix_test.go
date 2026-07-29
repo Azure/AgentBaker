@@ -614,6 +614,7 @@ func TestShouldUpgradeToHotfix(t *testing.T) {
 		{"base .0 -> hotfix .1", "202604.01.0", "202604.01.1", true, false},
 		{"base .0 -> hotfix .2", "202604.01.0", "202604.01.2", true, false},
 		{"hotfix .1 -> hotfix .2", "202604.01.1", "202604.01.2", true, false},
+		{"hotfix .0 -> hotfix .1-1", "202604.01.0", "202604.01.1-1", true, false},
 
 		// Negative: same version
 		{"same version .0", "202604.01.0", "202604.01.0", false, false},

@@ -171,11 +171,11 @@ ERR_SECONDARY_NIC_CONFIG_FAIL=243 # Error configuring secondary NIC network inte
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
-    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
-    OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
-    OS_VARIANT=$(sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
+    OS=$(sort -r /etc/*-release | sed -n 's/^ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
+    OS_VERSION=$(sort -r /etc/*-release | sed -n 's/^VERSION_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
+    OS_VARIANT=$(sort -r /etc/*-release | sed -n 's/^VARIANT_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
 else
-# This is only for unit test purpose. For example, a Mac OS dev box doesn't have /etc/*-release, then the unit test will continue.
+    # This is only for unit test purpose. For example, a Mac OS dev box doesn't have /etc/*-release, then the unit test will continue.
     echo "/etc/*-release not found"
 fi
 
@@ -687,14 +687,102 @@ systemctlDisableAndStop() {
 
 # return true if a >= b
 semverCompare() {
-    VERSION_A=$(echo $1 | cut -d "+" -f 1 | cut -d "~" -f 1)
-    VERSION_B=$(echo $2 | cut -d "+" -f 1 | cut -d "~" -f 1)
+    local VERSION_A
+    local VERSION_B
+    local sorted
+    local highestVersion
+
+    VERSION_A=$(printf "%s" "$1" | cut -d "+" -f 1 | cut -d "~" -f 1)
+    VERSION_B=$(printf "%s" "$2" | cut -d "+" -f 1 | cut -d "~" -f 1)
 
     [ "${VERSION_A}" = "${VERSION_B}" ] && return 0
-    sorted=$(echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V )
-    highestVersion=$(IFS= echo "${sorted}" | cut -d$'\n' -f2)
-    [ "${VERSION_A}" = ${highestVersion} ] && return 0
+    sorted=$(printf "%s\n%s\n" "${VERSION_A}" "${VERSION_B}" | sort -V)
+    highestVersion=$(printf "%s\n" "${sorted}" | tail -n 1)
+    [ "${VERSION_A}" = "${highestVersion}" ] && return 0
     return 1
+}
+
+get_ubuntu_release() {
+    local ubuntu_release
+
+    if [ -r /etc/os-release ]; then
+        ubuntu_release="$(awk -F= '$1 == "VERSION_ID" { gsub(/"/, "", $2); print $2; exit }' /etc/os-release)"
+        if [ -n "$ubuntu_release" ]; then
+            echo "$ubuntu_release"
+            return 0
+        fi
+    fi
+
+    if command -v lsb_release >/dev/null 2>&1; then
+        lsb_release -r -s 2>/dev/null || true
+        return 0
+    fi
+
+    echo ""
+}
+
+# Return 0 when the running Ubuntu kernel still needs the Copy Fail / DirtyFrag /
+# Fragnesia module deny mitigation. Future Ubuntu releases are not in scope by
+# default; add them explicitly only if they ship a vulnerable kernel. If release
+# detection fails, keep the mitigation enabled.
+ubuntuKernelNeedsVulnerableModuleMitigation() {
+    local ubuntu_release
+    local kernel_release
+    local fixed_kernel
+
+    ubuntu_release="$(get_ubuntu_release)"
+    kernel_release="$(uname -r 2>/dev/null || echo "")"
+
+    if [ -z "$ubuntu_release" ]; then
+        echo "Unable to detect Ubuntu release; keeping vulnerable kernel module mitigation enabled"
+        return 0
+    fi
+
+    if [ -z "$kernel_release" ]; then
+        echo "Unable to detect Ubuntu kernel version; keeping vulnerable kernel module mitigation enabled"
+        return 0
+    fi
+
+    case "$ubuntu_release" in
+        20.04)
+            echo "Ubuntu 20.04 remains in scope for Copy Fail / DirtyFrag / Fragnesia vulnerable kernel module mitigation"
+            return 0
+            ;;
+        22.04)
+            case "$kernel_release" in
+                # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+                *-azure|*-azure-fde|*-azure-fips) fixed_kernel="5.15.0-1116-azure" ;;
+                *-generic) fixed_kernel="5.15.0-181-generic" ;;
+                *)
+                    echo "Unknown Ubuntu 22.04 kernel flavor '${kernel_release}'; keeping vulnerable kernel module mitigation enabled"
+                    return 0
+                    ;;
+            esac
+            ;;
+        24.04)
+            case "$kernel_release" in
+                # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+                *-azure|*-azure-fde|*-azure-fips) fixed_kernel="6.8.0-1058-azure" ;;
+                *-generic) fixed_kernel="6.8.0-124-generic" ;;
+                *)
+                    echo "Unknown Ubuntu 24.04 kernel flavor '${kernel_release}'; keeping vulnerable kernel module mitigation enabled"
+                    return 0
+                    ;;
+            esac
+            ;;
+        *)
+            echo "Ubuntu release '${ubuntu_release}' is not in the Copy Fail / DirtyFrag / Fragnesia mitigation scope; skipping vulnerable kernel module mitigation"
+            return 1
+            ;;
+    esac
+
+    if semverCompare "$kernel_release" "$fixed_kernel"; then
+        echo "Ubuntu ${ubuntu_release} kernel ${kernel_release} includes Copy Fail / DirtyFrag / Fragnesia fixes; skipping vulnerable kernel module mitigation"
+        return 1
+    fi
+
+    echo "Ubuntu ${ubuntu_release} kernel ${kernel_release} is older than fixed kernel ${fixed_kernel}; keeping vulnerable kernel module mitigation enabled"
+    return 0
 }
 
 getCPUArch() {
@@ -965,6 +1053,13 @@ isACL() {
 isUbuntu() {
     local os=${1-$OS}
     if [ "$os" = "$UBUNTU_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isMinimalImage() {
+    if grep -q "minimal" <<< "$FEATURE_FLAGS"; then
         return 0
     fi
     return 1
@@ -1484,18 +1579,18 @@ function get_sandbox_image_from_containerd_config() {
 
 # ensureKubeletCgroupHierarchy creates the systemd slices used by kubelet for the
 # kube-reserved and system-reserved enforcement tiers (Node Memory Hardening F2/F5).
-# It MUST be called before kubelet starts so that /kubelet.slice and /system.slice
+# It MUST be called before kubelet starts so that /kubereserved.slice and /system.slice
 # exist and are managed by systemd before the first kubelet enforcement pass.
 #
 # The function:
 #   - Asserts cgroupv2 unified hierarchy (cgroupv1 is not supported by this feature
 #     because mixed/legacy hierarchies cannot reliably enforce per-slice MemoryMax).
-#   - Drops a /etc/systemd/system/kubelet.slice unit (system.slice ships with systemd).
-#   - Triggers `systemctl daemon-reload` and `systemctl start kubelet.slice` so the
-#     cgroup is materialised at /sys/fs/cgroup/kubelet.slice prior to kubelet boot.
+#   - Drops a /etc/systemd/system/kubereserved.slice unit (system.slice ships with systemd).
+#   - Triggers `systemctl daemon-reload` and `systemctl start kubereserved.slice` so the
+#     cgroup is materialised at /sys/fs/cgroup/kubereserved.slice prior to kubelet boot.
 #
 # Inputs (env, all optional — the function is a no-op if the RP did not opt in):
-#   KUBE_RESERVED_CGROUP    — absolute cgroup name, e.g. "/kubelet.slice"
+#   KUBE_RESERVED_CGROUP    — absolute cgroup name, e.g. "/kubereserved.slice"
 #   SYSTEM_RESERVED_CGROUP  — absolute cgroup name, e.g. "/system.slice"
 
 # resolveKubeletReservedCgroups exports KUBE_RESERVED_CGROUP and SYSTEM_RESERVED_CGROUP
@@ -1529,8 +1624,9 @@ ensureKubeletCgroupHierarchy() {
     # Path overrides exist for ShellSpec coverage; production callers leave them at
     # their defaults.
     local cgroupv2_marker="${CGROUPV2_MARKER_PATH:-/sys/fs/cgroup/cgroup.controllers}"
-    local kubelet_slice_unit="${KUBELET_SLICE_UNIT_PATH:-/etc/systemd/system/kubelet.slice}"
+    local kube_reserved_slice_unit="${KUBE_RESERVED_SLICE_UNIT_PATH:-/etc/systemd/system/kubereserved.slice}"
     local kubelet_dropin_dir="${KUBELET_SERVICE_DROPIN_DIR:-/etc/systemd/system/kubelet.service.d}"
+    local containerd_dropin_dir="${CONTAINERD_SERVICE_DROPIN_DIR:-/etc/systemd/system/containerd.service.d}"
 
     # Assert cgroupv2 unified hierarchy. The canonical marker is the presence of
     # /sys/fs/cgroup/cgroup.controllers, which only exists under cgroupv2.
@@ -1539,14 +1635,14 @@ ensureKubeletCgroupHierarchy() {
         return 1
     fi
 
-    # Validate supported values: only /kubelet.slice (or bare kubelet.slice) is
-    # supported for KUBE_RESERVED_CGROUP, and only /system.slice for
-    # SYSTEM_RESERVED_CGROUP (a built-in systemd slice). Reject any other value
+    # Validate supported values: /kubereserved.slice (or bare kubereserved.slice) is
+    # the only value accepted for KUBE_RESERVED_CGROUP. Only /system.slice (or bare system.slice)
+    # is supported for SYSTEM_RESERVED_CGROUP (a built-in systemd slice). Reject any other value
     # explicitly so kubelet doesn't fail later with an opaque enforcement error.
     case "${KUBE_RESERVED_CGROUP:-}" in
-        ""|"/kubelet.slice"|"kubelet.slice") ;;
+        ""|"/kubereserved.slice"|"kubereserved.slice") ;;
         *)
-            echo "ensureKubeletCgroupHierarchy: unsupported KUBE_RESERVED_CGROUP=${KUBE_RESERVED_CGROUP}; only /kubelet.slice is supported"
+            echo "ensureKubeletCgroupHierarchy: unsupported KUBE_RESERVED_CGROUP=${KUBE_RESERVED_CGROUP}; only /kubereserved.slice is supported"
             return 1
             ;;
     esac
@@ -1558,18 +1654,15 @@ ensureKubeletCgroupHierarchy() {
             ;;
     esac
 
-    # /system.slice is a built-in systemd slice; we only need to create kubelet.slice.
-    if [ "${KUBE_RESERVED_CGROUP:-}" = "/kubelet.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kubelet.slice" ]; then
-        if [ ! -f "${kubelet_slice_unit}" ]; then
-            mkdir -p "$(dirname "${kubelet_slice_unit}")"
-            # [Install] WantedBy=slices.target ensures the slice is pulled in by
-            # systemd on every boot (including post-reboot), not only the current
-            # provisioning boot. Combined with the Before=kubelet.service drop-in
-            # below this guarantees /sys/fs/cgroup/kubelet.slice is materialised
-            # before kubelet starts, so NodeAllocatable enforcement does not race.
-            tee "${kubelet_slice_unit}" > /dev/null <<'EOF'
+    # /system.slice is a built-in systemd slice; we only need to create kubereserved.slice.
+    if [ "${KUBE_RESERVED_CGROUP:-}" = "/kubereserved.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kubereserved.slice" ]; then
+        # Write all unit/drop-in files unconditionally (idempotent). This ensures
+        # upgraded nodes that already have an older version of these files get the
+        # latest content (e.g. the Slice= directive added for kubelet/containerd).
+        mkdir -p "$(dirname "${kube_reserved_slice_unit}")"
+        tee "${kube_reserved_slice_unit}" > /dev/null <<'EOF'
 [Unit]
-Description=Slice for kubelet kube-reserved enforcement (AKS Node Memory Hardening)
+Description=Slice for kube-reserved enforcement (AKS Node Memory Hardening)
 Before=slices.target
 DefaultDependencies=no
 
@@ -1578,31 +1671,44 @@ DefaultDependencies=no
 [Install]
 WantedBy=slices.target
 EOF
-            chmod 0644 "${kubelet_slice_unit}"
+        chmod 0644 "${kube_reserved_slice_unit}"
 
-            # Drop-in on kubelet.service so systemd starts kubelet.slice first
-            # on every boot. This survives reboots without depending on the
-            # one-shot `systemctl start` below.
-            mkdir -p "${kubelet_dropin_dir}"
-            tee "${kubelet_dropin_dir}/10-kubelet-slice.conf" > /dev/null <<'EOF'
+        # Drop-in on kubelet.service so systemd starts kubereserved.slice first
+        # on every boot and places kubelet inside the slice.
+        mkdir -p "${kubelet_dropin_dir}"
+        tee "${kubelet_dropin_dir}/10-kubereserved-slice.conf" > /dev/null <<'EOF'
 [Unit]
-Wants=kubelet.slice
-After=kubelet.slice
+Wants=kubereserved.slice
+After=kubereserved.slice
+
+[Service]
+Slice=kubereserved.slice
 EOF
-            chmod 0644 "${kubelet_dropin_dir}/10-kubelet-slice.conf"
+        chmod 0644 "${kubelet_dropin_dir}/10-kubereserved-slice.conf"
 
-            systemctl daemon-reload
+        # Drop-in on containerd.service to place it in kubereserved.slice.
+        mkdir -p "${containerd_dropin_dir}"
+        tee "${containerd_dropin_dir}/10-kubereserved-slice.conf" > /dev/null <<'EOF'
+[Unit]
+Wants=kubereserved.slice
+After=kubereserved.slice
 
-            # Enable the slice so it is started on subsequent boots.
-            if ! systemctl enable kubelet.slice; then
-                echo "ensureKubeletCgroupHierarchy: failed to enable kubelet.slice"
-                return 1
-            fi
+[Service]
+Slice=kubereserved.slice
+EOF
+        chmod 0644 "${containerd_dropin_dir}/10-kubereserved-slice.conf"
+
+        if ! systemctl daemon-reload; then
+            echo "ensureKubeletCgroupHierarchy: failed to daemon-reload systemd"
+            return 1
         fi
 
-        # Materialise the cgroup tree at /sys/fs/cgroup/kubelet.slice before kubelet starts on this boot.
-        if ! systemctl start kubelet.slice; then
-            echo "ensureKubeletCgroupHierarchy: failed to start kubelet.slice"
+        # Enable the slice for subsequent boots AND materialise the cgroup tree
+        # at /sys/fs/cgroup/kubereserved.slice on this boot before kubelet starts.
+        # systemctlEnableAndStart wraps both operations with retry logic to
+        # survive transient systemd failures during CSE.
+        if ! systemctlEnableAndStart kubereserved.slice 30; then
+            echo "ensureKubeletCgroupHierarchy: failed to enable and start kubereserved.slice"
             return 1
         fi
     fi

@@ -22,7 +22,7 @@ NBC_CMD_PATH="${NBC_CMD_PATH:-/opt/azure/containers/aks-node-controller-nbc-cmd.
 # producer is the sole trusted writer. Parsed below at wrapper runtime; absent file (default-off,
 # or an older VHD without the producer) is a no-op.
 FEATURES_PATH="${FEATURES_PATH:-/opt/azure/containers/enabled_features.sh}"
-LOGGER_TAG="aks-node-controller-wrapper"
+LOGGER_TAG="aks-node-controller-launcher"
 
 log() {
     local message="$1"

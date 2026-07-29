@@ -21,6 +21,9 @@ test-results/
 .devcontainer/devcontainer-lock.json
 
 test/junit/
+coverage/
+coverage.xml
+test-results/
 test/e2e/kubernetes/junit.xml
 _logs/
 *.swp
@@ -30,6 +33,9 @@ cmd/_test_output
 *.test
 *.coverprofile
 **/junit.xml
+test-results
+coverage
+staging/cse/windows/containerdfunc.tests.suites
 
 .idea
 .vs

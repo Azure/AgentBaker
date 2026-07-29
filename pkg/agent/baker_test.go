@@ -3,6 +3,7 @@ package agent
 import (
 	"archive/tar"
 	"bytes"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -154,29 +155,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		})
 
 		Describe(".supportsScriptlessPhase2()", func() {
-			It("given EnableScriptlessNBCCSECmd, PreProvisionOnly is false and an empty list of custom ca certs, it returns true", func() {
-				config.PreProvisionOnly = false
-				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-					CustomCATrustCerts: []string{},
-				}
-				Expect(supportsScriptlessPhase2(config)).To(BeTrue())
-			})
-			It("given EnableScriptlessNBCCSECmd, PreProvisionOnly is false and custom ca certs are populated, it returns false", func() {
-				config.PreProvisionOnly = false
-				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-					CustomCATrustCerts: []string{"mock cert value"},
-				}
-				Expect(supportsScriptlessPhase2(config)).To(BeFalse())
-			})
 			It("given EnableScriptlessNBCCSECmd, PreProvisionOnly is true and no CustomCATrustConfig, it returns false", func() {
 				config.PreProvisionOnly = true
-				Expect(supportsScriptlessPhase2(config)).To(BeFalse())
-			})
-			It("given EnableScriptlessNBCCSECmd, PreProvisionOnly is true and custom ca certs are populated, it returns false", func() {
-				config.PreProvisionOnly = true
-				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-					CustomCATrustCerts: []string{"mock cert value"},
-				}
 				Expect(supportsScriptlessPhase2(config)).To(BeFalse())
 			})
 		})
@@ -1732,8 +1712,25 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		var ignition map[string]interface{}
 		Expect(json.Unmarshal(decodedPayload, &ignition)).To(Succeed())
 
+		systemd, ok := ignition["systemd"].(map[string]interface{})
+		Expect(ok).To(BeTrue())
+		units, ok := systemd["units"].([]interface{})
+		Expect(ok).To(BeTrue())
+		Expect(units).To(ConsistOf(map[string]interface{}{
+			"name":    "aks-node-controller.service",
+			"enabled": true,
+		}))
+
 		storage, ok := ignition["storage"].(map[string]interface{})
 		Expect(ok).To(BeTrue())
+		links, ok := storage["links"].([]interface{})
+		Expect(ok).To(BeTrue())
+		Expect(links).To(ConsistOf(map[string]interface{}{
+			"path":      "/etc/systemd/system/basic.target.wants/aks-node-controller.service",
+			"target":    "/etc/systemd/system/aks-node-controller.service",
+			"overwrite": true,
+		}))
+
 		files, ok := storage["files"].([]interface{})
 		Expect(ok).To(BeTrue())
 		Expect(len(files)).To(Equal(3)) // nbc-cmd, nodecustomdata, aks-node-config (no hotfix file present)
@@ -1921,10 +1918,16 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		config := newScriptlessCmdTestConfig()
 		config.EnableScriptlessNBCCSECmd = true
 		config.PreProvisionOnly = false
+		// Create a large cert which crosses the 87kb limit
+		raw := make([]byte, base64.StdEncoding.DecodedLen(180000)+3)
+		if _, err := rand.Read(raw); err != nil {
+			Expect(err).To(BeNil())
+		}
 		config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-			CustomCATrustCerts: []string{"mock cert value"},
+			CustomCATrustCerts: []string{string(raw)},
 		}
 
+		Expect(templateGenerator.getNodeBootstrappingPayload(config)).To(Not(BeEmpty()))
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 	})

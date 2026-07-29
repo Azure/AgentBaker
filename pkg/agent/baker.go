@@ -26,6 +26,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	MaxCustomDataLength = 87380
+)
+
 // TemplateGenerator represents the object that performs the template generation.
 type TemplateGenerator struct{}
 
@@ -52,13 +56,18 @@ set -euo pipefail
 
 logger -t aks-boothook "boothook start $(date -Ins)"
 
-mkdir -p /opt/azure/containers
+mkdir -p /opt/azure/containers /var/log/azure
 
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
+#hotfix-marker
 %s
-logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
-systemctl start --no-block aks-node-controller.service
+logger -t aks-boothook "launching aks-node-controller $(date -Ins)"
+if [ -f /opt/azure/containers/aks-node-controller-launcher.sh ]; then
+	nohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh > /var/log/azure/aks-node-controller.output 2>&1 &
+else
+	systemctl start --no-block aks-node-controller.service
+fi
 `
 	// boothookFileEntry is appended to the boothook for each additional file.
 	// It writes gzipped+base64-encoded content to disk before starting aks-node-controller.
@@ -70,8 +79,19 @@ chmod 0600 %[1]s
 `
 	flatcarTemplate = `{
      "ignition": { "version": "3.4.0" },
+     "systemd": {
+       "units": [{
+         "name": "aks-node-controller.service",
+         "enabled": true
+       }]
+     },
      "storage": {
-       "files": [%s]
+       "files": [%s],
+       "links": [{
+         "path": "/etc/systemd/system/basic.target.wants/aks-node-controller.service",
+         "target": "/etc/systemd/system/aks-node-controller.service",
+         "overwrite": true
+       }]
       }
      }`
 	// flatcarFileEntry is an Ignition file entry appended to the files array
@@ -95,11 +115,14 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.EnableScriptlessNBCCSECmd {
 		if supportsScriptlessPhase2(config) {
-			return t.getScriptlessNBCCustomData(config)
+			if customData := t.getScriptlessNBCCustomData(config); len(customData) < MaxCustomDataLength {
+				return customData
+			}
 		}
 		// if we cannot enable scriptless phase2, we need to fallback to scriptless phase1
 		config.EnableScriptlessNBCCSECmd = false
 		config.EnableScriptlessCSECmd = true
+		config.DisableCustomData = false
 	}
 
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
@@ -169,7 +192,7 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 }
 
 func supportsScriptlessPhase2(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return !config.PreProvisionOnly && (config.CustomCATrustConfig == nil || len(config.CustomCATrustConfig.CustomCATrustCerts) == 0)
+	return config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly
 }
 
 // renderEnabledFeatures serializes the feature toggle map into sorted KEY=VALUE lines for
@@ -449,7 +472,7 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 	if config.AgentPoolProfile.IsWindows() {
 		return t.getWindowsNodeCSECommand(config)
 	}
-	if config.EnableScriptlessNBCCSECmd && supportsScriptlessPhase2(config) {
+	if supportsScriptlessPhase2(config) {
 		return "/opt/azure/containers/aks-node-controller provision-wait"
 	}
 	return t.getLinuxNodeCSECommand(config)
@@ -670,6 +693,15 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
 	}
 
+	// Node Hardening: AgentBaker, not the RP, owns the cgroup slice
+	// names that --kube-reserved-cgroup/--system-reserved-cgroup resolve to, since
+	// AgentBaker is what actually creates (or doesn't create) the systemd slice unit
+	// on the node (see cse_helpers.sh::ensureKubeletCgroupHierarchy). The RP only
+	// signals intent via --enforce-node-allocatable=pods,kube-reserved,system-reserved;
+	// any value it may still send for the two cgroup flags themselves is ignored and
+	// overwritten here so there is a single source of truth for the slice names.
+	setNodeHardeningCgroupFlags(kubeletFlags)
+
 	/* ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but
 	deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s
 		version 1.20 or higher */
@@ -680,6 +712,12 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.20.0") &&
 		!IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
 		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
+	}
+
+	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
+	// It must not appear on the command line or in the config file for those versions.
+	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
+		delete(kubeletFlags, "--streaming-connection-idle-timeout")
 	}
 }
 
@@ -705,6 +743,11 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 
 		if IsKubeletServingCertificateRotationEnabled(config) {
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
+		}
+
+		// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
+		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
+			delete(kubeletFlags, "--streaming-connection-idle-timeout")
 		}
 	}
 }
@@ -799,7 +842,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
 		},
 		"IsCgroupV2": func() bool {
-			return profile.Is2204VHDDistro() || profile.Is2404VHDDistro() ||
+			return profile.Is2204VHDDistro() || profile.Is2404VHDDistro() || profile.Is2604VHDDistro() ||
 				config.IsAzureLinux() || config.IsFlatcar() || config.IsACL()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
@@ -856,9 +899,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				sb.WriteString(fmt.Sprintf("LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory))
 			}
 			if ulimitConfig.NoFile != "" {
-				// ulimit is removed in containerd 2.0+, which is available only in ubuntu2404 distro
+				// ulimit is removed in containerd 2.0+, which is available only in ubuntu2404/ubuntu2604 distros
 				// https://github.com/containerd/containerd/blob/main/docs/containerd-2.0.md#limitnofile-configuration-has-been-removed
-				if !profile.Is2404VHDDistro() {
+				if !profile.Is2404VHDDistro() && !profile.Is2604VHDDistro() {
 					sb.WriteString(fmt.Sprintf("LimitNOFILE=%s\n", ulimitConfig.NoFile))
 				}
 			}
@@ -1483,7 +1526,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
-		"GetSkipWaAgentHold":  func() bool { return config.EnableScriptlessCSECmd && supportsScriptlessPhase2(config) },
+		"GetSkipWaAgentHold":  func() bool { return supportsScriptlessPhase2(config) },
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},
