@@ -704,16 +704,31 @@ func TestCompareEnvs_OnlyInNBCCmd(t *testing.T) {
 	assert.True(t, found, "expected CompareEnvs guest agent event")
 }
 
-func TestDiffEnvMaps_AllowsTotalGPUInstanceSlicesOnlyInNBCCmd(t *testing.T) {
-	diffs := diffEnvMaps(
-		map[string]string{"GPU_INSTANCE_PROFILE": "MIG2g"},
-		map[string]string{
-			"GPU_INSTANCE_PROFILE":      "MIG2g",
-			"TOTAL_GPU_INSTANCE_SLICES": "7",
-		},
-	)
+func TestCompareEnvs_AllowsNvidiaMIGTotalSlicesOnlyInNBCCmd(t *testing.T) {
+	tt := NewTestApp(t, TestAppConfig{})
+	logCap := installLogCapturer(t)
+	// Simulate an older provision-config path that does not emit the new variable.
+	// extractCSEEnvVars filters values already present in the process environment.
+	t.Setenv("NVIDIA_MIG_TOTAL_SLICES", "7")
+	configEnv := compareEnvsConfigEnv(t)
 
-	assert.Empty(t, diffs)
+	nbcContent := compareEnvsBuildNBCContent(configEnv, nil, nil, []string{`NVIDIA_MIG_TOTAL_SLICES="7"`})
+	nbcPath := compareEnvsWriteNBCCmd(t, nbcContent)
+
+	compareEnvs(context.Background(), ProvisionFlags{
+		ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
+		NBCCmd:          nbcPath,
+	}, tt.eventLogger, tt.App.gpuComponentsFilePath)
+
+	records := logCap.getRecords()
+	var foundNoOp bool
+	for _, r := range records {
+		if strings.Contains(r.Message, "env compare: no differences found") {
+			foundNoOp = true
+		}
+		assert.NotContains(t, r.Message, "env var differences", "expected no differences logged")
+	}
+	assert.True(t, foundNoOp, "expected 'no differences' log message")
 }
 
 func TestCompareEnvs_DifferingValues(t *testing.T) {

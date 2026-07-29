@@ -1494,7 +1494,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars).To(HaveKeyWithValue("GPU_NODE", "true"))
 		Expect(vars).To(HaveKeyWithValue("CONFIG_GPU_DRIVER_IF_NEEDED", "true"))
 		Expect(vars).To(HaveKeyWithValue("GPU_INSTANCE_PROFILE", "MIG7g"))
-		Expect(vars).To(HaveKeyWithValue("TOTAL_GPU_INSTANCE_SLICES", "7"))
+		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_TOTAL_SLICES", "7"))
 	})
 
 	It("should handle a configured total GPU instance slice count", func() {
@@ -1509,7 +1509,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		vars := decodeCSEVars(cseCmd)
 		Expect(vars).To(HaveKeyWithValue("GPU_INSTANCE_PROFILE", "MIG2g"))
-		Expect(vars).To(HaveKeyWithValue("TOTAL_GPU_INSTANCE_SLICES", "4"))
+		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_TOTAL_SLICES", "4"))
 	})
 
 	It("should handle disable unattended upgrades", func() {

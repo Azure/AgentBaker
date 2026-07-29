@@ -1,18 +1,18 @@
 #!/bin/bash
 
-# NOTE: Currently, Nvidia library mig-parted (https://github.com/NVIDIA/mig-parted) cannot work properly because of the outdated GPU driver version.
-# TODO: Use mig-parted library to do the partition after the above issue is fixed.
+#NOTE: Currently, Nvidia library mig-parted (https://github.com/NVIDIA/mig-parted) cannot work properly because of the outdated GPU driver version
+#TODO: Use mig-parted library to do the partition after the above issue is fixed 
 MIG_PROFILE=${1}
-TOTAL_GPU_INSTANCE_SLICES=${2:-7}
+NVIDIA_MIG_TOTAL_SLICES=${NVIDIA_MIG_TOTAL_SLICES:-7}
 
-case ${TOTAL_GPU_INSTANCE_SLICES} in
+case ${NVIDIA_MIG_TOTAL_SLICES} in
     ''|*[!0-9]*)
-        echo "total GPU instance slices must be a positive integer: ${TOTAL_GPU_INSTANCE_SLICES}" >&2
+        echo "total GPU instance slices must be a positive integer: ${NVIDIA_MIG_TOTAL_SLICES}" >&2
         exit 1
         ;;
 esac
-if [ "${TOTAL_GPU_INSTANCE_SLICES}" -le 0 ]; then
-    echo "total GPU instance slices must be a positive integer: ${TOTAL_GPU_INSTANCE_SLICES}" >&2
+if [ "${NVIDIA_MIG_TOTAL_SLICES}" -le 0 ]; then
+    echo "total GPU instance slices must be a positive integer: ${NVIDIA_MIG_TOTAL_SLICES}" >&2
     exit 1
 fi
 
@@ -43,9 +43,9 @@ case ${MIG_PROFILE} in
         ;;
 esac
 
-PROFILE_COUNT=$((TOTAL_GPU_INSTANCE_SLICES / PROFILE_WIDTH))
+PROFILE_COUNT=$((NVIDIA_MIG_TOTAL_SLICES / PROFILE_WIDTH))
 if [ "${PROFILE_COUNT}" -eq 0 ]; then
-    echo "GPU instance profile ${MIG_PROFILE} requires more than ${TOTAL_GPU_INSTANCE_SLICES} slices" >&2
+    echo "GPU instance profile ${MIG_PROFILE} requires more than ${NVIDIA_MIG_TOTAL_SLICES} slices" >&2
     exit 1
 fi
 

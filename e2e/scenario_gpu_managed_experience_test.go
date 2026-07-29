@@ -534,11 +534,9 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 }
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
-	totalGPUInstanceSlices := int32(4)
-
 	RunScenario(t, &Scenario{
-		Description: "Tests capacity-aware MIG partitioning and the NVIDIA device plugin on Ubuntu 24.04 GPU nodes",
-		Location:    "westus3",
+		Description: "Tests that NVIDIA device plugin and DCGM Exporter work with MIG enabled on Ubuntu 24.04 GPU nodes",
+		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -552,7 +550,6 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
 				nbc.GPUInstanceProfile = "MIG2g"
-				nbc.TotalGPUInstanceSlices = &totalGPUInstanceSlices
 				nbc.EnableManagedGPU = true
 				nbc.MigStrategy = "Single"
 			},
@@ -581,13 +578,12 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 
 				// Validate that MIG instances are created
 				ValidateMIGInstancesCreated(ctx, s, "MIG 2g.20gb")
-				ValidateMIGInstanceCount(ctx, s, "MIG 2g.20gb", 2)
 
 				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s, 2, "nvidia.com/gpu")
+				ValidateNodeAdvertisesGPUResources(ctx, s, 3, "nvidia.com/gpu")
 
 				// Validate that MIG workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 2, "nvidia.com/gpu")
+				ValidateGPUWorkloadSchedulable(ctx, s, 3, "nvidia.com/gpu")
 
 				// Validate that the NVIDIA DCGM packages were installed correctly
 				for _, packageName := range getDCGMPackageNames(os) {
@@ -610,6 +606,47 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_NonSevenSlices(t *testing.T) {
+	totalGPUInstanceSlices := int32(4)
+
+	RunScenario(t, &Scenario{
+		Description: "Tests capacity-aware MIG partitioning on a GPU with fewer than seven slices",
+		Location:    "westus3",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster:               ClusterKubenet,
+			VHD:                   config.VHDUbuntu2404Gen2Containerd,
+			WaitForSSHAfterReboot: 5 * time.Minute,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = true
+				nbc.EnableNvidia = true
+				nbc.GPUInstanceProfile = "MIG2g"
+				nbc.TotalGPUInstanceSlices = &totalGPUInstanceSlices
+				nbc.EnableManagedGPU = true
+				nbc.MigStrategy = "Single"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
+
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
+				require.NoError(t, err, "creating AKS VM extension")
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
+				ValidateMIGModeEnabled(ctx, s)
+				ValidateMIGInstanceCount(ctx, s, "MIG 2g.20gb", 2)
+				ValidateNodeAdvertisesGPUResources(ctx, s, 2, "nvidia.com/gpu")
+				ValidateGPUWorkloadSchedulable(ctx, s, 2, "nvidia.com/gpu")
 			},
 		},
 	})

@@ -7,7 +7,7 @@ Type=oneshot
 RemainAfterExit=yes
 Restart=on-failure
 ExecStartPre=/usr/bin/nvidia-smi -mig 1
-ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh "${GPU_INSTANCE_PROFILE}" "${TOTAL_GPU_INSTANCE_SLICES}"
+ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh "${GPU_INSTANCE_PROFILE}"
 TimeoutSec=300
 
 [Install]

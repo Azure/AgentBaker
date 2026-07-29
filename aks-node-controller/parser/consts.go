@@ -43,6 +43,7 @@ const (
 	defaultNetIpv4NeighDefaultGcThresh3 = 16384
 	maxCSETimeout                       = 21600
 	defaultCSETimeout                   = 900
+	defaultNvidiaMIGTotalSlices         = 7
 )
 
 const (

@@ -254,9 +254,9 @@ func getIsMIGNode(gpuInstanceProfile string) bool {
 	return gpuInstanceProfile != ""
 }
 
-func getTotalGPUInstanceSlices(gpuConfig *aksnodeconfigv1.GpuConfig) int32 {
+func getNvidiaMIGTotalSlices(gpuConfig *aksnodeconfigv1.GpuConfig) int32 {
 	if gpuConfig == nil || gpuConfig.TotalGpuInstanceSlices == nil {
-		return 7
+		return defaultNvidiaMIGTotalSlices
 	}
 	return *gpuConfig.TotalGpuInstanceSlices
 }
