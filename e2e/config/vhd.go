@@ -321,6 +321,9 @@ type Image struct {
 	IgnoreFailedCgroupTelemetryServices bool
 	Flatcar                             bool
 	SkipOldVHDValidations               bool
+	// Ephemeral marks an image version created at runtime for a single test and deleted
+	// on cleanup. It has exactly one writer, so it is replicated only where it is used.
+	Ephemeral bool
 	// OSDiskSizeGB overrides the default OS disk size (50 GB) when set.
 	OSDiskSizeGB int32
 }

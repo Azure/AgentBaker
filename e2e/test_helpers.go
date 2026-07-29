@@ -398,6 +398,12 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
 		}
 	}
 
+	// Images are replicated to config.E2EReplicationRegions(), so a scenario in any other
+	// region would never have an image. Fail loudly rather than time out on replication.
+	if !config.IsE2ERegion(s.Location) {
+		t.Fatalf("scenario %q runs in region %q, which is not an E2E region; add it to e2eRegions in e2e/config/regions.go", t.Name(), s.Location)
+	}
+
 	_, err := CachedPrepareVHD(ctx, GetVHDRequest{
 		Image:    *s.VHD,
 		Location: s.Location,
@@ -938,6 +944,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 		Name:              *gallery.Name,
 	}
 	customVHD.Version = version
+	customVHD.Ephemeral = true
 
 	return &customVHD
 }

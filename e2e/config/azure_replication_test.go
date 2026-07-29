@@ -1,10 +1,12 @@
 package config
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/stretchr/testify/require"
 )
 
 // TestFindRegionalReplicationStatus exercises the location-matching logic used to
@@ -61,4 +63,79 @@ func TestFindRegionalReplicationStatus(t *testing.T) {
 			}
 		})
 	}
+}
+
+func regionNames(regions []*armcompute.TargetRegion) []string {
+	names := make([]string, 0, len(regions))
+	for _, region := range regions {
+		names = append(names, NormalizeRegion(*region.Name))
+	}
+	slices.Sort(names)
+	return names
+}
+
+func TestMergeTargetRegions(t *testing.T) {
+	existing := []*armcompute.TargetRegion{
+		{Name: to.Ptr("West US 2")},
+		{Name: to.Ptr("eastus")},
+	}
+
+	merged, missing := mergeTargetRegions(existing, []string{"westus2", "EastUS", "uaenorth", " southeastasia ", ""})
+
+	require.Equal(t, []string{"southeastasia", "uaenorth"}, missing)
+	require.Equal(t, []string{"eastus", "southeastasia", "uaenorth", "westus2"}, regionNames(merged))
+	// Existing entries must be passed through untouched so replica counts and storage
+	// account types configured outside E2E are not rewritten.
+	require.Equal(t, "West US 2", *merged[0].Name)
+	require.Len(t, existing, 2, "input slice must not be mutated")
+
+	_, missing = mergeTargetRegions(merged, []string{"westus2", "uaenorth"})
+	require.Empty(t, missing, "merge must be idempotent once all regions are present")
+}
+
+// TestMergeTargetRegionsConverges is the property the whole design rests on: TargetRegions is
+// full desired state, so a lost update is only harmful if writers disagree. Two writers that
+// start from different stale snapshots but merge the same desired set produce the same result,
+// so whichever write lands last is still correct.
+func TestMergeTargetRegionsConverges(t *testing.T) {
+	desired := []string{"eastus", "westus2", "uaenorth"}
+
+	// Writer A read the version before anyone had replicated.
+	a, _ := mergeTargetRegions(nil, desired)
+	// Writer B read it after some other writer had already added westus2.
+	b, _ := mergeTargetRegions([]*armcompute.TargetRegion{{Name: to.Ptr("westus2")}}, desired)
+
+	require.Equal(t, regionNames(a), regionNames(b))
+}
+
+func TestE2EReplicationRegionsIncludesDefaultLocation(t *testing.T) {
+	original := Config.DefaultLocation
+	t.Cleanup(func() { Config.DefaultLocation = original })
+
+	Config.DefaultLocation = RegionWestUS3
+	require.Equal(t, e2eRegions, E2EReplicationRegions(), "a default location already in the set must not be duplicated")
+
+	Config.DefaultLocation = "North Europe"
+	require.Contains(t, E2EReplicationRegions(), "northeurope")
+	require.True(t, IsE2ERegion("northeurope"))
+	require.False(t, IsE2ERegion("centralindia"))
+}
+
+// TestReplicationRegionsForEphemeralImage guards the cost/blast-radius carve-out: image
+// versions captured at runtime for a single test have exactly one writer and are deleted on
+// cleanup, so they must not be fanned out to the shared E2E region set.
+func TestReplicationRegionsForEphemeralImage(t *testing.T) {
+	shared := &Image{}
+	require.Equal(t, append(E2EReplicationRegions(), RegionWestUS2), shared.replicationRegions(RegionWestUS2))
+
+	ephemeral := &Image{Ephemeral: true}
+	require.Equal(t, []string{RegionWestUS2}, ephemeral.replicationRegions(RegionWestUS2))
+}
+
+func TestHasTargetRegion(t *testing.T) {
+	regions := []*armcompute.TargetRegion{{Name: to.Ptr("West US 2")}, nil, {}}
+	require.True(t, hasTargetRegion(regions, "westus2"))
+	require.True(t, hasTargetRegion(regions, "West US 2"))
+	require.False(t, hasTargetRegion(regions, "eastus"))
+	require.False(t, hasTargetRegion(nil, "westus2"))
 }

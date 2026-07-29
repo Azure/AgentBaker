@@ -652,45 +652,145 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 	return VHDResourceID(*latestVersion.ID), nil
 }
 
+// ensureReplication makes an image version usable in location. For shared images it
+// replicates to the whole E2E region set rather than just location: TargetRegions is full
+// desired state, so writers that each add only their own region can clobber one another,
+// while writers that all submit the same superset converge no matter how their reads and
+// writes interleave.
 func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion, location string) error {
-	// Wait for any ongoing update operations to complete first
-	if err := a.waitForVersionOperationCompletion(ctx, image, version); err != nil {
-		return fmt.Errorf("waiting for version operation completion: %w", err)
+	start := time.Now()
+
+	if err := a.ensureTargetRegions(ctx, image, version, image.replicationRegions(location)); err != nil {
+		// The extra regions only prevent future contention; this test needs one region.
+		// Fail only if that region did not make it, so a quota, a region disabled on the
+		// subscription, or contention over regions this test never touches cannot fail it.
+		live, getErr := a.getImageVersion(ctx, image, *version.Name)
+		if getErr != nil || !hasTargetRegion(live.Properties.PublishingProfile.TargetRegions, location) {
+			return err
+		}
+		toolkit.Logf(ctx, "Replicating %s to the full E2E region set failed, but %s is a target so continuing: %v", *version.ID, location, err)
+		*version = *live
 	}
 
-	if replicatedToCurrentRegion(version, location) {
-		// Intent-to-replicate is registered in PublishingProfile.TargetRegions, but that
-		// does NOT mean the regional replica is actually serving traffic. The regional
-		// replication state can still be "Replicating" while the parent ProvisioningState
-		// is "Succeeded" — this is the source of GalleryImageNotFound 404s on VMSS create.
-		// Wait for the regional state itself before declaring success.
-		toolkit.Logf(ctx, "Image version %s is already a target of region %s; verifying regional replication state", *version.ID, location)
-		return a.waitForRegionalReplicationCompleted(ctx, image, version, location)
-	}
-	regions := make([]string, 0, len(version.Properties.PublishingProfile.TargetRegions))
-	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
-		regions = append(regions, *targetRegion.Name)
-	}
-	toolkit.Logf(ctx, "Replicating to region %s, available regions: %s, image version %s", location, strings.Join(regions, ", "), *version.ID)
-	toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Replicating to region %s", location)
-
-	start := time.Now() // Record the start time
-	if err := a.replicateImageVersionToCurrentRegion(ctx, image, version, location); err != nil {
-		return err
-	}
-
-	// The replicate LRO above completes when the parent resource is Succeeded, but the
-	// regional replica may still be in "Replicating" state for several more minutes.
-	// Block until that regional state hits Completed; otherwise downstream VMSS create
-	// will see GalleryImageNotFound and the test will appear to fail for a non-test reason.
+	// Being listed in TargetRegions only records intent. The regional replica can still be
+	// "Replicating" while the parent ProvisioningState is already "Succeeded" — that gap is
+	// the source of GalleryImageNotFound 404s on VMSS create, so wait for the region itself.
 	if err := a.waitForRegionalReplicationCompleted(ctx, image, version, location); err != nil {
 		return err
 	}
-	elapsed := time.Since(start) // Calculate the elapsed time
 
+	elapsed := time.Since(start)
 	toolkit.LogDuration(ctx, elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)", elapsed, *version.ID))
-
 	return nil
+}
+
+// ensureTargetRegions adds every missing region in a single update. On conflict it re-reads
+// and merges again, because a concurrent writer may have updated the version in between.
+func (a *AzureClient) ensureTargetRegions(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion, desiredRegions []string) error {
+	const maxAttempts = 4
+	for attempt := 1; ; attempt++ {
+		if err := a.waitForVersionOperationCompletion(ctx, image, version); err != nil {
+			return fmt.Errorf("waiting for version operation completion: %w", err)
+		}
+
+		targetRegions, missing := mergeTargetRegions(version.Properties.PublishingProfile.TargetRegions, desiredRegions)
+		if len(missing) == 0 {
+			return nil
+		}
+
+		toolkit.Logf(ctx, "Replicating image version %s to missing regions: %s", *version.ID, strings.Join(missing, ", "))
+		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Replicating to regions %s", strings.Join(missing, ", "))
+
+		previous := version.Properties.PublishingProfile.TargetRegions
+		version.Properties.PublishingProfile.TargetRegions = targetRegions
+		err := a.updateImageVersion(ctx, image, version)
+		if err == nil {
+			return nil
+		}
+		version.Properties.PublishingProfile.TargetRegions = previous
+		if !isGalleryUpdateConflict(err) || attempt >= maxAttempts {
+			return err
+		}
+
+		toolkit.Logf(ctx, "Concurrent update of image version %s; re-reading and merging again", *version.ID)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(5 * time.Second):
+		}
+
+		live, err := a.getImageVersion(ctx, image, *version.Name)
+		if err != nil {
+			return err
+		}
+		*version = *live
+	}
+}
+
+func (a *AzureClient) getImageVersion(ctx context.Context, image *Image, version string) (*armcompute.GalleryImageVersion, error) {
+	client, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
+	if err != nil {
+		return nil, fmt.Errorf("create image version client: %w", err)
+	}
+	resp, err := client.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, version, nil)
+	if err != nil {
+		return nil, fmt.Errorf("get image version %s/%s: %w", image.Name, version, err)
+	}
+	return &resp.GalleryImageVersion, nil
+}
+
+func (a *AzureClient) updateImageVersion(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion) error {
+	client, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
+	if err != nil {
+		return fmt.Errorf("create a new images client: %v", err)
+	}
+	op, err := client.BeginCreateOrUpdate(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, *version, nil)
+	if err != nil {
+		return fmt.Errorf("begin updating image version target regions: %w", err)
+	}
+	if _, err := op.PollUntilDone(ctx, DefaultPollUntilDoneOptions); err != nil {
+		return fmt.Errorf("updating image version target regions: %w", err)
+	}
+	return nil
+}
+
+// mergeTargetRegions returns the target regions with any missing desired region added, along
+// with the names that were missing. Existing entries are preserved as-is so per-region replica
+// counts and storage account types configured elsewhere are never rewritten.
+func mergeTargetRegions(existing []*armcompute.TargetRegion, desiredRegions []string) ([]*armcompute.TargetRegion, []string) {
+	merged := append([]*armcompute.TargetRegion(nil), existing...)
+	known := make(map[string]struct{}, len(existing))
+	for _, region := range existing {
+		if region != nil && region.Name != nil {
+			known[NormalizeRegion(*region.Name)] = struct{}{}
+		}
+	}
+
+	var missing []string
+	for _, location := range desiredRegions {
+		normalized := NormalizeRegion(location)
+		if normalized == "" {
+			continue
+		}
+		if _, exists := known[normalized]; exists {
+			continue
+		}
+		known[normalized] = struct{}{}
+		missing = append(missing, normalized)
+		merged = append(merged, &armcompute.TargetRegion{
+			Name:                 to.Ptr(normalized),
+			RegionalReplicaCount: to.Ptr[int32](1),
+			StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
+		})
+	}
+	slices.Sort(missing)
+	return merged, missing
+}
+
+func isGalleryUpdateConflict(err error) bool {
+	var respErr *azcore.ResponseError
+	return errors.As(err, &respErr) &&
+		(respErr.StatusCode == http.StatusConflict || respErr.StatusCode == http.StatusPreconditionFailed)
 }
 
 // waitForRegionalReplicationCompleted polls the gallery image version with the
@@ -773,12 +873,12 @@ func findRegionalReplicationStatus(status *armcompute.ReplicationStatus, locatio
 	if status == nil {
 		return nil
 	}
-	normalized := strings.ToLower(strings.ReplaceAll(location, " ", ""))
+	normalized := NormalizeRegion(location)
 	for _, regional := range status.Summary {
 		if regional == nil || regional.Region == nil {
 			continue
 		}
-		if strings.ToLower(strings.ReplaceAll(*regional.Region, " ", "")) == normalized {
+		if NormalizeRegion(*regional.Region) == normalized {
 			return regional
 		}
 	}
@@ -839,28 +939,6 @@ func (a *AzureClient) waitForVersionOperationCompletion(ctx context.Context, ima
 	return nil
 }
 
-func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion, location string) error {
-	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
-	if err != nil {
-		return fmt.Errorf("create a new images client: %v", err)
-	}
-	version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
-		Name:                 &location,
-		RegionalReplicaCount: to.Ptr[int32](1),
-		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
-	})
-
-	resp, err := galleryImageVersion.BeginCreateOrUpdate(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, *version, nil)
-	if err != nil {
-		return fmt.Errorf("begin updating image version target regions: %w", err)
-	}
-	if _, err := resp.PollUntilDone(ctx, DefaultPollUntilDoneOptions); err != nil {
-		return fmt.Errorf("updating image version target regions: %w", err)
-	}
-
-	return nil
-}
-
 func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image, location string) (VHDResourceID, error) {
 	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
 	if err != nil {
@@ -904,15 +982,23 @@ func (a *AzureClient) WaitForImageVersionReplicatedToRegion(ctx context.Context,
 	if image.Version == "" {
 		return fmt.Errorf("image %s has no resolved version; cannot check replication state", image.Name)
 	}
-	imgVersionClient, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
-	if err != nil {
-		return fmt.Errorf("create image version client: %w", err)
-	}
-	resp, err := imgVersionClient.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, image.Version, nil)
+	live, err := a.getImageVersion(ctx, image, image.Version)
 	if err != nil {
 		return fmt.Errorf("get image version %s/%s for replication-wait: %w", image.Name, image.Version, err)
 	}
-	return a.waitForRegionalReplicationCompleted(ctx, image, &resp.GalleryImageVersion, location)
+	return a.waitForRegionalReplicationCompleted(ctx, image, live, location)
+}
+
+// hasTargetRegion reports whether location is already a replication target, comparing region
+// names case- and space-insensitively because ARM returns both "West US 2" and "westus2".
+func hasTargetRegion(regions []*armcompute.TargetRegion, location string) bool {
+	normalized := NormalizeRegion(location)
+	for _, region := range regions {
+		if region != nil && region.Name != nil && NormalizeRegion(*region.Name) == normalized {
+			return true
+		}
+	}
+	return false
 }
 
 func DefaultRetryOpts() policy.RetryOptions {
@@ -936,15 +1022,6 @@ func DefaultRetryOpts() policy.RetryOptions {
 			http.StatusGatewayTimeout,      // 504
 		},
 	}
-}
-
-func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion, location string) bool {
-	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
-		if strings.EqualFold(strings.ReplaceAll(*targetRegion.Name, " ", ""), location) {
-			return true
-		}
-	}
-	return false
 }
 
 // DeleteSIGImageVersion deletes a SIG image version
