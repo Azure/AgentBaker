@@ -2886,6 +2886,37 @@ func ValidateAcceleratedNetworkingVFBonded(ctx context.Context, s *Scenario) {
 	s.T.Logf("Accelerated networking VF bonding: %s", strings.TrimSpace(result.stdout))
 }
 
+// ValidateAcceleratedNetworkingVFHardware verifies the accelerated networking VF
+// is backed by a PCI function and bound to a kernel network driver.
+func ValidateAcceleratedNetworkingVFHardware(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	defer toolkit.LogStep(s.T, "validating accelerated networking VF PCI hardware")()
+
+	cmd := strings.Join([]string{
+		"set -e",
+		`vf=$(ip -o link show | awk -F': ' '/master eth0/{print $2; exit}')`,
+		`vf=${vf%%@*}`,
+		`[ -n "$vf" ] || { echo "no VF interface found bonded to eth0" >&2; exit 1; }`,
+		`device_path="/sys/class/net/${vf}/device"`,
+		`[ -e "$device_path" ] || { echo "VF ${vf} has no PCI device path at ${device_path}" >&2; exit 1; }`,
+		`driver_path=$(readlink -f "${device_path}/driver" 2>/dev/null || true)`,
+		`[ -n "$driver_path" ] || { echo "VF ${vf} is not bound to a PCI driver" >&2; exit 1; }`,
+		`driver=$(basename "$driver_path")`,
+		`pci_slot=$(basename "$(readlink -f "$device_path")")`,
+		`vendor=$(cat "${device_path}/vendor")`,
+		`device=$(cat "${device_path}/device")`,
+		`subsystem_vendor=$(cat "${device_path}/subsystem_vendor" 2>/dev/null || true)`,
+		`subsystem_device=$(cat "${device_path}/subsystem_device" 2>/dev/null || true)`,
+		`ethtool_driver=$(ethtool -i "$vf" 2>/dev/null | awk -F': ' '$1=="driver"{print $2; exit}' || true)`,
+		`[ -n "$ethtool_driver" ] || { echo "ethtool did not report a driver for VF ${vf}" >&2; exit 1; }`,
+		`printf 'vf=%s pci_slot=%s driver=%s ethtool_driver=%s vendor=%s device=%s subsystem_vendor=%s subsystem_device=%s\n' "$vf" "$pci_slot" "$driver" "$ethtool_driver" "$vendor" "$device" "$subsystem_vendor" "$subsystem_device"`,
+	}, "\n")
+
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"accelerated networking VF should be PCI-backed and driver-bound")
+	s.T.Logf("Accelerated networking VF hardware: %s", strings.TrimSpace(result.stdout))
+}
+
 // ValidateMANAVFBonded checks that the MANA Virtual Function (VF) interface exists
 // and is properly bonded to the primary eth0 interface.
 // When Accelerated Networking is enabled with MANA, a VF interface should appear
@@ -2958,6 +2989,7 @@ func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
 func ValidateCiscoAcceleratedNetworking(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	ValidateAcceleratedNetworkingVFBonded(ctx, s)
+	ValidateAcceleratedNetworkingVFHardware(ctx, s)
 	ValidateAcceleratedNetworkingTrafficFlowing(ctx, s)
 }
 
