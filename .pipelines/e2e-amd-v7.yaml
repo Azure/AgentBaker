@@ -1,0 +1,42 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)
+variables:
+  TAGS_TO_RUN: "amdV7=true"
+  TAGS_TO_SKIP: "os=windows,gpu=true"
+  DEFAULT_VM_SKU: "Standard_D2ads_v7"
+  SKIP_E2E_TESTS: false
+  E2E_FAILED_TESTS_RETRY_COUNT: 0
+
+schedules:
+  - cron: "0 8 * * *"
+    displayName: Daily midnight PST
+    branches:
+      include:
+        - main
+    always: true
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - e2e/**
+      - '**/*.go'
+
+pr:
+  branches:
+    include:
+      - official/*
+      - windows/*
+      - main
+  paths:
+    include:
+      - e2e/**
+      - '**/*.go'
+
+jobs:
+  - template: ./templates/e2e-template.yaml
+    parameters:
+      name: AMD V7 Tests
+      IgnoreScenariosWithMissingVhd: false
+      failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}

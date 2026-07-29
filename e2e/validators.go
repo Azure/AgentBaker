@@ -2873,6 +2873,19 @@ func ValidateMANADriverLoaded(ctx context.Context, s *Scenario) {
 		"MANA kernel driver (mana) not found in lsmod or modules.builtin")
 }
 
+// ValidateAcceleratedNetworkingVFBonded checks that the accelerated networking
+// VF interface exists and is properly bonded to the primary eth0 interface.
+func ValidateAcceleratedNetworkingVFBonded(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	defer toolkit.LogStep(s.T, "validating accelerated networking VF is bonded to eth0")()
+	// Look for any interface that has "master eth0" in ip link output,
+	// indicating it is bonded as a VF to the primary synthetic NIC.
+	cmd := `ip link show | grep 'master eth0'`
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"no VF interface found bonded to eth0 — accelerated networking may not be working")
+	s.T.Logf("Accelerated networking VF bonding: %s", strings.TrimSpace(result.stdout))
+}
+
 // ValidateMANAVFBonded checks that the MANA Virtual Function (VF) interface exists
 // and is properly bonded to the primary eth0 interface.
 // When Accelerated Networking is enabled with MANA, a VF interface should appear
@@ -2881,22 +2894,17 @@ func ValidateMANADriverLoaded(ctx context.Context, s *Scenario) {
 // - V6+: ens1 or enp0s0
 func ValidateMANAVFBonded(ctx context.Context, s *Scenario) {
 	s.T.Helper()
-	defer toolkit.LogStep(s.T, "validating MANA VF is bonded to eth0")()
-	// Look for any interface that has "master eth0" in ip link output,
-	// indicating it is bonded as a VF to the primary synthetic NIC.
-	cmd := `ip link show | grep 'master eth0'`
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
-		"no VF interface found bonded to eth0 — accelerated networking may not be working")
-	s.T.Logf("MANA VF bonding: %s", strings.TrimSpace(result.stdout))
+	ValidateAcceleratedNetworkingVFBonded(ctx, s)
 }
 
-// ValidateMANATrafficFlowing checks that network traffic is actually flowing through
-// the MANA Virtual Function rather than the slower synthetic (NetVSC) path.
+// ValidateAcceleratedNetworkingTrafficFlowing checks that network traffic is
+// actually flowing through the accelerated networking VF rather than the slower
+// synthetic (NetVSC) path.
 // It sends HTTP requests from a pod to the node's default gateway and verifies
 // that the VF TX packet counters increase by at least that amount.
-func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
+func ValidateAcceleratedNetworkingTrafficFlowing(ctx context.Context, s *Scenario) {
 	s.T.Helper()
-	defer toolkit.LogStep(s.T, "validating traffic is flowing through MANA VF")()
+	defer toolkit.LogStep(s.T, "validating traffic is flowing through accelerated networking VF")()
 
 	const requestCount = 10
 	getVFTxPackets := `val=$(sudo ethtool -S eth0 | awk '/^[[:space:]]*vf_tx_packets:/{print $2; exit}'); [ -n "$val" ] && echo "$val" || { echo "vf_tx_packets not found in ethtool -S eth0 output" >&2; exit 1; }`
@@ -2905,19 +2913,19 @@ func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
 		"could not read VF tx packet counter from ethtool -S eth0")
 	countBefore, err := strconv.Atoi(strings.TrimSpace(resultBefore.stdout))
 	require.NoError(s.T, err, "failed to parse vf_tx_packets before value %q", resultBefore.stdout)
-	s.T.Logf("MANA VF tx packets before: %d", countBefore)
+	s.T.Logf("Accelerated networking VF tx packets before: %d", countBefore)
 
 	// Generate traffic from a pod on this node using curl to the node's default
 	// gateway. We use vf_tx_packets (not rx) so the test passes regardless of
 	// whether the target responds — what matters is that outbound packets from
-	// the pod traverse the MANA VF path. curl is pre-installed in the Mariner
+	// the pod traverse the accelerated networking VF path. curl is pre-installed in the Mariner
 	// debug image, so no package install is needed.
 	gatewayResult := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		"ip route | awk '/default/{print $3}'", 0,
 		"could not determine default gateway from ip route")
 	gatewayIP := strings.TrimSpace(gatewayResult.stdout)
 	require.NotEmpty(s.T, gatewayIP, "default gateway IP is empty")
-	s.T.Logf("MANA traffic test: using gateway %s as target", gatewayIP)
+	s.T.Logf("Accelerated networking traffic test: using gateway %s as target", gatewayIP)
 
 	// The "; true" ensures exit 0 regardless of curl's result — the gateway has
 	// no HTTP server so connections will fail, but TCP SYN packets still traverse
@@ -2932,10 +2940,25 @@ func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err, "failed to parse vf_tx_packets after value %q", resultAfter.stdout)
 
 	delta := countAfter - countBefore
-	s.T.Logf("MANA VF tx packets after: %d (delta: %d, expected >= %d)", countAfter, delta, requestCount)
+	s.T.Logf("Accelerated networking VF tx packets after: %d (delta: %d, expected >= %d)", countAfter, delta, requestCount)
 
 	require.GreaterOrEqual(s.T, delta, requestCount,
-		"vf_tx_packets increased by %d but expected at least %d \u2014 traffic may not be flowing through the MANA VF", delta, requestCount)
+		"vf_tx_packets increased by %d but expected at least %d \u2014 traffic may not be flowing through the accelerated networking VF", delta, requestCount)
+}
+
+// ValidateMANATrafficFlowing checks that network traffic is actually flowing through
+// the MANA Virtual Function rather than the slower synthetic (NetVSC) path.
+func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	ValidateAcceleratedNetworkingTrafficFlowing(ctx, s)
+}
+
+// ValidateCiscoAcceleratedNetworking runs guest-visible accelerated networking
+// checks for AMD v7 Cisco fabric coverage.
+func ValidateCiscoAcceleratedNetworking(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	ValidateAcceleratedNetworkingVFBonded(ctx, s)
+	ValidateAcceleratedNetworkingTrafficFlowing(ctx, s)
 }
 
 // ValidateMANA runs all MANA (Microsoft Azure Network Adapter) checks.

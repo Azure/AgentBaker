@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const amdV7CiscoVMSize = "Standard_D2ads_v7"
+
 func Test_AzureLinux3OSGuard(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Azure Linux V3 OS Guard VHD can be properly bootstrapped",
@@ -2211,6 +2213,32 @@ func Test_Ubuntu2604Minimal_MANA(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2604Minimal_CISCO(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that accelerated networking is properly configured on Ubuntu 26.04 minimal with an AMD V7 SKU for Cisco fabric coverage",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+			AMDV7:                true,
+		},
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersionKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			UseNVMe: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = amdV7CiscoVMSize
+				nbc.AgentPoolProfile.VMSize = amdV7CiscoVMSize
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(amdV7CiscoVMSize)
+				enableAcceleratedNetworking(vmss)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateCiscoAcceleratedNetworking(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2604Gen2_McrChinaCloud(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
@@ -3122,6 +3150,32 @@ func Test_Ubuntu2404_MANA(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2404_CISCO(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that accelerated networking is properly configured on Ubuntu 24.04 with an AMD V7 SKU for Cisco fabric coverage",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+			AMDV7:                true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			UseNVMe: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = amdV7CiscoVMSize
+				nbc.AgentPoolProfile.VMSize = amdV7CiscoVMSize
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(amdV7CiscoVMSize)
+				enableAcceleratedNetworking(vmss)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateCiscoAcceleratedNetworking(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_MANA(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 22.04 with a V6 SKU",
@@ -3144,6 +3198,32 @@ func Test_Ubuntu2204_MANA(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_CISCO(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that accelerated networking is properly configured on Ubuntu 22.04 with an AMD V7 SKU for Cisco fabric coverage",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+			AMDV7:                true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			UseNVMe: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = amdV7CiscoVMSize
+				nbc.AgentPoolProfile.VMSize = amdV7CiscoVMSize
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(amdV7CiscoVMSize)
+				enableAcceleratedNetworking(vmss)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateCiscoAcceleratedNetworking(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV3_MANA(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that MANA (Accelerated Networking) is properly configured on Azure Linux V3 with a V6 SKU",
@@ -3161,6 +3241,32 @@ func Test_AzureLinuxV3_MANA(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(ensureMinVMGeneration("Standard_D2ds_v6"))
 				enableAcceleratedNetworking(vmss)
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_CISCO(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that accelerated networking is properly configured on Azure Linux V3 with an AMD V7 SKU for Cisco fabric coverage",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+			AMDV7:                true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			UseNVMe: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = amdV7CiscoVMSize
+				nbc.AgentPoolProfile.VMSize = amdV7CiscoVMSize
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(amdV7CiscoVMSize)
+				enableAcceleratedNetworking(vmss)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateCiscoAcceleratedNetworking(ctx, s)
 			},
 		},
 	})
