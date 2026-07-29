@@ -2898,15 +2898,19 @@ func ValidateAcceleratedNetworkingVFHardware(ctx context.Context, s *Scenario) {
 		`vf=${vf%%@*}`,
 		`[ -n "$vf" ] || { echo "no VF interface found bonded to eth0" >&2; exit 1; }`,
 		`device_path="/sys/class/net/${vf}/device"`,
-		`[ -e "$device_path" ] || { echo "VF ${vf} has no PCI device path at ${device_path}" >&2; exit 1; }`,
-		`driver_path=$(readlink -f "${device_path}/driver" 2>/dev/null || true)`,
+		`pci_path=$(readlink -f "$device_path" 2>/dev/null || true)`,
+		`[ -n "$pci_path" ] || { echo "VF ${vf} has no resolved device path at ${device_path}" >&2; exit 1; }`,
+		`pci_slot=$(basename "$pci_path")`,
+		`echo "$pci_slot" | grep -Eq '^[[:xdigit:]]{4}:[[:xdigit:]]{2}:[[:xdigit:]]{2}\.[[:xdigit:]]$' || { echo "VF ${vf} device path ${pci_path} is not a PCI BDF" >&2; exit 1; }`,
+		`[ -e "/sys/bus/pci/devices/${pci_slot}" ] || { echo "VF ${vf} PCI slot ${pci_slot} not found under /sys/bus/pci/devices" >&2; exit 1; }`,
+		`driver_path=$(readlink -f "${pci_path}/driver" 2>/dev/null || true)`,
 		`[ -n "$driver_path" ] || { echo "VF ${vf} is not bound to a PCI driver" >&2; exit 1; }`,
+		`[ "$(dirname "$driver_path")" = "/sys/bus/pci/drivers" ] || { echo "VF ${vf} driver path ${driver_path} is not a PCI driver" >&2; exit 1; }`,
 		`driver=$(basename "$driver_path")`,
-		`pci_slot=$(basename "$(readlink -f "$device_path")")`,
-		`vendor=$(cat "${device_path}/vendor")`,
-		`device=$(cat "${device_path}/device")`,
-		`subsystem_vendor=$(cat "${device_path}/subsystem_vendor" 2>/dev/null || true)`,
-		`subsystem_device=$(cat "${device_path}/subsystem_device" 2>/dev/null || true)`,
+		`vendor=$(cat "${pci_path}/vendor")`,
+		`device=$(cat "${pci_path}/device")`,
+		`subsystem_vendor=$(cat "${pci_path}/subsystem_vendor" 2>/dev/null || true)`,
+		`subsystem_device=$(cat "${pci_path}/subsystem_device" 2>/dev/null || true)`,
 		`ethtool_driver=$(ethtool -i "$vf" 2>/dev/null | awk -F': ' '$1=="driver"{print $2; exit}' || true)`,
 		`[ -n "$ethtool_driver" ] || { echo "ethtool did not report a driver for VF ${vf}" >&2; exit 1; }`,
 		`printf 'vf=%s pci_slot=%s driver=%s ethtool_driver=%s vendor=%s device=%s subsystem_vendor=%s subsystem_device=%s\n' "$vf" "$pci_slot" "$driver" "$ethtool_driver" "$vendor" "$device" "$subsystem_vendor" "$subsystem_device"`,
@@ -2986,7 +2990,8 @@ func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
 
 // ValidateMANA runs all MANA (Microsoft Azure Network Adapter) checks.
 // It verifies that the MANA PCI device is present, the kernel driver is loaded,
-// the VF interface is bonded to eth0, and traffic is flowing through the VF.
+// the VF interface is bonded to eth0, PCI-backed and driver-bound, and traffic
+// is flowing through the VF.
 func ValidateMANA(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	ValidateMANAPCIDevice(ctx, s)
