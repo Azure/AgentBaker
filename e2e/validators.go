@@ -22,6 +22,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/nodeexporter"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -205,7 +206,7 @@ func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 		"service principal secret": base64.StdEncoding.EncodeToString([]byte(s.GetServicePrincipalSecret())),
 		"bootstrap token":          s.GetTLSBootstrapToken(),
 	}
-	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log"} {
+	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log", "/var/log/azure/aks-node-controller.output"} {
 		for _, secretValue := range secrets {
 			if secretValue != "" {
 				ValidateFileExcludesExactContent(ctx, s, logFile, secretValue)
@@ -989,7 +990,7 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		Name string `json:"unit,omitempty"`
 	}
 	var failedUnits []systemdUnit
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json", 0, fmt.Sprintf("unable to list failed systemd units"))
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json", 0, "unable to list failed systemd units")
 	assert.NoError(s.T, json.Unmarshal([]byte(result.stdout), &failedUnits), `unable to parse and unmarshal "systemctl list-units" command output`)
 	failedUnits = lo.Filter(failedUnits, func(unit systemdUnit, _ int) bool {
 		if unitFailureAllowList[unit.Name] {
@@ -2227,6 +2228,22 @@ echo "  2. Hosts file populated later: CoreDNS picks it up via reload"
 		"localdns should work after cold start with empty hosts file and pick up populated file")
 }
 
+// ValidateANCLauncherOutput checks that the aks-node-controller-launcher.sh output contains
+// expectedContent, regardless of how the VHD launches it:
+//   - ACL/Flatcar VHDs still launch the launcher via the aks-node-controller.service systemd unit
+//     (ignition doesn't support cloud-boothooks), so its stdout/stderr only lands in the journal.
+//   - All other VHDs launch the launcher as a direct fork from the cloud-boothook (not a systemd
+//     unit, for faster dispatch - see baker.go boothookTemplate), with stdout/stderr redirected to
+//     /var/log/azure/aks-node-controller.output.
+func ValidateANCLauncherOutput(ctx context.Context, s *Scenario, expectedContent string) {
+	s.T.Helper()
+	if s.VHD.Flatcar {
+		ValidateJournalctlOutput(ctx, s, "aks-node-controller.service", expectedContent)
+		return
+	}
+	ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", expectedContent)
+}
+
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
 func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) {
 	s.T.Helper()
@@ -2266,8 +2283,8 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	serviceName := "node-exporter.service"
 
 	// Check if node-exporter is installed on this VHD by looking for the skip sentinel file.
-	// The skip file is only present on VHDs that have node-exporter installed (Ubuntu, Mariner, Azure Linux).
-	// Flatcar, ACL, OSGuard, and older VHDs do not have node-exporter installed and will not have the skip file.
+	// The skip file is only present on supported Ubuntu and Azure Linux 3 VHDs with node-exporter installed.
+	// Mariner, Flatcar, ACL, OSGuard, Kata, and older VHDs do not have the skip file.
 	if !fileExist(ctx, s, skipFile) {
 		s.T.Logf("Skipping node-exporter validation: sentinel file %s not found (VHD does not have node-exporter installed)", skipFile)
 		return
@@ -2292,23 +2309,32 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	ValidateFileExists(ctx, s, skipFile)
 	ValidateFileExists(ctx, s, "/etc/node-exporter.d/web-config.yml")
 
-	// Validate that node-exporter is listening on port 19100 and serving metrics on the node ip.
-	// TLS is disabled by default (opt-in via NODE_EXPORTER_TLS_ENABLED=true in /etc/default/node-exporter),
-	// so we validate by making a plain HTTP request to the metrics endpoint.
-	// We avoid curl -sf here so that diagnostic messages (e.g. "Client sent an HTTP request to an HTTPS server")
-	// are visible in test logs rather than silently swallowed.
-	// We curl the node's private IP directly rather than discovering the listen address from ss,
-	// so we validate that the metrics endpoint is reachable on the actual node IP used by monitoring infrastructure.
-	s.T.Logf("Validating node-exporter is listening on port 19100 and serving metrics")
-	command := []string{
-		"set -ex",
-		fmt.Sprintf("echo \"node IP: %s\"", s.Runtime.VM.PrivateIP),
-		fmt.Sprintf("curl -sS --max-time 10 http://%s:19100/metrics 2>&1 | head -20", s.Runtime.VM.PrivateIP),
-		fmt.Sprintf("curl -sS --max-time 10 http://%s:19100/metrics 2>&1 | grep -q 'node_'", s.Runtime.VM.PrivateIP),
-	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100 and serving metrics over HTTP")
+	// Validate the metrics contract consumed by the AKS Prometheus default profile. Scrape the node IP directly
+	// so this also verifies that the endpoint is reachable on the address used by monitoring infrastructure.
+	s.T.Logf("Validating node-exporter metrics on port 19100")
+	metricsURL := fmt.Sprintf("http://%s:19100/metrics", s.Runtime.VM.PrivateIP)
+	scrapeAndValidateNodeExporter(ctx, s, metricsURL)
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-active %s", serviceName), 0,
+		"node-exporter should remain active after scraping")
 
 	s.T.Logf("node-exporter validation passed")
+}
+
+func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL string) {
+	s.T.Helper()
+
+	result := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("curl --noproxy '*' -sS --max-time 10 %q", metricsURL))
+	require.Equal(s.T, "0", result.exitCode,
+		"node-exporter scrape failed\nstdout: %s\nstderr: %s", result.stdout, result.stderr)
+
+	err := nodeexporter.ValidateMetrics(result.stdout)
+	const previewLimit = 2000
+	responsePreview := result.stdout
+	if len(responsePreview) > previewLimit {
+		responsePreview = responsePreview[:previewLimit] + "\n... response truncated"
+	}
+	require.NoErrorf(s.T, err, "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview)
 }
 
 func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
@@ -2758,11 +2784,12 @@ func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
 func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 	if usesScriptlessNBCCSECmd(s) {
 		fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
-		if enableScriptlessCompilation(s) {
-			fileNameToCheck = "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
-		}
 		ValidateFileExists(ctx, s, fileNameToCheck)
-		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "Using NBC command for scriptless phase 2")
+		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2")
+		if enableScriptlessCompilation(s) {
+			ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-hotfix")
+			ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using hotfix binary")
+		}
 	}
 }
 
@@ -2770,11 +2797,11 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	if s.Runtime.AKSNodeConfig != nil && usesScriptlessNBCCSECmd(s) {
-		logFile := "/var/log/azure/aks-node-controller.log"
+		logFile := "/var/log/azure/aks-node-controller.output"
 		if !fileHasContent(ctx, s, logFile, "env compare: no differences found between provision-config and nbc-cmd env vars") {
 			// Grep for all env-compare diff markers to show what's different.
 			diffCmd := "sudo grep -E 'differs|only-in-pc|only-in-nbc|env var differences' " + logFile + " || true"
-			result := execScriptOnVMForScenarioValidateExitCode(ctx, s, diffCmd, 0, "could not grep for differences in aks-node-controller.log")
+			result := execScriptOnVMForScenarioValidateExitCode(ctx, s, diffCmd, 0, "could not grep for differences in aks-node-controller.output")
 			s.T.Fatalf("expected no env var differences between provision-config and nbc-cmd, but found differences:\n%s", result.stdout)
 		}
 	}
@@ -2846,6 +2873,54 @@ func ValidateMANADriverLoaded(ctx context.Context, s *Scenario) {
 		"MANA kernel driver (mana) not found in lsmod or modules.builtin")
 }
 
+// ValidateAcceleratedNetworkingVFBonded checks that the accelerated networking
+// VF interface exists and is properly bonded to the primary eth0 interface.
+func ValidateAcceleratedNetworkingVFBonded(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	defer toolkit.LogStep(s.T, "validating accelerated networking VF is bonded to eth0")()
+	// Look for any interface that has "master eth0" in ip link output,
+	// indicating it is bonded as a VF to the primary synthetic NIC.
+	cmd := `ip link show | grep 'master eth0'`
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"no VF interface found bonded to eth0 — accelerated networking may not be working")
+	s.T.Logf("Accelerated networking VF bonding: %s", strings.TrimSpace(result.stdout))
+}
+
+// ValidateAcceleratedNetworkingVFHardware verifies the accelerated networking VF
+// is backed by a PCI function and bound to a kernel network driver.
+func ValidateAcceleratedNetworkingVFHardware(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	defer toolkit.LogStep(s.T, "validating accelerated networking VF PCI hardware")()
+
+	cmd := strings.Join([]string{
+		"set -e",
+		`vf=$(ip -o link show | awk -F': ' '/master eth0/{print $2; exit}')`,
+		`vf=${vf%%@*}`,
+		`[ -n "$vf" ] || { echo "no VF interface found bonded to eth0" >&2; exit 1; }`,
+		`device_path="/sys/class/net/${vf}/device"`,
+		`pci_path=$(readlink -f "$device_path" 2>/dev/null || true)`,
+		`[ -n "$pci_path" ] || { echo "VF ${vf} has no resolved device path at ${device_path}" >&2; exit 1; }`,
+		`pci_slot=$(basename "$pci_path")`,
+		`echo "$pci_slot" | grep -Eq '^[[:xdigit:]]{4}:[[:xdigit:]]{2}:[[:xdigit:]]{2}\.[[:xdigit:]]$' || { echo "VF ${vf} device path ${pci_path} is not a PCI BDF" >&2; exit 1; }`,
+		`[ -e "/sys/bus/pci/devices/${pci_slot}" ] || { echo "VF ${vf} PCI slot ${pci_slot} not found under /sys/bus/pci/devices" >&2; exit 1; }`,
+		`driver_path=$(readlink -f "${pci_path}/driver" 2>/dev/null || true)`,
+		`[ -n "$driver_path" ] || { echo "VF ${vf} is not bound to a PCI driver" >&2; exit 1; }`,
+		`[ "$(dirname "$driver_path")" = "/sys/bus/pci/drivers" ] || { echo "VF ${vf} driver path ${driver_path} is not a PCI driver" >&2; exit 1; }`,
+		`driver=$(basename "$driver_path")`,
+		`vendor=$(cat "${pci_path}/vendor")`,
+		`device=$(cat "${pci_path}/device")`,
+		`subsystem_vendor=$(cat "${pci_path}/subsystem_vendor" 2>/dev/null || true)`,
+		`subsystem_device=$(cat "${pci_path}/subsystem_device" 2>/dev/null || true)`,
+		`ethtool_driver=$(ethtool -i "$vf" 2>/dev/null | awk -F': ' '$1=="driver"{print $2; exit}' || true)`,
+		`[ -n "$ethtool_driver" ] || { echo "ethtool did not report a driver for VF ${vf}" >&2; exit 1; }`,
+		`printf 'vf=%s pci_slot=%s driver=%s ethtool_driver=%s vendor=%s device=%s subsystem_vendor=%s subsystem_device=%s\n' "$vf" "$pci_slot" "$driver" "$ethtool_driver" "$vendor" "$device" "$subsystem_vendor" "$subsystem_device"`,
+	}, "\n")
+
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"accelerated networking VF should be PCI-backed and driver-bound")
+	s.T.Logf("Accelerated networking VF hardware: %s", strings.TrimSpace(result.stdout))
+}
+
 // ValidateMANAVFBonded checks that the MANA Virtual Function (VF) interface exists
 // and is properly bonded to the primary eth0 interface.
 // When Accelerated Networking is enabled with MANA, a VF interface should appear
@@ -2854,22 +2929,17 @@ func ValidateMANADriverLoaded(ctx context.Context, s *Scenario) {
 // - V6+: ens1 or enp0s0
 func ValidateMANAVFBonded(ctx context.Context, s *Scenario) {
 	s.T.Helper()
-	defer toolkit.LogStep(s.T, "validating MANA VF is bonded to eth0")()
-	// Look for any interface that has "master eth0" in ip link output,
-	// indicating it is bonded as a VF to the primary synthetic NIC.
-	cmd := `ip link show | grep 'master eth0'`
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
-		"no VF interface found bonded to eth0 — accelerated networking may not be working")
-	s.T.Logf("MANA VF bonding: %s", strings.TrimSpace(result.stdout))
+	ValidateAcceleratedNetworkingVFBonded(ctx, s)
 }
 
-// ValidateMANATrafficFlowing checks that network traffic is actually flowing through
-// the MANA Virtual Function rather than the slower synthetic (NetVSC) path.
+// ValidateAcceleratedNetworkingTrafficFlowing checks that network traffic is
+// actually flowing through the accelerated networking VF rather than the slower
+// synthetic (NetVSC) path.
 // It sends HTTP requests from a pod to the node's default gateway and verifies
 // that the VF TX packet counters increase by at least that amount.
-func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
+func ValidateAcceleratedNetworkingTrafficFlowing(ctx context.Context, s *Scenario) {
 	s.T.Helper()
-	defer toolkit.LogStep(s.T, "validating traffic is flowing through MANA VF")()
+	defer toolkit.LogStep(s.T, "validating traffic is flowing through accelerated networking VF")()
 
 	const requestCount = 10
 	getVFTxPackets := `val=$(sudo ethtool -S eth0 | awk '/^[[:space:]]*vf_tx_packets:/{print $2; exit}'); [ -n "$val" ] && echo "$val" || { echo "vf_tx_packets not found in ethtool -S eth0 output" >&2; exit 1; }`
@@ -2878,19 +2948,19 @@ func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
 		"could not read VF tx packet counter from ethtool -S eth0")
 	countBefore, err := strconv.Atoi(strings.TrimSpace(resultBefore.stdout))
 	require.NoError(s.T, err, "failed to parse vf_tx_packets before value %q", resultBefore.stdout)
-	s.T.Logf("MANA VF tx packets before: %d", countBefore)
+	s.T.Logf("Accelerated networking VF tx packets before: %d", countBefore)
 
 	// Generate traffic from a pod on this node using curl to the node's default
 	// gateway. We use vf_tx_packets (not rx) so the test passes regardless of
 	// whether the target responds — what matters is that outbound packets from
-	// the pod traverse the MANA VF path. curl is pre-installed in the Mariner
+	// the pod traverse the accelerated networking VF path. curl is pre-installed in the Mariner
 	// debug image, so no package install is needed.
 	gatewayResult := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		"ip route | awk '/default/{print $3}'", 0,
 		"could not determine default gateway from ip route")
 	gatewayIP := strings.TrimSpace(gatewayResult.stdout)
 	require.NotEmpty(s.T, gatewayIP, "default gateway IP is empty")
-	s.T.Logf("MANA traffic test: using gateway %s as target", gatewayIP)
+	s.T.Logf("Accelerated networking traffic test: using gateway %s as target", gatewayIP)
 
 	// The "; true" ensures exit 0 regardless of curl's result — the gateway has
 	// no HTTP server so connections will fail, but TCP SYN packets still traverse
@@ -2905,20 +2975,29 @@ func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err, "failed to parse vf_tx_packets after value %q", resultAfter.stdout)
 
 	delta := countAfter - countBefore
-	s.T.Logf("MANA VF tx packets after: %d (delta: %d, expected >= %d)", countAfter, delta, requestCount)
+	s.T.Logf("Accelerated networking VF tx packets after: %d (delta: %d, expected >= %d)", countAfter, delta, requestCount)
 
 	require.GreaterOrEqual(s.T, delta, requestCount,
-		"vf_tx_packets increased by %d but expected at least %d \u2014 traffic may not be flowing through the MANA VF", delta, requestCount)
+		"vf_tx_packets increased by %d but expected at least %d \u2014 traffic may not be flowing through the accelerated networking VF", delta, requestCount)
+}
+
+// ValidateMANATrafficFlowing checks that network traffic is actually flowing through
+// the MANA Virtual Function rather than the slower synthetic (NetVSC) path.
+func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	ValidateAcceleratedNetworkingTrafficFlowing(ctx, s)
 }
 
 // ValidateMANA runs all MANA (Microsoft Azure Network Adapter) checks.
 // It verifies that the MANA PCI device is present, the kernel driver is loaded,
-// the VF interface is bonded to eth0, and traffic is flowing through the VF.
+// the VF interface is bonded to eth0, PCI-backed and driver-bound, and traffic
+// is flowing through the VF.
 func ValidateMANA(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	ValidateMANAPCIDevice(ctx, s)
 	ValidateMANADriverLoaded(ctx, s)
 	ValidateMANAVFBonded(ctx, s)
+	ValidateAcceleratedNetworkingVFHardware(ctx, s)
 	ValidateMANATrafficFlowing(ctx, s)
 }
 
@@ -2958,8 +3037,11 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 	patterns := map[string]categoryPattern{
 		"PANIC/CRASH": {
 			pattern: `(kernel: )?(panic|oops|call trace|backtrace|general protection fault|BUG:|RIP:)`,
-			// exclude boot parameters like "panic=-1" and dm-verity's "panic-on-corruption" (used by ACL for verified boot)
-			exclude: `panic[-=]`,
+			// exclude boot parameters like "panic=-1" and dm-verity's "panic-on-corruption" (used by ACL for verified boot).
+			// Also exclude the benign DRM panic-handler registration messages ("Registered N planes with drm panic")
+			// emitted by simple-framebuffer/hyperv_drm on kernels with CONFIG_DRM_PANIC (6.10+, e.g. Ubuntu 26.04 /
+			// linux-azure 7.0). These log the drm_panic screen handler registering its planes at boot, not a kernel panic.
+			exclude: `panic[-=]|drm panic`,
 		},
 		"LOCKUP/STALL": {pattern: `(soft|hard) lockup|rcu.*(stall|detected stalls)|hung task|watchdog.*(detected|stuck)`},
 		"MEMORY":       {pattern: `oom[- ]killer|Out of memory:|page allocation failure|memory corruption`},
@@ -3111,8 +3193,12 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 // vulnerabilities (CVE-2026-31431 / DirtyFrag / Fragnesia: algif_aead, esp4, esp6, rxrpc)
 // are handled correctly per OS:
 //
-//   - Ubuntu / Mariner: full check — modprobe config entries are present, modules are
-//     NOT loaded, and modprobe refuses to load them.
+//   - Ubuntu fixed kernels and future Ubuntu releases: assert ABSENCE of the four modprobe
+//     blacklist entries. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu 24.04
+//     linux-azure 6.8.0-1058-azure include the fixes, thus new VHDs must stop blocking
+//     legitimate module use. Future Ubuntu releases do not inherit this mitigation by default.
+//   - Ubuntu 20.04 and vulnerable/unknown 22.04 / 24.04 kernels / Mariner: full check —
+//     modprobe config entries are present, modules are NOT loaded, and modprobe refuses to load them.
 //   - AzureLinux 3.0: assert ABSENCE of the four modprobe blacklist entries. AzL3 is
 //     descoped from the mitigation because kernel 6.6.139.1-1.azl3 and later fix all
 //     three CVEs upstream, AND customer workloads on AzL3 require those modules (the
@@ -3121,7 +3207,7 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 //     VHDs. See https://github.com/Azure/AKS/issues/5753.
 //
 // To add a new CVE mitigation, append the module name to BOTH lists below —
-// the AzureLinux 3.0 absence-check list AND the default presence + load-refusal list.
+// the absence-check list AND the default presence + load-refusal list.
 func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
@@ -3152,6 +3238,63 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 		return
 	}
 
+	if s.VHD.OS == config.OSUbuntu {
+		script := strings.Join([]string{
+			`failed=0`,
+			`. /etc/os-release`,
+			`kernel_release="$(uname -r)"`,
+			`fixed_kernel=""`,
+			`expect_absent="false"`,
+			`absent_reason=""`,
+			`case "$VERSION_ID" in`,
+			`  20.04)`,
+			`    ;;`,
+			`  22.04)`,
+			`    case "$kernel_release" in`,
+			`      *-azure|*-azure-fde|*-azure-fips) fixed_kernel="5.15.0-1116-azure" ;;`,
+			`      *-generic) fixed_kernel="5.15.0-181-generic" ;;`,
+			`    esac`,
+			`    ;;`,
+			`  24.04)`,
+			`    case "$kernel_release" in`,
+			`      *-azure|*-azure-fde|*-azure-fips) fixed_kernel="6.8.0-1058-azure" ;;`,
+			`      *-generic) fixed_kernel="6.8.0-124-generic" ;;`,
+			`    esac`,
+			`    ;;`,
+			`  *)`,
+			`    expect_absent="true"`,
+			`    absent_reason="Ubuntu ${VERSION_ID} is not in Copy Fail / DirtyFrag / Fragnesia mitigation scope"`,
+			`    ;;`,
+			`esac`,
+			`if [ -n "$fixed_kernel" ] && [ "$(printf '%s\n%s\n' "$fixed_kernel" "$kernel_release" | sort -V | head -n1)" = "$fixed_kernel" ]; then`,
+			`  expect_absent="true"`,
+			`  absent_reason="Ubuntu ${VERSION_ID} kernel ${kernel_release} includes Copy Fail / DirtyFrag / Fragnesia fixes"`,
+			`fi`,
+			`if [ "$expect_absent" = "true" ]; then`,
+			`  echo "PASS: ${absent_reason}; blacklist should be absent"`,
+			`  for mod in algif_aead esp4 esp6 rxrpc; do`,
+			`    if grep -qsE "^(install ${mod} /bin/false|blacklist ${mod})" /etc/modprobe.d/*.conf 2>/dev/null; then`,
+			`      echo "FAIL: ${mod} blacklist entry unexpectedly present (${absent_reason})"`,
+			`      failed=1`,
+			`    else`,
+			`      echo "PASS: ${mod} blacklist correctly absent (${absent_reason})"`,
+			`    fi`,
+			`  done`,
+			`  exit $failed`,
+			`fi`,
+		}, "\n")
+		script += "\n" + kernelModuleFullBlockValidationScript()
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+			"Ubuntu vulnerable kernel module validation failed (fixed/future Ubuntu should have no blacklist; Ubuntu 20.04 and older/unknown 22.04/24.04 kernels should keep algif_aead/esp4/esp6/rxrpc blocked)")
+		return
+	}
+
+	script := kernelModuleFullBlockValidationScript()
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"Vulnerable kernel module mitigation validation failed (algif_aead/esp4/esp6/rxrpc)")
+}
+
+func kernelModuleFullBlockValidationScript() string {
 	script := strings.Join([]string{
 		`failed=0`,
 		`for mod in algif_aead esp4 esp6 rxrpc; do`,
@@ -3177,9 +3320,7 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 		`done`,
 		`exit $failed`,
 	}, "\n")
-
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"Vulnerable kernel module mitigation validation failed (algif_aead/esp4/esp6/rxrpc)")
+	return script
 }
 
 // resolveSecondaryNICName discovers the kernel interface name of the secondary NIC
@@ -3484,4 +3625,19 @@ func ValidateRCV1PNotOptedInWindows(ctx context.Context, s *Scenario) {
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		"expected no aks-ca-certs-refresh-task scheduled task when not opted in")
+}
+
+// ValidateServiceInSlice asserts that the given systemd service is running in the expected slice.
+func ValidateServiceInSlice(ctx context.Context, s *Scenario, service, expectedSlice string) {
+	s.T.Helper()
+	// Avoid accidental shell injection / option smuggling.
+	if !regexp.MustCompile(`^[A-Za-z0-9_.@:-]+$`).MatchString(service) {
+		s.T.Fatalf("invalid systemd unit name: %q", service)
+	}
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		fmt.Sprintf("systemctl show --property=Slice --value -- %s", service), 0,
+		fmt.Sprintf("could not query Slice property of %s", service))
+	actual := strings.TrimSpace(result.stdout)
+	require.Equal(s.T, expectedSlice, actual,
+		"expected %s to be in %s, but got %s", service, expectedSlice, actual)
 }

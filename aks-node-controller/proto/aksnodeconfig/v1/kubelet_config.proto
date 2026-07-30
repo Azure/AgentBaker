@@ -417,7 +417,7 @@ message KubeletConfigFileConfig {
 
   /* kubeReservedCgroup is the absolute name of the cgroup the kubelet should manage for the
    kube-reserved compute resources. When enforce-node-allocatable contains "kube-reserved",
-   this cgroup must exist before kubelet starts. Example: "/kubelet.slice".
+   this cgroup must exist before kubelet starts. Example: "/kubereserved.slice".
    Used by AKS Node Memory Hardening (F2/F5).
    +optional. */
   string kube_reserved_cgroup = 44;

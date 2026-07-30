@@ -1012,7 +1012,7 @@ func TestIsKubernetesVersionGe(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := helpers.IsKubernetesVersionGe(tt.args.actualVersion, tt.args.version); got != tt.want {
+			if got := IsKubernetesVersionGe(tt.args.actualVersion, tt.args.version); got != tt.want {
 				t.Errorf("IsKubernetesVersionGe() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1266,7 +1266,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 					},
 				},
 			},
-			want: "AzureChinaCloud",
+			want: helpers.AzureChinaCloud,
 		},
 		{
 			name: "Germany location cluster config",
@@ -1278,7 +1278,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 					},
 				},
 			},
-			want: "AzureGermanCloud",
+			want: helpers.AzureGermanCloud,
 		},
 		{
 			name: "usgov location cluster config",
@@ -1290,7 +1290,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 					},
 				},
 			},
-			want: "AzureUSGovernmentCloud",
+			want: helpers.AzureUSGovernmentCloud,
 		},
 	}
 	for _, tt := range tests {

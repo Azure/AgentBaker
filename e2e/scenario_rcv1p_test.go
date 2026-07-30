@@ -172,8 +172,26 @@ var (
 func getOrBuildBranchCSEPackageURL(t *testing.T) string {
 	t.Helper()
 	branchCSEZipOnce.Do(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		// 5m covers a cold-start storage account create (~30-90s) plus the zip build/upload.
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
+		// Windows scenarios construct this mutator at scenario-struct-init time, which runs
+		// BEFORE RunScenario -> CachedCreateVMManagedIdentity (which creates the per-sub blob
+		// storage account on first use). On a brand-new region/subscription combo the storage
+		// account does not exist yet, so the upload below fails with NXDOMAIN. Ensure storage
+		// exists first by piggybacking on the same cached identity-creation path Linux tests use.
+		//
+		// CachedCreateVMManagedIdentity depends on the per-location resource group already
+		// existing (runScenario ensures it later, too late for this init-time path). Ensure
+		// the RG first so the identity/storage-account creation succeeds on a fresh sub/region.
+		if _, err := CachedEnsureResourceGroup(ctx, config.Config.DefaultLocation); err != nil {
+			branchCSEZipErr = fmt.Errorf("ensure shared resource group: %w", err)
+			return
+		}
+		if _, err := CachedCreateVMManagedIdentity(ctx, config.Config.DefaultLocation); err != nil {
+			branchCSEZipErr = fmt.Errorf("ensure shared storage account: %w", err)
+			return
+		}
 		branchCSEZipURL, branchCSEZipErr = buildAndUploadCSEZip(ctx)
 	})
 	if branchCSEZipErr != nil {
@@ -310,7 +328,7 @@ func rcv1pOptInVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet) {
 func Test_RCV1P_Ubuntu2204(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Ubuntu 22.04 with VM opt-in tag",
+		Description: "Tests RCV1P cert mode on Ubuntu 22.04 with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -325,13 +343,34 @@ func Test_RCV1P_Ubuntu2204(t *testing.T) {
 	})
 }
 
+// Test_RCV1P_Ubuntu2604Minimal validates RCV1P cert download and trust store installation on Ubuntu 26.04 minimal.
+// Covers the newer Ubuntu LTS release to ensure the cert endpoint and trust store integration
+// work correctly across Ubuntu versions.
+func Test_RCV1P_Ubuntu2604Minimal(t *testing.T) {
+	skipIfRCV1PNotConfigured(t)
+	RunScenario(t, &Scenario{
+		Description: "Tests RCV1P cert mode on Ubuntu 26.04 minimal with VM opt-in tag",
+		Tags: Tags{
+			RCV1PCertMode: true,
+		},
+		Config: Config{
+			Cluster:         ClusterLatestKubernetesVersionKubenet,
+			VHD:             config.VHDUbuntu2604MinimalGen2Containerd,
+			VMConfigMutator: rcv1pVMConfigMutator(),
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateRCV1PCertMode(ctx, s)
+			},
+		},
+	})
+}
+
 // Test_RCV1P_Ubuntu2404 validates RCV1P cert download and trust store installation on Ubuntu 24.04.
 // Covers the newer Ubuntu LTS release to ensure the cert endpoint and trust store integration
 // work correctly across Ubuntu versions.
 func Test_RCV1P_Ubuntu2404(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Ubuntu 24.04 with VM opt-in tag",
+		Description: "Tests RCV1P cert mode on Ubuntu 24.04 with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -352,7 +391,7 @@ func Test_RCV1P_Ubuntu2404(t *testing.T) {
 func Test_RCV1P_AzureLinuxV3(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Azure Linux V3 with VM opt-in tag",
+		Description: "Tests RCV1P cert mode on Azure Linux V3 with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -373,7 +412,7 @@ func Test_RCV1P_AzureLinuxV3(t *testing.T) {
 func Test_RCV1P_ACL(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on ACL with VM opt-in tag",
+		Description: "Tests RCV1P cert mode on ACL with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -403,7 +442,7 @@ func Test_RCV1P_ACL(t *testing.T) {
 func Test_RCV1P_NotOptedIn(t *testing.T) {
 	skipIfRCV1PNotExplicit(t)
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode without VM opt-in tag; expects no cert installation",
+		Description: "Tests RCV1P cert mode without VM opt-in tag; expects no cert installation",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},

@@ -1200,7 +1200,7 @@ func (a *AgentPoolProfile) IsContainerdV2Distro() bool {
 	if a.Distro.IsKataDistro() {
 		return false
 	}
-	return a.Distro.Is2404VHDDistro() || a.Distro.IsACLDistro() || a.Distro.IsAzureLinuxV3Distro()
+	return a.Distro.Is2604VHDDistro() || a.Distro.Is2404VHDDistro() || a.Distro.IsACLDistro() || a.Distro.IsAzureLinuxV3Distro()
 }
 
 // IsAzureLinuxCgroupV2VHDDistro returns true if the distro uses Azure Linux CgrpupV2 VHD.
@@ -2324,7 +2324,7 @@ type AKSKubeletConfiguration struct {
 	EnforceNodeAllocatable []string `json:"enforceNodeAllocatable,omitempty"`
 	/* kubeReservedCgroup is the absolute name of the cgroup the kubelet should manage
 	for the kube-reserved compute resources. When enforce-node-allocatable contains
-	"kube-reserved", this cgroup must exist before kubelet starts. Example: "/kubelet.slice".
+	this cgroup must exist before kubelet starts. Example: "/kubereserved.slice".
 	+optional. */
 	KubeReservedCgroup string `json:"kubeReservedCgroup,omitempty"`
 	/* systemReservedCgroup is the absolute name of the cgroup the kubelet should manage
