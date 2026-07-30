@@ -186,6 +186,18 @@ func clusterLatestKubernetesVersionAzureOverlayNetworkDualStack(ctx context.Cont
 	return prepareCluster(ctx, model, false, false)
 }
 
+var ClusterLatestKubernetesVersionAzureBootstrapProfileCache = cachedFunc(clusterLatestKubernetesVersionAzureBootstrapProfileCache)
+
+// clusterAzureBootstrapProfileCache creates a cluster with bootstrap profile cache but without network isolation
+func clusterLatestKubernetesVersionAzureBootstrapProfileCache(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-k8s-azure-bootstrapprofile-cache-v1", request.Location, request.K8sSystemPoolSKU)
+	if err != nil {
+		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
+	}
+	model = azureNetworkClusterModelMutator(model)
+	return prepareCluster(ctx, model, false, true)
+}
+
 var ClusterKubenet = cachedFunc(clusterKubenet)
 
 // clusterKubenet creates a basic cluster using kubenet networking with shared VNet
