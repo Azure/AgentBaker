@@ -1472,6 +1472,37 @@ func ValidateWindowsProductName(ctx context.Context, s *Scenario, productName st
 	require.Contains(s.T, podExecResultStdout, productName)
 }
 
+// ValidateWindowsSecureTLSEnabled asserts that Enable-SecureTls (windowssecuretls.ps1) has hardened the
+// node against protocol downgrade and the Sweet32 birthday attack (CVE-2016-2183 / CVE-2016-6329):
+// TLS 1.2 is enabled, TLS 1.0/1.1 and SSLv2/SSLv3 are disabled, RC4 is disabled, and the configured
+// cipher suite order does not include any 64-bit block ciphers (3DES/DES/RC2).
+func ValidateWindowsSecureTLSEnabled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	steps := []string{
+		"$tls12Client = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Client' -Name Enabled -ErrorAction SilentlyContinue).Enabled",
+		"$tls11Client = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Client' -Name Enabled -ErrorAction SilentlyContinue).Enabled",
+		"$tls10Client = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Client' -Name Enabled -ErrorAction SilentlyContinue).Enabled",
+		"$rc4_128 = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\RC4 128/128' -Name Enabled -ErrorAction SilentlyContinue).Enabled",
+		"$cipherOrder = (Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Cryptography\\Configuration\\SSL\\00010002' -Name Functions -ErrorAction SilentlyContinue).Functions",
+		"[PSCustomObject]@{ tls12Client = $tls12Client; tls11Client = $tls11Client; tls10Client = $tls10Client; rc4_128 = $rc4_128; cipherOrder = $cipherOrder } | ConvertTo-Json -Compress",
+	}
+
+	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate secure TLS configuration")
+	stdout := strings.TrimSpace(podExecResult.stdout)
+
+	require.Equal(s.T, int64(1), gjson.Get(stdout, "tls12Client").Int(), "expected TLS 1.2 to be enabled for Client, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls11Client").Int(), "expected TLS 1.1 to be disabled for Client, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls10Client").Int(), "expected TLS 1.0 to be disabled for Client, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "rc4_128").Int(), "expected RC4 128/128 to be disabled, got: %s", stdout)
+
+	cipherOrder := gjson.Get(stdout, "cipherOrder").String()
+	require.NotEmpty(s.T, cipherOrder, "expected a configured cipher suite order")
+	require.NotContains(s.T, cipherOrder, "3DES", "cipher suite order should not include 3DES (Sweet32/CVE-2016-2183)")
+	require.NotContains(s.T, cipherOrder, "RC2", "cipher suite order should not include RC2")
+	require.NotContains(s.T, cipherOrder, "DES", "cipher suite order should not include DES")
+}
+
 func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVersion string) {
 	s.T.Helper()
 	steps := []string{
