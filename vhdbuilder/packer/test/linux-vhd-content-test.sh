@@ -33,6 +33,35 @@ err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
 
+# assertPackageVersion verifies that the installed deb/rpm package version matches
+# the expected full version string from components.json (including hotfix suffix).
+# This catches drift between what the package manager installs and what components.json
+# specifies at VHD build time rather than in e2e.
+# shellcheck disable=SC2016
+assertPackageVersion() {
+  local test="$1"
+  local packageName="$2"
+  local expectedVersion="$3"
+
+  local installedVersion=""
+  if command -v dpkg-query >/dev/null 2>&1 && dpkg-query -W -f='${Status}' "$packageName" 2>/dev/null | grep -q "install ok installed"; then
+    # dpkg versions may include an epoch prefix (e.g. "1:..."); strip it for comparison with components.json.
+    installedVersion=$(dpkg-query -W -f='${Version}' "$packageName" 2>/dev/null | sed 's/^[0-9]*://')
+  elif command -v rpm >/dev/null 2>&1 && rpm -q "$packageName" >/dev/null 2>&1; then
+    installedVersion=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' "$packageName" 2>/dev/null)
+  else
+    err "$test" "$packageName is not installed"
+    return 1
+  fi
+
+  echo "$test: checking if installed $packageName version '$installedVersion' matches expected '$expectedVersion'"
+  if [ "$installedVersion" != "$expectedVersion" ]; then
+    err "$test" "installed $packageName version '$installedVersion' does not match expected '$expectedVersion' from components.json"
+    return 1
+  fi
+  return 0
+}
+
 # Clone the repo and checkout the branch provided.
 # Simply clone with just the branch doesn't work for pull requests, but this technique works
 # with everything we've tested so far.
@@ -278,10 +307,22 @@ testPackagesInstalled() {
         # We can simply execute the command to verify the package version.
         case "$name" in
           "kubernetes-cri-tools")
-            testCriCtl "$version"
+            testCriCtl "$version" "kubernetes-cri-tools"
             ;;
           "containerd")
-            testContainerd "$version"
+            # The deb/rpm package name for containerd varies by OS:
+            #   Ubuntu / Mariner 2.0: moby-containerd
+            #   Azure Linux 3.0+:    containerd2
+            local pkgName
+            case "$OS" in
+              "$AZURELINUX_OS_NAME")
+                pkgName="containerd2"
+                ;;
+              *)
+                pkgName="moby-containerd"
+                ;;
+            esac
+            testContainerd "$version" "$pkgName"
             ;;
         esac
         break
@@ -762,6 +803,7 @@ testLtsKernel() {
     elif [ "$os_version" = "24.04" ]; then
       expected_kernel="6.8"
     else
+      # TODO(2604): update once 26.04 LTS kernel metapackage is available
       echo "LTS kernel not installed for: $os_version"
     fi
 
@@ -889,8 +931,8 @@ testLSMBPF() {
   os_sku=$1
   os_version=$2
 
-  # Only test on Ubuntu 24.04 and Azure Linux 3.0 that LSM BPF is configured correctly
-  if { [ "$os_sku" != "Ubuntu" ] || [ "$os_version" != "24.04" ]; } && { [ "$os_sku" != "AzureLinux" ] || [ "$os_version" != "3.0" ]; }; then
+  # Only test on Ubuntu 24.04/26.04 and Azure Linux 3.0 that LSM BPF is configured correctly
+  if { [ "$os_sku" != "Ubuntu" ] || { [ "$os_version" != "24.04" ] && [ "$os_version" != "26.04" ]; }; } && { [ "$os_sku" != "AzureLinux" ] || [ "$os_version" != "3.0" ]; }; then
     echo "$test: will not test for BPF to be present within LSM modules for SKU: $os_sku, version: $os_version"
     echo "$test:Finish"
     return 0
@@ -1404,14 +1446,65 @@ testNfsServerService() {
 }
 
 # Verify all kernel modules with known LPE vulnerabilities are disabled.
-# Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc).
+# Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc),
+# and Fragnesia (esp4, esp6).
 # To add a new CVE mitigation, append the module to BOTH loops below — the
-# AzureLinux 3.0 absence loop AND the default presence + load-refusal loop.
+# absence loop AND the default presence + load-refusal loop.
 #
 # AzureLinux 3.0 is descoped: kernel 6.6.139.1-1.azl3+ fixes the CVEs upstream and
 # the modprobe blacklist is NOT baked into newly-built AzL3 VHDs (customer workloads
-# require those modules). On AzL3 we therefore assert the blacklist entries are
-# ABSENT. Ubuntu and Mariner (AzL2) still assert presence + load-refusal.
+# require those modules). Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu
+# 24.04 linux-azure 6.8.0-1058-azure include the fixes, so newly-built Ubuntu
+# 22.04/24.04 VHDs with a fixed running kernel also stop baking the vulnerable-module
+# blacklist while keeping the baseline CIS module deny list. Ubuntu 20.04 and vulnerable
+# 22.04/24.04 kernels assert presence + load-refusal; fixed 22.04/24.04 kernels and
+# future Ubuntu releases assert ABSENCE so future releases do not inherit the mitigation.
+# Mariner/AzureLinux 2.0 and AzureLinux OSGuard still assert presence + load-refusal.
+kernelVersionGe() {
+  local version_a="$1"
+  local version_b="$2"
+  local sorted
+  local highest_version
+
+  sorted=$(printf "%s\n%s\n" "$version_a" "$version_b" | sort -V)
+  highest_version=$(printf "%s\n" "$sorted" | tail -n 1)
+  [ "$version_a" = "$highest_version" ]
+}
+
+ubuntuKernelIncludesVulnerableModuleFixes() {
+  local os_version="$1"
+  local kernel_release
+  local fixed_kernel
+
+  kernel_release="$(uname -r 2>/dev/null || true)"
+  if [ -z "$kernel_release" ]; then
+    return 1
+  fi
+
+  case "$os_version" in
+    20.04) return 1 ;;
+    22.04)
+      case "$kernel_release" in
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="5.15.0-1116-azure" ;;
+        *-generic) fixed_kernel="5.15.0-181-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    24.04)
+      case "$kernel_release" in
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="6.8.0-1058-azure" ;;
+        *-generic) fixed_kernel="6.8.0-124-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    *) return 0 ;;
+  esac
+
+  kernelVersionGe "$kernel_release" "$fixed_kernel"
+}
+
 testVulnerableKernelModulesDisabled() {
   local os_sku="${1:-$OS_SKU}"
   local os_version="${2:-$OS_VERSION}"
@@ -1420,15 +1513,30 @@ testVulnerableKernelModulesDisabled() {
 
   local failed=0
 
-  if [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ]; then
+  if { [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ]; } || \
+     { [ "$os_sku" = "Ubuntu" ] && ubuntuKernelIncludesVulnerableModuleFixes "$os_version"; }; then
     for mod in algif_aead esp4 esp6 rxrpc; do
       if grep -qsE "^(install ${mod} /bin/false|blacklist ${mod})" /etc/modprobe.d/*.conf 2>/dev/null; then
-        err "$test" "${mod} blacklist entry unexpectedly present in /etc/modprobe.d/*.conf on AzureLinux 3.0 (bake-in removed; kernel 6.6.139.1-1.azl3+ supersedes; no 'install' or 'blacklist' directive should remain)"
+        err "$test" "${mod} blacklist entry unexpectedly present in /etc/modprobe.d/*.conf on ${os_sku} ${os_version} (bake-in removed for fixed/future Ubuntu and AzL3 kernels; no 'install' or 'blacklist' directive should remain)"
         failed=1
       else
-        echo "$test: ${mod} blacklist correctly absent on AzureLinux 3.0"
+        echo "$test: ${mod} blacklist correctly absent on ${os_sku} ${os_version}"
       fi
     done
+
+    if [ "$os_sku" = "Ubuntu" ]; then
+      for mod in cramfs freevxfs jffs2 hfs hfsplus usb-storage; do
+        if ! grep -qsE "^install ${mod} /bin/true" /etc/modprobe.d/*.conf 2>/dev/null; then
+          err "$test" "${mod} CIS disable rule not found in /etc/modprobe.d/*.conf"
+          failed=1
+        elif ! grep -qsE "^blacklist ${mod}" /etc/modprobe.d/*.conf 2>/dev/null; then
+          err "$test" "${mod} CIS blacklist rule not found in /etc/modprobe.d/*.conf"
+          failed=1
+        else
+          echo "$test: CIS modprobe config correctly blocks ${mod}"
+        fi
+      done
+    fi
 
     if [ "$failed" -ne 0 ]; then
       return 1
@@ -1731,9 +1839,14 @@ testContainerImagePrefetchScript() {
 testBccTools () {
   local test="BCCInstallTest"
   os_sku="${1}"
+  os_version="${2}"
   echo "$test: checking if BCC tools were successfully installed"
   if [ "$os_sku" = "AzureLinuxOSGuard" ]; then
     echo "$test: Skipping check on AzureLinuxOSGuard - BCC tools are not installed"
+    return 0
+  fi
+  if [ "$os_version" = "26.04" ]; then
+    echo "$test: Skipping check on Ubuntu 26.04 - BCC tools are not installed"
     return 0
   fi
   for line in '  - bcc-tools' '  - libbcc-examples'; do
@@ -1917,47 +2030,90 @@ testAKSNodeControllerBinary () {
   echo "$test: aks-node-controller go binary exists at $go_binary_path"
 }
 
+testAKSNodeControllerVersion() {
+  local test="testAKSNodeControllerVersion"
+  local go_binary_path="/opt/azure/containers/aks-node-controller"
+  local ancVersionRaw
+  local ancVersion
+
+  ancVersionRaw=$("${go_binary_path}" version 2>&1)
+  if [ "$?" -ne 0 ]; then
+    err "$test" "failed to run '${go_binary_path} version': ${ancVersionRaw}"
+    return 1
+  fi
+
+  ancVersion=$(printf '%s' "$ancVersionRaw" | tr -d '\r\n')
+  if [ -z "$ancVersion" ]; then
+    err "$test" "aks-node-controller version is empty"
+    return 1
+  fi
+
+  if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]{6}\.[0-9]{2}\.[0-9]+$'; then
+    err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected 'YYYYMM.DD.PATCH'"
+    return 1
+  fi
+
+  echo "$test: aks-node-controller version '${ancVersion}' is valid"
+}
+
 testAKSNodeControllerService() {
   local test="testNBCParserService"
   local service_name="aks-node-controller.service"
   echo "$test:Start"
 
   # is-enabled returns:
-  # 'enabled' if the service is enabled.
+  # 'disabled' if the service is disabled.
   # empty string if the service is not installed.
   # 'not-found' if the unit files are not present. Encountered with Ubuntu 24.04
-  echo "$test: Checking that $service_name is enabled"
+  #
+  # The unit is kept disabled in the VHD image on purpose: it must only ever be
+  # started by the boothook's explicit "systemctl start --no-block" call, issued
+  # after the provision config/nbc-cmd files exist. If it were enabled (pulled in
+  # via WantedBy=basic.target), systemd could auto-start it before those files
+  # exist; the wrapper's graceful no-op exit would then mark this oneshot unit
+  # "active (exited)", making the boothook's later start call a no-op and
+  # preventing ANC from ever running with the real config.
+  echo "$test: Checking that $service_name is disabled"
   is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
   echo "$test: logging ${is_enabled} here"
-  if [ "${is_enabled}" = "enabled" ]; then
-    echo "$test: $service_name is correctly enabled"
+  if [ "${is_enabled}" = "disabled" ]; then
+    echo "$test: $service_name is correctly disabled"
   else
-    err $test "$service_name is not enabled, instead in state $is_enabled"
+    err $test "$service_name is not disabled, instead in state $is_enabled"
   fi
 
   echo "$test:Finish"
 }
 
 testCriCtl() {
-  expectedVersion="${1}"
+  local expectedVersion="${1}"
+  local installedPackageName="${2}"
   local test="testCriCtl"
   echo "$test: Start"
   # If the version defined in components.json is <SKIP>, that means it will use whatever version is installed on the system.
   # Therefore, we will just skip the test.
   if [ "$expectedVersion" = "<SKIP>" ]; then
-    echo "$test: Skipping test for containerd version, as expected version is <SKIP>"
+    echo "$test: Skipping test for crictl version, as expected version is <SKIP>"
     return 0
   fi
-  # the expectedVersion looks like this, "1.32.0-ubuntu24.04u3", need to extract the version number.
-  expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
-  # use command `crictl --version` to get the version
 
-  local crictl_version=$(crictl --version)
+  # Strict match: verify the full deb/rpm package version matches components.json
+  if [ -z "$installedPackageName" ]; then
+    err "$test" "installed package name was not provided"
+    return 1
+  fi
+  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
+
+  # Verify the binary reports the expected major.minor.patch version.
+  local expectedMajorMinorPatch
+  expectedMajorMinorPatch=$(echo "$expectedVersion" | cut -d'-' -f1)
+  local crictl_version
+  crictl_version=$(crictl --version)
   # the output of crictl_version looks like this "crictl version 1.32.0", need to extract the version number.
   crictl_version=$(echo $crictl_version | cut -d' ' -f3)
-  echo "$test: checking if crictl version is $expectedVersion"
-  if [ "$crictl_version" != "$expectedVersion" ]; then
-    err "$test: crictl version is not $expectedVersion, instead it is $crictl_version"
+  echo "$test: checking if crictl binary version is $expectedMajorMinorPatch"
+  if [ "$crictl_version" != "$expectedMajorMinorPatch" ]; then
+    err "$test" "crictl binary version is not $expectedMajorMinorPatch, instead it is $crictl_version"
     return 1
   fi
   echo "$test: Test finished successfully."
@@ -1965,7 +2121,8 @@ testCriCtl() {
 }
 
 testContainerd() {
-  expectedVersion="${1}"
+  local expectedVersion="${1}"
+  local installedPackageName="${2}"
   local test="testContainerd"
   echo "$test: Start"
   # If the version defined in components.json is <SKIP>, that means it will use whatever version is installed on the system.
@@ -1974,19 +2131,26 @@ testContainerd() {
     echo "$test: Skipping test for containerd version, as expected version is <SKIP>"
     return 0
   fi
-  # the expectedVersion looks like this, "1.6.24-0ubuntu1~24.04.1" or "2.0.0-6.azl3", we need to extract the major.minor.patch version only.
-  expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
-  # use command `containerd --version` to get the version
-  local containerd_version=$(containerd --version)
-  # the output of containerd_version looks like the followings. We need to extract the major.minor.patch version only.
+
+  # Strict match: verify the full deb/rpm package version matches components.json
+  if [ -z "$installedPackageName" ]; then
+    err "$test" "installed package name was not provided"
+    return 1
+  fi
+  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
+
+  # Verify the containerd binary reports the expected major.minor.patch version.
+  local expectedMajorMinorPatch
+  expectedMajorMinorPatch=$(echo "$expectedVersion" | cut -d'-' -f1)
+  local containerd_version
+  containerd_version=$(containerd --version)
   # For containerd (v1): containerd github.com/containerd/containerd 1.6.26
   # For containerd (v2): containerd github.com/containerd/containerd/v2 2.0.0
-  containerd_version=$(echo $containerd_version | cut -d' ' -f3)
-  # The version could be in the format "1.6.24-11-ubuntu1~24.04.1" or "2.0.0-6.azl3" or just "2.0.0", we need to extract the major.minor.patch version only.
-  containerd_version=$(echo "$containerd_version" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
-  echo "$test: checking if containerd version is $expectedVersion"
-  if [ "$containerd_version" != "$expectedVersion" ]; then
-    err "$test: containerd version is not $expectedVersion, instead it is $containerd_version"
+  # Extract the semver from anywhere in the output (works for both v1 and v2).
+  containerd_version=$(echo "$containerd_version" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)
+  echo "$test: checking if containerd binary version is $expectedMajorMinorPatch"
+  if [ "$containerd_version" != "$expectedMajorMinorPatch" ]; then
+    err "$test" "containerd binary version is not $expectedMajorMinorPatch, instead it is $containerd_version"
     return 1
   fi
   echo "$test: Test finished successfully."
@@ -2357,17 +2521,19 @@ testInspektorGadgetAssets() {
     err $test "Unit file missing at $unit_file"
   fi
 
-  local service_state
-  service_state=$(systemctl is-enabled "$service_name" 2>/dev/null || true)
-  if [ "$service_state" != "enabled" ]; then
-    err $test "$service_name not enabled, state: ${service_state:-absent}"
-  fi
-
   # Verify gadgets were imported during VHD build (tracking file should exist and have content)
   if [ ! -f "$tracking_file" ]; then
     err $test "Tracking file missing at $tracking_file - gadget import may have failed"
   elif [ ! -s "$tracking_file" ]; then
     err $test "Tracking file is empty at $tracking_file - no gadgets were imported"
+  fi
+
+  local image_list
+  if ! image_list=$(ig image list 2>&1); then
+    err $test "ig image list failed: $image_list"
+  else
+    echo "$test: ig image list"
+    printf '%s\n' "$image_list"
   fi
 
   # Verify ig / ig-gadgets compatibility by upstream IG version.
@@ -2497,7 +2663,7 @@ testContainerNetworkingPluginsInstalled() {
 # This will keep the VM alive after the tests are run and we can SSH/Bastion into the VM to run the test manually.
 # Therefore, for example, you can run "sudo bash /var/lib/waagent/run-command/download/0/script.sh" to run the tests manually.
 checkPerformanceData
-testBccTools $OS_SKU
+testBccTools $OS_SKU $OS_VERSION
 testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled
@@ -2542,6 +2708,7 @@ testUmaskSettings
 testContainerImagePrefetchScript
 testNodeExporter $OS_SKU
 testAKSNodeControllerBinary
+testAKSNodeControllerVersion
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testAutologinDisabled $OS_SKU

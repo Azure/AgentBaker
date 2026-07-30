@@ -1004,6 +1004,20 @@ func TestAgentPoolProfileIs2404VHDDistro(t *testing.T) {
 			},
 			expected: true,
 		},
+		{
+			name: "24.04 EdgeZone Gen1 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuEdgeZoneContainerd2404,
+			},
+			expected: true,
+		},
+		{
+			name: "24.04 EdgeZone Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuEdgeZoneContainerd2404Gen2,
+			},
+			expected: true,
+		},
 	}
 
 	for _, c := range cases {
@@ -1217,6 +1231,20 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			name: "Azure Linux V3 Gen2 CVM VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV3CVMGen2,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V3 EdgeZone Gen1 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3EdgeZone,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V3 EdgeZone Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3EdgeZoneGen2,
 			},
 			expected: true,
 		},

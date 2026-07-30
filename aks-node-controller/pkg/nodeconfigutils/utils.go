@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/textproto"
+	"regexp"
+	"sort"
+	"strings"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -16,13 +19,16 @@ const (
 
 	AKSNodeConfigFilePath = "/opt/azure/containers/aks-node-controller-config.json"
 
+	// EnabledFeaturesFilePath is read by the wrapper; must match its FEATURES_PATH.
+	EnabledFeaturesFilePath = "/opt/azure/containers/enabled_features.sh"
+
 	boothookTemplate = `#cloud-boothook
 #!/bin/bash
 set -euo pipefail
 
 logger -t aks-boothook "boothook start $(date -Ins)"
 
-mkdir -p /opt/azure/containers
+mkdir -p /opt/azure/containers /var/log/azure
 
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
@@ -30,9 +36,13 @@ cat <<'EOF' | base64 -d >%[1]s
 %[2]s
 EOF
 chmod 0600 %[1]s
-
-logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
-systemctl start --no-block aks-node-controller.service
+%[3]s
+logger -t aks-boothook "launching aks-node-controller $(date -Ins)"
+if [ -f /opt/azure/containers/aks-node-controller-launcher.sh ]; then
+	nohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh > /var/log/azure/aks-node-controller.output 2>&1 &
+else
+	systemctl start --no-block aks-node-controller.service
+fi
 `
 
 	cloudConfigTemplate = `#cloud-config
@@ -63,7 +73,7 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	}
 
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	boothook := fmt.Sprintf(boothookTemplate, AKSNodeConfigFilePath, encodedAksNodeConfigJSON)
+	boothook := fmt.Sprintf(boothookTemplate, AKSNodeConfigFilePath, encodedAksNodeConfigJSON, enabledFeaturesBlock(cfg))
 
 	var customData bytes.Buffer
 	writer := multipart.NewWriter(&customData)
@@ -118,6 +128,42 @@ func writeMIMEPart(writer *multipart.Writer, contentType, content string) error 
 
 	_, err = part.Write([]byte(content))
 	return err
+}
+
+// enabledFeaturesBlock returns the boothook snippet writing the enabled-features file, or ""
+// when no valid feature is set (keeping custom data byte-identical to the default for VHD
+// compat). Keys are sorted for deterministic output and filtered to valid shell identifiers -
+// the same set the wrapper parses. Entries whose value contains a newline or carriage return
+// are dropped so a single entry can never expand into multiple lines in the heredoc.
+func enabledFeaturesBlock(cfg *aksnodeconfigv1.Configuration) string {
+	features := cfg.GetEnabledFeatures()
+	keys := make([]string, 0, len(features))
+	for k, v := range features {
+		if isValidFeatureKey(k) && !strings.ContainsAny(v, "\n\r") {
+			keys = append(keys, k)
+		}
+	}
+	if len(keys) == 0 {
+		return ""
+	}
+	sort.Strings(keys)
+	var lines strings.Builder
+	for _, k := range keys {
+		fmt.Fprintf(&lines, "%s=%s\n", k, features[k])
+	}
+	return fmt.Sprintf(`cat <<'EOF' >%[1]s
+%[2]sEOF
+chmod 0600 %[1]s
+`, EnabledFeaturesFilePath, lines.String())
+}
+
+// featureKeyRe matches a valid shell identifier ([a-zA-Z_][a-zA-Z0-9_]*) - the same set the
+// aks-node-controller wrapper parses out of enabled_features.sh.
+var featureKeyRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+// isValidFeatureKey reports whether k is a valid shell identifier the wrapper would accept.
+func isValidFeatureKey(k string) bool {
+	return featureKeyRe.MatchString(k)
 }
 
 func MarshalConfigurationV1(cfg *aksnodeconfigv1.Configuration) ([]byte, error) {

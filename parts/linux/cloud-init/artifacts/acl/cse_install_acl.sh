@@ -88,6 +88,10 @@ installDeps() {
     stub
 }
 
+installMinimalBuildDeps() {
+    stub
+}
+
 installCriCtlPackage() {
     stub
 }

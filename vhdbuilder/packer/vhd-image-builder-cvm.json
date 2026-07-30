@@ -111,8 +111,8 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/aks-node-controller-wrapper.sh",
-      "destination": "/home/packer/aks-node-controller-wrapper.sh"
+      "source": "parts/linux/cloud-init/artifacts/aks-node-controller-launcher.sh",
+      "destination": "/home/packer/aks-node-controller-launcher.sh"
     },
     {
       "type": "file",
@@ -246,8 +246,8 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/init-aks-custom-cloud.sh",
-      "destination": "/home/packer/init-aks-custom-cloud.sh"
+      "source": "parts/linux/cloud-init/artifacts/init-aks-cloud.sh",
+      "destination": "/home/packer/init-aks-cloud.sh"
     },
     {
       "type": "file",

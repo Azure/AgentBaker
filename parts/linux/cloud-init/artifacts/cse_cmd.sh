@@ -16,11 +16,13 @@ else
 	exit ${cloudInitExitCode};
 fi;
 {{end}}
-{{if IsAKSCustomCloud}}
-REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
-{{end}}
-LOCATION={{GetVariable "location"}}
-{{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1 || exit $?;
+INIT_AKS_CLOUD_FILEPATH="{{GetInitAKSCloudFilepath}}";
+if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]; then
+	REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}" LOCATION={{GetVariable "location"}} "${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1 || exit $?;
+fi;
+{{/* Keep the environment assignments below contiguous through the nohup invocation at the end of this file. */ -}}
+{{/* The CSE command is flattened into one shell command, so all assignments below are passed to nohup. */ -}}
+{{/* Be careful not to add runtime control flow or command separators that break the flattening logic. */ -}}
 ADMINUSER={{GetParameter "linuxAdminUsername"}}
 MOBY_VERSION={{GetParameter "mobyVersion"}}
 TENANT_ID={{GetVariable "tenantID"}}
@@ -33,6 +35,7 @@ KUBEPROXY_URL={{GetParameter "kubeProxySpec"}}
 APISERVER_PUBLIC_KEY={{GetParameter "apiServerCertificate"}}
 SUBSCRIPTION_ID={{GetVariable "subscriptionId"}}
 RESOURCE_GROUP={{GetVariable "resourceGroup"}}
+LOCATION={{GetVariable "location"}}
 VM_TYPE={{GetVariable "vmType"}}
 SUBNET={{GetVariable "subnetName"}}
 NETWORK_SECURITY_GROUP={{GetVariable "nsgName"}}
@@ -80,6 +83,7 @@ CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 MANAGED_GPU_EXPERIENCE_AFEC_ENABLED="{{IsManagedGPUExperienceAFECEnabled}}"
 ENABLE_MANAGED_GPU="{{IsEnableManagedGPU}}"
+ENABLE_MANAGED_GPU_DRA="{{IsEnableManagedGPUDRA}}"
 NVIDIA_MIG_STRATEGY="{{GetMigStrategy}}"
 CREDENTIAL_PROVIDER_DOWNLOAD_URL={{GetParameter "linuxCredentialProviderURL"}}
 CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
@@ -195,6 +199,7 @@ LOCALDNS_GENERATED_COREFILE="{{GetGeneratedLocalDNSCoreFile}}"
 LOCALDNS_COREFILE_BASE="{{GetGeneratedLocalDNSCoreFileBase}}"
 LOCALDNS_COREFILE_WITH_HOSTS="{{GetGeneratedLocalDNSCoreFileWithHosts}}"
 LOCALDNS_CRITICAL_FQDNS="{{GetLocalDNSCriticalFQDNs}}"
+LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS="{{GetLocalDNSHostsPluginRefreshIntervalInSeconds}}"
 PRE_PROVISION_ONLY="{{GetPreProvisionOnly}}"
 CSE_TIMEOUT="{{GetCSETimeout}}"
 SKIP_WAAGENT_HOLD="{{GetSkipWaAgentHold}}"

@@ -419,12 +419,18 @@ isPackageInstalled() {
 }
 
 managedGPUPackageList() {
-    packages=(
-        nvidia-device-plugin
+    local packages=(
         datacenter-gpu-manager-4-core
         datacenter-gpu-manager-4-proprietary
         dcgm-exporter
     )
+
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE:-false}" = "true" ]; then
+        packages+=(nvidia-device-plugin)
+    elif [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA:-false}" = "true" ]; then
+        packages+=(dra-driver-nvidia-gpu)
+    fi
+
     echo "${packages[@]}"
 }
 
@@ -436,6 +442,8 @@ installNvidiaManagedExpPkgFromCache() {
 
   # Ensure kubelet device-plugins directory exists BEFORE package installation
   mkdir -p /var/lib/kubelet/device-plugins
+  mkdir -p /var/lib/kubelet/plugins_registry
+  mkdir -p /var/lib/kubelet/plugins
 
   for packageName in $(managedGPUPackageList); do
     downloadDir="$(getPackageDownloadDir "${packageName}")"
@@ -509,7 +517,7 @@ installRPMPackageFromFile() {
     fi
 
     # check cached rpms for matching filename
-    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
+    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${desiredVersion}([^0-9]|$)" | sort -V | tail -n 1) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
         # query all package versions and get the latest version for matching k8s version
         # e.g. 1.34.0-5.azl3
@@ -520,7 +528,7 @@ installRPMPackageFromFile() {
         fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" "${fullPackageVersion}" "${downloadDir}"
-        rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
+        rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${desiredVersion}([^0-9]|$)" | sort -V | tail -n 1) || rpmFile=""
     fi
     if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
@@ -551,7 +559,7 @@ installPackageFromCache() {
     fi
 
     # check cached rpms for matching filename
-    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
+    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${desiredVersion}([^0-9]|$)" | sort -V | tail -n 1) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
         echo "Failed to find cached rpm file for ${packageName} version ${desiredVersion}"
         return 1
@@ -664,6 +672,10 @@ cleanUpGPUDrivers() {
   for packageName in $(managedGPUPackageList); do
     rm -rf "$(getPackageCacheDir "${packageName}")"
   done
+}
+
+installMinimalBuildDeps() {
+    echo "installMinimalBuildDeps not implemented for mariner"
 }
 
 downloadContainerdFromVersion() {

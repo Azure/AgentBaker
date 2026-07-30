@@ -11,11 +11,17 @@
   "branchConcurrentLimit": 0,
   "commitHourlyLimit": 1,
   "separateMinorPatch": true,
-  "recreateWhen": "never",
+  "recreateWhen": "auto",
   "labels": [
     "renovate"
   ],
-  "rebaseWhen": "conflicted",
+  "rebaseWhen": "never",
+  "hostRules": [
+    {
+      "matchHost": "packages.microsoft.com",
+      "concurrentRequestLimit": 1
+    }
+  ],
   "logLevelRemap": [
     {
       "matchMessage": "/^Custom manager fetcher/",
@@ -166,31 +172,16 @@
       "enabled": true,
       "groupName": "kubelet-kubectl",
       "assignees": [
-        "team:aks-node-lifecycle"
+        "haitch",
+        "wenhug",
+        "gaopenghigh",
+        "jack4it"
       ],
       "reviewers": [
-        "team:aks-node-lifecycle"
-      ]
-    },
-    {
-      "matchPackageNames": [
-        "azure-acr-credential-provider-pmc"
-      ],
-      "matchUpdateTypes": [
-        "patch"
-      ],
-      "automerge": false,
-      "enabled": true,
-      "groupName": "credential-provider-pmc",
-      "assignees": [
-        "anndono",
-        "Liunardy",
-        "nilo19"
-      ],
-      "reviewers": [
-        "anndono",
-        "Liunardy",
-        "nilo19"
+        "haitch",
+        "wenhug",
+        "gaopenghigh",
+        "jack4it"
       ]
     },
     {
@@ -364,25 +355,10 @@
     {
       "matchPackageNames": [
         "oss/binaries/kubernetes/azure-acr-credential-provider",
-        "azure-acr-credential-provider"
+        "azure-acr-credential-provider",
+        "oss/v2/kubernetes/azure-acr-credential-provider-sysext"
       ],
       "groupName": "acr-credential-provider",
-      "assignees": [
-        "anndono",
-        "Liunardy",
-        "nilo19"
-      ],
-      "reviewers": [
-        "anndono",
-        "Liunardy",
-        "nilo19"
-      ]
-    },
-    {
-      "matchPackageNames": [
-        "azure-acr-credential-provider-sysext"
-      ],
-      "groupName": "acr-credential-provider-sysext",
       "assignees": [
         "anndono",
         "Liunardy",
@@ -448,19 +424,44 @@
       ],
       "groupName": "nvidia-device-plugin",
       "assignees": [
-        "djsly",
         "ganeshkumarashok",
-        "surajssd"
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
       ],
       "reviewers": [
-        "djsly",
         "ganeshkumarashok",
-        "surajssd"
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
       ]
     },
     {
       "matchPackageNames": [
-        "aks-secure-tls-bootstrap-client"
+        "dra-driver-nvidia-gpu"
+      ],
+      "groupName": "dra-driver-nvidia-gpu",
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "aks-secure-tls-bootstrap-client",
+        "aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext"
       ],
       "groupName": "aks-secure-tls-bootstrap-client",
       "assignees": [
@@ -478,14 +479,18 @@
       ],
       "groupName": "nvidia-dcgm",
       "assignees": [
-        "djsly",
         "ganeshkumarashok",
-        "surajssd"
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
       ],
       "reviewers": [
-        "djsly",
         "ganeshkumarashok",
-        "surajssd"
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
       ]
     },
     {
@@ -541,30 +546,63 @@
     },
     {
       "matchPackageNames": [
+        "oras-project/oras"
+      ],
+      "groupName": "oras",
+      "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "windows/nanoserver",
         "windows/servercore"
       ],
-      "groupName": "windowsbase",
+      "groupName": "windows_nanoserver_servercore",
       "assignees": [
-        "timmy-wright"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "timmy-wright"
+        "team:aks-node-lifecycle"
       ],
       "enabled": true,
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<compatibility>\\d+)\\.(?<patch>\\d+)$"
     },
     {
       "matchPackageNames": [
-        "windows/servercore/iis",
-        "oss/v2/kubernetes/windows-gmsa-webhook"
+        "windows/servercore/iis"
       ],
-      "groupName": "windowscached",
+      "groupName": "windows_cached_iis",
+      "enabled": true,
+      "automerge": true,
+      "matchUpdateTypes": [
+        "patch"
+      ],
       "assignees": [
-        "timmy-wright"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "timmy-wright"
+        "team:aks-node-lifecycle"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "oss/v2/kubernetes/windows-gmsa-webhook"
+      ],
+      "groupName": "windows_cached_gmsa",
+      "enabled": true,
+      "automerge": true,
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
       ]
     },
     {
@@ -582,10 +620,12 @@
         "docker"
       ],
       "matchPackageNames": [
-        "oss/v2/kubernetes/*-sysext"
+        "oss/v2/kubernetes/*-sysext",
+        "aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext"
       ],
       "matchCurrentVersion": "/-azlinux3$/",
-      "extractVersion": "^(?<version>.+-azlinux3)-"
+      "extractVersion": "^(?<version>.+-azlinux3)-x86-64$",
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<compatibility>azlinux3)$"
     },
     {
       "matchPackageNames": [
@@ -595,7 +635,21 @@
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
       "automerge": false,
       "enabled": true,
-      "ignoreUnstable": false
+      "ignoreUnstable": false,
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
     },
     {
       "matchPackageNames": [
@@ -606,7 +660,21 @@
       "allowedVersions": "/^580\\./",
       "automerge": false,
       "enabled": true,
-      "ignoreUnstable": false
+      "ignoreUnstable": false,
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
     },
     {
       "matchPackageNames": [
@@ -616,7 +684,21 @@
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
       "automerge": false,
       "enabled": true,
-      "ignoreUnstable": false
+      "ignoreUnstable": false,
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
     },
     {
       "matchPackageNames": [
@@ -626,7 +708,21 @@
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
       "automerge": false,
       "enabled": true,
-      "ignoreUnstable": false
+      "ignoreUnstable": false,
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
     },
     {
       "matchPackageNames": [
@@ -635,10 +731,11 @@
       "matchDatasources": [
         "docker"
       ],
-      "versioning": "regex:^(\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)?-(\\w+)-(\\d+)-(\\d+)-(\\d+)-(\\w+-*)(?<compatibility>.*)$",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-main-(?<prerelease>\\d{2}-\\d{2}-\\d{4}-[0-9a-f]+)(?:-(?<compatibility>cfg|targetallocator|ccp|win))?$",
       "groupName": "ama-metrics",
       "automerge": false,
       "enabled": true,
+      "ignoreUnstable": false,
       "assignees": [
         "gracewehner",
         "vishiy",
@@ -817,6 +914,20 @@
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^v(?<version>.*)$",
       "autoReplaceStringTemplate": "\"renovateTag\": \"github-releases={{{packageName}}}\",\n                \"latestVersion\": \"{{{newValue}}}\""
+    },
+    {
+      "customType": "regex",
+      "description": "auto update buf version in aks-node-controller/.buf-version",
+      "managerFilePatterns": [
+        "/aks-node-controller/\\.buf-version/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "(?<currentValue>\\S+)"
+      ],
+      "depNameTemplate": "bufbuild/buf",
+      "datasourceTemplate": "docker",
+      "extractVersionTemplate": "^(?<version>.*)$"
     },
     {
       "customType": "regex",

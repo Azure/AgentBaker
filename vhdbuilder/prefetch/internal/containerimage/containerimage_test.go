@@ -35,7 +35,10 @@ func TestContainerImage(t *testing.T) {
 	list, err := components.ParseList(componentsPath)
 	assert.NoError(t, err)
 
-	actualContent, err := containerimage.GeneratePrefetchScript(list)
+	postfixContent, err := os.ReadFile(resolvePostfixPath(t))
+	assert.NoError(t, err)
+
+	actualContent, err := containerimage.GeneratePrefetchScript(list, postfixContent)
 	assert.NoError(t, err)
 
 	assert.Equal(t, expectedContent, actualContent)
@@ -50,7 +53,10 @@ func generate(t *testing.T, componentsPath string) {
 	list, err := components.ParseList(componentsPath)
 	assert.NoError(t, err)
 
-	content, err := containerimage.GeneratePrefetchScript(list)
+	postfixContent, err := os.ReadFile(resolvePostfixPath(t))
+	assert.NoError(t, err)
+
+	content, err := containerimage.GeneratePrefetchScript(list, postfixContent)
 	assert.NoError(t, err)
 
 	err = os.WriteFile(prefetchScriptTestDataPath, content, os.ModePerm)
@@ -63,4 +69,11 @@ func resolveComponentsPath(t *testing.T) string {
 	assert.NoError(t, err, "unable to determine repo root with git rev-parse")
 	basePath := strings.ReplaceAll(string(repoBasePath), "\n", "")
 	return filepath.Join(filepath.Join(basePath, artifactsRelPath), "components.json")
+}
+
+func resolvePostfixPath(t *testing.T) string {
+	repoBasePath, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	assert.NoError(t, err, "unable to determine repo root with git rev-parse")
+	basePath := strings.TrimSpace(string(repoBasePath))
+	return filepath.Join(basePath, artifactsRelPath, "cse_preload.sh")
 }

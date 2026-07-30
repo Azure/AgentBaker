@@ -151,6 +151,8 @@ const (
 	AKSCBLMarinerV2Gen2                     Distro = "aks-cblmariner-v2-gen2"
 	AKSAzureLinuxV2Gen2                     Distro = "aks-azurelinux-v2-gen2"
 	AKSAzureLinuxV3Gen2                     Distro = "aks-azurelinux-v3-gen2"
+	AKSAzureLinuxV3EdgeZone                 Distro = "aks-azurelinux-v3-edgezone"
+	AKSAzureLinuxV3EdgeZoneGen2             Distro = "aks-azurelinux-v3-edgezone-gen2"
 	AKSCBLMarinerV2FIPS                     Distro = "aks-cblmariner-v2-fips"
 	AKSAzureLinuxV2FIPS                     Distro = "aks-azurelinux-v2-fips"
 	AKSAzureLinuxV3FIPS                     Distro = "aks-azurelinux-v3-fips"
@@ -172,6 +174,8 @@ const (
 	AKSUbuntuFipsContainerd2204TLGen2       Distro = "aks-ubuntu-fips-containerd-22.04-tl-gen2"
 	AKSUbuntuEdgeZoneContainerd2204         Distro = "aks-ubuntu-edgezone-containerd-22.04"
 	AKSUbuntuEdgeZoneContainerd2204Gen2     Distro = "aks-ubuntu-edgezone-containerd-22.04-gen2"
+	AKSUbuntuEdgeZoneContainerd2404         Distro = "aks-ubuntu-edgezone-containerd-24.04"
+	AKSUbuntuEdgeZoneContainerd2404Gen2     Distro = "aks-ubuntu-edgezone-containerd-24.04-gen2"
 	AKSUbuntuContainerd2204                 Distro = "aks-ubuntu-containerd-22.04"
 	AKSUbuntuContainerd2204Gen2             Distro = "aks-ubuntu-containerd-22.04-gen2"
 	AKSUbuntuContainerd2004CVMGen2          Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
@@ -260,6 +264,10 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuFipsContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
+	AKSUbuntuEdgeZoneContainerd2404,
+	AKSUbuntuEdgeZoneContainerd2404Gen2,
+	AKSAzureLinuxV3EdgeZone,
+	AKSAzureLinuxV3EdgeZoneGen2,
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
@@ -328,6 +336,10 @@ func (d Distro) IsACLDistro() bool {
 
 func (d Distro) IsAzureLinuxOSGuardDistro() bool {
 	return slices.Contains(AvailableAzureLinuxOSGuardDistros, d)
+}
+
+func (d Distro) IsAzureLinuxV3Distro() bool {
+	return slices.Contains(AvailableAzureLinuxV3Distros, d)
 }
 
 /*
@@ -1184,6 +1196,13 @@ func (a *AgentPoolProfile) Is2604VHDDistro() bool {
 	return a.Distro.Is2604VHDDistro()
 }
 
+func (a *AgentPoolProfile) IsContainerdV2Distro() bool {
+	if a.Distro.IsKataDistro() {
+		return false
+	}
+	return a.Distro.Is2604VHDDistro() || a.Distro.Is2404VHDDistro() || a.Distro.IsACLDistro() || a.Distro.IsAzureLinuxV3Distro()
+}
+
 // IsAzureLinuxCgroupV2VHDDistro returns true if the distro uses Azure Linux CgrpupV2 VHD.
 func (a *AgentPoolProfile) IsAzureLinuxCgroupV2VHDDistro() bool {
 	return a.Distro.IsAzureLinuxCgroupV2VHDDistro()
@@ -1729,6 +1748,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableAMDGPU                    bool
 	ManagedGPUExperienceAFECEnabled bool
 	EnableManagedGPU                bool
+	EnableManagedGPUDRA             bool
 	MigStrategy                     string
 	EnableArtifactStreaming         bool
 	ContainerdVersion               string
@@ -1764,6 +1784,12 @@ type NodeBootstrappingConfiguration struct {
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
+	// EnabledFeatures is a generic set of feature toggles delivered to the node as KEY=VALUE
+	// lines in enabled_features.sh, which the aks-node-controller wrapper reads and exports as
+	// environment variables (e.g. "ENABLE_PROVISIONING_HOTFIX" -> "true") to gate provisioning
+	// steps such as check-hotfix. Using a map lets RP add new toggles without producer-side code
+	// changes. Empty/nil => no file is written and scriptless custom data is byte-identical to today.
+	EnabledFeatures map[string]string
 	// Version is required for aks-node-controller application to determine the version of the config file.
 	Version string
 
@@ -2081,13 +2107,11 @@ type AKSKubeletConfiguration struct {
 	Default: nil
 	+optional. */
 	ClusterDNS []string `json:"clusterDNS,omitempty"`
-	/* streamingConnectionIdleTimeout is the maximum time a streaming connection
-	can be idle before the connection is automatically closed.
-	Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-	it may impact components that rely on infrequent updates over streaming
-	connections to the Kubelet server.
-	Default: "4h"
-	+optional. */
+	/* Deprecated: streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34.
+		Retained for backward compatibility with k8s < 1.34. Do not use for new code.
+		For k8s >= 1.34, this field is cleared by baker/ANC and omitted from the config file via omitempty.
+		Default: "4h"
+	   +optional. */
 	StreamingConnectionIdleTimeout Duration `json:"streamingConnectionIdleTimeout,omitempty"`
 	/* nodeStatusUpdateFrequency is the frequency that kubelet computes node
 	status. If node lease feature is not enabled, it is also the frequency that
@@ -2300,7 +2324,7 @@ type AKSKubeletConfiguration struct {
 	EnforceNodeAllocatable []string `json:"enforceNodeAllocatable,omitempty"`
 	/* kubeReservedCgroup is the absolute name of the cgroup the kubelet should manage
 	for the kube-reserved compute resources. When enforce-node-allocatable contains
-	"kube-reserved", this cgroup must exist before kubelet starts. Example: "/kubelet.slice".
+	this cgroup must exist before kubelet starts. Example: "/kubereserved.slice".
 	+optional. */
 	KubeReservedCgroup string `json:"kubeReservedCgroup,omitempty"`
 	/* systemReservedCgroup is the absolute name of the cgroup the kubelet should manage
@@ -2552,6 +2576,9 @@ type LocalDNSProfile struct {
 	// CriticalFQDNs is the list of critical FQDNs to resolve for the hosts plugin.
 	// Passed from RP so the script doesn't need cloud-specific logic.
 	CriticalFQDNs []string `json:"criticalFQDNs,omitempty"`
+
+	// HostsPluginRefreshIntervalInSeconds overrides the default hosts plugin timer cadence.
+	HostsPluginRefreshIntervalInSeconds *int32 `json:"hostsPluginRefreshIntervalInSeconds,omitempty"`
 }
 
 type LocalDNSCoreFileData struct {

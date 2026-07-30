@@ -374,6 +374,10 @@ providers:
       - "*.azurecr.cn"
       - "*.azurecr.de"
       - "*.azurecr.us"
+      - "*.*.geo.azurecr.io"
+      - "*.*.geo.azurecr.cn"
+      - "*.*.geo.azurecr.de"
+      - "*.*.geo.azurecr.us"
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1
     args:
@@ -391,6 +395,10 @@ providers:
       - "*.azurecr.cn"
       - "*.azurecr.de"
       - "*.azurecr.us"
+      - "*.*.geo.azurecr.io"
+      - "*.*.geo.azurecr.cn"
+      - "*.*.geo.azurecr.de"
+      - "*.*.geo.azurecr.us"
       - "*$CustomCloudContainerRegistryDNSSuffix"
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1

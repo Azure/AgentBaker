@@ -1,11 +1,18 @@
 [Unit]
 Description=Parse contract and run csecmd
-After=network-online.target ssh.service sshd.service
+# DefaultDependencies=no avoids the implicit After=sysinit.target/basic.target
+# systemd adds by default, which otherwise forces this unit to wait for the
+# whole basic.target transaction (including cloud-init.service's remaining
+# modules such as growpart/resizefs/ssh-keygen) to resolve before it can
+# start, even though the boothook already requested "systemctl start
+# --no-block" on it much earlier.
+DefaultDependencies=no
+After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/opt/azure/containers/aks-node-controller-wrapper.sh
+ExecStart=/opt/azure/containers/aks-node-controller-launcher.sh
 RemainAfterExit=yes
 
 [Install]
