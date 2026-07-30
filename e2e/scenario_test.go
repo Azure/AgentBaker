@@ -2511,7 +2511,7 @@ func Test_Ubuntu2604Minimal_ImagePullIdentityBinding_NetworkIsolated(t *testing.
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersionKubenet,
+			Cluster: ClusterLatestKubernetesVersionAzureBootstrapProfileCache,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Enable ServiceAccountImagePullProfile with test values
