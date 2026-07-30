@@ -1174,6 +1174,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetInitAKSCloudFilepath": func() string {
 			return initAKSCloudFilepath
 		},
+		"GetInitAKSCustomCloudCertsFilepath": func() string {
+			return initAKSCustomCloudCertsFilepath
+		},
 		"AKSCustomCloudRepoDepotEndpoint": func() string {
 			if cs.IsAKSCustomCloud() {
 				return cs.Properties.CustomCloudEnv.RepoDepotEndpoint

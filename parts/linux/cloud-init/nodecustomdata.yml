@@ -32,6 +32,12 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "initAKSCloud"}}
+- path: {{GetInitAKSCustomCloudCertsFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "initAKSCustomCloudCerts"}}
 {{end}}
 
 {{- else }}
@@ -153,6 +159,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "initAKSCloud"}}
+
+- path: {{GetInitAKSCustomCloudCertsFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "initAKSCustomCloudCerts"}}
 
 - path: /etc/systemd/system/reconcile-private-hosts.service
   permissions: "0644"
