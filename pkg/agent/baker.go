@@ -1945,7 +1945,16 @@ func shouldUseContainerdV4Config(config *datamodel.NodeBootstrappingConfiguratio
 }
 
 func shouldUseContainerdV2Config(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return config != nil && isContainerdVersionGe(config.ContainerdVersion, "2.0.0")
+	if config == nil {
+		return false
+	}
+	if isContainerdVersionGe(config.ContainerdVersion, "2.0.0") {
+		return true
+	}
+	if strings.TrimSpace(config.ContainerdVersion) != "" {
+		return false
+	}
+	return config.AgentPoolProfile != nil && config.AgentPoolProfile.IsContainerdV2Distro()
 }
 
 func isContainerdVersionGe(actualVersion, version string) bool {

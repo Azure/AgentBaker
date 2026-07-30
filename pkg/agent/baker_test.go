@@ -137,9 +137,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(containerdConfig).NotTo(ContainSubstring(`io.containerd.grpc.v1.cri`))
 			}
 
-			It("uses schema v2 when containerd version is empty for older or unknown distros", func() {
+			It("uses legacy schema v2 when containerd version is empty for older or unknown distros", func() {
 				expectLegacySchemaV2(renderContainerdConfig("", datamodel.AKSUbuntuContainerd2204, false))
-				expectLegacySchemaV2(renderContainerdConfig("", datamodel.AKSAzureLinuxV3, false))
 			})
 
 			for _, distro := range []datamodel.Distro{
@@ -151,6 +150,12 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					expectSchemaV4(renderContainerdConfig("", distro, false))
 				})
 			}
+
+			It("uses split-plugin schema v2 when containerd version is empty for containerd v2 distros before 2.3", func() {
+				expectContainerd2SchemaV2(renderContainerdConfig("", datamodel.AKSAzureLinuxV3, false))
+				expectContainerd2SchemaV2(renderContainerdConfig("", datamodel.AKSACLGen2TL, false))
+				expectContainerd2SchemaV2(renderContainerdConfig("", datamodel.AKSACLArm64Gen2TL, true))
+			})
 
 			It("uses schema v2 when containerd version is invalid", func() {
 				expectLegacySchemaV2(renderContainerdConfig("not-a-version", datamodel.AKSUbuntuContainerd2404, false))
