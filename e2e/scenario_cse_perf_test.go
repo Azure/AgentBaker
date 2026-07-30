@@ -368,7 +368,7 @@ func Test_Ubuntu2604Minimal_CSE_CachedPerformance(t *testing.T) {
 			SkipDefaultValidation:    true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.36.1"
-				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeProxyImage = "mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.7-2"
+				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeProxyImage = "mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.36.1-4"
 				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = ""
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {

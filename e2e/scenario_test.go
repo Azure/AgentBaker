@@ -2390,7 +2390,7 @@ func Test_Ubuntu2604Minimal_ImagePullIdentityBinding_Enabled(t *testing.T) {
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			},
 			AKSNodeConfigMutator: func(_ *Cluster, aksConfig *aksnodeconfigv1.Configuration) {
-				aksConfig.KubernetesVersion = "1.34.8"
+				aksConfig.KubernetesVersion = "1.36.1"
 				aksConfig.ServiceAccountImagePullProfile = &aksnodeconfigv1.ServiceAccountImagePullProfile{
 					Enabled:           true,
 					DefaultClientId:   "test-client-id-12345",
@@ -2441,7 +2441,7 @@ func Test_Ubuntu2604Minimal_ImagePullIdentityBinding_Disabled(t *testing.T) {
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			},
 			AKSNodeConfigMutator: func(_ *Cluster, aksConfig *aksnodeconfigv1.Configuration) {
-				aksConfig.KubernetesVersion = "1.34.8"
+				aksConfig.KubernetesVersion = "1.36.1"
 				aksConfig.ServiceAccountImagePullProfile = &aksnodeconfigv1.ServiceAccountImagePullProfile{
 					Enabled:           false,
 					DefaultClientId:   "should-not-appear-client-id",
