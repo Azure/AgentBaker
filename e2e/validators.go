@@ -1523,6 +1523,7 @@ func ValidateWindowsSecureTLSEnabled(ctx context.Context, s *Scenario) {
 	require.NotContains(s.T, cipherOrder, "RC2", "cipher suite order should not include RC2")
 	require.NotContains(s.T, cipherOrder, "DES", "cipher suite order should not include DES")
 	require.NotContains(s.T, cipherOrder, "RC4", "cipher suite order should not include RC4")
+}
 
 func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVersion string) {
 	s.T.Helper()
