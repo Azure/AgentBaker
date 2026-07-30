@@ -54,6 +54,7 @@ package components
 	r2004?:   #ReleaseDownloadURI
 	r2204?:   #ReleaseDownloadURI
 	r2404?:   #ReleaseDownloadURI
+	r2604?:   #ReleaseDownloadURI
 }
 
 #DefaultOSDistro: {

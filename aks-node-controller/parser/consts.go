@@ -41,6 +41,8 @@ const (
 	defaultNetIpv4NeighDefaultGcThresh1 = 4096
 	defaultNetIpv4NeighDefaultGcThresh2 = 8192
 	defaultNetIpv4NeighDefaultGcThresh3 = 16384
+	maxCSETimeout                       = 21600
+	defaultCSETimeout                   = 900
 )
 
 const (

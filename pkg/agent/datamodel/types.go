@@ -1200,7 +1200,7 @@ func (a *AgentPoolProfile) IsContainerdV2Distro() bool {
 	if a.Distro.IsKataDistro() {
 		return false
 	}
-	return a.Distro.Is2404VHDDistro() || a.Distro.IsACLDistro() || a.Distro.IsAzureLinuxV3Distro()
+	return a.Distro.Is2604VHDDistro() || a.Distro.Is2404VHDDistro() || a.Distro.IsACLDistro() || a.Distro.IsAzureLinuxV3Distro()
 }
 
 // IsAzureLinuxCgroupV2VHDDistro returns true if the distro uses Azure Linux CgrpupV2 VHD.
@@ -2108,13 +2108,11 @@ type AKSKubeletConfiguration struct {
 	Default: nil
 	+optional. */
 	ClusterDNS []string `json:"clusterDNS,omitempty"`
-	/* streamingConnectionIdleTimeout is the maximum time a streaming connection
-	can be idle before the connection is automatically closed.
-	Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-	it may impact components that rely on infrequent updates over streaming
-	connections to the Kubelet server.
-	Default: "4h"
-	+optional. */
+	/* Deprecated: streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34.
+		Retained for backward compatibility with k8s < 1.34. Do not use for new code.
+		For k8s >= 1.34, this field is cleared by baker/ANC and omitted from the config file via omitempty.
+		Default: "4h"
+	   +optional. */
 	StreamingConnectionIdleTimeout Duration `json:"streamingConnectionIdleTimeout,omitempty"`
 	/* nodeStatusUpdateFrequency is the frequency that kubelet computes node
 	status. If node lease feature is not enabled, it is also the frequency that
@@ -2327,7 +2325,7 @@ type AKSKubeletConfiguration struct {
 	EnforceNodeAllocatable []string `json:"enforceNodeAllocatable,omitempty"`
 	/* kubeReservedCgroup is the absolute name of the cgroup the kubelet should manage
 	for the kube-reserved compute resources. When enforce-node-allocatable contains
-	"kube-reserved", this cgroup must exist before kubelet starts. Example: "/kubelet.slice".
+	this cgroup must exist before kubelet starts. Example: "/kubereserved.slice".
 	+optional. */
 	KubeReservedCgroup string `json:"kubeReservedCgroup,omitempty"`
 	/* systemReservedCgroup is the absolute name of the cgroup the kubelet should manage
