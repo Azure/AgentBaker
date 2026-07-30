@@ -249,10 +249,17 @@ isCISUnsupportedUbuntu() {
     local os="$1"
     local version="$2"
 
-    # Only 22.04+ are supported
-    if [ "$os" = "Ubuntu" ] && { [ "$version" = "20.04" ]; }; then
+    # Only 22.04+ are supported.
+    if [ "$os" = "Ubuntu" ] && [ "$version" = "20.04" ]; then
         return 0
     fi
+
+    # No CIS benchmarks yet available for Ubuntu 26.04 (resolute)
+    # TODO(2604): enable 26.04 CIS scanning when support is added by upstream CIS.
+    if [ "$os" = "Ubuntu" ] && [ "$version" = "26.04" ]; then
+        return 0
+    fi
+
     return 1
 }
 isFlatcar() {

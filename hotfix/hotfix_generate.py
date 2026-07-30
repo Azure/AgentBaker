@@ -4,10 +4,9 @@ Combined ANC hotfix generator.
 
 Auto-detects what needs a hotfix and generates the version numbers for it:
 
-1. If aks-node-controller/ (the Go module) has changes vs the base branch, bumps the
-   patch of the current pkg/agent/datamodel/linux_sig_version.json version to the
-   first patch number that isn't already tagged in the repo (e.g. 202607.02.0 ->
-   202607.02.1, or .2/.3/... if those tags already exist), and uses that as `version`.
+1. If aks-node-controller/ (the Go module) has changes other than *_test.go or
+   testdata files vs the base branch, bumps the patch of the current
+   pkg/agent/datamodel/linux_sig_version.json version and uses it as `version`.
 
 2. Detects which CSE provisioning scripts changed vs the base branch and injects their
    write_files entries into the EnableScriptlessCSECmd section of
@@ -16,9 +15,9 @@ Auto-detects what needs a hotfix and generates the version numbers for it:
    bumped using the same base-version + tag-collision algorithm as `version`.
 
 3. Writes the resulting {"version", "scripts_version"} (omitting fields that don't
-   apply) to parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json, the
-   file pkg/agent/baker.go embeds directly into every scriptless customData render
-   (see hotfixJSONFile in pkg/agent/const.go).
+   apply) to parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json only
+   when there is an active hotfix. If no hotfix applies, the file is removed/left
+   absent so scriptless customData does not embed an empty hotfix artifact.
 
 Usage: python3 hotfix/hotfix_generate.py <base_ref>
   base_ref: git ref to diff against for changed-script/changed-code detection
@@ -28,6 +27,7 @@ This script is called by the hotfix-generate GH Action.
 """
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -160,29 +160,41 @@ def bump_version(base_version):
         patch += 1
 
 
-def path_changed(base_ref, path):
-    """Return True if path differs between the working tree and base_ref."""
-    result = subprocess.run(["git", "diff", "--quiet", base_ref, "--", path])
-    return result.returncode != 0
+def path_changed(base_ref, *paths):
+    """Return True if any selected path differs from the working tree and base_ref."""
+    result = subprocess.run(["git", "diff", "--quiet", base_ref, "--", *paths])
+    if result.returncode == 0:
+        return False
+    if result.returncode == 1:
+        return True
+    raise subprocess.CalledProcessError(result.returncode, result.args)
 
 
 def write_hotfix_file(version, scripts_version):
-    """Write the resolved {version, scripts_version} to TARGET_FILE, the file
-    pkg/agent/baker.go embeds directly at customData-render time."""
+    """Write the resolved {version, scripts_version} to TARGET_FILE when active.
+
+    When no hotfix applies, remove TARGET_FILE if present. An empty JSON object is
+    still embedded as a real scriptless customData file, which changes payload
+    shape even though there is no hotfix for the wrapper to consume.
+    """
     payload = {}
     if version:
         payload["version"] = version
     if scripts_version:
         payload["scripts_version"] = scripts_version
 
-    with open(TARGET_FILE, "w") as f:
-        json.dump(payload, f, indent=4)
-        f.write("\n")
-
     if payload:
+        with open(TARGET_FILE, "w") as f:
+            json.dump(payload, f, indent=4)
+            f.write("\n")
         print(f"Wrote {payload} to {TARGET_FILE}", file=sys.stderr)
-    else:
-        print(f"No active hotfix; reset {TARGET_FILE} to {{}}", file=sys.stderr)
+        return
+
+    try:
+        os.remove(TARGET_FILE)
+        print(f"No active hotfix; removed {TARGET_FILE}", file=sys.stderr)
+    except FileNotFoundError:
+        print(f"No active hotfix; {TARGET_FILE} already absent", file=sys.stderr)
 
 
 def detect_changed_varkeys(base_ref):
@@ -402,11 +414,18 @@ def main():
     base_version = read_base_version()
 
     version = ""
-    if path_changed(base_ref, ANC_DIR):
+    if path_changed(
+        base_ref,
+        ANC_DIR,
+        f":(exclude,glob){ANC_DIR}**/*_test.go",
+        f":(exclude,glob){ANC_DIR}**/testdata/**",
+    ):
         version = bump_version(base_version)
-        print(f"aks-node-controller/ changed vs {base_ref}; version={version}", file=sys.stderr)
+        print(f"aks-node-controller/ production files changed vs {base_ref}; "
+              f"version={version}", file=sys.stderr)
     else:
-        print(f"aks-node-controller/ unchanged vs {base_ref}; version not set", file=sys.stderr)
+        print(f"aks-node-controller/ has no production changes vs {base_ref}; "
+              "version not set", file=sys.stderr)
 
     scripts_version = ""
     if path_changed(base_ref, TEMPLATE):

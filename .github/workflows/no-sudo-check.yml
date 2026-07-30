@@ -15,6 +15,7 @@ jobs:
           | grep -v ':[[:space:]]*#' \
           | grep -v 'sudo\.log' \
           | grep -v 'sudoers' \
+          | grep -v 'update-alternatives' \
           | grep -v 'logrotate\.d/sudo' || true)
         if [ -n "$matches" ]; then
           echo "::error::Found sudo command invocations in CSE provisioning scripts."

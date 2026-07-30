@@ -381,9 +381,20 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 			return nil, fmt.Errorf("failed waiting for cluster deletion: %w", err)
 		}
 		return nil, nil
+
+	case "Creating":
+		// For Creating state, wait for the cluster to become ready.
+		toolkit.Logf(ctx, "Cluster is currently being created. Will wait for creation to finish: %s", clusterName)
+		return waitUntilClusterReady(ctx, clusterName, location)
+
+	case "Starting":
+		// For Starting state, wait for the cluster to become ready.
+		toolkit.Logf(ctx, "Cluster is currently being started. Will wait for start to finish: %s", clusterName)
+		return waitUntilClusterReady(ctx, clusterName, location)
+
 	default:
-		// other provisioning state,  deleting, , stopping,,cancaled,cancelling,"Creating", "Updating", "Scaling", "Migrating", "Upgrading", "Starting", "Restoring": .. plus many others.
-		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Unexpected cluster provisioning state %s: %s", clusterName, *existingCluster.Properties.ProvisioningState)
+		// For other non-terminal provisioning states (e.g., Updating, Scaling, Migrating, Upgrading, Restoring), wait for the cluster to become ready.
+		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Unexpected cluster provisioning state for cluster %s: %s", clusterName, *existingCluster.Properties.ProvisioningState)
 		return waitUntilClusterReady(ctx, clusterName, location)
 	}
 }
@@ -443,7 +454,7 @@ func waitUntilClusterReady(ctx context.Context, name, location string) (*armcont
 		switch *cluster.ManagedCluster.Properties.ProvisioningState {
 		case "Succeeded":
 			return true, nil
-		case "Updating", "Assigned", "Creating", "Deleting", "Canceling":
+		case "Updating", "Assigned", "Creating", "Deleting", "Canceling", "Starting":
 			return false, nil
 		case "Canceled":
 			return false, fmt.Errorf("cluster %s is in state %s, won't retry", name, *cluster.ManagedCluster.Properties.ProvisioningState)

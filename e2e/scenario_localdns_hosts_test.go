@@ -24,6 +24,7 @@ func Test_LocalDNSHostsPlugin(t *testing.T) {
 	}{
 		{name: "Ubuntu2204", vhd: config.VHDUbuntu2204Gen2Containerd},
 		{name: "Ubuntu2404", vhd: config.VHDUbuntu2404Gen2Containerd},
+		{name: "Ubuntu2604Minimal", vhd: config.VHDUbuntu2604MinimalGen2Containerd},
 		{name: "AzureLinuxV3", vhd: config.VHDAzureLinuxV3Gen2},
 		{name: "ACL", vhd: config.VHDACLGen2TL, vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
@@ -32,10 +33,14 @@ func Test_LocalDNSHostsPlugin(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			cluster := ClusterKubenet
+			if tt.name == "Ubuntu2604Minimal" {
+				cluster = ClusterLatestKubernetesVersionKubenet
+			}
 			RunScenario(t, &Scenario{
 				Description: "Tests that localdns hosts plugin works correctly on " + tt.name,
 				Config: Config{
-					Cluster: ClusterKubenet,
+					Cluster: cluster,
 					VHD:     tt.vhd,
 					BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 						nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
