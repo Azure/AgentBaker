@@ -86,4 +86,82 @@ Describe 'cse_install_ubuntu.sh'
             The output should include "status=incomplete"
         End
     End
+
+    Describe 'installPackageFromCache version matching'
+        deb_cache_root="/tmp/shellspec-deb-cache-$$"
+
+        setup_deb_cache() {
+            mkdir -p "$deb_cache_root"
+        }
+
+        cleanup_deb_cache() {
+            rm -rf "$deb_cache_root"
+        }
+
+        BeforeEach 'setup_deb_cache'
+        AfterEach 'cleanup_deb_cache'
+
+        # Mock functions used by installPackageFromCache
+        fallbackToKubeBinaryInstall() { return 1; }
+        logs_to_events() { shift; eval "$@"; }
+        extractDebBinaryFromFile() { echo "extractDebBinaryFromFile $1 $2 $3"; }
+
+        It 'does not match version 1.34.10 when requesting 1.34.1'
+            downloadDir="$deb_cache_root"
+            packageName="kubelet"
+            packageVersion="1.34.1"
+            touch "$downloadDir/kubelet_1.34.1-1ubuntu22.04u1_amd64.deb"
+            touch "$downloadDir/kubelet_1.34.10-1ubuntu22.04u1_amd64.deb"
+            touch "$downloadDir/kubelet_1.34.11-1ubuntu22.04u1_amd64.deb"
+            touch "$downloadDir/kubelet_1.34.12-1ubuntu22.04u1_amd64.deb"
+
+            result() {
+                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1
+            }
+            When call result
+            The output should equal "kubelet_1.34.1-1ubuntu22.04u1_amd64.deb"
+        End
+
+        It 'matches the latest release of the exact version requested'
+            downloadDir="$deb_cache_root"
+            packageName="kubelet"
+            packageVersion="1.34.1"
+            touch "$downloadDir/kubelet_1.34.1-1ubuntu22.04u1_amd64.deb"
+            touch "$downloadDir/kubelet_1.34.1-2ubuntu22.04u1_amd64.deb"
+
+            result() {
+                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1
+            }
+            When call result
+            The output should equal "kubelet_1.34.1-2ubuntu22.04u1_amd64.deb"
+        End
+
+        It 'returns empty when no matching version exists'
+            downloadDir="$deb_cache_root"
+            packageName="kubelet"
+            packageVersion="1.34.1"
+            touch "$downloadDir/kubelet_1.34.10-1ubuntu22.04u1_amd64.deb"
+            touch "$downloadDir/kubelet_1.34.2-1ubuntu22.04u1_amd64.deb"
+
+            result() {
+                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1
+            }
+            When call result
+            The output should equal ""
+        End
+
+        It 'matches version with plus suffix (azure convention)'
+            downloadDir="$deb_cache_root"
+            packageName="kubelet"
+            packageVersion="1.34.1"
+            touch "$downloadDir/kubelet_1.34.1+azure-1_amd64.deb"
+            touch "$downloadDir/kubelet_1.34.10+azure-1_amd64.deb"
+
+            result() {
+                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1
+            }
+            When call result
+            The output should equal "kubelet_1.34.1+azure-1_amd64.deb"
+        End
+    End
 End
