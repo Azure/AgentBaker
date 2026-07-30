@@ -1506,6 +1506,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		vars := decodeCSEVars(cseCmd)
 		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_PROFILE_LAYOUT", "MIG3g,MIG2g,MIG1g,MIG1g"))
+		// TODO: Make MIG_NODE true if either NVIDIA_MIG_PROFILE_LAYOUT or GPU_INSTANCE_PROFILE is set.
 		Expect(vars).To(HaveKeyWithValue("MIG_NODE", "false"))
 	})
 
