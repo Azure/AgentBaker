@@ -517,7 +517,7 @@ installRPMPackageFromFile() {
     fi
 
     # check cached rpms for matching filename
-    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
+    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${desiredVersion}([^0-9]|$)" | sort -V | tail -n 1) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
         # query all package versions and get the latest version for matching k8s version
         # e.g. 1.34.0-5.azl3
@@ -528,7 +528,7 @@ installRPMPackageFromFile() {
         fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" "${fullPackageVersion}" "${downloadDir}"
-        rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
+        rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${desiredVersion}([^0-9]|$)" | sort -V | tail -n 1) || rpmFile=""
     fi
     if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
@@ -559,7 +559,7 @@ installPackageFromCache() {
     fi
 
     # check cached rpms for matching filename
-    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
+    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${desiredVersion}([^0-9]|$)" | sort -V | tail -n 1) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
         echo "Failed to find cached rpm file for ${packageName} version ${desiredVersion}"
         return 1

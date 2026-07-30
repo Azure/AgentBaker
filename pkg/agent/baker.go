@@ -28,6 +28,8 @@ import (
 
 const (
 	MaxCustomDataLength = 87380
+	// Easy way to either use cloud init boothook or CSE.
+	UseCSEScriptlessPhase2 = true
 )
 
 // TemplateGenerator represents the object that performs the template generation.
@@ -50,6 +52,10 @@ func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBo
 }
 
 const (
+	cseScriptlessPhase2Template = `echo '%s' | base64 -d | gzip -d > /opt/azure/containers/boothook.sh` +
+		` && chmod 0600 /opt/azure/containers/boothook.sh` +
+		` && /bin/bash /opt/azure/containers/boothook.sh` +
+		` && /opt/azure/containers/aks-node-controller provision-wait`
 	boothookTemplate = `#cloud-boothook
 #!/bin/bash
 set -euo pipefail
@@ -113,11 +119,12 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 }
 
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
-	if config.EnableScriptlessNBCCSECmd {
-		if supportsScriptlessPhase2(config) {
-			if customData := t.getScriptlessNBCCustomData(config); len(customData) < MaxCustomDataLength {
-				return customData
-			}
+	if supportsScriptlessPhase2(config) {
+		if UseCSEScriptlessPhase2 {
+			return base64.StdEncoding.EncodeToString([]byte(""))
+		}
+		if customData := t.getScriptlessNBCCmd(config, true); len(customData) < MaxCustomDataLength {
+			return customData
 		}
 		// if we cannot enable scriptless phase2, we need to fallback to scriptless phase1
 		config.EnableScriptlessNBCCSECmd = false
@@ -138,10 +145,12 @@ func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.N
 	return encoded
 }
 
-// getScriptlessNBCCustomData builds custom data for the scriptless NBC CSE path.
+// getScriptlessNBCCmd builds custom data for the scriptless NBC CSE path.
 // It encodes the nbc-cmd script, node custom data, and optionally AKSNodeConfig
-// into the appropriate format (boothook or flatcar ignition).
-func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBootstrappingConfiguration) string {
+// into the appropriate format (boothook or flatcar ignition) if useCustomDataFormat is true
+// or returns the base64 of compressed custom data if useCustomDataFormat is false.
+// The caller is responsible for ensuring the resulting custom data is within the size limit.
+func (t *TemplateGenerator) getScriptlessNBCCmd(config *datamodel.NodeBootstrappingConfiguration, useCustomDataFormat bool) string {
 	config.DisableCustomData = true
 	config.EnableScriptlessCSECmd = true
 	nbcCMD := t.getLinuxNodeCSECommand(config)
@@ -182,13 +191,16 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 	}
 
 	var customData string
-	if config.IsFlatcar() || config.IsACL() {
-		customData = buildScriptlessCustomData(flatcarTemplate, flatcarFileEntry, ",", encodedFiles)
-	} else {
-		customData = buildScriptlessCustomData(boothookTemplate, boothookFileEntry, "\n", encodedFiles)
+	if useCustomDataFormat {
+		if config.IsFlatcar() || config.IsACL() {
+			customData = buildScriptlessCustomData(flatcarTemplate, flatcarFileEntry, ",", encodedFiles)
+		} else {
+			customData = buildScriptlessCustomData(boothookTemplate, boothookFileEntry, "\n", encodedFiles)
+		}
+		return base64.StdEncoding.EncodeToString([]byte(customData))
 	}
-
-	return base64.StdEncoding.EncodeToString([]byte(customData))
+	customData = buildScriptlessCustomData(boothookTemplate, boothookFileEntry, "\n", encodedFiles)
+	return getBase64EncodedGzippedCustomScriptFromStr(customData)
 }
 
 func supportsScriptlessPhase2(config *datamodel.NodeBootstrappingConfiguration) bool {
@@ -473,6 +485,10 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 		return t.getWindowsNodeCSECommand(config)
 	}
 	if supportsScriptlessPhase2(config) {
+		if UseCSEScriptlessPhase2 {
+			cseCmd := t.getScriptlessNBCCmd(config, false)
+			return fmt.Sprintf(cseScriptlessPhase2Template, cseCmd)
+		}
 		return "/opt/azure/containers/aks-node-controller provision-wait"
 	}
 	return t.getLinuxNodeCSECommand(config)
@@ -1529,7 +1545,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
-		"GetSkipWaAgentHold":  func() bool { return supportsScriptlessPhase2(config) },
+		"GetSkipWaAgentHold":  func() bool { return supportsScriptlessPhase2(config) && !UseCSEScriptlessPhase2 },
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},
