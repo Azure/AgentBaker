@@ -113,6 +113,7 @@ func Test_ACL_CustomCA(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
+				ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh")
 				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
 				// ACL uses Azure Linux CA trust paths under /etc (read-only /usr via dm-verity)
 				ValidateNonEmptyDirectory(ctx, s, "/etc/pki/ca-trust/source/anchors")
@@ -429,6 +430,7 @@ func Test_AzureLinuxV3_CustomCA(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/usr/share/pki/ca-trust-source/anchors")
+				ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh")
 			},
 		},
 	})
@@ -532,6 +534,7 @@ func Test_Ubuntu2204_CustomCA(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
+				ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh")
 			},
 		},
 	})
@@ -2118,7 +2121,7 @@ func Test_Ubuntu2604Minimal_VHDCaching(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2604Minimal_CustomCA(t *testing.T) {
+func Test_Ubuntu2604Minimal_CustomCa(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that an Ubuntu 2604 minimal node can be properly bootstrapped with custom ca",
 		Tags: Tags{
