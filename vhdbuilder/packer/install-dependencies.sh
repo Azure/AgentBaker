@@ -223,310 +223,6 @@ installAndConfigureArtifactStreaming() {
   echo "  - acr-mirror version ${version}" >> ${VHD_LOGS_FILEPATH}
 }
 
-# Artifact streaming (acr-mirror) - version and URLs resolved from components.json,
-# OS filtering handled declaratively by components.json entries (<SKIP> for unsupported OSes).
-acrMirrorPackage=$(echo "${packages}" | jq -c 'select(.name == "acr-mirror")')
-updatePackageVersions "${acrMirrorPackage}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
-updatePackageDownloadURL "${acrMirrorPackage}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
-if [ "${#PACKAGE_VERSIONS[@]}" -gt 0 ] && [ "${PACKAGE_VERSIONS[0]}" != "<SKIP>" ]; then
-  for version in ${PACKAGE_VERSIONS[@]}; do
-    evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-    installAndConfigureArtifactStreaming "${evaluatedURL}" "${version}"
-  done
-fi
-capture_benchmark "${SCRIPT_NAME}_install_artifact_streaming"
-
-# k8s will use images in the k8s.io namespaces - create it
-ctr namespace create k8s.io
-cliTool="ctr"
-
-INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_install_crictl"
-
-GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
-
-NVIDIA_DRIVER_IMAGE=""
-NVIDIA_DRIVER_IMAGE_TAG=""
-NVIDIA_GRID_DRIVER_VERSION=""
-
-# Extract GRID driver version for release notes (applicable to all Linux distributions)
-while IFS= read -r imageToBePulled; do
-  downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
-  # shellcheck disable=SC2001
-  imageName=$(echo "$downloadURL" | sed 's/:.*$//')
-
-  if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-grid" ]; then
-    NVIDIA_GRID_DRIVER_VERSION=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
-    # Continue to extract CUDA driver info as well
-  fi
-done <<< "$GPUContainerImages"
-
-# For Ubuntu, pre-pull the CUDA driver image
-if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
-  gpu_action="copy"
-
-  while IFS= read -r imageToBePulled; do
-    downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
-    # shellcheck disable=SC2001
-    imageName=$(echo "$downloadURL" | sed 's/:.*$//')
-
-    if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-cuda-lts" ]; then
-      latestVersion=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
-      NVIDIA_DRIVER_IMAGE="$imageName"
-      NVIDIA_DRIVER_IMAGE_TAG="$latestVersion"
-      break  # Exit the loop once we find the image
-    fi
-  done <<< "$GPUContainerImages"
-
-  # Check if the NVIDIA_DRIVER_IMAGE and NVIDIA_DRIVER_IMAGE_TAG were found
-  if [ -z "$NVIDIA_DRIVER_IMAGE" ] || [ -z "$NVIDIA_DRIVER_IMAGE_TAG" ]; then
-    echo "Error: Unable to find aks-gpu-cuda-lts image in components.json"
-    exit 1
-  fi
-
-  mkdir -p /opt/{actions,gpu}
-
-  /opt/azure/containers/image-fetcher "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
-
-    cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
-EOF
-
-  # Opt-in: pre-build the NVIDIA kernel module into the VHD so node provisioning skips the
-  # ~100s in-CSE DKMS compile. The aks-gpu container is run in "build-only" mode: it compiles
-  # and DKMS-registers the kernel module + stages userspace libs against THIS VHD's kernel,
-  # performs NO device access (safe on the GPU-less Packer builder), and writes the marker
-  # /opt/azure/aks-gpu/dkms-marker. At node boot, configGPUDrivers passes "install-skip-build"
-  # when that marker matches, running only the device-dependent steps.
-  # The driver image is intentionally LEFT in the VHD: boot-time device init still sources the
-  # container toolkit debs, fabric manager, containerd runtime config and udev rules from it.
-  # Dropping the image is a separate, deferred size optimization.
-  if grep -q "NVIDIA_CUDA_PREBAKE" <<< "$FEATURE_FLAGS"; then
-    echo "Pre-building NVIDIA CUDA kernel module into the VHD (build-only) for kernel $(uname -r)"
-    # nvidia-installer needs gcc/make + libc6-dev to compile; the builder lacks them here, so install
-    # them. A boot-time fallback recompile (marker mismatch) still has them: the VHD ships
-    # build-essential -> libc6-dev (release-notes manifests) -- the toolchain baseline GPU nodes compile
-    # with at boot (installDeps runs apt --no-install-recommends, so gcc alone doesn't pull libc6-dev).
-    apt_get_install 10 2 300 gcc make libc6-dev || exit 1
-    CTR_GPU_PREBUILD_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
-    retrycmd_if_failure 3 10 600 bash -c "$CTR_GPU_PREBUILD_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuprebuild /entrypoint.sh build-only" || exit 1
-    if [ ! -f /opt/azure/aks-gpu/dkms-marker ]; then
-      echo "Error: NVIDIA CUDA prebake did not produce /opt/azure/aks-gpu/dkms-marker"
-      exit 1
-    fi
-    cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - nvidia-cuda-driver-prebaked=${NVIDIA_DRIVER_IMAGE_TAG} (kernel $(uname -r))
-EOF
-  fi
-fi
-
-if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
-  # NVIDIA GB setup is only supported on arm64 Ubuntu 24.04.
-  if [ "${CPU_ARCH}" = "arm64" ] && [ "${UBUNTU_RELEASE}" = "24.04" ]; then
-    # Replicate all functionality from github.com/azure/aks-gpu/install.sh.
-    # aks-gpu is designed to run at node boot/join time, whereas the NVIDIA GB VHD is set up
-    # to have all drivers installed at VHD build time.
-
-    # 1. Blacklist nouveau driver
-    cat << EOF >> /etc/modprobe.d/blacklist-nouveau.conf
-blacklist nouveau
-options nouveau modeset=0
-EOF
-    update-initramfs -u
-
-    # 2. install drivers
-    BOM_PATH="gb-mai-bom.json"
-
-    # Install a custom repository if a doca-custom-repo is specified
-    DOCA_CUSTOM_REPO=$(jq -r '.["doca-custom-repo"]' $BOM_PATH)
-    if [ -n "$DOCA_CUSTOM_REPO" ]; then
-      mv /etc/apt/sources.list.d/doca-net.list /etc/apt/sources.list.d/doca-net.list.backup
-      echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/doca-net.pub] $DOCA_CUSTOM_REPO ./" > /etc/apt/sources.list.d/doca-net.list
-      apt-get update
-    fi
-
-    # Install DOCA/OFED before the GPU driver so nvidia-peermem can build against the RDMA APIs provided by OFED.
-    # Farcically, nvidia-dkms-580-open cannot be installed together with the CUDA toolkit. Something about that package changes the build environment in an incompatible way. I've seen people mention CUDA including an old version of gcc that somehow makes its way onto the PATH...
-    # Therefore we install DOCA/OFED first, the GPU driver and its dependencies second, then all downstream reverse-dependencies (CUDA, DCGM, and so forth) third.
-    sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave1"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
-    sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave2"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
-    sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave3"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
-
-    # 3. Add char device symlinks for NVIDIA devices
-    mkdir -p "$(dirname /lib/udev/rules.d/71-nvidia-dev-char.rules)"
-    cat << EOF >> /lib/udev/rules.d/71-nvidia-dev-char.rules
-ACTION=="add", DEVPATH=="/bus/pci/drivers/nvidia", RUN+="/usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all"
-EOF
-
-    # Create systemd drop-in to override nvidia-device-plugin dependencies
-    mkdir -p /etc/systemd/system/nvidia-device-plugin.service.d
-    cat << EOF > /etc/systemd/system/nvidia-device-plugin.service.d/override.conf
-[Unit]
-After=kubelet.service
-
-[Service]
-ExecStartPre=-/usr/bin/mkdir -p /var/lib/kubelet/device-plugins
-EOF
-
-    # Now we are off-piste: enable DCGM, DCGM exporter, container device plugin, and the NVIDIA containerd config.
-    systemctl enable nvidia-dcgm
-    systemctl enable nvidia-dcgm-exporter
-    systemctl enable nvidia-device-plugin
-    systemctl enable openibd
-
-    # One additional request from MAI: signal that NPD is pre-installed on the VHD.
-    # When this file is present, the Azure AKS VM Extension skips installing NPD at provision time.
-    mkdir -p /etc/node-problem-detector.d/
-    touch /etc/node-problem-detector.d/skip_vhd_npd
-  fi
-fi
-
-if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then
-  ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
-fi
-
-# For ACL amd64: pre-cache GPU sysexts from ACR so that E2E GPU tests do not
-# need to pull from MCR at runtime (MCR may not have sysexts for unreleased
-# VERSION_IDs). The sysexts are placed in /opt/<name>/downloads/ where the
-# CSE's matchLocalSysext() will find them.
-if isACL "$OS" "$OS_VARIANT" && [ "$(isARM64)" -ne 1 ] && [ -n "${GPU_SYSEXT_ACR_REPO:-}" ] && [ -n "${GPU_SYSEXT_TAG:-}" ]; then
-  echo "=== Pre-caching GPU sysexts from ACR ==="
-  echo "  Repo: ${GPU_SYSEXT_ACR_REPO}"
-  echo "  Tag:  ${GPU_SYSEXT_TAG}"
-
-  # Authenticate ORAS to the ACR using the token passed from the pipeline.
-  # Supports both Azure AD access tokens (from az acr login --expose-token)
-  # and ACR repository-scoped tokens (from az acr token credential generate).
-  ACR_HOST="${GPU_SYSEXT_ACR_REPO%%/*}"
-  if [ -n "${GPU_SYSEXT_ACR_TOKEN:-}" ]; then
-    ORAS_USERNAME="${GPU_SYSEXT_ACR_USERNAME:-00000000-0000-0000-0000-000000000000}"
-    /opt/bin/oras login "${ACR_HOST}" \
-      --username "${ORAS_USERNAME}" \
-      --password "${GPU_SYSEXT_ACR_TOKEN}" || {
-        echo "  WARNING: ORAS login to ${ACR_HOST} failed — GPU sysext pre-cache will be skipped"
-        GPU_SYSEXT_ACR_REPO=""
-      }
-  fi
-
-  GPU_SYSEXTS=(
-    "nvidia-driver-cuda-open"
-    "nvidia-driver-cuda"
-    "nvidia-driver-vgpu"
-    "nvidia-container-toolkit"
-    "nvidia-fabric-manager"
-  )
-
-  if [ -n "${GPU_SYSEXT_ACR_REPO}" ]; then
-  for sysext_name in "${GPU_SYSEXTS[@]}"; do
-    download_dir="/opt/${sysext_name}/downloads"
-    mkdir -p "${download_dir}"
-    sysext_ref="${GPU_SYSEXT_ACR_REPO}/${sysext_name}:${GPU_SYSEXT_TAG}"
-    echo "  Pulling ${sysext_ref} → ${download_dir}"
-    if /opt/bin/oras pull --output "${download_dir}" "${sysext_ref}"; then
-      echo "  - gpu-sysext ${sysext_name}:${GPU_SYSEXT_TAG} (pre-cached from ACR)" >> ${VHD_LOGS_FILEPATH}
-    else
-      echo "  WARNING: Failed to pull ${sysext_ref} — GPU E2E may fail for this driver flavor"
-    fi
-  done
-  fi
-
-  # Logout from ACR
-  if [ -n "${GPU_SYSEXT_ACR_TOKEN:-}" ]; then
-    /opt/bin/oras logout "${ACR_HOST}" 2>/dev/null || true
-  fi
-
-  capture_benchmark "${SCRIPT_NAME}_precache_acl_gpu_sysexts"
-fi
-
-installBpftrace
-echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
-
-PRESENT_DIR=$(pwd)
-# run installBcc in a subshell and continue on with container image pull in order to decrease total build time
-(
-  cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
-  installBcc
-  exit $?
-) > /var/log/bcc_installation.log 2>&1 &
-
-BCC_PID=$!
-
-# Add a separate section for runtime-installed components
-# This clearly distinguishes components installed during CSE from VHD build-time components
-# Only add for Ubuntu
-if [ -n "$NVIDIA_GRID_DRIVER_VERSION" ] && [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-  cat << EOF >> ${VHD_LOGS_FILEPATH}
-Components installed at node provisioning time (CSE) for supported GPU VM sizes (example A10 family):
-  - nvidia-grid-driver=${NVIDIA_GRID_DRIVER_VERSION}
-EOF
-fi
-
-echo "images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_pull_nvidia_driver_and_start_ebpf_downloads"
-
-string_replace() {
-  echo ${1//\*/$2}
-}
-
-# Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
-# Account for possibility that number of cores is 3 or less
-num_proc=$(nproc)
-if [ "$num_proc" -gt 3 ]; then
-  parallel_container_image_pull_limit=$(nproc --ignore=2)
-else
-  parallel_container_image_pull_limit=1
-fi
-echo "Limit for parallel container image pulls set to $parallel_container_image_pull_limit"
-
-declare -a image_pids=()
-
-ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-while IFS= read -r imageToBePulled; do
-  downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
-  amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-  updateMultiArchVersions "${imageToBePulled}"
-  amd64OnlyVersions=""
-  if [ "${amd64OnlyVersionsStr}" != "null" ]; then
-    amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
-  fi
-
-  if [ "$(isARM64)" -eq 1 ]; then
-    versions="${MULTI_ARCH_VERSIONS[*]}"
-  else
-    versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"
-  fi
-
-  for version in ${versions}; do
-    CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage "${cliTool}" "${CONTAINER_IMAGE}" &
-    image_pids+=($!)
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do
-      wait -n || {
-        ret=$?
-        echo "A background job pullContainerImage failed: ${ret}, ${CONTAINER_IMAGE}. Exiting..." >&2
-        for pid in "${image_pids[@]}"; do
-          kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
-        done
-        exit "${ret}"
-    }
-    done
-  done
-done <<< "$ContainerImages"
-echo "Waiting for container image pulls to finish. PID: ${image_pids[@]}"
-while [ "$(jobs -p | wc -l)" -gt 0 ]; do
-  wait -n || {
-    ret=$?
-    echo "A background job pullContainerImage failed: ${ret}. Exiting..." >&2
-    for pid in "${image_pids[@]}"; do
-      kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
-    done
-    exit "${ret}"
-  }
-done
-capture_benchmark "${SCRIPT_NAME}_caching_container_images"
-
 retagAKSNodeCAWatcher() {
   # This function retags the aks-node-ca-watcher image to a static tag
   # The static tag is used to bootstrap custom CA trust when MCR egress may be intercepted by an untrusted TLS MITM firewall.
@@ -1533,7 +1229,7 @@ echo "VHD will be built with containerd as the container runtime"
 cachePackageAndBinaryComponents
 
 # k8s will use images in the k8s.io namespaces - create it
-ctr namespace create k8s.io
+ctr namespace create k8s.io 2>/dev/null || true
 
 # Fetch and pre-build the NVIDIA CUDA driver BEFORE starting the BCC background build and BEFORE caching
 # the bulk container images. The driver's kernel-module compile and userspace lib install are disk-heavy;
@@ -1556,6 +1252,62 @@ capture_benchmark "${SCRIPT_NAME}_caching_container_images"
 configureGraceBlackwell
 if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then
   ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
+fi
+
+# For ACL amd64: pre-cache GPU sysexts from ACR so that E2E GPU tests do not
+# need to pull from MCR at runtime (MCR may not have sysexts for unreleased
+# VERSION_IDs). The sysexts are placed in /opt/<name>/downloads/ where the
+# CSE's matchLocalSysext() will find them.
+if isACL "$OS" "$OS_VARIANT" && [ "$(isARM64)" -ne 1 ] && [ -n "${GPU_SYSEXT_ACR_REPO:-}" ] && [ -n "${GPU_SYSEXT_TAG:-}" ]; then
+  echo "=== Pre-caching GPU sysexts from ACR ==="
+  echo "  Repo: ${GPU_SYSEXT_ACR_REPO}"
+  echo "  Tag:  ${GPU_SYSEXT_TAG}"
+
+  # Authenticate ORAS to the ACR using the token passed from the pipeline.
+  # Supports both Azure AD access tokens (from az acr login --expose-token)
+  # and ACR repository-scoped tokens (from az acr token credential generate).
+  ACR_HOST="${GPU_SYSEXT_ACR_REPO%%/*}"
+  if [ -n "${GPU_SYSEXT_ACR_TOKEN:-}" ]; then
+    ORAS_USERNAME="${GPU_SYSEXT_ACR_USERNAME:-00000000-0000-0000-0000-000000000000}"
+    echo "  ORAS binary: $(ls -la /opt/bin/oras 2>&1)"
+    echo "  Attempting login to ${ACR_HOST} as ${ORAS_USERNAME}..."
+    ORAS_LOGIN_OUTPUT=$(/opt/bin/oras login "${ACR_HOST}" \
+      --username "${ORAS_USERNAME}" \
+      --password "${GPU_SYSEXT_ACR_TOKEN}" 2>&1) || {
+        echo "  WARNING: ORAS login to ${ACR_HOST} failed — GPU sysext pre-cache will be skipped"
+        echo "  ORAS output: ${ORAS_LOGIN_OUTPUT}"
+        GPU_SYSEXT_ACR_REPO=""
+      }
+  fi
+
+  GPU_SYSEXTS=(
+    "nvidia-driver-cuda-open"
+    "nvidia-driver-cuda"
+    "nvidia-driver-vgpu"
+    "nvidia-container-toolkit"
+    "nvidia-fabric-manager"
+  )
+
+  if [ -n "${GPU_SYSEXT_ACR_REPO}" ]; then
+  for sysext_name in "${GPU_SYSEXTS[@]}"; do
+    download_dir="/opt/${sysext_name}/downloads"
+    mkdir -p "${download_dir}"
+    sysext_ref="${GPU_SYSEXT_ACR_REPO}/${sysext_name}:${GPU_SYSEXT_TAG}"
+    echo "  Pulling ${sysext_ref} → ${download_dir}"
+    if /opt/bin/oras pull --output "${download_dir}" "${sysext_ref}"; then
+      echo "  - gpu-sysext ${sysext_name}:${GPU_SYSEXT_TAG} (pre-cached from ACR)" >> ${VHD_LOGS_FILEPATH}
+    else
+      echo "  WARNING: Failed to pull ${sysext_ref} — GPU E2E may fail for this driver flavor"
+    fi
+  done
+  fi
+
+  # Logout from ACR
+  if [ -n "${GPU_SYSEXT_ACR_TOKEN:-}" ]; then
+    /opt/bin/oras logout "${ACR_HOST}" 2>/dev/null || true
+  fi
+
+  capture_benchmark "${SCRIPT_NAME}_precache_acl_gpu_sysexts"
 fi
 
 retagAKSNodeCAWatcher
