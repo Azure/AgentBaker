@@ -1750,6 +1750,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableManagedGPU                bool
 	EnableManagedGPUDRA             bool
 	MigStrategy                     string
+	MIGProfileLayout                []string
 	EnableArtifactStreaming         bool
 	ContainerdVersion               string
 	RuncVersion                     string

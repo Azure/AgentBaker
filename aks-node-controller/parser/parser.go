@@ -102,6 +102,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"MANAGED_GPU_EXPERIENCE_AFEC_ENABLED":                  fmt.Sprintf("%v", config.GetGpuConfig().GetManagedGpuExperienceAfecEnabled()),
 		"ENABLE_MANAGED_GPU":                                   fmt.Sprintf("%v", config.GetGpuConfig().GetEnableManagedGpu()),
 		"NVIDIA_MIG_STRATEGY":                                  config.GetGpuConfig().GetMigStrategy(),
+		"NVIDIA_MIG_PROFILE_LAYOUT":                            getStringifiedStringArray(config.GetGpuConfig().GetMigProfileLayout(), ","),
 		"CREDENTIAL_PROVIDER_DOWNLOAD_URL":                     config.GetKubeBinaryConfig().GetLinuxCredentialProviderUrl(),
 		"CONTAINERD_VERSION":                                   config.GetContainerdConfig().GetContainerdVersion(),
 		"CONTAINERD_PACKAGE_URL":                               config.GetContainerdConfig().GetContainerdPackageUrl(),
