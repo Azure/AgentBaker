@@ -44,7 +44,8 @@ type GpuConfig struct {
 	// Valid values are "None", "Single", "Mixed". Only meaningful when MIG is enabled
 	// (i.e., when gpu_instance_profile is set). Defaults to "Single" if not specified.
 	MigStrategy string `protobuf:"bytes,8,opt,name=mig_strategy,json=migStrategy,proto3" json:"mig_strategy,omitempty"`
-	// mig_profile_layout is the ordered GPU instance profile execution plan for MIG partitioning.
+	// mig_profile_layout is the ordered list of GPU instance profiles used for MIG partitioning.
+	// It will become the unified MIG profile field after gpu_instance_profile is deprecated.
 	MigProfileLayout []string `protobuf:"bytes,9,rep,name=mig_profile_layout,json=migProfileLayout,proto3" json:"mig_profile_layout,omitempty"`
 }
 

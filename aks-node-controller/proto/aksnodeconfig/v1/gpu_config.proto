@@ -31,6 +31,7 @@ message GpuConfig {
   // (i.e., when gpu_instance_profile is set). Defaults to "Single" if not specified.
   string mig_strategy = 8;
 
-  // mig_profile_layout is the ordered GPU instance profile execution plan for MIG partitioning.
+  // mig_profile_layout is the ordered list of GPU instance profiles used for MIG partitioning.
+  // It will become the unified MIG profile field after gpu_instance_profile is deprecated.
   repeated string mig_profile_layout = 9;
 }
