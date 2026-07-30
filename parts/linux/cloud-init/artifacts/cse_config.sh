@@ -1491,6 +1491,8 @@ disableSSH() {
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
     # On AzureLinux, the ssh service is named "sshd.service"
     systemctlDisableAndStop sshd || exit $ERR_DISABLE_SSH
+    # On ACL, port 22 is owned by sshd.socket (socket activation)
+    systemctlDisableAndStop sshd.socket || exit $ERR_DISABLE_SSH
 }
 
 disableSSHPubkeyAuth() {
