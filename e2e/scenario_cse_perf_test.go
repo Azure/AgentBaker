@@ -149,7 +149,7 @@ var fullInstallCSEThresholdsUbuntu2404 = CSETimingThresholds{
 	},
 }
 
-// CSE performance thresholds for Ubuntu 24.04 (cached path).
+// CSE performance thresholds for Ubuntu 26.04 minimal (cached path).
 // TODO(2604): update with accurate data once 26.04 Minimal has sufficient production saturation, for now taking Ubuntu 24.04 thresholds.
 var cachedCSEThresholdsUbuntu2604Minimal = CSETimingThresholds{
 	TotalCSEThreshold:    60 * time.Second,
