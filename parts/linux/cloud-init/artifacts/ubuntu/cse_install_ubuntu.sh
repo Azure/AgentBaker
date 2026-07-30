@@ -532,13 +532,13 @@ installPkgWithAptGet() {
         return 0
     fi
 
-    debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
+    debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1) || debFile=""
     if [ -z "${debFile}" ]; then
 
         # update pmc repo to get latest versions
         updatePMCRepository "${packageVersion}"
         # query all package versions and get the latest version for matching k8s version and cpu architecture
-        fullPackageVersion=$(apt list "${packageName}" --all-versions | grep "${packageVersion}" | grep "$(getCPUArch)" | awk '{print $2}' | sort -V | tail -n 1)
+        fullPackageVersion=$(apt list "${packageName}" --all-versions | grep -E "${packageVersion}([^0-9]|$)" | grep "$(getCPUArch)" | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${packageVersion}"
             return 1
@@ -546,7 +546,7 @@ installPkgWithAptGet() {
         echo "Did not find cached deb file, downloading ${packageName} version ${fullPackageVersion}"
         logs_to_events "AKS.CSE.install${packageName}FromPkg.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
 
-        debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
+        debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1) || debFile=""
     fi
     if [ -z "${debFile}" ]; then
         echo "Failed to locate ${packageName} deb"
@@ -574,13 +574,9 @@ installPackageFromCache() {
         return 0
     fi
 
-    debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
+    debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1) || debFile=""
     if [ -z "${debFile}" ]; then
         echo "Failed to find cached deb file for ${packageName} version ${packageVersion}"
-        return 1
-    fi
-    if [ -z "${debFile}" ]; then
-        echo "Failed to locate ${packageName} deb"
         return 1
     fi
 
