@@ -1237,7 +1237,8 @@ pullGPUDriverImage() {
 }
 
 installGPUDriverImage() {
-    retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
+    # TEST ONLY: force the VHD-prebaked fast path for aks-gpu CDI-ordering validation.
+    retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install-skip-build"
 }
 
 configGPUDrivers() {
