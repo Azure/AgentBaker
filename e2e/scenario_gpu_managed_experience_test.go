@@ -542,11 +542,11 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 	)
 }
 
-func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIGProfiles_Single(t *testing.T) {
+func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIGProfileLayout_Single(t *testing.T) {
 	runUbuntu2404NvidiaDevicePluginMIGSingle(t,
-		"Tests that NVIDIA device plugin and DCGM Exporter work with MIGProfiles and the Single MIG strategy",
+		"Tests that NVIDIA device plugin and DCGM Exporter work with MIGProfileLayout and the Single MIG strategy",
 		func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.MigProfiles = []string{"MIG2g"}
+			nbc.MIGProfileLayout = []string{"MIG2g"}
 		},
 	)
 }
@@ -760,7 +760,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
-				nbc.MigProfiles = []string{"MIG3g", "MIG2g", "MIG1g", "MIG1g"}
+				nbc.MIGProfileLayout = []string{"MIG3g", "MIG2g", "MIG1g", "MIG1g"}
 				nbc.EnableManagedGPU = true
 				nbc.MigStrategy = "Mixed"
 			},

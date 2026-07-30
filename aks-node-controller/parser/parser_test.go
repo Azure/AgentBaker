@@ -43,7 +43,7 @@ func TestBuildCSECmd(t *testing.T) {
 				assert.Equal(t, "false", vars["GPU_NODE"])
 				assertHasKeyWithValue(t, vars, "MIG_NODE", "true")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "MIG7g")
-				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILES", "")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILE_LAYOUT", "")
 				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_STRATEGY", "Single")
 				assert.NotEmpty(t, vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"])
 				// Ensure the containerd config does not use the
@@ -75,11 +75,11 @@ oom_score = -999
 			},
 		},
 		{
-			name:       "AKSUbuntu2204 containerd with a single MIG profile",
+			name:       "AKSUbuntu2204 containerd with a MIG profile layout",
 			folder:     "AKSUbuntu2204+Containerd+MIG",
 			k8sVersion: "1.19.13",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
-				aksNodeConfig.GpuConfig.MigProfiles = []string{"MIG2g"}
+				aksNodeConfig.GpuConfig.MigProfileLayout = []string{"MIG2g"}
 				aksNodeConfig.GpuConfig.MigStrategy = "Single"
 				aksNodeConfig.GpuConfig.EnableNvidia = to.Ptr(true)
 				aksNodeConfig.VmSize = "Standard_ND96asr_v4"
@@ -89,7 +89,7 @@ oom_score = -999
 				assertHasKeyWithValue(t, vars, "GPU_NODE", "true")
 				assertHasKeyWithValue(t, vars, "MIG_NODE", "true")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
-				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILES", "MIG2g")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILE_LAYOUT", "MIG2g")
 				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_STRATEGY", "Single")
 			},
 		},
@@ -106,11 +106,11 @@ oom_score = -999
 			},
 		},
 		{
-			name:       "AKSUbuntu2204 containerd with mixed MIG profiles",
+			name:       "AKSUbuntu2204 containerd with an ordered MIG profile layout",
 			folder:     "AKSUbuntu2204+Containerd+MIG",
 			k8sVersion: "1.19.13",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
-				aksNodeConfig.GpuConfig.MigProfiles = []string{"MIG1g", "MIG2g", "MIG4g"}
+				aksNodeConfig.GpuConfig.MigProfileLayout = []string{"MIG1g", "MIG2g", "MIG4g"}
 				aksNodeConfig.GpuConfig.MigStrategy = "Mixed"
 				aksNodeConfig.GpuConfig.EnableNvidia = to.Ptr(true)
 				aksNodeConfig.VmSize = "Standard_ND96asr_v4"
@@ -120,7 +120,7 @@ oom_score = -999
 				assertHasKeyWithValue(t, vars, "GPU_NODE", "true")
 				assertHasKeyWithValue(t, vars, "MIG_NODE", "true")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
-				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILES", "MIG1g,MIG2g,MIG4g")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILE_LAYOUT", "MIG1g,MIG2g,MIG4g")
 				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_STRATEGY", "Mixed")
 			},
 		},
@@ -526,7 +526,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "LOCATION", "")
 				assertHasKeyWithValue(t, vars, "GPU_NODE", "false")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
-				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILES", "")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILE_LAYOUT", "")
 				assertHasKeyWithValue(t, vars, "CUSTOM_CA_TRUST_COUNT", "0")
 				assertHasKeyWithValue(t, vars, "SHOULD_CONFIGURE_CUSTOM_CA_TRUST", "false")
 				assertHasKeyWithValue(t, vars, "KUBELET_FLAGS", "")

@@ -18,76 +18,95 @@ Describe 'mig-partition.sh'
         End
 
         Example "maps $1 to its uniform layout"
-            When run env GPU_INSTANCE_PROFILE="$1" NVIDIA_MIG_STRATEGY="Single" bash "$SCRIPT_PATH"
+            When run env GPU_INSTANCE_PROFILE="$1" bash "$SCRIPT_PATH"
 
             The status should be success
-            The output should include "nvidia-smi mig -cgi $2"
-            The output should include "nvidia-smi mig -cci"
+            The output should equal "nvidia-smi mig -cgi $2
+nvidia-smi mig -cci"
         End
     End
 
-    It 'accepts one plural profile for the Single strategy and trims whitespace'
-        When run env NVIDIA_MIG_PROFILES="  MIG2g  " NVIDIA_MIG_STRATEGY="Single" bash "$SCRIPT_PATH"
+    It 'maps the ordered layout without sorting or expanding profiles'
+        When run env NVIDIA_MIG_PROFILE_LAYOUT="MIG3g,MIG2g,MIG1g,MIG1g" bash "$SCRIPT_PATH"
 
         The status should be success
-        The output should include "nvidia-smi mig -cgi 14,14,14"
-        The output should include "nvidia-smi mig -cci"
+        The output should equal "nvidia-smi mig -cgi 9,14,19,19
+nvidia-smi mig -cci"
     End
 
-    It 'rejects multiple plural profiles for the Single strategy'
-        When run env NVIDIA_MIG_PROFILES="MIG2g,MIG1g" NVIDIA_MIG_STRATEGY="Single" bash "$SCRIPT_PATH"
-
-        The status should be failure
-        The error should include "Single MIG strategy requires exactly one MIG profile"
-    End
-
-    It 'maps every supported mixed profile and ignores empty CSV elements'
-        When run env NVIDIA_MIG_PROFILES="MIG1g,, MIG2g,MIG3g,MIG4g,MIG7g" NVIDIA_MIG_STRATEGY="Mixed" bash "$SCRIPT_PATH"
+    It 'prioritizes the layout when the legacy scalar is also populated'
+        When run env GPU_INSTANCE_PROFILE="MIG7g" NVIDIA_MIG_PROFILE_LAYOUT="MIG2g,MIG1g" bash "$SCRIPT_PATH"
 
         The status should be success
-        The output should include "nvidia-smi mig -cgi 19,14,9,5,0"
-        The output should include "nvidia-smi mig -cci"
+        The output should include "nvidia-smi mig -cgi 14,19"
+    End
+
+    It 'does not use MIG strategy to calculate the layout'
+        When run env NVIDIA_MIG_PROFILE_LAYOUT="MIG2g,MIG1g" NVIDIA_MIG_STRATEGY="Single" bash "$SCRIPT_PATH"
+
+        The status should be success
+        The output should include "nvidia-smi mig -cgi 14,19"
     End
 
     It 'rejects an invalid legacy profile'
-        When run env GPU_INSTANCE_PROFILE="MIG6g" NVIDIA_MIG_STRATEGY="Single" bash "$SCRIPT_PATH"
+        When run env GPU_INSTANCE_PROFILE="MIG6g" bash "$SCRIPT_PATH"
 
         The status should be failure
         The error should include "not a valid MIG profile: MIG6g"
     End
 
-    It 'rejects an invalid mixed profile'
-        When run env NVIDIA_MIG_PROFILES="MIG1g,MIG6g" NVIDIA_MIG_STRATEGY="Mixed" bash "$SCRIPT_PATH"
+    It 'rejects an invalid layout profile'
+        When run env NVIDIA_MIG_PROFILE_LAYOUT="MIG1g,MIG6g" bash "$SCRIPT_PATH"
 
         The status should be failure
         The error should include "not a valid MIG profile: MIG6g"
     End
 
-    It 'rejects an empty mixed profile list'
-        When run env NVIDIA_MIG_PROFILES="," NVIDIA_MIG_STRATEGY="Mixed" bash "$SCRIPT_PATH"
+    It 'rejects empty layout elements instead of repairing the plan'
+        When run env NVIDIA_MIG_PROFILE_LAYOUT="MIG1g,,MIG2g" bash "$SCRIPT_PATH"
 
         The status should be failure
-        The error should include "MIG profiles cannot be empty"
+        The error should include "not a valid MIG profile: "
     End
 
-    It 'rejects both profile inputs being set'
-        When run env GPU_INSTANCE_PROFILE="MIG2g" NVIDIA_MIG_PROFILES="MIG2g" NVIDIA_MIG_STRATEGY="Single" bash "$SCRIPT_PATH"
+    It 'rejects whitespace around a layout element'
+        When run env NVIDIA_MIG_PROFILE_LAYOUT="MIG1g, MIG2g" bash "$SCRIPT_PATH"
 
         The status should be failure
-        The error should include "GPU_INSTANCE_PROFILE and NVIDIA_MIG_PROFILES are mutually exclusive"
+        The error should include "not a valid MIG profile:  MIG2g"
     End
 
-    It 'rejects neither profile input being set'
-        When run env NVIDIA_MIG_STRATEGY="Single" bash "$SCRIPT_PATH"
+    It 'rejects missing layout inputs'
+        When run bash "$SCRIPT_PATH"
 
         The status should be failure
-        The error should include "exactly one of GPU_INSTANCE_PROFILE or NVIDIA_MIG_PROFILES must be set"
+        The error should include "neither NVIDIA_MIG_PROFILE_LAYOUT nor GPU_INSTANCE_PROFILE is set"
     End
 
-    It 'does not accept the legacy positional argument without an environment input'
-        When run bash "$SCRIPT_PATH" MIG2g
+    It 'propagates failure from creating GPU instances without running -cci'
+        nvidia-smi() {
+            echo "nvidia-smi $*"
+            [ "$2" != "-cgi" ]
+        }
+        export -f nvidia-smi
+
+        When run env NVIDIA_MIG_PROFILE_LAYOUT="MIG2g" bash "$SCRIPT_PATH"
 
         The status should be failure
-        The error should include "exactly one of GPU_INSTANCE_PROFILE or NVIDIA_MIG_PROFILES must be set"
+        The output should equal "nvidia-smi mig -cgi 14"
+    End
+
+    It 'propagates failure from creating compute instances'
+        nvidia-smi() {
+            echo "nvidia-smi $*"
+            [ "$2" != "-cci" ]
+        }
+        export -f nvidia-smi
+
+        When run env NVIDIA_MIG_PROFILE_LAYOUT="MIG2g" bash "$SCRIPT_PATH"
+
+        The status should be failure
+        The output should equal "nvidia-smi mig -cgi 14
+nvidia-smi mig -cci"
     End
 End

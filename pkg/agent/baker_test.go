@@ -1496,12 +1496,12 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars).To(HaveKeyWithValue("CONFIG_GPU_DRIVER_IF_NEEDED", "true"))
 		Expect(vars).To(HaveKeyWithValue("MIG_NODE", "true"))
 		Expect(vars).To(HaveKeyWithValue("GPU_INSTANCE_PROFILE", "MIG7g"))
-		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_PROFILES", ""))
+		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_PROFILE_LAYOUT", ""))
 		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_STRATEGY", "Single"))
 	})
 
-	It("should handle mixed MIG GPU profiles", func() {
-		baseConfig.MigProfiles = []string{"MIG1g", "MIG2g", "MIG4g"}
+	It("should handle a MIG profile layout", func() {
+		baseConfig.MIGProfileLayout = []string{"MIG1g", "MIG2g", "MIG4g"}
 		baseConfig.MigStrategy = "Mixed"
 		baseConfig.ConfigGPUDriverIfNeeded = true
 		baseConfig.EnableNvidia = true
@@ -1517,7 +1517,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars).To(HaveKeyWithValue("CONFIG_GPU_DRIVER_IF_NEEDED", "true"))
 		Expect(vars).To(HaveKeyWithValue("MIG_NODE", "true"))
 		Expect(vars).To(HaveKeyWithValue("GPU_INSTANCE_PROFILE", ""))
-		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_PROFILES", "MIG1g,MIG2g,MIG4g"))
+		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_PROFILE_LAYOUT", "MIG1g,MIG2g,MIG4g"))
 		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_STRATEGY", "Mixed"))
 	})
 
