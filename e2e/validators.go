@@ -2846,6 +2846,10 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 		fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
 		ValidateFileExists(ctx, s, fileNameToCheck)
 		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2")
+		if s.Runtime.NBC != nil && s.Runtime.NBC.ScriptlessCSEProvisionMode {
+			execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl | grep -q 'starting /opt/bin/boothook.sh'", 0, "expected journalctl to contain 'starting /opt/bin/boothook.sh' for scriptless phase 2")
+		}
+		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2")
 		if enableScriptlessCompilation(s) {
 			ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-hotfix")
 			ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using hotfix binary")

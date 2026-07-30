@@ -1808,6 +1808,11 @@ type NodeBootstrappingConfiguration struct {
 	// EnableScriptlessNBCCSECmd enables scriptless phase 2 in which the cse cmd generated from NBC is passed to
 	// AKS Node Controller and uses the NBC cmd to start provisioning.
 	EnableScriptlessNBCCSECmd bool
+
+	// ScriptlessCSEProvisionMode specifies the provisioning mode for scriptless phase 2,
+	// which uses CSE to provide provision nbc or aks nc configs
+	ScriptlessCSEProvisionMode bool
+
 	// Pass AKSNodeConfig as serialized JSON string to compare generated provisioning with NBC cse cmd for scriptless phase 3
 	AKSNodeConfigJSON string
 

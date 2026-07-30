@@ -254,6 +254,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/fetch_provision_config.py",
+      "destination": "/home/packer/fetch_provision_config.py"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/init-aks-cloud.sh",
       "destination": "/home/packer/init-aks-cloud.sh"
     },

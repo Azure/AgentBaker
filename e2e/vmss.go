@@ -732,12 +732,15 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
 		"aks-node-controller.output":       "sudo cat /var/log/azure/aks-node-controller.output",
 		"aks-node-controller-config.json":  "sudo cat /opt/azure/containers/aks-node-controller-config.json", // Only available in Scriptless.
+		"aks-early-boothook.log":           "sudo cat /var/log/azure/aks-early-boothook.log",
 		"syslog":                           "sudo cat /var/log/" + syslogHandle,
 		"journalctl":                       "sudo journalctl --boot=0 --no-pager",
 		"azure.json":                       "sudo cat /etc/kubernetes/azure.json",
 		"provision.json":                   "sudo cat /var/log/azure/aks/provision.json",
 		"cloud-init.log":                   "sudo cat /var/log/cloud-init.log",
 		"cloud-init-output.log":            "sudo cat /var/log/cloud-init-output.log",
+		"systemd-analyze.log":              "sudo systemd-analyze critical-chain cloud-init-local.service",
+		"systemd-analyze-blame.log":        "sudo systemd-analyze blame",
 	}
 	if s.SecureTLSBootstrappingEnabled() {
 		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
