@@ -857,6 +857,10 @@ cacheGPUContainerImageComponents() {
       fi
     done <<< "$GPUContainerImages"
 
+    # TEST ONLY: bake the aks-gpu CDI-ordering candidate into this validation VHD.
+    NVIDIA_DRIVER_IMAGE="gpucditest0730165750.azurecr.io/aks-gpu-cuda-lts"
+    NVIDIA_DRIVER_IMAGE_TAG="580.159.04-20260730165836"
+
     # Check if the NVIDIA_DRIVER_IMAGE and NVIDIA_DRIVER_IMAGE_TAG were found
     if [ -z "$NVIDIA_DRIVER_IMAGE" ] || [ -z "$NVIDIA_DRIVER_IMAGE_TAG" ]; then
       echo "Error: Unable to find aks-gpu-cuda-lts image in components.json"
