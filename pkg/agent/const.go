@@ -85,8 +85,6 @@ const (
 	cloudInitStatusCheckScript            = "linux/cloud-init/artifacts/cloud-init-status-check.sh"
 	measureTLSBootstrappingLatencyScript  = "linux/cloud-init/artifacts/measure-tls-bootstrapping-latency.sh"
 	measureTLSBootstrappingLatencyService = "linux/cloud-init/artifacts/measure-tls-bootstrapping-latency.service"
-	emitKubeletActiveFlagsScript          = "linux/cloud-init/artifacts/emit-kubelet-active-flags.sh"
-	emitKubeletActiveFlagsService         = "linux/cloud-init/artifacts/emit-kubelet-active-flags.service"
 
 	// scripts and service for enabling ipv6 dual stack.
 	dhcpv6SystemdService      = "linux/cloud-init/artifacts/dhcpv6.service"
