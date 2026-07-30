@@ -81,6 +81,9 @@ capture_benchmark "${SCRIPT_NAME}_enable_and_configure_logging_services"
 # enable aks-node-controller.service
 systemctl enable aks-node-controller.service
 
+# Pulled in by kubelet.service via WantedBy=kubelet.service, so CSE does not need to start it.
+systemctl enable emit-kubelet-active-flags.service
+
 # First handle Mariner + FIPS
 if isMarinerOrAzureLinux "$OS"; then
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT

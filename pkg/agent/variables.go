@@ -58,6 +58,8 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"cloudInitStatusCheckScript":            getBase64EncodedGzippedCustomScript(cloudInitStatusCheckScript, config),
 			"measureTLSBootstrappingLatencyScript":  getBase64EncodedGzippedCustomScript(measureTLSBootstrappingLatencyScript, config),
 			"measureTLSBootstrappingLatencyService": getBase64EncodedGzippedCustomScript(measureTLSBootstrappingLatencyService, config),
+			"emitKubeletActiveFlagsScript":          getBase64EncodedGzippedCustomScript(emitKubeletActiveFlagsScript, config),
+			"emitKubeletActiveFlagsService":         getBase64EncodedGzippedCustomScript(emitKubeletActiveFlagsService, config),
 			"configureAzureNetworkScript":           getBase64EncodedGzippedCustomScript(configureAzureNetworkScript, config),
 			"azureNetworkUdevRule":                  getBase64EncodedGzippedCustomScript(azureNetworkUdevRule, config),
 		},
