@@ -79,6 +79,7 @@ oom_score = -999
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
 				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILE_LAYOUT", "MIG3g,MIG2g,MIG1g,MIG1g")
+				// TODO: Make MIG_NODE true if either NVIDIA_MIG_PROFILE_LAYOUT or GPU_INSTANCE_PROFILE is set.
 				assertHasKeyWithValue(t, vars, "MIG_NODE", "false")
 			},
 		},
