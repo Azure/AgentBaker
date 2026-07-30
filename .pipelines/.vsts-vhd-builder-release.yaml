@@ -839,7 +839,6 @@ stages:
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: acl-tl-gen2
       - job: buildaclarm64tlgen2
-        displayName: 'ACL ARM64 TL Gen2 | Build'
         condition: eq('${{ parameters.buildaclarm64tlgen2 }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 360
@@ -894,7 +893,6 @@ stages:
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: acl-fips-tl-gen2
       - job: buildaclarm64fipstlgen2
-        displayName: 'ACL ARM64 FIPS TL Gen2 | Build'
         condition: eq('${{ parameters.buildaclarm64fipstlgen2 }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 360
@@ -925,8 +923,7 @@ stages:
       # VHD in blob storage and skip COSI (ImageCustomizer's btrfs subvolume ioctls
       # don't work under qemu emulation on the x86_64 build pool). These jobs run on
       # the native arm64 pool to convert the staged VHD and publish the COSI.
-      - job: convertaclarm64tlgen2
-        displayName: 'ACL ARM64 TL Gen2 | COSI'
+      - job: buildaclarm64tlgen2cosi
         condition: and(succeeded(), eq('${{ parameters.buildaclarm64tlgen2 }}', true))
         dependsOn: buildaclarm64tlgen2
         timeoutInMinutes: 120
@@ -955,8 +952,7 @@ stages:
           - template: ./templates/.builder-cosi-convert-template.yaml
             parameters:
               artifactName: acl-arm64-tl-gen2
-      - job: convertaclarm64fipstlgen2
-        displayName: 'ACL ARM64 FIPS TL Gen2 | COSI'
+      - job: buildaclarm64fipstlgen2cosi
         condition: and(succeeded(), eq('${{ parameters.buildaclarm64fipstlgen2 }}', true))
         dependsOn: buildaclarm64fipstlgen2
         timeoutInMinutes: 120
