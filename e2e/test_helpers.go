@@ -777,8 +777,18 @@ func runCommandTerminalError(view armcompute.VirtualMachineRunCommandInstanceVie
 	return nil
 }
 
-// windowsSysprepTimeout matches the 10-minute AKS RP Windows PIS Sysprep ceiling.
-const windowsSysprepTimeout = 10 * time.Minute
+func isRunCommandShutdownInterruption(view armcompute.VirtualMachineRunCommandInstanceView) bool {
+	if view.ExitCode != nil && *view.ExitCode != 0 || view.ExecutionState == nil {
+		return false
+	}
+	return *view.ExecutionState == armcompute.ExecutionStateCanceled ||
+		*view.ExecutionState == armcompute.ExecutionStateFailed
+}
+
+const (
+	windowsSysprepRunCommandTimeout = 15 * time.Minute
+	windowsSysprepWaitTimeout       = 20 * time.Minute
+)
 
 // windowsSysprepScript runs Sysprep /generalize on the test VM. It pre-emptively drops
 // any SysPrepExternal\Generalize provider entry pointing at VMAgentDisabler.dll: when
@@ -793,8 +803,9 @@ const windowsSysprepScript = `
 $ErrorActionPreference = 'Stop'
 
 # Best-effort: drop broken SysPrepExternal\Generalize providers that point at
-# VMAgentDisabler.dll. When the DLL can't be loaded Sysprep /generalize hangs
-# ~14m. Registry cleanup failures are logged but must not abort sysprep itself.
+# VMAgentDisabler.dll. When the DLL can't be loaded Sysprep can spend almost
+# the entire RunCommand timeout trying to load it. Registry cleanup failures
+# are logged but must not abort sysprep itself.
 try {
     $path = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\SysPrepExternal\Generalize'
     if (Test-Path $path) {
@@ -815,6 +826,7 @@ try {
 Remove-Item "$env:SystemRoot\Panther" -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item "$env:SystemRoot\System32\Sysprep\unattend.xml" -Force -ErrorAction SilentlyContinue
 
+# /shutdown powers off after generalization; /quit leaves the VM running.
 & "$env:SystemRoot\System32\Sysprep\Sysprep.exe" /oobe /generalize /mode:vm /quiet /shutdown
 if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
@@ -825,9 +837,6 @@ if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) {
 // observes PowerState/stopped before deallocation and capture. This intentionally
 // differs from Packer's in-guest ImageState polling because Packer owns that lifecycle.
 func runWindowsSysprep(ctx context.Context, s *Scenario) (armcompute.VirtualMachineRunCommandInstanceView, error) {
-	ctx, cancel := context.WithTimeout(ctx, windowsSysprepTimeout)
-	defer cancel()
-
 	rg := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
 	instanceID := *s.Runtime.VM.VM.InstanceID
 	runCommandName := fmt.Sprintf("e2e-sysprep-%d", time.Now().UnixNano())
@@ -837,7 +846,7 @@ func runWindowsSysprep(ctx context.Context, s *Scenario) (armcompute.VirtualMach
 			Source: &armcompute.VirtualMachineRunCommandScriptSource{
 				Script: to.Ptr(windowsSysprepScript),
 			},
-			TimeoutInSeconds: to.Ptr(int32(windowsSysprepTimeout / time.Second)),
+			TimeoutInSeconds: to.Ptr(int32(windowsSysprepRunCommandTimeout / time.Second)),
 			AsyncExecution:   to.Ptr(true),
 		},
 	}
@@ -850,43 +859,77 @@ func runWindowsSysprep(ctx context.Context, s *Scenario) (armcompute.VirtualMach
 		return armcompute.VirtualMachineRunCommandInstanceView{}, fmt.Errorf("failed to create sysprep RunCommand on VMSS VM: %w", err)
 	}
 
+	waitCtx, cancel := context.WithTimeout(ctx, windowsSysprepWaitTimeout)
+	defer cancel()
+
 	ticker := time.NewTicker(config.Config.DefaultPollInterval)
 	defer ticker.Stop()
 	var view armcompute.VirtualMachineRunCommandInstanceView
+	var pendingInterruptionErr error
+	lastPowerState := ""
 	for {
-		vm, err := config.Azure.VMSSVM.Get(ctx, rg, s.Runtime.VMSSName, instanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+		vm, err := config.Azure.VMSSVM.Get(waitCtx, rg, s.Runtime.VMSSName, instanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
 			Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
 		})
 		if err != nil {
+			if waitCtx.Err() != nil {
+				return view, sysprepWaitError(waitCtx.Err(), instanceID, lastPowerState, view)
+			}
 			return view, fmt.Errorf("failed to verify VM shutdown after sysprep: %w", err)
 		}
-		powerState := vmPowerState(vm.VirtualMachineScaleSetVM)
-		if powerState == "stopped" {
+		lastPowerState = vmPowerState(vm.VirtualMachineScaleSetVM)
+		if lastPowerState == "stopped" {
 			return view, nil
 		}
-		if powerState != "" {
-			toolkit.Logf(ctx, "VM is in power state: %s, waiting for stopped state...", powerState)
+		if lastPowerState == "deallocating" || lastPowerState == "deallocated" {
+			return view, fmt.Errorf("VMSS VM %s entered power state %q before sysprep shutdown completed", instanceID, lastPowerState)
+		}
+		if lastPowerState != "" {
+			toolkit.Logf(waitCtx, "VM is in power state: %s, waiting for stopped state...", lastPowerState)
 		}
 
-		getResp, err := config.Azure.VMSSVMRunCommands.Get(ctx, rg, s.Runtime.VMSSName, instanceID, runCommandName, &armcompute.VirtualMachineScaleSetVMRunCommandsClientGetOptions{
+		getResp, err := config.Azure.VMSSVMRunCommands.Get(waitCtx, rg, s.Runtime.VMSSName, instanceID, runCommandName, &armcompute.VirtualMachineScaleSetVMRunCommandsClientGetOptions{
 			Expand: to.Ptr("instanceView"),
 		})
 		if err != nil {
+			if waitCtx.Err() != nil {
+				return view, sysprepWaitError(waitCtx.Err(), instanceID, lastPowerState, view)
+			}
 			return view, fmt.Errorf("failed to verify sysprep result while waiting for VM shutdown: %w", err)
 		}
 		if getResp.Properties != nil && getResp.Properties.InstanceView != nil {
 			view = *getResp.Properties.InstanceView
 			if err := runCommandTerminalError(view); err != nil {
-				return view, err
+				if !isRunCommandShutdownInterruption(view) {
+					return view, err
+				}
+				pendingInterruptionErr = err
 			}
 		}
 
 		select {
-		case <-ctx.Done():
-			return view, fmt.Errorf("VMSS VM did not shut down after sysprep: %w", ctx.Err())
+		case <-waitCtx.Done():
+			if pendingInterruptionErr != nil {
+				return view, fmt.Errorf("%w: VMSS VM %s did not shut down after the sysprep RunCommand was interrupted; last power state was %q",
+					pendingInterruptionErr, instanceID, lastPowerState)
+			}
+			return view, sysprepWaitError(waitCtx.Err(), instanceID, lastPowerState, view)
 		case <-ticker.C:
 		}
 	}
+}
+
+func sysprepWaitError(cause error, instanceID, powerState string, view armcompute.VirtualMachineRunCommandInstanceView) error {
+	executionState := "<nil>"
+	if view.ExecutionState != nil {
+		executionState = string(*view.ExecutionState)
+	}
+	exitCode := "<nil>"
+	if view.ExitCode != nil {
+		exitCode = strconv.FormatInt(int64(*view.ExitCode), 10)
+	}
+	return fmt.Errorf("VMSS VM %s did not shut down after sysprep; last power state was %q; RunCommand state was %q, exit code was %q: %w",
+		instanceID, powerState, executionState, exitCode, cause)
 }
 
 func CreateImage(ctx context.Context, s *Scenario) *config.Image {
