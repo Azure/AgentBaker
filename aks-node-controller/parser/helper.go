@@ -255,10 +255,10 @@ func getIsMIGNode(gpuInstanceProfile string) bool {
 }
 
 func getNvidiaMIGTotalSlices(gpuConfig *aksnodeconfigv1.GpuConfig) int32 {
-	if gpuConfig == nil || gpuConfig.TotalGpuInstanceSlices == nil {
+	if gpuConfig == nil || gpuConfig.MigTotalSlices == nil {
 		return defaultNvidiaMIGTotalSlices
 	}
-	return *gpuConfig.TotalGpuInstanceSlices
+	return *gpuConfig.MigTotalSlices
 }
 
 func getCustomCACertsStatus(customCACerts []string) bool {

@@ -379,10 +379,10 @@ func TestGetCSEEnvNvidiaMIGTotalSlices(t *testing.T) {
 		assert.Equal(t, "7", env["NVIDIA_MIG_TOTAL_SLICES"])
 	})
 
-	totalGPUInstanceSlices := int32(4)
+	migTotalSlices := int32(4)
 	config := &aksnodeconfigv1.Configuration{
 		GpuConfig: &aksnodeconfigv1.GpuConfig{
-			TotalGpuInstanceSlices: &totalGPUInstanceSlices,
+			MigTotalSlices: &migTotalSlices,
 		},
 	}
 

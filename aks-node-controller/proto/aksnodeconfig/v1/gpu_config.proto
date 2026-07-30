@@ -31,6 +31,6 @@ message GpuConfig {
   // (i.e., when gpu_instance_profile is set). Defaults to "Single" if not specified.
   string mig_strategy = 8;
 
-  // Total number of GPU instance slices supported by the VM. Defaults to 7 if not specified.
-  optional int32 total_gpu_instance_slices = 9;
+  // Total number of MIG slices supported by the VM. Defaults to 7 if not specified.
+  optional int32 mig_total_slices = 9;
 }
