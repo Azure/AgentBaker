@@ -39,29 +39,19 @@ function Set-CryptoSetting {
 
 #******************* FUNCTION THAT DISABLES RC4 ***********************
 function DisableRC4 {
-    $subkeys = Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL" 
-    $ciphers = $subkeys.OpenSubKey("Ciphers", $true) 
-
     Write-Log "----- Checking the status of RC4 -----"
 
-    $RC4 = $false
-    if ($ciphers.SubKeyCount -eq 0) { 
-        $k1 = $ciphers.CreateSubKey("RC4 128/128") 
-        $k1.SetValue("Enabled", 0, [Microsoft.Win32.RegistryValueKind]::DWord) 
-        $k2 = $ciphers.CreateSubKey("RC4 64/128") 
-        $k2.SetValue("Enabled", 0, [Microsoft.Win32.RegistryValueKind]::DWord) 
-        $k3 = $ciphers.CreateSubKey("RC4 56/128") 
-        $k3.SetValue("Enabled", 0, [Microsoft.Win32.RegistryValueKind]::DWord) 
-        $k4 = $ciphers.CreateSubKey("RC4 40/128") 
-        $k4.SetValue("Enabled", 0, [Microsoft.Win32.RegistryValueKind]::DWord) 
-        
-        Write-Log "RC4 was disabled "
-        $RC4 = $true
-    } 
-
-    If ($RC4 -ne $true) {
-        Write-Log "There was no change for RC4 "
+    $rc4CipherKeys = @(
+        "RC4 128/128",
+        "RC4 64/128",
+        "RC4 56/128",
+        "RC4 40/128"
+    )
+    foreach ($key in $rc4CipherKeys) {
+        Set-CryptoSetting "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\$key" Enabled 0 DWord
     }
+
+    Write-Log "RC4 is disabled"
 }
 #***************************************************************************************************************
 
