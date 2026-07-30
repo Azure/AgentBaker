@@ -5,7 +5,6 @@ BeforeAll {
 
 Describe "DisableRC4" {
     BeforeEach {
-        Mock Write-Log
         Mock Set-CryptoSetting
     }
 
