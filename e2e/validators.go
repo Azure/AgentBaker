@@ -1480,28 +1480,49 @@ func ValidateWindowsSecureTLSEnabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
 	steps := []string{
-		"$tls12Client = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Client' -Name Enabled -ErrorAction SilentlyContinue).Enabled",
-		"$tls11Client = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Client' -Name Enabled -ErrorAction SilentlyContinue).Enabled",
-		"$tls10Client = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Client' -Name Enabled -ErrorAction SilentlyContinue).Enabled",
-		"$rc4_128 = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\RC4 128/128' -Name Enabled -ErrorAction SilentlyContinue).Enabled",
-		"$cipherOrder = (Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Cryptography\\Configuration\\SSL\\00010002' -Name Functions -ErrorAction SilentlyContinue).Functions",
-		"[PSCustomObject]@{ tls12Client = $tls12Client; tls11Client = $tls11Client; tls10Client = $tls10Client; rc4_128 = $rc4_128; cipherOrder = $cipherOrder } | ConvertTo-Json -Compress",
+		"$ErrorActionPreference = 'Stop'",
+		"$tls12ClientEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Client' -Name Enabled).Enabled",
+		"$tls12ServerEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Server' -Name Enabled).Enabled",
+		"$tls11ClientEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Client' -Name Enabled).Enabled",
+		"$tls11ServerEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Name Enabled).Enabled",
+		"$tls10ClientEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Client' -Name Enabled).Enabled",
+		"$tls10ServerEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Name Enabled).Enabled",
+		"$ssl3ClientEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 3.0\\Client' -Name Enabled).Enabled",
+		"$ssl3ServerEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 3.0\\Server' -Name Enabled).Enabled",
+		"$ssl2ClientEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Client' -Name Enabled).Enabled",
+		"$ssl2ServerEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Server' -Name Enabled).Enabled",
+		"$rc4_128 = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\RC4 128/128' -Name Enabled).Enabled",
+		"$rc4_64 = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\RC4 64/128' -Name Enabled).Enabled",
+		"$rc4_56 = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\RC4 56/128' -Name Enabled).Enabled",
+		"$rc4_40 = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\RC4 40/128' -Name Enabled).Enabled",
+		"$cipherOrder = (Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Cryptography\\Configuration\\SSL\\00010002' -Name Functions).Functions",
+		"[PSCustomObject]@{ tls12ClientEnabled = $tls12ClientEnabled; tls12ServerEnabled = $tls12ServerEnabled; tls11ClientEnabled = $tls11ClientEnabled; tls11ServerEnabled = $tls11ServerEnabled; tls10ClientEnabled = $tls10ClientEnabled; tls10ServerEnabled = $tls10ServerEnabled; ssl3ClientEnabled = $ssl3ClientEnabled; ssl3ServerEnabled = $ssl3ServerEnabled; ssl2ClientEnabled = $ssl2ClientEnabled; ssl2ServerEnabled = $ssl2ServerEnabled; rc4_128 = $rc4_128; rc4_64 = $rc4_64; rc4_56 = $rc4_56; rc4_40 = $rc4_40; cipherOrder = $cipherOrder } | ConvertTo-Json -Compress",
 	}
 
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate secure TLS configuration")
 	stdout := strings.TrimSpace(podExecResult.stdout)
 
-	require.Equal(s.T, int64(1), gjson.Get(stdout, "tls12Client").Int(), "expected TLS 1.2 to be enabled for Client, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls11Client").Int(), "expected TLS 1.1 to be disabled for Client, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls10Client").Int(), "expected TLS 1.0 to be disabled for Client, got: %s", stdout)
+	require.Equal(s.T, int64(1), gjson.Get(stdout, "tls12ClientEnabled").Int(), "expected TLS 1.2 to be enabled for Client, got: %s", stdout)
+	require.Equal(s.T, int64(1), gjson.Get(stdout, "tls12ServerEnabled").Int(), "expected TLS 1.2 to be enabled for Server, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls11ClientEnabled").Int(), "expected TLS 1.1 to be disabled for Client, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls11ServerEnabled").Int(), "expected TLS 1.1 to be disabled for Server, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls10ClientEnabled").Int(), "expected TLS 1.0 to be disabled for Client, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls10ServerEnabled").Int(), "expected TLS 1.0 to be disabled for Server, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "ssl3ClientEnabled").Int(), "expected SSL 3.0 to be disabled for Client, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "ssl3ServerEnabled").Int(), "expected SSL 3.0 to be disabled for Server, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "ssl2ClientEnabled").Int(), "expected SSL 2.0 to be disabled for Client, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "ssl2ServerEnabled").Int(), "expected SSL 2.0 to be disabled for Server, got: %s", stdout)
 	require.Equal(s.T, int64(0), gjson.Get(stdout, "rc4_128").Int(), "expected RC4 128/128 to be disabled, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "rc4_64").Int(), "expected RC4 64/128 to be disabled, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "rc4_56").Int(), "expected RC4 56/128 to be disabled, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "rc4_40").Int(), "expected RC4 40/128 to be disabled, got: %s", stdout)
 
 	cipherOrder := gjson.Get(stdout, "cipherOrder").String()
 	require.NotEmpty(s.T, cipherOrder, "expected a configured cipher suite order")
 	require.NotContains(s.T, cipherOrder, "3DES", "cipher suite order should not include 3DES (Sweet32/CVE-2016-2183)")
 	require.NotContains(s.T, cipherOrder, "RC2", "cipher suite order should not include RC2")
 	require.NotContains(s.T, cipherOrder, "DES", "cipher suite order should not include DES")
-}
+	require.NotContains(s.T, cipherOrder, "RC4", "cipher suite order should not include RC4")
 
 func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVersion string) {
 	s.T.Helper()
