@@ -230,6 +230,10 @@ knead_apply_components() {
                 component_comparator=securityPatchIsCurrent
                 component_handler=updateSecurityPatch
                 ;;
+            localDNS)
+                component_comparator=localDNSIsCurrent
+                component_handler=updateLocalDNS
+                ;;
             *)
                 echo "unsupported component: ${component}"
                 component_index=$((component_index + 1))
@@ -271,6 +275,49 @@ knead_apply_components() {
 }
 
 # Records the processed hash and per-component results in the node status annotation.
+localDNSIsCurrent() {
+    local desired_payload="$1"
+    local current_payload="$2"
+
+    [ "${desired_payload}" = "${current_payload}" ]
+}
+
+updateLocalDNS() {
+    local component_payload="${1:-}"
+    local config_file
+    local outcome
+
+    if [ ! -x /opt/azure/containers/aks-node-controller ]; then
+        echo "aks-node-controller binary is required for localDNS live patching"
+        return 1
+    fi
+
+    config_file="$(mktemp /tmp/localdns-livepatch.XXXXXX)"
+    printf '%s' "${component_payload}" > "${config_file}"
+
+    if ! outcome="$(/opt/azure/containers/aks-node-controller apply-localdns-config --config-file "${config_file}" --output /opt/azure/containers/localdns/localdns.corefile)"; then
+        rm -f "${config_file}"
+        echo "localDNS config apply failed"
+        return 1
+    fi
+    rm -f "${config_file}"
+    printf '%s\n' "${outcome}"
+
+    case "$(printf '%s\n' "${outcome}" | tail -n 1)" in
+        applied)
+            systemctl restart localdns.service
+            echo "localDNS update completed successfully"
+            ;;
+        alreadyCurrent|noCorefileData|notFound)
+            echo "localDNS is already current or has no node-applicable payload"
+            ;;
+        *)
+            echo "unexpected localDNS apply outcome: ${outcome}"
+            return 1
+            ;;
+    esac
+}
+
 knead_write_status() {
     local node_name="$1"
     local goal="$2"

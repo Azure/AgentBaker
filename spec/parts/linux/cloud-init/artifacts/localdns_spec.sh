@@ -391,6 +391,34 @@ EOF
             The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
         End
 
+        It 'should fetch LocalDNS LPS config through aks-node-controller when binary exists'
+            AKS_NODE_CONTROLLER_BINARY="${TEST_DIR}/aks-node-controller"
+            cat > "${AKS_NODE_CONTROLLER_BINARY}" <<'EOF'
+#!/bin/bash
+echo "anc args: $*"
+exit 0
+EOF
+            chmod +x "${AKS_NODE_CONTROLLER_BINARY}"
+
+            When run refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "anc args: fetch-localdns-config --output ${LOCALDNS_CORE_FILE}"
+            The output should include "Completed LocalDNS LPS config fetch."
+        End
+
+        It 'should skip LocalDNS LPS config fetch when aks-node-controller binary is missing'
+            AKS_NODE_CONTROLLER_BINARY="${TEST_DIR}/missing-aks-node-controller"
+            When run refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "AKS node controller binary not found at ${AKS_NODE_CONTROLLER_BINARY}; skipping LocalDNS LPS config fetch."
+        End
+
+        It 'should skip LocalDNS live patching status annotation when version file is missing'
+            When run annotate_node_with_localdns_livepatch_status
+            The status should be success
+            The output should include "LocalDNS corefile version file not found at ${LOCALDNS_CORE_FILE}.version, skipping live patching status annotation."
+        End
+
         It 'should set correct permissions on forward_ips.prom file'
             When run replace_azurednsip_in_corefile
             The status should be success
