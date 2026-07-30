@@ -445,7 +445,7 @@ function BasePrep {
     Update-DefenderPreferences
 
     $windowsVersion = Get-WindowsVersion
-    if ($windowsVersion -ne "1809") {
+    if ($windowsVersion -ne "1809" -and $windowsVersion -ne "ltsc2022") {
         Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Skip secure TLS protocols for Windows version: $windowsVersion"
     } else {
         Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Start to enable secure TLS protocols"
