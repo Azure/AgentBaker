@@ -7,9 +7,11 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"regexp"
 	"sort"
@@ -17,6 +19,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -151,6 +154,23 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 	var encodedAKSNodeConfig string
 	if config.AKSNodeConfigJSON != "" {
 		encodedAKSNodeConfig = getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
+
+		// Compare CSE env vars between NBC path and AKSNodeConfig path.
+		// This enables server-side validation that the two paths produce equivalent provisioning commands.
+		aksNodeConfig, err := nodeconfigutils.UnmarshalConfigurationV1([]byte(config.AKSNodeConfigJSON))
+		if err != nil {
+			slog.Warn("failed to unmarshal AKSNodeConfigJSON for CSE env comparison", "error", err)
+		} else {
+			diff := CompareCSEEnvVars(context.Background(), config, aksNodeConfig, nil)
+			if diff.HasDifferences() {
+				slog.Info("CSE env var differences detected between NBC and AKSNodeConfig paths",
+					"onlyInNBC", len(diff.OnlyInNBC),
+					"onlyInANC", len(diff.OnlyInANC),
+					"valueMismatches", len(diff.ValueMismatch),
+					"diff", diff.String(),
+				)
+			}
+		}
 	}
 
 	// hotfixJSONFile is optional: only VHDs that bake a static default hotfix
@@ -495,6 +515,26 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 	if e != nil {
 		panic(e)
 	}
+
+	// Compare CSE env vars between NBC path and AKSNodeConfig path when AKSNodeConfigJSON is provided.
+	// This enables server-side validation that the two paths produce equivalent provisioning commands.
+	if config.AKSNodeConfigJSON != "" {
+		aksNodeConfig, err := nodeconfigutils.UnmarshalConfigurationV1([]byte(config.AKSNodeConfigJSON))
+		if err != nil {
+			slog.Warn("failed to unmarshal AKSNodeConfigJSON for CSE env comparison", "error", err)
+		} else {
+			diff := CompareCSEEnvVars(context.Background(), config, aksNodeConfig, nil)
+			if diff.HasDifferences() {
+				slog.Info("CSE env var differences detected between NBC and AKSNodeConfig paths",
+					"onlyInNBC", len(diff.OnlyInNBC),
+					"onlyInANC", len(diff.OnlyInANC),
+					"valueMismatches", len(diff.ValueMismatch),
+					"diff", diff.String(),
+				)
+			}
+		}
+	}
+
 	// NOTE: we break the one-line CSE command into different lines in a file for better management
 	// so we need to combine them into one line here
 	return strings.ReplaceAll(str, "\n", " ")
