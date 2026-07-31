@@ -31,7 +31,7 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 }
 
 //nolint:funlen
-func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuConfig *gpu.GPUConfiguration) map[string]string {
+func GetCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuConfig *gpu.GPUConfiguration) map[string]string {
 	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
 	// Clear it from both KubeletFlags and KubeletConfigFileConfig so it doesn't appear
 	// on the command line or in the marshaled config file JSON.
@@ -296,7 +296,7 @@ func getCloudProviderSettings(config *aksnodeconfigv1.Configuration) cloudProvid
 	return settings
 }
 
-func mapToEnviron(input map[string]string) []string {
+func MapToEnviron(input map[string]string) []string {
 	var env []string
 	for k, v := range input {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
@@ -313,7 +313,7 @@ func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration, gpu
 	// Convert to one-liner
 	triggerBootstrapScript = strings.ReplaceAll(triggerBootstrapScript, "\n", " ")
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", triggerBootstrapScript)
-	env := mapToEnviron(getCSEEnv(ctx, config, gpuConfig))
+	env := MapToEnviron(GetCSEEnv(ctx, config, gpuConfig))
 	cmd.Env = append(os.Environ(), env...) // append existing environment variables
 	sort.Strings(cmd.Env)
 	return cmd, nil
