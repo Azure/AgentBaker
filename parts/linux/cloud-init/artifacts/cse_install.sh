@@ -681,7 +681,11 @@ retagContainerImage() {
     RETAG_IMAGE_URL=$3
     echo "retagging from ${CONTAINER_IMAGE_URL} to ${RETAG_IMAGE_URL} using ${CLI_TOOL}"
     if [ "${CLI_TOOL}" = "ctr" ]; then
-        ctr --namespace k8s.io image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
+        if isACL "$OS" "$OS_VARIANT"; then
+            ctr --namespace k8s.io image tag --local "$CONTAINER_IMAGE_URL" "$RETAG_IMAGE_URL"
+        else
+            ctr --namespace k8s.io image tag "$CONTAINER_IMAGE_URL" "$RETAG_IMAGE_URL"
+        fi
     elif [ "${CLI_TOOL}" = "crictl" ]; then
         crictl image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
     else

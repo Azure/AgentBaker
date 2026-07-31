@@ -13,6 +13,29 @@ Describe 'cse_install.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_install.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
 
+    Describe 'retagContainerImage'
+        ctr() { echo "ctr $@"; }
+
+        It 'uses the local image store for ACL'
+            OS="AZURELINUX"
+            OS_VARIANT="AZURECONTAINERLINUX"
+
+            When call retagContainerImage ctr source.example/image:v1 target.example/image:v1
+
+            The output should include "ctr --namespace k8s.io image tag --local source.example/image:v1 target.example/image:v1"
+        End
+
+        It 'keeps existing ctr behavior for non-ACL images'
+            OS="AZURELINUX"
+            OS_VARIANT=""
+
+            When call retagContainerImage ctr source.example/image:v1 target.example/image:v1
+
+            The output should include "ctr --namespace k8s.io image tag source.example/image:v1 target.example/image:v1"
+            The output should not include "--local"
+        End
+    End
+
     Describe 'installContainerRuntime'
         logs_to_events() {
             echo "mock logs to events calling with $1"
