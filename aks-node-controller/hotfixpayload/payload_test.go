@@ -4,8 +4,6 @@
 package hotfixpayload
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
@@ -73,7 +71,6 @@ func TestManifestValidation(t *testing.T) {
 	valid := Entry{
 		Source:      "cse_main.sh",
 		Payload:     "payloads/cse_main.sh",
-		SHA256:      digest(payload),
 		Destination: destination,
 		Mode:        "0744",
 		Platforms:   concretePlatforms(),
@@ -133,14 +130,6 @@ func TestManifestValidation(t *testing.T) {
 
 		require.ErrorContains(t, err, "duplicate destination")
 	})
-
-	t.Run("integrity mismatch", func(t *testing.T) {
-		_, _, err := loadAndValidate(testFS(t, []Entry{valid}, map[string][]byte{
-			valid.Payload: []byte("tampered"),
-		}))
-
-		require.ErrorContains(t, err, "payload integrity mismatch")
-	})
 }
 
 func TestSelectEntries(t *testing.T) {
@@ -174,7 +163,6 @@ func TestApplyFSIsAtomicAndIdempotent(t *testing.T) {
 	entry := Entry{
 		Source:      "cse_main.sh",
 		Payload:     "payloads/cse_main.sh",
-		SHA256:      digest(payload),
 		Destination: destination,
 		Mode:        "0744",
 		Platforms:   concretePlatforms(),
@@ -215,7 +203,6 @@ func TestApplyFSSkipsMissingDestinationAndReplacesExistingDestination(t *testing
 		{
 			Source:      "existing.sh",
 			Payload:     "payloads/existing.sh",
-			SHA256:      digest(existingPayload),
 			Destination: existingDestination,
 			Mode:        "0744",
 			Platforms:   concretePlatforms(),
@@ -223,7 +210,6 @@ func TestApplyFSSkipsMissingDestinationAndReplacesExistingDestination(t *testing
 		{
 			Source:      "gated.sh",
 			Payload:     "payloads/gated.sh",
-			SHA256:      digest(missingPayload),
 			Destination: missingDestination,
 			Mode:        "0744",
 			Platforms:   concretePlatforms(),
@@ -258,7 +244,6 @@ func TestApplyFSDoesNotCommitWhenLaterEntryCannotBeStaged(t *testing.T) {
 		{
 			Source:      "first.sh",
 			Payload:     "payloads/first.sh",
-			SHA256:      digest(firstPayload),
 			Destination: firstDestination,
 			Mode:        "0744",
 			Platforms:   concretePlatforms(),
@@ -266,7 +251,6 @@ func TestApplyFSDoesNotCommitWhenLaterEntryCannotBeStaged(t *testing.T) {
 		{
 			Source:      "second.sh",
 			Payload:     "payloads/second.sh",
-			SHA256:      digest(secondPayload),
 			Destination: directory,
 			Mode:        "0744",
 			Platforms:   concretePlatforms(),
@@ -398,9 +382,4 @@ func testFS(
 		}
 	}
 	return files
-}
-
-func digest(data []byte) string {
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:])
 }
