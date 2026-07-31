@@ -7,9 +7,7 @@ package hotfixpayload
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"embed"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -49,7 +47,6 @@ type Manifest struct {
 type Entry struct {
 	Source      string     `json:"source"`
 	Payload     string     `json:"payload"`
-	SHA256      string     `json:"sha256"`
 	Destination string     `json:"destination"`
 	Mode        string     `json:"mode"`
 	Platforms   []Platform `json:"platforms"`
@@ -244,13 +241,6 @@ func loadAndValidate(payloadFS fs.FS) (Manifest, map[string][]byte, error) {
 				err,
 			)
 		}
-		sum := sha256.Sum256(payload)
-		if !strings.EqualFold(hex.EncodeToString(sum[:]), entry.SHA256) {
-			return manifest, nil, fmt.Errorf(
-				"payload integrity mismatch for %s",
-				entry.Source,
-			)
-		}
 		payloads[entry.Payload] = payload
 	}
 	return manifest, payloads, nil
@@ -274,10 +264,6 @@ func validateEntry(entry Entry) error {
 	}
 	if _, err := parseMode(entry.Mode); err != nil {
 		return err
-	}
-	digest, err := hex.DecodeString(entry.SHA256)
-	if err != nil || len(digest) != sha256.Size {
-		return fmt.Errorf("invalid SHA-256 %q", entry.SHA256)
 	}
 	if len(entry.Platforms) == 0 {
 		return fmt.Errorf("at least one platform is required")

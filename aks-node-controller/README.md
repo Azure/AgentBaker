@@ -154,7 +154,7 @@ Key components:
 
 Patched ANC binaries can embed selected Linux provisioning scripts generated from
 `parts/linux/cloud-init/artifacts/`. At the start of `provision`, ANC validates the
-embedded manifest and payload checksums, selects the entries matching the local
+embedded manifest and payload availability, selects the entries matching the local
 platform, and atomically applies them before constructing the normal CSE command.
 Application is fail-open so the existing VHD scripts remain usable if validation
 or replacement fails.

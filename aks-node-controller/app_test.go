@@ -260,7 +260,7 @@ func TestApp_Provision(t *testing.T) {
 			},
 		})
 		tt.App.applyEmbeddedHotfix = func(string) (hotfixpayload.Result, error) {
-			return hotfixpayload.Result{}, errors.New("integrity mismatch")
+			return hotfixpayload.Result{}, errors.New("manifest validation failed")
 		}
 
 		_, err := tt.App.runProvision(
@@ -274,7 +274,7 @@ func TestApp_Provision(t *testing.T) {
 		assert.Contains(t, logs.getRecords(), logRecord{
 			Level:   slog.LevelWarn,
 			Message: "failed to apply embedded hotfix payload; continuing with existing scripts",
-			Attrs:   map[string]string{"error": "integrity mismatch"},
+			Attrs:   map[string]string{"error": "manifest validation failed"},
 		})
 	})
 

@@ -30,7 +30,6 @@ This script is called by the hotfix-generate GH Action.
 """
 
 import argparse
-import hashlib
 import json
 import os
 import re
@@ -663,8 +662,6 @@ def build_manifest_entries(target_varkeys, traditional_lines):
             raise GenerationError(
                 f"selected hotfix source {source} does not exist at {source_path}"
             )
-        with open(source_path, "rb") as source_file:
-            payload = source_file.read()
 
         platforms = parsed["platforms"]
         if not platforms:
@@ -683,7 +680,6 @@ def build_manifest_entries(target_varkeys, traditional_lines):
         manifest_entries.append({
             "source": source,
             "payload": f"payloads/{source}",
-            "sha256": hashlib.sha256(payload).hexdigest(),
             "destination": destination,
             "mode": mode.zfill(4),
             "platforms": list(platforms),
