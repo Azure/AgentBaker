@@ -250,6 +250,13 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/measure-tls-bootstrapping-latency.service
       destination: /etc/systemd/system/measure-tls-bootstrapping-latency.service
       permissions: 600
+    # emit-kubelet-active-flags (pulled in by kubelet.service via WantedBy=kubelet.service)
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/emit-kubelet-active-flags.sh
+      destination: /opt/azure/containers/emit-kubelet-active-flags.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/emit-kubelet-active-flags.service
+      destination: /etc/systemd/system/emit-kubelet-active-flags.service
+      permissions: 600
     # secure-tls-bootstrap
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/secure-tls-bootstrap.service
       destination: /etc/systemd/system/secure-tls-bootstrap.service
@@ -336,6 +343,7 @@ os:
     - kubelet
     - resolv-uplink-override
     - measure-tls-bootstrapping-latency
+    - emit-kubelet-active-flags
     - systemd-sysext
     - ipv6_nftables
     - update_certs.path
