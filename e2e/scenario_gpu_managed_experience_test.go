@@ -574,10 +574,10 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
 
 				// Validate that MIG mode is enabled via nvidia-smi
-				ValidateMIGModeEnabled(ctx, s)
+				ValidateMIGModeEnabled(ctx, s, 1)
 
 				// Validate that MIG instances are created
-				ValidateMIGInstancesCreated(ctx, s, "MIG 2g.20gb")
+				ValidateMIGInstancesCreated(ctx, s, "MIG 2g.20gb", 3)
 
 				// Validate that GPU resources are advertised by the device plugin
 				ValidateNodeAdvertisesGPUResources(ctx, s, 3, "nvidia.com/gpu")
@@ -606,6 +606,55 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_MultiGPU(t *testing.T) {
+	const (
+		gpuCount           = 2
+		migInstancesPerGPU = 3
+		totalMIGInstances  = gpuCount * migInstancesPerGPU
+		multiGPUA100VMSize = "Standard_NC48ads_A100_v4"
+	)
+
+	RunScenario(t, &Scenario{
+		Description:      "Tests that a MIG profile is applied to every GPU on an Ubuntu 24.04 multi-GPU VM",
+		K8sSystemPoolSKU: "Standard_D2s_v3",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster:               ClusterKubenet,
+			VHD:                   config.VHDUbuntu2404Gen2Containerd,
+			WaitForSSHAfterReboot: 5 * time.Minute,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = multiGPUA100VMSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = true
+				nbc.EnableNvidia = true
+				nbc.GPUInstanceProfile = "MIG2g"
+				nbc.EnableManagedGPU = true
+				nbc.MigStrategy = "Single"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(multiGPUA100VMSize)
+
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
+				require.NoError(t, err, "creating AKS VM extension")
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", "ubuntu", "r2404")
+				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for ubuntu r2404 but got %d", len(versions))
+				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
+
+				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
+				ValidateMIGModeEnabled(ctx, s, gpuCount)
+				ValidateMIGInstancesCreated(ctx, s, "MIG 2g.20gb", totalMIGInstances)
+				ValidateNodeAdvertisesGPUResources(ctx, s, totalMIGInstances, "nvidia.com/gpu")
+				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
 			},
 		},
 	})
@@ -766,10 +815,10 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
 
 				// Validate that MIG mode is enabled via nvidia-smi
-				ValidateMIGModeEnabled(ctx, s)
+				ValidateMIGModeEnabled(ctx, s, 1)
 
 				// Validate that MIG instances are created
-				ValidateMIGInstancesCreated(ctx, s, "MIG 1g.10gb")
+				ValidateMIGInstancesCreated(ctx, s, "MIG 1g.10gb", 7)
 
 				// Validate that MIG profile-specific GPU resources are advertised by the device plugin
 				migResourceName := "nvidia.com/mig-1g.10gb"
