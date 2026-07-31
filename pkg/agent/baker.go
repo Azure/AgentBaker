@@ -50,24 +50,47 @@ func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBo
 }
 
 const (
+	cseScriptlessPhase2Template = `echo '%s' | base64 -d | gzip -d > /opt/azure/containers/boothook.sh` +
+		` && chmod 0600 /opt/azure/containers/boothook.sh` +
+		` && { [ -e /opt/bin/boothook.sh ] || /bin/bash /opt/azure/containers/boothook.sh; }` +
+		` && /opt/azure/containers/aks-node-controller provision-wait`
 	boothookTemplate = `#cloud-boothook
 #!/bin/bash
 set -euo pipefail
 
+[ -e /opt/azure/containers/provision.complete ] && exit 0
+
 logger -t aks-boothook "boothook start $(date -Ins)"
 
-mkdir -p /opt/azure/containers /var/log/azure
+mkdir -p /opt/bin /opt/azure/containers /var/log/azure
 
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
 #hotfix-marker
 %s
+`
+	cseDownloaderTemplate = `
+if [ -f /opt/azure/containers/fetch_provision_config.py ]; then
+	python3 /opt/azure/containers/fetch_provision_config.py --output /opt/bin/boothook.sh --timeout 60 >>/var/log/azure/aks-early-boothook.log 2>&1 || exit 0
+fi
+
+if [ -f /opt/bin/boothook.sh ]; then
+	logger -t aks-boothook "starting /opt/bin/boothook.sh $(date -Ins)"
+	nohup /bin/bash /opt/bin/boothook.sh >/dev/null 2>&1 &
+fi
+`
+
+	serviceStartTemplate = `
 logger -t aks-boothook "launching aks-node-controller $(date -Ins)"
 if [ -f /opt/azure/containers/aks-node-controller-launcher.sh ]; then
 	nohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh > /var/log/azure/aks-node-controller.output 2>&1 &
 else
 	systemctl start --no-block aks-node-controller.service
 fi
+`
+	cseBootHookTemplate = `#!/bin/bash
+set -euo pipefail
+%s
 `
 	// boothookFileEntry is appended to the boothook for each additional file.
 	// It writes gzipped+base64-encoded content to disk before starting aks-node-controller.
@@ -78,6 +101,13 @@ EOF
 chmod 0600 %[1]s
 `
 	flatcarTemplate = `{
+     "ignition": { "version": "3.4.0" },
+     "storage": {
+       "files": [%s]
+      }
+    }`
+
+	flatcarAutoTemplate = `{
      "ignition": { "version": "3.4.0" },
      "systemd": {
        "units": [{
@@ -93,7 +123,7 @@ chmod 0600 %[1]s
          "overwrite": true
        }]
       }
-     }`
+	}`
 	// flatcarFileEntry is an Ignition file entry appended to the files array
 	// when additional files are provided. Entries are joined with "," by
 	// buildScriptlessCustomData to form a valid JSON array.
@@ -113,16 +143,8 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 }
 
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
-	if config.EnableScriptlessNBCCSECmd {
-		if supportsScriptlessPhase2(config) {
-			if customData := t.getScriptlessNBCCustomData(config); len(customData) < MaxCustomDataLength {
-				return customData
-			}
-		}
-		// if we cannot enable scriptless phase2, we need to fallback to scriptless phase1
-		config.EnableScriptlessNBCCSECmd = false
-		config.EnableScriptlessCSECmd = true
-		config.DisableCustomData = false
+	if supportsScriptlessPhase2(config) {
+		return t.getScriptlessBoothook(config)
 	}
 
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
@@ -138,20 +160,19 @@ func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.N
 	return encoded
 }
 
-// getScriptlessNBCCustomData builds custom data for the scriptless NBC CSE path.
-// It encodes the nbc-cmd script, node custom data, and optionally AKSNodeConfig
+type encodedFile struct {
+	path    string
+	content string
+}
+
+// getScriptlessBoothook builds custom data for the scriptless NBC CSE path.
+// It encodes the node custom data, cse downloader script
 // into the appropriate format (boothook or flatcar ignition).
-func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBootstrappingConfiguration) string {
+func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstrappingConfiguration) string {
 	config.DisableCustomData = true
 	config.EnableScriptlessCSECmd = true
-	nbcCMD := t.getLinuxNodeCSECommand(config)
-	encodedNBCCMD := getBase64EncodedGzippedCustomScriptFromStr(nbcCMD)
 	nodeCustomData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
 	encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
-	var encodedAKSNodeConfig string
-	if config.AKSNodeConfigJSON != "" {
-		encodedAKSNodeConfig = getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
-	}
 
 	// hotfixJSONFile is optional: only VHDs that bake a static default hotfix
 	// pointer ship this file. Skip silently when it's absent from the embedded parts FS.
@@ -170,25 +191,68 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 
 	// Use an ordered slice (not a map) so the rendered customData is deterministic
 	// across runs/tests instead of depending on Go's randomized map iteration order.
-	encodedFiles := []struct {
-		path    string
-		content string
-	}{
-		{aksNbcCmdFilepath, encodedNBCCMD},
+	encodedFiles := []encodedFile{
 		{aksNodeCustomDataFilepath, encodedNodeCustomData},
-		{aksNodeConfigFilepath, encodedAKSNodeConfig},
 		{aksHotfixJSONFilepath, encodedHotfixJSON},
 		{enabledFeaturesFilepath, encodedEnabledFeatures},
 	}
 
-	var customData string
+	var customData, encodedCustomData string
 	if config.IsFlatcar() || config.IsACL() {
 		customData = buildScriptlessCustomData(flatcarTemplate, flatcarFileEntry, ",", encodedFiles)
+		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
 		customData = buildScriptlessCustomData(boothookTemplate, boothookFileEntry, "\n", encodedFiles)
+		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData + cseDownloaderTemplate))
 	}
 
-	return base64.StdEncoding.EncodeToString([]byte(customData))
+	if config.ScriptlessCSEProvisionMode {
+		return encodedCustomData
+	}
+
+	var finalCustomData string
+	config.ScriptlessCSEProvisionMode = false
+	if config.IsFlatcar() || config.IsACL() {
+		encodedFiles = append(encodedFiles, t.getScriptlessConfiguration(config)...)
+		finalCustomData = buildScriptlessCustomData(flatcarAutoTemplate, flatcarFileEntry, ",", encodedFiles)
+	} else {
+		finalCustomData = customData + t.getScriptlessNBCCmd(config)
+	}
+	encodedFinalCustomData := base64.StdEncoding.EncodeToString([]byte(finalCustomData))
+	if len(encodedFinalCustomData) < MaxCustomDataLength {
+		return encodedFinalCustomData
+	}
+	config.ScriptlessCSEProvisionMode = true
+	return encodedCustomData
+}
+
+// getScriptlessNBCCmd builds cse for the scriptless NBC CSE path.
+// It encodes the nbc-cmd script, and optionally AKSNodeConfig JSON,
+// into a single base64-encoded string for the cse scriptless phase2 template.
+func (t *TemplateGenerator) getScriptlessNBCCmd(config *datamodel.NodeBootstrappingConfiguration) string {
+	encodedFiles := t.getScriptlessConfiguration(config)
+	customData := buildScriptlessCustomData(cseBootHookTemplate, boothookFileEntry, "\n", encodedFiles)
+	customData += serviceStartTemplate
+	return customData
+}
+
+func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBootstrappingConfiguration) []encodedFile {
+	config.DisableCustomData = true
+	config.EnableScriptlessCSECmd = true
+	nbcCMD := t.getLinuxNodeCSECommand(config)
+	encodedNBCCMD := getBase64EncodedGzippedCustomScriptFromStr(nbcCMD)
+	var encodedAKSNodeConfig string
+	if config.AKSNodeConfigJSON != "" {
+		encodedAKSNodeConfig = getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
+	}
+
+	// Use an ordered slice (not a map) so the rendered customData is deterministic
+	// across runs/tests instead of depending on Go's randomized map iteration order.
+	encodedFiles := []encodedFile{
+		{aksNbcCmdFilepath, encodedNBCCMD},
+		{aksNodeConfigFilepath, encodedAKSNodeConfig},
+	}
+	return encodedFiles
 }
 
 func supportsScriptlessPhase2(config *datamodel.NodeBootstrappingConfiguration) bool {
@@ -228,10 +292,7 @@ func isValidFeatureKey(k string) bool {
 	return featureKeyRe.MatchString(k)
 }
 
-func buildScriptlessCustomData(cloudInitTemplate, fileListTemplate, separator string, encodedFiles []struct {
-	path    string
-	content string
-}) string {
+func buildScriptlessCustomData(cloudInitTemplate, fileListTemplate, separator string, encodedFiles []encodedFile) string {
 	var fileList []string
 	for _, f := range encodedFiles {
 		if f.content == "" {
@@ -473,7 +534,12 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 		return t.getWindowsNodeCSECommand(config)
 	}
 	if supportsScriptlessPhase2(config) {
-		return "/opt/azure/containers/aks-node-controller provision-wait"
+		if config.ScriptlessCSEProvisionMode {
+			cseCmd := getBase64EncodedGzippedCustomScriptFromStr(t.getScriptlessNBCCmd(config))
+			return fmt.Sprintf(cseScriptlessPhase2Template, cseCmd)
+		} else {
+			return "/opt/azure/containers/aks-node-controller provision-wait"
+		}
 	}
 	return t.getLinuxNodeCSECommand(config)
 }
