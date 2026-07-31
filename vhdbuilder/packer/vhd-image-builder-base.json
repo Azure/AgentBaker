@@ -117,6 +117,16 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/ubuntu/cloudinit/cloud-init_26.1-0ubuntu1~22.04.1_all.deb",
+      "destination": "/home/packer/cloud-init_26.1-0ubuntu1~22.04.1_all.deb"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/ubuntu/cloudinit/cloud-init_26.1-0ubuntu1~24.04.1_all.deb",
+      "destination": "/home/packer/cloud-init_26.1-0ubuntu1~24.04.1_all.deb"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/prefetch.sh",
       "destination": "/home/packer/prefetch.sh"
     },
@@ -239,6 +249,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_send_logs.py",
       "destination": "/home/packer/cse_send_logs.py"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/report_ready.py",
+      "destination": "/home/packer/report_ready.py"
     },
     {
       "type": "file",

@@ -1154,6 +1154,31 @@ if ! isMarinerOrAzureLinux "$OS"; then
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
 
+skipCloudInitReadyReport || exit 1
+
+if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+  # Install cloud-init patched with experimental_skip_ready_report and
+  # runtime datasource-option support, backported from
+  # https://github.com/peytonr18/cloud-init/tree/probertson/jammy-runtime-ds-options-skip-ready
+  UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
+  case "${UBUNTU_RELEASE}" in
+    22.04)
+      CLOUD_INIT_DEB=/home/packer/cloud-init_26.1-0ubuntu1~22.04.1_all.deb
+      ;;
+    24.04)
+      CLOUD_INIT_DEB=/home/packer/cloud-init_26.1-0ubuntu1~24.04.1_all.deb
+      ;;
+    *)
+      CLOUD_INIT_DEB=""
+      echo "No patched cloud-init deb for Ubuntu ${UBUNTU_RELEASE}, skipping"
+      ;;
+  esac
+  if [ -n "${CLOUD_INIT_DEB}" ] && [ -f "${CLOUD_INIT_DEB}" ]; then
+    dpkg -i "${CLOUD_INIT_DEB}" || apt-get install -f -y || exit 1
+    rm -f "${CLOUD_INIT_DEB}"
+  fi
+fi
+
 # ACL inherits Azure Linux behaviors but isMarinerOrAzureLinux returns false,
 # so these must be called separately (mirrored in the Mariner/AzureLinux block below).
 # Other Mariner functions are safe to skip for ACL:
