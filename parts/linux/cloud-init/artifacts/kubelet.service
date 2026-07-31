@@ -3,10 +3,23 @@ Description=Kubelet
 ConditionPathExists=/opt/bin/kubelet
 Wants=network-online.target containerd.service
 After=network-online.target containerd.service
+# Restart=always is ignored once systemd's default start rate limit (StartLimitBurst=5 within
+# StartLimitIntervalSec=10s) trips: the unit result becomes start-limit-hit, systemd stops
+# scheduling restart jobs, and the node has no kubelet until reset-failed or a reboot. Upstream
+# Kubernetes ships the same override in its packaged kubelet.service.
+StartLimitIntervalSec=0
 
 [Service]
 Restart=always
 RestartSec=2
+# The systemd watchdog (10-watchdog.conf, k8s >= 1.32) aborts a stalled kubelet. Under the default
+# KillMode=control-group systemd sends that SIGABRT to every process in the cgroup and then holds
+# the unit in "deactivating" until the cgroup drains, so one wedged child - a hung CRI or CSI mount
+# helper - blocks the restart with no restart job logged. mixed signals kubelet alone; the final
+# SIGKILL still covers the whole cgroup.
+KillMode=mixed
+# Bound each stop step instead of inheriting DefaultTimeoutStopSec.
+TimeoutStopSec=30
 EnvironmentFile=/etc/default/kubelet
 # Graceful termination (SIGTERM)
 SuccessExitStatus=143

@@ -196,6 +196,37 @@ func ValidateAKSLogCollector(ctx context.Context, s *Scenario) {
 	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-log-collector")
 }
 
+// ValidateKubeletWatchdogRecovery asserts the effective systemd settings that let kubelet come
+// back after a watchdog timeout. WatchdogSec turns a stalled kubelet into a SIGABRT, which the Go
+// runtime reports as "Main process exited, code=exited, status=2". Recovery then depends on
+// systemd not blocking on the unit cgroup draining and on the start rate limit being disabled,
+// since a tripped limiter makes systemd ignore Restart=always until reset-failed or a reboot.
+//
+// This reads the merged unit (base unit plus every drop-in) so a drop-in that regresses these
+// settings is caught too. It only runs when kubelet.service is delivered through CustomData;
+// scriptless nodes take the unit from the VHD, which lags the current branch.
+func ValidateKubeletWatchdogRecovery(ctx context.Context, s *Scenario) {
+	nbc := s.Runtime.NBC
+	if nbc == nil || nbc.EnableScriptlessCSECmd {
+		return
+	}
+	for _, property := range []struct {
+		name string
+		want string
+	}{
+		{"Restart", "always"},
+		{"StartLimitIntervalUSec", "0"},
+		{"KillMode", "mixed"},
+		{"TimeoutStopUSec", "30s"},
+		// An exit status listed here would exclude the code a watchdog SIGABRT produces.
+		{"RestartPreventExitStatus", ""},
+	} {
+		cmd := fmt.Sprintf("systemctl show kubelet.service --property=%s --value", property.name)
+		execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0, "could not read effective kubelet.service systemd properties")
+		require.Equal(s.T, property.want, strings.TrimSpace(execResult.stdout), "unexpected effective kubelet.service %s", property.name)
+	}
+}
+
 func ValidateDiskQueueService(ctx context.Context, s *Scenario) {
 	ValidateSystemdUnitIsRunning(ctx, s, "disk_queue.service")
 }
