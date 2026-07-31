@@ -516,25 +516,6 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 		panic(e)
 	}
 
-	// Compare CSE env vars between NBC path and AKSNodeConfig path when AKSNodeConfigJSON is provided.
-	// This enables server-side validation that the two paths produce equivalent provisioning commands.
-	if config.AKSNodeConfigJSON != "" {
-		aksNodeConfig, err := nodeconfigutils.UnmarshalConfigurationV1([]byte(config.AKSNodeConfigJSON))
-		if err != nil {
-			slog.Warn("failed to unmarshal AKSNodeConfigJSON for CSE env comparison", "error", err)
-		} else {
-			diff := CompareCSEEnvVars(context.Background(), config, aksNodeConfig, nil)
-			if diff.HasDifferences() {
-				slog.Info("CSE env var differences detected between NBC and AKSNodeConfig paths",
-					"onlyInNBC", len(diff.OnlyInNBC),
-					"onlyInANC", len(diff.OnlyInANC),
-					"valueMismatches", len(diff.ValueMismatch),
-					"diff", diff.String(),
-				)
-			}
-		}
-	}
-
 	// NOTE: we break the one-line CSE command into different lines in a file for better management
 	// so we need to combine them into one line here
 	return strings.ReplaceAll(str, "\n", " ")

@@ -6,9 +6,7 @@ package agent
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
-	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/agent/toggles"
 )
@@ -85,25 +83,6 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
 		if imageVersion != "" {
 			nodeBootstrapping.SigImageConfig.Version = imageVersion
-		}
-	}
-
-	// Compare CSE env vars between NBC path and AKSNodeConfig path when AKSNodeConfigJSON is provided.
-	// This enables server-side validation that the two paths produce equivalent provisioning commands.
-	if config.AKSNodeConfigJSON != "" && !config.AgentPoolProfile.IsWindows() {
-		aksNodeConfig, err := nodeconfigutils.UnmarshalConfigurationV1([]byte(config.AKSNodeConfigJSON))
-		if err != nil {
-			slog.Warn("failed to unmarshal AKSNodeConfigJSON for CSE env comparison", "error", err)
-		} else {
-			diff := CompareCSEEnvVars(ctx, config, aksNodeConfig, nil)
-			if diff.HasDifferences() {
-				slog.Info("CSE env var differences detected between NBC and AKSNodeConfig paths",
-					"onlyInNBC", len(diff.OnlyInNBC),
-					"onlyInANC", len(diff.OnlyInANC),
-					"valueMismatches", len(diff.ValueMismatch),
-					"details", diff.String(),
-				)
-			}
 		}
 	}
 
