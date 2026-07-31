@@ -37,8 +37,33 @@ function Set-CryptoSetting {
 }
 #***************************************************************************************************************
 
+function Set-RegistryDWordValue {
+    param (
+        [Parameter(Mandatory = $true)] $RegistryKey,
+        [Parameter(Mandatory = $true)][string] $SubKeyName,
+        [Parameter(Mandatory = $true)][string] $ValueName,
+        [Parameter(Mandatory = $true)][int] $Value
+    )
+
+    $subKey = $RegistryKey.CreateSubKey($SubKeyName)
+    if ($null -eq $subKey) {
+        throw "Failed to create or open registry key '$SubKeyName'"
+    }
+
+    try {
+        $subKey.SetValue($ValueName, $Value, [Microsoft.Win32.RegistryValueKind]::DWord)
+    }
+    finally {
+        $subKey.Dispose()
+    }
+}
+
 #******************* FUNCTION THAT DISABLES RC4 ***********************
 function DisableRC4 {
+    param (
+        $RegistryKey = [Microsoft.Win32.Registry]::LocalMachine
+    )
+
     Write-Log "----- Checking the status of RC4 -----"
 
     $rc4CipherKeys = @(
@@ -48,7 +73,11 @@ function DisableRC4 {
         "RC4 40/128"
     )
     foreach ($key in $rc4CipherKeys) {
-        Set-CryptoSetting "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\$key" Enabled 0 DWord
+        Set-RegistryDWordValue `
+            -RegistryKey $RegistryKey `
+            -SubKeyName "SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\$key" `
+            -ValueName "Enabled" `
+            -Value 0
     }
 
     Write-Log "RC4 is disabled"
