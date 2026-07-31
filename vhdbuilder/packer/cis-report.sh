@@ -61,7 +61,7 @@ systemctl disable --now gcd.service || true
 # (6.1.3.1 / 6.1.4.1), which requires generic /var/log files to be 0640 or
 # more restrictive.
 reset_log_perms() {
-    find /var/log -type f -exec chmod 640 {} \;
+    find /var/log -type f -exec chmod 0640 {} \;
 }
 
 # A background writer (e.g. the GuestConfiguration extension writing
@@ -72,7 +72,7 @@ reset_log_perms() {
 # at 0640 for the entire assessment phase by resetting them in the background,
 # then stop the guard before reading/uploading the reports.
 reset_log_perms
-( while :; do reset_log_perms; sleep 2; done ) &
+( while :; do reset_log_perms || true; sleep 2; done ) &
 PERMS_GUARD_PID=$!
 stop_perms_guard() {
     [ -n "${PERMS_GUARD_PID:-}" ] || return 0
