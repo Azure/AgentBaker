@@ -8,7 +8,7 @@ jobs:
     parameters:
       name: Linux Tests
       IgnoreScenariosWithMissingVhd: false
+      jobTimeoutInMinutes: 120
       failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}
       variableGroup: ab-e2e-tme
       subscriptionId: $(SUBSCRIPTION_ID_OVERRIDE)
-
