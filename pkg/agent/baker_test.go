@@ -1496,6 +1496,20 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars).To(HaveKeyWithValue("GPU_INSTANCE_PROFILE", "MIG7g"))
 	})
 
+	It("should populate a MIG profile layout without enabling partitioning", func() {
+		baseConfig.MIGProfileLayout = []string{"MIG3g", "MIG2g", "MIG1g", "MIG1g"}
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_PROFILE_LAYOUT", "MIG3g,MIG2g,MIG1g,MIG1g"))
+		// TODO: Make MIG_NODE true if either NVIDIA_MIG_PROFILE_LAYOUT or GPU_INSTANCE_PROFILE is set.
+		Expect(vars).To(HaveKeyWithValue("MIG_NODE", "false"))
+	})
+
 	It("should handle disable unattended upgrades", func() {
 		baseConfig.DisableUnattendedUpgrades = true
 
