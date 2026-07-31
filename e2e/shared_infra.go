@@ -362,10 +362,45 @@ const (
 )
 
 // ensureSharedFirewall creates or retrieves the shared Azure Firewall and returns its private IP.
+// The firewall is shared across all clusters in the RG, so its application rules persist beyond
+// the lifetime of any single cluster. We reconcile rules on every call so that changes to allowed
+// FQDNs (notably the per-sub blob storage account FQDN, which now embeds a sub-suffix) are picked
+// up. Without this, a firewall created against an older BlobStorageAccount() name silently blocks
+// CSE zip downloads from the new per-sub storage account, causing Windows CSE to fail with
+// NO_CSE_RESULT_LOG and Linux CSE to hang on artifact downloads.
 func ensureSharedFirewall(ctx context.Context, rg, location string) (string, error) {
 	existing, err := config.Azure.AzureFirewall.Get(ctx, rg, SharedFirewallName, nil)
 	if err == nil {
-		return getFirewallPrivateIP(existing.AzureFirewall)
+		// Fast path: rules already match current config.
+		if firewallAppRulesUpToDate(existing.AzureFirewall) {
+			return getFirewallPrivateIP(existing.AzureFirewall)
+		}
+		toolkit.Logf(ctx, "shared firewall %s exists but app rules are stale; updating", SharedFirewallName)
+		firewallSubnetID := fmt.Sprintf(
+			"/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/AzureFirewallSubnet",
+			config.Config.SubscriptionID, rg, SharedVNetName,
+		)
+		// Reuse the existing PIP — recreating it would reassign the firewall's public IP and
+		// break any external dependency pinned to it.
+		var publicIPID string
+		if existing.Properties != nil && len(existing.Properties.IPConfigurations) > 0 &&
+			existing.Properties.IPConfigurations[0].Properties != nil &&
+			existing.Properties.IPConfigurations[0].Properties.PublicIPAddress != nil &&
+			existing.Properties.IPConfigurations[0].Properties.PublicIPAddress.ID != nil {
+			publicIPID = *existing.Properties.IPConfigurations[0].Properties.PublicIPAddress.ID
+		} else {
+			return "", fmt.Errorf("existing firewall %s has no public IP configuration", SharedFirewallName)
+		}
+		updated := getFirewall(ctx, location, firewallSubnetID, publicIPID)
+		fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, rg, SharedFirewallName, *updated, nil)
+		if err != nil {
+			return "", fmt.Errorf("updating shared firewall app rules: %w", err)
+		}
+		fwResp, err := fwPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+		if err != nil {
+			return "", fmt.Errorf("waiting for shared firewall update: %w", err)
+		}
+		return getFirewallPrivateIP(fwResp.AzureFirewall)
 	}
 	if !isNotFoundError(err) {
 		return "", fmt.Errorf("checking shared firewall: %w", err)
@@ -422,6 +457,36 @@ func getFirewallPrivateIP(fw armnetwork.AzureFirewall) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("firewall has no private IP address")
+}
+
+// firewallAppRulesUpToDate returns true when the existing firewall already allows the current
+// per-sub blob storage FQDN. We only check the blob-storage-fqdn rule because that's the only
+// rule whose target depends on dynamic config — the rest (aks-fqdn, mooncake-mar, dmc) use
+// static values. If the storage FQDN changed (e.g. sub-suffix added), the rule is stale.
+func firewallAppRulesUpToDate(fw armnetwork.AzureFirewall) bool {
+	if fw.Properties == nil {
+		return false
+	}
+	expectedFqdn := config.Config.BlobStorageAccount() + ".blob.core.windows.net"
+	for _, coll := range fw.Properties.ApplicationRuleCollections {
+		if coll == nil || coll.Properties == nil {
+			continue
+		}
+		for _, rule := range coll.Properties.Rules {
+			if rule == nil || rule.Name == nil || *rule.Name != "blob-storage-fqdn" {
+				continue
+			}
+			// Found the dynamic rule; match means firewall is current.
+			for _, fqdn := range rule.TargetFqdns {
+				if fqdn != nil && *fqdn == expectedFqdn {
+					return true
+				}
+			}
+			return false
+		}
+	}
+	// Rule not found at all → firewall predates this rule, treat as stale.
+	return false
 }
 
 // ensureClusterIdentity creates a user-assigned managed identity for AKS clusters

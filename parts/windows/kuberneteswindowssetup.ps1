@@ -445,9 +445,7 @@ function BasePrep {
     Update-DefenderPreferences
 
     $windowsVersion = Get-WindowsVersion
-    if ($windowsVersion -ne "1809") {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Skip secure TLS protocols for Windows version: $windowsVersion"
-    } else {
+    if ($windowsVersion -eq "1809" -or $windowsVersion -eq "ltsc2022") {
         Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Start to enable secure TLS protocols"
         try {
             . C:\k\windowssecuretls.ps1
@@ -456,6 +454,8 @@ function BasePrep {
         catch {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
         }
+    } else {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Skip secure TLS protocols for Windows version: $windowsVersion"
     }
 
     Enable-FIPSMode -FipsEnabled $fipsEnabled
@@ -651,21 +651,7 @@ function NodePrep {
         Postpone-RestartComputer
     } else {
         Logs-To-Event -TaskName "AKS.WindowsCSE.StartScheduledTask" -TaskMessage "Setup Complete, start NodeResetScriptTask to register Windows node without reboot"
-        Start-ScheduledTask -TaskName "k8s-restart-job"
-
-        $timeout = 180 ##  seconds
-        $timer = [Diagnostics.Stopwatch]::StartNew()
-        while ((Get-ScheduledTask -TaskName 'k8s-restart-job').State -ne 'Ready') {
-            # The task `k8s-restart-job` needs ~8 seconds.
-            if ($timer.Elapsed.TotalSeconds -gt $timeout) {
-                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask is not finished after [$($timer.Elapsed.TotalSeconds)] seconds"
-            }
-
-            Write-Log -Message "Waiting on NodeResetScriptTask..."
-            Start-Sleep -Seconds 3
-        }
-        $timer.Stop()
-        Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
+        Start-NodeResetScriptTask
     }
     Write-Log "NodePrep completed successfully"
     Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "NodePrep completed successfully"
