@@ -14,6 +14,15 @@ set -uo pipefail
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 KUBELET_DEFAULT_FILE="${KUBELET_DEFAULT_FILE:-/etc/default/kubelet}"
 KUBELET_CONFIG_JSON_PATH="${KUBELET_CONFIG_JSON_PATH:-/etc/default/kubeletconfig.json}"
+# /run is tmpfs, so this is cleared on reboot and every boot emits at least one event.
+EMIT_MARKER_FILE="${EMIT_MARKER_FILE:-/run/emit-kubelet-active-flags.fingerprint}"
+
+# kubeletConfigFingerprint hashes both config files. ensureKubelet rewrites them on every CSE run,
+# so a changed fingerprint means kubelet was restarted with different settings and the previously
+# emitted event is stale.
+kubeletConfigFingerprint() {
+    cat "${KUBELET_DEFAULT_FILE}" "${KUBELET_CONFIG_JSON_PATH}" 2>/dev/null | sha256sum | cut -d' ' -f1
+}
 
 # getKubeletActiveFlagsJSON builds a compact JSON object describing kubelet's effective
 # configuration by reading the on-disk config files. The output is a single-line JSON string
@@ -83,7 +92,12 @@ getKubeletActiveFlagsJSON() {
 # so it lands verbatim as pure JSON in GuestAgentGenericLogs.Context1, ready for parse_json().
 emitKubeletActiveFlagsEvent() {
     local task="AKS.CSE.ensureKubelet.kubeletActiveFlags"
-    local message now eventsFileName
+    local message now eventsFileName fingerprint
+    fingerprint="$(kubeletConfigFingerprint)"
+    if [ -f "${EMIT_MARKER_FILE}" ] && [ "$(cat "${EMIT_MARKER_FILE}")" = "${fingerprint}" ]; then
+        echo "kubelet config unchanged since the last emitted event, skipping"
+        return 0
+    fi
     message="$(getKubeletActiveFlagsJSON)"
     now="$(date +"%F %T.%3N")"
     eventsFileName="$(date +%s%3N)"
@@ -99,6 +113,8 @@ emitKubeletActiveFlagsEvent() {
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}' \
         > "${EVENTS_LOGGING_DIR}${eventsFileName}.json"
+    # Recorded only after a successful emit, so a failed run is retried on the next kubelet start.
+    printf '%s' "${fingerprint}" > "${EMIT_MARKER_FILE}"
 }
 
 # Only run when executed directly (not when sourced by tests).

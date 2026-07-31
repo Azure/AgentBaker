@@ -4,16 +4,14 @@ After=kubelet.service
 ConditionPathExists=/opt/azure/containers/emit-kubelet-active-flags.sh
 # Reads /etc/default/kubelet and /etc/default/kubeletconfig.json (written by ensureKubelet
 # before kubelet starts), so After=kubelet.service guarantees the files exist.
-# The /run marker (tmpfs, cleared on reboot) keeps it to one event per boot so a crashlooping
-# kubelet cannot flood the guest agent event directory.
-ConditionPathExists=!/run/emit-kubelet-active-flags.done
+# The script dedups on a fingerprint of those files: a kubelet restart with unchanged config emits
+# nothing, while a CSE retry that rewrote them re-emits so the event never reports a stale config.
 
 [Service]
 Type=oneshot
 Restart=no
 RemainAfterExit=no
 ExecStart=/bin/bash /opt/azure/containers/emit-kubelet-active-flags.sh
-ExecStartPost=/bin/touch /run/emit-kubelet-active-flags.done
 
 [Install]
 WantedBy=kubelet.service

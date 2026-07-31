@@ -71,6 +71,7 @@ Describe 'emit-kubelet-active-flags.sh'
             echo '{"maxPods":110}' > "${tmpdir}/kubeletconfig.json"
             KUBELET_DEFAULT_FILE="${tmpdir}/kubelet"
             KUBELET_CONFIG_JSON_PATH="${tmpdir}/kubeletconfig.json"
+            EMIT_MARKER_FILE="${tmpdir}/fingerprint"
             emit_and_read() {
                 emitKubeletActiveFlagsEvent
                 cat "${EVENTS_LOGGING_DIR}"*.json
@@ -79,6 +80,41 @@ Describe 'emit-kubelet-active-flags.sh'
             The output should include '"TaskName": "AKS.CSE.ensureKubelet.kubeletActiveFlags"'
             The output should include 'uses_config_file'
             The output should include 'cloud-provider'
+        End
+
+        It 'skips re-emitting when the kubelet config is unchanged'
+            tmpdir="$(mktemp -d)"
+            EVENTS_LOGGING_DIR="${tmpdir}/events/"
+            echo 'KUBELET_FLAGS=--cloud-provider=external' > "${tmpdir}/kubelet"
+            echo '{"maxPods":110}' > "${tmpdir}/kubeletconfig.json"
+            KUBELET_DEFAULT_FILE="${tmpdir}/kubelet"
+            KUBELET_CONFIG_JSON_PATH="${tmpdir}/kubeletconfig.json"
+            EMIT_MARKER_FILE="${tmpdir}/fingerprint"
+            emit_twice() {
+                emitKubeletActiveFlagsEvent >/dev/null
+                emitKubeletActiveFlagsEvent
+            }
+            When call emit_twice
+            The output should include 'kubelet config unchanged'
+        End
+
+        It 're-emits when a CSE retry rewrote the kubelet config'
+            tmpdir="$(mktemp -d)"
+            EVENTS_LOGGING_DIR="${tmpdir}/events/"
+            echo 'KUBELET_FLAGS=--cloud-provider=external' > "${tmpdir}/kubelet"
+            echo '{"maxPods":110}' > "${tmpdir}/kubeletconfig.json"
+            KUBELET_DEFAULT_FILE="${tmpdir}/kubelet"
+            KUBELET_CONFIG_JSON_PATH="${tmpdir}/kubeletconfig.json"
+            EMIT_MARKER_FILE="${tmpdir}/fingerprint"
+            emit_then_reconfigure() {
+                emitKubeletActiveFlagsEvent >/dev/null
+                echo 'KUBELET_FLAGS=--cloud-provider=external --max-pods=250' > "${KUBELET_DEFAULT_FILE}"
+                emitKubeletActiveFlagsEvent
+                cat "${EVENTS_LOGGING_DIR}"*.json
+            }
+            When call emit_then_reconfigure
+            The output should not include 'unchanged'
+            The output should include 'max-pods'
         End
     End
 End
