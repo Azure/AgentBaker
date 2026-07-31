@@ -43,6 +43,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	ValidateAKSLogCollector(ctx, s)
 	ValidateDiskQueueService(ctx, s)
 	ValidateLeakedSecrets(ctx, s)
+	ValidateKubeletActiveFlagsEvent(ctx, s)
 	ValidateIPTablesCompatibleWithCiliumEBPF(ctx, s)
 	ValidateRxBufferDefault(ctx, s)
 
