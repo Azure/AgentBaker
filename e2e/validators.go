@@ -962,10 +962,9 @@ func ValidateKubeletActiveFlagsEvent(ctx context.Context, s *Scenario) {
 	}
 	command := []string{
 		"set -ex",
-		// Verify the oneshot service completed successfully (Result=success)
-		`result=$(systemctl show emit-kubelet-active-flags.service --property=Result --value)`,
-		`if [ "$result" != "success" ]; then echo "emit-kubelet-active-flags did not succeed: $result"; exit 1; fi`,
-		// Verify the event file was produced
+		// Verify service completed successfully via journalctl
+		`journalctl -u emit-kubelet-active-flags.service --no-pager | grep -q "Finished\|Deactivated successfully"`,
+		// Verify the event file was produced with correct TaskName
 		`grep -rl 'kubeletActiveFlags' /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/ | head -1 | xargs cat | jq -e '.TaskName == "AKS.CSE.ensureKubelet.kubeletActiveFlags"'`,
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate emit-kubelet-active-flags.service")

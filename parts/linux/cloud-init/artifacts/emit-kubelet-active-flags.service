@@ -10,7 +10,7 @@ ConditionPathExists=/opt/azure/containers/emit-kubelet-active-flags.sh
 [Service]
 Type=oneshot
 Restart=no
-RemainAfterExit=no
+RemainAfterExit=yes
 ExecStart=/bin/bash /opt/azure/containers/emit-kubelet-active-flags.sh
 
 [Install]
