@@ -2,7 +2,12 @@ BeforeAll {
     function Write-Log {}
 
     function New-FakeRegistryKey {
+        param (
+            [hashtable] $ExistingValues = @{}
+        )
+
         $registryKey = [PSCustomObject]@{
+            ExistingValues = $ExistingValues
             SubKeys = [System.Collections.ArrayList]::new()
             Values = [System.Collections.ArrayList]::new()
         }
@@ -11,7 +16,16 @@ BeforeAll {
 
             [void]$this.SubKeys.Add($subKeyName)
             $subKey = [PSCustomObject]@{
+                ExistingValues = $this.ExistingValues
                 Values = $this.Values
+            }
+            $subKey | Add-Member -MemberType ScriptMethod -Name GetValue -Value {
+                param($name, $defaultValue)
+
+                if ($this.ExistingValues.ContainsKey($name)) {
+                    return $this.ExistingValues[$name]
+                }
+                return $defaultValue
             }
             $subKey | Add-Member -MemberType ScriptMethod -Name SetValue -Value {
                 param($name, $value, $kind)
@@ -29,6 +43,39 @@ BeforeAll {
     }
 
     . $PSScriptRoot\provisioningscripts\windowssecuretls.ps1
+}
+
+Describe "Set-CryptoSetting" {
+    It "preserves literal subkey names from an HKLM provider path" {
+        $registryKey = New-FakeRegistryKey
+
+        Set-CryptoSetting `
+            "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\RC4 64/128" `
+            "Enabled" `
+            0 `
+            "DWord" `
+            $registryKey
+
+        $registryKey.SubKeys | Should -HaveCount 1
+        $registryKey.SubKeys[0] | Should -Be "SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\RC4 64/128"
+        $registryKey.Values | Should -HaveCount 1
+        $registryKey.Values[0].Name | Should -Be "Enabled"
+        $registryKey.Values[0].Value | Should -Be 0
+        $registryKey.Values[0].Kind | Should -Be ([Microsoft.Win32.RegistryValueKind]::DWord)
+    }
+
+    It "does not rewrite a registry value that already has the desired data" {
+        $registryKey = New-FakeRegistryKey -ExistingValues @{ Enabled = 1 }
+
+        Set-CryptoSetting `
+            "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Client" `
+            "Enabled" `
+            1 `
+            "DWord" `
+            $registryKey
+
+        $registryKey.Values | Should -HaveCount 0
+    }
 }
 
 Describe "DisableRC4" {

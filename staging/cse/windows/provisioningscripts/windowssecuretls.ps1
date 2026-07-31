@@ -12,51 +12,31 @@ function Set-CryptoSetting {
         $regKeyName, 
         $value, 
         $valuedata, 
-        $valuetype      
+        $valuetype,
+        $RegistryKey = [Microsoft.Win32.Registry]::LocalMachine
     ) 
 
-    # Check for existence of registry key, and create if it does not exist 
-    If (!(Test-Path -Path $regKeyName)) { 
-        New-Item $regKeyName | Out-Null 
-    } 
-
-    # Get data of registry value, or null if it does not exist 
-    $val = (Get-ItemProperty -Path $regKeyName -Name $value -ErrorAction SilentlyContinue).$value 
-
-
-    If ($val -eq $null) { 
-        # Value does not exist - create and set to desired value 
-        New-ItemProperty -Path $regKeyName -Name $value -Value $valuedata -PropertyType $valuetype | Out-Null 
+    $subKeyName = $regKeyName -replace "^HKLM:\\", ""
+    if ($subKeyName -eq $regKeyName) {
+        throw "Registry path '$regKeyName' must start with 'HKLM:\'"
     }
-    Else { 
-        # Value does exist - if not equal to desired value, change it 
-        If ($val -ne $valuedata) { 
-            Set-ItemProperty -Path $regKeyName -Name $value -Value $valuedata 
-        } 
-    } 
-}
-#***************************************************************************************************************
 
-function Set-RegistryDWordValue {
-    param (
-        [Parameter(Mandatory = $true)] $RegistryKey,
-        [Parameter(Mandatory = $true)][string] $SubKeyName,
-        [Parameter(Mandatory = $true)][string] $ValueName,
-        [Parameter(Mandatory = $true)][int] $Value
-    )
-
-    $subKey = $RegistryKey.CreateSubKey($SubKeyName)
+    $subKey = $RegistryKey.CreateSubKey($subKeyName)
     if ($null -eq $subKey) {
-        throw "Failed to create or open registry key '$SubKeyName'"
+        throw "Failed to create or open registry key '$subKeyName'"
     }
 
     try {
-        $subKey.SetValue($ValueName, $Value, [Microsoft.Win32.RegistryValueKind]::DWord)
+        $currentValue = $subKey.GetValue($value, $null)
+        if ($null -eq $currentValue -or $currentValue -ne $valuedata) {
+            $subKey.SetValue($value, $valuedata, [Microsoft.Win32.RegistryValueKind]$valuetype)
+        }
     }
     finally {
         $subKey.Dispose()
     }
 }
+#***************************************************************************************************************
 
 #******************* FUNCTION THAT DISABLES RC4 ***********************
 function DisableRC4 {
@@ -73,11 +53,12 @@ function DisableRC4 {
         "RC4 40/128"
     )
     foreach ($key in $rc4CipherKeys) {
-        Set-RegistryDWordValue `
-            -RegistryKey $RegistryKey `
-            -SubKeyName "SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\$key" `
-            -ValueName "Enabled" `
-            -Value 0
+        Set-CryptoSetting `
+            "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers\$key" `
+            "Enabled" `
+            0 `
+            "DWord" `
+            $RegistryKey
     }
 
     Write-Log "RC4 is disabled"
