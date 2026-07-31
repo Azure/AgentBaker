@@ -2,9 +2,9 @@ name: Hotfix Template Update
 # Auto-detects whether a hotfix is needed for a PR targeting an official/* release
 # branch and, if so, computes the version numbers and updates the generated files:
 #   - If aks-node-controller/ changed vs the base branch, bumps `version`.
-#   - If parts/linux/cloud-init/nodecustomdata.yml ends up changed vs the base branch
-#     (either directly, or via auto-injection of changed CSE scripts), bumps
-#     `scripts_version`.
+#   - Changed CSE scripts are generated into both the legacy CRP nodecustomdata
+#     block and an ANC-owned embedded payload during the phase-1 compatibility
+#     window. If nodecustomdata.yml changes, bumps `scripts_version`.
 #   - Writes the result to
 #     parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json (embedded
 #     directly into scriptless customData by pkg/agent/baker.go).
@@ -76,56 +76,81 @@ jobs:
 
       - name: Generate hotfix files
         run: |
+          python3 -m unittest hotfix.hotfix_generate_test
           python3 hotfix/hotfix_generate.py "origin/${{ github.base_ref }}"
 
       - name: Commit changes via API
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          FILES=(
-            "parts/linux/cloud-init/nodecustomdata.yml"
-            "parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json"
+          FILES=()
+          while IFS= read -r STATUS_LINE; do
+            FILES+=("${STATUS_LINE:3}")
+          done < <(
+            git status --porcelain --untracked-files=all -- \
+              parts/linux/cloud-init/nodecustomdata.yml \
+              parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json \
+              aks-node-controller/hotfixpayload/generated
           )
-          CHANGED=0
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "No template changes needed."
+            exit 0
+          fi
+
+          REPOSITORY="repos/${{ github.repository }}"
+          BRANCH="${{ github.head_ref }}"
+          CHECKOUT_SHA=$(git rev-parse HEAD)
+          START_SHA=$(gh api "${REPOSITORY}/git/ref/heads/${BRANCH}" --jq '.object.sha')
+          if [ "$START_SHA" != "$CHECKOUT_SHA" ]; then
+            echo "Branch moved after checkout; refusing to commit stale generated content." >&2
+            exit 1
+          fi
+          BASE_TREE=$(gh api "${REPOSITORY}/git/commits/${START_SHA}" --jq '.tree.sha')
+          TREE='[]'
           for FILE in "${FILES[@]}"; do
-            # git diff --quiet misses untracked files (e.g. the target hotfix json on
-            # its first-ever generation on this branch), so use `git status
-            # --porcelain` instead, which reports both modified and untracked paths.
-            if [ -z "$(git status --porcelain -- "$FILE")" ]; then
-              continue
-            fi
-            CHANGED=1
-            # For a brand-new file the Contents API lookup 404s (no sha yet); the
-            # step runs under `bash -e`, so guard the lookup and only pass -f sha
-            # when the file already exists on the branch, otherwise the PUT must
-            # omit sha entirely to create the file.
-            SHA=$(gh api "repos/${{ github.repository }}/contents/${FILE}?ref=${{ github.head_ref }}" --jq '.sha' 2>/dev/null || true)
-            if [ ! -e "$FILE" ]; then
-              if [ -n "$SHA" ]; then
-                gh api "repos/${{ github.repository }}/contents/${FILE}" \
-                  -X DELETE \
-                  -f message="chore: auto-generate hotfix content for ${FILE}" \
-                  -f branch="${{ github.head_ref }}" \
-                  -f sha="$SHA"
-              fi
-              continue
-            fi
-            CONTENT=$(base64 -w 0 "$FILE")
-            if [ -n "$SHA" ]; then
-              gh api "repos/${{ github.repository }}/contents/${FILE}" \
-                -X PUT \
-                -f message="chore: auto-generate hotfix content for ${FILE}" \
-                -f content="$CONTENT" \
-                -f branch="${{ github.head_ref }}" \
-                -f sha="$SHA"
+            if [ -e "$FILE" ]; then
+              BLOB_SHA=$(
+                base64 -w 0 "$FILE" |
+                  jq -Rs '{content: ., encoding: "base64"}' |
+                  gh api "${REPOSITORY}/git/blobs" -X POST --input - --jq '.sha'
+              )
+              TREE=$(
+                jq -c \
+                  --arg path "$FILE" \
+                  --arg sha "$BLOB_SHA" \
+                  '. + [{path: $path, mode: "100644", type: "blob", sha: $sha}]' \
+                  <<< "$TREE"
+              )
             else
-              gh api "repos/${{ github.repository }}/contents/${FILE}" \
-                -X PUT \
-                -f message="chore: auto-generate hotfix content for ${FILE}" \
-                -f content="$CONTENT" \
-                -f branch="${{ github.head_ref }}"
+              TREE=$(
+                jq -c \
+                  --arg path "$FILE" \
+                  '. + [{path: $path, mode: "100644", type: "blob", sha: null}]' \
+                  <<< "$TREE"
+              )
             fi
           done
-          if [ "$CHANGED" -eq 0 ]; then
-            echo "No template changes needed."
+          NEW_TREE=$(
+            jq -n \
+              --arg base_tree "$BASE_TREE" \
+              --argjson tree "$TREE" \
+              '{base_tree: $base_tree, tree: $tree}' |
+              gh api "${REPOSITORY}/git/trees" -X POST --input - --jq '.sha'
+          )
+          NEW_COMMIT=$(
+            jq -n \
+              --arg message "chore: auto-generate hotfix content" \
+              --arg tree "$NEW_TREE" \
+              --arg parent "$START_SHA" \
+              '{message: $message, tree: $tree, parents: [$parent]}' |
+              gh api "${REPOSITORY}/git/commits" -X POST --input - --jq '.sha'
+          )
+          CURRENT_SHA=$(gh api "${REPOSITORY}/git/ref/heads/${BRANCH}" --jq '.object.sha')
+          if [ "$CURRENT_SHA" != "$START_SHA" ]; then
+            echo "Branch moved during generation; refusing to overwrite ${CURRENT_SHA}." >&2
+            exit 1
           fi
+          jq -n \
+            --arg sha "$NEW_COMMIT" \
+            '{sha: $sha, force: false}' |
+            gh api "${REPOSITORY}/git/refs/heads/${BRANCH}" -X PATCH --input -

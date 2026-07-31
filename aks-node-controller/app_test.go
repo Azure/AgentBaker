@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
+	"github.com/Azure/agentbaker/aks-node-controller/hotfixpayload"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -231,6 +232,70 @@ func TestApp_Run(t *testing.T) {
 }
 
 func TestApp_Provision(t *testing.T) {
+	t.Run("embedded hotfix runs before command construction and execution", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		applied := false
+		tt.App.applyEmbeddedHotfix = func(string) (hotfixpayload.Result, error) {
+			applied = true
+			return hotfixpayload.Result{Applied: 1}, nil
+		}
+
+		_, err := tt.App.runProvision(
+			context.Background(),
+			ProvisionFlags{ProvisionConfig: "does-not-exist.json"},
+			false,
+		)
+
+		require.Error(t, err)
+		assert.True(t, applied, "embedded payload must run before config parsing")
+	})
+
+	t.Run("embedded hotfix failure is logged and provisioning continues", func(t *testing.T) {
+		logs := installLogCapturer(t)
+		executed := false
+		tt := NewTestApp(t, TestAppConfig{
+			RunFunc: func(*exec.Cmd) error {
+				executed = true
+				return nil
+			},
+		})
+		tt.App.applyEmbeddedHotfix = func(string) (hotfixpayload.Result, error) {
+			return hotfixpayload.Result{}, errors.New("integrity mismatch")
+		}
+
+		_, err := tt.App.runProvision(
+			context.Background(),
+			ProvisionFlags{NBCCmd: "parser/testdata/test_nbccmd.sh"},
+			false,
+		)
+
+		require.NoError(t, err)
+		assert.True(t, executed)
+		assert.Contains(t, logs.getRecords(), logRecord{
+			Level:   slog.LevelWarn,
+			Message: "failed to apply embedded hotfix payload; continuing with existing scripts",
+			Attrs:   map[string]string{"error": "integrity mismatch"},
+		})
+	})
+
+	t.Run("dry-run does not apply embedded hotfix payload", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		applied := false
+		tt.App.applyEmbeddedHotfix = func(string) (hotfixpayload.Result, error) {
+			applied = true
+			return hotfixpayload.Result{}, nil
+		}
+
+		_, err := tt.App.runProvision(
+			context.Background(),
+			ProvisionFlags{NBCCmd: "parser/testdata/test_nbccmd.sh"},
+			true,
+		)
+
+		require.NoError(t, err)
+		assert.False(t, applied)
+	})
+
 	t.Run("valid provision config", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		_, err := tt.App.Provision(context.Background(), ProvisionFlags{ProvisionConfig: "parser/testdata/test_aksnodeconfig.json"})
