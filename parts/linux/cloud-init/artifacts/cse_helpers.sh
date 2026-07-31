@@ -803,6 +803,21 @@ getSystemdArch() {
     esac
 }
 
+maskKubeletSysextUpholds() {
+    local dropinDir="/etc/systemd/system/multi-user.target.d"
+    local dropinPath="${dropinDir}/10-kubelet-kubelet.conf"
+
+    # AgentBaker owns kubelet activation, so suppress the sysext policy that starts it before CSE writes its configuration.
+    if ! mkdir -p "${dropinDir}"; then
+        echo "Failed to create kubelet sysext systemd drop-in directory ${dropinDir}" >&2
+        return 1
+    fi
+    if ! ln -sfn /dev/null "${dropinPath}"; then
+        echo "Failed to mask kubelet sysext systemd drop-in ${dropinPath}" >&2
+        return 1
+    fi
+}
+
 isARM64() {
     if [ "$(getCPUArch)" = "arm64" ]; then
         echo 1
