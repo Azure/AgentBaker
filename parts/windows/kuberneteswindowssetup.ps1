@@ -445,9 +445,7 @@ function BasePrep {
     Update-DefenderPreferences
 
     $windowsVersion = Get-WindowsVersion
-    if ($windowsVersion -ne "1809") {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Skip secure TLS protocols for Windows version: $windowsVersion"
-    } else {
+    if ($windowsVersion -eq "1809" -or $windowsVersion -eq "ltsc2022") {
         Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Start to enable secure TLS protocols"
         try {
             . C:\k\windowssecuretls.ps1
@@ -456,6 +454,8 @@ function BasePrep {
         catch {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
         }
+    } else {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Skip secure TLS protocols for Windows version: $windowsVersion"
     }
 
     Enable-FIPSMode -FipsEnabled $fipsEnabled
