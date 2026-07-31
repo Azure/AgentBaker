@@ -1523,10 +1523,6 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 	})
 })
 
-// In the scriptless phase2 path (EnableScriptlessNBCCSECmd && !PreProvisionOnly) the boothook /
-// ignition document is no longer returned as custom data - getLinuxNodeBootstrappingPayload returns
-// an empty payload and the document is base64-embedded in the CSE command instead. The specs below
-// therefore assert on getScriptlessNBCCmd, which is the function that still renders that document.
 var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 	newConfig := func(preProvisionOnly bool) *datamodel.NodeBootstrappingConfiguration {
 		agentPoolProfile := &datamodel.AgentPoolProfile{
@@ -1565,7 +1561,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1585,7 +1581,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config := newConfig(false)
 		config.AKSNodeConfigJSON = `{"foo":"bar"}`
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1600,7 +1596,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config := newConfig(false)
 		config.AKSNodeConfigJSON = ""
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1615,7 +1611,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1631,7 +1627,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
 		decodedPayload, decodeErr := base64.StdEncoding.DecodeString(payload)
 		Expect(decodeErr).NotTo(HaveOccurred())
 
@@ -1645,7 +1641,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config := newConfig(false)
 		config.EnabledFeatures = map[string]string{"ENABLE_PROVISIONING_HOTFIX": "true"}
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1659,7 +1655,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config := newConfig(false)
 		config.EnabledFeatures = map[string]string{"ZED_FEATURE": "1", "ENABLE_PROVISIONING_HOTFIX": "true"}
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1673,7 +1669,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config := newConfig(false)
 		config.EnabledFeatures = map[string]string{}
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1687,7 +1683,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		// preserving the byte-identical-when-no-usable-toggle guarantee.
 		config.EnabledFeatures = map[string]string{"1BAD": "x", "has-dash": "y", "": "z"}
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1700,13 +1696,13 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		// A newline in a value could inject a spurious KEY=VALUE line; such entries are dropped.
 		// The lone tainted entry yields no file; a clean entry alongside it survives.
 		config.EnabledFeatures = map[string]string{"INJECT": "true\nEVIL=1"}
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(decodedPayload)).NotTo(ContainSubstring(enabledFeaturesFilepath))
 
 		config.EnabledFeatures = map[string]string{"INJECT": "x\nEVIL=1", "GOOD_KEY": "1"}
-		payload = templateGenerator.getScriptlessNBCCmd(config, true)
+		payload = templateGenerator.getLinuxNodeBootstrappingPayload(config)
 		decodedPayload, err = base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 		encodedClean := getBase64EncodedGzippedCustomScriptFromStr("GOOD_KEY=1\n")
@@ -1723,7 +1719,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config.AgentPoolProfile.Distro = datamodel.AKSACLGen2TL
 		Expect(config.IsACL()).To(BeTrue())
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1751,20 +1747,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		files, ok := storage["files"].([]interface{})
 		Expect(ok).To(BeTrue())
-		expectedCount := 3
-		foundHotfix := false
-		for _, f := range files {
-			if file, ok := f.(map[string]interface{}); ok {
-				if path, ok := file["path"].(string); ok && path == aksHotfixJSONFilepath {
-					foundHotfix = true
-					break
-				}
-			}
-		}
-		if foundHotfix {
-			expectedCount++
-		}
-		Expect(len(files)).To(Equal(expectedCount)) // nbc-cmd, nodecustomdata, aks-node-config (optional hotfix file present)
+		Expect(len(files)).To(Equal(3)) // nbc-cmd, nodecustomdata, aks-node-config (no hotfix file present)
 
 		encodedAKSNodeConfig := getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
 		Expect(string(decodedPayload)).To(ContainSubstring(aksNodeConfigFilepath))
@@ -1925,37 +1908,13 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		}
 	}
 
-	It("should embed the boothook in the CSE command and end with aks-node-controller provision-wait when scriptless phase2 is supported", func() {
+	It("should use the aks-node-controller provision-wait command when scriptless phase2 is supported", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newScriptlessCmdTestConfig()
 		config.EnableScriptlessNBCCSECmd = true
 		config.PreProvisionOnly = false
 
-		cmd := templateGenerator.getNodeBootstrappingCmd(config)
-
-		// Derive the wrapper from the template constant rather than hardcoding the command chain,
-		// so adding/reordering steps in cseScriptlessPhase2Template doesn't break this spec.
-		prefix, suffix, ok := strings.Cut(cseScriptlessPhase2Template, "%s")
-		Expect(ok).To(BeTrue())
-
-		// commandToExecute is run as a single shell string, so it must never span multiple lines.
-		Expect(cmd).NotTo(ContainSubstring("\n"))
-		Expect(cmd).To(HavePrefix(prefix))
-		Expect(cmd).To(HaveSuffix(suffix))
-		// whatever else the chain does, provisioning must be the last thing it waits on.
-		Expect(cmd).To(HaveSuffix("/opt/azure/containers/aks-node-controller provision-wait"))
-
-		// the blob piped into base64 -d is the scriptless boothook document itself.
-		encoded := strings.TrimSuffix(strings.TrimPrefix(cmd, prefix), suffix)
-		decoded, err := base64.StdEncoding.DecodeString(encoded)
-		Expect(err).NotTo(HaveOccurred())
-		decodedGzip, err := getGzipDecodedValue(decoded)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(string(decodedGzip)).To(ContainSubstring(aksNbcCmdFilepath))
-		Expect(string(decodedGzip)).To(ContainSubstring(aksNodeCustomDataFilepath))
-
-		// the payload now travels in the CSE command, so custom data is intentionally empty.
-		Expect(templateGenerator.getNodeBootstrappingPayload(config)).To(Equal(base64.StdEncoding.EncodeToString([]byte(""))))
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 	})
 
 	It("should use the regular linux CSE command when EnableScriptlessNBCCSECmd is false", func() {
@@ -1969,12 +1928,6 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 	})
 
 	It("should use the regular linux CSE command when custom ca trust certs are populated", func() {
-		// TODO: re-enable once the MaxCustomDataLength fallback is restored in
-		// getLinuxNodeBootstrappingPayload - it is currently commented out in baker.go, so the
-		// scriptless phase2 path is taken unconditionally and never falls back to the regular
-		// linux CSE command no matter how large the rendered document gets.
-		Skip("size-based fallback to the regular linux CSE command is currently disabled in getLinuxNodeBootstrappingPayload")
-
 		templateGenerator := InitializeTemplateGenerator()
 		config := newScriptlessCmdTestConfig()
 		config.EnableScriptlessNBCCSECmd = true

@@ -300,6 +300,50 @@ function Set-ExitCode
     exit $ExitCode
 }
 
+function Start-NodeResetScriptTask
+{
+    Param(
+        [Parameter(Mandatory=$false)][int]
+        $TimeoutSeconds = 180
+    )
+
+    $taskName = "k8s-restart-job"
+    $taskRunningResult = 0x00041301
+    $previousRunTime = (Get-ScheduledTaskInfo -TaskName $taskName).LastRunTime
+    Start-ScheduledTask -TaskName $taskName
+
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    do {
+        $taskInfo = Get-ScheduledTaskInfo -TaskName $taskName
+        $task = Get-ScheduledTask -TaskName $taskName
+        if ($task.State -eq "Ready" -and $taskInfo.LastRunTime -ne $previousRunTime) {
+            $taskInfo = Get-ScheduledTaskInfo -TaskName $taskName
+            if ($taskInfo.LastRunTime -ne $previousRunTime -and $taskInfo.LastTaskResult -ne $taskRunningResult) {
+                break
+            }
+        }
+
+        if ($timer.Elapsed.TotalSeconds -gt $TimeoutSeconds) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask is not finished after [$($timer.Elapsed.TotalSeconds)] seconds"
+        }
+
+        Write-Log -Message "Waiting on NodeResetScriptTask..."
+        Start-Sleep -Seconds 3
+    } while ($true)
+    $timer.Stop()
+
+    if ($taskInfo.LastTaskResult -ne 0) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask failed with result $($taskInfo.LastTaskResult)"
+    }
+
+    $kubeletService = Get-Service -Name "kubelet" -ErrorAction SilentlyContinue
+    if ($null -eq $kubeletService -or $kubeletService.Status -ne "Running") {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet service is not running after NodeResetScriptTask completed"
+    }
+
+    Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
+}
+
 function Postpone-RestartComputer
 {
     Logs-To-Event -TaskName "AKS.WindowsCSE.PostponeRestartComputer" -TaskMessage "Start to create an one-time task to restart the VM"
