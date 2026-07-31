@@ -1,8 +1,8 @@
 * @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix @mxj220 @pdamianov-dev @calvin197 @sulixu @SriHarsha001 @runzhen @karenychen @xuexu6666 @titilambert
 
 # Code owners for for cse_cmd.sh and nodecustomdata.yml. This is to ensure that the scriptless v-team is aware of the changes in order to sync with AKSNodeConfig.
-cse_cmd.sh @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner
-nodecustomdata.yml @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner
+cse_cmd.sh @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner @awesomenix @djsly
+nodecustomdata.yml @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner @awesomenix @djsly
 
 # Code owners for testdata snapshots.
 # These include security patch owners since security patch script changes will cause the related custom data snapshots to change.
