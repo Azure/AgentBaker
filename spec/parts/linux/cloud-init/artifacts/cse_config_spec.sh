@@ -2012,6 +2012,7 @@ OVERRIDE_EOF
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
             OS_VERSION=""
             KUBERNETES_VERSION=""
+            KUBERNETES_PACKAGE_VERSION=""
         }
 
         Describe 'on Ubuntu'
@@ -2068,6 +2069,18 @@ OVERRIDE_EOF
                 KUBERNETES_VERSION="1.34.0"
                 When call configureKubeletAndKubectl
                 The output should include "installKubeletKubectlFromPkg"
+                The output should not include "installKubeletKubectlFromURL"
+            End
+
+            It 'should use a separate prerelease package version while comparing the stable Kubernetes version'
+                installKubeletKubectlFromPkg() {
+                    echo "installKubeletKubectlFromPkg $1"
+                }
+
+                KUBERNETES_VERSION="1.37.0"
+                KUBERNETES_PACKAGE_VERSION="1.37.0~beta.0"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromPkg 1.37.0~beta.0"
                 The output should not include "installKubeletKubectlFromURL"
             End
 
@@ -2175,6 +2188,42 @@ OVERRIDE_EOF
                 The output should include "installKubeletKubectlFromPkg"
                 The output should not include "installKubeletKubectlFromURL"
             End
+
+            It 'should use the OCI prerelease tag for Flatcar sysexts'
+                KUBERNETES_VERSION="1.37.0"
+                KUBERNETES_PACKAGE_VERSION="1.37.0-beta.0"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromPkg 1.37.0-beta.0"
+                The output should not include "installKubeletKubectlFromURL"
+            End
+        End
+
+        Describe 'on Azure Container Linux'
+            OS="AZURELINUX"
+            OS_VARIANT="acl"
+            Include "./parts/linux/cloud-init/artifacts/acl/cse_helpers_acl.sh"
+            Include "./parts/linux/cloud-init/artifacts/acl/cse_install_acl.sh"
+
+            installKubeletKubectlFromPkg() {
+                echo "installKubeletKubectlFromPkg $@"
+            }
+
+            It 'should use the OCI prerelease tag for ACL sysexts'
+                KUBERNETES_VERSION="1.37.0"
+                KUBERNETES_PACKAGE_VERSION="1.37.0-beta.0"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromPkg 1.37.0-beta.0"
+                The output should not include "installKubeletKubectlFromURL"
+            End
+
+            It 'should pass the OCI prerelease tag to the network-isolated registry path'
+                KUBERNETES_VERSION="1.37.0"
+                KUBERNETES_PACKAGE_VERSION="1.37.0-beta.0"
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io/aks"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromBootstrapProfileRegistry myregistry.azurecr.io/aks 1.37.0-beta.0"
+                The output should not include "installKubeletKubectlFromURL"
+            End
         End
 
         Describe 'on Mariner'
@@ -2256,6 +2305,87 @@ OVERRIDE_EOF
                 The output should not include "installKubeletKubectlFromURL"
                 The output should include "installKubeletKubectlFromPkg is not defined"
             End
+        End
+    End
+
+    Describe 'installCredentialProviderForKubelet'
+        logs_to_events() {
+            local task=$1
+            shift
+            echo "logs_to_events ${task} $*"
+            "$@"
+        }
+
+        installCredentialProviderFromUrl() {
+            echo "installCredentialProviderFromUrl"
+        }
+
+        installCredentialProviderFromPkg() {
+            echo "installCredentialProviderFromPkg $1"
+        }
+
+        installCredentialProviderPackageFromBootstrapProfileRegistry() {
+            echo "installCredentialProviderPackageFromBootstrapProfileRegistry $1 $2"
+        }
+
+        isFlatcar() {
+            [ "${TEST_DISTRO}" = "flatcar" ]
+        }
+
+        isACL() {
+            [ "${TEST_DISTRO}" = "acl" ]
+        }
+
+        isMarinerOrAzureLinux() {
+            [ "${TEST_DISTRO}" = "azurelinux" ]
+        }
+
+        BeforeEach 'setupCredentialProviderInstall'
+        setupCredentialProviderInstall() {
+            TEST_DISTRO="ubuntu"
+            SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
+            KUBERNETES_VERSION="1.37.0"
+            KUBERNETES_PACKAGE_VERSION="1.37.0~beta.0"
+            OS_VERSION="24.04"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
+        }
+
+        It 'uses the Debian prerelease package version on Ubuntu'
+            When call installCredentialProviderForKubelet
+            The output should include "installCredentialProviderFromPkg 1.37.0~beta.0"
+            The output should not include "installCredentialProviderFromUrl"
+        End
+
+        It 'uses the OCI prerelease tag on Flatcar'
+            TEST_DISTRO="flatcar"
+            KUBERNETES_PACKAGE_VERSION="1.37.0-beta.0"
+            When call installCredentialProviderForKubelet
+            The output should include "installCredentialProviderFromPkg 1.37.0-beta.0"
+            The output should not include "installCredentialProviderFromUrl"
+        End
+
+        It 'uses the OCI prerelease tag on Azure Container Linux'
+            TEST_DISTRO="acl"
+            KUBERNETES_PACKAGE_VERSION="1.37.0-beta.0"
+            When call installCredentialProviderForKubelet
+            The output should include "installCredentialProviderFromPkg 1.37.0-beta.0"
+            The output should not include "installCredentialProviderFromUrl"
+        End
+
+        It 'passes the prerelease artifact version through the network-isolated registry path'
+            TEST_DISTRO="acl"
+            KUBERNETES_PACKAGE_VERSION="1.37.0-beta.0"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io/aks"
+            When call installCredentialProviderForKubelet
+            The output should include "installCredentialProviderPackageFromBootstrapProfileRegistry myregistry.azurecr.io/aks 1.37.0-beta.0"
+            The output should not include "installCredentialProviderFromUrl"
+        End
+
+        It 'falls back to the orchestrator version when no package version is supplied'
+            KUBERNETES_VERSION="1.36.0"
+            KUBERNETES_PACKAGE_VERSION=""
+            When call installCredentialProviderForKubelet
+            The output should include "installCredentialProviderFromPkg 1.36.0"
         End
     End
 

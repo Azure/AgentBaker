@@ -588,6 +588,8 @@ EOF
 }
 
 configureKubeletAndKubectl() {
+    local kubernetes_package_version="${KUBERNETES_PACKAGE_VERSION:-${KUBERNETES_VERSION}}"
+
     # Install kubelet and kubectl binaries from URL:
     # 1. For Custom Kube binary or Private Kube binary.
     # 2. If k8s version < 1.34.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
@@ -598,12 +600,33 @@ configureKubeletAndKubectl() {
     then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
     elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"
+        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${kubernetes_package_version}"
     elif [ "$(type -t installKubeletKubectlFromPkg)" = function ]; then
-        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromPkg" "installKubeletKubectlFromPkg ${KUBERNETES_VERSION}"
+        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromPkg" "installKubeletKubectlFromPkg ${kubernetes_package_version}"
     else
         echo "installKubeletKubectlFromPkg is not defined for this OS"
         exit $ERR_K8S_INSTALL_ERR
+    fi
+}
+
+installCredentialProviderForKubelet() {
+    local kubernetes_package_version="${KUBERNETES_PACKAGE_VERSION:-${KUBERNETES_VERSION}}"
+
+    # Install credential provider from URL:
+    # 1. If k8s version < 1.34.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
+    # 2. For Azure Linux v2 due to lack of PMC packages (if not network isolated).
+    if { ! isFlatcar && ! isACL && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
+       { isMarinerOrAzureLinux && [ "${OS_VERSION}" = 2.0 ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; }
+    then
+        logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
+    elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+        # For network isolated clusters, try distro packages first and fallback to binary installation.
+        logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromBootstrapProfileRegistry" installCredentialProviderPackageFromBootstrapProfileRegistry "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" "${kubernetes_package_version}"
+    elif [ "$(type -t installCredentialProviderFromPkg)" = function ]; then
+        logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPkg" installCredentialProviderFromPkg "${kubernetes_package_version}"
+    else
+        echo "installCredentialProviderFromPkg is not defined for this OS"
+        exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
     fi
 }
 
@@ -840,22 +863,7 @@ EOF
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
-        # Install credential provider from URL:
-        # 1. If k8s version < 1.34.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
-        # 2. For Azure Linux v2 due to lack of PMC packages (if not network isolated).
-        if { ! isFlatcar && ! isACL && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
-           { isMarinerOrAzureLinux && [ "${OS_VERSION}" = 2.0 ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; }
-        then
-            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
-        elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-            # For network isolated clusters, try distro packages first and fallback to binary installation
-            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromBootstrapProfileRegistry" installCredentialProviderPackageFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}
-        elif [ "$(type -t installCredentialProviderFromPkg)" = function ]; then
-            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPkg" "installCredentialProviderFromPkg ${KUBERNETES_VERSION}"
-        else
-            echo "installCredentialProviderFromPkg is not defined for this OS"
-            exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
-        fi
+        installCredentialProviderForKubelet
     fi
 
     # kubelet cannot pull pause image from anonymous disabled registry during runtime

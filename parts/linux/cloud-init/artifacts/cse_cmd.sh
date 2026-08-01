@@ -27,6 +27,7 @@ ADMINUSER={{GetParameter "linuxAdminUsername"}}
 MOBY_VERSION={{GetParameter "mobyVersion"}}
 TENANT_ID={{GetVariable "tenantID"}}
 KUBERNETES_VERSION={{GetParameter "kubernetesVersion"}}
+KUBERNETES_PACKAGE_VERSION={{GetParameter "kubernetesPackageVersion"}}
 HYPERKUBE_URL={{GetParameter "kubernetesHyperkubeSpec"}}
 KUBE_BINARY_URL={{GetParameter "kubeBinaryURL"}}
 CUSTOM_KUBE_BINARY_URL={{GetParameter "customKubeBinaryURL"}}
