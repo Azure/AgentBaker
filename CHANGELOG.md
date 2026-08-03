@@ -23,6 +23,11 @@
   `e2e-gpu.yaml`, `e2e-gpu-azurelinux.yaml`, `e2e-windows.yaml`, `e2e-tme.yaml`,
   `e2e-rcv1p-not-opted-in.yaml`), which resolve images by tag and take the legacy path.
   This change is a safety net for that path, not the strategic fix.
+- **Windows images must not use the Linux region set.** No Windows scenario pins a location
+  (0 `Location:` entries across all Windows scenario files), so they all run in the default
+  region. Replicating ~30GB Windows images to the other five regions was a 6x storage cost
+  for regions no Windows test can reach. The region set is therefore per-image-OS, which
+  preserves convergence because every writer of a given image still computes the same set.
 - Being listed in `targetRegions` does not mean the replica serves traffic;
   `RegionalReplicationStatus.State` must be awaited (kept from #8374).
 
@@ -40,8 +45,9 @@
   Replaced by a single "did my own region make it?" check.
 
 **Files changed**
-- `e2e/config/regions.go` (new): region constants, `E2EReplicationRegions`, `IsE2ERegion`,
-  `NormalizeRegion`, `(*Image).replicationRegions`.
+- `e2e/config/regions.go` (new): region constants, `linuxE2ERegions` / `windowsE2ERegions`,
+  and `(*Image).E2ERegions` backing both replication and scenario validation so the two
+  cannot disagree.
 - `e2e/config/azure.go`: `ensureReplication` now batches the whole desired set through
   `ensureTargetRegions` with a 409/412 re-read-and-merge retry; failure is only fatal when
   the caller's own region is missing. Removed `replicateImageVersionToCurrentRegion` and
