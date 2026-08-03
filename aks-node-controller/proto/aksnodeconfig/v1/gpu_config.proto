@@ -35,6 +35,6 @@ message GpuConfig {
   // It will become the unified MIG profile field after gpu_instance_profile is deprecated.
   repeated string mig_profile_layout = 9;
 
-  // enable_managed_gpu_dra is the option to enable DRA
+  // enable_managed_gpu_dra is the flag to enable fully managed GPU with DRA driver. 
   bool enable_managed_gpu_dra = 10;
 }
