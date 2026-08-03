@@ -2350,34 +2350,43 @@ OVERRIDE_EOF
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
         }
 
-        It 'uses the Debian prerelease package version on Ubuntu'
+        It 'keeps credential-provider on the stable orchestrator version on Ubuntu'
             When call installCredentialProviderForKubelet
-            The output should include "installCredentialProviderFromPkg 1.37.0~beta.0"
+            The output should include "installCredentialProviderFromPkg 1.37.0"
             The output should not include "installCredentialProviderFromUrl"
         End
 
-        It 'uses the OCI prerelease tag on Flatcar'
+        It 'uses a compatible stable credential-provider version on Flatcar'
             TEST_DISTRO="flatcar"
             KUBERNETES_PACKAGE_VERSION="1.37.0-beta.0"
+            getCredentialProviderVersionForKubernetesVersion() {
+                echo "1.36.3"
+            }
             When call installCredentialProviderForKubelet
-            The output should include "installCredentialProviderFromPkg 1.37.0-beta.0"
+            The output should include "installCredentialProviderFromPkg 1.36.3"
             The output should not include "installCredentialProviderFromUrl"
         End
 
-        It 'uses the OCI prerelease tag on Azure Container Linux'
+        It 'uses a compatible stable credential-provider version on Azure Container Linux'
             TEST_DISTRO="acl"
             KUBERNETES_PACKAGE_VERSION="1.37.0-beta.0"
+            getCredentialProviderVersionForKubernetesVersion() {
+                echo "1.36.3"
+            }
             When call installCredentialProviderForKubelet
-            The output should include "installCredentialProviderFromPkg 1.37.0-beta.0"
+            The output should include "installCredentialProviderFromPkg 1.36.3"
             The output should not include "installCredentialProviderFromUrl"
         End
 
-        It 'passes the prerelease artifact version through the network-isolated registry path'
+        It 'passes the cached stable version through the network-isolated registry path'
             TEST_DISTRO="acl"
             KUBERNETES_PACKAGE_VERSION="1.37.0-beta.0"
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io/aks"
+            getCredentialProviderVersionForKubernetesVersion() {
+                echo "1.36.3"
+            }
             When call installCredentialProviderForKubelet
-            The output should include "installCredentialProviderPackageFromBootstrapProfileRegistry myregistry.azurecr.io/aks 1.37.0-beta.0"
+            The output should include "installCredentialProviderPackageFromBootstrapProfileRegistry myregistry.azurecr.io/aks 1.36.3"
             The output should not include "installCredentialProviderFromUrl"
         End
 
@@ -2386,6 +2395,37 @@ OVERRIDE_EOF
             KUBERNETES_PACKAGE_VERSION=""
             When call installCredentialProviderForKubelet
             The output should include "installCredentialProviderFromPkg 1.36.0"
+        End
+    End
+
+    Describe 'getCredentialProviderVersionForKubernetesVersion'
+        BeforeEach 'setupCredentialProviderVersionResolution'
+        setupCredentialProviderVersionResolution() {
+            COMPONENTS_FILEPATH="$(mktemp)"
+            OS="FLATCAR"
+            OS_VERSION=""
+            OS_VARIANT="DEFAULT"
+        }
+
+        AfterEach 'cleanupCredentialProviderVersionResolution'
+        cleanupCredentialProviderVersionResolution() {
+            rm -f "${COMPONENTS_FILEPATH}"
+        }
+
+        It 'selects the stable cached component for a prerelease Kubernetes package'
+            getLatestPkgVersionFromK8sVersion() {
+                PACKAGE_VERSION="v1.36.3-3-azlinux3"
+            }
+
+            When call getCredentialProviderVersionForKubernetesVersion "1.37.0"
+            The output should equal "1.36.3"
+        End
+
+        It 'falls back to the orchestrator version when component metadata is unavailable'
+            rm -f "${COMPONENTS_FILEPATH}"
+
+            When call getCredentialProviderVersionForKubernetesVersion "1.36.2"
+            The output should equal "1.36.2"
         End
     End
 

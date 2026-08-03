@@ -610,7 +610,16 @@ configureKubeletAndKubectl() {
 }
 
 installCredentialProviderForKubelet() {
-    local kubernetes_package_version="${KUBERNETES_PACKAGE_VERSION:-${KUBERNETES_VERSION}}"
+    local credential_provider_version="${KUBERNETES_VERSION}"
+
+    # Credential-provider releases are independent from kubelet package
+    # releases. In particular, there is no 1.37 beta credential-provider
+    # sysext. Flatcar and ACL must select a stable version that is actually
+    # cached on the VHD; otherwise network-isolated nodes cannot fall back to
+    # the public download URL.
+    if isFlatcar || isACL; then
+        credential_provider_version=$(getCredentialProviderVersionForKubernetesVersion "${KUBERNETES_VERSION}")
+    fi
 
     # Install credential provider from URL:
     # 1. If k8s version < 1.34.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
@@ -621,13 +630,36 @@ installCredentialProviderForKubelet() {
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
     elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         # For network isolated clusters, try distro packages first and fallback to binary installation.
-        logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromBootstrapProfileRegistry" installCredentialProviderPackageFromBootstrapProfileRegistry "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" "${kubernetes_package_version}"
+        logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromBootstrapProfileRegistry" installCredentialProviderPackageFromBootstrapProfileRegistry "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" "${credential_provider_version}"
     elif [ "$(type -t installCredentialProviderFromPkg)" = function ]; then
-        logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPkg" installCredentialProviderFromPkg "${kubernetes_package_version}"
+        logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPkg" installCredentialProviderFromPkg "${credential_provider_version}"
     else
         echo "installCredentialProviderFromPkg is not defined for this OS"
         exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
     fi
+}
+
+getCredentialProviderVersionForKubernetesVersion() {
+    local kubernetes_version="${1:-}"
+    local credential_provider_version=""
+
+    if [ -f "${COMPONENTS_FILEPATH:-}" ]; then
+        PACKAGE_VERSION=""
+        getLatestPkgVersionFromK8sVersion \
+            "${kubernetes_version}" \
+            "azure-acr-credential-provider-pmc" \
+            "${OS}" \
+            "${OS_VERSION:-current}" \
+            "${OS_VARIANT:-DEFAULT}" >/dev/null
+        credential_provider_version="${PACKAGE_VERSION#v}"
+        credential_provider_version="${credential_provider_version%%-*}"
+    fi
+
+    if ! printf '%s\n' "${credential_provider_version}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+        credential_provider_version="${kubernetes_version}"
+    fi
+
+    printf '%s\n' "${credential_provider_version}"
 }
 
 ensurePodInfraContainerImage() {
