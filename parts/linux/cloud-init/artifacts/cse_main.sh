@@ -436,7 +436,7 @@ function nodePrep {
     # overwrites the example file with identical content. The key/value below are deliberately
     # placeholder names (not a real kernel tunable or subsystem) to keep this purely illustrative.
     if [ "${ENABLE_0803_TEST_FEATURE:-}" = "true" ]; then
-        ENABLE_0803_TEST_FEATURE_CONF="/etc/enable-0803-test-feature.example.conf"
+        ENABLE_0803_TEST_FEATURE_CONF="/etc/enable-0803-test-feature.conf"
         echo "test_key=test_value" > "$ENABLE_0803_TEST_FEATURE_CONF"
         echo "ENABLE_0803_TEST_FEATURE enabled; wrote example config to $ENABLE_0803_TEST_FEATURE_CONF"
     fi
