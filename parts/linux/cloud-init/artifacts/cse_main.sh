@@ -425,6 +425,21 @@ function nodePrep {
     logs_to_events "AKS.CSE.fetch_and_cache_imds_instance_metadata" fetch_and_cache_imds_instance_metadata
     reconcileVulnerableKernelModuleMitigation
 
+    # ENABLE_0803_TEST_FEATURE: illustrative aks-rp-delivered toggle. Delivered generically via
+    # enabled_features.sh, which the aks-node-controller launcher parses and exports; the ANC
+    # binary then runs this CSE script inheriting that environment, so the flag arrives here as a
+    # plain env var (same delivery path as ENABLE_PROVISIONING_HOTFIX). Consumed in nodePrep so it
+    # applies to every real node - including nodes booted from a PIS-cached VHD where basePrep is
+    # skipped. Default-off: only the literal "true" enables it; an absent var is a no-op.
+    # Kept intentionally simple (inline, no helper) for this teaching example; a real feature would
+    # factor non-trivial work into an idempotent configure<Feature>() helper. Idempotent: re-running
+    # overwrites the drop-in with identical content.
+    if [ "${ENABLE_0803_TEST_FEATURE:-}" = "true" ]; then
+        ENABLE_0803_TEST_FEATURE_CONF="/etc/sysctl.d/99-enable-0803-test-feature.conf"
+        echo "net.core.somaxconn = 32768" > "$ENABLE_0803_TEST_FEATURE_CONF"
+        sysctl -p "$ENABLE_0803_TEST_FEATURE_CONF"
+    fi
+
     # IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels,
     # which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
     logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing

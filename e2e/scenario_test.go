@@ -55,6 +55,27 @@ func Test_AzureLinuxV3_ARM64(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_Enable0803TestFeature(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "ENABLE_0803_TEST_FEATURE renders to enabled_features.sh and nodePrep applies the example config",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				if nbc.EnabledFeatures == nil {
+					nbc.EnabledFeatures = map[string]string{}
+				}
+				nbc.EnabledFeatures["ENABLE_0803_TEST_FEATURE"] = "true"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/opt/azure/containers/enabled_features.sh", "ENABLE_0803_TEST_FEATURE=true")
+				ValidateFileHasContent(ctx, s, "/etc/sysctl.d/99-enable-0803-test-feature.conf", "net.core.somaxconn = 32768")
+				ValidateSysctlConfig(ctx, s, map[string]string{"net.core.somaxconn": "32768"})
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_AzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Ubuntu 22.04 scenario on a cluster configured with Azure CNI",
@@ -68,6 +89,10 @@ func Test_Ubuntu2204_AzureCNI(t *testing.T) {
 				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = c.VNetResourceGUID
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				// ENABLE_0803_TEST_FEATURE default-off assertion (illustrative). This scenario does
+				// not enable the feature, so we piggyback the "absent == off" check here instead of
+				// spinning up a dedicated absent scenario (which would consume an extra VM/VMSS).
+				ValidateFileDoesNotExist(ctx, s, "/etc/sysctl.d/99-enable-0803-test-feature.conf")
 			},
 		},
 	})
