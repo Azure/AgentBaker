@@ -108,27 +108,38 @@ func TestMergeTargetRegionsConverges(t *testing.T) {
 	require.Equal(t, regionNames(a), regionNames(b))
 }
 
-func TestE2EReplicationRegionsIncludesDefaultLocation(t *testing.T) {
+func TestE2ERegionsPerImageOS(t *testing.T) {
 	original := Config.DefaultLocation
 	t.Cleanup(func() { Config.DefaultLocation = original })
-
 	Config.DefaultLocation = RegionWestUS3
-	require.Equal(t, e2eRegions, E2EReplicationRegions(), "a default location already in the set must not be duplicated")
 
+	linux := &Image{OS: OSUbuntu}
+	require.Equal(t, linuxE2ERegions, linux.E2ERegions())
+	require.True(t, linux.SupportsE2ERegion(RegionUAENorth))
+
+	// No Windows scenario pins a location, so Windows images must not be fanned out to
+	// regions no Windows test uses - they are the largest images in the gallery.
+	windows := &Image{OS: OSWindows}
+	require.Equal(t, []string{RegionWestUS3}, windows.E2ERegions())
+	require.False(t, windows.SupportsE2ERegion(RegionUAENorth))
+	require.True(t, windows.SupportsE2ERegion("West US 3"))
+
+	// A custom local E2E_LOCATION must still work, without duplicating a known region.
 	Config.DefaultLocation = "North Europe"
-	require.Contains(t, E2EReplicationRegions(), "northeurope")
-	require.True(t, IsE2ERegion("northeurope"))
-	require.False(t, IsE2ERegion("centralindia"))
+	require.Contains(t, windows.E2ERegions(), "northeurope")
+	require.True(t, windows.SupportsE2ERegion("northeurope"))
+	Config.DefaultLocation = RegionWestUS3
+	require.Equal(t, windowsE2ERegions, windows.E2ERegions())
 }
 
 // TestReplicationRegionsForEphemeralImage guards the cost/blast-radius carve-out: image
 // versions captured at runtime for a single test have exactly one writer and are deleted on
 // cleanup, so they must not be fanned out to the shared E2E region set.
 func TestReplicationRegionsForEphemeralImage(t *testing.T) {
-	shared := &Image{}
-	require.Equal(t, append(E2EReplicationRegions(), RegionWestUS2), shared.replicationRegions(RegionWestUS2))
+	shared := &Image{OS: OSUbuntu}
+	require.Equal(t, append(shared.E2ERegions(), RegionWestUS2), shared.replicationRegions(RegionWestUS2))
 
-	ephemeral := &Image{Ephemeral: true}
+	ephemeral := &Image{OS: OSUbuntu, Ephemeral: true}
 	require.Equal(t, []string{RegionWestUS2}, ephemeral.replicationRegions(RegionWestUS2))
 }
 
