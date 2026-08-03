@@ -419,9 +419,11 @@ func TestBuildCSECmd_SetsEnableManagedGpuDra(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{
-				GpuConfig: &aksnodeconfigv1.GpuConfig{EnableManagedGpuDra: tt.enabled},
-			}, nil)
+			cfg := &aksnodeconfigv1.Configuration{}
+			if tt.enabled {
+				cfg.GpuConfig = &aksnodeconfigv1.GpuConfig{EnableManagedGpuDra: true}
+			}
+			cmd, err := BuildCSECmd(context.TODO(), cfg, nil)
 			require.NoError(t, err)
 
 			vars := environToMap(cmd.Env)
