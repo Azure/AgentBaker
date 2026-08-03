@@ -437,7 +437,7 @@ function nodePrep {
     # placeholder names (not a real kernel tunable or subsystem) to keep this purely illustrative.
     if [ "${ENABLE_0803_TEST_FEATURE:-}" = "true" ]; then
         ENABLE_0803_TEST_FEATURE_CONF="/etc/enable-0803-test-feature.example.conf"
-        echo "example_test_key = example_test_value" > "$ENABLE_0803_TEST_FEATURE_CONF"
+        echo "test_key=test_value" > "$ENABLE_0803_TEST_FEATURE_CONF"
         echo "ENABLE_0803_TEST_FEATURE enabled; wrote example config to $ENABLE_0803_TEST_FEATURE_CONF"
     fi
 

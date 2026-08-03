@@ -69,7 +69,7 @@ func Test_Ubuntu2204_Enable0803TestFeature(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/opt/azure/containers/enabled_features.sh", "ENABLE_0803_TEST_FEATURE=true")
-				ValidateFileHasContent(ctx, s, "/etc/enable-0803-test-feature.example.conf", "example_test_key = example_test_value")
+				ValidateFileHasContent(ctx, s, "/etc/enable-0803-test-feature.example.conf", "test_key=test_value")
 			},
 		},
 	})
