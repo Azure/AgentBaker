@@ -782,7 +782,7 @@ func vmPowerState(vm armcompute.VirtualMachineScaleSetVM) string {
 		return ""
 	}
 	for _, status := range vm.Properties.InstanceView.Statuses {
-		if status.Code != nil && strings.HasPrefix(*status.Code, "PowerState/") {
+		if status != nil && status.Code != nil && strings.HasPrefix(*status.Code, "PowerState/") {
 			return strings.TrimPrefix(*status.Code, "PowerState/")
 		}
 	}

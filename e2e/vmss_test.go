@@ -28,6 +28,7 @@ func TestVMPowerState(t *testing.T) {
 				Properties: &armcompute.VirtualMachineScaleSetVMProperties{
 					InstanceView: &armcompute.VirtualMachineScaleSetVMInstanceView{
 						Statuses: []*armcompute.InstanceViewStatus{
+							nil,
 							{Code: to.Ptr("ProvisioningState/succeeded")},
 							{Code: to.Ptr("PowerState/stopped")},
 						},
