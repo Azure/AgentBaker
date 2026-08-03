@@ -433,11 +433,12 @@ function nodePrep {
     # skipped. Default-off: only the literal "true" enables it; an absent var is a no-op.
     # Kept intentionally simple (inline, no helper) for this teaching example; a real feature would
     # factor non-trivial work into an idempotent configure<Feature>() helper. Idempotent: re-running
-    # overwrites the drop-in with identical content.
+    # overwrites the example file with identical content. The key/value below are deliberately
+    # placeholder names (not a real kernel tunable or subsystem) to keep this purely illustrative.
     if [ "${ENABLE_0803_TEST_FEATURE:-}" = "true" ]; then
-        ENABLE_0803_TEST_FEATURE_CONF="/etc/sysctl.d/99-enable-0803-test-feature.conf"
-        echo "net.core.somaxconn = 32768" > "$ENABLE_0803_TEST_FEATURE_CONF"
-        sysctl -p "$ENABLE_0803_TEST_FEATURE_CONF"
+        ENABLE_0803_TEST_FEATURE_CONF="/etc/enable-0803-test-feature.example.conf"
+        echo "example_test_key = example_test_value" > "$ENABLE_0803_TEST_FEATURE_CONF"
+        echo "ENABLE_0803_TEST_FEATURE enabled; wrote example config to $ENABLE_0803_TEST_FEATURE_CONF"
     fi
 
     # IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels,

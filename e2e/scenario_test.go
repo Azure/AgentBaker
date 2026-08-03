@@ -69,8 +69,7 @@ func Test_Ubuntu2204_Enable0803TestFeature(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/opt/azure/containers/enabled_features.sh", "ENABLE_0803_TEST_FEATURE=true")
-				ValidateFileHasContent(ctx, s, "/etc/sysctl.d/99-enable-0803-test-feature.conf", "net.core.somaxconn = 32768")
-				ValidateSysctlConfig(ctx, s, map[string]string{"net.core.somaxconn": "32768"})
+				ValidateFileHasContent(ctx, s, "/etc/enable-0803-test-feature.example.conf", "example_test_key = example_test_value")
 			},
 		},
 	})
@@ -92,7 +91,7 @@ func Test_Ubuntu2204_AzureCNI(t *testing.T) {
 				// ENABLE_0803_TEST_FEATURE default-off assertion (illustrative). This scenario does
 				// not enable the feature, so we piggyback the "absent == off" check here instead of
 				// spinning up a dedicated absent scenario (which would consume an extra VM/VMSS).
-				ValidateFileDoesNotExist(ctx, s, "/etc/sysctl.d/99-enable-0803-test-feature.conf")
+				ValidateFileDoesNotExist(ctx, s, "/etc/enable-0803-test-feature.example.conf")
 			},
 		},
 	})
