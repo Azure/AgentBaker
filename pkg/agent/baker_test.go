@@ -1476,7 +1476,20 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 			vars := decodeCSEVars(cseCmd)
 			Expect(vars).To(HaveKeyWithValue("KUBERNETES_VERSION", version))
+			Expect(vars).NotTo(HaveKey("KUBERNETES_PACKAGE_VERSION"))
 		}
+	})
+
+	It("should keep the Kubernetes package version separate from the orchestrator version", func() {
+		baseConfig.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.37.0"
+		baseConfig.ContainerService.Properties.OrchestratorProfile.KubernetesPackageVersion = "1.37.0~beta.0"
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("KUBERNETES_VERSION", "1.37.0"))
+		Expect(vars).To(HaveKeyWithValue("KUBERNETES_PACKAGE_VERSION", "1.37.0~beta.0"))
 	})
 
 	It("should handle MIG GPU configuration", func() {
