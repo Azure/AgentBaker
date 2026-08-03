@@ -1476,7 +1476,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 			vars := decodeCSEVars(cseCmd)
 			Expect(vars).To(HaveKeyWithValue("KUBERNETES_VERSION", version))
-			Expect(vars).To(HaveKeyWithValue("KUBERNETES_PACKAGE_VERSION", version))
+			Expect(vars).NotTo(HaveKey("KUBERNETES_PACKAGE_VERSION"))
 		}
 	})
 

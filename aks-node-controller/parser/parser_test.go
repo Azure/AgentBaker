@@ -406,17 +406,18 @@ func TestBuildCSECmd_KubernetesPackageVersion(t *testing.T) {
 		kubernetesVersion      string
 		kubernetesPackage      string
 		expectedPackageVersion string
+		expectPackageVersion   bool
 	}{
 		{
-			name:                   "falls back to the orchestrator version",
-			kubernetesVersion:      "1.36.3",
-			expectedPackageVersion: "1.36.3",
+			name:              "omits the redundant package version",
+			kubernetesVersion: "1.36.3",
 		},
 		{
 			name:                   "keeps a prerelease package version separate",
 			kubernetesVersion:      "1.37.0",
 			kubernetesPackage:      "1.37.0~beta.0",
 			expectedPackageVersion: "1.37.0~beta.0",
+			expectPackageVersion:   true,
 		},
 	}
 
@@ -430,7 +431,11 @@ func TestBuildCSECmd_KubernetesPackageVersion(t *testing.T) {
 
 			vars := environToMap(cmd.Env)
 			assert.Equal(t, tt.kubernetesVersion, vars["KUBERNETES_VERSION"])
-			assert.Equal(t, tt.expectedPackageVersion, vars["KUBERNETES_PACKAGE_VERSION"])
+			if tt.expectPackageVersion {
+				assert.Equal(t, tt.expectedPackageVersion, vars["KUBERNETES_PACKAGE_VERSION"])
+			} else {
+				assert.NotContains(t, vars, "KUBERNETES_PACKAGE_VERSION")
+			}
 		})
 	}
 }

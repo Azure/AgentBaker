@@ -30,13 +30,6 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 	return buffer.String(), nil
 }
 
-func getKubernetesPackageVersion(config *aksnodeconfigv1.Configuration) string {
-	if packageVersion := config.GetKubernetesPackageVersion(); packageVersion != "" {
-		return packageVersion
-	}
-	return config.GetKubernetesVersion()
-}
-
 //nolint:funlen
 func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuConfig *gpu.GPUConfiguration) map[string]string {
 	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
@@ -72,7 +65,6 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"ADMINUSER":                                            getLinuxAdminUsername(config.GetLinuxAdminUsername()),
 		"TENANT_ID":                                            config.GetAuthConfig().GetTenantId(),
 		"KUBERNETES_VERSION":                                   config.GetKubernetesVersion(),
-		"KUBERNETES_PACKAGE_VERSION":                           getKubernetesPackageVersion(config),
 		"KUBE_BINARY_URL":                                      config.GetKubeBinaryConfig().GetKubeBinaryUrl(),
 		"CUSTOM_KUBE_BINARY_URL":                               config.GetKubeBinaryConfig().GetCustomKubeBinaryUrl(),
 		"PRIVATE_KUBE_BINARY_URL":                              config.GetKubeBinaryConfig().GetPrivateKubeBinaryUrl(),
@@ -222,6 +214,9 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"ENABLE_MANAGED_GPU_DRA":                       "false", // TODO: add protobuf field
 		"INIT_AKS_CLOUD_FILEPATH":                      getInitAKSCloudFilepath(),
 		"REPO_DEPOT_ENDPOINT":                          getRepoDepotEndpoint(config),
+	}
+	if packageVersion := config.GetKubernetesPackageVersion(); packageVersion != "" {
+		env["KUBERNETES_PACKAGE_VERSION"] = packageVersion
 	}
 
 	for i, cert := range config.CustomCaCerts {
