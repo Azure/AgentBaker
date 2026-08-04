@@ -25,12 +25,11 @@ import (
 
 const (
 	// ancComponentName is the component name check-hotfix requests from the live-patching service.
-	//
-	// TODO(provisioning-hotfix): NOT finalized -- must match the service/publisher's component key,
-	// which is not published yet. The live-patching client example uses lowerCamelCase keys (e.g.
-	// "securityPatch") for its own components, so ANC's key may end up a short lowerCamelCase form
-	// rather than this full binary name once the contract lands.
-	ancComponentName = "aks-node-controller"
+	// It must match, byte for byte, the component key the service registers for aks-node-controller.
+	// The service side registers this component with the lowerCamelCase key "aksNodeController"
+	// (matching its existing "securityPatch"/"localDNS" components), so the consumer requests the
+	// same string here.
+	ancComponentName = "aksNodeController"
 
 	// lpsAttestedMetadataKey is the gRPC request-metadata key carrying the IMDS attested-data
 	// signature that authenticates the node to the live-patching service. The service reads it from
