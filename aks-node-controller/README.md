@@ -159,6 +159,11 @@ platform, and atomically applies them before constructing the normal CSE command
 Application is fail-open so the existing VHD scripts remain usable if validation
 or replacement fails.
 
+The ANC-owned `scripthotfix` package distinguishes these embedded script hotfixes
+from updates to the ANC binary itself. Its generated manifest and payloads live
+under `aks-node-controller/scripthotfix/generated/`; `applier.go` consumes and
+applies them.
+
 Phase-1 embedded payloads are replace-only: ANC skips an applicable entry when
 its runtime destination does not already exist. File presence preserves
 non-platform template gates such as custom-image exclusions that the generated
@@ -166,10 +171,12 @@ manifest does not encode. New-file hotfixes are therefore not supported by the
 embedded path until richer condition metadata is added; during dual delivery,
 their legacy CRP behavior remains authoritative.
 
-During the phase-1 compatibility window, `hotfix/hotfix_generate.py` uses dual
-delivery: it retains the legacy CRP `nodecustomdata.yml`/`scripts_version` payload
-and generates matching embedded entries. The legacy payload is applied first by
-the VHD-baked ANC; the patched ANC then applies embedded entries during
-`provision`, so embedded content has deterministic precedence. CustomData size is
+During phase 1, `hotfix/hotfix_generate.py` uses dual delivery until 15
+supported-version rotations complete and the oldest supported ABSvc/VHD release
+is confirmed embedded-capable. It retains the legacy CRP
+`nodecustomdata.yml`/`scripts_version` payload and generates matching embedded
+entries. The legacy payload is applied first by the VHD-baked ANC; the patched
+ANC then applies embedded entries during `provision`, so embedded content has
+deterministic precedence. CustomData size is
 not reduced until a later rollout explicitly enables the generator's
 default-off `--embedded-only` mode after the supported old-VHD window closes.

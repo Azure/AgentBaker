@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
-	"github.com/Azure/agentbaker/aks-node-controller/hotfixpayload"
+	"github.com/Azure/agentbaker/aks-node-controller/scripthotfix"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -235,9 +235,9 @@ func TestApp_Provision(t *testing.T) {
 	t.Run("embedded hotfix runs before command construction and execution", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		applied := false
-		tt.App.applyEmbeddedHotfix = func(string) (hotfixpayload.Result, error) {
+		tt.App.applyEmbeddedHotfix = func(string) (scripthotfix.Result, error) {
 			applied = true
-			return hotfixpayload.Result{Applied: 1}, nil
+			return scripthotfix.Result{Applied: 1}, nil
 		}
 
 		_, err := tt.App.runProvision(
@@ -259,8 +259,8 @@ func TestApp_Provision(t *testing.T) {
 				return nil
 			},
 		})
-		tt.App.applyEmbeddedHotfix = func(string) (hotfixpayload.Result, error) {
-			return hotfixpayload.Result{}, errors.New("manifest validation failed")
+		tt.App.applyEmbeddedHotfix = func(string) (scripthotfix.Result, error) {
+			return scripthotfix.Result{}, errors.New("manifest validation failed")
 		}
 
 		_, err := tt.App.runProvision(
@@ -281,9 +281,9 @@ func TestApp_Provision(t *testing.T) {
 	t.Run("dry-run does not apply embedded hotfix payload", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		applied := false
-		tt.App.applyEmbeddedHotfix = func(string) (hotfixpayload.Result, error) {
+		tt.App.applyEmbeddedHotfix = func(string) (scripthotfix.Result, error) {
 			applied = true
-			return hotfixpayload.Result{}, nil
+			return scripthotfix.Result{}, nil
 		}
 
 		_, err := tt.App.runProvision(

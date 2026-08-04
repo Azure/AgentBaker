@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Azure/agentbaker/aks-node-controller/hotfixpayload"
+	"github.com/Azure/agentbaker/aks-node-controller/scripthotfix"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -198,9 +198,9 @@ write_files:
 	require.NoError(t, err)
 	assert.Equal(t, "legacy-crp\n", string(legacy))
 
-	tt.App.applyEmbeddedHotfix = func(string) (hotfixpayload.Result, error) {
+	tt.App.applyEmbeddedHotfix = func(string) (scripthotfix.Result, error) {
 		require.NoError(t, os.WriteFile(scriptPath, []byte("embedded\n"), 0o744))
-		return hotfixpayload.Result{Applied: 1}, nil
+		return scripthotfix.Result{Applied: 1}, nil
 	}
 	_, err = tt.App.runProvision(
 		context.Background(),

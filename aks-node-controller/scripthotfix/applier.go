@@ -1,9 +1,9 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT license.
 
-// Package hotfixpayload applies generated provisioning script hotfixes embedded
+// Package scripthotfix applies generated provisioning script hotfixes embedded
 // in the aks-node-controller binary.
-package hotfixpayload
+package scripthotfix
 
 import (
 	"bytes"

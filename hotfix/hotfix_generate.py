@@ -24,7 +24,9 @@ Usage: python3 hotfix/hotfix_generate.py [--embedded-only] <base_ref>
   base_ref: git ref to diff against for changed-script/changed-code detection
             (e.g., origin/official/v20260219)
   --embedded-only: omit the legacy CRP script block. This is intentionally
-                   default-off during the phase-1 compatibility window.
+                   default-off until 15 supported-version rotations complete
+                   and the oldest supported ABSvc/VHD release is confirmed
+                   embedded-capable.
 
 This script is called by the hotfix-generate GH Action.
 """
@@ -42,7 +44,7 @@ TEMPLATE = "parts/linux/cloud-init/nodecustomdata.yml"
 ARTIFACTS_DIR = "parts/linux/cloud-init/artifacts"
 LINUX_SIG_VERSION_FILE = "pkg/agent/datamodel/linux_sig_version.json"
 ANC_DIR = "aks-node-controller/"
-GENERATED_DIR = os.path.join(ANC_DIR, "hotfixpayload", "generated")
+GENERATED_DIR = os.path.join(ANC_DIR, "scripthotfix", "generated")
 GENERATED_MANIFEST = os.path.join(GENERATED_DIR, "manifest.json")
 GENERATED_PAYLOADS_DIR = os.path.join(GENERATED_DIR, "payloads")
 MANIFEST_SCHEMA_VERSION = 1
