@@ -17,7 +17,6 @@ trigger:
   paths:
     include:
       - e2e/**
-      - '**/*.go'
 pr:
   branches:
     include:
@@ -27,7 +26,6 @@ pr:
   paths:
     include:
       - e2e/**
-      - '**/*.go'
 jobs:
   - template: ./templates/e2e-template.yaml
     parameters:
