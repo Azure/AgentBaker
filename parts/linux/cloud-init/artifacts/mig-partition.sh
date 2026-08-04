@@ -87,6 +87,11 @@ parse_mig_profile_layout() {
     echo "${layout}"
 }
 
+# Backward-compatible: allow legacy positional argument usage (see mig-partition.service ExecStart).
+if [ -z "${GPU_INSTANCE_PROFILE:-}" ] && [ -n "${1:-}" ]; then
+    GPU_INSTANCE_PROFILE="$1"
+fi
+
 if [ -n "${NVIDIA_MIG_PROFILE_LAYOUT:-}" ]; then
     MIG_LAYOUT="$(parse_mig_profile_layout "${NVIDIA_MIG_PROFILE_LAYOUT}")" || exit 1
 elif [ -n "${GPU_INSTANCE_PROFILE:-}" ]; then
