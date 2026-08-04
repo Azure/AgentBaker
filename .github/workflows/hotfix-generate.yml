@@ -3,8 +3,10 @@ name: Hotfix Template Update
 # branch and, if so, computes the version numbers and updates the generated files:
 #   - If aks-node-controller/ changed vs the base branch, bumps `version`.
 #   - Changed CSE scripts are generated into both the legacy CRP nodecustomdata
-#     block and an ANC-owned embedded payload during the phase-1 compatibility
-#     window. If nodecustomdata.yml changes, bumps `scripts_version`.
+#     block and an ANC-owned embedded payload during phase 1. Retire the legacy
+#     path only after 15 supported-version rotations and confirmation that the
+#     oldest supported ABSvc/VHD release is embedded-capable. If
+#     nodecustomdata.yml changes, bumps `scripts_version`.
 #   - Writes the result to
 #     parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json (embedded
 #     directly into scriptless customData by pkg/agent/baker.go).
@@ -90,7 +92,7 @@ jobs:
             git status --porcelain --untracked-files=all -- \
               parts/linux/cloud-init/nodecustomdata.yml \
               parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json \
-              aks-node-controller/hotfixpayload/generated
+              aks-node-controller/scripthotfix/generated
           )
           if [ "${#FILES[@]}" -eq 0 ]; then
             echo "No template changes needed."

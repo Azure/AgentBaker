@@ -18,10 +18,10 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
-	"github.com/Azure/agentbaker/aks-node-controller/hotfixpayload"
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
+	"github.com/Azure/agentbaker/aks-node-controller/scripthotfix"
 	"github.com/fsnotify/fsnotify"
 	"github.com/urfave/cli/v3"
 )
@@ -68,7 +68,7 @@ type App struct {
 	// is queried.
 	fetchAttestedToken func(ctx context.Context) (string, error)
 	// applyEmbeddedHotfix overrides embedded script application for tests.
-	applyEmbeddedHotfix func(string) (hotfixpayload.Result, error)
+	applyEmbeddedHotfix func(string) (scripthotfix.Result, error)
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
@@ -675,7 +675,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 func (a *App) applyEmbeddedHotfixPayload() {
 	applyEmbeddedHotfix := a.applyEmbeddedHotfix
 	if applyEmbeddedHotfix == nil {
-		applyEmbeddedHotfix = hotfixpayload.ApplyEmbedded
+		applyEmbeddedHotfix = scripthotfix.ApplyEmbedded
 	}
 	result, err := applyEmbeddedHotfix(a.osReleasePath)
 	if err != nil {
