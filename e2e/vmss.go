@@ -42,11 +42,11 @@ type scriptHotfixFixtureManifest struct {
 }
 
 type scriptHotfixFixtureEntry struct {
-	Source      string   `json:"source"`
-	Payload     string   `json:"payload"`
-	Destination string   `json:"destination"`
-	Mode        string   `json:"mode"`
-	Platforms   []string `json:"platforms"`
+	Source       string   `json:"source"`
+	EmbeddedPath string   `json:"embedded_path"`
+	Destination  string   `json:"destination"`
+	Mode         string   `json:"mode"`
+	Platforms    []string `json:"platforms"`
 }
 
 func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string, error) {
@@ -184,11 +184,11 @@ func writeScriptHotfixFixture(buildDir string, fixture ScriptHotfixFixture) erro
 	manifest := scriptHotfixFixtureManifest{
 		SchemaVersion: 1,
 		Entries: []scriptHotfixFixtureEntry{{
-			Source:      fixture.Source,
-			Payload:     payloadPath,
-			Destination: fixture.Destination,
-			Mode:        fixture.Mode,
-			Platforms:   fixture.Platforms,
+			Source:       fixture.Source,
+			EmbeddedPath: payloadPath,
+			Destination:  fixture.Destination,
+			Mode:         fixture.Mode,
+			Platforms:    fixture.Platforms,
 		}},
 	}
 	data, err := json.MarshalIndent(manifest, "", "  ")

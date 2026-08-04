@@ -681,7 +681,7 @@ def build_manifest_entries(target_varkeys, traditional_lines):
 
         manifest_entries.append({
             "source": source,
-            "payload": f"payloads/{source}",
+            "embedded_path": f"payloads/{source}",
             "destination": destination,
             "mode": mode.zfill(4),
             "platforms": list(platforms),
@@ -697,7 +697,9 @@ def write_embedded_payload(entries):
 
     for entry in entries:
         source_path = os.path.join(ARTIFACTS_DIR, entry["source"])
-        payload_path = os.path.join(GENERATED_DIR, *entry["payload"].split("/"))
+        payload_path = os.path.join(
+            GENERATED_DIR, *entry["embedded_path"].split("/")
+        )
         os.makedirs(os.path.dirname(payload_path), exist_ok=True)
         shutil.copyfile(source_path, payload_path)
 

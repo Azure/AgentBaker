@@ -46,7 +46,7 @@ func TestWriteScriptHotfixFixture(t *testing.T) {
 	require.Equal(t, 1, manifest.SchemaVersion)
 	require.Len(t, manifest.Entries, 1)
 	require.Equal(t, fixture.Source, manifest.Entries[0].Source)
-	require.Equal(t, "payloads/e2e/provision_configs.sh", manifest.Entries[0].Payload)
+	require.Equal(t, "payloads/e2e/provision_configs.sh", manifest.Entries[0].EmbeddedPath)
 	require.Equal(t, fixture.Destination, manifest.Entries[0].Destination)
 	require.Equal(t, fixture.Mode, manifest.Entries[0].Mode)
 	require.Equal(t, fixture.Platforms, manifest.Entries[0].Platforms)
