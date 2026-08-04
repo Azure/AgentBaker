@@ -235,10 +235,7 @@ testAcrCredentialProviderInstalled() {
 
 testPackagesInstalled() {
   local test="testPackagesInstalled"
-  if [ "$(isARM64)" -eq 1 ]; then
-    return
-  fi
-  CPU_ARCH="amd64"
+  CPU_ARCH=$(getCPUArch) # "arm64" or "amd64"
   echo "$test:Start"
   packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 
@@ -266,11 +263,20 @@ testPackagesInstalled() {
         testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
-      "azure-acr-credential-provider-pmc"|\
       "nvidia-device-plugin"|\
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
+        # No ARM64 SKU with GPU now (see install-dependencies.sh).
+        # Remove this skip when ARM64 GPU SKUs become available and GPU packages are cached on ARM64 VHDs.
+        if [ "$(isARM64)" -eq 1 ]; then
+          echo "Skipping ${name} on ARM64 (no GPU SKU)"
+          continue
+        fi
+        testPkgDownloaded "${name}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+      "azure-acr-credential-provider-pmc")
         testPkgDownloaded "${name%-pmc}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
