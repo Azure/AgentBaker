@@ -124,10 +124,13 @@ func createVMSSRecreatingOnOutboundCSEFlake(ctx context.Context, s *Scenario) (*
 		// embed the CSE status JSON, so classify the failure from the extension instance view
 		// (the same source getCustomScriptExtensionStatus parses) rather than string-matching
 		// the ARM error. Only the outbound preflight exit code is treated as retryable.
-		exitCode, ok := getLinuxCSEExitCode(ctx, s)
-		if !ok || exitCode != cseExitCodeOutboundConnFail {
-			return vm, err
+		if !s.VHD.SkipCustomScriptExtensionStatus {
+			exitCode, ok := getLinuxCSEExitCode(ctx, s)
+			if !ok || exitCode != cseExitCodeOutboundConnFail {
+				return vm, err
+			}
 		}
+
 		toolkit.Logf(ctx, "CSE failed with ERR_OUTBOUND_CONN_FAIL (exit %s) on VMSS %q: known transient e2e outbound flake, recreating node (attempt %d/%d)", exitCode, s.Runtime.VMSSName, attempt+1, maxOutboundCSERetries)
 		// Close this attempt's bastion tunnel before recreating: the SSH client is established
 		// even on an exit-50 failure (the node booted, only the CSE preflight failed). The single
@@ -1336,7 +1339,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 		},
 	}
 
-	if cseCmd != "" {
+	if cseCmd != "" && !s.VHD.SkipCustomScriptExtensionStatus {
 		model.Properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{
 			Extensions: []*armcompute.VirtualMachineScaleSetExtension{
 				{

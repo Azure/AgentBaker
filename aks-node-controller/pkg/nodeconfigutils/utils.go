@@ -24,6 +24,7 @@ const (
 
 	boothookTemplate = `#cloud-boothook
 #!/bin/bash
+# azure-skip-ready-report
 set -euo pipefail
 
 logger -t aks-boothook "boothook start $(date -Ins)"

@@ -49,27 +49,30 @@ var (
 
 var (
 	VHDUbuntu2204Gen2Arm64Containerd = &Image{
-		Name:    "2204gen2arm64containerd",
-		OS:      OSUbuntu,
-		Arch:    "arm64",
-		Distro:  datamodel.AKSUbuntuArm64Containerd2204Gen2,
-		Gallery: imageGalleryLinux,
+		Name:                            "2204gen2arm64containerd",
+		OS:                              OSUbuntu,
+		Arch:                            "arm64",
+		Distro:                          datamodel.AKSUbuntuArm64Containerd2204Gen2,
+		Gallery:                         imageGalleryLinux,
+		SkipCustomScriptExtensionStatus: true,
 	}
 
 	VHDUbuntu2204Gen2Containerd = &Image{
-		Name:    "2204gen2containerd",
-		OS:      OSUbuntu,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
-		Gallery: imageGalleryLinux,
+		Name:                            "2204gen2containerd",
+		OS:                              OSUbuntu,
+		Arch:                            "amd64",
+		Distro:                          datamodel.AKSUbuntuContainerd2204Gen2,
+		Gallery:                         imageGalleryLinux,
+		SkipCustomScriptExtensionStatus: true,
 	}
 
 	VHDUbuntu2204Gen2TLContainerd = &Image{
-		Name:    "2204gen2TLcontainerd",
-		OS:      OSUbuntu,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSUbuntuContainerd2204TLGen2,
-		Gallery: imageGalleryLinux,
+		Name:                            "2204gen2TLcontainerd",
+		OS:                              OSUbuntu,
+		Arch:                            "amd64",
+		Distro:                          datamodel.AKSUbuntuContainerd2204TLGen2,
+		Gallery:                         imageGalleryLinux,
+		SkipCustomScriptExtensionStatus: true,
 	}
 
 	VHDUbuntu2004FIPSGen2Containerd = &Image{
@@ -83,31 +86,34 @@ var (
 	}
 
 	VHDUbuntu2204FIPSContainerd = &Image{
-		Name:                "2204fipscontainerd",
-		OS:                  OSUbuntu,
-		Arch:                "amd64",
-		Distro:              datamodel.AKSUbuntuFipsContainerd2204,
-		Gallery:             imageGalleryLinux,
-		UnsupportedLocalDns: true,
-		UnsupportedGen2:     true,
+		Name:                            "2204fipscontainerd",
+		OS:                              OSUbuntu,
+		Arch:                            "amd64",
+		Distro:                          datamodel.AKSUbuntuFipsContainerd2204,
+		Gallery:                         imageGalleryLinux,
+		UnsupportedLocalDns:             true,
+		UnsupportedGen2:                 true,
+		SkipCustomScriptExtensionStatus: true,
 	}
 
 	VHDUbuntu2204Gen2FIPSContainerd = &Image{
-		Name:                "2204gen2fipscontainerd",
-		OS:                  OSUbuntu,
-		Arch:                "amd64",
-		Distro:              datamodel.AKSUbuntuFipsContainerd2204Gen2,
-		Gallery:             imageGalleryLinux,
-		UnsupportedLocalDns: true,
+		Name:                            "2204gen2fipscontainerd",
+		OS:                              OSUbuntu,
+		Arch:                            "amd64",
+		Distro:                          datamodel.AKSUbuntuFipsContainerd2204Gen2,
+		Gallery:                         imageGalleryLinux,
+		UnsupportedLocalDns:             true,
+		SkipCustomScriptExtensionStatus: true,
 	}
 
 	VHDUbuntu2204Gen2FIPSTLContainerd = &Image{
-		Name:                "2204gen2fipsTLcontainerd",
-		OS:                  OSUbuntu,
-		Arch:                "amd64",
-		Distro:              datamodel.AKSUbuntuFipsContainerd2204TLGen2,
-		Gallery:             imageGalleryLinux,
-		UnsupportedLocalDns: true,
+		Name:                            "2204gen2fipsTLcontainerd",
+		OS:                              OSUbuntu,
+		Arch:                            "amd64",
+		Distro:                          datamodel.AKSUbuntuFipsContainerd2204TLGen2,
+		Gallery:                         imageGalleryLinux,
+		UnsupportedLocalDns:             true,
+		SkipCustomScriptExtensionStatus: true,
 	}
 
 	VHDAzureLinuxV2Gen2 = &Image{
@@ -147,28 +153,31 @@ var (
 	}
 
 	VHDUbuntu2404Gen1Containerd = &Image{
-		Name:            "2404containerd",
-		OS:              OSUbuntu,
-		Arch:            "amd64",
-		Distro:          datamodel.AKSUbuntuContainerd2404,
-		Gallery:         imageGalleryLinux,
-		UnsupportedGen2: true,
+		Name:                            "2404containerd",
+		OS:                              OSUbuntu,
+		Arch:                            "amd64",
+		Distro:                          datamodel.AKSUbuntuContainerd2404,
+		Gallery:                         imageGalleryLinux,
+		UnsupportedGen2:                 true,
+		SkipCustomScriptExtensionStatus: true,
 	}
 
 	VHDUbuntu2404Gen2Containerd = &Image{
-		Name:    "2404gen2containerd",
-		OS:      OSUbuntu,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
-		Gallery: imageGalleryLinux,
+		Name:                            "2404gen2containerd",
+		OS:                              OSUbuntu,
+		Arch:                            "amd64",
+		Distro:                          datamodel.AKSUbuntuContainerd2404Gen2,
+		Gallery:                         imageGalleryLinux,
+		SkipCustomScriptExtensionStatus: true,
 	}
 
 	VHDUbuntu2404ArmContainerd = &Image{
-		Name:    "2404gen2arm64containerd",
-		OS:      OSUbuntu,
-		Arch:    "arm64",
-		Distro:  datamodel.AKSUbuntuArm64Containerd2404Gen2,
-		Gallery: imageGalleryLinux,
+		Name:                            "2404gen2arm64containerd",
+		OS:                              OSUbuntu,
+		Arch:                            "arm64",
+		Distro:                          datamodel.AKSUbuntuArm64Containerd2404Gen2,
+		Gallery:                         imageGalleryLinux,
+		SkipCustomScriptExtensionStatus: true,
 	}
 
 	VHDUbuntu2604MinimalGen2Containerd = &Image{
@@ -309,6 +318,7 @@ type Image struct {
 	IgnoreFailedCgroupTelemetryServices bool
 	Flatcar                             bool
 	SkipOldVHDValidations               bool
+	SkipCustomScriptExtensionStatus     bool
 	// OSDiskSizeGB overrides the default OS disk size (50 GB) when set.
 	OSDiskSizeGB int32
 }

@@ -244,6 +244,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cloud_init_report_ready.py",
+      "destination": "/home/packer/cloud_init_report_ready.py"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_send_logs.py",
       "destination": "/home/packer/cse_send_logs.py"
     },

@@ -58,6 +58,14 @@ JSON_STRING=$( jq -n \
 mkdir -p /var/log/azure/aks
 echo $JSON_STRING | tee /var/log/azure/aks/provision.json
 
+if [ -x /opt/azure/containers/cloud_init_report_ready.py ]; then
+    if [ "$EXIT_CODE" -eq 0 ]; then
+        python3 /opt/azure/containers/cloud_init_report_ready.py -v || echo "WARNING: Failed to report ready to Azure fabric"
+    else
+        python3 /opt/azure/containers/cloud_init_report_ready.py -v --failure --description "ExitCode: ${EXIT_CODE}, ${message_string}" || echo "WARNING: Failed to report failure to Azure fabric"
+    fi
+fi
+
 # Cleanup cache file
 rm -f /opt/azure/containers/imds_instance_metadata_cache.json || true
 

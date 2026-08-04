@@ -46,6 +46,27 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
+patch_ubuntu_cloud_init() {
+  if isUbuntu "$OS"; then
+    file=/usr/lib/python3/dist-packages/cloudinit/sources/DataSourceAzure.py
+    old='if self.ds_cfg.get("experimental_skip_ready_report", False):'
+    new='if self.ds_cfg.get("experimental_skip_ready_report", False) or b"# azure-skip-ready-report" in crawled_data["userdata_raw"].splitlines():'
+
+    if [ "$(grep -Fc "$old" "$file")" -ne 1 ]; then
+      echo "Expected condition not found exactly once in $file"
+      exit 1
+    fi
+
+    sed -i "s|$old|$new|" "$file"
+    python3 -m py_compile "$file"  || {
+      echo "Failed to compile $file"
+      exit 1
+    }
+    grep -F "$new" "$file"
+  fi
+}
+patch_ubuntu_cloud_init
+
 # doing this at vhd allows CSE to be faster with just mv
 unpackTgzToCNIDownloadsDIR() {
   local download_dir=${1}
