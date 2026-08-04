@@ -2779,6 +2779,7 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 
 	command := []string{
 		"set -ex",
+		// List MIG devices using nvidia-smi
 		"sudo nvidia-smi mig -lgi",
 	}
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to list MIG instances")

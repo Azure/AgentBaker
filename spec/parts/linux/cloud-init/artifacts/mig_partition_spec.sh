@@ -50,7 +50,7 @@ nvidia-smi mig -cci"
         The output should include "nvidia-smi mig -cgi 14,19"
     End
 
-    It 'does not use MIG strategy to calculate the layout'
+    It 'does not use MIG strategy to calculate the layout since it is already computed on caller site'
         When run env NVIDIA_MIG_PROFILE_LAYOUT="MIG2g,MIG1g" NVIDIA_MIG_STRATEGY="Single" bash "$SCRIPT_PATH"
 
         The status should be success

@@ -83,7 +83,9 @@ oom_score = -999
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
+				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
 				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILE_LAYOUT", "MIG3g,MIG2g,MIG1g,MIG1g")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_STRATEGY", "")
 				assertHasKeyWithValue(t, vars, "MIG_NODE", "true")
 			},
 		},
@@ -500,6 +502,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "VNET_CNI_PLUGINS_URL", "")
 				assertHasKeyWithValue(t, vars, "LOCATION", "")
 				assertHasKeyWithValue(t, vars, "GPU_NODE", "false")
+				assertHasKeyWithValue(t, vars, "MIG_NODE", "false")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
 				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILE_LAYOUT", "")
 				assertHasKeyWithValue(t, vars, "CUSTOM_CA_TRUST_COUNT", "0")
