@@ -1,6 +1,9 @@
 name: Go Unit Tests
 on: pull_request
 
+permissions:
+  contents: read
+
 jobs:
   go-test:
     runs-on: ubuntu-latest

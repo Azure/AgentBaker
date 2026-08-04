@@ -5,6 +5,9 @@ on: pull_request
 # stored in WSL. So you'll need to change directory to whereever you have the repo checked out in WSL. Something like this:
 # cd \\wsl$\Ubuntu\home\tim\git\AgentBaker
 
+permissions:
+  contents: read
+
 jobs:
   pester-test:
     name: Pester test

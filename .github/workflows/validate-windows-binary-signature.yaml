@@ -10,6 +10,9 @@ on:
       - 'vhdbuilder/packer/windows/windows_settings.json'
       - 'vhdbuilder/packer/windows/components_json_helpers.ps1'
 
+permissions:
+  contents: read
+
 jobs:
   check-files-for-ws2022:
     name: Check for Windows 2022

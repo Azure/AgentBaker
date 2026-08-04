@@ -2,6 +2,11 @@ name: Generate valid kubelet flags per supported k8s version
 on:
   workflow_dispatch: {}
 
+# The push + PR creation steps below explicitly use secrets.PERSONAL_ACCESS_TOKEN,
+# so the default GITHUB_TOKEN does not need write scopes here.
+permissions:
+  contents: read
+
 jobs:
   generate-kubelet-flags:
     runs-on: ubuntu-24.04
