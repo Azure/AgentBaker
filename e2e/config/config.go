@@ -35,7 +35,7 @@ var (
 	// stalls provisioning past TestTimeoutVMSS and surfaces as "context deadline exceeded".
 	// These operations take minutes, so 15s polling is ample and cuts ARM request volume ~15x.
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
-		Frequency: 15 * time.Second,
+		Frequency: 1 * time.Second,
 	}
 	VMSSHPublicKey, VMSSHPrivateKey, SysSSHPublicKey, SysSSHPrivateKey []byte
 	VMSSHPrivateKeyFileName, SysSSHPrivateKeyFileName                  string

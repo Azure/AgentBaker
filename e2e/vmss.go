@@ -440,7 +440,13 @@ coreos:
 
 	cloudConfigTemplate := `%s
 
-mkdir -p /opt/azure/bin
+mkdir -p /opt/azure/bin /var/lib/waagent
+
+# Hand provisioning status reporting over to report_ready.py: cloud-init's patched
+# ready-report is skipped when this marker exists, so the Azure fabric only sees
+# Ready/NotReady from our own reporter once provisioning actually finishes.
+touch /var/lib/waagent/experimental_skip_ready_report
+chmod 0644 /var/lib/waagent/experimental_skip_ready_report
 %s
 cat <<'SCRIPT' > /opt/azure/bin/run-aks-node-controller-hack.sh
 #!/bin/bash
@@ -550,6 +556,13 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 			reader.Close()
 			require.Contains(s.T, string(result), "/opt/azure/containers/scriptless-cse-overrides.txt", "custom data contains other script content, but scriptless CSE CMD is enabled")
 		}
+	}
+
+	// CustomData-only provisioning: drop the CSE command so no Custom Script Extension is
+	// attached to the VMSS. Provisioning runs entirely from cloud-init, and provisioning
+	// status is reported to the Azure fabric by report_ready.py rather than by the extension.
+	if s.Config.UseCustomDataOnlyProvisioning {
+		cse = ""
 	}
 
 	// These two links are really for local development

@@ -6,9 +6,27 @@ export CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s) # Export 
 
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 mkdir -p $EVENTS_LOGGING_DIR
+
+PROGRESS_REPORTER_PID=""
+stop_in_progress_reporter() {
+    if [ -n "$PROGRESS_REPORTER_PID" ]; then
+        kill "$PROGRESS_REPORTER_PID" 2>/dev/null || true
+        wait "$PROGRESS_REPORTER_PID" 2>/dev/null || true
+        PROGRESS_REPORTER_PID=""
+    fi
+}
+trap stop_in_progress_reporter EXIT
+
+if [ -x /opt/azure/containers/report_ready.py ]; then
+    python3 /opt/azure/containers/report_ready.py -v --in-progress \
+        --interval "${PROVISIONING_REPORT_INTERVAL:-60}" &
+    PROGRESS_REPORTER_PID=$!
+fi
+
 # this is the "global" CSE execution timeout - we allow CSE to run for some time (default 15 minutes) before timeout will attempt to kill the script. We exit early from some of the retry loops using `check_cse_timeout` in `cse_helpers.sh`.`
 timeout -k5s "${CSE_TIMEOUT:-15m}" /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
+stop_in_progress_reporter
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(tail -c 3000 "/var/log/azure/cluster-provision.log")
 KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g" || true)
