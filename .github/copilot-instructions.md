@@ -5,6 +5,8 @@ AgentBaker repo has 2 main services discussed below:
 - VHD Builder
 - AgentBaker Service
 
+> **ACL Troubleshooting:** For Azure Container Linux (ACL) specific issues, debugging, and provisioning guidance, see [doc/skills/acl-troubleshooting.md](../doc/skills/acl-troubleshooting.md).
+
 ## VHD Builder
 
 It builds VHDs using Packer for base OS: Windows, Azure Linux/Mariner and Ubuntu. For each OS there are multiple supported versions (windows 2019, 2022, ubuntu 2004, 2204 etc). The VHDs are base images for a node in an aks cluster.
