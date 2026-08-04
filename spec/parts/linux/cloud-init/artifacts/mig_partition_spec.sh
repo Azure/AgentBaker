@@ -27,6 +27,14 @@ nvidia-smi mig -cci"
         End
     End
 
+    It 'accepts the legacy positional profile used by older service units'
+        When run bash "$SCRIPT_PATH" MIG2g
+
+        The status should be success
+        The output should equal "nvidia-smi mig -cgi 14,14,14
+nvidia-smi mig -cci"
+    End
+
     It 'maps the ordered layout without sorting or expanding profiles'
         When run env NVIDIA_MIG_PROFILE_LAYOUT="MIG3g,MIG2g,MIG1g,MIG1g" bash "$SCRIPT_PATH"
 

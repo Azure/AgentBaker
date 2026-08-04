@@ -46,6 +46,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 
 	containerdVersion, _ := detectContainerdVersion(ctx)
 	cloudProviderSettings := getCloudProviderSettings(config)
+	migConfig := config.GetGpuConfig()
 	env := map[string]string{
 		"PROVISION_OUTPUT":                                     "/var/log/azure/cluster-provision-cse-output.log",
 		"MOBY_VERSION":                                         "",
@@ -96,7 +97,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"IS_VHD":                                               fmt.Sprintf("%v", getIsVHD(config.IsVhd)),
 		"GPU_NODE":                                             fmt.Sprintf("%v", getEnableNvidia(config)),
 		"SGX_NODE":                                             fmt.Sprintf("%v", getIsSgxEnabledSKU(config.GetVmSize())),
-		"MIG_NODE":                                             fmt.Sprintf("%v", getIsMIGNode(config.GetGpuConfig().GetGpuInstanceProfile(), config.GetGpuConfig().GetMigProfileLayout())),
+		"MIG_NODE":                                             fmt.Sprintf("%v", getIsMIGNode(migConfig.GetGpuInstanceProfile(), migConfig.GetMigProfileLayout())),
 		"CONFIG_GPU_DRIVER_IF_NEEDED":                          fmt.Sprintf("%v", config.GetGpuConfig().GetConfigGpuDriver()),
 		"ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED":                   fmt.Sprintf("%v", config.GetGpuConfig().GetGpuDevicePlugin()),
 		"MANAGED_GPU_EXPERIENCE_AFEC_ENABLED":                  fmt.Sprintf("%v", config.GetGpuConfig().GetManagedGpuExperienceAfecEnabled()),
