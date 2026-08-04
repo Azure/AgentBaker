@@ -81,24 +81,70 @@ func RunScenario(t *testing.T, s *Scenario) {
 	if config.Config.TestPreProvision || s.VHDCaching {
 		t.Run("VHDCreation", func(t *testing.T) {
 			t.Parallel()
+			logTestProgress("⏳ STARTED  %s", t.Name())
+			start := time.Now()
+			defer logTestResult(t, start)
 			runScenarioWithPreProvision(t, s)
 		})
 		return
 	}
 	if scriptlessUnsupported(s) {
-		require.NoError(t, runScenario(t, s))
+		t.Run("default", func(t *testing.T) {
+			t.Parallel()
+			logTestProgress("⏳ STARTED  %s", t.Name())
+			start := time.Now()
+			defer logTestResult(t, start)
+			err := runScenario(t, copyScenario(s))
+			require.NoError(t, err)
+		})
 		return
 	}
 
-	if s.Runtime == nil {
-		s.Runtime = &ScenarioRuntime{}
-	}
-	s.Runtime.EnableScriptlessNBCCSECmd = true
-	require.NoError(t, runScenario(t, s))
+	t.Run("scriptless_nbc", func(t *testing.T) {
+		t.Parallel()
+		logTestProgress("⏳ STARTED  %s", t.Name())
+		start := time.Now()
+		defer logTestResult(t, start)
+		sCopy := copyScenario(s)
+		if sCopy.Runtime == nil {
+			sCopy.Runtime = &ScenarioRuntime{}
+		}
+		sCopy.Runtime.EnableScriptlessNBCCSECmd = true
+		err := runScenario(t, sCopy)
+		require.NoError(t, err)
+	})
 }
 
 func scriptlessUnsupported(s *Scenario) bool {
 	return s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
+}
+
+// logTestProgress writes a message to the progress log file specified by
+// E2E_PROGRESS_LOG. A tail -f process in e2e_run.sh streams this file to
+// the pipeline in real-time, bypassing go test's output buffering.
+func logTestProgress(format string, args ...interface{}) {
+	path := os.Getenv("E2E_PROGRESS_LOG")
+	if path == "" {
+		return
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	fmt.Fprintf(f, format+"\n", args...)
+}
+
+// logTestResult logs whether a test passed or failed with its duration.
+func logTestResult(t testing.TB, start time.Time) {
+	duration := time.Since(start).Round(time.Second)
+	if t.Failed() {
+		logTestProgress("✗ FAIL     %s (%s)", t.Name(), duration)
+	} else if t.Skipped() {
+		logTestProgress("⊘ SKIP     %s (%s)", t.Name(), duration)
+	} else {
+		logTestProgress("✓ PASS     %s (%s)", t.Name(), duration)
+	}
 }
 
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) {

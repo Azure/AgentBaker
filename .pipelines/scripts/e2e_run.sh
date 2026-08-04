@@ -122,6 +122,15 @@ rm -f "$temp_file"
 
 # gotestsum configure to only show logs for failed tests, json file for detailed logs
 # Run the tests! Yey!
+
+# Stream real-time test progress to pipeline logs.
+# go test captures os.Stderr from test functions, so writing to stderr
+# from within tests does not appear in real-time. Instead, tests write
+# progress to a file and tail -f streams it outside of go test's capture.
+export E2E_PROGRESS_LOG="$(mktemp)"
+stdbuf -oL tail -f "$E2E_PROGRESS_LOG" &
+TAIL_PID=$!
+
 test_exit_code=0
 rerun_fails=""
 rerun_fails_report=""
@@ -138,6 +147,9 @@ if [ -n "$rerun_fails_report" ] && [ -s "$rerun_fails_report" ]; then
   cat "$rerun_fails_report"
   echo "##vso[artifact.upload containerfolder=test-results;artifactname=e2e-rerun-fails-report]$rerun_fails_report"
 fi
+
+kill $TAIL_PID 2>/dev/null || true
+rm -f "$E2E_PROGRESS_LOG"
 
 # Upload test results as Azure DevOps artifacts
 echo "##vso[artifact.upload containerfolder=test-results;artifactname=e2e-test-log]${BUILD_SRC_DIR}/e2e/test-log.json"
