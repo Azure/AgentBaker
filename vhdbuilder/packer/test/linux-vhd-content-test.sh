@@ -267,12 +267,6 @@ testPackagesInstalled() {
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
-        # No ARM64 SKU with GPU now (see install-dependencies.sh).
-        # Remove this skip when ARM64 GPU SKUs become available and GPU packages are cached on ARM64 VHDs.
-        if [ "$(isARM64)" -eq 1 ]; then
-          echo "Skipping ${name} on ARM64 (no GPU SKU)"
-          continue
-        fi
         testPkgDownloaded "${name}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
