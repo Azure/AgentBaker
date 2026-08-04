@@ -113,7 +113,6 @@ func Test_ACL_CustomCA(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
-				ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh")
 				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
 				// ACL uses Azure Linux CA trust paths under /etc (read-only /usr via dm-verity)
 				ValidateNonEmptyDirectory(ctx, s, "/etc/pki/ca-trust/source/anchors")
@@ -430,7 +429,6 @@ func Test_AzureLinuxV3_CustomCA(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/usr/share/pki/ca-trust-source/anchors")
-				ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh")
 			},
 		},
 	})
@@ -534,7 +532,6 @@ func Test_Ubuntu2204_CustomCA(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
-				ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh")
 			},
 		},
 	})
@@ -2232,6 +2229,322 @@ func Test_Ubuntu2604Gen2_McrChinaCloud(t *testing.T) {
 				ValidateContainerRuntimePlugins(ctx, s)
 				ValidateSSHServiceEnabled(ctx, s)
 				ValidateDirectoryContent(ctx, s, "/etc/containerd/certs.d/mcr.azk8s.cn", []string{"hosts.toml"})
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersionKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.KubeletConfig["--register-with-taints"] = "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				ValidateTaints(ctx, s, s.Runtime.NBC.KubeletConfig["--register-with-taints"])
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_DisableSSH(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using Ubuntu 2604 minimal VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersionKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SSHStatus = datamodel.SSHOff
+			},
+			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
+			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Validate SSH daemon is disabled via RunCommand
+				ValidateSSHServiceDisabled(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_EntraIDSSH(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using Ubuntu 2604 minimal VHD with Entra ID SSH can be properly bootstrapped and SSH private key authentication is disabled",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersionKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enable Entra ID SSH authentication
+				nbc.SSHStatus = datamodel.EntraIDSSH
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.DisablePubkeyAuth = to.Ptr(true)
+			},
+			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since Entra ID SSH disables private key authentication
+			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
+			Validator: func(ctx context.Context, s *Scenario) {
+				// NOTE: Since Entra ID SSH disables pubkey authentication, we cannot use
+				// the normal SSH-based validation functions that rely on private key authentication.
+				// We can only validate that SSH private key authentication fails as expected.
+				// The full E2E of Entra ID SSH scenario will be included in AKS RP's E2E test.
+
+				// Validate Entra ID SSH configuration (tests that private key SSH fails)
+				ValidatePubkeySSHDisabled(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_NodeHardening_KubeReservedSlice_ConfigFile(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "validates kubelet and containerd run in kubereserved.slice when node hardening cgroup hierarchy is enabled (kubelet config-file mode)",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersionKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// AgentBaker (not the RP) now owns --kube-reserved-cgroup/--system-reserved-cgroup;
+				// it derives them from --enforce-node-allocatable (see setNodeHardeningCgroupFlags).
+				nbc.KubeletConfig["--enforce-node-allocatable"] = "pods,kube-reserved,system-reserved"
+				// kubelet refuses to enforce limits on a reserved cgroup unless a matching
+				// resource list is also supplied; the base config only sets --kube-reserved,
+				// so --system-reserved must be added here too or kubelet fails to start with
+				// "system.slice cgroup is not configured properly".
+				nbc.KubeletConfig["--system-reserved"] = "cpu=200m,memory=500Mi"
+				// Simulate the RP still sending its legacy (stale) cgroup slice name today;
+				// setNodeHardeningCgroupFlags must overwrite these with the values AgentBaker
+				// owns rather than trusting them, or the node would end up in the wrong slice.
+				nbc.KubeletConfig["--kube-reserved-cgroup"] = "/kubelet.slice"
+				nbc.KubeletConfig["--system-reserved-cgroup"] = "/kubelet.slice"
+				// Non-nil (even empty) CustomKubeletConfig switches AgentBaker to the
+				// config-file (kubeletconfig.json) path instead of CLI flags.
+				nbc.AgentPoolProfile.CustomKubeletConfig = &datamodel.CustomKubeletConfig{}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/containerd.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", `"kubeReservedCgroup": "/kubereserved.slice"`)
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", `"systemReservedCgroup": "/system.slice"`)
+				ValidateServiceInSlice(ctx, s, "kubelet.service", "kubereserved.slice")
+				ValidateServiceInSlice(ctx, s, "containerd.service", "kubereserved.slice")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_NodeHardening_KubeReservedSlice_CLIFlags(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "validates kubelet and containerd run in kubereserved.slice when node hardening cgroup hierarchy is enabled (kubelet CLI-flags mode)",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersionKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// AgentBaker (not the RP) now owns --kube-reserved-cgroup/--system-reserved-cgroup;
+				// it derives them from --enforce-node-allocatable (see setNodeHardeningCgroupFlags).
+				nbc.KubeletConfig["--enforce-node-allocatable"] = "pods,kube-reserved,system-reserved"
+				// kubelet refuses to enforce limits on a reserved cgroup unless a matching
+				// resource list is also supplied; the base config only sets --kube-reserved,
+				// so --system-reserved must be added here too or kubelet fails to start with
+				// "system.slice cgroup is not configured properly".
+				nbc.KubeletConfig["--system-reserved"] = "cpu=200m,memory=500Mi"
+				// Simulate the RP still sending its legacy (stale) cgroup slice name today;
+				// setNodeHardeningCgroupFlags must overwrite these with the values AgentBaker
+				// owns rather than trusting them, or the node would end up in the wrong slice.
+				nbc.KubeletConfig["--kube-reserved-cgroup"] = "/kubelet.slice"
+				nbc.KubeletConfig["--system-reserved-cgroup"] = "/kubelet.slice"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/containerd.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--kube-reserved-cgroup=/kubereserved.slice")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--system-reserved-cgroup=/system.slice")
+				ValidateServiceInSlice(ctx, s, "kubelet.service", "kubereserved.slice")
+				ValidateServiceInSlice(ctx, s, "containerd.service", "kubereserved.slice")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_ImagePullIdentityBinding_Enabled(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that credential provider config includes identity binding when ServiceAccountImagePullProfile is enabled",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersionKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enable ServiceAccountImagePullProfile with test values
+				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+					Enabled:           true,
+					DefaultClientID:   "test-client-id-12345",
+					DefaultTenantID:   "test-tenant-id-67890",
+					LocalAuthoritySNI: "test.sni.local",
+				}
+				// Set kubelet flags to enable credential provider config generation
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, aksConfig *aksnodeconfigv1.Configuration) {
+				aksConfig.ServiceAccountImagePullProfile = &aksnodeconfigv1.ServiceAccountImagePullProfile{
+					Enabled:           true,
+					DefaultClientId:   "test-client-id-12345",
+					DefaultTenantId:   "test-tenant-id-67890",
+					LocalAuthoritySni: "test.sni.local",
+				}
+				if aksConfig.KubeletConfig == nil {
+					aksConfig.KubeletConfig = &aksnodeconfigv1.KubeletConfig{}
+				}
+				if aksConfig.KubeletConfig.KubeletFlags == nil {
+					aksConfig.KubeletConfig.KubeletFlags = make(map[string]string)
+				}
+				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Verify credential provider config file exists
+				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
+
+				// Verify the config contains identity binding arguments
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id=test-client-id-12345")
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id=test-tenant-id-67890")
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=test.sni.local")
+
+				// Verify the config contains the identity binding token attributes section
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_ImagePullIdentityBinding_Disabled(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that credential provider config excludes identity binding when ServiceAccountImagePullProfile is disabled",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersionKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Explicitly disable ServiceAccountImagePullProfile
+				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+					Enabled:           false,
+					DefaultClientID:   "should-not-appear-client-id",
+					DefaultTenantID:   "should-not-appear-tenant-id",
+					LocalAuthoritySNI: "should.not.appear.sni",
+				}
+				// Set kubelet flags to enable credential provider config generation
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, aksConfig *aksnodeconfigv1.Configuration) {
+				aksConfig.ServiceAccountImagePullProfile = &aksnodeconfigv1.ServiceAccountImagePullProfile{
+					Enabled:           false,
+					DefaultClientId:   "should-not-appear-client-id",
+					DefaultTenantId:   "should-not-appear-tenant-id",
+					LocalAuthoritySni: "should.not.appear.sni",
+				}
+				if aksConfig.KubeletConfig == nil {
+					aksConfig.KubeletConfig = &aksnodeconfigv1.KubeletConfig{}
+				}
+				if aksConfig.KubeletConfig.KubeletFlags == nil {
+					aksConfig.KubeletConfig.KubeletFlags = make(map[string]string)
+				}
+				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Verify credential provider config file exists
+				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
+
+				// Verify the config does NOT contain identity binding arguments
+				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id")
+				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id")
+				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name")
+				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_ImagePullIdentityBinding_EnabledWithoutDefaultIDs(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that credential provider config includes identity binding without default client/tenant IDs when not specified",
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersionKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enable ServiceAccountImagePullProfile without default client/tenant IDs
+				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+					Enabled:           true,
+					DefaultClientID:   "", // Empty - should not generate --ib-default-client-id flag
+					DefaultTenantID:   "", // Empty - should not generate --ib-default-tenant-id flag
+					LocalAuthoritySNI: "test.sni.local",
+				}
+				// Set kubelet flags to enable credential provider config generation
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Verify credential provider config file exists
+				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
+
+				// Verify the config contains identity binding token attributes
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=test.sni.local")
+
+				// Verify the config does NOT contain default client/tenant ID flags
+				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id")
+				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_ImagePullIdentityBinding_NetworkIsolated(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that credential provider config includes identity binding in network isolated (NI) clusters",
+		Tags: Tags{
+			NetworkIsolated: true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersionAzureBootstrapProfileCache,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enable ServiceAccountImagePullProfile with test values
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+					},
+				}
+				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
+					Enabled:           true,
+					DefaultClientID:   "ni-test-client-id",
+					DefaultTenantID:   "ni-test-tenant-id",
+					LocalAuthoritySNI: "ni.test.sni.local",
+				}
+				// Set kubelet flags to enable credential provider config generation
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Verify credential provider config file exists
+				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
+
+				// Verify the config contains identity binding arguments for NI cluster
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id=ni-test-client-id")
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id=ni-test-tenant-id")
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=ni.test.sni.local")
+				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
+
+				// Verify outbound check was skipped (network isolated)
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})

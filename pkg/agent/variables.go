@@ -126,6 +126,7 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"enableGPUDevicePluginIfNeeded":          config.EnableGPUDevicePluginIfNeeded,
 		"migNode":                                strconv.FormatBool(datamodel.IsMIGNode(config.GPUInstanceProfile)),
 		"gpuInstanceProfile":                     config.GPUInstanceProfile,
+		"migProfileLayout":                       strings.Join(config.MIGProfileLayout, ","),
 		"windowsEnableCSIProxy":                  windowsProfile.IsCSIProxyEnabled(),
 		"windowsPauseImageURL":                   windowsProfile.WindowsPauseImageURL,
 		"windowsCSIProxyURL":                     windowsProfile.CSIProxyURL,

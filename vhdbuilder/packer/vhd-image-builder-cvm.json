@@ -231,6 +231,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/emit-kubelet-active-flags.sh",
+      "destination": "/home/packer/emit-kubelet-active-flags.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/emit-kubelet-active-flags.service",
+      "destination": "/home/packer/emit-kubelet-active-flags.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/validate-kubelet-credentials.sh",
       "destination": "/home/packer/validate-kubelet-credentials.sh"
     },
@@ -243,6 +253,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_send_logs.py",
       "destination": "/home/packer/cse_send_logs.py"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/fetch_provision_config.py",
+      "destination": "/home/packer/fetch_provision_config.py"
     },
     {
       "type": "file",
