@@ -805,7 +805,7 @@ EOF
     set -x
 
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
-    tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
+    tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<'EOF'
 #!/bin/bash
 # Disallow container from reaching out to the special IP address 168.63.129.16
 # for TCP protocol (which http uses)
@@ -818,8 +818,18 @@ EOF
 #
 # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
 # for DNS.
-iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
-iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
+
+# iptables -I is not idempotent and this runs as an ExecStartPre on every kubelet start, so
+# insert only when the rule is absent. Otherwise each restart adds another copy to FORWARD.
+blockWireserverPort() {
+    if iptables -C FORWARD -d 168.63.129.16 -p tcp --dport "$1" -j DROP 2>/dev/null; then
+        return 0
+    fi
+    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport "$1" -j DROP
+}
+
+blockWireserverPort 80
+blockWireserverPort 32526
 EOF
 
     # As iptables rule will be cleaned every time the node is restarted, we need to ensure the rule is applied every time kubelet is started.
