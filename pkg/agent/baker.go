@@ -1890,12 +1890,27 @@ const (
 	containerdV1ConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "10G"
+  enable_fsverity = false
+  ovl_mount_options = []
+  max_unmerged_layers = 1
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs", "walking"]
+
+[plugins."io.containerd.differ.v1.erofs"]
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+  enable_tar_index = false
+{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if IsKata }}
     disable_snapshot_annotations = false
+    snapshotter = "overlayfs"
     {{- end}}
     {{- if IsArtifactStreamingEnabled }}
     snapshotter = "overlaybd"
@@ -1952,8 +1967,15 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+  snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+  runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
+  snapshotter = "erofs"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-templating.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -1970,6 +1992,20 @@ root = "{{GetDataDir}}"{{- end}}
 	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "10G"
+  enable_fsverity = false
+  ovl_mount_options = []
+  max_unmerged_layers = 1
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs", "walking"]
+
+[plugins."io.containerd.differ.v1.erofs"]
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+  enable_tar_index = false
+{{- end}}
 [plugins."io.containerd.cri.v1.images"]
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
@@ -2025,8 +2061,15 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+  snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+  runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
+  snapshotter = "erofs"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-templating.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2043,6 +2086,20 @@ root = "{{GetDataDir}}"{{- end}}
 	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "10G"
+  enable_fsverity = false
+  ovl_mount_options = []
+  max_unmerged_layers = 1
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs", "walking"]
+
+[plugins."io.containerd.differ.v1.erofs"]
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+  enable_tar_index = false
+{{- end}}
 [plugins."io.containerd.cri.v1.images"]
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
@@ -2085,8 +2142,15 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+  snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+  runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
+  snapshotter = "erofs"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-templating.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2096,11 +2160,26 @@ root = "{{GetDataDir}}"{{- end}}
 	containerdV1NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "10G"
+  enable_fsverity = false
+  ovl_mount_options = []
+  max_unmerged_layers = 1
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs", "walking"]
+
+[plugins."io.containerd.differ.v1.erofs"]
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+  enable_tar_index = false
+{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if IsKata }}
     disable_snapshot_annotations = false
+    snapshotter = "overlayfs"
     {{- end}}
     {{- if IsArtifactStreamingEnabled }}
     snapshotter = "overlaybd"
@@ -2142,8 +2221,15 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+  snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+  runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
+  snapshotter = "erofs"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-templating.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"

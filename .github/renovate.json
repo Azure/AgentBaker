@@ -338,22 +338,6 @@
     },
     {
       "matchPackageNames": [
-        "oss/v2/open-policy-agent/gatekeeper",
-        "azure-policy/policy-kubernetes-addon-prod"
-      ],
-      "assignees": [
-        "kevinhwangkr-msft",
-        "anlandu",
-        "nreisch"
-      ],
-      "reviewers": [
-        "kevinhwangkr-msft",
-        "anlandu",
-        "nreisch"
-      ]
-    },
-    {
-      "matchPackageNames": [
         "oss/binaries/kubernetes/azure-acr-credential-provider",
         "azure-acr-credential-provider",
         "oss/v2/kubernetes/azure-acr-credential-provider-sysext"
