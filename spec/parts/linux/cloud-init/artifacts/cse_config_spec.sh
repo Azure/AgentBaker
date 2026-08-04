@@ -2465,14 +2465,22 @@ OVERRIDE_EOF
             isMarinerOrAzureLinux() { return 1; }
             isAzureLinuxOSGuard() { return 1; }
             isACL() { return 1; }
+            retrycmd_if_failure() {
+                if [ "$4" = "ldconfig" ]; then
+                    echo "ldconfig"
+                fi
+                return 0
+            }
 
             When call configGPUDrivers
 
             The status should be success
-            The output should include "logs_to_events AKS.CSE.configGPUDrivers.pullGPUDriverImage"
-            The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverImage"
-            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
-            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+            The output line 1 should equal "logs_to_events AKS.CSE.configGPUDrivers.pullGPUDriverImage"
+            The output line 2 should equal "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverImage"
+            The output line 3 should equal "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
+            The output line 4 should equal "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+            The output line 5 should equal "ldconfig"
+            The output line 6 should equal "logs_to_events AKS.CSE.configGPUDrivers.repairNvidiaCDIRefresh"
         End
 
         It 'exits at the cache-miss pull step and skips install when the pull fails on Ubuntu'
@@ -2492,6 +2500,25 @@ OVERRIDE_EOF
 
             The status should equal 88
             The output should not include "INSTALL_RAN"
+        End
+
+        It 'exits before starting containerd when CDI repair fails on Ubuntu'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            logs_to_events() {
+                if [ "$1" = "AKS.CSE.configGPUDrivers.repairNvidiaCDIRefresh" ]; then
+                    return 1
+                fi
+                return 0
+            }
+            systemctlEnableAndStart() { echo "CONTAINERD_STARTED"; return 0; }
+
+            When run configGPUDrivers
+
+            The status should equal 88
+            The output should not include "CONTAINERD_STARTED"
         End
 
         It 'times the driver download and toolkit install on Mariner/AzureLinux'
@@ -2523,6 +2550,167 @@ OVERRIDE_EOF
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverSysext"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+        End
+    End
+
+    Describe 'repairNvidiaCDIRefresh'
+        It 'resets the failed units and verifies a freshly generated NVIDIA CDI device'
+            SYSTEMD_UNIT_DIR="$(mktemp -d)"
+            NVIDIA_CDI_SPEC_PATH="${SYSTEMD_UNIT_DIR}/run/cdi/nvidia.yaml"
+            mkdir -p "$(dirname "$NVIDIA_CDI_SPEC_PATH")"
+            echo "stale" > "$NVIDIA_CDI_SPEC_PATH"
+            systemctl() {
+                if [ "$1" = "show" ]; then
+                    echo "loaded"
+                    return 0
+                fi
+                echo "systemctl $*"
+                if [ "$1" = "start" ] && [ "$2" = "nvidia-cdi-refresh.service" ]; then
+                    echo "fresh" > "$NVIDIA_CDI_SPEC_PATH"
+                fi
+                return 0
+            }
+            nvidia-ctk() {
+                local spec_dir="${3#--spec-dir=}"
+                if [ "$spec_dir" = "$(dirname "$NVIDIA_CDI_SPEC_PATH")" ] || [ ! -f "${spec_dir}/nvidia.yaml" ]; then
+                    return 1
+                fi
+                echo "nvidia.com/gpu=all"
+            }
+
+            When call repairNvidiaCDIRefresh
+
+            The status should be success
+            The output line 1 should equal "systemctl stop nvidia-cdi-refresh.path"
+            The output line 2 should equal "systemctl stop nvidia-cdi-refresh.service"
+            The output line 3 should equal "systemctl reset-failed nvidia-cdi-refresh.service nvidia-cdi-refresh.path"
+            The output line 4 should equal "systemctl start nvidia-cdi-refresh.service"
+            The output line 5 should equal "systemctl start nvidia-cdi-refresh.path"
+            The contents of file "$NVIDIA_CDI_SPEC_PATH" should equal "fresh"
+            rm -rf "${SYSTEMD_UNIT_DIR}"
+        End
+
+        It 'does nothing when the toolkit has no CDI units'
+            systemctl() {
+                if [ "$1" = "show" ]; then
+                    echo "not-found"
+                    return 0
+                fi
+                echo "systemctl $*"
+                return 0
+            }
+
+            When call repairNvidiaCDIRefresh
+
+            The status should be success
+            The output should be blank
+        End
+
+        It 'fails when only one CDI unit exists'
+            systemctl() {
+                if [ "$1" = "show" ] && [ "$4" = "nvidia-cdi-refresh.service" ]; then
+                    echo "loaded"
+                elif [ "$1" = "show" ]; then
+                    echo "not-found"
+                fi
+                return 0
+            }
+
+            When call repairNvidiaCDIRefresh
+
+            The status should be failure
+            The output should include "Unexpected NVIDIA CDI unit state"
+        End
+
+        It 'fails when the CDI refresh service cannot start and leaves the path stopped'
+            SYSTEMD_UNIT_DIR="$(mktemp -d)"
+            NVIDIA_CDI_SPEC_PATH="${SYSTEMD_UNIT_DIR}/run/cdi/nvidia.yaml"
+            systemctl() {
+                if [ "$1" = "show" ]; then
+                    echo "loaded"
+                    return 0
+                fi
+                echo "systemctl $*"
+                if [ "$1" = "start" ] && [ "$2" = "nvidia-cdi-refresh.service" ]; then
+                    return 1
+                fi
+                return 0
+            }
+
+            When call repairNvidiaCDIRefresh
+
+            The status should be failure
+            The output should include "systemctl start nvidia-cdi-refresh.service"
+            The output should not include "systemctl start nvidia-cdi-refresh.path"
+            rm -rf "${SYSTEMD_UNIT_DIR}"
+        End
+
+        It 'fails before starting the service when reset-failed fails'
+            systemctl() {
+                if [ "$1" = "show" ]; then
+                    echo "loaded"
+                    return 0
+                fi
+                echo "systemctl $*"
+                if [ "$1" = "reset-failed" ]; then
+                    return 1
+                fi
+                return 0
+            }
+
+            When call repairNvidiaCDIRefresh
+
+            The status should be failure
+            The output should include "systemctl reset-failed nvidia-cdi-refresh.service nvidia-cdi-refresh.path"
+            The output should not include "systemctl start nvidia-cdi-refresh.service"
+            The output should not include "systemctl start nvidia-cdi-refresh.path"
+        End
+
+        It 'fails when the service succeeds without generating a CDI specification'
+            SYSTEMD_UNIT_DIR="$(mktemp -d)"
+            NVIDIA_CDI_SPEC_PATH="${SYSTEMD_UNIT_DIR}/run/cdi/nvidia.yaml"
+            systemctl() {
+                if [ "$1" = "show" ]; then
+                    echo "loaded"
+                    return 0
+                fi
+                echo "systemctl $*"
+                return 0
+            }
+            nvidia-ctk() { echo "CDI_LIST_RAN"; }
+
+            When call repairNvidiaCDIRefresh
+
+            The status should be failure
+            The output should include "NVIDIA CDI refresh did not generate"
+            The output should not include "CDI_LIST_RAN"
+            The output should not include "systemctl start nvidia-cdi-refresh.path"
+            rm -rf "${SYSTEMD_UNIT_DIR}"
+        End
+
+        It 'fails when the generated CDI specification contains no NVIDIA GPU devices'
+            SYSTEMD_UNIT_DIR="$(mktemp -d)"
+            NVIDIA_CDI_SPEC_PATH="${SYSTEMD_UNIT_DIR}/run/cdi/nvidia.yaml"
+            mkdir -p "$(dirname "$NVIDIA_CDI_SPEC_PATH")"
+            systemctl() {
+                if [ "$1" = "show" ]; then
+                    echo "loaded"
+                    return 0
+                fi
+                echo "systemctl $*"
+                if [ "$1" = "start" ] && [ "$2" = "nvidia-cdi-refresh.service" ]; then
+                    echo "fresh" > "$NVIDIA_CDI_SPEC_PATH"
+                fi
+                return 0
+            }
+            nvidia-ctk() { echo "vendor.example/device=all"; }
+
+            When call repairNvidiaCDIRefresh
+
+            The status should be failure
+            The output should include "NVIDIA CDI refresh generated no NVIDIA GPU devices"
+            The output should not include "systemctl start nvidia-cdi-refresh.path"
+            rm -rf "${SYSTEMD_UNIT_DIR}"
         End
     End
 

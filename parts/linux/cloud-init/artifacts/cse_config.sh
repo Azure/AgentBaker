@@ -1241,6 +1241,62 @@ installGPUDriverImage() {
     retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
 }
 
+# nvidia-container-toolkit starts nvidia-cdi-refresh while the aks-gpu container is
+# still staging userspace libraries. A prebaked kernel module makes the service condition
+# pass early, so repair the expected failure only after nvidia-smi and ldconfig succeed.
+repairNvidiaCDIRefresh() {
+    local service_unit="nvidia-cdi-refresh.service"
+    local path_unit="nvidia-cdi-refresh.path"
+    local cdi_spec_path="${NVIDIA_CDI_SPEC_PATH:-/var/run/cdi/nvidia.yaml}"
+    local service_load_state
+    local path_load_state
+    local cdi_devices
+    local cdi_list_status
+    local validation_dir
+
+    service_load_state=$(systemctl show --property=LoadState --value "$service_unit") || return 1
+    path_load_state=$(systemctl show --property=LoadState --value "$path_unit") || return 1
+
+    if [ "$service_load_state" = "not-found" ] && [ "$path_load_state" = "not-found" ]; then
+        return 0
+    fi
+    if [ "$service_load_state" != "loaded" ] || [ "$path_load_state" != "loaded" ]; then
+        echo "Unexpected NVIDIA CDI unit state: service=${service_load_state}, path=${path_load_state}"
+        return 1
+    fi
+
+    systemctl stop "$path_unit" || return 1
+    systemctl stop "$service_unit" || return 1
+    systemctl reset-failed "$service_unit" "$path_unit" || return 1
+
+    # A successful oneshot can still mean its conditions skipped. Remove any stale output and
+    # require the synchronous run to generate a usable NVIDIA CDI device.
+    rm -f "$cdi_spec_path" || return 1
+    systemctl start "$service_unit" || return 1
+    if [ ! -s "$cdi_spec_path" ]; then
+        echo "NVIDIA CDI refresh did not generate ${cdi_spec_path}"
+        return 1
+    fi
+
+    validation_dir=$(mktemp -d) || return 1
+    if ! cp "$cdi_spec_path" "${validation_dir}/nvidia.yaml"; then
+        rm -rf "$validation_dir" || return 1
+        return 1
+    fi
+    cdi_devices=$(nvidia-ctk cdi list --spec-dir="$validation_dir")
+    cdi_list_status=$?
+    rm -rf "$validation_dir" || return 1
+    if [ "$cdi_list_status" -ne 0 ]; then
+        return 1
+    fi
+    if ! grep -q '^nvidia.com/gpu=' <<< "$cdi_devices"; then
+        echo "NVIDIA CDI refresh generated no NVIDIA GPU devices"
+        return 1
+    fi
+
+    systemctl start "$path_unit"
+}
+
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
@@ -1276,6 +1332,9 @@ configGPUDrivers() {
     logs_to_events "AKS.CSE.configGPUDrivers.waitForNvidiaModprobe" "retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0" || exit $ERR_GPU_DRIVERS_START_FAIL
     logs_to_events "AKS.CSE.configGPUDrivers.waitForNvidiaSmi" "retrycmd_if_failure 120 5 30 nvidia-smi" || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        logs_to_events "AKS.CSE.configGPUDrivers.repairNvidiaCDIRefresh" repairNvidiaCDIRefresh || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
 
     # Fix the NVIDIA /dev/char link issue (Mariner/AzureLinux only)
     if isMarinerOrAzureLinux "$OS"; then
