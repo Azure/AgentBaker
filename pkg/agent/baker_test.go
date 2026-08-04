@@ -1481,6 +1481,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 	It("should handle MIG GPU configuration", func() {
 		baseConfig.GPUInstanceProfile = "MIG7g"
+		baseConfig.MigStrategy = "Single"
 		baseConfig.ConfigGPUDriverIfNeeded = true
 		baseConfig.EnableNvidia = true
 		baseConfig.AgentPoolProfile.VMSize = "Standard_ND96asr_v4"
@@ -1493,10 +1494,13 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		vars := decodeCSEVars(cseCmd)
 		Expect(vars).To(HaveKeyWithValue("GPU_NODE", "true"))
 		Expect(vars).To(HaveKeyWithValue("CONFIG_GPU_DRIVER_IF_NEEDED", "true"))
+		Expect(vars).To(HaveKeyWithValue("MIG_NODE", "true"))
 		Expect(vars).To(HaveKeyWithValue("GPU_INSTANCE_PROFILE", "MIG7g"))
+		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_PROFILE_LAYOUT", ""))
+		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_STRATEGY", "Single"))
 	})
 
-	It("should populate a MIG profile layout without enabling partitioning", func() {
+	It("should enable partitioning for a MIG profile layout", func() {
 		baseConfig.MIGProfileLayout = []string{"MIG3g", "MIG2g", "MIG1g", "MIG1g"}
 
 		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
@@ -1506,8 +1510,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		vars := decodeCSEVars(cseCmd)
 		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_PROFILE_LAYOUT", "MIG3g,MIG2g,MIG1g,MIG1g"))
-		// TODO: Make MIG_NODE true if either NVIDIA_MIG_PROFILE_LAYOUT or GPU_INSTANCE_PROFILE is set.
-		Expect(vars).To(HaveKeyWithValue("MIG_NODE", "false"))
+		Expect(vars).To(HaveKeyWithValue("MIG_NODE", "true"))
 	})
 
 	It("should handle disable unattended upgrades", func() {

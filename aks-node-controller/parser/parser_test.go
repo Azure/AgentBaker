@@ -32,6 +32,7 @@ func TestBuildCSECmd(t *testing.T) {
 			k8sVersion: "1.19.13",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
 				aksNodeConfig.GpuConfig.GpuInstanceProfile = "MIG7g"
+				aksNodeConfig.GpuConfig.MigStrategy = "Single"
 				// Skip GPU driver install
 				aksNodeConfig.GpuConfig.EnableNvidia = to.Ptr(false)
 				aksNodeConfig.VmSize = "Standard_ND96asr_v4"
@@ -40,6 +41,10 @@ func TestBuildCSECmd(t *testing.T) {
 				vars := environToMap(cmd.Env)
 				assertHasKeyWithValue(t, vars, "LOCATION", "southcentralus")
 				assert.Equal(t, "false", vars["GPU_NODE"])
+				assertHasKeyWithValue(t, vars, "MIG_NODE", "true")
+				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "MIG7g")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILE_LAYOUT", "")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_STRATEGY", "Single")
 				assert.NotEmpty(t, vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"])
 				// Ensure the containerd config does not use the
 				// nvidia container runtime when skipping the
@@ -79,8 +84,7 @@ oom_score = -999
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
 				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILE_LAYOUT", "MIG3g,MIG2g,MIG1g,MIG1g")
-				// TODO: Make MIG_NODE true if either NVIDIA_MIG_PROFILE_LAYOUT or GPU_INSTANCE_PROFILE is set.
-				assertHasKeyWithValue(t, vars, "MIG_NODE", "false")
+				assertHasKeyWithValue(t, vars, "MIG_NODE", "true")
 			},
 		},
 		{
@@ -497,6 +501,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "LOCATION", "")
 				assertHasKeyWithValue(t, vars, "GPU_NODE", "false")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILE_LAYOUT", "")
 				assertHasKeyWithValue(t, vars, "CUSTOM_CA_TRUST_COUNT", "0")
 				assertHasKeyWithValue(t, vars, "SHOULD_CONFIGURE_CUSTOM_CA_TRUST", "false")
 				assertHasKeyWithValue(t, vars, "KUBELET_FLAGS", "")

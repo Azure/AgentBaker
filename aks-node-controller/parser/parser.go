@@ -96,7 +96,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"IS_VHD":                                               fmt.Sprintf("%v", getIsVHD(config.IsVhd)),
 		"GPU_NODE":                                             fmt.Sprintf("%v", getEnableNvidia(config)),
 		"SGX_NODE":                                             fmt.Sprintf("%v", getIsSgxEnabledSKU(config.GetVmSize())),
-		"MIG_NODE":                                             fmt.Sprintf("%v", getIsMIGNode(config.GetGpuConfig().GetGpuInstanceProfile())),
+		"MIG_NODE":                                             fmt.Sprintf("%v", getIsMIGNode(config.GetGpuConfig().GetGpuInstanceProfile(), config.GetGpuConfig().GetMigProfileLayout())),
 		"CONFIG_GPU_DRIVER_IF_NEEDED":                          fmt.Sprintf("%v", config.GetGpuConfig().GetConfigGpuDriver()),
 		"ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED":                   fmt.Sprintf("%v", config.GetGpuConfig().GetGpuDevicePlugin()),
 		"MANAGED_GPU_EXPERIENCE_AFEC_ENABLED":                  fmt.Sprintf("%v", config.GetGpuConfig().GetManagedGpuExperienceAfecEnabled()),
