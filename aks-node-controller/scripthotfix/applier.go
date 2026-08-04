@@ -45,11 +45,11 @@ type Manifest struct {
 }
 
 type Entry struct {
-	Source      string     `json:"source"`
-	Payload     string     `json:"payload"`
-	Destination string     `json:"destination"`
-	Mode        string     `json:"mode"`
-	Platforms   []Platform `json:"platforms"`
+	Source       string     `json:"source"`
+	EmbeddedPath string     `json:"embedded_path"`
+	Destination  string     `json:"destination"`
+	Mode         string     `json:"mode"`
+	Platforms    []Platform `json:"platforms"`
 }
 
 type Result struct {
@@ -161,7 +161,7 @@ func applyValidated(
 		}
 		pending, changed, err := stageEntry(
 			entry.Destination,
-			payloads[entry.Payload],
+			payloads[entry.EmbeddedPath],
 			mode,
 		)
 		if err != nil {
@@ -231,17 +231,17 @@ func loadAndValidate(payloadFS fs.FS) (Manifest, map[string][]byte, error) {
 			destinations[platform][entry.Destination] = entry.Source
 		}
 
-		payloadPath := path.Join("generated", entry.Payload)
+		payloadPath := path.Join("generated", entry.EmbeddedPath)
 		payload, err := fs.ReadFile(payloadFS, payloadPath)
 		if err != nil {
 			return manifest, nil, fmt.Errorf(
 				"read payload %s for %s: %w",
-				entry.Payload,
+				entry.EmbeddedPath,
 				entry.Source,
 				err,
 			)
 		}
-		payloads[entry.Payload] = payload
+		payloads[entry.EmbeddedPath] = payload
 	}
 	return manifest, payloads, nil
 }
@@ -250,11 +250,11 @@ func validateEntry(entry Entry) error {
 	if strings.TrimSpace(entry.Source) == "" {
 		return fmt.Errorf("source is required")
 	}
-	if entry.Payload == "" ||
-		!strings.HasPrefix(entry.Payload, "payloads/") ||
-		path.Clean(entry.Payload) != entry.Payload ||
-		strings.Contains(entry.Payload, `\`) {
-		return fmt.Errorf("unsafe payload path %q", entry.Payload)
+	if entry.EmbeddedPath == "" ||
+		!strings.HasPrefix(entry.EmbeddedPath, "payloads/") ||
+		path.Clean(entry.EmbeddedPath) != entry.EmbeddedPath ||
+		strings.Contains(entry.EmbeddedPath, `\`) {
+		return fmt.Errorf("unsafe embedded path %q", entry.EmbeddedPath)
 	}
 	if entry.Destination == "" ||
 		(!strings.HasPrefix(entry.Destination, "/") && !filepath.IsAbs(entry.Destination)) ||

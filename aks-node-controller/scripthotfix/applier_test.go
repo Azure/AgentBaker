@@ -69,21 +69,21 @@ func TestManifestValidation(t *testing.T) {
 	payload := []byte("hotfix")
 	destination := filepath.Join(t.TempDir(), "provision.sh")
 	valid := Entry{
-		Source:      "cse_main.sh",
-		Payload:     "payloads/cse_main.sh",
-		Destination: destination,
-		Mode:        "0744",
-		Platforms:   concretePlatforms(),
+		Source:       "cse_main.sh",
+		EmbeddedPath: "payloads/cse_main.sh",
+		Destination:  destination,
+		Mode:         "0744",
+		Platforms:    concretePlatforms(),
 	}
 
 	t.Run("valid", func(t *testing.T) {
 		manifest, payloads, err := loadAndValidate(testFS(t, []Entry{valid}, map[string][]byte{
-			valid.Payload: payload,
+			valid.EmbeddedPath: payload,
 		}))
 
 		require.NoError(t, err)
 		assert.Equal(t, []Entry{valid}, manifest.Entries)
-		assert.Equal(t, payload, payloads[valid.Payload])
+		assert.Equal(t, payload, payloads[valid.EmbeddedPath])
 	})
 
 	t.Run("unsupported schema", func(t *testing.T) {
@@ -95,13 +95,13 @@ func TestManifestValidation(t *testing.T) {
 		require.ErrorContains(t, err, "unsupported embedded manifest schema")
 	})
 
-	t.Run("unsafe payload path", func(t *testing.T) {
+	t.Run("unsafe embedded path", func(t *testing.T) {
 		entry := valid
-		entry.Payload = "../cse_main.sh"
+		entry.EmbeddedPath = "../cse_main.sh"
 
 		_, _, err := loadAndValidate(testFS(t, []Entry{entry}, nil))
 
-		require.ErrorContains(t, err, "unsafe payload path")
+		require.ErrorContains(t, err, "unsafe embedded path")
 	})
 
 	t.Run("invalid mode", func(t *testing.T) {
@@ -116,15 +116,15 @@ func TestManifestValidation(t *testing.T) {
 	t.Run("duplicate destination on overlapping platform", func(t *testing.T) {
 		ubuntu := valid
 		ubuntu.Source = "ubuntu/cse_main.sh"
-		ubuntu.Payload = "payloads/ubuntu/cse_main.sh"
+		ubuntu.EmbeddedPath = "payloads/ubuntu/cse_main.sh"
 		ubuntu.Platforms = []Platform{PlatformUbuntu}
 
 		_, _, err := loadAndValidate(testFS(
 			t,
 			[]Entry{valid, ubuntu},
 			map[string][]byte{
-				valid.Payload:  payload,
-				ubuntu.Payload: payload,
+				valid.EmbeddedPath:  payload,
+				ubuntu.EmbeddedPath: payload,
 			},
 		))
 
@@ -161,13 +161,13 @@ func TestApplyFSIsAtomicAndIdempotent(t *testing.T) {
 	require.NoError(t, os.WriteFile(destination, []byte("old"), 0o600))
 	payload := []byte("#!/bin/sh\necho fixed\n")
 	entry := Entry{
-		Source:      "cse_main.sh",
-		Payload:     "payloads/cse_main.sh",
-		Destination: destination,
-		Mode:        "0744",
-		Platforms:   concretePlatforms(),
+		Source:       "cse_main.sh",
+		EmbeddedPath: "payloads/cse_main.sh",
+		Destination:  destination,
+		Mode:         "0744",
+		Platforms:    concretePlatforms(),
 	}
-	files := testFS(t, []Entry{entry}, map[string][]byte{entry.Payload: payload})
+	files := testFS(t, []Entry{entry}, map[string][]byte{entry.EmbeddedPath: payload})
 
 	first, err := applyFS(files, PlatformUbuntu)
 
@@ -201,25 +201,25 @@ func TestApplyFSSkipsMissingDestinationAndReplacesExistingDestination(t *testing
 	missingPayload := []byte("gated hotfix")
 	entries := []Entry{
 		{
-			Source:      "existing.sh",
-			Payload:     "payloads/existing.sh",
-			Destination: existingDestination,
-			Mode:        "0744",
-			Platforms:   concretePlatforms(),
+			Source:       "existing.sh",
+			EmbeddedPath: "payloads/existing.sh",
+			Destination:  existingDestination,
+			Mode:         "0744",
+			Platforms:    concretePlatforms(),
 		},
 		{
-			Source:      "gated.sh",
-			Payload:     "payloads/gated.sh",
-			Destination: missingDestination,
-			Mode:        "0744",
-			Platforms:   concretePlatforms(),
+			Source:       "gated.sh",
+			EmbeddedPath: "payloads/gated.sh",
+			Destination:  missingDestination,
+			Mode:         "0744",
+			Platforms:    concretePlatforms(),
 		},
 	}
 
 	result, err := applyFS(
 		testFS(t, entries, map[string][]byte{
-			entries[0].Payload: existingPayload,
-			entries[1].Payload: missingPayload,
+			entries[0].EmbeddedPath: existingPayload,
+			entries[1].EmbeddedPath: missingPayload,
 		}),
 		PlatformMariner,
 	)
@@ -242,25 +242,25 @@ func TestApplyFSDoesNotCommitWhenLaterEntryCannotBeStaged(t *testing.T) {
 	secondPayload := []byte("second hotfix")
 	entries := []Entry{
 		{
-			Source:      "first.sh",
-			Payload:     "payloads/first.sh",
-			Destination: firstDestination,
-			Mode:        "0744",
-			Platforms:   concretePlatforms(),
+			Source:       "first.sh",
+			EmbeddedPath: "payloads/first.sh",
+			Destination:  firstDestination,
+			Mode:         "0744",
+			Platforms:    concretePlatforms(),
 		},
 		{
-			Source:      "second.sh",
-			Payload:     "payloads/second.sh",
-			Destination: directory,
-			Mode:        "0744",
-			Platforms:   concretePlatforms(),
+			Source:       "second.sh",
+			EmbeddedPath: "payloads/second.sh",
+			Destination:  directory,
+			Mode:         "0744",
+			Platforms:    concretePlatforms(),
 		},
 	}
 
 	_, err := applyFS(
 		testFS(t, entries, map[string][]byte{
-			entries[0].Payload: firstPayload,
-			entries[1].Payload: secondPayload,
+			entries[0].EmbeddedPath: firstPayload,
+			entries[1].EmbeddedPath: secondPayload,
 		}),
 		PlatformUbuntu,
 	)

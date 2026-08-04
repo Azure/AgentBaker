@@ -263,7 +263,7 @@ class HotfixGenerateTest(unittest.TestCase):
                 entry["platforms"],
             )
             self.assertEqual(source.read_bytes(), (
-                generated / entry["payload"]
+                generated / entry["embedded_path"]
             ).read_bytes())
             self.assertEqual(
                 [("202607.20.1", "202607.20.1")],
