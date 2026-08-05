@@ -162,6 +162,9 @@ Describe 'cse_config.sh'
 
     Describe 'swapFileIsActive'
         swapon() {
+            if [ "$*" != "--show --noheadings" ]; then
+                return 1
+            fi
             printf '%b' "${SWAPON_OUTPUT}"
         }
 

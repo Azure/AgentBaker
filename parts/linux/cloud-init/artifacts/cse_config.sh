@@ -142,7 +142,7 @@ configureSystemdUseDomains() {
 swapFileIsActive() {
     local swap_location="$1"
 
-    swapon --show=NAME --noheadings | awk '{print $1}' | grep -Fxq "${swap_location}"
+    swapon --show --noheadings | awk '{print $1}' | grep -Fxq "${swap_location}"
 }
 
 ensureSwapFileFstabEntry() {
@@ -269,7 +269,7 @@ configureSwapFileSystemdService() {
     if ! tee "${script_path}" > /dev/null <<EOF
 #!/bin/bash
 set -e
-if ! swapon --show=NAME --noheadings | awk '{print \$1}' | grep -Fxq "${swap_location}"; then
+if ! swapon --show --noheadings | awk '{print \$1}' | grep -Fxq "${swap_location}"; then
     swapon "${swap_location}"
 fi
 EOF
