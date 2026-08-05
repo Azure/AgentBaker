@@ -372,25 +372,9 @@
         "ig-gadgets"
       ],
       "matchUpdateTypes": [
+        "major",
+        "minor",
         "patch"
-      ],
-      "automerge": false,
-      "enabled": true,
-      "groupName": "inspektor-gadget",
-      "assignees": [
-        "team:ebpf-tools"
-      ],
-      "reviewers": [
-        "team:ebpf-tools"
-      ]
-    },
-    {
-      "matchPackageNames": [
-        "ig",
-        "ig-gadgets"
-      ],
-      "matchUpdateTypes": [
-        "minor"
       ],
       "automerge": false,
       "enabled": true,
