@@ -82,6 +82,42 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'ensureSwapFileFstabEntry'
+        setup() {
+            TEST_FSTAB_FILE="$(mktemp)"
+        }
+
+        cleanup() {
+            rm -f "${TEST_FSTAB_FILE}"
+            unset TEST_FSTAB_FILE
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'replaces existing fstab entries for the same swap file'
+            printf '/swapfile none swap sw 0 0\n/other none swap sw 0 0\n/swapfile none swap defaults 0 0\n' > "${TEST_FSTAB_FILE}"
+            expected_fstab='/other none swap sw 0 0
+/swapfile none swap noauto,nofail 0 0'
+
+            When call ensureSwapFileFstabEntry "/swapfile" "${TEST_FSTAB_FILE}"
+
+            The status should be success
+            The contents of file "${TEST_FSTAB_FILE}" should equal "${expected_fstab}"
+        End
+
+        It 'keeps one canonical fstab entry when it already exists'
+            printf '/other none swap sw 0 0\n/swapfile none swap noauto,nofail 0 0\n' > "${TEST_FSTAB_FILE}"
+            expected_fstab='/other none swap sw 0 0
+/swapfile none swap noauto,nofail 0 0'
+
+            When call ensureSwapFileFstabEntry "/swapfile" "${TEST_FSTAB_FILE}"
+
+            The status should be success
+            The contents of file "${TEST_FSTAB_FILE}" should equal "${expected_fstab}"
+        End
+    End
+
     Describe 'logGPUDriverPrebakeReadiness'
         It 'reports marker_present=false when no prebake marker exists'
             GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
@@ -2745,6 +2781,81 @@ EOF
             The output should include 'dcgm-exporter'
             The output should include 'dra-driver-nvidia-gpu'
             The output should not include 'nvidia-device-plugin'
+        End
+    End
+
+    Describe 'configureSwapFile'
+        SWAP_FILE_SIZE_MB=1
+
+        function [ {
+            if test "$1" = "-L" && test "$2" = "/dev/disk/azure/resource-part1"; then
+                return 0
+            fi
+            command [ "$@"
+        }
+
+        readlink() {
+            case "$2" in
+                /dev/disk/azure/resource-part1) echo "/dev/sdb1" ;;
+                /dev/disk/azure/root) echo "/dev/sda1" ;;
+            esac
+        }
+
+        retrycmd_if_failure() {
+            echo "retrycmd_if_failure $*"
+        }
+
+        chmod() {
+            echo "chmod $*"
+        }
+
+        swapFileIsActive() {
+            echo "swapFileIsActive $1"
+        }
+
+        reconcileSwapFilePersistence() {
+            echo "reconcileSwapFilePersistence $1"
+        }
+
+        It 'falls back to OS disk when resource disk mountpoint cannot be determined'
+            findmnt() {
+                return 1
+            }
+            df() {
+                printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda1 1000000 0 1000000 0%% /\n'
+            }
+
+            When call configureSwapFile
+
+            The status should be success
+            The output should include "Could not determine resource disk mountpoint, attempting to fall back to OS disk..."
+            The output should include "Will use OS disk for swap file"
+            The output should include "Swap file will be saved to: /swapfile"
+            The output should include "reconcileSwapFilePersistence /swapfile"
+        End
+
+        It 'falls back to OS disk when resource disk free space cannot be determined'
+            findmnt() {
+                echo "/mnt/resource"
+            }
+            df() {
+                case "$2" in
+                    /mnt/resource)
+                        printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n'
+                        ;;
+                    /)
+                        printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda1 1000000 0 1000000 0%% /\n'
+                        ;;
+                esac
+            }
+
+            When call configureSwapFile
+
+            The status should be success
+            The output should include "Could not determine free space on resource disk, attempting to fall back to OS disk..."
+            The output should include "Will use OS disk for swap file"
+            The output should include "Swap file will be saved to: /swapfile"
+            The output should include "reconcileSwapFilePersistence /swapfile"
         End
     End
 

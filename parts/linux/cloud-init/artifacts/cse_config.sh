@@ -142,10 +142,23 @@ swapFileIsActive() {
 ensureSwapFileFstabEntry() {
     local swap_location="$1"
     local fstab_entry="${swap_location} none swap noauto,nofail 0 0"
+    local fstab_file="${2:-/etc/fstab}"
+    local temp_fstab
 
-    if ! grep -Fxq "${fstab_entry}" /etc/fstab; then
-        echo "${fstab_entry}" >> /etc/fstab
-    fi
+    temp_fstab="$(mktemp)"
+    awk -v swap_location="${swap_location}" '$1 != swap_location { print }' "${fstab_file}" > "${temp_fstab}" || {
+        rm -f "${temp_fstab}"
+        return 1
+    }
+    echo "${fstab_entry}" >> "${temp_fstab}" || {
+        rm -f "${temp_fstab}"
+        return 1
+    }
+    cat "${temp_fstab}" > "${fstab_file}" || {
+        rm -f "${temp_fstab}"
+        return 1
+    }
+    rm -f "${temp_fstab}"
 }
 
 findExistingSwapFileLocation() {
@@ -193,13 +206,24 @@ configureSwapFile() {
 
     # Attempt to use the resource disk
     if [ -L /dev/disk/azure/resource-part1 ]; then
-        resource_disk_path=$(findmnt -nr -o target -S "$(readlink -f /dev/disk/azure/resource-part1)")
-        disk_free_kb=$(df "${resource_disk_path}" | sed 1d | awk '{print $4}')
-        if [ "${disk_free_kb}" -gt "${swap_size_kb}" ]; then
-            echo "Will use resource disk for swap file"
-            swap_location=${resource_disk_path}/swapfile
+        resource_disk_path=$(findmnt -nr -o target -S "$(readlink -f /dev/disk/azure/resource-part1)" || true)
+        if [ -n "${resource_disk_path}" ]; then
+            disk_free_kb=$(df -P "${resource_disk_path}" | sed 1d | awk '{print $4}')
+            case "${disk_free_kb}" in
+                ''|*[!0-9]*)
+                    echo "Could not determine free space on resource disk, attempting to fall back to OS disk..."
+                    ;;
+                *)
+                    if [ "${disk_free_kb}" -gt "${swap_size_kb}" ]; then
+                        echo "Will use resource disk for swap file"
+                        swap_location=${resource_disk_path}/swapfile
+                    else
+                        echo "Insufficient disk space on resource disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}, attempting to fall back to OS disk..."
+                    fi
+                    ;;
+            esac
         else
-            echo "Insufficient disk space on resource disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}, attempting to fall back to OS disk..."
+            echo "Could not determine resource disk mountpoint, attempting to fall back to OS disk..."
         fi
     fi
 
