@@ -67,6 +67,16 @@ Describe 'cse_config.sh'
         BeforeEach 'setup_thp_service'
         AfterEach 'cleanup_thp_service'
 
+        It 'writes helper files, reloads systemd, and enables the service'
+            When run configureTransparentHugePageSystemdService
+
+            The status should be success
+            The output should include "mkdir -p /opt/azure/containers /opt/azure/containers/aks-transparent-hugepage"
+            The output should include "chmod 0755 /opt/azure/containers/aks-transparent-hugepage.sh"
+            The output should include "systemctl daemon-reload"
+            The output should include "systemctlEnableAndStart aks-transparent-hugepage 30"
+        End
+
         It 'exits when helper directory creation fails'
             FAIL_MKDIR="true"
 
