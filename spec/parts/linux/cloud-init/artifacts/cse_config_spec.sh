@@ -2894,5 +2894,27 @@ EOF
             The output should include "configureSwapFileSystemdService /swapfile"
             The output should not include "createSwapFile"
         End
+
+        It 'exits when fstab reconciliation fails'
+            ensureSwapFileFstabEntry() {
+                return 1
+            }
+
+            When run reconcileSwapFilePersistence "/swapfile"
+
+            The status should equal "$ERR_SWAP_CREATE_FAIL"
+            The output should not include "configureSwapFileSystemdService"
+        End
+
+        It 'exits when swap systemd service reconciliation fails'
+            configureSwapFileSystemdService() {
+                return 1
+            }
+
+            When run reconcileSwapFilePersistence "/swapfile"
+
+            The status should equal "$ERR_SWAP_CREATE_FAIL"
+            The output should include "ensureSwapFileFstabEntry /swapfile"
+        End
     End
 End

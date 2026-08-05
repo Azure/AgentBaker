@@ -195,8 +195,8 @@ reconcileSwapFilePersistence() {
         return 0
     fi
 
-    ensureSwapFileFstabEntry "${swap_location}"
-    configureSwapFileSystemdService "${swap_location}"
+    ensureSwapFileFstabEntry "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+    configureSwapFileSystemdService "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
 }
 
 configureSwapFile() {
@@ -247,7 +247,7 @@ configureSwapFile() {
     retrycmd_if_failure 24 5 25 mkswap "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
     retrycmd_if_failure 24 5 25 swapon "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
     swapFileIsActive "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
-    reconcileSwapFilePersistence "${swap_location}"
+    reconcileSwapFilePersistence "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
 }
 
 configureSwapFileSystemdService() {
@@ -259,17 +259,20 @@ configureSwapFileSystemdService() {
 
     swap_mount_path="$(dirname "${swap_location}")"
 
-    mkdir -p "$(dirname "${script_path}")"
-    tee "${script_path}" > /dev/null <<EOF
+    mkdir -p "$(dirname "${script_path}")" || exit "$ERR_SWAP_CREATE_FAIL"
+    if ! tee "${script_path}" > /dev/null <<EOF
 #!/bin/bash
 set -e
 if ! swapon --show=NAME --noheadings | awk '{print \$1}' | grep -Fxq "${swap_location}"; then
     swapon "${swap_location}"
 fi
 EOF
-    chmod 0755 "${script_path}"
+    then
+        exit "$ERR_SWAP_CREATE_FAIL"
+    fi
+    chmod 0755 "${script_path}" || exit "$ERR_SWAP_CREATE_FAIL"
 
-    tee "${service_path}" > /dev/null <<EOF
+    if ! tee "${service_path}" > /dev/null <<EOF
 [Unit]
 Description=Activate AKS swap file
 After=local-fs.target
@@ -285,9 +288,12 @@ RemainAfterExit=yes
 [Install]
 WantedBy=multi-user.target
 EOF
+    then
+        exit "$ERR_SWAP_CREATE_FAIL"
+    fi
 
-    systemctl daemon-reload
-    systemctlEnableAndStart "${service_name}" 30 || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctl daemon-reload || exit "$ERR_SYSTEMCTL_START_FAIL"
+    systemctlEnableAndStart "${service_name}" 30 || exit "$ERR_SYSTEMCTL_START_FAIL"
 }
 
 configureEtcEnvironment() {
