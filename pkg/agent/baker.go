@@ -722,9 +722,13 @@ func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 }
 
 // ValidateAndSetLinuxNodeBootstrappingConfiguration is exported only for temporary usage in e2e testing of new config.
-func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
+func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) error {
+	if err := validateCustomLinuxOSConfig(config.AgentPoolProfile.GetCustomLinuxOSConfig()); err != nil {
+		return err
+	}
+
 	if config.KubeletConfig == nil {
-		return
+		return nil
 	}
 	kubeletFlags := config.KubeletConfig
 
@@ -785,6 +789,46 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
 		delete(kubeletFlags, "--streaming-connection-idle-timeout")
 	}
+	return nil
+}
+
+func validateCustomLinuxOSConfig(config *datamodel.CustomLinuxOSConfig) error {
+	if config == nil {
+		return nil
+	}
+
+	if err := validateTransparentHugePageConfigValue("transparentHugePageEnabled", config.TransparentHugePageEnabled, map[string]struct{}{
+		"always":  {},
+		"madvise": {},
+		"never":   {},
+	}); err != nil {
+		return err
+	}
+
+	return validateTransparentHugePageConfigValue("transparentHugePageDefrag", config.TransparentHugePageDefrag, map[string]struct{}{
+		"always":        {},
+		"defer":         {},
+		"defer+madvise": {},
+		"madvise":       {},
+		"never":         {},
+	})
+}
+
+func validateTransparentHugePageConfigValue(fieldName, value string, allowedValues map[string]struct{}) error {
+	if value == "" {
+		return nil
+	}
+
+	if _, ok := allowedValues[value]; ok {
+		return nil
+	}
+
+	allowed := make([]string, 0, len(allowedValues))
+	for allowedValue := range allowedValues {
+		allowed = append(allowed, allowedValue)
+	}
+	sort.Strings(allowed)
+	return fmt.Errorf("customLinuxOSConfig.%s value %q is invalid; allowed values are: %s", fieldName, value, strings.Join(allowed, ", "))
 }
 
 func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {

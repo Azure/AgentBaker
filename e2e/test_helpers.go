@@ -292,7 +292,8 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		s.BootstrapConfigMutator(s.Runtime.Cluster, nbc)
 	}
 	if s.AKSNodeConfigMutator != nil {
-		nodeconfig := nbcToAKSNodeConfigV1(nbc)
+		nodeconfig, err := nbcToAKSNodeConfigV1(nbc)
+		require.NoError(s.T, err)
 		s.AKSNodeConfigMutator(s.Runtime.Cluster, nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
 
