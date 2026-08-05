@@ -17,15 +17,49 @@ Environment="KUBE_API_SERVER_NAME=${API_SERVER_NAME}"
 EOF
   systemctlEnableAndStart reconcile-private-hosts 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
+
+validateTransparentHugePageValue() {
+    local setting_name="$1"
+    local value="$2"
+    local supported_values_path="$3"
+
+    if [ -z "${value}" ]; then
+        return 0
+    fi
+
+    case "${value}" in
+        *[!abcdefghijklmnopqrstuvwxyz+]*)
+            echo "Invalid transparent huge page ${setting_name} value '${value}': only lowercase THP tokens are supported" >&2
+            return 1
+            ;;
+    esac
+
+    if [ ! -r "${supported_values_path}" ]; then
+        echo "Cannot validate transparent huge page ${setting_name}; ${supported_values_path} is not readable" >&2
+        return 1
+    fi
+
+    if ! tr ' ' '\n' < "${supported_values_path}" | tr -d '[]' | grep -Fx "${value}" > /dev/null; then
+        echo "Unsupported transparent huge page ${setting_name} value '${value}'. Supported values: $(tr -d '[]' < "${supported_values_path}")" >&2
+        return 1
+    fi
+}
+
 configureTransparentHugePage() {
-    ETC_SYSFS_CONF="/etc/sysfs.conf"
+    local etc_sysfs_conf="/etc/sysfs.conf"
+    local thp_enabled_path="/sys/kernel/mm/transparent_hugepage/enabled"
+    local thp_defrag_path="/sys/kernel/mm/transparent_hugepage/defrag"
+
+    validateTransparentHugePageValue "enabled" "${THP_ENABLED}" "${thp_enabled_path}" || exit "$ERR_SYSCTL_RELOAD"
+    validateTransparentHugePageValue "defrag" "${THP_DEFRAG}" "${thp_defrag_path}" || exit "$ERR_SYSCTL_RELOAD"
+
     if [ -n "${THP_ENABLED}" ]; then
-        echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
-        echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> "${ETC_SYSFS_CONF}"
+        printf '%s\n' "${THP_ENABLED}" > "${thp_enabled_path}"
+        printf 'kernel/mm/transparent_hugepage/enabled=%s\n' "${THP_ENABLED}" >> "${etc_sysfs_conf}"
     fi
     if [ -n "${THP_DEFRAG}" ]; then
-        echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
-        echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> "${ETC_SYSFS_CONF}"
+        printf '%s\n' "${THP_DEFRAG}" > "${thp_defrag_path}"
+        printf 'kernel/mm/transparent_hugepage/defrag=%s\n' "${THP_DEFRAG}" >> "${etc_sysfs_conf}"
     fi
     if { [ -n "${THP_ENABLED}" ] || [ -n "${THP_DEFRAG}" ]; } && isMarinerOrAzureLinux "$OS" "$OS_VARIANT"; then
         configureTransparentHugePageSystemdService
@@ -42,10 +76,10 @@ configureTransparentHugePageSystemdService() {
 #!/bin/bash
 set -e
 if [ -n "${THP_ENABLED}" ]; then
-    echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
+    printf '%s\n' "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
 fi
 if [ -n "${THP_DEFRAG}" ]; then
-    echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
+    printf '%s\n' "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
 fi
 EOF
     chmod 0755 "${script_path}"
