@@ -31,11 +31,6 @@ const (
 	MaxCustomDataLength = 87380
 )
 
-var (
-	allowedTransparentHugePageEnabledOptions = []string{"always", "madvise", "never"}
-	allowedTransparentHugePageDefragOptions  = []string{"always", "defer", "defer+madvise", "madvise", "never"}
-)
-
 // TemplateGenerator represents the object that performs the template generation.
 type TemplateGenerator struct{}
 
@@ -811,7 +806,7 @@ func validateCustomLinuxOSConfig(config *datamodel.CustomLinuxOSConfig) error {
 	if err := validateTransparentHugePageConfigValue(
 		"transparentHugePageEnabled",
 		config.TransparentHugePageEnabled,
-		allowedTransparentHugePageEnabledOptions,
+		[]string{"always", "madvise", "never"},
 	); err != nil {
 		return err
 	}
@@ -819,7 +814,7 @@ func validateCustomLinuxOSConfig(config *datamodel.CustomLinuxOSConfig) error {
 	return validateTransparentHugePageConfigValue(
 		"transparentHugePageDefrag",
 		config.TransparentHugePageDefrag,
-		allowedTransparentHugePageDefragOptions,
+		[]string{"always", "defer", "defer+madvise", "madvise", "never"},
 	)
 }
 
