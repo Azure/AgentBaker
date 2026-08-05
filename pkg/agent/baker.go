@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,6 +29,11 @@ import (
 
 const (
 	MaxCustomDataLength = 87380
+)
+
+var (
+	allowedTransparentHugePageEnabledOptions = []string{"always", "madvise", "never"}
+	allowedTransparentHugePageDefragOptions  = []string{"always", "defer", "defer+madvise", "madvise", "never"}
 )
 
 // TemplateGenerator represents the object that performs the template generation.
@@ -797,38 +803,31 @@ func validateCustomLinuxOSConfig(config *datamodel.CustomLinuxOSConfig) error {
 		return nil
 	}
 
-	if err := validateTransparentHugePageConfigValue("transparentHugePageEnabled", config.TransparentHugePageEnabled, map[string]struct{}{
-		"always":  {},
-		"madvise": {},
-		"never":   {},
-	}); err != nil {
+	if err := validateTransparentHugePageConfigValue(
+		"transparentHugePageEnabled",
+		config.TransparentHugePageEnabled,
+		allowedTransparentHugePageEnabledOptions,
+	); err != nil {
 		return err
 	}
 
-	return validateTransparentHugePageConfigValue("transparentHugePageDefrag", config.TransparentHugePageDefrag, map[string]struct{}{
-		"always":        {},
-		"defer":         {},
-		"defer+madvise": {},
-		"madvise":       {},
-		"never":         {},
-	})
+	return validateTransparentHugePageConfigValue(
+		"transparentHugePageDefrag",
+		config.TransparentHugePageDefrag,
+		allowedTransparentHugePageDefragOptions,
+	)
 }
 
-func validateTransparentHugePageConfigValue(fieldName, value string, allowedValues map[string]struct{}) error {
+func validateTransparentHugePageConfigValue(fieldName, value string, allowedValues []string) error {
 	if value == "" {
 		return nil
 	}
 
-	if _, ok := allowedValues[value]; ok {
+	if slices.Contains(allowedValues, value) {
 		return nil
 	}
 
-	allowed := make([]string, 0, len(allowedValues))
-	for allowedValue := range allowedValues {
-		allowed = append(allowed, allowedValue)
-	}
-	sort.Strings(allowed)
-	return fmt.Errorf("customLinuxOSConfig.%s value %q is invalid; allowed values are: %s", fieldName, value, strings.Join(allowed, ", "))
+	return fmt.Errorf("customLinuxOSConfig.%s value %q is invalid; allowed values are: %s", fieldName, value, strings.Join(allowedValues, ", "))
 }
 
 func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
