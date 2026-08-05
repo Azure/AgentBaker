@@ -1768,7 +1768,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "0.53.2-ubuntu26.04u4"
+                "latestVersion": "0.54.1-ubuntu26.04u5"
               }
             ]
           },
