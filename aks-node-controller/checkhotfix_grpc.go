@@ -131,7 +131,7 @@ func (a *App) dialLPSGRPC(fqdn string, caPEM []byte) (*grpc.ClientConn, error) {
 		MinVersion:            tls.VersionTLS12,
 		RootCAs:               pool,
 		NextProtos:            []string{lpsALPNProto},
-		InsecureSkipVerify:    true, // nolint:gosec // hostname check disabled on purpose; chain verified below
+		InsecureSkipVerify:    true, //nolint:gosec // hostname check disabled on purpose; chain verified below
 		VerifyPeerCertificate: verifyChainAgainstPool(pool),
 	}
 
@@ -181,6 +181,7 @@ func mapGRPCError(err error) error {
 		// fallback is allowed (shouldColdStartFallback default).
 		return err
 	}
+	//exhaustive:ignore // benign/authoritative codes handled explicitly; all others fall through to fallback-eligible default.
 	switch st.Code() {
 	case codes.Unauthenticated, codes.PermissionDenied, codes.NotFound:
 		return fmt.Errorf("%w (code %s)", errLPSUnavailable, st.Code())

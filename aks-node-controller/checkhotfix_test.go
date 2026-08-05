@@ -61,10 +61,16 @@ func TestParseHotfixConfig(t *testing.T) {
 		assert.Equal(t, map[string]string{"202604.01": "202604.01.1"}, cfg.Hotfixes)
 	})
 
-	t.Run("empty body is an error", func(t *testing.T) {
-		_, err := parseHotfixConfig([]byte("   "))
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "empty")
+	t.Run("empty body is a benign no-op, not an error", func(t *testing.T) {
+		// A successful RPC with an empty/unset config string means the LPS is reachable but
+		// has nothing for this node - the same benign case as "{}". It must parse to a
+		// zero-value config without error so the outcome stays noHotfixForBase, not failed.
+		for _, body := range []string{"", "   ", "\n\t "} {
+			cfg, err := parseHotfixConfig([]byte(body))
+			require.NoError(t, err)
+			assert.Nil(t, cfg.Hotfixes)
+			assert.Equal(t, "", cfg.resolveVersion("202604.01.1"))
+		}
 	})
 
 	t.Run("invalid JSON is an error", func(t *testing.T) {

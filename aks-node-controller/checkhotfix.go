@@ -376,10 +376,16 @@ func fetchIMDSAttestedTokenOnce(ctx context.Context) (string, error) {
 // parseHotfixConfig extracts the hotfix pointer from an LPS response body. The body is the
 // {"hotfixes":{...}} JSON object that unmarshals DIRECTLY into the shared 2.1a hotfixConfig,
 // so check-hotfix and download-hotfix share ONE identical data contract.
+//
+// An empty body is treated as a benign zero-value config (no hotfix), NOT an error: a
+// conformant LPS serves "{}" for an empty map, but a successful RPC with an unset config
+// string (proto3 default "") means the same thing - the service is reachable and has nothing
+// for this node. Erroring there would surface a false "failed" outcome on an otherwise OK
+// call. This mirrors download-hotfix's readHotfixConfig, which also maps empty -> zero value.
 func parseHotfixConfig(data []byte) (hotfixConfig, error) {
 	data = bytes.TrimSpace(data)
 	if len(data) == 0 {
-		return hotfixConfig{}, fmt.Errorf("LPS response body is empty")
+		return hotfixConfig{}, nil
 	}
 	var cfg hotfixConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {

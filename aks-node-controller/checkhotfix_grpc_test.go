@@ -117,6 +117,27 @@ func TestCheckHotfix_GRPCSuccessReadAndWrite(t *testing.T) {
 	assert.Equal(t, map[string]string{"202604.01": "202604.01.1"}, cfg.Hotfixes)
 }
 
+// TestCheckHotfix_GRPCEmptyConfigIsBenign verifies that a SUCCESSFUL RPC whose config string is
+// empty (proto3 default "" - a reachable LPS with nothing for this node) is a benign no-op:
+// outcome noHotfixForBase (not failed), with the empty map shape staged for download-hotfix.
+func TestCheckHotfix_GRPCEmptyConfigIsBenign(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.0"
+	defer func() { Version = origVersion }()
+
+	srv := &mockLPSServer{resp: &lpsv1.GetComponentConfigResponse{ComponentName: ancComponentName}}
+	tt := newGRPCTestApp(t, srv)
+	path := filepath.Join(t.TempDir(), "hotfix.json")
+	tt.App.hotfixVersionPath = path
+
+	outcome, err := tt.App.checkHotfix(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, outcomeNoHotfixForBase, outcome)
+
+	cfg := readStagedConfig(t, path)
+	assert.Empty(t, cfg.Hotfixes)
+}
+
 func TestCheckHotfix_GRPCBenignCodesAreNoOp(t *testing.T) {
 	for name, code := range map[string]codes.Code{
 		"unauthenticated":   codes.Unauthenticated,
