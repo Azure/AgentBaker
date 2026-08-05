@@ -728,7 +728,12 @@ func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 }
 
 // ValidateAndSetLinuxNodeBootstrappingConfiguration is exported only for temporary usage in e2e testing of new config.
-func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) error {
+func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
+	_ = ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)
+}
+
+// ValidateAndSetLinuxNodeBootstrappingConfigurationWithError validates and updates Linux node bootstrapping configuration.
+func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamodel.NodeBootstrappingConfiguration) error {
 	if err := validateCustomLinuxOSConfig(config.AgentPoolProfile.GetCustomLinuxOSConfig()); err != nil {
 		return err
 	}

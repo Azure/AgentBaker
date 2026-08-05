@@ -1476,7 +1476,7 @@ func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTim
 			if tc.isWindows {
 				validateAndSetWindowsNodeBootstrappingConfiguration(config)
 			} else {
-				if err := ValidateAndSetLinuxNodeBootstrappingConfiguration(config); err != nil {
+				if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
 					t.Fatalf("unexpected validation error: %v", err)
 				}
 			}
@@ -1508,7 +1508,7 @@ func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTim
 			},
 		}
 
-		if err := ValidateAndSetLinuxNodeBootstrappingConfiguration(config); err != nil {
+		if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
 			t.Fatalf("unexpected validation error: %v", err)
 		}
 
@@ -1563,7 +1563,7 @@ func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTim
 			},
 		}
 
-		if err := ValidateAndSetLinuxNodeBootstrappingConfiguration(config); err != nil {
+		if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
 			t.Fatalf("unexpected validation error: %v", err)
 		}
 
@@ -1603,7 +1603,7 @@ func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTim
 			},
 		}
 
-		if err := ValidateAndSetLinuxNodeBootstrappingConfiguration(config); err != nil {
+		if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
 			t.Fatalf("unexpected validation error: %v", err)
 		}
 
@@ -1655,7 +1655,7 @@ func TestValidateAndSetLinuxNodeBootstrappingConfiguration_TransparentHugePageVa
 				},
 			}
 
-			err := ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+			err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)
 			if tc.expectedErr == "" {
 				if err != nil {
 					t.Fatalf("unexpected validation error: %v", err)

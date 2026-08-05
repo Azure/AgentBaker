@@ -141,16 +141,28 @@ Describe 'cse_config.sh'
 
     Describe 'ensureSwapFileFstabEntry'
         setup() {
-            TEST_FSTAB_FILE="$(mktemp)"
+            TEST_FSTAB_DIR="$(mktemp -d)"
+            TEST_FSTAB_FILE="${TEST_FSTAB_DIR}/fstab"
+            : > "${TEST_FSTAB_FILE}"
         }
 
         cleanup() {
-            rm -f "${TEST_FSTAB_FILE}"
+            rm -rf "${TEST_FSTAB_DIR}"
             unset TEST_FSTAB_FILE
+            unset TEST_FSTAB_DIR
+            unset FAIL_MV
         }
 
         BeforeEach 'setup'
         AfterEach 'cleanup'
+
+        mv() {
+            if [ "${FAIL_MV:-false}" = "true" ]; then
+                return 1
+            fi
+
+            command mv "$@"
+        }
 
         It 'replaces existing fstab entries for the same swap file'
             printf '/swapfile none swap sw 0 0\n/other none swap sw 0 0\n/swapfile none swap defaults 0 0\n' > "${TEST_FSTAB_FILE}"
@@ -172,6 +184,16 @@ Describe 'cse_config.sh'
 
             The status should be success
             The contents of file "${TEST_FSTAB_FILE}" should equal "${expected_fstab}"
+        End
+
+        It 'leaves the existing fstab untouched when atomic replace fails'
+            printf '/other none swap sw 0 0\n' > "${TEST_FSTAB_FILE}"
+            FAIL_MV=true
+
+            When call ensureSwapFileFstabEntry "/swapfile" "${TEST_FSTAB_FILE}"
+
+            The status should be failure
+            The contents of file "${TEST_FSTAB_FILE}" should equal '/other none swap sw 0 0'
         End
     End
 

@@ -144,7 +144,7 @@ func getBaseNBC(ctx context.Context, t testing.TB, cluster *Cluster, vhd *config
 // eventually we want to phase out usage of nbc
 func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksnodeconfigv1.Configuration, error) {
 	cs := nbc.ContainerService
-	if err := agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc); err != nil {
+	if err := agent.ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(nbc); err != nil {
 		return nil, err
 	}
 

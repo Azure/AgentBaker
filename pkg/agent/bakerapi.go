@@ -40,7 +40,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	if config.AgentPoolProfile.IsWindows() {
 		validateAndSetWindowsNodeBootstrappingConfiguration(config)
 	} else {
-		if err := ValidateAndSetLinuxNodeBootstrappingConfiguration(config); err != nil {
+		if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
 			return nil, err
 		}
 	}

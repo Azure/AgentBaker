@@ -113,9 +113,11 @@ ensureSwapFileFstabEntry() {
     local swap_location="$1"
     local fstab_entry="${swap_location} none swap noauto,nofail 0 0"
     local fstab_file="${2:-/etc/fstab}"
+    local fstab_dir
     local temp_fstab
 
-    temp_fstab="$(mktemp)"
+    fstab_dir="$(dirname "${fstab_file}")"
+    temp_fstab="$(mktemp "${fstab_dir}/fstab.XXXXXX")" || return 1
     awk -v swap_location="${swap_location}" '$1 != swap_location { print }' "${fstab_file}" > "${temp_fstab}" || {
         rm -f "${temp_fstab}"
         return 1
@@ -124,11 +126,10 @@ ensureSwapFileFstabEntry() {
         rm -f "${temp_fstab}"
         return 1
     }
-    cat "${temp_fstab}" > "${fstab_file}" || {
+    mv "${temp_fstab}" "${fstab_file}" || {
         rm -f "${temp_fstab}"
         return 1
     }
-    rm -f "${temp_fstab}"
 }
 
 findExistingSwapFileLocation() {
