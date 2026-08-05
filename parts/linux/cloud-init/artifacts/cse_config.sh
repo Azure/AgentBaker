@@ -81,8 +81,8 @@ configureTransparentHugePageSystemdService() {
     local script_path="/opt/azure/containers/aks-transparent-hugepage.sh"
     local service_path="/etc/systemd/system/${service_name}.service"
 
-    mkdir -p "$(dirname "${script_path}")"
-    tee "${script_path}" > /dev/null <<EOF
+    mkdir -p "$(dirname "${script_path}")" || exit "$ERR_SYSCTL_RELOAD"
+    if ! tee "${script_path}" > /dev/null <<EOF
 #!/bin/bash
 set -e
 if [ -n "${THP_ENABLED}" ]; then
@@ -92,9 +92,12 @@ if [ -n "${THP_DEFRAG}" ]; then
     printf '%s\n' "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
 fi
 EOF
-    chmod 0755 "${script_path}"
+    then
+        exit "$ERR_SYSCTL_RELOAD"
+    fi
+    chmod 0755 "${script_path}" || exit "$ERR_SYSCTL_RELOAD"
 
-    tee "${service_path}" > /dev/null <<EOF
+    if ! tee "${service_path}" > /dev/null <<EOF
 [Unit]
 Description=Apply AKS transparent huge page settings
 After=systemd-sysctl.service
@@ -108,9 +111,12 @@ ExecStart=${script_path}
 [Install]
 WantedBy=multi-user.target
 EOF
+    then
+        exit "$ERR_SYSCTL_RELOAD"
+    fi
 
-    systemctl daemon-reload
-    systemctlEnableAndStart "${service_name}" 30 || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctl daemon-reload || exit "$ERR_SYSTEMCTL_START_FAIL"
+    systemctlEnableAndStart "${service_name}" 30 || exit "$ERR_SYSTEMCTL_START_FAIL"
 }
 
 configureSystemdUseDomains() {

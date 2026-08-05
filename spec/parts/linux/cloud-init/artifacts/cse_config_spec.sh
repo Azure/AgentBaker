@@ -62,6 +62,104 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'configureTransparentHugePageSystemdService'
+        setup_thp_service() {
+            THP_ENABLED="never"
+            THP_DEFRAG="madvise"
+            unset FAIL_MKDIR FAIL_TEE_PATH FAIL_CHMOD FAIL_DAEMON_RELOAD FAIL_SYSTEMCTL_ENABLE
+        }
+
+        cleanup_thp_service() {
+            unset THP_ENABLED THP_DEFRAG FAIL_MKDIR FAIL_TEE_PATH FAIL_CHMOD FAIL_DAEMON_RELOAD FAIL_SYSTEMCTL_ENABLE
+        }
+
+        mkdir() {
+            echo "mkdir $*"
+            [ "${FAIL_MKDIR:-}" = "true" ] && return 1
+            return 0
+        }
+
+        tee() {
+            if [ "${1:-}" = "${FAIL_TEE_PATH:-__none__}" ]; then
+                return 1
+            fi
+            cat > /dev/null
+        }
+
+        chmod() {
+            echo "chmod $*"
+            [ "${FAIL_CHMOD:-}" = "true" ] && return 1
+            return 0
+        }
+
+        systemctl() {
+            echo "systemctl $*"
+            [ "${1:-}" = "daemon-reload" ] && [ "${FAIL_DAEMON_RELOAD:-}" = "true" ] && return 1
+            return 0
+        }
+
+        systemctlEnableAndStart() {
+            echo "systemctlEnableAndStart $*"
+            [ "${FAIL_SYSTEMCTL_ENABLE:-}" = "true" ] && return 1
+            return 0
+        }
+
+        BeforeEach 'setup_thp_service'
+        AfterEach 'cleanup_thp_service'
+
+        It 'exits when helper directory creation fails'
+            FAIL_MKDIR="true"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSCTL_RELOAD"
+            The output should include "mkdir -p /opt/azure/containers"
+            The output should not include "chmod"
+            The output should not include "systemctl daemon-reload"
+        End
+
+        It 'exits when helper script write fails'
+            FAIL_TEE_PATH="/opt/azure/containers/aks-transparent-hugepage.sh"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSCTL_RELOAD"
+            The output should include "mkdir -p /opt/azure/containers"
+            The output should not include "chmod"
+            The output should not include "systemctl daemon-reload"
+        End
+
+        It 'exits when helper script chmod fails'
+            FAIL_CHMOD="true"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSCTL_RELOAD"
+            The output should include "chmod 0755 /opt/azure/containers/aks-transparent-hugepage.sh"
+            The output should not include "systemctl daemon-reload"
+        End
+
+        It 'exits when service unit write fails'
+            FAIL_TEE_PATH="/etc/systemd/system/aks-transparent-hugepage.service"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSCTL_RELOAD"
+            The output should include "chmod 0755 /opt/azure/containers/aks-transparent-hugepage.sh"
+            The output should not include "systemctl daemon-reload"
+        End
+
+        It 'exits when systemd daemon reload fails'
+            FAIL_DAEMON_RELOAD="true"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSTEMCTL_START_FAIL"
+            The output should include "systemctl daemon-reload"
+            The output should not include "systemctlEnableAndStart"
+        End
+    End
+
     Describe 'swapFileIsActive'
         swapon() {
             printf '%b' "${SWAPON_OUTPUT}"
