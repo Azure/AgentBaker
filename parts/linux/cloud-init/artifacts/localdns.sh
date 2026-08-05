@@ -24,6 +24,8 @@ LOCALDNS_CGROUP_DIR="/sys/fs/cgroup/localdns.slice/localdns.service"
 LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
 
 # This is the localdns corefile that has updated UpstreamDNSServerIPs and will be used by the localdns systemd unit.
+LIVEPATCHED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/livepatched.localdns.corefile"
+
 UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
 
 # This is slice file used by localdns systemd unit.
@@ -161,6 +163,14 @@ regenerate_localdns_corefile() {
     return 0
 }
 
+localdns_source_corefile() {
+    if [ -s "${LIVEPATCHED_LOCALDNS_CORE_FILE:-}" ]; then
+        echo "${LIVEPATCHED_LOCALDNS_CORE_FILE}"
+        return 0
+    fi
+    echo "${LOCALDNS_CORE_FILE}"
+}
+
 # Replace AzureDNSIP in corefile with VNET DNS ServerIPs if necessary.
 replace_azurednsip_in_corefile() {
     if [ -z "${RESOLV_CONF:-}" ]; then
@@ -191,8 +201,10 @@ replace_azurednsip_in_corefile() {
     # and also not equal to the localdns node listener IP to avoid creating a circular dependency.
     # Corefile will have 168.63.129.16 when user input has VnetDNS value for forwarddestination.
     # Note - For root domain under VnetDNSOverrides, all DNS traffic should be forwarded to VnetDNS.
-    cp "${LOCALDNS_CORE_FILE}" "${UPDATED_LOCALDNS_CORE_FILE}" || {
-        echo "Failed to copy ${LOCALDNS_CORE_FILE} to ${UPDATED_LOCALDNS_CORE_FILE}"
+    local source_corefile
+    source_corefile="$(localdns_source_corefile)"
+    cp "${source_corefile}" "${UPDATED_LOCALDNS_CORE_FILE}" || {
+        echo "Failed to copy ${source_corefile} to ${UPDATED_LOCALDNS_CORE_FILE}"
         return 1
     }
 
@@ -309,8 +321,8 @@ replace_azurednsip_in_corefile() {
 }
 
 refresh_localdns_corefile_from_lps() {
-    if [ -z "${LOCALDNS_CORE_FILE:-}" ]; then
-        echo "LOCALDNS_CORE_FILE is not set or is empty."
+    if [ -z "${LIVEPATCHED_LOCALDNS_CORE_FILE:-}" ]; then
+        echo "LIVEPATCHED_LOCALDNS_CORE_FILE is not set or is empty."
         return 1
     fi
 
@@ -319,7 +331,7 @@ refresh_localdns_corefile_from_lps() {
         return 0
     fi
 
-    if "${AKS_NODE_CONTROLLER_BINARY}" fetch-localdns-config --output "${LOCALDNS_CORE_FILE}"; then
+    if "${AKS_NODE_CONTROLLER_BINARY}" fetch-localdns-config --output "${LIVEPATCHED_LOCALDNS_CORE_FILE}"; then
         echo "Completed LocalDNS LPS config fetch."
         return 0
     fi
@@ -329,7 +341,7 @@ refresh_localdns_corefile_from_lps() {
 }
 
 localdns_corefile_version_file() {
-    echo "${LOCALDNS_CORE_FILE}.version"
+    echo "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version"
 }
 
 wait_for_kubeconfig_and_node() {
@@ -1194,11 +1206,16 @@ echo "Startup complete - serving node and pod DNS traffic."
 # Export initial resource metrics so the exporter has data before the first watchdog tick.
 export_resource_metrics
 
-# Set LocalDNS live-patching current version if a version was applied from LPS.
+# The generic knead live-patching loop owns kubernetes.azure.com/live-patching-status at runtime.
+# Keep this legacy/bootstrap writer opt-in to avoid racing knead's status update.
 # --------------------------------------------------------------------------------------------------------------------
-annotate_node_with_localdns_livepatch_status &
-LOCALDNS_LIVEPATCH_ANNOTATION_PID=$!
-echo "Started LocalDNS live-patching status annotation in background (PID: ${LOCALDNS_LIVEPATCH_ANNOTATION_PID})"
+if [ "${LOCALDNS_ENABLE_LEGACY_LIVEPATCH_STATUS:-false}" = "true" ]; then
+    annotate_node_with_localdns_livepatch_status &
+    LOCALDNS_LIVEPATCH_ANNOTATION_PID=$!
+    echo "Started LocalDNS live-patching status annotation in background (PID: ${LOCALDNS_LIVEPATCH_ANNOTATION_PID})"
+else
+    echo "Skipping LocalDNS live-patching status annotation; knead owns live-patching-status."
+fi
 
 # Set node annotation to indicate hosts plugin is in use (if applicable).
 # --------------------------------------------------------------------------------------------------------------------

@@ -170,7 +170,7 @@ EOF
         When call knead_main
         The status should be success
         The output should include 'applying component: localDNS'
-        The output should include 'aks-node-controller called with args: apply-localdns-config --config-file'
+        The output should include 'aks-node-controller called with args: fetch-localdns-config --output /opt/azure/containers/localdns/livepatched.localdns.corefile'
         The output should include 'systemctl called with args: restart localdns.service'
         The output should include 'localDNS update completed successfully'
         The output should include 'annotate mock called with args: annotate --overwrite node aks-node-1 kubernetes.azure.com/live-patching-status={"currentHash":"'

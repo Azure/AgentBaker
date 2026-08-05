@@ -284,7 +284,6 @@ localDNSIsCurrent() {
 
 updateLocalDNS() {
     local component_payload="${1:-}"
-    local config_file
     local outcome
 
     if [ ! -x /opt/azure/containers/aks-node-controller ]; then
@@ -292,18 +291,15 @@ updateLocalDNS() {
         return 1
     fi
 
-    config_file="$(mktemp /tmp/localdns-livepatch.XXXXXX)"
-    printf '%s' "${component_payload}" > "${config_file}"
-
-    if ! outcome="$(/opt/azure/containers/aks-node-controller apply-localdns-config --config-file "${config_file}" --output /opt/azure/containers/localdns/localdns.corefile)"; then
-        rm -f "${config_file}"
-        echo "localDNS config apply failed"
+    if ! outcome="$(/opt/azure/containers/aks-node-controller fetch-localdns-config --output /opt/azure/containers/localdns/livepatched.localdns.corefile)"; then
+        echo "localDNS LPS config fetch failed"
         return 1
     fi
-    rm -f "${config_file}"
-    printf '%s\n' "${outcome}"
+    printf '%s
+' "${outcome}"
 
-    case "$(printf '%s\n' "${outcome}" | tail -n 1)" in
+    case "$(printf '%s
+' "${outcome}" | tail -n 1)" in
         applied)
             if ! systemctl restart localdns.service; then
                 echo "failed to restart localdns.service"
@@ -311,8 +307,15 @@ updateLocalDNS() {
             fi
             echo "localDNS update completed successfully"
             ;;
-        alreadyCurrent|noCorefileData|notFound)
-            echo "localDNS is already current or has no node-applicable payload"
+        alreadyCurrent)
+            echo "localDNS is already current"
+            ;;
+        notFound)
+            echo "localDNS LPS config is not available"
+            ;;
+        noCorefileData)
+            echo "localDNS LPS config has no node-applicable payload"
+            return 1
             ;;
         *)
             echo "unexpected localDNS apply outcome: ${outcome}"

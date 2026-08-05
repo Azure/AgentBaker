@@ -31,7 +31,7 @@ import (
 
 const (
 	localDNSLivePatchingComponentName = "localDNS"
-	defaultLocalDNSCorefilePath       = "/opt/azure/containers/localdns/localdns.corefile"
+	defaultLocalDNSCorefilePath       = "/opt/azure/containers/localdns/livepatched.localdns.corefile"
 	localDNSHostsFilePath             = "/etc/localdns/hosts"
 	localDNSAgentPoolLabel            = "kubernetes.azure.com/agentpool"
 )
