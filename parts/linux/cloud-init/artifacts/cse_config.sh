@@ -21,12 +21,52 @@ configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
     if [ -n "${THP_ENABLED}" ]; then
         echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
-        echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${ETC_SYSFS_CONF}
+        echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> "${ETC_SYSFS_CONF}"
     fi
     if [ -n "${THP_DEFRAG}" ]; then
         echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
-        echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
+        echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> "${ETC_SYSFS_CONF}"
     fi
+    if { [ -n "${THP_ENABLED}" ] || [ -n "${THP_DEFRAG}" ]; } && isMarinerOrAzureLinux "$OS" "$OS_VARIANT"; then
+        configureTransparentHugePageSystemdService
+    fi
+}
+
+configureTransparentHugePageSystemdService() {
+    local service_name="aks-transparent-hugepage"
+    local script_path="/opt/azure/containers/aks-transparent-hugepage.sh"
+    local service_path="/etc/systemd/system/${service_name}.service"
+
+    mkdir -p "$(dirname "${script_path}")"
+    tee "${script_path}" > /dev/null <<EOF
+#!/bin/bash
+set -e
+if [ -n "${THP_ENABLED}" ]; then
+    echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
+fi
+if [ -n "${THP_DEFRAG}" ]; then
+    echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
+fi
+EOF
+    chmod 0755 "${script_path}"
+
+    tee "${service_path}" > /dev/null <<EOF
+[Unit]
+Description=Apply AKS transparent huge page settings
+After=systemd-sysctl.service
+Before=kubelet.service
+ConditionPathExists=/sys/kernel/mm/transparent_hugepage
+
+[Service]
+Type=oneshot
+ExecStart=${script_path}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctlEnableAndStart "${service_name}" 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 configureSystemdUseDomains() {
@@ -86,7 +126,48 @@ configureSwapFile() {
     retrycmd_if_failure 24 5 25 mkswap ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
     retrycmd_if_failure 24 5 25 swapon ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
     retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-    echo "${swap_location} none swap sw 0 0" >> /etc/fstab
+    echo "${swap_location} none swap noauto,nofail 0 0" >> /etc/fstab
+    configureSwapFileSystemdService "${swap_location}"
+}
+
+configureSwapFileSystemdService() {
+    local swap_location="$1"
+    local service_name="aks-swapfile"
+    local script_path="/opt/azure/containers/aks-swapfile.sh"
+    local service_path="/etc/systemd/system/${service_name}.service"
+    local swap_mount_path
+
+    swap_mount_path="$(dirname "${swap_location}")"
+
+    mkdir -p "$(dirname "${script_path}")"
+    tee "${script_path}" > /dev/null <<EOF
+#!/bin/bash
+set -e
+if ! swapon --show=NAME --noheadings | grep -Fxq "${swap_location}"; then
+    swapon "${swap_location}"
+fi
+EOF
+    chmod 0755 "${script_path}"
+
+    tee "${service_path}" > /dev/null <<EOF
+[Unit]
+Description=Activate AKS swap file
+After=local-fs.target
+Before=kubelet.service
+RequiresMountsFor=${swap_mount_path}
+ConditionPathExists=${swap_location}
+
+[Service]
+Type=oneshot
+ExecStart=${script_path}
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctlEnableAndStart "${service_name}" 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 configureEtcEnvironment() {

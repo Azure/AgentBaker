@@ -85,7 +85,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 		})
 		return
 	}
-	if scriptlessUnsupported(s) {
+	if config.Config.DisableScriptless || scriptlessUnsupported(s) {
 		require.NoError(t, runScenario(t, s))
 		return
 	}
@@ -304,7 +304,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 
 		// for scriptless phase 2.5, we are using nbc cse cmd for provisioning but passing aksnodeconfig and nbc cse cmd to compare env variables
 		// scriptless tag means provisioning with aksnodeconfig is used
-		if !s.Tags.Scriptless && s.BootstrapConfigMutator != nil {
+		if !config.Config.DisableScriptless && !s.Tags.Scriptless && s.BootstrapConfigMutator != nil {
 			nbc.EnableScriptlessNBCCSECmd = true
 		}
 	}

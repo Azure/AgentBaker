@@ -250,7 +250,7 @@ func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, fil
 
 func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[string]string) {
 	s.T.Helper()
-	keysToCheck := make([]string, len(customSysctls))
+	keysToCheck := make([]string, 0, len(customSysctls))
 	for k := range customSysctls {
 		keysToCheck = append(keysToCheck, k)
 	}
@@ -258,10 +258,102 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 		"set -ex",
 		fmt.Sprintf("sudo sysctl %s | sed -E 's/([0-9])\\s+([0-9])/\\1 \\2/g'", strings.Join(keysToCheck, " ")),
 	}
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "systmctl command failed")
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "sysctl command failed")
 	for name, value := range customSysctls {
 		require.Contains(s.T, execResult.stdout, fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not.\nStdout:\n%s", name, value, execResult.stdout)
 	}
+}
+
+func ValidateCustomLinuxOSConfigPersistsAfterReboot(ctx context.Context, s *Scenario, customSysctls map[string]string, customContainerdUlimits map[string]string, swapFileSizeMB int32, thpEnabled, thpDefrag string) {
+	s.T.Helper()
+	validateCustomLinuxOSConfig(ctx, s, customSysctls, customContainerdUlimits, swapFileSizeMB, thpEnabled, thpDefrag)
+	RebootVMAndWaitForSSH(ctx, s)
+	validateCustomLinuxOSConfig(ctx, s, customSysctls, customContainerdUlimits, swapFileSizeMB, thpEnabled, thpDefrag)
+}
+
+func validateCustomLinuxOSConfig(ctx context.Context, s *Scenario, customSysctls map[string]string, customContainerdUlimits map[string]string, swapFileSizeMB int32, thpEnabled, thpDefrag string) {
+	s.T.Helper()
+	ValidateSysctlConfig(ctx, s, customSysctls)
+	ValidateUlimitSettings(ctx, s, customContainerdUlimits)
+	ValidateSwapFileConfig(ctx, s, swapFileSizeMB)
+	ValidateTransparentHugePageConfig(ctx, s, thpEnabled, thpDefrag)
+}
+
+func ValidateTransparentHugePageConfig(ctx context.Context, s *Scenario, thpEnabled, thpDefrag string) {
+	s.T.Helper()
+	command := []string{"set -ex"}
+	if thpEnabled != "" {
+		command = append(command,
+			"cat /sys/kernel/mm/transparent_hugepage/enabled",
+			fmt.Sprintf("grep -Fq '[%s]' /sys/kernel/mm/transparent_hugepage/enabled", thpEnabled),
+		)
+	}
+	if thpDefrag != "" {
+		command = append(command,
+			"cat /sys/kernel/mm/transparent_hugepage/defrag",
+			fmt.Sprintf("grep -Fq '[%s]' /sys/kernel/mm/transparent_hugepage/defrag", thpDefrag),
+		)
+	}
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "transparent huge page configuration did not match expected values")
+}
+
+func ValidateSwapFileConfig(ctx context.Context, s *Scenario, swapFileSizeMB int32) {
+	s.T.Helper()
+	if swapFileSizeMB <= 0 {
+		return
+	}
+
+	command := []string{
+		"set -ex",
+		"swapon --show --bytes",
+		"swap_file=$(awk '$3 == \"swap\" {print $1; exit}' /etc/fstab)",
+		"test -n \"${swap_file}\"",
+		"swapon --show --bytes | grep -F \"${swap_file}\"",
+		fmt.Sprintf("expected_bytes=$((%d * 1000 * 1000))", swapFileSizeMB),
+		"actual_bytes=$(stat -c %s \"${swap_file}\")",
+		"test \"${actual_bytes}\" -ge \"${expected_bytes}\"",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "swap file configuration did not match expected values")
+}
+
+func RebootVMAndWaitForSSH(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	beforeRebootBootID := strings.TrimSpace(execScriptOnVMForScenarioValidateExitCode(ctx, s, "cat /proc/sys/kernel/random/boot_id", 0, "could not read boot ID before reboot").stdout)
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo nohup sh -c 'sleep 1; systemctl reboot' >/dev/null 2>&1 &", 0, "failed to trigger VM reboot")
+	cleanupBastionTunnel(s.Runtime.VM.SSHClient)
+	s.Runtime.VM.SSHClient = nil
+
+	waitTimeout := s.Config.WaitForSSHAfterReboot
+	if waitTimeout == 0 {
+		waitTimeout = 10 * time.Minute
+	}
+
+	err := wait.PollUntilContextTimeout(ctx, 15*time.Second, waitTimeout, true, func(ctx context.Context) (bool, error) {
+		sshClient, err := DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, s.Runtime.VM.PrivateIP, config.VMSSHPrivateKey)
+		if err != nil {
+			s.T.Logf("waiting for SSH after reboot: %v", err)
+			return false, nil
+		}
+
+		execResult, err := runSSHCommand(ctx, sshClient, "cat /proc/sys/kernel/random/boot_id", s.IsWindows())
+		if err != nil {
+			cleanupBastionTunnel(sshClient)
+			s.T.Logf("waiting for boot ID after reboot: %v", err)
+			return false, nil
+		}
+
+		afterRebootBootID := strings.TrimSpace(execResult.stdout)
+		if afterRebootBootID == "" || afterRebootBootID == beforeRebootBootID {
+			cleanupBastionTunnel(sshClient)
+			s.T.Logf("waiting for VM reboot to complete: boot ID is still %q", afterRebootBootID)
+			return false, nil
+		}
+
+		s.Runtime.VM.SSHClient = sshClient
+		return true, nil
+	})
+	require.NoError(s.T, err, "timed out waiting for VM to reboot and accept SSH")
 }
 
 // ValidateNetworkInterfaceConfig validates network interface configuration settings using ethtool.
