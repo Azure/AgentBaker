@@ -24,12 +24,12 @@ configureTransparentHugePage() {
     local thp_defrag_path="/sys/kernel/mm/transparent_hugepage/defrag"
 
     if [ -n "${THP_ENABLED}" ]; then
-        printf '%s\n' "${THP_ENABLED}" > "${thp_enabled_path}"
-        printf 'kernel/mm/transparent_hugepage/enabled=%s\n' "${THP_ENABLED}" >> "${etc_sysfs_conf}"
+        printf '%s\n' "${THP_ENABLED}" > "${thp_enabled_path}" || exit "$ERR_SYSCTL_RELOAD"
+        printf 'kernel/mm/transparent_hugepage/enabled=%s\n' "${THP_ENABLED}" >> "${etc_sysfs_conf}" || exit "$ERR_SYSCTL_RELOAD"
     fi
     if [ -n "${THP_DEFRAG}" ]; then
-        printf '%s\n' "${THP_DEFRAG}" > "${thp_defrag_path}"
-        printf 'kernel/mm/transparent_hugepage/defrag=%s\n' "${THP_DEFRAG}" >> "${etc_sysfs_conf}"
+        printf '%s\n' "${THP_DEFRAG}" > "${thp_defrag_path}" || exit "$ERR_SYSCTL_RELOAD"
+        printf 'kernel/mm/transparent_hugepage/defrag=%s\n' "${THP_DEFRAG}" >> "${etc_sysfs_conf}" || exit "$ERR_SYSCTL_RELOAD"
     fi
     reconcileTransparentHugePagePersistence
 }
@@ -43,17 +43,33 @@ reconcileTransparentHugePagePersistence() {
 configureTransparentHugePageSystemdService() {
     local service_name="aks-transparent-hugepage"
     local script_path="/opt/azure/containers/aks-transparent-hugepage.sh"
+    local config_dir="/opt/azure/containers/aks-transparent-hugepage"
     local service_path="/etc/systemd/system/${service_name}.service"
 
-    mkdir -p "$(dirname "${script_path}")" || exit "$ERR_SYSCTL_RELOAD"
-    if ! tee "${script_path}" > /dev/null <<EOF
+    mkdir -p "$(dirname "${script_path}")" "${config_dir}" || exit "$ERR_SYSCTL_RELOAD"
+    if [ -n "${THP_ENABLED}" ]; then
+        printf '%s\n' "${THP_ENABLED}" | tee "${config_dir}/enabled" > /dev/null || exit "$ERR_SYSCTL_RELOAD"
+    else
+        rm -f "${config_dir}/enabled" || exit "$ERR_SYSCTL_RELOAD"
+    fi
+    if [ -n "${THP_DEFRAG}" ]; then
+        printf '%s\n' "${THP_DEFRAG}" | tee "${config_dir}/defrag" > /dev/null || exit "$ERR_SYSCTL_RELOAD"
+    else
+        rm -f "${config_dir}/defrag" || exit "$ERR_SYSCTL_RELOAD"
+    fi
+
+    if ! tee "${script_path}" > /dev/null <<'EOF'
 #!/bin/bash
 set -e
-if [ -n "${THP_ENABLED}" ]; then
-    printf '%s\n' "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
+config_dir="/opt/azure/containers/aks-transparent-hugepage"
+thp_enabled_config="${config_dir}/enabled"
+thp_defrag_config="${config_dir}/defrag"
+
+if [ -s "${thp_enabled_config}" ]; then
+    cat "${thp_enabled_config}" > /sys/kernel/mm/transparent_hugepage/enabled
 fi
-if [ -n "${THP_DEFRAG}" ]; then
-    printf '%s\n' "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
+if [ -s "${thp_defrag_config}" ]; then
+    cat "${thp_defrag_config}" > /sys/kernel/mm/transparent_hugepage/defrag
 fi
 EOF
     then

@@ -26,7 +26,7 @@ Describe 'cse_config.sh'
         }
 
         cleanup_thp_service() {
-            unset THP_ENABLED THP_DEFRAG FAIL_MKDIR FAIL_TEE_PATH FAIL_CHMOD FAIL_DAEMON_RELOAD FAIL_SYSTEMCTL_ENABLE
+            unset THP_ENABLED THP_DEFRAG FAIL_MKDIR FAIL_TEE_PATH CAPTURE_TEE_PATH FAIL_CHMOD FAIL_DAEMON_RELOAD FAIL_SYSTEMCTL_ENABLE
         }
 
         mkdir() {
@@ -38,6 +38,10 @@ Describe 'cse_config.sh'
         tee() {
             if [ "${1:-}" = "${FAIL_TEE_PATH:-__none__}" ]; then
                 return 1
+            fi
+            if [ "${1:-}" = "${CAPTURE_TEE_PATH:-__none__}" ]; then
+                cat >&2
+                return 0
             fi
             cat > /dev/null
         }
@@ -113,6 +117,18 @@ Describe 'cse_config.sh'
             The status should equal "$ERR_SYSTEMCTL_START_FAIL"
             The output should include "systemctl daemon-reload"
             The output should not include "systemctlEnableAndStart"
+        End
+
+        It 'does not embed raw THP values in the generated helper script'
+            THP_ENABLED='never"; touch /tmp/aks-thp-injection #'
+            CAPTURE_TEE_PATH="/opt/azure/containers/aks-transparent-hugepage.sh"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should be success
+            The output should include "systemctlEnableAndStart aks-transparent-hugepage 30"
+            The error should include 'cat "${thp_enabled_config}" > /sys/kernel/mm/transparent_hugepage/enabled'
+            The error should not include "touch /tmp/aks-thp-injection"
         End
     End
 
