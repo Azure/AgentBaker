@@ -177,7 +177,8 @@ reconcileSwapFilePersistence() {
     fi
 
     if [ -z "${swap_location}" ]; then
-        echo "No existing AKS swap file found; skipping swap file persistence reconciliation"
+        echo "No existing AKS swap file found; creating swap file for persistence reconciliation"
+        configureSwapFile
         return 0
     fi
 

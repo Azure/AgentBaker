@@ -2747,4 +2747,41 @@ EOF
             The output should not include 'nvidia-device-plugin'
         End
     End
+
+    Describe 'reconcileSwapFilePersistence'
+        findExistingSwapFileLocation() {
+            return 1
+        }
+
+        configureSwapFile() {
+            echo "createSwapFile"
+        }
+
+        ensureSwapFileFstabEntry() {
+            echo "ensureSwapFileFstabEntry $1"
+        }
+
+        configureSwapFileSystemdService() {
+            echo "configureSwapFileSystemdService $1"
+        }
+
+        It 'creates the requested swap file when no existing swap file is present'
+            When call reconcileSwapFilePersistence
+
+            The status should be success
+            The output should include "No existing AKS swap file found; creating swap file for persistence reconciliation"
+            The output should include "createSwapFile"
+            The output should not include "ensureSwapFileFstabEntry"
+            The output should not include "configureSwapFileSystemdService"
+        End
+
+        It 'reconciles persistence for an existing swap file without recreating it'
+            When call reconcileSwapFilePersistence "/swapfile"
+
+            The status should be success
+            The output should include "ensureSwapFileFstabEntry /swapfile"
+            The output should include "configureSwapFileSystemdService /swapfile"
+            The output should not include "createSwapFile"
+        End
+    End
 End
