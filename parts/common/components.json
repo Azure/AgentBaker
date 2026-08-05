@@ -568,13 +568,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.26.15",
-          "previousLatestVersion": "v1.26.14"
+          "latestVersion": "v1.26.16",
+          "previousLatestVersion": "v1.26.15"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.27.8",
-          "previousLatestVersion": "v1.27.7"
+          "latestVersion": "v1.27.9",
+          "previousLatestVersion": "v1.27.8"
         }
       ],
       "windowsVersions": []
@@ -1326,7 +1326,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.34.0-ubuntu20.04u8"
+                "latestVersion": "1.34.0-ubuntu20.04u11"
               }
             ]
           },
@@ -1334,7 +1334,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.34.0-ubuntu22.04u8"
+                "latestVersion": "1.34.0-ubuntu22.04u11"
               }
             ]
           },
@@ -1342,7 +1342,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.34.0-ubuntu24.04u8"
+                "latestVersion": "1.34.0-ubuntu24.04u11"
               }
             ]
           },
@@ -1380,7 +1380,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.0-8.azl3"
+                "latestVersion": "1.34.0-11.azl3"
               }
             ]
           },
@@ -1398,7 +1398,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.0-8.azl3"
+                "latestVersion": "1.34.0-11.azl3"
               }
             ]
           }
@@ -1768,7 +1768,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "0.53.2-ubuntu26.04u4"
+                "latestVersion": "0.54.1-ubuntu26.04u5"
               }
             ]
           },
@@ -1776,7 +1776,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.53.2-ubuntu24.04u7"
+                "latestVersion": "0.54.1-ubuntu24.04u5"
               }
             ]
           },
@@ -1784,7 +1784,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.53.2-ubuntu22.04u7"
+                "latestVersion": "0.54.1-ubuntu22.04u5"
               }
             ]
           },
@@ -1792,7 +1792,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "0.53.2-ubuntu20.04u7"
+                "latestVersion": "0.54.1-ubuntu20.04u5"
               }
             ]
           }
@@ -1802,7 +1802,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=ig, os=azurelinux, release=3.0",
-                "latestVersion": "0.53.2-7.azl3"
+                "latestVersion": "0.54.1-5.azl3"
               }
             ]
           }
