@@ -139,14 +139,17 @@ func (a *App) dialLPSGRPC(fqdn string, caPEM []byte) (*grpc.ClientConn, error) {
 
 	// The live-patching serving cert is issued for lpsServerName (real SAN), but we do NOT set
 	// tls.Config.ServerName: Go would send it as the wire SNI, colliding with kube-api-proxy's legacy
-	// SNI filter chain and misrouting the gRPC stream. So we advertise only the live-patching ALPN
-	// protocol (the value envoy's kube-api-proxy filter chain matches to route the stream to LPS),
-	// disable Go's default name-based verification, and verify the presented chain against the cluster
-	// CA AND the hostname (lpsServerName) ourselves.
+	// SNI filter chain and misrouting the gRPC stream. So we advertise the live-patching ALPN protocol
+	// (the value envoy's kube-api-proxy filter chain matches to route the stream to LPS) plus "h2" for
+	// the gRPC HTTP/2 handshake. grpc-go's credentials.NewTLS appends "h2" to NextProtos on its own,
+	// but we list it explicitly so the on-wire ALPN set (["aks-live-patching", "h2"]) is unambiguous:
+	// envoy routes on the custom proto while gRPC negotiates h2. We then disable Go's default
+	// name-based verification and verify the presented chain against the cluster CA AND the hostname
+	// (lpsServerName) ourselves.
 	tlsConfig := &tls.Config{
 		MinVersion:            tls.VersionTLS12,
 		RootCAs:               pool,
-		NextProtos:            []string{lpsALPNProto},
+		NextProtos:            []string{lpsALPNProto, alpnH2Proto},
 		InsecureSkipVerify:    true, //nolint:gosec // default SNI-name check disabled to avoid the legacy-SNI routing collision; chain AND hostname verified in verifyChainAgainstPool
 		VerifyPeerCertificate: verifyChainAgainstPool(pool, lpsServerName),
 	}

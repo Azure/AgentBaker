@@ -37,6 +37,12 @@ const (
 	// forwards the stream to LPS. It is the ALPN-based successor to the legacy special-SNI route.
 	lpsALPNProto = "aks-live-patching"
 
+	// alpnH2Proto is the HTTP/2 ALPN identifier gRPC negotiates over TLS. We advertise it alongside
+	// lpsALPNProto so envoy routes on the custom proto while the gRPC transport still negotiates h2.
+	// grpc-go's credentials.NewTLS appends "h2" to NextProtos itself, but listing it explicitly keeps
+	// the on-wire ALPN set self-documenting.
+	alpnH2Proto = "h2"
+
 	// lpsAPIServerPort is the HTTPS port the apiserver front (and thus the LPS path) listens on.
 	// Envoy forwards the matched ALPN stream to the LPS backend internally; the client only ever
 	// dials the apiserver front here.
