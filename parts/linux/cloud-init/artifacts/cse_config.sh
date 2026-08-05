@@ -20,18 +20,28 @@ EOF
 
 configureTransparentHugePage() {
     local etc_sysfs_conf="/etc/sysfs.conf"
+
+    applyTransparentHugePageValues
+
+    if [ -n "${THP_ENABLED}" ]; then
+        printf 'kernel/mm/transparent_hugepage/enabled=%s\n' "${THP_ENABLED}" >> "${etc_sysfs_conf}" || exit "$ERR_SYSCTL_RELOAD"
+    fi
+    if [ -n "${THP_DEFRAG}" ]; then
+        printf 'kernel/mm/transparent_hugepage/defrag=%s\n' "${THP_DEFRAG}" >> "${etc_sysfs_conf}" || exit "$ERR_SYSCTL_RELOAD"
+    fi
+    reconcileTransparentHugePagePersistence
+}
+
+applyTransparentHugePageValues() {
     local thp_enabled_path="/sys/kernel/mm/transparent_hugepage/enabled"
     local thp_defrag_path="/sys/kernel/mm/transparent_hugepage/defrag"
 
     if [ -n "${THP_ENABLED}" ]; then
         printf '%s\n' "${THP_ENABLED}" > "${thp_enabled_path}" || exit "$ERR_SYSCTL_RELOAD"
-        printf 'kernel/mm/transparent_hugepage/enabled=%s\n' "${THP_ENABLED}" >> "${etc_sysfs_conf}" || exit "$ERR_SYSCTL_RELOAD"
     fi
     if [ -n "${THP_DEFRAG}" ]; then
         printf '%s\n' "${THP_DEFRAG}" > "${thp_defrag_path}" || exit "$ERR_SYSCTL_RELOAD"
-        printf 'kernel/mm/transparent_hugepage/defrag=%s\n' "${THP_DEFRAG}" >> "${etc_sysfs_conf}" || exit "$ERR_SYSCTL_RELOAD"
     fi
-    reconcileTransparentHugePagePersistence
 }
 
 reconcileTransparentHugePagePersistence() {
@@ -125,15 +135,30 @@ swapFileIsActive() {
     swapon --show --noheadings | awk '{print $1}' | grep -Fxq "${swap_location}"
 }
 
+getFileMode() {
+    local file="$1"
+
+    stat -c "%a" "${file}" 2>/dev/null || stat -f "%Lp" "${file}" 2>/dev/null
+}
+
 ensureSwapFileFstabEntry() {
     local swap_location="$1"
     local fstab_entry="${swap_location} none swap noauto,nofail 0 0"
     local fstab_file="${2:-/etc/fstab}"
     local fstab_dir
+    local fstab_mode
     local temp_fstab
 
     fstab_dir="$(dirname "${fstab_file}")"
     temp_fstab="$(mktemp "${fstab_dir}/fstab.XXXXXX")" || return 1
+    fstab_mode="$(getFileMode "${fstab_file}")" || {
+        rm -f "${temp_fstab}"
+        return 1
+    }
+    chmod "${fstab_mode}" "${temp_fstab}" || {
+        rm -f "${temp_fstab}"
+        return 1
+    }
     awk -v swap_location="${swap_location}" '$1 != swap_location { print }' "${fstab_file}" > "${temp_fstab}" || {
         rm -f "${temp_fstab}"
         return 1

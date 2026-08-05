@@ -14,6 +14,10 @@ check_hosts_file_permissions() {
     stat -c '%a' "$AKS_LOCALDNS_HOSTS_FILE"
 }
 
+check_test_fstab_permissions() {
+    printf "0%s" "$(getFileMode "$TEST_FSTAB_FILE")"
+}
+
 Describe 'cse_config.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
@@ -191,6 +195,7 @@ Describe 'cse_config.sh'
         }
 
         It 'replaces existing fstab entries for the same swap file'
+            chmod 0644 "${TEST_FSTAB_FILE}"
             printf '/swapfile none swap sw 0 0\n/other none swap sw 0 0\n/swapfile none swap defaults 0 0\n' > "${TEST_FSTAB_FILE}"
             expected_fstab='/other none swap sw 0 0
 /swapfile none swap noauto,nofail 0 0'
@@ -199,6 +204,17 @@ Describe 'cse_config.sh'
 
             The status should be success
             The contents of file "${TEST_FSTAB_FILE}" should equal "${expected_fstab}"
+        End
+
+        It 'preserves the fstab file mode when replacing entries'
+            chmod 0640 "${TEST_FSTAB_FILE}"
+            printf '/other none swap sw 0 0\n' > "${TEST_FSTAB_FILE}"
+
+            When call ensureSwapFileFstabEntry "/swapfile" "${TEST_FSTAB_FILE}"
+
+            The status should be success
+            The path "${TEST_FSTAB_FILE}" should be file
+            The result of function check_test_fstab_permissions should equal "0640"
         End
 
         It 'keeps one canonical fstab entry when it already exists'

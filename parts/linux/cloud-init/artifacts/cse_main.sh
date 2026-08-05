@@ -426,6 +426,7 @@ function nodePrep {
     reconcileVulnerableKernelModuleMitigation
 
     if [ "${SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE}" = "true" ]; then
+        logs_to_events "AKS.CSE.applyTransparentHugePageValues" applyTransparentHugePageValues
         logs_to_events "AKS.CSE.reconcileTransparentHugePagePersistence" reconcileTransparentHugePagePersistence
     fi
 
