@@ -178,6 +178,27 @@ EOF
         The contents of file "${KNEAD_COMPONENT_STATE_FILE}" should include '"localDNS"'
     End
 
+    It 'marks localDNS failed when service restart fails'
+        mkdir -p /opt/azure/containers
+        cat > /opt/azure/containers/aks-node-controller <<'EOF'
+#!/bin/bash
+echo applied
+EOF
+        chmod +x /opt/azure/containers/aks-node-controller
+        Mock systemctl
+            echo "systemctl called with args: $*"
+            exit 1
+        End
+        set_payload_goal '{"components":[{"name":"localDNS","nodeConfig":"{\"profiles\":{\"ap1\":{\"configChecksum\":\"localdns-v1\"}}}"}]}'
+
+        When call knead_main
+        The status should be failure
+        The output should include 'applying component: localDNS'
+        The output should include 'failed to restart localdns.service'
+        The output should include 'component failed: localDNS'
+        The output should include '"components":{"localDNS":{"code":"Failed"}}}'
+    End
+
     It 'fails before dispatch when the goal hash does not match the ConfigMap payload'
         printf '%s' '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{}}"}]}' > "${TEST_COMPONENTS_JSON_FILE}"
         TEST_GOAL="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"

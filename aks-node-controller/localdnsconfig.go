@@ -165,22 +165,24 @@ func (a *App) fetchAndApplyLocalDNSConfigWithFetcher(ctx context.Context, output
 		return outcomeLocalDNSConfigFailed, err
 	}
 	versionPath := localDNSCorefileVersionPath(outputPath)
+	if !update.hasCorefile {
+		return outcomeLocalDNSConfigNoCorefileData, nil
+	}
+	current, readErr := os.ReadFile(outputPath)
+	if readErr != nil && !os.IsNotExist(readErr) {
+		return outcomeLocalDNSConfigFailed, fmt.Errorf("reading localDNS corefile %s: %w", outputPath, readErr)
+	}
+	contentMatches := readErr == nil && bytes.Equal(current, []byte(update.corefile))
 	if update.desiredVersion != "" {
 		currentVersion, err := readLocalDNSCorefileVersion(versionPath)
 		if err != nil {
 			return outcomeLocalDNSConfigFailed, err
 		}
-		if currentVersion == update.desiredVersion {
+		if currentVersion == update.desiredVersion && contentMatches {
 			return outcomeLocalDNSConfigAlreadyCurrent, nil
 		}
-	}
-	if !update.hasCorefile {
-		return outcomeLocalDNSConfigNoCorefileData, nil
-	}
-	if current, err := os.ReadFile(outputPath); err == nil && bytes.Equal(current, []byte(update.corefile)) {
+	} else if contentMatches {
 		return outcomeLocalDNSConfigAlreadyCurrent, nil
-	} else if err != nil && !os.IsNotExist(err) {
-		return outcomeLocalDNSConfigFailed, fmt.Errorf("reading localDNS corefile %s: %w", outputPath, err)
 	}
 	if err := writeLocalDNSCorefile(outputPath, update.corefile); err != nil {
 		return outcomeLocalDNSConfigFailed, err

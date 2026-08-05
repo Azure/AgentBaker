@@ -64,7 +64,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 		assert.Equal(t, "abc123\n", string(version))
 	})
 
-	t.Run("already current version skips rewrite", func(t *testing.T) {
+	t.Run("already current version and content skips rewrite", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		writeLocalDNSTestNodeConfig(t, tt.App)
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
@@ -73,7 +73,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 		require.NoError(t, writeLocalDNSCorefileVersion(localDNSCorefileVersionPath(out), "abc123"))
 		tt.App.fetchLocalDNSConfigFn = func(context.Context) (string, error) {
 			return `{"agentPools":{"pool1":{"corefileVersion":"abc123","corefileBase64":"` +
-				base64.StdEncoding.EncodeToString([]byte("should not be written")) + `"}}}`, nil
+				base64.StdEncoding.EncodeToString([]byte(original)) + `"}}}`, nil
 		}
 
 		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out)
@@ -82,6 +82,26 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 		got, err := os.ReadFile(out)
 		require.NoError(t, err)
 		assert.Equal(t, original, string(got))
+	})
+
+	t.Run("matching version with stale corefile rewrites output", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		writeLocalDNSTestNodeConfig(t, tt.App)
+		out := filepath.Join(t.TempDir(), "localdns.corefile")
+		require.NoError(t, os.WriteFile(out, []byte("stale-corefile"), 0o644))
+		require.NoError(t, writeLocalDNSCorefileVersion(localDNSCorefileVersionPath(out), "abc123"))
+		want := ".:53 {\n    forward . 168.63.129.16\n}\n"
+		tt.App.fetchLocalDNSConfigFn = func(context.Context) (string, error) {
+			return `{"agentPools":{"pool1":{"corefileVersion":"abc123","corefileBase64":"` +
+				base64.StdEncoding.EncodeToString([]byte(want)) + `"}}}`, nil
+		}
+
+		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out)
+		require.NoError(t, err)
+		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
+		got, err := os.ReadFile(out)
+		require.NoError(t, err)
+		assert.Equal(t, want, string(got))
 	})
 
 	t.Run("agent pool version only config is no-op", func(t *testing.T) {

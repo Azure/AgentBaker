@@ -305,7 +305,10 @@ updateLocalDNS() {
 
     case "$(printf '%s\n' "${outcome}" | tail -n 1)" in
         applied)
-            systemctl restart localdns.service
+            if ! systemctl restart localdns.service; then
+                echo "failed to restart localdns.service"
+                return 1
+            fi
             echo "localDNS update completed successfully"
             ;;
         alreadyCurrent|noCorefileData|notFound)
