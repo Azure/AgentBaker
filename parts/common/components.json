@@ -568,13 +568,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.26.15",
-          "previousLatestVersion": "v1.26.14"
+          "latestVersion": "v1.26.16",
+          "previousLatestVersion": "v1.26.15"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.27.8",
-          "previousLatestVersion": "v1.27.7"
+          "latestVersion": "v1.27.9",
+          "previousLatestVersion": "v1.27.8"
         }
       ],
       "windowsVersions": []
