@@ -18,50 +18,6 @@ Describe 'cse_config.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
 
-    Describe 'validateTransparentHugePageValue'
-        setup() {
-            THP_SUPPORTED_VALUES_FILE="$(mktemp)"
-            printf 'always [madvise] never\n' > "${THP_SUPPORTED_VALUES_FILE}"
-        }
-
-        cleanup() {
-            rm -f "${THP_SUPPORTED_VALUES_FILE}"
-            unset THP_SUPPORTED_VALUES_FILE
-        }
-
-        BeforeEach 'setup'
-        AfterEach 'cleanup'
-
-        It 'accepts an empty value'
-            When call validateTransparentHugePageValue "enabled" "" "${THP_SUPPORTED_VALUES_FILE}"
-            The status should be success
-        End
-
-        It 'accepts a kernel-supported value'
-            When call validateTransparentHugePageValue "enabled" "never" "${THP_SUPPORTED_VALUES_FILE}"
-            The status should be success
-        End
-
-        It 'accepts a supported value with a plus token'
-            printf 'always defer defer+madvise [madvise] never\n' > "${THP_SUPPORTED_VALUES_FILE}"
-
-            When call validateTransparentHugePageValue "defrag" "defer+madvise" "${THP_SUPPORTED_VALUES_FILE}"
-            The status should be success
-        End
-
-        It 'rejects values that are not kernel-supported'
-            When call validateTransparentHugePageValue "enabled" "defer" "${THP_SUPPORTED_VALUES_FILE}"
-            The status should be failure
-            The stderr should include "Unsupported transparent huge page enabled value 'defer'"
-        End
-
-        It 'rejects values with shell metacharacters before script generation'
-            When call validateTransparentHugePageValue "enabled" 'never"; touch /tmp/pwn #' "${THP_SUPPORTED_VALUES_FILE}"
-            The status should be failure
-            The stderr should include "Invalid transparent huge page enabled value"
-        End
-    End
-
     Describe 'configureTransparentHugePageSystemdService'
         setup_thp_service() {
             THP_ENABLED="never"

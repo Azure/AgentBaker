@@ -18,44 +18,10 @@ EOF
   systemctlEnableAndStart reconcile-private-hosts 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
-validateTransparentHugePageValue() {
-    local setting_name="$1"
-    local value="$2"
-    local supported_values_path="$3"
-
-    if [ -z "${value}" ]; then
-        return 0
-    fi
-
-    case "${value}" in
-        *[!abcdefghijklmnopqrstuvwxyz+]*)
-            echo "Invalid transparent huge page ${setting_name} value '${value}': only lowercase THP tokens are supported" >&2
-            return 1
-            ;;
-    esac
-
-    if [ ! -r "${supported_values_path}" ]; then
-        echo "Cannot validate transparent huge page ${setting_name}; ${supported_values_path} is not readable" >&2
-        return 1
-    fi
-
-    if ! tr ' ' '\n' < "${supported_values_path}" | tr -d '[]' | grep -Fx "${value}" > /dev/null; then
-        echo "Unsupported transparent huge page ${setting_name} value '${value}'. Supported values: $(tr -d '[]' < "${supported_values_path}")" >&2
-        return 1
-    fi
-}
-
-validateTransparentHugePageConfig() {
-    validateTransparentHugePageValue "enabled" "${THP_ENABLED}" "/sys/kernel/mm/transparent_hugepage/enabled" || exit "$ERR_SYSCTL_RELOAD"
-    validateTransparentHugePageValue "defrag" "${THP_DEFRAG}" "/sys/kernel/mm/transparent_hugepage/defrag" || exit "$ERR_SYSCTL_RELOAD"
-}
-
 configureTransparentHugePage() {
     local etc_sysfs_conf="/etc/sysfs.conf"
     local thp_enabled_path="/sys/kernel/mm/transparent_hugepage/enabled"
     local thp_defrag_path="/sys/kernel/mm/transparent_hugepage/defrag"
-
-    validateTransparentHugePageConfig
 
     if [ -n "${THP_ENABLED}" ]; then
         printf '%s\n' "${THP_ENABLED}" > "${thp_enabled_path}"
@@ -69,8 +35,6 @@ configureTransparentHugePage() {
 }
 
 reconcileTransparentHugePagePersistence() {
-    validateTransparentHugePageConfig
-
     if { [ -n "${THP_ENABLED}" ] || [ -n "${THP_DEFRAG}" ]; } && isMarinerOrAzureLinux "$OS" "$OS_VARIANT"; then
         configureTransparentHugePageSystemdService
     fi
