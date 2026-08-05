@@ -2889,7 +2889,13 @@ EOF
             if test "$1" = "-L" && test "$2" = "/dev/disk/azure/resource-part1"; then
                 return 0
             fi
-            command [ "$@"
+            local last_arg=""
+            for last_arg in "$@"; do :; done
+            if test "${last_arg}" = "]"; then
+                command [ "$@"
+            else
+                command [ "$@" ]
+            fi
         }
 
         readlink() {
