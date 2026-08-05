@@ -45,13 +45,17 @@ validateTransparentHugePageValue() {
     fi
 }
 
+validateTransparentHugePageConfig() {
+    validateTransparentHugePageValue "enabled" "${THP_ENABLED}" "/sys/kernel/mm/transparent_hugepage/enabled" || exit "$ERR_SYSCTL_RELOAD"
+    validateTransparentHugePageValue "defrag" "${THP_DEFRAG}" "/sys/kernel/mm/transparent_hugepage/defrag" || exit "$ERR_SYSCTL_RELOAD"
+}
+
 configureTransparentHugePage() {
     local etc_sysfs_conf="/etc/sysfs.conf"
     local thp_enabled_path="/sys/kernel/mm/transparent_hugepage/enabled"
     local thp_defrag_path="/sys/kernel/mm/transparent_hugepage/defrag"
 
-    validateTransparentHugePageValue "enabled" "${THP_ENABLED}" "${thp_enabled_path}" || exit "$ERR_SYSCTL_RELOAD"
-    validateTransparentHugePageValue "defrag" "${THP_DEFRAG}" "${thp_defrag_path}" || exit "$ERR_SYSCTL_RELOAD"
+    validateTransparentHugePageConfig
 
     if [ -n "${THP_ENABLED}" ]; then
         printf '%s\n' "${THP_ENABLED}" > "${thp_enabled_path}"
@@ -61,6 +65,12 @@ configureTransparentHugePage() {
         printf '%s\n' "${THP_DEFRAG}" > "${thp_defrag_path}"
         printf 'kernel/mm/transparent_hugepage/defrag=%s\n' "${THP_DEFRAG}" >> "${etc_sysfs_conf}"
     fi
+    reconcileTransparentHugePagePersistence
+}
+
+reconcileTransparentHugePagePersistence() {
+    validateTransparentHugePageConfig
+
     if { [ -n "${THP_ENABLED}" ] || [ -n "${THP_DEFRAG}" ]; } && isMarinerOrAzureLinux "$OS" "$OS_VARIANT"; then
         configureTransparentHugePageSystemdService
     fi
@@ -123,15 +133,67 @@ configureSystemdUseDomains() {
     systemctl restart rsyslog
 }
 
+swapFileIsActive() {
+    local swap_location="$1"
+
+    swapon --show=NAME --noheadings | awk '{print $1}' | grep -Fxq "${swap_location}"
+}
+
+ensureSwapFileFstabEntry() {
+    local swap_location="$1"
+    local fstab_entry="${swap_location} none swap noauto,nofail 0 0"
+
+    if ! grep -Fxq "${fstab_entry}" /etc/fstab; then
+        echo "${fstab_entry}" >> /etc/fstab
+    fi
+}
+
+findExistingSwapFileLocation() {
+    local resource_disk_path
+    local swap_location
+
+    if [ -L /dev/disk/azure/resource-part1 ]; then
+        resource_disk_path=$(findmnt -nr -o target -S "$(readlink -f /dev/disk/azure/resource-part1)" || true)
+        swap_location="${resource_disk_path}/swapfile"
+        if [ -n "${resource_disk_path}" ] && [ -f "${swap_location}" ]; then
+            echo "${swap_location}"
+            return 0
+        fi
+    fi
+
+    if [ -f /swapfile ]; then
+        echo "/swapfile"
+        return 0
+    fi
+
+    return 1
+}
+
+reconcileSwapFilePersistence() {
+    local swap_location="${1:-}"
+
+    if [ -z "${swap_location}" ]; then
+        swap_location="$(findExistingSwapFileLocation || true)"
+    fi
+
+    if [ -z "${swap_location}" ]; then
+        echo "No existing AKS swap file found; skipping swap file persistence reconciliation"
+        return 0
+    fi
+
+    ensureSwapFileFstabEntry "${swap_location}"
+    configureSwapFileSystemdService "${swap_location}"
+}
+
 configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
-    swap_size_kb=$(expr ${SWAP_FILE_SIZE_MB} \* 1000)
+    swap_size_kb=$(expr "${SWAP_FILE_SIZE_MB}" \* 1000)
     swap_location=""
 
     # Attempt to use the resource disk
     if [ -L /dev/disk/azure/resource-part1 ]; then
-        resource_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/resource-part1))
-        disk_free_kb=$(df ${resource_disk_path} | sed 1d | awk '{print $4}')
+        resource_disk_path=$(findmnt -nr -o target -S "$(readlink -f /dev/disk/azure/resource-part1)")
+        disk_free_kb=$(df "${resource_disk_path}" | sed 1d | awk '{print $4}')
         if [ "${disk_free_kb}" -gt "${swap_size_kb}" ]; then
             echo "Will use resource disk for swap file"
             swap_location=${resource_disk_path}/swapfile
@@ -155,13 +217,12 @@ configureSwapFile() {
     fi
 
     echo "Swap file will be saved to: ${swap_location}"
-    retrycmd_if_failure 24 5 25 fallocate -l ${swap_size_kb}K ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-    chmod 600 ${swap_location}
-    retrycmd_if_failure 24 5 25 mkswap ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-    retrycmd_if_failure 24 5 25 swapon ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-    retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-    echo "${swap_location} none swap noauto,nofail 0 0" >> /etc/fstab
-    configureSwapFileSystemdService "${swap_location}"
+    retrycmd_if_failure 24 5 25 fallocate -l "${swap_size_kb}K" "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+    chmod 600 "${swap_location}"
+    retrycmd_if_failure 24 5 25 mkswap "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+    retrycmd_if_failure 24 5 25 swapon "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+    swapFileIsActive "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+    reconcileSwapFilePersistence "${swap_location}"
 }
 
 configureSwapFileSystemdService() {
@@ -177,7 +238,7 @@ configureSwapFileSystemdService() {
     tee "${script_path}" > /dev/null <<EOF
 #!/bin/bash
 set -e
-if ! swapon --show=NAME --noheadings | grep -Fxq "${swap_location}"; then
+if ! swapon --show=NAME --noheadings | awk '{print \$1}' | grep -Fxq "${swap_location}"; then
     swapon "${swap_location}"
 fi
 EOF

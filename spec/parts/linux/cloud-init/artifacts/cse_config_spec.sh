@@ -62,6 +62,26 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'swapFileIsActive'
+        swapon() {
+            printf '%b' "${SWAPON_OUTPUT}"
+        }
+
+        It 'matches an active swap file when swapon output has leading whitespace'
+            SWAPON_OUTPUT='    /swapfile\n'
+
+            When call swapFileIsActive "/swapfile"
+            The status should be success
+        End
+
+        It 'matches only the exact swap file path'
+            SWAPON_OUTPUT='    /swapfile-extra\n'
+
+            When call swapFileIsActive "/swapfile"
+            The status should be failure
+        End
+    End
+
     Describe 'logGPUDriverPrebakeReadiness'
         It 'reports marker_present=false when no prebake marker exists'
             GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
