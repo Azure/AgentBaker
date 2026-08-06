@@ -1579,6 +1579,17 @@ writeCredentialProviderConfig() {
       - ${arg}"
         done
     fi
+    # Network isolated cluster required match image and registry args
+    local bootstrap_container_registry_match_image=""
+    local bootstrap_container_registry_args=""
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+            MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
+            MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
+            bootstrap_container_registry_match_image="
+        - \"${MCR_REPOSITORY_BASE}\""
+            bootstrap_container_registry_args="
+        - --registry-mirror=${MCR_REPOSITORY_BASE}:${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}"
+    fi
 
     if [ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]; then
         echo "configure credential provider for custom cloud"
@@ -1596,11 +1607,11 @@ providers:
       - "*.*.geo.azurecr.cn"
       - "*.*.geo.azurecr.de"
       - "*.*.geo.azurecr.us"
-      - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"
+      - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"${bootstrap_container_registry_match_image}
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
-      - /etc/kubernetes/azure.json${ib_args}
+      - /etc/kubernetes/azure.json${bootstrap_container_registry_args}${ib_args}
 EOF
     else
         echo "configure credential provider with default settings"
@@ -1617,20 +1628,12 @@ providers:
       - "*.*.geo.azurecr.io"
       - "*.*.geo.azurecr.cn"
       - "*.*.geo.azurecr.de"
-      - "*.*.geo.azurecr.us"
+      - "*.*.geo.azurecr.us"${bootstrap_container_registry_match_image}
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
-      - /etc/kubernetes/azure.json${ib_args}
+      - /etc/kubernetes/azure.json${bootstrap_container_registry_args}${ib_args}
 EOF
-    fi
-    # append network isolated cluster configs
-    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-        MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
-        MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
-
-        sed -i "/^    matchImages:$/a\\      - \"${MCR_REPOSITORY_BASE}\"" "${config_file_path}"
-        sed -i "\$a\\      - --registry-mirror=${MCR_REPOSITORY_BASE}:${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" "${config_file_path}"
     fi
 }
 
