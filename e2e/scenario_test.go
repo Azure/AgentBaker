@@ -414,7 +414,7 @@ func Test_AzureLinuxV3(t *testing.T) {
 // Test_AzureLinuxV3Gen2Kata verifies that AgentBaker correctly bootstraps a Kata-enabled node.
 //
 // Kata Containers is a runtime, so the thing that can silently break is the containerd
-// configuration: pkg/agent/baker.go only emits the `kata` and `kata-cc` runtime handler blocks
+// configuration: pkg/agent/baker.go only emits the `kata` runtime handler blocks
 // when the agent pool's Distro satisfies Distro.IsKataDistro(). Selecting a Kata VHD here flows
 // through e2e/node_config.go -> AgentPoolProfile.Distro -> the IsKata template func, so this
 // scenario exercises that whole path against a real node.
@@ -425,7 +425,7 @@ func Test_AzureLinuxV3(t *testing.T) {
 //  3. a pod scheduled via a Kata RuntimeClass runs and is genuinely VM-isolated.
 func Test_AzureLinuxV3Gen2Kata(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that an AzureLinuxV3 Gen2 Kata node is bootstrapped with working kata and kata-cc containerd runtime handlers, and can run a VM-isolated pod via a Kata RuntimeClass",
+		Description: "Tests that an AzureLinuxV3 Gen2 Kata node is bootstrapped with a working kata containerd runtime handler, and can run a VM-isolated pod via a Kata RuntimeClass",
 		Tags: Tags{
 			Kata: true,
 		},

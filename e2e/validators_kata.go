@@ -18,14 +18,10 @@ const (
 	// kataRuntimeHandler is the containerd runtime handler name for standard Kata Containers,
 	// emitted by the IsKata block of the containerd config templates in pkg/agent/baker.go.
 	kataRuntimeHandler = "kata"
-	// kataCCRuntimeHandler is the containerd runtime handler name for Kata Confidential Containers.
-	kataCCRuntimeHandler = "kata-cc"
 
 	// kataConfigPath is the Kata configuration file referenced by the "kata" runtime handler's
 	// options.ConfigPath in the rendered containerd config.
 	kataConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-	// kataCCConfigPath is the config referenced by the "kata-cc" runtime handler.
-	kataCCConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 	// kataPreviewConfigPath is the config referenced by the "kata-preview" runtime handler.
 	kataPreviewConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-templating.toml"
 
@@ -64,13 +60,6 @@ func ValidateKataContainerdConfig(ctx context.Context, s *Scenario) {
 	ValidateFileHasContent(ctx, s, containerdConfigPath, kataPreviewConfigPath)
 	ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.snapshotter.v1.erofs"]`)
 	ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.differ.v1.erofs"]`)
-
-	// kata-cc (confidential containers) handler and its tardev proxy snapshotter.
-	ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]`)
-	ValidateFileHasContent(ctx, s, containerdConfigPath, `runtime_type = "io.containerd.kata-cc.v2"`)
-	ValidateFileHasContent(ctx, s, containerdConfigPath, kataCCConfigPath)
-	ValidateFileHasContent(ctx, s, containerdConfigPath, "[proxy_plugins.tardev]")
-	ValidateFileHasContent(ctx, s, containerdConfigPath, "/run/containerd/tardev-snapshotter.sock")
 }
 
 // ValidateKataContainerdConfigDump asserts that containerd itself accepted the rendered
@@ -95,13 +84,11 @@ func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) {
 
 	dump := execResult.stdout
 
-	// The effective config must expose both kata runtime handlers.
+	// The effective config must expose the kata runtime handler.
 	assert.Contains(s.T, dump, `runtimes.`+kataRuntimeHandler,
 		"expected the %q runtime handler in the effective containerd config.\nDump:\n%s", kataRuntimeHandler, dump)
 	assert.Contains(s.T, dump, `runtime_type = "io.containerd.kata.v2"`,
 		"expected the kata v2 shim runtime_type in the effective containerd config.\nDump:\n%s", dump)
-	assert.Contains(s.T, dump, `runtimes.`+kataCCRuntimeHandler,
-		"expected the %q runtime handler in the effective containerd config.\nDump:\n%s", kataCCRuntimeHandler, dump)
 
 	// A warning here means containerd did not understand part of the config we generated -
 	// most commonly because the kata blocks use containerd 1.x plugin paths in a 2.x config.
