@@ -1434,11 +1434,17 @@ func ValidateKubeletArgs(ctx context.Context, s *Scenario) {
 func ValidateContainerdWindowsPriorityClass(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	nssmCommand := "& \"c:\\k\\nssm.exe\" get containerd AppPriority"
+	nssmCommand := strings.Join([]string{
+		"$ErrorActionPreference = 'Stop'",
+		"& \"c:\\k\\nssm.exe\" get containerd AppPriority",
+	}, "\n")
 	nssmResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, nssmCommand, 0, "could not read containerd AppPriority from nssm")
 	require.Equal(s.T, "ABOVE_NORMAL_PRIORITY_CLASS", strings.TrimSpace(nssmResult.stdout), "expected containerd nssm service to be configured with AppPriority=ABOVE_NORMAL_PRIORITY_CLASS")
 
-	processCommand := "(Get-Process -Name containerd).PriorityClass"
+	processCommand := strings.Join([]string{
+		"$ErrorActionPreference = 'Stop'",
+		"(Get-Process -Name containerd -ErrorAction Stop | Select-Object -First 1).PriorityClass",
+	}, "\n")
 	processResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, processCommand, 0, "could not read containerd process priority class")
 	require.Equal(s.T, "AboveNormal", strings.TrimSpace(processResult.stdout), "expected containerd process to be running with AboveNormal priority class")
 }
