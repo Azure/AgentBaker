@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -723,8 +724,17 @@ func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 
 // ValidateAndSetLinuxNodeBootstrappingConfiguration is exported only for temporary usage in e2e testing of new config.
 func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
+	_ = ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)
+}
+
+// ValidateAndSetLinuxNodeBootstrappingConfigurationWithError validates and updates Linux node bootstrapping configuration.
+func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamodel.NodeBootstrappingConfiguration) error {
+	if err := validateCustomLinuxOSConfig(config.AgentPoolProfile.GetCustomLinuxOSConfig()); err != nil {
+		return err
+	}
+
 	if config.KubeletConfig == nil {
-		return
+		return nil
 	}
 	kubeletFlags := config.KubeletConfig
 
@@ -785,6 +795,39 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
 		delete(kubeletFlags, "--streaming-connection-idle-timeout")
 	}
+	return nil
+}
+
+func validateCustomLinuxOSConfig(config *datamodel.CustomLinuxOSConfig) error {
+	if config == nil {
+		return nil
+	}
+
+	if err := validateTransparentHugePageConfigValue(
+		"transparentHugePageEnabled",
+		config.TransparentHugePageEnabled,
+		[]string{"always", "madvise", "never"},
+	); err != nil {
+		return err
+	}
+
+	return validateTransparentHugePageConfigValue(
+		"transparentHugePageDefrag",
+		config.TransparentHugePageDefrag,
+		[]string{"always", "defer", "defer+madvise", "madvise", "never"},
+	)
+}
+
+func validateTransparentHugePageConfigValue(fieldName, value string, allowedValues []string) error {
+	if value == "" {
+		return nil
+	}
+
+	if slices.Contains(allowedValues, value) {
+		return nil
+	}
+
+	return fmt.Errorf("customLinuxOSConfig.%s value %q is invalid; allowed values are: %s", fieldName, value, strings.Join(allowedValues, ", "))
 }
 
 func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
