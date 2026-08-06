@@ -2658,11 +2658,11 @@ OVERRIDE_EOF
         End
     End
 
-    Describe 'nvidia-cdi-refresh startup race handling'
+    Describe 'nvidia-cdi-refresh handling'
         setup_cdi_dropins() {
             CDI_TEST_DIR=$(mktemp -d)
-            NVIDIA_CDI_REFRESH_SERVICE_DROP_IN="${CDI_TEST_DIR}/nvidia-cdi-refresh.service.d/10-aks-driver-not-ready.conf"
-            NVIDIA_CDI_REFRESH_PATH_DROP_IN="${CDI_TEST_DIR}/nvidia-cdi-refresh.path.d/10-aks-driver-not-ready.conf"
+            NVIDIA_CDI_REFRESH_SERVICE_DROP_IN="${CDI_TEST_DIR}/nvidia-cdi-refresh.service.d/10-aks-cdi-refresh.conf"
+            NVIDIA_CDI_REFRESH_PATH_DROP_IN="${CDI_TEST_DIR}/nvidia-cdi-refresh.path.d/10-aks-cdi-refresh.conf"
         }
         cleanup_cdi_dropins() {
             rm -rf "${CDI_TEST_DIR}"
@@ -2674,15 +2674,16 @@ OVERRIDE_EOF
         retrycmd_if_failure() { shift 3; "$@"; }
 
         Describe 'stageNvidiaCDIRefreshDropIns'
-            It 'tolerates a premature refresh run and reloads systemd'
+            It 'skips a premature refresh run and reloads systemd'
                 systemctl() { echo "systemctl $*"; return 0; }
 
                 When call stageNvidiaCDIRefreshDropIns
 
                 The status should be success
                 The output should include "systemctl daemon-reload"
+                The contents of file "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should include "ExecCondition=/bin/false"
                 The contents of file "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should include "Restart=no"
-                The contents of file "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should include "SuccessExitStatus=1 127"
+                The contents of file "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should include "SuccessExitStatus=1 2 127"
                 The contents of file "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should include "StartLimitIntervalSec=0"
                 The contents of file "${NVIDIA_CDI_REFRESH_PATH_DROP_IN}" should include "StartLimitIntervalSec=0"
             End
@@ -2699,7 +2700,7 @@ OVERRIDE_EOF
         Describe 'finalizeNvidiaCDIRefresh'
             setup_staged_dropins() {
                 mkdir -p "$(dirname "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}")" "$(dirname "${NVIDIA_CDI_REFRESH_PATH_DROP_IN}")"
-                echo "staged" > "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}"
+                echo "ExecCondition=/bin/false" > "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}"
                 echo "staged" > "${NVIDIA_CDI_REFRESH_PATH_DROP_IN}"
             }
             BeforeEach 'setup_staged_dropins'
@@ -2713,46 +2714,54 @@ OVERRIDE_EOF
                 return 0
             }
 
-            It 'removes the drop-ins and starts both units once the spec is valid'
+            It 'lets the unit run and starts both units once the spec is valid'
                 systemctl() { loaded_systemctl "$@"; }
                 nvidia-ctk() { echo "nvidia.com/gpu=all"; }
 
                 When call finalizeNvidiaCDIRefresh
 
                 The status should be success
-                The path "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should not be exist
-                The path "${NVIDIA_CDI_REFRESH_PATH_DROP_IN}" should not be exist
+                The contents of file "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should not include "ExecCondition"
+                The contents of file "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should include "SuccessExitStatus=1 2 127"
                 The output should include "systemctl start nvidia-cdi-refresh.service"
                 The output should include "systemctl start nvidia-cdi-refresh.path"
+                The output should include "generated a valid CDI spec"
             End
 
-            It 'fails when the refresh produces no GPU devices'
+            It 'does not fail provisioning when the refresh produces no GPU devices'
                 systemctl() { loaded_systemctl "$@"; }
                 nvidia-ctk() { return 0; }
+                nvidia-smi() { echo "Enabled"; }
 
                 When call finalizeNvidiaCDIRefresh
 
-                The status should be failure
-                The output should not include "systemctl start nvidia-cdi-refresh.path"
+                The status should be success
+                The output should include "continuing without CDI"
+                The output should include "systemctl reset-failed"
+                The output should include "systemctl start nvidia-cdi-refresh.path"
+                The contents of file "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should include "SuccessExitStatus=1 2 127"
             End
 
-            It 'fails when the refresh service cannot start'
+            It 'does not fail provisioning when the refresh service cannot start'
                 systemctl() {
                     if [ "$1" = "show" ]; then
                         echo "loaded"
                         return 0
                     fi
-                    if [ "$1" = "start" ]; then
+                    if [ "$1" = "start" ] && [ "$2" = "nvidia-cdi-refresh.service" ]; then
                         return 1
                     fi
+                    echo "systemctl $*"
                     return 0
                 }
                 nvidia-ctk() { echo "SHOULD_NOT_RUN"; }
+                nvidia-smi() { echo "Enabled"; }
 
                 When call finalizeNvidiaCDIRefresh
 
-                The status should be failure
+                The status should be success
                 The output should not include "SHOULD_NOT_RUN"
+                The output should include "continuing without CDI"
             End
 
             It 'skips reconciliation on VHDs whose toolkit has no CDI refresh units'
