@@ -1583,12 +1583,12 @@ writeCredentialProviderConfig() {
     local bootstrap_container_registry_match_image=""
     local bootstrap_container_registry_args=""
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-            MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
-            MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
-            bootstrap_container_registry_match_image="
-        - \"${MCR_REPOSITORY_BASE}\""
-            bootstrap_container_registry_args="
-        - --registry-mirror=${MCR_REPOSITORY_BASE}:${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}"
+      MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
+      MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
+      bootstrap_container_registry_match_image="
+      - \"${MCR_REPOSITORY_BASE}\""
+      bootstrap_container_registry_args="
+      - --registry-mirror=${MCR_REPOSITORY_BASE}:${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}"
     fi
 
     if [ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]; then
