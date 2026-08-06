@@ -1629,7 +1629,7 @@ EOF
         MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
         MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
 
-        sed -i "/^    defaultCacheDuration:/i\\      - \"${MCR_REPOSITORY_BASE}\"" "${config_file_path}"
+        sed -i "/^    matchImages:$/a\\      - \"${MCR_REPOSITORY_BASE}\"" "${config_file_path}"
         sed -i "\$a\\      - --registry-mirror=${MCR_REPOSITORY_BASE}:${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" "${config_file_path}"
     fi
 }

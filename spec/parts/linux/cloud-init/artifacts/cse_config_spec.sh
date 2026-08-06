@@ -1163,6 +1163,7 @@ kind: CredentialProviderConfig
 providers:
   - name: acr-credential-provider
     matchImages:
+      - "mcr.microsoft.com"
       - "*.azurecr.io"
       - "*.azurecr.cn"
       - "*.azurecr.de"
@@ -1171,7 +1172,6 @@ providers:
       - "*.*.geo.azurecr.cn"
       - "*.*.geo.azurecr.de"
       - "*.*.geo.azurecr.us"
-      - "mcr.microsoft.com"
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1
     args:
@@ -1215,6 +1215,7 @@ kind: CredentialProviderConfig
 providers:
   - name: acr-credential-provider
     matchImages:
+      - "mcr.microsoft.com"
       - "*.azurecr.io"
       - "*.azurecr.cn"
       - "*.azurecr.de"
@@ -1224,7 +1225,6 @@ providers:
       - "*.*.geo.azurecr.de"
       - "*.*.geo.azurecr.us"
       - "*.custom.registry.io"
-      - "mcr.microsoft.com"
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1
     args:
@@ -1395,6 +1395,7 @@ kind: CredentialProviderConfig
 providers:
   - name: acr-credential-provider
     matchImages:
+      - "mcr.microsoft.com"
       - "*.azurecr.io"
       - "*.azurecr.cn"
       - "*.azurecr.de"
@@ -1403,7 +1404,6 @@ providers:
       - "*.*.geo.azurecr.cn"
       - "*.*.geo.azurecr.de"
       - "*.*.geo.azurecr.us"
-      - "mcr.microsoft.com"
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1
     tokenAttributes:
