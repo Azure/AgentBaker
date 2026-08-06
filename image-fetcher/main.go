@@ -24,7 +24,7 @@ const (
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, "Usage: %s <image-ref> [image-ref...]\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "Example: %s mcr.microsoft.com/oss/kubernetes/pause:3.10.2\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Example: %s mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2\n", os.Args[0])
 		os.Exit(1)
 	}
 
