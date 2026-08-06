@@ -1579,7 +1579,7 @@ writeCredentialProviderConfig() {
       - ${arg}"
         done
     fi
-    # Network isolated cluster required match image and registry args
+    # matchImages and argument for network isolated cluster
     local bootstrap_container_registry_match_image=""
     local bootstrap_container_registry_args=""
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
