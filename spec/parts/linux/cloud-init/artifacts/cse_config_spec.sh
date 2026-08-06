@@ -2658,6 +2658,123 @@ OVERRIDE_EOF
         End
     End
 
+    Describe 'nvidia-cdi-refresh startup race handling'
+        setup_cdi_dropins() {
+            CDI_TEST_DIR=$(mktemp -d)
+            NVIDIA_CDI_REFRESH_SERVICE_DROP_IN="${CDI_TEST_DIR}/nvidia-cdi-refresh.service.d/10-aks-driver-not-ready.conf"
+            NVIDIA_CDI_REFRESH_PATH_DROP_IN="${CDI_TEST_DIR}/nvidia-cdi-refresh.path.d/10-aks-driver-not-ready.conf"
+        }
+        cleanup_cdi_dropins() {
+            rm -rf "${CDI_TEST_DIR}"
+        }
+        BeforeEach 'setup_cdi_dropins'
+        AfterEach 'cleanup_cdi_dropins'
+
+        # Run the wrapped command so real failures propagate, but without the retry sleeps.
+        retrycmd_if_failure() { shift 3; "$@"; }
+
+        Describe 'stageNvidiaCDIRefreshDropIns'
+            It 'tolerates a premature refresh run and reloads systemd'
+                systemctl() { echo "systemctl $*"; return 0; }
+
+                When call stageNvidiaCDIRefreshDropIns
+
+                The status should be success
+                The output should include "systemctl daemon-reload"
+                The contents of file "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should include "Restart=no"
+                The contents of file "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should include "SuccessExitStatus=1 127"
+                The contents of file "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should include "StartLimitIntervalSec=0"
+                The contents of file "${NVIDIA_CDI_REFRESH_PATH_DROP_IN}" should include "StartLimitIntervalSec=0"
+            End
+
+            It 'fails when systemd cannot pick up the drop-ins'
+                systemctl() { return 1; }
+
+                When call stageNvidiaCDIRefreshDropIns
+
+                The status should be failure
+            End
+        End
+
+        Describe 'finalizeNvidiaCDIRefresh'
+            setup_staged_dropins() {
+                mkdir -p "$(dirname "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}")" "$(dirname "${NVIDIA_CDI_REFRESH_PATH_DROP_IN}")"
+                echo "staged" > "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}"
+                echo "staged" > "${NVIDIA_CDI_REFRESH_PATH_DROP_IN}"
+            }
+            BeforeEach 'setup_staged_dropins'
+
+            loaded_systemctl() {
+                if [ "$1" = "show" ]; then
+                    echo "loaded"
+                    return 0
+                fi
+                echo "systemctl $*"
+                return 0
+            }
+
+            It 'removes the drop-ins and starts both units once the spec is valid'
+                systemctl() { loaded_systemctl "$@"; }
+                nvidia-ctk() { echo "nvidia.com/gpu=all"; }
+
+                When call finalizeNvidiaCDIRefresh
+
+                The status should be success
+                The path "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should not be exist
+                The path "${NVIDIA_CDI_REFRESH_PATH_DROP_IN}" should not be exist
+                The output should include "systemctl start nvidia-cdi-refresh.service"
+                The output should include "systemctl start nvidia-cdi-refresh.path"
+            End
+
+            It 'fails when the refresh produces no GPU devices'
+                systemctl() { loaded_systemctl "$@"; }
+                nvidia-ctk() { return 0; }
+
+                When call finalizeNvidiaCDIRefresh
+
+                The status should be failure
+                The output should not include "systemctl start nvidia-cdi-refresh.path"
+            End
+
+            It 'fails when the refresh service cannot start'
+                systemctl() {
+                    if [ "$1" = "show" ]; then
+                        echo "loaded"
+                        return 0
+                    fi
+                    if [ "$1" = "start" ]; then
+                        return 1
+                    fi
+                    return 0
+                }
+                nvidia-ctk() { echo "SHOULD_NOT_RUN"; }
+
+                When call finalizeNvidiaCDIRefresh
+
+                The status should be failure
+                The output should not include "SHOULD_NOT_RUN"
+            End
+
+            It 'skips reconciliation on VHDs whose toolkit has no CDI refresh units'
+                systemctl() {
+                    if [ "$1" = "show" ]; then
+                        echo "not-found"
+                        return 0
+                    fi
+                    echo "systemctl $*"
+                    return 0
+                }
+
+                When call finalizeNvidiaCDIRefresh
+
+                The status should be success
+                The path "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should not be exist
+                The output should include "skipping CDI refresh"
+                The output should not include "systemctl start"
+            End
+        End
+    End
+
     Describe 'configGPUDrivers'
         # Assert the per-step CSE timing event names emitted via logs_to_events,
         # without running the real (hardware/daemon) driver steps. logs_to_events
@@ -2673,6 +2790,8 @@ OVERRIDE_EOF
         createNvidiaSymlinkToAllDeviceNodes() { return 0; }
         systemctlEnableAndStart() { return 0; }
         systemctl() { return 0; }
+        stageNvidiaCDIRefreshDropIns() { return 0; }
+        finalizeNvidiaCDIRefresh() { return 0; }
 
         UBUNTU_OS_NAME="UBUNTU"
         NVIDIA_DRIVER_IMAGE="mcr.example/nvidia/driver"
@@ -2694,6 +2813,60 @@ OVERRIDE_EOF
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverImage"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.stageNvidiaCDIRefreshDropIns"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.finalizeNvidiaCDIRefresh"
+        End
+
+        It 'stages the CDI refresh drop-ins before the driver install runs on Ubuntu'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            # eval so the string-form wrapped commands (e.g. "retrycmd_if_failure ... nvidia-smi")
+            # resolve to their mocks instead of being treated as one command name.
+            logs_to_events() { shift; eval "$@"; }
+            NVIDIA_DRIVER_IMAGE_PULL_REF="mcr.example/nvidia/driver"
+            stageNvidiaCDIRefreshDropIns() { echo "STAGE_RAN"; return 0; }
+            installGPUDriverImage() { echo "INSTALL_RAN"; return 0; }
+            finalizeNvidiaCDIRefresh() { echo "FINALIZE_RAN"; return 0; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            # The toolkit starts nvidia-cdi-refresh from inside the install container, so the
+            # drop-ins must already be on disk by then.
+            The line 1 of output should equal "STAGE_RAN"
+            The output should include "INSTALL_RAN"
+            The output should include "FINALIZE_RAN"
+        End
+
+        It 'exits without installing the driver when the CDI drop-ins cannot be staged'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            logs_to_events() { shift; eval "$@"; }
+            stageNvidiaCDIRefreshDropIns() { return 1; }
+            installGPUDriverImage() { echo "INSTALL_RAN"; return 0; }
+
+            When run configGPUDrivers
+
+            The status should equal 88
+            The output should not include "INSTALL_RAN"
+        End
+
+        It 'exits when the CDI refresh cannot be reconciled after the driver is ready'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            logs_to_events() { shift; eval "$@"; }
+            NVIDIA_DRIVER_IMAGE_PULL_REF="mcr.example/nvidia/driver"
+            finalizeNvidiaCDIRefresh() { return 1; }
+
+            When run configGPUDrivers
+
+            The status should equal 88
         End
 
         It 'exits at the cache-miss pull step and skips install when the pull fails on Ubuntu'

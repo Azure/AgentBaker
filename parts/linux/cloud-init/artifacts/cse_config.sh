@@ -1467,10 +1467,83 @@ installGPUDriverImage() {
     retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
 }
 
+NVIDIA_CDI_REFRESH_SERVICE_DROP_IN="/etc/systemd/system/nvidia-cdi-refresh.service.d/10-aks-driver-not-ready.conf"
+NVIDIA_CDI_REFRESH_PATH_DROP_IN="/etc/systemd/system/nvidia-cdi-refresh.path.d/10-aks-driver-not-ready.conf"
+
+# nvidia-container-toolkit's post-install enables and immediately starts
+# nvidia-cdi-refresh.{service,path} from inside the aks-gpu install container, before the
+# AKS-managed driver userspace has been staged onto the host. nvidia-ctk then runs with no
+# nvidia-smi and no libnvidia-ml.so and exits non-zero, systemd burns the unit's start limit
+# retrying, and both units settle into a failed state. Newer aks-gpu images react to that by
+# running "systemctl restart nvidia-cdi-refresh.service" under `set -o errexit`, which turns a
+# cosmetic failed unit into an aborted driver install and CSE exit ERR_GPU_DRIVERS_START_FAIL.
+#
+# Stage the drop-ins before the install so that premature run is tolerated rather than fatal.
+# systemd resolves drop-ins when the unit is loaded, so writing them before the units exist is
+# the point: the toolkit's very first start already picks them up. finalizeNvidiaCDIRefresh
+# removes them and generates the spec for real once the driver is actually usable, so this
+# defers the verdict on CDI health instead of suppressing it.
+stageNvidiaCDIRefreshDropIns() {
+    mkdir -p "$(dirname "$NVIDIA_CDI_REFRESH_SERVICE_DROP_IN")" "$(dirname "$NVIDIA_CDI_REFRESH_PATH_DROP_IN")" || return 1
+
+    # Restart=no plus an unlimited start-limit window stops the restart storm that leaves the
+    # .path unit dead with unit-start-limit-hit. SuccessExitStatus covers nvidia-ctk missing
+    # entirely (127) and failing to build a spec (1), which are the two driver-not-ready modes.
+    cat > "$NVIDIA_CDI_REFRESH_SERVICE_DROP_IN" <<'EOF' || return 1
+[Unit]
+StartLimitIntervalSec=0
+
+[Service]
+Restart=no
+SuccessExitStatus=1 127
+EOF
+
+    cat > "$NVIDIA_CDI_REFRESH_PATH_DROP_IN" <<'EOF' || return 1
+[Unit]
+StartLimitIntervalSec=0
+EOF
+
+    systemctl daemon-reload || return 1
+    return 0
+}
+
+# Undo stageNvidiaCDIRefreshDropIns and produce a real CDI spec now that nvidia-smi and
+# ldconfig have succeeded. Any failure here is a genuine CDI failure, not a startup race.
+finalizeNvidiaCDIRefresh() {
+    local load_state=""
+
+    rm -f "$NVIDIA_CDI_REFRESH_SERVICE_DROP_IN" "$NVIDIA_CDI_REFRESH_PATH_DROP_IN" || return 1
+    rmdir "$(dirname "$NVIDIA_CDI_REFRESH_SERVICE_DROP_IN")" "$(dirname "$NVIDIA_CDI_REFRESH_PATH_DROP_IN")" 2>/dev/null
+    systemctl daemon-reload || return 1
+
+    # VHDs whose toolkit predates the CDI refresh units have nothing to reconcile. Treat that as
+    # success so older images keep provisioning (6-month VHD support window).
+    load_state=$(systemctl show --property=LoadState --value nvidia-cdi-refresh.service 2>/dev/null)
+    if [ "$load_state" != "loaded" ]; then
+        echo "nvidia-cdi-refresh.service not present (LoadState=${load_state:-unknown}), skipping CDI refresh"
+        return 0
+    fi
+
+    # The units are failed from the premature run; clear that before the authoritative attempt.
+    systemctl stop nvidia-cdi-refresh.path 2>/dev/null
+    systemctl reset-failed nvidia-cdi-refresh.service nvidia-cdi-refresh.path 2>/dev/null
+
+    # Retry rather than one-shot: nvidia-smi answering does not guarantee every device node and
+    # library the generator walks is already visible.
+    retrycmd_if_failure 12 5 30 systemctl start nvidia-cdi-refresh.service || return 1
+    nvidia-ctk cdi list | grep -q "nvidia.com/gpu=" || return 1
+
+    systemctl start nvidia-cdi-refresh.path || return 1
+    return 0
+}
+
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
         mkdir -p /opt/{actions,gpu}
+        # Must precede the install: the toolkit's post-install starts nvidia-cdi-refresh from
+        # inside the install container, and on newer aks-gpu images its failure aborts the install.
+        logs_to_events "AKS.CSE.configGPUDrivers.stageNvidiaCDIRefreshDropIns" stageNvidiaCDIRefreshDropIns || exit $ERR_GPU_DRIVERS_START_FAIL
         # Normally the image is baked into the VHD; only pull on a cache miss (expected under VHD/CSE
         # version skew). ctr run does not auto-pull, so a failed pull must exit here rather than
         # resurface as an opaque install error. name== is an exact match, not an `images ls` substring.
@@ -1502,6 +1575,11 @@ configGPUDrivers() {
     logs_to_events "AKS.CSE.configGPUDrivers.waitForNvidiaModprobe" "retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0" || exit $ERR_GPU_DRIVERS_START_FAIL
     logs_to_events "AKS.CSE.configGPUDrivers.waitForNvidiaSmi" "retrycmd_if_failure 120 5 30 nvidia-smi" || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+
+    # Ubuntu-only: the CDI refresh units ship with the toolkit installed by the aks-gpu image.
+    if isUbuntu; then
+        logs_to_events "AKS.CSE.configGPUDrivers.finalizeNvidiaCDIRefresh" finalizeNvidiaCDIRefresh || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
 
     # Fix the NVIDIA /dev/char link issue (Mariner/AzureLinux only)
     if isMarinerOrAzureLinux "$OS"; then
