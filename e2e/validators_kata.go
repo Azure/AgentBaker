@@ -18,19 +18,24 @@ const (
 	// kataRuntimeHandler is the containerd runtime handler name for standard Kata Containers,
 	// emitted by the IsKata block of the containerd config templates in pkg/agent/baker.go.
 	kataRuntimeHandler = "kata"
-	// kataPreviewRuntimeHandler shares the kata v2 shim with kataRuntimeHandler but uses the
-	// erofs snapshotter and the cloud-hypervisor templating config.
-	kataPreviewRuntimeHandler = "kata-preview"
 
 	// kataConfigPath is the Kata configuration file referenced by the "kata" runtime handler's
 	// options.ConfigPath in the rendered containerd config.
 	kataConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-	// kataPreviewConfigPath is the config referenced by the "kata-preview" runtime handler.
-	kataPreviewConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-templating.toml"
 
 	// containerdConfigPath is where CSE / aks-node-controller writes the rendered containerd config.
 	containerdConfigPath = "/etc/containerd/config.toml"
 )
+
+// kataRuntimeHandlers lists every Kata containerd runtime handler that this scenario expects to
+// be configured and usable on the node. Each one is asserted in the effective containerd config
+// and independently exercised by ValidateKataPodIsIsolated, so covering an additional handler is
+// a one-line change here plus a call in the scenario.
+//
+// Note that "kata-cc" (confidential containers) is intentionally absent: its handler block is
+// templated for all Kata VHDs, but it targets a different VHD than regular Kata, so this image
+// cannot actually run it.
+var kataRuntimeHandlers = []string{kataRuntimeHandler}
 
 // ValidateKataContainerdConfig asserts that AgentBaker rendered a containerd configuration
 // containing the Kata runtime handlers on a Kata-enabled VHD.
@@ -56,13 +61,6 @@ func ValidateKataContainerdConfig(ctx context.Context, s *Scenario) {
 	// Kata relies on snapshot annotations being forwarded to the snapshotter; the template sets
 	// this explicitly under IsKata and disabling it breaks image pulling for Kata pods.
 	ValidateFileHasContent(ctx, s, containerdConfigPath, "disable_snapshot_annotations = false")
-
-	// The "kata-preview" handler shares the kata v2 shim but uses the erofs snapshotter and the
-	// cloud-hypervisor templating config.
-	ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]`)
-	ValidateFileHasContent(ctx, s, containerdConfigPath, kataPreviewConfigPath)
-	ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.snapshotter.v1.erofs"]`)
-	ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.differ.v1.erofs"]`)
 }
 
 // ValidateKataContainerdConfigDump asserts that containerd itself accepted the rendered
@@ -81,16 +79,23 @@ func ValidateKataContainerdConfig(ctx context.Context, s *Scenario) {
 func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	execResult := execOnVMForScenarioOnUnprivilegedPod(ctx, s, "containerd config dump")
-	require.Equal(s.T, "0", execResult.exitCode,
-		"containerd config dump failed.\nstdout:\n%s\nstderr:\n%s", execResult.stdout, execResult.stderr)
+	// This must run on the node itself, not in a debug pod. The "debugnonhost" daemonset pods
+	// used by execOnVMForScenarioOnUnprivilegedPod run a bare CBL-Mariner base image with no
+	// volume mounts, so the host's containerd binary is not reachable from them and the command
+	// would simply exit 127.
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo containerd config dump", 0,
+		"unable to dump the effective containerd config on the node")
 
+	// The effective config is printed on stdout, but containerd logs diagnostics (including the
+	// "level=warning" lines we care about) on stderr, so both streams have to be inspected.
 	dump := execResult.stdout
+	diagnostics := execResult.stdout + "\n" + execResult.stderr
 
-	// The effective config must expose both kata runtime handlers. Note the trailing "]": without
-	// it, "runtimes.kata" would also match "runtimes.kata-preview" and pass even if the "kata"
-	// handler itself were missing.
-	for _, handler := range []string{kataRuntimeHandler, kataPreviewRuntimeHandler} {
+	// The effective config must expose every Kata runtime handler we expect. Note the trailing
+	// "]": without it a handler name would also match longer handlers sharing its prefix (e.g.
+	// "runtimes.kata" matching "runtimes.kata-preview") and pass even if the handler itself
+	// were missing.
+	for _, handler := range kataRuntimeHandlers {
 		assert.Contains(s.T, dump, `runtimes.`+handler+`]`,
 			"expected the %q runtime handler in the effective containerd config.\nDump:\n%s", handler, dump)
 	}
@@ -99,8 +104,9 @@ func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) {
 
 	// A warning here means containerd did not understand part of the config we generated -
 	// most commonly because the kata blocks use containerd 1.x plugin paths in a 2.x config.
-	assert.NotContains(s.T, dump, "level=warning",
-		"containerd reported warnings while parsing the AgentBaker-generated config.\nDump:\n%s", dump)
+	assert.NotContains(s.T, diagnostics, "level=warning",
+		"containerd reported warnings while parsing the AgentBaker-generated config.\nstdout:\n%s\nstderr:\n%s",
+		execResult.stdout, execResult.stderr)
 }
 
 // ValidateKataHostReadiness asserts the host-side prerequisites that the Kata VHD is expected to
