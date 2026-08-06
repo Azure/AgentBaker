@@ -1580,29 +1580,7 @@ writeCredentialProviderConfig() {
         done
     fi
 
-    if [ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ] && [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-        echo "configure credential provider for custom cloud network isolated cluster"
-        MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
-        MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
-        tee "${config_file_path}" > /dev/null <<EOF
-apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-      - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"
-      - "${MCR_REPOSITORY_BASE}"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
-    args:
-      - /etc/kubernetes/azure.json
-      - --registry-mirror=${MCR_REPOSITORY_BASE}:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER${ib_args}
-EOF
-    elif [ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]; then
+    if [ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]; then
         echo "configure credential provider for custom cloud"
         tee "${config_file_path}" > /dev/null <<EOF
 apiVersion: kubelet.config.k8s.io/v1
@@ -1623,31 +1601,6 @@ providers:
     apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
       - /etc/kubernetes/azure.json${ib_args}
-EOF
-    elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-        echo "configure credential provider for network isolated cluster"
-        MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
-        MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
-        tee "${config_file_path}" > /dev/null <<EOF
-apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-      - "*.*.geo.azurecr.io"
-      - "*.*.geo.azurecr.cn"
-      - "*.*.geo.azurecr.de"
-      - "*.*.geo.azurecr.us"
-      - "${MCR_REPOSITORY_BASE}"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
-    args:
-      - /etc/kubernetes/azure.json
-      - --registry-mirror=${MCR_REPOSITORY_BASE}:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER${ib_args}
 EOF
     else
         echo "configure credential provider with default settings"
@@ -1670,6 +1623,14 @@ providers:
     args:
       - /etc/kubernetes/azure.json${ib_args}
 EOF
+    fi
+    # append network isolated cluster configs
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+        MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
+        MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
+
+        sed -i "/^    defaultCacheDuration:/i\\      - \"${MCR_REPOSITORY_BASE}\"" "${config_file_path}"
+        sed -i "\$a\\      - --registry-mirror=${MCR_REPOSITORY_BASE}:${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" "${config_file_path}"
     fi
 }
 
