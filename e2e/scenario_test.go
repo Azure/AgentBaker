@@ -422,10 +422,11 @@ func Test_AzureLinuxV3(t *testing.T) {
 // The scenario asserts three increasingly strong properties:
 //  1. the rendered /etc/containerd/config.toml contains the Kata runtime handlers,
 //  2. containerd actually parsed and loaded them (no warnings, handlers in `config dump`),
-//  3. a pod scheduled via a Kata RuntimeClass runs and is genuinely VM-isolated.
+//  3. a pod scheduled via a Kata RuntimeClass runs and is genuinely VM-isolated, for both the
+//     `kata` and `kata-preview` runtime handlers.
 func Test_AzureLinuxV3Gen2Kata(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that an AzureLinuxV3 Gen2 Kata node is bootstrapped with a working kata containerd runtime handler, and can run a VM-isolated pod via a Kata RuntimeClass",
+		Description: "Tests that an AzureLinuxV3 Gen2 Kata node is bootstrapped with working kata and kata-preview containerd runtime handlers, and can run VM-isolated pods via Kata RuntimeClasses",
 		Tags: Tags{
 			Kata: true,
 		},
@@ -448,7 +449,8 @@ func Test_AzureLinuxV3Gen2Kata(t *testing.T) {
 				ValidateKataContainerdConfig(ctx, s)
 				ValidateKataContainerdConfigDump(ctx, s)
 				ValidateKataHostReadiness(ctx, s)
-				ValidateKataPodIsIsolated(ctx, s)
+				ValidateKataPodIsIsolated(ctx, s, "kata")
+				ValidateKataPodIsIsolated(ctx, s, "kata-preview")
 			},
 		},
 	})

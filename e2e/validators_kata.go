@@ -18,6 +18,9 @@ const (
 	// kataRuntimeHandler is the containerd runtime handler name for standard Kata Containers,
 	// emitted by the IsKata block of the containerd config templates in pkg/agent/baker.go.
 	kataRuntimeHandler = "kata"
+	// kataPreviewRuntimeHandler shares the kata v2 shim with kataRuntimeHandler but uses the
+	// erofs snapshotter and the cloud-hypervisor templating config.
+	kataPreviewRuntimeHandler = "kata-preview"
 
 	// kataConfigPath is the Kata configuration file referenced by the "kata" runtime handler's
 	// options.ConfigPath in the rendered containerd config.
@@ -84,11 +87,13 @@ func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) {
 
 	dump := execResult.stdout
 
-	// The effective config must expose the kata runtime handler. Note the trailing "]": without
-	// it this would also match "runtimes.kata-preview" and pass even if the "kata" handler
-	// itself were missing.
-	assert.Contains(s.T, dump, `runtimes.`+kataRuntimeHandler+`]`,
-		"expected the %q runtime handler in the effective containerd config.\nDump:\n%s", kataRuntimeHandler, dump)
+	// The effective config must expose both kata runtime handlers. Note the trailing "]": without
+	// it, "runtimes.kata" would also match "runtimes.kata-preview" and pass even if the "kata"
+	// handler itself were missing.
+	for _, handler := range []string{kataRuntimeHandler, kataPreviewRuntimeHandler} {
+		assert.Contains(s.T, dump, `runtimes.`+handler+`]`,
+			"expected the %q runtime handler in the effective containerd config.\nDump:\n%s", handler, dump)
+	}
 	assert.Contains(s.T, dump, `runtime_type = "io.containerd.kata.v2"`,
 		"expected the kata v2 shim runtime_type in the effective containerd config.\nDump:\n%s", dump)
 
@@ -120,11 +125,12 @@ func ValidateKataHostReadiness(ctx context.Context, s *Scenario) {
 		"dnf-automatic-install.timer must not be enabled on Kata VHDs: kata packages have to be updated as a unit via image updates")
 }
 
-// ValidateKataPodIsIsolated creates a RuntimeClass bound to the "kata" handler, schedules a pod
-// against it on the node under test, and asserts the pod is genuinely running inside a Kata VM.
+// ValidateKataPodIsIsolated creates a RuntimeClass bound to the given Kata runtime handler,
+// schedules a pod against it on the node under test, and asserts the pod is genuinely running
+// inside a Kata VM.
 //
 // This is the end-to-end proof that the containerd config AgentBaker generated is not merely
-// syntactically present but actually usable: if the kata runtime handler were missing or
+// syntactically present but actually usable: if the runtime handler were missing or
 // misconfigured, the kubelet would reject the pod with "RuntimeHandler not supported" and the
 // pod would never reach Running.
 //
@@ -133,16 +139,17 @@ func ValidateKataHostReadiness(ctx context.Context, s *Scenario) {
 // the pod silently fell back to the shared-kernel runc runtime.
 //
 // The RuntimeClass is pinned to this scenario's node via Scheduling.NodeSelector so it cannot
-// interfere with other scenarios running in parallel against the same cluster.
-func ValidateKataPodIsIsolated(ctx context.Context, s *Scenario) {
+// interfere with other scenarios running in parallel against the same cluster, and is named
+// after the handler so that several handlers can be validated on one node.
+func ValidateKataPodIsIsolated(ctx context.Context, s *Scenario, handler string) {
 	s.T.Helper()
 
 	hostKernel := strings.TrimSpace(
 		execScriptOnVMForScenarioValidateExitCode(ctx, s, "uname -r", 0, "unable to read host kernel release").stdout)
 	require.NotEmpty(s.T, hostKernel, "host kernel release was empty")
 
-	runtimeClassName := createKataRuntimeClass(ctx, s)
-	pod := createKataPod(ctx, s, runtimeClassName)
+	runtimeClassName := createKataRuntimeClass(ctx, s, handler)
+	pod := createKataPod(ctx, s, runtimeClassName, handler)
 
 	execResult, err := execOnPod(ctx, s.Runtime.Kube, pod.Namespace, pod.Name, []string{"uname", "-r"})
 	require.NoErrorf(s.T, err, "failed to exec in kata pod %q", pod.Name)
@@ -152,27 +159,27 @@ func ValidateKataPodIsIsolated(ctx context.Context, s *Scenario) {
 	s.T.Logf("host kernel: %q, kata guest kernel: %q", hostKernel, guestKernel)
 	assert.NotEqual(s.T, hostKernel, guestKernel,
 		"pod running under the %q RuntimeClass reported the same kernel release as the host, "+
-			"which means it was not launched inside a Kata VM", kataRuntimeHandler)
+			"which means it was not launched inside a Kata VM", handler)
 }
 
-// createKataRuntimeClass creates a RuntimeClass for the "kata" handler scoped to the scenario's
+// createKataRuntimeClass creates a RuntimeClass for the given handler scoped to the scenario's
 // node and registers its cleanup. It returns the RuntimeClass name.
-func createKataRuntimeClass(ctx context.Context, s *Scenario) string {
+func createKataRuntimeClass(ctx context.Context, s *Scenario, handler string) string {
 	s.T.Helper()
 
 	kube := s.Runtime.Kube
-	name := truncateKataResourceName(fmt.Sprintf("kata-%s", s.Runtime.VM.KubeName))
+	name := truncateKataResourceName(fmt.Sprintf("%s-%s", handler, s.Runtime.VM.KubeName))
 
 	runtimeClass := &nodev1.RuntimeClass{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Handler:    kataRuntimeHandler,
+		Handler:    handler,
 		Scheduling: &nodev1.Scheduling{
 			NodeSelector: map[string]string{"kubernetes.io/hostname": s.Runtime.VM.KubeName},
 		},
 	}
 
 	_, err := kube.Typed.NodeV1().RuntimeClasses().Create(ctx, runtimeClass, metav1.CreateOptions{})
-	require.NoErrorf(s.T, err, "failed to create RuntimeClass %q for handler %q", name, kataRuntimeHandler)
+	require.NoErrorf(s.T, err, "failed to create RuntimeClass %q for handler %q", name, handler)
 
 	s.T.Cleanup(func() {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
@@ -188,20 +195,20 @@ func createKataRuntimeClass(ctx context.Context, s *Scenario) string {
 // createKataPod creates a long-lived pod bound to the given Kata RuntimeClass on the scenario's
 // node, waits for it to reach Running, and registers its cleanup. Unlike ValidatePodRunning the
 // pod is kept alive after this returns so callers can exec into it.
-func createKataPod(ctx context.Context, s *Scenario, runtimeClassName string) *corev1.Pod {
+func createKataPod(ctx context.Context, s *Scenario, runtimeClassName, handler string) *corev1.Pod {
 	s.T.Helper()
 
 	kube := s.Runtime.Kube
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      truncateKataResourceName(fmt.Sprintf("%s-kata-pod", s.Runtime.VM.KubeName)),
+			Name:      truncateKataResourceName(fmt.Sprintf("%s-%s-pod", s.Runtime.VM.KubeName, handler)),
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
 			RuntimeClassName: to.Ptr(runtimeClassName),
 			Containers: []corev1.Container{
 				{
-					Name:    "kata",
+					Name:    "workload",
 					Image:   "mcr.microsoft.com/cbl-mariner/busybox:2.0",
 					Command: []string{"sh", "-c"},
 					Args:    []string{"sleep 3600"},
@@ -231,7 +238,7 @@ func createKataPod(ctx context.Context, s *Scenario, runtimeClassName string) *c
 	running, err := kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name)
 	require.NoErrorf(s.T, err,
 		"kata pod %q never reached Running. This usually means containerd did not register the %q "+
-			"runtime handler from the AgentBaker-generated config", pod.Name, kataRuntimeHandler)
+			"runtime handler from the AgentBaker-generated config", pod.Name, handler)
 
 	return running
 }
