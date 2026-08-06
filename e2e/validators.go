@@ -1428,6 +1428,21 @@ func ValidateKubeletArgs(ctx context.Context, s *Scenario) {
 	ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt", "--windows-priorityclass=ABOVE_NORMAL_PRIORITY_CLASS"})
 }
 
+// ValidateContainerdWindowsPriorityClass verifies that the containerd service is registered
+// with nssm's AppPriority set to ABOVE_NORMAL_PRIORITY_CLASS, and that the running containerd
+// process actually has that OS process priority class applied.
+func ValidateContainerdWindowsPriorityClass(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	nssmCommand := "& \"c:\\k\\nssm.exe\" get containerd AppPriority"
+	nssmResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, nssmCommand, 0, "could not read containerd AppPriority from nssm")
+	require.Equal(s.T, "ABOVE_NORMAL_PRIORITY_CLASS", strings.TrimSpace(nssmResult.stdout), "expected containerd nssm service to be configured with AppPriority=ABOVE_NORMAL_PRIORITY_CLASS")
+
+	processCommand := "(Get-Process -Name containerd).PriorityClass"
+	processResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, processCommand, 0, "could not read containerd process priority class")
+	require.Equal(s.T, "AboveNormal", strings.TrimSpace(processResult.stdout), "expected containerd process to be running with AboveNormal priority class")
+}
+
 func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, processName string, arguments []string) {
 	steps := []string{
 		fmt.Sprintf("(Get-CimInstance Win32_Process -Filter \"name='%[1]s'\")[0].CommandLine", processName),
