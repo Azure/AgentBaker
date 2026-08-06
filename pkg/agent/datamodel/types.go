@@ -1696,7 +1696,7 @@ func FormatProdFQDNByLocation(fqdnPrefix string, location string, cloudSpecConfi
 
 type K8sComponents struct {
 	// Full path to the "pause" image. Used for --pod-infra-container-image.
-	// For example: "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6".
+	// For example: "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2".
 	PodInfraContainerImageURL string
 
 	// Full path to the hyperkube image.
