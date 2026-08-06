@@ -1178,7 +1178,7 @@ providers:
       - /etc/kubernetes/azure.json
       - --registry-mirror=mcr.microsoft.com:test.azurecr.io'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider for network isolated cluster"
+            The output should include "configure credential provider with default settings"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
@@ -1231,7 +1231,7 @@ providers:
       - /etc/kubernetes/azure.json
       - --registry-mirror=mcr.microsoft.com:test.azurecr.io'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider for custom cloud network isolated cluster"
+            The output should include "configure credential provider for custom cloud"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
@@ -1420,7 +1420,7 @@ providers:
       - --ib-default-tenant-id=my-tenant-id
       - --ib-apiserver-ip=apiserver.example.com'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider for network isolated cluster"
+            The output should include "configure credential provider with default settings"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
