@@ -14,8 +14,9 @@ func TestNBCToAKSNodeConfigV1PreservesContainerdConfig(t *testing.T) {
 	nbc.ContainerdPackageURL = "https://packages.aks.azure.com/containerd/test-containerd.deb"
 	nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase = "https://packages.aks.azure.com/containerd/"
 
-	cfg := nbcToAKSNodeConfigV1(nbc)
+	cfg, err := nbcToAKSNodeConfigV1(nbc)
 
+	require.NoError(t, err)
 	require.NotNil(t, cfg.ContainerdConfig)
 	require.Equal(t, nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase, cfg.ContainerdConfig.ContainerdDownloadUrlBase)
 	require.Equal(t, nbc.ContainerdVersion, cfg.ContainerdConfig.ContainerdVersion)
