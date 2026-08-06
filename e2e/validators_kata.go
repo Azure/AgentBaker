@@ -84,8 +84,10 @@ func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) {
 
 	dump := execResult.stdout
 
-	// The effective config must expose the kata runtime handler.
-	assert.Contains(s.T, dump, `runtimes.`+kataRuntimeHandler,
+	// The effective config must expose the kata runtime handler. Note the trailing "]": without
+	// it this would also match "runtimes.kata-preview" and pass even if the "kata" handler
+	// itself were missing.
+	assert.Contains(s.T, dump, `runtimes.`+kataRuntimeHandler+`]`,
 		"expected the %q runtime handler in the effective containerd config.\nDump:\n%s", kataRuntimeHandler, dump)
 	assert.Contains(s.T, dump, `runtime_type = "io.containerd.kata.v2"`,
 		"expected the kata v2 shim runtime_type in the effective containerd config.\nDump:\n%s", dump)
