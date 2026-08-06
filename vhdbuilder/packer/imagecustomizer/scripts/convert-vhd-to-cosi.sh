@@ -4,6 +4,46 @@ set -euo pipefail
 # Converts an ACL VHD to COSI and stages it for the separate "Upload COSI to PMC"
 # task (which runs under PMC's service connection).
 
+# Nebraska requires strict SemVer, so strip per-component leading zeros (e.g.
+# 202608.06.0 -> 202608.6.0) and append -fips for FIPS builds.
+generate_cosi_package_version() {
+    local raw_version="$1"
+    local enable_fips="$2"
+
+    # Drop any existing -fips so it is never duplicated; ENABLE_FIPS re-adds it.
+    local core="$raw_version"
+    case "${raw_version,,}" in
+        *-fips) core="${raw_version%-*}" ;;
+    esac
+
+    # Require exactly three numeric components (major.minor.patch).
+    local major minor patch extra
+    IFS='.' read -r major minor patch extra <<<"$core"
+    if [ -n "$extra" ]; then
+        echo "generate_cosi_package_version: '${core}' has more than three components" >&2
+        return 1
+    fi
+    local component
+    for component in "$major" "$minor" "$patch"; do
+        case "$component" in
+            ''|*[!0-9]*)
+                echo "generate_cosi_package_version: '${core}' must have exactly three numeric components" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    # 10# forces base-10 so values like 06 are not parsed as octal.
+    local version="$((10#$major)).$((10#$minor)).$((10#$patch))"
+    if [ "${enable_fips,,}" = "true" ]; then
+        version="${version}-fips"
+    fi
+    printf '%s\n' "$version"
+}
+
+# Source-guard: functions above are unit-tested; the flow below skips when sourced.
+${__SOURCED__:+return}
+
 required_env_vars=(
     "DESTINATION_STORAGE_CONTAINER"
     "CAPTURED_SIG_VERSION"
@@ -142,6 +182,13 @@ if [ -z "${IMAGE_VERSION:-}" ]; then
     echo "IMAGE_VERSION was not set, defaulting to ${IMAGE_VERSION}"
 fi
 
+# Normalize only the Nebraska-facing version; IMAGE_VERSION itself is unchanged.
+if ! COSI_IMAGE_VERSION="$(generate_cosi_package_version "${IMAGE_VERSION}" "${ENABLE_FIPS:-false}")"; then
+    echo "##vso[task.logissue type=error]Failed to derive a strict-SemVer COSI package version from IMAGE_VERSION='${IMAGE_VERSION}' (ENABLE_FIPS='${ENABLE_FIPS:-false}')"
+    exit 1
+fi
+echo "Normalized COSI package version: ${COSI_IMAGE_VERSION} (from IMAGE_VERSION=${IMAGE_VERSION}, ENABLE_FIPS=${ENABLE_FIPS:-false})"
+
 # ARCH_LOWER is derived once near the top of the script and reused here.
 if [ "${ARCH_LOWER,,}" = "arm64" ]; then
     IMAGE_ARCH="Arm64"
@@ -163,7 +210,7 @@ cat <<EOF > cosi-publishing-info.json
     "offer_name": "${OFFER_NAME:-}",
     "hyperv_generation": "${HYPERV_GENERATION:-}",
     "image_architecture": "${IMAGE_ARCH}",
-    "image_version": "${IMAGE_VERSION}"
+    "image_version": "${COSI_IMAGE_VERSION}"
 }
 EOF
 
