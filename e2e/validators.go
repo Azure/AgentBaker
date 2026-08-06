@@ -336,7 +336,9 @@ func RebootVMAndWaitForSSH(ctx context.Context, s *Scenario) {
 			return false, nil
 		}
 
-		execResult, err := runSSHCommand(ctx, sshClient, "cat /proc/sys/kernel/random/boot_id", s.IsWindows())
+		bootIDCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		execResult, err := runSSHCommand(bootIDCtx, sshClient, "cat /proc/sys/kernel/random/boot_id", s.IsWindows())
+		cancel()
 		if err != nil {
 			cleanupBastionTunnel(sshClient)
 			s.T.Logf("waiting for boot ID after reboot: %v", err)
