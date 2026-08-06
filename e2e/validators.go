@@ -2631,6 +2631,12 @@ func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin systemd service should be active and enabled")
 }
 
+func ValidateNvidiaDevicePluginMIGStrategy(ctx context.Context, s *Scenario, strategy string) {
+	s.T.Helper()
+	command := fmt.Sprintf("systemctl cat nvidia-device-plugin.service | grep -F -- '--mig-strategy %s'", strategy)
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "NVIDIA device plugin is not configured with MIG strategy "+strategy)
+}
+
 func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCountExpected int64, resourceName string) {
 	s.T.Helper()
 	s.T.Logf("validating that node advertises GPU resources")
@@ -2652,6 +2658,33 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCou
 	s.T.Logf("node %s advertises %s=%d resources", nodeName, resourceName, gpuCount)
 }
 
+func ValidateNodeAdvertisesExactGPUResources(ctx context.Context, s *Scenario, expected map[string]int64) {
+	s.T.Helper()
+	s.T.Logf("validating that node advertises exactly the expected NVIDIA GPU resources")
+
+	for resourceName := range expected {
+		waitUntilResourceAvailable(ctx, s, resourceName)
+	}
+
+	nodeName := s.Runtime.VM.KubeName
+	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	require.NoError(s.T, err, "failed to get node %q", nodeName)
+
+	getNvidiaResources := func(resources corev1.ResourceList) map[string]int64 {
+		result := make(map[string]int64)
+		for resourceName, quantity := range resources {
+			name := string(resourceName)
+			if strings.HasPrefix(name, "nvidia.com/") && quantity.Value() > 0 {
+				result[name] = quantity.Value()
+			}
+		}
+		return result
+	}
+
+	require.Equal(s.T, expected, getNvidiaResources(node.Status.Capacity), "node %s advertises unexpected NVIDIA GPU capacity", nodeName)
+	require.Equal(s.T, expected, getNvidiaResources(node.Status.Allocatable), "node %s advertises unexpected allocatable NVIDIA GPU resources", nodeName)
+}
+
 func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount int, resourceName string) {
 	s.T.Helper()
 	s.T.Logf("validating that GPU workloads can be scheduled")
@@ -2661,9 +2694,10 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount i
 	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
 
 	// Create a GPU test pod using the same pattern as podRunNvidiaWorkload
+	resourceID := strings.ReplaceAll(strings.TrimPrefix(resourceName, "nvidia.com/"), ".", "-")
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-gpu-test", s.Runtime.VM.KubeName),
+			Name:      fmt.Sprintf("%s-%s-test", s.Runtime.VM.KubeName, resourceID),
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
@@ -2830,6 +2864,28 @@ func ValidateMIGModeEnabled(ctx context.Context, s *Scenario, gpuCountExpected i
 		require.Equalf(s.T, "Enabled", strings.TrimSpace(gpuStatus), "expected MIG mode to be enabled on GPU %d", gpuIndex)
 	}
 	s.T.Logf("MIG mode is enabled on %d GPUs", gpuCountExpected)
+}
+
+func ValidateMIGInstanceProfileCounts(ctx context.Context, s *Scenario, expected map[string]int) {
+	s.T.Helper()
+	s.T.Logf("validating exact MIG instance profile counts")
+
+	command := []string{
+		"set -ex",
+		"sudo nvidia-smi mig -lgi",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to list MIG instances")
+
+	stdout := execResult.stdout
+	require.NotContains(s.T, stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout)
+
+	profilePattern := regexp.MustCompile(`MIG [0-9]+g\.[0-9]+gb(\+me)?`)
+	actual := make(map[string]int)
+	for _, profile := range profilePattern.FindAllString(stdout, -1) {
+		actual[profile]++
+	}
+
+	require.Equal(s.T, expected, actual, "unexpected MIG instance geometry.\nOutput:\n%s", stdout)
 }
 
 func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile string, instanceCountExpected int) {
