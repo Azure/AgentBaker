@@ -44,6 +44,49 @@ Describe 'cse_install_acl.sh'
     Include "./parts/linux/cloud-init/artifacts/acl/cse_install_acl.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
 
+    Describe 'installKubeletKubectlFromPkg'
+        It 'masks the kubelet sysext Upholds drop-in before activating the sysext'
+            MASK_CREATED=false
+            ln() {
+                if [ "$1" = "-sfn" ] && [ "$2" = "/dev/null" ] && [ "$3" = "/etc/systemd/system/multi-user.target.d/10-kubelet-kubelet.conf" ]; then
+                    MASK_CREATED=true
+                fi
+                echo "mock ln $*" >&2
+            }
+            mergeSysexts() {
+                if [ "$MASK_CREATED" != "true" ]; then
+                    echo "mergeSysexts called before the kubelet sysext Upholds drop-in was masked" >&2
+                    return 1
+                fi
+                echo "mock mergeSysexts $*" >&2
+            }
+            When call installKubeletKubectlFromPkg "1.33"
+            The error should include "mock mkdir -p /etc/systemd/system/multi-user.target.d"
+            The error should include "mock ln -sfn /dev/null /etc/systemd/system/multi-user.target.d/10-kubelet-kubelet.conf"
+            The error should include "mock mergeSysexts kubelet mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext 1.33 kubectl mcr.microsoft.com/oss/v2/kubernetes/kubectl-sysext 1.33"
+            The error should include "mock ln -snf /usr/bin/kubelet /usr/bin/kubectl /opt/bin/"
+            The error should not include "mergeSysexts called before"
+            The status should be success
+        End
+
+        It 'fails installation when the sysext Upholds drop-in cannot be masked'
+            mkdir() {
+                return 1
+            }
+            mergeSysexts() {
+                echo "unexpected mergeSysexts" >&2
+            }
+            installKubeletKubectlFromURL() {
+                echo "unexpected installKubeletKubectlFromURL" >&2
+            }
+            When run installKubeletKubectlFromPkg "1.33"
+            The error should include "Failed to create kubelet sysext systemd drop-in directory /etc/systemd/system/multi-user.target.d"
+            The error should not include "unexpected mergeSysexts"
+            The error should not include "unexpected installKubeletKubectlFromURL"
+            The status should equal "$ERR_K8S_INSTALL_ERR"
+        End
+    End
+
     Describe 'installSecureTLSBootstrapClientSysext'
         It 'calls mergeSysexts with correct URL and creates symlink on success'
             mergeSysexts() {

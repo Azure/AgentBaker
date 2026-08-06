@@ -1631,6 +1631,76 @@ func Test_AzureLinuxV3_CustomSysctls(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV3_CustomLinuxOSConfigPersistsAfterReboot(t *testing.T) {
+	customSysctls := map[string]string{
+		"net.ipv4.ip_local_port_range":       "32768 62535",
+		"net.netfilter.nf_conntrack_max":     "2097152",
+		"net.netfilter.nf_conntrack_buckets": "524288",
+		"net.ipv4.tcp_keepalive_intvl":       "90",
+	}
+	customContainerdUlimits := map[string]string{
+		"LimitMEMLOCK": "75000",
+		"LimitNOFILE":  "1048",
+	}
+	const (
+		swapFileSizeMB int32 = 64
+		thpEnabled           = "never"
+		thpDefrag            = "never"
+	)
+
+	RunScenario(t, &Scenario{
+		Description: "tests that AzureLinuxV3 custom Linux OS config persists after a node reboot",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
+					Sysctls: &datamodel.SysctlConfig{
+						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
+						NetNetfilterNfConntrackBuckets: to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
+						NetIpv4IpLocalPortRange:        customSysctls["net.ipv4.ip_local_port_range"],
+						NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
+					},
+					UlimitConfig: &datamodel.UlimitConfig{
+						MaxLockedMemory: customContainerdUlimits["LimitMEMLOCK"],
+						NoFile:          customContainerdUlimits["LimitNOFILE"],
+					},
+					SwapFileSizeMB:             to.Ptr(swapFileSizeMB),
+					TransparentHugePageEnabled: thpEnabled,
+					TransparentHugePageDefrag:  thpDefrag,
+				}
+				nbc.AgentPoolProfile.CustomKubeletConfig = &datamodel.CustomKubeletConfig{
+					FailSwapOn: to.Ptr(false),
+				}
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOsConfig{
+					SysctlConfig: &aksnodeconfigv1.SysctlConfig{
+						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
+						NetNetfilterNfConntrackBuckets: to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
+						NetIpv4IpLocalPortRange:        to.Ptr(customSysctls["net.ipv4.ip_local_port_range"]),
+						NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
+					},
+					UlimitConfig: &aksnodeconfigv1.UlimitConfig{
+						MaxLockedMemory: to.Ptr(customContainerdUlimits["LimitMEMLOCK"]),
+						NoFile:          to.Ptr(customContainerdUlimits["LimitNOFILE"]),
+					},
+					EnableSwapConfig:           true,
+					SwapFileSize:               swapFileSizeMB,
+					TransparentHugepageSupport: thpEnabled,
+					TransparentDefrag:          thpDefrag,
+				}
+				config.KubeletConfig.EnableKubeletConfigFile = true
+				config.KubeletConfig.KubeletConfigFileConfig.FailSwapOn = to.Ptr(false)
+			},
+			WaitForSSHAfterReboot: 10 * time.Minute,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateCustomLinuxOSConfigPersistsAfterReboot(ctx, s, customSysctls, customContainerdUlimits, swapFileSizeMB, thpEnabled, thpDefrag)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{

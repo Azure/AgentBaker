@@ -17,16 +17,96 @@ Environment="KUBE_API_SERVER_NAME=${API_SERVER_NAME}"
 EOF
   systemctlEnableAndStart reconcile-private-hosts 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
+
 configureTransparentHugePage() {
-    ETC_SYSFS_CONF="/etc/sysfs.conf"
+    local etc_sysfs_conf="/etc/sysfs.conf"
+
+    applyTransparentHugePageValues
+
     if [ -n "${THP_ENABLED}" ]; then
-        echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
-        echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${ETC_SYSFS_CONF}
+        printf 'kernel/mm/transparent_hugepage/enabled=%s\n' "${THP_ENABLED}" >> "${etc_sysfs_conf}" || exit "$ERR_SYSCTL_RELOAD"
     fi
     if [ -n "${THP_DEFRAG}" ]; then
-        echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
-        echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
+        printf 'kernel/mm/transparent_hugepage/defrag=%s\n' "${THP_DEFRAG}" >> "${etc_sysfs_conf}" || exit "$ERR_SYSCTL_RELOAD"
     fi
+    reconcileTransparentHugePagePersistence
+}
+
+applyTransparentHugePageValues() {
+    local thp_enabled_path="/sys/kernel/mm/transparent_hugepage/enabled"
+    local thp_defrag_path="/sys/kernel/mm/transparent_hugepage/defrag"
+
+    if [ -n "${THP_ENABLED}" ]; then
+        printf '%s\n' "${THP_ENABLED}" > "${thp_enabled_path}" || exit "$ERR_SYSCTL_RELOAD"
+    fi
+    if [ -n "${THP_DEFRAG}" ]; then
+        printf '%s\n' "${THP_DEFRAG}" > "${thp_defrag_path}" || exit "$ERR_SYSCTL_RELOAD"
+    fi
+}
+
+reconcileTransparentHugePagePersistence() {
+    if { [ -n "${THP_ENABLED}" ] || [ -n "${THP_DEFRAG}" ]; } && isMarinerOrAzureLinux "$OS" "$OS_VARIANT"; then
+        configureTransparentHugePageSystemdService
+    fi
+}
+
+configureTransparentHugePageSystemdService() {
+    local service_name="aks-transparent-hugepage"
+    local script_path="/opt/azure/containers/aks-transparent-hugepage.sh"
+    local config_dir="/opt/azure/containers/aks-transparent-hugepage"
+    local service_path="/etc/systemd/system/${service_name}.service"
+
+    mkdir -p "$(dirname "${script_path}")" "${config_dir}" || exit "$ERR_SYSCTL_RELOAD"
+    if [ -n "${THP_ENABLED}" ]; then
+        printf '%s\n' "${THP_ENABLED}" | tee "${config_dir}/enabled" > /dev/null || exit "$ERR_SYSCTL_RELOAD"
+    else
+        rm -f "${config_dir}/enabled" || exit "$ERR_SYSCTL_RELOAD"
+    fi
+    if [ -n "${THP_DEFRAG}" ]; then
+        printf '%s\n' "${THP_DEFRAG}" | tee "${config_dir}/defrag" > /dev/null || exit "$ERR_SYSCTL_RELOAD"
+    else
+        rm -f "${config_dir}/defrag" || exit "$ERR_SYSCTL_RELOAD"
+    fi
+
+    if ! tee "${script_path}" > /dev/null <<'EOF'
+#!/bin/bash
+set -e
+config_dir="/opt/azure/containers/aks-transparent-hugepage"
+thp_enabled_config="${config_dir}/enabled"
+thp_defrag_config="${config_dir}/defrag"
+
+if [ -s "${thp_enabled_config}" ]; then
+    cat "${thp_enabled_config}" > /sys/kernel/mm/transparent_hugepage/enabled
+fi
+if [ -s "${thp_defrag_config}" ]; then
+    cat "${thp_defrag_config}" > /sys/kernel/mm/transparent_hugepage/defrag
+fi
+EOF
+    then
+        exit "$ERR_SYSCTL_RELOAD"
+    fi
+    chmod 0755 "${script_path}" || exit "$ERR_SYSCTL_RELOAD"
+
+    if ! tee "${service_path}" > /dev/null <<EOF
+[Unit]
+Description=Apply AKS transparent huge page settings
+After=systemd-sysctl.service
+Before=kubelet.service
+ConditionPathExists=/sys/kernel/mm/transparent_hugepage
+
+[Service]
+Type=oneshot
+ExecStart=${script_path}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    then
+        exit "$ERR_SYSCTL_RELOAD"
+    fi
+
+    systemctl daemon-reload || exit "$ERR_SYSTEMCTL_START_FAIL"
+    systemctlEnableAndStart "${service_name}" 30 || exit "$ERR_SYSTEMCTL_START_FAIL"
 }
 
 configureSystemdUseDomains() {
@@ -49,20 +129,113 @@ configureSystemdUseDomains() {
     systemctl restart rsyslog
 }
 
+swapFileIsActive() {
+    local swap_location="$1"
+
+    swapon --show --noheadings | awk '{print $1}' | grep -Fxq "${swap_location}"
+}
+
+getFileMode() {
+    local file="$1"
+
+    stat -c "%a" "${file}" 2>/dev/null || stat -f "%Lp" "${file}" 2>/dev/null
+}
+
+ensureSwapFileFstabEntry() {
+    local swap_location="$1"
+    local fstab_entry="${swap_location} none swap noauto,nofail 0 0"
+    local fstab_file="${2:-/etc/fstab}"
+    local fstab_dir
+    local fstab_mode
+    local temp_fstab
+
+    fstab_dir="$(dirname "${fstab_file}")"
+    temp_fstab="$(mktemp "${fstab_dir}/fstab.XXXXXX")" || return 1
+    fstab_mode="$(getFileMode "${fstab_file}")" || {
+        rm -f "${temp_fstab}"
+        return 1
+    }
+    chmod "${fstab_mode}" "${temp_fstab}" || {
+        rm -f "${temp_fstab}"
+        return 1
+    }
+    awk -v swap_location="${swap_location}" '$1 != swap_location { print }' "${fstab_file}" > "${temp_fstab}" || {
+        rm -f "${temp_fstab}"
+        return 1
+    }
+    echo "${fstab_entry}" >> "${temp_fstab}" || {
+        rm -f "${temp_fstab}"
+        return 1
+    }
+    mv "${temp_fstab}" "${fstab_file}" || {
+        rm -f "${temp_fstab}"
+        return 1
+    }
+}
+
+findExistingSwapFileLocation() {
+    local resource_disk_path
+    local swap_location
+
+    if [ -L /dev/disk/azure/resource-part1 ]; then
+        resource_disk_path=$(findmnt -nr -o target -S "$(readlink -f /dev/disk/azure/resource-part1)" || true)
+        swap_location="${resource_disk_path}/swapfile"
+        if [ -n "${resource_disk_path}" ] && [ -f "${swap_location}" ]; then
+            echo "${swap_location}"
+            return 0
+        fi
+    fi
+
+    if [ -f /swapfile ]; then
+        echo "/swapfile"
+        return 0
+    fi
+
+    return 1
+}
+
+reconcileSwapFilePersistence() {
+    local swap_location="${1:-}"
+
+    if [ -z "${swap_location}" ]; then
+        swap_location="$(findExistingSwapFileLocation || true)"
+    fi
+
+    if [ -z "${swap_location}" ]; then
+        echo "No existing AKS swap file found; creating swap file for persistence reconciliation"
+        configureSwapFile
+        return 0
+    fi
+
+    ensureSwapFileFstabEntry "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+    configureSwapFileSystemdService "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+}
+
 configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
-    swap_size_kb=$(expr ${SWAP_FILE_SIZE_MB} \* 1000)
+    swap_size_kb=$(expr "${SWAP_FILE_SIZE_MB}" \* 1000)
     swap_location=""
 
     # Attempt to use the resource disk
     if [ -L /dev/disk/azure/resource-part1 ]; then
-        resource_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/resource-part1))
-        disk_free_kb=$(df ${resource_disk_path} | sed 1d | awk '{print $4}')
-        if [ "${disk_free_kb}" -gt "${swap_size_kb}" ]; then
-            echo "Will use resource disk for swap file"
-            swap_location=${resource_disk_path}/swapfile
+        resource_disk_path=$(findmnt -nr -o target -S "$(readlink -f /dev/disk/azure/resource-part1)" || true)
+        if [ -n "${resource_disk_path}" ]; then
+            disk_free_kb=$(df -P "${resource_disk_path}" | sed 1d | awk '{print $4}')
+            case "${disk_free_kb}" in
+                ''|*[!0-9]*)
+                    echo "Could not determine free space on resource disk, attempting to fall back to OS disk..."
+                    ;;
+                *)
+                    if [ "${disk_free_kb}" -gt "${swap_size_kb}" ]; then
+                        echo "Will use resource disk for swap file"
+                        swap_location=${resource_disk_path}/swapfile
+                    else
+                        echo "Insufficient disk space on resource disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}, attempting to fall back to OS disk..."
+                    fi
+                    ;;
+            esac
         else
-            echo "Insufficient disk space on resource disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}, attempting to fall back to OS disk..."
+            echo "Could not determine resource disk mountpoint, attempting to fall back to OS disk..."
         fi
     fi
 
@@ -81,12 +254,58 @@ configureSwapFile() {
     fi
 
     echo "Swap file will be saved to: ${swap_location}"
-    retrycmd_if_failure 24 5 25 fallocate -l ${swap_size_kb}K ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-    chmod 600 ${swap_location}
-    retrycmd_if_failure 24 5 25 mkswap ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-    retrycmd_if_failure 24 5 25 swapon ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-    retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-    echo "${swap_location} none swap sw 0 0" >> /etc/fstab
+    retrycmd_if_failure 24 5 25 fallocate -l "${swap_size_kb}K" "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+    chmod 600 "${swap_location}"
+    retrycmd_if_failure 24 5 25 mkswap "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+    retrycmd_if_failure 24 5 25 swapon "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+    swapFileIsActive "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+    reconcileSwapFilePersistence "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+}
+
+configureSwapFileSystemdService() {
+    local swap_location="$1"
+    local service_name="aks-swapfile"
+    local script_path="/opt/azure/containers/aks-swapfile.sh"
+    local service_path="/etc/systemd/system/${service_name}.service"
+    local swap_mount_path
+
+    swap_mount_path="$(dirname "${swap_location}")"
+
+    mkdir -p "$(dirname "${script_path}")" || exit "$ERR_SWAP_CREATE_FAIL"
+    if ! tee "${script_path}" > /dev/null <<EOF
+#!/bin/bash
+set -e
+if ! swapon --show --noheadings | awk '{print \$1}' | grep -Fxq "${swap_location}"; then
+    swapon "${swap_location}"
+fi
+EOF
+    then
+        exit "$ERR_SWAP_CREATE_FAIL"
+    fi
+    chmod 0755 "${script_path}" || exit "$ERR_SWAP_CREATE_FAIL"
+
+    if ! tee "${service_path}" > /dev/null <<EOF
+[Unit]
+Description=Activate AKS swap file
+After=local-fs.target
+Before=kubelet.service
+RequiresMountsFor=${swap_mount_path}
+ConditionPathExists=${swap_location}
+
+[Service]
+Type=oneshot
+ExecStart=${script_path}
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    then
+        exit "$ERR_SWAP_CREATE_FAIL"
+    fi
+
+    systemctl daemon-reload || exit "$ERR_SYSTEMCTL_START_FAIL"
+    systemctlEnableAndStart "${service_name}" 30 || exit "$ERR_SYSTEMCTL_START_FAIL"
 }
 
 configureEtcEnvironment() {
@@ -1234,7 +1453,14 @@ pullGPUDriverImage() {
     # Cache-miss path only. Retry to ride out a transient blip, but stay tight: a truly missing image
     # should fail fast rather than eat the shared CSE window the driver install needs next. retrycmd
     # also self-caps to the CSE budget, so this can't overrun provisioning.
-    retrycmd_if_failure 3 5 120 ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+    retrycmd_if_failure 3 5 120 ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE_PULL_REF:$NVIDIA_DRIVER_IMAGE_TAG || return 1
+    if [ "$NVIDIA_DRIVER_IMAGE_PULL_REF" != "$NVIDIA_DRIVER_IMAGE" ]; then
+        # Converge onto the canonical ref that install and cleanup use. Removing the pull ref drops
+        # only the name; the canonical tag still holds the manifest, so no blobs are collected.
+        ctr -n k8s.io image tag $NVIDIA_DRIVER_IMAGE_PULL_REF:$NVIDIA_DRIVER_IMAGE_TAG $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG || return 1
+        ctr -n k8s.io image rm $NVIDIA_DRIVER_IMAGE_PULL_REF:$NVIDIA_DRIVER_IMAGE_TAG
+    fi
+    return 0 # the rm above is best effort; don't let it set the caller's exit code
 }
 
 installGPUDriverImage() {

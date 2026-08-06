@@ -142,9 +142,11 @@ func getBaseNBC(ctx context.Context, t testing.TB, cluster *Cluster, vhd *config
 
 // is a temporary workaround
 // eventually we want to phase out usage of nbc
-func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnodeconfigv1.Configuration {
+func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksnodeconfigv1.Configuration, error) {
 	cs := nbc.ContainerService
-	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
+	if err := agent.ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(nbc); err != nil {
+		return nil, err
+	}
 
 	bootstrappingConfig := &aksnodeconfigv1.BootstrappingConfig{
 		TlsBootstrappingToken:                           nbc.KubeletClientTLSBootstrapToken,
@@ -379,7 +381,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		cfg.KubeletConfig.KubeletFlags = kubeletFlags
 	}
 
-	return cfg
+	return cfg, nil
 }
 
 // this is huge, but accurate, so leave it here.
