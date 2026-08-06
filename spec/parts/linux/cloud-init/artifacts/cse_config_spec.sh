@@ -2681,7 +2681,7 @@ OVERRIDE_EOF
 
                 The status should be success
                 The output should include "systemctl daemon-reload"
-                The contents of file "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should include "ExecCondition=/bin/false"
+                The contents of file "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should include "ExecCondition=/bin/sh -c 'exit 3'"
                 The contents of file "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should include "Restart=no"
                 The contents of file "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should include "SuccessExitStatus=1 2 127"
                 The contents of file "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}" should include "StartLimitIntervalSec=0"
@@ -2700,7 +2700,7 @@ OVERRIDE_EOF
         Describe 'finalizeNvidiaCDIRefresh'
             setup_staged_dropins() {
                 mkdir -p "$(dirname "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}")" "$(dirname "${NVIDIA_CDI_REFRESH_PATH_DROP_IN}")"
-                echo "ExecCondition=/bin/false" > "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}"
+                echo "ExecCondition=/bin/sh -c 'exit 3'" > "${NVIDIA_CDI_REFRESH_SERVICE_DROP_IN}"
                 echo "staged" > "${NVIDIA_CDI_REFRESH_PATH_DROP_IN}"
             }
             BeforeEach 'setup_staged_dropins'

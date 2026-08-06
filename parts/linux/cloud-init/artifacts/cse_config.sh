@@ -1470,13 +1470,19 @@ installGPUDriverImage() {
 NVIDIA_CDI_REFRESH_SERVICE_DROP_IN="/etc/systemd/system/nvidia-cdi-refresh.service.d/10-aks-cdi-refresh.conf"
 NVIDIA_CDI_REFRESH_PATH_DROP_IN="/etc/systemd/system/nvidia-cdi-refresh.path.d/10-aks-cdi-refresh.conf"
 
-# $1: "true" to add ExecCondition=/bin/false, which makes systemd skip the unit and report the
-# job as successful without ever running nvidia-ctk. "false" lets the unit run normally.
+# $1: "true" to add an ExecCondition that always fails, which makes systemd skip the unit and
+# report the job as successful without ever running nvidia-ctk. "false" lets the unit run.
+#
+# The condition command must exit non-zero AND outside SuccessExitStatus: systemd checks an
+# ExecCondition exit status against SuccessExitStatus first, and treats a listed status as
+# "condition met". /bin/false exits 1, which is listed below, so it would let ExecStart run.
+# Exit 3 is unambiguous.
 #
 # Restart=no plus an unlimited start-limit window stop the restart storm that otherwise leaves
 # nvidia-cdi-refresh.path dead with unit-start-limit-hit. SuccessExitStatus covers the nvidia-ctk
 # exits seen on healthy AKS nodes: 1 (spec generation refused), 2 (Go runtime crash against a
-# partially loaded driver) and 127 (nvidia-smi / libnvidia-ml.so not on the host yet).
+# partially loaded driver) and 127 (nvidia-smi / libnvidia-ml.so not on the host yet). It is also
+# the fallback if ExecCondition is ignored, so both layers must be able to stand alone.
 writeNvidiaCDIRefreshDropIns() {
     local skip_run="$1"
 
@@ -1485,7 +1491,7 @@ writeNvidiaCDIRefreshDropIns() {
     {
         printf '[Unit]\nStartLimitIntervalSec=0\n\n[Service]\nRestart=no\nSuccessExitStatus=1 2 127\n'
         if [ "$skip_run" = "true" ]; then
-            printf 'ExecCondition=/bin/false\n'
+            printf "ExecCondition=/bin/sh -c 'exit 3'\n"
         fi
     } > "$NVIDIA_CDI_REFRESH_SERVICE_DROP_IN" || return 1
 
