@@ -1234,7 +1234,14 @@ pullGPUDriverImage() {
     # Cache-miss path only. Retry to ride out a transient blip, but stay tight: a truly missing image
     # should fail fast rather than eat the shared CSE window the driver install needs next. retrycmd
     # also self-caps to the CSE budget, so this can't overrun provisioning.
-    retrycmd_if_failure 3 5 120 ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+    retrycmd_if_failure 3 5 120 ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE_PULL_REF:$NVIDIA_DRIVER_IMAGE_TAG || return 1
+    if [ "$NVIDIA_DRIVER_IMAGE_PULL_REF" != "$NVIDIA_DRIVER_IMAGE" ]; then
+        # Converge onto the canonical ref that install and cleanup use. Removing the pull ref drops
+        # only the name; the canonical tag still holds the manifest, so no blobs are collected.
+        ctr -n k8s.io image tag $NVIDIA_DRIVER_IMAGE_PULL_REF:$NVIDIA_DRIVER_IMAGE_TAG $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG || return 1
+        ctr -n k8s.io image rm $NVIDIA_DRIVER_IMAGE_PULL_REF:$NVIDIA_DRIVER_IMAGE_TAG
+    fi
+    return 0 # the rm above is best effort; don't let it set the caller's exit code
 }
 
 installGPUDriverImage() {
