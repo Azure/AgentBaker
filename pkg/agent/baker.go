@@ -2183,14 +2183,15 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+  snapshotter = "overlayfs"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
   snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
-    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-templating.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2262,14 +2263,15 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+  snapshotter = "overlayfs"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
   snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
-    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-templating.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
