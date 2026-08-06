@@ -22,6 +22,7 @@ import (
 	errorsk8s "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -589,6 +590,35 @@ func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 						Image:   image,
 						Command: []string{"python3", "/opt/proxy/proxy.py"},
 						Ports:   []corev1.ContainerPort{{ContainerPort: int32(proxyPort), HostPort: int32(proxyPort)}},
+						// Check whether proxy has started before starting the readiness and liveness probes.
+						// Allow up to 60s total (5 + 12×5) for a slow-starting proxy before giving up.
+						StartupProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(proxyPort)},
+							},
+							InitialDelaySeconds: 5,
+							PeriodSeconds:       5,
+							FailureThreshold:    12,
+						},
+						// Gate readiness on the proxy actually accepting TCP connections on :8888.
+						ReadinessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(proxyPort)},
+							},
+							InitialDelaySeconds: 5,
+							PeriodSeconds:       5,
+							FailureThreshold:    3,
+						},
+						// Restart the container if it stops serving on :8888.
+						// Only restart after sustained failure (30s delay + 3×10s) to avoid restart loops on transient blips.
+						LivenessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(proxyPort)},
+							},
+							InitialDelaySeconds: 30,
+							PeriodSeconds:       10,
+							FailureThreshold:    3,
+						},
 						VolumeMounts: []corev1.VolumeMount{
 							{Name: "proxy-script", MountPath: "/opt/proxy", ReadOnly: true},
 						},
@@ -612,16 +642,15 @@ func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 	var proxyURL string
 	var lastPodStatuses []string
+	selfHealDelay := 3 * time.Minute
+	start := time.Now()
+	selfHealed := false
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
-		pods, err := k.Typed.CoreV1().Pods("default").List(ctx, metav1.ListOptions{
+		pods, err := k.Typed.CoreV1().Pods(defaultNamespace).List(ctx, metav1.ListOptions{
 			LabelSelector: "app=" + proxyAppLabel,
 		})
 		if err != nil {
 			return false, fmt.Errorf("listing proxy pods: %w", err)
-		}
-		if len(pods.Items) == 0 {
-			lastPodStatuses = []string{"no proxy pods found"}
-			return false, nil
 		}
 		lastPodStatuses = lastPodStatuses[:0]
 		for _, pod := range pods.Items {
@@ -633,6 +662,19 @@ func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 			}
 			lastPodStatuses = append(lastPodStatuses, formatPodDiagnostics(&pod))
 		}
+		if len(pods.Items) == 0 {
+			lastPodStatuses = []string{"no proxy pods found"}
+		}
+		// Self-heal once: if pods exist but none became ready within the grace
+		// period, delete them so the DaemonSet reschedules fresh ones
+		if !selfHealed && len(pods.Items) > 0 && time.Since(start) >= selfHealDelay {
+			selfHealed = true
+			if rerr := k.recreateProxyPods(ctx); rerr != nil {
+				toolkit.Logf(ctx, "failed to recreate proxy pods after %s: %v", selfHealDelay, rerr)
+			} else {
+				toolkit.Logf(ctx, "recreated proxy pods after %s without a ready proxy", selfHealDelay)
+			}
+		}
 		return false, nil
 	})
 	if err != nil {
@@ -640,6 +682,23 @@ func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("waiting for proxy pod to be ready: %w", err)
 	}
 	return proxyURL, nil
+}
+
+// recreateProxyPods deletes all proxy pods so the DaemonSet reschedules fresh ones
+func (k *Kubeclient) recreateProxyPods(ctx context.Context) error {
+	pods, err := k.Typed.CoreV1().Pods(defaultNamespace).List(ctx, metav1.ListOptions{
+		LabelSelector: "app=" + proxyAppLabel,
+	})
+	if err != nil {
+		return fmt.Errorf("listing proxy pods for recreate: %w", err)
+	}
+	for i := range pods.Items {
+		name := pods.Items[i].Name
+		if err := k.Typed.CoreV1().Pods(defaultNamespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !errorsk8s.IsNotFound(err) {
+			return fmt.Errorf("deleting proxy pod %s for recreate: %w", name, err)
+		}
+	}
+	return nil
 }
 
 func formatPodDiagnostics(pod *corev1.Pod) string {
@@ -666,9 +725,61 @@ func (k *Kubeclient) logProxyTimeoutDiagnostics(ctx context.Context, lastPodStat
 	for _, s := range lastPodStatuses {
 		toolkit.Logf(ctx, "    %s", s)
 	}
-	// Log ALL nodes with labels and conditions to diagnose scheduling issues
+
 	listCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
+	ds, err := k.Typed.AppsV1().DaemonSets(defaultNamespace).Get(listCtx, proxyAppLabel, metav1.GetOptions{})
+	if err != nil {
+		toolkit.Logf(ctx, "    (failed to get proxy daemonset: %v)", err)
+	} else {
+		toolkit.Logf(
+			ctx,
+			"    --- proxy daemonset status: desired=%d current=%d updated=%d ready=%d available=%d unavailable=%d ---",
+			ds.Status.DesiredNumberScheduled,
+			ds.Status.CurrentNumberScheduled,
+			ds.Status.UpdatedNumberScheduled,
+			ds.Status.NumberReady,
+			ds.Status.NumberAvailable,
+			ds.Status.NumberUnavailable,
+		)
+		for _, condition := range ds.Status.Conditions {
+			toolkit.Logf(ctx, "    condition(%s=%s reason=%s message=%s)", condition.Type, condition.Status, condition.Reason, condition.Message)
+		}
+	}
+
+	events, err := k.Typed.CoreV1().Events(defaultNamespace).List(listCtx, metav1.ListOptions{})
+	if err != nil {
+		toolkit.Logf(ctx, "    (failed to list proxy events: %v)", err)
+	} else {
+		eventCount := 0
+		for _, event := range events.Items {
+			isProxyDaemonSet := event.InvolvedObject.Kind == "DaemonSet" && event.InvolvedObject.Name == proxyAppLabel
+			isProxyPod := event.InvolvedObject.Kind == "Pod" && strings.HasPrefix(event.InvolvedObject.Name, proxyAppLabel+"-")
+			if !isProxyDaemonSet && !isProxyPod {
+				continue
+			}
+			if eventCount == 0 {
+				toolkit.Logf(ctx, "    --- proxy daemonset and pod events ---")
+			}
+			eventCount++
+			toolkit.Logf(
+				ctx,
+				"    type=%s object=%s/%s reason=%s count=%d message=%s",
+				event.Type,
+				event.InvolvedObject.Kind,
+				event.InvolvedObject.Name,
+				event.Reason,
+				event.Count,
+				event.Message,
+			)
+		}
+		if eventCount == 0 {
+			toolkit.Logf(ctx, "    --- no proxy daemonset or pod events found ---")
+		}
+	}
+
+	// Log ALL nodes with labels and conditions to diagnose scheduling issues
 	nodes, err := k.Typed.CoreV1().Nodes().List(listCtx, metav1.ListOptions{})
 	if err != nil {
 		toolkit.Logf(ctx, "    (failed to list nodes: %v)", err)
