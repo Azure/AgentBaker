@@ -210,6 +210,12 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		DisableCustomData:   true,
 		LinuxAdminUsername:  "azureuser",
 		VmSize:              config.Config.DefaultVMSKU,
+		// The scriptless/aks-node-controller path gates its Kata containerd config blocks on
+		// this field alone, whereas the NBC/baker path derives Kata from the agent pool distro
+		// (see Distro.IsKataDistro and the IsKata template func in pkg/agent/baker.go). Without
+		// this mapping a scriptless scenario running on a Kata VHD would silently get a Kata
+		// image with a non-Kata containerd config.
+		IsKata: nbc.AgentPoolProfile.Distro.IsKataDistro(),
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
 			Location:            nbc.ContainerService.Location,
 			ResourceGroup:       nbc.ResourceGroupName,
