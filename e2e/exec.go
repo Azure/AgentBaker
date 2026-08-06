@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	scp "github.com/bramvdbogaerde/go-scp"
@@ -18,12 +17,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 )
-
-var bufferPool = sync.Pool{
-	New: func() any {
-		return new(bytes.Buffer)
-	},
-}
 
 type podExecResult struct {
 	exitCode       string
@@ -111,17 +104,26 @@ func runSSHCommandWithPrivateKeyFile(
 	}
 	defer session.Close()
 
-	stdout := bufferPool.Get().(*bytes.Buffer)
-	stderr := bufferPool.Get().(*bytes.Buffer)
-	stdout.Reset()
-	stderr.Reset()
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	session.Stdout = &stdout
+	session.Stderr = &stderr
 
-	defer bufferPool.Put(stdout)
-	defer bufferPool.Put(stderr)
-	session.Stdout = stdout
-	session.Stderr = stderr
-
-	err = session.Run(command)
+	runErr := make(chan error, 1)
+	go func() {
+		runErr <- session.Run(command)
+	}()
+	select {
+	case err = <-runErr:
+	case <-ctx.Done():
+		_ = session.Close()
+		_ = client.Close()
+		select {
+		case <-runErr:
+		case <-time.After(5 * time.Second):
+		}
+		return nil, fmt.Errorf("SSH command canceled or timed out: %w", ctx.Err())
+	}
 
 	exitCode := 0
 	if err != nil {
