@@ -3,97 +3,97 @@
 
 # Define all exit codes in Windows CSE
 # It must match `[A-Z_]+`
-$global:WINDOWS_CSE_SUCCESS = 0
-$global:WINDOWS_CSE_ERROR_UNKNOWN = 1 # For unexpected error caught by the catch block in kuberneteswindowssetup.ps1.template.template
-$global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY = 2
-$global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE = 3
-$global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST = 4
-$global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY = 5
-$global:WINDOWS_CSE_ERROR_PAUSE_IMAGE_NOT_EXIST = 6
-$global:WINDOWS_CSE_ERROR_GET_SUBNET_PREFIX = 7
-$global:WINDOWS_CSE_ERROR_GENERATE_TOKEN_FOR_ARM = 8
-$global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST = 9
-$global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST = 10
-$global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST = 11
-$global:WINDOWS_CSE_ERROR_CALICO_SERVICE_ACCOUNT_NOT_EXIST = 12
-$global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED = 13
-$global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING = 14
-$global:WINDOWS_CSE_ERROR_OPENSSH_NOT_INSTALLED = 15
-$global:WINDOWS_CSE_ERROR_OPENSSH_FIREWALL_NOT_CONFIGURED = 16
-$global:WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG = 17
-$global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER = 18
-$global:WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES = 19
-$global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES = 20
-$global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES = 21
-$global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS = 22
-$global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE = 23
-$global:WINDOWS_CSE_ERROR_GMSA_ENABLE_POWERSHELL_PRIVILEGE = 24
-$global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION = 25
-$global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES = 26
-$global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS = 27
-$global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGAKVPPLUGINEVENTS = 28
-$global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP = 29
-$global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER = 30
-$global:WINDOWS_CSE_ERROR_NOT_FOUND_PROVISIONING_SCRIPTS = 31
-$global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK = 32
-$global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE = 33
-$global:WINDOWS_CSE_ERROR_DOWNLOAD_KUBERNETES_PACKAGE = 34
-$global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE = 35
-$global:WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE = 36
-$global:WINDOWS_CSE_ERROR_DOWNLOAD_CALICO_PACKAGE = 37
-$global:WINDOWS_CSE_ERROR_DOWNLOAD_GMSA_PACKAGE = 38
-$global:WINDOWS_CSE_ERROR_DOWNLOAD_CSI_PROXY_PACKAGE = 39
-$global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE = 40
-$global:WINDOWS_CSE_ERROR_SET_TCP_DYNAMIC_PORT_RANGE = 41
-$global:WINDOWS_CSE_ERROR_BUILD_DOCKER_PAUSE_CONTAINER = 42
-$global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE = 43
-$global:WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE = 44
-$global:WINDOWS_CSE_ERROR_CONTAINERD_BINARY_EXIST = 45
-$global:WINDOWS_CSE_ERROR_SET_TCP_EXCLUDE_PORT_RANGE = 46
-$global:WINDOWS_CSE_ERROR_SET_UDP_DYNAMIC_PORT_RANGE = 47
-$global:WINDOWS_CSE_ERROR_SET_UDP_EXCLUDE_PORT_RANGE = 48
-$global:WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN = 49 # Return this error code in csecmd.ps1 when C:\AzureData\CustomData.bin does not exist
-$global:WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG = 50 # Return this error code in csecmd.ps1 when C:\AzureData\CSEResult.log does not exist
-$global:WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS = 51
-$global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE = 52
-$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED = 53
-$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_TIMEOUT = 54
-$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_VM_SIZE_NOT_SUPPORTED = 55
-$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_SET = 56
-$global:WINDOWS_CSE_ERROR_GPU_SKU_INFO_NOT_FOUND = 57
-$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE = 58
-$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INVALID_SIGNATURE = 59
-$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_EXCEPTION = 60
-$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE = 61
-$global:WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG = 62
-$global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP = 63
-$global:WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION = 64
-$global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER = 65 # exit code for installing credential provider
-$global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER = 66 # exit code for downloading credential provider failure
-$global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG = 67 # exit code for checking credential provider config failure
-$global:WINDOWS_CSE_ERROR_ADJUST_PAGEFILE_SIZE = 68
-$global:WINDOWS_CSE_ERROR_LOOKUP_INSTANCE_DATA_TAG = 69 # exit code for looking up nodepool/VM tags via IMDS
-$global:WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT = 70 # exit code for downloading secure TLS bootstrap client failure
-$global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT = 71 # exit code for installing secure TLS bootstrap client failure
-$global:WINDOWS_CSE_ERROR_WINDOWS_CILIUM_NETWORKING_INSTALL_FAILED = 72
-$global:WINDOWS_CSE_ERROR_EXTRACT_ZIP = 73
-$global:WINDOWS_CSE_ERROR_LOAD_METADATA = 74
-$global:WINDOWS_CSE_ERROR_PARSE_METADATA = 75
-$global:WINDOWS_CSE_ERROR_ORAS_NOT_FOUND = 76 # exit code for not finding oras in the expected path, which is a prerequisite for pulling packages from registry for network isolated cluster
-$global:WINDOWS_CSE_ERROR_ORAS_IMDS_TIMEOUT = 77 # exit code for timeout waiting for IMDS response
-$global:WINDOWS_CSE_ERROR_ORAS_PULL_NETWORK_TIMEOUT = 78 # exit code for error pulling oras when login
-$global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED = 79 # exit code for error pulling artifact with oras from registry with authorization issue
-$global:WINDOWS_CSE_ERROR_ORAS_PULL_WINDOWSZIP_FAIL = 80 # exit code for error pulling kubelet kubectl artifact with oras from registry
-$global:WINDOWS_CSE_ERROR_ORAS_PULL_CREDENTIAL_PROVIDER = 81 # exit code for error pulling credential provider artifact with oras from registry
-$global:WINDOWS_CSE_ERROR_ORAS_PULL_POD_INFRA_CONTAINER = 82 # exit code for error pulling pause image with oras from registry
-$global:WINDOWS_CSE_ERROR_NETWORK_ISOLATED_CLUSTER_CSE_NOT_CACHED = 83 # exit code for cse of network isolated cluster not cached
-$global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD = 84 # exit code for error pulling containerd artifact with oras from registry
+$global:WINDOWS_CSE_SUCCESS=0
+$global:WINDOWS_CSE_ERROR_UNKNOWN=1 # For unexpected error caught by the catch block in kuberneteswindowssetup.ps1.template.template
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY=2
+$global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE=3
+$global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST=4
+$global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY=5
+$global:WINDOWS_CSE_ERROR_PAUSE_IMAGE_NOT_EXIST=6
+$global:WINDOWS_CSE_ERROR_GET_SUBNET_PREFIX=7
+$global:WINDOWS_CSE_ERROR_GENERATE_TOKEN_FOR_ARM=8
+$global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST=9
+$global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST=10
+$global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST=11
+$global:WINDOWS_CSE_ERROR_CALICO_SERVICE_ACCOUNT_NOT_EXIST=12
+$global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED=13
+$global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING=14
+$global:WINDOWS_CSE_ERROR_OPENSSH_NOT_INSTALLED=15
+$global:WINDOWS_CSE_ERROR_OPENSSH_FIREWALL_NOT_CONFIGURED=16
+$global:WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG=17
+$global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER=18
+$global:WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES=19
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES=20
+$global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES=21
+$global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS=22
+$global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE=23
+$global:WINDOWS_CSE_ERROR_GMSA_ENABLE_POWERSHELL_PRIVILEGE=24
+$global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION=25
+$global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES=26
+$global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS=27
+$global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGAKVPPLUGINEVENTS=28
+$global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP=29
+$global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER=30
+$global:WINDOWS_CSE_ERROR_NOT_FOUND_PROVISIONING_SCRIPTS=31
+$global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK=32
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE=33
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_KUBERNETES_PACKAGE=34
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE=35
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE=36
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CALICO_PACKAGE=37
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_GMSA_PACKAGE=38
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CSI_PROXY_PACKAGE=39
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE=40
+$global:WINDOWS_CSE_ERROR_SET_TCP_DYNAMIC_PORT_RANGE=41
+$global:WINDOWS_CSE_ERROR_BUILD_DOCKER_PAUSE_CONTAINER=42
+$global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE=43
+$global:WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE=44
+$global:WINDOWS_CSE_ERROR_CONTAINERD_BINARY_EXIST=45
+$global:WINDOWS_CSE_ERROR_SET_TCP_EXCLUDE_PORT_RANGE=46
+$global:WINDOWS_CSE_ERROR_SET_UDP_DYNAMIC_PORT_RANGE=47
+$global:WINDOWS_CSE_ERROR_SET_UDP_EXCLUDE_PORT_RANGE=48
+$global:WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN=49 # Return this error code in csecmd.ps1 when C:\AzureData\CustomData.bin does not exist
+$global:WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG=50 # Return this error code in csecmd.ps1 when C:\AzureData\CSEResult.log does not exist
+$global:WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS=51
+$global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE=52
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED=53
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_TIMEOUT=54
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_VM_SIZE_NOT_SUPPORTED=55
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_SET=56
+$global:WINDOWS_CSE_ERROR_GPU_SKU_INFO_NOT_FOUND=57
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE=58
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INVALID_SIGNATURE=59
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_EXCEPTION=60
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE=61
+$global:WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG=62
+$global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP=63
+$global:WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION=64
+$global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER=65 # exit code for installing credential provider
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER=66 # exit code for downloading credential provider failure
+$global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG=67 # exit code for checking credential provider config failure
+$global:WINDOWS_CSE_ERROR_ADJUST_PAGEFILE_SIZE=68
+$global:WINDOWS_CSE_ERROR_LOOKUP_INSTANCE_DATA_TAG=69 # exit code for looking up nodepool/VM tags via IMDS
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT=70 # exit code for downloading secure TLS bootstrap client failure
+$global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT=71 # exit code for installing secure TLS bootstrap client failure
+$global:WINDOWS_CSE_ERROR_WINDOWS_CILIUM_NETWORKING_INSTALL_FAILED=72
+$global:WINDOWS_CSE_ERROR_EXTRACT_ZIP=73
+$global:WINDOWS_CSE_ERROR_LOAD_METADATA=74
+$global:WINDOWS_CSE_ERROR_PARSE_METADATA=75
+$global:WINDOWS_CSE_ERROR_ORAS_NOT_FOUND=76 # exit code for not finding oras in the expected path, which is a prerequisite for pulling packages from registry for network isolated cluster
+$global:WINDOWS_CSE_ERROR_ORAS_IMDS_TIMEOUT=77 # exit code for timeout waiting for IMDS response
+$global:WINDOWS_CSE_ERROR_ORAS_PULL_NETWORK_TIMEOUT=78 # exit code for error pulling oras when login
+$global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED=79 # exit code for error pulling artifact with oras from registry with authorization issue
+$global:WINDOWS_CSE_ERROR_ORAS_PULL_WINDOWSZIP_FAIL=80 # exit code for error pulling kubelet kubectl artifact with oras from registry
+$global:WINDOWS_CSE_ERROR_ORAS_PULL_CREDENTIAL_PROVIDER=81 # exit code for error pulling credential provider artifact with oras from registry
+$global:WINDOWS_CSE_ERROR_ORAS_PULL_POD_INFRA_CONTAINER=82 # exit code for error pulling pause image with oras from registry
+$global:WINDOWS_CSE_ERROR_NETWORK_ISOLATED_CLUSTER_CSE_NOT_CACHED=83 # exit code for cse of network isolated cluster not cached
+$global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD=84 # exit code for error pulling containerd artifact with oras from registry
 # WINDOWS_CSE_ERROR_MAX_CODE is only used in unit tests to verify whether new error code name is added in $global:ErrorCodeNames
 # Please use the current value of WINDOWS_CSE_ERROR_MAX_CODE as the value of the new error code and increment it by 1
-$global:WINDOWS_CSE_ERROR_MAX_CODE = 85
+$global:WINDOWS_CSE_ERROR_MAX_CODE=85
 
 # Please add new error code for downloading new packages in RP code too
-$global:ErrorCodeNames = @(
+$global:ErrorCodeNames=@(
     "WINDOWS_CSE_SUCCESS",
     "WINDOWS_CSE_ERROR_UNKNOWN",
     "WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY",
@@ -182,33 +182,33 @@ $global:ErrorCodeNames = @(
 )
 
 # The package domain to be used
-$global:PackageDownloadFqdn = $null
+$global:PackageDownloadFqdn=$null
 # The preferred package FQDN
-$global:PreferredPackageDownloadFqdn = "packages.aks.azure.com"
+$global:PreferredPackageDownloadFqdn="packages.aks.azure.com"
 # Fallback FQDN if preferred cannot be contacted
-$global:FallbackPackageDownloadFqdn = "acs-mirror.azureedge.net"
+$global:FallbackPackageDownloadFqdn="acs-mirror.azureedge.net"
 
 # NOTE: KubernetesVersion does not contain "v"
-$global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
+$global:MinimalKubernetesVersionWithLatestContainerd="1.28.0" # Will change it to the correct version when we support new Windows containerd version
 # The minimum kubernetes version to use containerd 2.x
-$global:MinimalKubernetesVersionWithLatestContainerd2 = "1.33.0"
+$global:MinimalKubernetesVersionWithLatestContainerd2="1.33.0"
 # Although the contianerd package url is set in AKS RP code now, we still need to update the following variables for AgentBaker Windows E2E tests.
 
 # Define containerd version template
-$global:ContainerdPackageTemplate = "v{0}-azure.1/binaries/containerd-v{0}-azure.1-windows-amd64.tar.gz"
+$global:ContainerdPackageTemplate="v{0}-azure.1/binaries/containerd-v{0}-azure.1-windows-amd64.tar.gz"
 
 # Version numbers only - used in various places
-$global:StableContainerdVersion = "1.6.35"
-$global:LatestContainerdVersion = "1.7.20"
-$global:LatestContainerd2Version = "2.0.4"
+$global:StableContainerdVersion="1.6.35"
+$global:LatestContainerdVersion="1.7.20"
+$global:LatestContainerd2Version="2.0.4"
 
-$global:WindowsVersion2025 = "2025"
+$global:WindowsVersion2025="2025"
 
 # Full package paths are generated using [string]::Format($global:ContainerdPackageTemplate, $version) when needed
 
-$global:EventsLoggingDir = "C:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScriptExtension\Events\"
-$global:TaskName = ""
-$global:TaskTimeStamp = ""
+$global:EventsLoggingDir="C:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScriptExtension\Events\"
+$global:TaskName=""
+$global:TaskTimeStamp=""
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
@@ -217,29 +217,29 @@ filter Timestamp { "$(Get-Date -Format o): $_" }
 
 function Write-Log($message)
 {
-    $msg = $message | Timestamp
+    $msg=$message | Timestamp
     Write-Host $msg
 }
 
 function DownloadFileOverHttp
 {
     Param(
-        [Parameter(Mandatory = $true)][string]
+        [Parameter(Mandatory=$true)][string]
         $Url,
-        [Parameter(Mandatory = $true)][string]
+        [Parameter(Mandatory=$true)][string]
         $DestinationPath,
-        [Parameter(Mandatory = $true)][int]
+        [Parameter(Mandatory=$true)][int]
         $ExitCode
     )
 
     # First check to see if a file with the same name is already cached on the VHD
-    $cleanUrl = $Url.Split('?')[0]
-    $fileName = [IO.Path]::GetFileName($cleanUrl)
+    $cleanUrl=$Url.Split('?')[0]
+    $fileName=[IO.Path]::GetFileName($cleanUrl)
 
-    $search = @()
+    $search=@()
     if ($global:CacheDir -and (Test-Path $global:CacheDir))
     {
-        $search = [IO.Directory]::GetFiles($global:CacheDir, $fileName, [IO.SearchOption]::AllDirectories)
+        $search=[IO.Directory]::GetFiles($global:CacheDir, $fileName, [IO.SearchOption]::AllDirectories)
     }
 
     if ($search.Count -ne 0)
@@ -248,8 +248,8 @@ function DownloadFileOverHttp
         Copy-Item -Path $search[0] -Destination $DestinationPath -Force
     } else
     {
-        $secureProtocols = @()
-        $insecureProtocols = @([System.Net.SecurityProtocolType]::SystemDefault, [System.Net.SecurityProtocolType]::Ssl3)
+        $secureProtocols=@()
+        $insecureProtocols=@([System.Net.SecurityProtocolType]::SystemDefault, [System.Net.SecurityProtocolType]::Ssl3)
 
         foreach ($protocol in [System.Enum]::GetValues([System.Net.SecurityProtocolType]))
         {
@@ -258,36 +258,36 @@ function DownloadFileOverHttp
                 $secureProtocols += $protocol
             }
         }
-        [System.Net.ServicePointManager]::SecurityProtocol = $secureProtocols
+        [System.Net.ServicePointManager]::SecurityProtocol=$secureProtocols
 
-        $MappedUrl = Update-BaseUrl -InitialUrl $Url
+        $MappedUrl=Update-BaseUrl -InitialUrl $Url
         Write-Log "Updated URL $Url -> $MappedUrl to download $fileName to $DestinationPath"
 
-        $oldProgressPreference = $ProgressPreference
-        $ProgressPreference = 'SilentlyContinue'
+        $oldProgressPreference=$ProgressPreference
+        $ProgressPreference='SilentlyContinue'
 
-        $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
+        $downloadTimer=[System.Diagnostics.Stopwatch]::StartNew()
         try
         {
-            $args = @{Uri = $MappedUrl; Method = "Get"; OutFile = $DestinationPath; ErrorAction = "Stop" }
+            $args=@{Uri=$MappedUrl; Method="Get"; OutFile=$DestinationPath; ErrorAction="Stop" }
             Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
         } catch
         {
             Set-ExitCode -ExitCode $ExitCode -ErrorMessage "Failed in downloading $MappedUrl. Error: $_"
         }
         $downloadTimer.Stop()
-        $elapsedMs = $downloadTimer.ElapsedMilliseconds
+        $elapsedMs=$downloadTimer.ElapsedMilliseconds
 
         if ($global:AppInsightsClient -ne $null)
         {
-            $event = New-Object "Microsoft.ApplicationInsights.DataContracts.EventTelemetry"
-            $event.Name = "FileDownload"
-            $event.Properties["FileName"] = $fileName
-            $event.Metrics["DurationMs"] = $elapsedMs
+            $event=New-Object "Microsoft.ApplicationInsights.DataContracts.EventTelemetry"
+            $event.Name="FileDownload"
+            $event.Properties["FileName"]=$fileName
+            $event.Metrics["DurationMs"]=$elapsedMs
             $global:AppInsightsClient.TrackEvent($event)
         }
 
-        $ProgressPreference = $oldProgressPreference
+        $ProgressPreference=$oldProgressPreference
 
         Write-Log "Downloaded file $MappedUrl to $DestinationPath in $elapsedMs ms"
         Get-Item $DestinationPath -ErrorAction Continue | Format-List | Out-String | Write-Log
@@ -297,15 +297,15 @@ function DownloadFileOverHttp
 function Set-ExitCode
 {
     Param(
-        [Parameter(Mandatory = $true)][int]
+        [Parameter(Mandatory=$true)][int]
         $ExitCode,
-        [Parameter(Mandatory = $true)][string]
+        [Parameter(Mandatory=$true)][string]
         $ErrorMessage
     )
     Write-Log "Set ExitCode to $ExitCode and exit. Error: $ErrorMessage"
-    $global:ExitCode = $ExitCode
+    $global:ExitCode=$ExitCode
     # we use | as the separator as a workaround since " or ' do not work as expected per the testings
-    $global:ErrorMessage = ($ErrorMessage -replace '\|', '%7C')
+    $global:ErrorMessage=($ErrorMessage -replace '\|', '%7C')
     exit $ExitCode
 }
 
@@ -313,22 +313,22 @@ function Start-NodeResetScriptTask
 {
     Param(
         [Parameter(Mandatory=$false)][int]
-        $TimeoutSeconds = 180
+        $TimeoutSeconds=180
     )
 
-    $taskName = "k8s-restart-job"
-    $taskRunningResult = 0x00041301
-    $previousRunTime = (Get-ScheduledTaskInfo -TaskName $taskName).LastRunTime
+    $taskName="k8s-restart-job"
+    $taskRunningResult=0x00041301
+    $previousRunTime=(Get-ScheduledTaskInfo -TaskName $taskName).LastRunTime
     Start-ScheduledTask -TaskName $taskName
 
-    $timer = [Diagnostics.Stopwatch]::StartNew()
+    $timer=[Diagnostics.Stopwatch]::StartNew()
     do
     {
-        $taskInfo = Get-ScheduledTaskInfo -TaskName $taskName
-        $task = Get-ScheduledTask -TaskName $taskName
+        $taskInfo=Get-ScheduledTaskInfo -TaskName $taskName
+        $task=Get-ScheduledTask -TaskName $taskName
         if ($task.State -eq "Ready" -and $taskInfo.LastRunTime -ne $previousRunTime)
         {
-            $taskInfo = Get-ScheduledTaskInfo -TaskName $taskName
+            $taskInfo=Get-ScheduledTaskInfo -TaskName $taskName
             if ($taskInfo.LastRunTime -ne $previousRunTime -and $taskInfo.LastTaskResult -ne $taskRunningResult)
             {
                 break
@@ -350,7 +350,7 @@ function Start-NodeResetScriptTask
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask failed with result $($taskInfo.LastTaskResult)"
     }
 
-    $kubeletService = Get-Service -Name "kubelet" -ErrorAction SilentlyContinue
+    $kubeletService=Get-Service -Name "kubelet" -ErrorAction SilentlyContinue
     if ($null -eq $kubeletService -or $kubeletService.Status -ne "Running")
     {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet service is not running after NodeResetScriptTask completed"
@@ -362,11 +362,11 @@ function Start-NodeResetScriptTask
 function Postpone-RestartComputer
 {
     Logs-To-Event -TaskName "AKS.WindowsCSE.PostponeRestartComputer" -TaskMessage "Start to create an one-time task to restart the VM"
-    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument " -Command `"Restart-Computer -Force`""
-    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    $action=New-ScheduledTaskAction -Execute "powershell.exe" -Argument " -Command `"Restart-Computer -Force`""
+    $principal=New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
     # trigger this task once
-    $trigger = New-JobTrigger -At  (Get-Date).AddSeconds(15).DateTime -Once
-    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "Restart computer after provisioning the VM"
+    $trigger=New-JobTrigger -At  (Get-Date).AddSeconds(15).DateTime -Once
+    $definition=New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "Restart computer after provisioning the VM"
     Register-ScheduledTask -TaskName "restart-computer" -InputObject $definition
     Write-Log "Created an one-time task to restart the VM"
 }
@@ -374,10 +374,10 @@ function Postpone-RestartComputer
 function Create-Directory
 {
     Param(
-        [Parameter(Mandatory = $true)][string]
+        [Parameter(Mandatory=$true)][string]
         $FullPath,
-        [Parameter(Mandatory = $false)][string]
-        $DirectoryUsage = "general purpose"
+        [Parameter(Mandatory=$false)][string]
+        $DirectoryUsage="general purpose"
     )
 
     if (-Not (Test-Path $FullPath))
@@ -393,17 +393,17 @@ function Create-Directory
 # https://stackoverflow.com/a/34559554/697126
 function New-TemporaryDirectory
 {
-    $parent = [System.IO.Path]::GetTempPath()
-    [string] $name = [System.Guid]::NewGuid()
+    $parent=[System.IO.Path]::GetTempPath()
+    [string] $name=[System.Guid]::NewGuid()
     New-Item -ItemType Directory -Path (Join-Path $parent $name)
 }
 
 function AKS-Expand-Archive
 {
     Param(
-        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$Path,
-        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$DestinationPath,
-        [Parameter(Mandatory = $false)][ValidateNotNullOrEmpty()][boolean]$Force
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$Path,
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$DestinationPath,
+        [Parameter(Mandatory=$false)][ValidateNotNullOrEmpty()][boolean]$Force
     )
 
     try
@@ -421,17 +421,17 @@ function AKS-Expand-Archive
 function Retry-Command
 {
     Param(
-        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]
         $Command,
-        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][hashtable]
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][hashtable]
         $Args,
-        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][int]
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][int]
         $Retries,
-        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][int]
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][int]
         $RetryDelaySeconds
     )
 
-    for ($i = 0; ; )
+    for ($i=0; ; )
     {
         try
         {
@@ -453,21 +453,21 @@ function Retry-Command
 function Invoke-Executable
 {
     Param(
-        [Parameter(Mandatory = $true)][string]
+        [Parameter(Mandatory=$true)][string]
         $Executable,
-        [Parameter(Mandatory = $true)][string[]]
+        [Parameter(Mandatory=$true)][string[]]
         $ArgList,
-        [Parameter(Mandatory = $true)][int]
+        [Parameter(Mandatory=$true)][int]
         $ExitCode,
         [int[]]
-        $AllowedExitCodes = @(0),
+        $AllowedExitCodes=@(0),
         [int]
-        $Retries = 0,
+        $Retries=0,
         [int]
-        $RetryDelaySeconds = 1
+        $RetryDelaySeconds=1
     )
 
-    for ($i = 0; $i -le $Retries; $i++)
+    for ($i=0; $i -le $Retries; $i++)
     {
         Write-Log "$i - Running $Executable $ArgList ..."
         & $Executable $ArgList
@@ -489,9 +489,9 @@ function Invoke-Executable
 function Assert-FileExists
 {
     Param(
-        [Parameter(Mandatory = $true)][string]
+        [Parameter(Mandatory=$true)][string]
         $Filename,
-        [Parameter(Mandatory = $true)][int]
+        [Parameter(Mandatory=$true)][int]
         $ExitCode
     )
 
@@ -508,7 +508,7 @@ function Get-WindowsBuildNumber
 
 function Get-WindowsVersion
 {
-    $buildNumber = Get-WindowsBuildNumber
+    $buildNumber=Get-WindowsBuildNumber
     switch ($buildNumber)
     {
         "17763" { return "1809" }
@@ -524,7 +524,7 @@ function Get-WindowsVersion
 
 function Get-WindowsPauseVersion
 {
-    $buildNumber = Get-WindowsBuildNumber
+    $buildNumber=Get-WindowsBuildNumber
     switch ($buildNumber)
     {
         "17763" { return "1809" }
@@ -541,20 +541,20 @@ function Get-WindowsPauseVersion
 function Install-Containerd-Based-On-Kubernetes-Version
 {
     Param(
-        [Parameter(Mandatory = $true)][string]
+        [Parameter(Mandatory=$true)][string]
         $ContainerdUrl,
-        [Parameter(Mandatory = $true)][string]
+        [Parameter(Mandatory=$true)][string]
         $CNIBinDir,
-        [Parameter(Mandatory = $true)][string]
+        [Parameter(Mandatory=$true)][string]
         $CNIConfDir,
-        [Parameter(Mandatory = $true)][string]
+        [Parameter(Mandatory=$true)][string]
         $KubeDir,
-        [Parameter(Mandatory = $true)][string]
+        [Parameter(Mandatory=$true)][string]
         $KubernetesVersion
     )
 
     # Get the current Windows version, this is interim since we are progressively supporting containerd 2.0 for all Windows version. for now only test2025
-    $windowsVersion = Get-WindowsVersion
+    $windowsVersion=Get-WindowsVersion
     Write-Log "Install Containerd with ContainerdURL: $ContainerdUrl, KubernetesVersion: $KubernetesVersion, WindowsVersion: $windowsVersion"
     Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerdBasedOnKubernetesVersion" -TaskMessage "Start to install ContainerD based on kubernetes version. ContainerdUrl: $global:ContainerdUrl, KubernetesVersion: $global:KubeBinariesVersion, Windows Version: $windowsVersion"
 
@@ -567,7 +567,7 @@ function Install-Containerd-Based-On-Kubernetes-Version
     #   1. Current behavior to set the full URL
     #   2. Setting containerd package in toggle for test purpose or hotfix
 
-    $containerdVersion = $global:StableContainerdVersion
+    $containerdVersion=$global:StableContainerdVersion
     Write-Log "Install Containerd with request URL : $ContainerdUrl, Kubernetes version: $KubernetesVersion, Windows version: $windowsVersion."
 
     if ($ContainerdUrl.EndsWith("/"))
@@ -575,22 +575,22 @@ function Install-Containerd-Based-On-Kubernetes-Version
         # for now we only preview containerd 2.0 for Windows 2025
         if ($windowsVersion -eq $global:WindowsVersion2025)
         {
-            $containerdVersion = $global:LatestContainerd2Version
+            $containerdVersion=$global:LatestContainerd2Version
         } elseif (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0)
         {
-            $containerdVersion = $global:LatestContainerdVersion
+            $containerdVersion=$global:LatestContainerdVersion
         }
-        $containerdPackage = [string]::Format($global:ContainerdPackageTemplate, $containerdVersion)
-        $ContainerdUrl = $ContainerdUrl + $containerdPackage
+        $containerdPackage=[string]::Format($global:ContainerdPackageTemplate, $containerdVersion)
+        $ContainerdUrl=$ContainerdUrl + $containerdPackage
     } elseif ( $windowsVersion -eq $global:WindowsVersion2025)
     {
         # TODO (beileihuang) : remove this else if block when RP is release to set the correct versions for 2025
-        $containerdPattern = "v\d+\.\d+\.\d+-azure\.\d+/binaries/containerd-v\d+\.\d+\.\d+-azure\.\d+-windows-amd64\.tar\.gz"
+        $containerdPattern="v\d+\.\d+\.\d+-azure\.\d+/binaries/containerd-v\d+\.\d+\.\d+-azure\.\d+-windows-amd64\.tar\.gz"
         if ($ContainerdUrl -match $containerdPattern)
         {
-            $matchedPath = $matches[0]
-            $containerd2Package = [string]::Format($global:ContainerdPackageTemplate, $global:LatestContainerd2Version)
-            $ContainerdUrl = $ContainerdUrl.Replace($matchedPath, $containerd2Package)
+            $matchedPath=$matches[0]
+            $containerd2Package=[string]::Format($global:ContainerdPackageTemplate, $global:LatestContainerd2Version)
+            $ContainerdUrl=$ContainerdUrl.Replace($matchedPath, $containerd2Package)
         }
     }
 
@@ -602,34 +602,34 @@ function Install-Containerd-Based-On-Kubernetes-Version
 function Logs-To-Event
 {
     Param(
-        [Parameter(Mandatory = $true)][string]
+        [Parameter(Mandatory=$true)][string]
         $TaskName,
-        [Parameter(Mandatory = $true)][string]
+        [Parameter(Mandatory=$true)][string]
         $TaskMessage
     )
-    $eventLevel = "Informational"
+    $eventLevel="Informational"
     if ($global:ExitCode -ne 0)
     {
-        $eventLevel = "Error"
+        $eventLevel="Error"
     }
 
-    $eventsFileName = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
-    $currentTime = $(Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff")
+    $eventsFileName=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    $currentTime=$(Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff")
 
-    $lastTaskName = ""
-    $lastTaskDuration = 0
+    $lastTaskName=""
+    $lastTaskDuration=0
     if ($global:TaskTimeStamp -ne "")
     {
-        $lastTaskName = $global:TaskName
-        $lastTaskDuration = $(New-Timespan -Start $global:TaskTimeStamp -End $currentTime)
+        $lastTaskName=$global:TaskName
+        $lastTaskDuration=$(New-Timespan -Start $global:TaskTimeStamp -End $currentTime)
     }
 
-    $global:TaskName = $TaskName
-    $global:TaskTimeStamp = $currentTime
+    $global:TaskName=$TaskName
+    $global:TaskTimeStamp=$currentTime
 
     Write-Log "$global:TaskName - $TaskMessage"
-    $TaskMessage = (echo $TaskMessage | ConvertTo-Json)
-    $messageJson = @"
+    $TaskMessage=(echo $TaskMessage | ConvertTo-Json)
+    $messageJson=@"
     {
         "HostName": "$env:computername",
         "LastTaskName": "$lastTaskName",
@@ -637,9 +637,9 @@ function Logs-To-Event
         "CurrentTaskMessage": $TaskMessage
     }
 "@
-    $messageJson = (echo $messageJson | ConvertTo-Json)
+    $messageJson=(echo $messageJson | ConvertTo-Json)
 
-    $jsonString = @"
+    $jsonString=@"
     {
         "Timestamp": "$global:TaskTimeStamp",
         "OperationId": "$global:OperationId",
@@ -661,25 +661,25 @@ function Logs-To-Event
 function Resolve-PackagesDownloadFqdn
 {
     Param(
-        [Parameter(Mandatory = $true)][string]
+        [Parameter(Mandatory=$true)][string]
         $PreferredFqdn,
-        [Parameter(Mandatory = $true)][string]
+        [Parameter(Mandatory=$true)][string]
         $FallbackFqdn,
-        [Parameter(Mandatory = $false)][int]
-        $Retries = 5,
-        [Parameter(Mandatory = $false)][int]
-        $WaitSleepSeconds = 1
+        [Parameter(Mandatory=$false)][int]
+        $Retries=5,
+        [Parameter(Mandatory=$false)][int]
+        $WaitSleepSeconds=1
     )
 
-    $packageDownloadBaseUrl = $PreferredFqdn
+    $packageDownloadBaseUrl=$PreferredFqdn
 
-    for ($i = 1; $i -le $Retries; $i++)
+    for ($i=1; $i -le $Retries; $i++)
     {
         # Confirm that we can establish connectivity to packages.aks.azure.com before node provisioning starts
         try
         {
-            $response = Invoke-WebRequest -Uri "https://${PreferredFqdn}/acs-mirror/healthz" -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue
-            $responseCode = [int]$response.StatusCode
+            $response=Invoke-WebRequest -Uri "https://${PreferredFqdn}/acs-mirror/healthz" -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue
+            $responseCode=[int]$response.StatusCode
 
             if ($responseCode -eq 200)
             {
@@ -688,18 +688,18 @@ function Resolve-PackagesDownloadFqdn
             }
         } catch
         {
-            $responseCode = 0
+            $responseCode=0
             Write-Log "Exception while trying to establish connectivity to $PreferredFqdn. Exception: $_" | Out-Null
             if ($_.Exception.Response)
             {
-                $responseCode = [int]$_.Exception.Response.StatusCode
+                $responseCode=[int]$_.Exception.Response.StatusCode
             }
         }
 
         if ($i -eq $Retries)
         {
             # If we cannot establish connectivity to packages.aks.azure.com, fallback to old CDN URL
-            $packageDownloadBaseUrl = $FallbackFqdn
+            $packageDownloadBaseUrl=$FallbackFqdn
             break
         } else
         {
@@ -707,7 +707,7 @@ function Resolve-PackagesDownloadFqdn
         }
     }
 
-    $global:PackageDownloadFqdn = $packageDownloadBaseUrl
+    $global:PackageDownloadFqdn=$packageDownloadBaseUrl
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.ResolvedPackageDomain" -TaskMessage "Package download FQDN: $global:PackageDownloadFqdn"
 }
@@ -716,11 +716,11 @@ function Resolve-PackagesDownloadFqdn
 function Update-BaseUrl
 {
     Param(
-        [Parameter(Mandatory = $true)][string]
+        [Parameter(Mandatory=$true)][string]
         $InitialUrl
     )
 
-    $updatedUrl = $InitialUrl
+    $updatedUrl=$InitialUrl
 
     if (!($InitialUrl -match "acs-mirror\.azureedge\.net|packages\.aks\.azure\.com"))
     {
@@ -731,27 +731,27 @@ function Update-BaseUrl
     if ($global:PackageDownloadFqdn -eq $null)
     {
         # We're in public cloud, but we haven't set the package download FQDN yet
-        $null = Resolve-PackagesDownloadFqdn -PreferredFqdn $global:PreferredPackageDownloadFqdn -FallbackFqdn $global:FallbackPackageDownloadFqdn
+        $null=Resolve-PackagesDownloadFqdn -PreferredFqdn $global:PreferredPackageDownloadFqdn -FallbackFqdn $global:FallbackPackageDownloadFqdn
     }
 
     # Replace domain based on the current package download FQDN
     if (($global:PackageDownloadFqdn -eq "packages.aks.azure.com") -and ($InitialUrl -like "https://acs-mirror.azureedge.net/*"))
     {
-        $updatedUrl = $InitialUrl -replace "acs-mirror.azureedge.net", $global:PackageDownloadFqdn
+        $updatedUrl=$InitialUrl -replace "acs-mirror.azureedge.net", $global:PackageDownloadFqdn
     } elseif (($global:PackageDownloadFqdn -eq "acs-mirror.azureedge.net") -and ($InitialUrl -like "https://packages.aks.azure.com/*"))
     {
-        $updatedUrl = $InitialUrl -replace "packages.aks.azure.com", $global:PackageDownloadFqdn
+        $updatedUrl=$InitialUrl -replace "packages.aks.azure.com", $global:PackageDownloadFqdn
     }
 
     return $updatedUrl
 }
 
-function Resolve-Error ($ErrorRecord = $Error[0])
+function Resolve-Error ($ErrorRecord=$Error[0])
 {
     $ErrorRecord | Format-List * -Force
     $ErrorRecord.InvocationInfo | Format-List *
-    $Exception = $ErrorRecord.Exception
-    for ($i = 0; $Exception; $i++, ($Exception = $Exception.InnerException))
+    $Exception=$ErrorRecord.Exception
+    for ($i=0; $Exception; $i++, ($Exception=$Exception.InnerException))
     {
         "$i" * 80
         $Exception | Format-List * -Force
