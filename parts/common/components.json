@@ -1043,7 +1043,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "2.3.2-ubuntu26.04u2"
+                "latestVersion": "2.3.3-ubuntu26.04u2"
               }
             ]
           },
