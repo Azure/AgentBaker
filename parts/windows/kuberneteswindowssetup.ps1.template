@@ -331,7 +331,7 @@ function Get-HelperScripts {
     }
 
     Write-Log "All CSE function script not found, falling back to individual import"
-    
+
     # Dot-source cse scripts with functions that are called in this script
 
     # Dot-source cse scripts with functions that are called in this script
@@ -344,17 +344,16 @@ function Get-HelperScripts {
     . c:\AzureData\windows\nvidiagpudriverfunc.ps1
 
     $optionalFunctionScripts = @(
-        @{ Path = 'c:\AzureData\windows\securetlsbootstrapfunc.ps1'; Name = 'Windows Secure TLS Bootstrap' }
-        @{ Path = 'c:\AzureData\windows\windowsciliumnetworkingfunc.ps1'; Name = 'Windows Cilium Networking' }
-        @{ Path = 'c:\AzureData\windows\networkisolatedclusterfunc.ps1'; Name = 'Network Isolated Cluster' }
+        'c:\AzureData\windows\securetlsbootstrapfunc.ps1'
+        'c:\AzureData\windows\windowsciliumnetworkingfunc.ps1'
+        'c:\AzureData\windows\networkisolatedclusterfunc.ps1'
     )
 
     foreach ($script in $optionalFunctionScripts) {
-        if (Test-Path -Path $script.Path) {
-            . $script.Path
-        }
-        else {
-            Write-Log "$($script.Name) function script not found, skipping dot-source"
+        if (Test-Path -Path $script) {
+            . $script
+        } else {
+            Write-Log "$script function script not found, skipping dot-source"
         }
     }
 }
