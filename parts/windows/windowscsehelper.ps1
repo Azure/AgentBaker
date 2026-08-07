@@ -261,20 +261,20 @@ function DownloadFileOverHttp {
 
         $downloadTimer=[System.Diagnostics.Stopwatch]::StartNew()
         try {
-            $args=@{Uri=$MappedUrl; Method="Get"; OutFile=$DestinationPath; ErrorAction="Stop" }
-            Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
+            $arglist=@{Uri=$MappedUrl; Method="Get"; OutFile=$DestinationPath; ErrorAction="Stop" }
+            Retry-Command -Command "Invoke-RestMethod" -Args $arglist -Retries 5 -RetryDelaySeconds 10
         } catch {
             Set-ExitCode -ExitCode $ExitCode -ErrorMessage "Failed in downloading $MappedUrl. Error: $_"
         }
         $downloadTimer.Stop()
         $elapsedMs=$downloadTimer.ElapsedMilliseconds
 
-        if ($global:AppInsightsClient -ne $null) {
-            $event=New-Object "Microsoft.ApplicationInsights.DataContracts.EventTelemetry"
-            $event.Name="FileDownload"
-            $event.Properties["FileName"]=$fileName
-            $event.Metrics["DurationMs"]=$elapsedMs
-            $global:AppInsightsClient.TrackEvent($event)
+        if ($null -ne $global:AppInsightsClient) {
+            $evt=New-Object "Microsoft.ApplicationInsights.DataContracts.EventTelemetry"
+            $evt.Name="FileDownload"
+            $evt.Properties["FileName"]=$fileName
+            $evt.Metrics["DurationMs"]=$elapsedMs
+            $global:AppInsightsClient.TrackEvent($evt)
         }
 
         $ProgressPreference=$oldProgressPreference
@@ -575,7 +575,7 @@ function Logs-To-Event {
     $global:TaskTimeStamp=$currentTime
 
     Write-Log "$global:TaskName - $TaskMessage"
-    $TaskMessage=(echo $TaskMessage | ConvertTo-Json)
+    $TaskMessage=(Write-Output $TaskMessage | ConvertTo-Json)
     $messageJson=@"
     {
         "HostName": "$env:computername",
@@ -584,7 +584,7 @@ function Logs-To-Event {
         "CurrentTaskMessage": $TaskMessage
     }
 "@
-    $messageJson=(echo $messageJson | ConvertTo-Json)
+    $messageJson=(Write-Output $messageJson | ConvertTo-Json)
 
     $jsonString=@"
     {
@@ -665,7 +665,7 @@ function Update-BaseUrl {
         return $updatedUrl
     }
 
-    if ($global:PackageDownloadFqdn -eq $null) {
+    if ($null -eq $global:PackageDownloadFqdn) {
         # We're in public cloud, but we haven't set the package download FQDN yet
         $null=Resolve-PackagesDownloadFqdn -PreferredFqdn $global:PreferredPackageDownloadFqdn -FallbackFqdn $global:FallbackPackageDownloadFqdn
     }
