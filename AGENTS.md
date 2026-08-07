@@ -17,9 +17,9 @@ Windows VHD is configured through [VHD](./vhdbuilder/packer/windows/windows-vhd-
 
 [apiserver](./apiserver/) is `go` based webserver. It receives request from external client and generates CSE and CustomData to be used on the VHD when a new node is created / provisioned.
 
-windows generates its CSE package using [script](./parts/windows/kuberneteswindowssetup.ps1.template).
+windows generates its CSE package using [script](./parts/windows/kuberneteswindowssetup.ps1.template.template).
 
-Both CSE scripts run in two phases — Windows `BasePrep`/`NodePrep` (`kuberneteswindowssetup.ps1.template`) and Linux `basePrep`/`nodePrep` (`cse_main.sh`). `basePrep` is gated only by the `base_prep.complete` marker, so it is **skipped on a PIS-cached VHD** (the marker is baked in); `nodePrep` runs whenever `PreProvisionOnly` is false — every real node. So node-specific, secret, or expiring data (e.g. the TLS bootstrap token / kubeconfig) must be written in `nodePrep`, not `basePrep`, or the baked copy goes stale. On PIS the phases are separate VM runs — variables re-initialize from the real node's live CustomData, so `nodePrep` can't rely on `basePrep` state. (Non-PIS: both run sequentially in one execution, no reboot between phases.)
+Both CSE scripts run in two phases — Windows `BasePrep`/`NodePrep` (`kuberneteswindowssetup.ps1.template.template`) and Linux `basePrep`/`nodePrep` (`cse_main.sh`). `basePrep` is gated only by the `base_prep.complete` marker, so it is **skipped on a PIS-cached VHD** (the marker is baked in); `nodePrep` runs whenever `PreProvisionOnly` is false — every real node. So node-specific, secret, or expiring data (e.g. the TLS bootstrap token / kubeconfig) must be written in `nodePrep`, not `basePrep`, or the baked copy goes stale. On PIS the phases are separate VM runs — variables re-initialize from the real node's live CustomData, so `nodePrep` can't rely on `basePrep` state. (Non-PIS: both run sequentially in one execution, no reboot between phases.)
 
 The webserver is also used to determine the latest version of Linux VHDs available for provisioning within AKS clusters.
 
@@ -138,7 +138,7 @@ Analyze PRs for these compatibility scenarios:
 
 **4. PIS / VHD Caching — basePrep vs nodePrep split (Windows + Linux)**
 
-- **Context**: PIS bakes a VHD from a temporary VM, then boots many real nodes from it. Same model in Windows `parts/windows/kuberneteswindowssetup.ps1.template` (`BasePrep`/`NodePrep`) and Linux `parts/linux/cloud-init/artifacts/cse_main.sh` (`basePrep`/`nodePrep`):
+- **Context**: PIS bakes a VHD from a temporary VM, then boots many real nodes from it. Same model in Windows `parts/windows/kuberneteswindowssetup.ps1.template.template` (`BasePrep`/`NodePrep`) and Linux `parts/linux/cloud-init/artifacts/cse_main.sh` (`basePrep`/`nodePrep`):
   - `basePrep` — gated only by the `base_prep.complete` marker (`C:\AzureData\` Windows, `/opt/azure/containers/` Linux). **Skipped on PIS real nodes** because the marker is baked into the VHD.
   - `nodePrep` — runs whenever `PreProvisionOnly` is false (every real node); skipped only on the bake VM.
   - The bake run sets `PreProvisionOnly=true` (`{{GetPreProvisionOnly}}`) and writes the marker after `basePrep` succeeds (Windows `finally`; Linux `cse_start.sh`).
