@@ -1,39 +1,56 @@
-version = 2
+{{- $isContainerdConfigV4 := isContainerdVersionGe .GetContainerdConfig "2.3.0" -}}
+{{- $imagesPlugin := "io.containerd.grpc.v1.cri" -}}
+{{- $runtimePlugin := "io.containerd.grpc.v1.cri" -}}
+{{- if $isContainerdConfigV4 -}}
+{{- $imagesPlugin = "io.containerd.cri.v1.images" -}}
+{{- $runtimePlugin = "io.containerd.cri.v1.runtime" -}}
+{{- end -}}
+version = {{if $isContainerdConfigV4}}4{{else}}2{{end}}
 oom_score = -999{{if getHasDataDir .KubeletConfig}}
 root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
-[plugins."io.containerd.grpc.v1.cri"]
+{{- if $isContainerdConfigV4 }}
+[plugins."{{$imagesPlugin}}"]
+  {{- if .GetEnableArtifactStreaming }}
+  snapshotter = "overlaybd"
+  disable_snapshot_annotations = false
+  {{- end}}
+[plugins."{{$imagesPlugin}}".pinned_images]
+  sandbox = "{{ .KubeBinaryConfig.GetPodInfraContainerImageUrl }}"
+{{- else }}
+[plugins."{{$imagesPlugin}}"]
   sandbox_image = "{{ .KubeBinaryConfig.GetPodInfraContainerImageUrl }}"
-  [plugins."io.containerd.grpc.v1.cri".containerd]
-    {{- if .GetIsKata }}
+{{- end }}
+  [plugins."{{$runtimePlugin}}".containerd]
+    {{- if and .GetIsKata (not $isContainerdConfigV4) }}
     disable_snapshot_annotations = false
     {{- end}}
-    {{- if .GetEnableArtifactStreaming }}
+    {{- if and .GetEnableArtifactStreaming (not $isContainerdConfigV4) }}
     snapshotter = "overlaybd"
     disable_snapshot_annotations = false
     {{- end}}
     default_runtime_name = "runc"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+    [plugins."{{$runtimePlugin}}".containerd.runtimes.runc]
       runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+    [plugins."{{$runtimePlugin}}".containerd.runtimes.runc.options]
       BinaryName = "/usr/bin/runc"
       {{- if .GetNeedsCgroupv2 }}
       SystemdCgroup = true
       {{- end}}
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+    [plugins."{{$runtimePlugin}}".containerd.runtimes.untrusted]
       runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+    [plugins."{{$runtimePlugin}}".containerd.runtimes.untrusted.options]
       BinaryName = "/usr/bin/runc"
   {{- if getEnsureNoDupePromiscuousBridge .GetNetworkConfig }}
-  [plugins."io.containerd.grpc.v1.cri".cni]
+  [plugins."{{$runtimePlugin}}".cni]
     bin_dir = "/opt/cni/bin"
     conf_dir = "/etc/cni/net.d"
     conf_template = "/etc/containerd/kubenet_template.conf"
   {{- end}}
   {{- if isKubernetesVersionGe .GetKubernetesVersion "1.22.0"}}
-  [plugins."io.containerd.grpc.v1.cri".registry]
+  [plugins."{{$imagesPlugin}}".registry]
     config_path = "/etc/containerd/certs.d"
   {{- end}}
-  [plugins."io.containerd.grpc.v1.cri".registry.headers]
+  [plugins."{{$imagesPlugin}}".registry.headers]
     X-Meta-Source-Client = ["azure/aks"]
 [metrics]
   address = "0.0.0.0:10257"
@@ -44,11 +61,11 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
     address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if .GetIsKata }}
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+[plugins."{{$runtimePlugin}}".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli]
+[plugins."{{$runtimePlugin}}".containerd.runtimes.katacli]
   runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli.options]
+[plugins."{{$runtimePlugin}}".containerd.runtimes.katacli.options]
   NoPivotRoot = false
   NoNewKeyring = false
   ShimCgroup = ""
@@ -62,11 +79,11 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
   [proxy_plugins.tardev]
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
+[plugins."{{$runtimePlugin}}".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
   pod_annotations = ["io.katacontainers.*"]
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
+  [plugins."{{$runtimePlugin}}".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}

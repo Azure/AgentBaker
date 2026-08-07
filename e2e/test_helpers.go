@@ -291,6 +291,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	if s.BootstrapConfigMutator != nil {
 		s.BootstrapConfigMutator(s.Runtime.Cluster, nbc)
 	}
+	setExpectedContainerdVersionForE2E(s.T, nbc, s.VHD)
 	if s.AKSNodeConfigMutator != nil {
 		nodeconfig, err := nbcToAKSNodeConfigV1(nbc)
 		require.NoError(s.T, err)
@@ -369,6 +370,35 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	}
 
 	return scenarioVM, nil
+}
+
+func setExpectedContainerdVersionForE2E(t testing.TB, nbc *datamodel.NodeBootstrappingConfiguration, image *config.Image) {
+	if nbc.ContainerdVersion != "" {
+		return
+	}
+	packageName, distro, release, ok := expectedContainerdComponentRef(image.Distro)
+	if !ok {
+		return
+	}
+	versions := components.GetExpectedPackageVersions(packageName, distro, release)
+	require.NotEmptyf(t, versions, "expected containerd version for distro %q (%s/%s)", image.Distro, distro, release)
+	nbc.ContainerdVersion = versions[0]
+}
+
+func expectedContainerdComponentRef(distro datamodel.Distro) (packageName, componentDistro, release string, ok bool) {
+	if distro.IsAzureLinuxV3Distro() {
+		return "containerd", "azurelinux", "v3.0", true
+	}
+	if distro.Is2604VHDDistro() {
+		return "containerd", "ubuntu", "r2604", true
+	}
+	if distro.Is2404VHDDistro() {
+		return "containerd", "ubuntu", "r2404", true
+	}
+	if distro.Is2204VHDDistro() {
+		return "containerd", "ubuntu", "r2204", true
+	}
+	return "", "", "", false
 }
 
 func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
