@@ -325,13 +325,13 @@ function Get-HelperScripts {
         Write-Log "CSE scripts already exist and no explicit CSEScriptsPackageUrl override, skipping download"
     }
 
-    if (Test-Path -Path 'c:\AzureData\windows\helpers.ps1') {
-        . c:\AzureData\windows\helpers.ps1
-    }
-    else {
-        Write-Log "Helpers function script not found, skipping dot-source"
+    if (Test-Path -Path 'c:\AzureData\windows\all.ps1') {
+        . c:\AzureData\windows\all.ps1
+        return
     }
 
+    Write-Log "All CSE function script not found, falling back to individual import"
+    
     # Dot-source cse scripts with functions that are called in this script
 
     # Dot-source cse scripts with functions that are called in this script
