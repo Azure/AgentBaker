@@ -68,14 +68,17 @@ func ValidateKataContainerdConfig(ctx context.Context, s *Scenario) {
 //
 // Checking the file alone is not enough. Kata VHDs ship their own containerd build - CSE skips
 // installing one (see the "azurelinuxkata" entries in parts/common/components.json) - so the
-// containerd major version on the node is decided by the image, not by AgentBaker. containerd
-// 1.x and 2.x use different plugin paths ("io.containerd.grpc.v1.cri" vs
-// "io.containerd.cri.v1.runtime"), and containerd silently ignores config under a path it does
-// not recognise. The result would be a node whose config.toml looks correct but where `kata` is
-// not a usable runtime handler.
+// containerd major version on the node is decided by the image, not by AgentBaker, while the
+// template AgentBaker renders is decided by the distro (IsContainerdV2Distro short-circuits to
+// the v1 template for every Kata distro). The two can therefore disagree: AzureLinux V3 Kata
+// currently boots containerd 2.x while being handed a containerd 1.x style config.
 //
-// `containerd config dump` reflects the effective, parsed configuration and emits `level=warning`
-// lines for unknown or deprecated config, so it catches exactly that class of bug.
+// That combination happens to work today because containerd 2.x migrates the legacy
+// "io.containerd.grpc.v1.cri" runtime handlers onto the current
+// "io.containerd.cri.v1.runtime" paths, but nothing guarantees it keeps doing so. This
+// validator pins the property we actually care about: after containerd has parsed the config,
+// the Kata handlers are present in the effective configuration and containerd raised no
+// warnings while getting there.
 func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
@@ -91,19 +94,24 @@ func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) {
 	dump := execResult.stdout
 	diagnostics := execResult.stdout + "\n" + execResult.stderr
 
+	// "containerd config dump" re-serializes the config and quotes TOML strings with single
+	// quotes, whereas the config file AgentBaker generates uses double quotes. Normalize so the
+	// assertions below can be written the way the config file reads.
+	normalizedDump := strings.ReplaceAll(dump, "'", `"`)
+
 	// The effective config must expose every Kata runtime handler we expect. Note the trailing
 	// "]": without it a handler name would also match longer handlers sharing its prefix (e.g.
 	// "runtimes.kata" matching "runtimes.kata-preview") and pass even if the handler itself
 	// were missing.
 	for _, handler := range kataRuntimeHandlers {
-		assert.Contains(s.T, dump, `runtimes.`+handler+`]`,
+		assert.Contains(s.T, normalizedDump, `runtimes.`+handler+`]`,
 			"expected the %q runtime handler in the effective containerd config.\nDump:\n%s", handler, dump)
 	}
-	assert.Contains(s.T, dump, `runtime_type = "io.containerd.kata.v2"`,
+	assert.Contains(s.T, normalizedDump, `runtime_type = "io.containerd.kata.v2"`,
 		"expected the kata v2 shim runtime_type in the effective containerd config.\nDump:\n%s", dump)
 
-	// A warning here means containerd did not understand part of the config we generated -
-	// most commonly because the kata blocks use containerd 1.x plugin paths in a 2.x config.
+	// A warning here means containerd did not fully understand the config we generated, e.g. it
+	// had to fall back on deprecated handling for the legacy plugin paths the Kata templates use.
 	assert.NotContains(s.T, diagnostics, "level=warning",
 		"containerd reported warnings while parsing the AgentBaker-generated config.\nstdout:\n%s\nstderr:\n%s",
 		execResult.stdout, execResult.stderr)
