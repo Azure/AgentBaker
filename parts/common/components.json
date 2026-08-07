@@ -1636,8 +1636,8 @@
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
-                "latestVersion": "v1.35.7-1-azlinux3",
-                "previousLatestVersion": "v1.35.6-5-azlinux3"
+                "latestVersion": "v1.35.7-2-azlinux3",
+                "previousLatestVersion": "v1.35.7-1-azlinux3"
               },
               {
                 "k8sVersion": "1.36",
