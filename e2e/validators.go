@@ -1264,6 +1264,21 @@ func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []
 
 	ValidateInstalledPackageVersion(ctx, s, "moby-containerd", versions[0])
 
+	// TODO: this assertion never actually runs and always passes vacuously.
+	//
+	// execOnVMForScenarioOnUnprivilegedPod executes inside the "debugnonhost" daemonset pod,
+	// which runs a bare mcr.microsoft.com/cbl-mariner/base/core:2.0 image with no volume mounts
+	// (see daemonsetDebug in e2e/kube.go). The host filesystem is not mounted into it, so the
+	// containerd binary is unreachable and the command exits 127 with an empty stdout and
+	// "command not found" on stderr. attemptExecOnPod treats a non-zero exit as a successful
+	// exec, so no error surfaces, and the NotContains check below then trivially passes against
+	// an empty string.
+	//
+	// Two changes are needed: run this on the node via execScriptOnVMForScenarioValidateExitCode
+	// (as ValidateKataContainerdConfigDump in validators_kata.go now does), and check stderr as
+	// well as stdout, since containerd logs its warnings to stderr. Fixing it is likely to
+	// surface real warnings at the 11 call sites that use this validator, so it is left as a
+	// follow-up rather than folded into an unrelated change.
 	execResult := execOnVMForScenarioOnUnprivilegedPod(ctx, s, "containerd config dump ")
 	// validate containerd config dump has no warnings
 	require.NotContains(s.T, execResult.stdout, "level=warning", "do not expect warning message when converting config file %", execResult.stdout)
