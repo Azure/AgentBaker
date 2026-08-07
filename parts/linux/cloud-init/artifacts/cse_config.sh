@@ -1478,39 +1478,6 @@ installGPUDriverImage() {
     retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
 }
 
-nvidiaCDIRefreshUnitExists() {
-    local unit="${1}"
-    systemctl cat "${unit}" >/dev/null 2>&1
-}
-
-repairNvidiaCDIRefreshAfterDriverReady() {
-    local service_unit="nvidia-cdi-refresh.service"
-    local path_unit="nvidia-cdi-refresh.path"
-
-    if ! command -v systemctl >/dev/null 2>&1; then
-        return 0
-    fi
-
-    if nvidiaCDIRefreshUnitExists "${service_unit}"; then
-        echo "Refreshing NVIDIA CDI spec after GPU driver is ready"
-        systemctl reset-failed "${service_unit}" || true
-        if ! systemctl start "${service_unit}"; then
-            echo "Failed to refresh NVIDIA CDI spec after GPU driver is ready" >&2
-            return $ERR_GPU_DRIVERS_START_FAIL
-        fi
-    fi
-
-    if nvidiaCDIRefreshUnitExists "${path_unit}"; then
-        systemctl reset-failed "${path_unit}" || true
-        if ! systemctl start "${path_unit}"; then
-            echo "Failed to restart NVIDIA CDI refresh path unit after GPU driver is ready" >&2
-            return $ERR_GPU_DRIVERS_START_FAIL
-        fi
-    fi
-
-    return 0
-}
-
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
@@ -1554,8 +1521,6 @@ configGPUDrivers() {
     if isMarinerOrAzureLinux "$OS"; then
         createNvidiaSymlinkToAllDeviceNodes
     fi
-
-    logs_to_events "AKS.CSE.configGPUDrivers.repairNvidiaCDIRefreshAfterDriverReady" repairNvidiaCDIRefreshAfterDriverReady || exit $ERR_GPU_DRIVERS_START_FAIL
 
     # GRID vGPU licensing: start nvidia-gridd service to ensure license configuration
     if (isMarinerOrAzureLinux "$OS" || isACL "$OS" "$OS_VARIANT") && [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then
