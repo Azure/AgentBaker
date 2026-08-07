@@ -413,15 +413,17 @@ func parseHotfixConfig(data []byte) (hotfixConfig, error) {
 }
 
 // coldStartHotfixConfig reads a LENIENT top-level "hotfixes" object from the AKSNodeConfig
-// JSON. This is the PoC cold-start fallback used only when the LPS endpoint could not be
-// reached or talked to (transport failure / 5xx). A benign 401/403/404 is NOT a cold-start:
-// the LPS authoritatively has nothing for this node, so that path stages no overlay.
+// JSON (aks-node-controller-config.json) as a best-effort cold-start fallback, used only when
+// the LPS endpoint could not be reached or talked to (transport failure / 5xx). A benign
+// 401/403/404 is NOT a cold-start: the LPS authoritatively has nothing for this node, so that
+// path stages no overlay.
 //
-// TODO(provisioning-hotfix): There is no formalized AKSNodeConfig contract field for the
-// embedded pointer yet - the control-plane side that would populate a typed field is not
-// built. Once that contract exists, replace this lenient top-level read with the typed field
-// and drop the permissive JSON shape. Until then we read it best-effort and never fail
-// provisioning.
+// This top-level key is out-of-contract: AKSNodeConfig has no typed "hotfixes" field and none
+// is planned, so nothing populates it in practice - this read is a no-op on every real node and
+// never fails provisioning. The authoritative provisioning-time pointer is the customdata-
+// delivered aks-node-controller-hotfix.json (defaultHotfixVersionPath), which download-hotfix
+// consumes directly. This lenient read is therefore a candidate for removal once confirmed
+// unused; it is retained here only to preserve the pre-existing fail-open fallback behavior.
 func (a *App) coldStartHotfixConfig() (hotfixConfig, bool, error) {
 	path := a.getNodeConfigPath()
 	raw, err := os.ReadFile(path)
