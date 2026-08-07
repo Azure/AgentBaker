@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -606,6 +607,65 @@ func Test_Ubuntu2204_ScriptlessCSECmd_Hotfix(t *testing.T) {
 				// This file does NOT exist on any VHD — it can only be present if cloud-init
 				// processed our write_files entry, proving the hotfix delivery mechanism works.
 				ValidateFileHasContent(ctx, s, hotfixMarkerPath, hotfixMarkerContent)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_EmbeddedScriptHotfix(t *testing.T) {
+	if config.Config.DisableScriptLessCompilation {
+		t.Skip("embedded script-hotfix E2E requires scriptless ANC compilation")
+	}
+	if config.Config.TestPreProvision {
+		t.Skip("embedded script-hotfix E2E does not run during two-stage VHD caching")
+	}
+
+	const (
+		runtimeScriptPath = "/opt/azure/containers/provision_configs.sh"
+		executionMarker   = "/opt/azure/containers/e2e-script-hotfix-executed"
+	)
+	marker := fmt.Sprintf("EMBEDDED_SCRIPT_HOTFIX_%d", time.Now().UnixNano())
+	// Using the current script also exercises compatibility between the PR-built
+	// hotfix payload and the selected existing VHD's baked cse_main.sh.
+	payload, err := os.ReadFile("../parts/linux/cloud-init/artifacts/cse_config.sh")
+	require.NoError(t, err)
+	payload = append(payload, []byte(fmt.Sprintf(
+		"\nprintf '%%s\\n' '%s' > %s\n# %s\n",
+		marker,
+		executionMarker,
+		marker,
+	))...)
+
+	RunScenario(t, &Scenario{
+		Description: "tests that a PR-built ANC applies an embedded script hotfix before provisioning",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			},
+			// The fixture intentionally replaces an older VHD's provision config
+			// with the current source, so broad source/VHD parity checks do not apply.
+			SkipDefaultValidation: true,
+			ScriptHotfixFixture: &ScriptHotfixFixture{
+				Source:      "e2e/cse_config.sh",
+				Destination: runtimeScriptPath,
+				Mode:        "0744",
+				Platforms:   []string{"ubuntu"},
+				Payload:     payload,
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				s.Runtime.VM.KubeName = s.Runtime.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
+				ValidateNodeCanRunAPod(ctx, s)
+				ValidateFileHasContent(ctx, s, runtimeScriptPath, marker)
+				ValidateFileHasContent(ctx, s, executionMarker, marker)
+				ValidateFileHasContent(
+					ctx,
+					s,
+					"/var/log/azure/aks-node-controller.output",
+					"processed embedded hotfix payload",
+				)
 			},
 		},
 	})

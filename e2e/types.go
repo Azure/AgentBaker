@@ -180,6 +180,16 @@ type CustomDataWriteFile struct {
 	Content     string
 }
 
+// ScriptHotfixFixture describes one script hotfix embedded into an isolated
+// scenario-specific ANC build.
+type ScriptHotfixFixture struct {
+	Source      string
+	Destination string
+	Mode        string
+	Platforms   []string
+	Payload     []byte
+}
+
 // Config represents the configuration of an AgentBaker E2E scenario.
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
@@ -207,6 +217,10 @@ type Config struct {
 	// CustomDataWriteFiles injects additional cloud-init write_files entries into rendered customData.
 	// This is for e2e-only validation scenarios.
 	CustomDataWriteFiles []CustomDataWriteFile
+
+	// ScriptHotfixFixture builds ANC in an isolated temporary module with this
+	// generated script-hotfix entry. It bypasses the shared ANC binary cache.
+	ScriptHotfixFixture *ScriptHotfixFixture
 
 	// Validator is a function where the scenario can perform any extra validation checks
 	Validator func(ctx context.Context, s *Scenario)

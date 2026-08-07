@@ -7,9 +7,11 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
+	"github.com/Azure/agentbaker/aks-node-controller/scripthotfix"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -154,4 +156,56 @@ write_files:
 
 	_, err := os.Stat(markerPath)
 	assert.True(t, os.IsNotExist(err), "marker file should not be written when scripts_version base differs from current")
+}
+
+func TestEmbeddedPayloadWinsAfterLegacyNodeCustomData(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.0"
+	defer func() { Version = origVersion }()
+
+	tempDir := t.TempDir()
+	scriptPath := filepath.Join(tempDir, "provision.sh")
+	renderedPath := filepath.Join(tempDir, "nodecustomdata.yml")
+	hotfixPath := filepath.Join(tempDir, "hotfix-config.json")
+	rendered := fmt.Sprintf(`#cloud-config
+write_files:
+- path: %s
+  permissions: "0744"
+  owner: root
+  content: |
+    legacy-crp
+`, scriptPath)
+	require.NoError(t, os.WriteFile(renderedPath, []byte(rendered), 0o600))
+	require.NoError(t, os.WriteFile(
+		hotfixPath,
+		[]byte(`{"scripts_version": "202604.01.1"}`),
+		0o644,
+	))
+
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(*exec.Cmd) error {
+			content, err := os.ReadFile(scriptPath)
+			require.NoError(t, err)
+			assert.Equal(t, "embedded\n", string(content))
+			return nil
+		},
+	})
+	tt.App.nodeCustomDataPath = renderedPath
+	tt.App.hotfixVersionPath = hotfixPath
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+
+	legacy, err := os.ReadFile(scriptPath)
+	require.NoError(t, err)
+	assert.Equal(t, "legacy-crp\n", string(legacy))
+
+	tt.App.applyEmbeddedHotfix = func(string) (scripthotfix.Result, error) {
+		require.NoError(t, os.WriteFile(scriptPath, []byte("embedded\n"), 0o744))
+		return scripthotfix.Result{Applied: 1}, nil
+	}
+	_, err = tt.App.runProvision(
+		context.Background(),
+		ProvisionFlags{NBCCmd: "parser/testdata/test_nbccmd.sh"},
+		false,
+	)
+	require.NoError(t, err)
 }
