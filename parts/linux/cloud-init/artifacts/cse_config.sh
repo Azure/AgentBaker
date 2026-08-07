@@ -1467,27 +1467,13 @@ installGPUDriverImage() {
     retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
 }
 
-# nvidia-cdi-refresh.{service,path} ship with nvidia-container-toolkit-base and are enabled by its
-# dpkg post-install, which runs inside the aks-gpu install container. The service is Type=oneshot
-# with Restart=on-failure/RestartSec=1s and StartLimitBurst=5/StartLimitIntervalSec=10s, so any
-# nvidia-ctk failure burns the start limit within seconds and leaves the service *and* its .path
-# unit permanently failed and unstartable -- which also defeats the .path trigger that would
-# otherwise regenerate the spec once the driver is fully installed.
-#
-# Three nvidia-ctk exit codes are known here, none of which should cost us the node:
-#   1   - "invalid CDI Spec: failed add device \"all\": invalid device, empty device edits" on GPUs
-#         whose MIG mode is enabled with zero MIG instances configured. nvidia-ctk cannot describe
-#         such a device, so this never succeeds no matter how often it is retried.
-#   2   - nvidia-ctk panics when invoked before the driver's userspace libraries are in place.
-#   127 - nvidia-smi is missing or unusable because the toolkit was installed ahead of the driver
-#         (aks-gpu images predating the initialize_nvidia_driver reorder).
-#
-# Accepting them as success keeps install.sh's "systemctl restart nvidia-cdi-refresh.service" from
-# aborting the GPU driver install, leaves no failed units behind, and preserves the .path trigger so
-# a valid spec is still generated as soon as the driver lands. Every other exit code still fails the
-# unit, so genuinely unexpected breakage stays visible. CDI is not how AKS GPU pods reach the device
-# today -- containerd's default_runtime_name is nvidia-container-runtime -- so a degraded spec on
-# hardware that cannot produce one must never fail node provisioning.
+# nvidia-cdi-refresh.service (nvidia-container-toolkit-base) is Type=oneshot with Restart=on-failure
+# and StartLimitBurst=5/10s, so one nvidia-ctk failure burns the start limit in ~5s and leaves it and
+# its .path unit permanently failed and unstartable -- which fails install.sh's `systemctl restart`
+# (CSE 84) and kills the .path trigger that would otherwise regenerate the spec later. Tolerate the
+# three known codes: 1 (MIG mode on with no MIG instances, which never succeeds), 2 (panic before the
+# driver userspace is ready), 127 (nvidia-smi missing on pre-reorder aks-gpu images). Anything else
+# still fails the unit. GPU pods reach the device via containerd's nvidia-container-runtime, not CDI.
 NVIDIA_CDI_REFRESH_DROP_IN="/etc/systemd/system/nvidia-cdi-refresh.service.d/10-aks-tolerate-generate-failure.conf"
 
 configureNvidiaCDIRefresh() {
