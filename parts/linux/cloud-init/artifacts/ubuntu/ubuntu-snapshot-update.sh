@@ -230,6 +230,10 @@ knead_apply_components() {
                 component_comparator=securityPatchIsCurrent
                 component_handler=updateSecurityPatch
                 ;;
+            localDNS)
+                component_comparator=localDNSIsCurrent
+                component_handler=updateLocalDNS
+                ;;
             *)
                 echo "unsupported component: ${component}"
                 component_index=$((component_index + 1))
@@ -271,6 +275,55 @@ knead_apply_components() {
 }
 
 # Records the processed hash and per-component results in the node status annotation.
+localDNSIsCurrent() {
+    local desired_payload="$1"
+    local current_payload="$2"
+
+    [ "${desired_payload}" = "${current_payload}" ]
+}
+
+updateLocalDNS() {
+    local component_payload="${1:-}"
+    local outcome
+
+    if [ ! -x /opt/azure/containers/aks-node-controller ]; then
+        echo "aks-node-controller binary is required for localDNS live patching"
+        return 1
+    fi
+
+    if ! outcome="$(/opt/azure/containers/aks-node-controller fetch-localdns-config --output /opt/azure/containers/localdns/livepatched.localdns.corefile)"; then
+        echo "localDNS LPS config fetch failed"
+        return 1
+    fi
+    printf '%s
+' "${outcome}"
+
+    case "$(printf '%s
+' "${outcome}" | tail -n 1)" in
+        applied)
+            if ! systemctl restart localdns.service; then
+                echo "failed to restart localdns.service"
+                return 1
+            fi
+            echo "localDNS update completed successfully"
+            ;;
+        alreadyCurrent)
+            echo "localDNS is already current"
+            ;;
+        notFound)
+            echo "localDNS LPS config is not available"
+            ;;
+        noCorefileData)
+            echo "localDNS LPS config has no node-applicable payload"
+            return 1
+            ;;
+        *)
+            echo "unexpected localDNS apply outcome: ${outcome}"
+            return 1
+            ;;
+    esac
+}
+
 knead_write_status() {
     local node_name="$1"
     local goal="$2"
