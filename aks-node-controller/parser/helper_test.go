@@ -1683,6 +1683,7 @@ health-check.localdns.local:53 {
         fallthrough
     }
     forward . 168.63.129.16 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -1727,6 +1728,7 @@ testdomain456.com:53 {
     log
     bind 169.254.10.10
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -1752,6 +1754,7 @@ testdomain456.com:53 {
         fallthrough
     }
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 2000
     }
