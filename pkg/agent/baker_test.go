@@ -470,6 +470,7 @@ health-check.localdns.local:53 {
         fallthrough
     }
     forward . 168.63.129.16 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -514,6 +515,7 @@ testdomain456.com:53 {
     log
     bind 169.254.10.10
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -539,6 +541,7 @@ testdomain456.com:53 {
         fallthrough
     }
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 2000
     }
@@ -659,6 +662,7 @@ health-check.localdns.local:53 {
         fallthrough
     }
     forward . 168.63.129.16 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -703,6 +707,7 @@ testdomain456.com:53 {
     log
     bind 169.254.10.10
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -728,6 +733,7 @@ testdomain456.com:53 {
         fallthrough
     }
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -772,6 +778,7 @@ testdomain567.com:53 {
     errors
     bind 169.254.10.11
     forward . 168.63.129.16 {
+        prefer_udp
         policy random
         max_concurrent 1000
     }
@@ -837,6 +844,7 @@ testdomain567.com:53 {
 				Expect(localDNSCoreFile).To(ContainSubstring("bind 169.254.10.10"))
 				Expect(localDNSCoreFile).To(ContainSubstring("bind 169.254.10.11"))
 				Expect(localDNSCoreFile).To(ContainSubstring("forward . 168.63.129.16"))
+				Expect(localDNSCoreFile).To(ContainSubstring("prefer_udp"))
 				Expect(localDNSCoreFile).To(ContainSubstring("nsid localdns"))
 				Expect(localDNSCoreFile).To(ContainSubstring("nsid localdns-pod"))
 			})

@@ -2306,6 +2306,9 @@ health-check.localdns.local:53 {
         {{- if eq $override.Protocol "ForceTCP"}}
         force_tcp
         {{- end}}
+        {{- if eq $override.Protocol "PreferUDP"}}
+        prefer_udp
+        {{- end}}
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
     }
@@ -2370,6 +2373,9 @@ health-check.localdns.local:53 {
     {{- end}}
         {{- if eq $override.Protocol "ForceTCP"}}
         force_tcp
+        {{- end}}
+        {{- if eq $override.Protocol "PreferUDP"}}
+        prefer_udp
         {{- end}}
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
