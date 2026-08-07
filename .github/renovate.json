@@ -58,7 +58,8 @@
         "custom.deb2004",
         "custom.deb2204",
         "custom.deb2404",
-        "custom.deb2404-test"
+        "custom.deb2404-test",
+        "custom.deb2604"
       ],
       "matchUpdateTypes": [
         "patch"
@@ -847,6 +848,20 @@
     },
     {
       "customType": "regex",
+      "description": "auto update packages for OS ubuntu 26.04 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=production, os=ubuntu, release=26\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "custom.deb2604",
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=production, os=ubuntu, release=26.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
       "description": "auto update packages for OS Mariner 2.0 in components.json",
       "managerFilePatterns": [
         "/parts/common/components.json/"
@@ -992,6 +1007,13 @@
     },
     "deb2404-test": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/24.04/prod/dists/testing/main/binary-amd64/Packages",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+      ]
+    },
+    "deb2604": {
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/26.04/prod/dists/resolute/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
         "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
