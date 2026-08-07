@@ -4,7 +4,7 @@
 # Define all exit codes in Windows CSE
 # It must match `[A-Z_]+`
 $global:WINDOWS_CSE_SUCCESS=0
-$global:WINDOWS_CSE_ERROR_UNKNOWN=1 # For unexpected error caught by the catch block in kuberneteswindowssetup.ps1
+$global:WINDOWS_CSE_ERROR_UNKNOWN=1 # For unexpected error caught by the catch block in kuberneteswindowssetup.ps1.template
 $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY=2
 $global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE=3
 $global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST=4
