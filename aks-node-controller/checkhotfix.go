@@ -192,11 +192,23 @@ func (a *App) checkHotfix(ctx context.Context) (checkHotfixOutcome, error) {
 		return outcomeFailed, fmt.Errorf("parsing LPS hotfix pointer: %w", err)
 	}
 
-	// stagedHotfixConfig is the exact shape writeHotfixConfig persists (map-only; the legacy
+	// An empty served hotfixes map means the LPS is reachable but has nothing published for
+	// this node's fleet yet - the expected steady state while the component exists but carries
+	// no entries. Treat it exactly like a benign NotFound: do NOT write, leaving the shared
+	// on-disk pointer (which cloud-init populated with version/scripts_version) intact, and
+	// report the benign no-op outcome. Writing an empty map here would clobber those fields and
+	// silently disable the cloud-init provisioning-hotfix path. This also makes a 200-"{}"
+	// response behave identically to a 404, and folds in the empty-body-is-benign parse case.
+	if len(cfg.Hotfixes) == 0 {
+		slog.Info("LPS returned no hotfixes for this node; leaving existing pointer intact (fail-open)")
+		return outcomeNoHotfixAvailable, nil
+	}
+
+	// stagedHotfixConfig is the exact shape writeHotfixConfig merges in (map-only; the legacy
 	// Version field is dropped). Basing both the write and the telemetry decision on this same
 	// value keeps the reported outcome consistent with what download-hotfix will actually read:
-	// a legacy-only pointer stages nothing resolvable, so it must report noHotfixForBase, not
-	// LPSRead.
+	// a pointer with no entry for this node's base stages nothing resolvable, so it must report
+	// noHotfixForBase, not LPSRead.
 	staged := hotfixConfig{Hotfixes: cfg.Hotfixes}
 
 	if err := writeHotfixConfig(hotfixPath, staged); err != nil {
@@ -434,23 +446,40 @@ func (a *App) coldStartHotfixConfig() (hotfixConfig, bool, error) {
 	return hotfixConfig{Hotfixes: lenient.Hotfixes}, true, nil
 }
 
-// writeHotfixConfig writes the resolved config to the path download-hotfix reads, in the
-// exact {"hotfixes":{...}} shape so download-hotfix re-resolves and applies its unchanged
-// gating. The write is atomic (temp file + rename) so a concurrent reader never sees a
-// partial file.
+// writeHotfixConfig stages the LPS-served hotfixes map to the path download-hotfix reads.
+// It is a read-modify-write: the shared file at defaultHotfixVersionPath is ALSO written by
+// cloud-init (from hotfix_generate.py) carrying "version" and "scripts_version", which
+// download-hotfix reads to drive the binary and CSE-scripts hotfix respectively. To avoid
+// clobbering those fields, this preserves whatever the existing file holds and replaces only
+// the "hotfixes" map with the served one. The write is atomic (temp file + rename) so a
+// concurrent reader never sees a partial file.
 func writeHotfixConfig(path string, cfg hotfixConfig) error {
-	// Only persist the map shape; the legacy Version field is intentionally omitted so the
-	// on-disk contract matches what the live-patching-service publishes. Marshal a dedicated
-	// struct without omitempty (and normalize nil -> empty map) so the staged file always has
-	// a stable top-level "hotfixes" key, i.e. {"hotfixes":{}} rather than {} for an empty map.
-	// hotfixConfig.Hotfixes carries omitempty for its own read path, so it must not be reused here.
+	// Read-modify-write: carry forward cloud-init's version/scripts_version. If the existing
+	// file is missing or unreadable we proceed with empty carry-over fields (best-effort,
+	// fail-open); it was already unusable to download-hotfix in that case.
+	existing, err := readHotfixConfig(path)
+	if err != nil {
+		slog.Warn("could not read existing hotfix pointer; version/scripts_version will not be preserved",
+			"path", path, "error", err)
+		existing = &hotfixConfig{}
+	}
+
+	// Normalize nil -> empty map so the staged file always has a stable top-level "hotfixes"
+	// key, i.e. {"hotfixes":{}} rather than {} for an empty map. hotfixConfig.Hotfixes carries
+	// omitempty for its own read path, so it must not be reused here.
 	hotfixes := cfg.Hotfixes
 	if hotfixes == nil {
 		hotfixes = map[string]string{}
 	}
 	out := struct {
-		Hotfixes map[string]string `json:"hotfixes"`
-	}{Hotfixes: hotfixes}
+		Version        string            `json:"version,omitempty"`
+		ScriptsVersion string            `json:"scripts_version,omitempty"`
+		Hotfixes       map[string]string `json:"hotfixes"`
+	}{
+		Version:        existing.Version,
+		ScriptsVersion: existing.ScriptsVersion,
+		Hotfixes:       hotfixes,
+	}
 	data, err := json.Marshal(out)
 	if err != nil {
 		return fmt.Errorf("marshaling hotfix config: %w", err)

@@ -119,7 +119,8 @@ func TestCheckHotfix_GRPCSuccessReadAndWrite(t *testing.T) {
 
 // TestCheckHotfix_GRPCEmptyConfigIsBenign verifies that a SUCCESSFUL RPC whose config string is
 // empty (proto3 default "" - a reachable LPS with nothing for this node) is a benign no-op:
-// outcome noHotfixForBase (not failed), with the empty map shape staged for download-hotfix.
+// outcome noHotfixAvailable (not failed), with NO write so any existing on-disk pointer is left
+// intact. This mirrors the NotFound path and avoids clobbering the cloud-init-written file.
 func TestCheckHotfix_GRPCEmptyConfigIsBenign(t *testing.T) {
 	origVersion := Version
 	Version = "202604.01.0"
@@ -129,13 +130,17 @@ func TestCheckHotfix_GRPCEmptyConfigIsBenign(t *testing.T) {
 	tt := newGRPCTestApp(t, srv)
 	path := filepath.Join(t.TempDir(), "hotfix.json")
 	tt.App.hotfixVersionPath = path
+	// Pre-seed the shared file as cloud-init would; an empty served config must not clobber it.
+	require.NoError(t, os.WriteFile(path, []byte(
+		`{"version":"202604.01.5","scripts_version":"202604.01.7"}`), 0644))
 
 	outcome, err := tt.App.checkHotfix(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, outcomeNoHotfixForBase, outcome)
+	assert.Equal(t, outcomeNoHotfixAvailable, outcome)
 
-	cfg := readStagedConfig(t, path)
-	assert.Empty(t, cfg.Hotfixes)
+	raw, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"version":"202604.01.5","scripts_version":"202604.01.7"}`, string(raw))
 }
 
 func TestCheckHotfix_GRPCBenignCodesAreNoOp(t *testing.T) {

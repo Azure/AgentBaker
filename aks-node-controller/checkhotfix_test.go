@@ -135,11 +135,55 @@ func TestCheckHotfix_NoHotfixForBase(t *testing.T) {
 	assert.Equal(t, map[string]string{"202604.01": "202604.01.1"}, cfg.Hotfixes)
 }
 
-// TestCheckHotfix_LegacyOnlyPointerReportsNoHotfixForBase guards the telemetry/staging
-// consistency contract: writeHotfixConfig persists only the Hotfixes map (the legacy Version
-// field is dropped), so a legacy-only pointer stages nothing resolvable. The reported outcome
-// must match what download-hotfix will actually read - noHotfixForBase, not LPSRead.
-func TestCheckHotfix_LegacyOnlyPointerReportsNoHotfixForBase(t *testing.T) {
+// TestCheckHotfix_EmptyServedConfigIsBenignAndPreservesFile guards the no-clobber contract:
+// the on-disk pointer is the SAME file cloud-init populates with "version"/"scripts_version".
+// A reachable LPS that serves an empty hotfixes map (a "{}" body, or a legacy-only body whose
+// Version we intentionally drop) must be treated exactly like a benign NotFound - no write, so
+// the cloud-init-written version/scripts_version survive. Writing an empty map here would
+// disable the existing cloud-init provisioning-hotfix path.
+func TestCheckHotfix_EmptyServedConfigIsBenignAndPreservesFile(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.0"
+	defer func() { Version = origVersion }()
+
+	cloudInitFile := `{"version":"202604.01.5","scripts_version":"202604.01.7","hotfixes":{"202604.01":"202604.01.5"}}`
+	cases := map[string]string{
+		"empty object":     `{}`,
+		"empty map":        `{"hotfixes":{}}`,
+		"legacy-only body": `{"version":"202604.01.9"}`,
+		"empty body":       ``,
+	}
+	for name, servedBody := range cases {
+		t.Run(name, func(t *testing.T) {
+			tt := NewTestApp(t, TestAppConfig{})
+			path := filepath.Join(t.TempDir(), "hotfix.json")
+			tt.App.hotfixVersionPath = path
+			// Pre-seed the shared file exactly as cloud-init would.
+			require.NoError(t, os.WriteFile(path, []byte(cloudInitFile), 0644))
+
+			body := servedBody
+			tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
+				return []byte(body), nil
+			}
+
+			outcome, err := tt.App.checkHotfix(context.Background())
+			require.NoError(t, err)
+			assert.Equal(t, outcomeNoHotfixAvailable, outcome)
+
+			// The cloud-init file must be left byte-for-byte intact.
+			raw, err := os.ReadFile(path)
+			require.NoError(t, err)
+			assert.JSONEq(t, cloudInitFile, string(raw))
+		})
+	}
+}
+
+// TestCheckHotfix_PreservesVersionAndScriptsVersionOnWrite guards the "sharper half": even for
+// a NON-empty served hotfixes map (a real hotfix rollout), the write must be a read-modify-write
+// that preserves the cloud-init-written version/scripts_version and replaces only the hotfixes
+// map. The LPS payload is hotfixes-only by design, so rewriting the whole file naively would
+// drop scripts_version and silently disable the CSE-scripts hotfix.
+func TestCheckHotfix_PreservesVersionAndScriptsVersionOnWrite(t *testing.T) {
 	origVersion := Version
 	Version = "202604.01.0"
 	defer func() { Version = origVersion }()
@@ -147,19 +191,24 @@ func TestCheckHotfix_LegacyOnlyPointerReportsNoHotfixForBase(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	path := filepath.Join(t.TempDir(), "hotfix.json")
 	tt.App.hotfixVersionPath = path
+	// cloud-init seeds version + scripts_version + a stale hotfixes map.
+	require.NoError(t, os.WriteFile(path, []byte(
+		`{"version":"202604.01.5","scripts_version":"202604.01.7","hotfixes":{"202604.01":"202604.01.5"}}`), 0644))
+
 	tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
-		// Legacy shape: a top-level "version" pointer with no "hotfixes" map.
-		return []byte(`{"version":"202604.01.9"}`), nil
+		return lpsPointerBody(t, map[string]string{"202604.01": "202604.01.9"}), nil
 	}
 
 	outcome, err := tt.App.checkHotfix(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, outcomeNoHotfixForBase, outcome)
+	assert.Equal(t, outcomeLPSRead, outcome)
 
-	// The staged file must not carry the legacy Version - only the (empty) map shape.
 	cfg := readStagedConfig(t, path)
-	assert.Empty(t, cfg.Version)
-	assert.Empty(t, cfg.Hotfixes)
+	// hotfixes map replaced by the LPS-served one...
+	assert.Equal(t, map[string]string{"202604.01": "202604.01.9"}, cfg.Hotfixes)
+	// ...but version/scripts_version preserved from the cloud-init file.
+	assert.Equal(t, "202604.01.5", cfg.Version)
+	assert.Equal(t, "202604.01.7", cfg.ScriptsVersion)
 }
 
 func TestCheckHotfix_LPSUnavailableIsBenign(t *testing.T) {
@@ -548,6 +597,21 @@ func TestWriteHotfixConfig_EmptyMapKeepsStableKey(t *testing.T) {
 			assert.JSONEq(t, `{"hotfixes":{}}`, string(raw))
 		})
 	}
+}
+
+// TestWriteHotfixConfig_PreservesExistingVersionAndScriptsVersion is the unit-level guard for
+// the read-modify-write: given a pre-existing file (as cloud-init writes) carrying version and
+// scripts_version, writeHotfixConfig must keep those fields and only replace the hotfixes map.
+func TestWriteHotfixConfig_PreservesExistingVersionAndScriptsVersion(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "hotfix.json")
+	require.NoError(t, os.WriteFile(path, []byte(
+		`{"version":"202604.01.5","scripts_version":"202604.01.7","hotfixes":{"202604.01":"202604.01.5"}}`), 0644))
+
+	require.NoError(t, writeHotfixConfig(path, hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.9"}}))
+
+	raw, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"version":"202604.01.5","scripts_version":"202604.01.7","hotfixes":{"202604.01":"202604.01.9"}}`, string(raw))
 }
 
 func TestWriteHotfixConfig_FileMode(t *testing.T) {
