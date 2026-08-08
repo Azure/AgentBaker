@@ -909,6 +909,14 @@ buildNVIDIAKernelModule() {
         echo "Error: NVIDIA CUDA prebake did not produce /opt/azure/aks-gpu/dkms-marker"
         exit 1
       fi
+      # Record the baked driver VERSION in the marker so node-boot CSE can detect a version mismatch
+      # (baked prebake vs the version this node installs) and tear down a stale prebake before it
+      # collides -- see cleanUpMismatchedPrebakedGPUDriver in cse_config.sh. The aks-gpu container tag
+      # is "<driver_version>-<image_sha>" (e.g. 580.159.04-20260629214430); strip the trailing image
+      # SHA so the recorded value matches CSE's GPU_DV (GPUDriverVersion). Appended, not overwriting the
+      # container-written driver_kind= line. Older VHDs omit this line; CSE falls back to kind-only there.
+      PREBAKED_DRIVER_VERSION="${NVIDIA_DRIVER_IMAGE_TAG%-*}"
+      echo "driver_version=${PREBAKED_DRIVER_VERSION}" >> /opt/azure/aks-gpu/dkms-marker
       cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver-prebaked=${NVIDIA_DRIVER_IMAGE_TAG} (kernel $(uname -r))
 EOF
