@@ -70,6 +70,20 @@ oom_score = -999
 			},
 		},
 		{
+			name:       "AKSUbuntu2204 with a populated MIG profile layout",
+			folder:     "AKSUbuntu2204+Containerd+MIG",
+			k8sVersion: "1.19.13",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.GpuConfig.MigProfileLayout = []string{"MIG3g", "MIG2g", "MIG1g", "MIG1g"}
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILE_LAYOUT", "MIG3g,MIG2g,MIG1g,MIG1g")
+				// TODO: Make MIG_NODE true if either NVIDIA_MIG_PROFILE_LAYOUT or GPU_INSTANCE_PROFILE is set.
+				assertHasKeyWithValue(t, vars, "MIG_NODE", "false")
+			},
+		},
+		{
 			name:       "AKSUbuntu2204 DisableSSH with enabled ssh",
 			folder:     "AKSUbuntu2204+SSHStatusOn",
 			k8sVersion: "1.24.2",

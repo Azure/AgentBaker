@@ -425,6 +425,15 @@ function nodePrep {
     logs_to_events "AKS.CSE.fetch_and_cache_imds_instance_metadata" fetch_and_cache_imds_instance_metadata
     reconcileVulnerableKernelModuleMitigation
 
+    if [ "${SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE}" = "true" ]; then
+        logs_to_events "AKS.CSE.applyTransparentHugePageValues" applyTransparentHugePageValues
+        logs_to_events "AKS.CSE.reconcileTransparentHugePagePersistence" reconcileTransparentHugePagePersistence
+    fi
+
+    if [ "${SHOULD_CONFIG_SWAP_FILE}" = "true" ]; then
+        logs_to_events "AKS.CSE.reconcileSwapFilePersistence" reconcileSwapFilePersistence
+    fi
+
     # IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels,
     # which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
     logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing

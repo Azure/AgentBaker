@@ -238,19 +238,14 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	if enableScriptlessCompilation(s) {
 		binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 		require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
-		if agent.UseCSEScriptlessPhase2 {
-			binaryDownloadCmd := fmt.Sprintf("curl -fSL --retry 10 --retry-delay 2 --retry-connrefused \"%s\" -o /opt/azure/containers/aks-node-controller-hotfix && chmod +x /opt/azure/containers/aks-node-controller-hotfix", binaryURL)
-			cse = binaryDownloadCmd + " && " + cse
-		} else {
-			customData, err = CustomDataWithNBCCmdHack(s, customData, binaryURL)
-			require.NoError(s.T, err, "failed to generate custom data with NBC cmd hack")
-		}
+		customData, err = CustomDataWithNBCCmdHack(s, customData, binaryURL)
+		require.NoError(s.T, err, "failed to generate custom data with NBC cmd hack")
 	}
 	if len(s.Config.CustomDataWriteFiles) > 0 {
 		customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
 		require.NoError(s.T, err, "failed to inject customData write_files entries")
 	}
-	if !scriptlessNBCCSECmdEnabled && s.VHD.SupportsScriptless() {
+	if !config.Config.DisableScriptless && !scriptlessNBCCSECmdEnabled && s.VHD.SupportsScriptless() {
 		// Validate that the custom data doesn't contain any script content,
 		// which indicates that the scriptless CSE is working as intended
 		decodedCustomData, err := base64.StdEncoding.DecodeString(customData)
@@ -737,12 +732,15 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
 		"aks-node-controller.output":       "sudo cat /var/log/azure/aks-node-controller.output",
 		"aks-node-controller-config.json":  "sudo cat /opt/azure/containers/aks-node-controller-config.json", // Only available in Scriptless.
+		"aks-early-boothook.log":           "sudo cat /var/log/azure/aks-early-boothook.log",
 		"syslog":                           "sudo cat /var/log/" + syslogHandle,
 		"journalctl":                       "sudo journalctl --boot=0 --no-pager",
 		"azure.json":                       "sudo cat /etc/kubernetes/azure.json",
 		"provision.json":                   "sudo cat /var/log/azure/aks/provision.json",
 		"cloud-init.log":                   "sudo cat /var/log/cloud-init.log",
 		"cloud-init-output.log":            "sudo cat /var/log/cloud-init-output.log",
+		"systemd-analyze.log":              "sudo systemd-analyze critical-chain cloud-init-local.service",
+		"systemd-analyze-blame.log":        "sudo systemd-analyze blame",
 	}
 	if s.SecureTLSBootstrappingEnabled() {
 		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"

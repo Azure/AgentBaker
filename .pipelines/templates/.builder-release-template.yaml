@@ -21,7 +21,7 @@ steps:
       command: download
       vstsFeed: AzCoreLinux-Compliance
       vstsFeedPackage: cisassessor
-      vstsPackageVersion: '0.0.230'
+      vstsPackageVersion: '0.0.249'
       downloadDirectory: vhdbuilder/
 
   - task: DownloadPipelineArtifact@2

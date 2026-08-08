@@ -1476,7 +1476,9 @@ func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTim
 			if tc.isWindows {
 				validateAndSetWindowsNodeBootstrappingConfiguration(config)
 			} else {
-				ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+				if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
+					t.Fatalf("unexpected validation error: %v", err)
+				}
 			}
 
 			_, exists := config.KubeletConfig["--streaming-connection-idle-timeout"]
@@ -1506,7 +1508,9 @@ func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTim
 			},
 		}
 
-		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+		if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
+			t.Fatalf("unexpected validation error: %v", err)
+		}
 
 		_, exists := config.KubeletConfig["--streaming-connection-idle-timeout"]
 		if exists {
@@ -1559,7 +1563,9 @@ func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTim
 			},
 		}
 
-		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+		if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
+			t.Fatalf("unexpected validation error: %v", err)
+		}
 
 		cmdLine := GetOrderedKubeletConfigFlagString(config)
 		if strings.Contains(cmdLine, "streaming-connection-idle-timeout") {
@@ -1597,11 +1603,71 @@ func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTim
 			},
 		}
 
-		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+		if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
+			t.Fatalf("unexpected validation error: %v", err)
+		}
 
 		cmdLine := GetOrderedKubeletConfigFlagString(config)
 		if strings.Contains(cmdLine, "streaming-connection-idle-timeout") {
 			t.Fatalf("streaming-connection-idle-timeout must not appear in final kubelet command line via custom configuration for k8s >= 1.34, got: %s", cmdLine)
 		}
 	})
+}
+
+func TestValidateAndSetLinuxNodeBootstrappingConfiguration_TransparentHugePageValues(t *testing.T) {
+	testCases := []struct {
+		name        string
+		enabled     string
+		defrag      string
+		expectedErr string
+	}{
+		{
+			name: "accepts empty values",
+		},
+		{
+			name:    "accepts supported enabled values",
+			enabled: "always",
+		},
+		{
+			name:   "accepts supported defrag values",
+			defrag: "defer+madvise",
+		},
+		{
+			name:        "rejects unsupported enabled values",
+			enabled:     "within_size",
+			expectedErr: "customLinuxOSConfig.transparentHugePageEnabled",
+		},
+		{
+			name:        "rejects unsupported defrag values",
+			defrag:      "within_size",
+			expectedErr: "customLinuxOSConfig.transparentHugePageDefrag",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			config := &datamodel.NodeBootstrappingConfiguration{
+				AgentPoolProfile: &datamodel.AgentPoolProfile{
+					CustomLinuxOSConfig: &datamodel.CustomLinuxOSConfig{
+						TransparentHugePageEnabled: tc.enabled,
+						TransparentHugePageDefrag:  tc.defrag,
+					},
+				},
+			}
+
+			err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)
+			if tc.expectedErr == "" {
+				if err != nil {
+					t.Fatalf("unexpected validation error: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("expected validation error containing %q", tc.expectedErr)
+			}
+			if !strings.Contains(err.Error(), tc.expectedErr) {
+				t.Fatalf("expected validation error containing %q, got %q", tc.expectedErr, err.Error())
+			}
+		})
+	}
 }

@@ -235,10 +235,7 @@ testAcrCredentialProviderInstalled() {
 
 testPackagesInstalled() {
   local test="testPackagesInstalled"
-  if [ "$(isARM64)" -eq 1 ]; then
-    return
-  fi
-  CPU_ARCH="amd64"
+  CPU_ARCH=$(getCPUArch) # "arm64" or "amd64"
   echo "$test:Start"
   packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 

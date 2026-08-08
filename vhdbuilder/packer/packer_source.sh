@@ -204,6 +204,10 @@ copyPackerFiles() {
   MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_DEST=/opt/azure/containers/measure-tls-bootstrapping-latency.sh
   MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_SRC=/home/packer/measure-tls-bootstrapping-latency.service
   MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_DEST=/etc/systemd/system/measure-tls-bootstrapping-latency.service
+  EMIT_KUBELET_ACTIVE_FLAGS_SCRIPT_SRC=/home/packer/emit-kubelet-active-flags.sh
+  EMIT_KUBELET_ACTIVE_FLAGS_SCRIPT_DEST=/opt/azure/containers/emit-kubelet-active-flags.sh
+  EMIT_KUBELET_ACTIVE_FLAGS_SERVICE_SRC=/home/packer/emit-kubelet-active-flags.service
+  EMIT_KUBELET_ACTIVE_FLAGS_SERVICE_DEST=/etc/systemd/system/emit-kubelet-active-flags.service
   VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC=/home/packer/validate-kubelet-credentials.sh
   VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST=/opt/azure/containers/validate-kubelet-credentials.sh
   RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
@@ -236,6 +240,10 @@ copyPackerFiles() {
   CSE_SEND_SRC=/home/packer/cse_send_logs.py
   CSE_SEND_DEST=/opt/azure/containers/provision_send_logs.py
   cpAndMode $CSE_SEND_SRC $CSE_SEND_DEST 0744
+
+  FETCH_PROVISION_CONFIG_SRC=/home/packer/fetch_provision_config.py
+  FETCH_PROVISION_CONFIG_DEST=/opt/azure/containers/fetch_provision_config.py
+  cpAndMode $FETCH_PROVISION_CONFIG_SRC $FETCH_PROVISION_CONFIG_DEST 0744
 
   INIT_CLOUD_SRC=/home/packer/init-aks-cloud.sh
   INIT_CLOUD_DEST=/opt/azure/containers/init-aks-cloud.sh
@@ -500,6 +508,8 @@ copyPackerFiles() {
   cpAndMode $ENSURE_IMDS_RESTRICTION_SRC $ENSURE_IMDS_RESTRICTION_DEST 755
   cpAndMode $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_SRC $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_DEST 755
   cpAndMode $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_SRC $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_DEST 644
+  cpAndMode $EMIT_KUBELET_ACTIVE_FLAGS_SCRIPT_SRC $EMIT_KUBELET_ACTIVE_FLAGS_SCRIPT_DEST 755
+  cpAndMode $EMIT_KUBELET_ACTIVE_FLAGS_SERVICE_SRC $EMIT_KUBELET_ACTIVE_FLAGS_SERVICE_DEST 644
   cpAndMode $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644

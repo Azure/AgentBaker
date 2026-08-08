@@ -9,13 +9,13 @@ CVE_LIST_QUERY_OUTPUT_PATH=${TRIVY_REPORT_DIRNAME}/cve-list.txt
 TRIVY_DB_REPOSITORIES="mcr.microsoft.com/mirror/ghcr/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,public.ecr.aws/aquasecurity/trivy-db"
 
 # renovate: datasource=custom.deb2004 depName=trivy versioning=deb
-TRIVY_DEB_2004_VERSION="0.70.0-ubuntu20.04u9"
+TRIVY_DEB_2004_VERSION="0.72.0-ubuntu20.04u1"
 
 # renovate: datasource=custom.deb2204 depName=trivy versioning=deb
-TRIVY_DEB_2204_VERSION="0.70.0-ubuntu22.04u9"
+TRIVY_DEB_2204_VERSION="0.72.0-ubuntu22.04u1"
 
 # renovate: datasource=custom.deb2404 depName=trivy versioning=deb
-TRIVY_DEB_2404_VERSION="0.70.0-ubuntu24.04u9"
+TRIVY_DEB_2404_VERSION="0.72.0-ubuntu24.04u1"
 
 # renovate: datasource=custom.deb2604 depName=trivy versioning=deb
 TRIVY_DEB_2604_VERSION="0.70.0-ubuntu26.04u12"

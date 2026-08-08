@@ -14,9 +14,230 @@ check_hosts_file_permissions() {
     stat -c '%a' "$AKS_LOCALDNS_HOSTS_FILE"
 }
 
+check_test_fstab_permissions() {
+    printf "0%s" "$(getFileMode "$TEST_FSTAB_FILE")"
+}
+
 Describe 'cse_config.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+
+    Describe 'configureTransparentHugePageSystemdService'
+        setup_thp_service() {
+            THP_ENABLED="never"
+            THP_DEFRAG="madvise"
+            unset FAIL_MKDIR FAIL_TEE_PATH FAIL_CHMOD FAIL_DAEMON_RELOAD FAIL_SYSTEMCTL_ENABLE
+        }
+
+        cleanup_thp_service() {
+            unset THP_ENABLED THP_DEFRAG FAIL_MKDIR FAIL_TEE_PATH CAPTURE_TEE_PATH FAIL_CHMOD FAIL_DAEMON_RELOAD FAIL_SYSTEMCTL_ENABLE
+        }
+
+        mkdir() {
+            echo "mkdir $*"
+            [ "${FAIL_MKDIR:-}" = "true" ] && return 1
+            return 0
+        }
+
+        tee() {
+            if [ "${1:-}" = "${FAIL_TEE_PATH:-__none__}" ]; then
+                return 1
+            fi
+            if [ "${1:-}" = "${CAPTURE_TEE_PATH:-__none__}" ]; then
+                cat >&2
+                return 0
+            fi
+            cat > /dev/null
+        }
+
+        chmod() {
+            echo "chmod $*"
+            [ "${FAIL_CHMOD:-}" = "true" ] && return 1
+            return 0
+        }
+
+        systemctl() {
+            echo "systemctl $*"
+            [ "${1:-}" = "daemon-reload" ] && [ "${FAIL_DAEMON_RELOAD:-}" = "true" ] && return 1
+            return 0
+        }
+
+        systemctlEnableAndStart() {
+            echo "systemctlEnableAndStart $*"
+            [ "${FAIL_SYSTEMCTL_ENABLE:-}" = "true" ] && return 1
+            return 0
+        }
+
+        BeforeEach 'setup_thp_service'
+        AfterEach 'cleanup_thp_service'
+
+        It 'writes helper files, reloads systemd, and enables the service'
+            When run configureTransparentHugePageSystemdService
+
+            The status should be success
+            The output should include "mkdir -p /opt/azure/containers /opt/azure/containers/aks-transparent-hugepage"
+            The output should include "chmod 0755 /opt/azure/containers/aks-transparent-hugepage.sh"
+            The output should include "systemctl daemon-reload"
+            The output should include "systemctlEnableAndStart aks-transparent-hugepage 30"
+        End
+
+        It 'exits when helper directory creation fails'
+            FAIL_MKDIR="true"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSCTL_RELOAD"
+            The output should include "mkdir -p /opt/azure/containers"
+            The output should not include "chmod"
+            The output should not include "systemctl daemon-reload"
+        End
+
+        It 'exits when helper script write fails'
+            FAIL_TEE_PATH="/opt/azure/containers/aks-transparent-hugepage.sh"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSCTL_RELOAD"
+            The output should include "mkdir -p /opt/azure/containers"
+            The output should not include "chmod"
+            The output should not include "systemctl daemon-reload"
+        End
+
+        It 'exits when helper script chmod fails'
+            FAIL_CHMOD="true"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSCTL_RELOAD"
+            The output should include "chmod 0755 /opt/azure/containers/aks-transparent-hugepage.sh"
+            The output should not include "systemctl daemon-reload"
+        End
+
+        It 'exits when service unit write fails'
+            FAIL_TEE_PATH="/etc/systemd/system/aks-transparent-hugepage.service"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSCTL_RELOAD"
+            The output should include "chmod 0755 /opt/azure/containers/aks-transparent-hugepage.sh"
+            The output should not include "systemctl daemon-reload"
+        End
+
+        It 'exits when systemd daemon reload fails'
+            FAIL_DAEMON_RELOAD="true"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSTEMCTL_START_FAIL"
+            The output should include "systemctl daemon-reload"
+            The output should not include "systemctlEnableAndStart"
+        End
+
+        It 'does not embed raw THP values in the generated helper script'
+            THP_ENABLED='never"; touch /tmp/aks-thp-injection #'
+            CAPTURE_TEE_PATH="/opt/azure/containers/aks-transparent-hugepage.sh"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should be success
+            The output should include "systemctlEnableAndStart aks-transparent-hugepage 30"
+            The error should include 'cat "${thp_enabled_config}" > /sys/kernel/mm/transparent_hugepage/enabled'
+            The error should not include "touch /tmp/aks-thp-injection"
+        End
+    End
+
+    Describe 'swapFileIsActive'
+        swapon() {
+            if [ "$*" != "--show --noheadings" ]; then
+                return 1
+            fi
+            printf '%b' "${SWAPON_OUTPUT}"
+        }
+
+        It 'matches an active swap file when swapon output has leading whitespace'
+            SWAPON_OUTPUT='    /swapfile\n'
+
+            When call swapFileIsActive "/swapfile"
+            The status should be success
+        End
+
+        It 'matches only the exact swap file path'
+            SWAPON_OUTPUT='    /swapfile-extra\n'
+
+            When call swapFileIsActive "/swapfile"
+            The status should be failure
+        End
+    End
+
+    Describe 'ensureSwapFileFstabEntry'
+        setup() {
+            TEST_FSTAB_DIR="$(mktemp -d)"
+            TEST_FSTAB_FILE="${TEST_FSTAB_DIR}/fstab"
+            : > "${TEST_FSTAB_FILE}"
+        }
+
+        cleanup() {
+            rm -rf "${TEST_FSTAB_DIR}"
+            unset TEST_FSTAB_FILE
+            unset TEST_FSTAB_DIR
+            unset FAIL_MV
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        mv() {
+            if [ "${FAIL_MV:-false}" = "true" ]; then
+                return 1
+            fi
+
+            command mv "$@"
+        }
+
+        It 'replaces existing fstab entries for the same swap file'
+            chmod 0644 "${TEST_FSTAB_FILE}"
+            printf '/swapfile none swap sw 0 0\n/other none swap sw 0 0\n/swapfile none swap defaults 0 0\n' > "${TEST_FSTAB_FILE}"
+            expected_fstab='/other none swap sw 0 0
+/swapfile none swap noauto,nofail 0 0'
+
+            When call ensureSwapFileFstabEntry "/swapfile" "${TEST_FSTAB_FILE}"
+
+            The status should be success
+            The contents of file "${TEST_FSTAB_FILE}" should equal "${expected_fstab}"
+        End
+
+        It 'preserves the fstab file mode when replacing entries'
+            chmod 0640 "${TEST_FSTAB_FILE}"
+            printf '/other none swap sw 0 0\n' > "${TEST_FSTAB_FILE}"
+
+            When call ensureSwapFileFstabEntry "/swapfile" "${TEST_FSTAB_FILE}"
+
+            The status should be success
+            The path "${TEST_FSTAB_FILE}" should be file
+            The result of function check_test_fstab_permissions should equal "0640"
+        End
+
+        It 'keeps one canonical fstab entry when it already exists'
+            printf '/other none swap sw 0 0\n/swapfile none swap noauto,nofail 0 0\n' > "${TEST_FSTAB_FILE}"
+            expected_fstab='/other none swap sw 0 0
+/swapfile none swap noauto,nofail 0 0'
+
+            When call ensureSwapFileFstabEntry "/swapfile" "${TEST_FSTAB_FILE}"
+
+            The status should be success
+            The contents of file "${TEST_FSTAB_FILE}" should equal "${expected_fstab}"
+        End
+
+        It 'leaves the existing fstab untouched when atomic replace fails'
+            printf '/other none swap sw 0 0\n' > "${TEST_FSTAB_FILE}"
+            FAIL_MV=true
+
+            When call ensureSwapFileFstabEntry "/swapfile" "${TEST_FSTAB_FILE}"
+
+            The status should be failure
+            The contents of file "${TEST_FSTAB_FILE}" should equal '/other none swap sw 0 0'
+        End
+    End
 
     Describe 'logGPUDriverPrebakeReadiness'
         It 'reports marker_present=false when no prebake marker exists'
@@ -2537,36 +2758,36 @@ OVERRIDE_EOF
         ERR_PULL_POD_INFRA_CONTAINER_IMAGE=1
 
         It 'should use MCR_REPOSITORY_BASE for image replacement when set'
-            get_sandbox_image() { echo "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.1"; }
+            get_sandbox_image() { echo "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.2"; }
             MCR_REPOSITORY_BASE="mcr.microsoft.us"
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
 
             When call ensurePodInfraContainerImage
 
             The status should be success
-            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.2"
         End
 
         It 'should fall back to mcr.microsoft.com when MCR_REPOSITORY_BASE is unset'
-            get_sandbox_image() { echo "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1"; }
+            get_sandbox_image() { echo "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2"; }
             MCR_REPOSITORY_BASE=""
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
 
             When call ensurePodInfraContainerImage
 
             The status should be success
-            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.2"
         End
 
         It 'should handle MCR_REPOSITORY_BASE with trailing slash'
-            get_sandbox_image() { echo "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.1"; }
+            get_sandbox_image() { echo "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.2"; }
             MCR_REPOSITORY_BASE="mcr.microsoft.us/"
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
 
             When call ensurePodInfraContainerImage
 
             The status should be success
-            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.2"
         End
     End
 
@@ -2681,6 +2902,146 @@ EOF
             The output should include 'dcgm-exporter'
             The output should include 'dra-driver-nvidia-gpu'
             The output should not include 'nvidia-device-plugin'
+        End
+    End
+
+    Describe 'configureSwapFile'
+        SWAP_FILE_SIZE_MB=1
+
+        function [ {
+            if test "$1" = "-L" && test "$2" = "/dev/disk/azure/resource-part1"; then
+                return 0
+            fi
+            local last_arg=""
+            for last_arg in "$@"; do :; done
+            if test "${last_arg}" = "]"; then
+                command [ "$@"
+            else
+                command [ "$@" ]
+            fi
+        }
+
+        readlink() {
+            case "$2" in
+                /dev/disk/azure/resource-part1) echo "/dev/sdb1" ;;
+                /dev/disk/azure/root) echo "/dev/sda1" ;;
+            esac
+        }
+
+        retrycmd_if_failure() {
+            echo "retrycmd_if_failure $*"
+        }
+
+        chmod() {
+            echo "chmod $*"
+        }
+
+        swapFileIsActive() {
+            echo "swapFileIsActive $1"
+        }
+
+        reconcileSwapFilePersistence() {
+            echo "reconcileSwapFilePersistence $1"
+        }
+
+        It 'falls back to OS disk when resource disk mountpoint cannot be determined'
+            findmnt() {
+                return 1
+            }
+            df() {
+                printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda1 1000000 0 1000000 0%% /\n'
+            }
+
+            When call configureSwapFile
+
+            The status should be success
+            The output should include "Could not determine resource disk mountpoint, attempting to fall back to OS disk..."
+            The output should include "Will use OS disk for swap file"
+            The output should include "Swap file will be saved to: /swapfile"
+            The output should include "reconcileSwapFilePersistence /swapfile"
+        End
+
+        It 'falls back to OS disk when resource disk free space cannot be determined'
+            findmnt() {
+                echo "/mnt/resource"
+            }
+            df() {
+                case "$2" in
+                    /mnt/resource)
+                        printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n'
+                        ;;
+                    /)
+                        printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda1 1000000 0 1000000 0%% /\n'
+                        ;;
+                esac
+            }
+
+            When call configureSwapFile
+
+            The status should be success
+            The output should include "Could not determine free space on resource disk, attempting to fall back to OS disk..."
+            The output should include "Will use OS disk for swap file"
+            The output should include "Swap file will be saved to: /swapfile"
+            The output should include "reconcileSwapFilePersistence /swapfile"
+        End
+    End
+
+    Describe 'reconcileSwapFilePersistence'
+        findExistingSwapFileLocation() {
+            return 1
+        }
+
+        configureSwapFile() {
+            echo "createSwapFile"
+        }
+
+        ensureSwapFileFstabEntry() {
+            echo "ensureSwapFileFstabEntry $1"
+        }
+
+        configureSwapFileSystemdService() {
+            echo "configureSwapFileSystemdService $1"
+        }
+
+        It 'creates the requested swap file when no existing swap file is present'
+            When call reconcileSwapFilePersistence
+
+            The status should be success
+            The output should include "No existing AKS swap file found; creating swap file for persistence reconciliation"
+            The output should include "createSwapFile"
+            The output should not include "ensureSwapFileFstabEntry"
+            The output should not include "configureSwapFileSystemdService"
+        End
+
+        It 'reconciles persistence for an existing swap file without recreating it'
+            When call reconcileSwapFilePersistence "/swapfile"
+
+            The status should be success
+            The output should include "ensureSwapFileFstabEntry /swapfile"
+            The output should include "configureSwapFileSystemdService /swapfile"
+            The output should not include "createSwapFile"
+        End
+
+        It 'exits when fstab reconciliation fails'
+            ensureSwapFileFstabEntry() {
+                return 1
+            }
+
+            When run reconcileSwapFilePersistence "/swapfile"
+
+            The status should equal "$ERR_SWAP_CREATE_FAIL"
+            The output should not include "configureSwapFileSystemdService"
+        End
+
+        It 'exits when swap systemd service reconciliation fails'
+            configureSwapFileSystemdService() {
+                return 1
+            }
+
+            When run reconcileSwapFilePersistence "/swapfile"
+
+            The status should equal "$ERR_SWAP_CREATE_FAIL"
+            The output should include "ensureSwapFileFstabEntry /swapfile"
         End
     End
 End

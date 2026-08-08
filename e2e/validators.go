@@ -250,7 +250,7 @@ func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, fil
 
 func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[string]string) {
 	s.T.Helper()
-	keysToCheck := make([]string, len(customSysctls))
+	keysToCheck := make([]string, 0, len(customSysctls))
 	for k := range customSysctls {
 		keysToCheck = append(keysToCheck, k)
 	}
@@ -258,10 +258,104 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 		"set -ex",
 		fmt.Sprintf("sudo sysctl %s | sed -E 's/([0-9])\\s+([0-9])/\\1 \\2/g'", strings.Join(keysToCheck, " ")),
 	}
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "systmctl command failed")
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "sysctl command failed")
 	for name, value := range customSysctls {
 		require.Contains(s.T, execResult.stdout, fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not.\nStdout:\n%s", name, value, execResult.stdout)
 	}
+}
+
+func ValidateCustomLinuxOSConfigPersistsAfterReboot(ctx context.Context, s *Scenario, customSysctls map[string]string, customContainerdUlimits map[string]string, swapFileSizeMB int32, thpEnabled, thpDefrag string) {
+	s.T.Helper()
+	validateCustomLinuxOSConfig(ctx, s, customSysctls, customContainerdUlimits, swapFileSizeMB, thpEnabled, thpDefrag)
+	RebootVMAndWaitForSSH(ctx, s)
+	validateCustomLinuxOSConfig(ctx, s, customSysctls, customContainerdUlimits, swapFileSizeMB, thpEnabled, thpDefrag)
+}
+
+func validateCustomLinuxOSConfig(ctx context.Context, s *Scenario, customSysctls map[string]string, customContainerdUlimits map[string]string, swapFileSizeMB int32, thpEnabled, thpDefrag string) {
+	s.T.Helper()
+	ValidateSysctlConfig(ctx, s, customSysctls)
+	ValidateUlimitSettings(ctx, s, customContainerdUlimits)
+	ValidateSwapFileConfig(ctx, s, swapFileSizeMB)
+	ValidateTransparentHugePageConfig(ctx, s, thpEnabled, thpDefrag)
+}
+
+func ValidateTransparentHugePageConfig(ctx context.Context, s *Scenario, thpEnabled, thpDefrag string) {
+	s.T.Helper()
+	command := []string{"set -ex"}
+	if thpEnabled != "" {
+		command = append(command,
+			"cat /sys/kernel/mm/transparent_hugepage/enabled",
+			fmt.Sprintf("grep -Fq '[%s]' /sys/kernel/mm/transparent_hugepage/enabled", thpEnabled),
+		)
+	}
+	if thpDefrag != "" {
+		command = append(command,
+			"cat /sys/kernel/mm/transparent_hugepage/defrag",
+			fmt.Sprintf("grep -Fq '[%s]' /sys/kernel/mm/transparent_hugepage/defrag", thpDefrag),
+		)
+	}
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "transparent huge page configuration did not match expected values")
+}
+
+func ValidateSwapFileConfig(ctx context.Context, s *Scenario, swapFileSizeMB int32) {
+	s.T.Helper()
+	if swapFileSizeMB <= 0 {
+		return
+	}
+
+	command := []string{
+		"set -ex",
+		"swapon --show --bytes",
+		"swap_file=$(awk '$3 == \"swap\" {print $1; exit}' /etc/fstab)",
+		"test -n \"${swap_file}\"",
+		"swapon --show --bytes | grep -F \"${swap_file}\"",
+		fmt.Sprintf("expected_bytes=$((%d * 1000 * 1000))", swapFileSizeMB),
+		"actual_bytes=$(stat -c %s \"${swap_file}\")",
+		"test \"${actual_bytes}\" -ge \"${expected_bytes}\"",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "swap file configuration did not match expected values")
+}
+
+func RebootVMAndWaitForSSH(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	beforeRebootBootID := strings.TrimSpace(execScriptOnVMForScenarioValidateExitCode(ctx, s, "cat /proc/sys/kernel/random/boot_id", 0, "could not read boot ID before reboot").stdout)
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo nohup sh -c 'sleep 1; systemctl reboot' >/dev/null 2>&1 &", 0, "failed to trigger VM reboot")
+	cleanupBastionTunnel(s.Runtime.VM.SSHClient)
+	s.Runtime.VM.SSHClient = nil
+
+	waitTimeout := s.Config.WaitForSSHAfterReboot
+	if waitTimeout == 0 {
+		waitTimeout = 10 * time.Minute
+	}
+
+	err := wait.PollUntilContextTimeout(ctx, 15*time.Second, waitTimeout, true, func(ctx context.Context) (bool, error) {
+		sshClient, err := DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, s.Runtime.VM.PrivateIP, config.VMSSHPrivateKey)
+		if err != nil {
+			s.T.Logf("waiting for SSH after reboot: %v", err)
+			return false, nil
+		}
+
+		bootIDCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		execResult, err := runSSHCommand(bootIDCtx, sshClient, "cat /proc/sys/kernel/random/boot_id", s.IsWindows())
+		cancel()
+		if err != nil {
+			cleanupBastionTunnel(sshClient)
+			s.T.Logf("waiting for boot ID after reboot: %v", err)
+			return false, nil
+		}
+
+		afterRebootBootID := strings.TrimSpace(execResult.stdout)
+		if afterRebootBootID == "" || afterRebootBootID == beforeRebootBootID {
+			cleanupBastionTunnel(sshClient)
+			s.T.Logf("waiting for VM reboot to complete: boot ID is still %q", afterRebootBootID)
+			return false, nil
+		}
+
+		s.Runtime.VM.SSHClient = sshClient
+		return true, nil
+	})
+	require.NoError(s.T, err, "timed out waiting for VM to reboot and accept SSH")
 }
 
 // ValidateNetworkInterfaceConfig validates network interface configuration settings using ethtool.
@@ -949,6 +1043,28 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 	)
 }
 
+// ValidateKubeletActiveFlagsEvent checks that the emit-kubelet-active-flags oneshot service
+// ran successfully and produced a guest agent event file containing kubelet config telemetry.
+// Guarded: skips gracefully on VHDs that don't have the service baked in yet.
+func ValidateKubeletActiveFlagsEvent(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Guard: skip on VHDs that don't have the service
+	check := execOnVMForScenarioOnUnprivilegedPod(ctx, s,
+		"systemctl cat emit-kubelet-active-flags.service 2>/dev/null")
+	if check.exitCode != "0" {
+		s.T.Log("emit-kubelet-active-flags.service not on this VHD, skipping validation")
+		return
+	}
+	command := []string{
+		"set -ex",
+		// Verify service completed successfully via journalctl
+		`journalctl -u emit-kubelet-active-flags.service --no-pager | grep -q "Finished\|Deactivated successfully"`,
+		// Verify the event file was produced with correct TaskName
+		`grep -rl 'kubeletActiveFlags' /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/ | head -1 | xargs cat | jq -e '.TaskName == "AKS.CSE.ensureKubelet.kubeletActiveFlags"'`,
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate emit-kubelet-active-flags.service")
+}
+
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
 		return
@@ -1406,6 +1522,27 @@ func ValidateKubeletArgs(ctx context.Context, s *Scenario) {
 	ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt", "--windows-priorityclass=ABOVE_NORMAL_PRIORITY_CLASS"})
 }
 
+// ValidateContainerdWindowsPriorityClass verifies that the containerd service is registered
+// with nssm's AppPriority set to ABOVE_NORMAL_PRIORITY_CLASS, and that the running containerd
+// process actually has that OS process priority class applied.
+func ValidateContainerdWindowsPriorityClass(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	nssmCommand := strings.Join([]string{
+		"$ErrorActionPreference = 'Stop'",
+		"& \"c:\\k\\nssm.exe\" get containerd AppPriority",
+	}, "\n")
+	nssmResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, nssmCommand, 0, "could not read containerd AppPriority from nssm")
+	require.Equal(s.T, "ABOVE_NORMAL_PRIORITY_CLASS", strings.TrimSpace(nssmResult.stdout), "expected containerd nssm service to be configured with AppPriority=ABOVE_NORMAL_PRIORITY_CLASS")
+
+	processCommand := strings.Join([]string{
+		"$ErrorActionPreference = 'Stop'",
+		"(Get-Process -Name containerd -ErrorAction Stop | Select-Object -First 1).PriorityClass",
+	}, "\n")
+	processResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, processCommand, 0, "could not read containerd process priority class")
+	require.Equal(s.T, "AboveNormal", strings.TrimSpace(processResult.stdout), "expected containerd process to be running with AboveNormal priority class")
+}
+
 func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, processName string, arguments []string) {
 	steps := []string{
 		fmt.Sprintf("(Get-CimInstance Win32_Process -Filter \"name='%[1]s'\")[0].CommandLine", processName),
@@ -1470,6 +1607,66 @@ func ValidateWindowsProductName(ctx context.Context, s *Scenario, productName st
 	podExecResultStdout := strings.TrimSpace(podExecResult.stdout)
 
 	require.Contains(s.T, podExecResultStdout, productName)
+}
+
+// ValidateWindowsSecureTLSEnabled asserts that Enable-SecureTls (windowssecuretls.ps1) has hardened the
+// node against protocol downgrade and the Sweet32 birthday attack (CVE-2016-2183 / CVE-2016-6329):
+// TLS 1.2 is enabled, TLS 1.0/1.1 and SSLv2/SSLv3 are disabled, RC4 is disabled, and the configured
+// cipher suite order does not include any 64-bit block ciphers (3DES/DES/RC2).
+func ValidateWindowsSecureTLSEnabled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	steps := []string{
+		"$ErrorActionPreference = 'Stop'",
+		"$tls12ClientEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Client' -Name Enabled).Enabled",
+		"$tls12ServerEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Server' -Name Enabled).Enabled",
+		"$tls11ClientEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Client' -Name Enabled).Enabled",
+		"$tls11ServerEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Name Enabled).Enabled",
+		"$tls10ClientEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Client' -Name Enabled).Enabled",
+		"$tls10ServerEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Name Enabled).Enabled",
+		"$ssl3ClientEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 3.0\\Client' -Name Enabled).Enabled",
+		"$ssl3ServerEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 3.0\\Server' -Name Enabled).Enabled",
+		"$ssl2ClientEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Client' -Name Enabled).Enabled",
+		"$ssl2ServerEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Server' -Name Enabled).Enabled",
+		"function Get-RC4EnabledValue {",
+		"  param([string]$CipherName)",
+		"  $subKeyName = \"SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\$CipherName\"",
+		"  $subKey = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey($subKeyName)",
+		"  if ($null -eq $subKey) { throw \"Registry key '$subKeyName' does not exist\" }",
+		"  try { return $subKey.GetValue('Enabled', -1) } finally { $subKey.Dispose() }",
+		"}",
+		"$rc4_128 = Get-RC4EnabledValue 'RC4 128/128'",
+		"$rc4_64 = Get-RC4EnabledValue 'RC4 64/128'",
+		"$rc4_56 = Get-RC4EnabledValue 'RC4 56/128'",
+		"$rc4_40 = Get-RC4EnabledValue 'RC4 40/128'",
+		"$cipherOrder = (Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Cryptography\\Configuration\\SSL\\00010002' -Name Functions).Functions",
+		"[PSCustomObject]@{ tls12ClientEnabled = $tls12ClientEnabled; tls12ServerEnabled = $tls12ServerEnabled; tls11ClientEnabled = $tls11ClientEnabled; tls11ServerEnabled = $tls11ServerEnabled; tls10ClientEnabled = $tls10ClientEnabled; tls10ServerEnabled = $tls10ServerEnabled; ssl3ClientEnabled = $ssl3ClientEnabled; ssl3ServerEnabled = $ssl3ServerEnabled; ssl2ClientEnabled = $ssl2ClientEnabled; ssl2ServerEnabled = $ssl2ServerEnabled; rc4_128 = $rc4_128; rc4_64 = $rc4_64; rc4_56 = $rc4_56; rc4_40 = $rc4_40; cipherOrder = $cipherOrder } | ConvertTo-Json -Compress",
+	}
+
+	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate secure TLS configuration")
+	stdout := strings.TrimSpace(podExecResult.stdout)
+
+	require.Equal(s.T, int64(1), gjson.Get(stdout, "tls12ClientEnabled").Int(), "expected TLS 1.2 to be enabled for Client, got: %s", stdout)
+	require.Equal(s.T, int64(1), gjson.Get(stdout, "tls12ServerEnabled").Int(), "expected TLS 1.2 to be enabled for Server, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls11ClientEnabled").Int(), "expected TLS 1.1 to be disabled for Client, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls11ServerEnabled").Int(), "expected TLS 1.1 to be disabled for Server, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls10ClientEnabled").Int(), "expected TLS 1.0 to be disabled for Client, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls10ServerEnabled").Int(), "expected TLS 1.0 to be disabled for Server, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "ssl3ClientEnabled").Int(), "expected SSL 3.0 to be disabled for Client, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "ssl3ServerEnabled").Int(), "expected SSL 3.0 to be disabled for Server, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "ssl2ClientEnabled").Int(), "expected SSL 2.0 to be disabled for Client, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "ssl2ServerEnabled").Int(), "expected SSL 2.0 to be disabled for Server, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "rc4_128").Int(), "expected RC4 128/128 to be disabled, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "rc4_64").Int(), "expected RC4 64/128 to be disabled, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "rc4_56").Int(), "expected RC4 56/128 to be disabled, got: %s", stdout)
+	require.Equal(s.T, int64(0), gjson.Get(stdout, "rc4_40").Int(), "expected RC4 40/128 to be disabled, got: %s", stdout)
+
+	cipherOrder := gjson.Get(stdout, "cipherOrder").String()
+	require.NotEmpty(s.T, cipherOrder, "expected a configured cipher suite order")
+	require.NotContains(s.T, cipherOrder, "3DES", "cipher suite order should not include 3DES (Sweet32/CVE-2016-2183)")
+	require.NotContains(s.T, cipherOrder, "RC2", "cipher suite order should not include RC2")
+	require.NotContains(s.T, cipherOrder, "DES", "cipher suite order should not include DES")
+	require.NotContains(s.T, cipherOrder, "RC4", "cipher suite order should not include RC4")
 }
 
 func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVersion string) {
@@ -2615,40 +2812,47 @@ func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenar
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not returning "+metric)
 }
 
-func ValidateMIGModeEnabled(ctx context.Context, s *Scenario) {
+func ValidateMIGModeEnabled(ctx context.Context, s *Scenario, gpuCountExpected int) {
 	s.T.Helper()
-	s.T.Logf("validating that MIG mode is enabled")
+	s.T.Logf("validating that MIG mode is enabled on %d GPUs", gpuCountExpected)
 
 	command := []string{
 		"set -ex",
-		// Grep to verify it contains 'Enabled' - this will fail if MIG is disabled
-		"sudo nvidia-smi --query-gpu=mig.mode.current --format=csv,noheader | grep -i 'Enabled'",
+		"sudo nvidia-smi --query-gpu=mig.mode.current --format=csv,noheader",
 	}
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "MIG mode is not enabled")
 
 	stdout := strings.TrimSpace(execResult.stdout)
 	s.T.Logf("MIG mode status: %s", stdout)
-	require.Contains(s.T, stdout, "Enabled", "expected MIG mode to be enabled, but got: %s", stdout)
-	s.T.Logf("MIG mode is enabled")
+	gpuStatuses := strings.Split(stdout, "\n")
+	require.Len(s.T, gpuStatuses, gpuCountExpected, "expected MIG status for %d GPUs, but got: %s", gpuCountExpected, stdout)
+	for gpuIndex, gpuStatus := range gpuStatuses {
+		require.Equalf(s.T, "Enabled", strings.TrimSpace(gpuStatus), "expected MIG mode to be enabled on GPU %d", gpuIndex)
+	}
+	s.T.Logf("MIG mode is enabled on %d GPUs", gpuCountExpected)
 }
 
-func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile string) {
+func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile string, instanceCountExpected int) {
 	s.T.Helper()
-	s.T.Logf("validating that MIG instances are created with profile %s", migProfile)
+	s.T.Logf("validating that %d MIG instances are created with profile %s", instanceCountExpected, migProfile)
 
 	command := []string{
 		"set -ex",
 		// List MIG devices using nvidia-smi
 		"sudo nvidia-smi mig -lgi",
-		// Ensure the output contains the expected MIG profile (will fail if "No MIG-enabled devices found")
-		"sudo nvidia-smi mig -lgi | grep -v 'No MIG-enabled devices found' | grep -q '" + migProfile + "'",
 	}
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "MIG instances with profile "+migProfile+" were not found")
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to list MIG instances")
 
 	stdout := execResult.stdout
-	require.Contains(s.T, stdout, migProfile, "expected to find MIG profile %s in output, but did not.\nOutput:\n%s", migProfile, stdout)
 	require.NotContains(s.T, stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout)
-	s.T.Logf("MIG instances with profile %s are created", migProfile)
+	instanceCount := 0
+	for _, line := range strings.Split(stdout, "\n") {
+		if strings.Contains(line, migProfile) {
+			instanceCount++
+		}
+	}
+	require.Equal(s.T, instanceCountExpected, instanceCount, "expected %d MIG instances with profile %s, but found %d.\nOutput:\n%s", instanceCountExpected, migProfile, instanceCount, stdout)
+	s.T.Logf("%d MIG instances with profile %s are created", instanceCountExpected, migProfile)
 }
 
 // ValidateIPTablesCompatibleWithCiliumEBPF validates that all iptables rules in each table match the provided patterns which are accounted for
@@ -2785,6 +2989,10 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 	if usesScriptlessNBCCSECmd(s) {
 		fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
 		ValidateFileExists(ctx, s, fileNameToCheck)
+		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2")
+		if s.Runtime.NBC != nil && s.Runtime.NBC.ScriptlessCSEProvisionMode {
+			execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl | grep -q 'starting /opt/bin/boothook.sh'", 0, "expected journalctl to contain 'starting /opt/bin/boothook.sh' for scriptless phase 2")
+		}
 		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2")
 		if enableScriptlessCompilation(s) {
 			ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-hotfix")

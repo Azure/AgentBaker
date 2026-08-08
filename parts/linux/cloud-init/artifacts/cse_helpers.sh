@@ -199,7 +199,14 @@ export GPU_DEST=/usr/local/nvidia
 export NVIDIA_DRIVER_IMAGE_SHA="${GPU_IMAGE_SHA:=}"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_GPU_DRIVER_TYPE="${GPU_DRIVER_TYPE:=}"
+# Canonical ref: the VHD bakes CUDA LTS under this exact name and configGPUDrivers matches it
+# exactly, so it must stay mcr.microsoft.com in every cloud.
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
+# GRID is never baked, so it is pulled at provision time from this cloud's own MCR (sovereign clouds
+# cannot reach mcr.microsoft.com). The base may carry a trailing slash and is unset during VHD build,
+# where this file is sourced under `set -o nounset`, hence the default.
+NVIDIA_DRIVER_IMAGE_MCR_BASE="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
+export NVIDIA_DRIVER_IMAGE_PULL_REF="${NVIDIA_DRIVER_IMAGE_MCR_BASE%/}/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
 export CTR_GPU_INSTALL_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
 export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
 APT_CACHE_DIR=/var/cache/apt/archives/
@@ -801,6 +808,21 @@ getSystemdArch() {
         amd64) echo x86-64 ;;
         *) echo "${seArch}" ;;
     esac
+}
+
+maskKubeletSysextUpholds() {
+    local dropinDir="/etc/systemd/system/multi-user.target.d"
+    local dropinPath="${dropinDir}/10-kubelet-kubelet.conf"
+
+    # AgentBaker owns kubelet activation, so suppress the sysext policy that starts it before CSE writes its configuration.
+    if ! mkdir -p "${dropinDir}"; then
+        echo "Failed to create kubelet sysext systemd drop-in directory ${dropinDir}" >&2
+        return 1
+    fi
+    if ! ln -sfn /dev/null "${dropinPath}"; then
+        echo "Failed to mask kubelet sysext systemd drop-in ${dropinPath}" >&2
+        return 1
+    fi
 }
 
 isARM64() {

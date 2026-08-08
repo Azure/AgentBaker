@@ -142,9 +142,11 @@ func getBaseNBC(ctx context.Context, t testing.TB, cluster *Cluster, vhd *config
 
 // is a temporary workaround
 // eventually we want to phase out usage of nbc
-func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnodeconfigv1.Configuration {
+func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksnodeconfigv1.Configuration, error) {
 	cs := nbc.ContainerService
-	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
+	if err := agent.ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(nbc); err != nil {
+		return nil, err
+	}
 
 	bootstrappingConfig := &aksnodeconfigv1.BootstrappingConfig{
 		TlsBootstrappingToken:                           nbc.KubeletClientTLSBootstrapToken,
@@ -256,8 +258,9 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			VnetCniPluginsUrl: vnetCNIPluginURL,
 		},
 		GpuConfig: &aksnodeconfigv1.GpuConfig{
-			ConfigGpuDriver: true,
-			GpuDevicePlugin: false,
+			ConfigGpuDriver:  true,
+			GpuDevicePlugin:  false,
+			MigProfileLayout: nbc.MIGProfileLayout,
 		},
 		EnableUnattendedUpgrade: enableUnattendedUpgrade,
 		EnableArtifactStreaming: nbc.EnableArtifactStreaming,
@@ -376,7 +379,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		cfg.KubeletConfig.KubeletFlags = kubeletFlags
 	}
 
-	return cfg
+	return cfg, nil
 }
 
 // this is huge, but accurate, so leave it here.
@@ -661,7 +664,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 				ContainerdDownloadURLBase:            "https://storage.googleapis.com/cri-containerd-release/",
 				CSIProxyDownloadURL:                  "https://packages.aks.azure.com/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
 				WindowsProvisioningScriptsPackageURL: "https://packages.aks.azure.com/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip",
-				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1",
+				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2",
 				AlwaysPullWindowsPauseImage:          false,
 				CseScriptsPackageURL:                 "https://packages.aks.azure.com/aks/windows/cse/",
 				CNIARM64PluginsDownloadURL:           "https://packages.aks.azure.com/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",
@@ -673,7 +676,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 			OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig(nil),
 		},
 		K8sComponents: &datamodel.K8sComponents{
-			PodInfraContainerImageURL:  "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
+			PodInfraContainerImageURL:  "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2",
 			HyperkubeImageURL:          "mcr.microsoft.com/oss/kubernetes/",
 			WindowsPackageURL:          "windowspackage",
 			LinuxCredentialProviderURL: "",
@@ -935,7 +938,7 @@ func baseTemplateWindows(t testing.TB, location string) *datamodel.NodeBootstrap
 					WindowsDockerVersion:           "",
 					WindowsImageSourceURL:          "",
 					WindowsOffer:                   "aks-windows",
-					WindowsPauseImageURL:           "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1",
+					WindowsPauseImageURL:           "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2",
 					WindowsPublisher:               "microsoft-aks",
 					WindowsSku:                     "",
 				},
@@ -978,7 +981,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 				// VnetCNIARM64LinuxPluginsDownloadURL:  "https://packages.aks.azure.com/azure-cni/v1.4.13/binaries/azure-vnet-cni-linux-arm64-v1.4.14.tgz",
 				// VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
 				VnetCNIWindowsPluginsDownloadURL:     "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
-				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1",
+				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2",
 				WindowsProvisioningScriptsPackageURL: "",
 				WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
 			},
