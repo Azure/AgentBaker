@@ -758,7 +758,14 @@ EOF
             LOCALDNS_NODE_LISTENER_IP="10.0.0.1"
             LOCALDNS_CLUSTER_LISTENER_IP="10.0.0.2"
             IPTABLES_RULES=("raw -t raw -p udp --dport 53 -j NOTRACK" "raw -t raw -p tcp --dport 53 -j NOTRACK")
-            IPTABLES="echo iptables"
+            MOCK_BIN_DIR=$(mktemp -d)
+            cat > "${MOCK_BIN_DIR}/iptables-restore" << 'MOCK'
+#!/bin/sh
+echo "iptables-restore called with args: $*"
+cat
+MOCK
+            chmod +x "${MOCK_BIN_DIR}/iptables-restore"
+            export PATH="${MOCK_BIN_DIR}:${PATH}"
         }
         BeforeEach 'setup'
         #------------------------- add_iptable_rules_to_skip_conntrack_from_pods -------------------------------------
@@ -782,11 +789,14 @@ EOF
                         ;;
                 esac
             }
-            Path prepend "$(pwd)"
             When call add_iptable_rules_to_skip_conntrack_from_pods
             The output should include "Adding iptables rules to skip conntrack for queries to localdns."
-            The output should include "iptables -A raw -t raw -p udp --dport 53 -j NOTRACK"
-            The output should include "iptables -A raw -t raw -p tcp --dport 53 -j NOTRACK"
+            The output should include "*raw"
+            The output should include "-A raw -m comment --comment"
+            The output should include "-p udp"
+            The output should include "-p tcp"
+            The output should include "-j NOTRACK"
+            The output should include "COMMIT"
         End
 
         It 'should delete existing localdns interface'
@@ -804,7 +814,6 @@ EOF
                 esac
             }
 
-            Path prepend "$(pwd)"
             When call add_iptable_rules_to_skip_conntrack_from_pods
             The output should include "Interface localdns already exists, deleting it."
             The output should include "Deleting interface: link delete localdns"
