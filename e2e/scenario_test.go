@@ -434,16 +434,9 @@ func Test_AzureLinuxV3Gen2Kata(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2Kata,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Kata launches each pod inside its own VM, which requires nested virtualization
-				// and more headroom than the 2-vCPU e2e default (config.Config.DefaultVMSKU).
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = kataVMSize
-				nbc.AgentPoolProfile.VMSize = kataVMSize
 				// Leave unattended upgrades on so that CSE's kata-specific opt-out branch is
 				// actually exercised, which ValidateKataHostReadiness asserts.
 				nbc.DisableUnattendedUpgrades = false
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr(kataVMSize)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateKataContainerdConfig(ctx, s)
@@ -456,9 +449,6 @@ func Test_AzureLinuxV3Gen2Kata(t *testing.T) {
 		},
 	})
 }
-
-// kataVMSize is a nested-virtualization capable SKU with enough capacity to host a Kata guest VM.
-const kataVMSize = "Standard_D4ds_v5"
 
 func Test_AzureLinuxV3_CustomCA(t *testing.T) {
 	RunScenario(t, &Scenario{
