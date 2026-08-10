@@ -1,3 +1,5 @@
+. c:\AzureData\windows\helpers.ps1
+
 function Write-AzureConfig {
     Param(
         [Parameter(Mandatory = $true)][string]
