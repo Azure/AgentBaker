@@ -506,23 +506,23 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.34.4"
+          "latestVersion": "v1.34.5"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.33.10"
+          "latestVersion": "v1.33.11"
         }
       ],
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.34.4-windows-hp",
-          "previousLatestVersion": "v1.34.3-windows-hp"
+          "latestVersion": "v1.34.5-windows-hp",
+          "previousLatestVersion": "v1.34.4-windows-hp"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.33.10-windows-hp",
-          "previousLatestVersion": "v1.33.9-windows-hp"
+          "latestVersion": "v1.33.11-windows-hp",
+          "previousLatestVersion": "v1.33.10-windows-hp"
         }
       ]
     },
@@ -1822,8 +1822,8 @@
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.36.3-ubuntu26.04u3",
-                "previousLatestVersion": "1.36.2-ubuntu26.04u3"
+                "latestVersion": "1.36.4-ubuntu26.04u1",
+                "previousLatestVersion": "1.36.3-ubuntu26.04u3"
               }
             ]
           },
@@ -1888,20 +1888,20 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=azure-acr-credential-provider, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.12-2.azl3",
-                "previousLatestVersion": "1.34.11-2.azl3"
+                "latestVersion": "1.34.13-1.azl3",
+                "previousLatestVersion": "1.34.12-2.azl3"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=azure-acr-credential-provider, os=azurelinux, release=3.0",
-                "latestVersion": "1.35.7-2.azl3",
-                "previousLatestVersion": "1.35.6-2.azl3"
+                "latestVersion": "1.35.8-1.azl3",
+                "previousLatestVersion": "1.35.7-2.azl3"
               },
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=azure-acr-credential-provider, os=azurelinux, release=3.0",
-                "latestVersion": "1.36.3-3.azl3",
-                "previousLatestVersion": "1.36.2-3.azl3"
+                "latestVersion": "1.36.4-1.azl3",
+                "previousLatestVersion": "1.36.3-3.azl3"
               }
             ]
           }
