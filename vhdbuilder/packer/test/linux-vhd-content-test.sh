@@ -2460,6 +2460,37 @@ checkLocaldnsScriptsAndConfigs() {
 
 #------------------------ End of test code related to localdns ------------------------
 
+testKneadSecurityPatchingAssets() {
+  local test="testKneadSecurityPatchingAssets"
+  local os_sku="$1"
+  local file
+  local permissions
+  local -A expected_files=(
+    ["/etc/systemd/system/snapshot-update.service"]=644
+    ["/etc/systemd/system/snapshot-update.timer"]=644
+    ["/opt/azure/containers/security-update.sh"]=544
+    ["/opt/azure/containers/ubuntu-snapshot-update.sh"]=544
+  )
+
+  if [ "$os_sku" != "Ubuntu" ]; then
+    return 0
+  fi
+
+  for file in "${!expected_files[@]}"; do
+    if [ ! -f "$file" ]; then
+      err "$test" "Expected file not found: $file"
+    fi
+    permissions=$(stat -c "%a" "$file")
+    if [ "$permissions" != "${expected_files[$file]}" ]; then
+      err "$test" "Incorrect permissions for $file. Expected ${expected_files[$file]}, got $permissions"
+    fi
+  done
+
+  if ! grep -Fxq 'ExecStart=/opt/azure/containers/ubuntu-snapshot-update.sh' /etc/systemd/system/snapshot-update.service; then
+    err "$test" "snapshot-update.service does not execute the generic reconciler"
+  fi
+}
+
 # Basic sanity check for Inspektor Gadget artifacts baked into the image.
 testInspektorGadgetAssets() {
   local test="testInspektorGadgetAssets"
@@ -2711,6 +2742,7 @@ testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testAutologinDisabled $OS_SKU
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs $OS_SKU
+testKneadSecurityPatchingAssets $OS_SKU
 testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
