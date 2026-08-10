@@ -111,6 +111,17 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         The output should not include 'annotate mock called'
     End
 
+    It 'fails after the kubeconfig wait deadline'
+        rm -f "${KUBECONFIG}"
+        KNEAD_KUBECONFIG_WAIT_TIMEOUT_SECONDS=0
+        export KNEAD_KUBECONFIG_WAIT_TIMEOUT_SECONDS
+
+        When call knead_main
+        The status should be failure
+        The error should include 'timed out waiting for kubelet kubeconfig after 0s'
+        The output should not include 'updateSecurityPatch called'
+    End
+
     It 'does nothing when status is converged for the goal'
         TEST_GOAL="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         TEST_STATUS='{"currentHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","components":{"securityPatch":{"code":"Succeeded"}}}'
