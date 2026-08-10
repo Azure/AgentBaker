@@ -17,7 +17,8 @@ import (
 const (
 	// kataRuntimeHandler is the containerd runtime handler name for standard Kata Containers,
 	// emitted by the IsKata block of the containerd config templates in pkg/agent/baker.go.
-	kataRuntimeHandler = "kata"
+	kataRuntimeHandler        = "kata"
+	kataPreviewRuntimeHandler = "kata-preview"
 
 	// kataConfigPath is the Kata configuration file referenced by the "kata" runtime handler's
 	// options.ConfigPath in the rendered containerd config.
@@ -30,12 +31,12 @@ const (
 // kataRuntimeHandlers lists every Kata containerd runtime handler that this scenario expects to
 // be configured and usable on the node. Each one is asserted in the effective containerd config
 // and independently exercised by ValidateKataPodIsIsolated, so covering an additional handler is
-// a one-line change here plus a call in the scenario.
+// a one-line change here.
 //
 // Note that "kata-cc" (confidential containers) is intentionally absent: its handler block is
 // templated for all Kata VHDs, but it targets a different VHD than regular Kata, so this image
 // cannot actually run it.
-var kataRuntimeHandlers = []string{kataRuntimeHandler}
+var kataRuntimeHandlers = []string{kataRuntimeHandler, kataPreviewRuntimeHandler}
 
 // ValidateKataContainerdConfig asserts that AgentBaker rendered a containerd configuration
 // containing the Kata runtime handlers on a Kata-enabled VHD.
@@ -61,6 +62,26 @@ func ValidateKataContainerdConfig(ctx context.Context, s *Scenario) {
 	// Kata relies on snapshot annotations being forwarded to the snapshotter; the template sets
 	// this explicitly under IsKata and disabling it breaks image pulling for Kata pods.
 	ValidateFileHasContent(ctx, s, containerdConfigPath, "disable_snapshot_annotations = false")
+}
+
+// ValidateKataErofsContainerdConfig checks that the EROFS snapshotter is configured and that
+// containerd loaded all of its EROFS plugins successfully.
+func ValidateKataErofsContainerdConfig(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.snapshotter.v1.erofs"]`)
+
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"sudo ctr plugins list | grep erofs", 0, "unable to list EROFS containerd plugins")
+	normalizedPluginList := strings.Join(strings.Fields(execResult.stdout), " ")
+	for _, expectedPlugin := range []string{
+		"io.containerd.mount-handler.v1 erofs linux/amd64 ok",
+		"io.containerd.snapshotter.v1 erofs linux/amd64 ok",
+		"io.containerd.differ.v1 erofs linux/amd64 ok",
+	} {
+		assert.Contains(s.T, normalizedPluginList, expectedPlugin,
+			"expected healthy EROFS plugin %q.\nPlugin list:\n%s", expectedPlugin, execResult.stdout)
+	}
 }
 
 // ValidateKataContainerdConfigDump asserts that containerd itself accepted the rendered
