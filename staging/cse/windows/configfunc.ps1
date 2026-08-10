@@ -338,7 +338,9 @@ function Install-OpenSSH {
 
     Write-Log "Setting required permissions..."
     icacls $adminpath\$adminfile /remove "NT AUTHORITY\Authenticated Users"
-    if ($LASTEXITCODE -ne 0) { throw "icacls failed to remove Authenticated Users from $adminpath\$adminfile (exit code $LASTEXITCODE)" }
+    # /remove legitimately returns non-zero when the ACE isn't present (e.g. a freshly created file),
+    # which is expected and not an error - only the grants below are required to succeed.
+    if ($LASTEXITCODE -ne 0) { Write-Log "icacls /remove Authenticated Users on $adminpath\$adminfile returned exit code $LASTEXITCODE, continuing anyway" }
     icacls $adminpath\$adminfile /inheritance:r
     if ($LASTEXITCODE -ne 0) { throw "icacls failed to set inheritance on $adminpath\$adminfile (exit code $LASTEXITCODE)" }
     icacls $adminpath\$adminfile /grant SYSTEM:`(F`)

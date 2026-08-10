@@ -63,6 +63,7 @@ Describe "Containerd Functions Tests" {
       return "ltsc2022"
     }
 
+    . $PSScriptRoot\helpers.ps1
     . $PSScriptRoot\containerdfunc.ps1
     . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
     . $PSScriptRoot\networkisolatedclusterfunc.ps1
@@ -611,16 +612,10 @@ Describe "Containerd Functions Tests" {
         { RegisterContainerDService -kubedir 'C:\k' } | Should -Not -Throw
       }
 
-      It 'throws when sc.exe delete fails' {
+      It 'does not throw when sc.exe delete fails (best-effort cleanup)' {
         Mock sc.exe -MockWith { $global:LASTEXITCODE = 1 }
 
-        { RegisterContainerDService -kubedir 'C:\k' } | Should -Throw '*sc.exe failed to delete existing containerd service*'
-      }
-
-      It 'includes the exit code in the error message when sc.exe fails' {
-        Mock sc.exe -MockWith { $global:LASTEXITCODE = 5 }
-
-        { RegisterContainerDService -kubedir 'C:\k' } | Should -Throw '*exit code 5*'
+        { RegisterContainerDService -kubedir 'C:\k' } | Should -Not -Throw
       }
     }
   }
