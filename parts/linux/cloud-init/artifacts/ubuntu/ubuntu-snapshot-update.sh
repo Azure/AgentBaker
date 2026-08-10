@@ -15,13 +15,20 @@ set -e
 : "${KNEAD_COMPONENT_GOAL_ANNOTATION:=kubernetes.azure.com/live-patching-config-goal-hash}"
 : "${KNEAD_COMPONENT_STATUS_ANNOTATION:=kubernetes.azure.com/live-patching-status}"
 : "${KNEAD_COMPONENT_STATE_FILE:=/var/lib/aks/live-patching/current.json}"
+: "${KNEAD_KUBECONFIG_WAIT_TIMEOUT_SECONDS:=600}"
 
 KNEAD_COMPONENT_RESULTS='{}'
 KNEAD_COMPONENT_RESULTS_VALID=true
 
 # Waits for kubelet credentials so kubectl can read Node and ConfigMap state.
 knead_wait_for_kubeconfig() {
+    local wait_started_at="${SECONDS}"
+
     while [ ! -f "${KUBECONFIG}" ]; do
+        if [ $((SECONDS - wait_started_at)) -ge "${KNEAD_KUBECONFIG_WAIT_TIMEOUT_SECONDS}" ]; then
+            echo "timed out waiting for kubelet kubeconfig after ${KNEAD_KUBECONFIG_WAIT_TIMEOUT_SECONDS}s" >&2
+            return 1
+        fi
         echo "waiting for kubelet kubeconfig"
         sleep 3
     done
@@ -297,7 +304,9 @@ knead_main() {
     local payload
     local result=0
 
-    knead_wait_for_kubeconfig
+    if ! knead_wait_for_kubeconfig; then
+        return 1
+    fi
     if ! node_json="$(knead_read_node)"; then
         echo "failed to read node"
         return 1
