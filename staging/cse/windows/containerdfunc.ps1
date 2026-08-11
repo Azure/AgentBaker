@@ -35,13 +35,7 @@ function RegisterContainerDService {
   Assert-FileExists -Filename $global:Containerdbinary -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_BINARY_EXIST
 
   # in the past service was not installed via nssm so remove it in case
-  $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
-  if ($null -ne $svc) {
-    sc.exe delete containerd
-    # sc.exe delete can legitimately return non-zero here (e.g. 1072 - service already marked for deletion)
-    # since this is best-effort cleanup of a pre-existing service, don't treat that as fatal.
-    if ($LASTEXITCODE -ne 0) { Write-Log "sc.exe failed to delete existing containerd service (exit code $LASTEXITCODE), continuing anyway" }
-  }
+  Remove-ServiceIfExists -ServiceName "containerd"
 
   Write-Log "Registering containerd as a service"
   # setup containerd
