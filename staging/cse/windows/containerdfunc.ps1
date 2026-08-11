@@ -1,4 +1,4 @@
-. c:\AzureData\windows\helpers.ps1
+. $PSScriptRoot\helpers.ps1
 
 # this is $global to persist across all functions since this is dot-sourced
 $global:ContainerdInstallLocation = "$Env:ProgramFiles\containerd"

@@ -1,6 +1,6 @@
 
 # Dot-source cse scripts with functions that are bundled on the VHD
-. c:\AzureData\windows\helpers.ps1
+. $PSScriptRoot\helpers.ps1
 . c:\AzureData\windows\azurecnifunc.ps1
 . c:\AzureData\windows\calicofunc.ps1
 . c:\AzureData\windows\configfunc.ps1

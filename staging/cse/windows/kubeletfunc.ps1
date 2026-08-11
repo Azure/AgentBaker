@@ -1,4 +1,4 @@
-. c:\AzureData\windows\helpers.ps1
+. $PSScriptRoot\helpers.ps1
 
 function Write-AzureConfig {
     Param(
@@ -191,8 +191,7 @@ function Get-KubePackage {
         if ($urls.ContainsKey($global:KubeBinariesVersion)) {
             Write-Log "Found $global:KubeBinariesVersion in $mappingFile"
             $KubeBinariesSASURL = $urls[$global:KubeBinariesVersion]
-        }
-        else {
+        } else {
             Write-Log "Did not find $global:KubeBinariesVersion in $mappingFile"
         }
     }
@@ -209,8 +208,7 @@ function Get-KubePackage {
             DownloadFileOverHttp -Url $KubeBinariesSASURL -DestinationPath $zipfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_KUBERNETES_PACKAGE
             if ($?) {
                 break
-            }
-            else {
+            } else {
                 Write-Log $Error[0].Exception.Message
             }
         }
@@ -274,8 +272,7 @@ function Get-TagValue {
     $uri = "http://169.254.169.254/metadata/instance?api-version=2021-02-01"
     try {
         $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri = $uri; Method = "Get"; ContentType = "application/json"; Headers = @{"Metadata" = "true" } } -Retries 3 -RetryDelaySeconds 5
-    }
-    catch {
+    } catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_LOOKUP_INSTANCE_DATA_TAG -ErrorMessage "Unable to lookup VM tag `"$TagName`" from IMDS instance data"
     }
 
