@@ -1,6 +1,6 @@
 module github.com/Azure/agentbaker/aks-node-controller
 
-go 1.25.11
+go 1.26.4
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.1
