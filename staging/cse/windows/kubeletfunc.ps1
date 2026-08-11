@@ -361,6 +361,7 @@ function New-NSSMService {
     }
 
     # setup kubelet
+    Remove-ServiceIfExists -ServiceName "Kubelet"
     Invoke-Nssm -KubeDir $KubeDir install Kubelet C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
     Invoke-Nssm -KubeDir $KubeDir set Kubelet AppDirectory $KubeDir
     Invoke-Nssm -KubeDir $KubeDir set Kubelet AppParameters $KubeletStartFile
@@ -388,6 +389,7 @@ function New-NSSMService {
     if ($LASTEXITCODE -ne 0) { throw "nssm.exe failed to set Kubelet DependOnService (exit code $LASTEXITCODE)" }
 
     # setup kubeproxy
+    Remove-ServiceIfExists -ServiceName "Kubeproxy"
     Invoke-Nssm -KubeDir $KubeDir install Kubeproxy C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
     Invoke-Nssm -KubeDir $KubeDir set Kubeproxy AppDirectory $KubeDir
     Invoke-Nssm -KubeDir $KubeDir set Kubeproxy AppParameters $KubeProxyStartFile
