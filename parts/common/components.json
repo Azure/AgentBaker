@@ -2344,7 +2344,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "2.5.4"
+                "latestVersion": "2.5.5"
               }
             ]
           },
@@ -2352,7 +2352,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "2.5.4"
+                "latestVersion": "2.5.5"
               }
             ]
           },
@@ -2360,7 +2360,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "2.5.4"
+                "latestVersion": "2.5.5"
               }
             ]
           }
