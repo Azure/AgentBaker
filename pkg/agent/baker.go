@@ -2309,6 +2309,7 @@ health-check.localdns.local:53 {
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
     }
+    reload
     ready {{$.NodeListenerIP}}:8181
     cache {{$override.CacheDurationInSeconds}} {
         success 9984
@@ -2374,6 +2375,7 @@ health-check.localdns.local:53 {
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
     }
+    reload
     ready {{$.ClusterListenerIP}}:8181
     cache {{$override.CacheDurationInSeconds}} {
         success 9984

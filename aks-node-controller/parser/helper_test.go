@@ -1686,6 +1686,7 @@ health-check.localdns.local:53 {
         policy sequential
         max_concurrent 1000
     }
+    reload
     ready 169.254.10.10:8181
     cache 3600 {
         success 9984
@@ -1713,6 +1714,7 @@ cluster.local:53 {
         policy sequential
         max_concurrent 1000
     }
+    reload
     ready 169.254.10.10:8181
     cache 3600 {
         success 9984
@@ -1730,6 +1732,7 @@ testdomain456.com:53 {
         policy sequential
         max_concurrent 1000
     }
+    reload
     ready 169.254.10.10:8181
     cache 3600 {
         success 9984
@@ -1755,6 +1758,7 @@ testdomain456.com:53 {
         policy sequential
         max_concurrent 2000
     }
+    reload
     ready 169.254.10.11:8181
     cache 3600 {
         success 9984
