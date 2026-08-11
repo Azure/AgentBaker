@@ -65,7 +65,7 @@ jobs:
 
       - name: remove comment from PR
         # Removing and then adding the comment means that the comment will always appear at the bottom of the PR.
-        uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3
+        uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
         with:
           mode: delete
           comment-tag: "WINDOWS_VHD_CONTENT_DIFF"
@@ -73,7 +73,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
       - name: Add comment to PR
-        uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3
+        uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
         if: ${{ hashFiles('diff.md') != '' }}
         with:
           file-path: "diff.md"

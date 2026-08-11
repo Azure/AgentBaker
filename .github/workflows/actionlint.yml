@@ -33,6 +33,9 @@ jobs:
     - name: Run zizmor security audit
       uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
       with:
+        # Scope to workflow files only (default scope is the whole repo,
+        # which would also pull in unrelated configs like dependabot.yml).
+        inputs: .github/workflows
         # Fail the workflow directly on findings instead of only reporting via
         # the Security tab, so this behaves as a hard PR gate like actionlint.
         advanced-security: false
