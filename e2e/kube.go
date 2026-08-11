@@ -126,14 +126,12 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 		// Check for container failure states
 		for _, containerStatus := range pod.Status.ContainerStatuses {
 			if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
-				logPodDebugInfo(ctx, k, pod)
 				return false, fmt.Errorf("pod %s is in CrashLoopBackOff state", pod.Name)
 			}
 		}
 
 		switch pod.Status.Phase {
 		case corev1.PodFailed:
-			logPodDebugInfo(ctx, k, pod)
 			return false, fmt.Errorf("pod %s has failed", pod.Name)
 		case corev1.PodPending:
 			return false, nil // Keep polling
@@ -148,10 +146,19 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 			}
 			return false, nil // Running but not ready yet
 		default:
-			logPodDebugInfo(ctx, k, pod)
 			return false, fmt.Errorf("pod %s is in unexpected phase %s", pod.Name, pod.Status.Phase)
 		}
 	})
+
+	// Dump events/logs/container statuses for any failure to wait for the pod to be running,
+	// including a Pending pod that never transitioned before the poll's own deadline expired
+	// (e.g. a stuck image pull or sandbox creation) which would otherwise surface as a bare
+	// "context deadline exceeded" with no diagnostic information.
+	if err != nil && pod != nil {
+		debugCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		logPodDebugInfo(debugCtx, k, pod)
+	}
 
 	return pod, err
 }
