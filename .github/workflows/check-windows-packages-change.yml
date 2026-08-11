@@ -9,17 +9,19 @@ jobs:
       pull-requests: write
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           path: main
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Check out repository code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: pr
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Produce vhd files - main
         id: makeDiff
@@ -63,7 +65,7 @@ jobs:
 
       - name: remove comment from PR
         # Removing and then adding the comment means that the comment will always appear at the bottom of the PR.
-        uses: thollander/actions-comment-pull-request@v3
+        uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3
         with:
           mode: delete
           comment-tag: "WINDOWS_VHD_CONTENT_DIFF"
@@ -71,7 +73,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
       - name: Add comment to PR
-        uses: thollander/actions-comment-pull-request@v3
+        uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3
         if: ${{ hashFiles('diff.md') != '' }}
         with:
           file-path: "diff.md"
