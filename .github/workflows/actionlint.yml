@@ -1,0 +1,27 @@
+name: Lint GitHub Actions Workflows
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - name: Download actionlint
+      run: bash <(curl -sL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+      shell: bash
+    - name: Lint workflow files with actionlint
+      run: ./actionlint -color
+      shell: bash
+
+  zizmor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+    - uses: actions/checkout@v7
+    - name: Run zizmor security audit
+      uses: zizmorcore/zizmor-action@v1

@@ -81,6 +81,7 @@ jobs:
       - name: Commit changes via API
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           FILES=(
             "parts/linux/cloud-init/nodecustomdata.yml"
@@ -99,13 +100,13 @@ jobs:
             # step runs under `bash -e`, so guard the lookup and only pass -f sha
             # when the file already exists on the branch, otherwise the PUT must
             # omit sha entirely to create the file.
-            SHA=$(gh api "repos/${{ github.repository }}/contents/${FILE}?ref=${{ github.head_ref }}" --jq '.sha' 2>/dev/null || true)
+            SHA=$(gh api "repos/${{ github.repository }}/contents/${FILE}?ref=${HEAD_REF}" --jq '.sha' 2>/dev/null || true)
             if [ ! -e "$FILE" ]; then
               if [ -n "$SHA" ]; then
                 gh api "repos/${{ github.repository }}/contents/${FILE}" \
                   -X DELETE \
                   -f message="chore: auto-generate hotfix content for ${FILE}" \
-                  -f branch="${{ github.head_ref }}" \
+                  -f branch="${HEAD_REF}" \
                   -f sha="$SHA"
               fi
               continue
@@ -116,14 +117,14 @@ jobs:
                 -X PUT \
                 -f message="chore: auto-generate hotfix content for ${FILE}" \
                 -f content="$CONTENT" \
-                -f branch="${{ github.head_ref }}" \
+                -f branch="${HEAD_REF}" \
                 -f sha="$SHA"
             else
               gh api "repos/${{ github.repository }}/contents/${FILE}" \
                 -X PUT \
                 -f message="chore: auto-generate hotfix content for ${FILE}" \
                 -f content="$CONTENT" \
-                -f branch="${{ github.head_ref }}"
+                -f branch="${HEAD_REF}"
             fi
           done
           if [ "$CHANGED" -eq 0 ]; then
