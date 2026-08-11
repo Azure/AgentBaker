@@ -24,8 +24,7 @@ jobs:
         git remote set-url origin "https://alexeldeib:${github_token}@github.com/Azure/AgentBaker.git"
         git add .
         git commit -m"feat: generate kubelet flags for supported versions in manifest.json"
-        git push -u origin "kubeletFlags/${{ env.TIMESTAMP }}" -f
-        BRANCH="kubeletFlags/${{ env.TIMESTAMP }}"
+        git push -u origin "$BRANCH" -f
         curl \
           -X POST \
           https://api.github.com/repos/Azure/AgentBaker/pulls \
@@ -33,3 +32,4 @@ jobs:
           -u "alexeldeib:$github_token"
       env:
         github_token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        BRANCH: kubeletFlags/${{ env.TIMESTAMP }}
