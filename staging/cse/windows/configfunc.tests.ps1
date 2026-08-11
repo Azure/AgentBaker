@@ -3,6 +3,10 @@ BeforeAll {
     . $PSScriptRoot\networkisolatedclusterfunc.ps1
     . $PSCommandPath.Replace('.tests.ps1', '.ps1')
 
+    # Get-Service is a Windows-only cmdlet; stub it so Mock can override it when
+    # tests run in isolation (e.g. locally on non-Windows, outside the full suite).
+    function Get-Service {}
+
     $capturedContent = $null
     Mock Set-Content -MockWith {
         param($Path, $Value)
@@ -287,5 +291,94 @@ Describe 'Install-CredentialProvider' {
         $global:CredentialProviderURL = 'https://packages.aks.azure.com/invalid/credential-provider.zip'
         Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
         $script:lastDownloadReference | Should -Be 'myregistry.azurecr.io/aks/packages/kubernetes/azure-acr-credential-provider:v1.31.9'
+    }
+}
+
+Describe 'New-CsiProxyService' {
+    BeforeEach {
+        $global:KubeDir = 'c:\k'
+        $script:scExeCallCount = 0
+
+        Mock Logs-To-Event
+        Mock DownloadFileOverHttp
+        Mock tar { $global:LASTEXITCODE = 0 }
+        Mock cp
+        Mock del
+        Mock New-TemporaryDirectory -MockWith { return 'c:\temp\csiproxy' }
+        Mock Invoke-Nssm
+        Mock sc.exe -MockWith { $script:scExeCallCount++; $global:LASTEXITCODE = 0 }
+    }
+
+    Context 'when csi-proxy service does not exist' {
+        BeforeEach {
+            Mock Get-Service -MockWith { return $null }
+        }
+
+        It 'does not call sc.exe and still installs the service' {
+            New-CsiProxyService -CsiProxyPackageUrl 'https://example.com/csiproxy.tar.gz' -KubeDir 'c:\k'
+
+            $script:scExeCallCount | Should -Be 0
+        }
+    }
+
+    Context 'when csi-proxy service already exists' {
+        BeforeEach {
+            $mockExistingSvc = [PSCustomObject]@{Name = 'csi-proxy'; Status = 'Stopped'}
+            Mock Get-Service -MockWith { return $mockExistingSvc }
+        }
+
+        It 'calls sc.exe delete to remove the existing service before install' {
+            New-CsiProxyService -CsiProxyPackageUrl 'https://example.com/csiproxy.tar.gz' -KubeDir 'c:\k'
+
+            $script:scExeCallCount | Should -Be 1
+        }
+
+        It 'does not throw when sc.exe delete fails (best-effort cleanup)' {
+            Mock sc.exe -MockWith { $script:scExeCallCount++; $global:LASTEXITCODE = 1 }
+
+            { New-CsiProxyService -CsiProxyPackageUrl 'https://example.com/csiproxy.tar.gz' -KubeDir 'c:\k' } | Should -Not -Throw
+        }
+    }
+}
+
+Describe 'New-HostsConfigService' {
+    BeforeEach {
+        $global:KubeDir = 'c:\k'
+        $script:scExeCallCount = 0
+
+        Mock Logs-To-Event
+        Mock Invoke-Nssm
+        Mock sc.exe -MockWith { $script:scExeCallCount++; $global:LASTEXITCODE = 0 }
+    }
+
+    Context 'when hosts-config-agent service does not exist' {
+        BeforeEach {
+            Mock Get-Service -MockWith { return $null }
+        }
+
+        It 'does not call sc.exe and still installs the service' {
+            New-HostsConfigService
+
+            $script:scExeCallCount | Should -Be 0
+        }
+    }
+
+    Context 'when hosts-config-agent service already exists' {
+        BeforeEach {
+            $mockExistingSvc = [PSCustomObject]@{Name = 'hosts-config-agent'; Status = 'Stopped'}
+            Mock Get-Service -MockWith { return $mockExistingSvc }
+        }
+
+        It 'calls sc.exe delete to remove the existing service before install' {
+            New-HostsConfigService
+
+            $script:scExeCallCount | Should -Be 1
+        }
+
+        It 'does not throw when sc.exe delete fails (best-effort cleanup)' {
+            Mock sc.exe -MockWith { $script:scExeCallCount++; $global:LASTEXITCODE = 1 }
+
+            { New-HostsConfigService } | Should -Not -Throw
+        }
     }
 }
