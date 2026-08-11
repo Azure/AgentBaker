@@ -1822,8 +1822,8 @@
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.36.4-ubuntu26.04u1",
-                "previousLatestVersion": "1.36.3-ubuntu26.04u3"
+                "latestVersion": "1.36.5-ubuntu26.04u1",
+                "previousLatestVersion": "1.36.4-ubuntu26.04u1"
               }
             ]
           },
@@ -1844,8 +1844,8 @@
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.36.4-ubuntu24.04u1",
-                "previousLatestVersion": "1.36.3-ubuntu24.04u3"
+                "latestVersion": "1.36.5-ubuntu24.04u1",
+                "previousLatestVersion": "1.36.4-ubuntu24.04u1"
               }
             ]
           },
@@ -1866,8 +1866,8 @@
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.36.4-ubuntu22.04u1",
-                "previousLatestVersion": "1.36.3-ubuntu22.04u3"
+                "latestVersion": "1.36.5-ubuntu22.04u1",
+                "previousLatestVersion": "1.36.4-ubuntu22.04u1"
               }
             ]
           },
@@ -1924,8 +1924,8 @@
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-acr-credential-provider-sysext",
-                "latestVersion": "v1.36.4-1-azlinux3",
-                "previousLatestVersion": "v1.36.3-3-azlinux3"
+                "latestVersion": "v1.36.5-1-azlinux3",
+                "previousLatestVersion": "v1.36.4-1-azlinux3"
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/azure-acr-credential-provider-sysext:${version}-${SYSTEMD_ARCH}"
