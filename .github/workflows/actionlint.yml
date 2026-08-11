@@ -16,7 +16,7 @@ jobs:
       with:
         persist-credentials: false
     - name: Download actionlint
-      run: bash <(curl -sL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+      run: bash <(curl -sL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash)
       shell: bash
     - name: Lint workflow files with actionlint
       run: ./actionlint -color
