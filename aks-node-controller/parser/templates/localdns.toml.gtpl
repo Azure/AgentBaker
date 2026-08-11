@@ -58,6 +58,7 @@ health-check.localdns.local:53 {
         failfast_all_unhealthy_upstreams
         {{- end}}
     }
+    reload
     ready {{getLocalDnsNodeListenerIp}}:8181
     cache {{$override.CacheDurationInSeconds}} {
         success 9984
@@ -138,6 +139,7 @@ health-check.localdns.local:53 {
         failfast_all_unhealthy_upstreams
         {{- end}}
     }
+    reload
     ready {{getLocalDnsClusterListenerIp}}:8181
     cache {{$override.CacheDurationInSeconds}} {
         success 9984
