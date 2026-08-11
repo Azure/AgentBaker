@@ -547,6 +547,8 @@ function New-CsiProxyService {
 
     del $tempdir -Recurse
 
+    Remove-ServiceIfExists -ServiceName "csi-proxy"
+
     Invoke-Nssm -KubeDir $KubeDir install csi-proxy "$KubeDir\csi-proxy.exe"
     Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppDirectory "$KubeDir"
     Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppRestartDelay 5000
@@ -569,6 +571,8 @@ function New-HostsConfigService {
     Logs-To-Event -TaskName "AKS.WindowsCSE.StartHostConfigService" -TaskMessage "Start hosts config agent"
 
     $HostsConfigParameters = [io.path]::Combine($KubeDir, "hostsconfigagent.ps1")
+
+    Remove-ServiceIfExists -ServiceName "hosts-config-agent"
 
     Invoke-Nssm -KubeDir $KubeDir install hosts-config-agent C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
     Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppDirectory "$KubeDir"
