@@ -657,8 +657,16 @@ ensureNoDupOnPromiscuBridge() {
 
 ensureArtifactStreaming() {
   waitForContainerdReady || exit $ERR_ARTIFACT_STREAMING_INSTALL
-  retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter
-  /opt/acr/bin/acr-config --enable-containerd 'azurecr.io'
+  retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter || exit $ERR_ARTIFACT_STREAMING_INSTALL
+
+  local acr_mirror_setup="${ACR_MIRROR_SETUP_SCRIPT:-/opt/acr/tools/mirror/setup.sh}"
+  if [ -x "$acr_mirror_setup" ]; then
+    "$acr_mirror_setup" aks
+  else
+    echo "Older acr-mirror package is detected, using old acr-config enablement"
+    # setup.sh is only available in acr-mirror 1.0.0 and above
+    "${ACR_CONFIG_BIN:-/opt/acr/bin/acr-config}" --enable-containerd 'azurecr.io'
+  fi
 }
 
 ensureDHCPv6() {

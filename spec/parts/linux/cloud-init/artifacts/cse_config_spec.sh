@@ -295,6 +295,70 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'ensureArtifactStreaming'
+        # ensureArtifactStreaming enables the acr-mirror/overlaybd services and then
+        # runs the version-appropriate enablement path:
+        #   - acr-mirror 1.0.0+ -> setup.sh aks
+        #   - older packages    -> acr-config --enable-containerd
+        # The enablement binary paths are overridable (ACR_MIRROR_SETUP_SCRIPT /
+        # ACR_CONFIG_BIN), so the stubs live in a temp dir instead of mutating /opt.
+        setup_streaming() {
+            TEST_ACR_DIR="$(mktemp -d)"
+            ACR_MIRROR_SETUP_SCRIPT="${TEST_ACR_DIR}/setup.sh"
+            ACR_CONFIG_BIN="${TEST_ACR_DIR}/acr-config"
+        }
+        cleanup_streaming() {
+            rm -rf "${TEST_ACR_DIR}"
+        }
+        BeforeEach 'setup_streaming'
+        AfterEach 'cleanup_streaming'
+
+        waitForContainerdReady() {
+            return 0
+        }
+        systemctl() {
+            echo "systemctl $@"
+        }
+        retrycmd_if_failure() {
+            echo "retrycmd_if_failure $@"
+            return "${RETRYCMD_RC:-0}"
+        }
+
+        install_setup_sh() {
+            printf '#!/bin/sh\necho "setup.sh $@"\n' > "${ACR_MIRROR_SETUP_SCRIPT}"
+            chmod +x "${ACR_MIRROR_SETUP_SCRIPT}"
+        }
+        install_acr_config() {
+            printf '#!/bin/sh\necho "acr-config $@"\n' > "${ACR_CONFIG_BIN}"
+            chmod +x "${ACR_CONFIG_BIN}"
+        }
+
+        It 'uses setup.sh aks when acr-mirror 1.0.0+ is installed'
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should include "setup.sh aks"
+            The output should not include "Older acr-mirror package"
+            The status should be success
+        End
+
+        It 'falls back to acr-config enablement when setup.sh is absent (older package)'
+            install_acr_config
+            When run ensureArtifactStreaming
+            The output should include "Older acr-mirror package is detected"
+            The output should include "acr-config --enable-containerd azurecr.io"
+            The status should be success
+        End
+
+        It 'fails fast when enabling the streaming services fails'
+            RETRYCMD_RC=1
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should include "retrycmd_if_failure"
+            The output should not include "setup.sh aks"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+    End
+
     Describe 'cleanUpGridNodeCudaPrebake'
         # Stub the actual removal so tests assert the keep-vs-teardown DECISION without touching the
         # real filesystem. OS defaults to Ubuntu (the only path this function acts on).
