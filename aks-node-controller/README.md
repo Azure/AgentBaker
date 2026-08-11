@@ -149,3 +149,34 @@ Key components:
         ```
         This indicates the controller exited before emitting `provision.json`. Most commonly the rendered AKSNodeConfig was missing, had the wrong `Version` (expected `v1`), or was written to the wrong path (`/opt/azure/containers/aks-node-controller-config.json`). Fix the config generation, redeploy, and the bootstrap scripts will then populate `provision.json`.
 - **provision-wait**: waits for `provision.complete` to be present and reads `provision.json` which contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout.
+
+### Provisioning script hotfix payloads
+
+Patched ANC binaries can embed selected Linux provisioning scripts generated from
+`parts/linux/cloud-init/artifacts/`. At the start of `provision`, ANC validates the
+embedded manifest and payload availability, selects the entries matching the local
+platform, and atomically applies them before constructing the normal CSE command.
+Application is fail-open so the existing VHD scripts remain usable if validation
+or replacement fails.
+
+The ANC-owned `scripthotfix` package distinguishes these embedded script hotfixes
+from updates to the ANC binary itself. Its generated manifest and payloads live
+under `aks-node-controller/scripthotfix/generated/`; `applier.go` consumes and
+applies them.
+
+Phase-1 embedded payloads are replace-only: ANC skips an applicable entry when
+its runtime destination does not already exist. File presence preserves
+non-platform template gates such as custom-image exclusions that the generated
+manifest does not encode. New-file hotfixes are therefore not supported by the
+embedded path until richer condition metadata is added; during dual delivery,
+their legacy CRP behavior remains authoritative.
+
+During phase 1, `hotfix/hotfix_generate.py` uses dual delivery until 15
+supported-version rotations complete and the oldest supported ABSvc/VHD release
+is confirmed embedded-capable. It retains the legacy CRP
+`nodecustomdata.yml`/`scripts_version` payload and generates matching embedded
+entries. The legacy payload is applied first by the VHD-baked ANC; the patched
+ANC then applies embedded entries during `provision`, so embedded content has
+deterministic precedence. CustomData size is
+not reduced until a later rollout explicitly enables the generator's
+default-off `--embedded-only` mode after the supported old-VHD window closes.
