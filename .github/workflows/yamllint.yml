@@ -1,0 +1,19 @@
+name: Lint Azure DevOps Pipeline Files
+on:
+  pull_request:
+    paths:
+      - '.pipelines/**'
+      - '.yamllint.yaml'
+
+jobs:
+  yamllint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.x'
+    - name: Install yamllint
+      run: pip install yamllint
+    - name: Lint ADO pipeline YAML with yamllint
+      run: yamllint -c .yamllint.yaml -f colored .pipelines/
