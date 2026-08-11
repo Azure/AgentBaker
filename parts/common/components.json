@@ -1900,8 +1900,8 @@
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=azure-acr-credential-provider, os=azurelinux, release=3.0",
-                "latestVersion": "1.36.4-1.azl3",
-                "previousLatestVersion": "1.36.3-3.azl3"
+                "latestVersion": "1.36.5-1.azl3",
+                "previousLatestVersion": "1.36.4-1.azl3"
               }
             ]
           }
