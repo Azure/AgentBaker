@@ -85,6 +85,7 @@ SOURCE_TO_VARKEY = {
     "setup-custom-search-domains.sh": "customSearchDomainsScript",
     "configure-azure-network.sh": "configureAzureNetworkScript",
     "init-aks-cloud.sh": "initAKSCloud",
+    "init-aks-custom-cloud-certs.sh": "initAKSCustomCloudCerts",
     # Distro-specific scripts
     "ubuntu/ubuntu-snapshot-update.sh": "snapshotUpdateScript",
     "mariner/mariner-package-update.sh": "packageUpdateScriptMariner",
@@ -119,6 +120,8 @@ VARKEY_TO_BLOCK_GROUP = {
     "provisionInstallsAzlOSGuard": "install_distro",
     "provisionInstallsFlatcar": "install_distro",
     "provisionInstallsACL": "install_distro",
+    "initAKSCloud": "custom_cloud_init",
+    "initAKSCustomCloudCerts": "custom_cloud_init",
 }
 
 

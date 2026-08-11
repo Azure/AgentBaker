@@ -2,68 +2,38 @@
 
 # Tests for parts/linux/cloud-init/artifacts/init-aks-cloud.sh
 #
-# Covers two areas:
-# 1. Structural wiring tests (grep-based) for the ca-refresh mode added by #8096.
-# 2. Functional tests that source the script and exercise:
-#    - repo-depot helpers (init_ubuntu_main_repo_depot, init_ubuntu_pmc_repo_depot,
-#      init_mariner_repo_depot, init_azurelinux_repo_depot, check_url)
-#    - cloud mode selection helper (determine_cert_endpoint_mode)
+# Covers delegation to the custom cloud certificate component and RepoDepot helpers.
 
 Describe 'init-aks-cloud.sh refresh mode wiring'
     script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
 
-    It 'parses action argument after deriving location, with init default'
+    It 'parses the action with init as the default'
         When run grep -Eq '^action=\$\{1:-init\}$' "$script_path"
         The status should eq 0
     End
 
-    It 'uses arg2 as location fallback when invoked as ca-refresh'
+    It 'uses arg2 as the location fallback'
         When run grep -Eq '^refresh_location="\$\{2:-\$\{LOCATION\}\}"$' "$script_path"
         The status should eq 0
     End
 
-    It 'always derives cert endpoint mode from refresh_location'
-        When run grep -Eq '^location_normalized="\$\{refresh_location,,\}"$' "$script_path"
+    It 'resolves the certificate component next to the entrypoint by default'
+        When run grep -Eq 'init-aks-custom-cloud-certs\.sh"$' "$script_path"
         The status should eq 0
     End
 
-    It 'passes refresh_location (not the raw positional arg) into determine_cert_endpoint_mode'
-        When run grep -Eq '^cert_endpoint_mode=\$\(determine_cert_endpoint_mode "\$refresh_location"\)$' "$script_path"
+    It 'fails when the certificate component is missing'
+        When run grep -Eq '^if \[ ! -f "\$custom_cloud_certs_script" \]; then$' "$script_path"
         The status should eq 0
     End
 
-    It 'initializes refresh schedule installation as disabled'
-        When run grep -Eq '^install_ca_refresh_schedule=0$' "$script_path"
+    It 'delegates the action and resolved location to the certificate component'
+        When run grep -Eq '^bash "\$custom_cloud_certs_script" "\$action" "\$refresh_location" \|\| exit \$\?$' "$script_path"
         The status should eq 0
     End
 
-    It 'enables refresh schedule installation for eligible certificate modes'
-        When run grep -Eq '^[[:space:]]*install_ca_refresh_schedule=1$' "$script_path"
-        The status should eq 0
-    End
-
-    It 'gates refresh schedule installation on install_ca_refresh_schedule'
-        When run grep -Eq '^[[:space:]]*if \[ "\$install_ca_refresh_schedule" -eq 1 \]; then$' "$script_path"
-        The status should eq 0
-    End
-
-    It 'checks for ca-refresh mode after certificate refresh logic'
+    It 'exits after delegated ca-refresh mode'
         When run grep -Eq '^if \[ "\$action" = "ca-refresh" \]; then$' "$script_path"
-        The status should eq 0
-    End
-
-    It 'exits early in ca-refresh mode after certificate refresh logic'
-        When run grep -Eq '^[[:space:]]*exit$' "$script_path"
-        The status should eq 0
-    End
-
-    It 'passes LOCATION directly into cron refresh command'
-        When run grep -Eq 'ca-refresh \\"\$LOCATION\\"' "$script_path"
-        The status should eq 0
-    End
-
-    It 'passes LOCATION directly into systemd refresh command'
-        When run grep -Eq '^ExecStart=\$script_path ca-refresh \$LOCATION$' "$script_path"
         The status should eq 0
     End
 End
@@ -171,52 +141,6 @@ EOF
             When call check_url "https://repodepot.example.com/ubuntu/dists/jammy/Release"
             The status should be success
             The stdout should include "Checking url"
-        End
-    End
-
-    # Cloud coverage:
-    #   legacy : ussec (US Secret), usnat (US Nationwide), incl. suffixed regions
-    #   rcv1p  : fairfax/usgovvirginia (US Gov), mooncake/chinaeast2 (China),
-    #            bleu/francesouth (France), and empty location
-    Describe 'determine_cert_endpoint_mode'
-        It 'returns legacy for ussec region'
-            When call determine_cert_endpoint_mode "ussec"
-            The output should eq "legacy"
-        End
-
-        It 'returns legacy for usnat region'
-            When call determine_cert_endpoint_mode "usnat"
-            The output should eq "legacy"
-        End
-
-        It 'returns legacy for ussec with suffix (e.g. ussecwest)'
-            When call determine_cert_endpoint_mode "USSecWest"
-            The output should eq "legacy"
-        End
-
-        It 'returns legacy for usnat with suffix (e.g. usnateast)'
-            When call determine_cert_endpoint_mode "USNatEast"
-            The output should eq "legacy"
-        End
-
-        It 'returns rcv1p for fairfax (USGov)'
-            When call determine_cert_endpoint_mode "usgovvirginia"
-            The output should eq "rcv1p"
-        End
-
-        It 'returns rcv1p for mooncake (China)'
-            When call determine_cert_endpoint_mode "chinaeast2"
-            The output should eq "rcv1p"
-        End
-
-        It 'returns rcv1p for bleu (EU sovereign)'
-            When call determine_cert_endpoint_mode "francesouth"
-            The output should eq "rcv1p"
-        End
-
-        It 'returns rcv1p for empty location'
-            When call determine_cert_endpoint_mode ""
-            The output should eq "rcv1p"
         End
     End
 

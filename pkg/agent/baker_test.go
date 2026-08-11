@@ -1750,7 +1750,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(payload).To(ContainSubstring(encodedAKSNodeConfig))
 	})
 
-	It("should render initAKSCloud file in scriptless custom data for default cloud with Ubuntu", func() {
+	It("should render custom cloud init files in scriptless custom data for default cloud with Ubuntu", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 		config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
@@ -1762,11 +1762,12 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
 
 		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
+		Expect(nodeCustomData).To(ContainSubstring(initAKSCustomCloudCertsFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
 		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
 	})
 
-	It("should render initAKSCloud file in scriptless custom data for default cloud with AzureLinux", func() {
+	It("should render custom cloud init files in scriptless custom data for default cloud with AzureLinux", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 		config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
@@ -1779,11 +1780,12 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
 
 		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
+		Expect(nodeCustomData).To(ContainSubstring(initAKSCustomCloudCertsFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
 		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
 	})
 
-	It("should render initAKSCloud file in scriptless custom data for USSecCloud with Ubuntu", func() {
+	It("should render custom cloud init files in scriptless custom data for USSecCloud with Ubuntu", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 		config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
@@ -1796,11 +1798,12 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
 
 		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
+		Expect(nodeCustomData).To(ContainSubstring(initAKSCustomCloudCertsFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
 		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
 	})
 
-	It("should render initAKSCloud file in scriptless custom data for USSecCloud with AzureLinux", func() {
+	It("should render custom cloud init files in scriptless custom data for USSecCloud with AzureLinux", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 		config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
@@ -1814,6 +1817,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
 
 		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
+		Expect(nodeCustomData).To(ContainSubstring(initAKSCustomCloudCertsFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
 		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
 	})
