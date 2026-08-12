@@ -1961,6 +1961,164 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 	}
 }
 
+func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
+	tests := []struct {
+		name            string
+		healthCheck     *aksnodeconfigv1.LocalDnsHealthCheck
+		failfast        *bool
+		kubeDNS         bool
+		wantContains    string
+		wantNotContains []string
+	}{
+		{
+			name:            "no health check config omits health_check",
+			wantNotContains: []string{"health_check", "failfast_all_unhealthy_upstreams"},
+		},
+		{
+			name:            "empty health check config omits health_check",
+			healthCheck:     &aksnodeconfigv1.LocalDnsHealthCheck{},
+			wantNotContains: []string{"health_check", "failfast_all_unhealthy_upstreams"},
+		},
+		{
+			name: "empty duration omits health_check",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr(""),
+			},
+			wantNotContains: []string{"health_check"},
+		},
+		{
+			name: "no_rec without duration omits health_check",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				NoRec: to.Ptr(true),
+			},
+			wantNotContains: []string{"health_check", "no_rec"},
+		},
+		{
+			name: "domain without duration omits health_check",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Domain: to.Ptr("health.local."),
+			},
+			wantNotContains: []string{"health_check", "domain health.local."},
+		},
+		{
+			name: "duration only relies on CoreDNS default recursive domain",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+			},
+			wantContains: "health_check 1s",
+			wantNotContains: []string{
+				"no_rec",
+				"domain .",
+				"domain health.local.",
+			},
+		},
+		{
+			name: "duration with explicit no_rec false omits no_rec",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+				NoRec:    to.Ptr(false),
+			},
+			wantContains:    "health_check 1s",
+			wantNotContains: []string{"no_rec"},
+		},
+		{
+			name: "duration with explicit failfast false omits failfast",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+			},
+			failfast:        to.Ptr(false),
+			wantContains:    "health_check 1s",
+			wantNotContains: []string{"failfast_all_unhealthy_upstreams"},
+		},
+		{
+			name: "duration and no_rec",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+				NoRec:    to.Ptr(true),
+			},
+			wantContains:    "health_check 1s no_rec",
+			wantNotContains: []string{"domain health.local."},
+		},
+		{
+			name: "duration and domain",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+				Domain:   to.Ptr("health.local."),
+			},
+			wantContains:    "health_check 1s domain health.local.",
+			wantNotContains: []string{"no_rec"},
+		},
+		{
+			name: "duration with empty domain omits domain",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+				Domain:   to.Ptr(""),
+			},
+			wantContains:    "health_check 1s",
+			wantNotContains: []string{"domain "},
+		},
+		{
+			name: "duration renders in KubeDNS overrides",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+			},
+			kubeDNS:      true,
+			wantContains: "health_check 1s",
+		},
+		{
+			name: "duration no_rec domain and failfast",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+				NoRec:    to.Ptr(true),
+				Domain:   to.Ptr("health.local."),
+			},
+			failfast: to.Ptr(true),
+			wantContains: strings.Join([]string{
+				"health_check 1s no_rec domain health.local.",
+				"failfast_all_unhealthy_upstreams",
+			}, "\n        "),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			override := &aksnodeconfigv1.LocalDnsOverrides{
+				QueryLogging:                  "Log",
+				Protocol:                      "PreferUDP",
+				ForwardDestination:            "VnetDNS",
+				ForwardPolicy:                 "Sequential",
+				MaxConcurrent:                 to.Ptr(int32(1000)),
+				CacheDurationInSeconds:        to.Ptr(int32(3600)),
+				ServeStaleDurationInSeconds:   to.Ptr(int32(3600)),
+				ServeStale:                    "Immediate",
+				FailfastAllUnhealthyUpstreams: tt.failfast,
+				HealthCheck:                   tt.healthCheck,
+			}
+			profile := &aksnodeconfigv1.LocalDnsProfile{EnableLocalDns: true}
+			if tt.kubeDNS {
+				profile.KubeDnsOverrides = map[string]*aksnodeconfigv1.LocalDnsOverrides{".": override}
+			} else {
+				profile.VnetDnsOverrides = map[string]*aksnodeconfigv1.LocalDnsOverrides{".": override}
+			}
+			got := getLocalDnsCorefileBase64WithHostsPlugin(&aksnodeconfigv1.Configuration{LocalDnsProfile: profile}, false)
+
+			decoded, err := base64.StdEncoding.DecodeString(got)
+			if err != nil {
+				t.Fatalf("failed to decode generated corefile: %v", err)
+			}
+			corefile := normalizeCorefileString(string(decoded))
+			if tt.wantContains != "" && !strings.Contains(corefile, normalizeCorefileString(tt.wantContains)) {
+				t.Fatalf("expected generated corefile to contain %q, got:\n%s", tt.wantContains, string(decoded))
+			}
+			for _, wantNotContains := range tt.wantNotContains {
+				if strings.Contains(corefile, normalizeCorefileString(wantNotContains)) {
+					t.Fatalf("expected generated corefile not to contain %q, got:\n%s", wantNotContains, string(decoded))
+				}
+			}
+		})
+	}
+}
+
 func Test_shouldEnableLocalDns(t *testing.T) {
 	type args struct {
 		aksnodeconfig *aksnodeconfigv1.Configuration
