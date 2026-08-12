@@ -378,6 +378,13 @@ Describe 'cse_install_mariner.sh'
             The output should equal "cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
         End
 
+        It 'strips the RPM epoch when formatting a driver version'
+            When call getAzureLinuxNvidiaDriverVersionFromPackage "cuda-open-0:580.159.04-1_6.6.143.1.1.azl3.x86_64" "cuda-open-"
+
+            The status should be success
+            The output should equal "580.159.04"
+        End
+
         It 'formats CUDA open, CUDA proprietary, and GRID driver package versions for release notes'
             dnf() {
                 case "$4" in

@@ -113,8 +113,11 @@ getLatestAzureLinuxNvidiaDriverPackageForKernel() {
 getAzureLinuxNvidiaDriverVersionFromPackage() {
     local package=$1
     local package_prefix=$2
+    local version_with_epoch
 
-    echo "${package#"${package_prefix}"}" | cut -d- -f1
+    version_with_epoch=${package#"${package_prefix}"}
+    version_with_epoch=${version_with_epoch%%-*}
+    echo "${version_with_epoch#*:}"
 }
 
 getAzureLinuxNvidiaDriverReleaseNotes() {

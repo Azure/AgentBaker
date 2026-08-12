@@ -1257,12 +1257,9 @@ testAzureLinuxNvidiaGPUDriverReleaseNotes() {
     err "$test" "Azure Linux NVIDIA GPU driver release-note section was not found"
   fi
 
-  if ! grep -E -q '^  - nvidia-cuda-open-driver version [0-9]' "$VHD_LOGS_FILEPATH"; then
-    err "$test" "Expected Azure Linux CUDA open driver release-note line was not found"
-  fi
-
-  if ! grep -E -q '^  - nvidia-cuda-driver version [0-9]' "$VHD_LOGS_FILEPATH"; then
-    err "$test" "Expected Azure Linux proprietary CUDA driver release-note line was not found"
+  # The current image kernel may have either an open or proprietary CUDA driver RPM.
+  if ! grep -E -q '^  - nvidia-cuda-(open-)?driver version [0-9]' "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Expected an Azure Linux CUDA driver release-note line was not found"
   fi
 
   if ! grep -E -q '^  - nvidia-grid-driver version [0-9]' "$VHD_LOGS_FILEPATH"; then
