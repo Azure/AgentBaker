@@ -11,7 +11,7 @@ jobs:
     name: Auto-update
     runs-on: ubuntu-24.04
     permissions:
-      contents: write
+      pull-requests: write
     steps:
       - uses: tibdex/auto-update@4081c5bdc34560b58288a010318054e63e6f4a51 # v2
         with:
