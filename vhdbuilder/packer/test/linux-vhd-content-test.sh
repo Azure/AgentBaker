@@ -794,20 +794,37 @@ testLtsKernel() {
   # shellcheck disable=SC3010
   if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] ; then
     echo "OS is Ubuntu, FIPS is not enabled, check LTS kernel version"
+    # CVM builds use linux-image-azure-fde-lts-* (different flavor), skip exact pin check
+    local is_cvm=false
+    if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+      is_cvm=true
+    fi
+
     # Check the Ubuntu version and set the expected kernel version
-    if [ "$os_version" = "22.04" ]; then
+    if [ "$os_version" = "24.04" ] && [ "$is_cvm" = "false" ]; then
+      # Pinned to exact version to avoid regression in 6.8.0-1063-azure
+      expected_kernel="6.8.0-1062-azure"
+    elif [ "$os_version" = "22.04" ]; then
       expected_kernel="5.15"
     elif [ "$os_version" = "24.04" ]; then
       expected_kernel="6.8"
     else
       # TODO(2604): update once 26.04 LTS kernel metapackage is available
-      echo "LTS kernel not installed for: $os_version"
+      echo "LTS kernel not installed for: $os_version, skipping check"
+      echo "$test:Finish"
+      return
     fi
 
     kernel=$(uname -r)
     echo "Current kernel version: $kernel"
     # shellcheck disable=SC3010
-    if [[ "$kernel" == *"$expected_kernel"* ]]; then
+    if [ "$os_version" = "24.04" ] && [ "$is_cvm" = "false" ]; then
+      if [[ "$kernel" == "$expected_kernel" ]]; then
+        echo "Kernel version matches pinned version ($expected_kernel)."
+      else
+        err $test "Kernel version does not match pinned version. Expected exactly $expected_kernel, found $kernel."
+      fi
+    elif [[ "$kernel" == *"$expected_kernel"* ]]; then
       echo "Kernel version is as expected ($expected_kernel)."
     else
       err $test "Kernel version is not as expected. Expected $expected_kernel, found $kernel."
