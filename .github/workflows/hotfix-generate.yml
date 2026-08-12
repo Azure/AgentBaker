@@ -78,6 +78,18 @@ jobs:
         run: |
           python3 hotfix/hotfix_generate.py "origin/${{ github.base_ref }}"
 
+      # Runs AFTER hotfix injection (so the //go:embed'd nodecustomdata.yml carries the injected
+      # scripts H) and BEFORE the commit step (so an oversized hotfix fails the PR before its
+      # content is committed).
+      #   Guard 1 (TestCustomDataSizeWithHotfix): slim Mode B CustomData (P + H) < 87,380.
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.25'
+      - name: Validate CustomData size
+        run: |
+          go test ./pkg/agent/ -run TestCustomDataSizeWithHotfix -v -count=1
+
       - name: Commit changes via API
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
