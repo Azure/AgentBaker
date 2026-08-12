@@ -120,14 +120,12 @@ tar -xzf "$temp_file" -C bin
 chmod +x bin/gotestsum
 rm -f "$temp_file"
 
-# gotestsum is configured with standard-verbose so step timing logs (t.Log/t.Logf calls,
-# e.g. "waiting for pod ... done (Xs)") are printed for passing tests too, not just failed
-# ones. json file still captures full detailed logs regardless of format.
+# gotestsum configure to only show logs for failed tests, json file for detailed logs
 # Run the tests! Yey!
 test_exit_code=0
 rerun_fails=""
 rerun_fails_report=""
-set -- --format standard-verbose --junitfile "${BUILD_SRC_DIR}/e2e/report.xml" --jsonfile "${BUILD_SRC_DIR}/e2e/test-log.json"
+set -- --format testdox --junitfile "${BUILD_SRC_DIR}/e2e/report.xml" --jsonfile "${BUILD_SRC_DIR}/e2e/test-log.json"
 if [ "${E2E_FAILED_TESTS_RETRY_COUNT}" -gt 0 ]; then
   rerun_fails="${E2E_FAILED_TESTS_RETRY_COUNT}"
   rerun_fails_report="${BUILD_SRC_DIR}/e2e/rerun-fails-report.json"
