@@ -391,7 +391,7 @@ Describe 'cse_install_mariner.sh'
                     "cuda-open*")
                         echo "cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
                         ;;
-                    "cuda-[0-9]*")
+                    "cuda")
                         echo "cuda-570.195.03-1_6.6.121.1.1.azl3.x86_64"
                         ;;
                     "nvidia-vgpu-guest-driver*")

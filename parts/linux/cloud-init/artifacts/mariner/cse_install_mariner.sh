@@ -128,7 +128,7 @@ getAzureLinuxNvidiaDriverReleaseNotes() {
     local cuda_package
     local grid_package
     cuda_open_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda-open*" "^cuda-open-[0-9]" "${kernel_version}")
-    cuda_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda-[0-9]*" "^cuda-[0-9]" "${kernel_version}")
+    cuda_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda" "^cuda-[0-9]" "${kernel_version}")
     grid_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "nvidia-vgpu-guest-driver*" "^nvidia-vgpu-guest-driver-[0-9]" "${kernel_version}")
 
     if [ -z "${cuda_open_package}" ] && [ -z "${cuda_package}" ] && [ -z "${grid_package}" ]; then
@@ -195,7 +195,7 @@ downloadGPUDrivers() {
         CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-open*" | grep -E "^cuda-open-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
     else
         echo "VM SKU ${VM_SKU} uses NVIDIA proprietary driver (cuda)"
-        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-[0-9]*" | grep -E "^cuda-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda" | grep -E "^cuda-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
     fi
 
     if [ -z "$CUDA_PACKAGE" ]; then
