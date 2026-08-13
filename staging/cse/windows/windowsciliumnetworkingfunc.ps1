@@ -97,5 +97,10 @@ function Invoke-WindowsCiliumNetworkingInstallScript {
     )
 
     $wcnInstallScript = $global:WindowsCiliumInstallPath | Join-Path -ChildPath 'scripts' | Join-Path -ChildPath 'install' | Join-Path -ChildPath 'install.ps1'
-    & $wcnInstallScript @Arguments
+    if (Test-Path -Path $wcnInstallScript -PathType Leaf) {
+        & $wcnInstallScript @Arguments
+    } else {
+        Write-Log "Windows Cilium Networking installation script could not be found: $wcnInstallScript"
+    }
+
 }
