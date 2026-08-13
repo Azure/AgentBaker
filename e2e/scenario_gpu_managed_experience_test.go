@@ -558,7 +558,7 @@ func runUbuntu2404NvidiaDevicePluginMIGSingle(
 ) {
 	RunScenario(t, &Scenario{
 		Description: description,
-		Location:    "westus2",
+		Location:    "westus3",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -641,6 +641,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_MultiGPU(t *testing.T) {
 
 	RunScenario(t, &Scenario{
 		Description:      "Tests that a MIG profile is applied to every GPU on an Ubuntu 24.04 multi-GPU VM",
+		Location:         "westus3",
 		K8sSystemPoolSKU: "Standard_D2s_v3",
 		Tags: Tags{
 			GPU: true,
@@ -797,7 +798,7 @@ func Test_CreateVMExtensionLinuxAKSNode_Timing(t *testing.T) {
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin provisions and advertises a heterogeneous Mixed MIG geometry on Ubuntu 24.04 GPU nodes",
-		Location:    "westus2",
+		Location:    "westus3",
 		Tags: Tags{
 			GPU: true,
 		},
