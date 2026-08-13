@@ -55,26 +55,34 @@ func newScriptlessGuardConfig(distro datamodel.Distro) *datamodel.NodeBootstrapp
 // MaxCustomDataLength. Forcing ScriptlessCSEProvisionMode makes getScriptlessBoothook return the
 // slim CustomData directly, so this measures exactly the Mode B CustomData branch.
 //
-// The template has distro-conditional blocks (Ubuntu vs Mariner/AzureLinux vs Flatcar vs OSGuard),
-// so we table-drive representative distros to ensure no rendering branch exceeds the limit.
+// The template has distro-conditional blocks (Ubuntu vs Mariner/AzureLinux vs Flatcar vs OSGuard)
+// and a cloud-conditional block (IsAKSCustomCloud inlines init-aks-cloud.sh), so we table-drive
+// representative distros × cloud combinations to ensure no rendering branch exceeds the limit.
 func TestCustomDataSizeWithHotfix(t *testing.T) {
-	distros := []struct {
-		name   string
-		distro datamodel.Distro
+	cases := []struct {
+		name        string
+		distro      datamodel.Distro
+		customCloud bool
 	}{
-		{"Ubuntu2204", datamodel.AKSUbuntuContainerd2204Gen2},
-		{"AzureLinuxV2", datamodel.AKSAzureLinuxV2Gen2},
-		{"AzureLinuxV3", datamodel.AKSAzureLinuxV3Gen2},
-		{"AzureLinuxV3OSGuard", datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL},
-		{"Flatcar", datamodel.AKSFlatcarGen2},
-		{"ACL", datamodel.AKSACLGen2TL},
+		{"Ubuntu2204", datamodel.AKSUbuntuContainerd2204Gen2, false},
+		{"Ubuntu2204_CustomCloud", datamodel.AKSUbuntuContainerd2204Gen2, true},
+		{"AzureLinuxV2", datamodel.AKSAzureLinuxV2Gen2, false},
+		{"AzureLinuxV3", datamodel.AKSAzureLinuxV3Gen2, false},
+		{"AzureLinuxV3OSGuard", datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL, false},
+		{"Flatcar", datamodel.AKSFlatcarGen2, false},
+		{"ACL", datamodel.AKSACLGen2TL, false},
 	}
 
 	templateGenerator := InitializeTemplateGenerator()
 
-	for _, d := range distros {
-		t.Run(d.name, func(t *testing.T) {
-			config := newScriptlessGuardConfig(d.distro)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			config := newScriptlessGuardConfig(tc.distro)
+			if tc.customCloud {
+				config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+					Name: "akscustom",
+				}
+			}
 			// Force Mode B so getScriptlessBoothook early-returns the slim CustomData (P + H).
 			config.ScriptlessCSEProvisionMode = true
 
@@ -84,10 +92,10 @@ func TestCustomDataSizeWithHotfix(t *testing.T) {
 				t.Fatalf("slim Mode B CustomData (%s) is %d bytes, must be < MaxCustomDataLength (%d). "+
 					"A hotfix injecting too many/too-large scripts (H) overflowed the CustomData limit; "+
 					"there is no further fallback once in Mode B, so the node would fail to provision.",
-					d.name, len(payload), MaxCustomDataLength)
+					tc.name, len(payload), MaxCustomDataLength)
 			}
 			t.Logf("slim Mode B CustomData (%s): %d / %d bytes (%d headroom)",
-				d.name, len(payload), MaxCustomDataLength, MaxCustomDataLength-len(payload))
+				tc.name, len(payload), MaxCustomDataLength, MaxCustomDataLength-len(payload))
 		})
 	}
 }
