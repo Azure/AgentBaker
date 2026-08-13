@@ -2,6 +2,10 @@ BeforeAll {
     . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
     . $PSScriptRoot\networkisolatedclusterfunc.ps1
     . $PSCommandPath.Replace('.tests.ps1','.ps1')
+
+    # Get-Service is a Windows-only cmdlet; stub it so Mock can override it when
+    # tests run in isolation (e.g. locally on non-Windows, outside the full suite).
+    function Get-Service {}
 }
 
 Describe 'Get-KubePackage' {
@@ -398,5 +402,61 @@ Describe 'Remove-KubeletNodeLabel' {
         $expected = ""
         Remove-KubeletNodeLabel -Label $label
         Compare-Object $global:KubeletNodeLabels $expected | Should -Be $null
+    }
+}
+
+Describe 'New-NSSMService' {
+    BeforeEach {
+        $global:EnableCsiProxy = $false
+        $global:EnableHostsConfigAgent = $false
+        $script:scExeCallCount = 0
+        $script:scExeServiceNames = @()
+
+        Mock Invoke-Nssm
+        # The DependOnService call bypasses Invoke-Nssm (see comment in New-NSSMService),
+        # so it's mocked directly here; unrelated to the install-idempotency behavior under test.
+        Mock Invoke-Expression -MockWith { $global:LASTEXITCODE = 0 }
+        Mock sc.exe -MockWith {
+            param($Action, $ServiceName)
+            $script:scExeCallCount++
+            $script:scExeServiceNames += $ServiceName
+            $global:LASTEXITCODE = 0
+        }
+    }
+
+    Context 'when Kubelet and Kubeproxy services do not exist' {
+        BeforeEach {
+            Mock Get-Service -MockWith { return $null }
+        }
+
+        It 'does not call sc.exe and still installs both services' {
+            New-NSSMService -KubeDir 'c:\k' -KubeletStartFile 'c:\k\kubeletstart.ps1' -KubeProxyStartFile 'c:\k\kubeproxystart.ps1'
+
+            $script:scExeCallCount | Should -Be 0
+        }
+    }
+
+    Context 'when Kubelet and Kubeproxy services already exist' {
+        BeforeEach {
+            $mockExistingSvc = [PSCustomObject]@{Name = 'Kubelet'; Status = 'Stopped'}
+            Mock Get-Service -MockWith { return $mockExistingSvc }
+        }
+
+        It 'calls sc.exe delete for both services before install' {
+            New-NSSMService -KubeDir 'c:\k' -KubeletStartFile 'c:\k\kubeletstart.ps1' -KubeProxyStartFile 'c:\k\kubeproxystart.ps1'
+
+            $script:scExeCallCount | Should -Be 2
+            $script:scExeServiceNames | Should -Contain 'Kubelet'
+            $script:scExeServiceNames | Should -Contain 'Kubeproxy'
+        }
+
+        It 'does not throw when sc.exe delete fails (best-effort cleanup)' {
+            Mock sc.exe -MockWith {
+                $script:scExeCallCount++
+                $global:LASTEXITCODE = 1
+            }
+
+            { New-NSSMService -KubeDir 'c:\k' -KubeletStartFile 'c:\k\kubeletstart.ps1' -KubeProxyStartFile 'c:\k\kubeproxystart.ps1' } | Should -Not -Throw
+        }
     }
 }
