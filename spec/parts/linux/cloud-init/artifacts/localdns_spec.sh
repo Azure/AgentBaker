@@ -528,6 +528,10 @@ EOF
                 "PREROUTING -p udp -d 169.254.10.10 --dport 53 -j NOTRACK"
                 "PREROUTING -p tcp -d 169.254.10.11 --dport 53 -j NOTRACK"
                 "PREROUTING -p udp -d 169.254.10.11 --dport 53 -j NOTRACK"
+                "OUTPUT -p tcp -s 169.254.10.10 --sport 53 -j NOTRACK"
+                "OUTPUT -p udp -s 169.254.10.10 --sport 53 -j NOTRACK"
+                "OUTPUT -p tcp -s 169.254.10.11 --sport 53 -j NOTRACK"
+                "OUTPUT -p udp -s 169.254.10.11 --sport 53 -j NOTRACK"
             )
             all_rules_found=true
             for expected_rule in "${expected_rules[@]}"; do
