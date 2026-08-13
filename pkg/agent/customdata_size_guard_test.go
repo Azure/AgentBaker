@@ -47,6 +47,10 @@ func newScriptlessGuardConfig(distro datamodel.Distro) *datamodel.NodeBootstrapp
 		K8sComponents:             &datamodel.K8sComponents{},
 		KubeletConfig:             map[string]string{},
 		EnableScriptlessNBCCSECmd: true,
+		// The hotfix flow sets ENABLE_PROVISIONING_HOTFIX=true, which adds enabled_features.sh
+		// to the Mode B payload via renderEnabledFeatures. Include it so the guard measures
+		// the same payload size as a real hotfix-enabled node.
+		EnabledFeatures: map[string]string{"ENABLE_PROVISIONING_HOTFIX": "true"},
 	}
 }
 
