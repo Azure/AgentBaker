@@ -1,9 +1,31 @@
+. $PSScriptRoot\helpers.ps1
+
 # this is $global to persist across all functions since this is dot-sourced
 $global:ContainerdInstallLocation = "$Env:ProgramFiles\containerd"
 $global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containerd.exe)
 # The minimum kubernetes version to use containerd 2.x
 $global:MinimalKubernetesVersionWithLatestContainerd2 = "1.32.0"
 $global:WindowsDataDir = "C:\AzureData\windows"
+
+# Function so it can be overriden in tests.
+function Get-RootRegistryPath {
+  return "C:\ProgramData\containerd\certs.d"
+}
+
+# Function so it can be mocked in tests.
+function Out-FileAscii {
+  [CmdletBinding()]
+  param(
+    [Parameter(ValueFromPipeline = $true)]$Content,
+    [Parameter(Mandatory = $true)][string]$FilePath
+  )
+
+  # Due to powershell 5.1 being in use sometimes, we can't specify the encoding to be ([System.Text.Encoding]::ASCII) directly in Out-File,
+  # To work around this, we specify the encoding as the string "ascii" which is supported in powershell 5.1 and greater and also results in ascii encoding.
+  $Content | Out-File -FilePath $FilePath -Encoding "ascii"
+}
+
+
 function RegisterContainerDService {
   Param(
     [Parameter(Mandatory = $true)][string]
@@ -13,28 +35,25 @@ function RegisterContainerDService {
   Assert-FileExists -Filename $global:Containerdbinary -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_BINARY_EXIST
 
   # in the past service was not installed via nssm so remove it in case
-  $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
-  if ($null -ne $svc) {
-    sc.exe delete containerd
-  }
+  Remove-ServiceIfExists -ServiceName "containerd"
 
   Write-Log "Registering containerd as a service"
   # setup containerd
-  & "$KubeDir\nssm.exe" install containerd $global:Containerdbinary | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppDirectory $KubeDir | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd DisplayName containerd | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd Description containerd | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd Start SERVICE_DEMAND_START | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd ObjectName LocalSystem | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppPriority ABOVE_NORMAL_PRIORITY_CLASS | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppThrottle 1500 | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppStdout "$KubeDir\containerd.log" | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppStderr "$KubeDir\containerd.err.log" | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppRotateFiles 1 | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppRotateOnline 1 | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppRotateSeconds 86400 | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppRotateBytes 10485760 | RemoveNulls
+  Invoke-Nssm -KubeDir $KubeDir install containerd $global:Containerdbinary
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppDirectory $KubeDir
+  Invoke-Nssm -KubeDir $KubeDir set containerd DisplayName containerd
+  Invoke-Nssm -KubeDir $KubeDir set containerd Description containerd
+  Invoke-Nssm -KubeDir $KubeDir set containerd Start SERVICE_DEMAND_START
+  Invoke-Nssm -KubeDir $KubeDir set containerd ObjectName LocalSystem
+  Invoke-Nssm -KubeDir $KubeDir set containerd Type SERVICE_WIN32_OWN_PROCESS
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppPriority ABOVE_NORMAL_PRIORITY_CLASS
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppThrottle 1500
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppStdout "$KubeDir\containerd.log"
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppStderr "$KubeDir\containerd.err.log"
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateFiles 1
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateOnline 1
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateSeconds 86400
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateBytes 10485760
 
   $retryCount=0
   $maxRetryCount=6 # 1 minutes
@@ -59,8 +78,7 @@ function RegisterContainerDService {
       $svc.WaitForStatus('Running', [timespan]::FromSeconds(5))
       Write-Log "containerd service started successfully"
       break
-    }
-    catch {
+    } catch {
       Write-Log "Failed to start containerd service: $_"
     }
 
@@ -113,8 +131,7 @@ function CreateHypervisorRuntimes {
     $runtime = createHypervisorRuntime -image $pauseImage -version $windowsVersion -buildNumber $buildNumber
     if ($hypervRuntimes -eq "") {
       $hypervRuntimes = $runtime
-    }
-    else {
+    } else {
       $hypervRuntimes = $hypervRuntimes + "`r`n" + $runtime
     }
   }
@@ -155,8 +172,7 @@ function ProcessAndWriteContainerdConfig {
   if ($SandboxIsolation -eq 0 -And $hypervHandlers.Count -eq 0) {
     # Remove the hypervisors placeholder when not needed
     $template = $template | Select-String -Pattern 'hypervisors' -NotMatch
-  }
-  else {
+  } else {
     $hypervRuntimes = CreateHypervisorRuntimes -builds $hypervHandlers -image $pauseImage
   }
 
@@ -183,17 +199,17 @@ function ProcessAndWriteContainerdConfig {
 
   # Replace all placeholders
   $processedTemplate = $template.Replace('{{sandboxIsolation}}', $sandboxIsolation).
-    Replace('{{pauseImage}}', $pauseImage).
-    Replace('{{hypervisors}}', $hypervRuntimes).
-    Replace('{{cnibin}}', $formatedBin).
-    Replace('{{cniconf}}', $formatedConf).
-    Replace('{{containerAnnotations}}', $containerAnnotations).
-    Replace('{{podAnnotations}}', $podAnnotations)
+  Replace('{{pauseImage}}', $pauseImage).
+  Replace('{{hypervisors}}', $hypervRuntimes).
+  Replace('{{cnibin}}', $formatedBin).
+  Replace('{{cniconf}}', $formatedConf).
+  Replace('{{containerAnnotations}}', $containerAnnotations).
+  Replace('{{podAnnotations}}', $podAnnotations)
 
   # Write the processed template to the config file
   $configFile = [Io.Path]::Combine($global:ContainerdInstallLocation, "config.toml")
   Write-Log "using template $templatePath to write containerd config to $configFile"
-  $processedTemplate | Out-File -FilePath $configFile -Encoding ascii
+  $processedTemplate | Out-FileAscii -FilePath $configFile
 }
 
 function Enable-Logging {
@@ -204,8 +220,7 @@ function Enable-Logging {
     Create-Directory -FullPath $logs -DirectoryUsage "storing containerd logs"
     # !ContainerPlatformPersistent profile is made to work with long term and boot tracing
     & $diag -Start -ProfilePath "$global:ContainerdInstallLocation\ContainerPlatform.wprp!ContainerPlatformPersistent" -TempPath $logs
-  }
-  else {
+  } else {
     Write-Log "Containerd hyperv logging script not avalaible"
   }
 }
@@ -216,8 +231,9 @@ function Set-ContainerdRegistryConfig {
     [Parameter(Mandatory = $true)][string] $RegistryHost
   )
 
-  $rootRegistryPath = "C:\ProgramData\containerd\certs.d"
-  $registryPath = Join-Path $rootRegistryPath $Registry
+  $certRootRegistryPath = Get-RootRegistryPath
+
+  $registryPath = Join-Path $certRootRegistryPath $Registry
   $hostsTomlPath = Join-Path $registryPath "hosts.toml"
 
   Create-Directory -FullPath $registryPath -DirectoryUsage "storing containerd registry hosts config"
@@ -231,20 +247,19 @@ server = "https://$Registry"
     X-Forwarded-For = ["$Registry"]
 "@
 
-  $content | Out-File -FilePath $hostsTomlPath -Encoding ascii
+  $content | Out-FileAscii -FilePath $hostsTomlPath
   Write-Log "Wrote containerd hosts config for registry '$Registry' to '$hostsTomlPath'"
 }
 
 function Set-BootstrapProfileRegistryContainerdHost {
   $mcrRegistry = if ((Test-Path variable:global:MCRRepositoryBase) -and
-      -not [string]::IsNullOrEmpty($global:MCRRepositoryBase)) {
+    -not [string]::IsNullOrEmpty($global:MCRRepositoryBase)) {
     [string]$global:MCRRepositoryBase
-  }
-  else {
+  } else {
     "mcr.microsoft.com"
   }
-  $rootRegistryPath = "C:\ProgramData\containerd\certs.d"
-  $mcrRegistryPath = Join-Path $rootRegistryPath $mcrRegistry
+  $certRootRegistryPath = Get-RootRegistryPath
+  $mcrRegistryPath = Join-Path $certRootRegistryPath $mcrRegistry
   $hostsTomlPath = Join-Path $mcrRegistryPath "hosts.toml"
 
   $registryHost = [string]$global:BootstrapProfileContainerRegistryServer
@@ -256,8 +271,7 @@ function Set-BootstrapProfileRegistryContainerdHost {
 
   $registryHost = if ([string]::IsNullOrEmpty($registryRepoPrefix)) {
     "$registryHostName/v2"
-  }
-  else {
+  } else {
     "$registryHostName/v2/$registryRepoPrefix"
   }
 
@@ -271,7 +285,7 @@ server = "https://$mcrRegistry"
   override_path = true
 "@
 
-  $content | Out-File -FilePath $hostsTomlPath -Encoding ascii
+  $content | Out-FileAscii -FilePath $hostsTomlPath
   Write-Log "Wrote bootstrap profile container registry hosts config from '$mcrRegistry' to '$registryHost' at '$hostsTomlPath'"
 }
 
@@ -306,15 +320,15 @@ function Install-Containerd {
     # ni path
     # download containerd binaries via oras if BootstrapProfileContainerRegistryServer is set
     if (-not (Get-Command 'DownloadFileWithOras' -ErrorAction SilentlyContinue)) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD -ErrorMessage "DownloadFileWithOras function is not available. networkisolatedclusterfunc.ps1 may not be sourced."
+      Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD -ErrorMessage "DownloadFileWithOras function is not available. networkisolatedclusterfunc.ps1 may not be sourced."
     }
 
     # Extract containerd version tag from URL for ORAS reference
     # URL format: https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz
     if ($ContainerdUrl -match "containerd-(v[\d.]+)-azure\.\d+-windows-amd64\.tar\.gz") {
-        $containerdVersionTag = $matches[1]
+      $containerdVersionTag = $matches[1]
     } else {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD -ErrorMessage "Failed to extract containerd version tag from URL: $ContainerdUrl"
+      Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD -ErrorMessage "Failed to extract containerd version tag from URL: $ContainerdUrl"
     }
 
     # Sanitize the registry server value: strip scheme and trailing slash, preserve any repo prefix
@@ -324,9 +338,9 @@ function Install-Containerd {
     $orasReference = "$sanitizedRegistry/aks/packages/containerd/containerd:$containerdVersionTag"
     $cachedFileName = Get-FileNameFromUrl -Url $ContainerdUrl
     try {
-        Retry-Command -Command "DownloadFileWithOras" -Args @{Reference=$orasReference; DestinationPath=$tarfile; CachedFile=$cachedFileName} -Retries 5 -RetryDelaySeconds 10
+      Retry-Command -Command "DownloadFileWithOras" -Args @{Reference=$orasReference; DestinationPath=$tarfile; CachedFile=$cachedFileName} -Retries 5 -RetryDelaySeconds 10
     } catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD -ErrorMessage "Exhausted retries for oras pull $orasReference. Error: $_"
+      Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD -ErrorMessage "Exhausted retries for oras pull $orasReference. Error: $_"
     }
   }
   Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
@@ -345,14 +359,14 @@ function Install-Containerd {
   try {
     # Check containerd version to determine if it supports annotations
     Push-Location $global:ContainerdInstallLocation
-      # Examples:
-      #  - containerd github.com/containerd/containerd v1.6.21+azure 3dce8eb055cbb6872793272b4f20ed16117344f8
-      #  - containerd github.com/containerd/containerd v1.7.9+azure 4f03e100cb967922bec7459a78d16ccbac9bb81d
-      $versionstring=$(.\containerd.exe -v)
-      Write-Log "containerd version: $versionstring"
-      $containerdVersion=$versionstring.split(" ")[2].Split("+")[0].substring(1)
+    # Examples:
+    #  - containerd github.com/containerd/containerd v1.6.21+azure 3dce8eb055cbb6872793272b4f20ed16117344f8
+    #  - containerd github.com/containerd/containerd v1.7.9+azure 4f03e100cb967922bec7459a78d16ccbac9bb81d
+    $versionstring=$(.\containerd.exe -v)
+    Write-Log "containerd version: $versionstring"
+    $containerdVersion=$versionstring.split(" ")[2].Split("+")[0].substring(1)
     Pop-Location
-  }catch {
+  } catch {
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION -ErrorMessage "Failed in getting Windows containerd version. Error: $_"
   }
 
@@ -365,8 +379,7 @@ function Install-Containerd {
   if (-not [string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
     if (Get-Command -Name Set-PodInfraContainerImage -ErrorAction SilentlyContinue) {
       Set-PodInfraContainerImage
-    }
-    else {
+    } else {
       Write-Log "Set-PodInfraContainerImage command not found; skipping pod infra container image configuration."
     }
   }
