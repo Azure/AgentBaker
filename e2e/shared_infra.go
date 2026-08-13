@@ -290,12 +290,44 @@ func ensureSharedBastion(ctx context.Context, rg, location string) (string, erro
 		if existing.Properties == nil || existing.Properties.DNSName == nil {
 			return "", fmt.Errorf("shared bastion %s exists but has no DNS name", SharedBastionName)
 		}
-		return *existing.Properties.DNSName, nil
-	}
-	if !isNotFoundError(err) {
+		// The E2E bastion tunnels to nodes by private IP (bh-hostConnect/{ip}), which the
+		// Bastion data plane rejects with 403 unless IP Connect is enabled. Bastions created
+		// before IP Connect was set (or on a subscription that lacked the capability at
+		// creation time) come up with EnableIPConnect unset/false and cannot be fixed with a
+		// simple in-place update, so we delete and recreate to guarantee the capability.
+		if bastionHasIPConnect(existing.BastionHost) {
+			return *existing.Properties.DNSName, nil
+		}
+		toolkit.Logf(ctx, "shared bastion %s exists but IP Connect is not enabled; deleting and recreating", SharedBastionName)
+		if err := deleteSharedBastion(ctx, rg); err != nil {
+			return "", fmt.Errorf("deleting shared bastion for IP Connect recreate: %w", err)
+		}
+	} else if !isNotFoundError(err) {
 		return "", fmt.Errorf("checking shared bastion: %w", err)
 	}
 
+	return createSharedBastion(ctx, rg, location)
+}
+
+// bastionHasIPConnect reports whether the bastion has the IP Connect capability enabled.
+func bastionHasIPConnect(b armnetwork.BastionHost) bool {
+	return b.Properties != nil && b.Properties.EnableIPConnect != nil && *b.Properties.EnableIPConnect
+}
+
+// deleteSharedBastion deletes the shared bastion and waits for the deletion to complete so the
+// AzureBastionSubnet and public IP can be reused by the subsequent recreate.
+func deleteSharedBastion(ctx context.Context, rg string) error {
+	poller, err := config.Azure.BastionHosts.BeginDelete(ctx, rg, SharedBastionName, nil)
+	if err != nil {
+		return fmt.Errorf("begin delete shared bastion: %w", err)
+	}
+	if _, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions); err != nil {
+		return fmt.Errorf("waiting for shared bastion deletion: %w", err)
+	}
+	return nil
+}
+
+func createSharedBastion(ctx context.Context, rg, location string) (string, error) {
 	if err := ensureSubnet(ctx, rg, SharedVNetName, "AzureBastionSubnet", BastionSubnetCIDR); err != nil {
 		return "", fmt.Errorf("ensuring bastion subnet: %w", err)
 	}
