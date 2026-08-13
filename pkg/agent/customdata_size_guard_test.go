@@ -65,6 +65,8 @@ func TestCustomDataSizeWithHotfix(t *testing.T) {
 		{"Ubuntu2204", datamodel.AKSUbuntuContainerd2204Gen2},
 		{"AzureLinuxV2", datamodel.AKSAzureLinuxV2Gen2},
 		{"AzureLinuxV3", datamodel.AKSAzureLinuxV3Gen2},
+		{"AzureLinuxV3OSGuard", datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL},
+		{"Flatcar", datamodel.AKSFlatcarGen2},
 		{"ACL", datamodel.AKSACLGen2TL},
 	}
 
