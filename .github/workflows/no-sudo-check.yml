@@ -4,8 +4,12 @@ on: pull_request
 jobs:
   no-sudo:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
     - name: Ensure no sudo command invocations in provisioning scripts
       run: |
         # Search for 'sudo ' as a command invocation in shell scripts and service/timer files,

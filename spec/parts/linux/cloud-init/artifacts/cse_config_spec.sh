@@ -295,6 +295,70 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'ensureArtifactStreaming'
+        # ensureArtifactStreaming enables the acr-mirror/overlaybd services and then
+        # runs the version-appropriate enablement path:
+        #   - acr-mirror 1.0.0+ -> setup.sh aks
+        #   - older packages    -> acr-config --enable-containerd
+        # The enablement binary paths are overridable (ACR_MIRROR_SETUP_SCRIPT /
+        # ACR_CONFIG_BIN), so the stubs live in a temp dir instead of mutating /opt.
+        setup_streaming() {
+            TEST_ACR_DIR="$(mktemp -d)"
+            ACR_MIRROR_SETUP_SCRIPT="${TEST_ACR_DIR}/setup.sh"
+            ACR_CONFIG_BIN="${TEST_ACR_DIR}/acr-config"
+        }
+        cleanup_streaming() {
+            rm -rf "${TEST_ACR_DIR}"
+        }
+        BeforeEach 'setup_streaming'
+        AfterEach 'cleanup_streaming'
+
+        waitForContainerdReady() {
+            return 0
+        }
+        systemctl() {
+            echo "systemctl $@"
+        }
+        retrycmd_if_failure() {
+            echo "retrycmd_if_failure $@"
+            return "${RETRYCMD_RC:-0}"
+        }
+
+        install_setup_sh() {
+            printf '#!/bin/sh\necho "setup.sh $@"\n' > "${ACR_MIRROR_SETUP_SCRIPT}"
+            chmod +x "${ACR_MIRROR_SETUP_SCRIPT}"
+        }
+        install_acr_config() {
+            printf '#!/bin/sh\necho "acr-config $@"\n' > "${ACR_CONFIG_BIN}"
+            chmod +x "${ACR_CONFIG_BIN}"
+        }
+
+        It 'uses setup.sh aks when acr-mirror 1.0.0+ is installed'
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should include "setup.sh aks"
+            The output should not include "Older acr-mirror package"
+            The status should be success
+        End
+
+        It 'falls back to acr-config enablement when setup.sh is absent (older package)'
+            install_acr_config
+            When run ensureArtifactStreaming
+            The output should include "Older acr-mirror package is detected"
+            The output should include "acr-config --enable-containerd azurecr.io"
+            The status should be success
+        End
+
+        It 'fails fast when enabling the streaming services fails'
+            RETRYCMD_RC=1
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should include "retrycmd_if_failure"
+            The output should not include "setup.sh aks"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+    End
+
     Describe 'cleanUpGridNodeCudaPrebake'
         # Stub the actual removal so tests assert the keep-vs-teardown DECISION without touching the
         # real filesystem. OS defaults to Ubuntu (the only path this function acts on).
@@ -1340,6 +1404,7 @@ PubkeyAuthentication no"
             API_SERVER_NAME=""
             AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX=""
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
+            MCR_REPOSITORY_BASE=""
         }
         cleanup() {
             rm -rf "$TMP_DIR"
@@ -1398,7 +1463,7 @@ providers:
       - /etc/kubernetes/azure.json
       - --registry-mirror=mcr.microsoft.com:test.azurecr.io'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider for network isolated cluster"
+            The output should include "configure credential provider with default settings"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
@@ -1422,6 +1487,34 @@ providers:
     apiVersion: credentialprovider.kubelet.k8s.io/v1
     args:
       - /etc/kubernetes/azure.json'
+            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
+            The output should include "configure credential provider for custom cloud"
+            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
+        End
+
+        It 'should configure credential provider for custom cloud network isolated cluster'
+            AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX=".custom.registry.io"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="test.azurecr.io"
+            expected_config='apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+      - "*.*.geo.azurecr.io"
+      - "*.*.geo.azurecr.cn"
+      - "*.*.geo.azurecr.de"
+      - "*.*.geo.azurecr.us"
+      - "*.custom.registry.io"
+      - "mcr.microsoft.com"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json
+      - --registry-mirror=mcr.microsoft.com:test.azurecr.io'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
             The output should include "configure credential provider for custom cloud"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
@@ -1612,7 +1705,7 @@ providers:
       - --ib-default-tenant-id=my-tenant-id
       - --ib-apiserver-ip=apiserver.example.com'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider for network isolated cluster"
+            The output should include "configure credential provider with default settings"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
@@ -2658,6 +2751,67 @@ OVERRIDE_EOF
         End
     End
 
+    Describe 'nvidia-cdi-refresh handling'
+        setup_cdi_dropin() {
+            CDI_TEST_DIR=$(mktemp -d)
+            NVIDIA_CDI_REFRESH_DROP_IN="${CDI_TEST_DIR}/nvidia-cdi-refresh.service.d/10-aks-tolerate-generate-failure.conf"
+        }
+        cleanup_cdi_dropin() {
+            rm -rf "${CDI_TEST_DIR}"
+        }
+        BeforeEach 'setup_cdi_dropin'
+        AfterEach 'cleanup_cdi_dropin'
+
+        Describe 'configureNvidiaCDIRefresh'
+            It 'treats the known nvidia-ctk failures as success and reloads systemd'
+                systemctl() { echo "systemctl $*"; return 0; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be success
+                The output should include "systemctl daemon-reload"
+                # 1 = MIG mode enabled with no MIG instances, 2 = nvidia-ctk panic before the
+                # driver userspace is ready, 127 = nvidia-smi missing on pre-reorder aks-gpu images.
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should include "[Service]"
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should include "SuccessExitStatus=1 2 127"
+            End
+
+            It 'keeps the units restartable so the .path trigger can still refresh the spec'
+                systemctl() { return 0; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be success
+                # Overriding Restart= or the start limit would suppress the toolkit's own retry and
+                # its path-triggered refresh, which is what eventually generates a valid spec once
+                # the driver is fully installed.
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should not include "Restart="
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should not include "StartLimit"
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should not include "ExecCondition"
+            End
+
+            It 'still installs the drop-in when systemd cannot be reloaded'
+                # Drop-ins are read when the unit is first loaded, which happens after the toolkit
+                # post-install runs its own daemon-reload, so this reload is only belt and braces.
+                systemctl() { return 1; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be success
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should include "SuccessExitStatus=1 2 127"
+            End
+
+            It 'fails when the drop-in directory cannot be created'
+                systemctl() { return 0; }
+                mkdir() { return 1; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be failure
+            End
+        End
+    End
+
     Describe 'configGPUDrivers'
         # Assert the per-step CSE timing event names emitted via logs_to_events,
         # without running the real (hardware/daemon) driver steps. logs_to_events
@@ -2673,6 +2827,7 @@ OVERRIDE_EOF
         createNvidiaSymlinkToAllDeviceNodes() { return 0; }
         systemctlEnableAndStart() { return 0; }
         systemctl() { return 0; }
+        configureNvidiaCDIRefresh() { return 0; }
 
         UBUNTU_OS_NAME="UBUNTU"
         NVIDIA_DRIVER_IMAGE="mcr.example/nvidia/driver"
@@ -2694,6 +2849,43 @@ OVERRIDE_EOF
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverImage"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.configureNvidiaCDIRefresh"
+        End
+
+        It 'installs the CDI refresh drop-in before the driver install runs on Ubuntu'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            # eval so the string-form wrapped commands (e.g. "retrycmd_if_failure ... nvidia-smi")
+            # resolve to their mocks instead of being treated as one command name.
+            logs_to_events() { shift; eval "$@"; }
+            NVIDIA_DRIVER_IMAGE_PULL_REF="mcr.example/nvidia/driver"
+            configureNvidiaCDIRefresh() { echo "CONFIGURE_RAN"; return 0; }
+            installGPUDriverImage() { echo "INSTALL_RAN"; return 0; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            # The toolkit starts nvidia-cdi-refresh from inside the install container, so the
+            # drop-in must already be on disk by then.
+            The line 1 of output should equal "CONFIGURE_RAN"
+            The output should include "INSTALL_RAN"
+        End
+
+        It 'exits without installing the driver when the CDI drop-in cannot be installed'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            logs_to_events() { shift; eval "$@"; }
+            configureNvidiaCDIRefresh() { return 1; }
+            installGPUDriverImage() { echo "INSTALL_RAN"; return 0; }
+
+            When run configGPUDrivers
+
+            The status should equal 88
+            The output should not include "INSTALL_RAN"
         End
 
         It 'exits at the cache-miss pull step and skips install when the pull fails on Ubuntu'

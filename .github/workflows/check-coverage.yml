@@ -9,16 +9,22 @@ permissions:
 jobs:
   unit_tests:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Install Go
         if: success()
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version: '1.25'
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Run unit tests
-        run: go test `go list ./... | grep -v e2e` -coverprofile coverage_raw.out -covermode count
+        run: |
+          # shellcheck disable=SC2046  # word splitting is intentional: expand to multiple package args
+          go test $(go list ./... | grep -v e2e) -coverprofile coverage_raw.out -covermode count
       - name: Remove mocks.go lines
         run: |
           sed '/mocks.go/d' coverage_raw.out > coverage-no-mocks.out
@@ -26,9 +32,9 @@ jobs:
         run: |
           sed '/pb.go/d' coverage-no-mocks.out > coverage.out
       - name: Convert coverage to lcov
-        uses: jandelgado/gcov2lcov-action@v1
+        uses: jandelgado/gcov2lcov-action@e4612787670fc5b5f49026b8c29c5569921de1db # v1
       - name: Coveralls
-        uses: coverallsapp/github-action@v2
+        uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # v2
         with:
           parallel: true
           flag-name: run-1
@@ -37,9 +43,11 @@ jobs:
     needs: [unit_tests]
     if: ${{ success() }}
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     steps:
       - name: Coveralls Finished
-        uses: coverallsapp/github-action@v2
+        uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # v2
         with:
           parallel-finished: true
           carryforward: "run-1"

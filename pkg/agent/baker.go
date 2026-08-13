@@ -2306,8 +2306,20 @@ health-check.localdns.local:53 {
         {{- if eq $override.Protocol "ForceTCP"}}
         force_tcp
         {{- end}}
+        {{- if eq $override.Protocol "PreferUDP"}}
+        prefer_udp
+        {{- end}}
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
+        {{- if and $override.HealthCheck $override.HealthCheck.GetDuration}}
+        {{- $duration := $override.HealthCheck.GetDuration}}
+        {{- $noRec := $override.HealthCheck.GetNoRec}}
+        {{- $domain := $override.HealthCheck.GetDomain}}
+        health_check {{$duration}}{{if $noRec}} no_rec{{end}}{{if $domain}} domain {{$domain}}{{end}}
+        {{- end}}
+        {{- if $override.GetFailfastAllUnhealthyUpstreams}}
+        failfast_all_unhealthy_upstreams
+        {{- end}}
     }
     ready {{$.NodeListenerIP}}:8181
     cache {{$override.CacheDurationInSeconds}} {
@@ -2371,8 +2383,20 @@ health-check.localdns.local:53 {
         {{- if eq $override.Protocol "ForceTCP"}}
         force_tcp
         {{- end}}
+        {{- if eq $override.Protocol "PreferUDP"}}
+        prefer_udp
+        {{- end}}
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
+        {{- if and $override.HealthCheck $override.HealthCheck.GetDuration}}
+        {{- $duration := $override.HealthCheck.GetDuration}}
+        {{- $noRec := $override.HealthCheck.GetNoRec}}
+        {{- $domain := $override.HealthCheck.GetDomain}}
+        health_check {{$duration}}{{if $noRec}} no_rec{{end}}{{if $domain}} domain {{$domain}}{{end}}
+        {{- end}}
+        {{- if $override.GetFailfastAllUnhealthyUpstreams}}
+        failfast_all_unhealthy_upstreams
+        {{- end}}
     }
     ready {{$.ClusterListenerIP}}:8181
     cache {{$override.CacheDurationInSeconds}} {
