@@ -3,7 +3,7 @@ function Invoke-WindowsExporterRequest {
     param([Parameter(Mandatory=$true)][string]$Path)
 
     try {
-        $response = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:19182/$Path" -TimeoutSec 10 -ErrorAction Stop
+        $response = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:19100/$Path" -TimeoutSec 10 -ErrorAction Stop
         return [string]$response.Content
     }
     catch {

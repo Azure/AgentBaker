@@ -5,7 +5,7 @@
 .DESCRIPTION
     Migrated from aks-vm-extension (see aks-windows-node-vm-extension/entrypoint.ps1).
     Registers windows-exporter.exe as the Windows service "aks-windows-exporter" via NSSM,
-    matching the service name, port (19182), log paths, and NSSM settings the extension
+    matching the service name, log paths, and NSSM settings the extension
     used so existing customer dashboards/alerts continue to work.
 
     The function is guarded so it is a no-op when running on a VHD that does not carry
@@ -13,21 +13,31 @@
     handle the service (dual-mode coexistence).
 
     Coordination with aks-vm-extension:
-    - When C:\k\skip_vhd_windows_exporter exists, the extension's entrypoint.ps1
-            short-circuits. The sentinel is created by the Windows VHD build once the binary
-      and config are staged.
+    - The VHD build creates windows-exporter-assets.complete after staging assets.
+    - CSE creates C:\k\skip_vhd_windows_exporter only after the service is healthy.
+      Older CSE versions leave it absent, so aks-vm-extension remains the owner.
 #>
 
 $global:WindowsExporterInstallDir     = "C:\k\windows-exporter"
 $global:WindowsExporterBinary         = Join-Path $global:WindowsExporterInstallDir "windows-exporter.exe"
 $global:WindowsExporterConfig         = Join-Path $global:WindowsExporterInstallDir "windows-exporter-config.yml"
 $global:WindowsExporterHealthScript   = Join-Path $global:WindowsExporterInstallDir "windows-exporter-health.ps1"
+$global:WindowsExporterAssetsFile     = Join-Path $global:WindowsExporterInstallDir "windows-exporter-assets.complete"
 $global:WindowsExporterSkipFile       = "C:\k\skip_vhd_windows_exporter"
 $global:WindowsExporterServiceName    = "aks-windows-exporter"
-$global:WindowsExporterPort           = 19182
+$global:WindowsExporterPort           = 19100
 $global:WindowsExporterStdoutLog      = "C:\k\windows-exporter.log"
 $global:WindowsExporterStderrLog      = "C:\k\windows-exporter.err.log"
 $global:WindowsExporterNssm           = "C:\k\nssm.exe"
+
+function Invoke-WindowsExporterNssm {
+    param([Parameter(Mandatory=$true)][string[]]$Arguments)
+
+    & $global:WindowsExporterNssm @Arguments | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "nssm.exe $($Arguments -join ' ') failed with exit code $LASTEXITCODE"
+    }
+}
 
 function Test-WindowsExporterHealth {
     param(
@@ -81,23 +91,23 @@ function Install-WindowsExporter {
 
     .NOTES
         No-ops when:
-        - The VHD-build sentinel C:\k\skip_vhd_windows_exporter is absent
-          (older VHD without baked assets - aks-vm-extension still covers it).
+        - The VHD assets marker is absent (older VHD without baked assets;
+          aks-vm-extension still covers it).
         - The windows-exporter binary is missing on disk (defensive).
     #>
 
-    if (-not (Test-Path $global:WindowsExporterSkipFile)) {
-        Write-Log "skip_vhd_windows_exporter not present; aks-vm-extension will manage windows-exporter on this node"
+    if (-not (Test-Path $global:WindowsExporterAssetsFile)) {
+        Write-Log "windows-exporter assets marker not present; aks-vm-extension will manage windows-exporter on this node"
         return
     }
 
     if (-not (Test-Path $global:WindowsExporterBinary)) {
-        Write-Log "windows-exporter binary not found at $($global:WindowsExporterBinary); skipping install (older VHD?)"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_WINDOWS_EXPORTER_START_FAIL -ErrorMessage "windows-exporter sentinel is present but binary is missing at $($global:WindowsExporterBinary)"
         return
     }
 
     if (-not (Test-Path $global:WindowsExporterConfig)) {
-        Write-Log "windows-exporter config not found at $($global:WindowsExporterConfig); skipping install"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_WINDOWS_EXPORTER_START_FAIL -ErrorMessage "windows-exporter sentinel is present but config is missing at $($global:WindowsExporterConfig)"
         return
     }
 
@@ -117,36 +127,44 @@ function Install-WindowsExporter {
 
     # NSSM settings mirror aks-vm-extension/aks-windows-node-vm-extension/entrypoint.ps1 Install-SystemService
     # to preserve service behavior (logs, rotation, restart policy) that customers rely on.
-    $existingService = Get-Service $global:WindowsExporterServiceName -ErrorAction SilentlyContinue
-    if (-not $existingService) {
-        & $global:WindowsExporterNssm install $global:WindowsExporterServiceName $global:WindowsExporterBinary | Out-Null
-    } else {
-        Write-Log "$($global:WindowsExporterServiceName) is already registered; ensuring settings and running state"
+    try {
+        $existingService = Get-Service $global:WindowsExporterServiceName -ErrorAction SilentlyContinue
+        if (-not $existingService) {
+            Invoke-WindowsExporterNssm -Arguments @("install", $global:WindowsExporterServiceName, $global:WindowsExporterBinary)
+        } else {
+            Write-Log "$($global:WindowsExporterServiceName) is already registered; ensuring settings and running state"
+        }
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppDirectory", $global:WindowsExporterInstallDir)
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppParameters", $appParameters)
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "DisplayName", $global:WindowsExporterServiceName)
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "Description", $global:WindowsExporterServiceName)
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "Start", "SERVICE_AUTO_START")
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "ObjectName", "LocalSystem")
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "Type", "SERVICE_WIN32_OWN_PROCESS")
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppRestartDelay", "5000")
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppThrottle", "1500")
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppStdout", $global:WindowsExporterStdoutLog)
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppStderr", $global:WindowsExporterStderrLog)
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppStdoutCreationDisposition", "4")
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppStderrCreationDisposition", "4")
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppRotateFiles", "1")
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppRotateOnline", "1")
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppRotateSeconds", "86400")
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppRotateBytes", "10485760")
+        Invoke-WindowsExporterNssm -Arguments @("start", $global:WindowsExporterServiceName)
     }
-    & $global:WindowsExporterNssm set $global:WindowsExporterServiceName AppDirectory                 $global:WindowsExporterInstallDir | Out-Null
-    & $global:WindowsExporterNssm set $global:WindowsExporterServiceName AppParameters                $appParameters                    | Out-Null
-    & $global:WindowsExporterNssm set $global:WindowsExporterServiceName DisplayName                  $global:WindowsExporterServiceName | Out-Null
-    & $global:WindowsExporterNssm set $global:WindowsExporterServiceName Description                  $global:WindowsExporterServiceName | Out-Null
-    & $global:WindowsExporterNssm set $global:WindowsExporterServiceName Start                        SERVICE_AUTO_START                | Out-Null
-    & $global:WindowsExporterNssm set $global:WindowsExporterServiceName ObjectName                   LocalSystem                       | Out-Null
-    & $global:WindowsExporterNssm set $global:WindowsExporterServiceName Type                         SERVICE_WIN32_OWN_PROCESS         | Out-Null
-    & $global:WindowsExporterNssm set $global:WindowsExporterServiceName AppRestartDelay              5000                              | Out-Null
-    & $global:WindowsExporterNssm set $global:WindowsExporterServiceName AppThrottle                  1500                              | Out-Null
-    & $global:WindowsExporterNssm set $global:WindowsExporterServiceName AppStdout                    $global:WindowsExporterStdoutLog  | Out-Null
-    & $global:WindowsExporterNssm set $global:WindowsExporterServiceName AppStderr                    $global:WindowsExporterStderrLog  | Out-Null
-    & $global:WindowsExporterNssm set $global:WindowsExporterServiceName AppStdoutCreationDisposition 4                                 | Out-Null
-    & $global:WindowsExporterNssm set $global:WindowsExporterServiceName AppStderrCreationDisposition 4                                 | Out-Null
-    & $global:WindowsExporterNssm set $global:WindowsExporterServiceName AppRotateFiles               1                                 | Out-Null
-    & $global:WindowsExporterNssm set $global:WindowsExporterServiceName AppRotateOnline              1                                 | Out-Null
-    & $global:WindowsExporterNssm set $global:WindowsExporterServiceName AppRotateSeconds             86400                             | Out-Null
-    & $global:WindowsExporterNssm set $global:WindowsExporterServiceName AppRotateBytes               10485760                          | Out-Null
-
-    & $global:WindowsExporterNssm start $global:WindowsExporterServiceName | Out-Null
+    catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_WINDOWS_EXPORTER_START_FAIL -ErrorMessage "failed to configure aks-windows-exporter: $_"
+        return
+    }
 
     if (-not (Test-WindowsExporterHealth)) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_WINDOWS_EXPORTER_START_FAIL -ErrorMessage "aks-windows-exporter failed to become healthy"
         return
     }
 
+    # Commit ownership only after the service is healthy. Old CSE versions never
+    # create this marker, so the extension remains responsible on new VHDs.
+    New-Item -ItemType File -Path $global:WindowsExporterSkipFile -Force | Out-Null
     Write-Log "Ensured $($global:WindowsExporterServiceName) is installed and running"
 }

@@ -1,5 +1,5 @@
 web:
-  listen-address: ":19182"
+  listen-address: ":19100"
 collectors:
   # explicitly enabled for version: https://github.com/prometheus-community/windows_exporter/tree/v0.31.2
   # NOTE: `cpu_info`, `container` and `process` collectors are added to default collectors
