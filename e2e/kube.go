@@ -43,6 +43,8 @@ const (
 	podNetworkDebugAppLabel  = "debugnonhost-mariner-tolerated"
 	proxyAppLabel            = "e2e-proxy"
 	proxyPort                = 8888
+	proxyNodePoolLabel       = "kubernetes.azure.com/agentpool"
+	proxyNodePoolName        = "nodepool1"
 )
 
 func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Kubeclient, error) {
@@ -580,7 +582,7 @@ func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 				Spec: corev1.PodSpec{
 					HostNetwork: true,
 					NodeSelector: map[string]string{
-						"kubernetes.azure.com/mode": "system",
+						proxyNodePoolLabel: proxyNodePoolName,
 					},
 					Tolerations: []corev1.Toleration{
 						{Operator: corev1.TolerationOpExists},
@@ -638,8 +640,8 @@ func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 	}
 }
 
-// GetProxyURL returns the proxy URL after verifying the proxy pod is ready
-// on at least one system pool node.
+// GetProxyURL returns the proxy URL after verifying the proxy pod and its
+// backing node are ready on the cluster's permanent managed system pool.
 func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 	var proxyURL string
 	var lastPodStatuses []string
@@ -653,15 +655,25 @@ func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 		if err != nil {
 			return false, fmt.Errorf("listing proxy pods: %w", err)
 		}
+		nodes, err := k.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{
+			LabelSelector: proxyNodePoolLabel + "=" + proxyNodePoolName,
+		})
+		if err != nil {
+			return false, fmt.Errorf("listing permanent system pool nodes: %w", err)
+		}
+		readySystemPoolNodes := readyNodeNames(nodes.Items)
+
 		lastPodStatuses = lastPodStatuses[:0]
 		for _, pod := range pods.Items {
-			for _, c := range pod.Status.Conditions {
-				if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue && pod.Status.HostIP != "" {
-					proxyURL = fmt.Sprintf("http://%s:%d", pod.Status.HostIP, proxyPort)
-					return true, nil
-				}
+			if proxyPodIsReady(&pod, readySystemPoolNodes) {
+				proxyURL = fmt.Sprintf("http://%s:%d", pod.Status.HostIP, proxyPort)
+				return true, nil
 			}
-			lastPodStatuses = append(lastPodStatuses, formatPodDiagnostics(&pod))
+			status := formatPodDiagnostics(&pod)
+			if _, ok := readySystemPoolNodes[pod.Spec.NodeName]; !ok {
+				status += fmt.Sprintf(" node is not a Ready %s=%s node", proxyNodePoolLabel, proxyNodePoolName)
+			}
+			lastPodStatuses = append(lastPodStatuses, status)
 		}
 		if len(pods.Items) == 0 {
 			lastPodStatuses = []string{"no proxy pods found"}
@@ -683,6 +695,38 @@ func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("waiting for proxy pod to be ready: %w", err)
 	}
 	return proxyURL, nil
+}
+
+func proxyPodIsReady(pod *corev1.Pod, readySystemPoolNodes map[string]struct{}) bool {
+	if pod.Status.HostIP == "" {
+		return false
+	}
+	if _, ok := readySystemPoolNodes[pod.Spec.NodeName]; !ok {
+		return false
+	}
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
+func readyNodeNames(nodes []corev1.Node) map[string]struct{} {
+	ready := make(map[string]struct{}, len(nodes))
+	for i := range nodes {
+		node := &nodes[i]
+		if node.Labels[proxyNodePoolLabel] != proxyNodePoolName {
+			continue
+		}
+		for _, condition := range node.Status.Conditions {
+			if condition.Type == corev1.NodeReady && condition.Status == corev1.ConditionTrue {
+				ready[node.Name] = struct{}{}
+				break
+			}
+		}
+	}
+	return ready
 }
 
 // recreateProxyPods deletes all proxy pods so the DaemonSet reschedules fresh ones
