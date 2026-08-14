@@ -609,7 +609,7 @@ function Test-WindowsExporterOnVHD {
     #   1. Extracted windows-exporter.exe into C:\k\windows-exporter
     #   2. Placed windows-exporter-config.yml alongside it
     #   3. Placed windows-exporter-health.ps1 alongside it
-    #   4. Created the sentinel file the aks-vm-extension honors to no-op
+    #   4. Created the VHD assets marker consumed by CSE
     # The service is registered at CSE time (staging/cse/windows/windowsexporterfunc.ps1),
     # so we intentionally do NOT expect the service to exist on the VHD itself.
     $exporterDir = "C:\k\windows-exporter"
@@ -617,7 +617,7 @@ function Test-WindowsExporterOnVHD {
         (Join-Path $exporterDir "windows-exporter.exe"),
         (Join-Path $exporterDir "windows-exporter-config.yml"),
         (Join-Path $exporterDir "windows-exporter-health.ps1"),
-        "C:\k\skip_vhd_windows_exporter"
+        (Join-Path $exporterDir "windows-exporter-assets.complete")
     )
 
     $missing = @()
@@ -636,6 +636,21 @@ function Test-WindowsExporterOnVHD {
     if ($missing.Count -gt 0)
     {
         Write-ErrorWithTimestamp "Missing windows-exporter VHD assets: $($missing -join ', ')"
+        exit 1
+    }
+
+    $exporterBinary = Join-Path $exporterDir "windows-exporter.exe"
+    $versionOutput = (& $exporterBinary --version 2>&1) -join "`n"
+    if ($LASTEXITCODE -ne 0 -or $versionOutput -notmatch '(?i)windows[_-]exporter.*version')
+    {
+        Write-ErrorWithTimestamp "windows-exporter binary version check failed (exit code $LASTEXITCODE): $versionOutput"
+        exit 1
+    }
+    Write-OutputWithTimestamp "windows-exporter binary is executable: $versionOutput"
+
+    if (Test-Path "C:\k\skip_vhd_windows_exporter")
+    {
+        Write-ErrorWithTimestamp "C:\k\skip_vhd_windows_exporter must not be baked into the VHD; CSE creates it after successful service startup"
         exit 1
     }
 
