@@ -610,7 +610,6 @@ func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 							InitialDelaySeconds: 5,
 							PeriodSeconds:       5,
 							FailureThreshold:    3,
-							SuccessThreshold:    1,
 						},
 						// Restart the container if it stops serving on :8888.
 						// Only restart after sustained failure (30s delay + 3×10s) to avoid restart loops on transient blips.
