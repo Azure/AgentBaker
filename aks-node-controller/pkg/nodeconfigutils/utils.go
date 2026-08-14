@@ -33,6 +33,16 @@ mkdir -p /opt/azure/containers /var/lib/waagent
 touch /var/lib/waagent/experimental_skip_ready_report
 chmod 0644 /var/lib/waagent/experimental_skip_ready_report
 
+# The marker above only stands down cloud-init. WALinuxAgent reports Ready independently,
+# once ovf-env.xml and the SSH host key exist -- long before CSE finishes -- which would
+# mark the VM provisioned even if provisioning later fails. A sentinel matching this
+# instance's id makes it skip that report, leaving report_ready.py as the only reporter.
+# Guarded on the reporter existing: on a VHD without it nothing else would report Ready.
+if [ -x /opt/azure/containers/report_ready.py ] && [ -s /sys/class/dmi/id/product_uuid ]; then
+    cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned
+    chmod 0644 /var/lib/waagent/provisioned
+fi
+
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
 cat <<'EOF' | base64 -d >%[1]s

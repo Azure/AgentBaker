@@ -21,6 +21,7 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -31,6 +32,10 @@ import (
 
 const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
+
+	// inProgressReportIntervalSeconds is how often the node tells the fabric provisioning is
+	// still running, used to probe how long CRP tolerates a node that keeps reporting NotReady.
+	inProgressReportIntervalSeconds = 180
 )
 
 func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string, error) {
@@ -217,6 +222,16 @@ mkdir -p /opt/azure/containers /opt/azure/bin /var/lib/waagent
 
 touch /var/lib/waagent/experimental_skip_ready_report
 chmod 0644 /var/lib/waagent/experimental_skip_ready_report
+
+# The marker above only stands down cloud-init. WALinuxAgent reports Ready independently,
+# once ovf-env.xml and the SSH host key exist -- long before CSE finishes -- which would
+# mark the VM provisioned even if provisioning later fails. A sentinel matching this
+# instance's id makes it skip that report, leaving report_ready.py as the only reporter.
+# Guarded on the reporter existing: on a VHD without it nothing else would report Ready.
+if [ -x /opt/azure/containers/report_ready.py ] && [ -s /sys/class/dmi/id/product_uuid ]; then
+    cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned
+    chmod 0644 /var/lib/waagent/provisioned
+fi
 
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
@@ -447,6 +462,17 @@ mkdir -p /opt/azure/bin /var/lib/waagent
 # Ready/NotReady from our own reporter once provisioning actually finishes.
 touch /var/lib/waagent/experimental_skip_ready_report
 chmod 0644 /var/lib/waagent/experimental_skip_ready_report
+
+# The marker above only stands down cloud-init. WALinuxAgent reports Ready independently,
+# once ovf-env.xml and the SSH host key exist -- long before CSE finishes -- which would
+# mark the VM provisioned even if provisioning later fails. A sentinel matching this
+# instance's id makes it skip that report, leaving report_ready.py as the only reporter.
+# Guarded on the reporter existing: on a VHD without it nothing else would report Ready.
+if [ -x /opt/azure/containers/report_ready.py ] && [ -s /sys/class/dmi/id/product_uuid ]; then
+     cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned
+     chmod 0644 /var/lib/waagent/provisioned
+ fi
+%s
 %s
 cat <<'SCRIPT' > /opt/azure/bin/run-aks-node-controller-hack.sh
 #!/bin/bash
@@ -478,8 +504,43 @@ systemctl daemon-reload
 systemctl start --no-block aks-node-controller-hack.service
 `
 
-	customDataYAML := fmt.Sprintf(cloudConfigTemplate, customData, aksNodeConfigBlock, binaryURL, provisionFlags)
+	reportReadyBlock, err := inProgressReporterBlock()
+	if err != nil {
+		return "", err
+	}
+
+	customDataYAML := fmt.Sprintf(cloudConfigTemplate, customData, reportReadyBlock, aksNodeConfigBlock, binaryURL, provisionFlags)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
+}
+
+// inProgressReporterBlock replaces the VHD-baked report_ready.py with this branch's copy and
+// starts the in-progress reporter directly. Both the script and the provision_start.sh that
+// normally launches it live only in the VHD, so neither picks up local edits without a rebuild.
+func inProgressReporterBlock() (string, error) {
+	src, err := parts.Templates.ReadFile("linux/cloud-init/artifacts/report_ready.py")
+	if err != nil {
+		return "", fmt.Errorf("failed to read report_ready.py: %w", err)
+	}
+
+	var compressed bytes.Buffer
+	zw := gzip.NewWriter(&compressed)
+	if _, err := zw.Write(src); err != nil {
+		return "", fmt.Errorf("failed to compress report_ready.py: %w", err)
+	}
+	if err := zw.Close(); err != nil {
+		return "", fmt.Errorf("failed to finalize compressed report_ready.py: %w", err)
+	}
+
+	return fmt.Sprintf(`
+mkdir -p /opt/azure/containers /var/log/azure
+cat <<'REPORTREADY' | base64 -d | gunzip > /opt/azure/containers/report_ready.py
+%s
+REPORTREADY
+chmod 0744 /opt/azure/containers/report_ready.py
+
+setsid nohup python3 /opt/azure/containers/report_ready.py -v --in-progress \
+    --interval %d >> /var/log/azure/report-ready.log 2>&1 &
+`, base64.StdEncoding.EncodeToString(compressed.Bytes()), inProgressReportIntervalSeconds), nil
 }
 
 func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachineScaleSet {
@@ -1037,6 +1098,8 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"cluster-provision-cse-output.log": "sudo cat /var/log/azure/cluster-provision-cse-output.log",
 		"sysctl-out.log":                   "sudo sysctl -a",
 		"waagent.log":                      "sudo cat /var/log/waagent.log",
+		"report-ready.log":                 "sudo cat /var/log/azure/report-ready.log",
+		"cloud-init.log":                   "sudo cat /var/log/cloud-init.log",
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
 		"aks-node-controller-config.json":  "sudo cat /opt/azure/containers/aks-node-controller-config.json", // Only available in Scriptless.
 
