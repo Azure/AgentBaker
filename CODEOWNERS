@@ -37,5 +37,5 @@ spec/parts/linux/cloud-init/artifacts/localdns_exporter_spec.sh @saewoni @yewmsf
 e2e/localdns/validate-localdns-exporter-metrics.sh @saewoni @yewmsft @jingwenw15
 
 # Code owners for Windows CSE files.
-parts/windows/ @timmy-wright @r2k1 @benjamin-brady @djsly
-staging/cse/windows/ @timmy-wright @r2k1 @benjamin-brady @djsly
+parts/windows/ @timmy-wright @r2k1 @benjamin-brady @djsly @awesomenix @cameronmeissner
+staging/cse/windows/ @timmy-wright @r2k1 @benjamin-brady @djsly @awesomenix @cameronmeissner
