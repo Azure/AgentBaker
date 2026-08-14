@@ -2339,6 +2339,15 @@ OVERRIDE_EOF
         systemctlEnableAndStartNoBlock() { :; }
         tee() { cat > /dev/null; }
 
+        # ensureKubelet enables xtrace mid-function and never restores it, so the
+        # trace would leak onto ShellSpec's stderr and fail the example. Wrap the
+        # call to discard that trace and restore set +x before returning.
+        invoke_ensure_kubelet() {
+            ensureKubelet 2>/dev/null
+            { local rc=$?; set +x; } 2>/dev/null
+            return "$rc"
+        }
+
         Describe 'on Ubuntu'
             OS="UBUNTU"
             Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
@@ -2349,7 +2358,7 @@ OVERRIDE_EOF
                 installCredentialProviderFromPkg() { echo "installCredentialProviderFromPkg $1"; }
                 KUBERNETES_VERSION="1.32.99"
 
-                When call ensureKubelet
+                When call invoke_ensure_kubelet
 
                 The output should include "installCredentialProviderFromUrl"
                 The output should not include "installCredentialProviderFromPkg"
@@ -2361,7 +2370,7 @@ OVERRIDE_EOF
                 installCredentialProviderFromPkg() { echo "installCredentialProviderFromPkg $1"; }
                 KUBERNETES_VERSION="1.33.0"
 
-                When call ensureKubelet
+                When call invoke_ensure_kubelet
 
                 The output should include "installCredentialProviderFromPkg 1.33.0"
                 The output should not include "installCredentialProviderFromUrl"
@@ -2380,7 +2389,7 @@ OVERRIDE_EOF
                 installCredentialProviderFromPkg() { echo "installCredentialProviderFromPkg $1"; }
                 KUBERNETES_VERSION="1.33.0"
 
-                When call ensureKubelet
+                When call invoke_ensure_kubelet
 
                 The output should include "installCredentialProviderFromPkg 1.33.0"
                 The output should not include "installCredentialProviderFromUrl"
