@@ -2308,6 +2308,7 @@ OVERRIDE_EOF
         }
 
         BeforeEach 'setup_ensure_kubelet'
+        AfterEach 'cleanup_ensure_kubelet'
         setup_ensure_kubelet() {
             mkdir -p /opt/azure/containers
             KUBELET_FLAGS="--image-credential-provider-config=/etc/kubernetes/credential-provider-config.yaml --image-credential-provider-bin-dir=/var/lib/kubelet/credential-provider"
@@ -2322,6 +2323,12 @@ OVERRIDE_EOF
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
             KUBE_RESERVED_CGROUP=""
             SYSTEM_RESERVED_CGROUP=""
+        }
+
+        cleanup_ensure_kubelet() {
+            rm -f /etc/default/kubelet /var/lib/kubelet/kubeconfig /var/lib/kubelet/bootstrap-kubeconfig \
+                /opt/azure/containers/kubelet.sh /opt/azure/containers/tls-bootstrap-start-time \
+                /etc/systemd/system/kubelet.service.d/10-{watchdog,credential-validation,tlsbootstrap,ensure-imds-restriction,containerd-base-flag}.conf
         }
 
         setKubeletNodeIPFlag() { :; }
