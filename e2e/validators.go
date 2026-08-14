@@ -3047,6 +3047,21 @@ func ValidateStaleCachedKubeBinariesRemoved(ctx context.Context, s *Scenario) {
 func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
+	defaultGen, err := vmSKUGeneration(config.Config.DefaultVMSKU)
+	require.NoError(s.T, err, "failed to get default VM SKU generation for %s", config.Config.DefaultVMSKU)
+
+	if defaultGen >= 6 && s.VHD.Distro == datamodel.AKSAzureLinuxV3Gen2 {
+		return
+	}
+
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil {
+		vmSKUGen, err := vmSKUGeneration(s.Runtime.NBC.AgentPoolProfile.VMSize)
+		require.NoError(s.T, err, "failed to get VM SKU generation for %s", s.Runtime.NBC.AgentPoolProfile.VMSize)
+		if vmSKUGen >= 6 && s.VHD.Distro == datamodel.AKSAzureLinuxV3Gen2 {
+			return
+		}
+	}
+
 	// Query the VM's actual CPU count using nproc
 	cpuCountCmd := "nproc"
 	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cpuCountCmd, 0, "could not get CPU count from VM")
