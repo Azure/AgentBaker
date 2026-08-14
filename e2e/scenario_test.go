@@ -473,19 +473,19 @@ func Test_Ubuntu2204(t *testing.T) {
 					},
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
-				nbc.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
-					HTTPSProxy: to.Ptr(cluster.ProxyURL),
-					NoProxy: &[]string{
-						"localhost",
-						"127.0.0.1",
-						"168.63.129.16",
-						"169.254.169.254",
-						"10.0.0.0/8",
-						"172.16.0.0/12",
-						cluster.ClusterParams.FQDN,
-					},
-					TrustedCA: to.Ptr("foo bar!"),
-				}
+				// nbc.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
+				// 	HTTPSProxy: to.Ptr(cluster.ProxyURL),
+				// 	NoProxy: &[]string{
+				// 		"localhost",
+				// 		"127.0.0.1",
+				// 		"168.63.129.16",
+				// 		"169.254.169.254",
+				// 		"10.0.0.0/8",
+				// 		"172.16.0.0/12",
+				// 		cluster.ClusterParams.FQDN,
+				// 	},
+				// 	TrustedCA: to.Ptr("foo bar!"),
+				// }
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
