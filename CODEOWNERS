@@ -1,4 +1,4 @@
-* @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix @mxj220 @pdamianov-dev @calvin197 @sulixu @SriHarsha001 @runzhen @karenychen @xuexu6666 @titilambert @benjamin-brady
+* @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix @mxj220 @pdamianov-dev @calvin197 @sulixu @SriHarsha001 @runzhen @karenychen @xuexu6666 @titilambert @benjamin-brady @abigailliang-aks-sig-node
 
 # Code owners for cse_cmd.sh and nodecustomdata.yml. This is to ensure that the scriptless v-team is aware of the changes in order to sync with AKSNodeConfig
 
@@ -9,7 +9,7 @@ nodecustomdata.yml @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner @a
 
 # These include security patch owners since security patch script changes will cause the related custom data snapshots to change
 
-pkg/agent/testdata/ @yewmsft @YaoC @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix @mxj220 @pdamianov-dev @calvin197 @SriHarsha001
+pkg/agent/testdata/ @yewmsft @YaoC @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix @mxj220 @pdamianov-dev @calvin197 @SriHarsha001 @abigailliang-aks-sig-node
 
 # Code owners for the security patch release notes
 
