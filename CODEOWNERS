@@ -1,4 +1,4 @@
-* @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix @mxj220 @pdamianov-dev @calvin197 @sulixu @SriHarsha001 @runzhen @karenychen @xuexu6666 @titilambert
+* @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix @mxj220 @pdamianov-dev @calvin197 @sulixu @SriHarsha001 @runzhen @karenychen @xuexu6666 @titilambert @benjamin-brady
 
 # Code owners for for cse_cmd.sh and nodecustomdata.yml. This is to ensure that the scriptless v-team is aware of the changes in order to sync with AKSNodeConfig.
 cse_cmd.sh @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner @awesomenix @djsly
@@ -35,3 +35,7 @@ vhdbuilder/packer/windows/windows_settings.json
 parts/linux/cloud-init/artifacts/localdns_exporter.sh @saewoni @yewmsft @jingwenw15
 spec/parts/linux/cloud-init/artifacts/localdns_exporter_spec.sh @saewoni @yewmsft @jingwenw15
 e2e/localdns/validate-localdns-exporter-metrics.sh @saewoni @yewmsft @jingwenw15
+
+# Code owners for Windows CSE files.
+parts/windows/ @timmy-wright @r2k1 @benjamin-brady @djsly
+staging/cse/windows/ @timmy-wright @r2k1 @benjamin-brady @djsly
