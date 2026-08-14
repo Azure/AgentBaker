@@ -793,8 +793,7 @@ func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
 			Tolerations: []corev1.Toleration{
 				{
 					Key:      "node.cloudprovider.kubernetes.io/uninitialized",
-					Operator: corev1.TolerationOpEqual,
-					Value:    "true",
+					Operator: corev1.TolerationOpExists,
 					Effect:   corev1.TaintEffectNoSchedule,
 				},
 			},
