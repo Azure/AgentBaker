@@ -787,6 +787,17 @@ func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
 					Command: []string{"cmd", "/c", "ping", "-t", "localhost"},
 				},
 			},
+			// Tolerate the cloud-provider-uninitialized taint: the node may report Ready before
+			// the Azure cloud-controller-manager removes this taint, which would otherwise leave
+			// this pod Pending (and the test waiting) until the taint clears on its own.
+			Tolerations: []corev1.Toleration{
+				{
+					Key:      "node.cloudprovider.kubernetes.io/uninitialized",
+					Operator: corev1.TolerationOpEqual,
+					Value:    "true",
+					Effect:   corev1.TaintEffectNoSchedule,
+				},
+			},
 			NodeSelector: map[string]string{
 				"kubernetes.io/hostname": s.Runtime.VM.KubeName,
 			},
