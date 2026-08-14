@@ -420,7 +420,7 @@ func Test_AzureLinuxV3(t *testing.T) {
 // scenario exercises that whole path against a real node.
 //
 // The scenario asserts three increasingly strong properties:
-//  1. the rendered /etc/containerd/config.toml contains the Kata runtime handlers,
+//  1. the rendered /etc/containerd/config.toml contains the Kata runtime handlers and EROFS preamble,
 //  2. containerd actually parsed and loaded them (no warnings, handlers in `config dump`),
 //  3. for every handler in kataRuntimeHandlers, a pod scheduled via a Kata RuntimeClass runs
 //     and is genuinely VM-isolated.
@@ -440,6 +440,7 @@ func Test_AzureLinuxV3Gen2Kata(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateKataContainerdConfig(ctx, s)
+				ValidateKataErofsContainerdConfig(ctx, s)
 				ValidateKataContainerdConfigDump(ctx, s)
 				ValidateKataHostReadiness(ctx, s)
 				for _, handler := range kataRuntimeHandlers {
