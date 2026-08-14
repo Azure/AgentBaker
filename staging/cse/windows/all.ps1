@@ -1,13 +1,16 @@
+if (-not $WINDOWS_SCRIPTS_DIRECTORY) {
+    $WINDOWS_SCRIPTS_DIRECTORY = 'c:\AzureData\windows'
+}
 
 # Dot-source cse scripts with functions that are bundled on the VHD
-. $PSScriptRoot\helpers.ps1
-. c:\AzureData\windows\azurecnifunc.ps1
-. c:\AzureData\windows\calicofunc.ps1
-. c:\AzureData\windows\configfunc.ps1
-. c:\AzureData\windows\containerdfunc.ps1
-. c:\AzureData\windows\kubeletfunc.ps1
-. c:\AzureData\windows\kubernetesfunc.ps1
-. c:\AzureData\windows\nvidiagpudriverfunc.ps1
-. c:\AzureData\windows\securetlsbootstrapfunc.ps1
-. c:\AzureData\windows\windowsciliumnetworkingfunc.ps1
-. c:\AzureData\windows\networkisolatedclusterfunc.ps1
+. $WINDOWS_SCRIPTS_DIRECTORY\helpers.ps1
+. $WINDOWS_SCRIPTS_DIRECTORY\azurecnifunc.ps1
+. $WINDOWS_SCRIPTS_DIRECTORY\calicofunc.ps1
+. $WINDOWS_SCRIPTS_DIRECTORY\configfunc.ps1
+. $WINDOWS_SCRIPTS_DIRECTORY\containerdfunc.ps1
+. $WINDOWS_SCRIPTS_DIRECTORY\kubeletfunc.ps1
+. $WINDOWS_SCRIPTS_DIRECTORY\kubernetesfunc.ps1
+. $WINDOWS_SCRIPTS_DIRECTORY\nvidiagpudriverfunc.ps1
+. $WINDOWS_SCRIPTS_DIRECTORY\securetlsbootstrapfunc.ps1
+. $WINDOWS_SCRIPTS_DIRECTORY\windowsciliumnetworkingfunc.ps1
+. $WINDOWS_SCRIPTS_DIRECTORY\networkisolatedclusterfunc.ps1
