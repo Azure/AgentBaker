@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -621,4 +622,40 @@ func Test_NetworkIsolatedCluster_Windows_OrasDownload(t *testing.T) {
 			},
 		},
 	})
+}
+
+func TestValidateWindowsExporterMetrics(t *testing.T) {
+	require.NoError(t, validateWindowsExporterMetrics(validWindowsExporterMetrics()))
+}
+
+func TestValidateWindowsExporterMetricsRejectsMissingMetrics(t *testing.T) {
+	metrics := strings.Replace(validWindowsExporterMetrics(), `windows_memory_available_bytes 1`, "", 1)
+	metrics = strings.Replace(metrics, `windows_net_bytes_received_total{nic="Ethernet"} 1`, "", 1)
+
+	err := validateWindowsExporterMetrics(metrics)
+
+	require.ErrorContains(t, err, "windows_memory_available_bytes")
+	require.ErrorContains(t, err, "windows_net_bytes_received_total")
+}
+
+func validWindowsExporterMetrics() string {
+	return `# TYPE windows_cpu_info gauge
+windows_cpu_info{device_id="CPU0"} 1
+# TYPE windows_cpu_time_total counter
+windows_cpu_time_total{core="0,0",mode="idle"} 1
+# TYPE windows_logical_disk_free_bytes gauge
+windows_logical_disk_free_bytes{volume="C:"} 1
+# TYPE windows_logical_disk_size_bytes gauge
+windows_logical_disk_size_bytes{volume="C:"} 2
+# TYPE windows_memory_available_bytes gauge
+windows_memory_available_bytes 1
+# TYPE windows_net_bytes_received_total counter
+windows_net_bytes_received_total{nic="Ethernet"} 1
+# TYPE windows_net_bytes_sent_total counter
+windows_net_bytes_sent_total{nic="Ethernet"} 1
+# TYPE windows_os_info gauge
+windows_os_info{product="Windows Server 2022 Datacenter"} 1
+# TYPE windows_process_cpu_time_total counter
+windows_process_cpu_time_total{process="kubelet",process_id="1",mode="user"} 1
+`
 }

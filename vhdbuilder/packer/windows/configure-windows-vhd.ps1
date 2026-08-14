@@ -770,13 +770,13 @@ function Install-WindowsExporterOnVHD
     # Install-WindowsExporter function (staging/cse/windows/windowsexporterfunc.ps1)
     # can register the aks-windows-exporter service at node provisioning.
     #
-    # Migrated from aks-vm-extension; the sentinel file is the coordination hook
-    # that tells the extension to no-op on nodes built from this VHD.
+    # Migrated from aks-vm-extension. The VHD marker records that assets are
+    # complete; CSE creates the extension skip marker only after taking ownership.
     $exporterCacheDir   = "c:\akse-cache\windows-exporter"
     $exporterInstallDir = "C:\k\windows-exporter"
     $exporterConfigSrc  = "c:\k\windows-exporter-config.yml"
     $exporterHealthSrc  = "c:\k\windows-exporter-health.ps1"
-    $exporterSentinel   = "C:\k\skip_vhd_windows_exporter"
+    $exporterAssetsFile = Join-Path $exporterInstallDir "windows-exporter-assets.complete"
 
     if (-not (Test-Path $exporterCacheDir))
     {
@@ -838,11 +838,11 @@ function Install-WindowsExporterOnVHD
         throw "windows-exporter health script not staged at $exporterHealthSrc"
     }
 
-    # Create the sentinel last so partial installs don't appear complete to CSE.
-    New-Item -ItemType File -Path $exporterSentinel -Force | Out-Null
+    # Create the assets marker last so partial installs don't appear complete to CSE.
+    New-Item -ItemType File -Path $exporterAssetsFile -Force | Out-Null
 
     LogFilesInDirectory $exporterInstallDir
-    Write-Log "windows-exporter staged on VHD; sentinel $exporterSentinel created"
+    Write-Log "windows-exporter staged on VHD; assets marker $exporterAssetsFile created"
 }
 
 function Set-WinRmServiceDelayedStart

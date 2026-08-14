@@ -1042,8 +1042,8 @@ func ValidateWindowsExporter(ctx context.Context, s *Scenario) {
 		binary      = `C:\k\windows-exporter\windows-exporter.exe`
 		configFile  = `C:\k\windows-exporter\windows-exporter-config.yml`
 		serviceName = "aks-windows-exporter"
-		metricsURL  = "http://localhost:19182/metrics"
 	)
+	metricsURL := fmt.Sprintf("http://%s:19100/metrics", s.Runtime.VM.PrivateIP)
 
 	sentinelCheck := []string{
 		"$ErrorActionPreference = \"Stop\"",
@@ -1067,32 +1067,60 @@ func ValidateWindowsExporter(ctx context.Context, s *Scenario) {
 		"Write-Output $svc",
 		fmt.Sprintf("if ($svc.Status -ne 'Running') { throw \"service %s is not running: $($svc.Status)\" }", serviceName),
 		fmt.Sprintf("if ($svc.StartType -ne 'Automatic') { throw \"service %s StartType is $($svc.StartType), expected Automatic\" }", serviceName),
-		// Hit the metrics endpoint and require a windows-exporter-specific metric.
+		// Scrape the node IP to validate the address used by monitoring infrastructure.
 		fmt.Sprintf("$resp = Invoke-WebRequest -UseBasicParsing -Uri '%s' -TimeoutSec 10", metricsURL),
 		"$metricsContent = [string]$resp.Content",
-		"$failureReasons = @()",
-		"if ($resp.StatusCode -ne 200) { $failureReasons += \"metrics endpoint returned $($resp.StatusCode)\" }",
-		"if ($metricsContent -notmatch 'windows_os_info') { $failureReasons += 'windows_os_info metric missing from /metrics response' }",
-		"if ($metricsContent -notmatch 'windows_cpu_time_total') { $failureReasons += 'windows_cpu_time_total metric missing from /metrics response' }",
-		"if ($failureReasons.Count -gt 0) {",
-		"  $metricsPreviewMaxChars = 65536",
-		"  $metricsPreview = $metricsContent",
-		"  Write-Output \"metrics endpoint returned status $($resp.StatusCode) with $($metricsContent.Length) characters\"",
-		"  Write-Output ('metrics validation failures: ' + ($failureReasons -join '; '))",
-		"  if ($metricsPreview.Length -gt $metricsPreviewMaxChars) {",
-		"    $metricsPreview = $metricsPreview.Substring(0, $metricsPreviewMaxChars)",
-		"    Write-Output \"metrics response truncated: showing first $metricsPreviewMaxChars of $($metricsContent.Length) characters\"",
-		"  }",
-		"  Write-Output '--- begin /metrics response preview ---'",
-		"  Write-Output $metricsPreview",
-		"  Write-Output '--- end /metrics response preview ---'",
-		"  throw ($failureReasons -join '; ')",
-		"}",
 		"Write-Output \"metrics endpoint returned status $($resp.StatusCode) with $($metricsContent.Length) characters\"",
+		"Write-Output $metricsContent",
 	}
 	validationResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		fmt.Sprintf("aks-windows-exporter validation failed on %s", s.Runtime.VM.PrivateIP))
-	s.T.Logf("aks-windows-exporter validation succeeded on %s: service is Running/Automatic and %s contains windows_os_info and windows_cpu_time_total\n%s", s.Runtime.VM.PrivateIP, metricsURL, strings.TrimSpace(validationResult.stdout))
+
+	err := validateWindowsExporterMetrics(validationResult.stdout)
+	const previewLimit = 2000
+	responsePreview := validationResult.stdout
+	if len(responsePreview) > previewLimit {
+		responsePreview = responsePreview[:previewLimit] + "\n... response truncated"
+	}
+	require.NoErrorf(s.T, err, "windows-exporter scrape did not satisfy the metrics contract\nresponse preview:\n%s", responsePreview)
+	s.T.Logf("aks-windows-exporter validation succeeded on %s: service is Running/Automatic and %s satisfies the metrics contract", s.Runtime.VM.PrivateIP, metricsURL)
+}
+
+func validateWindowsExporterMetrics(metricsText string) error {
+	metricNames := make(map[string]struct{})
+	for line := range strings.SplitSeq(metricsText, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		if end := strings.IndexAny(line, "{ \t"); end > 0 {
+			metricNames[line[:end]] = struct{}{}
+		}
+	}
+
+	requiredMetrics := []string{
+		"windows_cpu_info",
+		"windows_cpu_time_total",
+		"windows_logical_disk_free_bytes",
+		"windows_logical_disk_size_bytes",
+		"windows_memory_available_bytes",
+		"windows_net_bytes_received_total",
+		"windows_net_bytes_sent_total",
+		"windows_os_info",
+		"windows_process_cpu_time_total",
+	}
+	var missingMetrics []string
+	for _, name := range requiredMetrics {
+		if _, exists := metricNames[name]; !exists {
+			missingMetrics = append(missingMetrics, name)
+		}
+	}
+	if len(missingMetrics) > 0 {
+		return fmt.Errorf("required metrics are missing: %s", strings.Join(missingMetrics, ", "))
+	}
+
+	return nil
 }
 
 func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) {
