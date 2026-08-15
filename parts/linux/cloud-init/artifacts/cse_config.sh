@@ -657,8 +657,16 @@ ensureNoDupOnPromiscuBridge() {
 
 ensureArtifactStreaming() {
   waitForContainerdReady || exit $ERR_ARTIFACT_STREAMING_INSTALL
-  retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter
-  /opt/acr/bin/acr-config --enable-containerd 'azurecr.io'
+  retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter || exit $ERR_ARTIFACT_STREAMING_INSTALL
+
+  local acr_mirror_setup="${ACR_MIRROR_SETUP_SCRIPT:-/opt/acr/tools/mirror/setup.sh}"
+  if [ -x "$acr_mirror_setup" ]; then
+    "$acr_mirror_setup" aks
+  else
+    echo "Older acr-mirror package is detected, using old acr-config enablement"
+    # setup.sh is only available in acr-mirror 1.0.0 and above
+    "${ACR_CONFIG_BIN:-/opt/acr/bin/acr-config}" --enable-containerd 'azurecr.io'
+  fi
 }
 
 ensureDHCPv6() {
@@ -1457,10 +1465,30 @@ installGPUDriverImage() {
     retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
 }
 
+# nvidia-cdi-refresh.service (nvidia-container-toolkit-base) is Type=oneshot with Restart=on-failure
+# and StartLimitBurst=5/10s, so one nvidia-ctk failure burns the start limit in ~5s and leaves it and
+# its .path unit permanently failed and unstartable -- which fails install.sh's `systemctl restart`
+# (CSE 84) and kills the .path trigger that would otherwise regenerate the spec later. Tolerate the
+# three known codes: 1 (MIG mode on with no MIG instances, which never succeeds), 2 (panic before the
+# driver userspace is ready), 127 (nvidia-smi missing on pre-reorder aks-gpu images). Anything else
+# still fails the unit. GPU pods reach the device via containerd's nvidia-container-runtime, not CDI.
+NVIDIA_CDI_REFRESH_DROP_IN="/etc/systemd/system/nvidia-cdi-refresh.service.d/10-aks-tolerate-generate-failure.conf"
+
+configureNvidiaCDIRefresh() {
+    mkdir -p "$(dirname "$NVIDIA_CDI_REFRESH_DROP_IN")" || return 1
+    printf '[Service]\nSuccessExitStatus=1 2 127\n' > "$NVIDIA_CDI_REFRESH_DROP_IN" || return 1
+    # Drop-ins are read when systemd loads a unit, so writing this before the toolkit is installed
+    # means the unit picks it up on its very first start.
+    systemctl daemon-reload || true
+}
+
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
         mkdir -p /opt/{actions,gpu}
+        # Must precede the install: the toolkit's post-install starts nvidia-cdi-refresh from
+        # inside the install container, and on newer aks-gpu images its failure aborts the install.
+        logs_to_events "AKS.CSE.configGPUDrivers.configureNvidiaCDIRefresh" configureNvidiaCDIRefresh || exit $ERR_GPU_DRIVERS_START_FAIL
         # Normally the image is baked into the VHD; only pull on a cache miss (expected under VHD/CSE
         # version skew). ctr run does not auto-pull, so a failed pull must exit here rather than
         # resurface as an opaque install error. name== is an exact match, not an `images ls` substring.
@@ -1788,6 +1816,17 @@ writeCredentialProviderConfig() {
       - ${arg}"
         done
     fi
+    # matchImages and argument for network isolated cluster
+    local bootstrap_container_registry_match_image=""
+    local bootstrap_container_registry_args=""
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+      MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
+      MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
+      bootstrap_container_registry_match_image="
+      - \"${MCR_REPOSITORY_BASE}\""
+      bootstrap_container_registry_args="
+      - --registry-mirror=${MCR_REPOSITORY_BASE}:${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}"
+    fi
 
     if [ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]; then
         echo "configure credential provider for custom cloud"
@@ -1805,36 +1844,11 @@ providers:
       - "*.*.geo.azurecr.cn"
       - "*.*.geo.azurecr.de"
       - "*.*.geo.azurecr.us"
-      - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"
+      - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"${bootstrap_container_registry_match_image}
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
-      - /etc/kubernetes/azure.json${ib_args}
-EOF
-    elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-        echo "configure credential provider for network isolated cluster"
-        MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
-        MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
-        tee "${config_file_path}" > /dev/null <<EOF
-apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-      - "*.*.geo.azurecr.io"
-      - "*.*.geo.azurecr.cn"
-      - "*.*.geo.azurecr.de"
-      - "*.*.geo.azurecr.us"
-      - "${MCR_REPOSITORY_BASE}"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
-    args:
-      - /etc/kubernetes/azure.json
-      - --registry-mirror=${MCR_REPOSITORY_BASE}:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER${ib_args}
+      - /etc/kubernetes/azure.json${bootstrap_container_registry_args}${ib_args}
 EOF
     else
         echo "configure credential provider with default settings"
@@ -1851,11 +1865,11 @@ providers:
       - "*.*.geo.azurecr.io"
       - "*.*.geo.azurecr.cn"
       - "*.*.geo.azurecr.de"
-      - "*.*.geo.azurecr.us"
+      - "*.*.geo.azurecr.us"${bootstrap_container_registry_match_image}
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
-      - /etc/kubernetes/azure.json${ib_args}
+      - /etc/kubernetes/azure.json${bootstrap_container_registry_args}${ib_args}
 EOF
     fi
 }
