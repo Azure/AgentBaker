@@ -1,0 +1,58 @@
+name: Sync GPU impact label
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - reopened
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  sync-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync no-gpu-impact label
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const label = "no-gpu-impact";
+            const body = context.payload.pull_request.body || "";
+            const checked = /^- \[[xX]\] <!-- no-gpu-impact -->/m.test(body);
+            const issue = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            };
+
+            try {
+              await github.rest.issues.getLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: label,
+              });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: label,
+                color: "d4c5f9",
+                description: "PR author asserts this change has no GPU impact",
+              });
+            }
+
+            if (checked) {
+              await github.rest.issues.addLabels({ ...issue, labels: [label] });
+              return;
+            }
+
+            try {
+              await github.rest.issues.removeLabel({ ...issue, name: label });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
