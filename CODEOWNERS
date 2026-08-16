@@ -9,11 +9,11 @@ nodecustomdata.yml @Devinwong @lilypan26 @r2k1 @timmy-wright @cameronmeissner @a
 
 # These include security patch owners since security patch script changes will cause the related custom data snapshots to change
 
-pkg/agent/testdata/ @yewmsft @YaoC @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix @mxj220 @pdamianov-dev @calvin197 @SriHarsha001 $fcher @sinmentis @aboodasfari @janenotjung-hue
+pkg/agent/testdata/ @yewmsft @YaoC @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix @mxj220 @pdamianov-dev @calvin197 @SriHarsha001 @fcher @sinmentis @aboodasfari @janenotjung-hue
 
 # Code owners for the security patch release notes
 
-vhdbuilder/release-notes/security-patch/ @yagmurbaydogan @yewmsft @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix @mxj220 @pdamianov-dev @calvin197 @SriHarsha001 $fcher
+vhdbuilder/release-notes/security-patch/ @yagmurbaydogan @yewmsft @cameronmeissner @ganeshkumarashok @Devinwong @lilypan26 @AbelHu @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @awesomenix @mxj220 @pdamianov-dev @calvin197 @SriHarsha001 @fcher
 
 # Code owners for security patching
 
