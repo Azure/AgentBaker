@@ -19,19 +19,20 @@ import (
 )
 
 func ValidatePodRunningWithRetry(ctx context.Context, s *Scenario, pod *corev1.Pod, maxRetries int) {
-	var err error
-	for i := range maxRetries {
-		err = startPodAndCheckItRuns(ctx, s, pod)
+	i := 1
+	err := startPodAndCheckItRuns(ctx, s, pod)
+
+	for i <= maxRetries && err != nil {
 		// crude expenential backoff: 2s, 4s, 8s, ...
 		retryBackoff := time.Duration(1 << uint(i))
-		if err != nil {
-			s.T.Logf("sleeping %d seconds before retrying pod %q", retryBackoff, pod.Name)
-			time.Sleep(retryBackoff * time.Second)
-			s.T.Logf("retrying pod %q validation (%d/%d)", pod.Name, i+1, maxRetries)
-			continue
-		}
-		break
+		s.T.Logf("sleeping %d seconds before retrying pod %q", retryBackoff, pod.Name)
+		time.Sleep(retryBackoff * time.Second)
+		s.T.Logf("retrying pod %q validation (%d/%d)", pod.Name, i+1, maxRetries)
+
+		i++
+		err = startPodAndCheckItRuns(ctx, s, pod)
 	}
+
 	require.NoErrorf(s.T, err, "failed to validate pod running %q", pod.Name)
 }
 
