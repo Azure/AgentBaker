@@ -756,24 +756,15 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 			// Set Tolerations to tolerate the node with test taints "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule".
 			// This is to ensure that the pod can be scheduled on the node with the taints.
 			// It won't affect other pods running on the same node.
-			Tolerations: []corev1.Toleration{
-				{
-					Key:      "testkey1",
-					Operator: corev1.TolerationOpEqual,
-					Value:    "value1",
-					Effect:   corev1.TaintEffectNoSchedule,
-				},
-				{
-					Key:      "testkey2",
-					Operator: corev1.TolerationOpEqual,
-					Value:    "value2",
-					Effect:   corev1.TaintEffectNoSchedule,
-				},
-			},
-			NodeSelector: map[string]string{
-				"kubernetes.io/hostname": s.Runtime.VM.KubeName,
-			},
+			Tolerations:  getPodTolerations(),
+			NodeSelector: getNodeSelectorForScenario(s),
 		},
+	}
+}
+
+func getNodeSelectorForScenario(s *Scenario) map[string]string {
+	return map[string]string{
+		"kubernetes.io/hostname": s.Runtime.VM.KubeName,
 	}
 }
 
@@ -810,10 +801,8 @@ func debugDaemonsetWindows(s *Scenario, podName string, imageName string) *appsv
 							Command: []string{"cmd", "/c", "ping", "-t", "localhost"},
 						},
 					},
-					Tolerations: getPodTolerations(),
-					NodeSelector: map[string]string{
-						"kubernetes.io/hostname": s.Runtime.VM.KubeName,
-					},
+					Tolerations:  getPodTolerations(),
+					NodeSelector: getNodeSelectorForScenario(s),
 				},
 			},
 		},
