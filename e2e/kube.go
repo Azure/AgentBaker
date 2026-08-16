@@ -418,19 +418,10 @@ func daemonsetDebug(ctx context.Context, deploymentName string, nodeSelector map
 					},
 				},
 				Spec: corev1.PodSpec{
-					HostNetwork:  isHostNetwork,
-					NodeSelector: nodeSelector,
-					ImagePullSecrets: func() []corev1.LocalObjectReference {
-						if secretName == "" {
-							return nil
-						}
-						return []corev1.LocalObjectReference{
-							{
-								Name: secretName,
-							},
-						}
-					}(),
-					HostPID: true,
+					HostNetwork:      isHostNetwork,
+					NodeSelector:     nodeSelector,
+					ImagePullSecrets: getImagePullSecrets(secretName),
+					HostPID:          true,
 					Containers: []corev1.Container{
 						{
 							Image:   image,
@@ -441,30 +432,45 @@ func daemonsetDebug(ctx context.Context, deploymentName string, nodeSelector map
 							},
 						},
 					},
-					// Set Tolerations to tolerate the node with test taints "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule".
-					// This is to ensure that the pod can be scheduled on the node with the taints.
-					// It won't affect other pods running on the same node.
-					Tolerations: []corev1.Toleration{
-						{
-							Key:      "testkey1",
-							Operator: corev1.TolerationOpEqual,
-							Value:    "value1",
-							Effect:   corev1.TaintEffectNoSchedule,
-						},
-						{
-							Key:      "testkey2",
-							Operator: corev1.TolerationOpEqual,
-							Value:    "value2",
-							Effect:   corev1.TaintEffectNoSchedule,
-						},
-						{
-							Key:      "node.cloudprovider.kubernetes.io/uninitialized",
-							Operator: corev1.TolerationOpExists,
-							Effect:   corev1.TaintEffectNoSchedule,
-						},
-					},
+					Tolerations: getPodTolerations(),
 				},
 			},
+		},
+	}
+}
+
+func getImagePullSecrets(secretName string) []corev1.LocalObjectReference {
+	if secretName == "" {
+		return nil
+	}
+	return []corev1.LocalObjectReference{
+		{
+			Name: secretName,
+		},
+	}
+}
+
+func getPodTolerations() []corev1.Toleration {
+	// Set Tolerations to tolerate the node with test taints "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule".
+	// This is to ensure that the pod can be scheduled on the node with the taints.
+	// It won't affect other pods running on the same node.
+	return []corev1.Toleration{
+		{
+			Key:      "testkey1",
+			Operator: corev1.TolerationOpEqual,
+			Value:    "value1",
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      "testkey2",
+			Operator: corev1.TolerationOpEqual,
+			Value:    "value2",
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      "node.cloudprovider.kubernetes.io/uninitialized",
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
 		},
 	}
 }
@@ -771,34 +777,44 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 	}
 }
 
-func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
-	return &corev1.Pod{
+func podWindows(s *Scenario, podName string, imageName string) *appsv1.DaemonSet {
+	deploymentName := fmt.Sprintf("%s-test-%s-pod", s.Runtime.VM.KubeName, podName)
+	return &appsv1.DaemonSet{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "DaemonSet",
+			APIVersion: "apps/v1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-test-%s-pod", s.Runtime.VM.KubeName, podName),
+			Name:      deploymentName,
 			Namespace: "default",
 		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:            podName,
-					Image:           imageName,
-					ImagePullPolicy: "IfNotPresent",
-					// this should exist on both servercore and nanoserve
-					Command: []string{"cmd", "/c", "ping", "-t", "localhost"},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": deploymentName,
 				},
 			},
-			// Tolerate the cloud-provider-uninitialized taint: the node may report Ready before
-			// the Azure cloud-controller-manager removes this taint, which would otherwise leave
-			// this pod Pending (and the test waiting) until the taint clears on its own.
-			Tolerations: []corev1.Toleration{
-				{
-					Key:      "node.cloudprovider.kubernetes.io/uninitialized",
-					Operator: corev1.TolerationOpExists,
-					Effect:   corev1.TaintEffectNoSchedule,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": deploymentName,
+					},
 				},
-			},
-			NodeSelector: map[string]string{
-				"kubernetes.io/hostname": s.Runtime.VM.KubeName,
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:            podName,
+							Image:           imageName,
+							ImagePullPolicy: "IfNotPresent",
+							// this should exist on both servercore and nanoserve
+							Command: []string{"cmd", "/c", "ping", "-t", "localhost"},
+						},
+					},
+					Tolerations: getPodTolerations(),
+					NodeSelector: map[string]string{
+						"kubernetes.io/hostname": s.Runtime.VM.KubeName,
+					},
+				},
 			},
 		},
 	}
