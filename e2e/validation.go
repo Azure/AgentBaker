@@ -22,8 +22,10 @@ func ValidatePodRunningWithRetry(ctx context.Context, s *Scenario, pod *corev1.P
 	var err error
 	for i := range maxRetries {
 		err = startPodAndCheckItRuns(ctx, s, pod)
+		// crude expenential backoff: 2s, 4s, 8s, ...
+		retryBackoff := time.Duration(1<<uint(i)) * time.Second
 		if err != nil {
-			time.Sleep(1 * time.Second)
+			time.Sleep(retryBackoff)
 			s.T.Logf("retrying pod %q validation (%d/%d)", pod.Name, i+1, maxRetries)
 			continue
 		}
