@@ -768,9 +768,9 @@ func getNodeSelectorForScenario(s *Scenario) map[string]string {
 	}
 }
 
-func debugDaemonsetWindows(s *Scenario, podName string, imageName string) *appsv1.DaemonSet {
+func debugPodWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
 	deploymentName := fmt.Sprintf("%s-test-%s-pod", s.Runtime.VM.KubeName, podName)
-	return &appsv1.DaemonSet{
+	return &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "DaemonSet",
 			APIVersion: "apps/v1",
@@ -779,32 +779,18 @@ func debugDaemonsetWindows(s *Scenario, podName string, imageName string) *appsv
 			Name:      deploymentName,
 			Namespace: "default",
 		},
-		Spec: appsv1.DaemonSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app": deploymentName,
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:            podName,
+					Image:           imageName,
+					ImagePullPolicy: "IfNotPresent",
+					// this should exist on both servercore and nanoserve
+					Command: []string{"cmd", "/c", "ping", "-t", "localhost"},
 				},
 			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app": deploymentName,
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:            podName,
-							Image:           imageName,
-							ImagePullPolicy: "IfNotPresent",
-							// this should exist on both servercore and nanoserve
-							Command: []string{"cmd", "/c", "ping", "-t", "localhost"},
-						},
-					},
-					Tolerations:  getPodTolerations(),
-					NodeSelector: getNodeSelectorForScenario(s),
-				},
-			},
+			Tolerations:  getPodTolerations(),
+			NodeSelector: getNodeSelectorForScenario(s),
 		},
 	}
 }
