@@ -237,6 +237,12 @@ copyPackerFiles() {
   CSE_REDACT_DEST=/opt/azure/containers/provision_redact_cloud_config.py
   cpAndMode $CSE_REDACT_SRC $CSE_REDACT_DEST 0744
 
+if isUbuntu "$OS"; then
+  CSE_CLOUD_INIT_REPORT_READY_SRC=/home/packer/cloud_init_report_ready.py
+  CSE_CLOUD_INIT_REPORT_READY_DEST=/opt/azure/containers/cloud_init_report_ready.py
+  cpAndMode $CSE_CLOUD_INIT_REPORT_READY_SRC $CSE_CLOUD_INIT_REPORT_READY_DEST 0744
+fi
+
   CSE_SEND_SRC=/home/packer/cse_send_logs.py
   CSE_SEND_DEST=/opt/azure/containers/provision_send_logs.py
   cpAndMode $CSE_SEND_SRC $CSE_SEND_DEST 0744
