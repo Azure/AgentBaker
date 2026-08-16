@@ -772,8 +772,8 @@ func debugPodWindows(s *Scenario, podName string, imageName string) *corev1.Pod 
 	deploymentName := fmt.Sprintf("%s-test-%s-pod", s.Runtime.VM.KubeName, podName)
 	return &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "DaemonSet",
-			APIVersion: "apps/v1",
+			Kind:       "Pod",
+			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
