@@ -777,7 +777,7 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 	}
 }
 
-func podWindows(s *Scenario, podName string, imageName string) *appsv1.DaemonSet {
+func debugDaemonsetWindows(s *Scenario, podName string, imageName string) *appsv1.DaemonSet {
 	deploymentName := fmt.Sprintf("%s-test-%s-pod", s.Runtime.VM.KubeName, podName)
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
