@@ -32,7 +32,10 @@ Describe 'cse_main.sh PIS-safe configuration'
     }
 
     dispatch_calls() {
-        sed -n '/^# The provisioning is split into two gated stages/,$p' "${CSE_MAIN}" |
+        awk '
+            $0 == "if [ ! -f /opt/azure/containers/base_prep.complete ]; then" { inside = 1 }
+            inside { print }
+        ' "${CSE_MAIN}" |
             code_lines |
             grep -E '^if .*base_prep.complete|^[[:space:]]*(basePrep|nodePrep)$|^if .*PRE_PROVISION_ONLY'
     }
