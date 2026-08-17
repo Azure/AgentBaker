@@ -2306,6 +2306,37 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 	)
 }
 
+// ValidateLocalDNSConntrackRules checks that localdns skips conntrack for both request and response DNS traffic.
+func ValidateLocalDNSConntrackRules(ctx context.Context, s *Scenario) error {
+	script := `set -euo pipefail
+rules=$(sudo iptables -t raw -S)
+echo "$rules" | grep 'localdns: skip conntrack' || true
+
+request_rule_count=$(echo "$rules" | grep 'localdns: skip conntrack' | grep -c -- '--dport 53' || true)
+response_rule_count=$(echo "$rules" | grep 'localdns: skip conntrack' | grep -c -- '--sport 53' || true)
+prerouting_response_rule_count=$(echo "$rules" | grep '^-A PREROUTING' | grep 'localdns: skip conntrack' | grep -c -- '--sport 53' || true)
+
+echo "localdns conntrack rules: request=$request_rule_count response=$response_rule_count prerouting_response=$prerouting_response_rule_count"
+test "$request_rule_count" = "8" || { echo "expected 8 request-direction localdns NOTRACK rules, got $request_rule_count"; exit 1; }
+test "$response_rule_count" = "4" || { echo "expected 4 response-direction localdns NOTRACK rules, got $response_rule_count"; exit 1; }
+test "$prerouting_response_rule_count" = "0" || { echo "expected 0 PREROUTING response-direction localdns NOTRACK rules, got $prerouting_response_rule_count"; exit 1; }
+
+for rule in \
+  '^-A OUTPUT .* -s 169\.254\.10\.10/32 .* --sport 53 .* -j NOTRACK$' \
+  '^-A OUTPUT .* -s 169\.254\.10\.11/32 .* --sport 53 .* -j NOTRACK$' \
+  '^-A OUTPUT .* -d 169\.254\.10\.10/32 .* --dport 53 .* -j NOTRACK$' \
+  '^-A OUTPUT .* -d 169\.254\.10\.11/32 .* --dport 53 .* -j NOTRACK$' \
+  '^-A PREROUTING .* -d 169\.254\.10\.10/32 .* --dport 53 .* -j NOTRACK$' \
+  '^-A PREROUTING .* -d 169\.254\.10\.11/32 .* --dport 53 .* -j NOTRACK$'; do
+  echo "$rules" | grep -Eq "$rule" || { echo "missing expected localdns NOTRACK rule matching: $rule"; exit 1; }
+done
+`
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns should install request and response direction NOTRACK rules"); err != nil {
+		return fmt.Errorf("validate localdns conntrack rules: %w", err)
+	}
+	return nil
+}
+
 // ValidateLocalDNSHostsFile checks that /etc/localdns/hosts contains at least one IPv4 entry for each critical FQDN.
 // This validation approach avoids flakiness with CDN/frontdoor-backed FQDNs (like mcr.microsoft.com) whose A records
 // can rotate between queries. We verify presence, not exact IP matching.
