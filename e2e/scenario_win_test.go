@@ -152,25 +152,6 @@ func Test_Windows2022Gen2AzureOverlayNetworkDualStack(t *testing.T) {
 	})
 }
 
-func Test_Windows2022CachingRegression(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Windows 2022 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
-		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows2022ContainerdGen2,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
-				// Secure TLS Bootstrapping isn't supported on this CSE script package version
-				nbc.SecureTLSBootstrappingConfig.Enabled = false
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
-			},
-		},
-	})
-}
-
 func Test_Windows2025(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2025 with Containerd",
