@@ -1,4 +1,9 @@
 BeforeAll {
+  if (-not (Get-Command Get-Service -ErrorAction SilentlyContinue)) {
+    function global:Get-Service {}
+    function global:Restart-Service {}
+  }
+
   # Mock Set-Content to avoid permission denied errors
   Mock Set-Content -MockWith {
     param($Path, $Value)
@@ -14,6 +19,62 @@ BeforeAll {
       param($Path, $Value)
       $script:capturedContent = $Value
   } -Verifiable
+}
+
+Describe 'Update-ContainerdPauseImageConfig' {
+  BeforeEach {
+    Mock Write-Log
+    $global:containerdServiceStatus = 'Stopped'
+    Mock Get-Service -MockWith { return [PSCustomObject]@{ Status = $global:containerdServiceStatus } }
+    Mock Restart-Service
+    $configPath = Join-Path $TestDrive 'config.toml'
+    Remove-Item -Path $configPath -Force -ErrorAction SilentlyContinue
+  }
+
+  It 'replaces all legacy Windows-specific pause image references' {
+    $config = @"
+sandbox_image = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2-windows-1809-amd64"
+SandboxImage = "example.azurecr.io/aks/pause:3.10.2-windows-ltsc2022-amd64"
+sandbox = 'mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2-windows-ltsc2025-amd64'
+"@
+    [System.IO.File]::WriteAllText($configPath, $config)
+
+    Update-ContainerdPauseImageConfig -Path $configPath
+
+    $updatedConfig = [System.IO.File]::ReadAllText($configPath)
+    $updatedConfig | Should -Not -Match '-windows-[a-zA-Z0-9.]+-amd64'
+    $updatedConfig | Should -Match ([regex]::Escape('mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2'))
+    $updatedConfig | Should -Match ([regex]::Escape('example.azurecr.io/aks/pause:3.10.2'))
+    Assert-MockCalled -CommandName Write-Log -Exactly -Times 1
+    Assert-MockCalled -CommandName Restart-Service -Exactly -Times 0
+  }
+
+  It 'restarts containerd after updating a running service' -Skip:(-not $IsWindows) {
+    $global:containerdServiceStatus = 'Running'
+    [System.IO.File]::WriteAllText($configPath, 'sandbox_image = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2-windows-ltsc2022-amd64"')
+
+    Update-ContainerdPauseImageConfig -Path $configPath
+
+    Assert-MockCalled -CommandName Restart-Service -Exactly -Times 1 -ParameterFilter {
+      $Name -eq 'containerd' -and $ErrorAction -eq 'Stop'
+    }
+  }
+
+  It 'does not change a current pause image reference' {
+    $config = 'sandbox_image = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2"'
+    [System.IO.File]::WriteAllText($configPath, $config)
+
+    Update-ContainerdPauseImageConfig -Path $configPath
+
+    [System.IO.File]::ReadAllText($configPath) | Should -BeExactly $config
+    Assert-MockCalled -CommandName Write-Log -Exactly -Times 1
+    Assert-MockCalled -CommandName Restart-Service -Exactly -Times 0
+  }
+
+  It 'fails when the config does not exist' {
+    { Update-ContainerdPauseImageConfig -Path $configPath } |
+      Should -Throw "Containerd config file does not exist: $configPath"
+  }
 }
 
 Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
@@ -35,6 +96,8 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
         )
         Write-Host $ContainerdUrl
     } -Verifiable
+    Mock Update-ContainerdPauseImageConfig
+    $global:ContainerdInstallLocation = 'c:\program files\containerd'
 
     $ContainerdWindowsPackageDownloadURL = "https://packages.aks.azure.com/containerd/windows/"
     $StableContainerdPackage = [string]::Format($global:ContainerdPackageTemplate, $global:StableContainerdVersion)
@@ -57,6 +120,9 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
       $expectedURL = $ContainerdWindowsPackageDownloadURL + $StableContainerdPackage
       & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $ContainerdWindowsPackageDownloadURL -KubernetesVersion "1.27.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
       Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+      Assert-MockCalled -CommandName "Update-ContainerdPauseImageConfig" -Exactly -Times 1 -ParameterFilter {
+        $Path -eq ([Io.Path]::Combine($global:ContainerdInstallLocation, "config.toml"))
+      }
     }
 
     It 'k8s version is equal to MinimalKubernetesVersionWithLatestContainerd' {

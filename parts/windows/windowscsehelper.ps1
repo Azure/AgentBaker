@@ -392,6 +392,33 @@ function AKS-Expand-Archive {
     }
 }
 
+function Update-ContainerdPauseImageConfig {
+    Param(
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$Path
+    )
+
+    if (-Not (Test-Path -Path $Path -PathType Leaf)) {
+        throw "Containerd config file does not exist: $Path"
+    }
+
+    $legacyPauseImagePattern='(?m)(?<prefix>\b(?:sandbox_image|SandboxImage|sandbox)\s*=\s*["''])(?<image>[^"''\r\n]+)-windows-[a-zA-Z0-9.]+-amd64(?<suffix>["''])'
+    $config=[System.IO.File]::ReadAllText($Path)
+    $updatedConfig=[regex]::Replace($config, $legacyPauseImagePattern, '${prefix}${image}${suffix}')
+    if ($updatedConfig -eq $config) {
+        Write-Log "Containerd pause image references in $Path do not require an update"
+        return
+    }
+
+    [System.IO.File]::WriteAllText($Path, $updatedConfig)
+    Write-Log "Updated legacy pause image references in $Path"
+
+    $containerdService=Get-Service -Name containerd -ErrorAction SilentlyContinue
+    if ($null -ne $containerdService -and $containerdService.Status -eq "Running") {
+        Restart-Service -Name containerd -ErrorAction Stop
+        Write-Log "Restarted containerd to apply the updated pause image references"
+    }
+}
+
 function Retry-Command {
     Param(
         [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]
@@ -547,6 +574,8 @@ function Install-Containerd-Based-On-Kubernetes-Version {
     Write-Log "Install Containerd with resolved containerd pacakge url: $ContainerdUrl, Kubernetes version: $KubernetesVersion, Windows version: $windowsVersion."
     Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerd" -TaskMessage "Start to install ContainerD. ContainerdUrl: $ContainerdUrl"
     Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
+    $containerdConfigPath=[Io.Path]::Combine($global:ContainerdInstallLocation, "config.toml")
+    Update-ContainerdPauseImageConfig -Path $containerdConfigPath
 }
 
 function Logs-To-Event {

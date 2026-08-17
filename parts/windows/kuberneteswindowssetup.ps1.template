@@ -485,6 +485,9 @@ function BasePrep {
 # ====== NODE PREP: CLUSTER INTEGRATION ======
 # All operations that should only run when connecting to the actual cluster
 function NodePrep {
+    $containerdConfigPath=[Io.Path]::Combine($global:ContainerdInstallLocation, "config.toml")
+    Update-ContainerdPauseImageConfig -Path $containerdConfigPath
+
     # Write the kubeconfigs here, not in BasePrep: BasePrep is skipped on
     # PIS/VHD-cached nodes, so anything written there is baked with stale
     # bake-time values. Both are only consumed in NodePrep, so write them from

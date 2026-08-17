@@ -80,8 +80,6 @@ function CreateHypervisorRuntime {
     [Parameter(Mandatory = $true)][string]
     $image,
     [Parameter(Mandatory = $true)][string]
-    $version,
-    [Parameter(Mandatory = $true)][string]
     $buildNumber
   )
 
@@ -91,7 +89,7 @@ function CreateHypervisorRuntime {
           [plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-$buildnumber.options]
             Debug = true
             DebugType = 2
-            SandboxImage = "$image-windows-$version-amd64"
+            SandboxImage = "$image"
             SandboxPlatform = "windows/amd64"
             SandboxIsolation = 1
             ScaleCPULimitsToSandbox = true
@@ -109,8 +107,7 @@ function CreateHypervisorRuntimes {
   Write-Log "Adding hyperv runtimes $builds"
   $hypervRuntimes = ""
   ForEach ($buildNumber in $builds) {
-    $windowsVersion = Get-WindowsVersion
-    $runtime = createHypervisorRuntime -image $pauseImage -version $windowsVersion -buildNumber $buildNumber
+    $runtime = CreateHypervisorRuntime -image $image -buildNumber $buildNumber
     if ($hypervRuntimes -eq "") {
       $hypervRuntimes = $runtime
     }

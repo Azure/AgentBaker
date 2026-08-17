@@ -166,6 +166,8 @@ func Test_Windows2022CachingRegression(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
+				ValidateFileHasContent(ctx, s, "'C:\\Program Files\\containerd\\config.toml'", "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2")
+				ValidateFileExcludesContent(ctx, s, "'C:\\Program Files\\containerd\\config.toml'", "pause:3.10.2-windows-")
 			},
 		},
 	})

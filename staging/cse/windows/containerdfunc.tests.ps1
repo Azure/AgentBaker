@@ -70,6 +70,17 @@ Describe "Containerd Functions Tests" {
     . $PSCommandPath.Replace('.tests.ps1', '.ps1')
   }
 
+  Describe "CreateHypervisorRuntime" {
+    It "uses the supplied multi-platform pause image" {
+      $pauseImage = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2"
+
+      $runtime = CreateHypervisorRuntime -image $pauseImage -buildNumber "20348"
+
+      $runtime | Should -Match ([regex]::Escape("SandboxImage = `"$pauseImage`""))
+      $runtime | Should -Not -Match ([regex]::Escape("${pauseImage}-windows-"))
+    }
+  }
+
   Describe "ProcessAndWriteContainerdConfig" {
     BeforeAll {
       Mock Get-Content -ParameterFilter { $Path -like "*kubeclusterconfig.json" } -MockWith {
@@ -123,6 +134,8 @@ Describe "Containerd Functions Tests" {
         $content = Get-Content -Path $configPath -Raw
         $content | Should -Match 'plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234'
         $content | Should -Match 'SandboxIsolation = 1'
+        $content | Should -Match ([regex]::Escape("SandboxImage = `"$pauseImage`""))
+        $content | Should -Not -Match ([regex]::Escape("${pauseImage}-windows-"))
         $content | Should -Not -Match 'version = 3'
       }
 
@@ -184,6 +197,8 @@ Describe "Containerd Functions Tests" {
         $content = Get-Content -Path $configPath -Raw
         $content | Should -Match 'plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234'
         $content | Should -Match 'SandboxIsolation = 1'
+        $content | Should -Match ([regex]::Escape("SandboxImage = `"$pauseImage`""))
+        $content | Should -Not -Match ([regex]::Escape("${pauseImage}-windows-"))
         $content | Should -Match 'version = 3'
       }
     }
