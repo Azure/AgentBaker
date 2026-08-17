@@ -1,0 +1,10 @@
+{
+    "_comment": "PR-gated pins for the Compliance Engine packages consumed from the ComplianceEnginePackages NuGet feed by the VHD builder's (shadow, non-blocking) compliance scan. 'assessor' is a single '<package>@<version>' pin; 'benchmarks' is a map of <key> -> '<package>@<version>' so multiple benchmarks (Ubuntu 22.04/24.04 x L1/L2, or CIS + STIG) can be scanned in one run. The <key> both selects which MOFs apply to the OS being built (vhd-scanning.sh audits mof/ubuntu-<version>-*.mof) and names the result JSON (compliance-engine-<key>.json). Bumping a pin REQUIRES a pull request (PR-gating): publishing a new package to the feed never changes what the pipeline uses until a PR updates the pin here. Versions are '<YYYYMMDD>.<buildid>[-suffix]', so the pin date is intrinsic to the version string; the scan derives a non-blocking staleness warning from the leading YYYYMMDD. Package names must exactly match the NuGet package ids published by the Compliance Augmentation Engine. If L1 and L2 ship as a single combined MOF, collapse the two entries into one. This schema is shared with acl-pipelines' pipelines/compliance-versions.json.",
+    "assessor": "compliance-engine-assessor@20260720.172937301-unofficial",
+    "benchmarks": {
+        "ubuntu-22.04-l1": "cis_ubuntu_linux_22.04_lts_benchmark_v2.0.0@20260714.172110348-unofficial",
+        "ubuntu-22.04-l2": "cis_ubuntu_linux_22.04_lts_benchmark_v2.0.0@20260714.172110348-unofficial",
+        "ubuntu-24.04-l1": "cis_ubuntu_linux_24.04_lts_benchmark_v1.0.0@20260714.172110348-unofficial",
+        "ubuntu-24.04-l2": "cis_ubuntu_linux_24.04_lts_benchmark_v1.0.0@20260714.172110348-unofficial"
+    }
+}
