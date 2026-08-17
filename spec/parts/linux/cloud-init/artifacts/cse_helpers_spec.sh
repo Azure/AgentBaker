@@ -939,3 +939,51 @@ EOF
         End
     End
 End
+
+Describe 'GPU driver image reference resolution'
+    # Both references are computed when cse_helpers.sh is sourced, so each case re-sources the
+    # script in a clean child shell with the environment the RP would supply.
+    resolve_driver_refs() {
+        env -u NVIDIA_DRIVER_IMAGE -u NVIDIA_DRIVER_IMAGE_PULL_REF -u MCR_REPOSITORY_BASE "$@" bash -c \
+            'source ./parts/linux/cloud-init/artifacts/cse_helpers.sh >/dev/null 2>&1; echo "$NVIDIA_DRIVER_IMAGE $NVIDIA_DRIVER_IMAGE_PULL_REF"'
+    }
+
+    It 'uses public MCR for both references when MCR_REPOSITORY_BASE is unset'
+        When call resolve_driver_refs GPU_DRIVER_TYPE=grid
+        The status should be success
+        The output should eq "mcr.microsoft.com/aks/aks-gpu-grid mcr.microsoft.com/aks/aks-gpu-grid"
+    End
+
+    It 'uses public MCR for both references when MCR_REPOSITORY_BASE is empty'
+        When call resolve_driver_refs MCR_REPOSITORY_BASE= GPU_DRIVER_TYPE=grid
+        The status should be success
+        The output should eq "mcr.microsoft.com/aks/aks-gpu-grid mcr.microsoft.com/aks/aks-gpu-grid"
+    End
+
+    It 'pulls from the sovereign MCR endpoint and strips the trailing slash'
+        When call resolve_driver_refs MCR_REPOSITORY_BASE=mcr.microsoft.scloud/ GPU_DRIVER_TYPE=grid
+        The status should be success
+        The output should eq "mcr.microsoft.com/aks/aks-gpu-grid mcr.microsoft.scloud/aks/aks-gpu-grid"
+    End
+
+    It 'pulls from the sovereign MCR endpoint supplied without a trailing slash'
+        When call resolve_driver_refs MCR_REPOSITORY_BASE=mcr.microsoft.eaglex.ic.gov GPU_DRIVER_TYPE=grid
+        The status should be success
+        The output should eq "mcr.microsoft.com/aks/aks-gpu-grid mcr.microsoft.eaglex.ic.gov/aks/aks-gpu-grid"
+    End
+
+    It 'applies the cloud-aware base to every driver type'
+        When call resolve_driver_refs MCR_REPOSITORY_BASE=mcr.azure.cn/ GPU_DRIVER_TYPE=cuda-lts
+        The status should be success
+        The output should eq "mcr.microsoft.com/aks/aks-gpu-cuda-lts mcr.azure.cn/aks/aks-gpu-cuda-lts"
+    End
+
+    # Regression guard: the VHD bakes aks-gpu-cuda-lts under its mcr.microsoft.com name and
+    # configGPUDrivers matches it exactly, so a cloud-specific value here would break every
+    # sovereign CUDA node's cache hit.
+    It 'keeps the cache-facing reference on public MCR regardless of cloud'
+        When call resolve_driver_refs MCR_REPOSITORY_BASE=mcr.microsoft.scloud/ GPU_DRIVER_TYPE=cuda-lts
+        The status should be success
+        The output should start with "mcr.microsoft.com/aks/aks-gpu-cuda-lts "
+    End
+End

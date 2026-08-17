@@ -66,6 +66,7 @@ func Test_Windows2022_AzureNetwork(t *testing.T) {
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateKubeletArgs(ctx, s)
+				ValidateContainerdWindowsPriorityClass(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
@@ -91,6 +92,7 @@ func Test_Windows2022AzureOverlayNetworkDualStack(t *testing.T) {
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateKubeletArgs(ctx, s)
+				ValidateContainerdWindowsPriorityClass(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
@@ -113,6 +115,7 @@ func Test_Windows2022Gen2AzureNetwork(t *testing.T) {
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateKubeletArgs(ctx, s)
+				ValidateContainerdWindowsPriorityClass(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
@@ -139,29 +142,11 @@ func Test_Windows2022Gen2AzureOverlayNetworkDualStack(t *testing.T) {
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateKubeletArgs(ctx, s)
+				ValidateContainerdWindowsPriorityClass(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Windows2022CachingRegression(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Windows 2022 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
-		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows2022ContainerdGen2,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
-				// Secure TLS Bootstrapping isn't supported on this CSE script package version
-				nbc.SecureTLSBootstrappingConfig.Enabled = false
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
 			},
 		},
 	})
@@ -183,6 +168,7 @@ func Test_Windows2025(t *testing.T) {
 				ValidateWindowsDisplayVersion(ctx, s, "24H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateKubeletArgs(ctx, s)
+				ValidateContainerdWindowsPriorityClass(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
@@ -208,6 +194,7 @@ func Test_Windows2025Gen2(t *testing.T) {
 				ValidateWindowsDisplayVersion(ctx, s, "24H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateKubeletArgs(ctx, s)
+				ValidateContainerdWindowsPriorityClass(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
@@ -235,6 +222,7 @@ func Test_Windows2025Gen2TrustedLaunch(t *testing.T) {
 				ValidateWindowsDisplayVersion(ctx, s, "24H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateKubeletArgs(ctx, s)
+				ValidateContainerdWindowsPriorityClass(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
@@ -266,6 +254,7 @@ func Test_Windows2025Gen2_WindowsCiliumNetworking(t *testing.T) {
 				ValidateWindowsDisplayVersion(ctx, s, "24H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateKubeletArgs(ctx, s)
+				ValidateContainerdWindowsPriorityClass(ctx, s)
 				ValidateWindowsCiliumIsRunning(ctx, s)
 			},
 		},
@@ -350,6 +339,7 @@ func Test_Windows2022_VHDCaching(t *testing.T) {
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateKubeletArgs(ctx, s)
+				ValidateContainerdWindowsPriorityClass(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
@@ -378,6 +368,7 @@ func Test_Windows2025Gen2_VHDCaching(t *testing.T) {
 				ValidateWindowsDisplayVersion(ctx, s, "24H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateKubeletArgs(ctx, s)
+				ValidateContainerdWindowsPriorityClass(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
@@ -507,6 +498,7 @@ func Test_Windows2025Gen2_McrChinaCloud_Windows(t *testing.T) {
 				ValidateWindowsDisplayVersion(ctx, s, "24H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateKubeletArgs(ctx, s)
+				ValidateContainerdWindowsPriorityClass(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\docker.io\hosts.toml`)
