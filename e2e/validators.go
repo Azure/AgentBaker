@@ -1845,11 +1845,11 @@ func ValidateLocalDNSConntrackRules(ctx context.Context, s *Scenario) {
 
 	script := `set -euo pipefail
 rules=$(sudo iptables -t raw -S)
-echo "$rules" | grep 'localdns: skip conntrack' || true
+awk '/localdns: skip conntrack/ { print }' <<< "$rules"
 
-request_rule_count=$(echo "$rules" | grep 'localdns: skip conntrack' | grep -c -- '--dport 53' || true)
-response_rule_count=$(echo "$rules" | grep 'localdns: skip conntrack' | grep -c -- '--sport 53' || true)
-prerouting_response_rule_count=$(echo "$rules" | grep '^-A PREROUTING' | grep 'localdns: skip conntrack' | grep -c -- '--sport 53' || true)
+request_rule_count=$(awk '/localdns: skip conntrack/ && /--dport 53/ { count++ } END { print count + 0 }' <<< "$rules")
+response_rule_count=$(awk '/localdns: skip conntrack/ && /--sport 53/ { count++ } END { print count + 0 }' <<< "$rules")
+prerouting_response_rule_count=$(awk '/^-A PREROUTING/ && /localdns: skip conntrack/ && /--sport 53/ { count++ } END { print count + 0 }' <<< "$rules")
 
 echo "localdns conntrack rules: request=$request_rule_count response=$response_rule_count prerouting_response=$prerouting_response_rule_count"
 test "$request_rule_count" = "8" || { echo "expected 8 request-direction localdns NOTRACK rules, got $request_rule_count"; exit 1; }
