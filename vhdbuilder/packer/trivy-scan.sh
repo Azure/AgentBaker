@@ -18,7 +18,7 @@ TRIVY_DEB_2204_VERSION="0.72.0-ubuntu22.04u3"
 TRIVY_DEB_2404_VERSION="0.72.0-ubuntu24.04u3"
 
 # renovate: datasource=custom.deb2604 depName=trivy versioning=deb
-TRIVY_DEB_2604_VERSION="0.70.0-ubuntu26.04u12"
+TRIVY_DEB_2604_VERSION="0.70.0-ubuntu26.04u17"
 
 # renovate: datasource=rpm depName=trivy registryUrl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata
 TRIVY_RPM_VERSION="0.72.0-3.azl3"
