@@ -9,7 +9,7 @@ jobs:
       contents: read
     steps:
     - name: Set up containerd
-      uses: crazy-max/ghaction-setup-containerd@38de4052f2b7ab6094213e121851df6dbdfc6e56 # v2
+      uses: crazy-max/ghaction-setup-containerd@b1962824078138dddccdf925db7402a9428c4aca # v3.2.0
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
