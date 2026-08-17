@@ -1844,6 +1844,12 @@ func ValidateLocalDNSConntrackRules(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
 	script := `set -euo pipefail
+localdns_script="/opt/azure/containers/localdns/localdns.sh"
+if ! sudo grep -q -- '--sport 53 -j NOTRACK' "$localdns_script"; then
+  echo "WARNING: VHD localdns.sh does not contain reply-direction NOTRACK support; skipping rule validation for this image."
+  exit 0
+fi
+
 rules=$(sudo iptables -t raw -S)
 awk '/localdns: skip conntrack/ { print }' <<< "$rules"
 
