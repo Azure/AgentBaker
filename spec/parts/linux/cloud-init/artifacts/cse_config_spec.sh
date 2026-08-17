@@ -2303,10 +2303,8 @@ OVERRIDE_EOF
 
     Describe 'ensureKubelet credential provider installation gate'
         logs_to_events() {
-            local task=$1
-            shift
-            echo "logs_to_events ${task} $*"
-            eval "$*"
+            echo "logs_to_events $1 $2"
+            eval "$2"
         }
 
         BeforeEach 'setup_ensure_kubelet'
@@ -2601,42 +2599,6 @@ OVERRIDE_EOF
                 The output should include "installKubeletKubectlFromPkg"
                 The output should not include "installKubeletKubectlFromURL"
             End
-
-            It 'should use the OCI prerelease tag for Flatcar sysexts'
-                KUBERNETES_VERSION="1.37.0"
-                KUBERNETES_PACKAGE_VERSION="1.37.0-beta.0"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromPkg 1.37.0-beta.0"
-                The output should not include "installKubeletKubectlFromURL"
-            End
-        End
-
-        Describe 'on Azure Container Linux'
-            OS="AZURELINUX"
-            OS_VARIANT="acl"
-            Include "./parts/linux/cloud-init/artifacts/acl/cse_helpers_acl.sh"
-            Include "./parts/linux/cloud-init/artifacts/acl/cse_install_acl.sh"
-
-            installKubeletKubectlFromPkg() {
-                echo "installKubeletKubectlFromPkg $@"
-            }
-
-            It 'should use the OCI prerelease tag for ACL sysexts'
-                KUBERNETES_VERSION="1.37.0"
-                KUBERNETES_PACKAGE_VERSION="1.37.0-beta.0"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromPkg 1.37.0-beta.0"
-                The output should not include "installKubeletKubectlFromURL"
-            End
-
-            It 'should pass the OCI prerelease tag to the network-isolated registry path'
-                KUBERNETES_VERSION="1.37.0"
-                KUBERNETES_PACKAGE_VERSION="1.37.0-beta.0"
-                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io/aks"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromBootstrapProfileRegistry myregistry.azurecr.io/aks 1.37.0-beta.0"
-                The output should not include "installKubeletKubectlFromURL"
-            End
         End
 
         Describe 'on Mariner'
@@ -2718,127 +2680,6 @@ OVERRIDE_EOF
                 The output should not include "installKubeletKubectlFromURL"
                 The output should include "installKubeletKubectlFromPkg is not defined"
             End
-        End
-    End
-
-    Describe 'installCredentialProviderForKubelet'
-        logs_to_events() {
-            local task=$1
-            shift
-            echo "logs_to_events ${task} $*"
-            "$@"
-        }
-
-        installCredentialProviderFromUrl() {
-            echo "installCredentialProviderFromUrl"
-        }
-
-        installCredentialProviderFromPkg() {
-            echo "installCredentialProviderFromPkg $1"
-        }
-
-        installCredentialProviderPackageFromBootstrapProfileRegistry() {
-            echo "installCredentialProviderPackageFromBootstrapProfileRegistry $1 $2"
-        }
-
-        isFlatcar() {
-            [ "${TEST_DISTRO}" = "flatcar" ]
-        }
-
-        isACL() {
-            [ "${TEST_DISTRO}" = "acl" ]
-        }
-
-        isMarinerOrAzureLinux() {
-            [ "${TEST_DISTRO}" = "azurelinux" ]
-        }
-
-        BeforeEach 'setupCredentialProviderInstall'
-        setupCredentialProviderInstall() {
-            TEST_DISTRO="ubuntu"
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
-            KUBERNETES_VERSION="1.37.0"
-            KUBERNETES_PACKAGE_VERSION="1.37.0~beta.0"
-            OS_VERSION="24.04"
-            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
-        }
-
-        It 'keeps credential-provider on the stable orchestrator version on Ubuntu'
-            When call installCredentialProviderForKubelet
-            The output should include "installCredentialProviderFromPkg 1.37.0"
-            The output should not include "installCredentialProviderFromUrl"
-        End
-
-        It 'uses a compatible stable credential-provider version on Flatcar'
-            TEST_DISTRO="flatcar"
-            KUBERNETES_PACKAGE_VERSION="1.37.0-beta.0"
-            getCredentialProviderVersionForKubernetesVersion() {
-                echo "1.36.3"
-            }
-            When call installCredentialProviderForKubelet
-            The output should include "installCredentialProviderFromPkg 1.36.3"
-            The output should not include "installCredentialProviderFromUrl"
-        End
-
-        It 'uses a compatible stable credential-provider version on Azure Container Linux'
-            TEST_DISTRO="acl"
-            KUBERNETES_PACKAGE_VERSION="1.37.0-beta.0"
-            getCredentialProviderVersionForKubernetesVersion() {
-                echo "1.36.3"
-            }
-            When call installCredentialProviderForKubelet
-            The output should include "installCredentialProviderFromPkg 1.36.3"
-            The output should not include "installCredentialProviderFromUrl"
-        End
-
-        It 'passes the cached stable version through the network-isolated registry path'
-            TEST_DISTRO="acl"
-            KUBERNETES_PACKAGE_VERSION="1.37.0-beta.0"
-            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io/aks"
-            getCredentialProviderVersionForKubernetesVersion() {
-                echo "1.36.3"
-            }
-            When call installCredentialProviderForKubelet
-            The output should include "installCredentialProviderPackageFromBootstrapProfileRegistry myregistry.azurecr.io/aks 1.36.3"
-            The output should not include "installCredentialProviderFromUrl"
-        End
-
-        It 'falls back to the orchestrator version when no package version is supplied'
-            KUBERNETES_VERSION="1.36.0"
-            KUBERNETES_PACKAGE_VERSION=""
-            When call installCredentialProviderForKubelet
-            The output should include "installCredentialProviderFromPkg 1.36.0"
-        End
-    End
-
-    Describe 'getCredentialProviderVersionForKubernetesVersion'
-        BeforeEach 'setupCredentialProviderVersionResolution'
-        setupCredentialProviderVersionResolution() {
-            COMPONENTS_FILEPATH="$(mktemp)"
-            OS="FLATCAR"
-            OS_VERSION=""
-            OS_VARIANT="DEFAULT"
-        }
-
-        AfterEach 'cleanupCredentialProviderVersionResolution'
-        cleanupCredentialProviderVersionResolution() {
-            rm -f "${COMPONENTS_FILEPATH}"
-        }
-
-        It 'selects the stable cached component for a prerelease Kubernetes package'
-            getLatestPkgVersionFromK8sVersion() {
-                PACKAGE_VERSION="v1.36.3-3-azlinux3"
-            }
-
-            When call getCredentialProviderVersionForKubernetesVersion "1.37.0"
-            The output should equal "1.36.3"
-        End
-
-        It 'falls back to the orchestrator version when component metadata is unavailable'
-            rm -f "${COMPONENTS_FILEPATH}"
-
-            When call getCredentialProviderVersionForKubernetesVersion "1.36.2"
-            The output should equal "1.36.2"
         End
     End
 

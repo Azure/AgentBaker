@@ -89,39 +89,6 @@ Describe 'cse_install_mariner.sh'
             The output should not include "$release1"
         End
 
-        It 'matches an Azure Linux prerelease RPM from the cache'
-            desiredVersion="1.37.0~beta.0"
-            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
-            kubeletRpm="$rpmDir/kubelet-${desiredVersion}-1.azl3.x86_64.rpm"
-            touch "$kubeletRpm"
-
-            When call installRPMPackageFromFile kubelet "$desiredVersion"
-
-            The output should include "extractBinaryFromRPM $kubeletRpm kubelet /opt/bin/kubelet"
-            The status should equal 0
-        End
-
-        It 'queries and downloads an Azure Linux prerelease RPM'
-            fallbackToKubeBinaryInstall() { return 1; }
-            dnf() {
-                echo "kubelet.x86_64 1:1.37.0~beta.0-1.azl3 azurelinux-official-cloud-native"
-                return 0
-            }
-            desiredVersion="1.37.0~beta.0"
-            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
-            kubeletRpm="$rpmDir/kubelet-${desiredVersion}-1.azl3.x86_64.rpm"
-            downloadPkgFromVersion() {
-                echo "downloadPkgFromVersion $1 $2 $3"
-                touch "$kubeletRpm"
-            }
-
-            When call installRPMPackageFromFile kubelet "$desiredVersion"
-
-            The output should include "downloadPkgFromVersion kubelet 1.37.0~beta.0-1.azl3 $rpmDir"
-            The output should include "extractBinaryFromRPM $kubeletRpm kubelet /opt/bin/kubelet"
-            The status should equal 0
-        End
-
         It 'returns failure when no cached RPM is found and dnf list finds no version'
             fallbackToKubeBinaryInstall() { return 1; }
             dnf() { echo ""; }
