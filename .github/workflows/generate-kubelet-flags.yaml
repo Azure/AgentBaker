@@ -5,15 +5,19 @@ on:
 jobs:
   generate-kubelet-flags:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     steps:
     - name: Set up containerd
-      uses: crazy-max/ghaction-setup-containerd@v2
-    - uses: actions/checkout@v7
+      uses: crazy-max/ghaction-setup-containerd@38de4052f2b7ab6094213e121851df6dbdfc6e56 # v2
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
     - name: Set up branch for kubelet flag changes
       run: |
         TIMESTAMP=$(date -d "${{ github.event.head_commit.timestamp }}" +'%Y-%m-%d-%H-%M-%S')
-        echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
-        git checkout -b kubeletFlags/$TIMESTAMP
+        echo "TIMESTAMP=$TIMESTAMP" >> "$GITHUB_ENV"
+        git checkout -b "kubeletFlags/$TIMESTAMP"
     - name: Generate valid kubelet flags per supported k8s versions
       run: |
         make generate-kubelet-flags
@@ -21,14 +25,15 @@ jobs:
       run: |
         git config --global user.email "aleldeib@microsoft.com"
         git config --global user.name "alexeldeib"
-        git remote set-url origin https://alexeldeib:$github_token@github.com/Azure/AgentBaker.git
+        git remote set-url origin "https://alexeldeib:${github_token}@github.com/Azure/AgentBaker.git"
         git add .
         git commit -m"feat: generate kubelet flags for supported versions in manifest.json"
-        git push -u origin kubeletFlags/${{ env.TIMESTAMP }} -f
+        git push -u origin "$BRANCH" -f
         curl \
           -X POST \
           https://api.github.com/repos/Azure/AgentBaker/pulls \
-          -d '{"head" : "'kubeletFlags/${{ env.TIMESTAMP }}'", "base" : "main", "title" : "bump: automated PR for updating kubelet flags files"}' \
+          -d "{\"head\" : \"${BRANCH}\", \"base\" : \"main\", \"title\" : \"bump: automated PR for updating kubelet flags files\"}" \
           -u "alexeldeib:$github_token"
       env:
         github_token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        BRANCH: kubeletFlags/${{ env.TIMESTAMP }}

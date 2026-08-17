@@ -411,6 +411,46 @@ func Test_AzureLinuxV3(t *testing.T) {
 	})
 }
 
+// Test_AzureLinuxV3Gen2Kata verifies that AgentBaker correctly bootstraps a Kata-enabled node.
+//
+// Kata Containers is a runtime, so the thing that can silently break is the containerd
+// configuration: pkg/agent/baker.go only emits the `kata` runtime handler blocks
+// when the agent pool's Distro satisfies Distro.IsKataDistro(). Selecting a Kata VHD here flows
+// through e2e/node_config.go -> AgentPoolProfile.Distro -> the IsKata template func, so this
+// scenario exercises that whole path against a real node.
+//
+// The scenario asserts three increasingly strong properties:
+//  1. the rendered /etc/containerd/config.toml contains the Kata runtime handlers and EROFS preamble,
+//  2. containerd actually parsed and loaded them (no warnings, handlers in `config dump`),
+//  3. for every handler in kataRuntimeHandlers, a pod scheduled via a Kata RuntimeClass runs
+//     and is genuinely VM-isolated.
+func Test_AzureLinuxV3Gen2Kata(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that an AzureLinuxV3 Gen2 Kata node is bootstrapped with working kata containerd runtime handlers, and can run VM-isolated pods via Kata RuntimeClasses",
+		Tags: Tags{
+			Kata: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2Kata,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Leave unattended upgrades on so that CSE's kata-specific opt-out branch is
+				// actually exercised, which ValidateKataHostReadiness asserts.
+				nbc.DisableUnattendedUpgrades = false
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateKataContainerdConfig(ctx, s)
+				ValidateKataErofsContainerdConfig(ctx, s)
+				ValidateKataContainerdConfigDump(ctx, s)
+				ValidateKataHostReadiness(ctx, s)
+				for _, handler := range kataRuntimeHandlers {
+					ValidateKataPodIsIsolated(ctx, s, handler)
+				}
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV3_CustomCA(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that an AzureLinuxV3 node can be properly bootstrapped with custom ca",
@@ -1626,6 +1666,76 @@ func Test_AzureLinuxV3_CustomSysctls(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
 				ValidateSysctlConfig(ctx, s, customSysctls)
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_CustomLinuxOSConfigPersistsAfterReboot(t *testing.T) {
+	customSysctls := map[string]string{
+		"net.ipv4.ip_local_port_range":       "32768 62535",
+		"net.netfilter.nf_conntrack_max":     "2097152",
+		"net.netfilter.nf_conntrack_buckets": "524288",
+		"net.ipv4.tcp_keepalive_intvl":       "90",
+	}
+	customContainerdUlimits := map[string]string{
+		"LimitMEMLOCK": "75000",
+		"LimitNOFILE":  "1048",
+	}
+	const (
+		swapFileSizeMB int32 = 64
+		thpEnabled           = "never"
+		thpDefrag            = "never"
+	)
+
+	RunScenario(t, &Scenario{
+		Description: "tests that AzureLinuxV3 custom Linux OS config persists after a node reboot",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
+					Sysctls: &datamodel.SysctlConfig{
+						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
+						NetNetfilterNfConntrackBuckets: to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
+						NetIpv4IpLocalPortRange:        customSysctls["net.ipv4.ip_local_port_range"],
+						NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
+					},
+					UlimitConfig: &datamodel.UlimitConfig{
+						MaxLockedMemory: customContainerdUlimits["LimitMEMLOCK"],
+						NoFile:          customContainerdUlimits["LimitNOFILE"],
+					},
+					SwapFileSizeMB:             to.Ptr(swapFileSizeMB),
+					TransparentHugePageEnabled: thpEnabled,
+					TransparentHugePageDefrag:  thpDefrag,
+				}
+				nbc.AgentPoolProfile.CustomKubeletConfig = &datamodel.CustomKubeletConfig{
+					FailSwapOn: to.Ptr(false),
+				}
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOsConfig{
+					SysctlConfig: &aksnodeconfigv1.SysctlConfig{
+						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
+						NetNetfilterNfConntrackBuckets: to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
+						NetIpv4IpLocalPortRange:        to.Ptr(customSysctls["net.ipv4.ip_local_port_range"]),
+						NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
+					},
+					UlimitConfig: &aksnodeconfigv1.UlimitConfig{
+						MaxLockedMemory: to.Ptr(customContainerdUlimits["LimitMEMLOCK"]),
+						NoFile:          to.Ptr(customContainerdUlimits["LimitNOFILE"]),
+					},
+					EnableSwapConfig:           true,
+					SwapFileSize:               swapFileSizeMB,
+					TransparentHugepageSupport: thpEnabled,
+					TransparentDefrag:          thpDefrag,
+				}
+				config.KubeletConfig.EnableKubeletConfigFile = true
+				config.KubeletConfig.KubeletConfigFileConfig.FailSwapOn = to.Ptr(false)
+			},
+			WaitForSSHAfterReboot: 10 * time.Minute,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateCustomLinuxOSConfigPersistsAfterReboot(ctx, s, customSysctls, customContainerdUlimits, swapFileSizeMB, thpEnabled, thpDefrag)
 			},
 		},
 	})

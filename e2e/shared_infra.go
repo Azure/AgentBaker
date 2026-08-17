@@ -331,6 +331,7 @@ func ensureSharedBastion(ctx context.Context, rg, location string) (string, erro
 		},
 		Properties: &armnetwork.BastionHostPropertiesFormat{
 			EnableTunneling: to.Ptr(true),
+			EnableIPConnect: to.Ptr(true),
 			IPConfigurations: []*armnetwork.BastionHostIPConfiguration{
 				{
 					Name: to.Ptr("bastion-ipcfg"),

@@ -14,9 +14,230 @@ check_hosts_file_permissions() {
     stat -c '%a' "$AKS_LOCALDNS_HOSTS_FILE"
 }
 
+check_test_fstab_permissions() {
+    printf "0%s" "$(getFileMode "$TEST_FSTAB_FILE")"
+}
+
 Describe 'cse_config.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+
+    Describe 'configureTransparentHugePageSystemdService'
+        setup_thp_service() {
+            THP_ENABLED="never"
+            THP_DEFRAG="madvise"
+            unset FAIL_MKDIR FAIL_TEE_PATH FAIL_CHMOD FAIL_DAEMON_RELOAD FAIL_SYSTEMCTL_ENABLE
+        }
+
+        cleanup_thp_service() {
+            unset THP_ENABLED THP_DEFRAG FAIL_MKDIR FAIL_TEE_PATH CAPTURE_TEE_PATH FAIL_CHMOD FAIL_DAEMON_RELOAD FAIL_SYSTEMCTL_ENABLE
+        }
+
+        mkdir() {
+            echo "mkdir $*"
+            [ "${FAIL_MKDIR:-}" = "true" ] && return 1
+            return 0
+        }
+
+        tee() {
+            if [ "${1:-}" = "${FAIL_TEE_PATH:-__none__}" ]; then
+                return 1
+            fi
+            if [ "${1:-}" = "${CAPTURE_TEE_PATH:-__none__}" ]; then
+                cat >&2
+                return 0
+            fi
+            cat > /dev/null
+        }
+
+        chmod() {
+            echo "chmod $*"
+            [ "${FAIL_CHMOD:-}" = "true" ] && return 1
+            return 0
+        }
+
+        systemctl() {
+            echo "systemctl $*"
+            [ "${1:-}" = "daemon-reload" ] && [ "${FAIL_DAEMON_RELOAD:-}" = "true" ] && return 1
+            return 0
+        }
+
+        systemctlEnableAndStart() {
+            echo "systemctlEnableAndStart $*"
+            [ "${FAIL_SYSTEMCTL_ENABLE:-}" = "true" ] && return 1
+            return 0
+        }
+
+        BeforeEach 'setup_thp_service'
+        AfterEach 'cleanup_thp_service'
+
+        It 'writes helper files, reloads systemd, and enables the service'
+            When run configureTransparentHugePageSystemdService
+
+            The status should be success
+            The output should include "mkdir -p /opt/azure/containers /opt/azure/containers/aks-transparent-hugepage"
+            The output should include "chmod 0755 /opt/azure/containers/aks-transparent-hugepage.sh"
+            The output should include "systemctl daemon-reload"
+            The output should include "systemctlEnableAndStart aks-transparent-hugepage 30"
+        End
+
+        It 'exits when helper directory creation fails'
+            FAIL_MKDIR="true"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSCTL_RELOAD"
+            The output should include "mkdir -p /opt/azure/containers"
+            The output should not include "chmod"
+            The output should not include "systemctl daemon-reload"
+        End
+
+        It 'exits when helper script write fails'
+            FAIL_TEE_PATH="/opt/azure/containers/aks-transparent-hugepage.sh"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSCTL_RELOAD"
+            The output should include "mkdir -p /opt/azure/containers"
+            The output should not include "chmod"
+            The output should not include "systemctl daemon-reload"
+        End
+
+        It 'exits when helper script chmod fails'
+            FAIL_CHMOD="true"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSCTL_RELOAD"
+            The output should include "chmod 0755 /opt/azure/containers/aks-transparent-hugepage.sh"
+            The output should not include "systemctl daemon-reload"
+        End
+
+        It 'exits when service unit write fails'
+            FAIL_TEE_PATH="/etc/systemd/system/aks-transparent-hugepage.service"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSCTL_RELOAD"
+            The output should include "chmod 0755 /opt/azure/containers/aks-transparent-hugepage.sh"
+            The output should not include "systemctl daemon-reload"
+        End
+
+        It 'exits when systemd daemon reload fails'
+            FAIL_DAEMON_RELOAD="true"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSTEMCTL_START_FAIL"
+            The output should include "systemctl daemon-reload"
+            The output should not include "systemctlEnableAndStart"
+        End
+
+        It 'does not embed raw THP values in the generated helper script'
+            THP_ENABLED='never"; touch /tmp/aks-thp-injection #'
+            CAPTURE_TEE_PATH="/opt/azure/containers/aks-transparent-hugepage.sh"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should be success
+            The output should include "systemctlEnableAndStart aks-transparent-hugepage 30"
+            The error should include 'cat "${thp_enabled_config}" > /sys/kernel/mm/transparent_hugepage/enabled'
+            The error should not include "touch /tmp/aks-thp-injection"
+        End
+    End
+
+    Describe 'swapFileIsActive'
+        swapon() {
+            if [ "$*" != "--show --noheadings" ]; then
+                return 1
+            fi
+            printf '%b' "${SWAPON_OUTPUT}"
+        }
+
+        It 'matches an active swap file when swapon output has leading whitespace'
+            SWAPON_OUTPUT='    /swapfile\n'
+
+            When call swapFileIsActive "/swapfile"
+            The status should be success
+        End
+
+        It 'matches only the exact swap file path'
+            SWAPON_OUTPUT='    /swapfile-extra\n'
+
+            When call swapFileIsActive "/swapfile"
+            The status should be failure
+        End
+    End
+
+    Describe 'ensureSwapFileFstabEntry'
+        setup() {
+            TEST_FSTAB_DIR="$(mktemp -d)"
+            TEST_FSTAB_FILE="${TEST_FSTAB_DIR}/fstab"
+            : > "${TEST_FSTAB_FILE}"
+        }
+
+        cleanup() {
+            rm -rf "${TEST_FSTAB_DIR}"
+            unset TEST_FSTAB_FILE
+            unset TEST_FSTAB_DIR
+            unset FAIL_MV
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        mv() {
+            if [ "${FAIL_MV:-false}" = "true" ]; then
+                return 1
+            fi
+
+            command mv "$@"
+        }
+
+        It 'replaces existing fstab entries for the same swap file'
+            chmod 0644 "${TEST_FSTAB_FILE}"
+            printf '/swapfile none swap sw 0 0\n/other none swap sw 0 0\n/swapfile none swap defaults 0 0\n' > "${TEST_FSTAB_FILE}"
+            expected_fstab='/other none swap sw 0 0
+/swapfile none swap noauto,nofail 0 0'
+
+            When call ensureSwapFileFstabEntry "/swapfile" "${TEST_FSTAB_FILE}"
+
+            The status should be success
+            The contents of file "${TEST_FSTAB_FILE}" should equal "${expected_fstab}"
+        End
+
+        It 'preserves the fstab file mode when replacing entries'
+            chmod 0640 "${TEST_FSTAB_FILE}"
+            printf '/other none swap sw 0 0\n' > "${TEST_FSTAB_FILE}"
+
+            When call ensureSwapFileFstabEntry "/swapfile" "${TEST_FSTAB_FILE}"
+
+            The status should be success
+            The path "${TEST_FSTAB_FILE}" should be file
+            The result of function check_test_fstab_permissions should equal "0640"
+        End
+
+        It 'keeps one canonical fstab entry when it already exists'
+            printf '/other none swap sw 0 0\n/swapfile none swap noauto,nofail 0 0\n' > "${TEST_FSTAB_FILE}"
+            expected_fstab='/other none swap sw 0 0
+/swapfile none swap noauto,nofail 0 0'
+
+            When call ensureSwapFileFstabEntry "/swapfile" "${TEST_FSTAB_FILE}"
+
+            The status should be success
+            The contents of file "${TEST_FSTAB_FILE}" should equal "${expected_fstab}"
+        End
+
+        It 'leaves the existing fstab untouched when atomic replace fails'
+            printf '/other none swap sw 0 0\n' > "${TEST_FSTAB_FILE}"
+            FAIL_MV=true
+
+            When call ensureSwapFileFstabEntry "/swapfile" "${TEST_FSTAB_FILE}"
+
+            The status should be failure
+            The contents of file "${TEST_FSTAB_FILE}" should equal '/other none swap sw 0 0'
+        End
+    End
 
     Describe 'logGPUDriverPrebakeReadiness'
         It 'reports marker_present=false when no prebake marker exists'
@@ -71,6 +292,70 @@ Describe 'cse_config.sh'
             The output should include "marker_present=true"
             The output should include "driver_kind_match=false"
             rm -f "$marker"
+        End
+    End
+
+    Describe 'ensureArtifactStreaming'
+        # ensureArtifactStreaming enables the acr-mirror/overlaybd services and then
+        # runs the version-appropriate enablement path:
+        #   - acr-mirror 1.0.0+ -> setup.sh aks
+        #   - older packages    -> acr-config --enable-containerd
+        # The enablement binary paths are overridable (ACR_MIRROR_SETUP_SCRIPT /
+        # ACR_CONFIG_BIN), so the stubs live in a temp dir instead of mutating /opt.
+        setup_streaming() {
+            TEST_ACR_DIR="$(mktemp -d)"
+            ACR_MIRROR_SETUP_SCRIPT="${TEST_ACR_DIR}/setup.sh"
+            ACR_CONFIG_BIN="${TEST_ACR_DIR}/acr-config"
+        }
+        cleanup_streaming() {
+            rm -rf "${TEST_ACR_DIR}"
+        }
+        BeforeEach 'setup_streaming'
+        AfterEach 'cleanup_streaming'
+
+        waitForContainerdReady() {
+            return 0
+        }
+        systemctl() {
+            echo "systemctl $@"
+        }
+        retrycmd_if_failure() {
+            echo "retrycmd_if_failure $@"
+            return "${RETRYCMD_RC:-0}"
+        }
+
+        install_setup_sh() {
+            printf '#!/bin/sh\necho "setup.sh $@"\n' > "${ACR_MIRROR_SETUP_SCRIPT}"
+            chmod +x "${ACR_MIRROR_SETUP_SCRIPT}"
+        }
+        install_acr_config() {
+            printf '#!/bin/sh\necho "acr-config $@"\n' > "${ACR_CONFIG_BIN}"
+            chmod +x "${ACR_CONFIG_BIN}"
+        }
+
+        It 'uses setup.sh aks when acr-mirror 1.0.0+ is installed'
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should include "setup.sh aks"
+            The output should not include "Older acr-mirror package"
+            The status should be success
+        End
+
+        It 'falls back to acr-config enablement when setup.sh is absent (older package)'
+            install_acr_config
+            When run ensureArtifactStreaming
+            The output should include "Older acr-mirror package is detected"
+            The output should include "acr-config --enable-containerd azurecr.io"
+            The status should be success
+        End
+
+        It 'fails fast when enabling the streaming services fails'
+            RETRYCMD_RC=1
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should include "retrycmd_if_failure"
+            The output should not include "setup.sh aks"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
         End
     End
 
@@ -1119,6 +1404,7 @@ PubkeyAuthentication no"
             API_SERVER_NAME=""
             AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX=""
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
+            MCR_REPOSITORY_BASE=""
         }
         cleanup() {
             rm -rf "$TMP_DIR"
@@ -1177,7 +1463,7 @@ providers:
       - /etc/kubernetes/azure.json
       - --registry-mirror=mcr.microsoft.com:test.azurecr.io'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider for network isolated cluster"
+            The output should include "configure credential provider with default settings"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
@@ -1201,6 +1487,34 @@ providers:
     apiVersion: credentialprovider.kubelet.k8s.io/v1
     args:
       - /etc/kubernetes/azure.json'
+            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
+            The output should include "configure credential provider for custom cloud"
+            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
+        End
+
+        It 'should configure credential provider for custom cloud network isolated cluster'
+            AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX=".custom.registry.io"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="test.azurecr.io"
+            expected_config='apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+      - "*.*.geo.azurecr.io"
+      - "*.*.geo.azurecr.cn"
+      - "*.*.geo.azurecr.de"
+      - "*.*.geo.azurecr.us"
+      - "*.custom.registry.io"
+      - "mcr.microsoft.com"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json
+      - --registry-mirror=mcr.microsoft.com:test.azurecr.io'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
             The output should include "configure credential provider for custom cloud"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
@@ -1391,7 +1705,7 @@ providers:
       - --ib-default-tenant-id=my-tenant-id
       - --ib-apiserver-ip=apiserver.example.com'
             When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider for network isolated cluster"
+            The output should include "configure credential provider with default settings"
             The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
         End
 
@@ -1984,6 +2298,103 @@ OVERRIDE_EOF
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
             The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS=--aad-resource=custom-resource --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json --user-assigned-identity-id=custom-identity-id --validate-kubeconfig-timeout=custom-validate-kubeconfig-timeout --get-access-token-timeout=custom-get-access-token-timeout --get-instance-data-timeout=custom-get-instance-data-timeout --get-nonce-timeout=custom-get-nonce-timeout --get-attested-data-timeout=custom-get-attested-data-timeout --get-credential-timeout=custom-get-credential-timeout'
             The status should be success
+        End
+    End
+
+    Describe 'ensureKubelet credential provider installation gate'
+        logs_to_events() {
+            echo "logs_to_events $1 $2"
+            eval "$2"
+        }
+
+        BeforeEach 'setup_ensure_kubelet'
+        AfterEach 'cleanup_ensure_kubelet'
+        setup_ensure_kubelet() {
+            mkdir -p /opt/azure/containers
+            KUBELET_FLAGS="--image-credential-provider-config=/etc/kubernetes/credential-provider-config.yaml --image-credential-provider-bin-dir=/var/lib/kubelet/credential-provider"
+            NETWORK_POLICY=""
+            KUBELET_IMAGE=""
+            KUBELET_NODE_LABELS=""
+            AZURE_ENVIRONMENT_FILEPATH=""
+            API_SERVER_NAME="example.invalid"
+            ENABLE_IMDS_RESTRICTION="false"
+            INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE="false"
+            SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
+            KUBE_RESERVED_CGROUP=""
+            SYSTEM_RESERVED_CGROUP=""
+        }
+
+        cleanup_ensure_kubelet() {
+            rm -f /etc/default/kubelet /var/lib/kubelet/kubeconfig /var/lib/kubelet/bootstrap-kubeconfig \
+                /opt/azure/containers/kubelet.sh /opt/azure/containers/tls-bootstrap-start-time \
+                /etc/systemd/system/kubelet.service.d/10-{watchdog,credential-validation,tlsbootstrap,ensure-imds-restriction,containerd-base-flag}.conf
+        }
+
+        setKubeletNodeIPFlag() { :; }
+        getPrimaryNicIP() { echo "10.0.0.4"; }
+        configCredentialProvider() { :; }
+        resolveKubeletReservedCgroups() { :; }
+        systemctl() { :; }
+        systemctlEnableAndStartNoBlock() { :; }
+        tee() { cat > /dev/null; }
+
+        # ensureKubelet enables xtrace mid-function and never restores it, so the
+        # trace would leak onto ShellSpec's stderr and fail the example. Wrap the
+        # call to discard that trace and restore set +x before returning.
+        invoke_ensure_kubelet() {
+            ensureKubelet 2>/dev/null
+            { local rc=$?; set +x; } 2>/dev/null
+            return "$rc"
+        }
+
+        Describe 'on Ubuntu'
+            OS="UBUNTU"
+            Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
+            Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
+
+            It 'installs the credential provider from URL below Kubernetes 1.33'
+                installCredentialProviderFromUrl() { echo "installCredentialProviderFromUrl"; }
+                installCredentialProviderFromPkg() { echo "installCredentialProviderFromPkg $1"; }
+                KUBERNETES_VERSION="1.32.99"
+
+                When call invoke_ensure_kubelet
+
+                The output should include "installCredentialProviderFromUrl"
+                The output should not include "installCredentialProviderFromPkg"
+                The status should be success
+            End
+
+            It 'installs the credential provider from PMC at Kubernetes 1.33'
+                installCredentialProviderFromUrl() { echo "installCredentialProviderFromUrl"; }
+                installCredentialProviderFromPkg() { echo "installCredentialProviderFromPkg $1"; }
+                KUBERNETES_VERSION="1.33.0"
+
+                When call invoke_ensure_kubelet
+
+                The output should include "installCredentialProviderFromPkg 1.33.0"
+                The output should not include "installCredentialProviderFromUrl"
+                The status should be success
+            End
+        End
+
+        Describe 'on Azure Linux'
+            OS="AZURELINUX"
+            OS_VERSION="3.0"
+            Include "./parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
+            Include "./parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
+
+            It 'installs the credential provider from PMC at Kubernetes 1.33'
+                installCredentialProviderFromUrl() { echo "installCredentialProviderFromUrl"; }
+                installCredentialProviderFromPkg() { echo "installCredentialProviderFromPkg $1"; }
+                KUBERNETES_VERSION="1.33.0"
+
+                When call invoke_ensure_kubelet
+
+                The output should include "installCredentialProviderFromPkg 1.33.0"
+                The output should not include "installCredentialProviderFromUrl"
+                The status should be success
+            End
         End
     End
 
@@ -2607,6 +3018,67 @@ OVERRIDE_EOF
         End
     End
 
+    Describe 'nvidia-cdi-refresh handling'
+        setup_cdi_dropin() {
+            CDI_TEST_DIR=$(mktemp -d)
+            NVIDIA_CDI_REFRESH_DROP_IN="${CDI_TEST_DIR}/nvidia-cdi-refresh.service.d/10-aks-tolerate-generate-failure.conf"
+        }
+        cleanup_cdi_dropin() {
+            rm -rf "${CDI_TEST_DIR}"
+        }
+        BeforeEach 'setup_cdi_dropin'
+        AfterEach 'cleanup_cdi_dropin'
+
+        Describe 'configureNvidiaCDIRefresh'
+            It 'treats the known nvidia-ctk failures as success and reloads systemd'
+                systemctl() { echo "systemctl $*"; return 0; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be success
+                The output should include "systemctl daemon-reload"
+                # 1 = MIG mode enabled with no MIG instances, 2 = nvidia-ctk panic before the
+                # driver userspace is ready, 127 = nvidia-smi missing on pre-reorder aks-gpu images.
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should include "[Service]"
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should include "SuccessExitStatus=1 2 127"
+            End
+
+            It 'keeps the units restartable so the .path trigger can still refresh the spec'
+                systemctl() { return 0; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be success
+                # Overriding Restart= or the start limit would suppress the toolkit's own retry and
+                # its path-triggered refresh, which is what eventually generates a valid spec once
+                # the driver is fully installed.
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should not include "Restart="
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should not include "StartLimit"
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should not include "ExecCondition"
+            End
+
+            It 'still installs the drop-in when systemd cannot be reloaded'
+                # Drop-ins are read when the unit is first loaded, which happens after the toolkit
+                # post-install runs its own daemon-reload, so this reload is only belt and braces.
+                systemctl() { return 1; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be success
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should include "SuccessExitStatus=1 2 127"
+            End
+
+            It 'fails when the drop-in directory cannot be created'
+                systemctl() { return 0; }
+                mkdir() { return 1; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be failure
+            End
+        End
+    End
+
     Describe 'configGPUDrivers'
         # Assert the per-step CSE timing event names emitted via logs_to_events,
         # without running the real (hardware/daemon) driver steps. logs_to_events
@@ -2622,6 +3094,7 @@ OVERRIDE_EOF
         createNvidiaSymlinkToAllDeviceNodes() { return 0; }
         systemctlEnableAndStart() { return 0; }
         systemctl() { return 0; }
+        configureNvidiaCDIRefresh() { return 0; }
 
         UBUNTU_OS_NAME="UBUNTU"
         NVIDIA_DRIVER_IMAGE="mcr.example/nvidia/driver"
@@ -2643,6 +3116,43 @@ OVERRIDE_EOF
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverImage"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.configureNvidiaCDIRefresh"
+        End
+
+        It 'installs the CDI refresh drop-in before the driver install runs on Ubuntu'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            # eval so the string-form wrapped commands (e.g. "retrycmd_if_failure ... nvidia-smi")
+            # resolve to their mocks instead of being treated as one command name.
+            logs_to_events() { shift; eval "$@"; }
+            NVIDIA_DRIVER_IMAGE_PULL_REF="mcr.example/nvidia/driver"
+            configureNvidiaCDIRefresh() { echo "CONFIGURE_RAN"; return 0; }
+            installGPUDriverImage() { echo "INSTALL_RAN"; return 0; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            # The toolkit starts nvidia-cdi-refresh from inside the install container, so the
+            # drop-in must already be on disk by then.
+            The line 1 of output should equal "CONFIGURE_RAN"
+            The output should include "INSTALL_RAN"
+        End
+
+        It 'exits without installing the driver when the CDI drop-in cannot be installed'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            logs_to_events() { shift; eval "$@"; }
+            configureNvidiaCDIRefresh() { return 1; }
+            installGPUDriverImage() { echo "INSTALL_RAN"; return 0; }
+
+            When run configGPUDrivers
+
+            The status should equal 88
+            The output should not include "INSTALL_RAN"
         End
 
         It 'exits at the cache-miss pull step and skips install when the pull fails on Ubuntu'
@@ -2707,36 +3217,36 @@ OVERRIDE_EOF
         ERR_PULL_POD_INFRA_CONTAINER_IMAGE=1
 
         It 'should use MCR_REPOSITORY_BASE for image replacement when set'
-            get_sandbox_image() { echo "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.1"; }
+            get_sandbox_image() { echo "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.2"; }
             MCR_REPOSITORY_BASE="mcr.microsoft.us"
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
 
             When call ensurePodInfraContainerImage
 
             The status should be success
-            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.2"
         End
 
         It 'should fall back to mcr.microsoft.com when MCR_REPOSITORY_BASE is unset'
-            get_sandbox_image() { echo "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1"; }
+            get_sandbox_image() { echo "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2"; }
             MCR_REPOSITORY_BASE=""
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
 
             When call ensurePodInfraContainerImage
 
             The status should be success
-            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.2"
         End
 
         It 'should handle MCR_REPOSITORY_BASE with trailing slash'
-            get_sandbox_image() { echo "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.1"; }
+            get_sandbox_image() { echo "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.2"; }
             MCR_REPOSITORY_BASE="mcr.microsoft.us/"
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
 
             When call ensurePodInfraContainerImage
 
             The status should be success
-            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.2"
         End
     End
 
@@ -2851,6 +3361,146 @@ EOF
             The output should include 'dcgm-exporter'
             The output should include 'dra-driver-nvidia-gpu'
             The output should not include 'nvidia-device-plugin'
+        End
+    End
+
+    Describe 'configureSwapFile'
+        SWAP_FILE_SIZE_MB=1
+
+        function [ {
+            if test "$1" = "-L" && test "$2" = "/dev/disk/azure/resource-part1"; then
+                return 0
+            fi
+            local last_arg=""
+            for last_arg in "$@"; do :; done
+            if test "${last_arg}" = "]"; then
+                command [ "$@"
+            else
+                command [ "$@" ]
+            fi
+        }
+
+        readlink() {
+            case "$2" in
+                /dev/disk/azure/resource-part1) echo "/dev/sdb1" ;;
+                /dev/disk/azure/root) echo "/dev/sda1" ;;
+            esac
+        }
+
+        retrycmd_if_failure() {
+            echo "retrycmd_if_failure $*"
+        }
+
+        chmod() {
+            echo "chmod $*"
+        }
+
+        swapFileIsActive() {
+            echo "swapFileIsActive $1"
+        }
+
+        reconcileSwapFilePersistence() {
+            echo "reconcileSwapFilePersistence $1"
+        }
+
+        It 'falls back to OS disk when resource disk mountpoint cannot be determined'
+            findmnt() {
+                return 1
+            }
+            df() {
+                printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda1 1000000 0 1000000 0%% /\n'
+            }
+
+            When call configureSwapFile
+
+            The status should be success
+            The output should include "Could not determine resource disk mountpoint, attempting to fall back to OS disk..."
+            The output should include "Will use OS disk for swap file"
+            The output should include "Swap file will be saved to: /swapfile"
+            The output should include "reconcileSwapFilePersistence /swapfile"
+        End
+
+        It 'falls back to OS disk when resource disk free space cannot be determined'
+            findmnt() {
+                echo "/mnt/resource"
+            }
+            df() {
+                case "$2" in
+                    /mnt/resource)
+                        printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n'
+                        ;;
+                    /)
+                        printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda1 1000000 0 1000000 0%% /\n'
+                        ;;
+                esac
+            }
+
+            When call configureSwapFile
+
+            The status should be success
+            The output should include "Could not determine free space on resource disk, attempting to fall back to OS disk..."
+            The output should include "Will use OS disk for swap file"
+            The output should include "Swap file will be saved to: /swapfile"
+            The output should include "reconcileSwapFilePersistence /swapfile"
+        End
+    End
+
+    Describe 'reconcileSwapFilePersistence'
+        findExistingSwapFileLocation() {
+            return 1
+        }
+
+        configureSwapFile() {
+            echo "createSwapFile"
+        }
+
+        ensureSwapFileFstabEntry() {
+            echo "ensureSwapFileFstabEntry $1"
+        }
+
+        configureSwapFileSystemdService() {
+            echo "configureSwapFileSystemdService $1"
+        }
+
+        It 'creates the requested swap file when no existing swap file is present'
+            When call reconcileSwapFilePersistence
+
+            The status should be success
+            The output should include "No existing AKS swap file found; creating swap file for persistence reconciliation"
+            The output should include "createSwapFile"
+            The output should not include "ensureSwapFileFstabEntry"
+            The output should not include "configureSwapFileSystemdService"
+        End
+
+        It 'reconciles persistence for an existing swap file without recreating it'
+            When call reconcileSwapFilePersistence "/swapfile"
+
+            The status should be success
+            The output should include "ensureSwapFileFstabEntry /swapfile"
+            The output should include "configureSwapFileSystemdService /swapfile"
+            The output should not include "createSwapFile"
+        End
+
+        It 'exits when fstab reconciliation fails'
+            ensureSwapFileFstabEntry() {
+                return 1
+            }
+
+            When run reconcileSwapFilePersistence "/swapfile"
+
+            The status should equal "$ERR_SWAP_CREATE_FAIL"
+            The output should not include "configureSwapFileSystemdService"
+        End
+
+        It 'exits when swap systemd service reconciliation fails'
+            configureSwapFileSystemdService() {
+                return 1
+            }
+
+            When run reconcileSwapFilePersistence "/swapfile"
+
+            The status should equal "$ERR_SWAP_CREATE_FAIL"
+            The output should include "ensureSwapFileFstabEntry /swapfile"
         End
     End
 End

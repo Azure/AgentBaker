@@ -250,7 +250,7 @@ func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, fil
 
 func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[string]string) {
 	s.T.Helper()
-	keysToCheck := make([]string, len(customSysctls))
+	keysToCheck := make([]string, 0, len(customSysctls))
 	for k := range customSysctls {
 		keysToCheck = append(keysToCheck, k)
 	}
@@ -258,10 +258,104 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 		"set -ex",
 		fmt.Sprintf("sudo sysctl %s | sed -E 's/([0-9])\\s+([0-9])/\\1 \\2/g'", strings.Join(keysToCheck, " ")),
 	}
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "systmctl command failed")
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "sysctl command failed")
 	for name, value := range customSysctls {
 		require.Contains(s.T, execResult.stdout, fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not.\nStdout:\n%s", name, value, execResult.stdout)
 	}
+}
+
+func ValidateCustomLinuxOSConfigPersistsAfterReboot(ctx context.Context, s *Scenario, customSysctls map[string]string, customContainerdUlimits map[string]string, swapFileSizeMB int32, thpEnabled, thpDefrag string) {
+	s.T.Helper()
+	validateCustomLinuxOSConfig(ctx, s, customSysctls, customContainerdUlimits, swapFileSizeMB, thpEnabled, thpDefrag)
+	RebootVMAndWaitForSSH(ctx, s)
+	validateCustomLinuxOSConfig(ctx, s, customSysctls, customContainerdUlimits, swapFileSizeMB, thpEnabled, thpDefrag)
+}
+
+func validateCustomLinuxOSConfig(ctx context.Context, s *Scenario, customSysctls map[string]string, customContainerdUlimits map[string]string, swapFileSizeMB int32, thpEnabled, thpDefrag string) {
+	s.T.Helper()
+	ValidateSysctlConfig(ctx, s, customSysctls)
+	ValidateUlimitSettings(ctx, s, customContainerdUlimits)
+	ValidateSwapFileConfig(ctx, s, swapFileSizeMB)
+	ValidateTransparentHugePageConfig(ctx, s, thpEnabled, thpDefrag)
+}
+
+func ValidateTransparentHugePageConfig(ctx context.Context, s *Scenario, thpEnabled, thpDefrag string) {
+	s.T.Helper()
+	command := []string{"set -ex"}
+	if thpEnabled != "" {
+		command = append(command,
+			"cat /sys/kernel/mm/transparent_hugepage/enabled",
+			fmt.Sprintf("grep -Fq '[%s]' /sys/kernel/mm/transparent_hugepage/enabled", thpEnabled),
+		)
+	}
+	if thpDefrag != "" {
+		command = append(command,
+			"cat /sys/kernel/mm/transparent_hugepage/defrag",
+			fmt.Sprintf("grep -Fq '[%s]' /sys/kernel/mm/transparent_hugepage/defrag", thpDefrag),
+		)
+	}
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "transparent huge page configuration did not match expected values")
+}
+
+func ValidateSwapFileConfig(ctx context.Context, s *Scenario, swapFileSizeMB int32) {
+	s.T.Helper()
+	if swapFileSizeMB <= 0 {
+		return
+	}
+
+	command := []string{
+		"set -ex",
+		"swapon --show --bytes",
+		"swap_file=$(awk '$3 == \"swap\" {print $1; exit}' /etc/fstab)",
+		"test -n \"${swap_file}\"",
+		"swapon --show --bytes | grep -F \"${swap_file}\"",
+		fmt.Sprintf("expected_bytes=$((%d * 1000 * 1000))", swapFileSizeMB),
+		"actual_bytes=$(stat -c %s \"${swap_file}\")",
+		"test \"${actual_bytes}\" -ge \"${expected_bytes}\"",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "swap file configuration did not match expected values")
+}
+
+func RebootVMAndWaitForSSH(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	beforeRebootBootID := strings.TrimSpace(execScriptOnVMForScenarioValidateExitCode(ctx, s, "cat /proc/sys/kernel/random/boot_id", 0, "could not read boot ID before reboot").stdout)
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo nohup sh -c 'sleep 1; systemctl reboot' >/dev/null 2>&1 &", 0, "failed to trigger VM reboot")
+	cleanupBastionTunnel(s.Runtime.VM.SSHClient)
+	s.Runtime.VM.SSHClient = nil
+
+	waitTimeout := s.Config.WaitForSSHAfterReboot
+	if waitTimeout == 0 {
+		waitTimeout = 10 * time.Minute
+	}
+
+	err := wait.PollUntilContextTimeout(ctx, 15*time.Second, waitTimeout, true, func(ctx context.Context) (bool, error) {
+		sshClient, err := DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, s.Runtime.VM.PrivateIP, config.VMSSHPrivateKey)
+		if err != nil {
+			s.T.Logf("waiting for SSH after reboot: %v", err)
+			return false, nil
+		}
+
+		bootIDCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		execResult, err := runSSHCommand(bootIDCtx, sshClient, "cat /proc/sys/kernel/random/boot_id", s.IsWindows())
+		cancel()
+		if err != nil {
+			cleanupBastionTunnel(sshClient)
+			s.T.Logf("waiting for boot ID after reboot: %v", err)
+			return false, nil
+		}
+
+		afterRebootBootID := strings.TrimSpace(execResult.stdout)
+		if afterRebootBootID == "" || afterRebootBootID == beforeRebootBootID {
+			cleanupBastionTunnel(sshClient)
+			s.T.Logf("waiting for VM reboot to complete: boot ID is still %q", afterRebootBootID)
+			return false, nil
+		}
+
+		s.Runtime.VM.SSHClient = sshClient
+		return true, nil
+	})
+	require.NoError(s.T, err, "timed out waiting for VM to reboot and accept SSH")
 }
 
 // ValidateNetworkInterfaceConfig validates network interface configuration settings using ethtool.
@@ -1170,6 +1264,21 @@ func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []
 
 	ValidateInstalledPackageVersion(ctx, s, "moby-containerd", versions[0])
 
+	// TODO: this assertion never actually runs and always passes vacuously.
+	//
+	// execOnVMForScenarioOnUnprivilegedPod executes inside the "debugnonhost" daemonset pod,
+	// which runs a bare mcr.microsoft.com/cbl-mariner/base/core:2.0 image with no volume mounts
+	// (see daemonsetDebug in e2e/kube.go). The host filesystem is not mounted into it, so the
+	// containerd binary is unreachable and the command exits 127 with an empty stdout and
+	// "command not found" on stderr. attemptExecOnPod treats a non-zero exit as a successful
+	// exec, so no error surfaces, and the NotContains check below then trivially passes against
+	// an empty string.
+	//
+	// Two changes are needed: run this on the node via execScriptOnVMForScenarioValidateExitCode
+	// (as ValidateKataContainerdConfigDump in validators_kata.go now does), and check stderr as
+	// well as stdout, since containerd logs its warnings to stderr. Fixing it is likely to
+	// surface real warnings at the 11 call sites that use this validator, so it is left as a
+	// follow-up rather than folded into an unrelated change.
 	execResult := execOnVMForScenarioOnUnprivilegedPod(ctx, s, "containerd config dump ")
 	// validate containerd config dump has no warnings
 	require.NotContains(s.T, execResult.stdout, "level=warning", "do not expect warning message when converting config file %", execResult.stdout)
@@ -1426,6 +1535,27 @@ func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) {
 func ValidateKubeletArgs(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt", "--windows-priorityclass=ABOVE_NORMAL_PRIORITY_CLASS"})
+}
+
+// ValidateContainerdWindowsPriorityClass verifies that the containerd service is registered
+// with nssm's AppPriority set to ABOVE_NORMAL_PRIORITY_CLASS, and that the running containerd
+// process actually has that OS process priority class applied.
+func ValidateContainerdWindowsPriorityClass(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	nssmCommand := strings.Join([]string{
+		"$ErrorActionPreference = 'Stop'",
+		"& \"c:\\k\\nssm.exe\" get containerd AppPriority",
+	}, "\n")
+	nssmResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, nssmCommand, 0, "could not read containerd AppPriority from nssm")
+	require.Equal(s.T, "ABOVE_NORMAL_PRIORITY_CLASS", strings.TrimSpace(nssmResult.stdout), "expected containerd nssm service to be configured with AppPriority=ABOVE_NORMAL_PRIORITY_CLASS")
+
+	processCommand := strings.Join([]string{
+		"$ErrorActionPreference = 'Stop'",
+		"(Get-Process -Name containerd -ErrorAction Stop | Select-Object -First 1).PriorityClass",
+	}, "\n")
+	processResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, processCommand, 0, "could not read containerd process priority class")
+	require.Equal(s.T, "AboveNormal", strings.TrimSpace(processResult.stdout), "expected containerd process to be running with AboveNormal priority class")
 }
 
 func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, processName string, arguments []string) {
@@ -2916,6 +3046,21 @@ func ValidateStaleCachedKubeBinariesRemoved(ctx context.Context, s *Scenario) {
 // ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
 func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 	s.T.Helper()
+
+	defaultGen, err := vmSKUGeneration(config.Config.DefaultVMSKU)
+	require.NoError(s.T, err, "failed to get default VM SKU generation for %s", config.Config.DefaultVMSKU)
+
+	if defaultGen >= 6 && s.VHD.Distro == datamodel.AKSAzureLinuxV3Gen2 {
+		return
+	}
+
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil {
+		vmSKUGen, err := vmSKUGeneration(s.Runtime.NBC.AgentPoolProfile.VMSize)
+		require.NoError(s.T, err, "failed to get VM SKU generation for %s", s.Runtime.NBC.AgentPoolProfile.VMSize)
+		if vmSKUGen >= 6 && s.VHD.Distro == datamodel.AKSAzureLinuxV3Gen2 {
+			return
+		}
+	}
 
 	// Query the VM's actual CPU count using nproc
 	cpuCountCmd := "nproc"
