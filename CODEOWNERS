@@ -28,10 +28,10 @@ spec/parts/linux/cloud-init/artifacts/mariner-package-update_spec.sh @yewmsft @Y
 
 # Code owners for localdns
 
-parts/linux/cloud-init/artifacts/localdns.sh @saewoni @yewmsft
-parts/linux/cloud-init/artifacts/localdns.service @saewoni @yewmsft
-parts/linux/cloud-init/artifacts/localdns-delegate.conf @saewoni @yewmsft
-spec/parts/linux/cloud-init/artifacts/localdns_spec.sh @saewoni @yewmsft
+parts/linux/cloud-init/artifacts/localdns.sh @saewoni @yewmsft @robbiezhang
+parts/linux/cloud-init/artifacts/localdns.service @saewoni @yewmsft @robbiezhang
+parts/linux/cloud-init/artifacts/localdns-delegate.conf @saewoni @yewmsft @robbiezhang
+spec/parts/linux/cloud-init/artifacts/localdns_spec.sh @saewoni @yewmsft @robbiezhang
 
 # Set components.json & windows_settings.json to no code-owner so that it can be approved and merged by component owner
 
