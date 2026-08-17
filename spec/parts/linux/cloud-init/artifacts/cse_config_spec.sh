@@ -2301,6 +2301,103 @@ OVERRIDE_EOF
         End
     End
 
+    Describe 'ensureKubelet credential provider installation gate'
+        logs_to_events() {
+            echo "logs_to_events $1 $2"
+            eval "$2"
+        }
+
+        BeforeEach 'setup_ensure_kubelet'
+        AfterEach 'cleanup_ensure_kubelet'
+        setup_ensure_kubelet() {
+            mkdir -p /opt/azure/containers
+            KUBELET_FLAGS="--image-credential-provider-config=/etc/kubernetes/credential-provider-config.yaml --image-credential-provider-bin-dir=/var/lib/kubelet/credential-provider"
+            NETWORK_POLICY=""
+            KUBELET_IMAGE=""
+            KUBELET_NODE_LABELS=""
+            AZURE_ENVIRONMENT_FILEPATH=""
+            API_SERVER_NAME="example.invalid"
+            ENABLE_IMDS_RESTRICTION="false"
+            INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE="false"
+            SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
+            KUBE_RESERVED_CGROUP=""
+            SYSTEM_RESERVED_CGROUP=""
+        }
+
+        cleanup_ensure_kubelet() {
+            rm -f /etc/default/kubelet /var/lib/kubelet/kubeconfig /var/lib/kubelet/bootstrap-kubeconfig \
+                /opt/azure/containers/kubelet.sh /opt/azure/containers/tls-bootstrap-start-time \
+                /etc/systemd/system/kubelet.service.d/10-{watchdog,credential-validation,tlsbootstrap,ensure-imds-restriction,containerd-base-flag}.conf
+        }
+
+        setKubeletNodeIPFlag() { :; }
+        getPrimaryNicIP() { echo "10.0.0.4"; }
+        configCredentialProvider() { :; }
+        resolveKubeletReservedCgroups() { :; }
+        systemctl() { :; }
+        systemctlEnableAndStartNoBlock() { :; }
+        tee() { cat > /dev/null; }
+
+        # ensureKubelet enables xtrace mid-function and never restores it, so the
+        # trace would leak onto ShellSpec's stderr and fail the example. Wrap the
+        # call to discard that trace and restore set +x before returning.
+        invoke_ensure_kubelet() {
+            ensureKubelet 2>/dev/null
+            { local rc=$?; set +x; } 2>/dev/null
+            return "$rc"
+        }
+
+        Describe 'on Ubuntu'
+            OS="UBUNTU"
+            Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
+            Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
+
+            It 'installs the credential provider from URL below Kubernetes 1.33'
+                installCredentialProviderFromUrl() { echo "installCredentialProviderFromUrl"; }
+                installCredentialProviderFromPkg() { echo "installCredentialProviderFromPkg $1"; }
+                KUBERNETES_VERSION="1.32.99"
+
+                When call invoke_ensure_kubelet
+
+                The output should include "installCredentialProviderFromUrl"
+                The output should not include "installCredentialProviderFromPkg"
+                The status should be success
+            End
+
+            It 'installs the credential provider from PMC at Kubernetes 1.33'
+                installCredentialProviderFromUrl() { echo "installCredentialProviderFromUrl"; }
+                installCredentialProviderFromPkg() { echo "installCredentialProviderFromPkg $1"; }
+                KUBERNETES_VERSION="1.33.0"
+
+                When call invoke_ensure_kubelet
+
+                The output should include "installCredentialProviderFromPkg 1.33.0"
+                The output should not include "installCredentialProviderFromUrl"
+                The status should be success
+            End
+        End
+
+        Describe 'on Azure Linux'
+            OS="AZURELINUX"
+            OS_VERSION="3.0"
+            Include "./parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
+            Include "./parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
+
+            It 'installs the credential provider from PMC at Kubernetes 1.33'
+                installCredentialProviderFromUrl() { echo "installCredentialProviderFromUrl"; }
+                installCredentialProviderFromPkg() { echo "installCredentialProviderFromPkg $1"; }
+                KUBERNETES_VERSION="1.33.0"
+
+                When call invoke_ensure_kubelet
+
+                The output should include "installCredentialProviderFromPkg 1.33.0"
+                The output should not include "installCredentialProviderFromUrl"
+                The status should be success
+            End
+        End
+    End
+
     Describe 'configureKubeletAndKubectl'
         # Mock required functions and variables
         logs_to_events() {
