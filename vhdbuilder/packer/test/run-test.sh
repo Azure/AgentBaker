@@ -82,7 +82,12 @@ fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     # We completely re-assign the TARGET_COMMAND_STRING string here to ensure that no artifacts from earlier conditionals are included
-    TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+    TARGET_COMMAND_STRING="--size ${CVM_TEST_VM_SIZE:-Standard_DC8es_v6} --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+fi
+
+TEST_VM_USER_DATA_ARGS=()
+if [ "${OS_TYPE}" = "Linux" ] && [ "${OS_SKU:-}" = "AzureContainerLinux" ]; then
+  TEST_VM_USER_DATA_ARGS=(--user-data "./vhdbuilder/packer/acl-customdata.json")
 fi
 
 # NVIDIA GB specific test VM configuration (uses standard ARM64 VM for now)
@@ -111,6 +116,7 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       --admin-username "$TEST_VM_ADMIN_USERNAME" \
       --admin-password "$TEST_VM_ADMIN_PASSWORD" \
       --nics "$TESTING_NIC_ID" \
+      "${TEST_VM_USER_DATA_ARGS[@]}" \
       ${TARGET_COMMAND_STRING}
 else
   az vm create \

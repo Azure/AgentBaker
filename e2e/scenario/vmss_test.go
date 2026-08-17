@@ -6,8 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -89,6 +91,54 @@ func TestWriteScriptHotfixFixtureRejectsInvalidData(t *testing.T) {
 			buildDir := t.TempDir()
 			require.NoError(t, os.MkdirAll(filepath.Join(buildDir, "generated"), 0o755))
 			require.Error(t, writeScriptHotfixFixture(buildDir, fixture))
+		})
+	}
+}
+
+func TestGetBaseVMSSModelRoutesACLToUserData(t *testing.T) {
+	const bootstrappingData = "base64-encoded-bootstrapping-data"
+
+	for _, test := range []struct {
+		name           string
+		os             config.OS
+		wantUserData   bool
+		wantCustomData bool
+	}{
+		{name: "ACL uses user data", os: config.OSACL, wantUserData: true},
+		{name: "Ubuntu uses custom data", os: config.OSUbuntu, wantCustomData: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			scenario := &Scenario{
+				Location: "westus2",
+				Config: Config{
+					VHD: &config.Image{OS: test.os},
+				},
+				Runtime: &ScenarioRuntime{
+					VMSSName: "test-vmss",
+					Cluster: &Cluster{
+						Model: &armcontainerservice.ManagedCluster{
+							Properties: &armcontainerservice.ManagedClusterProperties{
+								NodeResourceGroup: to.Ptr("test-node-rg"),
+							},
+						},
+						SubnetID: "/subscriptions/test/resourceGroups/test/providers/Microsoft.Network/virtualNetworks/test/subnets/test",
+					},
+				},
+			}
+
+			model := getBaseVMSSModel(scenario, bootstrappingData, "")
+			profile := model.Properties.VirtualMachineProfile
+
+			if test.wantUserData {
+				require.Equal(t, bootstrappingData, *profile.UserData)
+			} else {
+				require.Nil(t, profile.UserData)
+			}
+			if test.wantCustomData {
+				require.Equal(t, bootstrappingData, *profile.OSProfile.CustomData)
+			} else {
+				require.Nil(t, profile.OSProfile.CustomData)
+			}
 		})
 	}
 }
