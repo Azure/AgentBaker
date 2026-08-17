@@ -535,6 +535,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 	runUbuntu2404NvidiaDevicePluginMIGSingle(t,
+		"westus3",
 		"Tests that NVIDIA device plugin and DCGM Exporter work with the legacy GPUInstanceProfile field",
 		func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.GPUInstanceProfile = "MIG2g"
@@ -544,6 +545,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIGProfileLayout_Single(t *testing.T) {
 	runUbuntu2404NvidiaDevicePluginMIGSingle(t,
+		"westus2",
 		"Tests that NVIDIA device plugin and DCGM Exporter work with MIGProfileLayout and the Single MIG strategy",
 		func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.MIGProfileLayout = []string{"MIG2g", "MIG2g", "MIG2g"}
@@ -553,12 +555,13 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIGProfileLayout_Single(t *testin
 
 func runUbuntu2404NvidiaDevicePluginMIGSingle(
 	t *testing.T,
+	location string,
 	description string,
 	setMIGProfile func(*datamodel.NodeBootstrappingConfiguration),
 ) {
 	RunScenario(t, &Scenario{
 		Description: description,
-		Location:    "westus3",
+		Location:    location,
 		Tags: Tags{
 			GPU: true,
 		},
@@ -798,7 +801,7 @@ func Test_CreateVMExtensionLinuxAKSNode_Timing(t *testing.T) {
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin provisions and advertises a heterogeneous Mixed MIG geometry on Ubuntu 24.04 GPU nodes",
-		Location:    "westus3",
+		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
 		},
