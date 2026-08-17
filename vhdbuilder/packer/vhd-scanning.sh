@@ -92,7 +92,7 @@ if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
 fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-    VM_SIZE="Standard_DC8ads_v5"
+    VM_SIZE="${CVM_TEST_VM_SIZE:-Standard_DC8es_v6}"
     # We completely re-assign the VM_OPTIONS string here to ensure that no artifacts from earlier conditionals are included
     VM_OPTIONS="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
