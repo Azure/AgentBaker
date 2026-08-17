@@ -24,8 +24,13 @@ else ifeq (${OS_SKU},AzureLinux)
 	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
 else ifeq (${OS_SKU},AzureContainerLinux)
+ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
+	@echo "AzureContainerLinux CVM is currently supported only on X86_64" >&2
+	@exit 1
+else
 	@echo "Using packer template file vhd-image-builder-acl-arm64.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-acl-arm64.json
+endif
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
@@ -57,8 +62,12 @@ else
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
 endif
 else ifeq (${OS_SKU},AzureContainerLinux)
+ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
+	@./vhdbuilder/packer/build-acl-cvm.sh
+else
 	@echo "Using packer template file vhd-image-builder-acl.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-acl.json
+endif
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
