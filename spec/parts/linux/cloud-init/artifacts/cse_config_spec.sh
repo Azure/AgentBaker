@@ -2303,8 +2303,10 @@ OVERRIDE_EOF
 
     Describe 'ensureKubelet credential provider installation gate'
         logs_to_events() {
-            echo "logs_to_events $1 $2"
-            eval "$2"
+            local task=$1
+            shift
+            echo "logs_to_events ${task} $*"
+            eval "$*"
         }
 
         BeforeEach 'setup_ensure_kubelet'
