@@ -162,7 +162,9 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	if isNetworkIsolated {
 		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addNetworkIsolatedSettings(ctx, cluster) }, bastion))
 	}
-	dag.Run1(g, kubeForGC, func(ctx context.Context, k *Kubeclient) error { return collectGarbageVMSS(ctx, cluster, k) }, networkDeps...)
+	garbageCollected := dag.Run1(g, kubeForGC, func(ctx context.Context, k *Kubeclient) error {
+		return collectGarbageVMSS(ctx, cluster, k)
+	}, networkDeps...)
 	needACR := isNetworkIsolated || attachPrivateAcr
 
 	// The private DNS zone and VNet link must exist before any PE is created.
@@ -176,12 +178,17 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		acrNonAnon = dag.Run2(g, kubeForACR, identity, addACR(cluster, true), dnsReady)
 		acrAnon = dag.Run2(g, kubeForACR, identity, addACR(cluster, false), dnsReady)
 	}
-	debugDeps := append(networkDeps[:0:0], networkDeps...)
+	// Wait for stale temporary VMSS nodes to be removed before scheduling the
+	// proxy. Otherwise Kubernetes may report a proxy pod Ready on a node whose
+	// backing VMSS has already been deleted.
+	debugDeps := []dag.Dep{garbageCollected}
 	if acrNonAnon != nil {
 		debugDeps = append(debugDeps, acrNonAnon, acrAnon)
 	}
 	proxyURL := dag.Go1(g, kubeForDebug, func(ctx context.Context, k *Kubeclient) (string, error) {
-		k.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location))
+		if err := k.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location)); err != nil {
+			return "", fmt.Errorf("ensuring debug daemonsets: %w", err)
+		}
 		if isNetworkIsolated {
 			return "", nil
 		}

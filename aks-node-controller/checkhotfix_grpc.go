@@ -1,0 +1,213 @@
+package main
+
+import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"log/slog"
+	"net"
+
+	lpsv1 "github.com/Azure/agentbaker/aks-live-patching/pkg/gen/akslivepatching/v1"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+)
+
+// check-hotfix gRPC transport.
+//
+// The live-patching service is a gRPC server exposing a single GetComponentConfig RPC that returns
+// an opaque, per-component config blob. check-hotfix requests the ANC component config, maps the
+// gRPC status codes onto the benign-vs-fatal taxonomy, and preserves the fail-open contract.
+
+const (
+	// ancComponentName is the component name check-hotfix requests from the live-patching service.
+	// It must match, byte for byte, the component key the service registers for aks-node-controller.
+	// The service side registers this component with the lowerCamelCase key "aksNodeController"
+	// (matching its existing "securityPatch"/"localDNS" components), so the consumer requests the
+	// same string here.
+	ancComponentName = "aksNodeController"
+
+	// lpsAttestedMetadataKey is the gRPC request-metadata key carrying the IMDS attested-data
+	// signature that authenticates the node to the live-patching service. The service reads it from
+	// the "authorization" metadata header (per the live-patching client example / contract),
+	// mirroring the embargoed HTTP service's header-based auth.
+	lpsAttestedMetadataKey = "authorization"
+
+	// lpsServerName is the DNS name the live-patching service's serving certificate is issued for.
+	// The service mints its leaf cert with this exact value in both Subject.CN and the SAN
+	// (aks-rp: ccp/live-patching-controller/internal/server/cert.go sets CommonName/DNSNames =
+	// s.ServerName), and the chart hard-codes the flag "--server-name=aks-security-patch.data.mcr.microsoft.com".
+	// We pin it here to verify the presented cert by hostname. It must track that chart value.
+	//
+	// NOTE: this is used ONLY as the name we verify the cert against -- it is deliberately NOT set as
+	// tls.Config.ServerName. Go would put ServerName on the wire as the SNI, which would collide with
+	// the kube-api-proxy legacy SNI filter chain (server_names: [aks-security-patch...], no ALPN
+	// guard) and misroute the gRPC stream to the legacy embargo cluster. Leaving ServerName empty
+	// keeps the wire SNI at the apiserver authority so envoy routes on ALPN to the gRPC chain.
+	lpsServerName = "aks-security-patch.data.mcr.microsoft.com"
+)
+
+// lpsGRPCStatusError is a non-benign gRPC failure from the live-patching service. fallbackAllowed
+// mirrors the HTTP path's 5xx-vs-4xx split: a transient/unavailable/internal server condition
+// permits the cold-start fallback, while an authoritative client rejection does not.
+type lpsGRPCStatusError struct {
+	code            codes.Code
+	fallbackAllowed bool
+}
+
+func (e *lpsGRPCStatusError) Error() string {
+	return fmt.Sprintf("LPS gRPC call failed with code %s", e.code)
+}
+
+// fetchHotfixOverGRPC performs the GetComponentConfig call against the live-patching service: it
+// resolves the apiserver FQDN + cluster CA from the node config, carries the IMDS attested-data
+// document in gRPC metadata, and returns the opaque response bytes for the shared parse/stage path.
+// The gRPC status is mapped onto the benign-vs-fatal taxonomy so handleFetchError is unchanged.
+func (a *App) fetchHotfixOverGRPC(ctx context.Context) ([]byte, error) {
+	fqdn, caPEM, err := a.lpsTargetFromNodeConfig()
+	if err != nil {
+		return nil, fmt.Errorf("resolving LPS endpoint from node config: %w", err)
+	}
+
+	token, err := a.attestedToken(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("imds attested token: %w", err)
+	}
+
+	conn, err := a.dialLPSGRPC(fqdn, caPEM)
+	if err != nil {
+		return nil, fmt.Errorf("dialing LPS gRPC: %w", err)
+	}
+	defer conn.Close()
+	slog.Info("check-hotfix LPS gRPC dial", "dialHost", fqdn, "alpn", lpsALPNProto, "component", ancComponentName)
+
+	// Bound the whole round-trip (cold connect + RPC); on expiry we fail open to the cold-start
+	// pointer. See the lpsFetchTimeout const doc for the deadline tradeoff.
+	ctx, cancel := context.WithTimeout(ctx, lpsFetchTimeout)
+	defer cancel()
+
+	// Carry the attested-data document that authenticates the node in request metadata.
+	ctx = metadata.AppendToOutgoingContext(ctx, lpsAttestedMetadataKey, token)
+
+	client := lpsv1.NewLivePatchingServiceClient(conn)
+	resp, err := client.GetComponentConfig(ctx, &lpsv1.GetComponentConfigRequest{ComponentName: ancComponentName})
+	if err != nil {
+		return nil, mapGRPCError(err)
+	}
+	// The shared live-patching contract carries the component config as a JSON-encoded UTF-8
+	// string; the parse/stage path operates on bytes, so convert without interpreting.
+	return []byte(resp.GetConfig()), nil
+}
+
+// dialLPSGRPC builds the gRPC client connection to the live-patching service: it dials the cluster
+// apiserver FQDN:443 (riding the existing apiserver egress rule) and advertises the live-patching
+// ALPN protocol so the kube-api-proxy envoy routes the stream to the LPS backend. The server
+// certificate is issued for lpsServerName (with a real SAN), but tls.Config.ServerName is left
+// EMPTY so the wire SNI stays the apiserver authority and envoy routes on ALPN (setting it would
+// collide with the legacy SNI filter chain). We therefore disable Go's default name check and
+// verify the presented chain against the cluster CA AND the hostname ourselves (see
+// verifyChainAgainstPool). The connection is lazy; the per-RPC context deadline bounds connect +
+// call. Tests inject grpcDialContext to reach an in-process (bufconn) server.
+//
+// The cluster CA is REQUIRED: without it the server certificate cannot be verified, so rather than
+// weaken TLS we return an error and the caller fails open (nothing staged).
+func (a *App) dialLPSGRPC(fqdn string, caPEM []byte) (*grpc.ClientConn, error) {
+	if a.grpcDialContext != nil {
+		return grpc.NewClient("passthrough:///bufnet",
+			grpc.WithContextDialer(a.grpcDialContext),
+			grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
+	if len(caPEM) == 0 {
+		return nil, fmt.Errorf("cluster CA unavailable from provision-config; refusing to fetch over unverified TLS")
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(caPEM) {
+		return nil, fmt.Errorf("failed to parse cluster CA PEM")
+	}
+
+	// api_server_name may already carry a port (e.g. "host:443"); normalize to a bare hostname for
+	// JoinHostPort so it does not produce an invalid "[host:443]:443" address.
+	host := fqdn
+	if h, _, splitErr := net.SplitHostPort(fqdn); splitErr == nil {
+		host = h
+	}
+
+	// The live-patching serving cert is issued for lpsServerName (real SAN), but we do NOT set
+	// tls.Config.ServerName: Go would send it as the wire SNI, colliding with kube-api-proxy's legacy
+	// SNI filter chain and misrouting the gRPC stream. So we advertise the live-patching ALPN protocol
+	// (the value envoy's kube-api-proxy filter chain matches to route the stream to LPS) plus "h2" for
+	// the gRPC HTTP/2 handshake. grpc-go's credentials.NewTLS appends "h2" to NextProtos on its own,
+	// but we list it explicitly so the on-wire ALPN set (["aks-live-patching", "h2"]) is unambiguous:
+	// envoy routes on the custom proto while gRPC negotiates h2. We then disable Go's default
+	// name-based verification and verify the presented chain against the cluster CA AND the hostname
+	// (lpsServerName) ourselves.
+	tlsConfig := &tls.Config{
+		MinVersion:            tls.VersionTLS12,
+		RootCAs:               pool,
+		NextProtos:            []string{lpsALPNProto, alpnH2Proto},
+		InsecureSkipVerify:    true, //nolint:gosec // default SNI-name check disabled to avoid the legacy-SNI routing collision; chain AND hostname verified in verifyChainAgainstPool
+		VerifyPeerCertificate: verifyChainAgainstPool(pool, lpsServerName),
+	}
+
+	target := net.JoinHostPort(host, lpsAPIServerPort)
+	return grpc.NewClient(target, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+}
+
+// verifyChainAgainstPool verifies that the server's presented certificate chains up to the trusted
+// pool AND is valid for serverName. The default TLS name check is disabled (see dialLPSGRPC) so we
+// re-implement full verification here: passing DNSName to x509.VerifyOptions makes leaf.Verify
+// enforce both the chain-to-CA and the hostname, giving standard-strength verification without
+// putting serverName on the wire as the SNI.
+func verifyChainAgainstPool(pool *x509.CertPool, serverName string) func([][]byte, [][]*x509.Certificate) error {
+	return func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+		if len(rawCerts) == 0 {
+			return fmt.Errorf("server presented no certificates")
+		}
+		leaf, err := x509.ParseCertificate(rawCerts[0])
+		if err != nil {
+			return fmt.Errorf("failed to parse server certificate: %w", err)
+		}
+		intermediates := x509.NewCertPool()
+		for _, raw := range rawCerts[1:] {
+			cert, err := x509.ParseCertificate(raw)
+			if err != nil {
+				return fmt.Errorf("failed to parse intermediate certificate: %w", err)
+			}
+			intermediates.AddCert(cert)
+		}
+		if _, err := leaf.Verify(x509.VerifyOptions{Roots: pool, Intermediates: intermediates, DNSName: serverName}); err != nil {
+			return fmt.Errorf("server certificate verification failed: %w", err)
+		}
+		return nil
+	}
+}
+
+// mapGRPCError classifies a gRPC error from GetComponentConfig into the existing check-hotfix
+// taxonomy:
+//   - Unauthenticated/PermissionDenied/NotFound -> benign errLPSUnavailable (the service is
+//     reachable but has nothing published for this node yet; a no-op, never a failure);
+//   - InvalidArgument/ResourceExhausted -> authoritative client rejection, no cold-start fallback;
+//   - everything else (Unavailable/DeadlineExceeded/Internal/Unknown, and non-status transport
+//     errors) -> fallback-eligible, so the cold-start pointer may be staged.
+func mapGRPCError(err error) error {
+	st, ok := status.FromError(err)
+	if !ok || st == nil {
+		// Not a gRPC status (e.g. a raw transport error): unreachable/unknown, so cold-start
+		// fallback is allowed (shouldColdStartFallback default).
+		return err
+	}
+	//exhaustive:ignore // benign/authoritative codes handled explicitly; all others fall through to fallback-eligible default.
+	switch st.Code() {
+	case codes.Unauthenticated, codes.PermissionDenied, codes.NotFound:
+		return fmt.Errorf("%w (code %s)", errLPSUnavailable, st.Code())
+	case codes.InvalidArgument, codes.ResourceExhausted:
+		return &lpsGRPCStatusError{code: st.Code(), fallbackAllowed: false}
+	default:
+		return &lpsGRPCStatusError{code: st.Code(), fallbackAllowed: true}
+	}
+}

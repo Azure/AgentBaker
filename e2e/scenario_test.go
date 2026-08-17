@@ -411,6 +411,46 @@ func Test_AzureLinuxV3(t *testing.T) {
 	})
 }
 
+// Test_AzureLinuxV3Gen2Kata verifies that AgentBaker correctly bootstraps a Kata-enabled node.
+//
+// Kata Containers is a runtime, so the thing that can silently break is the containerd
+// configuration: pkg/agent/baker.go only emits the `kata` runtime handler blocks
+// when the agent pool's Distro satisfies Distro.IsKataDistro(). Selecting a Kata VHD here flows
+// through e2e/node_config.go -> AgentPoolProfile.Distro -> the IsKata template func, so this
+// scenario exercises that whole path against a real node.
+//
+// The scenario asserts three increasingly strong properties:
+//  1. the rendered /etc/containerd/config.toml contains the Kata runtime handlers and EROFS preamble,
+//  2. containerd actually parsed and loaded them (no warnings, handlers in `config dump`),
+//  3. for every handler in kataRuntimeHandlers, a pod scheduled via a Kata RuntimeClass runs
+//     and is genuinely VM-isolated.
+func Test_AzureLinuxV3Gen2Kata(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that an AzureLinuxV3 Gen2 Kata node is bootstrapped with working kata containerd runtime handlers, and can run VM-isolated pods via Kata RuntimeClasses",
+		Tags: Tags{
+			Kata: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2Kata,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Leave unattended upgrades on so that CSE's kata-specific opt-out branch is
+				// actually exercised, which ValidateKataHostReadiness asserts.
+				nbc.DisableUnattendedUpgrades = false
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateKataContainerdConfig(ctx, s)
+				ValidateKataErofsContainerdConfig(ctx, s)
+				ValidateKataContainerdConfigDump(ctx, s)
+				ValidateKataHostReadiness(ctx, s)
+				for _, handler := range kataRuntimeHandlers {
+					ValidateKataPodIsIsolated(ctx, s, handler)
+				}
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV3_CustomCA(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that an AzureLinuxV3 node can be properly bootstrapped with custom ca",
