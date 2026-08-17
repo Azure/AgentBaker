@@ -1336,6 +1336,11 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 		},
 	}
 
+	if s.VHD.OS == config.OSACL {
+		model.Properties.VirtualMachineProfile.UserData = &customData
+		model.Properties.VirtualMachineProfile.OSProfile.CustomData = nil
+	}
+
 	if cseCmd != "" {
 		model.Properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{
 			Extensions: []*armcompute.VirtualMachineScaleSetExtension{
