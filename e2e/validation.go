@@ -256,6 +256,7 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 		},
 		"raw": {
 			`^-A (PREROUTING|OUTPUT) -d 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --dport 53 -j NOTRACK$`,
+			`^-A OUTPUT -s 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --sport 53 -j NOTRACK$`,
 		},
 		"security": {
 			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 53 -j ACCEPT`,
