@@ -894,7 +894,7 @@ type localDnsCorefileTemplateData struct {
 
 // Corefile is created using localdns.toml.gtpl template and aksnodeconfig values.
 // includeHostsPlugin controls whether the hosts plugin block is included in the generated Corefile.
-func generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, includeHostsPlugin bool) (string, error) {
+func GenerateLocalDNSCorefileFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, includeHostsPlugin bool) (string, error) {
 	var corefileBuffer bytes.Buffer
 	templateData := localDnsCorefileTemplateData{
 		Config:             aksnodeconfig,
@@ -904,6 +904,10 @@ func generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Co
 		return "", fmt.Errorf("failed to execute localdns corefile template: %w", err)
 	}
 	return corefileBuffer.String(), nil
+}
+
+func generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, includeHostsPlugin bool) (string, error) {
+	return GenerateLocalDNSCorefileFromAKSNodeConfig(aksnodeconfig, includeHostsPlugin)
 }
 
 // getLocalDnsClusterListenerIp returns APIPA-IP address that will be used in localdns systemd unit.

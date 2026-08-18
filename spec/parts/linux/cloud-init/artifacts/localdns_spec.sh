@@ -23,6 +23,7 @@ Describe 'localdns.sh'
             TEST_DIR="/tmp/localdnstest"
             LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
             LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
+            LIVEPATCHED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/livepatched.localdns.corefile"
             UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
             # Use production-realistic corefile format with brace syntax
@@ -389,6 +390,34 @@ EOF
             The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="unknown",block="none",status="missing"} 0'
             The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="unknown",block="none",status="missing"} 0'
             The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+        End
+
+        It 'should fetch LocalDNS LPS config through aks-node-controller when binary exists'
+            AKS_NODE_CONTROLLER_BINARY="${TEST_DIR}/aks-node-controller"
+            cat > "${AKS_NODE_CONTROLLER_BINARY}" <<'EOF'
+#!/bin/bash
+echo "anc args: $*"
+exit 0
+EOF
+            chmod +x "${AKS_NODE_CONTROLLER_BINARY}"
+
+            When run refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "anc args: fetch-localdns-config --output ${LIVEPATCHED_LOCALDNS_CORE_FILE}"
+            The output should include "Completed LocalDNS LPS config fetch."
+        End
+
+        It 'should skip LocalDNS LPS config fetch when aks-node-controller binary is missing'
+            AKS_NODE_CONTROLLER_BINARY="${TEST_DIR}/missing-aks-node-controller"
+            When run refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "AKS node controller binary not found at ${AKS_NODE_CONTROLLER_BINARY}; skipping LocalDNS LPS config fetch."
+        End
+
+        It 'should skip LocalDNS live patching status annotation when version file is missing'
+            When run annotate_node_with_localdns_livepatch_status
+            The status should be success
+            The output should include "LocalDNS corefile version file not found at ${LIVEPATCHED_LOCALDNS_CORE_FILE}.version, skipping live patching status annotation."
         End
 
         It 'should set correct permissions on forward_ips.prom file'
@@ -1960,3 +1989,50 @@ KUBECTL_EOF
         End
     End
 End
+
+
+    Describe 'livepatched corefile source selection'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            TEST_DIR="/tmp/localdns-livepatched-test"
+            LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
+            LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
+            LIVEPATCHED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/livepatched.localdns.corefile"
+            UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
+            RESOLV_CONF="${TEST_DIR}/run/systemd/resolve/resolv.conf"
+            mkdir -p "${LOCALDNS_SCRIPT_PATH}" "$(dirname "${RESOLV_CONF}")"
+            echo 'nameserver 10.0.0.1' > "${RESOLV_CONF}"
+        }
+        cleanup() {
+            rm -rf "${TEST_DIR}"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'uses the livepatched Corefile when present'
+            printf '.:53 {
+    forward . 9.9.9.9
+}
+' > "${LOCALDNS_CORE_FILE}"
+            printf '.:53 {
+    forward . 168.63.129.16
+}
+' > "${LIVEPATCHED_LOCALDNS_CORE_FILE}"
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The output should include 'Successfully updated'
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include '10.0.0.1'
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should not include '9.9.9.9'
+        End
+
+        It 'falls back to the generated Corefile when no livepatched Corefile exists'
+            printf '.:53 {
+    forward . 168.63.129.16
+}
+' > "${LOCALDNS_CORE_FILE}"
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The output should include 'Successfully updated'
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include '10.0.0.1'
+        End
+    End

@@ -75,6 +75,8 @@ type App struct {
 	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
 	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
 	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
+	// fetchLocalDNSConfigFn overrides the real LPS LocalDNS config fetch for tests.
+	fetchLocalDNSConfigFn localDNSConfigFetcher
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
@@ -175,6 +177,33 @@ func (a *App) Run(ctx context.Context, args []string) int {
 						slog.Warn("ignoring unexpected check-hotfix arguments", "args", strings.Join(extra, " "))
 					}
 					return a.runCheckHotfixCommand(ctx)
+				},
+			},
+			{
+				Name:  "fetch-localdns-config",
+				Usage: "Read the LocalDNS config from the live-patching-service and update the Corefile (fail-open)",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "output", Usage: "path to write the LocalDNS Corefile"},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if extra := cmd.Args().Slice(); len(extra) > 0 {
+						slog.Warn("ignoring unexpected fetch-localdns-config arguments", "args", strings.Join(extra, " "))
+					}
+					return a.runFetchLocalDNSConfigCommand(ctx, cmd.String("output"))
+				},
+			},
+			{
+				Name:  "apply-localdns-config",
+				Usage: "Apply a dispatched LocalDNS live-patching config slice to the Corefile",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "config-file", Usage: "path to the LocalDNS config JSON; reads stdin when omitted or '-'"},
+					&cli.StringFlag{Name: "output", Usage: "path to write the LocalDNS Corefile"},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if extra := cmd.Args().Slice(); len(extra) > 0 {
+						return fmt.Errorf("unexpected apply-localdns-config arguments: %s", strings.Join(extra, " "))
+					}
+					return a.runApplyLocalDNSConfigCommand(ctx, cmd.String("config-file"), cmd.String("output"), cmd.Root().Writer)
 				},
 			},
 		},
