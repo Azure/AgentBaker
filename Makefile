@@ -146,6 +146,14 @@ validate-prefetch:
 generate-azure-constants:
 	python pkg/helpers/generate_azure_constants.py
 
+.PHONY: generate-e2e-regions
+generate-e2e-regions:
+	cd e2e && go run ./hack/genregions -dir . -write
+
+.PHONY: validate-e2e-regions
+validate-e2e-regions:
+	cd e2e && go run ./hack/genregions -dir . -check
+
 .PHONY: tidy
 tidy:
 	$(GO) mod tidy

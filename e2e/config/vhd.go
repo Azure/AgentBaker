@@ -321,6 +321,10 @@ type Image struct {
 	IgnoreFailedCgroupTelemetryServices bool
 	Flatcar                             bool
 	SkipOldVHDValidations               bool
+	// Ephemeral marks an image version created at runtime from a single test's disk and
+	// deleted on that test's cleanup. It has exactly one writer, so it is replicated only
+	// where it is used instead of to the shared E2E region set.
+	Ephemeral bool
 	// OSDiskSizeGB overrides the default OS disk size (50 GB) when set.
 	OSDiskSizeGB int32
 }
@@ -401,7 +405,7 @@ func getVHDResourceIDFromMetadata(metadata map[string]vhdMetadataEntry, image Im
 		return "", fmt.Errorf("%w: image %s is not present in E2E VHD metadata", ErrNotFound, image.Name)
 	}
 	for _, region := range entry.Regions {
-		if strings.EqualFold(region, location) {
+		if NormalizeRegion(region) == NormalizeRegion(location) {
 			return entry.ResourceID, nil
 		}
 	}

@@ -263,11 +263,11 @@ func Test_ACL_DisableSSH(t *testing.T) {
 }
 
 func Test_ACL_GPUNC(t *testing.T) {
-	runScenarioACLGPU(t, "Standard_NC4as_T4_v3", "westus2")
+	runScenarioACLGPU(t, "Standard_NC4as_T4_v3", config.RegionWestUS2)
 }
 
 func Test_ACL_GPUA100(t *testing.T) {
-	runScenarioACLGPU(t, "Standard_NC24ads_A100_v4", "westus2")
+	runScenarioACLGPU(t, "Standard_NC24ads_A100_v4", config.RegionWestUS2)
 }
 
 func Test_ACL_GPUA10(t *testing.T) {
@@ -1290,11 +1290,11 @@ func Test_Ubuntu2204_CustomSysctls(t *testing.T) {
 }
 
 func Test_Ubuntu2204_GPUNC(t *testing.T) {
-	runScenarioUbuntu2204GPU(t, "Standard_NC4as_T4_v3", "westus2")
+	runScenarioUbuntu2204GPU(t, "Standard_NC4as_T4_v3", config.RegionWestUS2)
 }
 
 func Test_Ubuntu2204_GPUA100(t *testing.T) {
-	runScenarioUbuntu2204GPU(t, "Standard_NC24ads_A100_v4", "westus2")
+	runScenarioUbuntu2204GPU(t, "Standard_NC24ads_A100_v4", config.RegionWestUS2)
 }
 
 func Test_Ubuntu2204_GPUA10(t *testing.T) {
@@ -1392,7 +1392,7 @@ func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
 func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
-		Location:    "westus2",
+		Location:    config.RegionWestUS2,
 		Tags: Tags{
 			GPU: true,
 		},
@@ -1601,7 +1601,7 @@ func Test_AzureLinuxV3_MA35D(t *testing.T) {
 			},
 		},
 		// No MA35D GPU capacity in West US, so using East US
-		Location:         "eastus",
+		Location:         config.RegionEastUS,
 		K8sSystemPoolSKU: "Standard_D2s_v3",
 	})
 }
@@ -1799,7 +1799,7 @@ func Test_AzureLinuxV3_KubeletCustomConfig(t *testing.T) {
 func Test_AzureLinuxV3_GPU(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped",
-		Location:    "westus2",
+		Location:    config.RegionWestUS2,
 		Tags: Tags{
 			GPU: true,
 		},
@@ -1857,7 +1857,7 @@ func Test_AzureLinuxV3_GPUA10(t *testing.T) {
 func Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "AzureLinux V3 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
-		Location:    "westus2",
+		Location:    config.RegionWestUS2,
 		Tags: Tags{
 			GPU: true,
 		},
@@ -2827,7 +2827,7 @@ func Test_Ubuntu2404_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T
 func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2404 VHD opting for skipping gpu driver installation can be properly bootstrapped",
-		Location:    "westus2",
+		Location:    config.RegionWestUS2,
 		Tags: Tags{
 			GPU: true,
 		},
@@ -2941,7 +2941,7 @@ func Test_Ubuntu2404_GPUA10(t *testing.T) {
 func Test_Ubuntu2404_GPU_RTXPro6000_GridV20(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description:      "Tests that an RTX PRO 6000 BSE v6 (grid-v20) GPU node on Ubuntu 2404 bootstraps with the aks-gpu-grid-v20 (595.x) driver",
-		Location:         "southeastasia",
+		Location:         config.RegionSouthEastAsia,
 		K8sSystemPoolSKU: "Standard_D2s_v3",
 		Tags: Tags{
 			GPU: true,
@@ -2991,11 +2991,11 @@ func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 }
 
 func Test_Ubuntu2404_GPU_H100(t *testing.T) {
-	RunScenario(t, runScenarioUbuntu2404GPUNPD(t, "Standard_ND96isr_H100_v5", "uaenorth", ""))
+	RunScenario(t, runScenarioUbuntu2404GPUNPD(t, "Standard_ND96isr_H100_v5", config.RegionUAENorth, ""))
 }
 
 func Test_Ubuntu2404_GPU_A100(t *testing.T) {
-	RunScenario(t, runScenarioUbuntu2404GPUNPD(t, "Standard_ND96asr_v4", "southcentralus", "Standard_D2s_v3"))
+	RunScenario(t, runScenarioUbuntu2404GPUNPD(t, "Standard_ND96asr_v4", config.RegionSouthCentralUS, "Standard_D2s_v3"))
 }
 
 func Test_AzureLinux3_PMC_Install(t *testing.T) {
