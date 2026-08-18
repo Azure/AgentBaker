@@ -2,12 +2,12 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
-	"github.com/Azure/agentbaker/e2e/check"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -26,8 +26,8 @@ func Test_AzureLinux3OSGuard(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFIPSProvider(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateFIPSProvider(ctx, s)
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
@@ -46,7 +46,8 @@ func Test_AzureLinuxV3_ARM64(t *testing.T) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return nil
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
@@ -67,7 +68,8 @@ func Test_Ubuntu2204_AzureCNI(t *testing.T) {
 				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/podnetwork-type"] = "overlay"
 				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = c.VNetResourceGUID
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return nil
 			},
 		},
 	})
@@ -86,9 +88,11 @@ func Test_ACL(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
-				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
+					ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
+				)
 			},
 		},
 	})
@@ -110,12 +114,14 @@ func Test_ACL_CustomCA(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
-				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
-				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
-				// ACL uses Azure Linux CA trust paths under /etc (read-only /usr via dm-verity)
-				ValidateNonEmptyDirectory(ctx, s, "/etc/pki/ca-trust/source/anchors")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
+					ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
+					ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt"),
+					// ACL uses Azure Linux CA trust paths under /etc (read-only /usr via dm-verity)
+					ValidateNonEmptyDirectory(ctx, s, "/etc/pki/ca-trust/source/anchors"),
+				)
 			},
 		},
 	})
@@ -138,10 +144,12 @@ func Test_ACL_ARM64(t *testing.T) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_v6")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
-				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
-				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
+					ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
+					ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt"),
+				)
 			},
 		},
 	})
@@ -160,11 +168,13 @@ func Test_ACLGen2FIPSTL(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
-				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
-				ValidateACLFIPSEnabled(ctx, s)
-				ValidateFIPSProvider(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
+					ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
+					ValidateACLFIPSEnabled(ctx, s),
+					ValidateFIPSProvider(ctx, s),
+				)
 			},
 		},
 	})
@@ -185,8 +195,8 @@ func Test_AzureLinuxV3Gen2FIPS(t *testing.T) {
 					EnableFips1403Encryption: to.Ptr(true),
 				}
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFIPSProvider(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateFIPSProvider(ctx, s)
 			},
 		},
 	})
@@ -208,10 +218,14 @@ func Test_ACL_AzureCNI(t *testing.T) {
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := ServiceCanRestartValidator(ctx, s, "chronyd", 10); err != nil {
+					return err
+				}
+				return errors.Join(
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5"),
+				)
 			},
 		},
 	})
@@ -254,9 +268,9 @@ func Test_ACL_DisableSSH(t *testing.T) {
 			},
 			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
 			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				// Validate SSH daemon is disabled via RunCommand
-				ValidateSSHServiceDisabled(ctx, s)
+				return ValidateSSHServiceDisabled(ctx, s)
 			},
 		},
 	})
@@ -298,10 +312,12 @@ func runScenarioACLGPU(t *testing.T, vmSize string, location string) {
 				vmss.SKU.Name = to.Ptr(vmSize)
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNvidiaModProbeInstalled(ctx, s)
-				ValidateNvidiaPersistencedRunning(ctx, s)
-				ValidateScriptlessCSECmd(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateNvidiaModProbeInstalled(ctx, s),
+					ValidateNvidiaPersistencedRunning(ctx, s),
+					ValidateScriptlessCSECmd(ctx, s),
+				)
 			},
 		},
 	})
@@ -326,11 +342,13 @@ func runScenarioACLGRID(t *testing.T, vmSize string) {
 				vmss.SKU.Name = to.Ptr(vmSize)
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNvidiaModProbeInstalled(ctx, s)
-				ValidateNvidiaGRIDLicenseValid(ctx, s)
-				ValidateNvidiaPersistencedRunning(ctx, s)
-				ValidateScriptlessCSECmd(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateNvidiaModProbeInstalled(ctx, s),
+					ValidateNvidiaGRIDLicenseValid(ctx, s),
+					ValidateNvidiaPersistencedRunning(ctx, s),
+					ValidateScriptlessCSECmd(ctx, s),
+				)
 			},
 		},
 	})
@@ -394,18 +412,26 @@ func Test_AzureLinuxV3(t *testing.T) {
 				config.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
 				config.KubeletConfig.KubeletConfigFileConfig.SeccompDefault = true
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "aks-node-controller finished successfully")
-				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
-				ValidateFileHasContent(ctx, s, "/etc/dnf/automatic.conf", "emit_via = stdio")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
-				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				ValidateAppArmorBasic(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
 				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
-				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
-				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
-				ValidateInstalledPackageVersion(ctx, s, "containerd2", components.GetExpectedPackageVersions("containerd", "azurelinux", "v3.0")[0])
+				if err := errors.Join(
+					ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "aks-node-controller finished successfully"),
+					ValidateFileHasContent(ctx, s, "/etc/motd", "foobar"),
+					ValidateFileHasContent(ctx, s, "/etc/dnf/automatic.conf", "emit_via = stdio"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5"),
+				); err != nil {
+					return err
+				}
+				if err := ServiceCanRestartValidator(ctx, s, "chronyd", 10); err != nil {
+					return err
+				}
+				return errors.Join(
+					ValidateAppArmorBasic(ctx, s),
+					ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`),
+					ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath),
+					ValidateInstalledPackageVersion(ctx, s, "containerd2", components.GetExpectedPackageVersions("containerd", "azurelinux", "v3.0")[0]),
+				)
 			},
 		},
 	})
@@ -438,14 +464,21 @@ func Test_AzureLinuxV3Gen2Kata(t *testing.T) {
 				// actually exercised, which ValidateKataHostReadiness asserts.
 				nbc.DisableUnattendedUpgrades = false
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateKataContainerdConfig(ctx, s)
-				ValidateKataErofsContainerdConfig(ctx, s)
-				ValidateKataContainerdConfigDump(ctx, s)
-				ValidateKataHostReadiness(ctx, s)
-				for _, handler := range kataRuntimeHandlers {
-					ValidateKataPodIsIsolated(ctx, s, handler)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := errors.Join(
+					ValidateKataContainerdConfig(ctx, s),
+					ValidateKataErofsContainerdConfig(ctx, s),
+					ValidateKataContainerdConfigDump(ctx, s),
+					ValidateKataHostReadiness(ctx, s),
+				); err != nil {
+					return err
 				}
+				for _, handler := range kataRuntimeHandlers {
+					if err := ValidateKataPodIsIsolated(ctx, s, handler); err != nil {
+						return err
+					}
+				}
+				return nil
 			},
 		},
 	})
@@ -467,8 +500,8 @@ func Test_AzureLinuxV3_CustomCA(t *testing.T) {
 					},
 				}
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNonEmptyDirectory(ctx, s, "/usr/share/pki/ca-trust-source/anchors")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateNonEmptyDirectory(ctx, s, "/usr/share/pki/ca-trust-source/anchors")
 			},
 		},
 	})
@@ -486,7 +519,8 @@ func Test_AzureLinuxV2(t *testing.T) {
 				nbc.EnableScriptlessCSECmd = false
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/binaries/kubernetes-node-linux-amd64.tar.gz", k8sVersion)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return nil
 			},
 		},
 	})
@@ -529,14 +563,22 @@ func Test_Ubuntu2204(t *testing.T) {
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "aks-node-controller finished successfully")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
-				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				ValidateTaints(ctx, s, s.Runtime.AKSNodeConfig.KubeletConfig.KubeletFlags["--register-with-taints"])
-				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
-				ValidateSysctlConfig(ctx, s, customSysctls)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := errors.Join(
+					ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "aks-node-controller finished successfully"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5"),
+				); err != nil {
+					return err
+				}
+				if err := ServiceCanRestartValidator(ctx, s, "chronyd", 10); err != nil {
+					return err
+				}
+				return errors.Join(
+					ValidateTaints(ctx, s, s.Runtime.AKSNodeConfig.KubeletConfig.KubeletFlags["--register-with-taints"]),
+					ValidateUlimitSettings(ctx, s, customContainerdUlimits),
+					ValidateSysctlConfig(ctx, s, customSysctls),
+				)
 			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.KubeletConfig.EnableKubeletConfigFile = true
@@ -570,8 +612,8 @@ func Test_Ubuntu2204_CustomCA(t *testing.T) {
 					CustomCATrustCerts: []string{encodedTestCert},
 				}
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
 			},
 		},
 	})
@@ -609,9 +651,11 @@ func Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
-				ValidateFileExists(ctx, s, "/var/log/azure/aks/provision.json")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete"),
+					ValidateFileExists(ctx, s, "/var/log/azure/aks/provision.json"),
+				)
 			},
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
@@ -642,10 +686,10 @@ func Test_Ubuntu2204_ScriptlessCSECmd_Hotfix(t *testing.T) {
 			}},
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				// This file does NOT exist on any VHD — it can only be present if cloud-init
 				// processed our write_files entry, proving the hotfix delivery mechanism works.
-				ValidateFileHasContent(ctx, s, hotfixMarkerPath, hotfixMarkerContent)
+				return ValidateFileHasContent(ctx, s, hotfixMarkerPath, hotfixMarkerContent)
 			},
 		},
 	})
@@ -662,11 +706,13 @@ func Test_Ubuntu2204FIPS(t *testing.T) {
 					EnableFips1403Encryption: to.Ptr(true),
 				}
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
-				ValidateSSHServiceEnabled(ctx, s)
-				ValidateFIPSProvider(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0]),
+					ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0]),
+					ValidateSSHServiceEnabled(ctx, s),
+					ValidateFIPSProvider(ctx, s),
+				)
 			},
 		},
 	})
@@ -683,11 +729,13 @@ func Test_Ubuntu2004Gen2FIPS(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2004")[0])
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2004")[0])
-				ValidateSSHServiceEnabled(ctx, s)
-				ValidateFIPSProvider(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2004")[0]),
+					ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2004")[0]),
+					ValidateSSHServiceEnabled(ctx, s),
+					ValidateFIPSProvider(ctx, s),
+				)
 			},
 		},
 	})
@@ -707,11 +755,13 @@ func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 					EnableFips1403Encryption: to.Ptr(true),
 				}
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
-				ValidateSSHServiceEnabled(ctx, s)
-				ValidateFIPSProvider(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0]),
+					ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0]),
+					ValidateSSHServiceEnabled(ctx, s),
+					ValidateFIPSProvider(ctx, s),
+				)
 			},
 		},
 	})
@@ -732,11 +782,13 @@ func Test_Ubuntu2204Gen2FIPSTL(t *testing.T) {
 					EnableFips1403Encryption: to.Ptr(true),
 				}
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
-				ValidateSSHServiceEnabled(ctx, s)
-				ValidateFIPSProvider(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0]),
+					ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0]),
+					ValidateSSHServiceEnabled(ctx, s),
+					ValidateFIPSProvider(ctx, s),
+				)
 			},
 		},
 	})
@@ -757,14 +809,13 @@ func Test_Ubuntu2204_EntraIDSSH(t *testing.T) {
 			},
 			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since Entra ID SSH disables private key authentication
 			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				// NOTE: Since Entra ID SSH disables pubkey authentication, we cannot use
 				// the normal SSH-based validation functions that rely on private key authentication.
 				// We can only validate that SSH private key authentication fails as expected.
 				// The full E2E of Entra ID SSH scenario will be included in AKS RP's E2E test.
-
 				// Validate Entra ID SSH configuration (tests that private key SSH fails)
-				ValidatePubkeySSHDisabled(ctx, s)
+				return ValidatePubkeySSHDisabled(ctx, s)
 			},
 		},
 	})
@@ -781,9 +832,9 @@ func Test_AzureLinuxV3_DisableSSH(t *testing.T) {
 			},
 			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
 			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				// Validate SSH daemon is disabled via RunCommand
-				ValidateSSHServiceDisabled(ctx, s)
+				return ValidateSSHServiceDisabled(ctx, s)
 			},
 		},
 	})
@@ -800,9 +851,9 @@ func Test_Ubuntu2204_DisableSSH(t *testing.T) {
 			},
 			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
 			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				// Validate SSH daemon is disabled via RunCommand
-				ValidateSSHServiceDisabled(ctx, s)
+				return ValidateSSHServiceDisabled(ctx, s)
 			},
 		},
 	})
@@ -838,7 +889,8 @@ func Test_ACL_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return nil
 			},
 		},
 	})
@@ -871,8 +923,8 @@ func Test_AzureLinuxV3_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -911,8 +963,8 @@ func Test_AzureLinuxV3_NetworkIsolated_Package_Install(t *testing.T) {
 				}
 				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -945,8 +997,8 @@ func Test_Ubuntu2204_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -1008,12 +1060,14 @@ func Test_Ubuntu2204_ArtifactStreaming(t *testing.T) {
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.EnableArtifactStreaming = true
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "containerd.service"),
+				)
 			},
 		},
 	})
@@ -1037,12 +1091,14 @@ func Test_Ubuntu2204_ArtifactStreaming_ARM64(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "containerd.service"),
+				)
 			},
 		},
 	})
@@ -1060,12 +1116,14 @@ func Test_AzureLinuxV3_ArtifactStreaming(t *testing.T) {
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.EnableArtifactStreaming = true
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "containerd.service"),
+				)
 			},
 		},
 	})
@@ -1092,12 +1150,14 @@ func Test_Ubuntu2404_ArtifactStreaming_ARM64(t *testing.T) {
 				config.EnableArtifactStreaming = true
 				config.VmSize = "Standard_D2pds_V5"
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "containerd.service"),
+				)
 			},
 		},
 	})
@@ -1118,12 +1178,14 @@ func Test_Ubuntu2204_ArtifactStreaming_TrustedLaunch(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "containerd.service"),
+				)
 			},
 		},
 	})
@@ -1146,12 +1208,14 @@ func Test_Ubuntu2204_ArtifactStreaming_FIPS(t *testing.T) {
 					EnableFips1403Encryption: to.Ptr(true),
 				}
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "containerd.service"),
+				)
 			},
 		},
 	})
@@ -1185,13 +1249,15 @@ func Test_Ubuntu2204_ArtifactStreaming_NetworkIsolatedCluster(t *testing.T) {
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
-				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"}),
+					ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "containerd.service"),
+				)
 			},
 		},
 	})
@@ -1215,16 +1281,19 @@ func Test_Ubuntu2204_ArtifactStreaming_ImagePull(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableArtifactStreaming = true
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Node bootstrap sanity (same checks as the other streaming scenarios).
-				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
-				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
-
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := errors.Join(
+					// Node bootstrap sanity (same checks as the other streaming scenarios).
+					ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "containerd.service"),
+				); err != nil {
+					return err
+				}
 				// The actual streaming validation: pull an overlaybd image in a pod and confirm it streamed.
-				ValidateArtifactStreamingImagePull(ctx, s)
+				return ValidateArtifactStreamingImagePull(ctx, s)
 			},
 		},
 	})
@@ -1239,11 +1308,17 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.KubeletConfig["--register-with-taints"] = "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
-				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				ValidateTaints(ctx, s, s.Runtime.NBC.KubeletConfig["--register-with-taints"])
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := errors.Join(
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5"),
+				); err != nil {
+					return err
+				}
+				if err := ServiceCanRestartValidator(ctx, s, "chronyd", 10); err != nil {
+					return err
+				}
+				return ValidateTaints(ctx, s, s.Runtime.NBC.KubeletConfig["--register-with-taints"])
 			},
 		},
 	})
@@ -1281,9 +1356,11 @@ func Test_Ubuntu2204_CustomSysctls(t *testing.T) {
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
-				ValidateSysctlConfig(ctx, s, customSysctls)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateUlimitSettings(ctx, s, customContainerdUlimits),
+					ValidateSysctlConfig(ctx, s, customSysctls),
+				)
 			},
 		},
 	})
@@ -1321,12 +1398,14 @@ func Test_Ubuntu2204_GPUA10(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNvidiaModProbeInstalled(ctx, s)
-				ValidateNvidiaGRIDLicenseValid(ctx, s)
-				ValidateKubeletHasNotStopped(ctx, s)
-				ValidateServicesDoNotRestartKubelet(ctx, s)
-				ValidateNvidiaPersistencedRunning(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateNvidiaModProbeInstalled(ctx, s),
+					ValidateNvidiaGRIDLicenseValid(ctx, s),
+					ValidateKubeletHasNotStopped(ctx, s),
+					ValidateServicesDoNotRestartKubelet(ctx, s),
+					ValidateNvidiaPersistencedRunning(ctx, s),
+				)
 			},
 		},
 	})
@@ -1352,11 +1431,13 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string, location string) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
-				ValidateNvidiaModProbeInstalled(ctx, s)
-				ValidateKubeletHasNotStopped(ctx, s)
-				ValidateServicesDoNotRestartKubelet(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
+					ValidateNvidiaModProbeInstalled(ctx, s),
+					ValidateKubeletHasNotStopped(ctx, s),
+					ValidateServicesDoNotRestartKubelet(ctx, s),
+				)
 			},
 		},
 	})
@@ -1380,10 +1461,12 @@ func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNvidiaModProbeInstalled(ctx, s)
-				ValidateKubeletHasNotStopped(ctx, s)
-				ValidateNvidiaSMIInstalled(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateNvidiaModProbeInstalled(ctx, s),
+					ValidateKubeletHasNotStopped(ctx, s),
+					ValidateNvidiaSMIInstalled(ctx, s),
+				)
 			},
 		},
 	})
@@ -1418,8 +1501,8 @@ func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
 				}
 				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNvidiaSMINotInstalled(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateNvidiaSMINotInstalled(ctx, s)
 			},
 		},
 	})
@@ -1449,8 +1532,8 @@ func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable(t *testing.T) {
 					InsertImdsRestrictionRuleToMangleTable: false,
 				}
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "containerd", "1.6.9")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateInstalledPackageVersion(ctx, s, "containerd", "1.6.9")
 			},
 		},
 	})
@@ -1462,8 +1545,8 @@ func Test_Ubuntu2204_ContainerdHasCurrentVersion(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 			},
 		},
 	})
@@ -1481,8 +1564,8 @@ func Test_AzureLinux_Skip_Binary_Cleanup(t *testing.T) {
 				}
 				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateMultipleKubeProxyVersionsExist(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateMultipleKubeProxyVersionsExist(ctx, s)
 			},
 		},
 	})
@@ -1593,11 +1676,13 @@ func Test_AzureLinuxV3_MA35D(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
 				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementCacheDisk)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0")
-				ValidateNonEmptyDirectory(ctx, s, "/opt/amd/ama/ma35/")
-				ValidateSystemdUnitIsRunning(ctx, s, "amdama-device-plugin.service")
-				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "squat.ai/amdama")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0"),
+					ValidateNonEmptyDirectory(ctx, s, "/opt/amd/ama/ma35/"),
+					ValidateSystemdUnitIsRunning(ctx, s, "amdama-device-plugin.service"),
+					ValidateNodeAdvertisesGPUResources(ctx, s, 1, "squat.ai/amdama"),
+				)
 			},
 		},
 		// No MA35D GPU capacity in West US, so using East US
@@ -1623,9 +1708,11 @@ func Test_AzureLinuxV3LocalDns_Disabled(t *testing.T) {
 				}
 			},
 			SkipDefaultValidation: true,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateLocalDNSService(ctx, s, "disabled")
-				ValidateLocalDNSResolution(ctx, s, "168.63.129.16")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateLocalDNSService(ctx, s, "disabled"),
+					ValidateLocalDNSResolution(ctx, s, "168.63.129.16"),
+				)
 			},
 		},
 	})
@@ -1663,9 +1750,11 @@ func Test_AzureLinuxV3_CustomSysctls(t *testing.T) {
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
-				ValidateSysctlConfig(ctx, s, customSysctls)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateUlimitSettings(ctx, s, customContainerdUlimits),
+					ValidateSysctlConfig(ctx, s, customSysctls),
+				)
 			},
 		},
 	})
@@ -1734,8 +1823,8 @@ func Test_AzureLinuxV3_CustomLinuxOSConfigPersistsAfterReboot(t *testing.T) {
 				config.KubeletConfig.KubeletConfigFileConfig.FailSwapOn = to.Ptr(false)
 			},
 			WaitForSSHAfterReboot: 10 * time.Minute,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCustomLinuxOSConfigPersistsAfterReboot(ctx, s, customSysctls, customContainerdUlimits, swapFileSizeMB, thpEnabled, thpDefrag)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateCustomLinuxOSConfigPersistsAfterReboot(ctx, s, customSysctls, customContainerdUlimits, swapFileSizeMB, thpEnabled, thpDefrag)
 			},
 		},
 	})
@@ -1759,10 +1848,12 @@ func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
-				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
-				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
+				return errors.Join(
+					ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`),
+					ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath),
+				)
 			},
 		},
 	})
@@ -1786,11 +1877,13 @@ func Test_AzureLinuxV3_KubeletCustomConfig(t *testing.T) {
 				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
-				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
-				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
-				ValidateInstalledPackageVersion(ctx, s, "containerd2", components.GetExpectedPackageVersions("containerd", "azurelinux", "v3.0")[0])
+				return errors.Join(
+					ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`),
+					ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath),
+					ValidateInstalledPackageVersion(ctx, s, "containerd2", components.GetExpectedPackageVersions("containerd", "azurelinux", "v3.0")[0]),
+				)
 			},
 		},
 	})
@@ -1815,7 +1908,8 @@ func Test_AzureLinuxV3_GPU(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return nil
 			},
 		},
 	})
@@ -1841,12 +1935,14 @@ func Test_AzureLinuxV3_GPUA10(t *testing.T) {
 					VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 						vmss.SKU.Name = to.Ptr(vmSize)
 					},
-					Validator: func(ctx context.Context, s *Scenario) {
-						ValidateNvidiaModProbeInstalled(ctx, s)
-						ValidateNvidiaGRIDLicenseValid(ctx, s)
-						ValidateKubeletHasNotStopped(ctx, s)
-						ValidateServicesDoNotRestartKubelet(ctx, s)
-						ValidateNvidiaPersistencedRunning(ctx, s)
+					Validator: func(ctx context.Context, s *Scenario) error {
+						return errors.Join(
+							ValidateNvidiaModProbeInstalled(ctx, s),
+							ValidateNvidiaGRIDLicenseValid(ctx, s),
+							ValidateKubeletHasNotStopped(ctx, s),
+							ValidateServicesDoNotRestartKubelet(ctx, s),
+							ValidateNvidiaPersistencedRunning(ctx, s),
+						)
 					},
 				},
 			})
@@ -1882,7 +1978,8 @@ func Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return nil
 			},
 		},
 	})
@@ -1913,10 +2010,12 @@ func Test_Ubuntu2204ARM64_KubeletCustomConfig(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
-				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
-				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
+				return errors.Join(
+					ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`),
+					ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath),
+				)
 			},
 		},
 	})
@@ -1934,14 +2033,16 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
-				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRuncVersion(ctx, s, runcVersions)
-				ValidateContainerRuntimePlugins(ctx, s)
-				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2404")[0])
-				ValidateSSHServiceEnabled(ctx, s)
+				return errors.Join(
+					ValidateContainerd2Properties(ctx, s, containerdVersions),
+					ValidateRuncVersion(ctx, s, runcVersions),
+					ValidateContainerRuntimePlugins(ctx, s),
+					ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2404")[0]),
+					ValidateSSHServiceEnabled(ctx, s),
+				)
 			},
 		},
 	})
@@ -1957,14 +2058,16 @@ func Test_Ubuntu2604Minimal(t *testing.T) {
 			// TODO(2604): use latest (1.36) until 1.36 becomes default in test regions since 26.04 requires 1.36+ - applies to all Ubuntu2604Minimal E2E tests
 			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
-				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRuncVersion(ctx, s, runcVersions)
-				ValidateContainerRuntimePlugins(ctx, s)
-				// ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
-				ValidateSSHServiceEnabled(ctx, s)
+				return errors.Join(
+					ValidateContainerd2Properties(ctx, s, containerdVersions),
+					ValidateRuncVersion(ctx, s, runcVersions),
+					ValidateContainerRuntimePlugins(ctx, s),
+					// ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
+					ValidateSSHServiceEnabled(ctx, s),
+				)
 			},
 		},
 	})
@@ -1978,14 +2081,16 @@ func Test_Ubuntu2604Minimal_AzureCNI(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterLatestKubernetesVersionAzureNetwork,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
-				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRuncVersion(ctx, s, runcVersions)
-				ValidateContainerRuntimePlugins(ctx, s)
-				// ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
-				ValidateSSHServiceEnabled(ctx, s)
+				return errors.Join(
+					ValidateContainerd2Properties(ctx, s, containerdVersions),
+					ValidateRuncVersion(ctx, s, runcVersions),
+					ValidateContainerRuntimePlugins(ctx, s),
+					// ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
+					ValidateSSHServiceEnabled(ctx, s),
+				)
 			},
 		},
 	})
@@ -1997,14 +2102,19 @@ func Test_Ubuntu2604Minimal_NPD_Basic(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				failCheck(t, check.NoError(err, "creating AKS VM extension"))
+			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
+				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+				if err != nil {
+					return fmt.Errorf("create AKS VM extension: %w", err)
+				}
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+				return nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNodeProblemDetector(ctx, s)
-				ValidateNPDFilesystemCorruption(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := ValidateNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
+				return ValidateNPDFilesystemCorruption(ctx, s)
 			},
 		},
 	})
@@ -2025,12 +2135,20 @@ func Test_Ubuntu2604Minimal_SecondaryNIC(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				addSecondaryNIC(vmss)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false")
-				ValidateSecondaryNICUp(ctx, s, resolveSecondaryNICName(ctx, s))
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := errors.Join(
+					ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false"),
+				); err != nil {
+					return err
+				}
+				nicName, err := resolveSecondaryNICName(ctx, s)
+				if err != nil {
+					return err
+				}
+				return ValidateSecondaryNICUp(ctx, s, nicName)
 			},
 		},
 	})
@@ -2058,15 +2176,23 @@ func Test_Ubuntu2604Minimal_SecondaryNIC_DualStack(t *testing.T) {
 				DualStackVMConfigMutator(vmss)
 				addDualStackSecondaryNIC(vmss)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6: true")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4-overrides:")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6-overrides:")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false")
-				ValidateSecondaryNICDualStack(ctx, s, resolveSecondaryNICName(ctx, s))
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := errors.Join(
+					ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6: true"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4-overrides:"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6-overrides:"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false"),
+				); err != nil {
+					return err
+				}
+				nicName, err := resolveSecondaryNICName(ctx, s)
+				if err != nil {
+					return err
+				}
+				return ValidateSecondaryNICDualStack(ctx, s, nicName)
 			},
 		},
 	})
@@ -2090,10 +2216,12 @@ func Test_Ubuntu2604Minimal_KubeletCustomConfig(t *testing.T) {
 				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
-				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
-				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
+				return errors.Join(
+					ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`),
+					ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath),
+				)
 			},
 		},
 	})
@@ -2215,7 +2343,8 @@ func Test_Ubuntu2604Minimal_VHDCaching(t *testing.T) {
 			VHD:                    config.VHDUbuntu2604MinimalGen2Containerd,
 			VHDCaching:             true,
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return nil
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				// If the VHD has incorrect settings (like network misconfiguration)
@@ -2244,8 +2373,8 @@ func Test_Ubuntu2604Minimal_CustomCa(t *testing.T) {
 					},
 				}
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
 			},
 		},
 	})
@@ -2283,9 +2412,11 @@ func Test_Ubuntu2604Minimal_CustomSysctls(t *testing.T) {
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
-				ValidateSysctlConfig(ctx, s, customSysctls)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateUlimitSettings(ctx, s, customContainerdUlimits),
+					ValidateSysctlConfig(ctx, s, customSysctls),
+				)
 			},
 		},
 	})
@@ -2331,14 +2462,16 @@ func Test_Ubuntu2604Gen2_McrChinaCloud(t *testing.T) {
 				}
 				vmss.Tags["E2EMockAzureChinaCloud"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
-				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRuncVersion(ctx, s, runcVersions)
-				ValidateContainerRuntimePlugins(ctx, s)
-				ValidateSSHServiceEnabled(ctx, s)
-				ValidateDirectoryContent(ctx, s, "/etc/containerd/certs.d/mcr.azk8s.cn", []string{"hosts.toml"})
+				return errors.Join(
+					ValidateContainerd2Properties(ctx, s, containerdVersions),
+					ValidateRuncVersion(ctx, s, runcVersions),
+					ValidateContainerRuntimePlugins(ctx, s),
+					ValidateSSHServiceEnabled(ctx, s),
+					ValidateDirectoryContent(ctx, s, "/etc/containerd/certs.d/mcr.azk8s.cn", []string{"hosts.toml"}),
+				)
 			},
 		},
 	})
@@ -2353,11 +2486,17 @@ func Test_Ubuntu2604Minimal_ChronyRestarts_Taints_And_Tolerations(t *testing.T) 
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.KubeletConfig["--register-with-taints"] = "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
-				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				ValidateTaints(ctx, s, s.Runtime.NBC.KubeletConfig["--register-with-taints"])
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := errors.Join(
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5"),
+				); err != nil {
+					return err
+				}
+				if err := ServiceCanRestartValidator(ctx, s, "chronyd", 10); err != nil {
+					return err
+				}
+				return ValidateTaints(ctx, s, s.Runtime.NBC.KubeletConfig["--register-with-taints"])
 			},
 		},
 	})
@@ -2374,9 +2513,9 @@ func Test_Ubuntu2604Minimal_DisableSSH(t *testing.T) {
 			},
 			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
 			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				// Validate SSH daemon is disabled via RunCommand
-				ValidateSSHServiceDisabled(ctx, s)
+				return ValidateSSHServiceDisabled(ctx, s)
 			},
 		},
 	})
@@ -2397,14 +2536,13 @@ func Test_Ubuntu2604Minimal_EntraIDSSH(t *testing.T) {
 			},
 			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since Entra ID SSH disables private key authentication
 			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				// NOTE: Since Entra ID SSH disables pubkey authentication, we cannot use
 				// the normal SSH-based validation functions that rely on private key authentication.
 				// We can only validate that SSH private key authentication fails as expected.
 				// The full E2E of Entra ID SSH scenario will be included in AKS RP's E2E test.
-
 				// Validate Entra ID SSH configuration (tests that private key SSH fails)
-				ValidatePubkeySSHDisabled(ctx, s)
+				return ValidatePubkeySSHDisabled(ctx, s)
 			},
 		},
 	})
@@ -2434,14 +2572,16 @@ func Test_Ubuntu2604Minimal_NodeHardening_KubeReservedSlice_ConfigFile(t *testin
 				// config-file (kubeletconfig.json) path instead of CLI flags.
 				nbc.AgentPoolProfile.CustomKubeletConfig = &datamodel.CustomKubeletConfig{}
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/containerd.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", `"kubeReservedCgroup": "/kubereserved.slice"`)
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", `"systemReservedCgroup": "/system.slice"`)
-				ValidateServiceInSlice(ctx, s, "kubelet.service", "kubereserved.slice")
-				ValidateServiceInSlice(ctx, s, "containerd.service", "kubereserved.slice")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/containerd.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice"),
+					ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", `"kubeReservedCgroup": "/kubereserved.slice"`),
+					ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", `"systemReservedCgroup": "/system.slice"`),
+					ValidateServiceInSlice(ctx, s, "kubelet.service", "kubereserved.slice"),
+					ValidateServiceInSlice(ctx, s, "containerd.service", "kubereserved.slice"),
+				)
 			},
 		},
 	})
@@ -2468,14 +2608,16 @@ func Test_Ubuntu2604Minimal_NodeHardening_KubeReservedSlice_CLIFlags(t *testing.
 				nbc.KubeletConfig["--kube-reserved-cgroup"] = "/kubelet.slice"
 				nbc.KubeletConfig["--system-reserved-cgroup"] = "/kubelet.slice"
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/containerd.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--kube-reserved-cgroup=/kubereserved.slice")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--system-reserved-cgroup=/system.slice")
-				ValidateServiceInSlice(ctx, s, "kubelet.service", "kubereserved.slice")
-				ValidateServiceInSlice(ctx, s, "containerd.service", "kubereserved.slice")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/containerd.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice"),
+					ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--kube-reserved-cgroup=/kubereserved.slice"),
+					ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--system-reserved-cgroup=/system.slice"),
+					ValidateServiceInSlice(ctx, s, "kubelet.service", "kubereserved.slice"),
+					ValidateServiceInSlice(ctx, s, "containerd.service", "kubereserved.slice"),
+				)
 			},
 		},
 	})
@@ -2515,17 +2657,17 @@ func Test_Ubuntu2604Minimal_ImagePullIdentityBinding_Enabled(t *testing.T) {
 				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Verify credential provider config file exists
-				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
-
-				// Verify the config contains identity binding arguments
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id=test-client-id-12345")
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id=test-tenant-id-67890")
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=test.sni.local")
-
-				// Verify the config contains the identity binding token attributes section
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					// Verify credential provider config file exists
+					ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml"),
+					// Verify the config contains identity binding arguments
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id=test-client-id-12345"),
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id=test-tenant-id-67890"),
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=test.sni.local"),
+					// Verify the config contains the identity binding token attributes section
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding"),
+				)
 			},
 		},
 	})
@@ -2565,15 +2707,16 @@ func Test_Ubuntu2604Minimal_ImagePullIdentityBinding_Disabled(t *testing.T) {
 				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Verify credential provider config file exists
-				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
-
-				// Verify the config does NOT contain identity binding arguments
-				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id")
-				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id")
-				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name")
-				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					// Verify credential provider config file exists
+					ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml"),
+					// Verify the config does NOT contain identity binding arguments
+					ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id"),
+					ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id"),
+					ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name"),
+					ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding"),
+				)
 			},
 		},
 	})
@@ -2597,17 +2740,17 @@ func Test_Ubuntu2604Minimal_ImagePullIdentityBinding_EnabledWithoutDefaultIDs(t 
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Verify credential provider config file exists
-				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
-
-				// Verify the config contains identity binding token attributes
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=test.sni.local")
-
-				// Verify the config does NOT contain default client/tenant ID flags
-				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id")
-				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					// Verify credential provider config file exists
+					ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml"),
+					// Verify the config contains identity binding token attributes
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding"),
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=test.sni.local"),
+					// Verify the config does NOT contain default client/tenant ID flags
+					ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id"),
+					ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id"),
+				)
 			},
 		},
 	})
@@ -2643,18 +2786,18 @@ func Test_Ubuntu2604Minimal_ImagePullIdentityBinding_NetworkIsolated(t *testing.
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
 				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Verify credential provider config file exists
-				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
-
-				// Verify the config contains identity binding arguments for NI cluster
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id=ni-test-client-id")
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id=ni-test-tenant-id")
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=ni.test.sni.local")
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
-
-				// Verify outbound check was skipped (network isolated)
-				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					// Verify credential provider config file exists
+					ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml"),
+					// Verify the config contains identity binding arguments for NI cluster
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id=ni-test-client-id"),
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id=ni-test-tenant-id"),
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=ni.test.sni.local"),
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding"),
+					// Verify outbound check was skipped (network isolated)
+					ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"}),
+				)
 			},
 		},
 	})
@@ -2672,14 +2815,16 @@ func Test_Ubuntu2604MinimalArm64(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
-				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRuncVersion(ctx, s, runcVersions)
-				ValidateContainerRuntimePlugins(ctx, s)
-				// ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
-				ValidateSSHServiceEnabled(ctx, s)
+				return errors.Join(
+					ValidateContainerd2Properties(ctx, s, containerdVersions),
+					ValidateRuncVersion(ctx, s, runcVersions),
+					ValidateContainerRuntimePlugins(ctx, s),
+					// ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
+					ValidateSSHServiceEnabled(ctx, s),
+				)
 			},
 		},
 	})
@@ -2697,14 +2842,16 @@ func Test_Ubuntu2604MinimalArm64_AzureCNI(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
-				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRuncVersion(ctx, s, runcVersions)
-				ValidateContainerRuntimePlugins(ctx, s)
-				// ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
-				ValidateSSHServiceEnabled(ctx, s)
+				return errors.Join(
+					ValidateContainerd2Properties(ctx, s, containerdVersions),
+					ValidateRuncVersion(ctx, s, runcVersions),
+					ValidateContainerRuntimePlugins(ctx, s),
+					// ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
+					ValidateSSHServiceEnabled(ctx, s),
+				)
 			},
 		},
 	})
@@ -2716,15 +2863,20 @@ func Test_Ubuntu2604MinimalArm64_NPD_Basic(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
-				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				failCheck(t, check.NoError(err, "creating AKS VM extension"))
+				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+				if err != nil {
+					return fmt.Errorf("create AKS VM extension: %w", err)
+				}
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+				return nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNodeProblemDetector(ctx, s)
-				ValidateNPDFilesystemCorruption(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := ValidateNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
+				return ValidateNPDFilesystemCorruption(ctx, s)
 			},
 		},
 	})
@@ -2771,14 +2923,16 @@ func Test_Ubuntu2404Gen2_McrChinaCloud(t *testing.T) {
 				}
 				vmss.Tags["E2EMockAzureChinaCloud"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
-				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRuncVersion(ctx, s, runcVersions)
-				ValidateContainerRuntimePlugins(ctx, s)
-				ValidateSSHServiceEnabled(ctx, s)
-				ValidateDirectoryContent(ctx, s, "/etc/containerd/certs.d/mcr.azk8s.cn", []string{"hosts.toml"})
+				return errors.Join(
+					ValidateContainerd2Properties(ctx, s, containerdVersions),
+					ValidateRuncVersion(ctx, s, runcVersions),
+					ValidateContainerRuntimePlugins(ctx, s),
+					ValidateSSHServiceEnabled(ctx, s),
+					ValidateDirectoryContent(ctx, s, "/etc/containerd/certs.d/mcr.azk8s.cn", []string{"hosts.toml"}),
+				)
 			},
 		},
 	})
@@ -2847,13 +3001,14 @@ func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
 				}
 				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
-
-				ValidateNvidiaSMINotInstalled(ctx, s)
-				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRuncVersion(ctx, s, runcVersions)
+				return errors.Join(
+					ValidateNvidiaSMINotInstalled(ctx, s),
+					ValidateContainerd2Properties(ctx, s, containerdVersions),
+					ValidateRuncVersion(ctx, s, runcVersions),
+				)
 			},
 		},
 	})
@@ -2865,11 +3020,13 @@ func Test_Ubuntu2404Gen1(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen1Containerd,
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
-				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRuncVersion(ctx, s, runcVersions)
+				return errors.Join(
+					ValidateContainerd2Properties(ctx, s, containerdVersions),
+					ValidateRuncVersion(ctx, s, runcVersions),
+				)
 			},
 		},
 	})
@@ -2884,11 +3041,13 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
-				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRuncVersion(ctx, s, runcVersions)
+				return errors.Join(
+					ValidateContainerd2Properties(ctx, s, containerdVersions),
+					ValidateRuncVersion(ctx, s, runcVersions),
+				)
 			},
 		},
 	})
@@ -2922,13 +3081,15 @@ func runScenarioUbuntu2404GRID(t *testing.T, vmSize string) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
-				ValidateNvidiaModProbeInstalled(ctx, s)
-				ValidateNvidiaGRIDLicenseValid(ctx, s)
-				ValidateKubeletHasNotStopped(ctx, s)
-				ValidateServicesDoNotRestartKubelet(ctx, s)
-				ValidateNvidiaPersistencedRunning(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
+					ValidateNvidiaModProbeInstalled(ctx, s),
+					ValidateNvidiaGRIDLicenseValid(ctx, s),
+					ValidateKubeletHasNotStopped(ctx, s),
+					ValidateServicesDoNotRestartKubelet(ctx, s),
+					ValidateNvidiaPersistencedRunning(ctx, s),
+				)
 			},
 		},
 	})
@@ -2961,11 +3122,13 @@ func Test_Ubuntu2404_GPU_RTXPro6000_GridV20(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC144ds_xl_RTXPRO6000BSE_v6")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNvidiaModProbeInstalled(ctx, s)
-				ValidateNvidiaSMIInstalled(ctx, s)
-				ValidateNvidiaGridV20DriverInstalled(ctx, s)
-				ValidateKubeletHasNotStopped(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateNvidiaModProbeInstalled(ctx, s),
+					ValidateNvidiaSMIInstalled(ctx, s),
+					ValidateNvidiaGridV20DriverInstalled(ctx, s),
+					ValidateKubeletHasNotStopped(ctx, s),
+				)
 			},
 		},
 	})
@@ -2977,25 +3140,30 @@ func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				failCheck(t, check.NoError(err, "creating AKS VM extension"))
+			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
+				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+				if err != nil {
+					return fmt.Errorf("create AKS VM extension: %w", err)
+				}
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+				return nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNodeProblemDetector(ctx, s)
-				ValidateNPDFilesystemCorruption(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := ValidateNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
+				return ValidateNPDFilesystemCorruption(ctx, s)
 			},
 		},
 	})
 }
 
 func Test_Ubuntu2404_GPU_H100(t *testing.T) {
-	RunScenario(t, runScenarioUbuntu2404GPUNPD(t, "Standard_ND96isr_H100_v5", "uaenorth", ""))
+	RunScenario(t, runScenarioUbuntu2404GPUNPD("Standard_ND96isr_H100_v5", "uaenorth", ""))
 }
 
 func Test_Ubuntu2404_GPU_A100(t *testing.T) {
-	RunScenario(t, runScenarioUbuntu2404GPUNPD(t, "Standard_ND96asr_v4", "southcentralus", "Standard_D2s_v3"))
+	RunScenario(t, runScenarioUbuntu2404GPUNPD("Standard_ND96asr_v4", "southcentralus", "Standard_D2s_v3"))
 }
 
 func Test_AzureLinux3_PMC_Install(t *testing.T) {
@@ -3014,7 +3182,8 @@ func Test_AzureLinux3_PMC_Install(t *testing.T) {
 				}
 				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return nil
 			},
 		},
 	})
@@ -3040,10 +3209,12 @@ func Test_Ubuntu2204_PMC_Install(t *testing.T) {
 				}
 				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
-				ValidateSSHServiceEnabled(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0]),
+					ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0]),
+					ValidateSSHServiceEnabled(ctx, s),
+				)
 			},
 		},
 	})
@@ -3058,8 +3229,8 @@ func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFIPSProvider(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateFIPSProvider(ctx, s)
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
@@ -3080,7 +3251,8 @@ func Test_Ubuntu2404_VHDCaching(t *testing.T) {
 			VHD:                    config.VHDUbuntu2204Gen2Containerd,
 			VHDCaching:             true,
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return nil
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				// If the VHD has incorrect settings (like network misconfiguration)
@@ -3130,17 +3302,17 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled(t *testing.T) {
 				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Verify credential provider config file exists
-				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
-
-				// Verify the config contains identity binding arguments
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id=test-client-id-12345")
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id=test-tenant-id-67890")
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=test.sni.local")
-
-				// Verify the config contains the identity binding token attributes section
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					// Verify credential provider config file exists
+					ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml"),
+					// Verify the config contains identity binding arguments
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id=test-client-id-12345"),
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id=test-tenant-id-67890"),
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=test.sni.local"),
+					// Verify the config contains the identity binding token attributes section
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding"),
+				)
 			},
 		},
 	})
@@ -3183,15 +3355,16 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled(t *testing.T) {
 				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				aksConfig.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Verify credential provider config file exists
-				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
-
-				// Verify the config does NOT contain identity binding arguments
-				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id")
-				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id")
-				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name")
-				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					// Verify credential provider config file exists
+					ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml"),
+					// Verify the config does NOT contain identity binding arguments
+					ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id"),
+					ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id"),
+					ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name"),
+					ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding"),
+				)
 			},
 		},
 	})
@@ -3217,17 +3390,17 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_EnabledWithoutDefaultIDs(t *te
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Verify credential provider config file exists
-				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
-
-				// Verify the config contains identity binding token attributes
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=test.sni.local")
-
-				// Verify the config does NOT contain default client/tenant ID flags
-				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id")
-				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					// Verify credential provider config file exists
+					ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml"),
+					// Verify the config contains identity binding token attributes
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding"),
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=test.sni.local"),
+					// Verify the config does NOT contain default client/tenant ID flags
+					ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id"),
+					ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id"),
+				)
 			},
 		},
 	})
@@ -3265,18 +3438,18 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_NetworkIsolated(t *testing.T) 
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
 				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Verify credential provider config file exists
-				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml")
-
-				// Verify the config contains identity binding arguments for NI cluster
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id=ni-test-client-id")
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id=ni-test-tenant-id")
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=ni.test.sni.local")
-				ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
-
-				// Verify outbound check was skipped (network isolated)
-				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					// Verify credential provider config file exists
+					ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml"),
+					// Verify the config contains identity binding arguments for NI cluster
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-client-id=ni-test-client-id"),
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id=ni-test-tenant-id"),
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name=ni.test.sni.local"),
+					ValidateFileHasContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding"),
+					// Verify outbound check was skipped (network isolated)
+					ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"}),
+				)
 			},
 		},
 	})
@@ -3294,12 +3467,20 @@ func Test_Ubuntu2404_SecondaryNIC(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				addSecondaryNIC(vmss)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false")
-				ValidateSecondaryNICUp(ctx, s, resolveSecondaryNICName(ctx, s))
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := errors.Join(
+					ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false"),
+				); err != nil {
+					return err
+				}
+				nicName, err := resolveSecondaryNICName(ctx, s)
+				if err != nil {
+					return err
+				}
+				return ValidateSecondaryNICUp(ctx, s, nicName)
 			},
 		},
 	})
@@ -3317,12 +3498,20 @@ func Test_AzureLinuxV3_SecondaryNIC(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				addSecondaryNIC(vmss)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=ipv4")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=2100")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
-				ValidateSecondaryNICUp(ctx, s, resolveSecondaryNICName(ctx, s))
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := errors.Join(
+					ValidateFileExists(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=ipv4"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=2100"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false"),
+				); err != nil {
+					return err
+				}
+				nicName, err := resolveSecondaryNICName(ctx, s)
+				if err != nil {
+					return err
+				}
+				return ValidateSecondaryNICUp(ctx, s, nicName)
 			},
 		},
 	})
@@ -3340,12 +3529,20 @@ func Test_Ubuntu2204_SecondaryNIC(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				addSecondaryNIC(vmss)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false")
-				ValidateSecondaryNICUp(ctx, s, resolveSecondaryNICName(ctx, s))
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := errors.Join(
+					ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false"),
+				); err != nil {
+					return err
+				}
+				nicName, err := resolveSecondaryNICName(ctx, s)
+				if err != nil {
+					return err
+				}
+				return ValidateSecondaryNICUp(ctx, s, nicName)
 			},
 		},
 	})
@@ -3364,12 +3561,20 @@ func Test_ACL_SecondaryNIC(t *testing.T) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 				addSecondaryNIC(vmss)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=ipv4")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=2100")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
-				ValidateSecondaryNICUp(ctx, s, resolveSecondaryNICName(ctx, s))
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := errors.Join(
+					ValidateFileExists(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=ipv4"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=2100"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false"),
+				); err != nil {
+					return err
+				}
+				nicName, err := resolveSecondaryNICName(ctx, s)
+				if err != nil {
+					return err
+				}
+				return ValidateSecondaryNICUp(ctx, s, nicName)
 			},
 		},
 	})
@@ -3397,15 +3602,23 @@ func Test_Ubuntu2404_SecondaryNIC_DualStack(t *testing.T) {
 				DualStackVMConfigMutator(vmss)
 				addDualStackSecondaryNIC(vmss)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6: true")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4-overrides:")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6-overrides:")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false")
-				ValidateSecondaryNICDualStack(ctx, s, resolveSecondaryNICName(ctx, s))
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := errors.Join(
+					ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6: true"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4-overrides:"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6-overrides:"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false"),
+				); err != nil {
+					return err
+				}
+				nicName, err := resolveSecondaryNICName(ctx, s)
+				if err != nil {
+					return err
+				}
+				return ValidateSecondaryNICDualStack(ctx, s, nicName)
 			},
 		},
 	})
@@ -3433,15 +3646,23 @@ func Test_Ubuntu2204_SecondaryNIC_DualStack(t *testing.T) {
 				DualStackVMConfigMutator(vmss)
 				addDualStackSecondaryNIC(vmss)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6: true")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4-overrides:")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6-overrides:")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200")
-				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false")
-				ValidateSecondaryNICDualStack(ctx, s, resolveSecondaryNICName(ctx, s))
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := errors.Join(
+					ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6: true"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4-overrides:"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6-overrides:"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200"),
+					ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false"),
+				); err != nil {
+					return err
+				}
+				nicName, err := resolveSecondaryNICName(ctx, s)
+				if err != nil {
+					return err
+				}
+				return ValidateSecondaryNICDualStack(ctx, s, nicName)
 			},
 		},
 	})
@@ -3469,14 +3690,22 @@ func Test_AzureLinuxV3_SecondaryNIC_DualStack(t *testing.T) {
 				DualStackVMConfigMutator(vmss)
 				addDualStackSecondaryNIC(vmss)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=yes")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "IPv6AcceptRA=yes")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "[DHCPv6]")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=2100")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
-				ValidateSecondaryNICDualStack(ctx, s, resolveSecondaryNICName(ctx, s))
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := errors.Join(
+					ValidateFileExists(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=yes"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "IPv6AcceptRA=yes"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "[DHCPv6]"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=2100"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false"),
+				); err != nil {
+					return err
+				}
+				nicName, err := resolveSecondaryNICName(ctx, s)
+				if err != nil {
+					return err
+				}
+				return ValidateSecondaryNICDualStack(ctx, s, nicName)
 			},
 		},
 	})
@@ -3505,14 +3734,22 @@ func Test_ACL_SecondaryNIC_DualStack(t *testing.T) {
 				DualStackVMConfigMutator(vmss)
 				addDualStackSecondaryNIC(vmss)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=yes")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "IPv6AcceptRA=yes")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "[DHCPv6]")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=2100")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
-				ValidateSecondaryNICDualStack(ctx, s, resolveSecondaryNICName(ctx, s))
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := errors.Join(
+					ValidateFileExists(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=yes"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "IPv6AcceptRA=yes"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "[DHCPv6]"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=2100"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false"),
+				); err != nil {
+					return err
+				}
+				nicName, err := resolveSecondaryNICName(ctx, s)
+				if err != nil {
+					return err
+				}
+				return ValidateSecondaryNICDualStack(ctx, s, nicName)
 			},
 		},
 	})
@@ -3611,14 +3848,16 @@ func Test_Ubuntu2204_NodeHardening_KubeReservedSlice_ConfigFile(t *testing.T) {
 				// config-file (kubeletconfig.json) path instead of CLI flags.
 				nbc.AgentPoolProfile.CustomKubeletConfig = &datamodel.CustomKubeletConfig{}
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/containerd.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", `"kubeReservedCgroup": "/kubereserved.slice"`)
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", `"systemReservedCgroup": "/system.slice"`)
-				ValidateServiceInSlice(ctx, s, "kubelet.service", "kubereserved.slice")
-				ValidateServiceInSlice(ctx, s, "containerd.service", "kubereserved.slice")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/containerd.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice"),
+					ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", `"kubeReservedCgroup": "/kubereserved.slice"`),
+					ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", `"systemReservedCgroup": "/system.slice"`),
+					ValidateServiceInSlice(ctx, s, "kubelet.service", "kubereserved.slice"),
+					ValidateServiceInSlice(ctx, s, "containerd.service", "kubereserved.slice"),
+				)
 			},
 		},
 	})
@@ -3648,14 +3887,16 @@ func Test_Ubuntu2204_NodeHardening_KubeReservedSlice_CLIFlags(t *testing.T) {
 				nbc.KubeletConfig["--kube-reserved-cgroup"] = "/kubelet.slice"
 				nbc.KubeletConfig["--system-reserved-cgroup"] = "/kubelet.slice"
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/containerd.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--kube-reserved-cgroup=/kubereserved.slice")
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--system-reserved-cgroup=/system.slice")
-				ValidateServiceInSlice(ctx, s, "kubelet.service", "kubereserved.slice")
-				ValidateServiceInSlice(ctx, s, "containerd.service", "kubereserved.slice")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice"),
+					ValidateFileHasContent(ctx, s, "/etc/systemd/system/containerd.service.d/10-kubereserved-slice.conf", "Slice=kubereserved.slice"),
+					ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--kube-reserved-cgroup=/kubereserved.slice"),
+					ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--system-reserved-cgroup=/system.slice"),
+					ValidateServiceInSlice(ctx, s, "kubelet.service", "kubereserved.slice"),
+					ValidateServiceInSlice(ctx, s, "containerd.service", "kubereserved.slice"),
+				)
 			},
 		},
 	})

@@ -275,8 +275,9 @@ func Test_Ubuntu2204_CSE_CachedPerformance(t *testing.T) {
 				// installDebPackageFromFile (the function that caused the regression).
 				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCSETimings(ctx, s, cachedCSEThresholds)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				_, err := ValidateCSETimings(ctx, s, cachedCSEThresholds)
+				return err
 			},
 		},
 	})
@@ -297,8 +298,9 @@ func Test_Ubuntu2204_CSE_FullInstallPerformance(t *testing.T) {
 				}
 				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCSETimings(ctx, s, fullInstallCSEThresholds)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				_, err := ValidateCSETimings(ctx, s, fullInstallCSEThresholds)
+				return err
 			},
 		},
 	})
@@ -326,8 +328,9 @@ func Test_Ubuntu2404_CSE_CachedPerformance(t *testing.T) {
 				}
 				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCSETimings(ctx, s, cachedCSEThresholdsUbuntu2404)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				_, err := ValidateCSETimings(ctx, s, cachedCSEThresholdsUbuntu2404)
+				return err
 			},
 		},
 	})
@@ -348,8 +351,9 @@ func Test_Ubuntu2404_CSE_FullInstallPerformance(t *testing.T) {
 				}
 				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCSETimings(ctx, s, fullInstallCSEThresholdsUbuntu2404)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				_, err := ValidateCSETimings(ctx, s, fullInstallCSEThresholdsUbuntu2404)
+				return err
 			},
 		},
 	})
@@ -377,8 +381,9 @@ func Test_Ubuntu2604Minimal_CSE_CachedPerformance(t *testing.T) {
 				}
 				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCSETimings(ctx, s, cachedCSEThresholdsUbuntu2604Minimal)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				_, err := ValidateCSETimings(ctx, s, cachedCSEThresholdsUbuntu2604Minimal)
+				return err
 			},
 		},
 	})
@@ -399,8 +404,9 @@ func Test_Ubuntu2604Minimal_CSE_FullInstallPerformance(t *testing.T) {
 				}
 				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCSETimings(ctx, s, fullInstallCSEThresholdsUbuntu2604Minimal)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				_, err := ValidateCSETimings(ctx, s, fullInstallCSEThresholdsUbuntu2604Minimal)
+				return err
 			},
 		},
 	})
@@ -417,8 +423,9 @@ func Test_AzureLinuxV3_CSE_CachedPerformance(t *testing.T) {
 			VHD:                      config.VHDAzureLinuxV3Gen2,
 			EagerCSETimingExtraction: true,
 			SkipDefaultValidation:    true,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCSETimings(ctx, s, cachedCSEThresholdsAzureLinuxV3)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				_, err := ValidateCSETimings(ctx, s, cachedCSEThresholdsAzureLinuxV3)
+				return err
 			},
 		},
 	})
@@ -439,8 +446,9 @@ func Test_AzureLinuxV3_CSE_FullInstallPerformance(t *testing.T) {
 				}
 				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCSETimings(ctx, s, fullInstallCSEThresholdsAzureLinuxV3)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				_, err := ValidateCSETimings(ctx, s, fullInstallCSEThresholdsAzureLinuxV3)
+				return err
 			},
 		},
 	})
