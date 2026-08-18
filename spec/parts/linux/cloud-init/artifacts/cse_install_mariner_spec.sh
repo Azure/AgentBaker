@@ -407,6 +407,8 @@ Describe 'cse_install_mariner.sh'
             The output should include "  - nvidia-cuda-open-driver version 580.126.09"
             The output should include "  - nvidia-cuda-driver version 570.195.03"
             The output should include "  - nvidia-grid-driver version 570.211.01"
+            The output should include "build-time snapshot only"
+            The output should include "the installed version is not pinned to this VHD"
         End
 
         It 'emits no release-note section when no driver packages match the current kernel'

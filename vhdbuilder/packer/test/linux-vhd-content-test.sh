@@ -1269,6 +1269,10 @@ testAzureLinuxNvidiaGPUDriverReleaseNotes() {
     err "$test" "Expected Azure Linux GRID driver release-note line was not found"
   fi
 
+  if ! grep -F -q "the installed version is not pinned to this VHD" "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Expected Azure Linux GPU driver release-note snapshot disclaimer was not found"
+  fi
+
   echo "$test:Finish"
 }
 

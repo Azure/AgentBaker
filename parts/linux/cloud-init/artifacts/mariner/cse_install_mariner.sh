@@ -145,6 +145,7 @@ getAzureLinuxNvidiaDriverReleaseNotes() {
     if [ -n "${grid_package}" ]; then
         echo "  - nvidia-grid-driver version $(getAzureLinuxNvidiaDriverVersionFromPackage "${grid_package}" "nvidia-vgpu-guest-driver-")"
     fi
+    echo "  Note: build-time snapshot only; Azure Linux GPU nodes install the latest kernel-compatible RPM available at node provisioning time, so the installed version is not pinned to this VHD."
 }
 
 downloadGPUDrivers() {
