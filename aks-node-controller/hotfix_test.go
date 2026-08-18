@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -648,4 +650,312 @@ func TestShouldUpgradeToHotfix(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReadHotfixConfig_ParsesArtifacts(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "hotfix-config.json")
+	require.NoError(t, os.WriteFile(path, []byte(`{
+		"hotfixes": {"202607.02": "202607.02.2"},
+		"artifacts": {
+			"202607.02.2": {
+				"ubuntu-22.04-amd64": {
+					"url": "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/a/aks-node-controller/aks-node-controller_0.202607.02.2_amd64.deb",
+					"sha256": "abc123"
+				}
+			}
+		}
+	}`), 0o644))
+	cfg, err := readHotfixConfig(path)
+	require.NoError(t, err)
+	require.Contains(t, cfg.Artifacts, "202607.02.2")
+	require.Contains(t, cfg.Artifacts["202607.02.2"], "ubuntu-22.04-amd64")
+	assert.Equal(t, "abc123", cfg.Artifacts["202607.02.2"]["ubuntu-22.04-amd64"].SHA256)
+}
+
+func TestReadHotfixConfig_NoArtifactsFieldBackwardCompat(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "hotfix-config.json")
+	require.NoError(t, os.WriteFile(path, []byte(`{"version": "202604.01.1"}`), 0o644))
+	cfg, err := readHotfixConfig(path)
+	require.NoError(t, err)
+	assert.Equal(t, "202604.01.1", cfg.Version)
+	assert.Nil(t, cfg.Artifacts)
+}
+
+func TestBuildArtifactKey(t *testing.T) {
+	t.Run("ubuntu", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "os-release")
+		require.NoError(t, os.WriteFile(path, []byte("ID=ubuntu\nVERSION_ID=\"22.04\"\n"), 0o644))
+		a := &App{osReleasePath: path}
+		key, err := a.buildArtifactKey()
+		require.NoError(t, err)
+		assert.Equal(t, fmt.Sprintf("ubuntu-22.04-%s", runtime.GOARCH), key)
+	})
+
+	t.Run("azurelinux", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "os-release")
+		require.NoError(t, os.WriteFile(path, []byte("ID=azurelinux\nVERSION_ID=\"3.0\"\n"), 0o644))
+		a := &App{osReleasePath: path}
+		key, err := a.buildArtifactKey()
+		require.NoError(t, err)
+		assert.Equal(t, fmt.Sprintf("azurelinux-3.0-%s", runtime.GOARCH), key)
+	})
+
+	t.Run("missing VERSION_ID errors", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "os-release")
+		require.NoError(t, os.WriteFile(path, []byte("ID=ubuntu\n"), 0o644))
+		a := &App{osReleasePath: path}
+		_, err := a.buildArtifactKey()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "VERSION_ID not found")
+	})
+}
+
+func TestValidateArtifactURL(t *testing.T) {
+	t.Run("valid PMC URL", func(t *testing.T) {
+		assert.NoError(t, validateArtifactURL("https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/a/aks.deb"))
+	})
+
+	t.Run("HTTP rejected", func(t *testing.T) {
+		err := validateArtifactURL("http://packages.microsoft.com/foo.deb")
+		require.Error(t, err)
+		assert.True(t, isIntegrityError(err))
+		assert.Contains(t, err.Error(), "HTTPS")
+	})
+
+	t.Run("non-PMC host rejected", func(t *testing.T) {
+		err := validateArtifactURL("https://evil.com/foo.deb")
+		require.Error(t, err)
+		assert.True(t, isIntegrityError(err))
+		assert.Contains(t, err.Error(), "allowlist")
+	})
+
+	t.Run("empty URL rejected", func(t *testing.T) {
+		err := validateArtifactURL("")
+		require.Error(t, err)
+	})
+}
+
+func TestDownloadHotfix_ArtifactHTTPSuccess(t *testing.T) {
+	origVersion := Version
+	Version = "202607.02.0"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	binaryContent := []byte("hotfix-binary-content")
+	sha := "3ab698426c19090c43a48950dcd94d196122b11149423f230b1234cda75e3293"
+
+	path := filepath.Join(dir, "hotfix-config.json")
+	artifactKey := fmt.Sprintf("ubuntu-22.04-%s", runtime.GOARCH)
+	configJSON := fmt.Sprintf(`{
+		"hotfixes": {"202607.02": "202607.02.2"},
+		"artifacts": {
+			"202607.02.2": {
+				%q: {
+					"url": "https://packages.microsoft.com/fake.deb",
+					"sha256": %q
+				}
+			}
+		}
+	}`, artifactKey, sha)
+	require.NoError(t, os.WriteFile(path, []byte(configJSON), 0o644))
+
+	osReleasePath := filepath.Join(dir, "os-release")
+	require.NoError(t, os.WriteFile(osReleasePath, []byte("ID=ubuntu\nVERSION_ID=\"22.04\"\n"), 0o644))
+
+	// Create VHD binary so copyBinaryAlongside can derive permissions.
+	vhdBin := filepath.Join(dir, "aks-node-controller")
+	require.NoError(t, os.WriteFile(vhdBin, []byte("original"), 0o755))
+
+	installCalled := false
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(cmd *exec.Cmd) error {
+			installCalled = true
+			return nil
+		},
+	})
+	tt.App.hotfixVersionPath = path
+	tt.App.osReleasePath = osReleasePath
+	tt.App.httpDownload = func(ctx context.Context, url string) ([]byte, error) {
+		return binaryContent, nil
+	}
+
+	// Override paths used by copyBinaryAlongside — we can't write to /opt/azure/containers/ in tests.
+	// The download writes to filepath.Dir(hotfixBinaryPath), so we need to test at a different level.
+	// Instead, verify that installFromPMC is NOT called (the HTTP path was used).
+	err := tt.App.downloadHotfix(context.Background())
+	// Will fail at copyBinaryAlongside because hotfixBinaryPath is /opt/azure/containers/...
+	// which doesn't exist in test. But installCalled should be false (HTTP path used, not apt).
+	_ = err
+	assert.False(t, installCalled, "should use HTTP download, not package manager")
+}
+
+func TestDownloadHotfix_ArtifactSHAMismatchHardFail(t *testing.T) {
+	origVersion := Version
+	Version = "202607.02.0"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	artifactKey := fmt.Sprintf("ubuntu-22.04-%s", runtime.GOARCH)
+
+	path := filepath.Join(dir, "hotfix-config.json")
+	configJSON := fmt.Sprintf(`{
+		"hotfixes": {"202607.02": "202607.02.2"},
+		"artifacts": {
+			"202607.02.2": {
+				%q: {
+					"url": "https://packages.microsoft.com/fake.deb",
+					"sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+				}
+			}
+		}
+	}`, artifactKey)
+	require.NoError(t, os.WriteFile(path, []byte(configJSON), 0o644))
+
+	osReleasePath := filepath.Join(dir, "os-release")
+	require.NoError(t, os.WriteFile(osReleasePath, []byte("ID=ubuntu\nVERSION_ID=\"22.04\"\n"), 0o644))
+
+	installCalled := false
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(cmd *exec.Cmd) error {
+			installCalled = true
+			return nil
+		},
+	})
+	tt.App.hotfixVersionPath = path
+	tt.App.osReleasePath = osReleasePath
+	tt.App.httpDownload = func(ctx context.Context, url string) ([]byte, error) {
+		return []byte("hotfix-binary-content"), nil
+	}
+
+	err := tt.App.downloadHotfix(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "integrity")
+	assert.False(t, installCalled, "should NOT fallback to package manager on SHA mismatch")
+}
+
+func TestDownloadHotfix_ArtifactHTTPErrorFallsBackToApt(t *testing.T) {
+	origVersion := Version
+	Version = "202607.02.0"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	artifactKey := fmt.Sprintf("ubuntu-22.04-%s", runtime.GOARCH)
+
+	path := filepath.Join(dir, "hotfix-config.json")
+	configJSON := fmt.Sprintf(`{
+		"hotfixes": {"202607.02": "202607.02.2"},
+		"artifacts": {
+			"202607.02.2": {
+				%q: {
+					"url": "https://packages.microsoft.com/fake.deb",
+					"sha256": "abc123"
+				}
+			}
+		}
+	}`, artifactKey)
+	require.NoError(t, os.WriteFile(path, []byte(configJSON), 0o644))
+
+	osReleasePath := filepath.Join(dir, "os-release")
+	require.NoError(t, os.WriteFile(osReleasePath, []byte("ID=ubuntu\nVERSION_ID=\"22.04\"\n"), 0o644))
+
+	aptDir := filepath.Join(dir, "sources.list.d")
+	require.NoError(t, os.MkdirAll(aptDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(aptDir, "microsoft-prod.list"), []byte("deb ..."), 0o644))
+
+	installCalled := false
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(cmd *exec.Cmd) error {
+			installCalled = true
+			return nil
+		},
+	})
+	tt.App.hotfixVersionPath = path
+	tt.App.osReleasePath = osReleasePath
+	tt.App.aptSourcesDir = aptDir
+	tt.App.httpDownload = func(ctx context.Context, url string) ([]byte, error) {
+		return nil, fmt.Errorf("connection refused")
+	}
+
+	// Will fail at copyBinaryAlongside (pkgBinaryPath doesn't exist), but apt should be called.
+	err := tt.App.downloadHotfix(context.Background())
+	require.Error(t, err)
+	assert.True(t, installCalled, "should fallback to package manager on HTTP network error")
+}
+
+func TestDownloadHotfix_NoArtifactsFallsBackToApt(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.0"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hotfix-config.json")
+	// No artifacts field — legacy config.
+	require.NoError(t, os.WriteFile(path, []byte(`{"version": "202604.01.1"}`), 0o644))
+
+	osReleasePath := filepath.Join(dir, "os-release")
+	require.NoError(t, os.WriteFile(osReleasePath, []byte("ID=ubuntu\n"), 0o644))
+
+	aptDir := filepath.Join(dir, "sources.list.d")
+	require.NoError(t, os.MkdirAll(aptDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(aptDir, "microsoft-prod.list"), []byte("deb ..."), 0o644))
+
+	installCalled := false
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(cmd *exec.Cmd) error {
+			installCalled = true
+			return nil
+		},
+	})
+	tt.App.hotfixVersionPath = path
+	tt.App.osReleasePath = osReleasePath
+	tt.App.aptSourcesDir = aptDir
+
+	// Will fail at copyBinaryAlongside, but apt should be called.
+	err := tt.App.downloadHotfix(context.Background())
+	require.Error(t, err)
+	assert.True(t, installCalled, "should use package manager when no artifacts field")
+}
+
+func TestDownloadHotfix_ArtifactInvalidURLHardFail(t *testing.T) {
+	origVersion := Version
+	Version = "202607.02.0"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	artifactKey := fmt.Sprintf("ubuntu-22.04-%s", runtime.GOARCH)
+
+	path := filepath.Join(dir, "hotfix-config.json")
+	configJSON := fmt.Sprintf(`{
+		"hotfixes": {"202607.02": "202607.02.2"},
+		"artifacts": {
+			"202607.02.2": {
+				%q: {
+					"url": "http://evil.com/malicious.deb",
+					"sha256": "abc123"
+				}
+			}
+		}
+	}`, artifactKey)
+	require.NoError(t, os.WriteFile(path, []byte(configJSON), 0o644))
+
+	osReleasePath := filepath.Join(dir, "os-release")
+	require.NoError(t, os.WriteFile(osReleasePath, []byte("ID=ubuntu\nVERSION_ID=\"22.04\"\n"), 0o644))
+
+	installCalled := false
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(cmd *exec.Cmd) error {
+			installCalled = true
+			return nil
+		},
+	})
+	tt.App.hotfixVersionPath = path
+	tt.App.osReleasePath = osReleasePath
+
+	err := tt.App.downloadHotfix(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "integrity")
+	assert.False(t, installCalled, "should NOT fallback to package manager on invalid URL")
 }

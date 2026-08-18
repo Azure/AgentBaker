@@ -2,15 +2,23 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
+	"github.com/Azure/agentbaker/aks-node-controller/common"
 	"github.com/Masterminds/semver/v3"
 )
 
@@ -27,7 +35,13 @@ const (
 	hotfixBinaryPath = "/opt/azure/containers/aks-node-controller-hotfix"
 	// pkgBinaryPath is where apt/dnf package installs the binary.
 	pkgBinaryPath = "/usr/bin/aks-node-controller"
+
+	// HTTP download settings.
+	downloadTimeout = 30 * time.Second
 )
+
+// allowedArtifactHosts is the set of hosts from which artifact downloads are permitted.
+var allowedArtifactHosts = []string{"packages.microsoft.com"}
 
 // downloadHotfix installs the requested hotfix and stages it alongside the VHD-baked binary.
 // The wrapper script decides which binary to execute after this command returns.
@@ -100,6 +114,33 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 
 	slog.Info("downloading ANC hotfix", "current", Version, "target", hotfixVersion)
 
+	// Try direct HTTP download if an artifact descriptor is available for this version + OS/arch.
+	artifact, artifactKey := a.resolveArtifact(cfg, hotfixVersion)
+	if artifact != nil {
+		slog.Info("artifact descriptor found, attempting direct HTTP download",
+			"version", hotfixVersion, "key", artifactKey, "url", artifact.URL)
+		tmpPath, err := a.downloadAndVerify(ctx, artifact.URL, artifact.SHA256)
+		if err != nil {
+			if isIntegrityError(err) {
+				// SHA mismatch or invalid descriptor: hard fail, do NOT fallback to package manager.
+				return fmt.Errorf("artifact integrity check failed for %s: %w", hotfixVersion, err)
+			}
+			// Network error: log and fallback to package manager.
+			slog.Warn("direct HTTP download failed, falling back to package manager",
+				"version", hotfixVersion, "error", err)
+		} else {
+			// Direct download succeeded — stage from temp file instead of pkgBinaryPath.
+			if err := copyBinaryAlongside(tmpPath, hotfixBinaryPath, vhdBinaryPath); err != nil {
+				os.Remove(tmpPath)
+				return fmt.Errorf("stage hotfix binary from artifact: %w", err)
+			}
+			os.Remove(tmpPath)
+			slog.Info("downloaded ANC hotfix via direct HTTP", "target", hotfixVersion, "path", hotfixBinaryPath)
+			return nil
+		}
+	}
+
+	// Fallback: install via package manager (apt-get or dnf/tdnf).
 	if err := a.installFromPMC(ctx, hotfixVersion); err != nil {
 		return fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
 	}
@@ -110,6 +151,12 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 
 	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", hotfixBinaryPath)
 	return nil
+}
+
+// artifactInfo describes a directly-downloadable package artifact with its integrity digest.
+type artifactInfo struct {
+	URL    string `json:"url"`
+	SHA256 string `json:"sha256"`
 }
 
 // hotfixConfig is the JSON structure of the hotfix configuration file.
@@ -128,6 +175,12 @@ type hotfixConfig struct {
 	// whose key is absent gets no hotfix (default deny). When non-empty, this map
 	// takes precedence over Version.
 	Hotfixes map[string]string `json:"hotfixes,omitempty"`
+
+	// Artifacts maps a hotfix version to per-OS/arch artifact descriptors for direct
+	// HTTP download. When present and matching, the download path bypasses the package
+	// manager entirely. The outer key is the hotfix version (e.g. "202607.02.2"), the
+	// inner key is "ID-VERSION_ID-GOARCH" (e.g. "ubuntu-22.04-amd64").
+	Artifacts map[string]map[string]artifactInfo `json:"artifacts,omitempty"`
 }
 
 // hotfixBaseFromVersion extracts the "YYYYMM.DD" base from an ANC version string of
@@ -376,6 +429,174 @@ func copyBinaryAlongside(src, dst, refPath string) error {
 	}
 	slog.Info("installed hotfix binary alongside VHD binary", "src", src, "hotfixPath", dst)
 	return nil
+}
+
+// integrityError marks errors where the downloaded content failed validation.
+// These must NOT fallback to the package manager — the node should keep its VHD-baked ANC.
+type integrityError struct {
+	msg string
+}
+
+func (e *integrityError) Error() string { return e.msg }
+
+func newIntegrityError(format string, args ...any) error {
+	return &integrityError{msg: fmt.Sprintf(format, args...)}
+}
+
+func isIntegrityError(err error) bool {
+	var ie *integrityError
+	return errors.As(err, &ie)
+}
+
+// resolveArtifact looks up the artifact descriptor for the given hotfix version and current
+// OS/architecture. Returns nil if no artifact is available (caller should fallback to pkg mgr).
+func (a *App) resolveArtifact(cfg *hotfixConfig, hotfixVersion string) (*artifactInfo, string) {
+	if len(cfg.Artifacts) == 0 {
+		return nil, ""
+	}
+	perArch, ok := cfg.Artifacts[hotfixVersion]
+	if !ok || len(perArch) == 0 {
+		return nil, ""
+	}
+	key, err := a.buildArtifactKey()
+	if err != nil {
+		slog.Warn("cannot build artifact key, skipping direct download", "error", err)
+		return nil, ""
+	}
+	ai, ok := perArch[key]
+	if !ok {
+		return nil, key
+	}
+	return &ai, key
+}
+
+// buildArtifactKey constructs the OS/arch lookup key for the artifacts map.
+// Format: "ID-VERSION_ID-GOARCH" (e.g. "ubuntu-22.04-amd64").
+func (a *App) buildArtifactKey() (string, error) {
+	osReleasePath := a.osReleasePath
+	if osReleasePath == "" {
+		osReleasePath = "/etc/os-release"
+	}
+	data, err := os.ReadFile(osReleasePath)
+	if err != nil {
+		return "", fmt.Errorf("reading %s: %w", osReleasePath, err)
+	}
+	var id, versionID string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "ID=") {
+			id = strings.Trim(strings.TrimPrefix(line, "ID="), `"`)
+			id = strings.ToLower(id)
+		}
+		if strings.HasPrefix(line, "VERSION_ID=") {
+			versionID = strings.Trim(strings.TrimPrefix(line, "VERSION_ID="), `"`)
+		}
+	}
+	if id == "" || versionID == "" {
+		return "", fmt.Errorf("ID or VERSION_ID not found in %s", osReleasePath)
+	}
+	return fmt.Sprintf("%s-%s-%s", id, versionID, runtime.GOARCH), nil
+}
+
+// validateArtifactURL ensures the URL is HTTPS and the host is in the PMC allowlist.
+func validateArtifactURL(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return newIntegrityError("invalid artifact URL %q: %v", rawURL, err)
+	}
+	if u.Scheme != "https" {
+		return newIntegrityError("artifact URL must be HTTPS, got %q", u.Scheme)
+	}
+	host := strings.ToLower(u.Hostname())
+	for _, allowed := range allowedArtifactHosts {
+		if host == allowed {
+			return nil
+		}
+	}
+	return newIntegrityError("artifact URL host %q not in allowlist %v", host, allowedArtifactHosts)
+}
+
+// downloadAndVerify downloads the artifact from the given URL, computes its SHA-256 digest,
+// and compares it to the expected value. Returns the path to a temp file containing the binary.
+// The caller is responsible for removing the temp file after staging.
+func (a *App) downloadAndVerify(ctx context.Context, artifactURL, expectedSHA256 string) (string, error) {
+	if err := validateArtifactURL(artifactURL); err != nil {
+		return "", err
+	}
+	expectedSHA256 = strings.TrimSpace(strings.ToLower(expectedSHA256))
+	if expectedSHA256 == "" {
+		return "", newIntegrityError("artifact SHA-256 is empty")
+	}
+
+	body, err := a.doHTTPDownload(ctx, artifactURL)
+	if err != nil {
+		return "", fmt.Errorf("HTTP download %s: %w", artifactURL, err)
+	}
+
+	// Verify SHA-256.
+	h := sha256.Sum256(body)
+	actualSHA256 := hex.EncodeToString(h[:])
+	if actualSHA256 != expectedSHA256 {
+		return "", newIntegrityError("SHA-256 mismatch: expected %s, got %s", expectedSHA256, actualSHA256)
+	}
+
+	// Write to temp file.
+	dir := filepath.Dir(hotfixBinaryPath)
+	tmp, err := os.CreateTemp(dir, ".aks-node-controller-download-*")
+	if err != nil {
+		return "", fmt.Errorf("creating temp file in %s: %w", dir, err)
+	}
+	tmpPath := tmp.Name()
+	if _, err := tmp.Write(body); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return "", fmt.Errorf("writing temp file %s: %w", tmpPath, err)
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpPath)
+		return "", fmt.Errorf("closing temp file %s: %w", tmpPath, err)
+	}
+	return tmpPath, nil
+}
+
+// doHTTPDownload performs the actual HTTP GET. It uses the injectable httpDownload hook
+// for testing, falling back to a real HTTP client with common.NewBaseTransport.
+func (a *App) doHTTPDownload(ctx context.Context, artifactURL string) ([]byte, error) {
+	if a.httpDownload != nil {
+		return a.httpDownload(ctx, artifactURL)
+	}
+	dlCtx, cancel := context.WithTimeout(ctx, downloadTimeout)
+	defer cancel()
+
+	transport := common.NewBaseTransport(common.HTTPTransportOptions{
+		DialTimeout:           10 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
+	})
+	// Reject cross-domain redirects: only follow redirects to allowed hosts.
+	client := &http.Client{
+		Transport: transport,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if err := validateArtifactURL(req.URL.String()); err != nil {
+				return fmt.Errorf("redirect to disallowed host: %w", err)
+			}
+			return nil
+		},
+	}
+
+	req, err := http.NewRequestWithContext(dlCtx, http.MethodGet, artifactURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d from %s", resp.StatusCode, artifactURL)
+	}
+	return io.ReadAll(resp.Body)
 }
 
 // shouldUpgradeToHotfix returns true when the current ANC version should be upgraded
