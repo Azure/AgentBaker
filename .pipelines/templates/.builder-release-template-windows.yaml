@@ -261,7 +261,7 @@ steps:
             --auth-mode login \
             --query exists \
             --output tsv)
-          if [ "${staging_container_exists}" != "true" ]; then
+          if [ "${staging_container_exists,,}" != "true" ]; then
             echo "Creating staging container ${VHD_STAGING_CONTAINER_NAME} in storage account ${STORAGE_ACCOUNT_NAME}"
             az storage container create \
               --account-name "${STORAGE_ACCOUNT_NAME}" \
@@ -310,7 +310,7 @@ steps:
           --query exists \
           --output tsv)
 
-        if [ "${destination_exists}" != "true" ]; then
+        if [ "${destination_exists,,}" != "true" ]; then
           echo "Copying ${source_uri} to immutable container ${VHD_CONTAINER_NAME}"
           az storage blob copy start \
             --account-name "${STORAGE_ACCOUNT_NAME}" \
@@ -356,7 +356,7 @@ steps:
           --auth-mode login \
           --query exists \
           --output tsv)
-        if [ "${source_exists}" = "true" ]; then
+        if [ "${source_exists,,}" = "true" ]; then
           az storage blob delete \
             --account-name "${STORAGE_ACCOUNT_NAME}" \
             --container-name "${VHD_STAGING_CONTAINER_NAME}" \
@@ -372,7 +372,7 @@ steps:
           --auth-mode login \
           --query exists \
           --output tsv)
-        if [ "${source_exists}" = "true" ]; then
+        if [ "${source_exists,,}" = "true" ]; then
           echo "##vso[task.logissue type=error]Staging VHD ${VHD_STAGING_CONTAINER_NAME}/${vhd_name} still exists after cleanup"
           exit 1
         fi
