@@ -2079,10 +2079,9 @@ root = "{{GetDataDir}}"{{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 {{- if IsArtifactStreamingEnabled }}
-[proxy_plugins]
-  [proxy_plugins.overlaybd]
-    type = "snapshot"
-    address = "/run/overlaybd-snapshotter/overlaybd.sock"
+[proxy_plugins.overlaybd]
+  type = "snapshot"
+  address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
@@ -2097,10 +2096,9 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "erofs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
-[proxy_plugins]
-  [proxy_plugins.tardev]
-    type = "snapshot"
-    address = "/run/containerd/tardev-snapshotter.sock"
+[proxy_plugins.tardev]
+  type = "snapshot"
+  address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
@@ -2161,10 +2159,9 @@ root = "{{GetDataDir}}"{{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 {{- if IsArtifactStreamingEnabled }}
-[proxy_plugins]
-  [proxy_plugins.overlaybd]
-    type = "snapshot"
-    address = "/run/overlaybd-snapshotter/overlaybd.sock"
+[proxy_plugins.overlaybd]
+  type = "snapshot"
+  address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
 [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
@@ -2179,10 +2176,9 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "erofs"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-templating.toml"
-[proxy_plugins]
-  [proxy_plugins.tardev]
-    type = "snapshot"
-    address = "/run/containerd/tardev-snapshotter.sock"
+[proxy_plugins.tardev]
+  type = "snapshot"
+  address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
@@ -2228,10 +2224,9 @@ root = "{{GetDataDir}}"{{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 {{- if IsArtifactStreamingEnabled }}
-[proxy_plugins]
-  [proxy_plugins.overlaybd]
-    type = "snapshot"
-    address = "/run/overlaybd-snapshotter/overlaybd.sock"
+[proxy_plugins.overlaybd]
+  type = "snapshot"
+  address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
 [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
@@ -2246,10 +2241,9 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "erofs"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-templating.toml"
-[proxy_plugins]
-  [proxy_plugins.tardev]
-    type = "snapshot"
-    address = "/run/containerd/tardev-snapshotter.sock"
+[proxy_plugins.tardev]
+  type = "snapshot"
+  address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
@@ -2321,10 +2315,9 @@ root = "{{GetDataDir}}"{{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 {{- if IsArtifactStreamingEnabled }}
-[proxy_plugins]
-  [proxy_plugins.overlaybd]
-    type = "snapshot"
-    address = "/run/overlaybd-snapshotter/overlaybd.sock"
+[proxy_plugins.overlaybd]
+  type = "snapshot"
+  address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
 [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
@@ -2339,10 +2332,9 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "erofs"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
-[proxy_plugins]
-  [proxy_plugins.tardev]
-    type = "snapshot"
-    address = "/run/containerd/tardev-snapshotter.sock"
+[proxy_plugins.tardev]
+  type = "snapshot"
+  address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
@@ -2401,10 +2393,9 @@ root = "{{GetDataDir}}"{{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 {{- if IsArtifactStreamingEnabled }}
-[proxy_plugins]
-  [proxy_plugins.overlaybd]
-    type = "snapshot"
-    address = "/run/overlaybd-snapshotter/overlaybd.sock"
+[proxy_plugins.overlaybd]
+  type = "snapshot"
+  address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
 [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
@@ -2419,10 +2410,9 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "erofs"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
-[proxy_plugins]
-  [proxy_plugins.tardev]
-    type = "snapshot"
-    address = "/run/containerd/tardev-snapshotter.sock"
+[proxy_plugins.tardev]
+  type = "snapshot"
+  address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
@@ -2486,10 +2476,9 @@ root = "{{GetDataDir}}"{{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 {{- if IsArtifactStreamingEnabled }}
-[proxy_plugins]
-  [proxy_plugins.overlaybd]
-    type = "snapshot"
-    address = "/run/overlaybd-snapshotter/overlaybd.sock"
+[proxy_plugins.overlaybd]
+  type = "snapshot"
+  address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
@@ -2504,10 +2493,9 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "erofs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
-[proxy_plugins]
-  [proxy_plugins.tardev]
-    type = "snapshot"
-    address = "/run/containerd/tardev-snapshotter.sock"
+[proxy_plugins.tardev]
+  type = "snapshot"
+  address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"

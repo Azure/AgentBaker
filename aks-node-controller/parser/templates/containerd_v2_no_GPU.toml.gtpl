@@ -47,10 +47,9 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 {{- if .GetEnableArtifactStreaming }}
-[proxy_plugins]
-  [proxy_plugins.overlaybd]
-    type = "snapshot"
-    address = "/run/overlaybd-snapshotter/overlaybd.sock"
+[proxy_plugins.overlaybd]
+  type = "snapshot"
+  address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if .GetIsKata }}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
@@ -65,8 +64,7 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
   snapshotter = "erofs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
-[proxy_plugins]
-  [proxy_plugins.tardev]
-    type = "snapshot"
-    address = "/run/containerd/tardev-snapshotter.sock"
+[proxy_plugins.tardev]
+  type = "snapshot"
+  address = "/run/containerd/tardev-snapshotter.sock"
 {{- end}}
