@@ -709,7 +709,7 @@ func TestBuildArtifactKey(t *testing.T) {
 		a := &App{osReleasePath: path}
 		_, err := a.buildArtifactKey()
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "VERSION_ID not found")
+		assert.Contains(t, err.Error(), "ID or VERSION_ID not found")
 	})
 }
 
@@ -784,9 +784,8 @@ func TestDownloadHotfix_ArtifactHTTPSuccess(t *testing.T) {
 	}
 
 	// copyBinaryAlongside will fail because vhdBinaryPath (/opt/azure/containers/aks-node-controller)
-	// doesn't exist in tests. But the key assertion is that the package manager was NOT called.
+	// doesn't exist in tests. This is treated as a hard failure (integrity error) — no apt fallback.
 	err := tt.App.downloadHotfix(context.Background())
-	// The error is from copyBinaryAlongside (stat /opt/...), not from install.
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "stage hotfix binary from artifact")
 	assert.False(t, installCalled, "should use HTTP download, not package manager")
@@ -826,6 +825,7 @@ func TestDownloadHotfix_ArtifactSHAMismatchHardFail(t *testing.T) {
 	})
 	tt.App.hotfixVersionPath = path
 	tt.App.osReleasePath = osReleasePath
+	tt.App.downloadDir = dir
 	tt.App.httpDownload = func(ctx context.Context, url string) ([]byte, error) {
 		return []byte("hotfix-binary-content"), nil
 	}
@@ -875,6 +875,7 @@ func TestDownloadHotfix_ArtifactHTTPErrorFallsBackToApt(t *testing.T) {
 	tt.App.hotfixVersionPath = path
 	tt.App.osReleasePath = osReleasePath
 	tt.App.aptSourcesDir = aptDir
+	tt.App.downloadDir = dir
 	tt.App.httpDownload = func(ctx context.Context, url string) ([]byte, error) {
 		return nil, fmt.Errorf("connection refused")
 	}
@@ -958,4 +959,78 @@ func TestDownloadHotfix_ArtifactInvalidURLHardFail(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "integrity")
 	assert.False(t, installCalled, "should NOT fallback to package manager on invalid URL")
+}
+
+func TestDownloadAndVerify_Success(t *testing.T) {
+	dir := t.TempDir()
+	binaryContent := []byte("hotfix-binary-content")
+	sha := "3ab698426c19090c43a48950dcd94d196122b11149423f230b1234cda75e3293"
+
+	a := &App{
+		downloadDir: dir,
+		httpDownload: func(ctx context.Context, url string) ([]byte, error) {
+			return binaryContent, nil
+		},
+	}
+
+	tmpPath, err := a.downloadAndVerify(context.Background(),
+		"https://packages.microsoft.com/test-binary", sha)
+	require.NoError(t, err)
+	defer os.Remove(tmpPath)
+
+	// Verify the staged file has the correct content.
+	data, err := os.ReadFile(tmpPath)
+	require.NoError(t, err)
+	assert.Equal(t, binaryContent, data)
+}
+
+func TestDownloadAndVerify_SHAMismatch(t *testing.T) {
+	dir := t.TempDir()
+
+	a := &App{
+		downloadDir: dir,
+		httpDownload: func(ctx context.Context, url string) ([]byte, error) {
+			return []byte("tampered-content"), nil
+		},
+	}
+
+	_, err := a.downloadAndVerify(context.Background(),
+		"https://packages.microsoft.com/test-binary",
+		"0000000000000000000000000000000000000000000000000000000000000000")
+	require.Error(t, err)
+	assert.True(t, isIntegrityError(err))
+	assert.Contains(t, err.Error(), "SHA-256 mismatch")
+
+	// Verify no temp files left behind.
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	for _, e := range entries {
+		assert.False(t, strings.HasPrefix(e.Name(), ".aks-node-controller-download-"),
+			"temp file should be cleaned up on SHA mismatch: %s", e.Name())
+	}
+}
+
+func TestDownloadAndVerify_HTTPError(t *testing.T) {
+	dir := t.TempDir()
+
+	a := &App{
+		downloadDir: dir,
+		httpDownload: func(ctx context.Context, url string) ([]byte, error) {
+			return nil, fmt.Errorf("connection timeout")
+		},
+	}
+
+	_, err := a.downloadAndVerify(context.Background(),
+		"https://packages.microsoft.com/test-binary", "abc123")
+	require.Error(t, err)
+	assert.False(t, isIntegrityError(err))
+	assert.Contains(t, err.Error(), "connection timeout")
+
+	// Verify no temp files left behind.
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	for _, e := range entries {
+		assert.False(t, strings.HasPrefix(e.Name(), ".aks-node-controller-download-"),
+			"temp file should be cleaned up on HTTP error: %s", e.Name())
+	}
 }

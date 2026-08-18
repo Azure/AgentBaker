@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -112,29 +113,10 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 	slog.Info("downloading ANC hotfix", "current", Version, "target", hotfixVersion)
 
 	// Try direct HTTP download if an artifact descriptor is available for this version + OS/arch.
-	artifact, artifactKey := a.resolveArtifact(cfg, hotfixVersion)
-	if artifact != nil {
-		slog.Info("artifact descriptor found, attempting direct HTTP download",
-			"version", hotfixVersion, "key", artifactKey, "url", artifact.URL)
-		tmpPath, err := a.downloadAndVerify(ctx, artifact.URL, artifact.SHA256)
-		if err != nil {
-			if isIntegrityError(err) {
-				// SHA mismatch or invalid descriptor: hard fail, do NOT fallback to package manager.
-				return fmt.Errorf("artifact integrity check failed for %s: %w", hotfixVersion, err)
-			}
-			// Network error: log and fallback to package manager.
-			slog.Warn("direct HTTP download failed, falling back to package manager",
-				"version", hotfixVersion, "error", err)
-		} else {
-			// Direct download succeeded — stage from temp file instead of pkgBinaryPath.
-			if err := copyBinaryAlongside(tmpPath, hotfixBinaryPath, vhdBinaryPath); err != nil {
-				os.Remove(tmpPath)
-				return fmt.Errorf("stage hotfix binary from artifact: %w", err)
-			}
-			os.Remove(tmpPath)
-			slog.Info("downloaded ANC hotfix via direct HTTP", "target", hotfixVersion, "path", hotfixBinaryPath)
-			return nil
-		}
+	if err := a.tryDirectDownload(ctx, cfg, hotfixVersion); err == nil {
+		return nil
+	} else if isIntegrityError(err) {
+		return err
 	}
 
 	// Fallback: install via package manager (apt-get or dnf/tdnf).
@@ -428,6 +410,46 @@ func copyBinaryAlongside(src, dst, refPath string) error {
 	return nil
 }
 
+// tryDirectDownload attempts to download the hotfix binary directly via HTTP using the
+// artifact descriptor. Returns nil on success, an integrityError on validation failure
+// (caller must NOT fallback), or a regular error on network/transient failure (caller may fallback).
+// Returns a non-nil non-integrity error when no artifact is available (signals fallback).
+func (a *App) tryDirectDownload(ctx context.Context, cfg *hotfixConfig, hotfixVersion string) error {
+	artifact, artifactKey := a.resolveArtifact(cfg, hotfixVersion)
+	if artifact == nil {
+		return fmt.Errorf("no artifact descriptor available")
+	}
+
+	slog.Info("artifact descriptor found, attempting direct HTTP download",
+		"version", hotfixVersion, "key", artifactKey, "url", artifact.URL)
+
+	tmpPath, err := a.downloadAndVerify(ctx, artifact.URL, artifact.SHA256)
+	if err != nil {
+		if isIntegrityError(err) {
+			// Remove any previously staged hotfix binary so the wrapper falls back to the
+			// VHD-baked ANC — a stale hotfix binary must not run after an integrity failure.
+			if removeErr := os.Remove(hotfixBinaryPath); removeErr != nil && !os.IsNotExist(removeErr) {
+				slog.Warn("failed to remove stale hotfix binary on integrity error",
+					"path", hotfixBinaryPath, "error", removeErr)
+			}
+			return fmt.Errorf("artifact integrity check failed for %s: %w", hotfixVersion, err)
+		}
+		slog.Warn("direct HTTP download failed, falling back to package manager",
+			"version", hotfixVersion, "error", err)
+		return err
+	}
+
+	if err := copyBinaryAlongside(tmpPath, hotfixBinaryPath, vhdBinaryPath); err != nil {
+		os.Remove(tmpPath)
+		// Staging failure after successful download+verify is a hard error — do not fallback
+		// to package manager since we already verified the binary integrity.
+		return newIntegrityError("stage hotfix binary from artifact: %v", err)
+	}
+	os.Remove(tmpPath)
+	slog.Info("downloaded ANC hotfix via direct HTTP", "target", hotfixVersion, "path", hotfixBinaryPath)
+	return nil
+}
+
 // integrityError marks errors where the downloaded content failed validation.
 // These must NOT fallback to the package manager — the node should keep its VHD-baked ANC.
 type integrityError struct {
@@ -513,9 +535,10 @@ func validateArtifactURL(rawURL string) error {
 	}
 }
 
-// downloadAndVerify downloads the artifact from the given URL, computes its SHA-256 digest,
-// and compares it to the expected value. Returns the path to a temp file containing the binary.
-// The caller is responsible for removing the temp file after staging.
+// downloadAndVerify downloads the artifact from the given URL, streams it to a temp file
+// while computing its SHA-256 digest, and compares to the expected value. Returns the path
+// to a temp file containing the verified binary. The caller is responsible for removing or
+// renaming the temp file after staging.
 func (a *App) downloadAndVerify(ctx context.Context, artifactURL, expectedSHA256 string) (string, error) {
 	if err := validateArtifactURL(artifactURL); err != nil {
 		return "", err
@@ -525,19 +548,7 @@ func (a *App) downloadAndVerify(ctx context.Context, artifactURL, expectedSHA256
 		return "", newIntegrityError("artifact SHA-256 is empty")
 	}
 
-	body, err := a.doHTTPDownload(ctx, artifactURL)
-	if err != nil {
-		return "", fmt.Errorf("HTTP download %s: %w", artifactURL, err)
-	}
-
-	// Verify SHA-256.
-	h := sha256.Sum256(body)
-	actualSHA256 := hex.EncodeToString(h[:])
-	if actualSHA256 != expectedSHA256 {
-		return "", newIntegrityError("SHA-256 mismatch: expected %s, got %s", expectedSHA256, actualSHA256)
-	}
-
-	// Write to temp file.
+	// Create temp file for streaming.
 	dir := a.downloadDir
 	if dir == "" {
 		dir = filepath.Dir(hotfixBinaryPath)
@@ -547,33 +558,67 @@ func (a *App) downloadAndVerify(ctx context.Context, artifactURL, expectedSHA256
 		return "", fmt.Errorf("creating temp file in %s: %w", dir, err)
 	}
 	tmpPath := tmp.Name()
-	if _, err := tmp.Write(body); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
+
+	// Cleanup on any failure path.
+	success := false
+	defer func() {
+		if !success {
+			tmp.Close()
+			os.Remove(tmpPath)
+		}
+	}()
+
+	// Get a reader for the artifact content.
+	reader, err := a.getArtifactReader(ctx, artifactURL)
+	if err != nil {
+		return "", fmt.Errorf("HTTP download %s: %w", artifactURL, err)
+	}
+	defer reader.Close()
+
+	// Stream through SHA-256 hasher into temp file in a single pass — no full-body buffer.
+	hasher := sha256.New()
+	if _, err := io.Copy(tmp, io.TeeReader(reader, hasher)); err != nil {
 		return "", fmt.Errorf("writing temp file %s: %w", tmpPath, err)
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpPath)
 		return "", fmt.Errorf("closing temp file %s: %w", tmpPath, err)
 	}
+
+	// Verify SHA-256.
+	actualSHA256 := hex.EncodeToString(hasher.Sum(nil))
+	if actualSHA256 != expectedSHA256 {
+		os.Remove(tmpPath)
+		return "", newIntegrityError("SHA-256 mismatch: expected %s, got %s", expectedSHA256, actualSHA256)
+	}
+
+	success = true
 	return tmpPath, nil
 }
 
-// doHTTPDownload performs the actual HTTP GET. It uses the injectable httpDownload hook
-// for testing, falling back to a real HTTP client with common.NewBaseTransport.
-func (a *App) doHTTPDownload(ctx context.Context, artifactURL string) ([]byte, error) {
+// getArtifactReader returns a ReadCloser for the artifact content. It uses the injectable
+// httpDownload hook for testing (wrapping []byte in a reader), or performs a real streaming
+// HTTP GET.
+func (a *App) getArtifactReader(ctx context.Context, artifactURL string) (io.ReadCloser, error) {
 	if a.httpDownload != nil {
-		return a.httpDownload(ctx, artifactURL)
+		data, err := a.httpDownload(ctx, artifactURL)
+		if err != nil {
+			return nil, err
+		}
+		return io.NopCloser(bytes.NewReader(data)), nil
 	}
+	return a.doHTTPStream(ctx, artifactURL)
+}
+
+// doHTTPStream performs a real streaming HTTP GET and returns the response body.
+// The caller must close the returned ReadCloser.
+func (a *App) doHTTPStream(ctx context.Context, artifactURL string) (io.ReadCloser, error) {
 	dlCtx, cancel := context.WithTimeout(ctx, downloadTimeout)
-	defer cancel()
 
 	transport := common.NewBaseTransport(common.HTTPTransportOptions{
 		DialTimeout:           10 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout: 10 * time.Second,
 	})
-	// Reject cross-domain redirects: only follow redirects to allowed hosts.
 	client := &http.Client{
 		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -586,17 +631,33 @@ func (a *App) doHTTPDownload(ctx context.Context, artifactURL string) ([]byte, e
 
 	req, err := http.NewRequestWithContext(dlCtx, http.MethodGet, artifactURL, nil)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 	resp, err := client.Do(req)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
-	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		cancel()
 		return nil, fmt.Errorf("HTTP %d from %s", resp.StatusCode, artifactURL)
 	}
-	return io.ReadAll(resp.Body)
+	// Wrap body to cancel context on close.
+	return &cancelOnClose{ReadCloser: resp.Body, cancel: cancel}, nil
+}
+
+// cancelOnClose wraps an io.ReadCloser to call a cancel func on Close.
+type cancelOnClose struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (c *cancelOnClose) Close() error {
+	err := c.ReadCloser.Close()
+	c.cancel()
+	return err
 }
 
 // shouldUpgradeToHotfix returns true when the current ANC version should be upgraded

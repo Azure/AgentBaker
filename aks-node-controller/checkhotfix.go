@@ -437,7 +437,7 @@ func (a *App) coldStartHotfixConfig() (hotfixConfig, bool, error) {
 	// Lenient parse: the AKSNodeConfig is protojson, but the cold-start pointer is an
 	// out-of-contract top-level object, so parse it permissively with encoding/json.
 	var lenient struct {
-		Hotfixes  map[string]string                      `json:"hotfixes"`
+		Hotfixes  map[string]string                  `json:"hotfixes"`
 		Artifacts map[string]map[string]artifactInfo `json:"artifacts"`
 	}
 	if err := json.Unmarshal(raw, &lenient); err != nil {
@@ -475,15 +475,21 @@ func writeHotfixConfig(path string, cfg hotfixConfig) error {
 		hotfixes = map[string]string{}
 	}
 	out := struct {
-		Version        string                                  `json:"version,omitempty"`
-		ScriptsVersion string                                  `json:"scripts_version,omitempty"`
-		Hotfixes       map[string]string                       `json:"hotfixes"`
+		Version        string                             `json:"version,omitempty"`
+		ScriptsVersion string                             `json:"scripts_version,omitempty"`
+		Hotfixes       map[string]string                  `json:"hotfixes"`
 		Artifacts      map[string]map[string]artifactInfo `json:"artifacts,omitempty"`
 	}{
 		Version:        existing.Version,
 		ScriptsVersion: existing.ScriptsVersion,
 		Hotfixes:       hotfixes,
 		Artifacts:      cfg.Artifacts,
+	}
+	// Preserve existing artifacts when the incoming config has none (e.g. LPS response
+	// doesn't include artifacts yet). This mirrors the Version/ScriptsVersion preservation
+	// and avoids erasing artifacts that cloud-init originally wrote.
+	if out.Artifacts == nil {
+		out.Artifacts = existing.Artifacts
 	}
 	data, err := json.Marshal(out)
 	if err != nil {
