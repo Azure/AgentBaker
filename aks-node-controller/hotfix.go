@@ -40,9 +40,6 @@ const (
 	downloadTimeout = 30 * time.Second
 )
 
-// allowedArtifactHosts is the set of hosts from which artifact downloads are permitted.
-var allowedArtifactHosts = []string{"packages.microsoft.com"}
-
 // downloadHotfix installs the requested hotfix and stages it alongside the VHD-baked binary.
 // The wrapper script decides which binary to execute after this command returns.
 func (a *App) downloadHotfix(ctx context.Context) error {
@@ -508,12 +505,12 @@ func validateArtifactURL(rawURL string) error {
 		return newIntegrityError("artifact URL must be HTTPS, got %q", u.Scheme)
 	}
 	host := strings.ToLower(u.Hostname())
-	for _, allowed := range allowedArtifactHosts {
-		if host == allowed {
-			return nil
-		}
+	switch host {
+	case "packages.microsoft.com":
+		return nil
+	default:
+		return newIntegrityError("artifact URL host %q not in allowlist", host)
 	}
-	return newIntegrityError("artifact URL host %q not in allowlist %v", host, allowedArtifactHosts)
 }
 
 // downloadAndVerify downloads the artifact from the given URL, computes its SHA-256 digest,
