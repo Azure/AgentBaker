@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -251,9 +252,15 @@ type CSETimingThresholds struct {
 }
 
 // ValidateCSETimings extracts, logs, and validates CSE task timings.
+// It emits one subtest per threshold so ADO can track each timing check.
 func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingThresholds) (*CSETimingReport, error) {
 	s.T.Helper()
 	defer toolkit.LogStep(s.T, "validating CSE task timings")()
+
+	tRunner := toolkit.UnwrapTestingT(s.T)
+	if tRunner == nil {
+		return nil, fmt.Errorf("ValidateCSETimings requires *testing.T for sub-test support, got %T", s.T)
+	}
 
 	report := s.Runtime.CSETimingReport
 	if report == nil {
@@ -276,12 +283,19 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 	var errs []error
 	if thresholds.TotalCSEThreshold > 0 {
 		totalDuration := report.TotalCSEDuration()
-		s.T.Logf("total CSE duration: %s (threshold: %s)", totalDuration, thresholds.TotalCSEThreshold)
+		var checkErr error
 		if totalDuration > thresholds.TotalCSEThreshold {
 			toolkit.LogDuration(ctx, totalDuration, thresholds.TotalCSEThreshold,
 				fmt.Sprintf("CSE total duration %s exceeds threshold %s", totalDuration, thresholds.TotalCSEThreshold))
-			errs = append(errs, fmt.Errorf("CSE total duration %s exceeds threshold %s", totalDuration, thresholds.TotalCSEThreshold))
+			checkErr = fmt.Errorf("CSE total duration %s exceeds threshold %s", totalDuration, thresholds.TotalCSEThreshold)
+			errs = append(errs, checkErr)
 		}
+		tRunner.Run("TotalCSEDuration", func(t *testing.T) {
+			t.Logf("total CSE duration: %s (threshold: %s)", totalDuration, thresholds.TotalCSEThreshold)
+			if checkErr != nil {
+				t.Error(checkErr)
+			}
+		})
 	}
 
 	sortedSuffixes := make([]string, 0, len(thresholds.TaskThresholds))
@@ -300,12 +314,30 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 			if strings.HasSuffix(task.TaskName, suffix) {
 				matchedTasks[task.TaskName] = true
 				matchedSuffixes[suffix] = true
-				s.T.Logf("task %s duration: %s (threshold: %s)", task.TaskName, task.Duration, maxDuration)
+				task := task
+				suffix := suffix
+				maxDuration := maxDuration
+				shortTask := task.TaskName
+				if idx := strings.LastIndex(shortTask, "."); idx >= 0 {
+					shortTask = shortTask[idx+1:]
+				}
+				testName := suffix
+				if shortTask != suffix {
+					testName = fmt.Sprintf("%s/%s", shortTask, suffix)
+				}
+				var checkErr error
 				if task.Duration > maxDuration {
 					toolkit.LogDuration(ctx, task.Duration, maxDuration,
 						fmt.Sprintf("CSE task %s took %s (threshold: %s)", task.TaskName, task.Duration, maxDuration))
-					errs = append(errs, fmt.Errorf("CSE task %s took %s, exceeds threshold %s", task.TaskName, task.Duration, maxDuration))
+					checkErr = fmt.Errorf("CSE task %s took %s, exceeds threshold %s", task.TaskName, task.Duration, maxDuration)
+					errs = append(errs, checkErr)
 				}
+				tRunner.Run(fmt.Sprintf("Task_%s", testName), func(t *testing.T) {
+					t.Logf("task %s duration: %s (threshold: %s)", task.TaskName, task.Duration, maxDuration)
+					if checkErr != nil {
+						t.Error(checkErr)
+					}
+				})
 				break
 			}
 		}
@@ -331,13 +363,25 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 			if task.Duration < thresholds.DefaultTaskThreshold {
 				continue
 			}
-			defaultThreshold := thresholds.DefaultTaskThreshold
-			s.T.Logf("task %s duration: %s (default threshold: %s — no specific threshold configured)",
-				task.TaskName, task.Duration, defaultThreshold)
-			if task.Duration > defaultThreshold {
-				errs = append(errs, fmt.Errorf("CSE task %s took %s, exceeds default threshold %s (consider adding a specific threshold)",
-					task.TaskName, task.Duration, defaultThreshold))
+			task := task
+			shortName := task.TaskName
+			if idx := strings.LastIndex(shortName, "."); idx >= 0 {
+				shortName = shortName[idx+1:]
 			}
+			defaultThreshold := thresholds.DefaultTaskThreshold
+			var checkErr error
+			if task.Duration > defaultThreshold {
+				checkErr = fmt.Errorf("CSE task %s took %s, exceeds default threshold %s (consider adding a specific threshold)",
+					task.TaskName, task.Duration, defaultThreshold)
+				errs = append(errs, checkErr)
+			}
+			tRunner.Run(fmt.Sprintf("Task_%s", shortName), func(t *testing.T) {
+				t.Logf("task %s duration: %s (default threshold: %s — no specific threshold configured)",
+					task.TaskName, task.Duration, defaultThreshold)
+				if checkErr != nil {
+					t.Error(checkErr)
+				}
+			})
 		}
 	}
 
