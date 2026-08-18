@@ -327,12 +327,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless",
-          "latestVersion": "v1.18.11-260622",
-          "previousLatestVersion": "v1.18.9-260508"
+          "latestVersion": "v1.18.12-260811",
+          "previousLatestVersion": "v1.18.11-260622"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless",
-          "latestVersion": "v1.19.5-260714"
+          "latestVersion": "v1.19.6-260811",
+          "previousLatestVersion": "v1.19.5-260714"
         }
       ],
       "windowsVersions": []
@@ -343,12 +344,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless-init",
-          "latestVersion": "v1.18.11-260622",
-          "previousLatestVersion": "v1.18.9-260508"
+          "latestVersion": "v1.18.12-260811",
+          "previousLatestVersion": "v1.18.11-260622"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless-init",
-          "latestVersion": "v1.19.5-260714"
+          "latestVersion": "v1.19.6-260811",
+          "previousLatestVersion": "v1.19.5-260714"
         }
       ],
       "windowsVersions": []
