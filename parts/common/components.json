@@ -181,13 +181,13 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/v2/azure-cni",
-          "latestVersion": "v1.8.11"
+          "latestVersion": "v1.8.12"
         }
       ],
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/v2/azure-cni",
-          "latestVersion": "v1.8.11",
+          "latestVersion": "v1.8.12",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -1932,8 +1932,8 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-acr-credential-provider-sysext",
-                "latestVersion": "v1.34.13-1-azlinux3",
-                "previousLatestVersion": "v1.34.12-2-azlinux3"
+                "latestVersion": "v1.34.13-2-azlinux3",
+                "previousLatestVersion": "v1.34.13-1-azlinux3"
               },
               {
                 "k8sVersion": "1.35",
@@ -2364,7 +2364,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "2.5.4"
+                "latestVersion": "2.5.5"
               }
             ]
           },
@@ -2372,7 +2372,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "2.5.4"
+                "latestVersion": "2.5.5"
               }
             ]
           },
@@ -2380,7 +2380,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "2.5.4"
+                "latestVersion": "2.5.5"
               }
             ]
           }

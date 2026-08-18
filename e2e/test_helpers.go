@@ -477,18 +477,19 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) error {
 
 func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) error {
 	var errs []error
+	numberRetries := 3
 	if s.IsWindows() {
 		serverCorePods := components.GetServercoreImagesForVHD(s.VHD)
 		for i, pod := range serverCorePods {
-			errs = append(errs, ValidatePodRunning(ctx, s, podWindows(s, fmt.Sprintf("servercore%d", i), pod)))
+			errs = append(errs, ValidatePodRunningWithRetry(ctx, s, debugPodWindows(s, fmt.Sprintf("servercore%d", i), pod), numberRetries))
 		}
 
 		nanoServerPods := components.GetNanoserverImagesForVhd(s.VHD)
 		for i, pod := range nanoServerPods {
-			errs = append(errs, ValidatePodRunning(ctx, s, podWindows(s, fmt.Sprintf("nanoserver%d", i), pod)))
+			errs = append(errs, ValidatePodRunningWithRetry(ctx, s, debugPodWindows(s, fmt.Sprintf("nanoserver%d", i), pod), numberRetries))
 		}
 	} else {
-		errs = append(errs, ValidatePodRunningWithRetry(ctx, s, podHTTPServerLinux(s), 3))
+		errs = append(errs, ValidatePodRunningWithRetry(ctx, s, podHTTPServerLinux(s), numberRetries))
 	}
 	return errors.Join(errs...)
 }
