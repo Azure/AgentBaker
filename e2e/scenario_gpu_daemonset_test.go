@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/agentbaker/e2e/check"
+	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -105,7 +105,7 @@ func validateNvidiaDevicePluginServiceNotRunning(ctx context.Context, s *Scenari
 	output := strings.TrimSpace(result.stdout)
 
 	// The service should either not exist or be inactive
-	if err := check.NotEqual(output, "active",
+	if err := assert.NotEqual(output, "active",
 		"nvidia-device-plugin.service is unexpectedly running - this test requires the systemd service to be disabled"); err != nil {
 		return err
 	}

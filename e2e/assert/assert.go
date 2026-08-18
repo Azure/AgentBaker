@@ -1,5 +1,5 @@
-// Package check provides error-returning assertions in (got, want) order.
-package check
+// Package assert provides error-returning assertions in (got, want) order.
+package assert
 
 import (
 	"fmt"

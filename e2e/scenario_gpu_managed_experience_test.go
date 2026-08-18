@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/agentbaker/e2e/check"
+	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -33,7 +33,7 @@ func getDCGMPackageNames(os string) []string {
 // components.json, and callers cannot continue without the version string.
 func expectedPackageVersion(packageName, os, osVersion string) (string, error) {
 	versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
-	if err := check.Equal(len(versions), 1, "expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions)); err != nil {
+	if err := assert.Equal(len(versions), 1, "expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions)); err != nil {
 		return "", err
 	}
 	return versions[0], nil
@@ -317,8 +317,8 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 		propMatches := propRegex.FindStringSubmatch(cmdLineOutput)
 
 		if err := errors.Join(
-			check.Equal(len(coreMatches), 2, "failed to extract datacenter-gpu-manager-4-core version from dependencies:\n%s", cmdLineOutput),
-			check.Equal(len(propMatches), 2, "failed to extract datacenter-gpu-manager-4-proprietary version from dependencies:\n%s", cmdLineOutput),
+			assert.Equal(len(coreMatches), 2, "failed to extract datacenter-gpu-manager-4-core version from dependencies:\n%s", cmdLineOutput),
+			assert.Equal(len(propMatches), 2, "failed to extract datacenter-gpu-manager-4-proprietary version from dependencies:\n%s", cmdLineOutput),
 		); err != nil {
 			return "", "", err
 		}
@@ -376,10 +376,10 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 
 						// Verify versions match
 						if err := errors.Join(
-							check.Equal(actualCoreVersion, expectedCoreVersion,
+							assert.Equal(actualCoreVersion, expectedCoreVersion,
 								"datacenter-gpu-manager-4-core version mismatch: components.json has %s but dcgm-exporter requires %s",
 								expectedCoreVersion, actualCoreVersion),
-							check.Equal(actualPropVersion, expectedPropVersion,
+							assert.Equal(actualPropVersion, expectedPropVersion,
 								"datacenter-gpu-manager-4-proprietary version mismatch: components.json has %s but dcgm-exporter requires %s",
 								expectedPropVersion, actualPropVersion),
 						); err != nil {
@@ -891,11 +891,11 @@ func Test_CreateVMExtensionLinuxAKSNode_Timing(t *testing.T) {
 	start := time.Now()
 	ext, err := createVMExtensionLinuxAKSNode(t.Context(), nil)
 	firstDuration := time.Since(start)
-	if err := check.NoError(err, "first call to createVMExtensionLinuxAKSNode failed"); err != nil {
+	if err := assert.NoError(err, "first call to createVMExtensionLinuxAKSNode failed"); err != nil {
 		t.Error(err)
 		return
 	}
-	if err := check.NotNil(ext, "first call returned nil extension"); err != nil {
+	if err := assert.NotNil(ext, "first call returned nil extension"); err != nil {
 		t.Error(err)
 		return
 	}
@@ -905,11 +905,11 @@ func Test_CreateVMExtensionLinuxAKSNode_Timing(t *testing.T) {
 	start = time.Now()
 	ext2, err := createVMExtensionLinuxAKSNode(t.Context(), nil)
 	secondDuration := time.Since(start)
-	if err := check.NoError(err, "second call to createVMExtensionLinuxAKSNode failed"); err != nil {
+	if err := assert.NoError(err, "second call to createVMExtensionLinuxAKSNode failed"); err != nil {
 		t.Error(err)
 		return
 	}
-	if err := check.NotNil(ext2, "second call returned nil extension"); err != nil {
+	if err := assert.NotNil(ext2, "second call returned nil extension"); err != nil {
 		t.Error(err)
 		return
 	}
@@ -917,26 +917,26 @@ func Test_CreateVMExtensionLinuxAKSNode_Timing(t *testing.T) {
 
 	// Both calls should return a valid, consistent TypeHandlerVersion
 	if err := errors.Join(
-		check.NotNil(ext.Properties, "first extension has nil Properties"),
-		check.NotNil(ext2.Properties, "second extension has nil Properties"),
+		assert.NotNil(ext.Properties, "first extension has nil Properties"),
+		assert.NotNil(ext2.Properties, "second extension has nil Properties"),
 	); err != nil {
 		t.Error(err)
 		return
 	}
 	if err := errors.Join(
-		check.NotNil(ext.Properties.TypeHandlerVersion, "first TypeHandlerVersion is nil"),
-		check.NotNil(ext2.Properties.TypeHandlerVersion, "second TypeHandlerVersion is nil"),
+		assert.NotNil(ext.Properties.TypeHandlerVersion, "first TypeHandlerVersion is nil"),
+		assert.NotNil(ext2.Properties.TypeHandlerVersion, "second TypeHandlerVersion is nil"),
 	); err != nil {
 		t.Error(err)
 		return
 	}
 
 	if err := errors.Join(
-		check.NotEqual(*ext.Properties.TypeHandlerVersion, "", "first TypeHandlerVersion is empty"),
-		check.NotEqual(*ext2.Properties.TypeHandlerVersion, "", "second TypeHandlerVersion is empty"),
-		check.NotEqual(*ext.Properties.TypeHandlerVersion, "1.413",
+		assert.NotEqual(*ext.Properties.TypeHandlerVersion, "", "first TypeHandlerVersion is empty"),
+		assert.NotEqual(*ext2.Properties.TypeHandlerVersion, "", "second TypeHandlerVersion is empty"),
+		assert.NotEqual(*ext.Properties.TypeHandlerVersion, "1.413",
 			"extension version is the hardcoded fallback — Azure API may not have been reached"),
-		check.Equal(*ext2.Properties.TypeHandlerVersion, *ext.Properties.TypeHandlerVersion,
+		assert.Equal(*ext2.Properties.TypeHandlerVersion, *ext.Properties.TypeHandlerVersion,
 			"both calls should return the same extension version"),
 	); err != nil {
 		t.Error(err)

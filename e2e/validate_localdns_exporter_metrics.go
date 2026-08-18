@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/Azure/agentbaker/e2e/check"
+	"github.com/Azure/agentbaker/e2e/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -79,7 +79,7 @@ func ValidateLocalDNSExporterMetrics(ctx context.Context, s *Scenario) error {
 	if err != nil {
 		return fmt.Errorf("failed to run localdns exporter metrics validation script: %w", err)
 	}
-	if err := check.Equal(result.exitCode, "0",
+	if err := assert.Equal(result.exitCode, "0",
 		"localdns exporter metrics validation failed\nstdout: %s\nstderr: %s", result.stdout, result.stderr); err != nil {
 		return err
 	}

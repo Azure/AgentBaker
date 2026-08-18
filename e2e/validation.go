@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	assertion "github.com/Azure/agentbaker/e2e/check"
+	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -148,7 +148,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) error {
 	if err != nil {
 		errs = append(errs, err)
 	} else {
-		errs = append(errs, assertion.NotContains(execResult.stdout, "--dynamic-config-dir",
+		errs = append(errs, assert.NotContains(execResult.stdout, "--dynamic-config-dir",
 			"kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s", execResult.stdout))
 	}
 

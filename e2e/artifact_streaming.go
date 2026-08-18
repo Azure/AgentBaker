@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/agentbaker/e2e/check"
+	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -114,7 +114,7 @@ func ValidateArtifactStreamingImagePull(ctx context.Context, s *Scenario) error 
 		return err
 	}
 	logArtifactStreamingDiagnostics(ctx, s)
-	return check.NotEqual(strings.TrimSpace(tcmuBackstores.stdout), "0",
+	return assert.NotEqual(strings.TrimSpace(tcmuBackstores.stdout), "0",
 		"expected at least one overlaybd TCMU backstore device under /sys/kernel/config/target/core "+
 			"while the streaming pod is running, but found none — image %q was not streamed (overlayfs fallback)", image)
 }

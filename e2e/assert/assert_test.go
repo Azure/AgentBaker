@@ -1,4 +1,4 @@
-package check
+package assert
 
 import (
 	"errors"
@@ -149,13 +149,13 @@ func TestFormatMessage(t *testing.T) {
 }
 
 func TestNoFalsePrintfDirective(t *testing.T) {
-	reportCheckResult(t, Equal(1, 2, "want %s"))
-	reportCheckResult(t, NotEqual(1, 1, "unexpected %q"))
-	reportCheckResult(t, NoError(errors.New("failed"), "operation %s"))
-	reportCheckResult(t, Contains("actual", "expected", "output contains %s"))
+	reportAssertResult(t, Equal(1, 2, "want %s"))
+	reportAssertResult(t, NotEqual(1, 1, "unexpected %q"))
+	reportAssertResult(t, NoError(errors.New("failed"), "operation %s"))
+	reportAssertResult(t, Contains("actual", "expected", "output contains %s"))
 }
 
-func reportCheckResult(t *testing.T, err error) {
+func reportAssertResult(t *testing.T, err error) {
 	t.Helper()
 	if err == nil {
 		t.Fatal("assertion returned nil")

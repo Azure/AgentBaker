@@ -18,7 +18,7 @@ import (
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
-	"github.com/Azure/agentbaker/e2e/check"
+	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -298,7 +298,7 @@ func runScenario(t testing.TB, s *Scenario) error {
 	defer cancel()
 	s.Runtime.VM, err = prepareAKSNode(vmssCtx, s)
 	if s.ExpectedError != "" {
-		return check.ErrorContains(err, s.ExpectedError)
+		return assert.ErrorContains(err, s.ExpectedError)
 	}
 	if err != nil {
 		return err

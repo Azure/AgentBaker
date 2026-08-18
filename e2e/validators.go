@@ -22,7 +22,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 
-	"github.com/Azure/agentbaker/e2e/check"
+	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/nodeexporter"
@@ -58,7 +58,7 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) error {
 	switch {
 	case s.SecureTLSBootstrappingEnabled() && s.Tags.BootstrapTokenFallback:
 		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping failure with bootstrap token fallback")
-		errs = append(errs, check.Equal(
+		errs = append(errs, assert.Equal(
 			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
 			true,
 			"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
@@ -68,7 +68,7 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) error {
 		errs = append(errs,
 			ValidateSystemdUnitIsRunning(ctx, s, "secure-tls-bootstrap"),
 			validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx, s),
-			check.Equal(
+			assert.Equal(
 				!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "client credential already exists within kubeconfig"),
 				true,
 				"expected to already have a valid kubeconfig before kubelet start-up obtained through secure TLS bootstrapping, but did not",
@@ -79,7 +79,7 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) error {
 		errs = append(errs,
 			ValidateSystemdUnitIsNotRunning(ctx, s, "secure-tls-bootstrap"),
 			ValidateSystemdUnitIsNotFailed(ctx, s, "secure-tls-bootstrap"),
-			check.Equal(
+			assert.Equal(
 				!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
 				true,
 				"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
@@ -211,7 +211,7 @@ func validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx context.Context
 			break
 		}
 	}
-	return check.Equal(hasValidCSR, true, "expected node %s to have created a kubelet client CSR which was approved and issued, using secure TLS bootstrapping", s.Runtime.VM.KubeName)
+	return assert.Equal(hasValidCSR, true, "expected node %s to have created a kubelet client CSR which was approved and issued, using secure TLS bootstrapping", s.Runtime.VM.KubeName)
 }
 
 func getNodeNameFromCSR(csr certv1.CertificateSigningRequest) (string, error) {
@@ -272,14 +272,14 @@ func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) error {
 	if err != nil {
 		return errors.Join(append(errs, fmt.Errorf("check ssh.socket status: %w", err))...)
 	}
-	errs = append(errs, check.Contains(execResult.stdout, "inactive", "ssh.socket should be inactive"))
+	errs = append(errs, assert.Contains(execResult.stdout, "inactive", "ssh.socket should be inactive"))
 
 	// Check that systemd recognizes SSH service should be active at boot
 	execResult, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-enabled ssh.service", 0, "could not check ssh.service status")
 	if err != nil {
 		return errors.Join(append(errs, fmt.Errorf("check ssh.service status: %w", err))...)
 	}
-	errs = append(errs, check.Contains(execResult.stdout, "enabled", "ssh.service should be enabled at boot"))
+	errs = append(errs, assert.Contains(execResult.stdout, "enabled", "ssh.service should be enabled at boot"))
 	return errors.Join(errs...)
 }
 
@@ -303,7 +303,7 @@ func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, fil
 	}
 	var errs []error
 	for _, file := range files {
-		errs = append(errs, check.Contains(execResult.stdout, file, "expected to find file %s within directory %s, but did not.\nDirectory contents:\n%s", file, path, execResult.stdout))
+		errs = append(errs, assert.Contains(execResult.stdout, file, "expected to find file %s within directory %s, but did not.\nDirectory contents:\n%s", file, path, execResult.stdout))
 	}
 	return errors.Join(errs...)
 }
@@ -324,7 +324,7 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 	}
 	var errs []error
 	for name, value := range customSysctls {
-		errs = append(errs, check.Contains(execResult.stdout, fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not.\nStdout:\n%s", name, value, execResult.stdout))
+		errs = append(errs, assert.Contains(execResult.stdout, fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not.\nStdout:\n%s", name, value, execResult.stdout))
 	}
 	return errors.Join(errs...)
 }
@@ -527,7 +527,7 @@ func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig 
 			}
 			actualValue := strings.TrimSpace(execResult.stdout)
 			s.T.Logf("Ethtool setting %s for NIC %s: expected=%s, actual=%s", setting, nic, expectedValue, actualValue)
-			errs = append(errs, check.Equal(actualValue, expectedValue, "expected %s to be %s on nic %s, but got %s.\nFull ethtool output:\n%s", setting, expectedValue, nic, actualValue, debugResult.stdout))
+			errs = append(errs, assert.Equal(actualValue, expectedValue, "expected %s to be %s on nic %s, but got %s.\nFull ethtool output:\n%s", setting, expectedValue, nic, actualValue, debugResult.stdout))
 		}
 	}
 	return errors.Join(errs...)
@@ -552,7 +552,7 @@ func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) error {
 	if err != nil {
 		return fmt.Errorf("run nvidia-smi: %w", err)
 	}
-	return check.Contains(execResult.stderr, "nvidia-smi: command not found", "expected stderr to contain 'nvidia-smi: command not found', but got %q", execResult.stderr)
+	return assert.Contains(execResult.stderr, "nvidia-smi: command not found", "expected stderr to contain 'nvidia-smi: command not found', but got %q", execResult.stderr)
 }
 
 func ValidateNvidiaSMIInstalled(ctx context.Context, s *Scenario) error {
@@ -725,7 +725,7 @@ func ValidateFileExists(ctx context.Context, s *Scenario, fileName string) error
 	if err != nil {
 		return fmt.Errorf("check existence of file %s: %w", fileName, err)
 	}
-	return check.Equal(exists, true, "expected file %s to exist, but it does not", fileName)
+	return assert.Equal(exists, true, "expected file %s to exist, but it does not", fileName)
 }
 
 // ValidateACLFIPSEnabled asserts ACL-specific FIPS markers are present on the node:
@@ -743,7 +743,7 @@ func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string)
 	if err != nil {
 		return fmt.Errorf("check existence of file %s: %w", fileName, err)
 	}
-	return check.Equal(exists, false, "expected file %s to not exist, but it does", fileName)
+	return assert.Equal(exists, false, "expected file %s to not exist, but it does", fileName)
 }
 
 func ValidateFileIsRegularFile(ctx context.Context, s *Scenario, fileName string) error {
@@ -757,7 +757,7 @@ func ValidateFileIsRegularFile(ctx context.Context, s *Scenario, fileName string
 	if err != nil {
 		return fmt.Errorf("stat file %s: %w", fileName, err)
 	}
-	return check.Equal(execResult.exitCode, "0", "expected %s to be a regular file, but it is not", fileName)
+	return assert.Equal(execResult.exitCode, "0", "expected %s to be a regular file, but it is not", fileName)
 }
 
 func fileExist(ctx context.Context, s *Scenario, fileName string) (bool, error) {
@@ -918,7 +918,7 @@ func ValidateFileExcludesExactContent(ctx context.Context, s *Scenario, fileName
 	if err != nil {
 		return fmt.Errorf("check whether file %s has exact contents %q: %w", fileName, contents, err)
 	}
-	return check.Equal(hasContent, false, "expected file %s to not have exact contents %q, but it does", fileName, contents)
+	return assert.Equal(hasContent, false, "expected file %s to not have exact contents %q, but it does", fileName, contents)
 }
 
 // ValidateFIPSProvider verifies that FIPS is properly configured on the node:
@@ -937,7 +937,7 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) error {
 	if err != nil {
 		return fmt.Errorf("read /proc/sys/crypto/fips_enabled: %w", err)
 	}
-	errs = append(errs, check.Equal(strings.TrimSpace(fipsEnabled.stdout), "1", "expected /proc/sys/crypto/fips_enabled to be 1, got %q", fipsEnabled.stdout))
+	errs = append(errs, assert.Equal(strings.TrimSpace(fipsEnabled.stdout), "1", "expected /proc/sys/crypto/fips_enabled to be 1, got %q", fipsEnabled.stdout))
 
 	// 2. OpenSSL provider must include an active fips or symcrypt provider on OpenSSL 3.x.
 	// 1.1.x (Ubuntu 20.04 FIPS) uses the legacy FIPS module and is skipped. Merge stderr
@@ -958,7 +958,7 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) error {
 			return errors.Join(append(errs, fmt.Errorf("list openssl providers: %w", err))...)
 		}
 		// Prefix match so "symcrypt" covers AzureLinux V3 / ACL's "symcryptprovider". See ICM 51000001009688.
-		errs = append(errs, check.Equal(opensslProviderActive(providers.stdout, "fips", "symcrypt"), true,
+		errs = append(errs, assert.Equal(opensslProviderActive(providers.stdout, "fips", "symcrypt"), true,
 			"expected openssl to have an active fips or symcrypt provider, got:\n%s", providers.stdout))
 	case strings.HasPrefix(version, "1.1."):
 		s.T.Logf("openssl providers check skipped: detected version %q (legacy FIPS module)", strings.TrimSpace(opensslVersion.stdout))
@@ -996,9 +996,9 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) error {
 	}
 	for _, re := range panicMarkers {
 		errs = append(errs,
-			check.Equal(re.MatchString(portmap.stderr), false,
+			assert.Equal(re.MatchString(portmap.stderr), false,
 				"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr),
-			check.Equal(re.MatchString(portmap.stdout), false,
+			assert.Equal(re.MatchString(portmap.stdout), false,
 				"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr),
 		)
 	}
@@ -1200,8 +1200,8 @@ func ValidateWindowsSystemServiceRestartConfiguration(ctx context.Context, s *Sc
 		}
 	}
 	return errors.Join(
-		check.Equal(fields[RESET_PERIOD], "900", "expected 'Reset fail counter after' to be set to 900 seconds for service %s, but got: %s", serviceName, sdtout),
-		check.Equal(fields[FAILURE_ACTIONS], "RESTART -- Delay = 60000 milliseconds.", "expected 'Failure actions' to be set to 'RESTART -- Delay = 60000 milliseconds.' for service %s, but got: %s", serviceName, sdtout),
+		assert.Equal(fields[RESET_PERIOD], "900", "expected 'Reset fail counter after' to be set to 900 seconds for service %s, but got: %s", serviceName, sdtout),
+		assert.Equal(fields[FAILURE_ACTIONS], "RESTART -- Delay = 60000 milliseconds.", "expected 'Failure actions' to be set to 'RESTART -- Delay = 60000 milliseconds.' for service %s, but got: %s", serviceName, sdtout),
 	)
 }
 
@@ -1224,7 +1224,7 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 	if err != nil {
 		return fmt.Errorf("check failed state of unit %q: %w", serviceName, err)
 	}
-	return check.NotEqual(
+	return assert.NotEqual(
 		execResult.exitCode,
 		"0",
 		`expected "systemctl is-failed" to exit with a non-zero exit code for unit %q, unit is in a failed state`,
@@ -1364,7 +1364,7 @@ func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string
 
 	var errs []error
 	for name, value := range ulimits {
-		errs = append(errs, check.Contains(execResult.stdout, fmt.Sprintf("%s=%v", name, value), "expected to find %s set to %v, but was not", name, value))
+		errs = append(errs, assert.Contains(execResult.stdout, fmt.Sprintf("%s=%v", name, value), "expected to find %s set to %v, but was not", name, value))
 	}
 	return errors.Join(errs...)
 }
@@ -1403,22 +1403,22 @@ func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) error {
 
 	// Search for "--node-ip" flag and its value.
 	matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.:,]*)`).FindStringSubmatch(stdout)
-	if err := check.Equal(len(matches) >= 2, true, "could not find kubelet flag --node-ip\nStdout: \n%s", stdout); err != nil {
+	if err := assert.Equal(len(matches) >= 2, true, "could not find kubelet flag --node-ip\nStdout: \n%s", stdout); err != nil {
 		return err
 	}
 
 	ipAddresses := strings.Split(matches[1], ",") // Could be multiple for dual-stack.
-	if err := check.Equal(len(ipAddresses) >= 1, true, "expected at least one --node-ip address, but got none\nStdout: \n%s", stdout); err != nil {
+	if err := assert.Equal(len(ipAddresses) >= 1, true, "expected at least one --node-ip address, but got none\nStdout: \n%s", stdout); err != nil {
 		return err
 	}
-	if err := check.Equal(len(ipAddresses) <= 2, true, "expected at most two --node-ip addresses, but got %d\nStdout: \n%s", len(ipAddresses), stdout); err != nil {
+	if err := assert.Equal(len(ipAddresses) <= 2, true, "expected at most two --node-ip addresses, but got %d\nStdout: \n%s", len(ipAddresses), stdout); err != nil {
 		return err
 	}
 
 	// Check that each IP is a valid address.
 	var errs []error
 	for _, ipAddress := range ipAddresses {
-		errs = append(errs, check.NotNil(net.ParseIP(ipAddress), "--node-ip value %q is not a valid IP address\nStdout: \n%s", ipAddress, stdout))
+		errs = append(errs, assert.NotNil(net.ParseIP(ipAddress), "--node-ip value %q is not a valid IP address\nStdout: \n%s", ipAddress, stdout))
 	}
 	return errors.Join(errs...)
 }
@@ -1470,8 +1470,8 @@ func ValidateKubeletHasNotStopped(ctx context.Context, s *Scenario) error {
 	}
 	stdout := strings.ToLower(execResult.stdout)
 	return errors.Join(
-		check.NotContains(stdout, "stopped kubelet"),
-		check.Contains(stdout, "started kubelet"),
+		assert.NotContains(stdout, "stopped kubelet"),
+		assert.Contains(stdout, "started kubelet"),
 	)
 }
 
@@ -1493,16 +1493,16 @@ func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) 
 		return fmt.Errorf("retrieve kubelet logs with journalctl: %w", err)
 	}
 	configFileFlags := fmt.Sprintf("FLAG: --config=\"%s\"", filePath)
-	return check.Contains(execResult.stdout, configFileFlags, "expected to find flag %s, but not found", "config")
+	return assert.Contains(execResult.stdout, configFileFlags, "expected to find flag %s, but not found", "config")
 }
 
 func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []string) error {
 	s.T.Helper()
-	if err := check.Equal(len(versions), 1, "expected exactly one version for moby-containerd but got %d", len(versions)); err != nil {
+	if err := assert.Equal(len(versions), 1, "expected exactly one version for moby-containerd but got %d", len(versions)); err != nil {
 		return err
 	}
 	// assert versions[0] value starts with '2.'
-	if err := check.Equal(strings.HasPrefix(versions[0], "2."), true, "expected moby-containerd version to start with '2.', got %v", versions[0]); err != nil {
+	if err := assert.Equal(strings.HasPrefix(versions[0], "2."), true, "expected moby-containerd version to start with '2.', got %v", versions[0]); err != nil {
 		return err
 	}
 
@@ -1529,7 +1529,7 @@ func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []
 		return errors.Join(append(errs, fmt.Errorf("dump containerd config: %w", err))...)
 	}
 	// validate containerd config dump has no warnings
-	errs = append(errs, check.NotContains(execResult.stdout, "level=warning", "do not expect warning message when converting config file: %s", execResult.stdout))
+	errs = append(errs, assert.NotContains(execResult.stdout, "level=warning", "do not expect warning message when converting config file: %s", execResult.stdout))
 	return errors.Join(errs...)
 }
 
@@ -1580,12 +1580,12 @@ func validateNPDCondition(ctx context.Context, s *Scenario, conditionType, condi
 		return fmt.Errorf("timed out waiting for %s condition with reason %s to appear on node %q: %w", conditionType, conditionReason, s.Runtime.VM.KubeName, err)
 	}
 
-	if err := check.NotNil(condition, "expected to find %s condition with %s reason on node", conditionType, conditionReason); err != nil {
+	if err := assert.NotNil(condition, "expected to find %s condition with %s reason on node", conditionType, conditionReason); err != nil {
 		return err
 	}
 	return errors.Join(
-		check.Equal(condition.Status, conditionStatus, "expected %s condition to be %s", conditionType, conditionStatus),
-		check.Contains(condition.Message, conditionMessage, conditionMessageErr),
+		assert.Equal(condition.Status, conditionStatus, "expected %s condition to be %s", conditionType, conditionStatus),
+		assert.Contains(condition.Message, conditionMessage, conditionMessageErr),
 	)
 }
 
@@ -1813,7 +1813,7 @@ func ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx context.Context
 
 func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) error {
 	s.T.Helper()
-	if err := check.Equal(len(versions), 1, "expected exactly one version for moby-runc but got %d", len(versions)); err != nil {
+	if err := assert.Equal(len(versions), 1, "expected exactly one version for moby-runc but got %d", len(versions)); err != nil {
 		return err
 	}
 	// check if versions[0] is great than or equal to 1.2.0
@@ -1823,8 +1823,8 @@ func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) er
 		return fmt.Errorf("parse semver from moby-runc version %q: %w", versions[0], err)
 	}
 	if err := errors.Join(
-		check.Equal(parsedVersion.Major() >= 1, true, "expected moby-runc major version to be at least 1, got %d", parsedVersion.Major()),
-		check.Equal(parsedVersion.Minor() >= 2, true, "expected moby-runc minor version to be at least 2, got %d", parsedVersion.Minor()),
+		assert.Equal(parsedVersion.Major() >= 1, true, "expected moby-runc major version to be at least 1, got %d", parsedVersion.Major()),
+		assert.Equal(parsedVersion.Minor() >= 2, true, "expected moby-runc minor version to be at least 2, got %d", parsedVersion.Minor()),
 	); err != nil {
 		return err
 	}
@@ -1850,7 +1850,7 @@ func ValidateContainerdWindowsPriorityClass(ctx context.Context, s *Scenario) er
 		return fmt.Errorf("read containerd AppPriority from nssm: %w", err)
 	}
 	errs := []error{
-		check.Equal(strings.TrimSpace(nssmResult.stdout), "ABOVE_NORMAL_PRIORITY_CLASS", "expected containerd nssm service to be configured with AppPriority=ABOVE_NORMAL_PRIORITY_CLASS"),
+		assert.Equal(strings.TrimSpace(nssmResult.stdout), "ABOVE_NORMAL_PRIORITY_CLASS", "expected containerd nssm service to be configured with AppPriority=ABOVE_NORMAL_PRIORITY_CLASS"),
 	}
 
 	processCommand := strings.Join([]string{
@@ -1861,7 +1861,7 @@ func ValidateContainerdWindowsPriorityClass(ctx context.Context, s *Scenario) er
 	if err != nil {
 		return errors.Join(append(errs, fmt.Errorf("read containerd process priority class: %w", err))...)
 	}
-	errs = append(errs, check.Equal(strings.TrimSpace(processResult.stdout), "AboveNormal", "expected containerd process to be running with AboveNormal priority class"))
+	errs = append(errs, assert.Equal(strings.TrimSpace(processResult.stdout), "AboveNormal", "expected containerd process to be running with AboveNormal priority class"))
 	return errors.Join(errs...)
 }
 
@@ -1880,18 +1880,18 @@ func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, pro
 	var errs []error
 	for i := range arguments {
 		expectedArgument := arguments[i]
-		errs = append(errs, check.Equal(slices.Contains(actualArgs, expectedArgument), true,
+		errs = append(errs, assert.Equal(slices.Contains(actualArgs, expectedArgument), true,
 			"expected process %s arguments %q to contain %q", processName, actualArgs, expectedArgument))
 	}
 	return errors.Join(errs...)
 }
 
 func ValidateWindowsProcessContainsArgumentStrings(ctx context.Context, s *Scenario, processName string, substrings []string) error {
-	return validateWindowsProccessArgumentString(ctx, s, processName, substrings, check.Contains)
+	return validateWindowsProccessArgumentString(ctx, s, processName, substrings, assert.Contains)
 }
 
 func ValidateWindowsProcessDoesNotContainArgumentStrings(ctx context.Context, s *Scenario, processName string, substrings []string) error {
-	return validateWindowsProccessArgumentString(ctx, s, processName, substrings, check.NotContains)
+	return validateWindowsProccessArgumentString(ctx, s, processName, substrings, assert.NotContains)
 }
 
 func validateWindowsProccessArgumentString(ctx context.Context, s *Scenario, processName string, substrings []string, assert func(got, want string, msgAndArgs ...any) error) error {
@@ -1930,7 +1930,7 @@ func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario,
 	s.T.Logf("Found windows version in windows_settings: \"%s\": \"%s\" (\"%s\")", windowsVersion, osMajorVersion, osVersion)
 	s.T.Logf("Windows version returned from VM \"%s\"", podExecResultStdout)
 
-	return check.Contains(podExecResultStdout, osMajorVersion)
+	return assert.Contains(podExecResultStdout, osMajorVersion)
 }
 
 func ValidateWindowsProductName(ctx context.Context, s *Scenario, productName string) error {
@@ -1945,7 +1945,7 @@ func ValidateWindowsProductName(ctx context.Context, s *Scenario, productName st
 	}
 	podExecResultStdout := strings.TrimSpace(podExecResult.stdout)
 
-	return check.Contains(podExecResultStdout, productName)
+	return assert.Contains(podExecResultStdout, productName)
 }
 
 // ValidateWindowsSecureTLSEnabled asserts that Enable-SecureTls (windowssecuretls.ps1) has hardened the
@@ -1989,25 +1989,25 @@ func ValidateWindowsSecureTLSEnabled(ctx context.Context, s *Scenario) error {
 
 	cipherOrder := gjson.Get(stdout, "cipherOrder").String()
 	return errors.Join(
-		check.Equal(gjson.Get(stdout, "tls12ClientEnabled").Int(), int64(1), "expected TLS 1.2 to be enabled for Client, got: %s", stdout),
-		check.Equal(gjson.Get(stdout, "tls12ServerEnabled").Int(), int64(1), "expected TLS 1.2 to be enabled for Server, got: %s", stdout),
-		check.Equal(gjson.Get(stdout, "tls11ClientEnabled").Int(), int64(0), "expected TLS 1.1 to be disabled for Client, got: %s", stdout),
-		check.Equal(gjson.Get(stdout, "tls11ServerEnabled").Int(), int64(0), "expected TLS 1.1 to be disabled for Server, got: %s", stdout),
-		check.Equal(gjson.Get(stdout, "tls10ClientEnabled").Int(), int64(0), "expected TLS 1.0 to be disabled for Client, got: %s", stdout),
-		check.Equal(gjson.Get(stdout, "tls10ServerEnabled").Int(), int64(0), "expected TLS 1.0 to be disabled for Server, got: %s", stdout),
-		check.Equal(gjson.Get(stdout, "ssl3ClientEnabled").Int(), int64(0), "expected SSL 3.0 to be disabled for Client, got: %s", stdout),
-		check.Equal(gjson.Get(stdout, "ssl3ServerEnabled").Int(), int64(0), "expected SSL 3.0 to be disabled for Server, got: %s", stdout),
-		check.Equal(gjson.Get(stdout, "ssl2ClientEnabled").Int(), int64(0), "expected SSL 2.0 to be disabled for Client, got: %s", stdout),
-		check.Equal(gjson.Get(stdout, "ssl2ServerEnabled").Int(), int64(0), "expected SSL 2.0 to be disabled for Server, got: %s", stdout),
-		check.Equal(gjson.Get(stdout, "rc4_128").Int(), int64(0), "expected RC4 128/128 to be disabled, got: %s", stdout),
-		check.Equal(gjson.Get(stdout, "rc4_64").Int(), int64(0), "expected RC4 64/128 to be disabled, got: %s", stdout),
-		check.Equal(gjson.Get(stdout, "rc4_56").Int(), int64(0), "expected RC4 56/128 to be disabled, got: %s", stdout),
-		check.Equal(gjson.Get(stdout, "rc4_40").Int(), int64(0), "expected RC4 40/128 to be disabled, got: %s", stdout),
-		check.NotEqual(cipherOrder, "", "expected a configured cipher suite order"),
-		check.NotContains(cipherOrder, "3DES", "cipher suite order should not include 3DES (Sweet32/CVE-2016-2183)"),
-		check.NotContains(cipherOrder, "RC2", "cipher suite order should not include RC2"),
-		check.NotContains(cipherOrder, "DES", "cipher suite order should not include DES"),
-		check.NotContains(cipherOrder, "RC4", "cipher suite order should not include RC4"),
+		assert.Equal(gjson.Get(stdout, "tls12ClientEnabled").Int(), int64(1), "expected TLS 1.2 to be enabled for Client, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "tls12ServerEnabled").Int(), int64(1), "expected TLS 1.2 to be enabled for Server, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "tls11ClientEnabled").Int(), int64(0), "expected TLS 1.1 to be disabled for Client, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "tls11ServerEnabled").Int(), int64(0), "expected TLS 1.1 to be disabled for Server, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "tls10ClientEnabled").Int(), int64(0), "expected TLS 1.0 to be disabled for Client, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "tls10ServerEnabled").Int(), int64(0), "expected TLS 1.0 to be disabled for Server, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "ssl3ClientEnabled").Int(), int64(0), "expected SSL 3.0 to be disabled for Client, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "ssl3ServerEnabled").Int(), int64(0), "expected SSL 3.0 to be disabled for Server, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "ssl2ClientEnabled").Int(), int64(0), "expected SSL 2.0 to be disabled for Client, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "ssl2ServerEnabled").Int(), int64(0), "expected SSL 2.0 to be disabled for Server, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "rc4_128").Int(), int64(0), "expected RC4 128/128 to be disabled, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "rc4_64").Int(), int64(0), "expected RC4 64/128 to be disabled, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "rc4_56").Int(), int64(0), "expected RC4 56/128 to be disabled, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "rc4_40").Int(), int64(0), "expected RC4 40/128 to be disabled, got: %s", stdout),
+		assert.NotEqual(cipherOrder, "", "expected a configured cipher suite order"),
+		assert.NotContains(cipherOrder, "3DES", "cipher suite order should not include 3DES (Sweet32/CVE-2016-2183)"),
+		assert.NotContains(cipherOrder, "RC2", "cipher suite order should not include RC2"),
+		assert.NotContains(cipherOrder, "DES", "cipher suite order should not include DES"),
+		assert.NotContains(cipherOrder, "RC4", "cipher suite order should not include RC4"),
 	)
 }
 
@@ -2025,7 +2025,7 @@ func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVers
 
 	s.T.Logf("Windows display version returned from VM \"%s\". Expected display version \"%s\"", podExecResultStdout, displayVersion)
 
-	return check.Contains(podExecResultStdout, displayVersion)
+	return assert.Contains(podExecResultStdout, displayVersion)
 }
 
 func getWindowsSettingsJson() []byte {
@@ -2078,7 +2078,7 @@ func ValidateDllLoadedWindows(ctx context.Context, s *Scenario, dllName string) 
 	if err != nil {
 		return fmt.Errorf("check whether DLL %s is loaded: %w", dllName, err)
 	}
-	return check.Equal(loaded, true, "expected DLL %s to be loaded, but it is not", dllName)
+	return assert.Equal(loaded, true, "expected DLL %s to be loaded, but it is not", dllName)
 }
 
 func ValidateDllIsNotLoadedWindows(ctx context.Context, s *Scenario, dllName string) error {
@@ -2087,7 +2087,7 @@ func ValidateDllIsNotLoadedWindows(ctx context.Context, s *Scenario, dllName str
 	if err != nil {
 		return fmt.Errorf("check whether DLL %s is loaded: %w", dllName, err)
 	}
-	return check.Equal(loaded, false, "expected DLL %s to not be loaded, but it is", dllName)
+	return assert.Equal(loaded, false, "expected DLL %s to not be loaded, but it is", dllName)
 }
 
 func ValidateJsonFileHasField(ctx context.Context, s *Scenario, fileName string, jsonPath string, expectedValue string) error {
@@ -2096,7 +2096,7 @@ func ValidateJsonFileHasField(ctx context.Context, s *Scenario, fileName string,
 	if err != nil {
 		return fmt.Errorf("get field %s from json file %s: %w", jsonPath, fileName, err)
 	}
-	return check.Equal(got, expectedValue)
+	return assert.Equal(got, expectedValue)
 }
 
 func ValidateJsonFileDoesNotHaveField(ctx context.Context, s *Scenario, fileName string, jsonPath string, valueNotToBe string) error {
@@ -2105,7 +2105,7 @@ func ValidateJsonFileDoesNotHaveField(ctx context.Context, s *Scenario, fileName
 	if err != nil {
 		return fmt.Errorf("get field %s from json file %s: %w", jsonPath, fileName, err)
 	}
-	return check.NotEqual(got, valueNotToBe)
+	return assert.NotEqual(got, valueNotToBe)
 }
 
 func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName string, jsonPath string) (string, error) {
@@ -2137,7 +2137,7 @@ func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) err
 		taints = append(taints, fmt.Sprintf("%s=%s:%s", taint.Key, taint.Value, taint.Effect))
 	}
 	actualTaints := strings.Join(taints, ",")
-	return check.Equal(actualTaints, expectedTaints, "expected node %q to have taint %q, but got %q", s.Runtime.VM.KubeName, expectedTaints, actualTaints)
+	return assert.Equal(actualTaints, expectedTaints, "expected node %q to have taint %q, but got %q", s.Runtime.VM.KubeName, expectedTaints, actualTaints)
 }
 
 // ValidateLocalDNSService checks if the localdns service is in the expected state (enabled or disabled).
@@ -2195,8 +2195,8 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 		return fmt.Errorf("resolve %s: %w", testdomain, err)
 	}
 	return errors.Join(
-		check.Contains(execResult.stdout, "status: NOERROR"),
-		check.Contains(execResult.stdout, fmt.Sprintf("SERVER: %s", server)),
+		assert.Contains(execResult.stdout, "status: NOERROR"),
+		assert.Contains(execResult.stdout, fmt.Sprintf("SERVER: %s", server)),
 	)
 }
 
@@ -2974,7 +2974,7 @@ func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL 
 	if err != nil {
 		return fmt.Errorf("scrape node-exporter metrics from %s: %w", metricsURL, err)
 	}
-	if err := check.Equal(result.exitCode, "0",
+	if err := assert.Equal(result.exitCode, "0",
 		"node-exporter scrape failed\nstdout: %s\nstderr: %s", result.stdout, result.stderr); err != nil {
 		return err
 	}
@@ -2984,7 +2984,7 @@ func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL 
 	if len(responsePreview) > previewLimit {
 		responsePreview = responsePreview[:previewLimit] + "\n... response truncated"
 	}
-	return check.NoError(nodeexporter.ValidateMetrics(result.stdout), "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview)
+	return assert.NoError(nodeexporter.ValidateMetrics(result.stdout), "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview)
 }
 
 func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) (err error) {
@@ -3078,12 +3078,12 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) (err erro
 		return fmt.Errorf("timed out waiting for FilesystemCorruptionProblem condition to appear on node %q: %w", s.Runtime.VM.KubeName, err)
 	}
 
-	if err := check.NotNil(filesystemCorruptionProblem, "expected FilesystemCorruptionProblem condition to be present on node"); err != nil {
+	if err := assert.NotNil(filesystemCorruptionProblem, "expected FilesystemCorruptionProblem condition to be present on node"); err != nil {
 		return err
 	}
 	return errors.Join(
-		check.Equal(filesystemCorruptionProblem.Status, corev1.ConditionTrue, "expected FilesystemCorruptionProblem condition to be True on node"),
-		check.Contains(filesystemCorruptionProblem.Message, "Found 'structure needs cleaning' in containerd journal.", "expected FilesystemCorruptionProblem condition message to contain: Found 'structure needs cleaning' in containerd journal."),
+		assert.Equal(filesystemCorruptionProblem.Status, corev1.ConditionTrue, "expected FilesystemCorruptionProblem condition to be True on node"),
+		assert.Contains(filesystemCorruptionProblem.Message, "Found 'structure needs cleaning' in containerd journal.", "expected FilesystemCorruptionProblem condition message to contain: Found 'structure needs cleaning' in containerd journal."),
 	)
 }
 
@@ -3125,12 +3125,12 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCou
 
 	// Check if the node advertises GPU capacity
 	gpuCapacity, exists := node.Status.Capacity[corev1.ResourceName(resourceName)]
-	if err := check.Equal(exists, true, "node should advertise resource %s", resourceName); err != nil {
+	if err := assert.Equal(exists, true, "node should advertise resource %s", resourceName); err != nil {
 		return err
 	}
 
 	gpuCount := gpuCapacity.Value()
-	if err := check.Equal(gpuCount, gpuCountExpected, "node should advertise %s=%d, but got %s=%d", resourceName, gpuCountExpected, resourceName, gpuCount); err != nil {
+	if err := assert.Equal(gpuCount, gpuCountExpected, "node should advertise %s=%d, but got %s=%d", resourceName, gpuCountExpected, resourceName, gpuCount); err != nil {
 		return err
 	}
 	s.T.Logf("node %s advertises %s=%d resources", nodeName, resourceName, gpuCount)
@@ -3204,13 +3204,13 @@ fi`)
 	s.T.Logf("Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
 	// Check if the command execution was successful by looking for our success message in the output
-	if err := check.Contains(stdout, "SUCCESS: PubkeyAuthentication is disabled", "PubkeyAuthentication is not properly disabled"); err != nil {
+	if err := assert.Contains(stdout, "SUCCESS: PubkeyAuthentication is disabled", "PubkeyAuthentication is not properly disabled"); err != nil {
 		return err
 	}
 
 	// Part 2. Check cannot SSH with private key (expect failure)
 	err = validateSSHConnectivity(ctx, s)
-	if err := check.ErrorContains(err, "Permission denied", "expected SSH connection with private key to fail with permission denied"); err != nil {
+	if err := assert.ErrorContains(err, "Permission denied", "expected SSH connection with private key to fail with permission denied"); err != nil {
 		return err
 	}
 
@@ -3265,7 +3265,7 @@ fi`)
 	s.T.Logf("Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
 	// Check if the command execution was successful by looking for our success message in the output
-	if err := check.Contains(stdout, "SUCCESS: SSH service is disabled and stopped", "SSH service is not properly disabled and stopped"); err != nil {
+	if err := assert.Contains(stdout, "SUCCESS: SSH service is disabled and stopped", "SSH service is not properly disabled and stopped"); err != nil {
 		return err
 	}
 
@@ -3330,12 +3330,12 @@ func ValidateMIGModeEnabled(ctx context.Context, s *Scenario, gpuCountExpected i
 	stdout := strings.TrimSpace(execResult.stdout)
 	s.T.Logf("MIG mode status: %s", stdout)
 	gpuStatuses := strings.Split(stdout, "\n")
-	if err := check.Equal(len(gpuStatuses), gpuCountExpected, "expected MIG status for %d GPUs, but got: %s", gpuCountExpected, stdout); err != nil {
+	if err := assert.Equal(len(gpuStatuses), gpuCountExpected, "expected MIG status for %d GPUs, but got: %s", gpuCountExpected, stdout); err != nil {
 		return err
 	}
 	var errs []error
 	for gpuIndex, gpuStatus := range gpuStatuses {
-		errs = append(errs, check.Equal(strings.TrimSpace(gpuStatus), "Enabled", "expected MIG mode to be enabled on GPU %d", gpuIndex))
+		errs = append(errs, assert.Equal(strings.TrimSpace(gpuStatus), "Enabled", "expected MIG mode to be enabled on GPU %d", gpuIndex))
 	}
 	if err := errors.Join(errs...); err != nil {
 		return err
@@ -3359,7 +3359,7 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 	}
 
 	stdout := execResult.stdout
-	if err := check.NotContains(stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout); err != nil {
+	if err := assert.NotContains(stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout); err != nil {
 		return err
 	}
 	instanceCount := 0
@@ -3368,7 +3368,7 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 			instanceCount++
 		}
 	}
-	if err := check.Equal(instanceCount, instanceCountExpected, "expected %d MIG instances with profile %s, but found %d.\nOutput:\n%s", instanceCountExpected, migProfile, instanceCount, stdout); err != nil {
+	if err := assert.Equal(instanceCount, instanceCountExpected, "expected %d MIG instances with profile %s, but found %d.\nOutput:\n%s", instanceCountExpected, migProfile, instanceCount, stdout); err != nil {
 		return err
 	}
 	s.T.Logf("%d MIG instances with profile %s are created", instanceCountExpected, migProfile)
@@ -3438,7 +3438,7 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 		}
 	}
 
-	return check.Equal(
+	return assert.Equal(
 		success,
 		true,
 		"Rules found that do not match any of the given patterns. See previous log lines for details. "+
@@ -3460,7 +3460,7 @@ func ValidateAppArmorBasic(ctx context.Context, s *Scenario) error {
 		return fmt.Errorf("check AppArmor kernel parameter: %w", err)
 	}
 	stdout := strings.TrimSpace(execResult.stdout)
-	errs := []error{check.Equal(stdout, "Y", "expected AppArmor to be enabled in kernel")}
+	errs := []error{assert.Equal(stdout, "Y", "expected AppArmor to be enabled in kernel")}
 
 	// Check if apparmor.service is active
 	command = []string{
@@ -3472,7 +3472,7 @@ func ValidateAppArmorBasic(ctx context.Context, s *Scenario) error {
 		return errors.Join(append(errs, fmt.Errorf("check that apparmor.service is active: %w", err))...)
 	}
 	stdout = strings.TrimSpace(execResult.stdout)
-	errs = append(errs, check.Equal(stdout, "active", "expected apparmor.service to be active"))
+	errs = append(errs, assert.Equal(stdout, "active", "expected apparmor.service to be active"))
 
 	// Check if AppArmor is enforcing by checking current process profile
 	command = []string{
@@ -3505,10 +3505,10 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 	}
 
 	actualValue, exists := node.Labels[labelKey]
-	if err := check.Equal(exists, true, "expected node %q to have label %q, but it was not found", s.Runtime.VM.KubeName, labelKey); err != nil {
+	if err := assert.Equal(exists, true, "expected node %q to have label %q, but it was not found", s.Runtime.VM.KubeName, labelKey); err != nil {
 		return err
 	}
-	return check.Equal(actualValue, expectedValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
+	return assert.Equal(actualValue, expectedValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
 }
 
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
@@ -3580,7 +3580,7 @@ func ValidateStaleCachedKubeBinariesRemoved(ctx context.Context, s *Scenario) er
 		return fmt.Errorf("list stale cached binaries: %w", err)
 	}
 	staleFiles := strings.TrimSpace(result.stdout)
-	return check.Equal(staleFiles, "", "expected no stale cached binaries in /opt/bin/, but found:\n%s", staleFiles)
+	return assert.Equal(staleFiles, "", "expected no stale cached binaries in /opt/bin/, but found:\n%s", staleFiles)
 }
 
 // ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
@@ -3769,7 +3769,7 @@ func ValidateAcceleratedNetworkingTrafficFlowing(ctx context.Context, s *Scenari
 		return fmt.Errorf("determine default gateway from ip route: %w", err)
 	}
 	gatewayIP := strings.TrimSpace(gatewayResult.stdout)
-	if err := check.NotEqual(gatewayIP, "", "default gateway IP is empty"); err != nil {
+	if err := assert.NotEqual(gatewayIP, "", "default gateway IP is empty"); err != nil {
 		return err
 	}
 	s.T.Logf("Accelerated networking traffic test: using gateway %s as target", gatewayIP)
@@ -3796,7 +3796,7 @@ func ValidateAcceleratedNetworkingTrafficFlowing(ctx context.Context, s *Scenari
 	delta := countAfter - countBefore
 	s.T.Logf("Accelerated networking VF tx packets after: %d (delta: %d, expected >= %d)", countAfter, delta, requestCount)
 
-	return check.Equal(delta >= requestCount, true,
+	return assert.Equal(delta >= requestCount, true,
 		"vf_tx_packets increased by %d but expected at least %d \u2014 traffic may not be flowing through the accelerated networking VF", delta, requestCount)
 }
 
@@ -3966,10 +3966,10 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
 
 	errs := []error{
 		// 1. Verify AutoUpdate is disabled
-		check.Contains(logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
+		assert.Contains(logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
 			"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False"),
 		// 2. Verify the correct version is running as ExtHandler (PID varies)
-		check.Contains(logContents, fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion),
+		assert.Contains(logContents, fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion),
 			"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion),
 	}
 
@@ -4198,7 +4198,7 @@ func resolveSecondaryNICName(ctx context.Context, s *Scenario) (string, error) {
 		return "", fmt.Errorf("resolve secondary NIC interface name: %w", err)
 	}
 	ifaceName := strings.TrimSpace(result.stdout)
-	if err := check.NotEqual(ifaceName, "", "resolved secondary NIC name should not be empty"); err != nil {
+	if err := assert.NotEqual(ifaceName, "", "resolved secondary NIC name should not be empty"); err != nil {
 		return "", err
 	}
 	return ifaceName, nil
@@ -4214,9 +4214,9 @@ func ValidateSecondaryNICUp(ctx context.Context, s *Scenario, ifaceName string) 
 		return fmt.Errorf("get interface info for %s: %w", ifaceName, err)
 	}
 	return errors.Join(
-		check.Contains(result.stdout, "state UP",
+		assert.Contains(result.stdout, "state UP",
 			"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout),
-		check.Contains(result.stdout, "inet ",
+		assert.Contains(result.stdout, "inet ",
 			"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout),
 	)
 }
@@ -4231,13 +4231,13 @@ func ValidateSecondaryNICDualStack(ctx context.Context, s *Scenario, ifaceName s
 		return fmt.Errorf("get interface info for %s: %w", ifaceName, err)
 	}
 	return errors.Join(
-		check.Contains(result.stdout, "state UP",
+		assert.Contains(result.stdout, "state UP",
 			"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout),
-		check.Contains(result.stdout, "inet ",
+		assert.Contains(result.stdout, "inet ",
 			"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout),
-		check.Contains(result.stdout, "inet6 ",
+		assert.Contains(result.stdout, "inet6 ",
 			"expected interface %s to have an IPv6 address, got:\n%s", ifaceName, result.stdout),
-		check.Contains(result.stdout, "scope global",
+		assert.Contains(result.stdout, "scope global",
 			"expected interface %s to have a global IPv6 address (not just link-local), got:\n%s", ifaceName, result.stdout),
 	)
 }
@@ -4543,6 +4543,6 @@ func ValidateServiceInSlice(ctx context.Context, s *Scenario, service, expectedS
 		return fmt.Errorf("query Slice property of %s: %w", service, err)
 	}
 	actual := strings.TrimSpace(result.stdout)
-	return check.Equal(actual, expectedSlice,
+	return assert.Equal(actual, expectedSlice,
 		"expected %s to be in %s, but got %s", service, expectedSlice, actual)
 }

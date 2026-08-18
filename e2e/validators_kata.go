@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/agentbaker/e2e/check"
+	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	corev1 "k8s.io/api/core/v1"
 	nodev1 "k8s.io/api/node/v1"
@@ -51,7 +51,7 @@ var kataRuntimeHandlers = []string{kataRuntimeHandler, kataPreviewRuntimeHandler
 func ValidateKataContainerdConfig(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 
-	if err := check.Equal(s.VHD.Distro.IsKataDistro(), true,
+	if err := assert.Equal(s.VHD.Distro.IsKataDistro(), true,
 		"ValidateKataContainerdConfig requires a Kata distro, got %q", s.VHD.Distro); err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func ValidateKataErofsContainerdConfig(ctx context.Context, s *Scenario) error {
 		"io.containerd.snapshotter.v1 erofs linux/amd64 ok",
 		"io.containerd.differ.v1 erofs linux/amd64 ok",
 	} {
-		errs = append(errs, check.Contains(normalizedPluginList, expectedPlugin,
+		errs = append(errs, assert.Contains(normalizedPluginList, expectedPlugin,
 			"expected healthy EROFS plugin %q.\nPlugin list:\n%s", expectedPlugin, execResult.stdout))
 	}
 
@@ -143,15 +143,15 @@ func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) error {
 	// "runtimes.kata" matching "runtimes.kata-preview") and pass even if the handler itself
 	// were missing.
 	for _, handler := range kataRuntimeHandlers {
-		errs = append(errs, check.Contains(normalizedDump, `runtimes.`+handler+`]`,
+		errs = append(errs, assert.Contains(normalizedDump, `runtimes.`+handler+`]`,
 			"expected the %q runtime handler in the effective containerd config.\nDump:\n%s", handler, dump))
 	}
-	errs = append(errs, check.Contains(normalizedDump, `runtime_type = "io.containerd.kata.v2"`,
+	errs = append(errs, assert.Contains(normalizedDump, `runtime_type = "io.containerd.kata.v2"`,
 		"expected the kata v2 shim runtime_type in the effective containerd config.\nDump:\n%s", dump))
 
 	// A warning here means containerd did not fully understand the config we generated, e.g. it
 	// had to fall back on deprecated handling for the legacy plugin paths the Kata templates use.
-	errs = append(errs, check.NotContains(diagnostics, "level=warning",
+	errs = append(errs, assert.NotContains(diagnostics, "level=warning",
 		"containerd reported warnings while parsing the AgentBaker-generated config.\nstdout:\n%s\nstderr:\n%s",
 		execResult.stdout, execResult.stderr))
 
@@ -212,7 +212,7 @@ func ValidateKataPodIsIsolated(ctx context.Context, s *Scenario, handler string)
 		return err
 	}
 	hostKernel := strings.TrimSpace(hostKernelResult.stdout)
-	if err := check.NotEqual(hostKernel, "", "host kernel release was empty"); err != nil {
+	if err := assert.NotEqual(hostKernel, "", "host kernel release was empty"); err != nil {
 		return err
 	}
 
@@ -230,12 +230,12 @@ func ValidateKataPodIsIsolated(ctx context.Context, s *Scenario, handler string)
 		return fmt.Errorf("failed to exec in kata pod %q: %w", pod.Name, err)
 	}
 	guestKernel := strings.TrimSpace(execResult.stdout)
-	if err := check.NotEqual(guestKernel, "", "kata guest kernel release was empty"); err != nil {
+	if err := assert.NotEqual(guestKernel, "", "kata guest kernel release was empty"); err != nil {
 		return err
 	}
 
 	s.T.Logf("host kernel: %q, kata guest kernel: %q", hostKernel, guestKernel)
-	return check.NotEqual(guestKernel, hostKernel,
+	return assert.NotEqual(guestKernel, hostKernel,
 		"pod running under the %q RuntimeClass reported the same kernel release as the host, "+
 			"which means it was not launched inside a Kata VM", handler)
 }
