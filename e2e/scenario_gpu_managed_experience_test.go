@@ -861,6 +861,7 @@ func Test_Ubuntu2404_DraDriverNvidiaGpuRunning(t *testing.T) {
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRuncVersion(ctx, s, runcVersions)
 				ValidateContainerRuntimePlugins(ctx, s)
+				ValidateNodeHasLabel(ctx, s, "kubernetes.azure.com/gpu-resource-driver", "dra")
 				ValidateDraDriverNvidiaGpuServiceRunning(ctx, s)
 				ValidateDRAWorkloadSchedulable(ctx, s)
 			},
