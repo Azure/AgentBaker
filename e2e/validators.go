@@ -1869,7 +1869,7 @@ for rule in \
   '^-A OUTPUT -d 169\.254\.10\.11/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --dport 53 -j NOTRACK$' \
   '^-A PREROUTING -d 169\.254\.10\.10/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --dport 53 -j NOTRACK$' \
   '^-A PREROUTING -d 169\.254\.10\.11/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --dport 53 -j NOTRACK$'; do
-  echo "$rules" | grep -Eq "$rule" || { echo "missing expected localdns NOTRACK rule matching: $rule"; exit 1; }
+  grep -Eq "$rule" <<< "$rules" || { echo "missing expected localdns NOTRACK rule matching: $rule"; exit 1; }
 done
 `
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns should install request and response direction NOTRACK rules")
