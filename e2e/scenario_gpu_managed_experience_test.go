@@ -891,33 +891,56 @@ func Test_CreateVMExtensionLinuxAKSNode_Timing(t *testing.T) {
 	start := time.Now()
 	ext, err := createVMExtensionLinuxAKSNode(t.Context(), nil)
 	firstDuration := time.Since(start)
-	require.NoError(t, err, "first call to createVMExtensionLinuxAKSNode failed")
-	require.NotNil(t, ext, "first call returned nil extension")
+	if err := check.NoError(err, "first call to createVMExtensionLinuxAKSNode failed"); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := check.NotNil(ext, "first call returned nil extension"); err != nil {
+		t.Error(err)
+		return
+	}
 	t.Logf("First call duration: %s", firstDuration)
 
 	// Second call — should be served from cache
 	start = time.Now()
 	ext2, err := createVMExtensionLinuxAKSNode(t.Context(), nil)
 	secondDuration := time.Since(start)
-	require.NoError(t, err, "second call to createVMExtensionLinuxAKSNode failed")
-	require.NotNil(t, ext2, "second call returned nil extension")
+	if err := check.NoError(err, "second call to createVMExtensionLinuxAKSNode failed"); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := check.NotNil(ext2, "second call returned nil extension"); err != nil {
+		t.Error(err)
+		return
+	}
 	t.Logf("Second call duration: %s", secondDuration)
 
 	// Both calls should return a valid, consistent TypeHandlerVersion
-	require.NotNil(t, ext.Properties, "first extension has nil Properties")
-	require.NotNil(t, ext2.Properties, "second extension has nil Properties")
-	require.NotNil(t, ext.Properties.TypeHandlerVersion, "first TypeHandlerVersion is nil")
-	require.NotNil(t, ext2.Properties.TypeHandlerVersion, "second TypeHandlerVersion is nil")
-	require.NotEmpty(t, *ext.Properties.TypeHandlerVersion, "first TypeHandlerVersion is empty")
-	require.NotEmpty(t, *ext2.Properties.TypeHandlerVersion, "second TypeHandlerVersion is empty")
+	if err := errors.Join(
+		check.NotNil(ext.Properties, "first extension has nil Properties"),
+		check.NotNil(ext2.Properties, "second extension has nil Properties"),
+	); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := errors.Join(
+		check.NotNil(ext.Properties.TypeHandlerVersion, "first TypeHandlerVersion is nil"),
+		check.NotNil(ext2.Properties.TypeHandlerVersion, "second TypeHandlerVersion is nil"),
+	); err != nil {
+		t.Error(err)
+		return
+	}
 
-	// Ensure we actually hit Azure and didn't just get the fallback version
-	require.NotEqual(t, "1.413", *ext.Properties.TypeHandlerVersion,
-		"extension version is the hardcoded fallback — Azure API may not have been reached")
-
-	// Cache consistency: both calls should return the same version
-	require.Equal(t, *ext.Properties.TypeHandlerVersion, *ext2.Properties.TypeHandlerVersion,
-		"both calls should return the same extension version")
+	if err := errors.Join(
+		check.NotEmpty(*ext.Properties.TypeHandlerVersion, "first TypeHandlerVersion is empty"),
+		check.NotEmpty(*ext2.Properties.TypeHandlerVersion, "second TypeHandlerVersion is empty"),
+		check.NotEqual(*ext.Properties.TypeHandlerVersion, "1.413",
+			"extension version is the hardcoded fallback — Azure API may not have been reached"),
+		check.Equal(*ext2.Properties.TypeHandlerVersion, *ext.Properties.TypeHandlerVersion,
+			"both calls should return the same extension version"),
+	); err != nil {
+		t.Error(err)
+	}
 }
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
