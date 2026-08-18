@@ -187,8 +187,9 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 		}
 	}
 
-	if err := runScenario(t, firstStage); err != nil {
-		original.T = firstStage.T
+	err := runScenario(t, firstStage)
+	original.T = firstStage.T
+	if err != nil {
 		return err
 	}
 
@@ -233,6 +234,7 @@ func copyScenario(s *Scenario) *Scenario {
 
 func runScenario(t testing.TB, s *Scenario) error {
 	t = toolkit.WithTestLogger(t)
+	s.T = t
 	if s.Location == "" {
 		s.Location = config.Config.DefaultLocation
 	}
@@ -244,7 +246,6 @@ func runScenario(t testing.TB, s *Scenario) error {
 	}
 
 	ctx := newTestCtx(t)
-	s.T = t
 	if err := maybeSkipScenario(ctx, t, s); err != nil {
 		return err
 	}
