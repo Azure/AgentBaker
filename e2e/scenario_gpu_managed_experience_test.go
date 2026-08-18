@@ -535,7 +535,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 	runUbuntu2404NvidiaDevicePluginMIGSingle(t,
-		"westus3",
+		"westus2",
 		"Tests that NVIDIA device plugin and DCGM Exporter work with the legacy GPUInstanceProfile field",
 		func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.GPUInstanceProfile = "MIG2g"
@@ -644,7 +644,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_MultiGPU(t *testing.T) {
 
 	RunScenario(t, &Scenario{
 		Description:      "Tests that a MIG profile is applied to every GPU on an Ubuntu 24.04 multi-GPU VM",
-		Location:         "westus3",
+		Location:         "westus2",
 		K8sSystemPoolSKU: "Standard_D2s_v3",
 		Tags: Tags{
 			GPU: true,
