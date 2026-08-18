@@ -51,7 +51,7 @@ var kataRuntimeHandlers = []string{kataRuntimeHandler, kataPreviewRuntimeHandler
 func ValidateKataContainerdConfig(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 
-	if err := check.True(s.VHD.Distro.IsKataDistro(),
+	if err := check.Equal(s.VHD.Distro.IsKataDistro(), true,
 		"ValidateKataContainerdConfig requires a Kata distro, got %q", s.VHD.Distro); err != nil {
 		return err
 	}
@@ -212,7 +212,7 @@ func ValidateKataPodIsIsolated(ctx context.Context, s *Scenario, handler string)
 		return err
 	}
 	hostKernel := strings.TrimSpace(hostKernelResult.stdout)
-	if err := check.NotEmpty(hostKernel, "host kernel release was empty"); err != nil {
+	if err := check.NotEqual(hostKernel, "", "host kernel release was empty"); err != nil {
 		return err
 	}
 
@@ -230,7 +230,7 @@ func ValidateKataPodIsIsolated(ctx context.Context, s *Scenario, handler string)
 		return fmt.Errorf("failed to exec in kata pod %q: %w", pod.Name, err)
 	}
 	guestKernel := strings.TrimSpace(execResult.stdout)
-	if err := check.NotEmpty(guestKernel, "kata guest kernel release was empty"); err != nil {
+	if err := check.NotEqual(guestKernel, "", "kata guest kernel release was empty"); err != nil {
 		return err
 	}
 

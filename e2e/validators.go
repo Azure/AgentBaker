@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -57,8 +58,9 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) error {
 	switch {
 	case s.SecureTLSBootstrappingEnabled() && s.Tags.BootstrapTokenFallback:
 		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping failure with bootstrap token fallback")
-		errs = append(errs, check.True(
+		errs = append(errs, check.Equal(
 			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
+			true,
 			"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
 		))
 	case s.SecureTLSBootstrappingEnabled():
@@ -66,8 +68,9 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) error {
 		errs = append(errs,
 			ValidateSystemdUnitIsRunning(ctx, s, "secure-tls-bootstrap"),
 			validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx, s),
-			check.True(
+			check.Equal(
 				!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "client credential already exists within kubeconfig"),
+				true,
 				"expected to already have a valid kubeconfig before kubelet start-up obtained through secure TLS bootstrapping, but did not",
 			),
 		)
@@ -76,8 +79,9 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) error {
 		errs = append(errs,
 			ValidateSystemdUnitIsNotRunning(ctx, s, "secure-tls-bootstrap"),
 			ValidateSystemdUnitIsNotFailed(ctx, s, "secure-tls-bootstrap"),
-			check.True(
+			check.Equal(
 				!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
+				true,
 				"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
 			),
 		)
@@ -207,7 +211,7 @@ func validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx context.Context
 			break
 		}
 	}
-	return check.True(hasValidCSR, "expected node %s to have created a kubelet client CSR which was approved and issued, using secure TLS bootstrapping", s.Runtime.VM.KubeName)
+	return check.Equal(hasValidCSR, true, "expected node %s to have created a kubelet client CSR which was approved and issued, using secure TLS bootstrapping", s.Runtime.VM.KubeName)
 }
 
 func getNodeNameFromCSR(csr certv1.CertificateSigningRequest) (string, error) {
@@ -721,7 +725,7 @@ func ValidateFileExists(ctx context.Context, s *Scenario, fileName string) error
 	if err != nil {
 		return fmt.Errorf("check existence of file %s: %w", fileName, err)
 	}
-	return check.True(exists, "expected file %s to exist, but it does not", fileName)
+	return check.Equal(exists, true, "expected file %s to exist, but it does not", fileName)
 }
 
 // ValidateACLFIPSEnabled asserts ACL-specific FIPS markers are present on the node:
@@ -739,7 +743,7 @@ func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string)
 	if err != nil {
 		return fmt.Errorf("check existence of file %s: %w", fileName, err)
 	}
-	return check.False(exists, "expected file %s to not exist, but it does", fileName)
+	return check.Equal(exists, false, "expected file %s to not exist, but it does", fileName)
 }
 
 func ValidateFileIsRegularFile(ctx context.Context, s *Scenario, fileName string) error {
@@ -753,7 +757,7 @@ func ValidateFileIsRegularFile(ctx context.Context, s *Scenario, fileName string
 	if err != nil {
 		return fmt.Errorf("stat file %s: %w", fileName, err)
 	}
-	return check.True(execResult.exitCode == "0", "expected %s to be a regular file, but it is not", fileName)
+	return check.Equal(execResult.exitCode, "0", "expected %s to be a regular file, but it is not", fileName)
 }
 
 func fileExist(ctx context.Context, s *Scenario, fileName string) (bool, error) {
@@ -914,7 +918,7 @@ func ValidateFileExcludesExactContent(ctx context.Context, s *Scenario, fileName
 	if err != nil {
 		return fmt.Errorf("check whether file %s has exact contents %q: %w", fileName, contents, err)
 	}
-	return check.False(hasContent, "expected file %s to not have exact contents %q, but it does", fileName, contents)
+	return check.Equal(hasContent, false, "expected file %s to not have exact contents %q, but it does", fileName, contents)
 }
 
 // ValidateFIPSProvider verifies that FIPS is properly configured on the node:
@@ -954,7 +958,7 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) error {
 			return errors.Join(append(errs, fmt.Errorf("list openssl providers: %w", err))...)
 		}
 		// Prefix match so "symcrypt" covers AzureLinux V3 / ACL's "symcryptprovider". See ICM 51000001009688.
-		errs = append(errs, check.True(opensslProviderActive(providers.stdout, "fips", "symcrypt"),
+		errs = append(errs, check.Equal(opensslProviderActive(providers.stdout, "fips", "symcrypt"), true,
 			"expected openssl to have an active fips or symcrypt provider, got:\n%s", providers.stdout))
 	case strings.HasPrefix(version, "1.1."):
 		s.T.Logf("openssl providers check skipped: detected version %q (legacy FIPS module)", strings.TrimSpace(opensslVersion.stdout))
@@ -992,9 +996,9 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) error {
 	}
 	for _, re := range panicMarkers {
 		errs = append(errs,
-			check.False(re.MatchString(portmap.stderr),
+			check.Equal(re.MatchString(portmap.stderr), false,
 				"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr),
-			check.False(re.MatchString(portmap.stdout),
+			check.Equal(re.MatchString(portmap.stdout), false,
 				"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr),
 		)
 	}
@@ -1399,15 +1403,15 @@ func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) error {
 
 	// Search for "--node-ip" flag and its value.
 	matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.:,]*)`).FindStringSubmatch(stdout)
-	if err := check.True(len(matches) >= 2, "could not find kubelet flag --node-ip\nStdout: \n%s", stdout); err != nil {
+	if err := check.Equal(len(matches) >= 2, true, "could not find kubelet flag --node-ip\nStdout: \n%s", stdout); err != nil {
 		return err
 	}
 
 	ipAddresses := strings.Split(matches[1], ",") // Could be multiple for dual-stack.
-	if err := check.True(len(ipAddresses) >= 1, "expected at least one --node-ip address, but got none\nStdout: \n%s", stdout); err != nil {
+	if err := check.Equal(len(ipAddresses) >= 1, true, "expected at least one --node-ip address, but got none\nStdout: \n%s", stdout); err != nil {
 		return err
 	}
-	if err := check.True(len(ipAddresses) <= 2, "expected at most two --node-ip addresses, but got %d\nStdout: \n%s", len(ipAddresses), stdout); err != nil {
+	if err := check.Equal(len(ipAddresses) <= 2, true, "expected at most two --node-ip addresses, but got %d\nStdout: \n%s", len(ipAddresses), stdout); err != nil {
 		return err
 	}
 
@@ -1494,11 +1498,11 @@ func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) 
 
 func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []string) error {
 	s.T.Helper()
-	if err := check.Len(versions, 1, "expected exactly one version for moby-containerd but got %d", len(versions)); err != nil {
+	if err := check.Equal(len(versions), 1, "expected exactly one version for moby-containerd but got %d", len(versions)); err != nil {
 		return err
 	}
 	// assert versions[0] value starts with '2.'
-	if err := check.True(strings.HasPrefix(versions[0], "2."), "expected moby-containerd version to start with '2.', got %v", versions[0]); err != nil {
+	if err := check.Equal(strings.HasPrefix(versions[0], "2."), true, "expected moby-containerd version to start with '2.', got %v", versions[0]); err != nil {
 		return err
 	}
 
@@ -1809,7 +1813,7 @@ func ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx context.Context
 
 func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) error {
 	s.T.Helper()
-	if err := check.Len(versions, 1, "expected exactly one version for moby-runc but got %d", len(versions)); err != nil {
+	if err := check.Equal(len(versions), 1, "expected exactly one version for moby-runc but got %d", len(versions)); err != nil {
 		return err
 	}
 	// check if versions[0] is great than or equal to 1.2.0
@@ -1819,8 +1823,8 @@ func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) er
 		return fmt.Errorf("parse semver from moby-runc version %q: %w", versions[0], err)
 	}
 	if err := errors.Join(
-		check.True(parsedVersion.Major() >= 1, "expected moby-runc major version to be at least 1, got %d", parsedVersion.Major()),
-		check.True(parsedVersion.Minor() >= 2, "expected moby-runc minor version to be at least 2, got %d", parsedVersion.Minor()),
+		check.Equal(parsedVersion.Major() >= 1, true, "expected moby-runc major version to be at least 1, got %d", parsedVersion.Major()),
+		check.Equal(parsedVersion.Minor() >= 2, true, "expected moby-runc minor version to be at least 2, got %d", parsedVersion.Minor()),
 	); err != nil {
 		return err
 	}
@@ -1876,7 +1880,8 @@ func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, pro
 	var errs []error
 	for i := range arguments {
 		expectedArgument := arguments[i]
-		errs = append(errs, check.ContainsElement(actualArgs, expectedArgument, "expected process %s to be started with argument %s", processName, expectedArgument))
+		errs = append(errs, check.Equal(slices.Contains(actualArgs, expectedArgument), true,
+			"expected process %s arguments %q to contain %q", processName, actualArgs, expectedArgument))
 	}
 	return errors.Join(errs...)
 }
@@ -1998,7 +2003,7 @@ func ValidateWindowsSecureTLSEnabled(ctx context.Context, s *Scenario) error {
 		check.Equal(gjson.Get(stdout, "rc4_64").Int(), int64(0), "expected RC4 64/128 to be disabled, got: %s", stdout),
 		check.Equal(gjson.Get(stdout, "rc4_56").Int(), int64(0), "expected RC4 56/128 to be disabled, got: %s", stdout),
 		check.Equal(gjson.Get(stdout, "rc4_40").Int(), int64(0), "expected RC4 40/128 to be disabled, got: %s", stdout),
-		check.NotEmpty(cipherOrder, "expected a configured cipher suite order"),
+		check.NotEqual(cipherOrder, "", "expected a configured cipher suite order"),
 		check.NotContains(cipherOrder, "3DES", "cipher suite order should not include 3DES (Sweet32/CVE-2016-2183)"),
 		check.NotContains(cipherOrder, "RC2", "cipher suite order should not include RC2"),
 		check.NotContains(cipherOrder, "DES", "cipher suite order should not include DES"),
@@ -2073,7 +2078,7 @@ func ValidateDllLoadedWindows(ctx context.Context, s *Scenario, dllName string) 
 	if err != nil {
 		return fmt.Errorf("check whether DLL %s is loaded: %w", dllName, err)
 	}
-	return check.True(loaded, "expected DLL %s to be loaded, but it is not", dllName)
+	return check.Equal(loaded, true, "expected DLL %s to be loaded, but it is not", dllName)
 }
 
 func ValidateDllIsNotLoadedWindows(ctx context.Context, s *Scenario, dllName string) error {
@@ -2082,7 +2087,7 @@ func ValidateDllIsNotLoadedWindows(ctx context.Context, s *Scenario, dllName str
 	if err != nil {
 		return fmt.Errorf("check whether DLL %s is loaded: %w", dllName, err)
 	}
-	return check.False(loaded, "expected DLL %s to not be loaded, but it is", dllName)
+	return check.Equal(loaded, false, "expected DLL %s to not be loaded, but it is", dllName)
 }
 
 func ValidateJsonFileHasField(ctx context.Context, s *Scenario, fileName string, jsonPath string, expectedValue string) error {
@@ -3120,7 +3125,7 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCou
 
 	// Check if the node advertises GPU capacity
 	gpuCapacity, exists := node.Status.Capacity[corev1.ResourceName(resourceName)]
-	if err := check.True(exists, "node should advertise resource %s", resourceName); err != nil {
+	if err := check.Equal(exists, true, "node should advertise resource %s", resourceName); err != nil {
 		return err
 	}
 
@@ -3205,10 +3210,7 @@ fi`)
 
 	// Part 2. Check cannot SSH with private key (expect failure)
 	err = validateSSHConnectivity(ctx, s)
-	if err := check.Error(err, "expected SSH connection with private key to fail, but it succeeded"); err != nil {
-		return err
-	}
-	if err := check.ErrorContains(err, "Permission denied", "expected permission denied error"); err != nil {
+	if err := check.ErrorContains(err, "Permission denied", "expected SSH connection with private key to fail with permission denied"); err != nil {
 		return err
 	}
 
@@ -3328,7 +3330,7 @@ func ValidateMIGModeEnabled(ctx context.Context, s *Scenario, gpuCountExpected i
 	stdout := strings.TrimSpace(execResult.stdout)
 	s.T.Logf("MIG mode status: %s", stdout)
 	gpuStatuses := strings.Split(stdout, "\n")
-	if err := check.Len(gpuStatuses, gpuCountExpected, "expected MIG status for %d GPUs, but got: %s", gpuCountExpected, stdout); err != nil {
+	if err := check.Equal(len(gpuStatuses), gpuCountExpected, "expected MIG status for %d GPUs, but got: %s", gpuCountExpected, stdout); err != nil {
 		return err
 	}
 	var errs []error
@@ -3436,8 +3438,9 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 		}
 	}
 
-	return check.True(
+	return check.Equal(
 		success,
+		true,
 		"Rules found that do not match any of the given patterns. See previous log lines for details. "+
 			"This may indicate an unsupported iptables rule when eBPF host routing is enabled. "+
 			"Contact acndp@microsoft.com for details.",
@@ -3502,7 +3505,7 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 	}
 
 	actualValue, exists := node.Labels[labelKey]
-	if err := check.True(exists, "expected node %q to have label %q, but it was not found", s.Runtime.VM.KubeName, labelKey); err != nil {
+	if err := check.Equal(exists, true, "expected node %q to have label %q, but it was not found", s.Runtime.VM.KubeName, labelKey); err != nil {
 		return err
 	}
 	return check.Equal(actualValue, expectedValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
@@ -3577,7 +3580,7 @@ func ValidateStaleCachedKubeBinariesRemoved(ctx context.Context, s *Scenario) er
 		return fmt.Errorf("list stale cached binaries: %w", err)
 	}
 	staleFiles := strings.TrimSpace(result.stdout)
-	return check.True(staleFiles == "", "expected no stale cached binaries in /opt/bin/, but found:\n%s", staleFiles)
+	return check.Equal(staleFiles, "", "expected no stale cached binaries in /opt/bin/, but found:\n%s", staleFiles)
 }
 
 // ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
@@ -3766,7 +3769,7 @@ func ValidateAcceleratedNetworkingTrafficFlowing(ctx context.Context, s *Scenari
 		return fmt.Errorf("determine default gateway from ip route: %w", err)
 	}
 	gatewayIP := strings.TrimSpace(gatewayResult.stdout)
-	if err := check.NotEmpty(gatewayIP, "default gateway IP is empty"); err != nil {
+	if err := check.NotEqual(gatewayIP, "", "default gateway IP is empty"); err != nil {
 		return err
 	}
 	s.T.Logf("Accelerated networking traffic test: using gateway %s as target", gatewayIP)
@@ -3793,7 +3796,7 @@ func ValidateAcceleratedNetworkingTrafficFlowing(ctx context.Context, s *Scenari
 	delta := countAfter - countBefore
 	s.T.Logf("Accelerated networking VF tx packets after: %d (delta: %d, expected >= %d)", countAfter, delta, requestCount)
 
-	return check.True(delta >= requestCount,
+	return check.Equal(delta >= requestCount, true,
 		"vf_tx_packets increased by %d but expected at least %d \u2014 traffic may not be flowing through the accelerated networking VF", delta, requestCount)
 }
 
@@ -4195,7 +4198,7 @@ func resolveSecondaryNICName(ctx context.Context, s *Scenario) (string, error) {
 		return "", fmt.Errorf("resolve secondary NIC interface name: %w", err)
 	}
 	ifaceName := strings.TrimSpace(result.stdout)
-	if err := check.NotEmpty(ifaceName, "resolved secondary NIC name should not be empty"); err != nil {
+	if err := check.NotEqual(ifaceName, "", "resolved secondary NIC name should not be empty"); err != nil {
 		return "", err
 	}
 	return ifaceName, nil

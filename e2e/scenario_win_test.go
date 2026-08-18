@@ -29,7 +29,7 @@ func DualStackConfigMutator(_ *Cluster, configuration *datamodel.NodeBootstrappi
 func Windows2025BootstrapConfigMutator(configuration *datamodel.NodeBootstrappingConfiguration) error {
 	// 2025 supported in 1.32+ - a kubelet bug impacts networking in most of 1.32 and 1.33.0, .1
 	version := components.GetKubeletVersionByMinorVersion("v1.33")
-	if err := check.NotEmpty(version, "find a Windows 2025 kubelet version for Kubernetes 1.33"); err != nil {
+	if err := check.NotEqual(version, "", "find a Windows 2025 kubelet version for Kubernetes 1.33"); err != nil {
 		return err
 	}
 	configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = components.RemoveLeadingV(version)

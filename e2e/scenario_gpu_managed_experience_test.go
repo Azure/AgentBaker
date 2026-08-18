@@ -33,7 +33,7 @@ func getDCGMPackageNames(os string) []string {
 // components.json, and callers cannot continue without the version string.
 func expectedPackageVersion(packageName, os, osVersion string) (string, error) {
 	versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
-	if err := check.Len(versions, 1, "expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions)); err != nil {
+	if err := check.Equal(len(versions), 1, "expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions)); err != nil {
 		return "", err
 	}
 	return versions[0], nil
@@ -317,8 +317,8 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 		propMatches := propRegex.FindStringSubmatch(cmdLineOutput)
 
 		if err := errors.Join(
-			check.Len(coreMatches, 2, "failed to extract datacenter-gpu-manager-4-core version from dependencies:\n%s", cmdLineOutput),
-			check.Len(propMatches, 2, "failed to extract datacenter-gpu-manager-4-proprietary version from dependencies:\n%s", cmdLineOutput),
+			check.Equal(len(coreMatches), 2, "failed to extract datacenter-gpu-manager-4-core version from dependencies:\n%s", cmdLineOutput),
+			check.Equal(len(propMatches), 2, "failed to extract datacenter-gpu-manager-4-proprietary version from dependencies:\n%s", cmdLineOutput),
 		); err != nil {
 			return "", "", err
 		}
@@ -932,8 +932,8 @@ func Test_CreateVMExtensionLinuxAKSNode_Timing(t *testing.T) {
 	}
 
 	if err := errors.Join(
-		check.NotEmpty(*ext.Properties.TypeHandlerVersion, "first TypeHandlerVersion is empty"),
-		check.NotEmpty(*ext2.Properties.TypeHandlerVersion, "second TypeHandlerVersion is empty"),
+		check.NotEqual(*ext.Properties.TypeHandlerVersion, "", "first TypeHandlerVersion is empty"),
+		check.NotEqual(*ext2.Properties.TypeHandlerVersion, "", "second TypeHandlerVersion is empty"),
 		check.NotEqual(*ext.Properties.TypeHandlerVersion, "1.413",
 			"extension version is the hardcoded fallback — Azure API may not have been reached"),
 		check.Equal(*ext2.Properties.TypeHandlerVersion, *ext.Properties.TypeHandlerVersion,
