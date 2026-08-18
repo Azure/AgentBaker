@@ -366,6 +366,12 @@ func enableScriptlessCompilation(s *Scenario) bool {
 }
 
 func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
+	if s == nil || s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
+		s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil {
+		return nil, fmt.Errorf("scenario runtime is missing the cluster node resource group")
+	}
+	resourceGroupName := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
+
 	delay := 5 * time.Second
 	retryOn := func(err error) bool {
 		var respErr *azcore.ResponseError
@@ -392,7 +398,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 
 	for {
 		attempt++
-		vm, err := CreateVMSS(ctx, s, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
+		vm, err := CreateVMSS(ctx, s, resourceGroupName)
 		if err == nil {
 			return vm, nil
 		}
