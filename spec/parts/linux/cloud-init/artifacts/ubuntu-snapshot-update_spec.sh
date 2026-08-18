@@ -21,9 +21,10 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         TEST_REPO_SERVICE=""
         printf '%s' '{"components":[]}' > "${TEST_COMPONENTS_JSON_FILE}"
         TEST_SECURITY_STATUS=0
+        TEST_LOCALDNS_STATUS=0
         TEST_ANNOTATE_STATUS=0
         export KUBECTL KNEAD_COMPONENT_STATE_FILE TEST_COMPONENTS_JSON_FILE TEST_KUBECTL_ARGS_FILE
-        export TEST_STATUS TEST_GOAL TEST_AGENT_POOL TEST_REPO_SERVICE TEST_SECURITY_STATUS TEST_ANNOTATE_STATUS
+        export TEST_STATUS TEST_GOAL TEST_AGENT_POOL TEST_REPO_SERVICE TEST_SECURITY_STATUS TEST_LOCALDNS_STATUS TEST_ANNOTATE_STATUS
     }
 
     cleanup() {
@@ -64,6 +65,12 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
     updateSecurityPatch() {
         echo "updateSecurityPatch called with args: $*"
         return "${TEST_SECURITY_STATUS}"
+    }
+
+
+    updateLocalDNS() {
+        echo "updateLocalDNS called with args: $*"
+        return "${TEST_LOCALDNS_STATUS}"
     }
 
     securityPatchIsCurrent() {
@@ -155,6 +162,54 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         The status should be success
         The output should equal '{"components":[]}'
         The contents of file "${TEST_KUBECTL_ARGS_FILE}" should equal 'get cm -n kube-system live-patching-config -o jsonpath={.data.live-patching-config\.json}'
+    End
+
+
+    It 'dispatches localDNS and writes successful status'
+        mkdir -p /opt/azure/containers
+        cat > /opt/azure/containers/aks-node-controller <<'EOF'
+#!/bin/bash
+echo "aks-node-controller called with args: $*"
+cat > /tmp/localdns-livepatch-payload
+echo applied
+EOF
+        chmod +x /opt/azure/containers/aks-node-controller
+        Mock systemctl
+            echo "systemctl called with args: $*"
+        End
+        set_payload_goal '{"components":[{"name":"localDNS","nodeConfig":"{\"profiles\":{\"ap1\":{\"configChecksum\":\"localdns-v1\"}}}"}]}'
+
+        When call knead_main
+        The status should be success
+        The output should include 'applying component: localDNS'
+        The output should include 'aks-node-controller called with args: apply-localdns-config --config-file - --output /opt/azure/containers/localdns/livepatched.localdns.corefile'
+        The contents of file "/tmp/localdns-livepatch-payload" should include '"configChecksum":"localdns-v1"'
+        The output should include 'systemctl called with args: restart localdns.service'
+        The output should include 'localDNS update completed successfully'
+        The output should include 'annotate mock called with args: annotate --overwrite node aks-node-1 kubernetes.azure.com/live-patching-status={"currentHash":"'
+        The output should include '"components":{"localDNS":{"code":"Succeeded"}}}'
+        The contents of file "${KNEAD_COMPONENT_STATE_FILE}" should include '"localDNS"'
+    End
+
+    It 'marks localDNS failed when service restart fails'
+        mkdir -p /opt/azure/containers
+        cat > /opt/azure/containers/aks-node-controller <<'EOF'
+#!/bin/bash
+echo applied
+EOF
+        chmod +x /opt/azure/containers/aks-node-controller
+        Mock systemctl
+            echo "systemctl called with args: $*"
+            exit 1
+        End
+        set_payload_goal '{"components":[{"name":"localDNS","nodeConfig":"{\"profiles\":{\"ap1\":{\"configChecksum\":\"localdns-v1\"}}}"}]}'
+
+        When call knead_main
+        The status should be failure
+        The output should include 'applying component: localDNS'
+        The output should include 'failed to restart localdns.service'
+        The output should include 'component failed: localDNS'
+        The output should include '"components":{"localDNS":{"code":"Failed"}}}'
     End
 
     It 'fails before dispatch when the goal hash does not match the ConfigMap payload'
