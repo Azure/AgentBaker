@@ -69,11 +69,6 @@ parameters:
   - name: cseFileName
     type: string
     displayName: CSE package filename.
-  - name: e2eVariableGroup
-    type: string
-    displayName: Variable group used by AgentBaker E2E jobs
-    default: ab-e2e
-
 stages:
   - stage: build_${{ parameters.stageName }}
     # Put the artifact name first so it doesn't get truncated as much in ADO
@@ -120,4 +115,3 @@ stages:
         parameters:
           name: For image ${{ parameters.imageName }}
           IgnoreScenariosWithMissingVhd: false
-          variableGroup: ${{ parameters.e2eVariableGroup }}

@@ -54,11 +54,6 @@ parameters:
   - name: csePublishDir
     type: string
     default: $(Build.ArtifactStagingDirectory)/packages
-  - name: e2eVariableGroup
-    displayName: Variable group used by AgentBaker E2E jobs
-    type: string
-    default: ab-e2e
-
 stages:
   - stage: Package
     displayName: "Package Windows CSE"
@@ -101,7 +96,6 @@ stages:
       useOverrides: ${{ parameters.useOverrides }}
       csePackageDir: ${{ parameters.csePublishDir }}
       cseFileName: ${{ parameters.cseFileName }}
-      e2eVariableGroup: ${{ parameters.e2eVariableGroup }}
 
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -125,7 +119,6 @@ stages:
       useOverrides: ${{ parameters.useOverrides }}
       csePackageDir: ${{ parameters.csePublishDir }}
       cseFileName: ${{ parameters.cseFileName }}
-      e2eVariableGroup: ${{ parameters.e2eVariableGroup }}
 
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -149,7 +142,6 @@ stages:
       useOverrides: ${{ parameters.useOverrides }}
       csePackageDir: ${{ parameters.csePublishDir }}
       cseFileName: ${{ parameters.cseFileName }}
-      e2eVariableGroup: ${{ parameters.e2eVariableGroup }}
 
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -173,7 +165,6 @@ stages:
       useOverrides: ${{ parameters.useOverrides }}
       csePackageDir: ${{ parameters.csePublishDir }}
       cseFileName: ${{ parameters.cseFileName }}
-      e2eVariableGroup: ${{ parameters.e2eVariableGroup }}
 
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -198,7 +189,6 @@ stages:
       useOverrides: ${{ parameters.useOverrides }}
       csePackageDir: ${{ parameters.csePublishDir }}
       cseFileName: ${{ parameters.cseFileName }}
-      e2eVariableGroup: ${{ parameters.e2eVariableGroup }}
 
   - stage: delete_outdated_resources
     dependsOn: [ ]
