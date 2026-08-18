@@ -74,6 +74,9 @@ type App struct {
 	// unit tests inject canned binary content or errors without real networking. When nil, the
 	// real HTTP download is used.
 	httpDownload func(ctx context.Context, url string) ([]byte, error)
+	// downloadDir overrides the directory where artifact downloads are staged. When empty,
+	// defaults to filepath.Dir(hotfixBinaryPath). Used for testing.
+	downloadDir string
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.

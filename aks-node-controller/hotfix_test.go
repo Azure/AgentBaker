@@ -778,17 +778,17 @@ func TestDownloadHotfix_ArtifactHTTPSuccess(t *testing.T) {
 	})
 	tt.App.hotfixVersionPath = path
 	tt.App.osReleasePath = osReleasePath
+	tt.App.downloadDir = dir
 	tt.App.httpDownload = func(ctx context.Context, url string) ([]byte, error) {
 		return binaryContent, nil
 	}
 
-	// Override paths used by copyBinaryAlongside — we can't write to /opt/azure/containers/ in tests.
-	// The download writes to filepath.Dir(hotfixBinaryPath), so we need to test at a different level.
-	// Instead, verify that installFromPMC is NOT called (the HTTP path was used).
+	// copyBinaryAlongside will fail because vhdBinaryPath (/opt/azure/containers/aks-node-controller)
+	// doesn't exist in tests. But the key assertion is that the package manager was NOT called.
 	err := tt.App.downloadHotfix(context.Background())
-	// Will fail at copyBinaryAlongside because hotfixBinaryPath is /opt/azure/containers/...
-	// which doesn't exist in test. But installCalled should be false (HTTP path used, not apt).
-	_ = err
+	// The error is from copyBinaryAlongside (stat /opt/...), not from install.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "stage hotfix binary from artifact")
 	assert.False(t, installCalled, "should use HTTP download, not package manager")
 }
 

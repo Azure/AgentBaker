@@ -541,7 +541,10 @@ func (a *App) downloadAndVerify(ctx context.Context, artifactURL, expectedSHA256
 	}
 
 	// Write to temp file.
-	dir := filepath.Dir(hotfixBinaryPath)
+	dir := a.downloadDir
+	if dir == "" {
+		dir = filepath.Dir(hotfixBinaryPath)
+	}
 	tmp, err := os.CreateTemp(dir, ".aks-node-controller-download-*")
 	if err != nil {
 		return "", fmt.Errorf("creating temp file in %s: %w", dir, err)
