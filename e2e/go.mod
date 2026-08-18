@@ -23,6 +23,7 @@ require (
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/cavaliergopher/rpm v1.3.0
 	github.com/coder/websocket v1.8.14
+	github.com/google/go-cmp v0.7.0
 	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/compress v1.18.5
 	github.com/samber/lo v1.52.0
