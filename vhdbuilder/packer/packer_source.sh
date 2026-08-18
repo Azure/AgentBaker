@@ -245,6 +245,10 @@ copyPackerFiles() {
   FETCH_PROVISION_CONFIG_DEST=/opt/azure/containers/fetch_provision_config.py
   cpAndMode $FETCH_PROVISION_CONFIG_SRC $FETCH_PROVISION_CONFIG_DEST 0744
 
+  AKS_POC_NETPLAN_SRC=/home/packer/aks-poc-netplan.yaml
+  AKS_POC_NETPLAN_DEST=/opt/azure/containers/aks-poc-netplan.yaml
+  cpAndMode $AKS_POC_NETPLAN_SRC $AKS_POC_NETPLAN_DEST 0600
+
   INIT_CLOUD_SRC=/home/packer/init-aks-cloud.sh
   INIT_CLOUD_DEST=/opt/azure/containers/init-aks-cloud.sh
   cpAndMode $INIT_CLOUD_SRC $INIT_CLOUD_DEST 0744

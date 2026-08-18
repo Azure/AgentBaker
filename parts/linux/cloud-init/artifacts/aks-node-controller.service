@@ -2,13 +2,10 @@
 Description=Parse contract and run csecmd
 # DefaultDependencies=no avoids the implicit After=sysinit.target/basic.target
 # systemd adds by default, which otherwise forces this unit to wait for the
-# whole basic.target transaction (including cloud-init.service's remaining
-# modules such as growpart/resizefs/ssh-keygen) to resolve before it can
-# start, even though the boothook already requested "systemctl start
-# --no-block" on it much earlier.
+# whole basic.target transaction to resolve before it can start. The launcher
+# retries its IMDS operations while networking initializes, so it can run in
+# parallel with systemd-networkd and DHCP.
 DefaultDependencies=no
-After=network-online.target
-Wants=network-online.target
 
 [Service]
 Type=oneshot

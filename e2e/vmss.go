@@ -217,7 +217,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
 	require.NoError(s.T, err)
-	var cse, customData, aksNodeConfig string
+	var cse, customData, userData, aksNodeConfig string
 
 	if s.Runtime.AKSNodeConfig != nil {
 		aksNodeConfigBytes, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
@@ -235,6 +235,12 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 
 	cse = nodeBootstrapping.CSE
 	customData = nodeBootstrapping.CustomData
+	userData = nodeBootstrapping.UserData
+	if s.VHD.Distro == datamodel.AKSUbuntuContainerd2404Gen2 {
+		require.Empty(s.T, customData, "no-cloud-init POC must not populate CustomData")
+		require.NotEmpty(s.T, userData, "no-cloud-init POC must populate UserData")
+		s.T.Logf("Using %d bytes of base64-encoded UserData for the no-cloud-init POC", len(userData))
+	}
 	if enableScriptlessCompilation(s) {
 		binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 		require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
@@ -274,7 +280,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		)
 	}
 
-	model := getBaseVMSSModel(s, customData, cse)
+	model := getBaseVMSSModel(s, customData, userData, cse)
 
 	// always assign the kubelet and e2e VM identities to the VMSS
 	model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
@@ -312,7 +318,12 @@ func usesScriptlessNBCCSECmd(s *Scenario) bool {
 }
 
 func enableScriptlessCompilation(s *Scenario) bool {
-	return usesScriptlessNBCCSECmd(s) && len(s.Config.CustomDataWriteFiles) <= 0 && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.VHD.Flatcar
+	return usesScriptlessNBCCSECmd(s) &&
+		s.VHD.Distro != datamodel.AKSUbuntuContainerd2404Gen2 &&
+		len(s.Config.CustomDataWriteFiles) <= 0 &&
+		!config.Config.DisableScriptLessCompilation &&
+		!s.Tags.NetworkIsolated &&
+		!s.VHD.Flatcar
 }
 
 func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
@@ -415,15 +426,15 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	// In the single-subscription model, if the scenario tags RCV1PCertMode we set the opt-in tag ourselves.
 	weSetRCV1PTag := s.Tags.RCV1PCertMode
 	logRCV1PAwareTags(s, "VMSS", "creation", s.Runtime.VMSSName, vmssID, vmssResp.Tags, weSetRCV1PTag, false)
+	if err != nil {
+		return vm, fmt.Errorf("failed to create VMSS: %w", err)
+	}
 	if !s.Config.SkipSSHConnectivityValidation {
 		var bastErr error
 		vm.SSHClient, bastErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
 		if bastErr != nil {
 			return vm, fmt.Errorf("failed to start bastion tunnel: %w", bastErr)
 		}
-	}
-	if err != nil {
-		return vm, err
 	}
 
 	// Wait for VM to be in "Running" power state before proceeding
@@ -734,13 +745,16 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"aks-node-controller-config.json":  "sudo cat /opt/azure/containers/aks-node-controller-config.json", // Only available in Scriptless.
 		"aks-early-boothook.log":           "sudo cat /var/log/azure/aks-early-boothook.log",
 		"syslog":                           "sudo cat /var/log/" + syslogHandle,
-		"journalctl":                       "sudo journalctl --boot=0 --no-pager",
+		"journalctl":                       "sudo journalctl --boot=0 -o short-monotonic --no-pager",
 		"azure.json":                       "sudo cat /etc/kubernetes/azure.json",
 		"provision.json":                   "sudo cat /var/log/azure/aks/provision.json",
 		"cloud-init.log":                   "sudo cat /var/log/cloud-init.log",
 		"cloud-init-output.log":            "sudo cat /var/log/cloud-init-output.log",
-		"systemd-analyze.log":              "sudo systemd-analyze critical-chain cloud-init-local.service",
+		"systemd-analyze.log":              "sudo systemd-analyze critical-chain aks-node-controller.service systemd-networkd.service",
 		"systemd-analyze-blame.log":        "sudo systemd-analyze blame",
+		// Splits total boot into firmware/loader/kernel/initrd/userspace so we can tell
+		// whether time-to-ANC is spent before or after the initrd switch-root.
+		"systemd-analyze-time.log": "sudo systemd-analyze time",
 	}
 	if s.SecureTLSBootstrappingEnabled() {
 		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
@@ -1253,7 +1267,7 @@ func indentYAMLBlock(content, indent string) string {
 	return strings.Join(lines, "\n")
 }
 
-func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
+func getBaseVMSSModel(s *Scenario, customData, userData, cseCmd string) armcompute.VirtualMachineScaleSet {
 	model := armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(s.Location),
 		SKU: &armcompute.SKU{
@@ -1266,6 +1280,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 				Mode: to.Ptr(armcompute.UpgradeModeAutomatic),
 			},
 			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
+				UserData: to.Ptr(userData),
 				DiagnosticsProfile: &armcompute.DiagnosticsProfile{
 					BootDiagnostics: &armcompute.BootDiagnostics{
 						Enabled: to.Ptr(true),
@@ -1274,7 +1289,6 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
 					ComputerNamePrefix: to.Ptr(s.Runtime.VMSSName),
 					AdminUsername:      to.Ptr("azureuser"),
-					CustomData:         &customData,
 					LinuxConfiguration: &armcompute.LinuxConfiguration{
 						SSH: &armcompute.SSHConfiguration{
 							PublicKeys: []*armcompute.SSHPublicKey{
@@ -1334,6 +1348,12 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 				},
 			},
 		},
+	}
+	if customData != "" {
+		model.Properties.VirtualMachineProfile.OSProfile.CustomData = to.Ptr(customData)
+	}
+	if userData == "" {
+		model.Properties.VirtualMachineProfile.UserData = nil
 	}
 
 	if cseCmd != "" {

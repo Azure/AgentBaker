@@ -46,9 +46,19 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	}
 
 	templateGenerator := InitializeTemplateGenerator()
+	isNoCloudInitPOC := config.AgentPoolProfile.Distro == datamodel.AKSUbuntuContainerd2404Gen2
+	if isNoCloudInitPOC {
+		config.DisableCustomData = true
+		config.EnableScriptlessNBCCSECmd = true
+		config.ScriptlessCSEProvisionMode = true
+	}
 	nodeBootstrapping := &datamodel.NodeBootstrapping{
-		CustomData: templateGenerator.getNodeBootstrappingPayload(config),
-		CSE:        templateGenerator.getNodeBootstrappingCmd(config),
+		CSE: templateGenerator.getNodeBootstrappingCmd(config),
+	}
+	if isNoCloudInitPOC {
+		nodeBootstrapping.UserData = templateGenerator.getNoCloudInitUserData(config)
+	} else {
+		nodeBootstrapping.CustomData = templateGenerator.getNodeBootstrappingPayload(config)
 	}
 
 	distro := config.AgentPoolProfile.Distro

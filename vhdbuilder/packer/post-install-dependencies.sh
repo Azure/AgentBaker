@@ -15,6 +15,47 @@ source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && \
+   [ "$UBUNTU_RELEASE" = "24.04" ] && \
+   [ "$CPU_ARCH" = "amd64" ] && \
+   [ "$HYPERV_GENERATION" = "V2" ] && \
+   [ "$IMG_SKU" = "server" ]; then
+  echo "Configuring Ubuntu 24.04 x64 Gen2 no-cloud-init POC"
+
+  touch /etc/aks-no-cloud-init-poc
+  chmod 0644 /etc/aks-no-cloud-init-poc
+  touch /etc/cloud/cloud-init.disabled
+
+  rm -f /etc/netplan/50-cloud-init.yaml
+  install -m 0600 /opt/azure/containers/aks-poc-netplan.yaml /etc/netplan/10-aks-poc.yaml
+  netplan generate
+
+  systemctl enable systemd-networkd.service
+  systemctl enable systemd-resolved.service
+  systemctl add-wants network-online.target systemd-networkd-wait-online.service
+  systemctl mask cloud-init-local.service
+  systemctl mask cloud-init.service
+  systemctl mask cloud-config.service
+  systemctl mask cloud-final.service
+  systemctl mask cloud-init.target
+  systemctl mask cloud-init-hotplugd.service
+  systemctl mask cloud-init-hotplugd.socket
+
+  # aks-node-controller.service runs with DefaultDependencies=no so it starts as early as
+  # possible. That also strips the implicit ordering that would normally guarantee a
+  # writable root filesystem, so re-add it explicitly. Wants= pulls networking into the
+  # boot transaction without ordering ANC after it -- bootstrap retries its WireServer and
+  # IMDS calls, so it can usefully run in parallel with DHCP.
+  install -d -m 0755 /etc/systemd/system/aks-node-controller.service.d
+  cat >/etc/systemd/system/aks-node-controller.service.d/no-cloud-init-poc.conf <<'EOF'
+[Unit]
+Wants=systemd-networkd.service systemd-resolved.service
+After=systemd-remount-fs.service
+EOF
+
+  systemctl enable aks-node-controller.service
+fi
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 

@@ -93,6 +93,15 @@ fi
 set -euo pipefail
 %s
 `
+	noCloudInitUserDataTemplate = `#!/bin/bash
+set -euo pipefail
+
+mkdir -p /opt/bin /opt/azure/containers /var/log/azure
+
+nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
+
+%s
+`
 	// boothookFileEntry is appended to the boothook for each additional file.
 	// It writes gzipped+base64-encoded content to disk before starting aks-node-controller.
 	boothookFileEntry = `
@@ -231,10 +240,40 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 // It encodes the nbc-cmd script, and optionally AKSNodeConfig JSON,
 // into a single base64-encoded string for the cse scriptless phase2 template.
 func (t *TemplateGenerator) getScriptlessNBCCmd(config *datamodel.NodeBootstrappingConfiguration) string {
-	encodedFiles := t.getScriptlessConfiguration(config)
-	customData := buildScriptlessCustomData(cseBootHookTemplate, boothookFileEntry, "\n", encodedFiles)
+	customData := t.getScriptlessNBCMaterializeCmd(config)
 	customData += serviceStartTemplate
 	return customData
+}
+
+func (t *TemplateGenerator) getScriptlessNBCMaterializeCmd(config *datamodel.NodeBootstrappingConfiguration) string {
+	encodedFiles := t.getScriptlessConfiguration(config)
+	return buildScriptlessCustomData(cseBootHookTemplate, boothookFileEntry, "\n", encodedFiles)
+}
+
+func (t *TemplateGenerator) getNoCloudInitUserData(config *datamodel.NodeBootstrappingConfiguration) string {
+	config.DisableCustomData = true
+	config.EnableScriptlessCSECmd = true
+
+	nodeCustomData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+	encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
+
+	var encodedHotfixJSON string
+	if b, err := parts.Templates.ReadFile(hotfixJSONFile); err == nil {
+		encodedHotfixJSON = getBase64EncodedGzippedCustomScriptFromStr(string(b))
+	}
+
+	var encodedEnabledFeatures string
+	if content := renderEnabledFeatures(config.EnabledFeatures); content != "" {
+		encodedEnabledFeatures = getBase64EncodedGzippedCustomScriptFromStr(content)
+	}
+
+	encodedFiles := []encodedFile{
+		{aksNodeCustomDataFilepath, encodedNodeCustomData},
+		{aksHotfixJSONFilepath, encodedHotfixJSON},
+		{enabledFeaturesFilepath, encodedEnabledFeatures},
+	}
+	userData := buildScriptlessCustomData(noCloudInitUserDataTemplate, boothookFileEntry, "\n", encodedFiles)
+	return base64.StdEncoding.EncodeToString([]byte(userData))
 }
 
 func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBootstrappingConfiguration) []encodedFile {
@@ -533,6 +572,10 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
 		return t.getWindowsNodeCSECommand(config)
+	}
+	if config.AgentPoolProfile.Distro == datamodel.AKSUbuntuContainerd2404Gen2 {
+		cseCmd := getBase64EncodedGzippedCustomScriptFromStr(t.getScriptlessNBCMaterializeCmd(config))
+		return fmt.Sprintf(cseScriptlessPhase2Template, cseCmd)
 	}
 	if supportsScriptlessPhase2(config) {
 		if config.ScriptlessCSEProvisionMode {

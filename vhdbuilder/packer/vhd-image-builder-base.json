@@ -257,6 +257,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-poc-netplan.yaml",
+      "destination": "/home/packer/aks-poc-netplan.yaml"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/init-aks-cloud.sh",
       "destination": "/home/packer/init-aks-cloud.sh"
     },

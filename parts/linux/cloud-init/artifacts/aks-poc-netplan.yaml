@@ -1,0 +1,15 @@
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    primary:
+      match:
+        name: "e*"
+      dhcp4: true
+      # Key the DHCP request off the MAC rather than a generated DUID so the
+      # lease is deterministic per NIC and survives reboots/reimages.
+      dhcp-identifier: mac
+      # Renders KeepConfiguration= so networkd does not tear the address down
+      # when it is restarted or reconfigured later in provisioning.
+      critical: true
+      optional: false

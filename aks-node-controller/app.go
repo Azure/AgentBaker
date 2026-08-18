@@ -44,6 +44,7 @@ type App struct {
 	// the goal of this field is to make it easier to test the app by mocking the command runner.
 	cmdRun      func(cmd *exec.Cmd) error
 	eventLogger *helpers.EventLogger
+	bootstrapFn func(context.Context) error
 
 	// hotfixVersionPath overrides the default hotfix version file location for testing.
 	// It is also the path check-hotfix writes the resolved pointer to.
@@ -67,6 +68,8 @@ type App struct {
 	// Authorization header for the check-hotfix LPS fetch. When nil, the real IMDS endpoint
 	// is queried.
 	fetchAttestedToken func(ctx context.Context) (string, error)
+	// reportReadyFn overrides Azure provisioning status reporting for testing.
+	reportReadyFn func(context.Context, reportReadyOptions) error
 	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
 	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
 	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
@@ -114,6 +117,16 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		},
 		Commands: []*cli.Command{
 			{
+				Name:  "bootstrap",
+				Usage: "Materialize provisioning inputs without cloud-init or waagent",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if extra := cmd.Args().Slice(); len(extra) > 0 {
+						return fmt.Errorf("unexpected bootstrap arguments: %s", strings.Join(extra, " "))
+					}
+					return a.runBootstrapCommand(ctx)
+				},
+			},
+			{
 				Name:  "provision",
 				Usage: "Run node provisioning",
 				Flags: []cli.Flag{
@@ -139,6 +152,33 @@ func (a *App) Run(ctx context.Context, args []string) int {
 					provisionOutput, err := a.runProvisionWaitCommand(ctx, provisionStatusFiles)
 					_, _ = fmt.Fprintln(cmd.Root().Writer, provisionOutput)
 					return err
+				},
+			},
+			{
+				Name:  "report-ready",
+				Usage: "Report provisioning status directly to Azure WireServer",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "endpoint", Value: defaultWireServerEndpoint},
+					&cli.IntFlag{Name: "retries", Value: defaultReportReadyRetries},
+					&cli.Float64Flag{Name: "retry-delay", Value: defaultReportReadyRetryDelay.Seconds()},
+					&cli.BoolFlag{Name: "failure"},
+					&cli.StringFlag{Name: "description"},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if extra := cmd.Args().Slice(); len(extra) > 0 {
+						return fmt.Errorf("unexpected report-ready arguments: %s", strings.Join(extra, " "))
+					}
+					reportReadyFn := a.reportReadyFn
+					if reportReadyFn == nil {
+						reportReadyFn = reportProvisioningStatus
+					}
+					return reportReadyFn(ctx, reportReadyOptions{
+						endpoint:    cmd.String("endpoint"),
+						ready:       !cmd.Bool("failure"),
+						description: cmd.String("description"),
+						retries:     cmd.Int("retries"),
+						retryDelay:  time.Duration(cmd.Float64("retry-delay") * float64(time.Second)),
+					})
 				},
 			},
 			{

@@ -174,6 +174,51 @@ func TestApp_Run(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	})
 
+	t.Run("bootstrap rejects unexpected arguments", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "bootstrap", "extra"})
+		assert.Equal(t, 1, exitCode)
+	})
+
+	t.Run("bootstrap returns success", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		tt.App.bootstrapFn = func(context.Context) error { return nil }
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "bootstrap"})
+		assert.Equal(t, 0, exitCode)
+	})
+
+	t.Run("report-ready passes failure options", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		var actual reportReadyOptions
+		tt.App.reportReadyFn = func(_ context.Context, options reportReadyOptions) error {
+			actual = options
+			return nil
+		}
+		exitCode := tt.App.Run(context.Background(), []string{
+			"aks-node-controller",
+			"report-ready",
+			"--endpoint=127.0.0.1:8080",
+			"--retries=5",
+			"--retry-delay=0.25",
+			"--failure",
+			"--description=bootstrap failed",
+		})
+		assert.Equal(t, 0, exitCode)
+		assert.Equal(t, reportReadyOptions{
+			endpoint:    "127.0.0.1:8080",
+			ready:       false,
+			description: "bootstrap failed",
+			retries:     5,
+			retryDelay:  250 * time.Millisecond,
+		}, actual)
+	})
+
+	t.Run("report-ready rejects unexpected arguments", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "report-ready", "extra"})
+		assert.Equal(t, 1, exitCode)
+	})
+
 	t.Run("download-hotfix returns success when VHD version already matches target", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		origVersion := Version

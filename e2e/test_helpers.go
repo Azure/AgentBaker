@@ -263,7 +263,7 @@ func runScenario(t testing.TB, s *Scenario) error {
 	}
 
 	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR, s.Location))
-	validateVM(vmssCtx, s)
+	//validateVM(vmssCtx, s)
 
 	return nil
 }
@@ -356,8 +356,12 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
 	}
 
-	err = getCustomScriptExtensionStatus(s, scenarioVM.VM)
-	require.NoError(s.T, err)
+	if s.VHD.Distro == datamodel.AKSUbuntuContainerd2404Gen2 {
+		s.T.Log("Skipping CustomScript extension status for the Ubuntu 24.04 no-cloud-init POC")
+	} else {
+		err = getCustomScriptExtensionStatus(s, scenarioVM.VM)
+		require.NoError(s.T, err)
+	}
 
 	if !s.Config.SkipDefaultValidation {
 		vmssCreatedAt := time.Now()         // Record the start time

@@ -16,10 +16,6 @@ else
 	exit ${cloudInitExitCode};
 fi;
 {{end}}
-INIT_AKS_CLOUD_FILEPATH="{{GetInitAKSCloudFilepath}}";
-if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]; then
-	REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}" LOCATION={{GetVariable "location"}} "${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1;
-fi;
 {{/* Keep the environment assignments below contiguous through the nohup invocation at the end of this file. */ -}}
 {{/* The CSE command is flattened into one shell command, so all assignments below are passed to nohup. */ -}}
 {{/* Be careful not to add runtime control flow or command separators that break the flattening logic. */ -}}
@@ -192,8 +188,8 @@ MCR_REPOSITORY_BASE="{{GetMCRRepositoryBase}}"
 NETWORK_ISOLATED_CLUSTER_TEST_MODE="{{GetNetworkIsolatedClusterTestMode}}"
 ENABLE_IMDS_RESTRICTION="{{EnableIMDSRestriction}}"
 INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE="{{InsertIMDSRestrictionRuleToMangleTable}}"
-SHOULD_ENABLE_LOCALDNS="{{ShouldEnableLocalDNS}}"
-SHOULD_ENABLE_HOSTS_PLUGIN="{{ShouldEnableHostsPlugin}}"
+SHOULD_ENABLE_LOCALDNS="false"
+SHOULD_ENABLE_HOSTS_PLUGIN="false"
 LOCALDNS_CPU_LIMIT="{{GetLocalDNSCPULimitInPercentage}}"
 LOCALDNS_MEMORY_LIMIT="{{GetLocalDNSMemoryLimitInMB}}"
 LOCALDNS_GENERATED_COREFILE="{{GetGeneratedLocalDNSCoreFile}}"

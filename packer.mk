@@ -133,13 +133,17 @@ setup-golang:
 	@echo "Setting up Go environment"
 	@bash ./hack/setup_golang.sh
 
+# ANC_LDFLAGS uses -s -w to strip the symbol table and DWARF, cutting the binary ~30%
+# (19.3MB -> 13.4MB). ANC is cold-read off the boot disk during udev coldplug, so binary
+# size sits directly on the node-provisioning critical path. Go tracebacks still report
+# function names (they come from the pclntab, not the stripped symbol table).
 build-aks-node-controller:
 	@echo "Building aks-node-controller binaries"
 	@bash -c 'set -euo pipefail; \
 	cd aks-node-controller; \
 	go test ./...; \
 	ANC_VERSION="$${IMAGE_VERSION:-$$(date +%Y%m.%d.0)}"; \
-	ANC_LDFLAGS="-X main.Version=$${ANC_VERSION}"; \
+	ANC_LDFLAGS="-X main.Version=$${ANC_VERSION} -s -w"; \
 	echo "Stamping ANC version: $${ANC_VERSION}"; \
 	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$${ANC_LDFLAGS}" -o bin/aks-node-controller-linux-amd64; \
 	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "$${ANC_LDFLAGS}" -o bin/aks-node-controller-linux-arm64'

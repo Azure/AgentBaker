@@ -1849,9 +1849,10 @@ const (
 	EntraIDSSH
 )
 
-// NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
+// NodeBootstrapping represents the data, CSE, and OS image info needed for node bootstrapping.
 type NodeBootstrapping struct {
 	CustomData     string
+	UserData       string
 	CSE            string
 	OSImageConfig  *AzureOSImageConfig
 	SigImageConfig *SigImageConfig

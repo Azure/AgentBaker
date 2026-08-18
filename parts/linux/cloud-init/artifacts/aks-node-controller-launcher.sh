@@ -1,10 +1,6 @@
 #!/bin/bash
 set -uo pipefail
 
-until [ "$(hostname)" = "$(cat /etc/hostname)" ]; do
-   sleep 1
-done
-
 BIN_PATH="${BIN_PATH:-/opt/azure/containers/aks-node-controller}"
 HOTFIX_BIN="${BIN_PATH}-hotfix"
 # HOTFIX_JSON is only used by this wrapper for the -f gate/logs below. The check-hotfix and
@@ -23,6 +19,11 @@ NBC_CMD_PATH="${NBC_CMD_PATH:-/opt/azure/containers/aks-node-controller-nbc-cmd.
 # or an older VHD without the producer) is a no-op.
 FEATURES_PATH="${FEATURES_PATH:-/opt/azure/containers/enabled_features.sh}"
 LOGGER_TAG="aks-node-controller-launcher"
+NO_CLOUD_INIT_POC_MARKER="${NO_CLOUD_INIT_POC_MARKER:-/etc/aks-no-cloud-init-poc}"
+# Keep status reporting on the VHD-baked binary even when provisioning selects a hotfix binary.
+REPORT_READY_BIN="${REPORT_READY_BIN:-$BIN_PATH}"
+HOSTNAME_FILE="${HOSTNAME_FILE:-/etc/hostname}"
+ANC_LOG_PATH="${ANC_LOG_PATH:-/var/log/azure/aks-node-controller.log}"
 
 log() {
     local message="$1"
@@ -33,6 +34,38 @@ log() {
 
 # this is to ensure that shellspec won't interpret any further lines below
 ${__SOURCED__:+return}
+
+report_failure() {
+    local description="$1"
+    "$REPORT_READY_BIN" report-ready --failure --description "$description" || \
+        log "Failed to report provisioning failure to Azure"
+}
+
+materialize_poc_configuration() {
+    log "Starting Ubuntu 24.04 x64 Gen2 no-cloud-init bootstrap"
+    # Networking is pulled into the boot transaction by the Wants= drop-in on
+    # aks-node-controller.service, so there is no need to start it imperatively here.
+    # bootstrap retries its WireServer/IMDS calls while DHCP completes in parallel.
+    if ! "$BIN_PATH" bootstrap; then
+        local bootstrap_error
+        bootstrap_error=$(tail -n 1 "$ANC_LOG_PATH" 2>/dev/null || true)
+        log "aks-node-controller bootstrap failed: ${bootstrap_error}"
+        report_failure "aks-node-controller bootstrap failed: ${bootstrap_error}"
+        return 1
+    fi
+    if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
+        report_failure "Bootstrap did not produce an ANC configuration"
+        return 1
+    fi
+}
+
+if [ -f "$NO_CLOUD_INIT_POC_MARKER" ] && [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
+    materialize_poc_configuration || exit 1
+elif [ ! -f "$NO_CLOUD_INIT_POC_MARKER" ]; then
+    until [ "$(hostname)" = "$(cat "$HOSTNAME_FILE")" ]; do
+        sleep 1
+    done
+fi
 
 if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
     log "Gracefully exit aks-node-controller without provision config or nbc cmd"
@@ -109,8 +142,17 @@ exit_code=$?
 
 if [ "$exit_code" -eq 0 ]; then
     log "aks-node-controller completed successfully"
+    if [ -f "$NO_CLOUD_INIT_POC_MARKER" ]; then
+        "$REPORT_READY_BIN" report-ready || {
+            log "Failed to report ready to Azure"
+            exit 1
+        }
+    fi
 else
     log "aks-node-controller exited with code ${exit_code}"
+    if [ -f "$NO_CLOUD_INIT_POC_MARKER" ]; then
+        report_failure "aks-node-controller exited with code ${exit_code}"
+    fi
 fi
 
 exit $exit_code

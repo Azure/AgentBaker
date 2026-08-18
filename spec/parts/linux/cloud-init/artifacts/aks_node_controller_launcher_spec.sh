@@ -41,11 +41,17 @@ EOF
         # Feature-flag file is test-local and absent by default; tests that exercise the
         # source path create it explicitly.
         export FEATURES_PATH="${TEST_DIR}/enabled_features.sh"
+        export NO_CLOUD_INIT_POC_MARKER="${TEST_DIR}/aks-no-cloud-init-poc"
+        export REPORT_READY_BIN="$BIN_PATH"
+        export ANC_LOG_PATH="${TEST_DIR}/aks-node-controller.log"
+        export HOSTNAME_FILE="${TEST_DIR}/hostname"
+        printf 'test-host\n' >"$HOSTNAME_FILE"
     }
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
         unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH
+        unset NO_CLOUD_INIT_POC_MARKER REPORT_READY_BIN ANC_LOG_PATH HOSTNAME_FILE
     }
 
     create_fake_aks_node_controller() {
@@ -80,6 +86,65 @@ EOF
         The status should be success
         The output should include "Gracefully exit aks-node-controller without provision config or nbc cmd"
         The output should not include "Spawned aks-node-controller"
+    End
+
+    It 'runs Go bootstrap before POC provisioning'
+        touch "$NO_CLOUD_INIT_POC_MARKER"
+        cat >"$BIN_PATH" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$1" >>"${TEST_DIR}/calls"
+if [ "$1" = "bootstrap" ]; then
+    touch "${NBC_CMD_PATH}"
+fi
+exit 0
+EOF
+        chmod +x "$BIN_PATH"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Starting Ubuntu 24.04 x64 Gen2 no-cloud-init bootstrap"
+        The path "$NBC_CMD_PATH" should be exist
+        The output should include "Spawned aks-node-controller"
+        firstCall=$(sed -n '1p' "${TEST_DIR}/calls")
+        secondCall=$(sed -n '2p' "${TEST_DIR}/calls")
+        thirdCall=$(sed -n '3p' "${TEST_DIR}/calls")
+        The variable firstCall should eq "bootstrap"
+        The variable secondCall should eq "provision"
+        The variable thirdCall should eq "report-ready"
+    End
+
+    It 'fails when POC bootstrap produces no provision input'
+        touch "$NO_CLOUD_INIT_POC_MARKER"
+        create_fake_aks_node_controller
+
+        When run bash "$SCRIPT"
+        The status should be failure
+        The output should include "Starting Ubuntu 24.04 x64 Gen2 no-cloud-init bootstrap"
+        The output should not include "Spawned aks-node-controller"
+    End
+
+    It 'reports the final ANC log line when POC bootstrap fails'
+        touch "$NO_CLOUD_INIT_POC_MARKER"
+        cat >"$BIN_PATH" <<'EOF'
+#!/bin/sh
+if [ "$1" = "bootstrap" ]; then
+    printf '%s\n' '{"level":"INFO","msg":"bootstrap started"}' >"${ANC_LOG_PATH}"
+    printf '%s\n' '{"level":"ERROR","msg":"aks-node-controller bootstrap failed","error":"fetch protected settings failed"}' >>"${ANC_LOG_PATH}"
+    exit 1
+fi
+printf '%s\n' "$@" >"${TEST_DIR}/report-ready-args"
+exit 0
+EOF
+        chmod +x "$BIN_PATH"
+
+        When run bash "$SCRIPT"
+        The status should be failure
+        The output should include '"error":"fetch protected settings failed"'
+        firstArg=$(sed -n '1p' "${TEST_DIR}/report-ready-args")
+        reportDescription=$(sed -n '4p' "${TEST_DIR}/report-ready-args")
+        The variable firstArg should eq "report-ready"
+        The variable reportDescription should include '"error":"fetch protected settings failed"'
+        The variable reportDescription should not include "bootstrap started"
     End
 
     It 'passes both provision config and nbc cmd when both files are present'
@@ -170,6 +235,30 @@ EOF
         The variable firstCall should eq "check-hotfix"
         The variable secondCall should eq "download-hotfix"
         The variable thirdCall should eq "provision"
+    End
+
+    It 'uses the VHD-baked binary to report ready after provisioning with a hotfix binary'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON" "$NO_CLOUD_INIT_POC_MARKER"
+        cat >"$BIN_PATH" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$1" >>"${TEST_DIR}/baked-calls"
+exit 0
+EOF
+        chmod +x "$BIN_PATH"
+        cat >"${BIN_PATH}-hotfix" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$1" >>"${TEST_DIR}/hotfix-calls"
+exit 0
+EOF
+        chmod +x "${BIN_PATH}-hotfix"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        bakedCalls=$(cat "${TEST_DIR}/baked-calls")
+        hotfixCalls=$(cat "${TEST_DIR}/hotfix-calls")
+        The variable bakedCalls should include "download-hotfix"
+        The variable bakedCalls should include "report-ready"
+        The variable hotfixCalls should eq "provision"
     End
 
     # Fail-open also covers the backward-compat case where ENABLE_PROVISIONING_HOTFIX=true reaches
