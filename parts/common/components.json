@@ -287,7 +287,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-ipam",
-          "latestVersion": "v0.4.1-70-g7478ace68-0",
+          "latestVersion": "v0.4.0-0",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -332,7 +332,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless",
-          "latestVersion": "v1.19.6-260811"
+          "latestVersion": "v1.19.6-260811",
+          "previousLatestVersion": "v1.19.5-260714"
         }
       ],
       "windowsVersions": []
@@ -348,7 +349,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless-init",
-          "latestVersion": "v1.19.6-260811"
+          "latestVersion": "v1.19.6-260811",
+          "previousLatestVersion": "v1.19.5-260714"
         }
       ],
       "windowsVersions": []
