@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/check"
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -75,7 +75,7 @@ func ValidateArtifactStreamingImagePull(ctx context.Context, s *Scenario) {
 
 	s.T.Logf("launching pod %q from artifact-streaming image %q", pod.Name, image)
 	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
-	require.NoErrorf(s.T, err, "failed to create artifact-streaming pod %q", pod.Name)
+	failCheck(s.T, check.NoError(err, "failed to create artifact-streaming pod %q", pod.Name))
 	defer func() {
 		delCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 		defer cancel()
@@ -88,7 +88,7 @@ func ValidateArtifactStreamingImagePull(ctx context.Context, s *Scenario) {
 	// A successful pull through the overlaybd snapshotter means the streamed layers were mounted for
 	// the container rootfs; reaching Running proves the image was pullable via streaming.
 	_, err = kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name)
-	require.NoErrorf(s.T, err, "artifact-streaming pod %q never reached Running — overlaybd streaming pull likely failed for %q", pod.Name, image)
+	failCheck(s.T, check.NoError(err, "artifact-streaming pod %q never reached Running — overlaybd streaming pull likely failed for %q", pod.Name, image))
 
 	// Definitive node-side proof, checked WHILE the pod is still running: overlaybd exposes each
 	// streamed image layer as a TCMU-backed block device (target_core_user). Each opened device is
@@ -104,9 +104,9 @@ func ValidateArtifactStreamingImagePull(ctx context.Context, s *Scenario) {
 		"failed to enumerate overlaybd TCMU backstores",
 	).stdout
 	logArtifactStreamingDiagnostics(ctx, s)
-	require.NotEqual(s.T, "0", strings.TrimSpace(tcmuBackstoreCount),
+	failCheck(s.T, check.NotEqual(strings.TrimSpace(tcmuBackstoreCount), "0",
 		"expected at least one overlaybd TCMU backstore device under /sys/kernel/config/target/core "+
-			"while the streaming pod is running, but found none — image %q was not streamed (overlayfs fallback)", image)
+			"while the streaming pod is running, but found none — image %q was not streamed (overlayfs fallback)", image))
 }
 
 // ensureStreamingArtifactForImage imports the source image into the private ACR and ensures its

@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/check"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Masterminds/semver/v3"
-	"github.com/stretchr/testify/require"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -28,7 +28,7 @@ func DualStackConfigMutator(_ *Cluster, configuration *datamodel.NodeBootstrappi
 func Windows2025BootstrapConfigMutator(t *testing.T, configuration *datamodel.NodeBootstrappingConfiguration) {
 	// 2025 supported in 1.32+ - a kubelet bug impacts networking in most of 1.32 and 1.33.0, .1
 	version := components.GetKubeletVersionByMinorVersion("v1.33")
-	require.NotEmpty(t, version)
+	failCheck(t, check.NotEmpty(version))
 	configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = components.RemoveLeadingV(version)
 }
 

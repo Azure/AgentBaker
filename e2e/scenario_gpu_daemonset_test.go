@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/check"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
-	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -210,7 +210,7 @@ func deployNvidiaDevicePluginDaemonset(ctx context.Context, s *Scenario) {
 
 	// Create the DaemonSet
 	err := s.Runtime.Kube.CreateDaemonset(ctx, ds)
-	require.NoError(s.T, err, "failed to create NVIDIA device plugin DaemonSet")
+	failCheck(s.T, check.NoError(err, "failed to create NVIDIA device plugin DaemonSet"))
 
 	s.T.Logf("NVIDIA device plugin DaemonSet %s/%s created successfully", ds.Namespace, ds.Name)
 
@@ -244,7 +244,7 @@ func waitForNvidiaDevicePluginDaemonsetReady(ctx context.Context, s *Scenario) {
 		fmt.Sprintf("name=%s", dsName),
 		fmt.Sprintf("spec.nodeName=%s", s.Runtime.VM.KubeName),
 	)
-	require.NoError(s.T, err, "timed out waiting for NVIDIA device plugin DaemonSet pod to be ready")
+	failCheck(s.T, check.NoError(err, "timed out waiting for NVIDIA device plugin DaemonSet pod to be ready"))
 
 	s.T.Logf("NVIDIA device plugin DaemonSet pod is ready")
 }

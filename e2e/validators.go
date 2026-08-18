@@ -20,14 +20,13 @@ import (
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 
+	"github.com/Azure/agentbaker/e2e/check"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/nodeexporter"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	certv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
@@ -51,29 +50,26 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
 	switch {
 	case s.SecureTLSBootstrappingEnabled() && s.Tags.BootstrapTokenFallback:
 		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping failure with bootstrap token fallback")
-		require.True(
-			s.T,
+		failCheck(s.T, check.True(
 			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
 			"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
-		)
+		))
 	case s.SecureTLSBootstrappingEnabled():
 		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping")
 		ValidateSystemdUnitIsRunning(ctx, s, "secure-tls-bootstrap")
 		validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx, s)
-		require.True(
-			s.T,
+		failCheck(s.T, check.True(
 			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "client credential already exists within kubeconfig"),
 			"expected to already have a valid kubeconfig before kubelet start-up obtained through secure TLS bootstrapping, but did not",
-		)
+		))
 	default:
 		s.T.Logf("will validate bootstrapping mode: bootstrap token")
 		ValidateSystemdUnitIsNotRunning(ctx, s, "secure-tls-bootstrap")
 		ValidateSystemdUnitIsNotFailed(ctx, s, "secure-tls-bootstrap")
-		require.True(
-			s.T,
+		failCheck(s.T, check.True(
 			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
 			"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
-		)
+		))
 	}
 	if s.KubeletConfigFileEnabled() {
 		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"rotateCertificates\": true")
@@ -158,7 +154,7 @@ func validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx context.Context
 	kubeletClientCSRs, err := s.Runtime.Kube.Typed.CertificatesV1().CertificateSigningRequests().List(ctx, metav1.ListOptions{
 		FieldSelector: fieldSelector,
 	})
-	require.NoError(s.T, err, "failed to list CSRs with field selector: %s", fieldSelector)
+	failCheck(s.T, check.NoError(err, "failed to list CSRs with field selector: %s", fieldSelector))
 	var hasValidCSR bool
 	for _, csr := range kubeletClientCSRs.Items {
 		if len(csr.Status.Certificate) == 0 {
@@ -172,14 +168,14 @@ func validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx context.Context
 			break
 		}
 	}
-	require.True(s.T, hasValidCSR, "expected node %s to have created a kubelet client CSR which was approved and issued, using secure TLS bootstrapping", s.Runtime.VM.KubeName)
+	failCheck(s.T, check.True(hasValidCSR, "expected node %s to have created a kubelet client CSR which was approved and issued, using secure TLS bootstrapping", s.Runtime.VM.KubeName))
 }
 
 func getNodeNameFromCSR(s *Scenario, csr certv1.CertificateSigningRequest) string {
 	block, _ := pem.Decode(csr.Spec.Request)
-	require.NotNil(s.T, block)
+	failCheck(s.T, check.NotNil(block))
 	req, err := x509.ParseCertificateRequest(block.Bytes)
-	require.NoError(s.T, err)
+	failCheck(s.T, check.NoError(err))
 	return strings.TrimPrefix(req.Subject.CommonName, "system:node:")
 }
 
@@ -221,11 +217,11 @@ func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) {
 
 	// Verify socket-based activation is disabled
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-active ssh.socket", 3, "could not check ssh.socket status")
-	require.Contains(s.T, execResult.stdout, "inactive", "ssh.socket should be inactive")
+	failCheck(s.T, check.Contains(execResult.stdout, "inactive", "ssh.socket should be inactive"))
 
 	// Check that systemd recognizes SSH service should be active at boot
 	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-enabled ssh.service", 0, "could not check ssh.service status")
-	require.Contains(s.T, execResult.stdout, "enabled", "ssh.service should be enabled at boot")
+	failCheck(s.T, check.Contains(execResult.stdout, "enabled", "ssh.service should be enabled at boot"))
 }
 
 func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) {
@@ -244,7 +240,7 @@ func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, fil
 	}
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not get directory contents")
 	for _, file := range files {
-		require.Contains(s.T, execResult.stdout, file, "expected to find file %s within directory %s, but did not.\nDirectory contents:\n%s", file, path, execResult.stdout)
+		failCheck(s.T, check.Contains(execResult.stdout, file, "expected to find file %s within directory %s, but did not.\nDirectory contents:\n%s", file, path, execResult.stdout))
 	}
 }
 
@@ -260,7 +256,7 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 	}
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "sysctl command failed")
 	for name, value := range customSysctls {
-		require.Contains(s.T, execResult.stdout, fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not.\nStdout:\n%s", name, value, execResult.stdout)
+		failCheck(s.T, check.Contains(execResult.stdout, fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not.\nStdout:\n%s", name, value, execResult.stdout))
 	}
 }
 
@@ -355,7 +351,7 @@ func RebootVMAndWaitForSSH(ctx context.Context, s *Scenario) {
 		s.Runtime.VM.SSHClient = sshClient
 		return true, nil
 	})
-	require.NoError(s.T, err, "timed out waiting for VM to reboot and accept SSH")
+	failCheck(s.T, check.NoError(err, "timed out waiting for VM to reboot and accept SSH"))
 }
 
 // ValidateNetworkInterfaceConfig validates network interface configuration settings using ethtool.
@@ -436,7 +432,7 @@ func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig 
 			execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get ethtool config")
 			actualValue := strings.TrimSpace(execResult.stdout)
 			s.T.Logf("Ethtool setting %s for NIC %s: expected=%s, actual=%s", setting, nic, expectedValue, actualValue)
-			require.Equal(s.T, expectedValue, actualValue, "expected %s to be %s on nic %s, but got %s.\nFull ethtool output:\n%s", setting, expectedValue, nic, actualValue, debugResult.stdout)
+			failCheck(s.T, check.Equal(actualValue, expectedValue, "expected %s to be %s on nic %s, but got %s.\nFull ethtool output:\n%s", setting, expectedValue, nic, actualValue, debugResult.stdout))
 		}
 	}
 }
@@ -456,7 +452,7 @@ func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) {
 		"sudo nvidia-smi",
 	}
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 1, "")
-	require.Contains(s.T, execResult.stderr, "nvidia-smi: command not found", "expected stderr to contain 'nvidia-smi: command not found', but got %q", execResult.stderr)
+	failCheck(s.T, check.Contains(execResult.stderr, "nvidia-smi: command not found", "expected stderr to contain 'nvidia-smi: command not found', but got %q", execResult.stderr))
 }
 
 func ValidateNvidiaSMIInstalled(ctx context.Context, s *Scenario) {
@@ -680,7 +676,7 @@ func getFileContent(ctx context.Context, s *Scenario, fileName string) (string, 
 
 func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
 	s.T.Helper()
-	require.NotEmpty(s.T, contents, "Test setup failure: Can't validate that a file has contents with an empty string. Filename: %s", fileName)
+	failCheck(s.T, check.NotEmpty(contents, "Test setup failure: Can't validate that a file has contents with an empty string. Filename: %s", fileName))
 	var steps []string
 	if s.IsWindows() {
 		steps = []string{
@@ -702,7 +698,7 @@ func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents 
 
 func fileHasExactContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
 	s.T.Helper()
-	require.NotEmpty(s.T, contents, "Test setup failure: Can't validate that a file has contents with an empty string. Filename: %s", fileName)
+	failCheck(s.T, check.NotEmpty(contents, "Test setup failure: Can't validate that a file has contents with an empty string. Filename: %s", fileName))
 	encodedPattern := base64.StdEncoding.EncodeToString([]byte(contents))
 	if s.IsWindows() {
 		steps := []string{
@@ -781,22 +777,22 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 
 	// 1. Kernel FIPS mode.
 	fipsEnabled := execScriptOnVMForScenarioValidateExitCode(ctx, s, "cat /proc/sys/crypto/fips_enabled", 0, "could not read /proc/sys/crypto/fips_enabled")
-	require.Equal(s.T, "1", strings.TrimSpace(fipsEnabled.stdout), "expected /proc/sys/crypto/fips_enabled to be 1, got %q", fipsEnabled.stdout)
+	failCheck(s.T, check.Equal(strings.TrimSpace(fipsEnabled.stdout), "1", "expected /proc/sys/crypto/fips_enabled to be 1, got %q", fipsEnabled.stdout))
 
 	// 2. OpenSSL provider must include an active fips or symcrypt provider on OpenSSL 3.x.
 	// 1.1.x (Ubuntu 20.04 FIPS) uses the legacy FIPS module and is skipped. Merge stderr
 	// (`2>&1`) so a version banner written to stderr still parses.
 	opensslVersion := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl version 2>&1", 0, "could not run openssl version")
 	versionFields := strings.Fields(opensslVersion.stdout)
-	require.GreaterOrEqual(s.T, len(versionFields), 2,
-		"could not parse openssl version output: %q", opensslVersion.stdout)
+	failCheck(s.T, check.True(len(versionFields) >= 2,
+		"could not parse openssl version output: %q", opensslVersion.stdout))
 	version := versionFields[1]
 	switch {
 	case strings.HasPrefix(version, "3."):
 		providers := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl list -providers", 0, "could not list openssl providers")
 		// Prefix match so "symcrypt" covers AzureLinux V3 / ACL's "symcryptprovider". See ICM 51000001009688.
-		require.True(s.T, opensslProviderActive(providers.stdout, "fips", "symcrypt"),
-			"expected openssl to have an active fips or symcrypt provider, got:\n%s", providers.stdout)
+		failCheck(s.T, check.True(opensslProviderActive(providers.stdout, "fips", "symcrypt"),
+			"expected openssl to have an active fips or symcrypt provider, got:\n%s", providers.stdout))
 	case strings.HasPrefix(version, "1.1."):
 		s.T.Logf("openssl providers check skipped: detected version %q (legacy FIPS module)", strings.TrimSpace(opensslVersion.stdout))
 	default:
@@ -823,10 +819,10 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 		regexp.MustCompile(`goroutine \d+ \[running\]`),
 	}
 	for _, re := range panicMarkers {
-		require.False(s.T, re.MatchString(portmap.stderr),
-			"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr)
-		require.False(s.T, re.MatchString(portmap.stdout),
-			"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr)
+		failCheck(s.T, check.False(re.MatchString(portmap.stderr),
+			"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr))
+		failCheck(s.T, check.False(re.MatchString(portmap.stdout),
+			"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr))
 	}
 
 	s.T.Logf("FIPS provider validation passed")
@@ -1034,13 +1030,12 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 		fmt.Sprintf("systemctl --no-pager -n 5 status %s || true", serviceName),
 		fmt.Sprintf("systemctl is-failed %s", serviceName),
 	}
-	require.NotEqual(
-		s.T,
-		"0",
+	failCheck(s.T, check.NotEqual(
 		execScriptOnVMForScenario(ctx, s, strings.Join(command, "\n")).exitCode,
+		"0",
 		`expected "systemctl is-failed" to exit with a non-zero exit code for unit %q, unit is in a failed state`,
 		serviceName,
-	)
+	))
 }
 
 // ValidateKubeletActiveFlagsEvent checks that the emit-kubelet-active-flags oneshot service
@@ -1107,7 +1102,7 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 	}
 	var failedUnits []systemdUnit
 	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json", 0, "unable to list failed systemd units")
-	assert.NoError(s.T, json.Unmarshal([]byte(result.stdout), &failedUnits), `unable to parse and unmarshal "systemctl list-units" command output`)
+	reportCheck(s.T, check.NoError(json.Unmarshal([]byte(result.stdout), &failedUnits), `unable to parse and unmarshal "systemctl list-units" command output`))
 	failedUnits = lo.Filter(failedUnits, func(unit systemdUnit, _ int) bool {
 		if unitFailureAllowList[unit.Name] {
 			return false
@@ -1132,7 +1127,7 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 	for _, unit := range failedUnits {
 		failedUnitLogs[unit.Name+".log"] = execScriptOnVMForScenario(ctx, s, fmt.Sprintf("journalctl -u %s", unit.Name)).String()
 	}
-	assert.NoError(s.T, dumpFileMapToDir(s.T, failedUnitLogs), "failed to dump failed systemd unit logs")
+	reportCheck(s.T, check.NoError(dumpFileMapToDir(s.T, failedUnitLogs), "failed to dump failed systemd unit logs"))
 
 	s.T.Fatalf(
 		"the following systemd units have unexpectedly entered a failed state: %s - failed unit logs will be included in scenario log bundle within <service-name>.service.log",
@@ -1153,7 +1148,7 @@ func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not read containerd.service file")
 
 	for name, value := range ulimits {
-		require.Contains(s.T, execResult.stdout, fmt.Sprintf("%s=%v", name, value), "expected to find %s set to %v, but was not", name, value)
+		failCheck(s.T, check.Contains(execResult.stdout, fmt.Sprintf("%s=%v", name, value), "expected to find %s set to %v, but was not", name, value))
 	}
 }
 
@@ -1187,16 +1182,16 @@ func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) {
 
 	// Search for "--node-ip" flag and its value.
 	matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.:,]*)`).FindStringSubmatch(stdout)
-	require.NotNil(s.T, matches, "could not find kubelet flag --node-ip\nStdout: \n%s", stdout)
-	require.GreaterOrEqual(s.T, len(matches), 2, "could not find kubelet flag --node-ip.\nStdout: \n%s", stdout)
+	failCheck(s.T, check.NotNil(matches, "could not find kubelet flag --node-ip\nStdout: \n%s", stdout))
+	failCheck(s.T, check.True(len(matches) >= 2, "could not find kubelet flag --node-ip.\nStdout: \n%s", stdout))
 
 	ipAddresses := strings.Split(matches[1], ",") // Could be multiple for dual-stack.
-	require.GreaterOrEqual(s.T, len(ipAddresses), 1, "expected at least one --node-ip address, but got none\nStdout: \n%s", stdout)
-	require.LessOrEqual(s.T, len(ipAddresses), 2, "expected at most two --node-ip addresses, but got %d\nStdout: \n%s", len(ipAddresses), stdout)
+	failCheck(s.T, check.True(len(ipAddresses) >= 1, "expected at least one --node-ip address, but got none\nStdout: \n%s", stdout))
+	failCheck(s.T, check.True(len(ipAddresses) <= 2, "expected at most two --node-ip addresses, but got %d\nStdout: \n%s", len(ipAddresses), stdout))
 
 	// Check that each IP is a valid address.
 	for _, ipAddress := range ipAddresses {
-		require.NotNil(s.T, net.ParseIP(ipAddress), "--node-ip value %q is not a valid IP address\nStdout: \n%s", ipAddress, stdout)
+		failCheck(s.T, check.NotNil(net.ParseIP(ipAddress), "--node-ip value %q is not a valid IP address\nStdout: \n%s", ipAddress, stdout))
 	}
 }
 
@@ -1237,8 +1232,8 @@ func ValidateKubeletHasNotStopped(ctx context.Context, s *Scenario) {
 	command := "sudo journalctl -u kubelet"
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not retrieve kubelet logs with journalctl")
 	stdout := strings.ToLower(execResult.stdout)
-	assert.NotContains(s.T, stdout, "stopped kubelet")
-	assert.Contains(s.T, stdout, "started kubelet")
+	reportCheck(s.T, check.NotContains(stdout, "stopped kubelet"))
+	reportCheck(s.T, check.Contains(stdout, "started kubelet"))
 }
 
 func ValidateServicesDoNotRestartKubelet(ctx context.Context, s *Scenario) {
@@ -1253,14 +1248,14 @@ func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) 
 	s.T.Helper()
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl")
 	configFileFlags := fmt.Sprintf("FLAG: --config=\"%s\"", filePath)
-	require.Containsf(s.T, execResult.stdout, configFileFlags, "expected to find flag %s, but not found", "config")
+	failCheck(s.T, check.Contains(execResult.stdout, configFileFlags, "expected to find flag %s, but not found", "config"))
 }
 
 func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []string) {
 	s.T.Helper()
-	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-containerd but got %d", len(versions))
+	failCheck(s.T, check.Len(versions, 1, "Expected exactly one version for moby-containerd but got %d", len(versions)))
 	// assert versions[0] value starts with '2.'
-	require.Truef(s.T, strings.HasPrefix(versions[0], "2."), "expected moby-containerd version to start with '2.', got %v", versions[0])
+	failCheck(s.T, check.True(strings.HasPrefix(versions[0], "2."), "expected moby-containerd version to start with '2.', got %v", versions[0]))
 
 	ValidateInstalledPackageVersion(ctx, s, "moby-containerd", versions[0])
 
@@ -1281,7 +1276,7 @@ func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []
 	// follow-up rather than folded into an unrelated change.
 	execResult := execOnVMForScenarioOnUnprivilegedPod(ctx, s, "containerd config dump ")
 	// validate containerd config dump has no warnings
-	require.NotContains(s.T, execResult.stdout, "level=warning", "do not expect warning message when converting config file %", execResult.stdout)
+	failCheck(s.T, check.NotContains(execResult.stdout, "level=warning", "do not expect warning message when converting config file %", execResult.stdout))
 }
 
 func ValidateContainerRuntimePlugins(ctx context.Context, s *Scenario) {
@@ -1325,12 +1320,12 @@ func validateNPDCondition(ctx context.Context, s *Scenario, conditionType, condi
 		return false, nil // Continue polling until the condition is found or timeout occurs
 	})
 	if err != nil && condition == nil {
-		require.NoError(s.T, err, "timed out waiting for %s condition with reason %s to appear on node %q", conditionType, conditionReason, s.Runtime.VM.KubeName)
+		failCheck(s.T, check.NoError(err, "timed out waiting for %s condition with reason %s to appear on node %q", conditionType, conditionReason, s.Runtime.VM.KubeName))
 	}
 
-	require.NotNil(s.T, condition, "expected to find %s condition with %s reason on node", conditionType, conditionReason)
-	require.Equal(s.T, condition.Status, conditionStatus, "expected %s condition to be %s", conditionType, conditionStatus)
-	require.Contains(s.T, condition.Message, conditionMessage, conditionMessageErr)
+	failCheck(s.T, check.NotNil(condition, "expected to find %s condition with %s reason on node", conditionType, conditionReason))
+	failCheck(s.T, check.Equal(condition.Status, conditionStatus, "expected %s condition to be %s", conditionType, conditionStatus))
+	failCheck(s.T, check.Contains(condition.Message, conditionMessage, conditionMessageErr))
 }
 
 func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) {
@@ -1522,13 +1517,13 @@ func ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx context.Context
 
 func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) {
 	s.T.Helper()
-	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-runc but got %d", len(versions))
+	failCheck(s.T, check.Len(versions, 1, "Expected exactly one version for moby-runc but got %d", len(versions)))
 	// check if versions[0] is great than or equal to 1.2.0
 	// check semantic version
 	parsedVersion, err := semver.NewVersion(versions[0])
-	require.NoError(s.T, err, "failed to parse semver from moby-runc version")
-	require.GreaterOrEqual(s.T, int(parsedVersion.Major()), 1, "expected moby-runc major version to be at least 1, got %d", parsedVersion.Major())
-	require.GreaterOrEqual(s.T, int(parsedVersion.Minor()), 2, "expected moby-runc minor version to be at least 2, got %d", parsedVersion.Minor())
+	failCheck(s.T, check.NoError(err, "failed to parse semver from moby-runc version"))
+	failCheck(s.T, check.True(int(parsedVersion.Major()) >= 1, "expected moby-runc major version to be at least 1, got %d", parsedVersion.Major()))
+	failCheck(s.T, check.True(int(parsedVersion.Minor()) >= 2, "expected moby-runc minor version to be at least 2, got %d", parsedVersion.Minor()))
 	ValidateInstalledPackageVersion(ctx, s, "moby-runc", versions[0])
 }
 
@@ -1548,14 +1543,14 @@ func ValidateContainerdWindowsPriorityClass(ctx context.Context, s *Scenario) {
 		"& \"c:\\k\\nssm.exe\" get containerd AppPriority",
 	}, "\n")
 	nssmResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, nssmCommand, 0, "could not read containerd AppPriority from nssm")
-	require.Equal(s.T, "ABOVE_NORMAL_PRIORITY_CLASS", strings.TrimSpace(nssmResult.stdout), "expected containerd nssm service to be configured with AppPriority=ABOVE_NORMAL_PRIORITY_CLASS")
+	failCheck(s.T, check.Equal(strings.TrimSpace(nssmResult.stdout), "ABOVE_NORMAL_PRIORITY_CLASS", "expected containerd nssm service to be configured with AppPriority=ABOVE_NORMAL_PRIORITY_CLASS"))
 
 	processCommand := strings.Join([]string{
 		"$ErrorActionPreference = 'Stop'",
 		"(Get-Process -Name containerd -ErrorAction Stop | Select-Object -First 1).PriorityClass",
 	}, "\n")
 	processResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, processCommand, 0, "could not read containerd process priority class")
-	require.Equal(s.T, "AboveNormal", strings.TrimSpace(processResult.stdout), "expected containerd process to be running with AboveNormal priority class")
+	failCheck(s.T, check.Equal(strings.TrimSpace(processResult.stdout), "AboveNormal", "expected containerd process to be running with AboveNormal priority class"))
 }
 
 func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, processName string, arguments []string) {
@@ -1569,26 +1564,26 @@ func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, pro
 
 	for i := range arguments {
 		expectedArgument := arguments[i]
-		require.Contains(s.T, actualArgs, expectedArgument)
+		failCheck(s.T, check.ContainsElement(actualArgs, expectedArgument))
 	}
 }
 
 func ValidateWindowsProcessContainsArgumentStrings(ctx context.Context, s *Scenario, processName string, substrings []string) {
-	validateWindowsProccessArgumentString(ctx, s, processName, substrings, require.Contains)
+	validateWindowsProccessArgumentString(ctx, s, processName, substrings, check.Contains)
 }
 
 func ValidateWindowsProcessDoesNotContainArgumentStrings(ctx context.Context, s *Scenario, processName string, substrings []string) {
-	validateWindowsProccessArgumentString(ctx, s, processName, substrings, require.NotContains)
+	validateWindowsProccessArgumentString(ctx, s, processName, substrings, check.NotContains)
 }
 
-func validateWindowsProccessArgumentString(ctx context.Context, s *Scenario, processName string, substrings []string, assert func(t require.TestingT, s any, contains any, msgAndArgs ...any)) {
+func validateWindowsProccessArgumentString(ctx context.Context, s *Scenario, processName string, substrings []string, assert func(got, want string, msgAndArgs ...any) error) {
 	steps := []string{
 		fmt.Sprintf("(Get-CimInstance Win32_Process -Filter \"name='%[1]s'\")[0].CommandLine", processName),
 	}
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command argument string - might mean file does not have params, might mean something went wrong")
 	argString := podExecResult.stdout
 	for _, str := range substrings {
-		assert(s.T, argString, str)
+		failCheck(s.T, assert(argString, str))
 	}
 }
 
@@ -1609,7 +1604,7 @@ func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario,
 	s.T.Logf("Found windows version in windows_settings: \"%s\": \"%s\" (\"%s\")", windowsVersion, osMajorVersion, osVersion)
 	s.T.Logf("Windows version returned from VM \"%s\"", podExecResultStdout)
 
-	require.Contains(s.T, podExecResultStdout, osMajorVersion)
+	failCheck(s.T, check.Contains(podExecResultStdout, osMajorVersion))
 }
 
 func ValidateWindowsProductName(ctx context.Context, s *Scenario, productName string) {
@@ -1621,7 +1616,7 @@ func ValidateWindowsProductName(ctx context.Context, s *Scenario, productName st
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
 	podExecResultStdout := strings.TrimSpace(podExecResult.stdout)
 
-	require.Contains(s.T, podExecResultStdout, productName)
+	failCheck(s.T, check.Contains(podExecResultStdout, productName))
 }
 
 // ValidateWindowsSecureTLSEnabled asserts that Enable-SecureTls (windowssecuretls.ps1) has hardened the
@@ -1661,27 +1656,27 @@ func ValidateWindowsSecureTLSEnabled(ctx context.Context, s *Scenario) {
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate secure TLS configuration")
 	stdout := strings.TrimSpace(podExecResult.stdout)
 
-	require.Equal(s.T, int64(1), gjson.Get(stdout, "tls12ClientEnabled").Int(), "expected TLS 1.2 to be enabled for Client, got: %s", stdout)
-	require.Equal(s.T, int64(1), gjson.Get(stdout, "tls12ServerEnabled").Int(), "expected TLS 1.2 to be enabled for Server, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls11ClientEnabled").Int(), "expected TLS 1.1 to be disabled for Client, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls11ServerEnabled").Int(), "expected TLS 1.1 to be disabled for Server, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls10ClientEnabled").Int(), "expected TLS 1.0 to be disabled for Client, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls10ServerEnabled").Int(), "expected TLS 1.0 to be disabled for Server, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "ssl3ClientEnabled").Int(), "expected SSL 3.0 to be disabled for Client, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "ssl3ServerEnabled").Int(), "expected SSL 3.0 to be disabled for Server, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "ssl2ClientEnabled").Int(), "expected SSL 2.0 to be disabled for Client, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "ssl2ServerEnabled").Int(), "expected SSL 2.0 to be disabled for Server, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "rc4_128").Int(), "expected RC4 128/128 to be disabled, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "rc4_64").Int(), "expected RC4 64/128 to be disabled, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "rc4_56").Int(), "expected RC4 56/128 to be disabled, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "rc4_40").Int(), "expected RC4 40/128 to be disabled, got: %s", stdout)
+	failCheck(s.T, check.Equal(gjson.Get(stdout, "tls12ClientEnabled").Int(), int64(1), "expected TLS 1.2 to be enabled for Client, got: %s", stdout))
+	failCheck(s.T, check.Equal(gjson.Get(stdout, "tls12ServerEnabled").Int(), int64(1), "expected TLS 1.2 to be enabled for Server, got: %s", stdout))
+	failCheck(s.T, check.Equal(gjson.Get(stdout, "tls11ClientEnabled").Int(), int64(0), "expected TLS 1.1 to be disabled for Client, got: %s", stdout))
+	failCheck(s.T, check.Equal(gjson.Get(stdout, "tls11ServerEnabled").Int(), int64(0), "expected TLS 1.1 to be disabled for Server, got: %s", stdout))
+	failCheck(s.T, check.Equal(gjson.Get(stdout, "tls10ClientEnabled").Int(), int64(0), "expected TLS 1.0 to be disabled for Client, got: %s", stdout))
+	failCheck(s.T, check.Equal(gjson.Get(stdout, "tls10ServerEnabled").Int(), int64(0), "expected TLS 1.0 to be disabled for Server, got: %s", stdout))
+	failCheck(s.T, check.Equal(gjson.Get(stdout, "ssl3ClientEnabled").Int(), int64(0), "expected SSL 3.0 to be disabled for Client, got: %s", stdout))
+	failCheck(s.T, check.Equal(gjson.Get(stdout, "ssl3ServerEnabled").Int(), int64(0), "expected SSL 3.0 to be disabled for Server, got: %s", stdout))
+	failCheck(s.T, check.Equal(gjson.Get(stdout, "ssl2ClientEnabled").Int(), int64(0), "expected SSL 2.0 to be disabled for Client, got: %s", stdout))
+	failCheck(s.T, check.Equal(gjson.Get(stdout, "ssl2ServerEnabled").Int(), int64(0), "expected SSL 2.0 to be disabled for Server, got: %s", stdout))
+	failCheck(s.T, check.Equal(gjson.Get(stdout, "rc4_128").Int(), int64(0), "expected RC4 128/128 to be disabled, got: %s", stdout))
+	failCheck(s.T, check.Equal(gjson.Get(stdout, "rc4_64").Int(), int64(0), "expected RC4 64/128 to be disabled, got: %s", stdout))
+	failCheck(s.T, check.Equal(gjson.Get(stdout, "rc4_56").Int(), int64(0), "expected RC4 56/128 to be disabled, got: %s", stdout))
+	failCheck(s.T, check.Equal(gjson.Get(stdout, "rc4_40").Int(), int64(0), "expected RC4 40/128 to be disabled, got: %s", stdout))
 
 	cipherOrder := gjson.Get(stdout, "cipherOrder").String()
-	require.NotEmpty(s.T, cipherOrder, "expected a configured cipher suite order")
-	require.NotContains(s.T, cipherOrder, "3DES", "cipher suite order should not include 3DES (Sweet32/CVE-2016-2183)")
-	require.NotContains(s.T, cipherOrder, "RC2", "cipher suite order should not include RC2")
-	require.NotContains(s.T, cipherOrder, "DES", "cipher suite order should not include DES")
-	require.NotContains(s.T, cipherOrder, "RC4", "cipher suite order should not include RC4")
+	failCheck(s.T, check.NotEmpty(cipherOrder, "expected a configured cipher suite order"))
+	failCheck(s.T, check.NotContains(cipherOrder, "3DES", "cipher suite order should not include 3DES (Sweet32/CVE-2016-2183)"))
+	failCheck(s.T, check.NotContains(cipherOrder, "RC2", "cipher suite order should not include RC2"))
+	failCheck(s.T, check.NotContains(cipherOrder, "DES", "cipher suite order should not include DES"))
+	failCheck(s.T, check.NotContains(cipherOrder, "RC4", "cipher suite order should not include RC4"))
 }
 
 func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVersion string) {
@@ -1695,7 +1690,7 @@ func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVers
 
 	s.T.Logf("Windows display version returned from VM \"%s\". Expected display version \"%s\"", podExecResultStdout, displayVersion)
 
-	require.Contains(s.T, podExecResultStdout, displayVersion)
+	failCheck(s.T, check.Contains(podExecResultStdout, displayVersion))
 }
 
 func getWindowsSettingsJson() []byte {
@@ -1755,12 +1750,12 @@ func ValidateDllIsNotLoadedWindows(ctx context.Context, s *Scenario, dllName str
 
 func ValidateJsonFileHasField(ctx context.Context, s *Scenario, fileName string, jsonPath string, expectedValue string) {
 	s.T.Helper()
-	require.Equal(s.T, GetFieldFromJsonObjectOnNode(ctx, s, fileName, jsonPath), expectedValue)
+	failCheck(s.T, check.Equal(GetFieldFromJsonObjectOnNode(ctx, s, fileName, jsonPath), expectedValue))
 }
 
 func ValidateJsonFileDoesNotHaveField(ctx context.Context, s *Scenario, fileName string, jsonPath string, valueNotToBe string) {
 	s.T.Helper()
-	require.NotEqual(s.T, GetFieldFromJsonObjectOnNode(ctx, s, fileName, jsonPath), valueNotToBe)
+	failCheck(s.T, check.NotEqual(GetFieldFromJsonObjectOnNode(ctx, s, fileName, jsonPath), valueNotToBe))
 }
 
 func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName string, jsonPath string) string {
@@ -1778,7 +1773,7 @@ func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName str
 func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
 	s.T.Helper()
 	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
+	failCheck(s.T, check.NoError(err, "failed to get node %q", s.Runtime.VM.KubeName))
 	var taints []string
 	for _, taint := range node.Spec.Taints {
 		if strings.Contains(taint.Key, "node.kubernetes.io") {
@@ -1787,7 +1782,7 @@ func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
 		taints = append(taints, fmt.Sprintf("%s=%s:%s", taint.Key, taint.Value, taint.Effect))
 	}
 	actualTaints := strings.Join(taints, ",")
-	require.Equal(s.T, expectedTaints, actualTaints, "expected node %q to have taint %q, but got %q", s.Runtime.VM.KubeName, expectedTaints, actualTaints)
+	failCheck(s.T, check.Equal(actualTaints, expectedTaints, "expected node %q to have taint %q, but got %q", s.Runtime.VM.KubeName, expectedTaints, actualTaints))
 }
 
 // ValidateLocalDNSService checks if the localdns service is in the expected state (enabled or disabled).
@@ -1835,8 +1830,8 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 	testdomain := "bing.com"
 	command := fmt.Sprintf("dig %s +timeout=1 +tries=1", testdomain)
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "dns resolution failed")
-	assert.Contains(s.T, execResult.stdout, "status: NOERROR")
-	assert.Contains(s.T, execResult.stdout, fmt.Sprintf("SERVER: %s", server))
+	reportCheck(s.T, check.Contains(execResult.stdout, "status: NOERROR"))
+	reportCheck(s.T, check.Contains(execResult.stdout, fmt.Sprintf("SERVER: %s", server)))
 }
 
 // ValidateLocalDNSConntrackRules checks that localdns skips conntrack for both request and response DNS traffic.
@@ -1990,7 +1985,7 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		node, err = s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-		require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
+		failCheck(s.T, check.NoError(err, "failed to get node %q", s.Runtime.VM.KubeName))
 
 		annotationValue, exists = node.Annotations[annotationKey]
 		if exists && annotationValue == "enabled" {
@@ -2573,8 +2568,8 @@ func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL 
 	s.T.Helper()
 
 	result := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("curl --noproxy '*' -sS --max-time 10 %q", metricsURL))
-	require.Equal(s.T, "0", result.exitCode,
-		"node-exporter scrape failed\nstdout: %s\nstderr: %s", result.stdout, result.stderr)
+	failCheck(s.T, check.Equal(result.exitCode, "0",
+		"node-exporter scrape failed\nstdout: %s\nstderr: %s", result.stdout, result.stderr))
 
 	err := nodeexporter.ValidateMetrics(result.stdout)
 	const previewLimit = 2000
@@ -2582,7 +2577,7 @@ func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL 
 	if len(responsePreview) > previewLimit {
 		responsePreview = responsePreview[:previewLimit] + "\n... response truncated"
 	}
-	require.NoErrorf(s.T, err, "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview)
+	failCheck(s.T, check.NoError(err, "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview))
 }
 
 func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
@@ -2658,11 +2653,11 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 		}
 		return false, nil // Continue polling
 	})
-	require.NoError(s.T, err, "timed out waiting for FilesystemCorruptionProblem condition to appear on node %q", s.Runtime.VM.KubeName)
+	failCheck(s.T, check.NoError(err, "timed out waiting for FilesystemCorruptionProblem condition to appear on node %q", s.Runtime.VM.KubeName))
 
-	require.NotNil(s.T, filesystemCorruptionProblem, "expected FilesystemCorruptionProblem condition to be present on node")
-	require.Equal(s.T, corev1.ConditionTrue, filesystemCorruptionProblem.Status, "expected FilesystemCorruptionProblem condition to be True on node")
-	require.Contains(s.T, filesystemCorruptionProblem.Message, "Found 'structure needs cleaning' in containerd journal.", "expected FilesystemCorruptionProblem condition message to contain: Found 'structure needs cleaning' in containerd journal.")
+	failCheck(s.T, check.NotNil(filesystemCorruptionProblem, "expected FilesystemCorruptionProblem condition to be present on node"))
+	failCheck(s.T, check.Equal(filesystemCorruptionProblem.Status, corev1.ConditionTrue, "expected FilesystemCorruptionProblem condition to be True on node"))
+	failCheck(s.T, check.Contains(filesystemCorruptionProblem.Message, "Found 'structure needs cleaning' in containerd journal.", "expected FilesystemCorruptionProblem condition message to contain: Found 'structure needs cleaning' in containerd journal."))
 }
 
 func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
@@ -2692,14 +2687,14 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCou
 	// Get the node using the Kubernetes client from the test framework
 	nodeName := s.Runtime.VM.KubeName
 	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-	require.NoError(s.T, err, "failed to get node %q", nodeName)
+	failCheck(s.T, check.NoError(err, "failed to get node %q", nodeName))
 
 	// Check if the node advertises GPU capacity
 	gpuCapacity, exists := node.Status.Capacity[corev1.ResourceName(resourceName)]
-	require.True(s.T, exists, "node should advertise resource %s", resourceName)
+	failCheck(s.T, check.True(exists, "node should advertise resource %s", resourceName))
 
 	gpuCount := gpuCapacity.Value()
-	require.Equal(s.T, gpuCount, gpuCountExpected, "node should advertise %s=%d, but got %s=%d", resourceName, gpuCountExpected, resourceName, gpuCount)
+	failCheck(s.T, check.Equal(gpuCount, gpuCountExpected, "node should advertise %s=%d, but got %s=%d", resourceName, gpuCountExpected, resourceName, gpuCount))
 	s.T.Logf("node %s advertises %s=%d resources", nodeName, resourceName, gpuCount)
 }
 
@@ -2759,7 +2754,7 @@ else
     grep -i "PubkeyAuthentication" /etc/ssh/sshd_config || echo "No PubkeyAuthentication setting found"
     exit 1
 fi`)
-	require.NoError(s.T, err, "Failed to run command to check sshd_config")
+	failCheck(s.T, check.NoError(err, "Failed to run command to check sshd_config"))
 	stdout := lo.FromPtr(resp.Output)
 	s.T.Logf("Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
@@ -2770,7 +2765,7 @@ fi`)
 
 	// Part 2. Check cannot SSH with private key (expect failure)
 	err = validateSSHConnectivity(ctx, s)
-	require.Error(s.T, err, "Expected SSH connection with private key to fail, but it succeeded")
+	failCheck(s.T, check.Error(err, "Expected SSH connection with private key to fail, but it succeeded"))
 	if !strings.Contains(err.Error(), "Permission denied") {
 		s.T.Fatalf("Expected permission denied error, but got: %v", err)
 	}
@@ -2819,7 +2814,7 @@ else
     echo "FAILED: SSH service is not inactive"
     exit 1
 fi`)
-	require.NoError(s.T, err, "Failed to run command to check SSH service status")
+	failCheck(s.T, check.NoError(err, "Failed to run command to check SSH service status"))
 	stdout := lo.FromPtr(resp.Output)
 	s.T.Logf("Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
@@ -2876,9 +2871,9 @@ func ValidateMIGModeEnabled(ctx context.Context, s *Scenario, gpuCountExpected i
 	stdout := strings.TrimSpace(execResult.stdout)
 	s.T.Logf("MIG mode status: %s", stdout)
 	gpuStatuses := strings.Split(stdout, "\n")
-	require.Len(s.T, gpuStatuses, gpuCountExpected, "expected MIG status for %d GPUs, but got: %s", gpuCountExpected, stdout)
+	failCheck(s.T, check.Len(gpuStatuses, gpuCountExpected, "expected MIG status for %d GPUs, but got: %s", gpuCountExpected, stdout))
 	for gpuIndex, gpuStatus := range gpuStatuses {
-		require.Equalf(s.T, "Enabled", strings.TrimSpace(gpuStatus), "expected MIG mode to be enabled on GPU %d", gpuIndex)
+		failCheck(s.T, check.Equal(strings.TrimSpace(gpuStatus), "Enabled", "expected MIG mode to be enabled on GPU %d", gpuIndex))
 	}
 	s.T.Logf("MIG mode is enabled on %d GPUs", gpuCountExpected)
 }
@@ -2895,14 +2890,14 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to list MIG instances")
 
 	stdout := execResult.stdout
-	require.NotContains(s.T, stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout)
+	failCheck(s.T, check.NotContains(stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout))
 	instanceCount := 0
 	for _, line := range strings.Split(stdout, "\n") {
 		if strings.Contains(line, migProfile) {
 			instanceCount++
 		}
 	}
-	require.Equal(s.T, instanceCountExpected, instanceCount, "expected %d MIG instances with profile %s, but found %d.\nOutput:\n%s", instanceCountExpected, migProfile, instanceCount, stdout)
+	failCheck(s.T, check.Equal(instanceCount, instanceCountExpected, "expected %d MIG instances with profile %s, but found %d.\nOutput:\n%s", instanceCountExpected, migProfile, instanceCount, stdout))
 	s.T.Logf("%d MIG instances with profile %s are created", instanceCountExpected, migProfile)
 }
 
@@ -2966,13 +2961,12 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 		}
 	}
 
-	require.True(
-		s.T,
+	failCheck(s.T, check.True(
 		success,
 		"Rules found that do not match any of the given patterns. See previous log lines for details. "+
 			"This may indicate an unsupported iptables rule when eBPF host routing is enabled. "+
 			"Contact acndp@microsoft.com for details.",
-	)
+	))
 }
 
 // ValidateAppArmorBasic validates that AppArmor is running without requiring aa-status
@@ -2986,7 +2980,7 @@ func ValidateAppArmorBasic(ctx context.Context, s *Scenario) {
 	}
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor kernel parameter")
 	stdout := strings.TrimSpace(execResult.stdout)
-	require.Equal(s.T, "Y", stdout, "expected AppArmor to be enabled in kernel")
+	failCheck(s.T, check.Equal(stdout, "Y", "expected AppArmor to be enabled in kernel"))
 
 	// Check if apparmor.service is active
 	command = []string{
@@ -2995,7 +2989,7 @@ func ValidateAppArmorBasic(ctx context.Context, s *Scenario) {
 	}
 	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "apparmor.service is not active")
 	stdout = strings.TrimSpace(execResult.stdout)
-	require.Equal(s.T, "active", stdout, "expected apparmor.service to be active")
+	failCheck(s.T, check.Equal(stdout, "active", "expected apparmor.service to be active"))
 
 	// Check if AppArmor is enforcing by checking current process profile
 	command = []string{
@@ -3020,11 +3014,11 @@ func truncatePodName(t testing.TB, pod *corev1.Pod) {
 func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedValue string) {
 	s.T.Helper()
 	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
+	failCheck(s.T, check.NoError(err, "failed to get node %q", s.Runtime.VM.KubeName))
 
 	actualValue, exists := node.Labels[labelKey]
-	require.True(s.T, exists, "expected node %q to have label %q, but it was not found", s.Runtime.VM.KubeName, labelKey)
-	require.Equal(s.T, expectedValue, actualValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
+	failCheck(s.T, check.True(exists, "expected node %q to have label %q, but it was not found", s.Runtime.VM.KubeName, labelKey))
+	failCheck(s.T, check.Equal(actualValue, expectedValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue))
 }
 
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
@@ -3084,7 +3078,7 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
 	defaultGen, err := vmSKUGeneration(config.Config.DefaultVMSKU)
-	require.NoError(s.T, err, "failed to get default VM SKU generation for %s", config.Config.DefaultVMSKU)
+	failCheck(s.T, check.NoError(err, "failed to get default VM SKU generation for %s", config.Config.DefaultVMSKU))
 
 	if defaultGen >= 6 && s.VHD.Distro == datamodel.AKSAzureLinuxV3Gen2 {
 		return
@@ -3092,7 +3086,7 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 
 	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil {
 		vmSKUGen, err := vmSKUGeneration(s.Runtime.NBC.AgentPoolProfile.VMSize)
-		require.NoError(s.T, err, "failed to get VM SKU generation for %s", s.Runtime.NBC.AgentPoolProfile.VMSize)
+		failCheck(s.T, check.NoError(err, "failed to get VM SKU generation for %s", s.Runtime.NBC.AgentPoolProfile.VMSize))
 		if vmSKUGen >= 6 && s.VHD.Distro == datamodel.AKSAzureLinuxV3Gen2 {
 			return
 		}
@@ -3105,7 +3099,7 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 
 	// Parse CPU count
 	cpuCount, err := strconv.Atoi(vmCPUCount)
-	require.NoError(s.T, err, "failed to parse CPU count: %s", vmCPUCount)
+	failCheck(s.T, check.NoError(err, "failed to parse CPU count: %s", vmCPUCount))
 
 	// Determine expected rx based on VM's CPU count (matching configure-azure-network.sh logic)
 	expectedRx := "1024"
@@ -3221,7 +3215,7 @@ func ValidateAcceleratedNetworkingTrafficFlowing(ctx context.Context, s *Scenari
 	resultBefore := execScriptOnVMForScenarioValidateExitCode(ctx, s, getVFTxPackets, 0,
 		"could not read VF tx packet counter from ethtool -S eth0")
 	countBefore, err := strconv.Atoi(strings.TrimSpace(resultBefore.stdout))
-	require.NoError(s.T, err, "failed to parse vf_tx_packets before value %q", resultBefore.stdout)
+	failCheck(s.T, check.NoError(err, "failed to parse vf_tx_packets before value %q", resultBefore.stdout))
 	s.T.Logf("Accelerated networking VF tx packets before: %d", countBefore)
 
 	// Generate traffic from a pod on this node using curl to the node's default
@@ -3233,7 +3227,7 @@ func ValidateAcceleratedNetworkingTrafficFlowing(ctx context.Context, s *Scenari
 		"ip route | awk '/default/{print $3}'", 0,
 		"could not determine default gateway from ip route")
 	gatewayIP := strings.TrimSpace(gatewayResult.stdout)
-	require.NotEmpty(s.T, gatewayIP, "default gateway IP is empty")
+	failCheck(s.T, check.NotEmpty(gatewayIP, "default gateway IP is empty"))
 	s.T.Logf("Accelerated networking traffic test: using gateway %s as target", gatewayIP)
 
 	// The "; true" ensures exit 0 regardless of curl's result — the gateway has
@@ -3246,13 +3240,13 @@ func ValidateAcceleratedNetworkingTrafficFlowing(ctx context.Context, s *Scenari
 	resultAfter := execScriptOnVMForScenarioValidateExitCode(ctx, s, getVFTxPackets, 0,
 		"could not read VF tx packet counter from ethtool -S eth0")
 	countAfter, err := strconv.Atoi(strings.TrimSpace(resultAfter.stdout))
-	require.NoError(s.T, err, "failed to parse vf_tx_packets after value %q", resultAfter.stdout)
+	failCheck(s.T, check.NoError(err, "failed to parse vf_tx_packets after value %q", resultAfter.stdout))
 
 	delta := countAfter - countBefore
 	s.T.Logf("Accelerated networking VF tx packets after: %d (delta: %d, expected >= %d)", countAfter, delta, requestCount)
 
-	require.GreaterOrEqual(s.T, delta, requestCount,
-		"vf_tx_packets increased by %d but expected at least %d \u2014 traffic may not be flowing through the accelerated networking VF", delta, requestCount)
+	failCheck(s.T, check.True(delta >= requestCount,
+		"vf_tx_packets increased by %d but expected at least %d \u2014 traffic may not be flowing through the accelerated networking VF", delta, requestCount))
 }
 
 // ValidateMANATrafficFlowing checks that network traffic is actually flowing through
@@ -3400,13 +3394,13 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 		"could not read waagent log").stdout
 
 	// 1. Verify AutoUpdate is disabled
-	require.Contains(s.T, logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
-		"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False")
+	failCheck(s.T, check.Contains(logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
+		"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False"))
 
 	// 2. Verify the correct version is running as ExtHandler (PID varies)
 	expectedRunningPattern := fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion)
-	require.Contains(s.T, logContents, expectedRunningPattern,
-		"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion)
+	failCheck(s.T, check.Contains(logContents, expectedRunningPattern,
+		"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion))
 
 	// 3. Check for ExtHandler errors
 	// On Ubuntu 22.04 FIPS VHDs, waagent logs "Cannot convert PFX to PEM" because
@@ -3614,7 +3608,7 @@ func resolveSecondaryNICName(ctx context.Context, s *Scenario) string {
 	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
 		"failed to resolve secondary NIC interface name")
 	ifaceName := strings.TrimSpace(result.stdout)
-	require.NotEmpty(s.T, ifaceName, "resolved secondary NIC name should not be empty")
+	failCheck(s.T, check.NotEmpty(ifaceName, "resolved secondary NIC name should not be empty"))
 	return ifaceName
 }
 
@@ -3624,10 +3618,10 @@ func ValidateSecondaryNICUp(ctx context.Context, s *Scenario, ifaceName string) 
 	cmd := fmt.Sprintf("ip addr show %s", ifaceName)
 	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
 		fmt.Sprintf("failed to get interface info for %s", ifaceName))
-	require.Contains(s.T, result.stdout, "state UP",
-		"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout)
-	require.Contains(s.T, result.stdout, "inet ",
-		"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout)
+	failCheck(s.T, check.Contains(result.stdout, "state UP",
+		"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout))
+	failCheck(s.T, check.Contains(result.stdout, "inet ",
+		"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout))
 }
 
 // ValidateSecondaryNICDualStack checks that the given network interface is UP and has both IPv4 and IPv6 addresses.
@@ -3636,14 +3630,14 @@ func ValidateSecondaryNICDualStack(ctx context.Context, s *Scenario, ifaceName s
 	cmd := fmt.Sprintf("ip addr show %s", ifaceName)
 	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
 		fmt.Sprintf("failed to get interface info for %s", ifaceName))
-	require.Contains(s.T, result.stdout, "state UP",
-		"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout)
-	require.Contains(s.T, result.stdout, "inet ",
-		"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout)
-	require.Contains(s.T, result.stdout, "inet6 ",
-		"expected interface %s to have an IPv6 address, got:\n%s", ifaceName, result.stdout)
-	require.Contains(s.T, result.stdout, "scope global",
-		"expected interface %s to have a global IPv6 address (not just link-local), got:\n%s", ifaceName, result.stdout)
+	failCheck(s.T, check.Contains(result.stdout, "state UP",
+		"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout))
+	failCheck(s.T, check.Contains(result.stdout, "inet ",
+		"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout))
+	failCheck(s.T, check.Contains(result.stdout, "inet6 ",
+		"expected interface %s to have an IPv6 address, got:\n%s", ifaceName, result.stdout))
+	failCheck(s.T, check.Contains(result.stdout, "scope global",
+		"expected interface %s to have a global IPv6 address (not just link-local), got:\n%s", ifaceName, result.stdout))
 }
 
 func ValidateDraDriverNvidiaGpuServiceRunning(ctx context.Context, s *Scenario) {
@@ -3679,7 +3673,7 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) {
 		},
 		Spec: resourcev1.DeviceClassSpec{},
 	}, metav1.CreateOptions{})
-	require.Truef(s.T, err == nil || apierrors.IsAlreadyExists(err), "failed to create DeviceClass %q: %v", deviceClassName, err)
+	failCheck(s.T, check.True(err == nil || apierrors.IsAlreadyExists(err), "failed to create DeviceClass %q: %v", deviceClassName, err))
 	defer func() {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 		defer cancel()
@@ -3707,7 +3701,7 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) {
 			},
 		},
 	}, metav1.CreateOptions{})
-	require.Truef(s.T, err == nil || apierrors.IsAlreadyExists(err), "failed to create ResourceClaim %q: %v", claimName, err)
+	failCheck(s.T, check.True(err == nil || apierrors.IsAlreadyExists(err), "failed to create ResourceClaim %q: %v", claimName, err))
 	defer func() {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 		defer cancel()
@@ -3912,6 +3906,6 @@ func ValidateServiceInSlice(ctx context.Context, s *Scenario, service, expectedS
 		fmt.Sprintf("systemctl show --property=Slice --value -- %s", service), 0,
 		fmt.Sprintf("could not query Slice property of %s", service))
 	actual := strings.TrimSpace(result.stdout)
-	require.Equal(s.T, expectedSlice, actual,
-		"expected %s to be in %s, but got %s", service, expectedSlice, actual)
+	failCheck(s.T, check.Equal(actual, expectedSlice,
+		"expected %s to be in %s, but got %s", service, expectedSlice, actual))
 }

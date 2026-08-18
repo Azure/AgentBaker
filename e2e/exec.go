@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/check"
 	scp "github.com/bramvdbogaerde/go-scp"
-	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -158,16 +158,16 @@ func execOnUnprivilegedPod(ctx context.Context, kube *Kubeclient, namespace stri
 func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd string) *podExecResult {
 	s.T.Helper()
 	nonHostPod, err := s.Runtime.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
-	require.NoError(s.T, err, "failed to get non host debug pod name")
+	failCheck(s.T, check.NoError(err, "failed to get non host debug pod name"))
 	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Kube, nonHostPod.Namespace, nonHostPod.Name, cmd)
-	require.NoErrorf(s.T, err, "failed to execute command on pod: %v", cmd)
+	failCheck(s.T, check.NoError(err, "failed to execute command on pod: %v", cmd))
 	return execResult
 }
 
 func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecResult {
 	s.T.Helper()
 	result, err := execScriptOnVm(ctx, s, s.Runtime.VM, cmd)
-	require.NoError(s.T, err, "failed to execute command on VM")
+	failCheck(s.T, check.NoError(err, "failed to execute command on VM"))
 	return result
 }
 

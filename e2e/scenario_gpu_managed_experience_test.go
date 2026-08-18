@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/check"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -215,15 +216,15 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 		s.T.Helper()
 
 		dcgmExporterVersions := components.GetExpectedPackageVersions("dcgm-exporter", tc.os, tc.osVersion)
-		require.Len(s.T, dcgmExporterVersions, 1, "Expected exactly one dcgm-exporter version")
+		failCheck(s.T, check.Len(dcgmExporterVersions, 1, "Expected exactly one dcgm-exporter version"))
 		dcgmExporterVersion := dcgmExporterVersions[0]
 
 		coreVersions := components.GetExpectedPackageVersions("datacenter-gpu-manager-4-core", tc.os, tc.osVersion)
-		require.Len(s.T, coreVersions, 1, "Expected exactly one core version")
+		failCheck(s.T, check.Len(coreVersions, 1, "Expected exactly one core version"))
 		expectedCoreVersion := coreVersions[0]
 
 		propVersions := components.GetExpectedPackageVersions("datacenter-gpu-manager-4-proprietary", tc.os, tc.osVersion)
-		require.Len(s.T, propVersions, 1, "Expected exactly one proprietary version")
+		failCheck(s.T, check.Len(propVersions, 1, "Expected exactly one proprietary version"))
 		expectedPropVersion := propVersions[0]
 
 		s.T.Logf("Expected versions from components.json:")
@@ -239,12 +240,12 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 
 		coreRegex := regexp.MustCompile(tc.coreRegex)
 		coreMatches := coreRegex.FindStringSubmatch(cmdLineOutput)
-		require.Len(s.T, coreMatches, 2, "Failed to extract datacenter-gpu-manager-4-core version from dependencies")
+		failCheck(s.T, check.Len(coreMatches, 2, "Failed to extract datacenter-gpu-manager-4-core version from dependencies"))
 		actualCoreVersion := coreMatches[1]
 
 		propRegex := regexp.MustCompile(tc.propRegex)
 		propMatches := propRegex.FindStringSubmatch(cmdLineOutput)
-		require.Len(s.T, propMatches, 2, "Failed to extract datacenter-gpu-manager-4-proprietary version from dependencies")
+		failCheck(s.T, check.Len(propMatches, 2, "Failed to extract datacenter-gpu-manager-4-proprietary version from dependencies"))
 		actualPropVersion := propMatches[1]
 
 		s.T.Logf("Actual versions from dcgm-exporter package:")
@@ -286,13 +287,13 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 						actualCoreVersion, actualPropVersion := parseVersions(s, tc, dependsOutput)
 
 						// Verify versions match
-						require.Equalf(s.T, expectedCoreVersion, actualCoreVersion,
+						failCheck(s.T, check.Equal(actualCoreVersion, expectedCoreVersion,
 							"datacenter-gpu-manager-4-core version mismatch: components.json has %s but dcgm-exporter requires %s",
-							expectedCoreVersion, actualCoreVersion)
+							expectedCoreVersion, actualCoreVersion))
 
-						require.Equalf(s.T, expectedPropVersion, actualPropVersion,
+						failCheck(s.T, check.Equal(actualPropVersion, expectedPropVersion,
 							"datacenter-gpu-manager-4-proprietary version mismatch: components.json has %s but dcgm-exporter requires %s",
-							expectedPropVersion, actualPropVersion)
+							expectedPropVersion, actualPropVersion))
 
 						s.T.Logf("✅ Version compatibility verified: dcgm-exporter %s is compatible with DCGM packages %s",
 							dcgmExporterVersion, expectedCoreVersion)
@@ -328,7 +329,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 
 				// Enable the AKS VM extension for GPU nodes
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				failCheck(t, check.NoError(err, "creating AKS VM extension"))
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -337,7 +338,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
 				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
+				failCheck(s.T, check.Len(versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions)))
 				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
 
 				// Validate that the NVIDIA device plugin systemd service is running
@@ -352,7 +353,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				// Validate that the NVIDIA DCGM packages were installed correctly
 				for _, packageName := range getDCGMPackageNames(os) {
 					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
-					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
+					failCheck(s.T, check.Len(versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions)))
 					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
 				}
 
@@ -406,7 +407,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 
 				// Enable the AKS VM extension for GPU nodes
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				failCheck(t, check.NoError(err, "creating AKS VM extension"))
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -415,7 +416,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
 				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
+				failCheck(s.T, check.Len(versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions)))
 				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
 
 				// Validate that the NVIDIA device plugin systemd service is running
@@ -429,7 +430,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 
 				for _, packageName := range getDCGMPackageNames(os) {
 					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
-					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
+					failCheck(s.T, check.Len(versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions)))
 					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
 				}
 
@@ -484,7 +485,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 
 				// Enable the AKS VM extension for GPU nodes
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				failCheck(t, check.NoError(err, "creating AKS VM extension"))
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -493,7 +494,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
 				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
+				failCheck(s.T, check.Len(versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions)))
 				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
 
 				// Validate that the NVIDIA device plugin systemd service is running
@@ -507,7 +508,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 
 				for _, packageName := range getDCGMPackageNames(os) {
 					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
-					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
+					failCheck(s.T, check.Len(versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions)))
 					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
 				}
 
@@ -558,7 +559,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 
 				// Enable the AKS VM extension for GPU nodes
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				failCheck(t, check.NoError(err, "creating AKS VM extension"))
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -567,7 +568,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
 				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
+				failCheck(s.T, check.Len(versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions)))
 				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
 
 				// Validate that the NVIDIA device plugin systemd service is running
@@ -588,7 +589,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				// Validate that the NVIDIA DCGM packages were installed correctly
 				for _, packageName := range getDCGMPackageNames(os) {
 					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
-					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
+					failCheck(s.T, check.Len(versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions)))
 					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
 				}
 
@@ -642,12 +643,12 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_MultiGPU(t *testing.T) {
 				vmss.SKU.Name = to.Ptr(multiGPUA100VMSize)
 
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				failCheck(t, check.NoError(err, "creating AKS VM extension"))
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", "ubuntu", "r2404")
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for ubuntu r2404 but got %d", len(versions))
+				failCheck(s.T, check.Len(versions, 1, "Expected exactly one nvidia-device-plugin version for ubuntu r2404 but got %d", len(versions)))
 				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
 
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
@@ -684,7 +685,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 
 				// Enable the AKS VM extension for GPU nodes
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				failCheck(t, check.NoError(err, "creating AKS VM extension"))
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -693,7 +694,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
 				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
+				failCheck(s.T, check.Len(versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions)))
 				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
 
 				// Validate that the NVIDIA device plugin systemd service is running
@@ -707,7 +708,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 
 				for _, packageName := range getDCGMPackageNames(os) {
 					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
-					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
+					failCheck(s.T, check.Len(versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions)))
 					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
 				}
 
@@ -799,7 +800,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 
 				// Enable the AKS VM extension for GPU nodes
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				failCheck(t, check.NoError(err, "creating AKS VM extension"))
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -808,7 +809,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
 				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
+				failCheck(s.T, check.Len(versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions)))
 				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
 
 				// Validate that the NVIDIA device plugin systemd service is running
@@ -852,7 +853,7 @@ func Test_Ubuntu2404_DraDriverNvidiaGpuRunning(t *testing.T) {
 
 				// Enable the AKS VM extension for GPU nodes
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				failCheck(t, check.NoError(err, "creating AKS VM extension"))
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {

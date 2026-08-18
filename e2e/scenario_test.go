@@ -7,6 +7,7 @@ import (
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/check"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -14,7 +15,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_AzureLinux3OSGuard(t *testing.T) {
@@ -1999,7 +1999,7 @@ func Test_Ubuntu2604Minimal_NPD_Basic(t *testing.T) {
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				failCheck(t, check.NoError(err, "creating AKS VM extension"))
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -2719,7 +2719,7 @@ func Test_Ubuntu2604MinimalArm64_NPD_Basic(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				failCheck(t, check.NoError(err, "creating AKS VM extension"))
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -2979,7 +2979,7 @@ func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				failCheck(t, check.NoError(err, "creating AKS VM extension"))
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {

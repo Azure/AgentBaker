@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/check"
 	"github.com/Masterminds/semver/v3"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -14,7 +15,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/stretchr/testify/require"
 )
 
 // this is a base kubelet config for Scriptless e2e test
@@ -396,7 +396,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 	customKubeProxyImage := fmt.Sprintf("mcr.microsoft.com/oss/kubernetes/kube-proxy:v%s", k8sVersion)
 	customKubeBinaryURL := fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/binaries/kubernetes-node-linux-%s.tar.gz", k8sVersion, arch)
 	is134OrAbove, pErr := toolkit.CheckK8sConstraint(k8sVersion, ">=1.34.0")
-	require.NoError(t, pErr, "failed to parse Kubernetes version")
+	failCheck(t, check.NoError(pErr, "failed to parse Kubernetes version"))
 	if is134OrAbove {
 		customKubeProxyImage = ""
 		customKubeBinaryURL = ""
@@ -869,7 +869,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 		DisableCustomData:         false,
 	}
 	config, err := pruneKubeletConfig(k8sVersion, config)
-	require.NoError(t, err)
+	failCheck(t, check.NoError(err))
 	return config
 }
 
@@ -1068,7 +1068,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 		},
 	}
 	config, err := pruneKubeletConfig(kubernetesVersion, config)
-	require.NoError(t, err)
+	failCheck(t, check.NoError(err))
 	return config
 }
 

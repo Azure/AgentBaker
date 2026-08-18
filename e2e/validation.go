@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
+	assertion "github.com/Azure/agentbaker/e2e/check"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,11 +29,11 @@ func ValidatePodRunningWithRetry(ctx context.Context, s *Scenario, pod *corev1.P
 		}
 		break
 	}
-	require.NoErrorf(s.T, err, "failed to validate pod running %q", pod.Name)
+	failCheck(s.T, assertion.NoError(err, "failed to validate pod running %q", pod.Name))
 }
 
 func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
-	require.NoErrorf(s.T, startPodAndCheckItRuns(ctx, s, pod), "failed to validate pod running %q", pod.Name)
+	failCheck(s.T, assertion.NoError(startPodAndCheckItRuns(ctx, s, pod), "failed to validate pod running %q", pod.Name))
 }
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) {
@@ -121,7 +121,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	ValidateInspektorGadget(ctx, s)
 
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
-	require.NotContains(s.T, execResult.stdout, "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s")
+	failCheck(s.T, assertion.NotContains(execResult.stdout, "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s"))
 
 	_ = execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo curl http://168.63.129.16:32526/vmSettings", 0, "curl to wireserver failed")
 
@@ -197,7 +197,7 @@ func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName s
 			s.T.Fatalf("context cancelled: %v", ctx.Err())
 		case <-ticker.C:
 			node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-			require.NoError(s.T, err, "failed to get node %q", nodeName)
+			failCheck(s.T, assertion.NoError(err, "failed to get node %q", nodeName))
 
 			if isResourceAvailable(node, resourceName) {
 				s.T.Logf("resource %q is available", resourceName)
@@ -305,7 +305,7 @@ func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 	defer toolkit.LogStep(s.T, "validating wireserver is blocked from unprivileged pods")()
 
 	nonHostPod, err := s.Runtime.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
-	require.NoError(s.T, err, "failed to get non host debug pod for wireserver validation")
+	failCheck(s.T, assertion.NoError(err, "failed to get non host debug pod for wireserver validation"))
 
 	type wireServerCheck struct {
 		cmd  string
@@ -345,7 +345,7 @@ func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 			execResult = r
 			return true, nil
 		})
-		require.NoErrorf(s.T, pollErr, "wireserver check %q: exec failed after retries", check.desc)
+		failCheck(s.T, assertion.NoError(pollErr, "wireserver check %q: exec failed after retries", check.desc))
 
 		if allowedExitCodes[execResult.exitCode] {
 			continue

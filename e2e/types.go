@@ -13,11 +13,11 @@ import (
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/check"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
-	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -254,10 +254,10 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t testing.TB, vmss *arm
 		Image:    *s.VHD,
 		Location: s.Location,
 	})
-	require.NoError(t, err)
-	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
-	require.NotNil(t, vmss, "input VirtualMachineScaleSet")
-	require.NotNil(t, vmss.Properties, "input VirtualMachineScaleSet.Properties")
+	failCheck(t, check.NoError(err))
+	failCheck(t, check.NotEmpty(resourceID, "VHDSelector.ResourceID"))
+	failCheck(t, check.NotNil(vmss, "input VirtualMachineScaleSet"))
+	failCheck(t, check.NotNil(vmss.Properties, "input VirtualMachineScaleSet.Properties"))
 
 	if s.VMConfigMutator != nil {
 		s.VMConfigMutator(vmss)

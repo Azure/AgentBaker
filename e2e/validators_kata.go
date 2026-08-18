@@ -6,9 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/check"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	nodev1 "k8s.io/api/node/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,8 +50,8 @@ var kataRuntimeHandlers = []string{kataRuntimeHandler, kataPreviewRuntimeHandler
 func ValidateKataContainerdConfig(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	require.True(s.T, s.VHD.Distro.IsKataDistro(),
-		"ValidateKataContainerdConfig requires a Kata distro, got %q", s.VHD.Distro)
+	failCheck(s.T, check.True(s.VHD.Distro.IsKataDistro(),
+		"ValidateKataContainerdConfig requires a Kata distro, got %q", s.VHD.Distro))
 
 	// The standard "kata" runtime handler, backed by the kata v2 shim.
 	ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]`)
@@ -79,8 +78,8 @@ func ValidateKataErofsContainerdConfig(ctx context.Context, s *Scenario) {
 		"io.containerd.snapshotter.v1 erofs linux/amd64 ok",
 		"io.containerd.differ.v1 erofs linux/amd64 ok",
 	} {
-		assert.Contains(s.T, normalizedPluginList, expectedPlugin,
-			"expected healthy EROFS plugin %q.\nPlugin list:\n%s", expectedPlugin, execResult.stdout)
+		reportCheck(s.T, check.Contains(normalizedPluginList, expectedPlugin,
+			"expected healthy EROFS plugin %q.\nPlugin list:\n%s", expectedPlugin, execResult.stdout))
 	}
 }
 
@@ -125,17 +124,17 @@ func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) {
 	// "runtimes.kata" matching "runtimes.kata-preview") and pass even if the handler itself
 	// were missing.
 	for _, handler := range kataRuntimeHandlers {
-		assert.Contains(s.T, normalizedDump, `runtimes.`+handler+`]`,
-			"expected the %q runtime handler in the effective containerd config.\nDump:\n%s", handler, dump)
+		reportCheck(s.T, check.Contains(normalizedDump, `runtimes.`+handler+`]`,
+			"expected the %q runtime handler in the effective containerd config.\nDump:\n%s", handler, dump))
 	}
-	assert.Contains(s.T, normalizedDump, `runtime_type = "io.containerd.kata.v2"`,
-		"expected the kata v2 shim runtime_type in the effective containerd config.\nDump:\n%s", dump)
+	reportCheck(s.T, check.Contains(normalizedDump, `runtime_type = "io.containerd.kata.v2"`,
+		"expected the kata v2 shim runtime_type in the effective containerd config.\nDump:\n%s", dump))
 
 	// A warning here means containerd did not fully understand the config we generated, e.g. it
 	// had to fall back on deprecated handling for the legacy plugin paths the Kata templates use.
-	assert.NotContains(s.T, diagnostics, "level=warning",
+	reportCheck(s.T, check.NotContains(diagnostics, "level=warning",
 		"containerd reported warnings while parsing the AgentBaker-generated config.\nstdout:\n%s\nstderr:\n%s",
-		execResult.stdout, execResult.stderr)
+		execResult.stdout, execResult.stderr))
 }
 
 // ValidateKataHostReadiness asserts the host-side prerequisites that the Kata VHD is expected to
@@ -181,20 +180,20 @@ func ValidateKataPodIsIsolated(ctx context.Context, s *Scenario, handler string)
 
 	hostKernel := strings.TrimSpace(
 		execScriptOnVMForScenarioValidateExitCode(ctx, s, "uname -r", 0, "unable to read host kernel release").stdout)
-	require.NotEmpty(s.T, hostKernel, "host kernel release was empty")
+	failCheck(s.T, check.NotEmpty(hostKernel, "host kernel release was empty"))
 
 	runtimeClassName := createKataRuntimeClass(ctx, s, handler)
 	pod := createKataPod(ctx, s, runtimeClassName, handler)
 
 	execResult, err := execOnPod(ctx, s.Runtime.Kube, pod.Namespace, pod.Name, []string{"uname", "-r"})
-	require.NoErrorf(s.T, err, "failed to exec in kata pod %q", pod.Name)
+	failCheck(s.T, check.NoError(err, "failed to exec in kata pod %q", pod.Name))
 	guestKernel := strings.TrimSpace(execResult.stdout)
-	require.NotEmpty(s.T, guestKernel, "kata guest kernel release was empty")
+	failCheck(s.T, check.NotEmpty(guestKernel, "kata guest kernel release was empty"))
 
 	s.T.Logf("host kernel: %q, kata guest kernel: %q", hostKernel, guestKernel)
-	assert.NotEqual(s.T, hostKernel, guestKernel,
+	reportCheck(s.T, check.NotEqual(guestKernel, hostKernel,
 		"pod running under the %q RuntimeClass reported the same kernel release as the host, "+
-			"which means it was not launched inside a Kata VM", handler)
+			"which means it was not launched inside a Kata VM", handler))
 }
 
 // createKataRuntimeClass creates a RuntimeClass for the given handler scoped to the scenario's
@@ -214,7 +213,7 @@ func createKataRuntimeClass(ctx context.Context, s *Scenario, handler string) st
 	}
 
 	_, err := kube.Typed.NodeV1().RuntimeClasses().Create(ctx, runtimeClass, metav1.CreateOptions{})
-	require.NoErrorf(s.T, err, "failed to create RuntimeClass %q for handler %q", name, handler)
+	failCheck(s.T, check.NoError(err, "failed to create RuntimeClass %q for handler %q", name, handler))
 
 	s.T.Cleanup(func() {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
@@ -257,7 +256,7 @@ func createKataPod(ctx context.Context, s *Scenario, runtimeClassName, handler s
 
 	s.T.Logf("creating pod %q under RuntimeClass %q", pod.Name, runtimeClassName)
 	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
-	require.NoErrorf(s.T, err, "failed to create kata pod %q", pod.Name)
+	failCheck(s.T, check.NoError(err, "failed to create kata pod %q", pod.Name))
 
 	s.T.Cleanup(func() {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
@@ -271,9 +270,9 @@ func createKataPod(ctx context.Context, s *Scenario, runtimeClassName, handler s
 	})
 
 	running, err := kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name)
-	require.NoErrorf(s.T, err,
+	failCheck(s.T, check.NoError(err,
 		"kata pod %q never reached Running. This usually means containerd did not register the %q "+
-			"runtime handler from the AgentBaker-generated config", pod.Name, handler)
+			"runtime handler from the AgentBaker-generated config", pod.Name, handler))
 
 	return running
 }

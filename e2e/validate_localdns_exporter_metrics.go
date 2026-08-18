@@ -2,11 +2,11 @@ package e2e
 
 import (
 	"context"
-	"encoding/base64"
 	_ "embed"
+	"encoding/base64"
 	"fmt"
 
-	"github.com/stretchr/testify/require"
+	"github.com/Azure/agentbaker/e2e/check"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,7 +30,7 @@ func ValidateLocalDNSExporterMetrics(ctx context.Context, s *Scenario) {
 	// If the label IS present, the exporter must be fully working — any failure is a real bug.
 	const exporterLabelKey = "kubernetes.azure.com/localdns-exporter"
 	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
+	failCheck(s.T, check.NoError(err, "failed to get node %q", s.Runtime.VM.KubeName))
 
 	if _, exists := node.Labels[exporterLabelKey]; !exists {
 		s.T.Logf("WARNING: node %q does not have label %q — localdns exporter not installed on this VHD, skipping exporter validation",
@@ -68,7 +68,7 @@ func ValidateLocalDNSExporterMetrics(ctx context.Context, s *Scenario) {
 
 	// Execute the script.
 	result := execScriptOnVMForScenario(ctx, s, "sudo "+remotePath)
-	require.Equal(s.T, "0", result.exitCode,
-		"localdns exporter metrics validation failed\nstdout: %s\nstderr: %s", result.stdout, result.stderr)
+	failCheck(s.T, check.Equal(result.exitCode, "0",
+		"localdns exporter metrics validation failed\nstdout: %s\nstderr: %s", result.stdout, result.stderr))
 	s.T.Logf("localdns exporter metrics validation output:\n%s", result.stdout)
 }

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
+	"github.com/Azure/agentbaker/e2e/check"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
@@ -26,7 +27,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -205,7 +205,7 @@ func deleteVMSSAndWait(ctx context.Context, s *Scenario) {
 // with a coreos.units block to define and start the service instead.
 func CustomDataWithNBCCmdHack(s *Scenario, customData, binaryURL string) (string, error) {
 	decoded, err := base64.StdEncoding.DecodeString(customData)
-	require.NoError(s.T, err)
+	failCheck(s.T, check.NoError(err))
 
 	binaryDownloadCmd := fmt.Sprintf("curl -fSL --retry 10 --retry-delay 2 --retry-connrefused \"%s\" -o /opt/azure/containers/aks-node-controller-hotfix && chmod +x /opt/azure/containers/aks-node-controller-hotfix", binaryURL)
 	customData = strings.Replace(string(decoded), "#hotfix-marker", binaryDownloadCmd, -1)
@@ -216,19 +216,19 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	cluster := s.Runtime.Cluster
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
-	require.NoError(s.T, err)
+	failCheck(s.T, check.NoError(err))
 	var cse, customData, aksNodeConfig string
 
 	if s.Runtime.AKSNodeConfig != nil {
 		aksNodeConfigBytes, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
-		require.NoError(s.T, err)
+		failCheck(s.T, check.NoError(err))
 		aksNodeConfig = string(aksNodeConfigBytes)
 		s.Runtime.NBC.AKSNodeConfigJSON = aksNodeConfig
 	}
 
 	if s.Runtime.NBC != nil {
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
-		require.NoError(s.T, err)
+		failCheck(s.T, check.NoError(err))
 	}
 
 	scriptlessNBCCSECmdEnabled := usesScriptlessNBCCSECmd(s)
@@ -237,25 +237,25 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	customData = nodeBootstrapping.CustomData
 	if enableScriptlessCompilation(s) {
 		binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
-		require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
+		failCheck(s.T, check.NoError(err, "failed to compile and upload aks-node-controller binary"))
 		customData, err = CustomDataWithNBCCmdHack(s, customData, binaryURL)
-		require.NoError(s.T, err, "failed to generate custom data with NBC cmd hack")
+		failCheck(s.T, check.NoError(err, "failed to generate custom data with NBC cmd hack"))
 	}
 	if len(s.Config.CustomDataWriteFiles) > 0 {
 		customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
-		require.NoError(s.T, err, "failed to inject customData write_files entries")
+		failCheck(s.T, check.NoError(err, "failed to inject customData write_files entries"))
 	}
 	if !config.Config.DisableScriptless && !scriptlessNBCCSECmdEnabled && s.VHD.SupportsScriptless() {
 		// Validate that the custom data doesn't contain any script content,
 		// which indicates that the scriptless CSE is working as intended
 		decodedCustomData, err := base64.StdEncoding.DecodeString(customData)
-		require.NoError(s.T, err, "failed to decode custom data")
+		failCheck(s.T, check.NoError(err, "failed to decode custom data"))
 		reader, err := gzip.NewReader(bytes.NewReader(decodedCustomData))
-		require.NoError(s.T, err, "failed to create gzip reader")
+		failCheck(s.T, check.NoError(err, "failed to create gzip reader"))
 		result, err := io.ReadAll(reader)
-		require.NoError(s.T, err, "failed to read gzip data")
+		failCheck(s.T, check.NoError(err, "failed to read gzip data"))
 		reader.Close()
-		require.Contains(s.T, string(result), "/opt/azure/containers/scriptless-cse-overrides.txt", "custom data contains other script content, but scriptless CSE CMD is enabled")
+		failCheck(s.T, check.Contains(string(result), "/opt/azure/containers/scriptless-cse-overrides.txt", "custom data contains other script content, but scriptless CSE CMD is enabled"))
 	}
 
 	// These two links are really for local development
@@ -286,11 +286,11 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	}
 
 	isAzureCNI, err := cluster.IsAzureCNI()
-	require.NoError(s.T, err, "checking if cluster is using Azure CNI")
+	failCheck(s.T, check.NoError(err, "checking if cluster is using Azure CNI"))
 
 	if isAzureCNI {
 		err = addPodIPConfigsForAzureCNI(&model, s.Runtime.VMSSName, cluster)
-		require.NoError(s.T, err)
+		failCheck(s.T, check.NoError(err))
 	}
 
 	s.PrepareVMSSModel(ctx, s.T, &model)

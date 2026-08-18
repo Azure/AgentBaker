@@ -18,13 +18,13 @@ import (
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
+	"github.com/Azure/agentbaker/e2e/check"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
-	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -86,7 +86,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 		return
 	}
 	if config.Config.DisableScriptless || scriptlessUnsupported(s) {
-		require.NoError(t, runScenario(t, s))
+		failCheck(t, check.NoError(runScenario(t, s)))
 		return
 	}
 
@@ -94,7 +94,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 		s.Runtime = &ScenarioRuntime{}
 	}
 	s.Runtime.EnableScriptlessNBCCSECmd = true
-	require.NoError(t, runScenario(t, s))
+	failCheck(t, check.NoError(runScenario(t, s)))
 }
 
 func scriptlessUnsupported(s *Scenario) bool {
@@ -213,9 +213,9 @@ func runScenario(t testing.TB, s *Scenario) error {
 	maybeSkipScenario(ctx, t, s)
 
 	_, err := CachedEnsureResourceGroup(ctx, s.Location)
-	require.NoError(t, err)
+	failCheck(t, check.NoError(err))
 	_, err = CachedCreateVMManagedIdentity(ctx, s.Location)
-	require.NoError(t, err)
+	failCheck(t, check.NoError(err))
 	s.T = t
 	ctrruntimelog.SetLogger(zap.New())
 
@@ -225,11 +225,11 @@ func runScenario(t testing.TB, s *Scenario) error {
 		Location:         s.Location,
 		K8sSystemPoolSKU: s.K8sSystemPoolSKU,
 	})
-	require.NoError(s.T, err, "failed to get cluster")
+	failCheck(s.T, check.NoError(err, "failed to get cluster"))
 
 	// in some edge cases cluster cache is broken and nil cluster is returned
 	// need to find the root cause and fix it, this should help to catch such cases
-	require.NotNil(t, cluster)
+	failCheck(t, check.NotNil(cluster))
 
 	// Log cluster identity for debugging
 	clusterName := *cluster.Model.Name
@@ -247,7 +247,7 @@ func runScenario(t testing.TB, s *Scenario) error {
 	s.Runtime.VMSSName = generateVMSSName(s)
 
 	testKube, err := cluster.NewKubeclientForTest()
-	require.NoError(t, err, "creating per-test kubeclient")
+	failCheck(t, check.NoError(err, "creating per-test kubeclient"))
 	s.Runtime.Kube = testKube
 
 	// use shorter timeout for faster feedback on test failures
@@ -255,7 +255,7 @@ func runScenario(t testing.TB, s *Scenario) error {
 	defer cancel()
 	s.Runtime.VM, err = prepareAKSNode(vmssCtx, s)
 	if s.ExpectedError != "" {
-		require.ErrorContains(t, err, s.ExpectedError)
+		failCheck(t, check.ErrorContains(err, s.ExpectedError))
 		return nil
 	}
 	if err != nil {
@@ -273,7 +273,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 
 	var err error
 	nbc, err := getBaseNBC(ctx, s.T, s.Runtime.Cluster, s.VHD)
-	require.NoError(s.T, err)
+	failCheck(s.T, check.NoError(err))
 
 	if !config.Config.DisableScriptless {
 		nbc.EnableScriptlessCSECmd = true
@@ -293,12 +293,12 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	}
 	if s.AKSNodeConfigMutator != nil {
 		nodeconfig, err := nbcToAKSNodeConfigV1(nbc)
-		require.NoError(s.T, err)
+		failCheck(s.T, check.NoError(err))
 		s.AKSNodeConfigMutator(s.Runtime.Cluster, nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
 
 		aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(nodeconfig)
-		require.NoError(s.T, err)
+		failCheck(s.T, check.NoError(err))
 		s.Runtime.NBC.AKSNodeConfigJSON = string(aksNodeConfigJSON)
 
 		nbc.EnableScriptlessCSECmd = false
@@ -322,13 +322,13 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = append(s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys, publicKeyData)
 	}
 
-	require.NoError(s.T, err)
+	failCheck(s.T, check.NoError(err))
 
 	gen2Only, err := CachedIsVMSizeGen2Only(ctx, VMSizeSKURequest{
 		Location: s.Location,
 		VMSize:   config.Config.DefaultVMSKU,
 	})
-	require.NoError(s.T, err, "checking if VM size %q supports only Gen2", config.Config.DefaultVMSKU)
+	failCheck(s.T, check.NoError(err, "checking if VM size %q supports only Gen2", config.Config.DefaultVMSKU))
 	if gen2Only && s.Config.VHD.UnsupportedGen2 {
 		s.T.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supported gen 1 %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
 		config.Config.DefaultVMSKU = config.DefaultV5VMSKU
@@ -337,7 +337,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		Location: s.Location,
 		VMSize:   config.Config.DefaultVMSKU,
 	})
-	require.NoError(s.T, err, "checking if VM size %q supports only NVMe", config.Config.DefaultVMSKU)
+	failCheck(s.T, check.NoError(err, "checking if VM size %q supports only NVMe", config.Config.DefaultVMSKU))
 	if supportsNVMe {
 		if s.Config.VHD.UnsupportedNVMe {
 			s.T.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
@@ -353,11 +353,11 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	if s.ExpectedError != "" {
 		return scenarioVM, err
 	} else {
-		require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
+		failCheck(s.T, check.NoError(err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T)))
 	}
 
 	err = getCustomScriptExtensionStatus(s, scenarioVM.VM)
-	require.NoError(s.T, err)
+	failCheck(s.T, check.NoError(err))
 
 	if !s.Config.SkipDefaultValidation {
 		vmssCreatedAt := time.Now()         // Record the start time
@@ -432,7 +432,7 @@ func validateVM(ctx context.Context, s *Scenario) {
 	defer toolkit.LogStep(s.T, "validating VM")()
 	if !s.Config.SkipSSHConnectivityValidation {
 		err := validateSSHConnectivity(ctx, s)
-		require.NoError(s.T, err)
+		failCheck(s.T, check.NoError(err))
 	}
 
 	// Extract CSE timing events immediately after SSH is available, before other
@@ -732,7 +732,7 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 // script itself failed. The ARM CreateOrUpdate operation reports success as long as
 // the extension was able to run the script — a non-zero exit, throw, or timeout
 // inside the script lives in ExecutionState / ExitCode and is otherwise invisible
-// to callers using require.NoError. See:
+// to callers using failCheck(check.NoError(...)). See:
 // https://learn.microsoft.com/en-us/azure/virtual-machines/windows/run-command-managed
 // ("InstanceView.ExecutionState: Status of user's Run Command script. ...
 //
@@ -843,17 +843,17 @@ func CreateImage(ctx context.Context, s *Scenario) *config.Image {
 		if stderr != "" {
 			s.T.Logf("Sysprep stderr: %s", stderr)
 		}
-		require.NoErrorf(s.T, err, "failed to run sysprep on Windows VM for image creation")
+		failCheck(s.T, check.NoError(err, "failed to run sysprep on Windows VM for image creation"))
 	}
 
 	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
-	require.NoError(s.T, err, "Failed to get VMSS VM for image creation")
+	failCheck(s.T, check.NoError(err, "Failed to get VMSS VM for image creation"))
 
 	s.T.Log("Deallocating VMSS VM...")
 	poll, err := config.Azure.VMSSVM.BeginDeallocate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, nil)
-	require.NoError(s.T, err, "Failed to begin deallocate")
+	failCheck(s.T, check.NoError(err, "Failed to begin deallocate"))
 	_, err = poll.PollUntilDone(ctx, nil)
-	require.NoError(s.T, err, "Failed to deallocate")
+	failCheck(s.T, check.NoError(err, "Failed to deallocate"))
 
 	// Create version using smaller integers that fit within Azure's limits
 	// Use Unix timestamp for guaranteed uniqueness in concurrent runs
@@ -881,7 +881,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 		ResourceGroup: rg,
 		Location:      s.Location,
 	})
-	require.NoError(s.T, err, "failed to create or get gallery")
+	failCheck(s.T, check.NoError(err, "failed to create or get gallery"))
 
 	image, err := CachedCreateGalleryImage(ctx, CreateGalleryImageRequest{
 		ResourceGroup:    rg,
@@ -891,7 +891,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 		Windows:          s.IsWindows(),
 		HyperVGeneration: s.Runtime.VM.VM.Properties.InstanceView.HyperVGeneration,
 	})
-	require.NoError(s.T, err, "failed to create or get gallery image")
+	failCheck(s.T, check.NoError(err, "failed to create or get gallery image"))
 
 	s.T.Logf("Created gallery image: %s", *image.ID)
 
@@ -920,10 +920,10 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 			},
 		},
 	}, nil)
-	require.NoError(s.T, err, "Failed to create gallery image version")
+	failCheck(s.T, check.NoError(err, "Failed to create gallery image version"))
 
 	_, err = createVersionOp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	require.NoError(s.T, err, "Failed to complete gallery image version creation")
+	failCheck(s.T, check.NoError(err, "Failed to complete gallery image version creation"))
 
 	s.T.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -1054,7 +1054,7 @@ func runScenarioUbuntu2404GPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSK
 				vmss.SKU.Name = to.Ptr(vmSize)
 
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				failCheck(t, check.NoError(err, "creating AKS VM extension"))
 
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
