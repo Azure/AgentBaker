@@ -82,14 +82,14 @@ func RunScenario(t *testing.T, s *Scenario) {
 		t.Run("VHDCreation", func(t *testing.T) {
 			t.Parallel()
 			if err := runScenarioWithPreProvision(t, s); err != nil {
-				t.Error(err)
+				s.T.Error(err)
 			}
 		})
 		return
 	}
 	if config.Config.DisableScriptless || scriptlessUnsupported(s) {
 		if err := runScenario(t, s); err != nil {
-			t.Error(err)
+			s.T.Error(err)
 		}
 		return
 	}
@@ -99,7 +99,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	}
 	s.Runtime.EnableScriptlessNBCCSECmd = true
 	if err := runScenario(t, s); err != nil {
-		t.Error(err)
+		s.T.Error(err)
 	}
 }
 
@@ -188,6 +188,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 	}
 
 	if err := runScenario(t, firstStage); err != nil {
+		original.T = firstStage.T
 		return err
 	}
 
@@ -218,7 +219,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 			return nil
 		}
 		if err := runScenario(t, secondStageScenario); err != nil {
-			t.Error(err)
+			secondStageScenario.T.Error(err)
 		}
 	})
 	return nil
