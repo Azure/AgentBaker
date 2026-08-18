@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"testing"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
-	"github.com/Azure/agentbaker/e2e/check"
 	"github.com/Masterminds/semver/v3"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -97,11 +95,25 @@ func baseKubeletConfig() *aksnodeconfigv1.KubeletConfig {
 	}
 }
 
-func getBaseNBC(ctx context.Context, t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.NodeBootstrappingConfiguration, error) {
+func getBaseNBC(ctx context.Context, cluster *Cluster, vhd *config.Image) (*datamodel.NodeBootstrappingConfiguration, error) {
+	if cluster == nil || cluster.Model == nil || cluster.Model.Location == nil || cluster.Model.Properties == nil ||
+		cluster.KubeletIdentity == nil || cluster.KubeletIdentity.ClientID == nil {
+		return nil, fmt.Errorf("cluster is incomplete")
+	}
+	if vhd == nil {
+		return nil, fmt.Errorf("VHD is nil")
+	}
 	var nbc *datamodel.NodeBootstrappingConfiguration
+	var err error
 
 	if vhd.Distro.IsWindowsDistro() {
-		nbc = baseTemplateWindows(t, *cluster.Model.Location)
+		if cluster.Model.ID == nil || cluster.Model.Properties.NodeResourceGroup == nil {
+			return nil, fmt.Errorf("Windows cluster is missing its ID or node resource group")
+		}
+		nbc, err = baseTemplateWindows(*cluster.Model.Location)
+		if err != nil {
+			return nil, err
+		}
 
 		// these aren't needed since we use TLS bootstrapping instead, though windows bootstrapping expects non-empty values
 		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = "none"
@@ -116,7 +128,13 @@ func getBaseNBC(ctx context.Context, t testing.TB, cluster *Cluster, vhd *config
 		nbc.SubscriptionID = config.Config.SubscriptionID
 		nbc.ResourceGroupName = *cluster.Model.Properties.NodeResourceGroup
 	} else {
-		nbc = baseTemplateLinux(t, *cluster.Model.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
+		if cluster.Model.Properties.CurrentKubernetesVersion == nil {
+			return nil, fmt.Errorf("cluster has no current Kubernetes version")
+		}
+		nbc, err = baseTemplateLinux(*cluster.Model.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	// use the cluster's kubelet identity to simulate how AKS works in production
@@ -392,11 +410,13 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksno
 // TODO(ace): minimize the actual required defaults.
 // this is what we previously used for bash e2e from e2e/nodebootstrapping_template.json.
 // which itself was extracted from baker_test.go logic, which was inherited from aks-engine.
-func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch string) *datamodel.NodeBootstrappingConfiguration {
+func baseTemplateLinux(location string, k8sVersion string, arch string) (*datamodel.NodeBootstrappingConfiguration, error) {
 	customKubeProxyImage := fmt.Sprintf("mcr.microsoft.com/oss/kubernetes/kube-proxy:v%s", k8sVersion)
 	customKubeBinaryURL := fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/binaries/kubernetes-node-linux-%s.tar.gz", k8sVersion, arch)
 	is134OrAbove, pErr := toolkit.CheckK8sConstraint(k8sVersion, ">=1.34.0")
-	failCheck(t, check.NoError(pErr, "failed to parse Kubernetes version"))
+	if pErr != nil {
+		return nil, fmt.Errorf("parse Kubernetes version %q: %w", k8sVersion, pErr)
+	}
 	if is134OrAbove {
 		customKubeProxyImage = ""
 		customKubeBinaryURL = ""
@@ -869,14 +889,16 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 		DisableCustomData:         false,
 	}
 	config, err := pruneKubeletConfig(k8sVersion, config)
-	failCheck(t, check.NoError(err))
-	return config
+	if err != nil {
+		return nil, fmt.Errorf("prune Linux kubelet config: %w", err)
+	}
+	return config, nil
 }
 
 // this been crafted with a lot of trial and pain, some values are not needed, but it takes a lot of time to figure out which ones.
 // and we hope to move on to a different config, so I don't want to invest any more time in this-
 // please keep the kubernetesVersion in sync with componets.json so that during e2e no extra binaries are required.
-func baseTemplateWindows(t testing.TB, location string) *datamodel.NodeBootstrappingConfiguration {
+func baseTemplateWindows(location string) (*datamodel.NodeBootstrappingConfiguration, error) {
 	kubernetesVersion := "1.30.12"
 	// kubernetesVersion := "1.31.9"
 	// kubernetesVersion := "v1.32.5"
@@ -1068,8 +1090,10 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 		},
 	}
 	config, err := pruneKubeletConfig(kubernetesVersion, config)
-	failCheck(t, check.NoError(err))
-	return config
+	if err != nil {
+		return nil, fmt.Errorf("prune Windows kubelet config: %w", err)
+	}
+	return config, nil
 }
 
 // k8s version > 1.30.0 contains deprecated kubelet flags
