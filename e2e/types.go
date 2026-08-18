@@ -30,6 +30,7 @@ type Tags struct {
 	NonAnonymousACR        bool
 	GPU                    bool
 	WASM                   bool
+	Kata                   bool
 	BootstrapTokenFallback bool
 	KubeletCustomConfig    bool
 	Scriptless             bool

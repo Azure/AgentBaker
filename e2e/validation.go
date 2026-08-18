@@ -21,7 +21,7 @@ import (
 func ValidatePodRunningWithRetry(ctx context.Context, s *Scenario, pod *corev1.Pod, maxRetries int) {
 	var err error
 	for i := range maxRetries {
-		err = validatePodRunning(ctx, s, pod)
+		err = startPodAndCheckItRuns(ctx, s, pod)
 		if err != nil {
 			time.Sleep(1 * time.Second)
 			s.T.Logf("retrying pod %q validation (%d/%d)", pod.Name, i+1, maxRetries)
@@ -33,7 +33,7 @@ func ValidatePodRunningWithRetry(ctx context.Context, s *Scenario, pod *corev1.P
 }
 
 func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
-	require.NoErrorf(s.T, validatePodRunning(ctx, s, pod), "failed to validate pod running %q", pod.Name)
+	require.NoErrorf(s.T, startPodAndCheckItRuns(ctx, s, pod), "failed to validate pod running %q", pod.Name)
 }
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) {
@@ -88,6 +88,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	if !s.VHD.UnsupportedLocalDns && !config.Config.TestPreProvision && !s.VHDCaching {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
+		ValidateLocalDNSConntrackRules(ctx, s)
 		ValidateLocalDNSExporterMetrics(ctx, s)
 
 		// Validate hosts plugin validators only if hosts plugin is explicitly enabled
@@ -148,7 +149,7 @@ func ValidateCommonWindows(ctx context.Context, s *Scenario) {
 	ValidateKubeletServingCertificateRotation(ctx, s)
 }
 
-func validatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) error {
+func startPodAndCheckItRuns(ctx context.Context, s *Scenario, pod *corev1.Pod) error {
 	kube := s.Runtime.Kube
 	truncatePodName(s.T, pod)
 	start := time.Now()
@@ -255,6 +256,7 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 		},
 		"raw": {
 			`^-A (PREROUTING|OUTPUT) -d 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --dport 53 -j NOTRACK$`,
+			`^-A OUTPUT -s 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --sport 53 -j NOTRACK$`,
 		},
 		"security": {
 			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 53 -j ACCEPT`,

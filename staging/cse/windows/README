@@ -19,7 +19,7 @@
 
 ```bash
 branchName="master"
-currentCseVersion="v0.0.51" # `WindowsCSEScriptsPackage` defined in `parts/windows/kuberneteswindowssetup.ps1`
+currentCseVersion="v0.0.51" # `WindowsCSEScriptsPackage` defined in `parts/windows/kuberneteswindowssetup.ps1.template`
 testCseVersion="v0.0.51.0" # Test package name. NOTE: Please do not use the official package format and earlier used version.
 url="https://raw.githubusercontent.com/Azure/AgentBaker/$branchName/staging/cse/windows"
 

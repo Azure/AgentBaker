@@ -2012,12 +2012,26 @@ const (
 	containerdV1ConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "10G"
+  enable_fsverity = false
+  ovl_mount_options = []
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs", "walking"]
+
+[plugins."io.containerd.differ.v1.erofs"]
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+  enable_tar_index = false
+{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if IsKata }}
     disable_snapshot_annotations = false
+    snapshotter = "overlayfs"
     {{- end}}
     {{- if IsArtifactStreamingEnabled }}
     snapshotter = "overlaybd"
@@ -2074,8 +2088,15 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+  snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+  runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
+  snapshotter = "erofs"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2241,6 +2262,19 @@ root = "{{GetDataDir}}"{{- end}}
 	containerdV2BeforeV23ConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "10G"
+  enable_fsverity = false
+  ovl_mount_options = []
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs", "walking"]
+
+[plugins."io.containerd.differ.v1.erofs"]
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+  enable_tar_index = false
+{{- end}}
 [plugins."io.containerd.cri.v1.images"]
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
@@ -2296,8 +2330,15 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+  snapshotter = "overlayfs"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview]
+  runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
+  snapshotter = "erofs"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2314,6 +2355,19 @@ root = "{{GetDataDir}}"{{- end}}
 	containerdV2BeforeV23NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "10G"
+  enable_fsverity = false
+  ovl_mount_options = []
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs", "walking"]
+
+[plugins."io.containerd.differ.v1.erofs"]
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+  enable_tar_index = false
+{{- end}}
 [plugins."io.containerd.cri.v1.images"]
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
@@ -2356,8 +2410,15 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+  snapshotter = "overlayfs"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview]
+  runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
+  snapshotter = "erofs"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2374,11 +2435,25 @@ root = "{{GetDataDir}}"{{- end}}
 	containerdV1NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "10G"
+  enable_fsverity = false
+  ovl_mount_options = []
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs", "walking"]
+
+[plugins."io.containerd.differ.v1.erofs"]
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+  enable_tar_index = false
+{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if IsKata }}
     disable_snapshot_annotations = false
+    snapshotter = "overlayfs"
     {{- end}}
     {{- if IsArtifactStreamingEnabled }}
     snapshotter = "overlaybd"
@@ -2420,8 +2495,15 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+  snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+  runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
+  snapshotter = "erofs"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2541,8 +2623,20 @@ health-check.localdns.local:53 {
         {{- if eq $override.Protocol "ForceTCP"}}
         force_tcp
         {{- end}}
+        {{- if eq $override.Protocol "PreferUDP"}}
+        prefer_udp
+        {{- end}}
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
+        {{- if and $override.HealthCheck $override.HealthCheck.GetDuration}}
+        {{- $duration := $override.HealthCheck.GetDuration}}
+        {{- $noRec := $override.HealthCheck.GetNoRec}}
+        {{- $domain := $override.HealthCheck.GetDomain}}
+        health_check {{$duration}}{{if $noRec}} no_rec{{end}}{{if $domain}} domain {{$domain}}{{end}}
+        {{- end}}
+        {{- if $override.GetFailfastAllUnhealthyUpstreams}}
+        failfast_all_unhealthy_upstreams
+        {{- end}}
     }
     ready {{$.NodeListenerIP}}:8181
     cache {{$override.CacheDurationInSeconds}} {
@@ -2606,8 +2700,20 @@ health-check.localdns.local:53 {
         {{- if eq $override.Protocol "ForceTCP"}}
         force_tcp
         {{- end}}
+        {{- if eq $override.Protocol "PreferUDP"}}
+        prefer_udp
+        {{- end}}
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
+        {{- if and $override.HealthCheck $override.HealthCheck.GetDuration}}
+        {{- $duration := $override.HealthCheck.GetDuration}}
+        {{- $noRec := $override.HealthCheck.GetNoRec}}
+        {{- $domain := $override.HealthCheck.GetDomain}}
+        health_check {{$duration}}{{if $noRec}} no_rec{{end}}{{if $domain}} domain {{$domain}}{{end}}
+        {{- end}}
+        {{- if $override.GetFailfastAllUnhealthyUpstreams}}
+        failfast_all_unhealthy_upstreams
+        {{- end}}
     }
     ready {{$.ClusterListenerIP}}:8181
     cache {{$override.CacheDurationInSeconds}} {

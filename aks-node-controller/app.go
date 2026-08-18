@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -66,6 +67,9 @@ type App struct {
 	// Authorization header for the check-hotfix LPS fetch. When nil, the real IMDS endpoint
 	// is queried.
 	fetchAttestedToken func(ctx context.Context) (string, error)
+	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
+	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
+	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.

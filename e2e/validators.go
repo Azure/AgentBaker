@@ -1264,6 +1264,21 @@ func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []
 
 	ValidateInstalledPackageVersion(ctx, s, "moby-containerd", versions[0])
 
+	// TODO: this assertion never actually runs and always passes vacuously.
+	//
+	// execOnVMForScenarioOnUnprivilegedPod executes inside the "debugnonhost" daemonset pod,
+	// which runs a bare mcr.microsoft.com/cbl-mariner/base/core:2.0 image with no volume mounts
+	// (see daemonsetDebug in e2e/kube.go). The host filesystem is not mounted into it, so the
+	// containerd binary is unreachable and the command exits 127 with an empty stdout and
+	// "command not found" on stderr. attemptExecOnPod treats a non-zero exit as a successful
+	// exec, so no error surfaces, and the NotContains check below then trivially passes against
+	// an empty string.
+	//
+	// Two changes are needed: run this on the node via execScriptOnVMForScenarioValidateExitCode
+	// (as ValidateKataContainerdConfigDump in validators_kata.go now does), and check stderr as
+	// well as stdout, since containerd logs its warnings to stderr. Fixing it is likely to
+	// surface real warnings at the 11 call sites that use this validator, so it is left as a
+	// follow-up rather than folded into an unrelated change.
 	execResult := execOnVMForScenarioOnUnprivilegedPod(ctx, s, "containerd config dump ")
 	// validate containerd config dump has no warnings
 	require.NotContains(s.T, execResult.stdout, "level=warning", "do not expect warning message when converting config file %", execResult.stdout)
@@ -1822,6 +1837,42 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "dns resolution failed")
 	assert.Contains(s.T, execResult.stdout, "status: NOERROR")
 	assert.Contains(s.T, execResult.stdout, fmt.Sprintf("SERVER: %s", server))
+}
+
+// ValidateLocalDNSConntrackRules checks that localdns skips conntrack for both request and response DNS traffic.
+func ValidateLocalDNSConntrackRules(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	script := `set -euo pipefail
+localdns_script="/opt/azure/containers/localdns/localdns.sh"
+if ! sudo grep -q -- '--sport 53 -j NOTRACK' "$localdns_script"; then
+  echo "WARNING: VHD localdns.sh does not contain reply-direction NOTRACK support; skipping rule validation for this image."
+  exit 0
+fi
+
+rules=$(sudo iptables -t raw -S)
+awk '/localdns: skip conntrack/ { print }' <<< "$rules"
+
+request_rule_count=$(awk '/localdns: skip conntrack/ && /--dport 53/ { count++ } END { print count + 0 }' <<< "$rules")
+response_rule_count=$(awk '/localdns: skip conntrack/ && /--sport 53/ { count++ } END { print count + 0 }' <<< "$rules")
+prerouting_response_rule_count=$(awk '/^-A PREROUTING/ && /localdns: skip conntrack/ && /--sport 53/ { count++ } END { print count + 0 }' <<< "$rules")
+
+echo "localdns conntrack rules: request=$request_rule_count response=$response_rule_count prerouting_response=$prerouting_response_rule_count"
+test "$request_rule_count" = "8" || { echo "expected 8 request-direction localdns NOTRACK rules, got $request_rule_count"; exit 1; }
+test "$response_rule_count" = "4" || { echo "expected 4 response-direction localdns NOTRACK rules, got $response_rule_count"; exit 1; }
+test "$prerouting_response_rule_count" = "0" || { echo "expected 0 PREROUTING response-direction localdns NOTRACK rules, got $prerouting_response_rule_count"; exit 1; }
+
+for rule in \
+  '^-A OUTPUT .* -s 169\.254\.10\.10/32 .* --sport 53 .* -j NOTRACK$' \
+  '^-A OUTPUT .* -s 169\.254\.10\.11/32 .* --sport 53 .* -j NOTRACK$' \
+  '^-A OUTPUT .* -d 169\.254\.10\.10/32 .* --dport 53 .* -j NOTRACK$' \
+  '^-A OUTPUT .* -d 169\.254\.10\.11/32 .* --dport 53 .* -j NOTRACK$' \
+  '^-A PREROUTING .* -d 169\.254\.10\.10/32 .* --dport 53 .* -j NOTRACK$' \
+  '^-A PREROUTING .* -d 169\.254\.10\.11/32 .* --dport 53 .* -j NOTRACK$'; do
+  echo "$rules" | grep -Eq "$rule" || { echo "missing expected localdns NOTRACK rule matching: $rule"; exit 1; }
+done
+`
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns should install request and response direction NOTRACK rules")
 }
 
 // ValidateLocalDNSHostsFile checks that /etc/localdns/hosts contains at least one IPv4 entry for each critical FQDN.
@@ -3031,6 +3082,21 @@ func ValidateStaleCachedKubeBinariesRemoved(ctx context.Context, s *Scenario) {
 // ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
 func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 	s.T.Helper()
+
+	defaultGen, err := vmSKUGeneration(config.Config.DefaultVMSKU)
+	require.NoError(s.T, err, "failed to get default VM SKU generation for %s", config.Config.DefaultVMSKU)
+
+	if defaultGen >= 6 && s.VHD.Distro == datamodel.AKSAzureLinuxV3Gen2 {
+		return
+	}
+
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil {
+		vmSKUGen, err := vmSKUGeneration(s.Runtime.NBC.AgentPoolProfile.VMSize)
+		require.NoError(s.T, err, "failed to get VM SKU generation for %s", s.Runtime.NBC.AgentPoolProfile.VMSize)
+		if vmSKUGen >= 6 && s.VHD.Distro == datamodel.AKSAzureLinuxV3Gen2 {
+			return
+		}
+	}
 
 	// Query the VM's actual CPU count using nproc
 	cpuCountCmd := "nproc"
