@@ -47,6 +47,7 @@ health-check.localdns.local:53 {
         max_concurrent {{$override.MaxConcurrent}}
     }
     ready {{getLocalDnsNodeListenerIp}}:8181
+    reload
     cache {{$override.CacheDurationInSeconds}} {
         success 9984
         denial 9984
@@ -112,6 +113,7 @@ health-check.localdns.local:53 {
         max_concurrent {{$override.MaxConcurrent}}
     }
     ready {{getLocalDnsClusterListenerIp}}:8181
+    reload
     cache {{$override.CacheDurationInSeconds}} {
         success 9984
         denial 9984
