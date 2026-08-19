@@ -85,6 +85,50 @@ Describe 'cse_install_ubuntu.sh'
             The output should include "module_after=true"
             The output should include "status=incomplete"
         End
+
+        It 'preserves a customer-replaced driver but still cleans AKS''s own baked version'
+            # A --gpu-driver None node whose customer baked their own DIFFERENT-version driver (via
+            # PreparedImageSpecification / custom image) on top of the shared VHD: the marker records
+            # AKS''s baked version, but the DKMS-registered driver on disk is the customer''s. AKS must
+            # NOT wipe the customer''s driver, but still removes its own baked version if it lingers.
+            marker="$(mktemp)"
+            printf 'kernel=6.8.0-1063-azure\ndriver_version=580.65.06\ndriver_kind=cuda\narch=x86_64\n' > "${marker}"
+            GPU_DKMS_MARKER_FILE="${marker}"
+            dkmsdir="$(mktemp -d)"; mkdir -p "${dkmsdir}/570.124.06"
+            GPU_DKMS_NVIDIA_DIR="${dkmsdir}"
+            rm() { echo "mock rm $*"; }
+            rmmod() { echo "mock rmmod $*"; }  # must NOT be called
+            ldconfig() { echo "mock ldconfig"; }
+            When call cleanUpPrebakedGPUDriver
+            The status should be success
+            The output should include "status=preserved_customer_driver"
+            The output should include "marker_version=580.65.06"
+            The output should include "installed_version=570.124.06"
+            # AKS''s own baked version is still cleaned up (its DKMS dir removed)...
+            The output should include "mock rm -rf ${dkmsdir}/580.65.06"
+            # ...but the customer''s driver is preserved: no full teardown, no rmmod, no userspace wipe
+            The output should not include "Removing pre-baked NVIDIA driver"
+            The output should not include "mock rm -f /usr/bin/nvidia-smi"
+            The output should not include "mock rmmod"
+        End
+
+        It 'still tears down the prebake when it matches the marker (AKS-owned: GPU-Operator / non-GPU)'
+            # No customer driver -- the DKMS-registered version equals what AKS baked, so the pre-bake is
+            # AKS''s own dead weight and is torn down as before (clean slate for the GPU Operator, etc.).
+            marker="$(mktemp)"
+            printf 'driver_version=580.65.06\n' > "${marker}"
+            GPU_DKMS_MARKER_FILE="${marker}"
+            dkmsdir="$(mktemp -d)"; mkdir -p "${dkmsdir}/580.65.06"
+            GPU_DKMS_NVIDIA_DIR="${dkmsdir}"
+            rm() { echo "mock rm $*"; }
+            ldconfig() { echo "mock ldconfig"; }
+            lsmod() { echo ""; }  # no nvidia module loaded
+            When call cleanUpPrebakedGPUDriver
+            The status should be success
+            The output should include "Removing pre-baked NVIDIA driver"
+            The output should include "mock rm -rf /var/lib/dkms/nvidia"
+            The output should not include "reason=customer_replaced_driver"
+        End
     End
 
     Describe 'installPackageFromCache version matching'
