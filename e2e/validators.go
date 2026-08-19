@@ -3373,24 +3373,9 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 				continue
 			}
 
-			matched := false
-			for _, pattern := range allPatterns {
-				pattern = strings.TrimSpace(pattern)
-				if pattern == "" {
-					continue
-				}
-
-				// Try regex match
-				matched, _ = regexp.MatchString(pattern, rule)
-				if matched {
-					break
-				}
-
-				// Also try exact match for non-regex patterns
-				if strings.Contains(rule, pattern) {
-					matched = true
-					break
-				}
+			matched, err := iptablesRuleMatchesAnyPattern(rule, allPatterns)
+			if err != nil {
+				return fmt.Errorf("table %s: %w", table, err)
 			}
 
 			if !matched {
@@ -3407,6 +3392,37 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 			"This may indicate an unsupported iptables rule when eBPF host routing is enabled. "+
 			"Contact acndp@microsoft.com for details.",
 	)
+}
+
+// iptablesRuleMatchesAnyPattern reports whether rule is accounted for by any of the given
+// allowlist patterns. A pattern matches either as a regular expression or as a literal
+// substring, so plain (unescaped) entries in the allowlist keep working.
+//
+// An invalid pattern is returned as an error rather than treated as "no match": otherwise a
+// typo in the allowlist silently degrades into a confusing "unsupported iptables rule"
+// failure across every scenario.
+func iptablesRuleMatchesAnyPattern(rule string, patterns []string) (bool, error) {
+	for _, pattern := range patterns {
+		pattern = strings.TrimSpace(pattern)
+		if pattern == "" {
+			continue
+		}
+
+		matched, err := regexp.MatchString(pattern, rule)
+		if err != nil {
+			return false, fmt.Errorf("invalid iptables allowlist pattern %q: %w", pattern, err)
+		}
+		if matched {
+			return true, nil
+		}
+
+		// Also try exact match for non-regex patterns.
+		if strings.Contains(rule, pattern) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // ValidateAppArmorBasic validates that AppArmor is running without requiring aa-status
