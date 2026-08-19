@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"reflect"
 	"regexp"
 	"slices"
 	"strconv"
@@ -3069,6 +3070,15 @@ func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) 
 	return nil
 }
 
+func ValidateNvidiaDevicePluginMIGStrategy(ctx context.Context, s *Scenario, strategy string) error {
+	s.T.Helper()
+	command := fmt.Sprintf("systemctl cat nvidia-device-plugin.service | grep -F -- '--mig-strategy %s'", strategy)
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "NVIDIA device plugin is not configured with MIG strategy "+strategy); err != nil {
+		return fmt.Errorf("validate NVIDIA device plugin MIG strategy %q: %w", strategy, err)
+	}
+	return nil
+}
+
 func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCountExpected int64, resourceName string) error {
 	s.T.Helper()
 	s.T.Logf("validating that node advertises GPU resources")
@@ -3099,6 +3109,43 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCou
 	return nil
 }
 
+func ValidateNodeAdvertisesExactGPUResources(ctx context.Context, s *Scenario, expected map[string]int64) error {
+	s.T.Helper()
+	s.T.Logf("validating that node advertises exactly the expected NVIDIA GPU resources")
+
+	for resourceName := range expected {
+		if err := waitUntilResourceAvailable(ctx, s, resourceName); err != nil {
+			return fmt.Errorf("wait for resource %s to become available: %w", resourceName, err)
+		}
+	}
+
+	nodeName := s.Runtime.VM.KubeName
+	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("get node %q: %w", nodeName, err)
+	}
+
+	getNvidiaResources := func(resources corev1.ResourceList) map[string]int64 {
+		result := make(map[string]int64)
+		for resourceName, quantity := range resources {
+			name := string(resourceName)
+			if strings.HasPrefix(name, "nvidia.com/") && quantity.Value() > 0 {
+				result[name] = quantity.Value()
+			}
+		}
+		return result
+	}
+
+	var errs []error
+	if actual := getNvidiaResources(node.Status.Capacity); !reflect.DeepEqual(actual, expected) {
+		errs = append(errs, fmt.Errorf("node %s advertises unexpected NVIDIA GPU capacity: got %v, want %v", nodeName, actual, expected))
+	}
+	if actual := getNvidiaResources(node.Status.Allocatable); !reflect.DeepEqual(actual, expected) {
+		errs = append(errs, fmt.Errorf("node %s advertises unexpected allocatable NVIDIA GPU resources: got %v, want %v", nodeName, actual, expected))
+	}
+	return errors.Join(errs...)
+}
+
 func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount int, resourceName string) error {
 	s.T.Helper()
 	s.T.Logf("validating that GPU workloads can be scheduled")
@@ -3110,9 +3157,10 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount i
 	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
 
 	// Create a GPU test pod using the same pattern as podRunNvidiaWorkload
+	resourceID := strings.ReplaceAll(strings.TrimPrefix(resourceName, "nvidia.com/"), ".", "-")
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-gpu-test", s.Runtime.VM.KubeName),
+			Name:      fmt.Sprintf("%s-%s-test", s.Runtime.VM.KubeName, resourceID),
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
@@ -3303,6 +3351,36 @@ func ValidateMIGModeEnabled(ctx context.Context, s *Scenario, gpuCountExpected i
 		return err
 	}
 	s.T.Logf("MIG mode is enabled on %d GPUs", gpuCountExpected)
+	return nil
+}
+
+func ValidateMIGInstanceProfileCounts(ctx context.Context, s *Scenario, expected map[string]int) error {
+	s.T.Helper()
+	s.T.Logf("validating exact MIG instance profile counts")
+
+	command := []string{
+		"set -ex",
+		"sudo nvidia-smi mig -lgi",
+	}
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to list MIG instances")
+	if err != nil {
+		return fmt.Errorf("list MIG instances: %w", err)
+	}
+
+	stdout := execResult.stdout
+	if err := assert.NotContains(stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout); err != nil {
+		return err
+	}
+
+	profilePattern := regexp.MustCompile(`MIG [0-9]+g\.[0-9]+gb(\+me)?`)
+	actual := make(map[string]int)
+	for _, profile := range profilePattern.FindAllString(stdout, -1) {
+		actual[profile]++
+	}
+
+	if !reflect.DeepEqual(actual, expected) {
+		return fmt.Errorf("unexpected MIG instance geometry: got %v, want %v\nOutput:\n%s", actual, expected, stdout)
+	}
 	return nil
 }
 
