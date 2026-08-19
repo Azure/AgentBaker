@@ -15,46 +15,32 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 )
 
-// A Region* constant that is missing from e2eRegions is a region scenarios can pin but images
-// are never replicated to, which is exactly the GalleryImageNotFound failure this package
-// exists to prevent. Keeping the two in sync is the only maintenance this design needs.
-func TestRegionsAreConsistent(t *testing.T) {
-	source, err := os.ReadFile("regions.go")
-	if err != nil {
-		t.Fatalf("reading regions.go: %v", err)
-	}
-
-	declared := regexp.MustCompile(`(?m)^\tRegion\w+\s+= "([a-z0-9]+)"`).FindAllStringSubmatch(string(source), -1)
-	if len(declared) == 0 {
-		t.Fatal("found no Region* constants in regions.go; has the declaration style changed?")
-	}
-	for _, match := range declared {
-		if !slices.Contains(e2eRegions, match[1]) {
-			t.Errorf("region %q is declared but missing from e2eRegions", match[1])
-		}
-	}
-	if len(e2eRegions) != len(declared) {
-		t.Errorf("e2eRegions has %d entries but %d Region* constants are declared", len(e2eRegions), len(declared))
-	}
-}
-
-// Scenarios must reference the constants, otherwise a region can reach a scenario without
-// reaching e2eRegions.
-func TestScenariosDoNotPinRegionLiterals(t *testing.T) {
+// A scenario naming a region that images are not replicated to would fail at runtime, so the
+// inline regions are checked against e2eRegions here instead. Regions passed to a helper
+// rather than set on the struct are not visible to this scan; maybeSkipScenario catches those
+// when the scenario runs.
+func TestScenarioRegionsAreReplicated(t *testing.T) {
 	files, err := filepath.Glob("../*_test.go")
 	if err != nil {
 		t.Fatalf("listing scenario files: %v", err)
 	}
 
-	literal := regexp.MustCompile(`(?m)^\s*Location:\s*"([^"]*)"`)
+	pinned := regexp.MustCompile(`(?m)^\s*Location:\s*"([^"]+)"`)
+	var found int
 	for _, path := range files {
 		source, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatalf("reading %s: %v", path, err)
 		}
-		for _, match := range literal.FindAllStringSubmatch(string(source), -1) {
-			t.Errorf("%s pins Location: %q; use a config.Region* constant instead", filepath.Base(path), match[1])
+		for _, match := range pinned.FindAllStringSubmatch(string(source), -1) {
+			found++
+			if !slices.Contains(e2eRegions, NormalizeRegion(match[1])) {
+				t.Errorf("%s runs a scenario in %q, which is missing from e2eRegions in config/regions.go", filepath.Base(path), match[1])
+			}
 		}
+	}
+	if found == 0 {
+		t.Fatal("found no scenario regions to check; has the Location field changed shape?")
 	}
 }
 
@@ -81,7 +67,7 @@ func TestReplicationRegionsDoNotDependOnCaller(t *testing.T) {
 }
 
 func TestReplicationRegionsByImageKind(t *testing.T) {
-	if got := (&Image{OS: OSWindows}).replicationRegions(); !slices.Equal(got, []string{RegionWestUS3}) {
+	if got := (&Image{OS: OSWindows}).replicationRegions(); !slices.Equal(got, []string{"westus3"}) {
 		t.Errorf("Windows images should replicate only to the default location, got %v", got)
 	}
 	if got := (&Image{OS: OSUbuntu, Ephemeral: true}).replicationRegions(); len(got) != 0 {
@@ -107,8 +93,8 @@ func TestMissingRegions(t *testing.T) {
 		nil,
 		{Name: nil},
 	}
-	got := missingRegions(existing, []string{RegionWestUS2, RegionEastUS})
-	if !slices.Equal(got, []string{RegionEastUS}) {
+	got := missingRegions(existing, []string{"westus2", "eastus"})
+	if !slices.Equal(got, []string{"eastus"}) {
 		t.Fatalf("expected only eastus to be missing, got %v", got)
 	}
 	if got := missingRegions(nil, nil); len(got) != 0 {

@@ -5,26 +5,16 @@ import (
 	"strings"
 )
 
-// Regions E2E runs in. Scenarios must use these constants rather than region literals so that
-// this stays the only place a region is named.
-const (
-	RegionEastUS         = "eastus"
-	RegionSouthCentralUS = "southcentralus"
-	RegionSouthEastAsia  = "southeastasia"
-	RegionUAENorth       = "uaenorth"
-	RegionWestUS2        = "westus2"
-	RegionWestUS3        = "westus3" // Config.DefaultLocation: where scenarios that pin nothing run
-)
-
-// e2eRegions is the fixed set shared images are replicated to. Add a region here when a
-// scenario needs a new one; TestRegionsAreConsistent fails if the two get out of sync.
+// e2eRegions is every region E2E runs in. Scenarios name their region inline; add it here too
+// when a scenario needs a new one, otherwise images are never replicated there and the
+// scenario fails. TestScenarioRegionsAreReplicated catches the common case of forgetting.
 var e2eRegions = []string{
-	RegionEastUS,
-	RegionSouthCentralUS,
-	RegionSouthEastAsia,
-	RegionUAENorth,
-	RegionWestUS2,
-	RegionWestUS3,
+	"eastus",
+	"southcentralus",
+	"southeastasia",
+	"uaenorth",
+	"westus2",
+	"westus3", // Config.DefaultLocation: where scenarios that name no region run
 }
 
 // replicationRegions returns the regions an image version is replicated to.
@@ -41,9 +31,9 @@ func (i *Image) replicationRegions() []string {
 		// pay to replicate it anywhere.
 		return nil
 	case i.OS == OSWindows:
-		// No Windows scenario pins a region, and Windows images are large enough that
+		// No Windows scenario names a region, and Windows images are large enough that
 		// replicating them where no Windows test looks is pure cost.
-		return []string{RegionWestUS3}
+		return []string{"westus3"}
 	default:
 		return e2eRegions
 	}
