@@ -819,17 +819,10 @@ EOF
 # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
 # for DNS.
 
-# iptables -I is not idempotent and this runs as an ExecStartPre on every kubelet start, so
-# insert only when the rule is absent. Otherwise each restart adds another copy to FORWARD.
-blockWireserverPort() {
-    if iptables -C FORWARD -d 168.63.129.16 -p tcp --dport "$1" -j DROP 2>/dev/null; then
-        return 0
-    fi
-    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport "$1" -j DROP
-}
-
-blockWireserverPort 80
-blockWireserverPort 32526
+for port in 80 32526; do
+    iptables -C FORWARD -d 168.63.129.16 -p tcp --dport "$port" -j DROP 2>/dev/null ||
+        iptables -I FORWARD -d 168.63.129.16 -p tcp --dport "$port" -j DROP
+done
 EOF
 
     # As iptables rule will be cleaned every time the node is restarted, we need to ensure the rule is applied every time kubelet is started.
