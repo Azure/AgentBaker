@@ -288,6 +288,72 @@ Describe 'Install-CredentialProvider' {
         Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
         $script:lastDownloadReference | Should -Be 'myregistry.azurecr.io/aks/packages/kubernetes/azure-acr-credential-provider:v1.31.9'
     }
+
+    It 'uses dalec path via AKS-Expand-Archive for k8s >= 1.33 with stock legacy RP URL' {
+        $global:BootstrapProfileContainerRegistryServer = ""
+        $global:KubeBinariesVersion = "1.33.3"
+        $global:CredentialProviderURL = 'https://packages.aks.azure.com/cloud-provider-azure/v1.33.3/binaries/azure-acr-credential-provider-windows-amd64-v1.33.3.tar.gz'
+
+        Mock Resolve-DalecCredentialProviderPackage -MockWith {
+            return @{
+                Url = 'https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.33.6/windows/amd64/azure-acr-credential-provider_1.33.6-1_amd64.zip'
+                Version = '1.33.6-1'
+                CachedFile = $null
+                IsDalec = $true
+            }
+        }
+
+        Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
+        Assert-MockCalled -CommandName 'AKS-Expand-Archive' -Times 1
+        Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 1 -ParameterFilter {
+            $Url -eq 'https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.33.6/windows/amd64/azure-acr-credential-provider_1.33.6-1_amd64.zip'
+        }
+        Assert-MockCalled -CommandName 'tar' -Times 0
+    }
+
+    It 'uses legacy tar path for k8s < 1.33 (below dalec gate)' {
+        $global:BootstrapProfileContainerRegistryServer = ""
+        $global:KubeBinariesVersion = "1.32.8"
+        $global:CredentialProviderURL = 'https://packages.aks.azure.com/cloud-provider-azure/v1.32.8/binaries/azure-acr-credential-provider-windows-amd64-v1.32.8.tar.gz'
+
+        Mock Resolve-DalecCredentialProviderPackage -MockWith { return $null }
+
+        Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
+        Assert-MockCalled -CommandName 'tar' -Times 1
+        Assert-MockCalled -CommandName 'AKS-Expand-Archive' -Times 0
+        Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 1 -ParameterFilter {
+            $Url -eq 'https://packages.aks.azure.com/cloud-provider-azure/v1.32.8/binaries/azure-acr-credential-provider-windows-amd64-v1.32.8.tar.gz'
+        }
+    }
+
+    It 'honors custom URL and skips dalec for k8s >= 1.33 with non-stock URL' {
+        $global:BootstrapProfileContainerRegistryServer = ""
+        $global:KubeBinariesVersion = "1.33.3"
+        $global:CredentialProviderURL = 'https://custom-mirror.example.com/hotfix/azure-acr-credential-provider-1.33.3-hotfix.tar.gz'
+
+        Mock Resolve-DalecCredentialProviderPackage
+
+        Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
+        # Custom URL does not match stock pattern, so dalec resolver should NOT be called
+        Assert-MockCalled -CommandName 'Resolve-DalecCredentialProviderPackage' -Times 0
+        Assert-MockCalled -CommandName 'tar' -Times 1
+        Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 1 -ParameterFilter {
+            $Url -eq 'https://custom-mirror.example.com/hotfix/azure-acr-credential-provider-1.33.3-hotfix.tar.gz'
+        }
+    }
+
+    It 'uses NI ORAS path unchanged when BootstrapProfileContainerRegistryServer is set' {
+        $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
+        $global:KubeBinariesVersion = "1.33.3"
+        $global:CredentialProviderURL = 'https://packages.aks.azure.com/cloud-provider-azure/v1.33.3/binaries/azure-acr-credential-provider-windows-amd64-v1.33.3.tar.gz'
+
+        Mock Resolve-DalecCredentialProviderPackage
+
+        Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
+        # NI path should use ORAS, not dalec resolver
+        Assert-MockCalled -CommandName 'Resolve-DalecCredentialProviderPackage' -Times 0
+        $script:lastDownloadReference | Should -Be 'myregistry.azurecr.io/aks/packages/kubernetes/azure-acr-credential-provider:v1.33.3'
+    }
 }
 
 Describe 'Resolve-DalecCredentialProviderPackage' {
