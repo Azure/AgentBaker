@@ -328,12 +328,26 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless",
           "latestVersion": "v1.18.12-260811",
-          "previousLatestVersion": "v1.18.11-260622"
+          "previousLatestVersion": "v1.18.11-260622",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/usr/bin/cilium-agent"
+              ]
+            }
+          }
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless",
           "latestVersion": "v1.19.6-260811",
-          "previousLatestVersion": "v1.19.5-260714"
+          "previousLatestVersion": "v1.19.5-260714",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/usr/bin/cilium-agent"
+              ]
+            }
+          }
         }
       ],
       "windowsVersions": []
@@ -345,12 +359,26 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless-init",
           "latestVersion": "v1.18.12-260811",
-          "previousLatestVersion": "v1.18.11-260622"
+          "previousLatestVersion": "v1.18.11-260622",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/opt/cni/bin/cilium-cni"
+              ]
+            }
+          }
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless-init",
           "latestVersion": "v1.19.6-260811",
-          "previousLatestVersion": "v1.19.5-260714"
+          "previousLatestVersion": "v1.19.5-260714",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/opt/cni/bin/cilium-cni"
+              ]
+            }
+          }
         }
       ],
       "windowsVersions": []
