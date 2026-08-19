@@ -2,12 +2,14 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -24,6 +26,80 @@ func getDCGMPackageNames(os string) []string {
 	}
 
 	return packages
+}
+
+// expectedPackageVersion returns the single version components.json pins for the
+// package on the given OS. Anything other than exactly one entry is a bug in
+// components.json, and callers cannot continue without the version string.
+func expectedPackageVersion(packageName, os, osVersion string) (string, error) {
+	versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
+	if err := assert.Equal(len(versions), 1, "expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions)); err != nil {
+		return "", err
+	}
+	return versions[0], nil
+}
+
+// validateDCGMPackageVersions checks that every DCGM package pinned for the OS is
+// the version actually installed on the node.
+func validateDCGMPackageVersions(ctx context.Context, s *Scenario, os, osVersion string) error {
+	var errs []error
+	for _, packageName := range getDCGMPackageNames(os) {
+		version, err := expectedPackageVersion(packageName, os, osVersion)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		errs = append(errs, ValidateInstalledPackageVersion(ctx, s, packageName, version))
+	}
+	return errors.Join(errs...)
+}
+
+// validateNPDNvidiaConditions runs the NPD device plugin and DCGM checks. Each step
+// depends on the node state left behind by the previous one - the *AfterFailure
+// checks deliberately break a service and then repair it - so the sequence stops at
+// the first failure instead of injecting more faults onto an already broken node.
+func validateNPDNvidiaConditions(ctx context.Context, s *Scenario) error {
+	if err := ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s); err != nil {
+		return err
+	}
+	if err := ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s); err != nil {
+		return err
+	}
+	if err := ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s); err != nil {
+		return err
+	}
+	if err := ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s); err != nil {
+		return err
+	}
+	if err := ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s); err != nil {
+		return err
+	}
+	return ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
+}
+
+// validateNPDNvidiaGridLicense verifies the grid license status is reported as
+// healthy before the failure is simulated, so the checks run in order.
+func validateNPDNvidiaGridLicense(ctx context.Context, s *Scenario) error {
+	if err := ValidateNPDHealthyNvidiaGridLicenseStatus(ctx, s); err != nil {
+		return err
+	}
+	return ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx, s)
+}
+
+// validateDCGMExporterRunning checks the DCGM exporter service is up, scrapable and
+// advertised through the node label.
+func validateDCGMExporterRunning(ctx context.Context, s *Scenario, metric string) error {
+	if err := ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s); err != nil {
+		return err
+	}
+	// Scraping only makes sense once the exporter endpoint answers.
+	if err := ValidateNvidiaDCGMExporterIsScrapable(ctx, s); err != nil {
+		return err
+	}
+	return errors.Join(
+		ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, metric),
+		ValidateNodeHasLabel(ctx, s, "kubernetes.azure.com/dcgm-exporter", "enabled"),
+	)
 }
 
 // extractMajorMinorPatchVersion extracts the major.minor.patch version from a
@@ -211,47 +287,49 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 		},
 	}
 
-	getVersions := func(s *Scenario, tc testCase) (string, string, string) {
-		s.T.Helper()
-
-		dcgmExporterVersions := components.GetExpectedPackageVersions("dcgm-exporter", tc.os, tc.osVersion)
-		require.Len(s.T, dcgmExporterVersions, 1, "Expected exactly one dcgm-exporter version")
-		dcgmExporterVersion := dcgmExporterVersions[0]
-
-		coreVersions := components.GetExpectedPackageVersions("datacenter-gpu-manager-4-core", tc.os, tc.osVersion)
-		require.Len(s.T, coreVersions, 1, "Expected exactly one core version")
-		expectedCoreVersion := coreVersions[0]
-
-		propVersions := components.GetExpectedPackageVersions("datacenter-gpu-manager-4-proprietary", tc.os, tc.osVersion)
-		require.Len(s.T, propVersions, 1, "Expected exactly one proprietary version")
-		expectedPropVersion := propVersions[0]
+	getVersions := func(s *Scenario, tc testCase) (string, string, string, error) {
+		dcgmExporterVersion, err := expectedPackageVersion("dcgm-exporter", tc.os, tc.osVersion)
+		if err != nil {
+			return "", "", "", err
+		}
+		expectedCoreVersion, err := expectedPackageVersion("datacenter-gpu-manager-4-core", tc.os, tc.osVersion)
+		if err != nil {
+			return "", "", "", err
+		}
+		expectedPropVersion, err := expectedPackageVersion("datacenter-gpu-manager-4-proprietary", tc.os, tc.osVersion)
+		if err != nil {
+			return "", "", "", err
+		}
 
 		s.T.Logf("Expected versions from components.json:")
 		s.T.Logf("  dcgm-exporter: %s", dcgmExporterVersion)
 		s.T.Logf("  datacenter-gpu-manager-4-core: %s", expectedCoreVersion)
 		s.T.Logf("  datacenter-gpu-manager-4-proprietary: %s", expectedPropVersion)
 
-		return dcgmExporterVersion, expectedCoreVersion, expectedPropVersion
+		return dcgmExporterVersion, expectedCoreVersion, expectedPropVersion, nil
 	}
 
-	parseVersions := func(s *Scenario, tc testCase, cmdLineOutput string) (string, string) {
-		s.T.Helper()
-
+	parseVersions := func(s *Scenario, tc testCase, cmdLineOutput string) (string, string, error) {
 		coreRegex := regexp.MustCompile(tc.coreRegex)
 		coreMatches := coreRegex.FindStringSubmatch(cmdLineOutput)
-		require.Len(s.T, coreMatches, 2, "Failed to extract datacenter-gpu-manager-4-core version from dependencies")
-		actualCoreVersion := coreMatches[1]
 
 		propRegex := regexp.MustCompile(tc.propRegex)
 		propMatches := propRegex.FindStringSubmatch(cmdLineOutput)
-		require.Len(s.T, propMatches, 2, "Failed to extract datacenter-gpu-manager-4-proprietary version from dependencies")
+
+		if err := errors.Join(
+			assert.Equal(len(coreMatches), 2, "failed to extract datacenter-gpu-manager-4-core version from dependencies:\n%s", cmdLineOutput),
+			assert.Equal(len(propMatches), 2, "failed to extract datacenter-gpu-manager-4-proprietary version from dependencies:\n%s", cmdLineOutput),
+		); err != nil {
+			return "", "", err
+		}
+		actualCoreVersion := coreMatches[1]
 		actualPropVersion := propMatches[1]
 
 		s.T.Logf("Actual versions from dcgm-exporter package:")
 		s.T.Logf("  datacenter-gpu-manager-4-core: %s", actualCoreVersion)
 		s.T.Logf("  datacenter-gpu-manager-4-proprietary: %s", actualPropVersion)
 
-		return actualCoreVersion, actualPropVersion
+		return actualCoreVersion, actualPropVersion, nil
 	}
 
 	for _, tc := range testCases {
@@ -266,36 +344,51 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 					// We are only validating if the package versions are compatible, and for that we need an environment like
 					// Ubuntu or Az Linux, and nothing else. This test doesn't care about any other validation.
 					SkipDefaultValidation: true,
-					Validator: func(ctx context.Context, s *Scenario) {
+					Validator: func(ctx context.Context, s *Scenario) error {
 						// Step 1: Get expected versions from components.json
-						dcgmExporterVersion, expectedCoreVersion, expectedPropVersion := getVersions(s, tc)
+						dcgmExporterVersion, expectedCoreVersion, expectedPropVersion, err := getVersions(s, tc)
+						if err != nil {
+							return err
+						}
 
 						// Step 2: Download dcgm-exporter package from PMC
 						s.T.Logf("Downloading dcgm-exporter package from PMC...")
 						downloadCmd := fmt.Sprintf(tc.downloadCmd, dcgmExporterVersion)
-						execScriptOnVMForScenarioValidateExitCode(ctx, s, downloadCmd, 0, "Failed to download dcgm-exporter package")
+						if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, downloadCmd, 0, "Failed to download dcgm-exporter package"); err != nil {
+							return err
+						}
 
 						// Step 3: Extract dependency versions from the package
 						s.T.Logf("Extracting dependency versions from package...")
-						result := execScriptOnVMForScenarioValidateExitCode(ctx, s, tc.extractDepsCmd, 0, "Failed to extract dependencies from package")
+						result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, tc.extractDepsCmd, 0, "Failed to extract dependencies from package")
+						if err != nil {
+							return err
+						}
 
 						dependsOutput := result.stdout
 						s.T.Logf("Package dependencies: %s", dependsOutput)
 
 						// Step 4: Parse and verify versions match components.json
-						actualCoreVersion, actualPropVersion := parseVersions(s, tc, dependsOutput)
+						actualCoreVersion, actualPropVersion, err := parseVersions(s, tc, dependsOutput)
+						if err != nil {
+							return err
+						}
 
 						// Verify versions match
-						require.Equalf(s.T, expectedCoreVersion, actualCoreVersion,
-							"datacenter-gpu-manager-4-core version mismatch: components.json has %s but dcgm-exporter requires %s",
-							expectedCoreVersion, actualCoreVersion)
-
-						require.Equalf(s.T, expectedPropVersion, actualPropVersion,
-							"datacenter-gpu-manager-4-proprietary version mismatch: components.json has %s but dcgm-exporter requires %s",
-							expectedPropVersion, actualPropVersion)
+						if err := errors.Join(
+							assert.Equal(actualCoreVersion, expectedCoreVersion,
+								"datacenter-gpu-manager-4-core version mismatch: components.json has %s but dcgm-exporter requires %s",
+								expectedCoreVersion, actualCoreVersion),
+							assert.Equal(actualPropVersion, expectedPropVersion,
+								"datacenter-gpu-manager-4-proprietary version mismatch: components.json has %s but dcgm-exporter requires %s",
+								expectedPropVersion, actualPropVersion),
+						); err != nil {
+							return err
+						}
 
 						s.T.Logf("✅ Version compatibility verified: dcgm-exporter %s is compatible with DCGM packages %s",
 							dcgmExporterVersion, expectedCoreVersion)
+						return nil
 					},
 				},
 			})
@@ -319,7 +412,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				nbc.EnableNvidia = true
 				nbc.ManagedGPUExperienceAFECEnabled = true
 			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
@@ -327,55 +420,63 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+				if err != nil {
+					return fmt.Errorf("create AKS VM extension: %w", err)
+				}
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+				return nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				os := "ubuntu"
 				osVersion := "r2404"
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
-				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
-				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
-
-				// Validate that the NVIDIA device plugin systemd service is running
-				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
-
-				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
-
-				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
-
-				// Validate that the NVIDIA DCGM packages were installed correctly
-				for _, packageName := range getDCGMPackageNames(os) {
-					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
-					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
-					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
+				devicePluginVersion, err := expectedPackageVersion("nvidia-device-plugin", os, osVersion)
+				if err != nil {
+					return err
+				}
+				if err := errors.Join(
+					ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
+					// Validate that the NVIDIA device plugin systemd service is running
+					ValidateNvidiaDevicePluginServiceRunning(ctx, s),
+				); err != nil {
+					return err
+				}
+				// Resource advertisement depends on the device plugin service.
+				if err := ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+					return err
 				}
 
-				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
-				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
-				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_UTIL")
-				ValidateNodeHasLabel(ctx, s, "kubernetes.azure.com/dcgm-exporter", "enabled")
+				// Validate that GPU workloads can be scheduled. Only meaningful once the GPU
+				// resources above are advertised, otherwise the pod simply never gets scheduled.
+				if err := ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+					return err
+				}
+
+				// Validate that the NVIDIA DCGM packages were installed correctly
+				if err := errors.Join(
+					validateDCGMPackageVersions(ctx, s, os, osVersion),
+					validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_UTIL"),
+				); err != nil {
+					return err
+				}
 
 				// Let's run the NPD validation tests to verify that the nvidia
 				// device plugin & DCGM services are reporting status correctly
-				ValidateNodeProblemDetector(ctx, s)
+				if err := ValidateNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
 				// Restart NPD to ensure it picks up the managed GPU experience marker file,
 				// which may have been created after NPD's initial startup during provisioning.
-				RestartNodeProblemDetector(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
-				// verify nvidia grid license status checks are reporting status correctly
-				ValidateNPDHealthyNvidiaGridLicenseStatus(ctx, s)
-				ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx, s)
+				if err := RestartNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
+				if err := validateNPDNvidiaConditions(ctx, s); err != nil {
+					return err
+				}
+				// Verify NVIDIA GRID license status checks are reporting status correctly.
+				return validateNPDNvidiaGridLicense(ctx, s)
 			},
 		},
 	})
@@ -397,7 +498,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				nbc.EnableNvidia = true
 				nbc.ManagedGPUExperienceAFECEnabled = true
 			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
@@ -405,54 +506,63 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+				if err != nil {
+					return fmt.Errorf("create AKS VM extension: %w", err)
+				}
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+				return nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				os := "ubuntu"
 				osVersion := "r2204"
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
-				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
-				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
-
-				// Validate that the NVIDIA device plugin systemd service is running
-				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
-
-				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
-
-				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
-
-				for _, packageName := range getDCGMPackageNames(os) {
-					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
-					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
-					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
+				devicePluginVersion, err := expectedPackageVersion("nvidia-device-plugin", os, osVersion)
+				if err != nil {
+					return err
+				}
+				if err := errors.Join(
+					ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
+					// Validate that the NVIDIA device plugin systemd service is running
+					ValidateNvidiaDevicePluginServiceRunning(ctx, s),
+				); err != nil {
+					return err
+				}
+				// Resource advertisement depends on the device plugin service.
+				if err := ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+					return err
 				}
 
-				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
-				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
-				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_UTIL")
-				ValidateNodeHasLabel(ctx, s, "kubernetes.azure.com/dcgm-exporter", "enabled")
+				// Validate that GPU workloads can be scheduled. Only meaningful once the GPU
+				// resources above are advertised, otherwise the pod simply never gets scheduled.
+				if err := ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+					return err
+				}
+
+				// Validate that the NVIDIA DCGM packages were installed correctly
+				if err := errors.Join(
+					validateDCGMPackageVersions(ctx, s, os, osVersion),
+					validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_UTIL"),
+				); err != nil {
+					return err
+				}
 
 				// Let's run the NPD validation tests to verify that the nvidia
 				// device plugin & DCGM services are reporting status correctly
-				ValidateNodeProblemDetector(ctx, s)
+				if err := ValidateNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
 				// Restart NPD to ensure it picks up the managed GPU experience marker file,
 				// which may have been created after NPD's initial startup during provisioning.
-				RestartNodeProblemDetector(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
-				// verify nvidia grid license status checks are reporting status correctly
-				ValidateNPDHealthyNvidiaGridLicenseStatus(ctx, s)
-				ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx, s)
+				if err := RestartNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
+				if err := validateNPDNvidiaConditions(ctx, s); err != nil {
+					return err
+				}
+				// Verify NVIDIA GRID license status checks are reporting status correctly.
+				return validateNPDNvidiaGridLicense(ctx, s)
 			},
 		},
 	})
@@ -475,7 +585,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				nbc.EnableNvidia = true
 				nbc.ManagedGPUExperienceAFECEnabled = true
 			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
@@ -483,51 +593,59 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+				if err != nil {
+					return fmt.Errorf("create AKS VM extension: %w", err)
+				}
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+				return nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				os := "azurelinux"
 				osVersion := "v3.0"
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
-				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
-				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
-
-				// Validate that the NVIDIA device plugin systemd service is running
-				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
-
-				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
-
-				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
-
-				for _, packageName := range getDCGMPackageNames(os) {
-					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
-					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
-					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
+				devicePluginVersion, err := expectedPackageVersion("nvidia-device-plugin", os, osVersion)
+				if err != nil {
+					return err
+				}
+				if err := errors.Join(
+					ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
+					// Validate that the NVIDIA device plugin systemd service is running
+					ValidateNvidiaDevicePluginServiceRunning(ctx, s),
+				); err != nil {
+					return err
+				}
+				// Resource advertisement depends on the device plugin service.
+				if err := ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+					return err
 				}
 
-				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
-				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
-				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_UTIL")
-				ValidateNodeHasLabel(ctx, s, "kubernetes.azure.com/dcgm-exporter", "enabled")
+				// Validate that GPU workloads can be scheduled. Only meaningful once the GPU
+				// resources above are advertised, otherwise the pod simply never gets scheduled.
+				if err := ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+					return err
+				}
+
+				// Validate that the NVIDIA DCGM packages were installed correctly
+				if err := errors.Join(
+					validateDCGMPackageVersions(ctx, s, os, osVersion),
+					validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_UTIL"),
+				); err != nil {
+					return err
+				}
 
 				// Let's run the NPD validation tests to verify that the nvidia
 				// device plugin & DCGM services are reporting status correctly
-				ValidateNodeProblemDetector(ctx, s)
+				if err := ValidateNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
 				// Restart NPD to ensure it picks up the managed GPU experience marker file,
 				// which may have been created after NPD's initial startup during provisioning.
-				RestartNodeProblemDetector(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
+				if err := RestartNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
+				return validateNPDNvidiaConditions(ctx, s)
 			},
 		},
 	})
@@ -553,59 +671,63 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				nbc.EnableManagedGPU = true
 				nbc.MigStrategy = "Single"
 			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+				if err != nil {
+					return fmt.Errorf("create AKS VM extension: %w", err)
+				}
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+				return nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				os := "ubuntu"
 				osVersion := "r2404"
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
-				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
-				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
-
-				// Validate that the NVIDIA device plugin systemd service is running
-				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
-
-				// Validate that MIG mode is enabled via nvidia-smi
-				ValidateMIGModeEnabled(ctx, s, 1)
-
-				// Validate that MIG instances are created
-				ValidateMIGInstancesCreated(ctx, s, "MIG 2g.20gb", 3)
-
-				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s, 3, "nvidia.com/gpu")
-
-				// Validate that MIG workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 3, "nvidia.com/gpu")
-
-				// Validate that the NVIDIA DCGM packages were installed correctly
-				for _, packageName := range getDCGMPackageNames(os) {
-					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
-					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
-					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
+				devicePluginVersion, err := expectedPackageVersion("nvidia-device-plugin", os, osVersion)
+				if err != nil {
+					return err
+				}
+				if err := errors.Join(
+					ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
+					// Validate that the NVIDIA device plugin systemd service is running
+					ValidateNvidiaDevicePluginServiceRunning(ctx, s),
+				); err != nil {
+					return err
+				}
+				if err := ValidateMIGModeEnabled(ctx, s, 1); err != nil {
+					return err
+				}
+				if err := ValidateMIGInstancesCreated(ctx, s, "MIG 2g.20gb", 3); err != nil {
+					return err
+				}
+				if err := ValidateNodeAdvertisesGPUResources(ctx, s, 3, "nvidia.com/gpu"); err != nil {
+					return err
 				}
 
-				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
-				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
-				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_TEMP")
-				ValidateNodeHasLabel(ctx, s, "kubernetes.azure.com/dcgm-exporter", "enabled")
+				// Validate that GPU workloads can be scheduled. Only meaningful once the GPU
+				// resources above are advertised, otherwise the pod simply never gets scheduled.
+				if err := ValidateGPUWorkloadSchedulable(ctx, s, 3, "nvidia.com/gpu"); err != nil {
+					return err
+				}
+
+				// Validate that the NVIDIA DCGM packages were installed correctly
+				if err := errors.Join(
+					validateDCGMPackageVersions(ctx, s, os, osVersion),
+					validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_TEMP"),
+				); err != nil {
+					return err
+				}
 
 				// Let's run the NPD validation tests to verify that the nvidia
 				// device plugin & DCGM services are reporting status correctly
-				ValidateNodeProblemDetector(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
+				if err := ValidateNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
+				return validateNPDNvidiaConditions(ctx, s)
 			},
 		},
 	})
@@ -638,23 +760,38 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_MultiGPU(t *testing.T) {
 				nbc.EnableManagedGPU = true
 				nbc.MigStrategy = "Single"
 			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 				vmss.SKU.Name = to.Ptr(multiGPUA100VMSize)
 
-				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+				if err != nil {
+					return fmt.Errorf("create AKS VM extension: %w", err)
+				}
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+				return nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", "ubuntu", "r2404")
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for ubuntu r2404 but got %d", len(versions))
-				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
-
-				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
-				ValidateMIGModeEnabled(ctx, s, gpuCount)
-				ValidateMIGInstancesCreated(ctx, s, "MIG 2g.20gb", totalMIGInstances)
-				ValidateNodeAdvertisesGPUResources(ctx, s, totalMIGInstances, "nvidia.com/gpu")
-				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
+			Validator: func(ctx context.Context, s *Scenario) error {
+				devicePluginVersion, err := expectedPackageVersion("nvidia-device-plugin", "ubuntu", "r2404")
+				if err != nil {
+					return err
+				}
+				if err := errors.Join(
+					ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
+					ValidateNvidiaDevicePluginServiceRunning(ctx, s),
+				); err != nil {
+					return err
+				}
+				if err := ValidateMIGModeEnabled(ctx, s, gpuCount); err != nil {
+					return err
+				}
+				if err := ValidateMIGInstancesCreated(ctx, s, "MIG 2g.20gb", totalMIGInstances); err != nil {
+					return err
+				}
+				if err := ValidateNodeAdvertisesGPUResources(ctx, s, totalMIGInstances, "nvidia.com/gpu"); err != nil {
+					return err
+				}
+				// Scheduling a GPU workload only works once the MIG resources above are advertised.
+				return ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
 			},
 		},
 	})
@@ -677,60 +814,69 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 				nbc.ManagedGPUExperienceAFECEnabled = true
 				nbc.EnableManagedGPU = true
 			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 				// Explicitly DO NOT set the EnableManagedGPUExperience VMSS tag
 				// to test that NBC EnableManagedGPU field works independently
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+				if err != nil {
+					return fmt.Errorf("create AKS VM extension: %w", err)
+				}
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+				return nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				os := "ubuntu"
 				osVersion := "r2204"
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
-				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
-				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
-
-				// Validate that the NVIDIA device plugin systemd service is running
-				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
-
-				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
-
-				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
-
-				for _, packageName := range getDCGMPackageNames(os) {
-					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
-					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
-					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
+				devicePluginVersion, err := expectedPackageVersion("nvidia-device-plugin", os, osVersion)
+				if err != nil {
+					return err
+				}
+				if err := errors.Join(
+					ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
+					// Validate that the NVIDIA device plugin systemd service is running
+					ValidateNvidiaDevicePluginServiceRunning(ctx, s),
+				); err != nil {
+					return err
+				}
+				// Resource advertisement depends on the device plugin service.
+				if err := ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+					return err
 				}
 
-				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
-				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
-				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_UTIL")
-				ValidateNodeHasLabel(ctx, s, "kubernetes.azure.com/dcgm-exporter", "enabled")
+				// Validate that GPU workloads can be scheduled. Only meaningful once the GPU
+				// resources above are advertised, otherwise the pod simply never gets scheduled.
+				if err := ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+					return err
+				}
+
+				// Validate that the NVIDIA DCGM packages were installed correctly
+				if err := errors.Join(
+					validateDCGMPackageVersions(ctx, s, os, osVersion),
+					validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_UTIL"),
+				); err != nil {
+					return err
+				}
 
 				// Let's run the NPD validation tests to verify that the nvidia
 				// device plugin & DCGM services are reporting status correctly
-				ValidateNodeProblemDetector(ctx, s)
+				if err := ValidateNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
 				// Restart NPD to ensure it picks up the managed GPU experience marker file,
 				// which may have been created after NPD's initial startup during provisioning.
-				RestartNodeProblemDetector(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
-				// verify nvidia grid license status checks are reporting status correctly
-				ValidateNPDHealthyNvidiaGridLicenseStatus(ctx, s)
-				ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx, s)
+				if err := RestartNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
+				if err := validateNPDNvidiaConditions(ctx, s); err != nil {
+					return err
+				}
+				// Verify NVIDIA GRID license status checks are reporting status correctly.
+				return validateNPDNvidiaGridLicense(ctx, s)
 			},
 		},
 	})
@@ -745,33 +891,56 @@ func Test_CreateVMExtensionLinuxAKSNode_Timing(t *testing.T) {
 	start := time.Now()
 	ext, err := createVMExtensionLinuxAKSNode(t.Context(), nil)
 	firstDuration := time.Since(start)
-	require.NoError(t, err, "first call to createVMExtensionLinuxAKSNode failed")
-	require.NotNil(t, ext, "first call returned nil extension")
+	if err := assert.NoError(err, "first call to createVMExtensionLinuxAKSNode failed"); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := assert.NotNil(ext, "first call returned nil extension"); err != nil {
+		t.Error(err)
+		return
+	}
 	t.Logf("First call duration: %s", firstDuration)
 
 	// Second call — should be served from cache
 	start = time.Now()
 	ext2, err := createVMExtensionLinuxAKSNode(t.Context(), nil)
 	secondDuration := time.Since(start)
-	require.NoError(t, err, "second call to createVMExtensionLinuxAKSNode failed")
-	require.NotNil(t, ext2, "second call returned nil extension")
+	if err := assert.NoError(err, "second call to createVMExtensionLinuxAKSNode failed"); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := assert.NotNil(ext2, "second call returned nil extension"); err != nil {
+		t.Error(err)
+		return
+	}
 	t.Logf("Second call duration: %s", secondDuration)
 
 	// Both calls should return a valid, consistent TypeHandlerVersion
-	require.NotNil(t, ext.Properties, "first extension has nil Properties")
-	require.NotNil(t, ext2.Properties, "second extension has nil Properties")
-	require.NotNil(t, ext.Properties.TypeHandlerVersion, "first TypeHandlerVersion is nil")
-	require.NotNil(t, ext2.Properties.TypeHandlerVersion, "second TypeHandlerVersion is nil")
-	require.NotEmpty(t, *ext.Properties.TypeHandlerVersion, "first TypeHandlerVersion is empty")
-	require.NotEmpty(t, *ext2.Properties.TypeHandlerVersion, "second TypeHandlerVersion is empty")
+	if err := errors.Join(
+		assert.NotNil(ext.Properties, "first extension has nil Properties"),
+		assert.NotNil(ext2.Properties, "second extension has nil Properties"),
+	); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := errors.Join(
+		assert.NotNil(ext.Properties.TypeHandlerVersion, "first TypeHandlerVersion is nil"),
+		assert.NotNil(ext2.Properties.TypeHandlerVersion, "second TypeHandlerVersion is nil"),
+	); err != nil {
+		t.Error(err)
+		return
+	}
 
-	// Ensure we actually hit Azure and didn't just get the fallback version
-	require.NotEqual(t, "1.413", *ext.Properties.TypeHandlerVersion,
-		"extension version is the hardcoded fallback — Azure API may not have been reached")
-
-	// Cache consistency: both calls should return the same version
-	require.Equal(t, *ext.Properties.TypeHandlerVersion, *ext2.Properties.TypeHandlerVersion,
-		"both calls should return the same extension version")
+	if err := errors.Join(
+		assert.NotEqual(*ext.Properties.TypeHandlerVersion, "", "first TypeHandlerVersion is empty"),
+		assert.NotEqual(*ext2.Properties.TypeHandlerVersion, "", "second TypeHandlerVersion is empty"),
+		assert.NotEqual(*ext.Properties.TypeHandlerVersion, "1.413",
+			"extension version is the hardcoded fallback — Azure API may not have been reached"),
+		assert.Equal(*ext2.Properties.TypeHandlerVersion, *ext.Properties.TypeHandlerVersion,
+			"both calls should return the same extension version"),
+	); err != nil {
+		t.Error(err)
+	}
 }
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
@@ -794,38 +963,47 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 				nbc.EnableManagedGPU = true
 				nbc.MigStrategy = "Mixed"
 			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+				if err != nil {
+					return fmt.Errorf("create AKS VM extension: %w", err)
+				}
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+				return nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				os := "ubuntu"
 				osVersion := "r2404"
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
-				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
-				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
-				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
-
-				// Validate that the NVIDIA device plugin systemd service is running
-				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
-
-				// Validate that MIG mode is enabled via nvidia-smi
-				ValidateMIGModeEnabled(ctx, s, 1)
-
-				// Validate that MIG instances are created
-				ValidateMIGInstancesCreated(ctx, s, "MIG 1g.10gb", 7)
-
-				// Validate that MIG profile-specific GPU resources are advertised by the device plugin
+				devicePluginVersion, err := expectedPackageVersion("nvidia-device-plugin", os, osVersion)
+				if err != nil {
+					return err
+				}
 				migResourceName := "nvidia.com/mig-1g.10gb"
-				ValidateNodeAdvertisesGPUResources(ctx, s, 7, migResourceName)
+				if err := errors.Join(
+					ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
+					// Validate that the NVIDIA device plugin systemd service is running
+					ValidateNvidiaDevicePluginServiceRunning(ctx, s),
+				); err != nil {
+					return err
+				}
+				if err := ValidateMIGModeEnabled(ctx, s, 1); err != nil {
+					return err
+				}
+				if err := ValidateMIGInstancesCreated(ctx, s, "MIG 1g.10gb", 7); err != nil {
+					return err
+				}
+				if err := ValidateNodeAdvertisesGPUResources(ctx, s, 7, migResourceName); err != nil {
+					return err
+				}
 
-				// Validate that MIG workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 2, migResourceName)
+				// Validate that MIG workloads can be scheduled. Only meaningful once the MIG
+				// resources above are advertised, otherwise the pod simply never gets scheduled.
+				return ValidateGPUWorkloadSchedulable(ctx, s, 2, migResourceName)
 			},
 		},
 	})
@@ -847,22 +1025,31 @@ func Test_Ubuntu2404_DraDriverNvidiaGpuRunning(t *testing.T) {
 				nbc.EnableNvidia = true
 				nbc.EnableManagedGPUDRA = true
 			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
+				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+				if err != nil {
+					return fmt.Errorf("create AKS VM extension: %w", err)
+				}
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+				return nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
-				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRuncVersion(ctx, s, runcVersions)
-				ValidateContainerRuntimePlugins(ctx, s)
-				ValidateDraDriverNvidiaGpuServiceRunning(ctx, s)
-				ValidateDRAWorkloadSchedulable(ctx, s)
+				if err := errors.Join(
+					ValidateContainerd2Properties(ctx, s, containerdVersions),
+					ValidateRuncVersion(ctx, s, runcVersions),
+					ValidateContainerRuntimePlugins(ctx, s),
+				); err != nil {
+					return err
+				}
+				if err := ValidateDraDriverNvidiaGpuServiceRunning(ctx, s); err != nil {
+					return err
+				}
+				return ValidateDRAWorkloadSchedulable(ctx, s)
 			},
 		},
 	})
