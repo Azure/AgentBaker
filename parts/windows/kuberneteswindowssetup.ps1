@@ -444,8 +444,8 @@ function BasePrep {
 
     Update-DefenderPreferences
 
-    $windowsVersion = Get-WindowsVersion
-    if ($windowsVersion -eq "1809" -or $windowsVersion -eq "ltsc2022") {
+    $windowsVersion=Get-WindowsVersion
+    if ($windowsVersion -eq "1809") {
         Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Start to enable secure TLS protocols"
         try {
             . C:\k\windowssecuretls.ps1
