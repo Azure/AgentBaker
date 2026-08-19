@@ -726,9 +726,12 @@ func runUbuntu2404NvidiaDevicePluginMIGSingle(
 					ValidateMIGModeEnabled(ctx, s, 1),
 					ValidateMIGInstanceProfileCounts(ctx, s, map[string]int{"MIG 2g.20gb": 3}),
 					ValidateNvidiaDevicePluginMIGStrategy(ctx, s, "single"),
-					// Single exposes all three uniform partitions through nvidia.com/gpu and no profile-specific resources.
-					ValidateNodeAdvertisesExactGPUResources(ctx, s, map[string]int64{"nvidia.com/gpu": 3}),
 				); err != nil {
+					return err
+				}
+				// Resource advertisement depends on the MIG geometry and device plugin strategy.
+				// Single exposes all three uniform partitions through nvidia.com/gpu and no profile-specific resources.
+				if err := ValidateNodeAdvertisesExactGPUResources(ctx, s, map[string]int64{"nvidia.com/gpu": 3}); err != nil {
 					return err
 				}
 
@@ -1023,13 +1026,16 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 						"MIG 1g.10gb": 2,
 					}),
 					ValidateNvidiaDevicePluginMIGStrategy(ctx, s, "mixed"),
-					// Mixed exposes every profile-specific resource and no generic nvidia.com/gpu resource.
-					ValidateNodeAdvertisesExactGPUResources(ctx, s, map[string]int64{
-						"nvidia.com/mig-3g.40gb": 1,
-						"nvidia.com/mig-2g.20gb": 1,
-						"nvidia.com/mig-1g.10gb": 2,
-					}),
 				); err != nil {
+					return err
+				}
+				// Resource advertisement depends on the MIG geometry and device plugin strategy.
+				// Mixed exposes every profile-specific resource and no generic nvidia.com/gpu resource.
+				if err := ValidateNodeAdvertisesExactGPUResources(ctx, s, map[string]int64{
+					"nvidia.com/mig-3g.40gb": 1,
+					"nvidia.com/mig-2g.20gb": 1,
+					"nvidia.com/mig-1g.10gb": 2,
+				}); err != nil {
 					return err
 				}
 
