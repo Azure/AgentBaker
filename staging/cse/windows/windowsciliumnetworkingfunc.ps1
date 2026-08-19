@@ -41,7 +41,7 @@ function Enable-WindowsCiliumNetworking
     $installArgs = @{
         RestartRequiredOut = ([ref]$isRebootNeeded)
         SourceDirectory = $global:WindowsCiliumInstallPath
-        SkipNugetUnpack = [switch]::Present 
+        SkipNugetUnpack = [switch]::Present
     }
 
     # Add scenario configuration if specified
