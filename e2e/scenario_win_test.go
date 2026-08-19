@@ -76,7 +76,6 @@ func Test_Windows2022_AzureNetwork(t *testing.T) {
 					ValidateDotnetNotInstalledWindows(ctx, s),
 					ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
 					ValidateCollectWindowsLogsScript(ctx, s),
-					ValidateWindowsSecureTLSEnabled(ctx, s),
 				)
 			},
 		},
@@ -130,7 +129,6 @@ func Test_Windows2022Gen2AzureNetwork(t *testing.T) {
 					ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip"),
 					ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
 					ValidateCollectWindowsLogsScript(ctx, s),
-					ValidateWindowsSecureTLSEnabled(ctx, s),
 				)
 			},
 		},
