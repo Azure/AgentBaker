@@ -42,12 +42,14 @@ var kataRuntimeHandlers = []string{kataRuntimeHandler, kataPreviewRuntimeHandler
 // containing the Kata runtime handlers on a Kata-enabled VHD.
 //
 // This is the core regression check for the IsKata blocks of the containerd config templates in
-// pkg/agent/baker.go. Note that AgentPoolProfile.IsContainerdV2Distro() returns false for every
-// Kata distro (pkg/agent/datamodel/types.go), so Kata nodes are always rendered from
-// containerdV1ConfigTemplate / containerdV1NoGPUConfigTemplate regardless of the underlying OS.
-// The assertions below therefore target the containerd 1.x plugin paths that those templates
-// emit. If Kata is ever promoted to the V2 templates, this validator should fail loudly rather
-// than silently pass, which is why the plugin paths are asserted explicitly.
+// pkg/agent/baker.go. The CRI plugin path that hosts the runtime handlers depends on the schema
+// AgentBaker renders for the node's containerd version: the legacy "io.containerd.grpc.v1.cri" for
+// containerd 1.x, and the split "io.containerd.cri.v1.runtime" for containerd 2.x (e.g. AzureLinux
+// V3 Kata, which boots containerd 2.x and is now handed a native 2.x config rather than a 1.x
+// config that containerd has to migrate). The handler table is therefore asserted by its
+// schema-independent suffix (".containerd.runtimes.kata]") so this check stays correct across
+// schemas while still failing loudly if the kata handler is absent. The trailing "]" anchors the
+// match so "kata]" cannot be satisfied by a longer handler such as "kata-preview".
 func ValidateKataContainerdConfig(ctx context.Context, s *Scenario) error {
 	if err := assert.Equal(s.VHD.Distro.IsKataDistro(), true,
 		"ValidateKataContainerdConfig requires a Kata distro, got %q", s.VHD.Distro); err != nil {
@@ -55,8 +57,9 @@ func ValidateKataContainerdConfig(ctx context.Context, s *Scenario) error {
 	}
 
 	return errors.Join(
-		// The standard "kata" runtime handler, backed by the kata v2 shim.
-		ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]`),
+		// The standard "kata" runtime handler, backed by the kata v2 shim. The plugin prefix varies
+		// by containerd schema (grpc.v1.cri vs cri.v1.runtime), so match the handler table by suffix.
+		ValidateFileHasContent(ctx, s, containerdConfigPath, `.containerd.runtimes.kata]`),
 		ValidateFileHasContent(ctx, s, containerdConfigPath, `runtime_type = "io.containerd.kata.v2"`),
 		ValidateFileHasContent(ctx, s, containerdConfigPath, kataConfigPath),
 
@@ -98,17 +101,15 @@ func ValidateKataErofsContainerdConfig(ctx context.Context, s *Scenario) error {
 //
 // Checking the file alone is not enough. Kata VHDs ship their own containerd build - CSE skips
 // installing one (see the "azurelinuxkata" entries in parts/common/components.json) - so the
-// containerd major version on the node is decided by the image, not by AgentBaker, while the
-// template AgentBaker renders is decided by the distro (IsContainerdV2Distro short-circuits to
-// the v1 template for every Kata distro). The two can therefore disagree: AzureLinux V3 Kata
-// currently boots containerd 2.x while being handed a containerd 1.x style config.
+// containerd major version on the node is decided by the image, while the schema AgentBaker
+// renders is decided by the node's containerd version. AgentBaker now hands each Kata distro a
+// config that matches its containerd major (grpc.v1.cri for 1.x, the split cri.v1.runtime for
+// 2.x), so AzureLinux V3 Kata boots containerd 2.x with a native 2.x config rather than relying
+// on containerd's legacy migration of the "io.containerd.grpc.v1.cri" paths.
 //
-// That combination happens to work today because containerd 2.x migrates the legacy
-// "io.containerd.grpc.v1.cri" runtime handlers onto the current
-// "io.containerd.cri.v1.runtime" paths, but nothing guarantees it keeps doing so. This
-// validator pins the property we actually care about: after containerd has parsed the config,
-// the Kata handlers are present in the effective configuration and containerd raised no
-// warnings while getting there.
+// This validator pins the property we actually care about regardless of schema: after containerd
+// has parsed the config, the Kata handlers are present in the effective configuration and
+// containerd raised no warnings while getting there.
 func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) error {
 	// This must run on the node itself, not in a debug pod. The "debugnonhost" daemonset pods
 	// used by execOnVMForScenarioOnUnprivilegedPod run a bare CBL-Mariner base image with no
