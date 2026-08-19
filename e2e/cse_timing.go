@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -250,66 +251,53 @@ type CSETimingThresholds struct {
 	DefaultTaskThreshold time.Duration
 }
 
-// ValidateCSETimings extracts CSE task timings from the VM, logs them, and validates
-// against thresholds. Each threshold check runs as a t.Run() sub-test so that ADO
-// Pipeline Analytics (via gotestsum → JUnit XML → PublishTestResults) can track
-// individual CSE task pass/fail and duration trends over time.
-func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingThresholds) *CSETimingReport {
+// ValidateCSETimings extracts, logs, and validates CSE task timings.
+// It emits one subtest per threshold so ADO can track each timing check.
+func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingThresholds) (*CSETimingReport, error) {
 	s.T.Helper()
 	defer toolkit.LogStep(s.T, "validating CSE task timings")()
 
-	// Unwrap the underlying *testing.T from the toolkit logger wrapper
-	// so we can use t.Run() for sub-tests (ADO Pipeline Analytics tracking).
 	tRunner := toolkit.UnwrapTestingT(s.T)
 	if tRunner == nil {
-		s.T.Fatalf("ValidateCSETimings requires *testing.T for sub-test support, got %T", s.T)
+		return nil, fmt.Errorf("ValidateCSETimings requires *testing.T for sub-test support, got %T", s.T)
 	}
 
-	// Use pre-cached report if available (extracted eagerly before GA swept events).
-	// Fall back to live extraction if no cached report exists.
 	report := s.Runtime.CSETimingReport
 	if report == nil {
 		var err error
 		report, err = ExtractCSETimings(ctx, s)
 		if err != nil {
-			s.T.Fatalf("failed to extract CSE timings: %v", err)
-			return nil
+			return nil, fmt.Errorf("extract CSE timings: %w", err)
 		}
 	}
 
-	// Always log the full timing report
 	report.LogReport(ctx, s.T)
 
-	// Fail if no tasks were parsed — an empty report makes regression detection ineffective.
 	if len(report.Tasks) == 0 {
-		s.T.Fatalf("no CSE task timings were parsed; cannot validate performance thresholds")
-		return nil
+		return report, errors.New("no CSE task timings were parsed; cannot validate performance thresholds")
 	}
-
-	// Fail if the critical cse_start task is missing — without it TotalCSEDuration()
-	// returns 0 and the total duration threshold check would silently pass.
 	if report.GetTask("AKS.CSE.cse_start") == nil {
-		s.T.Fatalf("AKS.CSE.cse_start task not found in timing report; cannot validate total CSE duration")
-		return nil
+		return report, errors.New("AKS.CSE.cse_start task not found in timing report; cannot validate total CSE duration")
 	}
 
-	// Validate total CSE duration as a sub-test for ADO tracking
+	var errs []error
 	if thresholds.TotalCSEThreshold > 0 {
+		totalDuration := report.TotalCSEDuration()
+		var checkErr error
+		if totalDuration > thresholds.TotalCSEThreshold {
+			toolkit.LogDuration(ctx, totalDuration, thresholds.TotalCSEThreshold,
+				fmt.Sprintf("CSE total duration %s exceeds threshold %s", totalDuration, thresholds.TotalCSEThreshold))
+			checkErr = fmt.Errorf("CSE total duration %s exceeds threshold %s", totalDuration, thresholds.TotalCSEThreshold)
+			errs = append(errs, checkErr)
+		}
 		tRunner.Run("TotalCSEDuration", func(t *testing.T) {
-			totalDuration := report.TotalCSEDuration()
 			t.Logf("total CSE duration: %s (threshold: %s)", totalDuration, thresholds.TotalCSEThreshold)
-			if totalDuration > thresholds.TotalCSEThreshold {
-				toolkit.LogDuration(ctx, totalDuration, thresholds.TotalCSEThreshold,
-					fmt.Sprintf("CSE total duration %s exceeds threshold %s", totalDuration, thresholds.TotalCSEThreshold))
-				t.Errorf("CSE total duration %s exceeds threshold %s", totalDuration, thresholds.TotalCSEThreshold)
+			if checkErr != nil {
+				t.Error(checkErr)
 			}
 		})
 	}
 
-	// Validate individual task thresholds — each as a sub-test for ADO tracking.
-	// ADO Test Analytics will show per-task pass/fail trends and flag regressions.
-	// Sort suffixes by length descending so longer (more specific) suffixes match first,
-	// making matching deterministic when multiple suffixes could match the same task.
 	sortedSuffixes := make([]string, 0, len(thresholds.TaskThresholds))
 	for suffix := range thresholds.TaskThresholds {
 		sortedSuffixes = append(sortedSuffixes, suffix)
@@ -329,7 +317,6 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 				task := task
 				suffix := suffix
 				maxDuration := maxDuration
-				// Include sanitized task name to avoid collisions when multiple tasks match different suffixes
 				shortTask := task.TaskName
 				if idx := strings.LastIndex(shortTask, "."); idx >= 0 {
 					shortTask = shortTask[idx+1:]
@@ -338,12 +325,17 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 				if shortTask != suffix {
 					testName = fmt.Sprintf("%s/%s", shortTask, suffix)
 				}
+				var checkErr error
+				if task.Duration > maxDuration {
+					toolkit.LogDuration(ctx, task.Duration, maxDuration,
+						fmt.Sprintf("CSE task %s took %s (threshold: %s)", task.TaskName, task.Duration, maxDuration))
+					checkErr = fmt.Errorf("CSE task %s took %s, exceeds threshold %s", task.TaskName, task.Duration, maxDuration)
+					errs = append(errs, checkErr)
+				}
 				tRunner.Run(fmt.Sprintf("Task_%s", testName), func(t *testing.T) {
 					t.Logf("task %s duration: %s (threshold: %s)", task.TaskName, task.Duration, maxDuration)
-					if task.Duration > maxDuration {
-						toolkit.LogDuration(ctx, task.Duration, maxDuration,
-							fmt.Sprintf("CSE task %s took %s (threshold: %s)", task.TaskName, task.Duration, maxDuration))
-						t.Errorf("CSE task %s took %s, exceeds threshold %s", task.TaskName, task.Duration, maxDuration)
+					if checkErr != nil {
+						t.Error(checkErr)
 					}
 				})
 				break
@@ -351,19 +343,12 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 		}
 	}
 
-	// Log warnings for configured threshold suffixes that didn't match any task.
-	// This helps detect task renames/removals without hard-failing, since some tasks
-	// only fire on specific install paths (cached vs full) or OS variants.
 	for _, suffix := range sortedSuffixes {
 		if !matchedSuffixes[suffix] {
 			s.T.Logf("⚠️  threshold suffix %q did not match any CSE task — task may not fire on this install path, or may have been renamed", suffix)
 		}
 	}
 
-	// Dynamic tracking: create sub-tests for any CSE task that exceeds DefaultTaskThreshold
-	// but wasn't matched by a specific threshold above. This ensures newly added CSE tasks
-	// automatically appear in ADO Pipeline Analytics without code changes.
-	// Skip cse_start (validated by TotalCSEThreshold) and non-CSE events (e.g., AKS.Runtime.*).
 	if thresholds.DefaultTaskThreshold > 0 {
 		for _, task := range report.Tasks {
 			if matchedTasks[task.TaskName] {
@@ -379,22 +364,26 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 				continue
 			}
 			task := task
-			// Extract short name: "AKS.CSE.foo.bar" → "bar", or use full name if no dots
 			shortName := task.TaskName
 			if idx := strings.LastIndex(shortName, "."); idx >= 0 {
 				shortName = shortName[idx+1:]
 			}
 			defaultThreshold := thresholds.DefaultTaskThreshold
+			var checkErr error
+			if task.Duration > defaultThreshold {
+				checkErr = fmt.Errorf("CSE task %s took %s, exceeds default threshold %s (consider adding a specific threshold)",
+					task.TaskName, task.Duration, defaultThreshold)
+				errs = append(errs, checkErr)
+			}
 			tRunner.Run(fmt.Sprintf("Task_%s", shortName), func(t *testing.T) {
 				t.Logf("task %s duration: %s (default threshold: %s — no specific threshold configured)",
 					task.TaskName, task.Duration, defaultThreshold)
-				if task.Duration > defaultThreshold {
-					t.Errorf("CSE task %s took %s, exceeds default threshold %s (consider adding a specific threshold)",
-						task.TaskName, task.Duration, defaultThreshold)
+				if checkErr != nil {
+					t.Error(checkErr)
 				}
 			})
 		}
 	}
 
-	return report
+	return report, errors.Join(errs...)
 }

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	scp "github.com/bramvdbogaerde/go-scp"
-	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -56,7 +55,9 @@ func copyScriptToRemoteIfRequired(ctx context.Context, client *ssh.Client, comma
 	}
 
 	randBytes := make([]byte, 16)
-	rand.Read(randBytes)
+	if _, err := rand.Read(randBytes); err != nil {
+		return "", fmt.Errorf("generate remote script path: %w", err)
+	}
 
 	var remotePath, remoteCommand string
 	if isWindows {
@@ -146,7 +147,9 @@ func runSSHCommandWithPrivateKeyFile(
 
 func execScriptOnVm(ctx context.Context, s *Scenario, vm *ScenarioVM, script string) (*podExecResult, error) {
 	s.T.Helper()
-
+	if vm == nil {
+		return nil, fmt.Errorf("cannot execute script on a nil VM")
+	}
 	return runSSHCommand(ctx, vm.SSHClient, script, s.IsWindows())
 }
 
@@ -155,32 +158,41 @@ func execOnUnprivilegedPod(ctx context.Context, kube *Kubeclient, namespace stri
 	return execOnPod(ctx, kube, namespace, podName, nonPrivilegedCommand)
 }
 
-func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd string) *podExecResult {
+func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd string) (*podExecResult, error) {
 	s.T.Helper()
 	nonHostPod, err := s.Runtime.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
-	require.NoError(s.T, err, "failed to get non host debug pod name")
+	if err != nil {
+		return nil, fmt.Errorf("get non-host debug pod: %w", err)
+	}
 	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Kube, nonHostPod.Namespace, nonHostPod.Name, cmd)
-	require.NoErrorf(s.T, err, "failed to execute command on pod: %v", cmd)
-	return execResult
+	if err != nil {
+		return nil, fmt.Errorf("execute command %q on unprivileged pod: %w", cmd, err)
+	}
+	return execResult, nil
 }
 
-func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecResult {
+func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) (*podExecResult, error) {
 	s.T.Helper()
 	result, err := execScriptOnVm(ctx, s, s.Runtime.VM, cmd)
-	require.NoError(s.T, err, "failed to execute command on VM")
-	return result
+	if err != nil {
+		return nil, fmt.Errorf("execute command %q on VM: %w", cmd, err)
+	}
+	return result, nil
 }
 
-func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario, cmd string, expectedExitCode int, additionalErrorMessage string) *podExecResult {
+func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario, cmd string, expectedExitCode int, additionalErrorMessage string) (*podExecResult, error) {
 	s.T.Helper()
-	execResult := execScriptOnVMForScenario(ctx, s, cmd)
+	execResult, err := execScriptOnVMForScenario(ctx, s, cmd)
+	if err != nil {
+		return nil, err
+	}
 
 	expectedExitCodeStr := fmt.Sprint(expectedExitCode)
 	if expectedExitCodeStr != execResult.exitCode {
 		s.T.Logf("Command: %s\nStdout: %s\nStderr: %s", cmd, execResult.stdout, execResult.stderr)
-		s.T.Fatalf("expected exit code %s, but got %s\nCommand: %s\n%s", expectedExitCodeStr, execResult.exitCode, cmd, additionalErrorMessage)
+		return execResult, fmt.Errorf("expected exit code %s, got %s for command %q: %s", expectedExitCodeStr, execResult.exitCode, cmd, additionalErrorMessage)
 	}
-	return execResult
+	return execResult, nil
 }
 
 // isRetryableConnectionError checks if the error is a transient connection issue that should be retried

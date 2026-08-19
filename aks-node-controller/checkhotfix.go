@@ -3,15 +3,12 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -23,30 +20,33 @@ import (
 )
 
 // check-hotfix reads the hotfix pointer from the live-patching-service (LPS) over the
-// IMDS-attested SNI path that is reachable pre-kubelet, then writes it to the same path
+// IMDS-attested gRPC path that is reachable pre-kubelet, then writes it to the same path
 // download-hotfix already reads. download-hotfix then re-resolves the pointer against the
 // node's baked ANC version and keeps its unchanged patch-only, strictly-higher gating.
 // check-hotfix only fetches and stages the pointer; it never installs anything and never
 // blocks provisioning (fail-open).
+//
+// The wire transport is gRPC (GetComponentConfig) and lives in checkhotfix_grpc.go; this file
+// holds the transport-independent domain logic: the IMDS attested-token fetch, node-config
+// endpoint resolution, the benign-vs-fatal taxonomy, and the fail-open fetch/parse/stage
+// workflow.
 const (
-	// lpsSNIHost is the live-patching-service SNI/Host that the kube-api-proxy envoy on the
-	// apiserver front routes to the LPS backend. The TLS handshake pins this as ServerName
-	// while the TCP connection is forced to the apiserver FQDN (the curl --resolve trick),
-	// giving the faithful end-to-end path node -> SNI(lpsSNIHost) -> envoy -> LPS.
-	lpsSNIHost = "aks-security-patch.data.mcr.microsoft.com"
+	// lpsALPNProto is the ALPN protocol the kube-api-proxy envoy uses to route the TLS connection
+	// to the live-patching-service (LPS) gRPC backend. The client dials the apiserver FQDN as SNI
+	// (riding the existing apiserver egress rule) and advertises this ALPN value; envoy then
+	// forwards the stream to LPS. It is the ALPN-based successor to the legacy special-SNI route.
+	lpsALPNProto = "aks-live-patching"
+
+	// alpnH2Proto is the HTTP/2 ALPN identifier gRPC negotiates over TLS. We advertise it alongside
+	// lpsALPNProto so envoy routes on the custom proto while the gRPC transport still negotiates h2.
+	// grpc-go's credentials.NewTLS appends "h2" to NextProtos itself, but listing it explicitly keeps
+	// the on-wire ALPN set self-documenting.
+	alpnH2Proto = "h2"
 
 	// lpsAPIServerPort is the HTTPS port the apiserver front (and thus the LPS path) listens on.
+	// Envoy forwards the matched ALPN stream to the LPS backend internally; the client only ever
+	// dials the apiserver front here.
 	lpsAPIServerPort = "443"
-
-	// lpsHotfixPath is the LPS route serving the base->hotfix pointer map.
-	//
-	// TODO(provisioning-hotfix): this route and its response schema are a planned-maintenance
-	// LPS-endpoint deliverable that is NOT finalized yet. The connectivity prototype only
-	// proved reachability of the LPS read path (/v1/packages). Replace this placeholder with
-	// the real route once the LPS endpoint contract is published. The expected response body
-	// is the {"hotfixes":{"<YYYYMM.DD base>":"<YYYYMM.DD.PATCH>"}} JSON object that parses
-	// directly into the shared hotfixConfig type (see parseHotfixConfig).
-	lpsHotfixPath = "/v1/anc-hotfix"
 
 	// imdsAttestedDocURL returns the IMDS attested-data document, whose signature is used as
 	// the LPS Authorization token. IMDS is reachable pre-kubelet (the same primitive Secure
@@ -56,19 +56,16 @@ const (
 
 // Timeout tuning for the IMDS and LPS fetches. The generic transport/retry mechanics live in
 // the common package (common.NewBaseTransport + common.RetryStringFetch); these constants are
-// the domain-specific budgets this command layers on top. This file otherwise keeps only the
-// domain logic: the LPS endpoint identity (SNI host, route), the TLS/CA build, the forced dial,
-// the attested-token parsing, and the fail-open fetch/parse/stage workflow.
+// the domain-specific budgets this command layers on top.
 const (
-	// LPS timeouts. The LPS GET is on the provisioning critical path, so every phase fails
-	// fast; lpsFetchTimeout bounds the whole round-trip. A too-tight deadline is safe because
-	// check-hotfix is fail-open and falls back to the cold-start pointer. lpsFetchTimeout is
-	// the single knob to loosen if private-cluster fronts prove slower (Cameron flagged that
-	// possibility); the per-phase connect/handshake budgets can stay tight.
-	lpsDialTimeout           = 2 * time.Second // TCP connect to the apiserver front
-	lpsTLSHandshakeTimeout   = 2 * time.Second // envoy TLS negotiation
-	lpsResponseHeaderTimeout = 2 * time.Second // server time-to-first-byte
-	lpsFetchTimeout          = 3 * time.Second // overall (ctx + http.Client.Timeout)
+	// lpsFetchTimeout bounds the whole LPS gRPC round-trip (cold connect + RPC, no retry). It is a
+	// balance, not merely "tight": too short misses a hotfix from a slow-but-reachable LPS (we fall
+	// back to the possibly-stale cold-start pointer); too long delays provisioning when the front
+	// is unreachable. 3s is a starting point to tune from production: the CheckHotfix event records
+	// outcome + durationMs, so a too-tight deadline surfaces as customDataFallback/failed events
+	// with durationMs near this budget. Revisit with real traffic (private-cluster fronts may be
+	// slower).
+	lpsFetchTimeout = 3 * time.Second // overall gRPC round-trip (cold connect + RPC)
 
 	// IMDS timeouts. IMDS is a link-local endpoint (169.254.169.254) that is normally
 	// near-instant, so these are tighter than the LPS knobs. imdsFetchTimeout bounds a single
@@ -98,10 +95,9 @@ const (
 	// outcomeNoHotfixForBase: LPS read OK but no entry matched this node's YYYYMM.DD base.
 	outcomeNoHotfixForBase checkHotfixOutcome = "noHotfixForBase"
 	// outcomeNoHotfixAvailable: the LPS was reachable and the request was well-formed, but it
-	// returned no hotfix for this node (HTTP 401/403/404). This simply means the LPS has
-	// nothing published for this node yet (e.g. the planned-maintenance hotfix route is not
-	// serving content for it). It is the expected steady state, so it is a benign no-op: no
-	// overlay is staged and it is never treated as a failure.
+	// returned no hotfix for this node (gRPC Unauthenticated/PermissionDenied/NotFound). This
+	// simply means the LPS has nothing published for this node yet. It is the expected steady
+	// state, so it is a benign no-op: no overlay is staged and it is never treated as a failure.
 	outcomeNoHotfixAvailable checkHotfixOutcome = "noHotfixAvailable"
 	// outcomeCustomDataFallback: LPS read failed; the embedded customdata pointer was used.
 	outcomeCustomDataFallback checkHotfixOutcome = "customDataFallback"
@@ -109,46 +105,29 @@ const (
 	outcomeFailed checkHotfixOutcome = "failed"
 )
 
-// lpsUnavailableError marks a benign LPS response that means "no hotfix is available for this
-// node yet" rather than a failure. It is returned for HTTP 401, 403, and 404, all of which mean
-// the LPS is reachable but has nothing published for this node. check-hotfix must not classify
-// it as a hard failure or retry it.
-type lpsUnavailableError struct {
-	statusCode int
-}
-
-func (e *lpsUnavailableError) Error() string {
-	return fmt.Sprintf("LPS has no hotfix available for this node (status %d)", e.statusCode)
-}
+// errLPSUnavailable is a benign sentinel meaning "no hotfix is available for this node yet"
+// rather than a failure. It is returned (wrapped with the specific gRPC code for diagnosis) for
+// the gRPC Unauthenticated/PermissionDenied/NotFound codes, all of which mean the LPS is reachable
+// but has nothing published for this node. check-hotfix must not classify it as a hard failure or
+// retry it. A plain sentinel suffices because the code is only carried in the message, never read
+// programmatically; classification is by identity via isLPSUnavailable.
+var errLPSUnavailable = errors.New("LPS has no hotfix available for this node")
 
 // isLPSUnavailable reports whether err is a benign "nothing for this node yet" LPS response.
 func isLPSUnavailable(err error) bool {
-	var u *lpsUnavailableError
-	return errors.As(err, &u)
-}
-
-// lpsHTTPError is a non-2xx LPS response that is NOT the benign 401/403/404 set. It carries the
-// status code so the caller can distinguish a reachable-but-erroring server from a transport
-// failure. A 4xx here means the server was reached and rejected the request (e.g. 400/429), so
-// the cold-start pointer (which may be stale) must NOT be staged; a 5xx means the server is
-// broken/overloaded, for which cold-start fallback is appropriate.
-type lpsHTTPError struct {
-	statusCode int
-}
-
-func (e *lpsHTTPError) Error() string {
-	return fmt.Sprintf("LPS returned status %d", e.statusCode)
+	return errors.Is(err, errLPSUnavailable)
 }
 
 // shouldColdStartFallback reports whether a failed LPS fetch should fall back to the embedded
 // cold-start pointer. Fallback is only appropriate when the LPS could not be reached or talked
-// to: transport/pre-network errors (no HTTP status) and server errors (5xx). A reachable LPS
-// that returns a non-benign 4xx (e.g. 400/429) is authoritative that the request was bad, not a
-// reason to stage a possibly-stale cold-start pointer.
+// to: transport/pre-network errors (no gRPC status) and server-side conditions
+// (Unavailable/DeadlineExceeded/Internal). A reachable LPS that returns an authoritative client
+// rejection (InvalidArgument/ResourceExhausted) is not a reason to stage a possibly-stale
+// cold-start pointer. See mapGRPCError for the code -> fallbackAllowed classification.
 func shouldColdStartFallback(err error) bool {
-	var httpErr *lpsHTTPError
-	if errors.As(err, &httpErr) {
-		return httpErr.statusCode >= 500
+	var grpcErr *lpsGRPCStatusError
+	if errors.As(err, &grpcErr) {
+		return grpcErr.fallbackAllowed
 	}
 	return true
 }
@@ -213,11 +192,23 @@ func (a *App) checkHotfix(ctx context.Context) (checkHotfixOutcome, error) {
 		return outcomeFailed, fmt.Errorf("parsing LPS hotfix pointer: %w", err)
 	}
 
-	// stagedHotfixConfig is the exact shape writeHotfixConfig persists (map-only; the legacy
+	// An empty served hotfixes map means the LPS is reachable but has nothing published for
+	// this node's fleet yet - the expected steady state while the component exists but carries
+	// no entries. Treat it exactly like a benign NotFound: do NOT write, leaving the shared
+	// on-disk pointer (which cloud-init populated with version/scripts_version) intact, and
+	// report the benign no-op outcome. Writing an empty map here would clobber those fields and
+	// silently disable the cloud-init provisioning-hotfix path. This also makes a 200-"{}"
+	// response behave identically to a 404, and folds in the empty-body-is-benign parse case.
+	if len(cfg.Hotfixes) == 0 {
+		slog.Info("LPS returned no hotfixes for this node; leaving existing pointer intact (fail-open)")
+		return outcomeNoHotfixAvailable, nil
+	}
+
+	// stagedHotfixConfig is the exact shape writeHotfixConfig merges in (map-only; the legacy
 	// Version field is dropped). Basing both the write and the telemetry decision on this same
 	// value keeps the reported outcome consistent with what download-hotfix will actually read:
-	// a legacy-only pointer stages nothing resolvable, so it must report noHotfixForBase, not
-	// LPSRead.
+	// a pointer with no entry for this node's base stages nothing resolvable, so it must report
+	// noHotfixForBase, not LPSRead.
 	staged := hotfixConfig{Hotfixes: cfg.Hotfixes}
 
 	if err := writeHotfixConfig(hotfixPath, staged); err != nil {
@@ -278,75 +269,14 @@ func helpersEventLevel(outcome checkHotfixOutcome) helpers.EventLevel {
 	return helpers.EventLevelInformational
 }
 
-// fetchHotfix returns the raw LPS response body. Tests inject checkHotfixFetcher to supply
-// canned pointer JSON or errors without networking.
+// fetchHotfix returns the raw LPS response bytes. Tests inject checkHotfixFetcher to supply
+// canned pointer JSON or errors without networking; otherwise it fetches over gRPC
+// (GetComponentConfig), the sole live-patching-service transport.
 func (a *App) fetchHotfix(ctx context.Context) ([]byte, error) {
 	if a.checkHotfixFetcher != nil {
 		return a.checkHotfixFetcher(ctx)
 	}
-	return a.fetchHotfixFromLPS(ctx)
-}
-
-// fetchHotfixFromLPS performs the real network GET against the LPS over the IMDS-attested
-// SNI path. It sources the apiserver FQDN and cluster CA from the AKSNodeConfig that ANC
-// already parses, pins the TLS ServerName to lpsSNIHost while forcing the TCP dial to the
-// FQDN, attaches the IMDS attested-data token as the Authorization header, and returns the
-// raw response body. A 2xx returns the body; 401/403/404 are surfaced as a benign
-// lpsUnavailableError ("nothing for this node yet"); any other non-2xx is surfaced as a typed
-// lpsHTTPError carrying the status so the caller can distinguish a reachable-but-erroring server
-// (non-benign 4xx -> no cold-start fallback) from a server/transport failure (5xx / transport
-// error -> cold-start fallback).
-func (a *App) fetchHotfixFromLPS(ctx context.Context) ([]byte, error) {
-	fqdn, caPEM, err := a.lpsTargetFromNodeConfig()
-	if err != nil {
-		return nil, fmt.Errorf("resolving LPS endpoint from node config: %w", err)
-	}
-
-	token, err := a.attestedToken(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("imds attested token: %w", err)
-	}
-
-	client, caSource, err := buildLPSHTTPClient(fqdn, caPEM)
-	if err != nil {
-		return nil, fmt.Errorf("building LPS http client: %w", err)
-	}
-	// caSource records the TLS trust source (the provision-config CA) for diagnosis.
-	slog.Info("check-hotfix LPS TLS trust source", "caSource", caSource, "dialHost", fqdn)
-
-	ctx, cancel := context.WithTimeout(ctx, lpsFetchTimeout)
-	defer cancel()
-
-	url := "https://" + net.JoinHostPort(lpsSNIHost, lpsAPIServerPort) + lpsHotfixPath
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("building request: %w", err)
-	}
-	req.Header.Set("Authorization", token)
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("GET %s: %w", url, err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return nil, fmt.Errorf("reading response body: %w", err)
-	}
-	switch {
-	case resp.StatusCode >= 200 && resp.StatusCode < 300:
-		return body, nil
-	case resp.StatusCode == http.StatusUnauthorized,
-		resp.StatusCode == http.StatusForbidden,
-		resp.StatusCode == http.StatusNotFound:
-		// Benign: reachable LPS with no hotfix published for this node yet.
-		// Surfaced as a typed error so the caller treats it as a no-op, not a failure.
-		return nil, &lpsUnavailableError{statusCode: resp.StatusCode}
-	default:
-		return nil, &lpsHTTPError{statusCode: resp.StatusCode}
-	}
+	return a.fetchHotfixOverGRPC(ctx)
 }
 
 // lpsTargetFromNodeConfig reads the apiserver FQDN (the forced dial target) and the cluster
@@ -461,53 +391,19 @@ func fetchIMDSAttestedTokenOnce(ctx context.Context) (string, error) {
 	return doc.Signature, nil
 }
 
-// buildLPSHTTPClient builds the HTTP client for the LPS fetch: TLS ServerName pinned to
-// lpsSNIHost, the TCP dial forced to dialHost:443 (the curl --resolve equivalent), and
-// RootCAs from the cluster CA. It returns the client and a string describing the TLS trust
-// source ("provision-config") for diagnostics, with a short timeout so provisioning is never
-// delayed.
-//
-// The cluster CA from the provision-config is REQUIRED. Without it the LPS server certificate
-// cannot be verified, and rather than weaken TLS (InsecureSkipVerify) we return an error so
-// the caller fails open (no overlay staged) instead of trusting an unverified channel.
-func buildLPSHTTPClient(dialHost string, caPEM []byte) (*http.Client, string, error) {
-	if len(caPEM) == 0 {
-		return nil, "", fmt.Errorf("cluster CA unavailable from provision-config; refusing to fetch over unverified TLS")
-	}
-	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM(caPEM) {
-		return nil, "", fmt.Errorf("failed to parse cluster CA PEM")
-	}
-	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12, ServerName: lpsSNIHost, RootCAs: pool}
-	caSource := "provision-config"
-
-	// api_server_name may arrive with a scheme already stripped but still carry a port
-	// (e.g. "host:443"); normalize to a bare hostname so JoinHostPort does not produce an
-	// invalid "[host:443]:443" address.
-	host := dialHost
-	if h, _, splitErr := net.SplitHostPort(dialHost); splitErr == nil {
-		host = h
-	}
-	dialAddr := net.JoinHostPort(host, lpsAPIServerPort)
-	transport := common.NewBaseTransport(common.HTTPTransportOptions{
-		DialTimeout:           lpsDialTimeout,
-		TLSHandshakeTimeout:   lpsTLSHandshakeTimeout,
-		ResponseHeaderTimeout: lpsResponseHeaderTimeout,
-		TLSConfig:             tlsConfig,
-		// Force every dial to the apiserver front regardless of the SNI/Host (lpsSNIHost) in
-		// the request URL -- the curl --resolve equivalent.
-		DialAddrOverride: dialAddr,
-	})
-	return &http.Client{Timeout: lpsFetchTimeout, Transport: transport}, caSource, nil
-}
-
 // parseHotfixConfig extracts the hotfix pointer from an LPS response body. The body is the
 // {"hotfixes":{...}} JSON object that unmarshals DIRECTLY into the shared 2.1a hotfixConfig,
 // so check-hotfix and download-hotfix share ONE identical data contract.
+//
+// An empty body is treated as a benign zero-value config (no hotfix), NOT an error: a
+// conformant LPS serves "{}" for an empty map, but a successful RPC with an unset config
+// string (proto3 default "") means the same thing - the service is reachable and has nothing
+// for this node. Erroring there would surface a false "failed" outcome on an otherwise OK
+// call. This mirrors download-hotfix's readHotfixConfig, which also maps empty -> zero value.
 func parseHotfixConfig(data []byte) (hotfixConfig, error) {
 	data = bytes.TrimSpace(data)
 	if len(data) == 0 {
-		return hotfixConfig{}, fmt.Errorf("LPS response body is empty")
+		return hotfixConfig{}, nil
 	}
 	var cfg hotfixConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
@@ -517,15 +413,17 @@ func parseHotfixConfig(data []byte) (hotfixConfig, error) {
 }
 
 // coldStartHotfixConfig reads a LENIENT top-level "hotfixes" object from the AKSNodeConfig
-// JSON. This is the PoC cold-start fallback used only when the LPS endpoint could not be
-// reached or talked to (transport failure / 5xx). A benign 401/403/404 is NOT a cold-start:
-// the LPS authoritatively has nothing for this node, so that path stages no overlay.
+// JSON (aks-node-controller-config.json) as a best-effort cold-start fallback, used only when
+// the LPS endpoint could not be reached or talked to (transport failure / 5xx). A benign
+// 401/403/404 is NOT a cold-start: the LPS authoritatively has nothing for this node, so that
+// path stages no overlay.
 //
-// TODO(provisioning-hotfix): There is no formalized AKSNodeConfig contract field for the
-// embedded pointer yet - the control-plane side that would populate a typed field is not
-// built. Once that contract exists, replace this lenient top-level read with the typed field
-// and drop the permissive JSON shape. Until then we read it best-effort and never fail
-// provisioning.
+// This top-level key is out-of-contract: AKSNodeConfig has no typed "hotfixes" field and none
+// is planned, so nothing populates it in practice - this read is a no-op on every real node and
+// never fails provisioning. The authoritative provisioning-time pointer is the customdata-
+// delivered aks-node-controller-hotfix.json (defaultHotfixVersionPath), which download-hotfix
+// consumes directly. This lenient read is therefore a candidate for removal once confirmed
+// unused; it is retained here only to preserve the pre-existing fail-open fallback behavior.
 func (a *App) coldStartHotfixConfig() (hotfixConfig, bool, error) {
 	path := a.getNodeConfigPath()
 	raw, err := os.ReadFile(path)
@@ -550,23 +448,40 @@ func (a *App) coldStartHotfixConfig() (hotfixConfig, bool, error) {
 	return hotfixConfig{Hotfixes: lenient.Hotfixes}, true, nil
 }
 
-// writeHotfixConfig writes the resolved config to the path download-hotfix reads, in the
-// exact {"hotfixes":{...}} shape so download-hotfix re-resolves and applies its unchanged
-// gating. The write is atomic (temp file + rename) so a concurrent reader never sees a
-// partial file.
+// writeHotfixConfig stages the LPS-served hotfixes map to the path download-hotfix reads.
+// It is a read-modify-write: the shared file at defaultHotfixVersionPath is ALSO written by
+// cloud-init (from hotfix_generate.py) carrying "version" and "scripts_version", which
+// download-hotfix reads to drive the binary and CSE-scripts hotfix respectively. To avoid
+// clobbering those fields, this preserves whatever the existing file holds and replaces only
+// the "hotfixes" map with the served one. The write is atomic (temp file + rename) so a
+// concurrent reader never sees a partial file.
 func writeHotfixConfig(path string, cfg hotfixConfig) error {
-	// Only persist the map shape; the legacy Version field is intentionally omitted so the
-	// on-disk contract matches what the live-patching-service publishes. Marshal a dedicated
-	// struct without omitempty (and normalize nil -> empty map) so the staged file always has
-	// a stable top-level "hotfixes" key, i.e. {"hotfixes":{}} rather than {} for an empty map.
-	// hotfixConfig.Hotfixes carries omitempty for its own read path, so it must not be reused here.
+	// Read-modify-write: carry forward cloud-init's version/scripts_version. If the existing
+	// file is missing or unreadable we proceed with empty carry-over fields (best-effort,
+	// fail-open); it was already unusable to download-hotfix in that case.
+	existing, err := readHotfixConfig(path)
+	if err != nil {
+		slog.Warn("could not read existing hotfix pointer; version/scripts_version will not be preserved",
+			"path", path, "error", err)
+		existing = &hotfixConfig{}
+	}
+
+	// Normalize nil -> empty map so the staged file always has a stable top-level "hotfixes"
+	// key, i.e. {"hotfixes":{}} rather than {} for an empty map. hotfixConfig.Hotfixes carries
+	// omitempty for its own read path, so it must not be reused here.
 	hotfixes := cfg.Hotfixes
 	if hotfixes == nil {
 		hotfixes = map[string]string{}
 	}
 	out := struct {
-		Hotfixes map[string]string `json:"hotfixes"`
-	}{Hotfixes: hotfixes}
+		Version        string            `json:"version,omitempty"`
+		ScriptsVersion string            `json:"scripts_version,omitempty"`
+		Hotfixes       map[string]string `json:"hotfixes"`
+	}{
+		Version:        existing.Version,
+		ScriptsVersion: existing.ScriptsVersion,
+		Hotfixes:       hotfixes,
+	}
 	data, err := json.Marshal(out)
 	if err != nil {
 		return fmt.Errorf("marshaling hotfix config: %w", err)

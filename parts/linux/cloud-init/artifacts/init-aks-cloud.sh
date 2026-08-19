@@ -637,10 +637,9 @@ fi
 # - init (default): full provisioning path
 # - ca-refresh <location>: periodic refresh path; location is passed as arg to avoid env dependency
 action=${1:-init}
-if [ "$action" = "ca-refresh" ]; then
-    exit
+if [ "$action" = "ca-refresh" ] || [ "$install_ca_refresh_schedule" -eq 0 ]; then
+    exit 0
 fi
-
 
 if [ "$IS_UBUNTU" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
     scriptPath=$0
@@ -650,25 +649,22 @@ if [ "$IS_UBUNTU" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1
         scriptPath="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
     fi
 
-    if [ "$install_ca_refresh_schedule" -eq 1 ]; then
-        # Remove any existing ca-refresh entry for this script (may lack the location argument
-        # from older VHDs on custom clouds like AGC/Delos) and re-add with the explicit location.
-        # Without the location argument, ca-refresh defaults endpoint mode to rcv1p which is
-        # wrong for ussec/usnat legacy environments.
-        new_entry="0 19 * * * \"$scriptPath\" ca-refresh \"$LOCATION\""
-        existing=$(crontab -l 2>/dev/null || true)
-        filtered=$(printf '%s\n' "$existing" | grep -F -v "\"$scriptPath\" ca-refresh" || true)
-        if ! (printf '%s\n' "$filtered"; printf '%s\n' "$new_entry") | sed '/^$/d' | crontab -; then
-            echo "Failed to install ca-refresh cron job via crontab" >&2
-        fi
+    # Remove any existing ca-refresh entry for this script (may lack the location argument
+    # from older VHDs on custom clouds like AGC/Delos) and re-add with the explicit location.
+    # Without the location argument, ca-refresh defaults endpoint mode to rcv1p which is
+    # wrong for ussec/usnat legacy environments.
+    new_entry="0 19 * * * \"$scriptPath\" ca-refresh \"$LOCATION\""
+    existing=$(crontab -l 2>/dev/null || true)
+    filtered=$(printf '%s\n' "$existing" | grep -F -v "\"$scriptPath\" ca-refresh" || true)
+    if ! (printf '%s\n' "$filtered"; printf '%s\n' "$new_entry") | sed '/^$/d' | crontab -; then
+        echo "Failed to install ca-refresh cron job via crontab" >&2
     fi
 elif [ "$IS_FLATCAR" -eq 1 ] || [ "$IS_ACL" -eq 1 ]; then
-    if [ "$install_ca_refresh_schedule" -eq 1 ]; then
-        script_path="$(readlink -f "$0")"
-        svc="/etc/systemd/system/azure-ca-refresh.service"
-        tmr="/etc/systemd/system/azure-ca-refresh.timer"
+    script_path="$(readlink -f "$0")"
+    svc="/etc/systemd/system/azure-ca-refresh.service"
+    tmr="/etc/systemd/system/azure-ca-refresh.timer"
 
-        cat >"$svc" <<EOF
+    cat >"$svc" <<EOF
 [Unit]
 Description=Refresh Azure Custom Cloud CA certificates
 After=network-online.target
@@ -692,9 +688,8 @@ RandomizedDelaySec=300
 WantedBy=timers.target
 EOF
 
-        systemctl daemon-reload
-        systemctl enable --now azure-ca-refresh.timer
-    fi
+    systemctl daemon-reload
+    systemctl enable --now azure-ca-refresh.timer
 fi
 
 if [ "$IS_UBUNTU" -eq 1 ]; then
@@ -735,7 +730,7 @@ fi
 if [ "$IS_ACL" -eq 1 ]; then
     echo "Skipping chrony configuration for ACL (PTP clock baked into chronyd, no external NTP sources)"
 elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
-cat > /etc/chrony.conf <<EOF
+    cat > /etc/chrony.conf <<EOF
 # This directive specify the location of the file containing ID/key pairs for
 # NTP authentication.
 keyfile /etc/chrony.keys
@@ -762,22 +757,22 @@ refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
 makestep 1.0 -1
 EOF
 
-systemctl restart chronyd
+    systemctl restart chronyd
 else
-chrony_conf="/etc/chrony/chrony.conf"
-if [ "$IS_UBUNTU" -eq 1 ]; then
-    systemctl stop systemd-timesyncd
-    systemctl disable systemd-timesyncd
+    chrony_conf="/etc/chrony/chrony.conf"
+    if [ "$IS_UBUNTU" -eq 1 ]; then
+        systemctl stop systemd-timesyncd
+        systemctl disable systemd-timesyncd
 
-    if [ ! -e "$chrony_conf" ]; then
-        apt-get update
-        apt-get install chrony -y
+        if [ ! -e "$chrony_conf" ]; then
+            apt-get update
+            apt-get install chrony -y
+        fi
+    elif [ "$IS_FLATCAR" -eq 1 ]; then
+        rm -f ${chrony_conf}
     fi
-elif [ "$IS_FLATCAR" -eq 1 ]; then
-    rm -f ${chrony_conf}
-fi
 
-cat > $chrony_conf <<EOF
+    cat > $chrony_conf <<EOF
 # Welcome to the chrony configuration file. See chrony.conf(5) for more
 # information about usuable directives.
 
@@ -825,11 +820,11 @@ refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
 makestep 1.0 -1
 EOF
 
-if [ "$IS_UBUNTU" -eq 1 ]; then
-    systemctl restart chrony
-elif [ "$IS_FLATCAR" -eq 1 ]; then
-    systemctl restart chronyd
-fi
+    if [ "$IS_UBUNTU" -eq 1 ]; then
+        systemctl restart chrony
+    elif [ "$IS_FLATCAR" -eq 1 ]; then
+        systemctl restart chronyd
+    fi
 fi
 
 #EOF
