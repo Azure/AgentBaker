@@ -3396,12 +3396,16 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 
 // iptablesRuleMatchesAnyPattern reports whether rule is accounted for by any of the given
 // allowlist patterns. A pattern matches either as a regular expression or as a literal
-// substring, so plain (unescaped) entries in the allowlist keep working.
+// substring, so plain entries pasted straight out of `iptables -S` keep working even when they
+// are not valid regular expressions.
 //
-// An invalid pattern is returned as an error rather than treated as "no match": otherwise a
-// typo in the allowlist silently degrades into a confusing "unsupported iptables rule"
-// failure across every scenario.
+// A pattern that fails to compile still gets its literal-substring chance. It is only reported
+// as an error if the rule went unmatched overall, because in that case the malformed pattern is
+// the likely culprit and would otherwise silently degrade into a confusing "unsupported
+// iptables rule" failure across every scenario.
 func iptablesRuleMatchesAnyPattern(rule string, patterns []string) (bool, error) {
+	var firstErr error
+
 	for _, pattern := range patterns {
 		pattern = strings.TrimSpace(pattern)
 		if pattern == "" {
@@ -3409,8 +3413,8 @@ func iptablesRuleMatchesAnyPattern(rule string, patterns []string) (bool, error)
 		}
 
 		matched, err := regexp.MatchString(pattern, rule)
-		if err != nil {
-			return false, fmt.Errorf("invalid iptables allowlist pattern %q: %w", pattern, err)
+		if err != nil && firstErr == nil {
+			firstErr = fmt.Errorf("invalid iptables allowlist pattern %q: %w", pattern, err)
 		}
 		if matched {
 			return true, nil
@@ -3422,7 +3426,7 @@ func iptablesRuleMatchesAnyPattern(rule string, patterns []string) (bool, error)
 		}
 	}
 
-	return false, nil
+	return false, firstErr
 }
 
 // ValidateAppArmorBasic validates that AppArmor is running without requiring aa-status

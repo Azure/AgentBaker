@@ -120,10 +120,25 @@ func Test_iptablesRuleMatchesAnyPattern(t *testing.T) {
 			wantMatch: false,
 		},
 		{
-			name:     "invalid pattern is reported",
+			name:     "invalid pattern is reported when nothing matches",
 			rule:     `-A OUTPUT -j DROP`,
 			patterns: []string{`^-A (OUTPUT`},
 			wantErr:  true,
+		},
+		{
+			// An entry pasted verbatim out of `iptables -S` need not be a valid regex. It must
+			// still get its literal-substring chance, and must not be reported as an error once
+			// the rule is accounted for.
+			name:      "invalid pattern still matches literally",
+			rule:      `-A OUTPUT -m comment --comment "kube-proxy (v1.31" -j ACCEPT`,
+			patterns:  []string{`--comment "kube-proxy (v1.31"`},
+			wantMatch: true,
+		},
+		{
+			name:      "invalid pattern is not reported when a later pattern matches",
+			rule:      `-A OUTPUT -j DROP`,
+			patterns:  []string{`^-A (OUTPUT`, `^-A OUTPUT -j DROP$`},
+			wantMatch: true,
 		},
 	}
 
