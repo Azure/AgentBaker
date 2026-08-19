@@ -7,10 +7,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"net"
 	"os"
+	"reflect"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -20,14 +23,13 @@ import (
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 
+	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/nodeexporter"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	certv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
@@ -37,128 +39,162 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
+func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) error {
 	switch s.VHD.OS {
 	case config.OSWindows:
-		validateTLSBootstrappingWindows(ctx, s)
+		return validateTLSBootstrappingWindows(ctx, s)
 	default:
-		validateTLSBootstrappingLinux(ctx, s)
+		return validateTLSBootstrappingLinux(ctx, s)
 	}
 }
 
-func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
-	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout
+func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) error {
+	kubeletLogsResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl")
+	if err != nil {
+		return fmt.Errorf("retrieve kubelet logs with journalctl: %w", err)
+	}
+	kubeletLogs := kubeletLogsResult.stdout
+
+	var errs []error
 	switch {
 	case s.SecureTLSBootstrappingEnabled() && s.Tags.BootstrapTokenFallback:
 		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping failure with bootstrap token fallback")
-		require.True(
-			s.T,
+		errs = append(errs, assert.Equal(
 			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
+			true,
 			"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
-		)
+		))
 	case s.SecureTLSBootstrappingEnabled():
 		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping")
-		ValidateSystemdUnitIsRunning(ctx, s, "secure-tls-bootstrap")
-		validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx, s)
-		require.True(
-			s.T,
-			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "client credential already exists within kubeconfig"),
-			"expected to already have a valid kubeconfig before kubelet start-up obtained through secure TLS bootstrapping, but did not",
+		errs = append(errs,
+			ValidateSystemdUnitIsRunning(ctx, s, "secure-tls-bootstrap"),
+			validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx, s),
+			assert.Equal(
+				!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "client credential already exists within kubeconfig"),
+				true,
+				"expected to already have a valid kubeconfig before kubelet start-up obtained through secure TLS bootstrapping, but did not",
+			),
 		)
 	default:
 		s.T.Logf("will validate bootstrapping mode: bootstrap token")
-		ValidateSystemdUnitIsNotRunning(ctx, s, "secure-tls-bootstrap")
-		ValidateSystemdUnitIsNotFailed(ctx, s, "secure-tls-bootstrap")
-		require.True(
-			s.T,
-			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
-			"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
+		errs = append(errs,
+			ValidateSystemdUnitIsNotRunning(ctx, s, "secure-tls-bootstrap"),
+			ValidateSystemdUnitIsNotFailed(ctx, s, "secure-tls-bootstrap"),
+			assert.Equal(
+				!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
+				true,
+				"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
+			),
 		)
 	}
 	if s.KubeletConfigFileEnabled() {
-		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"rotateCertificates\": true")
+		errs = append(errs, ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"rotateCertificates\": true"))
 	} else {
-		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-certificates=true")
+		errs = append(errs, ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-certificates=true"))
 	}
-	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"})
-	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-client-current.pem"})
+	errs = append(errs,
+		ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"}),
+		ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-client-current.pem"}),
+	)
+	return errors.Join(errs...)
 }
 
-func validateTLSBootstrappingWindows(ctx context.Context, s *Scenario) {
-	ValidateWindowsProcessContainsArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true"})
-	ValidateDirectoryContent(ctx, s, "c:\\k", []string{" config "})
-	ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet-client-current.pem"})
+func validateTLSBootstrappingWindows(ctx context.Context, s *Scenario) error {
+	errs := []error{
+		ValidateWindowsProcessContainsArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true"}),
+		ValidateDirectoryContent(ctx, s, "c:\\k", []string{" config "}),
+		ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet-client-current.pem"}),
+	}
 	switch {
 	case s.SecureTLSBootstrappingEnabled() && s.Tags.BootstrapTokenFallback:
 		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping failure with bootstrap token fallback")
 		// nothing to validate other than node readiness
 	case s.SecureTLSBootstrappingEnabled():
 		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping")
-		validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx, s)
+		errs = append(errs, validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx, s))
 	default:
 		s.T.Logf("will validate bootstrapping mode: bootstrap token")
 		// nothing to validate other than node readiness
 	}
+	return errors.Join(errs...)
 }
 
-func ValidateKubeletServingCertificateRotation(ctx context.Context, s *Scenario) {
+func ValidateKubeletServingCertificateRotation(ctx context.Context, s *Scenario) error {
 	switch s.VHD.OS {
 	case config.OSWindows:
-		validateKubeletServingCertificateRotationWindows(ctx, s)
+		return validateKubeletServingCertificateRotationWindows(ctx, s)
 	default:
-		validateKubeletServingCertificateRotationLinux(ctx, s)
+		return validateKubeletServingCertificateRotationLinux(ctx, s)
 	}
 }
 
-func validateKubeletServingCertificateRotationLinux(ctx context.Context, s *Scenario) {
+func validateKubeletServingCertificateRotationLinux(ctx context.Context, s *Scenario) error {
 	if _, ok := s.Runtime.VM.VMSS.Tags["aks-disable-kubelet-serving-certificate-rotation"]; ok {
 		s.T.Logf("linux VMSS has KSCR disablement tag, will validate that KSCR has been disabled")
-		ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
-		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-		if s.KubeletConfigFileEnabled() {
-			ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
-			ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
-			ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
-		} else {
-			ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file")
-			ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file")
-			ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
+		errs := []error{
+			ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"}),
+			ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster"),
 		}
-		return
+		if s.KubeletConfigFileEnabled() {
+			errs = append(errs,
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\""),
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\""),
+				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true"),
+			)
+		} else {
+			errs = append(errs,
+				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file"),
+				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file"),
+				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true"),
+			)
+		}
+		return errors.Join(errs...)
 	}
 	s.T.Logf("will validate linux KSCR enablement")
-	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-server-current.pem"})
-	ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-	if s.KubeletConfigFileEnabled() {
-		ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
-		ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
-		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
-	} else {
-		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file")
-		ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file")
-		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
+	errs := []error{
+		ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-server-current.pem"}),
+		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster"),
 	}
+	if s.KubeletConfigFileEnabled() {
+		errs = append(errs,
+			ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\""),
+			ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\""),
+			ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true"),
+		)
+	} else {
+		errs = append(errs,
+			ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-cert-file"),
+			ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--tls-private-key-file"),
+			ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true"),
+		)
+	}
+	return errors.Join(errs...)
 }
 
-func validateKubeletServingCertificateRotationWindows(ctx context.Context, s *Scenario) {
+func validateKubeletServingCertificateRotationWindows(ctx context.Context, s *Scenario) error {
 	if _, ok := s.Runtime.VM.VMSS.Tags["aks-disable-kubelet-serving-certificate-rotation"]; ok {
 		s.T.Logf("windows VMSS has KSCR disablement tag, will validate that KSCR has been disabled")
-		ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet.crt", "kubelet.key"})
-		ValidateWindowsProcessDoesNotContainArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-server-certificates=true", "kubernetes.azure.com/kubelet-serving-ca=cluster"})
-		return
+		return errors.Join(
+			ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet.crt", "kubelet.key"}),
+			ValidateWindowsProcessDoesNotContainArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-server-certificates=true", "kubernetes.azure.com/kubelet-serving-ca=cluster"}),
+		)
 	}
 	s.T.Logf("will validate windows KSCR enablement")
-	ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet-server-current.pem"})
-	ValidateWindowsProcessContainsArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-server-certificates=true", "kubernetes.azure.com/kubelet-serving-ca=cluster"})
-	ValidateWindowsProcessDoesNotContainArgumentStrings(ctx, s, "kubelet.exe", []string{"--tls-cert-file", "--tls-private-key-file"})
+	return errors.Join(
+		ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet-server-current.pem"}),
+		ValidateWindowsProcessContainsArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-server-certificates=true", "kubernetes.azure.com/kubelet-serving-ca=cluster"}),
+		ValidateWindowsProcessDoesNotContainArgumentStrings(ctx, s, "kubelet.exe", []string{"--tls-cert-file", "--tls-private-key-file"}),
+	)
 }
 
-func validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx context.Context, s *Scenario) {
+func validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx context.Context, s *Scenario) error {
 	fieldSelector := fmt.Sprintf("spec.signerName=%s", certv1.KubeAPIServerClientKubeletSignerName)
 	kubeletClientCSRs, err := s.Runtime.Kube.Typed.CertificatesV1().CertificateSigningRequests().List(ctx, metav1.ListOptions{
 		FieldSelector: fieldSelector,
 	})
-	require.NoError(s.T, err, "failed to list CSRs with field selector: %s", fieldSelector)
+	if err != nil {
+		return fmt.Errorf("list CSRs with field selector %s: %w", fieldSelector, err)
+	}
 	var hasValidCSR bool
 	for _, csr := range kubeletClientCSRs.Items {
 		if len(csr.Status.Certificate) == 0 {
@@ -167,68 +203,88 @@ func validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx context.Context
 		if strings.HasPrefix(strings.ToLower(csr.Spec.Username), "system:bootstrap:") {
 			continue
 		}
-		if getNodeNameFromCSR(s, csr) == s.Runtime.VM.KubeName {
+		nodeName, err := getNodeNameFromCSR(csr)
+		if err != nil {
+			return err
+		}
+		if nodeName == s.Runtime.VM.KubeName {
 			hasValidCSR = true
 			break
 		}
 	}
-	require.True(s.T, hasValidCSR, "expected node %s to have created a kubelet client CSR which was approved and issued, using secure TLS bootstrapping", s.Runtime.VM.KubeName)
+	return assert.Equal(hasValidCSR, true, "expected node %s to have created a kubelet client CSR which was approved and issued, using secure TLS bootstrapping", s.Runtime.VM.KubeName)
 }
 
-func getNodeNameFromCSR(s *Scenario, csr certv1.CertificateSigningRequest) string {
+func getNodeNameFromCSR(csr certv1.CertificateSigningRequest) (string, error) {
 	block, _ := pem.Decode(csr.Spec.Request)
-	require.NotNil(s.T, block)
+	if block == nil {
+		return "", fmt.Errorf("decode PEM block of CSR %q: no PEM data found", csr.Name)
+	}
 	req, err := x509.ParseCertificateRequest(block.Bytes)
-	require.NoError(s.T, err)
-	return strings.TrimPrefix(req.Subject.CommonName, "system:node:")
+	if err != nil {
+		return "", fmt.Errorf("parse certificate request of CSR %q: %w", csr.Name, err)
+	}
+	return strings.TrimPrefix(req.Subject.CommonName, "system:node:"), nil
 }
 
-func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenario) {
+func ValidateSystemdWatchdogForKubernetes132Plus(ctx context.Context, s *Scenario) error {
 	if k8sVersion := s.GetK8sVersion(); k8sVersion != "" && agent.IsKubernetesVersionGe(k8sVersion, "1.32.0") {
 		// Validate systemd watchdog is enabled and configured for kubelet
-		ValidateSystemdUnitIsRunning(ctx, s, "kubelet.service")
-		ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-watchdog.conf", "WatchdogSec=60s")
-		ValidateJournalctlOutput(ctx, s, "kubelet.service", "Starting systemd watchdog with interval")
+		return errors.Join(
+			ValidateSystemdUnitIsRunning(ctx, s, "kubelet.service"),
+			ValidateFileHasContent(ctx, s, "/etc/systemd/system/kubelet.service.d/10-watchdog.conf", "WatchdogSec=60s"),
+			ValidateJournalctlOutput(ctx, s, "kubelet.service", "Starting systemd watchdog with interval"),
+		)
 	}
+	return nil
 }
 
-func ValidateAKSLogCollector(ctx context.Context, s *Scenario) {
-	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-log-collector")
+func ValidateAKSLogCollector(ctx context.Context, s *Scenario) error {
+	return ValidateSystemdUnitIsNotFailed(ctx, s, "aks-log-collector")
 }
 
-func ValidateDiskQueueService(ctx context.Context, s *Scenario) {
-	ValidateSystemdUnitIsRunning(ctx, s, "disk_queue.service")
+func ValidateDiskQueueService(ctx context.Context, s *Scenario) error {
+	return ValidateSystemdUnitIsRunning(ctx, s, "disk_queue.service")
 }
 
-func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
+func ValidateLeakedSecrets(ctx context.Context, s *Scenario) error {
 	secrets := map[string]string{
 		"client private key":       base64.StdEncoding.EncodeToString([]byte(s.GetClientPrivateKey())),
 		"service principal secret": base64.StdEncoding.EncodeToString([]byte(s.GetServicePrincipalSecret())),
 		"bootstrap token":          s.GetTLSBootstrapToken(),
 	}
+	var errs []error
 	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log", "/var/log/azure/aks-node-controller.output"} {
 		for _, secretValue := range secrets {
 			if secretValue != "" {
-				ValidateFileExcludesExactContent(ctx, s, logFile, secretValue)
+				errs = append(errs, ValidateFileExcludesExactContent(ctx, s, logFile, secretValue))
 			}
 		}
 	}
+	return errors.Join(errs...)
 }
 
-func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) {
+func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) error {
 	// Verify SSH service is active and running
-	ValidateSystemdUnitIsRunning(ctx, s, "ssh")
+	errs := []error{ValidateSystemdUnitIsRunning(ctx, s, "ssh")}
 
 	// Verify socket-based activation is disabled
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-active ssh.socket", 3, "could not check ssh.socket status")
-	require.Contains(s.T, execResult.stdout, "inactive", "ssh.socket should be inactive")
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-active ssh.socket", 3, "could not check ssh.socket status")
+	if err != nil {
+		return errors.Join(append(errs, fmt.Errorf("check ssh.socket status: %w", err))...)
+	}
+	errs = append(errs, assert.Contains(execResult.stdout, "inactive", "ssh.socket should be inactive"))
 
 	// Check that systemd recognizes SSH service should be active at boot
-	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-enabled ssh.service", 0, "could not check ssh.service status")
-	require.Contains(s.T, execResult.stdout, "enabled", "ssh.service should be enabled at boot")
+	execResult, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl is-enabled ssh.service", 0, "could not check ssh.service status")
+	if err != nil {
+		return errors.Join(append(errs, fmt.Errorf("check ssh.service status: %w", err))...)
+	}
+	errs = append(errs, assert.Contains(execResult.stdout, "enabled", "ssh.service should be enabled at boot"))
+	return errors.Join(errs...)
 }
 
-func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) {
+func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) error {
 	s.T.Helper()
 	var steps []string
 	if s.IsWindows() {
@@ -242,13 +298,18 @@ func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, fil
 			fmt.Sprintf("sudo ls -la %s", path),
 		}
 	}
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not get directory contents")
-	for _, file := range files {
-		require.Contains(s.T, execResult.stdout, file, "expected to find file %s within directory %s, but did not.\nDirectory contents:\n%s", file, path, execResult.stdout)
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not get directory contents")
+	if err != nil {
+		return fmt.Errorf("get contents of directory %s: %w", path, err)
 	}
+	var errs []error
+	for _, file := range files {
+		errs = append(errs, assert.Contains(execResult.stdout, file, "expected to find file %s within directory %s, but did not.\nDirectory contents:\n%s", file, path, execResult.stdout))
+	}
+	return errors.Join(errs...)
 }
 
-func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[string]string) {
+func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[string]string) error {
 	s.T.Helper()
 	keysToCheck := make([]string, 0, len(customSysctls))
 	for k := range customSysctls {
@@ -258,28 +319,39 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 		"set -ex",
 		fmt.Sprintf("sudo sysctl %s | sed -E 's/([0-9])\\s+([0-9])/\\1 \\2/g'", strings.Join(keysToCheck, " ")),
 	}
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "sysctl command failed")
-	for name, value := range customSysctls {
-		require.Contains(s.T, execResult.stdout, fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not.\nStdout:\n%s", name, value, execResult.stdout)
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "sysctl command failed")
+	if err != nil {
+		return fmt.Errorf("read sysctl config: %w", err)
 	}
+	var errs []error
+	for name, value := range customSysctls {
+		errs = append(errs, assert.Contains(execResult.stdout, fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not.\nStdout:\n%s", name, value, execResult.stdout))
+	}
+	return errors.Join(errs...)
 }
 
-func ValidateCustomLinuxOSConfigPersistsAfterReboot(ctx context.Context, s *Scenario, customSysctls map[string]string, customContainerdUlimits map[string]string, swapFileSizeMB int32, thpEnabled, thpDefrag string) {
+func ValidateCustomLinuxOSConfigPersistsAfterReboot(ctx context.Context, s *Scenario, customSysctls map[string]string, customContainerdUlimits map[string]string, swapFileSizeMB int32, thpEnabled, thpDefrag string) error {
 	s.T.Helper()
-	validateCustomLinuxOSConfig(ctx, s, customSysctls, customContainerdUlimits, swapFileSizeMB, thpEnabled, thpDefrag)
-	RebootVMAndWaitForSSH(ctx, s)
-	validateCustomLinuxOSConfig(ctx, s, customSysctls, customContainerdUlimits, swapFileSizeMB, thpEnabled, thpDefrag)
+	if err := validateCustomLinuxOSConfig(ctx, s, customSysctls, customContainerdUlimits, swapFileSizeMB, thpEnabled, thpDefrag); err != nil {
+		return err
+	}
+	if err := RebootVMAndWaitForSSH(ctx, s); err != nil {
+		return err
+	}
+	return validateCustomLinuxOSConfig(ctx, s, customSysctls, customContainerdUlimits, swapFileSizeMB, thpEnabled, thpDefrag)
 }
 
-func validateCustomLinuxOSConfig(ctx context.Context, s *Scenario, customSysctls map[string]string, customContainerdUlimits map[string]string, swapFileSizeMB int32, thpEnabled, thpDefrag string) {
+func validateCustomLinuxOSConfig(ctx context.Context, s *Scenario, customSysctls map[string]string, customContainerdUlimits map[string]string, swapFileSizeMB int32, thpEnabled, thpDefrag string) error {
 	s.T.Helper()
-	ValidateSysctlConfig(ctx, s, customSysctls)
-	ValidateUlimitSettings(ctx, s, customContainerdUlimits)
-	ValidateSwapFileConfig(ctx, s, swapFileSizeMB)
-	ValidateTransparentHugePageConfig(ctx, s, thpEnabled, thpDefrag)
+	return errors.Join(
+		ValidateSysctlConfig(ctx, s, customSysctls),
+		ValidateUlimitSettings(ctx, s, customContainerdUlimits),
+		ValidateSwapFileConfig(ctx, s, swapFileSizeMB),
+		ValidateTransparentHugePageConfig(ctx, s, thpEnabled, thpDefrag),
+	)
 }
 
-func ValidateTransparentHugePageConfig(ctx context.Context, s *Scenario, thpEnabled, thpDefrag string) {
+func ValidateTransparentHugePageConfig(ctx context.Context, s *Scenario, thpEnabled, thpDefrag string) error {
 	s.T.Helper()
 	command := []string{"set -ex"}
 	if thpEnabled != "" {
@@ -295,13 +367,14 @@ func ValidateTransparentHugePageConfig(ctx context.Context, s *Scenario, thpEnab
 		)
 	}
 
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "transparent huge page configuration did not match expected values")
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "transparent huge page configuration did not match expected values")
+	return err
 }
 
-func ValidateSwapFileConfig(ctx context.Context, s *Scenario, swapFileSizeMB int32) {
+func ValidateSwapFileConfig(ctx context.Context, s *Scenario, swapFileSizeMB int32) error {
 	s.T.Helper()
 	if swapFileSizeMB <= 0 {
-		return
+		return nil
 	}
 
 	command := []string{
@@ -314,13 +387,20 @@ func ValidateSwapFileConfig(ctx context.Context, s *Scenario, swapFileSizeMB int
 		"actual_bytes=$(stat -c %s \"${swap_file}\")",
 		"test \"${actual_bytes}\" -ge \"${expected_bytes}\"",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "swap file configuration did not match expected values")
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "swap file configuration did not match expected values")
+	return err
 }
 
-func RebootVMAndWaitForSSH(ctx context.Context, s *Scenario) {
+func RebootVMAndWaitForSSH(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-	beforeRebootBootID := strings.TrimSpace(execScriptOnVMForScenarioValidateExitCode(ctx, s, "cat /proc/sys/kernel/random/boot_id", 0, "could not read boot ID before reboot").stdout)
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo nohup sh -c 'sleep 1; systemctl reboot' >/dev/null 2>&1 &", 0, "failed to trigger VM reboot")
+	bootIDResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "cat /proc/sys/kernel/random/boot_id", 0, "could not read boot ID before reboot")
+	if err != nil {
+		return fmt.Errorf("read boot ID before reboot: %w", err)
+	}
+	beforeRebootBootID := strings.TrimSpace(bootIDResult.stdout)
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo nohup sh -c 'sleep 1; systemctl reboot' >/dev/null 2>&1 &", 0, "failed to trigger VM reboot"); err != nil {
+		return fmt.Errorf("trigger VM reboot: %w", err)
+	}
 	cleanupBastionTunnel(s.Runtime.VM.SSHClient)
 	s.Runtime.VM.SSHClient = nil
 
@@ -329,7 +409,7 @@ func RebootVMAndWaitForSSH(ctx context.Context, s *Scenario) {
 		waitTimeout = 10 * time.Minute
 	}
 
-	err := wait.PollUntilContextTimeout(ctx, 15*time.Second, waitTimeout, true, func(ctx context.Context) (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, 15*time.Second, waitTimeout, true, func(ctx context.Context) (bool, error) {
 		sshClient, err := DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, s.Runtime.VM.PrivateIP, config.VMSSHPrivateKey)
 		if err != nil {
 			s.T.Logf("waiting for SSH after reboot: %v", err)
@@ -355,16 +435,18 @@ func RebootVMAndWaitForSSH(ctx context.Context, s *Scenario) {
 		s.Runtime.VM.SSHClient = sshClient
 		return true, nil
 	})
-	require.NoError(s.T, err, "timed out waiting for VM to reboot and accept SSH")
+	if err != nil {
+		return fmt.Errorf("timed out waiting for VM to reboot and accept SSH: %w", err)
+	}
+	return nil
 }
 
 // ValidateNetworkInterfaceConfig validates network interface configuration settings using ethtool.
 // It identifies network interfaces with slot names matching the enP* pattern (same logic as the udev rule),
 // then verifies that each interface has the expected configuration settings (e.g., rx buffer size).
 // The nicConfig map specifies the ethtool settings to validate (key: setting name, value: expected value).
-func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig map[string]string) {
+func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig map[string]string) error {
 	s.T.Helper()
-
 	// Get list of NICs using udevadm (same logic as udev rule)
 	getNicsCommand := []string{
 		"#!/usr/bin/env bash",
@@ -378,7 +460,10 @@ func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig 
 		"done",
 		"IFS=,; echo \"${enp_ifaces[*]}\"",
 	}
-	nicsResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(getNicsCommand, "\n"), 0, "could not get nics to configure")
+	nicsResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(getNicsCommand, "\n"), 0, "could not get nics to configure")
+	if err != nil {
+		return fmt.Errorf("get NICs to configure: %w", err)
+	}
 	s.T.Logf("NICs to configure:\n%s", nicsResult.stdout)
 
 	// Parse NIC output - it may be multi-line with header
@@ -400,9 +485,10 @@ func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig 
 
 	if len(nics) == 0 || (len(nics) == 1 && strings.TrimSpace(nics[0]) == "") {
 		s.T.Logf("No PCI devices (NICs) with enP* slot pattern found - skipping network interface config validation")
-		return
+		return nil
 	}
 
+	var errs []error
 	for _, nic := range nics {
 		// Skip empty entries
 		nic = strings.TrimSpace(nic)
@@ -418,7 +504,10 @@ func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig 
 			fmt.Sprintf("echo '=== Full ethtool output for %s ==='", nic),
 			fmt.Sprintf("sudo ethtool -g %s", nic),
 		}
-		debugResult := execScriptOnVMForScenario(ctx, s, strings.Join(debugCommand, "\n"))
+		debugResult, err := execScriptOnVMForScenario(ctx, s, strings.Join(debugCommand, "\n"))
+		if err != nil {
+			return errors.Join(append(errs, fmt.Errorf("get ethtool output for nic %s: %w", nic, err))...)
+		}
 		s.T.Logf("Full ethtool output for %s:\n%s", nic, debugResult.stdout)
 		oldEthtool := strings.Contains(debugResult.stdout, "Current hardware settings")
 
@@ -433,48 +522,58 @@ func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig 
 				"set -ex",
 				cmd,
 			}
-			execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get ethtool config")
+			execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get ethtool config")
+			if err != nil {
+				return errors.Join(append(errs, fmt.Errorf("get ethtool setting %s for nic %s: %w", setting, nic, err))...)
+			}
 			actualValue := strings.TrimSpace(execResult.stdout)
 			s.T.Logf("Ethtool setting %s for NIC %s: expected=%s, actual=%s", setting, nic, expectedValue, actualValue)
-			require.Equal(s.T, expectedValue, actualValue, "expected %s to be %s on nic %s, but got %s.\nFull ethtool output:\n%s", setting, expectedValue, nic, actualValue, debugResult.stdout)
+			errs = append(errs, assert.Equal(actualValue, expectedValue, "expected %s to be %s on nic %s, but got %s.\nFull ethtool output:\n%s", setting, expectedValue, nic, actualValue, debugResult.stdout))
 		}
 	}
+	return errors.Join(errs...)
 }
 
 // ValidateAzureNetworkFiles checks that udev rules files exist.
-func ValidateAzureNetworkFiles(ctx context.Context, s *Scenario) {
+func ValidateAzureNetworkFiles(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
-	ValidateFileExists(ctx, s, "/opt/azure-network/configure-azure-network.sh")
-	ValidateFileExists(ctx, s, "/etc/udev/rules.d/99-azure-network.rules")
+	return errors.Join(
+		ValidateFileExists(ctx, s, "/opt/azure-network/configure-azure-network.sh"),
+		ValidateFileExists(ctx, s, "/etc/udev/rules.d/99-azure-network.rules"),
+	)
 }
 
-func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) {
+func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
 		"sudo nvidia-smi",
 	}
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 1, "")
-	require.Contains(s.T, execResult.stderr, "nvidia-smi: command not found", "expected stderr to contain 'nvidia-smi: command not found', but got %q", execResult.stderr)
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 1, "")
+	if err != nil {
+		return fmt.Errorf("run nvidia-smi: %w", err)
+	}
+	return assert.Contains(execResult.stderr, "nvidia-smi: command not found", "expected stderr to contain 'nvidia-smi: command not found', but got %q", execResult.stderr)
 }
 
-func ValidateNvidiaSMIInstalled(ctx context.Context, s *Scenario) {
+func ValidateNvidiaSMIInstalled(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	command := []string{"set -ex", "sudo nvidia-smi"}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not execute nvidia-smi command")
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not execute nvidia-smi command")
+	return err
 }
 
-func ValidateNvidiaModProbeInstalled(ctx context.Context, s *Scenario) {
+func ValidateNvidiaModProbeInstalled(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
 		"sudo nvidia-modprobe",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not execute nvidia-modprobe command")
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not execute nvidia-modprobe command")
+	return err
 }
 
-func ValidateNvidiaGRIDLicenseValid(ctx context.Context, s *Scenario) {
+func ValidateNvidiaGRIDLicenseValid(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
@@ -486,10 +585,11 @@ func ValidateNvidiaGRIDLicenseValid(ctx context.Context, s *Scenario) {
 		"active_status=$(sudo systemctl is-active nvidia-gridd)",
 		"if [ \"$active_status\" != \"active\" ]; then echo \"nvidia-gridd is not active: $active_status\"; exit 1; fi",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate nvidia-smi license state or nvidia-gridd service status")
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate nvidia-smi license state or nvidia-gridd service status")
+	return err
 }
 
-func ValidateNvidiaPersistencedRunning(ctx context.Context, s *Scenario) {
+func ValidateNvidiaPersistencedRunning(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
@@ -497,14 +597,15 @@ func ValidateNvidiaPersistencedRunning(ctx context.Context, s *Scenario) {
 		"active_status=$(sudo systemctl is-active nvidia-persistenced.service)",
 		"if [ \"$active_status\" != \"active\" ]; then echo \"nvidia-gridd is not active: $active_status\"; exit 1; fi",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate nvidia-persistenced.service status")
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate nvidia-persistenced.service status")
+	return err
 }
 
 // ValidateNvidiaGridV20DriverInstalled asserts the node installed the grid-v20
 // (595.x) driver from the aks-gpu-grid-v20 image rather than falling back to a
 // cuda/grid driver. This is the grid-v20-specific check: if SKU->driver-type
 // selection regressed, nvidia-smi would report a different driver major.
-func ValidateNvidiaGridV20DriverInstalled(ctx context.Context, s *Scenario) {
+func ValidateNvidiaGridV20DriverInstalled(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
@@ -512,28 +613,30 @@ func ValidateNvidiaGridV20DriverInstalled(ctx context.Context, s *Scenario) {
 		"echo \"nvidia driver_version=$driver_version\"",
 		"case \"$driver_version\" in 595.*) ;; *) echo \"expected grid-v20 595.x driver, got '$driver_version'\"; exit 1 ;; esac",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "expected grid-v20 (595.x) NVIDIA driver version")
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "expected grid-v20 (595.x) NVIDIA driver version")
+	return err
 }
 
-func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
+func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
 		fmt.Sprintf("sudo ls -1q %s | grep -q '^.*$' && true || false", dirName),
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "either could not find expected file, or something went wrong")
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "either could not find expected file, or something went wrong")
+	return err
 }
 
-func ValidateEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
+func ValidateEmptyDirectory(ctx context.Context, s *Scenario, dirName string) error {
 	s.T.Helper()
 	command := fmt.Sprintf("! [ -d '%s' ] || [ -z \"$(ls -A '%s')\" ]", dirName, dirName)
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0,
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0,
 		fmt.Sprintf("expected directory %s to be empty or not exist", dirName))
+	return err
 }
 
-func ValidateInspektorGadget(ctx context.Context, s *Scenario) {
+func ValidateInspektorGadget(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
 	skipFile := "/etc/ig.d/skip_vhd_ig"
 	serviceName := "ig-import-gadgets.service"
 	servicePath := "/usr/lib/systemd/system/" + serviceName
@@ -541,33 +644,46 @@ func ValidateInspektorGadget(ctx context.Context, s *Scenario) {
 	// Check if IG is installed on this VHD by looking for the skip sentinel file.
 	// The skip file is only present on VHDs that have IG installed (Ubuntu and Azure Linux non-OSGuard).
 	// Flatcar, OSGuard, and older VHDs do not have IG installed and will not have the skip file.
-	if !fileExist(ctx, s, skipFile) {
+	skipFileExists, err := fileExist(ctx, s, skipFile)
+	if err != nil {
+		return fmt.Errorf("check for Inspektor Gadget sentinel file %s: %w", skipFile, err)
+	}
+	if !skipFileExists {
 		s.T.Logf("Skipping Inspektor Gadget validation: sentinel file %s not found (VHD does not have IG installed)", skipFile)
-		return
+		return nil
 	}
 
 	s.T.Logf("skip_vhd_ig sentinel file found, validating Inspektor Gadget installation")
 
-	ValidateSystemdUnitIsNotFailed(ctx, s, serviceName)
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s | grep -qx disabled", serviceName), 0, fmt.Sprintf("%s should be disabled", serviceName))
+	errs := []error{ValidateSystemdUnitIsNotFailed(ctx, s, serviceName)}
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s | grep -qx disabled", serviceName), 0, fmt.Sprintf("%s should be disabled", serviceName)); err != nil {
+		errs = append(errs, err)
+	}
 
-	ValidateFileExists(ctx, s, skipFile)
-	ValidateFileExists(ctx, s, servicePath)
+	errs = append(errs,
+		ValidateFileExists(ctx, s, skipFile),
+		ValidateFileExists(ctx, s, servicePath),
+	)
 
 	// Validate that gadgets were actually imported
 	trackingFile := "/var/lib/ig/imported-gadgets.txt"
-	ValidateFileExists(ctx, s, trackingFile)
+	errs = append(errs, ValidateFileExists(ctx, s, trackingFile))
 	s.T.Logf("Validating imported gadgets tracking file is not empty")
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("test -s %s", trackingFile), 0, "tracking file should not be empty")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("test -s %s", trackingFile), 0, "tracking file should not be empty"); err != nil {
+		errs = append(errs, err)
+	}
 
 	// Verify ig image list shows imported gadgets
 	s.T.Logf("Validating ig image list shows imported gadgets")
-	result := execScriptOnVMForScenario(ctx, s, "sudo ig image list")
+	result, err := execScriptOnVMForScenario(ctx, s, "sudo ig image list")
+	if err != nil {
+		return errors.Join(append(errs, fmt.Errorf("run ig image list: %w", err))...)
+	}
 	if result.exitCode != "0" {
-		s.T.Fatalf("ig image list failed with exit code %s, stderr: %s", result.exitCode, result.stderr)
+		return errors.Join(append(errs, fmt.Errorf("ig image list failed with exit code %s, stderr: %s", result.exitCode, result.stderr))...)
 	}
 	if len(result.stdout) == 0 {
-		s.T.Fatal("ig image list returned empty output, expected at least one imported gadget")
+		return errors.Join(append(errs, errors.New("ig image list returned empty output, expected at least one imported gadget"))...)
 	}
 	s.T.Logf("ig image list output:\n%s", result.stdout)
 
@@ -594,64 +710,80 @@ if [ "${EXIT_CODE:-0}" != "0" ] && [ "${EXIT_CODE:-0}" != "124" ]; then
 fi
 echo "trace_exec gadget ran successfully"
 `
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, funcTestScript, 0, "trace_exec gadget should run successfully")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, funcTestScript, 0, "trace_exec gadget should run successfully"); err != nil {
+		errs = append(errs, err)
+	}
+	if joined := errors.Join(errs...); joined != nil {
+		return joined
+	}
 	s.T.Logf("Inspektor Gadget functional validation passed")
+	return nil
 }
 
-func ValidateFileExists(ctx context.Context, s *Scenario, fileName string) {
+func ValidateFileExists(ctx context.Context, s *Scenario, fileName string) error {
 	s.T.Helper()
-	if !fileExist(ctx, s, fileName) {
-		s.T.Fatalf("expected file %s, but it does not", fileName)
+	exists, err := fileExist(ctx, s, fileName)
+	if err != nil {
+		return fmt.Errorf("check existence of file %s: %w", fileName, err)
 	}
+	return assert.Equal(exists, true, "expected file %s to exist, but it does not", fileName)
 }
 
 // ValidateACLFIPSEnabled asserts ACL-specific FIPS markers are present on the node:
 // the /etc/system-fips marker file written by vhdbuilder/scripts/linux/acl/tool_installs_acl.sh.
 // Kernel FIPS mode (/proc/sys/crypto/fips_enabled == 1) is universal and is asserted by
 // ValidateFIPSProvider; callers should compose the two validators when both are needed.
-func ValidateACLFIPSEnabled(ctx context.Context, s *Scenario) {
+func ValidateACLFIPSEnabled(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-	ValidateFileExists(ctx, s, "/etc/system-fips")
+	return ValidateFileExists(ctx, s, "/etc/system-fips")
 }
 
-func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string) {
+func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string) error {
 	s.T.Helper()
-	if fileExist(ctx, s, fileName) {
-		s.T.Fatalf("expected file %s to no exist, but it does", fileName)
+	exists, err := fileExist(ctx, s, fileName)
+	if err != nil {
+		return fmt.Errorf("check existence of file %s: %w", fileName, err)
 	}
+	return assert.Equal(exists, false, "expected file %s to not exist, but it does", fileName)
 }
 
-func ValidateFileIsRegularFile(ctx context.Context, s *Scenario, fileName string) {
+func ValidateFileIsRegularFile(ctx context.Context, s *Scenario, fileName string) error {
 	s.T.Helper()
-
 	steps := []string{
 		"set -ex",
 		fmt.Sprintf("stat --printf=%%F %s | grep 'regular file'", fileName),
 	}
 
-	if execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n")).exitCode != "0" {
-		s.T.Fatalf("expected %s to be a regular file, but it is not", fileName)
+	execResult, err := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	if err != nil {
+		return fmt.Errorf("stat file %s: %w", fileName, err)
 	}
+	return assert.Equal(execResult.exitCode, "0", "expected %s to be a regular file, but it is not", fileName)
 }
 
-func fileExist(ctx context.Context, s *Scenario, fileName string) bool {
+func fileExist(ctx context.Context, s *Scenario, fileName string) (bool, error) {
 	s.T.Helper()
 	if s.IsWindows() {
 		steps := []string{
 			"$ErrorActionPreference = \"Stop\"",
 			fmt.Sprintf("if (Test-Path -Path '%s') { exit 0 } else { exit 1 }", fileName),
 		}
-		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
-		s.T.Logf("stdout: %s\nstderr: %s", execResult.stdout, execResult.stderr)
-		return execResult.exitCode == "0"
-	} else {
-		steps := []string{
-			"set -ex",
-			fmt.Sprintf("test -f %s", fileName),
+		execResult, err := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+		if err != nil {
+			return false, err
 		}
-		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
-		return execResult.exitCode == "0"
+		s.T.Logf("stdout: %s\nstderr: %s", execResult.stdout, execResult.stderr)
+		return execResult.exitCode == "0", nil
 	}
+	steps := []string{
+		"set -ex",
+		fmt.Sprintf("test -f %s", fileName),
+	}
+	execResult, err := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	if err != nil {
+		return false, err
+	}
+	return execResult.exitCode == "0", nil
 }
 
 func getFileContent(ctx context.Context, s *Scenario, fileName string) (string, error) {
@@ -670,7 +802,10 @@ func getFileContent(ctx context.Context, s *Scenario, fileName string) (string, 
 		}
 	}
 
-	execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	execResult, err := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	if err != nil {
+		return "", fmt.Errorf("failed to get file content for %s: %w", fileName, err)
+	}
 	if execResult.exitCode != "0" {
 		return "", fmt.Errorf("failed to get file content for %s: exit code %s\nStdout: %s\nStderr: %s", fileName, execResult.exitCode, execResult.stdout, execResult.stderr)
 	}
@@ -678,9 +813,11 @@ func getFileContent(ctx context.Context, s *Scenario, fileName string) (string, 
 	return execResult.stdout, nil
 }
 
-func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
+func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) (bool, error) {
 	s.T.Helper()
-	require.NotEmpty(s.T, contents, "Test setup failure: Can't validate that a file has contents with an empty string. Filename: %s", fileName)
+	if contents == "" {
+		return false, fmt.Errorf("test setup failure: can't validate that a file has contents with an empty string. Filename: %s", fileName)
+	}
 	var steps []string
 	if s.IsWindows() {
 		steps = []string{
@@ -695,17 +832,22 @@ func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents 
 		}
 	}
 
-	execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
-	return execResult.exitCode == "0"
-
+	execResult, err := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	if err != nil {
+		return false, err
+	}
+	return execResult.exitCode == "0", nil
 }
 
-func fileHasExactContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
+func fileHasExactContent(ctx context.Context, s *Scenario, fileName string, contents string) (bool, error) {
 	s.T.Helper()
-	require.NotEmpty(s.T, contents, "Test setup failure: Can't validate that a file has contents with an empty string. Filename: %s", fileName)
+	if contents == "" {
+		return false, fmt.Errorf("test setup failure: can't validate that a file has contents with an empty string. Filename: %s", fileName)
+	}
 	encodedPattern := base64.StdEncoding.EncodeToString([]byte(contents))
+	var steps []string
 	if s.IsWindows() {
-		steps := []string{
+		steps = []string{
 			"$ErrorActionPreference = \"Stop\"",
 			fmt.Sprintf("if ( -not ( Test-Path -Path %s ) ) { exit 2 }", fileName),
 			fmt.Sprintf("$pattern = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('%s'))", encodedPattern),
@@ -713,10 +855,8 @@ func fileHasExactContent(ctx context.Context, s *Scenario, fileName string, cont
 			"$escaped = [regex]::Escape($pattern)",
 			"if ([regex]::Match($content, \"(?<!\\w)\" + $escaped + \"(?!\\w)\").Success) { exit 0 } else { exit 1 }",
 		}
-		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
-		return execResult.exitCode == "0"
 	} else {
-		steps := []string{
+		steps = []string{
 			"set -ex",
 			fmt.Sprintf("if [ ! -f %s ]; then exit 2; fi", fileName),
 			fmt.Sprintf("pattern=$(printf '%%s' '%s' | base64 -d)", encodedPattern),
@@ -724,49 +864,62 @@ func fileHasExactContent(ctx context.Context, s *Scenario, fileName string, cont
 			"regex='(^|[^[:alnum:]_])'\"$escaped\"'([^[:alnum:]_]|$)'",
 			fmt.Sprintf("if sudo grep -Eq \"$regex\" %s; then exit 0; else exit 1; fi", fileName),
 		}
-		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
-		return execResult.exitCode == "0"
 	}
+	execResult, err := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	if err != nil {
+		return false, err
+	}
+	return execResult.exitCode == "0", nil
 }
 
 // ValidateFileHasContent passes the test if the specified file contains the specified contents.
 // The contents doesn't need to be surrounded by non-word characters.
 // E.g.: searching "bcd" in "abcdef" is a match, thus the validation passes.
-func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
+func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) error {
 	s.T.Helper()
-	if !fileHasContent(ctx, s, fileName, contents) {
-		actualContents, err := getFileContent(ctx, s, fileName)
-		if err != nil {
-			s.T.Fatalf("Expected file %s to have contents %q. Could not determine actual contents due to %s", fileName, contents, err.Error())
-		} else {
-			s.T.Fatalf("expected file %s to have contents %q, but it does not. It had contents %s", fileName, contents, actualContents)
-		}
+	hasContent, err := fileHasContent(ctx, s, fileName, contents)
+	if err != nil {
+		return fmt.Errorf("check whether file %s has contents %q: %w", fileName, contents, err)
 	}
+	if hasContent {
+		return nil
+	}
+	actualContents, err := getFileContent(ctx, s, fileName)
+	if err != nil {
+		return fmt.Errorf("expected file %s to have contents %q. Could not determine actual contents due to %w", fileName, contents, err)
+	}
+	return fmt.Errorf("expected file %s to have contents %q, but it does not. It had contents %s", fileName, contents, actualContents)
 }
 
 // ValidateFileExcludesContent fails the test if the specified file contains the specified contents.
 // The contents doesn't need to be surrounded by non-word characters.
 // E.g.: searching "bcd" in "abcdef" is a match, thus the validation fails.
-func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string) {
+func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string) error {
 	s.T.Helper()
-	if fileHasContent(ctx, s, fileName, contents) {
-		actualContents, err := getFileContent(ctx, s, fileName)
-		if err != nil {
-			s.T.Fatalf("Expected file %s to have contents %q. Could not determine actual contents due to %s", fileName, contents, err.Error())
-		} else {
-			s.T.Fatalf("expected file %s to have contents %q, but it does. It had contents %s", fileName, contents, actualContents)
-		}
+	hasContent, err := fileHasContent(ctx, s, fileName, contents)
+	if err != nil {
+		return fmt.Errorf("check whether file %s has contents %q: %w", fileName, contents, err)
 	}
+	if !hasContent {
+		return nil
+	}
+	actualContents, err := getFileContent(ctx, s, fileName)
+	if err != nil {
+		return fmt.Errorf("expected file %s to not have contents %q. Could not determine actual contents due to %w", fileName, contents, err)
+	}
+	return fmt.Errorf("expected file %s to not have contents %q, but it does. It had contents %s", fileName, contents, actualContents)
 }
 
 // ValidateFileExcludesExactContent fails the test if the specified file contains the specified contents.
 // The contents needs to be surrounded by non-word characters.
 // E.g.: searching "bcd" in "abcdef" is not a match, thus the validation passes.
-func ValidateFileExcludesExactContent(ctx context.Context, s *Scenario, fileName string, contents string) {
+func ValidateFileExcludesExactContent(ctx context.Context, s *Scenario, fileName string, contents string) error {
 	s.T.Helper()
-	if fileHasExactContent(ctx, s, fileName, contents) {
-		s.T.Fatalf("expected file %s to not have exact contents %q, but it does", fileName, contents)
+	hasContent, err := fileHasExactContent(ctx, s, fileName, contents)
+	if err != nil {
+		return fmt.Errorf("check whether file %s has exact contents %q: %w", fileName, contents, err)
 	}
+	return assert.Equal(hasContent, false, "expected file %s to not have exact contents %q, but it does", fileName, contents)
 }
 
 // ValidateFIPSProvider verifies that FIPS is properly configured on the node:
@@ -776,31 +929,42 @@ func ValidateFileExcludesExactContent(ctx context.Context, s *Scenario, fileName
 //     the legacy FIPS module rather than the providers interface.
 //  3. /opt/cni/bin/portmap runs without panicking (regression guard for ICM 51000001009688
 //     where the OpenSSL FIPS provider was not loaded on AzureLinux V3 FIPS nodes).
-func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
+func ValidateFIPSProvider(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
+	var errs []error
 
 	// 1. Kernel FIPS mode.
-	fipsEnabled := execScriptOnVMForScenarioValidateExitCode(ctx, s, "cat /proc/sys/crypto/fips_enabled", 0, "could not read /proc/sys/crypto/fips_enabled")
-	require.Equal(s.T, "1", strings.TrimSpace(fipsEnabled.stdout), "expected /proc/sys/crypto/fips_enabled to be 1, got %q", fipsEnabled.stdout)
+	fipsEnabled, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "cat /proc/sys/crypto/fips_enabled", 0, "could not read /proc/sys/crypto/fips_enabled")
+	if err != nil {
+		return fmt.Errorf("read /proc/sys/crypto/fips_enabled: %w", err)
+	}
+	errs = append(errs, assert.Equal(strings.TrimSpace(fipsEnabled.stdout), "1", "expected /proc/sys/crypto/fips_enabled to be 1, got %q", fipsEnabled.stdout))
 
 	// 2. OpenSSL provider must include an active fips or symcrypt provider on OpenSSL 3.x.
 	// 1.1.x (Ubuntu 20.04 FIPS) uses the legacy FIPS module and is skipped. Merge stderr
 	// (`2>&1`) so a version banner written to stderr still parses.
-	opensslVersion := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl version 2>&1", 0, "could not run openssl version")
+	opensslVersion, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl version 2>&1", 0, "could not run openssl version")
+	if err != nil {
+		return errors.Join(append(errs, fmt.Errorf("run openssl version: %w", err))...)
+	}
 	versionFields := strings.Fields(opensslVersion.stdout)
-	require.GreaterOrEqual(s.T, len(versionFields), 2,
-		"could not parse openssl version output: %q", opensslVersion.stdout)
+	if len(versionFields) < 2 {
+		return errors.Join(append(errs, fmt.Errorf("could not parse openssl version output: %q", opensslVersion.stdout))...)
+	}
 	version := versionFields[1]
 	switch {
 	case strings.HasPrefix(version, "3."):
-		providers := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl list -providers", 0, "could not list openssl providers")
+		providers, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl list -providers", 0, "could not list openssl providers")
+		if err != nil {
+			return errors.Join(append(errs, fmt.Errorf("list openssl providers: %w", err))...)
+		}
 		// Prefix match so "symcrypt" covers AzureLinux V3 / ACL's "symcryptprovider". See ICM 51000001009688.
-		require.True(s.T, opensslProviderActive(providers.stdout, "fips", "symcrypt"),
-			"expected openssl to have an active fips or symcrypt provider, got:\n%s", providers.stdout)
+		errs = append(errs, assert.Equal(opensslProviderActive(providers.stdout, "fips", "symcrypt"), true,
+			"expected openssl to have an active fips or symcrypt provider, got:\n%s", providers.stdout))
 	case strings.HasPrefix(version, "1.1."):
 		s.T.Logf("openssl providers check skipped: detected version %q (legacy FIPS module)", strings.TrimSpace(opensslVersion.stdout))
 	default:
-		s.T.Fatalf("unexpected openssl version %q: FIPS VHDs are expected to ship OpenSSL 3.x or 1.1.x", strings.TrimSpace(opensslVersion.stdout))
+		return errors.Join(append(errs, fmt.Errorf("unexpected openssl version %q: FIPS VHDs are expected to ship OpenSSL 3.x or 1.1.x", strings.TrimSpace(opensslVersion.stdout)))...)
 	}
 
 	// 3. portmap panic check (best-effort). The original FIPS regression manifested as
@@ -809,13 +973,22 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 	// checks 1 and 2 are already authoritative. Match specific Go runtime panic markers
 	// rather than the bare substring `runtime error:` which appears in CNI usage text.
 	portmapBin := "/opt/cni/bin/portmap"
-	portmapPresent := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("test -x %s", portmapBin))
+	portmapPresent, err := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("test -x %s", portmapBin))
+	if err != nil {
+		return errors.Join(append(errs, fmt.Errorf("check whether %s is executable: %w", portmapBin, err))...)
+	}
 	if portmapPresent.exitCode != "0" {
 		s.T.Logf("portmap panic check skipped: %s not present or not executable on this VHD", portmapBin)
+		if joined := errors.Join(errs...); joined != nil {
+			return joined
+		}
 		s.T.Logf("FIPS provider validation passed")
-		return
+		return nil
 	}
-	portmap := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("%s < /dev/null", portmapBin))
+	portmap, err := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("%s < /dev/null", portmapBin))
+	if err != nil {
+		return errors.Join(append(errs, fmt.Errorf("run %s: %w", portmapBin, err))...)
+	}
 	panicMarkers := []*regexp.Regexp{
 		regexp.MustCompile(`(?m)^panic:`),
 		regexp.MustCompile(`(?m)^fatal error:`),
@@ -823,13 +996,19 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 		regexp.MustCompile(`goroutine \d+ \[running\]`),
 	}
 	for _, re := range panicMarkers {
-		require.False(s.T, re.MatchString(portmap.stderr),
-			"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr)
-		require.False(s.T, re.MatchString(portmap.stdout),
-			"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr)
+		errs = append(errs,
+			assert.Equal(re.MatchString(portmap.stderr), false,
+				"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr),
+			assert.Equal(re.MatchString(portmap.stdout), false,
+				"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr),
+		)
 	}
 
+	if joined := errors.Join(errs...); joined != nil {
+		return joined
+	}
 	s.T.Logf("FIPS provider validation passed")
+	return nil
 }
 
 // Package-level regex compiled once at init.
@@ -875,7 +1054,7 @@ func opensslProviderActive(output string, providerPrefixes ...string) bool {
 	return false
 }
 
-func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName string, restartTimeoutInSeconds int) {
+func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName string, restartTimeoutInSeconds int) error {
 	s.T.Helper()
 	steps := []string{
 		"set -ex",
@@ -905,10 +1084,11 @@ func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName st
 		"if [[ \"$INITIAL_PID\" == \"$POST_PID\" ]]; then echo PID did not change after restart, failing validator. ; exit 1; fi",
 	}
 
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "command to restart service failed")
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "command to restart service failed")
+	return err
 }
 
-func ValidateSystemdUnitIsRunning(ctx context.Context, s *Scenario, serviceName string) {
+func ValidateSystemdUnitIsRunning(ctx context.Context, s *Scenario, serviceName string) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
@@ -917,11 +1097,12 @@ func ValidateSystemdUnitIsRunning(ctx context.Context, s *Scenario, serviceName 
 		// Verify the service is active
 		fmt.Sprintf("systemctl is-active %s", serviceName),
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		fmt.Sprintf("service %s is not running", serviceName))
+	return err
 }
 
-func ValidateSystemdUnitIsNotRunning(ctx context.Context, s *Scenario, serviceName string) {
+func ValidateSystemdUnitIsNotRunning(ctx context.Context, s *Scenario, serviceName string) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
@@ -930,11 +1111,12 @@ func ValidateSystemdUnitIsNotRunning(ctx context.Context, s *Scenario, serviceNa
 		// Check if service is active - we expect this to fail
 		fmt.Sprintf("! systemctl is-active %s", serviceName),
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		fmt.Sprintf("service %s is unexpectedly running", serviceName))
+	return err
 }
 
-func ValidateWindowsServiceIsRunning(ctx context.Context, s *Scenario, serviceName string) {
+func ValidateWindowsServiceIsRunning(ctx context.Context, s *Scenario, serviceName string) error {
 	s.T.Helper()
 	command := []string{
 		"$ErrorActionPreference = \"Stop\"",
@@ -944,11 +1126,12 @@ func ValidateWindowsServiceIsRunning(ctx context.Context, s *Scenario, serviceNa
 		fmt.Sprintf("$service = Get-Service -Name %s", serviceName),
 		"if ($service.Status -ne 'Running') { throw \"Service is not running: $($service.Status)\" }",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		fmt.Sprintf("Windows service %s is not running", serviceName))
+	return err
 }
 
-func ValidateWindowsServiceIsNotRunning(ctx context.Context, s *Scenario, serviceName string) {
+func ValidateWindowsServiceIsNotRunning(ctx context.Context, s *Scenario, serviceName string) error {
 	s.T.Helper()
 	command := []string{
 		"$ErrorActionPreference = \"Continue\"",
@@ -960,11 +1143,12 @@ func ValidateWindowsServiceIsNotRunning(ctx context.Context, s *Scenario, servic
 		"if ($service -and $service.Status -ne 'Running') { Write-Host \"Service exists but is not running: $($service.Status)\" }",
 		"if (-not $service) { Write-Host \"Service does not exist\" }",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		fmt.Sprintf("Windows service %s validation failed", serviceName))
+	return err
 }
 
-func ValidateDotnetNotInstalledWindows(ctx context.Context, s *Scenario) {
+func ValidateDotnetNotInstalledWindows(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	command := []string{
 		"$ErrorActionPreference = \"Continue\"",
@@ -974,24 +1158,27 @@ func ValidateDotnetNotInstalledWindows(ctx context.Context, s *Scenario) {
 		"}",
 		"Write-Host \".NET is not installed\"",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		".NET should not be installed on the Windows node")
+	return err
 }
 
-func ValidateWindowsSystemServiceRestartConfiguration(ctx context.Context, s *Scenario, serviceName string) {
+func ValidateWindowsSystemServiceRestartConfiguration(ctx context.Context, s *Scenario, serviceName string) error {
 	s.T.Helper()
-
 	command := []string{
 		fmt.Sprintf("sc.exe qfailure %s", serviceName),
 	}
 
-	execResult := execScriptOnVMForScenarioValidateExitCode(
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(
 		ctx,
 		s,
 		strings.Join(command, "\n"),
 		0,
 		fmt.Sprintf("failed to validate restart configuration for Windows service %s", serviceName),
 	)
+	if err != nil {
+		return fmt.Errorf("query restart configuration for Windows service %s: %w", serviceName, err)
+	}
 
 	var RESET_PERIOD = "RESET_PERIOD"
 	var FAILURE_ACTIONS = "FAILURE_ACTIONS"
@@ -1013,31 +1200,34 @@ func ValidateWindowsSystemServiceRestartConfiguration(ctx context.Context, s *Sc
 			fields[FAILURE_ACTIONS] = value
 		}
 	}
-	if fields[RESET_PERIOD] != "900" {
-		s.T.Fatalf("Expected 'Reset fail counter after' to be set to 900 seconds for service %s, but got: %s", serviceName, sdtout)
-	}
-	if fields[FAILURE_ACTIONS] != "RESTART -- Delay = 60000 milliseconds." {
-		s.T.Fatalf("Expected 'Failure actions' to be set to 'RESTART -- Delay = 60000 milliseconds.' for service %s, but got: %s", serviceName, sdtout)
-	}
+	return errors.Join(
+		assert.Equal(fields[RESET_PERIOD], "900", "expected 'Reset fail counter after' to be set to 900 seconds for service %s, but got: %s", serviceName, sdtout),
+		assert.Equal(fields[FAILURE_ACTIONS], "RESTART -- Delay = 60000 milliseconds.", "expected 'Failure actions' to be set to 'RESTART -- Delay = 60000 milliseconds.' for service %s, but got: %s", serviceName, sdtout),
+	)
 }
 
-func ValidateWindowsSystemServicesRestartConfiguration(ctx context.Context, s *Scenario) {
-	ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "kubelet")
-	ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "containerd")
-	ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "kubeproxy")
+func ValidateWindowsSystemServicesRestartConfiguration(ctx context.Context, s *Scenario) error {
+	return errors.Join(
+		ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "kubelet"),
+		ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "containerd"),
+		ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "kubeproxy"),
+	)
 }
 
-func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) {
+func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
 		fmt.Sprintf("systemctl --no-pager -n 5 status %s || true", serviceName),
 		fmt.Sprintf("systemctl is-failed %s", serviceName),
 	}
-	require.NotEqual(
-		s.T,
+	execResult, err := execScriptOnVMForScenario(ctx, s, strings.Join(command, "\n"))
+	if err != nil {
+		return fmt.Errorf("check failed state of unit %q: %w", serviceName, err)
+	}
+	return assert.NotEqual(
+		execResult.exitCode,
 		"0",
-		execScriptOnVMForScenario(ctx, s, strings.Join(command, "\n")).exitCode,
 		`expected "systemctl is-failed" to exit with a non-zero exit code for unit %q, unit is in a failed state`,
 		serviceName,
 	)
@@ -1046,14 +1236,17 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 // ValidateKubeletActiveFlagsEvent checks that the emit-kubelet-active-flags oneshot service
 // ran successfully and produced a guest agent event file containing kubelet config telemetry.
 // Guarded: skips gracefully on VHDs that don't have the service baked in yet.
-func ValidateKubeletActiveFlagsEvent(ctx context.Context, s *Scenario) {
+func ValidateKubeletActiveFlagsEvent(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	// Guard: skip on VHDs that don't have the service
-	check := execOnVMForScenarioOnUnprivilegedPod(ctx, s,
+	serviceCheck, err := execOnVMForScenarioOnUnprivilegedPod(ctx, s,
 		"systemctl cat emit-kubelet-active-flags.service 2>/dev/null")
-	if check.exitCode != "0" {
+	if err != nil {
+		return fmt.Errorf("check whether emit-kubelet-active-flags.service exists: %w", err)
+	}
+	if serviceCheck.exitCode != "0" {
 		s.T.Log("emit-kubelet-active-flags.service not on this VHD, skipping validation")
-		return
+		return nil
 	}
 	command := []string{
 		"set -ex",
@@ -1062,12 +1255,13 @@ func ValidateKubeletActiveFlagsEvent(ctx context.Context, s *Scenario) {
 		// Verify the event file was produced with correct TaskName
 		`grep -rl 'kubeletActiveFlags' /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/ | head -1 | xargs cat | jq -e '.TaskName == "AKS.CSE.ensureKubelet.kubeletActiveFlags"'`,
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate emit-kubelet-active-flags.service")
+	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate emit-kubelet-active-flags.service")
+	return err
 }
 
-func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
+func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
-		return
+		return nil
 	}
 	unitFailureAllowList := map[string]bool{
 		// this service depends on non-network-isolated environment - E2Es are run in an environment
@@ -1106,8 +1300,13 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		Name string `json:"unit,omitempty"`
 	}
 	var failedUnits []systemdUnit
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json", 0, "unable to list failed systemd units")
-	assert.NoError(s.T, json.Unmarshal([]byte(result.stdout), &failedUnits), `unable to parse and unmarshal "systemctl list-units" command output`)
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json", 0, "unable to list failed systemd units")
+	if err != nil {
+		return fmt.Errorf("list failed systemd units: %w", err)
+	}
+	if err := json.Unmarshal([]byte(result.stdout), &failedUnits); err != nil {
+		return fmt.Errorf(`parse and unmarshal "systemctl list-units" command output: %w`, err)
+	}
 	failedUnits = lo.Filter(failedUnits, func(unit systemdUnit, _ int) bool {
 		if unitFailureAllowList[unit.Name] {
 			return false
@@ -1124,25 +1323,34 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 
 	if len(failedUnits) < 1 {
 		// no unexpectedly failed units
-		return
+		return nil
 	}
 
 	// extract failed unit logs
+	var errs []error
 	failedUnitLogs := make(map[string]string, len(failedUnits))
 	for _, unit := range failedUnits {
-		failedUnitLogs[unit.Name+".log"] = execScriptOnVMForScenario(ctx, s, fmt.Sprintf("journalctl -u %s", unit.Name)).String()
+		unitLogs, err := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("journalctl -u %s", unit.Name))
+		if err != nil {
+			errs = append(errs, fmt.Errorf("retrieve logs of failed unit %s: %w", unit.Name, err))
+			continue
+		}
+		failedUnitLogs[unit.Name+".log"] = unitLogs.String()
 	}
-	assert.NoError(s.T, dumpFileMapToDir(s.T, failedUnitLogs), "failed to dump failed systemd unit logs")
+	if err := dumpFileMapToDir(s.T, failedUnitLogs); err != nil {
+		errs = append(errs, fmt.Errorf("dump failed systemd unit logs: %w", err))
+	}
 
-	s.T.Fatalf(
+	errs = append(errs, fmt.Errorf(
 		"the following systemd units have unexpectedly entered a failed state: %s - failed unit logs will be included in scenario log bundle within <service-name>.service.log",
 		lo.Map(failedUnits, func(unit systemdUnit, _ int) string {
 			return unit.Name
 		}),
-	)
+	))
+	return errors.Join(errs...)
 }
 
-func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string]string) {
+func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string]string) error {
 	s.T.Helper()
 	ulimitKeys := make([]string, 0, len(ulimits))
 	for k := range ulimits {
@@ -1150,68 +1358,89 @@ func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string
 	}
 
 	command := fmt.Sprintf("sudo systemctl cat containerd.service | grep -E -i '%s'", strings.Join(ulimitKeys, "|"))
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not read containerd.service file")
-
-	for name, value := range ulimits {
-		require.Contains(s.T, execResult.stdout, fmt.Sprintf("%s=%v", name, value), "expected to find %s set to %v, but was not", name, value)
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not read containerd.service file")
+	if err != nil {
+		return fmt.Errorf("read containerd.service file: %w", err)
 	}
+
+	var errs []error
+	for name, value := range ulimits {
+		errs = append(errs, assert.Contains(execResult.stdout, fmt.Sprintf("%s=%v", name, value), "expected to find %s set to %v, but was not", name, value))
+	}
+	return errors.Join(errs...)
 }
 
-func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component, version string) {
+func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component, version string) error {
 	s.T.Helper()
-	installedCommand := func() string {
-		switch s.VHD.OS {
-		case config.OSUbuntu:
-			return "sudo apt list --installed"
-		case config.OSMariner, config.OSAzureLinux:
-			return "sudo dnf list installed"
-		default:
-			s.T.Fatalf("command to get package list isn't implemented for OS %s", s.VHD.OS)
-			return ""
-		}
-	}()
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, installedCommand, 0, "could not get package list")
+	var installedCommand string
+	switch s.VHD.OS {
+	case config.OSUbuntu:
+		installedCommand = "sudo apt list --installed"
+	case config.OSMariner, config.OSAzureLinux:
+		installedCommand = "sudo dnf list installed"
+	default:
+		return fmt.Errorf("command to get package list isn't implemented for OS %s", s.VHD.OS)
+	}
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, installedCommand, 0, "could not get package list")
+	if err != nil {
+		return fmt.Errorf("get package list: %w", err)
+	}
 	for _, line := range strings.Split(execResult.stdout, "\n") {
 		if strings.Contains(line, component) && strings.Contains(line, version) {
 			s.T.Logf("found %s %s in the installed packages", component, version)
-			return
+			return nil
 		}
 	}
-	s.T.Errorf("expected to find %s %s in the installed packages, but did not", component, version)
+	return fmt.Errorf("expected to find %s %s in the installed packages, but did not", component, version)
 }
 
-func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) {
+func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
+	if err != nil {
+		return fmt.Errorf("read kubelet config: %w", err)
+	}
 	stdout := execResult.stdout
 
 	// Search for "--node-ip" flag and its value.
 	matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.:,]*)`).FindStringSubmatch(stdout)
-	require.NotNil(s.T, matches, "could not find kubelet flag --node-ip\nStdout: \n%s", stdout)
-	require.GreaterOrEqual(s.T, len(matches), 2, "could not find kubelet flag --node-ip.\nStdout: \n%s", stdout)
+	if err := assert.Equal(len(matches) >= 2, true, "could not find kubelet flag --node-ip\nStdout: \n%s", stdout); err != nil {
+		return err
+	}
 
 	ipAddresses := strings.Split(matches[1], ",") // Could be multiple for dual-stack.
-	require.GreaterOrEqual(s.T, len(ipAddresses), 1, "expected at least one --node-ip address, but got none\nStdout: \n%s", stdout)
-	require.LessOrEqual(s.T, len(ipAddresses), 2, "expected at most two --node-ip addresses, but got %d\nStdout: \n%s", len(ipAddresses), stdout)
+	if err := assert.Equal(len(ipAddresses) >= 1, true, "expected at least one --node-ip address, but got none\nStdout: \n%s", stdout); err != nil {
+		return err
+	}
+	if err := assert.Equal(len(ipAddresses) <= 2, true, "expected at most two --node-ip addresses, but got %d\nStdout: \n%s", len(ipAddresses), stdout); err != nil {
+		return err
+	}
 
 	// Check that each IP is a valid address.
+	var errs []error
 	for _, ipAddress := range ipAddresses {
-		require.NotNil(s.T, net.ParseIP(ipAddress), "--node-ip value %q is not a valid IP address\nStdout: \n%s", ipAddress, stdout)
+		errs = append(errs, assert.NotNil(net.ParseIP(ipAddress), "--node-ip value %q is not a valid IP address\nStdout: \n%s", ipAddress, stdout))
 	}
+	return errors.Join(errs...)
 }
 
-func ValidateIMDSRestrictionRule(ctx context.Context, s *Scenario, table string) {
+func ValidateIMDSRestrictionRule(ctx context.Context, s *Scenario, table string) error {
 	s.T.Helper()
 	cmd := fmt.Sprintf("sudo iptables -t %s -S | grep -q 'AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature'", table)
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0, "expected to find IMDS restriction rule, but did not")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0, "expected to find IMDS restriction rule, but did not"); err != nil {
+		return fmt.Errorf("check IMDS restriction rule in table %s: %w", table, err)
+	}
+	return nil
 }
 
-func ValidateMultipleKubeProxyVersionsExist(ctx context.Context, s *Scenario) {
+func ValidateMultipleKubeProxyVersionsExist(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-	execResult := execScriptOnVMForScenario(ctx, s, "sudo ctr --namespace k8s.io images list | grep kube-proxy | awk '{print $1}' | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+'")
+	execResult, err := execScriptOnVMForScenario(ctx, s, "sudo ctr --namespace k8s.io images list | grep kube-proxy | awk '{print $1}' | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+'")
+	if err != nil {
+		return fmt.Errorf("list kube-proxy images: %w", err)
+	}
 	if execResult.exitCode != "0" {
-		s.T.Errorf("Failed to list kube-proxy images: %s", execResult.stderr)
-		return
+		return fmt.Errorf("failed to list kube-proxy images: %s", execResult.stderr)
 	}
 
 	versions := bytes.NewBufferString(strings.TrimSpace(execResult.stdout))
@@ -1224,67 +1453,106 @@ func ValidateMultipleKubeProxyVersionsExist(ctx context.Context, s *Scenario) {
 
 	switch len(versionMap) {
 	case 0:
-		s.T.Errorf("No kube-proxy versions found.")
+		return errors.New("no kube-proxy versions found")
 	case 1:
-		s.T.Errorf("Only one kube-proxy version exists: %v", versionMap)
+		return fmt.Errorf("only one kube-proxy version exists: %v", versionMap)
 	default:
 		s.T.Logf("Multiple kube-proxy versions exist: %v", versionMap)
+		return nil
 	}
 }
 
-func ValidateKubeletHasNotStopped(ctx context.Context, s *Scenario) {
+func ValidateKubeletHasNotStopped(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	command := "sudo journalctl -u kubelet"
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not retrieve kubelet logs with journalctl")
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not retrieve kubelet logs with journalctl")
+	if err != nil {
+		return fmt.Errorf("retrieve kubelet logs with journalctl: %w", err)
+	}
 	stdout := strings.ToLower(execResult.stdout)
-	assert.NotContains(s.T, stdout, "stopped kubelet")
-	assert.Contains(s.T, stdout, "started kubelet")
+	return errors.Join(
+		assert.NotContains(stdout, "stopped kubelet"),
+		assert.Contains(stdout, "started kubelet"),
+	)
 }
 
-func ValidateServicesDoNotRestartKubelet(ctx context.Context, s *Scenario) {
+func ValidateServicesDoNotRestartKubelet(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	// grep all filesin /etc/systemd/system/ for /restart\s+kubelet/ and count results
 	command := "sudo grep -rl 'restart[[:space:]]\\+kubelet' /etc/systemd/system/"
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 1, "expected to find no services containing 'restart kubelet' in /etc/systemd/system/")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 1, "expected to find no services containing 'restart kubelet' in /etc/systemd/system/"); err != nil {
+		return fmt.Errorf("check for services restarting kubelet: %w", err)
+	}
+	return nil
 }
 
 // ValidateKubeletHasFlags checks kubelet is started with the right flags and configs.
-func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) {
+func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) error {
 	s.T.Helper()
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl")
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl")
+	if err != nil {
+		return fmt.Errorf("retrieve kubelet logs with journalctl: %w", err)
+	}
 	configFileFlags := fmt.Sprintf("FLAG: --config=\"%s\"", filePath)
-	require.Containsf(s.T, execResult.stdout, configFileFlags, "expected to find flag %s, but not found", "config")
+	return assert.Contains(execResult.stdout, configFileFlags, "expected to find flag %s, but not found", "config")
 }
 
-func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []string) {
+func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []string) error {
 	s.T.Helper()
-	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-containerd but got %d", len(versions))
+	if err := assert.Equal(len(versions), 1, "expected exactly one version for moby-containerd but got %d", len(versions)); err != nil {
+		return err
+	}
 	// assert versions[0] value starts with '2.'
-	require.Truef(s.T, strings.HasPrefix(versions[0], "2."), "expected moby-containerd version to start with '2.', got %v", versions[0])
+	if err := assert.Equal(strings.HasPrefix(versions[0], "2."), true, "expected moby-containerd version to start with '2.', got %v", versions[0]); err != nil {
+		return err
+	}
 
-	ValidateInstalledPackageVersion(ctx, s, "moby-containerd", versions[0])
+	var errs []error
+	errs = append(errs, ValidateInstalledPackageVersion(ctx, s, "moby-containerd", versions[0]))
 
-	execResult := execOnVMForScenarioOnUnprivilegedPod(ctx, s, "containerd config dump ")
+	// TODO: this assertion never actually runs and always passes vacuously.
+	//
+	// execOnVMForScenarioOnUnprivilegedPod executes inside the "debugnonhost" daemonset pod,
+	// which runs a bare mcr.microsoft.com/cbl-mariner/base/core:2.0 image with no volume mounts
+	// (see daemonsetDebug in e2e/kube.go). The host filesystem is not mounted into it, so the
+	// containerd binary is unreachable and the command exits 127 with an empty stdout and
+	// "command not found" on stderr. attemptExecOnPod treats a non-zero exit as a successful
+	// exec, so no error surfaces, and the NotContains check below then trivially passes against
+	// an empty string.
+	//
+	// Two changes are needed: run this on the node via execScriptOnVMForScenarioValidateExitCode
+	// (as ValidateKataContainerdConfigDump in validators_kata.go now does), and check stderr as
+	// well as stdout, since containerd logs its warnings to stderr. Fixing it is likely to
+	// surface real warnings at the 11 call sites that use this validator, so it is left as a
+	// follow-up rather than folded into an unrelated change.
+	execResult, err := execOnVMForScenarioOnUnprivilegedPod(ctx, s, "containerd config dump ")
+	if err != nil {
+		return errors.Join(append(errs, fmt.Errorf("dump containerd config: %w", err))...)
+	}
 	// validate containerd config dump has no warnings
-	require.NotContains(s.T, execResult.stdout, "level=warning", "do not expect warning message when converting config file %", execResult.stdout)
+	errs = append(errs, assert.NotContains(execResult.stdout, "level=warning", "do not expect warning message when converting config file: %s", execResult.stdout))
+	return errors.Join(errs...)
 }
 
-func ValidateContainerRuntimePlugins(ctx context.Context, s *Scenario) {
+func ValidateContainerRuntimePlugins(ctx context.Context, s *Scenario) error {
 	// nri plugin is enabled by default
-	ValidateDirectoryContent(ctx, s, "/var/run/nri", []string{"nri.sock"})
+	return ValidateDirectoryContent(ctx, s, "/var/run/nri", []string{"nri.sock"})
 }
 
-func ValidateNPDGPUCountPlugin(ctx context.Context, s *Scenario) {
+func ValidateNPDGPUCountPlugin(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
 		// Check NPD GPU count plugin config exists
 		"test -f /etc/node-problem-detector.d/custom-plugin-monitor/gpu_checks/custom-plugin-gpu-count.json",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD GPU count plugin configuration does not exist")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD GPU count plugin configuration does not exist"); err != nil {
+		return fmt.Errorf("check NPD GPU count plugin configuration: %w", err)
+	}
+	return nil
 }
 
-func validateNPDCondition(ctx context.Context, s *Scenario, conditionType, conditionReason string, conditionStatus corev1.ConditionStatus, conditionMessage, conditionMessageErr string) {
+func validateNPDCondition(ctx context.Context, s *Scenario, conditionType, conditionReason string, conditionStatus corev1.ConditionStatus, conditionMessage, conditionMessageErr string) error {
 	s.T.Helper()
 	// Wait for NPD to report initial condition
 	var condition *corev1.NodeCondition
@@ -1310,22 +1578,26 @@ func validateNPDCondition(ctx context.Context, s *Scenario, conditionType, condi
 		return false, nil // Continue polling until the condition is found or timeout occurs
 	})
 	if err != nil && condition == nil {
-		require.NoError(s.T, err, "timed out waiting for %s condition with reason %s to appear on node %q", conditionType, conditionReason, s.Runtime.VM.KubeName)
+		return fmt.Errorf("timed out waiting for %s condition with reason %s to appear on node %q: %w", conditionType, conditionReason, s.Runtime.VM.KubeName, err)
 	}
 
-	require.NotNil(s.T, condition, "expected to find %s condition with %s reason on node", conditionType, conditionReason)
-	require.Equal(s.T, condition.Status, conditionStatus, "expected %s condition to be %s", conditionType, conditionStatus)
-	require.Contains(s.T, condition.Message, conditionMessage, conditionMessageErr)
+	if err := assert.NotNil(condition, "expected to find %s condition with %s reason on node", conditionType, conditionReason); err != nil {
+		return err
+	}
+	return errors.Join(
+		assert.Equal(condition.Status, conditionStatus, "expected %s condition to be %s", conditionType, conditionStatus),
+		assert.Contains(condition.Message, conditionMessage, conditionMessageErr),
+	)
 }
 
-func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) {
+func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	// Validate that NPD is reporting healthy GPU count
-	validateNPDCondition(ctx, s, "GPUMissing", "NoGPUMissing", corev1.ConditionFalse,
+	return validateNPDCondition(ctx, s, "GPUMissing", "NoGPUMissing", corev1.ConditionFalse,
 		"All GPUs are present", "expected GPUMissing message to indicate correct count")
 }
 
-func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
+func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
@@ -1340,11 +1612,14 @@ func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
 		"echo ${PCI_ID} | tee /tmp/npd_test_disabled_pci_id",
 		"echo ${PCI_ID} | sudo tee /sys/bus/pci/drivers/nvidia/unbind", // Reset the GPU
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to disable GPU")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to disable GPU"); err != nil {
+		return fmt.Errorf("disable GPU: %w", err)
+	}
 
 	// Validate that NPD reports the GPU count mismatch
-	validateNPDCondition(ctx, s, "GPUMissing", "GPUMissing", corev1.ConditionTrue,
-		"Expected to see 8 GPUs but found 7. FaultCode: NHC2009", "expected GPUMissing message to indicate GPU count mismatch")
+	var errs []error
+	errs = append(errs, validateNPDCondition(ctx, s, "GPUMissing", "GPUMissing", corev1.ConditionTrue,
+		"Expected to see 8 GPUs but found 7. FaultCode: NHC2009", "expected GPUMissing message to indicate GPU count mismatch"))
 
 	command = []string{
 		"set -ex",
@@ -1353,19 +1628,21 @@ func ValidateNPDGPUCountAfterFailure(ctx context.Context, s *Scenario) {
 		"sudo systemctl start nvidia-persistenced.service || true",
 	}
 	// Put the VM back to the original state, re-enable the GPU.
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to re-enable GPU")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to re-enable GPU"); err != nil {
+		errs = append(errs, fmt.Errorf("re-enable GPU: %w", err))
+	}
+	return errors.Join(errs...)
 }
 
-func ValidateNPDIBLinkFlappingCondition(ctx context.Context, s *Scenario) {
+func ValidateNPDIBLinkFlappingCondition(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	// Validate that NPD is reporting no IB link flapping
-	validateNPDCondition(ctx, s, "IBLinkFlapping", "NoIBLinkFlapping", corev1.ConditionFalse,
+	return validateNPDCondition(ctx, s, "IBLinkFlapping", "NoIBLinkFlapping", corev1.ConditionFalse,
 		"IB link is stable", "expected IBLinkFlapping message to indicate no flapping")
 }
 
-func ValidateNPDIBLinkFlappingAfterFailure(ctx context.Context, s *Scenario) {
+func ValidateNPDIBLinkFlappingAfterFailure(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
 	// Simulate IB link flapping
 	command := []string{
 		"set -ex",
@@ -1375,92 +1652,111 @@ func ValidateNPDIBLinkFlappingAfterFailure(ctx context.Context, s *Scenario) {
 		"sleep 60",
 		"echo \"$(date '+%b %d %H:%M:%S') $(hostname) fake error 2: [12346.123456] ib0: lost carrier\" | sudo tee -a /var/log/syslog",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to simulate IB link flapping")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to simulate IB link flapping"); err != nil {
+		return fmt.Errorf("simulate IB link flapping: %w", err)
+	}
 
 	// Validate that NPD reports IB link flapping
 	expectedMessage := "check_ib_link_flapping: IB link flapping detected, multiple IB link flapping events within 6 hours. FaultCode: NHC2005"
-	validateNPDCondition(ctx, s, "IBLinkFlapping", "IBLinkFlapping", corev1.ConditionTrue,
+	return validateNPDCondition(ctx, s, "IBLinkFlapping", "IBLinkFlapping", corev1.ConditionTrue,
 		expectedMessage, "expected IBLinkFlapping message to indicate flapping")
 }
 
-func ValidateNPDUnhealthyNvidiaDevicePlugin(ctx context.Context, s *Scenario) {
+func ValidateNPDUnhealthyNvidiaDevicePlugin(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
 		// Check NPD unhealthy Nvidia device plugin config exists
 		"test -f /etc/node-problem-detector.d/custom-plugin-monitor/gpu_checks/custom-plugin-nvidia-device-plugin.json",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Nvidia device plugin configuration does not exist")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Nvidia device plugin configuration does not exist"); err != nil {
+		return fmt.Errorf("check NPD Nvidia device plugin configuration: %w", err)
+	}
+	return nil
 }
 
-func ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx context.Context, s *Scenario) {
+func ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	// Validate that NPD is reporting healthy Nvidia device plugin
-	validateNPDCondition(ctx, s, "UnhealthyNvidiaDevicePlugin", "HealthyNvidiaDevicePlugin", corev1.ConditionFalse,
+	return validateNPDCondition(ctx, s, "UnhealthyNvidiaDevicePlugin", "HealthyNvidiaDevicePlugin", corev1.ConditionFalse,
 		"NVIDIA device plugin is running properly", "expected UnhealthyNvidiaDevicePlugin message to indicate healthy status")
 }
 
-func ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx context.Context, s *Scenario) {
+func ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	// Stop Nvidia device plugin systemd service to simulate failure
 	command := []string{
 		"set -ex",
 		"sudo systemctl stop nvidia-device-plugin.service",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia device plugin service")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia device plugin service"); err != nil {
+		return fmt.Errorf("stop Nvidia device plugin service: %w", err)
+	}
 
 	// Validate that NPD reports unhealthy Nvidia device plugin
-	validateNPDCondition(ctx, s, "UnhealthyNvidiaDevicePlugin", "UnhealthyNvidiaDevicePlugin", corev1.ConditionTrue,
-		"Systemd service nvidia-device-plugin is not active", "expected UnhealthyNvidiaDevicePlugin message to indicate unhealthy status")
+	var errs []error
+	errs = append(errs, validateNPDCondition(ctx, s, "UnhealthyNvidiaDevicePlugin", "UnhealthyNvidiaDevicePlugin", corev1.ConditionTrue,
+		"Systemd service nvidia-device-plugin is not active", "expected UnhealthyNvidiaDevicePlugin message to indicate unhealthy status"))
 
 	// Restart Nvidia device plugin systemd service
 	command = []string{
 		"set -ex",
 		"sudo systemctl restart nvidia-device-plugin.service || true",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia device plugin service")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia device plugin service"); err != nil {
+		errs = append(errs, fmt.Errorf("restart Nvidia device plugin service: %w", err))
+	}
+	return errors.Join(errs...)
 }
 
-func ValidateNPDUnhealthyNvidiaDCGMServices(ctx context.Context, s *Scenario) {
+func ValidateNPDUnhealthyNvidiaDCGMServices(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
 		// Check NPD unhealthy Nvidia DCGM services config exists
 		"test -f /etc/node-problem-detector.d/custom-plugin-monitor/gpu_checks/custom-plugin-nvidia-dcgm-services.json",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Nvidia DCGM services configuration does not exist")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Nvidia DCGM services configuration does not exist"); err != nil {
+		return fmt.Errorf("check NPD Nvidia DCGM services configuration: %w", err)
+	}
+	return nil
 }
 
-func ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx context.Context, s *Scenario) {
+func ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	// Validate that NPD is reporting healthy Nvidia DCGM services
-	validateNPDCondition(ctx, s, "UnhealthyNvidiaDCGMServices", "HealthyNvidiaDCGMServices", corev1.ConditionFalse,
+	return validateNPDCondition(ctx, s, "UnhealthyNvidiaDCGMServices", "HealthyNvidiaDCGMServices", corev1.ConditionFalse,
 		"NVIDIA DCGM services are running properly", "expected UnhealthyNvidiaDCGMServices message to indicate healthy status")
 }
 
-func ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx context.Context, s *Scenario) {
+func ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	// Stop nvidia-dcgm systemd service to simulate failure
 	command := []string{
 		"set -ex",
 		"sudo systemctl stop nvidia-dcgm.service",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia DCGM service")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia DCGM service"); err != nil {
+		return fmt.Errorf("stop Nvidia DCGM service: %w", err)
+	}
 
 	// Validate that NPD reports unhealthy Nvidia DCGM services
-	validateNPDCondition(ctx, s, "UnhealthyNvidiaDCGMServices", "UnhealthyNvidiaDCGMServices", corev1.ConditionTrue,
-		"Systemd service(s) nvidia-dcgm are not active", "expected UnhealthyNvidiaDCGMServices message to indicate unhealthy status")
+	var errs []error
+	errs = append(errs, validateNPDCondition(ctx, s, "UnhealthyNvidiaDCGMServices", "UnhealthyNvidiaDCGMServices", corev1.ConditionTrue,
+		"Systemd service(s) nvidia-dcgm are not active", "expected UnhealthyNvidiaDCGMServices message to indicate unhealthy status"))
 
 	// Stop the nvidia-dcgm-exporter system service to simulate failure
 	command = []string{
 		"set -ex",
 		"sudo systemctl stop nvidia-dcgm-exporter.service",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia DCGM Exporter service")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia DCGM Exporter service"); err != nil {
+		return errors.Join(append(errs, fmt.Errorf("stop Nvidia DCGM Exporter service: %w", err))...)
+	}
 
 	// Validate that NPD still reports unhealthy Nvidia DCGM services
-	validateNPDCondition(ctx, s, "UnhealthyNvidiaDCGMServices", "UnhealthyNvidiaDCGMServices", corev1.ConditionTrue,
-		"Systemd service(s) nvidia-dcgm nvidia-dcgm-exporter are not active", "expected UnhealthyNvidiaDCGMServices message to indicate unhealthy status for both services")
+	errs = append(errs, validateNPDCondition(ctx, s, "UnhealthyNvidiaDCGMServices", "UnhealthyNvidiaDCGMServices", corev1.ConditionTrue,
+		"Systemd service(s) nvidia-dcgm nvidia-dcgm-exporter are not active", "expected UnhealthyNvidiaDCGMServices message to indicate unhealthy status for both services"))
 
 	// Restart Nvidia DCGM services
 	command = []string{
@@ -1468,116 +1764,154 @@ func ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx context.Context, s *
 		"sudo systemctl restart nvidia-dcgm.service || true",
 		"sudo systemctl restart nvidia-dcgm-exporter.service || true",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia DCGM services")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia DCGM services"); err != nil {
+		errs = append(errs, fmt.Errorf("restart Nvidia DCGM services: %w", err))
+	}
+	return errors.Join(errs...)
 }
 
-func ValidateNPDHealthyNvidiaGridLicenseStatus(ctx context.Context, s *Scenario) {
+func ValidateNPDHealthyNvidiaGridLicenseStatus(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
 		// Check NPD unhealthy Nvidia GRID license check config exists
 		"test -f /etc/node-problem-detector.d/custom-plugin-monitor/gpu_checks/custom-plugin-nvidia-grid-status.json",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Nvidia Grid License check configuration does not exist")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Nvidia Grid License check configuration does not exist"); err != nil {
+		return fmt.Errorf("check NPD Nvidia GRID license check configuration: %w", err)
+	}
 	// Validate that NPD is reporting healthy Nvidia GRID license status
-	validateNPDCondition(ctx, s, "NVIDIAGRIDStatusInvalid", "NVIDIAGRIDStatusValid", corev1.ConditionFalse,
+	return validateNPDCondition(ctx, s, "NVIDIAGRIDStatusInvalid", "NVIDIAGRIDStatusValid", corev1.ConditionFalse,
 		"NVIDIA Grid Status Valid", "expected NVIDIAGRIDStatusValid message to indicate healthy status")
 }
 
-func ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx context.Context, s *Scenario) {
+func ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	// Stop nvidia-gridd systemd service to simulate failure
 	command := []string{
 		"set -ex",
 		"sudo systemctl stop nvidia-gridd.service",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia GRID service")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to stop Nvidia GRID service"); err != nil {
+		return fmt.Errorf("stop Nvidia GRID service: %w", err)
+	}
 
 	// Validate that NPD reports unhealthy Nvidia GRID services
-	validateNPDCondition(ctx, s, "NVIDIA GRID Status Invalid", "NVIDIA GRID Status Valid", corev1.ConditionTrue,
-		"nvidia-gridd is not active", "expected UnhealthyNVIDIA GRID Status message to indicate unhealthy status")
+	var errs []error
+	errs = append(errs, validateNPDCondition(ctx, s, "NVIDIA GRID Status Invalid", "NVIDIA GRID Status Valid", corev1.ConditionTrue,
+		"nvidia-gridd is not active", "expected UnhealthyNVIDIA GRID Status message to indicate unhealthy status"))
 
 	// Restart Nvidia Grid services
 	command = []string{
 		"set -ex",
 		"sudo systemctl restart nvidia-gridd.service || true",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia GRID services")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia GRID services"); err != nil {
+		errs = append(errs, fmt.Errorf("restart Nvidia GRID services: %w", err))
+	}
+	return errors.Join(errs...)
 }
 
-func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) {
+func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) error {
 	s.T.Helper()
-	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-runc but got %d", len(versions))
+	if err := assert.Equal(len(versions), 1, "expected exactly one version for moby-runc but got %d", len(versions)); err != nil {
+		return err
+	}
 	// check if versions[0] is great than or equal to 1.2.0
 	// check semantic version
 	parsedVersion, err := semver.NewVersion(versions[0])
-	require.NoError(s.T, err, "failed to parse semver from moby-runc version")
-	require.GreaterOrEqual(s.T, int(parsedVersion.Major()), 1, "expected moby-runc major version to be at least 1, got %d", parsedVersion.Major())
-	require.GreaterOrEqual(s.T, int(parsedVersion.Minor()), 2, "expected moby-runc minor version to be at least 2, got %d", parsedVersion.Minor())
-	ValidateInstalledPackageVersion(ctx, s, "moby-runc", versions[0])
+	if err != nil {
+		return fmt.Errorf("parse semver from moby-runc version %q: %w", versions[0], err)
+	}
+	if err := errors.Join(
+		assert.Equal(parsedVersion.Major() >= 1, true, "expected moby-runc major version to be at least 1, got %d", parsedVersion.Major()),
+		assert.Equal(parsedVersion.Minor() >= 2, true, "expected moby-runc minor version to be at least 2, got %d", parsedVersion.Minor()),
+	); err != nil {
+		return err
+	}
+	return ValidateInstalledPackageVersion(ctx, s, "moby-runc", versions[0])
 }
 
-func ValidateKubeletArgs(ctx context.Context, s *Scenario) {
+func ValidateKubeletArgs(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-	ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt", "--windows-priorityclass=ABOVE_NORMAL_PRIORITY_CLASS"})
+	return ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt", "--windows-priorityclass=ABOVE_NORMAL_PRIORITY_CLASS"})
 }
 
 // ValidateContainerdWindowsPriorityClass verifies that the containerd service is registered
 // with nssm's AppPriority set to ABOVE_NORMAL_PRIORITY_CLASS, and that the running containerd
 // process actually has that OS process priority class applied.
-func ValidateContainerdWindowsPriorityClass(ctx context.Context, s *Scenario) {
+func ValidateContainerdWindowsPriorityClass(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
 	nssmCommand := strings.Join([]string{
 		"$ErrorActionPreference = 'Stop'",
 		"& \"c:\\k\\nssm.exe\" get containerd AppPriority",
 	}, "\n")
-	nssmResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, nssmCommand, 0, "could not read containerd AppPriority from nssm")
-	require.Equal(s.T, "ABOVE_NORMAL_PRIORITY_CLASS", strings.TrimSpace(nssmResult.stdout), "expected containerd nssm service to be configured with AppPriority=ABOVE_NORMAL_PRIORITY_CLASS")
+	nssmResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, nssmCommand, 0, "could not read containerd AppPriority from nssm")
+	if err != nil {
+		return fmt.Errorf("read containerd AppPriority from nssm: %w", err)
+	}
+	errs := []error{
+		assert.Equal(strings.TrimSpace(nssmResult.stdout), "ABOVE_NORMAL_PRIORITY_CLASS", "expected containerd nssm service to be configured with AppPriority=ABOVE_NORMAL_PRIORITY_CLASS"),
+	}
 
 	processCommand := strings.Join([]string{
 		"$ErrorActionPreference = 'Stop'",
 		"(Get-Process -Name containerd -ErrorAction Stop | Select-Object -First 1).PriorityClass",
 	}, "\n")
-	processResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, processCommand, 0, "could not read containerd process priority class")
-	require.Equal(s.T, "AboveNormal", strings.TrimSpace(processResult.stdout), "expected containerd process to be running with AboveNormal priority class")
+	processResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, processCommand, 0, "could not read containerd process priority class")
+	if err != nil {
+		return errors.Join(append(errs, fmt.Errorf("read containerd process priority class: %w", err))...)
+	}
+	errs = append(errs, assert.Equal(strings.TrimSpace(processResult.stdout), "AboveNormal", "expected containerd process to be running with AboveNormal priority class"))
+	return errors.Join(errs...)
 }
 
-func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, processName string, arguments []string) {
+func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, processName string, arguments []string) error {
 	steps := []string{
 		fmt.Sprintf("(Get-CimInstance Win32_Process -Filter \"name='%[1]s'\")[0].CommandLine", processName),
 	}
 
-	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	podExecResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	if err != nil {
+		return fmt.Errorf("get command line of process %s: %w", processName, err)
+	}
 
 	actualArgs := strings.Split(podExecResult.stdout, " ")
 
+	var errs []error
 	for i := range arguments {
 		expectedArgument := arguments[i]
-		require.Contains(s.T, actualArgs, expectedArgument)
+		errs = append(errs, assert.Equal(slices.Contains(actualArgs, expectedArgument), true,
+			"expected process %s arguments %q to contain %q", processName, actualArgs, expectedArgument))
 	}
+	return errors.Join(errs...)
 }
 
-func ValidateWindowsProcessContainsArgumentStrings(ctx context.Context, s *Scenario, processName string, substrings []string) {
-	validateWindowsProccessArgumentString(ctx, s, processName, substrings, require.Contains)
+func ValidateWindowsProcessContainsArgumentStrings(ctx context.Context, s *Scenario, processName string, substrings []string) error {
+	return validateWindowsProccessArgumentString(ctx, s, processName, substrings, assert.Contains)
 }
 
-func ValidateWindowsProcessDoesNotContainArgumentStrings(ctx context.Context, s *Scenario, processName string, substrings []string) {
-	validateWindowsProccessArgumentString(ctx, s, processName, substrings, require.NotContains)
+func ValidateWindowsProcessDoesNotContainArgumentStrings(ctx context.Context, s *Scenario, processName string, substrings []string) error {
+	return validateWindowsProccessArgumentString(ctx, s, processName, substrings, assert.NotContains)
 }
 
-func validateWindowsProccessArgumentString(ctx context.Context, s *Scenario, processName string, substrings []string, assert func(t require.TestingT, s any, contains any, msgAndArgs ...any)) {
+func validateWindowsProccessArgumentString(ctx context.Context, s *Scenario, processName string, substrings []string, assert func(got, want string, msgAndArgs ...any) error) error {
 	steps := []string{
 		fmt.Sprintf("(Get-CimInstance Win32_Process -Filter \"name='%[1]s'\")[0].CommandLine", processName),
 	}
-	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command argument string - might mean file does not have params, might mean something went wrong")
-	argString := podExecResult.stdout
-	for _, str := range substrings {
-		assert(s.T, argString, str)
+	podExecResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command argument string - might mean file does not have params, might mean something went wrong")
+	if err != nil {
+		return fmt.Errorf("get command line of process %s: %w", processName, err)
 	}
+	argString := podExecResult.stdout
+	var errs []error
+	for _, str := range substrings {
+		errs = append(errs, assert(argString, str))
+	}
+	return errors.Join(errs...)
 }
 
-func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario, windowsVersion string) {
+func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario, windowsVersion string) error {
 	s.T.Helper()
 	steps := []string{
 		"(Get-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\" -Name BuildLabEx).BuildLabEx",
@@ -1588,34 +1922,39 @@ func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario,
 	versionSliced := strings.Split(osVersion.String(), ".")
 	osMajorVersion := versionSliced[0]
 
-	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	podExecResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	if err != nil {
+		return fmt.Errorf("read BuildLabEx from the VM: %w", err)
+	}
 	podExecResultStdout := strings.TrimSpace(podExecResult.stdout)
 
 	s.T.Logf("Found windows version in windows_settings: \"%s\": \"%s\" (\"%s\")", windowsVersion, osMajorVersion, osVersion)
 	s.T.Logf("Windows version returned from VM \"%s\"", podExecResultStdout)
 
-	require.Contains(s.T, podExecResultStdout, osMajorVersion)
+	return assert.Contains(podExecResultStdout, osMajorVersion)
 }
 
-func ValidateWindowsProductName(ctx context.Context, s *Scenario, productName string) {
+func ValidateWindowsProductName(ctx context.Context, s *Scenario, productName string) error {
 	s.T.Helper()
 	steps := []string{
 		"(Get-ItemProperty \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\").ProductName",
 	}
 
-	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	podExecResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	if err != nil {
+		return fmt.Errorf("read ProductName from the VM: %w", err)
+	}
 	podExecResultStdout := strings.TrimSpace(podExecResult.stdout)
 
-	require.Contains(s.T, podExecResultStdout, productName)
+	return assert.Contains(podExecResultStdout, productName)
 }
 
 // ValidateWindowsSecureTLSEnabled asserts that Enable-SecureTls (windowssecuretls.ps1) has hardened the
 // node against protocol downgrade and the Sweet32 birthday attack (CVE-2016-2183 / CVE-2016-6329):
 // TLS 1.2 is enabled, TLS 1.0/1.1 and SSLv2/SSLv3 are disabled, RC4 is disabled, and the configured
 // cipher suite order does not include any 64-bit block ciphers (3DES/DES/RC2).
-func ValidateWindowsSecureTLSEnabled(ctx context.Context, s *Scenario) {
+func ValidateWindowsSecureTLSEnabled(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
 	steps := []string{
 		"$ErrorActionPreference = 'Stop'",
 		"$tls12ClientEnabled = (Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Client' -Name Enabled).Enabled",
@@ -1643,44 +1982,51 @@ func ValidateWindowsSecureTLSEnabled(ctx context.Context, s *Scenario) {
 		"[PSCustomObject]@{ tls12ClientEnabled = $tls12ClientEnabled; tls12ServerEnabled = $tls12ServerEnabled; tls11ClientEnabled = $tls11ClientEnabled; tls11ServerEnabled = $tls11ServerEnabled; tls10ClientEnabled = $tls10ClientEnabled; tls10ServerEnabled = $tls10ServerEnabled; ssl3ClientEnabled = $ssl3ClientEnabled; ssl3ServerEnabled = $ssl3ServerEnabled; ssl2ClientEnabled = $ssl2ClientEnabled; ssl2ServerEnabled = $ssl2ServerEnabled; rc4_128 = $rc4_128; rc4_64 = $rc4_64; rc4_56 = $rc4_56; rc4_40 = $rc4_40; cipherOrder = $cipherOrder } | ConvertTo-Json -Compress",
 	}
 
-	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate secure TLS configuration")
+	podExecResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate secure TLS configuration")
+	if err != nil {
+		return fmt.Errorf("read secure TLS configuration: %w", err)
+	}
 	stdout := strings.TrimSpace(podExecResult.stdout)
 
-	require.Equal(s.T, int64(1), gjson.Get(stdout, "tls12ClientEnabled").Int(), "expected TLS 1.2 to be enabled for Client, got: %s", stdout)
-	require.Equal(s.T, int64(1), gjson.Get(stdout, "tls12ServerEnabled").Int(), "expected TLS 1.2 to be enabled for Server, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls11ClientEnabled").Int(), "expected TLS 1.1 to be disabled for Client, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls11ServerEnabled").Int(), "expected TLS 1.1 to be disabled for Server, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls10ClientEnabled").Int(), "expected TLS 1.0 to be disabled for Client, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "tls10ServerEnabled").Int(), "expected TLS 1.0 to be disabled for Server, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "ssl3ClientEnabled").Int(), "expected SSL 3.0 to be disabled for Client, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "ssl3ServerEnabled").Int(), "expected SSL 3.0 to be disabled for Server, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "ssl2ClientEnabled").Int(), "expected SSL 2.0 to be disabled for Client, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "ssl2ServerEnabled").Int(), "expected SSL 2.0 to be disabled for Server, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "rc4_128").Int(), "expected RC4 128/128 to be disabled, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "rc4_64").Int(), "expected RC4 64/128 to be disabled, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "rc4_56").Int(), "expected RC4 56/128 to be disabled, got: %s", stdout)
-	require.Equal(s.T, int64(0), gjson.Get(stdout, "rc4_40").Int(), "expected RC4 40/128 to be disabled, got: %s", stdout)
-
 	cipherOrder := gjson.Get(stdout, "cipherOrder").String()
-	require.NotEmpty(s.T, cipherOrder, "expected a configured cipher suite order")
-	require.NotContains(s.T, cipherOrder, "3DES", "cipher suite order should not include 3DES (Sweet32/CVE-2016-2183)")
-	require.NotContains(s.T, cipherOrder, "RC2", "cipher suite order should not include RC2")
-	require.NotContains(s.T, cipherOrder, "DES", "cipher suite order should not include DES")
-	require.NotContains(s.T, cipherOrder, "RC4", "cipher suite order should not include RC4")
+	return errors.Join(
+		assert.Equal(gjson.Get(stdout, "tls12ClientEnabled").Int(), int64(1), "expected TLS 1.2 to be enabled for Client, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "tls12ServerEnabled").Int(), int64(1), "expected TLS 1.2 to be enabled for Server, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "tls11ClientEnabled").Int(), int64(0), "expected TLS 1.1 to be disabled for Client, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "tls11ServerEnabled").Int(), int64(0), "expected TLS 1.1 to be disabled for Server, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "tls10ClientEnabled").Int(), int64(0), "expected TLS 1.0 to be disabled for Client, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "tls10ServerEnabled").Int(), int64(0), "expected TLS 1.0 to be disabled for Server, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "ssl3ClientEnabled").Int(), int64(0), "expected SSL 3.0 to be disabled for Client, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "ssl3ServerEnabled").Int(), int64(0), "expected SSL 3.0 to be disabled for Server, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "ssl2ClientEnabled").Int(), int64(0), "expected SSL 2.0 to be disabled for Client, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "ssl2ServerEnabled").Int(), int64(0), "expected SSL 2.0 to be disabled for Server, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "rc4_128").Int(), int64(0), "expected RC4 128/128 to be disabled, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "rc4_64").Int(), int64(0), "expected RC4 64/128 to be disabled, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "rc4_56").Int(), int64(0), "expected RC4 56/128 to be disabled, got: %s", stdout),
+		assert.Equal(gjson.Get(stdout, "rc4_40").Int(), int64(0), "expected RC4 40/128 to be disabled, got: %s", stdout),
+		assert.NotEqual(cipherOrder, "", "expected a configured cipher suite order"),
+		assert.NotContains(cipherOrder, "3DES", "cipher suite order should not include 3DES (Sweet32/CVE-2016-2183)"),
+		assert.NotContains(cipherOrder, "RC2", "cipher suite order should not include RC2"),
+		assert.NotContains(cipherOrder, "DES", "cipher suite order should not include DES"),
+		assert.NotContains(cipherOrder, "RC4", "cipher suite order should not include RC4"),
+	)
 }
 
-func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVersion string) {
+func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVersion string) error {
 	s.T.Helper()
 	steps := []string{
 		"(Get-ItemProperty \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\").DisplayVersion",
 	}
 
-	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	podExecResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	if err != nil {
+		return fmt.Errorf("read DisplayVersion from the VM: %w", err)
+	}
 	podExecResultStdout := strings.TrimSpace(podExecResult.stdout)
 
 	s.T.Logf("Windows display version returned from VM \"%s\". Expected display version \"%s\"", podExecResultStdout, displayVersion)
 
-	require.Contains(s.T, podExecResultStdout, displayVersion)
+	return assert.Contains(podExecResultStdout, displayVersion)
 }
 
 func getWindowsSettingsJson() []byte {
@@ -1688,82 +2034,102 @@ func getWindowsSettingsJson() []byte {
 	return jsonBytes
 }
 
-func ValidateCiliumIsRunningWindows(ctx context.Context, s *Scenario) {
+func ValidateCiliumIsRunningWindows(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-	ValidateJsonFileHasField(ctx, s, "/k/azurecni/netconf/10-azure.conflist", "plugins.ipam.type", "azure-cns")
+	return ValidateJsonFileHasField(ctx, s, "/k/azurecni/netconf/10-azure.conflist", "plugins.ipam.type", "azure-cns")
 }
 
-func ValidateCiliumIsNotRunningWindows(ctx context.Context, s *Scenario) {
+func ValidateCiliumIsNotRunningWindows(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-	ValidateJsonFileDoesNotHaveField(ctx, s, "/k/azurecni/netconf/10-azure.conflist", "plugins.ipam.type", "azure-cns")
+	return ValidateJsonFileDoesNotHaveField(ctx, s, "/k/azurecni/netconf/10-azure.conflist", "plugins.ipam.type", "azure-cns")
 }
 
-func ValidateWindowsCiliumIsRunning(ctx context.Context, s *Scenario) {
+func ValidateWindowsCiliumIsRunning(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
+	var errs []error
 
 	expectedServices := []string{"ebpfcore", "netebpfext", "neteventebpfext", "xdp", "wtc", "hns"}
 	for _, serviceName := range expectedServices {
-		ValidateWindowsServiceIsRunning(ctx, s, serviceName)
+		errs = append(errs, ValidateWindowsServiceIsRunning(ctx, s, serviceName))
 	}
 
 	expectedDlls := []string{"cncapi.dll", "wcnagent.dll"}
 	for _, dllName := range expectedDlls {
-		ValidateDllLoadedWindows(ctx, s, dllName)
+		errs = append(errs, ValidateDllLoadedWindows(ctx, s, dllName))
 	}
+	return errors.Join(errs...)
 }
 
-func ValidateWindowsCiliumIsNotRunning(ctx context.Context, s *Scenario) {
+func ValidateWindowsCiliumIsNotRunning(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
 	// some of the services used by windows cilium are dependencies of other services, so they may be running even if cilium is not
 	// for example, ebpfcore is used by Guest Proxy Agent (GPA), so it may be running even if cilium is not
 	// so, we only check that cilium-specific dlls are not loaded, as that is a stronger indication that cilium is not running
+	var errs []error
 	unexpectedDlls := []string{"cncapi.dll", "wcnagent.dll"}
 	for _, dllName := range unexpectedDlls {
-		ValidateDllIsNotLoadedWindows(ctx, s, dllName)
+		errs = append(errs, ValidateDllIsNotLoadedWindows(ctx, s, dllName))
 	}
+	return errors.Join(errs...)
 }
 
-func ValidateDllLoadedWindows(ctx context.Context, s *Scenario, dllName string) {
+func ValidateDllLoadedWindows(ctx context.Context, s *Scenario, dllName string) error {
 	s.T.Helper()
-	if !dllLoadedWindows(ctx, s, dllName) {
-		s.T.Fatalf("expected DLL %s to be loaded, but it is not", dllName)
+	loaded, err := dllLoadedWindows(ctx, s, dllName)
+	if err != nil {
+		return fmt.Errorf("check whether DLL %s is loaded: %w", dllName, err)
 	}
+	return assert.Equal(loaded, true, "expected DLL %s to be loaded, but it is not", dllName)
 }
 
-func ValidateDllIsNotLoadedWindows(ctx context.Context, s *Scenario, dllName string) {
+func ValidateDllIsNotLoadedWindows(ctx context.Context, s *Scenario, dllName string) error {
 	s.T.Helper()
-	if dllLoadedWindows(ctx, s, dllName) {
-		s.T.Fatalf("expected DLL %s to not be loaded, but it is", dllName)
+	loaded, err := dllLoadedWindows(ctx, s, dllName)
+	if err != nil {
+		return fmt.Errorf("check whether DLL %s is loaded: %w", dllName, err)
 	}
+	return assert.Equal(loaded, false, "expected DLL %s to not be loaded, but it is", dllName)
 }
 
-func ValidateJsonFileHasField(ctx context.Context, s *Scenario, fileName string, jsonPath string, expectedValue string) {
+func ValidateJsonFileHasField(ctx context.Context, s *Scenario, fileName string, jsonPath string, expectedValue string) error {
 	s.T.Helper()
-	require.Equal(s.T, GetFieldFromJsonObjectOnNode(ctx, s, fileName, jsonPath), expectedValue)
+	got, err := GetFieldFromJsonObjectOnNode(ctx, s, fileName, jsonPath)
+	if err != nil {
+		return fmt.Errorf("get field %s from json file %s: %w", jsonPath, fileName, err)
+	}
+	return assert.Equal(got, expectedValue)
 }
 
-func ValidateJsonFileDoesNotHaveField(ctx context.Context, s *Scenario, fileName string, jsonPath string, valueNotToBe string) {
+func ValidateJsonFileDoesNotHaveField(ctx context.Context, s *Scenario, fileName string, jsonPath string, valueNotToBe string) error {
 	s.T.Helper()
-	require.NotEqual(s.T, GetFieldFromJsonObjectOnNode(ctx, s, fileName, jsonPath), valueNotToBe)
+	got, err := GetFieldFromJsonObjectOnNode(ctx, s, fileName, jsonPath)
+	if err != nil {
+		return fmt.Errorf("get field %s from json file %s: %w", jsonPath, fileName, err)
+	}
+	return assert.NotEqual(got, valueNotToBe)
 }
 
-func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName string, jsonPath string) string {
+func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName string, jsonPath string) (string, error) {
 	steps := []string{
 		fmt.Sprintf("Get-Content %[1]s", fileName),
 		fmt.Sprintf("$content.%s", jsonPath),
 	}
 
-	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	podExecResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	if err != nil {
+		return "", fmt.Errorf("read field %s of json file %s: %w", jsonPath, fileName, err)
+	}
 
-	return podExecResult.stdout
+	return podExecResult.stdout, nil
 }
 
 // ValidateTaints checks if the node has the expected taints that are set in the kubelet config with --register-with-taints flag
-func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
+func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) error {
 	s.T.Helper()
 	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
+	if err != nil {
+		return fmt.Errorf("get node %q: %w", s.Runtime.VM.KubeName, err)
+	}
 	var taints []string
 	for _, taint := range node.Spec.Taints {
 		if strings.Contains(taint.Key, "node.kubernetes.io") {
@@ -1772,11 +2138,11 @@ func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
 		taints = append(taints, fmt.Sprintf("%s=%s:%s", taint.Key, taint.Value, taint.Effect))
 	}
 	actualTaints := strings.Join(taints, ",")
-	require.Equal(s.T, expectedTaints, actualTaints, "expected node %q to have taint %q, but got %q", s.Runtime.VM.KubeName, expectedTaints, actualTaints)
+	return assert.Equal(actualTaints, expectedTaints, "expected node %q to have taint %q, but got %q", s.Runtime.VM.KubeName, expectedTaints, actualTaints)
 }
 
 // ValidateLocalDNSService checks if the localdns service is in the expected state (enabled or disabled).
-func ValidateLocalDNSService(ctx context.Context, s *Scenario, state string) {
+func ValidateLocalDNSService(ctx context.Context, s *Scenario, state string) error {
 	s.T.Helper()
 	serviceName := "localdns"
 
@@ -1793,7 +2159,10 @@ test "$active" = "active"   || { echo "expected active, got $active"; exit 1; }
 test "$enabled" = "enabled" || { echo "expected enabled, got $enabled"; exit 1; }
 `, serviceName)
 
-		execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns should be running and enabled")
+		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns should be running and enabled"); err != nil {
+			return fmt.Errorf("check that localdns is running and enabled: %w", err)
+		}
+		return nil
 
 	case "disabled":
 		script = fmt.Sprintf(`set -euo pipefail
@@ -1806,31 +2175,38 @@ test "$active" = "inactive" || { echo "expected inactive, got $active"; exit 1; 
 test "$enabled" = "disabled" || { echo "expected disabled, got $enabled"; exit 1; }
 `, serviceName)
 
-		execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns should be stopped and disabled")
+		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns should be stopped and disabled"); err != nil {
+			return fmt.Errorf("check that localdns is stopped and disabled: %w", err)
+		}
+		return nil
 
 	default:
-		s.T.Fatalf("unknown state %q; expected 'enable' or 'disable'", state)
+		return fmt.Errorf("unknown state %q; expected 'enable' or 'disable'", state)
 	}
 }
 
 // ValidateLocalDNSResolution checks if the DNS resolution for an external domain is successful from localdns clusterlistenerIP.
 // It uses the 'dig' command to check the DNS resolution and expects a successful response.
-func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string) {
+func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string) error {
 	s.T.Helper()
 	testdomain := "bing.com"
 	command := fmt.Sprintf("dig %s +timeout=1 +tries=1", testdomain)
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "dns resolution failed")
-	assert.Contains(s.T, execResult.stdout, "status: NOERROR")
-	assert.Contains(s.T, execResult.stdout, fmt.Sprintf("SERVER: %s", server))
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "dns resolution failed")
+	if err != nil {
+		return fmt.Errorf("resolve %s: %w", testdomain, err)
+	}
+	return errors.Join(
+		assert.Contains(execResult.stdout, "status: NOERROR"),
+		assert.Contains(execResult.stdout, fmt.Sprintf("SERVER: %s", server)),
+	)
 }
 
 // ValidateLocalDNSHostsFile checks that /etc/localdns/hosts contains at least one IPv4 entry for each critical FQDN.
 // This validation approach avoids flakiness with CDN/frontdoor-backed FQDNs (like mcr.microsoft.com) whose A records
 // can rotate between queries. We verify presence, not exact IP matching.
 // The hosts file is populated asynchronously by the aks-localdns-hosts-setup timer/service, so we poll with a timeout.
-func ValidateLocalDNSHostsFile(ctx context.Context, s *Scenario, fqdns []string) {
+func ValidateLocalDNSHostsFile(ctx context.Context, s *Scenario, fqdns []string) error {
 	s.T.Helper()
-
 	// Build script that polls until all FQDNs have at least one IPv4 entry in hosts file
 	script := fmt.Sprintf(`set -euo pipefail
 hosts_file="/etc/localdns/hosts"
@@ -1891,8 +2267,11 @@ while true; do
 done
 `, quoteFQDNsForBash(fqdns))
 
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"hosts file should contain resolved IPs for critical FQDNs")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"hosts file should contain resolved IPs for critical FQDNs"); err != nil {
+		return fmt.Errorf("check localdns hosts file entries: %w", err)
+	}
+	return nil
 }
 
 // quoteFQDNsForBash converts a slice of FQDNs to a bash array string
@@ -1904,14 +2283,15 @@ func quoteFQDNsForBash(fqdns []string) string {
 
 // ValidateAKSLocalDNSHostsSetupService checks that aks-localdns-hosts-setup.service ran successfully
 // and the aks-localdns-hosts-setup.timer is active to ensure periodic refresh of /etc/localdns/hosts.
-func ValidateAKSLocalDNSHostsSetupService(ctx context.Context, s *Scenario) {
+func ValidateAKSLocalDNSHostsSetupService(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
 	// Check that aks-localdns-hosts-setup.service (oneshot) completed without failure
-	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-localdns-hosts-setup.service")
+	if err := ValidateSystemdUnitIsNotFailed(ctx, s, "aks-localdns-hosts-setup.service"); err != nil {
+		return err
+	}
 
 	// Check that aks-localdns-hosts-setup.timer is active for periodic refresh
-	ValidateSystemdUnitIsRunning(ctx, s, "aks-localdns-hosts-setup.timer")
+	return ValidateSystemdUnitIsRunning(ctx, s, "aks-localdns-hosts-setup.timer")
 }
 
 // ValidateLocalDNSHostsPluginBypass verifies that localdns serves FQDNs from /etc/localdns/hosts
@@ -1922,9 +2302,8 @@ func ValidateAKSLocalDNSHostsSetupService(ctx context.Context, s *Scenario) {
 //
 // We intentionally do NOT assert on DNS flags (AA, RA) because CoreDNS can set these
 // regardless of which plugin served the response.
-func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
+func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
 	// Step 1: Verify the node has the hosts plugin annotation
 	// The annotation is set asynchronously by localdns.sh (background job waiting for kubeconfig + node registration)
 	// Poll for up to 5 minutes with exponential backoff to avoid flaky failures
@@ -1939,7 +2318,9 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		node, err = s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-		require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
+		if err != nil {
+			return fmt.Errorf("get node %q: %w", s.Runtime.VM.KubeName, err)
+		}
 
 		annotationValue, exists = node.Annotations[annotationKey]
 		if exists && annotationValue == "enabled" {
@@ -1999,8 +2380,10 @@ echo ""
 echo "=== Corefile validation successful ==="
 `
 
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, corefileCheckScript, 0,
-		"Corefile should contain hosts plugin configuration")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, corefileCheckScript, 0,
+		"Corefile should contain hosts plugin configuration"); err != nil {
+		return fmt.Errorf("check Corefile hosts plugin configuration: %w", err)
+	}
 
 	// Step 3: Test that localdns resolves real FQDNs from /etc/localdns/hosts
 	// This validates the hosts plugin is working by checking that the IPs returned by dig
@@ -2085,8 +2468,11 @@ echo "The localdns hosts plugin is working correctly:"
 echo "  Resolved IPs match /etc/localdns/hosts entries"
 `, testFQDN)
 
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"localdns should resolve FQDN from hosts file with matching IPs")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"localdns should resolve FQDN from hosts file with matching IPs"); err != nil {
+		return fmt.Errorf("check that localdns resolves %s from the hosts file: %w", testFQDN, err)
+	}
+	return nil
 }
 
 // ValidateLocalDNSHostsPluginIPv6 checks that IPv6 entries in /etc/localdns/hosts are
@@ -2097,9 +2483,8 @@ echo "  Resolved IPs match /etc/localdns/hosts entries"
 //  1. Find the first FQDN with an IPv6 entry in the hosts file
 //  2. Query localdns for AAAA records for that FQDN
 //  3. Verify the returned IPv6 addresses match the hosts file entries
-func ValidateLocalDNSHostsPluginIPv6(ctx context.Context, s *Scenario) {
+func ValidateLocalDNSHostsPluginIPv6(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
 	s.T.Log("Testing hosts plugin serves IPv6 entries from hosts file")
 
 	script := `set -euo pipefail
@@ -2175,8 +2560,11 @@ echo "=== SUCCESS ==="
 echo "IPv6 entries in hosts file are correctly served by CoreDNS hosts plugin"
 `
 
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"CoreDNS hosts plugin should serve IPv6 entries from hosts file")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"CoreDNS hosts plugin should serve IPv6 entries from hosts file"); err != nil {
+		return fmt.Errorf("check that the CoreDNS hosts plugin serves IPv6 entries: %w", err)
+	}
+	return nil
 }
 
 // ValidateLocalDNSHostsPluginColdStart verifies that localdns works correctly when started
@@ -2189,9 +2577,8 @@ echo "IPv6 entries in hosts file are correctly served by CoreDNS hosts plugin"
 //  3. Populate hosts file with a canary entry (simulates aks-localdns-hosts-setup completing)
 //  4. Wait for CoreDNS reload (5s), verify canary resolves (hosts plugin picks up new file)
 //  5. Restore original hosts file and stop/start localdns to leave node in clean state
-func ValidateLocalDNSHostsPluginColdStart(ctx context.Context, s *Scenario) {
+func ValidateLocalDNSHostsPluginColdStart(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
 	s.T.Log("Testing localdns cold start with empty hosts file then population")
 
 	script := `#!/bin/bash
@@ -2421,8 +2808,11 @@ echo "  1. Start with empty hosts file: DNS resolves via fallthrough"
 echo "  2. Hosts file populated later: CoreDNS picks it up via reload"
 `
 
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"localdns should work after cold start with empty hosts file and pick up populated file")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"localdns should work after cold start with empty hosts file and pick up populated file"); err != nil {
+		return fmt.Errorf("check localdns cold start behaviour: %w", err)
+	}
+	return nil
 }
 
 // ValidateANCLauncherOutput checks that the aks-node-controller-launcher.sh output contains
@@ -2432,115 +2822,143 @@ echo "  2. Hosts file populated later: CoreDNS picks it up via reload"
 //   - All other VHDs launch the launcher as a direct fork from the cloud-boothook (not a systemd
 //     unit, for faster dispatch - see baker.go boothookTemplate), with stdout/stderr redirected to
 //     /var/log/azure/aks-node-controller.output.
-func ValidateANCLauncherOutput(ctx context.Context, s *Scenario, expectedContent string) {
+func ValidateANCLauncherOutput(ctx context.Context, s *Scenario, expectedContent string) error {
 	s.T.Helper()
 	if s.VHD.Flatcar {
-		ValidateJournalctlOutput(ctx, s, "aks-node-controller.service", expectedContent)
-		return
+		return ValidateJournalctlOutput(ctx, s, "aks-node-controller.service", expectedContent)
 	}
-	ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", expectedContent)
+	return ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", expectedContent)
 }
 
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
-func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) {
+func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
 		// Get the service logs and check for the expected content
 		fmt.Sprintf("sudo journalctl -u %s | grep -q '%s'", serviceName, expectedContent),
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
-		fmt.Sprintf("expected content '%s' not found in %s service logs", expectedContent, serviceName))
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		fmt.Sprintf("expected content '%s' not found in %s service logs", expectedContent, serviceName)); err != nil {
+		return fmt.Errorf("search %s service logs for %q: %w", serviceName, expectedContent, err)
+	}
+	return nil
 }
 
-func ValidateNodeProblemDetector(ctx context.Context, s *Scenario) {
+func ValidateNodeProblemDetector(ctx context.Context, s *Scenario) error {
 	command := []string{
 		"set -ex",
 		// Verify node-problem-detector service is running
 		"systemctl is-active node-problem-detector",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Node Problem Detector (NPD) service validation failed")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Node Problem Detector (NPD) service validation failed"); err != nil {
+		return fmt.Errorf("validate Node Problem Detector (NPD) service: %w", err)
+	}
+	return nil
 }
 
-func RestartNodeProblemDetector(ctx context.Context, s *Scenario) {
+func RestartNodeProblemDetector(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	s.T.Log("restarting node-problem-detector to pick up managed GPU health checks")
 	command := []string{
 		"set -ex",
 		"sudo systemctl restart node-problem-detector",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
-		"failed to restart Node Problem Detector (NPD) service")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"failed to restart Node Problem Detector (NPD) service"); err != nil {
+		return fmt.Errorf("restart Node Problem Detector (NPD) service: %w", err)
+	}
+	return nil
 }
 
-func ValidateNodeExporter(ctx context.Context, s *Scenario) {
+func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
 	skipFile := "/etc/node-exporter.d/skip_vhd_node_exporter"
 	serviceName := "node-exporter.service"
 
 	// Check if node-exporter is installed on this VHD by looking for the skip sentinel file.
 	// The skip file is only present on supported Ubuntu and Azure Linux 3 VHDs with node-exporter installed.
 	// Mariner, Flatcar, ACL, OSGuard, Kata, and older VHDs do not have the skip file.
-	if !fileExist(ctx, s, skipFile) {
+	exists, err := fileExist(ctx, s, skipFile)
+	if err != nil {
+		return fmt.Errorf("check existence of file %s: %w", skipFile, err)
+	}
+	if !exists {
 		s.T.Logf("Skipping node-exporter validation: sentinel file %s not found (VHD does not have node-exporter installed)", skipFile)
-		return
+		return nil
 	}
 
 	s.T.Logf("skip_vhd_node_exporter sentinel file found, validating node-exporter installation")
 
 	// Validate service is running
-	ValidateSystemdUnitIsRunning(ctx, s, serviceName)
-	ValidateSystemdUnitIsNotFailed(ctx, s, serviceName)
+	var errs []error
+	errs = append(errs,
+		ValidateSystemdUnitIsRunning(ctx, s, serviceName),
+		ValidateSystemdUnitIsNotFailed(ctx, s, serviceName),
+	)
 
 	// Validate service is enabled
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s", serviceName), 0, fmt.Sprintf("%s should be enabled", serviceName))
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s", serviceName), 0, fmt.Sprintf("%s should be enabled", serviceName)); err != nil {
+		errs = append(errs, fmt.Errorf("check that %s is enabled: %w", serviceName, err))
+	}
 
 	// Validate binary exists and is executable
 	// The binary is installed at /usr/bin and symlinked to /opt/bin for consistency with other binaries (kubelet, etc.)
-	ValidateFileExists(ctx, s, "/usr/bin/node-exporter")
-	ValidateFileExists(ctx, s, "/opt/bin/node-exporter")
-	ValidateFileExists(ctx, s, "/opt/bin/node-exporter-startup.sh")
-
-	// Validate configuration files exist
-	ValidateFileExists(ctx, s, skipFile)
-	ValidateFileExists(ctx, s, "/etc/node-exporter.d/web-config.yml")
+	errs = append(errs,
+		ValidateFileExists(ctx, s, "/usr/bin/node-exporter"),
+		ValidateFileExists(ctx, s, "/opt/bin/node-exporter"),
+		ValidateFileExists(ctx, s, "/opt/bin/node-exporter-startup.sh"),
+		// Validate configuration files exist
+		ValidateFileExists(ctx, s, skipFile),
+		ValidateFileExists(ctx, s, "/etc/node-exporter.d/web-config.yml"),
+	)
 
 	// Validate the metrics contract consumed by the AKS Prometheus default profile. Scrape the node IP directly
 	// so this also verifies that the endpoint is reachable on the address used by monitoring infrastructure.
 	s.T.Logf("Validating node-exporter metrics on port 19100")
 	metricsURL := fmt.Sprintf("http://%s:19100/metrics", s.Runtime.VM.PrivateIP)
-	scrapeAndValidateNodeExporter(ctx, s, metricsURL)
+	errs = append(errs, scrapeAndValidateNodeExporter(ctx, s, metricsURL))
 
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-active %s", serviceName), 0,
-		"node-exporter should remain active after scraping")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-active %s", serviceName), 0,
+		"node-exporter should remain active after scraping"); err != nil {
+		errs = append(errs, fmt.Errorf("check that node-exporter remains active after scraping: %w", err))
+	}
 
+	if err := errors.Join(errs...); err != nil {
+		return err
+	}
 	s.T.Logf("node-exporter validation passed")
+	return nil
 }
 
-func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL string) {
+func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL string) error {
 	s.T.Helper()
+	result, err := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("curl --noproxy '*' -sS --max-time 10 %q", metricsURL))
+	if err != nil {
+		return fmt.Errorf("scrape node-exporter metrics from %s: %w", metricsURL, err)
+	}
+	if err := assert.Equal(result.exitCode, "0",
+		"node-exporter scrape failed\nstdout: %s\nstderr: %s", result.stdout, result.stderr); err != nil {
+		return err
+	}
 
-	result := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("curl --noproxy '*' -sS --max-time 10 %q", metricsURL))
-	require.Equal(s.T, "0", result.exitCode,
-		"node-exporter scrape failed\nstdout: %s\nstderr: %s", result.stdout, result.stderr)
-
-	err := nodeexporter.ValidateMetrics(result.stdout)
 	const previewLimit = 2000
 	responsePreview := result.stdout
 	if len(responsePreview) > previewLimit {
 		responsePreview = responsePreview[:previewLimit] + "\n... response truncated"
 	}
-	require.NoErrorf(s.T, err, "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview)
+	return assert.NoError(nodeexporter.ValidateMetrics(result.stdout), "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview)
 }
 
-func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
+func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) (err error) {
 	command := []string{
 		"set -ex",
 		// Check if the filesystem corruption monitor NPD plugin configuration file exists
 		"test -f /etc/node-problem-detector.d/custom-plugin-monitor/custom-fs-corruption-monitor.json",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Custom Plugin configuration for FilesystemCorruptionProblem not found")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Custom Plugin configuration for FilesystemCorruptionProblem not found"); err != nil {
+		return fmt.Errorf("check NPD custom plugin configuration for FilesystemCorruptionProblem: %w", err)
+	}
 
 	// Log the NPD plugin config and check script for diagnostics
 	diagCmd := []string{
@@ -2549,7 +2967,10 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 		"echo '--- check_fs_corruption.sh ---'",
 		"cat /etc/node-problem-detector.d/plugin/check_fs_corruption.sh",
 	}
-	diagResult := execScriptOnVMForScenario(ctx, s, strings.Join(diagCmd, "\n"))
+	diagResult, err := execScriptOnVMForScenario(ctx, s, strings.Join(diagCmd, "\n"))
+	if err != nil {
+		return fmt.Errorf("read NPD filesystem corruption plugin config and script: %w", err)
+	}
 	s.T.Logf("NPD filesystem corruption plugin config and script:\nstdout:\n%s\nstderr:\n%s", diagResult.stdout, diagResult.stderr)
 
 	// Simulate filesystem corruption by replacing the check script with one that
@@ -2565,7 +2986,9 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 		`printf '#!/bin/bash\necho "Found '\''structure needs cleaning'\'' in containerd journal."\nexit 1\n' | sudo tee /etc/node-problem-detector.d/plugin/check_fs_corruption.sh > /dev/null`,
 		`sudo chmod +x /etc/node-problem-detector.d/plugin/check_fs_corruption.sh`,
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Failed to replace check_fs_corruption.sh to simulate corruption")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Failed to replace check_fs_corruption.sh to simulate corruption"); err != nil {
+		return fmt.Errorf("replace check_fs_corruption.sh to simulate corruption: %w", err)
+	}
 	defer func() {
 		restoreCmd := []string{
 			"set -ex",
@@ -2574,7 +2997,11 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 			`  sudo chmod +x /etc/node-problem-detector.d/plugin/check_fs_corruption.sh`,
 			`fi`,
 		}
-		restoreResult := execScriptOnVMForScenario(ctx, s, strings.Join(restoreCmd, "\n"))
+		restoreResult, restoreErr := execScriptOnVMForScenario(ctx, s, strings.Join(restoreCmd, "\n"))
+		if restoreErr != nil {
+			err = errors.Join(err, fmt.Errorf("restore original check_fs_corruption.sh: %w", restoreErr))
+			return
+		}
 		s.T.Logf("Restored original check_fs_corruption.sh:\nstdout:\n%s\nstderr:\n%s", restoreResult.stdout, restoreResult.stderr)
 	}()
 
@@ -2585,14 +3012,17 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 		"echo '--- manual check script run ---'",
 		"sudo /etc/node-problem-detector.d/plugin/check_fs_corruption.sh; echo \"exit_code=$?\"",
 	}
-	verifyResult := execScriptOnVMForScenario(ctx, s, strings.Join(verifyCmd, "\n"))
+	verifyResult, err := execScriptOnVMForScenario(ctx, s, strings.Join(verifyCmd, "\n"))
+	if err != nil {
+		return fmt.Errorf("verify simulated filesystem corruption: %w", err)
+	}
 	s.T.Logf("Simulation verification:\nstdout:\n%s\nstderr:\n%s", verifyResult.stdout, verifyResult.stderr)
 
 	// Wait for NPD to detect the problem. NPD's custom plugin monitor polls
 	// every 5 minutes. With continuous simulation, the first check cycle after
 	// our start should detect it. Use 8 minutes as a safety margin.
 	var filesystemCorruptionProblem *corev1.NodeCondition
-	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 8*time.Minute, true, func(ctx context.Context) (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, 10*time.Second, 8*time.Minute, true, func(ctx context.Context) (bool, error) {
 		node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
 			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
@@ -2607,19 +3037,25 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 		}
 		return false, nil // Continue polling
 	})
-	require.NoError(s.T, err, "timed out waiting for FilesystemCorruptionProblem condition to appear on node %q", s.Runtime.VM.KubeName)
+	if err != nil {
+		return fmt.Errorf("timed out waiting for FilesystemCorruptionProblem condition to appear on node %q: %w", s.Runtime.VM.KubeName, err)
+	}
 
-	require.NotNil(s.T, filesystemCorruptionProblem, "expected FilesystemCorruptionProblem condition to be present on node")
-	require.Equal(s.T, corev1.ConditionTrue, filesystemCorruptionProblem.Status, "expected FilesystemCorruptionProblem condition to be True on node")
-	require.Contains(s.T, filesystemCorruptionProblem.Message, "Found 'structure needs cleaning' in containerd journal.", "expected FilesystemCorruptionProblem condition message to contain: Found 'structure needs cleaning' in containerd journal.")
+	if err := assert.NotNil(filesystemCorruptionProblem, "expected FilesystemCorruptionProblem condition to be present on node"); err != nil {
+		return err
+	}
+	return errors.Join(
+		assert.Equal(filesystemCorruptionProblem.Status, corev1.ConditionTrue, "expected FilesystemCorruptionProblem condition to be True on node"),
+		assert.Contains(filesystemCorruptionProblem.Message, "Found 'structure needs cleaning' in containerd journal.", "expected FilesystemCorruptionProblem condition message to contain: Found 'structure needs cleaning' in containerd journal."),
+	)
 }
 
-func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
+func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) error {
 	s.T.Logf("waiting for Nvidia GPU resource to be available")
-	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+	return waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 }
 
-func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) {
+func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	s.T.Logf("validating that NVIDIA device plugin systemd service is running")
 
@@ -2628,47 +3064,66 @@ func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) 
 		"systemctl is-active nvidia-device-plugin.service",
 		"systemctl is-enabled nvidia-device-plugin.service",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin systemd service should be active and enabled")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin systemd service should be active and enabled"); err != nil {
+		return fmt.Errorf("check that the NVIDIA device plugin systemd service is active and enabled: %w", err)
+	}
+	return nil
 }
 
-func ValidateNvidiaDevicePluginMIGStrategy(ctx context.Context, s *Scenario, strategy string) {
+func ValidateNvidiaDevicePluginMIGStrategy(ctx context.Context, s *Scenario, strategy string) error {
 	s.T.Helper()
 	command := fmt.Sprintf("systemctl cat nvidia-device-plugin.service | grep -F -- '--mig-strategy %s'", strategy)
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "NVIDIA device plugin is not configured with MIG strategy "+strategy)
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "NVIDIA device plugin is not configured with MIG strategy "+strategy); err != nil {
+		return fmt.Errorf("validate NVIDIA device plugin MIG strategy %q: %w", strategy, err)
+	}
+	return nil
 }
 
-func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCountExpected int64, resourceName string) {
+func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCountExpected int64, resourceName string) error {
 	s.T.Helper()
 	s.T.Logf("validating that node advertises GPU resources")
 
 	// First, wait for the GPU resource to be available
-	waitUntilResourceAvailable(ctx, s, resourceName)
+	if err := waitUntilResourceAvailable(ctx, s, resourceName); err != nil {
+		return fmt.Errorf("wait for resource %s to become available: %w", resourceName, err)
+	}
 
 	// Get the node using the Kubernetes client from the test framework
 	nodeName := s.Runtime.VM.KubeName
 	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-	require.NoError(s.T, err, "failed to get node %q", nodeName)
+	if err != nil {
+		return fmt.Errorf("get node %q: %w", nodeName, err)
+	}
 
 	// Check if the node advertises GPU capacity
 	gpuCapacity, exists := node.Status.Capacity[corev1.ResourceName(resourceName)]
-	require.True(s.T, exists, "node should advertise resource %s", resourceName)
+	if err := assert.Equal(exists, true, "node should advertise resource %s", resourceName); err != nil {
+		return err
+	}
 
 	gpuCount := gpuCapacity.Value()
-	require.Equal(s.T, gpuCount, gpuCountExpected, "node should advertise %s=%d, but got %s=%d", resourceName, gpuCountExpected, resourceName, gpuCount)
+	if err := assert.Equal(gpuCount, gpuCountExpected, "node should advertise %s=%d, but got %s=%d", resourceName, gpuCountExpected, resourceName, gpuCount); err != nil {
+		return err
+	}
 	s.T.Logf("node %s advertises %s=%d resources", nodeName, resourceName, gpuCount)
+	return nil
 }
 
-func ValidateNodeAdvertisesExactGPUResources(ctx context.Context, s *Scenario, expected map[string]int64) {
+func ValidateNodeAdvertisesExactGPUResources(ctx context.Context, s *Scenario, expected map[string]int64) error {
 	s.T.Helper()
 	s.T.Logf("validating that node advertises exactly the expected NVIDIA GPU resources")
 
 	for resourceName := range expected {
-		waitUntilResourceAvailable(ctx, s, resourceName)
+		if err := waitUntilResourceAvailable(ctx, s, resourceName); err != nil {
+			return fmt.Errorf("wait for resource %s to become available: %w", resourceName, err)
+		}
 	}
 
 	nodeName := s.Runtime.VM.KubeName
 	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-	require.NoError(s.T, err, "failed to get node %q", nodeName)
+	if err != nil {
+		return fmt.Errorf("get node %q: %w", nodeName, err)
+	}
 
 	getNvidiaResources := func(resources corev1.ResourceList) map[string]int64 {
 		result := make(map[string]int64)
@@ -2681,16 +3136,24 @@ func ValidateNodeAdvertisesExactGPUResources(ctx context.Context, s *Scenario, e
 		return result
 	}
 
-	require.Equal(s.T, expected, getNvidiaResources(node.Status.Capacity), "node %s advertises unexpected NVIDIA GPU capacity", nodeName)
-	require.Equal(s.T, expected, getNvidiaResources(node.Status.Allocatable), "node %s advertises unexpected allocatable NVIDIA GPU resources", nodeName)
+	var errs []error
+	if actual := getNvidiaResources(node.Status.Capacity); !reflect.DeepEqual(actual, expected) {
+		errs = append(errs, fmt.Errorf("node %s advertises unexpected NVIDIA GPU capacity: got %v, want %v", nodeName, actual, expected))
+	}
+	if actual := getNvidiaResources(node.Status.Allocatable); !reflect.DeepEqual(actual, expected) {
+		errs = append(errs, fmt.Errorf("node %s advertises unexpected allocatable NVIDIA GPU resources: got %v, want %v", nodeName, actual, expected))
+	}
+	return errors.Join(errs...)
 }
 
-func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount int, resourceName string) {
+func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount int, resourceName string) error {
 	s.T.Helper()
 	s.T.Logf("validating that GPU workloads can be scheduled")
 
 	// Wait for resources to be available and add delay for device health
-	waitUntilResourceAvailable(ctx, s, resourceName)
+	if err := waitUntilResourceAvailable(ctx, s, resourceName); err != nil {
+		return fmt.Errorf("wait for resource %s to become available: %w", resourceName, err)
+	}
 	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
 
 	// Create a GPU test pod using the same pattern as podRunNvidiaWorkload
@@ -2721,15 +3184,17 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount i
 		},
 	}
 
-	ValidatePodRunning(ctx, s, pod)
+	if err := ValidatePodRunning(ctx, s, pod); err != nil {
+		return fmt.Errorf("run GPU workload pod: %w", err)
+	}
 
 	s.T.Logf("GPU workload is schedulable and runs successfully")
+	return nil
 }
 
 // ValidatePubkeySSHDisabled validates that SSH with private key authentication is disabled by checking sshd_config
-func ValidatePubkeySSHDisabled(ctx context.Context, s *Scenario) {
+func ValidatePubkeySSHDisabled(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
 	// Part 1. Use VMSS RunCommand to check sshd_config directly on the node
 	resp, err := RunCommand(ctx, s, `#!/bin/bash
 # Check if PubkeyAuthentication is disabled in sshd_config
@@ -2742,29 +3207,30 @@ else
     grep -i "PubkeyAuthentication" /etc/ssh/sshd_config || echo "No PubkeyAuthentication setting found"
     exit 1
 fi`)
-	require.NoError(s.T, err, "Failed to run command to check sshd_config")
+	if err != nil {
+		return fmt.Errorf("run command to check sshd_config: %w", err)
+	}
 	stdout := lo.FromPtr(resp.Output)
 	s.T.Logf("Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
 	// Check if the command execution was successful by looking for our success message in the output
-	if !strings.Contains(stdout, "SUCCESS: PubkeyAuthentication is disabled") {
-		s.T.Fatalf("PubkeyAuthentication is not properly disabled. stdout: %s", stdout)
+	if err := assert.Contains(stdout, "SUCCESS: PubkeyAuthentication is disabled", "PubkeyAuthentication is not properly disabled"); err != nil {
+		return err
 	}
 
 	// Part 2. Check cannot SSH with private key (expect failure)
 	err = validateSSHConnectivity(ctx, s)
-	require.Error(s.T, err, "Expected SSH connection with private key to fail, but it succeeded")
-	if !strings.Contains(err.Error(), "Permission denied") {
-		s.T.Fatalf("Expected permission denied error, but got: %v", err)
+	if err := assert.ErrorContains(err, "Permission denied", "expected SSH connection with private key to fail with permission denied"); err != nil {
+		return err
 	}
 
 	s.T.Logf("PubkeyAuthentication is properly disabled as expected")
+	return nil
 }
 
 // ValidateSSHServiceDisabled validates that the SSH daemon service is disabled and stopped on the node
-func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) {
+func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
 	// Use VMSS RunCommand to check SSH service status directly on the node
 	// Ubuntu uses 'ssh' as service name, while AzureLinux and Mariner use 'sshd'
 	resp, err := RunCommand(ctx, s, `#!/bin/bash
@@ -2802,19 +3268,22 @@ else
     echo "FAILED: SSH service is not inactive"
     exit 1
 fi`)
-	require.NoError(s.T, err, "Failed to run command to check SSH service status")
+	if err != nil {
+		return fmt.Errorf("run command to check SSH service status: %w", err)
+	}
 	stdout := lo.FromPtr(resp.Output)
 	s.T.Logf("Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
 	// Check if the command execution was successful by looking for our success message in the output
-	if !strings.Contains(stdout, "SUCCESS: SSH service is disabled and stopped") {
-		s.T.Fatalf("SSH service is not properly disabled and stopped. stdout: %s", stdout)
+	if err := assert.Contains(stdout, "SUCCESS: SSH service is disabled and stopped", "SSH service is not properly disabled and stopped"); err != nil {
+		return err
 	}
 
 	s.T.Logf("SSH service is properly disabled and stopped as expected")
+	return nil
 }
 
-func ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx context.Context, s *Scenario) {
+func ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
@@ -2823,30 +3292,39 @@ func ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx context.Context, s *Sce
 		// Verify nvidia-dcgm-exporter service is running
 		"systemctl is-active nvidia-dcgm-exporter",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter service validation failed")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter service validation failed"); err != nil {
+		return fmt.Errorf("validate Nvidia DCGM Exporter services: %w", err)
+	}
+	return nil
 }
 
-func ValidateNvidiaDCGMExporterIsScrapable(ctx context.Context, s *Scenario) {
+func ValidateNvidiaDCGMExporterIsScrapable(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
 		// Check if nvidia-dcgm-exporter is scrapable on port 19400
 		"curl -f http://localhost:19400/metrics",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not scrapable on port 19400")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not scrapable on port 19400"); err != nil {
+		return fmt.Errorf("scrape Nvidia DCGM Exporter on port 19400: %w", err)
+	}
+	return nil
 }
 
-func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenario, metric string) {
+func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenario, metric string) error {
 	s.T.Helper()
 	command := []string{
 		"set -ex",
 		// Verify the most universal GPU metric is present
 		"curl -s http://localhost:19400/metrics | grep -q '" + metric + "'",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not returning "+metric)
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Nvidia DCGM Exporter is not returning "+metric); err != nil {
+		return fmt.Errorf("scrape metric %s from Nvidia DCGM Exporter: %w", metric, err)
+	}
+	return nil
 }
 
-func ValidateMIGModeEnabled(ctx context.Context, s *Scenario, gpuCountExpected int) {
+func ValidateMIGModeEnabled(ctx context.Context, s *Scenario, gpuCountExpected int) error {
 	s.T.Helper()
 	s.T.Logf("validating that MIG mode is enabled on %d GPUs", gpuCountExpected)
 
@@ -2854,19 +3332,29 @@ func ValidateMIGModeEnabled(ctx context.Context, s *Scenario, gpuCountExpected i
 		"set -ex",
 		"sudo nvidia-smi --query-gpu=mig.mode.current --format=csv,noheader",
 	}
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "MIG mode is not enabled")
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "MIG mode is not enabled")
+	if err != nil {
+		return fmt.Errorf("query MIG mode: %w", err)
+	}
 
 	stdout := strings.TrimSpace(execResult.stdout)
 	s.T.Logf("MIG mode status: %s", stdout)
 	gpuStatuses := strings.Split(stdout, "\n")
-	require.Len(s.T, gpuStatuses, gpuCountExpected, "expected MIG status for %d GPUs, but got: %s", gpuCountExpected, stdout)
+	if err := assert.Equal(len(gpuStatuses), gpuCountExpected, "expected MIG status for %d GPUs, but got: %s", gpuCountExpected, stdout); err != nil {
+		return err
+	}
+	var errs []error
 	for gpuIndex, gpuStatus := range gpuStatuses {
-		require.Equalf(s.T, "Enabled", strings.TrimSpace(gpuStatus), "expected MIG mode to be enabled on GPU %d", gpuIndex)
+		errs = append(errs, assert.Equal(strings.TrimSpace(gpuStatus), "Enabled", "expected MIG mode to be enabled on GPU %d", gpuIndex))
+	}
+	if err := errors.Join(errs...); err != nil {
+		return err
 	}
 	s.T.Logf("MIG mode is enabled on %d GPUs", gpuCountExpected)
+	return nil
 }
 
-func ValidateMIGInstanceProfileCounts(ctx context.Context, s *Scenario, expected map[string]int) {
+func ValidateMIGInstanceProfileCounts(ctx context.Context, s *Scenario, expected map[string]int) error {
 	s.T.Helper()
 	s.T.Logf("validating exact MIG instance profile counts")
 
@@ -2874,10 +3362,15 @@ func ValidateMIGInstanceProfileCounts(ctx context.Context, s *Scenario, expected
 		"set -ex",
 		"sudo nvidia-smi mig -lgi",
 	}
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to list MIG instances")
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to list MIG instances")
+	if err != nil {
+		return fmt.Errorf("list MIG instances: %w", err)
+	}
 
 	stdout := execResult.stdout
-	require.NotContains(s.T, stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout)
+	if err := assert.NotContains(stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout); err != nil {
+		return err
+	}
 
 	profilePattern := regexp.MustCompile(`MIG [0-9]+g\.[0-9]+gb(\+me)?`)
 	actual := make(map[string]int)
@@ -2885,10 +3378,13 @@ func ValidateMIGInstanceProfileCounts(ctx context.Context, s *Scenario, expected
 		actual[profile]++
 	}
 
-	require.Equal(s.T, expected, actual, "unexpected MIG instance geometry.\nOutput:\n%s", stdout)
+	if !reflect.DeepEqual(actual, expected) {
+		return fmt.Errorf("unexpected MIG instance geometry: got %v, want %v\nOutput:\n%s", actual, expected, stdout)
+	}
+	return nil
 }
 
-func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile string, instanceCountExpected int) {
+func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile string, instanceCountExpected int) error {
 	s.T.Helper()
 	s.T.Logf("validating that %d MIG instances are created with profile %s", instanceCountExpected, migProfile)
 
@@ -2897,23 +3393,31 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 		// List MIG devices using nvidia-smi
 		"sudo nvidia-smi mig -lgi",
 	}
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to list MIG instances")
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to list MIG instances")
+	if err != nil {
+		return fmt.Errorf("list MIG instances: %w", err)
+	}
 
 	stdout := execResult.stdout
-	require.NotContains(s.T, stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout)
+	if err := assert.NotContains(stdout, "No MIG-enabled devices found", "no MIG devices were created.\nOutput:\n%s", stdout); err != nil {
+		return err
+	}
 	instanceCount := 0
 	for _, line := range strings.Split(stdout, "\n") {
 		if strings.Contains(line, migProfile) {
 			instanceCount++
 		}
 	}
-	require.Equal(s.T, instanceCountExpected, instanceCount, "expected %d MIG instances with profile %s, but found %d.\nOutput:\n%s", instanceCountExpected, migProfile, instanceCount, stdout)
+	if err := assert.Equal(instanceCount, instanceCountExpected, "expected %d MIG instances with profile %s, but found %d.\nOutput:\n%s", instanceCountExpected, migProfile, instanceCount, stdout); err != nil {
+		return err
+	}
 	s.T.Logf("%d MIG instances with profile %s are created", instanceCountExpected, migProfile)
+	return nil
 }
 
 // ValidateIPTablesCompatibleWithCiliumEBPF validates that all iptables rules in each table match the provided patterns which are accounted for
 // when eBPF host routing is enabled.
-func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) {
+func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	tablePatterns, globalPatterns := getIPTablesRulesCompatibleWithEBPFHostRouting()
 	tables := []string{"filter", "mangle", "nat", "raw", "security"}
@@ -2922,7 +3426,10 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 	for _, table := range tables {
 		// Get the rules for this table
 		command := fmt.Sprintf("sudo iptables -t %s -S", table)
-		execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, fmt.Sprintf("failed to get iptables rules for table %s", table))
+		execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, fmt.Sprintf("failed to get iptables rules for table %s", table))
+		if err != nil {
+			return fmt.Errorf("get iptables rules for table %s: %w", table, err)
+		}
 
 		stdout := execResult.stdout
 		rules := strings.Split(strings.TrimSpace(stdout), "\n")
@@ -2971,9 +3478,9 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 		}
 	}
 
-	require.True(
-		s.T,
+	return assert.Equal(
 		success,
+		true,
 		"Rules found that do not match any of the given patterns. See previous log lines for details. "+
 			"This may indicate an unsupported iptables rule when eBPF host routing is enabled. "+
 			"Contact acndp@microsoft.com for details.",
@@ -2981,34 +3488,42 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 }
 
 // ValidateAppArmorBasic validates that AppArmor is running without requiring aa-status
-func ValidateAppArmorBasic(ctx context.Context, s *Scenario) {
+func ValidateAppArmorBasic(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
 	// Check if AppArmor module is enabled in the kernel
 	command := []string{
 		"set -ex",
 		"cat /sys/module/apparmor/parameters/enabled",
 	}
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor kernel parameter")
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor kernel parameter")
+	if err != nil {
+		return fmt.Errorf("check AppArmor kernel parameter: %w", err)
+	}
 	stdout := strings.TrimSpace(execResult.stdout)
-	require.Equal(s.T, "Y", stdout, "expected AppArmor to be enabled in kernel")
+	errs := []error{assert.Equal(stdout, "Y", "expected AppArmor to be enabled in kernel")}
 
 	// Check if apparmor.service is active
 	command = []string{
 		"set -ex",
 		"systemctl is-active apparmor.service",
 	}
-	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "apparmor.service is not active")
+	execResult, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "apparmor.service is not active")
+	if err != nil {
+		return errors.Join(append(errs, fmt.Errorf("check that apparmor.service is active: %w", err))...)
+	}
 	stdout = strings.TrimSpace(execResult.stdout)
-	require.Equal(s.T, "active", stdout, "expected apparmor.service to be active")
+	errs = append(errs, assert.Equal(stdout, "active", "expected apparmor.service to be active"))
 
 	// Check if AppArmor is enforcing by checking current process profile
 	command = []string{
 		"set -ex",
 		"cat /proc/self/attr/apparmor/current",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor current profile")
 	// Any output indicates AppArmor is active (profile will be shown)
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to check AppArmor current profile"); err != nil {
+		errs = append(errs, fmt.Errorf("check AppArmor current profile: %w", err))
+	}
+	return errors.Join(errs...)
 }
 
 func truncatePodName(t testing.TB, pod *corev1.Pod) {
@@ -3022,80 +3537,127 @@ func truncatePodName(t testing.TB, pod *corev1.Pod) {
 }
 
 // ValidateNodeHasLabel checks if the node has the expected label with the expected value
-func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedValue string) {
+func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedValue string) error {
 	s.T.Helper()
 	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
+	if err != nil {
+		return fmt.Errorf("get node %q: %w", s.Runtime.VM.KubeName, err)
+	}
 
 	actualValue, exists := node.Labels[labelKey]
-	require.True(s.T, exists, "expected node %q to have label %q, but it was not found", s.Runtime.VM.KubeName, labelKey)
-	require.Equal(s.T, expectedValue, actualValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
+	if err := assert.Equal(exists, true, "expected node %q to have label %q, but it was not found", s.Runtime.VM.KubeName, labelKey); err != nil {
+		return err
+	}
+	return assert.Equal(actualValue, expectedValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
 }
 
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
-func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
+func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) error {
 	nbc := s.Runtime.NBC
 	if nbc != nil && s.VHD.SupportsScriptless() && nbc.EnableScriptlessCSECmd && !usesScriptlessNBCCSECmd(s) {
-		ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
+		return ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
 	}
+	return nil
 }
 
 // ValidateScriptlessNBCCSECmd checks if the node has scriptless NBCCSECmd correctly enabled
-func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
-	if usesScriptlessNBCCSECmd(s) {
-		fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
-		ValidateFileExists(ctx, s, fileNameToCheck)
-		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2")
-		if s.Runtime.NBC != nil && s.Runtime.NBC.ScriptlessCSEProvisionMode {
-			execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl | grep -q 'starting /opt/bin/boothook.sh'", 0, "expected journalctl to contain 'starting /opt/bin/boothook.sh' for scriptless phase 2")
-		}
-		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2")
-		if enableScriptlessCompilation(s) {
-			ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-hotfix")
-			ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using hotfix binary")
+func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) error {
+	if !usesScriptlessNBCCSECmd(s) {
+		return nil
+	}
+	fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
+	var errs []error
+	errs = append(errs,
+		ValidateFileExists(ctx, s, fileNameToCheck),
+		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2"),
+	)
+	if s.Runtime.NBC != nil && s.Runtime.NBC.ScriptlessCSEProvisionMode {
+		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl | grep -q 'starting /opt/bin/boothook.sh'", 0, "expected journalctl to contain 'starting /opt/bin/boothook.sh' for scriptless phase 2"); err != nil {
+			errs = append(errs, fmt.Errorf("check journalctl for 'starting /opt/bin/boothook.sh': %w", err))
 		}
 	}
+	errs = append(errs, ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2"))
+	if enableScriptlessCompilation(s) {
+		errs = append(errs,
+			ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-hotfix"),
+			ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using hotfix binary"),
+		)
+	}
+	return errors.Join(errs...)
 }
 
 // ValidateScriptlessPhase3 validates that there are not diffs between ANC generated cse cmd NBC cse cmd vars
-func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) {
+func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-	if s.Runtime.AKSNodeConfig != nil && usesScriptlessNBCCSECmd(s) {
-		logFile := "/var/log/azure/aks-node-controller.output"
-		if !fileHasContent(ctx, s, logFile, "env compare: no differences found between provision-config and nbc-cmd env vars") {
-			// Grep for all env-compare diff markers to show what's different.
-			diffCmd := "sudo grep -E 'differs|only-in-pc|only-in-nbc|env var differences' " + logFile + " || true"
-			result := execScriptOnVMForScenarioValidateExitCode(ctx, s, diffCmd, 0, "could not grep for differences in aks-node-controller.output")
-			s.T.Fatalf("expected no env var differences between provision-config and nbc-cmd, but found differences:\n%s", result.stdout)
-		}
+	if s.Runtime.AKSNodeConfig == nil || !usesScriptlessNBCCSECmd(s) {
+		return nil
 	}
+	logFile := "/var/log/azure/aks-node-controller.output"
+	hasContent, err := fileHasContent(ctx, s, logFile, "env compare: no differences found between provision-config and nbc-cmd env vars")
+	if err != nil {
+		return fmt.Errorf("check whether %s reports no env var differences: %w", logFile, err)
+	}
+	if hasContent {
+		return nil
+	}
+	// Grep for all env-compare diff markers to show what's different.
+	diffCmd := "sudo grep -E 'differs|only-in-pc|only-in-nbc|env var differences' " + logFile + " || true"
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, diffCmd, 0, "could not grep for differences in aks-node-controller.output")
+	if err != nil {
+		return fmt.Errorf("grep for differences in aks-node-controller.output: %w", err)
+	}
+	return fmt.Errorf("expected no env var differences between provision-config and nbc-cmd, but found differences:\n%s", result.stdout)
 }
 
 // ValidateStaleCachedKubeBinariesRemoved validates that stale versioned kube binaries (e.g. kubelet-1.29.0, kubectl-1.29.0)
 // have been removed from /opt/bin/ after the correct version is installed.
-func ValidateStaleCachedKubeBinariesRemoved(ctx context.Context, s *Scenario) {
+func ValidateStaleCachedKubeBinariesRemoved(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	// List any remaining versioned kubelet/kubectl binaries in /opt/bin/
 	cmd := `find /opt/bin -maxdepth 1 \( -name "kubelet-*" -o -name "kubectl-*" \) -type f 2>/dev/null`
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0, "could not list stale cached binaries")
-	staleFiles := strings.TrimSpace(result.stdout)
-	if staleFiles != "" {
-		s.T.Fatalf("expected no stale cached binaries in /opt/bin/, but found:\n%s", staleFiles)
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0, "could not list stale cached binaries")
+	if err != nil {
+		return fmt.Errorf("list stale cached binaries: %w", err)
 	}
+	staleFiles := strings.TrimSpace(result.stdout)
+	return assert.Equal(staleFiles, "", "expected no stale cached binaries in /opt/bin/, but found:\n%s", staleFiles)
 }
 
 // ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
-func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
+func ValidateRxBufferDefault(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
+	defaultGen, err := vmSKUGeneration(config.Config.DefaultVMSKU)
+	if err != nil {
+		return fmt.Errorf("get default VM SKU generation for %s: %w", config.Config.DefaultVMSKU, err)
+	}
+
+	if defaultGen >= 6 && s.VHD.Distro == datamodel.AKSAzureLinuxV3Gen2 {
+		return nil
+	}
+
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil {
+		vmSKUGen, err := vmSKUGeneration(s.Runtime.NBC.AgentPoolProfile.VMSize)
+		if err != nil {
+			return fmt.Errorf("get VM SKU generation for %s: %w", s.Runtime.NBC.AgentPoolProfile.VMSize, err)
+		}
+		if vmSKUGen >= 6 && s.VHD.Distro == datamodel.AKSAzureLinuxV3Gen2 {
+			return nil
+		}
+	}
 
 	// Query the VM's actual CPU count using nproc
 	cpuCountCmd := "nproc"
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cpuCountCmd, 0, "could not get CPU count from VM")
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cpuCountCmd, 0, "could not get CPU count from VM")
+	if err != nil {
+		return fmt.Errorf("get CPU count from VM: %w", err)
+	}
 	vmCPUCount := strings.TrimSpace(result.stdout)
 
 	// Parse CPU count
 	cpuCount, err := strconv.Atoi(vmCPUCount)
-	require.NoError(s.T, err, "failed to parse CPU count: %s", vmCPUCount)
+	if err != nil {
+		return fmt.Errorf("parse CPU count %q: %w", vmCPUCount, err)
+	}
 
 	// Determine expected rx based on VM's CPU count (matching configure-azure-network.sh logic)
 	expectedRx := "1024"
@@ -3110,49 +3672,61 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 	}
 
 	// Validate files exist
-	ValidateAzureNetworkFiles(ctx, s)
+	if err := ValidateAzureNetworkFiles(ctx, s); err != nil {
+		return err
+	}
 
 	// Validate network interface settings match expected default
-	ValidateNetworkInterfaceConfig(ctx, s, customNicConfig)
+	return ValidateNetworkInterfaceConfig(ctx, s, customNicConfig)
 }
 
 // ValidateMANAPCIDevice checks that the MANA PCI device is exposed to the VM.
 // MANA hardware is identified by PCI device ID 0x00ba (Microsoft Corporation).
-func ValidateMANAPCIDevice(ctx context.Context, s *Scenario) {
+func ValidateMANAPCIDevice(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	defer toolkit.LogStep(s.T, "validating MANA PCI device is present")()
 	cmd := "grep -Rqi '^0x00ba$' /sys/bus/pci/devices/*/device 2>/dev/null"
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
-		"MANA PCI device (0x00ba) not found in /sys/bus/pci/devices")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"MANA PCI device (0x00ba) not found in /sys/bus/pci/devices"); err != nil {
+		return fmt.Errorf("check MANA PCI device: %w", err)
+	}
+	return nil
 }
 
 // ValidateMANADriverLoaded checks that the MANA Ethernet driver (mana) is loaded
 // in the running kernel. For built-in drivers they appear in modules.builtin;
 // for loadable modules they must be present in lsmod.
-func ValidateMANADriverLoaded(ctx context.Context, s *Scenario) {
+func ValidateMANADriverLoaded(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	defer toolkit.LogStep(s.T, "validating MANA kernel driver is loaded")()
 	cmd := `lsmod | grep -q '^mana ' || grep -q '/mana\.ko' /lib/modules/$(uname -r)/modules.builtin`
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
-		"MANA kernel driver (mana) not found in lsmod or modules.builtin")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"MANA kernel driver (mana) not found in lsmod or modules.builtin"); err != nil {
+		return fmt.Errorf("check MANA kernel driver: %w", err)
+	}
+	return nil
 }
 
 // ValidateAcceleratedNetworkingVFBonded checks that the accelerated networking
 // VF interface exists and is properly bonded to the primary eth0 interface.
-func ValidateAcceleratedNetworkingVFBonded(ctx context.Context, s *Scenario) {
+func ValidateAcceleratedNetworkingVFBonded(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	defer toolkit.LogStep(s.T, "validating accelerated networking VF is bonded to eth0")()
 	// Look for any interface that has "master eth0" in ip link output,
 	// indicating it is bonded as a VF to the primary synthetic NIC.
 	cmd := `ip link show | grep 'master eth0'`
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
 		"no VF interface found bonded to eth0 — accelerated networking may not be working")
+	if err != nil {
+		return fmt.Errorf("check accelerated networking VF bonding: %w", err)
+	}
 	s.T.Logf("Accelerated networking VF bonding: %s", strings.TrimSpace(result.stdout))
+	return nil
 }
 
 // ValidateAcceleratedNetworkingVFHardware verifies the accelerated networking VF
 // is backed by a PCI function and bound to a kernel network driver.
-func ValidateAcceleratedNetworkingVFHardware(ctx context.Context, s *Scenario) {
+func ValidateAcceleratedNetworkingVFHardware(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	defer toolkit.LogStep(s.T, "validating accelerated networking VF PCI hardware")()
 
@@ -3180,9 +3754,13 @@ func ValidateAcceleratedNetworkingVFHardware(ctx context.Context, s *Scenario) {
 		`printf 'vf=%s pci_slot=%s driver=%s ethtool_driver=%s vendor=%s device=%s subsystem_vendor=%s subsystem_device=%s\n' "$vf" "$pci_slot" "$driver" "$ethtool_driver" "$vendor" "$device" "$subsystem_vendor" "$subsystem_device"`,
 	}, "\n")
 
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
 		"accelerated networking VF should be PCI-backed and driver-bound")
+	if err != nil {
+		return fmt.Errorf("check accelerated networking VF PCI hardware: %w", err)
+	}
 	s.T.Logf("Accelerated networking VF hardware: %s", strings.TrimSpace(result.stdout))
+	return nil
 }
 
 // ValidateMANAVFBonded checks that the MANA Virtual Function (VF) interface exists
@@ -3191,9 +3769,9 @@ func ValidateAcceleratedNetworkingVFHardware(ctx context.Context, s *Scenario) {
 // as a subordinate (SLAVE) of eth0. The VF name varies by VM generation:
 // - V5: enP* (e.g., enP30832p0s0)
 // - V6+: ens1 or enp0s0
-func ValidateMANAVFBonded(ctx context.Context, s *Scenario) {
+func ValidateMANAVFBonded(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-	ValidateAcceleratedNetworkingVFBonded(ctx, s)
+	return ValidateAcceleratedNetworkingVFBonded(ctx, s)
 }
 
 // ValidateAcceleratedNetworkingTrafficFlowing checks that network traffic is
@@ -3201,17 +3779,22 @@ func ValidateMANAVFBonded(ctx context.Context, s *Scenario) {
 // synthetic (NetVSC) path.
 // It sends HTTP requests from a pod to the node's default gateway and verifies
 // that the VF TX packet counters increase by at least that amount.
-func ValidateAcceleratedNetworkingTrafficFlowing(ctx context.Context, s *Scenario) {
+func ValidateAcceleratedNetworkingTrafficFlowing(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	defer toolkit.LogStep(s.T, "validating traffic is flowing through accelerated networking VF")()
 
 	const requestCount = 10
 	getVFTxPackets := `val=$(sudo ethtool -S eth0 | awk '/^[[:space:]]*vf_tx_packets:/{print $2; exit}'); [ -n "$val" ] && echo "$val" || { echo "vf_tx_packets not found in ethtool -S eth0 output" >&2; exit 1; }`
 	// Read VF tx counter before generating traffic
-	resultBefore := execScriptOnVMForScenarioValidateExitCode(ctx, s, getVFTxPackets, 0,
+	resultBefore, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, getVFTxPackets, 0,
 		"could not read VF tx packet counter from ethtool -S eth0")
+	if err != nil {
+		return fmt.Errorf("read VF tx packet counter before generating traffic: %w", err)
+	}
 	countBefore, err := strconv.Atoi(strings.TrimSpace(resultBefore.stdout))
-	require.NoError(s.T, err, "failed to parse vf_tx_packets before value %q", resultBefore.stdout)
+	if err != nil {
+		return fmt.Errorf("parse vf_tx_packets before value %q: %w", resultBefore.stdout, err)
+	}
 	s.T.Logf("Accelerated networking VF tx packets before: %d", countBefore)
 
 	// Generate traffic from a pod on this node using curl to the node's default
@@ -3219,58 +3802,81 @@ func ValidateAcceleratedNetworkingTrafficFlowing(ctx context.Context, s *Scenari
 	// whether the target responds — what matters is that outbound packets from
 	// the pod traverse the accelerated networking VF path. curl is pre-installed in the Mariner
 	// debug image, so no package install is needed.
-	gatewayResult := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+	gatewayResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		"ip route | awk '/default/{print $3}'", 0,
 		"could not determine default gateway from ip route")
+	if err != nil {
+		return fmt.Errorf("determine default gateway from ip route: %w", err)
+	}
 	gatewayIP := strings.TrimSpace(gatewayResult.stdout)
-	require.NotEmpty(s.T, gatewayIP, "default gateway IP is empty")
+	if err := assert.NotEqual(gatewayIP, "", "default gateway IP is empty"); err != nil {
+		return err
+	}
 	s.T.Logf("Accelerated networking traffic test: using gateway %s as target", gatewayIP)
 
 	// The "; true" ensures exit 0 regardless of curl's result — the gateway has
 	// no HTTP server so connections will fail, but TCP SYN packets still traverse
 	// the VF (incrementing vf_tx_packets). The real assertion is the counter delta below.
 	curlCmd := fmt.Sprintf("for i in $(seq 1 %d); do curl -s -o /dev/null -m 1 http://%s/ 2>/dev/null; done; true", requestCount, gatewayIP)
-	execOnVMForScenarioOnUnprivilegedPod(ctx, s, curlCmd)
+	if _, err := execOnVMForScenarioOnUnprivilegedPod(ctx, s, curlCmd); err != nil {
+		return fmt.Errorf("generate traffic towards the default gateway: %w", err)
+	}
 
 	// Read VF tx counter after generating traffic
-	resultAfter := execScriptOnVMForScenarioValidateExitCode(ctx, s, getVFTxPackets, 0,
+	resultAfter, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, getVFTxPackets, 0,
 		"could not read VF tx packet counter from ethtool -S eth0")
+	if err != nil {
+		return fmt.Errorf("read VF tx packet counter after generating traffic: %w", err)
+	}
 	countAfter, err := strconv.Atoi(strings.TrimSpace(resultAfter.stdout))
-	require.NoError(s.T, err, "failed to parse vf_tx_packets after value %q", resultAfter.stdout)
+	if err != nil {
+		return fmt.Errorf("parse vf_tx_packets after value %q: %w", resultAfter.stdout, err)
+	}
 
 	delta := countAfter - countBefore
 	s.T.Logf("Accelerated networking VF tx packets after: %d (delta: %d, expected >= %d)", countAfter, delta, requestCount)
 
-	require.GreaterOrEqual(s.T, delta, requestCount,
+	return assert.Equal(delta >= requestCount, true,
 		"vf_tx_packets increased by %d but expected at least %d \u2014 traffic may not be flowing through the accelerated networking VF", delta, requestCount)
 }
 
 // ValidateMANATrafficFlowing checks that network traffic is actually flowing through
 // the MANA Virtual Function rather than the slower synthetic (NetVSC) path.
-func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
+func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-	ValidateAcceleratedNetworkingTrafficFlowing(ctx, s)
+	return ValidateAcceleratedNetworkingTrafficFlowing(ctx, s)
 }
 
 // ValidateMANA runs all MANA (Microsoft Azure Network Adapter) checks.
 // It verifies that the MANA PCI device is present, the kernel driver is loaded,
 // the VF interface is bonded to eth0, PCI-backed and driver-bound, and traffic
 // is flowing through the VF.
-func ValidateMANA(ctx context.Context, s *Scenario) {
+func ValidateMANA(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-	ValidateMANAPCIDevice(ctx, s)
-	ValidateMANADriverLoaded(ctx, s)
-	ValidateMANAVFBonded(ctx, s)
-	ValidateAcceleratedNetworkingVFHardware(ctx, s)
-	ValidateMANATrafficFlowing(ctx, s)
+	if err := ValidateMANAPCIDevice(ctx, s); err != nil {
+		return err
+	}
+	if err := ValidateMANADriverLoaded(ctx, s); err != nil {
+		return err
+	}
+	if err := errors.Join(
+		ValidateMANAVFBonded(ctx, s),
+		ValidateAcceleratedNetworkingVFHardware(ctx, s),
+	); err != nil {
+		return err
+	}
+	return ValidateMANATrafficFlowing(ctx, s)
 }
 
 // hasMANAHardware checks if the VM has MANA PCI hardware available.
 // Returns true if the MANA device (0x00ba) is found in sysfs.
 // This is used to conditionally run MANA validations on VMs that support it.
-func hasMANAHardware(ctx context.Context, s *Scenario) bool {
-	result := execScriptOnVMForScenario(ctx, s, "grep -Rqi '^0x00ba$' /sys/bus/pci/devices/*/device 2>/dev/null")
-	return result.exitCode == "0"
+func hasMANAHardware(ctx context.Context, s *Scenario) (bool, error) {
+	result, err := execScriptOnVMForScenario(ctx, s, "grep -Rqi '^0x00ba$' /sys/bus/pci/devices/*/device 2>/dev/null")
+	if err != nil {
+		return false, fmt.Errorf("check for MANA PCI hardware: %w", err)
+	}
+	return result.exitCode == "0", nil
 }
 
 // ValidateKernelLogs checks kernel logs for critical errors across multiple categories:
@@ -3278,11 +3884,10 @@ func hasMANAHardware(ctx context.Context, s *Scenario) bool {
 // - CPU lockups/stalls (soft/hard lockup, RCU stall, hung task, watchdog)
 // - Memory issues (OOM killer, page allocation failure, memory corruption)
 // - I/O and filesystem errors (I/O error, filesystem errors, nvme/ata/scsi errors)
-func ValidateKernelLogs(ctx context.Context, s *Scenario) {
+func ValidateKernelLogs(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
 	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
-		return
+		return nil
 	}
 
 	type categoryPattern struct {
@@ -3332,7 +3937,10 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 				fmt.Sprintf("echo \"$output\" | grep -iE '%s' || true", cp.pattern),
 			}
 		}
-		execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to retrieve kernel logs")
+		execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to retrieve kernel logs")
+		if err != nil {
+			return fmt.Errorf("retrieve kernel logs for category %s: %w", category, err)
+		}
 
 		stdout := strings.TrimSpace(execResult.stdout)
 		if stdout != "" {
@@ -3343,7 +3951,10 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 	// If issues found, write the full kernel dump to a file for debugging
 	if len(issuesFound) > 0 {
 		// Get full kernel log dump and write to file
-		fullDmesgResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo dmesg", 0, "failed to retrieve full kernel logs")
+		fullDmesgResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo dmesg", 0, "failed to retrieve full kernel logs")
+		if err != nil {
+			return fmt.Errorf("retrieve full kernel logs: %w", err)
+		}
 		logFileName := "kernel-log.txt"
 		if err := writeToFile(s.T, logFileName, fullDmesgResult.stdout); err != nil {
 			s.T.Logf("Warning: failed to write kernel log to file: %v", err)
@@ -3357,10 +3968,11 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 		for category, issues := range issuesFound {
 			summary.WriteString(fmt.Sprintf("\n[%s]:\n%s\n", category, issues))
 		}
-		s.T.Fatalf("%s", summary.String())
+		return errors.New(summary.String())
 	}
 
 	s.T.Logf("No critical kernel issues found")
+	return nil
 }
 
 // ValidateWaagentLog checks /var/log/waagent.log for expected agent behavior:
@@ -3368,35 +3980,38 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 // - The correct version is running as ExtHandler
 // - No errors from ExtHandler
 // Skipped on Flatcar and OSGuard VHDs which manage WALinuxAgent independently.
-func ValidateWaagentLog(ctx context.Context, s *Scenario) {
+func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
 	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") || s.VHD.SkipOldVHDValidations {
 		s.T.Logf("Skipping waagent log validation: not applicable for %s", s.VHD.Distro)
-		return
+		return nil
 	}
 
 	versions := components.GetExpectedPackageVersions("walinuxagent", "default", "current")
 	if len(versions) == 0 || versions[0] == "<SKIP>" {
 		s.T.Log("Skipping waagent log validation: no walinuxagent version in components.json")
-		return
+		return nil
 	}
 	expectedVersion := versions[0]
 
 	const waagentLogFile = "/var/log/waagent.log"
 
-	logContents := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+	logResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		"sudo cat "+waagentLogFile, 0,
-		"could not read waagent log").stdout
+		"could not read waagent log")
+	if err != nil {
+		return fmt.Errorf("read waagent log: %w", err)
+	}
+	logContents := logResult.stdout
 
-	// 1. Verify AutoUpdate is disabled
-	require.Contains(s.T, logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
-		"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False")
-
-	// 2. Verify the correct version is running as ExtHandler (PID varies)
-	expectedRunningPattern := fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion)
-	require.Contains(s.T, logContents, expectedRunningPattern,
-		"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion)
+	errs := []error{
+		// 1. Verify AutoUpdate is disabled
+		assert.Contains(logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
+			"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False"),
+		// 2. Verify the correct version is running as ExtHandler (PID varies)
+		assert.Contains(logContents, fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion),
+			"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion),
+	}
 
 	// 3. Check for ExtHandler errors
 	// On Ubuntu 22.04 FIPS VHDs, waagent logs "Cannot convert PFX to PEM" because
@@ -3410,12 +4025,15 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 	if isUbuntu2204FIPS {
 		grepCmd = fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s | grep -v 'Cannot convert PFX to PEM' | grep -v 'CHAIN_ZERO' || true", waagentLogFile)
 	}
-	extHandlerErrors := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+	extHandlerErrors, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		strings.Join([]string{
 			"set -e",
 			grepCmd,
 		}, "\n"), 0,
 		"failed to scan waagent log for ExtHandler errors")
+	if err != nil {
+		return errors.Join(append(errs, fmt.Errorf("scan waagent log for ExtHandler errors: %w", err))...)
+	}
 
 	errOutput := strings.TrimSpace(extHandlerErrors.stdout)
 	if errOutput != "" {
@@ -3425,15 +4043,19 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 		} else {
 			s.T.Logf("Full waagent log written to: %s/%s", testDir(s.T), logFileName)
 		}
-		s.T.Fatalf("ExtHandler errors found in waagent.log:\n%s", errOutput)
+		errs = append(errs, fmt.Errorf("ExtHandler errors found in waagent.log:\n%s", errOutput))
 	}
 
+	if err := errors.Join(errs...); err != nil {
+		return err
+	}
 	s.T.Logf("waagent.log validation passed: WALinuxAgent-%s running correctly with no ExtHandler errors", expectedVersion)
+	return nil
 }
 
 // ValidateCollectWindowsLogsScript runs c:\k\debug\collect-windows-logs.ps1 on the node
 // and verifies that a zip archive was produced by the script.
-func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
+func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	command := []string{
 		"$ErrorActionPreference = \"Stop\"",
@@ -3449,8 +4071,11 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 		"if (-not $zipFile) { throw \"collect-windows-logs.ps1 did not create a zip file\" }",
 		"Write-Host \"Zip file created: $($zipFile.FullName) (Size: $($zipFile.Length) bytes)\"",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
-		"collect-windows-logs.ps1 failed or did not produce a zip file")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"collect-windows-logs.ps1 failed or did not produce a zip file"); err != nil {
+		return fmt.Errorf("run collect-windows-logs.ps1: %w", err)
+	}
+	return nil
 }
 
 // ValidateVulnerableKernelModulesDisabled verifies that kernel modules with known LPE
@@ -3472,12 +4097,11 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 //
 // To add a new CVE mitigation, append the module name to BOTH lists below —
 // the absence-check list AND the default presence + load-refusal list.
-func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
+func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
 	if s.VHD.Flatcar && s.VHD.OS != config.OSACL {
 		s.T.Log("Skipping vulnerable kernel module validation: not applicable for Flatcar")
-		return
+		return nil
 	}
 
 	// AzureLinux 3.0 (regular, NOT OSGuard): kernel 6.6.139.1-1.azl3+ supersedes the modprobe
@@ -3497,9 +4121,11 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 			`done`,
 			`exit $failed`,
 		}, "\n")
-		execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-			"AzureLinux 3.0 modprobe blacklist should be absent (kernel fix 6.6.139.1-1.azl3+ supersedes; bake-in removed; no `install` or `blacklist` directive should remain)")
-		return
+		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+			"AzureLinux 3.0 modprobe blacklist should be absent (kernel fix 6.6.139.1-1.azl3+ supersedes; bake-in removed; no `install` or `blacklist` directive should remain)"); err != nil {
+			return fmt.Errorf("check that the AzureLinux 3.0 modprobe blacklist is absent: %w", err)
+		}
+		return nil
 	}
 
 	if s.VHD.OS == config.OSUbuntu {
@@ -3548,14 +4174,19 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 			`fi`,
 		}, "\n")
 		script += "\n" + kernelModuleFullBlockValidationScript()
-		execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-			"Ubuntu vulnerable kernel module validation failed (fixed/future Ubuntu should have no blacklist; Ubuntu 20.04 and older/unknown 22.04/24.04 kernels should keep algif_aead/esp4/esp6/rxrpc blocked)")
-		return
+		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+			"Ubuntu vulnerable kernel module validation failed (fixed/future Ubuntu should have no blacklist; Ubuntu 20.04 and older/unknown 22.04/24.04 kernels should keep algif_aead/esp4/esp6/rxrpc blocked)"); err != nil {
+			return fmt.Errorf("validate vulnerable kernel modules on Ubuntu: %w", err)
+		}
+		return nil
 	}
 
 	script := kernelModuleFullBlockValidationScript()
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"Vulnerable kernel module mitigation validation failed (algif_aead/esp4/esp6/rxrpc)")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"Vulnerable kernel module mitigation validation failed (algif_aead/esp4/esp6/rxrpc)"); err != nil {
+		return fmt.Errorf("validate vulnerable kernel module mitigation: %w", err)
+	}
+	return nil
 }
 
 func kernelModuleFullBlockValidationScript() string {
@@ -3591,7 +4222,7 @@ func kernelModuleFullBlockValidationScript() string {
 // (IMDS interface index 1) by matching its MAC address against /sys/class/net/*/address.
 // This avoids hardcoding "eth1" which can be wrong when SR-IOV VFs or predictable
 // naming (ens*/enP*) are in use.
-func resolveSecondaryNICName(ctx context.Context, s *Scenario) string {
+func resolveSecondaryNICName(ctx context.Context, s *Scenario) (string, error) {
 	s.T.Helper()
 	// Get the secondary NIC's MAC from IMDS, then look it up in sysfs.
 	// -sf makes curl fail with non-zero exit on HTTP errors (403/404) instead
@@ -3601,42 +4232,57 @@ func resolveSecondaryNICName(ctx context.Context, s *Scenario) string {
 	// Exit 1 if no matching interface is found rather than falling back to a
 	// hardcoded name that could target a VF or wrong interface.
 	cmd := `mac=$(curl -sf -H "Metadata:true" "http://169.254.169.254/metadata/instance/network/interface/1/macAddress?api-version=2021-02-01&format=text") || { echo "IMDS MAC lookup failed" >&2; exit 1; }; mac_lower=$(echo "$mac" | sed 's/\(..\)/\1:/g; s/:$//' | tr '[:upper:]' '[:lower:]'); for f in /sys/class/net/*/address; do d=$(dirname "$f"); [ -e "$d/master" ] && continue; if [ "$(cat "$f" 2>/dev/null)" = "$mac_lower" ]; then basename "$d"; exit 0; fi; done; echo "no interface found for MAC $mac_lower" >&2; exit 1`
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
 		"failed to resolve secondary NIC interface name")
+	if err != nil {
+		return "", fmt.Errorf("resolve secondary NIC interface name: %w", err)
+	}
 	ifaceName := strings.TrimSpace(result.stdout)
-	require.NotEmpty(s.T, ifaceName, "resolved secondary NIC name should not be empty")
-	return ifaceName
+	if err := assert.NotEqual(ifaceName, "", "resolved secondary NIC name should not be empty"); err != nil {
+		return "", err
+	}
+	return ifaceName, nil
 }
 
 // ValidateSecondaryNICUp checks that the given network interface is UP and has an IPv4 address.
-func ValidateSecondaryNICUp(ctx context.Context, s *Scenario, ifaceName string) {
+func ValidateSecondaryNICUp(ctx context.Context, s *Scenario, ifaceName string) error {
 	s.T.Helper()
 	cmd := fmt.Sprintf("ip addr show %s", ifaceName)
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
 		fmt.Sprintf("failed to get interface info for %s", ifaceName))
-	require.Contains(s.T, result.stdout, "state UP",
-		"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout)
-	require.Contains(s.T, result.stdout, "inet ",
-		"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout)
+	if err != nil {
+		return fmt.Errorf("get interface info for %s: %w", ifaceName, err)
+	}
+	return errors.Join(
+		assert.Contains(result.stdout, "state UP",
+			"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout),
+		assert.Contains(result.stdout, "inet ",
+			"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout),
+	)
 }
 
 // ValidateSecondaryNICDualStack checks that the given network interface is UP and has both IPv4 and IPv6 addresses.
-func ValidateSecondaryNICDualStack(ctx context.Context, s *Scenario, ifaceName string) {
+func ValidateSecondaryNICDualStack(ctx context.Context, s *Scenario, ifaceName string) error {
 	s.T.Helper()
 	cmd := fmt.Sprintf("ip addr show %s", ifaceName)
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
 		fmt.Sprintf("failed to get interface info for %s", ifaceName))
-	require.Contains(s.T, result.stdout, "state UP",
-		"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout)
-	require.Contains(s.T, result.stdout, "inet ",
-		"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout)
-	require.Contains(s.T, result.stdout, "inet6 ",
-		"expected interface %s to have an IPv6 address, got:\n%s", ifaceName, result.stdout)
-	require.Contains(s.T, result.stdout, "scope global",
-		"expected interface %s to have a global IPv6 address (not just link-local), got:\n%s", ifaceName, result.stdout)
+	if err != nil {
+		return fmt.Errorf("get interface info for %s: %w", ifaceName, err)
+	}
+	return errors.Join(
+		assert.Contains(result.stdout, "state UP",
+			"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout),
+		assert.Contains(result.stdout, "inet ",
+			"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout),
+		assert.Contains(result.stdout, "inet6 ",
+			"expected interface %s to have an IPv6 address, got:\n%s", ifaceName, result.stdout),
+		assert.Contains(result.stdout, "scope global",
+			"expected interface %s to have a global IPv6 address (not just link-local), got:\n%s", ifaceName, result.stdout),
+	)
 }
 
-func ValidateDraDriverNvidiaGpuServiceRunning(ctx context.Context, s *Scenario) {
+func ValidateDraDriverNvidiaGpuServiceRunning(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 	s.T.Logf("validating DRA driver NVIDIA GPU systemd service is running")
 
@@ -3645,10 +4291,13 @@ func ValidateDraDriverNvidiaGpuServiceRunning(ctx context.Context, s *Scenario) 
 		"systemctl is-active dra-driver-nvidia-gpu.service",
 		"systemctl is-enabled dra-driver-nvidia-gpu.service",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "DRA driver NVIDIA GPU systemd service should be active and enabled")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "DRA driver NVIDIA GPU systemd service should be active and enabled"); err != nil {
+		return fmt.Errorf("check that the DRA driver NVIDIA GPU systemd service is active and enabled: %w", err)
+	}
+	return nil
 }
 
-func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) {
+func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) (err error) {
 	s.T.Helper()
 	s.T.Logf("validating that DRA workloads can be scheduled")
 
@@ -3663,23 +4312,25 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) {
 	claimName := fmt.Sprintf("single-gpu-%s", baseName)
 	podClaimRefName := "gpu-claim"
 
-	_, err := s.Runtime.Kube.Typed.ResourceV1().DeviceClasses().Create(ctx, &resourcev1.DeviceClass{
+	_, createErr := s.Runtime.Kube.Typed.ResourceV1().DeviceClasses().Create(ctx, &resourcev1.DeviceClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: deviceClassName,
 		},
 		Spec: resourcev1.DeviceClassSpec{},
 	}, metav1.CreateOptions{})
-	require.Truef(s.T, err == nil || apierrors.IsAlreadyExists(err), "failed to create DeviceClass %q: %v", deviceClassName, err)
+	if createErr != nil && !apierrors.IsAlreadyExists(createErr) {
+		return fmt.Errorf("create DeviceClass %q: %w", deviceClassName, createErr)
+	}
 	defer func() {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 		defer cancel()
-		err := s.Runtime.Kube.Typed.ResourceV1().DeviceClasses().Delete(cleanupCtx, deviceClassName, metav1.DeleteOptions{})
-		if err != nil && !apierrors.IsNotFound(err) {
-			s.T.Errorf("failed to delete DeviceClass %q: %v", deviceClassName, err)
+		deleteErr := s.Runtime.Kube.Typed.ResourceV1().DeviceClasses().Delete(cleanupCtx, deviceClassName, metav1.DeleteOptions{})
+		if deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
+			err = errors.Join(err, fmt.Errorf("delete DeviceClass %q: %w", deviceClassName, deleteErr))
 		}
 	}()
 
-	_, err = s.Runtime.Kube.Typed.ResourceV1().ResourceClaims("default").Create(ctx, &resourcev1.ResourceClaim{
+	_, createErr = s.Runtime.Kube.Typed.ResourceV1().ResourceClaims("default").Create(ctx, &resourcev1.ResourceClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      claimName,
 			Namespace: "default",
@@ -3697,13 +4348,15 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) {
 			},
 		},
 	}, metav1.CreateOptions{})
-	require.Truef(s.T, err == nil || apierrors.IsAlreadyExists(err), "failed to create ResourceClaim %q: %v", claimName, err)
+	if createErr != nil && !apierrors.IsAlreadyExists(createErr) {
+		return fmt.Errorf("create ResourceClaim %q: %w", claimName, createErr)
+	}
 	defer func() {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 		defer cancel()
-		err := s.Runtime.Kube.Typed.ResourceV1().ResourceClaims("default").Delete(cleanupCtx, claimName, metav1.DeleteOptions{})
-		if err != nil && !apierrors.IsNotFound(err) {
-			s.T.Errorf("failed to delete ResourceClaim %q: %v", claimName, err)
+		deleteErr := s.Runtime.Kube.Typed.ResourceV1().ResourceClaims("default").Delete(cleanupCtx, claimName, metav1.DeleteOptions{})
+		if deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
+			err = errors.Join(err, fmt.Errorf("delete ResourceClaim %q: %w", claimName, deleteErr))
 		}
 	}()
 
@@ -3741,45 +4394,55 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) {
 			},
 		},
 	}
-	ValidatePodRunning(ctx, s, pod)
+	if err := ValidatePodRunning(ctx, s, pod); err != nil {
+		return fmt.Errorf("run DRA workload pod: %w", err)
+	}
 
 	s.T.Logf("GPU workload is schedulable and runs successfully")
+	return nil
 }
 
 // ValidateRCV1PCertMode validates that the rcv1p certificate endpoint mode was used during
 // Linux node provisioning, certificates were downloaded and installed, and a refresh task was scheduled.
-func ValidateRCV1PCertMode(ctx context.Context, s *Scenario) {
+func ValidateRCV1PCertMode(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
-	// Validate the provisioning log shows rcv1p mode was selected
-	ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
-		"Using custom cloud certificate endpoint mode: rcv1p")
-
-	// Validate the subscription is opted in for root certs
-	ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
-		"IsOptedInForRootCerts=true")
-
-	// Validate certificates were downloaded
-	ValidateNonEmptyDirectory(ctx, s, "/root/AzureCACertificates")
+	var errs []error
+	errs = append(errs,
+		// Validate the provisioning log shows rcv1p mode was selected
+		ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
+			"Using custom cloud certificate endpoint mode: rcv1p"),
+		// Validate the subscription is opted in for root certs
+		ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
+			"IsOptedInForRootCerts=true"),
+		// Validate certificates were downloaded
+		ValidateNonEmptyDirectory(ctx, s, "/root/AzureCACertificates"),
+	)
 
 	// Validate trust store was updated (distro-specific path)
 	trustStoreDir := rcv1pTrustStoreDir(s)
-	execScriptOnVMForScenarioValidateExitCode(ctx, s,
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		fmt.Sprintf("sudo bash -c 'ls -1 %s/*.{crt,pem} 2>/dev/null' | grep -q .", trustStoreDir),
-		0, fmt.Sprintf("expected certificates in trust store directory %s", trustStoreDir))
+		0, fmt.Sprintf("expected certificates in trust store directory %s", trustStoreDir)); err != nil {
+		errs = append(errs, fmt.Errorf("check certificates in trust store directory %s: %w", trustStoreDir, err))
+	}
 
 	// Validate refresh schedule was created (cron or systemd timer depending on distro)
 	if s.VHD.Flatcar || s.VHD.OS == config.OSACL {
 		// Flatcar and ACL use systemd timer
-		execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 			"systemctl is-enabled azure-ca-refresh.timer",
-			0, "expected azure-ca-refresh.timer to be enabled")
+			0, "expected azure-ca-refresh.timer to be enabled"); err != nil {
+			errs = append(errs, fmt.Errorf("check that azure-ca-refresh.timer is enabled: %w", err))
+		}
 	} else {
 		// Ubuntu, Mariner, AzureLinux use cron
-		execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 			"sudo crontab -l 2>/dev/null | grep -q ca-refresh",
-			0, "expected ca-refresh cron entry")
+			0, "expected ca-refresh cron entry"); err != nil {
+			errs = append(errs, fmt.Errorf("check ca-refresh cron entry: %w", err))
+		}
 	}
+	return errors.Join(errs...)
 }
 
 // rcv1pTrustStoreDir returns the OS trust store directory for the given scenario's distro.
@@ -3797,9 +4460,8 @@ func rcv1pTrustStoreDir(s *Scenario) string {
 
 // ValidateRCV1PCertModeWindows validates that the rcv1p certificate endpoint mode was used during
 // Windows node provisioning, certificates were downloaded and installed, and a refresh task was scheduled.
-func ValidateRCV1PCertModeWindows(ctx context.Context, s *Scenario) {
+func ValidateRCV1PCertModeWindows(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
 	// Validate CA certificates were downloaded to C:\ca (matches Windows Get-CACertificates
 	// behavior; import into Cert:\LocalMachine\Root is handled out-of-band by the platform/
 	// refresh task, not by CSE).
@@ -3811,8 +4473,11 @@ func ValidateRCV1PCertModeWindows(ctx context.Context, s *Scenario) {
 		"if ($certs.Count -eq 0) { throw 'No certificates found in C:\\ca folder' }",
 		"Write-Host \"Found $($certs.Count) certificate(s) in $caFolder\"",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
-		"expected certificates in C:\\ca")
+	var errs []error
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected certificates in C:\\ca"); err != nil {
+		errs = append(errs, fmt.Errorf(`check certificates in C:\ca: %w`, err))
+	}
 
 	// Validate the refresh scheduled task exists
 	command = []string{
@@ -3821,54 +4486,62 @@ func ValidateRCV1PCertModeWindows(ctx context.Context, s *Scenario) {
 		"if (-not $task) { throw 'aks-ca-certs-refresh-task scheduled task not found' }",
 		"Write-Host \"Scheduled task found: $($task.TaskName) (State: $($task.State))\"",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
-		"expected aks-ca-certs-refresh-task scheduled task")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected aks-ca-certs-refresh-task scheduled task"); err != nil {
+		errs = append(errs, fmt.Errorf("check aks-ca-certs-refresh-task scheduled task: %w", err))
+	}
+	return errors.Join(errs...)
 }
 
 // ValidateRCV1PNotOptedIn validates that when the VM does NOT have the opt-in tag,
 // wireserver returns IsOptedInForRootCerts=false and no certificates are installed,
 // even in the RCV1P subscription with PlatformSettingsOverride registered.
-func ValidateRCV1PNotOptedIn(ctx context.Context, s *Scenario) {
+func ValidateRCV1PNotOptedIn(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
-	// Validate the provisioning log shows rcv1p mode was selected
-	ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
-		"Using custom cloud certificate endpoint mode: rcv1p")
-
-	// Validate wireserver reported not opted in
-	ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
-		"Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true")
-
-	// Validate no certificates were downloaded
-	ValidateEmptyDirectory(ctx, s, "/root/AzureCACertificates")
+	var errs []error
+	errs = append(errs,
+		// Validate the provisioning log shows rcv1p mode was selected
+		ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
+			"Using custom cloud certificate endpoint mode: rcv1p"),
+		// Validate wireserver reported not opted in
+		ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
+			"Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true"),
+		// Validate no certificates were downloaded
+		ValidateEmptyDirectory(ctx, s, "/root/AzureCACertificates"),
+	)
 
 	// Validate no refresh schedule was created
 	if s.VHD.Flatcar || s.VHD.OS == config.OSACL {
 		// Flatcar and ACL use systemd timer for cert refresh (see ValidateRCV1PCertMode).
-		execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 			"systemctl is-enabled azure-ca-refresh.timer 2>/dev/null",
-			1, "expected azure-ca-refresh.timer to be absent/disabled when not opted in")
+			1, "expected azure-ca-refresh.timer to be absent/disabled when not opted in"); err != nil {
+			errs = append(errs, fmt.Errorf("check that azure-ca-refresh.timer is absent/disabled: %w", err))
+		}
 	} else {
 		// Ubuntu, Mariner, AzureLinux use cron.
-		execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 			"sudo crontab -l 2>/dev/null | grep -q ca-refresh",
-			1, "expected no ca-refresh cron entry when not opted in")
+			1, "expected no ca-refresh cron entry when not opted in"); err != nil {
+			errs = append(errs, fmt.Errorf("check that no ca-refresh cron entry exists: %w", err))
+		}
 	}
+	return errors.Join(errs...)
 }
 
 // ValidateRCV1PNotOptedInWindows validates that when the Windows VM does NOT have the opt-in tag,
 // no certificates are installed to C:\ca and no refresh scheduled task is registered,
 // even in the RCV1P subscription with PlatformSettingsOverride registered.
-func ValidateRCV1PNotOptedInWindows(ctx context.Context, s *Scenario) {
+func ValidateRCV1PNotOptedInWindows(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-
-	// Validate the provisioning log shows wireserver was queried
-	ValidateFileHasContent(ctx, s, "C:\\AzureData\\CustomDataSetupScript.log",
-		"IsOptedInForRootCerts wireserver response:")
-
-	// Validate wireserver reported not opted in
-	ValidateFileHasContent(ctx, s, "C:\\AzureData\\CustomDataSetupScript.log",
-		"Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true")
+	errs := []error{
+		// Validate the provisioning log shows wireserver was queried
+		ValidateFileHasContent(ctx, s, "C:\\AzureData\\CustomDataSetupScript.log",
+			"IsOptedInForRootCerts wireserver response:"),
+		// Validate wireserver reported not opted in
+		ValidateFileHasContent(ctx, s, "C:\\AzureData\\CustomDataSetupScript.log",
+			"Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true"),
+	}
 
 	// Validate C:\ca is empty or does not exist
 	command := []string{
@@ -3877,8 +4550,10 @@ func ValidateRCV1PNotOptedInWindows(ctx context.Context, s *Scenario) {
 		"if ((Test-Path $caFolder) -and @(Get-ChildItem -Path $caFolder -File).Count -gt 0) { throw 'Expected C:\\ca to be empty or not exist, but found certificates' }",
 		"Write-Host 'C:\\ca is empty or does not exist as expected'",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
-		"expected C:\\ca to be empty or not exist when not opted in")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected C:\\ca to be empty or not exist when not opted in"); err != nil {
+		errs = append(errs, fmt.Errorf(`check that C:\ca is empty or absent: %w`, err))
+	}
 
 	// Validate no refresh scheduled task was registered
 	command = []string{
@@ -3887,21 +4562,27 @@ func ValidateRCV1PNotOptedInWindows(ctx context.Context, s *Scenario) {
 		"if ($task) { throw 'Expected no aks-ca-certs-refresh-task but found one' }",
 		"Write-Host 'No aks-ca-certs-refresh-task found as expected'",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
-		"expected no aks-ca-certs-refresh-task scheduled task when not opted in")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected no aks-ca-certs-refresh-task scheduled task when not opted in"); err != nil {
+		errs = append(errs, fmt.Errorf("check that no aks-ca-certs-refresh-task scheduled task exists: %w", err))
+	}
+	return errors.Join(errs...)
 }
 
 // ValidateServiceInSlice asserts that the given systemd service is running in the expected slice.
-func ValidateServiceInSlice(ctx context.Context, s *Scenario, service, expectedSlice string) {
+func ValidateServiceInSlice(ctx context.Context, s *Scenario, service, expectedSlice string) error {
 	s.T.Helper()
 	// Avoid accidental shell injection / option smuggling.
 	if !regexp.MustCompile(`^[A-Za-z0-9_.@:-]+$`).MatchString(service) {
-		s.T.Fatalf("invalid systemd unit name: %q", service)
+		return fmt.Errorf("invalid systemd unit name: %q", service)
 	}
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		fmt.Sprintf("systemctl show --property=Slice --value -- %s", service), 0,
 		fmt.Sprintf("could not query Slice property of %s", service))
+	if err != nil {
+		return fmt.Errorf("query Slice property of %s: %w", service, err)
+	}
 	actual := strings.TrimSpace(result.stdout)
-	require.Equal(s.T, expectedSlice, actual,
+	return assert.Equal(actual, expectedSlice,
 		"expected %s to be in %s, but got %s", service, expectedSlice, actual)
 }
