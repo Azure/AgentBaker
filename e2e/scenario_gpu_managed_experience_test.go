@@ -398,7 +398,7 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Ubuntu 24.04 GPU nodes",
+		Description: "Tests that NVIDIA device plugin and DCGM Exporter work on Ubuntu 24.04 via NBC EnableManagedGPU without a VMSS tag",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -411,13 +411,12 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
 				nbc.ManagedGPUExperienceAFECEnabled = true
+				nbc.EnableManagedGPU = true
 			},
 			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
-				if vmss.Tags == nil {
-					vmss.Tags = map[string]*string{}
-				}
-				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
+				// Do not set EnableManagedGPUExperience: this test verifies that
+				// the NBC EnableManagedGPU field activates the managed GPU path.
 
 				// Enable the AKS VM extension for GPU nodes
 				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
