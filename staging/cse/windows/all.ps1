@@ -10,3 +10,4 @@
 . c:\AzureData\windows\securetlsbootstrapfunc.ps1
 . c:\AzureData\windows\windowsciliumnetworkingfunc.ps1
 . c:\AzureData\windows\networkisolatedclusterfunc.ps1
+. c:\AzureData\windows\windowsexporterfunc.ps1

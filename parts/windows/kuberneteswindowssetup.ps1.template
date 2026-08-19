@@ -347,6 +347,7 @@ function Get-HelperScripts {
         'c:\AzureData\windows\securetlsbootstrapfunc.ps1'
         'c:\AzureData\windows\windowsciliumnetworkingfunc.ps1'
         'c:\AzureData\windows\networkisolatedclusterfunc.ps1'
+        'c:\AzureData\windows\windowsexporterfunc.ps1'
     )
 
     foreach ($script in $optionalFunctionScripts) {
@@ -575,6 +576,15 @@ function NodePrep {
 
     Install-KubernetesServices -KubeDir $global:KubeDir
     Update-ServiceFailureActions
+
+    # Assets are static and baked into the VHD, but service registration belongs
+    # in NodePrep so PIS nodes install and validate it on their real first boot.
+    if (Get-Command -Name Install-WindowsExporter -ErrorAction SilentlyContinue) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.InstallWindowsExporter" -TaskMessage "Install aks-windows-exporter if VHD-baked"
+        Install-WindowsExporter
+    } else {
+        Write-Log "Install-WindowsExporter not available; aks-vm-extension will manage windows-exporter"
+    }
 
     Write-Log "Starting NodePrep - Cluster integration"
     Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "Starting NodePrep - Cluster integration"

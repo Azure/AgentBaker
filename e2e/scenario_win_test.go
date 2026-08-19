@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,6 +71,7 @@ func Test_Windows2022_AzureNetwork(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -94,6 +96,7 @@ func Test_Windows2022AzureOverlayNetworkDualStack(t *testing.T) {
 				ValidateContainerdWindowsPriorityClass(ctx, s)
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -119,6 +122,7 @@ func Test_Windows2022Gen2AzureNetwork(t *testing.T) {
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -144,6 +148,7 @@ func Test_Windows2022Gen2AzureOverlayNetworkDualStack(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -170,6 +175,7 @@ func Test_Windows2025(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -224,6 +230,7 @@ func Test_Windows2025Gen2TrustedLaunch(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -284,6 +291,7 @@ func Test_Windows2022_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -341,6 +349,7 @@ func Test_Windows2022_VHDCaching(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -444,6 +453,7 @@ func Test_Windows2022Gen2_k8s_133(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -471,6 +481,7 @@ func Test_Windows2022_McrChinaCloud_Windows(t *testing.T) {
 					`https://mcr.azk8s.cn`)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -508,6 +519,7 @@ func Test_Windows2025Gen2_McrChinaCloud_Windows(t *testing.T) {
 					`C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`,
 					`https://mcr.azk8s.cn`)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 			},
 		},
 	})
@@ -554,6 +566,7 @@ func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
 				ValidateFileDoesNotExist(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 			},
 		},
 	})
@@ -588,4 +601,40 @@ func Test_NetworkIsolatedCluster_Windows_OrasDownload(t *testing.T) {
 			},
 		},
 	})
+}
+
+func TestValidateWindowsExporterMetrics(t *testing.T) {
+	require.NoError(t, validateWindowsExporterMetrics(validWindowsExporterMetrics()))
+}
+
+func TestValidateWindowsExporterMetricsRejectsMissingMetrics(t *testing.T) {
+	metrics := strings.Replace(validWindowsExporterMetrics(), `windows_memory_available_bytes 1`, "", 1)
+	metrics = strings.Replace(metrics, `windows_net_bytes_received_total{nic="Ethernet"} 1`, "", 1)
+
+	err := validateWindowsExporterMetrics(metrics)
+
+	require.ErrorContains(t, err, "windows_memory_available_bytes")
+	require.ErrorContains(t, err, "windows_net_bytes_received_total")
+}
+
+func validWindowsExporterMetrics() string {
+	return `# TYPE windows_cpu_info gauge
+windows_cpu_info{device_id="CPU0"} 1
+# TYPE windows_cpu_time_total counter
+windows_cpu_time_total{core="0,0",mode="idle"} 1
+# TYPE windows_logical_disk_free_bytes gauge
+windows_logical_disk_free_bytes{volume="C:"} 1
+# TYPE windows_logical_disk_size_bytes gauge
+windows_logical_disk_size_bytes{volume="C:"} 2
+# TYPE windows_memory_available_bytes gauge
+windows_memory_available_bytes 1
+# TYPE windows_net_bytes_received_total counter
+windows_net_bytes_received_total{nic="Ethernet"} 1
+# TYPE windows_net_bytes_sent_total counter
+windows_net_bytes_sent_total{nic="Ethernet"} 1
+# TYPE windows_os_info gauge
+windows_os_info{product="Windows Server 2022 Datacenter"} 1
+# TYPE windows_process_cpu_time_total counter
+windows_process_cpu_time_total{process="kubelet",process_id="1",mode="user"} 1
+`
 }

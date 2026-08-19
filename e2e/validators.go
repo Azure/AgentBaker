@@ -1027,6 +1027,102 @@ func ValidateWindowsSystemServicesRestartConfiguration(ctx context.Context, s *S
 	ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "kubeproxy")
 }
 
+// ValidateWindowsExporter asserts that the aks-windows-exporter service registered by
+// staging/cse/windows/windowsexporterfunc.ps1 is running and serving Prometheus metrics.
+//
+// When the VHD does not carry the windows-exporter assets (older VHDs where the
+// aks-vm-extension still installs the service), the sentinel file is absent and we
+// skip the validation - the extension owns the service in that mode and AgentBaker
+// has no guarantee about the service state at this point in provisioning.
+func ValidateWindowsExporter(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	const (
+		sentinel    = `C:\k\skip_vhd_windows_exporter`
+		binary      = `C:\k\windows-exporter\windows-exporter.exe`
+		configFile  = `C:\k\windows-exporter\windows-exporter-config.yml`
+		serviceName = "aks-windows-exporter"
+	)
+	metricsURL := fmt.Sprintf("http://%s:19100/metrics", s.Runtime.VM.PrivateIP)
+
+	sentinelCheck := []string{
+		"$ErrorActionPreference = \"Stop\"",
+		fmt.Sprintf("if (-not (Test-Path '%s')) { Write-Output 'SKIP'; exit 0 }", sentinel),
+		"Write-Output 'PRESENT'",
+	}
+	res := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(sentinelCheck, "\n"), 0,
+		fmt.Sprintf("could not check aks-windows-exporter sentinel %s on %s", sentinel, s.Runtime.VM.PrivateIP))
+	if strings.Contains(res.stdout, "SKIP") {
+		s.T.Logf("Skipping aks-windows-exporter validation: sentinel %s not found (aks-vm-extension manages the service on this VHD)", sentinel)
+		return
+	}
+
+	s.T.Logf("skip_vhd_windows_exporter sentinel present, validating aks-windows-exporter installation")
+
+	command := []string{
+		"$ErrorActionPreference = \"Stop\"",
+		fmt.Sprintf("if (-not (Test-Path '%s')) { throw 'missing binary: %s' }", binary, binary),
+		fmt.Sprintf("if (-not (Test-Path '%s')) { throw 'missing config: %s' }", configFile, configFile),
+		fmt.Sprintf("$svc = Get-Service -Name '%s'", serviceName),
+		"Write-Output $svc",
+		fmt.Sprintf("if ($svc.Status -ne 'Running') { throw \"service %s is not running: $($svc.Status)\" }", serviceName),
+		fmt.Sprintf("if ($svc.StartType -ne 'Automatic') { throw \"service %s StartType is $($svc.StartType), expected Automatic\" }", serviceName),
+		// Scrape the node IP to validate the address used by monitoring infrastructure.
+		fmt.Sprintf("$resp = Invoke-WebRequest -UseBasicParsing -Uri '%s' -TimeoutSec 10", metricsURL),
+		"$metricsContent = [string]$resp.Content",
+		"Write-Output \"metrics endpoint returned status $($resp.StatusCode) with $($metricsContent.Length) characters\"",
+		"Write-Output $metricsContent",
+	}
+	validationResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		fmt.Sprintf("aks-windows-exporter validation failed on %s", s.Runtime.VM.PrivateIP))
+
+	err := validateWindowsExporterMetrics(validationResult.stdout)
+	const previewLimit = 2000
+	responsePreview := validationResult.stdout
+	if len(responsePreview) > previewLimit {
+		responsePreview = responsePreview[:previewLimit] + "\n... response truncated"
+	}
+	require.NoErrorf(s.T, err, "windows-exporter scrape did not satisfy the metrics contract\nresponse preview:\n%s", responsePreview)
+	s.T.Logf("aks-windows-exporter validation succeeded on %s: service is Running/Automatic and %s satisfies the metrics contract", s.Runtime.VM.PrivateIP, metricsURL)
+}
+
+func validateWindowsExporterMetrics(metricsText string) error {
+	metricNames := make(map[string]struct{})
+	for line := range strings.SplitSeq(metricsText, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		if end := strings.IndexAny(line, "{ \t"); end > 0 {
+			metricNames[line[:end]] = struct{}{}
+		}
+	}
+
+	requiredMetrics := []string{
+		"windows_cpu_info",
+		"windows_cpu_time_total",
+		"windows_logical_disk_free_bytes",
+		"windows_logical_disk_size_bytes",
+		"windows_memory_available_bytes",
+		"windows_net_bytes_received_total",
+		"windows_net_bytes_sent_total",
+		"windows_os_info",
+		"windows_process_cpu_time_total",
+	}
+	var missingMetrics []string
+	for _, name := range requiredMetrics {
+		if _, exists := metricNames[name]; !exists {
+			missingMetrics = append(missingMetrics, name)
+		}
+	}
+	if len(missingMetrics) > 0 {
+		return fmt.Errorf("required metrics are missing: %s", strings.Join(missingMetrics, ", "))
+	}
+
+	return nil
+}
+
 func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) {
 	s.T.Helper()
 	command := []string{
