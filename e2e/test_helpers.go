@@ -360,13 +360,21 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		require.NoError(s.T, err)
 	}
 
+	// VMSSCreationDuration is the wall-clock time from the VMSS BeginCreateOrUpdate call until
+	// ARM considers the VM provisioned: in CSE mode this is gated by the CustomScript extension's
+	// exit-code/status report (PollUntilDone waits on the extension's ProvisioningState, plus the
+	// getCustomScriptExtensionStatus re-fetch above); in UseCustomDataOnlyProvisioning mode there is
+	// no extension, so it's gated purely by WALinuxAgent's ordinary report_ready to the wireserver.
+	// Captured unconditionally (not just under !SkipDefaultValidation) so perf/benchmark scenarios
+	// that skip pod-scheduling validation can still compare this duration between provisioning modes.
+	s.Runtime.VMSSCreationDuration = time.Since(start)
+
 	if !s.Config.SkipDefaultValidation {
-		vmssCreatedAt := time.Now()         // Record the start time
-		creationElapse := time.Since(start) // Calculate the elapsed time
+		vmssCreatedAt := time.Now() // Record the start time
 		scenarioVM.KubeName = s.Runtime.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
 		readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
 		totalElapse := time.Since(start)
-		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, creationElapse, readyElapse))
+		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, s.Runtime.VMSSCreationDuration, readyElapse))
 	}
 
 	return scenarioVM, nil

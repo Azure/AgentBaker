@@ -162,6 +162,12 @@ type ScenarioRuntime struct {
 	VMSSName                  string
 	EnableScriptlessNBCCSECmd bool
 	CSETimingReport           *CSETimingReport // eagerly extracted before GA can sweep events
+
+	// VMSSCreationDuration is the wall-clock time from the VMSS BeginCreateOrUpdate call until ARM
+	// considers the VM provisioned - i.e. the CustomScript extension's exit-code/status report in
+	// CSE mode, or WALinuxAgent's ordinary report_ready in UseCustomDataOnlyProvisioning mode. See
+	// prepareAKSNode in test_helpers.go for exactly what it spans.
+	VMSSCreationDuration time.Duration
 }
 
 type ScenarioVM struct {
