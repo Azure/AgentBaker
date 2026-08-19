@@ -9,7 +9,8 @@ import (
 )
 
 func TestNBCToAKSNodeConfigV1PreservesContainerdConfig(t *testing.T) {
-	nbc := baseTemplateLinux(t, "westus2", "1.33.5", "amd64")
+	nbc, err := baseTemplateLinux("westus2", "1.33.5", "amd64")
+	require.NoError(t, err)
 	nbc.ContainerdVersion = "2.3.2-ubuntu24.04u1"
 	nbc.ContainerdPackageURL = "https://packages.aks.azure.com/containerd/test-containerd.deb"
 	nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase = "https://packages.aks.azure.com/containerd/"
@@ -24,7 +25,8 @@ func TestNBCToAKSNodeConfigV1PreservesContainerdConfig(t *testing.T) {
 }
 
 func TestSetExpectedContainerdVersionForE2EDefaultsAzureLinuxV3(t *testing.T) {
-	nbc := baseTemplateLinux(t, "westus2", "1.33.5", "amd64")
+	nbc, err := baseTemplateLinux("westus2", "1.33.5", "amd64")
+	require.NoError(t, err)
 
 	setExpectedContainerdVersionForE2E(t, nbc, config.VHDAzureLinuxV3Gen2)
 
@@ -34,7 +36,8 @@ func TestSetExpectedContainerdVersionForE2EDefaultsAzureLinuxV3(t *testing.T) {
 }
 
 func TestSetExpectedContainerdVersionForE2EDefaultsUbuntu2404(t *testing.T) {
-	nbc := baseTemplateLinux(t, "westus2", "1.33.5", "amd64")
+	nbc, err := baseTemplateLinux("westus2", "1.33.5", "amd64")
+	require.NoError(t, err)
 
 	setExpectedContainerdVersionForE2E(t, nbc, config.VHDUbuntu2404Gen2Containerd)
 
@@ -44,7 +47,8 @@ func TestSetExpectedContainerdVersionForE2EDefaultsUbuntu2404(t *testing.T) {
 }
 
 func TestSetExpectedContainerdVersionForE2EPreservesExplicitVersion(t *testing.T) {
-	nbc := baseTemplateLinux(t, "westus2", "1.33.5", "amd64")
+	nbc, err := baseTemplateLinux("westus2", "1.33.5", "amd64")
+	require.NoError(t, err)
 	nbc.ContainerdVersion = "2.1.4-custom"
 
 	setExpectedContainerdVersionForE2E(t, nbc, config.VHDUbuntu2404Gen2Containerd)
