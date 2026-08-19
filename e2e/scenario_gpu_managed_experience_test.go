@@ -1086,14 +1086,20 @@ func Test_Ubuntu2404_DraDriverNvidiaGpuRunning_AKSNodeController(t *testing.T) {
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
+			Validator: func(ctx context.Context, s *Scenario) error {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
-				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRuncVersion(ctx, s, runcVersions)
-				ValidateContainerRuntimePlugins(ctx, s)
-				ValidateDraDriverNvidiaGpuServiceRunning(ctx, s)
-				ValidateDRAWorkloadSchedulable(ctx, s)
+				if err := errors.Join(
+					ValidateContainerd2Properties(ctx, s, containerdVersions),
+					ValidateRuncVersion(ctx, s, runcVersions),
+					ValidateContainerRuntimePlugins(ctx, s),
+				); err != nil {
+					return err
+				}
+				if err := ValidateDraDriverNvidiaGpuServiceRunning(ctx, s); err != nil {
+					return err
+				}
+				return ValidateDRAWorkloadSchedulable(ctx, s)
 			},
 		},
 	})
