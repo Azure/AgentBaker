@@ -654,35 +654,21 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 
 // ensureReplication makes an image version usable in every region E2E runs in.
 //
-// It replicates to Image.replicationRegions() rather than to the caller's own region. That
-// looks wasteful but is the whole point: TargetRegions is full desired state, so a writer
-// that adds only its own region computes a desired state that differs from every other
-// writer's and can silently drop their regions. See e2e/config/regions.go for the full
-// reasoning.
-//
-// Because every writer submits the same list there is nothing to merge and no lost update to
-// defend against. Concurrent writers can still collide on the very first replication, so a
-// 409 is retried, but the retry only re-reads and re-checks - it never reconciles.
+// It replicates to Image.replicationRegions() rather than to the caller's region, which is
+// what stops concurrent writers from clobbering each other. See e2e/config/regions.go.
 func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion, location string) error {
 	desired := image.replicationRegions()
 	if image.Ephemeral {
-		// Throwaway image with a unique version name, created and deleted by one test. It has
-		// exactly one writer, so deriving desired state from the caller cannot lose an update.
 		desired = []string{NormalizeRegion(location)}
-	} else if !slicesContains(desired, NormalizeRegion(location)) {
-		// Deliberately an error rather than "also replicate to location". Appending the
-		// caller's region is exactly what caused the original lost update: it makes desired
-		// state depend on who is writing, so two runs in different regions overwrite each
-		// other. Widening the fixed set is a code change, not a runtime decision.
-		return fmt.Errorf("image %s is not replicated to %s: add the region to %s in e2e/config/regions.go and run `make generate-e2e-regions`, or run E2E in one of %s",
-			image.Name, location, image.E2ERegionsVarName(), strings.Join(desired, ", "))
+	} else if !slices.Contains(desired, NormalizeRegion(location)) {
+		// Appending the caller's region here is what caused the original lost update, so
+		// widening the set is a code change rather than a runtime decision.
+		return fmt.Errorf("image %s is not replicated to %s: add the region to e2eRegions in e2e/config/regions.go, or run E2E in one of %s",
+			image.Name, location, strings.Join(desired, ", "))
 	}
 
 	const maxAttempts = 4
 	for attempt := 1; ; attempt++ {
-		// Another writer may already be applying the identical desired state. Wait for it
-		// rather than racing it, then re-check: in steady state the image is already fully
-		// replicated and this returns without issuing a write at all.
 		if err := a.waitForVersionOperationCompletion(ctx, image, version); err != nil {
 			return fmt.Errorf("waiting for version operation completion: %w", err)
 		}
@@ -696,10 +682,9 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 		toolkit.Logf(ctx, "Replicating image version %s to missing regions: %s", *version.ID, strings.Join(missing, ", "))
 		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Replicating to regions %s", strings.Join(missing, ", "))
 
-		start := time.Now() // Record the start time
+		start := time.Now()
 		err := a.replicateImageVersionToRegions(ctx, image, version, missing)
-		elapsed := time.Since(start) // Calculate the elapsed time
-		toolkit.LogDuration(ctx, elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)", elapsed, *version.ID))
+		toolkit.LogDuration(ctx, time.Since(start), 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)", time.Since(start), *version.ID))
 
 		if err == nil {
 			return nil
@@ -708,11 +693,9 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 			return err
 		}
 
-		// A conflict means another writer got there first. It is submitting the same desired
-		// state, so there is nothing to merge: back off, re-read, and let the loop confirm the
-		// regions landed. The sleep matters - the loser's GET can still return the pre-update
-		// state, and retrying immediately would burn every attempt without waiting for the
-		// in-flight operation. This is the only concurrency handling a fixed region set needs.
+		// Another writer got there first with the same desired state, so there is nothing to
+		// merge. Back off before re-reading: its update is still in flight, and a GET issued
+		// immediately would return the pre-update state and burn the remaining attempts.
 		toolkit.Logf(ctx, "Concurrent update of image version %s; backing off before retry %d/%d", *version.ID, attempt+1, maxAttempts)
 		select {
 		case <-ctx.Done():
@@ -818,12 +801,9 @@ func (a *AzureClient) waitForVersionOperationCompletion(ctx context.Context, ima
 	return nil
 }
 
-// replicateImageVersionToRegions appends the missing regions in a single update.
-//
-// The submitted state is the snapshot's regions plus the missing ones, so regions in the
-// fixed set are never dropped. A region added out-of-band by some other tool can still be lost
-// if this writer's snapshot predates it; preserving those would need an If-Match/ETag merge,
-// which is deliberately out of scope - only regions in replicationRegions() are guaranteed.
+// replicateImageVersionToRegions appends the missing regions in a single update. Only regions
+// in the fixed set are guaranteed to survive; one added out-of-band by another tool can still
+// be dropped by a stale snapshot, which would need an If-Match merge to prevent.
 func (a *AzureClient) replicateImageVersionToRegions(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion, missing []string) error {
 	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
 	if err != nil {

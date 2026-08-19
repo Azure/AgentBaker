@@ -2,8 +2,7 @@ name: validate-e2e-regions
 on: pull_request
 
 # The e2e module is not covered by `make test`, which runs `go test ./...` from the repo root
-# and does not cross module boundaries. Without this workflow the generated replication region
-# list could drift from the scenarios and a test would fail with GalleryImageNotFound instead.
+# and does not cross module boundaries. Without this the region checks would never run in CI.
 jobs:
   validate-e2e-regions:
     runs-on: ubuntu-24.04
@@ -17,8 +16,5 @@ jobs:
       with:
         go-version-file: e2e/go.mod
     - run: |
-        make validate-e2e-regions
+        cd e2e && go test ./config/...
       name: Verify the gallery replication region list matches the scenarios
-    - run: |
-        cd e2e && go test ./config/... ./hack/...
-      name: Run e2e region and generator unit tests
