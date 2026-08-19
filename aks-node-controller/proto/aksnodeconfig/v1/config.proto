@@ -175,4 +175,8 @@ message Configuration {
   // an exported environment variable (e.g. "ENABLE_PROVISIONING_HOTFIX" -> "true"). Using a map
   // lets new toggles be added without producer-side code changes. Empty/absent => no file, no-op.
   map<string, string> enabled_features = 45;
+
+  // Kubernetes package or OCI artifact version. This can differ from kubernetes_version
+  // for prerelease builds. If omitted, consumers must fall back to kubernetes_version.
+  string kubernetes_package_version = 46;
 }

@@ -215,6 +215,9 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"INIT_AKS_CLOUD_FILEPATH":                      getInitAKSCloudFilepath(),
 		"REPO_DEPOT_ENDPOINT":                          getRepoDepotEndpoint(config),
 	}
+	if packageVersion := config.GetKubernetesPackageVersion(); packageVersion != "" {
+		env["KUBERNETES_PACKAGE_VERSION"] = packageVersion
+	}
 
 	for i, cert := range config.CustomCaCerts {
 		env[fmt.Sprintf("CUSTOM_CA_CERT_%d", i)] = removeNewlines(cert)

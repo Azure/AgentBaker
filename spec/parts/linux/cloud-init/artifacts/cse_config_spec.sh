@@ -2423,6 +2423,7 @@ OVERRIDE_EOF
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
             OS_VERSION=""
             KUBERNETES_VERSION=""
+            KUBERNETES_PACKAGE_VERSION=""
         }
 
         Describe 'on Ubuntu'
@@ -2479,6 +2480,18 @@ OVERRIDE_EOF
                 KUBERNETES_VERSION="1.34.0"
                 When call configureKubeletAndKubectl
                 The output should include "installKubeletKubectlFromPkg"
+                The output should not include "installKubeletKubectlFromURL"
+            End
+
+            It 'should use a separate prerelease package version while comparing the stable Kubernetes version'
+                installKubeletKubectlFromPkg() {
+                    echo "installKubeletKubectlFromPkg $1"
+                }
+
+                KUBERNETES_VERSION="1.37.0"
+                KUBERNETES_PACKAGE_VERSION="1.37.0~beta.0"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromPkg 1.37.0~beta.0"
                 The output should not include "installKubeletKubectlFromURL"
             End
 

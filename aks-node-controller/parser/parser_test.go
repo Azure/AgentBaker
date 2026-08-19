@@ -400,6 +400,46 @@ func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
 	assert.Equal(t, secret, vars["SERVICE_PRINCIPAL_FILE_CONTENT"])
 }
 
+func TestBuildCSECmd_KubernetesPackageVersion(t *testing.T) {
+	tests := []struct {
+		name                   string
+		kubernetesVersion      string
+		kubernetesPackage      string
+		expectedPackageVersion string
+		expectPackageVersion   bool
+	}{
+		{
+			name:              "omits the redundant package version",
+			kubernetesVersion: "1.36.3",
+		},
+		{
+			name:                   "keeps a prerelease package version separate",
+			kubernetesVersion:      "1.37.0",
+			kubernetesPackage:      "1.37.0~beta.0",
+			expectedPackageVersion: "1.37.0~beta.0",
+			expectPackageVersion:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{
+				KubernetesVersion:        tt.kubernetesVersion,
+				KubernetesPackageVersion: tt.kubernetesPackage,
+			}, nil)
+			require.NoError(t, err)
+
+			vars := environToMap(cmd.Env)
+			assert.Equal(t, tt.kubernetesVersion, vars["KUBERNETES_VERSION"])
+			if tt.expectPackageVersion {
+				assert.Equal(t, tt.expectedPackageVersion, vars["KUBERNETES_PACKAGE_VERSION"])
+			} else {
+				assert.NotContains(t, vars, "KUBERNETES_PACKAGE_VERSION")
+			}
+		})
+	}
+}
+
 func TestBuildCSECmd_StreamingConnectionIdleTimeout_VersionGated(t *testing.T) {
 	testCases := []struct {
 		name           string
