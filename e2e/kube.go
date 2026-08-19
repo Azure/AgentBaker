@@ -871,7 +871,7 @@ func (k *Kubeclient) logProxyTimeoutDiagnostics(ctx context.Context, lastPodStat
 	}
 }
 
-func getClusterSubnetID(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (string, error) {
+func getClusterSubnetID(cluster *armcontainerservice.ManagedCluster) (string, error) {
 	for _, pool := range cluster.Properties.AgentPoolProfiles {
 		if pool.VnetSubnetID != nil && *pool.VnetSubnetID != "" {
 			return *pool.VnetSubnetID, nil
