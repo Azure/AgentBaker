@@ -1330,7 +1330,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.34.0-ubuntu20.04u16"
+                "latestVersion": "1.34.0-ubuntu20.04u17"
               }
             ]
           },
@@ -1338,7 +1338,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.34.0-ubuntu22.04u16"
+                "latestVersion": "1.34.0-ubuntu22.04u17"
               }
             ]
           },
@@ -1346,7 +1346,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.34.0-ubuntu24.04u16"
+                "latestVersion": "1.34.0-ubuntu24.04u17"
               }
             ]
           },
@@ -1354,7 +1354,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.34.0-ubuntu26.04u16"
+                "latestVersion": "1.34.0-ubuntu26.04u17"
               }
             ]
           }
