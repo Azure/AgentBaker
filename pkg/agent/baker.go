@@ -2193,7 +2193,7 @@ root = "{{GetDataDir}}"{{- end}}
   privileged_without_host_devices = true
   snapshotter = "erofs"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview.options]
-    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-templating.toml"
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
 [proxy_plugins.tardev]
   type = "snapshot"
   address = "/run/containerd/tardev-snapshotter.sock"
@@ -2273,7 +2273,7 @@ root = "{{GetDataDir}}"{{- end}}
   privileged_without_host_devices = true
   snapshotter = "erofs"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview.options]
-    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-templating.toml"
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
 [proxy_plugins.tardev]
   type = "snapshot"
   address = "/run/containerd/tardev-snapshotter.sock"
