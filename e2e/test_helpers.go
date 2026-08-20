@@ -229,12 +229,16 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 func copyScenario(s *Scenario) *Scenario {
 	copied := *s
 	copied.Config = s.Config
+	copied.cleanup = nil
 	return &copied
 }
 
 func runScenario(t testing.TB, s *Scenario) error {
 	t = toolkit.WithTestLogger(t)
 	s.T = t
+	if s.cleanup != nil {
+		panic("Scenario.Cleanup called outside of a scenario run")
+	}
 	if s.Location == "" {
 		s.Location = config.Config.DefaultLocation
 	}
@@ -246,6 +250,15 @@ func runScenario(t testing.TB, s *Scenario) error {
 	}
 
 	ctx := newTestCtx(t)
+	cleanup := &scenarioCleanup{}
+	s.cleanup = cleanup
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), scenarioCleanupTimeout)
+		defer cancel()
+		if err := cleanup.runCleanups(cleanupCtx); err != nil {
+			t.Errorf("scenario cleanup failed: %v", err)
+		}
+	})
 	if err := maybeSkipScenario(ctx, t, s); err != nil {
 		return err
 	}
@@ -1047,10 +1060,9 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 		return nil, fmt.Errorf("Failed to complete gallery image version creation: %w", err)
 	}
 
-	s.T.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
+	s.Cleanup(func(ctx context.Context) error {
 		config.Azure.DeleteSIGImageVersion(ctx, rg, *gallery.Name, *image.Name, version)
+		return nil
 	})
 	customVHD := *s.Config.VHD
 	customVHD.Name = *image.Name // Use the architecture-specific image name
