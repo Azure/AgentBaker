@@ -40,3 +40,4 @@ jobs:
       IgnoreScenariosWithMissingVhd: false
       jobTimeoutInMinutes: 180
       failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}
+      selectGpuE2eProfile: true
