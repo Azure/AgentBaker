@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const scenarioCleanupTimeout = time.Minute
+const scenarioCleanupTimeout = 5 * time.Minute
 
 type scenarioCleanup struct {
 	mu       sync.Mutex
