@@ -70,6 +70,13 @@ type App struct {
 	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
 	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
 	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
+	// httpDownload overrides the real HTTP GET for download-hotfix artifact fetching, letting
+	// unit tests inject canned binary content or errors without real networking. When nil, the
+	// real HTTP download is used.
+	httpDownload func(ctx context.Context, url string) ([]byte, error)
+	// downloadDir overrides the directory where artifact downloads are staged. When empty,
+	// defaults to filepath.Dir(hotfixBinaryPath). Used for testing.
+	downloadDir string
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
