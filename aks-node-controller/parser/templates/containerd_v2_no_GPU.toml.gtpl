@@ -1,4 +1,5 @@
-version = 2
+{{- $isV4 := isContainerdVersionGe .GetContainerdConfig "2.3.0" -}}
+version = {{if $isV4}}4{{else}}2{{end}}
 oom_score = -999{{if getHasDataDir .KubeletConfig}}
 root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 {{- if .GetIsKata }}
