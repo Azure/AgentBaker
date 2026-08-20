@@ -727,7 +727,6 @@ cachePackageAndBinaryComponents() {
         installAznfsPackage || exit $ERR_AZNFS_INSTALL_FAIL
         ;;
       "blobfuse"|"blobfuse2")
-       # TODO(2604): install blobfuse2 for azure blob CSI driver support when package is made available in resolute PMC repos
         for version in "${PACKAGE_VERSIONS[@]}"; do
           if isUbuntu "$OS"; then
             if ! apt_get_install 10 2 120 "${name}=${version}"; then
