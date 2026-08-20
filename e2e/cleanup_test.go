@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestScenarioCleanupRunsLIFOAndIncludesNestedCleanups(t *testing.T) {
@@ -97,5 +98,27 @@ func TestScenarioCleanupSupportsConcurrentRegistration(t *testing.T) {
 	}
 	if got := ran.Load(); got != cleanupCount {
 		t.Fatalf("ran %d cleanups, want %d", got, cleanupCount)
+	}
+}
+
+func TestScenarioCleanupUsesFreshTimeoutPerStep(t *testing.T) {
+	cleanup := &scenarioCleanup{}
+	s := &Scenario{cleanup: cleanup}
+	var firstDeadline, secondDeadline time.Time
+
+	s.Cleanup(func(ctx context.Context) error {
+		firstDeadline, _ = ctx.Deadline()
+		return nil
+	})
+	s.Cleanup(func(ctx context.Context) error {
+		secondDeadline, _ = ctx.Deadline()
+		return nil
+	})
+
+	if err := cleanup.runCleanups(context.Background()); err != nil {
+		t.Fatalf("runCleanups() error = %v", err)
+	}
+	if !firstDeadline.After(secondDeadline) {
+		t.Fatalf("later cleanup deadline %s is not after earlier cleanup deadline %s", firstDeadline, secondDeadline)
 	}
 }

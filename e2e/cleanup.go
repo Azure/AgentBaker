@@ -9,7 +9,10 @@ import (
 	"time"
 )
 
-const scenarioCleanupTimeout = 5 * time.Minute
+const (
+	scenarioCleanupTimeout     = 5 * time.Minute
+	scenarioCleanupStepTimeout = time.Minute
+)
 
 type scenarioCleanup struct {
 	mu       sync.Mutex
@@ -45,7 +48,10 @@ func (c *scenarioCleanup) runCleanups(ctx context.Context) error {
 		if !ok {
 			return errors.Join(errs...)
 		}
-		if err := runCleanup(ctx, fn); err != nil {
+		cleanupCtx, cancel := context.WithTimeout(ctx, scenarioCleanupStepTimeout)
+		err := runCleanup(cleanupCtx, fn)
+		cancel()
+		if err != nil {
 			errs = append(errs, err)
 		}
 	}
