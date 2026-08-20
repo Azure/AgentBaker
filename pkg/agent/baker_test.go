@@ -184,6 +184,23 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(decoded)).To(ContainSubstring(`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]`))
 			})
+
+			It("forwards snapshot annotations on the kata path across split-plugin schemas", func() {
+				// Regression test: the split-plugin (containerd 2.x) templates must set
+				// disable_snapshot_annotations = false for Kata under the images plugin, otherwise
+				// image pulls break for Kata pods. The legacy v1 schema emitted this under IsKata,
+				// but the carry-over was missed when the split cri.v1.images/runtime templates were
+				// introduced. Asserted end-to-end by Test_AzureLinuxV3Gen2Kata (ValidateKataContainerdConfig).
+				const kataSnapshotAnnotations = `disable_snapshot_annotations = false`
+
+				// split-plugin schema v2 (containerd 2.0-2.2), no-GPU and GPU variants.
+				Expect(renderContainerdConfig("2.2.4-5.azl3", datamodel.AKSAzureLinuxV3Gen2Kata, true)).To(ContainSubstring(kataSnapshotAnnotations))
+				Expect(renderContainerdConfig("2.2.4-5.azl3", datamodel.AKSAzureLinuxV3Gen2Kata, false)).To(ContainSubstring(kataSnapshotAnnotations))
+
+				// schema v4 (containerd 2.3+), no-GPU and GPU variants.
+				Expect(renderContainerdConfig("2.3.0-ubuntu24.04u1", datamodel.AKSAzureLinuxV3Gen2Kata, true)).To(ContainSubstring(kataSnapshotAnnotations))
+				Expect(renderContainerdConfig("2.3.0-ubuntu24.04u1", datamodel.AKSAzureLinuxV3Gen2Kata, false)).To(ContainSubstring(kataSnapshotAnnotations))
+			})
 		})
 
 		Describe(".GetKubernetesEndpoint()", func() {

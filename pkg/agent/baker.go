@@ -2131,6 +2131,8 @@ root = "{{GetDataDir}}"{{- end}}
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
+{{- else if IsKata }}
+  disable_snapshot_annotations = false
 {{- end}}
   [plugins."io.containerd.cri.v1.images".pinned_images]
     sandbox = "{{GetPodInfraContainerSpec}}"
@@ -2224,6 +2226,8 @@ root = "{{GetDataDir}}"{{- end}}
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
+{{- else if IsKata }}
+  disable_snapshot_annotations = false
 {{- end}}
   [plugins."io.containerd.cri.v1.images".pinned_images]
     sandbox = "{{GetPodInfraContainerSpec}}"
@@ -2288,6 +2292,8 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.images"]
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
+  disable_snapshot_annotations = false
+{{- else if IsKata }}
   disable_snapshot_annotations = false
 {{- end}}
   [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -2365,6 +2371,8 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.images"]
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
+  disable_snapshot_annotations = false
+{{- else if IsKata }}
   disable_snapshot_annotations = false
 {{- end}}
   [plugins."io.containerd.cri.v1.images".pinned_images]
