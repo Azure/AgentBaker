@@ -112,16 +112,19 @@ upload_logs() {
         python3 /opt/azure/containers/provision_send_logs.py >/dev/null 2>&1
     fi
 }
-# Create the marker for the completed provisioning stage.
+# Create the markers for the completed provisioning stage.
+mkdir -p /opt/azure/containers
 if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
-    # Stage 1: Create marker indicating Stage 2 is needed
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete
+    # base_prep.complete is durable phase state. It is captured in the image so a node
+    # created from that image skips basePrep and runs nodePrep only.
+    touch /opt/azure/containers/base_prep.complete
     echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
     echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
-else
-    # provision.complete signals that a normal provisioning attempt finished.
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 fi
+# provision.complete signals that this CSE run finished, so `aks-node-controller provision-wait`
+# reports the result for the pre-provision (bake) run and for a normal node provisioning run.
+# Image generalization removes this file before capture, so it is never inherited by a node.
+touch /opt/azure/containers/provision.complete
 
 if [ "$EXIT_CODE" -ne 0 ]; then
     upload_logs

@@ -131,7 +131,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 			validationErr = errors.Join(
 				ValidateFileExists(ctx, stage1, "/etc/containerd/config.toml"),
 				ValidateFileExists(ctx, stage1, "/opt/azure/containers/base_prep.complete"),
-				ValidateFileDoesNotExist(ctx, stage1, "/opt/azure/containers/provision.complete"),
+				ValidateFileExists(ctx, stage1, "/opt/azure/containers/provision.complete"),
 				ValidateSystemdUnitIsRunning(ctx, stage1, "containerd"),
 				ValidateSystemdUnitIsNotRunning(ctx, stage1, "kubelet"),
 			)
@@ -912,6 +912,24 @@ while ($true) {
 }
 `
 
+// generalizeLinuxVMForImageCapture removes the per-run provisioning state that the RP
+// removes during image generalization, so the captured image behaves like a real PIS image.
+// Without this, a node created from the image would inherit provision.complete and skip
+// provisioning entirely.
+func generalizeLinuxVMForImageCapture(ctx context.Context, s *Scenario) error {
+	s.T.Log("Removing per-run provisioning state before image capture...")
+	script := strings.Join([]string{
+		"set -ex",
+		"sudo rm -f /opt/azure/containers/provision.complete",
+		"sudo rm -f /opt/azure/containers/aks-node-controller-config.json",
+		"sudo rm -f /var/log/azure/aks/provision.json",
+	}, "\n")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "generalize VM before image capture"); err != nil {
+		return fmt.Errorf("failed to remove per-run provisioning state before image capture: %w", err)
+	}
+	return nil
+}
+
 func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 	if s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
 		s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil ||
@@ -935,6 +953,8 @@ func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to run sysprep on Windows VM for image creation: %w", err)
 		}
+	} else if err := generalizeLinuxVMForImageCapture(ctx, s); err != nil {
+		return nil, err
 	}
 
 	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
