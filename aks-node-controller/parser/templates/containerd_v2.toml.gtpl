@@ -1,4 +1,5 @@
-version = 2
+{{- $isV4 := isContainerdVersionGe .GetContainerdConfig "2.3.0" -}}
+version = {{if $isV4}}4{{else}}2{{end}}
 oom_score = -999{{if getHasDataDir .KubeletConfig}}
 root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.images"]
@@ -16,6 +17,10 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
   {{- end}}
   [plugins."io.containerd.cri.v1.images".registry.headers]
     X-Meta-Source-Client = ["azure/aks"]
+{{- if $isV4}}
+[plugins."io.containerd.cri.v1.runtime"]
+  enable_cdi = true
+{{- end}}
 [plugins."io.containerd.cri.v1.runtime".containerd]
     {{- if getEnableNvidia . }}
     default_runtime_name = "nvidia-container-runtime"

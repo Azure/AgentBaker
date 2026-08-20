@@ -224,7 +224,11 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	if noGPU {
 		_template = containerdConfigNoGPUTemplate
 	}
-	if isContainerdV2BeforeV23(aksnodeconfig.GetContainerdConfig().GetContainerdVersion()) {
+	// All containerd 2.x nodes render from the split-plugin v2 templates, which emit the
+	// v2 (2.0-2.2) or v4 (2.3+) schema internally. This keeps the scriptless config byte-for-byte
+	// aligned with pkg/agent/baker.go's containerdV2BeforeV23/containerdV2 templates (asserted by
+	// the provision-config vs nbc-cmd env-var parity check). containerd 1.x keeps the legacy template.
+	if isContainerdV2OrLater(aksnodeconfig.GetContainerdConfig().GetContainerdVersion()) {
 		_template = containerdV2ConfigTemplate
 		if noGPU {
 			_template = containerdV2ConfigNoGPUTemplate
@@ -255,7 +259,7 @@ func configWithContainerdVersionFallback(aksnodeconfig *aksnodeconfigv1.Configur
 	return clonedConfig, nil
 }
 
-func isContainerdV2BeforeV23(containerdVersion string) bool {
+func isContainerdV2OrLater(containerdVersion string) bool {
 	containerdVersion = containerdSemverCore(containerdVersion)
 	if containerdVersion == "" {
 		return false
@@ -264,7 +268,7 @@ func isContainerdV2BeforeV23(containerdVersion string) bool {
 	if err != nil {
 		return false
 	}
-	return version.Major() == 2 && !IsKubernetesVersionGe(containerdVersion, "2.3.0")
+	return version.Major() >= 2
 }
 
 // detectContainerdVersion runs "containerd --version" and parses the version string.
