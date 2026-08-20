@@ -2191,7 +2191,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.9.1-ubuntu24.04u24"
+                "latestVersion": "1.9.1-ubuntu24.04u25"
               }
             ]
           },
