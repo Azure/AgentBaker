@@ -440,29 +440,34 @@ function Resolve-DalecCredentialProviderPackage {
     <#
     .SYNOPSIS
     Resolves the dalec credential provider package URL and cache path from components.json
-    for k8s >= 1.32. Returns $null if not applicable or components.json unavailable.
+    for k8s >= 1.33. Returns $null if not applicable or components.json unavailable.
     #>
     Param(
         [Parameter(Mandatory=$true)][string]$KubeBinariesVersion
     )
 
-    # Only use dalec for k8s >= 1.33
-    $kubeVersion = [version]($KubeBinariesVersion.TrimStart('v'))
-    if ($kubeVersion -lt [version]"1.33.0") {
-        return $null
-    }
-
-    $componentsJsonPath = "c:\k\components.json"
-    if (-not (Test-Path $componentsJsonPath)) {
-        Write-Log "components.json not found at $componentsJsonPath, falling back to RP URL"
-        return $null
-    }
-
     try {
+        # Only use dalec for k8s >= 1.33
+        $kubeVersion = [version]($KubeBinariesVersion.TrimStart('v'))
+        if ($kubeVersion -lt [version]"1.33.0") {
+            return $null
+        }
+
+        $componentsJsonPath = "c:\k\components.json"
+        if (-not (Test-Path $componentsJsonPath)) {
+            Write-Log "components.json not found at $componentsJsonPath, falling back to RP URL"
+            return $null
+        }
+
         $componentsJson = Get-Content $componentsJsonPath | Out-String | ConvertFrom-Json
-        $dalecPackage = $componentsJson.Packages | Where-Object { $_.name -eq "windows credential provider dalec" }
-        if ($null -eq $dalecPackage) {
-            Write-Log "No 'windows credential provider dalec' entry in components.json"
+        $legacyDalecPackage = $componentsJson.Packages | Where-Object { $_.name -eq "windows credential provider dalec" } | Select-Object -First 1
+        $dalecPackage = $componentsJson.Packages | Where-Object { $_.name -eq "azure-acr-credential-provider-pmc" } | Select-Object -First 1
+        if ($null -eq $dalecPackage -or $null -eq $dalecPackage.downloadURIs.windows.default) {
+            Write-Log "No Windows metadata in 'azure-acr-credential-provider-pmc'; checking the legacy Dalec entry"
+            $dalecPackage = $legacyDalecPackage
+        }
+        if ($null -eq $dalecPackage -or $null -eq $dalecPackage.downloadURIs.windows.default) {
+            Write-Log "No Windows Dalec credential provider entry in components.json"
             return $null
         }
 
@@ -489,7 +494,12 @@ function Resolve-DalecCredentialProviderPackage {
 
         # Check VHD cache first
         $cacheDir = $dalecPackage.windowsDownloadLocation  # c:\akse-cache\azure-acr-credential-provider\
-        $cachedFile = Get-ChildItem -Path $cacheDir -Filter "*$version*" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ([string]::IsNullOrEmpty($cacheDir) -and $null -ne $legacyDalecPackage) {
+            $cacheDir = $legacyDalecPackage.windowsDownloadLocation
+        }
+        $cachedFile = if (-not [string]::IsNullOrEmpty($cacheDir)) {
+            Get-ChildItem -Path $cacheDir -Filter "*$version*" -ErrorAction SilentlyContinue | Select-Object -First 1
+        } else { $null }
 
         return @{
             Url = $resolvedUrl
@@ -533,23 +543,33 @@ function Install-CredentialProvider {
             # Only self-resolve dalec when the RP URL is empty or matches the stock legacy pattern.
             # If the caller provided a custom/hotfix URL, honor it as-is.
             $isStockLegacyUrl = [string]::IsNullOrEmpty($global:CredentialProviderURL) -or
-                ($global:CredentialProviderURL -match 'packages\.aks\.azure\.com/cloud-provider-azure/')
+                ($global:CredentialProviderURL -match '/cloud-provider-azure/v\d+\.\d+\.\d+/binaries/azure-acr-credential-provider-windows-amd64-v\d+\.\d+\.\d+\.tar\.gz(?:\?.*)?$')
             $dalecPackage = if ($isStockLegacyUrl) {
                 Resolve-DalecCredentialProviderPackage -KubeBinariesVersion $global:KubeBinariesVersion
             } else { $null }
 
-            if ($null -ne $dalecPackage) {
+            $useLegacyPackage = $null -eq $dalecPackage
+            if (-not $useLegacyPackage) {
                 # Dalec path: use .zip from cache or download
                 Write-Log "Using dalec credential provider v$($dalecPackage.Version)"
-                if ($dalecPackage.CachedFile) {
-                    Write-Log "Using cached dalec package: $($dalecPackage.CachedFile)"
-                    $credentialproviderbinaryPackage = $dalecPackage.CachedFile
-                } else {
-                    $credentialproviderbinaryPackage = "$tempDir\credentialprovider.zip"
-                    DownloadFileOverHttp -Url $dalecPackage.Url -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
+                try {
+                    if ($dalecPackage.CachedFile) {
+                        Write-Log "Using cached dalec package: $($dalecPackage.CachedFile)"
+                        $credentialproviderbinaryPackage = $dalecPackage.CachedFile
+                    } else {
+                        $credentialproviderbinaryPackage = "$tempDir\credentialprovider.zip"
+                        DownloadFileOverHttp -Url $dalecPackage.Url -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
+                    }
+                    AKS-Expand-Archive -Path $credentialproviderbinaryPackage -DestinationPath $tempDir
+                } catch {
+                    if ([string]::IsNullOrEmpty($global:CredentialProviderURL)) {
+                        throw
+                    }
+                    Write-Log "Failed to install dalec credential provider, falling back to RP URL. Error: $_"
+                    $useLegacyPackage = $true
                 }
-                AKS-Expand-Archive -Path $credentialproviderbinaryPackage -DestinationPath $tempDir
-            } else {
+            }
+            if ($useLegacyPackage) {
                 # Legacy path: use RP-provided URL with .tar.gz
                 $credentialproviderbinaryPackage = "$tempDir\credentialprovider.tar.gz"
                 DownloadFileOverHttp -Url $global:CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
