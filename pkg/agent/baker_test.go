@@ -201,6 +201,24 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(renderContainerdConfig("2.3.0-ubuntu24.04u1", datamodel.AKSAzureLinuxV3Gen2Kata, true)).To(ContainSubstring(kataSnapshotAnnotations))
 				Expect(renderContainerdConfig("2.3.0-ubuntu24.04u1", datamodel.AKSAzureLinuxV3Gen2Kata, false)).To(ContainSubstring(kataSnapshotAnnotations))
 			})
+
+			It("renders a consistent Kata block in the schema v4 containerd config", func() {
+				// The v4 (containerd 2.3+) Kata templates must match the pre-2.3 and scriptless
+				// aks-node-controller templates: split cri.v1.runtime handlers, the EROFS
+				// snapshotter preamble that kata-preview needs, and the real clh-preview config
+				// path (not the clh-templating typo). Keeps scriptful/scriptless parity for
+				// containerd 2.3+ Kata distros.
+				for _, noGPU := range []bool{true, false} {
+					cfg := renderContainerdConfig("2.3.0-ubuntu24.04u1", datamodel.AKSAzureLinuxV3Gen2Kata, noGPU)
+					Expect(cfg).To(ContainSubstring(`[plugins."io.containerd.snapshotter.v1.erofs"]`))
+					Expect(cfg).To(ContainSubstring(`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]`))
+					Expect(cfg).To(ContainSubstring(`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview]`))
+					Expect(cfg).To(ContainSubstring(`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]`))
+					Expect(cfg).To(ContainSubstring(`configuration-clh-preview.toml`))
+					Expect(cfg).NotTo(ContainSubstring(`configuration-clh-templating.toml`))
+					Expect(cfg).NotTo(ContainSubstring(`io.containerd.grpc.v1.cri`))
+				}
+			})
 		})
 
 		Describe(".GetKubernetesEndpoint()", func() {
