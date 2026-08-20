@@ -3373,24 +3373,9 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 				continue
 			}
 
-			matched := false
-			for _, pattern := range allPatterns {
-				pattern = strings.TrimSpace(pattern)
-				if pattern == "" {
-					continue
-				}
-
-				// Try regex match
-				matched, _ = regexp.MatchString(pattern, rule)
-				if matched {
-					break
-				}
-
-				// Also try exact match for non-regex patterns
-				if strings.Contains(rule, pattern) {
-					matched = true
-					break
-				}
+			matched, err := iptablesRuleMatchesAnyPattern(rule, allPatterns)
+			if err != nil {
+				return fmt.Errorf("table %s: %w", table, err)
 			}
 
 			if !matched {
@@ -3407,6 +3392,41 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 			"This may indicate an unsupported iptables rule when eBPF host routing is enabled. "+
 			"Contact acndp@microsoft.com for details.",
 	)
+}
+
+// iptablesRuleMatchesAnyPattern reports whether rule is accounted for by any of the given
+// allowlist patterns. A pattern matches either as a regular expression or as a literal
+// substring, so plain entries pasted straight out of `iptables -S` keep working even when they
+// are not valid regular expressions.
+//
+// A pattern that fails to compile still gets its literal-substring chance. It is only reported
+// as an error if the rule went unmatched overall, because in that case the malformed pattern is
+// the likely culprit and would otherwise silently degrade into a confusing "unsupported
+// iptables rule" failure across every scenario.
+func iptablesRuleMatchesAnyPattern(rule string, patterns []string) (bool, error) {
+	var firstErr error
+
+	for _, pattern := range patterns {
+		pattern = strings.TrimSpace(pattern)
+		if pattern == "" {
+			continue
+		}
+
+		matched, err := regexp.MatchString(pattern, rule)
+		if err != nil && firstErr == nil {
+			firstErr = fmt.Errorf("invalid iptables allowlist pattern %q: %w", pattern, err)
+		}
+		if matched {
+			return true, nil
+		}
+
+		// Also try exact match for non-regex patterns.
+		if strings.Contains(rule, pattern) {
+			return true, nil
+		}
+	}
+
+	return false, firstErr
 }
 
 // ValidateAppArmorBasic validates that AppArmor is running without requiring aa-status
