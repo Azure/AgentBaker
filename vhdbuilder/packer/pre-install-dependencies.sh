@@ -185,6 +185,18 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       "linux-headers-azure-lts-${UBUNTU_RELEASE}"
     )
     echo "Installing fde LTS kernel for CVM Ubuntu ${UBUNTU_RELEASE}"
+  elif [ "${UBUNTU_RELEASE}" = "24.04" ]; then
+    # Pin to 6.8.0-1062-azure to avoid regression in 6.8.0-1063-azure
+    # (LP #2070072 conntrack-on-promisc revert + LP #2144730 ITS mitigation).
+    KERNEL_IMAGE="linux-image-6.8.0-1062-azure"
+    KERNEL_PACKAGES=(
+      "linux-image-6.8.0-1062-azure"
+      "linux-tools-6.8.0-1062-azure"
+      "linux-cloud-tools-6.8.0-1062-azure"
+      "linux-headers-6.8.0-1062-azure"
+      "linux-modules-extra-6.8.0-1062-azure"
+    )
+    echo "Installing pinned LTS kernel 6.8.0-1062-azure for Ubuntu 24.04 (regression in 1063)"
   else
     # Use LTS kernel for other versions
     KERNEL_IMAGE="linux-image-azure-lts-${UBUNTU_RELEASE}"
@@ -197,9 +209,13 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     echo "Installing LTS kernel for Ubuntu ${UBUNTU_RELEASE}"
   fi
 
-  # Add modules-extra only when the package exists in the current apt repo
+  # Add modules-extra only when the package exists in the current apt repo.
+  # Skip for the pinned 24.04 case: the exact-version modules-extra is already in
+  # KERNEL_PACKAGES, and the LTS metapackage would pull the newer (pinned-out) kernel.
   MODULES_EXTRA_PKG="linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
-  if apt-cache show "${MODULES_EXTRA_PKG}" &>/dev/null; then
+  if [ "$KERNEL_IMAGE" = "linux-image-6.8.0-1062-azure" ]; then
+    echo "Pinned kernel selected - using exact-version modules-extra, skipping ${MODULES_EXTRA_PKG}"
+  elif apt-cache show "${MODULES_EXTRA_PKG}" &>/dev/null; then
     KERNEL_PACKAGES+=("${MODULES_EXTRA_PKG}")
   else
     echo "Package ${MODULES_EXTRA_PKG} not available - skipping"
