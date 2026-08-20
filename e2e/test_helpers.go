@@ -128,10 +128,14 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 				ValidateWindowsServiceIsRunning(ctx, stage1, "containerd"),
 			)
 		} else {
+			// provision.complete is intentionally not asserted here. In scriptless mode the
+			// provisioning scripts come from the VHD, so whether the bake run writes
+			// provision.complete depends on whether the VHD under test already contains the
+			// dual-marker change in cse_start.sh. base_prep.complete is the durable phase
+			// state and is written by both the old and the new script.
 			validationErr = errors.Join(
 				ValidateFileExists(ctx, stage1, "/etc/containerd/config.toml"),
 				ValidateFileExists(ctx, stage1, "/opt/azure/containers/base_prep.complete"),
-				ValidateFileExists(ctx, stage1, "/opt/azure/containers/provision.complete"),
 				ValidateSystemdUnitIsRunning(ctx, stage1, "containerd"),
 				ValidateSystemdUnitIsNotRunning(ctx, stage1, "kubelet"),
 			)
