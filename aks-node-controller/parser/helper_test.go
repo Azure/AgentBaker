@@ -614,6 +614,34 @@ func Test_getContainerdConfigV2(t *testing.T) {
 			},
 		},
 		{
+			// Regression: on containerd 2.x the Kata runtime handlers must live under the split
+			// io.containerd.cri.v1.runtime plugin (not the legacy grpc.v1.cri), otherwise
+			// containerd ignores them. Keeps scriptless Kata config aligned with baker.go.
+			name: "Containerd 2.3 Kata uses split cri.v1.runtime for kata handlers",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					NeedsCgroupv2: to.Ptr(true),
+					IsKata:        true,
+					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+						ContainerdVersion: "2.3.3",
+					},
+				},
+				noGpu: true,
+			},
+			wantContains: []string{
+				`version = 4`,
+				`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]`,
+				`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview]`,
+				`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]`,
+				`[plugins."io.containerd.snapshotter.v1.erofs"]`,
+				`configuration-clh-preview.toml`,
+			},
+			notWantContains: []string{
+				`io.containerd.grpc.v1.cri`,
+				`configuration-clh-templating.toml`,
+			},
+		},
+		{
 			// Regression: containerd 2.3+ must render the split-plugin v4 schema from the v2
 			// templates and enable CDI on GPU nodes, byte-aligned with pkg/agent/baker.go's
 			// containerdV2ConfigTemplate. Asserted end-to-end by the provision-config vs nbc-cmd

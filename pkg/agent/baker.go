@@ -2111,6 +2111,19 @@ root = "{{GetDataDir}}"{{- end}}
 	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = 4
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "10G"
+  enable_fsverity = false
+  ovl_mount_options = []
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs", "walking"]
+
+[plugins."io.containerd.differ.v1.erofs"]
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+  enable_tar_index = false
+{{- end}}
 [plugins."io.containerd.cri.v1.images"]
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
@@ -2177,7 +2190,7 @@ root = "{{GetDataDir}}"{{- end}}
   privileged_without_host_devices = true
   snapshotter = "erofs"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview.options]
-    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-templating.toml"
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
 [proxy_plugins.tardev]
   type = "snapshot"
   address = "/run/containerd/tardev-snapshotter.sock"
@@ -2193,6 +2206,19 @@ root = "{{GetDataDir}}"{{- end}}
 	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 4
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "10G"
+  enable_fsverity = false
+  ovl_mount_options = []
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs", "walking"]
+
+[plugins."io.containerd.differ.v1.erofs"]
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+  enable_tar_index = false
+{{- end}}
 [plugins."io.containerd.cri.v1.images"]
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
@@ -2244,7 +2270,7 @@ root = "{{GetDataDir}}"{{- end}}
   privileged_without_host_devices = true
   snapshotter = "erofs"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview.options]
-    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-templating.toml"
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
 [proxy_plugins.tardev]
   type = "snapshot"
   address = "/run/containerd/tardev-snapshotter.sock"
