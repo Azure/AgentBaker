@@ -10,39 +10,26 @@ import (
 )
 
 const (
-	scenarioCleanupTimeout     = 5 * time.Minute
-	scenarioCleanupStepTimeout = time.Minute
+	scenarioCleanupTimeout = 5 * time.Minute
 )
 
 type scenarioCleanup struct {
 	mu       sync.Mutex
-	cleanups []cleanupStep
+	cleanups []func(context.Context) error
 	closed   bool
-}
-
-type cleanupStep struct {
-	timeout time.Duration
-	fn      func(context.Context) error
 }
 
 // Cleanup registers fn to run after the scenario and its subtests finish.
 func (s *Scenario) Cleanup(fn func(context.Context) error) {
-	s.cleanupWithTimeout(scenarioCleanupStepTimeout, fn)
-}
-
-func (s *Scenario) cleanupWithTimeout(timeout time.Duration, fn func(context.Context) error) {
 	if s.cleanup == nil {
 		panic("Scenario.Cleanup called outside of a scenario run")
 	}
-	s.cleanup.add(cleanupStep{timeout: timeout, fn: fn})
+	s.cleanup.add(fn)
 }
 
-func (c *scenarioCleanup) add(step cleanupStep) {
-	if step.fn == nil {
+func (c *scenarioCleanup) add(fn func(context.Context) error) {
+	if fn == nil {
 		panic("scenario cleanup function must not be nil")
-	}
-	if step.timeout <= 0 {
-		panic("scenario cleanup timeout must be positive")
 	}
 
 	c.mu.Lock()
@@ -50,38 +37,35 @@ func (c *scenarioCleanup) add(step cleanupStep) {
 	if c.closed {
 		panic("Scenario.Cleanup called after scenario cleanup completed")
 	}
-	c.cleanups = append(c.cleanups, step)
+	c.cleanups = append(c.cleanups, fn)
 }
 
 func (c *scenarioCleanup) runCleanups(ctx context.Context) error {
 	var errs []error
 	for {
-		step, ok := c.popCleanup()
+		fn, ok := c.popCleanup()
 		if !ok {
 			return errors.Join(errs...)
 		}
-		cleanupCtx, cancel := context.WithTimeout(ctx, step.timeout)
-		err := runCleanup(cleanupCtx, step.fn)
-		cancel()
-		if err != nil {
+		if err := runCleanup(ctx, fn); err != nil {
 			errs = append(errs, err)
 		}
 	}
 }
 
-func (c *scenarioCleanup) popCleanup() (cleanupStep, bool) {
+func (c *scenarioCleanup) popCleanup() (func(context.Context) error, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(c.cleanups) == 0 {
 		c.closed = true
-		return cleanupStep{}, false
+		return nil, false
 	}
 
 	last := len(c.cleanups) - 1
-	step := c.cleanups[last]
-	c.cleanups[last] = cleanupStep{}
+	fn := c.cleanups[last]
+	c.cleanups[last] = nil
 	c.cleanups = c.cleanups[:last]
-	return step, true
+	return fn, true
 }
 
 func runCleanup(ctx context.Context, fn func(context.Context) error) (err error) {

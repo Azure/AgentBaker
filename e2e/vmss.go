@@ -94,7 +94,7 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 		}
 		return deleteVMSS(ctx, s)
 	})
-	s.cleanupWithTimeout(vmssLogCollectionTimeout, func(ctx context.Context) error {
+	s.Cleanup(func(ctx context.Context) error {
 		extractLogsFromVM(ctx, s, vm)
 		return nil
 	})
@@ -690,6 +690,8 @@ func skipTestIfSKUNotAvailableErr(t testing.TB, err error) {
 }
 
 func extractLogsFromVM(ctx context.Context, s *Scenario, vm *ScenarioVM) {
+	ctx, cancel := context.WithTimeout(ctx, vmssLogCollectionTimeout)
+	defer cancel()
 	if s.IsWindows() {
 		extractLogsFromVMWindows(ctx, s)
 		return
@@ -867,8 +869,6 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, vmssLogCollectionTimeout)
-	defer cancel()
 	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
 	page, err := pager.NextPage(ctx)
 	if err != nil {
