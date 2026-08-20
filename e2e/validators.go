@@ -3548,12 +3548,14 @@ func ValidateStaleCachedKubeBinariesRemoved(ctx context.Context, s *Scenario) er
 // ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
 func ValidateRxBufferDefault(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
+	skipValidationForDistro := s.VHD.Distro == datamodel.AKSAzureLinuxV3Gen2 || s.VHD.Distro.IsACLDistro()
+
 	defaultGen, err := vmSKUGeneration(config.Config.DefaultVMSKU)
 	if err != nil {
 		return fmt.Errorf("get default VM SKU generation for %s: %w", config.Config.DefaultVMSKU, err)
 	}
 
-	if defaultGen >= 6 && s.VHD.Distro == datamodel.AKSAzureLinuxV3Gen2 {
+	if defaultGen >= 6 && skipValidationForDistro {
 		return nil
 	}
 
@@ -3562,7 +3564,7 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) error {
 		if err != nil {
 			return fmt.Errorf("get VM SKU generation for %s: %w", s.Runtime.NBC.AgentPoolProfile.VMSize, err)
 		}
-		if vmSKUGen >= 6 && s.VHD.Distro == datamodel.AKSAzureLinuxV3Gen2 {
+		if vmSKUGen >= 6 && skipValidationForDistro {
 			return nil
 		}
 	}
