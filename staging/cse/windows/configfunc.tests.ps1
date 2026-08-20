@@ -311,6 +311,80 @@ Describe 'Install-CredentialProvider' {
         Assert-MockCalled -CommandName 'tar' -Times 0
     }
 
+    It 'uses dalec path for k8s >= 1.33 with sovereign stock legacy RP URL' {
+        $global:BootstrapProfileContainerRegistryServer = ""
+        $global:KubeBinariesVersion = "1.33.3"
+        $global:CredentialProviderURL = 'https://packages.aks.azure.us/cloud-provider-azure/v1.33.3/binaries/azure-acr-credential-provider-windows-amd64-v1.33.3.tar.gz'
+
+        Mock Resolve-DalecCredentialProviderPackage -MockWith {
+            return @{
+                Url = 'https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.33.6/windows/amd64/azure-acr-credential-provider_1.33.6-1_amd64.zip'
+                Version = '1.33.6-1'
+                CachedFile = 'c:\akse-cache\azure-acr-credential-provider\azure-acr-credential-provider_1.33.6-1_amd64.zip'
+                IsDalec = $true
+            }
+        }
+
+        Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
+        Assert-MockCalled -CommandName 'Resolve-DalecCredentialProviderPackage' -Times 1
+        Assert-MockCalled -CommandName 'AKS-Expand-Archive' -Times 1 -ParameterFilter {
+            $Path -eq 'c:\akse-cache\azure-acr-credential-provider\azure-acr-credential-provider_1.33.6-1_amd64.zip'
+        }
+        Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 0
+        Assert-MockCalled -CommandName 'tar' -Times 0
+    }
+
+    It 'falls back to RP legacy URL when dalec download fails' {
+        $global:BootstrapProfileContainerRegistryServer = ""
+        $global:KubeBinariesVersion = "1.33.3"
+        $global:CredentialProviderURL = 'https://packages.aks.azure.us/cloud-provider-azure/v1.33.3/binaries/azure-acr-credential-provider-windows-amd64-v1.33.3.tar.gz'
+
+        Mock Resolve-DalecCredentialProviderPackage -MockWith {
+            return @{
+                Url = 'https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.33.6/windows/amd64/azure-acr-credential-provider_1.33.6-1_amd64.zip'
+                Version = '1.33.6-1'
+                CachedFile = $null
+                IsDalec = $true
+            }
+        }
+        Mock DownloadFileOverHttp -MockWith {
+            param($Url)
+            if ($Url -match '/dalec-packages/') {
+                throw 'dalec download failed'
+            }
+        }
+
+        Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
+        Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 1 -ParameterFilter {
+            $Url -eq $global:CredentialProviderURL
+        }
+        Assert-MockCalled -CommandName 'AKS-Expand-Archive' -Times 0
+        Assert-MockCalled -CommandName 'tar' -Times 1
+    }
+
+    It 'falls back to RP legacy URL when dalec extraction fails' {
+        $global:BootstrapProfileContainerRegistryServer = ""
+        $global:KubeBinariesVersion = "1.33.3"
+        $global:CredentialProviderURL = 'https://packages.aks.azure.us/cloud-provider-azure/v1.33.3/binaries/azure-acr-credential-provider-windows-amd64-v1.33.3.tar.gz'
+
+        Mock Resolve-DalecCredentialProviderPackage -MockWith {
+            return @{
+                Url = 'https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.33.6/windows/amd64/azure-acr-credential-provider_1.33.6-1_amd64.zip'
+                Version = '1.33.6-1'
+                CachedFile = 'c:\akse-cache\azure-acr-credential-provider\azure-acr-credential-provider_1.33.6-1_amd64.zip'
+                IsDalec = $true
+            }
+        }
+        Mock AKS-Expand-Archive -MockWith { throw 'dalec extraction failed' }
+
+        Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
+        Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 1 -ParameterFilter {
+            $Url -eq $global:CredentialProviderURL
+        }
+        Assert-MockCalled -CommandName 'AKS-Expand-Archive' -Times 1
+        Assert-MockCalled -CommandName 'tar' -Times 1
+    }
+
     It 'uses legacy tar path for k8s < 1.33 (below dalec gate)' {
         $global:BootstrapProfileContainerRegistryServer = ""
         $global:KubeBinariesVersion = "1.32.8"
@@ -350,7 +424,7 @@ Describe 'Install-CredentialProvider' {
         Mock Resolve-DalecCredentialProviderPackage
 
         Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
-        # NI path should use ORAS, not dalec resolver
+        # NI path should use ORAS, not dalec resolve
         Assert-MockCalled -CommandName 'Resolve-DalecCredentialProviderPackage' -Times 0
         $script:lastDownloadReference | Should -Be 'myregistry.azurecr.io/aks/packages/kubernetes/azure-acr-credential-provider:v1.33.3'
     }
@@ -363,6 +437,11 @@ Describe 'Resolve-DalecCredentialProviderPackage' {
 
     It 'returns $null for k8s < 1.33' {
         $result = Resolve-DalecCredentialProviderPackage -KubeBinariesVersion 'v1.32.8'
+        $result | Should -Be $null
+    }
+
+    It 'returns $null for a malformed k8s version' {
+        $result = Resolve-DalecCredentialProviderPackage -KubeBinariesVersion 'invalid-version'
         $result | Should -Be $null
     }
 
@@ -383,13 +462,12 @@ Describe 'Resolve-DalecCredentialProviderPackage' {
         $result | Should -Be $null
     }
 
-    It 'returns $null when no matching version found for the k8s minor' {
+    It 'returns $null when PMC has no matching k8s minor' {
         Mock Test-Path -MockWith { $true } -ParameterFilter { $Path -eq 'c:\k\components.json' }
         $componentsContent = @'
 {
     "Packages": [{
-        "name": "windows credential provider dalec",
-        "windowsDownloadLocation": "c:\\akse-cache\\azure-acr-credential-provider\\",
+        "name": "azure-acr-credential-provider-pmc",
         "downloadURIs": {
             "windows": {
                 "default": {
@@ -407,12 +485,48 @@ Describe 'Resolve-DalecCredentialProviderPackage' {
         $result | Should -Be $null
     }
 
+    It 'does not use a matching version from the legacy tarball component' {
+        Mock Test-Path -MockWith { $true } -ParameterFilter { $Path -eq 'c:\k\components.json' }
+        $componentsContent = @'
+{
+    "Packages": [
+        {
+            "name": "azure-acr-credential-provider-pmc",
+            "downloadURIs": {
+                "windows": {
+                    "default": {
+                        "versionsV2": [{"latestVersion": "1.33.6-1"}],
+                        "downloadURL": "https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/$($version.Split('-')[0])/windows/amd64/azure-acr-credential-provider_${version}_amd64.zip"
+                    }
+                }
+            }
+        },
+        {
+            "name": "windows credential provider",
+            "downloadURIs": {
+                "windows": {
+                    "default": {
+                        "versionsV2": [{"latestVersion": "1.34.0"}],
+                        "downloadURL": "https://packages.aks.azure.com/cloud-provider-azure/v${version}/binaries/azure-acr-credential-provider-windows-amd64-v${version}.tar.gz"
+                    }
+                }
+            }
+        }
+    ]
+}
+'@
+        Mock Get-Content -MockWith { return $componentsContent } -ParameterFilter { $Path -eq 'c:\k\components.json' }
+
+        $result = Resolve-DalecCredentialProviderPackage -KubeBinariesVersion 'v1.34.0'
+        $result | Should -Be $null
+    }
+
     It 'resolves correct URL and version for matching k8s minor' {
         Mock Test-Path -MockWith { $true } -ParameterFilter { $Path -eq 'c:\k\components.json' }
         $componentsContent = @'
 {
     "Packages": [{
-        "name": "windows credential provider dalec",
+        "name": "azure-acr-credential-provider-pmc",
         "windowsDownloadLocation": "c:\\akse-cache\\azure-acr-credential-provider\\",
         "downloadURIs": {
             "windows": {
@@ -420,7 +534,9 @@ Describe 'Resolve-DalecCredentialProviderPackage' {
                     "versionsV2": [
                         {"latestVersion": "1.32.11-1"},
                         {"latestVersion": "1.33.6-1"},
-                        {"latestVersion": "1.34.3-1"}
+                        {"latestVersion": "1.34.3-1"},
+                        {"latestVersion": "1.35.6-2"},
+                        {"latestVersion": "1.36.2-1"}
                     ],
                     "downloadURL": "https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/$($version.Split('-')[0])/windows/amd64/azure-acr-credential-provider_${version}_amd64.zip"
                 }
@@ -432,10 +548,10 @@ Describe 'Resolve-DalecCredentialProviderPackage' {
         Mock Get-Content -MockWith { return $componentsContent } -ParameterFilter { $Path -eq 'c:\k\components.json' }
         Mock Get-ChildItem -MockWith { $null } -ParameterFilter { $Path -like '*akse-cache*' }
 
-        $result = Resolve-DalecCredentialProviderPackage -KubeBinariesVersion 'v1.34.1'
+        $result = Resolve-DalecCredentialProviderPackage -KubeBinariesVersion 'v1.36.0'
         $result | Should -Not -Be $null
-        $result.Version | Should -Be '1.34.3-1'
-        $result.Url | Should -Be 'https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.34.3/windows/amd64/azure-acr-credential-provider_1.34.3-1_amd64.zip'
+        $result.Version | Should -Be '1.36.2-1'
+        $result.Url | Should -Be 'https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.36.2/windows/amd64/azure-acr-credential-provider_1.36.2-1_amd64.zip'
         $result.IsDalec | Should -Be $true
         $result.CachedFile | Should -Be $null
     }
@@ -445,7 +561,7 @@ Describe 'Resolve-DalecCredentialProviderPackage' {
         $componentsContent = @'
 {
     "Packages": [{
-        "name": "windows credential provider dalec",
+        "name": "azure-acr-credential-provider-pmc",
         "windowsDownloadLocation": "c:\\akse-cache\\azure-acr-credential-provider\\",
         "downloadURIs": {
             "windows": {
@@ -473,7 +589,7 @@ Describe 'Resolve-DalecCredentialProviderPackage' {
         $componentsContent = @'
 {
     "Packages": [{
-        "name": "windows credential provider dalec",
+        "name": "azure-acr-credential-provider-pmc",
         "windowsDownloadLocation": "c:\\akse-cache\\azure-acr-credential-provider\\",
         "downloadURIs": {
             "windows": {
@@ -492,5 +608,37 @@ Describe 'Resolve-DalecCredentialProviderPackage' {
         $result = Resolve-DalecCredentialProviderPackage -KubeBinariesVersion '1.34.1'
         $result | Should -Not -Be $null
         $result.Version | Should -Be '1.34.3-1'
+    }
+
+    It 'falls back to the legacy Dalec entry for older VHD metadata' {
+        Mock Test-Path -MockWith { $true } -ParameterFilter { $Path -eq 'c:\k\components.json' }
+        $componentsContent = @'
+{
+    "Packages": [
+        {
+            "name": "azure-acr-credential-provider-pmc",
+            "windowsDownloadLocation": "c:\\akse-cache\\azure-acr-credential-provider\\",
+            "downloadURIs": {}
+        },
+        {
+            "name": "windows credential provider dalec",
+            "windowsDownloadLocation": "c:\\akse-cache\\azure-acr-credential-provider\\",
+            "downloadURIs": {
+                "windows": {
+                    "default": {
+                        "versionsV2": [{"latestVersion": "1.33.6-1"}],
+                        "downloadURL": "https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/$($version.Split('-')[0])/windows/amd64/azure-acr-credential-provider_${version}_amd64.zip"
+                    }
+                }
+            }
+        }
+    ]
+}
+'@
+        Mock Get-Content -MockWith { return $componentsContent } -ParameterFilter { $Path -eq 'c:\k\components.json' }
+        Mock Get-ChildItem -MockWith { $null } -ParameterFilter { $Path -like '*akse-cache*' }
+
+        $result = Resolve-DalecCredentialProviderPackage -KubeBinariesVersion '1.33.3'
+        $result.Version | Should -Be '1.33.6-1'
     }
 }

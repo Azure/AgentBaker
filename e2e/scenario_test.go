@@ -3962,14 +3962,19 @@ func Test_Ubuntu2204_PMC_CredentialProvider_After_Gate_Change(t *testing.T) {
 			VHD:             config.VHDUbuntu2204Gen2Containerd,
 			VMConfigMutator: EmptyVMConfigMutator,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.33.0"
+				// Must be a kubelet patch version cached on the VHD (kubernetes-binaries in
+				// components.json); install falls back to the VHD cache and kubelet.service has
+				// ConditionPathExists=/opt/bin/kubelet.
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.33.13"
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 				// No ShouldEnforceKubePMCInstall — testing the natural version gate
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider/acr-credential-provider")
-				ValidateFileExists(ctx, s, "/usr/bin/azure-acr-credential-provider") // symlink from pkg install
+				// Proves the PMC package branch (not the URL branch) ran at k8s 1.33; the URL path
+				// would instead log installCredentialProviderFromUrl.
+				ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "installCredentialProviderFromPkg")
 			},
 		},
 	})
