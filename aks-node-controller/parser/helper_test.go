@@ -613,6 +613,56 @@ func Test_getContainerdConfigV2(t *testing.T) {
 				`version = 4`,
 			},
 		},
+		{
+			// Regression: containerd 2.3+ must render the split-plugin v4 schema from the v2
+			// templates and enable CDI on GPU nodes, byte-aligned with pkg/agent/baker.go's
+			// containerdV2ConfigTemplate. Asserted end-to-end by the provision-config vs nbc-cmd
+			// parity check in Test_Ubuntu2404_DraDriverNvidiaGpuRunning_AKSNodeController.
+			name: "Containerd 2.3 with GPU uses scriptless v4 schema with CDI",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					NeedsCgroupv2: to.Ptr(true),
+					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+						ContainerdVersion: "2.3.3",
+					},
+					GpuConfig: &aksnodeconfigv1.GpuConfig{
+						EnableNvidia: to.Ptr(true),
+					},
+				},
+			},
+			wantContains: []string{
+				`version = 4`,
+				"[plugins.\"io.containerd.cri.v1.runtime\"]\n  enable_cdi = true",
+				`default_runtime_name = "nvidia-container-runtime"`,
+			},
+			notWantContains: []string{
+				`io.containerd.grpc.v1.cri`,
+				`version = 2`,
+			},
+		},
+		{
+			// The v4 no-GPU template must NOT emit the [io.containerd.cri.v1.runtime] enable_cdi
+			// block (CDI is GPU-only in baker.go's containerdV2NoGPUConfigTemplate).
+			name: "Containerd 2.3 no GPU uses scriptless v4 schema without CDI",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					NeedsCgroupv2: to.Ptr(true),
+					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+						ContainerdVersion: "2.3.3",
+					},
+				},
+				noGpu: true,
+			},
+			wantContains: []string{
+				`version = 4`,
+				`default_runtime_name = "runc"`,
+			},
+			notWantContains: []string{
+				`io.containerd.grpc.v1.cri`,
+				`enable_cdi = true`,
+				`version = 2`,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
