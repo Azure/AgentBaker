@@ -122,3 +122,21 @@ func TestScenarioCleanupUsesFreshTimeoutPerStep(t *testing.T) {
 		t.Fatalf("later cleanup deadline %s is not after earlier cleanup deadline %s", firstDeadline, secondDeadline)
 	}
 }
+
+func TestScenarioCleanupSupportsCustomStepTimeout(t *testing.T) {
+	cleanup := &scenarioCleanup{}
+	s := &Scenario{cleanup: cleanup}
+	var deadline time.Time
+
+	s.cleanupWithTimeout(4*time.Minute, func(ctx context.Context) error {
+		deadline, _ = ctx.Deadline()
+		return nil
+	})
+
+	if err := cleanup.runCleanups(context.Background()); err != nil {
+		t.Fatalf("runCleanups() error = %v", err)
+	}
+	if remaining := time.Until(deadline); remaining < 3*time.Minute {
+		t.Fatalf("custom cleanup timeout has %s remaining, want at least 3m", remaining)
+	}
+}

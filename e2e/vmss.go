@@ -78,6 +78,7 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 // This is a known transient e2e-infrastructure flake; a genuine product regression
 // fails on every attempt and still surfaces once the budget is exhausted.
 const maxOutboundCSERetries = 2
+const vmssLogCollectionTimeout = 4 * time.Minute
 
 func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	vm, err := createVMSSRecreatingOnOutboundCSEFlake(ctx, s)
@@ -93,7 +94,7 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 		}
 		return deleteVMSS(ctx, s)
 	})
-	s.Cleanup(func(ctx context.Context) error {
+	s.cleanupWithTimeout(vmssLogCollectionTimeout, func(ctx context.Context) error {
 		extractLogsFromVM(ctx, s, vm)
 		return nil
 	})
@@ -866,7 +867,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, vmssLogCollectionTimeout)
 	defer cancel()
 	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
 	page, err := pager.NextPage(ctx)
