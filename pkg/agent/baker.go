@@ -256,8 +256,17 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 	return encodedFiles
 }
 
+// supportsScriptlessPhase2 reports whether the node bootstraps through scriptless phase 2, where
+// the CSE command is `aks-node-controller provision-wait` and it reports the result recorded in
+// provision.json once provision.complete appears.
+//
+// A PreProvisionOnly (PIS image bake) run only produces provision.complete on a VHD whose
+// cse_start.sh writes it for the pre-provision phase. Older VHDs write only base_prep.complete, so
+// provision-wait would block there until the CSE timeout. PreProvisionOnly therefore stays on the
+// legacy CSE command unless the caller opts in through EnableScriptlessPreProvision, which is what
+// gates enablement on the first VHD version containing the change.
 func supportsScriptlessPhase2(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly
+	return config.EnableScriptlessNBCCSECmd && (!config.PreProvisionOnly || config.EnableScriptlessPreProvision)
 }
 
 // renderEnabledFeatures serializes the feature toggle map into sorted KEY=VALUE lines for
