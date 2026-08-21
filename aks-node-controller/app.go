@@ -740,66 +740,83 @@ func (a *App) writeCompleteFileOnError(provisionResult *ProvisionResult, err err
 	}
 }
 
-func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles) (string, error) {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return "", fmt.Errorf("failed to create watcher: %w", err)
-	}
-	defer watcher.Close()
-
-	// A normal node signals completion with the durable provision.complete; a pre-provision (image
-	// bake) run signals with the volatile marker on tmpfs. Accepting either keeps this CSE command
-	// byte-identical for both phases.
+// provisionMarkers returns the completion markers provision-wait accepts, in priority order.
+// A normal node signals with the durable provision.complete; a pre-provision (image bake) run
+// signals with the volatile marker on tmpfs. Accepting either keeps the CSE command
+// byte-identical for both phases.
+func provisionMarkers(filepaths ProvisionStatusFiles) []string {
 	markers := make([]string, 0, 2)
 	for _, marker := range []string{filepaths.ProvisionCompleteFile, filepaths.PreProvisionCompleteFile} {
 		if marker != "" {
 			markers = append(markers, marker)
 		}
 	}
+	return markers
+}
+
+// watchMarkerDirs registers a watch on the directory of every marker, creating it when missing.
+// Callers must invoke this before checking whether any marker already exists, so that a marker
+// created between the two steps still arrives as an event.
+func watchMarkerDirs(watcher *fsnotify.Watcher, markers []string) error {
+	watched := make(map[string]struct{}, len(markers))
+	for _, marker := range markers {
+		dir := filepath.Dir(marker)
+		if err := os.MkdirAll(dir, 0755); err != nil { // create the directory if it doesn't exist
+			return fmt.Errorf("failed to create directory %s: %w", dir, err)
+		}
+		if _, done := watched[dir]; done {
+			continue
+		}
+		if err := watcher.Add(dir); err != nil {
+			return fmt.Errorf("failed to watch directory %s: %w", dir, err)
+		}
+		watched[dir] = struct{}{}
+	}
+	return nil
+}
+
+// firstExistingMarker reports the first marker already present on disk, if any.
+func firstExistingMarker(markers []string) (string, bool) {
+	for _, marker := range markers {
+		if _, err := os.Stat(marker); err == nil {
+			return marker, true
+		}
+	}
+	return "", false
+}
+
+func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles) (string, error) {
+	markers := provisionMarkers(filepaths)
 	if len(markers) == 0 {
 		return "", fmt.Errorf("no provision completion marker configured")
 	}
 
-	// Start watching every marker directory BEFORE checking whether a marker is already there.
-	// Doing it in this order closes the race: a marker created after the watch is registered
-	// arrives as an event, and one created before the stat below is seen by the stat.
-	watchedDirs := make(map[string]struct{}, len(markers))
-	for _, marker := range markers {
-		dir := filepath.Dir(marker)
-		if err = os.MkdirAll(dir, 0755); err != nil { // create the directory if it doesn't exist
-			return "", fmt.Errorf("failed to create directory %s: %w", dir, err)
-		}
-		if _, done := watchedDirs[dir]; done {
-			continue
-		}
-		if err = watcher.Add(dir); err != nil {
-			return "", fmt.Errorf("failed to watch directory %s: %w", dir, err)
-		}
-		watchedDirs[dir] = struct{}{}
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return "", fmt.Errorf("failed to create watcher: %w", err)
+	}
+	defer watcher.Close()
+
+	if err = watchMarkerDirs(watcher, markers); err != nil {
+		return "", err
 	}
 
-	for _, marker := range markers {
-		if _, statErr := os.Stat(marker); statErr == nil {
-			// Fast path: a marker already exists when we enter. Avoid watcher overhead.
-			// We read and evaluate once and return immediately. Only this branch executes in this scenario.
-			slog.Info("provision completion marker already present", "marker", marker)
-			return readAndEvaluateProvision(filepaths.ProvisionJSONFile)
-		}
+	if marker, found := firstExistingMarker(markers); found {
+		// Fast path: a marker already exists when we enter. Avoid watcher overhead.
+		// We read and evaluate once and return immediately. Only this branch executes in this scenario.
+		slog.Info("provision completion marker already present", "marker", marker)
+		return readAndEvaluateProvision(filepaths.ProvisionJSONFile)
 	}
 
 	for {
 		select {
 		case event := <-watcher.Events:
-			if event.Op&fsnotify.Create != fsnotify.Create {
-				continue
+			if event.Op&fsnotify.Create == fsnotify.Create && slices.Contains(markers, event.Name) {
+				// Event path: a marker was created after we started watching. Read and evaluate now.
+				// This is mutually exclusive with the fast path above; only one of these calls runs per invocation.
+				slog.Info("provision completion marker created", "marker", event.Name)
+				return readAndEvaluateProvision(filepaths.ProvisionJSONFile)
 			}
-			if !slices.Contains(markers, event.Name) {
-				continue
-			}
-			// Event path: a marker was created after we started watching. Read and evaluate now.
-			// This is mutually exclusive with the fast path above; only one of these calls runs per invocation.
-			slog.Info("provision completion marker created", "marker", event.Name)
-			return readAndEvaluateProvision(filepaths.ProvisionJSONFile)
 
 		case err := <-watcher.Errors:
 			return "", fmt.Errorf("error watching file: %w", err)
