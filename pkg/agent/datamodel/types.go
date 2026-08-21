@@ -1817,12 +1817,12 @@ type NodeBootstrappingConfiguration struct {
 	// EnableScriptlessPreProvision allows scriptless phase 2 to also be used for a PreProvisionOnly
 	// (PIS image bake) run, so the bake reports its result through the same
 	// `aks-node-controller provision-wait` CSE command as a normal node.
-	// Two prerequisites gate enabling this:
-	//   - The bake only reports a result on a VHD whose cse_start.sh writes provision.complete for
-	//     a pre-provision run, so this must stay false until the target VHD contains that change.
-	//   - Scriptless drops /opt/azure/containers/aks-node-controller-nbc-cmd.sh, which embeds
-	//     TLS_BOOTSTRAP_TOKEN. Image generalization must remove it, or the bake cluster's token is
-	//     captured into the image. Every boot rewrites the file from that node's own CustomData.
+	// This is a VHD capability switch: a bake only reports a result on a VHD whose cse_start.sh
+	// writes the volatile /run/azure/pre-provision.complete marker and whose aks-node-controller
+	// watches it, so it must stay false until the target VHD contains both. It is not a switch for
+	// image-pipeline behaviour: the bake's completion marker is volatile and its CSE command file
+	// is rewritten from each node's own CustomData on every boot, so no cleanup step is required
+	// for correctness.
 	EnableScriptlessPreProvision bool
 
 	// Pass AKSNodeConfig as serialized JSON string to compare generated provisioning with NBC cse cmd for scriptless phase 3

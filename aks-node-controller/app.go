@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -96,6 +97,9 @@ type ProvisionFlags struct {
 type ProvisionStatusFiles struct {
 	ProvisionJSONFile     string
 	ProvisionCompleteFile string
+	// PreProvisionCompleteFile is the volatile marker a pre-provision (image bake) run writes.
+	// Optional: when empty only ProvisionCompleteFile is watched.
+	PreProvisionCompleteFile string
 }
 
 func (a *App) Run(ctx context.Context, args []string) int {
@@ -133,8 +137,9 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				Usage: "Wait for provisioning to complete",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					provisionStatusFiles := ProvisionStatusFiles{
-						ProvisionJSONFile:     provisionJSONFilePath,
-						ProvisionCompleteFile: provisionCompleteFilePath,
+						ProvisionJSONFile:        provisionJSONFilePath,
+						ProvisionCompleteFile:    provisionCompleteFilePath,
+						PreProvisionCompleteFile: preProvisionCompleteFilePath,
 					}
 					provisionOutput, err := a.runProvisionWaitCommand(ctx, provisionStatusFiles)
 					_, _ = fmt.Fprintln(cmd.Root().Writer, provisionOutput)
@@ -704,22 +709,25 @@ func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun boo
 
 // writeCompleteFileOnError writes the provision.complete sentinel if err is non-nil,
 // allowing provision-wait mode to unblock early on fail-fast validation errors.
+// It always writes provision.complete, even for a pre-provision run: the recorded result carries a
+// non-zero ExitCode, so provision-wait fails, the bake fails and no image is captured.
 func (a *App) writeCompleteFileOnError(provisionResult *ProvisionResult, err error) {
 	if err == nil {
 		return
 	}
-	if _, statErr := os.Stat(provisionJSONFilePath); statErr != nil && errors.Is(statErr, os.ErrNotExist) {
-		data, err := json.Marshal(provisionResult)
-		if err != nil {
-			slog.Error("failed to marshal provision result", "error", err)
-		}
-		baseDir := filepath.Dir(provisionJSONFilePath)
-		if writeErr := os.MkdirAll(baseDir, 0755); writeErr != nil {
-			slog.Error("failed to create directory for provision.json file", "path", baseDir, "error", writeErr)
-		}
-		if writeErr := os.WriteFile(provisionJSONFilePath, data, 0600); writeErr != nil {
-			slog.Error("failed to write provision.json file", "path", provisionJSONFilePath, "error", writeErr)
-		}
+	// Overwrite any existing provision.json rather than preserving it. On a node created from a PIS
+	// image a stale provision.json reporting success may still be on disk if cleanup lagged, and
+	// keeping it would let this failure be reported as the baked success.
+	data, marshalErr := json.Marshal(provisionResult)
+	if marshalErr != nil {
+		slog.Error("failed to marshal provision result", "error", marshalErr)
+	}
+	baseDir := filepath.Dir(provisionJSONFilePath)
+	if writeErr := os.MkdirAll(baseDir, 0755); writeErr != nil {
+		slog.Error("failed to create directory for provision.json file", "path", baseDir, "error", writeErr)
+	}
+	if writeErr := os.WriteFile(provisionJSONFilePath, data, 0600); writeErr != nil {
+		slog.Error("failed to write provision.json file", "path", provisionJSONFilePath, "error", writeErr)
 	}
 	if _, statErr := os.Stat(provisionCompleteFilePath); statErr == nil {
 		return // already exists
@@ -738,29 +746,60 @@ func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles)
 		return "", fmt.Errorf("failed to create watcher: %w", err)
 	}
 	defer watcher.Close()
-	// Watch the directory containing the provision complete file
-	dir := filepath.Dir(filepaths.ProvisionCompleteFile)
-	if err = os.MkdirAll(dir, 0755); err != nil { // create the directory if it doesn't exist
-		return "", fmt.Errorf("failed to create directory %s: %w", dir, err)
+
+	// A normal node signals completion with the durable provision.complete; a pre-provision (image
+	// bake) run signals with the volatile marker on tmpfs. Accepting either keeps this CSE command
+	// byte-identical for both phases.
+	markers := make([]string, 0, 2)
+	for _, marker := range []string{filepaths.ProvisionCompleteFile, filepaths.PreProvisionCompleteFile} {
+		if marker != "" {
+			markers = append(markers, marker)
+		}
 	}
-	if err = watcher.Add(dir); err != nil {
-		return "", fmt.Errorf("failed to watch directory: %w", err)
+	if len(markers) == 0 {
+		return "", fmt.Errorf("no provision completion marker configured")
 	}
 
-	if _, statErr := os.Stat(filepaths.ProvisionCompleteFile); statErr == nil {
-		// Fast path: provision.complete already exists when we enter. Avoid watcher overhead.
-		// We read and evaluate once and return immediately. Only this branch executes in this scenario.
-		return readAndEvaluateProvision(filepaths.ProvisionJSONFile)
+	// Start watching every marker directory BEFORE checking whether a marker is already there.
+	// Doing it in this order closes the race: a marker created after the watch is registered
+	// arrives as an event, and one created before the stat below is seen by the stat.
+	watchedDirs := make(map[string]struct{}, len(markers))
+	for _, marker := range markers {
+		dir := filepath.Dir(marker)
+		if err = os.MkdirAll(dir, 0755); err != nil { // create the directory if it doesn't exist
+			return "", fmt.Errorf("failed to create directory %s: %w", dir, err)
+		}
+		if _, done := watchedDirs[dir]; done {
+			continue
+		}
+		if err = watcher.Add(dir); err != nil {
+			return "", fmt.Errorf("failed to watch directory %s: %w", dir, err)
+		}
+		watchedDirs[dir] = struct{}{}
+	}
+
+	for _, marker := range markers {
+		if _, statErr := os.Stat(marker); statErr == nil {
+			// Fast path: a marker already exists when we enter. Avoid watcher overhead.
+			// We read and evaluate once and return immediately. Only this branch executes in this scenario.
+			slog.Info("provision completion marker already present", "marker", marker)
+			return readAndEvaluateProvision(filepaths.ProvisionJSONFile)
+		}
 	}
 
 	for {
 		select {
 		case event := <-watcher.Events:
-			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepaths.ProvisionCompleteFile {
-				// Event path: provision.complete was created after we started watching. Read and evaluate now.
-				// This is mutually exclusive with the fast path above; only one of these calls runs per invocation.
-				return readAndEvaluateProvision(filepaths.ProvisionJSONFile)
+			if event.Op&fsnotify.Create != fsnotify.Create {
+				continue
 			}
+			if !slices.Contains(markers, event.Name) {
+				continue
+			}
+			// Event path: a marker was created after we started watching. Read and evaluate now.
+			// This is mutually exclusive with the fast path above; only one of these calls runs per invocation.
+			slog.Info("provision completion marker created", "marker", event.Name)
+			return readAndEvaluateProvision(filepaths.ProvisionJSONFile)
 
 		case err := <-watcher.Errors:
 			return "", fmt.Errorf("error watching file: %w", err)

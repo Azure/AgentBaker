@@ -429,6 +429,117 @@ func TestApp_ProvisionWait(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "context deadline exceeded")
 	})
+
+	// A pre-provision (image bake) run signals through the volatile marker, which lives in a
+	// different directory than provision.complete. The same command must wake on it.
+	t.Run("pre-provision marker, event path", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		tempDir := t.TempDir()
+		runDir := t.TempDir()
+		p := ProvisionStatusFiles{
+			ProvisionJSONFile:        filepath.Join(tempDir, "provision.json"),
+			ProvisionCompleteFile:    filepath.Join(tempDir, "provision.complete"),
+			PreProvisionCompleteFile: filepath.Join(runDir, "pre-provision.complete"),
+		}
+
+		go func() {
+			time.Sleep(150 * time.Millisecond)
+			_ = os.WriteFile(p.ProvisionJSONFile, []byte(testData), 0644)
+			_, _ = os.Create(p.PreProvisionCompleteFile)
+		}()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		data, err := tt.App.ProvisionWait(ctx, p)
+		assert.NoError(t, err)
+		assert.Equal(t, testData, data)
+		// provision.complete must not be required for a bake to report its result.
+		assert.NoFileExists(t, p.ProvisionCompleteFile)
+	})
+
+	t.Run("pre-provision marker, fast path", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		tempDir := t.TempDir()
+		runDir := t.TempDir()
+		p := ProvisionStatusFiles{
+			ProvisionJSONFile:        filepath.Join(tempDir, "provision.json"),
+			ProvisionCompleteFile:    filepath.Join(tempDir, "provision.complete"),
+			PreProvisionCompleteFile: filepath.Join(runDir, "pre-provision.complete"),
+		}
+		_ = os.WriteFile(p.ProvisionJSONFile, []byte(testData), 0644)
+		_, _ = os.Create(p.PreProvisionCompleteFile)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		data, err := tt.App.ProvisionWait(ctx, p)
+		assert.NoError(t, err)
+		assert.Equal(t, testData, data)
+	})
+
+	// The fail-fast path writes provision.complete even during a bake; provision-wait must still
+	// wake on it and surface the failure so the bake fails and no image is captured.
+	t.Run("pre-provision configured, failure signalled through provision.complete", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		tempDir := t.TempDir()
+		runDir := t.TempDir()
+		p := ProvisionStatusFiles{
+			ProvisionJSONFile:        filepath.Join(tempDir, "provision.json"),
+			ProvisionCompleteFile:    filepath.Join(tempDir, "provision.complete"),
+			PreProvisionCompleteFile: filepath.Join(runDir, "pre-provision.complete"),
+		}
+		_ = os.WriteFile(p.ProvisionJSONFile, []byte(`{"ExitCode": "9", "Error": "boom"}`), 0644)
+		_, _ = os.Create(p.ProvisionCompleteFile)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_, err := tt.App.ProvisionWait(ctx, p)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "provision failed")
+	})
+
+	t.Run("both markers in the same directory are watched once", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		tempDir := t.TempDir()
+		p := ProvisionStatusFiles{
+			ProvisionJSONFile:        filepath.Join(tempDir, "provision.json"),
+			ProvisionCompleteFile:    filepath.Join(tempDir, "provision.complete"),
+			PreProvisionCompleteFile: filepath.Join(tempDir, "pre-provision.complete"),
+		}
+
+		go func() {
+			time.Sleep(150 * time.Millisecond)
+			_ = os.WriteFile(p.ProvisionJSONFile, []byte(testData), 0644)
+			_, _ = os.Create(p.PreProvisionCompleteFile)
+		}()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		data, err := tt.App.ProvisionWait(ctx, p)
+		assert.NoError(t, err)
+		assert.Equal(t, testData, data)
+	})
+
+	t.Run("unrelated file in a watched directory does not unblock", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		tempDir := t.TempDir()
+		runDir := t.TempDir()
+		p := ProvisionStatusFiles{
+			ProvisionJSONFile:        filepath.Join(tempDir, "provision.json"),
+			ProvisionCompleteFile:    filepath.Join(tempDir, "provision.complete"),
+			PreProvisionCompleteFile: filepath.Join(runDir, "pre-provision.complete"),
+		}
+
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			_, _ = os.Create(filepath.Join(runDir, "something-else"))
+		}()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
+		defer cancel()
+		_, err := tt.App.ProvisionWait(ctx, p)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "context deadline exceeded")
+	})
 }
 
 func Test_readAndEvaluateProvision(t *testing.T) {

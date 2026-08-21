@@ -164,9 +164,12 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 					// The bake took the scriptless path, so its CSE command was provision-wait.
 					ValidateFileExists(ctx, stage1, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"),
 					ValidateFileHasContent(ctx, stage1, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2"),
-					// provision.complete is what lets that command report the bake result, and
-					// provision.json is the result it reports.
-					ValidateFileExists(ctx, stage1, "/opt/azure/containers/provision.complete"),
+					// The volatile marker is what let that command report the bake result. It lives
+					// on tmpfs, so it cannot be captured into the image.
+					ValidateFileExists(ctx, stage1, "/run/azure/pre-provision.complete"),
+					// A bake must never leave the durable marker behind: a node created from the
+					// image would inherit it and cse_main.sh would exit before nodePrep.
+					ValidateFileDoesNotExist(ctx, stage1, "/opt/azure/containers/provision.complete"),
 					ValidateProvisionJSONReportsSuccess(ctx, stage1),
 					ValidateProvisionWaitReportsResult(ctx, stage1),
 				)
@@ -251,10 +254,12 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 				markerErr = ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
 			} else if scriptless {
 				markerErr = errors.Join(
-					// Generalization removed the bake's provisioning state before capture, so both
-					// files must have been produced by this node. A copy predating boot would mean
-					// stage 2 booted with stale state, in which case cse_main.sh exits before
-					// nodePrep and provision-wait would report the bake's result instead.
+					// The bake's volatile marker lives on tmpfs, so booting the captured image must
+					// clear it. Its absence here is what proves a node can never inherit the bake's
+					// completion signal, independently of any image-pipeline cleanup.
+					ValidateFileDoesNotExist(ctx, s, "/run/azure/pre-provision.complete"),
+					// This node produced its own durable result. A copy predating boot would mean
+					// stale state survived capture, in which case cse_main.sh exits before nodePrep.
 					ValidateFileCreatedThisBoot(ctx, s, "/opt/azure/containers/provision.complete"),
 					ValidateFileCreatedThisBoot(ctx, s, "/var/log/azure/aks/provision.json"),
 					ValidateFileAbsentOrCreatedThisBoot(ctx, s, "/opt/azure/containers/aks-node-controller-config.json"),
@@ -973,15 +978,19 @@ while ($true) {
 }
 `
 
-// generalizeLinuxVMForImageCapture removes the per-run provisioning state that the RP
-// removes during image generalization, so the captured image behaves like a real PIS image.
-// Without this, a node created from the image would inherit provision.complete and skip
-// provisioning entirely.
+// generalizeLinuxVMForImageCapture removes the per-run state that the RP removes during image
+// generalization, so the captured image behaves like a real PIS image.
+//
+// provision.complete is deliberately NOT in this list: a pre-provision run never writes it, and the
+// bake reports its result through the volatile /run marker instead. Correctness therefore does not
+// depend on this cleanup running - it only models the RP removing per-node config and secrets.
 func generalizeLinuxVMForImageCapture(ctx context.Context, s *Scenario) error {
 	s.T.Log("Removing per-run provisioning state before image capture...")
 	script := strings.Join([]string{
 		"set -ex",
-		"sudo rm -f /opt/azure/containers/provision.complete",
+		// The bake must not leave a durable completion marker behind. Fail loudly rather than
+		// silently deleting it, otherwise this helper would mask the very regression it guards.
+		"test ! -e /opt/azure/containers/provision.complete",
 		"sudo rm -f /opt/azure/containers/aks-node-controller-config.json",
 		"sudo rm -f /var/log/azure/aks/provision.json",
 		// The scriptless CSE command file embeds TLS_BOOTSTRAP_TOKEN (see cse_cmd.sh), so it is a
