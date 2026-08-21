@@ -863,11 +863,23 @@ ensurePodInfraContainerImage() {
 
     mkdir -p ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}
 
+    local is_acl=false
+    if isACL "$OS" "$OS_VARIANT"; then
+        is_acl=true
+    fi
+
     echo "Pulling with authentication for $image"
-    retrycmd_cp_oci_layout_with_oras 10 5 "${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}" "$tag" "$image" || exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
+    retrycmd_cp_oci_layout_with_oras 10 5 "${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}" "$tag" "$image" "$is_acl" || exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
 
     tar -cvf ${POD_INFRA_CONTAINER_IMAGE_TAR} -C ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR} .
-    if ctr -n k8s.io image import --base-name $base_name ${POD_INFRA_CONTAINER_IMAGE_TAR}; then
+    local import_digest_refs=""
+    if [ "$is_acl" = "true" ]; then
+        # Referrer manifests copied into the OCI layout are not tagged, so a standard 'ctr image import' may not create records for them. An image record is containerd
+        # metadata that points to a manifest and prevents its contents from being garbage collected. Use the --digests option to create records for each referrer
+        # and avoid potential garbage collection.
+        import_digest_refs="--digests"
+    fi
+    if ctr -n k8s.io image import $import_digest_refs --base-name $base_name ${POD_INFRA_CONTAINER_IMAGE_TAR}; then
         ctr -n k8s.io image tag "${base_name}:${tag}" "${pod_infra_container_image}"
         echo "Successfully imported $pod_infra_container_image"
         labelContainerImage "${pod_infra_container_image}" "io.cri-containerd.pinned" "pinned"
