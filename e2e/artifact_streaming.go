@@ -74,9 +74,9 @@ func ValidateArtifactStreamingImagePull(ctx context.Context, s *Scenario) error 
 	// rootfs is mounted, so the assertion must run with the pod still alive.
 	kube := s.Runtime.Kube
 	pod := podStreamingImageLinux(s, image)
-	truncatePodName(s.T, pod)
+	truncatePodName(s.Logger, pod)
 
-	s.T.Logf("launching pod %q from artifact-streaming image %q", pod.Name, image)
+	s.Logger.Logf("launching pod %q from artifact-streaming image %q", pod.Name, image)
 	if _, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{}); err != nil {
 		return fmt.Errorf("failed to create artifact-streaming pod %q: %w", pod.Name, err)
 	}
@@ -85,7 +85,7 @@ func ValidateArtifactStreamingImagePull(ctx context.Context, s *Scenario) error 
 		defer cancel()
 		grace := int64(0)
 		if err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(delCtx, pod.Name, metav1.DeleteOptions{GracePeriodSeconds: &grace}); err != nil {
-			s.T.Logf("could not delete artifact-streaming pod %q: %v", pod.Name, err)
+			s.Logger.Logf("could not delete artifact-streaming pod %q: %v", pod.Name, err)
 		}
 	}()
 
@@ -135,8 +135,6 @@ func ValidateArtifactStreamingImagePull(ctx context.Context, s *Scenario) error 
 // commands available. There is currently no armcontainerregistry SDK surface for creating a
 // streaming artifact; swap this for an SDK call if/when one is published.
 func ensureStreamingArtifactForImage(ctx context.Context, s *Scenario, acrName, repoTag string) error {
-	s.T.Helper()
-
 	// 1. Import a concrete manifest into the ACR (cache rules are lazy/pull-through; import gives us
 	//    a real artifact we can attach a streaming referrer to). --force makes re-runs idempotent.
 	importCmd := exec.CommandContext(ctx, "az", "acr", "import",
@@ -155,7 +153,7 @@ func ensureStreamingArtifactForImage(ctx context.Context, s *Scenario, acrName, 
 	//    conversion is done — nothing to do. ACR publishes the streaming referrer only once the
 	//    overlaybd blobs exist, so this is a reliable "ready" signal.
 	if streamingReferrerReady(ctx, s, acrName, repoTag) {
-		s.T.Logf("overlaybd streaming referrer already exists for %q in ACR %q, skipping create", repoTag, acrName)
+		s.Logger.Logf("overlaybd streaming referrer already exists for %q in ACR %q, skipping create", repoTag, acrName)
 		return nil
 	}
 
@@ -166,7 +164,7 @@ func ensureStreamingArtifactForImage(ctx context.Context, s *Scenario, acrName, 
 		"--subscription", config.Config.SubscriptionID,
 	)
 	out, err := streamCmd.CombinedOutput()
-	s.T.Logf("az acr artifact-streaming create output:\n%s", string(out))
+	s.Logger.Logf("az acr artifact-streaming create output:\n%s", string(out))
 
 	// 4. Wait for the async conversion to finish. Prefer polling the returned operation; fall back
 	//    to polling for the referrer if no operation ID was printed (e.g. CLI-version differences).
@@ -188,7 +186,6 @@ func ensureStreamingArtifactForImage(ctx context.Context, s *Scenario, acrName, 
 // waitForStreamingOperationSucceeded polls `az acr artifact-streaming operation show` until the
 // conversion operation reports Succeeded, returning an error on a Failed status or timeout.
 func waitForStreamingOperationSucceeded(ctx context.Context, s *Scenario, acrName, repository, operationID string) error {
-	s.T.Helper()
 	const timeout = 8 * time.Minute
 	deadline := time.Now().Add(timeout)
 	for {
@@ -203,7 +200,7 @@ func waitForStreamingOperationSucceeded(ctx context.Context, s *Scenario, acrNam
 		status := strings.ToLower(string(out))
 		switch {
 		case err == nil && strings.Contains(status, "succeeded"):
-			s.T.Logf("overlaybd streaming conversion operation %s for %q succeeded", operationID, repository)
+			s.Logger.Logf("overlaybd streaming conversion operation %s for %q succeeded", operationID, repository)
 			return nil
 		case err == nil && strings.Contains(status, "failed"):
 			return fmt.Errorf("overlaybd streaming conversion operation %s for %q failed:\n%s", operationID, repository, string(out))
@@ -220,7 +217,6 @@ func waitForStreamingOperationSucceeded(ctx context.Context, s *Scenario, acrNam
 // backstop for the operation poll (covers CLI versions that don't print an operation ID and any lag
 // between the operation completing and the referrer being listable).
 func waitForStreamingReferrerReady(ctx context.Context, s *Scenario, acrName, repoTag string) error {
-	s.T.Helper()
 	const timeout = 3 * time.Minute
 	deadline := time.Now().Add(timeout)
 	for {
@@ -238,7 +234,6 @@ func waitForStreamingReferrerReady(ctx context.Context, s *Scenario, acrName, re
 // referrer in the ACR. It filters `list-referrers` by the overlaybd streaming artifactType so it
 // does not match unrelated referrers (signatures, SBOMs). Best-effort: any CLI error returns false.
 func streamingReferrerReady(ctx context.Context, s *Scenario, acrName, repoTag string) bool {
-	s.T.Helper()
 	cmd := exec.CommandContext(ctx, "az", "acr", "manifest", "list-referrers",
 		"--name", repoTag,
 		"--registry", acrName,
@@ -248,7 +243,7 @@ func streamingReferrerReady(ctx context.Context, s *Scenario, acrName, repoTag s
 	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		s.T.Logf("could not list overlaybd streaming referrers for %q in ACR %q: %v\n%s", repoTag, acrName, err, string(out))
+		s.Logger.Logf("could not list overlaybd streaming referrers for %q in ACR %q: %v\n%s", repoTag, acrName, err, string(out))
 		return false
 	}
 	// A matching referrer is present iff the (type-filtered) manifest list has at least one digest.
@@ -276,44 +271,43 @@ func repoNameWithoutTag(repoTag string) string {
 // logArtifactStreamingDiagnostics dumps overlaybd's on-node log tail and exporter metrics to help
 // triage streaming failures. Best-effort only — never fails the test.
 func logArtifactStreamingDiagnostics(ctx context.Context, s *Scenario) {
-	s.T.Helper()
 	if obdLog, err := execScriptOnVMForScenario(ctx, s,
 		"sudo tail -n 50 /var/log/overlaybd.log 2>/dev/null || sudo journalctl -u overlaybd-tcmu --no-pager 2>/dev/null | tail -n 50 || true"); err != nil {
-		s.T.Logf("overlaybd log tail: could not be collected: %v", err)
+		s.Logger.Logf("overlaybd log tail: could not be collected: %v", err)
 	} else {
-		s.T.Logf("overlaybd log tail:\n%s", obdLog.stdout)
+		s.Logger.Logf("overlaybd log tail:\n%s", obdLog.stdout)
 	}
 
 	if metrics, err := execScriptOnVMForScenario(ctx, s,
 		"sudo curl -s --max-time 5 http://localhost:9863/metrics 2>/dev/null | grep -iE 'overlaybd|obd' | head -n 30 || true"); err != nil {
-		s.T.Logf("overlaybd exporter (:9863) metrics sample: could not be collected: %v", err)
+		s.Logger.Logf("overlaybd exporter (:9863) metrics sample: could not be collected: %v", err)
 	} else {
-		s.T.Logf("overlaybd exporter (:9863) metrics sample:\n%s", metrics.stdout)
+		s.Logger.Logf("overlaybd exporter (:9863) metrics sample:\n%s", metrics.stdout)
 	}
 
 	// acr-mirror is what discovers the ACR streaming referrer and redirects the pull to the
 	// overlaybd manifest; if it can't (auth/config), the pull silently falls back to overlayfs.
 	if mirror, err := execScriptOnVMForScenario(ctx, s,
 		"sudo journalctl -u acr-mirror --no-pager 2>/dev/null | tail -n 40 || true"); err != nil {
-		s.T.Logf("acr-mirror journal tail: could not be collected: %v", err)
+		s.Logger.Logf("acr-mirror journal tail: could not be collected: %v", err)
 	} else {
-		s.T.Logf("acr-mirror journal tail:\n%s", mirror.stdout)
+		s.Logger.Logf("acr-mirror journal tail:\n%s", mirror.stdout)
 	}
 
 	if snapshotter, err := execScriptOnVMForScenario(ctx, s,
 		"sudo journalctl -u overlaybd-snapshotter --no-pager 2>/dev/null | tail -n 40 || true"); err != nil {
-		s.T.Logf("overlaybd-snapshotter journal tail: could not be collected: %v", err)
+		s.Logger.Logf("overlaybd-snapshotter journal tail: could not be collected: %v", err)
 	} else {
-		s.T.Logf("overlaybd-snapshotter journal tail:\n%s", snapshotter.stdout)
+		s.Logger.Logf("overlaybd-snapshotter journal tail:\n%s", snapshotter.stdout)
 	}
 
 	// Which snapshotter backs the pulled image, and the containerd hosts.toml that routes
 	// azurecr.io pulls through acr-mirror.
 	if images, err := execScriptOnVMForScenario(ctx, s,
 		"sudo ctr -n k8s.io images ls 2>/dev/null | grep -iE 'base-core|REF' || true; echo '--- certs.d ---'; sudo cat /etc/containerd/certs.d/*azurecr.io*/hosts.toml 2>/dev/null || true"); err != nil {
-		s.T.Logf("containerd images + azurecr.io hosts.toml: could not be collected: %v", err)
+		s.Logger.Logf("containerd images + azurecr.io hosts.toml: could not be collected: %v", err)
 	} else {
-		s.T.Logf("containerd images + azurecr.io hosts.toml:\n%s", images.stdout)
+		s.Logger.Logf("containerd images + azurecr.io hosts.toml:\n%s", images.stdout)
 	}
 }
 
