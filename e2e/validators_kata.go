@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -269,12 +268,11 @@ func createKataRuntimeClass(ctx context.Context, s *Scenario, handler string) (s
 		return "", fmt.Errorf("failed to create RuntimeClass %q for handler %q: %w", name, handler, err)
 	}
 
-	s.T.Cleanup(func() {
-		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
-		defer cancel()
-		if err := kube.Typed.NodeV1().RuntimeClasses().Delete(cleanupCtx, created.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-			s.T.Logf("could not delete RuntimeClass %s: %v", created.Name, err)
+	s.Cleanup(func(ctx context.Context) error {
+		if err := kube.Typed.NodeV1().RuntimeClasses().Delete(ctx, created.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("delete RuntimeClass %q: %w", created.Name, err)
 		}
+		return nil
 	})
 
 	return created.Name, nil
@@ -319,14 +317,14 @@ func createKataPod(ctx context.Context, s *Scenario, runtimeClassName, handler s
 		return nil, fmt.Errorf("failed to create kata pod %q: %w", pod.Name, err)
 	}
 
-	s.T.Cleanup(func() {
-		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
-		defer cancel()
-		deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))}
-		err := kube.Typed.CoreV1().Pods(created.Namespace).Delete(cleanupCtx, created.Name, deleteOptions)
+	s.Cleanup(func(ctx context.Context) error {
+		err := kube.Typed.CoreV1().Pods(created.Namespace).Delete(ctx, created.Name, metav1.DeleteOptions{
+			GracePeriodSeconds: to.Ptr(int64(0)),
+		})
 		if err != nil && !apierrors.IsNotFound(err) {
-			s.T.Logf("could not delete pod %s: %v", created.Name, err)
+			return fmt.Errorf("delete pod %q: %w", created.Name, err)
 		}
+		return nil
 	})
 
 	running, err := kube.WaitUntilPodRunning(ctx, created.Namespace, "", "metadata.name="+created.Name)

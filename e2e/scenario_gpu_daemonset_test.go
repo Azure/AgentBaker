@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/config"
@@ -187,13 +186,15 @@ func deployNvidiaDevicePluginDaemonset(ctx context.Context, s *Scenario) error {
 		return fmt.Errorf("create NVIDIA device plugin DaemonSet %s/%s: %w", ds.Namespace, ds.Name, err)
 	}
 
-	s.T.Cleanup(func() {
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cleanupCancel()
-		deleteErr := s.Runtime.Kube.Typed.AppsV1().DaemonSets(created.Namespace).Delete(cleanupCtx, created.Name, metav1.DeleteOptions{})
-		if deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
-			s.T.Logf("Failed to delete NVIDIA device plugin DaemonSet %s/%s: %v", created.Namespace, created.Name, deleteErr)
+	s.Cleanup(func(ctx context.Context) error {
+		if err := s.Runtime.Kube.Typed.AppsV1().DaemonSets(created.Namespace).Delete(
+			ctx,
+			created.Name,
+			metav1.DeleteOptions{},
+		); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("delete NVIDIA device plugin DaemonSet %s/%s: %w", created.Namespace, created.Name, err)
 		}
+		return nil
 	})
 
 	if _, err := s.Runtime.Kube.WaitUntilPodRunning(
