@@ -208,6 +208,12 @@ type Config struct {
 	// CustomDataWriteFiles injects additional cloud-init write_files entries into rendered customData.
 	// This is for e2e-only validation scenarios.
 	CustomDataWriteFiles []CustomDataWriteFile
+	// ForceScriptlessCompilation forces compiling and injecting the locally-built aks-node-controller
+	// binary even when CustomDataWriteFiles is set. By default, scenarios that use CustomDataWriteFiles
+	// fall back to the VHD's baked-in aks-node-controller, whose parser may predate local changes and
+	// cause spurious provision-config vs nbc-cmd env diffs (e.g. Corefile template changes). Set this
+	// when the scenario relies on local parser/baker changes being consistent.
+	ForceScriptlessCompilation bool
 
 	// Validator is a function where the scenario can perform any extra validation checks
 	Validator func(ctx context.Context, s *Scenario)

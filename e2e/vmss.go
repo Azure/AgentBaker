@@ -312,7 +312,13 @@ func usesScriptlessNBCCSECmd(s *Scenario) bool {
 }
 
 func enableScriptlessCompilation(s *Scenario) bool {
-	return usesScriptlessNBCCSECmd(s) && len(s.Config.CustomDataWriteFiles) <= 0 && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.VHD.Flatcar
+	if !usesScriptlessNBCCSECmd(s) || config.Config.DisableScriptLessCompilation || s.Tags.NetworkIsolated || s.VHD.Flatcar {
+		return false
+	}
+	if s.Config.ForceScriptlessCompilation {
+		return true
+	}
+	return len(s.Config.CustomDataWriteFiles) <= 0
 }
 
 func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
