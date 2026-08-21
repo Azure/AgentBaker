@@ -42,7 +42,7 @@ type GpuConfig struct {
 	EnableManagedGpu bool `protobuf:"varint,7,opt,name=enable_managed_gpu,json=enableManagedGpu,proto3" json:"enable_managed_gpu,omitempty"`
 	// mig_strategy specifies the MIG strategy for the nvidia-device-plugin.
 	// Valid values are "None", "Single", "Mixed". Only meaningful when MIG is enabled
-	// (i.e., when gpu_instance_profile is set). Defaults to "Single" if not specified.
+	// (i.e., when gpu_instance_profile or mig_profile_layout is set). Defaults to "Single" if not specified.
 	MigStrategy string `protobuf:"bytes,8,opt,name=mig_strategy,json=migStrategy,proto3" json:"mig_strategy,omitempty"`
 	// mig_profile_layout is the ordered list of GPU instance profiles used for MIG partitioning.
 	// It will become the unified MIG profile field after gpu_instance_profile is deprecated.
