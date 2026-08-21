@@ -1319,6 +1319,15 @@ extractAndCacheCoreDnsBinary
 
 collect_grid_compatibility_data
 
+if isAzureLinux "$OS" "$OS_VARIANT" && [ "$(isARM64)" -ne 1 ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+  AZURELINUX_NVIDIA_DRIVER_RELEASE_NOTES=$(getAzureLinuxNvidiaDriverReleaseNotes)
+  if [ -n "$AZURELINUX_NVIDIA_DRIVER_RELEASE_NOTES" ]; then
+    printf '%s\n' "$AZURELINUX_NVIDIA_DRIVER_RELEASE_NOTES" >> "${VHD_LOGS_FILEPATH}"
+  else
+    echo "Warning: no Azure Linux NVIDIA GPU driver packages found for kernel $(uname -r)" | tee -a "${VHD_LOGS_FILEPATH}" >&2
+  fi
+fi
+
 # nvidia repos are non msft public endpoints and should not be present on VHDs.
 # The installation logic during provisioning time will use the cached rpm/deb files
 # to install extra packages required for the managed gpu experience.
