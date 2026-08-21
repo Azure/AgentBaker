@@ -26,7 +26,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -79,6 +78,7 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 // This is a known transient e2e-infrastructure flake; a genuine product regression
 // fails on every attempt and still surfaces once the budget is exhausted.
 const maxOutboundCSERetries = 2
+const vmssLogCollectionTimeout = 4 * time.Minute
 
 func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	vm, err := createVMSSRecreatingOnOutboundCSEFlake(ctx, s)
@@ -88,9 +88,15 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 	// inside createVMSSRecreatingOnOutboundCSEFlake, so registering here avoids stale cleanup
 	// handlers that would otherwise re-extract logs from and re-delete a VMSS that was already
 	// replaced during the retry loop.
-	s.T.Cleanup(func() {
-		defer cleanupBastionTunnel(vm.SSHClient)
-		cleanupVMSS(ctx, s, vm)
+	s.Cleanup(func(ctx context.Context) error {
+		if vm != nil {
+			defer cleanupBastionTunnel(vm.SSHClient)
+		}
+		return deleteVMSS(ctx, s)
+	})
+	s.Cleanup(func(ctx context.Context) error {
+		extractLogsFromVM(ctx, s, vm)
+		return nil
 	})
 
 	skipTestIfSKUNotAvailableErr(s.T, err)
@@ -203,32 +209,52 @@ func deleteVMSSAndWait(ctx context.Context, s *Scenario) {
 // Original aks-node-controller isn't run because it fails systemd check validating aks-node-controller-config.json exists
 // (check aks-node-controller.service for details).
 // with a coreos.units block to define and start the service instead.
-func CustomDataWithNBCCmdHack(s *Scenario, customData, binaryURL string) (string, error) {
+func CustomDataWithNBCCmdHack(customData, binaryURL string) (string, error) {
 	decoded, err := base64.StdEncoding.DecodeString(customData)
-	require.NoError(s.T, err)
+	if err != nil {
+		return "", fmt.Errorf("decode custom data: %w", err)
+	}
 
 	binaryDownloadCmd := fmt.Sprintf("curl -fSL --retry 10 --retry-delay 2 --retry-connrefused \"%s\" -o /opt/azure/containers/aks-node-controller-hotfix && chmod +x /opt/azure/containers/aks-node-controller-hotfix", binaryURL)
 	customData = strings.Replace(string(decoded), "#hotfix-marker", binaryDownloadCmd, -1)
 	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
 }
 
-func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachineScaleSet {
+func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachineScaleSet, error) {
+	if s == nil || s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
+		s.Runtime.Cluster.Model.Name == nil || s.Runtime.Cluster.Model.Properties == nil ||
+		s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil || s.Runtime.Cluster.KubeletIdentity == nil ||
+		s.Runtime.Cluster.KubeletIdentity.ResourceID == nil || s.VHD == nil {
+		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("scenario runtime is incomplete for VMSS model creation")
+	}
 	cluster := s.Runtime.Cluster
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
-	require.NoError(s.T, err)
+	if err != nil {
+		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("create AgentBaker: %w", err)
+	}
 	var cse, customData, aksNodeConfig string
 
 	if s.Runtime.AKSNodeConfig != nil {
 		aksNodeConfigBytes, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
-		require.NoError(s.T, err)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("marshal AKS node config: %w", err)
+		}
 		aksNodeConfig = string(aksNodeConfigBytes)
+		if s.Runtime.NBC == nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("AKS node config is set without an NBC")
+		}
 		s.Runtime.NBC.AKSNodeConfigJSON = aksNodeConfig
 	}
 
 	if s.Runtime.NBC != nil {
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
-		require.NoError(s.T, err)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("get node bootstrapping artifacts: %w", err)
+		}
+	}
+	if nodeBootstrapping == nil {
+		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("node bootstrapping artifacts are nil")
 	}
 
 	scriptlessNBCCSECmdEnabled := usesScriptlessNBCCSECmd(s)
@@ -237,25 +263,42 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	customData = nodeBootstrapping.CustomData
 	if enableScriptlessCompilation(s) {
 		binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
-		require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
-		customData, err = CustomDataWithNBCCmdHack(s, customData, binaryURL)
-		require.NoError(s.T, err, "failed to generate custom data with NBC cmd hack")
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("compile and upload aks-node-controller binary: %w", err)
+		}
+		customData, err = CustomDataWithNBCCmdHack(customData, binaryURL)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("generate custom data with NBC cmd hack: %w", err)
+		}
 	}
 	if len(s.Config.CustomDataWriteFiles) > 0 {
 		customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
-		require.NoError(s.T, err, "failed to inject customData write_files entries")
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("inject customData write_files entries: %w", err)
+		}
 	}
 	if !config.Config.DisableScriptless && !scriptlessNBCCSECmdEnabled && s.VHD.SupportsScriptless() {
 		// Validate that the custom data doesn't contain any script content,
 		// which indicates that the scriptless CSE is working as intended
 		decodedCustomData, err := base64.StdEncoding.DecodeString(customData)
-		require.NoError(s.T, err, "failed to decode custom data")
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("decode custom data: %w", err)
+		}
 		reader, err := gzip.NewReader(bytes.NewReader(decodedCustomData))
-		require.NoError(s.T, err, "failed to create gzip reader")
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("create custom data gzip reader: %w", err)
+		}
 		result, err := io.ReadAll(reader)
-		require.NoError(s.T, err, "failed to read gzip data")
-		reader.Close()
-		require.Contains(s.T, string(result), "/opt/azure/containers/scriptless-cse-overrides.txt", "custom data contains other script content, but scriptless CSE CMD is enabled")
+		closeErr := reader.Close()
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("read gzip custom data: %w", err)
+		}
+		if closeErr != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("close custom data gzip reader: %w", closeErr)
+		}
+		if !strings.Contains(string(result), "/opt/azure/containers/scriptless-cse-overrides.txt") {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("custom data contains other script content, but scriptless CSE CMD is enabled")
+		}
 	}
 
 	// These two links are really for local development
@@ -286,19 +329,31 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	}
 
 	isAzureCNI, err := cluster.IsAzureCNI()
-	require.NoError(s.T, err, "checking if cluster is using Azure CNI")
+	if err != nil {
+		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("checking if cluster is using Azure CNI: %w", err)
+	}
 
 	if isAzureCNI {
 		err = addPodIPConfigsForAzureCNI(&model, s.Runtime.VMSSName, cluster)
-		require.NoError(s.T, err)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, err
+		}
 	}
 
-	s.PrepareVMSSModel(ctx, s.T, &model)
+	if err := s.PrepareVMSSModel(ctx, &model); err != nil {
+		return armcompute.VirtualMachineScaleSet{}, err
+	}
 
 	if s.Config.UseNVMe {
+		if model.Properties == nil || model.Properties.VirtualMachineProfile == nil ||
+			model.Properties.VirtualMachineProfile.StorageProfile == nil ||
+			model.Properties.VirtualMachineProfile.StorageProfile.OSDisk == nil ||
+			model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings == nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("VMSS model is missing diff disk settings required for NVMe placement")
+		}
 		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementNvmeDisk)
 	}
-	return model
+	return model, nil
 }
 
 func usesScriptlessNBCCSECmd(s *Scenario) bool {
@@ -316,6 +371,12 @@ func enableScriptlessCompilation(s *Scenario) bool {
 }
 
 func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
+	if s == nil || s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
+		s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil {
+		return nil, fmt.Errorf("scenario runtime is missing the cluster node resource group")
+	}
+	resourceGroupName := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
+
 	delay := 5 * time.Second
 	retryOn := func(err error) bool {
 		var respErr *azcore.ResponseError
@@ -342,7 +403,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 
 	for {
 		attempt++
-		vm, err := CreateVMSS(ctx, s, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
+		vm, err := CreateVMSS(ctx, s, resourceGroupName)
 		if err == nil {
 			return vm, nil
 		}
@@ -368,11 +429,15 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*ScenarioVM, error) {
 	defer toolkit.LogStepCtxf(ctx, "creating VMSS %s", s.Runtime.VMSSName)()
 	vm := &ScenarioVM{}
+	model, err := createVMSSModel(ctx, s)
+	if err != nil {
+		return vm, err
+	}
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
 		s.Runtime.VMSSName,
-		createVMSSModel(ctx, s),
+		model,
 		nil,
 	)
 	if err != nil {
@@ -624,15 +689,9 @@ func skipTestIfSKUNotAvailableErr(t testing.TB, err error) {
 	}
 }
 
-func cleanupVMSS(ctx context.Context, s *Scenario, vm *ScenarioVM) {
-	// original context can be cancelled, but we still want to collect the logs
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
-	defer cancel()
-	defer deleteVMSS(ctx, s)
-	extractLogsFromVM(ctx, s, vm)
-}
-
 func extractLogsFromVM(ctx context.Context, s *Scenario, vm *ScenarioVM) {
+	ctx, cancel := context.WithTimeout(ctx, vmssLogCollectionTimeout)
+	defer cancel()
 	if s.IsWindows() {
 		extractLogsFromVMWindows(ctx, s)
 		return
@@ -810,8 +869,6 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
-	defer cancel()
 	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
 	page, err := pager.NextPage(ctx)
 	if err != nil {
@@ -921,25 +978,26 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	s.T.Logf("logs collected to %s", testDir(s.T))
 }
 
-func deleteVMSS(ctx context.Context, s *Scenario) {
-	// original context can be cancelled, but we still want to delete the VM
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
-	defer cancel()
+func deleteVMSS(ctx context.Context, s *Scenario) error {
 	if config.Config.KeepVMSS {
 		s.T.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", s.Runtime.VMSSName)
 		if err := writeToFile(s.T, "sshkey", string(config.VMSSHPrivateKey)); err != nil {
 			s.T.Logf("failed to write retained vmss %s private ssh key to disk: %s", s.Runtime.VMSSName, err)
 		}
-		return
+		return nil
 	}
 	_, err := config.Azure.VMSS.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
 		ForceDeletion: to.Ptr(true),
 	})
 	if err != nil {
-		s.T.Logf("failed to delete vmss %q: %s", s.Runtime.VMSSName, err)
-		return
+		var respErr *azcore.ResponseError
+		if errors.As(err, &respErr) && respErr.StatusCode == 404 {
+			return nil
+		}
+		return fmt.Errorf("begin deleting vmss %q: %w", s.Runtime.VMSSName, err)
 	}
-	s.T.Logf("vmss %q deleted successfully", s.Runtime.VMSSName)
+	s.T.Logf("vmss %q deletion started", s.Runtime.VMSSName)
+	return nil
 }
 
 // Adds additional IP configs to the passed in vmss model based on the chosen cluster's setting of "maxPodsPerNode",

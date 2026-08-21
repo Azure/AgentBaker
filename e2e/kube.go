@@ -166,7 +166,7 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 	return pod, err
 }
 
-func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
+func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) (string, error) {
 	defer toolkit.LogStepf(t, "waiting for node %s to be ready", vmssName)()
 	var lastNode *corev1.Node
 
@@ -202,15 +202,13 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssN
 
 	if err != nil {
 		if lastNode == nil {
-			t.Fatalf("%q haven't appeared in k8s API server: %v", vmssName, err)
-			return ""
+			return "", fmt.Errorf("%q did not appear in the Kubernetes API server: %w", vmssName, err)
 		}
 		nodeString, _ := json.Marshal(lastNode)
-		t.Fatalf("failed to wait for %q (%s) to be ready %+v. Detail: %s", vmssName, lastNode.Name, lastNode.Status, string(nodeString))
-		return ""
+		return "", fmt.Errorf("failed to wait for %q (%s) to be ready: %w; status=%+v detail=%s", vmssName, lastNode.Name, err, lastNode.Status, string(nodeString))
 	}
 
-	return lastNode.Name
+	return lastNode.Name, nil
 }
 
 // GetPodNetworkDebugPodForNode returns a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
@@ -421,19 +419,10 @@ func daemonsetDebug(ctx context.Context, deploymentName string, nodeSelector map
 					},
 				},
 				Spec: corev1.PodSpec{
-					HostNetwork:  isHostNetwork,
-					NodeSelector: nodeSelector,
-					ImagePullSecrets: func() []corev1.LocalObjectReference {
-						if secretName == "" {
-							return nil
-						}
-						return []corev1.LocalObjectReference{
-							{
-								Name: secretName,
-							},
-						}
-					}(),
-					HostPID: true,
+					HostNetwork:      isHostNetwork,
+					NodeSelector:     nodeSelector,
+					ImagePullSecrets: getImagePullSecrets(secretName),
+					HostPID:          true,
 					Containers: []corev1.Container{
 						{
 							Image:   image,
@@ -444,30 +433,45 @@ func daemonsetDebug(ctx context.Context, deploymentName string, nodeSelector map
 							},
 						},
 					},
-					// Set Tolerations to tolerate the node with test taints "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule".
-					// This is to ensure that the pod can be scheduled on the node with the taints.
-					// It won't affect other pods running on the same node.
-					Tolerations: []corev1.Toleration{
-						{
-							Key:      "testkey1",
-							Operator: corev1.TolerationOpEqual,
-							Value:    "value1",
-							Effect:   corev1.TaintEffectNoSchedule,
-						},
-						{
-							Key:      "testkey2",
-							Operator: corev1.TolerationOpEqual,
-							Value:    "value2",
-							Effect:   corev1.TaintEffectNoSchedule,
-						},
-						{
-							Key:      "node.cloudprovider.kubernetes.io/uninitialized",
-							Operator: corev1.TolerationOpExists,
-							Effect:   corev1.TaintEffectNoSchedule,
-						},
-					},
+					Tolerations: getPodTolerations(),
 				},
 			},
+		},
+	}
+}
+
+func getImagePullSecrets(secretName string) []corev1.LocalObjectReference {
+	if secretName == "" {
+		return nil
+	}
+	return []corev1.LocalObjectReference{
+		{
+			Name: secretName,
+		},
+	}
+}
+
+func getPodTolerations() []corev1.Toleration {
+	// Set Tolerations to tolerate the node with test taints "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule".
+	// This is to ensure that the pod can be scheduled on the node with the taints.
+	// It won't affect other pods running on the same node.
+	return []corev1.Toleration{
+		{
+			Key:      "testkey1",
+			Operator: corev1.TolerationOpEqual,
+			Value:    "value1",
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      "testkey2",
+			Operator: corev1.TolerationOpEqual,
+			Value:    "value2",
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      "node.cloudprovider.kubernetes.io/uninitialized",
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
 		},
 	}
 }
@@ -867,7 +871,7 @@ func (k *Kubeclient) logProxyTimeoutDiagnostics(ctx context.Context, lastPodStat
 	}
 }
 
-func getClusterSubnetID(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (string, error) {
+func getClusterSubnetID(cluster *armcontainerservice.ManagedCluster) (string, error) {
 	for _, pool := range cluster.Properties.AgentPoolProfiles {
 		if pool.VnetSubnetID != nil && *pool.VnetSubnetID != "" {
 			return *pool.VnetSubnetID, nil
@@ -905,31 +909,27 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 			// Set Tolerations to tolerate the node with test taints "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule".
 			// This is to ensure that the pod can be scheduled on the node with the taints.
 			// It won't affect other pods running on the same node.
-			Tolerations: []corev1.Toleration{
-				{
-					Key:      "testkey1",
-					Operator: corev1.TolerationOpEqual,
-					Value:    "value1",
-					Effect:   corev1.TaintEffectNoSchedule,
-				},
-				{
-					Key:      "testkey2",
-					Operator: corev1.TolerationOpEqual,
-					Value:    "value2",
-					Effect:   corev1.TaintEffectNoSchedule,
-				},
-			},
-			NodeSelector: map[string]string{
-				"kubernetes.io/hostname": s.Runtime.VM.KubeName,
-			},
+			Tolerations:  getPodTolerations(),
+			NodeSelector: getNodeSelectorForScenario(s),
 		},
 	}
 }
 
-func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
+func getNodeSelectorForScenario(s *Scenario) map[string]string {
+	return map[string]string{
+		"kubernetes.io/hostname": s.Runtime.VM.KubeName,
+	}
+}
+
+func debugPodWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
+	deploymentName := fmt.Sprintf("%s-test-%s-pod", s.Runtime.VM.KubeName, podName)
 	return &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-test-%s-pod", s.Runtime.VM.KubeName, podName),
+			Name:      deploymentName,
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
@@ -942,9 +942,8 @@ func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
 					Command: []string{"cmd", "/c", "ping", "-t", "localhost"},
 				},
 			},
-			NodeSelector: map[string]string{
-				"kubernetes.io/hostname": s.Runtime.VM.KubeName,
-			},
+			Tolerations:  getPodTolerations(),
+			NodeSelector: getNodeSelectorForScenario(s),
 		},
 	}
 }

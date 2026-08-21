@@ -2,15 +2,15 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
-	"time"
 
+	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	nodev1 "k8s.io/api/node/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -48,40 +48,53 @@ var kataRuntimeHandlers = []string{kataRuntimeHandler, kataPreviewRuntimeHandler
 // The assertions below therefore target the containerd 1.x plugin paths that those templates
 // emit. If Kata is ever promoted to the V2 templates, this validator should fail loudly rather
 // than silently pass, which is why the plugin paths are asserted explicitly.
-func ValidateKataContainerdConfig(ctx context.Context, s *Scenario) {
+func ValidateKataContainerdConfig(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 
-	require.True(s.T, s.VHD.Distro.IsKataDistro(),
-		"ValidateKataContainerdConfig requires a Kata distro, got %q", s.VHD.Distro)
+	if err := assert.Equal(s.VHD.Distro.IsKataDistro(), true,
+		"ValidateKataContainerdConfig requires a Kata distro, got %q", s.VHD.Distro); err != nil {
+		return err
+	}
 
-	// The standard "kata" runtime handler, backed by the kata v2 shim.
-	ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]`)
-	ValidateFileHasContent(ctx, s, containerdConfigPath, `runtime_type = "io.containerd.kata.v2"`)
-	ValidateFileHasContent(ctx, s, containerdConfigPath, kataConfigPath)
+	return errors.Join(
+		// The standard "kata" runtime handler, backed by the kata v2 shim.
+		ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]`),
+		ValidateFileHasContent(ctx, s, containerdConfigPath, `runtime_type = "io.containerd.kata.v2"`),
+		ValidateFileHasContent(ctx, s, containerdConfigPath, kataConfigPath),
 
-	// Kata relies on snapshot annotations being forwarded to the snapshotter; the template sets
-	// this explicitly under IsKata and disabling it breaks image pulling for Kata pods.
-	ValidateFileHasContent(ctx, s, containerdConfigPath, "disable_snapshot_annotations = false")
+		// Kata relies on snapshot annotations being forwarded to the snapshotter; the template sets
+		// this explicitly under IsKata and disabling it breaks image pulling for Kata pods.
+		ValidateFileHasContent(ctx, s, containerdConfigPath, "disable_snapshot_annotations = false"),
+	)
 }
 
 // ValidateKataErofsContainerdConfig checks that the EROFS snapshotter is configured and that
 // containerd loaded all of its EROFS plugins successfully.
-func ValidateKataErofsContainerdConfig(ctx context.Context, s *Scenario) {
+func ValidateKataErofsContainerdConfig(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 
-	ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.snapshotter.v1.erofs"]`)
+	errs := []error{
+		ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.snapshotter.v1.erofs"]`),
+	}
 
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		"sudo ctr plugins list | grep erofs", 0, "unable to list EROFS containerd plugins")
+	if err != nil {
+		// Without the plugin list there is nothing left to assert on.
+		return errors.Join(append(errs, err)...)
+	}
+
 	normalizedPluginList := strings.Join(strings.Fields(execResult.stdout), " ")
 	for _, expectedPlugin := range []string{
 		"io.containerd.mount-handler.v1 erofs linux/amd64 ok",
 		"io.containerd.snapshotter.v1 erofs linux/amd64 ok",
 		"io.containerd.differ.v1 erofs linux/amd64 ok",
 	} {
-		assert.Contains(s.T, normalizedPluginList, expectedPlugin,
-			"expected healthy EROFS plugin %q.\nPlugin list:\n%s", expectedPlugin, execResult.stdout)
+		errs = append(errs, assert.Contains(normalizedPluginList, expectedPlugin,
+			"expected healthy EROFS plugin %q.\nPlugin list:\n%s", expectedPlugin, execResult.stdout))
 	}
+
+	return errors.Join(errs...)
 }
 
 // ValidateKataContainerdConfigDump asserts that containerd itself accepted the rendered
@@ -100,15 +113,18 @@ func ValidateKataErofsContainerdConfig(ctx context.Context, s *Scenario) {
 // validator pins the property we actually care about: after containerd has parsed the config,
 // the Kata handlers are present in the effective configuration and containerd raised no
 // warnings while getting there.
-func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) {
+func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 
 	// This must run on the node itself, not in a debug pod. The "debugnonhost" daemonset pods
 	// used by execOnVMForScenarioOnUnprivilegedPod run a bare CBL-Mariner base image with no
 	// volume mounts, so the host's containerd binary is not reachable from them and the command
 	// would simply exit 127.
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo containerd config dump", 0,
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo containerd config dump", 0,
 		"unable to dump the effective containerd config on the node")
+	if err != nil {
+		return err
+	}
 
 	// The effective config is printed on stdout, but containerd logs diagnostics (including the
 	// "level=warning" lines we care about) on stderr, so both streams have to be inspected.
@@ -120,44 +136,56 @@ func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) {
 	// assertions below can be written the way the config file reads.
 	normalizedDump := strings.ReplaceAll(dump, "'", `"`)
 
+	var errs []error
+
 	// The effective config must expose every Kata runtime handler we expect. Note the trailing
 	// "]": without it a handler name would also match longer handlers sharing its prefix (e.g.
 	// "runtimes.kata" matching "runtimes.kata-preview") and pass even if the handler itself
 	// were missing.
 	for _, handler := range kataRuntimeHandlers {
-		assert.Contains(s.T, normalizedDump, `runtimes.`+handler+`]`,
-			"expected the %q runtime handler in the effective containerd config.\nDump:\n%s", handler, dump)
+		errs = append(errs, assert.Contains(normalizedDump, `runtimes.`+handler+`]`,
+			"expected the %q runtime handler in the effective containerd config.\nDump:\n%s", handler, dump))
 	}
-	assert.Contains(s.T, normalizedDump, `runtime_type = "io.containerd.kata.v2"`,
-		"expected the kata v2 shim runtime_type in the effective containerd config.\nDump:\n%s", dump)
+	errs = append(errs, assert.Contains(normalizedDump, `runtime_type = "io.containerd.kata.v2"`,
+		"expected the kata v2 shim runtime_type in the effective containerd config.\nDump:\n%s", dump))
 
 	// A warning here means containerd did not fully understand the config we generated, e.g. it
 	// had to fall back on deprecated handling for the legacy plugin paths the Kata templates use.
-	assert.NotContains(s.T, diagnostics, "level=warning",
+	errs = append(errs, assert.NotContains(diagnostics, "level=warning",
 		"containerd reported warnings while parsing the AgentBaker-generated config.\nstdout:\n%s\nstderr:\n%s",
-		execResult.stdout, execResult.stderr)
+		execResult.stdout, execResult.stderr))
+
+	return errors.Join(errs...)
 }
 
 // ValidateKataHostReadiness asserts the host-side prerequisites that the Kata VHD is expected to
 // ship and that the containerd config references. Without these, the containerd config would be
 // syntactically valid but the kata shim would fail at pod sandbox creation time.
-func ValidateKataHostReadiness(ctx context.Context, s *Scenario) {
+func ValidateKataHostReadiness(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
 
+	var errs []error
+
 	// The kata shim binary that runtime_type = "io.containerd.kata.v2" resolves to.
-	execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		"command -v containerd-shim-kata-v2", 0, "containerd-shim-kata-v2 is not present on the Kata VHD")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"command -v containerd-shim-kata-v2", 0, "containerd-shim-kata-v2 is not present on the Kata VHD"); err != nil {
+		errs = append(errs, err)
+	}
 
 	// The Kata configuration file referenced by options.ConfigPath in the containerd config.
-	ValidateFileExists(ctx, s, kataConfigPath)
+	errs = append(errs, ValidateFileExists(ctx, s, kataConfigPath))
 
 	// Kata VHDs deliberately opt out of automatic package updates even when unattended upgrades
 	// are enabled, because kata packages must be updated as a unit (including the kernel, which
 	// requires a reboot). See the IS_KATA branch in parts/linux/cloud-init/artifacts/cse_main.sh.
 	// The scenario leaves unattended upgrades enabled so this branch is genuinely exercised.
-	execScriptOnVMForScenarioValidateExitCode(ctx, s,
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		"systemctl is-enabled dnf-automatic-install.timer", 1,
-		"dnf-automatic-install.timer must not be enabled on Kata VHDs: kata packages have to be updated as a unit via image updates")
+		"dnf-automatic-install.timer must not be enabled on Kata VHDs: kata packages have to be updated as a unit via image updates"); err != nil {
+		errs = append(errs, err)
+	}
+
+	return errors.Join(errs...)
 }
 
 // ValidateKataPodIsIsolated creates a RuntimeClass bound to the given Kata runtime handler,
@@ -176,30 +204,45 @@ func ValidateKataHostReadiness(ctx context.Context, s *Scenario) {
 // The RuntimeClass is pinned to this scenario's node via Scheduling.NodeSelector so it cannot
 // interfere with other scenarios running in parallel against the same cluster, and is named
 // after the handler so that several handlers can be validated on one node.
-func ValidateKataPodIsIsolated(ctx context.Context, s *Scenario, handler string) {
+func ValidateKataPodIsIsolated(ctx context.Context, s *Scenario, handler string) error {
 	s.T.Helper()
 
-	hostKernel := strings.TrimSpace(
-		execScriptOnVMForScenarioValidateExitCode(ctx, s, "uname -r", 0, "unable to read host kernel release").stdout)
-	require.NotEmpty(s.T, hostKernel, "host kernel release was empty")
+	hostKernelResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "uname -r", 0, "unable to read host kernel release")
+	if err != nil {
+		return err
+	}
+	hostKernel := strings.TrimSpace(hostKernelResult.stdout)
+	if err := assert.NotEqual(hostKernel, "", "host kernel release was empty"); err != nil {
+		return err
+	}
 
-	runtimeClassName := createKataRuntimeClass(ctx, s, handler)
-	pod := createKataPod(ctx, s, runtimeClassName, handler)
+	runtimeClassName, err := createKataRuntimeClass(ctx, s, handler)
+	if err != nil {
+		return err
+	}
+	pod, err := createKataPod(ctx, s, runtimeClassName, handler)
+	if err != nil {
+		return err
+	}
 
 	execResult, err := execOnPod(ctx, s.Runtime.Kube, pod.Namespace, pod.Name, []string{"uname", "-r"})
-	require.NoErrorf(s.T, err, "failed to exec in kata pod %q", pod.Name)
+	if err != nil {
+		return fmt.Errorf("failed to exec in kata pod %q: %w", pod.Name, err)
+	}
 	guestKernel := strings.TrimSpace(execResult.stdout)
-	require.NotEmpty(s.T, guestKernel, "kata guest kernel release was empty")
+	if err := assert.NotEqual(guestKernel, "", "kata guest kernel release was empty"); err != nil {
+		return err
+	}
 
 	s.T.Logf("host kernel: %q, kata guest kernel: %q", hostKernel, guestKernel)
-	assert.NotEqual(s.T, hostKernel, guestKernel,
+	return assert.NotEqual(guestKernel, hostKernel,
 		"pod running under the %q RuntimeClass reported the same kernel release as the host, "+
 			"which means it was not launched inside a Kata VM", handler)
 }
 
 // createKataRuntimeClass creates a RuntimeClass for the given handler scoped to the scenario's
 // node and registers its cleanup. It returns the RuntimeClass name.
-func createKataRuntimeClass(ctx context.Context, s *Scenario, handler string) string {
+func createKataRuntimeClass(ctx context.Context, s *Scenario, handler string) (string, error) {
 	s.T.Helper()
 
 	kube := s.Runtime.Kube
@@ -213,24 +256,24 @@ func createKataRuntimeClass(ctx context.Context, s *Scenario, handler string) st
 		},
 	}
 
-	_, err := kube.Typed.NodeV1().RuntimeClasses().Create(ctx, runtimeClass, metav1.CreateOptions{})
-	require.NoErrorf(s.T, err, "failed to create RuntimeClass %q for handler %q", name, handler)
+	if _, err := kube.Typed.NodeV1().RuntimeClasses().Create(ctx, runtimeClass, metav1.CreateOptions{}); err != nil {
+		return "", fmt.Errorf("failed to create RuntimeClass %q for handler %q: %w", name, handler, err)
+	}
 
-	s.T.Cleanup(func() {
-		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
-		defer cancel()
-		if err := kube.Typed.NodeV1().RuntimeClasses().Delete(cleanupCtx, name, metav1.DeleteOptions{}); err != nil {
-			s.T.Logf("could not delete RuntimeClass %s: %v", name, err)
+	s.Cleanup(func(ctx context.Context) error {
+		if err := kube.Typed.NodeV1().RuntimeClasses().Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("delete RuntimeClass %q: %w", name, err)
 		}
+		return nil
 	})
 
-	return name
+	return name, nil
 }
 
 // createKataPod creates a long-lived pod bound to the given Kata RuntimeClass on the scenario's
 // node, waits for it to reach Running, and registers its cleanup. Unlike ValidatePodRunning the
 // pod is kept alive after this returns so callers can exec into it.
-func createKataPod(ctx context.Context, s *Scenario, runtimeClassName, handler string) *corev1.Pod {
+func createKataPod(ctx context.Context, s *Scenario, runtimeClassName, handler string) (*corev1.Pod, error) {
 	s.T.Helper()
 
 	kube := s.Runtime.Kube
@@ -256,26 +299,27 @@ func createKataPod(ctx context.Context, s *Scenario, runtimeClassName, handler s
 	}
 
 	s.T.Logf("creating pod %q under RuntimeClass %q", pod.Name, runtimeClassName)
-	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
-	require.NoErrorf(s.T, err, "failed to create kata pod %q", pod.Name)
+	if _, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{}); err != nil {
+		return nil, fmt.Errorf("failed to create kata pod %q: %w", pod.Name, err)
+	}
 
-	s.T.Cleanup(func() {
-		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
-		defer cancel()
-		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(cleanupCtx, pod.Name, metav1.DeleteOptions{
+	s.Cleanup(func(ctx context.Context) error {
+		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{
 			GracePeriodSeconds: to.Ptr(int64(0)),
 		})
-		if err != nil {
-			s.T.Logf("could not delete pod %s: %v", pod.Name, err)
+		if err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("delete pod %q: %w", pod.Name, err)
 		}
+		return nil
 	})
 
 	running, err := kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name)
-	require.NoErrorf(s.T, err,
-		"kata pod %q never reached Running. This usually means containerd did not register the %q "+
-			"runtime handler from the AgentBaker-generated config", pod.Name, handler)
+	if err != nil {
+		return nil, fmt.Errorf("kata pod %q never reached Running. This usually means containerd did not register the %q "+
+			"runtime handler from the AgentBaker-generated config: %w", pod.Name, handler, err)
+	}
 
-	return running
+	return running, nil
 }
 
 // truncateKataResourceName keeps generated Kubernetes object names within the 63 character

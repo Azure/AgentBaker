@@ -400,6 +400,38 @@ func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
 	assert.Equal(t, secret, vars["SERVICE_PRINCIPAL_FILE_CONTENT"])
 }
 
+func TestBuildCSECmd_SetsEnableManagedGpuDra(t *testing.T) {
+	tests := []struct {
+		name     string
+		enabled  bool
+		expected string
+	}{
+		{
+			name:     "disabled by default",
+			expected: "false",
+		},
+		{
+			name:     "enabled",
+			enabled:  true,
+			expected: "true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &aksnodeconfigv1.Configuration{}
+			if tt.enabled {
+				cfg.GpuConfig = &aksnodeconfigv1.GpuConfig{EnableManagedGpuDra: true}
+			}
+			cmd, err := BuildCSECmd(context.TODO(), cfg, nil)
+			require.NoError(t, err)
+
+			vars := environToMap(cmd.Env)
+			assert.Equal(t, tt.expected, vars["ENABLE_MANAGED_GPU_DRA"])
+		})
+	}
+}
+
 func TestBuildCSECmd_StreamingConnectionIdleTimeout_VersionGated(t *testing.T) {
 	testCases := []struct {
 		name           string
