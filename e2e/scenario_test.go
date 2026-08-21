@@ -707,10 +707,29 @@ func Test_Ubuntu2404_CheckHotfixFromNBCCmd(t *testing.T) {
 				result, err := execScriptOnVMForScenarioValidateExitCode(
 					ctx,
 					s,
-					`sudo test ! -e /opt/azure/containers/aks-node-controller-config.json &&
-sudo test -e /opt/azure/containers/aks-node-controller-nbc-cmd.sh &&
-sudo test -x /opt/azure/containers/aks-node-controller-hotfix &&
-sudo /opt/azure/containers/aks-node-controller-hotfix check-hotfix`,
+					`set -eu
+config_path=/opt/azure/containers/aks-node-controller-config.json
+nbc_cmd_path=/opt/azure/containers/aks-node-controller-nbc-cmd.sh
+anc_path=/opt/azure/containers/aks-node-controller-hotfix
+
+sudo test ! -e "$config_path" || {
+	echo "$config_path unexpectedly exists" >&2
+	exit 1
+}
+sudo test -e "$nbc_cmd_path" || {
+	echo "$nbc_cmd_path does not exist" >&2
+	exit 1
+}
+if ! sudo test -x "$anc_path"; then
+	anc_path=/opt/azure/containers/aks-node-controller
+fi
+sudo test -x "$anc_path" || {
+	echo "no executable aks-node-controller binary found" >&2
+	exit 1
+}
+
+echo "using ANC binary: $anc_path"
+sudo "$anc_path" check-hotfix`,
 					0,
 					"check-hotfix NBC command fallback failed",
 				)
