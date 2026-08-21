@@ -151,6 +151,7 @@ type Scenario struct {
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
 	T       testing.TB
+	cleanup *scenarioCleanup
 }
 
 type ScenarioRuntime struct {
