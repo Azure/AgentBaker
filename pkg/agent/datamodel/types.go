@@ -1817,12 +1817,20 @@ type NodeBootstrappingConfiguration struct {
 	// EnableScriptlessPreProvision allows scriptless phase 2 to also be used for a PreProvisionOnly
 	// (PIS image bake) run, so the bake reports its result through the same
 	// `aks-node-controller provision-wait` CSE command as a normal node.
-	// This is a VHD capability switch: a bake only reports a result on a VHD whose cse_start.sh
+	//
+	// This is a VHD capability switch. A bake only reports a result on a VHD whose cse_start.sh
 	// writes the volatile /run/azure/pre-provision.complete marker and whose aks-node-controller
-	// watches it, so it must stay false until the target VHD contains both. It is not a switch for
-	// image-pipeline behaviour: the bake's completion marker is volatile and its CSE command file
-	// is rewritten from each node's own CustomData on every boot, so no cleanup step is required
-	// for correctness.
+	// watches it, so enabling it must be gated on a minimum VHD version containing both. That
+	// version is not known yet: it is the first VHD built after this change ships.
+	//
+	// It is not a switch for image-pipeline behaviour: the bake's completion marker is volatile and
+	// the controller clears a stale result before each attempt, so no cleanup step is required for
+	// correctness.
+	//
+	// TODO: before the flag is turned on, the change that gates it on a VHD version must also scrub
+	// the plaintext CustomData residue an image capture would otherwise retain, using supported
+	// cloud-init cleanup. Deleting aks-node-controller-nbc-cmd.sh addresses one known credential
+	// file and does not make a captured image free of provisioning secrets.
 	EnableScriptlessPreProvision bool
 
 	// Pass AKSNodeConfig as serialized JSON string to compare generated provisioning with NBC cse cmd for scriptless phase 3

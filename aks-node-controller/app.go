@@ -781,14 +781,20 @@ func (a *App) writeCompleteFileOnError(provisionResult *ProvisionResult, err err
 	}
 	// Write-if-absent: when cse_start already produced a provision.json it holds the full CSE
 	// output, which is richer than anything reconstructed here. Leaving it alone also avoids
-	// truncating a file provision-wait may be reading concurrently. Any result predating this
-	// attempt was already cleared by resetStaleProvisionResult, so nothing stale can survive here.
+	// truncating a file provision-wait may be reading concurrently. A result predating this attempt
+	// was cleared by resetStaleProvisionResult, except when the durable provision.complete marker
+	// short-circuited that reset - and in that case the file is this node's own completed result,
+	// which must be preserved anyway.
 	a.signalProvisionFailure(provisionResult, false)
 }
 
 // signalProvisionFailure records provisionResult as this attempt's outcome and wakes provision-wait.
 // overwrite forces replacement of an existing provision.json and is used only when the content on
 // disk is known to be stale, so a stale success can never be reported as this run's result.
+//
+// If a forced overwrite fails the stale content is still on disk, so the completion marker is NOT
+// written: waking provision-wait would make it report that stale result as this run's outcome.
+// Staying silent instead lets provision-wait and CSE time out, which fails closed.
 func (a *App) signalProvisionFailure(provisionResult *ProvisionResult, overwrite bool) {
 	jsonPath := a.getProvisionJSONPath()
 	_, statErr := os.Stat(jsonPath)
@@ -796,6 +802,12 @@ func (a *App) signalProvisionFailure(provisionResult *ProvisionResult, overwrite
 	case overwrite, errors.Is(statErr, os.ErrNotExist):
 		if writeErr := a.writeProvisionResult(jsonPath, provisionResult); writeErr != nil {
 			slog.Error("failed to write provision.json file", "path", jsonPath, "error", writeErr)
+			if overwrite {
+				slog.Error("not writing the provision completion marker: a stale provision result is still on disk"+
+					" and would be reported as this run's outcome; failing closed by letting provision-wait time out",
+					"path", jsonPath)
+				return
+			}
 		}
 	case statErr != nil:
 		slog.Error("failed to stat provision.json file", "path", jsonPath, "error", statErr)

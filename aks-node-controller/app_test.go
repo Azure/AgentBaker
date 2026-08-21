@@ -690,6 +690,40 @@ func TestApp_resetStaleProvisionResult(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "remove stale provision result")
 	})
+
+	// The worst case: the stale result cannot be removed AND the current failure cannot replace it.
+	// Writing a marker here would wake provision-wait onto the stale success, so no marker must be
+	// written and the run must fail closed by timing out instead.
+	t.Run("no marker is written when a stale result can be neither removed nor replaced", func(t *testing.T) {
+		app, jsonPath, completePath := newApp(t)
+		// A directory at the result path defeats both os.Remove and the temp-file rename, while
+		// still being readable as "something is there" - the stale-success stand-in.
+		require.NoError(t, os.MkdirAll(jsonPath, 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(jsonPath, "child"), []byte(`{"ExitCode":"0"}`), 0600))
+
+		require.Error(t, app.resetStaleProvisionResult())
+		app.signalProvisionFailure(&ProvisionResult{ExitCode: "240", Error: "reset failed"}, true)
+
+		// No completion marker: provision-wait keeps waiting and CSE fails on timeout.
+		assert.NoFileExists(t, completePath)
+		// The stale content was not replaced, so nothing here could be read as a success either.
+		info, err := os.Stat(jsonPath)
+		require.NoError(t, err)
+		assert.True(t, info.IsDir(), "stale result should be untouched")
+	})
+
+	// The normal forced path still publishes and wakes provision-wait.
+	t.Run("marker is written when the current failure replaces the stale result", func(t *testing.T) {
+		app, jsonPath, completePath := newApp(t)
+		require.NoError(t, os.WriteFile(jsonPath, []byte(`{"ExitCode":"0","Output":"baked success"}`), 0600))
+
+		app.signalProvisionFailure(&ProvisionResult{ExitCode: "240", Error: "reset failed"}, true)
+
+		assert.FileExists(t, completePath)
+		content, err := os.ReadFile(jsonPath)
+		require.NoError(t, err)
+		assert.Contains(t, string(content), `"ExitCode":"240"`)
+	})
 }
 
 func Test_readAndEvaluateProvision(t *testing.T) {

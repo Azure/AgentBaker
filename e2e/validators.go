@@ -801,19 +801,6 @@ func ValidateFileAbsentOrCreatedThisBoot(ctx context.Context, s *Scenario, fileN
 	return ValidateFileCreatedThisBoot(ctx, s, fileName)
 }
 
-// ValidateProvisionJSONReportsSuccess asserts /var/log/azure/aks/provision.json is parseable JSON
-// carrying ExitCode 0 - the exact content `aks-node-controller provision-wait` prints and grades.
-func ValidateProvisionJSONReportsSuccess(ctx context.Context, s *Scenario) error {
-	s.T.Helper()
-	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		"sudo jq -er '.ExitCode' /var/log/azure/aks/provision.json", 0,
-		"provision.json must be valid JSON exposing an ExitCode")
-	if err != nil {
-		return err
-	}
-	return assert.Equal(strings.TrimSpace(execResult.stdout), "0", "expected provision.json to report ExitCode 0")
-}
-
 // ValidateProvisionWaitReportsResult runs the real CSE command for scriptless provisioning against
 // the node's recorded state. A completion marker already exists - the durable provision.complete on
 // a normal node, the volatile /run marker on a pre-provision bake - so provision-wait takes its fast

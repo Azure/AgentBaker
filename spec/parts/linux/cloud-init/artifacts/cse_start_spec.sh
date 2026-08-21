@@ -28,19 +28,14 @@ Describe 'cse_start.sh completion markers'
         rm -rf "${root}"
     }
 
-    It 'writes durable phase state and a volatile result marker for a pre-provision run'
+    It 'writes durable phase state and a volatile result marker, and never provision.complete, for a pre-provision run'
         When call markers_for "true"
         The line 1 of output should equal "/opt/azure/containers/base_prep.complete"
         The line 2 of output should equal "/run/azure/pre-provision.complete"
         The lines of output should equal 2
     End
 
-    It 'never writes provision.complete for a pre-provision run'
-        When call markers_for "true"
-        The output should not include "/opt/azure/containers/provision.complete"
-    End
-
-    It 'writes only provision.complete for a normal provisioning run'
+    It 'writes only provision.complete, and no volatile marker, for a normal provisioning run'
         When call markers_for "false"
         The output should equal "/opt/azure/containers/provision.complete"
     End
@@ -48,10 +43,5 @@ Describe 'cse_start.sh completion markers'
     It 'writes only provision.complete when PRE_PROVISION_ONLY is unset'
         When call markers_for ""
         The output should equal "/opt/azure/containers/provision.complete"
-    End
-
-    It 'keeps the volatile marker out of a normal provisioning run'
-        When call markers_for "false"
-        The output should not include "/run/azure"
     End
 End

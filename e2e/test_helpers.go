@@ -170,7 +170,8 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 					// A bake must never leave the durable marker behind: a node created from the
 					// image would inherit it and cse_main.sh would exit before nodePrep.
 					ValidateFileDoesNotExist(ctx, stage1, "/opt/azure/containers/provision.complete"),
-					ValidateProvisionJSONReportsSuccess(ctx, stage1),
+					// provision-wait parses the same provision.json and grades its ExitCode, so a
+					// separate JSON check would assert the same thing twice.
 					ValidateProvisionWaitReportsResult(ctx, stage1),
 				)
 			}
@@ -272,7 +273,6 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 					// was written this boot proves the bake's copy is not what is in use. It does not
 					// prove the image is free of provisioning secrets generally.
 					ValidateFileCreatedThisBoot(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"),
-					ValidateProvisionJSONReportsSuccess(ctx, s),
 					ValidateProvisionWaitReportsResult(ctx, s),
 				)
 			} else {
