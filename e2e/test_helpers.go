@@ -107,6 +107,23 @@ func scriptlessUnsupported(s *Scenario) bool {
 	return s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
 }
 
+// scriptlessPreProvisionSupported reports whether a two-stage pre-provision run can exercise the
+// real scriptless contract, in which `/opt/azure/containers/aks-node-controller provision-wait` is
+// the CSE command for the bake as well as for a node created from the captured image.
+//
+// A bake only reports its result through provision.complete on a VHD whose cse_start.sh writes that
+// marker for a pre-provision run. Released VHDs predating that change write only base_prep.complete,
+// so provision-wait would block there until the CSE timeout. Restrict this to images produced by the
+// VHD build under test, which is what e2e_run.sh selects via SIG_VERSION_TAG_NAME=buildId.
+func scriptlessPreProvisionSupported(s *Scenario) bool {
+	return !config.Config.DisableScriptless &&
+		!s.IsWindows() &&
+		len(s.Config.CustomDataWriteFiles) == 0 &&
+		s.VHD != nil &&
+		s.VHD.SupportsScriptless() &&
+		config.Config.UsesFreshlyBuiltVHD()
+}
+
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 	// This is hard to understand. Some functional magic is used to run the original scenario in two stages.
 	// 1. Stage 1: Run the original scenario with pre-provisioning enabled, but skip the main validation and validate only pre-provisioning.
@@ -116,7 +133,15 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 	firstStage := copyScenario(original)
 	var customVHD *config.Image
 
+	// When the VHD under test comes from the build under test, both stages run the production
+	// scriptless contract so the test proves provision-wait reports the result of the bake and of
+	// the node created from the captured image. Against released VHDs both stages keep the legacy
+	// pre-provision CSE, because those images cannot report a bake result yet.
+	scriptless := scriptlessPreProvisionSupported(original)
+	t.Logf("pre-provision stages use scriptless CSE (aks-node-controller provision-wait): %t", scriptless)
+
 	// Mutate the copy for pre-provisioning
+	firstStage.Runtime = &ScenarioRuntime{EnableScriptlessNBCCSECmd: scriptless}
 	firstStage.Config.SkipDefaultValidation = true
 	firstStage.Config.Validator = func(ctx context.Context, stage1 *Scenario) error {
 		var validationErr error
@@ -128,13 +153,29 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 				ValidateWindowsServiceIsRunning(ctx, stage1, "containerd"),
 			)
 		} else {
-			validationErr = errors.Join(
+			checks := []error{
 				ValidateFileExists(ctx, stage1, "/etc/containerd/config.toml"),
 				ValidateFileExists(ctx, stage1, "/opt/azure/containers/base_prep.complete"),
-				ValidateFileDoesNotExist(ctx, stage1, "/opt/azure/containers/provision.complete"),
 				ValidateSystemdUnitIsRunning(ctx, stage1, "containerd"),
 				ValidateSystemdUnitIsNotRunning(ctx, stage1, "kubelet"),
-			)
+			}
+			if scriptless {
+				checks = append(checks,
+					// The bake took the scriptless path, so its CSE command was provision-wait.
+					ValidateFileExists(ctx, stage1, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"),
+					ValidateFileHasContent(ctx, stage1, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2"),
+					// The volatile marker is what let that command report the bake result. It lives
+					// on tmpfs, so it cannot be captured into the image.
+					ValidateFileExists(ctx, stage1, "/run/azure/pre-provision.complete"),
+					// A bake must never leave the durable marker behind: a node created from the
+					// image would inherit it and cse_main.sh would exit before nodePrep.
+					ValidateFileDoesNotExist(ctx, stage1, "/opt/azure/containers/provision.complete"),
+					// provision-wait parses the same provision.json and grades its ExitCode, so a
+					// separate JSON check would assert the same thing twice.
+					ValidateProvisionWaitReportsResult(ctx, stage1),
+				)
+			}
+			validationErr = errors.Join(checks...)
 		}
 		if validationErr != nil {
 			return validationErr
@@ -159,26 +200,29 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 			vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
 		}
 	}
-	if original.BootstrapConfigMutator != nil || original.BootstrapConfigMutatorWithError != nil || original.PreProvisionBootstrapConfigMutator != nil {
-		firstStage.BootstrapConfigMutator = nil
-		firstStage.BootstrapConfigMutatorWithError = func(ctx context.Context, cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) error {
-			if original.BootstrapConfigMutator != nil {
-				original.BootstrapConfigMutator(cluster, nbc)
-			}
-			if original.BootstrapConfigMutatorWithError != nil {
-				if err := original.BootstrapConfigMutatorWithError(ctx, cluster, nbc); err != nil {
-					return err
-				}
-			}
-			nbc.PreProvisionOnly = true
-			nbc.EnableScriptlessNBCCSECmd = false
-			// Bake-stage-only mutation: lets a scenario deliberately diverge bake-time
-			// state from provision-time state (e.g. a stale sentinel bootstrap token).
-			if original.PreProvisionBootstrapConfigMutator != nil {
-				original.PreProvisionBootstrapConfigMutator(cluster, nbc)
-			}
-			return nil
+	// Applied unconditionally: the bake stage is only a bake if PreProvisionOnly is set, so this
+	// must not depend on the original scenario happening to define a bootstrap mutator.
+	firstStage.BootstrapConfigMutator = nil
+	firstStage.BootstrapConfigMutatorWithError = func(ctx context.Context, cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) error {
+		if original.BootstrapConfigMutator != nil {
+			original.BootstrapConfigMutator(cluster, nbc)
 		}
+		if original.BootstrapConfigMutatorWithError != nil {
+			if err := original.BootstrapConfigMutatorWithError(ctx, cluster, nbc); err != nil {
+				return err
+			}
+		}
+		nbc.PreProvisionOnly = true
+		nbc.EnableScriptlessNBCCSECmd = scriptless
+		// Opts the bake into scriptless phase 2 so its CSE command is provision-wait. Without it
+		// AgentBaker keeps a pre-provision run on the legacy CSE command.
+		nbc.EnableScriptlessPreProvision = scriptless
+		// Bake-stage-only mutation: lets a scenario deliberately diverge bake-time
+		// state from provision-time state (e.g. a stale sentinel bootstrap token).
+		if original.PreProvisionBootstrapConfigMutator != nil {
+			original.PreProvisionBootstrapConfigMutator(cluster, nbc)
+		}
+		return nil
 	}
 	if original.AKSNodeConfigMutator != nil {
 		firstStage.AKSNodeConfigMutator = func(cluster *Cluster, nodeconfig *aksnodeconfigv1.Configuration) {
@@ -203,11 +247,34 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 		secondStageScenario := copyScenario(original)
 		secondStageScenario.Description = "Stage 2: Create VMSS from captured VHD via SIG"
 		secondStageScenario.Config.VHD = customVHD
+		secondStageScenario.Runtime = &ScenarioRuntime{EnableScriptlessNBCCSECmd: scriptless}
 		secondStageScenario.Config.Validator = func(ctx context.Context, s *Scenario) error {
 			// This validators are used when running all scenarios in "VHD Caching" mode, which is usually done manually
 			var markerErr error
 			if s.IsWindows() {
 				markerErr = ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
+			} else if scriptless {
+				markerErr = errors.Join(
+					// The bake's volatile marker lives on tmpfs, so booting the captured image must
+					// clear it. Its absence here is what proves a node can never inherit the bake's
+					// completion signal, independently of any image-pipeline cleanup.
+					ValidateFileDoesNotExist(ctx, s, "/run/azure/pre-provision.complete"),
+					// This node produced its own durable result. A copy predating boot would mean
+					// stale state survived capture, in which case cse_main.sh exits before nodePrep.
+					ValidateFileCreatedThisBoot(ctx, s, "/opt/azure/containers/provision.complete"),
+					ValidateFileCreatedThisBoot(ctx, s, "/var/log/azure/aks/provision.json"),
+					ValidateFileAbsentOrCreatedThisBoot(ctx, s, "/opt/azure/containers/aks-node-controller-config.json"),
+					// base_prep.complete is durable phase state: it stays baked in the image, which
+					// is what makes cse_main.sh skip basePrep and run only nodePrep here.
+					ValidateFileCreatedBeforeThisBoot(ctx, s, "/opt/azure/containers/base_prep.complete"),
+					ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "Skipping basePrep - base_prep.complete file exists"),
+					// Same unchanged CSE command as the bake, now reporting this node's own result.
+					// This file is rewritten from this node's CustomData every boot, so asserting it
+					// was written this boot proves the bake's copy is not what is in use. It does not
+					// prove the image is free of provisioning secrets generally.
+					ValidateFileCreatedThisBoot(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"),
+					ValidateProvisionWaitReportsResult(ctx, s),
+				)
 			} else {
 				markerErr = ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
 			}
@@ -925,6 +992,34 @@ while ($true) {
 }
 `
 
+// generalizeLinuxVMForImageCapture removes the per-run state that the RP removes during image
+// generalization, so the captured image behaves like a real PIS image.
+//
+// provision.complete is deliberately NOT in this list: a pre-provision run never writes it, and the
+// bake reports its result through the volatile /run marker instead. Correctness therefore does not
+// depend on this cleanup running - it only models the RP removing per-node config and secrets.
+func generalizeLinuxVMForImageCapture(ctx context.Context, s *Scenario) error {
+	s.T.Log("Removing per-run provisioning state before image capture...")
+	script := strings.Join([]string{
+		"set -ex",
+		// The bake must not leave a durable completion marker behind. Fail loudly rather than
+		// silently deleting it, otherwise this helper would mask the very regression it guards.
+		"test ! -e /opt/azure/containers/provision.complete",
+		"sudo rm -f /opt/azure/containers/aks-node-controller-config.json",
+		"sudo rm -f /var/log/azure/aks/provision.json",
+		// The scriptless CSE command file embeds TLS_BOOTSTRAP_TOKEN (see cse_cmd.sh). Removing it
+		// models the RP scrubbing that one known credential file; it does NOT make the image free
+		// of provisioning secrets, since the raw cloud-init/CustomData artifacts elsewhere on disk
+		// are untouched. Every boot's cloud-init boothook rewrites this file from that node's own
+		// CustomData, so removing it costs nothing.
+		"sudo rm -f /opt/azure/containers/aks-node-controller-nbc-cmd.sh",
+	}, "\n")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "generalize VM before image capture"); err != nil {
+		return fmt.Errorf("failed to remove per-run provisioning state before image capture: %w", err)
+	}
+	return nil
+}
+
 func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 	if s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
 		s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil ||
@@ -948,6 +1043,8 @@ func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to run sysprep on Windows VM for image creation: %w", err)
 		}
+	} else if err := generalizeLinuxVMForImageCapture(ctx, s); err != nil {
+		return nil, err
 	}
 
 	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})

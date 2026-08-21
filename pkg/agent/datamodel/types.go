@@ -1814,6 +1814,33 @@ type NodeBootstrappingConfiguration struct {
 	// which uses CSE to provide provision nbc or aks nc configs
 	ScriptlessCSEProvisionMode bool
 
+	// EnableScriptlessPreProvision allows scriptless phase 2 to also be used for a PreProvisionOnly
+	// (PIS image bake) run, so the bake reports its result through the same
+	// `aks-node-controller provision-wait` CSE command as a normal node.
+	//
+	// This is a VHD capability switch. A bake only reports a result on a VHD whose cse_start.sh
+	// writes the volatile /run/azure/pre-provision.complete marker and whose aks-node-controller
+	// watches it, so enabling it must be gated on a minimum VHD version containing both. That
+	// version is not known yet: it is the first VHD built after this change ships.
+	//
+	// Final production enablement additionally requires the RP's GetAKSNodeConfig to propagate
+	// NodeBootstrappingConfiguration.PreProvisionOnly into aksnodeconfig Configuration
+	// .PreProvisionOnly. The parser renders PRE_PROVISION_ONLY from that field, so without the
+	// propagation a bake driven by a provision config renders PRE_PROVISION_ONLY=false, runs full
+	// provisioning instead of basePrep only, and writes the durable provision.complete into the
+	// captured image. Both prerequisites - minimum VHD version and this propagation - must hold
+	// before the flag is turned on.
+	//
+	// It is not a switch for image-pipeline behaviour: the bake's completion marker is volatile and
+	// the controller clears a stale result before each attempt, so no cleanup step is required for
+	// correctness.
+	//
+	// TODO: before the flag is turned on, the change that gates it on a VHD version must also scrub
+	// the plaintext CustomData residue an image capture would otherwise retain, using supported
+	// cloud-init cleanup. Deleting aks-node-controller-nbc-cmd.sh addresses one known credential
+	// file and does not make a captured image free of provisioning secrets.
+	EnableScriptlessPreProvision bool
+
 	// Pass AKSNodeConfig as serialized JSON string to compare generated provisioning with NBC cse cmd for scriptless phase 3
 	AKSNodeConfigJSON string
 

@@ -167,6 +167,15 @@ func (c *Configuration) IsLocalBuild() bool {
 	return c.BuildID == "local"
 }
 
+// UsesFreshlyBuiltVHD reports whether the run targets VHDs produced by a specific VHD build
+// (e2e_run.sh sets SIG_VERSION_TAG_NAME=buildId when VHD_BUILD_ID is provided) rather than the
+// latest released VHDs for a branch. Only those images contain the provisioning scripts from the
+// commit under test, so behaviour that depends on a not-yet-released script change may only be
+// asserted when this is true.
+func (c *Configuration) UsesFreshlyBuiltVHD() bool {
+	return c.SIGVersionTagName == "buildId"
+}
+
 func (c *Configuration) BlobStorageAccountURL() string {
 	return "https://" + c.BlobStorageAccount() + ".blob.core.windows.net"
 }

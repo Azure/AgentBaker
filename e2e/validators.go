@@ -746,6 +746,80 @@ func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string)
 	return assert.Equal(exists, false, "expected file %s to not exist, but it does", fileName)
 }
 
+// bootEpochScript computes the epoch second at which the running kernel booted. Used to tell a file
+// created during this boot from one inherited from the VHD it booted off.
+const bootEpochScript = `boot=$(( $(date +%s) - $(cut -d. -f1 /proc/uptime) ))`
+
+// ValidateFileCreatedThisBoot asserts fileName exists and was last modified after the node booted,
+// proving it was produced by this node's provisioning rather than inherited from the captured image.
+func ValidateFileCreatedThisBoot(ctx context.Context, s *Scenario, fileName string) error {
+	s.T.Helper()
+	// A 60s grace period absorbs clock adjustments (chrony/NTP steps the clock early in boot),
+	// which can otherwise place an early-boot file marginally before the computed boot epoch.
+	script := strings.Join([]string{
+		"set -e",
+		bootEpochScript,
+		fmt.Sprintf("mtime=$(sudo stat -c %%Y %s)", fileName),
+		`test "$mtime" -ge "$(( boot - 60 ))"`,
+	}, "\n")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		fmt.Sprintf("expected %s to be created during this boot, but it predates boot (inherited from the image)", fileName)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ValidateFileCreatedBeforeThisBoot asserts fileName exists and predates the current boot, proving
+// it was baked into the image rather than written by this node's provisioning.
+func ValidateFileCreatedBeforeThisBoot(ctx context.Context, s *Scenario, fileName string) error {
+	s.T.Helper()
+	script := strings.Join([]string{
+		"set -e",
+		bootEpochScript,
+		fmt.Sprintf("mtime=$(sudo stat -c %%Y %s)", fileName),
+		`test "$mtime" -lt "$boot"`,
+	}, "\n")
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		fmt.Sprintf("expected %s to be inherited from the captured image, but it was created during this boot", fileName)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ValidateFileAbsentOrCreatedThisBoot asserts fileName either does not exist or was written during
+// this boot. Used for state that image generalization removes: whether the current provisioning mode
+// recreates it or not, a copy older than boot means stale state survived image capture.
+func ValidateFileAbsentOrCreatedThisBoot(ctx context.Context, s *Scenario, fileName string) error {
+	s.T.Helper()
+	exists, err := fileExist(ctx, s, fileName)
+	if err != nil {
+		return fmt.Errorf("check existence of file %s: %w", fileName, err)
+	}
+	if !exists {
+		return nil
+	}
+	return ValidateFileCreatedThisBoot(ctx, s, fileName)
+}
+
+// ValidateProvisionWaitReportsResult runs the real CSE command for scriptless provisioning against
+// the node's recorded state. A completion marker already exists - the durable provision.complete on
+// a normal node, the volatile /run marker on a pre-provision bake - so provision-wait takes its fast
+// path: it prints provision.json and maps the recorded ExitCode onto its own exit code. Running it
+// here proves the unchanged CSE command reports a result for whichever phase just ran.
+func ValidateProvisionWaitReportsResult(ctx context.Context, s *Scenario) error {
+	s.T.Helper()
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"sudo timeout 60 /opt/azure/containers/aks-node-controller provision-wait", 0,
+		"aks-node-controller provision-wait must report the recorded provisioning result")
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(execResult.stdout, `"ExitCode"`) {
+		return fmt.Errorf("expected provision-wait to print provision.json, got stdout %q stderr %q", execResult.stdout, execResult.stderr)
+	}
+	return nil
+}
+
 func ValidateFileIsRegularFile(ctx context.Context, s *Scenario, fileName string) error {
 	s.T.Helper()
 	steps := []string{
