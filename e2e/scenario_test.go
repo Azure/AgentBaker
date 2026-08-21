@@ -3918,11 +3918,13 @@ func Test_Ubuntu2204_PMC_CredentialProvider_After_Gate_Change(t *testing.T) {
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 				// No ShouldEnforceKubePMCInstall — testing the natural version gate
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider/acr-credential-provider")
+			Validator: func(ctx context.Context, s *Scenario) error {
 				// Proves the PMC package branch (not the URL branch) ran at k8s 1.33; the URL path
 				// would instead log installCredentialProviderFromUrl.
-				ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "installCredentialProviderFromPkg")
+				return errors.Join(
+					ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider/acr-credential-provider"),
+					ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "installCredentialProviderFromPkg"),
+				)
 			},
 		},
 	})
