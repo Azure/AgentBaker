@@ -1197,16 +1197,28 @@ func injectWriteFilesEntriesToBoothookCustomData(decoded []byte, entries []Custo
 		return "", err
 	}
 
-	insertPos := strings.Index(boothookStr, "/bin/bash /opt/azure/containers/aks-node-controller-launcher.sh")
-	if insertPos == -1 {
-		insertPos = strings.Index(boothookStr, "systemctl start --no-block aks-node-controller.service")
-	}
+	insertPos := boothookInsertionPoint(boothookStr)
 	if insertPos == -1 {
 		return "", fmt.Errorf("cloud-boothook customData missing aks-node-controller service start")
 	}
 
 	boothookStr = boothookStr[:insertPos] + entryBlock + boothookStr[insertPos:]
 	return base64.StdEncoding.EncodeToString([]byte(boothookStr)), nil
+}
+
+func boothookInsertionPoint(boothookStr string) int {
+	launcherPos := strings.Index(boothookStr, "/opt/azure/containers/aks-node-controller-launcher.sh")
+	if launcherPos == -1 {
+		launcherPos = strings.Index(boothookStr, "systemctl start --no-block aks-node-controller.service")
+	}
+	if launcherPos == -1 {
+		return -1
+	}
+	lineStart := strings.LastIndex(boothookStr[:launcherPos], "\n")
+	if lineStart == -1 {
+		return 0
+	}
+	return lineStart + 1
 }
 
 func renderBoothookWriteFilesEntries(entries []CustomDataWriteFile) (string, error) {

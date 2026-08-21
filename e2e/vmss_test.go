@@ -1,6 +1,8 @@
 package e2e
 
 import (
+	"encoding/base64"
+	"strings"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -89,4 +91,44 @@ func TestParseLinuxCSEMessageOutboundExitCode(t *testing.T) {
 			require.Equal(t, tt.wantExitCode, cseStatus.ExitCode)
 		})
 	}
+}
+
+func TestBoothookInsertionPoint(t *testing.T) {
+	tests := []struct {
+		name     string
+		boothook string
+		wantLine string
+	}{
+		{
+			name:     "nohup launcher",
+			boothook: "#!/bin/bash\necho before\nnohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh >/var/log/azure/aks-node-controller.output 2>&1 &\necho after\n",
+			wantLine: "nohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh",
+		},
+		{
+			name:     "systemd launcher fallback",
+			boothook: "#!/bin/bash\necho before\nsystemctl start --no-block aks-node-controller.service\necho after\n",
+			wantLine: "systemctl start --no-block aks-node-controller.service",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pos := boothookInsertionPoint(tt.boothook)
+			require.GreaterOrEqual(t, pos, 0)
+			require.True(t, strings.HasPrefix(tt.boothook[pos:], tt.wantLine), "insertion point should be before launcher line")
+		})
+	}
+}
+
+func TestInjectWriteFilesEntriesToBoothookCustomDataPreservesNohupCommand(t *testing.T) {
+	boothook := []byte("#!/bin/bash\necho before\nnohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh >/var/log/azure/aks-node-controller.output 2>&1 &\necho after\n")
+	encoded, err := injectWriteFilesEntriesToBoothookCustomData(boothook, []CustomDataWriteFile{{
+		Path:    "/tmp/e2e-marker",
+		Content: "hello",
+	}})
+	require.NoError(t, err)
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	require.NoError(t, err)
+	got := string(decoded)
+	require.Contains(t, got, "\nnohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh")
+	require.NotContains(t, got, "nohup\n")
 }
