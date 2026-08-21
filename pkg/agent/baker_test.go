@@ -1631,24 +1631,6 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		}
 	}
 
-	It("should clear a stale provision.json in the boothook, after the provision.complete guard", func() {
-		templateGenerator := InitializeTemplateGenerator()
-		config := newConfig(false)
-
-		payload := templateGenerator.getScriptlessBoothook(config)
-		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
-		Expect(err).NotTo(HaveOccurred())
-		boothook := string(decodedPayload)
-
-		guard := "[ -e /opt/azure/containers/provision.complete ] && exit 0"
-		cleanup := "rm -f /var/log/azure/aks/provision.json"
-		Expect(boothook).To(ContainSubstring(guard))
-		Expect(boothook).To(ContainSubstring(cleanup))
-		// Order matters: an already-provisioned node reboots through the guard and must keep its
-		// result, while a node still to be provisioned must not inherit a baked provision.json.
-		Expect(strings.Index(boothook, cleanup)).To(BeNumerically(">", strings.Index(boothook, guard)))
-	})
-
 	It("should persist nodecustomdata in the scriptless NBC boothook", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)

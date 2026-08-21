@@ -71,6 +71,24 @@ type App struct {
 	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
 	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
 	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
+	// provisionJSONPath overrides the default provision.json location for testing.
+	provisionJSONPath string
+	// provisionCompletePath overrides the default provision.complete location for testing.
+	provisionCompletePath string
+}
+
+func (a *App) getProvisionJSONPath() string {
+	if a.provisionJSONPath != "" {
+		return a.provisionJSONPath
+	}
+	return provisionJSONFilePath
+}
+
+func (a *App) getProvisionCompletePath() string {
+	if a.provisionCompletePath != "" {
+		return a.provisionCompletePath
+	}
+	return provisionCompleteFilePath
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
@@ -189,6 +207,22 @@ func (a *App) runProvisionCommand(ctx context.Context, flags ProvisionFlags, dry
 
 	startTime := time.Now()
 	a.eventLogger.LogEvent("Provision", "Starting", helpers.EventLevelInformational, startTime, startTime)
+
+	// A provision.json left from an earlier run must never be reported as this attempt's result.
+	// This is the single place both provisioning inputs pass through, so it also covers the
+	// production scriptless path that delivers custom data via nodeconfigutils.
+	if resetErr := a.resetStaleProvisionResult(); resetErr != nil {
+		// Fail closed: the stale file is still on disk, so overwrite it with this failure and wake
+		// provision-wait rather than letting a stale success stand.
+		provisionResult := &ProvisionResult{ExitCode: strconv.Itoa(240), Error: resetErr.Error()}
+		a.signalProvisionFailure(provisionResult, true)
+		endTime := time.Now()
+		message := fmt.Sprintf("aks-node-controller exited with error %s", resetErr.Error())
+		a.eventLogger.LogEvent("Provision", message, helpers.EventLevelError, startTime, endTime)
+		slog.Error("aks-node-controller failed", "error", resetErr)
+		return resetErr
+	}
+
 	provisionResult, err := a.runProvision(ctx, flags, dryRun)
 	a.writeCompleteFileOnError(provisionResult, err)
 	endTime := time.Now()
@@ -201,6 +235,36 @@ func (a *App) runProvisionCommand(ctx context.Context, flags ProvisionFlags, dry
 		slog.Info("aks-node-controller finished successfully.")
 	}
 	return err
+}
+
+// resetStaleProvisionResult removes a provision.json left behind by an earlier run before a new
+// provisioning attempt starts.
+//
+// A node created from a PIS image can inherit the bake's result file, and provision-wait reports
+// whatever provision.json holds once a marker appears. Clearing it here means a later fail-fast
+// error can never be reported as that inherited success, and it does not depend on the image
+// pipeline having cleaned anything up.
+//
+// The durable provision.complete marker is the guard: when it is present this node already finished
+// provisioning, so its provision.json is the authoritative result and must be preserved.
+func (a *App) resetStaleProvisionResult() error {
+	completePath := a.getProvisionCompletePath()
+	if _, err := os.Stat(completePath); err == nil {
+		slog.Info("provisioning already completed, keeping existing result", "path", completePath)
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("stat %s: %w", completePath, err)
+	}
+
+	jsonPath := a.getProvisionJSONPath()
+	if err := os.Remove(jsonPath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("remove stale provision result %s: %w", jsonPath, err)
+	}
+	slog.Info("removed stale provision result from a previous run", "path", jsonPath)
+	return nil
 }
 
 func (a *App) runProvisionWaitCommand(ctx context.Context, provisionStatusFiles ProvisionStatusFiles) (string, error) {
@@ -715,64 +779,115 @@ func (a *App) writeCompleteFileOnError(provisionResult *ProvisionResult, err err
 	if err == nil {
 		return
 	}
-	// Overwrite any existing provision.json rather than preserving it. On a node created from a PIS
-	// image a stale provision.json reporting success may still be on disk if cleanup lagged, and
-	// keeping it would let this failure be reported as the baked success.
-	data, marshalErr := json.Marshal(provisionResult)
-	if marshalErr != nil {
-		slog.Error("failed to marshal provision result", "error", marshalErr)
+	// Write-if-absent: when cse_start already produced a provision.json it holds the full CSE
+	// output, which is richer than anything reconstructed here. Leaving it alone also avoids
+	// truncating a file provision-wait may be reading concurrently. Any result predating this
+	// attempt was already cleared by resetStaleProvisionResult, so nothing stale can survive here.
+	a.signalProvisionFailure(provisionResult, false)
+}
+
+// signalProvisionFailure records provisionResult as this attempt's outcome and wakes provision-wait.
+// overwrite forces replacement of an existing provision.json and is used only when the content on
+// disk is known to be stale, so a stale success can never be reported as this run's result.
+func (a *App) signalProvisionFailure(provisionResult *ProvisionResult, overwrite bool) {
+	jsonPath := a.getProvisionJSONPath()
+	_, statErr := os.Stat(jsonPath)
+	switch {
+	case overwrite, errors.Is(statErr, os.ErrNotExist):
+		if writeErr := a.writeProvisionResult(jsonPath, provisionResult); writeErr != nil {
+			slog.Error("failed to write provision.json file", "path", jsonPath, "error", writeErr)
+		}
+	case statErr != nil:
+		slog.Error("failed to stat provision.json file", "path", jsonPath, "error", statErr)
 	}
-	baseDir := filepath.Dir(provisionJSONFilePath)
-	if writeErr := os.MkdirAll(baseDir, 0755); writeErr != nil {
-		slog.Error("failed to create directory for provision.json file", "path", baseDir, "error", writeErr)
-	}
-	if writeErr := os.WriteFile(provisionJSONFilePath, data, 0600); writeErr != nil {
-		slog.Error("failed to write provision.json file", "path", provisionJSONFilePath, "error", writeErr)
-	}
-	if _, statErr := os.Stat(provisionCompleteFilePath); statErr == nil {
+
+	completePath := a.getProvisionCompletePath()
+	if _, err := os.Stat(completePath); err == nil {
 		return // already exists
-	} else if !errors.Is(statErr, os.ErrNotExist) { // unexpected error
-		slog.Error("failed to stat provision.complete file", "path", provisionCompleteFilePath, "error", statErr)
+	} else if !errors.Is(err, os.ErrNotExist) { // unexpected error
+		slog.Error("failed to stat provision.complete file", "path", completePath, "error", err)
 		return
 	}
-	if writeErr := os.WriteFile(provisionCompleteFilePath, []byte{}, 0600); writeErr != nil {
-		slog.Error("failed to write provision.complete file", "path", provisionCompleteFilePath, "error", writeErr)
+	if writeErr := os.WriteFile(completePath, []byte{}, 0600); writeErr != nil {
+		slog.Error("failed to write provision.complete file", "path", completePath, "error", writeErr)
 	}
 }
 
-// provisionMarkers returns the completion markers provision-wait accepts, in priority order.
-// A normal node signals with the durable provision.complete; a pre-provision (image bake) run
-// signals with the volatile marker on tmpfs. Accepting either keeps the CSE command
-// byte-identical for both phases.
-func provisionMarkers(filepaths ProvisionStatusFiles) []string {
-	markers := make([]string, 0, 2)
-	for _, marker := range []string{filepaths.ProvisionCompleteFile, filepaths.PreProvisionCompleteFile} {
-		if marker != "" {
-			markers = append(markers, marker)
-		}
+// writeProvisionResult writes the result to path via a temp file and rename, so provision-wait
+// never observes a partially written provision.json.
+func (a *App) writeProvisionResult(path string, provisionResult *ProvisionResult) error {
+	data, err := json.Marshal(provisionResult)
+	if err != nil {
+		return fmt.Errorf("marshal provision result: %w", err)
 	}
-	return markers
+	baseDir := filepath.Dir(path)
+	if err = os.MkdirAll(baseDir, 0755); err != nil {
+		return fmt.Errorf("create directory %s: %w", baseDir, err)
+	}
+	tmp, err := os.CreateTemp(baseDir, ".provision-*.json")
+	if err != nil {
+		return fmt.Errorf("create temp provision result in %s: %w", baseDir, err)
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName) // no-op once the rename below succeeds
+	if _, err = tmp.Write(data); err != nil {
+		tmp.Close()
+		return fmt.Errorf("write temp provision result %s: %w", tmpName, err)
+	}
+	if err = tmp.Close(); err != nil {
+		return fmt.Errorf("close temp provision result %s: %w", tmpName, err)
+	}
+	if err = os.Chmod(tmpName, 0600); err != nil {
+		return fmt.Errorf("chmod temp provision result %s: %w", tmpName, err)
+	}
+	if err = os.Rename(tmpName, path); err != nil {
+		return fmt.Errorf("rename %s to %s: %w", tmpName, path, err)
+	}
+	return nil
 }
 
 // watchMarkerDirs registers a watch on the directory of every marker, creating it when missing.
 // Callers must invoke this before checking whether any marker already exists, so that a marker
 // created between the two steps still arrives as an event.
-func watchMarkerDirs(watcher *fsnotify.Watcher, markers []string) error {
-	watched := make(map[string]struct{}, len(markers))
-	for _, marker := range markers {
+//
+// required markers must be watchable: failing to watch the directory of the durable
+// provision.complete makes provision-wait unable to observe a normal node finishing. Optional
+// markers are best effort: an unusable /run must not break every normal node, so it is logged and
+// skipped, and the returned slice reports which markers are actually being watched. A bake that
+// depends on a skipped marker then fails loudly by timeout instead of silently.
+func watchMarkerDirs(watcher *fsnotify.Watcher, required, optional []string) ([]string, error) {
+	watched := make(map[string]struct{}, len(required)+len(optional))
+	active := make([]string, 0, len(required)+len(optional))
+
+	addDir := func(marker string) error {
 		dir := filepath.Dir(marker)
+		if _, done := watched[dir]; done {
+			return nil // already created and watched for an earlier marker
+		}
 		if err := os.MkdirAll(dir, 0755); err != nil { // create the directory if it doesn't exist
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
-		}
-		if _, done := watched[dir]; done {
-			continue
 		}
 		if err := watcher.Add(dir); err != nil {
 			return fmt.Errorf("failed to watch directory %s: %w", dir, err)
 		}
 		watched[dir] = struct{}{}
+		return nil
 	}
-	return nil
+
+	for _, marker := range required {
+		if err := addDir(marker); err != nil {
+			return nil, err
+		}
+		active = append(active, marker)
+	}
+	for _, marker := range optional {
+		if err := addDir(marker); err != nil {
+			slog.Warn("skipping optional provision completion marker", "marker", marker, "error", err)
+			continue
+		}
+		active = append(active, marker)
+	}
+	return active, nil
 }
 
 // firstExistingMarker reports the first marker already present on disk, if any.
@@ -786,9 +901,16 @@ func firstExistingMarker(markers []string) (string, bool) {
 }
 
 func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles) (string, error) {
-	markers := provisionMarkers(filepaths)
-	if len(markers) == 0 {
+	// A normal node signals completion with the durable provision.complete, so that marker is
+	// required. A pre-provision (image bake) run signals with the volatile marker on tmpfs, which
+	// is optional. Accepting either keeps the CSE command byte-identical for both phases.
+	if filepaths.ProvisionCompleteFile == "" {
 		return "", fmt.Errorf("no provision completion marker configured")
+	}
+	required := []string{filepaths.ProvisionCompleteFile}
+	var optional []string
+	if filepaths.PreProvisionCompleteFile != "" {
+		optional = append(optional, filepaths.PreProvisionCompleteFile)
 	}
 
 	watcher, err := fsnotify.NewWatcher()
@@ -797,7 +919,8 @@ func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles)
 	}
 	defer watcher.Close()
 
-	if err = watchMarkerDirs(watcher, markers); err != nil {
+	markers, err := watchMarkerDirs(watcher, required, optional)
+	if err != nil {
 		return "", err
 	}
 

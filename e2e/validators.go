@@ -815,7 +815,8 @@ func ValidateProvisionJSONReportsSuccess(ctx context.Context, s *Scenario) error
 }
 
 // ValidateProvisionWaitReportsResult runs the real CSE command for scriptless provisioning against
-// the node's recorded state. provision.complete already exists, so provision-wait takes its fast
+// the node's recorded state. A completion marker already exists - the durable provision.complete on
+// a normal node, the volatile /run marker on a pre-provision bake - so provision-wait takes its fast
 // path: it prints provision.json and maps the recorded ExitCode onto its own exit code. Running it
 // here proves the unchanged CSE command reports a result for whichever phase just ran.
 func ValidateProvisionWaitReportsResult(ctx context.Context, s *Scenario) error {

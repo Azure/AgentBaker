@@ -65,12 +65,6 @@ logger -t aks-boothook "boothook start $(date -Ins)"
 
 mkdir -p /opt/bin /opt/azure/containers /var/log/azure
 
-# Past the guard above this node has not completed provisioning, so any provision.json on disk is
-# stale - a node created from a PIS image inherits the bake's result file if cleanup lagged.
-# Removing it here means a fail-fast error can never be reported as that baked success, without
-# depending on the image pipeline having cleaned up.
-rm -f /var/log/azure/aks/provision.json
-
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
 #hotfix-marker

@@ -540,6 +540,156 @@ func TestApp_ProvisionWait(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "context deadline exceeded")
 	})
+
+	// An unusable volatile marker directory must not break normal nodes: the optional marker is
+	// skipped and provision.complete still works.
+	t.Run("unusable pre-provision directory does not break a normal node", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		tempDir := t.TempDir()
+		blocked := filepath.Join(t.TempDir(), "not-a-dir")
+		// A regular file where the directory should be makes MkdirAll fail, standing in for a
+		// broken or read-only /run.
+		require.NoError(t, os.WriteFile(blocked, []byte("x"), 0600))
+		p := ProvisionStatusFiles{
+			ProvisionJSONFile:        filepath.Join(tempDir, "provision.json"),
+			ProvisionCompleteFile:    filepath.Join(tempDir, "provision.complete"),
+			PreProvisionCompleteFile: filepath.Join(blocked, "pre-provision.complete"),
+		}
+
+		go func() {
+			time.Sleep(150 * time.Millisecond)
+			_ = os.WriteFile(p.ProvisionJSONFile, []byte(testData), 0644)
+			_, _ = os.Create(p.ProvisionCompleteFile)
+		}()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		data, err := tt.App.ProvisionWait(ctx, p)
+		assert.NoError(t, err)
+		assert.Equal(t, testData, data)
+	})
+
+	// The durable marker is required: if its directory cannot be watched there is no way to observe
+	// a normal node finishing, so fail rather than wait forever.
+	t.Run("unusable provision.complete directory is fatal", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		blocked := filepath.Join(t.TempDir(), "not-a-dir")
+		require.NoError(t, os.WriteFile(blocked, []byte("x"), 0600))
+		p := ProvisionStatusFiles{
+			ProvisionJSONFile:     filepath.Join(t.TempDir(), "provision.json"),
+			ProvisionCompleteFile: filepath.Join(blocked, "provision.complete"),
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_, err := tt.App.ProvisionWait(ctx, p)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create directory")
+	})
+}
+
+// A node created from a PIS image can boot with the bake's provision.json still on disk if image
+// cleanup lagged. provision-wait reports whatever that file holds once any marker appears, so the
+// stale result must be cleared before a new attempt starts.
+func TestApp_resetStaleProvisionResult(t *testing.T) {
+	newApp := func(t *testing.T) (*App, string, string) {
+		t.Helper()
+		dir := t.TempDir()
+		jsonPath := filepath.Join(dir, "aks", "provision.json")
+		completePath := filepath.Join(dir, "provision.complete")
+		app := &App{
+			cmdRun:                cmdRunnerDryRun,
+			eventLogger:           helpers.NewEventLogger(t.TempDir()),
+			provisionJSONPath:     jsonPath,
+			provisionCompletePath: completePath,
+		}
+		require.NoError(t, os.MkdirAll(filepath.Dir(jsonPath), 0755))
+		return app, jsonPath, completePath
+	}
+
+	t.Run("removes a stale success before a new attempt", func(t *testing.T) {
+		app, jsonPath, _ := newApp(t)
+		require.NoError(t, os.WriteFile(jsonPath, []byte(`{"ExitCode":"0","Output":"baked success"}`), 0600))
+
+		require.NoError(t, app.resetStaleProvisionResult())
+		assert.NoFileExists(t, jsonPath)
+	})
+
+	t.Run("is a no-op when no result exists", func(t *testing.T) {
+		app, jsonPath, _ := newApp(t)
+		require.NoError(t, app.resetStaleProvisionResult())
+		assert.NoFileExists(t, jsonPath)
+	})
+
+	t.Run("keeps the result of a node that already completed provisioning", func(t *testing.T) {
+		app, jsonPath, completePath := newApp(t)
+		require.NoError(t, os.WriteFile(jsonPath, []byte(`{"ExitCode":"0","Output":"my own result"}`), 0600))
+		require.NoError(t, os.WriteFile(completePath, []byte{}, 0600))
+
+		require.NoError(t, app.resetStaleProvisionResult())
+		content, err := os.ReadFile(jsonPath)
+		require.NoError(t, err)
+		assert.Contains(t, string(content), "my own result")
+	})
+
+	// After the reset, a fail-fast error is the only result on disk, so provision-wait reports the
+	// failure rather than the inherited success.
+	t.Run("fail-fast after reset reports the current failure", func(t *testing.T) {
+		app, jsonPath, completePath := newApp(t)
+		require.NoError(t, os.WriteFile(jsonPath, []byte(`{"ExitCode":"0","Output":"baked success"}`), 0600))
+
+		require.NoError(t, app.resetStaleProvisionResult())
+		app.writeCompleteFileOnError(&ProvisionResult{ExitCode: "240", Error: "bad config"}, errors.New("bad config"))
+
+		content, err := os.ReadFile(jsonPath)
+		require.NoError(t, err)
+		assert.Contains(t, string(content), `"ExitCode":"240"`)
+		assert.NotContains(t, string(content), "baked success")
+		assert.FileExists(t, completePath)
+	})
+
+	// cse_start writes the full CSE output; a reconstructed result would lose it. Overwriting would
+	// also risk truncating a file provision-wait is reading.
+	t.Run("does not overwrite the rich result written by cse_start", func(t *testing.T) {
+		app, jsonPath, completePath := newApp(t)
+		require.NoError(t, app.resetStaleProvisionResult())
+		richResult := `{"ExitCode":"7","Output":"full cse trace","Error":"cse failed"}`
+		require.NoError(t, os.WriteFile(jsonPath, []byte(richResult), 0600))
+
+		app.writeCompleteFileOnError(&ProvisionResult{ExitCode: "7"}, errors.New("cse failed"))
+
+		content, err := os.ReadFile(jsonPath)
+		require.NoError(t, err)
+		assert.Equal(t, richResult, string(content))
+		assert.FileExists(t, completePath)
+	})
+
+	// Fail-closed: if the stale file cannot be removed it must be replaced by this failure, never
+	// left in place to be reported as success.
+	t.Run("forced signal overwrites a result that could not be removed", func(t *testing.T) {
+		app, jsonPath, completePath := newApp(t)
+		require.NoError(t, os.WriteFile(jsonPath, []byte(`{"ExitCode":"0","Output":"baked success"}`), 0600))
+
+		app.signalProvisionFailure(&ProvisionResult{ExitCode: "240", Error: "reset failed"}, true)
+
+		content, err := os.ReadFile(jsonPath)
+		require.NoError(t, err)
+		assert.Contains(t, string(content), `"ExitCode":"240"`)
+		assert.NotContains(t, string(content), "baked success")
+		assert.FileExists(t, completePath)
+	})
+
+	t.Run("reports an unreadable stale result rather than provisioning over it", func(t *testing.T) {
+		app, jsonPath, _ := newApp(t)
+		// A directory at the result path cannot be removed with os.Remove, standing in for any
+		// removal failure (permissions, read-only mount).
+		require.NoError(t, os.MkdirAll(jsonPath, 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(jsonPath, "child"), []byte("x"), 0600))
+
+		err := app.resetStaleProvisionResult()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "remove stale provision result")
+	})
 }
 
 func Test_readAndEvaluateProvision(t *testing.T) {

@@ -268,8 +268,9 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 					ValidateFileCreatedBeforeThisBoot(ctx, s, "/opt/azure/containers/base_prep.complete"),
 					ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "Skipping basePrep - base_prep.complete file exists"),
 					// Same unchanged CSE command as the bake, now reporting this node's own result.
-					// The file embeds this node's TLS bootstrap token, so asserting it was written
-					// this boot also proves the bake's token did not survive image capture.
+					// This file is rewritten from this node's CustomData every boot, so asserting it
+					// was written this boot proves the bake's copy is not what is in use. It does not
+					// prove the image is free of provisioning secrets generally.
 					ValidateFileCreatedThisBoot(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"),
 					ValidateProvisionJSONReportsSuccess(ctx, s),
 					ValidateProvisionWaitReportsResult(ctx, s),
@@ -993,10 +994,11 @@ func generalizeLinuxVMForImageCapture(ctx context.Context, s *Scenario) error {
 		"test ! -e /opt/azure/containers/provision.complete",
 		"sudo rm -f /opt/azure/containers/aks-node-controller-config.json",
 		"sudo rm -f /var/log/azure/aks/provision.json",
-		// The scriptless CSE command file embeds TLS_BOOTSTRAP_TOKEN (see cse_cmd.sh), so it is a
-		// per-cluster, expiring credential of the bake cluster. Every boot's cloud-init boothook
-		// rewrites it from that node's own CustomData, so removing it here costs nothing and keeps
-		// the bake's token out of the captured image.
+		// The scriptless CSE command file embeds TLS_BOOTSTRAP_TOKEN (see cse_cmd.sh). Removing it
+		// models the RP scrubbing that one known credential file; it does NOT make the image free
+		// of provisioning secrets, since the raw cloud-init/CustomData artifacts elsewhere on disk
+		// are untouched. Every boot's cloud-init boothook rewrites this file from that node's own
+		// CustomData, so removing it costs nothing.
 		"sudo rm -f /opt/azure/containers/aks-node-controller-nbc-cmd.sh",
 	}, "\n")
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "generalize VM before image capture"); err != nil {
