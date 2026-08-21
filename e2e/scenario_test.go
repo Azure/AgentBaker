@@ -8,6 +8,7 @@ import (
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -690,6 +691,37 @@ func Test_Ubuntu2204_ScriptlessCSECmd_Hotfix(t *testing.T) {
 				// This file does NOT exist on any VHD — it can only be present if cloud-init
 				// processed our write_files entry, proving the hotfix delivery mechanism works.
 				return ValidateFileHasContent(ctx, s, hotfixMarkerPath, hotfixMarkerContent)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404_CheckHotfixFromNBCCmd(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that check-hotfix resolves the LPS target from the Phase 2 NBC command",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			Validator: func(ctx context.Context, s *Scenario) error {
+				result, err := execScriptOnVMForScenarioValidateExitCode(
+					ctx,
+					s,
+					`sudo test ! -e /opt/azure/containers/aks-node-controller-config.json &&
+sudo test -e /opt/azure/containers/aks-node-controller-nbc-cmd.sh &&
+sudo test -x /opt/azure/containers/aks-node-controller-hotfix &&
+sudo /opt/azure/containers/aks-node-controller-hotfix check-hotfix`,
+					0,
+					"check-hotfix NBC command fallback failed",
+				)
+				if err != nil {
+					return err
+				}
+
+				output := result.stdout + "\n" + result.stderr
+				return errors.Join(
+					assert.Contains(output, "node config not found, trying nbc-cmd.sh fallback"),
+					assert.Contains(output, "loaded LPS target from nbc-cmd.sh fallback"),
+				)
 			},
 		},
 	})
