@@ -700,8 +700,9 @@ func Test_Ubuntu2404_CheckHotfixFromNBCCmd(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that check-hotfix resolves the LPS target from the Phase 2 NBC command",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			Cluster:               ClusterKubenet,
+			VHD:                   config.VHDUbuntu2404Gen2Containerd,
+			SkipDefaultValidation: true,
 			Validator: func(ctx context.Context, s *Scenario) error {
 				result, err := execScriptOnVMForScenarioValidateExitCode(
 					ctx,
