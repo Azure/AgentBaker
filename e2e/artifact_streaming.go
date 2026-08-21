@@ -75,7 +75,7 @@ func ValidateArtifactStreamingImagePull(ctx context.Context, s *Scenario) error 
 	// rootfs is mounted, so the assertion must run with the pod still alive.
 	kube := s.Runtime.Kube
 	pod := podStreamingImageLinux(s, image)
-	truncatePodName(s.T, pod)
+	pod.Name = uniqueKubernetesResourceName(pod.Name)
 	if err := setScenarioNodeOwnerReference(ctx, s, pod); err != nil {
 		return err
 	}

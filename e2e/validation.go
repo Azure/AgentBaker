@@ -194,7 +194,8 @@ func ValidateCommonWindows(ctx context.Context, s *Scenario) error {
 
 func startPodAndCheckItRuns(ctx context.Context, s *Scenario, pod *corev1.Pod) error {
 	kube := s.Runtime.Kube
-	truncatePodName(s.T, pod)
+	pod = pod.DeepCopy()
+	pod.Name = uniqueKubernetesResourceName(pod.Name)
 	if err := setScenarioNodeOwnerReference(ctx, s, pod); err != nil {
 		return err
 	}
