@@ -755,10 +755,22 @@ cachePackageAndBinaryComponents() {
 cacheContainerImageComponents() {
   # Download/cache all declared container images within components.json that apply to the respective OS SKU
 
+  if isACL "$OS" "$OS_VARIANT" && [ "$(isARM64)" -eq 0 ]; then
+    # ACL's patched EROFS differ discovers dm-verity referrers inside
+    # containerd's transfer service. Every cached image is unpacked through
+    # that service so CRI never recovers a content-only image record as
+    # runtime-ready. Dalec dm-verity artifacts and the ACL transfer profile
+    # are currently linux/amd64 only.
+    export IMAGE_FETCHER_DMVERITY_CACHE=true
+  fi
+
   # Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
   # Account for possibility that number of cores is 3 or less
   num_proc=$(nproc)
-  if [ "$num_proc" -gt 3 ]; then
+  if [ "${IMAGE_FETCHER_DMVERITY_CACHE:-}" = "true" ] && [ "$num_proc" -gt 1 ]; then
+    # EROFS creation and dm-verity formatting are CPU and disk intensive.
+    parallel_container_image_pull_limit=2
+  elif [ "$num_proc" -gt 3 ]; then
     parallel_container_image_pull_limit=$(nproc --ignore=2)
   else
     parallel_container_image_pull_limit=1
