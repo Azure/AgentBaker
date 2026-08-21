@@ -64,13 +64,14 @@ func (e *lpsGRPCStatusError) Error() string {
 }
 
 // fetchHotfixOverGRPC performs the GetComponentConfig call against the live-patching service: it
-// resolves the apiserver FQDN + cluster CA from the node config, carries the IMDS attested-data
-// document in gRPC metadata, and returns the opaque response bytes for the shared parse/stage path.
+// resolves the apiserver FQDN + cluster CA from the available node bootstrap input, carries the
+// IMDS attested-data document in gRPC metadata, and returns the opaque response bytes for the
+// shared parse/stage path.
 // The gRPC status is mapped onto the benign-vs-fatal taxonomy so handleFetchError is unchanged.
 func (a *App) fetchHotfixOverGRPC(ctx context.Context) ([]byte, error) {
 	fqdn, caPEM, err := a.lpsTargetFromNodeConfig()
 	if err != nil {
-		return nil, fmt.Errorf("resolving LPS endpoint from node config: %w", err)
+		return nil, fmt.Errorf("resolving LPS endpoint: %w", err)
 	}
 
 	token, err := a.attestedToken(ctx)
