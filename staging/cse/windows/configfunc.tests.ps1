@@ -431,10 +431,6 @@ Describe 'Install-CredentialProvider' {
 }
 
 Describe 'Resolve-DalecCredentialProviderPackage' {
-    BeforeEach {
-        Mock Write-Log
-    }
-
     It 'returns $null for k8s < 1.33' {
         $result = Resolve-DalecCredentialProviderPackage -KubeBinariesVersion 'v1.32.8'
         $result | Should -Be $null
