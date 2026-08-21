@@ -78,6 +78,7 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 // This is a known transient e2e-infrastructure flake; a genuine product regression
 // fails on every attempt and still surfaces once the budget is exhausted.
 const maxOutboundCSERetries = 2
+const vmssLogCollectionTimeout = 4 * time.Minute
 
 func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	vm, err := createVMSSRecreatingOnOutboundCSEFlake(ctx, s)
@@ -87,11 +88,15 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 	// inside createVMSSRecreatingOnOutboundCSEFlake, so registering here avoids stale cleanup
 	// handlers that would otherwise re-extract logs from and re-delete a VMSS that was already
 	// replaced during the retry loop.
-	s.T.Cleanup(func() {
+	s.Cleanup(func(ctx context.Context) error {
 		if vm != nil {
 			defer cleanupBastionTunnel(vm.SSHClient)
 		}
-		cleanupVMSS(ctx, s, vm)
+		return deleteVMSS(ctx, s)
+	})
+	s.Cleanup(func(ctx context.Context) error {
+		extractLogsFromVM(ctx, s, vm)
+		return nil
 	})
 
 	skipTestIfSKUNotAvailableErr(s.T, err)
@@ -684,15 +689,9 @@ func skipTestIfSKUNotAvailableErr(t testing.TB, err error) {
 	}
 }
 
-func cleanupVMSS(ctx context.Context, s *Scenario, vm *ScenarioVM) {
-	// original context can be cancelled, but we still want to collect the logs
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
-	defer cancel()
-	defer deleteVMSS(ctx, s)
-	extractLogsFromVM(ctx, s, vm)
-}
-
 func extractLogsFromVM(ctx context.Context, s *Scenario, vm *ScenarioVM) {
+	ctx, cancel := context.WithTimeout(ctx, vmssLogCollectionTimeout)
+	defer cancel()
 	if s.IsWindows() {
 		extractLogsFromVMWindows(ctx, s)
 		return
@@ -870,8 +869,6 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
-	defer cancel()
 	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
 	page, err := pager.NextPage(ctx)
 	if err != nil {
@@ -981,25 +978,26 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	s.T.Logf("logs collected to %s", testDir(s.T))
 }
 
-func deleteVMSS(ctx context.Context, s *Scenario) {
-	// original context can be cancelled, but we still want to delete the VM
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
-	defer cancel()
+func deleteVMSS(ctx context.Context, s *Scenario) error {
 	if config.Config.KeepVMSS {
 		s.T.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", s.Runtime.VMSSName)
 		if err := writeToFile(s.T, "sshkey", string(config.VMSSHPrivateKey)); err != nil {
 			s.T.Logf("failed to write retained vmss %s private ssh key to disk: %s", s.Runtime.VMSSName, err)
 		}
-		return
+		return nil
 	}
 	_, err := config.Azure.VMSS.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
 		ForceDeletion: to.Ptr(true),
 	})
 	if err != nil {
-		s.T.Logf("failed to delete vmss %q: %s", s.Runtime.VMSSName, err)
-		return
+		var respErr *azcore.ResponseError
+		if errors.As(err, &respErr) && respErr.StatusCode == 404 {
+			return nil
+		}
+		return fmt.Errorf("begin deleting vmss %q: %w", s.Runtime.VMSSName, err)
 	}
-	s.T.Logf("vmss %q deleted successfully", s.Runtime.VMSSName)
+	s.T.Logf("vmss %q deletion started", s.Runtime.VMSSName)
+	return nil
 }
 
 // Adds additional IP configs to the passed in vmss model based on the chosen cluster's setting of "maxPodsPerNode",

@@ -31,6 +31,8 @@ import (
 // endpoint resolution, the benign-vs-fatal taxonomy, and the fail-open fetch/parse/stage
 // workflow.
 const (
+	defaultNBCCmdPath = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
+
 	// lpsALPNProto is the ALPN protocol the kube-api-proxy envoy uses to route the TLS connection
 	// to the live-patching-service (LPS) gRPC backend. The client dials the apiserver FQDN as SNI
 	// (riding the existing apiserver egress rule) and advertises this ALPN value; envoy then
@@ -280,17 +282,22 @@ func (a *App) fetchHotfix(ctx context.Context) ([]byte, error) {
 }
 
 // lpsTargetFromNodeConfig reads the apiserver FQDN (the forced dial target) and the cluster
-// CA (TLS trust) from the AKSNodeConfig.
+// CA (TLS trust) from the AKSNodeConfig. If the config file is absent (e.g. Staging Phase 2
+// where AKSNodeConfigJSON is empty), it falls back to the existing nbc-cmd.sh file, which
+// contains the same values as command-scoped environment variables.
 //
 // check-hotfix runs before the provisioning scripts (cse_config.sh), so the on-node decoded
 // CA file (/etc/kubernetes/certs/ca.crt) does not exist yet -- it is written later during
-// provisioning. The node config is the only credential source guaranteed to be present at
-// this point and it carries the CA as base64-encoded PEM (the same value cse_config.sh later
-// decodes into that file).
+// provisioning. Depending on the Scriptless phase, either the node config or nbc-cmd carries
+// the CA as base64-encoded PEM (the same value cse_config.sh later decodes into that file).
 func (a *App) lpsTargetFromNodeConfig() (string, []byte, error) {
 	path := a.getNodeConfigPath()
 	raw, err := os.ReadFile(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			slog.Info("node config not found, trying nbc-cmd.sh fallback", "path", path)
+			return a.lpsTargetFromNBCCmd()
+		}
 		return "", nil, fmt.Errorf("reading node config %s: %w", path, err)
 	}
 	cfg, perr := nodeconfigutils.UnmarshalConfigurationV1(raw)
@@ -529,4 +536,41 @@ func (a *App) getNodeConfigPath() string {
 		return a.nodeConfigPath
 	}
 	return nodeconfigutils.AKSNodeConfigFilePath
+}
+
+// getNBCCmdPath returns the injectable nbc-cmd.sh path, defaulting to the standard location.
+func (a *App) getNBCCmdPath() string {
+	if a.nbcCmdPath != "" {
+		return a.nbcCmdPath
+	}
+	return defaultNBCCmdPath
+}
+
+// lpsTargetFromNBCCmd reads the apiserver FQDN and cluster CA from the existing nbc-cmd.sh file.
+// This is the fallback path when the full AKSNodeConfig JSON is not present (e.g. Staging
+// Phase 2). Reuse the parser used by env comparison for the flattened NBC command.
+func (a *App) lpsTargetFromNBCCmd() (string, []byte, error) {
+	path := a.getNBCCmdPath()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return "", nil, fmt.Errorf("reading nbc-cmd %s: %w", path, err)
+	}
+
+	vars := parseEnvVarsFromNBCCmdContent(string(raw))
+	fqdn := vars["API_SERVER_NAME"]
+	if fqdn == "" {
+		return "", nil, fmt.Errorf("nbc-cmd %s has no API_SERVER_NAME", path)
+	}
+
+	var caPEM []byte
+	if caB64 := vars["KUBE_CA_CRT"]; caB64 != "" {
+		decoded, err := base64.StdEncoding.DecodeString(caB64)
+		if err != nil {
+			return "", nil, fmt.Errorf("decoding nbc-cmd KUBE_CA_CRT: %w", err)
+		}
+		caPEM = decoded
+	}
+
+	slog.Info("loaded LPS target from nbc-cmd.sh fallback", "fqdn", fqdn, "path", path)
+	return fqdn, caPEM, nil
 }

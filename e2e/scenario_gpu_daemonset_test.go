@@ -15,6 +15,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -235,18 +236,15 @@ func deployNvidiaDevicePluginDaemonset(ctx context.Context, s *Scenario) error {
 	s.T.Logf("NVIDIA device plugin DaemonSet %s/%s created successfully", ds.Namespace, ds.Name)
 
 	// Register cleanup to delete the DaemonSet when the test finishes
-	s.T.Cleanup(func() {
-		s.T.Logf("Cleaning up NVIDIA device plugin DaemonSet %s/%s...", ds.Namespace, ds.Name)
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cleanupCancel()
-		deleteErr := s.Runtime.Kube.Typed.AppsV1().DaemonSets(ds.Namespace).Delete(
-			cleanupCtx,
+	s.Cleanup(func(ctx context.Context) error {
+		if err := s.Runtime.Kube.Typed.AppsV1().DaemonSets(ds.Namespace).Delete(
+			ctx,
 			ds.Name,
 			metav1.DeleteOptions{},
-		)
-		if deleteErr != nil {
-			s.T.Logf("Failed to delete NVIDIA device plugin DaemonSet %s/%s: %v", ds.Namespace, ds.Name, deleteErr)
+		); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("delete NVIDIA device plugin DaemonSet %s/%s: %w", ds.Namespace, ds.Name, err)
 		}
+		return nil
 	})
 	return nil
 }
