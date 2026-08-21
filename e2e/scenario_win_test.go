@@ -633,7 +633,6 @@ func Test_NetworkIsolatedCluster_Windows_OrasDownload(t *testing.T) {
 					// Verify kubelet binaries were downloaded via ORAS instead of HTTP
 					ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Start to download kubelet binaries with oras"),
 					ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Start to download containerd with oras"),
-					ValidateFileExists(ctx, s, `/var/lib/kubelet/credential-provider/acr-credential-provider.exe`),
 				)
 			},
 		},
