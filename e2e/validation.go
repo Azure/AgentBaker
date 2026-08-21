@@ -24,9 +24,9 @@ func ValidatePodRunningWithRetry(ctx context.Context, s *Scenario, pod *corev1.P
 
 	for i <= maxRetries && err != nil {
 		retryBackoff := time.Duration(1 << uint(i))
-		s.T.Logf("sleeping %d seconds before retrying pod %q", retryBackoff, pod.Name)
+		s.Logger.Logf("sleeping %d seconds before retrying pod %q", retryBackoff, pod.Name)
 		time.Sleep(retryBackoff * time.Second)
-		s.T.Logf("retrying pod %q validation (%d/%d)", pod.Name, i+1, maxRetries)
+		s.Logger.Logf("retrying pod %q validation (%d/%d)", pod.Name, i+1, maxRetries)
 
 		i++
 		err = startPodAndCheckItRuns(ctx, s, pod)
@@ -121,7 +121,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) error {
 			case err != nil:
 				errs = append(errs, fmt.Errorf("failed to detect hosts plugin artifacts on the VHD: %w", err))
 			case !hasHostsPluginArtifacts:
-				s.T.Logf("WARNING: VHD does not have aks-localdns-hosts-setup.service — skipping hosts plugin validation")
+				s.Logger.Logf("WARNING: VHD does not have aks-localdns-hosts-setup.service — skipping hosts plugin validation")
 			default:
 				errs = append(errs,
 					// Validate hosts file contains resolved IPs for critical FQDNs (IPs resolved dynamically).
@@ -193,10 +193,10 @@ func ValidateCommonWindows(ctx context.Context, s *Scenario) error {
 
 func startPodAndCheckItRuns(ctx context.Context, s *Scenario, pod *corev1.Pod) error {
 	kube := s.Runtime.Kube
-	truncatePodName(s.T, pod)
+	truncatePodName(s.Logger, pod)
 	start := time.Now()
 
-	s.T.Logf("creating pod %q", pod.Name)
+	s.Logger.Logf("creating pod %q", pod.Name)
 	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create pod %q: %v", pod.Name, err)
@@ -206,7 +206,7 @@ func startPodAndCheckItRuns(ctx context.Context, s *Scenario, pod *corev1.Pod) e
 		defer cancel()
 		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
 		if err != nil {
-			s.T.Logf("couldn't not delete pod %s: %v", pod.Name, err)
+			s.Logger.Logf("couldn't not delete pod %s: %v", pod.Name, err)
 		}
 	}()
 
@@ -221,14 +221,13 @@ func startPodAndCheckItRuns(ctx context.Context, s *Scenario, pod *corev1.Pod) e
 
 	timeForReady := time.Since(start)
 	toolkit.LogDuration(ctx, timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s", pod.Name, timeForReady))
-	s.T.Logf("node health validation: test pod %q is running on node %q", pod.Name, s.Runtime.VM.KubeName)
+	s.Logger.Logf("node health validation: test pod %q is running on node %q", pod.Name, s.Runtime.VM.KubeName)
 	return nil
 }
 
 // Waits until the specified resource is available on the given node.
 // Returns an error if the resource is not available within the specified timeout period.
 func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName string) error {
-	s.T.Helper()
 	nodeName := s.Runtime.VM.KubeName
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -244,7 +243,7 @@ func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName s
 			}
 
 			if isResourceAvailable(node, resourceName) {
-				s.T.Logf("resource %q is available", resourceName)
+				s.Logger.Logf("resource %q is available", resourceName)
 				return nil
 			}
 		}
@@ -262,8 +261,6 @@ func isResourceAvailable(node *corev1.Node, resourceName string) bool {
 }
 
 func dllLoadedWindows(ctx context.Context, s *Scenario, dllName string) (bool, error) {
-	s.T.Helper()
-
 	steps := []string{
 		"$ErrorActionPreference = \"Continue\"",
 		fmt.Sprintf("tasklist /m %s", dllName),
@@ -274,7 +271,7 @@ func dllLoadedWindows(ctx context.Context, s *Scenario, dllName string) (bool, e
 	}
 	dllLoaded := strings.Contains(execResult.stdout, dllName)
 
-	s.T.Logf("stdout: %s\nstderr: %s", execResult.stdout, execResult.stderr)
+	s.Logger.Logf("stdout: %s\nstderr: %s", execResult.stdout, execResult.stderr)
 	return dllLoaded, nil
 }
 
@@ -348,7 +345,7 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 // result itself — a single observation of an unexpected exit code is enough
 // to fail loudly.
 func validateWireServerBlocked(ctx context.Context, s *Scenario) error {
-	defer toolkit.LogStep(s.T, "validating wireserver is blocked from unprivileged pods")()
+	defer toolkit.LogStep(s.Logger, "validating wireserver is blocked from unprivileged pods")()
 
 	nonHostPod, err := s.Runtime.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
 	if err != nil {
@@ -385,9 +382,9 @@ func validateWireServerBlocked(ctx context.Context, s *Scenario) error {
 			r, execErr := execOnUnprivilegedPod(attemptCtx, s.Runtime.Kube, nonHostPod.Namespace, nonHostPod.Name, check.cmd)
 			if execErr != nil {
 				if errors.Is(execErr, context.DeadlineExceeded) {
-					s.T.Logf("wireserver check %q: exec attempt timed out after 15s (retrying): %v", check.desc, execErr)
+					s.Logger.Logf("wireserver check %q: exec attempt timed out after 15s (retrying): %v", check.desc, execErr)
 				} else {
-					s.T.Logf("wireserver check %q: exec error (retrying): %v", check.desc, execErr)
+					s.Logger.Logf("wireserver check %q: exec error (retrying): %v", check.desc, execErr)
 				}
 				return false, nil
 			}

@@ -85,7 +85,7 @@ func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
 					return err
 				}
 
-				s.T.Logf("NVIDIA device plugin DaemonSet is functioning correctly")
+				s.Logger.Logf("NVIDIA device plugin DaemonSet is functioning correctly")
 				return nil
 			},
 		},
@@ -95,7 +95,7 @@ func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
 // validateNvidiaDevicePluginServiceNotRunning verifies that the systemd-based
 // NVIDIA device plugin service is not running (since we're testing the DaemonSet model).
 func validateNvidiaDevicePluginServiceNotRunning(ctx context.Context, s *Scenario) error {
-	s.T.Logf("Verifying that nvidia-device-plugin.service is not running...")
+	s.Logger.Logf("Verifying that nvidia-device-plugin.service is not running...")
 
 	// Check if the service exists and is inactive
 	// Using "is-active" which returns non-zero if not active
@@ -110,7 +110,7 @@ func validateNvidiaDevicePluginServiceNotRunning(ctx context.Context, s *Scenari
 		"nvidia-device-plugin.service is unexpectedly running - this test requires the systemd service to be disabled"); err != nil {
 		return err
 	}
-	s.T.Logf("Confirmed nvidia-device-plugin.service is not active (status: %s)", output)
+	s.Logger.Logf("Confirmed nvidia-device-plugin.service is not active (status: %s)", output)
 	return nil
 }
 
@@ -215,7 +215,7 @@ func nvidiaDevicePluginDaemonset(nodeName string) *appsv1.DaemonSet {
 // deployNvidiaDevicePluginDaemonset creates the NVIDIA device plugin DaemonSet in the cluster
 // and registers cleanup to delete it when the test finishes.
 func deployNvidiaDevicePluginDaemonset(ctx context.Context, s *Scenario) error {
-	s.T.Logf("Deploying NVIDIA device plugin as DaemonSet...")
+	s.Logger.Logf("Deploying NVIDIA device plugin as DaemonSet...")
 
 	ds := nvidiaDevicePluginDaemonset(s.Runtime.VM.KubeName)
 
@@ -233,7 +233,7 @@ func deployNvidiaDevicePluginDaemonset(ctx context.Context, s *Scenario) error {
 		return fmt.Errorf("create NVIDIA device plugin DaemonSet %s/%s: %w", ds.Namespace, ds.Name, err)
 	}
 
-	s.T.Logf("NVIDIA device plugin DaemonSet %s/%s created successfully", ds.Namespace, ds.Name)
+	s.Logger.Logf("NVIDIA device plugin DaemonSet %s/%s created successfully", ds.Namespace, ds.Name)
 
 	// Register cleanup to delete the DaemonSet when the test finishes
 	s.Cleanup(func(ctx context.Context) error {
@@ -253,7 +253,7 @@ func deployNvidiaDevicePluginDaemonset(ctx context.Context, s *Scenario) error {
 // Uses the existing WaitUntilPodRunning helper which handles CrashLoopBackOff and other failure states.
 func waitForNvidiaDevicePluginDaemonsetReady(ctx context.Context, s *Scenario) error {
 	dsName := nvidiaDevicePluginDaemonsetName(s.Runtime.VM.KubeName)
-	s.T.Logf("Waiting for NVIDIA device plugin DaemonSet pod to be ready on node %s...", s.Runtime.VM.KubeName)
+	s.Logger.Logf("Waiting for NVIDIA device plugin DaemonSet pod to be ready on node %s...", s.Runtime.VM.KubeName)
 
 	if _, err := s.Runtime.Kube.WaitUntilPodRunning(
 		ctx,
@@ -264,6 +264,6 @@ func waitForNvidiaDevicePluginDaemonsetReady(ctx context.Context, s *Scenario) e
 		return fmt.Errorf("wait for NVIDIA device plugin DaemonSet pod to be ready: %w", err)
 	}
 
-	s.T.Logf("NVIDIA device plugin DaemonSet pod is ready")
+	s.Logger.Logf("NVIDIA device plugin DaemonSet pod is ready")
 	return nil
 }

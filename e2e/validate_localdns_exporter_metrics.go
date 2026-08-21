@@ -21,8 +21,6 @@ var validateLocalDNSExporterMetricsScript string
 // this, we encode the script in base64, upload it in small chunks via multiple
 // SSH commands, then decode and execute it on the VM.
 func ValidateLocalDNSExporterMetrics(ctx context.Context, s *Scenario) error {
-	s.T.Helper()
-
 	// Check if the node has the localdns-exporter label. This label is only set by CSE
 	// when the VHD has localdns-exporter.socket installed (see cse_main.sh). If the label
 	// is absent, the VHD predates the exporter feature — skip validation with a warning
@@ -35,11 +33,11 @@ func ValidateLocalDNSExporterMetrics(ctx context.Context, s *Scenario) error {
 	}
 
 	if _, exists := node.Labels[exporterLabelKey]; !exists {
-		s.T.Logf("WARNING: node %q does not have label %q — localdns exporter not installed on this VHD, skipping exporter validation",
+		s.Logger.Logf("WARNING: node %q does not have label %q — localdns exporter not installed on this VHD, skipping exporter validation",
 			s.Runtime.VM.KubeName, exporterLabelKey)
 		return nil
 	}
-	s.T.Logf("node %q has label %q — proceeding with full exporter validation", s.Runtime.VM.KubeName, exporterLabelKey)
+	s.Logger.Logf("node %q has label %q — proceeding with full exporter validation", s.Runtime.VM.KubeName, exporterLabelKey)
 
 	encoded := base64.StdEncoding.EncodeToString([]byte(validateLocalDNSExporterMetricsScript))
 	remotePath := "/home/azureuser/validate_localdns_exporter_metrics.sh"
@@ -83,6 +81,6 @@ func ValidateLocalDNSExporterMetrics(ctx context.Context, s *Scenario) error {
 		"localdns exporter metrics validation failed\nstdout: %s\nstderr: %s", result.stdout, result.stderr); err != nil {
 		return err
 	}
-	s.T.Logf("localdns exporter metrics validation output:\n%s", result.stdout)
+	s.Logger.Logf("localdns exporter metrics validation output:\n%s", result.stdout)
 	return nil
 }

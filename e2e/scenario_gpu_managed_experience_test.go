@@ -302,10 +302,10 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 			return "", "", "", err
 		}
 
-		s.T.Logf("Expected versions from components.json:")
-		s.T.Logf("  dcgm-exporter: %s", dcgmExporterVersion)
-		s.T.Logf("  datacenter-gpu-manager-4-core: %s", expectedCoreVersion)
-		s.T.Logf("  datacenter-gpu-manager-4-proprietary: %s", expectedPropVersion)
+		s.Logger.Logf("Expected versions from components.json:")
+		s.Logger.Logf("  dcgm-exporter: %s", dcgmExporterVersion)
+		s.Logger.Logf("  datacenter-gpu-manager-4-core: %s", expectedCoreVersion)
+		s.Logger.Logf("  datacenter-gpu-manager-4-proprietary: %s", expectedPropVersion)
 
 		return dcgmExporterVersion, expectedCoreVersion, expectedPropVersion, nil
 	}
@@ -326,9 +326,9 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 		actualCoreVersion := coreMatches[1]
 		actualPropVersion := propMatches[1]
 
-		s.T.Logf("Actual versions from dcgm-exporter package:")
-		s.T.Logf("  datacenter-gpu-manager-4-core: %s", actualCoreVersion)
-		s.T.Logf("  datacenter-gpu-manager-4-proprietary: %s", actualPropVersion)
+		s.Logger.Logf("Actual versions from dcgm-exporter package:")
+		s.Logger.Logf("  datacenter-gpu-manager-4-core: %s", actualCoreVersion)
+		s.Logger.Logf("  datacenter-gpu-manager-4-proprietary: %s", actualPropVersion)
 
 		return actualCoreVersion, actualPropVersion, nil
 	}
@@ -353,21 +353,21 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 						}
 
 						// Step 2: Download dcgm-exporter package from PMC
-						s.T.Logf("Downloading dcgm-exporter package from PMC...")
+						s.Logger.Logf("Downloading dcgm-exporter package from PMC...")
 						downloadCmd := fmt.Sprintf(tc.downloadCmd, dcgmExporterVersion)
 						if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, downloadCmd, 0, "Failed to download dcgm-exporter package"); err != nil {
 							return err
 						}
 
 						// Step 3: Extract dependency versions from the package
-						s.T.Logf("Extracting dependency versions from package...")
+						s.Logger.Logf("Extracting dependency versions from package...")
 						result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, tc.extractDepsCmd, 0, "Failed to extract dependencies from package")
 						if err != nil {
 							return err
 						}
 
 						dependsOutput := result.stdout
-						s.T.Logf("Package dependencies: %s", dependsOutput)
+						s.Logger.Logf("Package dependencies: %s", dependsOutput)
 
 						// Step 4: Parse and verify versions match components.json
 						actualCoreVersion, actualPropVersion, err := parseVersions(s, tc, dependsOutput)
@@ -387,7 +387,7 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 							return err
 						}
 
-						s.T.Logf("✅ Version compatibility verified: dcgm-exporter %s is compatible with DCGM packages %s",
+						s.Logger.Logf("✅ Version compatibility verified: dcgm-exporter %s is compatible with DCGM packages %s",
 							dcgmExporterVersion, expectedCoreVersion)
 						return nil
 					},
