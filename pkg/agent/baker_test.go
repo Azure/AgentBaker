@@ -98,6 +98,129 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			})
 		})
 
+		Describe(".containerdConfigTemplateForVersion()", func() {
+			renderContainerdConfig := func(containerdVersion string, distro datamodel.Distro, noGPU bool) string {
+				config.ContainerdVersion = containerdVersion
+				config.AgentPoolProfile.Distro = distro
+				encoded, err := containerdConfigFromTemplate(config, config.AgentPoolProfile, containerdConfigTemplateForVersion(config, noGPU))
+				Expect(err).NotTo(HaveOccurred())
+				decoded, err := base64.StdEncoding.DecodeString(encoded)
+				Expect(err).NotTo(HaveOccurred())
+				return string(decoded)
+			}
+
+			expectLegacySchemaV2 := func(containerdConfig string) {
+				Expect(containerdConfig).To(ContainSubstring(`version = 2`))
+				Expect(containerdConfig).To(ContainSubstring(`[plugins."io.containerd.grpc.v1.cri"]`))
+				Expect(containerdConfig).To(ContainSubstring(`sandbox_image = ""`))
+				Expect(containerdConfig).NotTo(ContainSubstring(`version = 4`))
+				Expect(containerdConfig).NotTo(ContainSubstring(`io.containerd.cri.v1.images`))
+			}
+
+			expectContainerd2SchemaV2 := func(containerdConfig string) {
+				Expect(containerdConfig).To(ContainSubstring(`version = 2`))
+				Expect(containerdConfig).To(ContainSubstring(`[plugins."io.containerd.cri.v1.images"]`))
+				Expect(containerdConfig).To(ContainSubstring(`[plugins."io.containerd.cri.v1.images".pinned_images]`))
+				Expect(containerdConfig).To(ContainSubstring(`sandbox = ""`))
+				Expect(containerdConfig).To(ContainSubstring(`io.containerd.cri.v1.runtime`))
+				Expect(containerdConfig).NotTo(ContainSubstring(`version = 4`))
+				Expect(containerdConfig).NotTo(ContainSubstring(`io.containerd.grpc.v1.cri`))
+				Expect(containerdConfig).NotTo(ContainSubstring(`sandbox_image`))
+			}
+
+			expectSchemaV4 := func(containerdConfig string) {
+				Expect(containerdConfig).To(ContainSubstring(`version = 4`))
+				Expect(containerdConfig).To(ContainSubstring(`[plugins."io.containerd.cri.v1.images".pinned_images]`))
+				Expect(containerdConfig).To(ContainSubstring(`io.containerd.cri.v1.runtime`))
+				Expect(containerdConfig).To(ContainSubstring(`enable_cdi = true`))
+				Expect(containerdConfig).NotTo(ContainSubstring(`version = 2`))
+				Expect(containerdConfig).NotTo(ContainSubstring(`io.containerd.grpc.v1.cri`))
+			}
+
+			It("uses legacy schema v2 when containerd version is empty for older or unknown distros", func() {
+				expectLegacySchemaV2(renderContainerdConfig("", datamodel.AKSUbuntuContainerd2204, false))
+			})
+
+			for _, distro := range []datamodel.Distro{
+				datamodel.AKSUbuntuContainerd2404,
+				datamodel.AKSUbuntuMinimalContainerd2604Gen2,
+			} {
+				distro := distro
+				It(fmt.Sprintf("uses schema v4 when containerd version is empty for %s", distro), func() {
+					expectSchemaV4(renderContainerdConfig("", distro, false))
+				})
+			}
+
+			It("uses split-plugin schema v2 when containerd version is empty for containerd v2 distros before 2.3", func() {
+				expectContainerd2SchemaV2(renderContainerdConfig("", datamodel.AKSAzureLinuxV3, false))
+				expectContainerd2SchemaV2(renderContainerdConfig("", datamodel.AKSACLGen2TL, false))
+				expectContainerd2SchemaV2(renderContainerdConfig("", datamodel.AKSACLArm64Gen2TL, true))
+			})
+
+			It("uses schema v2 when containerd version is invalid", func() {
+				expectLegacySchemaV2(renderContainerdConfig("not-a-version", datamodel.AKSUbuntuContainerd2404, false))
+				expectLegacySchemaV2(renderContainerdConfig("source:2.3.2", datamodel.AKSUbuntuContainerd2404, false))
+			})
+
+			It("uses split-plugin schema v2 for containerd 2.x versions before 2.3", func() {
+				expectContainerd2SchemaV2(renderContainerdConfig("2.0.0", datamodel.AKSUbuntuContainerd2404, false))
+				expectContainerd2SchemaV2(renderContainerdConfig("2.2.4-5.azl3", datamodel.AKSAzureLinuxV3, false))
+				expectContainerd2SchemaV2(renderContainerdConfig("2.2.4-5.azl3", datamodel.AKSAzureLinuxV3, true))
+			})
+
+			It("uses schema v4 for containerd 2.3 and newer", func() {
+				expectSchemaV4(renderContainerdConfig("2.3.0-ubuntu24.04u1", datamodel.AKSUbuntuContainerd2204, false))
+				expectSchemaV4(renderContainerdConfig("2.3.2-ubuntu24.04u1", datamodel.AKSUbuntuContainerd2204, false))
+				expectSchemaV4(renderContainerdConfig("1:2.3.2+azure", datamodel.AKSUbuntuContainerd2204, false))
+				expectSchemaV4(renderContainerdConfig("2.3.0~beta.0-ubuntu24.04u1", datamodel.AKSUbuntuContainerd2204, false))
+			})
+
+			It("keeps kata-cc runtime in schema v4 no-GPU configs", func() {
+				config.ContainerdVersion = "2.3.0-ubuntu24.04u1"
+				config.AgentPoolProfile.Distro = datamodel.AKSAzureLinuxV3Gen2Kata
+				encoded, err := containerdConfigFromTemplate(config, config.AgentPoolProfile, containerdConfigTemplateForVersion(config, true))
+				Expect(err).NotTo(HaveOccurred())
+				decoded, err := base64.StdEncoding.DecodeString(encoded)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(decoded)).To(ContainSubstring(`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]`))
+			})
+
+			It("forwards snapshot annotations on the kata path across split-plugin schemas", func() {
+				// Regression test: the split-plugin (containerd 2.x) templates must set
+				// disable_snapshot_annotations = false for Kata under the images plugin, otherwise
+				// image pulls break for Kata pods. The legacy v1 schema emitted this under IsKata,
+				// but the carry-over was missed when the split cri.v1.images/runtime templates were
+				// introduced. Asserted end-to-end by Test_AzureLinuxV3Gen2Kata (ValidateKataContainerdConfig).
+				const kataSnapshotAnnotations = `disable_snapshot_annotations = false`
+
+				// split-plugin schema v2 (containerd 2.0-2.2), no-GPU and GPU variants.
+				Expect(renderContainerdConfig("2.2.4-5.azl3", datamodel.AKSAzureLinuxV3Gen2Kata, true)).To(ContainSubstring(kataSnapshotAnnotations))
+				Expect(renderContainerdConfig("2.2.4-5.azl3", datamodel.AKSAzureLinuxV3Gen2Kata, false)).To(ContainSubstring(kataSnapshotAnnotations))
+
+				// schema v4 (containerd 2.3+), no-GPU and GPU variants.
+				Expect(renderContainerdConfig("2.3.0-ubuntu24.04u1", datamodel.AKSAzureLinuxV3Gen2Kata, true)).To(ContainSubstring(kataSnapshotAnnotations))
+				Expect(renderContainerdConfig("2.3.0-ubuntu24.04u1", datamodel.AKSAzureLinuxV3Gen2Kata, false)).To(ContainSubstring(kataSnapshotAnnotations))
+			})
+
+			It("renders a consistent Kata block in the schema v4 containerd config", func() {
+				// The v4 (containerd 2.3+) Kata templates must match the pre-2.3 and scriptless
+				// aks-node-controller templates: split cri.v1.runtime handlers, the EROFS
+				// snapshotter preamble that kata-preview needs, and the real clh-preview config
+				// path (not the clh-templating typo). Keeps scriptful/scriptless parity for
+				// containerd 2.3+ Kata distros.
+				for _, noGPU := range []bool{true, false} {
+					cfg := renderContainerdConfig("2.3.0-ubuntu24.04u1", datamodel.AKSAzureLinuxV3Gen2Kata, noGPU)
+					Expect(cfg).To(ContainSubstring(`[plugins."io.containerd.snapshotter.v1.erofs"]`))
+					Expect(cfg).To(ContainSubstring(`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]`))
+					Expect(cfg).To(ContainSubstring(`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview]`))
+					Expect(cfg).To(ContainSubstring(`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]`))
+					Expect(cfg).To(ContainSubstring(`configuration-clh-preview.toml`))
+					Expect(cfg).NotTo(ContainSubstring(`configuration-clh-templating.toml`))
+					Expect(cfg).NotTo(ContainSubstring(`io.containerd.grpc.v1.cri`))
+				}
+			})
+		})
+
 		Describe(".GetKubernetesEndpoint()", func() {
 			It("given there is no profile, it returns an empty string", func() {
 				Expect(GetKubernetesEndpoint(config.ContainerService)).To(BeEmpty())

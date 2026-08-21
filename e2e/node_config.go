@@ -291,6 +291,8 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksno
 		KubernetesVersion:       cs.Properties.OrchestratorProfile.OrchestratorVersion,
 		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
+			ContainerdVersion:         nbc.ContainerdVersion,
+			ContainerdPackageUrl:      nbc.ContainerdPackageURL,
 		},
 		OutboundCommand:  `curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/`,
 		KubernetesCaCert: base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.CaCertificate)),

@@ -423,11 +423,12 @@ func envValsEqual(a, b string) bool {
 }
 
 // envValsEqualForKey performs key-specific comparison logic.
-// For SYSCTL_CONTENT, it base64-decodes both values and compares the resulting
-// key=value pairs as sets (ignoring order and whitespace differences).
 func envValsEqualForKey(key, a, b string) bool {
-	if key == "SYSCTL_CONTENT" {
+	switch key {
+	case "SYSCTL_CONTENT":
 		return sysctlContentEqual(a, b)
+	case "CONTAINERD_CONFIG_CONTENT", "CONTAINERD_CONFIG_NO_GPU_CONTENT":
+		return containerdConfigContentEqual(a, b)
 	}
 	return envValsEqual(a, b)
 }
@@ -470,6 +471,85 @@ func parseSysctlPairs(content string) map[string]string {
 		result[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
 	}
 	return result
+}
+
+// containerdConfigContentEqual base64-decodes containerd TOML configs and compares
+// table-scoped key/value pairs while ignoring harmless ordering and whitespace differences.
+func containerdConfigContentEqual(a, b string) bool {
+	aDecoded, errA := base64.StdEncoding.DecodeString(a)
+	bDecoded, errB := base64.StdEncoding.DecodeString(b)
+	if errA != nil || errB != nil {
+		return envValsEqual(a, b)
+	}
+
+	aEntries := canonicalContainerdTOMLEntries(string(aDecoded))
+	bEntries := canonicalContainerdTOMLEntries(string(bDecoded))
+	if len(aEntries) != len(bEntries) {
+		return false
+	}
+	for i := range aEntries {
+		if aEntries[i] != bEntries[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func canonicalContainerdTOMLEntries(content string) []string {
+	var entries []string
+	currentTable := ""
+	for _, rawLine := range strings.Split(content, "\n") {
+		line := strings.TrimSpace(stripTOMLComment(rawLine))
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			currentTable = line
+			entries = append(entries, "table:"+currentTable)
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+			entries = append(entries, currentTable+"."+key+"="+value)
+			continue
+		}
+		entries = append(entries, currentTable+".__line__="+line)
+	}
+	sort.Strings(entries)
+	return entries
+}
+
+func stripTOMLComment(line string) string {
+	inSingleQuote := false
+	inDoubleQuote := false
+	escaped := false
+	for i, r := range line {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if inDoubleQuote && r == '\\' {
+			escaped = true
+			continue
+		}
+		switch r {
+		case '\'':
+			if !inDoubleQuote {
+				inSingleQuote = !inSingleQuote
+			}
+		case '"':
+			if !inSingleQuote {
+				inDoubleQuote = !inDoubleQuote
+			}
+		case '#':
+			if !inSingleQuote && !inDoubleQuote {
+				return line[:i]
+			}
+		}
+	}
+	return line
 }
 
 func stripDoubleQuotes(s string) string {

@@ -1,4 +1,5 @@
-version = 2
+{{- $isV4 := isContainerdVersionGe .GetContainerdConfig "2.3.0" -}}
+version = {{if $isV4}}4{{else}}2{{end}}
 oom_score = -999{{if getHasDataDir .KubeletConfig}}
 root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 {{- if .GetIsKata }}
@@ -17,6 +18,8 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.images"]
 {{- if .GetEnableArtifactStreaming }}
   snapshotter = "overlaybd"
+  disable_snapshot_annotations = false
+{{- else if .GetIsKata }}
   disable_snapshot_annotations = false
 {{- end}}
   [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -47,26 +50,31 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 {{- if .GetEnableArtifactStreaming }}
-[proxy_plugins]
-  [proxy_plugins.overlaybd]
-    type = "snapshot"
-    address = "/run/overlaybd-snapshotter/overlaybd.sock"
+[proxy_plugins.overlaybd]
+  type = "snapshot"
+  address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if .GetIsKata }}
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
   snapshotter = "overlayfs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
   snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
-[proxy_plugins]
-  [proxy_plugins.tardev]
-    type = "snapshot"
-    address = "/run/containerd/tardev-snapshotter.sock"
+[proxy_plugins.tardev]
+  type = "snapshot"
+  address = "/run/containerd/tardev-snapshotter.sock"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
+  snapshotter = "tardev"
+  runtime_type = "io.containerd.kata-cc.v2"
+  privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
+    ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
