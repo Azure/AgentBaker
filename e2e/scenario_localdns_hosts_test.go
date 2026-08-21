@@ -90,6 +90,9 @@ func Test_LocalDNSLPSBootstrapPatch(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			// Force compiling the local aks-node-controller so the provision-config parser matches
+			// the baker-generated nbc-cmd for Corefile env vars (compareEnvs parity).
+			ForceScriptlessCompilation: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
 			},
