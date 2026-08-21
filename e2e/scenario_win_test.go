@@ -633,8 +633,8 @@ func Test_NetworkIsolatedCluster_Windows_OrasDownload(t *testing.T) {
 					// Verify kubelet binaries were downloaded via ORAS instead of HTTP
 					ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Start to download kubelet binaries with oras"),
 					ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Start to download containerd with oras"),
+					ValidateFileExists(ctx, s, `/var/lib/kubelet/credential-provider/acr-credential-provider.exe`),
 				)
-				ValidateFileExists(ctx, s, `/var/lib/kubelet/credential-provider/acr-credential-provider.exe`)
 			},
 		},
 	})
@@ -643,7 +643,11 @@ func Test_NetworkIsolatedCluster_Windows_OrasDownload(t *testing.T) {
 func Test_Windows2022_Dalec_CredentialProvider(t *testing.T) {
 	// REVERT ME: build & use a CSE zip from the branch's staging/cse/windows/ so the resolver
 	// change is exercised instead of the published package. Remove once the CSE scripts ship.
-	cseURL := getOrBuildBranchCSEPackageURL(t)
+	cseURL, err := getOrBuildBranchCSEPackageURL()
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	RunScenario(t, &Scenario{
 		Description: "Tests Windows 2022 node installs credential provider from dalec via components.json for k8s >= 1.33",
@@ -659,10 +663,12 @@ func Test_Windows2022_Dalec_CredentialProvider(t *testing.T) {
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "c:\\var\\lib\\kubelet\\credential-provider"
 				// Do NOT set WindowsCredentialProviderURL — resolver should use components.json
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileExists(ctx, s, `c:\var\lib\kubelet\credential-provider\acr-credential-provider.exe`)
+			Validator: func(ctx context.Context, s *Scenario) error {
 				// Assert dalec-specific CSE log line to prove resolver path was taken
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Using dalec credential provider")
+				return errors.Join(
+					ValidateFileExists(ctx, s, `c:\var\lib\kubelet\credential-provider\acr-credential-provider.exe`),
+					ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Using dalec credential provider"),
+				)
 			},
 		},
 	})
