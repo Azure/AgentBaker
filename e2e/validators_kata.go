@@ -11,6 +11,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	corev1 "k8s.io/api/core/v1"
 	nodev1 "k8s.io/api/node/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -246,29 +247,37 @@ func createKataRuntimeClass(ctx context.Context, s *Scenario, handler string) (s
 	s.T.Helper()
 
 	kube := s.Runtime.Kube
-	name := truncateKataResourceName(fmt.Sprintf("%s-%s", handler, s.Runtime.VM.KubeName))
+	name := uniqueKubernetesResourceName(fmt.Sprintf("%s-%s", handler, s.Runtime.VM.KubeName))
+	ownerReference, err := scenarioNodeOwnerReference(ctx, s)
+	if err != nil {
+		return "", err
+	}
 
 	runtimeClass := &nodev1.RuntimeClass{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Handler:    handler,
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            name,
+			OwnerReferences: []metav1.OwnerReference{ownerReference},
+		},
+		Handler: handler,
 		Scheduling: &nodev1.Scheduling{
 			NodeSelector: map[string]string{"kubernetes.io/hostname": s.Runtime.VM.KubeName},
 		},
 	}
 
-	if _, err := kube.Typed.NodeV1().RuntimeClasses().Create(ctx, runtimeClass, metav1.CreateOptions{}); err != nil {
+	created, err := kube.Typed.NodeV1().RuntimeClasses().Create(ctx, runtimeClass, metav1.CreateOptions{})
+	if err != nil {
 		return "", fmt.Errorf("failed to create RuntimeClass %q for handler %q: %w", name, handler, err)
 	}
 
 	s.T.Cleanup(func() {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 		defer cancel()
-		if err := kube.Typed.NodeV1().RuntimeClasses().Delete(cleanupCtx, name, metav1.DeleteOptions{}); err != nil {
-			s.T.Logf("could not delete RuntimeClass %s: %v", name, err)
+		if err := kube.Typed.NodeV1().RuntimeClasses().Delete(cleanupCtx, created.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			s.T.Logf("could not delete RuntimeClass %s: %v", created.Name, err)
 		}
 	})
 
-	return name, nil
+	return created.Name, nil
 }
 
 // createKataPod creates a long-lived pod bound to the given Kata RuntimeClass on the scenario's
@@ -278,10 +287,15 @@ func createKataPod(ctx context.Context, s *Scenario, runtimeClassName, handler s
 	s.T.Helper()
 
 	kube := s.Runtime.Kube
+	ownerReference, err := scenarioNodeOwnerReference(ctx, s)
+	if err != nil {
+		return nil, err
+	}
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      truncateKataResourceName(fmt.Sprintf("%s-%s-pod", s.Runtime.VM.KubeName, handler)),
-			Namespace: "default",
+			Name:            uniqueKubernetesResourceName(fmt.Sprintf("%s-%s-pod", handler, s.Runtime.VM.KubeName)),
+			Namespace:       "default",
+			OwnerReferences: []metav1.OwnerReference{ownerReference},
 		},
 		Spec: corev1.PodSpec{
 			RuntimeClassName: to.Ptr(runtimeClassName),
@@ -300,36 +314,26 @@ func createKataPod(ctx context.Context, s *Scenario, runtimeClassName, handler s
 	}
 
 	s.T.Logf("creating pod %q under RuntimeClass %q", pod.Name, runtimeClassName)
-	if _, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{}); err != nil {
+	created, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
+	if err != nil {
 		return nil, fmt.Errorf("failed to create kata pod %q: %w", pod.Name, err)
 	}
 
 	s.T.Cleanup(func() {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 		defer cancel()
-		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(cleanupCtx, pod.Name, metav1.DeleteOptions{
-			GracePeriodSeconds: to.Ptr(int64(0)),
-		})
-		if err != nil {
-			s.T.Logf("could not delete pod %s: %v", pod.Name, err)
+		deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))}
+		err := kube.Typed.CoreV1().Pods(created.Namespace).Delete(cleanupCtx, created.Name, deleteOptions)
+		if err != nil && !apierrors.IsNotFound(err) {
+			s.T.Logf("could not delete pod %s: %v", created.Name, err)
 		}
 	})
 
-	running, err := kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name)
+	running, err := kube.WaitUntilPodRunning(ctx, created.Namespace, "", "metadata.name="+created.Name)
 	if err != nil {
 		return nil, fmt.Errorf("kata pod %q never reached Running. This usually means containerd did not register the %q "+
-			"runtime handler from the AgentBaker-generated config: %w", pod.Name, handler, err)
+			"runtime handler from the AgentBaker-generated config: %w", created.Name, handler, err)
 	}
 
 	return running, nil
-}
-
-// truncateKataResourceName keeps generated Kubernetes object names within the 63 character
-// DNS-1123 label limit.
-func truncateKataResourceName(name string) string {
-	const maxLen = 63
-	if len(name) <= maxLen {
-		return name
-	}
-	return strings.TrimRight(name[:maxLen], "-")
 }

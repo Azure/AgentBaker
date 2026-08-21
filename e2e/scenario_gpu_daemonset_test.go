@@ -15,6 +15,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,13 +27,11 @@ const (
 	nvidiaDevicePluginImage = "mcr.microsoft.com/oss/v2/nvidia/k8s-device-plugin:v0.18.2"
 )
 
-// Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset tests that a GPU node can function correctly
-// with the NVIDIA device plugin deployed as a Kubernetes DaemonSet instead of a systemd service.
-// This is the "upstream" deployment model commonly used by customers who manage their own
-// NVIDIA device plugin deployment.
+// Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset tests the upstream, customer-managed
+// NVIDIA device plugin DaemonSet deployment model instead of the systemd service.
 func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that NVIDIA device plugin works when deployed as a DaemonSet (not systemd service)",
+		Description: "Tests that the NVIDIA device plugin works as a DaemonSet instead of a systemd service",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -42,7 +41,7 @@ func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
 				nbc.ConfigGPUDriverIfNeeded = true
-				// Don't enable the managed GPU experience - we'll deploy the device plugin as a DaemonSet instead.
+				// Don't enable the managed GPU experience - the test deploys the upstream DaemonSet.
 				// By not setting EnableManagedGPU=true or the VMSS tag, the systemd-based device plugin won't start.
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
@@ -51,7 +50,7 @@ func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
-				// The DaemonSet is only meaningful once the driver is present and the
+				// The device plugin is only meaningful once the driver is present and the
 				// systemd-based plugin is confirmed inactive, so gate the deployment on both.
 				if err := errors.Join(
 					// First, validate that GPU drivers are installed
@@ -63,13 +62,7 @@ func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
 					return err
 				}
 
-				// Deploy the NVIDIA device plugin as a DaemonSet
 				if err := deployNvidiaDevicePluginDaemonset(ctx, s); err != nil {
-					return err
-				}
-
-				// Wait for the DaemonSet pod to be running on our node
-				if err := waitForNvidiaDevicePluginDaemonsetReady(ctx, s); err != nil {
 					return err
 				}
 
@@ -92,7 +85,7 @@ func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
 }
 
 // validateNvidiaDevicePluginServiceNotRunning verifies that the systemd-based
-// NVIDIA device plugin service is not running (since we're testing the DaemonSet model).
+// NVIDIA device plugin service is not running because the test uses the DaemonSet model.
 func validateNvidiaDevicePluginServiceNotRunning(ctx context.Context, s *Scenario) error {
 	s.T.Logf("Verifying that nvidia-device-plugin.service is not running...")
 
@@ -113,53 +106,27 @@ func validateNvidiaDevicePluginServiceNotRunning(ctx context.Context, s *Scenari
 	return nil
 }
 
-// nvidiaDevicePluginDaemonsetName returns a unique DaemonSet name for the given node.
-// The name is truncated to fit within Kubernetes' 63-character limit for resource names.
-func nvidiaDevicePluginDaemonsetName(nodeName string) string {
-	prefix := "nvdp-" // Short prefix to leave room for node name
-	maxLen := 63
-	name := prefix + nodeName
-	if len(name) > maxLen {
-		name = name[:maxLen]
-	}
-	return name
-}
-
-// nvidiaDevicePluginDaemonset returns the NVIDIA device plugin DaemonSet spec
-// based on the official upstream deployment from:
+// nvidiaDevicePluginDaemonset returns the official upstream deployment narrowed
+// to the scenario's node.
 // https://github.com/NVIDIA/k8s-device-plugin/blob/main/deployments/static/nvidia-device-plugin.yml
-//
-// The DaemonSet name includes the node name to avoid collisions when multiple
-// GPU tests run against the same shared cluster.
-func nvidiaDevicePluginDaemonset(nodeName string) *appsv1.DaemonSet {
-	dsName := nvidiaDevicePluginDaemonsetName(nodeName)
+func nvidiaDevicePluginDaemonset(nodeName string, ownerReference metav1.OwnerReference) *appsv1.DaemonSet {
+	name := uniqueKubernetesResourceName("nvdp-" + nodeName)
 
 	return &appsv1.DaemonSet{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "DaemonSet",
-			APIVersion: "apps/v1",
-		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dsName,
-			Namespace: "kube-system",
+			Name:            name,
+			Namespace:       "kube-system",
+			OwnerReferences: []metav1.OwnerReference{ownerReference},
 		},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"name": dsName,
-				},
-			},
-			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
-				Type: appsv1.RollingUpdateDaemonSetStrategyType,
+				MatchLabels: map[string]string{"name": name},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"name": dsName,
-					},
+					Labels: map[string]string{"name": name},
 				},
 				Spec: corev1.PodSpec{
-					// Target only our specific test node
 					NodeSelector: map[string]string{
 						"kubernetes.io/hostname": nodeName,
 					},
@@ -182,9 +149,6 @@ func nvidiaDevicePluginDaemonset(nodeName string) *appsv1.DaemonSet {
 								},
 							},
 							SecurityContext: &corev1.SecurityContext{
-								// Privileged mode is required for the device plugin to access
-								// GPU devices and register with kubelet's device plugin framework.
-								// This matches the upstream NVIDIA device plugin deployment spec.
 								Privileged: to.Ptr(true),
 							},
 							VolumeMounts: []corev1.VolumeMount{
@@ -211,61 +175,34 @@ func nvidiaDevicePluginDaemonset(nodeName string) *appsv1.DaemonSet {
 	}
 }
 
-// deployNvidiaDevicePluginDaemonset creates the NVIDIA device plugin DaemonSet in the cluster
-// and registers cleanup to delete it when the test finishes.
 func deployNvidiaDevicePluginDaemonset(ctx context.Context, s *Scenario) error {
-	s.T.Logf("Deploying NVIDIA device plugin as DaemonSet...")
+	ownerReference, err := scenarioNodeOwnerReference(ctx, s)
+	if err != nil {
+		return err
+	}
 
-	ds := nvidiaDevicePluginDaemonset(s.Runtime.VM.KubeName)
-
-	// Delete any existing DaemonSet from a previous failed run
-	deleteCtx, deleteCancel := context.WithTimeout(ctx, 30*time.Second)
-	defer deleteCancel()
-	_ = s.Runtime.Kube.Typed.AppsV1().DaemonSets(ds.Namespace).Delete(
-		deleteCtx,
-		ds.Name,
-		metav1.DeleteOptions{},
-	)
-
-	// Create the DaemonSet
-	if err := s.Runtime.Kube.CreateDaemonset(ctx, ds); err != nil {
+	ds := nvidiaDevicePluginDaemonset(s.Runtime.VM.KubeName, ownerReference)
+	created, err := s.Runtime.Kube.Typed.AppsV1().DaemonSets(ds.Namespace).Create(ctx, ds, metav1.CreateOptions{})
+	if err != nil {
 		return fmt.Errorf("create NVIDIA device plugin DaemonSet %s/%s: %w", ds.Namespace, ds.Name, err)
 	}
 
-	s.T.Logf("NVIDIA device plugin DaemonSet %s/%s created successfully", ds.Namespace, ds.Name)
-
-	// Register cleanup to delete the DaemonSet when the test finishes
 	s.T.Cleanup(func() {
-		s.T.Logf("Cleaning up NVIDIA device plugin DaemonSet %s/%s...", ds.Namespace, ds.Name)
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cleanupCancel()
-		deleteErr := s.Runtime.Kube.Typed.AppsV1().DaemonSets(ds.Namespace).Delete(
-			cleanupCtx,
-			ds.Name,
-			metav1.DeleteOptions{},
-		)
-		if deleteErr != nil {
-			s.T.Logf("Failed to delete NVIDIA device plugin DaemonSet %s/%s: %v", ds.Namespace, ds.Name, deleteErr)
+		deleteErr := s.Runtime.Kube.Typed.AppsV1().DaemonSets(created.Namespace).Delete(cleanupCtx, created.Name, metav1.DeleteOptions{})
+		if deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
+			s.T.Logf("Failed to delete NVIDIA device plugin DaemonSet %s/%s: %v", created.Namespace, created.Name, deleteErr)
 		}
 	})
-	return nil
-}
-
-// waitForNvidiaDevicePluginDaemonsetReady waits for the NVIDIA device plugin pod to be running on the test node.
-// Uses the existing WaitUntilPodRunning helper which handles CrashLoopBackOff and other failure states.
-func waitForNvidiaDevicePluginDaemonsetReady(ctx context.Context, s *Scenario) error {
-	dsName := nvidiaDevicePluginDaemonsetName(s.Runtime.VM.KubeName)
-	s.T.Logf("Waiting for NVIDIA device plugin DaemonSet pod to be ready on node %s...", s.Runtime.VM.KubeName)
 
 	if _, err := s.Runtime.Kube.WaitUntilPodRunning(
 		ctx,
-		"kube-system",
-		fmt.Sprintf("name=%s", dsName),
-		fmt.Sprintf("spec.nodeName=%s", s.Runtime.VM.KubeName),
+		created.Namespace,
+		"name="+created.Name,
+		"spec.nodeName="+s.Runtime.VM.KubeName,
 	); err != nil {
-		return fmt.Errorf("wait for NVIDIA device plugin DaemonSet pod to be ready: %w", err)
+		return fmt.Errorf("wait for NVIDIA device plugin DaemonSet %s/%s: %w", created.Namespace, created.Name, err)
 	}
-
-	s.T.Logf("NVIDIA device plugin DaemonSet pod is ready")
 	return nil
 }
