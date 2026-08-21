@@ -4225,37 +4225,38 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) (err error
 
 	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
 
-	baseName := strings.ToLower(s.Runtime.VM.KubeName)
-	if len(baseName) > 40 {
-		baseName = baseName[:40]
+	ownerReference, err := scenarioNodeOwnerReference(ctx, s)
+	if err != nil {
+		return err
 	}
-	baseName = strings.TrimRight(baseName, "-")
-	deviceClassName := fmt.Sprintf("gpu-nvidia-%s", baseName)
-	claimName := fmt.Sprintf("single-gpu-%s", baseName)
+	deviceClassName := uniqueKubernetesResourceName(fmt.Sprintf("gpu-nvidia-%s", s.Runtime.VM.KubeName))
+	claimName := uniqueKubernetesResourceName(fmt.Sprintf("single-gpu-%s", s.Runtime.VM.KubeName))
 	podClaimRefName := "gpu-claim"
 
-	_, createErr := s.Runtime.Kube.Typed.ResourceV1().DeviceClasses().Create(ctx, &resourcev1.DeviceClass{
+	deviceClass, createErr := s.Runtime.Kube.Typed.ResourceV1().DeviceClasses().Create(ctx, &resourcev1.DeviceClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: deviceClassName,
+			Name:            deviceClassName,
+			OwnerReferences: []metav1.OwnerReference{ownerReference},
 		},
 		Spec: resourcev1.DeviceClassSpec{},
 	}, metav1.CreateOptions{})
-	if createErr != nil && !apierrors.IsAlreadyExists(createErr) {
+	if createErr != nil {
 		return fmt.Errorf("create DeviceClass %q: %w", deviceClassName, createErr)
 	}
 	defer func() {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 		defer cancel()
-		deleteErr := s.Runtime.Kube.Typed.ResourceV1().DeviceClasses().Delete(cleanupCtx, deviceClassName, metav1.DeleteOptions{})
+		deleteErr := s.Runtime.Kube.Typed.ResourceV1().DeviceClasses().Delete(cleanupCtx, deviceClass.Name, metav1.DeleteOptions{})
 		if deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
-			err = errors.Join(err, fmt.Errorf("delete DeviceClass %q: %w", deviceClassName, deleteErr))
+			err = errors.Join(err, fmt.Errorf("delete DeviceClass %q: %w", deviceClass.Name, deleteErr))
 		}
 	}()
 
-	_, createErr = s.Runtime.Kube.Typed.ResourceV1().ResourceClaims("default").Create(ctx, &resourcev1.ResourceClaim{
+	claim, createErr := s.Runtime.Kube.Typed.ResourceV1().ResourceClaims("default").Create(ctx, &resourcev1.ResourceClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      claimName,
-			Namespace: "default",
+			Name:            claimName,
+			Namespace:       "default",
+			OwnerReferences: []metav1.OwnerReference{ownerReference},
 		},
 		Spec: resourcev1.ResourceClaimSpec{
 			Devices: resourcev1.DeviceClaim{
@@ -4263,36 +4264,36 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) (err error
 					{
 						Name: "gpu",
 						Exactly: &resourcev1.ExactDeviceRequest{
-							DeviceClassName: deviceClassName,
+							DeviceClassName: deviceClass.Name,
 						},
 					},
 				},
 			},
 		},
 	}, metav1.CreateOptions{})
-	if createErr != nil && !apierrors.IsAlreadyExists(createErr) {
+	if createErr != nil {
 		return fmt.Errorf("create ResourceClaim %q: %w", claimName, createErr)
 	}
 	defer func() {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 		defer cancel()
-		deleteErr := s.Runtime.Kube.Typed.ResourceV1().ResourceClaims("default").Delete(cleanupCtx, claimName, metav1.DeleteOptions{})
+		deleteErr := s.Runtime.Kube.Typed.ResourceV1().ResourceClaims(claim.Namespace).Delete(cleanupCtx, claim.Name, metav1.DeleteOptions{})
 		if deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
-			err = errors.Join(err, fmt.Errorf("delete ResourceClaim %q: %w", claimName, deleteErr))
+			err = errors.Join(err, fmt.Errorf("delete ResourceClaim %q: %w", claim.Name, deleteErr))
 		}
 	}()
 
 	// Create a DRA test pod that consumes the ResourceClaim.
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-dra-test", s.Runtime.VM.KubeName),
+			Name:      uniqueKubernetesResourceName(fmt.Sprintf("dra-test-%s", s.Runtime.VM.KubeName)),
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
 			ResourceClaims: []corev1.PodResourceClaim{
 				{
 					Name:              podClaimRefName,
-					ResourceClaimName: &claimName,
+					ResourceClaimName: &claim.Name,
 				},
 			},
 			Containers: []corev1.Container{
