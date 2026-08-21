@@ -533,7 +533,10 @@ func TestLPSTargetFromNodeConfig(t *testing.T) {
 		caPEM := "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n"
 		caB64 := base64.StdEncoding.EncodeToString([]byte(caPEM))
 		cmdPath := filepath.Join(dir, "nbc-cmd.sh")
-		cmdContent := fmt.Sprintf(`PROVISION_OUTPUT="/tmp/out"; API_SERVER_NAME=fallback.example.com KUBE_CA_CRT="%s" /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`, caB64)
+		cmdContent := fmt.Sprintf(
+			`PROVISION_OUTPUT="/tmp/out"; API_SERVER_NAME=fallback.example.com `+
+				`KUBE_CA_CRT="%s" /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`,
+			caB64)
 		require.NoError(t, os.WriteFile(cmdPath, []byte(cmdContent), 0600))
 		tt.App.nbcCmdPath = cmdPath
 
