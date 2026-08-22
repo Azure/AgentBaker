@@ -17,7 +17,7 @@ func TestValidateDmverityReferrerCapability(t *testing.T) {
 			name: "active capability",
 			plugins: []*introspectionapi.Plugin{
 				{
-					ID:           dmverityDiffer,
+					ID:           erofsDifferPluginID,
 					Capabilities: []string{dmverityReferrerCapability},
 				},
 			},
@@ -26,7 +26,7 @@ func TestValidateDmverityReferrerCapability(t *testing.T) {
 			name: "capability missing",
 			plugins: []*introspectionapi.Plugin{
 				{
-					ID:           dmverityDiffer,
+					ID:           erofsDifferPluginID,
 					Capabilities: []string{"other-capability"},
 				},
 			},
@@ -46,7 +46,7 @@ func TestValidateDmverityReferrerCapability(t *testing.T) {
 			name: "capable plugin failed initialization",
 			plugins: []*introspectionapi.Plugin{
 				{
-					ID:           dmverityDiffer,
+					ID:           erofsDifferPluginID,
 					Capabilities: []string{dmverityReferrerCapability},
 					InitErr:      &statuspb.Status{Message: "initialization failed"},
 				},
