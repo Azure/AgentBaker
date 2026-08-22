@@ -149,7 +149,12 @@ func mustReadCompressedLocalDNSArtifact(t *testing.T) string {
 }
 
 func localDNSBranchScriptDropIn() string {
+	// LOCALDNS_ENABLE_LEGACY_LIVEPATCH_STATUS makes localdns.sh write the
+	// live-patching-status node annotation itself. In production the knead
+	// live-patching loop owns this annotation, but knead does not drive the
+	// localDNS component in this E2E, so opt into the bootstrap writer here.
 	return `[Service]
+Environment="LOCALDNS_ENABLE_LEGACY_LIVEPATCH_STATUS=true"
 ExecStartPre=/bin/bash -c 'base64 -d ` + localDNSBranchScriptArchivePath + ` | gzip -d > /opt/azure/containers/localdns/localdns.sh && chmod 0544 /opt/azure/containers/localdns/localdns.sh'
 `
 }
