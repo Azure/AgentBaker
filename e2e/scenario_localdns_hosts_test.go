@@ -150,7 +150,7 @@ func mustReadCompressedLocalDNSArtifact(t *testing.T) string {
 
 func localDNSBranchScriptDropIn() string {
 	return `[Service]
-ExecStartPre=/bin/bash -c 'base64 -d ` + localDNSBranchScriptArchivePath + ` | gzip -d > /opt/azure/containers/localdns.sh && chmod 0544 /opt/azure/containers/localdns.sh'
+ExecStartPre=/bin/bash -c 'base64 -d ` + localDNSBranchScriptArchivePath + ` | gzip -d > /opt/azure/containers/localdns/localdns.sh && chmod 0544 /opt/azure/containers/localdns/localdns.sh'
 `
 }
 
