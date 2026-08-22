@@ -2602,8 +2602,6 @@ type LocalDNSHealthCheck struct {
 	Duration *string `json:"duration,omitempty"`
 	// Sets the RecursionDesired flag of the health check query to false.
 	NoRec *bool `json:"noRec,omitempty"`
-	// Domain name used for health check queries.
-	Domain *string `json:"domain,omitempty"`
 }
 
 // LocalDNSOverrides represents DNS override settings for both VnetDNS and KubeDNS traffic.
@@ -2620,12 +2618,6 @@ func (h *LocalDNSHealthCheck) GetNoRec() bool {
 		return *h.NoRec
 	}
 	return false
-}
-func (h *LocalDNSHealthCheck) GetDomain() string {
-	if h != nil && h.Domain != nil {
-		return *h.Domain
-	}
-	return ""
 }
 
 func (o *LocalDNSOverrides) GetFailfastAllUnhealthyUpstreams() bool {

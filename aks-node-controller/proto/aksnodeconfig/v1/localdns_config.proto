@@ -77,6 +77,6 @@ message LocalDnsHealthCheck {
   // Sets the RecursionDesired flag of the health check query to false.
   optional bool no_rec = 2;
 
-  // Domain name used for health check queries.
-  optional string domain = 3;
+  reserved 3;
+  reserved "domain";
 }
