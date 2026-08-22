@@ -8,6 +8,7 @@ import (
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -690,6 +691,57 @@ func Test_Ubuntu2204_ScriptlessCSECmd_Hotfix(t *testing.T) {
 				// This file does NOT exist on any VHD — it can only be present if cloud-init
 				// processed our write_files entry, proving the hotfix delivery mechanism works.
 				return ValidateFileHasContent(ctx, s, hotfixMarkerPath, hotfixMarkerContent)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404_CheckHotfixFromNBCCmd(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that check-hotfix resolves the LPS target from the Phase 2 NBC command",
+		Config: Config{
+			Cluster:               ClusterKubenet,
+			VHD:                   config.VHDUbuntu2404Gen2Containerd,
+			SkipDefaultValidation: true,
+			Validator: func(ctx context.Context, s *Scenario) error {
+				result, err := execScriptOnVMForScenarioValidateExitCode(
+					ctx,
+					s,
+					`set -eu
+config_path=/opt/azure/containers/aks-node-controller-config.json
+nbc_cmd_path=/opt/azure/containers/aks-node-controller-nbc-cmd.sh
+anc_path=/opt/azure/containers/aks-node-controller-hotfix
+
+sudo test ! -e "$config_path" || {
+	echo "$config_path unexpectedly exists" >&2
+	exit 1
+}
+sudo test -e "$nbc_cmd_path" || {
+	echo "$nbc_cmd_path does not exist" >&2
+	exit 1
+}
+if ! sudo test -x "$anc_path"; then
+	anc_path=/opt/azure/containers/aks-node-controller
+fi
+sudo test -x "$anc_path" || {
+	echo "no executable aks-node-controller binary found" >&2
+	exit 1
+}
+
+echo "using ANC binary: $anc_path"
+sudo "$anc_path" check-hotfix`,
+					0,
+					"check-hotfix NBC command fallback failed",
+				)
+				if err != nil {
+					return err
+				}
+
+				output := result.stdout + "\n" + result.stderr
+				return errors.Join(
+					assert.Contains(output, "node config not found, trying nbc-cmd.sh fallback"),
+					assert.Contains(output, "loaded LPS target from nbc-cmd.sh fallback"),
+				)
 			},
 		},
 	})

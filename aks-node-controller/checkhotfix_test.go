@@ -506,6 +506,7 @@ func TestLPSTargetFromNodeConfig(t *testing.T) {
 		body := `{"version":"v1","api_server_config":{"api_server_name":"myapi.example.com"},"kubernetes_ca_cert":"` + caB64 + `"}`
 		require.NoError(t, os.WriteFile(p, []byte(body), 0644))
 		tt.App.nodeConfigPath = p
+		tt.App.nbcCmdPath = filepath.Join(t.TempDir(), "must-not-be-read.sh")
 
 		fqdn, ca, err := tt.App.lpsTargetFromNodeConfig()
 		require.NoError(t, err)
@@ -524,11 +525,93 @@ func TestLPSTargetFromNodeConfig(t *testing.T) {
 		assert.Contains(t, err.Error(), "api_server_name")
 	})
 
-	t.Run("missing file is an error", func(t *testing.T) {
+	t.Run("missing config.json falls back to nbc-cmd.sh", func(t *testing.T) {
+		dir := t.TempDir()
+		tt := NewTestApp(t, TestAppConfig{})
+		tt.App.nodeConfigPath = filepath.Join(dir, "nope.json")
+
+		caPEM := "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n"
+		caB64 := base64.StdEncoding.EncodeToString([]byte(caPEM))
+		cmdPath := filepath.Join(dir, "nbc-cmd.sh")
+		cmdContent := fmt.Sprintf(
+			`PROVISION_OUTPUT="/tmp/out"; API_SERVER_NAME=fallback.example.com `+
+				`KUBE_CA_CRT="%s" /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`,
+			caB64)
+		require.NoError(t, os.WriteFile(cmdPath, []byte(cmdContent), 0600))
+		tt.App.nbcCmdPath = cmdPath
+
+		fqdn, ca, err := tt.App.lpsTargetFromNodeConfig()
+		require.NoError(t, err)
+		assert.Equal(t, "fallback.example.com", fqdn)
+		assert.Equal(t, []byte(caPEM), ca)
+	})
+
+	t.Run("missing config.json and missing nbc-cmd.sh is an error", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nope.json")
+		tt.App.nbcCmdPath = filepath.Join(t.TempDir(), "also-nope.sh")
 		_, _, err := tt.App.lpsTargetFromNodeConfig()
 		require.Error(t, err)
+	})
+}
+
+func TestLPSTargetFromNBCCmd(t *testing.T) {
+	caPEM := "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n"
+	caB64 := base64.StdEncoding.EncodeToString([]byte(caPEM))
+
+	t.Run("reads fqdn and decodes CA", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		p := filepath.Join(t.TempDir(), "nbc-cmd.sh")
+		content := fmt.Sprintf(`API_SERVER_NAME=myapi.example.com KUBE_CA_CRT="%s" /usr/bin/nohup /bin/bash -c "provision"`, caB64)
+		require.NoError(t, os.WriteFile(p, []byte(content), 0600))
+		tt.App.nbcCmdPath = p
+
+		fqdn, ca, err := tt.App.lpsTargetFromNBCCmd()
+		require.NoError(t, err)
+		assert.Equal(t, "myapi.example.com", fqdn)
+		assert.Equal(t, []byte(caPEM), ca)
+	})
+
+	t.Run("missing API_SERVER_NAME is an error", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		p := filepath.Join(t.TempDir(), "nbc-cmd.sh")
+		content := fmt.Sprintf(`KUBE_CA_CRT="%s" /usr/bin/nohup /bin/bash -c "provision"`, caB64)
+		require.NoError(t, os.WriteFile(p, []byte(content), 0600))
+		tt.App.nbcCmdPath = p
+
+		_, _, err := tt.App.lpsTargetFromNBCCmd()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "API_SERVER_NAME")
+	})
+
+	t.Run("missing file is an error", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		tt.App.nbcCmdPath = filepath.Join(t.TempDir(), "nope.sh")
+		_, _, err := tt.App.lpsTargetFromNBCCmd()
+		require.Error(t, err)
+	})
+
+	t.Run("CA is optional", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		p := filepath.Join(t.TempDir(), "nbc-cmd.sh")
+		require.NoError(t, os.WriteFile(p, []byte(`API_SERVER_NAME=myapi.example.com /usr/bin/nohup /bin/bash -c "provision"`), 0600))
+		tt.App.nbcCmdPath = p
+
+		fqdn, ca, err := tt.App.lpsTargetFromNBCCmd()
+		require.NoError(t, err)
+		assert.Equal(t, "myapi.example.com", fqdn)
+		assert.Nil(t, ca)
+	})
+
+	t.Run("invalid CA is an error", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		p := filepath.Join(t.TempDir(), "nbc-cmd.sh")
+		require.NoError(t, os.WriteFile(p, []byte(`API_SERVER_NAME=myapi.example.com KUBE_CA_CRT="not-base64" /usr/bin/nohup /bin/bash -c "provision"`), 0600))
+		tt.App.nbcCmdPath = p
+
+		_, _, err := tt.App.lpsTargetFromNBCCmd()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "KUBE_CA_CRT")
 	})
 }
 
