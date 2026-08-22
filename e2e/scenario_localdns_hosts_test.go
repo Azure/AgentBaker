@@ -194,8 +194,15 @@ func localDNSLPSPayload(version string) string {
 func localDNSLPSFetcherWrapper() string {
 	return `#!/bin/bash
 set -euo pipefail
+# Prefer the locally-compiled aks-node-controller (delivered via the hotfix path by
+# ForceScriptlessCompilation) so apply-localdns-config matches the branch under test;
+# fall back to the VHD baked-in binary otherwise.
+ANC_BIN=/opt/azure/containers/aks-node-controller
+if [ -x /opt/azure/containers/aks-node-controller-hotfix ]; then
+    ANC_BIN=/opt/azure/containers/aks-node-controller-hotfix
+fi
 if [ "${1:-}" != "fetch-localdns-config" ]; then
-    exec /opt/azure/containers/aks-node-controller "$@"
+    exec "$ANC_BIN" "$@"
 fi
 output=""
 while [ "$#" -gt 0 ]; do
@@ -214,7 +221,7 @@ if [ -z "$output" ]; then
     exit 1
 fi
 touch ` + localDNSFetcherStamp + `
-exec /opt/azure/containers/aks-node-controller apply-localdns-config --config-file ` + localDNSPayloadPath + ` --output "$output"
+exec "$ANC_BIN" apply-localdns-config --config-file ` + localDNSPayloadPath + ` --output "$output"
 `
 }
 
