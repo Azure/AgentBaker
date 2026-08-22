@@ -638,3 +638,37 @@ func Test_NetworkIsolatedCluster_Windows_OrasDownload(t *testing.T) {
 		},
 	})
 }
+
+func Test_Windows2022_Dalec_CredentialProvider(t *testing.T) {
+	// REVERT ME: build & use a CSE zip from the branch's staging/cse/windows/ so the resolver
+	// change is exercised instead of the published package. Remove once the CSE scripts ship.
+	cseURL, err := getOrBuildBranchCSEPackageURL()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	RunScenario(t, &Scenario{
+		Description: "Tests Windows 2022 node installs credential provider from dalec via components.json for k8s >= 1.33",
+		Config: Config{
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows2022ContainerdGen2,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = cseURL // Remove once the CSE scripts ship
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.33.1"
+				nbc.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", "1.33.1", "1.33.1")
+				nbc.KubeletConfig["--image-credential-provider-config"] = "c:\\k\\credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "c:\\var\\lib\\kubelet\\credential-provider"
+				// Do NOT set WindowsCredentialProviderURL — resolver should use components.json
+			},
+			Validator: func(ctx context.Context, s *Scenario) error {
+				// Assert dalec-specific CSE log line to prove resolver path was taken
+				return errors.Join(
+					ValidateFileExists(ctx, s, `c:\var\lib\kubelet\credential-provider\acr-credential-provider.exe`),
+					ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Using dalec credential provider"),
+				)
+			},
+		},
+	})
+}

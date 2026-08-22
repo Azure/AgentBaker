@@ -3953,3 +3953,31 @@ func Test_Ubuntu2204_NodeHardening_KubeReservedSlice_CLIFlags(t *testing.T) {
 		},
 	})
 }
+
+func Test_Ubuntu2204_PMC_CredentialProvider_After_Gate_Change(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests Ubuntu 2204 installs credential provider from PMC at k8s 1.33 after gate lowered",
+		Config: Config{
+			Cluster:         ClusterKubenet,
+			VHD:             config.VHDUbuntu2204Gen2Containerd,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Must be a kubelet patch version cached on the VHD (kubernetes-binaries in
+				// components.json); install falls back to the VHD cache and kubelet.service has
+				// ConditionPathExists=/opt/bin/kubelet.
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.33.13"
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+				// No ShouldEnforceKubePMCInstall — testing the natural version gate
+			},
+			Validator: func(ctx context.Context, s *Scenario) error {
+				// Proves the PMC package branch (not the URL branch) ran at k8s 1.33; the URL path
+				// would instead log installCredentialProviderFromUrl.
+				return errors.Join(
+					ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider/acr-credential-provider"),
+					ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "installCredentialProviderFromPkg"),
+				)
+			},
+		},
+	})
+}
