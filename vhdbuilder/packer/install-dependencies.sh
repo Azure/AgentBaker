@@ -755,10 +755,21 @@ cachePackageAndBinaryComponents() {
 cacheContainerImageComponents() {
   # Download/cache all declared container images within components.json that apply to the respective OS SKU
 
+  local container_image_pull_cli="ctr"
+  if isACL "$OS" "$OS_VARIANT" && [ "$(isARM64)" -eq 0 ]; then
+    # containerd 2.x uses its server-side transfer service unless --local is
+    # supplied. The ACL EROFS differ discovers and verifies dm-verity
+    # referrers while that service resolves and unpacks the image.
+    container_image_pull_cli="ctr-transfer"
+  fi
+
   # Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
   # Account for possibility that number of cores is 3 or less
   num_proc=$(nproc)
-  if [ "$num_proc" -gt 3 ]; then
+  if [ "$container_image_pull_cli" = "ctr-transfer" ] && [ "$num_proc" -gt 1 ]; then
+    # EROFS creation and dm-verity formatting are CPU and disk intensive.
+    parallel_container_image_pull_limit=2
+  elif [ "$num_proc" -gt 3 ]; then
     parallel_container_image_pull_limit=$(nproc --ignore=2)
   else
     parallel_container_image_pull_limit=1
@@ -785,7 +796,7 @@ cacheContainerImageComponents() {
 
     for version in ${versions}; do
       CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-      pullContainerImage "ctr" "${CONTAINER_IMAGE}" &
+      pullContainerImage "$container_image_pull_cli" "${CONTAINER_IMAGE}" &
       image_pids+=($!)
       echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
       while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do

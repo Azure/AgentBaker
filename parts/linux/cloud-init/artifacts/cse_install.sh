@@ -649,6 +649,19 @@ pullContainerImage() {
     if [ "${CLI_TOOL,,}" = "ctr" ]; then
         retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS /opt/azure/containers/image-fetcher $CONTAINER_IMAGE_URL
         code=$?
+    elif [ "${CLI_TOOL,,}" = "ctr-transfer" ]; then
+        local platform_arch
+        platform_arch="${CPU_ARCH:-$(getCPUArch)}"
+        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS \
+            ctr --namespace k8s.io images pull \
+            --snapshotter erofs \
+            --platform "linux/${platform_arch}" \
+            --hosts-dir /etc/containerd/certs.d \
+            "$CONTAINER_IMAGE_URL" >/dev/null
+        code=$?
+        if [ "$code" -eq 0 ]; then
+            validateErofsContainerImageCache "$CONTAINER_IMAGE_URL" "$platform_arch" || code=$?
+        fi
     elif [ "${CLI_TOOL,,}" = "crictl" ]; then
         retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS crictl pull $CONTAINER_IMAGE_URL
         code=$?
@@ -663,7 +676,7 @@ pullContainerImage() {
             return $code
         fi
         echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ${CLI_TOOL}"
-        if [ "${CLI_TOOL,,}" = "ctr" ]; then
+        if [ "${CLI_TOOL,,}" = "ctr" ] || [ "${CLI_TOOL,,}" = "ctr-transfer" ]; then
             return $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT
         elif [ "${CLI_TOOL,,}" = "crictl" ]; then
             return $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT
@@ -673,6 +686,48 @@ pullContainerImage() {
     fi
 
     echo "successfully pulled image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
+}
+
+validateErofsContainerImageCache() {
+    local image_ref=$1
+    local expected_arch=$2
+    local actual_platform
+    local image_info
+    local inspect_status=1
+
+    for inspect_attempt in 1 2 3 4 5; do
+        if image_info=$(crictl --timeout 30s inspecti "$image_ref") &&
+            actual_platform=$(printf '%s\n' "$image_info" | jq -er '
+                .info.imageSpec
+                | if (.os | type) == "string" and (.architecture | type) == "string"
+                  then "\(.os)/\(.architecture)"
+                  else error("missing image config platform")
+                  end
+            '); then
+            inspect_status=0
+            break
+        fi
+        if [ "$inspect_attempt" -lt 5 ]; then
+            sleep 1
+        fi
+    done
+
+    if [ "$inspect_status" -ne 0 ]; then
+        echo "failed to inspect transferred image config platform: ${image_ref}" >&2
+        return 1
+    fi
+    if [ "$actual_platform" != "linux/${expected_arch}" ]; then
+        echo "image platform mismatch: selected manifest for linux/${expected_arch}, but image config is ${actual_platform}" >&2
+        return 1
+    fi
+
+    if ! ctr --namespace k8s.io images check \
+        --snapshotter erofs \
+        --quiet \
+        "name==${image_ref}" | grep -Fxq -- "$image_ref"; then
+        echo "transfer completed without unpacking image in snapshotter \"erofs\": ${image_ref}" >&2
+        return 1
+    fi
 }
 
 retagContainerImage() {

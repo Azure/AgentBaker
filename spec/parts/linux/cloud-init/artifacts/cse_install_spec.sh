@@ -366,4 +366,135 @@ Describe 'cse_install.sh'
             The output line 3 should include "mock exit calling with 207"
         End
     End
+
+    Describe 'pullContainerImage'
+        retrycmd_if_failure() {
+            echo "${PULL_COMMAND_STDOUT:-mock pull progress}"
+            echo "retrycmd_if_failure $*" >&2
+            return "${PULL_COMMAND_STATUS:-0}"
+        }
+
+        validateErofsContainerImageCache() {
+            echo "validateErofsContainerImageCache $*"
+            return "${CACHE_VALIDATION_STATUS:-0}"
+        }
+
+        BeforeEach 'setupPullContainerImage'
+        setupPullContainerImage() {
+            CPU_ARCH="amd64"
+            PULL_COMMAND_STATUS=0
+            CACHE_VALIDATION_STATUS=0
+        }
+
+        It 'uses server-side containerd transfer with EROFS for ctr-transfer'
+            When call pullContainerImage "ctr-transfer" "mcr.microsoft.com/example/image:v1"
+            The error should include "retrycmd_if_failure 10 1 600 ctr --namespace k8s.io images pull --snapshotter erofs --platform linux/amd64 --hosts-dir /etc/containerd/certs.d mcr.microsoft.com/example/image:v1"
+            The output should not include "mock pull progress"
+            The output should include "validateErofsContainerImageCache mcr.microsoft.com/example/image:v1 amd64"
+            The output should include "successfully pulled image mcr.microsoft.com/example/image:v1 using ctr-transfer"
+            The status should be success
+        End
+
+        It 'preserves image-fetcher for the existing ctr path'
+            When call pullContainerImage "ctr" "mcr.microsoft.com/example/image:v1"
+            The error should include "retrycmd_if_failure 10 1 600 /opt/azure/containers/image-fetcher mcr.microsoft.com/example/image:v1"
+            The error should not include "images pull"
+            The output should include "mock pull progress"
+            The output should not include "validateErofsContainerImageCache"
+            The status should be success
+        End
+
+        It 'maps a ctr-transfer timeout to the existing ctr timeout error'
+            PULL_COMMAND_STATUS=124
+            When call pullContainerImage "ctr-transfer" "mcr.microsoft.com/example/image:v1"
+            The error should include "retrycmd_if_failure 10 1 600 ctr --namespace k8s.io images pull"
+            The output should include "timed out pulling image mcr.microsoft.com/example/image:v1 via ctr-transfer"
+            The output should not include "validateErofsContainerImageCache"
+            The status should equal "$ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT"
+        End
+
+        It 'fails ctr-transfer when the transferred image is not valid for the EROFS cache'
+            CACHE_VALIDATION_STATUS=1
+            When call pullContainerImage "ctr-transfer" "mcr.microsoft.com/example/image:v1"
+            The error should include "retrycmd_if_failure 10 1 600 ctr --namespace k8s.io images pull"
+            The output should include "failed to pull image mcr.microsoft.com/example/image:v1 using ctr-transfer, exit code: 1"
+            The status should be failure
+        End
+    End
+
+    Describe 'validateErofsContainerImageCache'
+        BeforeEach 'setupErofsContainerImageValidation'
+        setupErofsContainerImageValidation() {
+            IMAGE_CONFIG_OS="linux"
+            IMAGE_CONFIG_ARCH="amd64"
+            EROFS_READY="true"
+            INSPECT_FAILURES=0
+            INSPECT_CALL_COUNT_FILE=$(mktemp)
+            echo 0 > "$INSPECT_CALL_COUNT_FILE"
+        }
+
+        crictl() {
+            local call_count
+            call_count=$(($(< "$INSPECT_CALL_COUNT_FILE") + 1))
+            echo "$call_count" > "$INSPECT_CALL_COUNT_FILE"
+            if [ "$call_count" -le "$INSPECT_FAILURES" ]; then
+                return 1
+            fi
+            if [ "$*" = "--timeout 30s inspecti mcr.microsoft.com/example/image:v1" ]; then
+                printf '{"info":{"imageSpec":{"os":"%s","architecture":"%s"}}}\n' "$IMAGE_CONFIG_OS" "$IMAGE_CONFIG_ARCH"
+            fi
+        }
+
+        sleep() {
+            echo "sleep $*"
+        }
+
+        ctr() {
+            if [ "$*" = "--namespace k8s.io images check --snapshotter erofs --quiet name==mcr.microsoft.com/example/image:v1" ] && [ "$EROFS_READY" = "true" ]; then
+                echo "mcr.microsoft.com/example/image:v1"
+            fi
+        }
+
+        AfterEach 'cleanupErofsContainerImageValidation'
+        cleanupErofsContainerImageValidation() {
+            rm -f "$INSPECT_CALL_COUNT_FILE"
+        }
+
+        It 'accepts an exact-platform image unpacked in EROFS'
+            When call validateErofsContainerImageCache "mcr.microsoft.com/example/image:v1" "amd64"
+            The status should be success
+        End
+
+        It 'retries while the transferred image is not yet visible through CRI'
+            INSPECT_FAILURES=2
+            When call validateErofsContainerImageCache "mcr.microsoft.com/example/image:v1" "amd64"
+            The output should include "sleep 1"
+            The status should be success
+        End
+
+        It 'rejects an image whose config platform does not match'
+            IMAGE_CONFIG_ARCH="arm64"
+            When call validateErofsContainerImageCache "mcr.microsoft.com/example/image:v1" "amd64"
+            The error should include "image platform mismatch: selected manifest for linux/amd64, but image config is linux/arm64"
+            The status should be failure
+        End
+
+        It 'rejects malformed image config platform metadata'
+            crictl() {
+                echo '{"info":{"imageSpec":{}}}'
+            }
+            When call validateErofsContainerImageCache "mcr.microsoft.com/example/image:v1" "amd64"
+            The output should include "sleep 1"
+            The error should include "failed to inspect transferred image config platform"
+            The status should be failure
+        End
+
+        It 'rejects a content-only transfer without an EROFS unpack'
+            EROFS_READY="false"
+            When call validateErofsContainerImageCache "mcr.microsoft.com/example/image:v1" "amd64"
+            The error should include 'transfer completed without unpacking image in snapshotter "erofs"'
+            The status should be failure
+        End
+    End
+
 End
