@@ -366,4 +366,113 @@ Describe 'cse_install.sh'
             The output line 3 should include "mock exit calling with 207"
         End
     End
+
+    Describe 'pullContainerImage'
+        retrycmd_if_failure() {
+            echo "${PULL_COMMAND_STDOUT:-mock pull progress}"
+            echo "retrycmd_if_failure $*" >&2
+            return "${PULL_COMMAND_STATUS:-0}"
+        }
+
+        BeforeEach 'setupPullContainerImage'
+        setupPullContainerImage() {
+            PULL_COMMAND_STATUS=0
+        }
+
+        It 'selects server-side transfer through image-fetcher for capable EROFS'
+            When call pullContainerImage "ctr" "mcr.microsoft.com/example/image:v1" "erofs"
+            The error should include "retrycmd_if_failure 10 1 600 env IMAGE_FETCHER_SNAPSHOTTER=erofs /opt/azure/containers/image-fetcher mcr.microsoft.com/example/image:v1"
+            The output should include "mock pull progress"
+            The output should include "successfully pulled image mcr.microsoft.com/example/image:v1 using ctr"
+            The status should be success
+        End
+
+        It 'preserves image-fetcher for the existing ctr path'
+            When call pullContainerImage "ctr" "mcr.microsoft.com/example/image:v1"
+            The error should include "retrycmd_if_failure 10 1 600 /opt/azure/containers/image-fetcher mcr.microsoft.com/example/image:v1"
+            The error should not include "IMAGE_FETCHER_SNAPSHOTTER"
+            The output should include "mock pull progress"
+            The status should be success
+        End
+
+        It 'maps an EROFS transfer timeout to the existing ctr timeout error'
+            PULL_COMMAND_STATUS=124
+            When call pullContainerImage "ctr" "mcr.microsoft.com/example/image:v1" "erofs"
+            The error should include "retrycmd_if_failure 10 1 600 env IMAGE_FETCHER_SNAPSHOTTER=erofs /opt/azure/containers/image-fetcher"
+            The output should include "timed out pulling image mcr.microsoft.com/example/image:v1 via ctr"
+            The status should equal "$ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT"
+        End
+    End
+
+    Describe 'containerdUsesErofsDmverityReferrers'
+        ctr() {
+            case "$*" in
+                "plugins ls --detailed type==io.containerd.snapshotter.v1,id==erofs")
+                    printf '%s\n' "${EROFS_SNAPSHOTTER_INFO}"
+                    ;;
+                "plugins ls --detailed type==io.containerd.differ.v1,id==erofs")
+                    printf '%s\n' "${EROFS_DIFFER_INFO}"
+                    ;;
+            esac
+            return "${CTR_PLUGINS_STATUS:-0}"
+        }
+
+        crictl() {
+            if [ "$*" = "--timeout 30s imagefsinfo -o json" ]; then
+                printf '{"imageFilesystems":[{"fsId":{"mountpoint":"%s"}}]}\n' "$ACTIVE_IMAGEFS_ROOT"
+            fi
+            return "${CRICTL_IMAGEFS_STATUS:-0}"
+        }
+
+        BeforeEach 'setupErofsPluginInfo'
+        setupErofsPluginInfo() {
+            EROFS_SNAPSHOTTER_INFO=$'Type:\tio.containerd.snapshotter.v1\nID:\terofs\nCapabilities:\tdmverity-referrers\nExports:\n\troot\t/var/lib/containerd/io.containerd.snapshotter.v1.erofs'
+            EROFS_DIFFER_INFO=$'Type:\tio.containerd.differ.v1\nID:\terofs\nCapabilities:\tdmverity-referrers'
+            ACTIVE_IMAGEFS_ROOT="/var/lib/containerd/io.containerd.snapshotter.v1.erofs"
+            CTR_PLUGINS_STATUS=0
+            CRICTL_IMAGEFS_STATUS=0
+        }
+
+        It 'accepts EROFS as the active image snapshotter with a dm-verity-capable differ'
+            When call containerdUsesErofsDmverityReferrers
+            The status should be success
+        End
+
+        It 'rejects EROFS plugins when CRI uses another image snapshotter'
+            ACTIVE_IMAGEFS_ROOT="/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs"
+            When call containerdUsesErofsDmverityReferrers
+            The status should be failure
+        End
+
+        It 'rejects an EROFS snapshotter without dm-verity referrer support'
+            EROFS_SNAPSHOTTER_INFO=$'Type:\tio.containerd.snapshotter.v1\nID:\terofs\nExports:\n\troot\t/var/lib/containerd/io.containerd.snapshotter.v1.erofs'
+            When call containerdUsesErofsDmverityReferrers
+            The status should be failure
+        End
+
+        It 'rejects an EROFS differ without dm-verity referrer support'
+            EROFS_DIFFER_INFO=$'Type:\tio.containerd.differ.v1\nID:\terofs'
+            When call containerdUsesErofsDmverityReferrers
+            The status should be failure
+        End
+
+        It 'rejects an EROFS plugin that failed initialization'
+            EROFS_SNAPSHOTTER_INFO=$'Type:\tio.containerd.snapshotter.v1\nID:\terofs\nError:\n\tCode:\tUnknown'
+            When call containerdUsesErofsDmverityReferrers
+            The status should be failure
+        End
+
+        It 'rejects a containerd introspection failure'
+            CTR_PLUGINS_STATUS=1
+            When call containerdUsesErofsDmverityReferrers
+            The status should be failure
+        End
+
+        It 'rejects a CRI image filesystem introspection failure'
+            CRICTL_IMAGEFS_STATUS=1
+            When call containerdUsesErofsDmverityReferrers
+            The status should be failure
+        End
+    End
+
 End

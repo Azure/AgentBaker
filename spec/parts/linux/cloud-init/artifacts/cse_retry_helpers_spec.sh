@@ -49,6 +49,45 @@ Describe 'long running cse helper functions'
         End
     End
 
+    Describe 'retrycmd_cp_oci_layout_with_oras'
+        setup_oras_copy_test() {
+            ORAS_COPY_TEST_ROOT=$(mktemp -d)
+            ORAS_OUTPUT="${ORAS_COPY_TEST_ROOT}/oras-output"
+            ORAS_REGISTRY_CONFIG_FILE="${ORAS_COPY_TEST_ROOT}/registry-config.json"
+        }
+        cleanup_oras_copy_test() {
+            rm -rf "$ORAS_COPY_TEST_ROOT"
+        }
+        timeout() {
+            printf '%s\n' "$*"
+            return 0
+        }
+
+        BeforeEach setup_oras_copy_test
+        AfterEach cleanup_oras_copy_test
+
+        It 'copies referrers recursively when requested'
+            When call retrycmd_cp_oci_layout_with_oras \
+                2 0 "${ORAS_COPY_TEST_ROOT}/layout" local \
+                "dummy.registry/image:v1" true
+
+            The status should be success
+            The stdout should eq "2 retries"
+            The contents of file "$ORAS_OUTPUT" should include "oras cp --recursive dummy.registry/image:v1"
+        End
+
+        It 'keeps the standard non-recursive copy by default'
+            When call retrycmd_cp_oci_layout_with_oras \
+                2 0 "${ORAS_COPY_TEST_ROOT}/layout" local \
+                "dummy.registry/image:v1"
+
+            The status should be success
+            The stdout should eq "2 retries"
+            The contents of file "$ORAS_OUTPUT" should include "oras cp dummy.registry/image:v1"
+            The contents of file "$ORAS_OUTPUT" should not include "oras cp --recursive"
+        End
+    End
+
     Describe 'systemctl svc retry'
         Describe '_systemctl_retry_svc_operation logging'
 
