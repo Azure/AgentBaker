@@ -59,14 +59,6 @@ The operational goals of this project are:
 
 When making changes, reason whether the file is used in VHD building stage, or provision stage, or both. Make sure the changes are valid in its life stage. as an example, [windows-vhd-configuration.ps1](./vhdbuilder/packer/windows/windows-vhd-configuration.ps1) defines container images to be cached in VHD, while [configure-windows-vhd.ps1](./vhdbuilder/packer/windows/configure-windows-vhd.ps1) executes commands at provision time.
 
-One way to debug / explore / just for fun is to run [e2e](./e2e/) tests. To run locally, follow the readme file under that folder.
-
-The SRE guidelines ground other coding guidelines and practices.
-
-### PowerShell Guidelines
-
-- follow PowerShell best practices
-
 ### ShellScripts Guidelines
 
 - use shellcheck for sanity checking
