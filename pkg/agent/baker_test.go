@@ -1637,6 +1637,15 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(string(decodedPayload)).To(ContainSubstring("/opt/azure/containers/provision_preload.sh"))
 	})
 
+	It("should configure a shorter initial goal state period", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+
+		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(config))
+
+		Expect(nodeCustomData).To(ContainSubstring("Extensions.InitialGoalStatePeriod=2"))
+	})
+
 	It("should embed the encoded AKSNodeConfig in the scriptless NBC boothook when provided", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)

@@ -8,6 +8,11 @@ bootcmd:
     [ -e /usr/local/bin/${bin} ] || continue
     ln -s /usr/local/bin/${bin} /opt/bin/
   done
+  if grep -q '^Extensions.InitialGoalStatePeriod=' /etc/waagent.conf; then
+    sed -i 's/^Extensions.InitialGoalStatePeriod=.*/Extensions.InitialGoalStatePeriod=2/' /etc/waagent.conf
+  else
+    printf '\nExtensions.InitialGoalStatePeriod=2\n' >> /etc/waagent.conf
+  fi
 
 write_files:
 # IMPORTANT: OSGuard images have /usr/ mounted read-only (dm-verity).
