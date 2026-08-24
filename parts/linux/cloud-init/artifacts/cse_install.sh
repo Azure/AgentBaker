@@ -697,7 +697,7 @@ containerdUsesErofsDmverityReferrers() {
     snapshotter_root=$(awk '$1 == "root" { print $2; exit }' <<< "$snapshotter_info")
     imagefs_info=$(crictl --timeout 30s imagefsinfo -o json) || return 1
     active_imagefs_root=$(jq -er '
-        .imageFilesystems[0].fsId.mountpoint
+        .status.imageFilesystems[0].fsId.mountpoint
         | select(type == "string" and length > 0)
     ' <<< "$imagefs_info") || return 1
 

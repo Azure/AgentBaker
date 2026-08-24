@@ -419,7 +419,7 @@ Describe 'cse_install.sh'
 
         crictl() {
             if [ "$*" = "--timeout 30s imagefsinfo -o json" ]; then
-                printf '{"imageFilesystems":[{"fsId":{"mountpoint":"%s"}}]}\n' "$ACTIVE_IMAGEFS_ROOT"
+                printf '{"status":{"imageFilesystems":[{"fsId":{"mountpoint":"%s"}}]}}\n' "$ACTIVE_IMAGEFS_ROOT"
             fi
             return "${CRICTL_IMAGEFS_STATUS:-0}"
         }
