@@ -239,6 +239,8 @@ Describe 'Install-CredentialProvider' {
             $script:lastDownloadReference = $Reference
         }
         Mock AKS-Expand-Archive
+        Mock Get-DalecCredentialProviderPackage
+        Mock Expand-DalecCredentialProviderPackage
         Mock Create-Directory
         Mock cp
         Mock del
@@ -289,7 +291,7 @@ Describe 'Install-CredentialProvider' {
         $script:lastDownloadReference | Should -Be 'myregistry.azurecr.io/aks/packages/kubernetes/azure-acr-credential-provider:v1.31.9'
     }
 
-    It 'uses dalec path via AKS-Expand-Archive for k8s >= 1.33 with stock legacy RP URL' {
+    It 'uses dalec path via Expand-DalecCredentialProviderPackage for k8s >= 1.33 with stock legacy RP URL' {
         $global:BootstrapProfileContainerRegistryServer = ""
         $global:KubeBinariesVersion = "1.33.3"
         $global:CredentialProviderURL = 'https://packages.aks.azure.com/cloud-provider-azure/v1.33.3/binaries/azure-acr-credential-provider-windows-amd64-v1.33.3.tar.gz'
@@ -304,10 +306,31 @@ Describe 'Install-CredentialProvider' {
         }
 
         Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
-        Assert-MockCalled -CommandName 'AKS-Expand-Archive' -Times 1
-        Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 1 -ParameterFilter {
+        Assert-MockCalled -CommandName 'Expand-DalecCredentialProviderPackage' -Times 1
+        Assert-MockCalled -CommandName 'Get-DalecCredentialProviderPackage' -Times 1 -ParameterFilter {
             $Url -eq 'https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.33.6/windows/amd64/azure-acr-credential-provider_1.33.6-1_amd64.zip'
         }
+        Assert-MockCalled -CommandName 'tar' -Times 0
+    }
+
+    It 'uses dalec path for k8s >= 1.33 when the RP URL is empty' {
+        $global:BootstrapProfileContainerRegistryServer = ""
+        $global:KubeBinariesVersion = "1.33.3"
+        $global:CredentialProviderURL = ""
+
+        Mock Resolve-DalecCredentialProviderPackage -MockWith {
+            return @{
+                Url = 'https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.33.6/windows/amd64/azure-acr-credential-provider_1.33.6-1_amd64.zip'
+                Version = '1.33.6-1'
+                CachedFile = 'c:\akse-cache\azure-acr-credential-provider\azure-acr-credential-provider_1.33.6-1_amd64.zip'
+                IsDalec = $true
+            }
+        }
+
+        Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
+        Assert-MockCalled -CommandName 'Resolve-DalecCredentialProviderPackage' -Times 1
+        Assert-MockCalled -CommandName 'Expand-DalecCredentialProviderPackage' -Times 1
+        Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 0
         Assert-MockCalled -CommandName 'tar' -Times 0
     }
 
@@ -327,9 +350,30 @@ Describe 'Install-CredentialProvider' {
 
         Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
         Assert-MockCalled -CommandName 'Resolve-DalecCredentialProviderPackage' -Times 1
-        Assert-MockCalled -CommandName 'AKS-Expand-Archive' -Times 1 -ParameterFilter {
+        Assert-MockCalled -CommandName 'Expand-DalecCredentialProviderPackage' -Times 1 -ParameterFilter {
             $Path -eq 'c:\akse-cache\azure-acr-credential-provider\azure-acr-credential-provider_1.33.6-1_amd64.zip'
         }
+        Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 0
+        Assert-MockCalled -CommandName 'tar' -Times 0
+    }
+
+    It 'uses dalec path for k8s >= 1.33 with the stock legacy mirror URL' {
+        $global:BootstrapProfileContainerRegistryServer = ""
+        $global:KubeBinariesVersion = "1.33.3"
+        $global:CredentialProviderURL = 'https://acs-mirror.azureedge.net/cloud-provider-azure/v1.33.3/binaries/azure-acr-credential-provider-windows-amd64-v1.33.3.tar.gz'
+
+        Mock Resolve-DalecCredentialProviderPackage -MockWith {
+            return @{
+                Url = 'https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.33.6/windows/amd64/azure-acr-credential-provider_1.33.6-1_amd64.zip'
+                Version = '1.33.6-1'
+                CachedFile = 'c:\akse-cache\azure-acr-credential-provider\azure-acr-credential-provider_1.33.6-1_amd64.zip'
+                IsDalec = $true
+            }
+        }
+
+        Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
+        Assert-MockCalled -CommandName 'Resolve-DalecCredentialProviderPackage' -Times 1
+        Assert-MockCalled -CommandName 'Expand-DalecCredentialProviderPackage' -Times 1
         Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 0
         Assert-MockCalled -CommandName 'tar' -Times 0
     }
@@ -347,18 +391,18 @@ Describe 'Install-CredentialProvider' {
                 IsDalec = $true
             }
         }
-        Mock DownloadFileOverHttp -MockWith {
-            param($Url)
-            if ($Url -match '/dalec-packages/') {
-                throw 'dalec download failed'
-            }
+        Mock Get-DalecCredentialProviderPackage -MockWith {
+            throw 'dalec download failed'
         }
 
         Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
         Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 1 -ParameterFilter {
             $Url -eq $global:CredentialProviderURL
         }
-        Assert-MockCalled -CommandName 'AKS-Expand-Archive' -Times 0
+        Assert-MockCalled -CommandName 'Get-DalecCredentialProviderPackage' -Times 1 -ParameterFilter {
+            $Url -match '/dalec-packages/'
+        }
+        Assert-MockCalled -CommandName 'Expand-DalecCredentialProviderPackage' -Times 0
         Assert-MockCalled -CommandName 'tar' -Times 1
     }
 
@@ -375,13 +419,15 @@ Describe 'Install-CredentialProvider' {
                 IsDalec = $true
             }
         }
-        Mock AKS-Expand-Archive -MockWith { throw 'dalec extraction failed' }
+        Mock Expand-DalecCredentialProviderPackage -MockWith {
+            throw 'dalec extraction failed'
+        }
 
         Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
         Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 1 -ParameterFilter {
             $Url -eq $global:CredentialProviderURL
         }
-        Assert-MockCalled -CommandName 'AKS-Expand-Archive' -Times 1
+        Assert-MockCalled -CommandName 'Expand-DalecCredentialProviderPackage' -Times 1
         Assert-MockCalled -CommandName 'tar' -Times 1
     }
 
@@ -394,7 +440,7 @@ Describe 'Install-CredentialProvider' {
 
         Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
         Assert-MockCalled -CommandName 'tar' -Times 1
-        Assert-MockCalled -CommandName 'AKS-Expand-Archive' -Times 0
+        Assert-MockCalled -CommandName 'Expand-DalecCredentialProviderPackage' -Times 0
         Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 1 -ParameterFilter {
             $Url -eq 'https://packages.aks.azure.com/cloud-provider-azure/v1.32.8/binaries/azure-acr-credential-provider-windows-amd64-v1.32.8.tar.gz'
         }
@@ -413,6 +459,21 @@ Describe 'Install-CredentialProvider' {
         Assert-MockCalled -CommandName 'tar' -Times 1
         Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 1 -ParameterFilter {
             $Url -eq 'https://custom-mirror.example.com/hotfix/azure-acr-credential-provider-1.33.3-hotfix.tar.gz'
+        }
+    }
+
+    It 'honors a custom mirror URL that uses the stock legacy path' {
+        $global:BootstrapProfileContainerRegistryServer = ""
+        $global:KubeBinariesVersion = "1.33.3"
+        $global:CredentialProviderURL = 'https://custom-mirror.example.com/cloud-provider-azure/v1.33.3/binaries/azure-acr-credential-provider-windows-amd64-v1.33.3.tar.gz'
+
+        Mock Resolve-DalecCredentialProviderPackage
+
+        Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
+        Assert-MockCalled -CommandName 'Resolve-DalecCredentialProviderPackage' -Times 0
+        Assert-MockCalled -CommandName 'tar' -Times 1
+        Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 1 -ParameterFilter {
+            $Url -eq $global:CredentialProviderURL
         }
     }
 

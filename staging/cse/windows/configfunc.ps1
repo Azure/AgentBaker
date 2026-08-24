@@ -514,6 +514,30 @@ function Resolve-DalecCredentialProviderPackage {
     }
 }
 
+# Downloads $Url to $DestinationPath and throws on failure (instead of Set-ExitCode) so the dalec
+# credential-provider path can catch it and fall back to the RP URL. Kept local so the shared
+# DownloadFileOverHttp behavior is unchanged. The VHD cache is already handled by
+# Resolve-DalecCredentialProviderPackage, so only the URL mapping + retry are needed here.
+function Get-DalecCredentialProviderPackage {
+    Param(
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$Url,
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$DestinationPath
+    )
+    $mappedUrl = Update-BaseUrl -InitialUrl $Url
+    Write-Log "Downloading dalec credential provider $Url -> $mappedUrl to $DestinationPath"
+    $arglist = @{ Uri = $mappedUrl; Method = "Get"; OutFile = $DestinationPath; ErrorAction = "Stop" }
+    Retry-Command -Command "Invoke-RestMethod" -Args $arglist -Retries 5 -RetryDelaySeconds 10
+}
+
+# Expands $Path to $DestinationPath and throws on failure (see Get-DalecCredentialProviderPackage).
+function Expand-DalecCredentialProviderPackage {
+    Param(
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$Path,
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$DestinationPath
+    )
+    Expand-Archive -Path $Path -DestinationPath $DestinationPath -Force -ErrorAction Stop
+}
+
 function Install-CredentialProvider {
     Param(
         [Parameter(Mandatory=$true)][string]
@@ -540,10 +564,26 @@ function Install-CredentialProvider {
         Write-Log "Download credential provider binary from $global:CredentialProviderURL to $global:credentialProviderBinDir"
         $tempDir = New-TemporaryDirectory
         if ([string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
-            # Only self-resolve dalec when the RP URL is empty or matches the stock legacy pattern.
+            # Only self-resolve dalec when the RP URL is empty or matches a stock legacy URL.
             # If the caller provided a custom/hotfix URL, honor it as-is.
+            $credentialProviderUri = $null
+            $isCredentialProviderUri = $false
+            if (-not [string]::IsNullOrEmpty($global:CredentialProviderURL)) {
+                $isCredentialProviderUri = [Uri]::TryCreate(
+                    [string]$global:CredentialProviderURL,
+                    [UriKind]::Absolute,
+                    [ref]$credentialProviderUri
+                )
+            }
+            $stockLegacyHosts = @(
+                'packages.aks.azure.com',
+                'packages.aks.azure.us',
+                'acs-mirror.azureedge.net'
+            )
             $isStockLegacyUrl = [string]::IsNullOrEmpty($global:CredentialProviderURL) -or
-                ($global:CredentialProviderURL -match '/cloud-provider-azure/v\d+\.\d+\.\d+/binaries/azure-acr-credential-provider-windows-amd64-v\d+\.\d+\.\d+\.tar\.gz(?:\?.*)?$')
+                ($isCredentialProviderUri -and
+                    $credentialProviderUri.Host -in $stockLegacyHosts -and
+                    $credentialProviderUri.AbsolutePath -match '/cloud-provider-azure/v\d+\.\d+\.\d+/binaries/azure-acr-credential-provider-windows-amd64-v\d+\.\d+\.\d+\.tar\.gz$')
             $dalecPackage = if ($isStockLegacyUrl) {
                 Resolve-DalecCredentialProviderPackage -KubeBinariesVersion $global:KubeBinariesVersion
             } else { $null }
@@ -558,9 +598,9 @@ function Install-CredentialProvider {
                         $credentialproviderbinaryPackage = $dalecPackage.CachedFile
                     } else {
                         $credentialproviderbinaryPackage = "$tempDir\credentialprovider.zip"
-                        DownloadFileOverHttp -Url $dalecPackage.Url -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
+                        Get-DalecCredentialProviderPackage -Url $dalecPackage.Url -DestinationPath $credentialproviderbinaryPackage
                     }
-                    AKS-Expand-Archive -Path $credentialproviderbinaryPackage -DestinationPath $tempDir
+                    Expand-DalecCredentialProviderPackage -Path $credentialproviderbinaryPackage -DestinationPath $tempDir
                 } catch {
                     if ([string]::IsNullOrEmpty($global:CredentialProviderURL)) {
                         throw
