@@ -491,7 +491,7 @@ retrycmd_get_tarball_from_registry_with_oras() {
 }
 
 retrycmd_cp_oci_layout_with_oras() {
-    retries=$1; wait_sleep=$2; path=$3; tag=$4; url=$5
+    retries=$1; wait_sleep=$2; path=$3; tag=$4; url=$5; copy_referrers=${6:-false}
     mkdir -p "$path"
     echo "${retries} retries"
     for i in $(seq 1 $retries); do
@@ -502,7 +502,11 @@ retrycmd_cp_oci_layout_with_oras() {
             if [ "$i" -gt 1 ]; then
                 sleep $wait_sleep
             fi
-            timeout 120 oras cp "$url" "$path:$tag" --to-oci-layout --from-registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+            if [ "$copy_referrers" = "true" ]; then
+                timeout 120 oras cp --recursive "$url" "$path:$tag" --to-oci-layout --from-registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+            else
+                timeout 120 oras cp "$url" "$path:$tag" --to-oci-layout --from-registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+            fi
             if [ "$?" -ne 0 ]; then
                 cat $ORAS_OUTPUT
             else

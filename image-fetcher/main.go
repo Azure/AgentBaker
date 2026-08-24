@@ -7,14 +7,18 @@ import (
 	"runtime"
 
 	containerd "github.com/containerd/containerd/v2/client"
+	transferimage "github.com/containerd/containerd/v2/core/transfer/image"
+	"github.com/containerd/containerd/v2/core/transfer/registry"
 	"github.com/containerd/containerd/v2/pkg/namespaces"
 	"github.com/containerd/platforms"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 const (
-	defaultSocket = "/run/containerd/containerd.sock"
-	defaultNS     = "k8s.io"
+	defaultSocket          = "/run/containerd/containerd.sock"
+	defaultNS              = "k8s.io"
+	defaultHostsDir        = "/etc/containerd/certs.d"
+	transferSnapshotterEnv = "IMAGE_FETCHER_SNAPSHOTTER"
 	// images with compressed content size below this threshold are
 	// unpacked after fetch, effectively turning the operation into a
 	// full pull (~150 MiB compressed ≈ ~300 MiB unpacked).
@@ -59,17 +63,12 @@ func main() {
 	}
 }
 
-// fetchImage uses client.Fetch() which:
-//   - Downloads all blobs (manifest, config, layers) into the content store
-//   - Creates an image record in the metadata database
-//   - Does NOT unpack layers into the snapshotter
-//
-// If the total image content size is below pullSizeThreshold (150 MiB),
-// client.Pull() is called to additionally unpack the layers. Pull reuses
-// already-fetched content from the store and handles snapshotter resolution
-// internally (namespace label → platform default).
+// fetchImage preserves the existing fetch-first size policy. When a transfer
+// snapshotter is selected, a second server-side transfer either unpacks small
+// images immediately or retains their referrers for deferred unpack.
 func fetchImage(ctx context.Context, client *containerd.Client, ref string) error {
 	fetchOnly := os.Getenv("IMAGE_FETCH_ONLY") == "true"
+	transferSnapshotter := os.Getenv(transferSnapshotterEnv)
 
 	fmt.Printf("Fetching %s ...\n", ref)
 
@@ -93,18 +92,42 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 	}
 
 	if fetchOnly {
+		if transferSnapshotter != "" {
+			if err := transferImage(ctx, client, ref, p, transferSnapshotter, false); err != nil {
+				return fmt.Errorf("transfer failed: %w", err)
+			}
+			fmt.Printf("OK    %s -> %s (transferred)\n", imageMeta.Name, imageMeta.Target.Digest)
+			return nil
+		}
 		fmt.Printf("OK    %s -> %s (fetched)\n", imageMeta.Name, imageMeta.Target.Digest)
 		return nil
 	}
 
 	size, err := image.Size(ctx)
 	if err != nil {
+		if transferSnapshotter != "" {
+			if err := transferImage(ctx, client, ref, p, transferSnapshotter, false); err != nil {
+				return fmt.Errorf("failed to determine image size and transfer failed: %w", err)
+			}
+		}
 		fmt.Fprintf(os.Stderr, "WARN  %s: could not determine image size, skipping unpack: %v\n", ref, err)
+		if transferSnapshotter != "" {
+			fmt.Printf("OK    %s -> %s (transferred)\n", imageMeta.Name, imageMeta.Target.Digest)
+			return nil
+		}
 		fmt.Printf("OK    %s -> %s (fetched)\n", imageMeta.Name, imageMeta.Target.Digest)
 		return nil
 	}
 
 	if size < pullSizeThreshold {
+		if transferSnapshotter != "" {
+			if err := transferImage(ctx, client, ref, p, transferSnapshotter, true); err != nil {
+				return fmt.Errorf("transfer and unpack failed: %w", err)
+			}
+			fmt.Printf("OK    %s -> %s (transferred and unpacked, %s)\n", imageMeta.Name, imageMeta.Target.Digest, formatSize(size))
+			return nil
+		}
+
 		// We use pull here instead of use unpack because some runtimes (e.g. containerd-shim-runsc-v1),
 		// require pull to trigger unpacking into the correct snapshotter based on the image's platform.
 		if _, err := client.Pull(ctx, ref,
@@ -115,10 +138,33 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 		}
 		fmt.Printf("OK    %s -> %s (pulled, %s)\n", imageMeta.Name, imageMeta.Target.Digest, formatSize(size))
 	} else {
+		if transferSnapshotter != "" {
+			if err := transferImage(ctx, client, ref, p, transferSnapshotter, false); err != nil {
+				return fmt.Errorf("transfer failed: %w", err)
+			}
+			fmt.Printf("OK    %s -> %s (transferred, %s)\n", imageMeta.Name, imageMeta.Target.Digest, formatSize(size))
+			return nil
+		}
 		fmt.Printf("OK    %s -> %s (fetched, %s)\n", imageMeta.Name, imageMeta.Target.Digest, formatSize(size))
 	}
 
 	return nil
+}
+
+func transferImage(ctx context.Context, client *containerd.Client, ref string, platform ocispec.Platform, snapshotter string, unpack bool) error {
+	source, err := registry.NewOCIRegistry(ctx, ref, registry.WithHostDir(defaultHostsDir))
+	if err != nil {
+		return fmt.Errorf("create registry source: %w", err)
+	}
+
+	storeOpts := []transferimage.StoreOpt{
+		transferimage.WithPlatforms(platform),
+	}
+	if unpack {
+		storeOpts = append(storeOpts, transferimage.WithUnpack(platform, snapshotter))
+	}
+
+	return client.Transfer(ctx, source, transferimage.NewStore(ref, storeOpts...))
 }
 
 func validateImagePlatform(ctx context.Context, image containerd.Image, expected ocispec.Platform) error {

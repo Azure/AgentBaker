@@ -755,6 +755,15 @@ cachePackageAndBinaryComponents() {
 cacheContainerImageComponents() {
   # Download/cache all declared container images within components.json that apply to the respective OS SKU
 
+  local image_fetcher_snapshotter=""
+  if isACL "$OS" "$OS_VARIANT" && [ "$(isARM64)" -eq 0 ]; then
+    if containerdUsesErofsDmverityReferrers; then
+      image_fetcher_snapshotter="erofs"
+    else
+      echo "containerd is not using EROFS with dm-verity referrer support; using image-fetcher for container image caching"
+    fi
+  fi
+
   # Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
   # Account for possibility that number of cores is 3 or less
   num_proc=$(nproc)
@@ -785,7 +794,7 @@ cacheContainerImageComponents() {
 
     for version in ${versions}; do
       CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-      pullContainerImage "ctr" "${CONTAINER_IMAGE}" &
+      pullContainerImage "ctr" "${CONTAINER_IMAGE}" "$image_fetcher_snapshotter" &
       image_pids+=($!)
       echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
       while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do

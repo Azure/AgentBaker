@@ -640,6 +640,7 @@ installKubeletKubectlFromURL() {
 pullContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
+    local image_fetcher_snapshotter="${3:-}"
     PULL_RETRIES=10
     PULL_WAIT_SLEEP_SECONDS=1
     PULL_TIMEOUT_SECONDS=600 # 10 minutes
@@ -647,7 +648,14 @@ pullContainerImage() {
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL} with a timeout of ${PULL_TIMEOUT_SECONDS}s"
 
     if [ "${CLI_TOOL,,}" = "ctr" ]; then
-        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS /opt/azure/containers/image-fetcher $CONTAINER_IMAGE_URL
+        if [ -n "$image_fetcher_snapshotter" ]; then
+            retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS \
+                env IMAGE_FETCHER_SNAPSHOTTER="$image_fetcher_snapshotter" \
+                /opt/azure/containers/image-fetcher "$CONTAINER_IMAGE_URL"
+        else
+            retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS \
+                /opt/azure/containers/image-fetcher "$CONTAINER_IMAGE_URL"
+        fi
         code=$?
     elif [ "${CLI_TOOL,,}" = "crictl" ]; then
         retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS crictl pull $CONTAINER_IMAGE_URL
@@ -673,6 +681,34 @@ pullContainerImage() {
     fi
 
     echo "successfully pulled image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
+}
+
+containerdUsesErofsDmverityReferrers() {
+    local snapshotter_info
+    local snapshotter_root
+    local differ_info
+    local imagefs_info
+    local active_imagefs_root
+
+    snapshotter_info=$(ctr plugins ls --detailed \
+        "type==io.containerd.snapshotter.v1,id==erofs") || return 1
+    differ_info=$(ctr plugins ls --detailed \
+        "type==io.containerd.differ.v1,id==erofs") || return 1
+    snapshotter_root=$(awk '$1 == "root" { print $2; exit }' <<< "$snapshotter_info")
+    imagefs_info=$(crictl --timeout 30s imagefsinfo -o json) || return 1
+    active_imagefs_root=$(jq -er '
+        .imageFilesystems[0].fsId.mountpoint
+        | select(type == "string" and length > 0)
+    ' <<< "$imagefs_info") || return 1
+
+    grep -Eq '^ID:[[:space:]]+erofs[[:space:]]*$' <<< "$snapshotter_info" &&
+        ! grep -Eq '^Error:' <<< "$snapshotter_info" &&
+        grep -Eq '^Capabilities:[[:space:]]*([^,]+,)*dmverity-referrers(,[^,]+)*[[:space:]]*$' <<< "$snapshotter_info" &&
+        [ -n "$snapshotter_root" ] &&
+        [ "$active_imagefs_root" = "$snapshotter_root" ] &&
+        grep -Eq '^ID:[[:space:]]+erofs[[:space:]]*$' <<< "$differ_info" &&
+        ! grep -Eq '^Error:' <<< "$differ_info" &&
+        grep -Eq '^Capabilities:[[:space:]]*([^,]+,)*dmverity-referrers(,[^,]+)*[[:space:]]*$' <<< "$differ_info"
 }
 
 retagContainerImage() {
