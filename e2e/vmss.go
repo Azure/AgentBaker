@@ -356,8 +356,7 @@ func usesScriptlessNBCCSECmd(s *Scenario) bool {
 		return false
 	}
 	nbc := s.Runtime.NBC
-	// Mirrors supportsScriptlessPhase2 in pkg/agent/baker.go: a pre-provision run only takes the
-	// scriptless path when it explicitly opts in.
+	// Mirrors supportsScriptlessPhase2 in pkg/agent/baker.go.
 	return nbc.EnableScriptlessNBCCSECmd &&
 		(!nbc.PreProvisionOnly || nbc.EnableScriptlessPreProvision) &&
 		s.VHD.SupportsScriptless()

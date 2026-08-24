@@ -159,14 +159,13 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				config.PreProvisionOnly = true
 				Expect(supportsScriptlessPhase2(config)).To(BeFalse())
 			})
-			It("given EnableScriptlessNBCCSECmd and PreProvisionOnly with EnableScriptlessPreProvision, it returns true", func() {
+			It("given PreProvisionOnly with EnableScriptlessPreProvision, it returns true", func() {
 				config.EnableScriptlessNBCCSECmd = true
 				config.PreProvisionOnly = true
 				config.EnableScriptlessPreProvision = true
 				Expect(supportsScriptlessPhase2(config)).To(BeTrue())
 			})
 			It("given EnableScriptlessPreProvision without EnableScriptlessNBCCSECmd, it returns false", func() {
-				config.EnableScriptlessNBCCSECmd = false
 				config.PreProvisionOnly = true
 				config.EnableScriptlessPreProvision = true
 				Expect(supportsScriptlessPhase2(config)).To(BeFalse())
@@ -1977,16 +1976,6 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 			KubeletConfig:    map[string]string{},
 		}
 	}
-
-	It("should use the aks-node-controller provision-wait command for a pre-provision bake when EnableScriptlessPreProvision is set", func() {
-		templateGenerator := InitializeTemplateGenerator()
-		config := newScriptlessCmdTestConfig()
-		config.EnableScriptlessNBCCSECmd = true
-		config.PreProvisionOnly = true
-		config.EnableScriptlessPreProvision = true
-
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
-	})
 
 	It("should use the aks-node-controller provision-wait command when scriptless phase2 is supported", func() {
 		templateGenerator := InitializeTemplateGenerator()

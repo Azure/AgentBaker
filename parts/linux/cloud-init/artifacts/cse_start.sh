@@ -114,24 +114,17 @@ upload_logs() {
 }
 # Create the marker for the completed provisioning stage.
 if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
-    # base_prep.complete is durable phase state. It is captured in the image so a node
-    # created from that image skips basePrep and runs nodePrep only.
-    mkdir -p /opt/azure/containers
-    touch /opt/azure/containers/base_prep.complete
+    # Stage 1: Create marker indicating Stage 2 is needed
+    mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete
     echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
     echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
-    # The bake reports its result through a volatile marker on tmpfs, which
-    # `aks-node-controller provision-wait` also watches. /run is cleared on boot, so this marker
-    # cannot survive image capture and a node created from the image can never mistake the bake's
-    # result for its own. provision.complete is deliberately NOT written here: it is durable, and a
-    # captured copy would make cse_main.sh exit before nodePrep.
-    mkdir -p /run/azure
-    touch /run/azure/pre-provision.complete
-    echo "Created pre-provision.complete marker file" >> /var/log/azure/cluster-provision.log
+    # Report the bake result on tmpfs, which provision-wait also watches. /run is cleared on boot,
+    # so this marker cannot be captured into the image. provision.complete is not written here: it
+    # is durable, and a captured copy would make cse_main.sh exit before nodePrep.
+    mkdir -p /run/azure && touch /run/azure/pre-provision.complete
 else
     # provision.complete signals that a normal provisioning attempt finished.
-    mkdir -p /opt/azure/containers
-    touch /opt/azure/containers/provision.complete
+    mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 fi
 
 if [ "$EXIT_CODE" -ne 0 ]; then
