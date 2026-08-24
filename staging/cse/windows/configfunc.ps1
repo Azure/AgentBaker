@@ -610,7 +610,13 @@ function Install-CredentialProvider {
                 }
             }
             if ($useLegacyPackage) {
-                # Legacy path: use RP-provided URL with .tar.gz
+                # Legacy path: use RP-provided URL with .tar.gz. This is also the fallback when Dalec
+                # resolution returns $null (e.g. a VHD whose baked components.json predates this k8s
+                # minor), so it needs a non-empty URL. The RP must keep CredentialProviderURL populated
+                # for minors not yet in published VHD metadata; fail clearly instead of downloading "".
+                if ([string]::IsNullOrEmpty($global:CredentialProviderURL)) {
+                    throw "No credential provider source: CredentialProviderURL is empty and components.json on this VHD has no Dalec package for k8s $global:KubeBinariesVersion (VHD likely predates the metadata)."
+                }
                 $credentialproviderbinaryPackage = "$tempDir\credentialprovider.tar.gz"
                 DownloadFileOverHttp -Url $global:CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
                 tar -xzf $credentialproviderbinaryPackage -C $tempDir

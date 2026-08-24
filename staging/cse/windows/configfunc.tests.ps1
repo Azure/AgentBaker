@@ -431,6 +431,38 @@ Describe 'Install-CredentialProvider' {
         Assert-MockCalled -CommandName 'tar' -Times 1
     }
 
+    It 'fails clearly when the credential provider URL is empty and no Dalec package resolves (older VHD)' {
+        $global:BootstrapProfileContainerRegistryServer = ""
+        $global:KubeBinariesVersion = "1.35.7"
+        $global:CredentialProviderURL = ""
+
+        # Simulates a published VHD whose baked components.json predates the k8s minor.
+        Mock Resolve-DalecCredentialProviderPackage -MockWith { return $null }
+
+        { Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix '' } | Should -Throw
+        Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 0
+        Assert-MockCalled -CommandName 'tar' -Times 0
+        Assert-MockCalled -CommandName 'Set-ExitCode' -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER }
+    }
+
+    It 'falls back to the RP URL when an older VHD cannot resolve Dalec metadata' {
+        $global:BootstrapProfileContainerRegistryServer = ""
+        $global:KubeBinariesVersion = "1.35.0"
+        $global:CredentialProviderURL = 'https://packages.aks.azure.com/cloud-provider-azure/v1.35.0/binaries/azure-acr-credential-provider-windows-amd64-v1.35.0.tar.gz'
+
+        # k8s >= 1.33 so the gate passes and resolution runs, but an older VHD's components.json
+        # has no entry for this minor; the populated stock URL keeps provisioning working.
+        Mock Resolve-DalecCredentialProviderPackage -MockWith { return $null }
+
+        Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
+        Assert-MockCalled -CommandName 'Resolve-DalecCredentialProviderPackage' -Times 1
+        Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 1 -ParameterFilter {
+            $Url -eq $global:CredentialProviderURL
+        }
+        Assert-MockCalled -CommandName 'tar' -Times 1
+        Assert-MockCalled -CommandName 'Get-DalecCredentialProviderPackage' -Times 0
+    }
+
     It 'uses legacy tar path for k8s < 1.33 (below dalec gate)' {
         $global:BootstrapProfileContainerRegistryServer = ""
         $global:KubeBinariesVersion = "1.32.8"
