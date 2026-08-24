@@ -1,15 +1,26 @@
 package e2e
 
 import (
+	"archive/zip"
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/components"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/sas"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/service"
 	"github.com/Masterminds/semver/v3"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -639,10 +650,163 @@ func Test_NetworkIsolatedCluster_Windows_OrasDownload(t *testing.T) {
 	})
 }
 
+// REVERT ME: self-contained Windows branch-CSE builder. Builds a CSE zip from the branch's
+// staging/cse/windows/ and uploads it to E2E blob storage with a collision-free name so
+// concurrent branch runs never overwrite each other's zip. Kept local here so the shared
+// RCV1P helpers stay untouched. Remove once the CSE scripts ship.
+var (
+	winBranchCSEZipURL  string
+	winBranchCSEZipErr  error
+	winBranchCSEZipOnce sync.Once
+)
+
+func getOrBuildWindowsBranchCSEPackageURL() (string, error) {
+	winBranchCSEZipOnce.Do(func() {
+		// 5m covers a cold-start storage account create plus the zip build/upload.
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		// The mutator runs at scenario-init time, before RunScenario creates the per-sub blob
+		// storage account, so ensure the RG and identity/storage exist first.
+		if _, err := CachedEnsureResourceGroup(ctx, config.Config.DefaultLocation); err != nil {
+			winBranchCSEZipErr = fmt.Errorf("ensure shared resource group: %w", err)
+			return
+		}
+		if _, err := CachedCreateVMManagedIdentity(ctx, config.Config.DefaultLocation); err != nil {
+			winBranchCSEZipErr = fmt.Errorf("ensure shared storage account: %w", err)
+			return
+		}
+		winBranchCSEZipURL, winBranchCSEZipErr = buildAndUploadWindowsCSEZip(ctx)
+	})
+	if winBranchCSEZipErr != nil {
+		return "", fmt.Errorf("build or upload branch CSE zip: %w", winBranchCSEZipErr)
+	}
+	return winBranchCSEZipURL, nil
+}
+
+func buildAndUploadWindowsCSEZip(ctx context.Context) (string, error) {
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		return "", fmt.Errorf("find repo root: %w", err)
+	}
+	cseDir := filepath.Join(repoRoot, "staging", "cse", "windows")
+
+	tmpFile, err := os.CreateTemp("", "aks-windows-cse-scripts-branch-*.zip")
+	if err != nil {
+		return "", fmt.Errorf("create temp file: %w", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+
+	zw := zip.NewWriter(tmpFile)
+	err = filepath.Walk(cseDir, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		rel, err := filepath.Rel(cseDir, path)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
+		if rel == "." {
+			return nil
+		}
+		// skip test files and debug helper (matches windows_package_cse.sh)
+		if strings.HasSuffix(rel, ".tests.ps1") || strings.Contains(rel, ".tests.suites") {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if rel == "README" || rel == "debug/update-scripts.ps1" {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		w, err := zw.Create(rel)
+		if err != nil {
+			return fmt.Errorf("create zip entry %s: %w", rel, err)
+		}
+		f, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("open %s: %w", path, err)
+		}
+		_, copyErr := io.Copy(w, f)
+		closeErr := f.Close()
+		if copyErr != nil {
+			return fmt.Errorf("copy %s: %w", path, copyErr)
+		}
+		if closeErr != nil {
+			return fmt.Errorf("close %s: %w", path, closeErr)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("build zip: %w", err)
+	}
+	if err := zw.Close(); err != nil {
+		return "", fmt.Errorf("close zip writer: %w", err)
+	}
+
+	if _, err := tmpFile.Seek(0, io.SeekStart); err != nil {
+		return "", fmt.Errorf("seek temp file: %w", err)
+	}
+
+	// Build/run ID plus a random suffix so concurrent branch runs never pick the same blob
+	// name and overwrite each other's CSE zip (BuildID defaults to "local" off-CI).
+	blobName := fmt.Sprintf("cse-packages/aks-windows-cse-scripts-branch-%s-%s-%s.zip",
+		config.Config.BuildID,
+		time.Now().UTC().Format("20060102-150405"),
+		randomLowercaseString(6))
+	url, err := uploadWindowsCSEZipNoOverwrite(ctx, blobName, tmpFile)
+	if err != nil {
+		return "", fmt.Errorf("upload CSE zip: %w", err)
+	}
+	return url, nil
+}
+
+// uploadWindowsCSEZipNoOverwrite uploads without overwriting an existing blob (fails on
+// conflict) and returns a SAS-signed URL, leaving the shared config upload helpers untouched.
+func uploadWindowsCSEZipNoOverwrite(ctx context.Context, blobName string, file *os.File) (string, error) {
+	client := config.Azure.Blob
+	_, err := client.UploadFile(ctx, config.Config.BlobContainer, blobName, file, &azblob.UploadFileOptions{
+		AccessConditions: &blob.AccessConditions{
+			ModifiedAccessConditions: &blob.ModifiedAccessConditions{
+				IfNoneMatch: to.Ptr(azcore.ETagAny), // create only if the blob does not already exist
+			},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("upload blob %q without overwrite: %w", blobName, err)
+	}
+
+	expiry := time.Now().Add(6 * time.Hour).UTC()
+	udc, err := client.ServiceClient().GetUserDelegationCredential(ctx, service.KeyInfo{
+		Expiry: to.Ptr(expiry.Format(sas.TimeFormat)),
+		Start:  to.Ptr(time.Now().UTC().Format(sas.TimeFormat)),
+	}, nil)
+	if err != nil {
+		return "", fmt.Errorf("get user delegation credential: %w", err)
+	}
+
+	sig, err := sas.BlobSignatureValues{
+		Protocol:      sas.ProtocolHTTPS,
+		ExpiryTime:    expiry,
+		Permissions:   to.Ptr(sas.BlobPermissions{Read: true}).String(),
+		ContainerName: config.Config.BlobContainer,
+		BlobName:      blobName,
+	}.SignWithUserDelegation(udc)
+	if err != nil {
+		return "", fmt.Errorf("sign blob: %w", err)
+	}
+
+	return fmt.Sprintf("%s/%s/%s?%s", config.Config.BlobStorageAccountURL(), config.Config.BlobContainer, blobName, sig.Encode()), nil
+}
+
 func Test_Windows2022_Dalec_CredentialProvider(t *testing.T) {
 	// REVERT ME: build & use a CSE zip from the branch's staging/cse/windows/ so the resolver
 	// change is exercised instead of the published package. Remove once the CSE scripts ship.
-	cseURL, err := getOrBuildBranchCSEPackageURL()
+	cseURL, err := getOrBuildWindowsBranchCSEPackageURL()
 	if err != nil {
 		t.Error(err)
 		return
