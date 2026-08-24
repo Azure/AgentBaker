@@ -3548,23 +3548,25 @@ func ValidateStaleCachedKubeBinariesRemoved(ctx context.Context, s *Scenario) er
 // ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
 func ValidateRxBufferDefault(ctx context.Context, s *Scenario) error {
 	s.T.Helper()
-	defaultGen, err := vmSKUGeneration(config.Config.DefaultVMSKU)
+	skipValidationForDistro := s.VHD.Distro == datamodel.AKSAzureLinuxV3Gen2 || s.VHD.Distro.IsACLDistro()
+
+	vmSKU := config.Config.DefaultVMSKU
+	vmSKUDescription := "default VM SKU"
+
+	if s.Runtime.NBC != nil &&
+		s.Runtime.NBC.AgentPoolProfile != nil &&
+		s.Runtime.NBC.AgentPoolProfile.VMSize != "" {
+		vmSKU = s.Runtime.NBC.AgentPoolProfile.VMSize
+		vmSKUDescription = "VM SKU"
+	}
+
+	vmSKUGen, err := vmSKUGeneration(vmSKU)
 	if err != nil {
-		return fmt.Errorf("get default VM SKU generation for %s: %w", config.Config.DefaultVMSKU, err)
+		return fmt.Errorf("get %s generation for %s: %w", vmSKUDescription, vmSKU, err)
 	}
 
-	if defaultGen >= 6 && s.VHD.Distro == datamodel.AKSAzureLinuxV3Gen2 {
+	if vmSKUGen >= 6 && skipValidationForDistro {
 		return nil
-	}
-
-	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil {
-		vmSKUGen, err := vmSKUGeneration(s.Runtime.NBC.AgentPoolProfile.VMSize)
-		if err != nil {
-			return fmt.Errorf("get VM SKU generation for %s: %w", s.Runtime.NBC.AgentPoolProfile.VMSize, err)
-		}
-		if vmSKUGen >= 6 && s.VHD.Distro == datamodel.AKSAzureLinuxV3Gen2 {
-			return nil
-		}
 	}
 
 	// Query the VM's actual CPU count using nproc
