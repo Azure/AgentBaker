@@ -81,6 +81,8 @@ steps:
       if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}gb"; fi && \
       if [[ "${ENABLE_FIPS,,}" == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
       if grep -q "cvm" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}CVM"; fi && \
+      if grep -q "sevsnp" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}SNP"; fi && \
+      if grep -q "tdx" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}TDX"; fi && \
       if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
       if [[ ${OS_SKU} != "CBLMariner" && ${OS_SKU} != "AzureLinux" && ${OS_SKU} != "AzureLinuxOSGuard" && ${OS_SKU} != "Flatcar" && ${OS_SKU} != "AzureContainerLinux" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
       SKU_NAME=$(echo ${SKU_NAME} | tr -d '.') && \
