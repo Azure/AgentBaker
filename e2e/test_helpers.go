@@ -157,7 +157,8 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 		if !stage1.IsWindows() {
 			// Match the RP, which removes this per-run state during image generalization.
 			cleanup := "sudo rm -f /opt/azure/containers/provision.complete /var/log/azure/aks/provision.json" +
-				" /opt/azure/containers/aks-node-controller-config.json /opt/azure/containers/aks-node-controller-nbc-cmd.sh"
+				" /opt/azure/containers/aks-node-controller-config.json /opt/azure/containers/aks-node-controller-nbc-cmd.sh" +
+				" /opt/azure/containers/boothook.sh /opt/bin/boothook.sh"
 			if _, err = execScriptOnVMForScenarioValidateExitCode(ctx, stage1, cleanup, 0, "generalize VM before image capture"); err != nil {
 				return err
 			}
