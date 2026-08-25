@@ -461,6 +461,9 @@ func setExpectedContainerdVersionForE2E(t testing.TB, nbc *datamodel.NodeBootstr
 }
 
 func expectedContainerdComponentRef(distro datamodel.Distro) (packageName, componentDistro, release string, ok bool) {
+	if distro.IsKataDistro() {
+		return "", "", "", false
+	}
 	if distro.IsAzureLinuxV3Distro() {
 		return "containerd", "azurelinux", "v3.0", true
 	}
