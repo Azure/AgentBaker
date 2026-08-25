@@ -193,7 +193,6 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 			}
 			nbc.PreProvisionOnly = true
 			nbc.EnableScriptlessNBCCSECmd = scriptless
-			nbc.EnableScriptlessPreProvision = scriptless
 			// Bake-stage-only mutation: lets a scenario deliberately diverge bake-time
 			// state from provision-time state (e.g. a stale sentinel bootstrap token).
 			if original.PreProvisionBootstrapConfigMutator != nil {

@@ -1814,13 +1814,6 @@ type NodeBootstrappingConfiguration struct {
 	// which uses CSE to provide provision nbc or aks nc configs
 	ScriptlessCSEProvisionMode bool
 
-	// EnableScriptlessPreProvision lets a PreProvisionOnly (image bake) run use scriptless phase 2,
-	// so the bake reports its result through the same `aks-node-controller provision-wait` CSE
-	// command as a normal node. Default false. Enabling it requires a VHD whose cse_start.sh writes
-	// /run/azure/pre-provision.complete and whose aks-node-controller watches it, and requires the
-	// caller to propagate PreProvisionOnly into the AKSNodeConfig it builds.
-	EnableScriptlessPreProvision bool
-
 	// Pass AKSNodeConfig as serialized JSON string to compare generated provisioning with NBC cse cmd for scriptless phase 3
 	AKSNodeConfigJSON string
 

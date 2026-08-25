@@ -257,11 +257,10 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 }
 
 // supportsScriptlessPhase2 reports whether the CSE command is `aks-node-controller provision-wait`.
-// A pre-provision (image bake) run only reports a result on a VHD whose cse_start.sh writes the
-// volatile marker and whose aks-node-controller watches it, so it stays on the legacy CSE command
-// unless the caller opts in - which is what gates enablement on a minimum VHD version.
+// A pre-provision (image bake) run is included: cse_start.sh writes provision.complete for it, so
+// provision-wait reports the bake result. The caller decides whether to request scriptless at all.
 func supportsScriptlessPhase2(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return config.EnableScriptlessNBCCSECmd && (!config.PreProvisionOnly || config.EnableScriptlessPreProvision)
+	return config.EnableScriptlessNBCCSECmd
 }
 
 // renderEnabledFeatures serializes the feature toggle map into sorted KEY=VALUE lines for

@@ -356,9 +356,7 @@ func usesScriptlessNBCCSECmd(s *Scenario) bool {
 		return false
 	}
 	nbc := s.Runtime.NBC
-	// Mirrors supportsScriptlessPhase2 in pkg/agent/baker.go.
 	return nbc.EnableScriptlessNBCCSECmd &&
-		(!nbc.PreProvisionOnly || nbc.EnableScriptlessPreProvision) &&
 		s.VHD.SupportsScriptless()
 }
 
