@@ -6,10 +6,10 @@
   "enabledManagers": [
     "custom.regex"
   ],
-  "prConcurrentLimit": 100,
-  "prHourlyLimit": 10,
-  "branchConcurrentLimit": 100,
-  "commitHourlyLimit": 10,
+  "prConcurrentLimit": 0,
+  "prHourlyLimit": 1,
+  "branchConcurrentLimit": 0,
+  "commitHourlyLimit": 1,
   "separateMinorPatch": true,
   "recreateWhen": "auto",
   "labels": [
