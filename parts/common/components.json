@@ -1358,7 +1358,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.34.0-ubuntu20.04u17"
+                "latestVersion": "1.34.0-ubuntu20.04u21"
               }
             ]
           },
@@ -1366,7 +1366,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.34.0-ubuntu22.04u17"
+                "latestVersion": "1.34.0-ubuntu22.04u21"
               }
             ]
           },
@@ -1374,7 +1374,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.34.0-ubuntu24.04u17"
+                "latestVersion": "1.34.0-ubuntu24.04u21"
               }
             ]
           },
@@ -1382,7 +1382,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.34.0-ubuntu26.04u17"
+                "latestVersion": "1.34.0-ubuntu26.04u21"
               }
             ]
           }
@@ -1412,7 +1412,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.0-16.azl3"
+                "latestVersion": "1.34.0-21.azl3"
               }
             ]
           },
@@ -1430,7 +1430,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.0-16.azl3"
+                "latestVersion": "1.34.0-21.azl3"
               }
             ]
           }
