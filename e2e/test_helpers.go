@@ -139,14 +139,13 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 			checks := []error{
 				ValidateFileExists(ctx, stage1, "/etc/containerd/config.toml"),
 				ValidateFileExists(ctx, stage1, "/opt/azure/containers/base_prep.complete"),
-				ValidateFileDoesNotExist(ctx, stage1, "/opt/azure/containers/provision.complete"),
 				ValidateSystemdUnitIsRunning(ctx, stage1, "containerd"),
 				ValidateSystemdUnitIsNotRunning(ctx, stage1, "kubelet"),
 			}
 			if scriptless {
 				// The CSE command was provision-wait, so CSE would have timed out had this marker
-				// not woken it.
-				checks = append(checks, ValidateFileExists(ctx, stage1, "/run/azure/pre-provision.complete"))
+				// not been written.
+				checks = append(checks, ValidateFileExists(ctx, stage1, "/opt/azure/containers/provision.complete"))
 			}
 			validationErr = errors.Join(checks...)
 		}
@@ -155,6 +154,14 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 		}
 		t.Log("=== Creating VHD Image ===")
 		var err error
+		if !stage1.IsWindows() {
+			// Match the RP, which removes this per-run state during image generalization.
+			cleanup := "sudo rm -f /opt/azure/containers/provision.complete /var/log/azure/aks/provision.json" +
+				" /opt/azure/containers/aks-node-controller-config.json /opt/azure/containers/aks-node-controller-nbc-cmd.sh"
+			if _, err = execScriptOnVMForScenarioValidateExitCode(ctx, stage1, cleanup, 0, "generalize VM before image capture"); err != nil {
+				return err
+			}
+		}
 		customVHD, err = CreateImage(ctx, stage1)
 		if err != nil {
 			return err
@@ -228,12 +235,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 				markerErr = ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
 			}
 			if markerErr == nil && scriptless {
-				// /run is tmpfs, so the bake's marker cannot survive capture. Its absence proves
-				// this node reported its own result.
-				markerErr = errors.Join(
-					ValidateFileDoesNotExist(ctx, s, "/run/azure/pre-provision.complete"),
-					ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "Skipping basePrep - base_prep.complete file exists"),
-				)
+				markerErr = ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "Skipping basePrep - base_prep.complete file exists")
 			}
 			if markerErr != nil {
 				return markerErr

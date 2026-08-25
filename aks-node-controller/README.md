@@ -149,5 +149,3 @@ Key components:
         ```
         This indicates the controller exited before emitting `provision.json`. Most commonly the rendered AKSNodeConfig was missing, had the wrong `Version` (expected `v1`), or was written to the wrong path (`/opt/azure/containers/aks-node-controller-config.json`). Fix the config generation, redeploy, and the bootstrap scripts will then populate `provision.json`.
 - **provision-wait**: waits for `provision.complete` to be present and reads `provision.json` which contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout.
-    - A pre-provision (PIS image bake) run instead signals with `/run/azure/pre-provision.complete`, and `provision-wait` watches both markers, so the CSE command is byte-identical for a bake and a normal node.
-    - That marker is volatile: `/run` is a tmpfs cleared on every boot, so it cannot be captured into the image and a node created from that image cannot inherit the bake's completion signal. A bake never writes the durable `provision.complete`, since a captured copy would make `cse_main.sh` exit before `nodePrep`.

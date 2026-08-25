@@ -429,53 +429,6 @@ func TestApp_ProvisionWait(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "context deadline exceeded")
 	})
-
-	// A pre-provision (image bake) run signals through the volatile marker, which lives in a
-	// different directory than provision.complete. The same command must wake on it.
-	t.Run("volatile pre-provision marker wakes provision-wait", func(t *testing.T) {
-		tt := NewTestApp(t, TestAppConfig{})
-		tempDir := t.TempDir()
-		p := ProvisionStatusFiles{
-			ProvisionJSONFile:        filepath.Join(tempDir, "provision.json"),
-			ProvisionCompleteFile:    filepath.Join(tempDir, "provision.complete"),
-			PreProvisionCompleteFile: filepath.Join(t.TempDir(), "pre-provision.complete"),
-		}
-
-		go func() {
-			time.Sleep(150 * time.Millisecond)
-			_ = os.WriteFile(p.ProvisionJSONFile, []byte(testData), 0644)
-			_, _ = os.Create(p.PreProvisionCompleteFile)
-		}()
-
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		data, err := tt.App.ProvisionWait(ctx, p)
-		assert.NoError(t, err)
-		assert.Equal(t, testData, data)
-		assert.NoFileExists(t, p.ProvisionCompleteFile)
-	})
-
-	t.Run("normal marker still wakes provision-wait when volatile is configured", func(t *testing.T) {
-		tt := NewTestApp(t, TestAppConfig{})
-		tempDir := t.TempDir()
-		p := ProvisionStatusFiles{
-			ProvisionJSONFile:        filepath.Join(tempDir, "provision.json"),
-			ProvisionCompleteFile:    filepath.Join(tempDir, "provision.complete"),
-			PreProvisionCompleteFile: filepath.Join(t.TempDir(), "pre-provision.complete"),
-		}
-
-		go func() {
-			time.Sleep(150 * time.Millisecond)
-			_ = os.WriteFile(p.ProvisionJSONFile, []byte(testData), 0644)
-			_, _ = os.Create(p.ProvisionCompleteFile)
-		}()
-
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		data, err := tt.App.ProvisionWait(ctx, p)
-		assert.NoError(t, err)
-		assert.Equal(t, testData, data)
-	})
 }
 
 func Test_readAndEvaluateProvision(t *testing.T) {
