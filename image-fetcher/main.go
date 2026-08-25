@@ -7,17 +7,14 @@ import (
 	"runtime"
 
 	containerd "github.com/containerd/containerd/v2/client"
-	transferimage "github.com/containerd/containerd/v2/core/transfer/image"
-	"github.com/containerd/containerd/v2/core/transfer/registry"
 	"github.com/containerd/containerd/v2/pkg/namespaces"
 	"github.com/containerd/platforms"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 const (
-	defaultSocket   = "/run/containerd/containerd.sock"
-	defaultNS       = "k8s.io"
-	defaultHostsDir = "/etc/containerd/certs.d"
+	defaultSocket = "/run/containerd/containerd.sock"
+	defaultNS     = "k8s.io"
 	// images with compressed content size below this threshold are
 	// unpacked after fetch, effectively turning the operation into a
 	// full pull (~150 MiB compressed ≈ ~300 MiB unpacked).
@@ -78,11 +75,7 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 	}
 	platformMatcher := platforms.OnlyStrict(p)
 
-	retainsDmverityReferrers, err := containerdRetainsDmverityReferrers(ctx, client)
-	if err != nil {
-		return err
-	}
-	if retainsDmverityReferrers {
+	if containerdRetainsDmverityReferrers(ctx, client) {
 		image, err := transferImage(ctx, client, ref, p)
 		if err != nil {
 			return fmt.Errorf("transfer failed: %w", err)
@@ -154,23 +147,6 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 	}
 
 	return nil
-}
-
-func transferImage(ctx context.Context, client *containerd.Client, ref string, platform ocispec.Platform) (containerd.Image, error) {
-	source, err := registry.NewOCIRegistry(ctx, ref, registry.WithHostDir(defaultHostsDir))
-	if err != nil {
-		return nil, fmt.Errorf("create registry source: %w", err)
-	}
-
-	if err := client.Transfer(ctx, source, transferimage.NewStore(ref, transferimage.WithPlatforms(platform))); err != nil {
-		return nil, err
-	}
-
-	imageMeta, err := client.ImageService().Get(ctx, ref)
-	if err != nil {
-		return nil, fmt.Errorf("load transferred image: %w", err)
-	}
-	return containerd.NewImageWithPlatform(client, imageMeta, platforms.OnlyStrict(platform)), nil
 }
 
 func validateImagePlatform(ctx context.Context, image containerd.Image, expected ocispec.Platform) error {
