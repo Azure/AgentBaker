@@ -307,6 +307,30 @@ removeNvidiaRepos() {
     fi
 }
 
+# getInstalledNvidiaDriverVersion echoes the version of the nvidia driver currently EFFECTIVE on this
+# node, most-authoritative source first: the loaded kernel module, then the on-disk .ko for the running
+# kernel (covers .run installs with no DKMS entry), then a DKMS registration. Echoes nothing when no
+# driver is detectable. $1 overrides the DKMS dir (test seam).
+getInstalledNvidiaDriverVersion() {
+    local dkms_dir="${1:-/var/lib/dkms/nvidia}" v="" d
+    if [ -r /sys/module/nvidia/version ]; then
+        v="$(cat /sys/module/nvidia/version 2>/dev/null)"
+    fi
+    if [ -z "${v}" ]; then
+        v="$(modinfo -F version nvidia 2>/dev/null | head -n1)"
+    fi
+    if [ -z "${v}" ]; then
+        for d in "${dkms_dir}"/*/; do
+            [ -d "${d}" ] || continue
+            d="${d%/}"; d="${d##*/}"
+            case "${d}" in
+                [0-9]*) v="${d}"; break ;;
+            esac
+        done
+    fi
+    printf '%s' "${v}"
+}
+
 # cleanUpPrebakedGPUDriver removes a CUDA driver pre-baked into the shared VHD on any node that does
 # NOT install the AKS-managed driver -- the cleanUpGPUDrivers path (GPU_NODE != true OR
 # skip_nvidia_driver_install=true): non-GPU VMs, and GPU VMs opted out via --gpu-driver None or the
@@ -319,47 +343,43 @@ removeNvidiaRepos() {
 # arrive here with no module.) Deleting the on-disk .ko then leaves a stale loaded module -- unused
 # (refcnt 0, no /dev/nvidia*) but resident until reboot, and a landmine for a subsequent GPU Operator
 # install. So we rmmod it first, when idle, before removing the files. No-op unless the marker exists.
-# When a customer has replaced the pre-baked driver with their own DIFFERENT version (e.g. via
-# PreparedImageSpecification on a --gpu-driver None pool), we still remove AKS's own baked version but
-# leave the customer's driver untouched -- see the driver-version handling below.
+# When a customer has replaced the pre-baked driver with their OWN different-version driver (e.g. via
+# PreparedImageSpecification or a custom image on a --gpu-driver None pool), we clean only AKS's own
+# attributable residue and leave the customer's driver intact -- see the version check below. Pass
+# "force_full_teardown" ($1) to skip that check and always run the full teardown: the grid path needs
+# the cuda pre-bake gone regardless of version (a driver-KIND collision with the grid driver, not a
+# version one), so it must not take the customer-preserve branch.
 cleanUpPrebakedGPUDriver() {
+    local force_full="${1:-}"
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
     if [ ! -f "${marker}" ]; then
         return 0
     fi
 
-    # Determine whether AKS's own pre-baked driver is still the one on disk. The marker records the
-    # version AKS baked -- aks-gpu writes driver_version= together with the DKMS module, so it always
-    # equals AKS's DKMS-registered version. If a *different* version is DKMS-registered, a customer
-    # replaced the pre-bake with their own -- e.g. a driver baked via PreparedImageSpecification or a
-    # custom image on a --gpu-driver None pool. That different-version driver is theirs; we must not
-    # wipe its module/userspace. We STILL remove AKS's own baked version if it lingers (this teardown
-    # is a safety mechanism -- AKS's pre-bake must always be cleaned up), but leave the customer's
-    # driver intact. A legacy marker with no driver_version=, or no other version on disk, means AKS's
-    # pre-bake is what's here -> fall through to the full teardown below, unchanged.
+    # Preserve a customer's own driver when they've replaced AKS's pre-bake with a DIFFERENT version.
+    # The marker records the version AKS baked; compare it against the driver actually EFFECTIVE on
+    # this node (loaded module -> on-disk .ko -> DKMS registration, via getInstalledNvidiaDriverVersion)
+    # so we catch every install method -- .run, DKMS, custom image -- not just DKMS-registered ones. On
+    # a mismatch the on-disk driver is the customer's: clean only AKS-attributable residue -- its
+    # version-scoped DKMS dir plus the aks-gpu container's /usr/bin/lib64 staging (a path no standard
+    # installer uses) -- and leave the customer's module + userspace binaries untouched. A same-version
+    # customer rebuild is indistinguishable from AKS's own bake and is torn down like it (accepted:
+    # same version == functionally equivalent driver). A legacy marker with no driver_version=, no
+    # detectable live version, or force_full_teardown falls through to the full teardown below.
     local dkms_dir="${GPU_DKMS_NVIDIA_DIR:-/var/lib/dkms/nvidia}"
-    local marker_version="" customer_version="" _d _v
+    local marker_version="" live_version=""
     marker_version="$(sed -n 's/^driver_version=//p' "${marker}" | head -n1)"
-    if [ -n "${marker_version}" ]; then
-        for _d in "${dkms_dir}"/*/; do
-            [ -d "${_d}" ] || continue
-            _v="${_d%/}"; _v="${_v##*/}"
-            case "${_v}" in
-                [0-9]*)
-                    if [ "${_v}" != "${marker_version}" ]; then
-                        customer_version="${_v}"
-                        break
-                    fi
-                    ;;
-            esac
-        done
-    fi
-    if [ -n "${customer_version}" ]; then
-        # Remove only AKS's own baked version's DKMS registration (usually already gone, since the
-        # customer's installer deregisters it); preserve the customer's module + userspace binaries.
-        rm -rf "${dkms_dir:?}/${marker_version}" || true
-        echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=preserved_customer_driver marker_version=${marker_version} installed_version=${customer_version}"
-        return 0
+    if [ "${force_full}" != "force_full_teardown" ] && [ -n "${marker_version}" ]; then
+        live_version="$(getInstalledNvidiaDriverVersion "${dkms_dir}")"
+        if [ -n "${live_version}" ] && [ "${live_version}" != "${marker_version}" ]; then
+            # Customer replaced the pre-bake. Remove only AKS's own baked residue -- its version-scoped
+            # DKMS registration (usually already gone, the customer's installer deregisters it) and the
+            # aks-gpu /usr/bin/lib64 staging -- and preserve the customer's module + userspace binaries.
+            rm -rf "${dkms_dir:?}/${marker_version}" || true
+            rm -rf /usr/bin/lib64 || true
+            echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=preserved_customer_driver marker_version=${marker_version} installed_version=${live_version}"
+            return 0
+        fi
     fi
 
     echo "Removing pre-baked NVIDIA driver inherited from shared VHD (node does not install the managed driver)"

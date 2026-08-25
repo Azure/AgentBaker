@@ -86,16 +86,18 @@ Describe 'cse_install_ubuntu.sh'
             The output should include "status=incomplete"
         End
 
-        It 'preserves a customer-replaced driver but still cleans AKS''s own baked version'
+        It 'preserves a customer-replaced driver but still cleans AKS''s own baked residue'
             # A --gpu-driver None node whose customer baked their own DIFFERENT-version driver (via
             # PreparedImageSpecification / custom image) on top of the shared VHD: the marker records
-            # AKS''s baked version, but the DKMS-registered driver on disk is the customer''s. AKS must
-            # NOT wipe the customer''s driver, but still removes its own baked version if it lingers.
+            # AKS''s baked version, but the driver effective on disk is the customer''s. AKS must NOT
+            # wipe the customer''s driver; it removes only its own attributable residue -- the
+            # version-scoped DKMS dir and the aks-gpu /usr/bin/lib64 staging.
             marker="$(mktemp)"
             printf 'kernel=6.8.0-1063-azure\ndriver_version=580.65.06\ndriver_kind=cuda\narch=x86_64\n' > "${marker}"
             GPU_DKMS_MARKER_FILE="${marker}"
-            dkmsdir="$(mktemp -d)"; mkdir -p "${dkmsdir}/570.124.06"
+            dkmsdir="$(mktemp -d)"
             GPU_DKMS_NVIDIA_DIR="${dkmsdir}"
+            getInstalledNvidiaDriverVersion() { echo "570.124.06"; }  # the customer''s driver is live
             rm() { echo "mock rm $*"; }
             rmmod() { echo "mock rmmod $*"; }  # must NOT be called
             ldconfig() { echo "mock ldconfig"; }
@@ -104,22 +106,42 @@ Describe 'cse_install_ubuntu.sh'
             The output should include "status=preserved_customer_driver"
             The output should include "marker_version=580.65.06"
             The output should include "installed_version=570.124.06"
-            # AKS''s own baked version is still cleaned up (its DKMS dir removed)...
+            # AKS''s own residue is cleaned: its version-scoped DKMS dir and the /usr/bin/lib64 staging...
             The output should include "mock rm -rf ${dkmsdir}/580.65.06"
+            The output should include "mock rm -rf /usr/bin/lib64"
             # ...but the customer''s driver is preserved: no full teardown, no rmmod, no userspace wipe
             The output should not include "Removing pre-baked NVIDIA driver"
             The output should not include "mock rm -f /usr/bin/nvidia-smi"
             The output should not include "mock rmmod"
         End
 
-        It 'still tears down the prebake when it matches the marker (AKS-owned: GPU-Operator / non-GPU)'
-            # No customer driver -- the DKMS-registered version equals what AKS baked, so the pre-bake is
-            # AKS''s own dead weight and is torn down as before (clean slate for the GPU Operator, etc.).
+        It 'tears down a same-version customer rebuild like AKS''s own bake'
+            # If the live driver version EQUALS what AKS baked, a customer rebuild is indistinguishable
+            # from AKS''s own pre-bake -- both are torn down (accepted: same version == equivalent driver).
             marker="$(mktemp)"
             printf 'driver_version=580.65.06\n' > "${marker}"
             GPU_DKMS_MARKER_FILE="${marker}"
             dkmsdir="$(mktemp -d)"; mkdir -p "${dkmsdir}/580.65.06"
             GPU_DKMS_NVIDIA_DIR="${dkmsdir}"
+            getInstalledNvidiaDriverVersion() { echo "580.65.06"; }  # same version as the marker
+            rm() { echo "mock rm $*"; }
+            ldconfig() { echo "mock ldconfig"; }
+            lsmod() { echo ""; }
+            When call cleanUpPrebakedGPUDriver
+            The status should be success
+            The output should include "Removing pre-baked NVIDIA driver"
+            The output should not include "status=preserved_customer_driver"
+        End
+
+        It 'still tears down the prebake when it matches the marker (AKS-owned: GPU-Operator / non-GPU)'
+            # No customer driver -- the version on disk equals what AKS baked, so the pre-bake is AKS''s
+            # own dead weight and is torn down as before (clean slate for the GPU Operator, etc.).
+            marker="$(mktemp)"
+            printf 'driver_version=580.65.06\n' > "${marker}"
+            GPU_DKMS_MARKER_FILE="${marker}"
+            dkmsdir="$(mktemp -d)"; mkdir -p "${dkmsdir}/580.65.06"
+            GPU_DKMS_NVIDIA_DIR="${dkmsdir}"
+            modinfo() { return 1; }  # no on-disk .ko lookup; fall through to the DKMS registration
             rm() { echo "mock rm $*"; }
             ldconfig() { echo "mock ldconfig"; }
             lsmod() { echo ""; }  # no nvidia module loaded
@@ -127,7 +149,50 @@ Describe 'cse_install_ubuntu.sh'
             The status should be success
             The output should include "Removing pre-baked NVIDIA driver"
             The output should include "mock rm -rf /var/lib/dkms/nvidia"
-            The output should not include "reason=customer_replaced_driver"
+        End
+
+        It 'force_full_teardown ignores a different-version driver and tears down anyway (grid path)'
+            # The grid caller passes force_full_teardown: a cuda-vs-grid KIND collision means the cuda
+            # pre-bake must go regardless of version, so the customer-preserve branch is skipped.
+            marker="$(mktemp)"
+            printf 'driver_version=580.65.06\n' > "${marker}"
+            GPU_DKMS_MARKER_FILE="${marker}"
+            dkmsdir="$(mktemp -d)"; mkdir -p "${dkmsdir}/570.124.06"
+            GPU_DKMS_NVIDIA_DIR="${dkmsdir}"
+            getInstalledNvidiaDriverVersion() { echo "570.124.06"; }  # would preserve without the flag
+            rm() { echo "mock rm $*"; }
+            ldconfig() { echo "mock ldconfig"; }
+            lsmod() { echo ""; }
+            When call cleanUpPrebakedGPUDriver force_full_teardown
+            The status should be success
+            The output should include "Removing pre-baked NVIDIA driver"
+            The output should not include "status=preserved_customer_driver"
+        End
+    End
+
+    Describe 'getInstalledNvidiaDriverVersion'
+        It 'falls back to the DKMS registration when no module is loaded or on disk'
+            dkmsdir="$(mktemp -d)"; mkdir -p "${dkmsdir}/570.124.06"
+            modinfo() { return 1; }  # no on-disk .ko (e.g. no running-kernel module)
+            When call getInstalledNvidiaDriverVersion "${dkmsdir}"
+            The status should be success
+            The output should equal "570.124.06"
+        End
+
+        It 'prefers the on-disk module version over a DKMS registration'
+            dkmsdir="$(mktemp -d)"; mkdir -p "${dkmsdir}/570.124.06"
+            modinfo() { echo "575.00.00"; }  # a .run install with a newer module on disk
+            When call getInstalledNvidiaDriverVersion "${dkmsdir}"
+            The status should be success
+            The output should equal "575.00.00"
+        End
+
+        It 'echoes nothing when no driver is detectable'
+            dkmsdir="$(mktemp -d)"  # empty: no version dirs
+            modinfo() { return 1; }
+            When call getInstalledNvidiaDriverVersion "${dkmsdir}"
+            The status should be success
+            The output should equal ""
         End
     End
 

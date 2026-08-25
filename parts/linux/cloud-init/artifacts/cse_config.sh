@@ -1630,7 +1630,9 @@ cleanUpGridNodeCudaPrebake() {
         return 0
     fi
     echo "AKS_GPU_PREBAKE event=grid_cuda_prebake_teardown driver_type=${NVIDIA_GPU_DRIVER_TYPE:-} marker_kind=${m_kind:-none} node_kind=${node_kind} action=teardown"
-    cleanUpPrebakedGPUDriver
+    # force_full_teardown: a cuda-vs-grid KIND collision, so the cuda pre-bake must go regardless of
+    # its version -- skip cleanUpPrebakedGPUDriver's version-based customer-preserve branch.
+    cleanUpPrebakedGPUDriver force_full_teardown
 }
 
 ensureGPUDrivers() {
