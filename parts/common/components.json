@@ -410,7 +410,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/secrets-store/provider-azure",
-          "latestVersion": "v1.7.2"
+          "latestVersion": "v1.8.2-5"
         }
       ]
     },
@@ -693,7 +693,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/windows-gmsa-webhook",
-          "latestVersion": "v0.12.1-17"
+          "latestVersion": "v0.12.1-18"
         }
       ],
       "windowsVersions": []
@@ -1800,7 +1800,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "0.55.0-ubuntu26.04u2"
+                "latestVersion": "0.55.0-ubuntu26.04u3"
               }
             ]
           },
@@ -1808,7 +1808,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.55.0-ubuntu24.04u2"
+                "latestVersion": "0.55.0-ubuntu24.04u3"
               }
             ]
           },
@@ -1816,7 +1816,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.55.0-ubuntu22.04u2"
+                "latestVersion": "0.55.0-ubuntu22.04u3"
               }
             ]
           },
@@ -1824,7 +1824,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "0.55.0-ubuntu20.04u2"
+                "latestVersion": "0.55.0-ubuntu20.04u3"
               }
             ]
           }
@@ -2191,7 +2191,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.9.1-ubuntu24.04u24"
+                "latestVersion": "1.9.1-ubuntu24.04u25"
               }
             ]
           },
