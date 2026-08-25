@@ -318,7 +318,10 @@ updateLocalDNS() {
             echo "localDNS is already current"
             ;;
         notFound)
+            # In the runtime apply path the payload is supplied inline, so notFound is not expected;
+            # treat it as a failure so knead does not checkpoint an unapplied config as succeeded.
             echo "localDNS LPS config is not available"
+            return 1
             ;;
         noCorefileData)
             echo "localDNS LPS config has no node-applicable payload"
