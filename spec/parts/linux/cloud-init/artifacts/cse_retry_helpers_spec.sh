@@ -66,17 +66,7 @@ Describe 'long running cse helper functions'
         BeforeEach setup_oras_copy_test
         AfterEach cleanup_oras_copy_test
 
-        It 'copies referrers recursively when requested'
-            When call retrycmd_cp_oci_layout_with_oras \
-                2 0 "${ORAS_COPY_TEST_ROOT}/layout" local \
-                "dummy.registry/image:v1" true
-
-            The status should be success
-            The stdout should eq "2 retries"
-            The contents of file "$ORAS_OUTPUT" should include "oras cp --recursive dummy.registry/image:v1"
-        End
-
-        It 'keeps the standard non-recursive copy by default'
+        It 'copies the image with the standard non-recursive path'
             When call retrycmd_cp_oci_layout_with_oras \
                 2 0 "${ORAS_COPY_TEST_ROOT}/layout" local \
                 "dummy.registry/image:v1"

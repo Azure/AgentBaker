@@ -3044,7 +3044,6 @@ OVERRIDE_EOF
         rm() { echo "rm $@"; }
         labelContainerImage() { echo "labelContainerImage $@"; }
         retrycmd_cp_oci_layout_with_oras() { echo "retrycmd_cp_oci_layout_with_oras $@"; return 0; }
-        isACL() { return 1; }
         ERR_PULL_POD_INFRA_CONTAINER_IMAGE=1
 
         It 'should use MCR_REPOSITORY_BASE for image replacement when set'
@@ -3080,8 +3079,7 @@ OVERRIDE_EOF
             The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.2"
         End
 
-        It 'should preserve pod infra referrers for ACL'
-            isACL() { return 0; }
+        It 'should preserve the existing pod infra import path'
             get_sandbox_image() { echo "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2"; }
             MCR_REPOSITORY_BASE="mcr.microsoft.com"
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
@@ -3089,20 +3087,8 @@ OVERRIDE_EOF
             When call ensurePodInfraContainerImage
 
             The status should be success
-            The output should include "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.2 true"
-            The output should include "ctr -n k8s.io image import --base-name mcr.microsoft.com/oss/v2/kubernetes/pause"
-        End
-
-        It 'should keep the standard pod infra import for non-ACL nodes'
-            isACL() { return 1; }
-            get_sandbox_image() { echo "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2"; }
-            MCR_REPOSITORY_BASE="mcr.microsoft.com"
-            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
-
-            When call ensurePodInfraContainerImage
-
-            The status should be success
-            The output should include "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.2 false"
+            The output should include "retrycmd_cp_oci_layout_with_oras 10 5"
+            The output should include "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.2"
             The output should include "ctr -n k8s.io image import --base-name mcr.microsoft.com/oss/v2/kubernetes/pause"
         End
     End
