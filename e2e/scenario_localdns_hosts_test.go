@@ -25,6 +25,7 @@ const (
 	localDNSFetcherStamp            = "/opt/azure/containers/localdns/e2e-localdns-lps-fetcher-called"
 	localDNSBranchScriptArchivePath = "/opt/azure/containers/localdns/e2e-localdns.sh.gz.b64"
 	localDNSFetcherPath             = "/opt/azure/containers/localdns/e2e-fetch-localdns-config"
+	localDNSUnavailableFetcherStamp = "/opt/azure/containers/localdns/e2e-localdns-lps-unavailable-called"
 )
 
 // Test_LocalDNSHostsPlugin tests the localdns hosts plugin across all supported distros
@@ -130,6 +131,58 @@ func Test_LocalDNSLPSBootstrapPatch(t *testing.T) {
 	})
 }
 
+// Test_LocalDNSLPSUnavailableFallback validates the unhappy bootstrap path: when LPS
+// has no LocalDNS config published for the node (fetch-localdns-config fails open with
+// no livepatched Corefile written), localdns.sh must fall back to the baked/CSE-generated
+// localdns.corefile and CoreDNS must still come up and serve DNS. This is the failure-mode
+// counterpart to Test_LocalDNSLPSBootstrapPatch, exercised end-to-end on a live node.
+//
+// The test verifies that:
+//  1. the fetcher was invoked (LPS was consulted),
+//  2. no livepatched Corefile or version file is written,
+//  3. updated.localdns.corefile is still produced (from the baked source),
+//  4. localdns.service is enabled and resolves DNS, and
+//  5. the node does NOT report a LocalDNS live-patching current version.
+func Test_LocalDNSLPSUnavailableFallback(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests LocalDNS bootstrap falls back to the baked Corefile when LPS has no config",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			// Force compiling the local aks-node-controller so localdns.sh under test matches the
+			// branch's Corefile generation (compareEnvs parity), same as the happy-path scenario.
+			ForceScriptlessCompilation: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
+			},
+			CustomDataWriteFiles: []CustomDataWriteFile{
+				{
+					Path:        localDNSBranchScriptArchivePath,
+					Permissions: "0644",
+					Owner:       "root",
+					Content:     mustReadCompressedLocalDNSArtifact(t),
+				},
+				{
+					Path:        "/etc/systemd/system/localdns.service.d/00-e2e-branch-localdns.conf",
+					Permissions: "0644",
+					Owner:       "root",
+					Content:     localDNSBranchScriptDropIn(),
+				},
+				{
+					Path:        localDNSFetcherPath,
+					Permissions: "0755",
+					Owner:       "root",
+					Content:     localDNSLPSUnavailableFetcherWrapper(),
+				},
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.LocalDnsProfile.EnableLocalDns = true
+			},
+			Validator: validateLocalDNSLPSUnavailableFallback,
+		},
+	})
+}
+
 func mustReadCompressedLocalDNSArtifact(t *testing.T) string {
 	t.Helper()
 	data, err := os.ReadFile("../parts/linux/cloud-init/artifacts/localdns.sh")
@@ -230,6 +283,28 @@ exec "$ANC_BIN" apply-localdns-config --config-file ` + localDNSPayloadPath + ` 
 `
 }
 
+// localDNSLPSUnavailableFetcherWrapper simulates LPS having no LocalDNS config for the node.
+// It records that fetch-localdns-config was invoked, then exits 0 without writing the output
+// Corefile -- the same fail-open behavior aks-node-controller exhibits when LPS returns a
+// benign "unavailable" status (NotFound/PermissionDenied/Unauthenticated). Non-fetch
+// subcommands are delegated to the real binary so the rest of provisioning is unaffected.
+func localDNSLPSUnavailableFetcherWrapper() string {
+	return `#!/bin/bash
+set -euo pipefail
+ANC_BIN=/opt/azure/containers/aks-node-controller
+if [ -x /opt/azure/containers/aks-node-controller-hotfix ]; then
+    ANC_BIN=/opt/azure/containers/aks-node-controller-hotfix
+fi
+if [ "${1:-}" != "fetch-localdns-config" ]; then
+    exec "$ANC_BIN" "$@"
+fi
+# LPS has nothing published for this node: record the call and fail open without writing a
+# livepatched Corefile, so localdns.sh falls back to the baked localdns.corefile.
+touch ` + localDNSUnavailableFetcherStamp + `
+exit 0
+`
+}
+
 func validateLocalDNSLPSBootstrapPatch(ctx context.Context, s *Scenario) {
 	const (
 		updatedCorefile     = "/opt/azure/containers/localdns/updated.localdns.corefile"
@@ -252,4 +327,31 @@ func validateLocalDNSLPSBootstrapPatch(ctx context.Context, s *Scenario) {
 		return strings.Contains(status, `"localDNS":{"current":"`+desiredLocalDNSVersion+`"}`), nil
 	})
 	require.NoError(s.T, err, "node did not report LocalDNS live-patching current version %q", desiredLocalDNSVersion)
+}
+
+func validateLocalDNSLPSUnavailableFallback(ctx context.Context, s *Scenario) {
+	const (
+		bakedCorefile       = "/opt/azure/containers/localdns/localdns.corefile"
+		updatedCorefile     = "/opt/azure/containers/localdns/updated.localdns.corefile"
+		livepatchedCorefile = "/opt/azure/containers/localdns/livepatched.localdns.corefile"
+	)
+
+	// The fetcher ran (LPS was consulted) but wrote nothing, so no livepatched Corefile
+	// or version file should exist and localdns.sh must fall back to the baked Corefile.
+	ValidateFileExists(ctx, s, localDNSUnavailableFetcherStamp)
+	ValidateFileDoesNotExist(ctx, s, livepatchedCorefile)
+	ValidateFileDoesNotExist(ctx, s, livepatchedCorefile+".version")
+
+	// CoreDNS still comes up from the baked source and serves DNS.
+	ValidateFileExists(ctx, s, bakedCorefile)
+	ValidateFileHasContent(ctx, s, updatedCorefile, "health-check.localdns.local:53")
+	ValidateLocalDNSService(ctx, s, "enabled")
+	ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
+
+	// No LocalDNS live-patching version should be reported when LPS had nothing to apply.
+	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+	require.NoError(s.T, err, "failed to get node %s", s.Runtime.VM.KubeName)
+	status := node.Annotations["kubernetes.azure.com/live-patching-status"]
+	require.NotContains(s.T, status, `"localDNS"`,
+		"node unexpectedly reported a LocalDNS live-patching status when LPS had no config: %q", status)
 }
