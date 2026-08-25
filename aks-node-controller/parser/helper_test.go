@@ -523,7 +523,7 @@ func Test_getContainerdConfigV2(t *testing.T) {
 					},
 				},
 			},
-			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 3
 oom_score = -999
 [plugins."io.containerd.cri.v1.images"]
   [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -559,7 +559,7 @@ oom_score = -999
 				},
 				noGpu: false,
 			},
-			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 3
 oom_score = -999
 [plugins."io.containerd.cri.v1.images"]
   [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -594,7 +594,7 @@ oom_score = -999
 				},
 				noGpu: true,
 			},
-			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 3
 oom_score = -999
 [plugins."io.containerd.cri.v1.images"]
   [plugins."io.containerd.cri.v1.images".pinned_images]

@@ -732,6 +732,7 @@ func TestBuildCSECmd_DetectsContainerdV2FromSystem(t *testing.T) {
 	// Verify the v2 containerd config template was used (uses "io.containerd.cri.v1.images" path).
 	containerdConfig, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 	require.NoError(t, err)
+	assert.Contains(t, containerdConfig, "version = 3")
 	assert.Contains(t, containerdConfig, `plugins."io.containerd.cri.v1.images"`)
 	assert.NotContains(t, containerdConfig, `plugins."io.containerd.grpc.v1.cri"`)
 }
@@ -758,6 +759,7 @@ func TestBuildCSECmd_FallsBackToV1WhenContainerdDetectionFails(t *testing.T) {
 	// Verify the v1 containerd config template was used (uses "io.containerd.grpc.v1.cri" path).
 	containerdConfig, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 	require.NoError(t, err)
+	assert.Contains(t, containerdConfig, "version = 2")
 	assert.Contains(t, containerdConfig, `plugins."io.containerd.grpc.v1.cri"`)
 	assert.NotContains(t, containerdConfig, `plugins."io.containerd.cri.v1.images"`)
 }
