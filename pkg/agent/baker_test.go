@@ -145,9 +145,12 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				datamodel.AKSUbuntuContainerd2404,
 				datamodel.AKSUbuntuMinimalContainerd2604Gen2,
 			} {
-				distro := distro
-				It(fmt.Sprintf("uses schema v4 when containerd version is empty for %s", distro), func() {
-					expectSchemaV4(renderContainerdConfig("", distro, false))
+				It(fmt.Sprintf("uses split-plugin schema v2 (not v4) when containerd version is empty for %s", distro), func() {
+					// Regression: an empty/unknown containerd version must not assume the 2.3+ (v4)
+					// schema from the distro alone. Older 24.04/26.04 VHDs still ship containerd
+					// 2.0-2.2, which reject `version = 4` and fail to start (CSE exit 84). Reproduced
+					// in e2e against a containerd 2.1.7 Ubuntu 24.04 VHD.
+					expectContainerd2SchemaV2(renderContainerdConfig("", distro, false))
 				})
 			}
 
@@ -164,6 +167,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 			It("uses split-plugin schema v2 for containerd 2.x versions before 2.3", func() {
 				expectContainerd2SchemaV2(renderContainerdConfig("2.0.0", datamodel.AKSUbuntuContainerd2404, false))
+				// The exact Ubuntu 24.04 runtime (containerd 2.1.7) that crash-looped on `version = 4` in e2e.
+				expectContainerd2SchemaV2(renderContainerdConfig("2.1.7-ubuntu24.04u2", datamodel.AKSUbuntuContainerd2404Gen2, false))
 				expectContainerd2SchemaV2(renderContainerdConfig("2.2.4-5.azl3", datamodel.AKSAzureLinuxV3, false))
 				expectContainerd2SchemaV2(renderContainerdConfig("2.2.4-5.azl3", datamodel.AKSAzureLinuxV3, true))
 			})
