@@ -757,15 +757,10 @@ cacheContainerImageComponents() {
 
   local image_fetcher_snapshotter=""
   if isACL "$OS" "$OS_VARIANT" && [ "$(isARM64)" -eq 0 ]; then
-    local dmverity_cache_status=0
-    if image_fetcher_snapshotter="$(resolveContainerdDmverityOverlayCache)"; then
+    if containerdDmverityCapabilityInstalled; then
+      image_fetcher_snapshotter="overlayfs"
       echo "containerd dm-verity referrer caching is available; image-fetcher will unpack small images with ${image_fetcher_snapshotter}"
     else
-      dmverity_cache_status=$?
-      if [ "$dmverity_cache_status" -eq 2 ]; then
-        echo "ERROR: containerd2-erofs is installed, but its dm-verity referrer caching capability is unavailable" >&2
-        exit $ERR_CONTAINERD_VERSION_INVALID
-      fi
       echo "containerd2-erofs is not installed; using the legacy image-fetcher path"
     fi
   fi

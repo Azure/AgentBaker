@@ -403,128 +403,27 @@ Describe 'cse_install.sh'
         End
     End
 
-    Describe 'containerdSupportsDmverityOverlayCache'
-        ctr() {
-            case "$*" in
-                "--timeout 30s plugins ls --detailed type==io.containerd.snapshotter.v1,id==erofs")
-                    printf '%s\n' "${EROFS_SNAPSHOTTER_INFO}"
-                    ;;
-                "--timeout 30s plugins ls --detailed type==io.containerd.differ.v1,id==erofs")
-                    printf '%s\n' "${EROFS_DIFFER_INFO}"
-                    ;;
-                "--timeout 30s plugins ls --detailed type==io.containerd.transfer.v1,id==local")
-                    printf '%s\n' "${TRANSFER_INFO}"
-                    ;;
-                "--timeout 30s plugins ls --detailed type==io.containerd.snapshotter.v1,id==overlayfs")
-                    printf '%s\n' "${OVERLAYFS_SNAPSHOTTER_INFO}"
-                    ;;
-            esac
-            return "${CTR_PLUGINS_STATUS:-0}"
+    Describe 'containerdDmverityCapabilityInstalled'
+        setupDmverityProfile() {
+            CONTAINERD_DMVERITY_PROFILE_PATH="$(mktemp)"
         }
 
-        crictl() {
-            if [ "$*" = "--timeout 30s imagefsinfo -o json" ]; then
-                printf '{"status":{"imageFilesystems":[{"fsId":{"mountpoint":"%s"}}]}}\n' "$ACTIVE_IMAGEFS_ROOT"
-            fi
-            return "${CRICTL_IMAGEFS_STATUS:-0}"
+        cleanupDmverityProfile() {
+            rm -f "$CONTAINERD_DMVERITY_PROFILE_PATH"
         }
 
-        BeforeEach 'setupErofsPluginInfo'
-        setupErofsPluginInfo() {
-            EROFS_SNAPSHOTTER_INFO=$'Type:\tio.containerd.snapshotter.v1\nID:\terofs\nCapabilities:\tdmverity-referrers\nExports:\n\troot\t/var/lib/containerd/io.containerd.snapshotter.v1.erofs'
-            EROFS_DIFFER_INFO=$'Type:\tio.containerd.differ.v1\nID:\terofs\nCapabilities:\tdmverity-referrers'
-            TRANSFER_INFO=$'Type:\tio.containerd.transfer.v1\nID:\tlocal'
-            OVERLAYFS_SNAPSHOTTER_INFO=$'Type:\tio.containerd.snapshotter.v1\nID:\toverlayfs\nExports:\n\troot\t/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs'
-            ACTIVE_IMAGEFS_ROOT="/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs"
-            CTR_PLUGINS_STATUS=0
-            CRICTL_IMAGEFS_STATUS=0
-        }
+        BeforeEach 'setupDmverityProfile'
+        AfterEach 'cleanupDmverityProfile'
 
-        It 'accepts overlayfs while EROFS dm-verity capability is loaded'
-            When call containerdSupportsDmverityOverlayCache
+        It 'detects the installed capability profile'
+            When call containerdDmverityCapabilityInstalled
             The status should be success
         End
 
-        It 'rejects EROFS as the active image snapshotter during baking'
-            ACTIVE_IMAGEFS_ROOT="/var/lib/containerd/io.containerd.snapshotter.v1.erofs"
-            When call containerdSupportsDmverityOverlayCache
+        It 'rejects a missing capability profile'
+            rm -f "$CONTAINERD_DMVERITY_PROFILE_PATH"
+            When call containerdDmverityCapabilityInstalled
             The status should be failure
-        End
-
-        It 'rejects an unknown active image snapshotter'
-            ACTIVE_IMAGEFS_ROOT="/var/lib/containerd/io.containerd.snapshotter.v1.overlaybd"
-            When call containerdSupportsDmverityOverlayCache
-            The status should be failure
-        End
-
-        It 'rejects an EROFS snapshotter without dm-verity referrer support'
-            EROFS_SNAPSHOTTER_INFO=$'Type:\tio.containerd.snapshotter.v1\nID:\terofs\nExports:\n\troot\t/var/lib/containerd/io.containerd.snapshotter.v1.erofs'
-            When call containerdSupportsDmverityOverlayCache
-            The status should be failure
-        End
-
-        It 'rejects an EROFS differ without dm-verity referrer support'
-            EROFS_DIFFER_INFO=$'Type:\tio.containerd.differ.v1\nID:\terofs'
-            When call containerdSupportsDmverityOverlayCache
-            The status should be failure
-        End
-
-        It 'rejects an EROFS plugin that failed initialization'
-            EROFS_SNAPSHOTTER_INFO=$'Type:\tio.containerd.snapshotter.v1\nID:\terofs\nError:\n\tCode:\tUnknown'
-            When call containerdSupportsDmverityOverlayCache
-            The status should be failure
-        End
-
-        It 'rejects an unavailable transfer plugin'
-            TRANSFER_INFO=$'Type:\tio.containerd.transfer.v1\nID:\tlocal\nError:\n\tCode:\tUnknown'
-            When call containerdSupportsDmverityOverlayCache
-            The status should be failure
-        End
-
-        It 'rejects a containerd introspection failure'
-            CTR_PLUGINS_STATUS=1
-            When call containerdSupportsDmverityOverlayCache
-            The status should be failure
-        End
-
-        It 'rejects a CRI image filesystem introspection failure'
-            CRICTL_IMAGEFS_STATUS=1
-            When call containerdSupportsDmverityOverlayCache
-            The status should be failure
-        End
-    End
-
-    Describe 'resolveContainerdDmverityOverlayCache'
-        containerdSupportsDmverityOverlayCache() {
-            return "${OVERLAY_CACHE_STATUS}"
-        }
-        containerdDmverityCapabilityInstalled() {
-            return "${DMVERITY_CAPABILITY_INSTALLED_STATUS}"
-        }
-
-        BeforeEach 'setupDmverityCacheResolution'
-        setupDmverityCacheResolution() {
-            OVERLAY_CACHE_STATUS=0
-            DMVERITY_CAPABILITY_INSTALLED_STATUS=1
-        }
-
-        It 'selects overlayfs for a supported bake'
-            When call resolveContainerdDmverityOverlayCache
-            The status should be success
-            The output should eq "overlayfs"
-        End
-
-        It 'returns one when the optional capability is not installed'
-            OVERLAY_CACHE_STATUS=1
-            When call resolveContainerdDmverityOverlayCache
-            The status should eq 1
-        End
-
-        It 'returns two when an installed capability is unavailable'
-            OVERLAY_CACHE_STATUS=1
-            DMVERITY_CAPABILITY_INSTALLED_STATUS=0
-            When call resolveContainerdDmverityOverlayCache
-            The status should eq 2
         End
     End
 

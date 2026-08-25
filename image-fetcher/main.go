@@ -86,6 +86,10 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 	platformMatcher := platforms.OnlyStrict(p)
 
 	if transferSnapshotter == "overlayfs" {
+		if err := requireDmverityReferrerCapability(ctx, client); err != nil {
+			return fmt.Errorf("dm-verity referrer caching unavailable: %w", err)
+		}
+
 		image, err := transferImage(ctx, client, ref, p)
 		if err != nil {
 			return fmt.Errorf("transfer failed: %w", err)
