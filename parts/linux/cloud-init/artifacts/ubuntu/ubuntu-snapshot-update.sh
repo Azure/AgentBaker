@@ -304,11 +304,9 @@ updateLocalDNS() {
         echo "localDNS config apply failed"
         return 1
     fi
-    printf '%s
-' "${outcome}"
+    printf '%s\n' "${outcome}"
 
-    case "$(printf '%s
-' "${outcome}" | tail -n 1)" in
+    case "$(printf '%s\n' "${outcome}" | tail -n 1)" in
         applied)
             if ! systemctl restart localdns.service; then
                 echo "failed to restart localdns.service"
