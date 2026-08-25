@@ -146,7 +146,6 @@ func runSSHCommandWithPrivateKeyFile(
 }
 
 func execScriptOnVm(ctx context.Context, s *Scenario, vm *ScenarioVM, script string) (*podExecResult, error) {
-	s.T.Helper()
 	if vm == nil {
 		return nil, fmt.Errorf("cannot execute script on a nil VM")
 	}
@@ -159,7 +158,6 @@ func execOnUnprivilegedPod(ctx context.Context, kube *Kubeclient, namespace stri
 }
 
 func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd string) (*podExecResult, error) {
-	s.T.Helper()
 	nonHostPod, err := s.Runtime.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
 	if err != nil {
 		return nil, fmt.Errorf("get non-host debug pod: %w", err)
@@ -172,7 +170,6 @@ func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd 
 }
 
 func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) (*podExecResult, error) {
-	s.T.Helper()
 	result, err := execScriptOnVm(ctx, s, s.Runtime.VM, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("execute command %q on VM: %w", cmd, err)
@@ -181,7 +178,6 @@ func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) (*p
 }
 
 func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario, cmd string, expectedExitCode int, additionalErrorMessage string) (*podExecResult, error) {
-	s.T.Helper()
 	execResult, err := execScriptOnVMForScenario(ctx, s, cmd)
 	if err != nil {
 		return nil, err
@@ -189,7 +185,7 @@ func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario,
 
 	expectedExitCodeStr := fmt.Sprint(expectedExitCode)
 	if expectedExitCodeStr != execResult.exitCode {
-		s.T.Logf("Command: %s\nStdout: %s\nStderr: %s", cmd, execResult.stdout, execResult.stderr)
+		s.Logger.Logf("Command: %s\nStdout: %s\nStderr: %s", cmd, execResult.stdout, execResult.stderr)
 		return execResult, fmt.Errorf("expected exit code %s, got %s for command %q: %s", expectedExitCodeStr, execResult.exitCode, cmd, additionalErrorMessage)
 	}
 	return execResult, nil
