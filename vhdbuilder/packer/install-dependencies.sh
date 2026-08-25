@@ -758,7 +758,7 @@ cacheContainerImageComponents() {
   local image_fetcher_snapshotter=""
   if isACL "$OS" "$OS_VARIANT" && [ "$(isARM64)" -eq 0 ]; then
     local dmverity_cache_status=0
-    if image_fetcher_snapshotter="$(resolveContainerdDmverityCacheSnapshotter)"; then
+    if image_fetcher_snapshotter="$(resolveContainerdDmverityOverlayCache)"; then
       echo "containerd dm-verity referrer caching is available; image-fetcher will unpack small images with ${image_fetcher_snapshotter}"
     else
       dmverity_cache_status=$?

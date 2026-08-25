@@ -71,7 +71,7 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 	fetchOnly := os.Getenv("IMAGE_FETCH_ONLY") == "true"
 	transferSnapshotter := os.Getenv(transferSnapshotterEnv)
 	switch transferSnapshotter {
-	case "", "overlayfs", "erofs":
+	case "", "overlayfs":
 	default:
 		return fmt.Errorf("unsupported %s %q", transferSnapshotterEnv, transferSnapshotter)
 	}
@@ -85,8 +85,8 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 	}
 	platformMatcher := platforms.OnlyStrict(p)
 
-	if transferBeforeSizing(transferSnapshotter, fetchOnly) {
-		image, err := transferImage(ctx, client, ref, p, "", false)
+	if transferSnapshotter == "overlayfs" {
+		image, err := transferImage(ctx, client, ref, p)
 		if err != nil {
 			return fmt.Errorf("transfer failed: %w", err)
 		}
@@ -137,29 +137,12 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 
 	size, err := image.Size(ctx)
 	if err != nil {
-		if transferSnapshotter != "" {
-			if _, err := transferImage(ctx, client, ref, p, transferSnapshotter, false); err != nil {
-				return fmt.Errorf("failed to determine image size and transfer failed: %w", err)
-			}
-		}
 		fmt.Fprintf(os.Stderr, "WARN  %s: could not determine image size, skipping unpack: %v\n", ref, err)
-		if transferSnapshotter != "" {
-			fmt.Printf("OK    %s -> %s (transferred)\n", imageMeta.Name, imageMeta.Target.Digest)
-			return nil
-		}
 		fmt.Printf("OK    %s -> %s (fetched)\n", imageMeta.Name, imageMeta.Target.Digest)
 		return nil
 	}
 
 	if shouldUnpack(size) {
-		if transferSnapshotter != "" {
-			if _, err := transferImage(ctx, client, ref, p, transferSnapshotter, true); err != nil {
-				return fmt.Errorf("transfer and unpack failed: %w", err)
-			}
-			fmt.Printf("OK    %s -> %s (transferred and unpacked, %s)\n", imageMeta.Name, imageMeta.Target.Digest, formatSize(size))
-			return nil
-		}
-
 		// We use pull here instead of use unpack because some runtimes (e.g. containerd-shim-runsc-v1),
 		// require pull to trigger unpacking into the correct snapshotter based on the image's platform.
 		if _, err := client.Pull(ctx, ref,
@@ -170,41 +153,23 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 		}
 		fmt.Printf("OK    %s -> %s (pulled, %s)\n", imageMeta.Name, imageMeta.Target.Digest, formatSize(size))
 	} else {
-		if transferSnapshotter != "" {
-			if _, err := transferImage(ctx, client, ref, p, transferSnapshotter, false); err != nil {
-				return fmt.Errorf("transfer failed: %w", err)
-			}
-			fmt.Printf("OK    %s -> %s (transferred, %s)\n", imageMeta.Name, imageMeta.Target.Digest, formatSize(size))
-			return nil
-		}
 		fmt.Printf("OK    %s -> %s (fetched, %s)\n", imageMeta.Name, imageMeta.Target.Digest, formatSize(size))
 	}
 
 	return nil
 }
 
-func transferBeforeSizing(snapshotter string, fetchOnly bool) bool {
-	return snapshotter == "overlayfs" || (snapshotter == "erofs" && fetchOnly)
-}
-
 func shouldUnpack(size int64) bool {
 	return size < pullSizeThreshold
 }
 
-func transferImage(ctx context.Context, client *containerd.Client, ref string, platform ocispec.Platform, snapshotter string, unpack bool) (containerd.Image, error) {
+func transferImage(ctx context.Context, client *containerd.Client, ref string, platform ocispec.Platform) (containerd.Image, error) {
 	source, err := registry.NewOCIRegistry(ctx, ref, registry.WithHostDir(defaultHostsDir))
 	if err != nil {
 		return nil, fmt.Errorf("create registry source: %w", err)
 	}
 
-	storeOpts := []transferimage.StoreOpt{
-		transferimage.WithPlatforms(platform),
-	}
-	if unpack {
-		storeOpts = append(storeOpts, transferimage.WithUnpack(platform, snapshotter))
-	}
-
-	if err := client.Transfer(ctx, source, transferimage.NewStore(ref, storeOpts...)); err != nil {
+	if err := client.Transfer(ctx, source, transferimage.NewStore(ref, transferimage.WithPlatforms(platform))); err != nil {
 		return nil, err
 	}
 

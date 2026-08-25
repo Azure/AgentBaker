@@ -683,11 +683,13 @@ pullContainerImage() {
     echo "successfully pulled image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
 }
 
-containerdDmverityCacheSnapshotter() {
+containerdSupportsDmverityOverlayCache() {
     local erofs_snapshotter_info
     local erofs_snapshotter_root
     local erofs_differ_info
     local transfer_info
+    local overlayfs_snapshotter_info
+    local overlayfs_snapshotter_root
     local imagefs_info
     local active_imagefs_root
 
@@ -715,13 +717,6 @@ containerdDmverityCacheSnapshotter() {
     grep -Eq '^ID:[[:space:]]+local[[:space:]]*$' <<< "$transfer_info" || return 1
     ! grep -Eq '^Error:' <<< "$transfer_info" || return 1
 
-    if [ "$active_imagefs_root" = "$erofs_snapshotter_root" ]; then
-        echo "erofs"
-        return 0
-    fi
-
-    local overlayfs_snapshotter_info
-    local overlayfs_snapshotter_root
     overlayfs_snapshotter_info=$(ctr --timeout 30s plugins ls --detailed \
         "type==io.containerd.snapshotter.v1,id==overlayfs") || return 1
     overlayfs_snapshotter_root=$(awk '$1 == "root" { print $2; exit }' <<< "$overlayfs_snapshotter_info")
@@ -730,8 +725,6 @@ containerdDmverityCacheSnapshotter() {
     ! grep -Eq '^Error:' <<< "$overlayfs_snapshotter_info" || return 1
     [ -n "$overlayfs_snapshotter_root" ] || return 1
     [ "$active_imagefs_root" = "$overlayfs_snapshotter_root" ] || return 1
-
-    echo "overlayfs"
 }
 
 containerdDmverityCapabilityInstalled() {
@@ -739,10 +732,9 @@ containerdDmverityCapabilityInstalled() {
     [ -f "$profile_path" ]
 }
 
-resolveContainerdDmverityCacheSnapshotter() {
-    local snapshotter
-    if snapshotter="$(containerdDmverityCacheSnapshotter)"; then
-        echo "$snapshotter"
+resolveContainerdDmverityOverlayCache() {
+    if containerdSupportsDmverityOverlayCache; then
+        echo "overlayfs"
         return 0
     fi
     if containerdDmverityCapabilityInstalled; then

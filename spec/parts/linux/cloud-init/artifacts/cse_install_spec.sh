@@ -379,14 +379,6 @@ Describe 'cse_install.sh'
             PULL_COMMAND_STATUS=0
         }
 
-        It 'selects server-side transfer through image-fetcher for EROFS'
-            When call pullContainerImage "ctr" "mcr.microsoft.com/example/image:v1" "erofs"
-            The error should include "retrycmd_if_failure 10 1 600 env IMAGE_FETCHER_SNAPSHOTTER=erofs /opt/azure/containers/image-fetcher mcr.microsoft.com/example/image:v1"
-            The output should include "mock pull progress"
-            The output should include "successfully pulled image mcr.microsoft.com/example/image:v1 using ctr"
-            The status should be success
-        End
-
         It 'selects retained-referrer caching with overlayfs unpack'
             When call pullContainerImage "ctr" "mcr.microsoft.com/example/image:v1" "overlayfs"
             The error should include "retrycmd_if_failure 10 1 600 env IMAGE_FETCHER_SNAPSHOTTER=overlayfs /opt/azure/containers/image-fetcher mcr.microsoft.com/example/image:v1"
@@ -404,14 +396,14 @@ Describe 'cse_install.sh'
 
         It 'maps a transfer timeout to the existing ctr timeout error'
             PULL_COMMAND_STATUS=124
-            When call pullContainerImage "ctr" "mcr.microsoft.com/example/image:v1" "erofs"
-            The error should include "retrycmd_if_failure 10 1 600 env IMAGE_FETCHER_SNAPSHOTTER=erofs /opt/azure/containers/image-fetcher"
+            When call pullContainerImage "ctr" "mcr.microsoft.com/example/image:v1" "overlayfs"
+            The error should include "retrycmd_if_failure 10 1 600 env IMAGE_FETCHER_SNAPSHOTTER=overlayfs /opt/azure/containers/image-fetcher"
             The output should include "timed out pulling image mcr.microsoft.com/example/image:v1 via ctr"
             The status should equal "$ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT"
         End
     End
 
-    Describe 'containerdDmverityCacheSnapshotter'
+    Describe 'containerdSupportsDmverityOverlayCache'
         ctr() {
             case "$*" in
                 "--timeout 30s plugins ls --detailed type==io.containerd.snapshotter.v1,id==erofs")
@@ -443,71 +435,68 @@ Describe 'cse_install.sh'
             EROFS_DIFFER_INFO=$'Type:\tio.containerd.differ.v1\nID:\terofs\nCapabilities:\tdmverity-referrers'
             TRANSFER_INFO=$'Type:\tio.containerd.transfer.v1\nID:\tlocal'
             OVERLAYFS_SNAPSHOTTER_INFO=$'Type:\tio.containerd.snapshotter.v1\nID:\toverlayfs\nExports:\n\troot\t/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs'
-            ACTIVE_IMAGEFS_ROOT="/var/lib/containerd/io.containerd.snapshotter.v1.erofs"
+            ACTIVE_IMAGEFS_ROOT="/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs"
             CTR_PLUGINS_STATUS=0
             CRICTL_IMAGEFS_STATUS=0
         }
 
-        It 'accepts EROFS as the active image snapshotter with a dm-verity-capable differ'
-            When call containerdDmverityCacheSnapshotter
+        It 'accepts overlayfs while EROFS dm-verity capability is loaded'
+            When call containerdSupportsDmverityOverlayCache
             The status should be success
-            The output should eq "erofs"
         End
 
-        It 'accepts overlayfs while EROFS dm-verity capability is loaded'
-            ACTIVE_IMAGEFS_ROOT="/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs"
-            When call containerdDmverityCacheSnapshotter
-            The status should be success
-            The output should eq "overlayfs"
+        It 'rejects EROFS as the active image snapshotter during baking'
+            ACTIVE_IMAGEFS_ROOT="/var/lib/containerd/io.containerd.snapshotter.v1.erofs"
+            When call containerdSupportsDmverityOverlayCache
+            The status should be failure
         End
 
         It 'rejects an unknown active image snapshotter'
             ACTIVE_IMAGEFS_ROOT="/var/lib/containerd/io.containerd.snapshotter.v1.overlaybd"
-            When call containerdDmverityCacheSnapshotter
+            When call containerdSupportsDmverityOverlayCache
             The status should be failure
         End
 
         It 'rejects an EROFS snapshotter without dm-verity referrer support'
             EROFS_SNAPSHOTTER_INFO=$'Type:\tio.containerd.snapshotter.v1\nID:\terofs\nExports:\n\troot\t/var/lib/containerd/io.containerd.snapshotter.v1.erofs'
-            When call containerdDmverityCacheSnapshotter
+            When call containerdSupportsDmverityOverlayCache
             The status should be failure
         End
 
         It 'rejects an EROFS differ without dm-verity referrer support'
             EROFS_DIFFER_INFO=$'Type:\tio.containerd.differ.v1\nID:\terofs'
-            When call containerdDmverityCacheSnapshotter
+            When call containerdSupportsDmverityOverlayCache
             The status should be failure
         End
 
         It 'rejects an EROFS plugin that failed initialization'
             EROFS_SNAPSHOTTER_INFO=$'Type:\tio.containerd.snapshotter.v1\nID:\terofs\nError:\n\tCode:\tUnknown'
-            When call containerdDmverityCacheSnapshotter
+            When call containerdSupportsDmverityOverlayCache
             The status should be failure
         End
 
         It 'rejects an unavailable transfer plugin'
             TRANSFER_INFO=$'Type:\tio.containerd.transfer.v1\nID:\tlocal\nError:\n\tCode:\tUnknown'
-            When call containerdDmverityCacheSnapshotter
+            When call containerdSupportsDmverityOverlayCache
             The status should be failure
         End
 
         It 'rejects a containerd introspection failure'
             CTR_PLUGINS_STATUS=1
-            When call containerdDmverityCacheSnapshotter
+            When call containerdSupportsDmverityOverlayCache
             The status should be failure
         End
 
         It 'rejects a CRI image filesystem introspection failure'
             CRICTL_IMAGEFS_STATUS=1
-            When call containerdDmverityCacheSnapshotter
+            When call containerdSupportsDmverityOverlayCache
             The status should be failure
         End
     End
 
-    Describe 'resolveContainerdDmverityCacheSnapshotter'
-        containerdDmverityCacheSnapshotter() {
-            echo "${CACHE_SNAPSHOTTER}"
-            return "${CACHE_SNAPSHOTTER_STATUS}"
+    Describe 'resolveContainerdDmverityOverlayCache'
+        containerdSupportsDmverityOverlayCache() {
+            return "${OVERLAY_CACHE_STATUS}"
         }
         containerdDmverityCapabilityInstalled() {
             return "${DMVERITY_CAPABILITY_INSTALLED_STATUS}"
@@ -515,27 +504,26 @@ Describe 'cse_install.sh'
 
         BeforeEach 'setupDmverityCacheResolution'
         setupDmverityCacheResolution() {
-            CACHE_SNAPSHOTTER="overlayfs"
-            CACHE_SNAPSHOTTER_STATUS=0
+            OVERLAY_CACHE_STATUS=0
             DMVERITY_CAPABILITY_INSTALLED_STATUS=1
         }
 
-        It 'returns the detected cache snapshotter'
-            When call resolveContainerdDmverityCacheSnapshotter
+        It 'selects overlayfs for a supported bake'
+            When call resolveContainerdDmverityOverlayCache
             The status should be success
             The output should eq "overlayfs"
         End
 
         It 'returns one when the optional capability is not installed'
-            CACHE_SNAPSHOTTER_STATUS=1
-            When call resolveContainerdDmverityCacheSnapshotter
+            OVERLAY_CACHE_STATUS=1
+            When call resolveContainerdDmverityOverlayCache
             The status should eq 1
         End
 
         It 'returns two when an installed capability is unavailable'
-            CACHE_SNAPSHOTTER_STATUS=1
+            OVERLAY_CACHE_STATUS=1
             DMVERITY_CAPABILITY_INSTALLED_STATUS=0
-            When call resolveContainerdDmverityCacheSnapshotter
+            When call resolveContainerdDmverityOverlayCache
             The status should eq 2
         End
     End
