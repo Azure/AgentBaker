@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"slices"
 
-	introspectionapi "github.com/containerd/containerd/api/services/introspection/v1"
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/plugins"
 )
@@ -23,11 +22,7 @@ func requireDmverityReferrerCapability(ctx context.Context, client *containerd.C
 	if err != nil {
 		return fmt.Errorf("inspect containerd transfer plugin: %w", err)
 	}
-	return validateDmverityReferrerCapability(response.Plugins)
-}
-
-func validateDmverityReferrerCapability(available []*introspectionapi.Plugin) error {
-	for _, plugin := range available {
+	for _, plugin := range response.Plugins {
 		if plugin.Type != string(plugins.TransferPlugin) || plugin.ID != localTransferPluginID {
 			continue
 		}

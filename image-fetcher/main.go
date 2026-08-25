@@ -110,7 +110,7 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 			return nil
 		}
 
-		if shouldUnpack(size) {
+		if size < pullSizeThreshold {
 			if err := image.Unpack(ctx, transferSnapshotter); err != nil {
 				return fmt.Errorf("local %s unpack failed: %w", transferSnapshotter, err)
 			}
@@ -146,7 +146,7 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 		return nil
 	}
 
-	if shouldUnpack(size) {
+	if size < pullSizeThreshold {
 		// We use pull here instead of use unpack because some runtimes (e.g. containerd-shim-runsc-v1),
 		// require pull to trigger unpacking into the correct snapshotter based on the image's platform.
 		if _, err := client.Pull(ctx, ref,
@@ -161,10 +161,6 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 	}
 
 	return nil
-}
-
-func shouldUnpack(size int64) bool {
-	return size < pullSizeThreshold
 }
 
 func transferImage(ctx context.Context, client *containerd.Client, ref string, platform ocispec.Platform) (containerd.Image, error) {
