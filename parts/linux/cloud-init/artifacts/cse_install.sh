@@ -640,7 +640,6 @@ installKubeletKubectlFromURL() {
 pullContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
-    local image_fetcher_snapshotter="${3:-}"
     PULL_RETRIES=10
     PULL_WAIT_SLEEP_SECONDS=1
     PULL_TIMEOUT_SECONDS=600 # 10 minutes
@@ -648,14 +647,8 @@ pullContainerImage() {
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL} with a timeout of ${PULL_TIMEOUT_SECONDS}s"
 
     if [ "${CLI_TOOL,,}" = "ctr" ]; then
-        if [ -n "$image_fetcher_snapshotter" ]; then
-            retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS \
-                env IMAGE_FETCHER_SNAPSHOTTER="$image_fetcher_snapshotter" \
-                /opt/azure/containers/image-fetcher "$CONTAINER_IMAGE_URL"
-        else
-            retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS \
-                /opt/azure/containers/image-fetcher "$CONTAINER_IMAGE_URL"
-        fi
+        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS \
+            /opt/azure/containers/image-fetcher "$CONTAINER_IMAGE_URL"
         code=$?
     elif [ "${CLI_TOOL,,}" = "crictl" ]; then
         retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS crictl pull $CONTAINER_IMAGE_URL
@@ -681,11 +674,6 @@ pullContainerImage() {
     fi
 
     echo "successfully pulled image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
-}
-
-containerdDmverityCapabilityInstalled() {
-    local profile_path="${CONTAINERD_DMVERITY_PROFILE_PATH:-/usr/share/containerd2/acl-erofs.toml}"
-    [ -f "$profile_path" ]
 }
 
 retagContainerImage() {

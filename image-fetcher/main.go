@@ -15,10 +15,9 @@ import (
 )
 
 const (
-	defaultSocket          = "/run/containerd/containerd.sock"
-	defaultNS              = "k8s.io"
-	defaultHostsDir        = "/etc/containerd/certs.d"
-	transferSnapshotterEnv = "IMAGE_FETCHER_SNAPSHOTTER"
+	defaultSocket   = "/run/containerd/containerd.sock"
+	defaultNS       = "k8s.io"
+	defaultHostsDir = "/etc/containerd/certs.d"
 	// images with compressed content size below this threshold are
 	// unpacked after fetch, effectively turning the operation into a
 	// full pull (~150 MiB compressed ≈ ~300 MiB unpacked).
@@ -63,18 +62,12 @@ func main() {
 	}
 }
 
-// fetchImage preserves the existing 150 MiB unpack policy. ACL overlayfs
-// caching uses a fetch-only server transfer first so signed referrers are
-// retained once, then unpacks small images locally from the shared content
+// fetchImage preserves the existing 150 MiB unpack policy. When containerd
+// retains dm-verity referrers, it uses a fetch-only server transfer first,
+// then unpacks small images locally into overlayfs from the shared content
 // store without a second registry traversal.
 func fetchImage(ctx context.Context, client *containerd.Client, ref string) error {
 	fetchOnly := os.Getenv("IMAGE_FETCH_ONLY") == "true"
-	transferSnapshotter := os.Getenv(transferSnapshotterEnv)
-	switch transferSnapshotter {
-	case "", "overlayfs":
-	default:
-		return fmt.Errorf("unsupported %s %q", transferSnapshotterEnv, transferSnapshotter)
-	}
 
 	fmt.Printf("Fetching %s ...\n", ref)
 
@@ -85,11 +78,11 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 	}
 	platformMatcher := platforms.OnlyStrict(p)
 
-	if transferSnapshotter == "overlayfs" {
-		if err := requireDmverityReferrerCapability(ctx, client); err != nil {
-			return fmt.Errorf("dm-verity referrer caching unavailable: %w", err)
-		}
-
+	retainsDmverityReferrers, err := containerdRetainsDmverityReferrers(ctx, client)
+	if err != nil {
+		return err
+	}
+	if retainsDmverityReferrers {
 		image, err := transferImage(ctx, client, ref, p)
 		if err != nil {
 			return fmt.Errorf("transfer failed: %w", err)
@@ -111,8 +104,8 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 		}
 
 		if size < pullSizeThreshold {
-			if err := image.Unpack(ctx, transferSnapshotter); err != nil {
-				return fmt.Errorf("local %s unpack failed: %w", transferSnapshotter, err)
+			if err := image.Unpack(ctx, "overlayfs"); err != nil {
+				return fmt.Errorf("local overlayfs unpack failed: %w", err)
 			}
 			fmt.Printf("OK    %s -> %s (transferred and unpacked, %s)\n", image.Name(), image.Target().Digest, formatSize(size))
 			return nil

@@ -379,51 +379,19 @@ Describe 'cse_install.sh'
             PULL_COMMAND_STATUS=0
         }
 
-        It 'selects retained-referrer caching with overlayfs unpack'
-            When call pullContainerImage "ctr" "mcr.microsoft.com/example/image:v1" "overlayfs"
-            The error should include "retrycmd_if_failure 10 1 600 env IMAGE_FETCHER_SNAPSHOTTER=overlayfs /opt/azure/containers/image-fetcher mcr.microsoft.com/example/image:v1"
-            The output should include "mock pull progress"
-            The status should be success
-        End
-
-        It 'preserves image-fetcher for the existing ctr path'
+        It 'uses image-fetcher for the ctr path'
             When call pullContainerImage "ctr" "mcr.microsoft.com/example/image:v1"
             The error should include "retrycmd_if_failure 10 1 600 /opt/azure/containers/image-fetcher mcr.microsoft.com/example/image:v1"
-            The error should not include "IMAGE_FETCHER_SNAPSHOTTER"
             The output should include "mock pull progress"
             The status should be success
         End
 
         It 'maps a transfer timeout to the existing ctr timeout error'
             PULL_COMMAND_STATUS=124
-            When call pullContainerImage "ctr" "mcr.microsoft.com/example/image:v1" "overlayfs"
-            The error should include "retrycmd_if_failure 10 1 600 env IMAGE_FETCHER_SNAPSHOTTER=overlayfs /opt/azure/containers/image-fetcher"
+            When call pullContainerImage "ctr" "mcr.microsoft.com/example/image:v1"
+            The error should include "retrycmd_if_failure 10 1 600 /opt/azure/containers/image-fetcher"
             The output should include "timed out pulling image mcr.microsoft.com/example/image:v1 via ctr"
             The status should equal "$ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT"
-        End
-    End
-
-    Describe 'containerdDmverityCapabilityInstalled'
-        setupDmverityProfile() {
-            CONTAINERD_DMVERITY_PROFILE_PATH="$(mktemp)"
-        }
-
-        cleanupDmverityProfile() {
-            rm -f "$CONTAINERD_DMVERITY_PROFILE_PATH"
-        }
-
-        BeforeEach 'setupDmverityProfile'
-        AfterEach 'cleanupDmverityProfile'
-
-        It 'detects the installed capability profile'
-            When call containerdDmverityCapabilityInstalled
-            The status should be success
-        End
-
-        It 'rejects a missing capability profile'
-            rm -f "$CONTAINERD_DMVERITY_PROFILE_PATH"
-            When call containerdDmverityCapabilityInstalled
-            The status should be failure
         End
     End
 
