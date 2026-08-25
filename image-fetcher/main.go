@@ -63,12 +63,18 @@ func main() {
 	}
 }
 
-// fetchImage preserves the existing fetch-first size policy. When a transfer
-// snapshotter is selected, a second server-side transfer either unpacks small
-// images immediately or retains their referrers for deferred unpack.
+// fetchImage preserves the existing 150 MiB unpack policy. ACL overlayfs
+// caching uses a fetch-only server transfer first so signed referrers are
+// retained once, then unpacks small images locally from the shared content
+// store without a second registry traversal.
 func fetchImage(ctx context.Context, client *containerd.Client, ref string) error {
 	fetchOnly := os.Getenv("IMAGE_FETCH_ONLY") == "true"
 	transferSnapshotter := os.Getenv(transferSnapshotterEnv)
+	switch transferSnapshotter {
+	case "", "overlayfs", "erofs":
+	default:
+		return fmt.Errorf("unsupported %s %q", transferSnapshotterEnv, transferSnapshotter)
+	}
 
 	fmt.Printf("Fetching %s ...\n", ref)
 
@@ -78,6 +84,39 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 		return fmt.Errorf("parse platform %s: %w", platform, err)
 	}
 	platformMatcher := platforms.OnlyStrict(p)
+
+	if transferBeforeSizing(transferSnapshotter, fetchOnly) {
+		image, err := transferImage(ctx, client, ref, p, "", false)
+		if err != nil {
+			return fmt.Errorf("transfer failed: %w", err)
+		}
+		if err := validateImagePlatform(ctx, image, p); err != nil {
+			return err
+		}
+
+		if fetchOnly {
+			fmt.Printf("OK    %s -> %s (transferred)\n", image.Name(), image.Target().Digest)
+			return nil
+		}
+
+		size, err := image.Size(ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "WARN  %s: could not determine image size, skipping unpack: %v\n", ref, err)
+			fmt.Printf("OK    %s -> %s (transferred)\n", image.Name(), image.Target().Digest)
+			return nil
+		}
+
+		if shouldUnpack(size) {
+			if err := image.Unpack(ctx, transferSnapshotter); err != nil {
+				return fmt.Errorf("local %s unpack failed: %w", transferSnapshotter, err)
+			}
+			fmt.Printf("OK    %s -> %s (transferred and unpacked, %s)\n", image.Name(), image.Target().Digest, formatSize(size))
+			return nil
+		}
+
+		fmt.Printf("OK    %s -> %s (transferred, %s)\n", image.Name(), image.Target().Digest, formatSize(size))
+		return nil
+	}
 
 	imageMeta, err := client.Fetch(ctx, ref,
 		containerd.WithPlatformMatcher(platformMatcher),
@@ -92,13 +131,6 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 	}
 
 	if fetchOnly {
-		if transferSnapshotter != "" {
-			if err := transferImage(ctx, client, ref, p, transferSnapshotter, false); err != nil {
-				return fmt.Errorf("transfer failed: %w", err)
-			}
-			fmt.Printf("OK    %s -> %s (transferred)\n", imageMeta.Name, imageMeta.Target.Digest)
-			return nil
-		}
 		fmt.Printf("OK    %s -> %s (fetched)\n", imageMeta.Name, imageMeta.Target.Digest)
 		return nil
 	}
@@ -106,7 +138,7 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 	size, err := image.Size(ctx)
 	if err != nil {
 		if transferSnapshotter != "" {
-			if err := transferImage(ctx, client, ref, p, transferSnapshotter, false); err != nil {
+			if _, err := transferImage(ctx, client, ref, p, transferSnapshotter, false); err != nil {
 				return fmt.Errorf("failed to determine image size and transfer failed: %w", err)
 			}
 		}
@@ -119,9 +151,9 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 		return nil
 	}
 
-	if size < pullSizeThreshold {
+	if shouldUnpack(size) {
 		if transferSnapshotter != "" {
-			if err := transferImage(ctx, client, ref, p, transferSnapshotter, true); err != nil {
+			if _, err := transferImage(ctx, client, ref, p, transferSnapshotter, true); err != nil {
 				return fmt.Errorf("transfer and unpack failed: %w", err)
 			}
 			fmt.Printf("OK    %s -> %s (transferred and unpacked, %s)\n", imageMeta.Name, imageMeta.Target.Digest, formatSize(size))
@@ -139,7 +171,7 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 		fmt.Printf("OK    %s -> %s (pulled, %s)\n", imageMeta.Name, imageMeta.Target.Digest, formatSize(size))
 	} else {
 		if transferSnapshotter != "" {
-			if err := transferImage(ctx, client, ref, p, transferSnapshotter, false); err != nil {
+			if _, err := transferImage(ctx, client, ref, p, transferSnapshotter, false); err != nil {
 				return fmt.Errorf("transfer failed: %w", err)
 			}
 			fmt.Printf("OK    %s -> %s (transferred, %s)\n", imageMeta.Name, imageMeta.Target.Digest, formatSize(size))
@@ -151,10 +183,18 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 	return nil
 }
 
-func transferImage(ctx context.Context, client *containerd.Client, ref string, platform ocispec.Platform, snapshotter string, unpack bool) error {
+func transferBeforeSizing(snapshotter string, fetchOnly bool) bool {
+	return snapshotter == "overlayfs" || (snapshotter == "erofs" && fetchOnly)
+}
+
+func shouldUnpack(size int64) bool {
+	return size < pullSizeThreshold
+}
+
+func transferImage(ctx context.Context, client *containerd.Client, ref string, platform ocispec.Platform, snapshotter string, unpack bool) (containerd.Image, error) {
 	source, err := registry.NewOCIRegistry(ctx, ref, registry.WithHostDir(defaultHostsDir))
 	if err != nil {
-		return fmt.Errorf("create registry source: %w", err)
+		return nil, fmt.Errorf("create registry source: %w", err)
 	}
 
 	storeOpts := []transferimage.StoreOpt{
@@ -164,7 +204,15 @@ func transferImage(ctx context.Context, client *containerd.Client, ref string, p
 		storeOpts = append(storeOpts, transferimage.WithUnpack(platform, snapshotter))
 	}
 
-	return client.Transfer(ctx, source, transferimage.NewStore(ref, storeOpts...))
+	if err := client.Transfer(ctx, source, transferimage.NewStore(ref, storeOpts...)); err != nil {
+		return nil, err
+	}
+
+	imageMeta, err := client.ImageService().Get(ctx, ref)
+	if err != nil {
+		return nil, fmt.Errorf("load transferred image: %w", err)
+	}
+	return containerd.NewImageWithPlatform(client, imageMeta, platforms.OnlyStrict(platform)), nil
 }
 
 func validateImagePlatform(ctx context.Context, image containerd.Image, expected ocispec.Platform) error {
