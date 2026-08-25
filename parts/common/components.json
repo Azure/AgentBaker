@@ -2303,6 +2303,15 @@
               }
             ],
             "downloadURL": "https://acrstreamingpackage.z5.web.core.windows.net/${version}/acr-mirror-2404.deb"
+          },
+          "r2604": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.0.0"
+              }
+            ],
+            "downloadURL": "https://acrstreamingpackage.z5.web.core.windows.net/${version}/acr-mirror-2604.deb"
           }
         },
         "azurelinux": {
