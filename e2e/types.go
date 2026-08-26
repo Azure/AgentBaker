@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"testing"
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
@@ -132,6 +131,9 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 
 // Scenario represents an AgentBaker E2E scenario.
 type Scenario struct {
+	// Name is the stable scenario name used by filters, logs, and test reports.
+	Name string
+
 	// Description is a short description of what the scenario does and tests for
 	Description string
 
@@ -152,9 +154,9 @@ type Scenario struct {
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
 
-	// T is reserved for test control only: reporting failures, skipping and
-	// creating sub-tests. Use Logger for logging, never T.
-	T testing.TB
+	// SkipIf returns a reason to skip before the scenario creates Azure resources.
+	// An empty reason runs the scenario.
+	SkipIf func(context.Context) string
 
 	// Logger writes the scenario log. It is set by the test runner before the
 	// scenario starts and carries no test-control capability.
@@ -165,6 +167,22 @@ type Scenario struct {
 	testName string
 
 	cleanup *scenarioCleanup
+	failed  bool
+	checks  []scenarioCheck
+}
+
+type scenarioCheck struct {
+	Name     string
+	Duration time.Duration
+	Message  string
+}
+
+func (s *Scenario) recordCheck(name string, duration time.Duration, err error) {
+	check := scenarioCheck{Name: name, Duration: duration}
+	if err != nil {
+		check.Message = err.Error()
+	}
+	s.checks = append(s.checks, check)
 }
 
 type ScenarioRuntime struct {

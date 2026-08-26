@@ -18,16 +18,8 @@ const (
 )
 
 var (
-	imageGalleryLinux = &Gallery{
-		SubscriptionID:    Config.GallerySubscriptionIDLinux,
-		ResourceGroupName: Config.GalleryResourceGroupNameLinux,
-		Name:              Config.GalleryNameLinux,
-	}
-	imageGalleryWindows = &Gallery{
-		SubscriptionID:    Config.GallerySubscriptionIDWindows,
-		ResourceGroupName: Config.GalleryResourceGroupNameWindows,
-		Name:              Config.GalleryNameWindows,
-	}
+	imageGalleryLinux   = &Gallery{}
+	imageGalleryWindows = &Gallery{}
 )
 
 type Gallery struct {

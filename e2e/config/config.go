@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
-	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
 	"golang.org/x/crypto/ssh"
 )
@@ -25,12 +24,12 @@ const (
 )
 
 var (
-	Config         = mustLoadConfig()
-	Azure          = mustNewAzureClient()
+	Config         = DefaultConfiguration()
+	Azure          *AzureClient
 	VMIdentityName = "abe2e-vm-identity"
 
 	// Poll long-running ARM operations every 15s rather than every 1s. The E2E suite runs
-	// with -parallel 60, so a 1s cadence across dozens of concurrent VMSS create/delete
+	// with 60 concurrent scenarios, so a 1s cadence across dozens of VMSS create/delete
 	// operations floods ARM and triggers ResourceCollectionRequestsThrottled (429), which
 	// stalls provisioning past TestTimeoutVMSS and surfaces as "context deadline exceeded".
 	// These operations take minutes, so 15s polling is ample and cuts ARM request volume ~15x.
@@ -54,49 +53,82 @@ func PrivateACRName(location string) string {
 }
 
 type Configuration struct {
-	// The defaults should only be used when running tests locally, as the CI will set these env vars.
-	// We have separate Linux and Windows consts to have different defaults - they use the same env vars.
-	ACRSecretName                          string        `env:"ACR_SECRET_NAME" envDefault:"acr-secret-code2"`
-	AzureContainerRegistrytargetRepository string        `env:"ACR_TARGET_REPOSITORY" envDefault:"aks-managed-repository/*"`
-	BlobContainer                          string        `env:"BLOB_CONTAINER" envDefault:"abe2e"`
-	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e"`
-	BuildID                                string        `env:"BUILD_ID" envDefault:"local"`
-	DefaultLocation                        string        `env:"E2E_LOCATION" envDefault:"westus3"`
-	DefaultPollInterval                    time.Duration `env:"DEFAULT_POLL_INTERVAL" envDefault:"15s"`
-	DefaultSubnetName                      string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
-	DefaultVMSKU                           string        `env:"DEFAULT_VM_SKU" envDefault:"Standard_D2ds_v5"`
-	DisableScriptless                      bool          `env:"DISABLE_SCRIPTLESS"`
-	DisableScriptLessCompilation           bool          `env:"DISABLE_SCRIPTLESS_COMPILATION"`
-	E2ELoggingDir                          string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
-	EnableSecureTLSBootstrapping           bool          `env:"ENABLE_SECURE_TLS_BOOTSTRAPPING" envDefault:"true"`
-	ExtendedTests                          string        `env:"EXTENDED_TESTS" envDefault:""`
-	GalleryNameLinux                       string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
-	GalleryNameWindows                     string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
-	GalleryResourceGroupNameLinux          string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`
-	GalleryResourceGroupNameWindows        string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`
-	GallerySubscriptionIDLinux             string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
-	GallerySubscriptionIDWindows           string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
-	IgnoreScenariosWithMissingVHD          bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
-	KeepVMSS                               bool          `env:"KEEP_VMSS"`
-	NetworkIsolatedNSGName                 string        `env:"NETWORK_ISOLATED_NSG_NAME" envDefault:"abe2e-networkisolated-securityGroup"`
-	SIGVersionTagName                      string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
-	SIGVersionTagValue                     string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/main"`
-	SkipTestsWithSKUCapacityIssue          bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
-	SubscriptionID                         string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"`
-	SysSSHPublicKey                        string        `env:"SYS_SSH_PUBLIC_KEY"`
-	SysSSHPrivateKeyB64                    string        `env:"SYS_SSH_PRIVATE_KEY_B64"`
-	TagsToRun                              string        `env:"TAGS_TO_RUN"`
-	TagsToSkip                             string        `env:"TAGS_TO_SKIP"`
-	TestGalleryImagePrefix                 string        `env:"TEST_GALLERY_IMAGE_PREFIX" envDefault:"abe2etest"`
-	TestGalleryNamePrefix                  string        `env:"TEST_GALLERY_NAME_PREFIX" envDefault:"abe2etest"`
-	TestPreProvision                       bool          `env:"TEST_PRE_PROVISION" envDefault:"false"`
-	TestTimeout                            time.Duration `env:"TEST_TIMEOUT" envDefault:"50m"`
-	VHDMetadataFile                        string        `env:"E2E_VHD_METADATA_FILE"`
+	ACRSecretName                          string
+	AzureContainerRegistrytargetRepository string
+	BlobContainer                          string
+	BlobStorageAccountPrefix               string
+	BuildID                                string
+	DefaultLocation                        string
+	DefaultPollInterval                    time.Duration
+	DefaultSubnetName                      string
+	DefaultVMSKU                           string
+	DisableScriptless                      bool
+	DisableScriptLessCompilation           bool
+	E2ELoggingDir                          string
+	EnableSecureTLSBootstrapping           bool
+	ExtendedTests                          string
+	GalleryName                            string
+	GalleryResourceGroupName               string
+	GallerySubscriptionID                  string
+	IgnoreScenariosWithMissingVHD          bool
+	KeepVMSS                               bool
+	NetworkIsolatedNSGName                 string
+	Parallel                               int
+	Retries                                int
+	JUnitFile                              string
+	OutputMode                             string
+	HidePassedLogs                         bool
+	SIGVersionTagName                      string
+	SIGVersionTagValue                     string
+	SkipTestsWithSKUCapacityIssue          bool
+	SubscriptionID                         string
+	SysSSHPublicKey                        string
+	SysSSHPrivateKeyB64                    string
+	TagsToRun                              string
+	TagsToSkip                             string
+	TestGalleryImagePrefix                 string
+	TestGalleryNamePrefix                  string
+	TestPreProvision                       bool
+	TestTimeout                            time.Duration
+	SuiteTimeout                           time.Duration
+	VHDMetadataFile                        string
 	// Must cover cluster-create AND bastion-create (run serially in prepareCluster, ~10-11m each).
-	TestTimeoutCluster   time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"30m"`
-	TestTimeoutVMSS      time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
-	WindowsAdminPassword string        `env:"WINDOWS_ADMIN_PASSWORD"`
+	TestTimeoutCluster   time.Duration
+	TestTimeoutVMSS      time.Duration
+	WindowsAdminPassword string
 	vhdMetadata          map[string]vhdMetadataEntry
+}
+
+func DefaultConfiguration() *Configuration {
+	return &Configuration{
+		ACRSecretName:                          "acr-secret-code2",
+		AzureContainerRegistrytargetRepository: "aks-managed-repository/*",
+		BlobContainer:                          "abe2e",
+		BlobStorageAccountPrefix:               "abe2e",
+		BuildID:                                "local",
+		DefaultLocation:                        "westus3",
+		DefaultPollInterval:                    15 * time.Second,
+		DefaultSubnetName:                      "aks-subnet",
+		DefaultVMSKU:                           "Standard_D2ds_v5",
+		E2ELoggingDir:                          "scenario-logs",
+		EnableSecureTLSBootstrapping:           true,
+		GalleryName:                            "PackerSigGalleryEastUS",
+		GalleryResourceGroupName:               "aksvhdtestbuildrg",
+		GallerySubscriptionID:                  "c4c3550e-a965-4993-a50c-628fd38cd3e1",
+		NetworkIsolatedNSGName:                 "abe2e-networkisolated-securityGroup",
+		Parallel:                               60,
+		OutputMode:                             "auto",
+		HidePassedLogs:                         false,
+		SIGVersionTagName:                      "branch",
+		SIGVersionTagValue:                     "refs/heads/main",
+		SubscriptionID:                         "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8",
+		TestGalleryImagePrefix:                 "abe2etest",
+		TestGalleryNamePrefix:                  "abe2etest",
+		TestTimeout:                            50 * time.Minute,
+		SuiteTimeout:                           80 * time.Minute,
+		TestTimeoutCluster:                     30 * time.Minute,
+		TestTimeoutVMSS:                        17 * time.Minute,
+	}
 }
 
 func (c *Configuration) BlobStorageAccount() string {
@@ -172,7 +204,7 @@ func (c *Configuration) BlobStorageAccountURL() string {
 }
 
 func (c *Configuration) GalleryResourceID() string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s", c.GallerySubscriptionIDLinux, c.GalleryResourceGroupNameLinux, c.GalleryNameLinux)
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s", c.GallerySubscriptionID, c.GalleryResourceGroupName, c.GalleryName)
 }
 
 func (c *Configuration) String() string {
@@ -185,10 +217,14 @@ func (c *Configuration) String() string {
 
 	for i := 0; i < v.NumField(); i++ {
 		field := t.Field(i)
-		envTag := field.Tag.Get("env")
-		if envTag != "" {
-			data = append(data, fmt.Sprintf("%s=%v", envTag, v.Field(i)))
+		if field.PkgPath != "" {
+			continue
 		}
+		switch field.Name {
+		case "SysSSHPrivateKeyB64", "WindowsAdminPassword":
+			continue
+		}
+		data = append(data, fmt.Sprintf("%s=%v", field.Name, v.Field(i)))
 	}
 	sort.Strings(data)
 	return strings.Join(data, "\n")
@@ -198,45 +234,59 @@ func (c *Configuration) VMIdentityResourceID(location string) string {
 	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", c.SubscriptionID, ResourceGroupName(location), VMIdentityName)
 }
 
-func mustLoadConfig() *Configuration {
-	VMSSHPrivateKey, VMSSHPublicKey, VMSSHPrivateKeyFileName = mustGetNewRSAKeyPair()
+func LoadDotEnv() error {
 	err := godotenv.Load(".env")
-	if err != nil {
-		fmt.Printf("Error loading .env file: %s\n", err)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("load .env: %w", err)
 	}
-	cfg := &Configuration{}
-	if err := env.Parse(cfg); err != nil {
-		panic(err)
-	}
-	if cfg.VHDMetadataFile != "" {
-		cfg.vhdMetadata, err = loadVHDMetadata(cfg.VHDMetadataFile)
+	return nil
+}
+
+func Initialize() error {
+	VMSSHPrivateKey, VMSSHPublicKey, VMSSHPrivateKeyFileName = mustGetNewRSAKeyPair()
+	var err error
+	Config.vhdMetadata = nil
+	if Config.VHDMetadataFile != "" {
+		Config.vhdMetadata, err = loadVHDMetadata(Config.VHDMetadataFile)
 		if err != nil {
-			panic(fmt.Sprintf("failed to load E2E VHD metadata: %v", err))
+			return fmt.Errorf("load E2E VHD metadata: %w", err)
 		}
 	}
-	if cfg.SysSSHPublicKey == "" {
+	if Config.SysSSHPublicKey == "" {
 		SysSSHPublicKey = VMSSHPublicKey
 	} else {
-		SysSSHPublicKey = []byte(cfg.SysSSHPublicKey)
+		SysSSHPublicKey = []byte(Config.SysSSHPublicKey)
 	}
-	if cfg.SysSSHPrivateKeyB64 == "" {
+	if Config.SysSSHPrivateKeyB64 == "" {
 		SysSSHPrivateKey, SysSSHPublicKey, SysSSHPrivateKeyFileName, err = getOrCreateRSAKeyPair()
 		if err != nil {
-			panic(fmt.Sprintf("failed to get or create RSA key pair: %v", err))
+			return fmt.Errorf("get or create system SSH key pair: %w", err)
 		}
 	} else {
-		SysSSHPrivateKey, err = base64.StdEncoding.DecodeString(cfg.SysSSHPrivateKeyB64)
+		SysSSHPrivateKey, err = base64.StdEncoding.DecodeString(Config.SysSSHPrivateKeyB64)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("decode system SSH private key: %w", err)
 		}
 
 		SysSSHPrivateKeyFileName, err = writePrivateKeyToTempFile(SysSSHPrivateKey)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("write system SSH private key: %w", err)
 		}
 	}
 
-	return cfg
+	DefaultPollUntilDoneOptions.Frequency = Config.DefaultPollInterval
+	imageGalleryLinux.SubscriptionID = Config.GallerySubscriptionID
+	imageGalleryLinux.ResourceGroupName = Config.GalleryResourceGroupName
+	imageGalleryLinux.Name = Config.GalleryName
+	imageGalleryWindows.SubscriptionID = Config.GallerySubscriptionID
+	imageGalleryWindows.ResourceGroupName = Config.GalleryResourceGroupName
+	imageGalleryWindows.Name = Config.GalleryName
+
+	Azure, err = NewAzureClient()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Returns a newly generated RSA public/private key pair with the private key in PEM format.

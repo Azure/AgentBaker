@@ -46,7 +46,7 @@ func TestParseLinuxCSEMessageOutboundExitCode(t *testing.T) {
 			wantExitCode: "51",
 		},
 		{
-			// Real Test_Ubuntu2204_HTTPSProxy_PrivateDNS/default failure: the outer extension
+			// Real Ubuntu2204_HTTPSProxy_PrivateDNS/default failure: the outer extension
 			// wrapper and the CSE status both report 50.
 			name: "real outbound flake, outer exit 50 and cse exit 50",
 			code: "ProvisioningState/failed/0",
@@ -56,7 +56,7 @@ func TestParseLinuxCSEMessageOutboundExitCode(t *testing.T) {
 			wantExitCode: "50",
 		},
 		{
-			// Real Test_Ubuntu2204_HTTPSProxy_PrivateDNS/scriptless_nbc failure: the outer
+			// Real Ubuntu2204_HTTPSProxy_PrivateDNS/scriptless_nbc failure: the outer
 			// extension wrapper reports exit status=1, but the CSE status reports 50. The
 			// classifier must read the CSE ExitCode field, not the outer wrapper.
 			name: "real outbound flake, outer exit 1 but cse exit 50",

@@ -16,10 +16,6 @@ func StrToInt32(s string) int32 {
 }
 
 func LogDuration(ctx context.Context, duration time.Duration, warningDuration time.Duration, message string) {
-	if tb := tbOf(LoggerFromContext(ctx)); tb != nil {
-		// exclude this function from log stack trace
-		tb.Helper()
-	}
 	if duration > warningDuration {
 		Logf(ctx, "⚠️ ##vso[task.logissue type=warning;] %s", message)
 	} else {

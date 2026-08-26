@@ -7,13 +7,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
-	"testing"
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
@@ -30,91 +27,32 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-// it's important to share context between tests to allow graceful shutdown
-// cancellation signal can be sent before a test starts, without shared context such test will miss the signal
-var testCtx = setupSignalHandler()
-
-// setupSignalHandler handles OS signals to gracefully shutdown the test suite
-func setupSignalHandler() context.Context {
-	ctx, cancel := context.WithCancel(context.Background())
-	ch := make(chan os.Signal, 2)
-	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
-
-	red := func(text string) string {
-		return "\033[31m" + text + "\033[0m"
-	}
-
-	go func() {
-		// block until signal is received
-		<-ch
-		fmt.Println(red("Received cancellation signal, gracefully shutting down the test suite. Deleting Azure Resources. Cancel again to force exit. (Created Azure resources will not be deleted in this case)"))
-		cancel()
-
-		// block until second signal is received
-		<-ch
-		// This DefaultLocation is used on purpose.
-		msg := constructErrorMessage(config.Config.SubscriptionID, config.Config.DefaultLocation)
-		fmt.Println(red(msg))
-		os.Exit(1)
-	}()
-	return ctx
-}
-
-func constructErrorMessage(subscriptionID, location string) string {
-	return fmt.Sprintf("Received second cancellation signal, forcing exit.\nPlease check https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/overview and delete any resources created by the test suite", subscriptionID, config.ResourceGroupName(location))
-}
-
-func newTestCtx(t testing.TB, logger toolkit.Logger) context.Context {
-	if testCtx.Err() != nil {
-		t.Skip("test suite is shutting down")
-	}
-	ctx, cancel := context.WithTimeout(testCtx, config.Config.TestTimeout)
-	t.Cleanup(cancel)
-	// only a logger is put in the context, implementation code must not be able
-	// to control the test through it
-	ctx = toolkit.ContextWithLogger(ctx, logger)
-	return ctx
-}
-
-func RunScenario(t *testing.T, s *Scenario) {
-	t.Parallel()
-	// Special case for testing VHD caching. Not used by default.
+func runScenarioFlow(ctx context.Context, name string, logger toolkit.Logger, s *Scenario) error {
 	if config.Config.TestPreProvision || s.VHDCaching {
-		t.Run("VHDCreation", func(t *testing.T) {
-			t.Parallel()
-			if err := runScenarioWithPreProvision(t, s); err != nil {
-				s.T.Error(err)
-			}
-		})
-		return
+		return runScenarioWithPreProvision(ctx, name, logger, s)
 	}
 	if config.Config.DisableScriptless || scriptlessUnsupported(s) {
-		if err := runScenario(t, s); err != nil {
-			s.T.Error(err)
-		}
-		return
+		return runScenario(ctx, name, logger, s)
 	}
 
 	if s.Runtime == nil {
 		s.Runtime = &ScenarioRuntime{}
 	}
 	s.Runtime.EnableScriptlessNBCCSECmd = true
-	if err := runScenario(t, s); err != nil {
-		s.T.Error(err)
-	}
+	return runScenario(ctx, name, logger, s)
 }
 
 func scriptlessUnsupported(s *Scenario) bool {
 	return s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
 }
 
-func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
+func runScenarioWithPreProvision(ctx context.Context, name string, logger toolkit.Logger, original *Scenario) error {
 	// This is hard to understand. Some functional magic is used to run the original scenario in two stages.
 	// 1. Stage 1: Run the original scenario with pre-provisioning enabled, but skip the main validation and validate only pre-provisioning.
 	// 2. Create a new Image from the VMSS created in Stage 1
 	// 3. Stage 2: Run the original scenario again, but this time using the custom VHD created in a previous step, with validators,
 	// The goal here is to test pre-provisioning logic on the variety of existing scenarios
-	firstStage := copyScenario(original)
+	firstStage := freshScenario(original)
 	var customVHD *config.Image
 
 	// Mutate the copy for pre-provisioning
@@ -188,57 +126,49 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 		}
 	}
 
-	err := runScenario(t, firstStage)
-	original.T = firstStage.T
+	err := runScenario(ctx, name, logger, firstStage)
+	original.checks = append(original.checks, firstStage.checks...)
 	if err != nil {
 		return err
 	}
 
-	if t.Failed() {
+	secondStageScenario := freshScenario(original)
+	secondStageScenario.Description = "Stage 2: Create VMSS from captured VHD via SIG"
+	secondStageScenario.Config.VHD = customVHD
+	secondStageScenario.Config.Validator = func(ctx context.Context, s *Scenario) error {
+		var markerErr error
+		if s.IsWindows() {
+			markerErr = ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
+		} else {
+			markerErr = ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
+		}
+		if markerErr != nil {
+			return markerErr
+		}
+		if original.Config.Validator != nil {
+			return original.Config.Validator(ctx, s)
+		}
 		return nil
 	}
-
-	// Create a new subtest to avoid conflicts with previous steps (log output folder is based on the test name)
-	t.Run("VMProvision", func(t *testing.T) {
-		t.Parallel()
-		secondStageScenario := copyScenario(original)
-		secondStageScenario.Description = "Stage 2: Create VMSS from captured VHD via SIG"
-		secondStageScenario.Config.VHD = customVHD
-		secondStageScenario.Config.Validator = func(ctx context.Context, s *Scenario) error {
-			// This validators are used when running all scenarios in "VHD Caching" mode, which is usually done manually
-			var markerErr error
-			if s.IsWindows() {
-				markerErr = ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
-			} else {
-				markerErr = ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
-			}
-			if markerErr != nil {
-				return markerErr
-			}
-			if original.Config.Validator != nil {
-				return original.Config.Validator(ctx, s)
-			}
-			return nil
-		}
-		if err := runScenario(t, secondStageScenario); err != nil {
-			secondStageScenario.T.Error(err)
-		}
-	})
-	return nil
+	err = runScenario(ctx, name+"/VMProvision", logger, secondStageScenario)
+	original.checks = append(original.checks, secondStageScenario.checks...)
+	return err
 }
 
-func copyScenario(s *Scenario) *Scenario {
+func freshScenario(s *Scenario) *Scenario {
 	copied := *s
-	copied.Config = s.Config
 	copied.cleanup = nil
+	copied.Runtime = nil
+	copied.Logger = nil
+	copied.testName = ""
+	copied.failed = false
+	copied.checks = nil
 	return &copied
 }
 
-func runScenario(t testing.TB, s *Scenario) error {
-	t = toolkit.WithFailureFormatting(t)
-	s.T = t
-	s.testName = t.Name()
-	s.Logger = toolkit.NewTestLogger(t)
+func runScenario(ctx context.Context, name string, logger toolkit.Logger, s *Scenario) (runErr error) {
+	s.testName = name
+	s.Logger = logger
 	if s.cleanup != nil {
 		panic("Scenario.Cleanup called outside of a scenario run")
 	}
@@ -252,17 +182,20 @@ func runScenario(t testing.TB, s *Scenario) error {
 		s.K8sSystemPoolSKU = config.Config.DefaultVMSKU
 	}
 
-	ctx := newTestCtx(t, s.Logger)
+	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeout)
+	defer cancel()
+	ctx = toolkit.ContextWithLogger(ctx, s.Logger)
 	cleanup := &scenarioCleanup{}
 	s.cleanup = cleanup
-	t.Cleanup(func() {
+	defer func() {
+		s.failed = runErr != nil
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), scenarioCleanupTimeout)
 		defer cancel()
 		if err := cleanup.runCleanups(cleanupCtx); err != nil {
-			t.Errorf("scenario cleanup failed: %v", err)
+			runErr = errors.Join(runErr, fmt.Errorf("scenario cleanup failed: %w", err))
 		}
-	})
-	if err := maybeSkipScenario(ctx, t, s); err != nil {
+	}()
+	if err := maybeSkipScenario(ctx, name, s); err != nil {
 		return err
 	}
 
@@ -451,8 +384,8 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	return scenarioVM, nil
 }
 
-func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) error {
-	s.Tags.Name = t.Name()
+func maybeSkipScenario(ctx context.Context, name string, s *Scenario) error {
+	s.Tags.Name = name
 	s.Tags.OS = string(s.VHD.OS)
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
@@ -461,20 +394,20 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) error {
 	if config.Config.TagsToRun != "" {
 		matches, err := s.Tags.MatchesFilters(config.Config.TagsToRun)
 		if err != nil {
-			return fmt.Errorf("could not match tags for %q: %w", t.Name(), err)
+			return fmt.Errorf("could not match tags for %q: %w", name, err)
 		}
 		if !matches {
-			t.Skipf("skipping scenario %q: scenario tags %+v does not match filter %q", t.Name(), s.Tags, config.Config.TagsToRun)
+			return &skipError{message: fmt.Sprintf("filtered: scenario %q tags %+v do not match %q", name, s.Tags, config.Config.TagsToRun)}
 		}
 	}
 
 	if config.Config.TagsToSkip != "" {
 		matches, err := s.Tags.MatchesAnyFilter(config.Config.TagsToSkip)
 		if err != nil {
-			return fmt.Errorf("could not match tags for %q: %w", t.Name(), err)
+			return fmt.Errorf("could not match tags for %q: %w", name, err)
 		}
 		if matches {
-			t.Skipf("skipping scenario %q: scenario tags %+v matches filter %q", t.Name(), s.Tags, config.Config.TagsToSkip)
+			return &skipError{message: fmt.Sprintf("filtered: scenario %q tags %+v match skip filter %q", name, s.Tags, config.Config.TagsToSkip)}
 		}
 	}
 
@@ -484,9 +417,9 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) error {
 	})
 	if err != nil {
 		if config.Config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
-			t.Skipf("skipping scenario %q: could not find image for VHD %s due to %s", t.Name(), s.VHD.Distro, err)
+			return &skipError{message: fmt.Sprintf("scenario %q image for VHD %s was not found: %s", name, s.VHD.Distro, err)}
 		}
-		return fmt.Errorf("failing scenario %q: could not find image for VHD %s: %w", t.Name(), s.VHD.Distro, err)
+		return fmt.Errorf("failing scenario %q: could not find image for VHD %s: %w", name, s.VHD.Distro, err)
 	}
 	s.Logger.Logf("TAGS %+v", s.Tags)
 	return nil
@@ -730,8 +663,8 @@ func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armc
 	}
 
 	// If you update the version here, also update
-	// Test_CreateVMExtensionLinuxAKSNode_Timing in
-	// e2e/scenario_gpu_managed_experience_test.go
+	// TestCreateVMExtensionLinuxAKSNodeTiming in
+	// e2e/scenario_gpu_managed_experience.go
 	const fallbackExtensionVersion = "1.413"
 	extensionName := "Compute.AKS.Linux.AKSNode"
 	publisher := "Microsoft.AKS"
@@ -1169,8 +1102,9 @@ func attemptSSHConnection(ctx context.Context, s *Scenario) error {
 	return nil
 }
 
-func runScenarioUbuntu2404GPUNPD(vmSize, location, k8sSystemPoolSKU string) *Scenario {
+func runScenarioUbuntu2404GPUNPD(name, vmSize, location, k8sSystemPoolSKU string) *Scenario {
 	return &Scenario{
+		Name:             name,
 		Description:      fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2404 VHD can be properly bootstrapped and NPD tests are valid", vmSize),
 		Location:         location,
 		K8sSystemPoolSKU: k8sSystemPoolSKU,

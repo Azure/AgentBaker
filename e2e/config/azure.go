@@ -82,15 +82,6 @@ type AzureClient struct {
 	ResourceSKUs              *armcompute.ResourceSKUsClient
 }
 
-func mustNewAzureClient() *AzureClient {
-	client, err := NewAzureClient()
-	if err != nil {
-		panic(err)
-	}
-	return client
-
-}
-
 func NewHttpClient() *http.Client {
 	httpClient := &http.Client{
 		// use a bunch of connections for load balancing

@@ -15,7 +15,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
@@ -99,7 +98,9 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 		return nil
 	})
 
-	skipTestIfSKUNotAvailableErr(s.T, err)
+	if skipErr := skipIfSKUNotAvailableErr(err); skipErr != nil {
+		return vm, skipErr
+	}
 
 	return vm, err
 }
@@ -471,7 +472,7 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 
-	// Log VMSS tags for diagnostics (visible in test-log.json via gotestsum --jsonfile).
+	// Log VMSS tags for diagnostics in the scenario log.
 	// For RCV1P tests, annotates the opt-in tag to help distinguish our tags from platform-injected ones.
 	vmssID := "<unknown>"
 	if vmssResp.ID != nil {
@@ -497,7 +498,7 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		return vm, fmt.Errorf("failed to wait for VM to reach running state: %w", err)
 	}
 
-	// Log VM instance tags for diagnostics (visible in test-log.json via gotestsum --jsonfile)
+	// Log VM instance tags for diagnostics in the scenario log.
 	vmInstanceID := "<unknown>"
 	if vm.VM.ID != nil {
 		vmInstanceID = *vm.VM.ID
@@ -669,24 +670,23 @@ func getPrivateIPFromVMSSVM(ctx context.Context, resourceGroup, vmssName, instan
 	return *ipConfig.Properties.PrivateIPAddress, nil
 }
 
-func skipTestIfSKUNotAvailableErr(t testing.TB, err error) {
+func skipIfSKUNotAvailableErr(err error) error {
 	if !config.Config.SkipTestsWithSKUCapacityIssue {
-		return
+		return nil
 	}
 	var respErr *azcore.ResponseError
 	if !errors.As(err, &respErr) || respErr.StatusCode != 409 {
-		return
+		return nil
 	}
-	// sometimes the SKU is not available and we can't do anything. Skip the test in this case.
 	if respErr.ErrorCode == "SkuNotAvailable" {
-		t.Skip("skipping scenario SKU not available", t.Name(), err)
+		return &skipError{message: fmt.Sprintf("scenario SKU is not available: %v", err)}
 	}
-	// sometimes the SKU quota is exceeded and we can't do anything. Skip the test in this case.
 	if respErr.ErrorCode == "OperationNotAllowed" &&
 		strings.Contains(respErr.Error(), "exceeding approved") &&
 		strings.Contains(respErr.Error(), "quota") {
-		t.Skip("skipping scenario SKU quota exceeded", t.Name(), err)
+		return &skipError{message: fmt.Sprintf("scenario SKU quota is exceeded: %v", err)}
 	}
+	return nil
 }
 
 func extractLogsFromVM(ctx context.Context, s *Scenario, vm *ScenarioVM) {
@@ -897,7 +897,7 @@ if ($script:uploadFailures.Count -gt 0) {
 // extractLogsFromVMWindows runs a script on windows VM to collect logs and upload them to a blob storage
 // it then lists the blobs in the container and prints the content of each blob
 func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
-	if !s.T.Failed() {
+	if !s.failed {
 		return
 	}
 
