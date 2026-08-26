@@ -66,6 +66,7 @@ func TestRunnerFlagsUseEnvironmentAliases(t *testing.T) {
 	})
 	t.Setenv("PARALLEL", "7")
 	t.Setenv("TEST_TIMEOUT", "3m")
+	t.Setenv("E2E_GO_TEST_TIMEOUT", "4m")
 	t.Setenv("TIMEOUT", "4m")
 	t.Setenv("E2E_FAILED_TESTS_RETRY_COUNT", "2")
 	t.Setenv("LOGGING_DIR", t.TempDir())
