@@ -398,7 +398,10 @@ cleanUpPrebakedGPUDriver() {
             #    boot) or on disk next to the customer's userspace recreates the NVML version mismatch
             #    this teardown exists to prevent. The customer's module (a different version) is never
             #    touched; we unload only when idle, since this node installs no driver of its own.
-            rm -rf "${dkms_dir:?}/${marker_version}" || true
+            # Track failures of the scoped removals so leftover AKS residue is reported as incomplete
+            # below (best-effort rm that fails would otherwise be masked by ||true).
+            local aks_residue=false
+            rm -rf "${dkms_dir:?}/${marker_version}" || aks_residue=true
             rm -rf /usr/bin/lib64 || true
             local loaded_version=""
             loaded_version="$(loadedNvidiaModuleVersion)"
@@ -414,35 +417,39 @@ cleanUpPrebakedGPUDriver() {
             # booting/falling back to it would load that stale module against the customer's userspace,
             # recreating the mismatch. Delete only module files whose embedded version equals the marker
             # (the customer's different-version module, in updates/dkms for a DKMS install or kernel/ for
-            # a .run install, is left intact) and depmod each kernel we touched so a later modprobe
-            # resolves the preserved customer module. Unlike the full teardown -- which leaves the node
-            # driver-free and needs no depmod -- this path expects an nvidia module to remain usable.
-            local modules_dir="${GPU_MODULES_DIR:-/lib/modules}" _ko _kver _kdir _depmodded=""
+            # a .run install, is left intact). Collect every kernel we touched and depmod each ONCE after
+            # the full sweep -- rebuilding mid-loop would leave modules.dep pointing at files this loop
+            # deletes later. Unlike the full teardown -- which leaves the node driver-free and needs no
+            # depmod -- this path expects an nvidia module to remain usable.
+            local modules_dir="${GPU_MODULES_DIR:-/lib/modules}" _ko _kver _kdir _touched=""
             for _ko in "${modules_dir}"/*/updates/dkms/nvidia*.ko*; do
                 [ -e "${_ko}" ] || continue
                 _kver="$(modinfo -F version "${_ko}" 2>/dev/null | head -n1)"
                 [ "${_kver}" = "${marker_version}" ] || continue
-                rm -f "${_ko}" || true
                 _kdir="${_ko#"${modules_dir}"/}"; _kdir="${_kdir%%/*}"
-                if [ "${_kdir}" != "${_depmodded}" ]; then
-                    depmod "${_kdir}" 2>/dev/null || true
-                    _depmodded="${_kdir}"
+                if rm -f "${_ko}"; then
+                    case " ${_touched} " in *" ${_kdir} "*) ;; *) _touched="${_touched} ${_kdir}" ;; esac
+                else
+                    aks_residue=true
                 fi
+            done
+            for _kdir in ${_touched}; do
+                depmod "${_kdir}" 2>/dev/null || true
             done
             # Refresh the linker cache: removing /usr/bin/lib64 above leaves stale ld.so.cache entries,
             # so a preserved customer nvidia-smi could otherwise keep resolving AKS's NVML libs through
             # the deleted staging path.
             ldconfig || true
-            # Completeness gate (mirrors the full teardown): if AKS's OWN marker-version module is
-            # still resident -- busy, so the idle-gated rmmod was skipped, or the unload failed -- that
-            # is the stale-module security condition #8933 flags. Report status=incomplete (the fleet
-            # security-coverage alert + retry signal; the marker is left in place either way so the next
-            # provision retries) instead of a clean preserved_customer_driver. A resident module of the
-            # CUSTOMER's own (different) version is not AKS residue and does not count.
-            local status=preserved_customer_driver aks_module_after=false
-            [ "$(loadedNvidiaModuleVersion)" = "${marker_version}" ] && aks_module_after=true
-            [ "${aks_module_after}" = true ] && status=incomplete
-            echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=${status} marker_version=${marker_version} installed_version=${customer_version} aks_module_after=${aks_module_after}"
+            # Completeness gate (mirrors the full teardown): report status=incomplete -- the #8933
+            # security-coverage alert + retry signal -- when AKS's own marker-version residue survives,
+            # either because a scoped removal above failed or because its module is still resident (busy,
+            # so the idle-gated rmmod was skipped, or the unload failed). The marker is left in place
+            # either way so the next provision retries. A resident module of the CUSTOMER's own
+            # (different) version is not AKS residue and does not count.
+            [ "$(loadedNvidiaModuleVersion)" = "${marker_version}" ] && aks_residue=true
+            local status=preserved_customer_driver
+            [ "${aks_residue}" = true ] && status=incomplete
+            echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=${status} marker_version=${marker_version} installed_version=${customer_version} aks_residue=${aks_residue}"
             return 0
         fi
     fi

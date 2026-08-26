@@ -213,7 +213,7 @@ Describe 'cse_install_ubuntu.sh'
             When call cleanUpPrebakedGPUDriver
             The status should be success
             The output should include "status=preserved_customer_driver"
-            The output should include "aks_module_after=false"
+            The output should include "aks_residue=false"
             The output should include "installed_version=590.00.00"
             The output should not include "Removing pre-baked NVIDIA driver"
             # AKS''s own idle marker-version module is unloaded...
@@ -242,9 +242,61 @@ Describe 'cse_install_ubuntu.sh'
             When call cleanUpPrebakedGPUDriver
             The status should be success
             The output should include "status=incomplete"
-            The output should include "aks_module_after=true"
+            The output should include "aks_residue=true"
             The output should include "installed_version=590.00.00"
             The output should not include "mock rmmod"
+            The output should not include "Removing pre-baked NVIDIA driver"
+        End
+
+        It 'rebuilds the module index once, after removing all marker-version modules in a kernel'
+            # A kernel''s DKMS set has several nvidia*.ko (nvidia, nvidia-uvm, nvidia-modeset, ...); all
+            # match the marker and are removed. depmod must run AFTER the whole sweep, else modules.dep
+            # would still point at files deleted later in the loop. The mock records how many .ko were
+            # removed before depmod fired -- it must see all three.
+            marker="$(mktemp)"
+            printf 'driver_version=580.65.06\n' > "${marker}"
+            GPU_DKMS_MARKER_FILE="${marker}"
+            dkmsdir="$(mktemp -d)"; mkdir -p "${dkmsdir}/590.00.00"  # customer version -> triggers preserve
+            GPU_DKMS_NVIDIA_DIR="${dkmsdir}"
+            moddir="$(mktemp -d)"; mkdir -p "${moddir}/6.8.0-1030-azure/updates/dkms"
+            : > "${moddir}/6.8.0-1030-azure/updates/dkms/nvidia.ko"
+            : > "${moddir}/6.8.0-1030-azure/updates/dkms/nvidia-uvm.ko"
+            : > "${moddir}/6.8.0-1030-azure/updates/dkms/nvidia-modeset.ko"
+            GPU_MODULES_DIR="${moddir}"
+            modinfo() { echo "580.65.06"; }  # every module reports the marker version
+            _koremoved=0
+            rm() { case "$*" in *nvidia*.ko*) _koremoved=$((_koremoved+1)) ;; esac; echo "mock rm $*"; }
+            depmod() { echo "mock depmod $* ko_removed=${_koremoved}"; }
+            ldconfig() { echo "mock ldconfig"; }
+            When call cleanUpPrebakedGPUDriver
+            The status should be success
+            The output should include "status=preserved_customer_driver"
+            # all three marker-version modules are removed
+            The output should include "mock rm -f ${moddir}/6.8.0-1030-azure/updates/dkms/nvidia.ko"
+            The output should include "mock rm -f ${moddir}/6.8.0-1030-azure/updates/dkms/nvidia-uvm.ko"
+            The output should include "mock rm -f ${moddir}/6.8.0-1030-azure/updates/dkms/nvidia-modeset.ko"
+            # depmod runs exactly once for the kernel, AFTER the full sweep (all 3 modules already gone)
+            The output should include "mock depmod 6.8.0-1030-azure ko_removed=3"
+        End
+
+        It 'reports incomplete when a scoped removal fails and AKS residue survives'
+            # If a best-effort removal fails, AKS''s marker-version DKMS tree / .ko lingers and could
+            # shadow the customer driver after reboot -- so we must report status=incomplete (alert +
+            # retry), not a clean preserve.
+            marker="$(mktemp)"
+            printf 'driver_version=580.65.06\n' > "${marker}"
+            GPU_DKMS_MARKER_FILE="${marker}"
+            dkmsdir="$(mktemp -d)"; mkdir -p "${dkmsdir}/580.65.06" "${dkmsdir}/590.00.00"
+            GPU_DKMS_NVIDIA_DIR="${dkmsdir}"
+            modinfo() { return 1; }
+            rm() { echo "mock rm $*"; return 1; }  # every removal FAILS -> AKS residue remains
+            depmod() { echo "mock depmod $*"; }
+            ldconfig() { echo "mock ldconfig"; }
+            When call cleanUpPrebakedGPUDriver
+            The status should be success
+            The output should include "status=incomplete"
+            The output should include "aks_residue=true"
+            The output should include "installed_version=590.00.00"
             The output should not include "Removing pre-baked NVIDIA driver"
         End
 
