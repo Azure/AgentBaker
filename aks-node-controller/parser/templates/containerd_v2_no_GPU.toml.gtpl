@@ -2,6 +2,19 @@
 version = {{if $isV4}}4{{else}}2{{end}}
 oom_score = -999{{if getHasDataDir .KubeletConfig}}
 root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
+{{- if .GetIsKata }}
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "10G"
+  enable_fsverity = false
+  ovl_mount_options = []
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs", "walking"]
+
+[plugins."io.containerd.differ.v1.erofs"]
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+  enable_tar_index = false
+{{- end}}
 [plugins."io.containerd.cri.v1.images"]
 {{- if .GetEnableArtifactStreaming }}
   snapshotter = "overlaybd"

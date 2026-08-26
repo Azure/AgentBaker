@@ -1478,6 +1478,23 @@ installGPUDriverImage() {
     retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
 }
 
+# nvidia-cdi-refresh.service (nvidia-container-toolkit-base) is Type=oneshot with Restart=on-failure
+# and StartLimitBurst=5/10s, so one nvidia-ctk failure burns the start limit in ~5s and leaves it and
+# its .path unit permanently failed and unstartable -- which fails install.sh's `systemctl restart`
+# (CSE 84) and kills the .path trigger that would otherwise regenerate the spec later. Tolerate the
+# three known codes: 1 (MIG mode on with no MIG instances, which never succeeds), 2 (panic before the
+# driver userspace is ready), 127 (nvidia-smi missing on pre-reorder aks-gpu images). Anything else
+# still fails the unit. GPU pods reach the device via containerd's nvidia-container-runtime, not CDI.
+NVIDIA_CDI_REFRESH_DROP_IN="/etc/systemd/system/nvidia-cdi-refresh.service.d/10-aks-tolerate-generate-failure.conf"
+
+configureNvidiaCDIRefresh() {
+    mkdir -p "$(dirname "$NVIDIA_CDI_REFRESH_DROP_IN")" || return 1
+    printf '[Service]\nSuccessExitStatus=1 2 127\n' > "$NVIDIA_CDI_REFRESH_DROP_IN" || return 1
+    # Drop-ins are read when systemd loads a unit, so writing this before the toolkit is installed
+    # means the unit picks it up on its very first start.
+    systemctl daemon-reload || true
+}
+
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
