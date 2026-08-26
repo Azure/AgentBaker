@@ -154,19 +154,29 @@ Describe 'cse_install_ubuntu.sh'
             The output should not include "Removing pre-baked NVIDIA driver"
         End
 
-        It 'preserves the customer driver but still removes AKS''s marker-version on-disk module'
-            # AKS''s own on-disk .ko (marker version) is what modinfo reports, yet the customer has a
-            # different version DKMS-registered. The marker-version source must NOT short-circuit the
-            # scan -- the differing DKMS version still proves a customer driver and blocks full
-            # teardown -- but AKS''s own marker-version .ko must still be removed so it can''t linger and
-            # cause an NVML mismatch with the customer''s userspace.
+        It 'removes AKS''s marker-version module across ALL kernels but keeps the customer''s'
+            # AKS''s marker-version module can linger under multiple kernel trees (e.g. a patched VHD),
+            # so each must be stripped -- not just the running kernel''s. A different-version module
+            # under another kernel is the customer''s and must be preserved. depmod runs per touched
+            # kernel so a later modprobe resolves the preserved customer module.
             marker="$(mktemp)"
             printf 'driver_version=580.65.06\n' > "${marker}"
             GPU_DKMS_MARKER_FILE="${marker}"
-            dkmsdir="$(mktemp -d)"; mkdir -p "${dkmsdir}/590.00.00"
+            dkmsdir="$(mktemp -d)"; mkdir -p "${dkmsdir}/590.00.00"  # customer version -> triggers preserve
             GPU_DKMS_NVIDIA_DIR="${dkmsdir}"
-            modinfo() { echo "580.65.06"; }  # AKS''s own on-disk .ko == marker
-            rmmod() { echo "mock rmmod $*"; }  # no module loaded here, so must NOT be called
+            moddir="$(mktemp -d)"
+            mkdir -p "${moddir}/6.8.0-1030-azure/updates/dkms" "${moddir}/6.8.0-1063-azure/updates/dkms"
+            : > "${moddir}/6.8.0-1030-azure/updates/dkms/nvidia.ko"   # AKS marker version
+            : > "${moddir}/6.8.0-1063-azure/updates/dkms/nvidia.ko"   # customer version
+            GPU_MODULES_DIR="${moddir}"
+            modinfo() {
+                case "$*" in
+                    *1030-azure*) echo "580.65.06" ;;  # AKS marker version -> remove
+                    *1063-azure*) echo "590.00.00" ;;  # customer version -> keep
+                    *) echo "580.65.06" ;;             # by-name call in findCustomerDriverVersion
+                esac
+            }
+            rmmod() { echo "mock rmmod $*"; }  # no module loaded, so must NOT be called
             rm() { echo "mock rm $*"; }
             depmod() { echo "mock depmod $*"; }
             ldconfig() { echo "mock ldconfig"; }
@@ -175,10 +185,12 @@ Describe 'cse_install_ubuntu.sh'
             The output should include "status=preserved_customer_driver"
             The output should include "installed_version=590.00.00"
             The output should not include "Removing pre-baked NVIDIA driver"
-            # AKS''s marker-version .ko is stripped (on-disk version == marker); no module was loaded
-            The output should include "mock rm -f /lib/modules"
-            # ...and the module dependency index is rebuilt so modprobe resolves the customer module
-            The output should include "mock depmod"
+            # AKS''s marker-version module is stripped under its kernel, with a depmod for it...
+            The output should include "mock rm -f ${moddir}/6.8.0-1030-azure/updates/dkms/nvidia.ko"
+            The output should include "mock depmod 6.8.0-1030-azure"
+            # ...but the customer''s different-version module (other kernel) is preserved, no depmod
+            The output should not include "mock rm -f ${moddir}/6.8.0-1063-azure/updates/dkms/nvidia.ko"
+            The output should not include "mock depmod 6.8.0-1063-azure"
             The output should not include "mock rmmod"
         End
 

@@ -400,7 +400,7 @@ cleanUpPrebakedGPUDriver() {
             #    touched; we unload only when idle, since this node installs no driver of its own.
             rm -rf "${dkms_dir:?}/${marker_version}" || true
             rm -rf /usr/bin/lib64 || true
-            local loaded_version="" ondisk_version=""
+            local loaded_version=""
             loaded_version="$(loadedNvidiaModuleVersion)"
             if [ "${loaded_version}" = "${marker_version}" ] && \
                [ "$(cat /sys/module/nvidia/refcnt 2>/dev/null || echo 0)" = "0" ] && \
@@ -409,15 +409,26 @@ cleanUpPrebakedGPUDriver() {
                     rmmod "${mod}" 2>/dev/null || true
                 done
             fi
-            ondisk_version="$(modinfo -F version nvidia 2>/dev/null | head -n1)"
-            if [ "${ondisk_version}" = "${marker_version}" ]; then
-                rm -f /lib/modules/"$(uname -r)"/updates/dkms/nvidia*.ko* 2>/dev/null || true
-                # Rebuild the module dependency index so a later `modprobe nvidia` resolves the
-                # PRESERVED customer module (elsewhere in the tree) instead of the just-deleted AKS
-                # path. Unlike the full teardown -- which leaves the node driver-free and needs no
-                # depmod -- this path expects an nvidia module to remain usable.
-                depmod "$(uname -r)" 2>/dev/null || true
-            fi
+            # Remove AKS's own baked module from EVERY installed kernel tree, not just the running one:
+            # a patched VHD may keep AKS's marker-version module under the original kernel, and later
+            # booting/falling back to it would load that stale module against the customer's userspace,
+            # recreating the mismatch. Delete only module files whose embedded version equals the marker
+            # (the customer's different-version module, in updates/dkms for a DKMS install or kernel/ for
+            # a .run install, is left intact) and depmod each kernel we touched so a later modprobe
+            # resolves the preserved customer module. Unlike the full teardown -- which leaves the node
+            # driver-free and needs no depmod -- this path expects an nvidia module to remain usable.
+            local modules_dir="${GPU_MODULES_DIR:-/lib/modules}" _ko _kver _kdir _depmodded=""
+            for _ko in "${modules_dir}"/*/updates/dkms/nvidia*.ko*; do
+                [ -e "${_ko}" ] || continue
+                _kver="$(modinfo -F version "${_ko}" 2>/dev/null | head -n1)"
+                [ "${_kver}" = "${marker_version}" ] || continue
+                rm -f "${_ko}" || true
+                _kdir="${_ko#"${modules_dir}"/}"; _kdir="${_kdir%%/*}"
+                if [ "${_kdir}" != "${_depmodded}" ]; then
+                    depmod "${_kdir}" 2>/dev/null || true
+                    _depmodded="${_kdir}"
+                fi
+            done
             # Refresh the linker cache: removing /usr/bin/lib64 above leaves stale ld.so.cache entries,
             # so a preserved customer nvidia-smi could otherwise keep resolving AKS's NVML libs through
             # the deleted staging path.
