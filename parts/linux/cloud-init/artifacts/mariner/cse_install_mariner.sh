@@ -101,6 +101,53 @@ downloadGridDrivers() {
     dnf_install 30 1 600 ${GRID_PACKAGE} || exit $ERR_APT_INSTALL_TIMEOUT
 }
 
+getLatestAzureLinuxNvidiaDriverPackageForKernel() {
+    local package_query=$1
+    local package_regex=$2
+    local kernel_version=$3
+
+    dnf repoquery -y --available "${package_query}" 2>/dev/null | \
+        grep -E "${package_regex}" | grep -F "_${kernel_version}." | sort -V | tail -n 1 || true
+}
+
+getAzureLinuxNvidiaDriverVersionFromPackage() {
+    local package=$1
+    local package_prefix=$2
+    local version_with_epoch
+
+    version_with_epoch=${package#"${package_prefix}"}
+    version_with_epoch=${version_with_epoch%%-*}
+    echo "${version_with_epoch#*:}"
+}
+
+getAzureLinuxNvidiaDriverReleaseNotes() {
+    local kernel_version
+    kernel_version=$(uname -r | sed 's/-/./g')
+
+    local cuda_open_package
+    local cuda_package
+    local grid_package
+    cuda_open_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda-open*" "^cuda-open-[0-9]" "${kernel_version}")
+    cuda_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda" "^cuda-[0-9]" "${kernel_version}")
+    grid_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "nvidia-vgpu-guest-driver*" "^nvidia-vgpu-guest-driver-[0-9]" "${kernel_version}")
+
+    if [ -z "${cuda_open_package}" ] && [ -z "${cuda_package}" ] && [ -z "${grid_package}" ]; then
+        return 0
+    fi
+
+    echo "NVIDIA GPU driver versions available at VHD build time for supported Azure Linux GPU VM sizes:"
+    if [ -n "${cuda_open_package}" ]; then
+        echo "  - nvidia-cuda-open-driver version $(getAzureLinuxNvidiaDriverVersionFromPackage "${cuda_open_package}" "cuda-open-")"
+    fi
+    if [ -n "${cuda_package}" ]; then
+        echo "  - nvidia-cuda-driver version $(getAzureLinuxNvidiaDriverVersionFromPackage "${cuda_package}" "cuda-")"
+    fi
+    if [ -n "${grid_package}" ]; then
+        echo "  - nvidia-grid-driver version $(getAzureLinuxNvidiaDriverVersionFromPackage "${grid_package}" "nvidia-vgpu-guest-driver-")"
+    fi
+    echo "  Note: build-time snapshot only; Azure Linux GPU nodes install the latest kernel-compatible RPM available at node provisioning time, so the installed version is not pinned to this VHD."
+}
+
 downloadGPUDrivers() {
     # Mariner CUDA rpm name comes in the following format:
     #
