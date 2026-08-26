@@ -43,8 +43,5 @@ func Flags() []cli.Flag {
 		&cli.StringFlag{Name: "vhd-metadata-file", Value: Config.VHDMetadataFile, Destination: &Config.VHDMetadataFile, Sources: cli.EnvVars("E2E_VHD_METADATA_FILE")},
 		&cli.DurationFlag{Name: "cluster-timeout", Value: Config.TestTimeoutCluster, Destination: &Config.TestTimeoutCluster, Sources: cli.EnvVars("TEST_TIMEOUT_CLUSTER")},
 		&cli.DurationFlag{Name: "vmss-timeout", Value: Config.TestTimeoutVMSS, Destination: &Config.TestTimeoutVMSS, Sources: cli.EnvVars("TEST_TIMEOUT_VMSS")},
-		&cli.StringFlag{Name: "system-ssh-public-key", Destination: &Config.SysSSHPublicKey, Sources: cli.EnvVars("SYS_SSH_PUBLIC_KEY"), Hidden: true},
-		&cli.StringFlag{Name: "system-ssh-private-key", Destination: &Config.SysSSHPrivateKeyB64, Sources: cli.EnvVars("SYS_SSH_PRIVATE_KEY_B64"), Hidden: true},
-		&cli.StringFlag{Name: "windows-admin-password", Destination: &Config.WindowsAdminPassword, Sources: cli.EnvVars("WINDOWS_ADMIN_PASSWORD"), Hidden: true},
 	}
 }

@@ -56,7 +56,7 @@ func runScenarioWithPreProvision(ctx context.Context, name string, logger toolki
 	cleanup := &scenarioCleanup{}
 	firstStage.cleanup = cleanup
 	defer func() {
-		runErr = errors.Join(runErr, runScenarioCleanup(ctx, cleanup))
+		runErr = addCleanupFailure(runErr, runScenarioCleanup(ctx, cleanup))
 	}()
 	var customVHD *config.Image
 
@@ -95,6 +95,7 @@ func runScenarioWithPreProvision(ctx context.Context, name string, logger toolki
 		firstStage.Runtime.VM.SSHClient = nil
 		return nil
 	}
+
 	firstStage.Config.VMConfigMutator = func(vmss *armcompute.VirtualMachineScaleSet) {
 		if original.VMConfigMutator != nil {
 			original.VMConfigMutator(vmss)
@@ -181,6 +182,18 @@ func runScenarioCleanup(ctx context.Context, cleanup *scenarioCleanup) error {
 	return nil
 }
 
+func addCleanupFailure(runErr, cleanupErr error) error {
+	if cleanupErr == nil {
+		return runErr
+	}
+	if runErr == nil {
+		return cleanupErr
+	}
+	// Preserve the original result text, but unwrap only the cleanup failure so
+	// a skip followed by failed cleanup is classified as a failure.
+	return fmt.Errorf("%v; %w", runErr, cleanupErr)
+}
+
 func runScenario(ctx context.Context, name string, logger toolkit.Logger, s *Scenario) (runErr error) {
 	s.testName = name
 	s.Logger = logger
@@ -203,7 +216,7 @@ func runScenario(ctx context.Context, name string, logger toolkit.Logger, s *Sce
 		cleanup = &scenarioCleanup{}
 		s.cleanup = cleanup
 		defer func() {
-			runErr = errors.Join(runErr, runScenarioCleanup(ctx, cleanup))
+			runErr = addCleanupFailure(runErr, runScenarioCleanup(ctx, cleanup))
 		}()
 	}
 	defer func() {
@@ -399,7 +412,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 }
 
 func maybeSkipScenario(ctx context.Context, name string, s *Scenario) error {
-	s.Tags.Name = name
+	s.Tags.Name = s.Name
 	s.Tags.OS = string(s.VHD.OS)
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
@@ -678,7 +691,7 @@ func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armc
 
 	// If you update the version here, also update
 	// TestCreateVMExtensionLinuxAKSNodeTiming in
-	// e2e/scenario_gpu_managed_experience.go
+	// e2e/scenario_gpu_managed_experience_test.go
 	const fallbackExtensionVersion = "1.413"
 	extensionName := "Compute.AKS.Linux.AKSNode"
 	publisher := "Microsoft.AKS"

@@ -1,13 +1,13 @@
 package e2e
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -84,6 +84,7 @@ func (e *executor) schedule(name string, original *Scenario) {
 func (e *executor) execute(name string, original *Scenario) {
 	result := scenarioResult{Name: name}
 	hadFailure := false
+attempts:
 	for attempt := 1; attempt <= e.opts.retries+1; attempt++ {
 		if err := e.acquire(); err != nil {
 			result.Status = statusFailed
@@ -109,7 +110,7 @@ func (e *executor) execute(name string, original *Scenario) {
 		case statusFailed:
 			hadFailure = true
 			if e.ctx.Err() != nil {
-				break
+				break attempts
 			}
 		}
 	}
@@ -119,7 +120,7 @@ func (e *executor) execute(name string, original *Scenario) {
 	e.addResult(result, true)
 }
 
-func (e *executor) executeAttempt(name string, attempt int, original *Scenario) attemptResult {
+func (e *executor) executeAttempt(name string, attempt int, original *Scenario) (result attemptResult) {
 	started := time.Now()
 	logPath := filepath.Join(e.opts.logDir, name, fmt.Sprintf("attempt-%d.log", attempt))
 	logger, err := newScenarioLogger(e, name, logPath)
@@ -127,38 +128,52 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 		return attemptResult{Attempt: attempt, Status: statusFailed, Duration: time.Since(started), Message: err.Error(), LogPath: logPath}
 	}
 	defer logger.Close()
+	result = attemptResult{Attempt: attempt, LogPath: logPath}
+	var scenario *Scenario
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			result.Status = statusFailed
+			result.Duration = time.Since(started)
+			result.Message = fmt.Sprintf("panic: %v\n%s", recovered, debug.Stack())
+			if scenario != nil {
+				result.Checks = append([]scenarioCheck(nil), scenario.checks...)
+			}
+			logger.Log("🔴 FAIL:", result.Message)
+		}
+		logger.FlushConsole(string(result.Status))
+	}()
 
-	s := freshScenario(original)
+	scenario = freshScenario(original)
 	status := statusPassed
 	message := ""
-	if s.SkipIf != nil {
-		message = s.SkipIf(e.ctx)
+	if scenario.SkipIf != nil {
+		message = scenario.SkipIf(e.ctx)
 	}
 	if message != "" {
 		status = statusSkipped
 		logger.Log("SKIP:", message)
 	} else {
-		err = e.runScenario(e.ctx, name, logger, s)
+		err = e.runScenario(e.ctx, name, logger, scenario)
 		var skip *skipError
 		if errors.As(err, &skip) {
 			status = statusSkipped
 			message = skip.Error()
+			logger.Log("SKIP:", message)
 		} else if err != nil {
 			status = statusFailed
 			message = err.Error()
 			logger.Log("🔴 FAIL:", err)
 		}
 	}
-	duration := time.Since(started)
-	logger.FlushConsole(string(status))
-	return attemptResult{
+	result = attemptResult{
 		Attempt:  attempt,
 		Status:   status,
-		Duration: duration,
+		Duration: time.Since(started),
 		Message:  message,
 		LogPath:  logPath,
-		Checks:   append([]scenarioCheck(nil), s.checks...),
+		Checks:   append([]scenarioCheck(nil), scenario.checks...),
 	}
+	return result
 }
 
 func (e *executor) acquire() error {
@@ -217,8 +232,8 @@ type scenarioLogger struct {
 	executor *executor
 	name     string
 	started  time.Time
+	path     string
 	file     *os.File
-	buffer   bytes.Buffer
 	mu       sync.Mutex
 }
 
@@ -230,7 +245,7 @@ func newScenarioLogger(executor *executor, name, path string) (*scenarioLogger, 
 	if err != nil {
 		return nil, fmt.Errorf("open scenario log: %w", err)
 	}
-	return &scenarioLogger{executor: executor, name: name, started: time.Now(), file: file}, nil
+	return &scenarioLogger{executor: executor, name: name, started: time.Now(), path: path, file: file}, nil
 }
 
 func (l *scenarioLogger) Log(args ...any) {
@@ -242,16 +257,24 @@ func (l *scenarioLogger) Logf(format string, args ...any) {
 }
 
 func (l *scenarioLogger) write(message string) {
-	line := fmt.Sprintf("[%.3fs] %s\n", time.Since(l.started).Seconds(), message)
+	prefix := fmt.Sprintf("[%.3fs] ", time.Since(l.started).Seconds())
+	var output strings.Builder
+	for _, line := range strings.Split(strings.TrimSuffix(message, "\n"), "\n") {
+		output.WriteString(prefix)
+		output.WriteString(line)
+		output.WriteByte('\n')
+	}
+	formatted := output.String()
 	l.mu.Lock()
 	if l.file != nil {
-		_, _ = l.file.WriteString(line)
+		_, _ = l.file.WriteString(formatted)
 	}
-	l.buffer.WriteString(line)
 	l.mu.Unlock()
 	if l.executor.stream {
 		l.executor.consoleMu.Lock()
-		_, _ = fmt.Fprintf(l.executor.stdout, "[%s] %s", l.name, line)
+		for _, line := range strings.Split(strings.TrimSuffix(formatted, "\n"), "\n") {
+			_, _ = fmt.Fprintf(l.executor.stdout, "[%s] %s\n", l.name, line)
+		}
 		l.executor.consoleMu.Unlock()
 	}
 }
@@ -261,9 +284,12 @@ func (l *scenarioLogger) FlushConsole(label string) {
 		return
 	}
 	l.mu.Lock()
-	output := l.buffer.String()
+	if l.file != nil {
+		_ = l.file.Sync()
+	}
 	l.mu.Unlock()
-	if output == "" {
+	output, err := os.ReadFile(l.path)
+	if err != nil || len(output) == 0 {
 		return
 	}
 	l.executor.consoleMu.Lock()
