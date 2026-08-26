@@ -17,6 +17,11 @@ type mockVMExtensionImageVersionLister struct {
 	err  error
 }
 
+type discardLogger struct{}
+
+func (discardLogger) Log(...any)          {}
+func (discardLogger) Logf(string, ...any) {}
+
 func (m *mockVMExtensionImageVersionLister) ListVersions(
 	ctx context.Context,
 	location string,
@@ -39,7 +44,7 @@ func makeVersionResponse(versions ...*string) armcompute.VirtualMachineExtension
 	}
 }
 
-func Test_parseVersion(t *testing.T) {
+func TestParseVersion(t *testing.T) {
 	tests := []struct {
 		name          string
 		inputName     *string
@@ -121,7 +126,7 @@ func Test_parseVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := toolkit.ContextWithLogger(context.Background(), toolkit.NewTestLogger(t))
+			ctx := toolkit.ContextWithLogger(context.Background(), discardLogger{})
 			img := &armcompute.VirtualMachineExtensionImage{Name: tt.inputName}
 			result := parseVersion(ctx, img)
 
@@ -141,7 +146,7 @@ func Test_parseVersion(t *testing.T) {
 	}
 }
 
-func Test_vmExtensionVersion_cmp(t *testing.T) {
+func TestVMExtensionVersionCmp(t *testing.T) {
 	tests := []struct {
 		name     string
 		a        vmExtensionVersion
@@ -214,7 +219,7 @@ func Test_vmExtensionVersion_cmp(t *testing.T) {
 	}
 }
 
-func Test_getLatestVMExtensionImageVersion(t *testing.T) {
+func TestGetLatestVMExtensionImageVersion(t *testing.T) {
 	tests := []struct {
 		name        string
 		mock        *mockVMExtensionImageVersionLister
@@ -274,7 +279,7 @@ func Test_getLatestVMExtensionImageVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := toolkit.ContextWithLogger(context.Background(), toolkit.NewTestLogger(t))
+			ctx := toolkit.ContextWithLogger(context.Background(), discardLogger{})
 			got, err := getLatestVMExtensionImageVersion(
 				ctx,
 				tt.mock,

@@ -13,7 +13,7 @@ set -euo pipefail
 #   the main branch is used.
 # * IGNORE_SCENARIOS_WITH_MISSING_VHD: a true/false flag that indicates if the build should fail if the VHD is missing.
 # * BUILD_SRC_DIR: the src directory for the repository. Probably the same as DefaultWorkingDirectory.
-# * E2E_FAILED_TESTS_RETRY_COUNT: the number of times gotestsum should retry failed tests. Defaults to 0.
+# * E2E_FAILED_TESTS_RETRY_COUNT: the number of times the runner retries failed scenarios. Defaults to 0.
 
 # In addition, the e2e test framework reads a whole lot of environment variables.
 # These are defined in: e2e/config/config.go
@@ -95,51 +95,19 @@ fi
 
 az extension add --name bastion
 
-# this software is used to take the output of "go test" and produce a junit report that we can upload to the pipeline
-# and see fancy test results.
 cd e2e
 mkdir -p bin
-architecture=$(uname -m)
+go test ./... -short
+go build -o bin/e2e ./cmd/e2e
 
-case "$architecture" in
-  x86_64 | amd64) architecture="amd64" ;;
-  aarch64 | arm64) architecture="arm64" ;;
-  *)
-    echo "Unsupported architecture: $architecture"
-    exit 1
-    ;;
-esac
-
-gotestsum_version="1.13.0"
-gotestsum_archive="gotestsum_${gotestsum_version}_linux_${architecture}.tar.gz"
-gotestsum_url="https://github.com/gotestyourself/gotestsum/releases/download/v${gotestsum_version}/${gotestsum_archive}"
-
-temp_file="$(mktemp)"
-curl --fail --silent --show-error --location --retry 5 --retry-delay 10 --retry-max-time 300 --retry-connrefused "$gotestsum_url" -o "$temp_file"
-tar -xzf "$temp_file" -C bin
-chmod +x bin/gotestsum
-rm -f "$temp_file"
-
-# gotestsum configure to only show logs for failed tests, json file for detailed logs
-# Run the tests! Yey!
 test_exit_code=0
-rerun_fails=""
-rerun_fails_report=""
-set -- --format testdox --junitfile "${BUILD_SRC_DIR}/e2e/report.xml" --jsonfile "${BUILD_SRC_DIR}/e2e/test-log.json"
-if [ "${E2E_FAILED_TESTS_RETRY_COUNT}" -gt 0 ]; then
-  rerun_fails="${E2E_FAILED_TESTS_RETRY_COUNT}"
-  rerun_fails_report="${BUILD_SRC_DIR}/e2e/rerun-fails-report.json"
-  set -- "$@" "--rerun-fails=$rerun_fails" --packages=. "--rerun-fails-report=$rerun_fails_report" --debug
-fi
-./bin/gotestsum "$@" -- -parallel 60 -timeout "${E2E_GO_TEST_TIMEOUT}" || test_exit_code=$?
-
-if [ -n "$rerun_fails_report" ] && [ -s "$rerun_fails_report" ]; then
-  echo "gotestsum rerun-fails report:"
-  cat "$rerun_fails_report"
-  echo "##vso[artifact.upload containerfolder=test-results;artifactname=e2e-rerun-fails-report]$rerun_fails_report"
-fi
-
-# Upload test results as Azure DevOps artifacts
-echo "##vso[artifact.upload containerfolder=test-results;artifactname=e2e-test-log]${BUILD_SRC_DIR}/e2e/test-log.json"
+./bin/e2e run \
+  --parallel 60 \
+  --suite-timeout "${E2E_GO_TEST_TIMEOUT}" \
+  --retries "${E2E_FAILED_TESTS_RETRY_COUNT}" \
+  --log-dir "${LOGGING_DIR}" \
+  --junit-file "${BUILD_SRC_DIR}/e2e/report.xml" \
+  --hide-passed-logs \
+  --output grouped || test_exit_code=$?
 
 exit $test_exit_code

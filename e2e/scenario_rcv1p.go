@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"testing"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -42,30 +41,28 @@ const rcv1pOptInTag = "platformsettings.host_environment.service.platform_optedi
 // skipIfRCV1PNotConfigured verifies the current E2E subscription has PlatformSettingsOverride
 // registered. The RCV1P pipeline job sets E2E_SUBSCRIPTION_ID to an RCV1P-registered subscription;
 // on any other subscription the test is skipped.
-func skipIfRCV1PNotConfigured(t *testing.T) {
-	t.Helper()
-	registered, err := getE2ESubscriptionFeatureFlag(t.Context())
+func skipIfRCV1PNotConfigured(ctx context.Context) string {
+	registered, err := getE2ESubscriptionFeatureFlag(ctx)
 	if err != nil {
-		t.Logf("PlatformSettingsOverride feature flag check on subscription %s failed: %v", config.Config.SubscriptionID, err)
-		t.Skip("could not verify PlatformSettingsOverride feature flag on E2E subscription, skipping RCV1P test")
+		return fmt.Sprintf("could not verify PlatformSettingsOverride feature flag on E2E subscription: %v", err)
 	}
-	t.Logf("PlatformSettingsOverride feature flag on subscription %s: registered=%v", config.Config.SubscriptionID, registered)
 	if !registered {
-		t.Skip("PlatformSettingsOverride feature flag not registered on E2E subscription, skipping RCV1P test")
+		return "PlatformSettingsOverride feature flag is not registered on the E2E subscription"
 	}
-	t.Logf("RCV1P mode: subscription %s (we set the VMSS opt-in tag explicitly)", config.Config.SubscriptionID)
+	return ""
 }
 
 // skipIfRCV1PNotExplicit skips the test when the platform may auto-inject the RCV1P opt-in tag,
 // which invalidates negative tests. The pipeline sets RCV1P_TAGS_AUTO_INJECTED=true on
 // subscriptions where the platform injects the opt-in tag automatically.
-func skipIfRCV1PNotExplicit(t *testing.T) {
-	t.Helper()
-	skipIfRCV1PNotConfigured(t)
-	if strings.EqualFold(strings.TrimSpace(os.Getenv("RCV1P_TAGS_AUTO_INJECTED")), "true") {
-		t.Skip("RCV1P_TAGS_AUTO_INJECTED=true — platform auto-injects the opt-in tag on this subscription, skipping negative RCV1P test")
+func skipIfRCV1PNotExplicit(ctx context.Context) string {
+	if reason := skipIfRCV1PNotConfigured(ctx); reason != "" {
+		return reason
 	}
-	t.Logf("RCV1P negative test mode: subscription %s (opt-in tag intentionally NOT set)", config.Config.SubscriptionID)
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("RCV1P_TAGS_AUTO_INJECTED")), "true") {
+		return "RCV1P_TAGS_AUTO_INJECTED=true; the platform injects the opt-in tag on this subscription"
+	}
+	return ""
 }
 
 var (
@@ -308,136 +305,130 @@ func rcv1pOptInVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet) {
 	vmss.Tags[rcv1pOptInTag] = to.Ptr("true")
 }
 
-// Test_RCV1P_Ubuntu2204 validates RCV1P cert download and trust store installation on Ubuntu 22.04.
+// RCV1P_Ubuntu2204 validates RCV1P cert download and trust store installation on Ubuntu 22.04.
 // Ubuntu uses /usr/local/share/ca-certificates/ as the cert drop folder and update-ca-certificates
 // to rebuild the trust bundle.
-func Test_RCV1P_Ubuntu2204(t *testing.T) {
-	skipIfRCV1PNotConfigured(t)
-	RunScenario(t, &Scenario{
-		Description: "Tests RCV1P cert mode on Ubuntu 22.04 with VM opt-in tag",
-		Tags: Tags{
-			RCV1PCertMode: true,
+var _ = Register(&Scenario{
+	Name:        "RCV1P_Ubuntu2204",
+	SkipIf:      skipIfRCV1PNotConfigured,
+	Description: "Tests RCV1P cert mode on Ubuntu 22.04 with VM opt-in tag",
+	Tags: Tags{
+		RCV1PCertMode: true,
+	},
+	Config: Config{
+		Cluster:         ClusterKubenet,
+		VHD:             config.VHDUbuntu2204Gen2Containerd,
+		VMConfigMutator: rcv1pVMConfigMutator(),
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateRCV1PCertMode(ctx, s)
 		},
-		Config: Config{
-			Cluster:         ClusterKubenet,
-			VHD:             config.VHDUbuntu2204Gen2Containerd,
-			VMConfigMutator: rcv1pVMConfigMutator(),
-			Validator: func(ctx context.Context, s *Scenario) error {
-				return ValidateRCV1PCertMode(ctx, s)
-			},
-		},
-	})
-}
+	},
+})
 
-// Test_RCV1P_Ubuntu2604Minimal validates RCV1P cert download and trust store installation on Ubuntu 26.04 minimal.
+// RCV1P_Ubuntu2604Minimal validates RCV1P cert download and trust store installation on Ubuntu 26.04 minimal.
 // Covers the newer Ubuntu LTS release to ensure the cert endpoint and trust store integration
 // work correctly across Ubuntu versions.
-func Test_RCV1P_Ubuntu2604Minimal(t *testing.T) {
-	skipIfRCV1PNotConfigured(t)
-	RunScenario(t, &Scenario{
-		Description: "Tests RCV1P cert mode on Ubuntu 26.04 minimal with VM opt-in tag",
-		Tags: Tags{
-			RCV1PCertMode: true,
+var _ = Register(&Scenario{
+	Name:        "RCV1P_Ubuntu2604Minimal",
+	SkipIf:      skipIfRCV1PNotConfigured,
+	Description: "Tests RCV1P cert mode on Ubuntu 26.04 minimal with VM opt-in tag",
+	Tags: Tags{
+		RCV1PCertMode: true,
+	},
+	Config: Config{
+		Cluster:         ClusterLatestKubernetesVersionKubenet,
+		VHD:             config.VHDUbuntu2604MinimalGen2Containerd,
+		VMConfigMutator: rcv1pVMConfigMutator(),
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateRCV1PCertMode(ctx, s)
 		},
-		Config: Config{
-			Cluster:         ClusterLatestKubernetesVersionKubenet,
-			VHD:             config.VHDUbuntu2604MinimalGen2Containerd,
-			VMConfigMutator: rcv1pVMConfigMutator(),
-			Validator: func(ctx context.Context, s *Scenario) error {
-				return ValidateRCV1PCertMode(ctx, s)
-			},
-		},
-	})
-}
+	},
+})
 
-// Test_RCV1P_Ubuntu2404 validates RCV1P cert download and trust store installation on Ubuntu 24.04.
+// RCV1P_Ubuntu2404 validates RCV1P cert download and trust store installation on Ubuntu 24.04.
 // Covers the newer Ubuntu LTS release to ensure the cert endpoint and trust store integration
 // work correctly across Ubuntu versions.
-func Test_RCV1P_Ubuntu2404(t *testing.T) {
-	skipIfRCV1PNotConfigured(t)
-	RunScenario(t, &Scenario{
-		Description: "Tests RCV1P cert mode on Ubuntu 24.04 with VM opt-in tag",
-		Tags: Tags{
-			RCV1PCertMode: true,
+var _ = Register(&Scenario{
+	Name:        "RCV1P_Ubuntu2404",
+	SkipIf:      skipIfRCV1PNotConfigured,
+	Description: "Tests RCV1P cert mode on Ubuntu 24.04 with VM opt-in tag",
+	Tags: Tags{
+		RCV1PCertMode: true,
+	},
+	Config: Config{
+		Cluster:         ClusterKubenet,
+		VHD:             config.VHDUbuntu2404Gen2Containerd,
+		VMConfigMutator: rcv1pVMConfigMutator(),
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateRCV1PCertMode(ctx, s)
 		},
-		Config: Config{
-			Cluster:         ClusterKubenet,
-			VHD:             config.VHDUbuntu2404Gen2Containerd,
-			VMConfigMutator: rcv1pVMConfigMutator(),
-			Validator: func(ctx context.Context, s *Scenario) error {
-				return ValidateRCV1PCertMode(ctx, s)
-			},
-		},
-	})
-}
+	},
+})
 
-// Test_RCV1P_AzureLinuxV3 validates RCV1P on Azure Linux V3, which uses a different trust store
+// RCV1P_AzureLinuxV3 validates RCV1P on Azure Linux V3, which uses a different trust store
 // layout (/etc/pki/ca-trust/source/anchors/) and update command (update-ca-trust) than Ubuntu.
 // This ensures the provisioning script correctly detects the distro and uses the right paths.
-func Test_RCV1P_AzureLinuxV3(t *testing.T) {
-	skipIfRCV1PNotConfigured(t)
-	RunScenario(t, &Scenario{
-		Description: "Tests RCV1P cert mode on Azure Linux V3 with VM opt-in tag",
-		Tags: Tags{
-			RCV1PCertMode: true,
+var _ = Register(&Scenario{
+	Name:        "RCV1P_AzureLinuxV3",
+	SkipIf:      skipIfRCV1PNotConfigured,
+	Description: "Tests RCV1P cert mode on Azure Linux V3 with VM opt-in tag",
+	Tags: Tags{
+		RCV1PCertMode: true,
+	},
+	Config: Config{
+		Cluster:         ClusterKubenet,
+		VHD:             config.VHDAzureLinuxV3Gen2,
+		VMConfigMutator: rcv1pVMConfigMutator(),
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateRCV1PCertMode(ctx, s)
 		},
-		Config: Config{
-			Cluster:         ClusterKubenet,
-			VHD:             config.VHDAzureLinuxV3Gen2,
-			VMConfigMutator: rcv1pVMConfigMutator(),
-			Validator: func(ctx context.Context, s *Scenario) error {
-				return ValidateRCV1PCertMode(ctx, s)
-			},
-		},
-	})
-}
+	},
+})
 
-// Test_RCV1P_ACL validates RCV1P on Azure Container Linux (ACL), which shares the same
+// RCV1P_ACL validates RCV1P on Azure Container Linux (ACL), which shares the same
 // trust store layout as Azure Linux (/etc/pki/ca-trust/). ACL requires Trusted Launch,
 // so the VMConfigMutator combines both the TrustedLaunch and opt-in tag settings.
-func Test_RCV1P_ACL(t *testing.T) {
-	skipIfRCV1PNotConfigured(t)
-	RunScenario(t, &Scenario{
-		Description: "Tests RCV1P cert mode on ACL with VM opt-in tag",
-		Tags: Tags{
-			RCV1PCertMode: true,
+var _ = Register(&Scenario{
+	Name:        "RCV1P_ACL",
+	SkipIf:      skipIfRCV1PNotConfigured,
+	Description: "Tests RCV1P cert mode on ACL with VM opt-in tag",
+	Tags: Tags{
+		RCV1PCertMode: true,
+	},
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDACLGen2TL,
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			if m := rcv1pVMConfigMutator(); m != nil {
+				m(vmss)
+			}
 		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDACLGen2TL,
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
-				if m := rcv1pVMConfigMutator(); m != nil {
-					m(vmss)
-				}
-			},
-			Validator: func(ctx context.Context, s *Scenario) error {
-				return ValidateRCV1PCertMode(ctx, s)
-			},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateRCV1PCertMode(ctx, s)
 		},
-	})
-}
+	},
+})
 
-// Test_RCV1P_NotOptedIn is a negative test that validates the VM opt-in tag is required
+// RCV1P_NotOptedIn is a negative test that validates the VM opt-in tag is required
 // for cert installation. The VM is created in the RCV1P subscription (which has
 // PlatformSettingsOverride registered) but WITHOUT the opt-in tag on the VMSS.
 // This verifies that wireserver returns IsOptedInForRootCerts=false and the provisioning
 // script correctly skips certificate download and trust store installation.
 // This test requires RCV1P_TAGS_AUTO_INJECTED to not be true because the platform may auto-inject
 // the opt-in tag on the current E2E subscription, making the negative test invalid.
-func Test_RCV1P_NotOptedIn(t *testing.T) {
-	skipIfRCV1PNotExplicit(t)
-	RunScenario(t, &Scenario{
-		Description: "Tests RCV1P cert mode without VM opt-in tag; expects no cert installation",
-		Tags: Tags{
-			RCV1PCertMode: true,
+var _ = Register(&Scenario{
+	Name:        "RCV1P_NotOptedIn",
+	SkipIf:      skipIfRCV1PNotExplicit,
+	Description: "Tests RCV1P cert mode without VM opt-in tag; expects no cert installation",
+	Tags: Tags{
+		RCV1PCertMode: true,
+	},
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDUbuntu2204Gen2Containerd,
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateRCV1PNotOptedIn(ctx, s)
 		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			Validator: func(ctx context.Context, s *Scenario) error {
-				return ValidateRCV1PNotOptedIn(ctx, s)
-			},
-		},
-	})
-}
+	},
+})
