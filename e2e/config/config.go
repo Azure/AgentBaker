@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/joho/godotenv"
 	"golang.org/x/crypto/ssh"
 )
@@ -24,18 +23,10 @@ const (
 )
 
 var (
-	Config         = DefaultConfiguration()
-	Azure          *AzureClient
-	VMIdentityName = "abe2e-vm-identity"
-
-	// Poll long-running ARM operations every 15s rather than every 1s. The E2E suite runs
-	// with 60 concurrent scenarios, so a 1s cadence across dozens of VMSS create/delete
-	// operations floods ARM and triggers ResourceCollectionRequestsThrottled (429), which
-	// stalls provisioning past TestTimeoutVMSS and surfaces as "context deadline exceeded".
-	// These operations take minutes, so 15s polling is ample and cuts ARM request volume ~15x.
-	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
-		Frequency: 15 * time.Second,
-	}
+	// Config is populated before scenario goroutines start and is immutable after Initialize.
+	Config                                                             = DefaultConfiguration()
+	Azure                                                              *AzureClient
+	VMIdentityName                                                     = "abe2e-vm-identity"
 	VMSSHPublicKey, VMSSHPrivateKey, SysSSHPublicKey, SysSSHPrivateKey []byte
 	VMSSHPrivateKeyFileName, SysSSHPrivateKeyFileName                  string
 )
@@ -278,7 +269,6 @@ func Initialize() error {
 		}
 	}
 
-	DefaultPollUntilDoneOptions.Frequency = Config.DefaultPollInterval
 	imageGalleryLinux.SubscriptionID = Config.GallerySubscriptionID
 	imageGalleryLinux.ResourceGroupName = Config.GalleryResourceGroupName
 	imageGalleryLinux.Name = Config.GalleryName

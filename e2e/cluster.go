@@ -482,7 +482,7 @@ func deleteCluster(ctx context.Context, clusterName, resourceGroupName string) e
 	if err != nil {
 		return fmt.Errorf("failed to delete cluster %q: %w", clusterName, err)
 	}
-	_, err = pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	_, err = pollerResp.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return fmt.Errorf("failed to wait for cluster deletion %w", err)
 	}
@@ -613,7 +613,7 @@ func createNewAKSCluster(ctx context.Context, cluster *armcontainerservice.Manag
 		return nil, fmt.Errorf("failed to begin aks cluster creation: %w", err)
 	}
 
-	clusterResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	clusterResp, err := pollerResp.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait for aks cluster creation %w", err)
 	}

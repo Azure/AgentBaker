@@ -13,6 +13,8 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/urfave/cli/v3"
+	ctrruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 const (
@@ -110,6 +112,7 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	if err := config.Initialize(); err != nil {
 		return fmt.Errorf("initialize E2E configuration: %w", err)
 	}
+	ctrruntimelog.SetLogger(zap.New())
 
 	if err := os.MkdirAll(opts.logDir, 0o755); err != nil {
 		return fmt.Errorf("create log directory: %w", err)
