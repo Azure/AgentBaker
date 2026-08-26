@@ -130,50 +130,49 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 	defer logger.Close()
 	result = attemptResult{Attempt: attempt, LogPath: logPath}
 	var scenario *Scenario
+	var runErr error
+	// Every stage in an attempt shares one cleanup stack.
+	cleanup := &scenarioCleanup{}
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			result.Status = statusFailed
-			result.Duration = time.Since(started)
-			result.Message = fmt.Sprintf("panic: %v\n%s", recovered, debug.Stack())
-			if scenario != nil {
-				result.Checks = append([]scenarioCheck(nil), scenario.checks...)
-			}
+			runErr = fmt.Errorf("panic: %v\n%s", recovered, debug.Stack())
+		}
+		runErr = addCleanupFailure(runErr, runScenarioCleanup(e.ctx, cleanup))
+		result.Status, result.Message = classifyAttempt(runErr)
+		result.Duration = time.Since(started)
+		if scenario != nil {
+			result.Checks = append([]scenarioCheck(nil), scenario.checks...)
+		}
+		switch result.Status {
+		case statusSkipped:
+			logger.Log("SKIP:", result.Message)
+		case statusFailed:
 			logger.Log("🔴 FAIL:", result.Message)
 		}
 		logger.FlushConsole(string(result.Status))
 	}()
 
 	scenario = freshScenario(original)
-	status := statusPassed
-	message := ""
+	scenario.cleanup = cleanup
 	if scenario.SkipIf != nil {
-		message = scenario.SkipIf(e.ctx)
-	}
-	if message != "" {
-		status = statusSkipped
-		logger.Log("SKIP:", message)
-	} else {
-		err = e.runScenario(e.ctx, name, logger, scenario)
-		var skip *skipError
-		if errors.As(err, &skip) {
-			status = statusSkipped
-			message = skip.Error()
-			logger.Log("SKIP:", message)
-		} else if err != nil {
-			status = statusFailed
-			message = err.Error()
-			logger.Log("🔴 FAIL:", err)
+		if message := scenario.SkipIf(e.ctx); message != "" {
+			runErr = &skipError{message: message}
+			return result
 		}
 	}
-	result = attemptResult{
-		Attempt:  attempt,
-		Status:   status,
-		Duration: time.Since(started),
-		Message:  message,
-		LogPath:  logPath,
-		Checks:   append([]scenarioCheck(nil), scenario.checks...),
-	}
+	runErr = e.runScenario(e.ctx, name, logger, scenario)
 	return result
+}
+
+func classifyAttempt(err error) (resultStatus, string) {
+	if err == nil {
+		return statusPassed, ""
+	}
+	var skip *skipError
+	if errors.As(err, &skip) {
+		return statusSkipped, skip.Error()
+	}
+	return statusFailed, err.Error()
 }
 
 func (e *executor) acquire() error {

@@ -3,7 +3,6 @@ package e2e
 import (
 	"context"
 	"strings"
-	"sync"
 )
 
 func skipScenario(reason string) func(context.Context) string {
@@ -17,9 +16,10 @@ type scenarioEntry struct {
 	scenario *Scenario
 }
 
+// Scenarios register during package initialization.
 var (
-	registryMu sync.RWMutex
-	registry   []scenarioEntry
+	registry      []scenarioEntry
+	registryNames = map[string]struct{}{}
 )
 
 // Register adds a declarative scenario to the CLI registry.
@@ -32,20 +32,16 @@ func Register(s *Scenario) *Scenario {
 		panic("scenario name must not be empty")
 	}
 
-	registryMu.Lock()
-	defer registryMu.Unlock()
-	for _, entry := range registry {
-		if strings.EqualFold(entry.name, name) {
-			panic("duplicate scenario name: " + name)
-		}
+	lower := strings.ToLower(name)
+	if _, exists := registryNames[lower]; exists {
+		panic("duplicate scenario name: " + name)
 	}
+	registryNames[lower] = struct{}{}
 	registry = append(registry, scenarioEntry{name: name, scenario: s})
 	return s
 }
 
 func registeredScenarios() []scenarioEntry {
-	registryMu.RLock()
-	defer registryMu.RUnlock()
 	entries := make([]scenarioEntry, len(registry))
 	copy(entries, registry)
 	return entries

@@ -114,8 +114,8 @@ func (e *executor) writeReports() error {
 				checkCase.Failure = &junitFailure{Message: concise(check.Message), Body: concise(check.Message)}
 				suite.Failures++
 			}
+			// Child durations are already included in the parent attempt.
 			suite.Cases = append(suite.Cases, checkCase)
-			suiteDuration += check.Duration
 		}
 	}
 	suite.Tests = len(suite.Cases)
