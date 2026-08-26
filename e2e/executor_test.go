@@ -250,7 +250,7 @@ func TestExecutorRecoversScenarioPanic(t *testing.T) {
 }
 
 func TestCleanupFailureOverridesSkip(t *testing.T) {
-	err := addCleanupFailure(&skipError{message: "skip"}, errors.New("cleanup failed"))
+	err := addFailure(&skipError{message: "skip"}, errors.New("cleanup failed"))
 	var skip *skipError
 	if errors.As(err, &skip) {
 		t.Fatalf("cleanup failure remained classified as skip: %v", err)
@@ -430,5 +430,216 @@ func TestScenarioSkipIfRecordsSkip(t *testing.T) {
 	summary := exec.summary()
 	if summary.Total != 1 || summary.Skipped != 1 {
 		t.Fatalf("unexpected summary: %+v", summary)
+	}
+}
+
+func withTagFilters(t *testing.T, run, skip string) {
+	t.Helper()
+	oldRun, oldSkip := config.Config.TagsToRun, config.Config.TagsToSkip
+	t.Cleanup(func() {
+		config.Config.TagsToRun = oldRun
+		config.Config.TagsToSkip = oldSkip
+	})
+	config.Config.TagsToRun = run
+	config.Config.TagsToSkip = skip
+}
+
+func TestAutoOutputStreamsTagSelectedScenarios(t *testing.T) {
+	entries := []scenarioEntry{
+		{name: "Only", scenario: &Scenario{Name: "Only"}},
+		{name: "Second", scenario: &Scenario{Name: "Second"}},
+		{name: "Third", scenario: &Scenario{Name: "Third"}},
+		{name: "Fourth", scenario: &Scenario{Name: "Fourth"}},
+	}
+	opts := runOptions{parallel: 1, timeout: time.Second, logDir: t.TempDir(), outputMode: "auto"}
+
+	if got := tagSelectedEntries(entries); got != 4 {
+		t.Fatalf("unfiltered count = %d, want 4", got)
+	}
+	if newExecutor(context.Background(), &bytes.Buffer{}, opts, tagSelectedEntries(entries)).stream {
+		t.Fatal("auto mode streamed more than three scenarios")
+	}
+
+	withTagFilters(t, "Name=Only", "")
+	if got := tagSelectedEntries(entries); got != 1 {
+		t.Fatalf("filtered count = %d, want 1", got)
+	}
+	if !newExecutor(context.Background(), &bytes.Buffer{}, opts, tagSelectedEntries(entries)).stream {
+		t.Fatal("auto mode did not stream a single tag-selected scenario")
+	}
+	for _, entry := range entries {
+		if entry.scenario.Tags.Name != "" {
+			t.Fatalf("counting mutated the registry scenario: %+v", entry.scenario.Tags)
+		}
+	}
+}
+
+func TestTagFiltersApplyBeforeSkipIf(t *testing.T) {
+	withTagFilters(t, "Name=Other", "")
+	exec := newTestExecutor(t)
+
+	skipIfCalled := false
+	exec.schedule("Disabled", &Scenario{
+		Name: "Disabled",
+		SkipIf: func(context.Context) string {
+			skipIfCalled = true
+			return "not supported"
+		},
+	})
+	exec.scenarios.Wait()
+
+	if skipIfCalled {
+		t.Fatal("SkipIf ran for a scenario excluded by tag filters")
+	}
+	summary := exec.summary()
+	if summary.Skipped != 1 || summary.Selected != 0 {
+		t.Fatalf("unexpected summary: %+v", summary)
+	}
+	if !isFilteredSkip(exec.results[0].Attempts[0].Message) {
+		t.Fatalf("filtered skip lost its marker: %q", exec.results[0].Attempts[0].Message)
+	}
+}
+
+func TestTagSkipFilterExcludesScenario(t *testing.T) {
+	withTagFilters(t, "", "Name=Excluded")
+	entries := []scenarioEntry{
+		{name: "Excluded", scenario: &Scenario{Name: "Excluded"}},
+		{name: "Kept", scenario: &Scenario{Name: "Kept"}},
+	}
+	if got := tagSelectedEntries(entries); got != 1 {
+		t.Fatalf("skip-filtered count = %d, want 1", got)
+	}
+}
+
+func TestExecutorFailsAttemptOnLogWriteFailure(t *testing.T) {
+	exec := newTestExecutor(t)
+	exec.runScenario = func(_ context.Context, _ string, logger toolkit.Logger, _ *Scenario) error {
+		scenarioLog := logger.(*scenarioLogger)
+		scenarioLog.mu.Lock()
+		_ = scenarioLog.file.Close()
+		scenarioLog.mu.Unlock()
+		logger.Log("output that cannot be persisted")
+		return nil
+	}
+
+	exec.schedule("LogWriteFails", &Scenario{Name: "LogWriteFails"})
+	exec.scenarios.Wait()
+
+	attempt := exec.results[0].Attempts[0]
+	if attempt.Status != statusFailed || exec.results[0].Status != statusFailed {
+		t.Fatalf("log failure did not fail the attempt: %+v", exec.results[0])
+	}
+	if !strings.Contains(attempt.Message, "write scenario log") {
+		t.Fatalf("attempt message lost the log failure: %q", attempt.Message)
+	}
+}
+
+func TestScenarioLoggerCloseReportsFailure(t *testing.T) {
+	exec := newTestExecutor(t)
+	logger, err := newScenarioLogger(exec, "Example", filepath.Join(t.TempDir(), "attempt.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := logger.file.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	closeErr := logger.Close()
+	if closeErr == nil || !strings.Contains(closeErr.Error(), "scenario log") {
+		t.Fatalf("Close did not report the failure: %v", closeErr)
+	}
+	if err := logger.Close(); err == nil {
+		t.Fatal("Close forgot the sticky log failure")
+	}
+}
+
+func TestSkippedScenarioIsNotMarkedFailed(t *testing.T) {
+	exec := newTestExecutor(t)
+
+	var failedDuringCleanup bool
+	exec.runScenario = func(_ context.Context, _ string, _ toolkit.Logger, s *Scenario) (runErr error) {
+		defer func() { markScenarioOutcome(s, runErr, recover()) }()
+		s.Cleanup(func(context.Context) error {
+			failedDuringCleanup = s.failed
+			return nil
+		})
+		return &skipError{message: "SKU not available"}
+	}
+
+	exec.schedule("Skipped", &Scenario{Name: "Skipped"})
+	exec.scenarios.Wait()
+
+	if failedDuringCleanup {
+		t.Fatal("a skipped scenario was marked failed")
+	}
+	if exec.results[0].Status != statusSkipped {
+		t.Fatalf("unexpected result: %+v", exec.results[0])
+	}
+}
+
+func TestPanicMarksScenarioFailedBeforeCleanup(t *testing.T) {
+	exec := newTestExecutor(t)
+
+	var failedDuringCleanup bool
+	exec.runScenario = func(_ context.Context, _ string, _ toolkit.Logger, s *Scenario) (runErr error) {
+		defer func() { markScenarioOutcome(s, runErr, recover()) }()
+		s.Cleanup(func(context.Context) error {
+			failedDuringCleanup = s.failed
+			return nil
+		})
+		panic("boom")
+	}
+
+	exec.schedule("Panics", &Scenario{Name: "Panics"})
+	exec.scenarios.Wait()
+
+	if !failedDuringCleanup {
+		t.Fatal("panicking scenario was not marked failed before cleanup")
+	}
+	attempt := exec.results[0].Attempts[0]
+	if attempt.Status != statusFailed || !strings.Contains(attempt.Message, "panic: boom") {
+		t.Fatalf("executor did not recover the re-raised panic: %+v", attempt)
+	}
+}
+
+func TestExecutorKeepsFailureWhenRetrySkips(t *testing.T) {
+	tmp := t.TempDir()
+	opts := runOptions{
+		parallel:   1,
+		timeout:    time.Second,
+		retries:    1,
+		logDir:     filepath.Join(tmp, "logs"),
+		junitFile:  filepath.Join(tmp, "report.xml"),
+		outputMode: "grouped",
+	}
+	exec := newExecutor(context.Background(), &bytes.Buffer{}, opts, 1)
+
+	var calls atomic.Int32
+	exec.runScenario = func(_ context.Context, _ string, _ toolkit.Logger, _ *Scenario) error {
+		if calls.Add(1) == 1 {
+			return errors.New("validation failed")
+		}
+		return &skipError{message: "SKU not available"}
+	}
+
+	exec.schedule("FailsThenSkips", &Scenario{Name: "FailsThenSkips"})
+	exec.scenarios.Wait()
+	if err := exec.writeReports(); err != nil {
+		t.Fatal(err)
+	}
+
+	summary := exec.summary()
+	if summary.Failed != 1 || summary.Skipped != 0 || summary.Selected != 1 {
+		t.Fatalf("unexpected summary: %+v", summary)
+	}
+	report, err := os.ReadFile(opts.junitFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(report, []byte("validation failed")) {
+		t.Fatalf("JUnit report dropped the original failure:\n%s", report)
+	}
+	if bytes.Contains(report, []byte("<skipped")) {
+		t.Fatalf("JUnit report recorded the scenario as skipped:\n%s", report)
 	}
 }

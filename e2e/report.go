@@ -77,7 +77,7 @@ func (e *executor) writeReports() error {
 			junitProp{Name: "status", Value: string(result.Status)},
 			junitProp{Name: "attempts", Value: fmt.Sprint(len(result.Attempts))},
 		)
-		last := result.Attempts[len(result.Attempts)-1]
+		last := reportedAttempt(result)
 		switch result.Status {
 		case statusFailed:
 			testCase.Failure = &junitFailure{Message: concise(last.Message), Body: concise(last.Message)}
@@ -138,6 +138,19 @@ func (e *executor) writeReports() error {
 		return fmt.Errorf("write JUnit report: %w", err)
 	}
 	return nil
+}
+
+func reportedAttempt(result scenarioResult) attemptResult {
+	last := result.Attempts[len(result.Attempts)-1]
+	if result.Status != statusFailed {
+		return last
+	}
+	for i := len(result.Attempts) - 1; i >= 0; i-- {
+		if result.Attempts[i].Status == statusFailed {
+			return result.Attempts[i]
+		}
+	}
+	return last
 }
 
 func concise(message string) string {

@@ -119,7 +119,7 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	}
 	log.Printf("using E2E environment configuration:\n%s\n", config.Config)
 
-	exec := newExecutor(ctx, a.stdout, opts, len(entries))
+	exec := newExecutor(ctx, a.stdout, opts, tagSelectedEntries(entries))
 	for _, entry := range entries {
 		name := entry.name
 		if config.Config.TestPreProvision || entry.scenario.VHDCaching {

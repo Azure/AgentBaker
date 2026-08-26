@@ -174,16 +174,25 @@ func runScenarioCleanup(ctx context.Context, cleanup *scenarioCleanup) error {
 	return nil
 }
 
-func addCleanupFailure(runErr, cleanupErr error) error {
-	if cleanupErr == nil {
+func addFailure(runErr, failure error) error {
+	if failure == nil {
 		return runErr
 	}
 	if runErr == nil {
-		return cleanupErr
+		return failure
 	}
-	// Preserve the original result text, but unwrap only the cleanup failure so
-	// a skip followed by failed cleanup is classified as a failure.
-	return fmt.Errorf("%v; %w", runErr, cleanupErr)
+	// Preserve the original result text, but unwrap only the added failure so
+	// a skip followed by a cleanup or logging failure is classified as a failure.
+	return fmt.Errorf("%v; %w", runErr, failure)
+}
+
+func markScenarioOutcome(s *Scenario, runErr error, recovered any) {
+	if recovered != nil {
+		s.failed = true
+		panic(recovered)
+	}
+	var skip *skipError
+	s.failed = runErr != nil && !errors.As(runErr, &skip)
 }
 
 func runScenario(ctx context.Context, name string, logger toolkit.Logger, s *Scenario) (runErr error) {
@@ -203,7 +212,7 @@ func runScenario(ctx context.Context, name string, logger toolkit.Logger, s *Sce
 	defer cancel()
 	ctx = toolkit.ContextWithLogger(ctx, s.Logger)
 	defer func() {
-		s.failed = runErr != nil
+		markScenarioOutcome(s, runErr, recover())
 	}()
 	if err := maybeSkipScenario(ctx, name, s); err != nil {
 		return err
@@ -396,31 +405,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 }
 
 func maybeSkipScenario(ctx context.Context, name string, s *Scenario) error {
-	s.Tags.Name = s.Name
-	s.Tags.OS = string(s.VHD.OS)
-	s.Tags.Arch = s.VHD.Arch
-	s.Tags.ImageName = s.VHD.Name
-	s.Tags.VHDCaching = s.VHDCaching
-
-	if config.Config.TagsToRun != "" {
-		matches, err := s.Tags.MatchesFilters(config.Config.TagsToRun)
-		if err != nil {
-			return fmt.Errorf("could not match tags for %q: %w", name, err)
-		}
-		if !matches {
-			return &skipError{message: fmt.Sprintf("filtered: scenario %q tags %+v do not match %q", name, s.Tags, config.Config.TagsToRun)}
-		}
-	}
-
-	if config.Config.TagsToSkip != "" {
-		matches, err := s.Tags.MatchesAnyFilter(config.Config.TagsToSkip)
-		if err != nil {
-			return fmt.Errorf("could not match tags for %q: %w", name, err)
-		}
-		if matches {
-			return &skipError{message: fmt.Sprintf("filtered: scenario %q tags %+v match skip filter %q", name, s.Tags, config.Config.TagsToSkip)}
-		}
-	}
+	s.Tags = scenarioTags(s)
 
 	_, err := CachedPrepareVHD(ctx, GetVHDRequest{
 		Image:    *s.VHD,
