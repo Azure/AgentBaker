@@ -328,12 +328,26 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless",
           "latestVersion": "v1.18.12-260811",
-          "previousLatestVersion": "v1.18.11-260622"
+          "previousLatestVersion": "v1.18.11-260622",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/usr/bin/cilium-agent"
+              ]
+            }
+          }
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless",
           "latestVersion": "v1.19.6-260811",
-          "previousLatestVersion": "v1.19.5-260714"
+          "previousLatestVersion": "v1.19.5-260714",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/usr/bin/cilium-agent"
+              ]
+            }
+          }
         }
       ],
       "windowsVersions": []
@@ -345,12 +359,26 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless-init",
           "latestVersion": "v1.18.12-260811",
-          "previousLatestVersion": "v1.18.11-260622"
+          "previousLatestVersion": "v1.18.11-260622",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/opt/cni/bin/cilium-cni"
+              ]
+            }
+          }
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless-init",
           "latestVersion": "v1.19.6-260811",
-          "previousLatestVersion": "v1.19.5-260714"
+          "previousLatestVersion": "v1.19.5-260714",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/opt/cni/bin/cilium-cni"
+              ]
+            }
+          }
         }
       ],
       "windowsVersions": []
@@ -372,7 +400,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/secrets-store/driver",
-          "latestVersion": "v1.6.0-6"
+          "latestVersion": "v1.6.0-7"
         }
       ]
     },
@@ -382,7 +410,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/secrets-store/provider-azure",
-          "latestVersion": "v1.7.2"
+          "latestVersion": "v1.8.2-6"
         }
       ]
     },
@@ -496,8 +524,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/ip-masq-agent-v2",
-          "latestVersion": "v0.1.16-15",
-          "previousLatestVersion": "v0.1.16-14"
+          "latestVersion": "v0.1.16-16",
+          "previousLatestVersion": "v0.1.16-15"
         }
       ],
       "windowsVersions": []
@@ -665,7 +693,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/windows-gmsa-webhook",
-          "latestVersion": "v0.12.1-17"
+          "latestVersion": "v0.12.1-18"
         }
       ],
       "windowsVersions": []
@@ -1772,7 +1800,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "0.55.0-ubuntu26.04u2"
+                "latestVersion": "0.55.0-ubuntu26.04u4"
               }
             ]
           },
@@ -1780,7 +1808,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.55.0-ubuntu24.04u2"
+                "latestVersion": "0.55.0-ubuntu24.04u4"
               }
             ]
           },
@@ -1788,7 +1816,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.55.0-ubuntu22.04u2"
+                "latestVersion": "0.55.0-ubuntu22.04u4"
               }
             ]
           },
@@ -1796,7 +1824,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "0.55.0-ubuntu20.04u2"
+                "latestVersion": "0.55.0-ubuntu20.04u4"
               }
             ]
           }
@@ -1806,7 +1834,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=ig, os=azurelinux, release=3.0",
-                "latestVersion": "0.55.0-2.azl3"
+                "latestVersion": "0.55.0-4.azl3"
               }
             ]
           }
@@ -2155,7 +2183,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.9.1-ubuntu26.04u24"
+                "latestVersion": "1.9.1-ubuntu26.04u27"
               }
             ]
           },
@@ -2163,7 +2191,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.9.1-ubuntu24.04u24"
+                "latestVersion": "1.9.1-ubuntu24.04u27"
               }
             ]
           },
@@ -2171,7 +2199,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.9.1-ubuntu22.04u24"
+                "latestVersion": "1.9.1-ubuntu22.04u27"
               }
             ]
           },
@@ -2179,7 +2207,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.9.1-ubuntu20.04u24"
+                "latestVersion": "1.9.1-ubuntu20.04u27"
               }
             ]
           }
@@ -2189,7 +2217,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=node-exporter-kubernetes, os=azurelinux, release=3.0",
-                "latestVersion": "1.9.1-23.azl3"
+                "latestVersion": "1.9.1-26.azl3"
               }
             ]
           },
@@ -2382,6 +2410,14 @@
             "versionsV2": [
               {
                 "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "2.5.5"
+              }
+            ]
+          },
+          "r2604": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=26.04",
                 "latestVersion": "2.5.5"
               }
             ]

@@ -58,6 +58,10 @@ type App struct {
 	// source for check-hotfix's LPS endpoint (apiserver FQDN + cluster CA) and the
 	// cold-start fallback pointer.
 	nodeConfigPath string
+	// nbcCmdPath overrides the default nbc-cmd.sh path for testing. When the main
+	// node config (nodeConfigPath) is absent, check-hotfix parses this existing command
+	// file to obtain API_SERVER_NAME and KUBE_CA_CRT for the LPS connection.
+	nbcCmdPath string
 	// gpuComponentsFilePath overrides the default GPU components.json location for testing.
 	gpuComponentsFilePath string
 	// checkHotfixFetcher overrides the real LPS hotfix-pointer GET for testing, letting

@@ -211,7 +211,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"SKIP_WAAGENT_HOLD":                            "true",
 		"NETWORK_ISOLATED_CLUSTER_TEST_MODE":           "false", // temp: needs to be added to config
 		"STANDARD_SECONDARY_NIC_COUNT":                 fmt.Sprintf("%d", config.GetNetworkConfig().GetStandardSecondaryNicCount()),
-		"ENABLE_MANAGED_GPU_DRA":                       "false", // TODO: add protobuf field
+		"ENABLE_MANAGED_GPU_DRA":                       fmt.Sprintf("%v", config.GetGpuConfig().GetEnableManagedGpuDra()),
 		"INIT_AKS_CLOUD_FILEPATH":                      getInitAKSCloudFilepath(),
 		"REPO_DEPOT_ENDPOINT":                          getRepoDepotEndpoint(config),
 	}
