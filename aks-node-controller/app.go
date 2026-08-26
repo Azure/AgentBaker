@@ -518,8 +518,11 @@ func containerdConfigEntryDiff(key, pc, nbc string) string {
 	if key != "CONTAINERD_CONFIG_CONTENT" && key != "CONTAINERD_CONFIG_NO_GPU_CONTENT" {
 		return ""
 	}
-	pcDecoded, errPC := base64.StdEncoding.DecodeString(pc)
-	nbcDecoded, errNBC := base64.StdEncoding.DecodeString(nbc)
+	// The nbc-cmd value is parsed from a shell assignment and keeps its surrounding double
+	// quotes (CONTAINERD_CONFIG_CONTENT="<base64>"), while the provision-config value does not.
+	// Strip quotes before decoding so both sides base64-decode (mirrors envValsEqual's handling).
+	pcDecoded, errPC := base64.StdEncoding.DecodeString(stripDoubleQuotes(pc))
+	nbcDecoded, errNBC := base64.StdEncoding.DecodeString(stripDoubleQuotes(nbc))
 	if errPC != nil || errNBC != nil {
 		return ""
 	}
