@@ -814,6 +814,25 @@ sandbox = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
 	assert.True(t, envValsEqualForKey("CONTAINERD_CONFIG_NO_GPU_CONTENT", pcValue, nbcValue))
 }
 
+func TestEnvValsEqualForKey_ContainerdContentNormalizesQuotesAndWhitespace(t *testing.T) {
+	// The nbc-cmd value can arrive wrapped in shell quoting and/or with embedded whitespace
+	// (CONTAINERD_CONFIG_CONTENT="<base64>"). Equality must still hold when both decode to the
+	// same TOML, otherwise the parity check reports a false diff for byte-identical configs.
+	config := `
+version = 4
+[plugins."io.containerd.cri.v1.images".pinned_images]
+sandbox = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
+`
+	b64 := base64.StdEncoding.EncodeToString([]byte(config))
+	pcValue := b64
+	half := len(b64) / 2
+	// quoted and with embedded whitespace, as a raw shell assignment value would arrive.
+	nbcValue := "\"" + b64[:half] + " " + b64[half:] + "\""
+
+	assert.True(t, envValsEqualForKey("CONTAINERD_CONFIG_CONTENT", pcValue, nbcValue))
+	assert.True(t, envValsEqualForKey("CONTAINERD_CONFIG_NO_GPU_CONTENT", pcValue, nbcValue))
+}
+
 func TestEnvValsEqualForKey_ContainerdContentDetectsSemanticDiff(t *testing.T) {
 	pcConfig := `
 version = 4
