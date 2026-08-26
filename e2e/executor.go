@@ -104,6 +104,11 @@ attempts:
 			e.addResult(result, true)
 			return
 		case statusSkipped:
+			if hadFailure {
+				result.Status = statusFailed
+				e.addResult(result, true)
+				return
+			}
 			result.Status = statusSkipped
 			e.addResult(result, !isFilteredSkip(attemptResult.Message))
 			return
@@ -137,23 +142,27 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 		if recovered := recover(); recovered != nil {
 			runErr = fmt.Errorf("panic: %v\n%s", recovered, debug.Stack())
 		}
-		runErr = addCleanupFailure(runErr, runScenarioCleanup(e.ctx, cleanup))
+		runErr = addFailure(runErr, runScenarioCleanup(e.ctx, cleanup))
+		switch status, message := classifyAttempt(runErr); status {
+		case statusSkipped:
+			logger.Log("SKIP:", message)
+		case statusFailed:
+			logger.Log("🔴 FAIL:", message)
+		}
+		runErr = addFailure(runErr, logger.Close())
 		result.Status, result.Message = classifyAttempt(runErr)
 		result.Duration = time.Since(started)
 		if scenario != nil {
 			result.Checks = append([]scenarioCheck(nil), scenario.checks...)
-		}
-		switch result.Status {
-		case statusSkipped:
-			logger.Log("SKIP:", result.Message)
-		case statusFailed:
-			logger.Log("🔴 FAIL:", result.Message)
 		}
 		logger.FlushConsole(string(result.Status))
 	}()
 
 	scenario = freshScenario(original)
 	scenario.cleanup = cleanup
+	if runErr = filterScenario(name, scenario); runErr != nil {
+		return result
+	}
 	if scenario.SkipIf != nil {
 		if message := scenario.SkipIf(e.ctx); message != "" {
 			runErr = &skipError{message: message}
@@ -233,6 +242,7 @@ type scenarioLogger struct {
 	started  time.Time
 	path     string
 	file     *os.File
+	err      error
 	mu       sync.Mutex
 }
 
@@ -266,7 +276,9 @@ func (l *scenarioLogger) write(message string) {
 	formatted := output.String()
 	l.mu.Lock()
 	if l.file != nil {
-		_, _ = l.file.WriteString(formatted)
+		if _, err := l.file.WriteString(formatted); err != nil {
+			l.recordErr(fmt.Errorf("write scenario log %s: %w", l.path, err))
+		}
 	}
 	l.mu.Unlock()
 	if l.executor.stream {
@@ -284,7 +296,9 @@ func (l *scenarioLogger) FlushConsole(label string) {
 	}
 	l.mu.Lock()
 	if l.file != nil {
-		_ = l.file.Sync()
+		if err := l.file.Sync(); err != nil {
+			l.recordErr(fmt.Errorf("sync scenario log %s: %w", l.path, err))
+		}
 	}
 	l.mu.Unlock()
 	output, err := os.ReadFile(l.path)
@@ -303,12 +317,22 @@ func (l *scenarioLogger) FlushConsole(label string) {
 func (l *scenarioLogger) Close() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if l.file == nil {
-		return nil
+	if l.file != nil {
+		if err := l.file.Sync(); err != nil {
+			l.recordErr(fmt.Errorf("sync scenario log %s: %w", l.path, err))
+		}
+		if err := l.file.Close(); err != nil {
+			l.recordErr(fmt.Errorf("close scenario log %s: %w", l.path, err))
+		}
+		l.file = nil
 	}
-	err := l.file.Close()
-	l.file = nil
-	return err
+	return l.err
+}
+
+func (l *scenarioLogger) recordErr(err error) {
+	if l.err == nil {
+		l.err = err
+	}
 }
 
 func isFilteredSkip(message string) bool {
