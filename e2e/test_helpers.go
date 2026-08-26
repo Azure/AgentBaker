@@ -64,14 +64,15 @@ func constructErrorMessage(subscriptionID, location string) string {
 	return fmt.Sprintf("Received second cancellation signal, forcing exit.\nPlease check https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/overview and delete any resources created by the test suite", subscriptionID, config.ResourceGroupName(location))
 }
 
-func newTestCtx(t testing.TB) context.Context {
+func newTestCtx(t testing.TB, logger toolkit.Logger) context.Context {
 	if testCtx.Err() != nil {
 		t.Skip("test suite is shutting down")
 	}
 	ctx, cancel := context.WithTimeout(testCtx, config.Config.TestTimeout)
 	t.Cleanup(cancel)
-	// T should be used only for logging, not for assertions or any other logic
-	ctx = toolkit.ContextWithT(ctx, t)
+	// only a logger is put in the context, implementation code must not be able
+	// to control the test through it
+	ctx = toolkit.ContextWithLogger(ctx, logger)
 	return ctx
 }
 
@@ -139,14 +140,14 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 		if validationErr != nil {
 			return validationErr
 		}
-		t.Log("=== Creating VHD Image ===")
+		toolkit.Log(ctx, "=== Creating VHD Image ===")
 		var err error
 		customVHD, err = CreateImage(ctx, stage1)
 		if err != nil {
 			return err
 		}
 		customVHDJSON, _ := json.MarshalIndent(customVHD, "", "  ")
-		t.Logf("Created custom VHD image: %s", string(customVHDJSON))
+		toolkit.Logf(ctx, "Created custom VHD image: %s", string(customVHDJSON))
 		cleanupBastionTunnel(firstStage.Runtime.VM.SSHClient)
 		firstStage.Runtime.VM.SSHClient = nil
 		return nil
@@ -234,8 +235,10 @@ func copyScenario(s *Scenario) *Scenario {
 }
 
 func runScenario(t testing.TB, s *Scenario) error {
-	t = toolkit.WithTestLogger(t)
+	t = toolkit.WithFailureFormatting(t)
 	s.T = t
+	s.testName = t.Name()
+	s.Logger = toolkit.NewTestLogger(t)
 	if s.cleanup != nil {
 		panic("Scenario.Cleanup called outside of a scenario run")
 	}
@@ -249,7 +252,7 @@ func runScenario(t testing.TB, s *Scenario) error {
 		s.K8sSystemPoolSKU = config.Config.DefaultVMSKU
 	}
 
-	ctx := newTestCtx(t)
+	ctx := newTestCtx(t, s.Logger)
 	cleanup := &scenarioCleanup{}
 	s.cleanup = cleanup
 	t.Cleanup(func() {
@@ -271,7 +274,7 @@ func runScenario(t testing.TB, s *Scenario) error {
 	}
 	ctrruntimelog.SetLogger(zap.New())
 
-	defer toolkit.LogStep(t, "running scenario")()
+	defer toolkit.LogStep(s.Logger, "running scenario")()
 
 	cluster, err := s.Config.Cluster(ctx, ClusterRequest{
 		Location:         s.Location,
@@ -292,8 +295,8 @@ func runScenario(t testing.TB, s *Scenario) error {
 	clusterLocation := *cluster.Model.Location
 	resourceGroup := config.ResourceGroupName(clusterLocation)
 	subscriptionID := config.Config.SubscriptionID
-	t.Logf("using cluster %s in rg=%s sub=%s", clusterName, resourceGroup, subscriptionID)
-	t.Logf("portal: https://portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters/%s/overview",
+	s.Logger.Logf("using cluster %s in rg=%s sub=%s", clusterName, resourceGroup, subscriptionID)
+	s.Logger.Logf("portal: https://portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters/%s/overview",
 		subscriptionID, resourceGroup, clusterName)
 
 	if s.Runtime == nil {
@@ -319,13 +322,13 @@ func runScenario(t testing.TB, s *Scenario) error {
 		return err
 	}
 
-	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR, s.Location))
+	s.Logger.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR, s.Location))
 
 	return validateVM(vmssCtx, s)
 }
 
 func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
-	defer toolkit.LogStep(s.T, "preparing AKS node")()
+	defer toolkit.LogStep(s.Logger, "preparing AKS node")()
 
 	nbc, err := getBaseNBC(ctx, s.Runtime.Cluster, s.VHD)
 	if err != nil {
@@ -397,7 +400,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		return nil, fmt.Errorf("checking if VM size %q supports only Gen2: %w", config.Config.DefaultVMSKU, err)
 	}
 	if gen2Only && s.Config.VHD.UnsupportedGen2 {
-		s.T.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supported gen 1 %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
+		s.Logger.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supported gen 1 %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
 		config.Config.DefaultVMSKU = config.DefaultV5VMSKU
 	}
 	supportsNVMe, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
@@ -409,7 +412,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	}
 	if supportsNVMe {
 		if s.Config.VHD.UnsupportedNVMe {
-			s.T.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
+			s.Logger.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
 			config.Config.DefaultVMSKU = config.DefaultV5VMSKU
 		} else {
 			s.Config.UseNVMe = true
@@ -423,7 +426,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		return scenarioVM, err
 	}
 	if err != nil {
-		return scenarioVM, fmt.Errorf("create vmss %q, check %s for vm logs: %w", s.Runtime.VMSSName, testDir(s.T), err)
+		return scenarioVM, fmt.Errorf("create vmss %q, check %s for vm logs: %w", s.Runtime.VMSSName, testDir(s.testName), err)
 	}
 	if scenarioVM == nil || scenarioVM.VM == nil {
 		return nil, fmt.Errorf("create vmss %q returned an incomplete VM", s.Runtime.VMSSName)
@@ -436,7 +439,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	if !s.Config.SkipDefaultValidation {
 		vmssCreatedAt := time.Now()         // Record the start time
 		creationElapse := time.Since(start) // Calculate the elapsed time
-		scenarioVM.KubeName, err = s.Runtime.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
+		scenarioVM.KubeName, err = s.Runtime.Kube.WaitUntilNodeReady(ctx, s.Logger, s.Runtime.VMSSName)
 		if err != nil {
 			return scenarioVM, err
 		}
@@ -485,7 +488,7 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) error {
 		}
 		return fmt.Errorf("failing scenario %q: could not find image for VHD %s: %w", t.Name(), s.VHD.Distro, err)
 	}
-	t.Logf("TAGS %+v", s.Tags)
+	s.Logger.Logf("TAGS %+v", s.Tags)
 	return nil
 }
 
@@ -509,7 +512,7 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) error {
 }
 
 func validateVM(ctx context.Context, s *Scenario) error {
-	defer toolkit.LogStep(s.T, "validating VM")()
+	defer toolkit.LogStep(s.Logger, "validating VM")()
 	if !s.Config.SkipSSHConnectivityValidation {
 		if err := validateSSHConnectivity(ctx, s); err != nil {
 			return err
@@ -544,9 +547,9 @@ func validateVM(ctx context.Context, s *Scenario) error {
 	}
 	err := errors.Join(errs...)
 	if err != nil {
-		s.T.Log("VM validation failed")
+		s.Logger.Log("VM validation failed")
 	} else {
-		s.T.Log("VM validation succeeded")
+		s.Logger.Log("VM validation succeeded")
 	}
 	return err
 }
@@ -575,7 +578,7 @@ func getCustomScriptExtensionStatus(s *Scenario, vmssVM *armcompute.VirtualMachi
 		if err == nil && freshVM.Properties != nil && freshVM.Properties.InstanceView != nil {
 			vmssVM.Properties.InstanceView = freshVM.Properties.InstanceView
 		} else if err != nil {
-			s.T.Logf("warning: failed to re-fetch VM instance view for CSE status: %v", err)
+			s.Logger.Logf("warning: failed to re-fetch VM instance view for CSE status: %v", err)
 		}
 	}
 
@@ -606,14 +609,14 @@ func getCustomScriptExtensionStatus(s *Scenario, vmssVM *armcompute.VirtualMachi
 				// Only write when the message has actual content to avoid overwriting
 				// with an empty file from a status entry that has no output.
 				if status.Message != nil && *status.Message != "" {
-					logDir := testDir(s.T)
+					logDir := testDir(s.testName)
 					if err := os.MkdirAll(logDir, 0755); err == nil {
 						logFile := filepath.Join(logDir, "windows-cse-output.log")
 						err = os.WriteFile(logFile, []byte(*status.Message), 0644)
 						if err != nil {
-							s.T.Logf("failed to save Windows CSE output to %s: %v", logFile, err)
+							s.Logger.Logf("failed to save Windows CSE output to %s: %v", logFile, err)
 						} else {
-							s.T.Logf("saved Windows CSE output to %s (%d bytes)", logFile, len(*status.Message))
+							s.Logger.Logf("saved Windows CSE output to %s (%d bytes)", logFile, len(*status.Message))
 						}
 					}
 				}
@@ -765,7 +768,6 @@ func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armc
 // It is generally slower than SSH because each call creates a VirtualMachineRunCommand
 // resource on the VM and waits for it to provision.
 func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.VirtualMachineRunCommandInstanceView, error) {
-	s.T.Helper()
 	if s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
 		s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil ||
 		s.Runtime.VM == nil || s.Runtime.VM.VM == nil || s.Runtime.VM.VM.InstanceID == nil {
@@ -932,7 +934,7 @@ func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 		return nil, fmt.Errorf("scenario runtime is incomplete for image creation")
 	}
 	if s.IsWindows() {
-		s.T.Log("Running sysprep on Windows VM...")
+		s.Logger.Log("Running sysprep on Windows VM...")
 		res, err := RunCommand(ctx, s, windowsSysprepScript)
 		var stdout, stderr string
 		if res.Output != nil {
@@ -941,9 +943,9 @@ func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 		if res.Error != nil {
 			stderr = strings.TrimSpace(*res.Error)
 		}
-		s.T.Logf("Sysprep stdout: %s", stdout)
+		s.Logger.Logf("Sysprep stdout: %s", stdout)
 		if stderr != "" {
-			s.T.Logf("Sysprep stderr: %s", stderr)
+			s.Logger.Logf("Sysprep stderr: %s", stderr)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to run sysprep on Windows VM for image creation: %w", err)
@@ -959,7 +961,7 @@ func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 		return nil, fmt.Errorf("VMSS VM is missing its managed OS disk ID")
 	}
 
-	s.T.Log("Deallocating VMSS VM...")
+	s.Logger.Log("Deallocating VMSS VM...")
 	poll, err := config.Azure.VMSSVM.BeginDeallocate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to begin deallocate: %w", err)
@@ -988,7 +990,7 @@ func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version string, diskResourceID string) (*config.Image, error) {
 	startTime := time.Now()
 	defer func() {
-		s.T.Logf("Created SIG image version %s from disk %s in %s", version, diskResourceID, time.Since(startTime))
+		s.Logger.Logf("Created SIG image version %s from disk %s in %s", version, diskResourceID, time.Since(startTime))
 	}()
 	if s.Runtime == nil || s.Runtime.VM == nil || s.Runtime.VM.VM == nil ||
 		s.Runtime.VM.VM.Properties == nil || s.Runtime.VM.VM.Properties.InstanceView == nil {
@@ -1024,10 +1026,10 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 		return nil, fmt.Errorf("failed to create or get gallery image: incomplete image metadata returned")
 	}
 
-	s.T.Logf("Created gallery image: %s", *image.ID)
+	s.Logger.Logf("Created gallery image: %s", *image.ID)
 
 	// Create the image version directly from the disk
-	s.T.Logf("Creating gallery image version: %s in %s", version, *image.ID)
+	s.Logger.Logf("Creating gallery image version: %s in %s", version, *image.ID)
 	createVersionOp, err := config.Azure.GalleryImageVersions.BeginCreateOrUpdate(ctx, rg, *gallery.Name, *image.Name, version, armcompute.GalleryImageVersion{
 		Location: to.Ptr(s.Location),
 		Properties: &armcompute.GalleryImageVersionProperties{
@@ -1106,7 +1108,7 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 	}
 
 	// Retry logic with exponential backoff for scenarios that may reboot
-	s.T.Logf("SSH connectivity validation will retry for up to %s if reboot-related errors are encountered", s.Config.WaitForSSHAfterReboot)
+	s.Logger.Logf("SSH connectivity validation will retry for up to %s if reboot-related errors are encountered", s.Config.WaitForSSHAfterReboot)
 	startTime := time.Now()
 	var lastSSHError error
 
@@ -1114,7 +1116,7 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 		err := attemptSSHConnection(ctx, s)
 		if err == nil {
 			elapsed := time.Since(startTime)
-			s.T.Logf("SSH connectivity established after %s", elapsed)
+			s.Logger.Logf("SSH connectivity established after %s", elapsed)
 			return true, nil
 		}
 
@@ -1132,7 +1134,7 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 
 		// Check if this is a reboot-related error
 		if isRebootRelatedSSHError(err, stderr) {
-			s.T.Logf("Detected reboot-related SSH error, will retry: %v", err)
+			s.Logger.Logf("Detected reboot-related SSH error, will retry: %v", err)
 			return false, nil // Continue polling
 		}
 
@@ -1163,7 +1165,7 @@ func attemptSSHConnection(ctx context.Context, s *Scenario) error {
 		return fmt.Errorf("SSH_CONNECTION_OK not found on %s: %s", s.Runtime.VM.PrivateIP, connectionResult.String())
 	}
 
-	s.T.Logf("SSH connectivity to %s verified successfully", s.Runtime.VM.PrivateIP)
+	s.Logger.Logf("SSH connectivity to %s verified successfully", s.Runtime.VM.PrivateIP)
 	return nil
 }
 

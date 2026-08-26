@@ -2117,7 +2117,7 @@ func Test_Ubuntu2604Minimal(t *testing.T) {
 					ValidateContainerd2Properties(ctx, s, containerdVersions),
 					ValidateRuncVersion(ctx, s, runcVersions),
 					ValidateContainerRuntimePlugins(ctx, s),
-					// ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
+					ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 					ValidateSSHServiceEnabled(ctx, s),
 				)
 			},
@@ -2140,7 +2140,7 @@ func Test_Ubuntu2604Minimal_AzureCNI(t *testing.T) {
 					ValidateContainerd2Properties(ctx, s, containerdVersions),
 					ValidateRuncVersion(ctx, s, runcVersions),
 					ValidateContainerRuntimePlugins(ctx, s),
-					// ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
+					ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 					ValidateSSHServiceEnabled(ctx, s),
 				)
 			},
@@ -2874,7 +2874,7 @@ func Test_Ubuntu2604MinimalArm64(t *testing.T) {
 					ValidateContainerd2Properties(ctx, s, containerdVersions),
 					ValidateRuncVersion(ctx, s, runcVersions),
 					ValidateContainerRuntimePlugins(ctx, s),
-					// ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
+					ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 					ValidateSSHServiceEnabled(ctx, s),
 				)
 			},
@@ -2901,7 +2901,7 @@ func Test_Ubuntu2604MinimalArm64_AzureCNI(t *testing.T) {
 					ValidateContainerd2Properties(ctx, s, containerdVersions),
 					ValidateRuncVersion(ctx, s, runcVersions),
 					ValidateContainerRuntimePlugins(ctx, s),
-					// ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
+					ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 					ValidateSSHServiceEnabled(ctx, s),
 				)
 			},
