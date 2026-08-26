@@ -263,6 +263,7 @@ func runScenario(ctx context.Context, name string, logger toolkit.Logger, s *Sce
 		s.Runtime = &ScenarioRuntime{}
 	}
 	s.Runtime.Cluster = cluster
+	s.Runtime.VMSize = config.Config.DefaultVMSKU
 	s.Runtime.VMSSName = generateVMSSName(s)
 
 	testKube, err := cluster.NewKubeclientForTest()
@@ -354,26 +355,28 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 
 	gen2Only, err := CachedIsVMSizeGen2Only(ctx, VMSizeSKURequest{
 		Location: s.Location,
-		VMSize:   config.Config.DefaultVMSKU,
+		VMSize:   s.Runtime.VMSize,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("checking if VM size %q supports only Gen2: %w", config.Config.DefaultVMSKU, err)
+		return nil, fmt.Errorf("checking if VM size %q supports only Gen2: %w", s.Runtime.VMSize, err)
 	}
 	if gen2Only && s.Config.VHD.UnsupportedGen2 {
-		s.Logger.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supported gen 1 %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
-		config.Config.DefaultVMSKU = config.DefaultV5VMSKU
+		s.Logger.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supports Gen1 %q", s.Runtime.VMSize, config.DefaultV5VMSKU)
+		s.Runtime.VMSize = config.DefaultV5VMSKU
+		nbc.AgentPoolProfile.VMSize = config.DefaultV5VMSKU
 	}
 	supportsNVMe, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
 		Location: s.Location,
-		VMSize:   config.Config.DefaultVMSKU,
+		VMSize:   s.Runtime.VMSize,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("checking if VM size %q supports only NVMe: %w", config.Config.DefaultVMSKU, err)
+		return nil, fmt.Errorf("checking if VM size %q supports only NVMe: %w", s.Runtime.VMSize, err)
 	}
 	if supportsNVMe {
 		if s.Config.VHD.UnsupportedNVMe {
-			s.Logger.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
-			config.Config.DefaultVMSKU = config.DefaultV5VMSKU
+			s.Logger.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", s.Runtime.VMSize, config.DefaultV5VMSKU)
+			s.Runtime.VMSize = config.DefaultV5VMSKU
+			nbc.AgentPoolProfile.VMSize = config.DefaultV5VMSKU
 		} else {
 			s.Config.UseNVMe = true
 		}

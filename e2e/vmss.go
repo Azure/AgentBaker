@@ -1350,7 +1350,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 	model := armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(s.Location),
 		SKU: &armcompute.SKU{
-			Name:     to.Ptr(config.Config.DefaultVMSKU),
+			Name:     to.Ptr(scenarioVMSize(s)),
 			Capacity: to.Ptr[int64](1),
 		},
 		Properties: &armcompute.VirtualMachineScaleSetProperties{
@@ -1464,6 +1464,13 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 		model.Properties.VirtualMachineProfile.OSProfile.AdminPassword = to.Ptr(generateWindowsPassword())
 	}
 	return model
+}
+
+func scenarioVMSize(s *Scenario) string {
+	if s.Runtime != nil && s.Runtime.VMSize != "" {
+		return s.Runtime.VMSize
+	}
+	return config.Config.DefaultVMSKU
 }
 
 func generateWindowsPassword() string {

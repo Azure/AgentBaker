@@ -11,6 +11,15 @@ import (
 // TestCSEExitCodeOutboundConnFail pins the exit code constant to the value emitted by
 // ERR_OUTBOUND_CONN_FAIL in parts/linux/cloud-init/artifacts/cse_helpers.sh. If the
 // product error code changes, this test forces the harness mitigation to be updated.
+func TestGetBaseVMSSModelUsesScenarioVMSize(t *testing.T) {
+	s := &Scenario{
+		Runtime: &ScenarioRuntime{VMSize: "Standard_D2ds_v5"},
+	}
+	if got := scenarioVMSize(s); got != s.Runtime.VMSize {
+		t.Fatalf("VMSS SKU = %q, want %q", got, s.Runtime.VMSize)
+	}
+}
+
 func TestCSEExitCodeOutboundConnFail(t *testing.T) {
 	require.Equal(t, "50", cseExitCodeOutboundConnFail)
 }
