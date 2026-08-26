@@ -348,7 +348,9 @@ getInstalledNvidiaDriverVersion() {
 # attributable residue and leave the customer's driver intact -- see the version check below. Pass
 # "force_full_teardown" ($1) to skip that check and always run the full teardown: the grid path needs
 # the cuda pre-bake gone regardless of version (a driver-KIND collision with the grid driver, not a
-# version one), so it must not take the customer-preserve branch.
+# version one), so it must not take the customer-preserve branch. That grid caller lives in
+# cse_config.sh, so shellcheck can't see the $1 being passed -- disable its unused-arg warning here.
+# shellcheck disable=SC2120
 cleanUpPrebakedGPUDriver() {
     local force_full="${1:-}"
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
@@ -446,7 +448,9 @@ cleanUpGPUDrivers() {
     # A CUDA driver pre-baked into a shared Ubuntu VHD is dead weight on a node that doesn't install
     # the managed driver (non-GPU, or GPU opted out via --gpu-driver None / skip), and while
     # DKMS-registered it forces an nvidia.ko rebuild on every kernel patch. Tear it down here.
-    # No-op on VHDs without the aks-gpu prebake marker.
+    # No-op on VHDs without the aks-gpu prebake marker. Default (no arg) = customer-preserve enabled;
+    # the grid caller in cse_config.sh passes force_full_teardown.
+    # shellcheck disable=SC2119
     cleanUpPrebakedGPUDriver
 }
 
