@@ -307,6 +307,15 @@ removeNvidiaRepos() {
     fi
 }
 
+# loadedNvidiaModuleVersion echoes the version of the currently loaded nvidia kernel module (from
+# /sys/module/nvidia/version), or nothing if no nvidia module is loaded. Split into its own function
+# so callers and tests can read/stub the loaded-module signal -- the /sys path can't be created on the
+# test host.
+loadedNvidiaModuleVersion() {
+    [ -r /sys/module/nvidia/version ] && cat /sys/module/nvidia/version 2>/dev/null
+    return 0
+}
+
 # findCustomerDriverVersion echoes a currently-present nvidia driver version that DIFFERS from the
 # AKS-baked marker version -- i.e. a customer-owned driver coexisting with (or replacing) AKS's
 # pre-bake -- or nothing if every detectable version equals the marker. It inspects EVERY ownership
@@ -320,10 +329,8 @@ removeNvidiaRepos() {
 # $2 overrides the DKMS dir (test seam).
 findCustomerDriverVersion() {
     local marker_version="$1" dkms_dir="${2:-/var/lib/dkms/nvidia}" v="" d
-    if [ -r /sys/module/nvidia/version ]; then
-        v="$(cat /sys/module/nvidia/version 2>/dev/null)"
-        if [ -n "${v}" ] && [ "${v}" != "${marker_version}" ]; then printf '%s' "${v}"; return 0; fi
-    fi
+    v="$(loadedNvidiaModuleVersion)"
+    if [ -n "${v}" ] && [ "${v}" != "${marker_version}" ]; then printf '%s' "${v}"; return 0; fi
     v="$(modinfo -F version nvidia 2>/dev/null | head -n1)"
     if [ -n "${v}" ] && [ "${v}" != "${marker_version}" ]; then printf '%s' "${v}"; return 0; fi
     for d in "${dkms_dir}"/*/; do
@@ -382,11 +389,30 @@ cleanUpPrebakedGPUDriver() {
     if [ "${force_full}" != "force_full_teardown" ] && [ -n "${marker_version}" ]; then
         customer_version="$(findCustomerDriverVersion "${marker_version}" "${dkms_dir}")"
         if [ -n "${customer_version}" ]; then
-            # Customer driver coexists. Remove only AKS's own baked residue -- its version-scoped DKMS
-            # registration (usually already gone, the customer's installer deregisters it) and the
-            # aks-gpu /usr/bin/lib64 staging -- and preserve the customer's module + userspace binaries.
+            # Customer driver coexists. Strip only AKS's own baked residue, every removal gated to the
+            # marker version, and preserve the customer's driver:
+            #  - AKS's version-scoped DKMS registration (usually already gone -- the customer's
+            #    installer deregisters it) and the aks-gpu /usr/bin/lib64 staging (an AKS-only path).
+            #  - AKS's kernel module, but ONLY when the module loaded / on disk is AKS's own (its
+            #    version == the marker). Leaving AKS's marker-version module resident (it auto-loads at
+            #    boot) or on disk next to the customer's userspace recreates the NVML version mismatch
+            #    this teardown exists to prevent. The customer's module (a different version) is never
+            #    touched; we unload only when idle, since this node installs no driver of its own.
             rm -rf "${dkms_dir:?}/${marker_version}" || true
             rm -rf /usr/bin/lib64 || true
+            local loaded_version="" ondisk_version=""
+            loaded_version="$(loadedNvidiaModuleVersion)"
+            if [ "${loaded_version}" = "${marker_version}" ] && \
+               [ "$(cat /sys/module/nvidia/refcnt 2>/dev/null || echo 0)" = "0" ] && \
+               ! ls /dev/nvidia* >/dev/null 2>&1; then
+                for mod in nvidia_uvm nvidia_drm nvidia_modeset nvidia_peermem nvidia; do
+                    rmmod "${mod}" 2>/dev/null || true
+                done
+            fi
+            ondisk_version="$(modinfo -F version nvidia 2>/dev/null | head -n1)"
+            if [ "${ondisk_version}" = "${marker_version}" ]; then
+                rm -f /lib/modules/"$(uname -r)"/updates/dkms/nvidia*.ko* 2>/dev/null || true
+            fi
             echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=preserved_customer_driver marker_version=${marker_version} installed_version=${customer_version}"
             return 0
         fi
