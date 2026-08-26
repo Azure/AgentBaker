@@ -415,7 +415,11 @@ func diffEnvMaps(pcEnv, nbcEnv map[string]string) []string {
 			}
 		case !envValsEqualForKey(key, pcVal, nbcVal):
 			if !isExpectedDiffCSEVar(key) {
-				diffs = append(diffs, fmt.Sprintf("differs: %s", key))
+				if detail := containerdConfigEntryDiff(key, pcVal, nbcVal); detail != "" {
+					diffs = append(diffs, fmt.Sprintf("differs: %s (%s)", key, detail))
+				} else {
+					diffs = append(diffs, fmt.Sprintf("differs: %s", key))
+				}
 			}
 		}
 	}
@@ -504,6 +508,50 @@ func containerdConfigContentEqual(a, b string) bool {
 		}
 	}
 	return true
+}
+
+// containerdConfigEntryDiff returns a compact description of the canonical TOML entries that
+// differ between two base64-encoded containerd configs (provision-config vs nbc-cmd). Returns
+// "" for non-containerd keys or when the values are not decodable base64. Used to make the
+// provision-config vs nbc-cmd parity failure actionable by naming the exact differing entries.
+func containerdConfigEntryDiff(key, pc, nbc string) string {
+	if key != "CONTAINERD_CONFIG_CONTENT" && key != "CONTAINERD_CONFIG_NO_GPU_CONTENT" {
+		return ""
+	}
+	pcDecoded, errPC := base64.StdEncoding.DecodeString(pc)
+	nbcDecoded, errNBC := base64.StdEncoding.DecodeString(nbc)
+	if errPC != nil || errNBC != nil {
+		return ""
+	}
+	pcEntries := canonicalContainerdTOMLEntries(string(pcDecoded))
+	nbcEntries := canonicalContainerdTOMLEntries(string(nbcDecoded))
+	pcSet := make(map[string]struct{}, len(pcEntries))
+	for _, e := range pcEntries {
+		pcSet[e] = struct{}{}
+	}
+	nbcSet := make(map[string]struct{}, len(nbcEntries))
+	for _, e := range nbcEntries {
+		nbcSet[e] = struct{}{}
+	}
+	var onlyPC, onlyNBC []string
+	for _, e := range pcEntries {
+		if _, ok := nbcSet[e]; !ok {
+			onlyPC = append(onlyPC, e)
+		}
+	}
+	for _, e := range nbcEntries {
+		if _, ok := pcSet[e]; !ok {
+			onlyNBC = append(onlyNBC, e)
+		}
+	}
+	var parts []string
+	if len(onlyPC) > 0 {
+		parts = append(parts, "only-in-provision-config: ["+strings.Join(onlyPC, " | ")+"]")
+	}
+	if len(onlyNBC) > 0 {
+		parts = append(parts, "only-in-nbc-cmd: ["+strings.Join(onlyNBC, " | ")+"]")
+	}
+	return strings.Join(parts, "; ")
 }
 
 func canonicalContainerdTOMLEntries(content string) []string {
