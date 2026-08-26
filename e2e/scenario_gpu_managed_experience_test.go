@@ -762,6 +762,8 @@ func runUbuntu2404NvidiaDevicePluginMIGSingle(
 }
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_MultiGPU(t *testing.T) {
+	t.Skip("disabled to save on GPU quota")
+
 	const (
 		gpuCount           = 2
 		migInstancesPerGPU = 3
