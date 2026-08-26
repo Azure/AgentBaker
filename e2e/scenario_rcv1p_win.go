@@ -1,7 +1,7 @@
 // REVERT ME: this file uses rcv1pWindowsCSEMutator to override CseScriptsPackageURL with a
 // branch-built CSE zip. Remove those overrides once the RCV1P code ships in a published CSE package.
 //
-// scenario_rcv1p_win_test.go contains end-to-end tests for the RCV1P cert mode on Windows.
+// This file contains end-to-end scenarios for the RCV1P cert mode on Windows.
 // Windows uses a different cert installation path than Linux: certificates are downloaded to
 // C:\ca and imported into the Windows root or intermediate LocalMachine certificate store.
 // A scheduled task (aks-ca-certs-refresh-task) is registered to

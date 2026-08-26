@@ -209,7 +209,7 @@ func TestScenarioLogIncludesElapsedTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	logger.Log("hello")
+	logger.Log("hello\nworld")
 	if err := logger.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -217,8 +217,46 @@ func TestScenarioLogIncludesElapsedTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !regexp.MustCompile(`^\[\d+\.\d{3}s\] hello\n$`).Match(content) {
+	if !regexp.MustCompile(`^\[\d+\.\d{3}s\] hello\n\[\d+\.\d{3}s\] world\n$`).Match(content) {
 		t.Fatalf("unexpected scenario log line: %q", content)
+	}
+}
+
+func TestExecutorRecoversScenarioPanic(t *testing.T) {
+	var stdout bytes.Buffer
+	exec := newExecutor(context.Background(), &stdout, runOptions{
+		parallel:   2,
+		timeout:    time.Second,
+		logDir:     t.TempDir(),
+		outputMode: "grouped",
+	}, 2)
+	exec.runScenario = func(_ context.Context, name string, _ toolkit.Logger, _ *Scenario) error {
+		if name == "Panics" {
+			panic("boom")
+		}
+		return nil
+	}
+
+	exec.schedule("Panics", &Scenario{Name: "Panics"})
+	exec.schedule("Passes", &Scenario{Name: "Passes"})
+	exec.scenarios.Wait()
+	summary := exec.summary()
+	if summary.Failed != 1 || summary.Passed != 1 {
+		t.Fatalf("unexpected panic summary: %+v", summary)
+	}
+	if !strings.Contains(stdout.String(), "🔴 FAIL: panic: boom") {
+		t.Fatalf("panic was not reported:\n%s", stdout.String())
+	}
+}
+
+func TestCleanupFailureOverridesSkip(t *testing.T) {
+	err := addCleanupFailure(&skipError{message: "skip"}, errors.New("cleanup failed"))
+	var skip *skipError
+	if errors.As(err, &skip) {
+		t.Fatalf("cleanup failure remained classified as skip: %v", err)
+	}
+	if !strings.Contains(err.Error(), "skip") || !strings.Contains(err.Error(), "cleanup failed") {
+		t.Fatalf("combined error lost context: %v", err)
 	}
 }
 
@@ -237,6 +275,9 @@ func TestExecutorReportsCancellationAsFailure(t *testing.T) {
 	summary := exec.summary()
 	if summary.Failed != 1 || summary.Skipped != 0 {
 		t.Fatalf("unexpected cancellation summary: %+v", summary)
+	}
+	if got := len(exec.results[0].Attempts); got != 1 {
+		t.Fatalf("cancellation recorded %d attempts, want 1", got)
 	}
 }
 

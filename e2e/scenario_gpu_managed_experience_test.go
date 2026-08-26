@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v3"
 )
 
 func TestVersionConsistencyGPUManagedComponents(t *testing.T) {
@@ -96,6 +97,8 @@ func TestCreateVMExtensionLinuxAKSNodeTiming(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 	require.NoError(t, config.LoadDotEnv())
+	configCommand := &cli.Command{Name: "e2e-test-config", Flags: config.Flags()}
+	require.NoError(t, configCommand.Run(t.Context(), []string{"e2e-test-config"}))
 	require.NoError(t, config.Initialize())
 
 	start := time.Now()
