@@ -168,6 +168,7 @@ Describe 'cse_install_ubuntu.sh'
             modinfo() { echo "580.65.06"; }  # AKS''s own on-disk .ko == marker
             rmmod() { echo "mock rmmod $*"; }  # no module loaded here, so must NOT be called
             rm() { echo "mock rm $*"; }
+            depmod() { echo "mock depmod $*"; }
             ldconfig() { echo "mock ldconfig"; }
             When call cleanUpPrebakedGPUDriver
             The status should be success
@@ -176,6 +177,8 @@ Describe 'cse_install_ubuntu.sh'
             The output should not include "Removing pre-baked NVIDIA driver"
             # AKS''s marker-version .ko is stripped (on-disk version == marker); no module was loaded
             The output should include "mock rm -f /lib/modules"
+            # ...and the module dependency index is rebuilt so modprobe resolves the customer module
+            The output should include "mock depmod"
             The output should not include "mock rmmod"
         End
 

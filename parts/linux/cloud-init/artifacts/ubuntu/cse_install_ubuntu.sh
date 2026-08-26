@@ -412,6 +412,11 @@ cleanUpPrebakedGPUDriver() {
             ondisk_version="$(modinfo -F version nvidia 2>/dev/null | head -n1)"
             if [ "${ondisk_version}" = "${marker_version}" ]; then
                 rm -f /lib/modules/"$(uname -r)"/updates/dkms/nvidia*.ko* 2>/dev/null || true
+                # Rebuild the module dependency index so a later `modprobe nvidia` resolves the
+                # PRESERVED customer module (elsewhere in the tree) instead of the just-deleted AKS
+                # path. Unlike the full teardown -- which leaves the node driver-free and needs no
+                # depmod -- this path expects an nvidia module to remain usable.
+                depmod "$(uname -r)" 2>/dev/null || true
             fi
             # Refresh the linker cache: removing /usr/bin/lib64 above leaves stale ld.so.cache entries,
             # so a preserved customer nvidia-smi could otherwise keep resolving AKS's NVML libs through
