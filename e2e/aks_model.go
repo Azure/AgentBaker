@@ -359,7 +359,7 @@ func addFirewallRules(
 		if err != nil {
 			return fmt.Errorf("failed to start adding route %q: %w", *route.Name, err)
 		}
-		_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+		_, err = poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 		if err != nil {
 			return fmt.Errorf("failed to add route %q to AKS route table: %w", *route.Name, err)
 		}
@@ -409,7 +409,7 @@ func ensureFirewallRouteTable(
 		if err != nil {
 			return fmt.Errorf("failed to start creating firewall route table %q: %w", routeTableName, err)
 		}
-		routeTableResp, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+		routeTableResp, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 		if err != nil {
 			return fmt.Errorf("failed to create firewall route table %q: %w", routeTableName, err)
 		}
@@ -1150,7 +1150,7 @@ func createNetworkIsolatedSecurityGroup(ctx context.Context, cluster *armcontain
 	if err != nil {
 		return nil, err
 	}
-	nsg, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	nsg, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return nil, err
 	}
@@ -1175,7 +1175,7 @@ func updateSubnet(ctx context.Context, cluster *armcontainerservice.ManagedClust
 		if err != nil {
 			return err
 		}
-		_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+		_, err = poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 		return err
 	})
 }

@@ -201,7 +201,7 @@ func deleteVMSSAndWait(ctx context.Context, s *Scenario) {
 		s.Logger.Logf("failed to begin delete of vmss %q for retry: %s", s.Runtime.VMSSName, err)
 		return
 	}
-	if _, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions); err != nil {
+	if _, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
 		s.Logger.Logf("failed to wait for delete of vmss %q for retry: %s", s.Runtime.VMSSName, err)
 	}
 }
@@ -470,7 +470,7 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	result += fmt.Sprintf(`az network bastion ssh --target-resource-id "%s" --name "%s" --resource-group %s --auth-type ssh-key --username azureuser --ssh-key %s`, *vm.VM.ID, SharedBastionName, config.ResourceGroupName(*s.Runtime.Cluster.Model.Location), config.VMSSHPrivateKeyFileName) + "\n"
 	s.Logger.Log(result)
 
-	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	vmssResp, err := operation.PollUntilDone(ctx, config.PollUntilDoneOptions())
 
 	// Log VMSS tags for diagnostics in the scenario log.
 	// For RCV1P tests, annotates the opt-in tag to help distinguish our tags from platform-injected ones.
@@ -969,7 +969,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	}
 
 	// Poll the result until the operation is completed
-	runCommandResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	runCommandResp, err := pollerResp.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		s.Logger.Logf("failed to poll run command on VMSS instance %s: %s", instanceID, err)
 	} else {

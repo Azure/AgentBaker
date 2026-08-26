@@ -67,7 +67,7 @@ func createGallery(ctx context.Context, request CreateGalleryRequest) (armcomput
 	if err != nil {
 		return armcompute.Gallery{}, fmt.Errorf("failed to create gallery: %w", err)
 	}
-	resp, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	resp, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return armcompute.Gallery{}, fmt.Errorf("failed to poll gallery creation: %w", err)
 	}
@@ -128,7 +128,7 @@ func createGalleryImage(ctx context.Context, request CreateGalleryImageRequest) 
 	if err != nil {
 		return armcompute.GalleryImage{}, fmt.Errorf("failed to create gallery image: %w", err)
 	}
-	resp, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	resp, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return armcompute.GalleryImage{}, fmt.Errorf("failed to poll gallery image creation: %w", err)
 	}

@@ -23,8 +23,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"k8s.io/apimachinery/pkg/util/wait"
-	ctrruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func runScenarioFlow(ctx context.Context, name string, logger toolkit.Logger, s *Scenario) error {
@@ -232,8 +230,6 @@ func runScenario(ctx context.Context, name string, logger toolkit.Logger, s *Sce
 	if _, err := CachedCreateVMManagedIdentity(ctx, s.Location); err != nil {
 		return fmt.Errorf("create VM managed identity: %w", err)
 	}
-	ctrruntimelog.SetLogger(zap.New())
-
 	defer toolkit.LogStep(s.Logger, "running scenario")()
 
 	cluster, err := s.Config.Cluster(ctx, ClusterRequest{
@@ -1020,7 +1016,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 		return nil, fmt.Errorf("Failed to create gallery image version: %w", err)
 	}
 
-	_, err = createVersionOp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	_, err = createVersionOp.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return nil, fmt.Errorf("Failed to complete gallery image version creation: %w", err)
 	}
