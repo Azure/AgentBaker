@@ -652,9 +652,34 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 }
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
+	runUbuntu2404NvidiaDevicePluginMIGSingle(t,
+		"westus2",
+		"Tests that NVIDIA device plugin and DCGM Exporter work with the legacy GPUInstanceProfile field",
+		func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.GPUInstanceProfile = "MIG2g"
+		},
+	)
+}
+
+func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIGProfileLayout_Single(t *testing.T) {
+	runUbuntu2404NvidiaDevicePluginMIGSingle(t,
+		"westus2",
+		"Tests that NVIDIA device plugin and DCGM Exporter work with MIGProfileLayout and the Single MIG strategy",
+		func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.MIGProfileLayout = []string{"MIG2g", "MIG2g", "MIG2g"}
+		},
+	)
+}
+
+func runUbuntu2404NvidiaDevicePluginMIGSingle(
+	t *testing.T,
+	location string,
+	description string,
+	setMIGProfile func(*datamodel.NodeBootstrappingConfiguration),
+) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that NVIDIA device plugin and DCGM Exporter work with MIG enabled on Ubuntu 24.04 GPU nodes",
-		Location:    "westus2",
+		Description: description,
+		Location:    location,
 		Tags: Tags{
 			GPU: true,
 		},
@@ -667,7 +692,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
-				nbc.GPUInstanceProfile = "MIG2g"
+				setMIGProfile(nbc)
 				nbc.EnableManagedGPU = true
 				nbc.MigStrategy = "Single"
 			},
@@ -698,13 +723,16 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				); err != nil {
 					return err
 				}
-				if err := ValidateMIGModeEnabled(ctx, s, 1); err != nil {
+				if err := errors.Join(
+					ValidateMIGModeEnabled(ctx, s, 1),
+					ValidateMIGInstanceProfileCounts(ctx, s, map[string]int{"MIG 2g.20gb": 3}),
+					ValidateNvidiaDevicePluginMIGStrategy(ctx, s, "single"),
+				); err != nil {
 					return err
 				}
-				if err := ValidateMIGInstancesCreated(ctx, s, "MIG 2g.20gb", 3); err != nil {
-					return err
-				}
-				if err := ValidateNodeAdvertisesGPUResources(ctx, s, 3, "nvidia.com/gpu"); err != nil {
+				// Resource advertisement depends on the MIG geometry and device plugin strategy.
+				// Single exposes all three uniform partitions through nvidia.com/gpu and no profile-specific resources.
+				if err := ValidateNodeAdvertisesExactGPUResources(ctx, s, map[string]int64{"nvidia.com/gpu": 3}); err != nil {
 					return err
 				}
 
@@ -743,6 +771,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_MultiGPU(t *testing.T) {
 
 	RunScenario(t, &Scenario{
 		Description:      "Tests that a MIG profile is applied to every GPU on an Ubuntu 24.04 multi-GPU VM",
+		Location:         "westus2",
 		K8sSystemPoolSKU: "Standard_D2s_v3",
 		Tags: Tags{
 			GPU: true,
@@ -945,7 +974,7 @@ func Test_CreateVMExtensionLinuxAKSNode_Timing(t *testing.T) {
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that NVIDIA device plugin work with MIG Mixed mode on Ubuntu 24.04 GPU nodes",
+		Description: "Tests that NVIDIA device plugin provisions and advertises a heterogeneous Mixed MIG geometry on Ubuntu 24.04 GPU nodes",
 		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
@@ -959,7 +988,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
-				nbc.GPUInstanceProfile = "MIG1g"
+				nbc.MIGProfileLayout = []string{"MIG3g", "MIG2g", "MIG1g", "MIG1g"}
 				nbc.EnableManagedGPU = true
 				nbc.MigStrategy = "Mixed"
 			},
@@ -983,7 +1012,6 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				migResourceName := "nvidia.com/mig-1g.10gb"
 				if err := errors.Join(
 					ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
 					// Validate that the NVIDIA device plugin systemd service is running
@@ -991,19 +1019,33 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 				); err != nil {
 					return err
 				}
-				if err := ValidateMIGModeEnabled(ctx, s, 1); err != nil {
+				if err := errors.Join(
+					ValidateMIGModeEnabled(ctx, s, 1),
+					ValidateMIGInstanceProfileCounts(ctx, s, map[string]int{
+						"MIG 3g.40gb": 1,
+						"MIG 2g.20gb": 1,
+						"MIG 1g.10gb": 2,
+					}),
+					ValidateNvidiaDevicePluginMIGStrategy(ctx, s, "mixed"),
+				); err != nil {
 					return err
 				}
-				if err := ValidateMIGInstancesCreated(ctx, s, "MIG 1g.10gb", 7); err != nil {
-					return err
-				}
-				if err := ValidateNodeAdvertisesGPUResources(ctx, s, 7, migResourceName); err != nil {
+				// Resource advertisement depends on the MIG geometry and device plugin strategy.
+				// Mixed exposes every profile-specific resource and no generic nvidia.com/gpu resource.
+				if err := ValidateNodeAdvertisesExactGPUResources(ctx, s, map[string]int64{
+					"nvidia.com/mig-3g.40gb": 1,
+					"nvidia.com/mig-2g.20gb": 1,
+					"nvidia.com/mig-1g.10gb": 2,
+				}); err != nil {
 					return err
 				}
 
-				// Validate that MIG workloads can be scheduled. Only meaningful once the MIG
-				// resources above are advertised, otherwise the pod simply never gets scheduled.
-				return ValidateGPUWorkloadSchedulable(ctx, s, 2, migResourceName)
+				// Exercise every advertised resource type, including both duplicate 1g partitions.
+				return errors.Join(
+					ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/mig-3g.40gb"),
+					ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/mig-2g.20gb"),
+					ValidateGPUWorkloadSchedulable(ctx, s, 2, "nvidia.com/mig-1g.10gb"),
+				)
 			},
 		},
 	})
