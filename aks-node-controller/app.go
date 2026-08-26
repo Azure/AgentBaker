@@ -518,13 +518,20 @@ func containerdConfigEntryDiff(key, pc, nbc string) string {
 	if key != "CONTAINERD_CONFIG_CONTENT" && key != "CONTAINERD_CONFIG_NO_GPU_CONTENT" {
 		return ""
 	}
-	// The nbc-cmd value is parsed from a shell assignment and keeps its surrounding double
-	// quotes (CONTAINERD_CONFIG_CONTENT="<base64>"), while the provision-config value does not.
-	// Strip quotes before decoding so both sides base64-decode (mirrors envValsEqual's handling).
-	pcDecoded, errPC := base64.StdEncoding.DecodeString(stripDoubleQuotes(pc))
-	nbcDecoded, errNBC := base64.StdEncoding.DecodeString(stripDoubleQuotes(nbc))
+	// The nbc-cmd value is parsed from a shell assignment and may keep surrounding double
+	// quotes (CONTAINERD_CONFIG_CONTENT="<base64>") and/or embedded whitespace, while the
+	// provision-config value does not. Normalize (drop quotes + all whitespace) before decoding
+	// so both sides base64-decode (mirrors envValsEqual's quote handling).
+	normalize := func(s string) string {
+		return strings.Join(strings.Fields(stripDoubleQuotes(s)), "")
+	}
+	pcDecoded, errPC := base64.StdEncoding.DecodeString(normalize(pc))
+	nbcDecoded, errNBC := base64.StdEncoding.DecodeString(normalize(nbc))
 	if errPC != nil || errNBC != nil {
-		return ""
+		// Always return something actionable so the failure log explains itself instead of
+		// silently collapsing to the bare "differs: KEY".
+		return fmt.Sprintf("decode-failed pc(len=%d,ok=%v) nbc(len=%d,ok=%v)",
+			len(normalize(pc)), errPC == nil, len(normalize(nbc)), errNBC == nil)
 	}
 	pcEntries := canonicalContainerdTOMLEntries(string(pcDecoded))
 	nbcEntries := canonicalContainerdTOMLEntries(string(nbcDecoded))
@@ -553,6 +560,12 @@ func containerdConfigEntryDiff(key, pc, nbc string) string {
 	}
 	if len(onlyNBC) > 0 {
 		parts = append(parts, "only-in-nbc-cmd: ["+strings.Join(onlyNBC, " | ")+"]")
+	}
+	if len(parts) == 0 {
+		// Entry sets are equal but containerdConfigContentEqual still reported a difference —
+		// i.e. a duplicate/multiplicity or ordering difference. Report the counts so it's visible.
+		return fmt.Sprintf("entry-sets-equal but content differs (pc-entries=%d nbc-entries=%d)",
+			len(pcEntries), len(nbcEntries))
 	}
 	return strings.Join(parts, "; ")
 }
