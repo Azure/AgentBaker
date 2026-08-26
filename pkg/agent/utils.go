@@ -316,9 +316,10 @@ func getSSHPublicKeysPowerShell(linuxProfile *datamodel.LinuxProfile) string {
 }
 
 // encodePowerShellBase64Literal returns a PowerShell expression that decodes
-// the given string from base64 at runtime. Standard base64 cannot contain a
-// single quote, so the encoded payload can be safely embedded in the
-// single-quoted argument without escaping.
+// the given string from base64 at runtime. The encoded payload is placed inside
+// a single-quoted PowerShell literal; since the base64 alphabet (A-Za-z0-9+/=)
+// cannot contain a single quote, the literal cannot be terminated early,
+// making the output safe by construction regardless of input content.
 func encodePowerShellBase64Literal(value string) string {
 	encoded := base64.StdEncoding.EncodeToString([]byte(value))
 	return "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('" + encoded + "'))"
