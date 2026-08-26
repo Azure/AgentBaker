@@ -179,29 +179,58 @@ Describe 'cse_install_ubuntu.sh'
             The output should not include "mock rmmod"
         End
 
-        It 'unloads AKS''s marker-version module (idle) while preserving the customer driver'
+        It 'unloads AKS''s idle marker-version module and reports a clean preserve'
             # AKS''s prebaked module auto-loaded at boot (loaded version == marker) while the customer''s
             # different version is DKMS-registered. We preserve the customer driver but rmmod AKS''s own
-            # idle marker-version module so it can''t sit resident against the customer''s userspace.
+            # idle marker-version module; once it is gone the completeness recheck reports a clean
+            # preserved_customer_driver. The stub flips to unloaded when rmmod runs.
             marker="$(mktemp)"
             printf 'driver_version=580.65.06\n' > "${marker}"
             GPU_DKMS_MARKER_FILE="${marker}"
             dkmsdir="$(mktemp -d)"; mkdir -p "${dkmsdir}/590.00.00"
             GPU_DKMS_NVIDIA_DIR="${dkmsdir}"
-            loadedNvidiaModuleVersion() { echo "580.65.06"; }  # AKS''s module is the resident one
+            _loaded_ver="580.65.06"
+            loadedNvidiaModuleVersion() { echo "${_loaded_ver}"; }  # AKS''s module, until rmmod unloads it
             modinfo() { return 1; }
-            rmmod() { echo "mock rmmod $*"; }
+            rmmod() { _loaded_ver=""; echo "mock rmmod $*"; }
             rm() { echo "mock rm $*"; }
             ldconfig() { echo "mock ldconfig"; }
             When call cleanUpPrebakedGPUDriver
             The status should be success
             The output should include "status=preserved_customer_driver"
+            The output should include "aks_module_after=false"
             The output should include "installed_version=590.00.00"
             The output should not include "Removing pre-baked NVIDIA driver"
             # AKS''s own idle marker-version module is unloaded...
             The output should include "mock rmmod nvidia"
-            # ...but the customer''s DKMS registration is preserved (not the version-scoped AKS dir wipe target)
+            # ...the stale linker cache is refreshed...
+            The output should include "mock ldconfig"
+            # ...but the customer''s DKMS registration is preserved (only the AKS dir is the wipe target)
             The output should include "mock rm -rf ${dkmsdir}/580.65.06"
+        End
+
+        It 'reports incomplete when AKS''s busy marker-version module cannot be unloaded'
+            # AKS''s marker-version module is resident but in use (refcnt != 0), so the idle-gated rmmod
+            # is skipped and it stays loaded. That is the stale-module security condition #8933 flags,
+            # so we must emit status=incomplete (alert + retry) rather than a clean preserve.
+            marker="$(mktemp)"
+            printf 'driver_version=580.65.06\n' > "${marker}"
+            GPU_DKMS_MARKER_FILE="${marker}"
+            dkmsdir="$(mktemp -d)"; mkdir -p "${dkmsdir}/590.00.00"
+            GPU_DKMS_NVIDIA_DIR="${dkmsdir}"
+            loadedNvidiaModuleVersion() { echo "580.65.06"; }  # AKS''s module stays resident (busy)
+            modinfo() { return 1; }
+            cat() { echo "2"; }  # /sys/module/nvidia/refcnt != 0 -> busy, rmmod must be skipped
+            rmmod() { echo "mock rmmod $*"; }  # must NOT be called
+            rm() { echo "mock rm $*"; }
+            ldconfig() { echo "mock ldconfig"; }
+            When call cleanUpPrebakedGPUDriver
+            The status should be success
+            The output should include "status=incomplete"
+            The output should include "aks_module_after=true"
+            The output should include "installed_version=590.00.00"
+            The output should not include "mock rmmod"
+            The output should not include "Removing pre-baked NVIDIA driver"
         End
 
         It 'tears down a same-version customer rebuild like AKS''s own bake'

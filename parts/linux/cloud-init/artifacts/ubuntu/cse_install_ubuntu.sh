@@ -413,7 +413,20 @@ cleanUpPrebakedGPUDriver() {
             if [ "${ondisk_version}" = "${marker_version}" ]; then
                 rm -f /lib/modules/"$(uname -r)"/updates/dkms/nvidia*.ko* 2>/dev/null || true
             fi
-            echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=preserved_customer_driver marker_version=${marker_version} installed_version=${customer_version}"
+            # Refresh the linker cache: removing /usr/bin/lib64 above leaves stale ld.so.cache entries,
+            # so a preserved customer nvidia-smi could otherwise keep resolving AKS's NVML libs through
+            # the deleted staging path.
+            ldconfig || true
+            # Completeness gate (mirrors the full teardown): if AKS's OWN marker-version module is
+            # still resident -- busy, so the idle-gated rmmod was skipped, or the unload failed -- that
+            # is the stale-module security condition #8933 flags. Report status=incomplete (the fleet
+            # security-coverage alert + retry signal; the marker is left in place either way so the next
+            # provision retries) instead of a clean preserved_customer_driver. A resident module of the
+            # CUSTOMER's own (different) version is not AKS residue and does not count.
+            local status=preserved_customer_driver aks_module_after=false
+            [ "$(loadedNvidiaModuleVersion)" = "${marker_version}" ] && aks_module_after=true
+            [ "${aks_module_after}" = true ] && status=incomplete
+            echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=${status} marker_version=${marker_version} installed_version=${customer_version} aks_module_after=${aks_module_after}"
             return 0
         fi
     fi
