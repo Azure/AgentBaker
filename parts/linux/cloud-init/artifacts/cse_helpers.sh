@@ -220,6 +220,23 @@ ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file
 # more details: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
 AKS_AAD_SERVER_APP_ID="6dae42f8-4368-4678-94ff-3960e28e3630"
 
+# Retry tuning for systemctlEnableAndStart/systemctlEnableAndStartNoBlock.
+# The retry count alone is not a time bound: a unit that fails fast burns
+# SYSTEMCTL_RESTART_MAX_RETRIES * 5s sleeping (~500s), and a unit that hangs burns
+# retries * per-attempt timeout, which can exceed the global CSE timeout on its own.
+# SYSTEMCTL_RESTART_MAX_BUDGET_SECONDS bounds the wall-clock time any single unit can
+# take, so one bad unit cannot consume the whole CSE window and mask later failures
+# behind a generic timeout instead of a specific error code.
+SYSTEMCTL_RESTART_MAX_RETRIES=100
+SYSTEMCTL_RESTART_MAX_BUDGET_SECONDS=120
+# Retry count for optional units whose failure is explicitly non-fatal to provisioning.
+# These are not worth a full budget each - there are enough of them that their combined
+# worst case would otherwise exceed the CSE window.
+SYSTEMCTL_RESTART_OPTIONAL_RETRIES=3
+# systemctl enable only writes symlinks on disk. If it fails, it is not a transient
+# condition that a long retry tail will fix.
+SYSTEMCTL_ENABLE_MAX_RETRIES=3
+
 # Checks if the elapsed time since CSEStartTime exceeds 13 minutes.
 # That value is based on the global CSE timeout which is set to 15 minutes - majority of CSE executions succeed or fail very fast, meaning we can exit slightly before the global timeout without affecting the overall CSE execution.
 # Global cse timeout is set in cse_start.sh: `timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh`
@@ -583,29 +600,56 @@ retrycmd_can_oras_ls_acr_anonymously() {
 }
 
 # base systemctl retry command, should not be called directly - use systemctl_restart, systemctl_stop, systemctl_disable
+# maxBudget (7th arg): if > 0, the total wall-clock seconds this operation is allowed to spend across all retries.
+# A value of 0 disables the per-operation budget (falls back to the global CSE timeout guard only).
+# returns 0 if successful, 1 if the operation kept failing, 2 if the operation budget or the global CSE timeout was hit.
 _systemctl_retry_svc_operation() {
-    retries=$1; wait_sleep=$2; timeout=$3 operation=$4 svcname=$5 shouldLogRetryInfo=${6:-false}
+    retries=$1; wait_sleep=$2; timeout=$3 operation=$4 svcname=$5 shouldLogRetryInfo=${6:-false} maxBudget=${7:-0}
+    opStartTime=$(date +%s)
     for i in $(seq 1 $retries); do
-        timeout $timeout systemctl daemon-reload
-        timeout $timeout systemctl $operation $svcname && break || \
+        # Check the per-operation budget if set, and cap the per-attempt timeout to whatever
+        # budget is left so a single hung systemctl call cannot overrun it.
+        effectiveTimeout=$timeout
+        if [ "${maxBudget}" -gt 0 ]; then
+            opElapsed=$(( $(date +%s) - opStartTime ))
+            if [ "$opElapsed" -ge "$maxBudget" ]; then
+                echo "$svcname: operation budget of ${maxBudget}s exceeded after ${opElapsed}s and $((i - 1)) attempt(s), giving up on \"systemctl $operation\"." >&2
+                return 2
+            fi
+            remainingBudget=$(( maxBudget - opElapsed ))
+            if [ "$effectiveTimeout" -gt "$remainingBudget" ]; then
+                effectiveTimeout=$remainingBudget
+            fi
+        fi
+
+        # check if global cse timeout is approaching (only in real CSE runs)
+        if [ -n "${CSE_STARTTIME_SECONDS:-}" ] && ! check_cse_timeout; then
+            echo "CSE timeout approaching, exiting early." >&2
+            return 2
+        fi
+
+        timeout $effectiveTimeout systemctl daemon-reload
+        timeout $effectiveTimeout systemctl $operation $svcname && return 0
+
         if [ $i -eq $retries ]; then
             return 1
-        else
-          if [ "$shouldLogRetryInfo" = "true" ]; then
-              systemctl status $svcname --no-pager -l
-              journalctl -u $svcname
-          fi
-            sleep $wait_sleep
         fi
+        if [ "$shouldLogRetryInfo" = "true" ]; then
+            systemctl status $svcname --no-pager -l
+            # bound the journal dump: this runs on every failed attempt, so an unbounded
+            # dump grows quadratically with the retry count.
+            journalctl -u $svcname --no-pager -n 50
+        fi
+        sleep $wait_sleep
     done
 }
 
 systemctl_restart() {
-    _systemctl_retry_svc_operation "$1" "$2" "$3" "restart" "$4" true
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "restart" "$4" true "${5:-0}"
 }
 
 systemctl_restart_no_block() {
-    _systemctl_retry_svc_operation "$1" "$2" "$3" "restart --no-block" "$4" true
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "restart --no-block" "$4" true "${5:-0}"
 }
 
 systemctl_stop() {
@@ -621,15 +665,15 @@ sysctl_reload() {
 }
 
 systemctlEnableAndStart() {
-    service=$1; timeout=$2
-    systemctl_restart 100 5 $timeout $service
+    service=$1; timeout=$2; retries=${3:-$SYSTEMCTL_RESTART_MAX_RETRIES}
+    systemctl_restart "$retries" 5 "$timeout" "$service" "$SYSTEMCTL_RESTART_MAX_BUDGET_SECONDS"
     RESTART_STATUS=$?
     if [ $RESTART_STATUS -ne 0 ]; then
         echo "$service could not be started"
         systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi
-    if ! retrycmd_if_failure 120 5 25 systemctl enable $service; then
+    if ! retrycmd_if_failure $SYSTEMCTL_ENABLE_MAX_RETRIES 5 25 systemctl enable $service; then
         echo "$service could not be enabled by systemctl"
         systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
@@ -637,9 +681,9 @@ systemctlEnableAndStart() {
 }
 
 systemctlEnableAndStartNoBlock() {
-    service=$1; timeout=$2
+    service=$1; timeout=$2; retries=${3:-$SYSTEMCTL_RESTART_MAX_RETRIES}
 
-    systemctl_restart_no_block 100 5 $timeout $service
+    systemctl_restart_no_block "$retries" 5 "$timeout" "$service" "$SYSTEMCTL_RESTART_MAX_BUDGET_SECONDS"
     RESTART_STATUS=$?
     if [ $RESTART_STATUS -ne 0 ]; then
         echo "$service could not be enqueued for startup"
@@ -647,7 +691,7 @@ systemctlEnableAndStartNoBlock() {
         return 1
     fi
 
-    if ! retrycmd_if_failure 120 5 25 systemctl enable $service; then
+    if ! retrycmd_if_failure $SYSTEMCTL_ENABLE_MAX_RETRIES 5 25 systemctl enable $service; then
         echo "$service could not be enabled by systemctl"
         systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1

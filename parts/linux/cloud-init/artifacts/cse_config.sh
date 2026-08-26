@@ -1129,7 +1129,7 @@ EOF
     fi
 
     # start measure-tls-bootstrapping-latency.service without waiting for the main process to start, while ignoring any failures
-    if ! systemctlEnableAndStartNoBlock measure-tls-bootstrapping-latency 30; then
+    if ! systemctlEnableAndStartNoBlock measure-tls-bootstrapping-latency 30 $SYSTEMCTL_RESTART_OPTIONAL_RETRIES; then
         rm -f "${tls_bootstrapping_start_time_filepath}"
         echo "failed to start measure-tls-bootstrapping-latency.service"
     fi
@@ -1151,7 +1151,7 @@ EOF
     # it MAY succeed, only due to unreliability of systemd
     # service type=Simple, which does not exit non-zero
     # on failure if ExecStart failed to invoke.
-    systemctlEnableAndStart mig-partition 300
+    systemctlEnableAndStart mig-partition 300 $SYSTEMCTL_RESTART_OPTIONAL_RETRIES
 }
 
 configureNodeExporter() {
@@ -1162,11 +1162,11 @@ configureNodeExporter() {
         return 0
     fi
 
-    if ! systemctlEnableAndStart node-exporter 30; then
+    if ! systemctlEnableAndStart node-exporter 30 $SYSTEMCTL_RESTART_OPTIONAL_RETRIES; then
         echo "Failed to start node-exporter service"
         return $ERR_NODE_EXPORTER_START_FAIL
     fi
-    if ! systemctlEnableAndStart node-exporter-restart.path 30; then
+    if ! systemctlEnableAndStart node-exporter-restart.path 30 $SYSTEMCTL_RESTART_OPTIONAL_RETRIES; then
         echo "Failed to start node-exporter-restart.path"
         return $ERR_NODE_EXPORTER_START_FAIL
     fi
@@ -2054,7 +2054,7 @@ EOF
     # This is optional observability — don't block provisioning if it fails.
     # Note: the kubelet node label is added separately in cse_main.sh before ensureKubelet.
     echo "Enabling localdns-exporter.socket for metrics collection."
-    if systemctlEnableAndStartNoBlock localdns-exporter.socket 30; then
+    if systemctlEnableAndStartNoBlock localdns-exporter.socket 30 $SYSTEMCTL_RESTART_OPTIONAL_RETRIES; then
         echo "Enable localdns-exporter.socket succeeded."
     else
         echo "WARNING: Failed to enable localdns-exporter.socket. Metrics will not be available but continuing provisioning."
@@ -2183,7 +2183,7 @@ EOF
     # Enable the timer for periodic refresh.
     # This will update the hosts file with fresh IPs from live DNS.
     echo "Enabling aks-localdns-hosts-setup timer..."
-    if systemctlEnableAndStartNoBlock aks-localdns-hosts-setup.timer 30; then
+    if systemctlEnableAndStartNoBlock aks-localdns-hosts-setup.timer 30 $SYSTEMCTL_RESTART_OPTIONAL_RETRIES; then
         echo "aks-localdns-hosts-setup timer enabled successfully."
     else
         echo "Warning: Failed to enable aks-localdns-hosts-setup timer"
@@ -2325,7 +2325,7 @@ EOF
     # 2. Start the nvidia-dcgm service.
     # DCGM is monitoring/telemetry and does not gate GPU workload scheduling, so start it without
     # blocking node provisioning and treat a slow/failed start as non-fatal.
-    logs_to_events "AKS.CSE.start.nvidia-dcgm" "systemctlEnableAndStartNoBlock nvidia-dcgm 30" || echo "warning: nvidia-dcgm could not be enqueued; GPU monitoring will start asynchronously"
+    logs_to_events "AKS.CSE.start.nvidia-dcgm" "systemctlEnableAndStartNoBlock nvidia-dcgm 30 $SYSTEMCTL_RESTART_OPTIONAL_RETRIES" || echo "warning: nvidia-dcgm could not be enqueued; GPU monitoring will start asynchronously"
 
     # 3. Start the nvidia-dcgm-exporter service.
     # Create systemd drop-in directory for nvidia-dcgm-exporter service
@@ -2349,7 +2349,7 @@ EOF
     # Start the nvidia-dcgm-exporter service.
     # The exporter is telemetry only and does not gate scheduling, so start it off the critical
     # path and treat a slow/failed start as non-fatal.
-    logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStartNoBlock nvidia-dcgm-exporter 30" || echo "warning: nvidia-dcgm-exporter could not be enqueued; GPU metrics will start asynchronously"
+    logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStartNoBlock nvidia-dcgm-exporter 30 $SYSTEMCTL_RESTART_OPTIONAL_RETRIES" || echo "warning: nvidia-dcgm-exporter could not be enqueued; GPU metrics will start asynchronously"
 }
 
 get_compute_sku() {
