@@ -490,9 +490,18 @@ func parseSysctlPairs(content string) map[string]string {
 
 // containerdConfigContentEqual base64-decodes containerd TOML configs and compares
 // table-scoped key/value pairs while ignoring harmless ordering and whitespace differences.
+// normalizeContainerdConfigContent strips surrounding quotes and all whitespace so a base64
+// value survives round-tripping through a shell assignment (KEY="<base64>") or minor whitespace
+// differences. parseEnvValue already drops the quoting characters in the common case; this is a
+// defensive normalization shared by containerdConfigContentEqual and containerdConfigEntryDiff so
+// both decode consistently instead of one silently falling back to a raw string compare.
+func normalizeContainerdConfigContent(s string) string {
+	return strings.Join(strings.Fields(stripDoubleQuotes(s)), "")
+}
+
 func containerdConfigContentEqual(a, b string) bool {
-	aDecoded, errA := base64.StdEncoding.DecodeString(a)
-	bDecoded, errB := base64.StdEncoding.DecodeString(b)
+	aDecoded, errA := base64.StdEncoding.DecodeString(normalizeContainerdConfigContent(a))
+	bDecoded, errB := base64.StdEncoding.DecodeString(normalizeContainerdConfigContent(b))
 	if errA != nil || errB != nil {
 		return envValsEqual(a, b)
 	}
@@ -518,20 +527,17 @@ func containerdConfigEntryDiff(key, pc, nbc string) string {
 	if key != "CONTAINERD_CONFIG_CONTENT" && key != "CONTAINERD_CONFIG_NO_GPU_CONTENT" {
 		return ""
 	}
-	// The nbc-cmd value is parsed from a shell assignment and may keep surrounding double
-	// quotes (CONTAINERD_CONFIG_CONTENT="<base64>") and/or embedded whitespace, while the
-	// provision-config value does not. Normalize (drop quotes + all whitespace) before decoding
-	// so both sides base64-decode (mirrors envValsEqual's quote handling).
-	normalize := func(s string) string {
-		return strings.Join(strings.Fields(stripDoubleQuotes(s)), "")
-	}
-	pcDecoded, errPC := base64.StdEncoding.DecodeString(normalize(pc))
-	nbcDecoded, errNBC := base64.StdEncoding.DecodeString(normalize(nbc))
+	// parseEnvValue already strips shell quoting when extracting KEY=VALUE, so in the common case
+	// there are no surrounding quotes here; normalizeContainerdConfigContent additionally removes
+	// any residual quotes/whitespace so both sides base64-decode consistently with
+	// containerdConfigContentEqual.
+	pcDecoded, errPC := base64.StdEncoding.DecodeString(normalizeContainerdConfigContent(pc))
+	nbcDecoded, errNBC := base64.StdEncoding.DecodeString(normalizeContainerdConfigContent(nbc))
 	if errPC != nil || errNBC != nil {
 		// Always return something actionable so the failure log explains itself instead of
 		// silently collapsing to the bare "differs: KEY".
 		return fmt.Sprintf("decode-failed pc(len=%d,ok=%v) nbc(len=%d,ok=%v)",
-			len(normalize(pc)), errPC == nil, len(normalize(nbc)), errNBC == nil)
+			len(normalizeContainerdConfigContent(pc)), errPC == nil, len(normalizeContainerdConfigContent(nbc)), errNBC == nil)
 	}
 	pcEntries := canonicalContainerdTOMLEntries(string(pcDecoded))
 	nbcEntries := canonicalContainerdTOMLEntries(string(nbcDecoded))
