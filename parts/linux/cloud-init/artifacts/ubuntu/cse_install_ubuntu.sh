@@ -307,28 +307,33 @@ removeNvidiaRepos() {
     fi
 }
 
-# getInstalledNvidiaDriverVersion echoes the version of the nvidia driver currently EFFECTIVE on this
-# node, most-authoritative source first: the loaded kernel module, then the on-disk .ko for the running
-# kernel (covers .run installs with no DKMS entry), then a DKMS registration. Echoes nothing when no
-# driver is detectable. $1 overrides the DKMS dir (test seam).
-getInstalledNvidiaDriverVersion() {
-    local dkms_dir="${1:-/var/lib/dkms/nvidia}" v="" d
+# findCustomerDriverVersion echoes a currently-present nvidia driver version that DIFFERS from the
+# AKS-baked marker version -- i.e. a customer-owned driver coexisting with (or replacing) AKS's
+# pre-bake -- or nothing if every detectable version equals the marker. It inspects EVERY ownership
+# signal, not just the first one found: the loaded kernel module, the on-disk .ko for the running
+# kernel (covers .run installs with no DKMS entry), and ALL DKMS registrations. Checking every signal
+# is what makes the decision order-independent: a customer version is detected even when AKS's own
+# marker-version residue is still present alongside it -- e.g. AKS's module auto-loaded at boot while
+# the customer's build is DKMS-registered under a different version, or AKS's stale DKMS dir sits next
+# to the customer's. Returning the FIRST differing version (any single one is enough to prove a
+# customer driver is present and block full teardown) keeps this cheap. $1 = marker version;
+# $2 overrides the DKMS dir (test seam).
+findCustomerDriverVersion() {
+    local marker_version="$1" dkms_dir="${2:-/var/lib/dkms/nvidia}" v="" d
     if [ -r /sys/module/nvidia/version ]; then
         v="$(cat /sys/module/nvidia/version 2>/dev/null)"
+        if [ -n "${v}" ] && [ "${v}" != "${marker_version}" ]; then printf '%s' "${v}"; return 0; fi
     fi
-    if [ -z "${v}" ]; then
-        v="$(modinfo -F version nvidia 2>/dev/null | head -n1)"
-    fi
-    if [ -z "${v}" ]; then
-        for d in "${dkms_dir}"/*/; do
-            [ -d "${d}" ] || continue
-            d="${d%/}"; d="${d##*/}"
-            case "${d}" in
-                [0-9]*) v="${d}"; break ;;
-            esac
-        done
-    fi
-    printf '%s' "${v}"
+    v="$(modinfo -F version nvidia 2>/dev/null | head -n1)"
+    if [ -n "${v}" ] && [ "${v}" != "${marker_version}" ]; then printf '%s' "${v}"; return 0; fi
+    for d in "${dkms_dir}"/*/; do
+        [ -d "${d}" ] || continue
+        d="${d%/}"; d="${d##*/}"
+        case "${d}" in
+            [0-9]*) if [ "${d}" != "${marker_version}" ]; then printf '%s' "${d}"; return 0; fi ;;
+        esac
+    done
+    return 0
 }
 
 # cleanUpPrebakedGPUDriver removes a CUDA driver pre-baked into the shared VHD on any node that does
@@ -359,27 +364,30 @@ cleanUpPrebakedGPUDriver() {
     fi
 
     # Preserve a customer's own driver when they've replaced AKS's pre-bake with a DIFFERENT version.
-    # The marker records the version AKS baked; compare it against the driver actually EFFECTIVE on
-    # this node (loaded module -> on-disk .ko -> DKMS registration, via getInstalledNvidiaDriverVersion)
-    # so we catch every install method -- .run, DKMS, custom image -- not just DKMS-registered ones. On
-    # a mismatch the on-disk driver is the customer's: clean only AKS-attributable residue -- its
-    # version-scoped DKMS dir plus the aks-gpu container's /usr/bin/lib64 staging (a path no standard
-    # installer uses) -- and leave the customer's module + userspace binaries untouched. A same-version
-    # customer rebuild is indistinguishable from AKS's own bake and is torn down like it (accepted:
-    # same version == functionally equivalent driver). A legacy marker with no driver_version=, no
-    # detectable live version, or force_full_teardown falls through to the full teardown below.
+    # The marker records the version AKS baked; if ANY nvidia driver present on this node -- loaded
+    # module, on-disk .ko, or DKMS registration (via findCustomerDriverVersion) -- reports a different
+    # version, that driver is the customer's and we must not wipe it. We check every signal, not just
+    # the most-authoritative one, so a customer version is detected even when AKS's own marker-version
+    # residue lingers alongside it (AKS's module auto-loaded at boot, or a stale AKS DKMS dir next to
+    # the customer's) -- otherwise the blanket teardown below would delete the customer's registration
+    # and userspace. On a match we clean only AKS-attributable residue -- its version-scoped DKMS dir
+    # plus the aks-gpu container's /usr/bin/lib64 staging (a path no standard installer uses) -- and
+    # leave the customer's module + userspace binaries untouched. A same-version customer rebuild is
+    # indistinguishable from AKS's own bake and is torn down like it (accepted: same version ==
+    # functionally equivalent driver). A legacy marker with no driver_version=, no other version on
+    # disk, or force_full_teardown falls through to the full teardown below.
     local dkms_dir="${GPU_DKMS_NVIDIA_DIR:-/var/lib/dkms/nvidia}"
-    local marker_version="" live_version=""
+    local marker_version="" customer_version=""
     marker_version="$(sed -n 's/^driver_version=//p' "${marker}" | head -n1)"
     if [ "${force_full}" != "force_full_teardown" ] && [ -n "${marker_version}" ]; then
-        live_version="$(getInstalledNvidiaDriverVersion "${dkms_dir}")"
-        if [ -n "${live_version}" ] && [ "${live_version}" != "${marker_version}" ]; then
-            # Customer replaced the pre-bake. Remove only AKS's own baked residue -- its version-scoped
-            # DKMS registration (usually already gone, the customer's installer deregisters it) and the
+        customer_version="$(findCustomerDriverVersion "${marker_version}" "${dkms_dir}")"
+        if [ -n "${customer_version}" ]; then
+            # Customer driver coexists. Remove only AKS's own baked residue -- its version-scoped DKMS
+            # registration (usually already gone, the customer's installer deregisters it) and the
             # aks-gpu /usr/bin/lib64 staging -- and preserve the customer's module + userspace binaries.
             rm -rf "${dkms_dir:?}/${marker_version}" || true
             rm -rf /usr/bin/lib64 || true
-            echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=preserved_customer_driver marker_version=${marker_version} installed_version=${live_version}"
+            echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=preserved_customer_driver marker_version=${marker_version} installed_version=${customer_version}"
             return 0
         fi
     fi
