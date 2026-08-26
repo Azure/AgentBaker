@@ -364,7 +364,9 @@ Describe 'cse_config.sh'
         # real filesystem. OS defaults to Ubuntu (the only path this function acts on).
         OS="$UBUNTU_OS_NAME"
         # shellcheck disable=SC2329 # invoked dynamically by cleanUpGridNodeCudaPrebake.
-        cleanUpPrebakedGPUDriver() { echo "STUB_TEARDOWN_CALLED"; }
+        # Echo $1 so tests can assert the grid path forces an unconditional teardown (force_full_teardown),
+        # which bypasses cleanUpPrebakedGPUDriver's version-based customer-preserve branch.
+        cleanUpPrebakedGPUDriver() { echo "STUB_TEARDOWN_CALLED arg=$1"; }
 
         It 'tears down a cuda prebake before installing a GRID driver (A10/GRID outage path)'
             marker="$(mktemp)"
@@ -376,6 +378,8 @@ Describe 'cse_config.sh'
             The output should include "marker_kind=cuda"
             The output should include "node_kind=grid"
             The output should include "STUB_TEARDOWN_CALLED"
+            # the grid path must force an unconditional teardown, not the version-aware default
+            The output should include "arg=force_full_teardown"
             rm -f "$marker"
         End
 
