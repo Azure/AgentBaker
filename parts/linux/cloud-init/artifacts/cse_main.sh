@@ -527,9 +527,9 @@ function nodePrep {
             # this will not be required per nvidia for next gen H100.
             REBOOTREQUIRED=true
 
-            # this service applies the partitioning scheme with nvidia-smi.
-            # we should consider moving to mig-parted which is simpler/newer.
-            # we couldn't because of old drivers but that has long been fixed.
+            # This service applies the partitioning scheme with nvidia-smi.
+            # We have looked into NVIDIA's mig-parted as an alternative, but it does not work well with our mixed MIG model
+            # because it would require us to deliberately define all possible MIG profile combinations.
             logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
         fi
 
