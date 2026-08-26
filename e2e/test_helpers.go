@@ -25,6 +25,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -351,6 +352,11 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	if s.BootstrapConfigMutator != nil {
 		s.BootstrapConfigMutator(s.Runtime.Cluster, nbc)
 	}
+	if s.BootstrapConfigMutatorWithError != nil {
+		if err := s.BootstrapConfigMutatorWithError(ctx, s.Runtime.Cluster, nbc); err != nil {
+			return nil, fmt.Errorf("mutate bootstrap configuration: %w", err)
+		}
+	}
 	setExpectedContainerdVersionForE2E(s.T, nbc, s.VHD)
 	if s.AKSNodeConfigMutator != nil {
 		nodeconfig, err := nbcToAKSNodeConfigV1(nbc)
@@ -479,7 +485,7 @@ func expectedContainerdComponentRef(distro datamodel.Distro) (packageName, compo
 	return "", "", "", false
 }
 
-func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
+func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) error {
 	s.Tags.Name = t.Name()
 	s.Tags.OS = string(s.VHD.OS)
 	s.Tags.Arch = s.VHD.Arch

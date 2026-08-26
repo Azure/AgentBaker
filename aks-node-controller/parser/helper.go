@@ -283,8 +283,8 @@ func detectContainerdVersion(ctx context.Context) (string, error) {
 	return parseContainerdVersionOutput(string(out)), nil
 }
 
-func getIsMIGNode(gpuInstanceProfile string) bool {
-	return gpuInstanceProfile != ""
+func getIsMIGNode(gpuInstanceProfile string, migProfileLayout []string) bool {
+	return gpuInstanceProfile != "" || len(migProfileLayout) > 0
 }
 
 func getCustomCACertsStatus(customCACerts []string) bool {
