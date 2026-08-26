@@ -737,9 +737,12 @@ func TestBuildCSECmd_DetectsContainerdV2FromSystem(t *testing.T) {
 
 	vars := environToMap(cmd.Env)
 
-	// Verify the containerd 2.3+ config schema was used (uses "io.containerd.cri.v1.images" path).
+	// Verify the containerd 2.3+ config schema v4 was used. The split-plugin namespace alone is
+	// not sufficient (containerd 2.0-2.2 schema v2 also uses io.containerd.cri.v1.*), so assert
+	// the explicit version = 4 header that only the 2.3+ path emits.
 	containerdConfig, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 	require.NoError(t, err)
+	assert.Contains(t, containerdConfig, `version = 4`)
 	assert.Contains(t, containerdConfig, `plugins."io.containerd.cri.v1.images"`)
 	assert.NotContains(t, containerdConfig, `plugins."io.containerd.grpc.v1.cri"`)
 }

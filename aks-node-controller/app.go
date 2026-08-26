@@ -521,8 +521,10 @@ func containerdConfigContentEqual(a, b string) bool {
 
 // containerdConfigEntryDiff returns a compact description of the canonical TOML entries that
 // differ between two base64-encoded containerd configs (provision-config vs nbc-cmd). Returns
-// "" for non-containerd keys or when the values are not decodable base64. Used to make the
-// provision-config vs nbc-cmd parity failure actionable by naming the exact differing entries.
+// "" only for non-containerd keys; when a value is not decodable base64, or the entry sets are
+// equal despite a reported content difference, it returns a descriptive "decode-failed ..." /
+// "entry-sets-equal ..." detail instead of "". Used to make the provision-config vs nbc-cmd
+// parity failure actionable by naming the exact differing entries.
 func containerdConfigEntryDiff(key, pc, nbc string) string {
 	if key != "CONTAINERD_CONFIG_CONTENT" && key != "CONTAINERD_CONFIG_NO_GPU_CONTENT" {
 		return ""
