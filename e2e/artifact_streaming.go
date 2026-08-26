@@ -11,6 +11,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/config"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -74,25 +75,30 @@ func ValidateArtifactStreamingImagePull(ctx context.Context, s *Scenario) error 
 	// rootfs is mounted, so the assertion must run with the pod still alive.
 	kube := s.Runtime.Kube
 	pod := podStreamingImageLinux(s, image)
-	truncatePodName(s.Logger, pod)
+	pod.Name = uniqueKubernetesResourceName(pod.Name)
+	if err := setScenarioNodeOwnerReference(ctx, s, pod); err != nil {
+		return err
+	}
 
 	s.Logger.Logf("launching pod %q from artifact-streaming image %q", pod.Name, image)
-	if _, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{}); err != nil {
+	created, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
+	if err != nil {
 		return fmt.Errorf("failed to create artifact-streaming pod %q: %w", pod.Name, err)
 	}
 	defer func() {
 		delCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 		defer cancel()
-		grace := int64(0)
-		if err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(delCtx, pod.Name, metav1.DeleteOptions{GracePeriodSeconds: &grace}); err != nil {
-			s.Logger.Logf("could not delete artifact-streaming pod %q: %v", pod.Name, err)
+		gracePeriod := int64(0)
+		deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}
+		if err := kube.Typed.CoreV1().Pods(created.Namespace).Delete(delCtx, created.Name, deleteOptions); err != nil && !apierrors.IsNotFound(err) {
+			s.Logger.Logf("could not delete artifact-streaming pod %q: %v", created.Name, err)
 		}
 	}()
 
 	// A successful pull through the overlaybd snapshotter means the streamed layers were mounted for
 	// the container rootfs; reaching Running proves the image was pullable via streaming.
-	if _, err := kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name); err != nil {
-		return fmt.Errorf("artifact-streaming pod %q never reached Running — overlaybd streaming pull likely failed for %q: %w", pod.Name, image, err)
+	if _, err := kube.WaitUntilPodRunning(ctx, created.Namespace, "", "metadata.name="+created.Name); err != nil {
+		return fmt.Errorf("artifact-streaming pod %q never reached Running — overlaybd streaming pull likely failed for %q: %w", created.Name, image, err)
 	}
 
 	// Definitive node-side proof, checked WHILE the pod is still running: overlaybd exposes each

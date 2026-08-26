@@ -13,6 +13,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -193,24 +194,29 @@ func ValidateCommonWindows(ctx context.Context, s *Scenario) error {
 
 func startPodAndCheckItRuns(ctx context.Context, s *Scenario, pod *corev1.Pod) error {
 	kube := s.Runtime.Kube
-	truncatePodName(s.Logger, pod)
+	pod = pod.DeepCopy()
+	pod.Name = uniqueKubernetesResourceName(pod.Name)
+	if err := setScenarioNodeOwnerReference(ctx, s, pod); err != nil {
+		return err
+	}
 	start := time.Now()
 
 	s.Logger.Logf("creating pod %q", pod.Name)
-	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
+	created, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create pod %q: %v", pod.Name, err)
 	}
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
-		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
-		if err != nil {
-			s.Logger.Logf("couldn't not delete pod %s: %v", pod.Name, err)
+		deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))}
+		err := kube.Typed.CoreV1().Pods(created.Namespace).Delete(ctx, created.Name, deleteOptions)
+		if err != nil && !apierrors.IsNotFound(err) {
+			s.Logger.Logf("could not delete pod %s: %v", created.Name, err)
 		}
 	}()
 
-	_, err = kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name)
+	_, err = kube.WaitUntilPodRunning(ctx, created.Namespace, "", "metadata.name="+created.Name)
 	if err != nil {
 		jsonString, jsonError := json.Marshal(pod)
 		if jsonError != nil {
