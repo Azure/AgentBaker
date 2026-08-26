@@ -306,13 +306,22 @@ func getSSHPublicKeysPowerShell(linuxProfile *datamodel.LinuxProfile) string {
 	if linuxProfile != nil {
 		lastItem := len(linuxProfile.SSH.PublicKeys) - 1
 		for i, publicKey := range linuxProfile.SSH.PublicKeys {
-			str += `"` + strings.TrimSpace(publicKey.KeyData) + `"`
+			str += encodePowerShellBase64Literal(strings.TrimSpace(publicKey.KeyData))
 			if i < lastItem {
 				str += ", "
 			}
 		}
 	}
 	return str
+}
+
+// encodePowerShellBase64Literal returns a PowerShell expression that decodes
+// the given string from base64 at runtime. The base64 alphabet (A-Za-z0-9+/=)
+// contains no PowerShell delimiters, interpolation characters, or command
+// syntax, making the output safe by construction regardless of input content.
+func encodePowerShellBase64Literal(value string) string {
+	encoded := base64.StdEncoding.EncodeToString([]byte(value))
+	return "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('" + encoded + "'))"
 }
 
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support.
