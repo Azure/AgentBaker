@@ -230,10 +230,6 @@ func LoadDotEnv() error {
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("load .env: %w", err)
 	}
-	// Secrets are environment-only so they cannot leak through process arguments.
-	Config.SysSSHPublicKey = os.Getenv("SYS_SSH_PUBLIC_KEY")
-	Config.SysSSHPrivateKeyB64 = os.Getenv("SYS_SSH_PRIVATE_KEY_B64")
-	Config.WindowsAdminPassword = os.Getenv("WINDOWS_ADMIN_PASSWORD")
 	return nil
 }
 
