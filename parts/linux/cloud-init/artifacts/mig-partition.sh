@@ -1,7 +1,6 @@
 #!/bin/bash
 
-#NOTE: Currently, Nvidia library mig-parted (https://github.com/NVIDIA/mig-parted) cannot work properly because of the outdated GPU driver version
-#TODO: Use mig-parted library to do the partition after the above issue is fixed 
+#NOTE: we have looked into Nvidia library mig-parted (https://github.com/NVIDIA/mig-parted) as an alternative but it doesn't work well with our mixed MIG model, since it would require us to deliberately define all possible MIG profile combinations.
 
 mig_profile_id() {
     case "$1" in
@@ -27,7 +26,7 @@ mig_profile_id() {
     esac
 }
 
-# TODO: Support GPU models with fewer than seven total partitions.
+#NOTE: The legacy uniform_mig_profile_layout only support GPU models with exactly 7 total partitions
 uniform_mig_profile_layout() {
     case "$1" in
         "MIG1g")
