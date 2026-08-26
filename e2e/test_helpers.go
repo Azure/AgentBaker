@@ -44,18 +44,13 @@ func scriptlessUnsupported(s *Scenario) bool {
 	return s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
 }
 
-func runScenarioWithPreProvision(ctx context.Context, name string, logger toolkit.Logger, original *Scenario) (runErr error) {
+func runScenarioWithPreProvision(ctx context.Context, name string, logger toolkit.Logger, original *Scenario) error {
 	// This is hard to understand. Some functional magic is used to run the original scenario in two stages.
 	// 1. Stage 1: Run the original scenario with pre-provisioning enabled, but skip the main validation and validate only pre-provisioning.
 	// 2. Create a new Image from the VMSS created in Stage 1
 	// 3. Stage 2: Run the original scenario again, but this time using the custom VHD created in a previous step, with validators,
 	// The goal here is to test pre-provisioning logic on the variety of existing scenarios
 	firstStage := freshScenario(original)
-	cleanup := &scenarioCleanup{}
-	firstStage.cleanup = cleanup
-	defer func() {
-		runErr = addCleanupFailure(runErr, runScenarioCleanup(ctx, cleanup))
-	}()
 	var customVHD *config.Image
 
 	// Mutate the copy for pre-provisioning
@@ -137,7 +132,6 @@ func runScenarioWithPreProvision(ctx context.Context, name string, logger toolki
 	}
 
 	secondStageScenario := freshScenario(original)
-	secondStageScenario.cleanup = cleanup
 	secondStageScenario.Description = "Stage 2: Create VMSS from captured VHD via SIG"
 	secondStageScenario.Config.VHD = customVHD
 	secondStageScenario.Config.Validator = func(ctx context.Context, s *Scenario) error {
@@ -160,9 +154,9 @@ func runScenarioWithPreProvision(ctx context.Context, name string, logger toolki
 	return err
 }
 
+// Keep attempt-owned cleanup across VHD-caching stages.
 func freshScenario(s *Scenario) *Scenario {
 	copied := *s
-	copied.cleanup = nil
 	copied.Runtime = nil
 	copied.Logger = nil
 	copied.testName = ""
@@ -208,15 +202,6 @@ func runScenario(ctx context.Context, name string, logger toolkit.Logger, s *Sce
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeout)
 	defer cancel()
 	ctx = toolkit.ContextWithLogger(ctx, s.Logger)
-	cleanup := s.cleanup
-	ownsCleanup := cleanup == nil
-	if ownsCleanup {
-		cleanup = &scenarioCleanup{}
-		s.cleanup = cleanup
-		defer func() {
-			runErr = addCleanupFailure(runErr, runScenarioCleanup(ctx, cleanup))
-		}()
-	}
 	defer func() {
 		s.failed = runErr != nil
 	}()

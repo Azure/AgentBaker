@@ -260,6 +260,127 @@ func TestCleanupFailureOverridesSkip(t *testing.T) {
 	}
 }
 
+func newTestExecutor(t *testing.T) *executor {
+	t.Helper()
+	return newExecutor(context.Background(), &bytes.Buffer{}, runOptions{
+		parallel:   1,
+		timeout:    time.Second,
+		logDir:     t.TempDir(),
+		outputMode: "grouped",
+	}, 1)
+}
+
+func TestExecutorRunsCleanupOncePerAttempt(t *testing.T) {
+	exec := newTestExecutor(t)
+	exec.opts.retries = 1
+
+	var ran atomic.Int32
+	var cleanups []*scenarioCleanup
+	exec.runScenario = func(_ context.Context, _ string, _ toolkit.Logger, s *Scenario) error {
+		cleanups = append(cleanups, s.cleanup)
+		s.Cleanup(func(context.Context) error {
+			ran.Add(1)
+			return nil
+		})
+		if len(cleanups) == 1 {
+			return errors.New("transient failure")
+		}
+		return nil
+	}
+
+	exec.schedule("Cleanups", &Scenario{Name: "Cleanups"})
+	exec.scenarios.Wait()
+
+	if got := ran.Load(); got != 2 {
+		t.Fatalf("cleanups ran %d times, want 2 (once per attempt)", got)
+	}
+	if len(cleanups) != 2 || cleanups[0] == cleanups[1] {
+		t.Fatalf("attempts did not get isolated cleanups: %v", cleanups)
+	}
+	if summary := exec.summary(); summary.Flaky != 1 {
+		t.Fatalf("unexpected summary: %+v", summary)
+	}
+}
+
+func TestExecutorCleanupFailureOverridesAttemptStatus(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		runErr error
+	}{
+		{name: "passed", runErr: nil},
+		{name: "skipped", runErr: &skipError{message: "not supported"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			exec := newTestExecutor(t)
+			exec.runScenario = func(_ context.Context, _ string, _ toolkit.Logger, s *Scenario) error {
+				s.Cleanup(func(context.Context) error {
+					return errors.New("delete vmss")
+				})
+				return test.runErr
+			}
+
+			exec.schedule("CleanupFails", &Scenario{Name: "CleanupFails"})
+			exec.scenarios.Wait()
+
+			attempt := exec.results[0].Attempts[0]
+			if attempt.Status != statusFailed {
+				t.Fatalf("attempt status = %q, want %q", attempt.Status, statusFailed)
+			}
+			if !strings.Contains(attempt.Message, "delete vmss") {
+				t.Fatalf("attempt message lost the cleanup failure: %q", attempt.Message)
+			}
+			if test.runErr != nil && !strings.Contains(attempt.Message, "not supported") {
+				t.Fatalf("attempt message lost the original result: %q", attempt.Message)
+			}
+		})
+	}
+}
+
+func TestExecutorRunsCleanupAfterScenarioPanic(t *testing.T) {
+	exec := newTestExecutor(t)
+
+	var ran atomic.Int32
+	exec.runScenario = func(_ context.Context, _ string, _ toolkit.Logger, s *Scenario) error {
+		s.Cleanup(func(context.Context) error {
+			ran.Add(1)
+			return nil
+		})
+		panic("boom")
+	}
+
+	exec.schedule("Panics", &Scenario{Name: "Panics"})
+	exec.scenarios.Wait()
+
+	if got := ran.Load(); got != 1 {
+		t.Fatalf("cleanups ran %d times after a panic, want 1", got)
+	}
+	attempt := exec.results[0].Attempts[0]
+	if attempt.Status != statusFailed || !strings.Contains(attempt.Message, "panic: boom") {
+		t.Fatalf("panic attempt = %+v", attempt)
+	}
+}
+
+func TestFreshScenarioSharesAttemptCleanup(t *testing.T) {
+	cleanup := &scenarioCleanup{}
+	original := &Scenario{
+		Name:     "Staged",
+		cleanup:  cleanup,
+		Runtime:  &ScenarioRuntime{},
+		testName: "Staged",
+		failed:   true,
+		checks:   []scenarioCheck{{Name: "Task_example"}},
+	}
+
+	copied := freshScenario(original)
+
+	if copied.cleanup != cleanup {
+		t.Fatal("freshScenario dropped the attempt cleanup")
+	}
+	if copied.Runtime != nil || copied.Logger != nil || copied.testName != "" || copied.failed || copied.checks != nil {
+		t.Fatalf("freshScenario kept per-run state: %+v", copied)
+	}
+}
+
 func TestExecutorReportsCancellationAsFailure(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
