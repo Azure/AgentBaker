@@ -230,7 +230,7 @@ deleted after the test run.
 Run the CLI directly to set runner flags:
 
 ```bash
-go run ./cmd/e2e run --parallel 100 --timeout 90m
+go run ./cmd/e2e run --parallel 100 --suite-timeout 90m
 ```
 
 Use `go run ./cmd/e2e list` to list the registered scenario entry points.
