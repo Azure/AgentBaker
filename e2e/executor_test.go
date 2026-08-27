@@ -419,7 +419,8 @@ func TestConciseFailureKeepsTail(t *testing.T) {
 }
 
 func TestScenarioSkipIfRecordsSkip(t *testing.T) {
-	exec := newExecutor(context.Background(), &bytes.Buffer{}, runOptions{
+	var stdout bytes.Buffer
+	exec := newExecutor(context.Background(), &stdout, runOptions{
 		parallel:   1,
 		timeout:    time.Second,
 		logDir:     t.TempDir(),
@@ -435,6 +436,9 @@ func TestScenarioSkipIfRecordsSkip(t *testing.T) {
 	summary := exec.summary()
 	if summary.Total != 1 || summary.Skipped != 1 {
 		t.Fatalf("unexpected summary: %+v", summary)
+	}
+	if !strings.Contains(stdout.String(), "SKIP: not supported") {
+		t.Fatalf("ordinary skip was not written to the console: %q", stdout.String())
 	}
 }
 
@@ -491,6 +495,9 @@ func TestTagFiltersApplyBeforeSkipIf(t *testing.T) {
 	}
 	if !isFilteredSkip(exec.results[0].Attempts[0].Message) {
 		t.Fatalf("filtered skip lost its marker: %q", exec.results[0].Attempts[0].Message)
+	}
+	if output := exec.stdout.(*bytes.Buffer).String(); output != "" {
+		t.Fatalf("filtered skip was written to the console: %q", output)
 	}
 }
 
