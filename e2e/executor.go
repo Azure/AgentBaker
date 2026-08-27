@@ -155,7 +155,9 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 		if scenario != nil {
 			result.Checks = append([]scenarioCheck(nil), scenario.checks...)
 		}
-		logger.FlushConsole(string(result.Status))
+		if result.Status != statusSkipped || !isFilteredSkip(result.Message) {
+			logger.FlushConsole(string(result.Status))
+		}
 	}()
 
 	scenario = freshScenario(original)
