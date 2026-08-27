@@ -102,6 +102,9 @@ func TestWindowsImagesHaveServercoreAndNanoserverSpecified(t *testing.T) {
 }
 
 func TestDCGMExporterCompatibility(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping external package compatibility test in short mode")
+	}
 	type testCase struct {
 		name        string
 		os          string

@@ -62,8 +62,7 @@ func (stdLogger) Logf(format string, args ...any) {
 	log.Printf(format, args...)
 }
 
-// LogStep logs "→ msg..." at the start and "✓ msg done (Xs)" or "✗ msg failed (Xs)"
-// when the returned function is called. Intended for use with defer:
+// LogStep logs "→ msg..." at the start and "← msg finished (Xs)" when the returned function is called.
 //
 //	defer toolkit.LogStep(logger, "creating firewall")()
 func LogStep(logger Logger, msg string) func() {
