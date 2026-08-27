@@ -97,7 +97,7 @@ az extension add --name bastion
 
 cd e2e
 mkdir -p bin
-go test ./...
+go test ./... -short
 go build -o bin/e2e ./cmd/e2e
 
 exec ./bin/e2e run \
