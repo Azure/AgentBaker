@@ -13,10 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"testing"
 	"time"
 
-	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/components"
@@ -64,184 +62,37 @@ func constructErrorMessage(subscriptionID, location string) string {
 	return fmt.Sprintf("Received second cancellation signal, forcing exit.\nPlease check https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/overview and delete any resources created by the test suite", subscriptionID, config.ResourceGroupName(location))
 }
 
-func newTestCtx(t testing.TB, logger toolkit.Logger) context.Context {
-	if testCtx.Err() != nil {
-		t.Skip("test suite is shutting down")
-	}
-	ctx, cancel := context.WithTimeout(testCtx, config.Config.TestTimeout)
-	t.Cleanup(cancel)
-	// only a logger is put in the context, implementation code must not be able
-	// to control the test through it
-	ctx = toolkit.ContextWithLogger(ctx, logger)
-	return ctx
-}
-
-func RunScenario(t *testing.T, s *Scenario) {
-	t.Parallel()
-	// Special case for testing VHD caching. Not used by default.
-	if config.Config.TestPreProvision || s.VHDCaching {
-		t.Run("VHDCreation", func(t *testing.T) {
-			t.Parallel()
-			if err := runScenarioWithPreProvision(t, s); err != nil {
-				s.T.Error(err)
-			}
-		})
-		return
-	}
-	if config.Config.DisableScriptless || scriptlessUnsupported(s) {
-		if err := runScenario(t, s); err != nil {
-			s.T.Error(err)
-		}
-		return
-	}
-
-	if s.Runtime == nil {
-		s.Runtime = &ScenarioRuntime{}
-	}
-	s.Runtime.EnableScriptlessNBCCSECmd = true
-	if err := runScenario(t, s); err != nil {
-		s.T.Error(err)
-	}
-}
-
 func scriptlessUnsupported(s *Scenario) bool {
 	return s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
-}
-
-func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
-	// This is hard to understand. Some functional magic is used to run the original scenario in two stages.
-	// 1. Stage 1: Run the original scenario with pre-provisioning enabled, but skip the main validation and validate only pre-provisioning.
-	// 2. Create a new Image from the VMSS created in Stage 1
-	// 3. Stage 2: Run the original scenario again, but this time using the custom VHD created in a previous step, with validators,
-	// The goal here is to test pre-provisioning logic on the variety of existing scenarios
-	firstStage := copyScenario(original)
-	var customVHD *config.Image
-
-	// Mutate the copy for pre-provisioning
-	firstStage.Config.SkipDefaultValidation = true
-	firstStage.Config.Validator = func(ctx context.Context, stage1 *Scenario) error {
-		var validationErr error
-		if stage1.IsWindows() {
-			validationErr = errors.Join(
-				ValidateFileExists(ctx, stage1, "C:\\AzureData\\base_prep.complete"),
-				ValidateFileDoesNotExist(ctx, stage1, "C:\\AzureData\\provision.complete"),
-				ValidateWindowsServiceIsNotRunning(ctx, stage1, "kubelet"),
-				ValidateWindowsServiceIsRunning(ctx, stage1, "containerd"),
-			)
-		} else {
-			validationErr = errors.Join(
-				ValidateFileExists(ctx, stage1, "/etc/containerd/config.toml"),
-				ValidateFileExists(ctx, stage1, "/opt/azure/containers/base_prep.complete"),
-				ValidateFileDoesNotExist(ctx, stage1, "/opt/azure/containers/provision.complete"),
-				ValidateSystemdUnitIsRunning(ctx, stage1, "containerd"),
-				ValidateSystemdUnitIsNotRunning(ctx, stage1, "kubelet"),
-			)
-		}
-		if validationErr != nil {
-			return validationErr
-		}
-		toolkit.Log(ctx, "=== Creating VHD Image ===")
-		var err error
-		customVHD, err = CreateImage(ctx, stage1)
-		if err != nil {
-			return err
-		}
-		customVHDJSON, _ := json.MarshalIndent(customVHD, "", "  ")
-		toolkit.Logf(ctx, "Created custom VHD image: %s", string(customVHDJSON))
-		cleanupBastionTunnel(firstStage.Runtime.VM.SSHClient)
-		firstStage.Runtime.VM.SSHClient = nil
-		return nil
-	}
-	firstStage.Config.VMConfigMutator = func(vmss *armcompute.VirtualMachineScaleSet) {
-		if original.VMConfigMutator != nil {
-			original.VMConfigMutator(vmss)
-		}
-		if vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk != nil {
-			vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
-		}
-	}
-	if original.BootstrapConfigMutator != nil || original.BootstrapConfigMutatorWithError != nil || original.PreProvisionBootstrapConfigMutator != nil {
-		firstStage.BootstrapConfigMutator = nil
-		firstStage.BootstrapConfigMutatorWithError = func(ctx context.Context, cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) error {
-			if original.BootstrapConfigMutator != nil {
-				original.BootstrapConfigMutator(cluster, nbc)
-			}
-			if original.BootstrapConfigMutatorWithError != nil {
-				if err := original.BootstrapConfigMutatorWithError(ctx, cluster, nbc); err != nil {
-					return err
-				}
-			}
-			nbc.PreProvisionOnly = true
-			nbc.EnableScriptlessNBCCSECmd = false
-			// Bake-stage-only mutation: lets a scenario deliberately diverge bake-time
-			// state from provision-time state (e.g. a stale sentinel bootstrap token).
-			if original.PreProvisionBootstrapConfigMutator != nil {
-				original.PreProvisionBootstrapConfigMutator(cluster, nbc)
-			}
-			return nil
-		}
-	}
-	if original.AKSNodeConfigMutator != nil {
-		firstStage.AKSNodeConfigMutator = func(cluster *Cluster, nodeconfig *aksnodeconfigv1.Configuration) {
-			original.AKSNodeConfigMutator(cluster, nodeconfig)
-			nodeconfig.PreProvisionOnly = true
-		}
-	}
-
-	err := runScenario(t, firstStage)
-	original.T = firstStage.T
-	if err != nil {
-		return err
-	}
-
-	if t.Failed() {
-		return nil
-	}
-
-	// Create a new subtest to avoid conflicts with previous steps (log output folder is based on the test name)
-	t.Run("VMProvision", func(t *testing.T) {
-		t.Parallel()
-		secondStageScenario := copyScenario(original)
-		secondStageScenario.Description = "Stage 2: Create VMSS from captured VHD via SIG"
-		secondStageScenario.Config.VHD = customVHD
-		secondStageScenario.Config.Validator = func(ctx context.Context, s *Scenario) error {
-			// This validators are used when running all scenarios in "VHD Caching" mode, which is usually done manually
-			var markerErr error
-			if s.IsWindows() {
-				markerErr = ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
-			} else {
-				markerErr = ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
-			}
-			if markerErr != nil {
-				return markerErr
-			}
-			if original.Config.Validator != nil {
-				return original.Config.Validator(ctx, s)
-			}
-			return nil
-		}
-		if err := runScenario(t, secondStageScenario); err != nil {
-			secondStageScenario.T.Error(err)
-		}
-	})
-	return nil
 }
 
 func copyScenario(s *Scenario) *Scenario {
 	copied := *s
 	copied.Config = s.Config
 	copied.cleanup = nil
+	copied.failed = false
+	copied.checks = nil
 	return &copied
 }
 
-func runScenario(t testing.TB, s *Scenario) error {
-	t = toolkit.WithFailureFormatting(t)
-	s.T = t
-	s.testName = t.Name()
-	s.Logger = toolkit.NewTestLogger(t)
-	if s.cleanup != nil {
-		panic("Scenario.Cleanup called outside of a scenario run")
+// markScenarioOutcome records whether the scenario run ended in a failure so
+// cleanup handlers can branch on it. A skip is not a failure.
+func markScenarioOutcome(s *Scenario, runErr error, recovered any) {
+	if recovered != nil {
+		s.failed = true
+		panic(recovered)
 	}
+	var skip *skipError
+	s.failed = runErr != nil && !errors.As(runErr, &skip)
+}
+
+// runScenario executes a scenario end to end. It never controls a test: it
+// reports problems by returning an error, and a *skipError when the scenario
+// cannot run at all. The caller owns the cleanup stack in s.cleanup and is
+// responsible for running it once the scenario and any staged runs finish.
+func runScenario(ctx context.Context, name string, logger toolkit.Logger, s *Scenario) (runErr error) {
+	s.testName = name
+	s.Logger = logger
 	if s.Location == "" {
 		s.Location = config.Config.DefaultLocation
 	}
@@ -252,17 +103,11 @@ func runScenario(t testing.TB, s *Scenario) error {
 		s.K8sSystemPoolSKU = config.Config.DefaultVMSKU
 	}
 
-	ctx := newTestCtx(t, s.Logger)
-	cleanup := &scenarioCleanup{}
-	s.cleanup = cleanup
-	t.Cleanup(func() {
-		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), scenarioCleanupTimeout)
-		defer cancel()
-		if err := cleanup.runCleanups(cleanupCtx); err != nil {
-			t.Errorf("scenario cleanup failed: %v", err)
-		}
-	})
-	if err := maybeSkipScenario(ctx, t, s); err != nil {
+	ctx = toolkit.ContextWithLogger(ctx, s.Logger)
+	defer func() {
+		markScenarioOutcome(s, runErr, recover())
+	}()
+	if err := maybeSkipScenario(ctx, name, s); err != nil {
 		return err
 	}
 
@@ -303,6 +148,7 @@ func runScenario(t testing.TB, s *Scenario) error {
 		s.Runtime = &ScenarioRuntime{}
 	}
 	s.Runtime.Cluster = cluster
+	s.Runtime.VMSize = config.Config.DefaultVMSKU
 	s.Runtime.VMSSName = generateVMSSName(s)
 
 	testKube, err := cluster.NewKubeclientForTest()
@@ -315,7 +161,9 @@ func runScenario(t testing.TB, s *Scenario) error {
 	vmssCtx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
 	defer cancel()
 	s.Runtime.VM, err = prepareAKSNode(vmssCtx, s)
-	if s.ExpectedError != "" {
+	// A skip means the scenario never ran, so it cannot confirm an expected error.
+	var skip *skipError
+	if s.ExpectedError != "" && !errors.As(err, &skip) {
 		return assert.ErrorContains(err, s.ExpectedError)
 	}
 	if err != nil {
@@ -394,26 +242,26 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 
 	gen2Only, err := CachedIsVMSizeGen2Only(ctx, VMSizeSKURequest{
 		Location: s.Location,
-		VMSize:   config.Config.DefaultVMSKU,
+		VMSize:   s.Runtime.VMSize,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("checking if VM size %q supports only Gen2: %w", config.Config.DefaultVMSKU, err)
+		return nil, fmt.Errorf("checking if VM size %q supports only Gen2: %w", s.Runtime.VMSize, err)
 	}
 	if gen2Only && s.Config.VHD.UnsupportedGen2 {
-		s.Logger.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supported gen 1 %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
-		config.Config.DefaultVMSKU = config.DefaultV5VMSKU
+		s.Logger.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supported gen 1 %q", s.Runtime.VMSize, config.DefaultV5VMSKU)
+		s.Runtime.VMSize = config.DefaultV5VMSKU
 	}
 	supportsNVMe, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
 		Location: s.Location,
-		VMSize:   config.Config.DefaultVMSKU,
+		VMSize:   s.Runtime.VMSize,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("checking if VM size %q supports only NVMe: %w", config.Config.DefaultVMSKU, err)
+		return nil, fmt.Errorf("checking if VM size %q supports only NVMe: %w", s.Runtime.VMSize, err)
 	}
 	if supportsNVMe {
 		if s.Config.VHD.UnsupportedNVMe {
-			s.Logger.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
-			config.Config.DefaultVMSKU = config.DefaultV5VMSKU
+			s.Logger.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", s.Runtime.VMSize, config.DefaultV5VMSKU)
+			s.Runtime.VMSize = config.DefaultV5VMSKU
 		} else {
 			s.Config.UseNVMe = true
 		}
@@ -451,8 +299,8 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	return scenarioVM, nil
 }
 
-func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) error {
-	s.Tags.Name = t.Name()
+func maybeSkipScenario(ctx context.Context, name string, s *Scenario) error {
+	s.Tags.Name = name
 	s.Tags.OS = string(s.VHD.OS)
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
@@ -461,20 +309,20 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) error {
 	if config.Config.TagsToRun != "" {
 		matches, err := s.Tags.MatchesFilters(config.Config.TagsToRun)
 		if err != nil {
-			return fmt.Errorf("could not match tags for %q: %w", t.Name(), err)
+			return fmt.Errorf("could not match tags for %q: %w", name, err)
 		}
 		if !matches {
-			t.Skipf("skipping scenario %q: scenario tags %+v does not match filter %q", t.Name(), s.Tags, config.Config.TagsToRun)
+			return &skipError{message: fmt.Sprintf("skipping scenario %q: scenario tags %+v does not match filter %q", name, s.Tags, config.Config.TagsToRun)}
 		}
 	}
 
 	if config.Config.TagsToSkip != "" {
 		matches, err := s.Tags.MatchesAnyFilter(config.Config.TagsToSkip)
 		if err != nil {
-			return fmt.Errorf("could not match tags for %q: %w", t.Name(), err)
+			return fmt.Errorf("could not match tags for %q: %w", name, err)
 		}
 		if matches {
-			t.Skipf("skipping scenario %q: scenario tags %+v matches filter %q", t.Name(), s.Tags, config.Config.TagsToSkip)
+			return &skipError{message: fmt.Sprintf("skipping scenario %q: scenario tags %+v matches filter %q", name, s.Tags, config.Config.TagsToSkip)}
 		}
 	}
 
@@ -484,9 +332,9 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) error {
 	})
 	if err != nil {
 		if config.Config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
-			t.Skipf("skipping scenario %q: could not find image for VHD %s due to %s", t.Name(), s.VHD.Distro, err)
+			return &skipError{message: fmt.Sprintf("skipping scenario %q: could not find image for VHD %s due to %s", name, s.VHD.Distro, err)}
 		}
-		return fmt.Errorf("failing scenario %q: could not find image for VHD %s: %w", t.Name(), s.VHD.Distro, err)
+		return fmt.Errorf("failing scenario %q: could not find image for VHD %s: %w", name, s.VHD.Distro, err)
 	}
 	s.Logger.Logf("TAGS %+v", s.Tags)
 	return nil
@@ -1057,7 +905,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 		return nil, fmt.Errorf("Failed to create gallery image version: %w", err)
 	}
 
-	_, err = createVersionOp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	_, err = createVersionOp.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return nil, fmt.Errorf("Failed to complete gallery image version creation: %w", err)
 	}

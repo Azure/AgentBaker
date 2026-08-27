@@ -182,20 +182,6 @@ func (t *failureFormatter) Fail() {
 	t.TB.Fail()
 }
 
-// UnwrapTestingT extracts the underlying *testing.T from a testing.TB,
-// unwrapping runner decorators if needed. Returns nil if the
-// underlying type is not *testing.T (e.g. *testing.B).
-func UnwrapTestingT(tb testing.TB) *testing.T {
-	switch v := tb.(type) {
-	case *testing.T:
-		return v
-	case *failureFormatter:
-		return UnwrapTestingT(v.TB)
-	default:
-		return nil
-	}
-}
-
 // LogStep logs "→ msg..." at the start and "✓ msg done (Xs)" or "✗ msg failed (Xs)"
 // when the returned function is called. Intended for use with defer:
 //

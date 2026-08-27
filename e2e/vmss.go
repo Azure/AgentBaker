@@ -15,7 +15,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
@@ -99,7 +98,9 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 		return nil
 	})
 
-	skipTestIfSKUNotAvailableErr(s.T, err)
+	if skipErr := skipIfSKUNotAvailableErr(err); skipErr != nil {
+		return vm, skipErr
+	}
 
 	return vm, err
 }
@@ -200,7 +201,7 @@ func deleteVMSSAndWait(ctx context.Context, s *Scenario) {
 		s.Logger.Logf("failed to begin delete of vmss %q for retry: %s", s.Runtime.VMSSName, err)
 		return
 	}
-	if _, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions); err != nil {
+	if _, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
 		s.Logger.Logf("failed to wait for delete of vmss %q for retry: %s", s.Runtime.VMSSName, err)
 	}
 }
@@ -469,7 +470,7 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	result += fmt.Sprintf(`az network bastion ssh --target-resource-id "%s" --name "%s" --resource-group %s --auth-type ssh-key --username azureuser --ssh-key %s`, *vm.VM.ID, SharedBastionName, config.ResourceGroupName(*s.Runtime.Cluster.Model.Location), config.VMSSHPrivateKeyFileName) + "\n"
 	s.Logger.Log(result)
 
-	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	vmssResp, err := operation.PollUntilDone(ctx, config.PollUntilDoneOptions())
 
 	// Log VMSS tags for diagnostics (visible in test-log.json via gotestsum --jsonfile).
 	// For RCV1P tests, annotates the opt-in tag to help distinguish our tags from platform-injected ones.
@@ -669,24 +670,27 @@ func getPrivateIPFromVMSSVM(ctx context.Context, resourceGroup, vmssName, instan
 	return *ipConfig.Properties.PrivateIPAddress, nil
 }
 
-func skipTestIfSKUNotAvailableErr(t testing.TB, err error) {
+// skipIfSKUNotAvailableErr returns a skip reason when the scenario cannot run
+// because Azure has no capacity for the SKU. It returns nil otherwise.
+func skipIfSKUNotAvailableErr(err error) error {
 	if !config.Config.SkipTestsWithSKUCapacityIssue {
-		return
+		return nil
 	}
 	var respErr *azcore.ResponseError
 	if !errors.As(err, &respErr) || respErr.StatusCode != 409 {
-		return
+		return nil
 	}
 	// sometimes the SKU is not available and we can't do anything. Skip the test in this case.
 	if respErr.ErrorCode == "SkuNotAvailable" {
-		t.Skip("skipping scenario SKU not available", t.Name(), err)
+		return &skipError{message: fmt.Sprintf("skipping scenario, SKU not available: %v", err)}
 	}
 	// sometimes the SKU quota is exceeded and we can't do anything. Skip the test in this case.
 	if respErr.ErrorCode == "OperationNotAllowed" &&
 		strings.Contains(respErr.Error(), "exceeding approved") &&
 		strings.Contains(respErr.Error(), "quota") {
-		t.Skip("skipping scenario SKU quota exceeded", t.Name(), err)
+		return &skipError{message: fmt.Sprintf("skipping scenario, SKU quota exceeded: %v", err)}
 	}
+	return nil
 }
 
 func extractLogsFromVM(ctx context.Context, s *Scenario, vm *ScenarioVM) {
@@ -869,7 +873,7 @@ hnsdiag list endpoints >> network_config.txt
 // extractLogsFromVMWindows runs a script on windows VM to collect logs and upload them to a blob storage
 // it then lists the blobs in the container and prints the content of each blob
 func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
-	if !s.T.Failed() {
+	if !s.failed {
 		return
 	}
 
@@ -941,7 +945,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	}
 
 	// Poll the result until the operation is completed
-	runCommandResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	runCommandResp, err := pollerResp.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		s.Logger.Logf("failed to poll run command on VMSS instance %s: %s", instanceID, err)
 		return
@@ -1319,7 +1323,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 	model := armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(s.Location),
 		SKU: &armcompute.SKU{
-			Name:     to.Ptr(config.Config.DefaultVMSKU),
+			Name:     to.Ptr(scenarioVMSize(s)),
 			Capacity: to.Ptr[int64](1),
 		},
 		Properties: &armcompute.VirtualMachineScaleSetProperties{
@@ -1433,6 +1437,15 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 		model.Properties.VirtualMachineProfile.OSProfile.AdminPassword = to.Ptr(generateWindowsPassword())
 	}
 	return model
+}
+
+// scenarioVMSize returns the effective VM size of the scenario node, falling
+// back to the configured default before the runtime state exists.
+func scenarioVMSize(s *Scenario) string {
+	if s.Runtime != nil && s.Runtime.VMSize != "" {
+		return s.Runtime.VMSize
+	}
+	return config.Config.DefaultVMSKU
 }
 
 func generateWindowsPassword() string {

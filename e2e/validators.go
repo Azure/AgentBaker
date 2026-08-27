@@ -2979,7 +2979,6 @@ func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) 
 }
 
 func ValidateNvidiaDevicePluginMIGStrategy(ctx context.Context, s *Scenario, strategy string) error {
-	s.T.Helper()
 	command := fmt.Sprintf("systemctl cat nvidia-device-plugin.service | grep -F -- '--mig-strategy %s'", strategy)
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "NVIDIA device plugin is not configured with MIG strategy "+strategy); err != nil {
 		return fmt.Errorf("validate NVIDIA device plugin MIG strategy %q: %w", strategy, err)
@@ -3017,8 +3016,7 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCou
 }
 
 func ValidateNodeAdvertisesExactGPUResources(ctx context.Context, s *Scenario, expected map[string]int64) error {
-	s.T.Helper()
-	s.T.Logf("validating that node advertises exactly the expected NVIDIA GPU resources")
+	s.Logger.Logf("validating that node advertises exactly the expected NVIDIA GPU resources")
 
 	for resourceName := range expected {
 		if err := waitUntilResourceAvailable(ctx, s, resourceName); err != nil {
@@ -3255,8 +3253,7 @@ func ValidateMIGModeEnabled(ctx context.Context, s *Scenario, gpuCountExpected i
 }
 
 func ValidateMIGInstanceProfileCounts(ctx context.Context, s *Scenario, expected map[string]int) error {
-	s.T.Helper()
-	s.T.Logf("validating exact MIG instance profile counts")
+	s.Logger.Logf("validating exact MIG instance profile counts")
 
 	command := []string{
 		"set -ex",

@@ -199,15 +199,3 @@ func TestFailureFormattingDecoratesFailures(t *testing.T) {
 		}
 	}
 }
-
-func TestUnwrapTestingT(t *testing.T) {
-	if got := UnwrapTestingT(t); got != t {
-		t.Errorf("expected the testing.T itself, got %v", got)
-	}
-	if got := UnwrapTestingT(WithFailureFormatting(t)); got != t {
-		t.Errorf("expected the decorator to unwrap to the testing.T, got %v", got)
-	}
-	if got := UnwrapTestingT(&recordingTB{}); got != nil {
-		t.Errorf("expected nil for a testing.TB that is not a *testing.T, got %v", got)
-	}
-}

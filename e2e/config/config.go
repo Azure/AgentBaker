@@ -22,6 +22,9 @@ import (
 
 const (
 	DefaultV5VMSKU = "Standard_D2ds_v5"
+
+	// defaultPollUntilDoneFrequency is how often a long-running ARM operation is polled.
+	defaultPollUntilDoneFrequency = 15 * time.Second
 )
 
 var (
@@ -29,17 +32,24 @@ var (
 	Azure          = mustNewAzureClient()
 	VMIdentityName = "abe2e-vm-identity"
 
-	// Poll long-running ARM operations every 15s rather than every 1s. The E2E suite runs
-	// with -parallel 60, so a 1s cadence across dozens of concurrent VMSS create/delete
-	// operations floods ARM and triggers ResourceCollectionRequestsThrottled (429), which
-	// stalls provisioning past TestTimeoutVMSS and surfaces as "context deadline exceeded".
-	// These operations take minutes, so 15s polling is ample and cuts ARM request volume ~15x.
-	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
-		Frequency: 15 * time.Second,
-	}
 	VMSSHPublicKey, VMSSHPrivateKey, SysSSHPublicKey, SysSSHPrivateKey []byte
 	VMSSHPrivateKeyFileName, SysSSHPrivateKeyFileName                  string
 )
+
+// PollUntilDoneOptions returns fresh polling options for a single ARM long-running
+// operation. Options are returned per call so no mutable pointer is shared between
+// concurrently running scenarios.
+//
+// Poll long-running ARM operations every 15s rather than every 1s. The E2E suite runs
+// with -parallel 60, so a 1s cadence across dozens of concurrent VMSS create/delete
+// operations floods ARM and triggers ResourceCollectionRequestsThrottled (429), which
+// stalls provisioning past TestTimeoutVMSS and surfaces as "context deadline exceeded".
+// These operations take minutes, so 15s polling is ample and cuts ARM request volume ~15x.
+func PollUntilDoneOptions() *runtime.PollUntilDoneOptions {
+	return &runtime.PollUntilDoneOptions{
+		Frequency: defaultPollUntilDoneFrequency,
+	}
+}
 
 func ResourceGroupName(location string) string {
 	return "abe2e-" + location

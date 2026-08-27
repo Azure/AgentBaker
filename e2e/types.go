@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"testing"
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
@@ -152,10 +151,6 @@ type Scenario struct {
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
 
-	// T is reserved for test control only: reporting failures, skipping and
-	// creating sub-tests. Use Logger for logging, never T.
-	T testing.TB
-
 	// Logger writes the scenario log. It is set by the test runner before the
 	// scenario starts and carries no test-control capability.
 	Logger toolkit.Logger
@@ -165,14 +160,45 @@ type Scenario struct {
 	testName string
 
 	cleanup *scenarioCleanup
+
+	// failed reports whether the scenario run ended in a failure. It is set by
+	// the runner once the scenario flow returns, so cleanup handlers can decide
+	// how much diagnostic data to collect.
+	failed bool
+
+	// checks holds the named sub-results a scenario records while it runs. The
+	// runner turns them into per-check test results.
+	checks []scenarioCheck
+}
+
+// scenarioCheck is a named sub-result recorded by a scenario, such as a single
+// CSE task duration measured against its threshold.
+type scenarioCheck struct {
+	Name     string
+	Duration time.Duration
+	Message  string
+}
+
+// recordCheck stores a named check result. A non-nil err marks the check failed.
+func (s *Scenario) recordCheck(name string, duration time.Duration, err error) {
+	check := scenarioCheck{Name: name, Duration: duration}
+	if err != nil {
+		check.Message = err.Error()
+	}
+	s.checks = append(s.checks, check)
 }
 
 type ScenarioRuntime struct {
-	NBC                       *datamodel.NodeBootstrappingConfiguration
-	AKSNodeConfig             *aksnodeconfigv1.Configuration
-	Cluster                   *Cluster
-	Kube                      *Kubeclient // per-test client with independent rate limiter
-	VM                        *ScenarioVM
+	NBC           *datamodel.NodeBootstrappingConfiguration
+	AKSNodeConfig *aksnodeconfigv1.Configuration
+	Cluster       *Cluster
+	Kube          *Kubeclient // per-test client with independent rate limiter
+	VM            *ScenarioVM
+	// VMSize is the effective VM size of the scenario node. It starts from the
+	// configured default and may fall back to another size when the image does
+	// not support the default. It is scenario-local so concurrent scenarios
+	// cannot observe each other's fallback.
+	VMSize                    string
 	VMSSName                  string
 	EnableScriptlessNBCCSECmd bool
 	CSETimingReport           *CSETimingReport // eagerly extracted before GA can sweep events
