@@ -56,6 +56,8 @@ type executor struct {
 	consoleMu   sync.Mutex
 	resultsMu   sync.Mutex
 	results     []scenarioResult
+	scheduled   []string
+	finalized   bool
 	scenarios   sync.WaitGroup
 	runScenario func(context.Context, string, toolkit.Logger, *Scenario) error
 }
@@ -72,11 +74,60 @@ func newExecutor(ctx context.Context, stdout io.Writer, opts runOptions, runnabl
 }
 
 func (e *executor) schedule(name string, original *Scenario) {
+	e.resultsMu.Lock()
+	e.scheduled = append(e.scheduled, name)
+	e.resultsMu.Unlock()
 	e.scenarios.Add(1)
 	go func() {
 		defer e.scenarios.Done()
 		e.execute(name, original)
 	}()
+}
+
+func (e *executor) wait(gracePeriod time.Duration) error {
+	done := make(chan struct{})
+	go func() {
+		e.scenarios.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return nil
+	case <-e.ctx.Done():
+	}
+
+	timer := time.NewTimer(gracePeriod)
+	defer timer.Stop()
+	select {
+	case <-done:
+		return nil
+	case <-timer.C:
+		err := fmt.Errorf("scenarios did not stop within %s after suite cancellation: %w", gracePeriod, e.ctx.Err())
+		e.failUnfinished(err)
+		return err
+	}
+}
+
+func (e *executor) failUnfinished(err error) {
+	e.resultsMu.Lock()
+	defer e.resultsMu.Unlock()
+	e.finalized = true
+
+	finished := make(map[string]struct{}, len(e.results))
+	for _, result := range e.results {
+		finished[result.Name] = struct{}{}
+	}
+	for _, name := range e.scheduled {
+		if _, ok := finished[name]; ok {
+			continue
+		}
+		e.results = append(e.results, scenarioResult{
+			Name:     name,
+			Status:   statusFailed,
+			Attempts: []attemptResult{{Attempt: 1, Status: statusFailed, Message: err.Error()}},
+		})
+	}
 }
 
 func (e *executor) execute(name string, original *Scenario) {
@@ -196,6 +247,10 @@ func (e *executor) release() {
 
 func (e *executor) addResult(result scenarioResult) {
 	e.resultsMu.Lock()
+	if e.finalized {
+		e.resultsMu.Unlock()
+		return
+	}
 	e.results = append(e.results, result)
 	e.resultsMu.Unlock()
 }

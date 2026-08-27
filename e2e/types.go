@@ -448,7 +448,7 @@ func (s *Scenario) updateTags(ctx context.Context, vmss *armcompute.VirtualMachi
 		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
 	}
 
-	owner, err := getLoggedInAzUser()
+	owner, err := getLoggedInAzUser(ctx)
 	if err != nil {
 		owner, err = getLocalUsername()
 		if err != nil {
@@ -458,9 +458,8 @@ func (s *Scenario) updateTags(ctx context.Context, vmss *armcompute.VirtualMachi
 	vmss.Tags["owner"] = to.Ptr(owner)
 }
 
-func getLoggedInAzUser() (string, error) {
-	// Define the command and arguments
-	cmd := exec.Command("az", "account", "show", "--query", "user.name", "-o", "tsv")
+func getLoggedInAzUser(ctx context.Context) (string, error) {
+	cmd := exec.CommandContext(ctx, "az", "account", "show", "--query", "user.name", "-o", "tsv")
 
 	// Create a buffer to capture stdout
 	var out bytes.Buffer

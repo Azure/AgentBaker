@@ -9,6 +9,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/urfave/cli/v3"
@@ -137,7 +138,7 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	for _, entry := range runnable {
 		exec.schedule(entry.name, entry.scenario)
 	}
-	exec.scenarios.Wait()
+	waitErr := exec.wait(scenarioCleanupTimeout + 30*time.Second)
 
 	summary := exec.summary()
 	if err := exec.writeReports(filtered); err != nil {
@@ -145,6 +146,9 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	}
 	exec.printSummary()
 
+	if waitErr != nil {
+		return waitErr
+	}
 	if summary.Failed > 0 {
 		return fmt.Errorf("%d scenario(s) failed", summary.Failed)
 	}
