@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -208,8 +207,6 @@ func runScenario(ctx context.Context, name string, logger toolkit.Logger, s *Sce
 		s.K8sSystemPoolSKU = config.Config.DefaultVMSKU
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeout)
-	defer cancel()
 	ctx = toolkit.ContextWithLogger(ctx, s.Logger)
 	defer func() {
 		markScenarioOutcome(s, runErr, recover())
@@ -667,11 +664,10 @@ func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armc
 		Publisher: publisher,
 	})
 	if err != nil {
-		log.Printf("warning: failed to get latest VM extension version, falling back to %s: %v", fallbackExtensionVersion, err)
+		toolkit.Logf(ctx, "warning: failed to get latest VM extension version, falling back to %s: %v", fallbackExtensionVersion, err)
 		extensionVersion = fallbackExtensionVersion
 	}
-
-	log.Printf("Using VM extension version %s for extension type %s in region %s", extensionVersion, extensionName, region)
+	toolkit.Logf(ctx, "Using VM extension version %s for extension type %s in region %s", extensionVersion, extensionName, region)
 
 	return &armcompute.VirtualMachineScaleSetExtension{
 		Name: to.Ptr(extensionName),
