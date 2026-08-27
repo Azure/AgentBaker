@@ -3,9 +3,12 @@ package e2e
 import (
 	"errors"
 	"fmt"
-
-	"github.com/Azure/agentbaker/e2e/config"
 )
+
+type tagFilter struct {
+	run  string
+	skip string
+}
 
 func scenarioTags(s *Scenario) Tags {
 	tags := s.Tags
@@ -19,34 +22,34 @@ func scenarioTags(s *Scenario) Tags {
 	return tags
 }
 
-func filterScenario(name string, s *Scenario) error {
+func filterScenario(name string, s *Scenario, filter tagFilter) error {
 	tags := scenarioTags(s)
-	if config.Config.TagsToRun != "" {
-		matches, err := tags.MatchesFilters(config.Config.TagsToRun)
+	if filter.run != "" {
+		matches, err := tags.MatchesFilters(filter.run)
 		if err != nil {
 			return fmt.Errorf("could not match tags for %q: %w", name, err)
 		}
 		if !matches {
-			return &skipError{message: fmt.Sprintf("filtered: scenario %q tags %+v do not match %q", name, tags, config.Config.TagsToRun)}
+			return &skipError{message: fmt.Sprintf("filtered: scenario %q tags %+v do not match %q", name, tags, filter.run)}
 		}
 	}
-	if config.Config.TagsToSkip != "" {
-		matches, err := tags.MatchesAnyFilter(config.Config.TagsToSkip)
+	if filter.skip != "" {
+		matches, err := tags.MatchesAnyFilter(filter.skip)
 		if err != nil {
 			return fmt.Errorf("could not match tags for %q: %w", name, err)
 		}
 		if matches {
-			return &skipError{message: fmt.Sprintf("filtered: scenario %q tags %+v match skip filter %q", name, tags, config.Config.TagsToSkip)}
+			return &skipError{message: fmt.Sprintf("filtered: scenario %q tags %+v match skip filter %q", name, tags, filter.skip)}
 		}
 	}
 	return nil
 }
 
-func tagSelectedEntries(entries []scenarioEntry) int {
+func tagSelectedEntries(entries []scenarioEntry, filter tagFilter) int {
 	count := 0
 	for _, entry := range entries {
 		var skip *skipError
-		if errors.As(filterScenario(entry.name, entry.scenario), &skip) {
+		if errors.As(filterScenario(entry.name, entry.scenario, filter), &skip) {
 			continue
 		}
 		count++

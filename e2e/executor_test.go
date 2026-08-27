@@ -48,6 +48,7 @@ func TestRunnerFlagsUseEnvironmentAliases(t *testing.T) {
 	oldOutput := config.Config.OutputMode
 	oldHidePassed := config.Config.HidePassedLogs
 	oldTags := config.Config.TagsToRun
+	oldSkipTags := config.Config.TagsToSkip
 	oldGallery := config.Config.GalleryName
 	oldKeepVMSS := config.Config.KeepVMSS
 	oldSubscriptionID := config.Config.SubscriptionID
@@ -60,6 +61,7 @@ func TestRunnerFlagsUseEnvironmentAliases(t *testing.T) {
 		config.Config.OutputMode = oldOutput
 		config.Config.HidePassedLogs = oldHidePassed
 		config.Config.TagsToRun = oldTags
+		config.Config.TagsToSkip = oldSkipTags
 		config.Config.GalleryName = oldGallery
 		config.Config.KeepVMSS = oldKeepVMSS
 		config.Config.SubscriptionID = oldSubscriptionID
@@ -73,6 +75,7 @@ func TestRunnerFlagsUseEnvironmentAliases(t *testing.T) {
 	t.Setenv("E2E_OUTPUT", "grouped")
 	t.Setenv("E2E_HIDE_PASSED_LOGS", "true")
 	t.Setenv("TAGS_TO_RUN", "gpu=true")
+	t.Setenv("TAGS_TO_SKIP", "os=windows")
 	t.Setenv("GALLERY_NAME", "test-gallery")
 	t.Setenv("KEEP_VMSS", "true")
 	t.Setenv("SUBSCRIPTION_ID", "test-subscription")
@@ -84,8 +87,10 @@ func TestRunnerFlagsUseEnvironmentAliases(t *testing.T) {
 	if config.Config.Parallel != 7 || config.Config.TestTimeout != 3*time.Minute || config.Config.Retries != 2 {
 		t.Fatalf("environment aliases were not loaded: %+v", runOptionsFromConfig(nil))
 	}
-	if config.Config.SuiteTimeout != 4*time.Minute || config.Config.OutputMode != "grouped" || !config.Config.HidePassedLogs || config.Config.TagsToRun != "gpu=true" {
-		t.Fatalf("string environment aliases were not loaded: %+v", runOptionsFromConfig(nil))
+	opts := runOptionsFromConfig(nil)
+	if config.Config.SuiteTimeout != 4*time.Minute || config.Config.OutputMode != "grouped" || !config.Config.HidePassedLogs ||
+		opts.tagFilter != (tagFilter{run: "gpu=true", skip: "os=windows"}) {
+		t.Fatalf("string environment aliases were not loaded: %+v", opts)
 	}
 	if config.Config.GalleryName != "test-gallery" || !config.Config.KeepVMSS || config.Config.SubscriptionID != "test-subscription" {
 		t.Fatalf("infrastructure environment aliases were not loaded: %+v", config.Config)
@@ -433,17 +438,6 @@ func TestScenarioSkipIfRecordsSkip(t *testing.T) {
 	}
 }
 
-func withTagFilters(t *testing.T, run, skip string) {
-	t.Helper()
-	oldRun, oldSkip := config.Config.TagsToRun, config.Config.TagsToSkip
-	t.Cleanup(func() {
-		config.Config.TagsToRun = oldRun
-		config.Config.TagsToSkip = oldSkip
-	})
-	config.Config.TagsToRun = run
-	config.Config.TagsToSkip = skip
-}
-
 func TestAutoOutputStreamsTagSelectedScenarios(t *testing.T) {
 	entries := []scenarioEntry{
 		{name: "Only", scenario: &Scenario{Name: "Only"}},
@@ -453,18 +447,18 @@ func TestAutoOutputStreamsTagSelectedScenarios(t *testing.T) {
 	}
 	opts := runOptions{parallel: 1, timeout: time.Second, logDir: t.TempDir(), outputMode: "auto"}
 
-	if got := tagSelectedEntries(entries); got != 4 {
+	if got := tagSelectedEntries(entries, tagFilter{}); got != 4 {
 		t.Fatalf("unfiltered count = %d, want 4", got)
 	}
-	if newExecutor(context.Background(), &bytes.Buffer{}, opts, tagSelectedEntries(entries)).stream {
+	if newExecutor(context.Background(), &bytes.Buffer{}, opts, tagSelectedEntries(entries, tagFilter{})).stream {
 		t.Fatal("auto mode streamed more than three scenarios")
 	}
 
-	withTagFilters(t, "Name=Only", "")
-	if got := tagSelectedEntries(entries); got != 1 {
+	filter := tagFilter{run: "Name=Only"}
+	if got := tagSelectedEntries(entries, filter); got != 1 {
 		t.Fatalf("filtered count = %d, want 1", got)
 	}
-	if !newExecutor(context.Background(), &bytes.Buffer{}, opts, tagSelectedEntries(entries)).stream {
+	if !newExecutor(context.Background(), &bytes.Buffer{}, opts, tagSelectedEntries(entries, filter)).stream {
 		t.Fatal("auto mode did not stream a single tag-selected scenario")
 	}
 	for _, entry := range entries {
@@ -475,8 +469,8 @@ func TestAutoOutputStreamsTagSelectedScenarios(t *testing.T) {
 }
 
 func TestTagFiltersApplyBeforeSkipIf(t *testing.T) {
-	withTagFilters(t, "Name=Other", "")
 	exec := newTestExecutor(t)
+	exec.opts.tagFilter.run = "Name=Other"
 
 	skipIfCalled := false
 	exec.schedule("Disabled", &Scenario{
@@ -501,13 +495,33 @@ func TestTagFiltersApplyBeforeSkipIf(t *testing.T) {
 }
 
 func TestTagSkipFilterExcludesScenario(t *testing.T) {
-	withTagFilters(t, "", "Name=Excluded")
 	entries := []scenarioEntry{
 		{name: "Excluded", scenario: &Scenario{Name: "Excluded"}},
 		{name: "Kept", scenario: &Scenario{Name: "Kept"}},
 	}
-	if got := tagSelectedEntries(entries); got != 1 {
+	if got := tagSelectedEntries(entries, tagFilter{skip: "Name=Excluded"}); got != 1 {
 		t.Fatalf("skip-filtered count = %d, want 1", got)
+	}
+}
+
+func TestExecutorDoesNotReadGlobalTagFilters(t *testing.T) {
+	oldRun, oldSkip := config.Config.TagsToRun, config.Config.TagsToSkip
+	t.Cleanup(func() {
+		config.Config.TagsToRun = oldRun
+		config.Config.TagsToSkip = oldSkip
+	})
+	config.Config.TagsToRun = "gpu=true"
+	config.Config.TagsToSkip = "Name=Runs"
+
+	exec := newTestExecutor(t)
+	exec.runScenario = func(context.Context, string, toolkit.Logger, *Scenario) error {
+		return nil
+	}
+	exec.schedule("Runs", &Scenario{Name: "Runs"})
+	exec.scenarios.Wait()
+
+	if result := exec.results[0]; result.Status != statusPassed {
+		t.Fatalf("global filters changed executor result: %+v", result)
 	}
 }
 

@@ -97,10 +97,7 @@ az extension add --name bastion
 
 cd e2e
 mkdir -p bin
-(
-  unset TAGS_TO_RUN TAGS_TO_SKIP
-  go test ./... -skip '^TestCreateVMExtensionLinuxAKSNodeTiming$'
-)
+go test ./...
 go build -o bin/e2e ./cmd/e2e
 
 test_exit_code=0

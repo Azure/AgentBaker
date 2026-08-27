@@ -119,7 +119,7 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	}
 	log.Printf("using E2E environment configuration:\n%s\n", config.Config)
 
-	exec := newExecutor(ctx, a.stdout, opts, tagSelectedEntries(entries))
+	exec := newExecutor(ctx, a.stdout, opts, tagSelectedEntries(entries, opts.tagFilter))
 	for _, entry := range entries {
 		name := entry.name
 		if config.Config.TestPreProvision || entry.scenario.VHDCaching {
@@ -176,6 +176,7 @@ type runOptions struct {
 	junitFile  string
 	outputMode string
 	hidePassed bool
+	tagFilter  tagFilter
 	selectors  []string
 }
 
@@ -188,6 +189,10 @@ func runOptionsFromConfig(selectors []string) runOptions {
 		junitFile:  config.Config.JUnitFile,
 		outputMode: config.Config.OutputMode,
 		hidePassed: config.Config.HidePassedLogs,
-		selectors:  selectors,
+		tagFilter: tagFilter{
+			run:  config.Config.TagsToRun,
+			skip: config.Config.TagsToSkip,
+		},
+		selectors: selectors,
 	}
 }

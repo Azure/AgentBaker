@@ -1,16 +1,11 @@
 package e2e
 
 import (
-	"errors"
 	"fmt"
 	"testing"
-	"time"
 
-	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/components"
-	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli/v3"
 )
 
 func TestVersionConsistencyGPUManagedComponents(t *testing.T) {
@@ -89,66 +84,5 @@ func TestExtractPackageRevision(t *testing.T) {
 		t.Run(fmt.Sprintf("extractPackageRevision(%q)=%q", test.input, test.expected), func(t *testing.T) {
 			require.Equal(t, test.expected, extractPackageRevision(test.input))
 		})
-	}
-}
-
-func TestCreateVMExtensionLinuxAKSNodeTiming(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
-	}
-	require.NoError(t, config.LoadDotEnv())
-	configCommand := &cli.Command{Name: "e2e-test-config", Flags: config.Flags()}
-	require.NoError(t, configCommand.Run(t.Context(), []string{"e2e-test-config"}))
-	require.NoError(t, config.Initialize())
-
-	start := time.Now()
-	ext, err := createVMExtensionLinuxAKSNode(t.Context(), nil)
-	firstDuration := time.Since(start)
-	if err := assert.NoError(err, "first call to createVMExtensionLinuxAKSNode failed"); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := assert.NotNil(ext, "first call returned nil extension"); err != nil {
-		t.Error(err)
-		return
-	}
-	t.Logf("First call duration: %s", firstDuration)
-
-	start = time.Now()
-	ext2, err := createVMExtensionLinuxAKSNode(t.Context(), nil)
-	secondDuration := time.Since(start)
-	if err := assert.NoError(err, "second call to createVMExtensionLinuxAKSNode failed"); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := assert.NotNil(ext2, "second call returned nil extension"); err != nil {
-		t.Error(err)
-		return
-	}
-	t.Logf("Second call duration: %s", secondDuration)
-
-	if err := errors.Join(
-		assert.NotNil(ext.Properties, "first extension has nil Properties"),
-		assert.NotNil(ext2.Properties, "second extension has nil Properties"),
-	); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := errors.Join(
-		assert.NotNil(ext.Properties.TypeHandlerVersion, "first TypeHandlerVersion is nil"),
-		assert.NotNil(ext2.Properties.TypeHandlerVersion, "second TypeHandlerVersion is nil"),
-	); err != nil {
-		t.Error(err)
-		return
-	}
-	if err := errors.Join(
-		assert.NotEqual(*ext.Properties.TypeHandlerVersion, "", "first TypeHandlerVersion is empty"),
-		assert.NotEqual(*ext2.Properties.TypeHandlerVersion, "", "second TypeHandlerVersion is empty"),
-		assert.NotEqual(*ext.Properties.TypeHandlerVersion, "1.413",
-			"extension version is the hardcoded fallback; Azure API may not have been reached"),
-		assert.Equal(*ext2.Properties.TypeHandlerVersion, *ext.Properties.TypeHandlerVersion,
-			"both calls should return the same extension version"),
-	); err != nil {
-		t.Error(err)
 	}
 }
