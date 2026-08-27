@@ -2217,7 +2217,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=node-exporter-kubernetes, os=azurelinux, release=3.0",
-                "latestVersion": "1.9.1-26.azl3"
+                "latestVersion": "1.9.1-27.azl3"
               }
             ]
           },
