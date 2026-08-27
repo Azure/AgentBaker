@@ -401,6 +401,74 @@ func TestExecutorReportsCancellationAsFailure(t *testing.T) {
 	}
 }
 
+func TestExecutorWaitAllowsGracefulCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	exec := newExecutor(ctx, &bytes.Buffer{}, runOptions{
+		parallel:   1,
+		logDir:     t.TempDir(),
+		outputMode: "grouped",
+	}, 1)
+	started := make(chan struct{})
+	exec.runScenario = func(ctx context.Context, _ string, _ toolkit.Logger, _ *Scenario) error {
+		close(started)
+		<-ctx.Done()
+		return ctx.Err()
+	}
+
+	exec.schedule("Cancelled", &Scenario{Name: "Cancelled"})
+	<-started
+	cancel()
+
+	if err := exec.wait(time.Second); err != nil {
+		t.Fatalf("graceful cancellation returned an error: %v", err)
+	}
+}
+
+func TestExecutorWaitStopsAfterGracePeriod(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	tmp := t.TempDir()
+	exec := newExecutor(ctx, &bytes.Buffer{}, runOptions{
+		parallel:   1,
+		logDir:     filepath.Join(tmp, "logs"),
+		junitFile:  filepath.Join(tmp, "report.xml"),
+		outputMode: "grouped",
+	}, 1)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	exec.runScenario = func(context.Context, string, toolkit.Logger, *Scenario) error {
+		close(started)
+		<-release
+		return nil
+	}
+
+	exec.schedule("Stuck", &Scenario{Name: "Stuck"})
+	<-started
+	cancel()
+
+	if err := exec.wait(10 * time.Millisecond); err == nil || !strings.Contains(err.Error(), "did not stop") {
+		t.Fatalf("wait returned %v, want shutdown deadline error", err)
+	}
+	summary := exec.summary()
+	if summary.Total != 1 || summary.Failed != 1 {
+		t.Fatalf("unfinished scenario was not recorded as failed: %+v", summary)
+	}
+	if err := exec.writeReports(nil); err != nil {
+		t.Fatal(err)
+	}
+	report, err := os.ReadFile(exec.opts.junitFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(report, []byte(`failure message="scenarios did not stop`)) {
+		t.Fatalf("JUnit report dropped the unfinished scenario:\n%s", report)
+	}
+	close(release)
+	exec.scenarios.Wait()
+	if len(exec.results) != 1 {
+		t.Fatalf("late scenario result created a duplicate: %+v", exec.results)
+	}
+}
+
 func TestConciseFailureKeepsTail(t *testing.T) {
 	message := strings.Repeat("old context ", 500) + "important final error"
 	got := concise(message)

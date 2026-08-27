@@ -157,7 +157,7 @@ func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcon
 
 // getLatestGAKubernetesVersion returns the highest GA Kubernetes version for the given location.
 func getLatestGAKubernetesVersion(ctx context.Context, location string) (string, error) {
-	versions, err := config.Azure.AKS.ListKubernetesVersions(context.Background(), location, nil)
+	versions, err := config.Azure.AKS.ListKubernetesVersions(ctx, location, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to list Kubernetes versions: %w", err)
 	}
