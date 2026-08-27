@@ -528,8 +528,6 @@ function nodePrep {
             REBOOTREQUIRED=true
 
             # this service applies the partitioning scheme with nvidia-smi.
-            # we should consider moving to mig-parted which is simpler/newer.
-            # we couldn't because of old drivers but that has long been fixed.
             logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
         fi
 
