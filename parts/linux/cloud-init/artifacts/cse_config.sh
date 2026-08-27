@@ -1495,11 +1495,6 @@ configureNvidiaCDIRefresh() {
     systemctl daemon-reload || true
 }
 
-# configureNvidiaCDIRefresh above only stops the early failure from poisoning the units; it never
-# retries once the driver is actually up, so a node can finish provisioning with no CDI spec at all.
-# The toolkit starts nvidia-cdi-refresh while the aks-gpu container is still staging userspace
-# libraries, and a prebaked kernel module makes the service condition pass early. Re-run it here,
-# after nvidia-smi and ldconfig have succeeded, and confirm it produced a usable device.
 # Runs the refresh and verifies it produced a usable NVIDIA CDI device. Split out of
 # repairNvidiaCDIRefresh so that every failure path unwinds through that function's .path re-arm.
 refreshNvidiaCDISpec() {
@@ -1516,9 +1511,14 @@ refreshNvidiaCDISpec() {
     # A MIG node cannot produce a spec during CSE: nvidia-ctk exits 1 while MIG mode is on with no
     # instances, and ensureMigPartition -- which runs after this, from cse_main.sh -- is itself
     # "expected to fail and work only on next reboot". Start the service to clear the slate, but do
-    # not verify: MIG already forces a reboot, and the spec can only appear on the far side of it.
+    # not verify, because nothing available at this point could make the check pass.
+    #
+    # This deliberately leaves MIG nodes where they already are rather than fixing them. Nothing
+    # orders nvidia-cdi-refresh.service after mig-partition.service -- the latter declares only
+    # Before=nvidia-device-plugin.service -- so post-reboot generation is not guaranteed either.
+    # Closing that gap needs a new ordering dependency and is out of scope for this change.
     if [ "${MIG_NODE:-}" = "true" ]; then
-        echo "MIG node: skipping NVIDIA CDI verification, spec follows the MIG reboot"
+        echo "MIG node: skipping NVIDIA CDI verification, MIG spec generation is not handled here"
         systemctl start "$service_unit" || return 1
         return 0
     fi
@@ -1549,6 +1549,11 @@ refreshNvidiaCDISpec() {
     fi
 }
 
+# configureNvidiaCDIRefresh above only stops the early failure from poisoning the units; it never
+# retries once the driver is actually up, so a node can finish provisioning with no CDI spec at all.
+# The toolkit starts nvidia-cdi-refresh while the aks-gpu container is still staging userspace
+# libraries, and a prebaked kernel module makes the service condition pass early. Re-run it here,
+# after nvidia-smi and ldconfig have succeeded, and confirm it produced a usable device.
 repairNvidiaCDIRefresh() {
     local service_unit="nvidia-cdi-refresh.service"
     local path_unit="nvidia-cdi-refresh.path"
