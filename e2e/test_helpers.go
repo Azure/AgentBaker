@@ -737,7 +737,7 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 			toolkit.Logf(ctx, "best-effort RunCommand %s delete failed: %v", runCommandName, derr)
 		}
 	}()
-	if _, err := poller.PollUntilDone(ctx, nil); err != nil {
+	if _, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
 		return armcompute.VirtualMachineRunCommandInstanceView{}, fmt.Errorf("failed to wait for RunCommand on VMSS VM: %w", err)
 	}
 
@@ -895,7 +895,7 @@ func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Failed to begin deallocate: %w", err)
 	}
-	_, err = poll.PollUntilDone(ctx, nil)
+	_, err = poll.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return nil, fmt.Errorf("Failed to deallocate: %w", err)
 	}
