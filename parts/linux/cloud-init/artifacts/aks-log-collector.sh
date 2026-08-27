@@ -47,6 +47,8 @@ ZIP="aks_logs.zip"
 # Log bundle upload max size is limited to 100MB
 MAX_SIZE=104857600
 MAX_COLLECT_SIZE=$((10 * 1024 * 1024))
+# Already-compressed files should be stored in the ZIP without recompression.
+ZIP_STORE_SUFFIXES=".gz:.bz2:.xz:.zst:.zip"
 
 # File globs to include
 # Smaller and more critical files are closer to the top so that we can be certain they're included.
@@ -317,23 +319,28 @@ fi
 # adding things to the archive.
 echo "Adding log files to zip archive with max file size: $MAX_COLLECT_SIZE bytes..."
 for file in "${GLOBS[@]}"; do
-  # shellcheck disable=SC3010
-  [[ "$file" == *.gz ]] && continue
   test -e "$file" || continue
 
   fsize=$(stat --printf "%s" "$file")
   if [ "$fsize" -gt "$MAX_COLLECT_SIZE" ]; then
+    file_suffix=".${file##*.}"
+    # shellcheck disable=SC3010
+    if [[ ":$ZIP_STORE_SUFFIXES:" == *":$file_suffix:"* ]]; then
+      echo "WARNING: Skipping compressed file $file because its size $fsize exceeds $MAX_COLLECT_SIZE bytes."
+      continue
+    fi
+
     # Preserve directory structure so zip entry has the original path
     truncdir="${file%/*}"
     mkdir -p ".${truncdir}"
     mkfifo ".${file}"
     tail -c "$MAX_COLLECT_SIZE" "$file" >".${file}" &
     tail_pid=$!
-    zip -gDZ deflate --fifo "${ZIP}" ".${file}"
+    zip -gDZ deflate -n "$ZIP_STORE_SUFFIXES" --fifo "${ZIP}" ".${file}"
     wait "$tail_pid" 2>/dev/null
     rm -f ".${file}"
   else
-    zip -g -DZ deflate -u "${ZIP}" "$file" -x '*.sock'
+    zip -g -DZ deflate -n "$ZIP_STORE_SUFFIXES" -u "${ZIP}" "$file" -x '*.sock'
   fi
 
   FILE_SIZE=$(stat --printf "%s" "${ZIP}")

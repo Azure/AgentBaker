@@ -894,7 +894,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return strings.Join(config.MIGProfileLayout, ",")
 		},
 		"IsMIGEnabledNode": func() bool {
-			return config.GPUInstanceProfile != ""
+			return datamodel.IsMIGNode(config.GPUInstanceProfile, config.MIGProfileLayout)
 		},
 		"GetMigStrategy": func() string {
 			return config.MigStrategy

@@ -400,7 +400,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/secrets-store/driver",
-          "latestVersion": "v1.6.0-6"
+          "latestVersion": "v1.6.0-7"
         }
       ]
     },
@@ -410,7 +410,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/secrets-store/provider-azure",
-          "latestVersion": "v1.8.2-5"
+          "latestVersion": "v1.8.2-6"
         }
       ]
     },
@@ -524,8 +524,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/ip-masq-agent-v2",
-          "latestVersion": "v0.1.16-15",
-          "previousLatestVersion": "v0.1.16-14"
+          "latestVersion": "v0.1.16-16",
+          "previousLatestVersion": "v0.1.16-15"
         }
       ],
       "windowsVersions": []
@@ -748,7 +748,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid-v20:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid-v20",
-        "latestVersion": "595.58.03-20260609172331"
+          "latestVersion": "595.58.03-20260629214401"
       }
     }
   ],
@@ -1358,7 +1358,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.34.0-ubuntu20.04u17"
+                "latestVersion": "1.34.0-ubuntu20.04u21"
               }
             ]
           },
@@ -1366,7 +1366,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.34.0-ubuntu22.04u17"
+                "latestVersion": "1.34.0-ubuntu22.04u21"
               }
             ]
           },
@@ -1374,7 +1374,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.34.0-ubuntu24.04u17"
+                "latestVersion": "1.34.0-ubuntu24.04u21"
               }
             ]
           },
@@ -1382,7 +1382,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.34.0-ubuntu26.04u17"
+                "latestVersion": "1.34.0-ubuntu26.04u21"
               }
             ]
           }
@@ -1412,7 +1412,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.0-16.azl3"
+                "latestVersion": "1.34.0-21.azl3"
               }
             ]
           },
@@ -1430,7 +1430,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.0-16.azl3"
+                "latestVersion": "1.34.0-21.azl3"
               }
             ]
           }
@@ -1800,7 +1800,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "0.55.0-ubuntu26.04u3"
+                "latestVersion": "0.55.0-ubuntu26.04u4"
               }
             ]
           },
@@ -1808,7 +1808,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.55.0-ubuntu24.04u3"
+                "latestVersion": "0.55.0-ubuntu24.04u4"
               }
             ]
           },
@@ -1816,7 +1816,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.55.0-ubuntu22.04u3"
+                "latestVersion": "0.55.0-ubuntu22.04u4"
               }
             ]
           },
@@ -1824,7 +1824,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "0.55.0-ubuntu20.04u3"
+                "latestVersion": "0.55.0-ubuntu20.04u4"
               }
             ]
           }
@@ -1834,7 +1834,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=ig, os=azurelinux, release=3.0",
-                "latestVersion": "0.55.0-2.azl3"
+                "latestVersion": "0.55.0-4.azl3"
               }
             ]
           }
@@ -2183,7 +2183,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.9.1-ubuntu26.04u24"
+                "latestVersion": "1.9.1-ubuntu26.04u27"
               }
             ]
           },
@@ -2191,7 +2191,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.9.1-ubuntu24.04u25"
+                "latestVersion": "1.9.1-ubuntu24.04u27"
               }
             ]
           },
@@ -2199,7 +2199,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.9.1-ubuntu22.04u24"
+                "latestVersion": "1.9.1-ubuntu22.04u27"
               }
             ]
           },
@@ -2207,7 +2207,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.9.1-ubuntu20.04u24"
+                "latestVersion": "1.9.1-ubuntu20.04u27"
               }
             ]
           }
@@ -2217,7 +2217,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=node-exporter-kubernetes, os=azurelinux, release=3.0",
-                "latestVersion": "1.9.1-23.azl3"
+                "latestVersion": "1.9.1-27.azl3"
               }
             ]
           },
@@ -2410,6 +2410,14 @@
             "versionsV2": [
               {
                 "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "2.5.5"
+              }
+            ]
+          },
+          "r2604": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=26.04",
                 "latestVersion": "2.5.5"
               }
             ]
