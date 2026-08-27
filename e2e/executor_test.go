@@ -136,7 +136,6 @@ func TestExecutorRetriesAndReportsFlakyScenario(t *testing.T) {
 	var stdout bytes.Buffer
 	opts := runOptions{
 		parallel:   1,
-		timeout:    time.Second,
 		retries:    1,
 		logDir:     filepath.Join(tmp, "logs"),
 		junitFile:  filepath.Join(tmp, "report.xml"),
@@ -158,7 +157,7 @@ func TestExecutorRetriesAndReportsFlakyScenario(t *testing.T) {
 
 	exec.schedule("Retry", &Scenario{})
 	exec.scenarios.Wait()
-	if err := exec.writeReports(); err != nil {
+	if err := exec.writeReports(nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -185,7 +184,6 @@ func TestExecutorCanHidePassedLogs(t *testing.T) {
 	var stdout bytes.Buffer
 	exec := newExecutor(context.Background(), &stdout, runOptions{
 		parallel:   1,
-		timeout:    time.Second,
 		logDir:     t.TempDir(),
 		outputMode: "grouped",
 		hidePassed: true,
@@ -206,7 +204,6 @@ func TestScenarioLogIncludesElapsedTime(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "attempt.log")
 	exec := newExecutor(context.Background(), &bytes.Buffer{}, runOptions{
 		parallel:   1,
-		timeout:    time.Second,
 		logDir:     t.TempDir(),
 		outputMode: "grouped",
 	}, 1)
@@ -231,7 +228,6 @@ func TestExecutorRecoversScenarioPanic(t *testing.T) {
 	var stdout bytes.Buffer
 	exec := newExecutor(context.Background(), &stdout, runOptions{
 		parallel:   2,
-		timeout:    time.Second,
 		logDir:     t.TempDir(),
 		outputMode: "grouped",
 	}, 2)
@@ -269,7 +265,6 @@ func newTestExecutor(t *testing.T) *executor {
 	t.Helper()
 	return newExecutor(context.Background(), &bytes.Buffer{}, runOptions{
 		parallel:   1,
-		timeout:    time.Second,
 		logDir:     t.TempDir(),
 		outputMode: "grouped",
 	}, 1)
@@ -391,7 +386,6 @@ func TestExecutorReportsCancellationAsFailure(t *testing.T) {
 	cancel()
 	exec := newExecutor(ctx, &bytes.Buffer{}, runOptions{
 		parallel:   1,
-		timeout:    time.Second,
 		logDir:     t.TempDir(),
 		outputMode: "grouped",
 	}, 1)
@@ -419,19 +413,24 @@ func TestConciseFailureKeepsTail(t *testing.T) {
 }
 
 func TestScenarioSkipIfRecordsSkip(t *testing.T) {
+	tmp := t.TempDir()
 	var stdout bytes.Buffer
-	exec := newExecutor(context.Background(), &stdout, runOptions{
+	opts := runOptions{
 		parallel:   1,
-		timeout:    time.Second,
-		logDir:     t.TempDir(),
+		logDir:     filepath.Join(tmp, "logs"),
+		junitFile:  filepath.Join(tmp, "report.xml"),
 		outputMode: "grouped",
-	}, 1)
+	}
+	exec := newExecutor(context.Background(), &stdout, opts, 1)
 
 	exec.schedule("Disabled", &Scenario{
 		Name:   "Disabled",
 		SkipIf: skipScenario("not supported"),
 	})
 	exec.scenarios.Wait()
+	if err := exec.writeReports(nil); err != nil {
+		t.Fatal(err)
+	}
 
 	summary := exec.summary()
 	if summary.Total != 1 || summary.Skipped != 1 {
@@ -440,74 +439,103 @@ func TestScenarioSkipIfRecordsSkip(t *testing.T) {
 	if !strings.Contains(stdout.String(), "SKIP: not supported") {
 		t.Fatalf("ordinary skip was not written to the console: %q", stdout.String())
 	}
+	report, err := os.ReadFile(opts.junitFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(report, []byte(`<skipped message="not supported"`)) {
+		t.Fatalf("JUnit report dropped the ordinary skip:\n%s", report)
+	}
 }
 
-func TestAutoOutputStreamsTagSelectedScenarios(t *testing.T) {
+func TestFilteredScenariosAreNotScheduled(t *testing.T) {
+	tmp := t.TempDir()
+	var stdout bytes.Buffer
+	opts := runOptions{
+		parallel:   1,
+		logDir:     filepath.Join(tmp, "logs"),
+		junitFile:  filepath.Join(tmp, "report.xml"),
+		outputMode: "grouped",
+		tagFilter:  tagFilter{skip: "Name=Excluded"},
+	}
+	entries := []scenarioEntry{
+		{name: "Excluded", scenario: &Scenario{
+			Name:   "Excluded",
+			SkipIf: skipScenario("must not be consulted"),
+		}},
+		{name: "Kept", scenario: &Scenario{Name: "Kept"}},
+	}
+
+	runnable, filtered, err := partitionEntries(entries, opts.tagFilter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(runnable) != 1 || runnable[0].name != "Kept" || len(filtered) != 1 {
+		t.Fatalf("unexpected partition: runnable=%+v filtered=%+v", runnable, filtered)
+	}
+
+	exec := newExecutor(context.Background(), &stdout, opts, len(runnable))
+	exec.runScenario = func(context.Context, string, toolkit.Logger, *Scenario) error { return nil }
+	for _, entry := range runnable {
+		exec.schedule(entry.name, entry.scenario)
+	}
+	exec.scenarios.Wait()
+	if err := exec.writeReports(filtered); err != nil {
+		t.Fatal(err)
+	}
+
+	summary := exec.summary()
+	if summary.Total != 1 || summary.Passed != 1 || summary.Skipped != 0 {
+		t.Fatalf("filtered scenario leaked into the summary: %+v", summary)
+	}
+	if _, err := os.Stat(filepath.Join(opts.logDir, "Excluded")); !os.IsNotExist(err) {
+		t.Fatalf("filtered scenario created an attempt log directory: %v", err)
+	}
+	if strings.Contains(stdout.String(), "Excluded") {
+		t.Fatalf("filtered scenario was written to the console: %q", stdout.String())
+	}
+
+	report, err := os.ReadFile(opts.junitFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(report, []byte(`name="Excluded"`)) || !bytes.Contains(report, []byte("<skipped message=\"filtered: scenario &#34;Excluded&#34;")) {
+		t.Fatalf("JUnit report dropped the filtered scenario:\n%s", report)
+	}
+	if !bytes.Contains(report, []byte(`name="Kept"`)) {
+		t.Fatalf("JUnit report dropped the runnable scenario:\n%s", report)
+	}
+}
+
+func TestAutoOutputUsesRunnableCount(t *testing.T) {
 	entries := []scenarioEntry{
 		{name: "Only", scenario: &Scenario{Name: "Only"}},
 		{name: "Second", scenario: &Scenario{Name: "Second"}},
 		{name: "Third", scenario: &Scenario{Name: "Third"}},
 		{name: "Fourth", scenario: &Scenario{Name: "Fourth"}},
 	}
-	opts := runOptions{parallel: 1, timeout: time.Second, logDir: t.TempDir(), outputMode: "auto"}
+	opts := runOptions{parallel: 1, logDir: t.TempDir(), outputMode: "auto"}
 
-	if got := tagSelectedEntries(entries, tagFilter{}); got != 4 {
-		t.Fatalf("unfiltered count = %d, want 4", got)
+	runnable, filtered, err := partitionEntries(entries, tagFilter{})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if newExecutor(context.Background(), &bytes.Buffer{}, opts, tagSelectedEntries(entries, tagFilter{})).stream {
+	if len(runnable) != 4 || len(filtered) != 0 {
+		t.Fatalf("unfiltered partition = %d runnable, %d filtered", len(runnable), len(filtered))
+	}
+	if newExecutor(context.Background(), &bytes.Buffer{}, opts, len(runnable)).stream {
 		t.Fatal("auto mode streamed more than three scenarios")
 	}
 
-	filter := tagFilter{run: "Name=Only"}
-	if got := tagSelectedEntries(entries, filter); got != 1 {
-		t.Fatalf("filtered count = %d, want 1", got)
+	runnable, filtered, err = partitionEntries(entries, tagFilter{run: "Name=Only"})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !newExecutor(context.Background(), &bytes.Buffer{}, opts, tagSelectedEntries(entries, filter)).stream {
-		t.Fatal("auto mode did not stream a single tag-selected scenario")
+	if len(runnable) != 1 || len(filtered) != 3 {
+		t.Fatalf("filtered partition = %d runnable, %d filtered", len(runnable), len(filtered))
 	}
-	for _, entry := range entries {
-		if entry.scenario.Tags.Name != "" {
-			t.Fatalf("counting mutated the registry scenario: %+v", entry.scenario.Tags)
-		}
-	}
-}
-
-func TestTagFiltersApplyBeforeSkipIf(t *testing.T) {
-	exec := newTestExecutor(t)
-	exec.opts.tagFilter.run = "Name=Other"
-
-	skipIfCalled := false
-	exec.schedule("Disabled", &Scenario{
-		Name: "Disabled",
-		SkipIf: func(context.Context) string {
-			skipIfCalled = true
-			return "not supported"
-		},
-	})
-	exec.scenarios.Wait()
-
-	if skipIfCalled {
-		t.Fatal("SkipIf ran for a scenario excluded by tag filters")
-	}
-	summary := exec.summary()
-	if summary.Skipped != 1 || summary.Selected != 0 {
-		t.Fatalf("unexpected summary: %+v", summary)
-	}
-	if !isFilteredSkip(exec.results[0].Attempts[0].Message) {
-		t.Fatalf("filtered skip lost its marker: %q", exec.results[0].Attempts[0].Message)
-	}
-	if output := exec.stdout.(*bytes.Buffer).String(); output != "" {
-		t.Fatalf("filtered skip was written to the console: %q", output)
-	}
-}
-
-func TestTagSkipFilterExcludesScenario(t *testing.T) {
-	entries := []scenarioEntry{
-		{name: "Excluded", scenario: &Scenario{Name: "Excluded"}},
-		{name: "Kept", scenario: &Scenario{Name: "Kept"}},
-	}
-	if got := tagSelectedEntries(entries, tagFilter{skip: "Name=Excluded"}); got != 1 {
-		t.Fatalf("skip-filtered count = %d, want 1", got)
+	if !newExecutor(context.Background(), &bytes.Buffer{}, opts, len(runnable)).stream {
+		t.Fatal("auto mode did not stream a single runnable scenario")
 	}
 }
 
@@ -627,7 +655,6 @@ func TestExecutorKeepsFailureWhenRetrySkips(t *testing.T) {
 	tmp := t.TempDir()
 	opts := runOptions{
 		parallel:   1,
-		timeout:    time.Second,
 		retries:    1,
 		logDir:     filepath.Join(tmp, "logs"),
 		junitFile:  filepath.Join(tmp, "report.xml"),
@@ -645,12 +672,12 @@ func TestExecutorKeepsFailureWhenRetrySkips(t *testing.T) {
 
 	exec.schedule("FailsThenSkips", &Scenario{Name: "FailsThenSkips"})
 	exec.scenarios.Wait()
-	if err := exec.writeReports(); err != nil {
+	if err := exec.writeReports(nil); err != nil {
 		t.Fatal(err)
 	}
 
 	summary := exec.summary()
-	if summary.Failed != 1 || summary.Skipped != 0 || summary.Selected != 1 {
+	if summary.Failed != 1 || summary.Skipped != 0 || summary.Total != 1 {
 		t.Fatalf("unexpected summary: %+v", summary)
 	}
 	report, err := os.ReadFile(opts.junitFile)

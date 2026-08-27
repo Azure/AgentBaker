@@ -267,13 +267,11 @@ var _ = Register(&Scenario{
 
 var _ = Register(aclGPUScenario("ACL_GPUNC", "Standard_NC4as_T4_v3", "westus2"))
 var _ = Register(aclGPUScenario("ACL_GPUA100", "Standard_NC24ads_A100_v4", "westus2"))
-var _ = registerACLGPUA10Scenarios()
 
-func registerACLGPUA10Scenarios() bool {
+func init() {
 	for _, vmSize := range []string{"Standard_NV6ads_A10_v5", "Standard_NC16ads_A10_v4"} {
 		Register(aclGRIDScenario("ACL_GPUA10/"+vmSize, vmSize))
 	}
-	return true
 }
 
 func aclGPUScenario(name, vmSize, location string) *Scenario {
@@ -1966,9 +1964,7 @@ var _ = Register(&Scenario{
 	},
 })
 
-var _ = registerAzureLinuxV3GPUA10Scenarios()
-
-func registerAzureLinuxV3GPUA10Scenarios() bool {
+func init() {
 	for _, vmSize := range []string{"Standard_NV6ads_A10_v5", "Standard_NC16ads_A10_v4"} {
 		Register(&Scenario{
 			Name:        "AzureLinuxV3_GPUA10/" + vmSize,
@@ -2000,7 +1996,6 @@ func registerAzureLinuxV3GPUA10Scenarios() bool {
 			},
 		})
 	}
-	return true
 }
 
 var _ = Register(&Scenario{

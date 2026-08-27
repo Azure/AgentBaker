@@ -40,12 +40,11 @@ type scenarioResult struct {
 }
 
 type runSummary struct {
-	Total    int
-	Selected int
-	Passed   int
-	Failed   int
-	Skipped  int
-	Flaky    int
+	Total   int
+	Passed  int
+	Failed  int
+	Skipped int
+	Flaky   int
 }
 
 type executor struct {
@@ -57,17 +56,16 @@ type executor struct {
 	consoleMu   sync.Mutex
 	resultsMu   sync.Mutex
 	results     []scenarioResult
-	selected    int
 	scenarios   sync.WaitGroup
 	runScenario func(context.Context, string, toolkit.Logger, *Scenario) error
 }
 
-func newExecutor(ctx context.Context, stdout io.Writer, opts runOptions, selectedEntries int) *executor {
+func newExecutor(ctx context.Context, stdout io.Writer, opts runOptions, runnable int) *executor {
 	return &executor{
 		ctx:         ctx,
 		stdout:      stdout,
 		opts:        opts,
-		stream:      opts.outputMode == "stream" || (opts.outputMode == "auto" && selectedEntries <= 3),
+		stream:      opts.outputMode == "stream" || (opts.outputMode == "auto" && runnable <= 3),
 		sem:         make(chan struct{}, opts.parallel),
 		runScenario: runScenarioFlow,
 	}
@@ -101,16 +99,16 @@ attempts:
 			} else {
 				result.Status = statusPassed
 			}
-			e.addResult(result, true)
+			e.addResult(result)
 			return
 		case statusSkipped:
 			if hadFailure {
 				result.Status = statusFailed
-				e.addResult(result, true)
+				e.addResult(result)
 				return
 			}
 			result.Status = statusSkipped
-			e.addResult(result, !isFilteredSkip(attemptResult.Message))
+			e.addResult(result)
 			return
 		case statusFailed:
 			hadFailure = true
@@ -122,7 +120,7 @@ attempts:
 	if result.Status == "" {
 		result.Status = statusFailed
 	}
-	e.addResult(result, true)
+	e.addResult(result)
 }
 
 func (e *executor) executeAttempt(name string, attempt int, original *Scenario) (result attemptResult) {
@@ -132,7 +130,6 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 	if err != nil {
 		return attemptResult{Attempt: attempt, Status: statusFailed, Duration: time.Since(started), Message: err.Error(), LogPath: logPath}
 	}
-	defer logger.Close()
 	result = attemptResult{Attempt: attempt, LogPath: logPath}
 	var scenario *Scenario
 	var runErr error
@@ -155,16 +152,11 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 		if scenario != nil {
 			result.Checks = append([]scenarioCheck(nil), scenario.checks...)
 		}
-		if result.Status != statusSkipped || !isFilteredSkip(result.Message) {
-			logger.FlushConsole(string(result.Status))
-		}
+		logger.FlushConsole(string(result.Status))
 	}()
 
 	scenario = freshScenario(original)
 	scenario.cleanup = cleanup
-	if runErr = filterScenario(name, scenario, e.opts.tagFilter); runErr != nil {
-		return result
-	}
 	if scenario.SkipIf != nil {
 		if message := scenario.SkipIf(e.ctx); message != "" {
 			runErr = &skipError{message: message}
@@ -202,19 +194,16 @@ func (e *executor) release() {
 	<-e.sem
 }
 
-func (e *executor) addResult(result scenarioResult, selected bool) {
+func (e *executor) addResult(result scenarioResult) {
 	e.resultsMu.Lock()
 	e.results = append(e.results, result)
-	if selected {
-		e.selected++
-	}
 	e.resultsMu.Unlock()
 }
 
 func (e *executor) summary() runSummary {
 	e.resultsMu.Lock()
 	defer e.resultsMu.Unlock()
-	summary := runSummary{Total: len(e.results), Selected: e.selected}
+	summary := runSummary{Total: len(e.results)}
 	for _, result := range e.results {
 		switch result.Status {
 		case statusPassed:
@@ -335,8 +324,4 @@ func (l *scenarioLogger) recordErr(err error) {
 	if l.err == nil {
 		l.err = err
 	}
-}
-
-func isFilteredSkip(message string) bool {
-	return strings.HasPrefix(message, "filtered:")
 }
