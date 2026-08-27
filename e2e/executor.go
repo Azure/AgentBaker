@@ -160,7 +160,7 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 
 	scenario = freshScenario(original)
 	scenario.cleanup = cleanup
-	if runErr = filterScenario(name, scenario); runErr != nil {
+	if runErr = filterScenario(name, scenario, e.opts.tagFilter); runErr != nil {
 		return result
 	}
 	if scenario.SkipIf != nil {
