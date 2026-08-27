@@ -111,6 +111,12 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         The output should not include 'annotate mock called'
     End
 
+    It 'treats an absent annotations map as an unset annotation'
+        When call knead_get_node_annotation '{"metadata":{}}' "${KNEAD_COMPONENT_GOAL_ANNOTATION}"
+        The status should be success
+        The output should equal ''
+    End
+
     It 'fails after the kubeconfig wait deadline'
         rm -f "${KUBECONFIG}"
         KNEAD_KUBECONFIG_WAIT_TIMEOUT_SECONDS=0

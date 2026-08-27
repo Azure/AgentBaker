@@ -120,6 +120,12 @@ Describe 'security-update.sh'
         The contents of file "${SECURITY_PATCH_CONFIG_DIR}/sources.list" should not include 'snapshot.ubuntu.com'
     End
 
+    It 'uses the snapshot service when the annotations map is absent'
+        When call security_patch_repo_endpoint '{"metadata":{}}'
+        The status should be success
+        The output should equal 'snapshot.ubuntu.com'
+    End
+
     It 'falls back to the snapshot service for an invalid repository annotation'
         TEST_NODE_JSON="$(security_patch_test_node_json 'example.com')"
         export TEST_NODE_JSON
