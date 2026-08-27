@@ -68,7 +68,7 @@ security_patch_repo_endpoint() {
     local repo_service
     local private_ip_regex='^((10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})|(172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3})|(192\.168\.[0-9]{1,3}\.[0-9]{1,3}))$'
 
-    if ! repo_service="$(printf '%s' "${node_json}" | jq -r '.metadata.annotations["kubernetes.azure.com/live-patching-repo-service"] // empty')"; then
+    if ! repo_service="$(printf '%s' "${node_json}" | jq -r '(.metadata.annotations // {})["kubernetes.azure.com/live-patching-repo-service"] // empty')"; then
         echo "failed to read live patching repo service annotation"
         return 1
     fi
