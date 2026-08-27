@@ -1178,6 +1178,66 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
+	Name:        "Ubuntu2604Minimal_ArtifactStreaming",
+	Description: "tests that a new ubuntu 2604 minimal node using artifact streaming can be properly bootstrapped",
+	Tags: Tags{
+		Scriptless: true,
+	},
+	Config: Config{
+		Cluster: ClusterLatestKubernetesVersionKubenet,
+		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableArtifactStreaming = true
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.EnableArtifactStreaming = true
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd"),
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service"),
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service"),
+			)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:        "Ubuntu2604Minimal_ArtifactStreaming_ARM64",
+	Description: "tests that a new ubuntu 2604 minimal node using artifact streaming and ARM64 architecture can be properly bootstrapped",
+	Tags: Tags{
+		Scriptless: true,
+	},
+	Config: Config{
+		Cluster: ClusterLatestKubernetesVersionKubenet,
+		VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+		},
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableArtifactStreaming = true
+			nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+			nbc.IsARM64 = true
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.EnableArtifactStreaming = true
+			config.VmSize = "Standard_D2pds_V5"
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd"),
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service"),
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service"),
+			)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_ArtifactStreaming_TrustedLaunch",
 	Description: "tests that a new ubuntu 2204 node using artifact streaming with trusted launch can be properly bootstrapped",
 	Config: Config{
