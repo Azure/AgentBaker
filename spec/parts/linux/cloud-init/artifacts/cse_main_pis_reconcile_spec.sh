@@ -114,5 +114,19 @@ Describe 'cse_main.sh PIS-safe configuration'
             The line 4 of output should equal '    nodePrep'
             The lines of output should equal 4
         End
+
+        It 'removes the GPU prebake during image-creation basePrep only'
+            gpu_cleanup_counts() {
+                phase_count "basePrep" "cleanUpPrebakedGPUDriverForImageCustomization"
+                phase_count "nodePrep" "cleanUpPrebakedGPUDriverForImageCustomization"
+                phase_body "basePrep" | code_lines | grep -F -c 'if [ "${PRE_PROVISION_ONLY}" = "true" ] && [ "$OS" = "$UBUNTU_OS_NAME" ]; then' || true
+                phase_body "basePrep" | code_lines | grep -c 'ERR_GPU_PREBAKE_CLEANUP_FAIL' || true
+            }
+            When call gpu_cleanup_counts
+            The line 1 of output should equal "1"
+            The line 2 of output should equal "0"
+            The line 3 of output should equal "1"
+            The line 4 of output should equal "1"
+        End
     End
 End

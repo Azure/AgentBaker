@@ -87,6 +87,32 @@ Describe 'cse_install_ubuntu.sh'
         End
     End
 
+    Describe 'cleanUpPrebakedGPUDriverForImageCustomization'
+        It 'is a no-op when the prebake marker is absent'
+            GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
+            cleanUpPrebakedGPUDriver() { echo "cleanup should not run"; }
+            When call cleanUpPrebakedGPUDriverForImageCustomization
+            The status should be success
+            The output should equal ""
+        End
+
+        It 'succeeds only after cleanup removes the prebake marker'
+            GPU_DKMS_MARKER_FILE="$(mktemp)"
+            cleanUpPrebakedGPUDriver() { rm -f "${GPU_DKMS_MARKER_FILE}"; }
+            When call cleanUpPrebakedGPUDriverForImageCustomization
+            The status should be success
+            The output should include "AKS_GPU_PREBAKE event=image_customization status=released"
+        End
+
+        It 'fails image customization when cleanup leaves the prebake marker'
+            GPU_DKMS_MARKER_FILE="$(mktemp)"
+            cleanUpPrebakedGPUDriver() { echo "mock incomplete cleanup"; }
+            When call cleanUpPrebakedGPUDriverForImageCustomization
+            The status should be failure
+            The output should include "Failed to remove the AKS GPU driver prebake before image customization"
+        End
+    End
+
     Describe 'installPackageFromCache version matching'
         deb_cache_root="/tmp/shellspec-deb-cache-$$"
 

@@ -410,6 +410,13 @@ EOF
         createManDbAutoUpdateFlagFile
         /usr/bin/mandb && echo "man-db finished updates at $(date)" &
     fi
+
+    # PIS captures basePrep output before customer customization and skips nodePrep on the bake VM.
+    # Release the shared-VHD GPU prebake here, while every marked NVIDIA asset is still AKS-owned.
+    # The strict wrapper keeps the marker and fails the bake if complete removal cannot be proven.
+    if [ "${PRE_PROVISION_ONLY}" = "true" ] && [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        logs_to_events "AKS.CSE.cleanUpPrebakedGPUDriverForImageCustomization" cleanUpPrebakedGPUDriverForImageCustomization || exit "$ERR_GPU_PREBAKE_CLEANUP_FAIL"
+    fi
 }
 
 # ====== NODE PREP: CLUSTER INTEGRATION ======

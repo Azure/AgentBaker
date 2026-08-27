@@ -149,6 +149,7 @@ ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT=225 # Timeout waiting for NVIDIA GPG key dow
 ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT=226 # Timeout waiting for NVIDIA AzureLinux repo file download
 ERR_MANAGED_NVIDIA_EXP_INSTALL_FAIL=227 # Error installing Managed NVIDIA GPU experience packages
 ERR_NVIDIA_DCGM_INSTALL=235 # Error installing Managed NVIDIA GPU experience packages from cache
+ERR_GPU_PREBAKE_CLEANUP_FAIL=236 # Error removing the AKS GPU driver prebake before image customization
 ERR_NVIDIA_DCGM_FAIL=228 # Error starting or enabling NVIDIA DCGM service
 ERR_NVIDIA_DCGM_EXPORTER_FAIL=229 # Error starting or enabling NVIDIA DCGM Exporter service
 ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags for whether we need to enable managed GPU experience

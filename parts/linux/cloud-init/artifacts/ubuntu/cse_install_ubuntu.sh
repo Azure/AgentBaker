@@ -307,11 +307,9 @@ removeNvidiaRepos() {
     fi
 }
 
-# cleanUpPrebakedGPUDriver removes a CUDA driver pre-baked into the shared VHD on any node that does
-# NOT install the AKS-managed driver -- the cleanUpGPUDrivers path (GPU_NODE != true OR
-# skip_nvidia_driver_install=true): non-GPU VMs, and GPU VMs opted out via --gpu-driver None or the
-# skip toggle/tag. There the driver is dead weight (wasted disk; nvidia.ko rebuilt on every kernel
-# patch) and, on an opted-out GPU node, unused attack surface.
+# cleanUpPrebakedGPUDriver removes the CUDA driver pre-baked into the shared VHD. It is used when a
+# real node does not install the AKS-managed driver and when an image-customization workflow needs a
+# clean base before customer scripts run.
 #
 # The prebaked module MAY already be loaded when we run: cuda(-lts) prebakes auto-load nvidia.ko at
 # boot (~5s, well before CSE), so on a cuda/cuda-lts SKU opted out via --gpu-driver None the module
@@ -324,7 +322,7 @@ cleanUpPrebakedGPUDriver() {
     if [ ! -f "${marker}" ]; then
         return 0
     fi
-    echo "Removing pre-baked NVIDIA driver inherited from shared VHD (node does not install the managed driver)"
+    echo "Removing pre-baked NVIDIA driver inherited from shared VHD"
     local dkms_before=false module_before=false module_after=false
     [ -d /var/lib/dkms/nvidia ] && dkms_before=true
 
@@ -376,6 +374,24 @@ cleanUpPrebakedGPUDriver() {
         status=incomplete
     fi
     echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=${status} dkms_before=${dkms_before} module_before=${module_before} module_after=${module_after} marker_after=${marker_after} dkms_after=${dkms_after} modprobe_after=${modprobe_after}"
+}
+
+# Removes the AKS-owned GPU driver prebake before an image customization workflow can add
+# customer-owned software. The function is a no-op without an AKS marker and fails if cleanup
+# leaves the marker in place, which prevents capture of an image with ambiguous driver ownership.
+cleanUpPrebakedGPUDriverForImageCustomization() {
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    if [ ! -f "${marker}" ]; then
+        return 0
+    fi
+
+    cleanUpPrebakedGPUDriver
+    if [ -f "${marker}" ]; then
+        echo "Failed to remove the AKS GPU driver prebake before image customization"
+        return 1
+    fi
+
+    echo "AKS_GPU_PREBAKE event=image_customization status=released"
 }
 
 cleanUpGPUDrivers() {
