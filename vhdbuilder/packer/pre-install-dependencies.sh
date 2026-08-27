@@ -95,6 +95,9 @@ capture_benchmark "${SCRIPT_NAME}_enable_and_configure_logging_services"
 # Sometimes its also started diretly in boothook
 systemctl disable aks-node-controller.service
 
+# Pulled in by kubelet.service via WantedBy=kubelet.service, so CSE does not need to start it.
+systemctl enable emit-kubelet-active-flags.service
+
 # First handle Mariner + FIPS
 if isMarinerOrAzureLinux "$OS"; then
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
@@ -180,7 +183,6 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       "linux-tools-azure-lts-${UBUNTU_RELEASE}"
       "linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
       "linux-headers-azure-lts-${UBUNTU_RELEASE}"
-      "linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
     )
     echo "Installing fde LTS kernel for CVM Ubuntu ${UBUNTU_RELEASE}"
   else
@@ -191,9 +193,16 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       "linux-tools-azure-lts-${UBUNTU_RELEASE}"
       "linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
       "linux-headers-azure-lts-${UBUNTU_RELEASE}"
-      "linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
     )
     echo "Installing LTS kernel for Ubuntu ${UBUNTU_RELEASE}"
+  fi
+
+  # Add modules-extra only when the package exists in the current apt repo
+  MODULES_EXTRA_PKG="linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
+  if apt-cache show "${MODULES_EXTRA_PKG}" &>/dev/null; then
+    KERNEL_PACKAGES+=("${MODULES_EXTRA_PKG}")
+  else
+    echo "Package ${MODULES_EXTRA_PKG} not available - skipping"
   fi
 
   echo "Logging the currently running kernel: $(uname -r)"

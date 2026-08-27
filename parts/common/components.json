@@ -8,8 +8,8 @@
         {
           "comment": "Windows 2022 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.5386",
-          "previousLatestVersion": "10.0.20348.5256",
+          "latestVersion": "10.0.20348.5499",
+          "previousLatestVersion": "10.0.20348.5386",
           "windowsSkuMatch": "2022-containerd*"
         },
         {
@@ -21,8 +21,8 @@
         {
           "comment": "Windows 2022 servercore for Windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.5386",
-          "previousLatestVersion": "10.0.20348.5256",
+          "latestVersion": "10.0.20348.5499",
+          "previousLatestVersion": "10.0.20348.5386",
           "windowsSkuMatch": "2025*"
         },
         {
@@ -34,8 +34,8 @@
         {
           "comment": "Windows 2025 servercore for windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.26100.33158",
-          "previousLatestVersion": "10.0.26100.32995",
+          "latestVersion": "10.0.26100.33296",
+          "previousLatestVersion": "10.0.26100.33158",
           "windowsSkuMatch": "2025*"
         },
         {
@@ -74,7 +74,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/autoscaler/addon-resizer",
-          "latestVersion": "v1.8.23-28"
+          "latestVersion": "v1.8.23-29"
         }
       ],
       "windowsVersions": []
@@ -97,34 +97,20 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/pause:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/pause",
-          "latestVersion": "3.6"
-        }
-      ],
-      "windowsVersions": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/pause",
-          "latestVersion": "3.9-hotfix-20230808"
-        }
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/pause:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/pause",
-          "latestVersion": "3.6"
+          "latestVersion": "3.10.2",
+          "previousLatestVersion": "3.6"
         }
       ],
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/pause",
-          "latestVersion": "3.10.1"
+          "latestVersion": "3.10.2",
+          "previousLatestVersion": "3.10.1"
         }
       ]
     },
@@ -157,33 +143,14 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.5.50"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
           "latestVersion": "v1.6.43-0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
           "latestVersion": "v1.7.16-0"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.8.6-0"
         }
       ],
       "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.5.50",
-          "containerImagePrefetch": {
-            "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
-            }
-          }
-        },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
           "latestVersion": "v1.6.43-0",
@@ -205,14 +172,26 @@
               ]
             }
           }
-        },
+        }
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/containernetworking/v2/azure-cni:*",
+      "amd64OnlyVersions": [],
+      "windowsVersions": [
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.8.6-0",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/v2/azure-cni",
+          "latestVersion": "v1.8.12"
+        }
+      ],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/v2/azure-cni",
+          "latestVersion": "v1.8.12",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
-                "/dropgz"
+                "/usr/bin/dropgz"
               ]
             }
           }
@@ -225,33 +204,14 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.5.50"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
           "latestVersion": "v1.6.43-0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
           "latestVersion": "v1.7.16-0"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.8.6-0"
         }
       ],
       "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.5.50",
-          "containerImagePrefetch": {
-            "latestVersion": {
-              "binaries": [
-                "/usr/local/bin/azure-cns"
-              ]
-            }
-          }
-        },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
           "latestVersion": "v1.6.43-0",
@@ -273,14 +233,26 @@
               ]
             }
           }
-        },
+        }
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/containernetworking/v2/azure-cns:*",
+      "amd64OnlyVersions": [],
+      "windowsVersions": [
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.8.6-0",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/v2/azure-cns",
+          "latestVersion": "v1.8.12"
+        }
+      ],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/v2/azure-cns",
+          "latestVersion": "v1.8.12",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
-                "/usr/local/bin/azure-cns"
+                "/usr/bin/azure-cns"
               ]
             }
           }
@@ -293,8 +265,29 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-ipam",
-          "previousLatestVersion": "v0.2.0",
           "latestVersion": "v0.2.1",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/dropgz"
+              ]
+            }
+          }
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-ipam",
+          "latestVersion": "v0.3.0",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/dropgz"
+              ]
+            }
+          }
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-ipam",
+          "latestVersion": "v0.4.0-0",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -323,8 +316,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium-log-collector",
-          "latestVersion": "v0.0.2-0",
-          "previousLatestVersion": "v0.0.1-0"
+          "latestVersion": "v0.0.2-0"
         }
       ],
       "windowsVersions": []
@@ -335,12 +327,27 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless",
-          "latestVersion": "v1.18.9-260508",
-          "previousLatestVersion": "v1.18.6-260312"
+          "latestVersion": "v1.18.12-260811",
+          "previousLatestVersion": "v1.18.11-260622",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/usr/bin/cilium-agent"
+              ]
+            }
+          }
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless",
-          "latestVersion": "v1.19.3-260520"
+          "latestVersion": "v1.19.6-260811",
+          "previousLatestVersion": "v1.19.5-260714",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/usr/bin/cilium-agent"
+              ]
+            }
+          }
         }
       ],
       "windowsVersions": []
@@ -351,12 +358,27 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless-init",
-          "latestVersion": "v1.18.9-260508",
-          "previousLatestVersion": "v1.18.6-260312"
+          "latestVersion": "v1.18.12-260811",
+          "previousLatestVersion": "v1.18.11-260622",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/opt/cni/bin/cilium-cni"
+              ]
+            }
+          }
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless-init",
-          "latestVersion": "v1.19.3-260520"
+          "latestVersion": "v1.19.6-260811",
+          "previousLatestVersion": "v1.19.5-260714",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/opt/cni/bin/cilium-cni"
+              ]
+            }
+          }
         }
       ],
       "windowsVersions": []
@@ -367,7 +389,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/apiserver-network-proxy/agent",
-          "latestVersion": "v0.32.1-2"
+          "latestVersion": "v0.32.1-11"
         }
       ],
       "windowsVersions": []
@@ -378,7 +400,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/secrets-store/driver",
-          "latestVersion": "v1.5.4"
+          "latestVersion": "v1.6.0-7"
         }
       ]
     },
@@ -388,7 +410,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/secrets-store/provider-azure",
-          "latestVersion": "v1.7.2"
+          "latestVersion": "v1.8.2-6"
         }
       ]
     },
@@ -398,7 +420,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
-          "latestVersion": "3.5.0"
+          "latestVersion": "3.6.0"
         }
       ],
       "windowsVersions": []
@@ -409,15 +431,15 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "7.1.0-main-07-07-2026-548e23dc"
+          "latestVersion": "7.2.0-main-07-27-2026-2169504d"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "7.1.0-main-07-07-2026-548e23dc-targetallocator"
+          "latestVersion": "7.2.0-main-07-27-2026-2169504d-targetallocator"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "7.1.0-main-07-07-2026-548e23dc-cfg"
+          "latestVersion": "7.2.0-main-07-27-2026-2169504d-cfg"
         }
       ],
       "windowsVersions": []
@@ -439,45 +461,45 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.33.15-2",
-          "previousLatestVersion": "v1.33.15-1"
+          "latestVersion": "v1.33.17-1",
+          "previousLatestVersion": "v1.33.16-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.34.12-2",
-          "previousLatestVersion": "v1.34.12-1"
+          "latestVersion": "v1.34.13-1",
+          "previousLatestVersion": "v1.34.12-3"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.35.7-2",
-          "previousLatestVersion": "v1.35.7-1"
+          "latestVersion": "v1.35.8-1",
+          "previousLatestVersion": "v1.35.7-3"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.36.3-2",
-          "previousLatestVersion": "v1.36.3-1"
+          "latestVersion": "v1.36.5-1",
+          "previousLatestVersion": "v1.36.4-1"
         }
       ],
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.33.15-windows-hpc-1",
-          "previousLatestVersion": "v1.33.14-windows-hpc-1"
+          "latestVersion": "v1.33.17-windows-hpc-1",
+          "previousLatestVersion": "v1.33.16-windows-hpc-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.34.12-windows-hpc-1",
-          "previousLatestVersion": "v1.34.11-windows-hpc-1"
+          "latestVersion": "v1.34.13-windows-hpc-1",
+          "previousLatestVersion": "v1.34.12-windows-hpc-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.35.7-windows-hpc-1",
-          "previousLatestVersion": "v1.35.6-windows-hpc-1"
+          "latestVersion": "v1.35.8-windows-hpc-1",
+          "previousLatestVersion": "v1.35.7-windows-hpc-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.36.3-windows-hpc-1",
-          "previousLatestVersion": "v1.36.2-windows-hpc-1"
+          "latestVersion": "v1.36.5-windows-hpc-1",
+          "previousLatestVersion": "v1.36.4-windows-hpc-1"
         }
       ]
     },
@@ -487,11 +509,11 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler",
-          "latestVersion": "v1.8.11-14"
+          "latestVersion": "v1.8.11-27"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler",
-          "latestVersion": "v1.9.0-21"
+          "latestVersion": "v1.9.0-22"
         }
       ],
       "windowsVersions": []
@@ -502,8 +524,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/ip-masq-agent-v2",
-          "latestVersion": "v0.1.16-13",
-          "previousLatestVersion": "v0.1.16-10"
+          "latestVersion": "v0.1.16-16",
+          "previousLatestVersion": "v0.1.16-15"
         }
       ],
       "windowsVersions": []
@@ -514,25 +536,23 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.34.4",
-          "previousLatestVersion": "v1.34.3"
+          "latestVersion": "v1.34.5"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.33.10",
-          "previousLatestVersion": "v1.33.9"
+          "latestVersion": "v1.33.11"
         }
       ],
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.34.4-windows-hp",
-          "previousLatestVersion": "v1.34.3-windows-hp"
+          "latestVersion": "v1.34.5-windows-hp",
+          "previousLatestVersion": "v1.34.4-windows-hp"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.33.10-windows-hp",
-          "previousLatestVersion": "v1.33.9-windows-hp"
+          "latestVersion": "v1.33.11-windows-hp",
+          "previousLatestVersion": "v1.33.10-windows-hp"
         }
       ]
     },
@@ -542,8 +562,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.35.6",
-          "previousLatestVersion": "v1.35.5"
+          "latestVersion": "v1.35.7",
+          "previousLatestVersion": "v1.35.6"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
@@ -552,15 +572,15 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.34.7",
-          "previousLatestVersion": "v1.34.6"
+          "latestVersion": "v1.34.8",
+          "previousLatestVersion": "v1.34.7"
         }
       ],
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.35.6-windows-hp",
-          "previousLatestVersion": "v1.35.5-windows-hp"
+          "latestVersion": "v1.35.7-windows-hp",
+          "previousLatestVersion": "v1.35.6-windows-hp"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
@@ -569,8 +589,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.34.7-windows-hp",
-          "previousLatestVersion": "v1.34.6-windows-hp"
+          "latestVersion": "v1.34.8-windows-hp",
+          "previousLatestVersion": "v1.34.7-windows-hp"
         }
       ]
     },
@@ -580,13 +600,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.26.15",
-          "previousLatestVersion": "v1.26.14"
+          "latestVersion": "v1.26.16",
+          "previousLatestVersion": "v1.26.15"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.27.8",
-          "previousLatestVersion": "v1.27.7"
+          "latestVersion": "v1.27.9",
+          "previousLatestVersion": "v1.27.8"
         }
       ],
       "windowsVersions": []
@@ -602,10 +622,6 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
           "latestVersion": "v2.18.0"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.17.0"
         }
       ],
       "windowsVersions": [
@@ -616,10 +632,6 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
           "latestVersion": "v2.18.0"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.17.0"
         }
       ]
     },
@@ -634,10 +646,6 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
           "latestVersion": "v2.16.0"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.15.0"
         }
       ],
       "windowsVersions": [
@@ -648,24 +656,8 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
           "latestVersion": "v2.16.0"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.15.0"
         }
       ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/open-policy-agent/gatekeeper",
-          "latestVersion": "v3.20.1-6",
-          "previousLatestVersion": "v3.20.1-4"
-        }
-      ],
-      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-app-routing-operator:*",
@@ -677,30 +669,6 @@
       "downloadURL": "mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [],
-      "windowsVersions": []
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.15.5",
-          "previousLatestVersion": "1.15.4"
-        }
-      ],
-      "windowsVersions": []
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.15.5",
-          "previousLatestVersion": "1.15.4"
-        }
-      ],
       "windowsVersions": []
     },
     {
@@ -725,7 +693,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/windows-gmsa-webhook",
-          "latestVersion": "v0.12.1-17"
+          "latestVersion": "v0.12.1-18"
         }
       ],
       "windowsVersions": []
@@ -736,15 +704,19 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kube-proxy",
-          "latestVersion": "v1.33.13-4"
+          "latestVersion": "v1.33.7-16"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kube-proxy",
-          "latestVersion": "v1.34.9-4"
+          "latestVersion": "v1.34.10-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kube-proxy",
-          "latestVersion": "v1.35.6-4"
+          "latestVersion": "v1.35.7-1"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kube-proxy",
+          "latestVersion": "v1.36.3-1"
         }
       ],
       "windowsVersions": []
@@ -776,7 +748,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid-v20:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid-v20",
-        "latestVersion": "595.58.03-20260609172331"
+          "latestVersion": "595.58.03-20260629214401"
       }
     }
   ],
@@ -1101,7 +1073,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "2.3.2-ubuntu26.04u2"
+                "latestVersion": "2.3.3-ubuntu26.04u2"
               }
             ]
           },
@@ -1117,7 +1089,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.7.34-ubuntu22.04u1"
+                "latestVersion": "1.7.34-ubuntu22.04u2"
               }
             ]
           },
@@ -1125,7 +1097,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.34-ubuntu20.04u1"
+                "latestVersion": "1.7.34-ubuntu20.04u2"
               }
             ]
           }
@@ -1155,7 +1127,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=containerd2, os=azurelinux, release=3.0",
-                "latestVersion": "2.2.4-5.azl3"
+                "latestVersion": "2.2.4-6.azl3"
               }
             ]
           },
@@ -1386,7 +1358,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.34.0-ubuntu20.04u5"
+                "latestVersion": "1.34.0-ubuntu20.04u21"
               }
             ]
           },
@@ -1394,7 +1366,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.34.0-ubuntu22.04u5"
+                "latestVersion": "1.34.0-ubuntu22.04u21"
               }
             ]
           },
@@ -1402,7 +1374,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.34.0-ubuntu24.04u5"
+                "latestVersion": "1.34.0-ubuntu24.04u21"
               }
             ]
           },
@@ -1410,7 +1382,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.34.0-ubuntu26.04u5"
+                "latestVersion": "1.34.0-ubuntu26.04u21"
               }
             ]
           }
@@ -1440,7 +1412,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.0-5.azl3"
+                "latestVersion": "1.34.0-21.azl3"
               }
             ]
           },
@@ -1458,7 +1430,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.0-5.azl3"
+                "latestVersion": "1.34.0-21.azl3"
               }
             ]
           }
@@ -1476,8 +1448,8 @@
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.36.2-ubuntu26.04u2",
-                "previousLatestVersion": "1.36.1-ubuntu26.04u3"
+                "latestVersion": "1.36.3-ubuntu26.04u1",
+                "previousLatestVersion": "1.36.2-ubuntu26.04u2"
               }
             ]
           },
@@ -1486,13 +1458,20 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.34.9-ubuntu24.04u1",
-                "previousLatestVersion": "1.34.8-ubuntu24.04u1"
+                "latestVersion": "1.34.10-ubuntu24.04u1",
+                "previousLatestVersion": "1.34.9-ubuntu24.04u2"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.35.6-ubuntu24.04u1"
+                "latestVersion": "1.35.7-ubuntu24.04u2",
+                "previousLatestVersion": "1.35.6-ubuntu24.04u2"
+              },
+              {
+                "k8sVersion": "1.36",
+                "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "1.36.3-ubuntu24.04u1",
+                "previousLatestVersion": "1.36.2-ubuntu24.04u2"
               }
             ]
           },
@@ -1501,13 +1480,20 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.34.9-ubuntu22.04u1",
-                "previousLatestVersion": "1.34.8-ubuntu22.04u1"
+                "latestVersion": "1.34.10-ubuntu22.04u1",
+                "previousLatestVersion": "1.34.9-ubuntu22.04u2"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.35.6-ubuntu22.04u1"
+                "latestVersion": "1.35.7-ubuntu22.04u2",
+                "previousLatestVersion": "1.35.6-ubuntu22.04u2"
+              },
+              {
+                "k8sVersion": "1.36",
+                "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "1.36.3-ubuntu22.04u1",
+                "previousLatestVersion": "1.36.2-ubuntu22.04u2"
               }
             ]
           },
@@ -1516,8 +1502,8 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.34.9-ubuntu20.04u1",
-                "previousLatestVersion": "1.34.8-ubuntu20.04u1"
+                "latestVersion": "1.34.10-ubuntu20.04u1",
+                "previousLatestVersion": "1.34.9-ubuntu20.04u2"
               }
             ]
           }
@@ -1528,13 +1514,20 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubelet, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.9-1.azl3",
-                "previousLatestVersion": "1.34.8-1.azl3"
+                "latestVersion": "1.34.10-1.azl3",
+                "previousLatestVersion": "1.34.9-2.azl3"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubelet, os=azurelinux, release=3.0",
-                "latestVersion": "1.35.6-1.azl3"
+                "latestVersion": "1.35.7-2.azl3",
+                "previousLatestVersion": "1.35.6-2.azl3"
+              },
+              {
+                "k8sVersion": "1.36",
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubelet, os=azurelinux, release=3.0",
+                "latestVersion": "1.36.3-1.azl3",
+                "previousLatestVersion": "1.36.2-2.azl3"
               }
             ]
           }
@@ -1543,29 +1536,22 @@
           "current": {
             "versionsV2": [
               {
-                "k8sVersion": "1.31",
-                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
-                "latestVersion": "v1.31.14-1-azlinux3"
-              },
-              {
-                "k8sVersion": "1.32",
-                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
-                "latestVersion": "v1.32.11-1-azlinux3"
-              },
-              {
-                "k8sVersion": "1.33",
-                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
-                "latestVersion": "v1.33.12-1-azlinux3"
-              },
-              {
                 "k8sVersion": "1.34",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
-                "latestVersion": "v1.34.8-1-azlinux3"
+                "latestVersion": "v1.34.10-1-azlinux3",
+                "previousLatestVersion": "v1.34.9-2-azlinux3"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
-                "latestVersion": "v1.35.5-1-azlinux3"
+                "latestVersion": "v1.35.7-2-azlinux3",
+                "previousLatestVersion": "v1.35.6-2-azlinux3"
+              },
+              {
+                "k8sVersion": "1.36",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
+                "latestVersion": "v1.36.3-1-azlinux3",
+                "previousLatestVersion": "v1.36.2-2-azlinux3"
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext:${version}-${SYSTEMD_ARCH}"
@@ -1584,8 +1570,8 @@
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.36.2-ubuntu26.04u5",
-                "previousLatestVersion": "1.36.1-ubuntu26.04u9"
+                "latestVersion": "1.36.3-ubuntu26.04u1",
+                "previousLatestVersion": "1.36.2-ubuntu26.04u6"
               }
             ]
           },
@@ -1594,13 +1580,20 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.34.9-ubuntu24.04u3",
-                "previousLatestVersion": "1.34.8-ubuntu24.04u4"
+                "latestVersion": "1.34.10-ubuntu24.04u1",
+                "previousLatestVersion": "1.34.9-ubuntu24.04u5"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.35.6-ubuntu24.04u3"
+                "latestVersion": "1.35.7-ubuntu24.04u1",
+                "previousLatestVersion": "1.35.6-ubuntu24.04u5"
+              },
+              {
+                "k8sVersion": "1.36",
+                "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "1.36.3-ubuntu24.04u1",
+                "previousLatestVersion": "1.36.2-ubuntu24.04u6"
               }
             ]
           },
@@ -1609,13 +1602,20 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.34.8-ubuntu22.04u4",
-                "previousLatestVersion": "1.34.8-ubuntu22.04u2"
+                "latestVersion": "1.34.10-ubuntu22.04u1",
+                "previousLatestVersion": "1.34.9-ubuntu22.04u5"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.35.5-ubuntu22.04u4"
+                "latestVersion": "1.35.7-ubuntu22.04u1",
+                "previousLatestVersion": "1.35.6-ubuntu22.04u5"
+              },
+              {
+                "k8sVersion": "1.36",
+                "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "1.36.3-ubuntu22.04u1",
+                "previousLatestVersion": "1.36.2-ubuntu22.04u6"
               }
             ]
           },
@@ -1624,8 +1624,8 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.34.9-ubuntu20.04u3",
-                "previousLatestVersion": "1.34.8-ubuntu20.04u4"
+                "latestVersion": "1.34.10-ubuntu20.04u1",
+                "previousLatestVersion": "1.34.9-ubuntu20.04u5"
               }
             ]
           }
@@ -1636,13 +1636,20 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubectl, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.9-3.azl3",
-                "previousLatestVersion": "1.34.8-4.azl3"
+                "latestVersion": "1.34.10-1.azl3",
+                "previousLatestVersion": "1.34.9-5.azl3"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubectl, os=azurelinux, release=3.0",
-                "latestVersion": "1.35.6-3.azl3"
+                "latestVersion": "1.35.7-1.azl3",
+                "previousLatestVersion": "1.35.6-5.azl3"
+              },
+              {
+                "k8sVersion": "1.36",
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": "1.36.3-1.azl3",
+                "previousLatestVersion": "1.36.2-6.azl3"
               }
             ]
           }
@@ -1651,34 +1658,22 @@
           "current": {
             "versionsV2": [
               {
-                "k8sVersion": "1.30",
-                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
-                "latestVersion": "v1.30.100-3-azlinux3"
-              },
-              {
-                "k8sVersion": "1.31",
-                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
-                "latestVersion": "v1.31.100-1-azlinux3"
-              },
-              {
-                "k8sVersion": "1.32",
-                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
-                "latestVersion": "v1.32.11-1-azlinux3"
-              },
-              {
-                "k8sVersion": "1.33",
-                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
-                "latestVersion": "v1.33.12-1-azlinux3"
-              },
-              {
                 "k8sVersion": "1.34",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
-                "latestVersion": "v1.34.8-1-azlinux3"
+                "latestVersion": "v1.34.10-1-azlinux3",
+                "previousLatestVersion": "v1.34.9-5-azlinux3"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
-                "latestVersion": "v1.35.5-1-azlinux3"
+                "latestVersion": "v1.35.7-1-azlinux3",
+                "previousLatestVersion": "v1.35.6-5-azlinux3"
+              },
+              {
+                "k8sVersion": "1.36",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
+                "latestVersion": "v1.36.3-1-azlinux3",
+                "previousLatestVersion": "v1.36.2-6-azlinux3"
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/kubectl-sysext:${version}-${SYSTEMD_ARCH}"
@@ -1805,7 +1800,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "0.53.2-ubuntu26.04u4"
+                "latestVersion": "0.55.0-ubuntu26.04u4"
               }
             ]
           },
@@ -1813,7 +1808,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.53.2-ubuntu24.04u4"
+                "latestVersion": "0.55.0-ubuntu24.04u4"
               }
             ]
           },
@@ -1821,7 +1816,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.53.2-ubuntu22.04u4"
+                "latestVersion": "0.55.0-ubuntu22.04u4"
               }
             ]
           },
@@ -1829,7 +1824,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "0.53.2-ubuntu20.04u4"
+                "latestVersion": "0.55.0-ubuntu20.04u4"
               }
             ]
           }
@@ -1839,7 +1834,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=ig, os=azurelinux, release=3.0",
-                "latestVersion": "0.53.2-3.azl3"
+                "latestVersion": "0.55.0-4.azl3"
               }
             ]
           }
@@ -1857,110 +1852,77 @@
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.36.3-ubuntu26.04u2",
-                "previousLatestVersion": "1.36.2-ubuntu26.04u2"
+                "latestVersion": "1.36.5-ubuntu26.04u1",
+                "previousLatestVersion": "1.36.4-ubuntu26.04u1"
               }
             ]
           },
           "r2404": {
             "versionsV2": [
               {
-                "k8sVersion": "1.32",
-                "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.32.19-ubuntu24.04u1",
-                "previousLatestVersion": "1.32.18-ubuntu24.04u1"
-              },
-              {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.33.15-ubuntu24.04u1",
-                "previousLatestVersion": "1.33.14-ubuntu24.04u1"
+                "latestVersion": "1.33.17-ubuntu24.04u1"
               },
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.34.12-ubuntu24.04u1",
-                "previousLatestVersion": "1.34.11-ubuntu24.04u1"
+                "latestVersion": "1.34.13-ubuntu24.04u1",
+                "previousLatestVersion": "1.34.12-ubuntu24.04u2"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.35.7-ubuntu24.04u1",
-                "previousLatestVersion": "1.35.6-ubuntu24.04u1"
+                "latestVersion": "1.35.8-ubuntu24.04u1",
+                "previousLatestVersion": "1.35.7-ubuntu24.04u2"
               },
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.36.3-ubuntu24.04u2",
-                "previousLatestVersion": "1.36.3-ubuntu24.04u1"
+                "latestVersion": "1.36.5-ubuntu24.04u1",
+                "previousLatestVersion": "1.36.4-ubuntu24.04u1"
               }
             ]
           },
           "r2204": {
             "versionsV2": [
               {
-                "k8sVersion": "1.32",
-                "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.32.19-ubuntu22.04u1",
-                "previousLatestVersion": "1.32.18-ubuntu22.04u1"
-              },
-              {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.33.15-ubuntu22.04u1",
-                "previousLatestVersion": "1.33.14-ubuntu22.04u1"
+                "latestVersion": "1.33.17-ubuntu22.04u1"
               },
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.34.12-ubuntu22.04u1",
-                "previousLatestVersion": "1.34.11-ubuntu22.04u1"
+                "latestVersion": "1.34.13-ubuntu22.04u1",
+                "previousLatestVersion": "1.34.12-ubuntu22.04u2"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.35.7-ubuntu22.04u1",
-                "previousLatestVersion": "1.35.6-ubuntu22.04u1"
+                "latestVersion": "1.35.8-ubuntu22.04u1",
+                "previousLatestVersion": "1.35.7-ubuntu22.04u2"
               },
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.36.3-ubuntu22.04u2",
-                "previousLatestVersion": "1.36.3-ubuntu22.04u1"
+                "latestVersion": "1.36.5-ubuntu22.04u1",
+                "previousLatestVersion": "1.36.4-ubuntu22.04u1"
               }
             ]
           },
           "r2004": {
             "versionsV2": [
               {
-                "k8sVersion": "1.32",
-                "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.32.19-ubuntu20.04u1",
-                "previousLatestVersion": "1.32.18-ubuntu20.04u1"
-              },
-              {
                 "k8sVersion": "1.33",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.33.15-ubuntu20.04u1",
-                "previousLatestVersion": "1.33.14-ubuntu20.04u1"
+                "latestVersion": "1.33.17-ubuntu20.04u1"
               },
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.34.12-ubuntu20.04u1",
-                "previousLatestVersion": "1.34.11-ubuntu20.04u1"
-              },
-              {
-                "k8sVersion": "1.35",
-                "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.35.7-ubuntu20.04u1",
-                "previousLatestVersion": "1.35.6-ubuntu20.04u1"
-              },
-              {
-                "k8sVersion": "1.36",
-                "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.36.3-ubuntu20.04u1",
-                "previousLatestVersion": "1.36.2-ubuntu20.04u1"
+                "latestVersion": "1.34.13-ubuntu20.04u1",
+                "previousLatestVersion": "1.34.12-ubuntu20.04u2"
               }
             ]
           }
@@ -1969,34 +1931,27 @@
           "v3.0": {
             "versionsV2": [
               {
-                "k8sVersion": "1.32",
-                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=azure-acr-credential-provider, os=azurelinux, release=3.0",
-                "latestVersion": "1.32.19-1.azl3",
-                "previousLatestVersion": "1.32.18-1.azl3"
-              },
-              {
                 "k8sVersion": "1.33",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=azure-acr-credential-provider, os=azurelinux, release=3.0",
-                "latestVersion": "1.33.15-1.azl3",
-                "previousLatestVersion": "1.33.14-1.azl3"
+                "latestVersion": "1.33.17-1.azl3"
               },
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=azure-acr-credential-provider, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.12-1.azl3",
-                "previousLatestVersion": "1.34.11-1.azl3"
+                "latestVersion": "1.34.13-1.azl3",
+                "previousLatestVersion": "1.34.12-2.azl3"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=azure-acr-credential-provider, os=azurelinux, release=3.0",
-                "latestVersion": "1.35.7-1.azl3",
-                "previousLatestVersion": "1.35.6-1.azl3"
+                "latestVersion": "1.35.8-1.azl3",
+                "previousLatestVersion": "1.35.7-2.azl3"
               },
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=azure-acr-credential-provider, os=azurelinux, release=3.0",
-                "latestVersion": "1.36.3-2.azl3",
-                "previousLatestVersion": "1.36.3-1.azl3"
+                "latestVersion": "1.36.5-1.azl3",
+                "previousLatestVersion": "1.36.4-1.azl3"
               }
             ]
           }
@@ -2005,34 +1960,22 @@
           "current": {
             "versionsV2": [
               {
-                "k8sVersion": "1.32",
-                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-acr-credential-provider-sysext",
-                "latestVersion": "v1.32.18-1-azlinux3",
-                "previousLatestVersion": "v1.32.11-1-azlinux3"
-              },
-              {
-                "k8sVersion": "1.33",
-                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-acr-credential-provider-sysext",
-                "latestVersion": "v1.33.14-1-azlinux3",
-                "previousLatestVersion": "v1.33.13-1-azlinux3"
-              },
-              {
                 "k8sVersion": "1.34",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-acr-credential-provider-sysext",
-                "latestVersion": "v1.34.11-1-azlinux3",
-                "previousLatestVersion": "v1.34.10-1-azlinux3"
+                "latestVersion": "v1.34.13-3-azlinux3",
+                "previousLatestVersion": "v1.34.13-2-azlinux3"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-acr-credential-provider-sysext",
-                "latestVersion": "v1.35.6-1-azlinux3",
-                "previousLatestVersion": "v1.35.5-1-azlinux3"
+                "latestVersion": "v1.35.8-3-azlinux3",
+                "previousLatestVersion": "v1.35.8-1-azlinux3"
               },
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-acr-credential-provider-sysext",
-                "latestVersion": "v1.36.2-1-azlinux3",
-                "previousLatestVersion": "v1.36.1-1-azlinux3"
+                "latestVersion": "v1.36.5-3-azlinux3",
+                "previousLatestVersion": "v1.36.5-1-azlinux3"
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/azure-acr-credential-provider-sysext:${version}-${SYSTEMD_ARCH}"
@@ -2122,7 +2065,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=dra-driver-nvidia-gpu, os=azurelinux, release=3.0",
-                "latestVersion": "0.4.1-3.azl3"
+                "latestVersion": "0.4.1-5.azl3"
               }
             ]
           }
@@ -2240,7 +2183,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.9.1-ubuntu26.04u21"
+                "latestVersion": "1.9.1-ubuntu26.04u27"
               }
             ]
           },
@@ -2248,7 +2191,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.9.1-ubuntu24.04u21"
+                "latestVersion": "1.9.1-ubuntu24.04u27"
               }
             ]
           },
@@ -2256,7 +2199,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.9.1-ubuntu22.04u21"
+                "latestVersion": "1.9.1-ubuntu22.04u27"
               }
             ]
           },
@@ -2264,7 +2207,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.9.1-ubuntu20.04u21"
+                "latestVersion": "1.9.1-ubuntu20.04u27"
               }
             ]
           }
@@ -2274,7 +2217,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=node-exporter-kubernetes, os=azurelinux, release=3.0",
-                "latestVersion": "1.9.1-20.azl3"
+                "latestVersion": "1.9.1-26.azl3"
               }
             ]
           },
@@ -2338,7 +2281,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.3.1"
+                "latestVersion": "1.0.0"
               }
             ],
             "downloadURL": "https://acrstreamingpackage.z5.web.core.windows.net/${version}/acr-mirror-2004.deb"
@@ -2347,7 +2290,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.3.1"
+                "latestVersion": "1.0.0"
               }
             ],
             "downloadURL": "https://acrstreamingpackage.z5.web.core.windows.net/${version}/acr-mirror-2204.deb"
@@ -2356,7 +2299,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.3.1"
+                "latestVersion": "1.0.0"
               }
             ],
             "downloadURL": "https://acrstreamingpackage.z5.web.core.windows.net/${version}/acr-mirror-2404.deb"
@@ -2367,7 +2310,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.3.1"
+                "latestVersion": "1.0.0"
               }
             ],
             "downloadURL": "https://acrstreamingpackage.z5.web.core.windows.net/${version}/acr-mirror-azurelinux3.rpm"
@@ -2451,7 +2394,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "2.5.4"
+                "latestVersion": "2.5.5"
               }
             ]
           },
@@ -2459,7 +2402,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "2.5.4"
+                "latestVersion": "2.5.5"
               }
             ]
           },
@@ -2467,7 +2410,15 @@
             "versionsV2": [
               {
                 "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "2.5.4"
+                "latestVersion": "2.5.5"
+              }
+            ]
+          },
+          "r2604": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=26.04",
+                "latestVersion": "2.5.5"
               }
             ]
           }

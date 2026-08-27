@@ -140,27 +140,6 @@ stages:
           parameters:
             artifactName: 2404-gen2-containerd
 
-    - job: build2404cvmgen2containerd
-      timeoutInMinutes: 360
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
-            echo '##vso[task.setvariable variable=OS_VERSION]24.04'
-            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-            echo '##vso[task.setvariable variable=IMG_OFFER]ubuntu-24_04-lts'
-            echo '##vso[task.setvariable variable=IMG_SKU]cvm'
-            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DC16ads_v5'
-            echo '##vso[task.setvariable variable=FEATURE_FLAGS]cvm'
-            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
-            echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
-            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-release-template.yaml
-          parameters:
-            artifactName: 2404-cvm-gen2-containerd
-
     - job: build2604minimalgen2containerd
       timeoutInMinutes: 360
       steps:
@@ -203,6 +182,32 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: azurelinuxv3-gen2
+
+    # Kata VHDs are built here so that VHD-side Kata changes (kata packages, erofs tooling,
+    # kata configuration files) are covered by the E2E stage below. Without this job no Kata
+    # image carries this build's buildId tag, so Test_AzureLinuxV3Gen2Kata silently skips
+    # (the E2E stage sets IgnoreScenariosWithMissingVhd: true).
+    - job: buildAzureLinuxV3gen2kata
+      timeoutInMinutes: 360
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+            echo '##vso[task.setvariable variable=OS_VERSION]V3kata'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+            echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+            echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-gen2'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ads_v5'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
+            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: azurelinuxv3-gen2-kata
 
     - job: buildAzureLinuxV3ARM64gen2fips
       timeoutInMinutes: 360
@@ -260,7 +265,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
             echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
             echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-acl'
-            echo '##vso[task.setvariable variable=IMG_VERSION]3.20260706.01'
+            echo '##vso[task.setvariable variable=IMG_VERSION]3.20260809.01'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -282,7 +287,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
             echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
             echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64-gen2-acl'
-            echo '##vso[task.setvariable variable=IMG_VERSION]3.20260706.01'
+            echo '##vso[task.setvariable variable=IMG_VERSION]3.20260809.01'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -304,7 +309,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
             echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
             echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-acl'
-            echo '##vso[task.setvariable variable=IMG_VERSION]3.20260706.01'
+            echo '##vso[task.setvariable variable=IMG_VERSION]3.20260809.01'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -326,7 +331,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
             echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
             echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64-gen2-acl'
-            echo '##vso[task.setvariable variable=IMG_VERSION]3.20260706.01'
+            echo '##vso[task.setvariable variable=IMG_VERSION]3.20260809.01'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'

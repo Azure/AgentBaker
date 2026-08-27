@@ -17,14 +17,14 @@ const (
 	defaultNS     = "k8s.io"
 	// images with compressed content size below this threshold are
 	// unpacked after fetch, effectively turning the operation into a
-	// full pull (~150 MiB compressed ≈ ~300 MiB unpacked).
-	pullSizeThreshold = 150 * 1024 * 1024 // 150 MiB
+	// full pull (~200 MiB compressed ≈ ~400 MiB unpacked).
+	pullSizeThreshold = 200 * 1024 * 1024 // 200 MiB
 )
 
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, "Usage: %s <image-ref> [image-ref...]\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "Example: %s mcr.microsoft.com/oss/kubernetes/pause:3.9\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Example: %s mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2\n", os.Args[0])
 		os.Exit(1)
 	}
 

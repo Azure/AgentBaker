@@ -26,7 +26,7 @@ installRPMPackageFromFile() {
     fi
     echo "installing ${packageName} version ${desiredVersion}"
 
-    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
+    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${desiredVersion}([^0-9]|$)" | sort -V | tail -n 1) || rpmFile=""
     if [ -z "${rpmFile}" ] && { [ "${packageName}" = "kubelet" ] || [ "${packageName}" = "kubectl" ]; } && fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
         echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
         rm -rf "${downloadDir}"
@@ -34,14 +34,14 @@ installRPMPackageFromFile() {
     fi
     if [ -z "${rpmFile}" ]; then
         # query all package versions and get the latest version for matching k8s version
-        fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion} | awk '{print $2}' | sort -V | tail -n 1)
+        fullPackageVersion=$(tdnf list ${packageName} | grep -E "${desiredVersion}([^0-9]|$)" | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${desiredVersion}"
             return 1
         fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" "${fullPackageVersion}" "${downloadDir}"
-        rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
+        rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${desiredVersion}([^0-9]|$)" | sort -V | tail -n 1) || rpmFile=""
     fi
     if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"

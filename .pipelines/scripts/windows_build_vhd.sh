@@ -25,44 +25,59 @@ set +x
 # * BUILD_DATE
 
 
-# First we validate the branch. DRY_RUN is only allowed to be false on release branches - which are of the form
-# windows/vYYYYMMDD. If we're on the release branch then we also override SIG_FOR_PRODUCTION, because this is a production build.
-# for dry runs, we set SIG_FOR_PRODUCTION to false.
-# SIG_FOR_PRODUCTION has the side effect of deleting the generated VHD.
+# First we validate the branch. Production VHDs must be created from branches of the form
+# windows/vYYYYMMDD. TME release-candidate builds are the only non-release builds allowed to
+# run with DRY_RUN=False, since they also generate publishing info for later testing/promotion.
+configure_windows_build_mode() {
+  local environment="${ENVIRONMENT:-}"
+  local generate_publishing_info="${GENERATE_PUBLISHING_INFO:-False}"
 
-echo "Checking SourceBranch: ${BRANCH}"
+  echo "Checking SourceBranch: ${BRANCH}"
 
-# Check if IS_RELEASE_PIPELINE is already set in the environment
-if [ -z "${IS_RELEASE_PIPELINE:-}" ]; then
-  if echo "${BRANCH}" | grep -E '^refs/heads/windows/v[[:digit:]]{8}$' > /dev/null; then
-    echo "The branch ${BRANCH} is a release branch. Setting IS_RELEASE_PIPELINE to True."
-    export IS_RELEASE_PIPELINE="True"
-    echo "##vso[task.setvariable variable=IS_RELEASE_PIPELINE]True"
-  else
-    echo "The branch ${BRANCH} is not a release branch. Setting IS_RELEASE_PIPELINE to False."
-    export IS_RELEASE_PIPELINE="False"
-    echo "##vso[task.setvariable variable=IS_RELEASE_PIPELINE]False"
+  if [ -z "${IS_RELEASE_PIPELINE:-}" ]; then
+    if echo "${BRANCH}" | grep -E '^refs/heads/windows/v[[:digit:]]{8}$' > /dev/null; then
+      echo "The branch ${BRANCH} is a release branch. Setting IS_RELEASE_PIPELINE to True."
+      export IS_RELEASE_PIPELINE="True"
+      echo "##vso[task.setvariable variable=IS_RELEASE_PIPELINE]True"
+    else
+      echo "The branch ${BRANCH} is not a release branch. Setting IS_RELEASE_PIPELINE to False."
+      export IS_RELEASE_PIPELINE="False"
+      echo "##vso[task.setvariable variable=IS_RELEASE_PIPELINE]False"
+    fi
   fi
-fi
 
-if [ "${IS_RELEASE_PIPELINE}" = "True" ]; then
-  if [ "${DRY_RUN}" = "True" ]; then
-    echo "This is a test build triggered from the release pipeline"
-  else
+  if [ "${IS_RELEASE_PIPELINE}" = "True" ]; then
+    if [ "${DRY_RUN}" = "True" ]; then
+      echo "This is a test build triggered from the release pipeline"
+      export SIG_FOR_PRODUCTION="False"
+      echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]False"
+      return
+    fi
+
     echo "This is a release build triggered from the release pipeline. DRY_RUN=${DRY_RUN}"
-
-	if ! (echo "${BRANCH}" | grep -E '^refs/heads/windows/v[[:digit:]]{8}$' > /dev/null); then
-	  echo "The branch ${BRANCH} is not release branch. Please use the release branch. Release branch name format: windows/vYYYYMMDD."
-	  exit 1
-	fi
+    if ! echo "${BRANCH}" | grep -E '^refs/heads/windows/v[[:digit:]]{8}$' > /dev/null; then
+      echo "The branch ${BRANCH} is not a release branch. Please use a branch with the format windows/vYYYYMMDD."
+      return 1
+    fi
+    export SIG_FOR_PRODUCTION="True"
     echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"
+    return
   fi
-else
-  echo "This is a test build triggered from the test pipeline"
-  export DRY_RUN=True
-  echo "##vso[task.setvariable variable=DRY_RUN]$DRY_RUN";
+
+  export SIG_FOR_PRODUCTION="False"
   echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]False"
-fi
+
+  if [ "${environment,,}" = "tme" ] && [ "${generate_publishing_info,,}" = "true" ]; then
+    echo "This is a TME release-candidate build. Preserving DRY_RUN=${DRY_RUN} and retaining the builder SIG image."
+    return
+  fi
+
+  echo "This is a test build triggered from the test pipeline"
+  export DRY_RUN="True"
+  echo "##vso[task.setvariable variable=DRY_RUN]${DRY_RUN}"
+}
+
+configure_windows_build_mode
 
 export MODE="windowsVhdMode"
 echo "Set build mode to $MODE"

@@ -149,6 +149,65 @@ var fullInstallCSEThresholdsUbuntu2404 = CSETimingThresholds{
 	},
 }
 
+// CSE performance thresholds for Ubuntu 26.04 minimal (cached path).
+// TODO(2604): update with accurate data once 26.04 Minimal has sufficient production saturation, for now taking Ubuntu 24.04 thresholds.
+var cachedCSEThresholdsUbuntu2604Minimal = CSETimingThresholds{
+	TotalCSEThreshold:    60 * time.Second,
+	DefaultTaskThreshold: 45 * time.Second,
+	TaskThresholds: map[string]time.Duration{
+		// Core kubelet/containerd install
+		"installDebPackageFromFile":   24 * time.Second, // prod p50=4.92s p95=23.74s p99=33.47s
+		"holdWALinuxAgent":            11 * time.Second, // prod p50=4.45s p95=10.97s p99=15.09s (less bimodal than 22.04)
+		"configureKubeletAndKubectl":  38 * time.Second, // prod p50=21.65s p95=37.28s p99=45.94s
+		"ensureContainerd":            2 * time.Second,  // prod p50=0.76s p95=1.34s  p99=1.84s
+		"ensureKubelet":               8 * time.Second,  // prod p50=4.32s p95=7.47s  p99=10.50s
+		"installContainerRuntime":     2 * time.Second,  // same as 22.04
+		"installStandaloneContainerd": 5 * time.Second,  // same as 22.04; bumped for E2E variance
+
+		// Kubelet install variants
+		"installKubeletKubectlFromPkg": 37 * time.Second, // prod p50=21.39s p95=36.16s p99=44.51s
+		"installKubeletKubectlFromURL": 7 * time.Second,  // prod p50=1.16s  p95=6.42s  (small sample)
+		"extractKubeBinaries":          7 * time.Second,  // prod p50=6.28s  (small sample)
+
+		// Credential provider
+		"installCredentialProviderFromUrl": 2 * time.Second, // prod p50=0.74s p95=1.49s
+		"installCredentialProviderFromPkg": 7 * time.Second, // prod p50=3.01s p95=6.21s p99=8.57s
+		"downloadCredentialProvider":       2 * time.Second, // prod p50=0.41s p95=1.22s
+
+		// Networking and node configuration
+		"configureNodeExporter": 44 * time.Second, // prod p50=1.37s p95=11.48s p99=60.68s
+		"ubuntuSnapshotUpdate":  2 * time.Second,  // same as 22.04
+	},
+}
+
+// CSE performance thresholds for Ubuntu 26.04 (full install path).
+// TODO(2604): update with accurate data once 26.04 Minimal has sufficient production saturation, for now taking Ubuntu 24.04 thresholds.
+var fullInstallCSEThresholdsUbuntu2604Minimal = CSETimingThresholds{
+	TotalCSEThreshold:    180 * time.Second,
+	DefaultTaskThreshold: 60 * time.Second,
+	TaskThresholds: map[string]time.Duration{
+		"installDeps":                 90 * time.Second,
+		"installContainerRuntime":     60 * time.Second,
+		"installDebPackageFromFile":   34 * time.Second, // prod p99=33.47s
+		"holdWALinuxAgent":            16 * time.Second, // prod p99=15.09s (better than 22.04)
+		"configureKubeletAndKubectl":  46 * time.Second, // prod p99=45.94s
+		"ensureContainerd":            3 * time.Second,  // prod p99=1.84s
+		"ensureKubelet":               11 * time.Second, // prod p99=10.50s
+		"installStandaloneContainerd": 5 * time.Second,
+
+		"installKubeletKubectlFromPkg": 45 * time.Second, // prod p99=44.51s
+		"installKubeletKubectlFromURL": 16 * time.Second,
+		"extractKubeBinaries":          16 * time.Second,
+
+		"installCredentialProviderFromUrl": 3 * time.Second,
+		"installCredentialProviderFromPkg": 9 * time.Second, // prod p99=8.57s
+		"downloadCredentialProvider":       3 * time.Second,
+
+		"configureNodeExporter": 61 * time.Second, // prod p99=60.68s
+		"ubuntuSnapshotUpdate":  2 * time.Second,
+	},
+}
+
 // CSE performance thresholds for Azure Linux V3 (cached path).
 // Derived from production telemetry (GuestAgentGenericLogs, FA/azcore, ~1K samples per task over 10 minutes).
 // AzureLinux uses RPM packages, not apt/deb — no holdWALinuxAgent or installDebPackageFromFile tasks.
@@ -216,8 +275,9 @@ func Test_Ubuntu2204_CSE_CachedPerformance(t *testing.T) {
 				// installDebPackageFromFile (the function that caused the regression).
 				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCSETimings(ctx, s, cachedCSEThresholds)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				_, err := ValidateCSETimings(ctx, s, cachedCSEThresholds)
+				return err
 			},
 		},
 	})
@@ -238,8 +298,9 @@ func Test_Ubuntu2204_CSE_FullInstallPerformance(t *testing.T) {
 				}
 				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCSETimings(ctx, s, fullInstallCSEThresholds)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				_, err := ValidateCSETimings(ctx, s, fullInstallCSEThresholds)
+				return err
 			},
 		},
 	})
@@ -267,8 +328,9 @@ func Test_Ubuntu2404_CSE_CachedPerformance(t *testing.T) {
 				}
 				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCSETimings(ctx, s, cachedCSEThresholdsUbuntu2404)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				_, err := ValidateCSETimings(ctx, s, cachedCSEThresholdsUbuntu2404)
+				return err
 			},
 		},
 	})
@@ -289,8 +351,62 @@ func Test_Ubuntu2404_CSE_FullInstallPerformance(t *testing.T) {
 				}
 				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCSETimings(ctx, s, fullInstallCSEThresholdsUbuntu2404)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				_, err := ValidateCSETimings(ctx, s, fullInstallCSEThresholdsUbuntu2404)
+				return err
+			},
+		},
+	})
+}
+
+// --- Ubuntu 26.04 minimal CSE Performance Tests ---
+
+func Test_Ubuntu2604Minimal_CSE_CachedPerformance(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Validates CSE timing on the golden image (cached) path for Ubuntu 26.04 minimal. " +
+			"Forces the PMC deb package install path by clearing CustomKubeBinaryURL and setting ShouldEnforceKubePMCInstall.",
+		Config: Config{
+			Cluster:                  ClusterLatestKubernetesVersionKubenet,
+			VHD:                      config.VHDUbuntu2604MinimalGen2Containerd,
+			EagerCSETimingExtraction: true,
+			SkipDefaultValidation:    true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.36.1"
+				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeProxyImage = "mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.36.1-4"
+				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = ""
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) error {
+				_, err := ValidateCSETimings(ctx, s, cachedCSEThresholdsUbuntu2604Minimal)
+				return err
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_CSE_FullInstallPerformance(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Validates CSE timing on the full install path for Ubuntu 26.04 minimal. " +
+			"Uses SkipBinaryCleanup VMSS tag to force FULL_INSTALL_REQUIRED=true.",
+		Config: Config{
+			Cluster:                  ClusterLatestKubernetesVersionKubenet,
+			VHD:                      config.VHDUbuntu2604MinimalGen2Containerd,
+			EagerCSETimingExtraction: true,
+			SkipDefaultValidation:    true,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) error {
+				_, err := ValidateCSETimings(ctx, s, fullInstallCSEThresholdsUbuntu2604Minimal)
+				return err
 			},
 		},
 	})
@@ -307,8 +423,9 @@ func Test_AzureLinuxV3_CSE_CachedPerformance(t *testing.T) {
 			VHD:                      config.VHDAzureLinuxV3Gen2,
 			EagerCSETimingExtraction: true,
 			SkipDefaultValidation:    true,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCSETimings(ctx, s, cachedCSEThresholdsAzureLinuxV3)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				_, err := ValidateCSETimings(ctx, s, cachedCSEThresholdsAzureLinuxV3)
+				return err
 			},
 		},
 	})
@@ -329,8 +446,9 @@ func Test_AzureLinuxV3_CSE_FullInstallPerformance(t *testing.T) {
 				}
 				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCSETimings(ctx, s, fullInstallCSEThresholdsAzureLinuxV3)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				_, err := ValidateCSETimings(ctx, s, fullInstallCSEThresholdsAzureLinuxV3)
+				return err
 			},
 		},
 	})

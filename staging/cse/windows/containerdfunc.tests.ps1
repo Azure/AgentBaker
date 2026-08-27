@@ -85,7 +85,7 @@ Describe "Containerd Functions Tests" {
         $containerdDir = "$PSScriptRoot\containerdfunc.tests.suites"
         $cniBinDir = 'C:/cni/bin'
         $cniConfDir = 'C:/cni/conf'
-        $pauseImage = 'mcr.microsoft.com/oss/v2/kubernetes/pause:3.6'
+        $pauseImage = 'mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2'
 
         $global:KubeClusterConfigPath = [Io.path]::Combine("", "kubeclusterconfig.json")
         $global:ContainerdInstallLocation = $containerdDir
@@ -146,7 +146,7 @@ Describe "Containerd Functions Tests" {
         $containerdDir = "$PSScriptRoot\containerdfunc.tests.suites"
         $cniBinDir = 'C:/cni/bin'
         $cniConfDir = 'C:/cni/conf'
-        $pauseImage = 'mcr.microsoft.com/oss/v2/kubernetes/pause:3.6'
+        $pauseImage = 'mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2'
 
         $global:KubeClusterConfigPath = [Io.path]::Combine("", "kubeclusterconfig.json")
         $global:ContainerdInstallLocation = $containerdDir

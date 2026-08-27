@@ -361,6 +361,66 @@ Describe 'cse_install_mariner.sh'
         End
     End
 
+    Describe 'Azure Linux NVIDIA driver release notes'
+        uname() { echo "6.6.121.1-1.azl3"; }
+
+        It 'selects the latest package matching the current kernel'
+            dnf() {
+                echo "cuda-open-570.195.03-1_6.6.121.1.1.azl3.x86_64"
+                echo "cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
+                echo "cuda-open-590.1.0-1_6x6x121x1x1xazl3.x86_64"
+                echo "cuda-open-580.126.09-2_6.6.120.1.1.azl3.x86_64"
+            }
+
+            When call getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda-open*" "^cuda-open-[0-9]" "6.6.121.1.1.azl3"
+
+            The status should be success
+            The output should equal "cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
+        End
+
+        It 'strips the RPM epoch when formatting a driver version'
+            When call getAzureLinuxNvidiaDriverVersionFromPackage "cuda-open-0:580.159.04-1_6.6.143.1.1.azl3.x86_64" "cuda-open-"
+
+            The status should be success
+            The output should equal "580.159.04"
+        End
+
+        It 'formats CUDA open, CUDA proprietary, and GRID driver package versions for release notes'
+            dnf() {
+                case "$4" in
+                    "cuda-open*")
+                        echo "cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
+                        ;;
+                    "cuda")
+                        echo "cuda-570.195.03-1_6.6.121.1.1.azl3.x86_64"
+                        ;;
+                    "nvidia-vgpu-guest-driver*")
+                        echo "nvidia-vgpu-guest-driver-570.211.01-1_6.6.121.1.1.azl3.x86_64"
+                        ;;
+                esac
+            }
+
+            When call getAzureLinuxNvidiaDriverReleaseNotes
+
+            The status should be success
+            The output should include "NVIDIA GPU driver versions available at VHD build time for supported Azure Linux GPU VM sizes:"
+            The output should include "  - nvidia-cuda-open-driver version 580.126.09"
+            The output should include "  - nvidia-cuda-driver version 570.195.03"
+            The output should include "  - nvidia-grid-driver version 570.211.01"
+            The output should include "build-time snapshot only"
+            The output should include "the installed version is not pinned to this VHD"
+        End
+
+        It 'emits no release-note section when no driver packages match the current kernel'
+            dnf() { return 0; }
+
+            When call getAzureLinuxNvidiaDriverReleaseNotes
+
+            The status should be success
+            The output should equal ""
+        End
+    End
+
     Describe 'installAznfsPackage'
         ERR_AZNFS_INSTALL_FAIL=242
         aznfs_test_dir="$PWD/spec/tmp/aznfs-test"
@@ -454,6 +514,54 @@ Describe 'cse_install_mariner.sh'
             The output should include 'dcgm-exporter'
             The output should include 'dra-driver-nvidia-gpu'
             The output should not include 'nvidia-device-plugin'
+        End
+    End
+
+    Describe 'installPackageFromCache version matching'
+        rpm_version_cache="/tmp/shellspec-rpm-version-cache-$$"
+
+        setup_version_cache() {
+            RPM_PACKAGE_CACHE_BASE_DIR="$rpm_version_cache"
+            mkdir -p "$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+        }
+
+        cleanup_version_cache() {
+            rm -rf "$rpm_version_cache"
+        }
+
+        BeforeEach 'setup_version_cache'
+        AfterEach 'cleanup_version_cache'
+
+        It 'does not match version 1.34.10 when requesting 1.34.1'
+            desiredVersion="1.34.1"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            touch "$rpmDir/kubelet-1.34.1-5.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.10-2.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.11-1.azl3.x86_64.rpm"
+            When call installPackageFromCache kubelet "$desiredVersion"
+            The output should include "extractBinaryFromRPM $rpmDir/kubelet-1.34.1-5.azl3.x86_64.rpm kubelet /opt/bin/kubelet"
+            The output should not include "1.34.10"
+            The output should not include "1.34.11"
+        End
+
+        It 'selects the latest release of the exact version requested'
+            desiredVersion="1.34.1"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            touch "$rpmDir/kubelet-1.34.1-1.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.1-3.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.10-2.azl3.x86_64.rpm"
+            When call installPackageFromCache kubelet "$desiredVersion"
+            The output should include "extractBinaryFromRPM $rpmDir/kubelet-1.34.1-3.azl3.x86_64.rpm kubelet /opt/bin/kubelet"
+        End
+
+        It 'returns failure when only a longer version exists in cache'
+            desiredVersion="1.34.1"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            touch "$rpmDir/kubelet-1.34.10-2.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.12-1.azl3.x86_64.rpm"
+            When call installPackageFromCache kubelet "$desiredVersion"
+            The output should include "Failed to find cached rpm file for kubelet version 1.34.1"
+            The status should equal 1
         End
     End
 End

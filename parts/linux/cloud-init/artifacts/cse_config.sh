@@ -17,16 +17,96 @@ Environment="KUBE_API_SERVER_NAME=${API_SERVER_NAME}"
 EOF
   systemctlEnableAndStart reconcile-private-hosts 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
+
 configureTransparentHugePage() {
-    ETC_SYSFS_CONF="/etc/sysfs.conf"
+    local etc_sysfs_conf="/etc/sysfs.conf"
+
+    applyTransparentHugePageValues
+
     if [ -n "${THP_ENABLED}" ]; then
-        echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
-        echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${ETC_SYSFS_CONF}
+        printf 'kernel/mm/transparent_hugepage/enabled=%s\n' "${THP_ENABLED}" >> "${etc_sysfs_conf}" || exit "$ERR_SYSCTL_RELOAD"
     fi
     if [ -n "${THP_DEFRAG}" ]; then
-        echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
-        echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
+        printf 'kernel/mm/transparent_hugepage/defrag=%s\n' "${THP_DEFRAG}" >> "${etc_sysfs_conf}" || exit "$ERR_SYSCTL_RELOAD"
     fi
+    reconcileTransparentHugePagePersistence
+}
+
+applyTransparentHugePageValues() {
+    local thp_enabled_path="/sys/kernel/mm/transparent_hugepage/enabled"
+    local thp_defrag_path="/sys/kernel/mm/transparent_hugepage/defrag"
+
+    if [ -n "${THP_ENABLED}" ]; then
+        printf '%s\n' "${THP_ENABLED}" > "${thp_enabled_path}" || exit "$ERR_SYSCTL_RELOAD"
+    fi
+    if [ -n "${THP_DEFRAG}" ]; then
+        printf '%s\n' "${THP_DEFRAG}" > "${thp_defrag_path}" || exit "$ERR_SYSCTL_RELOAD"
+    fi
+}
+
+reconcileTransparentHugePagePersistence() {
+    if { [ -n "${THP_ENABLED}" ] || [ -n "${THP_DEFRAG}" ]; } && isMarinerOrAzureLinux "$OS" "$OS_VARIANT"; then
+        configureTransparentHugePageSystemdService
+    fi
+}
+
+configureTransparentHugePageSystemdService() {
+    local service_name="aks-transparent-hugepage"
+    local script_path="/opt/azure/containers/aks-transparent-hugepage.sh"
+    local config_dir="/opt/azure/containers/aks-transparent-hugepage"
+    local service_path="/etc/systemd/system/${service_name}.service"
+
+    mkdir -p "$(dirname "${script_path}")" "${config_dir}" || exit "$ERR_SYSCTL_RELOAD"
+    if [ -n "${THP_ENABLED}" ]; then
+        printf '%s\n' "${THP_ENABLED}" | tee "${config_dir}/enabled" > /dev/null || exit "$ERR_SYSCTL_RELOAD"
+    else
+        rm -f "${config_dir}/enabled" || exit "$ERR_SYSCTL_RELOAD"
+    fi
+    if [ -n "${THP_DEFRAG}" ]; then
+        printf '%s\n' "${THP_DEFRAG}" | tee "${config_dir}/defrag" > /dev/null || exit "$ERR_SYSCTL_RELOAD"
+    else
+        rm -f "${config_dir}/defrag" || exit "$ERR_SYSCTL_RELOAD"
+    fi
+
+    if ! tee "${script_path}" > /dev/null <<'EOF'
+#!/bin/bash
+set -e
+config_dir="/opt/azure/containers/aks-transparent-hugepage"
+thp_enabled_config="${config_dir}/enabled"
+thp_defrag_config="${config_dir}/defrag"
+
+if [ -s "${thp_enabled_config}" ]; then
+    cat "${thp_enabled_config}" > /sys/kernel/mm/transparent_hugepage/enabled
+fi
+if [ -s "${thp_defrag_config}" ]; then
+    cat "${thp_defrag_config}" > /sys/kernel/mm/transparent_hugepage/defrag
+fi
+EOF
+    then
+        exit "$ERR_SYSCTL_RELOAD"
+    fi
+    chmod 0755 "${script_path}" || exit "$ERR_SYSCTL_RELOAD"
+
+    if ! tee "${service_path}" > /dev/null <<EOF
+[Unit]
+Description=Apply AKS transparent huge page settings
+After=systemd-sysctl.service
+Before=kubelet.service
+ConditionPathExists=/sys/kernel/mm/transparent_hugepage
+
+[Service]
+Type=oneshot
+ExecStart=${script_path}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    then
+        exit "$ERR_SYSCTL_RELOAD"
+    fi
+
+    systemctl daemon-reload || exit "$ERR_SYSTEMCTL_START_FAIL"
+    systemctlEnableAndStart "${service_name}" 30 || exit "$ERR_SYSTEMCTL_START_FAIL"
 }
 
 configureSystemdUseDomains() {
@@ -49,20 +129,113 @@ configureSystemdUseDomains() {
     systemctl restart rsyslog
 }
 
+swapFileIsActive() {
+    local swap_location="$1"
+
+    swapon --show --noheadings | awk '{print $1}' | grep -Fxq "${swap_location}"
+}
+
+getFileMode() {
+    local file="$1"
+
+    stat -c "%a" "${file}" 2>/dev/null || stat -f "%Lp" "${file}" 2>/dev/null
+}
+
+ensureSwapFileFstabEntry() {
+    local swap_location="$1"
+    local fstab_entry="${swap_location} none swap noauto,nofail 0 0"
+    local fstab_file="${2:-/etc/fstab}"
+    local fstab_dir
+    local fstab_mode
+    local temp_fstab
+
+    fstab_dir="$(dirname "${fstab_file}")"
+    temp_fstab="$(mktemp "${fstab_dir}/fstab.XXXXXX")" || return 1
+    fstab_mode="$(getFileMode "${fstab_file}")" || {
+        rm -f "${temp_fstab}"
+        return 1
+    }
+    chmod "${fstab_mode}" "${temp_fstab}" || {
+        rm -f "${temp_fstab}"
+        return 1
+    }
+    awk -v swap_location="${swap_location}" '$1 != swap_location { print }' "${fstab_file}" > "${temp_fstab}" || {
+        rm -f "${temp_fstab}"
+        return 1
+    }
+    echo "${fstab_entry}" >> "${temp_fstab}" || {
+        rm -f "${temp_fstab}"
+        return 1
+    }
+    mv "${temp_fstab}" "${fstab_file}" || {
+        rm -f "${temp_fstab}"
+        return 1
+    }
+}
+
+findExistingSwapFileLocation() {
+    local resource_disk_path
+    local swap_location
+
+    if [ -L /dev/disk/azure/resource-part1 ]; then
+        resource_disk_path=$(findmnt -nr -o target -S "$(readlink -f /dev/disk/azure/resource-part1)" || true)
+        swap_location="${resource_disk_path}/swapfile"
+        if [ -n "${resource_disk_path}" ] && [ -f "${swap_location}" ]; then
+            echo "${swap_location}"
+            return 0
+        fi
+    fi
+
+    if [ -f /swapfile ]; then
+        echo "/swapfile"
+        return 0
+    fi
+
+    return 1
+}
+
+reconcileSwapFilePersistence() {
+    local swap_location="${1:-}"
+
+    if [ -z "${swap_location}" ]; then
+        swap_location="$(findExistingSwapFileLocation || true)"
+    fi
+
+    if [ -z "${swap_location}" ]; then
+        echo "No existing AKS swap file found; creating swap file for persistence reconciliation"
+        configureSwapFile
+        return 0
+    fi
+
+    ensureSwapFileFstabEntry "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+    configureSwapFileSystemdService "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+}
+
 configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
-    swap_size_kb=$(expr ${SWAP_FILE_SIZE_MB} \* 1000)
+    swap_size_kb=$(expr "${SWAP_FILE_SIZE_MB}" \* 1000)
     swap_location=""
 
     # Attempt to use the resource disk
     if [ -L /dev/disk/azure/resource-part1 ]; then
-        resource_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/resource-part1))
-        disk_free_kb=$(df ${resource_disk_path} | sed 1d | awk '{print $4}')
-        if [ "${disk_free_kb}" -gt "${swap_size_kb}" ]; then
-            echo "Will use resource disk for swap file"
-            swap_location=${resource_disk_path}/swapfile
+        resource_disk_path=$(findmnt -nr -o target -S "$(readlink -f /dev/disk/azure/resource-part1)" || true)
+        if [ -n "${resource_disk_path}" ]; then
+            disk_free_kb=$(df -P "${resource_disk_path}" | sed 1d | awk '{print $4}')
+            case "${disk_free_kb}" in
+                ''|*[!0-9]*)
+                    echo "Could not determine free space on resource disk, attempting to fall back to OS disk..."
+                    ;;
+                *)
+                    if [ "${disk_free_kb}" -gt "${swap_size_kb}" ]; then
+                        echo "Will use resource disk for swap file"
+                        swap_location=${resource_disk_path}/swapfile
+                    else
+                        echo "Insufficient disk space on resource disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}, attempting to fall back to OS disk..."
+                    fi
+                    ;;
+            esac
         else
-            echo "Insufficient disk space on resource disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}, attempting to fall back to OS disk..."
+            echo "Could not determine resource disk mountpoint, attempting to fall back to OS disk..."
         fi
     fi
 
@@ -81,12 +254,58 @@ configureSwapFile() {
     fi
 
     echo "Swap file will be saved to: ${swap_location}"
-    retrycmd_if_failure 24 5 25 fallocate -l ${swap_size_kb}K ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-    chmod 600 ${swap_location}
-    retrycmd_if_failure 24 5 25 mkswap ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-    retrycmd_if_failure 24 5 25 swapon ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-    retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-    echo "${swap_location} none swap sw 0 0" >> /etc/fstab
+    retrycmd_if_failure 24 5 25 fallocate -l "${swap_size_kb}K" "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+    chmod 600 "${swap_location}"
+    retrycmd_if_failure 24 5 25 mkswap "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+    retrycmd_if_failure 24 5 25 swapon "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+    swapFileIsActive "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+    reconcileSwapFilePersistence "${swap_location}" || exit "$ERR_SWAP_CREATE_FAIL"
+}
+
+configureSwapFileSystemdService() {
+    local swap_location="$1"
+    local service_name="aks-swapfile"
+    local script_path="/opt/azure/containers/aks-swapfile.sh"
+    local service_path="/etc/systemd/system/${service_name}.service"
+    local swap_mount_path
+
+    swap_mount_path="$(dirname "${swap_location}")"
+
+    mkdir -p "$(dirname "${script_path}")" || exit "$ERR_SWAP_CREATE_FAIL"
+    if ! tee "${script_path}" > /dev/null <<EOF
+#!/bin/bash
+set -e
+if ! swapon --show --noheadings | awk '{print \$1}' | grep -Fxq "${swap_location}"; then
+    swapon "${swap_location}"
+fi
+EOF
+    then
+        exit "$ERR_SWAP_CREATE_FAIL"
+    fi
+    chmod 0755 "${script_path}" || exit "$ERR_SWAP_CREATE_FAIL"
+
+    if ! tee "${service_path}" > /dev/null <<EOF
+[Unit]
+Description=Activate AKS swap file
+After=local-fs.target
+Before=kubelet.service
+RequiresMountsFor=${swap_mount_path}
+ConditionPathExists=${swap_location}
+
+[Service]
+Type=oneshot
+ExecStart=${script_path}
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    then
+        exit "$ERR_SWAP_CREATE_FAIL"
+    fi
+
+    systemctl daemon-reload || exit "$ERR_SYSTEMCTL_START_FAIL"
+    systemctlEnableAndStart "${service_name}" 30 || exit "$ERR_SYSTEMCTL_START_FAIL"
 }
 
 configureEtcEnvironment() {
@@ -438,8 +657,16 @@ ensureNoDupOnPromiscuBridge() {
 
 ensureArtifactStreaming() {
   waitForContainerdReady || exit $ERR_ARTIFACT_STREAMING_INSTALL
-  retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter
-  /opt/acr/bin/acr-config --enable-containerd 'azurecr.io'
+  retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter || exit $ERR_ARTIFACT_STREAMING_INSTALL
+
+  local acr_mirror_setup="${ACR_MIRROR_SETUP_SCRIPT:-/opt/acr/tools/mirror/setup.sh}"
+  if [ -x "$acr_mirror_setup" ]; then
+    "$acr_mirror_setup" aks
+  else
+    echo "Older acr-mirror package is detected, using old acr-config enablement"
+    # setup.sh is only available in acr-mirror 1.0.0 and above
+    "${ACR_CONFIG_BIN:-/opt/acr/bin/acr-config}" --enable-containerd 'azurecr.io'
+  fi
 }
 
 ensureDHCPv6() {
@@ -805,7 +1032,7 @@ EOF
     set -x
 
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
-    tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
+    tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<'EOF'
 #!/bin/bash
 # Disallow container from reaching out to the special IP address 168.63.129.16
 # for TCP protocol (which http uses)
@@ -818,8 +1045,11 @@ EOF
 #
 # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
 # for DNS.
-iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
-iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
+
+for port in 80 32526; do
+    iptables -C FORWARD -d 168.63.129.16 -p tcp --dport "$port" -j DROP 2>/dev/null ||
+        iptables -I FORWARD -d 168.63.129.16 -p tcp --dport "$port" -j DROP
+done
 EOF
 
     # As iptables rule will be cleaned every time the node is restarted, we need to ensure the rule is applied every time kubelet is started.
@@ -841,9 +1071,9 @@ EOF
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
         # Install credential provider from URL:
-        # 1. If k8s version < 1.34.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
+        # 1. If k8s version < 1.33.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
         # 2. For Azure Linux v2 due to lack of PMC packages (if not network isolated).
-        if { ! isFlatcar && ! isACL && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
+        if { ! isFlatcar && ! isACL && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.33.0; } ||
            { isMarinerOrAzureLinux && [ "${OS_VERSION}" = 2.0 ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; }
         then
             logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
@@ -915,6 +1145,7 @@ ensureMigPartition(){
     tee /etc/systemd/system/mig-partition.service.d/10-mig-profile.conf > /dev/null <<EOF
 [Service]
 Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
+Environment="NVIDIA_MIG_PROFILE_LAYOUT=${NVIDIA_MIG_PROFILE_LAYOUT}"
 EOF
     # this is expected to fail and work only on next reboot
     # it MAY succeed, only due to unreliability of systemd
@@ -1233,16 +1464,42 @@ pullGPUDriverImage() {
     # Cache-miss path only. Retry to ride out a transient blip, but stay tight: a truly missing image
     # should fail fast rather than eat the shared CSE window the driver install needs next. retrycmd
     # also self-caps to the CSE budget, so this can't overrun provisioning.
-    retrycmd_if_failure 3 5 120 ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+    retrycmd_if_failure 3 5 120 ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE_PULL_REF:$NVIDIA_DRIVER_IMAGE_TAG || return 1
+    if [ "$NVIDIA_DRIVER_IMAGE_PULL_REF" != "$NVIDIA_DRIVER_IMAGE" ]; then
+        # Converge onto the canonical ref that install and cleanup use. Removing the pull ref drops
+        # only the name; the canonical tag still holds the manifest, so no blobs are collected.
+        ctr -n k8s.io image tag $NVIDIA_DRIVER_IMAGE_PULL_REF:$NVIDIA_DRIVER_IMAGE_TAG $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG || return 1
+        ctr -n k8s.io image rm $NVIDIA_DRIVER_IMAGE_PULL_REF:$NVIDIA_DRIVER_IMAGE_TAG
+    fi
+    return 0 # the rm above is best effort; don't let it set the caller's exit code
 }
 
 installGPUDriverImage() {
     retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
 }
 
-# nvidia-container-toolkit starts nvidia-cdi-refresh while the aks-gpu container is
-# still staging userspace libraries. A prebaked kernel module makes the service condition
-# pass early, so repair the expected failure only after nvidia-smi and ldconfig succeed.
+# nvidia-cdi-refresh.service (nvidia-container-toolkit-base) is Type=oneshot with Restart=on-failure
+# and StartLimitBurst=5/10s, so one nvidia-ctk failure burns the start limit in ~5s and leaves it and
+# its .path unit permanently failed and unstartable -- which fails install.sh's `systemctl restart`
+# (CSE 84) and kills the .path trigger that would otherwise regenerate the spec later. Tolerate the
+# three known codes: 1 (MIG mode on with no MIG instances, which never succeeds), 2 (panic before the
+# driver userspace is ready), 127 (nvidia-smi missing on pre-reorder aks-gpu images). Anything else
+# still fails the unit. GPU pods reach the device via containerd's nvidia-container-runtime, not CDI.
+NVIDIA_CDI_REFRESH_DROP_IN="/etc/systemd/system/nvidia-cdi-refresh.service.d/10-aks-tolerate-generate-failure.conf"
+
+configureNvidiaCDIRefresh() {
+    mkdir -p "$(dirname "$NVIDIA_CDI_REFRESH_DROP_IN")" || return 1
+    printf '[Service]\nSuccessExitStatus=1 2 127\n' > "$NVIDIA_CDI_REFRESH_DROP_IN" || return 1
+    # Drop-ins are read when systemd loads a unit, so writing this before the toolkit is installed
+    # means the unit picks it up on its very first start.
+    systemctl daemon-reload || true
+}
+
+# configureNvidiaCDIRefresh above only stops the early failure from poisoning the units; it never
+# retries once the driver is actually up, so a node can finish provisioning with no CDI spec at all.
+# The toolkit starts nvidia-cdi-refresh while the aks-gpu container is still staging userspace
+# libraries, and a prebaked kernel module makes the service condition pass early. Re-run it here,
+# after nvidia-smi and ldconfig have succeeded, and confirm it produced a usable device.
 repairNvidiaCDIRefresh() {
     local service_unit="nvidia-cdi-refresh.service"
     local path_unit="nvidia-cdi-refresh.path"
@@ -1268,6 +1525,17 @@ repairNvidiaCDIRefresh() {
     systemctl stop "$service_unit" || return 1
     systemctl reset-failed "$service_unit" "$path_unit" || return 1
 
+    # A MIG node cannot produce a spec during CSE: nvidia-ctk exits 1 while MIG mode is on with no
+    # instances, and ensureMigPartition -- which runs after this, from cse_main.sh -- is itself
+    # "expected to fail and work only on next reboot". Re-arm the units and let the .path trigger
+    # regenerate the spec once the post-reboot driver load rewrites modules.dep.
+    if [ "${MIG_NODE:-}" = "true" ]; then
+        echo "MIG node: re-armed NVIDIA CDI refresh without verifying, spec follows the MIG reboot"
+        systemctl start "$service_unit" || return 1
+        systemctl start "$path_unit"
+        return $?
+    fi
+
     # A successful oneshot can still mean its conditions skipped. Remove any stale output and
     # require the synchronous run to generate a usable NVIDIA CDI device.
     rm -f "$cdi_spec_path" || return 1
@@ -1288,7 +1556,7 @@ repairNvidiaCDIRefresh() {
     if [ "$cdi_list_status" -ne 0 ]; then
         return 1
     fi
-    if ! grep -q '^nvidia.com/gpu=' <<< "$cdi_devices"; then
+    if ! printf '%s\n' "$cdi_devices" | grep -q '^nvidia\.com/gpu='; then
         echo "NVIDIA CDI refresh generated no NVIDIA GPU devices"
         return 1
     fi
@@ -1300,6 +1568,9 @@ configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
         mkdir -p /opt/{actions,gpu}
+        # Must precede the install: the toolkit's post-install starts nvidia-cdi-refresh from
+        # inside the install container, and on newer aks-gpu images its failure aborts the install.
+        logs_to_events "AKS.CSE.configGPUDrivers.configureNvidiaCDIRefresh" configureNvidiaCDIRefresh || exit $ERR_GPU_DRIVERS_START_FAIL
         # Normally the image is baked into the VHD; only pull on a cache miss (expected under VHD/CSE
         # version skew). ctr run does not auto-pull, so a failed pull must exit here rather than
         # resurface as an opaque install error. name== is an exact match, not an `images ls` substring.
@@ -1332,7 +1603,11 @@ configGPUDrivers() {
     logs_to_events "AKS.CSE.configGPUDrivers.waitForNvidiaSmi" "retrycmd_if_failure 120 5 30 nvidia-smi" || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-        logs_to_events "AKS.CSE.configGPUDrivers.repairNvidiaCDIRefresh" repairNvidiaCDIRefresh || exit $ERR_GPU_DRIVERS_START_FAIL
+        # Deliberately non-fatal. GPU pods reach the device through containerd's
+        # nvidia-container-runtime rather than CDI, so a node that boots without a spec still runs
+        # workloads; exiting here would reintroduce the very CSE 84 that configureNvidiaCDIRefresh
+        # was written to remove. Log loudly instead so a missing spec is still diagnosable.
+        logs_to_events "AKS.CSE.configGPUDrivers.repairNvidiaCDIRefresh" repairNvidiaCDIRefresh || echo "NVIDIA CDI refresh repair failed; continuing without a CDI specification"
     fi
 
     # Fix the NVIDIA /dev/char link issue (Mariner/AzureLinux only)
@@ -1630,6 +1905,17 @@ writeCredentialProviderConfig() {
       - ${arg}"
         done
     fi
+    # matchImages and argument for network isolated cluster
+    local bootstrap_container_registry_match_image=""
+    local bootstrap_container_registry_args=""
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+      MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
+      MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
+      bootstrap_container_registry_match_image="
+      - \"${MCR_REPOSITORY_BASE}\""
+      bootstrap_container_registry_args="
+      - --registry-mirror=${MCR_REPOSITORY_BASE}:${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}"
+    fi
 
     if [ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]; then
         echo "configure credential provider for custom cloud"
@@ -1647,36 +1933,11 @@ providers:
       - "*.*.geo.azurecr.cn"
       - "*.*.geo.azurecr.de"
       - "*.*.geo.azurecr.us"
-      - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"
+      - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"${bootstrap_container_registry_match_image}
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
-      - /etc/kubernetes/azure.json${ib_args}
-EOF
-    elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-        echo "configure credential provider for network isolated cluster"
-        MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
-        MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
-        tee "${config_file_path}" > /dev/null <<EOF
-apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-      - "*.*.geo.azurecr.io"
-      - "*.*.geo.azurecr.cn"
-      - "*.*.geo.azurecr.de"
-      - "*.*.geo.azurecr.us"
-      - "${MCR_REPOSITORY_BASE}"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
-    args:
-      - /etc/kubernetes/azure.json
-      - --registry-mirror=${MCR_REPOSITORY_BASE}:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER${ib_args}
+      - /etc/kubernetes/azure.json${bootstrap_container_registry_args}${ib_args}
 EOF
     else
         echo "configure credential provider with default settings"
@@ -1693,11 +1954,11 @@ providers:
       - "*.*.geo.azurecr.io"
       - "*.*.geo.azurecr.cn"
       - "*.*.geo.azurecr.de"
-      - "*.*.geo.azurecr.us"
+      - "*.*.geo.azurecr.us"${bootstrap_container_registry_match_image}
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
-      - /etc/kubernetes/azure.json${ib_args}
+      - /etc/kubernetes/azure.json${bootstrap_container_registry_args}${ib_args}
 EOF
     fi
 }

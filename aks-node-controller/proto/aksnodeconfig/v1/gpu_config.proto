@@ -28,6 +28,13 @@ message GpuConfig {
 
   // mig_strategy specifies the MIG strategy for the nvidia-device-plugin.
   // Valid values are "None", "Single", "Mixed". Only meaningful when MIG is enabled
-  // (i.e., when gpu_instance_profile is set). Defaults to "Single" if not specified.
+  // (i.e., when gpu_instance_profile or mig_profile_layout is set). Defaults to "Single" if not specified.
   string mig_strategy = 8;
+
+  // mig_profile_layout is the ordered list of GPU instance profiles used for MIG partitioning.
+  // It will become the unified MIG profile field after gpu_instance_profile is deprecated.
+  repeated string mig_profile_layout = 9;
+
+  // enable_managed_gpu_dra is the flag to enable fully managed GPU with DRA driver.
+  bool enable_managed_gpu_dra = 10;
 }
