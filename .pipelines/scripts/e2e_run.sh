@@ -100,14 +100,11 @@ mkdir -p bin
 go test ./...
 go build -o bin/e2e ./cmd/e2e
 
-test_exit_code=0
-./bin/e2e run \
+exec ./bin/e2e run \
   --parallel 60 \
   --suite-timeout "${E2E_GO_TEST_TIMEOUT}" \
   --retries "${E2E_FAILED_TESTS_RETRY_COUNT}" \
   --log-dir "${LOGGING_DIR}" \
   --junit-file "${BUILD_SRC_DIR}/e2e/report.xml" \
   --hide-passed-logs \
-  --output grouped || test_exit_code=$?
-
-exit $test_exit_code
+  --output grouped

@@ -35,7 +35,7 @@ func TestWriteReportsSuiteDurationExcludesChildChecks(t *testing.T) {
 		},
 	}
 
-	if err := e.writeReports(); err != nil {
+	if err := e.writeReports(nil); err != nil {
 		t.Fatalf("writeReports() returned error: %v", err)
 	}
 

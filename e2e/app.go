@@ -9,7 +9,6 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/urfave/cli/v3"
@@ -37,8 +36,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		_, _ = fmt.Fprintln(a.stderr, err)
 		return exitFailure
 	}
-	var cmd *cli.Command
-	cmd = &cli.Command{
+	cmd := &cli.Command{
 		Name:  "e2e",
 		Usage: "Run AgentBaker end-to-end scenarios",
 		Commands: []*cli.Command{
@@ -65,7 +63,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				},
 			},
 		},
-		Action: func(context.Context, *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			return cli.ShowRootCommandHelp(cmd)
 		},
 		Writer:    a.stdout,
@@ -90,15 +88,12 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	if opts.retries < 0 {
 		return &usageError{message: "--retries must not be negative"}
 	}
-	if opts.timeout <= 0 {
+	if config.Config.TestTimeout <= 0 {
 		return &usageError{message: "--timeout must be greater than zero"}
 	}
 	if config.Config.SuiteTimeout <= 0 {
 		return &usageError{message: "--suite-timeout must be greater than zero"}
 	}
-	ctx, cancel := context.WithTimeout(ctx, config.Config.SuiteTimeout)
-	defer cancel()
-
 	switch opts.outputMode {
 	case "auto", "grouped", "stream":
 	default:
@@ -109,6 +104,25 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	if len(entries) == 0 {
 		return &usageError{message: "no scenarios matched the requested names"}
 	}
+	for i := range entries {
+		if config.Config.TestPreProvision || entries[i].scenario.VHDCaching {
+			entries[i].name += "/VHDCreation"
+		}
+	}
+	runnable, filtered, err := partitionEntries(entries, opts.tagFilter)
+	if err != nil {
+		return err
+	}
+	if len(runnable) == 0 {
+		if err := newExecutor(ctx, a.stdout, opts, 0).writeReports(filtered); err != nil {
+			return err
+		}
+		return &usageError{message: "no scenarios matched the configured filters"}
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, config.Config.SuiteTimeout)
+	defer cancel()
+
 	if err := config.Initialize(); err != nil {
 		return fmt.Errorf("initialize E2E configuration: %w", err)
 	}
@@ -119,25 +133,18 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	}
 	log.Printf("using E2E environment configuration:\n%s\n", config.Config)
 
-	exec := newExecutor(ctx, a.stdout, opts, tagSelectedEntries(entries, opts.tagFilter))
-	for _, entry := range entries {
-		name := entry.name
-		if config.Config.TestPreProvision || entry.scenario.VHDCaching {
-			name += "/VHDCreation"
-		}
-		exec.schedule(name, entry.scenario)
+	exec := newExecutor(ctx, a.stdout, opts, len(runnable))
+	for _, entry := range runnable {
+		exec.schedule(entry.name, entry.scenario)
 	}
 	exec.scenarios.Wait()
 
 	summary := exec.summary()
-	if err := exec.writeReports(); err != nil {
+	if err := exec.writeReports(filtered); err != nil {
 		return err
 	}
 	exec.printSummary()
 
-	if summary.Selected == 0 {
-		return &usageError{message: "no scenarios matched the configured filters"}
-	}
 	if summary.Failed > 0 {
 		return fmt.Errorf("%d scenario(s) failed", summary.Failed)
 	}
@@ -170,7 +177,6 @@ func (e *usageError) Error() string {
 
 type runOptions struct {
 	parallel   int
-	timeout    time.Duration
 	retries    int
 	logDir     string
 	junitFile  string
@@ -183,7 +189,6 @@ type runOptions struct {
 func runOptionsFromConfig(selectors []string) runOptions {
 	return runOptions{
 		parallel:   config.Config.Parallel,
-		timeout:    config.Config.TestTimeout,
 		retries:    config.Config.Retries,
 		logDir:     config.Config.E2ELoggingDir,
 		junitFile:  config.Config.JUnitFile,

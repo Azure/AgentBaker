@@ -160,9 +160,7 @@ type packageOSVariant struct {
 	osRelease string
 }
 
-var _ = registerDCGMExporterCompatibilityScenarios()
-
-func registerDCGMExporterCompatibilityScenarios() bool {
+func init() {
 	type testCase struct {
 		name           string
 		vhd            *config.Image
@@ -309,7 +307,6 @@ func registerDCGMExporterCompatibilityScenarios() bool {
 			},
 		})
 	}
-	return true
 }
 
 var _ = Register(&Scenario{

@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -22,37 +21,46 @@ func scenarioTags(s *Scenario) Tags {
 	return tags
 }
 
-func filterScenario(name string, s *Scenario, filter tagFilter) error {
+func filterReason(name string, s *Scenario, filter tagFilter) (string, error) {
 	tags := scenarioTags(s)
 	if filter.run != "" {
 		matches, err := tags.MatchesFilters(filter.run)
 		if err != nil {
-			return fmt.Errorf("could not match tags for %q: %w", name, err)
+			return "", fmt.Errorf("could not match tags for %q: %w", name, err)
 		}
 		if !matches {
-			return &skipError{message: fmt.Sprintf("filtered: scenario %q tags %+v do not match %q", name, tags, filter.run)}
+			return fmt.Sprintf("filtered: scenario %q tags %+v do not match %q", name, tags, filter.run), nil
 		}
 	}
 	if filter.skip != "" {
 		matches, err := tags.MatchesAnyFilter(filter.skip)
 		if err != nil {
-			return fmt.Errorf("could not match tags for %q: %w", name, err)
+			return "", fmt.Errorf("could not match tags for %q: %w", name, err)
 		}
 		if matches {
-			return &skipError{message: fmt.Sprintf("filtered: scenario %q tags %+v match skip filter %q", name, tags, filter.skip)}
+			return fmt.Sprintf("filtered: scenario %q tags %+v match skip filter %q", name, tags, filter.skip), nil
 		}
 	}
-	return nil
+	return "", nil
 }
 
-func tagSelectedEntries(entries []scenarioEntry, filter tagFilter) int {
-	count := 0
+func partitionEntries(entries []scenarioEntry, filter tagFilter) ([]scenarioEntry, []scenarioResult, error) {
+	var runnable []scenarioEntry
+	var filtered []scenarioResult
 	for _, entry := range entries {
-		var skip *skipError
-		if errors.As(filterScenario(entry.name, entry.scenario, filter), &skip) {
+		reason, err := filterReason(entry.name, entry.scenario, filter)
+		if err != nil {
+			return nil, nil, err
+		}
+		if reason == "" {
+			runnable = append(runnable, entry)
 			continue
 		}
-		count++
+		filtered = append(filtered, scenarioResult{
+			Name:     entry.name,
+			Status:   statusSkipped,
+			Attempts: []attemptResult{{Attempt: 1, Status: statusSkipped, Message: reason}},
+		})
 	}
-	return count
+	return runnable, filtered, nil
 }

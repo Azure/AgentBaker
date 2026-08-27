@@ -7,9 +7,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 )
 
-var _ = registerLocalDNSHostsScenarios()
-
-func registerLocalDNSHostsScenarios() bool {
+func init() {
 	tests := []struct {
 		name            string
 		vhd             *config.Image
@@ -47,5 +45,4 @@ func registerLocalDNSHostsScenarios() bool {
 			},
 		})
 	}
-	return true
 }

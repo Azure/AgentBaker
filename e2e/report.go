@@ -54,12 +54,12 @@ type junitSkipped struct {
 	Message string `xml:"message,attr"`
 }
 
-func (e *executor) writeReports() error {
+func (e *executor) writeReports(filtered []scenarioResult) error {
 	if e.opts.junitFile == "" {
 		return nil
 	}
 	e.resultsMu.Lock()
-	results := append([]scenarioResult(nil), e.results...)
+	results := append(append([]scenarioResult(nil), e.results...), filtered...)
 	e.resultsMu.Unlock()
 	sort.Slice(results, func(i, j int) bool { return results[i].Name < results[j].Name })
 
