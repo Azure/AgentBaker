@@ -37,6 +37,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		_, _ = fmt.Fprintln(a.stderr, err)
 		return exitFailure
 	}
+	runStarted := false
 	cmd := &cli.Command{
 		Name:  "e2e",
 		Usage: "Run AgentBaker end-to-end scenarios",
@@ -47,6 +48,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				ArgsUsage: "[scenario-name ...]",
 				Flags:     config.Flags(),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
+					runStarted = true
 					opts := runOptionsFromConfig(cmd.Args().Slice())
 					return a.run(ctx, opts)
 				},
@@ -73,6 +75,9 @@ func (a *App) Run(ctx context.Context, args []string) int {
 
 	if err := cmd.Run(ctx, args); err != nil {
 		_, _ = fmt.Fprintln(a.stderr, err)
+		if !runStarted {
+			return exitUsage
+		}
 		var usageErr *usageError
 		if errors.As(err, &usageErr) {
 			return exitUsage
@@ -94,6 +99,15 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	}
 	if config.Config.SuiteTimeout <= 0 {
 		return &usageError{message: "--suite-timeout must be greater than zero"}
+	}
+	if config.Config.TestTimeoutCluster <= 0 {
+		return &usageError{message: "--cluster-timeout must be greater than zero"}
+	}
+	if config.Config.TestTimeoutVMSS <= 0 {
+		return &usageError{message: "--vmss-timeout must be greater than zero"}
+	}
+	if config.Config.DefaultPollInterval <= 0 {
+		return &usageError{message: "--poll-interval must be greater than zero"}
 	}
 	switch opts.outputMode {
 	case "auto", "grouped", "stream":

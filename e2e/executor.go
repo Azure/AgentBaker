@@ -8,10 +8,12 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 )
 
@@ -176,6 +178,8 @@ attempts:
 
 func (e *executor) executeAttempt(name string, attempt int, original *Scenario) (result attemptResult) {
 	started := time.Now()
+	attemptCtx, cancel := context.WithTimeout(e.ctx, config.Config.TestTimeout)
+	defer cancel()
 	logPath := filepath.Join(e.opts.logDir, name, fmt.Sprintf("attempt-%d.log", attempt))
 	logger, err := newScenarioLogger(e, name, logPath)
 	if err != nil {
@@ -191,30 +195,40 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 			runErr = fmt.Errorf("panic: %v\n%s", recovered, debug.Stack())
 		}
 		runErr = addFailure(runErr, runScenarioCleanup(e.ctx, cleanup))
+		logErr := logger.Err()
+		runErr = addFailure(runErr, logErr)
 		switch status, message := classifyAttempt(runErr); status {
 		case statusSkipped:
 			logger.Log("SKIP:", message)
 		case statusFailed:
 			logger.Log("🔴 FAIL:", message)
 		}
-		runErr = addFailure(runErr, logger.Close())
+		if closeErr := logger.Close(); logErr == nil {
+			logErr = closeErr
+			runErr = addFailure(runErr, closeErr)
+		}
 		result.Status, result.Message = classifyAttempt(runErr)
 		result.Duration = time.Since(started)
 		if scenario != nil {
 			result.Checks = append([]scenarioCheck(nil), scenario.checks...)
 		}
-		logger.FlushConsole(string(result.Status))
+		if result.Status != statusSkipped {
+			logger.FlushConsole(string(result.Status))
+		}
+		if logErr != nil && !e.stream {
+			logger.PrintConsoleFailure(result.Message)
+		}
 	}()
 
 	scenario = freshScenario(original)
 	scenario.cleanup = cleanup
 	if scenario.SkipIf != nil {
-		if message := scenario.SkipIf(e.ctx); message != "" {
+		if message := scenario.SkipIf(attemptCtx); message != "" {
 			runErr = &skipError{message: message}
 			return result
 		}
 	}
-	runErr = e.runScenario(e.ctx, name, logger, scenario)
+	runErr = e.runScenario(attemptCtx, name, logger, scenario)
 	return result
 }
 
@@ -276,10 +290,24 @@ func (e *executor) summary() runSummary {
 
 func (e *executor) printSummary() {
 	summary := e.summary()
+	e.resultsMu.Lock()
+	var skipped []scenarioResult
+	for _, result := range e.results {
+		if result.Status == statusSkipped {
+			skipped = append(skipped, result)
+		}
+	}
+	e.resultsMu.Unlock()
+	sort.Slice(skipped, func(i, j int) bool { return skipped[i].Name < skipped[j].Name })
+
 	e.consoleMu.Lock()
 	defer e.consoleMu.Unlock()
 	_, _ = fmt.Fprintf(e.stdout, "\nDONE %d scenarios: %d passed, %d flaky, %d skipped, %d failed\n",
 		summary.Total, summary.Passed, summary.Flaky, summary.Skipped, summary.Failed)
+	for _, result := range skipped {
+		last := result.Attempts[len(result.Attempts)-1]
+		_, _ = fmt.Fprintf(e.stdout, "- %s (skipped): %s\n", result.Name, last.Message)
+	}
 }
 
 type scenarioLogger struct {
@@ -373,6 +401,18 @@ func (l *scenarioLogger) Close() error {
 		l.file = nil
 	}
 	return l.err
+}
+
+func (l *scenarioLogger) Err() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.err
+}
+
+func (l *scenarioLogger) PrintConsoleFailure(message string) {
+	l.executor.consoleMu.Lock()
+	defer l.executor.consoleMu.Unlock()
+	_, _ = fmt.Fprintf(l.executor.stdout, "[%s] [%.3fs] 🔴 FAIL: %s\n", l.name, time.Since(l.started).Seconds(), message)
 }
 
 func (l *scenarioLogger) recordErr(err error) {

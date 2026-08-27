@@ -39,6 +39,70 @@ func TestAppRejectsUnknownScenario(t *testing.T) {
 	}
 }
 
+func TestAppReturnsUsageExitCodeForInvalidFlag(t *testing.T) {
+	restoreRunnerConfig(t)
+	var stderr bytes.Buffer
+	app := NewApp(&bytes.Buffer{}, &stderr)
+
+	if code := app.Run(context.Background(), []string{"e2e", "run", "--parallel", "nope"}); code != exitUsage {
+		t.Fatalf("run returned %d, want %d; stderr: %s", code, exitUsage, stderr.String())
+	}
+}
+
+func TestAppReturnsUsageExitCodeBeforeRunStarts(t *testing.T) {
+	tests := []struct {
+		name        string
+		args        []string
+		parallelEnv string
+		message     string
+	}{
+		{name: "root flag", args: []string{"e2e", "--badflag"}, message: "flag provided but not defined"},
+		{name: "list flag", args: []string{"e2e", "list", "--badflag"}, message: "flag provided but not defined"},
+		{name: "environment value", args: []string{"e2e", "run", "DoesNotExist"}, parallelEnv: "nope", message: "E2E_PARALLEL"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			restoreRunnerConfig(t)
+			if test.parallelEnv != "" {
+				t.Setenv("E2E_PARALLEL", test.parallelEnv)
+			}
+			var stderr bytes.Buffer
+			app := NewApp(&bytes.Buffer{}, &stderr)
+			if code := app.Run(context.Background(), test.args); code != exitUsage {
+				t.Fatalf("run returned %d, want %d; stderr: %s", code, exitUsage, stderr.String())
+			}
+			if !strings.Contains(stderr.String(), test.message) {
+				t.Fatalf("run did not report %q: %s", test.message, stderr.String())
+			}
+		})
+	}
+}
+
+func TestAppRejectsNonPositiveDurations(t *testing.T) {
+	for _, test := range []struct {
+		flag    string
+		message string
+	}{
+		{flag: "--timeout=0s", message: "--timeout must be greater than zero"},
+		{flag: "--suite-timeout=0s", message: "--suite-timeout must be greater than zero"},
+		{flag: "--cluster-timeout=0s", message: "--cluster-timeout must be greater than zero"},
+		{flag: "--vmss-timeout=0s", message: "--vmss-timeout must be greater than zero"},
+		{flag: "--poll-interval=0s", message: "--poll-interval must be greater than zero"},
+	} {
+		t.Run(test.flag, func(t *testing.T) {
+			restoreRunnerConfig(t)
+			var stderr bytes.Buffer
+			app := NewApp(&bytes.Buffer{}, &stderr)
+			if code := app.Run(context.Background(), []string{"e2e", "run", test.flag, "DoesNotExist"}); code != exitUsage {
+				t.Fatalf("run returned %d, want %d; stderr: %s", code, exitUsage, stderr.String())
+			}
+			if !strings.Contains(stderr.String(), test.message) {
+				t.Fatalf("run did not validate %s: %s", test.flag, stderr.String())
+			}
+		})
+	}
+}
+
 func TestRunnerFlagsUseEnvironmentAliases(t *testing.T) {
 	oldParallel := config.Config.Parallel
 	oldTimeout := config.Config.TestTimeout
@@ -499,13 +563,17 @@ func TestScenarioSkipIfRecordsSkip(t *testing.T) {
 	if err := exec.writeReports(nil); err != nil {
 		t.Fatal(err)
 	}
+	exec.printSummary()
 
 	summary := exec.summary()
 	if summary.Total != 1 || summary.Skipped != 1 {
 		t.Fatalf("unexpected summary: %+v", summary)
 	}
-	if !strings.Contains(stdout.String(), "SKIP: not supported") {
-		t.Fatalf("ordinary skip was not written to the console: %q", stdout.String())
+	if !strings.Contains(stdout.String(), "- Disabled (skipped): not supported") {
+		t.Fatalf("ordinary skip was not listed in the summary: %q", stdout.String())
+	}
+	if strings.Contains(stdout.String(), "##[group]") {
+		t.Fatalf("ordinary skip created a noisy console group: %q", stdout.String())
 	}
 	report, err := os.ReadFile(opts.junitFile)
 	if err != nil {
@@ -513,6 +581,31 @@ func TestScenarioSkipIfRecordsSkip(t *testing.T) {
 	}
 	if !bytes.Contains(report, []byte(`<skipped message="not supported"`)) {
 		t.Fatalf("JUnit report dropped the ordinary skip:\n%s", report)
+	}
+}
+
+func TestScenarioTimeoutCoversSkipAndRun(t *testing.T) {
+	oldTimeout := config.Config.TestTimeout
+	config.Config.TestTimeout = time.Second
+	t.Cleanup(func() { config.Config.TestTimeout = oldTimeout })
+
+	exec := newTestExecutor(t)
+	var skipDeadline, runDeadline time.Time
+	exec.runScenario = func(ctx context.Context, _ string, _ toolkit.Logger, _ *Scenario) error {
+		runDeadline, _ = ctx.Deadline()
+		return nil
+	}
+	exec.schedule("Deadline", &Scenario{
+		Name: "Deadline",
+		SkipIf: func(ctx context.Context) string {
+			skipDeadline, _ = ctx.Deadline()
+			return ""
+		},
+	})
+	exec.scenarios.Wait()
+
+	if skipDeadline.IsZero() || !skipDeadline.Equal(runDeadline) {
+		t.Fatalf("SkipIf and scenario received different attempt deadlines: skip=%s run=%s", skipDeadline, runDeadline)
 	}
 }
 
@@ -648,6 +741,9 @@ func TestExecutorFailsAttemptOnLogWriteFailure(t *testing.T) {
 	}
 	if !strings.Contains(attempt.Message, "write scenario log") {
 		t.Fatalf("attempt message lost the log failure: %q", attempt.Message)
+	}
+	if !strings.Contains(exec.stdout.(*bytes.Buffer).String(), "write scenario log") {
+		t.Fatalf("console output lost the log failure: %q", exec.stdout.(*bytes.Buffer).String())
 	}
 }
 
