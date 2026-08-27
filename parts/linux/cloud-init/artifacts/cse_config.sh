@@ -1500,40 +1500,27 @@ configureNvidiaCDIRefresh() {
 # The toolkit starts nvidia-cdi-refresh while the aks-gpu container is still staging userspace
 # libraries, and a prebaked kernel module makes the service condition pass early. Re-run it here,
 # after nvidia-smi and ldconfig have succeeded, and confirm it produced a usable device.
-repairNvidiaCDIRefresh() {
-    local service_unit="nvidia-cdi-refresh.service"
-    local path_unit="nvidia-cdi-refresh.path"
-    local cdi_spec_path="${NVIDIA_CDI_SPEC_PATH:-/var/run/cdi/nvidia.yaml}"
-    local service_load_state
-    local path_load_state
+# Runs the refresh and verifies it produced a usable NVIDIA CDI device. Split out of
+# repairNvidiaCDIRefresh so that every failure path unwinds through that function's .path re-arm.
+refreshNvidiaCDISpec() {
+    local service_unit="$1"
+    local path_unit="$2"
+    local cdi_spec_path="$3"
     local cdi_devices
     local cdi_list_status
     local validation_dir
 
-    service_load_state=$(systemctl show --property=LoadState --value "$service_unit") || return 1
-    path_load_state=$(systemctl show --property=LoadState --value "$path_unit") || return 1
-
-    if [ "$service_load_state" = "not-found" ] && [ "$path_load_state" = "not-found" ]; then
-        return 0
-    fi
-    if [ "$service_load_state" != "loaded" ] || [ "$path_load_state" != "loaded" ]; then
-        echo "Unexpected NVIDIA CDI unit state: service=${service_load_state}, path=${path_load_state}"
-        return 1
-    fi
-
-    systemctl stop "$path_unit" || return 1
     systemctl stop "$service_unit" || return 1
     systemctl reset-failed "$service_unit" "$path_unit" || return 1
 
     # A MIG node cannot produce a spec during CSE: nvidia-ctk exits 1 while MIG mode is on with no
     # instances, and ensureMigPartition -- which runs after this, from cse_main.sh -- is itself
-    # "expected to fail and work only on next reboot". Re-arm the units and let the .path trigger
-    # regenerate the spec once the post-reboot driver load rewrites modules.dep.
+    # "expected to fail and work only on next reboot". Start the service to clear the slate, but do
+    # not verify: MIG already forces a reboot, and the spec can only appear on the far side of it.
     if [ "${MIG_NODE:-}" = "true" ]; then
-        echo "MIG node: re-armed NVIDIA CDI refresh without verifying, spec follows the MIG reboot"
+        echo "MIG node: skipping NVIDIA CDI verification, spec follows the MIG reboot"
         systemctl start "$service_unit" || return 1
-        systemctl start "$path_unit"
-        return $?
+        return 0
     fi
 
     # A successful oneshot can still mean its conditions skipped. Remove any stale output and
@@ -1547,7 +1534,7 @@ repairNvidiaCDIRefresh() {
 
     validation_dir=$(mktemp -d) || return 1
     if ! cp "$cdi_spec_path" "${validation_dir}/nvidia.yaml"; then
-        rm -rf "$validation_dir" || return 1
+        rm -rf "$validation_dir"
         return 1
     fi
     cdi_devices=$(nvidia-ctk cdi list --spec-dir="$validation_dir")
@@ -1560,8 +1547,39 @@ repairNvidiaCDIRefresh() {
         echo "NVIDIA CDI refresh generated no NVIDIA GPU devices"
         return 1
     fi
+}
 
-    systemctl start "$path_unit"
+repairNvidiaCDIRefresh() {
+    local service_unit="nvidia-cdi-refresh.service"
+    local path_unit="nvidia-cdi-refresh.path"
+    local cdi_spec_path="${NVIDIA_CDI_SPEC_PATH:-/var/run/cdi/nvidia.yaml}"
+    local service_load_state
+    local path_load_state
+    local repair_status
+
+    service_load_state=$(systemctl show --property=LoadState --value "$service_unit") || return 1
+    path_load_state=$(systemctl show --property=LoadState --value "$path_unit") || return 1
+
+    if [ "$service_load_state" = "not-found" ] && [ "$path_load_state" = "not-found" ]; then
+        return 0
+    fi
+    if [ "$service_load_state" != "loaded" ] || [ "$path_load_state" != "loaded" ]; then
+        echo "Unexpected NVIDIA CDI unit state: service=${service_load_state}, path=${path_load_state}"
+        return 1
+    fi
+
+    systemctl stop "$path_unit" || return 1
+
+    refreshNvidiaCDISpec "$service_unit" "$path_unit" "$cdi_spec_path"
+    repair_status=$?
+
+    # Re-arm on every path, failures included. This function stopped the .path unit above, and that
+    # unit is the entire self-heal story once CSE is over -- it re-runs the refresh when the driver
+    # finally settles. Since the caller treats a failed repair as non-fatal, returning here without
+    # restarting it would let a node provision successfully with its recovery trigger disarmed,
+    # which is strictly worse than never having run the repair at all.
+    systemctl start "$path_unit" || return 1
+    return "$repair_status"
 }
 
 configGPUDrivers() {

@@ -3136,7 +3136,7 @@ OVERRIDE_EOF
             The output should include "Unexpected NVIDIA CDI unit state"
         End
 
-        It 'fails when the CDI refresh service cannot start and leaves the path stopped'
+        It 'fails but still re-arms the path when the CDI refresh service cannot start'
             SYSTEMD_UNIT_DIR="$(mktemp -d)"
             NVIDIA_CDI_SPEC_PATH="${SYSTEMD_UNIT_DIR}/run/cdi/nvidia.yaml"
             systemctl() {
@@ -3155,7 +3155,9 @@ OVERRIDE_EOF
 
             The status should be failure
             The output should include "systemctl start nvidia-cdi-refresh.service"
-            The output should not include "systemctl start nvidia-cdi-refresh.path"
+            # The .path unit is the only self-heal left after a failed repair, and the caller is
+            # non-fatal, so it must be re-armed even though this run failed.
+            The output should include "systemctl start nvidia-cdi-refresh.path"
             rm -rf "${SYSTEMD_UNIT_DIR}"
         End
 
@@ -3177,7 +3179,7 @@ OVERRIDE_EOF
             The status should be failure
             The output should include "systemctl reset-failed nvidia-cdi-refresh.service nvidia-cdi-refresh.path"
             The output should not include "systemctl start nvidia-cdi-refresh.service"
-            The output should not include "systemctl start nvidia-cdi-refresh.path"
+            The output should include "systemctl start nvidia-cdi-refresh.path"
         End
 
         It 'fails when the service succeeds without generating a CDI specification'
@@ -3198,7 +3200,7 @@ OVERRIDE_EOF
             The status should be failure
             The output should include "NVIDIA CDI refresh did not generate"
             The output should not include "CDI_LIST_RAN"
-            The output should not include "systemctl start nvidia-cdi-refresh.path"
+            The output should include "systemctl start nvidia-cdi-refresh.path"
             rm -rf "${SYSTEMD_UNIT_DIR}"
         End
 
@@ -3223,7 +3225,7 @@ OVERRIDE_EOF
 
             The status should be failure
             The output should include "NVIDIA CDI refresh generated no NVIDIA GPU devices"
-            The output should not include "systemctl start nvidia-cdi-refresh.path"
+            The output should include "systemctl start nvidia-cdi-refresh.path"
             rm -rf "${SYSTEMD_UNIT_DIR}"
         End
 
@@ -3249,7 +3251,7 @@ OVERRIDE_EOF
             The output line 1 should equal "systemctl stop nvidia-cdi-refresh.path"
             The output line 2 should equal "systemctl stop nvidia-cdi-refresh.service"
             The output line 3 should equal "systemctl reset-failed nvidia-cdi-refresh.service nvidia-cdi-refresh.path"
-            The output should include "MIG node: re-armed NVIDIA CDI refresh without verifying"
+            The output should include "MIG node: skipping NVIDIA CDI verification"
             The output should include "systemctl start nvidia-cdi-refresh.service"
             The output should include "systemctl start nvidia-cdi-refresh.path"
             The output should not include "CDI_LIST_RAN"
