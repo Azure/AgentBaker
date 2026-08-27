@@ -55,7 +55,7 @@ knead_get_node_annotation() {
     local node_json="$1"
     local annotation="$2"
 
-    printf '%s' "${node_json}" | jq -r --arg annotation "${annotation}" '.metadata.annotations[$annotation] // empty'
+    printf '%s' "${node_json}" | jq -r --arg annotation "${annotation}" '(.metadata.annotations // {})[$annotation] // empty'
 }
 
 # Reads and validates the generic ConfigMap contract before any component handler runs.
