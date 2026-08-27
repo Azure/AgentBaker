@@ -16,8 +16,8 @@ import (
 )
 
 func rcv1pWindowsBootstrapMutator(windows2025 bool) func(context.Context, *Cluster, *datamodel.NodeBootstrappingConfiguration) error {
-	return func(_ context.Context, cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) error {
-		cseMutator, err := rcv1pWindowsCSEMutator()
+	return func(ctx context.Context, cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) error {
+		cseMutator, err := rcv1pWindowsCSEMutator(ctx)
 		if err != nil {
 			return err
 		}

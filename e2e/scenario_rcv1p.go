@@ -151,10 +151,10 @@ var (
 // pipeline packaging in .pipelines/scripts/windows_package_cse.sh) and uploads it to the
 // E2E blob storage. Returns a SAS-signed URL. Uses sync.Once so the zip is built and
 // uploaded exactly once across all parallel tests.
-func getOrBuildBranchCSEPackageURL() (string, error) {
+func getOrBuildBranchCSEPackageURL(ctx context.Context) (string, error) {
 	branchCSEZipOnce.Do(func() {
 		// 5m covers a cold-start storage account create (~30-90s) plus the zip build/upload.
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 		defer cancel()
 		// Windows scenarios construct this mutator at scenario-struct-init time, which runs
 		// BEFORE RunScenario -> CachedCreateVMManagedIdentity (which creates the per-sub blob
@@ -285,8 +285,8 @@ func findRepoRoot() (string, error) {
 
 // rcv1pWindowsCSEMutator returns a BootstrapConfigMutator that overrides CseScriptsPackageURL
 // to use the branch-built CSE zip containing the RCV1P code.
-func rcv1pWindowsCSEMutator() (func(*Cluster, *datamodel.NodeBootstrappingConfiguration), error) {
-	cseURL, err := getOrBuildBranchCSEPackageURL()
+func rcv1pWindowsCSEMutator(ctx context.Context) (func(*Cluster, *datamodel.NodeBootstrappingConfiguration), error) {
+	cseURL, err := getOrBuildBranchCSEPackageURL(ctx)
 	if err != nil {
 		return nil, err
 	}
