@@ -1994,13 +1994,6 @@ func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
 			wantNotContains: []string{"health_check", "no_rec"},
 		},
 		{
-			name: "domain without duration omits health_check",
-			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
-				Domain: to.Ptr("health.local."),
-			},
-			wantNotContains: []string{"health_check", "domain health.local."},
-		},
-		{
 			name: "duration only relies on CoreDNS default recursive domain",
 			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
 				Duration: to.Ptr("1s"),
@@ -2008,8 +2001,7 @@ func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
 			wantContains: "health_check 1s",
 			wantNotContains: []string{
 				"no_rec",
-				"domain .",
-				"domain health.local.",
+				"domain ",
 			},
 		},
 		{
@@ -2037,24 +2029,6 @@ func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
 				NoRec:    to.Ptr(true),
 			},
 			wantContains:    "health_check 1s no_rec",
-			wantNotContains: []string{"domain health.local."},
-		},
-		{
-			name: "duration and domain",
-			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
-				Duration: to.Ptr("1s"),
-				Domain:   to.Ptr("health.local."),
-			},
-			wantContains:    "health_check 1s domain health.local.",
-			wantNotContains: []string{"no_rec"},
-		},
-		{
-			name: "duration with empty domain omits domain",
-			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
-				Duration: to.Ptr("1s"),
-				Domain:   to.Ptr(""),
-			},
-			wantContains:    "health_check 1s",
 			wantNotContains: []string{"domain "},
 		},
 		{
@@ -2066,15 +2040,14 @@ func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
 			wantContains: "health_check 1s",
 		},
 		{
-			name: "duration no_rec domain and failfast",
+			name: "duration no_rec and failfast",
 			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
 				Duration: to.Ptr("1s"),
 				NoRec:    to.Ptr(true),
-				Domain:   to.Ptr("health.local."),
 			},
 			failfast: to.Ptr(true),
 			wantContains: strings.Join([]string{
-				"health_check 1s no_rec domain health.local.",
+				"health_check 1s no_rec",
 				"failfast_all_unhealthy_upstreams",
 			}, "\n        "),
 		},
