@@ -1671,3 +1671,107 @@ func TestValidateAndSetLinuxNodeBootstrappingConfiguration_TransparentHugePageVa
 		})
 	}
 }
+
+func TestEncodePowerShellBase64Literal(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"plain key", "ssh-rsa AAAAB3 user@host",
+			"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgdXNlckBob3N0'))"},
+		{"embedded apostrophe", "ssh-rsa AAAAB3 user's key",
+			"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgdXNlcidzIGtleQ=='))"},
+		{"subexpression and semicolon", "ssh-rsa AAAAB3 ;$(cmd)",
+			"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgOyQoY21kKQ=='))"},
+		{"unicode right single quote U+2019", "ssh-rsa AAAAB3 user\u2019s key",
+			"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgdXNlcuKAmXMga2V5'))"},
+		{"empty string", "",
+			"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(''))"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := encodePowerShellBase64Literal(tc.input)
+			if got != tc.expected {
+				t.Errorf("encodePowerShellBase64Literal(%q)\ngot:  %s\nwant: %s", tc.input, got, tc.expected)
+			}
+			// Round-trip: extract payload and decode back to original.
+			const prefix = "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('"
+			const suffix = "'))"
+			if !strings.HasPrefix(got, prefix) || !strings.HasSuffix(got, suffix) {
+				t.Fatalf("output does not match expected format")
+			}
+			payload := got[len(prefix) : len(got)-len(suffix)]
+			decoded, err := base64.StdEncoding.DecodeString(payload)
+			if err != nil {
+				t.Fatalf("base64 decode failed: %v", err)
+			}
+			if string(decoded) != tc.input {
+				t.Errorf("round-trip mismatch: got %q, want %q", string(decoded), tc.input)
+			}
+		})
+	}
+}
+
+func TestGetSSHPublicKeysPowerShell(t *testing.T) {
+	tests := []struct {
+		name     string
+		profile  *datamodel.LinuxProfile
+		expected string
+	}{
+		{
+			name:     "nil profile",
+			profile:  nil,
+			expected: "",
+		},
+		{
+			name: "single key with whitespace trimmed",
+			profile: &datamodel.LinuxProfile{
+				SSH: struct {
+					PublicKeys []datamodel.PublicKey `json:"publicKeys"`
+				}{
+					PublicKeys: []datamodel.PublicKey{
+						{KeyData: "  ssh-rsa AAAAB3 user@host  "},
+					},
+				},
+			},
+			expected: "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgdXNlckBob3N0'))",
+		},
+		{
+			name: "multiple keys",
+			profile: &datamodel.LinuxProfile{
+				SSH: struct {
+					PublicKeys []datamodel.PublicKey `json:"publicKeys"`
+				}{
+					PublicKeys: []datamodel.PublicKey{
+						{KeyData: "ssh-rsa AAAAB3 key1"},
+						{KeyData: "ssh-rsa AAAAC4 key2"},
+					},
+				},
+			},
+			expected: "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMga2V5MQ=='))" +
+				", " + "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQzQga2V5Mg=='))",
+		},
+		{
+			name: "key with special chars preserved",
+			profile: &datamodel.LinuxProfile{
+				SSH: struct {
+					PublicKeys []datamodel.PublicKey `json:"publicKeys"`
+				}{
+					PublicKeys: []datamodel.PublicKey{
+						{KeyData: "ssh-rsa AAAAB3 user's $(key)"},
+					},
+				},
+			},
+			expected: "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgdXNlcidzICQoa2V5KQ=='))",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := getSSHPublicKeysPowerShell(tc.profile)
+			if got != tc.expected {
+				t.Errorf("getSSHPublicKeysPowerShell()\ngot:  %s\nwant: %s", got, tc.expected)
+			}
+		})
+	}
+}

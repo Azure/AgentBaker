@@ -57,13 +57,23 @@ func DualStackVMConfigMutator(set *armcompute.VirtualMachineScaleSet) {
 }
 
 func Test_Windows2022_AzureNetwork(t *testing.T) {
+	// Key comment contains a PowerShell subexpression that would be expanded
+	// if rendered inside a double-quoted string. The base64 encoding must
+	// ensure it is preserved literally in authorized_keys.
+	const sshKeyInterpolationComment = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDIs9weXqhc498AY/775zoJAO+bsmgBx2/V2KTaQgbU1I9ePbquox6r1idf1hcyR+wo9bqlMErLlSGdDCZqTfRmZS9gBbicxPuaIDnIvzfNBH/4Eqq6YVcwjkFeHWqL4ABPq/VNzbLr7JkkCVw9Widh3K/HTsfaDx13qOUwzcm2F7FN/+zvrRyz9RDwkzdeOVhG6JwHdQAjLM40z49BP4yPyHl4rxvDmGUcOYRy+zCf4Sz75Nw+7wOph3X8KUY8EcHqptXMtk+6f17tasZNaiK0sGY+Hq/Craz2ryO3cDtDn+8Kw2Mpwox8qmdKTCVHPkHgh9OwiFPPWcnld4kNg/+V9ONlsJLUTAwOVezqsCWWU/+NpTWhKqLp682FOZ1fhI+jRlMp0Sa6uEXdw9U56J4IbgzXa1RXYmmq8xceMRIRWC9dxVjcv8F1KrpJoCORtrZDQDaF3Kw789dX09MawfdCZscKSVDXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= $(hostname)-literal-test`
+
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 Azure Network",
 		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows2022Containerd,
-			VMConfigMutator:        EmptyVMConfigMutator,
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows2022Containerd,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = append(
+					nbc.ContainerService.Properties.LinuxProfile.SSH.PublicKeys,
+					datamodel.PublicKey{KeyData: sshKeyInterpolationComment},
+				)
+			},
 			Validator: func(ctx context.Context, s *Scenario) error {
 				return errors.Join(
 					ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd"),
@@ -76,6 +86,7 @@ func Test_Windows2022_AzureNetwork(t *testing.T) {
 					ValidateDotnetNotInstalledWindows(ctx, s),
 					ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
 					ValidateCollectWindowsLogsScript(ctx, s),
+					ValidateSSHKeyLiteralPreservation(ctx, s, sshKeyInterpolationComment),
 				)
 			},
 		},
@@ -638,3 +649,4 @@ func Test_NetworkIsolatedCluster_Windows_OrasDownload(t *testing.T) {
 		},
 	})
 }
+

@@ -4460,3 +4460,18 @@ func ValidateServiceInSlice(ctx context.Context, s *Scenario, service, expectedS
 	return assert.Equal(actual, expectedSlice,
 		"expected %s to be in %s, but got %s", service, expectedSlice, actual)
 }
+
+// ValidateSSHKeyLiteralPreservation reads the Windows authorized_keys file and
+// checks that the expected key string appears literally. This does the comparison
+// in Go rather than in PowerShell to avoid the validator itself interpreting
+// special characters like $() in the key comment.
+func ValidateSSHKeyLiteralPreservation(ctx context.Context, s *Scenario, expectedKey string) error {
+	content, err := getFileContent(ctx, s, `C:\ProgramData\ssh\administrators_authorized_keys`)
+	if err != nil {
+		return fmt.Errorf("reading authorized_keys: %w", err)
+	}
+	if !strings.Contains(content, expectedKey) {
+		return fmt.Errorf("authorized_keys does not contain the expected literal key.\nExpected substring: %s\nActual content: %s", expectedKey, content)
+	}
+	return nil
+}
