@@ -3317,6 +3317,48 @@ func Test_Ubuntu2404_VHDCaching(t *testing.T) {
 	})
 }
 
+// Test_Ubuntu2404_VHDCaching_GPUPrebakeRemovedBeforeCustomization verifies the PIS ownership
+// boundary. BasePrep must remove the AKS-owned GPU prebake before the customer customization
+// script runs, and real-node provisioning must preserve customer-owned DKMS state captured later.
+func Test_Ubuntu2404_VHDCaching_GPUPrebakeRemovedBeforeCustomization(t *testing.T) {
+	const (
+		gpuPrebakeMarker              = "/opt/azure/aks-gpu/dkms-marker"
+		customerDriverDir             = "/var/lib/dkms/nvidia"
+		customerDriverOwnershipMarker = customerDriverDir + "/e2e-customer-owned"
+	)
+
+	RunScenario(t, &Scenario{
+		Description: "Tests that PIS removes the AKS GPU prebake before customer image customization",
+		Config: Config{
+			Cluster:                ClusterKubenet,
+			VHD:                    config.VHDUbuntu2404Gen2Containerd,
+			VHDCaching:             true,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			PreCaptureImageCustomizer: func(ctx context.Context, s *Scenario) error {
+				customizationScript := fmt.Sprintf(`#!/bin/bash
+set -euxo pipefail
+
+grep -Fq 'AKS_GPU_PREBAKE event=image_customization status=released' /var/log/azure/cluster-provision.log
+test ! -e %q
+test ! -e /var/lib/dkms/nvidia
+test ! -e /usr/bin/nvidia-modprobe
+
+install -d -m 0755 %q
+printf 'owner=customer\n' > %q
+`, gpuPrebakeMarker, customerDriverDir, customerDriverOwnershipMarker)
+				_, err := RunCommand(ctx, s, customizationScript)
+				return err
+			},
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateFileDoesNotExist(ctx, s, gpuPrebakeMarker),
+					ValidateFileHasContent(ctx, s, customerDriverOwnershipMarker, "owner=customer"),
+				)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that credential provider config includes identity binding when ServiceAccountImagePullProfile is enabled",

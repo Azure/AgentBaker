@@ -140,6 +140,12 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 		if validationErr != nil {
 			return validationErr
 		}
+		if original.PreCaptureImageCustomizer != nil {
+			toolkit.Log(ctx, "=== Running Pre-Capture Image Customization ===")
+			if err := original.PreCaptureImageCustomizer(ctx, stage1); err != nil {
+				return fmt.Errorf("pre-capture image customization failed: %w", err)
+			}
+		}
 		toolkit.Log(ctx, "=== Creating VHD Image ===")
 		var err error
 		customVHD, err = CreateImage(ctx, stage1)

@@ -216,6 +216,11 @@ type Config struct {
 	// so that staleness regressions in the BasePrep->NodePrep split are caught positively.
 	PreProvisionBootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
 
+	// PreCaptureImageCustomizer, when set, runs after pre-provision basePrep succeeds and before the
+	// VM disk is captured in a VHDCaching/TestPreProvision two-stage run. Use it to emulate PIS
+	// customer customization. An error stops image capture.
+	PreCaptureImageCustomizer func(context.Context, *Scenario) error
+
 	// AKSNodeConfigMutator if defined then aks-node-controller will be used to provision nodes
 	AKSNodeConfigMutator func(*Cluster, *aksnodeconfigv1.Configuration)
 
