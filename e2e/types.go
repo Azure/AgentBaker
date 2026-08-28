@@ -235,6 +235,10 @@ type Config struct {
 	// This is for e2e-only validation scenarios.
 	CustomDataWriteFiles []CustomDataWriteFile
 
+	// PreProvisionCustomDataWriteFiles injects cloud-init write_files entries only into the bake stage
+	// of a VHDCaching/TestPreProvision two-stage run.
+	PreProvisionCustomDataWriteFiles []CustomDataWriteFile
+
 	// Validator is a function where the scenario can perform any extra validation checks
 	Validator func(ctx context.Context, s *Scenario) error
 

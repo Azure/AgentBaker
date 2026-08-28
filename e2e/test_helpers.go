@@ -119,6 +119,10 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 
 	// Mutate the copy for pre-provisioning
 	firstStage.Config.SkipDefaultValidation = true
+	firstStage.Config.CustomDataWriteFiles = append(
+		append([]CustomDataWriteFile{}, original.Config.CustomDataWriteFiles...),
+		original.Config.PreProvisionCustomDataWriteFiles...,
+	)
 	firstStage.Config.Validator = func(ctx context.Context, stage1 *Scenario) error {
 		var validationErr error
 		if stage1.IsWindows() {

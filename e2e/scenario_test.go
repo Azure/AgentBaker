@@ -3324,6 +3324,7 @@ func Test_Ubuntu2404_VHDCaching_GPUPrebakeRemovedBeforeCustomization(t *testing.
 	const (
 		gpuPrebakeMarker              = "/opt/azure/aks-gpu/dkms-marker"
 		customerDriverDir             = "/var/lib/dkms/nvidia"
+		aksPrebakeDriverMarker        = customerDriverDir + "/e2e-aks-owned"
 		customerDriverOwnershipMarker = customerDriverDir + "/e2e-customer-owned"
 	)
 
@@ -3334,6 +3335,21 @@ func Test_Ubuntu2404_VHDCaching_GPUPrebakeRemovedBeforeCustomization(t *testing.
 			VHD:                    config.VHDUbuntu2404Gen2Containerd,
 			VHDCaching:             true,
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			PreProvisionCustomDataWriteFiles: []CustomDataWriteFile{
+				{
+					Path:    gpuPrebakeMarker,
+					Content: "owner=aks\n",
+				},
+				{
+					Path:    aksPrebakeDriverMarker,
+					Content: "owner=aks\n",
+				},
+				{
+					Path:        "/usr/bin/nvidia-modprobe",
+					Permissions: "0755",
+					Content:     "#!/bin/sh\nexit 0\n",
+				},
+			},
 			PreCaptureImageCustomizer: func(ctx context.Context, s *Scenario) error {
 				customizationScript := fmt.Sprintf(`#!/bin/bash
 set -euxo pipefail
