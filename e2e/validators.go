@@ -3487,6 +3487,15 @@ func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) error {
 	if s.Runtime.AKSNodeConfig == nil || !usesScriptlessNBCCSECmd(s) {
 		return nil
 	}
+	// Scenarios provisioned by the published managed AKSNode VM extension run the extension's
+	// VHD-baked aks-node-controller, not the PR-compiled binary that the boothook #hotfix-marker
+	// injection delivers on the pure-scriptless path. Comparing that baked ANC's rendering against
+	// the PR's baker-rendered nbc-cmd is a guaranteed false "differs" for any PR that changes
+	// rendering, so skip the parity check there. See Config.SkipScriptlessEnvParity.
+	if s.Config.SkipScriptlessEnvParity {
+		s.Logger.Logf("skipping provision-config vs nbc-cmd env parity check: scenario provisions via the managed AKSNode VM extension (baked ANC, not PR-compiled)")
+		return nil
+	}
 	logFile := "/var/log/azure/aks-node-controller.output"
 	hasContent, err := fileHasContent(ctx, s, logFile, "env compare: no differences found between provision-config and nbc-cmd env vars")
 	if err != nil {
