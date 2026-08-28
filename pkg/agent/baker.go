@@ -1942,7 +1942,14 @@ func shouldUseContainerdV4Config(config *datamodel.NodeBootstrappingConfiguratio
 	if strings.TrimSpace(config.ContainerdVersion) != "" {
 		return false
 	}
-	return config.AgentPoolProfile != nil && (config.AgentPoolProfile.Is2404VHDDistro() || config.AgentPoolProfile.Is2604VHDDistro())
+	// Empty/unknown containerd version: do NOT assume the 2.3+ (v4) schema for 24.04 based on the
+	// distro alone. Older 24.04 VHDs still ship containerd 2.0-2.2, which reject `version = 4`
+	// ("expected containerd config version equal to or less than `3`") and crash-loop, failing CSE
+	// with exit 84 (reproduced in e2e against a containerd 2.1.7 Ubuntu 24.04 VHD). The scriptful
+	// CSE writes this config verbatim with no on-node version detection, so an empty version must
+	// fall through to shouldUseContainerdV2Config -> the before-2.3 split-plugin v2 schema, which
+	// loads on all containerd 2.x. 26.04 is safe to assume v4: it only ever shipped containerd >= 2.3.
+	return config.AgentPoolProfile != nil && config.AgentPoolProfile.Is2604VHDDistro()
 }
 
 func shouldUseContainerdV2Config(config *datamodel.NodeBootstrappingConfiguration) bool {
