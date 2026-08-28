@@ -37,7 +37,10 @@ jobs:
           # elsewhere in the repo don't block unrelated PRs. Reports each match with its
           # exact file:line so failures are actionable instead of just naming the pattern.
           # Matching is case-insensitive since DNS hostnames are case-insensitive.
-          report=$(git diff --unified=0 "$MERGE_BASE" "$HEAD_SHA" | awk -v pattern="$PATTERN" '
+          # --text forces every file to be diffed as text: without it, git silently emits
+          # "Binary files ... differ" (no hunks at all) for anything it detects as binary,
+          # or anything marked `binary` via .gitattributes, creating an unscanned path.
+          report=$(git diff --unified=0 --text "$MERGE_BASE" "$HEAD_SHA" | awk -v pattern="$PATTERN" '
             /^diff --git / {
               in_hunk = 0
               next
