@@ -116,6 +116,7 @@ updateSecurityPatch() {
     local node_name
     local repo_endpoint
     local code_name
+    local agent_pools_type
     local apt_opts="-o Acquire::http::Timeout=300 -o Acquire::https::Timeout=300 -o Acquire::Retries=3"
 
     if [ -z "${node_json}" ]; then
@@ -135,8 +136,24 @@ updateSecurityPatch() {
         return 1
     fi
 
+    if ! agent_pools_type="$(printf '%s' "${component_payload}" | jq -er 'if has("agentPools") then (.agentPools | type) else "missing" end' 2> /dev/null)"; then
+        echo "securityPatch configuration is invalid"
+        return 1
+    fi
+    if [ "${agent_pools_type}" = "missing" ]; then
+        echo "securityPatch has no profile for agent pool ${agent_pool}; no action needed"
+        return 0
+    fi
+    if [ "${agent_pools_type}" != "object" ]; then
+        echo "securityPatch agentPools must be an object"
+        return 1
+    fi
+    if ! printf '%s' "${component_payload}" | jq -e --arg agentPool "${agent_pool}" '.agentPools | has($agentPool)' > /dev/null; then
+        echo "securityPatch has no profile for agent pool ${agent_pool}; no action needed"
+        return 0
+    fi
     if ! golden_timestamp="$(printf '%s' "${component_payload}" | jq -er --arg agentPool "${agent_pool}" '.agentPools[$agentPool].goldenTimestamp // empty')"; then
-        echo "securityPatch profile is missing for agent pool: ${agent_pool}"
+        echo "securityPatch goldenTimestamp is missing for agent pool: ${agent_pool}"
         return 1
     fi
     if ! printf '%s' "${golden_timestamp}" | grep -Eq '^[0-9]{8}T[0-9]{6}Z$'; then
