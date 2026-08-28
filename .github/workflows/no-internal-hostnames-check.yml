@@ -20,22 +20,45 @@ jobs:
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
           git fetch --quiet origin "$BASE_SHA" "$HEAD_SHA"
 
+          SELF_PATH=".github/workflows/no-internal-hostnames-check.yml"
+
           # Internal-only hostnames/keywords that must never appear in this public repo.
           # This list mirrors the categories called out by internal security takedown audits
           # (internal source-control hosts, corp hostnames, internal messaging endpoints).
           PATTERN='eng\.ms|dev\.azure\.com|[a-z0-9-]*\.visualstudio\.com|corp\.microsoft\.com|substrate\.office\.com|redmond\.corp'
 
           # Only flag lines ADDED by this PR, so pre-existing (already tracked) occurrences
-          # elsewhere in the repo don't block unrelated PRs.
-          matches=$(git diff --unified=0 "$BASE_SHA" "$HEAD_SHA" -- . ':(exclude).github/workflows/no-internal-hostnames-check.yml' \
-            | grep -E '^\+[^+]' \
-            | grep -Eio "$PATTERN" || true)
+          # elsewhere in the repo don't block unrelated PRs. Reports each match with its
+          # exact file:line so failures are actionable instead of just naming the pattern.
+          report=$(git diff --unified=0 "$BASE_SHA" "$HEAD_SHA" -- . ":(exclude)$SELF_PATH" | awk -v pattern="$PATTERN" '
+            /^\+\+\+ / {
+              file = $2
+              sub(/^b\//, "", file)
+              next
+            }
+            /^@@/ {
+              line = $0
+              sub(/^@@ -[0-9]+(,[0-9]+)? \+/, "", line)
+              sub(/[, ].*/, "", line)
+              lineno = line + 0
+              next
+            }
+            /^\+/ && !/^\+\+\+/ {
+              content = substr($0, 2)
+              if (content ~ pattern) {
+                printf "%s\t%d\t%s\n", file, lineno, content
+              }
+              lineno++
+              next
+            }
+          ')
 
-          if [ -n "$matches" ]; then
-            echo "::error::This PR appears to introduce internal-only hostnames/links (internal source control, corp hostnames, or internal messaging endpoints). Public repo content must not reference these."
+          if [ -n "$report" ]; then
+            echo "::error::This PR appears to introduce internal-only hostnames/links (internal source control, corp hostnames, or internal messaging endpoints). Public repo content must not reference these. See annotations below for exact locations."
             echo ""
-            echo "Matched patterns (deduplicated):"
-            echo "$matches" | sort -u
+            while IFS=$'\t' read -r file lineno content; do
+              echo "::error file=${file},line=${lineno}::Internal hostname reference: ${content}"
+            done <<< "$report"
             echo ""
             echo "Please remove or genericize these references before merging."
             exit 1
