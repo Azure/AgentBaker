@@ -20,18 +20,29 @@ jobs:
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
           git fetch --quiet origin "$BASE_SHA" "$HEAD_SHA"
 
-          SELF_PATH=".github/workflows/no-internal-hostnames-check.yml"
+          # Use the merge-base (three-dot semantics), not the raw base tip: if main advances
+          # after this branch forked, a plain two-dot diff would attribute main's own changes
+          # to this PR and could flag pre-existing content that this PR never touched.
+          MERGE_BASE="$(git merge-base "$BASE_SHA" "$HEAD_SHA")"
 
           # Internal-only hostnames/keywords that must never appear in this public repo.
           # This list mirrors the categories called out by internal security takedown audits
           # (internal source-control hosts, corp hostnames, internal messaging endpoints).
-          PATTERN='eng\.ms|dev\.azure\.com|[a-z0-9-]*\.visualstudio\.com|corp\.microsoft\.com|substrate\.office\.com|redmond\.corp'
+          # Dots are written as [.] (not \.) so this declaration is not itself a literal
+          # match of the hostnames below -- this file is intentionally NOT exempted from
+          # the scan, so a future edit smuggling a real hostname in here still gets caught.
+          PATTERN='eng[.]ms|dev[.]azure[.]com|[a-z0-9-]*[.]visualstudio[.]com|corp[.]microsoft[.]com|substrate[.]office[.]com|redmond[.]corp'
 
           # Only flag lines ADDED by this PR, so pre-existing (already tracked) occurrences
           # elsewhere in the repo don't block unrelated PRs. Reports each match with its
           # exact file:line so failures are actionable instead of just naming the pattern.
-          report=$(git diff --unified=0 "$BASE_SHA" "$HEAD_SHA" -- . ":(exclude)$SELF_PATH" | awk -v pattern="$PATTERN" '
-            /^\+\+\+ / {
+          # Matching is case-insensitive since DNS hostnames are case-insensitive.
+          report=$(git diff --unified=0 "$MERGE_BASE" "$HEAD_SHA" | awk -v pattern="$PATTERN" '
+            /^diff --git / {
+              in_hunk = 0
+              next
+            }
+            /^\+\+\+ / && !in_hunk {
               file = $2
               sub(/^b\//, "", file)
               next
@@ -41,16 +52,18 @@ jobs:
               sub(/^@@ -[0-9]+(,[0-9]+)? \+/, "", line)
               sub(/[, ].*/, "", line)
               lineno = line + 0
+              in_hunk = 1
               next
             }
-            /^\+/ && !/^\+\+\+/ {
+            in_hunk && /^\+/ {
               content = substr($0, 2)
-              if (content ~ pattern) {
+              if (tolower(content) ~ pattern) {
                 printf "%s\t%d\t%s\n", file, lineno, content
               }
               lineno++
               next
             }
+            in_hunk && /^-/ { next }
           ')
 
           if [ -n "$report" ]; then
