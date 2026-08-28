@@ -226,9 +226,9 @@ type platformInfo struct {
 	Arch      string // e.g. "amd64", "arm64"
 }
 
-// parsePlatformInfo currently reads Linux /etc/os-release (or a.osReleasePath override
+// parseLinuxPlatformInfo currently reads Linux /etc/os-release (or a.osReleasePath override
 // for testing) and combines it with the build architecture to describe the platform.
-func (a *App) parsePlatformInfo() (platformInfo, error) {
+func (a *App) parseLinuxPlatformInfo() (platformInfo, error) {
 	osReleasePath := a.osReleasePath
 	if osReleasePath == "" {
 		osReleasePath = "/etc/os-release"
@@ -264,7 +264,7 @@ const (
 
 // detectPackageManager returns the package manager for the current OS.
 func (a *App) detectPackageManager() (packageManager, error) {
-	info, err := a.parsePlatformInfo()
+	info, err := a.parseLinuxPlatformInfo()
 	if err != nil {
 		return "", err
 	}
@@ -515,7 +515,7 @@ func (a *App) resolveArtifact(cfg *hotfixConfig, hotfixVersion string) (*artifac
 // buildArtifactKey constructs the platform/architecture lookup key for the artifacts map.
 // Format: "GOOS-ID-VERSION_ID-GOARCH" (e.g. "linux-ubuntu-22.04-amd64").
 func (a *App) buildArtifactKey() (string, error) {
-	info, err := a.parsePlatformInfo()
+	info, err := a.parseLinuxPlatformInfo()
 	if err != nil {
 		return "", err
 	}
