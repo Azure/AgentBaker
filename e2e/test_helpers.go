@@ -457,6 +457,12 @@ func setExpectedContainerdVersionForE2E(t testing.TB, nbc *datamodel.NodeBootstr
 	if nbc.ContainerdVersion != "" {
 		return
 	}
+	// Backward-compat runs (older VHD + HEAD CSE) set E2E_OMIT_CONTAINERD_VERSION so the version
+	// stays empty, exercising the RP-omits-version path (baker's distro-based schema fallback)
+	// rather than fabricating HEAD's containerd version onto a VHD whose installed version differs.
+	if config.Config.OmitContainerdVersionForE2E {
+		return
+	}
 	packageName, distro, release, ok := expectedContainerdComponentRef(image.Distro)
 	if !ok {
 		return
