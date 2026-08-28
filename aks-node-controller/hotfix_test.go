@@ -658,7 +658,7 @@ func TestReadHotfixConfig_ParsesArtifacts(t *testing.T) {
 		"hotfixes": {"202607.02": "202607.02.2"},
 		"artifacts": {
 			"202607.02.2": {
-				"ubuntu-22.04-amd64": {
+				"linux-ubuntu-22.04-amd64": {
 					"url": "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/a/aks-node-controller/aks-node-controller_0.202607.02.2_amd64.deb",
 					"sha256": "abc123"
 				}
@@ -668,8 +668,8 @@ func TestReadHotfixConfig_ParsesArtifacts(t *testing.T) {
 	cfg, err := readHotfixConfig(path)
 	require.NoError(t, err)
 	require.Contains(t, cfg.Artifacts, "202607.02.2")
-	require.Contains(t, cfg.Artifacts["202607.02.2"], "ubuntu-22.04-amd64")
-	assert.Equal(t, "abc123", cfg.Artifacts["202607.02.2"]["ubuntu-22.04-amd64"].SHA256)
+	require.Contains(t, cfg.Artifacts["202607.02.2"], "linux-ubuntu-22.04-amd64")
+	assert.Equal(t, "abc123", cfg.Artifacts["202607.02.2"]["linux-ubuntu-22.04-amd64"].SHA256)
 }
 
 func TestReadHotfixConfig_NoArtifactsFieldBackwardCompat(t *testing.T) {
@@ -689,7 +689,7 @@ func TestBuildArtifactKey(t *testing.T) {
 		a := &App{osReleasePath: path}
 		key, err := a.buildArtifactKey()
 		require.NoError(t, err)
-		assert.Equal(t, fmt.Sprintf("ubuntu-22.04-%s", runtime.GOARCH), key)
+		assert.Equal(t, fmt.Sprintf("linux-ubuntu-22.04-%s", runtime.GOARCH), key)
 	})
 
 	t.Run("azurelinux", func(t *testing.T) {
@@ -699,7 +699,7 @@ func TestBuildArtifactKey(t *testing.T) {
 		a := &App{osReleasePath: path}
 		key, err := a.buildArtifactKey()
 		require.NoError(t, err)
-		assert.Equal(t, fmt.Sprintf("azurelinux-3.0-%s", runtime.GOARCH), key)
+		assert.Equal(t, fmt.Sprintf("linux-azurelinux-3.0-%s", runtime.GOARCH), key)
 	})
 
 	t.Run("missing VERSION_ID errors", func(t *testing.T) {
@@ -748,7 +748,7 @@ func TestDownloadHotfix_ArtifactHTTPSuccess(t *testing.T) {
 	sha := "3ab698426c19090c43a48950dcd94d196122b11149423f230b1234cda75e3293"
 
 	path := filepath.Join(dir, "hotfix-config.json")
-	artifactKey := fmt.Sprintf("ubuntu-22.04-%s", runtime.GOARCH)
+	artifactKey := fmt.Sprintf("linux-ubuntu-22.04-%s", runtime.GOARCH)
 	configJSON := fmt.Sprintf(`{
 		"hotfixes": {"202607.02": "202607.02.2"},
 		"artifacts": {
@@ -797,7 +797,7 @@ func TestDownloadHotfix_ArtifactSHAMismatchHardFail(t *testing.T) {
 	defer func() { Version = origVersion }()
 
 	dir := t.TempDir()
-	artifactKey := fmt.Sprintf("ubuntu-22.04-%s", runtime.GOARCH)
+	artifactKey := fmt.Sprintf("linux-ubuntu-22.04-%s", runtime.GOARCH)
 
 	path := filepath.Join(dir, "hotfix-config.json")
 	configJSON := fmt.Sprintf(`{
@@ -842,7 +842,7 @@ func TestDownloadHotfix_ArtifactHTTPErrorFallsBackToApt(t *testing.T) {
 	defer func() { Version = origVersion }()
 
 	dir := t.TempDir()
-	artifactKey := fmt.Sprintf("ubuntu-22.04-%s", runtime.GOARCH)
+	artifactKey := fmt.Sprintf("linux-ubuntu-22.04-%s", runtime.GOARCH)
 
 	path := filepath.Join(dir, "hotfix-config.json")
 	configJSON := fmt.Sprintf(`{
@@ -926,7 +926,7 @@ func TestDownloadHotfix_ArtifactInvalidURLHardFail(t *testing.T) {
 	defer func() { Version = origVersion }()
 
 	dir := t.TempDir()
-	artifactKey := fmt.Sprintf("ubuntu-22.04-%s", runtime.GOARCH)
+	artifactKey := fmt.Sprintf("linux-ubuntu-22.04-%s", runtime.GOARCH)
 
 	path := filepath.Join(dir, "hotfix-config.json")
 	configJSON := fmt.Sprintf(`{

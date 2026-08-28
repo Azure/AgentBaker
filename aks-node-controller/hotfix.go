@@ -112,7 +112,10 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 
 	slog.Info("downloading ANC hotfix", "current", Version, "target", hotfixVersion)
 
-	// Try direct HTTP download if an artifact descriptor is available for this version + OS/arch.
+	// Prefer direct HTTP download when an artifact descriptor is available. This avoids the
+	// package manager's repository refresh, version resolution, and package installation,
+	// reducing hotfix latency while retaining SHA-256 verification. Transient download
+	// failures fall back to the package manager below.
 	if err := a.tryDirectDownload(ctx, cfg, hotfixVersion); err == nil {
 		return nil
 	} else if isIntegrityError(err) {
@@ -155,10 +158,10 @@ type hotfixConfig struct {
 	// takes precedence over Version.
 	Hotfixes map[string]string `json:"hotfixes,omitempty"`
 
-	// Artifacts maps a hotfix version to per-OS/arch artifact descriptors for direct
+	// Artifacts maps a hotfix version to per-platform/architecture artifact descriptors for direct
 	// HTTP download. When present and matching, the download path bypasses the package
 	// manager entirely. The outer key is the hotfix version (e.g. "202607.02.2"), the
-	// inner key is "ID-VERSION_ID-GOARCH" (e.g. "ubuntu-22.04-amd64").
+	// inner key is "GOOS-ID-VERSION_ID-GOARCH" (e.g. "linux-ubuntu-22.04-amd64").
 	Artifacts map[string]map[string]artifactInfo `json:"artifacts,omitempty"`
 }
 
@@ -215,15 +218,16 @@ func readHotfixConfig(path string) (*hotfixConfig, error) {
 	return &cfg, nil
 }
 
-// platformInfo holds the parsed OS identity and architecture for the current host.
+// platformInfo holds the OS family, platform identity, and architecture for the current host.
 type platformInfo struct {
+	OS        string // e.g. "linux", "windows"
 	ID        string // e.g. "ubuntu", "azurelinux", "mariner"
 	VersionID string // e.g. "22.04", "3.0"
 	Arch      string // e.g. "amd64", "arm64"
 }
 
-// parsePlatformInfo reads /etc/os-release (or a.osReleasePath override for testing)
-// and combines it with the build architecture to describe the current platform.
+// parsePlatformInfo currently reads Linux /etc/os-release (or a.osReleasePath override
+// for testing) and combines it with the build architecture to describe the platform.
 func (a *App) parsePlatformInfo() (platformInfo, error) {
 	osReleasePath := a.osReleasePath
 	if osReleasePath == "" {
@@ -233,7 +237,7 @@ func (a *App) parsePlatformInfo() (platformInfo, error) {
 	if err != nil {
 		return platformInfo{}, fmt.Errorf("reading %s: %w", osReleasePath, err)
 	}
-	info := platformInfo{Arch: runtime.GOARCH}
+	info := platformInfo{OS: "linux", Arch: runtime.GOARCH}
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "ID=") {
@@ -487,7 +491,7 @@ func isIntegrityError(err error) bool {
 }
 
 // resolveArtifact looks up the artifact descriptor for the given hotfix version and current
-// OS/architecture. Returns nil if no artifact is available (caller should fallback to pkg mgr).
+// platform/architecture. Returns nil if no artifact is available (caller should fallback to pkg mgr).
 func (a *App) resolveArtifact(cfg *hotfixConfig, hotfixVersion string) (*artifactInfo, string) {
 	if len(cfg.Artifacts) == 0 {
 		return nil, ""
@@ -508,8 +512,8 @@ func (a *App) resolveArtifact(cfg *hotfixConfig, hotfixVersion string) (*artifac
 	return &ai, key
 }
 
-// buildArtifactKey constructs the OS/arch lookup key for the artifacts map.
-// Format: "ID-VERSION_ID-GOARCH" (e.g. "ubuntu-22.04-amd64").
+// buildArtifactKey constructs the platform/architecture lookup key for the artifacts map.
+// Format: "GOOS-ID-VERSION_ID-GOARCH" (e.g. "linux-ubuntu-22.04-amd64").
 func (a *App) buildArtifactKey() (string, error) {
 	info, err := a.parsePlatformInfo()
 	if err != nil {
@@ -518,7 +522,7 @@ func (a *App) buildArtifactKey() (string, error) {
 	if info.VersionID == "" {
 		return "", fmt.Errorf("VERSION_ID not found in os-release")
 	}
-	return fmt.Sprintf("%s-%s-%s", info.ID, info.VersionID, info.Arch), nil
+	return fmt.Sprintf("%s-%s-%s-%s", info.OS, info.ID, info.VersionID, info.Arch), nil
 }
 
 // validateArtifactURL ensures the URL is HTTPS and the host is in the PMC allowlist.
