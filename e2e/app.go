@@ -154,11 +154,10 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	}
 	waitErr := exec.wait(scenarioCleanupTimeout + 30*time.Second)
 
-	summary := exec.summary()
 	if err := exec.writeReports(filtered); err != nil {
 		return err
 	}
-	exec.printSummary()
+	summary := exec.printSummary()
 
 	if waitErr != nil {
 		return waitErr

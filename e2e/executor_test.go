@@ -569,7 +569,7 @@ func TestScenarioSkipIfRecordsSkip(t *testing.T) {
 	if summary.Total != 1 || summary.Skipped != 1 {
 		t.Fatalf("unexpected summary: %+v", summary)
 	}
-	if !strings.Contains(stdout.String(), "- Disabled (skipped): not supported") {
+	if !strings.Contains(stdout.String(), "Skipped:\n- Disabled: not supported") {
 		t.Fatalf("ordinary skip was not listed in the summary: %q", stdout.String())
 	}
 	if strings.Contains(stdout.String(), "##[group]") {
@@ -606,6 +606,43 @@ func TestScenarioTimeoutCoversSkipAndRun(t *testing.T) {
 
 	if skipDeadline.IsZero() || !skipDeadline.Equal(runDeadline) {
 		t.Fatalf("SkipIf and scenario received different attempt deadlines: skip=%s run=%s", skipDeadline, runDeadline)
+	}
+}
+
+func TestSummaryOrdersImportantResultsLast(t *testing.T) {
+	var stdout bytes.Buffer
+	exec := &executor{
+		stdout: &stdout,
+		results: []scenarioResult{
+			{Name: "Passed", Status: statusPassed, Attempts: []attemptResult{{Attempt: 1, Status: statusPassed}}},
+			{Name: "Skipped", Status: statusSkipped, Attempts: []attemptResult{{Attempt: 1, Status: statusSkipped, Message: "not supported"}}},
+			{Name: "Flaky", Status: statusFlaky, Attempts: []attemptResult{
+				{Attempt: 1, Status: statusFailed, Message: "transient failure"},
+				{Attempt: 2, Status: statusPassed},
+			}},
+			{Name: "Failed", Status: statusFailed, Attempts: []attemptResult{{Attempt: 1, Status: statusFailed, Message: "final failure\ndetails"}}},
+		},
+	}
+
+	summary := exec.printSummary()
+	if summary != (runSummary{Total: 4, Passed: 1, Failed: 1, Skipped: 1, Flaky: 1}) {
+		t.Fatalf("unexpected summary: %+v", summary)
+	}
+	output := stdout.String()
+	skippedIndex := strings.Index(output, "\nSkipped:")
+	flakyIndex := strings.Index(output, "\nFlaky:")
+	failedIndex := strings.Index(output, "\nFailed:")
+	if skippedIndex < 0 || flakyIndex <= skippedIndex || failedIndex <= flakyIndex {
+		t.Fatalf("summary order is not skipped, flaky, failed:\n%s", output)
+	}
+	if strings.Contains(output, "- Passed") {
+		t.Fatalf("passing scenario name was listed:\n%s", output)
+	}
+	if !strings.Contains(output, "- Flaky (passed on attempt 2): transient failure") {
+		t.Fatalf("flaky scenario details were omitted:\n%s", output)
+	}
+	if !strings.Contains(output, "- Failed: final failure") || strings.Contains(output, "details") {
+		t.Fatalf("failed scenario summary was not concise:\n%s", output)
 	}
 }
 

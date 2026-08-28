@@ -288,26 +288,78 @@ func (e *executor) summary() runSummary {
 	return summary
 }
 
-func (e *executor) printSummary() {
-	summary := e.summary()
+func (e *executor) printSummary() runSummary {
 	e.resultsMu.Lock()
-	var skipped []scenarioResult
+	summary := runSummary{Total: len(e.results)}
+	var skipped, flaky, failed []scenarioResult
 	for _, result := range e.results {
-		if result.Status == statusSkipped {
+		switch result.Status {
+		case statusPassed:
+			summary.Passed++
+		case statusSkipped:
+			summary.Skipped++
 			skipped = append(skipped, result)
+		case statusFlaky:
+			summary.Flaky++
+			flaky = append(flaky, result)
+		case statusFailed:
+			summary.Failed++
+			failed = append(failed, result)
 		}
 	}
 	e.resultsMu.Unlock()
-	sort.Slice(skipped, func(i, j int) bool { return skipped[i].Name < skipped[j].Name })
+	for _, results := range [][]scenarioResult{skipped, flaky, failed} {
+		sort.Slice(results, func(i, j int) bool { return results[i].Name < results[j].Name })
+	}
 
 	e.consoleMu.Lock()
 	defer e.consoleMu.Unlock()
 	_, _ = fmt.Fprintf(e.stdout, "\nDONE %d scenarios: %d passed, %d flaky, %d skipped, %d failed\n",
 		summary.Total, summary.Passed, summary.Flaky, summary.Skipped, summary.Failed)
+	if len(skipped) > 0 {
+		_, _ = fmt.Fprintln(e.stdout, "\nSkipped:")
+	}
 	for _, result := range skipped {
 		last := result.Attempts[len(result.Attempts)-1]
-		_, _ = fmt.Fprintf(e.stdout, "- %s (skipped): %s\n", result.Name, last.Message)
+		_, _ = fmt.Fprintf(e.stdout, "- %s: %s\n", result.Name, summaryMessage(last.Message))
 	}
+	if len(flaky) > 0 {
+		_, _ = fmt.Fprintln(e.stdout, "\nFlaky:")
+	}
+	for _, result := range flaky {
+		failedAttempt := lastAttemptWithStatus(result, statusFailed)
+		_, _ = fmt.Fprintf(e.stdout, "- %s (passed on attempt %d): %s\n",
+			result.Name, len(result.Attempts), summaryMessage(failedAttempt.Message))
+	}
+	if len(failed) > 0 {
+		_, _ = fmt.Fprintln(e.stdout, "\nFailed:")
+	}
+	for _, result := range failed {
+		attempt := lastAttemptWithStatus(result, statusFailed)
+		_, _ = fmt.Fprintf(e.stdout, "- %s: %s\n", result.Name, summaryMessage(attempt.Message))
+	}
+	return summary
+}
+
+func lastAttemptWithStatus(result scenarioResult, status resultStatus) attemptResult {
+	for i := len(result.Attempts) - 1; i >= 0; i-- {
+		if result.Attempts[i].Status == status {
+			return result.Attempts[i]
+		}
+	}
+	return result.Attempts[len(result.Attempts)-1]
+}
+
+func summaryMessage(message string) string {
+	const maxLength = 500
+	message = strings.TrimSpace(message)
+	if line, _, found := strings.Cut(message, "\n"); found {
+		message = strings.TrimSuffix(line, "\r")
+	}
+	if len(message) > maxLength {
+		message = message[:maxLength] + "..."
+	}
+	return message
 }
 
 type scenarioLogger struct {
