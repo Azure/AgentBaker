@@ -17,8 +17,9 @@ import (
 const (
 	// kataRuntimeHandler is the containerd runtime handler name for standard Kata Containers,
 	// emitted by the IsKata block of the containerd config templates in pkg/agent/baker.go.
-	kataRuntimeHandler        = "kata"
-	kataPreviewRuntimeHandler = "kata-preview"
+	kataRuntimeHandler   = "kata"
+	kataV2RuntimeHandler = "kata-v2"
+	kataV2ShimBinaryPath = "/usr/local/bin/containerd-shim-kata-v2-rs"
 
 	// kataConfigPath is the Kata configuration file referenced by the "kata" runtime handler's
 	// options.ConfigPath in the rendered containerd config.
@@ -36,7 +37,7 @@ const (
 // Note that "kata-cc" (confidential containers) is intentionally absent: its handler block is
 // templated for all Kata VHDs, but it targets a different VHD than regular Kata, so this image
 // cannot actually run it.
-var kataRuntimeHandlers = []string{kataRuntimeHandler, kataPreviewRuntimeHandler}
+var kataRuntimeHandlers = []string{kataRuntimeHandler, kataV2RuntimeHandler}
 
 // ValidateKataContainerdConfig asserts that AgentBaker rendered a containerd configuration
 // containing the Kata runtime handlers on a Kata-enabled VHD.
@@ -59,6 +60,8 @@ func ValidateKataContainerdConfig(ctx context.Context, s *Scenario) error {
 		ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]`),
 		ValidateFileHasContent(ctx, s, containerdConfigPath, `runtime_type = "io.containerd.kata.v2"`),
 		ValidateFileHasContent(ctx, s, containerdConfigPath, kataConfigPath),
+		ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]`),
+		ValidateFileHasContent(ctx, s, containerdConfigPath, `BinaryName = "`+kataV2ShimBinaryPath+`"`),
 
 		// Kata relies on snapshot annotations being forwarded to the snapshotter; the template sets
 		// this explicitly under IsKata and disabling it breaks image pulling for Kata pods.
@@ -134,7 +137,7 @@ func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) error {
 
 	// The effective config must expose every Kata runtime handler we expect. Note the trailing
 	// "]": without it a handler name would also match longer handlers sharing its prefix (e.g.
-	// "runtimes.kata" matching "runtimes.kata-preview") and pass even if the handler itself
+	// "runtimes.kata" matching "runtimes.kata-v2") and pass even if the handler itself
 	// were missing.
 	for _, handler := range kataRuntimeHandlers {
 		errs = append(errs, assert.Contains(normalizedDump, `runtimes.`+handler+`]`,
@@ -161,6 +164,10 @@ func ValidateKataHostReadiness(ctx context.Context, s *Scenario) error {
 	// The kata shim binary that runtime_type = "io.containerd.kata.v2" resolves to.
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		"command -v containerd-shim-kata-v2", 0, "containerd-shim-kata-v2 is not present on the Kata VHD"); err != nil {
+		errs = append(errs, err)
+	}
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"test -x "+kataV2ShimBinaryPath, 0, "Rust Kata v2 shim is not executable on the Kata VHD"); err != nil {
 		errs = append(errs, err)
 	}
 
