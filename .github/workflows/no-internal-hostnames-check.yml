@@ -1,0 +1,44 @@
+name: Check for internal hostname leaks
+on: pull_request
+
+jobs:
+  no-internal-hostnames:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Ensure this PR doesn't introduce internal-only hostnames
+        run: |
+          set -euo pipefail
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          git fetch --quiet origin "$BASE_SHA" "$HEAD_SHA"
+
+          # Internal-only hostnames/keywords that must never appear in this public repo.
+          # This list mirrors the categories called out by internal security takedown audits
+          # (internal source-control hosts, corp hostnames, internal messaging endpoints).
+          PATTERN='eng\.ms|dev\.azure\.com|[a-z0-9-]*\.visualstudio\.com|corp\.microsoft\.com|substrate\.office\.com|redmond\.corp'
+
+          # Only flag lines ADDED by this PR, so pre-existing (already tracked) occurrences
+          # elsewhere in the repo don't block unrelated PRs.
+          matches=$(git diff --unified=0 "$BASE_SHA" "$HEAD_SHA" -- . ':(exclude).github/workflows/no-internal-hostnames-check.yml' \
+            | grep -E '^\+[^+]' \
+            | grep -Eio "$PATTERN" || true)
+
+          if [ -n "$matches" ]; then
+            echo "::error::This PR appears to introduce internal-only hostnames/links (internal source control, corp hostnames, or internal messaging endpoints). Public repo content must not reference these."
+            echo ""
+            echo "Matched patterns (deduplicated):"
+            echo "$matches" | sort -u
+            echo ""
+            echo "Please remove or genericize these references before merging."
+            exit 1
+          fi
+
+          echo "No new internal hostname references found in this PR's diff."
