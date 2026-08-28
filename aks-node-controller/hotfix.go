@@ -215,6 +215,40 @@ func readHotfixConfig(path string) (*hotfixConfig, error) {
 	return &cfg, nil
 }
 
+// platformInfo holds the parsed OS identity and architecture for the current host.
+type platformInfo struct {
+	ID        string // e.g. "ubuntu", "azurelinux", "mariner"
+	VersionID string // e.g. "22.04", "3.0"
+	Arch      string // e.g. "amd64", "arm64"
+}
+
+// parsePlatformInfo reads /etc/os-release (or a.osReleasePath override for testing)
+// and combines it with the build architecture to describe the current platform.
+func (a *App) parsePlatformInfo() (platformInfo, error) {
+	osReleasePath := a.osReleasePath
+	if osReleasePath == "" {
+		osReleasePath = "/etc/os-release"
+	}
+	data, err := os.ReadFile(osReleasePath)
+	if err != nil {
+		return platformInfo{}, fmt.Errorf("reading %s: %w", osReleasePath, err)
+	}
+	info := platformInfo{Arch: runtime.GOARCH}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "ID=") {
+			info.ID = strings.ToLower(strings.Trim(strings.TrimPrefix(line, "ID="), `"`))
+		}
+		if strings.HasPrefix(line, "VERSION_ID=") {
+			info.VersionID = strings.Trim(strings.TrimPrefix(line, "VERSION_ID="), `"`)
+		}
+	}
+	if info.ID == "" {
+		return platformInfo{}, fmt.Errorf("ID not found in %s", osReleasePath)
+	}
+	return info, nil
+}
+
 // packageManager represents a supported system package manager.
 type packageManager string
 
@@ -225,34 +259,19 @@ const (
 )
 
 // detectPackageManager returns the package manager for the current OS.
-// It reads /etc/os-release (or a.osReleasePath override, for testing) to determine
-// whether to use apt-get (Ubuntu) or dnf/tdnf (AzureLinux/Mariner).
 func (a *App) detectPackageManager() (packageManager, error) {
-	osReleasePath := a.osReleasePath
-	if osReleasePath == "" {
-		osReleasePath = "/etc/os-release"
-	}
-	data, err := os.ReadFile(osReleasePath)
+	info, err := a.parsePlatformInfo()
 	if err != nil {
-		return "", fmt.Errorf("reading %s: %w", osReleasePath, err)
+		return "", err
 	}
-	content := string(data)
-	for _, line := range strings.Split(content, "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "ID=") {
-			id := strings.Trim(strings.TrimPrefix(line, "ID="), `"`)
-			id = strings.ToLower(id)
-			switch id {
-			case "ubuntu":
-				return pkgMgrApt, nil
-			case "azurelinux", "mariner":
-				return preferredRpmManager(), nil
-			default:
-				return "", fmt.Errorf("unsupported OS: %s", id)
-			}
-		}
+	switch info.ID {
+	case "ubuntu":
+		return pkgMgrApt, nil
+	case "azurelinux", "mariner":
+		return preferredRpmManager(), nil
+	default:
+		return "", fmt.Errorf("unsupported OS: %s", info.ID)
 	}
-	return "", fmt.Errorf("ID not found in %s", osReleasePath)
 }
 
 // preferredRpmManager returns dnf if available, falling back to tdnf (used by OS Guard).
@@ -492,29 +511,14 @@ func (a *App) resolveArtifact(cfg *hotfixConfig, hotfixVersion string) (*artifac
 // buildArtifactKey constructs the OS/arch lookup key for the artifacts map.
 // Format: "ID-VERSION_ID-GOARCH" (e.g. "ubuntu-22.04-amd64").
 func (a *App) buildArtifactKey() (string, error) {
-	osReleasePath := a.osReleasePath
-	if osReleasePath == "" {
-		osReleasePath = "/etc/os-release"
-	}
-	data, err := os.ReadFile(osReleasePath)
+	info, err := a.parsePlatformInfo()
 	if err != nil {
-		return "", fmt.Errorf("reading %s: %w", osReleasePath, err)
+		return "", err
 	}
-	var id, versionID string
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "ID=") {
-			id = strings.Trim(strings.TrimPrefix(line, "ID="), `"`)
-			id = strings.ToLower(id)
-		}
-		if strings.HasPrefix(line, "VERSION_ID=") {
-			versionID = strings.Trim(strings.TrimPrefix(line, "VERSION_ID="), `"`)
-		}
+	if info.VersionID == "" {
+		return "", fmt.Errorf("VERSION_ID not found in os-release")
 	}
-	if id == "" || versionID == "" {
-		return "", fmt.Errorf("ID or VERSION_ID not found in %s", osReleasePath)
-	}
-	return fmt.Sprintf("%s-%s-%s", id, versionID, runtime.GOARCH), nil
+	return fmt.Sprintf("%s-%s-%s", info.ID, info.VersionID, info.Arch), nil
 }
 
 // validateArtifactURL ensures the URL is HTTPS and the host is in the PMC allowlist.

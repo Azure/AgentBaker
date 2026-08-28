@@ -709,7 +709,7 @@ func TestBuildArtifactKey(t *testing.T) {
 		a := &App{osReleasePath: path}
 		_, err := a.buildArtifactKey()
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "ID or VERSION_ID not found")
+		assert.Contains(t, err.Error(), "VERSION_ID not found")
 	})
 }
 
