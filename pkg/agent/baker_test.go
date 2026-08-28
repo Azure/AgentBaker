@@ -141,15 +141,17 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				expectLegacySchemaV2(renderContainerdConfig("", datamodel.AKSUbuntuContainerd2204, false))
 			})
 
-			for _, distro := range []datamodel.Distro{
-				datamodel.AKSUbuntuContainerd2404,
-				datamodel.AKSUbuntuMinimalContainerd2604Gen2,
-			} {
-				distro := distro
-				It(fmt.Sprintf("uses schema v4 when containerd version is empty for %s", distro), func() {
-					expectSchemaV4(renderContainerdConfig("", distro, false))
-				})
-			}
+			// 24.04 with an empty/unknown containerd version must NOT assume v4: older 24.04 VHDs
+			// ship containerd 2.0-2.2, which reject `version = 4` and crash-loop CSE (exit 84).
+			// It renders the before-2.3 split-plugin v2 schema, which loads on all containerd 2.x.
+			It("uses split-plugin schema v2 when containerd version is empty for 24.04 (may still be containerd 2.0-2.2)", func() {
+				expectContainerd2SchemaV2(renderContainerdConfig("", datamodel.AKSUbuntuContainerd2404, false))
+			})
+
+			// 26.04 only ever shipped containerd >= 2.3, so an empty version safely assumes v4.
+			It("uses schema v4 when containerd version is empty for 26.04 (only ever shipped containerd >= 2.3)", func() {
+				expectSchemaV4(renderContainerdConfig("", datamodel.AKSUbuntuMinimalContainerd2604Gen2, false))
+			})
 
 			It("uses split-plugin schema v2 when containerd version is empty for containerd v2 distros before 2.3", func() {
 				expectContainerd2SchemaV2(renderContainerdConfig("", datamodel.AKSAzureLinuxV3, false))
