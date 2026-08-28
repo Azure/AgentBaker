@@ -137,10 +137,42 @@ Describe 'security-update.sh'
         The contents of file "${SECURITY_PATCH_CONFIG_DIR}/sources.list" should include 'snapshot.ubuntu.com/ubuntu/20260710T000000Z'
     End
 
-    It 'fails when the component has no profile for the node agent pool'
+    It 'succeeds without action when the component has no agent pool profiles'
+        When call updateSecurityPatch '{}' "${TEST_NODE_JSON}"
+        The status should be success
+        The output should include 'securityPatch has no profile for agent pool ap1; no action needed'
+        The output should not include 'apt_get_update_with_opts called'
+        The output should not include 'kubectl called'
+    End
+
+    It 'succeeds without action when the node agent pool has no profile'
         When call updateSecurityPatch '{"agentPools":{"ap2":{"goldenTimestamp":"20260710T000000Z"}}}' "${TEST_NODE_JSON}"
+        The status should be success
+        The output should include 'securityPatch has no profile for agent pool ap1; no action needed'
+        The output should not include 'apt_get_update_with_opts called'
+        The output should not include 'kubectl called'
+    End
+
+    It 'fails when the selected profile has no golden timestamp'
+        When call updateSecurityPatch '{"agentPools":{"ap1":{}}}' "${TEST_NODE_JSON}"
         The status should be failure
-        The output should include 'securityPatch profile is missing for agent pool: ap1'
+        The output should include 'securityPatch goldenTimestamp is missing for agent pool: ap1'
+        The output should not include 'apt_get_update_with_opts called'
+    End
+
+    It 'fails when the component configuration is malformed'
+        When call updateSecurityPatch 'not-json' "${TEST_NODE_JSON}"
+        The status should be failure
+        The output should include 'securityPatch configuration is invalid'
+        The output should not include 'no action needed'
+        The output should not include 'apt_get_update_with_opts called'
+    End
+
+    It 'fails when agentPools is not an object'
+        When call updateSecurityPatch '{"agentPools":[]}' "${TEST_NODE_JSON}"
+        The status should be failure
+        The output should include 'securityPatch agentPools must be an object'
+        The output should not include 'no action needed'
         The output should not include 'apt_get_update_with_opts called'
     End
 
