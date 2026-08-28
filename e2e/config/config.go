@@ -67,31 +67,37 @@ type Configuration struct {
 	DefaultVMSKU                           string        `env:"DEFAULT_VM_SKU" envDefault:"Standard_D2ds_v5"`
 	DisableScriptless                      bool          `env:"DISABLE_SCRIPTLESS"`
 	DisableScriptLessCompilation           bool          `env:"DISABLE_SCRIPTLESS_COMPILATION"`
-	E2ELoggingDir                          string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
-	EnableSecureTLSBootstrapping           bool          `env:"ENABLE_SECURE_TLS_BOOTSTRAPPING" envDefault:"true"`
-	ExtendedTests                          string        `env:"EXTENDED_TESTS" envDefault:""`
-	GalleryNameLinux                       string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
-	GalleryNameWindows                     string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
-	GalleryResourceGroupNameLinux          string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`
-	GalleryResourceGroupNameWindows        string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`
-	GallerySubscriptionIDLinux             string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
-	GallerySubscriptionIDWindows           string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
-	IgnoreScenariosWithMissingVHD          bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
-	KeepVMSS                               bool          `env:"KEEP_VMSS"`
-	NetworkIsolatedNSGName                 string        `env:"NETWORK_ISOLATED_NSG_NAME" envDefault:"abe2e-networkisolated-securityGroup"`
-	SIGVersionTagName                      string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
-	SIGVersionTagValue                     string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/main"`
-	SkipTestsWithSKUCapacityIssue          bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
-	SubscriptionID                         string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"`
-	SysSSHPublicKey                        string        `env:"SYS_SSH_PUBLIC_KEY"`
-	SysSSHPrivateKeyB64                    string        `env:"SYS_SSH_PRIVATE_KEY_B64"`
-	TagsToRun                              string        `env:"TAGS_TO_RUN"`
-	TagsToSkip                             string        `env:"TAGS_TO_SKIP"`
-	TestGalleryImagePrefix                 string        `env:"TEST_GALLERY_IMAGE_PREFIX" envDefault:"abe2etest"`
-	TestGalleryNamePrefix                  string        `env:"TEST_GALLERY_NAME_PREFIX" envDefault:"abe2etest"`
-	TestPreProvision                       bool          `env:"TEST_PRE_PROVISION" envDefault:"false"`
-	TestTimeout                            time.Duration `env:"TEST_TIMEOUT" envDefault:"50m"`
-	VHDMetadataFile                        string        `env:"E2E_VHD_METADATA_FILE"`
+	// OmitContainerdVersionForE2E, when true, stops setExpectedContainerdVersionForE2E from
+	// backfilling nbc.ContainerdVersion from the branch's components.json. This exercises the
+	// realistic RP-omits-version path (baker's distro-based schema fallback) instead of pairing an
+	// older VHD with the branch's latest containerd version, which would otherwise mask backward-
+	// compatibility bugs when running against a VHD whose installed containerd differs from HEAD.
+	OmitContainerdVersionForE2E     bool          `env:"E2E_OMIT_CONTAINERD_VERSION"`
+	E2ELoggingDir                   string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
+	EnableSecureTLSBootstrapping    bool          `env:"ENABLE_SECURE_TLS_BOOTSTRAPPING" envDefault:"true"`
+	ExtendedTests                   string        `env:"EXTENDED_TESTS" envDefault:""`
+	GalleryNameLinux                string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
+	GalleryNameWindows              string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
+	GalleryResourceGroupNameLinux   string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`
+	GalleryResourceGroupNameWindows string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`
+	GallerySubscriptionIDLinux      string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
+	GallerySubscriptionIDWindows    string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
+	IgnoreScenariosWithMissingVHD   bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
+	KeepVMSS                        bool          `env:"KEEP_VMSS"`
+	NetworkIsolatedNSGName          string        `env:"NETWORK_ISOLATED_NSG_NAME" envDefault:"abe2e-networkisolated-securityGroup"`
+	SIGVersionTagName               string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
+	SIGVersionTagValue              string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/main"`
+	SkipTestsWithSKUCapacityIssue   bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
+	SubscriptionID                  string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"`
+	SysSSHPublicKey                 string        `env:"SYS_SSH_PUBLIC_KEY"`
+	SysSSHPrivateKeyB64             string        `env:"SYS_SSH_PRIVATE_KEY_B64"`
+	TagsToRun                       string        `env:"TAGS_TO_RUN"`
+	TagsToSkip                      string        `env:"TAGS_TO_SKIP"`
+	TestGalleryImagePrefix          string        `env:"TEST_GALLERY_IMAGE_PREFIX" envDefault:"abe2etest"`
+	TestGalleryNamePrefix           string        `env:"TEST_GALLERY_NAME_PREFIX" envDefault:"abe2etest"`
+	TestPreProvision                bool          `env:"TEST_PRE_PROVISION" envDefault:"false"`
+	TestTimeout                     time.Duration `env:"TEST_TIMEOUT" envDefault:"50m"`
+	VHDMetadataFile                 string        `env:"E2E_VHD_METADATA_FILE"`
 	// Must cover cluster-create AND bastion-create (run serially in prepareCluster, ~10-11m each).
 	TestTimeoutCluster   time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"30m"`
 	TestTimeoutVMSS      time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
