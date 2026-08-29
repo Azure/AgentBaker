@@ -91,7 +91,6 @@ jobs:
       - name: Commit changes via API
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          HEAD_REF: ${{ github.head_ref }}
         run: |
           FILES=()
           while IFS= read -r STATUS_LINE; do
@@ -108,7 +107,7 @@ jobs:
           fi
 
           REPOSITORY="repos/${{ github.repository }}"
-          BRANCH="${{ github.head_ref }}"
+          BRANCH="${GITHUB_HEAD_REF}"
           CHECKOUT_SHA=$(git rev-parse HEAD)
           START_SHA=$(gh api "${REPOSITORY}/git/ref/heads/${BRANCH}" --jq '.object.sha')
           if [ "$START_SHA" != "$CHECKOUT_SHA" ]; then
