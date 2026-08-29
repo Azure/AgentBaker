@@ -518,7 +518,7 @@ func Test_getContainerdConfigV2(t *testing.T) {
 		notWantContains []string
 	}{
 		{
-			name: "Containerd 2.0 default config uses scriptless v2 schema",
+			name: "Containerd 2.0 default config uses scriptless v3 schema",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
 					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
@@ -527,7 +527,7 @@ func Test_getContainerdConfigV2(t *testing.T) {
 				},
 			},
 			wantContains: []string{
-				`version = 2`,
+				`version = 3`,
 				`[plugins."io.containerd.cri.v1.images"]`,
 				`sandbox = ""`,
 				`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]`,
@@ -540,7 +540,7 @@ func Test_getContainerdConfigV2(t *testing.T) {
 			},
 		},
 		{
-			name: "Containerd 2.0 with GPU uses scriptless v2 schema",
+			name: "Containerd 2.0 with GPU uses scriptless v3 schema",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
 					NeedsCgroupv2: to.Ptr(true),
@@ -554,7 +554,7 @@ func Test_getContainerdConfigV2(t *testing.T) {
 				noGpu: false,
 			},
 			wantContains: []string{
-				`version = 2`,
+				`version = 3`,
 				`[plugins."io.containerd.cri.v1.images"]`,
 				`default_runtime_name = "nvidia-container-runtime"`,
 				`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]`,
@@ -566,7 +566,7 @@ func Test_getContainerdConfigV2(t *testing.T) {
 			},
 		},
 		{
-			name: "Containerd 2.0 no GPU template uses scriptless v2 schema",
+			name: "Containerd 2.0 no GPU template uses scriptless v3 schema",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
 					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
@@ -579,7 +579,7 @@ func Test_getContainerdConfigV2(t *testing.T) {
 				noGpu: true,
 			},
 			wantContains: []string{
-				`version = 2`,
+				`version = 3`,
 				`[plugins."io.containerd.cri.v1.images"]`,
 				`default_runtime_name = "runc"`,
 				`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]`,
@@ -791,7 +791,7 @@ func containerdTableBody(t *testing.T, config, tableHeader string) string {
 	return body
 }
 
-func Test_containerdConfigFromAKSNodeConfig_BeforeContainerd23UsesV2(t *testing.T) {
+func Test_containerdConfigFromAKSNodeConfig_BeforeContainerd23UsesV3(t *testing.T) {
 	aksnodeconfig := &aksnodeconfigv1.Configuration{
 		NeedsCgroupv2: to.Ptr(true),
 		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
@@ -805,7 +805,7 @@ func Test_containerdConfigFromAKSNodeConfig_BeforeContainerd23UsesV2(t *testing.
 	}
 
 	for _, want := range []string{
-		"version = 2",
+		"version = 3",
 		`[plugins."io.containerd.cri.v1.images"]`,
 		`sandbox = ""`,
 		`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]`,
@@ -864,7 +864,7 @@ func Test_containerdConfigFromAKSNodeConfig_ContainerdVersionFallback(t *testing
 				},
 			},
 			fallbackVersion:   "2.3.2-ubuntu24.04u1",
-			wantContains:      "version = 2",
+			wantContains:      "version = 3",
 			notWantContains:   "version = 4",
 			wantOriginalValue: "2.2.4-4.azl3",
 		},
