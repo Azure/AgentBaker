@@ -22,22 +22,23 @@ import (
 )
 
 type Tags struct {
-	Name                   string
-	ImageName              string
-	OS                     string
-	Arch                   string
-	NetworkIsolated        bool
-	NonAnonymousACR        bool
-	GPU                    bool
-	WASM                   bool
-	Kata                   bool
-	BootstrapTokenFallback bool
-	KubeletCustomConfig    bool
-	Scriptless             bool
-	VHDCaching             bool
-	MockAzureChinaCloud    bool
-	RCV1PCertMode          bool
-	VMSeriesCoverageTest   bool
+	Name                     string
+	ImageName                string
+	OS                       string
+	Arch                     string
+	NetworkIsolated          bool
+	NonAnonymousACR          bool
+	GPU                      bool
+	WASM                     bool
+	Kata                     bool
+	BootstrapTokenFallback   bool
+	KubeletCustomConfig      bool
+	Scriptless               bool
+	VHDCaching               bool
+	RequiresCurrentSourceVHD bool
+	MockAzureChinaCloud      bool
+	RCV1PCertMode            bool
+	VMSeriesCoverageTest     bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.

@@ -3321,13 +3321,6 @@ func Test_Ubuntu2404_VHDCaching(t *testing.T) {
 // boundary. BasePrep must remove the AKS-owned GPU prebake before the customer customization
 // script runs, and real-node provisioning must preserve customer-owned DKMS state captured later.
 func Test_Ubuntu2404_VHDCaching_GPUPrebakeRemovedBeforeCustomization(t *testing.T) {
-	// PIS runs the cse_main.sh stored in the source VHD. The regular AgentBaker E2E job selects
-	// the latest main VHD, which cannot contain this branch's cleanup call. The VHD build gate
-	// supplies either build metadata or a non-default SIG selector and exercises the change.
-	if config.Config.VHDMetadataFile == "" && config.Config.SIGVersionTagName == "branch" && config.Config.SIGVersionTagValue == "refs/heads/main" {
-		t.Skip("requires a VHD built from the current source")
-	}
-
 	const (
 		gpuPrebakeMarker              = "/opt/azure/aks-gpu/dkms-marker"
 		customerDriverDir             = "/var/lib/dkms/nvidia"
@@ -3337,6 +3330,9 @@ func Test_Ubuntu2404_VHDCaching_GPUPrebakeRemovedBeforeCustomization(t *testing.
 
 	RunScenario(t, &Scenario{
 		Description: "Tests that PIS removes the AKS GPU prebake before customer image customization",
+		Tags: Tags{
+			RequiresCurrentSourceVHD: true,
+		},
 		Config: Config{
 			Cluster:                ClusterKubenet,
 			VHD:                    config.VHDUbuntu2404Gen2Containerd,
