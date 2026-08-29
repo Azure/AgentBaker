@@ -1,0 +1,22 @@
+{
+  "model": {
+    "slug": "gptoss120b",
+    "hfRepo": "openai/gpt-oss-120b",
+    "hfRevision": "main",
+    "gated": false,
+    "weightsSizeGiB": 121.54,
+    "bakePath": "/opt/kaito/models/openai-gpt-oss-120b"
+  },
+  "variants": [
+    {
+      "gpuSku": "A100",
+      "osSku": "Ubuntu2404",
+      "baseImage": {
+        "offer": "AKSUbuntu",
+        "sku": "2404gen2containerd",
+        "version": "202606.19.0"
+      },
+      "dependencies": []
+    }
+  ]
+}
