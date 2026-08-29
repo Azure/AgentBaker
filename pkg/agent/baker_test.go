@@ -117,8 +117,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(containerdConfig).NotTo(ContainSubstring(`io.containerd.cri.v1.images`))
 			}
 
-			expectContainerd2SchemaV2 := func(containerdConfig string) {
-				Expect(containerdConfig).To(ContainSubstring(`version = 2`))
+			expectContainerd2SchemaV3 := func(containerdConfig string) {
+				Expect(containerdConfig).To(ContainSubstring(`version = 3`))
 				Expect(containerdConfig).To(ContainSubstring(`[plugins."io.containerd.cri.v1.images"]`))
 				Expect(containerdConfig).To(ContainSubstring(`[plugins."io.containerd.cri.v1.images".pinned_images]`))
 				Expect(containerdConfig).To(ContainSubstring(`sandbox = ""`))
@@ -144,8 +144,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			// 24.04 with an empty/unknown containerd version must NOT assume v4: older 24.04 VHDs
 			// ship containerd 2.0-2.2, which reject `version = 4` and crash-loop CSE (exit 84).
 			// It renders the before-2.3 split-plugin v2 schema, which loads on all containerd 2.x.
-			It("uses split-plugin schema v2 when containerd version is empty for 24.04 (may still be containerd 2.0-2.2)", func() {
-				expectContainerd2SchemaV2(renderContainerdConfig("", datamodel.AKSUbuntuContainerd2404, false))
+			It("uses split-plugin schema v3 when containerd version is empty for 24.04 (may still be containerd 2.0-2.2)", func() {
+				expectContainerd2SchemaV3(renderContainerdConfig("", datamodel.AKSUbuntuContainerd2404, false))
 			})
 
 			// 26.04 only ever shipped containerd >= 2.3, so an empty version safely assumes v4.
@@ -153,10 +153,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				expectSchemaV4(renderContainerdConfig("", datamodel.AKSUbuntuMinimalContainerd2604Gen2, false))
 			})
 
-			It("uses split-plugin schema v2 when containerd version is empty for containerd v2 distros before 2.3", func() {
-				expectContainerd2SchemaV2(renderContainerdConfig("", datamodel.AKSAzureLinuxV3, false))
-				expectContainerd2SchemaV2(renderContainerdConfig("", datamodel.AKSACLGen2TL, false))
-				expectContainerd2SchemaV2(renderContainerdConfig("", datamodel.AKSACLArm64Gen2TL, true))
+			It("uses split-plugin schema v3 when containerd version is empty for containerd v2 distros before 2.3", func() {
+				expectContainerd2SchemaV3(renderContainerdConfig("", datamodel.AKSAzureLinuxV3, false))
+				expectContainerd2SchemaV3(renderContainerdConfig("", datamodel.AKSACLGen2TL, false))
+				expectContainerd2SchemaV3(renderContainerdConfig("", datamodel.AKSACLArm64Gen2TL, true))
 			})
 
 			It("uses schema v2 when containerd version is invalid", func() {
@@ -164,10 +164,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				expectLegacySchemaV2(renderContainerdConfig("source:2.3.2", datamodel.AKSUbuntuContainerd2404, false))
 			})
 
-			It("uses split-plugin schema v2 for containerd 2.x versions before 2.3", func() {
-				expectContainerd2SchemaV2(renderContainerdConfig("2.0.0", datamodel.AKSUbuntuContainerd2404, false))
-				expectContainerd2SchemaV2(renderContainerdConfig("2.2.4-5.azl3", datamodel.AKSAzureLinuxV3, false))
-				expectContainerd2SchemaV2(renderContainerdConfig("2.2.4-5.azl3", datamodel.AKSAzureLinuxV3, true))
+			It("uses split-plugin schema v3 for containerd 2.x versions before 2.3", func() {
+				expectContainerd2SchemaV3(renderContainerdConfig("2.0.0", datamodel.AKSUbuntuContainerd2404, false))
+				expectContainerd2SchemaV3(renderContainerdConfig("2.2.4-5.azl3", datamodel.AKSAzureLinuxV3, false))
+				expectContainerd2SchemaV3(renderContainerdConfig("2.2.4-5.azl3", datamodel.AKSAzureLinuxV3, true))
 			})
 
 			It("uses schema v4 for containerd 2.3 and newer", func() {
@@ -195,7 +195,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				// introduced. Asserted end-to-end by Test_AzureLinuxV3Gen2Kata (ValidateKataContainerdConfig).
 				const kataSnapshotAnnotations = `disable_snapshot_annotations = false`
 
-				// split-plugin schema v2 (containerd 2.0-2.2), no-GPU and GPU variants.
+				// split-plugin schema v3 (containerd 2.0-2.2), no-GPU and GPU variants.
 				Expect(renderContainerdConfig("2.2.4-5.azl3", datamodel.AKSAzureLinuxV3Gen2Kata, true)).To(ContainSubstring(kataSnapshotAnnotations))
 				Expect(renderContainerdConfig("2.2.4-5.azl3", datamodel.AKSAzureLinuxV3Gen2Kata, false)).To(ContainSubstring(kataSnapshotAnnotations))
 
