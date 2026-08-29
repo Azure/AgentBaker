@@ -14,10 +14,10 @@ import (
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
-	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -151,7 +151,20 @@ type Scenario struct {
 
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
-	T       testing.TB
+
+	// T is reserved for test control only: reporting failures, skipping and
+	// creating sub-tests. Use Logger for logging, never T.
+	T testing.TB
+
+	// Logger writes the scenario log. It is set by the test runner before the
+	// scenario starts and carries no test-control capability.
+	Logger toolkit.Logger
+
+	// testName is the name of the test running the scenario. It is used to name
+	// the artifacts the scenario writes to disk.
+	testName string
+
+	cleanup *scenarioCleanup
 }
 
 type ScenarioRuntime struct {
@@ -202,6 +215,10 @@ type Config struct {
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
 
+	// BootstrapConfigMutatorWithError is used when preparing the bootstrap configuration can fail.
+	// It runs after BootstrapConfigMutator.
+	BootstrapConfigMutatorWithError func(context.Context, *Cluster, *datamodel.NodeBootstrappingConfiguration) error
+
 	// PreProvisionBootstrapConfigMutator, when set, mutates the NodeBootstrappingConfig for the
 	// BAKE (pre-provision) stage ONLY of a VHDCaching/TestPreProvision two-stage run. It runs after
 	// BootstrapConfigMutator (and after PreProvisionOnly is set). Use it to deliberately make
@@ -215,6 +232,10 @@ type Config struct {
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)
 
+	// VMConfigMutatorWithError is used when preparing the VMSS model can fail.
+	// It runs after VMConfigMutator.
+	VMConfigMutatorWithError func(context.Context, *armcompute.VirtualMachineScaleSet) error
+
 	// CustomDataWriteFiles injects additional cloud-init write_files entries into rendered customData.
 	// This is for e2e-only validation scenarios.
 	CustomDataWriteFiles []CustomDataWriteFile
@@ -224,7 +245,7 @@ type Config struct {
 	ScriptHotfixFixture *ScriptHotfixFixture
 
 	// Validator is a function where the scenario can perform any extra validation checks
-	Validator func(ctx context.Context, s *Scenario)
+	Validator func(ctx context.Context, s *Scenario) error
 
 	// SkipDefaultValidation is a flag to indicate whether the common validation (like spawning a pod) should be skipped.
 	// It shouldn't be used for majority of scenarios, currently only used for preparing VHD in a two-stage scenario
@@ -263,18 +284,34 @@ func (s *Scenario) PrepareAKSNodeConfig() {
 
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
-func (s *Scenario) PrepareVMSSModel(ctx context.Context, t testing.TB, vmss *armcompute.VirtualMachineScaleSet) {
+func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
+	if s.VHD == nil {
+		return fmt.Errorf("scenario VHD is nil")
+	}
 	resourceID, err := CachedPrepareVHD(ctx, GetVHDRequest{
 		Image:    *s.VHD,
 		Location: s.Location,
 	})
-	require.NoError(t, err)
-	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
-	require.NotNil(t, vmss, "input VirtualMachineScaleSet")
-	require.NotNil(t, vmss.Properties, "input VirtualMachineScaleSet.Properties")
+	if err != nil {
+		return fmt.Errorf("prepare VHD: %w", err)
+	}
+	if resourceID == "" {
+		return fmt.Errorf("VHD selector returned an empty resource ID")
+	}
+	if vmss == nil {
+		return fmt.Errorf("input virtual machine scale set is nil")
+	}
+	if vmss.Properties == nil {
+		return fmt.Errorf("input virtual machine scale set properties are nil")
+	}
 
 	if s.VMConfigMutator != nil {
 		s.VMConfigMutator(vmss)
+	}
+	if s.VMConfigMutatorWithError != nil {
+		if err := s.VMConfigMutatorWithError(ctx, vmss); err != nil {
+			return fmt.Errorf("mutate VMSS model: %w", err)
+		}
 	}
 
 	if vmss.Properties.VirtualMachineProfile == nil {
@@ -296,6 +333,7 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t testing.TB, vmss *arm
 	}
 
 	s.updateTags(ctx, vmss)
+	return nil
 }
 
 func (s *Scenario) SecureTLSBootstrappingEnabled() bool {

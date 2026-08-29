@@ -17,8 +17,8 @@ const (
 	defaultNS     = "k8s.io"
 	// images with compressed content size below this threshold are
 	// unpacked after fetch, effectively turning the operation into a
-	// full pull (~150 MiB compressed ≈ ~300 MiB unpacked).
-	pullSizeThreshold = 150 * 1024 * 1024 // 150 MiB
+	// full pull (~200 MiB compressed ≈ ~400 MiB unpacked).
+	pullSizeThreshold = 200 * 1024 * 1024 // 200 MiB
 )
 
 func main() {

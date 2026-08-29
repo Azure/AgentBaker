@@ -1244,6 +1244,38 @@ testVHDBuildLogsExist() {
   echo "$test:Finish"
 }
 
+testAzureLinuxNvidiaGPUDriverReleaseNotes() {
+  local test="testAzureLinuxNvidiaGPUDriverReleaseNotes"
+  local enable_fips="${ENABLE_FIPS,,}"
+
+  if [ "$OS_SKU" != "AzureLinux" ] || [ "$OS_VERSION" != "3.0" ] || [ "$enable_fips" = "true" ] || [ "$(isARM64)" -eq 1 ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
+    echo "$test: Skipping check for $OS_SKU $OS_VERSION (fips=$ENABLE_FIPS, feature_flags=$FEATURE_FLAGS)"
+    return 0
+  fi
+
+  if ! grep -F -q "NVIDIA GPU driver versions available at VHD build time for supported Azure Linux GPU VM sizes" "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Azure Linux NVIDIA GPU driver release-note section was not found"
+  fi
+
+  if ! grep -E -q '^  - nvidia-cuda-open-driver version [0-9]' "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Expected an Azure Linux CUDA open driver release-note line was not found"
+  fi
+
+  if ! grep -E -q '^  - nvidia-cuda-driver version [0-9]' "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Expected an Azure Linux proprietary CUDA driver release-note line was not found"
+  fi
+
+  if ! grep -E -q '^  - nvidia-grid-driver version [0-9]' "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Expected Azure Linux GRID driver release-note line was not found"
+  fi
+
+  if ! grep -F -q "the installed version is not pinned to this VHD" "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Expected Azure Linux GPU driver release-note snapshot disclaimer was not found"
+  fi
+
+  echo "$test:Finish"
+}
+
 # Ensures that /etc/login.defs is valid. This is a best-effort test, as we aren't going to
 # re-implement everything that uses this file.
 testLoginDefs() {
@@ -2662,6 +2694,7 @@ testContainerNetworkingPluginsInstalled() {
 checkPerformanceData
 testBccTools $OS_SKU $OS_VERSION
 testVHDBuildLogsExist
+testAzureLinuxNvidiaGPUDriverReleaseNotes
 testCriticalTools
 testPackagesInstalled
 testFuseInstalled
@@ -2688,7 +2721,7 @@ testAppArmorInstalled $OS_SKU $OS_VERSION
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
 # which means the test failures haven't been caught. It also calles exit 1 on a failure,
 # which means the rest of the tests aren't being run.
-# See https://msazure.visualstudio.com/CloudNativeCompute/_backlogs/backlog/Node%20Lifecycle/Features/?workitem=24246232
+# Tracked internally (Node Lifecycle backlog item #24246232)
 # testImagesRetagged $CONTAINER_RUNTIME
 testCustomCAScriptExecutable
 testCustomCATimerNotStarted

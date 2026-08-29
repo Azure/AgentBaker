@@ -211,13 +211,6 @@ installAndConfigureArtifactStreaming() {
   rm "$MIRROR_DOWNLOAD_PATH"
 
   /opt/acr/tools/overlaybd/install.sh
-  /opt/acr/tools/overlaybd/config-user-agent.sh azure
-  /opt/acr/tools/overlaybd/enable-http-auth.sh
-  /opt/acr/tools/overlaybd/config.sh download.enable false
-  /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
-  /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
-  /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
-  systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
   # Remove the bundled overlaybd installer packages (~55-58 MB); install.sh already installed them and they're unused at runtime.
   rm -f /opt/acr/tools/overlaybd/bin/*.deb /opt/acr/tools/overlaybd/bin/*.rpm
   echo "  - acr-mirror version ${version}" >> ${VHD_LOGS_FILEPATH}
@@ -734,7 +727,6 @@ cachePackageAndBinaryComponents() {
         installAznfsPackage || exit $ERR_AZNFS_INSTALL_FAIL
         ;;
       "blobfuse"|"blobfuse2")
-       # TODO(2604): install blobfuse2 for azure blob CSI driver support when package is made available in resolute PMC repos
         for version in "${PACKAGE_VERSIONS[@]}"; do
           if isUbuntu "$OS"; then
             if ! apt_get_install 10 2 120 "${name}=${version}"; then
@@ -1325,6 +1317,15 @@ rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 extractAndCacheCoreDnsBinary
 
 collect_grid_compatibility_data
+
+if isAzureLinux "$OS" "$OS_VARIANT" && [ "$(isARM64)" -ne 1 ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+  AZURELINUX_NVIDIA_DRIVER_RELEASE_NOTES=$(getAzureLinuxNvidiaDriverReleaseNotes)
+  if [ -n "$AZURELINUX_NVIDIA_DRIVER_RELEASE_NOTES" ]; then
+    printf '%s\n' "$AZURELINUX_NVIDIA_DRIVER_RELEASE_NOTES" >> "${VHD_LOGS_FILEPATH}"
+  else
+    echo "Warning: no Azure Linux NVIDIA GPU driver packages found for kernel $(uname -r)" | tee -a "${VHD_LOGS_FILEPATH}" >&2
+  fi
+fi
 
 # nvidia repos are non msft public endpoints and should not be present on VHDs.
 # The installation logic during provisioning time will use the cached rpm/deb files
