@@ -103,6 +103,6 @@ func TestAppFailsFastOnInvalidTagFilter(t *testing.T) {
 
 func restoreRunnerConfig(t *testing.T) {
 	t.Helper()
-	saved := config.Config
-	t.Cleanup(func() { config.Config = saved })
+	saved := *config.Config
+	t.Cleanup(func() { *config.Config = saved })
 }

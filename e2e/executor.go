@@ -275,11 +275,19 @@ func (e *executor) addResult(result scenarioResult) {
 	e.resultsMu.Unlock()
 }
 
-func (e *executor) summary() runSummary {
+func (e *executor) snapshotResults(extra []scenarioResult) []scenarioResult {
 	e.resultsMu.Lock()
 	defer e.resultsMu.Unlock()
-	summary := runSummary{Total: len(e.results)}
-	for _, result := range e.results {
+	return append(append([]scenarioResult(nil), e.results...), extra...)
+}
+
+func (e *executor) summary() runSummary {
+	return summarize(e.snapshotResults(nil))
+}
+
+func summarize(results []scenarioResult) runSummary {
+	summary := runSummary{Total: len(results)}
+	for _, result := range results {
 		switch result.Status {
 		case statusPassed:
 			summary.Passed++
@@ -294,25 +302,16 @@ func (e *executor) summary() runSummary {
 	return summary
 }
 
-func (e *executor) printSummary(filtered []scenarioResult) runSummary {
-	e.resultsMu.Lock()
-	results := append(append([]scenarioResult(nil), e.results...), filtered...)
-	e.resultsMu.Unlock()
-
-	summary := runSummary{Total: len(results)}
+func (e *executor) printSummary(results []scenarioResult) runSummary {
+	summary := summarize(results)
 	var skipped, flaky, failed []scenarioResult
 	for _, result := range results {
 		switch result.Status {
-		case statusPassed:
-			summary.Passed++
 		case statusSkipped:
-			summary.Skipped++
 			skipped = append(skipped, result)
 		case statusFlaky:
-			summary.Flaky++
 			flaky = append(flaky, result)
 		case statusFailed:
-			summary.Failed++
 			failed = append(failed, result)
 		}
 	}

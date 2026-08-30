@@ -52,13 +52,11 @@ type junitSkipped struct {
 	Message string `xml:"message,attr"`
 }
 
-func (e *executor) writeReports(filtered []scenarioResult) error {
-	if e.opts.junitFile == "" {
+func writeJUnitReport(path string, results []scenarioResult) error {
+	if path == "" {
 		return nil
 	}
-	e.resultsMu.Lock()
-	results := append(append([]scenarioResult(nil), e.results...), filtered...)
-	e.resultsMu.Unlock()
+	results = append([]scenarioResult(nil), results...)
 	sort.Slice(results, func(i, j int) bool { return results[i].Name < results[j].Name })
 
 	report := junitSuites{}
@@ -126,7 +124,7 @@ func (e *executor) writeReports(filtered []scenarioResult) error {
 	report.Time = suite.Time
 	report.Suites = []junitSuite{suite}
 
-	if err := os.MkdirAll(filepath.Dir(e.opts.junitFile), 0o755); err != nil && filepath.Dir(e.opts.junitFile) != "." {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil && filepath.Dir(path) != "." {
 		return fmt.Errorf("create JUnit directory: %w", err)
 	}
 	data, err := xml.MarshalIndent(report, "", "  ")
@@ -134,7 +132,7 @@ func (e *executor) writeReports(filtered []scenarioResult) error {
 		return fmt.Errorf("marshal JUnit report: %w", err)
 	}
 	data = append([]byte(xml.Header), data...)
-	if err := os.WriteFile(e.opts.junitFile, data, 0o600); err != nil {
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("write JUnit report: %w", err)
 	}
 	return nil

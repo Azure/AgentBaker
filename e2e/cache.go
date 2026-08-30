@@ -15,12 +15,15 @@ import (
 // cachedFunc creates a thread-safe memoized version of a function.
 // Results, including errors, are cached per unique Request key so concurrent
 // scenarios cannot repeatedly start the same shared-infrastructure operation.
+// Waiters may stop waiting when their own context is canceled without canceling
+// the shared operation started by the first caller.
 // Request type must be comparable (no slices/maps/pointers).
 // Cache persists for program lifetime with no TTL or invalidation.
 // WARNING: Incorrect keys can cause hard-to-debug cache collisions.
 func cachedFunc[Request comparable, Response any](fn func(context.Context, Request) (Response, error)) func(context.Context, Request) (Response, error) {
 	type entry struct {
-		once  sync.Once
+		start sync.Once
+		done  chan struct{}
 		value Response
 		err   error
 	}
@@ -28,12 +31,31 @@ func cachedFunc[Request comparable, Response any](fn func(context.Context, Reque
 	var cache sync.Map
 
 	return func(ctx context.Context, key Request) (Response, error) {
-		actual, _ := cache.LoadOrStore(key, &entry{})
+		actual, _ := cache.LoadOrStore(key, &entry{done: make(chan struct{})})
 		e := actual.(*entry)
-		e.once.Do(func() {
-			e.value, e.err = fn(ctx, key)
+		owner := false
+		e.start.Do(func() {
+			owner = true
 		})
-		return e.value, e.err
+		if owner {
+			defer close(e.done)
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					e.err = fmt.Errorf("cached operation panicked: %v", recovered)
+					panic(recovered)
+				}
+			}()
+			e.value, e.err = fn(ctx, key)
+			return e.value, e.err
+		}
+
+		select {
+		case <-e.done:
+			return e.value, e.err
+		case <-ctx.Done():
+			var zero Response
+			return zero, ctx.Err()
+		}
 	}
 }
 

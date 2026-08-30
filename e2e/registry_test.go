@@ -2,6 +2,13 @@ package e2e
 
 import "testing"
 
+func TestRegisteredScenarioCount(t *testing.T) {
+	const minimum = 193
+	if got := len(registeredScenarios()); got < minimum {
+		t.Fatalf("registered %d scenarios, want at least %d; investigate missing scenario coverage", got, minimum)
+	}
+}
+
 func TestRegisterDuplicateNameCaseInsensitive(t *testing.T) {
 	defer resetRegistryForTest(t)()
 

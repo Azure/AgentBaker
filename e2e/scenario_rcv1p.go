@@ -1,4 +1,4 @@
-// scenario_rcv1p_test.go contains end-to-end tests for the RCV1P (Root Certificate V1P) cert mode
+// scenario_rcv1p.go contains end-to-end tests for the RCV1P (Root Certificate V1P) cert mode
 // on Linux distros. RCV1P is the next-generation mechanism for distributing Azure root CA certificates
 // to AKS nodes. Instead of relying on hardcoded certificate bundles, RCV1P queries the Azure wireserver
 // at provisioning time to download the latest root certificates and installs them into the OS trust store.
@@ -23,7 +23,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -65,38 +64,17 @@ func skipIfRCV1PNotExplicit(ctx context.Context) string {
 	return ""
 }
 
-var (
-	featureFlagChecks sync.Map // subscriptionID -> *featureFlagResult
-)
-
-type featureFlagResult struct {
-	once       sync.Once
-	registered bool
-	err        error
-}
-
-// checkPlatformSettingsOverrideFeatureFlag checks the Microsoft.Compute/PlatformSettingsOverride
-// feature flag on the given subscription.
-func checkPlatformSettingsOverrideFeatureFlag(ctx context.Context, subscriptionID string, client *config.AzureClient) (bool, error) {
-	val, _ := featureFlagChecks.LoadOrStore(subscriptionID, &featureFlagResult{})
-	result := val.(*featureFlagResult)
-	result.once.Do(func() {
-		result.registered, result.err = queryFeatureFlag(ctx, subscriptionID, client)
-	})
-	return result.registered, result.err
-}
+// CachedPlatformSettingsOverrideFeatureFlag checks the Microsoft.Compute/PlatformSettingsOverride
+// feature flag, caching the result (including errors) per subscription ID.
+var CachedPlatformSettingsOverrideFeatureFlag = cachedFunc(queryFeatureFlag)
 
 // getE2ESubscriptionFeatureFlag returns the PlatformSettingsOverride feature flag status on the
 // default E2E subscription.
 func getE2ESubscriptionFeatureFlag(ctx context.Context) (bool, error) {
-	e2eAzure, err := config.NewAzureClient()
-	if err != nil {
-		return false, fmt.Errorf("create E2E Azure client for feature flag check: %w", err)
-	}
-	return checkPlatformSettingsOverrideFeatureFlag(ctx, config.Config.SubscriptionID, e2eAzure)
+	return CachedPlatformSettingsOverrideFeatureFlag(ctx, config.Config.SubscriptionID)
 }
 
-func queryFeatureFlag(ctx context.Context, subscriptionID string, client *config.AzureClient) (bool, error) {
+func queryFeatureFlag(ctx context.Context, subscriptionID string) (bool, error) {
 	url := fmt.Sprintf(
 		"https://management.azure.com/subscriptions/%s/providers/Microsoft.Features/providers/Microsoft.Compute/features/PlatformSettingsOverride?api-version=2021-07-01",
 		subscriptionID,
@@ -107,7 +85,7 @@ func queryFeatureFlag(ctx context.Context, subscriptionID string, client *config
 		return false, fmt.Errorf("failed to create feature flag request: %w", err)
 	}
 
-	resp, err := client.Core.Pipeline().Do(req)
+	resp, err := config.Azure.Core.Pipeline().Do(req)
 	if err != nil {
 		return false, fmt.Errorf("failed to query feature flag: %w", err)
 	}
@@ -132,53 +110,42 @@ func queryFeatureFlag(ctx context.Context, subscriptionID string, client *config
 	return result.Properties.State == "Registered", nil
 }
 
-// rcv1pVMConfigMutator returns the VMConfigMutator for RCV1P positive tests. In the single-sub
-// model, we always set the opt-in tag explicitly (RCV1P_TAGS_AUTO_INJECTED subscriptions will
-// have both our tag and the platform's tag, which is idempotent).
-func rcv1pVMConfigMutator() func(*armcompute.VirtualMachineScaleSet) {
-	return rcv1pOptInVMConfigMutator
-}
-
 // REVERT ME: build and upload a CSE zip from the branch's staging/cse/windows/ so that
 // Windows RCV1P E2E tests exercise the actual RCV1P code instead of the published v0.0.52 package.
-var (
-	branchCSEZipURL  string
-	branchCSEZipErr  error
-	branchCSEZipOnce sync.Once
-)
 
-// getOrBuildBranchCSEPackageURL builds a CSE zip from staging/cse/windows/ (matching the
-// pipeline packaging in .pipelines/scripts/windows_package_cse.sh) and uploads it to the
-// E2E blob storage. Returns a SAS-signed URL. Uses sync.Once so the zip is built and
-// uploaded exactly once across all parallel tests.
-func getOrBuildBranchCSEPackageURL(ctx context.Context) (string, error) {
-	branchCSEZipOnce.Do(func() {
-		// 5m covers a cold-start storage account create (~30-90s) plus the zip build/upload.
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-		defer cancel()
-		// Windows scenarios construct this mutator at scenario-struct-init time, which runs
-		// BEFORE RunScenario -> CachedCreateVMManagedIdentity (which creates the per-sub blob
-		// storage account on first use). On a brand-new region/subscription combo the storage
-		// account does not exist yet, so the upload below fails with NXDOMAIN. Ensure storage
-		// exists first by piggybacking on the same cached identity-creation path Linux tests use.
-		//
-		// CachedCreateVMManagedIdentity depends on the per-location resource group already
-		// existing (runScenario ensures it later, too late for this init-time path). Ensure
-		// the RG first so the identity/storage-account creation succeeds on a fresh sub/region.
-		if _, err := CachedEnsureResourceGroup(ctx, config.Config.DefaultLocation); err != nil {
-			branchCSEZipErr = fmt.Errorf("ensure shared resource group: %w", err)
-			return
-		}
-		if _, err := CachedCreateVMManagedIdentity(ctx, config.Config.DefaultLocation); err != nil {
-			branchCSEZipErr = fmt.Errorf("ensure shared storage account: %w", err)
-			return
-		}
-		branchCSEZipURL, branchCSEZipErr = buildAndUploadCSEZip(ctx)
-	})
-	if branchCSEZipErr != nil {
-		return "", fmt.Errorf("build or upload branch CSE zip: %w", branchCSEZipErr)
+// branchCSEZipRequest keys the branch CSE zip cache. The location determines the shared
+// resource group and storage account the zip is uploaded to, so different locations must
+// not share a cached URL.
+type branchCSEZipRequest struct {
+	Location string
+}
+
+// CachedBranchCSEPackageURL builds a CSE zip from staging/cse/windows/ (matching the
+// pipeline packaging in .pipelines/scripts/windows_package_cse.sh), uploads it to the
+// E2E blob storage and returns a SAS-signed URL. The result, including any error, is
+// cached so the zip is built and uploaded at most once per location across all parallel tests.
+var CachedBranchCSEPackageURL = cachedFunc(buildBranchCSEPackageURL)
+
+func buildBranchCSEPackageURL(ctx context.Context, request branchCSEZipRequest) (string, error) {
+	// 5m covers a cold-start storage account create (~30-90s) plus the zip build/upload.
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+	// The blob storage account lives in the DefaultLocation resource group, which is created
+	// lazily by CachedCreateVMManagedIdentity. runScenario only ensures the RG/identity for
+	// the scenario's own location, so on a brand-new region/subscription combo (or when the
+	// scenario runs outside DefaultLocation) the account may not exist yet and the upload
+	// below fails with NXDOMAIN. Ensure it here; both calls are cached no-ops otherwise.
+	//
+	// CachedCreateVMManagedIdentity depends on the per-location resource group already
+	// existing, so ensure the RG first for the identity/storage-account creation to
+	// succeed on a fresh sub/region.
+	if _, err := CachedEnsureResourceGroup(ctx, request.Location); err != nil {
+		return "", fmt.Errorf("ensure shared resource group: %w", err)
 	}
-	return branchCSEZipURL, nil
+	if _, err := CachedCreateVMManagedIdentity(ctx, request.Location); err != nil {
+		return "", fmt.Errorf("ensure shared storage account: %w", err)
+	}
+	return buildAndUploadCSEZip(ctx)
 }
 
 func buildAndUploadCSEZip(ctx context.Context) (string, error) {
@@ -286,9 +253,10 @@ func findRepoRoot() (string, error) {
 // rcv1pWindowsCSEMutator returns a BootstrapConfigMutator that overrides CseScriptsPackageURL
 // to use the branch-built CSE zip containing the RCV1P code.
 func rcv1pWindowsCSEMutator(ctx context.Context) (func(*Cluster, *datamodel.NodeBootstrappingConfiguration), error) {
-	cseURL, err := getOrBuildBranchCSEPackageURL(ctx)
+	// The blob storage account is always in DefaultLocation, so key the cache on it.
+	cseURL, err := CachedBranchCSEPackageURL(ctx, branchCSEZipRequest{Location: config.Config.DefaultLocation})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("build or upload branch CSE zip: %w", err)
 	}
 	return func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = cseURL
@@ -298,6 +266,8 @@ func rcv1pWindowsCSEMutator(ctx context.Context) (func(*Cluster, *datamodel.Node
 // rcv1pOptInVMConfigMutator sets the platform opt-in tag on the VMSS resource level.
 // VMSS resource-level tags are automatically inherited by VM instances at creation time,
 // which allows wireserver to recognize the tag and serve root certificates.
+// Positive tests always set the tag explicitly; on RCV1P_TAGS_AUTO_INJECTED subscriptions
+// the platform tag and this tag are the same, so setting it is idempotent.
 func rcv1pOptInVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet) {
 	if vmss.Tags == nil {
 		vmss.Tags = map[string]*string{}
@@ -318,7 +288,7 @@ var _ = Register(&Scenario{
 	Config: Config{
 		Cluster:         ClusterKubenet,
 		VHD:             config.VHDUbuntu2204Gen2Containerd,
-		VMConfigMutator: rcv1pVMConfigMutator(),
+		VMConfigMutator: rcv1pOptInVMConfigMutator,
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return ValidateRCV1PCertMode(ctx, s)
 		},
@@ -338,7 +308,7 @@ var _ = Register(&Scenario{
 	Config: Config{
 		Cluster:         ClusterLatestKubernetesVersionKubenet,
 		VHD:             config.VHDUbuntu2604MinimalGen2Containerd,
-		VMConfigMutator: rcv1pVMConfigMutator(),
+		VMConfigMutator: rcv1pOptInVMConfigMutator,
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return ValidateRCV1PCertMode(ctx, s)
 		},
@@ -358,7 +328,7 @@ var _ = Register(&Scenario{
 	Config: Config{
 		Cluster:         ClusterKubenet,
 		VHD:             config.VHDUbuntu2404Gen2Containerd,
-		VMConfigMutator: rcv1pVMConfigMutator(),
+		VMConfigMutator: rcv1pOptInVMConfigMutator,
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return ValidateRCV1PCertMode(ctx, s)
 		},
@@ -378,7 +348,7 @@ var _ = Register(&Scenario{
 	Config: Config{
 		Cluster:         ClusterKubenet,
 		VHD:             config.VHDAzureLinuxV3Gen2,
-		VMConfigMutator: rcv1pVMConfigMutator(),
+		VMConfigMutator: rcv1pOptInVMConfigMutator,
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return ValidateRCV1PCertMode(ctx, s)
 		},
@@ -400,9 +370,7 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDACLGen2TL,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
-			if m := rcv1pVMConfigMutator(); m != nil {
-				m(vmss)
-			}
+			rcv1pOptInVMConfigMutator(vmss)
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return ValidateRCV1PCertMode(ctx, s)
