@@ -157,7 +157,7 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	if err := exec.writeReports(filtered); err != nil {
 		return err
 	}
-	summary := exec.printSummary()
+	summary := exec.printSummary(filtered)
 
 	if waitErr != nil {
 		return waitErr

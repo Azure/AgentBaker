@@ -563,7 +563,7 @@ func TestScenarioSkipIfRecordsSkip(t *testing.T) {
 	if err := exec.writeReports(nil); err != nil {
 		t.Fatal(err)
 	}
-	exec.printSummary()
+	exec.printSummary(nil)
 
 	summary := exec.summary()
 	if summary.Total != 1 || summary.Skipped != 1 {
@@ -624,7 +624,7 @@ func TestSummaryOrdersImportantResultsLast(t *testing.T) {
 		},
 	}
 
-	summary := exec.printSummary()
+	summary := exec.printSummary(nil)
 	if summary != (runSummary{Total: 4, Passed: 1, Failed: 1, Skipped: 1, Flaky: 1}) {
 		t.Fatalf("unexpected summary: %+v", summary)
 	}
@@ -682,15 +682,16 @@ func TestFilteredScenariosAreNotScheduled(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	summary := exec.summary()
-	if summary.Total != 1 || summary.Passed != 1 || summary.Skipped != 0 {
-		t.Fatalf("filtered scenario leaked into the summary: %+v", summary)
+	summary := exec.printSummary(filtered)
+	if summary.Total != 2 || summary.Passed != 1 || summary.Skipped != 1 {
+		t.Fatalf("filtered scenario was not counted as skipped: %+v", summary)
 	}
 	if _, err := os.Stat(filepath.Join(opts.logDir, "Excluded")); !os.IsNotExist(err) {
 		t.Fatalf("filtered scenario created an attempt log directory: %v", err)
 	}
-	if strings.Contains(stdout.String(), "Excluded") {
-		t.Fatalf("filtered scenario was written to the console: %q", stdout.String())
+	if !strings.Contains(stdout.String(), "DONE 2 scenarios: 1 passed, 0 flaky, 1 skipped, 0 failed") ||
+		!strings.Contains(stdout.String(), "- Excluded: filtered:") {
+		t.Fatalf("filtered scenario was not listed as skipped: %q", stdout.String())
 	}
 
 	report, err := os.ReadFile(opts.junitFile)

@@ -288,11 +288,14 @@ func (e *executor) summary() runSummary {
 	return summary
 }
 
-func (e *executor) printSummary() runSummary {
+func (e *executor) printSummary(filtered []scenarioResult) runSummary {
 	e.resultsMu.Lock()
-	summary := runSummary{Total: len(e.results)}
+	results := append(append([]scenarioResult(nil), e.results...), filtered...)
+	e.resultsMu.Unlock()
+
+	summary := runSummary{Total: len(results)}
 	var skipped, flaky, failed []scenarioResult
-	for _, result := range e.results {
+	for _, result := range results {
 		switch result.Status {
 		case statusPassed:
 			summary.Passed++
@@ -307,7 +310,6 @@ func (e *executor) printSummary() runSummary {
 			failed = append(failed, result)
 		}
 	}
-	e.resultsMu.Unlock()
 	for _, results := range [][]scenarioResult{skipped, flaky, failed} {
 		sort.Slice(results, func(i, j int) bool { return results[i].Name < results[j].Name })
 	}
