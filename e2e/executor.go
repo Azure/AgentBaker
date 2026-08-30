@@ -359,15 +359,24 @@ func lastAttemptWithStatus(result scenarioResult, status resultStatus) attemptRe
 }
 
 func summaryMessage(message string) string {
-	const maxLength = 500
-	message = strings.TrimSpace(message)
-	if line, _, found := strings.Cut(message, "\n"); found {
-		message = strings.TrimSuffix(line, "\r")
+	const maxRunes = 500
+	const tailRunes = 150
+	lines := strings.Split(strings.ReplaceAll(message, "\r\n", "\n"), "\n")
+	parts := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.Trim(line, "-") == "" {
+			continue
+		}
+		parts = append(parts, line)
 	}
-	if len(message) > maxLength {
-		message = message[:maxLength] + "..."
+	summary := strings.Join(parts, "; ")
+	runes := []rune(summary)
+	if len(runes) > maxRunes {
+		headRunes := maxRunes - tailRunes - len([]rune(" ... "))
+		summary = string(runes[:headRunes]) + " ... " + string(runes[len(runes)-tailRunes:])
 	}
-	return message
+	return summary
 }
 
 type scenarioLogger struct {

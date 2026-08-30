@@ -526,6 +526,9 @@ func TestExecutorWaitStopsAfterGracePeriod(t *testing.T) {
 	if !bytes.Contains(report, []byte(`failure message="scenarios did not stop`)) {
 		t.Fatalf("JUnit report dropped the unfinished scenario:\n%s", report)
 	}
+	if bytes.Contains(report, []byte("attached scenario log")) {
+		t.Fatalf("JUnit report claimed a missing attachment:\n%s", report)
+	}
 	close(release)
 	exec.scenarios.Wait()
 	if len(exec.results) != 1 {
@@ -533,14 +536,38 @@ func TestExecutorWaitStopsAfterGracePeriod(t *testing.T) {
 	}
 }
 
-func TestConciseFailureKeepsTail(t *testing.T) {
-	message := strings.Repeat("old context ", 500) + "important final error"
-	got := concise(message)
-	if !strings.HasSuffix(got, "important final error") {
-		t.Fatalf("failure tail was lost: %q", got)
+func TestJUnitFailureUsesReadableSummary(t *testing.T) {
+	message := "create vmss: GET https://management.azure.com/example\n" +
+		"--------------------------------------------------------------------------------\n" +
+		"RESPONSE 200: 200 OK\n" +
+		"ERROR CODE: VMExtensionProvisioningError\n" +
+		strings.Repeat(`{\"Output\":\"escaped payload\"}`, 500) +
+		` stderr="acr-mirror.service does not exist"`
+	failure := junitFailureSummary(message, true)
+
+	if !strings.Contains(failure.Message, "create vmss: GET") ||
+		!strings.Contains(failure.Message, "RESPONSE 200") ||
+		!strings.Contains(failure.Message, "ERROR CODE: VMExtensionProvisioningError") {
+		t.Fatalf("unexpected failure summary: %q", failure.Message)
 	}
-	if !strings.HasPrefix(got, "... beginning truncated") {
-		t.Fatalf("missing truncation marker: %q", got)
+	if strings.Contains(failure.Message, "--------------------------------------------------------------------------------") {
+		t.Fatalf("failure summary included separator noise: %q", failure.Message)
+	}
+	if len([]rune(failure.Message)) > 500 || !strings.Contains(failure.Message, " ... ") {
+		t.Fatalf("failure summary was not bounded: %q", failure.Message)
+	}
+	if !strings.Contains(failure.Message, `stderr="acr-mirror.service does not exist"`) {
+		t.Fatalf("failure summary omitted diagnostic tail: %q", failure.Message)
+	}
+	if !strings.Contains(failure.Body, "attached scenario log") {
+		t.Fatalf("failure body omitted attachment guidance: %q", failure.Body)
+	}
+}
+
+func TestJUnitFailureSummaryDoesNotClaimChildAttachment(t *testing.T) {
+	failure := junitFailureSummary("CSE timing failed", false)
+	if strings.Contains(failure.Body, "attached") {
+		t.Fatalf("child failure claimed a parent attachment: %q", failure.Body)
 	}
 }
 
@@ -682,7 +709,7 @@ func TestSummaryOrdersImportantResultsLast(t *testing.T) {
 	if !strings.Contains(output, "- Flaky (passed on attempt 2): transient failure") {
 		t.Fatalf("flaky scenario details were omitted:\n%s", output)
 	}
-	if !strings.Contains(output, "- Failed: final failure") || strings.Contains(output, "details") {
+	if !strings.Contains(output, "- Failed: final failure; details") {
 		t.Fatalf("failed scenario summary was not concise:\n%s", output)
 	}
 }
