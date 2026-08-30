@@ -41,7 +41,7 @@ var _ = Register(&Scenario{
 	Config: Config{
 		Cluster:                         ClusterAzureNetwork,
 		VHD:                             config.VHDWindows2022Containerd,
-		VMConfigMutator:                 rcv1pVMConfigMutator(),
+		VMConfigMutator:                 rcv1pOptInVMConfigMutator,
 		BootstrapConfigMutatorWithError: rcv1pWindowsBootstrapMutator(false),
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return ValidateRCV1PCertModeWindows(ctx, s)
@@ -60,7 +60,7 @@ var _ = Register(&Scenario{
 	Config: Config{
 		Cluster:                         ClusterAzureNetwork,
 		VHD:                             config.VHDWindows2025,
-		VMConfigMutator:                 rcv1pVMConfigMutator(),
+		VMConfigMutator:                 rcv1pOptInVMConfigMutator,
 		BootstrapConfigMutatorWithError: rcv1pWindowsBootstrapMutator(true),
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return ValidateRCV1PCertModeWindows(ctx, s)
@@ -80,7 +80,7 @@ var _ = Register(&Scenario{
 	Config: Config{
 		Cluster:                         ClusterAzureNetwork,
 		VHD:                             config.VHDWindows2022ContainerdGen2,
-		VMConfigMutator:                 rcv1pVMConfigMutator(),
+		VMConfigMutator:                 rcv1pOptInVMConfigMutator,
 		BootstrapConfigMutatorWithError: rcv1pWindowsBootstrapMutator(false),
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return ValidateRCV1PCertModeWindows(ctx, s)
@@ -99,7 +99,7 @@ var _ = Register(&Scenario{
 	Config: Config{
 		Cluster:                         ClusterAzureNetwork,
 		VHD:                             config.VHDWindows2025Gen2,
-		VMConfigMutator:                 rcv1pVMConfigMutator(),
+		VMConfigMutator:                 rcv1pOptInVMConfigMutator,
 		BootstrapConfigMutatorWithError: rcv1pWindowsBootstrapMutator(true),
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return ValidateRCV1PCertModeWindows(ctx, s)

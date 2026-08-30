@@ -104,32 +104,7 @@ func TestAppRejectsNonPositiveDurations(t *testing.T) {
 }
 
 func TestRunnerFlagsUseEnvironmentAliases(t *testing.T) {
-	oldParallel := config.Config.Parallel
-	oldTimeout := config.Config.TestTimeout
-	oldSuiteTimeout := config.Config.SuiteTimeout
-	oldRetries := config.Config.Retries
-	oldLogDir := config.Config.E2ELoggingDir
-	oldOutput := config.Config.OutputMode
-	oldHidePassed := config.Config.HidePassedLogs
-	oldTags := config.Config.TagsToRun
-	oldSkipTags := config.Config.TagsToSkip
-	oldGallery := config.Config.GalleryName
-	oldKeepVMSS := config.Config.KeepVMSS
-	oldSubscriptionID := config.Config.SubscriptionID
-	t.Cleanup(func() {
-		config.Config.Parallel = oldParallel
-		config.Config.TestTimeout = oldTimeout
-		config.Config.SuiteTimeout = oldSuiteTimeout
-		config.Config.Retries = oldRetries
-		config.Config.E2ELoggingDir = oldLogDir
-		config.Config.OutputMode = oldOutput
-		config.Config.HidePassedLogs = oldHidePassed
-		config.Config.TagsToRun = oldTags
-		config.Config.TagsToSkip = oldSkipTags
-		config.Config.GalleryName = oldGallery
-		config.Config.KeepVMSS = oldKeepVMSS
-		config.Config.SubscriptionID = oldSubscriptionID
-	})
+	restoreRunnerConfig(t)
 	t.Setenv("PARALLEL", "7")
 	t.Setenv("TEST_TIMEOUT", "3m")
 	t.Setenv("E2E_GO_TEST_TIMEOUT", "4m")
@@ -162,12 +137,7 @@ func TestRunnerFlagsUseEnvironmentAliases(t *testing.T) {
 }
 
 func TestAppRejectsUnknownScenarioChild(t *testing.T) {
-	oldLogDir := config.Config.E2ELoggingDir
-	oldTimeout := config.Config.TestTimeout
-	t.Cleanup(func() {
-		config.Config.E2ELoggingDir = oldLogDir
-		config.Config.TestTimeout = oldTimeout
-	})
+	restoreRunnerConfig(t)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -221,7 +191,7 @@ func TestExecutorRetriesAndReportsFlakyScenario(t *testing.T) {
 
 	exec.schedule("Retry", &Scenario{})
 	exec.scenarios.Wait()
-	if err := exec.writeReports(nil); err != nil {
+	if err := writeJUnitReport(opts.junitFile, exec.snapshotResults(nil)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -516,7 +486,7 @@ func TestExecutorWaitStopsAfterGracePeriod(t *testing.T) {
 	if summary.Total != 1 || summary.Failed != 1 {
 		t.Fatalf("unfinished scenario was not recorded as failed: %+v", summary)
 	}
-	if err := exec.writeReports(nil); err != nil {
+	if err := writeJUnitReport(exec.opts.junitFile, exec.snapshotResults(nil)); err != nil {
 		t.Fatal(err)
 	}
 	report, err := os.ReadFile(exec.opts.junitFile)
@@ -587,10 +557,10 @@ func TestScenarioSkipIfRecordsSkip(t *testing.T) {
 		SkipIf: skipScenario("not supported"),
 	})
 	exec.scenarios.Wait()
-	if err := exec.writeReports(nil); err != nil {
+	if err := writeJUnitReport(opts.junitFile, exec.snapshotResults(nil)); err != nil {
 		t.Fatal(err)
 	}
-	exec.printSummary(nil)
+	exec.printSummary(exec.snapshotResults(nil))
 
 	summary := exec.summary()
 	if summary.Total != 1 || summary.Skipped != 1 {
@@ -612,9 +582,8 @@ func TestScenarioSkipIfRecordsSkip(t *testing.T) {
 }
 
 func TestScenarioTimeoutCoversSkipAndRun(t *testing.T) {
-	oldTimeout := config.Config.TestTimeout
+	restoreRunnerConfig(t)
 	config.Config.TestTimeout = time.Second
-	t.Cleanup(func() { config.Config.TestTimeout = oldTimeout })
 
 	exec := newTestExecutor(t)
 	var skipDeadline, runDeadline time.Time
@@ -637,9 +606,8 @@ func TestScenarioTimeoutCoversSkipAndRun(t *testing.T) {
 }
 
 func TestScenarioTimeoutCannotPassOrSkip(t *testing.T) {
-	oldTimeout := config.Config.TestTimeout
+	restoreRunnerConfig(t)
 	config.Config.TestTimeout = 10 * time.Millisecond
-	t.Cleanup(func() { config.Config.TestTimeout = oldTimeout })
 
 	for _, test := range []struct {
 		name   string
@@ -692,7 +660,7 @@ func TestSummaryOrdersImportantResultsLast(t *testing.T) {
 		},
 	}
 
-	summary := exec.printSummary(nil)
+	summary := exec.printSummary(exec.snapshotResults(nil))
 	if summary != (runSummary{Total: 4, Passed: 1, Failed: 1, Skipped: 1, Flaky: 1}) {
 		t.Fatalf("unexpected summary: %+v", summary)
 	}
@@ -746,11 +714,11 @@ func TestFilteredScenariosAreNotScheduled(t *testing.T) {
 		exec.schedule(entry.name, entry.scenario)
 	}
 	exec.scenarios.Wait()
-	if err := exec.writeReports(filtered); err != nil {
+	if err := writeJUnitReport(opts.junitFile, exec.snapshotResults(filtered)); err != nil {
 		t.Fatal(err)
 	}
 
-	summary := exec.printSummary(filtered)
+	summary := exec.printSummary(exec.snapshotResults(filtered))
 	if summary.Total != 2 || summary.Passed != 1 || summary.Skipped != 1 {
 		t.Fatalf("filtered scenario was not counted as skipped: %+v", summary)
 	}
@@ -807,11 +775,7 @@ func TestAutoOutputUsesRunnableCount(t *testing.T) {
 }
 
 func TestExecutorDoesNotReadGlobalTagFilters(t *testing.T) {
-	oldRun, oldSkip := config.Config.TagsToRun, config.Config.TagsToSkip
-	t.Cleanup(func() {
-		config.Config.TagsToRun = oldRun
-		config.Config.TagsToSkip = oldSkip
-	})
+	restoreRunnerConfig(t)
 	config.Config.TagsToRun = "gpu=true"
 	config.Config.TagsToSkip = "Name=Runs"
 
@@ -942,7 +906,7 @@ func TestExecutorKeepsFailureWhenRetrySkips(t *testing.T) {
 
 	exec.schedule("FailsThenSkips", &Scenario{Name: "FailsThenSkips"})
 	exec.scenarios.Wait()
-	if err := exec.writeReports(nil); err != nil {
+	if err := writeJUnitReport(opts.junitFile, exec.snapshotResults(nil)); err != nil {
 		t.Fatal(err)
 	}
 

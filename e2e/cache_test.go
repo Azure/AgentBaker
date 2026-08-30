@@ -91,6 +91,59 @@ func TestCachedFuncCachesErrors(t *testing.T) {
 	assert.Equal(t, int32(1), callCount.Load(), "shared-operation errors must be cached")
 }
 
+func TestCachedFuncWaiterHonorsCancellation(t *testing.T) {
+	var callCount atomic.Int32
+	started := make(chan struct{})
+	release := make(chan struct{})
+	fn := cachedFunc(func(context.Context, string) (string, error) {
+		callCount.Add(1)
+		close(started)
+		<-release
+		return "result", nil
+	})
+
+	ownerResult := make(chan string, 1)
+	go func() {
+		result, _ := fn(context.Background(), "key")
+		ownerResult <- result
+	}()
+	<-started
+
+	waiterCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := fn(waiterCtx, "key")
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, int32(1), callCount.Load(), "canceled waiter started another shared operation")
+
+	close(release)
+	assert.Equal(t, "result", <-ownerResult)
+	result, err := fn(context.Background(), "key")
+	require.NoError(t, err)
+	assert.Equal(t, "result", result)
+	assert.Equal(t, int32(1), callCount.Load(), "successful shared operation was not cached")
+}
+
+func TestCachedFuncPanicUnblocksWaiters(t *testing.T) {
+	var callCount atomic.Int32
+	fn := cachedFunc(func(context.Context, string) (string, error) {
+		callCount.Add(1)
+		panic("boom")
+	})
+
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Fatal("owner call did not propagate panic")
+			}
+		}()
+		_, _ = fn(context.Background(), "key")
+	}()
+
+	_, err := fn(context.Background(), "key")
+	require.ErrorContains(t, err, "cached operation panicked: boom")
+	assert.Equal(t, int32(1), callCount.Load(), "panicked operation was started again")
+}
+
 func TestCachedFuncWithStructKey(t *testing.T) {
 	type request struct {
 		Location string

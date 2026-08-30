@@ -283,10 +283,6 @@ type Config struct {
 	EagerCSETimingExtraction bool
 }
 
-func (s *Scenario) PrepareAKSNodeConfig() {
-
-}
-
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {

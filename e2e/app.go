@@ -129,7 +129,7 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 		return err
 	}
 	if len(runnable) == 0 {
-		if err := newExecutor(ctx, a.stdout, opts, 0).writeReports(filtered); err != nil {
+		if err := writeJUnitReport(opts.junitFile, filtered); err != nil {
 			return err
 		}
 		return &usageError{message: "no scenarios matched the configured filters"}
@@ -154,10 +154,11 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	}
 	waitErr := exec.wait(scenarioCleanupTimeout + 30*time.Second)
 
-	if err := exec.writeReports(filtered); err != nil {
+	results := exec.snapshotResults(filtered)
+	if err := writeJUnitReport(opts.junitFile, results); err != nil {
 		return err
 	}
-	summary := exec.printSummary(filtered)
+	summary := exec.printSummary(results)
 
 	if waitErr != nil {
 		return waitErr

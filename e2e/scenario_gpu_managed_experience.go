@@ -560,86 +560,105 @@ var _ = Register(&Scenario{
 	},
 })
 
-var _ = Register(&Scenario{
-	Name:        "Ubuntu2404_NvidiaDevicePluginRunning_MIG",
-	Description: "Tests that NVIDIA device plugin and DCGM Exporter work with MIG enabled on Ubuntu 24.04 GPU nodes",
-	Location:    "westus2",
-	Tags: Tags{
-		GPU: true,
+var _ = Register(newUbuntu2404NvidiaDevicePluginMIGSingleScenario(
+	"Ubuntu2404_NvidiaDevicePluginRunning_MIG",
+	"Tests that NVIDIA device plugin and DCGM Exporter work with MIG enabled on Ubuntu 24.04 GPU nodes",
+	func(nbc *datamodel.NodeBootstrappingConfiguration) {
+		nbc.GPUInstanceProfile = "MIG2g"
 	},
-	Config: Config{
-		Cluster:               ClusterKubenet,
-		VHD:                   config.VHDUbuntu2404Gen2Containerd,
-		WaitForSSHAfterReboot: 5 * time.Minute,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
-			nbc.ConfigGPUDriverIfNeeded = true
-			nbc.EnableGPUDevicePluginIfNeeded = true
-			nbc.EnableNvidia = true
-			nbc.GPUInstanceProfile = "MIG2g"
-			nbc.EnableManagedGPU = true
-			nbc.MigStrategy = "Single"
-		},
-		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
-			vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
+))
 
-			// Enable the AKS VM extension for GPU nodes
-			extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
-			if err != nil {
-				return fmt.Errorf("create AKS VM extension: %w", err)
-			}
-			vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
-			return nil
-		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			os := "ubuntu"
-			osVersion := "r2404"
-
-			// Validate that the NVIDIA device plugin binary was installed correctly
-			devicePluginVersion, err := expectedPackageVersion("nvidia-device-plugin", os, osVersion)
-			if err != nil {
-				return err
-			}
-			if err := errors.Join(
-				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
-				// Validate that the NVIDIA device plugin systemd service is running
-				ValidateNvidiaDevicePluginServiceRunning(ctx, s),
-			); err != nil {
-				return err
-			}
-			if err := ValidateMIGModeEnabled(ctx, s, 1); err != nil {
-				return err
-			}
-			if err := ValidateMIGInstancesCreated(ctx, s, "MIG 2g.20gb", 3); err != nil {
-				return err
-			}
-			if err := ValidateNodeAdvertisesGPUResources(ctx, s, 3, "nvidia.com/gpu"); err != nil {
-				return err
-			}
-
-			// Validate that GPU workloads can be scheduled. Only meaningful once the GPU
-			// resources above are advertised, otherwise the pod simply never gets scheduled.
-			if err := ValidateGPUWorkloadSchedulable(ctx, s, 3, "nvidia.com/gpu"); err != nil {
-				return err
-			}
-
-			// Validate that the NVIDIA DCGM packages were installed correctly
-			if err := errors.Join(
-				validateDCGMPackageVersions(ctx, s, os, osVersion),
-				validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_TEMP"),
-			); err != nil {
-				return err
-			}
-
-			// Let's run the NPD validation tests to verify that the nvidia
-			// device plugin & DCGM services are reporting status correctly
-			if err := ValidateNodeProblemDetector(ctx, s); err != nil {
-				return err
-			}
-			return validateNPDNvidiaConditions(ctx, s)
-		},
+var _ = Register(newUbuntu2404NvidiaDevicePluginMIGSingleScenario(
+	"Ubuntu2404_NvidiaDevicePluginRunning_MIGProfileLayout_Single",
+	"Tests that NVIDIA device plugin and DCGM Exporter work with MIGProfileLayout and the Single MIG strategy",
+	func(nbc *datamodel.NodeBootstrappingConfiguration) {
+		nbc.MIGProfileLayout = []string{"MIG2g", "MIG2g", "MIG2g"}
 	},
-})
+))
+
+func newUbuntu2404NvidiaDevicePluginMIGSingleScenario(name, description string, setMIGProfile func(*datamodel.NodeBootstrappingConfiguration)) *Scenario {
+	return &Scenario{
+		Name:        name,
+		Description: description,
+		Location:    "westus2",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster:               ClusterKubenet,
+			VHD:                   config.VHDUbuntu2404Gen2Containerd,
+			WaitForSSHAfterReboot: 5 * time.Minute,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = true
+				nbc.EnableNvidia = true
+				setMIGProfile(nbc)
+				nbc.EnableManagedGPU = true
+				nbc.MigStrategy = "Single"
+			},
+			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
+				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
+
+				// Enable the AKS VM extension for GPU nodes
+				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+				if err != nil {
+					return fmt.Errorf("create AKS VM extension: %w", err)
+				}
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+				return nil
+			},
+			Validator: func(ctx context.Context, s *Scenario) error {
+				os := "ubuntu"
+				osVersion := "r2404"
+
+				// Validate that the NVIDIA device plugin binary was installed correctly
+				devicePluginVersion, err := expectedPackageVersion("nvidia-device-plugin", os, osVersion)
+				if err != nil {
+					return err
+				}
+				if err := errors.Join(
+					ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
+					// Validate that the NVIDIA device plugin systemd service is running
+					ValidateNvidiaDevicePluginServiceRunning(ctx, s),
+				); err != nil {
+					return err
+				}
+				if err := errors.Join(
+					ValidateMIGModeEnabled(ctx, s, 1),
+					ValidateMIGInstanceProfileCounts(ctx, s, map[string]int{"MIG 2g.20gb": 3}),
+					ValidateNvidiaDevicePluginMIGStrategy(ctx, s, "single"),
+				); err != nil {
+					return err
+				}
+				if err := ValidateNodeAdvertisesExactGPUResources(ctx, s, map[string]int64{"nvidia.com/gpu": 3}); err != nil {
+					return err
+				}
+
+				// Validate that GPU workloads can be scheduled. Only meaningful once the GPU
+				// resources above are advertised, otherwise the pod simply never gets scheduled.
+				if err := ValidateGPUWorkloadSchedulable(ctx, s, 3, "nvidia.com/gpu"); err != nil {
+					return err
+				}
+
+				// Validate that the NVIDIA DCGM packages were installed correctly
+				if err := errors.Join(
+					validateDCGMPackageVersions(ctx, s, os, osVersion),
+					validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_TEMP"),
+				); err != nil {
+					return err
+				}
+
+				// Let's run the NPD validation tests to verify that the nvidia
+				// device plugin & DCGM services are reporting status correctly
+				if err := ValidateNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
+				return validateNPDNvidiaConditions(ctx, s)
+			},
+		},
+	}
+}
 
 var _ = Register(newUbuntu2404_NvidiaDevicePluginRunning_MIG_MultiGPUScenario())
 

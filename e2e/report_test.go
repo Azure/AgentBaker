@@ -15,28 +15,25 @@ func TestWriteReportsSuiteDurationExcludesChildChecks(t *testing.T) {
 	attemptDuration := 10 * time.Second
 	checkDuration := 4 * time.Second
 
-	e := &executor{
-		opts: runOptions{junitFile: junitPath},
-		results: []scenarioResult{
-			{
-				Name:   "Scenario1",
-				Status: statusPassed,
-				Attempts: []attemptResult{
-					{
-						Attempt:  1,
-						Status:   statusPassed,
-						Duration: attemptDuration,
-						Checks: []scenarioCheck{
-							{Name: "TotalCSEDuration", Duration: checkDuration},
-						},
+	results := []scenarioResult{
+		{
+			Name:   "Scenario1",
+			Status: statusPassed,
+			Attempts: []attemptResult{
+				{
+					Attempt:  1,
+					Status:   statusPassed,
+					Duration: attemptDuration,
+					Checks: []scenarioCheck{
+						{Name: "TotalCSEDuration", Duration: checkDuration},
 					},
 				},
 			},
 		},
 	}
 
-	if err := e.writeReports(nil); err != nil {
-		t.Fatalf("writeReports() returned error: %v", err)
+	if err := writeJUnitReport(junitPath, results); err != nil {
+		t.Fatalf("writeJUnitReport() returned error: %v", err)
 	}
 
 	data, err := os.ReadFile(junitPath)
