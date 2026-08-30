@@ -465,7 +465,7 @@ func TestExecutorReportsCancellationAsFailure(t *testing.T) {
 	}
 }
 
-func TestExecutorWaitAllowsGracefulCancellation(t *testing.T) {
+func TestExecutorWaitReturnsGracefulCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	exec := newExecutor(ctx, &bytes.Buffer{}, runOptions{
 		parallel:   1,
@@ -483,8 +483,8 @@ func TestExecutorWaitAllowsGracefulCancellation(t *testing.T) {
 	<-started
 	cancel()
 
-	if err := exec.wait(time.Second); err != nil {
-		t.Fatalf("graceful cancellation returned an error: %v", err)
+	if err := exec.wait(time.Second); !errors.Is(err, context.Canceled) {
+		t.Fatalf("graceful cancellation returned %v, want context.Canceled", err)
 	}
 }
 
@@ -606,6 +606,47 @@ func TestScenarioTimeoutCoversSkipAndRun(t *testing.T) {
 
 	if skipDeadline.IsZero() || !skipDeadline.Equal(runDeadline) {
 		t.Fatalf("SkipIf and scenario received different attempt deadlines: skip=%s run=%s", skipDeadline, runDeadline)
+	}
+}
+
+func TestScenarioTimeoutCannotPassOrSkip(t *testing.T) {
+	oldTimeout := config.Config.TestTimeout
+	config.Config.TestTimeout = 10 * time.Millisecond
+	t.Cleanup(func() { config.Config.TestTimeout = oldTimeout })
+
+	for _, test := range []struct {
+		name   string
+		skipIf func(context.Context) string
+		run    func(context.Context) error
+	}{
+		{
+			name: "late success",
+			run: func(ctx context.Context) error {
+				<-ctx.Done()
+				return nil
+			},
+		},
+		{
+			name: "late skip",
+			skipIf: func(ctx context.Context) string {
+				<-ctx.Done()
+				return "not configured"
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			exec := newTestExecutor(t)
+			exec.runScenario = func(ctx context.Context, _ string, _ toolkit.Logger, _ *Scenario) error {
+				return test.run(ctx)
+			}
+			exec.schedule("Deadline", &Scenario{Name: "Deadline", SkipIf: test.skipIf})
+			exec.scenarios.Wait()
+
+			result := exec.results[0]
+			if result.Status != statusFailed || !strings.Contains(result.Attempts[0].Message, "scenario attempt deadline exceeded") {
+				t.Fatalf("expired attempt was not failed: %+v", result)
+			}
+		})
 	}
 }
 

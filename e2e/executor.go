@@ -103,7 +103,7 @@ func (e *executor) wait(gracePeriod time.Duration) error {
 	defer timer.Stop()
 	select {
 	case <-done:
-		return nil
+		return e.ctx.Err()
 	case <-timer.C:
 		err := fmt.Errorf("scenarios did not stop within %s after suite cancellation: %w", gracePeriod, e.ctx.Err())
 		e.failUnfinished(err)
@@ -193,6 +193,12 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			runErr = fmt.Errorf("panic: %v\n%s", recovered, debug.Stack())
+		}
+		if attemptErr := attemptCtx.Err(); attemptErr != nil {
+			var skip *skipError
+			if runErr == nil || errors.As(runErr, &skip) {
+				runErr = addFailure(runErr, fmt.Errorf("scenario attempt deadline exceeded: %w", attemptErr))
+			}
 		}
 		runErr = addFailure(runErr, runScenarioCleanup(e.ctx, cleanup))
 		logErr := logger.Err()
