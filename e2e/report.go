@@ -6,9 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"time"
-	"unicode/utf8"
 )
 
 type junitSuites struct {
@@ -78,12 +76,7 @@ func (e *executor) writeReports(filtered []scenarioResult) error {
 			junitProp{Name: "attempts", Value: fmt.Sprint(len(result.Attempts))},
 		)
 		last := reportedAttempt(result)
-		switch result.Status {
-		case statusFailed:
-			testCase.Failure = &junitFailure{Message: concise(last.Message), Body: concise(last.Message)}
-		case statusSkipped:
-			testCase.Skipped = &junitSkipped{Message: concise(last.Message)}
-		}
+		hasAttachment := false
 		if result.Status == statusFailed || result.Status == statusFlaky {
 			for _, attempt := range result.Attempts {
 				if attempt.LogPath == "" {
@@ -94,7 +87,14 @@ func (e *executor) writeReports(filtered []scenarioResult) error {
 					absolute = attempt.LogPath
 				}
 				testCase.SystemOut += fmt.Sprintf("[[ATTACHMENT|%s]]\n", absolute)
+				hasAttachment = true
 			}
+		}
+		switch result.Status {
+		case statusFailed:
+			testCase.Failure = junitFailureSummary(last.Message, hasAttachment)
+		case statusSkipped:
+			testCase.Skipped = &junitSkipped{Message: summaryMessage(last.Message)}
 		}
 		suite.Cases = append(suite.Cases, testCase)
 		suiteDuration += total
@@ -111,7 +111,7 @@ func (e *executor) writeReports(filtered []scenarioResult) error {
 				Time:      fmt.Sprintf("%.6f", check.Duration.Seconds()),
 			}
 			if check.Message != "" {
-				checkCase.Failure = &junitFailure{Message: concise(check.Message), Body: concise(check.Message)}
+				checkCase.Failure = junitFailureSummary(check.Message, false)
 				suite.Failures++
 			}
 			// Child durations are already included in the parent attempt.
@@ -153,15 +153,11 @@ func reportedAttempt(result scenarioResult) attemptResult {
 	return last
 }
 
-func concise(message string) string {
-	const max = 4096
-	message = strings.TrimSpace(message)
-	if len(message) <= max {
-		return message
+func junitFailureSummary(message string, attached bool) *junitFailure {
+	summary := summaryMessage(message)
+	body := summary
+	if attached {
+		body += "\n\nFull output is available in the attached scenario log."
 	}
-	start := len(message) - max
-	for start < len(message) && !utf8.RuneStart(message[start]) {
-		start++
-	}
-	return "... beginning truncated; see attached scenario log\n" + message[start:]
+	return &junitFailure{Message: summary, Body: body}
 }
