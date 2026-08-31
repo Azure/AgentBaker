@@ -16,9 +16,47 @@ set -e
 : "${KNEAD_COMPONENT_STATUS_ANNOTATION:=kubernetes.azure.com/live-patching-status}"
 : "${KNEAD_COMPONENT_STATE_FILE:=/var/lib/aks/live-patching/current.json}"
 : "${KNEAD_KUBECONFIG_WAIT_TIMEOUT_SECONDS:=600}"
+: "${KNEAD_EVENTS_LOGGING_DIR:=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events}"
 
 KNEAD_COMPONENT_RESULTS='{}'
 KNEAD_COMPONENT_RESULTS_VALID=true
+
+# Writes a Guest Agent event using the established logs_to_events schema. This
+# remains available to component handlers sourced into this shell process.
+knead_emit_event() {
+    local task="$1"
+    local message="$2"
+    local level="${3:-Informational}"
+    local events_file_name
+    events_file_name="$(date +%s%3N)"
+    local timestamp
+    timestamp="$(date +"%F %T.%3N")"
+    local event_json
+    event_json="$(jq -n \
+        --arg Timestamp   "${timestamp}" \
+        --arg OperationId "${timestamp}" \
+        --arg Version "1.23" \
+        --arg TaskName    "${task}" \
+        --arg EventLevel  "${level}" \
+        --arg Message     "${message}" \
+        --arg EventPid    "0" \
+        --arg EventTid    "0" \
+        '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}')"
+
+    mkdir -p "${KNEAD_EVENTS_LOGGING_DIR}"
+    printf '%s\n' "${event_json}" > "${KNEAD_EVENTS_LOGGING_DIR%/}/${events_file_name}.json"
+}
+
+# Component scripts should follow this pattern with a uniquely named
+# knead_emit_<component>_event wrapper that delegates transport to knead_emit_event.
+# This wrapper emits events for the generic live-patching reconciliation loop.
+knead_emit_reconcile_event() {
+    local outcome="$1"
+    local reason="$2"
+    local level="${3:-Informational}"
+
+    knead_emit_event "AKS.LivePatching.reconcile" "${outcome}: ${reason}" "${level}" || true
+}
 
 # Waits for kubelet credentials so kubectl can read Node and ConfigMap state.
 knead_wait_for_kubeconfig() {
@@ -305,18 +343,22 @@ knead_main() {
     local result=0
 
     if ! knead_wait_for_kubeconfig; then
+        knead_emit_reconcile_event "Failed" "kubeconfig wait failed" "Error"
         return 1
     fi
     if ! node_json="$(knead_read_node)"; then
         echo "failed to read node"
+        knead_emit_reconcile_event "Failed" "node read failed" "Error"
         return 1
     fi
     if ! node_name="$(printf '%s' "${node_json}" | jq -er '.metadata.name')"; then
         echo "failed to read node name"
+        knead_emit_reconcile_event "Failed" "node name read failed" "Error"
         return 1
     fi
     if ! goal="$(knead_get_node_annotation "${node_json}" "${KNEAD_COMPONENT_GOAL_ANNOTATION}")"; then
         echo "failed to read live-patching goal annotation"
+        knead_emit_reconcile_event "Failed" "goal annotation read failed" "Error"
         return 1
     fi
     if [ -z "${goal}" ]; then
@@ -327,6 +369,7 @@ knead_main() {
 
     if ! status="$(knead_get_node_annotation "${node_json}" "${KNEAD_COMPONENT_STATUS_ANNOTATION}")"; then
         echo "failed to read live-patching status annotation"
+        knead_emit_reconcile_event "Failed" "status annotation read failed, goal=${goal}" "Error"
         return 1
     fi
     # Skip reconciliation only when this goal was processed and every component succeeded.
@@ -355,6 +398,9 @@ knead_main() {
 
     if [ "${result}" -eq 0 ]; then
         echo "knead-component completed successfully"
+        knead_emit_reconcile_event "Succeeded" "goal=${goal}"
+    else
+        knead_emit_reconcile_event "Failed" "goal=${goal}" "Error"
     fi
     return "${result}"
 }
