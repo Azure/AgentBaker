@@ -283,7 +283,7 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 			errs = append(errs, checkErr)
 		}
 		s.Logger.Logf("total CSE duration: %s (threshold: %s)", totalDuration, thresholds.TotalCSEThreshold)
-		s.recordCheck("TotalCSEDuration", totalDuration, checkErr)
+		s.recordADOTestCase("TotalCSEDuration", "e2e.cse", totalDuration, checkErr)
 	}
 
 	sortedSuffixes := make([]string, 0, len(thresholds.TaskThresholds))
@@ -321,7 +321,7 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 					errs = append(errs, checkErr)
 				}
 				s.Logger.Logf("timing check Task_%s: task %s duration: %s (threshold: %s)", testName, task.TaskName, task.Duration, maxDuration)
-				s.recordCheck("Task_"+testName, task.Duration, checkErr)
+				s.recordADOTestCase("Task_"+testName, "e2e.cse", task.Duration, checkErr)
 				break
 			}
 		}
@@ -361,7 +361,7 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 			}
 			s.Logger.Logf("timing check Task_%s: task %s duration: %s (default threshold: %s; no specific threshold configured)",
 				shortName, task.TaskName, task.Duration, defaultThreshold)
-			s.recordCheck("Task_"+shortName, task.Duration, checkErr)
+			s.recordADOTestCase("Task_"+shortName, "e2e.cse", task.Duration, checkErr)
 		}
 	}
 

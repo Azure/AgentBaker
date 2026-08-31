@@ -27,12 +27,12 @@ const (
 )
 
 type attemptResult struct {
-	Attempt  int
-	Status   resultStatus
-	Duration time.Duration
-	Message  string
-	LogPath  string
-	Checks   []scenarioCheck
+	Attempt      int
+	Status       resultStatus
+	Duration     time.Duration
+	Message      string
+	LogPath      string
+	ADOTestCases []adoTestCase
 }
 
 type scenarioResult struct {
@@ -188,7 +188,7 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 	result = attemptResult{Attempt: attempt, LogPath: logPath}
 	var scenario *Scenario
 	var runErr error
-	// Every stage in an attempt shares one cleanup stack.
+	// Everything created during an attempt shares one cleanup stack.
 	cleanup := &scenarioCleanup{}
 	defer func() {
 		if recovered := recover(); recovered != nil {
@@ -197,12 +197,12 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 		if attemptErr := attemptCtx.Err(); attemptErr != nil {
 			var skip *skipError
 			if runErr == nil || errors.As(runErr, &skip) {
-				runErr = addFailure(runErr, fmt.Errorf("scenario attempt deadline exceeded: %w", attemptErr))
+				runErr = mergeAttemptFailure(runErr, fmt.Errorf("scenario attempt deadline exceeded: %w", attemptErr))
 			}
 		}
-		runErr = addFailure(runErr, runScenarioCleanup(e.ctx, cleanup))
+		runErr = mergeAttemptFailure(runErr, runScenarioCleanup(e.ctx, cleanup))
 		logErr := logger.Err()
-		runErr = addFailure(runErr, logErr)
+		runErr = mergeAttemptFailure(runErr, logErr)
 		switch status, message := classifyAttempt(runErr); status {
 		case statusSkipped:
 			logger.Log("SKIP:", message)
@@ -211,12 +211,12 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 		}
 		if closeErr := logger.Close(); logErr == nil {
 			logErr = closeErr
-			runErr = addFailure(runErr, closeErr)
+			runErr = mergeAttemptFailure(runErr, closeErr)
 		}
 		result.Status, result.Message = classifyAttempt(runErr)
 		result.Duration = time.Since(started)
 		if scenario != nil {
-			result.Checks = append([]scenarioCheck(nil), scenario.checks...)
+			result.ADOTestCases = append([]adoTestCase(nil), scenario.adoTestCases...)
 		}
 		if result.Status != statusSkipped {
 			logger.FlushConsole(string(result.Status))

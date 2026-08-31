@@ -162,27 +162,29 @@ type Scenario struct {
 	// scenario starts and carries no test-control capability.
 	Logger toolkit.Logger
 
-	// testName is the name of the test running the scenario. It is used to name
-	// the artifacts the scenario writes to disk.
-	testName string
+	// artifactName isolates files and Azure resource names created by this run.
+	artifactName string
 
-	cleanup *scenarioCleanup
-	failed  bool
-	checks  []scenarioCheck
+	cleanup      *scenarioCleanup
+	failed       bool
+	adoTestCases []adoTestCase
 }
 
-type scenarioCheck struct {
-	Name     string
-	Duration time.Duration
-	Message  string
+// adoTestCase becomes a separate JUnit test case so ADO can track a focused
+// measurement or validation independently from the parent scenario.
+type adoTestCase struct {
+	Name      string
+	ClassName string
+	Duration  time.Duration
+	Message   string
 }
 
-func (s *Scenario) recordCheck(name string, duration time.Duration, err error) {
-	check := scenarioCheck{Name: name, Duration: duration}
+func (s *Scenario) recordADOTestCase(name, className string, duration time.Duration, err error) {
+	testCase := adoTestCase{Name: name, ClassName: className, Duration: duration}
 	if err != nil {
-		check.Message = err.Error()
+		testCase.Message = err.Error()
 	}
-	s.checks = append(s.checks, check)
+	s.adoTestCases = append(s.adoTestCases, testCase)
 }
 
 type ScenarioRuntime struct {
@@ -228,9 +230,8 @@ type Config struct {
 	// It runs after BootstrapConfigMutator.
 	BootstrapConfigMutatorWithError func(context.Context, *Cluster, *datamodel.NodeBootstrappingConfiguration) error
 
-	// PreProvisionBootstrapConfigMutator, when set, mutates the NodeBootstrappingConfig for the
-	// BAKE (pre-provision) stage ONLY of a VHDCaching/TestPreProvision two-stage run. It runs after
-	// BootstrapConfigMutator (and after PreProvisionOnly is set). Use it to deliberately make
+	// PreProvisionBootstrapConfigMutator mutates only the NodeBootstrappingConfig used to bake a cached VHD.
+	// It runs after BootstrapConfigMutator and after PreProvisionOnly is set. Use it to deliberately make
 	// bake-time state differ from provision-time state - e.g. inject a sentinel TLS bootstrap token -
 	// so that staleness regressions in the BasePrep->NodePrep split are caught positively.
 	PreProvisionBootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
@@ -253,7 +254,7 @@ type Config struct {
 	Validator func(ctx context.Context, s *Scenario) error
 
 	// SkipDefaultValidation is a flag to indicate whether the common validation (like spawning a pod) should be skipped.
-	// It shouldn't be used for majority of scenarios, currently only used for preparing VHD in a two-stage scenario
+	// It shouldn't be used for the majority of scenarios; VHD caching uses it while preparing the image.
 	SkipDefaultValidation bool
 
 	// SkipSSHConnectivityValidation is a flag to indicate whether the ssh connectivity validation should be skipped.
@@ -270,7 +271,7 @@ type Config struct {
 	VHDCaching bool
 
 	// ExpectedError, when set, indicates that VMSS creation is expected to fail with an error containing this substring.
-	// The assertion is performed inside the scenario's subtest.
+	// The assertion is performed during the scenario run.
 	ExpectedError string
 
 	// UseNVMe indicates whether to use NVMe-based disk placement/controller. This is required for certain VM sizes (e.g., v6 and v7 series) which only support NVMe disk controllers.

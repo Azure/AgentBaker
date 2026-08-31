@@ -7,13 +7,13 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 )
 
-// testDir is the directory holding the artifacts of the test named testName.
-func testDir(testName string) string {
-	return filepath.Join(config.Config.E2ELoggingDir, testName)
+// artifactDir is the directory holding artifacts from one scenario run.
+func artifactDir(artifactName string) string {
+	return filepath.Join(config.Config.E2ELoggingDir, artifactName)
 }
 
-func writeToFile(testName, fileName, content string) error {
-	dirPath := testDir(testName)
+func writeToFile(artifactName, fileName, content string) error {
+	dirPath := artifactDir(artifactName)
 	// Create the directory if it doesn't exist
 	if err := os.MkdirAll(dirPath, 0755); err != nil {
 		return err
@@ -23,10 +23,10 @@ func writeToFile(testName, fileName, content string) error {
 	return os.WriteFile(fullPath, []byte(content), 0600)
 }
 
-func dumpFileMapToDir(testName string, files map[string]string) error {
+func dumpFileMapToDir(artifactName string, files map[string]string) error {
 	for fileName, contents := range files {
 		fileName = filepath.Base(fileName)
-		if err := writeToFile(testName, fileName, contents); err != nil {
+		if err := writeToFile(artifactName, fileName, contents); err != nil {
 			return err
 		}
 	}

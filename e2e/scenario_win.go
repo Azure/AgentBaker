@@ -405,8 +405,8 @@ var _ = Register(&Scenario{
 
 // Windows2022_VHDCaching_LegacyTLSBootstrap exercises Windows PIS /
 // VHD-cached provisioning with secure TLS bootstrap disabled, forcing kubelet
-// to use the legacy bootstrap-token path. Catches regressions in the two-stage
-// CSE flow that only surface when no secure-tls-bootstrap client is around to
+// to use the legacy bootstrap-token path. Catches regressions in the PIS
+// bake/provision flow that only surface when no secure-tls-bootstrap client is around to
 // overwrite the temporary kubeconfig.
 //
 // It also positively guards the BasePrep->NodePrep kubeconfig fix: a stale

@@ -26,7 +26,7 @@ import (
 
 func runScenarioFlow(ctx context.Context, name string, logger toolkit.Logger, s *Scenario) error {
 	if config.Config.TestPreProvision || s.VHDCaching {
-		return runScenarioWithPreProvision(ctx, name, logger, s)
+		return runVHDCachingScenario(ctx, name, logger, s)
 	}
 	if config.Config.DisableScriptless || scriptlessUnsupported(s) {
 		return runScenario(ctx, name, logger, s)
@@ -43,52 +43,32 @@ func scriptlessUnsupported(s *Scenario) bool {
 	return s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
 }
 
-func runScenarioWithPreProvision(ctx context.Context, name string, logger toolkit.Logger, original *Scenario) error {
-	// This is hard to understand. Some functional magic is used to run the original scenario in two stages.
-	// 1. Stage 1: Run the original scenario with pre-provisioning enabled, but skip the main validation and validate only pre-provisioning.
-	// 2. Create a new Image from the VMSS created in Stage 1
-	// 3. Stage 2: Run the original scenario again, but this time using the custom VHD created in a previous step, with validators,
-	// The goal here is to test pre-provisioning logic on the variety of existing scenarios
-	firstStage := freshScenario(original)
-	var customVHD *config.Image
+func runVHDCachingScenario(ctx context.Context, name string, logger toolkit.Logger, original *Scenario) error {
+	bakeScenario := freshScenario(original)
 
-	// Mutate the copy for pre-provisioning
-	firstStage.Config.SkipDefaultValidation = true
-	firstStage.Config.Validator = func(ctx context.Context, stage1 *Scenario) error {
+	bakeScenario.Config.SkipDefaultValidation = true
+	bakeScenario.Config.Validator = func(ctx context.Context, scenario *Scenario) error {
 		var validationErr error
-		if stage1.IsWindows() {
+		if scenario.IsWindows() {
 			validationErr = errors.Join(
-				ValidateFileExists(ctx, stage1, "C:\\AzureData\\base_prep.complete"),
-				ValidateFileDoesNotExist(ctx, stage1, "C:\\AzureData\\provision.complete"),
-				ValidateWindowsServiceIsNotRunning(ctx, stage1, "kubelet"),
-				ValidateWindowsServiceIsRunning(ctx, stage1, "containerd"),
+				ValidateFileExists(ctx, scenario, "C:\\AzureData\\base_prep.complete"),
+				ValidateFileDoesNotExist(ctx, scenario, "C:\\AzureData\\provision.complete"),
+				ValidateWindowsServiceIsNotRunning(ctx, scenario, "kubelet"),
+				ValidateWindowsServiceIsRunning(ctx, scenario, "containerd"),
 			)
 		} else {
 			validationErr = errors.Join(
-				ValidateFileExists(ctx, stage1, "/etc/containerd/config.toml"),
-				ValidateFileExists(ctx, stage1, "/opt/azure/containers/base_prep.complete"),
-				ValidateFileDoesNotExist(ctx, stage1, "/opt/azure/containers/provision.complete"),
-				ValidateSystemdUnitIsRunning(ctx, stage1, "containerd"),
-				ValidateSystemdUnitIsNotRunning(ctx, stage1, "kubelet"),
+				ValidateFileExists(ctx, scenario, "/etc/containerd/config.toml"),
+				ValidateFileExists(ctx, scenario, "/opt/azure/containers/base_prep.complete"),
+				ValidateFileDoesNotExist(ctx, scenario, "/opt/azure/containers/provision.complete"),
+				ValidateSystemdUnitIsRunning(ctx, scenario, "containerd"),
+				ValidateSystemdUnitIsNotRunning(ctx, scenario, "kubelet"),
 			)
 		}
-		if validationErr != nil {
-			return validationErr
-		}
-		toolkit.Log(ctx, "=== Creating VHD Image ===")
-		var err error
-		customVHD, err = CreateImage(ctx, stage1)
-		if err != nil {
-			return err
-		}
-		customVHDJSON, _ := json.MarshalIndent(customVHD, "", "  ")
-		toolkit.Logf(ctx, "Created custom VHD image: %s", string(customVHDJSON))
-		cleanupBastionTunnel(firstStage.Runtime.VM.SSHClient)
-		firstStage.Runtime.VM.SSHClient = nil
-		return nil
+		return validationErr
 	}
 
-	firstStage.Config.VMConfigMutator = func(vmss *armcompute.VirtualMachineScaleSet) {
+	bakeScenario.Config.VMConfigMutator = func(vmss *armcompute.VirtualMachineScaleSet) {
 		if original.VMConfigMutator != nil {
 			original.VMConfigMutator(vmss)
 		}
@@ -97,8 +77,8 @@ func runScenarioWithPreProvision(ctx context.Context, name string, logger toolki
 		}
 	}
 	if original.BootstrapConfigMutator != nil || original.BootstrapConfigMutatorWithError != nil || original.PreProvisionBootstrapConfigMutator != nil {
-		firstStage.BootstrapConfigMutator = nil
-		firstStage.BootstrapConfigMutatorWithError = func(ctx context.Context, cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) error {
+		bakeScenario.BootstrapConfigMutator = nil
+		bakeScenario.BootstrapConfigMutatorWithError = func(ctx context.Context, cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) error {
 			if original.BootstrapConfigMutator != nil {
 				original.BootstrapConfigMutator(cluster, nbc)
 			}
@@ -109,7 +89,7 @@ func runScenarioWithPreProvision(ctx context.Context, name string, logger toolki
 			}
 			nbc.PreProvisionOnly = true
 			nbc.EnableScriptlessNBCCSECmd = false
-			// Bake-stage-only mutation: lets a scenario deliberately diverge bake-time
+			// Bake-only mutation: lets a scenario deliberately diverge bake-time
 			// state from provision-time state (e.g. a stale sentinel bootstrap token).
 			if original.PreProvisionBootstrapConfigMutator != nil {
 				original.PreProvisionBootstrapConfigMutator(cluster, nbc)
@@ -118,22 +98,34 @@ func runScenarioWithPreProvision(ctx context.Context, name string, logger toolki
 		}
 	}
 	if original.AKSNodeConfigMutator != nil {
-		firstStage.AKSNodeConfigMutator = func(cluster *Cluster, nodeconfig *aksnodeconfigv1.Configuration) {
+		bakeScenario.AKSNodeConfigMutator = func(cluster *Cluster, nodeconfig *aksnodeconfigv1.Configuration) {
 			original.AKSNodeConfigMutator(cluster, nodeconfig)
 			nodeconfig.PreProvisionOnly = true
 		}
 	}
 
-	err := runScenario(ctx, name, logger, firstStage)
-	original.checks = append(original.checks, firstStage.checks...)
+	err := runScenario(ctx, name, logger, bakeScenario)
+	original.adoTestCases = append(original.adoTestCases, bakeScenario.adoTestCases...)
 	if err != nil {
 		return err
 	}
 
-	secondStageScenario := freshScenario(original)
-	secondStageScenario.Description = "Stage 2: Create VMSS from captured VHD via SIG"
-	secondStageScenario.Config.VHD = customVHD
-	secondStageScenario.Config.Validator = func(ctx context.Context, s *Scenario) error {
+	logger.Log("=== Creating VHD Image ===")
+	bakeScenario.failed = true
+	customVHD, err := CreateImage(ctx, bakeScenario)
+	if err != nil {
+		return fmt.Errorf("create VHD image: %w", err)
+	}
+	bakeScenario.failed = false
+	customVHDJSON, _ := json.MarshalIndent(customVHD, "", "  ")
+	logger.Logf("Created custom VHD image: %s", string(customVHDJSON))
+	cleanupBastionTunnel(bakeScenario.Runtime.VM.SSHClient)
+	bakeScenario.Runtime.VM.SSHClient = nil
+
+	provisionScenario := freshScenario(original)
+	provisionScenario.artifactName = filepath.Join(name, "vhd-provision")
+	provisionScenario.Config.VHD = customVHD
+	provisionScenario.Config.Validator = func(ctx context.Context, s *Scenario) error {
 		var markerErr error
 		if s.IsWindows() {
 			markerErr = ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
@@ -148,19 +140,19 @@ func runScenarioWithPreProvision(ctx context.Context, name string, logger toolki
 		}
 		return nil
 	}
-	err = runScenario(ctx, name+"/VMProvision", logger, secondStageScenario)
-	original.checks = append(original.checks, secondStageScenario.checks...)
+	err = runScenario(ctx, name, logger, provisionScenario)
+	original.adoTestCases = append(original.adoTestCases, provisionScenario.adoTestCases...)
 	return err
 }
 
-// Keep attempt-owned cleanup across VHD-caching stages.
+// Keep attempt-owned cleanup across both VHD-caching VM runs.
 func freshScenario(s *Scenario) *Scenario {
 	copied := *s
 	copied.Runtime = nil
 	copied.Logger = nil
-	copied.testName = ""
+	copied.artifactName = ""
 	copied.failed = false
-	copied.checks = nil
+	copied.adoTestCases = nil
 	return &copied
 }
 
@@ -173,16 +165,16 @@ func runScenarioCleanup(ctx context.Context, cleanup *scenarioCleanup) error {
 	return nil
 }
 
-func addFailure(runErr, failure error) error {
-	if failure == nil {
-		return runErr
+// mergeAttemptFailure adds a runner failure without allowing an earlier skip
+// result to hide it.
+func mergeAttemptFailure(resultErr, failureErr error) error {
+	if failureErr == nil {
+		return resultErr
 	}
-	if runErr == nil {
-		return failure
+	if resultErr == nil {
+		return failureErr
 	}
-	// Preserve the original result text, but unwrap only the added failure so
-	// a skip followed by a cleanup or logging failure is classified as a failure.
-	return fmt.Errorf("%v; %w", runErr, failure)
+	return fmt.Errorf("%v; %w", resultErr, failureErr)
 }
 
 func markScenarioOutcome(s *Scenario, runErr error, recovered any) {
@@ -194,8 +186,10 @@ func markScenarioOutcome(s *Scenario, runErr error, recovered any) {
 	s.failed = runErr != nil && !errors.As(runErr, &skip)
 }
 
-func runScenario(ctx context.Context, name string, logger toolkit.Logger, s *Scenario) (runErr error) {
-	s.testName = name
+func runScenario(ctx context.Context, scenarioName string, logger toolkit.Logger, s *Scenario) (runErr error) {
+	if s.artifactName == "" {
+		s.artifactName = scenarioName
+	}
 	s.Logger = logger
 	if s.Location == "" {
 		s.Location = config.Config.DefaultLocation
@@ -211,7 +205,7 @@ func runScenario(ctx context.Context, name string, logger toolkit.Logger, s *Sce
 	defer func() {
 		markScenarioOutcome(s, runErr, recover())
 	}()
-	if err := maybeSkipScenario(ctx, name, s); err != nil {
+	if err := maybeSkipScenario(ctx, scenarioName, s); err != nil {
 		return err
 	}
 
@@ -376,7 +370,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		return scenarioVM, err
 	}
 	if err != nil {
-		return scenarioVM, fmt.Errorf("create vmss %q, check %s for vm logs: %w", s.Runtime.VMSSName, testDir(s.testName), err)
+		return scenarioVM, fmt.Errorf("create vmss %q, check %s for vm logs: %w", s.Runtime.VMSSName, artifactDir(s.artifactName), err)
 	}
 	if scenarioVM == nil || scenarioVM.VM == nil {
 		return nil, fmt.Errorf("create vmss %q returned an incomplete VM", s.Runtime.VMSSName)
@@ -535,7 +529,7 @@ func getCustomScriptExtensionStatus(s *Scenario, vmssVM *armcompute.VirtualMachi
 				// Only write when the message has actual content to avoid overwriting
 				// with an empty file from a status entry that has no output.
 				if status.Message != nil && *status.Message != "" {
-					logDir := testDir(s.testName)
+					logDir := artifactDir(s.artifactName)
 					if err := os.MkdirAll(logDir, 0755); err == nil {
 						logFile := filepath.Join(logDir, "windows-cse-output.log")
 						err = os.WriteFile(logFile, []byte(*status.Message), 0644)

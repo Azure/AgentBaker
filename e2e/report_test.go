@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestWriteReportsSuiteDurationExcludesChildChecks(t *testing.T) {
+func TestWriteReportsSuiteDurationExcludesADOTestCases(t *testing.T) {
 	dir := t.TempDir()
 	junitPath := filepath.Join(dir, "junit.xml")
 
@@ -24,8 +24,8 @@ func TestWriteReportsSuiteDurationExcludesChildChecks(t *testing.T) {
 					Attempt:  1,
 					Status:   statusPassed,
 					Duration: attemptDuration,
-					Checks: []scenarioCheck{
-						{Name: "TotalCSEDuration", Duration: checkDuration},
+					ADOTestCases: []adoTestCase{
+						{Name: "TotalCSEDuration", ClassName: "e2e.cse", Duration: checkDuration},
 					},
 				},
 			},
@@ -52,7 +52,7 @@ func TestWriteReportsSuiteDurationExcludesChildChecks(t *testing.T) {
 	suite := report.Suites[0]
 
 	if len(suite.Cases) != 2 {
-		t.Fatalf("expected 2 cases (parent + child), got %d", len(suite.Cases))
+		t.Fatalf("expected 2 cases (scenario + ADO test case), got %d", len(suite.Cases))
 	}
 
 	assertJUnitTime(t, suite.Cases[0].Time, attemptDuration)

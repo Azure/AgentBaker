@@ -706,7 +706,7 @@ func extractLogsFromVM(ctx context.Context, s *Scenario, vm *ScenarioVM) {
 	} else if err := extractLogsFromVMLinux(ctx, s, vm); err != nil {
 		s.Logger.Logf("failed to extract logs from VM: %s", err)
 	} else {
-		s.Logger.Logf("extracted VM logs to %s", testDir(s.testName))
+		s.Logger.Logf("extracted VM logs to %s", artifactDir(s.artifactName))
 	}
 	if err := extractBootDiagnostics(ctx, s); err != nil {
 		s.Logger.Logf("failed to extract boot diagnostics from VM: %s", err)
@@ -763,7 +763,7 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 					s.Logger.Logf("failed to read serial console log for VM %s: %v", *vmInstance.InstanceID, err)
 					continue
 				}
-				if err := writeToFile(s.testName, logFile, string(contents)); err != nil {
+				if err := writeToFile(s.artifactName, logFile, string(contents)); err != nil {
 					s.Logger.Logf("failed to write serial console log for VM %s: %v", *vmInstance.InstanceID, err)
 					continue
 				}
@@ -824,7 +824,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		}
 		logFiles[file] = execResult.String()
 	}
-	err = dumpFileMapToDir(s.testName, logFiles)
+	err = dumpFileMapToDir(s.artifactName, logFiles)
 	if err != nil {
 		return fmt.Errorf("failed to dump log files: %w", err)
 	}
@@ -982,10 +982,10 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	defer cancel()
 
 	downloadBlob := func(blobSuffix string) {
-		fileName := filepath.Join(testDir(s.testName), blobSuffix)
-		err := os.MkdirAll(testDir(s.testName), 0755)
+		fileName := filepath.Join(artifactDir(s.artifactName), blobSuffix)
+		err := os.MkdirAll(artifactDir(s.artifactName), 0755)
 		if err != nil {
-			s.Logger.Logf("failed to create directory %q: %s", testDir(s.testName), err)
+			s.Logger.Logf("failed to create directory %q: %s", artifactDir(s.artifactName), err)
 			return
 		}
 		file, err := os.Create(fileName)
@@ -1010,13 +1010,13 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	downloadBlob("containerd.err.log")
 	downloadBlob("network_config.txt")
 	downloadBlob("collected-node-logs.zip")
-	s.Logger.Logf("logs collected to %s", testDir(s.testName))
+	s.Logger.Logf("logs collected to %s", artifactDir(s.artifactName))
 }
 
 func deleteVMSS(ctx context.Context, s *Scenario) error {
 	if config.Config.KeepVMSS {
 		s.Logger.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", s.Runtime.VMSSName)
-		if err := writeToFile(s.testName, "sshkey", string(config.VMSSHPrivateKey)); err != nil {
+		if err := writeToFile(s.artifactName, "sshkey", string(config.VMSSHPrivateKey)); err != nil {
 			s.Logger.Logf("failed to write retained vmss %s private ssh key to disk: %s", s.Runtime.VMSSName, err)
 		}
 		return nil
@@ -1164,8 +1164,8 @@ func addDualStackSecondaryNIC(vmss *armcompute.VirtualMachineScaleSet) {
 	)
 }
 
-func generateVMSSNameLinux(testName string) string {
-	name := fmt.Sprintf("%s-%s-%s", randomLowercaseString(4), time.Now().Format(time.DateOnly), testName)
+func generateVMSSNameLinux(artifactName string) string {
+	name := fmt.Sprintf("%s-%s-%s", randomLowercaseString(4), time.Now().Format(time.DateOnly), artifactName)
 	name = strings.ReplaceAll(name, "_", "")
 	name = strings.ReplaceAll(name, "/", "")
 	name = strings.ReplaceAll(name, "Test", "")
@@ -1186,7 +1186,7 @@ func generateVMSSName(s *Scenario) string {
 	if s.IsWindows() {
 		return generateVMSSNameWindows()
 	}
-	return generateVMSSNameLinux(s.testName)
+	return generateVMSSNameLinux(s.artifactName)
 }
 
 func injectWriteFilesEntriesToCustomData(customData string, entries []CustomDataWriteFile) (string, error) {

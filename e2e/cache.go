@@ -83,7 +83,7 @@ func createGallery(ctx context.Context, request CreateGalleryRequest) (armcomput
 	poller, err := config.Azure.Galleries.BeginCreateOrUpdate(ctx, request.ResourceGroup, galleryName, armcompute.Gallery{
 		Location: to.Ptr(request.Location),
 		Properties: &armcompute.GalleryProperties{
-			Description: to.Ptr("E2E test gallery for two-stage kubelet configuration"),
+			Description: to.Ptr("E2E test gallery for VHD caching"),
 		},
 	}, nil)
 	if err != nil {
