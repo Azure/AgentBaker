@@ -1433,23 +1433,23 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"HasNoProxy": func() bool {
 			return config.HTTPProxyConfig != nil && config.HTTPProxyConfig.NoProxy != nil
 		},
-		"GetHTTPProxyShellQuoted": func() string {
+		"GetHTTPProxy": func() string {
 			if config.HTTPProxyConfig != nil && config.HTTPProxyConfig.HTTPProxy != nil {
-				return shellQuote(*config.HTTPProxyConfig.HTTPProxy)
+				return *config.HTTPProxyConfig.HTTPProxy
 			}
-			return shellQuote("")
+			return ""
 		},
-		"GetHTTPSProxyShellQuoted": func() string {
+		"GetHTTPSProxy": func() string {
 			if config.HTTPProxyConfig != nil && config.HTTPProxyConfig.HTTPSProxy != nil {
-				return shellQuote(*config.HTTPProxyConfig.HTTPSProxy)
+				return *config.HTTPProxyConfig.HTTPSProxy
 			}
-			return shellQuote("")
+			return ""
 		},
-		"GetNoProxyShellQuoted": func() string {
+		"GetNoProxy": func() string {
 			if config.HTTPProxyConfig != nil && config.HTTPProxyConfig.NoProxy != nil {
-				return shellQuote(strings.Join(*config.HTTPProxyConfig.NoProxy, ","))
+				return strings.Join(*config.HTTPProxyConfig.NoProxy, ",")
 			}
-			return shellQuote("")
+			return ""
 		},
 		"ShouldConfigureHTTPProxyCA": func() bool {
 			return config.HTTPProxyConfig != nil && config.HTTPProxyConfig.TrustedCA != nil
@@ -1470,6 +1470,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetProxyVariables": func() string {
 			return getProxyVariables(config)
 		},
+		"ShellQuote": shellQuote,
 		"GetOutboundCommand": func() string {
 			return getOutBoundCmd(config, config.CloudSpecConfig)
 		},

@@ -1188,7 +1188,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(cseCmd).To(ContainSubstring(`HTTP_PROXY_URLS=` + shellQuote(httpProxy)))
 		Expect(cseCmd).To(ContainSubstring(`HTTPS_PROXY_URLS=` + shellQuote(httpsProxy)))
 		Expect(cseCmd).To(ContainSubstring(`NO_PROXY_URLS=` + shellQuote(strings.Join(noProxy, ","))))
-		Expect(cseCmd).To(ContainSubstring(`PROXY_VARS='` + proxyVariables + `'`))
+		Expect(cseCmd).To(ContainSubstring(`PROXY_VARS=` + shellQuote(proxyVariables)))
 		Expect(cseCmd).NotTo(ContainSubstring(`export http_proxy="` + httpProxy))
 
 		compatibilityScript := fmt.Sprintf(`
@@ -1206,6 +1206,15 @@ printf '%%s\n%%s\n%%s' "$http_proxy" "$HTTPS_PROXY" "$NO_PROXY"
 		Expect(err).NotTo(HaveOccurred())
 		Expect(stderr.String()).To(BeEmpty())
 		Expect(string(output)).To(Equal(strings.Join([]string{httpProxy, httpsProxy, strings.Join(noProxy, ",")}, "\n")))
+	})
+
+	It("should shell-quote the HTTP proxy trusted CA at the template boundary", func() {
+		trustedCA := `trusted'ca$(printf injected >&2)`
+		baseConfig.HTTPProxyConfig = &datamodel.HTTPProxyConfig{TrustedCA: &trustedCA}
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).To(ContainSubstring(`HTTP_PROXY_TRUSTED_CA=` + shellQuote(trustedCA)))
 	})
 
 	It("should embed cloud-init status checks when custom data is enabled", func() {

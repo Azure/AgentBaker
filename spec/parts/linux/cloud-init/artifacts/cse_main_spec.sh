@@ -137,7 +137,7 @@ Describe 'HTTP proxy command injection protection'
     It 'keeps the compatibility PROXY_VARS independent of customer values'
         When run grep -F 'PROXY_VARS=' parts/linux/cloud-init/artifacts/cse_cmd.sh
         The status should be success
-        The output should equal 'PROXY_VARS='\''{{GetProxyVariables}}'\'''
+        The output should equal 'PROXY_VARS={{ShellQuote GetProxyVariables}}'
     End
 End
 
