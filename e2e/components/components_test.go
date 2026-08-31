@@ -102,6 +102,9 @@ func TestWindowsImagesHaveServercoreAndNanoserverSpecified(t *testing.T) {
 }
 
 func TestDCGMExporterCompatibility(t *testing.T) {
+	if os.Getenv("RUN_DCGM_COMPATIBILITY_TEST") != "true" {
+		t.Skip("set RUN_DCGM_COMPATIBILITY_TEST=true to run this external compatibility test")
+	}
 	type testCase struct {
 		name        string
 		os          string
