@@ -752,19 +752,10 @@ func getShouldConfigTransparentHugePage(v *aksnodeconfigv1.CustomLinuxOsConfig) 
 }
 
 func getProxyVariables(proxyConfig *aksnodeconfigv1.HttpProxyConfig) string {
-	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy.
-	proxyVars := ""
-	if proxyConfig.GetHttpProxy() != "" {
-		// from https://curl.se/docs/manual.html, curl uses http_proxy but uppercase for others?
-		proxyVars = fmt.Sprintf("export http_proxy=\"%s\";", proxyConfig.GetHttpProxy())
+	if proxyConfig.GetHttpProxy() == "" && proxyConfig.GetHttpsProxy() == "" && len(proxyConfig.GetNoProxyEntries()) == 0 {
+		return ""
 	}
-	if proxyConfig.GetHttpsProxy() != "" {
-		proxyVars = fmt.Sprintf("export HTTPS_PROXY=\"%s\"; %s", proxyConfig.GetHttpsProxy(), proxyVars)
-	}
-	if proxyConfig.GetNoProxyEntries() != nil {
-		proxyVars = fmt.Sprintf("export NO_PROXY=\"%s\"; %s", strings.Join(proxyConfig.GetNoProxyEntries(), ","), proxyVars)
-	}
-	return proxyVars
+	return `export http_proxy="$HTTP_PROXY_URLS"; export HTTPS_PROXY="$HTTPS_PROXY_URLS"; export NO_PROXY="$NO_PROXY_URLS";`
 }
 
 func getHasDataDir(kubeletConfig *aksnodeconfigv1.KubeletConfig) bool {

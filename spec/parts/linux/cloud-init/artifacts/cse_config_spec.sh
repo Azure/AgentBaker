@@ -239,6 +239,37 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'configureProxyEnvironment'
+        setup_proxy_environment() {
+            HTTP_PROXY_URLS='http://proxy.invalid/`touch /tmp/http-proxy-injected`'
+            HTTPS_PROXY_URLS='https://proxy.invalid/$(touch /tmp/https-proxy-injected)'
+            NO_PROXY_EXPECTED="$(printf '%s' 'localhost;touch /tmp/no-proxy-injected,quote\"'\''\\value')"
+            NO_PROXY_URLS="${NO_PROXY_EXPECTED}"
+            rm -f /tmp/http-proxy-injected /tmp/https-proxy-injected /tmp/no-proxy-injected
+        }
+
+        cleanup_proxy_environment() {
+            rm -f /tmp/http-proxy-injected /tmp/https-proxy-injected /tmp/no-proxy-injected
+            unset NO_PROXY_EXPECTED
+            unset HTTP_PROXY_URLS HTTPS_PROXY_URLS NO_PROXY_URLS
+            unset http_proxy HTTPS_PROXY NO_PROXY
+        }
+
+        BeforeEach 'setup_proxy_environment'
+        AfterEach 'cleanup_proxy_environment'
+
+        It 'exports proxy values literally without executing substitutions or separators'
+            When call configureProxyEnvironment
+            The status should be success
+            The variable http_proxy should equal 'http://proxy.invalid/`touch /tmp/http-proxy-injected`'
+            The variable HTTPS_PROXY should equal 'https://proxy.invalid/$(touch /tmp/https-proxy-injected)'
+            The variable NO_PROXY should equal "${NO_PROXY_EXPECTED}"
+            The path /tmp/http-proxy-injected should not be exist
+            The path /tmp/https-proxy-injected should not be exist
+            The path /tmp/no-proxy-injected should not be exist
+        End
+    End
+
     Describe 'logGPUDriverPrebakeReadiness'
         It 'reports marker_present=false when no prebake marker exists'
             GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"

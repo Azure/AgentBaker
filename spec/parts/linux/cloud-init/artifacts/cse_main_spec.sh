@@ -127,6 +127,20 @@ Describe 'select_localdns_corefile()'
     End
 End
 
+Describe 'HTTP proxy command injection protection'
+    It 'does not evaluate generated proxy shell source'
+        When run grep -E 'eval[[:space:]]+.*PROXY_VARS' parts/linux/cloud-init/artifacts/cse_main.sh
+        The status should be failure
+        The output should equal ""
+    End
+
+    It 'keeps the compatibility PROXY_VARS independent of customer values'
+        When run grep -F 'PROXY_VARS=' parts/linux/cloud-init/artifacts/cse_cmd.sh
+        The status should be success
+        The output should equal 'PROXY_VARS='\''{{GetProxyVariables}}'\'''
+    End
+End
+
 Describe 'connectivity preflight timeouts'
     It 'allows DNS failover during the outbound check'
         When run awk '/retrycmd_if_failure [0-9]+ [0-9]+ [0-9]+ \$OUTBOUND_COMMAND/ { print $2, $3, $4 }' parts/linux/cloud-init/artifacts/cse_main.sh

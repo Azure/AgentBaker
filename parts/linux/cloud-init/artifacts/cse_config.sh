@@ -308,6 +308,18 @@ EOF
     systemctlEnableAndStart "${service_name}" 30 || exit "$ERR_SYSTEMCTL_START_FAIL"
 }
 
+configureProxyEnvironment() {
+    if [ -n "${HTTP_PROXY_URLS}" ]; then
+        export http_proxy="${HTTP_PROXY_URLS}"
+    fi
+    if [ -n "${HTTPS_PROXY_URLS}" ]; then
+        export HTTPS_PROXY="${HTTPS_PROXY_URLS}"
+    fi
+    if [ -n "${NO_PROXY_URLS}" ]; then
+        export NO_PROXY="${NO_PROXY_URLS}"
+    fi
+}
+
 configureEtcEnvironment() {
     mkdir -p /etc/systemd/system.conf.d/
     touch /etc/systemd/system.conf.d/proxy.conf

@@ -438,6 +438,26 @@ func TestBuildCSECmd_SetsEnableManagedGpuDra(t *testing.T) {
 	}
 }
 
+func TestBuildCSECmd_PreservesProxyValuesAsData(t *testing.T) {
+	httpProxy := "http://proxy.invalid/`touch /tmp/http-proxy-injected`"
+	httpsProxy := "https://proxy.invalid/$(touch /tmp/https-proxy-injected)"
+	noProxy := []string{"localhost;touch /tmp/no-proxy-injected", `quote\"'\\value`}
+	cmd, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{
+		HttpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{
+			HttpProxy:      httpProxy,
+			HttpsProxy:     httpsProxy,
+			NoProxyEntries: noProxy,
+		},
+	}, nil)
+	require.NoError(t, err)
+
+	vars := environToMap(cmd.Env)
+	assert.Equal(t, httpProxy, vars["HTTP_PROXY_URLS"])
+	assert.Equal(t, httpsProxy, vars["HTTPS_PROXY_URLS"])
+	assert.Equal(t, strings.Join(noProxy, ","), vars["NO_PROXY_URLS"])
+	assert.Equal(t, `export http_proxy="$HTTP_PROXY_URLS"; export HTTPS_PROXY="$HTTPS_PROXY_URLS"; export NO_PROXY="$NO_PROXY_URLS";`, vars["PROXY_VARS"])
+}
+
 func TestBuildCSECmd_StreamingConnectionIdleTimeout_VersionGated(t *testing.T) {
 	testCases := []struct {
 		name           string
@@ -544,6 +564,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "HTTP_PROXY_URLS", "")
 				assertHasKeyWithValue(t, vars, "HTTPS_PROXY_URLS", "")
 				assertHasKeyWithValue(t, vars, "NO_PROXY_URLS", "")
+				assertHasKeyWithValue(t, vars, "PROXY_VARS", "")
 				assertHasKeyWithValue(t, vars, "HTTP_PROXY_TRUSTED_CA", "")
 				assertHasKeyWithValue(t, vars, "TARGET_ENVIRONMENT", helpers.DefaultCloudName)
 				assertHasKeyWithValue(t, vars, "ARM_RESOURCE_ENDPOINT", "https://management.azure.com/")

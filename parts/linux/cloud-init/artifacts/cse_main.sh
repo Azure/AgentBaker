@@ -180,12 +180,8 @@ function basePrep {
         systemctl restart systemd-timesyncd
     fi
 
-    # Eval proxy vars to ensure curl commands use proxy if configured.
-    # e.g. PROXY_VARS=`export HTTPS_PROXY="https://proxy.example.com:8080"; export http_proxy="http://proxy.example.com:8080"; export NO_PROXY="127.0.0.1,localhost";`
-    # Setting vars in etc environment (configureEtcEnvironment) won't take effect in current shell session.
-    if [ -n "${PROXY_VARS}" ]; then
-        eval $PROXY_VARS
-    fi
+    # /etc/environment changes do not affect this shell, so export proxy values directly.
+    configureProxyEnvironment
 
     resolve_packages_source_url
     logs_to_events "AKS.CSE.setPackagesBaseURL" "echo $PACKAGE_DOWNLOAD_BASE_URL"
@@ -446,9 +442,7 @@ function nodePrep {
     fi
 
     if [ -n "${OUTBOUND_COMMAND}" ]; then
-        if [ -n "${PROXY_VARS}" ]; then
-            eval $PROXY_VARS
-        fi
+        configureProxyEnvironment
         retrycmd_if_failure 20 1 15 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
     fi
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
