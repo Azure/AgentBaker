@@ -48,3 +48,7 @@ e2e/localdns/validate-localdns-exporter-metrics.sh @saewoni @yewmsft
 
 parts/windows/ @timmy-wright @r2k1 @benjamin-brady @djsly @awesomenix @cameronmeissner
 staging/cse/windows/ @timmy-wright @r2k1 @benjamin-brady @djsly @awesomenix @cameronmeissner
+
+# Code owners for AIManager managed VHD manifest schema and release notes
+schemas/aimanager.cue @zhehli688 @yewmsft @YaoC
+vhdbuilder/release-notes/AKSAIManager/ @zhehli688 @yewmsft @YaoC

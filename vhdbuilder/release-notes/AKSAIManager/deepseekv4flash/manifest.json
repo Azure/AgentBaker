@@ -1,0 +1,29 @@
+{
+  "model": {
+    "slug": "deepseekv4flash",
+    "hfRepo": "deepseek-ai/DeepSeek-V4-Flash-0731",
+    "hfRevision": "7872f01b1d1fe23eabc4c98b48bffcef5a386062",
+    "gated": false,
+    "bakePath": "/opt/kaito/models/deepseek-ai-deepseek-v4-flash-0731"
+  },
+  "variants": [
+    {
+      "gpuSku": "H100",
+      "osSku": "Ubuntu2404",
+      "baseImage": {
+        "offer": "AKSUbuntu",
+        "sku": "2404gen2containerd"
+      },
+      "dependencies": [
+        {
+          "name": "cuda-toolkit-12-9",
+          "version": "12.9.2-1",
+          "repoKeyringUrl": "https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/cuda-keyring_1.1-1_all.deb",
+          "repoKeyringSha256": "e7f219eab6fe4819cdb5c15b98233dc3420302d9c00883219cd3d896857cf48d",
+          "bakePath": "/opt/kaito/cuda/129",
+          "_comment": "Use the Debian 12 keyring to be compatible with KAITO's Python runtime image - python:3.12-slim-bookworm."
+        }
+      ]
+    }
+  ]
+}
