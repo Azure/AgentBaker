@@ -3,7 +3,7 @@ module github.com/Azure/agentbaker/aks-node-controller
 go 1.25.11
 
 require (
-	github.com/Azure/agentbaker/aks-live-patching v0.0.0-00010101000000-000000000000
+	github.com/Azure/agentbaker/aks-live-patching v0.20260831.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.1
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/fsnotify/fsnotify v1.8.0
@@ -26,9 +26,3 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
-
-replace github.com/Azure/agentbaker => ../
-
-replace github.com/Azure/agentbaker/aks-live-patching => ../aks-live-patching
-
-replace github.com/coreos/ignition/v2 => github.com/flatcar/ignition/v2 v2.0.0-20250903113522-05b8a773288c
