@@ -270,6 +270,67 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'configureEtcEnvironment'
+        APT_PROXY_CONF="/etc/apt/apt.conf.d/95proxy"
+        SYSTEMD_PROXY_CONF="/etc/systemd/system.conf.d/proxy.conf"
+
+        setup_etc_environment() {
+            # Quote-bearing value that APT would otherwise parse as live directives.
+            # Deliberately contains no spaces, because the RP proxy URL validator only
+            # rejects literal spaces -- so this shape reaches the node unmodified.
+            HTTP_PROXY_URLS='http://proxy.invalid/";APT::Update::Pre-Invoke{"true";};Acquire::http::proxy"x'
+            # Legitimate pre-encoded credentials must survive untouched.
+            HTTPS_PROXY_URLS='https://user:p%40ss@proxy.example.com:8080/'
+            NO_PROXY_URLS='localhost,"evil'
+            rm -f "${APT_PROXY_CONF}" "${SYSTEMD_PROXY_CONF}"
+        }
+
+        cleanup_etc_environment() {
+            rm -f "${APT_PROXY_CONF}" "${SYSTEMD_PROXY_CONF}"
+            unset HTTP_PROXY_URLS HTTPS_PROXY_URLS NO_PROXY_URLS
+        }
+
+        BeforeEach 'setup_etc_environment'
+        AfterEach 'cleanup_etc_environment'
+
+        It 'percent-encodes quotes so proxy values cannot become apt.conf directives'
+            When call configureEtcEnvironment
+            The status should be success
+            The contents of file "${APT_PROXY_CONF}" should include 'Acquire::http::proxy "http://proxy.invalid/%22;APT::Update::Pre-Invoke{%22true%22;};Acquire::http::proxy%22x";'
+            The contents of file "${APT_PROXY_CONF}" should not include 'Pre-Invoke{"true"'
+        End
+
+        It 'leaves already percent-encoded proxy URLs unchanged'
+            When call configureEtcEnvironment
+            The status should be success
+            The contents of file "${APT_PROXY_CONF}" should include 'Acquire::https::proxy "https://user:p%40ss@proxy.example.com:8080/";'
+        End
+
+        It 'encodes quotes before writing systemd DefaultEnvironment entries'
+            When call configureEtcEnvironment
+            The status should be success
+            The contents of file "${SYSTEMD_PROXY_CONF}" should include 'DefaultEnvironment="no_proxy=localhost,%22evil"'
+            The contents of file "${SYSTEMD_PROXY_CONF}" should not include 'no_proxy=localhost,"evil'
+        End
+    End
+
+    Describe 'encodeProxyValueForConfigFiles'
+        It 'encodes backslashes and double quotes'
+            When call encodeProxyValueForConfigFiles 'a"b\c'
+            The output should equal 'a%22b%5Cc'
+        End
+
+        It 'preserves existing percent escapes'
+            When call encodeProxyValueForConfigFiles 'http://user:p%40ss@host:8080/'
+            The output should equal 'http://user:p%40ss@host:8080/'
+        End
+
+        It 'returns empty output for empty input'
+            When call encodeProxyValueForConfigFiles ''
+            The output should equal ''
+        End
+    End
+
     Describe 'logGPUDriverPrebakeReadiness'
         It 'reports marker_present=false when no prebake marker exists'
             GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"

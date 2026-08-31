@@ -320,6 +320,24 @@ configureProxyEnvironment() {
     fi
 }
 
+# Proxy values are persisted into /etc/apt/apt.conf.d/95proxy,
+# /etc/systemd/system.conf.d/proxy.conf and /etc/environment. All three grammars
+# delimit the value with double quotes, and APT's parser terminates a quoted string
+# at the first '"' without honouring backslash escapes. An embedded quote therefore
+# lets attacker-supplied text close the string and become live apt.conf directives
+# (e.g. APT::Update::Pre-Invoke), which APT executes as root on the next apt-get run.
+#
+# '"' and '\' are illegal in a conforming URI and meaningless in a no_proxy list, so
+# percent-encoding them is lossless for every legitimate value while making hostile
+# ones inert. '%' is deliberately left untouched so already-encoded values such as
+# http://user:p%40ss@proxy:8080 survive unchanged.
+encodeProxyValueForConfigFiles() {
+    local value="$1"
+    value="${value//\\/%5C}"
+    value="${value//\"/%22}"
+    printf '%s' "$value"
+}
+
 configureEtcEnvironment() {
     mkdir -p /etc/systemd/system.conf.d/
     touch /etc/systemd/system.conf.d/proxy.conf
@@ -329,26 +347,31 @@ configureEtcEnvironment() {
     touch /etc/apt/apt.conf.d/95proxy
     chmod 0644 /etc/apt/apt.conf.d/95proxy
 
+    local http_proxy_encoded https_proxy_encoded no_proxy_encoded
+    http_proxy_encoded="$(encodeProxyValueForConfigFiles "${HTTP_PROXY_URLS}")"
+    https_proxy_encoded="$(encodeProxyValueForConfigFiles "${HTTPS_PROXY_URLS}")"
+    no_proxy_encoded="$(encodeProxyValueForConfigFiles "${NO_PROXY_URLS}")"
+
     echo "[Manager]" >> /etc/systemd/system.conf.d/proxy.conf
     if [ -n "${HTTP_PROXY_URLS}" ]; then
-        echo "HTTP_PROXY=${HTTP_PROXY_URLS}" >> /etc/environment
-        echo "http_proxy=${HTTP_PROXY_URLS}" >> /etc/environment
-        echo "Acquire::http::proxy \"${HTTP_PROXY_URLS}\";" >> /etc/apt/apt.conf.d/95proxy
-        echo "DefaultEnvironment=\"HTTP_PROXY=${HTTP_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
-        echo "DefaultEnvironment=\"http_proxy=${HTTP_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "HTTP_PROXY=${http_proxy_encoded}" >> /etc/environment
+        echo "http_proxy=${http_proxy_encoded}" >> /etc/environment
+        echo "Acquire::http::proxy \"${http_proxy_encoded}\";" >> /etc/apt/apt.conf.d/95proxy
+        echo "DefaultEnvironment=\"HTTP_PROXY=${http_proxy_encoded}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"http_proxy=${http_proxy_encoded}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
     if [ -n "${HTTPS_PROXY_URLS}" ]; then
-        echo "HTTPS_PROXY=${HTTPS_PROXY_URLS}" >> /etc/environment
-        echo "https_proxy=${HTTPS_PROXY_URLS}" >> /etc/environment
-        echo "Acquire::https::proxy \"${HTTPS_PROXY_URLS}\";" >> /etc/apt/apt.conf.d/95proxy
-        echo "DefaultEnvironment=\"HTTPS_PROXY=${HTTPS_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
-        echo "DefaultEnvironment=\"https_proxy=${HTTPS_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "HTTPS_PROXY=${https_proxy_encoded}" >> /etc/environment
+        echo "https_proxy=${https_proxy_encoded}" >> /etc/environment
+        echo "Acquire::https::proxy \"${https_proxy_encoded}\";" >> /etc/apt/apt.conf.d/95proxy
+        echo "DefaultEnvironment=\"HTTPS_PROXY=${https_proxy_encoded}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"https_proxy=${https_proxy_encoded}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
     if [ -n "${NO_PROXY_URLS}" ]; then
-        echo "NO_PROXY=${NO_PROXY_URLS}" >> /etc/environment
-        echo "no_proxy=${NO_PROXY_URLS}" >> /etc/environment
-        echo "DefaultEnvironment=\"NO_PROXY=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
-        echo "DefaultEnvironment=\"no_proxy=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "NO_PROXY=${no_proxy_encoded}" >> /etc/environment
+        echo "no_proxy=${no_proxy_encoded}" >> /etc/environment
+        echo "DefaultEnvironment=\"NO_PROXY=${no_proxy_encoded}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"no_proxy=${no_proxy_encoded}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
 
     mkdir -p "/etc/systemd/system/kubelet.service.d"
