@@ -14,6 +14,8 @@ func main() {
 	defer stop()
 	go func() {
 		<-ctx.Done()
+		// The first signal starts graceful cleanup; a second signal uses the OS
+		// default handler to terminate immediately.
 		signal.Reset(os.Interrupt, syscall.SIGTERM)
 	}()
 
