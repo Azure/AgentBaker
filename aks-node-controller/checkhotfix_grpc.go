@@ -105,7 +105,7 @@ func (a *App) fetchHotfixOverGRPC(ctx context.Context) ([]byte, error) {
 }
 
 // dialLPSGRPC builds the gRPC client connection to the live-patching service: it dials the cluster
-// apiserver FQDN:443 (riding the existing apiserver egress rule) and advertises the live-patching
+// apiserver FQDN:9443 (riding the existing apiserver egress rule) and advertises the live-patching
 // ALPN protocol so the kube-api-proxy envoy routes the stream to the LPS backend. The server
 // certificate is issued for lpsServerName (with a real SAN), but tls.Config.ServerName is left
 // EMPTY so the wire SNI stays the apiserver authority and envoy routes on ALPN (setting it would

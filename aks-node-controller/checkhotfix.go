@@ -48,7 +48,7 @@ const (
 	// lpsAPIServerPort is the HTTPS port the apiserver front (and thus the LPS path) listens on.
 	// Envoy forwards the matched ALPN stream to the LPS backend internally; the client only ever
 	// dials the apiserver front here.
-	lpsAPIServerPort = "443"
+	lpsAPIServerPort = "9443"
 
 	// imdsAttestedDocURL returns the IMDS attested-data document, whose signature is used as
 	// the LPS Authorization token. IMDS is reachable pre-kubelet (the same primitive Secure
