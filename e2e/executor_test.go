@@ -131,7 +131,8 @@ func TestRunnerFlagsUseEnvironmentAliases(t *testing.T) {
 		opts.tagFilter != (tagFilter{run: "gpu=true", skip: "os=windows"}) {
 		t.Fatalf("string environment aliases were not loaded: %+v", opts)
 	}
-	if config.Config.GalleryName != "test-gallery" || !config.Config.KeepVMSS || config.Config.SubscriptionID != "test-subscription" {
+	if config.Config.GalleryLinux.Name != "test-gallery" || config.Config.GalleryWindows.Name != "test-gallery" ||
+		!config.Config.KeepVMSS || config.Config.SubscriptionID != "test-subscription" {
 		t.Fatalf("infrastructure environment aliases were not loaded: %+v", config.Config)
 	}
 }

@@ -7,12 +7,12 @@ import (
 )
 
 func TestFlagsRepeatedParseDoesNotInheritPreviousRun(t *testing.T) {
-	original := Config
-	defer func() { Config = original }()
+	original := *Config
+	defer func() { *Config = original }()
 
 	trueDefault := DefaultConfiguration().DefaultLocation
 
-	Config = DefaultConfiguration()
+	*Config = *DefaultConfiguration()
 	cmd1 := &cli.Command{Name: "e2e-test-config", Flags: Flags()}
 	if err := cmd1.Run(t.Context(), []string{"e2e-test-config", "--location", "custom-location-xyz"}); err != nil {
 		t.Fatalf("first parse failed: %v", err)
@@ -31,16 +31,38 @@ func TestFlagsRepeatedParseDoesNotInheritPreviousRun(t *testing.T) {
 }
 
 func TestFlagsEnvironmentSourceStillWorks(t *testing.T) {
-	original := Config
-	defer func() { Config = original }()
+	original := *Config
+	defer func() { *Config = original }()
 
 	t.Setenv("E2E_PARALLEL", "7")
-	Config = DefaultConfiguration()
+	*Config = *DefaultConfiguration()
 	cmd := &cli.Command{Name: "e2e-test-config", Flags: Flags()}
 	if err := cmd.Run(t.Context(), []string{"e2e-test-config"}); err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
 	if Config.Parallel != 7 {
 		t.Fatalf("E2E_PARALLEL was not applied: got %d, want 7", Config.Parallel)
+	}
+}
+
+func TestFlagsConfigureLinuxAndWindowsGalleriesIndependently(t *testing.T) {
+	original := *Config
+	defer func() { *Config = original }()
+
+	*Config = *DefaultConfiguration()
+	cmd := &cli.Command{Name: "e2e-test-config", Flags: Flags()}
+	err := cmd.Run(t.Context(), []string{
+		"e2e-test-config",
+		"--linux-gallery-name", "linux-gallery",
+		"--windows-gallery-name", "windows-gallery",
+	})
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	if Config.GalleryLinux.Name != "linux-gallery" {
+		t.Fatalf("Linux gallery name = %q, want %q", Config.GalleryLinux.Name, "linux-gallery")
+	}
+	if Config.GalleryWindows.Name != "windows-gallery" {
+		t.Fatalf("Windows gallery name = %q, want %q", Config.GalleryWindows.Name, "windows-gallery")
 	}
 }
