@@ -19,8 +19,9 @@ Describe 'security-update.sh'
         TEST_NODE_JSON="$(security_patch_test_node_json)"
         TEST_APT_UPDATE_STATUS=0
         TEST_ANNOTATE_STATUS=0
+        TEST_EVENT_LOG="${TEST_DIR}/events"
         KUBECTL="kubectl"
-        export SECURITY_PATCH_CONFIG_DIR TEST_NODE_JSON KUBECTL
+        export SECURITY_PATCH_CONFIG_DIR TEST_NODE_JSON TEST_EVENT_LOG KUBECTL
         export TEST_APT_UPDATE_STATUS TEST_ANNOTATE_STATUS
     }
 
@@ -53,6 +54,11 @@ Describe 'security-update.sh'
         return "${TEST_APT_UPDATE_STATUS}"
     }
 
+    knead_emit_event() {
+        mkdir -p "${TEST_EVENT_LOG}"
+        printf '%s|%s|%s\n' "$1" "$2" "${3:-Informational}" >> "${TEST_EVENT_LOG}/events"
+    }
+
     It 'applies the timestamp selected for the node agent pool'
         When call updateSecurityPatch '{"agentPools":{"ap1":{"goldenTimestamp":"20260710T000000Z"},"ap2":{"goldenTimestamp":"20260701T000000Z"}}}' "${TEST_NODE_JSON}"
         The status should be success
@@ -60,6 +66,7 @@ Describe 'security-update.sh'
         The output should include 'unattended-upgrade called'
         The output should include 'kubectl called with args: annotate --overwrite node aks-node-1 kubernetes.azure.com/live-patching-current-timestamp=20260710T000000Z'
         The output should include 'securityPatch update completed successfully: 20260710T000000Z'
+        The contents of file "${TEST_EVENT_LOG}/events" should include 'AKS.LivePatching.securityPatch.Applied|goldenTimestamp=20260710T000000Z, agentPool=ap1|Informational'
         The contents of file "${SECURITY_PATCH_CONFIG_DIR}/sources.list" should include 'deb https://snapshot.ubuntu.com/ubuntu/20260710T000000Z jammy main restricted'
         The contents of file "${SECURITY_PATCH_CONFIG_DIR}/apt.conf" should include "Dir::Etc::sourcelist \"${SECURITY_PATCH_CONFIG_DIR}/sources.list\";"
     End
@@ -141,6 +148,7 @@ Describe 'security-update.sh'
         When call updateSecurityPatch '{}' "${TEST_NODE_JSON}"
         The status should be success
         The output should include 'securityPatch has no profile for agent pool ap1; no action needed'
+        The contents of file "${TEST_EVENT_LOG}/events" should include 'AKS.LivePatching.securityPatch.NoAction|No profile for agent pool ap1|Informational'
         The output should not include 'apt_get_update_with_opts called'
         The output should not include 'kubectl called'
     End
@@ -157,6 +165,7 @@ Describe 'security-update.sh'
         When call updateSecurityPatch '{"agentPools":{"ap1":{}}}' "${TEST_NODE_JSON}"
         The status should be failure
         The output should include 'securityPatch goldenTimestamp is missing for agent pool: ap1'
+        The contents of file "${TEST_EVENT_LOG}/events" should include 'AKS.LivePatching.securityPatch.Failed|reason=GoldenTimestampMissing|Error'
         The output should not include 'apt_get_update_with_opts called'
     End
 
@@ -164,6 +173,7 @@ Describe 'security-update.sh'
         When call updateSecurityPatch 'not-json' "${TEST_NODE_JSON}"
         The status should be failure
         The output should include 'securityPatch configuration is invalid'
+        The contents of file "${TEST_EVENT_LOG}/events" should include 'AKS.LivePatching.securityPatch.Failed|reason=ConfigurationInvalid|Error'
         The output should not include 'no action needed'
         The output should not include 'apt_get_update_with_opts called'
     End
@@ -172,6 +182,7 @@ Describe 'security-update.sh'
         When call updateSecurityPatch '{"agentPools":[]}' "${TEST_NODE_JSON}"
         The status should be failure
         The output should include 'securityPatch agentPools must be an object'
+        The contents of file "${TEST_EVENT_LOG}/events" should include 'AKS.LivePatching.securityPatch.Failed|reason=AgentPoolsInvalid|Error'
         The output should not include 'no action needed'
         The output should not include 'apt_get_update_with_opts called'
     End
@@ -180,6 +191,7 @@ Describe 'security-update.sh'
         When call updateSecurityPatch '{"agentPools":{"ap1":{"goldenTimestamp":"not-a-timestamp"}}}' "${TEST_NODE_JSON}"
         The status should be failure
         The output should include 'securityPatch goldenTimestamp is invalid: not-a-timestamp'
+        The contents of file "${TEST_EVENT_LOG}/events" should include 'AKS.LivePatching.securityPatch.Failed|reason=GoldenTimestampInvalid|Error'
         The output should not include 'apt_get_update_with_opts called'
     End
 
@@ -190,6 +202,7 @@ Describe 'security-update.sh'
         When call updateSecurityPatch '{"agentPools":{"ap1":{"goldenTimestamp":"20260710T000000Z"}}}' "${TEST_NODE_JSON}"
         The status should be failure
         The output should include 'apt_get_update_with_opts failed'
+        The contents of file "${TEST_EVENT_LOG}/events" should include 'AKS.LivePatching.securityPatch.Failed|reason=AptMetadataRefreshFailed|Error'
         The output should not include 'unattended-upgrade called'
         The output should not include 'kubectl called'
     End
@@ -203,6 +216,7 @@ Describe 'security-update.sh'
         The output should include 'unattended-upgrade called'
         The output should include 'kubectl called with args: annotate --overwrite node aks-node-1 kubernetes.azure.com/live-patching-current-timestamp=20260710T000000Z'
         The output should include 'failed to update legacy securityPatch status annotation'
+        The contents of file "${TEST_EVENT_LOG}/events" should include 'AKS.LivePatching.securityPatch.Failed|reason=LegacyStatusAnnotationFailed|Error'
         The output should not include 'securityPatch update completed successfully'
     End
 
@@ -213,6 +227,7 @@ Describe 'security-update.sh'
         When call updateSecurityPatch '{"agentPools":{"ap1":{"goldenTimestamp":"20260710T000000Z"}}}' "${TEST_NODE_JSON}"
         The status should be failure
         The output should include 'failed to generate securityPatch apt configuration'
+        The contents of file "${TEST_EVENT_LOG}/events" should include 'AKS.LivePatching.securityPatch.Failed|reason=AptConfigurationFailed|Error'
         The stderr should include 'Not a directory'
         The output should not include 'apt_get_update_with_opts called'
         The output should not include 'unattended-upgrade called'
@@ -238,6 +253,7 @@ Describe 'security-update.sh'
         When call updateSecurityPatch '{"agentPools":{"ap1":{"goldenTimestamp":"20260710T000000Z"}}}' "${TEST_NODE_JSON}"
         The status should be failure
         The output should include 'failed to determine Ubuntu codename'
+        The contents of file "${TEST_EVENT_LOG}/events" should include 'AKS.LivePatching.securityPatch.Failed|reason=UbuntuCodenameReadFailed|Error'
         The output should not include 'apt_get_update_with_opts called'
         The output should not include 'unattended-upgrade called'
     End
