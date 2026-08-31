@@ -35,61 +35,47 @@ func mintCA(t *testing.T) (*x509.Certificate, *ecdsa.PrivateKey) {
 	return caCert, key
 }
 
-// mintLeaf creates a leaf certificate with the given SAN DNS name, signed by the CA.
-func mintLeaf(t *testing.T, caCert *x509.Certificate, caKey *ecdsa.PrivateKey, dnsName string) []byte {
+// mintLeaf creates a leaf certificate without a SAN/CN, matching the LPS serving certificate.
+func mintLeaf(t *testing.T, caCert *x509.Certificate, caKey *ecdsa.PrivateKey) []byte {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(2),
-		Subject:      pkix.Name{CommonName: dnsName},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().Add(time.Hour),
 		KeyUsage:     x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		DNSNames:     []string{dnsName},
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, caCert, &key.PublicKey, caKey)
 	require.NoError(t, err)
 	return der
 }
 
-// TestVerifyChainAgainstPool asserts the strengthened verifier enforces BOTH the chain-to-CA and
-// the hostname, mirroring the standard TLS name check without putting the name on the wire as SNI.
+// TestVerifyChainAgainstPool asserts that a SAN-less LPS certificate is accepted only when it
+// chains to the trusted cluster CA.
 func TestVerifyChainAgainstPool(t *testing.T) {
 	caCert, caKey := mintCA(t)
 	pool := x509.NewCertPool()
 	pool.AddCert(caCert)
 
-	leaf := mintLeaf(t, caCert, caKey, lpsServerName)
+	leaf := mintLeaf(t, caCert, caKey)
 
-	t.Run("valid chain and matching hostname passes", func(t *testing.T) {
-		err := verifyChainAgainstPool(pool, lpsServerName)([][]byte{leaf}, nil)
+	t.Run("valid SAN-less chain passes", func(t *testing.T) {
+		err := verifyChainAgainstPool(pool)([][]byte{leaf}, nil)
 		assert.NoError(t, err)
-	})
-
-	t.Run("hostname mismatch is rejected", func(t *testing.T) {
-		err := verifyChainAgainstPool(pool, "wrong.example.com")([][]byte{leaf}, nil)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "verification failed")
-	})
-
-	t.Run("cert issued for a different name is rejected", func(t *testing.T) {
-		otherLeaf := mintLeaf(t, caCert, caKey, "attacker.example.com")
-		err := verifyChainAgainstPool(pool, lpsServerName)([][]byte{otherLeaf}, nil)
-		require.Error(t, err)
 	})
 
 	t.Run("chain to an untrusted CA is rejected", func(t *testing.T) {
 		otherCA, _ := mintCA(t)
 		untrusted := x509.NewCertPool()
 		untrusted.AddCert(otherCA)
-		err := verifyChainAgainstPool(untrusted, lpsServerName)([][]byte{leaf}, nil)
+		err := verifyChainAgainstPool(untrusted)([][]byte{leaf}, nil)
 		require.Error(t, err)
 	})
 
 	t.Run("no certificates presented is rejected", func(t *testing.T) {
-		err := verifyChainAgainstPool(pool, lpsServerName)(nil, nil)
+		err := verifyChainAgainstPool(pool)(nil, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no certificates")
 	})
