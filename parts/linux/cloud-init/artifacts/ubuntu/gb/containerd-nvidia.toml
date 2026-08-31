@@ -1,4 +1,7 @@
 oom_score = -999
+# This static config is baked verbatim onto GB (Ubuntu 24.04 GPU) VHDs; it assumes the baked
+# containerd is >= 2.3 (config schema v4). Keep this in sync with the r2404 containerd version in
+# parts/common/components.json — a downgrade below 2.3 would make containerd reject version = 4.
 version = 4
 
 [metrics]

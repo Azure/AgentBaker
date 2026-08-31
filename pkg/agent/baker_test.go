@@ -159,6 +159,14 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				expectContainerd2SchemaV3(renderContainerdConfig("", datamodel.AKSACLArm64Gen2TL, true))
 			})
 
+			// Kata containerd-v2 distros must also render the split-plugin v3 schema when the version
+			// is empty (not the legacy v1 grpc schema): their kata runtime handlers live under the
+			// split cri.v1.runtime paths, and this keeps baker aligned with the scriptless ANC, which
+			// renders the split schema from the detected on-node containerd version.
+			It("uses split-plugin schema v3 when containerd version is empty for Kata containerd v2 distros", func() {
+				expectContainerd2SchemaV3(renderContainerdConfig("", datamodel.AKSAzureLinuxV3Gen2Kata, false))
+			})
+
 			It("uses schema v2 when containerd version is invalid", func() {
 				expectLegacySchemaV2(renderContainerdConfig("not-a-version", datamodel.AKSUbuntuContainerd2404, false))
 				expectLegacySchemaV2(renderContainerdConfig("source:2.3.2", datamodel.AKSUbuntuContainerd2404, false))
