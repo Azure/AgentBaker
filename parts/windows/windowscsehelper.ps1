@@ -333,8 +333,45 @@ function Start-NodeResetScriptTask {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask failed with result $($taskInfo.LastTaskResult)"
     }
 
+    # windowsnodereset.ps1 (run by NodeResetScriptTask) issues Start-Service kubelet, but the
+    # service can still be in StartPending immediately after the task reports success, especially
+    # on slower first boots such as sysprepped/cached (golden) images. Asserting Running exactly
+    # once here caused intermittent CSE failures, so poll with bounded retries and re-nudge the
+    # service, matching the containerd start pattern in containerdfunc.ps1 (Start-Containerd).
     $kubeletService=Get-Service -Name "kubelet" -ErrorAction SilentlyContinue
-    if ($null -eq $kubeletService -or $kubeletService.Status -ne "Running") {
+    if ($null -eq $kubeletService) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet service is not installed after NodeResetScriptTask completed"
+    }
+
+    $retryCount=0
+    $maxRetryCount=6 # 1 minute
+    do {
+        $kubeletService=Get-Service -Name "kubelet" -ErrorAction SilentlyContinue
+        if ($kubeletService.Status -eq "Running") {
+            Write-Log -Message "kubelet service is running after NodeResetScriptTask"
+            break
+        }
+
+        $retryCount++
+        Write-Log -Message "kubelet service is not running after NodeResetScriptTask (attempt $retryCount of $maxRetryCount), current status: $($kubeletService.Status)"
+
+        try {
+            Start-Service kubelet -ErrorAction Stop
+            $kubeletService=Get-Service -Name "kubelet"
+            $kubeletService.WaitForStatus('Running', [timespan]::FromSeconds(5))
+            Write-Log -Message "kubelet service started successfully after NodeResetScriptTask"
+            break
+        }
+        catch {
+            Write-Log -Message "Failed to start kubelet service after NodeResetScriptTask: $_"
+        }
+
+        if ($retryCount -lt $maxRetryCount) {
+            Start-Sleep -Seconds 5
+        }
+    } while ($retryCount -lt $maxRetryCount)
+
+    if ($kubeletService.Status -ne "Running") {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet service is not running after NodeResetScriptTask completed"
     }
 

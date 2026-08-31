@@ -603,6 +603,7 @@ Describe "Start-NodeResetScriptTask" {
       return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-02"; LastTaskResult = 0 }
     }
     Mock Get-Service -MockWith { return [pscustomobject]@{ Status = "Running" } }
+    Mock Start-Service -MockWith {}
     Mock Start-Sleep -MockWith {}
     Mock Write-Log -MockWith {}
     Mock Set-ExitCode -MockWith {
@@ -665,5 +666,21 @@ Describe "Start-NodeResetScriptTask" {
     Mock Get-Service -MockWith { return [pscustomobject]@{ Status = "Stopped" } }
 
     { Start-NodeResetScriptTask } | Should -Throw "*kubelet service is not running*"
+  }
+
+  It "recovers when kubelet reaches running after a retry" {
+    $script:kubeletCallCount = 0
+    Mock Get-Service -MockWith {
+      $script:kubeletCallCount++
+      if ($script:kubeletCallCount -eq 1) {
+        return [pscustomobject]@{ Status = "StartPending" }
+      }
+      return [pscustomobject]@{ Status = "Running" }
+    }
+
+    Start-NodeResetScriptTask
+
+    Assert-MockCalled -CommandName Start-Service -Exactly -Times 1
+    Assert-MockCalled -CommandName Set-ExitCode -Exactly -Times 0
   }
 }
