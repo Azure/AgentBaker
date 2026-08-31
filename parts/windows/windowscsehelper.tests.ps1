@@ -669,13 +669,16 @@ Describe "Start-NodeResetScriptTask" {
   }
 
   It "recovers when kubelet reaches running after a retry" {
+    # Calls 1 (presence check) and 2 (first loop check) report StartPending so the loop
+    # enters the recovery branch and invokes Start-Service; the Get-Service after Start-Service
+    # returns Running with a no-op WaitForStatus so the loop breaks via the recovery path.
     $script:kubeletCallCount = 0
     Mock Get-Service -MockWith {
       $script:kubeletCallCount++
-      if ($script:kubeletCallCount -eq 1) {
-        return [pscustomobject]@{ Status = "StartPending" }
-      }
-      return [pscustomobject]@{ Status = "Running" }
+      $status = if ($script:kubeletCallCount -le 2) { "StartPending" } else { "Running" }
+      $svc = [pscustomobject]@{ Status = $status }
+      $svc | Add-Member -MemberType ScriptMethod -Name WaitForStatus -Value { param($desiredStatus, $timeout) } -Force
+      return $svc
     }
 
     Start-NodeResetScriptTask
