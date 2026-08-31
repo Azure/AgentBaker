@@ -1,0 +1,43 @@
+name: Validate AIManager Manifests
+on: pull_request
+
+permissions: {}
+
+jobs:
+  validate-aimanager-manifests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install CUE
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/cue.tar.gz"
+          install_dir="$RUNNER_TEMP/cue"
+          curl -fsSL --retry 3 https://github.com/cue-lang/cue/releases/download/v0.15.4/cue_v0.15.4_linux_amd64.tar.gz -o "$archive"
+          echo "4709f0d3e9988b82192a205953fefdbb3637317a1cef63d84fe65b7b92ef95a3  $archive" | sha256sum -c -
+          mkdir -p "$install_dir"
+          tar -xzf "$archive" -C "$install_dir" cue
+          echo "$install_dir" >> "$GITHUB_PATH"
+      - name: Validate AIManager manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t manifests < <(find ./vhdbuilder/release-notes/AKSAIManager -name manifest.json -type f | sort)
+          [ "${#manifests[@]}" -gt 0 ] || { echo "no manifests found"; exit 1; }
+          for manifest in "${manifests[@]}"; do
+            cue vet -c ./schemas/aimanager.cue "$manifest"
+            slug="$(jq -r .model.slug "$manifest")"
+            directory="$(basename "$(dirname "$manifest")")"
+            [ "$slug" = "$directory" ] || { echo "$manifest: model.slug '$slug' != directory '$directory'"; exit 1; }
+            duplicate_variants="$(jq -r '[.variants | group_by([.gpuSku, .osSku])[] | select(length > 1) | .[0] | "\(.gpuSku)/\(.osSku)"] | join(", ")' "$manifest")"
+            [ -z "$duplicate_variants" ] || { echo "$manifest: duplicate variants: $duplicate_variants"; exit 1; }
+            duplicate_dependencies="$(jq -r '[.variants[].dependencies | group_by(.name)[] | select(length > 1) | .[0].name] | unique | join(", ")' "$manifest")"
+            [ -z "$duplicate_dependencies" ] || { echo "$manifest: duplicate dependencies: $duplicate_dependencies"; exit 1; }
+            duplicate_bake_paths="$(jq -r '[.variants[].dependencies | group_by(.bakePath)[] | select(length > 1) | .[0].bakePath] | unique | join(", ")' "$manifest")"
+            [ -z "$duplicate_bake_paths" ] || { echo "$manifest: duplicate dependency bakePaths: $duplicate_bake_paths"; exit 1; }
+          done
