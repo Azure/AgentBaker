@@ -237,8 +237,15 @@ func shellQuote(value string) string {
 }
 
 func getProxyVariables(nbc *datamodel.NodeBootstrappingConfiguration) string {
-	if nbc.HTTPProxyConfig == nil ||
-		(nbc.HTTPProxyConfig.HTTPProxy == nil && nbc.HTTPProxyConfig.HTTPSProxy == nil && nbc.HTTPProxyConfig.NoProxy == nil) {
+	if nbc.HTTPProxyConfig == nil {
+		return ""
+	}
+	httpProxy := nbc.HTTPProxyConfig.HTTPProxy
+	httpsProxy := nbc.HTTPProxyConfig.HTTPSProxy
+	noProxy := nbc.HTTPProxyConfig.NoProxy
+	if (httpProxy == nil || *httpProxy == "") &&
+		(httpsProxy == nil || *httpsProxy == "") &&
+		(noProxy == nil || len(*noProxy) == 0) {
 		return ""
 	}
 	return proxyVariables

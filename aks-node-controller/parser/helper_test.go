@@ -1172,6 +1172,28 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 	}
 }
 
+func Test_getProxyVariables(t *testing.T) {
+	const expected = `export http_proxy="$HTTP_PROXY_URLS"; export HTTPS_PROXY="$HTTPS_PROXY_URLS"; export NO_PROXY="$NO_PROXY_URLS";`
+	tests := []struct {
+		name   string
+		config *aksnodeconfigv1.HttpProxyConfig
+		want   string
+	}{
+		{name: "nil config"},
+		{name: "empty config", config: &aksnodeconfigv1.HttpProxyConfig{}},
+		{name: "http proxy", config: &aksnodeconfigv1.HttpProxyConfig{HttpProxy: "http://proxy"}, want: expected},
+		{name: "https proxy", config: &aksnodeconfigv1.HttpProxyConfig{HttpsProxy: "https://proxy"}, want: expected},
+		{name: "no proxy", config: &aksnodeconfigv1.HttpProxyConfig{NoProxyEntries: []string{"localhost"}}, want: expected},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getProxyVariables(tt.config); got != tt.want {
+				t.Errorf("getProxyVariables() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_getShouldConfigureHTTPProxyCA(t *testing.T) {
 	type args struct {
 		httpProxyConfig *aksnodeconfigv1.HttpProxyConfig

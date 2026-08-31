@@ -429,6 +429,21 @@ var _ = Describe("Windows custom data variables check", func() {
 
 })
 
+var _ = Describe("getProxyVariables", func() {
+	It("returns no compatibility script for an empty proxy config", func() {
+		config := getDefaultNBC()
+		config.HTTPProxyConfig = &datamodel.HTTPProxyConfig{}
+		Expect(getProxyVariables(config)).To(BeEmpty())
+	})
+
+	It("returns the compatibility script when a proxy value is configured", func() {
+		config := getDefaultNBC()
+		httpProxy := "http://proxy"
+		config.HTTPProxyConfig = &datamodel.HTTPProxyConfig{HTTPProxy: &httpProxy}
+		Expect(getProxyVariables(config)).To(Equal(proxyVariables))
+	})
+})
+
 var _ = Describe("Windows CSE variables check", func() {
 	var (
 		config *datamodel.NodeBootstrappingConfiguration
