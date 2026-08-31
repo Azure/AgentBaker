@@ -102,18 +102,18 @@ func writeJUnitReport(path string, results []scenarioResult) error {
 		case statusSkipped:
 			suite.Skipped++
 		}
-		for _, check := range last.Checks {
-			checkCase := junitCase{
-				Name:      result.Name + "/" + check.Name,
-				Classname: "e2e.cse",
-				Time:      fmt.Sprintf("%.6f", check.Duration.Seconds()),
+		for _, adoTestCase := range last.ADOTestCases {
+			testCase := junitCase{
+				Name:      result.Name + "/" + adoTestCase.Name,
+				Classname: adoTestCase.ClassName,
+				Time:      fmt.Sprintf("%.6f", adoTestCase.Duration.Seconds()),
 			}
-			if check.Message != "" {
-				checkCase.Failure = junitFailureSummary(check.Message, false)
+			if adoTestCase.Message != "" {
+				testCase.Failure = junitFailureSummary(adoTestCase.Message, false)
 				suite.Failures++
 			}
-			// Child durations are already included in the parent attempt.
-			suite.Cases = append(suite.Cases, checkCase)
+			// Exported case durations are already included in the scenario attempt.
+			suite.Cases = append(suite.Cases, testCase)
 		}
 	}
 	suite.Tests = len(suite.Cases)

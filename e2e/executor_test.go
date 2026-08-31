@@ -183,10 +183,10 @@ func TestExecutorRetriesAndReportsFlakyScenario(t *testing.T) {
 		logger.Log("attempt output")
 		if calls.Add(1) == 1 {
 			err := errors.New("transient failure")
-			s.recordCheck("Task_example", time.Second, err)
+			s.recordADOTestCase("Task_example", "e2e.cse", time.Second, err)
 			return err
 		}
-		s.recordCheck("Task_example", time.Second, nil)
+		s.recordADOTestCase("Task_example", "e2e.cse", time.Second, nil)
 		return nil
 	}
 
@@ -286,7 +286,7 @@ func TestExecutorRecoversScenarioPanic(t *testing.T) {
 }
 
 func TestCleanupFailureOverridesSkip(t *testing.T) {
-	err := addFailure(&skipError{message: "skip"}, errors.New("cleanup failed"))
+	err := mergeAttemptFailure(&skipError{message: "skip"}, errors.New("cleanup failed"))
 	var skip *skipError
 	if errors.As(err, &skip) {
 		t.Fatalf("cleanup failure remained classified as skip: %v", err)
@@ -398,12 +398,12 @@ func TestExecutorRunsCleanupAfterScenarioPanic(t *testing.T) {
 func TestFreshScenarioSharesAttemptCleanup(t *testing.T) {
 	cleanup := &scenarioCleanup{}
 	original := &Scenario{
-		Name:     "Staged",
-		cleanup:  cleanup,
-		Runtime:  &ScenarioRuntime{},
-		testName: "Staged",
-		failed:   true,
-		checks:   []scenarioCheck{{Name: "Task_example"}},
+		Name:         "Staged",
+		cleanup:      cleanup,
+		Runtime:      &ScenarioRuntime{},
+		artifactName: "Staged",
+		failed:       true,
+		adoTestCases: []adoTestCase{{Name: "Task_example"}},
 	}
 
 	copied := freshScenario(original)
@@ -411,7 +411,7 @@ func TestFreshScenarioSharesAttemptCleanup(t *testing.T) {
 	if copied.cleanup != cleanup {
 		t.Fatal("freshScenario dropped the attempt cleanup")
 	}
-	if copied.Runtime != nil || copied.Logger != nil || copied.testName != "" || copied.failed || copied.checks != nil {
+	if copied.Runtime != nil || copied.Logger != nil || copied.artifactName != "" || copied.failed || copied.adoTestCases != nil {
 		t.Fatalf("freshScenario kept per-run state: %+v", copied)
 	}
 }

@@ -9,29 +9,27 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 )
 
-// TestArtifactHelpersUseTheGivenTestName pins the artifact path helpers to an
-// explicit test name so writing scenario artifacts no longer needs a testing.TB.
-func TestArtifactHelpersUseTheGivenTestName(t *testing.T) {
+func TestArtifactHelpersUseTheGivenArtifactName(t *testing.T) {
 	loggingDir := t.TempDir()
 	original := config.Config.E2ELoggingDir
 	config.Config.E2ELoggingDir = loggingDir
 	t.Cleanup(func() { config.Config.E2ELoggingDir = original })
 
-	const testName = "TestScenario/subtest"
+	const artifactName = "TestScenario/vhd-provision"
 
-	if got, want := testDir(testName), filepath.Join(loggingDir, testName); got != want {
-		t.Errorf("testDir: got %q, want %q", got, want)
+	if got, want := artifactDir(artifactName), filepath.Join(loggingDir, artifactName); got != want {
+		t.Errorf("artifactDir: got %q, want %q", got, want)
 	}
 
-	if err := writeToFile(testName, "single.log", "single"); err != nil {
+	if err := writeToFile(artifactName, "single.log", "single"); err != nil {
 		t.Fatalf("writeToFile: %v", err)
 	}
-	if err := dumpFileMapToDir(testName, map[string]string{"/var/log/nested/mapped.log": "mapped"}); err != nil {
+	if err := dumpFileMapToDir(artifactName, map[string]string{"/var/log/nested/mapped.log": "mapped"}); err != nil {
 		t.Fatalf("dumpFileMapToDir: %v", err)
 	}
 
 	for name, want := range map[string]string{"single.log": "single", "mapped.log": "mapped"} {
-		got, err := os.ReadFile(filepath.Join(testDir(testName), name))
+		got, err := os.ReadFile(filepath.Join(artifactDir(artifactName), name))
 		if err != nil {
 			t.Fatalf("read %s: %v", name, err)
 		}
@@ -41,7 +39,7 @@ func TestArtifactHelpersUseTheGivenTestName(t *testing.T) {
 	}
 }
 
-func TestGenerateVMSSNameLinuxUsesTheGivenTestName(t *testing.T) {
+func TestGenerateVMSSNameLinuxUsesTheGivenArtifactName(t *testing.T) {
 	name := generateVMSSNameLinux("TestScenario_Ubuntu2204/vhd_caching")
 
 	if len(name) > 57 {

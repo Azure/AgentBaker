@@ -119,11 +119,6 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	if len(entries) == 0 {
 		return &usageError{message: "no scenarios matched the requested names"}
 	}
-	for i := range entries {
-		if config.Config.TestPreProvision || entries[i].scenario.VHDCaching {
-			entries[i].name += "/VHDCreation"
-		}
-	}
 	runnable, filtered, err := partitionEntries(entries, opts.tagFilter)
 	if err != nil {
 		return err
