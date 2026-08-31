@@ -14,6 +14,7 @@ if ! command -v apt-get >/dev/null 2>&1; then
         exit 1
     fi
     actual_go_version=$(go env GOVERSION)
+    # shellcheck disable=SC3010
     if [[ "${actual_go_version}" != "go${go_version}" ]]; then
         echo "ERROR: expected Go ${go_version}, found ${actual_go_version}; the build environment must provide the required version." >&2
         exit 1
