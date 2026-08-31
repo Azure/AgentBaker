@@ -58,9 +58,8 @@ type Configuration struct {
 	E2ELoggingDir                          string
 	EnableSecureTLSBootstrapping           bool
 	ExtendedTests                          string
-	GalleryName                            string
-	GalleryResourceGroupName               string
-	GallerySubscriptionID                  string
+	GalleryLinux                           Gallery
+	GalleryWindows                         Gallery
 	IgnoreScenariosWithMissingVHD          bool
 	KeepVMSS                               bool
 	NetworkIsolatedNSGName                 string
@@ -103,22 +102,29 @@ func DefaultConfiguration() *Configuration {
 		DefaultVMSKU:                           "Standard_D2ds_v5",
 		E2ELoggingDir:                          "scenario-logs",
 		EnableSecureTLSBootstrapping:           true,
-		GalleryName:                            "PackerSigGalleryEastUS",
-		GalleryResourceGroupName:               "aksvhdtestbuildrg",
-		GallerySubscriptionID:                  "c4c3550e-a965-4993-a50c-628fd38cd3e1",
-		NetworkIsolatedNSGName:                 "abe2e-networkisolated-securityGroup",
-		Parallel:                               60,
-		OutputMode:                             "auto",
-		HidePassedLogs:                         false,
-		SIGVersionTagName:                      "branch",
-		SIGVersionTagValue:                     "refs/heads/main",
-		SubscriptionID:                         "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8",
-		TestGalleryImagePrefix:                 "abe2etest",
-		TestGalleryNamePrefix:                  "abe2etest",
-		TestTimeout:                            50 * time.Minute,
-		SuiteTimeout:                           80 * time.Minute,
-		TestTimeoutCluster:                     30 * time.Minute,
-		TestTimeoutVMSS:                        17 * time.Minute,
+		GalleryLinux: Gallery{
+			Name:              "PackerSigGalleryEastUS",
+			ResourceGroupName: "aksvhdtestbuildrg",
+			SubscriptionID:    "c4c3550e-a965-4993-a50c-628fd38cd3e1",
+		},
+		GalleryWindows: Gallery{
+			Name:              "PackerSigGalleryEastUS",
+			ResourceGroupName: "aksvhdtestbuildrg",
+			SubscriptionID:    "c4c3550e-a965-4993-a50c-628fd38cd3e1",
+		},
+		NetworkIsolatedNSGName: "abe2e-networkisolated-securityGroup",
+		Parallel:               60,
+		OutputMode:             "auto",
+		HidePassedLogs:         false,
+		SIGVersionTagName:      "branch",
+		SIGVersionTagValue:     "refs/heads/main",
+		SubscriptionID:         "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8",
+		TestGalleryImagePrefix: "abe2etest",
+		TestGalleryNamePrefix:  "abe2etest",
+		TestTimeout:            50 * time.Minute,
+		SuiteTimeout:           80 * time.Minute,
+		TestTimeoutCluster:     30 * time.Minute,
+		TestTimeoutVMSS:        17 * time.Minute,
 	}
 }
 
@@ -194,10 +200,6 @@ func (c *Configuration) BlobStorageAccountURL() string {
 	return "https://" + c.BlobStorageAccount() + ".blob.core.windows.net"
 }
 
-func (c *Configuration) GalleryResourceID() string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s", c.GallerySubscriptionID, c.GalleryResourceGroupName, c.GalleryName)
-}
-
 func (c *Configuration) String() string {
 	data := make([]string, 0)
 	v := reflect.ValueOf(c)
@@ -264,13 +266,6 @@ func Initialize() error {
 			return fmt.Errorf("write system SSH private key: %w", err)
 		}
 	}
-
-	imageGalleryLinux.SubscriptionID = Config.GallerySubscriptionID
-	imageGalleryLinux.ResourceGroupName = Config.GalleryResourceGroupName
-	imageGalleryLinux.Name = Config.GalleryName
-	imageGalleryWindows.SubscriptionID = Config.GallerySubscriptionID
-	imageGalleryWindows.ResourceGroupName = Config.GalleryResourceGroupName
-	imageGalleryWindows.Name = Config.GalleryName
 
 	Azure, err = NewAzureClient()
 	if err != nil {
