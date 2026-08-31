@@ -75,8 +75,6 @@ jobs:
         cache-dependency-path: e2e/go.sum
     - name: Verify DCGM Exporter package compatibility
       working-directory: ./e2e
-      env:
-        RUN_DCGM_COMPATIBILITY_TEST: "true"
       run: |
         set -ex
-        go test -v -run ^TestDCGMExporterCompatibility$ ./components/
+        go test -v -tags=dcgmcompat ./components/
