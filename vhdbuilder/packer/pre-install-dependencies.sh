@@ -66,6 +66,19 @@ capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
 systemctlEnableAndStart ci-syslog-watcher.path 30 || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service 30 || exit 1
 
+if isACL "$OS" "$OS_VARIANT"; then
+    # Arm the Trident ACL Agent, which drives A/B OS updates on ACL nodes.
+    #
+    # Only the path unit is enabled, not the service. The agent authenticates
+    # to the API server with kubelet's kubeconfig and exits if that file is
+    # absent, which on a new node it is until kubelet finishes TLS
+    # bootstrapping. Enabling the service directly would start it at every boot
+    # before kubelet and leave it restarting until the file appeared. The path
+    # unit waits for the file instead, and starts the agent when it appears.
+    systemctlEnableAndStart trident-acl-agent.path 30 || exit 1
+    capture_benchmark "${SCRIPT_NAME}_enable_trident_acl_agent"
+fi
+
 if isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; then
     # "copy-on-write"; this starts out as a symlink to a R/O location
     cp /etc/waagent.conf{,.new}
