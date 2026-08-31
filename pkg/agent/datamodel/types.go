@@ -1197,10 +1197,16 @@ func (a *AgentPoolProfile) Is2604VHDDistro() bool {
 	return a.Distro.Is2604VHDDistro()
 }
 
+// IsContainerdV2Distro reports whether the distro ships containerd 2.x, and is used only to pick
+// the containerd config schema when the RP omits ContainerdVersion. Kata containerd-2.x distros
+// (e.g. AzureLinuxV3 Kata) are included: their runtime handlers live under the split
+// [plugins."io.containerd.cri.v1.runtime"] paths, which are only parsed by the split-plugin schema
+// (version 3 for 2.0-2.2). They were previously excluded as a workaround for AKS#5909, when the
+// before-2.3 template incorrectly declared version = 2 with the split paths (so containerd dropped
+// the Kata/registry config); that template now renders version = 3, so the exclusion is obsolete
+// and excluding Kata would instead diverge from the scriptless ANC (which renders the split schema
+// from the detected on-node version).
 func (a *AgentPoolProfile) IsContainerdV2Distro() bool {
-	if a.Distro.IsKataDistro() {
-		return false
-	}
 	return a.Distro.Is2604VHDDistro() || a.Distro.Is2404VHDDistro() || a.Distro.IsACLDistro() || a.Distro.IsAzureLinuxV3Distro()
 }
 
