@@ -1,0 +1,28 @@
+{
+  "model": {
+    "slug": "deepseekv4flash",
+    "hfRepo": "deepseek-ai/DeepSeek-V4-Flash-0731",
+    "hfRevision": "main",
+    "gated": false,
+    "weightsSizeGiB": 155.43,
+    "bakePath": "/opt/kaito/models/deepseek-ai-deepseek-v4-flash-0731"
+  },
+  "variants": [
+    {
+      "gpuSku": "H100",
+      "osSku": "Ubuntu2404",
+      "baseImage": {
+        "offer": "AKSUbuntu",
+        "sku": "2404gen2containerd"
+      },
+      "dependencies": [
+        {
+          "name": "cuda-toolkit-12-9",
+          "version": "12.9",
+          "repoKeyringUrl": "https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/cuda-keyring_1.1-1_all.deb",
+          "bakePath": "/opt/kaito/cuda/129"
+        }
+      ]
+    }
+  ]
+}
