@@ -380,6 +380,9 @@ function Get-CACertificates {
                 $certFilePath = Join-Path $caFolder $name
                 Write-Log "Write certificate $name to $certFilePath"
                 $certificate.CertBody > $certFilePath
+                # The legacy endpoint returns trusted root certificates only.
+                Write-Log "Import certificate $name to the LocalMachine Root certificate store"
+                Import-Certificate -FilePath $certFilePath -CertStoreLocation 'Cert:\LocalMachine\Root' -ErrorAction Stop | Out-Null
             }
 
             return $true
@@ -400,6 +403,12 @@ function Get-CACertificates {
         $downloadedAny = $false
 
         foreach ($requestType in $operationRequestTypes) {
+            # Keep intermediates out of the trusted root store while making both chains system-wide.
+            $certStoreLocation = if ($requestType -eq "operationrequestsroot") {
+                'Cert:\LocalMachine\Root'
+            } else {
+                'Cert:\LocalMachine\CA'
+            }
             $operationRequestUri = "http://168.63.129.16/machine?comp=acmspackage&type=$requestType&ext=json"
             $operationResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$operationRequestUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
             $operationJson = ($operationResponse.Content) | ConvertFrom-Json
@@ -437,6 +446,8 @@ function Get-CACertificates {
                 $certFilePath = Join-Path $caFolder $resourceFileName
                 Write-Log "Write certificate $resourceFileName to $certFilePath"
                 $certContentResponse.Content > $certFilePath
+                Write-Log "Import certificate $resourceFileName to $certStoreLocation"
+                Import-Certificate -FilePath $certFilePath -CertStoreLocation $certStoreLocation -ErrorAction Stop | Out-Null
                 $downloadedAny = $true
             }
         }

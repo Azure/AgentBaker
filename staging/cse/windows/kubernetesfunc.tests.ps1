@@ -168,6 +168,7 @@ Describe 'Get-CACertificates' {
         if (Test-Path 'C:\ca') {
             Remove-Item -Path 'C:\ca' -Recurse -Force
         }
+        Mock Import-Certificate
     }
 
     It 'uses the legacy endpoint when location is a ussec/usnat region' {
@@ -186,6 +187,42 @@ Describe 'Get-CACertificates' {
         Assert-MockCalled -CommandName Retry-Command -Exactly -Times 1
         $script:retryUris | Should -Contain 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
         $script:retryUris | Should -Not -Contain 'http://168.63.129.16/acms/isOptedInForRootCerts'
+        Assert-MockCalled -CommandName Import-Certificate -Exactly -Times 1 -ParameterFilter {
+            $FilePath -eq 'C:\ca\legacy.crt' -and
+            $CertStoreLocation -eq 'Cert:\LocalMachine\Root' -and
+            $ErrorAction -eq 'Stop'
+        }
+    }
+
+    It 'imports rcv1p root and intermediate certificates into their LocalMachine stores' {
+        Mock Retry-Command -MockWith {
+            param($Command, $Args, $Retries, $RetryDelaySeconds)
+            $uri = $PSBoundParameters['Args'].Uri
+            if ($uri -eq 'http://168.63.129.16/acms/isOptedInForRootCerts') {
+                return [PSCustomObject]@{ Content = '{"IsOptedInForRootCerts":true}' }
+            }
+            if ($uri -like '*type=operationrequestsroot&*') {
+                return [PSCustomObject]@{ Content = '{"OperationsInfo":[{"ResouceFileName":"root.crt"}]}' }
+            }
+            if ($uri -like '*type=operationrequestsintermediate&*') {
+                return [PSCustomObject]@{ Content = '{"OperationsInfo":[{"ResouceFileName":"intermediate.crt"}]}' }
+            }
+            return [PSCustomObject]@{ Content = 'certificate-body' }
+        }
+
+        $result = Get-CACertificates -Location 'southcentralus'
+
+        $result | Should -Be $true
+        Assert-MockCalled -CommandName Import-Certificate -Exactly -Times 1 -ParameterFilter {
+            $FilePath -eq 'C:\ca\root.crt' -and
+            $CertStoreLocation -eq 'Cert:\LocalMachine\Root' -and
+            $ErrorAction -eq 'Stop'
+        }
+        Assert-MockCalled -CommandName Import-Certificate -Exactly -Times 1 -ParameterFilter {
+            $FilePath -eq 'C:\ca\intermediate.crt' -and
+            $CertStoreLocation -eq 'Cert:\LocalMachine\CA' -and
+            $ErrorAction -eq 'Stop'
+        }
     }
 
     It 'returns false when certificate retrieval throws' {
