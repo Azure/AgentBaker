@@ -2,6 +2,8 @@ name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
   TAGS_TO_SKIP: "os=windows,gpu=true"
   SKIP_E2E_TESTS: false
+  # Standalone PR E2E uses the latest main VHD, not a VHD built from the PR source.
+  SKIP_CURRENT_SOURCE_VHD_SCENARIOS: $[eq(variables['Build.Reason'], 'PullRequest')]
   E2E_FAILED_TESTS_RETRY_COUNT: 0
 schedules:
   - cron: "0 8 * * *"

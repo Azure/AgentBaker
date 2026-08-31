@@ -90,7 +90,6 @@ jobs:
           SYS_SSH_PUBLIC_KEY: $(SYS_SSH_PUBLIC_KEY)
           SYS_SSH_PRIVATE_KEY_B64: $(SYS_SSH_PRIVATE_KEY_B64)
           BUILD_SRC_DIR: $(System.DefaultWorkingDirectory)
-          BUILD_REASON: $(Build.Reason)
           DefaultWorkingDirectory: $(Build.SourcesDirectory)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           SUBSCRIPTION_ID_OVERRIDE: ${{parameters.subscriptionId}}

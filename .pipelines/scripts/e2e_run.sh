@@ -14,7 +14,7 @@ set -euo pipefail
 # * IGNORE_SCENARIOS_WITH_MISSING_VHD: a true/false flag that indicates if the build should fail if the VHD is missing.
 # * BUILD_SRC_DIR: the src directory for the repository. Probably the same as DefaultWorkingDirectory.
 # * E2E_FAILED_TESTS_RETRY_COUNT: the number of times gotestsum should retry failed tests. Defaults to 0.
-# * BUILD_REASON: the Azure Pipelines trigger reason.
+# * SKIP_CURRENT_SOURCE_VHD_SCENARIOS: skips scenarios that require a VHD built from the current source.
 
 # In addition, the e2e test framework reads a whole lot of environment variables.
 # These are defined in: e2e/config/config.go
@@ -50,13 +50,12 @@ mkdir -p "${DefaultWorkingDirectory}/e2e/${LOGGING_DIR}"
 
 # default any unbound required variables if necessary
 VHD_BUILD_ID="${VHD_BUILD_ID:-}"
-BUILD_REASON="${BUILD_REASON:-}"
-E2E_VHD_METADATA_FILE="${E2E_VHD_METADATA_FILE:-}"
 IGNORE_SCENARIOS_WITH_MISSING_VHD="${IGNORE_SCENARIOS_WITH_MISSING_VHD:-}"
 LOGGING_DIR="${LOGGING_DIR:-}"
 ENABLE_SECURE_TLS_BOOTSTRAPPING="${ENABLE_SECURE_TLS_BOOTSTRAPPING:-true}"
 TAGS_TO_SKIP="${TAGS_TO_SKIP:-}"
 TAGS_TO_RUN="${TAGS_TO_RUN:-}"
+SKIP_CURRENT_SOURCE_VHD_SCENARIOS="${SKIP_CURRENT_SOURCE_VHD_SCENARIOS:-false}"
 E2E_GO_TEST_TIMEOUT="${E2E_GO_TEST_TIMEOUT:-80m}"
 E2E_FAILED_TESTS_RETRY_COUNT="${E2E_FAILED_TESTS_RETRY_COUNT:-0}"
 GALLERY_NAME="${GALLERY_NAME:-}"
@@ -64,15 +63,8 @@ SIG_GALLERY_NAME="${SIG_GALLERY_NAME:-}"
 SIG_VERSION_TAG_NAME="${SIG_VERSION_TAG_NAME:-branch}"
 SIG_VERSION_TAG_VALUE="${SIG_VERSION_TAG_VALUE:-refs/heads/main}"
 
-# A standalone PR E2E run has the PR test code but uses the latest main VHD. Skip scenarios
-# that require scripts baked from the current source. VHD build gates and explicit VHD runs
-# provide build metadata or a non-default image selector, so they continue to run these tests.
-if [ "${BUILD_REASON}" = "PullRequest" ] &&
-  [ -z "${VHD_BUILD_ID}" ] &&
-  [ -z "${E2E_VHD_METADATA_FILE}" ] &&
-  [ "${SIG_VERSION_TAG_NAME}" = "branch" ] &&
-  [ "${SIG_VERSION_TAG_VALUE}" = "refs/heads/main" ]; then
-  echo "PR E2E uses the main VHD; skipping scenarios that require a VHD built from the current source"
+# The calling pipeline owns the policy for scenarios that require a current-source VHD.
+if [ "${SKIP_CURRENT_SOURCE_VHD_SCENARIOS,,}" = "true" ]; then
   TAGS_TO_SKIP="${TAGS_TO_SKIP:+${TAGS_TO_SKIP},}RequiresCurrentSourceVHD=true"
 fi
 export TAGS_TO_SKIP
@@ -86,11 +78,11 @@ esac
 
 # echo some variables so that we have a chance of debugging if things fail due to a pipeline issue
 echo "VHD_BUILD_ID: ${VHD_BUILD_ID}"
-echo "BUILD_REASON: ${BUILD_REASON}"
 echo "IGNORE_SCENARIOS_WITH_MISSING_VHD: ${IGNORE_SCENARIOS_WITH_MISSING_VHD}"
 echo "LOGGING_DIR: ${LOGGING_DIR}"
 echo "SUBSCRIPTION_ID: ${SUBSCRIPTION_ID}"
 echo "ENABLE_SECURE_TLS_BOOTSTRAPPING: ${ENABLE_SECURE_TLS_BOOTSTRAPPING}"
+echo "SKIP_CURRENT_SOURCE_VHD_SCENARIOS: ${SKIP_CURRENT_SOURCE_VHD_SCENARIOS}"
 echo "TAGS_TO_SKIP: ${TAGS_TO_SKIP}"
 echo "TAGS_TO_RUN: ${TAGS_TO_RUN}"
 echo "GALLERY_NAME: ${GALLERY_NAME}"
