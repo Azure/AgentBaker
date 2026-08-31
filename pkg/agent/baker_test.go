@@ -164,7 +164,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			// split cri.v1.runtime paths, and this keeps baker aligned with the scriptless ANC, which
 			// renders the split schema from the detected on-node containerd version.
 			It("uses split-plugin schema v3 when containerd version is empty for Kata containerd v2 distros", func() {
-				expectContainerd2SchemaV3(renderContainerdConfig("", datamodel.AKSAzureLinuxV3Gen2Kata, false))
+				kataConfig := renderContainerdConfig("", datamodel.AKSAzureLinuxV3Gen2Kata, false)
+				expectContainerd2SchemaV3(kataConfig)
+				// The whole point of dropping the Kata exclusion is that the kata runtime handlers now
+				// render under the split cri.v1.runtime paths (parsed by v3), not grpc.v1.cri.
+				Expect(kataConfig).To(ContainSubstring(`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]`))
 			})
 
 			It("uses schema v2 when containerd version is invalid", func() {
