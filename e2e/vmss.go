@@ -838,32 +838,82 @@ param(
     [string]$arg3
 )
 
-Invoke-WebRequest -UseBasicParsing https://aka.ms/downloadazcopy-v10-windows -OutFile azcopy.zip
-Expand-Archive azcopy.zip
-cd .\azcopy\*
+$workDir = Join-Path $env:TEMP ("aks-e2e-logs-" + [guid]::NewGuid())
+$azCopyArchive = Join-Path $workDir "azcopy.zip"
+$azCopyDir = Join-Path $workDir "azcopy"
+New-Item -ItemType Directory -Path $workDir -Force | Out-Null
+Invoke-WebRequest -UseBasicParsing https://aka.ms/downloadazcopy-v10-windows -OutFile $azCopyArchive
+Expand-Archive -Path $azCopyArchive -DestinationPath $azCopyDir
+$azCopyPath = (Get-ChildItem -Path $azCopyDir -Filter "azcopy.exe" -Recurse -File | Select-Object -First 1).FullName
+if (-not $azCopyPath) {
+    throw "azcopy.exe was not found after extracting $azCopyArchive"
+}
+
 $env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
 $env:AZCOPY_MSI_RESOURCE_STRING=$arg3
-C:\k\debug\collect-windows-logs.ps1
-$CollectedLogs=(Get-ChildItem . -Filter "*_logs.zip" -File)[0].Name
-.\azcopy.exe copy $CollectedLogs "$arg1/collected-node-logs.zip"
-.\azcopy.exe copy "C:\azuredata\CustomDataSetupScript.log" "$arg1/cse.log"
-.\azcopy.exe copy "C:\AzureData\provision.complete" "$arg1/provision.complete"
-.\azcopy.exe copy "C:\k\kubelet.err.log" "$arg1/kubelet.err.log"
-.\azcopy.exe copy "C:\k\containerd.err.log" "$arg1/containerd.err.log"
+$script:uploadFailures = @()
+$collectionStartedAt = Get-Date
+Push-Location $workDir
+try {
+    & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "C:\k\debug\collect-windows-logs.ps1"
+    if ($LASTEXITCODE -ne 0) {
+        $script:uploadFailures += "collect-windows-logs.ps1 exited with code $LASTEXITCODE"
+    }
+} finally {
+    Pop-Location
+}
+$collectionSearchPaths = @($workDir, "C:\k\debug")
+$collectedLogs = (Get-ChildItem -Path $collectionSearchPaths -Filter "*_logs.zip" -File -Recurse -ErrorAction SilentlyContinue |
+    Where-Object { $_.LastWriteTime -ge $collectionStartedAt } |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1).FullName
+if (-not $collectedLogs) {
+    $script:uploadFailures += "collect-windows-logs.ps1 did not create a diagnostics archive"
+}
 
 # Collect network configuration information
-ipconfig /all > network_config.txt
-Get-NetIPConfiguration -Detailed >> network_config.txt
-Get-NetAdapter | Format-Table -AutoSize >> network_config.txt
-Get-DnsClientServerAddress >> network_config.txt
-Get-NetRoute >> network_config.txt
-Get-NetNat >> network_config.txt
-Get-NetIPAddress >> network_config.txt
-Get-NetNeighbor >> network_config.txt
-Get-NetConnectionProfile >> network_config.txt
-hnsdiag list networks >> network_config.txt
-hnsdiag list endpoints >> network_config.txt
-.\azcopy.exe copy "network_config.txt" "$arg1/network_config.txt"
+$networkConfigPath = Join-Path $workDir "network_config.txt"
+ipconfig /all > $networkConfigPath
+Get-NetIPConfiguration -Detailed >> $networkConfigPath
+Get-NetAdapter | Format-Table -AutoSize >> $networkConfigPath
+Get-DnsClientServerAddress >> $networkConfigPath
+Get-NetRoute >> $networkConfigPath
+Get-NetNat >> $networkConfigPath
+Get-NetIPAddress >> $networkConfigPath
+Get-NetNeighbor >> $networkConfigPath
+Get-NetConnectionProfile >> $networkConfigPath
+hnsdiag list networks >> $networkConfigPath
+hnsdiag list endpoints >> $networkConfigPath
+
+function Upload-Log {
+    param(
+        [string]$source,
+        [string]$destination
+    )
+
+    if (-not (Test-Path -LiteralPath $source)) {
+        $script:uploadFailures += "source file does not exist: $source"
+        return
+    }
+
+    & $azCopyPath copy $source $destination
+    if ($LASTEXITCODE -ne 0) {
+        $script:uploadFailures += "azcopy exited with code $LASTEXITCODE while uploading $source"
+    }
+}
+
+if ($collectedLogs) {
+    Upload-Log $collectedLogs "$arg1/collected-node-logs.zip"
+}
+Upload-Log "C:\azuredata\CustomDataSetupScript.log" "$arg1/cse.log"
+Upload-Log "C:\AzureData\provision.complete" "$arg1/provision.complete"
+Upload-Log "C:\k\kubelet.err.log" "$arg1/kubelet.err.log"
+Upload-Log "C:\k\containerd.err.log" "$arg1/containerd.err.log"
+Upload-Log $networkConfigPath "$arg1/network_config.txt"
+
+if ($script:uploadFailures.Count -gt 0) {
+    throw "failed to upload Windows diagnostics: $($script:uploadFailures -join '; ')"
+}
 `
 
 // extractLogsFromVMWindows runs a script on windows VM to collect logs and upload them to a blob storage
@@ -944,13 +994,12 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	runCommandResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if err != nil {
 		s.Logger.Logf("failed to poll run command on VMSS instance %s: %s", instanceID, err)
-		return
+	} else {
+		respJSON, _ := json.MarshalIndent(runCommandResp, "", "  ")
+		s.Logger.Logf("run command executed successfully:\n%s", respJSON)
 	}
 
-	respJSON, _ := json.MarshalIndent(runCommandResp, "", "  ")
-	s.Logger.Logf("run command executed successfully:\n%s", respJSON)
-
-	s.Logger.Logf("uploaded logs to %s", blobUrl)
+	s.Logger.Logf("downloading any logs uploaded to %s", blobUrl)
 
 	downloadBlob := func(blobSuffix string) {
 		fileName := filepath.Join(testDir(s.testName), blobSuffix)
@@ -978,6 +1027,8 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	downloadBlob("collected-node-logs.zip")
 	downloadBlob("cse.log")
 	downloadBlob("provision.complete")
+	downloadBlob("kubelet.err.log")
+	downloadBlob("containerd.err.log")
 	downloadBlob("network_config.txt")
 	s.Logger.Logf("logs collected to %s", testDir(s.testName))
 }
