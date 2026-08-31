@@ -1,5 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC2089,SC2090
+# shellcheck disable=SC2089,SC2090,SC2317
 
 Describe 'ubuntu-snapshot-update.sh generic reconciliation'
     setup() {
@@ -12,6 +12,7 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         touch "${KUBECONFIG}"
         KUBECTL="kubectl"
         KNEAD_COMPONENT_STATE_FILE="${TEST_DIR}/state/current.json"
+        KNEAD_EVENTS_LOGGING_DIR="${TEST_DIR}/events"
         TEST_COMPONENTS_JSON_FILE="${TEST_DIR}/components.json"
         TEST_KUBECTL_ARGS_FILE="${TEST_DIR}/kubectl-args"
 
@@ -22,7 +23,7 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         printf '%s' '{"components":[]}' > "${TEST_COMPONENTS_JSON_FILE}"
         TEST_SECURITY_STATUS=0
         TEST_ANNOTATE_STATUS=0
-        export KUBECTL KNEAD_COMPONENT_STATE_FILE TEST_COMPONENTS_JSON_FILE TEST_KUBECTL_ARGS_FILE
+        export KUBECTL KNEAD_COMPONENT_STATE_FILE KNEAD_EVENTS_LOGGING_DIR TEST_COMPONENTS_JSON_FILE TEST_KUBECTL_ARGS_FILE
         export TEST_STATUS TEST_GOAL TEST_AGENT_POOL TEST_REPO_SERVICE TEST_SECURITY_STATUS TEST_ANNOTATE_STATUS
     }
 
@@ -100,6 +101,57 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         knead_write_status aks-node-1 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     }
 
+    read_event() {
+        local task="$1"
+
+        jq -c --arg task "${task}" 'select(.TaskName == $task)' "${KNEAD_EVENTS_LOGGING_DIR}"/*.json
+    }
+
+    read_reconcile_events() {
+        read_event 'AKS.LivePatching.reconcile'
+    }
+
+    event_file_names() {
+        basename -a "${KNEAD_EVENTS_LOGGING_DIR}"/*.json
+    }
+
+    emit_event_ignoring_failure() {
+        knead_emit_event 'AKS.LivePatching.test' 'test message' || true
+    }
+
+    It 'writes a Guest Agent event with the requested level and message'
+        knead_emit_event 'AKS.LivePatching.test' 'test message' 'Error'
+
+        When call read_event 'AKS.LivePatching.test'
+        The status should be success
+        The output should include '"TaskName":"AKS.LivePatching.test"'
+        The output should include '"EventLevel":"Error"'
+        The output should include '"Message":"test message"'
+        The output should include '"OperationId":"'
+        The path "${KNEAD_EVENTS_LOGGING_DIR}" should be directory
+        The result of function event_file_names should match pattern '[0-9]*.json'
+    End
+
+    It 'allows callers to ignore event writing failures'
+        KNEAD_EVENTS_LOGGING_DIR="/dev/null/events"
+        export KNEAD_EVENTS_LOGGING_DIR
+
+        When call emit_event_ignoring_failure
+        The status should be success
+        The stderr should include 'Not a directory'
+    End
+
+    It 'records kubeconfig wait failures'
+        rm -f "${KUBECONFIG}"
+        KNEAD_KUBECONFIG_WAIT_TIMEOUT_SECONDS=0
+        export KNEAD_KUBECONFIG_WAIT_TIMEOUT_SECONDS
+
+        When call knead_main
+        The status should be failure
+        The result of function read_reconcile_events should include 'Failed: kubeconfig wait failed'
+        The result of function read_reconcile_events should include '"EventLevel":"Error"'
+    End
+
     It 'does nothing when goal annotation is not set'
         TEST_GOAL=""
         export TEST_GOAL
@@ -152,6 +204,7 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         The output should include '"components":{"securityPatch":{"code":"Succeeded"}}}'
         The output should include 'knead-component completed successfully'
         The contents of file "${KNEAD_COMPONENT_STATE_FILE}" should include '"securityPatch"'
+        The result of function read_reconcile_events should include 'Succeeded: goal='
     End
 
     It 'reads the dotted ConfigMap key with an escaped JSONPath'
@@ -218,6 +271,7 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         The output should include 'failed components: securityPatch'
         The output should include 'annotate mock called with args: annotate --overwrite node aks-node-1 kubernetes.azure.com/live-patching-status={"currentHash":"'
         The output should include '"securityPatch":{"code":"Failed"}'
+        The result of function read_reconcile_events should include 'Failed: goal='
     End
 
     It 'continues reporting later components after securityPatch fails'
