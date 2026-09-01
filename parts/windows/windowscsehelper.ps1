@@ -333,6 +333,18 @@ function Start-NodeResetScriptTask {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask failed with result $($taskInfo.LastTaskResult)"
     }
 
+    $healthCheckArgs=@{
+        Uri="http://127.0.0.1:10248/healthz"
+        UseBasicParsing=$true
+        TimeoutSec=5
+        ErrorAction="Stop"
+    }
+    try {
+        Retry-Command -Command "Invoke-WebRequest" -Args $healthCheckArgs -Retries 12 -RetryDelaySeconds 5 | Out-Null
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet did not become healthy after NodeResetScriptTask completed. Error: $($_.Exception.Message)"
+    }
+
     Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
 }
 

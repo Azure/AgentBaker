@@ -602,6 +602,7 @@ Describe "Start-NodeResetScriptTask" {
       }
       return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-02"; LastTaskResult = 0 }
     }
+    Mock Invoke-WebRequest -MockWith { return [pscustomobject]@{ StatusCode = 200 } }
     Mock Start-Sleep -MockWith {}
     Mock Write-Log -MockWith {}
     Mock Set-ExitCode -MockWith {
@@ -610,9 +611,12 @@ Describe "Start-NodeResetScriptTask" {
     }
   }
 
-  It "waits for a new successful run" {
+  It "waits for a new successful run and healthy kubelet" {
     Start-NodeResetScriptTask
     Assert-MockCalled -CommandName Start-ScheduledTask -Exactly -Times 1
+    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 1 -ParameterFilter {
+      $Uri -eq "http://127.0.0.1:10248/healthz" -and $TimeoutSec -eq 5 -and $ErrorAction -eq "Stop"
+    }
     Assert-MockCalled -CommandName Set-ExitCode -Exactly -Times 0
   }
 
@@ -657,5 +661,29 @@ Describe "Start-NodeResetScriptTask" {
     }
 
     { Start-NodeResetScriptTask } | Should -Throw "*failed with result 1*"
+    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 0
+  }
+
+  It "retries until kubelet becomes healthy" {
+    $script:healthCheckCallCount = 0
+    Mock Invoke-WebRequest -MockWith {
+      $script:healthCheckCallCount++
+      if ($script:healthCheckCallCount -lt 3) {
+        throw "connection refused"
+      }
+      return [pscustomobject]@{ StatusCode = 200 }
+    }
+
+    Start-NodeResetScriptTask
+
+    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 3
+    Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 2 -ParameterFilter { $Seconds -eq 5 }
+  }
+
+  It "fails when kubelet does not become healthy" {
+    Mock Invoke-WebRequest -MockWith { throw "connection refused" }
+
+    { Start-NodeResetScriptTask } | Should -Throw "*kubelet did not become healthy*connection refused*"
+    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 12
   }
 }

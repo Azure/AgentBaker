@@ -142,6 +142,9 @@ Write-Log "Starting kubelet service"
 try {
     Start-Service kubelet -ErrorAction Stop
     Write-Log "Do not start kubeproxy service since kubelet will restart kubeproxy"
+} catch {
+    Write-Log "Failed to start kubelet service: $_"
+    throw
 } finally {
     Register-HNSRemediatorScriptTask
     Write-Log "Exiting windowsnodereset.ps1"
