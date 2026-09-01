@@ -1,0 +1,210 @@
+# Steps for the native-arm64 ACL COSI conversion job.
+#
+# ACL COSI conversion runs ImageCustomizer, which mounts the image's btrfs rootfs
+# and enumerates subvolumes. Those btrfs ioctls are not supported under qemu-user
+# emulation, so the arm64 conversion cannot run on the x86_64 build pool. Instead,
+# the x86_64 build job stages the VHD in blob storage and skips COSI, and this
+# template runs on the native arm64 pool to download that staged VHD, convert it,
+# upload the COSI to PMC, publish the info artifact, and copy the VHD to immutable
+# storage (mirroring what the build job does inline for x64 ACL).
+#
+# The consuming job must set the ACL build variables (OS_SKU, OS_VERSION,
+# HYPERV_GENERATION, ARCHITECTURE, IMG_CUSTOMIZER_CONTAINER, etc.) and provide
+# CAPTURED_SIG_VERSION (from the build job's exportCapturedSigVersion output).
+#
+# The arm64 pool has no git, so we skip the built-in `checkout: self` and hydrate
+# the workspace from a source bundle the build job publishes.
+parameters:
+  - name: artifactName
+    type: string
+
+steps:
+  - checkout: none
+
+  # The arm64 pool image is minimal, so bootstrap every tool the convert flow
+  # needs: docker (privileged), az CLI, azcopy, make/tar/curl, and Go. Idempotent
+  # via `command -v` guards, so it's a no-op on any tool that's already present.
+  - bash: |
+      set -euo pipefail
+      echo "==== Bootstrapping tooling on $(uname -a) ===="
+
+      if command -v apt-get >/dev/null 2>&1; then
+          PKG=apt
+      elif command -v tdnf >/dev/null 2>&1; then
+          PKG=tdnf
+      elif command -v dnf >/dev/null 2>&1; then
+          PKG=dnf
+      else
+          echo "##vso[task.logissue type=error]No supported package manager (apt/tdnf/dnf) on this agent"
+          exit 1
+      fi
+      echo "Package manager: $PKG"
+
+      sudo -n true >/dev/null 2>&1 || {
+          echo "##vso[task.logissue type=error]This agent user does not have passwordless sudo; cannot install tools"
+          exit 1
+      }
+
+      pkg_install() {
+          case "$PKG" in
+              apt)  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$@" ;;
+              tdnf) sudo tdnf install -y "$@" ;;
+              dnf)  sudo dnf install -y "$@" ;;
+          esac
+      }
+
+      if [ "$PKG" = apt ]; then
+          sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
+      fi
+
+      # Baseline utilities used by scripts and downloads below.
+      pkg_install ca-certificates curl tar gnupg make jq
+
+      # cosi-upload is built with `GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0`
+      # (see packer.mk build-cosi-upload), matching every other Go binary in this
+      # repo. That keeps FIPS/OpenSSL crypto compliance while avoiding a build-time
+      # C toolchain, so no gcc/binutils/libc/OpenSSL-dev packages are needed here.
+
+      # git isn't used by the convert scripts, but install it so any implicit
+      # agent-side cleanup checkouts don't tank the job.
+      if ! command -v git >/dev/null 2>&1; then
+          pkg_install git
+      fi
+
+      # Docker (must support --privileged for ImageCustomizer's loopback mounts).
+      if ! command -v docker >/dev/null 2>&1; then
+          case "$PKG" in
+              apt)       pkg_install docker.io ;;
+              tdnf|dnf)  pkg_install moby-engine moby-cli || pkg_install docker ;;
+          esac
+      fi
+      sudo systemctl start docker 2>/dev/null || sudo service docker start 2>/dev/null || true
+      # Give the agent user access to the docker socket for the duration of the job.
+      sudo chmod 666 /var/run/docker.sock 2>/dev/null || true
+      docker version
+
+      # Azure CLI.
+      if ! command -v az >/dev/null 2>&1; then
+          case "$PKG" in
+              apt)       curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash ;;
+              tdnf|dnf)  pkg_install azure-cli ;;
+          esac
+      fi
+      az version
+
+      # azcopy static binary.
+      if ! command -v azcopy >/dev/null 2>&1; then
+          case "$(uname -m)" in
+              aarch64|arm64) AZCOPY_URL=https://aka.ms/downloadazcopy-v10-linux-arm64 ;;
+              *)             AZCOPY_URL=https://aka.ms/downloadazcopy-v10-linux ;;
+          esac
+          tmp="$(mktemp -d)"
+          curl -sSL "$AZCOPY_URL" -o "$tmp/azcopy.tgz"
+          tar -xzf "$tmp/azcopy.tgz" -C "$tmp"
+          # extracted dir is like azcopy_linux_arm64_10.x.x/
+          azcopy_bin="$(find "$tmp" -maxdepth 2 -type f -name azcopy | head -n1)"
+          sudo install -m 0755 "$azcopy_bin" /usr/local/bin/azcopy
+          rm -rf "$tmp"
+      fi
+      azcopy --version
+
+      # Go: on Ubuntu, hack/setup_golang.sh will install Microsoft Go via apt.
+      # On tdnf/dnf hosts it expects Go to already be on PATH, so install it here.
+      if ! command -v go >/dev/null 2>&1; then
+          case "$PKG" in
+              tdnf|dnf) pkg_install golang ;;
+          esac
+      fi
+      go version || echo "Go will be installed by hack/setup_golang.sh"
+
+      echo "==== Tooling bootstrap complete ===="
+    displayName: Bootstrap arm64 convert tooling
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download AgentBaker source bundle
+    inputs:
+      artifact: agentbaker-sources-${{ parameters.artifactName }}
+      path: $(Pipeline.Workspace)/agentbaker-sources
+
+  - bash: |
+      set -euo pipefail
+      mkdir -p "$(Build.SourcesDirectory)"
+      tar -xzf "$(Pipeline.Workspace)/agentbaker-sources/agentbaker-sources.tar.gz" -C "$(Build.SourcesDirectory)"
+      ls "$(Build.SourcesDirectory)"
+    displayName: Extract AgentBaker source bundle
+
+  - bash: |
+      SKU_NAME=${OS_VERSION} && \
+      if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
+      if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
+      if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}gb"; fi && \
+      if [[ "${ENABLE_FIPS,,}" == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
+      if grep -q "cvm" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}CVM"; fi && \
+      if [[ "${IMG_SKU}" == *"minimal"* ]]; then SKU_NAME="${SKU_NAME}minimal"; fi && \
+      if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
+      SKU_NAME=$(echo ${SKU_NAME} | tr -d '.') && \
+      echo "##vso[task.setvariable variable=SKU_NAME]$SKU_NAME"
+      echo "Set SKU_NAME to $SKU_NAME"
+    displayName: Set SKU Name
+
+  - bash: |
+      echo "##vso[task.setvariable variable=DESTINATION_STORAGE_CONTAINER]${CLASSIC_BLOB_STAGING}"
+      echo "DESTINATION_STORAGE_CONTAINER is set to ${CLASSIC_BLOB_STAGING}"
+    displayName: Set Destination Storage Container to Staging
+
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        make -f packer.mk convert-vhd-to-cosi
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+    displayName: Convert ACL VHD to COSI
+    env:
+      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+      OFFER_NAME: $(OS_SKU)
+      IMG_CUSTOMIZER_ALLOW_FALLBACK: "true"
+      AFD_DOWNLOAD_HOSTNAME: $(AFD_DOWNLOAD_HOSTNAME)
+      COSI_CONTAINER: $(COSI_CONTAINER)
+
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(COSI_PMC_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        make -f packer.mk upload-cosi-to-pmc
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+    displayName: Upload COSI to PMC
+    env:
+      AFD_UPLOAD_ENDPOINT: $(AFD_UPLOAD_ENDPOINT)
+      COSI_CONTAINER: $(COSI_CONTAINER)
+
+  - task: PublishPipelineArtifact@1
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+    displayName: Publish COSI Publishing Info
+    inputs:
+      artifactName: 'cosi-publishing-info-${{ parameters.artifactName }}'
+      targetPath: 'cosi-publishing-info.json'
+
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        echo "Copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
+        export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
+        export AZCOPY_CONCURRENCY_VALUE="AUTO"
+        az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
+        echo "Successfully copied to immutable container"
+        # Remove old VHD from staging container after copy to immutable container is complete
+        azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
+    condition: |
+      and(
+        succeeded(),
+        eq(variables.ENVIRONMENT, 'tme'),
+        eq(variables.GENERATE_PUBLISHING_INFO, 'True')
+      )
+    displayName: Copy to Immutable Storage Container
