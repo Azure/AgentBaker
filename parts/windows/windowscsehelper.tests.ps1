@@ -615,7 +615,7 @@ Describe "Start-NodeResetScriptTask" {
     Start-NodeResetScriptTask
     Assert-MockCalled -CommandName Start-ScheduledTask -Exactly -Times 1
     Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 1 -ParameterFilter {
-      $Uri -eq "http://127.0.0.1:10248/healthz" -and $TimeoutSec -eq 5 -and $ErrorAction -eq "Stop"
+      $Uri -eq "http://127.0.0.1:10248/healthz" -and $TimeoutSec -eq 2 -and $ErrorAction -eq "Stop"
     }
     Assert-MockCalled -CommandName Set-ExitCode -Exactly -Times 0
   }
@@ -677,7 +677,7 @@ Describe "Start-NodeResetScriptTask" {
     Start-NodeResetScriptTask
 
     Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 3
-    Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 2 -ParameterFilter { $Seconds -eq 5 }
+    Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 2 -ParameterFilter { $Seconds -eq 2 }
   }
 
   It "fails when kubelet does not become healthy" {
