@@ -116,6 +116,7 @@ getAzureLinuxNvidiaDriverVersionFromPackage() {
     local version_with_epoch
 
     version_with_epoch=${package#"${package_prefix}"}
+    version_with_epoch=${version_with_epoch#hwe-}
     version_with_epoch=${version_with_epoch%%-*}
     echo "${version_with_epoch#*:}"
 }
@@ -127,7 +128,7 @@ getAzureLinuxNvidiaDriverReleaseNotes() {
     local cuda_open_package
     local cuda_package
     local grid_package
-    cuda_open_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda-open*" "^cuda-open-[0-9]" "${kernel_version}")
+    cuda_open_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda-open*" "^cuda-open(-hwe)?-[0-9]" "${kernel_version}")
     cuda_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda" "^cuda-[0-9]" "${kernel_version}")
     grid_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "nvidia-vgpu-guest-driver*" "^nvidia-vgpu-guest-driver-[0-9]" "${kernel_version}")
 
@@ -155,7 +156,7 @@ downloadGPUDrivers() {
     # cuda-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
     #
     # 2. NVIDIA OpenRM driver:
-    # cuda-open-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
+    # cuda-open[-hwe]-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
     #
     # 3. NVIDIA GRID (vGPU guest) driver for converged GPU sizes:
     # nvidia-vgpu-guest-driver-%{version}_%{kernel version}.{mariner rpm postfix}
@@ -193,10 +194,10 @@ downloadGPUDrivers() {
         exit $ERR_MISSING_CUDA_PACKAGE
     elif [ "$driver_ret" -eq 0 ]; then
         echo "VM SKU ${VM_SKU} uses NVIDIA OpenRM driver (cuda-open)"
-        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-open*" | grep -E "^cuda-open-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+      CUDA_PACKAGE=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda-open*" "^cuda-open(-hwe)?-[0-9]" "$KERNEL_VERSION")
     else
         echo "VM SKU ${VM_SKU} uses NVIDIA proprietary driver (cuda)"
-        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-[0-9]*" | grep -E "^cuda-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+      CUDA_PACKAGE=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda" "^cuda-[0-9]" "$KERNEL_VERSION")
     fi
 
     if [ -z "$CUDA_PACKAGE" ]; then
