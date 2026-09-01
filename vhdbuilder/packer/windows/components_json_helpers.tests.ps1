@@ -651,6 +651,21 @@ Describe 'Gets the Binaries' {
         $cacheFileNames["https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v1.8.22.zip"] | Should -Be "windows-amd64.zip"
     }
 
+    It 'keeps the versioned cache filename for a previous Windows package version' {
+        $componentsJson.Packages[0] | Add-Member -NotePropertyName "windowsCacheFileName" -NotePropertyValue "windows-amd64.zip"
+        $componentsJson.Packages[0].downloadUris.windows.default.versionsV2 = @(
+            [PSCustomObject]@{
+                latestVersion = "1.8.22"
+                previousLatestVersion = "1.8.21"
+            }
+        )
+
+        $cacheFileNames = GetWindowsPackageCacheFileNamesFromComponentsJson $componentsJson
+
+        $cacheFileNames["https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v1.8.22.zip"] | Should -Be "windows-amd64.zip"
+        $cacheFileNames.ContainsKey("https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v1.8.21.zip") | Should -BeFalse
+    }
+
     It 'does not override the Windows cache filename by default' {
         $cacheFileNames = GetWindowsPackageCacheFileNamesFromComponentsJson $componentsJson
 

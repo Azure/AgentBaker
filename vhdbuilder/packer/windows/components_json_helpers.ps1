@@ -188,12 +188,6 @@ function GetWindowsPackageCacheFileNamesFromComponentsJson
         {
             $version = $windowsVersion.latestVersion
             $output[(SafeReplaceString($downloadUrl))] = SafeReplaceString($cacheFileName)
-
-            if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
-            {
-                $version = $windowsVersion.previousLatestVersion
-                $output[(SafeReplaceString($downloadUrl))] = SafeReplaceString($cacheFileName)
-            }
         }
     }
 
