@@ -838,52 +838,30 @@ param(
     [string]$arg3
 )
 
-$workDir = Join-Path $env:TEMP ("aks-e2e-logs-" + [guid]::NewGuid())
-$azCopyArchive = Join-Path $workDir "azcopy.zip"
-$azCopyDir = Join-Path $workDir "azcopy"
-New-Item -ItemType Directory -Path $workDir -Force | Out-Null
-Invoke-WebRequest -UseBasicParsing https://aka.ms/downloadazcopy-v10-windows -OutFile $azCopyArchive
-Expand-Archive -Path $azCopyArchive -DestinationPath $azCopyDir
-$azCopyPath = (Get-ChildItem -Path $azCopyDir -Filter "azcopy.exe" -Recurse -File | Select-Object -First 1).FullName
-if (-not $azCopyPath) {
-    throw "azcopy.exe was not found after extracting $azCopyArchive"
-}
-
+Invoke-WebRequest -UseBasicParsing https://aka.ms/downloadazcopy-v10-windows -OutFile azcopy.zip
+Expand-Archive azcopy.zip
+cd .\azcopy\*
+$azCopyPath = (Resolve-Path .\azcopy.exe).Path
 $env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
 $env:AZCOPY_MSI_RESOURCE_STRING=$arg3
 $script:uploadFailures = @()
-$collectionStartedAt = Get-Date
-Push-Location $workDir
-try {
-    & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "C:\k\debug\collect-windows-logs.ps1"
-    if ($LASTEXITCODE -ne 0) {
-        $script:uploadFailures += "collect-windows-logs.ps1 exited with code $LASTEXITCODE"
-    }
-} finally {
-    Pop-Location
-}
-$collectionSearchPaths = @($workDir, "C:\k\debug")
-$collectedLogs = (Get-ChildItem -Path $collectionSearchPaths -Filter "*_logs.zip" -File -Recurse -ErrorAction SilentlyContinue |
-    Where-Object { $_.LastWriteTime -ge $collectionStartedAt } |
+C:\k\debug\collect-windows-logs.ps1
+$collectedLogs = (Get-ChildItem . -Filter "*_logs.zip" -File |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1).FullName
-if (-not $collectedLogs) {
-    $script:uploadFailures += "collect-windows-logs.ps1 did not create a diagnostics archive"
-}
 
 # Collect network configuration information
-$networkConfigPath = Join-Path $workDir "network_config.txt"
-ipconfig /all > $networkConfigPath
-Get-NetIPConfiguration -Detailed >> $networkConfigPath
-Get-NetAdapter | Format-Table -AutoSize >> $networkConfigPath
-Get-DnsClientServerAddress >> $networkConfigPath
-Get-NetRoute >> $networkConfigPath
-Get-NetNat >> $networkConfigPath
-Get-NetIPAddress >> $networkConfigPath
-Get-NetNeighbor >> $networkConfigPath
-Get-NetConnectionProfile >> $networkConfigPath
-hnsdiag list networks >> $networkConfigPath
-hnsdiag list endpoints >> $networkConfigPath
+ipconfig /all > network_config.txt
+Get-NetIPConfiguration -Detailed >> network_config.txt
+Get-NetAdapter | Format-Table -AutoSize >> network_config.txt
+Get-DnsClientServerAddress >> network_config.txt
+Get-NetRoute >> network_config.txt
+Get-NetNat >> network_config.txt
+Get-NetIPAddress >> network_config.txt
+Get-NetNeighbor >> network_config.txt
+Get-NetConnectionProfile >> network_config.txt
+hnsdiag list networks >> network_config.txt
+hnsdiag list endpoints >> network_config.txt
 
 function Upload-Log {
     param(
@@ -909,7 +887,7 @@ Upload-Log "C:\azuredata\CustomDataSetupScript.log" "$arg1/cse.log"
 Upload-Log "C:\AzureData\provision.complete" "$arg1/provision.complete"
 Upload-Log "C:\k\kubelet.err.log" "$arg1/kubelet.err.log"
 Upload-Log "C:\k\containerd.err.log" "$arg1/containerd.err.log"
-Upload-Log $networkConfigPath "$arg1/network_config.txt"
+Upload-Log "network_config.txt" "$arg1/network_config.txt"
 
 if ($script:uploadFailures.Count -gt 0) {
     throw "failed to upload Windows diagnostics: $($script:uploadFailures -join '; ')"
