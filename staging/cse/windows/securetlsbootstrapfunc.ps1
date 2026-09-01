@@ -5,7 +5,7 @@ function GetCachedSecureTLSBootstrapClientPath {
         $SecureTLSBootstrapClientCacheDir
     )
 
-    $result = [IO.Directory]::GetFiles($SecureTLSBootstrapClientCacheDir, "windows-amd64.zip", [IO.SearchOption]::AllDirectories)
+    $result = [IO.Directory]::GetFiles($SecureTLSBootstrapClientCacheDir, "aks-secure-tls-bootstrap-client_*_amd64.zip", [IO.SearchOption]::AllDirectories)
     return (, $result) # so that Powershell doesn't "unroll" the array returned from [IO.Directory]::GetFiles
 }
 
@@ -25,7 +25,7 @@ function Install-SecureTLSBootstrapClient {
     $secureTLSBootstrapClientDownloadPath = [Io.path]::Combine("$secureTLSBootstrapClientDownloadDir", "aks-secure-tls-bootstrap-client.zip")
     $secureTLSBootstrapClientCacheDir = [Io.path]::Combine("$global:CacheDir", "aks-secure-tls-bootstrap-client")
     $secureTLSBootstrapClientBinPath = [Io.path]::Combine("$KubeDir", "aks-secure-tls-bootstrap-client.exe")
-    
+
     # secure TLS bootstrapping is disabled, cleanup any client binary installations and return
     if (!$global:EnableSecureTLSBootstrapping) {
         Write-Log "Install-SecureTLSBootstrapClient: Secure TLS Bootstrapping is disabled, will remove secure TLS bootstrap client binary installation"
@@ -75,7 +75,7 @@ function Install-SecureTLSBootstrapClient {
         Write-Log "Secure TLS bootstrap client is missing from KubeDir: $KubeDir after zip extraction"
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -ErrorMessage "Secure TLS bootstrap client is missing from KubeDir after zip extraction"
     }
-    
+
     Remove-Item -Path $secureTLSBootstrapClientDownloadDir -Force -Recurse
     Write-Log "Successfully extracted secure TLS bootstrap client to: $KubeDir"
 }

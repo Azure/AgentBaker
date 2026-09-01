@@ -3,6 +3,19 @@ BeforeAll {
     . $PSCommandPath.Replace('.tests.ps1','.ps1')
 }
 
+Describe "GetCachedSecureTLSBootstrapClientPath" {
+    It "Should select the managed DALEC package" {
+        $managedPackagePath = Join-Path $TestDrive "aks-secure-tls-bootstrap-client_1.1.4-3_amd64.zip"
+        New-Item -ItemType File -Path $managedPackagePath
+        New-Item -ItemType File -Path (Join-Path $TestDrive "windows-amd64.zip")
+
+        $result = GetCachedSecureTLSBootstrapClientPath -SecureTLSBootstrapClientCacheDir $TestDrive
+
+        $result | Should -HaveCount 1
+        $result[0] | Should -Be $managedPackagePath
+    }
+}
+
 Describe "Install-SecureTLSBootstrapClient" {
     BeforeEach {
         Mock DownloadFileOverHttp -MockWith {
@@ -41,12 +54,12 @@ Describe "Install-SecureTLSBootstrapClient" {
             { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir } | Should -Not -Throw
 
             # Verify cleanup operations were called
-            Assert-MockCalled -CommandName "Remove-Item" -ParameterFilter { 
-                $Path -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client.exe") 
+            Assert-MockCalled -CommandName "Remove-Item" -ParameterFilter {
+                $Path -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client.exe")
             } -Exactly -Times 1
 
-            Assert-MockCalled -CommandName "Remove-Item" -ParameterFilter { 
-                $Path -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads") -and $Recurse -eq $true 
+            Assert-MockCalled -CommandName "Remove-Item" -ParameterFilter {
+                $Path -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads") -and $Recurse -eq $true
             } -Exactly -Times 1
 
             # Should not attempt any downloads or installations
@@ -65,17 +78,17 @@ Describe "Install-SecureTLSBootstrapClient" {
             { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir -CustomSecureTLSBootstrapClientDownloadUrl $customUrl } | Should -Not -Throw
 
             # Verify cache was cleared
-            Assert-MockCalled Remove-Item -ParameterFilter { 
-                $Path -eq [Io.path]::Combine($global:CacheDir, "aks-secure-tls-bootstrap-client") -and $Recurse -eq $true 
+            Assert-MockCalled Remove-Item -ParameterFilter {
+                $Path -eq [Io.path]::Combine($global:CacheDir, "aks-secure-tls-bootstrap-client") -and $Recurse -eq $true
             } -Exactly -Times 1
 
             # Verify download directory was created
-            Assert-MockCalled New-Item -ParameterFilter { 
+            Assert-MockCalled New-Item -ParameterFilter {
                 $ItemType -eq "Directory" -and $Path -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads")
             } -Exactly -Times 1
 
             # Verify custom download was called
-            Assert-MockCalled -CommandName "DownloadFileOverHttp" -ParameterFilter { 
+            Assert-MockCalled -CommandName "DownloadFileOverHttp" -ParameterFilter {
                 $Url -eq $customUrl -and $DestinationPath -eq "C:\k\aks-secure-tls-bootstrap-client-downloads\aks-secure-tls-bootstrap-client.zip" -and $ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT
             } -Exactly -Times 1
 
@@ -85,7 +98,7 @@ Describe "Install-SecureTLSBootstrapClient" {
             } -Exactly -Times 1
 
             # Verify download directory cleanup
-            Assert-MockCalled -CommandName "Remove-Item" -ParameterFilter { 
+            Assert-MockCalled -CommandName "Remove-Item" -ParameterFilter {
                 $Path -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads") -and $Recurse -eq $true
             } -Exactly -Times 1
         }
@@ -96,7 +109,7 @@ Describe "Install-SecureTLSBootstrapClient" {
             $testKubeDir = "C:\k"
             $cacheDir = [Io.path]::Combine($global:CacheDir, "aks-secure-tls-bootstrap-client")
 
-            Mock -CommandName "GetCachedSecureTLSBootstrapClientPath" -MockWith { return (, @("$cacheDir\windows-amd64.zip")) } 
+            Mock -CommandName "GetCachedSecureTLSBootstrapClientPath" -MockWith { return (, @("$cacheDir\aks-secure-tls-bootstrap-client_1.1.4-3_amd64.zip")) }
         }
 
         It "Should handle missing cache directory gracefully" {
@@ -104,18 +117,18 @@ Describe "Install-SecureTLSBootstrapClient" {
 
             { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir } | Should -Not -Throw
 
-            Assert-MockCalled -CommandName "Set-ExitCode" -ParameterFilter { 
+            Assert-MockCalled -CommandName "Set-ExitCode" -ParameterFilter {
                 $ExitCode -eq $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -and $ErrorMessage -eq "CacheDir is missing"
             } -Exactly -Times 1
         }
 
         It "Should handle missing cached files gracefully" {
             # Mock empty search results
-            Mock -CommandName "GetCachedSecureTLSBootstrapClientPath" -MockWith { return @() } 
+            Mock -CommandName "GetCachedSecureTLSBootstrapClientPath" -MockWith { return @() }
 
             { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir } | Should -Not -Throw
 
-            Assert-MockCalled -CommandName "Set-ExitCode" -ParameterFilter { 
+            Assert-MockCalled -CommandName "Set-ExitCode" -ParameterFilter {
                 $ExitCode -eq $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -and $ErrorMessage -eq "Secure TLS bootstrap client is missing from cache"
             } -Exactly -Times 1
         }
@@ -126,15 +139,15 @@ Describe "Install-SecureTLSBootstrapClient" {
             { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir } | Should -Not -Throw
 
             # Verify cached file was copied
-            Assert-MockCalled Copy-Item -ParameterFilter { 
-               $Path -eq "$cacheDir\windows-amd64.zip" -and $Destination -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads", "aks-secure-tls-bootstrap-client.zip") -and $Force -eq $true
+            Assert-MockCalled Copy-Item -ParameterFilter {
+                   $Path -eq "$cacheDir\aks-secure-tls-bootstrap-client_1.1.4-3_amd64.zip" -and $Destination -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads", "aks-secure-tls-bootstrap-client.zip") -and $Force -eq $true
             } -Exactly -Times 1
 
             # Should not call download function
             Assert-MockCalled -CommandName "DownloadFileOverHttp" -Exactly -Times 0
 
             # Verify error handling was called
-            Assert-MockCalled -CommandName "Set-ExitCode" -ParameterFilter { 
+            Assert-MockCalled -CommandName "Set-ExitCode" -ParameterFilter {
                 $ExitCode -eq $global:WINDOWS_CSE_ERROR_INSTALL_SECURE_TLS_BOOTSTRAP_CLIENT -and $ErrorMessage -eq "Secure TLS bootstrap client is missing from KubeDir after zip extraction"
             } -Exactly -Times 1
         }
@@ -143,8 +156,8 @@ Describe "Install-SecureTLSBootstrapClient" {
             { Install-SecureTLSBootstrapClient -KubeDir $testKubeDir } | Should -Not -Throw
 
             # Verify cached file was copied
-            Assert-MockCalled -CommandName "Copy-Item" -ParameterFilter { 
-                $Path -eq "$cacheDir\windows-amd64.zip" -and $Destination -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads", "aks-secure-tls-bootstrap-client.zip") -and $Force -eq $true
+            Assert-MockCalled -CommandName "Copy-Item" -ParameterFilter {
+                $Path -eq "$cacheDir\aks-secure-tls-bootstrap-client_1.1.4-3_amd64.zip" -and $Destination -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads", "aks-secure-tls-bootstrap-client.zip") -and $Force -eq $true
             } -Exactly -Times 1
 
             # Should not call download function
@@ -156,7 +169,7 @@ Describe "Install-SecureTLSBootstrapClient" {
             # Verify successful extraction
             Assert-MockCalled -CommandName "Expand-Archive" -Exactly -Times 1
             Assert-MockCalled -CommandName "Test-Path" -ParameterFilter { $Path -like "*aks-secure-tls-bootstrap-client.exe" } -Exactly -Times 1
-            Assert-MockCalled -CommandName "Remove-Item" -ParameterFilter { 
+            Assert-MockCalled -CommandName "Remove-Item" -ParameterFilter {
                 $Path -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads") -and $Force -eq $true -and $Recurse -eq $true
             } -Exactly -Times 1
         }

@@ -26,12 +26,7 @@ $SkipMapForSignature = @{
 
 $SkipSignatureCheckForBinaries = @{
     # win-bridge.exe is not signed in these k8s packages, and it will be removed from k8s package in the future
-    "win-bridge.exe"                      = $True;
-    # aks-secure-tls-bootstrap-client.exe should be signed once it has been onboarded to Dalec and published via Upstream,
-    # though for now we allow-list it as to not block secure TLS bootstrapping development
-    # NOTE: this is okay since the binary is cleaned up during node provisioning when secure TLS bootstrapping is disabled (which is currently the default in production)
-    # TODO(cameissner): remove this once the binary is properly signed
-    "aks-secure-tls-bootstrap-client.exe" = $True;
+    "win-bridge.exe" = $True;
 }
 
 # MisMatchFiles is used to record files whose file sizes are different on Global and MoonCake
