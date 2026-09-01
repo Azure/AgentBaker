@@ -142,8 +142,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			})
 
 			// 24.04 with an empty/unknown containerd version must NOT assume v4: older 24.04 VHDs
-			// ship containerd 2.0-2.2, which reject `version = 4` and crash-loop CSE (exit 84).
-			// It renders the before-2.3 split-plugin v2 schema, which loads on all containerd 2.x.
+			// shipped containerd 2.0-2.2, which reject `version = 4` and crash-loop CSE (exit 84).
+			// It renders the before-2.3 split-plugin v3 schema, which loads on all containerd 2.x.
 			It("uses split-plugin schema v3 when containerd version is empty for 24.04 (may still be containerd 2.0-2.2)", func() {
 				expectContainerd2SchemaV3(renderContainerdConfig("", datamodel.AKSUbuntuContainerd2404, false))
 			})

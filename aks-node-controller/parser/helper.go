@@ -224,8 +224,8 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	if noGPU {
 		_template = containerdConfigNoGPUTemplate
 	}
-	// All containerd 2.x nodes render from the split-plugin v2 templates, which emit the
-	// v2 (2.0-2.2) or v4 (2.3+) schema internally. This keeps the scriptless config byte-for-byte
+	// All containerd 2.x nodes render from the split-plugin containerd_v2 templates, which emit the
+	// v3 (2.0-2.2) or v4 (2.3+) schema internally. This keeps the scriptless config byte-for-byte
 	// aligned with pkg/agent/baker.go's containerdV2BeforeV23/containerdV2 templates (asserted by
 	// the provision-config vs nbc-cmd env-var parity check). containerd 1.x keeps the legacy template.
 	if isContainerdV2OrLater(aksnodeconfig.GetContainerdConfig().GetContainerdVersion()) {
