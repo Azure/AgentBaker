@@ -41,9 +41,9 @@ if isMinimalImage && isUbuntu "$OS"; then
   installMinimalBuildDeps
 fi
 
-# Temporary diagnostics for comparing PTP exposure across Ubuntu 26.04 builders.
-if isUbuntu "$OS" && [ "$OS_VERSION" = "26.04" ]; then
-  echo "===== Ubuntu 26.04 time synchronization diagnostics ====="
+# Temporary diagnostics for comparing PTP exposure across Ubuntu 24.04 and 26.04 builders.
+if isUbuntu "$OS" && { [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "26.04" ]; }; then
+  echo "===== Ubuntu ${OS_VERSION} time synchronization diagnostics ====="
   echo "Kernel: $(uname -r)"
   echo "Hypervisor: $(systemd-detect-virt --vm 2>/dev/null || true)"
 
@@ -69,7 +69,7 @@ if isUbuntu "$OS" && [ "$OS_VERSION" = "26.04" ]; then
 
   echo "Relevant kernel messages:"
   journalctl -k -b --no-pager | grep -Ei 'ptp|hyperv|hv_utils|vmbus|clocksource|tdx|sev' || true
-  echo "===== End Ubuntu 26.04 time synchronization diagnostics ====="
+  echo "===== End Ubuntu ${OS_VERSION} time synchronization diagnostics ====="
   echo "Intentionally stopping the temporary diagnostic build after collecting time synchronization data." >&2
   exit 1
 fi
