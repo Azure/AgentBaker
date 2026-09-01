@@ -602,19 +602,20 @@ Describe "Start-NodeResetScriptTask" {
       }
       return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-02"; LastTaskResult = 0 }
     }
-    Mock Get-Service -MockWith { return [pscustomobject]@{ Status = "Running" } }
     Mock Start-Sleep -MockWith {}
     Mock Write-Log -MockWith {}
+    Mock Wait-ForKubeletReady -MockWith {}
     Mock Set-ExitCode -MockWith {
       Param($ExitCode, $ErrorMessage)
       throw $ErrorMessage
     }
   }
 
-  It "waits for a new successful run and running kubelet" {
+  It "waits for a new successful run and then for kubelet" {
     Start-NodeResetScriptTask
 
     Assert-MockCalled -CommandName Start-ScheduledTask -Exactly -Times 1
+    Assert-MockCalled -CommandName Wait-ForKubeletReady -Exactly -Times 1
     Assert-MockCalled -CommandName Set-ExitCode -Exactly -Times 0
   }
 
@@ -660,10 +661,116 @@ Describe "Start-NodeResetScriptTask" {
 
     { Start-NodeResetScriptTask } | Should -Throw "*failed with result 1*"
   }
+}
 
-  It "fails when kubelet is not running" {
-    Mock Get-Service -MockWith { return [pscustomobject]@{ Status = "Stopped" } }
+Describe "Wait-ForKubeletReady" {
+  BeforeEach {
+    Mock Start-Sleep -MockWith {}
+    Mock Write-Log -MockWith {}
+    Mock Logs-To-Event -MockWith {}
+    Mock Get-Service -MockWith { return [pscustomobject]@{ Status = "Running" } }
+    Mock Set-ExitCode -MockWith {
+      Param($ExitCode, $ErrorMessage)
+      throw $ErrorMessage
+    }
+  }
 
-    { Start-NodeResetScriptTask } | Should -Throw "*kubelet service is not running*"
+  It "returns without delay when kubelet is already ready" {
+    Mock Test-KubeletHealthz -MockWith { return $true }
+
+    Wait-ForKubeletReady
+
+    Assert-MockCalled -CommandName Test-KubeletHealthz -Exactly -Times 1
+    Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 0
+    Assert-MockCalled -CommandName Set-ExitCode -Exactly -Times 0
+  }
+
+  It "keeps waiting while NSSM restarts a kubelet that exited once" {
+    $script:probeCount = 0
+    Mock Test-KubeletHealthz -MockWith {
+      $script:probeCount++
+      return ($script:probeCount -ge 3)
+    }
+    # NSSM reports Paused during AppRestartDelay, which must not be treated as terminal.
+    Mock Get-Service -MockWith { return [pscustomobject]@{ Status = "Paused" } }
+
+    Wait-ForKubeletReady
+
+    Assert-MockCalled -CommandName Test-KubeletHealthz -Exactly -Times 3
+    Assert-MockCalled -CommandName Set-ExitCode -Exactly -Times 0
+  }
+
+  It "fails within the timeout when kubelet never initializes" {
+    Mock Test-KubeletHealthz -MockWith { return $false }
+    # Use a real sleep so the bound is enforced by wall clock rather than by spinning.
+    Mock Start-Sleep -MockWith { Param($Seconds) [System.Threading.Thread]::Sleep($Seconds * 1000) }
+
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    { Wait-ForKubeletReady -TimeoutSeconds 1 } | Should -Throw '*within `[1`] seconds*'
+    $timer.Stop()
+
+    $timer.Elapsed.TotalSeconds | Should -BeGreaterOrEqual 1
+  }
+}
+
+Describe "Test-KubeletHealthz" {
+  BeforeAll {
+    # Serve one request on the kubelet healthz port so the real probe is exercised end to end.
+    function Start-TestHealthzResponder {
+      Param($StatusLine)
+
+      $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 10248)
+      $listener.Start()
+      $job = Start-ThreadJob -ScriptBlock {
+        Param($listener, $statusLine)
+        $client = $listener.AcceptTcpClient()
+        $stream = $client.GetStream()
+        $stream.Read((New-Object byte[] 1024), 0, 1024) | Out-Null
+        $bytes = [Text.Encoding]::ASCII.GetBytes("$statusLine`r`nContent-Length: 2`r`nConnection: close`r`n`r`nok")
+        $stream.Write($bytes, 0, $bytes.Length)
+        $stream.Flush()
+        $client.Close()
+      } -ArgumentList $listener, $StatusLine
+
+      return [pscustomobject]@{ Listener = $listener; Job = $job }
+    }
+  }
+
+  It "returns true for a 200 response" {
+    $responder = Start-TestHealthzResponder -StatusLine "HTTP/1.1 200 OK"
+    try {
+      Test-KubeletHealthz | Should -BeTrue
+    } finally {
+      $responder.Listener.Stop()
+      Remove-Job $responder.Job -Force
+    }
+  }
+
+  It "returns false for a non-200 response" {
+    $responder = Start-TestHealthzResponder -StatusLine "HTTP/1.1 500 Internal Server Error"
+    try {
+      Test-KubeletHealthz | Should -BeFalse
+    } finally {
+      $responder.Listener.Stop()
+      Remove-Job $responder.Job -Force
+    }
+  }
+
+  It "returns false when kubelet is not listening" {
+    Test-KubeletHealthz | Should -BeFalse
+  }
+
+  It "does not route the loopback probe through a configured proxy" {
+    $responder = Start-TestHealthzResponder -StatusLine "HTTP/1.1 200 OK"
+    $originalProxy = [System.Net.WebRequest]::DefaultWebProxy
+    try {
+      # An unreachable proxy would break the probe if it were honored.
+      [System.Net.WebRequest]::DefaultWebProxy = [System.Net.WebProxy]::new("http://127.0.0.1:1/", $false)
+      Test-KubeletHealthz | Should -BeTrue
+    } finally {
+      [System.Net.WebRequest]::DefaultWebProxy = $originalProxy
+      $responder.Listener.Stop()
+      Remove-Job $responder.Job -Force
+    }
   }
 }

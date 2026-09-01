@@ -139,7 +139,7 @@ if ($global:CsiProxyEnabled) {
 }
 
 Write-Log "Starting kubelet service"
-Start-Service kubelet
+try { Start-Service kubelet -ErrorAction Stop } catch { Write-Log "Failed to start kubelet service: $_" }
 
 Write-Log "Do not start kubeproxy service since kubelet will restart kubeproxy"
 

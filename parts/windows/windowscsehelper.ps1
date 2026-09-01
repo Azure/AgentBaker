@@ -298,6 +298,55 @@ function Set-ExitCode {
     exit $ExitCode
 }
 
+# Kubelet installs its healthz handler only after PreInitRuntimeService has connected to the
+# container runtime, so a 200 proves kubelet cleared `\\.\pipe\containerd-containerd` and finished
+# local initialization. NSSM service state cannot show that: `Running` can precede a crash, and
+# `Paused` is normal while NSSM waits out AppRestartDelay before restarting kubelet.
+$global:KubeletHealthzUri="http://127.0.0.1:10248/healthz"
+
+function Test-KubeletHealthz {
+    try {
+        $request=[System.Net.WebRequest]::Create($global:KubeletHealthzUri)
+        $request.Proxy=$null # a loopback probe must never go through a node proxy
+        $request.Timeout=5000
+        $response=$request.GetResponse()
+        try {
+            return ([int]$response.StatusCode -eq 200)
+        } finally {
+            $response.Close()
+        }
+    } catch {
+        return $false
+    }
+}
+
+function Wait-ForKubeletReady {
+    Param(
+        # Covers the worst legitimate startup: kubeletstart.ps1 runs securetlsbootstrap.ps1
+        # synchronously before launching kubelet.exe, and the bootstrap client's default RPC
+        # timeouts total 480 seconds.
+        [Parameter(Mandatory=$false)][int]
+        $TimeoutSeconds=600
+    )
+
+    Logs-To-Event -TaskName "AKS.WindowsCSE.WaitForKubeletReady" -TaskMessage "Start to wait for kubelet to report ready at $global:KubeletHealthzUri"
+
+    $timer=[Diagnostics.Stopwatch]::StartNew()
+    while (-not (Test-KubeletHealthz)) {
+        if ($timer.Elapsed.TotalSeconds -gt $TimeoutSeconds) {
+            $status=(Get-Service -Name "kubelet" -ErrorAction SilentlyContinue).Status
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet did not report ready at $global:KubeletHealthzUri within [$TimeoutSeconds] seconds. kubelet service status: $status"
+        }
+
+        # A failed probe never ends the wait: kubelet may be exiting and restarting under NSSM.
+        Write-Log "Waiting on kubelet to report ready..."
+        Start-Sleep -Seconds 3
+    }
+    $timer.Stop()
+
+    Write-Log "kubelet reported ready after [$($timer.Elapsed.TotalSeconds)] seconds"
+}
+
 function Start-NodeResetScriptTask {
     Param(
         [Parameter(Mandatory=$false)][int]
@@ -333,12 +382,9 @@ function Start-NodeResetScriptTask {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask failed with result $($taskInfo.LastTaskResult)"
     }
 
-    $kubeletService=Get-Service -Name "kubelet" -ErrorAction SilentlyContinue
-    if ($null -eq $kubeletService -or $kubeletService.Status -ne "Running") {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet service is not running after NodeResetScriptTask completed"
-    }
-
     Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
+
+    Wait-ForKubeletReady
 }
 
 function Postpone-RestartComputer {
