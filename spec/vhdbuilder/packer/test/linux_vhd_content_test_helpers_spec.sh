@@ -1,5 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC2329
+# shellcheck disable=SC2016,SC2329
 
 # ShellSpec tests for parseAutologinSessions helper function
 
@@ -231,5 +231,21 @@ Describe 'Inspektor Gadget version helper functions'
       When call igPackageVersionsShareUpstreamVersion "0.51.1-1.azl3" "0.51.0-1.azl3"
       The status should equal 1
     End
+  End
+End
+
+Describe 'AgentBaker source checkout'
+  SCRIPT='./vhdbuilder/packer/test/linux-vhd-content-test.sh'
+
+  It 'downloads no-git archives from the configured repository'
+    When run grep -Fq 'AGENTBAKER_ARCHIVE_URL="${AGENTBAKER_REPOSITORY_URL%.git}/archive/${GIT_COMMIT_HASH}.tar.gz"' "$SCRIPT"
+    The status should be success
+  End
+
+  It 'fetches the source ref and checks out the captured commit'
+    When run sed -n '/git fetch --quiet origin/,/git checkout --quiet/p' "$SCRIPT"
+    The output should include 'git fetch --quiet origin "$GIT_BRANCH"'
+    The output should include 'git checkout --quiet "$GIT_COMMIT_HASH"'
+    The status should be success
   End
 End
