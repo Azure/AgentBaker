@@ -21,7 +21,7 @@ TRIVY_DEB_2404_VERSION="0.72.0-ubuntu24.04u12"
 TRIVY_DEB_2604_VERSION="0.72.0-ubuntu26.04u12"
 
 # renovate: datasource=rpm depName=trivy registryUrl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata
-TRIVY_RPM_VERSION="0.72.0-11.azl3"
+TRIVY_RPM_VERSION="0.72.0-12.azl3"
 
 # Fallback version for SKUs without PMC packages (Flatcar, AzureContainerLinux, AzureLinuxOSGuard).
 # This MUST match an actual upstream GitHub release tag — PMC versions (0.68.x) don't exist on GitHub.
