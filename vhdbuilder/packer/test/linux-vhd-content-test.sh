@@ -2045,9 +2045,19 @@ testAKSNodeControllerVersion() {
     return 1
   fi
 
-  if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]{6}\.[0-9]{2}\.[0-9]+$'; then
-    err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected 'YYYYMM.DD.PATCH'"
-    return 1
+  # Test builds (PR builds, and any build run off a non-main ref) are not tied to a real VHD release version,
+  # so binary stamped with a non-release version (e.g. a locally-generated dev/date-based fallback).
+  # Only enforce the strict release format when official build off of 'refs/heads/main'.
+  if [ "$GIT_BRANCH" = "refs/heads/main" ]; then
+    if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]{6}\.[0-9]{2}\.[0-9]+$'; then
+      err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected 'YYYYMM.DD.PATCH'"
+      return 1
+    fi
+  else
+    if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]+(\.[0-9]+)*$'; then
+      err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected a dotted numeric version"
+      return 1
+    fi
   fi
 
   echo "$test: aks-node-controller version '${ancVersion}' is valid"
