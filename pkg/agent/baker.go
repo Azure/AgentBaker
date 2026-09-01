@@ -1943,12 +1943,17 @@ func shouldUseContainerdV4Config(config *datamodel.NodeBootstrappingConfiguratio
 		return false
 	}
 	// Empty/unknown containerd version: do NOT assume the 2.3+ (v4) schema for 24.04 based on the
-	// distro alone. Older 24.04 VHDs still ship containerd 2.0-2.2, which reject `version = 4`
+	// distro alone. 24.04 VHDs built before 2026-06-11 shipped containerd 2.0-2.2 and can still be
+	// provisioned (e.g. via NAP/PUTAgentPool) against the latest CSE; those reject `version = 4`
 	// ("expected containerd config version equal to or less than `3`") and crash-loop, failing CSE
-	// with exit 84 (reproduced in e2e against a containerd 2.1.7 Ubuntu 24.04 VHD). The scriptful
-	// CSE writes this config verbatim with no on-node version detection, so an empty version must
-	// fall through to shouldUseContainerdV2Config -> the before-2.3 split-plugin schema (version = 3),
-	// which loads on all containerd 2.0-2.2. 26.04 is safe to assume v4: it only ever shipped containerd >= 2.3.
+	// with exit 84 (reproduced in e2e against a containerd 2.1.7 Ubuntu 24.04 VHD). The scriptful CSE
+	// writes this config verbatim with no on-node version detection, so an empty version conservatively
+	// falls through to shouldUseContainerdV2Config -> the before-2.3 split-plugin schema (version = 3),
+	// which loads on ALL containerd 2.x (2.0-2.2 and 2.3). Trade-off: on a current 24.04 VHD (2.3.3)
+	// with an omitted version this renders v3 (no enable_cdi) whereas the scriptless aks-node-controller
+	// path -- which detects the on-node version -- renders v4; we prefer not bricking older VHDs over
+	// enabling CDI on the rare scriptful+omitted-version 2.3 GPU node. 26.04 is safe to assume v4: it
+	// only ever shipped containerd >= 2.3.
 	return config.AgentPoolProfile != nil && config.AgentPoolProfile.Is2604VHDDistro()
 }
 
