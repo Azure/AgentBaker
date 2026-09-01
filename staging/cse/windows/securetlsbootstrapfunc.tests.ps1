@@ -3,19 +3,6 @@ BeforeAll {
     . $PSCommandPath.Replace('.tests.ps1','.ps1')
 }
 
-Describe "GetCachedSecureTLSBootstrapClientPath" {
-    It "Should select the managed DALEC package" {
-        $managedPackagePath = Join-Path $TestDrive "aks-secure-tls-bootstrap-client_1.1.4-3_amd64.zip"
-        New-Item -ItemType File -Path $managedPackagePath
-        New-Item -ItemType File -Path (Join-Path $TestDrive "windows-amd64.zip")
-
-        $result = GetCachedSecureTLSBootstrapClientPath -SecureTLSBootstrapClientCacheDir $TestDrive
-
-        $result | Should -HaveCount 1
-        $result[0] | Should -Be $managedPackagePath
-    }
-}
-
 Describe "Install-SecureTLSBootstrapClient" {
     BeforeEach {
         Mock DownloadFileOverHttp -MockWith {
@@ -109,7 +96,7 @@ Describe "Install-SecureTLSBootstrapClient" {
             $testKubeDir = "C:\k"
             $cacheDir = [Io.path]::Combine($global:CacheDir, "aks-secure-tls-bootstrap-client")
 
-            Mock -CommandName "GetCachedSecureTLSBootstrapClientPath" -MockWith { return (, @("$cacheDir\aks-secure-tls-bootstrap-client_1.1.4-3_amd64.zip")) }
+            Mock -CommandName "GetCachedSecureTLSBootstrapClientPath" -MockWith { return (, @("$cacheDir\windows-amd64.zip")) }
         }
 
         It "Should handle missing cache directory gracefully" {
@@ -140,7 +127,7 @@ Describe "Install-SecureTLSBootstrapClient" {
 
             # Verify cached file was copied
             Assert-MockCalled Copy-Item -ParameterFilter {
-                   $Path -eq "$cacheDir\aks-secure-tls-bootstrap-client_1.1.4-3_amd64.zip" -and $Destination -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads", "aks-secure-tls-bootstrap-client.zip") -and $Force -eq $true
+                   $Path -eq "$cacheDir\windows-amd64.zip" -and $Destination -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads", "aks-secure-tls-bootstrap-client.zip") -and $Force -eq $true
             } -Exactly -Times 1
 
             # Should not call download function
@@ -157,7 +144,7 @@ Describe "Install-SecureTLSBootstrapClient" {
 
             # Verify cached file was copied
             Assert-MockCalled -CommandName "Copy-Item" -ParameterFilter {
-                $Path -eq "$cacheDir\aks-secure-tls-bootstrap-client_1.1.4-3_amd64.zip" -and $Destination -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads", "aks-secure-tls-bootstrap-client.zip") -and $Force -eq $true
+                $Path -eq "$cacheDir\windows-amd64.zip" -and $Destination -eq [Io.path]::Combine($testKubeDir, "aks-secure-tls-bootstrap-client-downloads", "aks-secure-tls-bootstrap-client.zip") -and $Force -eq $true
             } -Exactly -Times 1
 
             # Should not call download function

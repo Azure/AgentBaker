@@ -161,6 +161,45 @@ function GetPackagesFromComponentsJson
     return $output
 }
 
+function GetWindowsPackageCacheFileNamesFromComponentsJson
+{
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $componentsJsonContent
+    )
+    $output = @{}
+
+    foreach ($package in $componentsJsonContent.Packages)
+    {
+        $cacheFileName = $package.windowsCacheFileName
+        if ([string]::IsNullOrEmpty($cacheFileName))
+        {
+            continue
+        }
+
+        $part = GetWindowsDownloadPartForPackage $package
+        $downloadUrl = $part.windowsDownloadUrl
+        if ([string]::IsNullOrEmpty($downloadUrl))
+        {
+            $downloadUrl = $part.downloadUrl
+        }
+
+        foreach ($windowsVersion in $part.versionsV2)
+        {
+            $version = $windowsVersion.latestVersion
+            $output[(SafeReplaceString($downloadUrl))] = SafeReplaceString($cacheFileName)
+
+            if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
+            {
+                $version = $windowsVersion.previousLatestVersion
+                $output[(SafeReplaceString($downloadUrl))] = SafeReplaceString($cacheFileName)
+            }
+        }
+    }
+
+    return $output
+}
+
 function GetWindowsPackageVersionFromComponentsJson
 {
     Param(
