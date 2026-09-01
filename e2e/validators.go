@@ -3975,9 +3975,11 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) error {
 //   - AzureLinux 3.0: assert ABSENCE of the four modprobe blacklist entries. AzL3 is
 //     descoped from the mitigation because kernel 6.6.139.1-1.azl3 and later fix all
 //     three CVEs upstream, AND customer workloads on AzL3 require those modules (the
-//     blacklist actively blocks legitimate use cases). Newly-built AzL3 VHDs therefore
-//     no longer ship the modprobe-CIS.conf entries, and E2E runs against freshly-built
-//     VHDs. See https://github.com/Azure/AKS/issues/5753.
+//     blacklist actively blocks legitimate use cases). Only those four lines are stripped
+//     from modprobe-CIS.conf on newly-built AzL3 VHDs — the rest of the CIS module denylist
+//     (dccp/sctp/rds/tipc/cramfs/etc.) is still baked in and asserted present below, so
+//     AzL3 keeps the same CIS hardening as every other OS stream. E2E runs against
+//     freshly-built VHDs. See https://github.com/Azure/AKS/issues/5753.
 //
 // To add a new CVE mitigation, append the module name to BOTH lists below —
 // the absence-check list AND the default presence + load-refusal list.
@@ -3988,25 +3990,36 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) e
 	}
 
 	// AzureLinux 3.0 (regular, NOT OSGuard): kernel 6.6.139.1-1.azl3+ supersedes the modprobe
-	// blacklist and the bake-in has been removed because customers need those modules. Assert
-	// the blacklist entries are NOT present on freshly-built AzL3 VHDs. AzureLinux OSGuard is
-	// intentionally kept in-scope (falls through to the full presence + load-refusal check below).
+	// blacklist for algif_aead/esp4/esp6/rxrpc, so only those four lines are stripped because
+	// customers need those modules. Assert the four CVE-related entries are NOT present, but
+	// the rest of the CIS module denylist (e.g. sctp, which AKS documents as a supported
+	// service protocol) must remain intact — it was previously lost entirely because the
+	// whole modprobe-CIS.conf file was skipped on AzL3. AzureLinux OSGuard is intentionally
+	// kept in-scope (falls through to the full presence + load-refusal check below).
 	if s.VHD.OS == config.OSAzureLinux && !s.VHD.Distro.IsAzureLinuxOSGuardDistro() && s.VHD.Distro != datamodel.AKSAzureLinuxV2Gen2 {
 		script := strings.Join([]string{
 			`failed=0`,
 			`for mod in algif_aead esp4 esp6 rxrpc; do`,
 			`  if grep -qsE "^(install ${mod} /bin/false|blacklist ${mod})" /etc/modprobe.d/*.conf 2>/dev/null; then`,
-			`    echo "FAIL: ${mod} blacklist entry unexpectedly present on AzureLinux 3.0 (bake-in removed; kernel 6.6.139.1-1.azl3+ supersedes)"`,
+			`    echo "FAIL: ${mod} blacklist entry unexpectedly present on AzureLinux 3.0 (only these four CVE-related lines should be stripped; kernel 6.6.139.1-1.azl3+ supersedes)"`,
 			`    failed=1`,
 			`  else`,
 			`    echo "PASS: ${mod} blacklist correctly absent on AzureLinux 3.0"`,
 			`  fi`,
 			`done`,
+			`for mod in dccp sctp rds tipc; do`,
+			`  if ! grep -qsE "^install ${mod} /bin/true" /etc/modprobe.d/*.conf 2>/dev/null; then`,
+			`    echo "FAIL: ${mod} CIS disable rule unexpectedly missing on AzureLinux 3.0 (only algif_aead/esp4/esp6/rxrpc should be stripped from modprobe-CIS.conf)"`,
+			`    failed=1`,
+			`  else`,
+			`    echo "PASS: ${mod} CIS modprobe denylist correctly retained on AzureLinux 3.0"`,
+			`  fi`,
+			`done`,
 			`exit $failed`,
 		}, "\n")
 		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-			"AzureLinux 3.0 modprobe blacklist should be absent (kernel fix 6.6.139.1-1.azl3+ supersedes; bake-in removed; no `install` or `blacklist` directive should remain)"); err != nil {
-			return fmt.Errorf("check that the AzureLinux 3.0 modprobe blacklist is absent: %w", err)
+			"AzureLinux 3.0 modprobe blacklist should only omit algif_aead/esp4/esp6/rxrpc while retaining the rest of the CIS module denylist (dccp/sctp/rds/tipc/etc.)"); err != nil {
+			return fmt.Errorf("check that the AzureLinux 3.0 modprobe blacklist is correctly scoped: %w", err)
 		}
 		return nil
 	}
