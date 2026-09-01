@@ -339,27 +339,17 @@ function Start-NodeResetScriptTask {
 
     if ($kubeletService.Status -ne "Running") {
         # NSSM restarts kubelet, so only wait out the remaining budget instead of starting it here.
-        $remainingSeconds=$TimeoutSeconds - $timer.Elapsed.TotalSeconds
-        if ($remainingSeconds -le 0) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet service is not running after NodeResetScriptTask completed. Status: $($kubeletService.Status). No time left in the [$TimeoutSeconds] seconds budget"
-        }
-
+        $remainingSeconds=[Math]::Max(0.0, $TimeoutSeconds - $timer.Elapsed.TotalSeconds)
         Write-Log -Message "kubelet service status is [$($kubeletService.Status)]. Waiting up to [$remainingSeconds] seconds for it to reach Running"
         try {
             $kubeletService.WaitForStatus("Running", [TimeSpan]::FromSeconds($remainingSeconds))
         } catch {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet service is not running after NodeResetScriptTask completed. Status: $($kubeletService.Status). Error: $($_.Exception.Message)"
+            $waitError=$_.Exception.GetBaseException().Message
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet service did not reach Running after NodeResetScriptTask completed. Status: $($kubeletService.Status). Error: $waitError"
         }
-
-        $kubeletService=Get-Service -Name "kubelet" -ErrorAction SilentlyContinue
     }
 
     $timer.Stop()
-
-    if ($null -eq $kubeletService -or $kubeletService.Status -ne "Running") {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet service is not running after NodeResetScriptTask completed. Status: $($kubeletService.Status)"
-    }
-
     Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
 }
 

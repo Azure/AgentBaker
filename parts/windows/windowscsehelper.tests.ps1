@@ -595,12 +595,10 @@ Describe "Start-NodeResetScriptTask" {
     function New-MockKubeletService {
       Param(
         [string]$InitialStatus,
-        [string]$StatusAfterWait = "Running",
         [switch]$ThrowOnWait
       )
       $service = [pscustomobject]@{
         Status = $InitialStatus
-        StatusAfterWait = $StatusAfterWait
         ThrowOnWait = [bool]$ThrowOnWait
         WaitCallCount = 0
         WaitTimeouts = @()
@@ -609,10 +607,10 @@ Describe "Start-NodeResetScriptTask" {
         Param($DesiredStatus, $Timeout)
         $this.WaitCallCount++
         $this.WaitTimeouts += $Timeout
-        if ($this.ThrowOnWait) {
+        if ($this.ThrowOnWait -or $Timeout -le [TimeSpan]::Zero) {
           throw "Time out has expired and the operation has not been completed."
         }
-        $this.Status = $this.StatusAfterWait
+        $this.Status = $DesiredStatus
       }
       return $service
     }
@@ -731,7 +729,7 @@ Describe "Start-NodeResetScriptTask" {
   It "fails when kubelet does not reach Running before the wait times out" {
     $script:kubeletService = New-MockKubeletService -InitialStatus "Stopped" -ThrowOnWait
 
-    { Start-NodeResetScriptTask } | Should -Throw "*kubelet service is not running*Status: Stopped*Time out has expired*"
+    { Start-NodeResetScriptTask } | Should -Throw "*kubelet service did not reach Running*Status: Stopped*Time out has expired*"
     Assert-MockCalled -CommandName Set-ExitCode -Exactly -Times 1 -ParameterFilter {
       $ExitCode -eq $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK
     }
@@ -739,20 +737,13 @@ Describe "Start-NodeResetScriptTask" {
     Assert-MockCalled -CommandName Resume-Service -Exactly -Times 0
   }
 
-  It "fails without waiting when no time is left in the budget" {
+  It "fails immediately when no time is left in the budget" {
     $script:kubeletService = New-MockKubeletService -InitialStatus "Stopped"
 
-    { Start-NodeResetScriptTask -TimeoutSeconds 0 } | Should -Throw "*kubelet service is not running*No time left*"
+    { Start-NodeResetScriptTask -TimeoutSeconds 0 } | Should -Throw "*kubelet service did not reach Running*Status: Stopped*Time out has expired*"
     Assert-MockCalled -CommandName Set-ExitCode -Exactly -Times 1 -ParameterFilter {
       $ExitCode -eq $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK
     }
-    $script:kubeletService.WaitCallCount | Should -Be 0
-  }
-
-  It "fails when kubelet never reaches Running after the wait" {
-    $script:kubeletService = New-MockKubeletService -InitialStatus "Stopped" -StatusAfterWait "Stopped"
-
-    { Start-NodeResetScriptTask } | Should -Throw "*kubelet service is not running*Status: Stopped*"
     $script:kubeletService.WaitCallCount | Should -Be 1
   }
 
