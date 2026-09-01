@@ -1338,11 +1338,18 @@ EOF
             The stdout should include "Current DNS:"
         End
 
-        It 'should return success if resolv.conf is empty'
+        It 'should keep waiting if resolv.conf has no nameservers'
             > "$RESOLV_CONF"
-            When run wait_for_localdns_removed_from_resolv_conf 5
-            The status should be success
-            The stdout should include "DNS configuration refreshed successfully"
+            When run wait_for_localdns_removed_from_resolv_conf 1
+            The status should be failure
+            The stdout should include "Timed out waiting for localdns to be removed"
+        End
+
+        It 'should keep waiting if resolv.conf contains only comments'
+            printf '# nameserver 10.0.0.1\n' > "$RESOLV_CONF"
+            When run wait_for_localdns_removed_from_resolv_conf 1
+            The status should be failure
+            The stdout should include "Timed out waiting for localdns to be removed"
         End
 
         It 'should use default timeout of 5 seconds when not specified'
@@ -1354,11 +1361,11 @@ EOF
             The stdout should include "DNS configuration refreshed successfully"
         End
 
-        It 'should handle resolv.conf not existing gracefully'
+        It 'should fail when resolv.conf does not exist'
             rm -f "$RESOLV_CONF"
-            When run wait_for_localdns_removed_from_resolv_conf 2
-            The status should be success
-            The stdout should include "DNS configuration refreshed successfully"
+            When run wait_for_localdns_removed_from_resolv_conf 1
+            The status should be failure
+            The stdout should include "Timed out waiting for localdns to be removed"
         End
 
         It 'should not match partial IP addresses'
