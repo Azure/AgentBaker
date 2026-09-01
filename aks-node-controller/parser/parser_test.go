@@ -32,6 +32,7 @@ func TestBuildCSECmd(t *testing.T) {
 			k8sVersion: "1.19.13",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
 				aksNodeConfig.GpuConfig.GpuInstanceProfile = "MIG7g"
+				aksNodeConfig.GpuConfig.MigStrategy = "Single"
 				// Skip GPU driver install
 				aksNodeConfig.GpuConfig.EnableNvidia = to.Ptr(false)
 				aksNodeConfig.VmSize = "Standard_ND96asr_v4"
@@ -40,6 +41,10 @@ func TestBuildCSECmd(t *testing.T) {
 				vars := environToMap(cmd.Env)
 				assertHasKeyWithValue(t, vars, "LOCATION", "southcentralus")
 				assert.Equal(t, "false", vars["GPU_NODE"])
+				assertHasKeyWithValue(t, vars, "MIG_NODE", "true")
+				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "MIG7g")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILE_LAYOUT", "")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_STRATEGY", "Single")
 				assert.NotEmpty(t, vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"])
 				// Ensure the containerd config does not use the
 				// nvidia container runtime when skipping the
@@ -78,9 +83,10 @@ oom_score = -999
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
+				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
 				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILE_LAYOUT", "MIG3g,MIG2g,MIG1g,MIG1g")
-				// TODO: Make MIG_NODE true if either NVIDIA_MIG_PROFILE_LAYOUT or GPU_INSTANCE_PROFILE is set.
-				assertHasKeyWithValue(t, vars, "MIG_NODE", "false")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_STRATEGY", "")
+				assertHasKeyWithValue(t, vars, "MIG_NODE", "true")
 			},
 		},
 		{
@@ -400,6 +406,38 @@ func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
 	assert.Equal(t, secret, vars["SERVICE_PRINCIPAL_FILE_CONTENT"])
 }
 
+func TestBuildCSECmd_SetsEnableManagedGpuDra(t *testing.T) {
+	tests := []struct {
+		name     string
+		enabled  bool
+		expected string
+	}{
+		{
+			name:     "disabled by default",
+			expected: "false",
+		},
+		{
+			name:     "enabled",
+			enabled:  true,
+			expected: "true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &aksnodeconfigv1.Configuration{}
+			if tt.enabled {
+				cfg.GpuConfig = &aksnodeconfigv1.GpuConfig{EnableManagedGpuDra: true}
+			}
+			cmd, err := BuildCSECmd(context.TODO(), cfg, nil)
+			require.NoError(t, err)
+
+			vars := environToMap(cmd.Env)
+			assert.Equal(t, tt.expected, vars["ENABLE_MANAGED_GPU_DRA"])
+		})
+	}
+}
+
 func TestBuildCSECmd_StreamingConnectionIdleTimeout_VersionGated(t *testing.T) {
 	testCases := []struct {
 		name           string
@@ -496,7 +534,9 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "VNET_CNI_PLUGINS_URL", "")
 				assertHasKeyWithValue(t, vars, "LOCATION", "")
 				assertHasKeyWithValue(t, vars, "GPU_NODE", "false")
+				assertHasKeyWithValue(t, vars, "MIG_NODE", "false")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
+				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILE_LAYOUT", "")
 				assertHasKeyWithValue(t, vars, "CUSTOM_CA_TRUST_COUNT", "0")
 				assertHasKeyWithValue(t, vars, "SHOULD_CONFIGURE_CUSTOM_CA_TRUST", "false")
 				assertHasKeyWithValue(t, vars, "KUBELET_FLAGS", "")

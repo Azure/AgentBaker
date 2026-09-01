@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -166,14 +165,14 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 	return pod, err
 }
 
-func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) (string, error) {
-	defer toolkit.LogStepf(t, "waiting for node %s to be ready", vmssName)()
+func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, logger toolkit.Logger, vmssName string) (string, error) {
+	defer toolkit.LogStepf(logger, "waiting for node %s to be ready", vmssName)()
 	var lastNode *corev1.Node
 
 	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
 		nodes, err := k.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 		if err != nil {
-			t.Logf("error listing nodes: %v", err)
+			logger.Logf("error listing nodes: %v", err)
 			return false, nil
 		}
 
@@ -189,12 +188,12 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssN
 
 			for _, cond := range node.Status.Conditions {
 				if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
-					t.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
+					logger.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
 					return true, nil
 				}
 			}
 
-			t.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
+			logger.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
 		}
 
 		return false, nil
@@ -871,7 +870,7 @@ func (k *Kubeclient) logProxyTimeoutDiagnostics(ctx context.Context, lastPodStat
 	}
 }
 
-func getClusterSubnetID(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (string, error) {
+func getClusterSubnetID(cluster *armcontainerservice.ManagedCluster) (string, error) {
 	for _, pool := range cluster.Properties.AgentPoolProfiles {
 		if pool.VnetSubnetID != nil && *pool.VnetSubnetID != "" {
 			return *pool.VnetSubnetID, nil

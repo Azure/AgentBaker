@@ -141,6 +141,8 @@ steps:
       BUILD_DATE: $(BUILD_DATE)
       WINDOWS_CSE_PACKAGE_URI: ${{ parameters.csePackageDir }}/${{ parameters.csePackageFileName }}
       DRY_RUN: $(DRY_RUN)
+      ENVIRONMENT: $(ENVIRONMENT)
+      GENERATE_PUBLISHING_INFO: $(GENERATE_PUBLISHING_INFO)
 
 
   # Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
@@ -239,26 +241,148 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
-        set -e
+        set -euo pipefail
         # because SUBSCRIPTION_ID and LOCATION are defined as a pipeline variable, setting this in the "env" section below doesn't work.
         export LOCATION=$(AZURE_BUILD_LOCATION)
 
         export SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
         export CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+        export DESTINATION_STORAGE_CONTAINER="${STORAGE_ACCT_BLOB_URL}"
+
+        if [ "${ENVIRONMENT,,}" = "tme" ] && [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ]; then
+          if [ -z "${STORAGE_ACCT_BLOB_URL_STAGING}" ]; then
+            echo "##vso[task.logissue type=error]CLASSIC_BLOB_STAGING must be configured for TME Windows release-candidate builds"
+            exit 1
+          fi
+
+          staging_container_exists=$(az storage container exists \
+            --account-name "${STORAGE_ACCOUNT_NAME}" \
+            --name "${VHD_STAGING_CONTAINER_NAME}" \
+            --auth-mode login \
+            --query exists \
+            --output tsv)
+          if [ "${staging_container_exists,,}" != "true" ]; then
+            echo "Creating staging container ${VHD_STAGING_CONTAINER_NAME} in storage account ${STORAGE_ACCOUNT_NAME}"
+            az storage container create \
+              --account-name "${STORAGE_ACCOUNT_NAME}" \
+              --name "${VHD_STAGING_CONTAINER_NAME}" \
+              --auth-mode login \
+              --output none
+          fi
+          export DESTINATION_STORAGE_CONTAINER="${STORAGE_ACCT_BLOB_URL_STAGING}"
+        fi
 
         make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-    condition: and(succeeded(), ne(variables.skipping_vhd_build, 'true'), eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
+    condition: and(succeeded(), ne(variables.skipping_vhd_build, 'true'), eq(variables.DRY_RUN, 'False'), or(eq(variables.SIG_FOR_PRODUCTION, 'True'), eq(variables.GENERATE_PUBLISHING_INFO, 'True')))
     env:
       LOCATION: $(AZURE_BUILD_LOCATION)
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       OS_TYPE: "Windows"
       ENABLE_TRUSTED_LAUNCH: ${{ parameters.enableTrustedLaunch }}
-      CLASSIC_BLOB: $(STORAGE_ACCT_BLOB_URL)
-      DESTINATION_STORAGE_CONTAINER: $(STORAGE_ACCT_BLOB_URL)
       SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
       SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
       SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
+      ENVIRONMENT: $(ENVIRONMENT)
+      GENERATE_PUBLISHING_INFO: $(GENERATE_PUBLISHING_INFO)
+      STORAGE_ACCT_BLOB_URL: $(STORAGE_ACCT_BLOB_URL)
+      STORAGE_ACCT_BLOB_URL_STAGING: $(CLASSIC_BLOB_STAGING)
+      STORAGE_ACCOUNT_NAME: $(STORAGE_ACCOUNT_NAME)
+      VHD_STAGING_CONTAINER_NAME: $(VHD_STAGING_CONTAINER_NAME)
+
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -euo pipefail
+
+        captured_sig_version=$(jq -r '.captured_sig_version' vhdbuilder/packer/settings.json)
+        vhd_name="${captured_sig_version}.vhd"
+        source_uri="${STORAGE_ACCT_BLOB_URL_STAGING}/${vhd_name}"
+
+        destination_exists=$(az storage blob exists \
+          --account-name "${STORAGE_ACCOUNT_NAME}" \
+          --container-name "${VHD_CONTAINER_NAME}" \
+          --name "${vhd_name}" \
+          --auth-mode login \
+          --query exists \
+          --output tsv)
+
+        if [ "${destination_exists,,}" != "true" ]; then
+          echo "Copying ${source_uri} to immutable container ${VHD_CONTAINER_NAME}"
+          az storage blob copy start \
+            --account-name "${STORAGE_ACCOUNT_NAME}" \
+            --destination-container "${VHD_CONTAINER_NAME}" \
+            --destination-blob "${vhd_name}" \
+            --source-uri "${source_uri}" \
+            --auth-mode login \
+            --output none
+        else
+          echo "Destination VHD ${VHD_CONTAINER_NAME}/${vhd_name} already exists; checking its copy status"
+        fi
+
+        copy_status=""
+        for _ in $(seq 1 120); do
+          copy_status=$(az storage blob show \
+            --account-name "${STORAGE_ACCOUNT_NAME}" \
+            --container-name "${VHD_CONTAINER_NAME}" \
+            --name "${vhd_name}" \
+            --auth-mode login \
+            --query properties.copy.status \
+            --output tsv)
+          case "${copy_status}" in
+            success)
+              break
+              ;;
+            failed|aborted)
+              echo "##vso[task.logissue type=error]VHD copy to immutable container finished with status ${copy_status}"
+              exit 1
+              ;;
+          esac
+          sleep 15
+        done
+
+        if [ "${copy_status}" != "success" ]; then
+          echo "##vso[task.logissue type=error]Timed out waiting for VHD copy to immutable container; last status was ${copy_status}"
+          exit 1
+        fi
+
+        source_exists=$(az storage blob exists \
+          --account-name "${STORAGE_ACCOUNT_NAME}" \
+          --container-name "${VHD_STAGING_CONTAINER_NAME}" \
+          --name "${vhd_name}" \
+          --auth-mode login \
+          --query exists \
+          --output tsv)
+        if [ "${source_exists,,}" = "true" ]; then
+          az storage blob delete \
+            --account-name "${STORAGE_ACCOUNT_NAME}" \
+            --container-name "${VHD_STAGING_CONTAINER_NAME}" \
+            --name "${vhd_name}" \
+            --auth-mode login \
+            --output none
+        fi
+
+        source_exists=$(az storage blob exists \
+          --account-name "${STORAGE_ACCOUNT_NAME}" \
+          --container-name "${VHD_STAGING_CONTAINER_NAME}" \
+          --name "${vhd_name}" \
+          --auth-mode login \
+          --query exists \
+          --output tsv)
+        if [ "${source_exists,,}" = "true" ]; then
+          echo "##vso[task.logissue type=error]Staging VHD ${VHD_STAGING_CONTAINER_NAME}/${vhd_name} still exists after cleanup"
+          exit 1
+        fi
+    displayName: Copy VHD to Immutable TME Storage
+    condition: and(succeeded(), ne(variables.skipping_vhd_build, 'true'), eq(variables.DRY_RUN, 'False'), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+    env:
+      STORAGE_ACCT_BLOB_URL_STAGING: $(CLASSIC_BLOB_STAGING)
+      STORAGE_ACCOUNT_NAME: $(STORAGE_ACCOUNT_NAME)
+      VHD_CONTAINER_NAME: $(VHD_CONTAINER_NAME)
+      VHD_STAGING_CONTAINER_NAME: $(VHD_STAGING_CONTAINER_NAME)
 
   # SA_NAME:             Temporary storage account name
   # IMPORTED_IMAGE_NAME: Build output for windowsVhdMode is SIG. Packer does not support building a SIG from raw
@@ -309,7 +433,7 @@ steps:
       inlineScript: |
         set -e
 
-        if [[ "${SIG_FOR_PRODUCTION}" == "True" ]]; then
+        if [ "${SIG_FOR_PRODUCTION,,}" = "true" ] || [ "${GENERATE_PUBLISHING_INFO,,}" = "true" ]; then
           export captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
           [ -n "${captured_sig_version}" ] && export VHD_NAME="${captured_sig_version}.vhd";
         else
@@ -319,10 +443,10 @@ steps:
         export SKU_NAME="windows-$WINDOWS_SKU";
 
         make -f packer.mk generate-publishing-info
-    displayName: Getting Shared Access Signature URI
-    condition: and(succeeded(), ne(variables.skipping_vhd_build, 'true'), eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
+    displayName: Generate Publishing Info
+    condition: and(succeeded(), ne(variables.skipping_vhd_build, 'true'), eq(variables.DRY_RUN, 'False'), or(eq(variables.SIG_FOR_PRODUCTION, 'True'), eq(variables.GENERATE_PUBLISHING_INFO, 'True')))
     env:
-      SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
+      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       STORAGE_ACCT_BLOB_URL: $(STORAGE_ACCT_BLOB_URL)
       VHD_NAME: $(VHD_NAME)
       OS_NAME: "Windows"
@@ -334,10 +458,11 @@ steps:
       HYPERV_GENERATION: ${{ parameters.hyperVGeneration }}
       OS_TYPE: "Windows"
       WINDOWS_SKU: ${{ parameters.windowsSku }}
+      GENERATE_PUBLISHING_INFO: $(GENERATE_PUBLISHING_INFO)
 
-  # Will be stepped in if the sig is for production
+  # Publishing info is required for production releases and TME release candidates.
   - task: PublishPipelineArtifact@1
     inputs:
       artifactName: 'publishing-info-${{ parameters.artifactName }}'
       targetPath: 'vhd-publishing-info.json'
-    condition: and(succeeded(), ne(variables.skipping_vhd_build, 'true'), eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
+    condition: and(succeeded(), ne(variables.skipping_vhd_build, 'true'), eq(variables.DRY_RUN, 'False'), or(eq(variables.SIG_FOR_PRODUCTION, 'True'), eq(variables.GENERATE_PUBLISHING_INFO, 'True')))

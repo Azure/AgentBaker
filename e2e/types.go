@@ -14,6 +14,7 @@ import (
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
@@ -150,7 +151,20 @@ type Scenario struct {
 
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
-	T       testing.TB
+
+	// T is reserved for test control only: reporting failures, skipping and
+	// creating sub-tests. Use Logger for logging, never T.
+	T testing.TB
+
+	// Logger writes the scenario log. It is set by the test runner before the
+	// scenario starts and carries no test-control capability.
+	Logger toolkit.Logger
+
+	// testName is the name of the test running the scenario. It is used to name
+	// the artifacts the scenario writes to disk.
+	testName string
+
+	cleanup *scenarioCleanup
 }
 
 type ScenarioRuntime struct {

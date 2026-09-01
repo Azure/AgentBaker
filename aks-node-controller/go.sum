@@ -1,3 +1,5 @@
+github.com/Azure/agentbaker/aks-live-patching v0.20260831.0 h1:nKQaxhJUTsZQuKt73fhgmuRKf8/bP+NadZgeMkoEF6c=
+github.com/Azure/agentbaker/aks-live-patching v0.20260831.0/go.mod h1:+sEaCL2ZNsq3HFM2ScKuOH84K6RwPJIA6NBcyZanhZk=
 github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.1 h1:Wc1ml6QlJs2BHQ/9Bqu1jiyggbsSjramq2oUmp5WeIo=
 github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.1/go.mod h1:Ot/6aikWnKWi4l9QB7qVSwa8iMphQNqkWALMoNT3rzM=
 github.com/Masterminds/semver/v3 v3.5.0 h1:kQceYJfbupGfZOKZQg0kou0DgAKhzDg2NZPAwZ/2OOE=

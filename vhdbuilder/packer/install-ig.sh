@@ -19,9 +19,9 @@ IG_SKIP_FILE="/etc/ig.d/skip_vhd_ig"
 # Since ig-gadgets has a different publishing pattern, keep it out of
 # components.json and let Renovate manage the pinned package versions here.
 # renovate: datasource=custom.deb2004 depName=ig-gadgets versioning=deb
-IG_GADGETS_DEB_VERSION="0.55.0-ubuntu20.04u1"
+IG_GADGETS_DEB_VERSION="0.55.1-ubuntu20.04u1"
 # renovate: datasource=rpm depName=ig-gadgets registryUrl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata
-IG_GADGETS_RPM_VERSION="0.55.0-1.azl3"
+IG_GADGETS_RPM_VERSION="0.55.1-1.azl3"
 
 ig_detect_arch() {
     CPU_ARCH=$(getCPUArch)

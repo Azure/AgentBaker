@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	corev1 "k8s.io/api/core/v1"
 	nodev1 "k8s.io/api/node/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -49,8 +49,6 @@ var kataRuntimeHandlers = []string{kataRuntimeHandler, kataPreviewRuntimeHandler
 // emit. If Kata is ever promoted to the V2 templates, this validator should fail loudly rather
 // than silently pass, which is why the plugin paths are asserted explicitly.
 func ValidateKataContainerdConfig(ctx context.Context, s *Scenario) error {
-	s.T.Helper()
-
 	if err := assert.Equal(s.VHD.Distro.IsKataDistro(), true,
 		"ValidateKataContainerdConfig requires a Kata distro, got %q", s.VHD.Distro); err != nil {
 		return err
@@ -71,8 +69,6 @@ func ValidateKataContainerdConfig(ctx context.Context, s *Scenario) error {
 // ValidateKataErofsContainerdConfig checks that the EROFS snapshotter is configured and that
 // containerd loaded all of its EROFS plugins successfully.
 func ValidateKataErofsContainerdConfig(ctx context.Context, s *Scenario) error {
-	s.T.Helper()
-
 	errs := []error{
 		ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.snapshotter.v1.erofs"]`),
 	}
@@ -114,8 +110,6 @@ func ValidateKataErofsContainerdConfig(ctx context.Context, s *Scenario) error {
 // the Kata handlers are present in the effective configuration and containerd raised no
 // warnings while getting there.
 func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) error {
-	s.T.Helper()
-
 	// This must run on the node itself, not in a debug pod. The "debugnonhost" daemonset pods
 	// used by execOnVMForScenarioOnUnprivilegedPod run a bare CBL-Mariner base image with no
 	// volume mounts, so the host's containerd binary is not reachable from them and the command
@@ -162,8 +156,6 @@ func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) error {
 // ship and that the containerd config references. Without these, the containerd config would be
 // syntactically valid but the kata shim would fail at pod sandbox creation time.
 func ValidateKataHostReadiness(ctx context.Context, s *Scenario) error {
-	s.T.Helper()
-
 	var errs []error
 
 	// The kata shim binary that runtime_type = "io.containerd.kata.v2" resolves to.
@@ -205,8 +197,6 @@ func ValidateKataHostReadiness(ctx context.Context, s *Scenario) error {
 // interfere with other scenarios running in parallel against the same cluster, and is named
 // after the handler so that several handlers can be validated on one node.
 func ValidateKataPodIsIsolated(ctx context.Context, s *Scenario, handler string) error {
-	s.T.Helper()
-
 	hostKernelResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "uname -r", 0, "unable to read host kernel release")
 	if err != nil {
 		return err
@@ -234,7 +224,7 @@ func ValidateKataPodIsIsolated(ctx context.Context, s *Scenario, handler string)
 		return err
 	}
 
-	s.T.Logf("host kernel: %q, kata guest kernel: %q", hostKernel, guestKernel)
+	s.Logger.Logf("host kernel: %q, kata guest kernel: %q", hostKernel, guestKernel)
 	return assert.NotEqual(guestKernel, hostKernel,
 		"pod running under the %q RuntimeClass reported the same kernel release as the host, "+
 			"which means it was not launched inside a Kata VM", handler)
@@ -243,45 +233,53 @@ func ValidateKataPodIsIsolated(ctx context.Context, s *Scenario, handler string)
 // createKataRuntimeClass creates a RuntimeClass for the given handler scoped to the scenario's
 // node and registers its cleanup. It returns the RuntimeClass name.
 func createKataRuntimeClass(ctx context.Context, s *Scenario, handler string) (string, error) {
-	s.T.Helper()
-
 	kube := s.Runtime.Kube
-	name := truncateKataResourceName(fmt.Sprintf("%s-%s", handler, s.Runtime.VM.KubeName))
+	name := uniqueKubernetesResourceName(fmt.Sprintf("%s-%s", handler, s.Runtime.VM.KubeName))
+	ownerReference, err := scenarioNodeOwnerReference(ctx, s)
+	if err != nil {
+		return "", err
+	}
 
 	runtimeClass := &nodev1.RuntimeClass{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Handler:    handler,
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            name,
+			OwnerReferences: []metav1.OwnerReference{ownerReference},
+		},
+		Handler: handler,
 		Scheduling: &nodev1.Scheduling{
 			NodeSelector: map[string]string{"kubernetes.io/hostname": s.Runtime.VM.KubeName},
 		},
 	}
 
-	if _, err := kube.Typed.NodeV1().RuntimeClasses().Create(ctx, runtimeClass, metav1.CreateOptions{}); err != nil {
+	created, err := kube.Typed.NodeV1().RuntimeClasses().Create(ctx, runtimeClass, metav1.CreateOptions{})
+	if err != nil {
 		return "", fmt.Errorf("failed to create RuntimeClass %q for handler %q: %w", name, handler, err)
 	}
 
-	s.T.Cleanup(func() {
-		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
-		defer cancel()
-		if err := kube.Typed.NodeV1().RuntimeClasses().Delete(cleanupCtx, name, metav1.DeleteOptions{}); err != nil {
-			s.T.Logf("could not delete RuntimeClass %s: %v", name, err)
+	s.Cleanup(func(ctx context.Context) error {
+		if err := kube.Typed.NodeV1().RuntimeClasses().Delete(ctx, created.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("delete RuntimeClass %q: %w", created.Name, err)
 		}
+		return nil
 	})
 
-	return name, nil
+	return created.Name, nil
 }
 
 // createKataPod creates a long-lived pod bound to the given Kata RuntimeClass on the scenario's
 // node, waits for it to reach Running, and registers its cleanup. Unlike ValidatePodRunning the
 // pod is kept alive after this returns so callers can exec into it.
 func createKataPod(ctx context.Context, s *Scenario, runtimeClassName, handler string) (*corev1.Pod, error) {
-	s.T.Helper()
-
 	kube := s.Runtime.Kube
+	ownerReference, err := scenarioNodeOwnerReference(ctx, s)
+	if err != nil {
+		return nil, err
+	}
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      truncateKataResourceName(fmt.Sprintf("%s-%s-pod", s.Runtime.VM.KubeName, handler)),
-			Namespace: "default",
+			Name:            uniqueKubernetesResourceName(fmt.Sprintf("%s-%s-pod", handler, s.Runtime.VM.KubeName)),
+			Namespace:       "default",
+			OwnerReferences: []metav1.OwnerReference{ownerReference},
 		},
 		Spec: corev1.PodSpec{
 			RuntimeClassName: to.Ptr(runtimeClassName),
@@ -299,37 +297,27 @@ func createKataPod(ctx context.Context, s *Scenario, runtimeClassName, handler s
 		},
 	}
 
-	s.T.Logf("creating pod %q under RuntimeClass %q", pod.Name, runtimeClassName)
-	if _, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{}); err != nil {
+	s.Logger.Logf("creating pod %q under RuntimeClass %q", pod.Name, runtimeClassName)
+	created, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
+	if err != nil {
 		return nil, fmt.Errorf("failed to create kata pod %q: %w", pod.Name, err)
 	}
 
-	s.T.Cleanup(func() {
-		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
-		defer cancel()
-		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(cleanupCtx, pod.Name, metav1.DeleteOptions{
+	s.Cleanup(func(ctx context.Context) error {
+		err := kube.Typed.CoreV1().Pods(created.Namespace).Delete(ctx, created.Name, metav1.DeleteOptions{
 			GracePeriodSeconds: to.Ptr(int64(0)),
 		})
-		if err != nil {
-			s.T.Logf("could not delete pod %s: %v", pod.Name, err)
+		if err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("delete pod %q: %w", created.Name, err)
 		}
+		return nil
 	})
 
-	running, err := kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name)
+	running, err := kube.WaitUntilPodRunning(ctx, created.Namespace, "", "metadata.name="+created.Name)
 	if err != nil {
 		return nil, fmt.Errorf("kata pod %q never reached Running. This usually means containerd did not register the %q "+
-			"runtime handler from the AgentBaker-generated config: %w", pod.Name, handler, err)
+			"runtime handler from the AgentBaker-generated config: %w", created.Name, handler, err)
 	}
 
 	return running, nil
-}
-
-// truncateKataResourceName keeps generated Kubernetes object names within the 63 character
-// DNS-1123 label limit.
-func truncateKataResourceName(name string) string {
-	const maxLen = 63
-	if len(name) <= maxLen {
-		return name
-	}
-	return strings.TrimRight(name[:maxLen], "-")
 }

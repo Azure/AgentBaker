@@ -8,6 +8,7 @@ import (
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -695,6 +696,57 @@ func Test_Ubuntu2204_ScriptlessCSECmd_Hotfix(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2404_CheckHotfixFromNBCCmd(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that check-hotfix resolves the LPS target from the Phase 2 NBC command",
+		Config: Config{
+			Cluster:               ClusterKubenet,
+			VHD:                   config.VHDUbuntu2404Gen2Containerd,
+			SkipDefaultValidation: true,
+			Validator: func(ctx context.Context, s *Scenario) error {
+				result, err := execScriptOnVMForScenarioValidateExitCode(
+					ctx,
+					s,
+					`set -eu
+config_path=/opt/azure/containers/aks-node-controller-config.json
+nbc_cmd_path=/opt/azure/containers/aks-node-controller-nbc-cmd.sh
+anc_path=/opt/azure/containers/aks-node-controller-hotfix
+
+sudo test ! -e "$config_path" || {
+	echo "$config_path unexpectedly exists" >&2
+	exit 1
+}
+sudo test -e "$nbc_cmd_path" || {
+	echo "$nbc_cmd_path does not exist" >&2
+	exit 1
+}
+if ! sudo test -x "$anc_path"; then
+	anc_path=/opt/azure/containers/aks-node-controller
+fi
+sudo test -x "$anc_path" || {
+	echo "no executable aks-node-controller binary found" >&2
+	exit 1
+}
+
+echo "using ANC binary: $anc_path"
+sudo "$anc_path" check-hotfix`,
+					0,
+					"check-hotfix NBC command fallback failed",
+				)
+				if err != nil {
+					return err
+				}
+
+				output := result.stdout + "\n" + result.stderr
+				return errors.Join(
+					assert.Contains(output, "node config not found, trying nbc-cmd.sh fallback"),
+					assert.Contains(output, "loaded LPS target from nbc-cmd.sh fallback"),
+				)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204FIPS(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 FIPS Gen1 VHD can be properly bootstrapped",
@@ -1138,6 +1190,68 @@ func Test_Ubuntu2404_ArtifactStreaming_ARM64(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404ArmContainerd,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableArtifactStreaming = true
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+				nbc.IsARM64 = true
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.EnableArtifactStreaming = true
+				config.VmSize = "Standard_D2pds_V5"
+			},
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "containerd.service"),
+				)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_ArtifactStreaming(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2604 minimal node using artifact streaming can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersionKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableArtifactStreaming = true
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.EnableArtifactStreaming = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),
+					ValidateSystemdUnitIsRunning(ctx, s, "containerd.service"),
+				)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2604Minimal_ArtifactStreaming_ARM64(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2604 minimal node using artifact streaming and ARM64 architecture can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterLatestKubernetesVersionKubenet,
+			VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
@@ -2065,7 +2179,7 @@ func Test_Ubuntu2604Minimal(t *testing.T) {
 					ValidateContainerd2Properties(ctx, s, containerdVersions),
 					ValidateRuncVersion(ctx, s, runcVersions),
 					ValidateContainerRuntimePlugins(ctx, s),
-					// ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
+					ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 					ValidateSSHServiceEnabled(ctx, s),
 				)
 			},
@@ -2088,7 +2202,7 @@ func Test_Ubuntu2604Minimal_AzureCNI(t *testing.T) {
 					ValidateContainerd2Properties(ctx, s, containerdVersions),
 					ValidateRuncVersion(ctx, s, runcVersions),
 					ValidateContainerRuntimePlugins(ctx, s),
-					// ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
+					ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 					ValidateSSHServiceEnabled(ctx, s),
 				)
 			},
@@ -2822,7 +2936,7 @@ func Test_Ubuntu2604MinimalArm64(t *testing.T) {
 					ValidateContainerd2Properties(ctx, s, containerdVersions),
 					ValidateRuncVersion(ctx, s, runcVersions),
 					ValidateContainerRuntimePlugins(ctx, s),
-					// ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
+					ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 					ValidateSSHServiceEnabled(ctx, s),
 				)
 			},
@@ -2849,7 +2963,7 @@ func Test_Ubuntu2604MinimalArm64_AzureCNI(t *testing.T) {
 					ValidateContainerd2Properties(ctx, s, containerdVersions),
 					ValidateRuncVersion(ctx, s, runcVersions),
 					ValidateContainerRuntimePlugins(ctx, s),
-					// ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0])
+					ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 					ValidateSSHServiceEnabled(ctx, s),
 				)
 			},
