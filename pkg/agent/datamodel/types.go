@@ -1582,11 +1582,11 @@ func setCustomKubletConfigFromSettings(customKc *CustomKubeletConfig, kubeletCon
 }
 
 /*
-getKubeletConfigForPowershell returns the merged kubelet configuration for a Windows node. Windows
+getWindowsKubeletConfig returns the merged kubelet configuration for a Windows node. Windows
 kubelet is configured through command line flags only, so this map is the single source of truth for
 every kubelet setting on the node.
 */
-func (config *NodeBootstrappingConfiguration) getKubeletConfigForPowershell(customKc *CustomKubeletConfig) map[string]string {
+func (config *NodeBootstrappingConfiguration) getWindowsKubeletConfig(customKc *CustomKubeletConfig) map[string]string {
 	kubeletConfig := config.KubeletConfig
 	if kubeletConfig == nil {
 		kubeletConfig = map[string]string{}
@@ -1607,12 +1607,12 @@ func (config *NodeBootstrappingConfiguration) getKubeletConfigForPowershell(cust
 }
 
 /*
-GetKubeletHealthzURIForPowershell returns the local URI that Windows CSE polls to confirm kubelet
+GetKubeletHealthzURIForWindows returns the local URI that Windows CSE polls to confirm kubelet
 initialized after the node reset task started it. It returns an empty string when kubelet serves no
 healthz endpoint, which is the case when --healthz-port is not positive.
 */
-func (config *NodeBootstrappingConfiguration) GetKubeletHealthzURIForPowershell(customKc *CustomKubeletConfig) string {
-	kubeletConfig := config.getKubeletConfigForPowershell(customKc)
+func (config *NodeBootstrappingConfiguration) GetKubeletHealthzURIForWindows(customKc *CustomKubeletConfig) string {
+	kubeletConfig := config.getWindowsKubeletConfig(customKc)
 
 	// Defaults match kubelet's own defaults for --healthz-port and --healthz-bind-address.
 	port := defaultKubeletHealthzPort
@@ -1648,7 +1648,7 @@ GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val 
 script consumption.
 */
 func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell(customKc *CustomKubeletConfig) string {
-	kubeletConfig := config.getKubeletConfigForPowershell(customKc)
+	kubeletConfig := config.getWindowsKubeletConfig(customKc)
 
 	if len(kubeletConfig) == 0 {
 		return ""

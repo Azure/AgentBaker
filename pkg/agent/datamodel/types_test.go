@@ -3082,7 +3082,7 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 	}
 }
 
-func TestGetKubeletHealthzURIForPowershell(t *testing.T) {
+func TestGetKubeletHealthzURIForWindows(t *testing.T) {
 	cases := []struct {
 		name          string
 		kubeletConfig map[string]string
@@ -3153,14 +3153,14 @@ func TestGetKubeletHealthzURIForPowershell(t *testing.T) {
 				ContainerService: &ContainerService{Properties: &Properties{}},
 				KubeletConfig:    c.kubeletConfig,
 			}
-			if actual := config.GetKubeletHealthzURIForPowershell(nil); actual != c.expected {
+			if actual := config.GetKubeletHealthzURIForWindows(nil); actual != c.expected {
 				t.Fatalf("expected: %q. Got: %q.", c.expected, actual)
 			}
 		})
 	}
 }
 
-func TestGetKubeletHealthzURIForPowershellHonorsWindowsCustomConfiguration(t *testing.T) {
+func TestGetKubeletHealthzURIForWindowsHonorsCustomConfiguration(t *testing.T) {
 	config := &NodeBootstrappingConfiguration{
 		ContainerService: &ContainerService{
 			Properties: &Properties{
@@ -3177,7 +3177,7 @@ func TestGetKubeletHealthzURIForPowershellHonorsWindowsCustomConfiguration(t *te
 	}
 
 	expected := "http://127.0.0.1:10267/healthz"
-	if actual := config.GetKubeletHealthzURIForPowershell(nil); actual != expected {
+	if actual := config.GetKubeletHealthzURIForWindows(nil); actual != expected {
 		t.Fatalf("expected: %q. Got: %q.", expected, actual)
 	}
 }
