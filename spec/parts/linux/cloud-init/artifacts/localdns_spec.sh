@@ -397,6 +397,7 @@ EOF
             cat > "${AKS_NODE_CONTROLLER_BINARY}" <<'EOF'
 #!/bin/bash
 echo "anc args: $*"
+echo "applied"
 exit 0
 EOF
             chmod +x "${AKS_NODE_CONTROLLER_BINARY}"
@@ -404,7 +405,8 @@ EOF
             When run refresh_localdns_corefile_from_lps
             The status should be success
             The output should include "anc args: fetch-localdns-config --output ${LIVEPATCHED_LOCALDNS_CORE_FILE}"
-            The output should include "Completed LocalDNS LPS config fetch."
+            The output should include "LocalDNS LPS config fetch outcome: anc args: fetch-localdns-config --output ${LIVEPATCHED_LOCALDNS_CORE_FILE}"
+            The output should include "applied"
         End
 
         It 'should skip LocalDNS LPS config fetch when aks-node-controller binary is missing'
