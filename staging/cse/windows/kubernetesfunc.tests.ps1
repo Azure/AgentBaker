@@ -187,6 +187,7 @@ Describe 'Get-CACertificates' {
         Assert-MockCalled -CommandName Retry-Command -Exactly -Times 1
         $script:retryUris | Should -Contain 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
         $script:retryUris | Should -Not -Contain 'http://168.63.129.16/acms/isOptedInForRootCerts'
+        [IO.File]::ReadAllBytes('C:\ca\legacy.crt') | Should -Not -Contain 0
         Assert-MockCalled -CommandName Import-Certificate -Exactly -Times 1 -ParameterFilter {
             $FilePath -eq 'C:\ca\legacy.crt' -and
             $CertStoreLocation -eq 'Cert:\LocalMachine\Root' -and
@@ -213,6 +214,8 @@ Describe 'Get-CACertificates' {
         $result = Get-CACertificates -Location 'southcentralus'
 
         $result | Should -Be $true
+        [IO.File]::ReadAllBytes('C:\ca\root.crt') | Should -Not -Contain 0
+        [IO.File]::ReadAllBytes('C:\ca\intermediate.crt') | Should -Not -Contain 0
         Assert-MockCalled -CommandName Import-Certificate -Exactly -Times 1 -ParameterFilter {
             $FilePath -eq 'C:\ca\root.crt' -and
             $CertStoreLocation -eq 'Cert:\LocalMachine\Root' -and

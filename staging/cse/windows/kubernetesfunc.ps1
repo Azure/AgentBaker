@@ -356,8 +356,9 @@ function Get-CACertificates {
         Write-Log "Get CA certificates. Location: $Location. EndpointMode: $certEndpointMode"
     }
 
-    # Get-CACertificates downloads Azure root CA certificates from wireserver and writes them
-    # to the local certificate folder. When called with -FailOnError, wireserver unreachable
+    # C:\ca is a staging location; installing WireServer certificates into LocalMachine trust
+    # stores is intentional and matches the system-wide trust behavior on Linux.
+    # When called with -FailOnError, wireserver unreachable
     # after retries is fatal — silently falling back to the OS default trust store would be a
     # security hole if the customer intended hardened root certs. This matches the Linux
     # behavior in init-aks-cloud.sh (is_opted_in_for_root_certs return code 2 = fatal).
@@ -379,7 +380,7 @@ function Get-CACertificates {
                 $name = $certificate.Name
                 $certFilePath = Join-Path $caFolder $name
                 Write-Log "Write certificate $name to $certFilePath"
-                $certificate.CertBody > $certFilePath
+                $certificate.CertBody | Out-File -Encoding ascii -FilePath $certFilePath
                 # The legacy endpoint returns trusted root certificates only.
                 Write-Log "Import certificate $name to the LocalMachine Root certificate store"
                 Import-Certificate -FilePath $certFilePath -CertStoreLocation 'Cert:\LocalMachine\Root' -ErrorAction Stop | Out-Null
@@ -445,7 +446,7 @@ function Get-CACertificates {
 
                 $certFilePath = Join-Path $caFolder $resourceFileName
                 Write-Log "Write certificate $resourceFileName to $certFilePath"
-                $certContentResponse.Content > $certFilePath
+                $certContentResponse.Content | Out-File -Encoding ascii -FilePath $certFilePath
                 Write-Log "Import certificate $resourceFileName to $certStoreLocation"
                 Import-Certificate -FilePath $certFilePath -CertStoreLocation $certStoreLocation -ErrorAction Stop | Out-Null
                 $downloadedAny = $true

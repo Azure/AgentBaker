@@ -4339,21 +4339,27 @@ func rcv1pTrustStoreDir(s *Scenario) string {
 // ValidateRCV1PCertModeWindows validates that the rcv1p certificate endpoint mode was used during
 // Windows node provisioning, certificates were downloaded and installed, and a refresh task was scheduled.
 func ValidateRCV1PCertModeWindows(ctx context.Context, s *Scenario) error {
-	// Validate CA certificates were downloaded to C:\ca (matches Windows Get-CACertificates
-	// behavior; import into Cert:\LocalMachine\Root is handled out-of-band by the platform/
-	// refresh task, not by CSE).
+	// Validate every downloaded certificate can be parsed and was installed system-wide.
 	command := []string{
 		"$ErrorActionPreference = 'Stop'",
 		"$caFolder = 'C:\\ca'",
 		"if (-not (Test-Path $caFolder)) { throw 'CA certificates folder C:\\ca does not exist' }",
 		"$certs = Get-ChildItem -Path $caFolder -File",
 		"if ($certs.Count -eq 0) { throw 'No certificates found in C:\\ca folder' }",
-		"Write-Host \"Found $($certs.Count) certificate(s) in $caFolder\"",
+		"$certStorePaths = @('Cert:\\LocalMachine\\Root', 'Cert:\\LocalMachine\\CA')",
+		"$installedCerts = Get-ChildItem -Path $certStorePaths",
+		"foreach ($cert in $certs) {",
+		"    $downloadedCert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($cert.FullName)",
+		"    if (-not ($installedCerts | Where-Object Thumbprint -eq $downloadedCert.Thumbprint)) {",
+		"        throw \"Certificate $($cert.Name) with thumbprint $($downloadedCert.Thumbprint) is not installed in the LocalMachine Root or CA store\"",
+		"    }",
+		"}",
+		"Write-Host \"Found and validated $($certs.Count) certificate(s) in $caFolder\"",
 	}
 	var errs []error
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
-		"expected certificates in C:\\ca"); err != nil {
-		errs = append(errs, fmt.Errorf(`check certificates in C:\ca: %w`, err))
+		"expected certificates in C:\\ca to be installed in LocalMachine trust stores"); err != nil {
+		errs = append(errs, fmt.Errorf(`check certificates in C:\ca are installed in LocalMachine trust stores: %w`, err))
 	}
 
 	// Validate the refresh scheduled task exists
