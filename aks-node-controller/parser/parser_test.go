@@ -455,7 +455,9 @@ func TestBuildCSECmd_PreservesProxyValuesAsData(t *testing.T) {
 	assert.Equal(t, httpProxy, vars["HTTP_PROXY_URLS"])
 	assert.Equal(t, httpsProxy, vars["HTTPS_PROXY_URLS"])
 	assert.Equal(t, strings.Join(noProxy, ","), vars["NO_PROXY_URLS"])
-	assert.Equal(t, `if [ -n "$HTTP_PROXY_URLS" ]; then export http_proxy="$HTTP_PROXY_URLS"; fi; if [ -n "$HTTPS_PROXY_URLS" ]; then export HTTPS_PROXY="$HTTPS_PROXY_URLS"; fi; if [ -n "$NO_PROXY_URLS" ]; then export NO_PROXY="$NO_PROXY_URLS"; fi`, vars["PROXY_VARS"])
+	assert.Equal(t, `if [ -n "$HTTP_PROXY_URLS" ]; then export http_proxy="$HTTP_PROXY_URLS"; fi; `+
+		`if [ -n "$HTTPS_PROXY_URLS" ]; then export HTTPS_PROXY="$HTTPS_PROXY_URLS"; fi; `+
+		`if [ -n "$NO_PROXY_URLS" ]; then export NO_PROXY="$NO_PROXY_URLS"; fi`, vars["PROXY_VARS"])
 }
 
 func TestBuildCSECmd_StreamingConnectionIdleTimeout_VersionGated(t *testing.T) {

@@ -760,7 +760,9 @@ func getProxyVariables(proxyConfig *aksnodeconfigv1.HttpProxyConfig) string {
 	if proxyConfig.GetHttpProxy() == "" && proxyConfig.GetHttpsProxy() == "" && len(proxyConfig.GetNoProxyEntries()) == 0 {
 		return ""
 	}
-	return `if [ -n "$HTTP_PROXY_URLS" ]; then export http_proxy="$HTTP_PROXY_URLS"; fi; if [ -n "$HTTPS_PROXY_URLS" ]; then export HTTPS_PROXY="$HTTPS_PROXY_URLS"; fi; if [ -n "$NO_PROXY_URLS" ]; then export NO_PROXY="$NO_PROXY_URLS"; fi`
+	return `if [ -n "$HTTP_PROXY_URLS" ]; then export http_proxy="$HTTP_PROXY_URLS"; fi; ` +
+		`if [ -n "$HTTPS_PROXY_URLS" ]; then export HTTPS_PROXY="$HTTPS_PROXY_URLS"; fi; ` +
+		`if [ -n "$NO_PROXY_URLS" ]; then export NO_PROXY="$NO_PROXY_URLS"; fi`
 }
 
 func getHasDataDir(kubeletConfig *aksnodeconfigv1.KubeletConfig) bool {
