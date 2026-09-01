@@ -141,19 +141,19 @@ build-aks-node-controller:
 	ANC_VERSION="$${IMAGE_VERSION:-$$(date +%Y%m.%d.0)}"; \
 	ANC_LDFLAGS="-X main.Version=$${ANC_VERSION}"; \
 	echo "Stamping ANC version: $${ANC_VERSION}"; \
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$${ANC_LDFLAGS}" -o bin/aks-node-controller-linux-amd64; \
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "$${ANC_LDFLAGS}" -o bin/aks-node-controller-linux-arm64'
+	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$${ANC_LDFLAGS}" -o bin/aks-node-controller-linux-amd64; \
+	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "$${ANC_LDFLAGS}" -o bin/aks-node-controller-linux-arm64'
 
 build-image-fetcher:
 	@echo "Building image-fetcher binaries"
 	@bash -c "pushd image-fetcher && \
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/image-fetcher-linux-amd64 && \
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/image-fetcher-linux-arm64 && \
+	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/image-fetcher-linux-amd64 && \
+	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/image-fetcher-linux-arm64 && \
 	popd"
 
 build-lister-binary:
 	@echo "Building lister binary for $(GOARCH)"
-	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"
+	@bash -c "pushd vhdbuilder/lister && GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"
 
 generate-acl-customdata: vhdbuilder/packer/acl-customdata.json
 vhdbuilder/packer/acl-customdata.json: vhdbuilder/packer/acl-customdata.yaml | hack/tools/bin/butane
