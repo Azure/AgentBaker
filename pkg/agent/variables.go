@@ -10,7 +10,13 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
-const proxyVariables = `export http_proxy="$HTTP_PROXY_URLS"; export HTTPS_PROXY="$HTTPS_PROXY_URLS"; export NO_PROXY="$NO_PROXY_URLS";`
+// proxyVariables is the legacy compatibility payload evaluated by older VHD scripts via
+// `eval $PROXY_VARS`. It never interpolates customer-supplied values: it references the
+// already shell-quoted *_URLS variables indirectly, so hostile proxy values cannot break
+// out of the assignment. Each export is guarded by its own value so that a partial proxy
+// config leaves the unset variables untouched, matching configureProxyEnvironment and the
+// pre-existing behaviour of only exporting configured fields.
+const proxyVariables = `if [ -n "$HTTP_PROXY_URLS" ]; then export http_proxy="$HTTP_PROXY_URLS"; fi; if [ -n "$HTTPS_PROXY_URLS" ]; then export HTTPS_PROXY="$HTTPS_PROXY_URLS"; fi; if [ -n "$NO_PROXY_URLS" ]; then export NO_PROXY="$NO_PROXY_URLS"; fi`
 
 // getCustomDataVariables returns cloudinit data used by Linux.
 func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {

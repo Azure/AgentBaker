@@ -276,8 +276,8 @@ Describe 'cse_config.sh'
 
         setup_etc_environment() {
             # Quote-bearing value that APT would otherwise parse as live directives.
-            # Deliberately contains no spaces, because the RP proxy URL validator only
-            # rejects literal spaces -- so this shape reaches the node unmodified.
+            # Deliberately contains no spaces: upstream URL validation rejects values
+            # containing a literal space, so this shape is the one that reaches the node.
             HTTP_PROXY_URLS='http://proxy.invalid/";APT::Update::Pre-Invoke{"true";};Acquire::http::proxy"x'
             # Legitimate pre-encoded credentials must survive untouched.
             HTTPS_PROXY_URLS='https://user:p%40ss@proxy.example.com:8080/'
@@ -312,12 +312,39 @@ Describe 'cse_config.sh'
             The contents of file "${SYSTEMD_PROXY_CONF}" should include 'DefaultEnvironment="no_proxy=localhost,%22evil"'
             The contents of file "${SYSTEMD_PROXY_CONF}" should not include 'no_proxy=localhost,"evil'
         End
+
+        # Defence in depth: upstream validation rejects raw CR/LF today, but the
+        # line-oriented sinks must not depend on that to stay safe.
+        write_newline_payload() {
+            HTTP_PROXY_URLS="$(printf 'http://proxy.invalid/\nHTTP_PROXY=http://attacker.invalid/')"
+            HTTPS_PROXY_URLS=''
+            NO_PROXY_URLS="$(printf 'localhost\r\nDefaultEnvironment="EVIL=1"')"
+            configureEtcEnvironment
+            # Emitted so the test can assert no extra directive lines were created.
+            wc -l < "${SYSTEMD_PROXY_CONF}"
+        }
+
+        It 'percent-encodes CR and LF so line-oriented sinks cannot gain new entries'
+            When call write_newline_payload
+            The status should be success
+            The contents of file "${APT_PROXY_CONF}" should include 'http://proxy.invalid/%0AHTTP_PROXY=http://attacker.invalid/'
+            The contents of file "${SYSTEMD_PROXY_CONF}" should include 'localhost%0D%0ADefaultEnvironment=%22EVIL=1%22'
+            The contents of file "${SYSTEMD_PROXY_CONF}" should not include 'DefaultEnvironment="EVIL=1"'
+            # 5 lines exactly: [Manager] plus the two HTTP and two no_proxy entries.
+            # Any extra line would mean an embedded newline created a directive of its own.
+            The output should equal 5
+        End
     End
 
     Describe 'encodeProxyValueForConfigFiles'
         It 'encodes backslashes and double quotes'
             When call encodeProxyValueForConfigFiles 'a"b\c'
             The output should equal 'a%22b%5Cc'
+        End
+
+        It 'encodes carriage returns and line feeds'
+            When call encodeProxyValueForConfigFiles "$(printf 'a\r\nb')"
+            The output should equal 'a%0D%0Ab'
         End
 
         It 'preserves existing percent escapes'

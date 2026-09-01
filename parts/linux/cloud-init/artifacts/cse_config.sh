@@ -327,14 +327,21 @@ configureProxyEnvironment() {
 # lets attacker-supplied text close the string and become live apt.conf directives
 # (e.g. APT::Update::Pre-Invoke), which APT executes as root on the next apt-get run.
 #
-# '"' and '\' are illegal in a conforming URI and meaningless in a no_proxy list, so
-# percent-encoding them is lossless for every legitimate value while making hostile
-# ones inert. '%' is deliberately left untouched so already-encoded values such as
-# http://user:p%40ss@proxy:8080 survive unchanged.
+# CR and LF are encoded for the same reason: /etc/environment and system.conf.d are
+# line-oriented, so an embedded newline would append attacker-chosen environment
+# entries or extra [Manager] directives. Upstream validation rejects raw control
+# bytes today, but the node must not depend on that to stay safe.
+#
+# '"', '\', CR and LF are all illegal in a conforming URI and meaningless in a
+# no_proxy list, so percent-encoding them is lossless for every legitimate value
+# while making hostile ones inert. '%' is deliberately left untouched so
+# already-encoded values such as http://user:p%40ss@proxy:8080 survive unchanged.
 encodeProxyValueForConfigFiles() {
     local value="$1"
     value="${value//\\/%5C}"
     value="${value//\"/%22}"
+    value="${value//$'\r'/%0D}"
+    value="${value//$'\n'/%0A}"
     printf '%s' "$value"
 }
 

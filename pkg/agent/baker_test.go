@@ -1199,6 +1199,9 @@ PROXY_VARS=%s
 eval $PROXY_VARS
 printf '%%s\n%%s\n%%s' "$http_proxy" "$HTTPS_PROXY" "$NO_PROXY"
 `, shellQuote(httpProxy), shellQuote(httpsProxy), shellQuote(strings.Join(noProxy, ",")), shellQuote(proxyVariables))
+		if _, lookErr := exec.LookPath("bash"); lookErr != nil {
+			Skip("bash not available, skipping compatibility script execution")
+		}
 		cmd := exec.Command("bash", "-c", compatibilityScript)
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
@@ -1206,6 +1209,34 @@ printf '%%s\n%%s\n%%s' "$http_proxy" "$HTTPS_PROXY" "$NO_PROXY"
 		Expect(err).NotTo(HaveOccurred())
 		Expect(stderr.String()).To(BeEmpty())
 		Expect(string(output)).To(Equal(strings.Join([]string{httpProxy, httpsProxy, strings.Join(noProxy, ",")}, "\n")))
+	})
+
+	It("should leave unconfigured proxy variables untouched when only one proxy field is set", func() {
+		if _, lookErr := exec.LookPath("bash"); lookErr != nil {
+			Skip("bash not available, skipping compatibility script execution")
+		}
+		httpProxy := "http://proxy.invalid:8080/"
+		baseConfig.HTTPProxyConfig = &datamodel.HTTPProxyConfig{HTTPProxy: &httpProxy}
+
+		// A partial proxy config must not clobber values inherited from the environment,
+		// which is what configureProxyEnvironment does on the scriptless path.
+		compatibilityScript := fmt.Sprintf(`
+HTTP_PROXY_URLS=%s
+HTTPS_PROXY_URLS=''
+NO_PROXY_URLS=''
+HTTPS_PROXY=inherited-https
+NO_PROXY=inherited-no
+PROXY_VARS=%s
+eval $PROXY_VARS
+printf '%%s\n%%s\n%%s' "$http_proxy" "$HTTPS_PROXY" "$NO_PROXY"
+`, shellQuote(httpProxy), shellQuote(proxyVariables))
+		cmd := exec.Command("bash", "-c", compatibilityScript)
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+		output, err := cmd.Output()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(stderr.String()).To(BeEmpty())
+		Expect(string(output)).To(Equal(strings.Join([]string{httpProxy, "inherited-https", "inherited-no"}, "\n")))
 	})
 
 	It("should shell-quote the HTTP proxy trusted CA at the template boundary", func() {

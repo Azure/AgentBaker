@@ -1173,7 +1173,7 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 }
 
 func Test_getProxyVariables(t *testing.T) {
-	const expected = `export http_proxy="$HTTP_PROXY_URLS"; export HTTPS_PROXY="$HTTPS_PROXY_URLS"; export NO_PROXY="$NO_PROXY_URLS";`
+	const expected = `if [ -n "$HTTP_PROXY_URLS" ]; then export http_proxy="$HTTP_PROXY_URLS"; fi; if [ -n "$HTTPS_PROXY_URLS" ]; then export HTTPS_PROXY="$HTTPS_PROXY_URLS"; fi; if [ -n "$NO_PROXY_URLS" ]; then export NO_PROXY="$NO_PROXY_URLS"; fi`
 	tests := []struct {
 		name   string
 		config *aksnodeconfigv1.HttpProxyConfig
