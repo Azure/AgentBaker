@@ -2,30 +2,63 @@
 
 set -e
 
-. /etc/grub.d/10_linux >/dev/null 2>&1
+BOOT_DIR="${BOOT_DIR:-/boot}"
+GRUB_LINUX_SCRIPT="${GRUB_LINUX_SCRIPT:-/etc/grub.d/10_linux}"
+
+boot_device_id=
+reverse_sorted_list=
+if [ -r "$GRUB_LINUX_SCRIPT" ]; then
+	# shellcheck source=/etc/grub.d/10_linux
+	# shellcheck disable=SC1091
+	. "$GRUB_LINUX_SCRIPT" >/dev/null 2>&1
+fi
 
 NVIDIA=
 OTHER=
 
-for linux in ${reverse_sorted_list}; do
-	case $linux in
-		*-azure-nvidia) : "${NVIDIA:="${linux}"}" ;;
-		*)              : "${OTHER:="${linux}"}"  ;;
-	esac
-done
+# Azure Linux kernel filenames do not identify their track, so use RPM ownership.
+if command -v rpm >/dev/null 2>&1; then
+	for linux in "${BOOT_DIR}"/vmlinuz-*; do
+		[ -f "$linux" ] || continue
+		package=$(rpm -qf --queryformat '%{NAME}' "$linux" 2>/dev/null || true)
 
-if [ -z "${NVIDIA}" ] || [ -z "${OTHER}" ]; then
+		case $package in
+			kernel-hwe) NVIDIA=$(printf '%s\n%s\n' "$NVIDIA" "$linux" | sed '/^$/d' | sort -V | tail -n1) ;;
+			kernel) OTHER=$(printf '%s\n%s\n' "$OTHER" "$linux" | sed '/^$/d' | sort -V | tail -n1) ;;
+		esac
+	done
+fi
+
+# Ubuntu identifies its NVIDIA kernel by filename and exposes a sorted list from 10_linux.
+if [ -z "$NVIDIA" ] || [ -z "$OTHER" ]; then
+	NVIDIA=
+	OTHER=
+	# shellcheck disable=SC2086 # reverse_sorted_list is a space-separated path list from 10_linux.
+	for linux in ${reverse_sorted_list}; do
+		case $linux in
+			*-azure-nvidia) : "${NVIDIA:="${linux}"}" ;;
+			*) : "${OTHER:="${linux}"}" ;;
+		esac
+	done
+fi
+
+if [ -z "$NVIDIA" ] || [ -z "$OTHER" ]; then
 	echo "Only one image type (NVIDIA or non-NVIDIA) found" >&2
 	exit 0
 fi
 
-echo "Default NVIDIA image: ${NVIDIA}" >&2
 NVIDIA=${NVIDIA##*/}
-NVIDIA=$(echo "${NVIDIA}" | sed -e "s,^[^0-9]*-,,g")
+NVIDIA=${NVIDIA#vmlinuz-}
 
-echo "Default non-NVIDIA image: ${OTHER}" >&2
 OTHER=${OTHER##*/}
-OTHER=$(echo "${OTHER}" | sed -e "s,^[^0-9]*-,,g")
+OTHER=${OTHER#vmlinuz-}
+
+if [ -z "$boot_device_id" ]; then
+	echo "Could not determine boot_device_id from $GRUB_LINUX_SCRIPT" >&2
+	exit 0
+fi
+
+echo "Default NVIDIA image: $NVIDIA, non-NVIDIA image: $OTHER, boot_device_id: $boot_device_id" >&2
 
 cat << EOF
 insmod smbios
