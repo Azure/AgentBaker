@@ -1,4 +1,18 @@
 {
   "schema_version": 1,
-  "entries": []
+  "entries": [
+    {
+      "source": "cse_config.sh",
+      "embedded_path": "payloads/cse_config.sh",
+      "destination": "/opt/azure/containers/provision_configs.sh",
+      "mode": "0744",
+      "platforms": [
+        "ubuntu",
+        "mariner",
+        "azlosguard",
+        "flatcar",
+        "acl"
+      ]
+    }
+  ]
 }
