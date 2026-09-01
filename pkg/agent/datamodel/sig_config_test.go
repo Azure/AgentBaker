@@ -436,7 +436,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		aclCVMGen2 := sigConfig.SigAzureLinuxImageConfig[AKSACLCVMGen2]
 		Expect(aclCVMGen2.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aclCVMGen2.Gallery).To(Equal("aksazurelinux"))
-		Expect(aclCVMGen2.Definition).To(Equal("aclgen2CVM"))
+		Expect(aclCVMGen2.Definition).To(Equal("aclgen2CVMSpecialized"))
 		Expect(aclCVMGen2.Version).To(Equal(LinuxSIGImageVersion))
 	})
 })

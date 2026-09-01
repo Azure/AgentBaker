@@ -830,7 +830,7 @@ var (
 	SIGACLCVMGen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
-		Definition:    "aclgen2CVM",
+		Definition:    "aclgen2CVMSpecialized",
 		Version:       LinuxSIGImageVersion,
 	}
 
