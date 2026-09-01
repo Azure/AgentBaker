@@ -144,6 +144,10 @@ func (a *App) runFetchLocalDNSConfigCommand(ctx context.Context, outputPath stri
 	if a.eventLogger != nil {
 		a.eventLogger.LogEvent("FetchLocalDNSConfig", message, level, startTime, time.Now())
 	}
+	// The bootstrap shell caller is intentionally fail-open, so it cannot use the
+	// process exit status to distinguish an applied config from a fallback. Keep
+	// the machine-readable outcome as the final stdout line.
+	fmt.Fprintln(os.Stdout, outcome)
 	return nil
 }
 

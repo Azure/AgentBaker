@@ -331,14 +331,22 @@ refresh_localdns_corefile_from_lps() {
         return 0
     fi
 
-    # Write the LPS-provided Corefile to the livepatched source file; VNET DNS replacement
-    # later derives UPDATED_LOCALDNS_CORE_FILE from this file before CoreDNS starts.
-    if "${AKS_NODE_CONTROLLER_BINARY}" fetch-localdns-config --output "${LIVEPATCHED_LOCALDNS_CORE_FILE}"; then
-        echo "Completed LocalDNS LPS config fetch."
-        return 0
-    fi
-
-    echo "LocalDNS LPS config fetch failed; continuing with existing corefile."
+    # The fetch command is fail-open and always exits successfully. Its final stdout
+    # line is the machine-readable outcome; non-applied outcomes preserve the baked
+    # corefile fallback because no livepatched source is written.
+    local outcome
+    outcome="$("${AKS_NODE_CONTROLLER_BINARY}" fetch-localdns-config --output "${LIVEPATCHED_LOCALDNS_CORE_FILE}")"
+    case "$(printf '%s\n' "${outcome}" | tail -n 1)" in
+        applied|alreadyCurrent)
+            echo "LocalDNS LPS config fetch outcome: ${outcome}"
+            ;;
+        notFound|noCorefileData|failed)
+            echo "LocalDNS LPS config fetch outcome: ${outcome}; continuing with existing corefile."
+            ;;
+        *)
+            echo "Unexpected LocalDNS LPS config fetch outcome: ${outcome}; continuing with existing corefile."
+            ;;
+    esac
     return 0
 }
 
