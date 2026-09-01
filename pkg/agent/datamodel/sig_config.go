@@ -827,12 +827,10 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	// Definition name pending confirmation of the AKSAzureLinux gallery import name for the generalized
-	// TrustedLaunchAndConfidentialVmSupported ACL CVM image (mariner-aks-pipelines PR 28925).
 	SIGACLCVMGen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
-		Definition:    "aclcvmgen2",
+		Definition:    "aclgen2CVM",
 		Version:       LinuxSIGImageVersion,
 	}
 
