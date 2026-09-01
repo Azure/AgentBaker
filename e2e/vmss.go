@@ -892,7 +892,7 @@ function Upload-Log {
     )
 
     if (-not (Test-Path -LiteralPath $source)) {
-        $script:uploadFailures += "source file does not exist: $source"
+        Write-Warning "skipping missing log file: $source"
         return
     }
 
@@ -1000,6 +1000,8 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	}
 
 	s.Logger.Logf("downloading any logs uploaded to %s", blobUrl)
+	downloadCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+	defer cancel()
 
 	downloadBlob := func(blobSuffix string) {
 		fileName := filepath.Join(testDir(s.testName), blobSuffix)
@@ -1014,7 +1016,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 			return
 		}
 		// NOTE, read after write is possible, list blobs is eventually consistent and may fail
-		_, err = config.Azure.Blob.DownloadFile(ctx, config.Config.BlobContainer, blobPrefix+"/"+blobSuffix, file, nil)
+		_, err = config.Azure.Blob.DownloadFile(downloadCtx, config.Config.BlobContainer, blobPrefix+"/"+blobSuffix, file, nil)
 		if err != nil {
 			s.Logger.Logf("failed to download collected logs: %s", err)
 			err = os.Remove(file.Name())
