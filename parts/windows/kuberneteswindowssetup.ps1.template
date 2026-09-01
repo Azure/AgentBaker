@@ -110,6 +110,8 @@ $global:KubeletNodeLabels="{{GetAgentKubernetesLabels .}}"
 $global:KubeletNodeLabels="{{GetAgentKubernetesLabelsDeprecated .}}"
 {{end}}
 $global:KubeletConfigArgs=@( {{GetKubeletConfigKeyValsPsh}} )
+# Empty when kubelet serves no healthz endpoint, in which case CSE falls back to the service state.
+$global:KubeletHealthzUri="{{GetKubeletHealthzUriPsh}}"
 $global:KubeproxyConfigArgs=@( {{GetKubeproxyConfigKeyValsPsh}} )
 
 $global:KubeproxyFeatureGates=@( {{GetKubeProxyFeatureGatesPsh}} )

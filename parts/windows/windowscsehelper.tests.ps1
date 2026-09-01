@@ -593,6 +593,7 @@ Describe "Update-BaseUrl" {
 Describe "Start-NodeResetScriptTask" {
   BeforeEach {
     $script:taskInfoCallCount = 0
+    $global:KubeletHealthzUri = "http://127.0.0.1:10248/healthz"
     Mock Start-ScheduledTask -MockWith {}
     Mock Get-ScheduledTask -MockWith { return [pscustomobject]@{ State = "Ready" } }
     Mock Get-ScheduledTaskInfo -MockWith {
@@ -685,5 +686,32 @@ Describe "Start-NodeResetScriptTask" {
 
     { Start-NodeResetScriptTask } | Should -Throw "*kubelet did not become healthy*connection refused*"
     Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 12
+  }
+
+  It "probes the configured healthz endpoint" {
+    $global:KubeletHealthzUri = "http://127.0.0.2:10267/healthz"
+
+    Start-NodeResetScriptTask
+
+    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 1 -ParameterFilter {
+      $Uri -eq "http://127.0.0.2:10267/healthz"
+    }
+  }
+
+  It "checks the service state when the healthz server is disabled" {
+    $global:KubeletHealthzUri = ""
+    Mock Get-Service -MockWith { return [pscustomobject]@{ Status = "Running" } }
+
+    Start-NodeResetScriptTask
+
+    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 0
+    Assert-MockCalled -CommandName Set-ExitCode -Exactly -Times 0
+  }
+
+  It "fails when the healthz server is disabled and kubelet is not running" {
+    $global:KubeletHealthzUri = ""
+    Mock Get-Service -MockWith { return [pscustomobject]@{ Status = "Stopped" } }
+
+    { Start-NodeResetScriptTask } | Should -Throw "*kubelet service is not running*"
   }
 }

@@ -9,9 +9,11 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/rand"
+	"net"
 	neturl "net/url"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -100,6 +102,12 @@ type OSType string
 const (
 	Windows OSType = "Windows"
 	Linux   OSType = "Linux"
+)
+
+// kubelet's own defaults for --healthz-bind-address and --healthz-port.
+const (
+	defaultKubeletHealthzBindAddress = "127.0.0.1"
+	defaultKubeletHealthzPort        = 10248
 )
 
 // KubeletDiskType describes options for placement of the primary kubelet partition.
@@ -1574,10 +1582,11 @@ func setCustomKubletConfigFromSettings(customKc *CustomKubeletConfig, kubeletCon
 }
 
 /*
-GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell
-script consumption.
+getKubeletConfigForPowershell returns the merged kubelet configuration for a Windows node. Windows
+kubelet is configured through command line flags only, so this map is the single source of truth for
+every kubelet setting on the node.
 */
-func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell(customKc *CustomKubeletConfig) string {
+func (config *NodeBootstrappingConfiguration) getKubeletConfigForPowershell(customKc *CustomKubeletConfig) map[string]string {
 	kubeletConfig := config.KubeletConfig
 	if kubeletConfig == nil {
 		kubeletConfig = map[string]string{}
@@ -1587,15 +1596,59 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	if config.ContainerService != nil && config.ContainerService.Properties != nil {
 		kubeletCustomConfiguration := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(Componentkubelet)
 		if kubeletCustomConfiguration != nil {
-			config := kubeletCustomConfiguration.Config
-			for k, v := range config {
+			for k, v := range kubeletCustomConfiguration.Config {
 				kubeletConfig[k] = v
 			}
 		}
 	}
 
 	// Settings from customKubeletConfig, only take if it's set.
-	kubeletConfig = setCustomKubletConfigFromSettings(customKc, kubeletConfig)
+	return setCustomKubletConfigFromSettings(customKc, kubeletConfig)
+}
+
+/*
+GetKubeletHealthzURIForPowershell returns the local URI that Windows CSE polls to confirm kubelet
+initialized after the node reset task started it. It returns an empty string when kubelet serves no
+healthz endpoint, which is the case when --healthz-port is not positive.
+*/
+func (config *NodeBootstrappingConfiguration) GetKubeletHealthzURIForPowershell(customKc *CustomKubeletConfig) string {
+	kubeletConfig := config.getKubeletConfigForPowershell(customKc)
+
+	// Defaults match kubelet's own defaults for --healthz-port and --healthz-bind-address.
+	port := defaultKubeletHealthzPort
+	if parsed, err := strconv.Atoi(unquoteKubeletConfigValue(kubeletConfig["--healthz-port"])); err == nil {
+		port = parsed
+	}
+	if port <= 0 {
+		return ""
+	}
+
+	host := defaultKubeletHealthzBindAddress
+	if bindAddress := unquoteKubeletConfigValue(kubeletConfig["--healthz-bind-address"]); bindAddress != "" {
+		host = bindAddress
+	}
+	// A wildcard bind address is still reachable over loopback.
+	if ip := net.ParseIP(host); ip != nil && ip.IsUnspecified() {
+		host = defaultKubeletHealthzBindAddress
+	}
+
+	return fmt.Sprintf("http://%s/healthz", net.JoinHostPort(host, strconv.Itoa(port)))
+}
+
+/*
+unquoteKubeletConfigValue strips the quoting used to pass empty or literal values through to the
+Windows kubelet command line, so that an explicitly emptied flag reads as unset.
+*/
+func unquoteKubeletConfigValue(value string) string {
+	return strings.Trim(strings.TrimSpace(value), `"`)
+}
+
+/*
+GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell
+script consumption.
+*/
+func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell(customKc *CustomKubeletConfig) string {
+	kubeletConfig := config.getKubeletConfigForPowershell(customKc)
 
 	if len(kubeletConfig) == 0 {
 		return ""

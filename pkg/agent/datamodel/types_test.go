@@ -3082,6 +3082,106 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 	}
 }
 
+func TestGetKubeletHealthzURIForPowershell(t *testing.T) {
+	cases := []struct {
+		name          string
+		kubeletConfig map[string]string
+		expected      string
+	}{
+		{
+			name:          "no kubelet config at all",
+			kubeletConfig: nil,
+			expected:      "http://127.0.0.1:10248/healthz",
+		},
+		{
+			name:          "kubelet defaults when healthz is not configured",
+			kubeletConfig: map[string]string{"--anonymous-auth": "false"},
+			expected:      "http://127.0.0.1:10248/healthz",
+		},
+		{
+			name: "overridden port and bind address",
+			kubeletConfig: map[string]string{
+				"--healthz-port":         "10267",
+				"--healthz-bind-address": "10.0.0.4",
+			},
+			expected: "http://10.0.0.4:10267/healthz",
+		},
+		{
+			name:          "wildcard bind address is probed over loopback",
+			kubeletConfig: map[string]string{"--healthz-bind-address": "0.0.0.0"},
+			expected:      "http://127.0.0.1:10248/healthz",
+		},
+		{
+			name:          "IPv6 wildcard bind address is probed over loopback",
+			kubeletConfig: map[string]string{"--healthz-bind-address": "::"},
+			expected:      "http://127.0.0.1:10248/healthz",
+		},
+		{
+			name:          "IPv6 bind address is bracketed",
+			kubeletConfig: map[string]string{"--healthz-bind-address": "::1"},
+			expected:      "http://[::1]:10248/healthz",
+		},
+		{
+			name: "quoted empty values fall back to the kubelet defaults",
+			kubeletConfig: map[string]string{
+				"--healthz-bind-address": `""""`,
+				"--healthz-port":         "",
+			},
+			expected: "http://127.0.0.1:10248/healthz",
+		},
+		{
+			name:          "unparsable port falls back to the kubelet default",
+			kubeletConfig: map[string]string{"--healthz-port": "not-a-port"},
+			expected:      "http://127.0.0.1:10248/healthz",
+		},
+		{
+			name:          "healthz server disabled with port 0",
+			kubeletConfig: map[string]string{"--healthz-port": "0"},
+			expected:      "",
+		},
+		{
+			name:          "healthz server disabled with a negative port",
+			kubeletConfig: map[string]string{"--healthz-port": "-1"},
+			expected:      "",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			config := &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{Properties: &Properties{}},
+				KubeletConfig:    c.kubeletConfig,
+			}
+			if actual := config.GetKubeletHealthzURIForPowershell(nil); actual != c.expected {
+				t.Fatalf("expected: %q. Got: %q.", c.expected, actual)
+			}
+		})
+	}
+}
+
+func TestGetKubeletHealthzURIForPowershellHonorsWindowsCustomConfiguration(t *testing.T) {
+	config := &NodeBootstrappingConfiguration{
+		ContainerService: &ContainerService{
+			Properties: &Properties{
+				CustomConfiguration: &CustomConfiguration{
+					WindowsKubernetesConfigurations: map[string]*ComponentConfiguration{
+						string(Componentkubelet): {
+							Config: map[string]string{"--healthz-port": "10267"},
+						},
+					},
+				},
+			},
+		},
+		KubeletConfig: map[string]string{"--healthz-port": "10248"},
+	}
+
+	expected := "http://127.0.0.1:10267/healthz"
+	if actual := config.GetKubeletHealthzURIForPowershell(nil); actual != expected {
+		t.Fatalf("expected: %q. Got: %q.", expected, actual)
+	}
+}
+
 func TestSecurityProfileGetProxyAddress(t *testing.T) {
 	testProxyAddress := "https://test-private-egress-proxy"
 	cases := []struct {

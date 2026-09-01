@@ -950,6 +950,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetKubeletConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeletConfigStringForPowershell(profile.CustomKubeletConfig)
 		},
+		"GetKubeletHealthzUriPsh": func() string {
+			return config.GetKubeletHealthzURIForPowershell(profile.CustomKubeletConfig)
+		},
 		"GetKubeproxyConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
 		},

@@ -333,16 +333,25 @@ function Start-NodeResetScriptTask {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask failed with result $($taskInfo.LastTaskResult)"
     }
 
-    $healthCheckArgs=@{
-        Uri="http://127.0.0.1:10248/healthz"
-        UseBasicParsing=$true
-        TimeoutSec=2
-        ErrorAction="Stop"
-    }
-    try {
-        Retry-Command -Command "Invoke-WebRequest" -Args $healthCheckArgs -Retries 12 -RetryDelaySeconds 2 | Out-Null
-    } catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet did not become healthy after NodeResetScriptTask completed. Error: $($_.Exception.Message)"
+    if ([string]::IsNullOrWhiteSpace($global:KubeletHealthzUri)) {
+        # kubelet serves no healthz endpoint, so the service state is the only local signal left.
+        Write-Log -Message "kubelet healthz endpoint is disabled, checking the kubelet service state instead"
+        $kubeletService=Get-Service -Name "kubelet" -ErrorAction SilentlyContinue
+        if ($null -eq $kubeletService -or $kubeletService.Status -ne "Running") {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet service is not running after NodeResetScriptTask completed"
+        }
+    } else {
+        $healthCheckArgs=@{
+            Uri=$global:KubeletHealthzUri
+            UseBasicParsing=$true
+            TimeoutSec=2
+            ErrorAction="Stop"
+        }
+        try {
+            Retry-Command -Command "Invoke-WebRequest" -Args $healthCheckArgs -Retries 12 -RetryDelaySeconds 2 | Out-Null
+        } catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet did not become healthy after NodeResetScriptTask completed. Error: $($_.Exception.Message)"
+        }
     }
 
     Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
