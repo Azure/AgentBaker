@@ -118,8 +118,11 @@ if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
     mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete
     echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
     echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
-else
-    # provision.complete signals that a normal provisioning attempt finished.
+elif [ "$EXIT_CODE" -eq 0 ]; then
+    # provision.complete signals that a normal provisioning attempt finished successfully.
+    # Only write it on success, otherwise a retry (e.g. RP delete+re-PUT of the extension)
+    # will see the stale marker in cse_main.sh and short-circuit to exit 0 without
+    # actually re-running provisioning.
     mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 fi
 
