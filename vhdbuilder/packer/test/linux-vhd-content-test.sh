@@ -1480,9 +1480,10 @@ testNfsServerService() {
 # To add a new CVE mitigation, append the module to BOTH loops below — the
 # absence loop AND the default presence + load-refusal loop.
 #
-# AzureLinux 3.0 is descoped: kernel 6.6.139.1-1.azl3+ fixes the CVEs upstream and
-# the modprobe blacklist is NOT baked into newly-built AzL3 VHDs (customer workloads
-# require those modules). Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu
+# AzureLinux 3.0 is descoped: kernel 6.6.139.1-1.azl3+ fixes the CVEs upstream, so only the
+# algif_aead/esp4/esp6/rxrpc lines are stripped from newly-built AzL3 VHDs (customer workloads
+# require those modules); the rest of the CIS module denylist (dccp/sctp/rds/tipc/cramfs/etc.)
+# is still baked in and asserted below. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu
 # 24.04 linux-azure 6.8.0-1058-azure include the fixes, so newly-built Ubuntu
 # 22.04/24.04 VHDs with a fixed running kernel also stop baking the vulnerable-module
 # blacklist while keeping the baseline CIS module deny list. Ubuntu 20.04 and vulnerable
@@ -1553,19 +1554,29 @@ testVulnerableKernelModulesDisabled() {
       fi
     done
 
-    if [ "$os_sku" = "Ubuntu" ]; then
-      for mod in cramfs freevxfs jffs2 hfs hfsplus usb-storage; do
-        if ! grep -qsE "^install ${mod} /bin/true" /etc/modprobe.d/*.conf 2>/dev/null; then
-          err "$test" "${mod} CIS disable rule not found in /etc/modprobe.d/*.conf"
-          failed=1
-        elif ! grep -qsE "^blacklist ${mod}" /etc/modprobe.d/*.conf 2>/dev/null; then
-          err "$test" "${mod} CIS blacklist rule not found in /etc/modprobe.d/*.conf"
-          failed=1
-        else
-          echo "$test: CIS modprobe config correctly blocks ${mod}"
-        fi
-      done
-    fi
+    # Only the algif_aead/esp4/esp6/rxrpc lines above are stripped for the CVE mitigation;
+    # the rest of the CIS 3.5.x / 1.1.1.x module denylist must remain intact on every OS
+    # stream (including AzureLinux 3.0, which used to skip the whole modprobe-CIS.conf file).
+    for mod in dccp sctp rds tipc; do
+      if ! grep -qsE "^install ${mod} /bin/true" /etc/modprobe.d/*.conf 2>/dev/null; then
+        err "$test" "${mod} CIS disable rule not found in /etc/modprobe.d/*.conf on ${os_sku} ${os_version}"
+        failed=1
+      else
+        echo "$test: CIS modprobe config correctly blocks ${mod} on ${os_sku} ${os_version}"
+      fi
+    done
+
+    for mod in cramfs freevxfs jffs2 hfs hfsplus usb-storage; do
+      if ! grep -qsE "^install ${mod} /bin/true" /etc/modprobe.d/*.conf 2>/dev/null; then
+        err "$test" "${mod} CIS disable rule not found in /etc/modprobe.d/*.conf on ${os_sku} ${os_version}"
+        failed=1
+      elif ! grep -qsE "^blacklist ${mod}" /etc/modprobe.d/*.conf 2>/dev/null; then
+        err "$test" "${mod} CIS blacklist rule not found in /etc/modprobe.d/*.conf on ${os_sku} ${os_version}"
+        failed=1
+      else
+        echo "$test: CIS modprobe config correctly blocks ${mod} on ${os_sku} ${os_version}"
+      fi
+    done
 
     if [ "$failed" -ne 0 ]; then
       return 1
@@ -2721,7 +2732,7 @@ testAppArmorInstalled $OS_SKU $OS_VERSION
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
 # which means the test failures haven't been caught. It also calles exit 1 on a failure,
 # which means the rest of the tests aren't being run.
-# See https://msazure.visualstudio.com/CloudNativeCompute/_backlogs/backlog/Node%20Lifecycle/Features/?workitem=24246232
+# Tracked internally (Node Lifecycle backlog item #24246232)
 # testImagesRetagged $CONTAINER_RUNTIME
 testCustomCAScriptExecutable
 testCustomCATimerNotStarted
