@@ -70,8 +70,6 @@ if isUbuntu "$OS" && { [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "26.04" 
   echo "Relevant kernel messages:"
   journalctl -k -b --no-pager | grep -Ei 'ptp|hyperv|hv_utils|vmbus|clocksource|tdx|sev' || true
   echo "===== End Ubuntu ${OS_VERSION} time synchronization diagnostics ====="
-  echo "Intentionally stopping the temporary diagnostic build after collecting time synchronization data." >&2
-  exit 1
 fi
 
 # Update rsyslog configuration
