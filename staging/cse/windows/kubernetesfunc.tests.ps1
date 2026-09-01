@@ -243,7 +243,22 @@ Describe 'Get-CACertificates' {
             throw 'simulated retrieval failure'
         }
 
-        { Get-CACertificates -Location 'southcentralus' -FailOnError } | Should -Throw '*Failed to retrieve CA certificates*'
+        { Get-CACertificates -Location 'southcentralus' -FailOnError } | Should -Throw '*Failed to process CA certificates*simulated retrieval failure*'
+    }
+
+    It 'identifies the certificate and store when import fails with -FailOnError' {
+        Mock Retry-Command -MockWith {
+            return [PSCustomObject]@{
+                Content = '{"Certificates":[{"Name":"broken.crt","CertBody":"invalid-body"}]}'
+            }
+        }
+        Mock Import-Certificate -MockWith {
+            throw 'simulated import failure'
+        }
+
+        {
+            Get-CACertificates -Location 'ussecwest' -FailOnError
+        } | Should -Throw "*Failed to import CA certificate 'broken.crt' into Cert:\LocalMachine\Root*simulated import failure*"
     }
 
     It 'throws when legacy endpoint returns empty data with -FailOnError' {

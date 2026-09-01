@@ -383,7 +383,11 @@ function Get-CACertificates {
                 $certificate.CertBody | Out-File -Encoding ascii -FilePath $certFilePath
                 # The legacy endpoint returns trusted root certificates only.
                 Write-Log "Import certificate $name to the LocalMachine Root certificate store"
-                Import-Certificate -FilePath $certFilePath -CertStoreLocation 'Cert:\LocalMachine\Root' -ErrorAction Stop | Out-Null
+                try {
+                    Import-Certificate -FilePath $certFilePath -CertStoreLocation 'Cert:\LocalMachine\Root' -ErrorAction Stop | Out-Null
+                } catch {
+                    throw "Failed to import CA certificate '$name' into Cert:\LocalMachine\Root. Error: $_"
+                }
             }
 
             return $true
@@ -448,7 +452,11 @@ function Get-CACertificates {
                 Write-Log "Write certificate $resourceFileName to $certFilePath"
                 $certContentResponse.Content | Out-File -Encoding ascii -FilePath $certFilePath
                 Write-Log "Import certificate $resourceFileName to $certStoreLocation"
-                Import-Certificate -FilePath $certFilePath -CertStoreLocation $certStoreLocation -ErrorAction Stop | Out-Null
+                try {
+                    Import-Certificate -FilePath $certFilePath -CertStoreLocation $certStoreLocation -ErrorAction Stop | Out-Null
+                } catch {
+                    throw "Failed to import CA certificate '$resourceFileName' into $certStoreLocation. Error: $_"
+                }
                 $downloadedAny = $true
             }
         }
@@ -477,9 +485,9 @@ function Get-CACertificates {
             Write-Log "Wireserver error response body: $responseBody"
         }
         if ($FailOnError) {
-            throw "Failed to retrieve CA certificates (HTTP $statusCode). Error: $_"
+            throw "Failed to process CA certificates (HTTP $statusCode). Error: $_"
         }
-        Write-Log "Warning: failed to retrieve CA certificates (HTTP $statusCode). Error: $_"
+        Write-Log "Warning: failed to process CA certificates (HTTP $statusCode). Error: $_"
         return $false
     }
 }
