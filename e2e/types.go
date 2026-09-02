@@ -241,15 +241,6 @@ type Config struct {
 	// It shouldn't be used for majority of scenarios, currently only used for scenarios where the node is not expected to be reachable via ssh
 	SkipSSHConnectivityValidation bool
 
-	// SkipScriptlessEnvParity disables the provision-config vs nbc-cmd env-var parity check
-	// (ValidateScriptlessPhase3). Set this only for scenarios that provision via the published
-	// managed AKSNode VM extension (createVMExtensionLinuxAKSNode). Those nodes run the extension's
-	// VHD-baked aks-node-controller, which e2e cannot override with the PR-compiled binary the way
-	// the boothook #hotfix-marker injection does for the pure-scriptless path. The baked ANC renders
-	// containerd config (and everything else) from published code, so comparing it against the PR's
-	// baker-rendered nbc-cmd is a guaranteed false "differs" for any PR that changes rendering.
-	SkipScriptlessEnvParity bool
-
 	// WaitForSSHAfterReboot if set to non-zero duration, SSH connectivity validation will retry with exponential backoff
 	// for up to this duration when encountering reboot-related errors. This is useful for scenarios where the node
 	// reboots during provisioning (e.g., MIG-enabled GPU nodes). Default (zero value) means no retry.
