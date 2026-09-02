@@ -333,16 +333,20 @@ function Start-NodeResetScriptTask {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask failed with result $($taskInfo.LastTaskResult)"
     }
 
-    try {
-        $healthCheckArgs=@{
-            Uri="http://127.0.0.1:10248/healthz"
-            UseBasicParsing=$true
-            TimeoutSec=1
-            ErrorAction="Stop"
+    if ([string]::IsNullOrEmpty($global:KubeletHealthzEndpoint)) {
+        Write-Log -Message "Skipping kubelet health check because the health endpoint is disabled"
+    } else {
+        try {
+            $healthCheckArgs=@{
+                Uri=$global:KubeletHealthzEndpoint
+                UseBasicParsing=$true
+                TimeoutSec=1
+                ErrorAction="Stop"
+            }
+            Retry-Command -Command "Invoke-WebRequest" -Args $healthCheckArgs -Retries 23 -RetryDelaySeconds 1 | Out-Null
+        } catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet did not become healthy after NodeResetScriptTask completed. Error: $($_.Exception.Message)"
         }
-        Retry-Command -Command "Invoke-WebRequest" -Args $healthCheckArgs -Retries 23 -RetryDelaySeconds 1 | Out-Null
-    } catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet did not become healthy after NodeResetScriptTask completed. Error: $($_.Exception.Message)"
     }
 
     Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"

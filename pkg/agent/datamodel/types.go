@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/rand"
+	"net"
 	neturl "net/url"
 	"slices"
 	"sort"
@@ -1573,33 +1574,30 @@ func setCustomKubletConfigFromSettings(customKc *CustomKubeletConfig, kubeletCon
 	return kubeletConfig
 }
 
-/*
-GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell
-script consumption.
-*/
-func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell(customKc *CustomKubeletConfig) string {
+func (config *NodeBootstrappingConfiguration) getWindowsKubeletConfig(customKc *CustomKubeletConfig) map[string]string {
 	kubeletConfig := config.KubeletConfig
 	if kubeletConfig == nil {
 		kubeletConfig = map[string]string{}
 	}
 
-	// override default kubelet configuration with customzied ones.
 	if config.ContainerService != nil && config.ContainerService.Properties != nil {
 		kubeletCustomConfiguration := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(Componentkubelet)
 		if kubeletCustomConfiguration != nil {
-			config := kubeletCustomConfiguration.Config
-			for k, v := range config {
+			for k, v := range kubeletCustomConfiguration.Config {
 				kubeletConfig[k] = v
 			}
 		}
 	}
 
-	// Settings from customKubeletConfig, only take if it's set.
-	kubeletConfig = setCustomKubletConfigFromSettings(customKc, kubeletConfig)
+	return setCustomKubletConfigFromSettings(customKc, kubeletConfig)
+}
 
-	// CSE uses this endpoint as the Windows kubelet readiness contract.
-	kubeletConfig["--healthz-bind-address"] = "127.0.0.1"
-	kubeletConfig["--healthz-port"] = "10248"
+/*
+GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell
+script consumption.
+*/
+func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell(customKc *CustomKubeletConfig) string {
+	kubeletConfig := config.getWindowsKubeletConfig(customKc)
 
 	commandLineOmmittedKubeletConfigFlags := GetCommandLineOmittedKubeletConfigFlags()
 	keys := []string{}
@@ -1615,6 +1613,33 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, kubeletConfig[key]))
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
+}
+
+// GetKubeletHealthzEndpoint returns the local URL matching the effective Windows kubelet configuration.
+func (config *NodeBootstrappingConfiguration) GetKubeletHealthzEndpoint(customKc *CustomKubeletConfig) string {
+	kubeletConfig := config.getWindowsKubeletConfig(customKc)
+
+	address := kubeletConfig["--healthz-bind-address"]
+	if address == "" {
+		address = "127.0.0.1"
+	}
+
+	port := kubeletConfig["--healthz-port"]
+	if port == "" {
+		port = "10248"
+	}
+	if port == "0" {
+		return ""
+	}
+
+	switch address {
+	case "0.0.0.0":
+		address = "127.0.0.1"
+	case "::":
+		address = "::1"
+	}
+
+	return fmt.Sprintf("http://%s/healthz", net.JoinHostPort(address, port))
 }
 
 /*

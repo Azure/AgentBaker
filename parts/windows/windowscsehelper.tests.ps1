@@ -593,6 +593,7 @@ Describe "Update-BaseUrl" {
 Describe "Start-NodeResetScriptTask" {
   BeforeEach {
     $script:taskInfoCallCount = 0
+    $global:KubeletHealthzEndpoint = "http://127.0.0.1:10248/healthz"
     Mock Start-ScheduledTask -MockWith {}
     Mock Get-ScheduledTask -MockWith { return [pscustomobject]@{ State = "Ready" } }
     Mock Get-ScheduledTaskInfo -MockWith {
@@ -685,5 +686,16 @@ Describe "Start-NodeResetScriptTask" {
 
     { Start-NodeResetScriptTask } | Should -Throw "*kubelet did not become healthy*connection refused*"
     Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 23
+  }
+
+  It "skips the health check when the endpoint is disabled" {
+    $global:KubeletHealthzEndpoint = ""
+
+    Start-NodeResetScriptTask
+
+    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 0
+    Assert-MockCalled -CommandName Write-Log -Exactly -Times 1 -ParameterFilter {
+      $Message -eq "Skipping kubelet health check because the health endpoint is disabled"
+    }
   }
 }
