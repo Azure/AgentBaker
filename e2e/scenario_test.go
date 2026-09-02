@@ -775,8 +775,9 @@ func Test_Ubuntu2004Gen2FIPS(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2004 FIPS Gen2 VHD can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2004FIPSGen2Containerd,
+			Cluster:             ClusterKubenet,
+			VHD:                 config.VHDUbuntu2004FIPSGen2Containerd,
+			SkipScaleValidation: true, // Scale teardown contends with the scenario's subsequent iptables validation.
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.8"
 			},
@@ -3581,8 +3582,9 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_NetworkIsolated(t *testing.T) 
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster: ClusterAzureBootstrapProfileCache,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster:             ClusterAzureBootstrapProfileCache,
+			VHD:                 config.VHDUbuntu2204Gen2Containerd,
+			SkipScaleValidation: true, // The node advertises more pod slots than the Azure CNI VMSS IP capacity.
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Enforce Kubernetes 1.34.8 for ServiceAccountImagePullProfile testing
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.8"
@@ -3795,8 +3797,9 @@ func Test_Ubuntu2204_SecondaryNIC_DualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a dual-stack secondary NIC is properly configured on Ubuntu 22.04",
 		Config: Config{
-			Cluster: ClusterAzureOverlayNetworkDualStack,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster:             ClusterAzureOverlayNetworkDualStack,
+			VHD:                 config.VHDUbuntu2204Gen2Containerd,
+			SkipScaleValidation: true, // System pods can consume capacity after the scale target is calculated.
 			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.StandardSecondaryNICCount = 1
 				if nbc.ContainerService.Properties.FeatureFlags == nil {
