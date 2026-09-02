@@ -682,13 +682,12 @@ func TestWriteHotfixConfig_EmptyMapKeepsStableKey(t *testing.T) {
 	}
 }
 
-// TestWriteHotfixConfig_PreservesExistingVersionAndScriptsVersion is the unit-level guard for
-// the read-modify-write: given a pre-existing file (as cloud-init writes) carrying version and
-// scripts_version, writeHotfixConfig must keep those fields and only replace the hotfixes map.
-func TestWriteHotfixConfig_PreservesExistingVersionAndScriptsVersion(t *testing.T) {
+// TestWriteHotfixConfig_PreservesVersionsAndDropsArtifacts guards the read-modify-write:
+// version fields remain compatible with cloud-init, while the retired artifacts contract is removed.
+func TestWriteHotfixConfig_PreservesVersionsAndDropsArtifacts(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "hotfix.json")
 	require.NoError(t, os.WriteFile(path, []byte(
-		`{"version":"202604.01.5","scripts_version":"202604.01.7","hotfixes":{"202604.01":"202604.01.5"}}`), 0644))
+		`{"version":"202604.01.5","scripts_version":"202604.01.7","hotfixes":{"202604.01":"202604.01.5"},"artifacts":{"202604.01.5":{"linux-ubuntu-22.04-amd64":{"url":"https://packages.microsoft.com/fake.deb","sha256":"abc123"}}}}`), 0644))
 
 	require.NoError(t, writeHotfixConfig(path, hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.9"}}))
 
