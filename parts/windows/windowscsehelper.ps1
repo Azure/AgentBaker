@@ -346,7 +346,7 @@ function Start-NodeResetScriptTask {
                 TimeoutSec=1
                 ErrorAction="Stop"
             }
-            # NSSM recovery took 13 seconds in the observed failure; allow 30 attempts for slower hosts.
+            # Observed NSSM recovery took over 12 seconds; allow 30 attempts for slower hosts.
             Retry-Command -Command "Invoke-WebRequest" -Args $healthCheckArgs -Retries 30 -RetryDelaySeconds 1 | Out-Null
         } catch {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet did not become healthy after NodeResetScriptTask completed. Error: $($_.Exception.Message)"
