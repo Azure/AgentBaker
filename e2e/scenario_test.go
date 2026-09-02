@@ -1944,6 +1944,50 @@ func Test_AzureLinuxV3_CustomLinuxOSConfigPersistsAfterReboot(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV3_LargeSwapFileDuringOSDiskResize(t *testing.T) {
+	const (
+		vmSize         = "Standard_D2s_v5"
+		osDiskSizeGB   = 100
+		swapFileSizeMB = 40000
+	)
+
+	RunScenario(t, &Scenario{
+		Description: "tests that an AzureLinuxV3 scriptless node can create a large swap file while cloud-init resizes the OS disk",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = vmSize
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.AgentPoolProfile.CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
+					SwapFileSizeMB: to.Ptr[int32](swapFileSizeMB),
+				}
+				nbc.AgentPoolProfile.CustomKubeletConfig = &datamodel.CustomKubeletConfig{
+					FailSwapOn: to.Ptr(false),
+				}
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.VmSize = vmSize
+				config.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOsConfig{
+					EnableSwapConfig: true,
+					SwapFileSize:     swapFileSizeMB,
+				}
+				config.KubeletConfig.EnableKubeletConfigFile = true
+				config.KubeletConfig.KubeletConfigFileConfig.FailSwapOn = to.Ptr(false)
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(vmSize)
+				osDisk := vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk
+				osDisk.DiffDiskSettings = nil
+				osDisk.DiskSizeGB = to.Ptr[int32](osDiskSizeGB)
+			},
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateSwapFileConfig(ctx, s, swapFileSizeMB)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
