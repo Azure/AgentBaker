@@ -17,6 +17,8 @@ updates:
     labels:
       - "cleanup"
       - "dependabot"
+    cooldown:
+      default-days: 7
 
   - package-ecosystem: "pip"
     directory: "/vhdbuilder/packer/test/pam"

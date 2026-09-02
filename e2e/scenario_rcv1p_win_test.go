@@ -3,8 +3,8 @@
 //
 // scenario_rcv1p_win_test.go contains end-to-end tests for the RCV1P cert mode on Windows.
 // Windows uses a different cert installation path than Linux: certificates are downloaded to
-// C:\ca and imported into the Windows certificate store (Cert:\LocalMachine\Root) via
-// Import-Certificate. A scheduled task (aks-ca-certs-refresh-task) is registered to
+// C:\ca and imported into the Windows root or intermediate LocalMachine certificate store.
+// A scheduled task (aks-ca-certs-refresh-task) is registered to
 // periodically refresh the certificates.
 package e2e
 
