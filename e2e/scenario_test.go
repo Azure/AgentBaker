@@ -1064,8 +1064,9 @@ func Test_Ubuntu2204_HTTPSProxy_PrivateDNS(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node with HTTPS_PROXY and private DNS for API server bootstraps successfully",
 		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster:             ClusterAzureNetwork,
+			VHD:                 config.VHDUbuntu2204Gen2Containerd,
+			SkipScaleValidation: true, // The node advertises more pod slots than the Azure CNI VMSS IP capacity.
 			BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
 					HTTPSProxy: to.Ptr(cluster.ProxyURL),
@@ -2241,8 +2242,9 @@ func Test_Ubuntu2604Minimal_AzureCNI(t *testing.T) {
 			VMSeriesCoverageTest: true,
 		},
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersionAzureNetwork,
-			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			Cluster:             ClusterLatestKubernetesVersionAzureNetwork,
+			VHD:                 config.VHDUbuntu2604MinimalGen2Containerd,
+			SkipScaleValidation: true, // The node advertises more pod slots than the Azure CNI VMSS IP capacity.
 			Validator: func(ctx context.Context, s *Scenario) error {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
@@ -2928,8 +2930,9 @@ func Test_Ubuntu2604Minimal_ImagePullIdentityBinding_NetworkIsolated(t *testing.
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersionAzureBootstrapProfileCache,
-			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			Cluster:             ClusterLatestKubernetesVersionAzureBootstrapProfileCache,
+			VHD:                 config.VHDUbuntu2604MinimalGen2Containerd,
+			SkipScaleValidation: true, // The node advertises more pod slots than the Azure CNI VMSS IP capacity.
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Enable ServiceAccountImagePullProfile with test values
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
