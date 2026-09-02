@@ -1110,11 +1110,6 @@ func Test_Ubuntu2404_DraDriverNvidiaGpuRunning_AKSNodeController(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			// This scenario provisions via the managed AKSNode VM extension (added in VMConfigMutator
-			// below), whose VHD-baked aks-node-controller cannot be overridden with the PR-compiled
-			// binary. The provision-config vs nbc-cmd env-var parity check would therefore compare a
-			// published ANC against the PR's baker and always report a false "differs".
-			SkipScriptlessEnvParity: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
 				nbc.ConfigGPUDriverIfNeeded = true
