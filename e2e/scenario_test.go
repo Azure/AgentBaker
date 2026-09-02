@@ -546,8 +546,9 @@ func Test_Ubuntu2204(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped with custom sysctls, and chrony/taints configured",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster:             ClusterKubenet,
+			VHD:                 config.VHDUbuntu2204Gen2Containerd,
+			SkipScaleValidation: true, // LimitNOFILE=1048 intentionally prevents full pod-capacity scaling.
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.KubeletConfig["--register-with-taints"] = registerWithTaints
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
@@ -1453,8 +1454,9 @@ func Test_Ubuntu2204_CustomSysctls(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster:             ClusterKubenet,
+			VHD:                 config.VHDUbuntu2204Gen2Containerd,
+			SkipScaleValidation: true, // LimitNOFILE=1048 intentionally prevents full pod-capacity scaling.
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
@@ -1847,8 +1849,9 @@ func Test_AzureLinuxV3_CustomSysctls(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
+			Cluster:             ClusterKubenet,
+			VHD:                 config.VHDAzureLinuxV3Gen2,
+			SkipScaleValidation: true, // LimitNOFILE=1048 intentionally prevents full pod-capacity scaling.
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
@@ -1894,8 +1897,9 @@ func Test_AzureLinuxV3_CustomLinuxOSConfigPersistsAfterReboot(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that AzureLinuxV3 custom Linux OS config persists after a node reboot",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
+			Cluster:             ClusterKubenet,
+			VHD:                 config.VHDAzureLinuxV3Gen2,
+			SkipScaleValidation: true, // LimitNOFILE=1048 intentionally prevents full pod-capacity scaling.
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
@@ -2553,8 +2557,9 @@ func Test_Ubuntu2604Minimal_CustomSysctls(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an ubuntu 2604 minimal VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersionKubenet,
-			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			Cluster:             ClusterLatestKubernetesVersionKubenet,
+			VHD:                 config.VHDUbuntu2604MinimalGen2Containerd,
+			SkipScaleValidation: true, // LimitNOFILE=1048 intentionally prevents full pod-capacity scaling.
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
