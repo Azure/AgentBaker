@@ -44,20 +44,20 @@ func filterReason(name string, s *Scenario, filter tagFilter) (string, error) {
 	return "", nil
 }
 
-func partitionEntries(entries []scenarioEntry, filter tagFilter) ([]scenarioEntry, []scenarioResult, error) {
-	var runnable []scenarioEntry
+func partitionScenarios(scenarios []*Scenario, filter tagFilter) ([]*Scenario, []scenarioResult, error) {
+	var runnable []*Scenario
 	var filtered []scenarioResult
-	for _, entry := range entries {
-		reason, err := filterReason(entry.name, entry.scenario, filter)
+	for _, scenario := range scenarios {
+		reason, err := filterReason(scenario.Name, scenario, filter)
 		if err != nil {
 			return nil, nil, err
 		}
 		if reason == "" {
-			runnable = append(runnable, entry)
+			runnable = append(runnable, scenario)
 			continue
 		}
 		filtered = append(filtered, scenarioResult{
-			Name:     entry.name,
+			Name:     scenario.Name,
 			Status:   statusSkipped,
 			Attempts: []attemptResult{{Attempt: 1, Status: statusSkipped, Message: reason}},
 		})

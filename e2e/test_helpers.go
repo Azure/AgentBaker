@@ -165,25 +165,13 @@ func runScenarioCleanup(ctx context.Context, cleanup *scenarioCleanup) error {
 	return nil
 }
 
-// mergeAttemptFailure adds a runner failure without allowing an earlier skip
-// result to hide it.
-func mergeAttemptFailure(resultErr, failureErr error) error {
-	if failureErr == nil {
-		return resultErr
-	}
-	if resultErr == nil {
-		return failureErr
-	}
-	return fmt.Errorf("%v; %w", resultErr, failureErr)
-}
-
 func markScenarioOutcome(s *Scenario, runErr error, recovered any) {
 	if recovered != nil {
 		s.failed = true
 		panic(recovered)
 	}
-	var skip *skipError
-	s.failed = runErr != nil && !errors.As(runErr, &skip)
+	_, skipped := runErr.(*skipError)
+	s.failed = runErr != nil && !skipped
 }
 
 func runScenario(ctx context.Context, scenarioName string, logger toolkit.Logger, s *Scenario) (runErr error) {

@@ -195,14 +195,18 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 			runErr = fmt.Errorf("panic: %v\n%s", recovered, debug.Stack())
 		}
 		if attemptErr := attemptCtx.Err(); attemptErr != nil {
-			var skip *skipError
-			if runErr == nil || errors.As(runErr, &skip) {
-				runErr = mergeAttemptFailure(runErr, fmt.Errorf("scenario attempt deadline exceeded: %w", attemptErr))
+			_, skipped := runErr.(*skipError)
+			if runErr == nil || skipped {
+				runErr = errors.Join(runErr, fmt.Errorf("scenario attempt deadline exceeded: %w", attemptErr))
 			}
 		}
-		runErr = mergeAttemptFailure(runErr, runScenarioCleanup(e.ctx, cleanup))
+		if cleanupErr := runScenarioCleanup(e.ctx, cleanup); cleanupErr != nil {
+			runErr = errors.Join(runErr, cleanupErr)
+		}
 		logErr := logger.Err()
-		runErr = mergeAttemptFailure(runErr, logErr)
+		if logErr != nil {
+			runErr = errors.Join(runErr, logErr)
+		}
 		switch status, message := classifyAttempt(runErr); status {
 		case statusSkipped:
 			logger.Log("SKIP:", message)
@@ -211,7 +215,9 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 		}
 		if closeErr := logger.Close(); logErr == nil {
 			logErr = closeErr
-			runErr = mergeAttemptFailure(runErr, closeErr)
+			if closeErr != nil {
+				runErr = errors.Join(runErr, closeErr)
+			}
 		}
 		result.Status, result.Message = classifyAttempt(runErr)
 		result.Duration = time.Since(started)
@@ -228,6 +234,10 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 
 	scenario = freshScenario(original)
 	scenario.cleanup = cleanup
+	if scenario.SkipReason != "" {
+		runErr = &skipError{message: scenario.SkipReason}
+		return result
+	}
 	if scenario.SkipIf != nil {
 		if message := scenario.SkipIf(attemptCtx); message != "" {
 			runErr = &skipError{message: message}
@@ -242,8 +252,7 @@ func classifyAttempt(err error) (resultStatus, string) {
 	if err == nil {
 		return statusPassed, ""
 	}
-	var skip *skipError
-	if errors.As(err, &skip) {
+	if skip, ok := err.(*skipError); ok {
 		return statusSkipped, skip.Error()
 	}
 	return statusFailed, err.Error()
@@ -433,7 +442,7 @@ func (l *scenarioLogger) write(message string) {
 }
 
 func (l *scenarioLogger) FlushConsole(label string) {
-	if l.executor.stream || (label == string(statusPassed) && l.executor.opts.hidePassed) {
+	if l.executor.stream {
 		return
 	}
 	l.mu.Lock()

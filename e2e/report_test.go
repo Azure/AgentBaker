@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWriteReportsSuiteDurationExcludesADOTestCases(t *testing.T) {
@@ -32,28 +35,18 @@ func TestWriteReportsSuiteDurationExcludesADOTestCases(t *testing.T) {
 		},
 	}
 
-	if err := writeJUnitReport(junitPath, results); err != nil {
-		t.Fatalf("writeJUnitReport() returned error: %v", err)
-	}
+	require.NoError(t, writeJUnitReport(junitPath, results))
 
 	data, err := os.ReadFile(junitPath)
-	if err != nil {
-		t.Fatalf("failed to read JUnit report: %v", err)
-	}
+	require.NoError(t, err, "failed to read JUnit report")
 
 	var report junitSuites
-	if err := xml.Unmarshal(data, &report); err != nil {
-		t.Fatalf("failed to unmarshal JUnit report: %v", err)
-	}
+	require.NoError(t, xml.Unmarshal(data, &report), "failed to unmarshal JUnit report")
 
-	if len(report.Suites) != 1 {
-		t.Fatalf("expected 1 suite, got %d", len(report.Suites))
-	}
+	require.Len(t, report.Suites, 1)
 	suite := report.Suites[0]
 
-	if len(suite.Cases) != 2 {
-		t.Fatalf("expected 2 cases (scenario + ADO test case), got %d", len(suite.Cases))
-	}
+	require.Len(t, suite.Cases, 2, "expected scenario and ADO test case")
 
 	assertJUnitTime(t, suite.Cases[0].Time, attemptDuration)
 	assertJUnitTime(t, suite.Cases[1].Time, checkDuration)
@@ -63,10 +56,6 @@ func TestWriteReportsSuiteDurationExcludesADOTestCases(t *testing.T) {
 func assertJUnitTime(t *testing.T, got string, want time.Duration) {
 	t.Helper()
 	gotDuration, err := time.ParseDuration(got + "s")
-	if err != nil {
-		t.Fatalf("failed to parse JUnit time %q: %v", got, err)
-	}
-	if diff := gotDuration - want; diff < -time.Millisecond || diff > time.Millisecond {
-		t.Fatalf("got time %s, want %s", gotDuration, want)
-	}
+	require.NoError(t, err, "failed to parse JUnit time %q", got)
+	assert.InDelta(t, want, gotDuration, float64(time.Millisecond))
 }

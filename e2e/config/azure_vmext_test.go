@@ -3,12 +3,13 @@ package config
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // mockVMExtensionImageVersionLister implements vmExtensionImageVersionLister for testing.
@@ -130,18 +131,10 @@ func TestParseVersion(t *testing.T) {
 			img := &armcompute.VirtualMachineExtensionImage{Name: tt.inputName}
 			result := parseVersion(ctx, img)
 
-			if result.major != tt.expectedMajor {
-				t.Errorf("major: got %d, want %d", result.major, tt.expectedMajor)
-			}
-			if result.minor != tt.expectedMinor {
-				t.Errorf("minor: got %d, want %d", result.minor, tt.expectedMinor)
-			}
-			if result.patch != tt.expectedPatch {
-				t.Errorf("patch: got %d, want %d", result.patch, tt.expectedPatch)
-			}
-			if result.original != img {
-				t.Errorf("original: got %p, want %p", result.original, img)
-			}
+			assert.Equal(t, tt.expectedMajor, result.major)
+			assert.Equal(t, tt.expectedMinor, result.minor)
+			assert.Equal(t, tt.expectedPatch, result.patch)
+			assert.Same(t, img, result.original)
 		})
 	}
 }
@@ -212,9 +205,7 @@ func TestVMExtensionVersionCmp(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.a.cmp(tt.b)
-			if got != tt.expected {
-				t.Errorf("(%v).cmp(%v) = %d, want %d", tt.a, tt.b, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got, "(%v).cmp(%v)", tt.a, tt.b)
 		})
 	}
 }
@@ -289,21 +280,12 @@ func TestGetLatestVMExtensionImageVersion(t *testing.T) {
 			)
 
 			if tt.errContains != "" {
-				if err == nil {
-					t.Fatalf("expected error containing %q, got nil", tt.errContains)
-				}
-				if !strings.Contains(err.Error(), tt.errContains) {
-					t.Errorf("error %q does not contain %q", err.Error(), tt.errContains)
-				}
+				require.ErrorContains(t, err, tt.errContains)
 				return
 			}
 
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got != tt.expected {
-				t.Errorf("got %q, want %q", got, tt.expected)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }

@@ -154,6 +154,9 @@ type Scenario struct {
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
 
+	// SkipReason disables the scenario with a fixed reason.
+	SkipReason string
+
 	// SkipIf returns a reason to skip before the scenario creates Azure resources.
 	// An empty reason runs the scenario.
 	SkipIf func(context.Context) string

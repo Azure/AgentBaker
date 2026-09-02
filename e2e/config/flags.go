@@ -47,7 +47,6 @@ func Flags() []cli.Flag {
 		&cli.IntFlag{Name: "retries", Value: defaults.Retries, Destination: &Config.Retries, Sources: cli.EnvVars("E2E_FAILED_TESTS_RETRY_COUNT")},
 		&cli.StringFlag{Name: "junit-file", Value: defaults.JUnitFile, Destination: &Config.JUnitFile, Sources: cli.EnvVars("E2E_JUNIT_FILE")},
 		&cli.StringFlag{Name: "output", Value: defaults.OutputMode, Destination: &Config.OutputMode, Sources: cli.EnvVars("E2E_OUTPUT")},
-		&cli.BoolFlag{Name: "hide-passed-logs", Value: defaults.HidePassedLogs, Destination: &Config.HidePassedLogs, Sources: cli.EnvVars("E2E_HIDE_PASSED_LOGS")},
 		&cli.StringFlag{Name: "sig-version-tag-name", Value: defaults.SIGVersionTagName, Destination: &Config.SIGVersionTagName, Sources: cli.EnvVars("SIG_VERSION_TAG_NAME")},
 		&cli.StringFlag{Name: "sig-version-tag-value", Value: defaults.SIGVersionTagValue, Destination: &Config.SIGVersionTagValue, Sources: cli.EnvVars("SIG_VERSION_TAG_VALUE")},
 		&cli.BoolFlag{Name: "skip-capacity-errors", Value: defaults.SkipTestsWithSKUCapacityIssue, Destination: &Config.SkipTestsWithSKUCapacityIssue, Sources: cli.EnvVars("SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE")},

@@ -67,7 +67,6 @@ type Configuration struct {
 	Retries                                int
 	JUnitFile                              string
 	OutputMode                             string
-	HidePassedLogs                         bool
 	SIGVersionTagName                      string
 	SIGVersionTagValue                     string
 	SkipTestsWithSKUCapacityIssue          bool
@@ -115,7 +114,6 @@ func DefaultConfiguration() *Configuration {
 		NetworkIsolatedNSGName: "abe2e-networkisolated-securityGroup",
 		Parallel:               60,
 		OutputMode:             "auto",
-		HidePassedLogs:         false,
 		SIGVersionTagName:      "branch",
 		SIGVersionTagValue:     "refs/heads/main",
 		SubscriptionID:         "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8",

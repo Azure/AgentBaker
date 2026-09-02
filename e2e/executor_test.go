@@ -6,7 +6,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -14,6 +13,8 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAppListsRegisteredScenarios(t *testing.T) {
@@ -21,12 +22,8 @@ func TestAppListsRegisteredScenarios(t *testing.T) {
 	var stderr bytes.Buffer
 	app := NewApp(&stdout, &stderr)
 
-	if code := app.Run(context.Background(), []string{"e2e", "list"}); code != exitSuccess {
-		t.Fatalf("list returned %d: %s", code, stderr.String())
-	}
-	if !strings.Contains(stdout.String(), "Ubuntu2204\n") {
-		t.Fatalf("list did not contain a known scenario:\n%s", stdout.String())
-	}
+	assert.Equal(t, exitSuccess, app.Run(context.Background(), []string{"e2e", "list"}), stderr.String())
+	assert.Contains(t, stdout.String(), "Ubuntu2204\n", "list did not contain a known scenario")
 }
 
 func TestAppRejectsUnknownScenario(t *testing.T) {
@@ -34,9 +31,7 @@ func TestAppRejectsUnknownScenario(t *testing.T) {
 	var stderr bytes.Buffer
 	app := NewApp(&stdout, &stderr)
 
-	if code := app.Run(context.Background(), []string{"e2e", "run", "--log-dir", t.TempDir(), "DoesNotExist"}); code != exitUsage {
-		t.Fatalf("run returned %d, want %d; stderr: %s", code, exitUsage, stderr.String())
-	}
+	assert.Equal(t, exitUsage, app.Run(context.Background(), []string{"e2e", "run", "--log-dir", t.TempDir(), "DoesNotExist"}), "stderr: %s", stderr.String())
 }
 
 func TestAppReturnsUsageExitCodeForInvalidFlag(t *testing.T) {
@@ -44,9 +39,7 @@ func TestAppReturnsUsageExitCodeForInvalidFlag(t *testing.T) {
 	var stderr bytes.Buffer
 	app := NewApp(&bytes.Buffer{}, &stderr)
 
-	if code := app.Run(context.Background(), []string{"e2e", "run", "--parallel", "nope"}); code != exitUsage {
-		t.Fatalf("run returned %d, want %d; stderr: %s", code, exitUsage, stderr.String())
-	}
+	assert.Equal(t, exitUsage, app.Run(context.Background(), []string{"e2e", "run", "--parallel", "nope"}), "stderr: %s", stderr.String())
 }
 
 func TestAppReturnsUsageExitCodeBeforeRunStarts(t *testing.T) {
@@ -68,12 +61,8 @@ func TestAppReturnsUsageExitCodeBeforeRunStarts(t *testing.T) {
 			}
 			var stderr bytes.Buffer
 			app := NewApp(&bytes.Buffer{}, &stderr)
-			if code := app.Run(context.Background(), test.args); code != exitUsage {
-				t.Fatalf("run returned %d, want %d; stderr: %s", code, exitUsage, stderr.String())
-			}
-			if !strings.Contains(stderr.String(), test.message) {
-				t.Fatalf("run did not report %q: %s", test.message, stderr.String())
-			}
+			assert.Equal(t, exitUsage, app.Run(context.Background(), test.args), "stderr: %s", stderr.String())
+			assert.Contains(t, stderr.String(), test.message)
 		})
 	}
 }
@@ -93,12 +82,8 @@ func TestAppRejectsNonPositiveDurations(t *testing.T) {
 			restoreRunnerConfig(t)
 			var stderr bytes.Buffer
 			app := NewApp(&bytes.Buffer{}, &stderr)
-			if code := app.Run(context.Background(), []string{"e2e", "run", test.flag, "DoesNotExist"}); code != exitUsage {
-				t.Fatalf("run returned %d, want %d; stderr: %s", code, exitUsage, stderr.String())
-			}
-			if !strings.Contains(stderr.String(), test.message) {
-				t.Fatalf("run did not validate %s: %s", test.flag, stderr.String())
-			}
+			assert.Equal(t, exitUsage, app.Run(context.Background(), []string{"e2e", "run", test.flag, "DoesNotExist"}), "stderr: %s", stderr.String())
+			assert.Contains(t, stderr.String(), test.message)
 		})
 	}
 }
@@ -112,7 +97,6 @@ func TestRunnerFlagsUseEnvironmentAliases(t *testing.T) {
 	t.Setenv("E2E_FAILED_TESTS_RETRY_COUNT", "2")
 	t.Setenv("LOGGING_DIR", t.TempDir())
 	t.Setenv("E2E_OUTPUT", "grouped")
-	t.Setenv("E2E_HIDE_PASSED_LOGS", "true")
 	t.Setenv("TAGS_TO_RUN", "gpu=true")
 	t.Setenv("TAGS_TO_SKIP", "os=windows")
 	t.Setenv("GALLERY_NAME", "test-gallery")
@@ -120,21 +104,18 @@ func TestRunnerFlagsUseEnvironmentAliases(t *testing.T) {
 	t.Setenv("SUBSCRIPTION_ID", "test-subscription")
 
 	app := NewApp(&bytes.Buffer{}, &bytes.Buffer{})
-	if code := app.Run(context.Background(), []string{"e2e", "run", "DoesNotExist"}); code != exitUsage {
-		t.Fatalf("run returned %d, want %d", code, exitUsage)
-	}
-	if config.Config.Parallel != 7 || config.Config.TestTimeout != 3*time.Minute || config.Config.Retries != 2 {
-		t.Fatalf("environment aliases were not loaded: %+v", runOptionsFromConfig(nil))
-	}
+	assert.Equal(t, exitUsage, app.Run(context.Background(), []string{"e2e", "run", "DoesNotExist"}))
+	assert.Equal(t, 7, config.Config.Parallel)
+	assert.Equal(t, 3*time.Minute, config.Config.TestTimeout)
+	assert.Equal(t, 2, config.Config.Retries)
 	opts := runOptionsFromConfig(nil)
-	if config.Config.SuiteTimeout != 4*time.Minute || config.Config.OutputMode != "grouped" || !config.Config.HidePassedLogs ||
-		opts.tagFilter != (tagFilter{run: "gpu=true", skip: "os=windows"}) {
-		t.Fatalf("string environment aliases were not loaded: %+v", opts)
-	}
-	if config.Config.GalleryLinux.Name != "test-gallery" || config.Config.GalleryWindows.Name != "test-gallery" ||
-		!config.Config.KeepVMSS || config.Config.SubscriptionID != "test-subscription" {
-		t.Fatalf("infrastructure environment aliases were not loaded: %+v", config.Config)
-	}
+	assert.Equal(t, 4*time.Minute, config.Config.SuiteTimeout)
+	assert.Equal(t, "grouped", config.Config.OutputMode)
+	assert.Equal(t, tagFilter{run: "gpu=true", skip: "os=windows"}, opts.tagFilter)
+	assert.Equal(t, "test-gallery", config.Config.GalleryLinux.Name)
+	assert.Equal(t, "test-gallery", config.Config.GalleryWindows.Name)
+	assert.True(t, config.Config.KeepVMSS)
+	assert.Equal(t, "test-subscription", config.Config.SubscriptionID)
 }
 
 func TestAppRejectsUnknownScenarioChild(t *testing.T) {
@@ -144,26 +125,27 @@ func TestAppRejectsUnknownScenarioChild(t *testing.T) {
 	var stderr bytes.Buffer
 	app := NewApp(&stdout, &stderr)
 
-	if code := app.Run(context.Background(), []string{"e2e", "run", "--log-dir", t.TempDir(), "Ubuntu2204/not-a-scenario"}); code != exitUsage {
-		t.Fatalf("run returned %d, want %d; stderr: %s", code, exitUsage, stderr.String())
-	}
+	assert.Equal(t, exitUsage, app.Run(context.Background(), []string{"e2e", "run", "--log-dir", t.TempDir(), "Ubuntu2204/not-a-scenario"}), "stderr: %s", stderr.String())
 }
 
-func TestSelectEntriesUsesParentNameAsGroup(t *testing.T) {
-	entries := []scenarioEntry{
-		{name: "Group/one"},
-		{name: "Group/two"},
-		{name: "Other"},
+func TestAppSuggestsMistypedFlag(t *testing.T) {
+	restoreRunnerConfig(t)
+
+	var stderr bytes.Buffer
+	app := NewApp(&bytes.Buffer{}, &stderr)
+	assert.Equal(t, exitUsage, app.Run(context.Background(), []string{"e2e", "run", "--paralel", "1"}))
+	assert.Contains(t, stderr.String(), "--parallel", "missing flag suggestion")
+}
+
+func TestSelectScenariosUsesParentNameAsGroup(t *testing.T) {
+	scenarios := []*Scenario{
+		{Name: "Group/one"},
+		{Name: "Group/two"},
+		{Name: "Other"},
 	}
-	if got := len(selectEntries(entries, []string{"Group"})); got != 2 {
-		t.Fatalf("parent selected %d scenarios, want 2", got)
-	}
-	if got := len(selectEntries(entries, []string{"Group/one"})); got != 1 {
-		t.Fatalf("child selected %d scenarios, want 1", got)
-	}
-	if got := len(selectEntries(entries, []string{"Group/missing"})); got != 0 {
-		t.Fatalf("missing child selected %d scenarios, want 0", got)
-	}
+	assert.Len(t, selectScenarios(scenarios, []string{"Group"}), 2)
+	assert.Len(t, selectScenarios(scenarios, []string{"Group/one"}), 1)
+	assert.Empty(t, selectScenarios(scenarios, []string{"Group/missing"}))
 }
 
 func TestExecutorRetriesAndReportsFlakyScenario(t *testing.T) {
@@ -192,36 +174,25 @@ func TestExecutorRetriesAndReportsFlakyScenario(t *testing.T) {
 
 	exec.schedule("Retry", &Scenario{})
 	exec.scenarios.Wait()
-	if err := writeJUnitReport(opts.junitFile, exec.snapshotResults(nil)); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, writeJUnitReport(opts.junitFile, exec.snapshotResults(nil)))
 
 	summary := exec.summary()
-	if summary.Flaky != 1 || summary.Failed != 0 {
-		t.Fatalf("unexpected summary: %+v", summary)
-	}
+	assert.Equal(t, 1, summary.Flaky)
+	assert.Zero(t, summary.Failed)
 	report, err := os.ReadFile(opts.junitFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Contains(report, []byte(`value="flaky"`)) || !bytes.Contains(report, []byte("[[ATTACHMENT|")) {
-		t.Fatalf("JUnit report does not describe flaky attempts:\n%s", report)
-	}
-	if !bytes.Contains(report, []byte(`name="Retry/Task_example"`)) {
-		t.Fatalf("JUnit report does not contain the CSE child result:\n%s", report)
-	}
-	if !strings.Contains(stdout.String(), "##[group]Retry") {
-		t.Fatalf("grouped output missing scenario group:\n%s", stdout.String())
-	}
+	require.NoError(t, err)
+	assert.Contains(t, string(report), `value="flaky"`)
+	assert.Contains(t, string(report), "[[ATTACHMENT|", "JUnit report does not describe flaky attempts")
+	assert.Contains(t, string(report), `name="Retry/Task_example"`, "JUnit report does not contain the CSE child result")
+	assert.Contains(t, stdout.String(), "##[group]Retry", "grouped output missing scenario group")
 }
 
-func TestExecutorCanHidePassedLogs(t *testing.T) {
+func TestExecutorPrintsPassedLogs(t *testing.T) {
 	var stdout bytes.Buffer
 	exec := newExecutor(context.Background(), &stdout, runOptions{
 		parallel:   1,
 		logDir:     t.TempDir(),
 		outputMode: "grouped",
-		hidePassed: true,
 	}, 1)
 	exec.runScenario = func(_ context.Context, _ string, logger toolkit.Logger, _ *Scenario) error {
 		logger.Log("passing output")
@@ -230,9 +201,9 @@ func TestExecutorCanHidePassedLogs(t *testing.T) {
 
 	exec.schedule("Passed", &Scenario{Name: "Passed"})
 	exec.scenarios.Wait()
-	if strings.Contains(stdout.String(), "passing output") {
-		t.Fatalf("passed output was not hidden:\n%s", stdout.String())
-	}
+	assert.Contains(t, stdout.String(), "##[group]Passed (passed)")
+	assert.Contains(t, stdout.String(), "passing output")
+	assert.Contains(t, stdout.String(), "##[endgroup]")
 }
 
 func TestScenarioLogIncludesElapsedTime(t *testing.T) {
@@ -243,20 +214,12 @@ func TestScenarioLogIncludesElapsedTime(t *testing.T) {
 		outputMode: "grouped",
 	}, 1)
 	logger, err := newScenarioLogger(exec, "Example", path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	logger.Log("hello\nworld")
-	if err := logger.Close(); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, logger.Close())
 	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !regexp.MustCompile(`^\[\d+\.\d{3}s\] hello\n\[\d+\.\d{3}s\] world\n$`).Match(content) {
-		t.Fatalf("unexpected scenario log line: %q", content)
-	}
+	require.NoError(t, err)
+	assert.Regexp(t, `^\[\d+\.\d{3}s\] hello\n\[\d+\.\d{3}s\] world\n$`, string(content))
 }
 
 func TestExecutorRecoversScenarioPanic(t *testing.T) {
@@ -277,23 +240,17 @@ func TestExecutorRecoversScenarioPanic(t *testing.T) {
 	exec.schedule("Passes", &Scenario{Name: "Passes"})
 	exec.scenarios.Wait()
 	summary := exec.summary()
-	if summary.Failed != 1 || summary.Passed != 1 {
-		t.Fatalf("unexpected panic summary: %+v", summary)
-	}
-	if !strings.Contains(stdout.String(), "🔴 FAIL: panic: boom") {
-		t.Fatalf("panic was not reported:\n%s", stdout.String())
-	}
+	assert.Equal(t, 1, summary.Failed)
+	assert.Equal(t, 1, summary.Passed)
+	assert.Contains(t, stdout.String(), "🔴 FAIL: panic: boom", "panic was not reported")
 }
 
 func TestCleanupFailureOverridesSkip(t *testing.T) {
-	err := mergeAttemptFailure(&skipError{message: "skip"}, errors.New("cleanup failed"))
-	var skip *skipError
-	if errors.As(err, &skip) {
-		t.Fatalf("cleanup failure remained classified as skip: %v", err)
-	}
-	if !strings.Contains(err.Error(), "skip") || !strings.Contains(err.Error(), "cleanup failed") {
-		t.Fatalf("combined error lost context: %v", err)
-	}
+	err := errors.Join(&skipError{message: "skip"}, errors.New("cleanup failed"))
+	status, _ := classifyAttempt(err)
+	assert.Equal(t, statusFailed, status)
+	assert.ErrorContains(t, err, "skip")
+	assert.ErrorContains(t, err, "cleanup failed")
 }
 
 func newTestExecutor(t *testing.T) *executor {
@@ -326,15 +283,10 @@ func TestExecutorRunsCleanupOncePerAttempt(t *testing.T) {
 	exec.schedule("Cleanups", &Scenario{Name: "Cleanups"})
 	exec.scenarios.Wait()
 
-	if got := ran.Load(); got != 2 {
-		t.Fatalf("cleanups ran %d times, want 2 (once per attempt)", got)
-	}
-	if len(cleanups) != 2 || cleanups[0] == cleanups[1] {
-		t.Fatalf("attempts did not get isolated cleanups: %v", cleanups)
-	}
-	if summary := exec.summary(); summary.Flaky != 1 {
-		t.Fatalf("unexpected summary: %+v", summary)
-	}
+	assert.Equal(t, int32(2), ran.Load(), "cleanups should run once per attempt")
+	require.Len(t, cleanups, 2)
+	assert.NotSame(t, cleanups[0], cleanups[1], "attempts did not get isolated cleanups")
+	assert.Equal(t, 1, exec.summary().Flaky)
 }
 
 func TestExecutorCleanupFailureOverridesAttemptStatus(t *testing.T) {
@@ -358,14 +310,10 @@ func TestExecutorCleanupFailureOverridesAttemptStatus(t *testing.T) {
 			exec.scenarios.Wait()
 
 			attempt := exec.results[0].Attempts[0]
-			if attempt.Status != statusFailed {
-				t.Fatalf("attempt status = %q, want %q", attempt.Status, statusFailed)
-			}
-			if !strings.Contains(attempt.Message, "delete vmss") {
-				t.Fatalf("attempt message lost the cleanup failure: %q", attempt.Message)
-			}
-			if test.runErr != nil && !strings.Contains(attempt.Message, "not supported") {
-				t.Fatalf("attempt message lost the original result: %q", attempt.Message)
+			assert.Equal(t, statusFailed, attempt.Status)
+			assert.Contains(t, attempt.Message, "delete vmss", "attempt message lost the cleanup failure")
+			if test.runErr != nil {
+				assert.Contains(t, attempt.Message, "not supported", "attempt message lost the original result")
 			}
 		})
 	}
@@ -386,13 +334,10 @@ func TestExecutorRunsCleanupAfterScenarioPanic(t *testing.T) {
 	exec.schedule("Panics", &Scenario{Name: "Panics"})
 	exec.scenarios.Wait()
 
-	if got := ran.Load(); got != 1 {
-		t.Fatalf("cleanups ran %d times after a panic, want 1", got)
-	}
+	assert.Equal(t, int32(1), ran.Load(), "cleanup should run after a panic")
 	attempt := exec.results[0].Attempts[0]
-	if attempt.Status != statusFailed || !strings.Contains(attempt.Message, "panic: boom") {
-		t.Fatalf("panic attempt = %+v", attempt)
-	}
+	assert.Equal(t, statusFailed, attempt.Status)
+	assert.Contains(t, attempt.Message, "panic: boom")
 }
 
 func TestFreshScenarioSharesAttemptCleanup(t *testing.T) {
@@ -408,12 +353,12 @@ func TestFreshScenarioSharesAttemptCleanup(t *testing.T) {
 
 	copied := freshScenario(original)
 
-	if copied.cleanup != cleanup {
-		t.Fatal("freshScenario dropped the attempt cleanup")
-	}
-	if copied.Runtime != nil || copied.Logger != nil || copied.artifactName != "" || copied.failed || copied.adoTestCases != nil {
-		t.Fatalf("freshScenario kept per-run state: %+v", copied)
-	}
+	assert.Same(t, cleanup, copied.cleanup)
+	assert.Nil(t, copied.Runtime)
+	assert.Nil(t, copied.Logger)
+	assert.Empty(t, copied.artifactName)
+	assert.False(t, copied.failed)
+	assert.Nil(t, copied.adoTestCases)
 }
 
 func TestExecutorReportsCancellationAsFailure(t *testing.T) {
@@ -428,12 +373,9 @@ func TestExecutorReportsCancellationAsFailure(t *testing.T) {
 	exec.schedule("Cancelled", &Scenario{Name: "Cancelled"})
 	exec.scenarios.Wait()
 	summary := exec.summary()
-	if summary.Failed != 1 || summary.Skipped != 0 {
-		t.Fatalf("unexpected cancellation summary: %+v", summary)
-	}
-	if got := len(exec.results[0].Attempts); got != 1 {
-		t.Fatalf("cancellation recorded %d attempts, want 1", got)
-	}
+	assert.Equal(t, 1, summary.Failed)
+	assert.Zero(t, summary.Skipped)
+	assert.Len(t, exec.results[0].Attempts, 1)
 }
 
 func TestExecutorWaitReturnsGracefulCancellation(t *testing.T) {
@@ -454,9 +396,7 @@ func TestExecutorWaitReturnsGracefulCancellation(t *testing.T) {
 	<-started
 	cancel()
 
-	if err := exec.wait(time.Second); !errors.Is(err, context.Canceled) {
-		t.Fatalf("graceful cancellation returned %v, want context.Canceled", err)
-	}
+	require.ErrorIs(t, exec.wait(time.Second), context.Canceled)
 }
 
 func TestExecutorWaitStopsAfterGracePeriod(t *testing.T) {
@@ -480,31 +420,18 @@ func TestExecutorWaitStopsAfterGracePeriod(t *testing.T) {
 	<-started
 	cancel()
 
-	if err := exec.wait(10 * time.Millisecond); err == nil || !strings.Contains(err.Error(), "did not stop") {
-		t.Fatalf("wait returned %v, want shutdown deadline error", err)
-	}
+	require.ErrorContains(t, exec.wait(10*time.Millisecond), "did not stop")
 	summary := exec.summary()
-	if summary.Total != 1 || summary.Failed != 1 {
-		t.Fatalf("unfinished scenario was not recorded as failed: %+v", summary)
-	}
-	if err := writeJUnitReport(exec.opts.junitFile, exec.snapshotResults(nil)); err != nil {
-		t.Fatal(err)
-	}
+	assert.Equal(t, 1, summary.Total)
+	assert.Equal(t, 1, summary.Failed)
+	require.NoError(t, writeJUnitReport(exec.opts.junitFile, exec.snapshotResults(nil)))
 	report, err := os.ReadFile(exec.opts.junitFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Contains(report, []byte(`failure message="scenarios did not stop`)) {
-		t.Fatalf("JUnit report dropped the unfinished scenario:\n%s", report)
-	}
-	if bytes.Contains(report, []byte("attached scenario log")) {
-		t.Fatalf("JUnit report claimed a missing attachment:\n%s", report)
-	}
+	require.NoError(t, err)
+	assert.Contains(t, string(report), `failure message="scenarios did not stop`, "JUnit report dropped the unfinished scenario")
+	assert.NotContains(t, string(report), "attached scenario log", "JUnit report claimed a missing attachment")
 	close(release)
 	exec.scenarios.Wait()
-	if len(exec.results) != 1 {
-		t.Fatalf("late scenario result created a duplicate: %+v", exec.results)
-	}
+	assert.Len(t, exec.results, 1, "late scenario result created a duplicate")
 }
 
 func TestJUnitFailureUsesReadableSummary(t *testing.T) {
@@ -516,33 +443,22 @@ func TestJUnitFailureUsesReadableSummary(t *testing.T) {
 		` stderr="acr-mirror.service does not exist"`
 	failure := junitFailureSummary(message, true)
 
-	if !strings.Contains(failure.Message, "create vmss: GET") ||
-		!strings.Contains(failure.Message, "RESPONSE 200") ||
-		!strings.Contains(failure.Message, "ERROR CODE: VMExtensionProvisioningError") {
-		t.Fatalf("unexpected failure summary: %q", failure.Message)
-	}
-	if strings.Contains(failure.Message, "--------------------------------------------------------------------------------") {
-		t.Fatalf("failure summary included separator noise: %q", failure.Message)
-	}
-	if len([]rune(failure.Message)) > 500 || !strings.Contains(failure.Message, " ... ") {
-		t.Fatalf("failure summary was not bounded: %q", failure.Message)
-	}
-	if !strings.Contains(failure.Message, `stderr="acr-mirror.service does not exist"`) {
-		t.Fatalf("failure summary omitted diagnostic tail: %q", failure.Message)
-	}
-	if !strings.Contains(failure.Body, "attached scenario log") {
-		t.Fatalf("failure body omitted attachment guidance: %q", failure.Body)
-	}
+	assert.Contains(t, failure.Message, "create vmss: GET")
+	assert.Contains(t, failure.Message, "RESPONSE 200")
+	assert.Contains(t, failure.Message, "ERROR CODE: VMExtensionProvisioningError")
+	assert.NotContains(t, failure.Message, "--------------------------------------------------------------------------------", "failure summary included separator noise")
+	assert.LessOrEqual(t, len([]rune(failure.Message)), 500, "failure summary was not bounded")
+	assert.Contains(t, failure.Message, " ... ", "failure summary was not bounded")
+	assert.Contains(t, failure.Message, `stderr="acr-mirror.service does not exist"`, "failure summary omitted diagnostic tail")
+	assert.Contains(t, failure.Body, "attached scenario log", "failure body omitted attachment guidance")
 }
 
 func TestJUnitFailureSummaryDoesNotClaimChildAttachment(t *testing.T) {
 	failure := junitFailureSummary("CSE timing failed", false)
-	if strings.Contains(failure.Body, "attached") {
-		t.Fatalf("child failure claimed a parent attachment: %q", failure.Body)
-	}
+	assert.NotContains(t, failure.Body, "attached", "child failure claimed a parent attachment")
 }
 
-func TestScenarioSkipIfRecordsSkip(t *testing.T) {
+func TestScenarioSkipReasonRecordsSkip(t *testing.T) {
 	tmp := t.TempDir()
 	var stdout bytes.Buffer
 	opts := runOptions{
@@ -554,32 +470,21 @@ func TestScenarioSkipIfRecordsSkip(t *testing.T) {
 	exec := newExecutor(context.Background(), &stdout, opts, 1)
 
 	exec.schedule("Disabled", &Scenario{
-		Name:   "Disabled",
-		SkipIf: skipScenario("not supported"),
+		Name:       "Disabled",
+		SkipReason: "not supported",
 	})
 	exec.scenarios.Wait()
-	if err := writeJUnitReport(opts.junitFile, exec.snapshotResults(nil)); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, writeJUnitReport(opts.junitFile, exec.snapshotResults(nil)))
 	exec.printSummary(exec.snapshotResults(nil))
 
 	summary := exec.summary()
-	if summary.Total != 1 || summary.Skipped != 1 {
-		t.Fatalf("unexpected summary: %+v", summary)
-	}
-	if !strings.Contains(stdout.String(), "Skipped:\n- Disabled: not supported") {
-		t.Fatalf("ordinary skip was not listed in the summary: %q", stdout.String())
-	}
-	if strings.Contains(stdout.String(), "##[group]") {
-		t.Fatalf("ordinary skip created a noisy console group: %q", stdout.String())
-	}
+	assert.Equal(t, 1, summary.Total)
+	assert.Equal(t, 1, summary.Skipped)
+	assert.Contains(t, stdout.String(), "Skipped:\n- Disabled: not supported", "ordinary skip was not listed in the summary")
+	assert.NotContains(t, stdout.String(), "##[group]", "ordinary skip created a noisy console group")
 	report, err := os.ReadFile(opts.junitFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Contains(report, []byte(`<skipped message="not supported"`)) {
-		t.Fatalf("JUnit report dropped the ordinary skip:\n%s", report)
-	}
+	require.NoError(t, err)
+	assert.Contains(t, string(report), `<skipped message="not supported"`, "JUnit report dropped the ordinary skip")
 }
 
 func TestScenarioTimeoutCoversSkipAndRun(t *testing.T) {
@@ -601,9 +506,8 @@ func TestScenarioTimeoutCoversSkipAndRun(t *testing.T) {
 	})
 	exec.scenarios.Wait()
 
-	if skipDeadline.IsZero() || !skipDeadline.Equal(runDeadline) {
-		t.Fatalf("SkipIf and scenario received different attempt deadlines: skip=%s run=%s", skipDeadline, runDeadline)
-	}
+	assert.False(t, skipDeadline.IsZero())
+	assert.Equal(t, runDeadline, skipDeadline, "SkipIf and scenario received different attempt deadlines")
 }
 
 func TestScenarioTimeoutCannotPassOrSkip(t *testing.T) {
@@ -639,9 +543,8 @@ func TestScenarioTimeoutCannotPassOrSkip(t *testing.T) {
 			exec.scenarios.Wait()
 
 			result := exec.results[0]
-			if result.Status != statusFailed || !strings.Contains(result.Attempts[0].Message, "scenario attempt deadline exceeded") {
-				t.Fatalf("expired attempt was not failed: %+v", result)
-			}
+			assert.Equal(t, statusFailed, result.Status)
+			assert.Contains(t, result.Attempts[0].Message, "scenario attempt deadline exceeded")
 		})
 	}
 }
@@ -662,25 +565,17 @@ func TestSummaryOrdersImportantResultsLast(t *testing.T) {
 	}
 
 	summary := exec.printSummary(exec.snapshotResults(nil))
-	if summary != (runSummary{Total: 4, Passed: 1, Failed: 1, Skipped: 1, Flaky: 1}) {
-		t.Fatalf("unexpected summary: %+v", summary)
-	}
+	assert.Equal(t, runSummary{Total: 4, Passed: 1, Failed: 1, Skipped: 1, Flaky: 1}, summary)
 	output := stdout.String()
 	skippedIndex := strings.Index(output, "\nSkipped:")
 	flakyIndex := strings.Index(output, "\nFlaky:")
 	failedIndex := strings.Index(output, "\nFailed:")
-	if skippedIndex < 0 || flakyIndex <= skippedIndex || failedIndex <= flakyIndex {
-		t.Fatalf("summary order is not skipped, flaky, failed:\n%s", output)
-	}
-	if strings.Contains(output, "- Passed") {
-		t.Fatalf("passing scenario name was listed:\n%s", output)
-	}
-	if !strings.Contains(output, "- Flaky (passed on attempt 2): transient failure") {
-		t.Fatalf("flaky scenario details were omitted:\n%s", output)
-	}
-	if !strings.Contains(output, "- Failed: final failure; details") {
-		t.Fatalf("failed scenario summary was not concise:\n%s", output)
-	}
+	assert.NotEqual(t, -1, skippedIndex, "summary omitted skipped results")
+	assert.Greater(t, flakyIndex, skippedIndex, "summary order is not skipped, flaky, failed")
+	assert.Greater(t, failedIndex, flakyIndex, "summary order is not skipped, flaky, failed")
+	assert.NotContains(t, output, "- Passed", "passing scenario name was listed")
+	assert.Contains(t, output, "- Flaky (passed on attempt 2): transient failure", "flaky scenario details were omitted")
+	assert.Contains(t, output, "- Failed: final failure; details", "failed scenario summary was not concise")
 }
 
 func TestFilteredScenariosAreNotScheduled(t *testing.T) {
@@ -693,86 +588,64 @@ func TestFilteredScenariosAreNotScheduled(t *testing.T) {
 		outputMode: "grouped",
 		tagFilter:  tagFilter{skip: "Name=Excluded"},
 	}
-	entries := []scenarioEntry{
-		{name: "Excluded", scenario: &Scenario{
-			Name:   "Excluded",
-			SkipIf: skipScenario("must not be consulted"),
-		}},
-		{name: "Kept", scenario: &Scenario{Name: "Kept"}},
+	scenarios := []*Scenario{
+		{
+			Name:       "Excluded",
+			SkipReason: "must not be consulted",
+		},
+		{Name: "Kept"},
 	}
 
-	runnable, filtered, err := partitionEntries(entries, opts.tagFilter)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(runnable) != 1 || runnable[0].name != "Kept" || len(filtered) != 1 {
-		t.Fatalf("unexpected partition: runnable=%+v filtered=%+v", runnable, filtered)
-	}
+	runnable, filtered, err := partitionScenarios(scenarios, opts.tagFilter)
+	require.NoError(t, err)
+	require.Len(t, runnable, 1)
+	assert.Equal(t, "Kept", runnable[0].Name)
+	require.Len(t, filtered, 1)
 
 	exec := newExecutor(context.Background(), &stdout, opts, len(runnable))
 	exec.runScenario = func(context.Context, string, toolkit.Logger, *Scenario) error { return nil }
-	for _, entry := range runnable {
-		exec.schedule(entry.name, entry.scenario)
+	for _, scenario := range runnable {
+		exec.schedule(scenario.Name, scenario)
 	}
 	exec.scenarios.Wait()
-	if err := writeJUnitReport(opts.junitFile, exec.snapshotResults(filtered)); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, writeJUnitReport(opts.junitFile, exec.snapshotResults(filtered)))
 
 	summary := exec.printSummary(exec.snapshotResults(filtered))
-	if summary.Total != 2 || summary.Passed != 1 || summary.Skipped != 1 {
-		t.Fatalf("filtered scenario was not counted as skipped: %+v", summary)
-	}
-	if _, err := os.Stat(filepath.Join(opts.logDir, "Excluded")); !os.IsNotExist(err) {
-		t.Fatalf("filtered scenario created an attempt log directory: %v", err)
-	}
-	if !strings.Contains(stdout.String(), "DONE 2 scenarios: 1 passed, 0 flaky, 1 skipped, 0 failed") ||
-		!strings.Contains(stdout.String(), "- Excluded: filtered:") {
-		t.Fatalf("filtered scenario was not listed as skipped: %q", stdout.String())
-	}
+	assert.Equal(t, 2, summary.Total)
+	assert.Equal(t, 1, summary.Passed)
+	assert.Equal(t, 1, summary.Skipped)
+	_, err = os.Stat(filepath.Join(opts.logDir, "Excluded"))
+	assert.True(t, os.IsNotExist(err), "filtered scenario created an attempt log directory: %v", err)
+	assert.Contains(t, stdout.String(), "DONE 2 scenarios: 1 passed, 0 flaky, 1 skipped, 0 failed")
+	assert.Contains(t, stdout.String(), "- Excluded: filtered:", "filtered scenario was not listed as skipped")
 
 	report, err := os.ReadFile(opts.junitFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Contains(report, []byte(`name="Excluded"`)) || !bytes.Contains(report, []byte("<skipped message=\"filtered: scenario &#34;Excluded&#34;")) {
-		t.Fatalf("JUnit report dropped the filtered scenario:\n%s", report)
-	}
-	if !bytes.Contains(report, []byte(`name="Kept"`)) {
-		t.Fatalf("JUnit report dropped the runnable scenario:\n%s", report)
-	}
+	require.NoError(t, err)
+	assert.Contains(t, string(report), `name="Excluded"`)
+	assert.Contains(t, string(report), "<skipped message=\"filtered: scenario &#34;Excluded&#34;", "JUnit report dropped the filtered scenario")
+	assert.Contains(t, string(report), `name="Kept"`, "JUnit report dropped the runnable scenario")
 }
 
 func TestAutoOutputUsesRunnableCount(t *testing.T) {
-	entries := []scenarioEntry{
-		{name: "Only", scenario: &Scenario{Name: "Only"}},
-		{name: "Second", scenario: &Scenario{Name: "Second"}},
-		{name: "Third", scenario: &Scenario{Name: "Third"}},
-		{name: "Fourth", scenario: &Scenario{Name: "Fourth"}},
+	scenarios := []*Scenario{
+		{Name: "Only"},
+		{Name: "Second"},
+		{Name: "Third"},
+		{Name: "Fourth"},
 	}
 	opts := runOptions{parallel: 1, logDir: t.TempDir(), outputMode: "auto"}
 
-	runnable, filtered, err := partitionEntries(entries, tagFilter{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(runnable) != 4 || len(filtered) != 0 {
-		t.Fatalf("unfiltered partition = %d runnable, %d filtered", len(runnable), len(filtered))
-	}
-	if newExecutor(context.Background(), &bytes.Buffer{}, opts, len(runnable)).stream {
-		t.Fatal("auto mode streamed more than three scenarios")
-	}
+	runnable, filtered, err := partitionScenarios(scenarios, tagFilter{})
+	require.NoError(t, err)
+	assert.Len(t, runnable, 4)
+	assert.Empty(t, filtered)
+	assert.False(t, newExecutor(context.Background(), &bytes.Buffer{}, opts, len(runnable)).stream, "auto mode streamed more than three scenarios")
 
-	runnable, filtered, err = partitionEntries(entries, tagFilter{run: "Name=Only"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(runnable) != 1 || len(filtered) != 3 {
-		t.Fatalf("filtered partition = %d runnable, %d filtered", len(runnable), len(filtered))
-	}
-	if !newExecutor(context.Background(), &bytes.Buffer{}, opts, len(runnable)).stream {
-		t.Fatal("auto mode did not stream a single runnable scenario")
-	}
+	runnable, filtered, err = partitionScenarios(scenarios, tagFilter{run: "Name=Only"})
+	require.NoError(t, err)
+	assert.Len(t, runnable, 1)
+	assert.Len(t, filtered, 3)
+	assert.True(t, newExecutor(context.Background(), &bytes.Buffer{}, opts, len(runnable)).stream, "auto mode did not stream a single runnable scenario")
 }
 
 func TestExecutorDoesNotReadGlobalTagFilters(t *testing.T) {
@@ -787,9 +660,7 @@ func TestExecutorDoesNotReadGlobalTagFilters(t *testing.T) {
 	exec.schedule("Runs", &Scenario{Name: "Runs"})
 	exec.scenarios.Wait()
 
-	if result := exec.results[0]; result.Status != statusPassed {
-		t.Fatalf("global filters changed executor result: %+v", result)
-	}
+	assert.Equal(t, statusPassed, exec.results[0].Status, "global filters changed executor result")
 }
 
 func TestExecutorFailsAttemptOnLogWriteFailure(t *testing.T) {
@@ -807,34 +678,21 @@ func TestExecutorFailsAttemptOnLogWriteFailure(t *testing.T) {
 	exec.scenarios.Wait()
 
 	attempt := exec.results[0].Attempts[0]
-	if attempt.Status != statusFailed || exec.results[0].Status != statusFailed {
-		t.Fatalf("log failure did not fail the attempt: %+v", exec.results[0])
-	}
-	if !strings.Contains(attempt.Message, "write scenario log") {
-		t.Fatalf("attempt message lost the log failure: %q", attempt.Message)
-	}
-	if !strings.Contains(exec.stdout.(*bytes.Buffer).String(), "write scenario log") {
-		t.Fatalf("console output lost the log failure: %q", exec.stdout.(*bytes.Buffer).String())
-	}
+	assert.Equal(t, statusFailed, attempt.Status)
+	assert.Equal(t, statusFailed, exec.results[0].Status, "log failure did not fail the attempt")
+	assert.Contains(t, attempt.Message, "write scenario log", "attempt message lost the log failure")
+	assert.Contains(t, exec.stdout.(*bytes.Buffer).String(), "write scenario log", "console output lost the log failure")
 }
 
 func TestScenarioLoggerCloseReportsFailure(t *testing.T) {
 	exec := newTestExecutor(t)
 	logger, err := newScenarioLogger(exec, "Example", filepath.Join(t.TempDir(), "attempt.log"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := logger.file.Close(); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NoError(t, logger.file.Close())
 
 	closeErr := logger.Close()
-	if closeErr == nil || !strings.Contains(closeErr.Error(), "scenario log") {
-		t.Fatalf("Close did not report the failure: %v", closeErr)
-	}
-	if err := logger.Close(); err == nil {
-		t.Fatal("Close forgot the sticky log failure")
-	}
+	require.ErrorContains(t, closeErr, "scenario log")
+	require.Error(t, logger.Close(), "Close forgot the sticky log failure")
 }
 
 func TestSkippedScenarioIsNotMarkedFailed(t *testing.T) {
@@ -853,12 +711,8 @@ func TestSkippedScenarioIsNotMarkedFailed(t *testing.T) {
 	exec.schedule("Skipped", &Scenario{Name: "Skipped"})
 	exec.scenarios.Wait()
 
-	if failedDuringCleanup {
-		t.Fatal("a skipped scenario was marked failed")
-	}
-	if exec.results[0].Status != statusSkipped {
-		t.Fatalf("unexpected result: %+v", exec.results[0])
-	}
+	assert.False(t, failedDuringCleanup, "a skipped scenario was marked failed")
+	assert.Equal(t, statusSkipped, exec.results[0].Status)
 }
 
 func TestPanicMarksScenarioFailedBeforeCleanup(t *testing.T) {
@@ -877,13 +731,10 @@ func TestPanicMarksScenarioFailedBeforeCleanup(t *testing.T) {
 	exec.schedule("Panics", &Scenario{Name: "Panics"})
 	exec.scenarios.Wait()
 
-	if !failedDuringCleanup {
-		t.Fatal("panicking scenario was not marked failed before cleanup")
-	}
+	assert.True(t, failedDuringCleanup, "panicking scenario was not marked failed before cleanup")
 	attempt := exec.results[0].Attempts[0]
-	if attempt.Status != statusFailed || !strings.Contains(attempt.Message, "panic: boom") {
-		t.Fatalf("executor did not recover the re-raised panic: %+v", attempt)
-	}
+	assert.Equal(t, statusFailed, attempt.Status)
+	assert.Contains(t, attempt.Message, "panic: boom", "executor did not recover the re-raised panic")
 }
 
 func TestExecutorKeepsFailureWhenRetrySkips(t *testing.T) {
@@ -907,22 +758,14 @@ func TestExecutorKeepsFailureWhenRetrySkips(t *testing.T) {
 
 	exec.schedule("FailsThenSkips", &Scenario{Name: "FailsThenSkips"})
 	exec.scenarios.Wait()
-	if err := writeJUnitReport(opts.junitFile, exec.snapshotResults(nil)); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, writeJUnitReport(opts.junitFile, exec.snapshotResults(nil)))
 
 	summary := exec.summary()
-	if summary.Failed != 1 || summary.Skipped != 0 || summary.Total != 1 {
-		t.Fatalf("unexpected summary: %+v", summary)
-	}
+	assert.Equal(t, 1, summary.Failed)
+	assert.Zero(t, summary.Skipped)
+	assert.Equal(t, 1, summary.Total)
 	report, err := os.ReadFile(opts.junitFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Contains(report, []byte("validation failed")) {
-		t.Fatalf("JUnit report dropped the original failure:\n%s", report)
-	}
-	if bytes.Contains(report, []byte("<skipped")) {
-		t.Fatalf("JUnit report recorded the scenario as skipped:\n%s", report)
-	}
+	require.NoError(t, err)
+	assert.Contains(t, string(report), "validation failed", "JUnit report dropped the original failure")
+	assert.NotContains(t, string(report), "<skipped", "JUnit report recorded the scenario as skipped")
 }

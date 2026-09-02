@@ -1,24 +1,10 @@
 package e2e
 
-import (
-	"context"
-	"strings"
-)
-
-func skipScenario(reason string) func(context.Context) string {
-	return func(context.Context) string {
-		return reason
-	}
-}
-
-type scenarioEntry struct {
-	name     string
-	scenario *Scenario
-}
+import "strings"
 
 // Scenarios register during package initialization.
 var (
-	registry      []scenarioEntry
+	registry      []*Scenario
 	registryNames = map[string]struct{}{}
 )
 
@@ -37,12 +23,10 @@ func Register(s *Scenario) *Scenario {
 		panic("duplicate scenario name: " + name)
 	}
 	registryNames[lower] = struct{}{}
-	registry = append(registry, scenarioEntry{name: name, scenario: s})
+	registry = append(registry, s)
 	return s
 }
 
-func registeredScenarios() []scenarioEntry {
-	entries := make([]scenarioEntry, len(registry))
-	copy(entries, registry)
-	return entries
+func registeredScenarios() []*Scenario {
+	return append([]*Scenario(nil), registry...)
 }
