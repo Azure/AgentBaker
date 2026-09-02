@@ -37,6 +37,16 @@ type Kubeclient struct {
 	KubeConfig []byte
 }
 
+// isNodeReady reports whether the NodeReady condition is explicitly true.
+func isNodeReady(node *corev1.Node) bool {
+	for _, condition := range node.Status.Conditions {
+		if condition.Type == corev1.NodeReady {
+			return condition.Status == corev1.ConditionTrue
+		}
+	}
+	return false
+}
+
 const (
 	hostNetworkDebugAppLabel = "debug-mariner-tolerated"
 	podNetworkDebugAppLabel  = "debugnonhost-mariner-tolerated"
@@ -186,11 +196,9 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, logger toolkit.Logg
 			nodeTaints, _ := json.Marshal(node.Spec.Taints)
 			nodeConditions, _ := json.Marshal(node.Status.Conditions)
 
-			for _, cond := range node.Status.Conditions {
-				if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
-					logger.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
-					return true, nil
-				}
+			if isNodeReady(node) {
+				logger.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
+				return true, nil
 			}
 
 			logger.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
@@ -345,6 +353,18 @@ func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) 
 		return err
 	}
 	return nil
+}
+
+// CreateDeployment creates a Deployment or updates its desired spec and ownership metadata.
+func (k *Kubeclient) CreateDeployment(ctx context.Context, deployment *appsv1.Deployment) error {
+	desired := deployment.DeepCopy()
+	_, err := controllerutil.CreateOrUpdate(ctx, k.Dynamic, deployment, func() error {
+		deployment.Spec = desired.Spec
+		deployment.Labels = desired.Labels
+		deployment.OwnerReferences = desired.OwnerReferences
+		return nil
+	})
+	return err
 }
 
 func (k *Kubeclient) createKubernetesSecret(ctx context.Context, namespace, secretName, registryName, username, password string) error {
@@ -728,11 +748,8 @@ func readyNodeNames(nodes []corev1.Node) map[string]struct{} {
 		if node.Labels[proxyNodePoolLabel] != proxyNodePoolName {
 			continue
 		}
-		for _, condition := range node.Status.Conditions {
-			if condition.Type == corev1.NodeReady && condition.Status == corev1.ConditionTrue {
-				ready[node.Name] = struct{}{}
-				break
-			}
+		if isNodeReady(node) {
+			ready[node.Name] = struct{}{}
 		}
 	}
 	return ready

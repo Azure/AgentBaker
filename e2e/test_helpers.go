@@ -532,7 +532,14 @@ func validateVM(ctx context.Context, s *Scenario) error {
 
 	var errs []error
 	if !s.Config.SkipDefaultValidation {
-		errs = append(errs, ValidateNodeCanRunAPod(ctx, s))
+		podValidationErr := ValidateNodeCanRunAPod(ctx, s)
+		errs = append(errs, podValidationErr)
+		if podValidationErr == nil && !s.Config.SkipScaleValidation {
+			if err := ValidateNodeCanScaleToCapacity(ctx, s); err != nil {
+				s.Logger.Log("VM scale validation failed")
+				return err
+			}
+		}
 		switch s.VHD.OS {
 		case config.OSWindows:
 			errs = append(errs, ValidateCommonWindows(ctx, s))

@@ -2720,7 +2720,7 @@ func Test_Ubuntu2604Minimal_NodeHardening_KubeReservedSlice_ConfigFile(t *testin
 				// resource list is also supplied; the base config only sets --kube-reserved,
 				// so --system-reserved must be added here too or kubelet fails to start with
 				// "system.slice cgroup is not configured properly".
-				nbc.KubeletConfig["--system-reserved"] = "cpu=200m,memory=500Mi"
+				nbc.KubeletConfig["--system-reserved"] = "cpu=200m,memory=500Mi,pid=1000"
 				// Simulate the RP still sending its legacy (stale) cgroup slice name today;
 				// setNodeHardeningCgroupFlags must overwrite these with the values AgentBaker
 				// owns rather than trusting them, or the node would end up in the wrong slice.
@@ -2759,12 +2759,13 @@ func Test_Ubuntu2604Minimal_NodeHardening_KubeReservedSlice_CLIFlags(t *testing.
 				// resource list is also supplied; the base config only sets --kube-reserved,
 				// so --system-reserved must be added here too or kubelet fails to start with
 				// "system.slice cgroup is not configured properly".
-				nbc.KubeletConfig["--system-reserved"] = "cpu=200m,memory=500Mi"
+				nbc.KubeletConfig["--system-reserved"] = "cpu=200m,memory=500Mi,pid=1000"
+				nbc.KubeletConfig["--kube-reserved"] = "cpu=200m,memory=4Gi,pid=1000"
 				// Simulate the RP still sending its legacy (stale) cgroup slice name today;
 				// setNodeHardeningCgroupFlags must overwrite these with the values AgentBaker
 				// owns rather than trusting them, or the node would end up in the wrong slice.
 				nbc.KubeletConfig["--kube-reserved-cgroup"] = "/kubelet.slice"
-				nbc.KubeletConfig["--system-reserved-cgroup"] = "/kubelet.slice"
+				nbc.KubeletConfig["--system-reserved-cgroup"] = "/system.slice"
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
 				return errors.Join(

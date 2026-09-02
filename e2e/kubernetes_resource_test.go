@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilvalidation "k8s.io/apimachinery/pkg/util/validation"
@@ -78,6 +79,74 @@ func TestUniqueKubernetesResourceName(t *testing.T) {
 	}
 }
 
+func TestAvailablePodSlots(t *testing.T) {
+	t.Parallel()
+
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: "scenario-node"},
+		Status: corev1.NodeStatus{
+			Allocatable: corev1.ResourceList{
+				corev1.ResourcePods: resource.MustParse("10"),
+			},
+		},
+	}
+	pods := []corev1.Pod{
+		{Spec: corev1.PodSpec{NodeName: node.Name}, Status: corev1.PodStatus{Phase: corev1.PodRunning}},
+		{Spec: corev1.PodSpec{NodeName: node.Name}, Status: corev1.PodStatus{Phase: corev1.PodPending}},
+		{Spec: corev1.PodSpec{NodeName: node.Name}, Status: corev1.PodStatus{Phase: corev1.PodSucceeded}},
+		{Spec: corev1.PodSpec{NodeName: node.Name}, Status: corev1.PodStatus{Phase: corev1.PodFailed}},
+		{
+			ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: &metav1.Time{Time: metav1.Now().Time}},
+			Spec:       corev1.PodSpec{NodeName: node.Name},
+			Status:     corev1.PodStatus{Phase: corev1.PodRunning},
+		},
+		{Spec: corev1.PodSpec{NodeName: "another-node"}, Status: corev1.PodStatus{Phase: corev1.PodRunning}},
+	}
+
+	got, err := availablePodSlots(node, pods)
+	if err != nil {
+		t.Fatalf("availablePodSlots returned an error: %v", err)
+	}
+	if want := int32(8); got != want {
+		t.Fatalf("availablePodSlots = %d, want %d", got, want)
+	}
+}
+
+func TestAvailablePodSlotsRejectsMissingOrExhaustedCapacity(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name string
+		node *corev1.Node
+		pods []corev1.Pod
+	}{
+		{
+			name: "missing capacity",
+			node: &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "scenario-node"}},
+		},
+		{
+			name: "exhausted capacity",
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{Name: "scenario-node"},
+				Status: corev1.NodeStatus{
+					Allocatable: corev1.ResourceList{corev1.ResourcePods: resource.MustParse("1")},
+				},
+			},
+			pods: []corev1.Pod{{
+				Spec:   corev1.PodSpec{NodeName: "scenario-node"},
+				Status: corev1.PodStatus{Phase: corev1.PodRunning},
+			}},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if _, err := availablePodSlots(test.node, test.pods); err == nil {
+				t.Fatal("availablePodSlots returned nil error")
+			}
+		})
+	}
+}
+
 func TestSetScenarioNodeOwnerReference(t *testing.T) {
 	t.Parallel()
 
@@ -113,5 +182,31 @@ func TestSetScenarioNodeOwnerReference(t *testing.T) {
 	}
 	if owner := pod.OwnerReferences[0]; owner.Name != node.Name || owner.UID != node.UID {
 		t.Fatalf("expected scenario Node owner reference, got %+v", owner)
+	}
+}
+
+func TestIsNodeReady(t *testing.T) {
+	t.Parallel()
+
+	readyNode := &corev1.Node{Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{{
+		Type:   corev1.NodeReady,
+		Status: corev1.ConditionTrue,
+	}}}}
+	notReadyNode := readyNode.DeepCopy()
+	notReadyNode.Status.Conditions[0].Status = corev1.ConditionFalse
+	unknownNode := readyNode.DeepCopy()
+	unknownNode.Status.Conditions[0].Status = corev1.ConditionUnknown
+
+	if !isNodeReady(readyNode) {
+		t.Fatal("isNodeReady returned false for a Ready node")
+	}
+	if isNodeReady(notReadyNode) {
+		t.Fatal("isNodeReady returned true for a NotReady node")
+	}
+	if isNodeReady(unknownNode) {
+		t.Fatal("isNodeReady returned true for a node with unknown readiness")
+	}
+	if isNodeReady(&corev1.Node{}) {
+		t.Fatal("isNodeReady returned true for a node without a Ready condition")
 	}
 }
