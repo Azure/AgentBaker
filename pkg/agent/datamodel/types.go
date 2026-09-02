@@ -1597,9 +1597,9 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	// Settings from customKubeletConfig, only take if it's set.
 	kubeletConfig = setCustomKubletConfigFromSettings(customKc, kubeletConfig)
 
-	if len(kubeletConfig) == 0 {
-		return ""
-	}
+	// CSE uses this endpoint as the Windows kubelet readiness contract.
+	kubeletConfig["--healthz-bind-address"] = "127.0.0.1"
+	kubeletConfig["--healthz-port"] = "10248"
 
 	commandLineOmmittedKubeletConfigFlags := GetCommandLineOmittedKubeletConfigFlags()
 	keys := []string{}

@@ -2711,7 +2711,7 @@ func TestKubernetesConfigIsAddonDisabled(t *testing.T) {
 }
 
 func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
-	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"` //nolint:lll
+	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--healthz-bind-address=127.0.0.1", "--healthz-port=10248", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"` //nolint:lll
 	cases := []struct {
 		name                  string
 		config                *NodeBootstrappingConfiguration
@@ -2722,7 +2722,7 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 			name:                  "zero value kubernetesConfig",
 			config:                &NodeBootstrappingConfiguration{},
 			CustomKubeletConfig:   nil,
-			expectedForPowershell: "",
+			expectedForPowershell: `"--healthz-bind-address=127.0.0.1", "--healthz-port=10248"`,
 		},
 		// Some values
 		{
@@ -2988,7 +2988,7 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 				},
 			},
 			CustomKubeletConfig: nil,
-			expected:            "",
+			expected:            `"--healthz-bind-address=127.0.0.1", "--healthz-port=10248"`,
 		},
 		{
 			name: "KubeletConfig is not empty",
@@ -3007,7 +3007,7 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 				ImageGcLowThreshold:  to.Int32Ptr(60),
 				ImageGcHighThreshold: to.Int32Ptr(80),
 			},
-			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`,
+			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--healthz-bind-address=127.0.0.1", "--healthz-port=10248", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`,
 		},
 		{
 			name: "custom configuration overrides default KubeletConfig",
@@ -3017,7 +3017,11 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 						CustomConfiguration: &CustomConfiguration{
 							WindowsKubernetesConfigurations: map[string]*ComponentConfiguration{
 								string(Componentkubelet): {
-									Config: map[string]string{"--address": "127.0.0.1"},
+									Config: map[string]string{
+										"--address":              "127.0.0.1",
+										"--healthz-bind-address": "0.0.0.0",
+										"--healthz-port":         "0",
+									},
 								},
 							},
 						},
@@ -3034,7 +3038,7 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
 				ContainerLogMaxFiles:  to.Int32Ptr(20),
 			},
-			expected: `"--address=127.0.0.1", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi"`,
+			expected: `"--address=127.0.0.1", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--healthz-bind-address=127.0.0.1", "--healthz-port=10248"`,
 		},
 		{
 			name: "custom configuration does not override default KubeletConfig",
@@ -3067,7 +3071,7 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
 				ContainerLogMaxFiles:  to.Int32Ptr(20),
 			},
-			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--event-qps=100", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`, //nolint:lll
+			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--event-qps=100", "--healthz-bind-address=127.0.0.1", "--healthz-port=10248", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`, //nolint:lll
 		},
 	}
 

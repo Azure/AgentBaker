@@ -593,7 +593,6 @@ Describe "Update-BaseUrl" {
 Describe "Start-NodeResetScriptTask" {
   BeforeEach {
     $script:taskInfoCallCount = 0
-    $global:KubeletConfigArgs = @()
     Mock Start-ScheduledTask -MockWith {}
     Mock Get-ScheduledTask -MockWith { return [pscustomobject]@{ State = "Ready" } }
     Mock Get-ScheduledTaskInfo -MockWith {
@@ -619,23 +618,6 @@ Describe "Start-NodeResetScriptTask" {
       $Uri -eq "http://127.0.0.1:10248/healthz" -and $TimeoutSec -eq 1 -and $ErrorAction -eq "Stop"
     }
     Assert-MockCalled -CommandName Set-ExitCode -Exactly -Times 0
-  }
-
-  It "uses the configured kubelet health endpoint" {
-    $global:KubeletConfigArgs = @("--healthz-bind-address=0.0.0.0", "--healthz-port=10249")
-
-    Start-NodeResetScriptTask
-
-    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 1 -ParameterFilter {
-      $Uri -eq "http://127.0.0.1:10249/healthz"
-    }
-  }
-
-  It "fails immediately when the kubelet health endpoint is disabled" {
-    $global:KubeletConfigArgs = @("--healthz-port=0")
-
-    { Start-NodeResetScriptTask } | Should -Throw "*kubelet healthz endpoint is disabled*"
-    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 0
   }
 
   It "does not accept Ready before the new run starts" {

@@ -335,7 +335,7 @@ function Start-NodeResetScriptTask {
 
     try {
         $healthCheckArgs=@{
-            Uri=Get-KubeletHealthCheckUri
+            Uri="http://127.0.0.1:10248/healthz"
             UseBasicParsing=$true
             TimeoutSec=1
             ErrorAction="Stop"
@@ -346,36 +346,6 @@ function Start-NodeResetScriptTask {
     }
 
     Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
-}
-
-function Get-KubeletHealthCheckUri {
-    $healthzBindAddress="127.0.0.1"
-    $healthzPort=10248
-
-    foreach ($arg in $global:KubeletConfigArgs) {
-        $name, $value=$arg -split "=", 2
-        if ($name -eq "--healthz-bind-address") {
-            $healthzBindAddress=$value
-        } elseif ($name -eq "--healthz-port") {
-            if (-not [int]::TryParse($value, [ref]$healthzPort) -or $healthzPort -lt 0 -or $healthzPort -gt 65535) {
-                throw "invalid kubelet healthz port: $value"
-            }
-        }
-    }
-
-    if ($healthzPort -eq 0) {
-        throw "kubelet healthz endpoint is disabled"
-    }
-    if ($healthzBindAddress -eq "0.0.0.0") {
-        $healthzBindAddress="127.0.0.1"
-    } elseif ($healthzBindAddress -eq "::") {
-        $healthzBindAddress="::1"
-    }
-    if ($healthzBindAddress.Contains(":")) {
-        $healthzBindAddress="[$healthzBindAddress]"
-    }
-
-    return "http://${healthzBindAddress}:${healthzPort}/healthz"
 }
 
 function Postpone-RestartComputer {
