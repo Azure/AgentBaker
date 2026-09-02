@@ -438,6 +438,11 @@ func envValsEqual(a, b string) bool {
 }
 
 // envValsEqualForKey performs key-specific comparison logic.
+// For SYSCTL_CONTENT, it base64-decodes both values and compares the resulting
+// key=value pairs as sets (ignoring order and whitespace differences).
+// For CONTAINERD_CONFIG_CONTENT / CONTAINERD_CONFIG_NO_GPU_CONTENT, it base64-decodes
+// both values and compares the canonical TOML entries (ignoring order, comments, and
+// whitespace differences). All other keys fall back to a literal string comparison.
 func envValsEqualForKey(key, a, b string) bool {
 	switch key {
 	case "SYSCTL_CONTENT":
