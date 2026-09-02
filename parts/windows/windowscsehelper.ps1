@@ -340,7 +340,7 @@ function Start-NodeResetScriptTask {
         ErrorAction="Stop"
     }
     try {
-        Retry-Command -Command "Invoke-WebRequest" -Args $healthCheckArgs -Retries 45 -RetryDelayMilliseconds 500 | Out-Null
+        Retry-Command -Command "Invoke-WebRequest" -Args $healthCheckArgs -Retries 23 -RetryDelaySeconds 1 | Out-Null
     } catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet did not become healthy after NodeResetScriptTask completed. Error: $($_.Exception.Message)"
     }
@@ -400,7 +400,6 @@ function AKS-Expand-Archive {
 }
 
 function Retry-Command {
-    [CmdletBinding(DefaultParameterSetName="Seconds")]
     Param(
         [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]
         $Command,
@@ -408,10 +407,8 @@ function Retry-Command {
         $Args,
         [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][int]
         $Retries,
-        [Parameter(Mandatory=$true, ParameterSetName="Seconds")][ValidateNotNullOrEmpty()][int]
-        $RetryDelaySeconds,
-        [Parameter(Mandatory=$true, ParameterSetName="Milliseconds")][ValidateNotNullOrEmpty()][int]
-        $RetryDelayMilliseconds
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][int]
+        $RetryDelaySeconds
     )
 
     for ($i=0; ; ) {
@@ -424,11 +421,7 @@ function Retry-Command {
             if ($i -ge $Retries) {
                 throw $_
             }
-            if ($PSCmdlet.ParameterSetName -eq "Milliseconds") {
-                Start-Sleep -Milliseconds $RetryDelayMilliseconds
-            } else {
-                Start-Sleep -Seconds $RetryDelaySeconds
-            }
+            Start-Sleep -Seconds $RetryDelaySeconds
         }
     }
 }
