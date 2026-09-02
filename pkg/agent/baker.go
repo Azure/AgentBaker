@@ -91,7 +91,6 @@ fi
 `
 	cseBootHookTemplate = `#!/bin/bash
 set -euo pipefail
-#hotfix-marker
 %s
 `
 	// boothookFileEntry is appended to the boothook for each additional file.
