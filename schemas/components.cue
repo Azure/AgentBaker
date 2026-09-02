@@ -98,7 +98,7 @@ package components
 	name:              string
 	downloadLocation?:  string
 	windowsDownloadLocation?:  string
-	windowsCacheFileName?: string
+	windowsDownloadedFileName?: string
 	downloadURIs:      #DownloadURIs
 }
 

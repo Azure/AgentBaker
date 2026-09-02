@@ -171,7 +171,7 @@ function GetWindowsPackageCacheFileNamesFromComponentsJson
 
     foreach ($package in $componentsJsonContent.Packages)
     {
-        $cacheFileName = $package.windowsCacheFileName
+        $cacheFileName = $package.windowsDownloadedFileName
         if ([string]::IsNullOrEmpty($cacheFileName))
         {
             continue

@@ -639,7 +639,7 @@ Describe 'Gets the Binaries' {
     }
 
     It 'uses a stable Windows cache filename when configured' {
-        $componentsJson.Packages[0] | Add-Member -NotePropertyName "windowsCacheFileName" -NotePropertyValue "windows-amd64.zip"
+        $componentsJson.Packages[0] | Add-Member -NotePropertyName "windowsDownloadedFileName" -NotePropertyValue "windows-amd64.zip"
         $componentsJson.Packages[0].downloadUris.windows.default.versionsV2 = @(
             [PSCustomObject]@{
                 latestVersion = "1.8.22"
@@ -652,7 +652,7 @@ Describe 'Gets the Binaries' {
     }
 
     It 'keeps the versioned cache filename for a previous Windows package version' {
-        $componentsJson.Packages[0] | Add-Member -NotePropertyName "windowsCacheFileName" -NotePropertyValue "windows-amd64.zip"
+        $componentsJson.Packages[0] | Add-Member -NotePropertyName "windowsDownloadedFileName" -NotePropertyValue "windows-amd64.zip"
         $componentsJson.Packages[0].downloadUris.windows.default.versionsV2 = @(
             [PSCustomObject]@{
                 latestVersion = "1.8.22"

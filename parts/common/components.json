@@ -939,7 +939,7 @@
       "name": "aks-secure-tls-bootstrap-client",
       "downloadLocation": "/opt/aks-secure-tls-bootstrap-client/downloads",
       "windowsDownloadLocation": "c:\\akse-cache\\aks-secure-tls-bootstrap-client\\",
-      "windowsCacheFileName": "windows-amd64.zip",
+      "windowsDownloadedFileName": "windows-amd64.zip",
       "downloadURIs": {
         "ubuntu": {
           "r2604": {

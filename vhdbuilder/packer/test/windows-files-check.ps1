@@ -127,6 +127,9 @@ function Test-ValidateSinglePackageSignature {
 
     foreach ($URL in $map[$dir]) {
         $fileName = [IO.Path]::GetFileName($URL)
+        if ($packageCacheFileNames.ContainsKey($URL)) {
+            $fileName = $packageCacheFileNames[$URL]
+        }
         $dest = [IO.Path]::Combine($dir, $fileName)
 
         $installDir = "c:\SignatureCheck"
