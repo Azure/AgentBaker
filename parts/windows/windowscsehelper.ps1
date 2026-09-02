@@ -334,7 +334,10 @@ function Start-NodeResetScriptTask {
     }
 
     if ([string]::IsNullOrEmpty($global:KubeletHealthzEndpoint)) {
-        Write-Log -Message "Skipping kubelet health check because the health endpoint is disabled"
+        $kubeletService=Get-Service -Name "kubelet" -ErrorAction SilentlyContinue
+        if ($null -eq $kubeletService -or $kubeletService.Status -ne "Running") {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet service is not running after NodeResetScriptTask completed"
+        }
     } else {
         try {
             $healthCheckArgs=@{

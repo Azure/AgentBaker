@@ -604,6 +604,7 @@ Describe "Start-NodeResetScriptTask" {
       return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-02"; LastTaskResult = 0 }
     }
     Mock Invoke-WebRequest -MockWith { return [pscustomobject]@{ StatusCode = 200 } }
+    Mock Get-Service -MockWith { return [pscustomobject]@{ Status = "Running" } }
     Mock Start-Sleep -MockWith {}
     Mock Write-Log -MockWith {}
     Mock Set-ExitCode -MockWith {
@@ -688,14 +689,20 @@ Describe "Start-NodeResetScriptTask" {
     Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 30
   }
 
-  It "skips the health check when the endpoint is disabled" {
+  It "checks the service state when the health endpoint is disabled" {
     $global:KubeletHealthzEndpoint = ""
 
     Start-NodeResetScriptTask
 
     Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 0
-    Assert-MockCalled -CommandName Write-Log -Exactly -Times 1 -ParameterFilter {
-      $Message -eq "Skipping kubelet health check because the health endpoint is disabled"
-    }
+    Assert-MockCalled -CommandName Set-ExitCode -Exactly -Times 0
+  }
+
+  It "fails when the health endpoint is disabled and kubelet is not running" {
+    $global:KubeletHealthzEndpoint = ""
+    Mock Get-Service -MockWith { return [pscustomobject]@{ Status = "Stopped" } }
+
+    { Start-NodeResetScriptTask } | Should -Throw "*kubelet service is not running*"
+    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 0
   }
 }

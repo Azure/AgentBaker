@@ -880,14 +880,14 @@ function Upload-Log {
     }
 }
 
-if ($collectedLogs) {
-    Upload-Log $collectedLogs "$arg1/collected-node-logs.zip"
-}
 Upload-Log "C:\azuredata\CustomDataSetupScript.log" "$arg1/cse.log"
 Upload-Log "C:\AzureData\provision.complete" "$arg1/provision.complete"
 Upload-Log "C:\k\kubelet.err.log" "$arg1/kubelet.err.log"
 Upload-Log "C:\k\containerd.err.log" "$arg1/containerd.err.log"
 Upload-Log "network_config.txt" "$arg1/network_config.txt"
+if ($collectedLogs) {
+    Upload-Log $collectedLogs "$arg1/collected-node-logs.zip"
+}
 
 if ($script:uploadFailures.Count -gt 0) {
     throw "failed to upload Windows diagnostics: $($script:uploadFailures -join '; ')"
