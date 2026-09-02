@@ -983,6 +983,14 @@ select_localdns_corefile() {
 
 ${__SOURCED__:+return}
 
+# ExecStopPost invokes this mode after both graceful and unexpected exits.
+# Only restore node DNS configuration here; systemd owns process cleanup.
+# Always exit successfully so a cleanup error cannot wedge systemd recovery.
+if [ "${1:-}" = "cleanup" ]; then
+    cleanup_iptables_and_dns || echo "Best-effort LocalDNS DNS cleanup reported errors."
+    exit 0
+fi
+
 # --------------------------------------- Main Execution starts here --------------------------------------------------
 
 # Regenerate corefile on every startup to enable dynamic variant selection.
@@ -1041,6 +1049,9 @@ build_localdns_iptable_rules
 # cleanup_localdns_configs function will be run on script exit/crash to revert config.
 # Ensure cleanup runs before exiting on an error.
 trap 'echo "Error occurred. Cleaning up..."; cleanup_localdns_configs; exit $ERR_LOCALDNS_FAIL' ABRT ERR INT PIPE
+
+# SIGTERM is the normal systemd stop signal and must be reported as a clean stop.
+trap 'echo "Received SIGTERM. Cleaning up..."; cleanup_localdns_configs || true; exit 0' TERM
 
 # Always cleanup when exiting.
 trap 'echo "Executing cleanup function."; cleanup_localdns_configs || echo "Cleanup failed with error code: $ERR_LOCALDNS_FAIL."' EXIT
