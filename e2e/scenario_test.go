@@ -3380,8 +3380,9 @@ func Test_Ubuntu2404_VHDCaching(t *testing.T) {
 }
 
 // Test_Ubuntu2404_VHDCaching_GPUPrebakeRemovedBeforeCustomization verifies the PIS ownership
-// boundary. BasePrep must remove the AKS-owned GPU prebake before the customer customization
-// script runs, and real-node provisioning must preserve customer-owned DKMS state captured later.
+// boundary for a GPU node that opts out of the AKS-managed driver. BasePrep must remove the
+// AKS-owned GPU prebake before the customer customization script runs, and real-node provisioning
+// must preserve customer-owned DKMS state captured later.
 func Test_Ubuntu2404_VHDCaching_GPUPrebakeRemovedBeforeCustomization(t *testing.T) {
 	const (
 		gpuPrebakeMarker              = "/opt/azure/aks-gpu/dkms-marker"
@@ -3396,10 +3397,19 @@ func Test_Ubuntu2404_VHDCaching_GPUPrebakeRemovedBeforeCustomization(t *testing.
 			RequiresCurrentSourceVHD: true,
 		},
 		Config: Config{
-			Cluster:                ClusterKubenet,
-			VHD:                    config.VHDUbuntu2404Gen2Containerd,
-			VHDCaching:             true,
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Cluster:    ClusterKubenet,
+			VHD:        config.VHDUbuntu2404Gen2Containerd,
+			VHDCaching: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["SkipGPUDriverInstall"] = to.Ptr("true")
+			},
 			PreProvisionCustomDataWriteFiles: []CustomDataWriteFile{
 				{
 					Path:    gpuPrebakeMarker,

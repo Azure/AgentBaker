@@ -412,10 +412,17 @@ EOF
     fi
 
     # PIS captures basePrep output before customer customization and skips nodePrep on the bake VM.
-    # Release the shared-VHD GPU prebake here, while every marked NVIDIA asset is still AKS-owned.
-    # The strict wrapper keeps the marker and fails the bake if complete removal cannot be proven.
-    if [ "${PRE_PROVISION_ONLY}" = "true" ] && [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-        logs_to_events "AKS.CSE.cleanUpPrebakedGPUDriverForImageCustomization" cleanUpPrebakedGPUDriverForImageCustomization || exit "$ERR_GPU_PREBAKE_CLEANUP_FAIL"
+    # Release the shared-VHD GPU prebake only when the target GPU node opts out of the AKS-managed
+    # driver. Default managed-driver nodes keep the prebake and its node-start optimization.
+    if [ "${PRE_PROVISION_ONLY}" = "true" ] && [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "${GPU_NODE}" = "true" ]; then
+        local skip_nvidia_driver_install_for_image_customization
+        if ! skip_nvidia_driver_install_for_image_customization=$(should_skip_nvidia_drivers); then
+            echo "Failed to determine if NVIDIA driver installation should be skipped during image customization"
+            exit "$ERR_NVIDIA_DRIVER_INSTALL"
+        fi
+        if [ "${skip_nvidia_driver_install_for_image_customization}" = "true" ]; then
+            logs_to_events "AKS.CSE.cleanUpPrebakedGPUDriverForImageCustomization" cleanUpPrebakedGPUDriverForImageCustomization || exit "$ERR_GPU_PREBAKE_CLEANUP_FAIL"
+        fi
     fi
 }
 
