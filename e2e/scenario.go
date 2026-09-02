@@ -622,7 +622,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_Early_Failure_Scriptless",
-	SkipIf:      skipScenario("Need a way to inject early failures into scriptless"),
+	SkipReason:  "Need a way to inject early failures into scriptless",
 	Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
 	Tags: Tags{
 		Scriptless: true,

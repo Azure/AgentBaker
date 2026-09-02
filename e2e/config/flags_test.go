@@ -3,6 +3,8 @@ package config
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v3"
 )
 
@@ -14,20 +16,12 @@ func TestFlagsRepeatedParseDoesNotInheritPreviousRun(t *testing.T) {
 
 	*Config = *DefaultConfiguration()
 	cmd1 := &cli.Command{Name: "e2e-test-config", Flags: Flags()}
-	if err := cmd1.Run(t.Context(), []string{"e2e-test-config", "--location", "custom-location-xyz"}); err != nil {
-		t.Fatalf("first parse failed: %v", err)
-	}
-	if Config.DefaultLocation != "custom-location-xyz" {
-		t.Fatalf("first parse did not set DefaultLocation, got %q", Config.DefaultLocation)
-	}
+	require.NoError(t, cmd1.Run(t.Context(), []string{"e2e-test-config", "--location", "custom-location-xyz"}), "first parse failed")
+	assert.Equal(t, "custom-location-xyz", Config.DefaultLocation, "first parse did not set DefaultLocation")
 
 	cmd2 := &cli.Command{Name: "e2e-test-config", Flags: Flags()}
-	if err := cmd2.Run(t.Context(), []string{"e2e-test-config"}); err != nil {
-		t.Fatalf("second parse failed: %v", err)
-	}
-	if Config.DefaultLocation != trueDefault {
-		t.Fatalf("second parse leaked the first run's value: got %q, want default %q", Config.DefaultLocation, trueDefault)
-	}
+	require.NoError(t, cmd2.Run(t.Context(), []string{"e2e-test-config"}), "second parse failed")
+	assert.Equal(t, trueDefault, Config.DefaultLocation, "second parse leaked the first run's value")
 }
 
 func TestFlagsEnvironmentSourceStillWorks(t *testing.T) {
@@ -37,12 +31,8 @@ func TestFlagsEnvironmentSourceStillWorks(t *testing.T) {
 	t.Setenv("E2E_PARALLEL", "7")
 	*Config = *DefaultConfiguration()
 	cmd := &cli.Command{Name: "e2e-test-config", Flags: Flags()}
-	if err := cmd.Run(t.Context(), []string{"e2e-test-config"}); err != nil {
-		t.Fatalf("parse failed: %v", err)
-	}
-	if Config.Parallel != 7 {
-		t.Fatalf("E2E_PARALLEL was not applied: got %d, want 7", Config.Parallel)
-	}
+	require.NoError(t, cmd.Run(t.Context(), []string{"e2e-test-config"}), "parse failed")
+	assert.Equal(t, 7, Config.Parallel, "E2E_PARALLEL was not applied")
 }
 
 func TestFlagsConfigureLinuxAndWindowsGalleriesIndependently(t *testing.T) {
@@ -56,13 +46,7 @@ func TestFlagsConfigureLinuxAndWindowsGalleriesIndependently(t *testing.T) {
 		"--linux-gallery-name", "linux-gallery",
 		"--windows-gallery-name", "windows-gallery",
 	})
-	if err != nil {
-		t.Fatalf("parse failed: %v", err)
-	}
-	if Config.GalleryLinux.Name != "linux-gallery" {
-		t.Fatalf("Linux gallery name = %q, want %q", Config.GalleryLinux.Name, "linux-gallery")
-	}
-	if Config.GalleryWindows.Name != "windows-gallery" {
-		t.Fatalf("Windows gallery name = %q, want %q", Config.GalleryWindows.Name, "windows-gallery")
-	}
+	require.NoError(t, err, "parse failed")
+	assert.Equal(t, "linux-gallery", Config.GalleryLinux.Name)
+	assert.Equal(t, "windows-gallery", Config.GalleryWindows.Name)
 }

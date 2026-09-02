@@ -130,14 +130,9 @@ func TestCachedFuncPanicUnblocksWaiters(t *testing.T) {
 		panic("boom")
 	})
 
-	func() {
-		defer func() {
-			if recover() == nil {
-				t.Fatal("owner call did not propagate panic")
-			}
-		}()
+	require.Panics(t, func() {
 		_, _ = fn(context.Background(), "key")
-	}()
+	}, "owner call did not propagate panic")
 
 	_, err := fn(context.Background(), "key")
 	require.ErrorContains(t, err, "cached operation panicked: boom")

@@ -91,7 +91,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Windows2022AzureOverlayNetworkDualStack",
-	SkipIf:      skipScenario("Dual stack tests are not working yet"),
+	SkipReason:  "Dual stack tests are not working yet",
 	Description: "Windows Server 2022 Azure Overlay Network Dual Stack",
 	Config: Config{
 		Cluster:                ClusterAzureOverlayNetworkDualStack,
@@ -142,7 +142,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Windows2022Gen2AzureOverlayNetworkDualStack",
-	SkipIf:      skipScenario("Dual stack tests are not working yet"),
+	SkipReason:  "Dual stack tests are not working yet",
 	Description: "Windows Server 2022 with Azure Overlay Network Dual Stack - hyperv gen 2",
 	Config: Config{
 		Cluster:                ClusterAzureOverlayNetworkDualStack,

@@ -39,14 +39,16 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	}
 	runStarted := false
 	cmd := &cli.Command{
-		Name:  "e2e",
-		Usage: "Run AgentBaker end-to-end scenarios",
+		Name:    "e2e",
+		Usage:   "Run AgentBaker end-to-end scenarios",
+		Suggest: true,
 		Commands: []*cli.Command{
 			{
 				Name:      "run",
 				Usage:     "Run selected E2E scenarios",
 				ArgsUsage: "[scenario-name ...]",
 				Flags:     config.Flags(),
+				Suggest:   true,
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					runStarted = true
 					opts := runOptionsFromConfig(cmd.Args().Slice())
@@ -57,10 +59,10 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				Name:  "list",
 				Usage: "List registered E2E scenario entry points",
 				Action: func(context.Context, *cli.Command) error {
-					entries := registeredScenarios()
-					sort.Slice(entries, func(i, j int) bool { return entries[i].name < entries[j].name })
-					for _, entry := range entries {
-						_, _ = fmt.Fprintln(a.stdout, entry.name)
+					scenarios := registeredScenarios()
+					sort.Slice(scenarios, func(i, j int) bool { return scenarios[i].Name < scenarios[j].Name })
+					for _, scenario := range scenarios {
+						_, _ = fmt.Fprintln(a.stdout, scenario.Name)
 					}
 					return nil
 				},
@@ -115,11 +117,11 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 		return &usageError{message: "--output must be auto, grouped, or stream"}
 	}
 
-	entries := selectEntries(registeredScenarios(), opts.selectors)
-	if len(entries) == 0 {
+	scenarios := selectScenarios(registeredScenarios(), opts.selectors)
+	if len(scenarios) == 0 {
 		return &usageError{message: "no scenarios matched the requested names"}
 	}
-	runnable, filtered, err := partitionEntries(entries, opts.tagFilter)
+	runnable, filtered, err := partitionScenarios(scenarios, opts.tagFilter)
 	if err != nil {
 		return err
 	}
@@ -144,8 +146,8 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	log.Printf("using E2E environment configuration:\n%s\n", config.Config)
 
 	exec := newExecutor(ctx, a.stdout, opts, len(runnable))
-	for _, entry := range runnable {
-		exec.schedule(entry.name, entry.scenario)
+	for _, scenario := range runnable {
+		exec.schedule(scenario.Name, scenario)
 	}
 	waitErr := exec.wait(scenarioCleanupTimeout + 30*time.Second)
 
@@ -164,15 +166,15 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	return nil
 }
 
-func selectEntries(entries []scenarioEntry, selectors []string) []scenarioEntry {
+func selectScenarios(scenarios []*Scenario, selectors []string) []*Scenario {
 	if len(selectors) == 0 {
-		return entries
+		return scenarios
 	}
-	var selected []scenarioEntry
-	for _, entry := range entries {
+	var selected []*Scenario
+	for _, scenario := range scenarios {
 		for _, selector := range selectors {
-			if strings.EqualFold(entry.name, selector) || strings.HasPrefix(strings.ToLower(entry.name), strings.ToLower(selector)+"/") {
-				selected = append(selected, entry)
+			if strings.EqualFold(scenario.Name, selector) || strings.HasPrefix(strings.ToLower(scenario.Name), strings.ToLower(selector)+"/") {
+				selected = append(selected, scenario)
 				break
 			}
 		}
@@ -194,7 +196,6 @@ type runOptions struct {
 	logDir     string
 	junitFile  string
 	outputMode string
-	hidePassed bool
 	tagFilter  tagFilter
 	selectors  []string
 }
@@ -206,7 +207,6 @@ func runOptionsFromConfig(selectors []string) runOptions {
 		logDir:     config.Config.E2ELoggingDir,
 		junitFile:  config.Config.JUnitFile,
 		outputMode: config.Config.OutputMode,
-		hidePassed: config.Config.HidePassedLogs,
 		tagFilter: tagFilter{
 			run:  config.Config.TagsToRun,
 			skip: config.Config.TagsToSkip,

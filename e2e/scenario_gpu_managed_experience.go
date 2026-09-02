@@ -672,7 +672,7 @@ func newUbuntu2404_NvidiaDevicePluginRunning_MIG_MultiGPUScenario() *Scenario {
 
 	return &Scenario{
 		Name:             "Ubuntu2404_NvidiaDevicePluginRunning_MIG_MultiGPU",
-		SkipIf:           skipScenario("disabled to save on GPU quota"),
+		SkipReason:       "disabled to save on GPU quota",
 		Description:      "Tests that a MIG profile is applied to every GPU on an Ubuntu 24.04 multi-GPU VM",
 		K8sSystemPoolSKU: "Standard_D2s_v3",
 		Tags: Tags{

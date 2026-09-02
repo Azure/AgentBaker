@@ -106,5 +106,4 @@ exec ./bin/e2e run \
   --retries "${E2E_FAILED_TESTS_RETRY_COUNT}" \
   --log-dir "${LOGGING_DIR}" \
   --junit-file "${BUILD_SRC_DIR}/e2e/report.xml" \
-  --hide-passed-logs \
   --output grouped

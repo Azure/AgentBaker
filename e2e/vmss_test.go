@@ -5,6 +5,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,9 +16,7 @@ func TestGetBaseVMSSModelUsesScenarioVMSize(t *testing.T) {
 	s := &Scenario{
 		Runtime: &ScenarioRuntime{VMSize: "Standard_D2ds_v5"},
 	}
-	if got := scenarioVMSize(s); got != s.Runtime.VMSize {
-		t.Fatalf("VMSS SKU = %q, want %q", got, s.Runtime.VMSize)
-	}
+	assert.Equal(t, s.Runtime.VMSize, scenarioVMSize(s))
 }
 
 func TestCSEExitCodeOutboundConnFail(t *testing.T) {

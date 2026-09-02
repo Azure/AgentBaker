@@ -5,39 +5,32 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoggerDoesNotExposeTestControl(t *testing.T) {
 	var logger Logger = &stateLogger{}
-	if _, ok := logger.(interface{ Error(args ...any) }); ok {
-		t.Error("Logger must not expose Error")
-	}
-	if _, ok := logger.(interface{ Skip(args ...any) }); ok {
-		t.Error("Logger must not expose Skip")
-	}
-	if _, ok := logger.(interface{ Cleanup(func()) }); ok {
-		t.Error("Logger must not expose Cleanup")
-	}
+	assert.NotImplements(t, (*interface{ Error(args ...any) })(nil), logger)
+	assert.NotImplements(t, (*interface{ Skip(args ...any) })(nil), logger)
+	assert.NotImplements(t, (*interface{ Cleanup(func()) })(nil), logger)
 }
 
 func TestContextLoggerRoundTrip(t *testing.T) {
 	logger := &stateLogger{}
 	ctx := ContextWithLogger(context.Background(), logger)
 
-	if LoggerFromContext(ctx) != logger {
-		t.Fatal("LoggerFromContext did not return the stored logger")
-	}
+	assert.Same(t, logger, LoggerFromContext(ctx))
 	Log(ctx, "from context")
 	Logf(ctx, "formatted %s", "value")
-	if got := strings.Join(logger.logs, "\n"); !strings.Contains(got, "from context") || !strings.Contains(got, "formatted value") {
-		t.Fatalf("unexpected log output:\n%s", got)
-	}
+	got := strings.Join(logger.logs, "\n")
+	assert.Contains(t, got, "from context")
+	assert.Contains(t, got, "formatted value")
 }
 
 func TestLoggerFromContextFallsBackToStandardLogger(t *testing.T) {
-	if _, ok := LoggerFromContext(context.Background()).(stdLogger); !ok {
-		t.Fatal("expected the standard logger fallback")
-	}
+	assert.IsType(t, stdLogger{}, LoggerFromContext(context.Background()))
 }
 
 type stateLogger struct {
@@ -56,7 +49,6 @@ func TestLogStepReportsDuration(t *testing.T) {
 	logger := &stateLogger{}
 	done := LogStep(logger, "creating firewall")
 	done()
-	if len(logger.logs) != 2 || !strings.Contains(logger.logs[1], "finished") {
-		t.Fatalf("unexpected step logs: %v", logger.logs)
-	}
+	require.Len(t, logger.logs, 2)
+	assert.Contains(t, logger.logs[1], "finished")
 }

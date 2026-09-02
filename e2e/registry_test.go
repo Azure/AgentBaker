@@ -1,12 +1,15 @@
 package e2e
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 func TestRegisteredScenarioCount(t *testing.T) {
 	const minimum = 193
-	if got := len(registeredScenarios()); got < minimum {
-		t.Fatalf("registered %d scenarios, want at least %d; investigate missing scenario coverage", got, minimum)
-	}
+	assert.GreaterOrEqual(t, len(registeredScenarios()), minimum, "investigate missing scenario coverage")
 }
 
 func TestRegisterDuplicateNameCaseInsensitive(t *testing.T) {
@@ -14,13 +17,9 @@ func TestRegisterDuplicateNameCaseInsensitive(t *testing.T) {
 
 	Register(&Scenario{Name: "DupTest"})
 
-	defer func() {
-		r := recover()
-		if r == nil {
-			t.Fatal("expected panic on duplicate scenario name, got none")
-		}
-	}()
-	Register(&Scenario{Name: "duptest"})
+	require.Panics(t, func() {
+		Register(&Scenario{Name: "duptest"})
+	})
 }
 
 func TestRegisterPreservesStableOrder(t *testing.T) {
@@ -32,13 +31,9 @@ func TestRegisterPreservesStableOrder(t *testing.T) {
 	}
 
 	got := registeredScenarios()
-	if len(got) != len(names) {
-		t.Fatalf("expected %d entries, got %d", len(names), len(got))
-	}
+	require.Len(t, got, len(names))
 	for i, name := range names {
-		if got[i].name != name {
-			t.Fatalf("entry %d: got %q, want %q (registration order not preserved)", i, got[i].name, name)
-		}
+		assert.Equal(t, name, got[i].Name, "entry %d: registration order not preserved", i)
 	}
 }
 
@@ -49,16 +44,14 @@ func TestRegisteredScenariosReturnsCopy(t *testing.T) {
 	Register(&Scenario{Name: "Second"})
 
 	got := registeredScenarios()
-	got[0] = scenarioEntry{name: "Changed"}
+	got[0] = &Scenario{Name: "Changed"}
 
-	if registry[0].name != "First" {
-		t.Fatalf("mutating the returned slice changed the registry: got %q", registry[0].name)
-	}
+	assert.Equal(t, "First", registry[0].Name, "mutating the returned slice changed the registry")
 }
 
 func resetRegistryForTest(t *testing.T) func() {
 	t.Helper()
-	savedRegistry := append([]scenarioEntry(nil), registry...)
+	savedRegistry := append([]*Scenario(nil), registry...)
 	savedNames := make(map[string]struct{}, len(registryNames))
 	for k := range registryNames {
 		savedNames[k] = struct{}{}
