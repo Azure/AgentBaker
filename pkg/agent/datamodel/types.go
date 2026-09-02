@@ -1620,10 +1620,6 @@ func (config *NodeBootstrappingConfiguration) GetKubeletHealthzEndpoint(customKc
 	kubeletConfig := config.getWindowsKubeletConfig(customKc)
 
 	address := kubeletConfig["--healthz-bind-address"]
-	if address == "" {
-		address = "127.0.0.1"
-	}
-
 	port := kubeletConfig["--healthz-port"]
 	if port == "" {
 		port = "10248"
@@ -1633,7 +1629,7 @@ func (config *NodeBootstrappingConfiguration) GetKubeletHealthzEndpoint(customKc
 	}
 
 	switch address {
-	case "0.0.0.0":
+	case "", "0.0.0.0":
 		address = "127.0.0.1"
 	case "::":
 		address = "::1"

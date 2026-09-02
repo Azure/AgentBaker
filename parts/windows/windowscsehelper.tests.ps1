@@ -685,7 +685,7 @@ Describe "Start-NodeResetScriptTask" {
     Mock Invoke-WebRequest -MockWith { throw "connection refused" }
 
     { Start-NodeResetScriptTask } | Should -Throw "*kubelet did not become healthy*connection refused*"
-    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 23
+    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 30
   }
 
   It "skips the health check when the endpoint is disabled" {

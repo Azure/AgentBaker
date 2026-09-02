@@ -1004,12 +1004,12 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 			return
 		}
 	}
-	downloadBlob("collected-node-logs.zip")
 	downloadBlob("cse.log")
 	downloadBlob("provision.complete")
 	downloadBlob("kubelet.err.log")
 	downloadBlob("containerd.err.log")
 	downloadBlob("network_config.txt")
+	downloadBlob("collected-node-logs.zip")
 	s.Logger.Logf("logs collected to %s", testDir(s.testName))
 }
 
