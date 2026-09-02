@@ -215,7 +215,12 @@ func CustomDataWithNBCCmdHack(customData, binaryURL string) (string, error) {
 		return "", fmt.Errorf("decode custom data: %w", err)
 	}
 
-	binaryDownloadCmd := fmt.Sprintf("curl -fSL --retry 10 --retry-delay 2 --retry-connrefused \"%s\" -o /opt/azure/containers/aks-node-controller-hotfix && chmod +x /opt/azure/containers/aks-node-controller-hotfix", binaryURL)
+	// The #hotfix-marker appears in both the cloud-boothook and the phase-2.5 boothook, which are
+	// separate set -euo pipefail scripts concatenated into one customData. Guard the download so
+	// whichever marker runs second is a no-op once the binary is already present: this avoids a
+	// redundant download and prevents a transient second-run curl failure from aborting provisioning
+	// after the first run already succeeded.
+	binaryDownloadCmd := fmt.Sprintf("[ -x /opt/azure/containers/aks-node-controller-hotfix ] || { curl -fSL --retry 10 --retry-delay 2 --retry-connrefused %q -o /opt/azure/containers/aks-node-controller-hotfix && chmod +x /opt/azure/containers/aks-node-controller-hotfix; }", binaryURL)
 	customData = strings.Replace(string(decoded), "#hotfix-marker", binaryDownloadCmd, -1)
 	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
 }
