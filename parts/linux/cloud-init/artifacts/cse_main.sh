@@ -192,11 +192,6 @@ function basePrep {
 
 
     logs_to_events "AKS.CSE.fetch_and_cache_imds_instance_metadata" fetch_and_cache_imds_instance_metadata
-    # This function creates the /etc/kubernetes/azure.json file. It also creates the custom
-    # cloud configuration file if running in a custom cloud environment.
-    logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
-
-    logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
 
     logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
 
@@ -422,6 +417,9 @@ EOF
 # After this stage the node should be fully integrated into the cluster.
 # IMPORTANT: This stage should only run when actually joining a node to the cluster. This step should not be run when creating a VHD image
 function nodePrep {
+    logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
+    logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
+
     logs_to_events "AKS.CSE.fetch_and_cache_imds_instance_metadata" fetch_and_cache_imds_instance_metadata
     reconcileVulnerableKernelModuleMitigation
 
@@ -530,8 +528,6 @@ function nodePrep {
             REBOOTREQUIRED=true
 
             # this service applies the partitioning scheme with nvidia-smi.
-            # we should consider moving to mig-parted which is simpler/newer.
-            # we couldn't because of old drivers but that has long been fixed.
             logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
         fi
 

@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -22,6 +21,7 @@ import (
 	errorsk8s "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -42,6 +42,8 @@ const (
 	podNetworkDebugAppLabel  = "debugnonhost-mariner-tolerated"
 	proxyAppLabel            = "e2e-proxy"
 	proxyPort                = 8888
+	proxyNodePoolLabel       = "kubernetes.azure.com/agentpool"
+	proxyNodePoolName        = "nodepool1"
 )
 
 func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Kubeclient, error) {
@@ -163,14 +165,14 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 	return pod, err
 }
 
-func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
-	defer toolkit.LogStepf(t, "waiting for node %s to be ready", vmssName)()
+func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, logger toolkit.Logger, vmssName string) (string, error) {
+	defer toolkit.LogStepf(logger, "waiting for node %s to be ready", vmssName)()
 	var lastNode *corev1.Node
 
 	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
 		nodes, err := k.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 		if err != nil {
-			t.Logf("error listing nodes: %v", err)
+			logger.Logf("error listing nodes: %v", err)
 			return false, nil
 		}
 
@@ -186,12 +188,12 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssN
 
 			for _, cond := range node.Status.Conditions {
 				if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
-					t.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
+					logger.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
 					return true, nil
 				}
 			}
 
-			t.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
+			logger.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
 		}
 
 		return false, nil
@@ -199,15 +201,13 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssN
 
 	if err != nil {
 		if lastNode == nil {
-			t.Fatalf("%q haven't appeared in k8s API server: %v", vmssName, err)
-			return ""
+			return "", fmt.Errorf("%q did not appear in the Kubernetes API server: %w", vmssName, err)
 		}
 		nodeString, _ := json.Marshal(lastNode)
-		t.Fatalf("failed to wait for %q (%s) to be ready %+v. Detail: %s", vmssName, lastNode.Name, lastNode.Status, string(nodeString))
-		return ""
+		return "", fmt.Errorf("failed to wait for %q (%s) to be ready: %w; status=%+v detail=%s", vmssName, lastNode.Name, err, lastNode.Status, string(nodeString))
 	}
 
-	return lastNode.Name
+	return lastNode.Name, nil
 }
 
 // GetPodNetworkDebugPodForNode returns a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
@@ -418,19 +418,10 @@ func daemonsetDebug(ctx context.Context, deploymentName string, nodeSelector map
 					},
 				},
 				Spec: corev1.PodSpec{
-					HostNetwork:  isHostNetwork,
-					NodeSelector: nodeSelector,
-					ImagePullSecrets: func() []corev1.LocalObjectReference {
-						if secretName == "" {
-							return nil
-						}
-						return []corev1.LocalObjectReference{
-							{
-								Name: secretName,
-							},
-						}
-					}(),
-					HostPID: true,
+					HostNetwork:      isHostNetwork,
+					NodeSelector:     nodeSelector,
+					ImagePullSecrets: getImagePullSecrets(secretName),
+					HostPID:          true,
 					Containers: []corev1.Container{
 						{
 							Image:   image,
@@ -441,30 +432,45 @@ func daemonsetDebug(ctx context.Context, deploymentName string, nodeSelector map
 							},
 						},
 					},
-					// Set Tolerations to tolerate the node with test taints "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule".
-					// This is to ensure that the pod can be scheduled on the node with the taints.
-					// It won't affect other pods running on the same node.
-					Tolerations: []corev1.Toleration{
-						{
-							Key:      "testkey1",
-							Operator: corev1.TolerationOpEqual,
-							Value:    "value1",
-							Effect:   corev1.TaintEffectNoSchedule,
-						},
-						{
-							Key:      "testkey2",
-							Operator: corev1.TolerationOpEqual,
-							Value:    "value2",
-							Effect:   corev1.TaintEffectNoSchedule,
-						},
-						{
-							Key:      "node.cloudprovider.kubernetes.io/uninitialized",
-							Operator: corev1.TolerationOpExists,
-							Effect:   corev1.TaintEffectNoSchedule,
-						},
-					},
+					Tolerations: getPodTolerations(),
 				},
 			},
+		},
+	}
+}
+
+func getImagePullSecrets(secretName string) []corev1.LocalObjectReference {
+	if secretName == "" {
+		return nil
+	}
+	return []corev1.LocalObjectReference{
+		{
+			Name: secretName,
+		},
+	}
+}
+
+func getPodTolerations() []corev1.Toleration {
+	// Set Tolerations to tolerate the node with test taints "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule".
+	// This is to ensure that the pod can be scheduled on the node with the taints.
+	// It won't affect other pods running on the same node.
+	return []corev1.Toleration{
+		{
+			Key:      "testkey1",
+			Operator: corev1.TolerationOpEqual,
+			Value:    "value1",
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      "testkey2",
+			Operator: corev1.TolerationOpEqual,
+			Value:    "value2",
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      "node.cloudprovider.kubernetes.io/uninitialized",
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
 		},
 	}
 }
@@ -586,7 +592,7 @@ func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 				Spec: corev1.PodSpec{
 					HostNetwork: true,
 					NodeSelector: map[string]string{
-						"kubernetes.azure.com/mode": "system",
+						proxyNodePoolLabel: proxyNodePoolName,
 					},
 					Tolerations: []corev1.Toleration{
 						{Operator: corev1.TolerationOpExists},
@@ -596,6 +602,35 @@ func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 						Image:   image,
 						Command: []string{"python3", "/opt/proxy/proxy.py"},
 						Ports:   []corev1.ContainerPort{{ContainerPort: int32(proxyPort), HostPort: int32(proxyPort)}},
+						// Check whether proxy has started before starting the readiness and liveness probes.
+						// Allow up to 60s total (5 + 12×5) for a slow-starting proxy before giving up.
+						StartupProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(proxyPort)},
+							},
+							InitialDelaySeconds: 5,
+							PeriodSeconds:       5,
+							FailureThreshold:    12,
+						},
+						// Gate readiness on the proxy actually accepting TCP connections on :8888.
+						ReadinessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(proxyPort)},
+							},
+							InitialDelaySeconds: 5,
+							PeriodSeconds:       5,
+							FailureThreshold:    3,
+						},
+						// Restart the container if it stops serving on :8888.
+						// Only restart after sustained failure (30s delay + 3×10s) to avoid restart loops on transient blips.
+						LivenessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(proxyPort)},
+							},
+							InitialDelaySeconds: 30,
+							PeriodSeconds:       10,
+							FailureThreshold:    3,
+						},
 						VolumeMounts: []corev1.VolumeMount{
 							{Name: "proxy-script", MountPath: "/opt/proxy", ReadOnly: true},
 						},
@@ -614,31 +649,53 @@ func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 	}
 }
 
-// GetProxyURL returns the proxy URL after verifying the proxy pod is ready
-// on at least one system pool node.
+// GetProxyURL returns the proxy URL after verifying the proxy pod and its
+// backing node are ready on the cluster's permanent managed system pool.
 func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 	var proxyURL string
 	var lastPodStatuses []string
+	selfHealDelay := 3 * time.Minute
+	start := time.Now()
+	selfHealed := false
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
-		pods, err := k.Typed.CoreV1().Pods("default").List(ctx, metav1.ListOptions{
+		pods, err := k.Typed.CoreV1().Pods(defaultNamespace).List(ctx, metav1.ListOptions{
 			LabelSelector: "app=" + proxyAppLabel,
 		})
 		if err != nil {
 			return false, fmt.Errorf("listing proxy pods: %w", err)
 		}
-		if len(pods.Items) == 0 {
-			lastPodStatuses = []string{"no proxy pods found"}
-			return false, nil
+		nodes, err := k.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{
+			LabelSelector: proxyNodePoolLabel + "=" + proxyNodePoolName,
+		})
+		if err != nil {
+			return false, fmt.Errorf("listing permanent system pool nodes: %w", err)
 		}
+		readySystemPoolNodes := readyNodeNames(nodes.Items)
+
 		lastPodStatuses = lastPodStatuses[:0]
 		for _, pod := range pods.Items {
-			for _, c := range pod.Status.Conditions {
-				if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue && pod.Status.HostIP != "" {
-					proxyURL = fmt.Sprintf("http://%s:%d", pod.Status.HostIP, proxyPort)
-					return true, nil
-				}
+			if proxyPodIsReady(&pod, readySystemPoolNodes) {
+				proxyURL = fmt.Sprintf("http://%s:%d", pod.Status.HostIP, proxyPort)
+				return true, nil
 			}
-			lastPodStatuses = append(lastPodStatuses, formatPodDiagnostics(&pod))
+			status := formatPodDiagnostics(&pod)
+			if _, ok := readySystemPoolNodes[pod.Spec.NodeName]; !ok {
+				status += fmt.Sprintf(" node is not a Ready %s=%s node", proxyNodePoolLabel, proxyNodePoolName)
+			}
+			lastPodStatuses = append(lastPodStatuses, status)
+		}
+		if len(pods.Items) == 0 {
+			lastPodStatuses = []string{"no proxy pods found"}
+		}
+		// Self-heal once: if pods exist but none became ready within the grace
+		// period, delete them so the DaemonSet reschedules fresh ones
+		if !selfHealed && len(pods.Items) > 0 && time.Since(start) >= selfHealDelay {
+			selfHealed = true
+			if rerr := k.recreateProxyPods(ctx); rerr != nil {
+				toolkit.Logf(ctx, "failed to recreate proxy pods after %s: %v", selfHealDelay, rerr)
+			} else {
+				toolkit.Logf(ctx, "recreated proxy pods after %s without a ready proxy", selfHealDelay)
+			}
 		}
 		return false, nil
 	})
@@ -647,6 +704,55 @@ func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("waiting for proxy pod to be ready: %w", err)
 	}
 	return proxyURL, nil
+}
+
+func proxyPodIsReady(pod *corev1.Pod, readySystemPoolNodes map[string]struct{}) bool {
+	if pod.Status.HostIP == "" {
+		return false
+	}
+	if _, ok := readySystemPoolNodes[pod.Spec.NodeName]; !ok {
+		return false
+	}
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
+func readyNodeNames(nodes []corev1.Node) map[string]struct{} {
+	ready := make(map[string]struct{}, len(nodes))
+	for i := range nodes {
+		node := &nodes[i]
+		if node.Labels[proxyNodePoolLabel] != proxyNodePoolName {
+			continue
+		}
+		for _, condition := range node.Status.Conditions {
+			if condition.Type == corev1.NodeReady && condition.Status == corev1.ConditionTrue {
+				ready[node.Name] = struct{}{}
+				break
+			}
+		}
+	}
+	return ready
+}
+
+// recreateProxyPods deletes all proxy pods so the DaemonSet reschedules fresh ones
+func (k *Kubeclient) recreateProxyPods(ctx context.Context) error {
+	pods, err := k.Typed.CoreV1().Pods(defaultNamespace).List(ctx, metav1.ListOptions{
+		LabelSelector: "app=" + proxyAppLabel,
+	})
+	if err != nil {
+		return fmt.Errorf("listing proxy pods for recreate: %w", err)
+	}
+	for i := range pods.Items {
+		name := pods.Items[i].Name
+		if err := k.Typed.CoreV1().Pods(defaultNamespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !errorsk8s.IsNotFound(err) {
+			return fmt.Errorf("deleting proxy pod %s for recreate: %w", name, err)
+		}
+	}
+	return nil
 }
 
 func formatPodDiagnostics(pod *corev1.Pod) string {
@@ -673,9 +779,61 @@ func (k *Kubeclient) logProxyTimeoutDiagnostics(ctx context.Context, lastPodStat
 	for _, s := range lastPodStatuses {
 		toolkit.Logf(ctx, "    %s", s)
 	}
-	// Log ALL nodes with labels and conditions to diagnose scheduling issues
+
 	listCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
+	ds, err := k.Typed.AppsV1().DaemonSets(defaultNamespace).Get(listCtx, proxyAppLabel, metav1.GetOptions{})
+	if err != nil {
+		toolkit.Logf(ctx, "    (failed to get proxy daemonset: %v)", err)
+	} else {
+		toolkit.Logf(
+			ctx,
+			"    --- proxy daemonset status: desired=%d current=%d updated=%d ready=%d available=%d unavailable=%d ---",
+			ds.Status.DesiredNumberScheduled,
+			ds.Status.CurrentNumberScheduled,
+			ds.Status.UpdatedNumberScheduled,
+			ds.Status.NumberReady,
+			ds.Status.NumberAvailable,
+			ds.Status.NumberUnavailable,
+		)
+		for _, condition := range ds.Status.Conditions {
+			toolkit.Logf(ctx, "    condition(%s=%s reason=%s message=%s)", condition.Type, condition.Status, condition.Reason, condition.Message)
+		}
+	}
+
+	events, err := k.Typed.CoreV1().Events(defaultNamespace).List(listCtx, metav1.ListOptions{})
+	if err != nil {
+		toolkit.Logf(ctx, "    (failed to list proxy events: %v)", err)
+	} else {
+		eventCount := 0
+		for _, event := range events.Items {
+			isProxyDaemonSet := event.InvolvedObject.Kind == "DaemonSet" && event.InvolvedObject.Name == proxyAppLabel
+			isProxyPod := event.InvolvedObject.Kind == "Pod" && strings.HasPrefix(event.InvolvedObject.Name, proxyAppLabel+"-")
+			if !isProxyDaemonSet && !isProxyPod {
+				continue
+			}
+			if eventCount == 0 {
+				toolkit.Logf(ctx, "    --- proxy daemonset and pod events ---")
+			}
+			eventCount++
+			toolkit.Logf(
+				ctx,
+				"    type=%s object=%s/%s reason=%s count=%d message=%s",
+				event.Type,
+				event.InvolvedObject.Kind,
+				event.InvolvedObject.Name,
+				event.Reason,
+				event.Count,
+				event.Message,
+			)
+		}
+		if eventCount == 0 {
+			toolkit.Logf(ctx, "    --- no proxy daemonset or pod events found ---")
+		}
+	}
+
+	// Log ALL nodes with labels and conditions to diagnose scheduling issues
 	nodes, err := k.Typed.CoreV1().Nodes().List(listCtx, metav1.ListOptions{})
 	if err != nil {
 		toolkit.Logf(ctx, "    (failed to list nodes: %v)", err)
@@ -712,7 +870,7 @@ func (k *Kubeclient) logProxyTimeoutDiagnostics(ctx context.Context, lastPodStat
 	}
 }
 
-func getClusterSubnetID(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (string, error) {
+func getClusterSubnetID(cluster *armcontainerservice.ManagedCluster) (string, error) {
 	for _, pool := range cluster.Properties.AgentPoolProfiles {
 		if pool.VnetSubnetID != nil && *pool.VnetSubnetID != "" {
 			return *pool.VnetSubnetID, nil
@@ -750,31 +908,27 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 			// Set Tolerations to tolerate the node with test taints "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule".
 			// This is to ensure that the pod can be scheduled on the node with the taints.
 			// It won't affect other pods running on the same node.
-			Tolerations: []corev1.Toleration{
-				{
-					Key:      "testkey1",
-					Operator: corev1.TolerationOpEqual,
-					Value:    "value1",
-					Effect:   corev1.TaintEffectNoSchedule,
-				},
-				{
-					Key:      "testkey2",
-					Operator: corev1.TolerationOpEqual,
-					Value:    "value2",
-					Effect:   corev1.TaintEffectNoSchedule,
-				},
-			},
-			NodeSelector: map[string]string{
-				"kubernetes.io/hostname": s.Runtime.VM.KubeName,
-			},
+			Tolerations:  getPodTolerations(),
+			NodeSelector: getNodeSelectorForScenario(s),
 		},
 	}
 }
 
-func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
+func getNodeSelectorForScenario(s *Scenario) map[string]string {
+	return map[string]string{
+		"kubernetes.io/hostname": s.Runtime.VM.KubeName,
+	}
+}
+
+func debugPodWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
+	deploymentName := fmt.Sprintf("%s-test-%s-pod", s.Runtime.VM.KubeName, podName)
 	return &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-test-%s-pod", s.Runtime.VM.KubeName, podName),
+			Name:      deploymentName,
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
@@ -787,9 +941,8 @@ func podWindows(s *Scenario, podName string, imageName string) *corev1.Pod {
 					Command: []string{"cmd", "/c", "ping", "-t", "localhost"},
 				},
 			},
-			NodeSelector: map[string]string{
-				"kubernetes.io/hostname": s.Runtime.VM.KubeName,
-			},
+			Tolerations:  getPodTolerations(),
+			NodeSelector: getNodeSelectorForScenario(s),
 		},
 	}
 }

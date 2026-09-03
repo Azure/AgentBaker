@@ -23,13 +23,13 @@ jobs:
     if: github.event.pull_request.user.login == 'dependabot[bot]' || github.event.pull_request.head.repo.full_name == 'Azure/AgentBaker'
     environment: test
     steps:
-      - uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3
+      - uses: azure/login@7ddb5af1ef8758cf1353cf3b42f940aee27ba21c # v3.0.2
         with:
           client-id: ${{ secrets.AZURE_KV_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_KV_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_KV_SUBSCRIPTION_ID }}
 
-      - uses: azure/cli@9eb25b8360668fb0ecbafa808d40e2197b2f5f52 # v3
+      - uses: azure/cli@9eb25b8360668fb0ecbafa808d40e2197b2f5f52 # v3.0.0
         id: app-private-key
         with:
           azcliversion: latest
@@ -39,7 +39,7 @@ jobs:
               echo "::add-mask::$private_key"
               echo "private-key=$private_key" >> $GITHUB_OUTPUT
 
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         id: app-token
         with:
           app-id: ${{ vars.APP_ID }}

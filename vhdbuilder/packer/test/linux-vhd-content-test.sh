@@ -1244,6 +1244,38 @@ testVHDBuildLogsExist() {
   echo "$test:Finish"
 }
 
+testAzureLinuxNvidiaGPUDriverReleaseNotes() {
+  local test="testAzureLinuxNvidiaGPUDriverReleaseNotes"
+  local enable_fips="${ENABLE_FIPS,,}"
+
+  if [ "$OS_SKU" != "AzureLinux" ] || [ "$OS_VERSION" != "3.0" ] || [ "$enable_fips" = "true" ] || [ "$(isARM64)" -eq 1 ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
+    echo "$test: Skipping check for $OS_SKU $OS_VERSION (fips=$ENABLE_FIPS, feature_flags=$FEATURE_FLAGS)"
+    return 0
+  fi
+
+  if ! grep -F -q "NVIDIA GPU driver versions available at VHD build time for supported Azure Linux GPU VM sizes" "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Azure Linux NVIDIA GPU driver release-note section was not found"
+  fi
+
+  if ! grep -E -q '^  - nvidia-cuda-open-driver version [0-9]' "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Expected an Azure Linux CUDA open driver release-note line was not found"
+  fi
+
+  if ! grep -E -q '^  - nvidia-cuda-driver version [0-9]' "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Expected an Azure Linux proprietary CUDA driver release-note line was not found"
+  fi
+
+  if ! grep -E -q '^  - nvidia-grid-driver version [0-9]' "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Expected Azure Linux GRID driver release-note line was not found"
+  fi
+
+  if ! grep -F -q "the installed version is not pinned to this VHD" "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Expected Azure Linux GPU driver release-note snapshot disclaimer was not found"
+  fi
+
+  echo "$test:Finish"
+}
+
 # Ensures that /etc/login.defs is valid. This is a best-effort test, as we aren't going to
 # re-implement everything that uses this file.
 testLoginDefs() {
@@ -1448,9 +1480,10 @@ testNfsServerService() {
 # To add a new CVE mitigation, append the module to BOTH loops below — the
 # absence loop AND the default presence + load-refusal loop.
 #
-# AzureLinux 3.0 is descoped: kernel 6.6.139.1-1.azl3+ fixes the CVEs upstream and
-# the modprobe blacklist is NOT baked into newly-built AzL3 VHDs (customer workloads
-# require those modules). Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu
+# AzureLinux 3.0 is descoped: kernel 6.6.139.1-1.azl3+ fixes the CVEs upstream, so only the
+# algif_aead/esp4/esp6/rxrpc lines are stripped from newly-built AzL3 VHDs (customer workloads
+# require those modules); the rest of the CIS module denylist (dccp/sctp/rds/tipc/cramfs/etc.)
+# is still baked in and asserted below. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu
 # 24.04 linux-azure 6.8.0-1058-azure include the fixes, so newly-built Ubuntu
 # 22.04/24.04 VHDs with a fixed running kernel also stop baking the vulnerable-module
 # blacklist while keeping the baseline CIS module deny list. Ubuntu 20.04 and vulnerable
@@ -1521,19 +1554,29 @@ testVulnerableKernelModulesDisabled() {
       fi
     done
 
-    if [ "$os_sku" = "Ubuntu" ]; then
-      for mod in cramfs freevxfs jffs2 hfs hfsplus usb-storage; do
-        if ! grep -qsE "^install ${mod} /bin/true" /etc/modprobe.d/*.conf 2>/dev/null; then
-          err "$test" "${mod} CIS disable rule not found in /etc/modprobe.d/*.conf"
-          failed=1
-        elif ! grep -qsE "^blacklist ${mod}" /etc/modprobe.d/*.conf 2>/dev/null; then
-          err "$test" "${mod} CIS blacklist rule not found in /etc/modprobe.d/*.conf"
-          failed=1
-        else
-          echo "$test: CIS modprobe config correctly blocks ${mod}"
-        fi
-      done
-    fi
+    # Only the algif_aead/esp4/esp6/rxrpc lines above are stripped for the CVE mitigation;
+    # the rest of the CIS 3.5.x / 1.1.1.x module denylist must remain intact on every OS
+    # stream (including AzureLinux 3.0, which used to skip the whole modprobe-CIS.conf file).
+    for mod in dccp sctp rds tipc; do
+      if ! grep -qsE "^install ${mod} /bin/true" /etc/modprobe.d/*.conf 2>/dev/null; then
+        err "$test" "${mod} CIS disable rule not found in /etc/modprobe.d/*.conf on ${os_sku} ${os_version}"
+        failed=1
+      else
+        echo "$test: CIS modprobe config correctly blocks ${mod} on ${os_sku} ${os_version}"
+      fi
+    done
+
+    for mod in cramfs freevxfs jffs2 hfs hfsplus usb-storage; do
+      if ! grep -qsE "^install ${mod} /bin/true" /etc/modprobe.d/*.conf 2>/dev/null; then
+        err "$test" "${mod} CIS disable rule not found in /etc/modprobe.d/*.conf on ${os_sku} ${os_version}"
+        failed=1
+      elif ! grep -qsE "^blacklist ${mod}" /etc/modprobe.d/*.conf 2>/dev/null; then
+        err "$test" "${mod} CIS blacklist rule not found in /etc/modprobe.d/*.conf on ${os_sku} ${os_version}"
+        failed=1
+      else
+        echo "$test: CIS modprobe config correctly blocks ${mod} on ${os_sku} ${os_version}"
+      fi
+    done
 
     if [ "$failed" -ne 0 ]; then
       return 1
@@ -2045,9 +2088,19 @@ testAKSNodeControllerVersion() {
     return 1
   fi
 
-  if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]{6}\.[0-9]{2}\.[0-9]+$'; then
-    err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected 'YYYYMM.DD.PATCH'"
-    return 1
+  # Test builds (PR builds, and any build run off a non-main ref) are not tied to a real VHD release version,
+  # so binary stamped with a non-release version (e.g. a locally-generated dev/date-based fallback).
+  # Only enforce the strict release format when official build off of 'refs/heads/main'.
+  if [ "$GIT_BRANCH" = "refs/heads/main" ]; then
+    if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]{6}\.[0-9]{2}\.[0-9]+$'; then
+      err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected 'YYYYMM.DD.PATCH'"
+      return 1
+    fi
+  else
+    if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]+(\.[0-9]+)*$'; then
+      err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected a dotted numeric version"
+      return 1
+    fi
   fi
 
   echo "$test: aks-node-controller version '${ancVersion}' is valid"
@@ -2662,6 +2715,7 @@ testContainerNetworkingPluginsInstalled() {
 checkPerformanceData
 testBccTools $OS_SKU $OS_VERSION
 testVHDBuildLogsExist
+testAzureLinuxNvidiaGPUDriverReleaseNotes
 testCriticalTools
 testPackagesInstalled
 testFuseInstalled
@@ -2688,7 +2742,7 @@ testAppArmorInstalled $OS_SKU $OS_VERSION
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
 # which means the test failures haven't been caught. It also calles exit 1 on a failure,
 # which means the rest of the tests aren't being run.
-# See https://msazure.visualstudio.com/CloudNativeCompute/_backlogs/backlog/Node%20Lifecycle/Features/?workitem=24246232
+# Tracked internally (Node Lifecycle backlog item #24246232)
 # testImagesRetagged $CONTAINER_RUNTIME
 testCustomCAScriptExecutable
 testCustomCATimerNotStarted
