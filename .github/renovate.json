@@ -666,7 +666,7 @@
         "aks/aks-gpu-grid"
       ],
       "groupName": "nvidia-gpu-grid",
-      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)(?:\\.(?<patch>\\d+))?-(?<prerelease>\\d{14})$",
       "automerge": false,
       "enabled": true,
       "ignoreUnstable": false,
