@@ -636,6 +636,8 @@ testChrony() {
   fi
   initialDate=$(date +%s)
   date --set "27 Feb 2021"
+  # Request fresh measurements after the artificial time jump.
+  chronyc burst 4/4
   for i in $(seq 1 10); do
     newDate=$(date +%s)
     if (($newDate > $initialDate)); then
