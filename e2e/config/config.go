@@ -167,6 +167,27 @@ func (c *Configuration) IsLocalBuild() bool {
 	return c.BuildID == "local"
 }
 
+// SIGVersionTagNameBuildID is the value .pipelines/scripts/e2e_run.sh exports as
+// SIG_VERSION_TAG_NAME when VHD_BUILD_ID is set, which selects the VHD produced by that
+// specific build rather than the newest VHD tagged branch=refs/heads/main.
+const SIGVersionTagNameBuildID = "buildId"
+
+// VHDBuiltFromSourceUnderTest reports whether the VHD under test was built from the same
+// AgentBaker source these tests are running from.
+//
+// The VHD builder pipelines run their e2e stage with VHD_BUILD_ID: $(Build.BuildId) (see
+// .vsts-vhd-builder.yaml, .vsts-vhd-builder-release.yaml), so the VHD selected by that tag is
+// the one built earlier in the same pipeline run, from the same commit. e2e_run.sh turns that
+// into SIG_VERSION_TAG_NAME=buildId.
+//
+// The standalone e2e check leaves VHD_BUILD_ID unset, so SIGVersionTagName keeps its
+// "branch"/"refs/heads/main" default and the PR's code runs against a VHD built from main.
+// Validations that compare VHD-baked state against source-generated state are only meaningful
+// when this returns true.
+func (c *Configuration) VHDBuiltFromSourceUnderTest() bool {
+	return c.SIGVersionTagName == SIGVersionTagNameBuildID
+}
+
 func (c *Configuration) BlobStorageAccountURL() string {
 	return "https://" + c.BlobStorageAccount() + ".blob.core.windows.net"
 }

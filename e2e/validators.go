@@ -3488,16 +3488,16 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) error {
 // source under test. The nbc-cmd side is generated from the source under test instead, so
 // the two sides only agree when the VHD was built from that same source.
 //
-// E2E deliberately does not do that: it runs the PR's code against the newest VHD tagged
-// branch=refs/heads/main (see config.SIGVersionTagValue, which defaults to "refs/heads/main").
-// So any PR that changes a GPU driver version in parts/common/components.json will
-// legitimately differ on these vars until a VHD is rebuilt from that PR, which cannot happen
-// before merge. Failing on them makes GPU driver bumps unmergeable for a reason unrelated to
-// the change under test.
+// The standalone e2e check deliberately does not do that: it runs the PR's code against the
+// newest VHD tagged branch=refs/heads/main (see config.SIGVersionTagValue). So any PR that
+// changes a GPU driver version in parts/common/components.json will legitimately differ on
+// these vars until a VHD is rebuilt from that PR, which cannot happen before merge. Failing
+// on them makes GPU driver bumps unmergeable for a reason unrelated to the change under test.
 //
-// Differences limited to these vars are therefore tolerated here. Any other differing var
-// still fails, and aks-node-controller still reports the full diff (including these vars) as
-// a guest agent event for Kusto, so production observability is unchanged.
+// Differences limited to these vars are therefore tolerated, but only when the VHD was not
+// built from the source under test — see unexpectedEnvCompareDiffVars. aks-node-controller
+// still reports the full diff (including these vars) as a guest agent event for Kusto, so
+// production observability is unchanged.
 var vhdSourcedEnvVars = map[string]struct{}{
 	"GPU_DRIVER_VERSION": {},
 	"GPU_IMAGE_SHA":      {},
@@ -3525,14 +3525,20 @@ func parseEnvCompareDiffVars(grepOutput string) []string {
 	return names
 }
 
-// unexpectedEnvCompareDiffVars returns the differing env vars that are not explained by
-// VHD-vs-source skew.
-func unexpectedEnvCompareDiffVars(diffVars []string) []string {
+// unexpectedEnvCompareDiffVars returns the differing env vars that phase 3 should fail on.
+//
+// When the VHD under test was built from the source under test, both sides of the comparison
+// come from the same commit, so every difference is real and nothing is tolerated. Otherwise
+// the vars in vhdSourcedEnvVars are read from the VHD on the provision-config side while the
+// nbc-cmd side is generated from source, so they differ for a reason unrelated to the change
+// under test and are excluded.
+func unexpectedEnvCompareDiffVars(diffVars []string, vhdBuiltFromSourceUnderTest bool) []string {
 	var unexpected []string
 	for _, name := range diffVars {
-		if _, ok := vhdSourcedEnvVars[name]; !ok {
-			unexpected = append(unexpected, name)
+		if _, isVHDSourced := vhdSourcedEnvVars[name]; isVHDSourced && !vhdBuiltFromSourceUnderTest {
+			continue
 		}
+		unexpected = append(unexpected, name)
 	}
 	return unexpected
 }
@@ -3565,7 +3571,15 @@ func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) error {
 			"but the success marker is absent and no diff entries were found in %s:\n%s", logFile, result.stdout)
 	}
 
-	if unexpected := unexpectedEnvCompareDiffVars(diffVars); len(unexpected) > 0 {
+	builtFromSource := config.Config.VHDBuiltFromSourceUnderTest()
+
+	if unexpected := unexpectedEnvCompareDiffVars(diffVars, builtFromSource); len(unexpected) > 0 {
+		if builtFromSource {
+			return fmt.Errorf("expected no env var differences between provision-config and nbc-cmd, but found differences in %v. "+
+				"The VHD under test was built from the source under test (%s=%s), so both sides come from the same commit "+
+				"and every difference is real:\n%s",
+				unexpected, config.Config.SIGVersionTagName, config.Config.SIGVersionTagValue, result.stdout)
+		}
 		return fmt.Errorf("expected no env var differences between provision-config and nbc-cmd, but found differences in %v:\n%s",
 			unexpected, result.stdout)
 	}
