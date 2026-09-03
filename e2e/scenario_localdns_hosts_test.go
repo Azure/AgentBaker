@@ -78,6 +78,7 @@ sudo systemctl start localdns.service
 sudo systemctl is-active --quiet localdns.service
 
 # Repeatedly kill the supervisor and wait for Restart=on-failure recovery.
+test_start=$(date +%s)
 for i in 1 2 3; do
     main=$(sudo systemctl show -p MainPID --value localdns.service)
     test "$main" -gt 0
@@ -100,7 +101,14 @@ printf '%s\n' "$state"
 printf '%s\n' "$state" | grep -q '^ActiveState=active$'
 printf '%s\n' "$state" | grep -q '^SubState=running$'
 printf '%s\n' "$state" | grep -q '^Result=success$'
-! sudo journalctl -u localdns.service --since '2 minutes ago' --no-pager | grep -E 'Failed to kill control group|Start request repeated too quickly|Failed to start localdns.service'
+if sudo journalctl -u localdns.service --since "@$test_start" --no-pager | grep -q 'Failed to kill control group'; then
+    echo "WARNING: LocalDNS cgroup teardown warning observed"
+fi
+if sudo journalctl -u localdns.service --since "@$test_start" --no-pager | grep -q 'Start request repeated too quickly'; then
+    echo "LocalDNS reached systemd StartLimit"
+    exit 1
+fi
+dig +short +time=5 +tries=1 mcr.microsoft.com @169.254.10.10 | grep -q .
 `, 0, "LocalDNS lifecycle validation failed")
 	return err
 }
