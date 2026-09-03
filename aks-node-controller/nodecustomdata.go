@@ -125,7 +125,7 @@ func parseNodeCustomData(data []byte, options nodeCustomDataApplyOptions) (nodeC
 		return nodeCustomData{}, fmt.Errorf("decode nodecustomdata %s: %w", options.source, err)
 	}
 	var trailing any
-	if err := decoder.Decode(&trailing); err != io.EOF {
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
 		return nodeCustomData{}, fmt.Errorf("nodecustomdata %s has trailing content", options.source)
 	}
 	return customData, nil
@@ -257,8 +257,8 @@ func stageNodeCustomDataEntry(entry nodeCustomDataEntry, replaceOnly bool) (stag
 		if !info.IsDir() {
 			return stagedNodeCustomDataEntry{}, false, fmt.Errorf("destination parent %s is not a directory", directory)
 		}
-	} else if err := os.MkdirAll(directory, 0o755); err != nil {
-		return stagedNodeCustomDataEntry{}, false, fmt.Errorf("create parent directory: %w", err)
+	} else if mkErr := os.MkdirAll(directory, 0o755); mkErr != nil {
+		return stagedNodeCustomDataEntry{}, false, fmt.Errorf("create parent directory: %w", mkErr)
 	}
 
 	stagedPath, err := writeNodeCustomDataTempFile(directory, ".aks-node-controller-nodecustomdata-stage-*", entry.content, entry.mode)

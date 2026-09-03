@@ -686,7 +686,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	return provisionResult, err
 }
 
-func (a *App) applyEmbeddedHotfixPayload() {
+func (a *App) applyEmbeddedHotfixIfNeeded() {
 	applyEmbeddedHotfix := a.applyEmbeddedHotfix
 	if applyEmbeddedHotfix == nil {
 		applyEmbeddedHotfix = applyEmbeddedNodeCustomDataIfActive
@@ -729,7 +729,7 @@ func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun boo
 	if dryRun {
 		a.cmdRun = cmdRunnerDryRun
 	} else {
-		a.applyEmbeddedHotfixPayload()
+		a.applyEmbeddedHotfixIfNeeded()
 	}
 	return a.Provision(ctx, flags)
 }

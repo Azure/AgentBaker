@@ -24,6 +24,7 @@ const (
 //go:embed scripthotfix/generated
 var embeddedGeneratedNodeCustomData embed.FS
 
+//nolint:gochecknoglobals // indirection point so tests can inject an alternate filesystem
 var generatedNodeCustomData fs.FS = embeddedGeneratedNodeCustomData
 
 func applyEmbeddedNodeCustomDataIfActive(osReleasePath string) (nodeCustomDataApplyResult, error) {

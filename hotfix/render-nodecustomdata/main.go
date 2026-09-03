@@ -18,15 +18,15 @@ type platform struct {
 	distro datamodel.Distro
 }
 
-var platforms = []platform{
-	{name: "ubuntu", distro: datamodel.AKSUbuntuContainerd2204Gen2},
-	{name: "mariner", distro: datamodel.AKSAzureLinuxV3Gen2},
-	{name: "acl", distro: datamodel.AKSACLGen2TL},
-	{name: "azlosguard", distro: datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL},
-	{name: "flatcar", distro: datamodel.AKSFlatcarGen2},
-}
-
 func main() {
+	platforms := []platform{
+		{name: "ubuntu", distro: datamodel.AKSUbuntuContainerd2204Gen2},
+		{name: "mariner", distro: datamodel.AKSAzureLinuxV3Gen2},
+		{name: "acl", distro: datamodel.AKSACLGen2TL},
+		{name: "azlosguard", distro: datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL},
+		{name: "flatcar", distro: datamodel.AKSFlatcarGen2},
+	}
+
 	templatePath := flag.String("template", "", "path to the hotfix nodecustomdata template")
 	outputDir := flag.String("output-dir", "", "directory for rendered nodecustomdata files")
 	flag.Parse()
@@ -56,12 +56,19 @@ func main() {
 			*outputDir,
 			"rendered_nodecustomdata_"+target.name+".yml",
 		)
-		if err := os.WriteFile(outputPath, []byte(rendered), 0o644); err != nil {
+		if err := os.WriteFile(outputPath, []byte(rendered), 0o600); err != nil {
 			fatalf("write %s nodecustomdata: %v", target.name, err)
 		}
 	}
 }
 
+// newRenderConfig builds the minimal NodeBootstrappingConfiguration required to
+// run agent.RenderLinuxNodeCustomDataTemplate. Only the Distro selector affects
+// the hotfix write_files blocks we render; the remaining fields (orchestrator
+// version, location, FQDN, KubernetesConfig, etc.) are placeholders whose sole
+// purpose is to satisfy the renderer's unconditional dereferences of
+// OrchestratorProfile/KubernetesConfig so rendering doesn't nil-panic. Their
+// values are not meaningful and are not consumed by the embedded output.
 func newRenderConfig(distro datamodel.Distro) *datamodel.NodeBootstrappingConfiguration {
 	profile := &datamodel.AgentPoolProfile{
 		Name:   "hotfix-render",
