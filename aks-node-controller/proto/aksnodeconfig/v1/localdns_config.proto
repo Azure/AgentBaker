@@ -62,4 +62,16 @@ message LocalDnsOverrides {
 
   // Policy for serving stale data.
   string serve_stale = 8;
+
+  // Fail requests when all configured upstreams are unhealthy.
+  optional bool failfast_all_unhealthy_upstreams = 9;
+
+  // Interval used by the forward plugin for upstream health checks, for example "500ms".
+  LocalDnsHealthCheck health_check = 10;
+}
+
+message LocalDnsHealthCheck {
+  optional string duration = 1;
+  optional bool no_rec = 2;
+  optional string domain = 3;
 }

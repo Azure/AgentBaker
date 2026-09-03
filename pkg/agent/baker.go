@@ -2308,6 +2308,12 @@ health-check.localdns.local:53 {
         {{- end}}
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
+         {{- if and $override.HealthCheck $override.HealthCheck.GetDuration}}
+         health_check {{$override.HealthCheck.GetDuration}}{{if $override.HealthCheck.GetNoRec}} no_rec{{end}}{{if $override.HealthCheck.GetDomain}} domain {{$override.HealthCheck.GetDomain}}{{end}}
+        {{- end}}
+         {{- if $override.GetFailfastAllUnhealthyUpstreams}}
+        failfast_all_unhealthy_upstreams
+        {{- end}}
     }
     ready {{$.NodeListenerIP}}:8181
     reload
@@ -2374,6 +2380,12 @@ health-check.localdns.local:53 {
         {{- end}}
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
+        {{- if and $override.HealthCheck $override.HealthCheck.GetDuration}}
+        health_check {{$override.HealthCheck.GetDuration}}{{if $override.HealthCheck.GetNoRec}} no_rec{{end}}{{if $override.HealthCheck.GetDomain}} domain {{$override.HealthCheck.GetDomain}}{{end}}
+        {{- end}}
+        {{- if $override.GetFailfastAllUnhealthyUpstreams}}
+        failfast_all_unhealthy_upstreams
+        {{- end}}
     }
     ready {{$.ClusterListenerIP}}:8181
     reload

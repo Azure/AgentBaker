@@ -2596,18 +2596,49 @@ type LocalDNSCoreFileData struct {
 	IncludeHostsPlugin bool
 }
 
+// LocalDNSHealthCheck represents CoreDNS forward plugin health check settings.
+type LocalDNSHealthCheck struct {
+	Duration *string `json:"duration,omitempty"`
+	NoRec    *bool   `json:"noRec,omitempty"`
+	Domain   *string `json:"domain,omitempty"`
+}
+
+func (h *LocalDNSHealthCheck) GetDuration() string {
+	if h != nil && h.Duration != nil {
+		return *h.Duration
+	}
+	return ""
+}
+
+func (h *LocalDNSHealthCheck) GetNoRec() bool {
+	return h != nil && h.NoRec != nil && *h.NoRec
+}
+
+func (h *LocalDNSHealthCheck) GetDomain() string {
+	if h != nil && h.Domain != nil {
+		return *h.Domain
+	}
+	return ""
+}
+
 // LocalDNSOverrides represents DNS override settings for both VnetDNS and KubeDNS traffic.
 // VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
 // KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
 type LocalDNSOverrides struct {
-	QueryLogging                string `json:"queryLogging,omitempty"`
-	Protocol                    string `json:"protocol,omitempty"`
-	ForwardDestination          string `json:"forwardDestination,omitempty"`
-	ForwardPolicy               string `json:"forwardPolicy,omitempty"`
-	MaxConcurrent               *int32 `json:"maxConcurrent,omitempty"`
-	CacheDurationInSeconds      *int32 `json:"cacheDurationInSeconds,omitempty"`
-	ServeStaleDurationInSeconds *int32 `json:"serveStaleDurationInSeconds,omitempty"`
-	ServeStale                  string `json:"serveStale,omitempty"`
+	QueryLogging                  string               `json:"queryLogging,omitempty"`
+	Protocol                      string               `json:"protocol,omitempty"`
+	ForwardDestination            string               `json:"forwardDestination,omitempty"`
+	ForwardPolicy                 string               `json:"forwardPolicy,omitempty"`
+	MaxConcurrent                 *int32               `json:"maxConcurrent,omitempty"`
+	CacheDurationInSeconds        *int32               `json:"cacheDurationInSeconds,omitempty"`
+	ServeStaleDurationInSeconds   *int32               `json:"serveStaleDurationInSeconds,omitempty"`
+	ServeStale                    string               `json:"serveStale,omitempty"`
+	FailfastAllUnhealthyUpstreams *bool                `json:"failfastAllUnhealthyUpstreams,omitempty"`
+	HealthCheck                   *LocalDNSHealthCheck `json:"healthCheck,omitempty"`
+}
+
+func (o *LocalDNSOverrides) GetFailfastAllUnhealthyUpstreams() bool {
+	return o != nil && o.FailfastAllUnhealthyUpstreams != nil && *o.FailfastAllUnhealthyUpstreams
 }
 
 // ShouldEnableLocalDNS returns true if AgentPoolProfile, LocalDNSProfile is not nil and

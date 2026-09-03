@@ -45,6 +45,12 @@ health-check.localdns.local:53 {
         {{- end}}
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
+        {{- if and $override.HealthCheck $override.HealthCheck.GetDuration}}
+        health_check {{$override.HealthCheck.GetDuration}}{{if $override.HealthCheck.GetNoRec}} no_rec{{end}}{{if $override.HealthCheck.GetDomain}} domain {{$override.HealthCheck.GetDomain}}{{end}}
+        {{- end}}
+        {{- if $override.GetFailfastAllUnhealthyUpstreams}}
+        failfast_all_unhealthy_upstreams
+        {{- end}}
     }
     ready {{getLocalDnsNodeListenerIp}}:8181
     reload
@@ -79,7 +85,6 @@ health-check.localdns.local:53 {
 {{- range $domain, $override := $.Config.LocalDnsProfile.KubeDnsOverrides}}
 {{- $isRootDomain := eq $domain "." -}}
 {{- $fwdToClusterCoreDNS := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDNS")}}
-{{- $forwardPolicy := "" }}
 {{- $forwardPolicy := "sequential" -}}
 {{- if eq $override.ForwardPolicy "RoundRobin" -}}
     {{- $forwardPolicy = "round_robin" -}}
@@ -111,6 +116,12 @@ health-check.localdns.local:53 {
         {{- end}}
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
+        {{- if and $override.HealthCheck $override.HealthCheck.GetDuration}}
+        health_check {{$override.HealthCheck.GetDuration}}{{if $override.HealthCheck.GetNoRec}} no_rec{{end}}{{if $override.HealthCheck.GetDomain}} domain {{$override.HealthCheck.GetDomain}}{{end}}
+        {{- end}}
+        {{- if $override.GetFailfastAllUnhealthyUpstreams}}
+        failfast_all_unhealthy_upstreams
+        {{- end}}
     }
     ready {{getLocalDnsClusterListenerIp}}:8181
     reload
