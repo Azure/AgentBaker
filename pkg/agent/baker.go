@@ -894,7 +894,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return strings.Join(config.MIGProfileLayout, ",")
 		},
 		"IsMIGEnabledNode": func() bool {
-			return config.GPUInstanceProfile != ""
+			return datamodel.IsMIGNode(config.GPUInstanceProfile, config.MIGProfileLayout)
 		},
 		"GetMigStrategy": func() string {
 			return config.MigStrategy
@@ -949,6 +949,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetKubeletConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeletConfigStringForPowershell(profile.CustomKubeletConfig)
+		},
+		"GetKubeletHealthzEndpoint": func() string {
+			return config.GetKubeletHealthzEndpoint(profile.CustomKubeletConfig)
 		},
 		"GetKubeproxyConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeproxyConfigStringForPowershell()

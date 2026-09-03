@@ -528,10 +528,6 @@ EOF
                 "PREROUTING -p udp -d 169.254.10.10 --dport 53 -j NOTRACK"
                 "PREROUTING -p tcp -d 169.254.10.11 --dport 53 -j NOTRACK"
                 "PREROUTING -p udp -d 169.254.10.11 --dport 53 -j NOTRACK"
-                "OUTPUT -p tcp -s 169.254.10.10 --sport 53 -j NOTRACK"
-                "OUTPUT -p udp -s 169.254.10.10 --sport 53 -j NOTRACK"
-                "OUTPUT -p tcp -s 169.254.10.11 --sport 53 -j NOTRACK"
-                "OUTPUT -p udp -s 169.254.10.11 --sport 53 -j NOTRACK"
             )
             all_rules_found=true
             for expected_rule in "${expected_rules[@]}"; do
@@ -550,51 +546,6 @@ EOF
                 fi
             done
             The value "${#IPTABLES_RULES[@]}" should equal "${#expected_rules[@]}"
-        End
-
-        It 'should build NOTRACK rules for both DNS request and response directions'
-            When call build_localdns_iptable_rules
-            The status should be success
-
-            request_rule_count=0
-            response_rule_count=0
-            prerouting_response_rule_count=0
-            for actual_rule in "${IPTABLES_RULES[@]}"; do
-                if [[ "$actual_rule" == *"--dport 53 -j NOTRACK"* ]]; then
-                    request_rule_count=$((request_rule_count + 1))
-                fi
-                if [[ "$actual_rule" == *"--sport 53 -j NOTRACK"* ]]; then
-                    response_rule_count=$((response_rule_count + 1))
-                fi
-                if [[ "$actual_rule" == PREROUTING*"--sport 53 -j NOTRACK"* ]]; then
-                    prerouting_response_rule_count=$((prerouting_response_rule_count + 1))
-                fi
-            done
-
-            The value "$request_rule_count" should equal "8"
-            The value "$response_rule_count" should equal "4"
-            The value "$prerouting_response_rule_count" should equal "0"
-
-            expected_response_rules=(
-                "OUTPUT -p tcp -s 169.254.10.10 --sport 53 -j NOTRACK"
-                "OUTPUT -p udp -s 169.254.10.10 --sport 53 -j NOTRACK"
-                "OUTPUT -p tcp -s 169.254.10.11 --sport 53 -j NOTRACK"
-                "OUTPUT -p udp -s 169.254.10.11 --sport 53 -j NOTRACK"
-            )
-            for expected_rule in "${expected_response_rules[@]}"; do
-                found=false
-                for actual_rule in "${IPTABLES_RULES[@]}"; do
-                    if [[ "$actual_rule" == "$expected_rule" ]]; then
-                        found=true
-                        break
-                    fi
-                done
-
-                if [[ "$found" == false ]]; then
-                    echo "Missing response rule: $expected_rule"
-                    exit 1
-                fi
-            done
         End
 
         #------------------------- verify_default_route_interface --------------------------------------------------

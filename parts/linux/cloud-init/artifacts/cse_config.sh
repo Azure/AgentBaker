@@ -135,6 +135,42 @@ swapFileIsActive() {
     swapon --show --noheadings | awk '{print $1}' | grep -Fxq "${swap_location}"
 }
 
+getDiskFreeKB() {
+    local disk_path="$1"
+
+    df -P "${disk_path}" | awk 'NR == 2 {print $4}'
+}
+
+hasSufficientDiskSpace() {
+    local disk_path="$1"
+    local required_kb="$2"
+    local disk_free_kb
+
+    disk_free_kb="$(getDiskFreeKB "${disk_path}")"
+    case "${disk_free_kb}" in
+        ''|*[!0-9]*) return 1 ;;
+        *) [ "${disk_free_kb}" -gt "${required_kb}" ] ;;
+    esac
+}
+
+waitForDiskSpace() {
+    local disk_path="$1"
+    local required_kb="$2"
+    local timeout_seconds="$3"
+    local poll_interval_seconds="$4"
+    local elapsed_seconds=0
+
+    while [ "${elapsed_seconds}" -lt "${timeout_seconds}" ]; do
+        sleep "${poll_interval_seconds}"
+        elapsed_seconds=$((elapsed_seconds + poll_interval_seconds))
+        if hasSufficientDiskSpace "${disk_path}" "${required_kb}"; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 getFileMode() {
     local file="$1"
 
@@ -243,14 +279,17 @@ configureSwapFile() {
     if [ -z "${swap_location}" ]; then
         # Directly check size on the root directory since we can't rely on 'root-part1' always being the correct label
         os_device=$(readlink -f /dev/disk/azure/root)
-        disk_free_kb=$(df -P / | sed 1d | awk '{print $4}')
-        if [ "${disk_free_kb}" -gt "${swap_size_kb}" ]; then
-            echo "Will use OS disk for swap file"
-            swap_location=/swapfile
-        else
-            echo "Insufficient disk space on OS device ${os_device} to create swap file: request ${swap_size_kb} free ${disk_free_kb}"
-            exit $ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE
+        disk_free_kb=$(getDiskFreeKB /)
+        if ! hasSufficientDiskSpace / "${swap_size_kb}"; then
+            echo "Insufficient disk space on OS device ${os_device}, waiting up to 30 seconds for filesystem resize: request ${swap_size_kb} free ${disk_free_kb}"
+            if ! waitForDiskSpace / "${swap_size_kb}" 30 1; then
+                disk_free_kb=$(getDiskFreeKB /)
+                echo "Insufficient disk space on OS device ${os_device} to create swap file after waiting for filesystem resize: request ${swap_size_kb} free ${disk_free_kb}"
+                exit $ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE
+            fi
         fi
+        echo "Will use OS disk for swap file"
+        swap_location=/swapfile
     fi
 
     echo "Swap file will be saved to: ${swap_location}"
@@ -1032,7 +1071,7 @@ EOF
     set -x
 
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
-    tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
+    tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<'EOF'
 #!/bin/bash
 # Disallow container from reaching out to the special IP address 168.63.129.16
 # for TCP protocol (which http uses)
@@ -1045,8 +1084,11 @@ EOF
 #
 # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
 # for DNS.
-iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
-iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
+
+for port in 80 32526; do
+    iptables -C FORWARD -d 168.63.129.16 -p tcp --dport "$port" -j DROP 2>/dev/null ||
+        iptables -I FORWARD -d 168.63.129.16 -p tcp --dport "$port" -j DROP
+done
 EOF
 
     # As iptables rule will be cleaned every time the node is restarted, we need to ensure the rule is applied every time kubelet is started.

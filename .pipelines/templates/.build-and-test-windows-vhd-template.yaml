@@ -69,7 +69,6 @@ parameters:
   - name: cseFileName
     type: string
     displayName: CSE package filename.
-
 stages:
   - stage: build_${{ parameters.stageName }}
     # Put the artifact name first so it doesn't get truncated as much in ADO
@@ -116,4 +115,3 @@ stages:
         parameters:
           name: For image ${{ parameters.imageName }}
           IgnoreScenariosWithMissingVhd: false
-
