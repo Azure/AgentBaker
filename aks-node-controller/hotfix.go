@@ -101,23 +101,50 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 
 	slog.Info("downloading ANC hotfix", "current", Version, "target", hotfixVersion)
 
-	// Install via package manager (apt-get or dnf/tdnf). A future direct-download path must
-	// resolve the package from the node's configured repository and extract the ANC binary;
-	// package artifacts cannot be staged directly as executables.
+	if err := a.tryRepositoryDownload(ctx, hotfixVersion); err == nil {
+		return nil
+	} else if isIntegrityError(err) {
+		a.removeStaleHotfix()
+		return fmt.Errorf("repository integrity check failed for hotfix version %s: %w", hotfixVersion, err)
+	} else {
+		slog.Warn("safe repository download unavailable, falling back to package manager",
+			"version", hotfixVersion, "error", err)
+	}
+
 	if err := a.installFromPMC(ctx, hotfixVersion); err != nil {
 		return fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
 	}
 
-	if err := copyBinaryAlongside(pkgBinaryPath, hotfixBinaryPath, vhdBinaryPath); err != nil {
+	if err := copyBinaryAlongside(pkgBinaryPath, a.hotfixPath(), a.vhdPath()); err != nil {
 		return fmt.Errorf("stage hotfix binary: %w", err)
 	}
 
-	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", hotfixBinaryPath)
+	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", a.hotfixPath())
 	return nil
 }
 
-// hotfixConfig is the JSON structure of the hotfix configuration file.
-// Using JSON allows future extension (e.g., adding checksum, source URL) without format changes.
+func (a *App) vhdPath() string {
+	if a.vhdBinaryPath != "" {
+		return a.vhdBinaryPath
+	}
+	return vhdBinaryPath
+}
+
+func (a *App) hotfixPath() string {
+	if a.hotfixBinaryPath != "" {
+		return a.hotfixBinaryPath
+	}
+	return hotfixBinaryPath
+}
+
+func (a *App) removeStaleHotfix() {
+	if err := os.Remove(a.hotfixPath()); err != nil && !os.IsNotExist(err) {
+		slog.Warn("failed to remove stale hotfix binary after repository integrity failure",
+			"path", a.hotfixPath(), "error", err)
+	}
+}
+
+// hotfixConfig is the version-only JSON structure shared with LPS and cloud-init.
 type hotfixConfig struct {
 	// Version is the legacy single-version pointer. It is still honored when Hotfixes
 	// is empty, preserving backward compatibility with the original config shape.
@@ -206,7 +233,11 @@ func (a *App) parseLinuxPlatformInfo() (platformInfo, error) {
 	if err != nil {
 		return platformInfo{}, fmt.Errorf("reading %s: %w", osReleasePath, err)
 	}
-	info := platformInfo{OS: "linux", Arch: runtime.GOARCH}
+	arch := a.goArch
+	if arch == "" {
+		arch = runtime.GOARCH
+	}
+	info := platformInfo{OS: "linux", Arch: arch}
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "ID=") {

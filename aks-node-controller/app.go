@@ -50,8 +50,23 @@ type App struct {
 	hotfixVersionPath string
 	// aptSourcesDir overrides the default APT sources directory for testing.
 	aptSourcesDir string
+	// aptTrustedKeyringsDir overrides the default APT trusted keyrings directory for testing.
+	aptTrustedKeyringsDir string
+	// yumReposDir overrides the default RPM repositories directory for testing.
+	yumReposDir string
 	// osReleasePath overrides the default /etc/os-release path for testing.
 	osReleasePath string
+	// goArch overrides runtime.GOARCH for repository-path tests.
+	goArch string
+	// repositoryTempDir overrides where repository downloads and extraction are staged.
+	repositoryTempDir string
+	// vhdBinaryPath and hotfixBinaryPath override ANC binary paths for testing.
+	vhdBinaryPath    string
+	hotfixBinaryPath string
+	// verifyRepositorySignature overrides gpgv-backed repository signature verification.
+	verifyRepositorySignature func(ctx context.Context, signedPath, signaturePath string, keyrings []string) error
+	// extractRepositoryPackage overrides package extraction for deterministic unit tests.
+	extractRepositoryPackage func(ctx context.Context, format, packagePath, destination string) error
 	// nodeCustomDataPath overrides the default nodecustomdata path for testing.
 	nodeCustomDataPath string
 	// nodeConfigPath overrides the default AKSNodeConfig path for testing. It is the
