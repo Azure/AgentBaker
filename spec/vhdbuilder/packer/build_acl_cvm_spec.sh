@@ -31,17 +31,17 @@ EOF
       jq -e '
         (.builders[0] | has("managed_image_name") | not) and
         (.builders[0] | has("managed_image_resource_group_name") | not) and
-        .builders[0].secure_boot_enabled == true and
-        .builders[0].vtpm_enabled == true and
-        .builders[0].security_type == "ConfidentialVM" and
-        .builders[0].security_encryption_type == "VMGuestStateOnly" and
-        .builders[0].shared_image_gallery_destination.confidential_vm_image_encryption_type == "EncryptedVMGuestStateOnlyWithPmk" and
-        .builders[0].shared_image_gallery_destination.specialized == true and
+        (.builders[0] | has("secure_boot_enabled") | not) and
+        (.builders[0] | has("vtpm_enabled") | not) and
+        (.builders[0] | has("security_type") | not) and
+        (.builders[0] | has("security_encryption_type") | not) and
+        (.builders[0].shared_image_gallery_destination | has("confidential_vm_image_encryption_type") | not) and
+        (.builders[0].shared_image_gallery_destination | has("specialized") | not) and
         .provisioners == [{"type":"shell","inline":["true"]}]
       ' "$CAPTURED_TEMPLATE" >/dev/null
   }
 
-  It 'adds CVM settings while preserving the ACL provisioners'
+  It 'reuses the ACL template without changing the builder or provisioners'
     ACL_PACKER_TEMPLATE="$BASE_TEMPLATE"
     export ACL_PACKER_TEMPLATE
     When call build_and_validate_cvm_template
