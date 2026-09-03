@@ -26,7 +26,7 @@ var embeddedGeneratedNodeCustomData embed.FS
 
 var generatedNodeCustomData fs.FS = embeddedGeneratedNodeCustomData
 
-func applyEmbeddedNodeCustomData(osReleasePath string) (nodeCustomDataApplyResult, error) {
+func applyEmbeddedNodeCustomDataIfActive(osReleasePath string) (nodeCustomDataApplyResult, error) {
 	active, err := fs.ReadFile(generatedNodeCustomData, "scripthotfix/generated/active")
 	if err != nil {
 		return nodeCustomDataApplyResult{}, fmt.Errorf("read embedded hotfix state: %w", err)

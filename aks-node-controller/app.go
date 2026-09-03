@@ -689,7 +689,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 func (a *App) applyEmbeddedHotfixPayload() {
 	applyEmbeddedHotfix := a.applyEmbeddedHotfix
 	if applyEmbeddedHotfix == nil {
-		applyEmbeddedHotfix = applyEmbeddedNodeCustomData
+		applyEmbeddedHotfix = applyEmbeddedNodeCustomDataIfActive
 	}
 	result, err := applyEmbeddedHotfix(a.osReleasePath)
 	if err != nil {

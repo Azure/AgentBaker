@@ -61,7 +61,7 @@ func TestClassifyNodeCustomDataPlatform(t *testing.T) {
 	})
 }
 
-func TestApplyEmbeddedNodeCustomDataInactiveDoesNotReadOSRelease(t *testing.T) {
+func TestApplyEmbeddedNodeCustomDataIfActiveSkipsInactivePayload(t *testing.T) {
 	original := generatedNodeCustomData
 	generatedNodeCustomData = fstest.MapFS{
 		"scripthotfix/generated/active": &fstest.MapFile{Data: []byte("false\n")},
@@ -70,13 +70,13 @@ func TestApplyEmbeddedNodeCustomDataInactiveDoesNotReadOSRelease(t *testing.T) {
 		generatedNodeCustomData = original
 	})
 
-	result, err := applyEmbeddedNodeCustomData(filepath.Join(t.TempDir(), "missing-os-release"))
+	result, err := applyEmbeddedNodeCustomDataIfActive(filepath.Join(t.TempDir(), "missing-os-release"))
 
 	require.NoError(t, err)
 	assert.Equal(t, nodeCustomDataApplyResult{}, result)
 }
 
-func TestApplyEmbeddedNodeCustomDataSelectsPlatformPayload(t *testing.T) {
+func TestApplyEmbeddedNodeCustomDataIfActiveSelectsPlatformPayload(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows rename cannot atomically replace an existing destination")
 	}
@@ -103,7 +103,7 @@ func TestApplyEmbeddedNodeCustomDataSelectsPlatformPayload(t *testing.T) {
 		generatedNodeCustomData = original
 	})
 
-	result, err := applyEmbeddedNodeCustomData(releasePath)
+	result, err := applyEmbeddedNodeCustomDataIfActive(releasePath)
 
 	require.NoError(t, err)
 	assert.Equal(t, nodeCustomDataApplyResult{Applied: 1}, result)
