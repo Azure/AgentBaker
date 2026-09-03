@@ -3,6 +3,7 @@ package e2e
 import (
 	"testing"
 
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -52,43 +53,99 @@ func TestParseEnvCompareDiffVars(t *testing.T) {
 
 func TestUnexpectedEnvCompareDiffVars(t *testing.T) {
 	for _, tc := range []struct {
-		name     string
-		diffVars []string
-		expected []string
+		name string
+		// vhdBuiltFromSourceUnderTest mirrors config.Configuration.VHDBuiltFromSourceUnderTest:
+		// true in the VHD builder pipelines (VHD_BUILD_ID set), false for the standalone e2e check.
+		vhdBuiltFromSourceUnderTest bool
+		diffVars                    []string
+		expected                    []string
 	}{
 		{
-			name:     "GPU vars alone are explained by VHD skew",
-			diffVars: []string{"GPU_DRIVER_VERSION", "GPU_IMAGE_SHA"},
-			expected: nil,
+			name:                        "GPU vars alone are explained by VHD skew when the VHD is not from this source",
+			vhdBuiltFromSourceUnderTest: false,
+			diffVars:                    []string{"GPU_DRIVER_VERSION", "GPU_IMAGE_SHA"},
+			expected:                    nil,
 		},
 		{
-			name:     "a non-GPU var is still reported",
-			diffVars: []string{"GPU_DRIVER_VERSION", "KUBELET_FLAGS"},
-			expected: []string{"KUBELET_FLAGS"},
+			name:                        "GPU vars are NOT tolerated when the VHD was built from this source",
+			vhdBuiltFromSourceUnderTest: true,
+			diffVars:                    []string{"GPU_DRIVER_VERSION", "GPU_IMAGE_SHA"},
+			expected:                    []string{"GPU_DRIVER_VERSION", "GPU_IMAGE_SHA"},
 		},
 		{
-			name:     "only non-GPU vars are reported",
-			diffVars: []string{"KUBELET_FLAGS", "NETWORK_PLUGIN"},
-			expected: []string{"KUBELET_FLAGS", "NETWORK_PLUGIN"},
+			name:                        "a non-GPU var is still reported",
+			vhdBuiltFromSourceUnderTest: false,
+			diffVars:                    []string{"GPU_DRIVER_VERSION", "KUBELET_FLAGS"},
+			expected:                    []string{"KUBELET_FLAGS"},
 		},
 		{
-			name:     "no diffs yields none",
-			diffVars: nil,
-			expected: nil,
+			name:                        "only non-GPU vars are reported",
+			vhdBuiltFromSourceUnderTest: false,
+			diffVars:                    []string{"KUBELET_FLAGS", "NETWORK_PLUGIN"},
+			expected:                    []string{"KUBELET_FLAGS", "NETWORK_PLUGIN"},
+		},
+		{
+			name:                        "non-GPU vars are reported regardless of VHD provenance",
+			vhdBuiltFromSourceUnderTest: true,
+			diffVars:                    []string{"KUBELET_FLAGS", "NETWORK_PLUGIN"},
+			expected:                    []string{"KUBELET_FLAGS", "NETWORK_PLUGIN"},
+		},
+		{
+			name:                        "no diffs yields none",
+			vhdBuiltFromSourceUnderTest: false,
+			diffVars:                    nil,
+			expected:                    nil,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.expected, unexpectedEnvCompareDiffVars(tc.diffVars))
+			assert.Equal(t, tc.expected, unexpectedEnvCompareDiffVars(tc.diffVars, tc.vhdBuiltFromSourceUnderTest))
+		})
+	}
+}
+
+// TestVHDBuiltFromSourceUnderTest asserts the provenance signal matches what
+// .pipelines/scripts/e2e_run.sh exports: SIG_VERSION_TAG_NAME=buildId only when VHD_BUILD_ID
+// is set, which the VHD builder pipelines set to $(Build.BuildId).
+func TestVHDBuiltFromSourceUnderTest(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		tagName  string
+		expected bool
+	}{
+		{
+			name:     "buildId tag means the VHD came from this pipeline run",
+			tagName:  "buildId",
+			expected: true,
+		},
+		{
+			name:     "default branch tag means the VHD came from main, not this source",
+			tagName:  "branch",
+			expected: false,
+		},
+		{
+			name:     "empty tag is not treated as same-source",
+			tagName:  "",
+			expected: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &config.Configuration{SIGVersionTagName: tc.tagName}
+			assert.Equal(t, tc.expected, c.VHDBuiltFromSourceUnderTest())
 		})
 	}
 }
 
 // TestEnvCompareGPUBumpIsTolerated asserts the end-to-end decision for the exact failure that
-// blocked the aks-gpu-grid 570.237 bump: the diff parses to only VHD-sourced vars, so it must
-// not fail the scenario.
+// blocked the aks-gpu-grid 570.237 bump: on the standalone e2e check the diff parses to only
+// VHD-sourced vars, so it must not fail the scenario. The same diff must still fail when the
+// VHD was built from the source under test, where the two sides are expected to agree.
 func TestEnvCompareGPUBumpIsTolerated(t *testing.T) {
 	diffVars := parseEnvCompareDiffVars(realGPUBumpLogLine)
 	assert.Equal(t, []string{"GPU_DRIVER_VERSION", "GPU_IMAGE_SHA"}, diffVars)
-	assert.Empty(t, unexpectedEnvCompareDiffVars(diffVars),
+
+	assert.Empty(t, unexpectedEnvCompareDiffVars(diffVars, false),
 		"a GPU driver version bump must not fail phase 3 when the VHD is built from a different source")
+
+	assert.Equal(t, diffVars, unexpectedEnvCompareDiffVars(diffVars, true),
+		"the same diff must still fail once the VHD is built from the source under test")
 }
