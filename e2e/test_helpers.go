@@ -117,7 +117,15 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 	firstStage := copyScenario(original)
 	var customVHD *config.Image
 
+	// Only a VHD built by the build under test carries the volatile marker and the controller that
+	// watches it, so only then can both stages run the production scriptless CSE command. Against
+	// released VHDs both stages keep the legacy pre-provision CSE.
+	scriptless := !config.Config.DisableScriptless && !original.IsWindows() &&
+		len(original.Config.CustomDataWriteFiles) == 0 && original.VHD != nil &&
+		original.VHD.SupportsScriptless() && config.Config.SIGVersionTagName == "buildId"
+
 	// Mutate the copy for pre-provisioning
+	firstStage.Runtime = &ScenarioRuntime{EnableScriptlessNBCCSECmd: scriptless}
 	firstStage.Config.SkipDefaultValidation = true
 	firstStage.Config.Validator = func(ctx context.Context, stage1 *Scenario) error {
 		var validationErr error
@@ -129,19 +137,33 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 				ValidateWindowsServiceIsRunning(ctx, stage1, "containerd"),
 			)
 		} else {
-			validationErr = errors.Join(
+			checks := []error{
 				ValidateFileExists(ctx, stage1, "/etc/containerd/config.toml"),
 				ValidateFileExists(ctx, stage1, "/opt/azure/containers/base_prep.complete"),
-				ValidateFileDoesNotExist(ctx, stage1, "/opt/azure/containers/provision.complete"),
 				ValidateSystemdUnitIsRunning(ctx, stage1, "containerd"),
 				ValidateSystemdUnitIsNotRunning(ctx, stage1, "kubelet"),
-			)
+			}
+			if scriptless {
+				// The CSE command was provision-wait, so CSE would have timed out had this marker
+				// not been written.
+				checks = append(checks, ValidateFileExists(ctx, stage1, "/opt/azure/containers/provision.complete"))
+			}
+			validationErr = errors.Join(checks...)
 		}
 		if validationErr != nil {
 			return validationErr
 		}
 		toolkit.Log(ctx, "=== Creating VHD Image ===")
 		var err error
+		if !stage1.IsWindows() {
+			// Match the RP, which removes this per-run state during image generalization.
+			cleanup := "sudo rm -f /opt/azure/containers/provision.complete /var/log/azure/aks/provision.json" +
+				" /opt/azure/containers/aks-node-controller-config.json /opt/azure/containers/aks-node-controller-nbc-cmd.sh" +
+				" /opt/azure/containers/boothook.sh /opt/bin/boothook.sh"
+			if _, err = execScriptOnVMForScenarioValidateExitCode(ctx, stage1, cleanup, 0, "generalize VM before image capture"); err != nil {
+				return err
+			}
+		}
 		customVHD, err = CreateImage(ctx, stage1)
 		if err != nil {
 			return err
@@ -172,7 +194,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 				}
 			}
 			nbc.PreProvisionOnly = true
-			nbc.EnableScriptlessNBCCSECmd = false
+			nbc.EnableScriptlessNBCCSECmd = scriptless
 			// Bake-stage-only mutation: lets a scenario deliberately diverge bake-time
 			// state from provision-time state (e.g. a stale sentinel bootstrap token).
 			if original.PreProvisionBootstrapConfigMutator != nil {
@@ -204,6 +226,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 		secondStageScenario := copyScenario(original)
 		secondStageScenario.Description = "Stage 2: Create VMSS from captured VHD via SIG"
 		secondStageScenario.Config.VHD = customVHD
+		secondStageScenario.Runtime = &ScenarioRuntime{EnableScriptlessNBCCSECmd: scriptless}
 		secondStageScenario.Config.Validator = func(ctx context.Context, s *Scenario) error {
 			// This validators are used when running all scenarios in "VHD Caching" mode, which is usually done manually
 			var markerErr error
@@ -211,6 +234,9 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 				markerErr = ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
 			} else {
 				markerErr = ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
+			}
+			if markerErr == nil && scriptless {
+				markerErr = ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "Skipping basePrep - base_prep.complete file exists")
 			}
 			if markerErr != nil {
 				return markerErr

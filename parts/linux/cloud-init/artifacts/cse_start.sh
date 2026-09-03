@@ -113,15 +113,17 @@ upload_logs() {
     fi
 }
 # Create the marker for the completed provisioning stage.
+mkdir -p /opt/azure/containers
 if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
     # Stage 1: Create marker indicating Stage 2 is needed
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete
+    touch /opt/azure/containers/base_prep.complete
     echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
     echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
-else
-    # provision.complete signals that a normal provisioning attempt finished.
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 fi
+# provision.complete signals that this CSE run finished, so `aks-node-controller provision-wait`
+# reports the result of a pre-provision (image bake) run as well as a normal one. Image
+# generalization removes it before capture, so a node created from the image never inherits it.
+touch /opt/azure/containers/provision.complete
 
 if [ "$EXIT_CODE" -ne 0 ]; then
     upload_logs
