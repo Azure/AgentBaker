@@ -841,15 +841,14 @@ param(
 Invoke-WebRequest -UseBasicParsing https://aka.ms/downloadazcopy-v10-windows -OutFile azcopy.zip
 Expand-Archive azcopy.zip
 cd .\azcopy\*
+$azCopyPath = (Resolve-Path .\azcopy.exe).Path
 $env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
 $env:AZCOPY_MSI_RESOURCE_STRING=$arg3
+$script:uploadFailures = @()
 C:\k\debug\collect-windows-logs.ps1
-$CollectedLogs=(Get-ChildItem . -Filter "*_logs.zip" -File)[0].Name
-.\azcopy.exe copy $CollectedLogs "$arg1/collected-node-logs.zip"
-.\azcopy.exe copy "C:\azuredata\CustomDataSetupScript.log" "$arg1/cse.log"
-.\azcopy.exe copy "C:\AzureData\provision.complete" "$arg1/provision.complete"
-.\azcopy.exe copy "C:\k\kubelet.err.log" "$arg1/kubelet.err.log"
-.\azcopy.exe copy "C:\k\containerd.err.log" "$arg1/containerd.err.log"
+$collectedLogs = (Get-ChildItem . -Filter "*_logs.zip" -File |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1).FullName
 
 # Collect network configuration information
 ipconfig /all > network_config.txt
@@ -863,7 +862,36 @@ Get-NetNeighbor >> network_config.txt
 Get-NetConnectionProfile >> network_config.txt
 hnsdiag list networks >> network_config.txt
 hnsdiag list endpoints >> network_config.txt
-.\azcopy.exe copy "network_config.txt" "$arg1/network_config.txt"
+
+function Upload-Log {
+    param(
+        [string]$source,
+        [string]$destination
+    )
+
+    if (-not (Test-Path -LiteralPath $source)) {
+        Write-Warning "skipping missing log file: $source"
+        return
+    }
+
+    & $azCopyPath copy $source $destination
+    if ($LASTEXITCODE -ne 0) {
+        $script:uploadFailures += "azcopy exited with code $LASTEXITCODE while uploading $source"
+    }
+}
+
+Upload-Log "C:\azuredata\CustomDataSetupScript.log" "$arg1/cse.log"
+Upload-Log "C:\AzureData\provision.complete" "$arg1/provision.complete"
+Upload-Log "C:\k\kubelet.err.log" "$arg1/kubelet.err.log"
+Upload-Log "C:\k\containerd.err.log" "$arg1/containerd.err.log"
+Upload-Log "network_config.txt" "$arg1/network_config.txt"
+if ($collectedLogs) {
+    Upload-Log $collectedLogs "$arg1/collected-node-logs.zip"
+}
+
+if ($script:uploadFailures.Count -gt 0) {
+    throw "failed to upload Windows diagnostics: $($script:uploadFailures -join '; ')"
+}
 `
 
 // extractLogsFromVMWindows runs a script on windows VM to collect logs and upload them to a blob storage
@@ -944,13 +972,14 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	runCommandResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if err != nil {
 		s.Logger.Logf("failed to poll run command on VMSS instance %s: %s", instanceID, err)
-		return
+	} else {
+		respJSON, _ := json.MarshalIndent(runCommandResp, "", "  ")
+		s.Logger.Logf("run command executed successfully:\n%s", respJSON)
 	}
 
-	respJSON, _ := json.MarshalIndent(runCommandResp, "", "  ")
-	s.Logger.Logf("run command executed successfully:\n%s", respJSON)
-
-	s.Logger.Logf("uploaded logs to %s", blobUrl)
+	s.Logger.Logf("downloading any logs uploaded to %s", blobUrl)
+	downloadCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+	defer cancel()
 
 	downloadBlob := func(blobSuffix string) {
 		fileName := filepath.Join(testDir(s.testName), blobSuffix)
@@ -965,7 +994,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 			return
 		}
 		// NOTE, read after write is possible, list blobs is eventually consistent and may fail
-		_, err = config.Azure.Blob.DownloadFile(ctx, config.Config.BlobContainer, blobPrefix+"/"+blobSuffix, file, nil)
+		_, err = config.Azure.Blob.DownloadFile(downloadCtx, config.Config.BlobContainer, blobPrefix+"/"+blobSuffix, file, nil)
 		if err != nil {
 			s.Logger.Logf("failed to download collected logs: %s", err)
 			err = os.Remove(file.Name())
@@ -975,10 +1004,12 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 			return
 		}
 	}
-	downloadBlob("collected-node-logs.zip")
 	downloadBlob("cse.log")
 	downloadBlob("provision.complete")
+	downloadBlob("kubelet.err.log")
+	downloadBlob("containerd.err.log")
 	downloadBlob("network_config.txt")
+	downloadBlob("collected-node-logs.zip")
 	s.Logger.Logf("logs collected to %s", testDir(s.testName))
 }
 
