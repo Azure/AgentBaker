@@ -8,17 +8,23 @@ Auto-detects what needs a hotfix and generates the version numbers for it:
    testdata files vs the base branch, bumps the patch of the current
    pkg/agent/datamodel/linux_sig_version.json version and uses it as `version`.
 
-2. Detects which CSE provisioning scripts changed vs the base branch, selects their
-   write_files entries from parts/linux/cloud-init/nodecustomdata.yml, and renders
-   self-contained ANC payloads for each Linux platform with AgentBaker's canonical
-   Go-template renderer.
+2. Detects which CSE provisioning scripts differ from the immutable VHD baseline
+   (the release tag the VHD was built from, derived from linux_sig_version.json),
+   selects their write_files entries from parts/linux/cloud-init/nodecustomdata.yml,
+   and renders self-contained ANC payloads for each Linux platform with AgentBaker's
+   canonical Go-template renderer. Diffing against the frozen baseline (rather than
+   the moving base branch) keeps every generated payload cumulative: a later hotfix
+   re-renders all scripts changed since the VHD, so it never silently drops an
+   earlier hotfix's script.
 
 3. Writes the resolved ANC `version` to
    parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json when active.
 
 Usage: python3 hotfix/hotfix_generate.py <base_ref>
-  base_ref: git ref to diff against for changed-script/changed-code detection
-            (e.g., origin/official/v20260219)
+  base_ref: git ref for the PR base branch, used only to detect ANC Go-module
+            changes for the version bump (e.g., origin/official/v20260219). The
+            changed-script detection instead diffs against the VHD baseline tag
+            derived from linux_sig_version.json.
 
 This script is called by the hotfix-generate GH Action.
 """
@@ -153,6 +159,43 @@ def bump_version(base_version):
         if not tag_exists(tag):
             return f"{yyyymm}.{dd}.{patch}"
         patch += 1
+
+
+def baseline_tag(base_version):
+    """Return the immutable AgentBaker tag for the VHD baseline scripts.
+
+    base_version is 'YYYYMM.DD.PATCH' (from linux_sig_version.json, frozen on an
+    official/* branch once cut). The matching tag is 'v0.YYYYMMDD.PATCH', which is
+    the commit the VHD was built from, so parts/linux/cloud-init/artifacts/ at that
+    tag holds exactly the scripts baked into the VHD.
+    """
+    match = re.match(r'^(\d{6})\.(\d{2})\.(\d+)$', base_version)
+    if not match:
+        raise GenerationError(f"invalid baseline version '{base_version}'")
+    yyyymm, dd, patch = match.group(1), match.group(2), match.group(3)
+    return f"v0.{yyyymm}{dd}.{patch}"
+
+
+def resolve_baseline_ref(base_version):
+    """Resolve the VHD baseline git ref, fetching the tag if needed.
+
+    Script hotfixes are cumulative, so changed-script detection diffs against the
+    frozen VHD baseline tag rather than the moving base branch. Raise if the tag
+    cannot be resolved, since diffing against a missing ref would silently produce
+    a non-cumulative (or empty) payload.
+    """
+    tag = baseline_tag(base_version)
+    # Best-effort fetch of just this tag in case the checkout did not include it.
+    subprocess.run(
+        ["git", "fetch", "--quiet", "--no-tags", "origin", "tag", tag],
+        capture_output=True,
+    )
+    if not tag_exists(tag):
+        raise GenerationError(
+            f"baseline tag {tag} (derived from {LINUX_SIG_VERSION_FILE}) is not "
+            "available; cannot compute the cumulative script hotfix set"
+        )
+    return tag
 
 
 def path_changed(base_ref, *paths):
@@ -408,16 +451,25 @@ def write_rendered_payload(target_varkeys, traditional_lines):
 
 def main():
     parser = argparse.ArgumentParser(description="Generate ANC hotfix assets")
-    parser.add_argument("base_ref", help="git ref to diff against")
+    parser.add_argument(
+        "base_ref",
+        help="git ref for the PR base branch, used to detect ANC module changes",
+    )
     args = parser.parse_args()
     base_ref = args.base_ref
 
-    # Best-effort: make sure locally-known tags are up to date before checking for
-    # collisions. Ignore failures (e.g. no network) and fall back to local tags.
+    # Best-effort: make sure locally-known tags are up to date before resolving the
+    # baseline and checking for version collisions. Ignore failures (e.g. no
+    # network) and fall back to local tags.
     subprocess.run(["git", "fetch", "--tags"], capture_output=True)
+
+    base_version = read_base_version()
 
     try:
         validate_source_mappings()
+        # Diff changed scripts against the frozen VHD baseline (not the moving base
+        # branch) so the rendered payload stays cumulative across hotfixes.
+        baseline_ref = resolve_baseline_ref(base_version)
         with open(TEMPLATE, "r") as template_file:
             template_lines = template_file.readlines()
         _, else_line, end_line = find_block_boundaries(template_lines)
@@ -430,15 +482,13 @@ def main():
         for varkeys, _ in parse_write_files_blocks(traditional_lines):
             available_varkeys.update(varkeys)
         changed_varkeys = detect_changed_varkeys(
-            base_ref,
+            baseline_ref,
             available_varkeys=available_varkeys,
         )
         write_rendered_payload(changed_varkeys, traditional_lines)
     except GenerationError as err:
         print(f"ERROR: {err}", file=sys.stderr)
         sys.exit(1)
-
-    base_version = read_base_version()
 
     version = ""
     if path_changed(

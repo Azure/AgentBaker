@@ -124,7 +124,7 @@ write_files:
             result = subprocess.CompletedProcess(
                 args=[],
                 returncode=0,
-                stdout=f"{changed}\n",
+                stdout=f"{temp_dir}/ubuntu/cse_helpers_ubuntu.sh\n",
             )
             available = {
                 "provisionSourceUbuntu",
@@ -263,7 +263,7 @@ write_files:
             result = subprocess.CompletedProcess(
                 args=[],
                 returncode=0,
-                stdout=f"{changed}\n",
+                stdout=f"{temp_dir}/unmapped.sh\n",
             )
             with mock.patch.object(
                 hotfix_generate, "ARTIFACTS_DIR", temp_dir
@@ -283,7 +283,7 @@ write_files:
             result = subprocess.CompletedProcess(
                 args=[],
                 returncode=0,
-                stdout=f"{changed}\n",
+                stdout=f"{temp_dir}/mapped.sh\n",
             )
             with mock.patch.object(
                 hotfix_generate, "ARTIFACTS_DIR", temp_dir
@@ -304,6 +304,62 @@ write_files:
                         "base",
                         available_varkeys={"otherVariable"},
                     )
+
+
+    def test_baseline_tag_derived_from_version(self):
+        self.assertEqual(
+            "v0.20260826.0", hotfix_generate.baseline_tag("202608.26.0")
+        )
+        self.assertEqual(
+            "v0.20260702.3", hotfix_generate.baseline_tag("202607.02.3")
+        )
+
+    def test_baseline_tag_rejects_malformed_version(self):
+        with self.assertRaises(hotfix_generate.GenerationError):
+            hotfix_generate.baseline_tag("2026.7.1")
+
+    def test_resolve_baseline_ref_requires_existing_tag(self):
+        with mock.patch.object(
+            hotfix_generate.subprocess, "run"
+        ), mock.patch.object(hotfix_generate, "tag_exists", return_value=False):
+            with self.assertRaises(hotfix_generate.GenerationError):
+                hotfix_generate.resolve_baseline_ref("202608.26.0")
+
+    def test_resolve_baseline_ref_returns_tag_when_present(self):
+        with mock.patch.object(
+            hotfix_generate.subprocess, "run"
+        ), mock.patch.object(hotfix_generate, "tag_exists", return_value=True):
+            self.assertEqual(
+                "v0.20260826.0",
+                hotfix_generate.resolve_baseline_ref("202608.26.0"),
+            )
+
+    def test_detect_changed_varkeys_accumulates_all_scripts_since_baseline(self):
+        # A later hotfix must re-select every script that differs from the VHD
+        # baseline, not just the newest one, so the payload stays cumulative.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            artifacts = Path(temp_dir)
+            for source in ("cse_config.sh", "cse_main.sh"):
+                (artifacts / source).write_text("hotfix")
+            result = subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout=(
+                    f"{temp_dir}/cse_config.sh\n"
+                    f"{temp_dir}/cse_main.sh\n"
+                ),
+            )
+            available = {"provisionConfigs", "provisionScript"}
+            with mock.patch.object(
+                hotfix_generate, "ARTIFACTS_DIR", temp_dir
+            ), mock.patch.object(
+                hotfix_generate.subprocess, "run", return_value=result
+            ):
+                selected = hotfix_generate.detect_changed_varkeys(
+                    "v0.20260826.0",
+                    available_varkeys=available,
+                )
+            self.assertEqual(available, selected)
 
 
 if __name__ == "__main__":
