@@ -3,11 +3,6 @@
 ERR_FILE_WATCH_TIMEOUT=6
 set -x
 
-if [ -f /opt/azure/containers/provision.complete ]; then
-    echo "Already ran to success exiting..."
-    exit 0
-fi
-
 # Cleanup cache file to force fetch fresh instance metadata from IMDS
 rm -f /opt/azure/containers/imds_instance_metadata_cache.json
 
