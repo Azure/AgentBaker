@@ -686,8 +686,11 @@ func TestWriteHotfixConfig_EmptyMapKeepsStableKey(t *testing.T) {
 // version fields remain compatible with cloud-init, while the retired artifacts contract is removed.
 func TestWriteHotfixConfig_PreservesVersionsAndDropsArtifacts(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "hotfix.json")
-	require.NoError(t, os.WriteFile(path, []byte(
-		`{"version":"202604.01.5","scripts_version":"202604.01.7","hotfixes":{"202604.01":"202604.01.5"},"artifacts":{"202604.01.5":{"linux-ubuntu-22.04-amd64":{"url":"https://packages.microsoft.com/fake.deb","sha256":"abc123"}}}}`), 0644))
+	existing := `{"version":"202604.01.5","scripts_version":"202604.01.7",` +
+		`"hotfixes":{"202604.01":"202604.01.5"},` +
+		`"artifacts":{"202604.01.5":{"linux-ubuntu-22.04-amd64":` +
+		`{"url":"https://packages.microsoft.com/fake.deb","sha256":"abc123"}}}}`
+	require.NoError(t, os.WriteFile(path, []byte(existing), 0644))
 
 	require.NoError(t, writeHotfixConfig(path, hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.9"}}))
 

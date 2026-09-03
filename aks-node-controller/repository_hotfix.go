@@ -36,6 +36,12 @@ const (
 	repositoryCommandTimeout     = 60 * time.Second
 	ancPackageName               = "aks-node-controller"
 	ancPackageBinaryRelativePath = "usr/bin/aks-node-controller"
+
+	archAMD64 = "amd64"
+	archARM64 = "arm64"
+
+	osIDAzureLinux = "azurelinux"
+	osIDMariner    = "mariner"
 )
 
 type integrityError struct {
@@ -98,7 +104,7 @@ func (a *App) tryRepositoryDownload(ctx context.Context, hotfixVersion string) e
 	switch info.ID {
 	case "ubuntu":
 		plan, err = a.ubuntuRepositoryPlan(info, hotfixVersion)
-	case "azurelinux", "mariner":
+	case osIDAzureLinux, osIDMariner:
 		plan, err = a.rpmRepositoryPlan(info, hotfixVersion)
 	default:
 		err = newUnsupportedRepositoryError("unsupported repository platform %q", info.ID)
@@ -242,7 +248,7 @@ func (a *App) downloadRepositoryFile(
 		return downloadedRepositoryFile{}, newIntegrityError("download URL is outside configured repository origin: %s", rawURL)
 	}
 
-	if err := os.MkdirAll(a.repositoryStagingDir(), 0o755); err != nil {
+	if err = os.MkdirAll(a.repositoryStagingDir(), 0o755); err != nil {
 		return downloadedRepositoryFile{}, fmt.Errorf("create repository staging directory: %w", err)
 	}
 	tmp, err := os.CreateTemp(a.repositoryStagingDir(), ".aks-node-controller-repository-*")
@@ -270,9 +276,9 @@ func (a *App) downloadRepositoryFile(
 	client := &http.Client{
 		Transport: transport,
 		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
-			redirectURL, err := validateRepositoryURL(req.URL.String())
-			if err != nil {
-				return err
+			redirectURL, redirectErr := validateRepositoryURL(req.URL.String())
+			if redirectErr != nil {
+				return redirectErr
 			}
 			if !isWithinRepositoryBase(trustedOrigin, redirectURL) {
 				return fmt.Errorf("redirect outside configured repository base")
@@ -530,10 +536,10 @@ func (a *App) ubuntuRepositoryPlan(info platformInfo, hotfixVersion string) (rep
 
 func debArchitecture(goarch string) (string, error) {
 	switch goarch {
-	case "amd64":
-		return "amd64", nil
-	case "arm64":
-		return "arm64", nil
+	case archAMD64:
+		return archAMD64, nil
+	case archARM64:
+		return archARM64, nil
 	default:
 		return "", newUnsupportedRepositoryError("unsupported Debian architecture %q", goarch)
 	}
@@ -550,50 +556,65 @@ func parseAptRepositoryFile(path, arch string) (aptRepository, error) {
 	return parseOneLineAptRepository(string(data), path, arch)
 }
 
+// parseAptLineOptions parses the optional bracketed option group of a one-line apt
+// entry (e.g. `[arch=amd64 signed-by=/path/key.gpg]`). It returns the parsed options
+// and the index of the first field after the group. The bool is false when the group is
+// opened but never closed, in which case the caller must skip the line.
+func parseAptLineOptions(fields []string, index int) (map[string]string, int, bool) {
+	options := map[string]string{}
+	if !strings.HasPrefix(fields[index], "[") {
+		return options, index, true
+	}
+	end := index
+	for end < len(fields) && !strings.HasSuffix(fields[end], "]") {
+		end++
+	}
+	if end >= len(fields) {
+		return nil, 0, false
+	}
+	optionText := strings.Trim(strings.Join(fields[index:end+1], " "), "[]")
+	for _, option := range strings.Fields(optionText) {
+		keyValue := strings.SplitN(option, "=", 2)
+		if len(keyValue) == 2 {
+			options[strings.ToLower(keyValue[0])] = keyValue[1]
+		}
+	}
+	return options, end + 1, true
+}
+
+// parseOneLineAptEntry parses a single non-comment one-line apt entry. The bool is
+// false when the line is not a usable deb entry for arch and must be skipped.
+func parseOneLineAptEntry(line, path, arch string) (aptRepository, bool) {
+	if line == "" || !strings.HasPrefix(line, "deb ") {
+		return aptRepository{}, false
+	}
+	fields := strings.Fields(line)
+	if len(fields) < 4 {
+		return aptRepository{}, false
+	}
+	options, index, ok := parseAptLineOptions(fields, 1)
+	if !ok || len(fields) < index+3 {
+		return aptRepository{}, false
+	}
+	if configuredArch := options["arch"]; configuredArch != "" &&
+		!containsString(strings.Split(configuredArch, ","), arch) {
+		return aptRepository{}, false
+	}
+	return aptRepository{
+		URI:        fields[index],
+		Suite:      fields[index+1],
+		Component:  fields[index+2],
+		SignedBy:   splitConfiguredPaths(options["signed-by"]),
+		SourcePath: path,
+	}, true
+}
+
 func parseOneLineAptRepository(contents, path, arch string) (aptRepository, error) {
 	for _, rawLine := range strings.Split(contents, "\n") {
 		line := strings.TrimSpace(strings.SplitN(rawLine, "#", 2)[0])
-		if line == "" || !strings.HasPrefix(line, "deb ") {
-			continue
+		if repo, ok := parseOneLineAptEntry(line, path, arch); ok {
+			return repo, nil
 		}
-		fields := strings.Fields(line)
-		if len(fields) < 4 {
-			continue
-		}
-		index := 1
-		options := map[string]string{}
-		if strings.HasPrefix(fields[index], "[") {
-			end := index
-			for end < len(fields) && !strings.HasSuffix(fields[end], "]") {
-				end++
-			}
-			if end >= len(fields) {
-				continue
-			}
-			optionText := strings.Trim(strings.Join(fields[index:end+1], " "), "[]")
-			for _, option := range strings.Fields(optionText) {
-				keyValue := strings.SplitN(option, "=", 2)
-				if len(keyValue) == 2 {
-					options[strings.ToLower(keyValue[0])] = keyValue[1]
-				}
-			}
-			index = end + 1
-		}
-		if len(fields) < index+3 {
-			continue
-		}
-		if configuredArch := options["arch"]; configuredArch != "" &&
-			!containsString(strings.Split(configuredArch, ","), arch) {
-			continue
-		}
-		signedBy := splitConfiguredPaths(options["signed-by"])
-		return aptRepository{
-			URI:        fields[index],
-			Suite:      fields[index+1],
-			Component:  fields[index+2],
-			SignedBy:   signedBy,
-			SourcePath: path,
-		}, nil
 	}
 	return aptRepository{}, newUnsupportedRepositoryError("no usable deb entry in %s", path)
 }
@@ -724,7 +745,7 @@ func (a *App) resolveUbuntuPackageMetadata(
 		return repositoryPackageMetadata{}, fmt.Errorf("download InRelease: %w", err)
 	}
 	defer os.Remove(inRelease.path)
-	if err := a.verifyRepoSignature(ctx, inRelease.path, "", repository.SignedBy); err != nil {
+	if err = a.verifyRepoSignature(ctx, inRelease.path, "", repository.SignedBy); err != nil {
 		return repositoryPackageMetadata{}, err
 	}
 
@@ -814,6 +835,43 @@ func parseReleaseSHA256(payload []byte, expectedPath string) (string, int64, err
 	return "", 0, fmt.Errorf("InRelease has no SHA256 entry for %s", expectedPath)
 }
 
+// matchDebPackageStanza reports whether a parsed Packages stanza is the exact ANC
+// package being sought. The bool is true once the identifying fields line up, at which
+// point the stanza is authoritative: a location or checksum problem is an integrity
+// failure rather than a reason to keep scanning.
+func matchDebPackageStanza(stanza map[string]string, fullVersion, arch, expectedLocation string) (string, bool, error) {
+	if stanza["Package"] != ancPackageName ||
+		stanza["Version"] != fullVersion ||
+		stanza["Architecture"] != arch {
+		return "", false, nil
+	}
+	if stanza["Filename"] != expectedLocation {
+		return "", true, newIntegrityError(
+			"authenticated Packages location %q does not match deterministic path %q",
+			stanza["Filename"], expectedLocation)
+	}
+	sum := strings.ToLower(strings.TrimSpace(stanza["SHA256"]))
+	if !isSHA256Hex(sum) {
+		return "", true, newIntegrityError("package stanza has no valid SHA256")
+	}
+	return sum, true, nil
+}
+
+// accumulateDebStanzaLine folds one Packages line into stanza. It returns true when a
+// blank line ends the current stanza; continuation lines (leading space/tab) are ignored.
+func accumulateDebStanzaLine(stanza map[string]string, line string) bool {
+	if strings.TrimSpace(line) == "" {
+		return true
+	}
+	if strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
+		return false
+	}
+	if keyValue := strings.SplitN(line, ":", 2); len(keyValue) == 2 {
+		stanza[keyValue[0]] = strings.TrimSpace(keyValue[1])
+	}
+	return false
+}
+
 func parseDebPackageMetadata(path, fullVersion, arch, expectedLocation string) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -824,45 +882,21 @@ func parseDebPackageMetadata(path, fullVersion, arch, expectedLocation string) (
 	scanner := bufio.NewScanner(file)
 	scanner.Buffer(make([]byte, 64*1024), 4<<20)
 	stanza := map[string]string{}
-	checkStanza := func() (string, bool, error) {
-		if stanza["Package"] != ancPackageName ||
-			stanza["Version"] != fullVersion ||
-			stanza["Architecture"] != arch {
-			return "", false, nil
-		}
-		if stanza["Filename"] != expectedLocation {
-			return "", true, newIntegrityError(
-				"authenticated Packages location %q does not match deterministic path %q",
-				stanza["Filename"], expectedLocation)
-		}
-		sum := strings.ToLower(strings.TrimSpace(stanza["SHA256"]))
-		if !isSHA256Hex(sum) {
-			return "", true, newIntegrityError("package stanza has no valid SHA256")
-		}
-		return sum, true, nil
-	}
 	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.TrimSpace(line) == "" {
-			if sum, matched, err := checkStanza(); matched || err != nil {
-				return sum, err
-			}
-			stanza = map[string]string{}
+		if !accumulateDebStanzaLine(stanza, scanner.Text()) {
 			continue
 		}
-		if strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
-			continue
+		if sum, matched, matchErr := matchDebPackageStanza(stanza, fullVersion, arch, expectedLocation); matched || matchErr != nil {
+			return sum, matchErr
 		}
-		keyValue := strings.SplitN(line, ":", 2)
-		if len(keyValue) == 2 {
-			stanza[keyValue[0]] = strings.TrimSpace(keyValue[1])
-		}
+		stanza = map[string]string{}
 	}
 	if err := scanner.Err(); err != nil {
 		return "", fmt.Errorf("scan Packages metadata: %w", err)
 	}
-	if sum, matched, err := checkStanza(); matched || err != nil {
-		return sum, err
+	// The final stanza may not be terminated by a trailing blank line.
+	if sum, matched, matchErr := matchDebPackageStanza(stanza, fullVersion, arch, expectedLocation); matched || matchErr != nil {
+		return sum, matchErr
 	}
 	return "", newUnsupportedRepositoryError(
 		"authenticated Packages metadata has no exact %s %s %s stanza",
@@ -927,9 +961,9 @@ func (a *App) rpmRepositoryPlan(info platformInfo, hotfixVersion string) (reposi
 
 func rpmArchitecture(goarch string) (string, error) {
 	switch goarch {
-	case "amd64":
+	case archAMD64:
 		return "x86_64", nil
-	case "arm64":
+	case archARM64:
 		return "aarch64", nil
 	default:
 		return "", newUnsupportedRepositoryError("unsupported RPM architecture %q", goarch)
@@ -939,9 +973,9 @@ func rpmArchitecture(goarch string) (string, error) {
 func rpmReleaseSuffix(info platformInfo) (string, error) {
 	major := strings.SplitN(info.VersionID, ".", 2)[0]
 	switch {
-	case info.ID == "azurelinux" && major == "3":
+	case info.ID == osIDAzureLinux && major == "3":
 		return "azl3", nil
-	case info.ID == "mariner" && major == "2":
+	case info.ID == osIDMariner && major == "2":
 		return "cm2", nil
 	default:
 		return "", newUnsupportedRepositoryError(
@@ -1066,35 +1100,92 @@ type rpmPrimaryPackage struct {
 	} `xml:"location"`
 }
 
+// verifiedPrimaryReference downloads repomd.xml and its detached signature, verifies the
+// signature against keyrings, and returns the authenticated reference to primary metadata.
+// Both downloaded files are removed before returning; only the parsed reference escapes.
+func (a *App) verifiedPrimaryReference(
+	ctx context.Context,
+	origin *url.URL,
+	keyrings []string,
+) (primaryMetadataReference, error) {
+	repomdURL, err := resolveRepositoryURL(origin, "repodata/repomd.xml")
+	if err != nil {
+		return primaryMetadataReference{}, err
+	}
+	signatureURL, err := resolveRepositoryURL(origin, "repodata/repomd.xml.asc")
+	if err != nil {
+		return primaryMetadataReference{}, err
+	}
+	repomd, err := a.downloadRepositoryFile(ctx, repomdURL, origin, repositoryMetadataMaxBytes)
+	if err != nil {
+		return primaryMetadataReference{}, fmt.Errorf("download repomd.xml: %w", err)
+	}
+	defer os.Remove(repomd.path)
+	signature, err := a.downloadRepositoryFile(ctx, signatureURL, origin, 1<<20)
+	if err != nil {
+		return primaryMetadataReference{}, fmt.Errorf("download repomd.xml.asc: %w", err)
+	}
+	defer os.Remove(signature.path)
+	if err = a.verifyRepoSignature(ctx, repomd.path, signature.path, keyrings); err != nil {
+		return primaryMetadataReference{}, err
+	}
+	return parsePrimaryReference(repomd.path)
+}
+
+// verifyPrimaryPayload checks the downloaded primary metadata against the authenticated
+// reference and returns the path to its uncompressed XML. The returned cleanup func must
+// be called by the caller; it removes any file this function created or downloaded.
+func (a *App) verifyPrimaryPayload(
+	primary primaryMetadataReference,
+	primaryFile downloadedRepositoryFile,
+) (string, func(), error) {
+	cleanup := func() { os.Remove(primaryFile.path) }
+	if primary.size > 0 && primary.size != primaryFile.size {
+		return "", cleanup, newIntegrityError(
+			"primary metadata size mismatch: expected %d, got %d", primary.size, primaryFile.size)
+	}
+	if !strings.EqualFold(primary.checksum, primaryFile.sha256) {
+		return "", cleanup, newIntegrityError(
+			"primary metadata SHA-256 mismatch: expected %s, got %s",
+			primary.checksum, primaryFile.sha256)
+	}
+
+	switch {
+	case strings.HasSuffix(primary.location, ".gz"):
+		decompressed, decErr := a.decompressPrimaryMetadata(primaryFile.path, primary)
+		if decErr != nil {
+			return "", cleanup, decErr
+		}
+		return decompressed, func() {
+			os.Remove(decompressed)
+			os.Remove(primaryFile.path)
+		}, nil
+	case strings.HasSuffix(primary.location, ".xml"):
+		if primary.openSize > 0 && primary.openSize != primaryFile.size {
+			return "", cleanup, newIntegrityError(
+				"primary metadata open-size mismatch: expected %d, got %d",
+				primary.openSize, primaryFile.size)
+		}
+		if primary.openChecksum != "" &&
+			!strings.EqualFold(primary.openChecksum, primaryFile.sha256) {
+			return "", cleanup, newIntegrityError(
+				"primary metadata open-checksum mismatch: expected %s, got %s",
+				primary.openChecksum, primaryFile.sha256)
+		}
+		return primaryFile.path, cleanup, nil
+	default:
+		return "", cleanup, newUnsupportedRepositoryError(
+			"unsupported primary metadata compression for %q", primary.location)
+	}
+}
+
 func (a *App) resolveRPMPackageMetadata(
 	ctx context.Context,
 	origin *url.URL,
 	keyrings []string,
 	version, release, arch, expectedLocation string,
 ) (repositoryPackageMetadata, error) {
-	repomdURL, err := resolveRepositoryURL(origin, "repodata/repomd.xml")
-	if err != nil {
-		return repositoryPackageMetadata{}, err
-	}
-	signatureURL, err := resolveRepositoryURL(origin, "repodata/repomd.xml.asc")
-	if err != nil {
-		return repositoryPackageMetadata{}, err
-	}
-	repomd, err := a.downloadRepositoryFile(ctx, repomdURL, origin, repositoryMetadataMaxBytes)
-	if err != nil {
-		return repositoryPackageMetadata{}, fmt.Errorf("download repomd.xml: %w", err)
-	}
-	defer os.Remove(repomd.path)
-	signature, err := a.downloadRepositoryFile(ctx, signatureURL, origin, 1<<20)
-	if err != nil {
-		return repositoryPackageMetadata{}, fmt.Errorf("download repomd.xml.asc: %w", err)
-	}
-	defer os.Remove(signature.path)
-	if err := a.verifyRepoSignature(ctx, repomd.path, signature.path, keyrings); err != nil {
-		return repositoryPackageMetadata{}, err
-	}
-
-	primary, err := parsePrimaryReference(repomd.path)
+	primary, err := a.verifiedPrimaryReference(ctx, origin, keyrings)
 	if err != nil {
 		return repositoryPackageMetadata{}, err
 	}
@@ -1106,40 +1197,10 @@ func (a *App) resolveRPMPackageMetadata(
 	if err != nil {
 		return repositoryPackageMetadata{}, fmt.Errorf("download primary metadata: %w", err)
 	}
-	defer os.Remove(primaryFile.path)
-	if primary.size > 0 && primary.size != primaryFile.size {
-		return repositoryPackageMetadata{}, newIntegrityError(
-			"primary metadata size mismatch: expected %d, got %d", primary.size, primaryFile.size)
-	}
-	if !strings.EqualFold(primary.checksum, primaryFile.sha256) {
-		return repositoryPackageMetadata{}, newIntegrityError(
-			"primary metadata SHA-256 mismatch: expected %s, got %s",
-			primary.checksum, primaryFile.sha256)
-	}
-
-	xmlPath := primaryFile.path
-	switch {
-	case strings.HasSuffix(primary.location, ".gz"):
-		xmlPath, err = a.decompressPrimaryMetadata(primaryFile.path, primary)
-		if err != nil {
-			return repositoryPackageMetadata{}, err
-		}
-		defer os.Remove(xmlPath)
-	case strings.HasSuffix(primary.location, ".xml"):
-		if primary.openSize > 0 && primary.openSize != primaryFile.size {
-			return repositoryPackageMetadata{}, newIntegrityError(
-				"primary metadata open-size mismatch: expected %d, got %d",
-				primary.openSize, primaryFile.size)
-		}
-		if primary.openChecksum != "" &&
-			!strings.EqualFold(primary.openChecksum, primaryFile.sha256) {
-			return repositoryPackageMetadata{}, newIntegrityError(
-				"primary metadata open-checksum mismatch: expected %s, got %s",
-				primary.openChecksum, primaryFile.sha256)
-		}
-	default:
-		return repositoryPackageMetadata{}, newUnsupportedRepositoryError(
-			"unsupported primary metadata compression for %q", primary.location)
+	xmlPath, cleanup, err := a.verifyPrimaryPayload(primary, primaryFile)
+	defer cleanup()
+	if err != nil {
+		return repositoryPackageMetadata{}, err
 	}
 	packageSHA, err := parseRPMPrimaryMetadata(
 		xmlPath, version, release, arch, expectedLocation)

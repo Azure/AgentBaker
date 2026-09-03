@@ -271,7 +271,7 @@ func (a *App) detectPackageManager() (packageManager, error) {
 	switch info.ID {
 	case "ubuntu":
 		return pkgMgrApt, nil
-	case "azurelinux", "mariner":
+	case osIDAzureLinux, osIDMariner:
 		return preferredRpmManager(), nil
 	default:
 		return "", fmt.Errorf("unsupported OS: %s", info.ID)
