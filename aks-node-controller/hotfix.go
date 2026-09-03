@@ -137,11 +137,32 @@ func (a *App) hotfixPath() string {
 	return hotfixBinaryPath
 }
 
+// removeStaleHotfix disarms a previously staged hotfix binary after an integrity failure,
+// so the launcher falls back to the VHD-baked ANC instead of re-running the stale copy.
+//
+// Removal is the intent, but it is not the guarantee: the launcher selects the hotfix on
+// `[ -x ]` alone and ignores this process's exit status, so a remove that fails would
+// silently leave the stale binary armed. Clearing the executable bits closes that gate
+// independently, giving a second way to disarm when unlink cannot succeed (e.g. an
+// immutable attribute or a read-only mount). The staged binary is only ever written by
+// copyBinaryAlongside from a package-manager-verified install, so the risk being contained
+// here is running a stale-but-authentic ANC, not attacker-controlled code.
 func (a *App) removeStaleHotfix() {
-	if err := os.Remove(a.hotfixPath()); err != nil && !os.IsNotExist(err) {
-		slog.Warn("failed to remove stale hotfix binary after repository integrity failure",
-			"path", a.hotfixPath(), "error", err)
+	path := a.hotfixPath()
+	err := os.Remove(path)
+	if err == nil || os.IsNotExist(err) {
+		return
 	}
+	slog.Warn("failed to remove stale hotfix binary after repository integrity failure",
+		"path", path, "error", err)
+
+	if chmodErr := os.Chmod(path, 0o600); chmodErr != nil {
+		slog.Error("stale hotfix binary remains executable after repository integrity failure",
+			"path", path, "removeError", err, "chmodError", chmodErr)
+		return
+	}
+	slog.Warn("cleared executable bits on stale hotfix binary that could not be removed",
+		"path", path)
 }
 
 // hotfixConfig is the version-only JSON structure shared with LPS and cloud-init.
