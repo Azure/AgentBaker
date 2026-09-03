@@ -32,6 +32,13 @@ jobs:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
           version: v2.8.0
           working-directory: ${{ matrix.dirs }}
+          # `config verify` fetches the JSON schema from golangci-lint.run on every run, with no
+          # retry or cache, and each matrix leg fetches it independently. Outages there fail the
+          # whole job before any linting happens (three consecutive failures on 2026-09-02/03).
+          # The check only validates .golangci.yaml syntax, which changes rarely and surfaces
+          # immediately when it does, so we trade it away for a lint gate that does not depend on
+          # third-party availability.
+          verify: false
 
           # Optional: working directory, useful for monorepos
           # working-directory: somedir
