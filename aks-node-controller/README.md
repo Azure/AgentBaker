@@ -159,13 +159,17 @@ rendered nodecustomdata matching the local platform and atomically applies its
 Application is fail-open so the existing VHD scripts remain usable if validation
 or replacement fails.
 
-The ANC-owned `scripthotfix` package distinguishes these embedded script hotfixes
-from updates to the ANC binary itself. The generated files live under
+The embedded nodecustomdata coordinator distinguishes these script hotfixes from
+updates to the ANC binary itself. The generated files live under
 `aks-node-controller/scripthotfix/generated/` as
 `rendered_nodecustomdata_<platform>.yml`. The generator selects only changed
 hotfixable entries from `nodecustomdata.yml`, then renders Ubuntu, Mariner/Azure
 Linux, ACL, OS Guard, and Flatcar variants through AgentBaker's production
 Go-template functions.
+
+When a PR has no new script hotfix, generation leaves the existing rendered
+payload unchanged. The active ANC version pointer is likewise retained until it
+is retired explicitly.
 
 Embedded payloads are replace-only: ANC skips an entry when its runtime
 destination does not already exist. File presence preserves non-platform

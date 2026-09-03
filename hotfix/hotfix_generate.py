@@ -65,42 +65,13 @@ SOURCE_TO_VARKEY = {
     # CSE main / start
     "cse_main.sh": "provisionScript",
     "cse_start.sh": "provisionStartScript",
-    # Python scripts
-    "cse_redact_cloud_config.py": "provisionRedactCloudConfig",
-    "cse_send_logs.py": "provisionSendLogs",
-    # Other scripts
-    "reconcile-private-hosts.sh": "reconcilePrivateHostsScript",
-    "bind-mount.sh": "bindMountScript",
-    "mig-partition.sh": "migPartitionScript",
-    "enable-dhcpv6.sh": "dhcpv6ConfigurationScript",
-    "ensure_imds_restriction.sh": "ensureIMDSRestrictionScript",
-    "ensure-no-dup.sh": "ensureNoDupEbtablesScript",
-    "cloud-init-status-check.sh": "cloudInitStatusCheckScript",
-    "measure-tls-bootstrapping-latency.sh": "measureTLSBootstrappingLatencyScript",
-    "validate-kubelet-credentials.sh": "validateKubeletCredentialsScript",
-    "setup-custom-search-domains.sh": "customSearchDomainsScript",
+    # Other scripts present in traditional nodecustomdata
     "configure-azure-network.sh": "configureAzureNetworkScript",
-    "init-aks-custom-cloud.sh": "initAKSCustomCloud",
     "init-aks-cloud.sh": "initAKSCloud",
-    # Distro-specific scripts
-    "ubuntu/ubuntu-snapshot-update.sh": "snapshotUpdateScript",
-    "mariner/mariner-package-update.sh": "packageUpdateScriptMariner",
-    # Systemd services
+    # Systemd files present in traditional nodecustomdata
     "kubelet.service": "kubeletSystemdService",
     "reconcile-private-hosts.service": "reconcilePrivateHostsService",
-    "bind-mount.service": "bindMountSystemdService",
-    "dhcpv6.service": "dhcpv6SystemdService",
-    "mig-partition.service": "migPartitionSystemdService",
-    "secure-tls-bootstrap.service": "secureTLSBootstrapService",
-    "ensure-no-dup.service": "ensureNoDupEbtablesService",
-    "measure-tls-bootstrapping-latency.service": "measureTLSBootstrappingLatencyService",
-    "ubuntu/snapshot-update.service": "snapshotUpdateService",
-    "ubuntu/snapshot-update.timer": "snapshotUpdateTimer",
-    "mariner/package-update.service": "packageUpdateServiceMariner",
-    "mariner/package-update.timer": "packageUpdateTimerMariner",
     "99-azure-network.rules": "azureNetworkUdevRule",
-    # Component manifest
-    "manifest.json": "componentManifestFile",
 }
 
 # Distro-variant variable keys that share a single conditional write_files block.
@@ -195,28 +166,19 @@ def path_changed(base_ref, *paths):
 
 
 def write_hotfix_file(version):
-    """Write the resolved ANC version to TARGET_FILE when active.
-
-    When no hotfix applies, remove TARGET_FILE if present. An empty JSON object is
-    still embedded as a real scriptless customData file, which changes payload
-    shape even though there is no hotfix for the wrapper to consume.
-    """
-    payload = {}
-    if version:
-        payload["version"] = version
-
-    if payload:
-        with open(TARGET_FILE, "w") as f:
-            json.dump(payload, f, indent=4)
-            f.write("\n")
-        print(f"Wrote {payload} to {TARGET_FILE}", file=sys.stderr)
+    """Write a new ANC version while retaining any active inherited pointer."""
+    if not version:
+        print(
+            f"No new ANC hotfix version; preserving {TARGET_FILE} if present",
+            file=sys.stderr,
+        )
         return
 
-    try:
-        os.remove(TARGET_FILE)
-        print(f"No active hotfix; removed {TARGET_FILE}", file=sys.stderr)
-    except FileNotFoundError:
-        print(f"No active hotfix; {TARGET_FILE} already absent", file=sys.stderr)
+    payload = {"version": version}
+    with open(TARGET_FILE, "w") as f:
+        json.dump(payload, f, indent=4)
+        f.write("\n")
+    print(f"Wrote {payload} to {TARGET_FILE}", file=sys.stderr)
 
 
 def detect_changed_varkeys(base_ref, available_varkeys=None):
@@ -248,6 +210,11 @@ def detect_changed_varkeys(base_ref, available_varkeys=None):
                     f"changed hotfix source {local_path} does not exist at {source_path}"
                 )
             varkey = SOURCE_TO_VARKEY[local_path]
+            if available_varkeys is not None and varkey not in available_varkeys:
+                raise GenerationError(
+                    f"changed hotfix source {local_path} maps to {varkey}, "
+                    "which has no traditional nodecustomdata write_files entry"
+                )
             matched_varkeys.add(varkey)
             if varkey in VARKEY_TO_BLOCK_GROUP:
                 matched_block_groups.add(VARKEY_TO_BLOCK_GROUP[varkey])
@@ -398,6 +365,13 @@ def build_hotfix_template(target_varkeys, traditional_lines):
 
 def write_rendered_payload(target_varkeys, traditional_lines):
     """Render platform-specific YAML through AgentBaker's production template path."""
+    if not target_varkeys:
+        print(
+            f"No new script hotfixes; preserving {GENERATED_DIR}",
+            file=sys.stderr,
+        )
+        return
+
     hotfix_template = build_hotfix_template(target_varkeys, traditional_lines)
     shutil.rmtree(GENERATED_DIR, ignore_errors=True)
     os.makedirs(GENERATED_DIR, exist_ok=True)
@@ -423,8 +397,9 @@ def write_rendered_payload(target_varkeys, traditional_lines):
             os.remove(template_path)
         except FileNotFoundError:
             pass
+
     with open(os.path.join(GENERATED_DIR, "active"), "w", newline="\n") as active_file:
-        active_file.write("true\n" if target_varkeys else "false\n")
+        active_file.write("true\n")
     print(
         f"Rendered {len(target_varkeys)} hotfix variable keys into {GENERATED_DIR}",
         file=sys.stderr,

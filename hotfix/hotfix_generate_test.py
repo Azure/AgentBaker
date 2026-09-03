@@ -199,7 +199,38 @@ write_files:
             self.assertFalse((generated / ".nodecustomdata-hotfix.template").exists())
             self.assertEqual("true\n", (generated / "active").read_text())
 
-    def test_write_hotfix_file_contains_only_anc_version(self):
+    def test_write_rendered_payload_preserves_previous_hotfix_when_unchanged(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            generated = Path(temp_dir) / "generated"
+            generated.mkdir()
+            (generated / "active").write_text("true\n")
+            platforms = ("ubuntu", "mariner", "acl", "azlosguard", "flatcar")
+            for platform in platforms:
+                (generated / f"rendered_nodecustomdata_{platform}.yml").write_text(
+                    f"write_files:\n- path: /{platform}-existing\n"
+                )
+
+            with mock.patch.object(
+                hotfix_generate, "GENERATED_DIR", str(generated)
+            ), mock.patch.object(
+                hotfix_generate.subprocess, "run"
+            ) as run:
+                hotfix_generate.write_rendered_payload(
+                    set(),
+                    TRADITIONAL_TEMPLATE.splitlines(keepends=True),
+                )
+
+            run.assert_not_called()
+            self.assertEqual("true\n", (generated / "active").read_text())
+            for platform in platforms:
+                self.assertIn(
+                    f"/{platform}-existing",
+                    (
+                        generated / f"rendered_nodecustomdata_{platform}.yml"
+                    ).read_text(),
+                )
+
+    def test_write_hotfix_file_contains_only_anc_version_and_preserves_it(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             target = Path(temp_dir) / "hotfix.json"
             with mock.patch.object(
@@ -210,6 +241,18 @@ write_files:
                     {"version": "202608.14.1"},
                     json.loads(target.read_text()),
                 )
+                hotfix_generate.write_hotfix_file("")
+                self.assertEqual(
+                    {"version": "202608.14.1"},
+                    json.loads(target.read_text()),
+                )
+
+    def test_write_hotfix_file_without_version_keeps_missing_target_absent(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / "hotfix.json"
+            with mock.patch.object(
+                hotfix_generate, "TARGET_FILE", str(target)
+            ):
                 hotfix_generate.write_hotfix_file("")
                 self.assertFalse(target.exists())
 
@@ -232,6 +275,35 @@ write_files:
                     "has no source/runtime mapping",
                 ):
                     hotfix_generate.detect_changed_varkeys("base")
+
+    def test_mapped_source_without_renderable_entry_fails(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            changed = Path(temp_dir) / "mapped.sh"
+            changed.write_text("#!/bin/sh")
+            result = subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout=f"{changed}\n",
+            )
+            with mock.patch.object(
+                hotfix_generate, "ARTIFACTS_DIR", temp_dir
+            ), mock.patch.object(
+                hotfix_generate,
+                "SOURCE_TO_VARKEY",
+                {"mapped.sh": "missingVariable"},
+            ), mock.patch.object(
+                hotfix_generate.subprocess,
+                "run",
+                return_value=result,
+            ):
+                with self.assertRaisesRegex(
+                    hotfix_generate.GenerationError,
+                    "has no traditional nodecustomdata write_files entry",
+                ):
+                    hotfix_generate.detect_changed_varkeys(
+                        "base",
+                        available_varkeys={"otherVariable"},
+                    )
 
 
 if __name__ == "__main__":

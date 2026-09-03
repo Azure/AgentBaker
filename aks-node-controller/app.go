@@ -22,7 +22,6 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
-	"github.com/Azure/agentbaker/aks-node-controller/scripthotfix"
 	"github.com/fsnotify/fsnotify"
 	"github.com/urfave/cli/v3"
 )
@@ -73,7 +72,7 @@ type App struct {
 	// is queried.
 	fetchAttestedToken func(ctx context.Context) (string, error)
 	// applyEmbeddedHotfix overrides embedded script application for tests.
-	applyEmbeddedHotfix func(string) (scripthotfix.Result, error)
+	applyEmbeddedHotfix func(string) (nodeCustomDataApplyResult, error)
 	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
 	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
 	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
@@ -690,7 +689,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 func (a *App) applyEmbeddedHotfixPayload() {
 	applyEmbeddedHotfix := a.applyEmbeddedHotfix
 	if applyEmbeddedHotfix == nil {
-		applyEmbeddedHotfix = scripthotfix.ApplyEmbedded
+		applyEmbeddedHotfix = applyEmbeddedNodeCustomData
 	}
 	result, err := applyEmbeddedHotfix(a.osReleasePath)
 	if err != nil {
