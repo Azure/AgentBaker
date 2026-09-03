@@ -228,3 +228,9 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 
 	return connectivityCheckCommand
 }
+
+// getProxyVariables is retained until GetProxyVariables is removed from the template function map.
+// Proxy variables are exported directly from their URL values in cse_main.sh.
+func getProxyVariables(_ *datamodel.NodeBootstrappingConfiguration) string {
+	return ""
+}
