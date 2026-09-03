@@ -82,7 +82,10 @@ fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     # We completely re-assign the TARGET_COMMAND_STRING string here to ensure that no artifacts from earlier conditionals are included
-  TARGET_COMMAND_STRING="--size ${CVM_TEST_VM_SIZE:-Standard_DC8ads_v5} --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+  TARGET_COMMAND_STRING="--size ${CVM_TEST_VM_SIZE:-Standard_DC8ads_v5} --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly"
+  if [ "${OS_SKU:-}" != "AzureContainerLinux" ]; then
+    TARGET_COMMAND_STRING+=" --specialized true"
+  fi
 fi
 
 TEST_VM_USER_DATA_ARGS=()
