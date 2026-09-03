@@ -377,6 +377,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				datamodel.AKSUbuntuArm64Containerd2404Gen2,
 				datamodel.AKSUbuntuContainerd2404,
 				datamodel.AKSUbuntuContainerd2404TLGen2,
+				datamodel.AKSUbuntuContainerd2604CVMGen2,
 			}
 
 			marinerDistros = []datamodel.Distro{
