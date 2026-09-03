@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"regexp"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -3482,6 +3483,60 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) error {
 	return errors.Join(errs...)
 }
 
+// vhdSourcedEnvVars are env vars whose provision-config value is read from the
+// components.json baked into the VHD (/opt/azure/components.json), not from the AgentBaker
+// source under test. The nbc-cmd side is generated from the source under test instead, so
+// the two sides only agree when the VHD was built from that same source.
+//
+// E2E deliberately does not do that: it runs the PR's code against the newest VHD tagged
+// branch=refs/heads/main (see config.SIGVersionTagValue, which defaults to "refs/heads/main").
+// So any PR that changes a GPU driver version in parts/common/components.json will
+// legitimately differ on these vars until a VHD is rebuilt from that PR, which cannot happen
+// before merge. Failing on them makes GPU driver bumps unmergeable for a reason unrelated to
+// the change under test.
+//
+// Differences limited to these vars are therefore tolerated here. Any other differing var
+// still fails, and aks-node-controller still reports the full diff (including these vars) as
+// a guest agent event for Kusto, so production observability is unchanged.
+var vhdSourcedEnvVars = map[string]struct{}{
+	"GPU_DRIVER_VERSION": {},
+	"GPU_IMAGE_SHA":      {},
+}
+
+// envCompareDiffEntryRE matches a single diff entry emitted by aks-node-controller's
+// compareEnvs, e.g. "differs: GPU_DRIVER_VERSION", "only-in-pc: FOO", "only-in-nbc: BAR".
+var envCompareDiffEntryRE = regexp.MustCompile(`(?:differs|only-in-pc|only-in-nbc):\s*([A-Za-z_][A-Za-z0-9_]*)`)
+
+// parseEnvCompareDiffVars extracts the set of env var names reported as differing by
+// compareEnvs from the grepped aks-node-controller output.
+func parseEnvCompareDiffVars(grepOutput string) []string {
+	matches := envCompareDiffEntryRE.FindAllStringSubmatch(grepOutput, -1)
+	seen := make(map[string]struct{}, len(matches))
+	var names []string
+	for _, m := range matches {
+		name := m[1]
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// unexpectedEnvCompareDiffVars returns the differing env vars that are not explained by
+// VHD-vs-source skew.
+func unexpectedEnvCompareDiffVars(diffVars []string) []string {
+	var unexpected []string
+	for _, name := range diffVars {
+		if _, ok := vhdSourcedEnvVars[name]; !ok {
+			unexpected = append(unexpected, name)
+		}
+	}
+	return unexpected
+}
+
 // ValidateScriptlessPhase3 validates that there are not diffs between ANC generated cse cmd NBC cse cmd vars
 func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) error {
 	if s.Runtime.AKSNodeConfig == nil || !usesScriptlessNBCCSECmd(s) {
@@ -3501,7 +3556,24 @@ func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) error {
 	if err != nil {
 		return fmt.Errorf("grep for differences in aks-node-controller.output: %w", err)
 	}
-	return fmt.Errorf("expected no env var differences between provision-config and nbc-cmd, but found differences:\n%s", result.stdout)
+
+	diffVars := parseEnvCompareDiffVars(result.stdout)
+	if len(diffVars) == 0 {
+		// The success marker is missing and no diff entries were found, so compareEnvs
+		// did not report a clean comparison and we cannot prove the envs match.
+		return fmt.Errorf("expected env compare to report no differences between provision-config and nbc-cmd, "+
+			"but the success marker is absent and no diff entries were found in %s:\n%s", logFile, result.stdout)
+	}
+
+	if unexpected := unexpectedEnvCompareDiffVars(diffVars); len(unexpected) > 0 {
+		return fmt.Errorf("expected no env var differences between provision-config and nbc-cmd, but found differences in %v:\n%s",
+			unexpected, result.stdout)
+	}
+
+	s.T.Logf("tolerating env var differences confined to VHD-sourced vars %v: the VHD under test is built from %s=%s, "+
+		"not from the source under test, so these differ until a VHD is rebuilt. Full diff:\n%s",
+		diffVars, config.Config.SIGVersionTagName, config.Config.SIGVersionTagValue, result.stdout)
+	return nil
 }
 
 // ValidateStaleCachedKubeBinariesRemoved validates that stale versioned kube binaries (e.g. kubelet-1.29.0, kubectl-1.29.0)
