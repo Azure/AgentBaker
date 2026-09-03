@@ -544,3 +544,58 @@ func sha256Hex(data []byte) string {
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
 }
+
+// A fast package failure must cancel the in-flight metadata branch instead of waiting it
+// out, and the induced cancellation must not be reported as an integrity failure -- that
+// classification would disarm the staged hotfix and skip the package-manager fallback.
+func TestRepositoryFastPathCancelsPeerBranchOnFailure(t *testing.T) {
+	const (
+		hotfixVersion = "202608.21.1"
+		fullVersion   = hotfixVersion + "-ubuntu22.04u1"
+	)
+	packageLocation := "pool/main/a/aks-node-controller/aks-node-controller_" +
+		fullVersion + "_amd64.deb"
+
+	metadataCtxDone := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, ".deb") {
+			http.NotFound(w, r) // fails fast, cancelling the metadata branch
+			return
+		}
+		// Stand in for a slow InRelease fetch: block until cancelled, or give up well
+		// before the 30s request timeout so a regression fails loudly instead of hanging.
+		select {
+		case <-r.Context().Done():
+			close(metadataCtxDone)
+		case <-time.After(10 * time.Second):
+		}
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	app := configuredUbuntuRepositoryApp(t, dir, server.URL, func(*exec.Cmd) error {
+		return fmt.Errorf("package manager should not run in this test")
+	})
+	app.vhdBinaryPath = filepath.Join(dir, "aks-node-controller")
+	app.hotfixBinaryPath = filepath.Join(dir, "aks-node-controller-hotfix")
+	require.NoError(t, os.WriteFile(app.vhdBinaryPath, []byte("vhd-binary"), 0o755))
+
+	start := time.Now()
+	err := app.tryRepositoryDownload(context.Background(), hotfixVersion)
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), packageLocation[strings.LastIndex(packageLocation, "/")+1:],
+		"the package failure should be reported, not the cancelled peer")
+	assert.False(t, isIntegrityError(err),
+		"a cancelled peer must not be reported as an integrity failure: that would disarm "+
+			"the staged hotfix and skip the package-manager fallback")
+
+	select {
+	case <-metadataCtxDone:
+	default:
+		t.Fatal("metadata branch was not cancelled when the package download failed")
+	}
+	assert.Less(t, elapsed, 5*time.Second,
+		"failure should return promptly rather than waiting out the peer branch")
+}

@@ -94,6 +94,75 @@ type repositoryDownloadPlan struct {
 	resolveMetadata func(context.Context) (repositoryPackageMetadata, error)
 }
 
+// fetchPackageAndMetadata downloads the package and resolves its authenticated metadata
+// concurrently, cancelling the peer as soon as either fails. Without that cancellation a
+// fast failure (e.g. a 404 on the package) still waits out the other branch -- gpgv's 60s
+// command timeout plus a 30s metadata request -- before the package-manager fallback can
+// start, directly extending node provisioning.
+//
+// Cancellation makes error classification load-bearing. A killed gpgv surfaces from
+// verifyRepoSignature as an integrityError, and downloadBinaryHotfixIfNeeded treats
+// integrity errors as terminal: it disarms the staged hotfix and skips the fallback. A
+// cancelled peer must therefore never be reported, or a benign 404 would masquerade as
+// tampering. Only the branch that failed first is returned; the peer's error is induced
+// noise and is dropped.
+//
+// The returned file is the caller's to remove, including on the error paths.
+func (a *App) fetchPackageAndMetadata(
+	ctx context.Context,
+	plan repositoryDownloadPlan,
+) (downloadedRepositoryFile, repositoryPackageMetadata, error) {
+	branchCtx, cancelBranches := context.WithCancel(ctx)
+	defer cancelBranches()
+
+	var (
+		packageFile downloadedRepositoryFile
+		metadata    repositoryPackageMetadata
+		firstErr    error
+		firstIsMeta bool
+		firstErrOne sync.Once
+		wg          sync.WaitGroup
+	)
+	failBranch := func(err error, isMetadata bool) {
+		if err == nil {
+			return
+		}
+		firstErrOne.Do(func() {
+			firstErr = err
+			firstIsMeta = isMetadata
+			cancelBranches()
+		})
+	}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		var err error
+		packageFile, err = a.downloadRepositoryFile(
+			branchCtx, plan.packageURL, plan.trustedOrigin, repositoryPackageMaxBytes)
+		failBranch(err, false)
+	}()
+	go func() {
+		defer wg.Done()
+		var err error
+		metadata, err = plan.resolveMetadata(branchCtx)
+		failBranch(err, true)
+	}()
+	wg.Wait()
+
+	// A dead caller context outranks whichever branch happened to notice it first.
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return packageFile, metadata, fmt.Errorf("repository fast path cancelled: %w", ctxErr)
+	}
+	if firstErr != nil {
+		if firstIsMeta {
+			return packageFile, metadata, fmt.Errorf(
+				"resolve authenticated repository metadata: %w", firstErr)
+		}
+		return packageFile, metadata, fmt.Errorf("download repository package: %w", firstErr)
+	}
+	return packageFile, metadata, nil
+}
+
 func (a *App) tryRepositoryDownload(ctx context.Context, hotfixVersion string) error {
 	info, err := a.parseLinuxPlatformInfo()
 	if err != nil {
@@ -113,33 +182,12 @@ func (a *App) tryRepositoryDownload(ctx context.Context, hotfixVersion string) e
 		return err
 	}
 
-	var (
-		packageFile downloadedRepositoryFile
-		metadata    repositoryPackageMetadata
-		packageErr  error
-		metadataErr error
-		wg          sync.WaitGroup
-	)
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		packageFile, packageErr = a.downloadRepositoryFile(
-			ctx, plan.packageURL, plan.trustedOrigin, repositoryPackageMaxBytes)
-	}()
-	go func() {
-		defer wg.Done()
-		metadata, metadataErr = plan.resolveMetadata(ctx)
-	}()
-	wg.Wait()
-
+	packageFile, metadata, err := a.fetchPackageAndMetadata(ctx, plan)
 	if packageFile.path != "" {
 		defer os.Remove(packageFile.path)
 	}
-	if metadataErr != nil {
-		return fmt.Errorf("resolve authenticated repository metadata: %w", metadataErr)
-	}
-	if packageErr != nil {
-		return fmt.Errorf("download repository package: %w", packageErr)
+	if err != nil {
+		return err
 	}
 	if !strings.EqualFold(packageFile.sha256, metadata.sha256) {
 		return newIntegrityError("package SHA-256 mismatch: expected %s, got %s",
