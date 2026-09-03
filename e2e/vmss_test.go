@@ -1,12 +1,93 @@
 package e2e
 
 import (
+	"encoding/base64"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
+
+func TestWriteScriptHotfixFixture(t *testing.T) {
+	buildDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(buildDir, "scripthotfix", "generated"), 0o755))
+	fixture := ScriptHotfixFixture{
+		Platform:    "ubuntu",
+		Destination: "/opt/azure/containers/provision_configs.sh",
+		Mode:        "0744",
+		Payload:     []byte("#!/bin/bash\necho e2e\n"),
+	}
+
+	require.NoError(t, writeScriptHotfixFixture(buildDir, fixture))
+
+	renderedData, err := os.ReadFile(filepath.Join(
+		buildDir,
+		"scripthotfix",
+		"generated",
+		"rendered_nodecustomdata_ubuntu.yml",
+	))
+	require.NoError(t, err)
+	var rendered scriptHotfixFixtureNodeCustomData
+	require.NoError(t, yaml.Unmarshal(renderedData, &rendered))
+	require.Len(t, rendered.WriteFiles, 1)
+	require.Equal(t, fixture.Destination, rendered.WriteFiles[0].Path)
+	require.Equal(t, fixture.Mode, rendered.WriteFiles[0].Permissions)
+	require.Equal(t, "base64", rendered.WriteFiles[0].Encoding)
+	payload, err := base64.StdEncoding.DecodeString(rendered.WriteFiles[0].Content)
+	require.NoError(t, err)
+	require.Equal(t, fixture.Payload, payload)
+}
+
+func TestWriteScriptHotfixFixtureRejectsInvalidData(t *testing.T) {
+	valid := ScriptHotfixFixture{
+		Platform:    "ubuntu",
+		Destination: "/opt/azure/containers/provision_configs.sh",
+		Mode:        "0744",
+		Payload:     []byte("#!/bin/bash\n"),
+	}
+	tests := []struct {
+		name   string
+		mutate func(*ScriptHotfixFixture)
+	}{
+		{
+			name: "relative destination",
+			mutate: func(fixture *ScriptHotfixFixture) {
+				fixture.Destination = "opt/provision_configs.sh"
+			},
+		},
+		{
+			name: "invalid mode",
+			mutate: func(fixture *ScriptHotfixFixture) {
+				fixture.Mode = "0999"
+			},
+		},
+		{
+			name: "unsupported platform",
+			mutate: func(fixture *ScriptHotfixFixture) {
+				fixture.Platform = "other"
+			},
+		},
+		{
+			name: "empty payload",
+			mutate: func(fixture *ScriptHotfixFixture) {
+				fixture.Payload = nil
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fixture := valid
+			test.mutate(&fixture)
+			buildDir := t.TempDir()
+			require.NoError(t, os.MkdirAll(filepath.Join(buildDir, "scripthotfix", "generated"), 0o755))
+			require.Error(t, writeScriptHotfixFixture(buildDir, fixture))
+		})
+	}
+}
 
 // TestCSEExitCodeOutboundConnFail pins the exit code constant to the value emitted by
 // ERR_OUTBOUND_CONN_FAIL in parts/linux/cloud-init/artifacts/cse_helpers.sh. If the

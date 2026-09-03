@@ -8,16 +8,13 @@ Auto-detects what needs a hotfix and generates the version numbers for it:
    testdata files vs the base branch, bumps the patch of the current
    pkg/agent/datamodel/linux_sig_version.json version and uses it as `version`.
 
-2. Detects which CSE provisioning scripts changed vs the base branch and injects their
-   write_files entries into the EnableScriptlessCSECmd section of
-   parts/linux/cloud-init/nodecustomdata.yml. If that injection (or a direct edit)
-   leaves nodecustomdata.yml different from the base branch, `scripts_version` is
-   bumped using the same base-version + tag-collision algorithm as `version`.
+2. Detects which CSE provisioning scripts changed vs the base branch, selects their
+   write_files entries from parts/linux/cloud-init/nodecustomdata.yml, and renders
+   self-contained ANC payloads for each Linux platform with AgentBaker's canonical
+   Go-template renderer.
 
-3. Writes the resulting {"version", "scripts_version"} (omitting fields that don't
-   apply) to parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json only
-   when there is an active hotfix. If no hotfix applies, the file is removed/left
-   absent so scriptless customData does not embed an empty hotfix artifact.
+3. Writes the resolved ANC `version` to
+   parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json when active.
 
 Usage: python3 hotfix/hotfix_generate.py <base_ref>
   base_ref: git ref to diff against for changed-script/changed-code detection
@@ -26,9 +23,11 @@ Usage: python3 hotfix/hotfix_generate.py <base_ref>
 This script is called by the hotfix-generate GH Action.
 """
 
+import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -37,12 +36,9 @@ TEMPLATE = "parts/linux/cloud-init/nodecustomdata.yml"
 ARTIFACTS_DIR = "parts/linux/cloud-init/artifacts"
 LINUX_SIG_VERSION_FILE = "pkg/agent/datamodel/linux_sig_version.json"
 ANC_DIR = "aks-node-controller/"
+GENERATED_DIR = os.path.join(ANC_DIR, "scripthotfix", "generated")
 
 VERSION_RE = re.compile(r'^\d{6}\.\d{2}\.\d+$')
-
-# Marker comments for idempotent injection of the raw changed-script blocks.
-SCRIPTS_BEGIN = "# ---- hotfix-scripts: auto-generated ----"
-SCRIPTS_END = "# ---- end hotfix-scripts ----"
 
 # Map from source file paths (relative to artifacts/) to the GetVariableProperty
 # keys used in nodecustomdata.yml. Only scripts that appear as write_files entries
@@ -84,6 +80,7 @@ SOURCE_TO_VARKEY = {
     "validate-kubelet-credentials.sh": "validateKubeletCredentialsScript",
     "setup-custom-search-domains.sh": "customSearchDomainsScript",
     "configure-azure-network.sh": "configureAzureNetworkScript",
+    "init-aks-custom-cloud.sh": "initAKSCustomCloud",
     "init-aks-cloud.sh": "initAKSCloud",
     # Distro-specific scripts
     "ubuntu/ubuntu-snapshot-update.sh": "snapshotUpdateScript",
@@ -120,6 +117,33 @@ VARKEY_TO_BLOCK_GROUP = {
     "provisionInstallsFlatcar": "install_distro",
     "provisionInstallsACL": "install_distro",
 }
+
+VARKEY_TO_SOURCE = {varkey: source for source, varkey in SOURCE_TO_VARKEY.items()}
+
+HOTFIXABLE_SUFFIXES = (
+    ".sh",
+    ".py",
+    ".service",
+    ".timer",
+    ".rules",
+)
+GENERATED_ARTIFACTS = {
+    "aks-node-controller-hotfix.json",
+}
+
+class GenerationError(RuntimeError):
+    """Raised when hotfix assets cannot be generated safely."""
+
+
+def validate_source_mappings():
+    """Validate the explicit hotfixable source allowlist."""
+    if len(VARKEY_TO_SOURCE) != len(SOURCE_TO_VARKEY):
+        raise GenerationError("source mappings contain duplicate variable keys")
+    for varkey in VARKEY_TO_BLOCK_GROUP:
+        if varkey not in VARKEY_TO_SOURCE:
+            raise GenerationError(
+                f"distro block variable key {varkey} has no source mapping"
+            )
 
 
 def read_base_version():
@@ -170,8 +194,8 @@ def path_changed(base_ref, *paths):
     raise subprocess.CalledProcessError(result.returncode, result.args)
 
 
-def write_hotfix_file(version, scripts_version):
-    """Write the resolved {version, scripts_version} to TARGET_FILE when active.
+def write_hotfix_file(version):
+    """Write the resolved ANC version to TARGET_FILE when active.
 
     When no hotfix applies, remove TARGET_FILE if present. An empty JSON object is
     still embedded as a real scriptless customData file, which changes payload
@@ -180,8 +204,6 @@ def write_hotfix_file(version, scripts_version):
     payload = {}
     if version:
         payload["version"] = version
-    if scripts_version:
-        payload["scripts_version"] = scripts_version
 
     if payload:
         with open(TARGET_FILE, "w") as f:
@@ -197,7 +219,7 @@ def write_hotfix_file(version, scripts_version):
         print(f"No active hotfix; {TARGET_FILE} already absent", file=sys.stderr)
 
 
-def detect_changed_varkeys(base_ref):
+def detect_changed_varkeys(base_ref, available_varkeys=None):
     """Detect changed scripts via git diff and return the set of varkeys to inject."""
     result = subprocess.run(
         ["git", "diff", "--name-only", base_ref, "--", f"{ARTIFACTS_DIR}/"],
@@ -217,12 +239,23 @@ def detect_changed_varkeys(base_ref):
 
     for filepath in changed_files.splitlines():
         local_path = filepath.removeprefix(f"{ARTIFACTS_DIR}/")
+        if local_path in GENERATED_ARTIFACTS:
+            continue
         if local_path in SOURCE_TO_VARKEY:
+            source_path = os.path.join(ARTIFACTS_DIR, local_path)
+            if not os.path.isfile(source_path):
+                raise GenerationError(
+                    f"changed hotfix source {local_path} does not exist at {source_path}"
+                )
             varkey = SOURCE_TO_VARKEY[local_path]
             matched_varkeys.add(varkey)
             if varkey in VARKEY_TO_BLOCK_GROUP:
                 matched_block_groups.add(VARKEY_TO_BLOCK_GROUP[varkey])
             print(f"  Matched: {local_path} → {varkey}")
+        elif local_path.endswith(HOTFIXABLE_SUFFIXES) or local_path == "manifest.json":
+            raise GenerationError(
+                f"changed hotfixable artifact {local_path} has no source/runtime mapping"
+            )
         else:
             print(f"  Warning: {local_path} has no mapping in SOURCE_TO_VARKEY (skipped)")
 
@@ -232,8 +265,21 @@ def detect_changed_varkeys(base_ref):
 
     # If a distro block group was matched, add all members of that group
     for varkey, group in VARKEY_TO_BLOCK_GROUP.items():
-        if group in matched_block_groups:
+        if (
+            group in matched_block_groups
+            and (available_varkeys is None or varkey in available_varkeys)
+        ):
             matched_varkeys.add(varkey)
+
+    for varkey in matched_varkeys:
+        source = VARKEY_TO_SOURCE.get(varkey)
+        if not source:
+            raise GenerationError(f"variable key {varkey} has no source mapping")
+        source_path = os.path.join(ARTIFACTS_DIR, source)
+        if not os.path.isfile(source_path):
+            raise GenerationError(
+                f"selected hotfix source {source} does not exist at {source_path}"
+            )
 
     print(f"\nVariable keys to inject: {' '.join(sorted(matched_varkeys))}")
     return matched_varkeys
@@ -249,17 +295,29 @@ def find_block_boundaries(lines):
         stripped = line.strip()
         if '{{if EnableScriptlessCSECmd}}' in stripped or '{{ if EnableScriptlessCSECmd }}' in stripped:
             scriptless_start = i
-        elif scriptless_start is not None and else_line is None and stripped.startswith('{{- else'):
-            else_line = i
-
-    for i in range(len(lines) - 1, -1, -1):
-        stripped = lines[i].strip()
-        if re.match(r'\{\{-?\s*end\s*-?\}\}$', stripped):
-            end_line = i
             break
 
-    if else_line is not None and end_line is not None and end_line <= else_line:
-        end_line = None
+    if scriptless_start is None:
+        return None, None, None
+
+    depth = 0
+    for i in range(scriptless_start, len(lines)):
+        stripped = lines[i].strip()
+        if re.match(r'\{\{-?\s*if(?:\s+|$)', stripped):
+            depth += 1
+            continue
+        if (
+            depth == 1
+            and else_line is None
+            and re.match(r'\{\{-?\s*else\s*-?\}\}$', stripped)
+        ):
+            else_line = i
+            continue
+        if re.match(r'\{\{-?\s*end\s*-?\}\}$', stripped):
+            depth -= 1
+            if depth == 0:
+                end_line = i
+                break
 
     return scriptless_start, else_line, end_line
 
@@ -319,97 +377,91 @@ def parse_write_files_blocks(traditional_lines):
     return blocks
 
 
-def remove_scripts_block():
-    """Remove any previously injected hotfix-scripts block (idempotent cleanup)."""
-    with open(TEMPLATE) as f:
-        content = f.read()
-
-    new_content = re.sub(
-        rf'\n?{re.escape(SCRIPTS_BEGIN)}\n.*?{re.escape(SCRIPTS_END)}\n',
-        '', content, flags=re.DOTALL,
-    )
-
-    if new_content != content:
-        with open(TEMPLATE, 'w') as f:
-            f.write(new_content)
-        print(f"Removed previous hotfix-scripts block from {TEMPLATE}", file=sys.stderr)
-        return True
-    return False
-
-
-def inject_scripts(target_varkeys):
-    """Extract matching write_files blocks from the traditional section and inject
-    them into the scriptless section, replacing any previously injected block."""
-    with open(TEMPLATE, 'r') as f:
-        content = f.read()
-
-    content = re.sub(
-        rf'\n?{re.escape(SCRIPTS_BEGIN)}\n.*?{re.escape(SCRIPTS_END)}\n',
-        '', content, flags=re.DOTALL,
-    )
-
-    lines = content.splitlines(keepends=True)
-
-    scriptless_start, else_line, end_line = find_block_boundaries(lines)
-    if scriptless_start is None or else_line is None or end_line is None:
-        print("ERROR: Could not find EnableScriptlessCSECmd block boundaries", file=sys.stderr)
-        print(f"  scriptless_start={scriptless_start}, else_line={else_line}, end_line={end_line}", file=sys.stderr)
-        sys.exit(1)
-
-    print("\nTemplate structure:", file=sys.stderr)
-    print(f"  EnableScriptlessCSECmd block: lines {scriptless_start+1}-{else_line+1}", file=sys.stderr)
-    print(f"  Traditional block: lines {else_line+2}-{end_line+1}", file=sys.stderr)
-
-    traditional_lines = lines[else_line+1:end_line]
+def build_hotfix_template(target_varkeys, traditional_lines):
+    """Build a hotfix-only nodecustomdata template from canonical write_files blocks."""
     blocks = parse_write_files_blocks(traditional_lines)
-    print(f"Found {len(blocks)} write_files blocks in traditional section", file=sys.stderr)
-
     selected_blocks = []
     for varkeys, block_lines in blocks:
         if varkeys & target_varkeys:
             selected_blocks.append(block_lines)
-            print(f"  Selected block with varkeys: {varkeys}", file=sys.stderr)
 
+    if target_varkeys and not selected_blocks:
+        raise GenerationError("no matching write_files blocks found")
     if not selected_blocks:
-        print("No matching write_files blocks found for the target varkeys.", file=sys.stderr)
-        return False
+        return "#cloud-config\nwrite_files: []\n"
 
-    scripts_lines = [
-        "\n",
-        f"{SCRIPTS_BEGIN}\n",
-    ]
+    rendered = ["#cloud-config\n", "write_files:\n"]
     for block_lines in selected_blocks:
-        scripts_lines.extend(block_lines)
-    scripts_lines.append(f"{SCRIPTS_END}\n")
+        rendered.extend(block_lines)
+    return "".join(rendered)
 
-    final_lines = lines[:else_line] + scripts_lines + lines[else_line:]
 
-    with open(TEMPLATE, 'w') as f:
-        f.writelines(final_lines)
+def write_rendered_payload(target_varkeys, traditional_lines):
+    """Render platform-specific YAML through AgentBaker's production template path."""
+    hotfix_template = build_hotfix_template(target_varkeys, traditional_lines)
+    shutil.rmtree(GENERATED_DIR, ignore_errors=True)
+    os.makedirs(GENERATED_DIR, exist_ok=True)
 
-    print(f"\nInjected {len(selected_blocks)} write_files block(s) into EnableScriptlessCSECmd section", file=sys.stderr)
-    print(f"Updated {TEMPLATE}", file=sys.stderr)
-    return True
+    template_path = os.path.join(GENERATED_DIR, ".nodecustomdata-hotfix.template")
+    with open(template_path, "w", newline="\n") as template_file:
+        template_file.write(hotfix_template)
+    try:
+        subprocess.run(
+            [
+                "go",
+                "run",
+                "./hotfix/render-nodecustomdata",
+                "--template",
+                template_path,
+                "--output-dir",
+                GENERATED_DIR,
+            ],
+            check=True,
+        )
+    finally:
+        try:
+            os.remove(template_path)
+        except FileNotFoundError:
+            pass
+    with open(os.path.join(GENERATED_DIR, "active"), "w", newline="\n") as active_file:
+        active_file.write("true\n" if target_varkeys else "false\n")
+    print(
+        f"Rendered {len(target_varkeys)} hotfix variable keys into {GENERATED_DIR}",
+        file=sys.stderr,
+    )
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python3 hotfix/hotfix_generate.py <base_ref>", file=sys.stderr)
-        sys.exit(1)
-    base_ref = sys.argv[1]
+    parser = argparse.ArgumentParser(description="Generate ANC hotfix assets")
+    parser.add_argument("base_ref", help="git ref to diff against")
+    args = parser.parse_args()
+    base_ref = args.base_ref
 
     # Best-effort: make sure locally-known tags are up to date before checking for
     # collisions. Ignore failures (e.g. no network) and fall back to local tags.
     subprocess.run(["git", "fetch", "--tags"], capture_output=True)
 
-    # Detect & inject changed CSE scripts into nodecustomdata.yml first, since whether
-    # that leaves the template modified is itself the signal used below to decide
-    # scripts_version.
-    target_varkeys = detect_changed_varkeys(base_ref)
-    if target_varkeys:
-        inject_scripts(target_varkeys)
-    else:
-        remove_scripts_block()
+    try:
+        validate_source_mappings()
+        with open(TEMPLATE, "r") as template_file:
+            template_lines = template_file.readlines()
+        _, else_line, end_line = find_block_boundaries(template_lines)
+        if else_line is None or end_line is None:
+            raise GenerationError(
+                f"could not find traditional write_files section in {TEMPLATE}"
+            )
+        traditional_lines = template_lines[else_line + 1:end_line]
+        available_varkeys = set()
+        for varkeys, _ in parse_write_files_blocks(traditional_lines):
+            available_varkeys.update(varkeys)
+        changed_varkeys = detect_changed_varkeys(
+            base_ref,
+            available_varkeys=available_varkeys,
+        )
+        write_rendered_payload(changed_varkeys, traditional_lines)
+    except GenerationError as err:
+        print(f"ERROR: {err}", file=sys.stderr)
+        sys.exit(1)
 
     base_version = read_base_version()
 
@@ -427,14 +479,7 @@ def main():
         print(f"aks-node-controller/ has no production changes vs {base_ref}; "
               "version not set", file=sys.stderr)
 
-    scripts_version = ""
-    if path_changed(base_ref, TEMPLATE):
-        scripts_version = bump_version(base_version)
-        print(f"{TEMPLATE} changed vs {base_ref}; scripts_version={scripts_version}", file=sys.stderr)
-    else:
-        print(f"{TEMPLATE} unchanged vs {base_ref}; scripts_version not set", file=sys.stderr)
-
-    write_hotfix_file(version, scripts_version)
+    write_hotfix_file(version)
 
 
 if __name__ == '__main__':
