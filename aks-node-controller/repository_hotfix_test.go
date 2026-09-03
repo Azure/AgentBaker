@@ -80,8 +80,11 @@ func TestUbuntuRepositoryFastPathParallelSuccessExtractsBinary(t *testing.T) {
 		"Package: aks-node-controller\nVersion: %s\nArchitecture: amd64\nFilename: %s\nSHA256: %s\n\n",
 		fullVersion, packageLocation, packageSHA))
 	packagesSHA := sha256Hex(packages)
-	packagesLocation := "dists/jammy/main/binary-amd64/Packages"
-	inRelease := clearSignedRelease(packagesLocation, packagesSHA, int64(len(packages)))
+	// The InRelease indexes the Packages file suite-relative; the HTTP path is rooted at
+	// the repository. Keeping these distinct is what proves we look each one up correctly.
+	packagesSuiteRelative := "main/binary-amd64/Packages"
+	packagesLocation := "dists/jammy/" + packagesSuiteRelative
+	inRelease := clearSignedRelease(packagesSuiteRelative, packagesSHA, int64(len(packages)))
 
 	packageStarted := make(chan struct{})
 	metadataStarted := make(chan struct{})
@@ -170,8 +173,9 @@ func TestUbuntuRepositoryPackageChecksumMismatchIsHardFailure(t *testing.T) {
 	packages := []byte(fmt.Sprintf(
 		"Package: aks-node-controller\nVersion: %s\nArchitecture: amd64\nFilename: %s\nSHA256: %s\n\n",
 		fullVersion, packageLocation, strings.Repeat("a", 64)))
-	packagesLocation := "dists/jammy/main/binary-amd64/Packages"
-	inRelease := clearSignedRelease(packagesLocation, sha256Hex(packages), int64(len(packages)))
+	packagesSuiteRelative := "main/binary-amd64/Packages"
+	packagesLocation := "dists/jammy/" + packagesSuiteRelative
+	inRelease := clearSignedRelease(packagesSuiteRelative, sha256Hex(packages), int64(len(packages)))
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -519,7 +523,11 @@ func configuredUbuntuRepositoryApp(
 	return app
 }
 
-func clearSignedRelease(path, sum string, size int64) []byte {
+// clearSignedRelease builds a minimal InRelease. Per the Debian repository format,
+// suiteRelativePath must be relative to the suite directory holding the InRelease (e.g.
+// "main/binary-amd64/Packages"), matching what a real Ubuntu/PMC InRelease publishes --
+// not the repository-root-relative path ("dists/<suite>/...") used to fetch the file.
+func clearSignedRelease(suiteRelativePath, sum string, size int64) []byte {
 	return []byte(fmt.Sprintf(`-----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA256
 
@@ -529,7 +537,7 @@ SHA256:
 -----BEGIN PGP SIGNATURE-----
 fake-signature
 -----END PGP SIGNATURE-----
-`, sum, size, path))
+`, sum, size, suiteRelativePath))
 }
 
 func sha256Hex(data []byte) string {

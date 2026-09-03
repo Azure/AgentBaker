@@ -733,8 +733,14 @@ func (a *App) resolveUbuntuPackageMetadata(
 	if err != nil {
 		return repositoryPackageMetadata{}, err
 	}
+	// An InRelease indexes its checksum entries relative to the suite directory that
+	// contains it (e.g. "main/binary-amd64/Packages"), while the download URL needs the
+	// full repository-root-relative path. Keep the two separate: the suite-relative form
+	// is what parseReleaseSHA256 must match against.
+	packagesSuiteRelativePath := filepath.ToSlash(filepath.Join(
+		repository.Component, "binary-"+arch, "Packages"))
 	packagesRelativePath := filepath.ToSlash(filepath.Join(
-		"dists", repository.Suite, repository.Component, "binary-"+arch, "Packages"))
+		"dists", repository.Suite, packagesSuiteRelativePath))
 	packagesURL, err := resolveRepositoryURL(origin, packagesRelativePath)
 	if err != nil {
 		return repositoryPackageMetadata{}, err
@@ -753,7 +759,7 @@ func (a *App) resolveUbuntuPackageMetadata(
 	if err != nil {
 		return repositoryPackageMetadata{}, newIntegrityError("parse authenticated InRelease: %v", err)
 	}
-	expectedPackagesSHA, expectedPackagesSize, err := parseReleaseSHA256(releasePayload, packagesRelativePath)
+	expectedPackagesSHA, expectedPackagesSize, err := parseReleaseSHA256(releasePayload, packagesSuiteRelativePath)
 	if err != nil {
 		return repositoryPackageMetadata{}, newIntegrityError("%v", err)
 	}
