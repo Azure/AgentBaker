@@ -302,6 +302,13 @@ func writeNodeCustomDataTempFile(directory, pattern string, content []byte, mode
 		cleanup()
 		return "", fmt.Errorf("write temporary file: %w", err)
 	}
+	// Chmod before Sync so the final mode is included in the fsync; otherwise a
+	// crash after the later rename could durably leave the script with
+	// CreateTemp's 0600 (non-executable) mode.
+	if err := temp.Chmod(mode); err != nil {
+		cleanup()
+		return "", fmt.Errorf("chmod temporary file: %w", err)
+	}
 	if err := temp.Sync(); err != nil {
 		cleanup()
 		return "", fmt.Errorf("sync temporary file: %w", err)
@@ -309,10 +316,6 @@ func writeNodeCustomDataTempFile(directory, pattern string, content []byte, mode
 	if err := temp.Close(); err != nil {
 		cleanup()
 		return "", fmt.Errorf("close temporary file: %w", err)
-	}
-	if err := os.Chmod(tempPath, mode); err != nil {
-		cleanup()
-		return "", fmt.Errorf("chmod temporary file: %w", err)
 	}
 	return tempPath, nil
 }
