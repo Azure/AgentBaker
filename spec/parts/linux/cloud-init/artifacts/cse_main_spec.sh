@@ -127,7 +127,115 @@ Describe 'select_localdns_corefile()'
     End
 End
 
+Describe 'proxy environment exports'
+    setup() {
+        unset HTTP_PROXY http_proxy HTTPS_PROXY https_proxy NO_PROXY no_proxy
+        HTTP_PROXY_URLS=""
+        HTTPS_PROXY_URLS=""
+        NO_PROXY_URLS=""
+        proxy_exports="$(sed -n '/^# configureEtcEnvironment persists/,/^# Disable a single kernel module/p' parts/linux/cloud-init/artifacts/cse_main.sh)"
+    }
+
+    cleanup() {
+        unset HTTP_PROXY http_proxy HTTPS_PROXY https_proxy NO_PROXY no_proxy
+        unset HTTP_PROXY_URLS HTTPS_PROXY_URLS NO_PROXY_URLS
+    }
+
+    exported_proxy_environment() {
+        eval "${proxy_exports}"
+        /bin/bash -c 'printf "%s\n" "${HTTP_PROXY-<unset>}" "${http_proxy-<unset>}" "${HTTPS_PROXY-<unset>}" "${https_proxy-<unset>}" "${NO_PROXY-<unset>}" "${no_proxy-<unset>}"'
+    }
+
+    BeforeEach 'setup'
+    AfterEach 'cleanup'
+
+    It 'exports HTTP proxy values only'
+        HTTP_PROXY_URLS="http://proxy.example.com:8080"
+
+        When call exported_proxy_environment
+        The line 1 of output should equal "http://proxy.example.com:8080"
+        The line 2 of output should equal "http://proxy.example.com:8080"
+        The line 3 of output should equal "<unset>"
+        The line 4 of output should equal "<unset>"
+        The line 5 of output should equal "<unset>"
+        The line 6 of output should equal "<unset>"
+    End
+
+    It 'exports HTTPS proxy values only'
+        HTTPS_PROXY_URLS="https://proxy.example.com:8443"
+
+        When call exported_proxy_environment
+        The line 1 of output should equal "<unset>"
+        The line 2 of output should equal "<unset>"
+        The line 3 of output should equal "https://proxy.example.com:8443"
+        The line 4 of output should equal "https://proxy.example.com:8443"
+        The line 5 of output should equal "<unset>"
+        The line 6 of output should equal "<unset>"
+    End
+
+    It 'exports no-proxy values only'
+        NO_PROXY_URLS="127.0.0.1,localhost,.svc"
+
+        When call exported_proxy_environment
+        The line 1 of output should equal "<unset>"
+        The line 2 of output should equal "<unset>"
+        The line 3 of output should equal "<unset>"
+        The line 4 of output should equal "<unset>"
+        The line 5 of output should equal "127.0.0.1,localhost,.svc"
+        The line 6 of output should equal "127.0.0.1,localhost,.svc"
+    End
+
+    It 'exports all proxy values simultaneously'
+        HTTP_PROXY_URLS="http://proxy.example.com:8080"
+        HTTPS_PROXY_URLS="https://proxy.example.com:8443"
+        NO_PROXY_URLS="127.0.0.1,localhost,.svc"
+
+        When call exported_proxy_environment
+        The line 1 of output should equal "http://proxy.example.com:8080"
+        The line 2 of output should equal "http://proxy.example.com:8080"
+        The line 3 of output should equal "https://proxy.example.com:8443"
+        The line 4 of output should equal "https://proxy.example.com:8443"
+        The line 5 of output should equal "127.0.0.1,localhost,.svc"
+        The line 6 of output should equal "127.0.0.1,localhost,.svc"
+    End
+
+    It 'leaves existing values unchanged when proxy URLs are empty'
+        export HTTP_PROXY="existing-http-upper"
+        export http_proxy="existing-http-lower"
+        export HTTPS_PROXY="existing-https-upper"
+        export https_proxy="existing-https-lower"
+        export NO_PROXY="existing-no-proxy-upper"
+        export no_proxy="existing-no-proxy-lower"
+
+        When call exported_proxy_environment
+        The line 1 of output should equal "existing-http-upper"
+        The line 2 of output should equal "existing-http-lower"
+        The line 3 of output should equal "existing-https-upper"
+        The line 4 of output should equal "existing-https-lower"
+        The line 5 of output should equal "existing-no-proxy-upper"
+        The line 6 of output should equal "existing-no-proxy-lower"
+    End
+End
+
 Describe 'connectivity preflight timeouts'
+    It 'exports proxy values before persistent configuration and the outbound check'
+        proxy_consumer_order() {
+            awk '
+                /export HTTP_PROXY=/ && !proxy_exports { proxy_exports = NR }
+                /^[[:space:]]*configureEtcEnvironment$/ { configure_etc_environment = NR }
+                /retrycmd_if_failure 20 1 15 \$OUTBOUND_COMMAND/ { outbound_check = NR }
+                END {
+                    print proxy_exports < configure_etc_environment
+                    print proxy_exports < outbound_check
+                }
+            ' parts/linux/cloud-init/artifacts/cse_main.sh
+        }
+
+        When call proxy_consumer_order
+        The line 1 of output should equal "1"
+        The line 2 of output should equal "1"
+    End
+
     It 'allows DNS failover during the outbound check'
         When run awk '/retrycmd_if_failure [0-9]+ [0-9]+ [0-9]+ \$OUTBOUND_COMMAND/ { print $2, $3, $4 }' parts/linux/cloud-init/artifacts/cse_main.sh
         The output should eq "20 1 15"

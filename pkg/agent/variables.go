@@ -4,7 +4,6 @@
 package agent
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -228,22 +227,4 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 	connectivityCheckCommand := `curl -v --insecure --proxy-insecure https://` + registry + `/v2/`
 
 	return connectivityCheckCommand
-}
-
-func getProxyVariables(nbc *datamodel.NodeBootstrappingConfiguration) string {
-	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy.
-	proxyVars := ""
-	if nbc.HTTPProxyConfig != nil {
-		if nbc.HTTPProxyConfig.HTTPProxy != nil {
-			// from https://curl.se/docs/manual.html, curl uses http_proxy but uppercase for others?
-			proxyVars = fmt.Sprintf("export http_proxy=\"%s\";", *nbc.HTTPProxyConfig.HTTPProxy)
-		}
-		if nbc.HTTPProxyConfig.HTTPSProxy != nil {
-			proxyVars = fmt.Sprintf("export HTTPS_PROXY=\"%s\"; %s", *nbc.HTTPProxyConfig.HTTPSProxy, proxyVars)
-		}
-		if nbc.HTTPProxyConfig.NoProxy != nil {
-			proxyVars = fmt.Sprintf("export NO_PROXY=\"%s\"; %s", strings.Join(*nbc.HTTPProxyConfig.NoProxy, ","), proxyVars)
-		}
-	}
-	return proxyVars
 }

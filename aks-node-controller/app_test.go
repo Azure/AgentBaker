@@ -551,9 +551,9 @@ func TestParseEnvVarsFromNBCCmdContent(t *testing.T) {
 	})
 
 	t.Run("single-quoted values", func(t *testing.T) {
-		content := `PROXY_VARS='export HTTPS_PROXY="https://proxy:8443"; export http_proxy="http://proxy:8080";'`
+		content := `COMMANDS='run "first command"; run "second command";'`
 		got := parseEnvVarsFromNBCCmdContent(content)
-		assert.Equal(t, `export HTTPS_PROXY="https://proxy:8443"; export http_proxy="http://proxy:8080";`, got["PROXY_VARS"])
+		assert.Equal(t, `run "first command"; run "second command";`, got["COMMANDS"])
 	})
 }
 
