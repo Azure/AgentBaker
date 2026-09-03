@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"testing"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
@@ -51,8 +52,55 @@ func Test_LocalDNSHostsPlugin(t *testing.T) {
 						config.LocalDnsProfile.EnableLocalDns = true
 					},
 					VMConfigMutator: tt.vmConfigMutator,
+					Validator: func(ctx context.Context, s *Scenario) error {
+						if tt.name == "Ubuntu2204" || tt.name == "Ubuntu2404" || tt.name == "AzureLinuxV3" {
+							return validateLocalDNSLifecycle(ctx, s)
+						}
+						return nil
+					},
 				},
 			})
 		})
 	}
+}
+
+func validateLocalDNSLifecycle(ctx context.Context, s *Scenario) error {
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, `
+set -eu
+sudo systemctl is-active --quiet localdns.service
+
+# Normal systemd stop must complete cleanup and return success.
+sudo systemctl restart localdns.service
+sudo systemctl is-active --quiet localdns.service
+sudo systemctl stop localdns.service
+test "$(sudo systemctl show localdns.service -p ActiveState --value)" = inactive
+sudo systemctl start localdns.service
+sudo systemctl is-active --quiet localdns.service
+
+# Repeatedly kill the supervisor and wait for Restart=on-failure recovery.
+for i in 1 2 3; do
+    main=$(sudo systemctl show -p MainPID --value localdns.service)
+    test "$main" -gt 0
+    sudo kill -9 "$main"
+
+    recovered=false
+    for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+        state=$(sudo systemctl show localdns.service -p ActiveState -p SubState --value)
+        if [ "$state" = $'active\nrunning' ]; then
+            recovered=true
+            break
+        fi
+        sleep 1
+    done
+    test "$recovered" = true
+done
+
+state=$(sudo systemctl show localdns.service -p ActiveState -p SubState -p Result -p ControlGroup)
+printf '%s\n' "$state"
+printf '%s\n' "$state" | grep -q '^ActiveState=active$'
+printf '%s\n' "$state" | grep -q '^SubState=running$'
+printf '%s\n' "$state" | grep -q '^Result=success$'
+! sudo journalctl -u localdns.service --since '2 minutes ago' --no-pager | grep -E 'Failed to kill control group|Start request repeated too quickly|Failed to start localdns.service'
+`, 0, "LocalDNS lifecycle validation failed")
+	return err
 }
