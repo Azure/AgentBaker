@@ -11,6 +11,12 @@ import (
 
 const defaultOSReleasePath = "/etc/os-release"
 
+// os-release ID values that appear in more than one classification path.
+const (
+	osReleaseIDAzureContainerLinux = "azurecontainerlinux"
+	osReleaseIDFlatcar             = "flatcar"
+)
+
 type nodeCustomDataPlatform string
 
 const (
@@ -57,11 +63,11 @@ func classifyNodeCustomDataPlatform(osReleasePath string) (nodeCustomDataPlatfor
 	switch {
 	case variant == "osguard":
 		return nodeCustomDataPlatformAzlOSGuard, nil
-	case variant == "azurecontainerlinux", id == "azurecontainerlinux":
+	case variant == osReleaseIDAzureContainerLinux, id == osReleaseIDAzureContainerLinux:
 		return nodeCustomDataPlatformACL, nil
 	case id == "ubuntu":
 		return nodeCustomDataPlatformUbuntu, nil
-	case id == "flatcar":
+	case id == osReleaseIDFlatcar:
 		return nodeCustomDataPlatformFlatcar, nil
 	case id == "mariner", id == "azurelinux":
 		return nodeCustomDataPlatformMariner, nil
