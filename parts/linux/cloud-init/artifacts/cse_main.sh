@@ -4,8 +4,9 @@ ERR_FILE_WATCH_TIMEOUT=6
 set -x
 
 if [ -f /opt/azure/containers/provision.complete ]; then
-    echo "Already ran to success exiting..."
-    exit 0
+    EXIT_CODE=$(jq -r '.ExitCode' /var/log/azure/aks/provision.json)
+    echo "Already ran provisioning, exiting with code ${EXIT_CODE}..."
+    exit "${EXIT_CODE}"
 fi
 
 # Cleanup cache file to force fetch fresh instance metadata from IMDS
