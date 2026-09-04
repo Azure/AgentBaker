@@ -50,8 +50,23 @@ type App struct {
 	hotfixVersionPath string
 	// aptSourcesDir overrides the default APT sources directory for testing.
 	aptSourcesDir string
+	// aptTrustedKeyringsDir overrides the default APT trusted keyrings directory for testing.
+	aptTrustedKeyringsDir string
+	// yumReposDir overrides the default RPM repositories directory for testing.
+	yumReposDir string
 	// osReleasePath overrides the default /etc/os-release path for testing.
 	osReleasePath string
+	// goArch overrides runtime.GOARCH for repository-path tests.
+	goArch string
+	// repositoryTempDir overrides where repository downloads and extraction are staged.
+	repositoryTempDir string
+	// vhdBinaryPath and hotfixBinaryPath override ANC binary paths for testing.
+	vhdBinaryPath    string
+	hotfixBinaryPath string
+	// verifyRepositorySignature overrides gpgv-backed repository signature verification.
+	verifyRepositorySignature func(ctx context.Context, signedPath, signaturePath string, keyrings []string) error
+	// extractRepositoryPackage overrides package extraction for deterministic unit tests.
+	extractRepositoryPackage func(ctx context.Context, format, packagePath, destination string) error
 	// nodeCustomDataPath overrides the default nodecustomdata path for testing.
 	nodeCustomDataPath string
 	// nodeConfigPath overrides the default AKSNodeConfig path for testing. It is the
@@ -74,13 +89,6 @@ type App struct {
 	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
 	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
 	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
-	// httpDownload overrides the real HTTP GET for download-hotfix artifact fetching, letting
-	// unit tests inject canned binary content or errors without real networking. When nil, the
-	// real HTTP download is used.
-	httpDownload func(ctx context.Context, url string) ([]byte, error)
-	// downloadDir overrides the directory where artifact downloads are staged. When empty,
-	// defaults to filepath.Dir(hotfixBinaryPath). Used for testing.
-	downloadDir string
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
