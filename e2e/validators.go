@@ -2846,12 +2846,16 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 }
 
 func nodeHasInfiniBandHardware(ctx context.Context, s *Scenario) (bool, error) {
-	// MANA is an RDMA device under /sys/class/infiniband, but node-exporter 1.12.1
-	// cannot parse it and the startup script disables the collector when present.
-	// Keep this detection aligned so MANA and mixed-HCA nodes do not require
-	// metrics from a collector that must be disabled pending an upstream fix.
-	command := `for device in /sys/class/infiniband/mana_*; do
-    [ -e "$device" ] && exit 1
+	// node-exporter 1.12.1 cannot parse MANA RDMA devices, so the startup script
+	// disables the collector when MANA PCI hardware is present. Keep this
+	// detection aligned so MANA and mixed-HCA nodes do not require metrics from a
+	// collector that must be disabled pending an upstream fix.
+	command := `for device in /sys/bus/pci/devices/*; do
+    if [ -d "$device" ] &&
+       grep -qi '^0x1414$' "$device/vendor" 2>/dev/null &&
+       grep -qi '^0x00ba$' "$device/device" 2>/dev/null; then
+        exit 1
+    fi
 done
 for device in /sys/class/infiniband/*; do
     [ -e "$device" ] || continue

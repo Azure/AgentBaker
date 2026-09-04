@@ -4,21 +4,30 @@ Describe 'node-exporter-startup.sh hardware arguments'
     NODE_EXPORTER_STARTUP_SOURCE_ONLY=true
     Include './parts/linux/cloud-init/artifacts/node-exporter/node-exporter-startup.sh'
 
-    setup_infiniband_class() {
-        INFINIBAND_CLASS_PATH="$(mktemp -d)"
+    setup_pci_devices() {
+        PCI_DEVICES_PATH="$(mktemp -d)"
     }
 
-    BeforeEach 'setup_infiniband_class'
-    AfterEach 'rm -rf "$INFINIBAND_CLASS_PATH"'
+    add_pci_device() {
+        local name="$1"
+        local vendor="$2"
+        local device="$3"
+        mkdir "${PCI_DEVICES_PATH}/${name}"
+        printf '%s\n' "$vendor" > "${PCI_DEVICES_PATH}/${name}/vendor"
+        printf '%s\n' "$device" > "${PCI_DEVICES_PATH}/${name}/device"
+    }
 
-    It 'adds no argument without RDMA devices'
+    BeforeEach 'setup_pci_devices'
+    AfterEach 'rm -rf "$PCI_DEVICES_PATH"'
+
+    It 'adds no argument without PCI devices'
         When call getNodeExporterHardwareArgs
         The status should be success
         The output should equal ''
     End
 
-    It 'keeps the InfiniBand collector enabled for non-MANA devices'
-        mkdir "${INFINIBAND_CLASS_PATH}/mlx5_0"
+    It 'keeps the InfiniBand collector enabled for non-MANA PCI devices'
+        add_pci_device '0000:00:02.0' '0x15b3' '0x1017'
 
         When call getNodeExporterHardwareArgs
         The status should be success
@@ -26,7 +35,7 @@ Describe 'node-exporter-startup.sh hardware arguments'
     End
 
     It 'disables the InfiniBand collector for MANA devices'
-        mkdir "${INFINIBAND_CLASS_PATH}/mana_0"
+        add_pci_device '7870:00:00.0' '0x1414' '0x00ba'
 
         When call getNodeExporterHardwareArgs
         The status should be success
@@ -34,7 +43,8 @@ Describe 'node-exporter-startup.sh hardware arguments'
     End
 
     It 'disables the InfiniBand collector on mixed MANA and non-MANA devices'
-        mkdir "${INFINIBAND_CLASS_PATH}/mana_0" "${INFINIBAND_CLASS_PATH}/mlx5_0"
+        add_pci_device '0000:00:02.0' '0x15b3' '0x1017'
+        add_pci_device '7870:00:00.0' '0x1414' '0x00ba'
 
         When call getNodeExporterHardwareArgs
         The status should be success
