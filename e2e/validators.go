@@ -2827,7 +2827,11 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 	// so this also verifies that the endpoint is reachable on the address used by monitoring infrastructure.
 	s.Logger.Logf("Validating node-exporter metrics on port 19100")
 	metricsURL := fmt.Sprintf("http://%s:19100/metrics", s.Runtime.VM.PrivateIP)
-	errs = append(errs, scrapeAndValidateNodeExporter(ctx, s, metricsURL))
+	hasInfiniBand, err := nodeHasInfiniBandHardware(ctx, s)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	errs = append(errs, scrapeAndValidateNodeExporter(ctx, s, metricsURL, hasInfiniBand))
 
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-active %s", serviceName), 0,
 		"node-exporter should remain active after scraping"); err != nil {
@@ -2841,7 +2845,31 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 	return nil
 }
 
-func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL string) error {
+func nodeHasInfiniBandHardware(ctx context.Context, s *Scenario) (bool, error) {
+	// node-exporter 1.12.1 cannot parse MANA RDMA devices, so the startup script
+	// disables the collector when MANA PCI hardware is present. Keep this
+	// detection aligned so MANA and mixed-HCA nodes do not require metrics from a
+	// collector that must be disabled pending an upstream fix.
+	command := `for device in /sys/bus/pci/devices/*; do
+    if [ -d "$device" ] &&
+       grep -qi '^0x1414$' "$device/vendor" 2>/dev/null &&
+       grep -Eqi '^0x00(b9|ba|c1)$' "$device/device" 2>/dev/null; then
+        exit 1
+    fi
+done
+for device in /sys/class/infiniband/*; do
+    [ -e "$device" ] || continue
+    exit 0
+done
+exit 1`
+	result, err := execScriptOnVMForScenario(ctx, s, command)
+	if err != nil {
+		return false, fmt.Errorf("detect InfiniBand hardware: %w", err)
+	}
+	return result.exitCode == "0", nil
+}
+
+func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL string, requireInfiniBand bool) error {
 	result, err := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("curl --noproxy '*' -sS --max-time 10 %q", metricsURL))
 	if err != nil {
 		return fmt.Errorf("scrape node-exporter metrics from %s: %w", metricsURL, err)
@@ -2856,7 +2884,10 @@ func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL 
 	if len(responsePreview) > previewLimit {
 		responsePreview = responsePreview[:previewLimit] + "\n... response truncated"
 	}
-	return assert.NoError(nodeexporter.ValidateMetrics(result.stdout), "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview)
+	return errors.Join(
+		assert.NoError(nodeexporter.ValidateMetrics(result.stdout), "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview),
+		assert.NoError(nodeexporter.ValidateCollectors(result.stdout, requireInfiniBand), "node-exporter collectors did not satisfy the AgentBaker contract\nresponse preview:\n%s", responsePreview),
+	)
 }
 
 func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) (err error) {
