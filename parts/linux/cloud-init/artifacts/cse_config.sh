@@ -1534,6 +1534,98 @@ configureNvidiaCDIRefresh() {
     systemctl daemon-reload || true
 }
 
+# Runs the refresh and verifies it produced a usable NVIDIA CDI device. Split out of
+# repairNvidiaCDIRefresh so that every failure path unwinds through that function's .path re-arm.
+refreshNvidiaCDISpec() {
+    local service_unit="$1"
+    local path_unit="$2"
+    local cdi_spec_path="$3"
+    local cdi_devices
+    local cdi_list_status
+    local validation_dir
+
+    systemctl stop "$service_unit" || return 1
+    systemctl reset-failed "$service_unit" "$path_unit" || return 1
+
+    # A MIG node cannot produce a spec during CSE: nvidia-ctk exits 1 while MIG mode is on with no
+    # instances, and ensureMigPartition -- which runs after this, from cse_main.sh -- is itself
+    # "expected to fail and work only on next reboot". Start the service to clear the slate, but do
+    # not verify, because nothing available at this point could make the check pass.
+    #
+    # This deliberately leaves MIG nodes where they already are rather than fixing them. Nothing
+    # orders nvidia-cdi-refresh.service after mig-partition.service -- the latter declares only
+    # Before=nvidia-device-plugin.service -- so post-reboot generation is not guaranteed either.
+    # Closing that gap needs a new ordering dependency and is out of scope for this change.
+    if [ "${MIG_NODE:-}" = "true" ]; then
+        echo "MIG node: skipping NVIDIA CDI verification, MIG spec generation is not handled here"
+        systemctl start "$service_unit" || return 1
+        return 0
+    fi
+
+    # A successful oneshot can still mean its conditions skipped. Remove any stale output and
+    # require the synchronous run to generate a usable NVIDIA CDI device.
+    rm -f "$cdi_spec_path" || return 1
+    systemctl start "$service_unit" || return 1
+    if [ ! -s "$cdi_spec_path" ]; then
+        echo "NVIDIA CDI refresh did not generate ${cdi_spec_path}"
+        return 1
+    fi
+
+    validation_dir=$(mktemp -d) || return 1
+    if ! cp "$cdi_spec_path" "${validation_dir}/nvidia.yaml"; then
+        rm -rf "$validation_dir"
+        return 1
+    fi
+    cdi_devices=$(nvidia-ctk cdi list --spec-dir="$validation_dir")
+    cdi_list_status=$?
+    rm -rf "$validation_dir" || return 1
+    if [ "$cdi_list_status" -ne 0 ]; then
+        return 1
+    fi
+    if ! printf '%s\n' "$cdi_devices" | grep -q '^nvidia\.com/gpu='; then
+        echo "NVIDIA CDI refresh generated no NVIDIA GPU devices"
+        return 1
+    fi
+}
+
+# configureNvidiaCDIRefresh above only stops the early failure from poisoning the units; it never
+# retries once the driver is actually up, so a node can finish provisioning with no CDI spec at all.
+# The toolkit starts nvidia-cdi-refresh while the aks-gpu container is still staging userspace
+# libraries, and a prebaked kernel module makes the service condition pass early. Re-run it here,
+# after nvidia-smi and ldconfig have succeeded, and confirm it produced a usable device.
+repairNvidiaCDIRefresh() {
+    local service_unit="nvidia-cdi-refresh.service"
+    local path_unit="nvidia-cdi-refresh.path"
+    local cdi_spec_path="${NVIDIA_CDI_SPEC_PATH:-/var/run/cdi/nvidia.yaml}"
+    local service_load_state
+    local path_load_state
+    local repair_status
+
+    service_load_state=$(systemctl show --property=LoadState --value "$service_unit") || return 1
+    path_load_state=$(systemctl show --property=LoadState --value "$path_unit") || return 1
+
+    if [ "$service_load_state" = "not-found" ] && [ "$path_load_state" = "not-found" ]; then
+        return 0
+    fi
+    if [ "$service_load_state" != "loaded" ] || [ "$path_load_state" != "loaded" ]; then
+        echo "Unexpected NVIDIA CDI unit state: service=${service_load_state}, path=${path_load_state}"
+        return 1
+    fi
+
+    systemctl stop "$path_unit" || return 1
+
+    refreshNvidiaCDISpec "$service_unit" "$path_unit" "$cdi_spec_path"
+    repair_status=$?
+
+    # Re-arm on every path, failures included. This function stopped the .path unit above, and that
+    # unit is the entire self-heal story once CSE is over -- it re-runs the refresh when the driver
+    # finally settles. Since the caller treats a failed repair as non-fatal, returning here without
+    # restarting it would let a node provision successfully with its recovery trigger disarmed,
+    # which is strictly worse than never having run the repair at all.
+    systemctl start "$path_unit" || return 1
+    return "$repair_status"
+}
+
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
@@ -1572,6 +1664,13 @@ configGPUDrivers() {
     logs_to_events "AKS.CSE.configGPUDrivers.waitForNvidiaModprobe" "retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0" || exit $ERR_GPU_DRIVERS_START_FAIL
     logs_to_events "AKS.CSE.configGPUDrivers.waitForNvidiaSmi" "retrycmd_if_failure 120 5 30 nvidia-smi" || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        # Deliberately non-fatal. GPU pods reach the device through containerd's
+        # nvidia-container-runtime rather than CDI, so a node that boots without a spec still runs
+        # workloads; exiting here would reintroduce the very CSE 84 that configureNvidiaCDIRefresh
+        # was written to remove. Log loudly instead so a missing spec is still diagnosable.
+        logs_to_events "AKS.CSE.configGPUDrivers.repairNvidiaCDIRefresh" repairNvidiaCDIRefresh || echo "NVIDIA CDI refresh repair failed; continuing without a CDI specification"
+    fi
 
     # Fix the NVIDIA /dev/char link issue (Mariner/AzureLinux only)
     if isMarinerOrAzureLinux "$OS"; then
