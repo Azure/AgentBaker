@@ -443,6 +443,10 @@ function Get-PackagesToCacheOnVHD
         foreach ($URL in $map[$dir])
         {
             $fileName = [IO.Path]::GetFileName($URL)
+            if ($packageCacheFileNames.ContainsKey($URL))
+            {
+                $fileName = $packageCacheFileNames[$URL]
+            }
             $dest = [IO.Path]::Combine($dir, $fileName)
 
             Write-Log "Downloading $URL to $dest"

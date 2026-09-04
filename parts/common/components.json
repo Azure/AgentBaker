@@ -939,6 +939,7 @@
       "name": "aks-secure-tls-bootstrap-client",
       "downloadLocation": "/opt/aks-secure-tls-bootstrap-client/downloads",
       "windowsDownloadLocation": "c:\\akse-cache\\aks-secure-tls-bootstrap-client\\",
+      "windowsDownloadedFileName": "windows-amd64.zip",
       "downloadURIs": {
         "ubuntu": {
           "r2604": {
@@ -1010,10 +1011,10 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.1.4"
+                "latestVersion": "1.1.4-3"
               }
             ],
-            "downloadURL": "https://github.com/Azure/aks-secure-tls-bootstrap/releases/download/client/v${version}/windows-amd64.zip"
+            "downloadURL": "https://packages.aks.azure.com/dalec-packages/aks-secure-tls-bootstrap-client/$($version.Split('-')[0])/windows/amd64/aks-secure-tls-bootstrap-client_${version}_amd64.zip"
           }
         }
       }

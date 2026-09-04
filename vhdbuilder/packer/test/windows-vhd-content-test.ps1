@@ -138,6 +138,9 @@ function Test-FilesToCacheOnVHD {
 
         foreach ($URL in $map[$fakeDir]) {
             $fileName = [IO.Path]::GetFileName($URL)
+            if ($packageCacheFileNames.ContainsKey($URL)) {
+                $fileName = $packageCacheFileNames[$URL]
+            }
             $dest = [IO.Path]::Combine($dir, $fileName)
 
             if (![System.IO.File]::Exists($dest)) {
