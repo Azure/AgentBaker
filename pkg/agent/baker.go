@@ -1473,6 +1473,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetProxyVariables": func() string {
 			return getProxyVariables(config)
 		},
+		"ShellQuote": shellQuote,
 		"GetOutboundCommand": func() string {
 			return getOutBoundCmd(config, config.CloudSpecConfig)
 		},

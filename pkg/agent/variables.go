@@ -4,12 +4,21 @@
 package agent
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
+
+// proxyVariables is the legacy compatibility payload evaluated by older VHD scripts via
+// `eval $PROXY_VARS`. It never interpolates customer-supplied values: it references the
+// already shell-quoted *_URLS variables indirectly, so hostile proxy values cannot break
+// out of the assignment. Each export is guarded by its own value so that a partial proxy
+// config leaves the unset variables untouched, matching configureProxyEnvironment and the
+// pre-existing behaviour of only exporting configured fields.
+const proxyVariables = `if [ -n "$HTTP_PROXY_URLS" ]; then export http_proxy="$HTTP_PROXY_URLS"; fi; ` +
+	`if [ -n "$HTTPS_PROXY_URLS" ]; then export HTTPS_PROXY="$HTTPS_PROXY_URLS"; fi; ` +
+	`if [ -n "$NO_PROXY_URLS" ]; then export NO_PROXY="$NO_PROXY_URLS"; fi`
 
 // getCustomDataVariables returns cloudinit data used by Linux.
 func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
@@ -230,20 +239,22 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 	return connectivityCheckCommand
 }
 
+func shellQuote(value string) string {
+	// Shell values are embedded in the VM extension command before provisioning starts.
+	return "'" + strings.ReplaceAll(value, "'", `'"'"'`) + "'"
+}
+
 func getProxyVariables(nbc *datamodel.NodeBootstrappingConfiguration) string {
-	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy.
-	proxyVars := ""
-	if nbc.HTTPProxyConfig != nil {
-		if nbc.HTTPProxyConfig.HTTPProxy != nil {
-			// from https://curl.se/docs/manual.html, curl uses http_proxy but uppercase for others?
-			proxyVars = fmt.Sprintf("export http_proxy=\"%s\";", *nbc.HTTPProxyConfig.HTTPProxy)
-		}
-		if nbc.HTTPProxyConfig.HTTPSProxy != nil {
-			proxyVars = fmt.Sprintf("export HTTPS_PROXY=\"%s\"; %s", *nbc.HTTPProxyConfig.HTTPSProxy, proxyVars)
-		}
-		if nbc.HTTPProxyConfig.NoProxy != nil {
-			proxyVars = fmt.Sprintf("export NO_PROXY=\"%s\"; %s", strings.Join(*nbc.HTTPProxyConfig.NoProxy, ","), proxyVars)
-		}
+	if nbc.HTTPProxyConfig == nil {
+		return ""
 	}
-	return proxyVars
+	httpProxy := nbc.HTTPProxyConfig.HTTPProxy
+	httpsProxy := nbc.HTTPProxyConfig.HTTPSProxy
+	noProxy := nbc.HTTPProxyConfig.NoProxy
+	if (httpProxy == nil || *httpProxy == "") &&
+		(httpsProxy == nil || *httpsProxy == "") &&
+		(noProxy == nil || len(*noProxy) == 0) {
+		return ""
+	}
+	return proxyVariables
 }

@@ -239,6 +239,125 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'configureProxyEnvironment'
+        setup_proxy_environment() {
+            HTTP_PROXY_URLS='http://proxy.invalid/`touch /tmp/http-proxy-injected`'
+            HTTPS_PROXY_URLS='https://proxy.invalid/$(touch /tmp/https-proxy-injected)'
+            NO_PROXY_EXPECTED="$(printf '%s' 'localhost;touch /tmp/no-proxy-injected,quote\"'\''\\value')"
+            NO_PROXY_URLS="${NO_PROXY_EXPECTED}"
+            rm -f /tmp/http-proxy-injected /tmp/https-proxy-injected /tmp/no-proxy-injected
+        }
+
+        cleanup_proxy_environment() {
+            rm -f /tmp/http-proxy-injected /tmp/https-proxy-injected /tmp/no-proxy-injected
+            unset NO_PROXY_EXPECTED
+            unset HTTP_PROXY_URLS HTTPS_PROXY_URLS NO_PROXY_URLS
+            unset http_proxy HTTPS_PROXY NO_PROXY
+        }
+
+        BeforeEach 'setup_proxy_environment'
+        AfterEach 'cleanup_proxy_environment'
+
+        It 'exports proxy values literally without executing substitutions or separators'
+            When call configureProxyEnvironment
+            The status should be success
+            The variable http_proxy should equal 'http://proxy.invalid/`touch /tmp/http-proxy-injected`'
+            The variable HTTPS_PROXY should equal 'https://proxy.invalid/$(touch /tmp/https-proxy-injected)'
+            The variable NO_PROXY should equal "${NO_PROXY_EXPECTED}"
+            The path /tmp/http-proxy-injected should not be exist
+            The path /tmp/https-proxy-injected should not be exist
+            The path /tmp/no-proxy-injected should not be exist
+        End
+    End
+
+    Describe 'configureEtcEnvironment'
+        APT_PROXY_CONF="/etc/apt/apt.conf.d/95proxy"
+        SYSTEMD_PROXY_CONF="/etc/systemd/system.conf.d/proxy.conf"
+
+        setup_etc_environment() {
+            # Quote-bearing value that APT would otherwise parse as live directives.
+            # Deliberately contains no spaces: upstream URL validation rejects values
+            # containing a literal space, so this shape is the one that reaches the node.
+            HTTP_PROXY_URLS='http://proxy.invalid/";APT::Update::Pre-Invoke{"true";};Acquire::http::proxy"x'
+            # Legitimate pre-encoded credentials must survive untouched.
+            HTTPS_PROXY_URLS='https://user:p%40ss@proxy.example.com:8080/'
+            NO_PROXY_URLS='localhost,"evil'
+            rm -f "${APT_PROXY_CONF}" "${SYSTEMD_PROXY_CONF}"
+        }
+
+        cleanup_etc_environment() {
+            rm -f "${APT_PROXY_CONF}" "${SYSTEMD_PROXY_CONF}"
+            unset HTTP_PROXY_URLS HTTPS_PROXY_URLS NO_PROXY_URLS
+        }
+
+        BeforeEach 'setup_etc_environment'
+        AfterEach 'cleanup_etc_environment'
+
+        It 'percent-encodes quotes so proxy values cannot become apt.conf directives'
+            When call configureEtcEnvironment
+            The status should be success
+            The contents of file "${APT_PROXY_CONF}" should include 'Acquire::http::proxy "http://proxy.invalid/%22;APT::Update::Pre-Invoke{%22true%22;};Acquire::http::proxy%22x";'
+            The contents of file "${APT_PROXY_CONF}" should not include 'Pre-Invoke{"true"'
+        End
+
+        It 'leaves already percent-encoded proxy URLs unchanged'
+            When call configureEtcEnvironment
+            The status should be success
+            The contents of file "${APT_PROXY_CONF}" should include 'Acquire::https::proxy "https://user:p%40ss@proxy.example.com:8080/";'
+        End
+
+        It 'encodes quotes before writing systemd DefaultEnvironment entries'
+            When call configureEtcEnvironment
+            The status should be success
+            The contents of file "${SYSTEMD_PROXY_CONF}" should include 'DefaultEnvironment="no_proxy=localhost,%22evil"'
+            The contents of file "${SYSTEMD_PROXY_CONF}" should not include 'no_proxy=localhost,"evil'
+        End
+
+        # Defence in depth: upstream validation rejects raw CR/LF today, but the
+        # line-oriented sinks must not depend on that to stay safe.
+        write_newline_payload() {
+            HTTP_PROXY_URLS="$(printf 'http://proxy.invalid/\nHTTP_PROXY=http://attacker.invalid/')"
+            HTTPS_PROXY_URLS=''
+            NO_PROXY_URLS="$(printf 'localhost\r\nDefaultEnvironment="EVIL=1"')"
+            configureEtcEnvironment
+            # Emitted so the test can assert no extra directive lines were created.
+            wc -l < "${SYSTEMD_PROXY_CONF}"
+        }
+
+        It 'percent-encodes CR and LF so line-oriented sinks cannot gain new entries'
+            When call write_newline_payload
+            The status should be success
+            The contents of file "${APT_PROXY_CONF}" should include 'http://proxy.invalid/%0AHTTP_PROXY=http://attacker.invalid/'
+            The contents of file "${SYSTEMD_PROXY_CONF}" should include 'localhost%0D%0ADefaultEnvironment=%22EVIL=1%22'
+            The contents of file "${SYSTEMD_PROXY_CONF}" should not include 'DefaultEnvironment="EVIL=1"'
+            # 5 lines exactly: [Manager] plus the two HTTP and two no_proxy entries.
+            # Any extra line would mean an embedded newline created a directive of its own.
+            The output should equal 5
+        End
+    End
+
+    Describe 'encodeProxyValueForConfigFiles'
+        It 'encodes backslashes and double quotes'
+            When call encodeProxyValueForConfigFiles 'a"b\c'
+            The output should equal 'a%22b%5Cc'
+        End
+
+        It 'encodes carriage returns and line feeds'
+            When call encodeProxyValueForConfigFiles "$(printf 'a\r\nb')"
+            The output should equal 'a%0D%0Ab'
+        End
+
+        It 'preserves existing percent escapes'
+            When call encodeProxyValueForConfigFiles 'http://user:p%40ss@host:8080/'
+            The output should equal 'http://user:p%40ss@host:8080/'
+        End
+
+        It 'returns empty output for empty input'
+            When call encodeProxyValueForConfigFiles ''
+            The output should equal ''
+        End
+    End
+
     Describe 'logGPUDriverPrebakeReadiness'
         It 'reports marker_present=false when no prebake marker exists'
             GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"

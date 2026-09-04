@@ -751,20 +751,18 @@ func getShouldConfigTransparentHugePage(v *aksnodeconfigv1.CustomLinuxOsConfig) 
 	return v.GetTransparentDefrag() != "" || v.GetTransparentHugepageSupport() != ""
 }
 
+// getProxyVariables returns the legacy compatibility payload evaluated by older VHD
+// scripts via `eval $PROXY_VARS`. It never interpolates customer-supplied values: it
+// references the already shell-quoted *_URLS variables indirectly. Each export is guarded
+// by its own value so a partial proxy config leaves the unset variables untouched,
+// matching configureProxyEnvironment and the legacy pkg/agent payload.
 func getProxyVariables(proxyConfig *aksnodeconfigv1.HttpProxyConfig) string {
-	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy.
-	proxyVars := ""
-	if proxyConfig.GetHttpProxy() != "" {
-		// from https://curl.se/docs/manual.html, curl uses http_proxy but uppercase for others?
-		proxyVars = fmt.Sprintf("export http_proxy=\"%s\";", proxyConfig.GetHttpProxy())
+	if proxyConfig.GetHttpProxy() == "" && proxyConfig.GetHttpsProxy() == "" && len(proxyConfig.GetNoProxyEntries()) == 0 {
+		return ""
 	}
-	if proxyConfig.GetHttpsProxy() != "" {
-		proxyVars = fmt.Sprintf("export HTTPS_PROXY=\"%s\"; %s", proxyConfig.GetHttpsProxy(), proxyVars)
-	}
-	if proxyConfig.GetNoProxyEntries() != nil {
-		proxyVars = fmt.Sprintf("export NO_PROXY=\"%s\"; %s", strings.Join(proxyConfig.GetNoProxyEntries(), ","), proxyVars)
-	}
-	return proxyVars
+	return `if [ -n "$HTTP_PROXY_URLS" ]; then export http_proxy="$HTTP_PROXY_URLS"; fi; ` +
+		`if [ -n "$HTTPS_PROXY_URLS" ]; then export HTTPS_PROXY="$HTTPS_PROXY_URLS"; fi; ` +
+		`if [ -n "$NO_PROXY_URLS" ]; then export NO_PROXY="$NO_PROXY_URLS"; fi`
 }
 
 func getHasDataDir(kubeletConfig *aksnodeconfigv1.KubeletConfig) bool {

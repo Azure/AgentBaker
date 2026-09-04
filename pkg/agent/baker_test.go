@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os/exec"
 	"regexp"
 	"strings"
 
@@ -1170,6 +1171,81 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
 		// Verify it contains expected CSE components
 		Expect(cseCmd).To(ContainSubstring("bash"))
+	})
+
+	It("should shell-quote proxy values instead of rendering them as executable shell source", func() {
+		httpProxy := "http://proxy.invalid/`printf http-proxy-injected >&2`"
+		httpsProxy := "https://proxy.invalid/$(printf https-proxy-injected >&2)"
+		noProxy := []string{"localhost;printf no-proxy-injected >&2", `quote\"'\\value`}
+		baseConfig.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
+			HTTPProxy:  &httpProxy,
+			HTTPSProxy: &httpsProxy,
+			NoProxy:    &noProxy,
+		}
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).To(ContainSubstring(`HTTP_PROXY_URLS=` + shellQuote(httpProxy)))
+		Expect(cseCmd).To(ContainSubstring(`HTTPS_PROXY_URLS=` + shellQuote(httpsProxy)))
+		Expect(cseCmd).To(ContainSubstring(`NO_PROXY_URLS=` + shellQuote(strings.Join(noProxy, ","))))
+		Expect(cseCmd).To(ContainSubstring(`PROXY_VARS=` + shellQuote(proxyVariables)))
+		Expect(cseCmd).NotTo(ContainSubstring(`export http_proxy="` + httpProxy))
+
+		compatibilityScript := fmt.Sprintf(`
+HTTP_PROXY_URLS=%s
+HTTPS_PROXY_URLS=%s
+NO_PROXY_URLS=%s
+PROXY_VARS=%s
+eval $PROXY_VARS
+printf '%%s\n%%s\n%%s' "$http_proxy" "$HTTPS_PROXY" "$NO_PROXY"
+`, shellQuote(httpProxy), shellQuote(httpsProxy), shellQuote(strings.Join(noProxy, ",")), shellQuote(proxyVariables))
+		if _, lookErr := exec.LookPath("bash"); lookErr != nil {
+			Skip("bash not available, skipping compatibility script execution")
+		}
+		cmd := exec.Command("bash", "-c", compatibilityScript)
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+		output, err := cmd.Output()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(stderr.String()).To(BeEmpty())
+		Expect(string(output)).To(Equal(strings.Join([]string{httpProxy, httpsProxy, strings.Join(noProxy, ",")}, "\n")))
+	})
+
+	It("should leave unconfigured proxy variables untouched when only one proxy field is set", func() {
+		if _, lookErr := exec.LookPath("bash"); lookErr != nil {
+			Skip("bash not available, skipping compatibility script execution")
+		}
+		httpProxy := "http://proxy.invalid:8080/"
+		baseConfig.HTTPProxyConfig = &datamodel.HTTPProxyConfig{HTTPProxy: &httpProxy}
+
+		// A partial proxy config must not clobber values inherited from the environment,
+		// which is what configureProxyEnvironment does on the scriptless path.
+		compatibilityScript := fmt.Sprintf(`
+HTTP_PROXY_URLS=%s
+HTTPS_PROXY_URLS=''
+NO_PROXY_URLS=''
+HTTPS_PROXY=inherited-https
+NO_PROXY=inherited-no
+PROXY_VARS=%s
+eval $PROXY_VARS
+printf '%%s\n%%s\n%%s' "$http_proxy" "$HTTPS_PROXY" "$NO_PROXY"
+`, shellQuote(httpProxy), shellQuote(proxyVariables))
+		cmd := exec.Command("bash", "-c", compatibilityScript)
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+		output, err := cmd.Output()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(stderr.String()).To(BeEmpty())
+		Expect(string(output)).To(Equal(strings.Join([]string{httpProxy, "inherited-https", "inherited-no"}, "\n")))
+	})
+
+	It("should shell-quote the HTTP proxy trusted CA at the template boundary", func() {
+		trustedCA := `trusted'ca$(printf injected >&2)`
+		baseConfig.HTTPProxyConfig = &datamodel.HTTPProxyConfig{TrustedCA: &trustedCA}
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).To(ContainSubstring(`HTTP_PROXY_TRUSTED_CA=` + shellQuote(trustedCA)))
 	})
 
 	It("should embed cloud-init status checks when custom data is enabled", func() {
