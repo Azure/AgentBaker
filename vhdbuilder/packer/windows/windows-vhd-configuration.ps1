@@ -75,20 +75,19 @@ $global:releaseNotesToSet = GetKeyMapForReleaseNotes $windowsSettingsJson
 
 function Get-WindowsExporterPackageUrl
 {
-    $windowsExporterPackage = $componentsJson.Packages | Where-Object { $_.name -eq "windows-exporter" } | Select-Object -First 1
-    if ($windowsExporterPackage -eq $null)
+    $windowsExporterPackages = $global:map["c:\akse-cache\windows-exporter\"]
+    $windowsExporterPackageCount = 0
+    if ($windowsExporterPackages -ne $null)
     {
-        throw "Could not find windows-exporter in components.json"
+        $windowsExporterPackageCount = $windowsExporterPackages.Count
     }
 
-    $part = GetWindowsDownloadPartForPackage $windowsExporterPackage
-    if ($part -eq $null -or $part.versionsV2 -eq $null -or $part.versionsV2.Count -eq 0)
+    if ($windowsExporterPackageCount -ne 1)
     {
-        throw "Could not find a Windows version for windows-exporter in components.json"
+        throw "Expected exactly one windows-exporter package URL for VHD baking, found $windowsExporterPackageCount"
     }
 
-    $version = $part.versionsV2[0].latestVersion
-    return SafeReplaceString($part.downloadURL)
+    return $windowsExporterPackages[0]
 }
 
 $validSKU = GetWindowsBaseVersions $windowsSettingsJson
