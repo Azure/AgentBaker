@@ -82,11 +82,13 @@ function Get-WindowsExporterPackageUrl
         $windowsExporterPackageCount = $windowsExporterPackages.Count
     }
 
-    if ($windowsExporterPackageCount -ne 1)
+    if ($windowsExporterPackageCount -eq 0)
     {
-        throw "Expected exactly one windows-exporter package from components.json, found $windowsExporterPackageCount"
+        throw "Expected at least one windows-exporter package from components.json"
     }
 
+    # GetPackagesFromComponentsJson returns latestVersion first, followed by any
+    # previousLatestVersion retained in the VHD cache for rollback.
     return $windowsExporterPackages[0]
 }
 
