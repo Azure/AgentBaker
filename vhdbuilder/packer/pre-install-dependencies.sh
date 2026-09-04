@@ -216,17 +216,24 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       	  echo "after installation:"
       	  dpkg -l | grep "linux-.*-azure-nvidia" || true
     	else
-    	  echo "ARM64 image. NVIDIA kernel not available from repo, fetching and installing dpkgs by hand"
-    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-modules-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb > /tmp/linux-modules-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
-    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-azure-nvidia-6.14-cloud-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb > /tmp/linux-azure-nvidia-6.14-cloud-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb
-    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-azure-nvidia-6.14-cloud-tools-common_6.14.0-1003.3_all.deb > /tmp/linux-azure-nvidia-6.14-cloud-tools-common_6.14.0-1003.3_all.deb
-    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-azure-nvidia-6.14-headers-6.14.0-1003_6.14.0-1003.3_all.deb > /tmp/linux-azure-nvidia-6.14-headers-6.14.0-1003_6.14.0-1003.3_all.deb
-    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-azure-nvidia-6.14-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb > /tmp/linux-azure-nvidia-6.14-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb
-    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-cloud-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb > /tmp/linux-cloud-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
-    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-headers-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb > /tmp/linux-headers-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
-    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb > /tmp/linux-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  # NOTE: version 6.14.0-1003.3 was superseded and purged from the ports.ubuntu.com
+    	  # archive pool, so the .debs are no longer fetchable from there. They are still
+    	  # served (indefinitely, independent of archive pruning) from the Launchpad build
+    	  # that produced them:
+    	  # https://launchpad.net/~canonical-kernel-team/+archive/ubuntu/ppa/+build/31036310
+    	  HOST="https://launchpad.net/~canonical-kernel-team/+archive/ubuntu/ppa/+build/31036310/+files"
 
-    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-image-unsigned-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb > /tmp/linux-image-unsigned-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  echo "ARM64 image. NVIDIA kernel not available from repo, fetching and installing dpkgs by hand"
+    	  curl -fsSL "${HOST}/linux-modules-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb" > /tmp/linux-modules-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  curl -fsSL "${HOST}/linux-azure-nvidia-6.14-cloud-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb" > /tmp/linux-azure-nvidia-6.14-cloud-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb
+    	  curl -fsSL "${HOST}/linux-azure-nvidia-6.14-cloud-tools-common_6.14.0-1003.3_all.deb" > /tmp/linux-azure-nvidia-6.14-cloud-tools-common_6.14.0-1003.3_all.deb
+    	  curl -fsSL "${HOST}/linux-azure-nvidia-6.14-headers-6.14.0-1003_6.14.0-1003.3_all.deb" > /tmp/linux-azure-nvidia-6.14-headers-6.14.0-1003_6.14.0-1003.3_all.deb
+    	  curl -fsSL "${HOST}/linux-azure-nvidia-6.14-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb" > /tmp/linux-azure-nvidia-6.14-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb
+    	  curl -fsSL "${HOST}/linux-cloud-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb" > /tmp/linux-cloud-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  curl -fsSL "${HOST}/linux-headers-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb" > /tmp/linux-headers-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  curl -fsSL "${HOST}/linux-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb" > /tmp/linux-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+
+    	  curl -fsSL "${HOST}/linux-image-unsigned-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb" > /tmp/linux-image-unsigned-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
 
     	  dpkg -i /tmp/linux-modules-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
     	  dpkg -i /tmp/linux-azure-nvidia-6.14-cloud-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb
