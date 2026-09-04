@@ -183,7 +183,7 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 	logPath := filepath.Join(e.opts.logDir, name, fmt.Sprintf("attempt-%d.log", attempt))
 	logger, err := newScenarioLogger(e, name, logPath)
 	if err != nil {
-		return attemptResult{Attempt: attempt, Status: statusFailed, Duration: time.Since(started), Message: err.Error(), LogPath: logPath}
+		return attemptResult{Attempt: attempt, Status: statusFailed, Duration: time.Since(started), Message: err.Error()}
 	}
 	result = attemptResult{Attempt: attempt, LogPath: logPath}
 	var scenario *Scenario
@@ -233,6 +233,10 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 	}()
 
 	scenario = freshScenario(original)
+	scenario.artifactName = name
+	if e.opts.retries > 0 {
+		scenario.artifactName = filepath.Join(name, fmt.Sprintf("attempt-%d", attempt))
+	}
 	scenario.cleanup = cleanup
 	if scenario.SkipReason != "" {
 		runErr = &skipError{message: scenario.SkipReason}

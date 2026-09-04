@@ -3,10 +3,40 @@ package e2e
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/components"
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/require"
 )
+
+func TestCreateVMExtensionLinuxAKSNodeTiming(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	require.NoError(t, config.Initialize())
+
+	start := time.Now()
+	first, err := createVMExtensionLinuxAKSNode(t.Context(), nil)
+	firstDuration := time.Since(start)
+	require.NoError(t, err)
+	require.NotNil(t, first)
+
+	start = time.Now()
+	second, err := createVMExtensionLinuxAKSNode(t.Context(), nil)
+	secondDuration := time.Since(start)
+	require.NoError(t, err)
+	require.NotNil(t, second)
+
+	require.NotNil(t, first.Properties)
+	require.NotNil(t, second.Properties)
+	require.NotNil(t, first.Properties.TypeHandlerVersion)
+	require.NotNil(t, second.Properties.TypeHandlerVersion)
+	require.NotEmpty(t, *first.Properties.TypeHandlerVersion)
+	require.NotEqual(t, "1.413", *first.Properties.TypeHandlerVersion, "extension version is the hardcoded fallback")
+	require.Equal(t, *first.Properties.TypeHandlerVersion, *second.Properties.TypeHandlerVersion)
+	t.Logf("first call: %s; cached call: %s", firstDuration, secondDuration)
+}
 
 func TestVersionConsistencyGPUManagedComponents(t *testing.T) {
 	allPackageVariants := [][]packageOSVariant{
