@@ -685,6 +685,8 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 }
 
 // runProvision encapsulates execution for the "provision" subcommand after CLI parsing.
+//
+//nolint:nonamedreturns // Panic recovery must set the returned result and error.
 func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun bool) (provisionResult *ProvisionResult, err error) {
 	provisionResult = &ProvisionResult{}
 	defer func() {
