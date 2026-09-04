@@ -478,6 +478,13 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) error {
 		}
 	}
 
+	// Images are replicated to a fixed region set, so a scenario pinned anywhere else would
+	// never find its image. Fail with the fix instead of a confusing GalleryImageNotFound.
+	if !s.VHD.SupportsE2ERegion(s.Location) {
+		t.Fatalf("scenario %q runs in region %q, which images are not replicated to; add the region to e2eRegions in e2e/config/regions.go",
+			t.Name(), s.Location)
+	}
+
 	_, err := CachedPrepareVHD(ctx, GetVHDRequest{
 		Image:    *s.VHD,
 		Location: s.Location,
@@ -1074,6 +1081,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 		Name:              *gallery.Name,
 	}
 	customVHD.Version = version
+	customVHD.Ephemeral = true
 
 	return &customVHD, nil
 }
