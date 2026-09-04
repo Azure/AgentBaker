@@ -94,7 +94,7 @@ Describe 'Windows exporter CSE functions' {
             Assert-MockCalled Set-ExitCode -Exactly -Times 0
         }
 
-        It 'does not reinstall an existing service' {
+        It 'takes ownership of an existing running service' {
             Mock Test-Path -MockWith { return $true }
             Mock Get-Service -MockWith { return @{ Status = 'Running' } }
             Mock Invoke-WindowsExporterNssm
@@ -105,6 +105,15 @@ Describe 'Windows exporter CSE functions' {
 
             Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 0 -ParameterFilter {
                 $Arguments[0] -eq 'install'
+            }
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter {
+                $Arguments[0] -eq 'stop' -and $Arguments[1] -eq $global:WindowsExporterServiceName
+            }
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter {
+                $Arguments[0] -eq 'set' -and
+                $Arguments[1] -eq $global:WindowsExporterServiceName -and
+                $Arguments[2] -eq 'Application' -and
+                $Arguments[3] -eq $global:WindowsExporterBinary
             }
             Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter {
                 $Arguments[0] -eq 'start'
@@ -179,6 +188,7 @@ function Get-Version {
 
             $global:WindowsExporterPort | Should -Be 19100
             Get-Content -Path $configPath -Raw | Should -Match 'listen-address: ":19100"'
+            Get-Content -Path $configPath -Raw | Should -Match 'include: "\(\?i\)aks-windows-exporter\|kubelet\|kubeproxy\|containerd\|hns\|csi-proxy"'
             Get-Content -Path $healthScriptPath -Raw | Should -Match 'localhost:19100/'
         }
 

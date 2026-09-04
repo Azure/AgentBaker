@@ -132,8 +132,12 @@ function Install-WindowsExporter {
         if (-not $existingService) {
             Invoke-WindowsExporterNssm -Arguments @("install", $global:WindowsExporterServiceName, $global:WindowsExporterBinary)
         } else {
-            Write-Log "$($global:WindowsExporterServiceName) is already registered; ensuring settings and running state"
+            Write-Log "$($global:WindowsExporterServiceName) is already registered; taking ownership of its settings and running state"
+            if ($existingService.Status -ne 'Stopped') {
+                Invoke-WindowsExporterNssm -Arguments @("stop", $global:WindowsExporterServiceName)
+            }
         }
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "Application", $global:WindowsExporterBinary)
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppDirectory", $global:WindowsExporterInstallDir)
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppParameters", $appParameters)
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "DisplayName", $global:WindowsExporterServiceName)
