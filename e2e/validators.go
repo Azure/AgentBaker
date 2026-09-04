@@ -1216,7 +1216,10 @@ func ValidateWindowsExporter(ctx context.Context, s *Scenario) error {
 		fmt.Sprintf("$resp = Invoke-WebRequest -UseBasicParsing -Uri '%s' -TimeoutSec 10", metricsURL),
 		"$metricsContent = [string]$resp.Content",
 		"Write-Output \"metrics endpoint returned status $($resp.StatusCode) with $($metricsContent.Length) characters\"",
-		"Write-Output $metricsContent",
+		"$requiredMetricNames = @('windows_cpu_info', 'windows_cpu_time_total', 'windows_logical_disk_free_bytes', 'windows_logical_disk_size_bytes', 'windows_memory_available_bytes', 'windows_net_bytes_received_total', 'windows_net_bytes_sent_total', 'windows_os_info', 'windows_process_cpu_time_total')",
+		"foreach ($metricName in $requiredMetricNames) {",
+		"  if ($metricsContent -match \"(?m)^$([regex]::Escape($metricName))(?:\\{|\\s)\") { Write-Output \"$metricName 1\" }",
+		"}",
 	}
 	validationResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		fmt.Sprintf("aks-windows-exporter validation failed on %s", s.Runtime.VM.PrivateIP))
@@ -1224,14 +1227,8 @@ func ValidateWindowsExporter(ctx context.Context, s *Scenario) error {
 		return err
 	}
 
-	metricsErr := validateWindowsExporterMetrics(validationResult.stdout)
-	const previewLimit = 2000
-	responsePreview := validationResult.stdout
-	if len(responsePreview) > previewLimit {
-		responsePreview = responsePreview[:previewLimit] + "\n... response truncated"
-	}
-	if metricsErr != nil {
-		return fmt.Errorf("windows-exporter scrape did not satisfy the metrics contract: %w\nresponse preview:\n%s", metricsErr, responsePreview)
+	if err := validateWindowsExporterMetrics(validationResult.stdout); err != nil {
+		return fmt.Errorf("windows-exporter scrape did not satisfy the metrics contract: %w\nmetric summary:\n%s", err, validationResult.stdout)
 	}
 	s.Logger.Logf("aks-windows-exporter validation succeeded on %s: service is Running/Automatic and %s satisfies the metrics contract", s.Runtime.VM.PrivateIP, metricsURL)
 	return nil
