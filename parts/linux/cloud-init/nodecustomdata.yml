@@ -154,6 +154,28 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "initAKSCloud"}}
 
+# Deliver the generic reconciler and its security handler together so replacing
+# the established updater path never leaves it without the dispatched handler.
+{{if IsACL }}
+{{- else if IsAzlOSGuard}}
+{{- else if IsMariner}}
+{{- else if IsFlatcar }}
+{{- else }}
+- path: /opt/azure/containers/ubuntu-snapshot-update.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "snapshotUpdateScript"}}
+
+- path: /opt/azure/containers/security-update.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "securityUpdateScript"}}
+{{end}}
+
 - path: /etc/systemd/system/reconcile-private-hosts.service
   permissions: "0644"
   encoding: gzip
