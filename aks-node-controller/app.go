@@ -196,7 +196,7 @@ func (a *App) runProvisionCommand(ctx context.Context, flags ProvisionFlags, dry
 	startTime := time.Now()
 	a.eventLogger.LogEvent("Provision", "Starting", helpers.EventLevelInformational, startTime, startTime)
 	provisionResult, err := a.runProvision(ctx, flags, dryRun)
-	a.writeCompleteFileOnError(provisionResult, err)
+	a.writeProvisionExitResponseOnError(provisionResult, err)
 	endTime := time.Now()
 	if err != nil {
 		message := fmt.Sprintf("aks-node-controller exited with error %s", err.Error())
@@ -685,20 +685,14 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 }
 
 // runProvision encapsulates execution for the "provision" subcommand after CLI parsing.
-// It returns an error describing any failure; callers should pass that error to
-// writeCompleteFileOnError so the sentinel file can be written on fail-fast paths.
-func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun bool) (*ProvisionResult, error) {
-	// Handle panics gracefully to ensure we always return a valid result
-	provisionResult := &ProvisionResult{}
-	var err error
-
+func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun bool) (provisionResult *ProvisionResult, err error) {
+	provisionResult = &ProvisionResult{}
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("panic recovered in runProvision", "panic", r)
 			provisionResult.ExitCode = strconv.Itoa(240)
 			provisionResult.Error = fmt.Sprintf("panic during provisioning: %v", r)
 			err = fmt.Errorf("panic during provisioning: %v", r)
-			a.writeCompleteFileOnError(provisionResult, err)
 		}
 	}()
 
@@ -713,34 +707,78 @@ func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun boo
 	return a.Provision(ctx, flags)
 }
 
-// writeCompleteFileOnError writes the provision.complete sentinel if err is non-nil,
-// allowing provision-wait mode to unblock early on fail-fast validation errors.
-func (a *App) writeCompleteFileOnError(provisionResult *ProvisionResult, err error) {
+func (a *App) writeProvisionExitResponseOnError(provisionResult *ProvisionResult, err error) {
 	if err == nil {
 		return
 	}
-	if _, statErr := os.Stat(provisionJSONFilePath); statErr != nil && errors.Is(statErr, os.ErrNotExist) {
-		data, err := json.Marshal(provisionResult)
-		if err != nil {
-			slog.Error("failed to marshal provision result", "error", err)
-		}
-		baseDir := filepath.Dir(provisionJSONFilePath)
-		if writeErr := os.MkdirAll(baseDir, 0755); writeErr != nil {
-			slog.Error("failed to create directory for provision.json file", "path", baseDir, "error", writeErr)
-		}
-		if writeErr := os.WriteFile(provisionJSONFilePath, data, 0600); writeErr != nil {
-			slog.Error("failed to write provision.json file", "path", provisionJSONFilePath, "error", writeErr)
-		}
+
+	filepaths := ProvisionStatusFiles{
+		ProvisionJSONFile:     provisionJSONFilePath,
+		ProvisionCompleteFile: provisionCompleteFilePath,
 	}
-	if _, statErr := os.Stat(provisionCompleteFilePath); statErr == nil {
-		return // already exists
-	} else if !errors.Is(statErr, os.ErrNotExist) { // unexpected error
-		slog.Error("failed to stat provision.complete file", "path", provisionCompleteFilePath, "error", statErr)
-		return
+	if writeErr := writeProvisionExitResponse(provisionResult, filepaths); writeErr != nil {
+		slog.Error("failed to write provision exit response", "error", writeErr)
 	}
-	if writeErr := os.WriteFile(provisionCompleteFilePath, []byte{}, 0600); writeErr != nil {
-		slog.Error("failed to write provision.complete file", "path", provisionCompleteFilePath, "error", writeErr)
+}
+
+func writeProvisionExitResponse(provisionResult *ProvisionResult, filepaths ProvisionStatusFiles) error {
+	if _, statErr := os.Stat(filepaths.ProvisionJSONFile); errors.Is(statErr, os.ErrNotExist) {
+		data, marshalErr := json.Marshal(provisionResult)
+		if marshalErr != nil {
+			return fmt.Errorf("marshal provision result: %w", marshalErr)
+		}
+		baseDir := filepath.Dir(filepaths.ProvisionJSONFile)
+		if mkdirErr := os.MkdirAll(baseDir, 0755); mkdirErr != nil {
+			return fmt.Errorf("create provision result directory %s: %w", baseDir, mkdirErr)
+		}
+		if writeErr := writeProvisionResultAtomically(filepaths.ProvisionJSONFile, data); writeErr != nil {
+			return writeErr
+		}
+	} else if statErr != nil {
+		return fmt.Errorf("stat provision result %s: %w", filepaths.ProvisionJSONFile, statErr)
 	}
+
+	if _, statErr := os.Stat(filepaths.ProvisionCompleteFile); statErr == nil {
+		return nil
+	} else if !errors.Is(statErr, os.ErrNotExist) {
+		return fmt.Errorf("stat provision complete file %s: %w", filepaths.ProvisionCompleteFile, statErr)
+	}
+
+	completeDir := filepath.Dir(filepaths.ProvisionCompleteFile)
+	if mkdirErr := os.MkdirAll(completeDir, 0755); mkdirErr != nil {
+		return fmt.Errorf("create provision complete directory %s: %w", completeDir, mkdirErr)
+	}
+	if writeErr := os.WriteFile(filepaths.ProvisionCompleteFile, []byte{}, 0600); writeErr != nil {
+		return fmt.Errorf("write provision complete file %s: %w", filepaths.ProvisionCompleteFile, writeErr)
+	}
+	return nil
+}
+
+func writeProvisionResultAtomically(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return fmt.Errorf("create temporary provision result in %s: %w", dir, err)
+	}
+	tmpPath := tmp.Name()
+	defer func() {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
+	}()
+
+	if _, err := tmp.Write(data); err != nil {
+		return fmt.Errorf("write temporary provision result %s: %w", tmpPath, err)
+	}
+	if err := tmp.Chmod(0644); err != nil {
+		return fmt.Errorf("set temporary provision result mode %s: %w", tmpPath, err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close temporary provision result %s: %w", tmpPath, err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("publish provision result %s: %w", path, err)
+	}
+	return nil
 }
 
 func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles) (string, error) {
