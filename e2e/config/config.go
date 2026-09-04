@@ -61,6 +61,9 @@ type Configuration struct {
 	BlobContainer                          string        `env:"BLOB_CONTAINER" envDefault:"abe2e"`
 	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e"`
 	BuildID                                string        `env:"BUILD_ID" envDefault:"local"`
+	COSIUpdateEnabled                      bool          `env:"COSI_UPDATE_ENABLED"`
+	COSIUpdateMetadataSHA384               string        `env:"COSI_UPDATE_METADATA_SHA384"`
+	COSIUpdateURL                          string        `env:"COSI_UPDATE_URL"`
 	DefaultLocation                        string        `env:"E2E_LOCATION" envDefault:"westus3"`
 	DefaultPollInterval                    time.Duration `env:"DEFAULT_POLL_INTERVAL" envDefault:"15s"`
 	DefaultSubnetName                      string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`

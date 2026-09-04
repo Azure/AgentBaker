@@ -105,7 +105,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 }
 
 func scriptlessUnsupported(s *Scenario) bool {
-	return s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
+	return s.Config.SkipScriptlessNBCCSECmd || s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
 }
 
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {

@@ -32,6 +32,7 @@ type Tags struct {
 	WASM                   bool
 	Kata                   bool
 	BootstrapTokenFallback bool
+	COSIUpdate             bool
 	KubeletCustomConfig    bool
 	Scriptless             bool
 	VHDCaching             bool
@@ -240,6 +241,9 @@ type Config struct {
 	// SkipSSHConnectivityValidation is a flag to indicate whether the ssh connectivity validation should be skipped.
 	// It shouldn't be used for majority of scenarios, currently only used for scenarios where the node is not expected to be reachable via ssh
 	SkipSSHConnectivityValidation bool
+
+	// SkipScriptlessNBCCSECmd prevents RunScenario from automatically repeating the scenario using scriptless NBC provisioning.
+	SkipScriptlessNBCCSECmd bool
 
 	// WaitForSSHAfterReboot if set to non-zero duration, SSH connectivity validation will retry with exponential backoff
 	// for up to this duration when encountering reboot-related errors. This is useful for scenarios where the node

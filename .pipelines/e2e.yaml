@@ -1,8 +1,23 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
+parameters:
+  - name: runACL1192019COSIUpdate
+    displayName: Run AMD64 COSI node update using ACL build 1192019
+    type: boolean
+    default: false
+  - name: COSIUpdateURL
+    displayName: Public COSI download URL
+    type: string
+    default: https://nebraska-poc-download-ep-hjf7e5fseafnejha.b01.azurefd.net/cosi-upload-poc/acl-pr28-amd64-0.20260827.1192019.cosi
+  - name: COSIUpdateMetadataSHA384
+    displayName: SHA-384 of COSI metadata.json
+    type: string
+    default: e8ecbbf2d60f01a13ba9f6dfb96f5f23cda7c4c26d0ff049010d31cb5d6ff0c8cc4c71eef3784c59003f71e1564efa18
 variables:
   TAGS_TO_SKIP: "os=windows,gpu=true"
   SKIP_E2E_TESTS: false
   E2E_FAILED_TESTS_RETRY_COUNT: 0
+  ${{ if eq(parameters.runACL1192019COSIUpdate, true) }}:
+    TAGS_TO_RUN: "cosiupdate=true"
 schedules:
   - cron: "0 8 * * *"
     displayName: Daily midnight PST
@@ -36,3 +51,6 @@ jobs:
       name: Linux Tests
       IgnoreScenariosWithMissingVhd: false
       failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}
+      runACL1192019COSIUpdate: ${{ parameters.runACL1192019COSIUpdate }}
+      COSIUpdateURL: ${{ parameters.COSIUpdateURL }}
+      COSIUpdateMetadataSHA384: ${{ parameters.COSIUpdateMetadataSHA384 }}
