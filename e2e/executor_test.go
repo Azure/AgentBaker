@@ -184,7 +184,8 @@ func TestExecutorRetriesAndReportsFlakyScenario(t *testing.T) {
 	assert.Contains(t, string(report), `value="flaky"`)
 	assert.Contains(t, string(report), "[[ATTACHMENT|", "JUnit report does not describe flaky attempts")
 	assert.Contains(t, string(report), `name="Retry/Task_example"`, "JUnit report does not contain the CSE child result")
-	assert.Contains(t, stdout.String(), "##[group]Retry", "grouped output missing scenario group")
+	assert.Regexp(t, `##\[group\]🔴 Retry \(attempt 1/2, failed, [^)]+\)`, stdout.String())
+	assert.Regexp(t, `##\[group\]Retry \(attempt 2/2, passed, [^)]+\)`, stdout.String())
 }
 
 func TestExecutorPrintsPassedLogs(t *testing.T) {
@@ -201,9 +202,14 @@ func TestExecutorPrintsPassedLogs(t *testing.T) {
 
 	exec.schedule("Passed", &Scenario{Name: "Passed"})
 	exec.scenarios.Wait()
-	assert.Contains(t, stdout.String(), "##[group]Passed (passed)")
+	assert.Regexp(t, `##\[group\]Passed \(passed, [^)]+\)`, stdout.String())
 	assert.Contains(t, stdout.String(), "passing output")
 	assert.Contains(t, stdout.String(), "##[endgroup]")
+}
+
+func TestAttemptConsoleLabel(t *testing.T) {
+	assert.Equal(t, "passed, 6m12s", attemptConsoleLabel(statusPassed, 1, 1, 6*time.Minute+12*time.Second+400*time.Millisecond))
+	assert.Equal(t, "attempt 2/3, failed, 6m13s", attemptConsoleLabel(statusFailed, 2, 3, 6*time.Minute+12*time.Second+600*time.Millisecond))
 }
 
 func TestScenarioLogIncludesElapsedTime(t *testing.T) {
