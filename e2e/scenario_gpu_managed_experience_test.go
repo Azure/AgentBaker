@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -8,13 +9,22 @@ import (
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v3"
 )
 
 func TestCreateVMExtensionLinuxAKSNodeTiming(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
-	require.NoError(t, config.Initialize())
+	require.NoError(t, config.LoadDotEnv())
+	command := &cli.Command{
+		Name:  "e2e-integration-test",
+		Flags: config.Flags(),
+		Action: func(context.Context, *cli.Command) error {
+			return config.Initialize()
+		},
+	}
+	require.NoError(t, command.Run(t.Context(), []string{command.Name}))
 
 	start := time.Now()
 	first, err := createVMExtensionLinuxAKSNode(t.Context(), nil)

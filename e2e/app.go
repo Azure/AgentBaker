@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -140,8 +141,8 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	}
 	ctrruntimelog.SetLogger(zap.New())
 
-	if err := os.MkdirAll(opts.logDir, 0o755); err != nil {
-		return fmt.Errorf("create log directory: %w", err)
+	if err := resetLogDirectory(opts.logDir); err != nil {
+		return err
 	}
 	log.Printf("using E2E environment configuration:\n%s\n", config.Config)
 
@@ -162,6 +163,31 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	}
 	if summary.Failed > 0 {
 		return fmt.Errorf("%d scenario(s) failed", summary.Failed)
+	}
+	return nil
+}
+
+func resetLogDirectory(path string) error {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("resolve log directory: %w", err)
+	}
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working directory: %w", err)
+	}
+	relativeToLogDir, err := filepath.Rel(absolute, workingDirectory)
+	if err != nil {
+		return fmt.Errorf("compare log directory to working directory: %w", err)
+	}
+	if relativeToLogDir == "." || (relativeToLogDir != ".." && !strings.HasPrefix(relativeToLogDir, ".."+string(filepath.Separator))) {
+		return fmt.Errorf("log directory %q must not contain the working directory", path)
+	}
+	if err := os.RemoveAll(absolute); err != nil {
+		return fmt.Errorf("clear log directory: %w", err)
+	}
+	if err := os.MkdirAll(absolute, 0o755); err != nil {
+		return fmt.Errorf("create log directory: %w", err)
 	}
 	return nil
 }
