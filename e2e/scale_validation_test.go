@@ -54,24 +54,19 @@ func TestAllocatablePodCapacity(t *testing.T) {
 	}
 }
 
-func TestPodOccupancyCounts(t *testing.T) {
+func TestAvailableScaleReplicas(t *testing.T) {
 	t.Parallel()
 
-	readyCondition := []corev1.PodCondition{{
-		Type:   corev1.PodReady,
-		Status: corev1.ConditionTrue,
-	}}
-	now := metav1.Now()
 	pods := []corev1.Pod{
 		{
 			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "scale-test"}},
 			Spec:       corev1.PodSpec{NodeName: "scenario-node"},
-			Status:     corev1.PodStatus{Phase: corev1.PodRunning, Conditions: readyCondition},
+			Status:     corev1.PodStatus{Phase: corev1.PodRunning},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "system"}},
 			Spec:       corev1.PodSpec{NodeName: "scenario-node"},
-			Status:     corev1.PodStatus{Phase: corev1.PodRunning, Conditions: readyCondition},
+			Status:     corev1.PodStatus{Phase: corev1.PodRunning},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "scale-test"}},
@@ -79,29 +74,31 @@ func TestPodOccupancyCounts(t *testing.T) {
 			Status:     corev1.PodStatus{Phase: corev1.PodPending},
 		},
 		{
-			ObjectMeta: metav1.ObjectMeta{
-				DeletionTimestamp: &now,
-				Labels:            map[string]string{"app": "scale-test"},
-			},
-			Spec:   corev1.PodSpec{NodeName: "scenario-node"},
-			Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: readyCondition},
+			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "system"}},
+			Spec:       corev1.PodSpec{NodeName: "scenario-node"},
+			Status:     corev1.PodStatus{Phase: corev1.PodSucceeded},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "scale-test"}},
 			Spec:       corev1.PodSpec{NodeName: "another-node"},
-			Status:     corev1.PodStatus{Phase: corev1.PodRunning, Conditions: readyCondition},
+			Status:     corev1.PodStatus{Phase: corev1.PodRunning},
 		},
 	}
 
-	occupied, scheduledScale, readyScale := podOccupancyCounts("scenario-node", "scale-test", pods)
-	if occupied != 4 {
-		t.Fatalf("occupied pod count = %d, want 4", occupied)
+	got, err := availableScaleReplicas(10, "scenario-node", "scale-test", pods)
+	if err != nil {
+		t.Fatalf("availableScaleReplicas returned an error: %v", err)
 	}
-	if scheduledScale != 3 {
-		t.Fatalf("scheduled scale pod count = %d, want 3", scheduledScale)
+	if want := int32(9); got != want {
+		t.Fatalf("availableScaleReplicas = %d, want %d", got, want)
 	}
-	if readyScale != 1 {
-		t.Fatalf("ready scale pod count = %d, want 1", readyScale)
+
+	got, err = availableScaleReplicas(10, "scenario-node", "", pods)
+	if err != nil {
+		t.Fatalf("availableScaleReplicas for initial target returned an error: %v", err)
+	}
+	if want := int32(7); got != want {
+		t.Fatalf("initial availableScaleReplicas = %d, want %d", got, want)
 	}
 }
 
