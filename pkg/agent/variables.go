@@ -86,6 +86,18 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
+	httpProxy, httpsProxy, noProxy := "", "", ""
+	if config.HTTPProxyConfig != nil {
+		if config.HTTPProxyConfig.HTTPProxy != nil {
+			httpProxy = *config.HTTPProxyConfig.HTTPProxy
+		}
+		if config.HTTPProxyConfig.HTTPSProxy != nil {
+			httpsProxy = *config.HTTPProxyConfig.HTTPSProxy
+		}
+		if config.HTTPProxyConfig.NoProxy != nil {
+			noProxy = strings.Join(*config.HTTPProxyConfig.NoProxy, ",")
+		}
+	}
 
 	// this method is called for both windows and linux. If there's no windows profile, then let's just
 	// use a blank one.
@@ -144,6 +156,9 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"serviceAccountImagePullDefaultClientID": getServiceAccountImagePullDefaultClientID(cs),
 		"serviceAccountImagePullDefaultTenantID": getServiceAccountImagePullDefaultTenantID(cs),
 		"identityBindingsLocalAuthoritySNI":      getServiceAccountImagePullLocalAuthoritySNI(cs),
+		"httpProxyShellQuoted":                   shellQuote(httpProxy),
+		"httpsProxyShellQuoted":                  shellQuote(httpsProxy),
+		"noProxyShellQuoted":                     shellQuote(noProxy),
 	}
 }
 
@@ -229,8 +244,19 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 	return connectivityCheckCommand
 }
 
-// getProxyVariables is retained until GetProxyVariables is removed from the template function map.
-// Proxy variables are exported directly from their URL values in cse_main.sh.
-func getProxyVariables(_ *datamodel.NodeBootstrappingConfiguration) string {
-	return ""
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'"'"'`) + "'"
+}
+
+func getProxyVariables(nbc *datamodel.NodeBootstrappingConfiguration) string {
+	if nbc.HTTPProxyConfig == nil ||
+		(nbc.HTTPProxyConfig.HTTPProxy == nil && nbc.HTTPProxyConfig.HTTPSProxy == nil && nbc.HTTPProxyConfig.NoProxy == nil) {
+		return ""
+	}
+
+	// Older VHDs evaluate PROXY_VARS. Keep this payload free of customer-controlled values;
+	// those values are shell-quoted separately and referenced only through variables here.
+	return `if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}" http_proxy="${HTTP_PROXY_URLS}"; fi; ` +
+		`if [ -n "${HTTPS_PROXY_URLS}" ]; then export HTTPS_PROXY="${HTTPS_PROXY_URLS}" https_proxy="${HTTPS_PROXY_URLS}"; fi; ` +
+		`if [ -n "${NO_PROXY_URLS}" ]; then export NO_PROXY="${NO_PROXY_URLS}" no_proxy="${NO_PROXY_URLS}"; fi`
 }
