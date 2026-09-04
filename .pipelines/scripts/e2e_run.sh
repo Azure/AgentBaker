@@ -96,11 +96,9 @@ fi
 az extension add --name bastion
 
 cd e2e
-mkdir -p bin
 go test -count=1 ./...
-go build -o bin/e2e ./cmd/e2e
 
-exec ./bin/e2e run \
+exec go run ./cmd/e2e run \
   --parallel 60 \
   --suite-timeout "${E2E_GO_TEST_TIMEOUT}" \
   --retries "${E2E_FAILED_TESTS_RETRY_COUNT}" \
