@@ -148,6 +148,29 @@ func TestSelectScenariosUsesParentNameAsGroup(t *testing.T) {
 	assert.Empty(t, selectScenarios(scenarios, []string{"Group/missing"}))
 }
 
+func TestResetLogDirectoryRemovesStaleArtifacts(t *testing.T) {
+	logDir := filepath.Join(t.TempDir(), "scenario-logs")
+	require.NoError(t, os.MkdirAll(logDir, 0o755))
+	stale := filepath.Join(logDir, "stale.log")
+	require.NoError(t, os.WriteFile(stale, []byte("stale"), 0o600))
+
+	require.NoError(t, resetLogDirectory(logDir))
+
+	_, err := os.Stat(stale)
+	assert.True(t, os.IsNotExist(err))
+	info, err := os.Stat(logDir)
+	require.NoError(t, err)
+	assert.True(t, info.IsDir())
+}
+
+func TestResetLogDirectoryRejectsWorkingDirectoryAndParent(t *testing.T) {
+	workingDirectory, err := os.Getwd()
+	require.NoError(t, err)
+
+	require.Error(t, resetLogDirectory(workingDirectory))
+	require.Error(t, resetLogDirectory(filepath.Dir(workingDirectory)))
+}
+
 func TestExecutorRetriesAndReportsFlakyScenario(t *testing.T) {
 	tmp := t.TempDir()
 	var stdout bytes.Buffer

@@ -102,7 +102,12 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 		var match bool
 		switch field.Kind() {
 		case reflect.String:
-			match = strings.EqualFold(field.String(), value)
+			fieldValue := field.String()
+			if strings.EqualFold(key, "Name") {
+				fieldValue = trimLegacyTestPrefix(fieldValue)
+				value = trimLegacyTestPrefix(value)
+			}
+			match = strings.EqualFold(fieldValue, value)
 		case reflect.Bool:
 			boolValue, err := strconv.ParseBool(value)
 			if err != nil {
@@ -127,6 +132,13 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 		return allMatch, nil
 	}
 	return anyMatch, nil
+}
+
+func trimLegacyTestPrefix(name string) string {
+	if len(name) >= len("Test_") && strings.EqualFold(name[:len("Test_")], "Test_") {
+		return name[len("Test_"):]
+	}
+	return name
 }
 
 // Scenario represents an AgentBaker E2E scenario.

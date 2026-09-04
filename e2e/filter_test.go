@@ -33,6 +33,18 @@ func TestPartitionScenariosKeepsRegisteredScenariosUnchanged(t *testing.T) {
 	}
 }
 
+func TestPartitionScenariosAcceptsLegacyTestNameFilter(t *testing.T) {
+	scenarios := []*Scenario{{Name: "AzureLinuxV2"}, {Name: "Ubuntu2204"}}
+
+	runnable, filtered, err := partitionScenarios(scenarios, tagFilter{run: "Name=Test_AzureLinuxV2"})
+
+	require.NoError(t, err)
+	require.Len(t, runnable, 1)
+	assert.Equal(t, "AzureLinuxV2", runnable[0].Name)
+	require.Len(t, filtered, 1)
+	assert.Equal(t, "Ubuntu2204", filtered[0].Name)
+}
+
 func TestPartitionScenariosRejectsInvalidFilters(t *testing.T) {
 	scenarios := []*Scenario{{Name: "Only"}}
 	for _, filter := range []tagFilter{{run: "not-a-pair"}, {skip: "unknownKey=true"}} {
