@@ -93,22 +93,24 @@ function Install-WindowsExporter {
         No-ops when:
         - The VHD assets marker is absent (older VHD without baked assets;
           aks-vm-extension still covers it).
-        - The windows-exporter binary is missing on disk (defensive).
+
+        Returns false without creating the extension skip marker when takeover fails,
+        allowing node provisioning and the extension fallback to continue.
     #>
 
     if (-not (Test-Path $global:WindowsExporterAssetsFile)) {
         Write-Log "windows-exporter assets marker not present; aks-vm-extension will manage windows-exporter on this node"
-        return
+        return $true
     }
 
     if (-not (Test-Path $global:WindowsExporterBinary)) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_WINDOWS_EXPORTER_START_FAIL -ErrorMessage "windows-exporter sentinel is present but binary is missing at $($global:WindowsExporterBinary)"
-        return
+        Write-Log "windows-exporter assets marker is present but binary is missing at $($global:WindowsExporterBinary); leaving ownership with aks-vm-extension"
+        return $false
     }
 
     if (-not (Test-Path $global:WindowsExporterConfig)) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_WINDOWS_EXPORTER_START_FAIL -ErrorMessage "windows-exporter sentinel is present but config is missing at $($global:WindowsExporterConfig)"
-        return
+        Write-Log "windows-exporter assets marker is present but config is missing at $($global:WindowsExporterConfig); leaving ownership with aks-vm-extension"
+        return $false
     }
 
     if (-not (Test-Path $global:WindowsExporterHealthScript)) {
@@ -117,8 +119,7 @@ function Install-WindowsExporter {
 
     if (-not (Test-Path $global:WindowsExporterNssm)) {
         Write-Log "nssm.exe not found at $($global:WindowsExporterNssm); cannot install $($global:WindowsExporterServiceName)"
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_WINDOWS_EXPORTER_START_FAIL -ErrorMessage "nssm.exe missing; cannot register aks-windows-exporter"
-        return
+        return $false
     }
 
     Write-Log "Ensuring $($global:WindowsExporterServiceName) is installed and running"
@@ -158,17 +159,18 @@ function Install-WindowsExporter {
         Invoke-WindowsExporterNssm -Arguments @("start", $global:WindowsExporterServiceName)
     }
     catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_WINDOWS_EXPORTER_START_FAIL -ErrorMessage "failed to configure aks-windows-exporter: $_"
-        return
+        Write-Log "failed to configure aks-windows-exporter: $_; leaving ownership with aks-vm-extension"
+        return $false
     }
 
     if (-not (Test-WindowsExporterHealth)) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_WINDOWS_EXPORTER_START_FAIL -ErrorMessage "aks-windows-exporter failed to become healthy"
-        return
+        Write-Log "aks-windows-exporter failed to become healthy; leaving ownership with aks-vm-extension"
+        return $false
     }
 
     # Commit ownership only after the service is healthy. Old CSE versions never
     # create this marker, so the extension remains responsible on new VHDs.
     New-Item -ItemType File -Path $global:WindowsExporterSkipFile -Force | Out-Null
     Write-Log "Ensured $($global:WindowsExporterServiceName) is installed and running"
+    return $true
 }
