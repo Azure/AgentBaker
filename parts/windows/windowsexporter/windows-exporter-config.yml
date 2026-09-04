@@ -6,6 +6,6 @@ collectors:
   enabled: "cpu,logical_disk,memory,net,os,physical_disk,service,system,cpu_info,container,process"
 collector:
   service:
-    include: "aks-windows-exporter|kubelet|kubeproxy|containerd|hns|csi-proxy"
+    include: "(?i)aks-windows-exporter|kubelet|kubeproxy|containerd|hns|csi-proxy"
 log:
   level: debug
