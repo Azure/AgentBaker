@@ -415,7 +415,11 @@ func diffEnvMaps(pcEnv, nbcEnv map[string]string) []string {
 			}
 		case !envValsEqualForKey(key, pcVal, nbcVal):
 			if !isExpectedDiffCSEVar(key) {
-				diffs = append(diffs, fmt.Sprintf("differs: %s", key))
+				if detail := containerdConfigEntryDiff(key, pcVal, nbcVal); detail != "" {
+					diffs = append(diffs, fmt.Sprintf("differs: %s (%s)", key, detail))
+				} else {
+					diffs = append(diffs, fmt.Sprintf("differs: %s", key))
+				}
 			}
 		}
 	}
@@ -436,9 +440,15 @@ func envValsEqual(a, b string) bool {
 // envValsEqualForKey performs key-specific comparison logic.
 // For SYSCTL_CONTENT, it base64-decodes both values and compares the resulting
 // key=value pairs as sets (ignoring order and whitespace differences).
+// For CONTAINERD_CONFIG_CONTENT / CONTAINERD_CONFIG_NO_GPU_CONTENT, it base64-decodes
+// both values and compares the canonical TOML entries (ignoring order, comments, and
+// whitespace differences). All other keys fall back to a literal string comparison.
 func envValsEqualForKey(key, a, b string) bool {
-	if key == "SYSCTL_CONTENT" {
+	switch key {
+	case "SYSCTL_CONTENT":
 		return sysctlContentEqual(a, b)
+	case "CONTAINERD_CONFIG_CONTENT", "CONTAINERD_CONFIG_NO_GPU_CONTENT":
+		return containerdConfigContentEqual(a, b)
 	}
 	return envValsEqual(a, b)
 }
@@ -481,6 +491,153 @@ func parseSysctlPairs(content string) map[string]string {
 		result[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
 	}
 	return result
+}
+
+// containerdConfigContentEqual base64-decodes containerd TOML configs and compares
+// table-scoped key/value pairs while ignoring harmless ordering and whitespace differences.
+// normalizeContainerdConfigContent strips surrounding quotes and all whitespace so a base64
+// value survives round-tripping through a shell assignment (KEY="<base64>") or minor whitespace
+// differences. parseEnvValue already drops the quoting characters in the common case; this is a
+// defensive normalization shared by containerdConfigContentEqual and containerdConfigEntryDiff so
+// both decode consistently instead of one silently falling back to a raw string compare.
+func normalizeContainerdConfigContent(s string) string {
+	return strings.Join(strings.Fields(stripDoubleQuotes(s)), "")
+}
+
+func containerdConfigContentEqual(a, b string) bool {
+	aDecoded, errA := base64.StdEncoding.DecodeString(normalizeContainerdConfigContent(a))
+	bDecoded, errB := base64.StdEncoding.DecodeString(normalizeContainerdConfigContent(b))
+	if errA != nil || errB != nil {
+		return envValsEqual(a, b)
+	}
+
+	aEntries := canonicalContainerdTOMLEntries(string(aDecoded))
+	bEntries := canonicalContainerdTOMLEntries(string(bDecoded))
+	if len(aEntries) != len(bEntries) {
+		return false
+	}
+	for i := range aEntries {
+		if aEntries[i] != bEntries[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// containerdConfigEntryDiff returns a compact description of the canonical TOML entries that
+// differ between two base64-encoded containerd configs (provision-config vs nbc-cmd). Returns
+// "" only for non-containerd keys; when a value is not decodable base64, or the entry sets are
+// equal despite a reported content difference, it returns a descriptive "decode-failed ..." /
+// "entry-sets-equal ..." detail instead of "". Used to make the provision-config vs nbc-cmd
+// parity failure actionable by naming the exact differing entries.
+func containerdConfigEntryDiff(key, pc, nbc string) string {
+	if key != "CONTAINERD_CONFIG_CONTENT" && key != "CONTAINERD_CONFIG_NO_GPU_CONTENT" {
+		return ""
+	}
+	// parseEnvValue already strips shell quoting when extracting KEY=VALUE, so in the common case
+	// there are no surrounding quotes here; normalizeContainerdConfigContent additionally removes
+	// any residual quotes/whitespace so both sides base64-decode consistently with
+	// containerdConfigContentEqual.
+	pcDecoded, errPC := base64.StdEncoding.DecodeString(normalizeContainerdConfigContent(pc))
+	nbcDecoded, errNBC := base64.StdEncoding.DecodeString(normalizeContainerdConfigContent(nbc))
+	if errPC != nil || errNBC != nil {
+		// Always return something actionable so the failure log explains itself instead of
+		// silently collapsing to the bare "differs: KEY".
+		return fmt.Sprintf("decode-failed pc(len=%d,ok=%v) nbc(len=%d,ok=%v)",
+			len(normalizeContainerdConfigContent(pc)), errPC == nil, len(normalizeContainerdConfigContent(nbc)), errNBC == nil)
+	}
+	pcEntries := canonicalContainerdTOMLEntries(string(pcDecoded))
+	nbcEntries := canonicalContainerdTOMLEntries(string(nbcDecoded))
+	pcSet := make(map[string]struct{}, len(pcEntries))
+	for _, e := range pcEntries {
+		pcSet[e] = struct{}{}
+	}
+	nbcSet := make(map[string]struct{}, len(nbcEntries))
+	for _, e := range nbcEntries {
+		nbcSet[e] = struct{}{}
+	}
+	var onlyPC, onlyNBC []string
+	for _, e := range pcEntries {
+		if _, ok := nbcSet[e]; !ok {
+			onlyPC = append(onlyPC, e)
+		}
+	}
+	for _, e := range nbcEntries {
+		if _, ok := pcSet[e]; !ok {
+			onlyNBC = append(onlyNBC, e)
+		}
+	}
+	var parts []string
+	if len(onlyPC) > 0 {
+		parts = append(parts, "only-in-provision-config: ["+strings.Join(onlyPC, " | ")+"]")
+	}
+	if len(onlyNBC) > 0 {
+		parts = append(parts, "only-in-nbc-cmd: ["+strings.Join(onlyNBC, " | ")+"]")
+	}
+	if len(parts) == 0 {
+		// Entry sets are equal but containerdConfigContentEqual still reported a difference —
+		// i.e. a duplicate/multiplicity or ordering difference. Report the counts so it's visible.
+		return fmt.Sprintf("entry-sets-equal but content differs (pc-entries=%d nbc-entries=%d)",
+			len(pcEntries), len(nbcEntries))
+	}
+	return strings.Join(parts, "; ")
+}
+
+func canonicalContainerdTOMLEntries(content string) []string {
+	var entries []string
+	currentTable := ""
+	for _, rawLine := range strings.Split(content, "\n") {
+		line := strings.TrimSpace(stripTOMLComment(rawLine))
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			currentTable = line
+			entries = append(entries, "table:"+currentTable)
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+			entries = append(entries, currentTable+"."+key+"="+value)
+			continue
+		}
+		entries = append(entries, currentTable+".__line__="+line)
+	}
+	sort.Strings(entries)
+	return entries
+}
+
+func stripTOMLComment(line string) string {
+	inSingleQuote := false
+	inDoubleQuote := false
+	escaped := false
+	for i, r := range line {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if inDoubleQuote && r == '\\' {
+			escaped = true
+			continue
+		}
+		switch r {
+		case '\'':
+			if !inDoubleQuote {
+				inSingleQuote = !inSingleQuote
+			}
+		case '"':
+			if !inSingleQuote {
+				inDoubleQuote = !inDoubleQuote
+			}
+		case '#':
+			if !inSingleQuote && !inDoubleQuote {
+				return line[:i]
+			}
+		}
+	}
+	return line
 }
 
 func stripDoubleQuotes(s string) string {

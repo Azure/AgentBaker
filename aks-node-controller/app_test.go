@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"log/slog"
 	"os"
@@ -779,4 +780,88 @@ func TestCompareEnvs_MultipleDifferences(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "expected CompareEnvs guest agent event")
+}
+
+func TestEnvValsEqualForKey_ContainerdContentIgnoresOrderAndWhitespace(t *testing.T) {
+	pcConfig := `
+version = 4
+
+[plugins."io.containerd.cri.v1.images"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
+[plugins."io.containerd.cri.v1.runtime".containerd]
+  default_runtime_name = "runc"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+    runtime_type = "io.containerd.runc.v2"
+`
+	nbcConfig := `
+version = 4
+
+[plugins."io.containerd.cri.v1.runtime".containerd]
+default_runtime_name = "runc"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+runtime_type = "io.containerd.runc.v2"
+
+[plugins."io.containerd.cri.v1.images"]
+[plugins."io.containerd.cri.v1.images".pinned_images]
+sandbox = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
+`
+
+	pcValue := base64.StdEncoding.EncodeToString([]byte(pcConfig))
+	nbcValue := base64.StdEncoding.EncodeToString([]byte(nbcConfig))
+
+	assert.True(t, envValsEqualForKey("CONTAINERD_CONFIG_CONTENT", pcValue, nbcValue))
+	assert.True(t, envValsEqualForKey("CONTAINERD_CONFIG_NO_GPU_CONTENT", pcValue, nbcValue))
+}
+
+func TestEnvValsEqualForKey_ContainerdContentNormalizesQuotesAndWhitespace(t *testing.T) {
+	// The nbc-cmd value can arrive wrapped in shell quoting and/or with embedded whitespace
+	// (CONTAINERD_CONFIG_CONTENT="<base64>"). Equality must still hold when both decode to the
+	// same TOML, otherwise the parity check reports a false diff for byte-identical configs.
+	config := `
+version = 4
+[plugins."io.containerd.cri.v1.images".pinned_images]
+sandbox = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
+`
+	b64 := base64.StdEncoding.EncodeToString([]byte(config))
+	pcValue := b64
+	half := len(b64) / 2
+	// quoted and with embedded whitespace, as a raw shell assignment value would arrive.
+	nbcValue := "\"" + b64[:half] + " " + b64[half:] + "\""
+
+	assert.True(t, envValsEqualForKey("CONTAINERD_CONFIG_CONTENT", pcValue, nbcValue))
+	assert.True(t, envValsEqualForKey("CONTAINERD_CONFIG_NO_GPU_CONTENT", pcValue, nbcValue))
+}
+
+func TestEnvValsEqualForKey_ContainerdContentDetectsSemanticDiff(t *testing.T) {
+	pcConfig := `
+version = 4
+[plugins."io.containerd.cri.v1.images".pinned_images]
+sandbox = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
+`
+	nbcConfig := `
+version = 4
+[plugins."io.containerd.cri.v1.images".pinned_images]
+sandbox = "mcr.microsoft.com/oss/kubernetes/pause:3.9"
+`
+
+	pcValue := base64.StdEncoding.EncodeToString([]byte(pcConfig))
+	nbcValue := base64.StdEncoding.EncodeToString([]byte(nbcConfig))
+
+	assert.False(t, envValsEqualForKey("CONTAINERD_CONFIG_CONTENT", pcValue, nbcValue))
+}
+
+func TestContainerdConfigEntryDiff_NamesDifferingEntry(t *testing.T) {
+	pcB64 := base64.StdEncoding.EncodeToString([]byte("version = 4\noom_score = -999\n"))
+	nbcB64 := base64.StdEncoding.EncodeToString([]byte("version = 4\noom_score = -999\nroot = \"/mnt/aks/containers\"\n"))
+	// provision-config value is bare; nbc-cmd value is quote-wrapped (as parsed from the shell assignment).
+	pc := pcB64
+	nbc := "\"" + nbcB64 + "\""
+	got := containerdConfigEntryDiff("CONTAINERD_CONFIG_CONTENT", pc, nbc)
+	if !strings.Contains(got, "root") || !strings.Contains(got, "only-in-nbc-cmd") {
+		t.Fatalf("expected diff to name the root entry as only-in-nbc-cmd, got %q", got)
+	}
+	if d := containerdConfigEntryDiff("SOME_OTHER_VAR", pc, nbc); d != "" {
+		t.Fatalf("expected empty for non-containerd key, got %q", d)
+	}
 }

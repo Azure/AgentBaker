@@ -1224,24 +1224,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString([]byte(kubenetCniTemplate))
 		},
 		"GetContainerdConfigContent": func() string {
-			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
-				if profile.IsContainerdV2Distro() {
-					return containerdV2ConfigTemplate
-				}
-				return containerdV1ConfigTemplate
-			}(profile))
+			output, err := containerdConfigFromTemplate(config, profile, containerdConfigTemplateForVersion(config, false))
 			if err != nil {
 				panic(err)
 			}
 			return output
 		},
 		"GetContainerdConfigNoGPUContent": func() string {
-			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
-				if profile.IsContainerdV2Distro() {
-					return containerdV2NoGPUConfigTemplate
-				}
-				return containerdV1NoGPUConfigTemplate
-			}(profile))
+			output, err := containerdConfigFromTemplate(config, profile, containerdConfigTemplateForVersion(config, true))
 			if err != nil {
 				panic(err)
 			}
@@ -1925,6 +1915,107 @@ const kubenetCniTemplate = `{
 
 type ContainerdConfigTemplate string
 
+func containerdConfigTemplateForVersion(config *datamodel.NodeBootstrappingConfiguration, noGPU bool) ContainerdConfigTemplate {
+	if shouldUseContainerdV4Config(config) {
+		if noGPU {
+			return containerdV2NoGPUConfigTemplate
+		}
+		return containerdV2ConfigTemplate
+	}
+	if shouldUseContainerdV2Config(config) {
+		if noGPU {
+			return containerdV2BeforeV23NoGPUConfigTemplate
+		}
+		return containerdV2BeforeV23ConfigTemplate
+	}
+	if noGPU {
+		return containerdV1NoGPUConfigTemplate
+	}
+	return containerdV1ConfigTemplate
+}
+
+func shouldUseContainerdV4Config(config *datamodel.NodeBootstrappingConfiguration) bool {
+	if config == nil {
+		return false
+	}
+	if isContainerdVersionGe(config.ContainerdVersion, "2.3.0") {
+		return true
+	}
+	if strings.TrimSpace(config.ContainerdVersion) != "" {
+		return false
+	}
+	// Empty/unknown containerd version: do NOT assume the 2.3+ (v4) schema for 24.04 based on the
+	// distro alone. 24.04 VHDs built before 2026-06-11 shipped containerd 2.0-2.2 and can still be
+	// provisioned (e.g. via NAP/PUTAgentPool) against the latest CSE; those reject `version = 4`
+	// ("expected containerd config version equal to or less than `3`") and crash-loop, failing CSE
+	// with exit 84 (reproduced in e2e against a containerd 2.1.7 Ubuntu 24.04 VHD). The scriptful CSE
+	// writes this config verbatim with no on-node version detection, so an empty version conservatively
+	// falls through to shouldUseContainerdV2Config -> the before-2.3 split-plugin schema (version = 3),
+	// which loads on ALL containerd 2.x (2.0-2.2 and 2.3). Trade-off: on a current 24.04 VHD (2.3.3)
+	// with an omitted version this renders v3 (no enable_cdi) whereas the scriptless aks-node-controller
+	// path -- which detects the on-node version -- renders v4; we prefer not bricking older VHDs over
+	// enabling CDI on the rare scriptful+omitted-version 2.3 GPU node. 26.04 is safe to assume v4: it
+	// only ever shipped containerd >= 2.3.
+	return config.AgentPoolProfile != nil && config.AgentPoolProfile.Is2604VHDDistro()
+}
+
+func shouldUseContainerdV2Config(config *datamodel.NodeBootstrappingConfiguration) bool {
+	if config == nil {
+		return false
+	}
+	if isContainerdVersionGe(config.ContainerdVersion, "2.0.0") {
+		return true
+	}
+	if strings.TrimSpace(config.ContainerdVersion) != "" {
+		return false
+	}
+	return config.AgentPoolProfile != nil && config.AgentPoolProfile.IsContainerdV2Distro()
+}
+
+func isContainerdVersionGe(actualVersion, version string) bool {
+	actualVersion = containerdSemverCore(actualVersion)
+	if actualVersion == "" {
+		return false
+	}
+	return IsKubernetesVersionGe(actualVersion, version)
+}
+
+func containerdSemverCore(version string) string {
+	version = strings.TrimSpace(version)
+	if idx := strings.Index(version, ":"); idx > 0 {
+		epoch := version[:idx]
+		validEpoch := true
+		for _, c := range epoch {
+			if c < '0' || c > '9' {
+				validEpoch = false
+				break
+			}
+		}
+		if validEpoch {
+			version = version[idx+1:]
+		}
+	}
+	version = strings.TrimPrefix(version, "v")
+	if idx := strings.IndexAny(version, "-+~"); idx > 0 {
+		version = version[:idx]
+	}
+	parts := strings.Split(version, ".")
+	if len(parts) != 3 {
+		return ""
+	}
+	for _, part := range parts {
+		if part == "" {
+			return ""
+		}
+		for _, c := range part {
+			if c < '0' || c > '9' {
+				return ""
+			}
+		}
+	}
+	return version
+}
+
 // this pains me, but to make it respect mutability of vmss tags,
 // we cannot use go templates at runtime.
 // CSE needs to be able to generate the full config, with all params,
@@ -2003,10 +2094,9 @@ root = "{{GetDataDir}}"{{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 {{- if IsArtifactStreamingEnabled }}
-[proxy_plugins]
-  [proxy_plugins.overlaybd]
-    type = "snapshot"
-    address = "/run/overlaybd-snapshotter/overlaybd.sock"
+[proxy_plugins.overlaybd]
+  type = "snapshot"
+  address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
@@ -2021,10 +2111,9 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "erofs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
-[proxy_plugins]
-  [proxy_plugins.tardev]
-    type = "snapshot"
-    address = "/run/containerd/tardev-snapshotter.sock"
+[proxy_plugins.tardev]
+  type = "snapshot"
+  address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
@@ -2034,7 +2123,7 @@ root = "{{GetDataDir}}"{{- end}}
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
-	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = 2
+	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = 4
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 {{- if IsKata }}
@@ -2053,6 +2142,183 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.images"]
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
+  disable_snapshot_annotations = false
+{{- else if IsKata }}
+  disable_snapshot_annotations = false
+{{- end}}
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = "{{GetPodInfraContainerSpec}}"
+  {{- if IsKubernetesVersionGe "1.22.0"}}
+  [plugins."io.containerd.cri.v1.images".registry]
+    config_path = "/etc/containerd/certs.d"
+  {{- end}}
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[plugins."io.containerd.cri.v1.runtime"]
+  enable_cdi = true
+[plugins."io.containerd.cri.v1.runtime".containerd]
+    {{- if IsNSeriesSKU }}
+    default_runtime_name = "nvidia-container-runtime"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+    {{- else}}
+    default_runtime_name = "runc"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+    {{- end}}
+  {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
+  [plugins."io.containerd.cri.v1.runtime".cni]
+    bin_dir = "/opt/cni/bin"
+    conf_dir = "/etc/cni/net.d"
+    conf_template = "/etc/containerd/kubenet_template.conf"
+  {{- end}}
+[metrics]
+  address = "0.0.0.0:10257"
+{{- if IsArtifactStreamingEnabled }}
+[proxy_plugins.overlaybd]
+  type = "snapshot"
+  address = "/run/overlaybd-snapshotter/overlaybd.sock"
+{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
+  runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
+  snapshotter = "overlayfs"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview]
+  runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
+  snapshotter = "erofs"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
+[proxy_plugins.tardev]
+  type = "snapshot"
+  address = "/run/containerd/tardev-snapshotter.sock"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
+  snapshotter = "tardev"
+  runtime_type = "io.containerd.kata-cc.v2"
+  privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
+    ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
+{{- end}}
+`
+	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 4
+oom_score = -999{{if HasDataDir }}
+root = "{{GetDataDir}}"{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "10G"
+  enable_fsverity = false
+  ovl_mount_options = []
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs", "walking"]
+
+[plugins."io.containerd.differ.v1.erofs"]
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+  enable_tar_index = false
+{{- end}}
+[plugins."io.containerd.cri.v1.images"]
+{{- if IsArtifactStreamingEnabled }}
+  snapshotter = "overlaybd"
+  disable_snapshot_annotations = false
+{{- else if IsKata }}
+  disable_snapshot_annotations = false
+{{- end}}
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = "{{GetPodInfraContainerSpec}}"
+  {{- if IsKubernetesVersionGe "1.22.0"}}
+  [plugins."io.containerd.cri.v1.images".registry]
+    config_path = "/etc/containerd/certs.d"
+  {{- end}}
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[plugins."io.containerd.cri.v1.runtime".containerd]
+    default_runtime_name = "runc"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+  {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
+  [plugins."io.containerd.cri.v1.runtime".cni]
+    bin_dir = "/opt/cni/bin"
+    conf_dir = "/etc/cni/net.d"
+    conf_template = "/etc/containerd/kubenet_template.conf"
+  {{- end}}
+[metrics]
+  address = "0.0.0.0:10257"
+{{- if IsArtifactStreamingEnabled }}
+[proxy_plugins.overlaybd]
+  type = "snapshot"
+  address = "/run/overlaybd-snapshotter/overlaybd.sock"
+{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
+  runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
+  snapshotter = "overlayfs"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview]
+  runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
+  snapshotter = "erofs"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
+[proxy_plugins.tardev]
+  type = "snapshot"
+  address = "/run/containerd/tardev-snapshotter.sock"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
+  snapshotter = "tardev"
+  runtime_type = "io.containerd.kata-cc.v2"
+  privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
+    ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
+{{- end}}
+`
+	containerdV2BeforeV23ConfigTemplate ContainerdConfigTemplate = `version = 3
+oom_score = -999{{if HasDataDir }}
+root = "{{GetDataDir}}"{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "10G"
+  enable_fsverity = false
+  ovl_mount_options = []
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs", "walking"]
+
+[plugins."io.containerd.differ.v1.erofs"]
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+  enable_tar_index = false
+{{- end}}
+[plugins."io.containerd.cri.v1.images"]
+{{- if IsArtifactStreamingEnabled }}
+  snapshotter = "overlaybd"
+  disable_snapshot_annotations = false
+{{- else if IsKata }}
   disable_snapshot_annotations = false
 {{- end}}
   [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -2096,38 +2362,36 @@ root = "{{GetDataDir}}"{{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 {{- if IsArtifactStreamingEnabled }}
-[proxy_plugins]
-  [proxy_plugins.overlaybd]
-    type = "snapshot"
-    address = "/run/overlaybd-snapshotter/overlaybd.sock"
+[proxy_plugins.overlaybd]
+  type = "snapshot"
+  address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
   snapshotter = "overlayfs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
   snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
-[proxy_plugins]
-  [proxy_plugins.tardev]
-    type = "snapshot"
-    address = "/run/containerd/tardev-snapshotter.sock"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
+[proxy_plugins.tardev]
+  type = "snapshot"
+  address = "/run/containerd/tardev-snapshotter.sock"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
   pod_annotations = ["io.katacontainers.*"]
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
-	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
+	containerdV2BeforeV23NoGPUConfigTemplate ContainerdConfigTemplate = `version = 3
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 {{- if IsKata }}
@@ -2146,6 +2410,8 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.images"]
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
+  disable_snapshot_annotations = false
+{{- else if IsKata }}
   disable_snapshot_annotations = false
 {{- end}}
   [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -2176,28 +2442,33 @@ root = "{{GetDataDir}}"{{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 {{- if IsArtifactStreamingEnabled }}
-[proxy_plugins]
-  [proxy_plugins.overlaybd]
-    type = "snapshot"
-    address = "/run/overlaybd-snapshotter/overlaybd.sock"
+[proxy_plugins.overlaybd]
+  type = "snapshot"
+  address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
   snapshotter = "overlayfs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
   snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-preview.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
-[proxy_plugins]
-  [proxy_plugins.tardev]
-    type = "snapshot"
-    address = "/run/containerd/tardev-snapshotter.sock"
+[proxy_plugins.tardev]
+  type = "snapshot"
+  address = "/run/containerd/tardev-snapshotter.sock"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
+  snapshotter = "tardev"
+  runtime_type = "io.containerd.kata-cc.v2"
+  privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
+    ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
 	containerdV1NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
@@ -2254,10 +2525,9 @@ root = "{{GetDataDir}}"{{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 {{- if IsArtifactStreamingEnabled }}
-[proxy_plugins]
-  [proxy_plugins.overlaybd]
-    type = "snapshot"
-    address = "/run/overlaybd-snapshotter/overlaybd.sock"
+[proxy_plugins.overlaybd]
+  type = "snapshot"
+  address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
@@ -2272,10 +2542,9 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "erofs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
-[proxy_plugins]
-  [proxy_plugins.tardev]
-    type = "snapshot"
-    address = "/run/containerd/tardev-snapshotter.sock"
+[proxy_plugins.tardev]
+  type = "snapshot"
+  address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"

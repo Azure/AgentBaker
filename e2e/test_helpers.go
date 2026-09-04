@@ -25,6 +25,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -356,6 +357,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 			return nil, fmt.Errorf("mutate bootstrap configuration: %w", err)
 		}
 	}
+	setExpectedContainerdVersionForE2E(s.T, nbc, s.VHD)
 	if s.AKSNodeConfigMutator != nil {
 		nodeconfig, err := nbcToAKSNodeConfigV1(nbc)
 		if err != nil {
@@ -449,6 +451,44 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	}
 
 	return scenarioVM, nil
+}
+
+func setExpectedContainerdVersionForE2E(t testing.TB, nbc *datamodel.NodeBootstrappingConfiguration, image *config.Image) {
+	if nbc.ContainerdVersion != "" {
+		return
+	}
+	// Backward-compat runs (older VHD + HEAD CSE) set E2E_OMIT_CONTAINERD_VERSION so the version
+	// stays empty, exercising the RP-omits-version path (baker's distro-based schema fallback)
+	// rather than fabricating HEAD's containerd version onto a VHD whose installed version differs.
+	if config.Config.OmitContainerdVersionForE2E {
+		return
+	}
+	packageName, distro, release, ok := expectedContainerdComponentRef(image.Distro)
+	if !ok {
+		return
+	}
+	versions := components.GetExpectedPackageVersions(packageName, distro, release)
+	require.NotEmptyf(t, versions, "expected containerd version for distro %q (%s/%s)", image.Distro, distro, release)
+	nbc.ContainerdVersion = versions[0]
+}
+
+func expectedContainerdComponentRef(distro datamodel.Distro) (packageName, componentDistro, release string, ok bool) {
+	if distro.IsKataDistro() {
+		return "", "", "", false
+	}
+	if distro.IsAzureLinuxV3Distro() {
+		return "containerd", "azurelinux", "v3.0", true
+	}
+	if distro.Is2604VHDDistro() {
+		return "containerd", "ubuntu", "r2604", true
+	}
+	if distro.Is2404VHDDistro() {
+		return "containerd", "ubuntu", "r2404", true
+	}
+	if distro.Is2204VHDDistro() {
+		return "containerd", "ubuntu", "r2204", true
+	}
+	return "", "", "", false
 }
 
 func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) error {

@@ -36,6 +36,7 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
 	"github.com/Masterminds/semver/v3"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -87,9 +88,18 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 		"derefBool":                        deref[bool],
 		"getEnsureNoDupePromiscuousBridge": getEnsureNoDupePromiscuousBridge,
 		"isKubernetesVersionGe":            IsKubernetesVersionGe,
+		"isContainerdVersionGe":            isContainerdVersionGe,
 		"getHasDataDir":                    getHasDataDir,
 		"getEnableNvidia":                  getEnableNvidia,
 	}
+}
+
+func isContainerdVersionGe(containerdConfig *aksnodeconfigv1.ContainerdConfig, version string) bool {
+	containerdVersion := containerdSemverCore(containerdConfig.GetContainerdVersion())
+	if containerdVersion == "" {
+		return false
+	}
+	return IsKubernetesVersionGe(containerdVersion, version)
 }
 
 func getStringFromVMType(enum aksnodeconfigv1.VmType) string {
@@ -203,20 +213,25 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	if aksnodeconfig == nil {
 		return "", fmt.Errorf("AKSNodeConfig is nil")
 	}
+	var err error
+	aksnodeconfig, err = configWithContainerdVersionFallback(aksnodeconfig, containerdVersion)
+	if err != nil {
+		return "", fmt.Errorf("error setting containerd version fallback: %w", err)
+	}
 
-	// Select the appropriate containerd config template based on version and GPU presence.
-	// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images/runtime)
-	// compared to containerd 1.x (io.containerd.grpc.v1.cri).
 	var _template *template.Template
-	if isContainerdV2(containerdVersion) {
+	_template = containerdConfigTemplate
+	if noGPU {
+		_template = containerdConfigNoGPUTemplate
+	}
+	// All containerd 2.x nodes render from the split-plugin containerd_v2 templates, which emit the
+	// v3 (2.0-2.2) or v4 (2.3+) schema internally. This keeps the scriptless config byte-for-byte
+	// aligned with pkg/agent/baker.go's containerdV2BeforeV23/containerdV2 templates (asserted by
+	// the provision-config vs nbc-cmd env-var parity check). containerd 1.x keeps the legacy template.
+	if isContainerdV2OrLater(aksnodeconfig.GetContainerdConfig().GetContainerdVersion()) {
 		_template = containerdV2ConfigTemplate
 		if noGPU {
 			_template = containerdV2ConfigNoGPUTemplate
-		}
-	} else {
-		_template = containerdConfigTemplate
-		if noGPU {
-			_template = containerdConfigNoGPUTemplate
 		}
 	}
 
@@ -226,6 +241,34 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	}
 
 	return buffer.String(), nil
+}
+
+func configWithContainerdVersionFallback(aksnodeconfig *aksnodeconfigv1.Configuration, containerdVersion string) (*aksnodeconfigv1.Configuration, error) {
+	if aksnodeconfig.GetContainerdConfig().GetContainerdVersion() != "" || containerdVersion == "" {
+		return aksnodeconfig, nil
+	}
+
+	clonedConfig, ok := proto.Clone(aksnodeconfig).(*aksnodeconfigv1.Configuration)
+	if !ok {
+		return nil, fmt.Errorf("unexpected cloned AKSNodeConfig type")
+	}
+	if clonedConfig.ContainerdConfig == nil {
+		clonedConfig.ContainerdConfig = &aksnodeconfigv1.ContainerdConfig{}
+	}
+	clonedConfig.ContainerdConfig.ContainerdVersion = containerdVersion
+	return clonedConfig, nil
+}
+
+func isContainerdV2OrLater(containerdVersion string) bool {
+	containerdVersion = containerdSemverCore(containerdVersion)
+	if containerdVersion == "" {
+		return false
+	}
+	version, err := semver.NewVersion(containerdVersion)
+	if err != nil {
+		return false
+	}
+	return version.Major() >= 2
 }
 
 // detectContainerdVersion runs "containerd --version" and parses the version string.
@@ -238,16 +281,6 @@ func detectContainerdVersion(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("running containerd --version: %w", err)
 	}
 	return parseContainerdVersionOutput(string(out)), nil
-}
-
-// isContainerdV2 returns true if the containerd version string indicates a 2.x release.
-// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images and
-// io.containerd.cri.v1.runtime) compared to 1.x (io.containerd.grpc.v1.cri).
-func isContainerdV2(version string) bool {
-	if version == "" {
-		return false
-	}
-	return IsKubernetesVersionGe(version, "2.0.0")
 }
 
 func getIsMIGNode(gpuInstanceProfile string, migProfileLayout []string) bool {
@@ -806,14 +839,28 @@ func parseContainerdVersionOutput(output string) string {
 	if len(fields) < 3 {
 		return ""
 	}
-	// Take the 3rd field and strip any leading "v" prefix.
-	version := strings.TrimPrefix(fields[2], "v")
-	// Strip everything after the first "-" (package revision or pre-release suffix).
-	// e.g. "2.3.2-1" -> "2.3.2", "2.0.0-beta.1" -> "2.0.0"
-	if idx := strings.Index(version, "-"); idx > 0 {
+	return containerdSemverCore(fields[2])
+}
+
+func containerdSemverCore(version string) string {
+	version = strings.TrimSpace(version)
+	if idx := strings.Index(version, ":"); idx > 0 {
+		epoch := version[:idx]
+		validEpoch := true
+		for _, c := range epoch {
+			if c < '0' || c > '9' {
+				validEpoch = false
+				break
+			}
+		}
+		if validEpoch {
+			version = version[idx+1:]
+		}
+	}
+	version = strings.TrimPrefix(version, "v")
+	if idx := strings.IndexAny(version, "-+~"); idx > 0 {
 		version = version[:idx]
 	}
-	// Validate the result is a valid major.minor.patch version.
 	parts := strings.Split(version, ".")
 	if len(parts) != 3 {
 		return ""
