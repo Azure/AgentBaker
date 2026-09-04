@@ -582,7 +582,9 @@ function NodePrep {
     # in NodePrep so PIS nodes install and validate it on their real first boot.
     if (Get-Command -Name Install-WindowsExporter -ErrorAction SilentlyContinue) {
         Logs-To-Event -TaskName "AKS.WindowsCSE.InstallWindowsExporter" -TaskMessage "Install aks-windows-exporter if VHD-baked"
-        Install-WindowsExporter
+        if (-not (Install-WindowsExporter)) {
+            Write-Log "aks-windows-exporter takeover failed; continuing node provisioning with aks-vm-extension ownership"
+        }
     } else {
         Write-Log "Install-WindowsExporter not available; aks-vm-extension will manage windows-exporter"
     }

@@ -11,22 +11,14 @@ Describe 'Windows exporter CSE functions' {
 
     Context 'Install-WindowsExporter' {
         BeforeEach {
-            $script:LastExitCode = $null
-            $script:LastErrorMessage = $null
-
-            Mock Set-ExitCode -MockWith {
-                param($ExitCode, $ErrorMessage)
-                $script:LastExitCode = $ExitCode
-                $script:LastErrorMessage = $ErrorMessage
-            }
+            Mock New-Item
         }
 
         It 'no-ops when the VHD assets marker is absent' {
             Mock Test-Path -MockWith { return $false }
 
-            { Install-WindowsExporter } | Should -Not -Throw
-
-            Assert-MockCalled Set-ExitCode -Exactly -Times 0
+            Install-WindowsExporter | Should -Be $true
+            Assert-MockCalled New-Item -Exactly -Times 0
         }
 
         It 'fails when the assets marker is present but the binary is absent' {
@@ -35,12 +27,8 @@ Describe 'Windows exporter CSE functions' {
                 return $Path -eq $global:WindowsExporterAssetsFile
             }
 
-            { Install-WindowsExporter } | Should -Not -Throw
-
-            Assert-MockCalled Set-ExitCode -Exactly -Times 1 -ParameterFilter {
-                $ExitCode -eq $global:WINDOWS_CSE_ERROR_WINDOWS_EXPORTER_START_FAIL -and
-                $ErrorMessage -match 'binary is missing'
-            }
+            Install-WindowsExporter | Should -Be $false
+            Assert-MockCalled New-Item -Exactly -Times 0
         }
 
         It 'fails when the assets marker and binary are present but the config is absent' {
@@ -49,26 +37,18 @@ Describe 'Windows exporter CSE functions' {
                 return $Path -in @($global:WindowsExporterAssetsFile, $global:WindowsExporterBinary)
             }
 
-            { Install-WindowsExporter } | Should -Not -Throw
-
-            Assert-MockCalled Set-ExitCode -Exactly -Times 1 -ParameterFilter {
-                $ExitCode -eq $global:WINDOWS_CSE_ERROR_WINDOWS_EXPORTER_START_FAIL -and
-                $ErrorMessage -match 'config is missing'
-            }
+            Install-WindowsExporter | Should -Be $false
+            Assert-MockCalled New-Item -Exactly -Times 0
         }
 
-        It 'sets the windows-exporter error code when nssm is absent after assets are present' {
+        It 'leaves ownership with the extension when nssm is absent after assets are present' {
             Mock Test-Path -MockWith {
                 param($Path)
                 return $Path -ne $global:WindowsExporterNssm
             }
 
-            { Install-WindowsExporter } | Should -Not -Throw
-
-            Assert-MockCalled Set-ExitCode -Exactly -Times 1 -ParameterFilter {
-                $ExitCode -eq $global:WINDOWS_CSE_ERROR_WINDOWS_EXPORTER_START_FAIL
-            }
-            $script:LastExitCode | Should -Be $global:WINDOWS_CSE_ERROR_WINDOWS_EXPORTER_START_FAIL
+            Install-WindowsExporter | Should -Be $false
+            Assert-MockCalled New-Item -Exactly -Times 0
         }
 
         It 'installs, configures, and starts a healthy exporter' {
@@ -78,7 +58,7 @@ Describe 'Windows exporter CSE functions' {
             Mock Test-WindowsExporterHealth -MockWith { return $true }
             Mock New-Item
 
-            { Install-WindowsExporter } | Should -Not -Throw
+            Install-WindowsExporter | Should -Be $true
 
             Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter {
                 $Arguments[0] -eq 'install' -and
@@ -91,7 +71,6 @@ Describe 'Windows exporter CSE functions' {
             Assert-MockCalled New-Item -Exactly -Times 1 -ParameterFilter {
                 $Path -eq $global:WindowsExporterSkipFile
             }
-            Assert-MockCalled Set-ExitCode -Exactly -Times 0
         }
 
         It 'takes ownership of an existing running service' {
@@ -101,7 +80,7 @@ Describe 'Windows exporter CSE functions' {
             Mock Test-WindowsExporterHealth -MockWith { return $true }
             Mock New-Item
 
-            { Install-WindowsExporter } | Should -Not -Throw
+            Install-WindowsExporter | Should -Be $true
 
             Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 0 -ParameterFilter {
                 $Arguments[0] -eq 'install'
@@ -120,32 +99,23 @@ Describe 'Windows exporter CSE functions' {
             }
         }
 
-        It 'sets the windows-exporter error code when nssm configuration fails' {
+        It 'leaves ownership with the extension when nssm configuration fails' {
             Mock Test-Path -MockWith { return $true }
             Mock Get-Service -MockWith { return $null }
             Mock Invoke-WindowsExporterNssm -MockWith { throw 'nssm failed' }
 
-            { Install-WindowsExporter } | Should -Not -Throw
-
-            Assert-MockCalled Set-ExitCode -Exactly -Times 1 -ParameterFilter {
-                $ExitCode -eq $global:WINDOWS_CSE_ERROR_WINDOWS_EXPORTER_START_FAIL -and
-                $ErrorMessage -match 'nssm failed'
-            }
+            Install-WindowsExporter | Should -Be $false
+            Assert-MockCalled New-Item -Exactly -Times 0
         }
 
-        It 'sets the windows-exporter error code when the service stays unhealthy' {
+        It 'leaves ownership with the extension when the service stays unhealthy' {
             Mock Test-Path -MockWith { return $true }
             Mock Get-Service -MockWith { return $null }
             Mock Invoke-WindowsExporterNssm
             Mock Test-WindowsExporterHealth -MockWith { return $false }
             Mock New-Item
 
-            { Install-WindowsExporter } | Should -Not -Throw
-
-            Assert-MockCalled Set-ExitCode -Exactly -Times 1 -ParameterFilter {
-                $ExitCode -eq $global:WINDOWS_CSE_ERROR_WINDOWS_EXPORTER_START_FAIL -and
-                $ErrorMessage -match 'failed to become healthy'
-            }
+            Install-WindowsExporter | Should -Be $false
             Assert-MockCalled New-Item -Exactly -Times 0 -ParameterFilter {
                 $Path -eq $global:WindowsExporterSkipFile
             }
