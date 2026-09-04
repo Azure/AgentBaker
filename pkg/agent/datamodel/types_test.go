@@ -1193,6 +1193,13 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen2 Kata FIPS VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2KataFIPS,
+			},
+			expected: true,
+		},
+		{
 			name: "CBLMariner V2 Gen2 VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSCBLMarinerV2Gen2,
