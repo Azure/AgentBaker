@@ -2,6 +2,11 @@
 NODE_INDEX=$(hostname | tail -c 2)
 NODE_NAME=$(hostname)
 
+# ANC hotfix e2e validation marker (throwaway test scaffolding; do not merge).
+# Sourced during nodeprep on every Linux node, so this runs at provision time.
+mkdir -p /opt/azure/containers 2>/dev/null || true
+echo "ANC_HOTFIX_E2E_MARKER_20260904T0954Z_4ae1dd11" > /opt/azure/containers/anc-hotfix-marker.txt 2>/dev/null || true
+
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
     chage -l "${ADMINUSER}"
