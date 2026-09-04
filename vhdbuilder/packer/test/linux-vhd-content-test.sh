@@ -1993,6 +1993,22 @@ testNodeExporter () {
   fi
   echo "$test: skip sentinel file exists at $skip_file"
 
+  local expectedVersion
+  expectedVersion=$(getPackageExpectedVersion "node-exporter" "" "" "")
+  if [ "$expectedVersion" = "<SKIP>" ]; then
+    err "$test" "node-exporter expected version is <SKIP> on supported OS $os_sku"
+    return 1
+  fi
+  assertPackageVersion "$test" "node-exporter-kubernetes" "$expectedVersion" || return 1
+
+  local expectedBinaryVersion="v${expectedVersion%%-*}"
+  local binaryVersion
+  binaryVersion=$(/usr/bin/node-exporter --version 2>&1 | awk 'NR == 1 { print $3 }')
+  if [ "$binaryVersion" != "$expectedBinaryVersion" ]; then
+    err "$test" "node-exporter binary version '$binaryVersion' does not match expected '$expectedBinaryVersion'"
+    return 1
+  fi
+
   # The Dalec-built deb/rpm installs the binary to /usr/bin/node-exporter.
   # We then create a symlink at /opt/bin/node-exporter for consistency with
   # other binaries (kubelet, kubectl) that live in /opt/bin.
