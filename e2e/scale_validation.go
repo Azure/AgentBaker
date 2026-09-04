@@ -20,6 +20,7 @@ const (
 	scaleValidationTimeout        = 10 * time.Minute
 	scaleValidationCleanupTimeout = 5 * time.Minute
 	scaleValidationNotReadyLimit  = 3
+	scaleValidationStableLimit    = 13
 )
 
 // ValidateNodeCanScaleToCapacity fills the scenario node's allocatable pod capacity.
@@ -67,18 +68,21 @@ func ValidateNodeCanScaleToCapacity(ctx context.Context, s *Scenario) (retErr er
 	var lastPollErr error
 	finalReplicas := initialReplicas
 	consecutiveNotReady := 0
+	consecutiveStable := 0
 	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, scaleValidationTimeout, true, func(ctx context.Context) (bool, error) {
 		node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return false, fmt.Errorf("scenario node %q disappeared while scaling: %w", nodeName, err)
 			}
+			consecutiveStable = 0
 			lastPollErr = fmt.Errorf("get node %q while scaling pods: %w", nodeName, err)
 			s.Logger.Log(lastPollErr.Error())
 			return false, nil
 		}
 		if !scaleValidationNodeReady(node) {
 			consecutiveNotReady++
+			consecutiveStable = 0
 			if consecutiveNotReady >= scaleValidationNotReadyLimit {
 				return false, fmt.Errorf(
 					"node %q remained NotReady for %d consecutive checks while scaling deployment %q to %d pods",
@@ -96,6 +100,7 @@ func ValidateNodeCanScaleToCapacity(ctx context.Context, s *Scenario) (retErr er
 			FieldSelector: fields.OneTermEqualSelector("spec.nodeName", nodeName).String(),
 		})
 		if err != nil {
+			consecutiveStable = 0
 			lastPollErr = fmt.Errorf("list pods on node %q while scaling: %w", nodeName, err)
 			s.Logger.Log(lastPollErr.Error())
 			return false, nil
@@ -114,6 +119,7 @@ func ValidateNodeCanScaleToCapacity(ctx context.Context, s *Scenario) (retErr er
 
 		current, err := s.Runtime.Kube.Typed.AppsV1().Deployments(deployment.Namespace).Get(ctx, deployment.Name, metav1.GetOptions{})
 		if err != nil {
+			consecutiveStable = 0
 			lastPollErr = fmt.Errorf("get scale validation deployment %q: %w", deployment.Name, err)
 			s.Logger.Log(lastPollErr.Error())
 			return false, nil
@@ -122,26 +128,36 @@ func ValidateNodeCanScaleToCapacity(ctx context.Context, s *Scenario) (retErr er
 		if current.Spec.Replicas == nil || *current.Spec.Replicas != desiredReplicas {
 			current.Spec.Replicas = &desiredReplicas
 			if _, err := s.Runtime.Kube.Typed.AppsV1().Deployments(deployment.Namespace).Update(ctx, current, metav1.UpdateOptions{}); err != nil {
+				consecutiveStable = 0
 				lastPollErr = fmt.Errorf("update scale validation deployment %q to %d replicas: %w", deployment.Name, desiredReplicas, err)
 				s.Logger.Log(lastPollErr.Error())
 				return false, nil
 			}
 			finalReplicas = desiredReplicas
+			consecutiveStable = 0
 			s.Logger.Logf("adjusted scale validation deployment %q to %d available slots", deployment.Name, desiredReplicas)
 			return false, nil
 		}
 
 		finalReplicas = desiredReplicas
 		lastPollErr = nil
+		fullyReady := current.Status.ObservedGeneration >= current.Generation &&
+			current.Status.UpdatedReplicas == desiredReplicas &&
+			current.Status.ReadyReplicas == desiredReplicas
+		if fullyReady {
+			consecutiveStable++
+		} else {
+			consecutiveStable = 0
+		}
 		s.Logger.Logf(
-			"scale validation deployment %q: %d/%d replicas ready",
+			"scale validation deployment %q: %d/%d replicas ready, stability %d/%d",
 			deployment.Name,
 			current.Status.ReadyReplicas,
 			desiredReplicas,
+			consecutiveStable,
+			scaleValidationStableLimit,
 		)
-		return current.Status.ObservedGeneration >= current.Generation &&
-			current.Status.UpdatedReplicas == desiredReplicas &&
-			current.Status.ReadyReplicas == desiredReplicas, nil
+		return consecutiveStable >= scaleValidationStableLimit, nil
 	})
 	if err != nil {
 		if ctx.Err() != nil {
@@ -189,24 +205,25 @@ func scaleValidationNodeReady(node *corev1.Node) bool {
 }
 
 func availableScaleReplicas(capacity int32, nodeName, scaleAppLabel string, pods []corev1.Pod) (int32, error) {
-	var otherActivePods int32
+	var unavailableSlots int32
 	for i := range pods {
 		pod := &pods[i]
-		if pod.Spec.NodeName != nodeName || pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
+		if pod.Spec.NodeName != nodeName {
 			continue
 		}
-		if scaleAppLabel == "" || pod.Labels["app"] != scaleAppLabel {
-			otherActivePods++
+		if scaleAppLabel == "" || pod.Labels["app"] != scaleAppLabel ||
+			pod.DeletionTimestamp != nil || pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
+			unavailableSlots++
 		}
 	}
 
-	available := capacity - otherActivePods
+	available := capacity - unavailableSlots
 	if available <= 0 {
 		return 0, fmt.Errorf(
-			"node %q has no pod slots available for scale validation: capacity=%d other-active-pods=%d",
+			"node %q has no pod slots available for scale validation: capacity=%d unavailable-slots=%d",
 			nodeName,
 			capacity,
-			otherActivePods,
+			unavailableSlots,
 		)
 	}
 	return available, nil
