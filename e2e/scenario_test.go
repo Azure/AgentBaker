@@ -2775,6 +2775,7 @@ func Test_Ubuntu2604Minimal_NodeHardening_KubeReservedSlice_CLIFlags(t *testing.
 					ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--system-reserved-cgroup=/system.slice"),
 					ValidateServiceInSlice(ctx, s, "kubelet.service", "kubereserved.slice"),
 					ValidateServiceInSlice(ctx, s, "containerd.service", "kubereserved.slice"),
+					ValidateNodeCanScaleToCapacity(ctx, s),
 				)
 			},
 		},
