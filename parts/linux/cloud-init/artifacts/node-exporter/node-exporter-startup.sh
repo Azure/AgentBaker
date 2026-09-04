@@ -99,6 +99,21 @@ ARGS=(
     --no-collector.arp.netlink
 )
 
+# MANA registers RDMA devices under /sys/class/infiniband, but node-exporter
+# fails the entire InfiniBand collector while parsing their rate files. Device
+# filters are applied too late to avoid the failure, so disable the collector
+# whenever MANA is present, including on mixed-HCA nodes.
+HAS_MANA_RDMA_DEVICE=false
+for device in /sys/class/infiniband/*; do
+    [ -e "$device" ] || continue
+    case "$(basename "$device")" in
+        mana_*) HAS_MANA_RDMA_DEVICE=true ;;
+    esac
+done
+if [ "$HAS_MANA_RDMA_DEVICE" = "true" ]; then
+    ARGS+=(--no-collector.infiniband)
+fi
+
 if [ -n "$TLS_CONFIG_ARG" ]; then
     ARGS+=("$TLS_CONFIG_ARG")
 fi

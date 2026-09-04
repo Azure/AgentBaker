@@ -2846,7 +2846,14 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 }
 
 func nodeHasInfiniBandHardware(ctx context.Context, s *Scenario) (bool, error) {
-	command := `for device in /sys/class/infiniband/*; do [ -e "$device" ] && exit 0; done; exit 1`
+	command := `for device in /sys/class/infiniband/mana_*; do
+    [ -e "$device" ] && exit 1
+done
+for device in /sys/class/infiniband/*; do
+    [ -e "$device" ] || continue
+    exit 0
+done
+exit 1`
 	result, err := execScriptOnVMForScenario(ctx, s, command)
 	if err != nil {
 		return false, fmt.Errorf("detect InfiniBand hardware: %w", err)
