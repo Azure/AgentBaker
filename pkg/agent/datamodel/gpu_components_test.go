@@ -32,8 +32,12 @@ func TestLoadConfig(t *testing.T) {
 	}
 
 	// Define regular expressions for expected formats
-	versionRegex := `^\d+\.\d+\.\d+$` // match version strings in a format like "X.Y.Z", where each of X, Y, and Z are numbers. e.g., "550.90.12"
-	suffixRegex := `^\d{14}$`         //  match a string of exactly 14 digits, which can represent a timestamp e.g., "20241021235610"
+	// Match NVIDIA driver versions, which have two or more dot-separated numeric components.
+	// Most are three components ("550.90.12"), but NVIDIA also ships two-component vGPU builds
+	// (e.g. GRID "570.237"), so the third component must be optional. This mirrors the version
+	// guard in the upstream Azure/aks-gpu repo: ^[0-9]+(\.[0-9]+)+$
+	versionRegex := `^\d+(\.\d+)+$`
+	suffixRegex := `^\d{14}$` //  match a string of exactly 14 digits, which can represent a timestamp e.g., "20241021235610"
 
 	// Compile the regular expressions
 	versionPattern := regexp.MustCompile(versionRegex)
