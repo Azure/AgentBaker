@@ -1,12 +1,108 @@
 package e2e
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/stretchr/testify/require"
 )
+
+func TestWriteScriptHotfixFixture(t *testing.T) {
+	buildDir := t.TempDir()
+	fixture := ScriptHotfixFixture{
+		Source:      "e2e/provision_configs.sh",
+		Destination: "/opt/azure/containers/provision_configs.sh",
+		Mode:        "0744",
+		Platforms:   []string{"ubuntu"},
+		Payload:     []byte("#!/bin/bash\necho e2e\n"),
+	}
+
+	require.NoError(t, writeScriptHotfixFixture(buildDir, fixture))
+
+	payload, err := os.ReadFile(filepath.Join(
+		buildDir,
+		"scripthotfix",
+		"generated",
+		"payloads",
+		"e2e",
+		"provision_configs.sh",
+	))
+	require.NoError(t, err)
+	require.Equal(t, fixture.Payload, payload)
+
+	manifestData, err := os.ReadFile(filepath.Join(
+		buildDir,
+		"scripthotfix",
+		"generated",
+		"manifest.json",
+	))
+	require.NoError(t, err)
+	var manifest scriptHotfixFixtureManifest
+	require.NoError(t, json.Unmarshal(manifestData, &manifest))
+	require.Equal(t, 1, manifest.SchemaVersion)
+	require.Len(t, manifest.Entries, 1)
+	require.Equal(t, fixture.Source, manifest.Entries[0].Source)
+	require.Equal(t, "payloads/e2e/provision_configs.sh", manifest.Entries[0].EmbeddedPath)
+	require.Equal(t, fixture.Destination, manifest.Entries[0].Destination)
+	require.Equal(t, fixture.Mode, manifest.Entries[0].Mode)
+	require.Equal(t, fixture.Platforms, manifest.Entries[0].Platforms)
+}
+
+func TestWriteScriptHotfixFixtureRejectsInvalidManifestData(t *testing.T) {
+	valid := ScriptHotfixFixture{
+		Source:      "e2e/provision_configs.sh",
+		Destination: "/opt/azure/containers/provision_configs.sh",
+		Mode:        "0744",
+		Platforms:   []string{"ubuntu"},
+		Payload:     []byte("#!/bin/bash\n"),
+	}
+	tests := []struct {
+		name   string
+		mutate func(*ScriptHotfixFixture)
+	}{
+		{
+			name: "unsafe source",
+			mutate: func(fixture *ScriptHotfixFixture) {
+				fixture.Source = "../provision_configs.sh"
+			},
+		},
+		{
+			name: "relative destination",
+			mutate: func(fixture *ScriptHotfixFixture) {
+				fixture.Destination = "opt/provision_configs.sh"
+			},
+		},
+		{
+			name: "invalid mode",
+			mutate: func(fixture *ScriptHotfixFixture) {
+				fixture.Mode = "0999"
+			},
+		},
+		{
+			name: "unsupported platform",
+			mutate: func(fixture *ScriptHotfixFixture) {
+				fixture.Platforms = []string{"other"}
+			},
+		},
+		{
+			name: "empty payload",
+			mutate: func(fixture *ScriptHotfixFixture) {
+				fixture.Payload = nil
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fixture := valid
+			test.mutate(&fixture)
+			require.Error(t, writeScriptHotfixFixture(t.TempDir(), fixture))
+		})
+	}
+}
 
 // TestCSEExitCodeOutboundConnFail pins the exit code constant to the value emitted by
 // ERR_OUTBOUND_CONN_FAIL in parts/linux/cloud-init/artifacts/cse_helpers.sh. If the
