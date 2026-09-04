@@ -82,7 +82,15 @@ fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     # We completely re-assign the TARGET_COMMAND_STRING string here to ensure that no artifacts from earlier conditionals are included
-    TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+  TARGET_COMMAND_STRING="--size ${CVM_TEST_VM_SIZE:-Standard_DC8ads_v5} --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly"
+  if [ "${OS_SKU:-}" != "AzureContainerLinux" ]; then
+    TARGET_COMMAND_STRING+=" --specialized true"
+  fi
+fi
+
+TEST_VM_USER_DATA_ARGS=()
+if [ "${OS_TYPE}" = "Linux" ] && [ "${OS_SKU:-}" = "AzureContainerLinux" ]; then
+  TEST_VM_USER_DATA_ARGS=(--user-data "./vhdbuilder/packer/acl-customdata.json")
 fi
 
 # NVIDIA GB specific test VM configuration (uses standard ARM64 VM for now)
@@ -111,6 +119,7 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       --admin-username "$TEST_VM_ADMIN_USERNAME" \
       --admin-password "$TEST_VM_ADMIN_PASSWORD" \
       --nics "$TESTING_NIC_ID" \
+      "${TEST_VM_USER_DATA_ARGS[@]}" \
       ${TARGET_COMMAND_STRING}
 else
   az vm create \
@@ -142,14 +151,22 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
   GIT_BRANCH="${GIT_BRANCH:-refs/heads/master}"
   GIT_COMMIT_HASH="${GIT_COMMIT_HASH:-$(git rev-parse HEAD)}"
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
+  run_command_succeeded=false
   for i in $(seq 1 3); do
-    ret=$(az vm run-command invoke --command-id RunShellScript \
+    if ret=$(az vm run-command invoke --command-id RunShellScript \
       --name "$VM_NAME" \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
       --scripts "@$SCRIPT_PATH" \
-      --parameters "${OS_VERSION}" "${ENABLE_FIPS}" "${OS_SKU}" "${GIT_BRANCH}" "${IMG_SKU}" "${FEATURE_FLAGS}" "${GIT_COMMIT_HASH}") && break
+      --parameters "${OS_VERSION}" "${ENABLE_FIPS}" "${OS_SKU}" "${GIT_BRANCH}" "${IMG_SKU}" "${FEATURE_FLAGS}" "${GIT_COMMIT_HASH}"); then
+      run_command_succeeded=true
+      break
+    fi
     echo "${i}: retrying az vm run-command"
   done
+  if [ "$run_command_succeeded" != "true" ]; then
+    echo "az vm run-command failed after 3 attempts"
+    exit 1
+  fi
   # The error message for a Linux VM run-command is as follows:
   #  "value": [
   #    {
