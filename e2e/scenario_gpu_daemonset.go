@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"testing"
 
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/config"
@@ -26,62 +25,61 @@ const (
 	nvidiaDevicePluginImage = "mcr.microsoft.com/oss/v2/nvidia/k8s-device-plugin:v0.18.2"
 )
 
-// Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset tests the upstream, customer-managed
+// Ubuntu2204_NvidiaDevicePlugin_Daemonset tests the upstream, customer-managed
 // NVIDIA device plugin DaemonSet deployment model instead of the systemd service.
-func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that the NVIDIA device plugin works as a DaemonSet instead of a systemd service",
-		Tags: Tags{
-			GPU: true,
+var _ = Register(&Scenario{
+	Name:        "Ubuntu2204_NvidiaDevicePlugin_Daemonset",
+	Description: "Tests that the NVIDIA device plugin works as a DaemonSet instead of a systemd service",
+	Tags: Tags{
+		GPU: true,
+	},
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDUbuntu2204Gen2Containerd,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
+			nbc.ConfigGPUDriverIfNeeded = true
+			// Don't enable the managed GPU experience - the test deploys the upstream DaemonSet.
+			// By not setting EnableManagedGPU=true or the VMSS tag, the systemd-based device plugin won't start.
+			nbc.EnableGPUDevicePluginIfNeeded = false
+			nbc.EnableNvidia = true
 		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
-				nbc.ConfigGPUDriverIfNeeded = true
-				// Don't enable the managed GPU experience - the test deploys the upstream DaemonSet.
-				// By not setting EnableManagedGPU=true or the VMSS tag, the systemd-based device plugin won't start.
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
-			},
-			Validator: func(ctx context.Context, s *Scenario) error {
-				// The device plugin is only meaningful once the driver is present and the
-				// systemd-based plugin is confirmed inactive, so gate the deployment on both.
-				if err := errors.Join(
-					// First, validate that GPU drivers are installed
-					ValidateNvidiaModProbeInstalled(ctx, s),
-					// Verify that the systemd-based device plugin is NOT running
-					// (managed GPU experience is not enabled, so the service should not be active)
-					validateNvidiaDevicePluginServiceNotRunning(ctx, s),
-				); err != nil {
-					return err
-				}
-
-				if err := deployNvidiaDevicePluginDaemonset(ctx, s); err != nil {
-					return err
-				}
-
-				// Validate that GPU resources are advertised by the device plugin
-				if err := ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu"); err != nil {
-					return err
-				}
-
-				// Validate that GPU workloads can be scheduled. Only meaningful once the
-				// resources above are advertised, otherwise the pod just waits to be scheduled.
-				if err := ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu"); err != nil {
-					return err
-				}
-
-				s.Logger.Logf("NVIDIA device plugin DaemonSet is functioning correctly")
-				return nil
-			},
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 		},
-	})
-}
+		Validator: func(ctx context.Context, s *Scenario) error {
+			// The device plugin is only meaningful once the driver is present and the
+			// systemd-based plugin is confirmed inactive, so gate the deployment on both.
+			if err := errors.Join(
+				// First, validate that GPU drivers are installed
+				ValidateNvidiaModProbeInstalled(ctx, s),
+				// Verify that the systemd-based device plugin is NOT running
+				// (managed GPU experience is not enabled, so the service should not be active)
+				validateNvidiaDevicePluginServiceNotRunning(ctx, s),
+			); err != nil {
+				return err
+			}
+
+			if err := deployNvidiaDevicePluginDaemonset(ctx, s); err != nil {
+				return err
+			}
+
+			// Validate that GPU resources are advertised by the device plugin
+			if err := ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+				return err
+			}
+
+			// Validate that GPU workloads can be scheduled. Only meaningful once the
+			// resources above are advertised, otherwise the pod just waits to be scheduled.
+			if err := ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+				return err
+			}
+
+			s.Logger.Logf("NVIDIA device plugin DaemonSet is functioning correctly")
+			return nil
+		},
+	},
+})
 
 // validateNvidiaDevicePluginServiceNotRunning verifies that the systemd-based
 // NVIDIA device plugin service is not running because the test uses the DaemonSet model.

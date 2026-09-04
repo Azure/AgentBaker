@@ -3,12 +3,13 @@ package config
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // mockVMExtensionImageVersionLister implements vmExtensionImageVersionLister for testing.
@@ -16,6 +17,11 @@ type mockVMExtensionImageVersionLister struct {
 	resp armcompute.VirtualMachineExtensionImagesClientListVersionsResponse
 	err  error
 }
+
+type discardLogger struct{}
+
+func (discardLogger) Log(...any)          {}
+func (discardLogger) Logf(string, ...any) {}
 
 func (m *mockVMExtensionImageVersionLister) ListVersions(
 	ctx context.Context,
@@ -39,7 +45,7 @@ func makeVersionResponse(versions ...*string) armcompute.VirtualMachineExtension
 	}
 }
 
-func Test_parseVersion(t *testing.T) {
+func TestParseVersion(t *testing.T) {
 	tests := []struct {
 		name          string
 		inputName     *string
@@ -121,27 +127,19 @@ func Test_parseVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := toolkit.ContextWithLogger(context.Background(), toolkit.NewTestLogger(t))
+			ctx := toolkit.ContextWithLogger(context.Background(), discardLogger{})
 			img := &armcompute.VirtualMachineExtensionImage{Name: tt.inputName}
 			result := parseVersion(ctx, img)
 
-			if result.major != tt.expectedMajor {
-				t.Errorf("major: got %d, want %d", result.major, tt.expectedMajor)
-			}
-			if result.minor != tt.expectedMinor {
-				t.Errorf("minor: got %d, want %d", result.minor, tt.expectedMinor)
-			}
-			if result.patch != tt.expectedPatch {
-				t.Errorf("patch: got %d, want %d", result.patch, tt.expectedPatch)
-			}
-			if result.original != img {
-				t.Errorf("original: got %p, want %p", result.original, img)
-			}
+			assert.Equal(t, tt.expectedMajor, result.major)
+			assert.Equal(t, tt.expectedMinor, result.minor)
+			assert.Equal(t, tt.expectedPatch, result.patch)
+			assert.Same(t, img, result.original)
 		})
 	}
 }
 
-func Test_vmExtensionVersion_cmp(t *testing.T) {
+func TestVMExtensionVersionCmp(t *testing.T) {
 	tests := []struct {
 		name     string
 		a        vmExtensionVersion
@@ -207,14 +205,12 @@ func Test_vmExtensionVersion_cmp(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.a.cmp(tt.b)
-			if got != tt.expected {
-				t.Errorf("(%v).cmp(%v) = %d, want %d", tt.a, tt.b, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, got, "(%v).cmp(%v)", tt.a, tt.b)
 		})
 	}
 }
 
-func Test_getLatestVMExtensionImageVersion(t *testing.T) {
+func TestGetLatestVMExtensionImageVersion(t *testing.T) {
 	tests := []struct {
 		name        string
 		mock        *mockVMExtensionImageVersionLister
@@ -274,7 +270,7 @@ func Test_getLatestVMExtensionImageVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := toolkit.ContextWithLogger(context.Background(), toolkit.NewTestLogger(t))
+			ctx := toolkit.ContextWithLogger(context.Background(), discardLogger{})
 			got, err := getLatestVMExtensionImageVersion(
 				ctx,
 				tt.mock,
@@ -284,21 +280,12 @@ func Test_getLatestVMExtensionImageVersion(t *testing.T) {
 			)
 
 			if tt.errContains != "" {
-				if err == nil {
-					t.Fatalf("expected error containing %q, got nil", tt.errContains)
-				}
-				if !strings.Contains(err.Error(), tt.errContains) {
-					t.Errorf("error %q does not contain %q", err.Error(), tt.errContains)
-				}
+				require.ErrorContains(t, err, tt.errContains)
 				return
 			}
 
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got != tt.expected {
-				t.Errorf("got %q, want %q", got, tt.expected)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }

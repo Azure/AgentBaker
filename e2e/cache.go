@@ -13,13 +13,17 @@ import (
 )
 
 // cachedFunc creates a thread-safe memoized version of a function.
-// Results are cached per unique Request key using sync.Once for single execution.
+// Results, including errors, are cached per unique Request key so concurrent
+// scenarios cannot repeatedly start the same shared-infrastructure operation.
+// Waiters may stop waiting when their own context is canceled without canceling
+// the shared operation started by the first caller.
 // Request type must be comparable (no slices/maps/pointers).
 // Cache persists for program lifetime with no TTL or invalidation.
 // WARNING: Incorrect keys can cause hard-to-debug cache collisions.
 func cachedFunc[Request comparable, Response any](fn func(context.Context, Request) (Response, error)) func(context.Context, Request) (Response, error) {
 	type entry struct {
-		once  sync.Once
+		start sync.Once
+		done  chan struct{}
 		value Response
 		err   error
 	}
@@ -27,14 +31,31 @@ func cachedFunc[Request comparable, Response any](fn func(context.Context, Reque
 	var cache sync.Map
 
 	return func(ctx context.Context, key Request) (Response, error) {
-		actual, _ := cache.LoadOrStore(key, &entry{})
+		actual, _ := cache.LoadOrStore(key, &entry{done: make(chan struct{})})
 		e := actual.(*entry)
-
-		e.once.Do(func() {
-			e.value, e.err = fn(ctx, key)
+		owner := false
+		e.start.Do(func() {
+			owner = true
 		})
+		if owner {
+			defer close(e.done)
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					e.err = fmt.Errorf("cached operation panicked: %v", recovered)
+					panic(recovered)
+				}
+			}()
+			e.value, e.err = fn(ctx, key)
+			return e.value, e.err
+		}
 
-		return e.value, e.err
+		select {
+		case <-e.done:
+			return e.value, e.err
+		case <-ctx.Done():
+			var zero Response
+			return zero, ctx.Err()
+		}
 	}
 }
 
@@ -62,13 +83,13 @@ func createGallery(ctx context.Context, request CreateGalleryRequest) (armcomput
 	poller, err := config.Azure.Galleries.BeginCreateOrUpdate(ctx, request.ResourceGroup, galleryName, armcompute.Gallery{
 		Location: to.Ptr(request.Location),
 		Properties: &armcompute.GalleryProperties{
-			Description: to.Ptr("E2E test gallery for two-stage kubelet configuration"),
+			Description: to.Ptr("E2E test gallery for VHD caching"),
 		},
 	}, nil)
 	if err != nil {
 		return armcompute.Gallery{}, fmt.Errorf("failed to create gallery: %w", err)
 	}
-	resp, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	resp, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return armcompute.Gallery{}, fmt.Errorf("failed to poll gallery creation: %w", err)
 	}
@@ -129,7 +150,7 @@ func createGalleryImage(ctx context.Context, request CreateGalleryImageRequest) 
 	if err != nil {
 		return armcompute.GalleryImage{}, fmt.Errorf("failed to create gallery image: %w", err)
 	}
-	resp, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	resp, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return armcompute.GalleryImage{}, fmt.Errorf("failed to poll gallery image creation: %w", err)
 	}
@@ -277,7 +298,9 @@ func prepareVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceI
 }
 
 var CachedEnsureResourceGroup = cachedFunc(ensureResourceGroup)
-var CachedCreateVMManagedIdentity = cachedFunc(config.Azure.CreateVMManagedIdentity)
+var CachedCreateVMManagedIdentity = cachedFunc(func(ctx context.Context, location string) (string, error) {
+	return config.Azure.CreateVMManagedIdentity(ctx, location)
+})
 var CachedCompileAndUploadAKSNodeController = cachedFunc(compileAndUploadAKSNodeController)
 
 // VMSizeSKURequest is the cache key for Resource SKU lookups by VM size and location.

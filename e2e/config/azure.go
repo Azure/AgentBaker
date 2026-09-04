@@ -82,13 +82,10 @@ type AzureClient struct {
 	ResourceSKUs              *armcompute.ResourceSKUsClient
 }
 
-func mustNewAzureClient() *AzureClient {
-	client, err := NewAzureClient()
-	if err != nil {
-		panic(err)
-	}
-	return client
-
+// PollUntilDoneOptions returns independent options for each ARM operation.
+// The 15-second default avoids ARM throttling across concurrent scenarios.
+func PollUntilDoneOptions() *runtime.PollUntilDoneOptions {
+	return &runtime.PollUntilDoneOptions{Frequency: Config.DefaultPollInterval}
 }
 
 func NewHttpClient() *http.Client {
@@ -448,7 +445,7 @@ func (a *AzureClient) createBlobStorageAccount(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("create storage account: %w", err)
 	}
-	_, err = poller.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	_, err = poller.PollUntilDone(ctx, PollUntilDoneOptions())
 	if err != nil {
 		return fmt.Errorf("create storage account: %w", err)
 	}
@@ -747,7 +744,7 @@ func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, 
 	if err != nil {
 		return fmt.Errorf("begin updating image version target regions: %w", err)
 	}
-	if _, err := resp.PollUntilDone(ctx, DefaultPollUntilDoneOptions); err != nil {
+	if _, err := resp.PollUntilDone(ctx, PollUntilDoneOptions()); err != nil {
 		return fmt.Errorf("updating image version target regions: %w", err)
 	}
 
@@ -833,7 +830,7 @@ func (a *AzureClient) DeleteDisk(ctx context.Context, resourceGroupName, diskNam
 		return fmt.Errorf("failed to delete disk: %w", err)
 	}
 
-	_, err = deleteOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	_, err = deleteOp.PollUntilDone(ctx, PollUntilDoneOptions())
 	if err != nil {
 		return fmt.Errorf("failed to complete disk deletion: %w", err)
 	}
@@ -848,7 +845,7 @@ func (a *AzureClient) DeleteSnapshot(ctx context.Context, resourceGroupName, sna
 		return fmt.Errorf("failed to delete snapshot: %w", err)
 	}
 
-	_, err = deleteOp.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	_, err = deleteOp.PollUntilDone(ctx, PollUntilDoneOptions())
 	if err != nil {
 		return fmt.Errorf("failed to complete snapshot deletion: %w", err)
 	}

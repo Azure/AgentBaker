@@ -1,4 +1,4 @@
-// scenario_rcv1p_test.go contains end-to-end tests for the RCV1P (Root Certificate V1P) cert mode
+// scenario_rcv1p.go contains end-to-end tests for the RCV1P (Root Certificate V1P) cert mode
 // on Linux distros. RCV1P is the next-generation mechanism for distributing Azure root CA certificates
 // to AKS nodes. Instead of relying on hardcoded certificate bundles, RCV1P queries the Azure wireserver
 // at provisioning time to download the latest root certificates and installs them into the OS trust store.
@@ -23,8 +23,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
-	"testing"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -42,64 +40,41 @@ const rcv1pOptInTag = "platformsettings.host_environment.service.platform_optedi
 // skipIfRCV1PNotConfigured verifies the current E2E subscription has PlatformSettingsOverride
 // registered. The RCV1P pipeline job sets E2E_SUBSCRIPTION_ID to an RCV1P-registered subscription;
 // on any other subscription the test is skipped.
-func skipIfRCV1PNotConfigured(t *testing.T) {
-	t.Helper()
-	registered, err := getE2ESubscriptionFeatureFlag(t.Context())
+func skipIfRCV1PNotConfigured(ctx context.Context) string {
+	registered, err := getE2ESubscriptionFeatureFlag(ctx)
 	if err != nil {
-		t.Logf("PlatformSettingsOverride feature flag check on subscription %s failed: %v", config.Config.SubscriptionID, err)
-		t.Skip("could not verify PlatformSettingsOverride feature flag on E2E subscription, skipping RCV1P test")
+		return fmt.Sprintf("could not verify PlatformSettingsOverride feature flag on E2E subscription: %v", err)
 	}
-	t.Logf("PlatformSettingsOverride feature flag on subscription %s: registered=%v", config.Config.SubscriptionID, registered)
 	if !registered {
-		t.Skip("PlatformSettingsOverride feature flag not registered on E2E subscription, skipping RCV1P test")
+		return "PlatformSettingsOverride feature flag is not registered on the E2E subscription"
 	}
-	t.Logf("RCV1P mode: subscription %s (we set the VMSS opt-in tag explicitly)", config.Config.SubscriptionID)
+	return ""
 }
 
 // skipIfRCV1PNotExplicit skips the test when the platform may auto-inject the RCV1P opt-in tag,
 // which invalidates negative tests. The pipeline sets RCV1P_TAGS_AUTO_INJECTED=true on
 // subscriptions where the platform injects the opt-in tag automatically.
-func skipIfRCV1PNotExplicit(t *testing.T) {
-	t.Helper()
-	skipIfRCV1PNotConfigured(t)
-	if strings.EqualFold(strings.TrimSpace(os.Getenv("RCV1P_TAGS_AUTO_INJECTED")), "true") {
-		t.Skip("RCV1P_TAGS_AUTO_INJECTED=true — platform auto-injects the opt-in tag on this subscription, skipping negative RCV1P test")
+func skipIfRCV1PNotExplicit(ctx context.Context) string {
+	if reason := skipIfRCV1PNotConfigured(ctx); reason != "" {
+		return reason
 	}
-	t.Logf("RCV1P negative test mode: subscription %s (opt-in tag intentionally NOT set)", config.Config.SubscriptionID)
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("RCV1P_TAGS_AUTO_INJECTED")), "true") {
+		return "RCV1P_TAGS_AUTO_INJECTED=true; the platform injects the opt-in tag on this subscription"
+	}
+	return ""
 }
 
-var (
-	featureFlagChecks sync.Map // subscriptionID -> *featureFlagResult
-)
-
-type featureFlagResult struct {
-	once       sync.Once
-	registered bool
-	err        error
-}
-
-// checkPlatformSettingsOverrideFeatureFlag checks the Microsoft.Compute/PlatformSettingsOverride
-// feature flag on the given subscription.
-func checkPlatformSettingsOverrideFeatureFlag(ctx context.Context, subscriptionID string, client *config.AzureClient) (bool, error) {
-	val, _ := featureFlagChecks.LoadOrStore(subscriptionID, &featureFlagResult{})
-	result := val.(*featureFlagResult)
-	result.once.Do(func() {
-		result.registered, result.err = queryFeatureFlag(ctx, subscriptionID, client)
-	})
-	return result.registered, result.err
-}
+// CachedPlatformSettingsOverrideFeatureFlag checks the Microsoft.Compute/PlatformSettingsOverride
+// feature flag, caching the result (including errors) per subscription ID.
+var CachedPlatformSettingsOverrideFeatureFlag = cachedFunc(queryFeatureFlag)
 
 // getE2ESubscriptionFeatureFlag returns the PlatformSettingsOverride feature flag status on the
 // default E2E subscription.
 func getE2ESubscriptionFeatureFlag(ctx context.Context) (bool, error) {
-	e2eAzure, err := config.NewAzureClient()
-	if err != nil {
-		return false, fmt.Errorf("create E2E Azure client for feature flag check: %w", err)
-	}
-	return checkPlatformSettingsOverrideFeatureFlag(ctx, config.Config.SubscriptionID, e2eAzure)
+	return CachedPlatformSettingsOverrideFeatureFlag(ctx, config.Config.SubscriptionID)
 }
 
-func queryFeatureFlag(ctx context.Context, subscriptionID string, client *config.AzureClient) (bool, error) {
+func queryFeatureFlag(ctx context.Context, subscriptionID string) (bool, error) {
 	url := fmt.Sprintf(
 		"https://management.azure.com/subscriptions/%s/providers/Microsoft.Features/providers/Microsoft.Compute/features/PlatformSettingsOverride?api-version=2021-07-01",
 		subscriptionID,
@@ -110,7 +85,7 @@ func queryFeatureFlag(ctx context.Context, subscriptionID string, client *config
 		return false, fmt.Errorf("failed to create feature flag request: %w", err)
 	}
 
-	resp, err := client.Core.Pipeline().Do(req)
+	resp, err := config.Azure.Core.Pipeline().Do(req)
 	if err != nil {
 		return false, fmt.Errorf("failed to query feature flag: %w", err)
 	}
@@ -135,53 +110,42 @@ func queryFeatureFlag(ctx context.Context, subscriptionID string, client *config
 	return result.Properties.State == "Registered", nil
 }
 
-// rcv1pVMConfigMutator returns the VMConfigMutator for RCV1P positive tests. In the single-sub
-// model, we always set the opt-in tag explicitly (RCV1P_TAGS_AUTO_INJECTED subscriptions will
-// have both our tag and the platform's tag, which is idempotent).
-func rcv1pVMConfigMutator() func(*armcompute.VirtualMachineScaleSet) {
-	return rcv1pOptInVMConfigMutator
-}
-
 // REVERT ME: build and upload a CSE zip from the branch's staging/cse/windows/ so that
 // Windows RCV1P E2E tests exercise the actual RCV1P code instead of the published v0.0.52 package.
-var (
-	branchCSEZipURL  string
-	branchCSEZipErr  error
-	branchCSEZipOnce sync.Once
-)
 
-// getOrBuildBranchCSEPackageURL builds a CSE zip from staging/cse/windows/ (matching the
-// pipeline packaging in .pipelines/scripts/windows_package_cse.sh) and uploads it to the
-// E2E blob storage. Returns a SAS-signed URL. Uses sync.Once so the zip is built and
-// uploaded exactly once across all parallel tests.
-func getOrBuildBranchCSEPackageURL() (string, error) {
-	branchCSEZipOnce.Do(func() {
-		// 5m covers a cold-start storage account create (~30-90s) plus the zip build/upload.
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		defer cancel()
-		// Windows scenarios construct this mutator at scenario-struct-init time, which runs
-		// BEFORE RunScenario -> CachedCreateVMManagedIdentity (which creates the per-sub blob
-		// storage account on first use). On a brand-new region/subscription combo the storage
-		// account does not exist yet, so the upload below fails with NXDOMAIN. Ensure storage
-		// exists first by piggybacking on the same cached identity-creation path Linux tests use.
-		//
-		// CachedCreateVMManagedIdentity depends on the per-location resource group already
-		// existing (runScenario ensures it later, too late for this init-time path). Ensure
-		// the RG first so the identity/storage-account creation succeeds on a fresh sub/region.
-		if _, err := CachedEnsureResourceGroup(ctx, config.Config.DefaultLocation); err != nil {
-			branchCSEZipErr = fmt.Errorf("ensure shared resource group: %w", err)
-			return
-		}
-		if _, err := CachedCreateVMManagedIdentity(ctx, config.Config.DefaultLocation); err != nil {
-			branchCSEZipErr = fmt.Errorf("ensure shared storage account: %w", err)
-			return
-		}
-		branchCSEZipURL, branchCSEZipErr = buildAndUploadCSEZip(ctx)
-	})
-	if branchCSEZipErr != nil {
-		return "", fmt.Errorf("build or upload branch CSE zip: %w", branchCSEZipErr)
+// branchCSEZipRequest keys the branch CSE zip cache. The location determines the shared
+// resource group and storage account the zip is uploaded to, so different locations must
+// not share a cached URL.
+type branchCSEZipRequest struct {
+	Location string
+}
+
+// CachedBranchCSEPackageURL builds a CSE zip from staging/cse/windows/ (matching the
+// pipeline packaging in .pipelines/scripts/windows_package_cse.sh), uploads it to the
+// E2E blob storage and returns a SAS-signed URL. The result, including any error, is
+// cached so the zip is built and uploaded at most once per location across all parallel tests.
+var CachedBranchCSEPackageURL = cachedFunc(buildBranchCSEPackageURL)
+
+func buildBranchCSEPackageURL(ctx context.Context, request branchCSEZipRequest) (string, error) {
+	// 5m covers a cold-start storage account create (~30-90s) plus the zip build/upload.
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+	// The blob storage account lives in the DefaultLocation resource group, which is created
+	// lazily by CachedCreateVMManagedIdentity. runScenario only ensures the RG/identity for
+	// the scenario's own location, so on a brand-new region/subscription combo (or when the
+	// scenario runs outside DefaultLocation) the account may not exist yet and the upload
+	// below fails with NXDOMAIN. Ensure it here; both calls are cached no-ops otherwise.
+	//
+	// CachedCreateVMManagedIdentity depends on the per-location resource group already
+	// existing, so ensure the RG first for the identity/storage-account creation to
+	// succeed on a fresh sub/region.
+	if _, err := CachedEnsureResourceGroup(ctx, request.Location); err != nil {
+		return "", fmt.Errorf("ensure shared resource group: %w", err)
 	}
-	return branchCSEZipURL, nil
+	if _, err := CachedCreateVMManagedIdentity(ctx, request.Location); err != nil {
+		return "", fmt.Errorf("ensure shared storage account: %w", err)
+	}
+	return buildAndUploadCSEZip(ctx)
 }
 
 func buildAndUploadCSEZip(ctx context.Context) (string, error) {
@@ -288,10 +252,11 @@ func findRepoRoot() (string, error) {
 
 // rcv1pWindowsCSEMutator returns a BootstrapConfigMutator that overrides CseScriptsPackageURL
 // to use the branch-built CSE zip containing the RCV1P code.
-func rcv1pWindowsCSEMutator() (func(*Cluster, *datamodel.NodeBootstrappingConfiguration), error) {
-	cseURL, err := getOrBuildBranchCSEPackageURL()
+func rcv1pWindowsCSEMutator(ctx context.Context) (func(*Cluster, *datamodel.NodeBootstrappingConfiguration), error) {
+	// The blob storage account is always in DefaultLocation, so key the cache on it.
+	cseURL, err := CachedBranchCSEPackageURL(ctx, branchCSEZipRequest{Location: config.Config.DefaultLocation})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("build or upload branch CSE zip: %w", err)
 	}
 	return func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = cseURL
@@ -301,6 +266,8 @@ func rcv1pWindowsCSEMutator() (func(*Cluster, *datamodel.NodeBootstrappingConfig
 // rcv1pOptInVMConfigMutator sets the platform opt-in tag on the VMSS resource level.
 // VMSS resource-level tags are automatically inherited by VM instances at creation time,
 // which allows wireserver to recognize the tag and serve root certificates.
+// Positive tests always set the tag explicitly; on RCV1P_TAGS_AUTO_INJECTED subscriptions
+// the platform tag and this tag are the same, so setting it is idempotent.
 func rcv1pOptInVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet) {
 	if vmss.Tags == nil {
 		vmss.Tags = map[string]*string{}
@@ -308,136 +275,128 @@ func rcv1pOptInVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet) {
 	vmss.Tags[rcv1pOptInTag] = to.Ptr("true")
 }
 
-// Test_RCV1P_Ubuntu2204 validates RCV1P cert download and trust store installation on Ubuntu 22.04.
+// RCV1P_Ubuntu2204 validates RCV1P cert download and trust store installation on Ubuntu 22.04.
 // Ubuntu uses /usr/local/share/ca-certificates/ as the cert drop folder and update-ca-certificates
 // to rebuild the trust bundle.
-func Test_RCV1P_Ubuntu2204(t *testing.T) {
-	skipIfRCV1PNotConfigured(t)
-	RunScenario(t, &Scenario{
-		Description: "Tests RCV1P cert mode on Ubuntu 22.04 with VM opt-in tag",
-		Tags: Tags{
-			RCV1PCertMode: true,
+var _ = Register(&Scenario{
+	Name:        "RCV1P_Ubuntu2204",
+	SkipIf:      skipIfRCV1PNotConfigured,
+	Description: "Tests RCV1P cert mode on Ubuntu 22.04 with VM opt-in tag",
+	Tags: Tags{
+		RCV1PCertMode: true,
+	},
+	Config: Config{
+		Cluster:         ClusterKubenet,
+		VHD:             config.VHDUbuntu2204Gen2Containerd,
+		VMConfigMutator: rcv1pOptInVMConfigMutator,
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateRCV1PCertMode(ctx, s)
 		},
-		Config: Config{
-			Cluster:         ClusterKubenet,
-			VHD:             config.VHDUbuntu2204Gen2Containerd,
-			VMConfigMutator: rcv1pVMConfigMutator(),
-			Validator: func(ctx context.Context, s *Scenario) error {
-				return ValidateRCV1PCertMode(ctx, s)
-			},
-		},
-	})
-}
+	},
+})
 
-// Test_RCV1P_Ubuntu2604Minimal validates RCV1P cert download and trust store installation on Ubuntu 26.04 minimal.
+// RCV1P_Ubuntu2604Minimal validates RCV1P cert download and trust store installation on Ubuntu 26.04 minimal.
 // Covers the newer Ubuntu LTS release to ensure the cert endpoint and trust store integration
 // work correctly across Ubuntu versions.
-func Test_RCV1P_Ubuntu2604Minimal(t *testing.T) {
-	skipIfRCV1PNotConfigured(t)
-	RunScenario(t, &Scenario{
-		Description: "Tests RCV1P cert mode on Ubuntu 26.04 minimal with VM opt-in tag",
-		Tags: Tags{
-			RCV1PCertMode: true,
+var _ = Register(&Scenario{
+	Name:        "RCV1P_Ubuntu2604Minimal",
+	SkipIf:      skipIfRCV1PNotConfigured,
+	Description: "Tests RCV1P cert mode on Ubuntu 26.04 minimal with VM opt-in tag",
+	Tags: Tags{
+		RCV1PCertMode: true,
+	},
+	Config: Config{
+		Cluster:         ClusterLatestKubernetesVersionKubenet,
+		VHD:             config.VHDUbuntu2604MinimalGen2Containerd,
+		VMConfigMutator: rcv1pOptInVMConfigMutator,
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateRCV1PCertMode(ctx, s)
 		},
-		Config: Config{
-			Cluster:         ClusterLatestKubernetesVersionKubenet,
-			VHD:             config.VHDUbuntu2604MinimalGen2Containerd,
-			VMConfigMutator: rcv1pVMConfigMutator(),
-			Validator: func(ctx context.Context, s *Scenario) error {
-				return ValidateRCV1PCertMode(ctx, s)
-			},
-		},
-	})
-}
+	},
+})
 
-// Test_RCV1P_Ubuntu2404 validates RCV1P cert download and trust store installation on Ubuntu 24.04.
+// RCV1P_Ubuntu2404 validates RCV1P cert download and trust store installation on Ubuntu 24.04.
 // Covers the newer Ubuntu LTS release to ensure the cert endpoint and trust store integration
 // work correctly across Ubuntu versions.
-func Test_RCV1P_Ubuntu2404(t *testing.T) {
-	skipIfRCV1PNotConfigured(t)
-	RunScenario(t, &Scenario{
-		Description: "Tests RCV1P cert mode on Ubuntu 24.04 with VM opt-in tag",
-		Tags: Tags{
-			RCV1PCertMode: true,
+var _ = Register(&Scenario{
+	Name:        "RCV1P_Ubuntu2404",
+	SkipIf:      skipIfRCV1PNotConfigured,
+	Description: "Tests RCV1P cert mode on Ubuntu 24.04 with VM opt-in tag",
+	Tags: Tags{
+		RCV1PCertMode: true,
+	},
+	Config: Config{
+		Cluster:         ClusterKubenet,
+		VHD:             config.VHDUbuntu2404Gen2Containerd,
+		VMConfigMutator: rcv1pOptInVMConfigMutator,
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateRCV1PCertMode(ctx, s)
 		},
-		Config: Config{
-			Cluster:         ClusterKubenet,
-			VHD:             config.VHDUbuntu2404Gen2Containerd,
-			VMConfigMutator: rcv1pVMConfigMutator(),
-			Validator: func(ctx context.Context, s *Scenario) error {
-				return ValidateRCV1PCertMode(ctx, s)
-			},
-		},
-	})
-}
+	},
+})
 
-// Test_RCV1P_AzureLinuxV3 validates RCV1P on Azure Linux V3, which uses a different trust store
+// RCV1P_AzureLinuxV3 validates RCV1P on Azure Linux V3, which uses a different trust store
 // layout (/etc/pki/ca-trust/source/anchors/) and update command (update-ca-trust) than Ubuntu.
 // This ensures the provisioning script correctly detects the distro and uses the right paths.
-func Test_RCV1P_AzureLinuxV3(t *testing.T) {
-	skipIfRCV1PNotConfigured(t)
-	RunScenario(t, &Scenario{
-		Description: "Tests RCV1P cert mode on Azure Linux V3 with VM opt-in tag",
-		Tags: Tags{
-			RCV1PCertMode: true,
+var _ = Register(&Scenario{
+	Name:        "RCV1P_AzureLinuxV3",
+	SkipIf:      skipIfRCV1PNotConfigured,
+	Description: "Tests RCV1P cert mode on Azure Linux V3 with VM opt-in tag",
+	Tags: Tags{
+		RCV1PCertMode: true,
+	},
+	Config: Config{
+		Cluster:         ClusterKubenet,
+		VHD:             config.VHDAzureLinuxV3Gen2,
+		VMConfigMutator: rcv1pOptInVMConfigMutator,
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateRCV1PCertMode(ctx, s)
 		},
-		Config: Config{
-			Cluster:         ClusterKubenet,
-			VHD:             config.VHDAzureLinuxV3Gen2,
-			VMConfigMutator: rcv1pVMConfigMutator(),
-			Validator: func(ctx context.Context, s *Scenario) error {
-				return ValidateRCV1PCertMode(ctx, s)
-			},
-		},
-	})
-}
+	},
+})
 
-// Test_RCV1P_ACL validates RCV1P on Azure Container Linux (ACL), which shares the same
+// RCV1P_ACL validates RCV1P on Azure Container Linux (ACL), which shares the same
 // trust store layout as Azure Linux (/etc/pki/ca-trust/). ACL requires Trusted Launch,
 // so the VMConfigMutator combines both the TrustedLaunch and opt-in tag settings.
-func Test_RCV1P_ACL(t *testing.T) {
-	skipIfRCV1PNotConfigured(t)
-	RunScenario(t, &Scenario{
-		Description: "Tests RCV1P cert mode on ACL with VM opt-in tag",
-		Tags: Tags{
-			RCV1PCertMode: true,
+var _ = Register(&Scenario{
+	Name:        "RCV1P_ACL",
+	SkipIf:      skipIfRCV1PNotConfigured,
+	Description: "Tests RCV1P cert mode on ACL with VM opt-in tag",
+	Tags: Tags{
+		RCV1PCertMode: true,
+	},
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDACLGen2TL,
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			rcv1pOptInVMConfigMutator(vmss)
 		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDACLGen2TL,
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
-				if m := rcv1pVMConfigMutator(); m != nil {
-					m(vmss)
-				}
-			},
-			Validator: func(ctx context.Context, s *Scenario) error {
-				return ValidateRCV1PCertMode(ctx, s)
-			},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateRCV1PCertMode(ctx, s)
 		},
-	})
-}
+	},
+})
 
-// Test_RCV1P_NotOptedIn is a negative test that validates the VM opt-in tag is required
+// RCV1P_NotOptedIn is a negative test that validates the VM opt-in tag is required
 // for cert installation. The VM is created in the RCV1P subscription (which has
 // PlatformSettingsOverride registered) but WITHOUT the opt-in tag on the VMSS.
 // This verifies that wireserver returns IsOptedInForRootCerts=false and the provisioning
 // script correctly skips certificate download and trust store installation.
 // This test requires RCV1P_TAGS_AUTO_INJECTED to not be true because the platform may auto-inject
 // the opt-in tag on the current E2E subscription, making the negative test invalid.
-func Test_RCV1P_NotOptedIn(t *testing.T) {
-	skipIfRCV1PNotExplicit(t)
-	RunScenario(t, &Scenario{
-		Description: "Tests RCV1P cert mode without VM opt-in tag; expects no cert installation",
-		Tags: Tags{
-			RCV1PCertMode: true,
+var _ = Register(&Scenario{
+	Name:        "RCV1P_NotOptedIn",
+	SkipIf:      skipIfRCV1PNotExplicit,
+	Description: "Tests RCV1P cert mode without VM opt-in tag; expects no cert installation",
+	Tags: Tags{
+		RCV1PCertMode: true,
+	},
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDUbuntu2204Gen2Containerd,
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateRCV1PNotOptedIn(ctx, s)
 		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			Validator: func(ctx context.Context, s *Scenario) error {
-				return ValidateRCV1PNotOptedIn(ctx, s)
-			},
-		},
-	})
-}
+	},
+})

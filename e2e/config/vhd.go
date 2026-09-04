@@ -17,19 +17,6 @@ const (
 	noSelectionTagName = "abe2e-ignore"
 )
 
-var (
-	imageGalleryLinux = &Gallery{
-		SubscriptionID:    Config.GallerySubscriptionIDLinux,
-		ResourceGroupName: Config.GalleryResourceGroupNameLinux,
-		Name:              Config.GalleryNameLinux,
-	}
-	imageGalleryWindows = &Gallery{
-		SubscriptionID:    Config.GallerySubscriptionIDWindows,
-		ResourceGroupName: Config.GalleryResourceGroupNameWindows,
-		Name:              Config.GalleryNameWindows,
-	}
-)
-
 type Gallery struct {
 	SubscriptionID    string
 	ResourceGroupName string
@@ -53,7 +40,7 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSUbuntuArm64Containerd2204Gen2,
-		Gallery: imageGalleryLinux,
+		Gallery: &Config.GalleryLinux,
 	}
 
 	VHDUbuntu2204Gen2Containerd = &Image{
@@ -61,7 +48,7 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
-		Gallery: imageGalleryLinux,
+		Gallery: &Config.GalleryLinux,
 	}
 
 	VHDUbuntu2204Gen2TLContainerd = &Image{
@@ -69,7 +56,7 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd2204TLGen2,
-		Gallery: imageGalleryLinux,
+		Gallery: &Config.GalleryLinux,
 	}
 
 	VHDUbuntu2004FIPSGen2Containerd = &Image{
@@ -77,7 +64,7 @@ var (
 		OS:                    OSUbuntu,
 		Arch:                  "amd64",
 		Distro:                datamodel.AKSUbuntuFipsContainerd2004Gen2,
-		Gallery:               imageGalleryLinux,
+		Gallery:               &Config.GalleryLinux,
 		UnsupportedLocalDns:   true,
 		SkipOldVHDValidations: true,
 	}
@@ -87,7 +74,7 @@ var (
 		OS:                  OSUbuntu,
 		Arch:                "amd64",
 		Distro:              datamodel.AKSUbuntuFipsContainerd2204,
-		Gallery:             imageGalleryLinux,
+		Gallery:             &Config.GalleryLinux,
 		UnsupportedLocalDns: true,
 		UnsupportedGen2:     true,
 	}
@@ -97,7 +84,7 @@ var (
 		OS:                  OSUbuntu,
 		Arch:                "amd64",
 		Distro:              datamodel.AKSUbuntuFipsContainerd2204Gen2,
-		Gallery:             imageGalleryLinux,
+		Gallery:             &Config.GalleryLinux,
 		UnsupportedLocalDns: true,
 	}
 
@@ -106,7 +93,7 @@ var (
 		OS:                  OSUbuntu,
 		Arch:                "amd64",
 		Distro:              datamodel.AKSUbuntuFipsContainerd2204TLGen2,
-		Gallery:             imageGalleryLinux,
+		Gallery:             &Config.GalleryLinux,
 		UnsupportedLocalDns: true,
 	}
 
@@ -116,7 +103,7 @@ var (
 		Arch:                  "amd64",
 		Distro:                datamodel.AKSAzureLinuxV2Gen2,
 		Version:               datamodel.FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion,
-		Gallery:               imageGalleryLinux,
+		Gallery:               &Config.GalleryLinux,
 		SkipOldVHDValidations: true,
 	}
 
@@ -125,7 +112,7 @@ var (
 		OS:      OSAzureLinux,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSAzureLinuxV3Gen2,
-		Gallery: imageGalleryLinux,
+		Gallery: &Config.GalleryLinux,
 	}
 
 	// VHDAzureLinuxV3Gen2Kata is the AzureLinux V3 Gen2 VHD built with FEATURE_FLAGS=kata.
@@ -138,14 +125,14 @@ var (
 		OS:      OSAzureLinux,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSAzureLinuxV3Gen2Kata,
-		Gallery: imageGalleryLinux,
+		Gallery: &Config.GalleryLinux,
 	}
 	VHDAzureLinux3OSGuard = &Image{
 		Name:                "AzureLinuxOSGuardOSGuardV3gen2fipsTL",
 		OS:                  OSAzureLinux,
 		Arch:                "amd64",
 		Distro:              datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL,
-		Gallery:             imageGalleryLinux,
+		Gallery:             &Config.GalleryLinux,
 		UnsupportedLocalDns: true,
 	}
 
@@ -154,7 +141,7 @@ var (
 		OS:                  OSAzureLinux,
 		Arch:                "amd64",
 		Distro:              datamodel.AKSAzureLinuxV3Gen2FIPS,
-		Gallery:             imageGalleryLinux,
+		Gallery:             &Config.GalleryLinux,
 		UnsupportedLocalDns: true,
 	}
 
@@ -163,7 +150,7 @@ var (
 		OS:              OSUbuntu,
 		Arch:            "amd64",
 		Distro:          datamodel.AKSUbuntuContainerd2404,
-		Gallery:         imageGalleryLinux,
+		Gallery:         &Config.GalleryLinux,
 		UnsupportedGen2: true,
 	}
 
@@ -172,7 +159,7 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
-		Gallery: imageGalleryLinux,
+		Gallery: &Config.GalleryLinux,
 	}
 
 	VHDUbuntu2404ArmContainerd = &Image{
@@ -180,7 +167,7 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSUbuntuArm64Containerd2404Gen2,
-		Gallery: imageGalleryLinux,
+		Gallery: &Config.GalleryLinux,
 	}
 
 	VHDUbuntu2604MinimalGen2Containerd = &Image{
@@ -188,7 +175,7 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuMinimalContainerd2604Gen2,
-		Gallery: imageGalleryLinux,
+		Gallery: &Config.GalleryLinux,
 	}
 
 	VHDUbuntu2604MinimalArm64Gen2Containerd = &Image{
@@ -196,7 +183,7 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSUbuntuMinimalArm64Containerd2604Gen2,
-		Gallery: imageGalleryLinux,
+		Gallery: &Config.GalleryLinux,
 	}
 
 	VHDAzureLinuxV3Gen2Arm64 = &Image{
@@ -204,7 +191,7 @@ var (
 		OS:           OSAzureLinux,
 		Arch:         "arm64",
 		Distro:       datamodel.AKSAzureLinuxV3Arm64Gen2,
-		Gallery:      imageGalleryLinux,
+		Gallery:      &Config.GalleryLinux,
 		OSDiskSizeGB: 60,
 	}
 
@@ -213,7 +200,7 @@ var (
 		OS:           OSACL,
 		Arch:         "amd64",
 		Distro:       datamodel.AKSACLGen2TL,
-		Gallery:      imageGalleryLinux,
+		Gallery:      &Config.GalleryLinux,
 		Flatcar:      true,
 		OSDiskSizeGB: 60,
 	}
@@ -223,7 +210,7 @@ var (
 		OS:           OSACL,
 		Arch:         "arm64",
 		Distro:       datamodel.AKSACLArm64Gen2TL,
-		Gallery:      imageGalleryLinux,
+		Gallery:      &Config.GalleryLinux,
 		Flatcar:      true,
 		OSDiskSizeGB: 60,
 	}
@@ -233,7 +220,7 @@ var (
 		OS:                  OSACL,
 		Arch:                "amd64",
 		Distro:              datamodel.AKSACLGen2FIPSTL,
-		Gallery:             imageGalleryLinux,
+		Gallery:             &Config.GalleryLinux,
 		Flatcar:             true,
 		OSDiskSizeGB:        60,
 		UnsupportedLocalDns: true,
@@ -244,7 +231,7 @@ var (
 		OS:                  OSACL,
 		Arch:                "arm64",
 		Distro:              datamodel.AKSACLArm64Gen2FIPSTL,
-		Gallery:             imageGalleryLinux,
+		Gallery:             &Config.GalleryLinux,
 		Flatcar:             true,
 		OSDiskSizeGB:        60,
 		UnsupportedLocalDns: true,
@@ -255,7 +242,7 @@ var (
 		OS:              "windows",
 		Arch:            "amd64",
 		Distro:          datamodel.AKSWindows2022Containerd,
-		Gallery:         imageGalleryWindows,
+		Gallery:         &Config.GalleryWindows,
 		UnsupportedGen2: true,
 	}
 
@@ -264,7 +251,7 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2022ContainerdGen2,
-		Gallery: imageGalleryWindows,
+		Gallery: &Config.GalleryWindows,
 	}
 
 	VHDWindows2025 = &Image{
@@ -272,7 +259,7 @@ var (
 		OS:              OSWindows,
 		Arch:            "amd64",
 		Distro:          datamodel.AKSWindows2025,
-		Gallery:         imageGalleryWindows,
+		Gallery:         &Config.GalleryWindows,
 		UnsupportedGen2: true,
 	}
 
@@ -281,7 +268,7 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2025Gen2,
-		Gallery: imageGalleryWindows,
+		Gallery: &Config.GalleryWindows,
 	}
 
 	VHDWindows2025Gen2TL = &Image{
@@ -289,7 +276,7 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2025Gen2TL,
-		Gallery: imageGalleryWindows,
+		Gallery: &Config.GalleryWindows,
 	}
 )
 

@@ -20,7 +20,6 @@ require (
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/blakesmith/ar v0.0.0-20190502131153-809d4375e1fb
 	github.com/bramvdbogaerde/go-scp v1.6.0
-	github.com/caarlos0/env/v11 v11.3.1
 	github.com/cavaliergopher/rpm v1.3.0
 	github.com/coder/websocket v1.8.14
 	github.com/joho/godotenv v1.5.1
@@ -29,6 +28,7 @@ require (
 	github.com/sanity-io/litter v1.5.5
 	github.com/stretchr/testify v1.12.1
 	github.com/tidwall/gjson v1.18.0
+	github.com/urfave/cli/v3 v3.8.0
 	golang.org/x/crypto v0.52.0
 	k8s.io/api v0.36.1
 	k8s.io/apimachinery v0.36.1

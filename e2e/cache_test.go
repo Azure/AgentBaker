@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_cachedFunc_returns_consistent_results(t *testing.T) {
+func TestCachedFuncReturnsConsistentResults(t *testing.T) {
 	var callCount atomic.Int32
 	fn := cachedFunc(func(ctx context.Context, key string) (string, error) {
 		callCount.Add(1)
@@ -29,7 +29,7 @@ func Test_cachedFunc_returns_consistent_results(t *testing.T) {
 	assert.Equal(t, int32(1), callCount.Load(), "underlying function should only be called once for the same key")
 }
 
-func Test_cachedFunc_warm_call_is_faster_than_cold(t *testing.T) {
+func TestCachedFuncWarmCallIsFasterThanCold(t *testing.T) {
 	fn := cachedFunc(func(ctx context.Context, key string) (string, error) {
 		// simulate a slow operation like a network call
 		time.Sleep(10 * time.Millisecond)
@@ -51,7 +51,7 @@ func Test_cachedFunc_warm_call_is_faster_than_cold(t *testing.T) {
 	assert.Less(t, warmDuration, coldDuration, "warm (cached) call should be faster than cold call")
 }
 
-func Test_cachedFunc_different_keys_produce_different_cache_entries(t *testing.T) {
+func TestCachedFuncDifferentKeysProduceDifferentCacheEntries(t *testing.T) {
 	var callCount atomic.Int32
 	fn := cachedFunc(func(ctx context.Context, key string) (string, error) {
 		callCount.Add(1)
@@ -72,7 +72,7 @@ func Test_cachedFunc_different_keys_produce_different_cache_entries(t *testing.T
 	assert.Equal(t, int32(2), callCount.Load(), "underlying function should be called once per unique key")
 }
 
-func Test_cachedFunc_caches_errors(t *testing.T) {
+func TestCachedFuncCachesErrors(t *testing.T) {
 	var callCount atomic.Int32
 	expectedErr := fmt.Errorf("something went wrong")
 	fn := cachedFunc(func(ctx context.Context, key string) (string, error) {
@@ -88,10 +88,58 @@ func Test_cachedFunc_caches_errors(t *testing.T) {
 	_, err2 := fn(ctx, "a")
 	require.ErrorIs(t, err2, expectedErr)
 
-	assert.Equal(t, int32(1), callCount.Load(), "underlying function should only be called once even when it returns an error")
+	assert.Equal(t, int32(1), callCount.Load(), "shared-operation errors must be cached")
 }
 
-func Test_cachedFunc_with_struct_key(t *testing.T) {
+func TestCachedFuncWaiterHonorsCancellation(t *testing.T) {
+	var callCount atomic.Int32
+	started := make(chan struct{})
+	release := make(chan struct{})
+	fn := cachedFunc(func(context.Context, string) (string, error) {
+		callCount.Add(1)
+		close(started)
+		<-release
+		return "result", nil
+	})
+
+	ownerResult := make(chan string, 1)
+	go func() {
+		result, _ := fn(context.Background(), "key")
+		ownerResult <- result
+	}()
+	<-started
+
+	waiterCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := fn(waiterCtx, "key")
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, int32(1), callCount.Load(), "canceled waiter started another shared operation")
+
+	close(release)
+	assert.Equal(t, "result", <-ownerResult)
+	result, err := fn(context.Background(), "key")
+	require.NoError(t, err)
+	assert.Equal(t, "result", result)
+	assert.Equal(t, int32(1), callCount.Load(), "successful shared operation was not cached")
+}
+
+func TestCachedFuncPanicUnblocksWaiters(t *testing.T) {
+	var callCount atomic.Int32
+	fn := cachedFunc(func(context.Context, string) (string, error) {
+		callCount.Add(1)
+		panic("boom")
+	})
+
+	require.Panics(t, func() {
+		_, _ = fn(context.Background(), "key")
+	}, "owner call did not propagate panic")
+
+	_, err := fn(context.Background(), "key")
+	require.ErrorContains(t, err, "cached operation panicked: boom")
+	assert.Equal(t, int32(1), callCount.Load(), "panicked operation was started again")
+}
+
+func TestCachedFuncWithStructKey(t *testing.T) {
 	type request struct {
 		Location string
 		Type     string

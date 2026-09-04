@@ -31,7 +31,7 @@ pr:
     - vhdbuilder/packer/*windows*
     - vhdbuilder/packer/**/*windows*
     - .github/**
-    - e2e/scenario_win_test.go
+    - e2e/scenario_win.go
     - "**/*.md"
 
 pool:
@@ -185,7 +185,7 @@ stages:
 
     # Kata VHDs are built here so that VHD-side Kata changes (kata packages, erofs tooling,
     # kata configuration files) are covered by the E2E stage below. Without this job no Kata
-    # image carries this build's buildId tag, so Test_AzureLinuxV3Gen2Kata silently skips
+    # image carries this build's buildId tag, so AzureLinuxV3Gen2Kata silently skips
     # (the E2E stage sets IgnoreScenariosWithMissingVhd: true).
     - job: buildAzureLinuxV3gen2kata
       timeoutInMinutes: 360

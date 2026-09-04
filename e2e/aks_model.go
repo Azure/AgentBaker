@@ -157,7 +157,7 @@ func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcon
 
 // getLatestGAKubernetesVersion returns the highest GA Kubernetes version for the given location.
 func getLatestGAKubernetesVersion(ctx context.Context, location string) (string, error) {
-	versions, err := config.Azure.AKS.ListKubernetesVersions(context.Background(), location, nil)
+	versions, err := config.Azure.AKS.ListKubernetesVersions(ctx, location, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to list Kubernetes versions: %w", err)
 	}
@@ -359,7 +359,7 @@ func addFirewallRules(
 		if err != nil {
 			return fmt.Errorf("failed to start adding route %q: %w", *route.Name, err)
 		}
-		_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+		_, err = poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 		if err != nil {
 			return fmt.Errorf("failed to add route %q to AKS route table: %w", *route.Name, err)
 		}
@@ -409,7 +409,7 @@ func ensureFirewallRouteTable(
 		if err != nil {
 			return fmt.Errorf("failed to start creating firewall route table %q: %w", routeTableName, err)
 		}
-		routeTableResp, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+		routeTableResp, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 		if err != nil {
 			return fmt.Errorf("failed to create firewall route table %q: %w", routeTableName, err)
 		}
@@ -625,7 +625,7 @@ func deleteVNetLinkIfPointsToSharedVNet(ctx context.Context, zoneRG, zoneName, s
 			if err != nil {
 				return fmt.Errorf("deleting VNet link %s: %w", *link.Name, err)
 			}
-			if _, err = poller.PollUntilDone(ctx, nil); err != nil {
+			if _, err = poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
 				return fmt.Errorf("waiting for VNet link %s deletion: %w", *link.Name, err)
 			}
 		}
@@ -746,7 +746,7 @@ func createPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontai
 	if err != nil {
 		return fmt.Errorf("failed to create private ACR in BeginCreate: %w", err)
 	}
-	_, err = pollerResp.PollUntilDone(ctx, nil)
+	_, err = pollerResp.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return fmt.Errorf("failed to create private ACR during polling: %w", err)
 	}
@@ -798,7 +798,7 @@ func deletePrivateAzureContainerRegistry(ctx context.Context, resourceGroup, pri
 	if err != nil {
 		return fmt.Errorf("failed to delete private ACR: %w", err)
 	}
-	_, err = pollerResp.PollUntilDone(ctx, nil)
+	_, err = pollerResp.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return fmt.Errorf("failed to delete private ACR during polling: %w", err)
 	}
@@ -847,7 +847,7 @@ func addCacheRulesToPrivateAzureContainerRegistry(ctx context.Context, resourceG
 	if err != nil {
 		return fmt.Errorf("failed to create cache rule in BeginCreate: %w", err)
 	}
-	_, err = cacheCreateResp.PollUntilDone(ctx, nil)
+	_, err = cacheCreateResp.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return fmt.Errorf("failed to create cache rule in polling: %w", err)
 	}
@@ -899,7 +899,7 @@ func createPrivateEndpoint(ctx context.Context, nodeResourceGroup, privateEndpoi
 		if err != nil {
 			return fmt.Errorf("failed to create private endpoint in BeginCreateOrUpdate: %w", err)
 		}
-		resp, err := poller.PollUntilDone(ctx, nil)
+		resp, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 		if err != nil {
 			return fmt.Errorf("failed to create private endpoint in polling: %w", err)
 		}
@@ -964,7 +964,7 @@ func createPrivateZoneWithRetry(ctx context.Context, nodeResourceGroup, privateZ
 			}
 			return nil, fmt.Errorf("failed to create private dns zone: %w", err)
 		}
-		resp, err := poller.PollUntilDone(ctx, nil)
+		resp, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 		if err != nil {
 			return nil, fmt.Errorf("failed to create private dns zone in polling: %w", err)
 		}
@@ -1035,7 +1035,7 @@ func createPrivateDNSLink(ctx context.Context, vnet VNet, resourceGroup, private
 			}
 			return fmt.Errorf("failed to create virtual network link: %w", err)
 		}
-		resp, err := poller.PollUntilDone(ctx, nil)
+		resp, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 		if err != nil {
 			return fmt.Errorf("failed to create virtual network link in polling: %w", err)
 		}
@@ -1150,7 +1150,7 @@ func createNetworkIsolatedSecurityGroup(ctx context.Context, cluster *armcontain
 	if err != nil {
 		return nil, err
 	}
-	nsg, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	nsg, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return nil, err
 	}
@@ -1175,7 +1175,7 @@ func updateSubnet(ctx context.Context, cluster *armcontainerservice.ManagedClust
 		if err != nil {
 			return err
 		}
-		_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+		_, err = poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 		return err
 	})
 }

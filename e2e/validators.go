@@ -1297,7 +1297,7 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 		}
 		failedUnitLogs[unit.Name+".log"] = unitLogs.String()
 	}
-	if err := dumpFileMapToDir(s.testName, failedUnitLogs); err != nil {
+	if err := dumpFileMapToDir(s.artifactName, failedUnitLogs); err != nil {
 		errs = append(errs, fmt.Errorf("dump failed systemd unit logs: %w", err))
 	}
 
@@ -2979,7 +2979,6 @@ func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) 
 }
 
 func ValidateNvidiaDevicePluginMIGStrategy(ctx context.Context, s *Scenario, strategy string) error {
-	s.T.Helper()
 	command := fmt.Sprintf("systemctl cat nvidia-device-plugin.service | grep -F -- '--mig-strategy %s'", strategy)
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "NVIDIA device plugin is not configured with MIG strategy "+strategy); err != nil {
 		return fmt.Errorf("validate NVIDIA device plugin MIG strategy %q: %w", strategy, err)
@@ -3017,8 +3016,7 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCou
 }
 
 func ValidateNodeAdvertisesExactGPUResources(ctx context.Context, s *Scenario, expected map[string]int64) error {
-	s.T.Helper()
-	s.T.Logf("validating that node advertises exactly the expected NVIDIA GPU resources")
+	s.Logger.Logf("validating that node advertises exactly the expected NVIDIA GPU resources")
 
 	for resourceName := range expected {
 		if err := waitUntilResourceAvailable(ctx, s, resourceName); err != nil {
@@ -3255,8 +3253,7 @@ func ValidateMIGModeEnabled(ctx context.Context, s *Scenario, gpuCountExpected i
 }
 
 func ValidateMIGInstanceProfileCounts(ctx context.Context, s *Scenario, expected map[string]int) error {
-	s.T.Helper()
-	s.T.Logf("validating exact MIG instance profile counts")
+	s.Logger.Logf("validating exact MIG instance profile counts")
 
 	command := []string{
 		"set -ex",
@@ -3846,10 +3843,10 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) error {
 			return fmt.Errorf("retrieve full kernel logs: %w", err)
 		}
 		logFileName := "kernel-log.txt"
-		if err := writeToFile(s.testName, logFileName, fullDmesgResult.stdout); err != nil {
+		if err := writeToFile(s.artifactName, logFileName, fullDmesgResult.stdout); err != nil {
 			s.Logger.Logf("Warning: failed to write kernel log to file: %v", err)
 		} else {
-			s.Logger.Logf("Full kernel log written to: %s/%s", testDir(s.testName), logFileName)
+			s.Logger.Logf("Full kernel log written to: %s/%s", artifactDir(s.artifactName), logFileName)
 		}
 
 		// Log each category of issues found
@@ -3927,10 +3924,10 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
 	errOutput := strings.TrimSpace(extHandlerErrors.stdout)
 	if errOutput != "" {
 		logFileName := "waagent-exthandler-errors.log"
-		if err := writeToFile(s.testName, logFileName, logContents); err != nil {
+		if err := writeToFile(s.artifactName, logFileName, logContents); err != nil {
 			s.Logger.Logf("Warning: failed to write waagent log to file: %v", err)
 		} else {
-			s.Logger.Logf("Full waagent log written to: %s/%s", testDir(s.testName), logFileName)
+			s.Logger.Logf("Full waagent log written to: %s/%s", artifactDir(s.artifactName), logFileName)
 		}
 		errs = append(errs, fmt.Errorf("ExtHandler errors found in waagent.log:\n%s", errOutput))
 	}

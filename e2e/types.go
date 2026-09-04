@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"testing"
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
@@ -103,7 +102,12 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 		var match bool
 		switch field.Kind() {
 		case reflect.String:
-			match = strings.EqualFold(field.String(), value)
+			fieldValue := field.String()
+			if strings.EqualFold(key, "Name") {
+				fieldValue = trimLegacyTestPrefix(fieldValue)
+				value = trimLegacyTestPrefix(value)
+			}
+			match = strings.EqualFold(fieldValue, value)
 		case reflect.Bool:
 			boolValue, err := strconv.ParseBool(value)
 			if err != nil {
@@ -130,8 +134,18 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 	return anyMatch, nil
 }
 
+func trimLegacyTestPrefix(name string) string {
+	if len(name) >= len("Test_") && strings.EqualFold(name[:len("Test_")], "Test_") {
+		return name[len("Test_"):]
+	}
+	return name
+}
+
 // Scenario represents an AgentBaker E2E scenario.
 type Scenario struct {
+	// Name is the stable scenario name used by filters, logs, and test reports.
+	Name string
+
 	// Description is a short description of what the scenario does and tests for
 	Description string
 
@@ -152,19 +166,40 @@ type Scenario struct {
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
 
-	// T is reserved for test control only: reporting failures, skipping and
-	// creating sub-tests. Use Logger for logging, never T.
-	T testing.TB
+	// SkipReason disables the scenario with a fixed reason.
+	SkipReason string
+
+	// SkipIf returns a reason to skip before the scenario creates Azure resources.
+	// An empty reason runs the scenario.
+	SkipIf func(context.Context) string
 
 	// Logger writes the scenario log. It is set by the test runner before the
 	// scenario starts and carries no test-control capability.
 	Logger toolkit.Logger
 
-	// testName is the name of the test running the scenario. It is used to name
-	// the artifacts the scenario writes to disk.
-	testName string
+	// artifactName isolates files and Azure resource names created by this run.
+	artifactName string
 
-	cleanup *scenarioCleanup
+	cleanup      *scenarioCleanup
+	failed       bool
+	adoTestCases []adoTestCase
+}
+
+// adoTestCase becomes a separate JUnit test case so ADO can track a focused
+// measurement or validation independently from the parent scenario.
+type adoTestCase struct {
+	Name      string
+	ClassName string
+	Duration  time.Duration
+	Message   string
+}
+
+func (s *Scenario) recordADOTestCase(name, className string, duration time.Duration, err error) {
+	testCase := adoTestCase{Name: name, ClassName: className, Duration: duration}
+	if err != nil {
+		testCase.Message = err.Error()
+	}
+	s.adoTestCases = append(s.adoTestCases, testCase)
 }
 
 type ScenarioRuntime struct {
@@ -173,6 +208,7 @@ type ScenarioRuntime struct {
 	Cluster                   *Cluster
 	Kube                      *Kubeclient // per-test client with independent rate limiter
 	VM                        *ScenarioVM
+	VMSize                    string
 	VMSSName                  string
 	EnableScriptlessNBCCSECmd bool
 	CSETimingReport           *CSETimingReport // eagerly extracted before GA can sweep events
@@ -209,9 +245,8 @@ type Config struct {
 	// It runs after BootstrapConfigMutator.
 	BootstrapConfigMutatorWithError func(context.Context, *Cluster, *datamodel.NodeBootstrappingConfiguration) error
 
-	// PreProvisionBootstrapConfigMutator, when set, mutates the NodeBootstrappingConfig for the
-	// BAKE (pre-provision) stage ONLY of a VHDCaching/TestPreProvision two-stage run. It runs after
-	// BootstrapConfigMutator (and after PreProvisionOnly is set). Use it to deliberately make
+	// PreProvisionBootstrapConfigMutator mutates only the NodeBootstrappingConfig used to bake a cached VHD.
+	// It runs after BootstrapConfigMutator and after PreProvisionOnly is set. Use it to deliberately make
 	// bake-time state differ from provision-time state - e.g. inject a sentinel TLS bootstrap token -
 	// so that staleness regressions in the BasePrep->NodePrep split are caught positively.
 	PreProvisionBootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
@@ -234,7 +269,7 @@ type Config struct {
 	Validator func(ctx context.Context, s *Scenario) error
 
 	// SkipDefaultValidation is a flag to indicate whether the common validation (like spawning a pod) should be skipped.
-	// It shouldn't be used for majority of scenarios, currently only used for preparing VHD in a two-stage scenario
+	// It shouldn't be used for the majority of scenarios; VHD caching uses it while preparing the image.
 	SkipDefaultValidation bool
 
 	// SkipSSHConnectivityValidation is a flag to indicate whether the ssh connectivity validation should be skipped.
@@ -251,7 +286,7 @@ type Config struct {
 	VHDCaching bool
 
 	// ExpectedError, when set, indicates that VMSS creation is expected to fail with an error containing this substring.
-	// The assertion is performed inside the scenario's subtest.
+	// The assertion is performed during the scenario run.
 	ExpectedError string
 
 	// UseNVMe indicates whether to use NVMe-based disk placement/controller. This is required for certain VM sizes (e.g., v6 and v7 series) which only support NVMe disk controllers.
@@ -262,10 +297,6 @@ type Config struct {
 	// This prevents the Guest Agent from sweeping events before they can be read.
 	// Only set this on CSE performance test scenarios.
 	EagerCSETimingExtraction bool
-}
-
-func (s *Scenario) PrepareAKSNodeConfig() {
-
 }
 
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
@@ -429,7 +460,7 @@ func (s *Scenario) updateTags(ctx context.Context, vmss *armcompute.VirtualMachi
 		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
 	}
 
-	owner, err := getLoggedInAzUser()
+	owner, err := getLoggedInAzUser(ctx)
 	if err != nil {
 		owner, err = getLocalUsername()
 		if err != nil {
@@ -439,9 +470,8 @@ func (s *Scenario) updateTags(ctx context.Context, vmss *armcompute.VirtualMachi
 	vmss.Tags["owner"] = to.Ptr(owner)
 }
 
-func getLoggedInAzUser() (string, error) {
-	// Define the command and arguments
-	cmd := exec.Command("az", "account", "show", "--query", "user.name", "-o", "tsv")
+func getLoggedInAzUser(ctx context.Context) (string, error) {
+	cmd := exec.CommandContext(ctx, "az", "account", "show", "--query", "user.name", "-o", "tsv")
 
 	// Create a buffer to capture stdout
 	var out bytes.Buffer
