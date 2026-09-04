@@ -254,6 +254,10 @@
       "matchPackageNames": [
         "azuremonitor/containerinsights/ciprod"
       ],
+      "matchDatasources": [
+        "docker"
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-ci-prod-(?<prerelease>\\d{2}-\\d{2}-\\d{4}-[0-9a-f]+))?$",
       "groupName": "ciprod",
       "ignoreUnstable": false,
       "reviewers": [
