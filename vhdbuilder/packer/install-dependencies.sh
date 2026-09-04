@@ -815,13 +815,17 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
-# Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
-# Account for possibility that number of cores is 3 or less
+# Each image fetch can open several layer downloads. Cap the worker count so high-vCPU
+# builders do not overload the registry or network connection.
+max_parallel_container_image_pulls=16
 num_proc=$(nproc)
 if [ "$num_proc" -gt 3 ]; then
-  parallel_container_image_pull_limit=$(nproc --ignore=2)
+  parallel_container_image_pull_limit=$((num_proc - 2))
 else
   parallel_container_image_pull_limit=1
+fi
+if [ "$parallel_container_image_pull_limit" -gt "$max_parallel_container_image_pulls" ]; then
+  parallel_container_image_pull_limit="$max_parallel_container_image_pulls"
 fi
 echo "Limit for parallel container image pulls set to $parallel_container_image_pull_limit"
 
