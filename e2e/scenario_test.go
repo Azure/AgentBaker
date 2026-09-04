@@ -546,9 +546,8 @@ func Test_Ubuntu2204(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped with custom sysctls, and chrony/taints configured",
 		Config: Config{
-			Cluster:             ClusterKubenet,
-			VHD:                 config.VHDUbuntu2204Gen2Containerd,
-			SkipScaleValidation: true, // LimitNOFILE=1048 intentionally prevents full pod-capacity scaling.
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.KubeletConfig["--register-with-taints"] = registerWithTaints
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
@@ -775,9 +774,8 @@ func Test_Ubuntu2004Gen2FIPS(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2004 FIPS Gen2 VHD can be properly bootstrapped",
 		Config: Config{
-			Cluster:             ClusterKubenet,
-			VHD:                 config.VHDUbuntu2004FIPSGen2Containerd,
-			SkipScaleValidation: true, // Scale teardown contends with the scenario's subsequent iptables validation.
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2004FIPSGen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.8"
 			},
@@ -1065,9 +1063,8 @@ func Test_Ubuntu2204_HTTPSProxy_PrivateDNS(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node with HTTPS_PROXY and private DNS for API server bootstraps successfully",
 		Config: Config{
-			Cluster:             ClusterAzureNetwork,
-			VHD:                 config.VHDUbuntu2204Gen2Containerd,
-			SkipScaleValidation: true, // The node advertises more pod slots than the Azure CNI VMSS IP capacity.
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
 					HTTPSProxy: to.Ptr(cluster.ProxyURL),
@@ -1456,9 +1453,8 @@ func Test_Ubuntu2204_CustomSysctls(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
 		Config: Config{
-			Cluster:             ClusterKubenet,
-			VHD:                 config.VHDUbuntu2204Gen2Containerd,
-			SkipScaleValidation: true, // LimitNOFILE=1048 intentionally prevents full pod-capacity scaling.
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
@@ -1851,9 +1847,8 @@ func Test_AzureLinuxV3_CustomSysctls(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
 		Config: Config{
-			Cluster:             ClusterKubenet,
-			VHD:                 config.VHDAzureLinuxV3Gen2,
-			SkipScaleValidation: true, // LimitNOFILE=1048 intentionally prevents full pod-capacity scaling.
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
@@ -1899,9 +1894,8 @@ func Test_AzureLinuxV3_CustomLinuxOSConfigPersistsAfterReboot(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that AzureLinuxV3 custom Linux OS config persists after a node reboot",
 		Config: Config{
-			Cluster:             ClusterKubenet,
-			VHD:                 config.VHDAzureLinuxV3Gen2,
-			SkipScaleValidation: true, // LimitNOFILE=1048 intentionally prevents full pod-capacity scaling.
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
@@ -2243,9 +2237,8 @@ func Test_Ubuntu2604Minimal_AzureCNI(t *testing.T) {
 			VMSeriesCoverageTest: true,
 		},
 		Config: Config{
-			Cluster:             ClusterLatestKubernetesVersionAzureNetwork,
-			VHD:                 config.VHDUbuntu2604MinimalGen2Containerd,
-			SkipScaleValidation: true, // The node advertises more pod slots than the Azure CNI VMSS IP capacity.
+			Cluster: ClusterLatestKubernetesVersionAzureNetwork,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			Validator: func(ctx context.Context, s *Scenario) error {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
 				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
@@ -2560,9 +2553,8 @@ func Test_Ubuntu2604Minimal_CustomSysctls(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an ubuntu 2604 minimal VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
 		Config: Config{
-			Cluster:             ClusterLatestKubernetesVersionKubenet,
-			VHD:                 config.VHDUbuntu2604MinimalGen2Containerd,
-			SkipScaleValidation: true, // LimitNOFILE=1048 intentionally prevents full pod-capacity scaling.
+			Cluster: ClusterLatestKubernetesVersionKubenet,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
@@ -2728,7 +2720,7 @@ func Test_Ubuntu2604Minimal_NodeHardening_KubeReservedSlice_ConfigFile(t *testin
 				// resource list is also supplied; the base config only sets --kube-reserved,
 				// so --system-reserved must be added here too or kubelet fails to start with
 				// "system.slice cgroup is not configured properly".
-				nbc.KubeletConfig["--system-reserved"] = "cpu=200m,memory=500Mi,pid=1000"
+				nbc.KubeletConfig["--system-reserved"] = "cpu=200m,memory=500Mi"
 				// Simulate the RP still sending its legacy (stale) cgroup slice name today;
 				// setNodeHardeningCgroupFlags must overwrite these with the values AgentBaker
 				// owns rather than trusting them, or the node would end up in the wrong slice.
@@ -2757,8 +2749,9 @@ func Test_Ubuntu2604Minimal_NodeHardening_KubeReservedSlice_CLIFlags(t *testing.
 	RunScenario(t, &Scenario{
 		Description: "validates kubelet and containerd run in kubereserved.slice when node hardening cgroup hierarchy is enabled (kubelet CLI-flags mode)",
 		Config: Config{
-			Cluster: ClusterLatestKubernetesVersionKubenet,
-			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+			Cluster:               ClusterLatestKubernetesVersionKubenet,
+			VHD:                   config.VHDUbuntu2604MinimalGen2Containerd,
+			EnableScaleValidation: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				// AgentBaker (not the RP) now owns --kube-reserved-cgroup/--system-reserved-cgroup;
 				// it derives them from --enforce-node-allocatable (see setNodeHardeningCgroupFlags).
@@ -2767,13 +2760,12 @@ func Test_Ubuntu2604Minimal_NodeHardening_KubeReservedSlice_CLIFlags(t *testing.
 				// resource list is also supplied; the base config only sets --kube-reserved,
 				// so --system-reserved must be added here too or kubelet fails to start with
 				// "system.slice cgroup is not configured properly".
-				nbc.KubeletConfig["--system-reserved"] = "cpu=200m,memory=500Mi,pid=1000"
-				nbc.KubeletConfig["--kube-reserved"] = "cpu=200m,memory=4Gi,pid=1000"
+				nbc.KubeletConfig["--system-reserved"] = "cpu=200m,memory=500Mi"
 				// Simulate the RP still sending its legacy (stale) cgroup slice name today;
 				// setNodeHardeningCgroupFlags must overwrite these with the values AgentBaker
 				// owns rather than trusting them, or the node would end up in the wrong slice.
 				nbc.KubeletConfig["--kube-reserved-cgroup"] = "/kubelet.slice"
-				nbc.KubeletConfig["--system-reserved-cgroup"] = "/system.slice"
+				nbc.KubeletConfig["--system-reserved-cgroup"] = "/kubelet.slice"
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
 				return errors.Join(
@@ -2931,9 +2923,8 @@ func Test_Ubuntu2604Minimal_ImagePullIdentityBinding_NetworkIsolated(t *testing.
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster:             ClusterLatestKubernetesVersionAzureBootstrapProfileCache,
-			VHD:                 config.VHDUbuntu2604MinimalGen2Containerd,
-			SkipScaleValidation: true, // The node advertises more pod slots than the Azure CNI VMSS IP capacity.
+			Cluster: ClusterLatestKubernetesVersionAzureBootstrapProfileCache,
+			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Enable ServiceAccountImagePullProfile with test values
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
@@ -3582,9 +3573,8 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_NetworkIsolated(t *testing.T) 
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster:             ClusterAzureBootstrapProfileCache,
-			VHD:                 config.VHDUbuntu2204Gen2Containerd,
-			SkipScaleValidation: true, // The node advertises more pod slots than the Azure CNI VMSS IP capacity.
+			Cluster: ClusterAzureBootstrapProfileCache,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Enforce Kubernetes 1.34.8 for ServiceAccountImagePullProfile testing
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.8"
@@ -3797,9 +3787,8 @@ func Test_Ubuntu2204_SecondaryNIC_DualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a dual-stack secondary NIC is properly configured on Ubuntu 22.04",
 		Config: Config{
-			Cluster:             ClusterAzureOverlayNetworkDualStack,
-			VHD:                 config.VHDUbuntu2204Gen2Containerd,
-			SkipScaleValidation: true, // System pods can consume capacity after the scale target is calculated.
+			Cluster: ClusterAzureOverlayNetworkDualStack,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.StandardSecondaryNICCount = 1
 				if nbc.ContainerService.Properties.FeatureFlags == nil {

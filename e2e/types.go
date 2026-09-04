@@ -237,8 +237,8 @@ type Config struct {
 	// It shouldn't be used for majority of scenarios, currently only used for preparing VHD in a two-stage scenario
 	SkipDefaultValidation bool
 
-	// SkipScaleValidation skips validating that the scenario node can run pods up to its allocatable pod capacity.
-	SkipScaleValidation bool
+	// EnableScaleValidation validates that the scenario node can run pods up to its allocatable pod capacity.
+	EnableScaleValidation bool
 
 	// SkipSSHConnectivityValidation is a flag to indicate whether the ssh connectivity validation should be skipped.
 	// It shouldn't be used for majority of scenarios, currently only used for scenarios where the node is not expected to be reachable via ssh

@@ -534,7 +534,7 @@ func validateVM(ctx context.Context, s *Scenario) error {
 	if !s.Config.SkipDefaultValidation {
 		podValidationErr := ValidateNodeCanRunAPod(ctx, s)
 		errs = append(errs, podValidationErr)
-		if podValidationErr == nil && !s.Config.SkipScaleValidation {
+		if podValidationErr == nil && s.Config.EnableScaleValidation {
 			if err := ValidateNodeCanScaleToCapacity(ctx, s); err != nil {
 				s.Logger.Log("VM scale validation failed")
 				return err
