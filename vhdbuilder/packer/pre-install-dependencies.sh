@@ -172,6 +172,67 @@ if isMarinerOrAzureLinux "$OS" && [ "$OS_VERSION" = "3.0" ]; then
 fi
 capture_benchmark "${SCRIPT_NAME}_disable_kernel_lockdown_cmdline"
 
+# Azure Linux currently marks kernel and kernel-hwe as conflicting even though
+# their boot files do not overlap. Use dnf5 to co-install them until that package
+# conflict is removed upstream.
+if [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$CPU_ARCH" = "arm64" ] && [ -z "$OS_VARIANT" ] && [ "${ENABLE_FIPS,,}" != "true" ]; then
+  if ! rpm -q kernel-hwe &>/dev/null; then
+    dnf5_was_installed=false
+    if rpm -q dnf5 &>/dev/null; then
+      dnf5_was_installed=true
+    else
+      dnf_install 30 1 600 dnf5 || exit "$ERR_APT_INSTALL_TIMEOUT"
+    fi
+
+    dnf5 install -y kernel-hwe || exit "$ERR_APT_INSTALL_TIMEOUT"
+
+    if ! $dnf5_was_installed; then
+      tdnf remove -y dnf5 || true
+    fi
+  fi
+
+  for kernel_package in kernel kernel-hwe; do
+    if ! rpm -q "$kernel_package" &>/dev/null || ! rpm -ql "$kernel_package" | grep -q '^/boot/vmlinuz-'; then
+      echo "ARM64 Azure Linux: $kernel_package does not provide a bootable kernel" >&2
+      exit "$ERR_APT_INSTALL_TIMEOUT"
+    fi
+  done
+
+  # The signed ARM64 EFI binary does not embed smbios, and grub2-efi installs
+  # its dynamic modules outside the boot prefix. Stage the required closure
+  # until Azure Linux provides smbios at boot directly.
+  dnf_install 30 1 600 grub2-efi || exit "$ERR_APT_INSTALL_TIMEOUT"
+  grub_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2)
+  grub_efi_binary_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2-efi-binary)
+  grub_efi_modules_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2-efi)
+  if [ "$grub_version" != "$grub_efi_binary_version" ] || [ "$grub_version" != "$grub_efi_modules_version" ]; then
+    echo "ARM64 Azure Linux: GRUB package versions do not match: grub2=$grub_version, binary=$grub_efi_binary_version, modules=$grub_efi_modules_version" >&2
+    exit "$ERR_APT_INSTALL_TIMEOUT"
+  fi
+
+  grub_module_source=/usr/lib/grub/arm64-efi
+  grub_module_destination=/boot/grub2/arm64-efi
+  for grub_module_file in extcmd.mod smbios.mod moddep.lst; do
+    if [ ! -s "$grub_module_source/$grub_module_file" ]; then
+      echo "ARM64 Azure Linux: required GRUB file $grub_module_source/$grub_module_file is missing" >&2
+      exit "$ERR_APT_INSTALL_TIMEOUT"
+    fi
+  done
+  if ! grep -q '^smbios: extcmd$' "$grub_module_source/moddep.lst"; then
+    echo "ARM64 Azure Linux: unexpected smbios module dependencies" >&2
+    exit "$ERR_APT_INSTALL_TIMEOUT"
+  fi
+  install -d -m 0755 "$grub_module_destination"
+  install -m 0644 \
+    "$grub_module_source/extcmd.mod" \
+    "$grub_module_source/smbios.mod" \
+    "$grub_module_source/moddep.lst" \
+    "$grub_module_destination/"
+
+  grub2-mkconfig -o /boot/grub2/grub.cfg
+fi
+capture_benchmark "${SCRIPT_NAME}_install_kernel_hwe_arm64"
+
 # shellcheck disable=SC3010
 if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
 
