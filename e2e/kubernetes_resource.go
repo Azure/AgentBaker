@@ -3,7 +3,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"math"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -30,36 +29,6 @@ func uniqueKubernetesResourceName(base string) string {
 	return base + "-" + suffix
 }
 
-// availablePodSlots returns the allocatable pod capacity remaining after active pods assigned to the node.
-func availablePodSlots(node *corev1.Node, pods []corev1.Pod) (int32, error) {
-	capacity, found := node.Status.Allocatable[corev1.ResourcePods]
-	if !found {
-		return 0, fmt.Errorf("node %q does not advertise allocatable pods", node.Name)
-	}
-	maxPods := capacity.Value()
-	if maxPods <= 0 || maxPods > math.MaxInt32 {
-		return 0, fmt.Errorf("node %q advertises invalid allocatable pod capacity %d", node.Name, maxPods)
-	}
-
-	var activePods int64
-	for i := range pods {
-		pod := &pods[i]
-		if pod.Spec.NodeName != node.Name {
-			continue
-		}
-		if pod.DeletionTimestamp == nil && pod.Status.Phase != corev1.PodSucceeded && pod.Status.Phase != corev1.PodFailed {
-			activePods++
-		}
-	}
-
-	available := maxPods - activePods
-	if available <= 0 {
-		return 0, fmt.Errorf("node %q has no available pod slots: capacity=%d active=%d", node.Name, maxPods, activePods)
-	}
-	return int32(available), nil
-}
-
-// scenarioNodeOwnerReference returns an owner reference for the scenario's Kubernetes node.
 func scenarioNodeOwnerReference(ctx context.Context, s *Scenario) (metav1.OwnerReference, error) {
 	nodeName := s.Runtime.VM.KubeName
 	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
