@@ -211,10 +211,14 @@ func availableScaleReplicas(capacity int32, nodeName, scaleAppLabel string, pods
 		if pod.Spec.NodeName != nodeName {
 			continue
 		}
-		if scaleAppLabel == "" || pod.Labels["app"] != scaleAppLabel ||
-			pod.DeletionTimestamp != nil || pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
-			unavailableSlots++
+
+		if scaleAppLabel != "" && pod.Labels["app"] == scaleAppLabel {
+			if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
+				return 0, fmt.Errorf("scale validation pod %q unexpectedly entered terminal phase %q", pod.Name, pod.Status.Phase)
+			}
+			continue
 		}
+		unavailableSlots++
 	}
 
 	available := capacity - unavailableSlots

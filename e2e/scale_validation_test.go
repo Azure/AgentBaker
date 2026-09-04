@@ -80,11 +80,6 @@ func TestAvailableScaleReplicas(t *testing.T) {
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "scale-test"}},
-			Spec:       corev1.PodSpec{NodeName: "scenario-node"},
-			Status:     corev1.PodStatus{Phase: corev1.PodFailed},
-		},
-		{
-			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "scale-test"}},
 			Spec:       corev1.PodSpec{NodeName: "another-node"},
 			Status:     corev1.PodStatus{Phase: corev1.PodRunning},
 		},
@@ -94,7 +89,7 @@ func TestAvailableScaleReplicas(t *testing.T) {
 	if err != nil {
 		t.Fatalf("availableScaleReplicas returned an error: %v", err)
 	}
-	if want := int32(7); got != want {
+	if want := int32(8); got != want {
 		t.Fatalf("availableScaleReplicas = %d, want %d", got, want)
 	}
 
@@ -102,8 +97,20 @@ func TestAvailableScaleReplicas(t *testing.T) {
 	if err != nil {
 		t.Fatalf("availableScaleReplicas for initial target returned an error: %v", err)
 	}
-	if want := int32(5); got != want {
+	if want := int32(6); got != want {
 		t.Fatalf("initial availableScaleReplicas = %d, want %d", got, want)
+	}
+
+	failedValidationPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "failed-scale-pod",
+			Labels: map[string]string{"app": "scale-test"},
+		},
+		Spec:   corev1.PodSpec{NodeName: "scenario-node"},
+		Status: corev1.PodStatus{Phase: corev1.PodFailed},
+	}
+	if _, err := availableScaleReplicas(10, "scenario-node", "scale-test", append(pods, failedValidationPod)); err == nil {
+		t.Fatal("availableScaleReplicas returned nil error for a failed validation pod")
 	}
 }
 
