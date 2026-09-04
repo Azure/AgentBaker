@@ -279,6 +279,7 @@ steps:
     displayName: Test, Scan, and Cleanup
     env:
       BUILD_REPOSITORY_NAME: $(Build.Repository.Name)
+      SKIP_CLEANUP: $(SKIP_CLEANUP)
       BUILD_SOURCEVERSION: $(Build.SourceVersion)
       SYSTEM_COLLECTIONURI: $(System.CollectionUri)
       SYSTEM_TEAMPROJECT: $(System.TeamProject)
