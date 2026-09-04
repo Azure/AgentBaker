@@ -98,7 +98,7 @@ az extension add --name bastion
 cd e2e
 go test -count=1 ./...
 
-exec go run ./cmd/e2e run \
+go run ./cmd/e2e run \
   --parallel 60 \
   --suite-timeout "${E2E_GO_TEST_TIMEOUT}" \
   --retries "${E2E_FAILED_TESTS_RETRY_COUNT}" \
