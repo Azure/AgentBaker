@@ -25,6 +25,7 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSUbuntuContainerd2404TLGen2:           SIGUbuntuContainerd2404TLGen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuMinimalContainerd2604Gen2:      SIGUbuntuMinimalContainerd2604Gen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuMinimalArm64Containerd2604Gen2: SIGUbuntuMinimalArm64Containerd2604Gen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd2604CVMGen2:          SIGUbuntuContainerd2604CVMGen2ImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3:                         SIGAzureLinuxV3Gen1ImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2:                     SIGAzureLinuxV3Gen2ImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3FIPS:                     SIGAzureLinuxV3Gen1FIPSImageConfigTemplate.WithOptions(),
@@ -96,7 +97,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(sigConfig.SigTenantID).To(Equal("sometenantid"))
 		Expect(sigConfig.SubscriptionID).To(Equal("somesubid"))
 
-		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(19))
+		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(20))
 
 		Expect(len(sigConfig.SigCBLMarinerImageConfig)).To(Equal(9))
 
@@ -407,6 +408,12 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntuArm64MinimalContainerd2604Gen2.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntuArm64MinimalContainerd2604Gen2.Definition).To(Equal("2604minimalgen2arm64containerd"))
 		Expect(aksUbuntuArm64MinimalContainerd2604Gen2.Version).To(Equal(LinuxSIGImageVersion))
+
+		aksUbuntu2604CVMGen2Containerd := sigConfig.SigUbuntuImageConfig[AKSUbuntuContainerd2604CVMGen2]
+		Expect(aksUbuntu2604CVMGen2Containerd.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(aksUbuntu2604CVMGen2Containerd.Gallery).To(Equal("aksubuntu"))
+		Expect(aksUbuntu2604CVMGen2Containerd.Definition).To(Equal("2604gen2CVMcontainerd"))
+		Expect(aksUbuntu2604CVMGen2Containerd.Version).To(Equal(LinuxSIGImageVersion))
 
 		aclGen2 := sigConfig.SigAzureLinuxImageConfig[AKSACLGen2TL]
 		Expect(aclGen2.ResourceGroup).To(Equal("resourcegroup"))

@@ -56,7 +56,11 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
     # -> node never joins. Purging it also drops packagekit-tools + software-properties-common (add-apt-repository,
     # unused at node runtime; the build's only add-apt-repository usage is earlier in pre-install-dependencies.sh).
     # No-op on the minimal image, which does not ship these.
-    retrycmd_if_failure 10 2 60 apt-get purge --auto-remove packagekit packagekit-tools software-properties-common -y || exit 1
+    packagekit_packages=(packagekit software-properties-common)
+    if [ "$UBUNTU_RELEASE" != "26.04" ]; then
+      packagekit_packages+=(packagekit-tools)
+    fi
+    retrycmd_if_failure 10 2 60 apt-get purge --auto-remove "${packagekit_packages[@]}" -y || exit 1
   fi
 
   # strip old kernels/packages
