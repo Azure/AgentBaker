@@ -1,5 +1,20 @@
 #!/bin/bash
 
+INFINIBAND_CLASS_PATH="${INFINIBAND_CLASS_PATH:-/sys/class/infiniband}"
+
+getNodeExporterHardwareArgs() {
+    for device in "${INFINIBAND_CLASS_PATH}"/mana_*; do
+        if [ -e "$device" ]; then
+            printf '%s\n' '--no-collector.infiniband'
+            return
+        fi
+    done
+}
+
+if [ "${NODE_EXPORTER_STARTUP_SOURCE_ONLY:-false}" = "true" ]; then
+    return 0
+fi
+
 if [ "$(grep ^ID= /etc/os-release | cut -c 4-)" = "flatcar" ]; then
     NODE_IP=$(ip -o -4 addr show dev eth0 | awk '{print $4}' | cut -d '/' -f 1)
 else
@@ -99,20 +114,16 @@ ARGS=(
     --no-collector.arp.netlink
 )
 
-# MANA registers RDMA devices under /sys/class/infiniband, but node-exporter
-# fails the entire InfiniBand collector while parsing their rate files. Device
-# filters are applied too late to avoid the failure, so disable the collector
-# whenever MANA is present, including on mixed-HCA nodes.
-HAS_MANA_RDMA_DEVICE=false
-for device in /sys/class/infiniband/*; do
-    [ -e "$device" ] || continue
-    case "$(basename "$device")" in
-        mana_*) HAS_MANA_RDMA_DEVICE=true ;;
-    esac
-done
-if [ "$HAS_MANA_RDMA_DEVICE" = "true" ]; then
-    ARGS+=(--no-collector.infiniband)
-fi
+# MANA's RDMA driver publicly supports /sys/class/infiniband, but its rate file
+# returns EINVAL with the parser used by node-exporter 1.12.1. node-exporter also
+# parses every device before applying --collector.infiniband.device-exclude, so
+# that flag cannot skip mana_* safely. Disable the whole collector when MANA is
+# present. This also suppresses metrics from other HCAs on mixed-HCA nodes until
+# upstream can filter before parsing devices.
+# https://github.com/prometheus/node_exporter/issues/3810
+# https://learn.microsoft.com/azure/virtual-network/accelerated-networking-mana-linux
+readarray -t HARDWARE_ARGS < <(getNodeExporterHardwareArgs)
+ARGS+=("${HARDWARE_ARGS[@]}")
 
 if [ -n "$TLS_CONFIG_ARG" ]; then
     ARGS+=("$TLS_CONFIG_ARG")
