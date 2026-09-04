@@ -3,6 +3,15 @@
 ERR_FILE_WATCH_TIMEOUT=6
 set -x
 
+PROVISION_JSON_FILEPATH=/var/log/azure/aks/provision.json
+
+if [ -f "${PROVISION_JSON_FILEPATH}" ]; then
+    local exit_code
+    exit_code=$(jq -r '.ExitCode' "${PROVISION_JSON_FILEPATH}")
+    echo "Already ran provisioning, exiting with code ${exit_code}..."
+    exit "${exit_code}"
+fi
+
 # Cleanup cache file to force fetch fresh instance metadata from IMDS
 rm -f /opt/azure/containers/imds_instance_metadata_cache.json
 
