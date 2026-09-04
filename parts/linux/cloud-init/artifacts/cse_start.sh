@@ -1,5 +1,34 @@
 #!/bin/bash
 
+PROVISION_JSON_FILE_PATH="/var/log/azure/aks/provision.json"
+PROVISION_COMPLETE_FILE_PATH="/opt/azure/containers/provision.complete"
+BASE_PREP_COMPLETE_FILE_PATH="/opt/azure/containers/base_prep.complete"
+
+publishProvisionResponse() {
+    local response="$1"
+    local response_tmp="${PROVISION_JSON_FILE_PATH}.tmp"
+    local complete_file
+
+    # shellcheck disable=SC2086
+    echo ${response}
+    mkdir -p "$(dirname "${PROVISION_JSON_FILE_PATH}")" || return 1
+
+    # shellcheck disable=SC2086
+    if ! echo ${response} > "${response_tmp}" ||
+       ! chmod 0644 "${response_tmp}" ||
+       ! mv -f "${response_tmp}" "${PROVISION_JSON_FILE_PATH}"; then
+        rm -f "${response_tmp}"
+        return 1
+    fi
+
+    if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
+        complete_file="${BASE_PREP_COMPLETE_FILE_PATH}"
+    else
+        complete_file="${PROVISION_COMPLETE_FILE_PATH}"
+    fi
+    mkdir -p "$(dirname "${complete_file}")" && touch "${complete_file}"
+}
+
 CSE_STARTTIME=$(date)
 CSE_STARTTIME_FORMATTED=$(date +"%F %T.%3N")
 export CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s) # Export for child processes, used in early retry loop exits
@@ -39,24 +68,6 @@ fi
 if [ -f "/opt/azure/containers/aks-node-controller-nbc-cmd.sh" ]; then
     SCRIPTLESS_MODE="nbc_cse_cmd"
 fi
-
-JSON_STRING=$( jq -n \
-                  --arg ec "$EXIT_CODE" \
-                  --arg op "$OUTPUT" \
-                  --arg er "" \
-                  --arg ed "$EXECUTION_DURATION" \
-                  --arg ks "$KERNEL_STARTTIME" \
-                  --arg cinitl "$CLOUDINITLOCAL_STARTTIME" \
-                  --arg cinit "$CLOUDINIT_STARTTIME" \
-                  --arg cf "$CLOUDINITFINAL_STARTTIME" \
-                  --arg ns "$NETWORKD_STARTTIME" \
-                  --arg cse "$CSE_STARTTIME" \
-                  --arg ga "$GUEST_AGENT_STARTTIME" \
-                  --arg ss "$SYSTEMD_SUMMARY" \
-                  --arg kubelet "$KUBELET_START_TIME" \
-                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CloudInitLocalStartTime: $cinitl, CloudInitStartTime: $cinit, CloudFinalStartTime: $cf, NetworkdStartTime: $ns, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss, BootDatapoints: { KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, KubeletStartTime: $kubelet }}' )
-mkdir -p /var/log/azure/aks
-echo $JSON_STRING | tee /var/log/azure/aks/provision.json
 
 # Cleanup cache file
 rm -f /opt/azure/containers/imds_instance_metadata_cache.json || true
@@ -112,15 +123,32 @@ upload_logs() {
         python3 /opt/azure/containers/provision_send_logs.py >/dev/null 2>&1
     fi
 }
-# Create the marker for the completed provisioning stage.
+JSON_STRING=$( jq -n \
+                  --arg ec "$EXIT_CODE" \
+                  --arg op "$OUTPUT" \
+                  --arg er "" \
+                  --arg ed "$EXECUTION_DURATION" \
+                  --arg ks "$KERNEL_STARTTIME" \
+                  --arg cinitl "$CLOUDINITLOCAL_STARTTIME" \
+                  --arg cinit "$CLOUDINIT_STARTTIME" \
+                  --arg cf "$CLOUDINITFINAL_STARTTIME" \
+                  --arg ns "$NETWORKD_STARTTIME" \
+                  --arg cse "$CSE_STARTTIME" \
+                  --arg ga "$GUEST_AGENT_STARTTIME" \
+                  --arg ss "$SYSTEMD_SUMMARY" \
+                  --arg kubelet "$KUBELET_START_TIME" \
+                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CloudInitLocalStartTime: $cinitl, CloudInitStartTime: $cinit, CloudFinalStartTime: $cf, NetworkdStartTime: $ns, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss, BootDatapoints: { KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, KubeletStartTime: $kubelet }}' )
+
+if ! publishProvisionResponse "${JSON_STRING}"; then
+    echo "Failed to publish provisioning response" >&2
+    if [ "$EXIT_CODE" -ne 0 ]; then
+        exit "$EXIT_CODE"
+    fi
+    exit 1
+fi
 if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
-    # Stage 1: Create marker indicating Stage 2 is needed
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete
     echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
     echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
-else
-    # provision.complete signals that a normal provisioning attempt finished.
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 fi
 
 if [ "$EXIT_CODE" -ne 0 ]; then

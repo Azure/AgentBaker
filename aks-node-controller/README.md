@@ -82,7 +82,7 @@ Here is an example response return by CSE:
 
 ### Provisioning Flow
 
-Here is an indepth explanation of the provisioning flow. Upon first startup, CustomData is made available to the VM, after which cloud-init is able to process the content, in this case, writing the bootstrap config to disk. The binary is triggered by a systemd unit, [`aks-node-controller.service`](https://github.com/Azure/AgentBaker/blob/dev/parts/linux/cloud-init/artifacts/aks-node-controller.service) which is automatically run once cloud-init is complete. In this way, we are ensuring the bootstrapping config is present on the node and can proceeed to run the go binary to start the bootstrapping process.
+On first startup, cloud-init processes CustomData and writes the bootstrap configuration to disk. The cloud boothook starts [`aks-node-controller.service`](../parts/linux/cloud-init/artifacts/aks-node-controller.service) after the configuration is available, and the controller starts the bootstrap process.
 
 Clients need to provide CSE and Custom Data. [nodeconfigutils](pkg/nodeconfigutils) module contains helpers for generating these values.
 
@@ -129,11 +129,19 @@ sequenceDiagram
     ARM->>VM: Initiate aks-node-controller (Go binary)<br/>in provision-wait mode via CSE
 
     loop Monitor provisioning status
-        VM->>VM: Check /opt/azure/containers/provision.complete
+        VM->>VM: Wait for provisioning result
     end
 
     VM-->>Client: Return CSE status with<br/>/var/log/azure/aks/provision.json content
 ```
+
+#### Provision result
+
+`/var/log/azure/aks/provision.json` contains the CSE exit code, output, error, and boot timing data. Writers stage the result in the same directory, set mode `0644`, and atomically rename it to `provision.json`, so readers never observe partial JSON. The payload is also emitted to stdout.
+
+`cse_start.sh` writes the detailed result after bootstrap. If bootstrap cannot start, `aks-node-controller` writes a fallback result. An existing shell result is preserved because it contains richer diagnostics.
+
+PIS generalization must remove `provision.json` before image capture.
 
 Key components:
 
@@ -142,10 +150,6 @@ Key components:
 
 - **provision**: Parses the node configuration and starts the bootstrap sequence.
     - The controller performs a tolerant (forward‑compatible) parse of `aksnodeconfigv1.Configuration`: unknown fields, additional enum values, or future‑version knobs are ignored (and may be logged) so that a newer control‑plane can talk to an older VHD image.
-    - If the config cannot be safely interpreted (e.g. unsupported `Version`, malformed required field, or incompatible schema change), the controller fails fast. It writes the sentinel file `provision.complete` early so the `provision-wait` process stops polling and can surface an error instead of hanging indefinitely.
-    - In a fail‑fast path the normal bootstrap scripts never run, therefore `provision.json` (which would contain the serialized `CSEStatus`) is never created. A typical error looks like:
-        ```
-        failed to read provision.json: open /var/log/azure/aks/provision.json: no such file or directory. One reason could be that AKSNodeConfig is not properly set.
-        ```
-        This indicates the controller exited before emitting `provision.json`. Most commonly the rendered AKSNodeConfig was missing, had the wrong `Version` (expected `v1`), or was written to the wrong path (`/opt/azure/containers/aks-node-controller-config.json`). Fix the config generation, redeploy, and the bootstrap scripts will then populate `provision.json`.
-- **provision-wait**: waits for `provision.complete` to be present and reads `provision.json` which contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout.
+    - If the config cannot be safely interpreted and no result exists, the controller atomically writes a fallback failure to `provision.json`.
+    - Once the bootstrap scripts have written their detailed `provision.json`, the controller preserves that result instead of replacing it with the less specific process error.
+- **provision-wait**: Waits for provisioning, then reads and evaluates `provision.json`. A non-zero serialized exit code makes the command fail while the full JSON remains available on stdout.
