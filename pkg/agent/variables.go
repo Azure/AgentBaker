@@ -4,7 +4,6 @@
 package agent
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -87,6 +86,18 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
+	httpProxy, httpsProxy, noProxy := "", "", ""
+	if config.HTTPProxyConfig != nil {
+		if config.HTTPProxyConfig.HTTPProxy != nil {
+			httpProxy = *config.HTTPProxyConfig.HTTPProxy
+		}
+		if config.HTTPProxyConfig.HTTPSProxy != nil {
+			httpsProxy = *config.HTTPProxyConfig.HTTPSProxy
+		}
+		if config.HTTPProxyConfig.NoProxy != nil {
+			noProxy = strings.Join(*config.HTTPProxyConfig.NoProxy, ",")
+		}
+	}
 
 	// this method is called for both windows and linux. If there's no windows profile, then let's just
 	// use a blank one.
@@ -145,6 +156,9 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"serviceAccountImagePullDefaultClientID": getServiceAccountImagePullDefaultClientID(cs),
 		"serviceAccountImagePullDefaultTenantID": getServiceAccountImagePullDefaultTenantID(cs),
 		"identityBindingsLocalAuthoritySNI":      getServiceAccountImagePullLocalAuthoritySNI(cs),
+		"httpProxyShellQuoted":                   shellQuote(httpProxy),
+		"httpsProxyShellQuoted":                  shellQuote(httpsProxy),
+		"noProxyShellQuoted":                     shellQuote(noProxy),
 	}
 }
 
@@ -230,20 +244,19 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 	return connectivityCheckCommand
 }
 
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'"'"'`) + "'"
+}
+
 func getProxyVariables(nbc *datamodel.NodeBootstrappingConfiguration) string {
-	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy.
-	proxyVars := ""
-	if nbc.HTTPProxyConfig != nil {
-		if nbc.HTTPProxyConfig.HTTPProxy != nil {
-			// from https://curl.se/docs/manual.html, curl uses http_proxy but uppercase for others?
-			proxyVars = fmt.Sprintf("export http_proxy=\"%s\";", *nbc.HTTPProxyConfig.HTTPProxy)
-		}
-		if nbc.HTTPProxyConfig.HTTPSProxy != nil {
-			proxyVars = fmt.Sprintf("export HTTPS_PROXY=\"%s\"; %s", *nbc.HTTPProxyConfig.HTTPSProxy, proxyVars)
-		}
-		if nbc.HTTPProxyConfig.NoProxy != nil {
-			proxyVars = fmt.Sprintf("export NO_PROXY=\"%s\"; %s", strings.Join(*nbc.HTTPProxyConfig.NoProxy, ","), proxyVars)
-		}
+	if nbc.HTTPProxyConfig == nil ||
+		(nbc.HTTPProxyConfig.HTTPProxy == nil && nbc.HTTPProxyConfig.HTTPSProxy == nil && nbc.HTTPProxyConfig.NoProxy == nil) {
+		return ""
 	}
-	return proxyVars
+
+	// Older VHDs evaluate PROXY_VARS. Keep this payload free of customer-controlled values;
+	// those values are shell-quoted separately and referenced only through variables here.
+	return `if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}" http_proxy="${HTTP_PROXY_URLS}"; fi; ` +
+		`if [ -n "${HTTPS_PROXY_URLS}" ]; then export HTTPS_PROXY="${HTTPS_PROXY_URLS}" https_proxy="${HTTPS_PROXY_URLS}"; fi; ` +
+		`if [ -n "${NO_PROXY_URLS}" ]; then export NO_PROXY="${NO_PROXY_URLS}" no_proxy="${NO_PROXY_URLS}"; fi`
 }
