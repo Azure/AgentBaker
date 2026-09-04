@@ -2853,7 +2853,7 @@ func nodeHasInfiniBandHardware(ctx context.Context, s *Scenario) (bool, error) {
 	command := `for device in /sys/bus/pci/devices/*; do
     if [ -d "$device" ] &&
        grep -qi '^0x1414$' "$device/vendor" 2>/dev/null &&
-       grep -qi '^0x00ba$' "$device/device" 2>/dev/null; then
+       grep -Eqi '^0x00(b9|ba|c1)$' "$device/device" 2>/dev/null; then
         exit 1
     fi
 done

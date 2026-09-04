@@ -42,6 +42,15 @@ Describe 'node-exporter-startup.sh hardware arguments'
         The output should equal '--no-collector.infiniband'
     End
 
+    It 'recognizes the current MANA PF and PF2 device IDs'
+        add_pci_device '7870:00:00.0' '0x1414' '0x00b9'
+        add_pci_device '7870:00:00.1' '0x1414' '0x00c1'
+
+        When call getNodeExporterHardwareArgs
+        The status should be success
+        The output should equal '--no-collector.infiniband'
+    End
+
     It 'disables the InfiniBand collector on mixed MANA and non-MANA devices'
         add_pci_device '0000:00:02.0' '0x15b3' '0x1017'
         add_pci_device '7870:00:00.0' '0x1414' '0x00ba'

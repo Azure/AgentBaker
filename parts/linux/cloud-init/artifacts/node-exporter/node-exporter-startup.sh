@@ -6,7 +6,7 @@ getNodeExporterHardwareArgs() {
     for device in "${PCI_DEVICES_PATH}"/*; do
         if [ -d "$device" ] &&
            grep -qi '^0x1414$' "$device/vendor" 2>/dev/null &&
-           grep -qi '^0x00ba$' "$device/device" 2>/dev/null; then
+           grep -Eqi '^0x00(b9|ba|c1)$' "$device/device" 2>/dev/null; then
             printf '%s\n' '--no-collector.infiniband'
             return
         fi
@@ -119,12 +119,16 @@ ARGS=(
 # MANA's RDMA driver publicly supports /sys/class/infiniband, but its rate file
 # returns EINVAL with the parser used by node-exporter 1.12.1. node-exporter also
 # parses every device before applying either its device include or exclude
-# filter, so neither flag can avoid the failure. Detect MANA using its documented
-# PCI identity, which is available before this kubelet-ordered service starts,
-# and disable the whole collector. This also suppresses metrics from other HCAs
-# on mixed-HCA nodes until upstream can filter before parsing devices.
+# filter, so neither flag can avoid the failure. Detect MANA by its assigned PCI
+# IDs (Microsoft 1414; MANA PF 00b9, VF 00ba, PF2 00c1). PCI enumeration happens
+# during boot before userspace services start, unlike the later mana_ib driver
+# registration that creates mana_* under /sys/class/infiniband, so this check
+# cannot race RDMA class creation. Disable the whole collector when MANA is
+# present. This also suppresses metrics from other HCAs on mixed-HCA nodes until
+# upstream can filter before parsing devices.
 # https://github.com/prometheus/node_exporter/issues/3810
 # https://learn.microsoft.com/azure/virtual-network/accelerated-networking-mana-linux
+# https://github.com/torvalds/linux/blob/master/include/net/mana/gdma.h
 readarray -t HARDWARE_ARGS < <(getNodeExporterHardwareArgs)
 ARGS+=("${HARDWARE_ARGS[@]}")
 
