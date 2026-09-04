@@ -1216,7 +1216,7 @@ func ValidateWindowsExporter(ctx context.Context, s *Scenario) error {
 		fmt.Sprintf("$resp = Invoke-WebRequest -UseBasicParsing -Uri '%s' -TimeoutSec 10", metricsURL),
 		"$metricsContent = [string]$resp.Content",
 		"Write-Output \"metrics endpoint returned status $($resp.StatusCode) with $($metricsContent.Length) characters\"",
-		"$requiredMetricNames = @('windows_cpu_info', 'windows_cpu_time_total', 'windows_logical_disk_free_bytes', 'windows_logical_disk_size_bytes', 'windows_memory_available_bytes', 'windows_net_bytes_received_total', 'windows_net_bytes_sent_total', 'windows_os_info', 'windows_process_cpu_time_total')",
+		"$requiredMetricNames = @('windows_cpu_info', 'windows_cpu_time_total', 'windows_logical_disk_free_bytes', 'windows_logical_disk_size_bytes', 'windows_memory_available_bytes', 'windows_net_bytes_received_total', 'windows_net_bytes_sent_total', 'windows_os_info', 'windows_pagefile_free_bytes', 'windows_process_cpu_time_total')",
 		"foreach ($metricName in $requiredMetricNames) {",
 		"  if ($metricsContent -match \"(?m)^$([regex]::Escape($metricName))(?:\\{|\\s)\") { Write-Output \"$metricName 1\" }",
 		"}",
@@ -1256,6 +1256,7 @@ func validateWindowsExporterMetrics(metricsText string) error {
 		"windows_net_bytes_received_total",
 		"windows_net_bytes_sent_total",
 		"windows_os_info",
+		"windows_pagefile_free_bytes",
 		"windows_process_cpu_time_total",
 	}
 	var missingMetrics []string

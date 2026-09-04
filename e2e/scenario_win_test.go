@@ -703,6 +703,8 @@ windows_net_bytes_received_total{nic="Ethernet"} 1
 windows_net_bytes_sent_total{nic="Ethernet"} 1
 # TYPE windows_os_info gauge
 windows_os_info{product="Windows Server 2022 Datacenter"} 1
+# TYPE windows_pagefile_free_bytes gauge
+windows_pagefile_free_bytes{page="_Total"} 1
 # TYPE windows_process_cpu_time_total counter
 windows_process_cpu_time_total{process="kubelet",process_id="1",mode="user"} 1
 `
