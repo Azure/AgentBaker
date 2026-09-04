@@ -225,7 +225,7 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 			result.ADOTestCases = append([]adoTestCase(nil), scenario.adoTestCases...)
 		}
 		if result.Status != statusSkipped {
-			logger.FlushConsole(string(result.Status))
+			logger.FlushConsole(result.Status, attempt, e.opts.retries+1, result.Duration)
 		}
 		if logErr != nil && !e.stream {
 			logger.PrintConsoleFailure(result.Message)
@@ -387,6 +387,14 @@ func summaryMessage(message string) string {
 	return summary
 }
 
+func attemptConsoleLabel(status resultStatus, attempt, maxAttempts int, duration time.Duration) string {
+	duration = duration.Round(time.Second)
+	if maxAttempts > 1 {
+		return fmt.Sprintf("attempt %d/%d, %s, %s", attempt, maxAttempts, status, duration)
+	}
+	return fmt.Sprintf("%s, %s", status, duration)
+}
+
 type scenarioLogger struct {
 	executor *executor
 	name     string
@@ -441,7 +449,7 @@ func (l *scenarioLogger) write(message string) {
 	}
 }
 
-func (l *scenarioLogger) FlushConsole(label string) {
+func (l *scenarioLogger) FlushConsole(status resultStatus, attempt, maxAttempts int, duration time.Duration) {
 	if l.executor.stream {
 		return
 	}
@@ -458,11 +466,16 @@ func (l *scenarioLogger) FlushConsole(label string) {
 	}
 	l.executor.consoleMu.Lock()
 	defer l.executor.consoleMu.Unlock()
+	name := l.name
+	if status == statusFailed {
+		name = "🔴 " + name
+	}
+	label := attemptConsoleLabel(status, attempt, maxAttempts, duration)
 	if l.executor.opts.outputMode == "grouped" {
-		_, _ = fmt.Fprintf(l.executor.stdout, "##[group]%s (%s)\n%s##[endgroup]\n", l.name, label, output)
+		_, _ = fmt.Fprintf(l.executor.stdout, "##[group]%s (%s)\n%s##[endgroup]\n", name, label, output)
 		return
 	}
-	_, _ = fmt.Fprintf(l.executor.stdout, "=== %s (%s) ===\n%s", l.name, label, output)
+	_, _ = fmt.Fprintf(l.executor.stdout, "=== %s (%s) ===\n%s", name, label, output)
 }
 
 func (l *scenarioLogger) Close() error {
