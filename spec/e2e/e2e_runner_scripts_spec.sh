@@ -99,7 +99,7 @@ EOF
     The contents of file "${COMMAND_LOG}" should include 'runner-env <45m> <7>'
   End
 
-  It 'runs uncached unit tests before building and forwards pipeline options'
+  It 'runs uncached unit tests before the CLI and forwards pipeline options'
     When run env \
       SUBSCRIPTION_ID='test-subscription' \
       DefaultWorkingDirectory="${TEST_REPO}" \
@@ -110,12 +110,11 @@ EOF
     The status should be success
     The output should be present
     The contents of file "${COMMAND_LOG}" should include 'go <test> <-count=1> <./...>'
-    The contents of file "${COMMAND_LOG}" should include 'go <build> <-o> <bin/e2e> <./cmd/e2e>'
-    The contents of file "${COMMAND_LOG}" should include 'e2e <run> <--parallel> <60> <--suite-timeout> <75m> <--retries> <2> <--log-dir> <scenario-logs-12345> <--junit-file>'
+    The contents of file "${COMMAND_LOG}" should include 'go <run> <./cmd/e2e> <run> <--parallel> <60> <--suite-timeout> <75m> <--retries> <2> <--log-dir> <scenario-logs-12345> <--junit-file>'
     The contents of file "${COMMAND_LOG}" should include '<--output> <grouped>'
   End
 
-  It 'stops the pipeline before build and execution when unit tests fail'
+  It 'stops the pipeline before CLI execution when unit tests fail'
     When run env \
       SUBSCRIPTION_ID='test-subscription' \
       DefaultWorkingDirectory="${TEST_REPO}" \
@@ -125,7 +124,6 @@ EOF
     The status should be failure
     The output should be present
     The contents of file "${COMMAND_LOG}" should include 'go <test> <-count=1> <./...>'
-    The contents of file "${COMMAND_LOG}" should not include 'go <build>'
-    The contents of file "${COMMAND_LOG}" should not include 'e2e <run>'
+    The contents of file "${COMMAND_LOG}" should not include 'go <run>'
   End
 End
