@@ -780,8 +780,7 @@ function Install-WindowsExporterOnVHD
 
     if (-not (Test-Path $exporterCacheDir))
     {
-        Write-Log "windows-exporter cache directory not found at $exporterCacheDir; skipping VHD install"
-        return
+        throw "windows-exporter cache directory not found at $exporterCacheDir"
     }
 
     $expectedExporterZipName = [IO.Path]::GetFileName($global:windowsExporterPackageUrl.Split('?')[0])

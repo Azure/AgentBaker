@@ -75,6 +75,10 @@ $global:releaseNotesToSet = GetKeyMapForReleaseNotes $windowsSettingsJson
 
 function Get-WindowsExporterPackageUrl
 {
+    # Validate that the component has one usable active version before selecting
+    # the corresponding URL from the VHD package map.
+    $null = GetWindowsPackageVersionFromComponentsJson $componentsJson "windows-exporter"
+
     $windowsExporterPackages = $global:map["c:\akse-cache\windows-exporter\"]
     $windowsExporterPackageCount = 0
     if ($windowsExporterPackages -ne $null)
