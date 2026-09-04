@@ -648,7 +648,7 @@ function nodePrep {
     fi
 
     if systemctl cat aks-log-collector.timer &>/dev/null; then
-        systemctlEnableAndStartNoBlock aks-log-collector.timer 30 || echo "Warning: Could not start aks-log-collector.timer"
+        systemctlEnableAndStartNoBlock aks-log-collector.timer 30 $SYSTEMCTL_RESTART_OPTIONAL_RETRIES || echo "Warning: Could not start aks-log-collector.timer"
     else
         echo "aks-log-collector.timer not found on this VHD, skipping"
     fi
