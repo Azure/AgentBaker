@@ -326,6 +326,119 @@ if ! requiresCISScan "${OS_SKU}" "${OS_VERSION}"; then
     exit 0
 fi
 
+# --- Compliance Engine scan (shadow, non-blocking) ---
+# Runs the benchmark-agnostic compliance-engine-assessor on the same scan VM,
+# alongside (not instead of) the CIS-CAT scan below. Emits native JSON only.
+# This runs BEFORE the CIS-CAT block on purpose, so the CIS-CAT skip/license
+# early-exits do not suppress the Compliance Engine results. It is fully
+# non-blocking: compliance findings never fail the build, and any operational
+# error here is swallowed so it cannot abort the CIS-CAT scan that follows.
+#
+# Inputs are laid down on the agent by
+# .pipelines/templates/.compliance-engine-scan-template.yaml at:
+#   vhdbuilder/compliance-engine/compliance-engine-assessor
+#   vhdbuilder/compliance-engine/mof/ubuntu-<version>-<level>.mof
+CE_SCRIPT_PATH="$CDIR/compliance-engine-report.sh"
+CE_ASSESSOR_LOCAL="$CDIR/../compliance-engine/compliance-engine-assessor"
+CE_MOF_DIR="$CDIR/../compliance-engine/mof"
+
+run_compliance_engine_scan() {
+    local skip="${SKIP_COMPLIANCE_ENGINE:-false}"
+    if [ "${skip,,}" = "true" ]; then
+        echo "Skipping Compliance Engine scan (SKIP_COMPLIANCE_ENGINE=true)"
+        return 0
+    fi
+    if [ ! -x "$CE_ASSESSOR_LOCAL" ]; then
+        echo "Compliance Engine assessor not found at ${CE_ASSESSOR_LOCAL}; skipping (non-blocking)"
+        return 0
+    fi
+    local mofs=()
+    if [ -d "$CE_MOF_DIR" ]; then
+        while IFS= read -r m; do
+            [ -n "$m" ] && mofs+=("$m")
+        done < <(find "$CE_MOF_DIR" -maxdepth 1 -name "ubuntu-${OS_VERSION}-*.mof" -type f | sort)
+    fi
+    if [ "${#mofs[@]}" -eq 0 ]; then
+        echo "No Compliance Engine MOFs for ubuntu ${OS_VERSION} under ${CE_MOF_DIR}; skipping (non-blocking)"
+        return 0
+    fi
+
+    local ce_ts assessor_blob
+    ce_ts=$(date +%s%3N)
+    assessor_blob="compliance-engine-assessor-${BUILD_ID}-${ce_ts}"
+    echo "Uploading Compliance Engine assessor to blob ${assessor_blob}"
+    az storage blob upload --container-name "${SIG_CONTAINER_NAME}" --file "${CE_ASSESSOR_LOCAL}" --name "${assessor_blob}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login --overwrite
+
+    local m key mof_blob result_blob log_blob result_local junit_local
+    for m in "${mofs[@]}"; do
+        key=$(basename "$m" .mof)
+        mof_blob="ce-mof-${key}-${BUILD_ID}-${ce_ts}.mof"
+        result_blob="ce-result-${key}-${BUILD_ID}-${ce_ts}.json"
+        log_blob="ce-log-${key}-${BUILD_ID}-${ce_ts}.log"
+        result_local="compliance-engine-${key}.json"
+
+        echo "Compliance Engine: auditing ${key} (MOF ${m})"
+        az storage blob upload --container-name "${SIG_CONTAINER_NAME}" --file "${m}" --name "${mof_blob}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login --overwrite
+
+        local ret msg
+        ret=$(az vm run-command invoke \
+            --command-id RunShellScript \
+            --name "$SCAN_VM_NAME" \
+            --resource-group "$RESOURCE_GROUP_NAME" \
+            --scripts @"$CE_SCRIPT_PATH" \
+            --parameters "ASSESSOR_BLOB_NAME=${assessor_blob}" \
+                "MOF_BLOB_NAME=${mof_blob}" \
+                "RESULT_BLOB_NAME=${result_blob}" \
+                "LOG_BLOB_NAME=${log_blob}" \
+                "STORAGE_ACCOUNT_NAME=${STORAGE_ACCOUNT_NAME}" \
+                "SIG_CONTAINER_NAME=${SIG_CONTAINER_NAME}" \
+                "AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING}" \
+                "ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH}" \
+                "TEST_VM_ADMIN_USERNAME=${SCAN_VM_ADMIN_USERNAME}" \
+                "OS_SKU=${OS_SKU}")
+        echo "$ret"
+        msg=$(echo -E "$ret" | jq -r '.value[].message' 2>/dev/null || true)
+        echo "$msg"
+
+        # Retrieve the JSON result (and the assessor log) for publication.
+        az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${result_blob}" --file "${result_local}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login || \
+            echo "WARNING: no Compliance Engine result blob for ${key}"
+        az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${log_blob}" --file "compliance-engine-${key}.log" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login || \
+            echo "WARNING: no Compliance Engine log blob for ${key}"
+
+        # Clean up per-MOF blobs.
+        az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${mof_blob}" --auth-mode login || true
+        az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${result_blob}" --auth-mode login || true
+        az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${log_blob}" --auth-mode login || true
+
+        # Non-blocking validation: warn (never fail) on a missing/invalid result.
+        if [ -s "${result_local}" ] && jq -e '.' "${result_local}" >/dev/null 2>&1; then
+            echo "Compliance Engine ${key}: valid JSON result at ${result_local}"
+            # Render JUnit centrally on the agent from the canonical JSON. The
+            # assessor's `render` subcommand is root-free and pure over JSON, so
+            # it runs here rather than on the scan VM. Requires a render-capable
+            # assessor; if unsupported (older binary) it is skipped non-blocking
+            # and only the JSON is published.
+            junit_local="compliance-engine-${key}.junit.xml"
+            if "$CE_ASSESSOR_LOCAL" --format junit --suite-name "${key}" render "${result_local}" > "${junit_local}" 2>/dev/null && [ -s "${junit_local}" ]; then
+                echo "Compliance Engine ${key}: rendered JUnit at ${junit_local}"
+            else
+                printf '##vso[task.logissue type=warning]Compliance Engine %s: JUnit render failed or unsupported by the assessor; publishing JSON only.\n' "$key"
+                rm -f "${junit_local}"
+            fi
+        else
+            printf '##vso[task.logissue type=warning]Compliance Engine %s: missing or invalid JSON result (non-blocking).\n' "$key"
+        fi
+    done
+
+    # Clean up the shared assessor blob.
+    az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${assessor_blob}" --auth-mode login || true
+}
+
+# Isolate in a subshell with `set +e` so nothing here can abort the CIS-CAT scan.
+( set +e; run_compliance_engine_scan ) || true
+capture_benchmark "${SCRIPT_NAME}_compliance_engine_scan"
+
 # Set this pipeline variable to true if CIS scanning is broken
 SKIP_CIS=${SKIP_CIS:-false}
 if [ "${SKIP_CIS,,}" = "true" ]; then
