@@ -306,6 +306,12 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 		},
 		"raw": {
 			`^-A (PREROUTING|OUTPUT) -d 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --dport 53 -j NOTRACK$`,
+			// Reply-direction localdns NOTRACK rules. localdns.sh is baked into the VHD (packer file
+			// provisioner) rather than delivered via CSE, so VHDs published while #9230 was on main
+			// still install these rules and remain in support for 6 months. This entry must stay
+			// even though #9230 was reverted in #9247, otherwise every scenario booting one of those
+			// VHDs fails this validator.
+			`^-A OUTPUT -s 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --sport 53 -j NOTRACK$`,
 		},
 		"security": {
 			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 53 -j ACCEPT`,
