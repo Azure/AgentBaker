@@ -161,8 +161,10 @@ func TestExecutorRetriesAndReportsFlakyScenario(t *testing.T) {
 	exec := newExecutor(context.Background(), &stdout, opts, 1)
 
 	var calls atomic.Int32
+	var artifactNames []string
 	exec.runScenario = func(_ context.Context, _ string, logger toolkit.Logger, s *Scenario) error {
 		logger.Log("attempt output")
+		artifactNames = append(artifactNames, s.artifactName)
 		if calls.Add(1) == 1 {
 			err := errors.New("transient failure")
 			s.recordADOTestCase("Task_example", "e2e.cse", time.Second, err)
@@ -186,6 +188,7 @@ func TestExecutorRetriesAndReportsFlakyScenario(t *testing.T) {
 	assert.Contains(t, string(report), `name="Retry/Task_example"`, "JUnit report does not contain the CSE child result")
 	assert.Regexp(t, `##\[group\]🔴 Retry \(attempt 1/2, failed, [^)]+\)`, stdout.String())
 	assert.Regexp(t, `##\[group\]Retry \(attempt 2/2, passed, [^)]+\)`, stdout.String())
+	assert.Equal(t, []string{filepath.Join("Retry", "attempt-1"), filepath.Join("Retry", "attempt-2")}, artifactNames)
 }
 
 func TestExecutorPrintsPassedLogs(t *testing.T) {
@@ -362,9 +365,27 @@ func TestFreshScenarioSharesAttemptCleanup(t *testing.T) {
 	assert.Same(t, cleanup, copied.cleanup)
 	assert.Nil(t, copied.Runtime)
 	assert.Nil(t, copied.Logger)
-	assert.Empty(t, copied.artifactName)
+	assert.Equal(t, original.artifactName, copied.artifactName)
 	assert.False(t, copied.failed)
 	assert.Nil(t, copied.adoTestCases)
+}
+
+func TestVHDStageArtifactNamePreservesAttempt(t *testing.T) {
+	scenario := &Scenario{artifactName: filepath.Join("Retry", "attempt-2")}
+
+	assert.Equal(t, filepath.Join("Retry", "attempt-2", "vhd-bake"), vhdStageArtifactName(scenario, "Retry", "vhd-bake"))
+	assert.Equal(t, filepath.Join("Retry", "attempt-2", "vhd-provision"), vhdStageArtifactName(scenario, "Retry", "vhd-provision"))
+}
+
+func TestAnnotateVMSSCreateErrorPreservesSkip(t *testing.T) {
+	skip := &skipError{message: "SKU not available"}
+	scenario := &Scenario{
+		Runtime:      &ScenarioRuntime{VMSSName: "vmss"},
+		artifactName: "Scenario",
+	}
+
+	assert.Same(t, skip, annotateVMSSCreateError(scenario, skip))
+	assert.ErrorContains(t, annotateVMSSCreateError(scenario, errors.New("create failed")), "check "+artifactDir(scenario.artifactName)+" for vm logs")
 }
 
 func TestExecutorReportsCancellationAsFailure(t *testing.T) {
@@ -699,6 +720,24 @@ func TestScenarioLoggerCloseReportsFailure(t *testing.T) {
 	closeErr := logger.Close()
 	require.ErrorContains(t, closeErr, "scenario log")
 	require.Error(t, logger.Close(), "Close forgot the sticky log failure")
+}
+
+func TestExecutorDoesNotReportMissingLogAttachment(t *testing.T) {
+	logDir := filepath.Join(t.TempDir(), "not-a-directory")
+	require.NoError(t, os.WriteFile(logDir, []byte("file"), 0o600))
+	exec := newExecutor(context.Background(), &bytes.Buffer{}, runOptions{
+		parallel:   1,
+		logDir:     logDir,
+		outputMode: "grouped",
+	}, 1)
+
+	exec.schedule("LogOpenFails", &Scenario{Name: "LogOpenFails"})
+	exec.scenarios.Wait()
+
+	attempt := exec.results[0].Attempts[0]
+	assert.Equal(t, statusFailed, attempt.Status)
+	assert.Empty(t, attempt.LogPath)
+	assert.Contains(t, attempt.Message, "create scenario log directory")
 }
 
 func TestSkippedScenarioIsNotMarkedFailed(t *testing.T) {

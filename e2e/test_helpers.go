@@ -45,6 +45,7 @@ func scriptlessUnsupported(s *Scenario) bool {
 
 func runVHDCachingScenario(ctx context.Context, name string, logger toolkit.Logger, original *Scenario) error {
 	bakeScenario := freshScenario(original)
+	bakeScenario.artifactName = vhdStageArtifactName(original, name, "vhd-bake")
 
 	bakeScenario.Config.SkipDefaultValidation = true
 	bakeScenario.Config.Validator = func(ctx context.Context, scenario *Scenario) error {
@@ -123,7 +124,7 @@ func runVHDCachingScenario(ctx context.Context, name string, logger toolkit.Logg
 	bakeScenario.Runtime.VM.SSHClient = nil
 
 	provisionScenario := freshScenario(original)
-	provisionScenario.artifactName = filepath.Join(name, "vhd-provision")
+	provisionScenario.artifactName = vhdStageArtifactName(original, name, "vhd-provision")
 	provisionScenario.Config.VHD = customVHD
 	provisionScenario.Config.Validator = func(ctx context.Context, s *Scenario) error {
 		var markerErr error
@@ -145,12 +146,19 @@ func runVHDCachingScenario(ctx context.Context, name string, logger toolkit.Logg
 	return err
 }
 
+func vhdStageArtifactName(s *Scenario, fallbackName, stage string) string {
+	root := s.artifactName
+	if root == "" {
+		root = fallbackName
+	}
+	return filepath.Join(root, stage)
+}
+
 // Keep attempt-owned cleanup across both VHD-caching VM runs.
 func freshScenario(s *Scenario) *Scenario {
 	copied := *s
 	copied.Runtime = nil
 	copied.Logger = nil
-	copied.artifactName = ""
 	copied.failed = false
 	copied.adoTestCases = nil
 	return &copied
@@ -358,7 +366,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		return scenarioVM, err
 	}
 	if err != nil {
-		return scenarioVM, fmt.Errorf("create vmss %q, check %s for vm logs: %w", s.Runtime.VMSSName, artifactDir(s.artifactName), err)
+		return scenarioVM, annotateVMSSCreateError(s, err)
 	}
 	if scenarioVM == nil || scenarioVM.VM == nil {
 		return nil, fmt.Errorf("create vmss %q returned an incomplete VM", s.Runtime.VMSSName)
@@ -381,6 +389,13 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	}
 
 	return scenarioVM, nil
+}
+
+func annotateVMSSCreateError(s *Scenario, err error) error {
+	if _, skipped := err.(*skipError); skipped {
+		return err
+	}
+	return fmt.Errorf("create vmss %q, check %s for vm logs: %w", s.Runtime.VMSSName, artifactDir(s.artifactName), err)
 }
 
 func maybeSkipScenario(ctx context.Context, name string, s *Scenario) error {
