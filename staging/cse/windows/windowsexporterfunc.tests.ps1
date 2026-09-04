@@ -158,6 +158,7 @@ function Get-Version {
 
             $global:WindowsExporterPort | Should -Be 19100
             Get-Content -Path $configPath -Raw | Should -Match 'listen-address: ":19100"'
+            Get-Content -Path $configPath -Raw | Should -Match 'enabled: ".*pagefile.*"'
             Get-Content -Path $configPath -Raw | Should -Match 'include: "\(\?i\)aks-windows-exporter\|kubelet\|kubeproxy\|containerd\|hns\|csi-proxy"'
             Get-Content -Path $healthScriptPath -Raw | Should -Match 'localhost:19100/'
         }
