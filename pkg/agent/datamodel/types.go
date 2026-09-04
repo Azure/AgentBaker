@@ -202,6 +202,7 @@ const (
 	AKSACLArm64Gen2TL                       Distro = "aks-acl-arm64-gen2-tl"
 	AKSACLGen2FIPSTL                        Distro = "aks-acl-gen2-fips-tl"
 	AKSACLArm64Gen2FIPSTL                   Distro = "aks-acl-arm64-gen2-fips-tl"
+	AKSACLCVMGen2                           Distro = "aks-acl-cvm-gen2"
 
 	// Windows string const.
 	// AKSWindows2019 stands for distro of windows server 2019 SIG image with docker.
@@ -293,6 +294,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSACLArm64Gen2TL,
 	AKSACLGen2FIPSTL,
 	AKSACLArm64Gen2FIPSTL,
+	AKSACLCVMGen2,
 }
 
 type CustomConfigurationComponent string
