@@ -72,6 +72,38 @@ EOF
         chmod +x "$BIN_PATH"
     }
 
+    # Stands in for the binary download-hotfix stages at "${BIN_PATH}-hotfix". It records to a
+    # separate calls log so tests can prove which of the two binaries actually ran provision.
+    create_staged_hotfix_binary() {
+        cat >"${BIN_PATH}-hotfix" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$1" >>"${TEST_DIR}/hotfix_calls"
+exit 0
+EOF
+        chmod +x "${BIN_PATH}-hotfix"
+    }
+
+    # Mirrors the real chain: the VHD-baked binary itself stages the hotfix binary while handling
+    # download-hotfix, so binary selection observes a file that did not exist when the wrapper started.
+    create_staging_aks_node_controller() {
+        cat >"${TEST_DIR}/hotfix-template" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$1" >>"${TEST_DIR}/hotfix_calls"
+exit 0
+EOF
+
+        cat >"$BIN_PATH" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$1" >>"${TEST_DIR}/calls"
+if [ "$1" = "download-hotfix" ]; then
+    cp "${TEST_DIR}/hotfix-template" "${BIN_PATH}-hotfix"
+    chmod +x "${BIN_PATH}-hotfix"
+fi
+exit 0
+EOF
+        chmod +x "$BIN_PATH"
+    }
+
     BeforeEach setup_wrapper_test
     AfterEach cleanup_wrapper_test
 
@@ -278,5 +310,54 @@ EOF
         lastCall=$(tail -n 1 "${TEST_DIR}/calls")
         The variable firstCall should eq "check-hotfix"
         The variable lastCall should eq "provision"
+    End
+
+    # Binary selection. The hotfix binary carries the embedded script payload, so "which binary runs
+    # provision" decides whether that payload is ever applied. These cover the branch directly.
+    It 'runs the staged hotfix binary for provision when one is present'
+        touch "$CONFIG_PATH"
+        create_recording_aks_node_controller
+        create_staged_hotfix_binary
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Using hotfix binary: ${BIN_PATH}-hotfix"
+        hotfixCall=$(tail -n 1 "${TEST_DIR}/hotfix_calls")
+        The variable hotfixCall should eq "provision"
+        # The VHD-baked binary must not have been invoked at all on this path.
+        The path "${TEST_DIR}/calls" should not be exist
+    End
+
+    It 'falls back to the VHD-baked binary when the staged hotfix path is not executable'
+        touch "$CONFIG_PATH"
+        create_recording_aks_node_controller
+        create_staged_hotfix_binary
+        chmod -x "${BIN_PATH}-hotfix"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Using VHD-baked binary: ${BIN_PATH}"
+        lastCall=$(tail -n 1 "${TEST_DIR}/calls")
+        The variable lastCall should eq "provision"
+        The path "${TEST_DIR}/hotfix_calls" should not be exist
+    End
+
+    # The full production seam for a version-only hotfix pointer: the baked binary handles
+    # download-hotfix and stages the replacement, then provision runs on the STAGED binary. That
+    # handoff is what lets the staged binary apply its compiled-in script payload; no scripts_version
+    # is involved. Previously uncovered, because no test created "${BIN_PATH}-hotfix".
+    It 'provisions with the binary staged by download-hotfix'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        create_staging_aks_node_controller
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "ANC download-hotfix completed"
+        The output should include "Using hotfix binary"
+        bakedCalls=$(cat "${TEST_DIR}/calls")
+        hotfixCall=$(tail -n 1 "${TEST_DIR}/hotfix_calls")
+        # The baked binary only downloads; it must never be the one that provisions.
+        The variable bakedCalls should eq "download-hotfix"
+        The variable hotfixCall should eq "provision"
     End
 End
