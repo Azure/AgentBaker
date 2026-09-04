@@ -300,6 +300,12 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinuxV3Gen2TL.Definition).To(Equal("V3gen2TL"))
 		Expect(azurelinuxV3Gen2TL.Version).To(Equal(LinuxSIGImageVersion))
 
+		azurelinuxV3OSGuardGen2FIPSTL := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3OSGuardGen2FIPSTL]
+		Expect(azurelinuxV3OSGuardGen2FIPSTL.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV3OSGuardGen2FIPSTL.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV3OSGuardGen2FIPSTL.Definition).To(Equal("OSGuardV3gen2fipsTL"))
+		Expect(azurelinuxV3OSGuardGen2FIPSTL.Version).To(Equal(FrozenAzureLinuxOSGuardSIGImageVersion))
+
 		marinerV2KataGen2TL := sigConfig.SigCBLMarinerImageConfig[AKSCBLMarinerV2KataGen2TL]
 		Expect(marinerV2KataGen2TL.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(marinerV2KataGen2TL.Gallery).To(Equal("akscblmariner"))

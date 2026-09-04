@@ -423,6 +423,9 @@ const (
 	// DO NOT MODIFY: used for freezing MarinerV2/AzureLinuxV2, all flavors.
 	FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion = "202512.06.0"
 
+	// DO NOT MODIFY: used for freezing AzureLinuxOSGuard, all flavors.
+	FrozenAzureLinuxOSGuardSIGImageVersion = "202608.26.0"
+
 	// DO NOT MODIFY: used for freezing MarinerV2KataGen2TL.
 	FrozenCBLMarinerV2KataGen2TLSIGImageVersion = "2022.12.15"
 
@@ -772,7 +775,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "OSGuardV3gen2fipsTL",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenAzureLinuxOSGuardSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2KataGen2TLImageConfigTemplate = SigImageConfigTemplate{
