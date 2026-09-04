@@ -312,6 +312,7 @@ type Image struct {
 	Distro                              datamodel.Distro
 	Name                                string
 	OS                                  OS
+	ResourceID                          VHDResourceID
 	Version                             string
 	Gallery                             *Gallery
 	UnsupportedKubeletNodeIP            bool
@@ -335,6 +336,11 @@ func (i *Image) SupportsScriptless() bool {
 }
 
 func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourceID, error) {
+	if i.ResourceID != "" {
+		toolkit.Logf(ctx, "Using explicit image resource ID: %s", i.ResourceID)
+		return i.ResourceID, nil
+	}
+
 	if i.Version == "" && Config.vhdMetadata != nil {
 		vhd, err := getVHDResourceIDFromMetadata(Config.vhdMetadata, i, location)
 		if err != nil {

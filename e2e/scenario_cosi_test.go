@@ -22,6 +22,7 @@ import (
 
 const (
 	aclCOSIAMD64ImageVersion = "0.20260827.1192019"
+	aclCOSIAMD64ImageID      = "/SharedGalleries/035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL/Images/acldevel/Versions/0.20260827.1192019"
 	remoteCOSIConfigPath     = "/home/azureuser/update-config.yaml"
 )
 
@@ -33,12 +34,8 @@ func Test_ACL_COSIUpdate_AMD64(t *testing.T) {
 
 	image := *config.VHDACLGen2TL
 	image.Name = "acldevel"
+	image.ResourceID = aclCOSIAMD64ImageID
 	image.Version = aclCOSIAMD64ImageVersion
-	image.Gallery = &config.Gallery{
-		SubscriptionID:    "035db282-f1c8-4ce7-b78f-2a7265d5398c",
-		ResourceGroupName: "acl",
-		Name:              "acldevel",
-	}
 
 	RunScenario(t, &Scenario{
 		Description: "Tests that an AMD64 ACL node remains Ready after a COSI A/B update",
