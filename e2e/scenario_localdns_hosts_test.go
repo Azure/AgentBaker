@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"testing"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
@@ -51,8 +52,63 @@ func Test_LocalDNSHostsPlugin(t *testing.T) {
 						config.LocalDnsProfile.EnableLocalDns = true
 					},
 					VMConfigMutator: tt.vmConfigMutator,
+					Validator: func(ctx context.Context, s *Scenario) error {
+						if tt.name == "Ubuntu2204" || tt.name == "Ubuntu2404" || tt.name == "AzureLinuxV3" {
+							return validateLocalDNSLifecycle(ctx, s)
+						}
+						return nil
+					},
 				},
 			})
 		})
 	}
+}
+
+func validateLocalDNSLifecycle(ctx context.Context, s *Scenario) error {
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, `
+set -eu
+sudo systemctl is-active --quiet localdns.service
+
+# Normal systemd stop must complete cleanup and return success.
+sudo systemctl restart localdns.service
+sudo systemctl is-active --quiet localdns.service
+sudo systemctl stop localdns.service
+test "$(sudo systemctl show localdns.service -p ActiveState --value)" = inactive
+sudo systemctl start localdns.service
+sudo systemctl is-active --quiet localdns.service
+
+# Repeatedly kill the supervisor and wait for Restart=on-failure recovery.
+test_start=$(date +%s)
+for i in 1 2 3; do
+    main=$(sudo systemctl show -p MainPID --value localdns.service)
+    test "$main" -gt 0
+    sudo kill -9 "$main"
+
+    recovered=false
+    for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+        state=$(sudo systemctl show localdns.service -p ActiveState -p SubState --value)
+        if [ "$state" = $'active\nrunning' ]; then
+            recovered=true
+            break
+        fi
+        sleep 1
+    done
+    test "$recovered" = true
+done
+
+state=$(sudo systemctl show localdns.service -p ActiveState -p SubState -p Result -p ControlGroup)
+printf '%s\n' "$state"
+printf '%s\n' "$state" | grep -q '^ActiveState=active$'
+printf '%s\n' "$state" | grep -q '^SubState=running$'
+printf '%s\n' "$state" | grep -q '^Result=success$'
+if sudo journalctl -u localdns.service --since "@$test_start" --no-pager | grep -q 'Failed to kill control group'; then
+    echo "WARNING: LocalDNS cgroup teardown warning observed"
+fi
+if sudo journalctl -u localdns.service --since "@$test_start" --no-pager | grep -q 'Start request repeated too quickly'; then
+    echo "LocalDNS reached systemd StartLimit"
+    exit 1
+fi
+dig +short +time=5 +tries=1 mcr.microsoft.com @169.254.10.10 | grep -q .
+`, 0, "LocalDNS lifecycle validation failed")
+	return err
 }

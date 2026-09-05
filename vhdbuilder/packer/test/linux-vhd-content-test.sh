@@ -2507,6 +2507,11 @@ checkLocaldnsScriptsAndConfigs() {
     fi
   done
 
+  if ! grep -Fq 'ExecStopPost=/opt/azure/containers/localdns/localdns.sh cleanup' /etc/systemd/system/localdns.service; then
+    echo "$test: localdns service must run post-exit cleanup"
+    return 1
+  fi
+
   echo "$test: All localdnsfiles exist with correct permissions"
   return 0
 }
