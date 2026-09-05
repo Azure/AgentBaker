@@ -41,6 +41,37 @@ if isMinimalImage && isUbuntu "$OS"; then
   installMinimalBuildDeps
 fi
 
+# Temporary diagnostics for comparing PTP exposure across Ubuntu 24.04 and 26.04 builders.
+if isUbuntu "$OS" && { [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "26.04" ]; }; then
+  echo "===== Ubuntu ${OS_VERSION} time synchronization diagnostics ====="
+  echo "Kernel: $(uname -r)"
+  echo "Hypervisor: $(systemd-detect-virt --vm 2>/dev/null || true)"
+
+  echo "Loaded Hyper-V modules:"
+  lsmod | grep -E '^hv_|^hyperv' || true
+
+  echo "PTP sysfs devices:"
+  for ptp_path in /sys/class/ptp/ptp*; do
+    [ -e "$ptp_path" ] || continue
+
+    ptp_name=${ptp_path##*/}
+    clock_name=$(cat "$ptp_path/clock_name" 2>/dev/null || echo unknown)
+    device_path="/dev/${ptp_name}"
+
+    echo "${ptp_name}: clock_name=${clock_name}, device=${device_path}"
+    ls -l "$device_path" 2>&1 || true
+    readlink -f "$ptp_path/device/driver" 2>/dev/null || true
+    udevadm info --query=property --name="$device_path" 2>/dev/null || true
+  done
+
+  echo "Stable Hyper-V PTP link:"
+  ls -l /dev/ptp_hyperv 2>&1 || true
+
+  echo "Relevant kernel messages:"
+  journalctl -k -b --no-pager | grep -Ei 'ptp|hyperv|hv_utils|vmbus|clocksource|tdx|sev' || true
+  echo "===== End Ubuntu ${OS_VERSION} time synchronization diagnostics ====="
+fi
+
 # Update rsyslog configuration
 RSYSLOG_CONFIG_FILEPATH="/etc/rsyslog.d/60-CIS.conf"
 if isMarinerOrAzureLinux "$OS"; then
