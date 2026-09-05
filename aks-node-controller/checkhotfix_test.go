@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -249,14 +250,18 @@ func TestCheckHotfix_LPSUnavailableIsBenign(t *testing.T) {
 	}
 }
 
-func TestCheckHotfix_FetchErrorFailsOpenWithoutFallback(t *testing.T) {
+// TestCheckHotfix_FetchErrorNoFallbackStagesNothing covers an unreachable LPS with no
+// cold-start pointer available. Nothing may be staged, and the outcome is the benign
+// noColdStartPointer rather than a failure: fail-open worked exactly as designed and the
+// node still provisions from its existing on-disk pointer.
+func TestCheckHotfix_FetchErrorNoFallbackStagesNothing(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	path := filepath.Join(t.TempDir(), "hotfix.json")
 	tt.App.hotfixVersionPath = path
 	// No node config -> no cold-start fallback available.
 	tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nonexistent-config.json")
 
-	// Transport-level failures (not benign 401/403/404) with no fallback -> failed.
+	// Transport-level failures (not benign 401/403/404) with no fallback -> benign no-op.
 	cases := map[string]error{
 		"timeout":        context.DeadlineExceeded,
 		"connection err": errors.New("dial tcp: connection refused"),
@@ -268,8 +273,9 @@ func TestCheckHotfix_FetchErrorFailsOpenWithoutFallback(t *testing.T) {
 				return nil, fetchErr
 			}
 			outcome, err := tt.App.checkHotfix(context.Background())
-			assert.Equal(t, outcomeFailed, outcome)
-			assert.Error(t, err)
+			assert.Equal(t, outcomeNoColdStartPointer, outcome)
+			assert.Error(t, err, "the underlying fetch error is still reported for diagnosis")
+			assert.Equal(t, helpers.EventLevelInformational, helpersEventLevel(outcome))
 			// Nothing should be staged.
 			_, statErr := os.Stat(path)
 			assert.True(t, os.IsNotExist(statErr))
@@ -319,7 +325,13 @@ func TestCheckHotfix_ColdStartFallback(t *testing.T) {
 	assert.Equal(t, map[string]string{"202604.01": "202604.01.2"}, cfg.Hotfixes)
 }
 
-func TestCheckHotfix_ColdStartNoPointerFails(t *testing.T) {
+// TestCheckHotfix_ColdStartNoPointerIsBenign verifies that an unreachable LPS combined with a
+// node config carrying no cold-start hotfixes map is treated as benign, not as a failure.
+// Nothing is staged and the existing on-disk pointer is left untouched, so provisioning is
+// unaffected; reporting this at error level would emit misleading error telemetry on every
+// healthy node whose config was seeded without an injected map. The fetch error is still
+// returned so the reason the LPS was unreachable survives into the telemetry message.
+func TestCheckHotfix_ColdStartNoPointerIsBenign(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	path := filepath.Join(t.TempDir(), "hotfix.json")
 	tt.App.hotfixVersionPath = path
@@ -332,8 +344,10 @@ func TestCheckHotfix_ColdStartNoPointerFails(t *testing.T) {
 	}
 
 	outcome, err := tt.App.checkHotfix(context.Background())
-	assert.Equal(t, outcomeFailed, outcome)
+	assert.Equal(t, outcomeNoColdStartPointer, outcome)
 	assert.Error(t, err)
+	assert.Equal(t, helpers.EventLevelInformational, helpersEventLevel(outcome),
+		"a benign no-op must not be reported at error level")
 	_, statErr := os.Stat(path)
 	assert.True(t, os.IsNotExist(statErr))
 }
@@ -410,7 +424,28 @@ func TestRunCheckHotfixCommand_AlwaysFailOpen(t *testing.T) {
 		assert.Contains(t, events[0].Message, string(outcomeLPSRead))
 	})
 
-	t.Run("failure path emits error event but still exits 0", func(t *testing.T) {
+	t.Run("authoritative client error emits error event but still exits 0", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "hotfix.json")
+		tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nonexistent.json")
+		tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
+			return nil, &lpsGRPCStatusError{code: codes.ResourceExhausted, fallbackAllowed: false}
+		}
+
+		err := tt.App.runCheckHotfixCommand(context.Background())
+		require.NoError(t, err)
+
+		events := tt.eventLogger.Events()
+		require.Len(t, events, 1)
+		assert.Equal(t, "AKS.AKSNodeController.CheckHotfix", events[0].TaskName)
+		assert.Equal(t, "Error", events[0].EventLevel)
+		assert.Contains(t, events[0].Message, string(outcomeFailed))
+	})
+
+	// An unreachable LPS on a node with no injected cold-start map is the common healthy case
+	// (it is exactly what a first-boot node sees when the LPS is briefly unavailable). It must
+	// emit an Informational event, not an Error, while still recording why the fetch failed.
+	t.Run("unreachable LPS without a cold-start pointer emits an informational event", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "hotfix.json")
 		tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nonexistent.json")
@@ -424,8 +459,10 @@ func TestRunCheckHotfixCommand_AlwaysFailOpen(t *testing.T) {
 		events := tt.eventLogger.Events()
 		require.Len(t, events, 1)
 		assert.Equal(t, "AKS.AKSNodeController.CheckHotfix", events[0].TaskName)
-		assert.Equal(t, "Error", events[0].EventLevel)
-		assert.Contains(t, events[0].Message, string(outcomeFailed))
+		assert.Equal(t, "Informational", events[0].EventLevel)
+		assert.Contains(t, events[0].Message, string(outcomeNoColdStartPointer))
+		assert.Contains(t, events[0].Message, "LPS returned status 500",
+			"the fetch error must survive into the message for diagnosis")
 	})
 
 	t.Run("cli wiring returns exit code 0 even on fetch failure", func(t *testing.T) {
