@@ -175,6 +175,18 @@ func TestDetectPackageManager(t *testing.T) {
 		assert.Contains(t, err.Error(), "unsupported OS")
 	})
 
+	t.Run("image-based OS reports self-update unsupported", func(t *testing.T) {
+		for _, id := range []string{"azurecontainerlinux", "flatcar"} {
+			path := filepath.Join(t.TempDir(), "os-release")
+			require.NoError(t, os.WriteFile(path, []byte("ID="+id+"\n"), 0644))
+			a := &App{osReleasePath: path}
+			_, err := a.detectPackageManager()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "not supported on image-based OS")
+			assert.Contains(t, err.Error(), id)
+		}
+	})
+
 	t.Run("missing ID line errors", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "os-release")
 		require.NoError(t, os.WriteFile(path, []byte("VERSION_ID=1\n"), 0644))

@@ -273,6 +273,11 @@ func (a *App) detectPackageManager() (packageManager, error) {
 		return pkgMgrApt, nil
 	case "azurelinux", "mariner":
 		return preferredRpmManager(), nil
+	case osReleaseIDAzureContainerLinux, osReleaseIDFlatcar:
+		// ACL and Flatcar are image-based/immutable distros with no apt/dnf/tdnf.
+		// ANC self-update via a PMC package is intentionally unsupported there;
+		// they only ever run the ANC binary baked into the VHD.
+		return "", fmt.Errorf("PMC package-based ANC self-update is not supported on image-based OS %q", info.ID)
 	default:
 		return "", fmt.Errorf("unsupported OS: %s", info.ID)
 	}

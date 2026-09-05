@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -51,6 +52,38 @@ write_files:
 	gzipContent, err := os.ReadFile(gzipPath)
 	require.NoError(t, err)
 	assert.Equal(t, "gzip-content", string(gzipContent))
+}
+
+func TestApplyNodeCustomDataPreservesLegacyDefaultsAndCreatesParents(t *testing.T) {
+	tempDir := t.TempDir()
+	destination := filepath.Join(tempDir, "missing", "parent", "payload.txt")
+	renderedPath := filepath.Join(tempDir, "nodecustomdata.yml")
+	content := base64.StdEncoding.EncodeToString([]byte("base64-content"))
+	rendered := fmt.Sprintf(`write_files:
+- path: %s
+  owner: root
+  encoding: base64
+  content: %s
+`, destination, content)
+	require.NoError(t, os.WriteFile(renderedPath, []byte(rendered), 0o600))
+
+	require.NoError(t, applyNodeCustomData(renderedPath))
+
+	actual, err := os.ReadFile(destination)
+	require.NoError(t, err)
+	assert.Equal(t, []byte("base64-content"), actual)
+	mode, err := parseNodeCustomDataMode("", false)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o644), mode)
+	if runtime.GOOS != "windows" {
+		info, statErr := os.Stat(destination)
+		require.NoError(t, statErr)
+		assert.Equal(t, os.FileMode(0o644), info.Mode().Perm())
+	}
+}
+
+func TestApplyNodeCustomDataMissingFileIsNoOp(t *testing.T) {
+	require.NoError(t, applyNodeCustomData(filepath.Join(t.TempDir(), "missing.yml")))
 }
 
 // TestDownloadHotfixAppliesRenderedWriteFilesWhenScriptsVersionMatches verifies that

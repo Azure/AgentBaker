@@ -71,6 +71,8 @@ type App struct {
 	// Authorization header for the check-hotfix LPS fetch. When nil, the real IMDS endpoint
 	// is queried.
 	fetchAttestedToken func(ctx context.Context) (string, error)
+	// applyEmbeddedHotfix overrides embedded script application for tests.
+	applyEmbeddedHotfix func(string) (nodeCustomDataApplyResult, error)
 	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
 	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
 	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
@@ -684,6 +686,23 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	return provisionResult, err
 }
 
+func (a *App) applyEmbeddedHotfixIfNeeded() {
+	applyEmbeddedHotfix := a.applyEmbeddedHotfix
+	if applyEmbeddedHotfix == nil {
+		applyEmbeddedHotfix = applyEmbeddedNodeCustomDataIfActive
+	}
+	result, err := applyEmbeddedHotfix(a.osReleasePath)
+	if err != nil {
+		// Hotfixes are fail-open: the VHD-baked scripts remain available, so an
+		// embedded payload must not block provisioning.
+		slog.Warn("failed to apply embedded hotfix payload; continuing with existing scripts",
+			"error", err)
+	} else if result.Applied > 0 || result.Skipped > 0 {
+		slog.Info("processed embedded hotfix payload",
+			"applied", result.Applied, "skipped", result.Skipped)
+	}
+}
+
 // runProvision encapsulates execution for the "provision" subcommand after CLI parsing.
 // It returns an error describing any failure; callers should pass that error to
 // writeCompleteFileOnError so the sentinel file can be written on fail-fast paths.
@@ -709,6 +728,8 @@ func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun boo
 	}
 	if dryRun {
 		a.cmdRun = cmdRunnerDryRun
+	} else {
+		a.applyEmbeddedHotfixIfNeeded()
 	}
 	return a.Provision(ctx, flags)
 }

@@ -149,3 +149,35 @@ Key components:
         ```
         This indicates the controller exited before emitting `provision.json`. Most commonly the rendered AKSNodeConfig was missing, had the wrong `Version` (expected `v1`), or was written to the wrong path (`/opt/azure/containers/aks-node-controller-config.json`). Fix the config generation, redeploy, and the bootstrap scripts will then populate `provision.json`.
 - **provision-wait**: waits for `provision.complete` to be present and reads `provision.json` which contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout.
+
+### Provisioning script hotfix payloads
+
+Patched ANC binaries can embed selected Linux provisioning scripts generated from
+`parts/linux/cloud-init/artifacts/`. At the start of `provision`, ANC validates the
+rendered nodecustomdata matching the local platform and atomically applies its
+`write_files` entries before constructing the normal CSE command.
+Application is fail-open so the existing VHD scripts remain usable if validation
+or replacement fails.
+
+The embedded nodecustomdata coordinator distinguishes these script hotfixes from
+updates to the ANC binary itself. The generated files live under
+`aks-node-controller/scripthotfix/generated/` as
+`rendered_nodecustomdata_<platform>.yml`. The generator selects only changed
+hotfixable entries from `nodecustomdata.yml`, then renders Ubuntu, Mariner/Azure
+Linux, ACL, OS Guard, and Flatcar variants through AgentBaker's production
+Go-template functions.
+
+When a PR has no new script hotfix, generation leaves the existing rendered
+payload unchanged. The active ANC version pointer is likewise retained until it
+is retired explicitly.
+
+Embedded payloads are replace-only: ANC skips an entry when its runtime
+destination does not already exist. File presence preserves non-platform
+template gates such as custom-image exclusions. New-file hotfixes are not
+supported by this delivery path.
+
+Script hotfix delivery is package-only. The existing base-to-version hotfix map
+selects the ANC package for the node's baked `YYYYMM.DD` version base; the package
+contains its corresponding rendered scripts. If the package cannot be installed,
+provisioning fails open to the original VHD scripts. The operational fallback is
+to upgrade the node image.

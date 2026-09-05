@@ -13,7 +13,9 @@ import (
 	"math/big"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -26,17 +28,62 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"gopkg.in/yaml.v3"
 )
 
 const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
 )
 
+type scriptHotfixFixtureNodeCustomData struct {
+	WriteFiles []scriptHotfixFixtureWriteFile `yaml:"write_files"`
+}
+
+type scriptHotfixFixtureWriteFile struct {
+	Path        string `yaml:"path"`
+	Permissions string `yaml:"permissions"`
+	Encoding    string `yaml:"encoding"`
+	Owner       string `yaml:"owner"`
+	Content     string `yaml:"content"`
+}
+
 func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string, error) {
 	binary, err := compileAKSNodeController(ctx, arch)
 	if err != nil {
 		return "", err
 	}
+	defer binary.Close()
+	return uploadAKSNodeController(ctx, binary)
+}
+
+func compileAndUploadAKSNodeControllerWithScriptHotfix(
+	ctx context.Context,
+	arch string,
+	fixture ScriptHotfixFixture,
+) (string, error) {
+	buildDir, err := os.MkdirTemp("", "aks-node-controller-script-hotfix-*")
+	if err != nil {
+		return "", fmt.Errorf("create isolated ANC build directory: %w", err)
+	}
+	defer os.RemoveAll(buildDir)
+
+	sourceDir := filepath.Join("..", "aks-node-controller")
+	if err := os.CopyFS(buildDir, os.DirFS(sourceDir)); err != nil {
+		return "", fmt.Errorf("copy ANC module for isolated script-hotfix build: %w", err)
+	}
+	if err := writeScriptHotfixFixture(buildDir, fixture); err != nil {
+		return "", err
+	}
+
+	binary, err := compileAKSNodeControllerInDir(ctx, arch, buildDir)
+	if err != nil {
+		return "", err
+	}
+	defer binary.Close()
+	return uploadAKSNodeController(ctx, binary)
+}
+
+func uploadAKSNodeController(ctx context.Context, binary *os.File) (string, error) {
 	uniqueSuffix := randomLowercaseString(6)
 	blobPath := fmt.Sprintf("%s/aks-node-controller-%s", time.Now().UTC().Format("2006-01-02-15-04-05"), uniqueSuffix)
 	toolkit.Logf(ctx, "uploading aks-node-controller binary to blob path %s", blobPath)
@@ -47,15 +94,22 @@ func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string
 	return url, nil
 }
 
-// compileAndUploadAKSNodeController compiles the aks-node-controller binary for the given architecture.
 func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error) {
+	return compileAKSNodeControllerInDir(
+		ctx,
+		arch,
+		filepath.Join("..", "aks-node-controller"),
+	)
+}
+
+func compileAKSNodeControllerInDir(ctx context.Context, arch, buildDir string) (*os.File, error) {
 	goBin, err := exec.LookPath("go")
 	if err != nil {
 		return nil, fmt.Errorf("failed to find go binary in PATH: %w", err)
 	}
 	binName := "aks-node-controller-" + arch
 	cmd := exec.CommandContext(ctx, goBin, "build", "-o", binName, "-v")
-	cmd.Dir = filepath.Join("..", "aks-node-controller")
+	cmd.Dir = buildDir
 	cmd.Env = append(os.Environ(),
 		"CGO_ENABLED=0",
 		"GOOS=linux",
@@ -66,11 +120,62 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile aks-node-controller: %s", string(log))
 	}
-	f, err := os.Open(filepath.Join("..", "aks-node-controller", binName))
+	f, err := os.Open(filepath.Join(buildDir, binName))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open compiled aks-node-controller binary: %w", err)
 	}
 	return f, nil
+}
+
+func writeScriptHotfixFixture(buildDir string, fixture ScriptHotfixFixture) error {
+	if !path.IsAbs(fixture.Destination) ||
+		path.Clean(fixture.Destination) != fixture.Destination ||
+		strings.Contains(fixture.Destination, `\`) {
+		return fmt.Errorf("invalid script-hotfix fixture destination %q", fixture.Destination)
+	}
+	mode, err := strconv.ParseUint(fixture.Mode, 8, 32)
+	if err != nil || mode == 0 || mode > 0o777 {
+		return fmt.Errorf("invalid script-hotfix fixture mode %q", fixture.Mode)
+	}
+	validPlatforms := map[string]bool{
+		"ubuntu":     true,
+		"mariner":    true,
+		"azlosguard": true,
+		"flatcar":    true,
+		"acl":        true,
+	}
+	if !validPlatforms[fixture.Platform] {
+		return fmt.Errorf("invalid script-hotfix fixture platform %q", fixture.Platform)
+	}
+	if len(fixture.Payload) == 0 {
+		return fmt.Errorf("script-hotfix fixture payload is empty")
+	}
+
+	generatedDir := filepath.Join(buildDir, "scripthotfix", "generated")
+	rendered := scriptHotfixFixtureNodeCustomData{
+		WriteFiles: []scriptHotfixFixtureWriteFile{{
+			Path:        fixture.Destination,
+			Permissions: fixture.Mode,
+			Encoding:    "base64",
+			Owner:       "root",
+			Content:     base64.StdEncoding.EncodeToString(fixture.Payload),
+		}},
+	}
+	data, err := yaml.Marshal(rendered)
+	if err != nil {
+		return fmt.Errorf("marshal rendered script-hotfix fixture: %w", err)
+	}
+	outputPath := filepath.Join(
+		generatedDir,
+		"rendered_nodecustomdata_"+fixture.Platform+".yml",
+	)
+	if err := os.WriteFile(outputPath, data, 0o600); err != nil {
+		return fmt.Errorf("write rendered script-hotfix fixture: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(generatedDir, "active"), []byte("true\n"), 0o600); err != nil {
+		return fmt.Errorf("enable rendered script-hotfix fixture: %w", err)
+	}
+	return nil
 }
 
 // maxOutboundCSERetries bounds how many times node provisioning is retried when the
@@ -261,7 +366,31 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 
 	cse = nodeBootstrapping.CSE
 	customData = nodeBootstrapping.CustomData
-	if enableScriptlessCompilation(s) {
+	if s.Config.ScriptHotfixFixture != nil {
+		if !enableScriptlessCompilation(s) {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
+				"script-hotfix fixture requires scriptless ANC compilation",
+			)
+		}
+		binaryURL, err := compileAndUploadAKSNodeControllerWithScriptHotfix(
+			ctx,
+			s.VHD.Arch,
+			*s.Config.ScriptHotfixFixture,
+		)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
+				"compile and upload ANC with script-hotfix fixture: %w",
+				err,
+			)
+		}
+		customData, err = CustomDataWithNBCCmdHack(customData, binaryURL)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
+				"generate custom data with script-hotfix ANC: %w",
+				err,
+			)
+		}
+	} else if enableScriptlessCompilation(s) {
 		binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 		if err != nil {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("compile and upload aks-node-controller binary: %w", err)

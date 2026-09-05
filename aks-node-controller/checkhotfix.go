@@ -103,6 +103,13 @@ const (
 	outcomeNoHotfixAvailable checkHotfixOutcome = "noHotfixAvailable"
 	// outcomeCustomDataFallback: LPS read failed; the embedded customdata pointer was used.
 	outcomeCustomDataFallback checkHotfixOutcome = "customDataFallback"
+	// outcomeNoColdStartPointer: the LPS could not be reached and the node config carried no
+	// cold-start hotfixes map, so there was nothing to stage. This is benign and expected on a
+	// node whose config was seeded without an injected map: download-hotfix simply keeps the
+	// existing on-disk pointer (the single-version one cloud-init wrote). Nothing failed, so it
+	// must not be reported at error level; the wrapped fetch error is still carried in the
+	// telemetry message to preserve why the LPS was unreachable.
+	outcomeNoColdStartPointer checkHotfixOutcome = "noColdStartPointer"
 	// outcomeFailed: everything failed; nothing was staged. Provisioning still proceeds (exit 0).
 	outcomeFailed checkHotfixOutcome = "failed"
 )
@@ -253,7 +260,10 @@ func (a *App) handleFetchError(hotfixPath string, fetchErr error) (checkHotfixOu
 		return outcomeFailed, fmt.Errorf("LPS fetch failed (%w) and cold-start fallback failed: %w", fetchErr, coldErr)
 	}
 	if !ok {
-		return outcomeFailed, fmt.Errorf("LPS fetch failed and no cold-start pointer present: %w", fetchErr)
+		// Benign: no map was injected into the node config, so there is nothing to stage and
+		// the existing on-disk pointer stays intact. Report a non-error outcome while keeping
+		// the fetch error for diagnosis of why the LPS was unreachable.
+		return outcomeNoColdStartPointer, fmt.Errorf("LPS fetch failed and no cold-start pointer present: %w", fetchErr)
 	}
 	if err := writeHotfixConfig(hotfixPath, cfg); err != nil {
 		return outcomeFailed, fmt.Errorf("writing cold-start hotfix config: %w", err)
