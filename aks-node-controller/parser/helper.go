@@ -726,17 +726,257 @@ func marshalToJSON(v any) ([]byte, error) {
 }
 
 // getKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content.
+// When KubeletFlags contains translated flags whose corresponding KubeletConfigFileConfig field is
+// empty/nil, those flag values are synced into the config file to reduce reliance on kubelet v1beta1 defaults.
+// For proto3 scalars without field-level presence (e.g., non-optional bool/int32), sync is skipped
+// unless presence is provided by a containing message (e.g., authentication.webhook).
 func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
 	if kubeletConfig == nil {
 		return ""
 	}
 	kubeletConfigFileConfig := kubeletConfig.GetKubeletConfigFileConfig()
+	if kubeletConfig.GetEnableKubeletConfigFile() && kubeletConfigFileConfig == nil {
+		kubeletConfigFileConfig = &aksnodeconfigv1.KubeletConfigFileConfig{
+			Kind:       "KubeletConfiguration",
+			ApiVersion: "kubelet.config.k8s.io/v1beta1",
+		}
+		kubeletConfig.KubeletConfigFileConfig = kubeletConfigFileConfig
+	}
+	syncTranslatedFlagsToConfigFile(kubeletConfigFileConfig, kubeletConfig.GetKubeletFlags())
 	kubeletConfigFileConfigByte, err := marshalToJSON(kubeletConfigFileConfig)
 	if err != nil {
 		log.Printf("error marshalling kubelet config file content: %v", err)
 		return ""
 	}
 	return string(kubeletConfigFileConfigByte)
+}
+
+// syncTranslatedFlagsToConfigFile backfills KubeletConfigFileConfig fields from KubeletFlags
+// for any translated flag whose config file field is nil/zero/empty. This ensures backward
+// compatibility during the RP migration period where flags may not yet be fully reflected
+// in the structured config file proto.
+//
+//nolint:gocognit,cyclop,gocyclo,funlen
+func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfig, flags map[string]string) {
+	if cfg == nil || len(flags) == 0 {
+		return
+	}
+
+	// String fields — backfill if empty.
+	backfillString := func(flag string, field *string) {
+		if *field == "" {
+			if v, ok := flags[flag]; ok && v != "" {
+				*field = v
+			}
+		}
+	}
+	backfillString("--address", &cfg.Address)
+	backfillString("--pod-manifest-path", &cfg.StaticPodPath)
+	backfillString("--cluster-domain", &cfg.ClusterDomain)
+	backfillString("--resolv-conf", &cfg.ResolvConf)
+	backfillString("--tls-cert-file", &cfg.TlsCertFile)
+	backfillString("--tls-private-key-file", &cfg.TlsPrivateKeyFile)
+	backfillString("--cpu-manager-policy", &cfg.CpuManagerPolicy)
+	backfillString("--cpu-cfs-quota-period", &cfg.CpuCfsQuotaPeriod)
+	backfillString("--topology-manager-policy", &cfg.TopologyManagerPolicy)
+	backfillString("--container-log-max-size", &cfg.ContainerLogMaxSize)
+	backfillString("--streaming-connection-idle-timeout", &cfg.StreamingConnectionIdleTimeout)
+	backfillString("--node-status-update-frequency", &cfg.NodeStatusUpdateFrequency)
+	backfillString("--node-status-report-frequency", &cfg.NodeStatusReportFrequency)
+	backfillString("--kube-reserved-cgroup", &cfg.KubeReservedCgroup)
+	backfillString("--system-reserved-cgroup", &cfg.SystemReservedCgroup)
+
+	// Optional *int32 fields — backfill if nil.
+	backfillInt32Ptr := func(flag string, field **int32) {
+		if *field == nil {
+			if v, ok := flags[flag]; ok && v != "" {
+				if n, err := strconv.ParseInt(v, 10, 32); err == nil {
+					val := int32(n)
+					*field = &val
+				} else {
+					log.Printf("warning: failed to parse flag %s value %q as int32: %v", flag, v, err)
+				}
+			}
+		}
+	}
+	backfillInt32Ptr("--event-qps", &cfg.EventRecordQps)
+	backfillInt32Ptr("--image-gc-high-threshold", &cfg.ImageGcHighThresholdPercent)
+	backfillInt32Ptr("--image-gc-low-threshold", &cfg.ImageGcLowThresholdPercent)
+	backfillInt32Ptr("--max-pods", &cfg.MaxPods)
+	backfillInt32Ptr("--pod-max-pids", &cfg.PodPidsLimit)
+	backfillInt32Ptr("--container-log-max-files", &cfg.ContainerLogMaxFiles)
+
+	// Non-optional int32 fields (ReadOnlyPort, EvictionMaxPodGracePeriod):
+	// NOT backfilled. Proto3 non-optional int32 uses 0 as zero value, making it
+	// impossible to distinguish "explicitly set to 0" from "never set". Backfilling
+	// would violate the precedence model (e.g., ReadOnlyPort=0 means "disabled",
+	// but backfill would overwrite it with a non-zero flag value).
+
+	// Optional *bool fields — backfill if nil.
+	backfillBoolPtr := func(flag string, field **bool) {
+		if *field == nil {
+			if v, ok := flags[flag]; ok && v != "" {
+				b, err := strconv.ParseBool(v)
+				if err == nil {
+					*field = &b
+				}
+			}
+		}
+	}
+	backfillBoolPtr("--cgroups-per-qos", &cfg.CgroupsPerQos)
+	backfillBoolPtr("--cpu-cfs-quota", &cfg.CpuCfsQuota)
+	backfillBoolPtr("--fail-swap-on", &cfg.FailSwapOn)
+	backfillBoolPtr("--serialize-image-pulls", &cfg.SerializeImagePulls)
+
+	// Non-optional bool fields (RotateCertificates, ServerTlsBootstrap, ProtectKernelDefaults):
+	// NOT backfilled. Proto3 non-optional bool uses false as zero value, making it
+	// impossible to distinguish "explicitly set to false" from "never set". Backfilling
+	// would violate the precedence model (e.g., RotateCertificates=false is a valid
+	// explicit choice that should not be overwritten by a flag value of true).
+	//
+	// TODO: convert these proto fields to optional bool so we can safely backfill when
+	// unset (nil) without risking overwrite of an explicit false. Same applies to
+	// non-optional int32 fields (ReadOnlyPort, EvictionMaxPodGracePeriod).
+
+	// String slice fields — backfill only when nil.
+	backfillStringSlice := func(flag string, field *[]string) {
+		if *field != nil {
+			return
+		}
+		v, ok := flags[flag]
+		if !ok || v == "" {
+			return
+		}
+		parts := strings.Split(v, ",")
+		out := make([]string, 0, len(parts))
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				out = append(out, p)
+			}
+		}
+		if len(out) != 0 {
+			*field = out
+		}
+	}
+	backfillStringSlice("--cluster-dns", &cfg.ClusterDns)
+	backfillStringSlice("--tls-cipher-suites", &cfg.TlsCipherSuites)
+	backfillStringSlice("--enforce-node-allocatable", &cfg.EnforceNodeAllocatable)
+	backfillStringSlice("--allowed-unsafe-sysctls", &cfg.AllowedUnsafeSysctls)
+
+	// Map[string]string fields — backfill if nil.
+	backfillMapString := func(flag string, field *map[string]string, sep string) {
+		if *field != nil {
+			return
+		}
+		v, ok := flags[flag]
+		if !ok || v == "" {
+			return
+		}
+		parsed := parseKeyValuePairs(v, sep)
+		if len(parsed) == 0 {
+			return
+		}
+		*field = parsed
+	}
+	backfillMapString("--eviction-hard", &cfg.EvictionHard, "<")
+	backfillMapString("--eviction-soft", &cfg.EvictionSoft, "<")
+	backfillMapString("--eviction-soft-grace-period", &cfg.EvictionSoftGracePeriod, "=")
+	backfillMapString("--system-reserved", &cfg.SystemReserved, "=")
+	backfillMapString("--kube-reserved", &cfg.KubeReserved, "=")
+
+	// Map[string]bool fields (feature gates) — backfill if nil.
+	if len(cfg.FeatureGates) == 0 {
+		if v, ok := flags["--feature-gates"]; ok && v != "" {
+			parsed := parseKeyValuePairsBool(v)
+			if len(parsed) != 0 {
+				cfg.FeatureGates = parsed
+			}
+		}
+	}
+
+	// Nested authentication fields.
+	if v, ok := flags["--client-ca-file"]; ok && v != "" {
+		if cfg.Authentication == nil {
+			cfg.Authentication = &aksnodeconfigv1.KubeletAuthentication{}
+		}
+		if cfg.Authentication.X509 == nil {
+			cfg.Authentication.X509 = &aksnodeconfigv1.KubeletX509Authentication{}
+		}
+		if cfg.Authentication.X509.ClientCaFile == "" {
+			cfg.Authentication.X509.ClientCaFile = v
+		}
+	}
+
+	// Backfill authentication.webhook.enabled only when the webhook message itself is absent.
+	if v, ok := flags["--authentication-token-webhook"]; ok && v != "" {
+		if cfg.Authentication == nil {
+			cfg.Authentication = &aksnodeconfigv1.KubeletAuthentication{}
+		}
+		if cfg.Authentication.Webhook == nil {
+			if b, err := strconv.ParseBool(v); err == nil {
+				cfg.Authentication.Webhook = &aksnodeconfigv1.KubeletWebhookAuthentication{Enabled: b}
+			}
+		}
+	}
+
+	// Backfill authentication.anonymous.enabled only when the anonymous message itself is absent.
+	if v, ok := flags["--anonymous-auth"]; ok && v != "" {
+		if cfg.Authentication == nil {
+			cfg.Authentication = &aksnodeconfigv1.KubeletAuthentication{}
+		}
+		if cfg.Authentication.Anonymous == nil {
+			if b, err := strconv.ParseBool(v); err == nil {
+				cfg.Authentication.Anonymous = &aksnodeconfigv1.KubeletAnonymousAuthentication{Enabled: b}
+			}
+		}
+	}
+
+	// Nested authorization fields.
+	if v, ok := flags["--authorization-mode"]; ok && v != "" {
+		if cfg.Authorization == nil {
+			cfg.Authorization = &aksnodeconfigv1.KubeletAuthorization{}
+		}
+		if cfg.Authorization.Mode == "" {
+			cfg.Authorization.Mode = v
+		}
+	}
+}
+
+// parseKeyValuePairs parses "key<sep>value,key<sep>value" into a map.
+func parseKeyValuePairs(s, sep string) map[string]string {
+	result := make(map[string]string)
+	for _, pair := range strings.Split(s, ",") {
+		parts := strings.SplitN(pair, sep, 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		if key == "" {
+			continue
+		}
+		result[key] = strings.TrimSpace(parts[1])
+	}
+	return result
+}
+
+// parseKeyValuePairsBool parses "key=true,key=false" into a map[string]bool.
+func parseKeyValuePairsBool(s string) map[string]bool {
+	result := make(map[string]bool)
+	for _, pair := range strings.Split(s, ",") {
+		parts := strings.SplitN(pair, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		if key == "" {
+			continue
+		}
+		if b, err := strconv.ParseBool(strings.TrimSpace(parts[1])); err == nil {
+			result[key] = b
+		}
+	}
+	return result
 }
 
 func getKubeletConfigFileContentBase64(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
