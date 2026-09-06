@@ -99,7 +99,7 @@ func isContainerdVersionGe(containerdConfig *aksnodeconfigv1.ContainerdConfig, v
 	if containerdVersion == "" {
 		return false
 	}
-	return IsKubernetesVersionGe(containerdVersion, version)
+	return semverGe(containerdVersion, version)
 }
 
 func getStringFromVMType(enum aksnodeconfigv1.VmType) string {
@@ -1060,8 +1060,10 @@ func getRepoDepotEndpoint(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 
 // ---------------------- End of cse timeout helper code ----------------------//
 
-// IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
-func IsKubernetesVersionGe(actualVersion, version string) bool {
+// semverGe reports whether actualVersion is greater than or equal to version,
+// comparing both as semver. It is version-scheme agnostic (Kubernetes, containerd, etc.);
+// callers are responsible for passing clean semver strings.
+func semverGe(actualVersion, version string) bool {
 	v1, err := semver.NewVersion(actualVersion)
 	if err != nil {
 		return false
@@ -1071,6 +1073,11 @@ func IsKubernetesVersionGe(actualVersion, version string) bool {
 		return false
 	}
 	return v1.GreaterThanEqual(v2)
+}
+
+// IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
+func IsKubernetesVersionGe(actualVersion, version string) bool {
+	return semverGe(actualVersion, version)
 }
 
 // returns the CSE timeout value in seconds.
