@@ -228,7 +228,7 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	// v3 (2.0-2.2) or v4 (2.3+) schema internally. This keeps the scriptless config byte-for-byte
 	// aligned with pkg/agent/baker.go's containerdV2BeforeV23/containerdV2 templates (asserted by
 	// the provision-config vs nbc-cmd env-var parity check). containerd 1.x keeps the legacy template.
-	if isContainerdV2OrLater(aksnodeconfig.GetContainerdConfig().GetContainerdVersion()) {
+	if isContainerdVersionGe(aksnodeconfig.GetContainerdConfig(), "2.0.0") {
 		_template = containerdV2ConfigTemplate
 		if noGPU {
 			_template = containerdV2ConfigNoGPUTemplate
@@ -257,18 +257,6 @@ func configWithContainerdVersionFallback(aksnodeconfig *aksnodeconfigv1.Configur
 	}
 	clonedConfig.ContainerdConfig.ContainerdVersion = containerdVersion
 	return clonedConfig, nil
-}
-
-func isContainerdV2OrLater(containerdVersion string) bool {
-	containerdVersion = containerdSemverCore(containerdVersion)
-	if containerdVersion == "" {
-		return false
-	}
-	version, err := semver.NewVersion(containerdVersion)
-	if err != nil {
-		return false
-	}
-	return version.Major() >= 2
 }
 
 // detectContainerdVersion runs "containerd --version" and parses the version string.
