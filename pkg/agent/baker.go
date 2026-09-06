@@ -1977,7 +1977,7 @@ func isContainerdVersionGe(actualVersion, version string) bool {
 	if actualVersion == "" {
 		return false
 	}
-	return IsKubernetesVersionGe(actualVersion, version)
+	return semverGe(actualVersion, version)
 }
 
 func containerdSemverCore(version string) string {
