@@ -16,7 +16,40 @@ function Install-VnetPlugins {
     # Download Azure VNET CNI plugins.
     # Mirror from https://github.com/Azure/azure-container-networking/releases
     $zipfile = [Io.path]::Combine("$AzureCNIDir", "azure-vnet.zip")
-    DownloadFileOverHttp -Url $VNetCNIPluginsURL -DestinationPath $zipfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE
+    if ([string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
+        DownloadFileOverHttp -Url $VNetCNIPluginsURL -DestinationPath $zipfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE
+    }
+    else {
+        # ni path
+        if (-not (Get-Command 'DownloadFileWithOras' -ErrorAction SilentlyContinue)) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_PACKAGE -ErrorMessage "DownloadFileWithOras function is not available. networkisolatedclusterfunc.ps1 may not be sourced."
+        }
+        if (-not (Get-Command 'Get-FileNameFromUrl' -ErrorAction SilentlyContinue)) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_PACKAGE -ErrorMessage "Get-FileNameFromUrl function is not available. networkisolatedclusterfunc.ps1 may not be sourced."
+        }
+
+        # Extract package name and version from URL for ORAS reference.
+        # URL format: https://packages.aks.azure.com/azure-cni/v${version}/binaries/<package-name>-windows-amd64-v${version}.zip
+        # packageName examples include azure-vnet-cni, azure-vnet-cni-overlay, azure-vnet-cni-swift,
+        # and Windows single-tenancy variants such as azure-vnet-cni-singletenancy (including suffixed forms).
+        $packageInfo = Get-PackageNameAndVersionFromCniUrl -Url $VNetCNIPluginsURL
+        if (-not $packageInfo) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_PACKAGE -ErrorMessage "Failed to extract Azure VNet CNI package version tag from URL: $VNetCNIPluginsURL"
+        }
+        $cniPackageVersionTag = $packageInfo.Version
+        $orasPackageName = $packageInfo.PackageName
+
+        $sanitizedRegistry = ($global:BootstrapProfileContainerRegistryServer -replace '^https?://', '').TrimEnd('/')
+        Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAzureVnetCniWithOras" -TaskMessage "Start to download Azure VNet CNI with oras. CniPackageVersionTag: $cniPackageVersionTag, BootstrapProfileContainerRegistryServer: $global:BootstrapProfileContainerRegistryServer"
+        $orasReference = "$sanitizedRegistry/aks/packages/azure/${orasPackageName}:${cniPackageVersionTag}"
+        $cachedFileName = Get-FileNameFromUrl -Url $VNetCNIPluginsURL
+        try {
+            Retry-Command -Command "DownloadFileWithOras" -Args @{Reference = $orasReference; DestinationPath = $zipfile; CachedFile = $cachedFileName } -Retries 5 -RetryDelaySeconds 10
+        }
+        catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_PACKAGE -ErrorMessage "Exhausted retries for oras pull $orasReference. Error: $_"
+        }
+    }
     AKS-Expand-Archive -path $zipfile -DestinationPath $AzureCNIBinDir
     del $zipfile
 
@@ -24,6 +57,25 @@ function Install-VnetPlugins {
     # kernel automatically creates a loopback interface for each network namespace.
     # Copy CNI network config file and set bridge mode.
     move $AzureCNIBinDir/*.conflist $AzureCNIConfDir
+}
+
+function Get-PackageNameAndVersionFromCniUrl {
+    Param(
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]
+        $Url
+    )
+
+    # Expected format:
+    # https://packages.aks.azure.com/azure-cni/vX.Y.Z/binaries/<package-name>-windows-amd64-vX.Y.Z[-suffix].zip
+    $pattern = '/binaries/(?<PackageName>.+)-windows-amd64-(?<Version>v[0-9]+(?:\.[0-9]+)*(?:-[A-Za-z0-9._-]+)?)\.zip$'
+    if ($Url -match $pattern) {
+        return [PSCustomObject]@{
+            PackageName = $matches['PackageName']
+            Version     = $matches['Version']
+        }
+    }
+
+    return $null
 }
 
 function Set-AzureCNIConfig {
