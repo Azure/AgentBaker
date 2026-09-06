@@ -120,19 +120,19 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.14.3-11"
+          "latestVersion": "v1.14.3-19"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.13.1-20"
+          "latestVersion": "v1.13.2-25"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.12.1-25"
+          "latestVersion": "v1.12.4-26"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.11.3-32"
+          "latestVersion": "v1.11.4-11"
         }
       ],
       "windowsVersions": []
