@@ -2013,7 +2013,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.19.3-ubuntu24.04u6"
+                "latestVersion": "0.19.3-ubuntu24.04u7"
               }
             ]
           },
@@ -2021,7 +2021,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.19.3-ubuntu22.04u6"
+                "latestVersion": "0.19.3-ubuntu22.04u7"
               }
             ]
           }
