@@ -316,9 +316,9 @@ removeNvidiaRepos() {
 # The prebaked module MAY already be loaded when we run: cuda(-lts) prebakes auto-load nvidia.ko at
 # boot (~5s, well before CSE), so on a cuda/cuda-lts SKU opted out via --gpu-driver None the module
 # is resident even though ensureGPUDrivers never ran. (grid prebakes do not auto-load, so grid nodes
-# arrive here with no module.) Deleting the on-disk .ko then leaves a stale loaded module -- unused
-# (refcnt 0, no /dev/nvidia*) but resident until reboot, and a landmine for a subsequent GPU Operator
-# install. So we rmmod it first, when idle, before removing the files. No-op unless the marker exists.
+# arrive here with no module.) Deleting the on-disk .ko then leaves a stale loaded module -- a landmine
+# for a subsequent GPU Operator install (its driver-container's unload-then-load fails against the
+# resident module). So we rmmod it first, before removing the files. No-op unless the marker exists.
 cleanUpPrebakedGPUDriver() {
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
     if [ ! -f "${marker}" ]; then
@@ -328,18 +328,22 @@ cleanUpPrebakedGPUDriver() {
     local dkms_before=false module_before=false module_after=false
     [ -d /var/lib/dkms/nvidia ] && dkms_before=true
 
-    # Unload the prebaked nvidia module if it auto-loaded at boot (cuda/cuda-lts SKUs). Only when idle
-    # (refcnt 0 and no device nodes) -- this node doesn't install a driver, so nothing should be using
-    # it; if something is, leave it and let module_after=true flag an incomplete teardown. Unload the
-    # dependent modules first (modeset/uvm/drm) so nvidia's refcnt drops to 0. Best-effort; failures
-    # do not abort provisioning.
+    # Unload the prebaked nvidia module stack if it auto-loaded at boot (cuda/cuda-lts SKUs). The
+    # dependent modules (nvidia_modeset/uvm/drm/peermem) hold a reference on nvidia -- i.e. they are
+    # exactly what keeps /sys/module/nvidia/refcnt nonzero -- so we must unload THEM first, then
+    # nvidia. (A refcnt==0 pre-check would be self-defeating: on a normal auto-loaded stack nvidia's
+    # refcnt is already >=1 from those dependents, so it would skip the very unloads that free it.)
+    # rmmod without -f refuses to unload a module in genuine use (a running GPU process pinning it),
+    # so this is safe: a truly busy stack simply stays loaded and is reported as incomplete below.
+    # nvidia-persistenced (if the prebake started it) holds an open device handle -- not a module
+    # dependency, so refcnt would not reflect it -- so stop it first, mirroring NVIDIA's own
+    # gpu-driver-container _unload_driver. Best-effort throughout; failures do not abort provisioning.
     if lsmod | grep -q '^nvidia'; then
         module_before=true
-        if [ "$(cat /sys/module/nvidia/refcnt 2>/dev/null || echo 0)" = "0" ] && ! ls /dev/nvidia* >/dev/null 2>&1; then
-            for mod in nvidia_uvm nvidia_drm nvidia_modeset nvidia_peermem nvidia; do
-                rmmod "${mod}" 2>/dev/null || true
-            done
-        fi
+        systemctl stop nvidia-persistenced 2>/dev/null || true
+        for mod in nvidia_drm nvidia_uvm nvidia_modeset nvidia_peermem nvidia; do
+            rmmod "${mod}" 2>/dev/null || true
+        done
     fi
     lsmod | grep -q '^nvidia' && module_after=true
 
