@@ -34,9 +34,46 @@ pr:
       - e2e/**
       - '**/*.go'
 jobs:
+  - job: gpuImpact
+    displayName: Check GPU impact opt-out
+    variables:
+      - group: ab-e2e
+    pool:
+      name: $(E2E_POOL_NAME)
+    steps:
+      - checkout: self
+        fetchTags: false
+        fetchDepth: 1
+
+      - bash: |
+          run_gpu_e2e=true
+          pr_number="${SYSTEM_PULLREQUEST_PULLREQUESTNUMBER:-}"
+
+          if [[ "${BUILD_REASON:-}" == "PullRequest" && -n "${pr_number}" ]]; then
+            labels_url="https://api.github.com/repos/Azure/AgentBaker/issues/${pr_number}/labels"
+            if labels="$(curl --fail --silent --show-error --location \
+              --header "Accept: application/vnd.github+json" \
+              "${labels_url}")"; then
+              if jq -e 'any(.[]; .name == "no-gpu-impact")' <<<"${labels}" >/dev/null; then
+                run_gpu_e2e=false
+              fi
+            else
+              echo "Unable to read PR labels; running GPU E2E" >&2
+            fi
+          fi
+
+          echo "Run GPU E2E: ${run_gpu_e2e}"
+          echo "##vso[task.setvariable variable=runGpuE2E;isOutput=true]${run_gpu_e2e}"
+        name: decision
+        displayName: Read no-gpu-impact label
+        continueOnError: true
+
   - template: ./templates/e2e-template.yaml
     parameters:
       name: Ubuntu GPU Tests
       IgnoreScenariosWithMissingVhd: false
       jobTimeoutInMinutes: 180
       failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}
+      dependsOn:
+        - gpuImpact
+      jobCondition: and(not(canceled()), ne(dependencies.gpuImpact.outputs['decision.runGpuE2E'], 'false'), ne(variables.SKIP_E2E_TESTS, 'true'))
