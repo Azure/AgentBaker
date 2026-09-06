@@ -400,3 +400,28 @@ Describe 'Remove-KubeletNodeLabel' {
         Compare-Object $global:KubeletNodeLabels $expected | Should -Be $null
     }
 }
+
+Describe 'Fix-SkuCpuLabel' {
+    It "Should correct sku-cpu when actual cores differ from label value" {
+        Mock Get-CimInstance -MockWith { [PSCustomObject]@{ NumberOfLogicalProcessors = 16 } }
+        $global:KubeletNodeLabels = "agentpool=harvest,kubernetes.azure.com/sku-cpu=8,kubernetes.azure.com/agentpool=harvest"
+        Fix-SkuCpuLabel
+        $global:KubeletNodeLabels | Should -Match 'kubernetes\.azure\.com/sku-cpu=16'
+        $global:KubeletNodeLabels | Should -Not -Match 'sku-cpu=8'
+    }
+
+    It "Should not modify sku-cpu when it already matches actual cores" {
+        Mock Get-CimInstance -MockWith { [PSCustomObject]@{ NumberOfLogicalProcessors = 8 } }
+        $global:KubeletNodeLabels = "agentpool=pool1,kubernetes.azure.com/sku-cpu=8,kubernetes.azure.com/agentpool=pool1"
+        Fix-SkuCpuLabel
+        $global:KubeletNodeLabels | Should -Match 'kubernetes\.azure\.com/sku-cpu=8'
+    }
+
+    It "Should do nothing when sku-cpu label is not present" {
+        Mock Get-CimInstance -MockWith { [PSCustomObject]@{ NumberOfLogicalProcessors = 16 } }
+        $global:KubeletNodeLabels = "agentpool=pool1,kubernetes.azure.com/agentpool=pool1"
+        $expected = $global:KubeletNodeLabels
+        Fix-SkuCpuLabel
+        $global:KubeletNodeLabels | Should -Be $expected
+    }
+}
