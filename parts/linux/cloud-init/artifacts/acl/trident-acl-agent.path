@@ -1,0 +1,17 @@
+[Unit]
+Description=Start the Trident ACL Agent once kubelet's kubeconfig exists
+Documentation=https://microsoft.github.io/trident/
+
+[Path]
+# The agent authenticates to the API server as this node using kubelet's
+# kubeconfig, and fails to start if the file is absent. On a new node that file
+# does not appear until kubelet completes TLS bootstrapping, so trigger on the
+# file itself rather than on a unit or target that only approximates it.
+#
+# On later boots the file already exists, and systemd activates the unit
+# immediately when the path unit starts, so no special case is needed.
+PathExists=/var/lib/kubelet/kubeconfig
+Unit=trident-acl-agent.service
+
+[Install]
+WantedBy=multi-user.target
