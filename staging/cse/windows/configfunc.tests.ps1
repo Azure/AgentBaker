@@ -153,6 +153,61 @@ Describe 'Config-CredentialProvider' {
             $normalizedActual | Should -Be $normalizedExpected
        }
     }
+    Context 'BootstrapProfileContainerRegistryServer is set with default MCR' {
+        BeforeEach {
+            $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
+            # Ensure MCRRepositoryBase is not set so it falls back to mcr.microsoft.com
+            Remove-Variable -Name MCRRepositoryBase -Scope Global -ErrorAction SilentlyContinue
+        }
+        AfterEach {
+            $global:BootstrapProfileContainerRegistryServer = $null
+        }
+        It "should include mcr.microsoft.com in matchImages and registry-mirror arg" {
+            $expectedCredentialProviderConfig = Read-Format-Yaml ([Io.path]::Combine($credentialProviderConfigDir, "BootstrapProfileContainerRegistryServerDefault.config.yaml"))
+            Config-CredentialProvider -KubeDir $credentialProviderConfigDir -CredentialProviderConfPath $CredentialProviderConfPATH -CustomCloudContainerRegistryDNSSuffix ""
+            $acutalCredentialProviderConfig = Read-Format-Yaml $CredentialProviderConfPATH
+
+            $normalizedExpected = $expectedCredentialProviderConfig.Trim().Replace("`r`n", "`n")
+            $normalizedActual = $acutalCredentialProviderConfig.Trim().Replace("`r`n", "`n")
+            $normalizedActual | Should -Be $normalizedExpected
+        }
+    }
+    Context 'BootstrapProfileContainerRegistryServer is set with custom MCRRepositoryBase' {
+        BeforeEach {
+            $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
+            $global:MCRRepositoryBase = "custom.mcr.contoso.com"
+        }
+        AfterEach {
+            $global:BootstrapProfileContainerRegistryServer = $null
+            $global:MCRRepositoryBase = $null
+        }
+        It "should use custom MCRRepositoryBase in matchImages and registry-mirror arg" {
+            $expectedCredentialProviderConfig = Read-Format-Yaml ([Io.path]::Combine($credentialProviderConfigDir, "BootstrapProfileContainerRegistryServerCustomMCR.config.yaml"))
+            Config-CredentialProvider -KubeDir $credentialProviderConfigDir -CredentialProviderConfPath $CredentialProviderConfPATH -CustomCloudContainerRegistryDNSSuffix ""
+            $acutalCredentialProviderConfig = Read-Format-Yaml $CredentialProviderConfPATH
+
+            $normalizedExpected = $expectedCredentialProviderConfig.Trim().Replace("`r`n", "`n")
+            $normalizedActual = $acutalCredentialProviderConfig.Trim().Replace("`r`n", "`n")
+            $normalizedActual | Should -Be $normalizedExpected
+        }
+    }
+    Context 'CustomCloudContainerRegistryDNSSuffix takes precedence over BootstrapProfileContainerRegistryServer' {
+        BeforeEach {
+            $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
+        }
+        AfterEach {
+            $global:BootstrapProfileContainerRegistryServer = $null
+        }
+        It "should use CustomCloud config and not include registry-mirror when both are set" {
+            $expectedCredentialProviderConfig = Read-Format-Yaml ([Io.path]::Combine($credentialProviderConfigDir, "CustomCloudContainerRegistryDNSSuffixNotEmpty.config.yaml"))
+            Config-CredentialProvider -KubeDir $credentialProviderConfigDir -CredentialProviderConfPath $CredentialProviderConfPATH -CustomCloudContainerRegistryDNSSuffix ".azurecr.microsoft.fakecloud"
+            $acutalCredentialProviderConfig = Read-Format-Yaml $CredentialProviderConfPATH
+
+            $normalizedExpected = $expectedCredentialProviderConfig.Trim().Replace("`r`n", "`n")
+            $normalizedActual = $acutalCredentialProviderConfig.Trim().Replace("`r`n", "`n")
+            $normalizedActual | Should -Be $normalizedExpected
+        }
+    }
 }
 
 Describe 'Validate-CredentialProviderConfigFlags' {
