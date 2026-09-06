@@ -27,8 +27,7 @@ Installs Windows Cilium Networking using the global configuration settings.
 - Expects node prep to remove source NuGet package from aks-cache following installation
 
 #>
-function Enable-WindowsCiliumNetworking
-{
+function Enable-WindowsCiliumNetworking {
     if (!$global:EnableWindowsCiliumNetworking) {
         Write-Log "Windows Cilium Networking is disabled, skipping installation"
         return
@@ -41,7 +40,7 @@ function Enable-WindowsCiliumNetworking
     $installArgs = @{
         RestartRequiredOut = ([ref]$isRebootNeeded)
         SourceDirectory = $global:WindowsCiliumInstallPath
-        SkipNugetUnpack = [switch]::Present 
+        SkipNugetUnpack = [switch]::Present
     }
 
     # Add scenario configuration if specified
@@ -61,8 +60,7 @@ function Enable-WindowsCiliumNetworking
         if ($isRebootNeeded) {
             $global:RebootNeeded = $true
         }
-    }
-    catch {
+    } catch {
         Write-Log "Failed to install Windows Cilium Networking: $_"
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_WINDOWS_CILIUM_NETWORKING_INSTALL_FAILED -ErrorMessage "$_"
     }
@@ -97,5 +95,10 @@ function Invoke-WindowsCiliumNetworkingInstallScript {
     )
 
     $wcnInstallScript = $global:WindowsCiliumInstallPath | Join-Path -ChildPath 'scripts' | Join-Path -ChildPath 'install' | Join-Path -ChildPath 'install.ps1'
-    & $wcnInstallScript @Arguments
+    if (Test-Path -Path $wcnInstallScript -PathType Leaf) {
+        Write-Log "Expecting windows cilium install script at: $wcnInstallScript"
+        & $wcnInstallScript @Arguments
+    } else {
+        Write-Log "Windows Cilium Networking installation script could not be found: $wcnInstallScript"
+    }
 }
