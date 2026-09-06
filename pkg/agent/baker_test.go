@@ -834,21 +834,20 @@ testdomain567.com:53 {
 						HealthCheck: &datamodel.LocalDNSHealthCheck{
 							Duration: to.StringPtr("1s"),
 							NoRec:    to.BoolPtr(true),
-							Domain:   to.StringPtr("health.local."),
 						},
 					}},
 					KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": {
 						QueryLogging: "Error", Protocol: "PreferUDP", ForwardDestination: "ClusterCoreDNS", ForwardPolicy: "Sequential",
 						MaxConcurrent: to.Int32Ptr(1000), CacheDurationInSeconds: to.Int32Ptr(3600), ServeStaleDurationInSeconds: to.Int32Ptr(3600), ServeStale: "Immediate",
-						HealthCheck: &datamodel.LocalDNSHealthCheck{Duration: to.StringPtr("2s"), Domain: to.StringPtr("")},
+						HealthCheck: &datamodel.LocalDNSHealthCheck{Duration: to.StringPtr("2s")},
 					}},
 				}
 				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
 				Expect(err).To(BeNil())
-				Expect(localDNSCoreFile).To(ContainSubstring("health_check 1s no_rec domain health.local."))
+				Expect(localDNSCoreFile).To(ContainSubstring("health_check 1s no_rec"))
 				Expect(localDNSCoreFile).To(ContainSubstring("failfast_all_unhealthy_upstreams"))
 				Expect(localDNSCoreFile).To(ContainSubstring("health_check 2s"))
-				Expect(localDNSCoreFile).ToNot(ContainSubstring("domain \n"))
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("domain "))
 			})
 
 			// Expect a valid corefile WITHOUT hosts plugin blocks when includeHostsPlugin=false.
