@@ -24,6 +24,26 @@ steps:
       vstsPackageVersion: '0.0.249'
       downloadDirectory: vhdbuilder/
 
+  # Compliance Engine (benchmark-agnostic) scan — opt-in shadow of the CIS-CAT
+  # scan above. Downloads the assessor + Ubuntu benchmark MOFs onto the agent;
+  # vhd-scanning.sh then stages them onto the scan VM and publishes native JSON.
+  # This is fully additive: it no-ops unless ENABLE_COMPLIANCE_ENGINE_SCAN=true.
+  #
+  # Package names + versions are pinned (PR-gated) in the manifest
+  # vhdbuilder/packer/compliance-versions.json — bumping requires a PR, exactly
+  # like the CIS scanner version pin above. The compliance-engine packages live
+  # on the ComplianceEnginePackages feed in the SAME ADO org, so basic auth
+  # (System.AccessToken) is used and the build identity needs Feed Reader there.
+  - template: ./.compliance-engine-scan-template.yaml
+    parameters:
+      # TEMPORARY (testing): the ENABLE_COMPLIANCE_ENGINE_SCAN gate is removed so
+      # the scan runs on every Ubuntu 22.04/24.04 build without setting the
+      # variable. RESTORE before merge:
+      #   and(succeeded(), eq(variables['ENABLE_COMPLIANCE_ENGINE_SCAN'], 'true'), eq(variables['OS_SKU'], 'Ubuntu'), in(variables['OS_VERSION'], '22.04', '24.04'))
+      condition: and(succeeded(), eq(variables['OS_SKU'], 'Ubuntu'), in(variables['OS_VERSION'], '22.04', '24.04'))
+      feedName: ComplianceEnginePackages
+      feedProject: One
+
   - task: DownloadPipelineArtifact@2
     condition: and(or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'cbl-mariner'))
     displayName: 'Download Kata CC UVM artifact'
@@ -403,6 +423,36 @@ steps:
         cis-report.html
         cis-report.txt
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+  # Compliance Engine native JSON results (+ assessor logs) and rendered JUnit.
+  # Non-blocking: the glob simply matches nothing when the scan is disabled or
+  # produced no output.
+  - task: CopyFiles@2
+    condition: and(eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'))
+    continueOnError: true
+    displayName: Copy Compliance Engine Reports
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: |
+        compliance-engine-*.json
+        compliance-engine-*.log
+        compliance-engine-*.junit.xml
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+  # Publish the Compliance Engine JUnit to the test tab. Non-blocking: compliance
+  # findings must not fail the build, and the step no-ops (with a warning) when
+  # no JUnit was produced (e.g. an assessor without the `render` subcommand).
+  - task: PublishTestResults@2
+    condition: and(eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'))
+    continueOnError: true
+    displayName: Publish Compliance Engine JUnit Results
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: 'compliance-engine-*.junit.xml'
+      searchFolder: '$(System.DefaultWorkingDirectory)'
+      testRunTitle: 'Compliance Engine Scan - $(OS_SKU) $(OS_VERSION)'
+      failTaskOnFailedTests: false
+      mergeTestResults: true
 
   - task: PublishPipelineArtifact@0
     displayName: Publish Release Notes
