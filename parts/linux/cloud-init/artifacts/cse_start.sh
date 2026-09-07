@@ -9,12 +9,10 @@ publishProvisionResponse() {
     local response_tmp="${PROVISION_JSON_FILE_PATH}.tmp"
     local complete_file
 
-    # shellcheck disable=SC2086
-    echo ${response}
+    printf '%s\n' "${response}"
     mkdir -p "$(dirname "${PROVISION_JSON_FILE_PATH}")" || return 1
 
-    # shellcheck disable=SC2086
-    if ! echo ${response} > "${response_tmp}" ||
+    if ! printf '%s\n' "${response}" > "${response_tmp}" ||
        ! chmod 0644 "${response_tmp}" ||
        ! mv -f "${response_tmp}" "${PROVISION_JSON_FILE_PATH}"; then
         rm -f "${response_tmp}"

@@ -44,6 +44,20 @@ Describe 'publishProvisionResponse'
         The result of function provision_json_temp_count should equal "0"
     End
 
+    It 'preserves multiline JSON and glob characters'
+        response='{
+  "ExitCode": "7",
+  "Output": "files * here",
+  "Error": "failed step"
+}'
+
+        When call publishProvisionResponse "${response}"
+
+        The status should be success
+        The output should equal "${response}"
+        The contents of file "${PROVISION_JSON_FILE_PATH}" should equal "${response}"
+    End
+
     It 'uses the base preparation marker for pre-provisioning'
         PRE_PROVISION_ONLY="true"
 
