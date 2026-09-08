@@ -86,7 +86,12 @@ steps:
       # Azure CLI.
       if ! command -v az >/dev/null 2>&1; then
           case "$PKG" in
-              apt)       curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash ;;
+              apt)
+                  tmp="$(mktemp -d)"
+                  curl -fsSL https://aka.ms/InstallAzureCLIDeb -o "$tmp/install-azure-cli.sh"
+                  sudo bash "$tmp/install-azure-cli.sh"
+                  rm -rf "$tmp"
+                  ;;
               tdnf|dnf)  pkg_install azure-cli ;;
           esac
       fi
