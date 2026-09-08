@@ -2847,29 +2847,47 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 
 func nodeHasInfiniBandHardware(ctx context.Context, s *Scenario) (bool, error) {
 	// node-exporter 1.12.1 cannot parse MANA RDMA devices, so the startup script
-	// disables the collector when MANA PCI hardware is present. Keep this
+	// disables the collector once MANA PCI hardware is observed this boot. Keep this
 	// detection aligned so MANA and mixed-HCA nodes do not require metrics from a
 	// collector that must be disabled pending an upstream fix.
-	command := `for device in /sys/bus/pci/devices/*; do
+	command := `if [ -f /run/node-exporter-mana-observed ]; then
+    echo "MANA observed earlier this boot; InfiniBand collector disabled"
+    exit 1
+fi
+for device in /sys/bus/pci/devices/*; do
     if [ -d "$device" ] &&
        grep -qi '^0x1414$' "$device/vendor" 2>/dev/null &&
        grep -Eqi '^0x00(b9|ba|c1)$' "$device/device" 2>/dev/null; then
+        echo "MANA PCI device: $device; InfiniBand collector disabled"
         exit 1
     fi
 done
 for device in /sys/class/infiniband/*; do
     [ -e "$device" ] || continue
+    echo "InfiniBand device: $device; requiring collector success and metrics"
     exit 0
 done
+echo "No InfiniBand devices found"
 exit 1`
 	result, err := execScriptOnVMForScenario(ctx, s, command)
 	if err != nil {
 		return false, fmt.Errorf("detect InfiniBand hardware: %w", err)
 	}
+	if result.exitCode != "0" && result.exitCode != "1" {
+		return false, fmt.Errorf("detect InfiniBand hardware: exit %s: %s", result.exitCode, result.stderr)
+	}
+	s.Logger.Logf("node-exporter hardware detection: %s", strings.TrimSpace(result.stdout))
 	return result.exitCode == "0", nil
 }
 
 func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL string, requireInfiniBand bool) error {
+	// The boot-local marker only exists on VHDs with lifecycle-aware suppression;
+	// main/older VHDs used by standalone PR E2Es retain their existing checks.
+	manaObserved, err := fileExist(ctx, s, "/run/node-exporter-mana-observed")
+	if err != nil {
+		return fmt.Errorf("read node-exporter MANA workaround state: %w", err)
+	}
+	s.Logger.Logf("node-exporter InfiniBand expectations: required=%t, disabled=%t", requireInfiniBand, manaObserved)
 	result, err := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("curl --noproxy '*' -sS --max-time 10 %q", metricsURL))
 	if err != nil {
 		return fmt.Errorf("scrape node-exporter metrics from %s: %w", metricsURL, err)
@@ -2886,7 +2904,7 @@ func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL 
 	}
 	return errors.Join(
 		assert.NoError(nodeexporter.ValidateMetrics(result.stdout), "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview),
-		assert.NoError(nodeexporter.ValidateCollectors(result.stdout, requireInfiniBand), "node-exporter collectors did not satisfy the AgentBaker contract\nresponse preview:\n%s", responsePreview),
+		assert.NoError(nodeexporter.ValidateCollectors(result.stdout, requireInfiniBand, manaObserved), "node-exporter collectors did not satisfy the AgentBaker contract\nresponse preview:\n%s", responsePreview),
 	)
 }
 

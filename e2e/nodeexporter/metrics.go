@@ -64,10 +64,13 @@ func parseMetricNames(metricsText string) map[string]struct{} {
 
 // ValidateCollectors verifies that the collectors enabled by AgentBaker are present in the scrape.
 // InfiniBand metrics are required only when the node has InfiniBand hardware.
-func ValidateCollectors(metricsText string, requireInfiniBand bool) error {
+func ValidateCollectors(metricsText string, requireInfiniBand, requireInfiniBandDisabled bool) error {
 	isVersion112OrNewer, err := nodeExporterVersionAtLeast(metricsText, 1, 12)
 	if err != nil {
 		return err
+	}
+	if requireInfiniBandDisabled && strings.Contains(metricsText, `node_scrape_collector_success{collector="infiniband"}`) {
+		return fmt.Errorf("InfiniBand collector is enabled despite the MANA workaround")
 	}
 	if isVersion112OrNewer {
 		requiredCollectors := []string{"bcachefs", "dmmultipath", "kernel_hung"}
@@ -97,25 +100,8 @@ func ValidateCollectors(metricsText string, requireInfiniBand bool) error {
 			return fmt.Errorf("InfiniBand metrics are missing")
 		}
 
-		if isVersion112OrNewer {
-			hardwareCounterMetrics := []string{
-				"node_infiniband_duplicate_requests_packets_total",
-				"node_infiniband_lifespan_seconds",
-				"node_infiniband_out_of_buffer_drops_total",
-				"node_infiniband_rx_write_requests_total",
-			}
-			hasHardwareCounterMetric := false
-			metricNames := parseMetricNames(metricsText)
-			for _, name := range hardwareCounterMetrics {
-				if _, exists := metricNames[name]; exists {
-					hasHardwareCounterMetric = true
-					break
-				}
-			}
-			if !hasHardwareCounterMetric {
-				return fmt.Errorf("InfiniBand hardware counter metrics are missing")
-			}
-		}
+		// hw_counters are optional and driver-specific, even with exporter >=1.12.
+		// Successful collection must not require counters absent from the hardware.
 	}
 
 	return nil

@@ -1,20 +1,47 @@
 #!/bin/bash
 
 PCI_DEVICES_PATH="${PCI_DEVICES_PATH:-/sys/bus/pci/devices}"
+MANA_OBSERVED_FILE="${MANA_OBSERVED_FILE:-/run/node-exporter-mana-observed}"
 
 getNodeExporterHardwareArgs() {
+    if [ -f "$MANA_OBSERVED_FILE" ]; then
+        printf '%s\n' '--no-collector.infiniband'
+        return
+    fi
+    local device
     for device in "${PCI_DEVICES_PATH}"/*; do
         if [ -d "$device" ] &&
            grep -qi '^0x1414$' "$device/vendor" 2>/dev/null &&
            grep -Eqi '^0x00(b9|ba|c1)$' "$device/device" 2>/dev/null; then
+            touch "$MANA_OBSERVED_FILE" || return 1
             printf '%s\n' '--no-collector.infiniband'
             return
         fi
     done
 }
 
+nodeExporterMANAAdded() {
+    # Record the event before requesting a restart, even if the VF disappears
+    # again before ExecStart runs. Never start an inactive/preprovisioned service.
+    touch "$MANA_OBSERVED_FILE" || return 1
+    # Several VFs may arrive together. Do not restart an exporter that already
+    # applied the workaround, but do not use marker existence as proof of that.
+    local pid
+    pid=$(systemctl show --property=MainPID --value node-exporter.service) || return 1
+    if [[ "$pid" =~ ^[1-9][0-9]*$ ]] &&
+       grep -zFxq -- '--no-collector.infiniband' "/proc/${pid}/cmdline" 2>/dev/null; then
+        return 0
+    fi
+    systemctl --no-block try-restart node-exporter.service
+}
+
 if [ "${NODE_EXPORTER_STARTUP_SOURCE_ONLY:-false}" = "true" ]; then
     return 0
+fi
+
+if [ "${1:-}" = "--mana-added" ]; then
+    nodeExporterMANAAdded
+    exit $?
 fi
 
 if [ "$(grep ^ID= /etc/os-release | cut -c 4-)" = "flatcar" ]; then
@@ -120,17 +147,20 @@ ARGS=(
 # returns EINVAL with the parser used by node-exporter 1.12.1. node-exporter also
 # parses every device before applying either its device include or exclude
 # filter, so neither flag can avoid the failure. Detect MANA by its assigned PCI
-# IDs (Microsoft 1414; MANA PF 00b9, VF 00ba, PF2 00c1). PCI enumeration happens
-# during boot before userspace services start, unlike the later mana_ib driver
-# registration that creates mana_* under /sys/class/infiniband, so this check
-# cannot race RDMA class creation. Disable the whole collector when MANA is
-# present. This also suppresses metrics from other HCAs on mixed-HCA nodes until
-# upstream can filter before parsing devices.
+# IDs (Microsoft 1414; MANA PF 00b9, VF 00ba, PF2 00c1), independently of mana_ib
+# registration. Azure servicing can remove/re-add PCI VFs after boot: remember
+# MANA in /run across service restarts and use the PCI-add udev rule installed
+# by install-node-exporter.sh to re-evaluate on late attachment. /run resets on
+# reboot and does not carry build-VM hardware observations into new nodes.
+# This suppresses all InfiniBand metrics, including other HCAs on mixed nodes,
+# until upstream supports filtering before parsing devices.
 # https://github.com/prometheus/node_exporter/issues/3810
 # https://learn.microsoft.com/azure/virtual-network/accelerated-networking-mana-linux
 # https://github.com/torvalds/linux/blob/master/include/net/mana/gdma.h
-readarray -t HARDWARE_ARGS < <(getNodeExporterHardwareArgs)
-ARGS+=("${HARDWARE_ARGS[@]}")
+HARDWARE_ARG=$(getNodeExporterHardwareArgs) || exit 1
+if [ -n "$HARDWARE_ARG" ]; then
+    ARGS+=("$HARDWARE_ARG")
+fi
 
 if [ -n "$TLS_CONFIG_ARG" ]; then
     ARGS+=("$TLS_CONFIG_ARG")

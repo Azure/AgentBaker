@@ -2039,6 +2039,11 @@ testNodeExporter () {
   fi
   echo "$test: node-exporter startup script exists"
 
+  if [ ! -s /etc/udev/rules.d/99-node-exporter-mana.rules ]; then
+    err "$test" "node-exporter MANA PCI-add rule is missing"
+    return 1
+  fi
+
   # Check that the service file exists
   if [ ! -f "/etc/systemd/system/node-exporter.service" ]; then
     err "$test" "node-exporter service file does not exist at /etc/systemd/system/node-exporter.service"
