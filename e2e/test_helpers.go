@@ -478,10 +478,7 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) error {
 		}
 	}
 
-	_, err := CachedPrepareVHD(ctx, GetVHDRequest{
-		Image:    *s.VHD,
-		Location: s.Location,
-	})
+	_, err := resolveImageReference(ctx, s.VHD, s.Location)
 	if err != nil {
 		if config.Config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
 			t.Skipf("skipping scenario %q: could not find image for VHD %s due to %s", t.Name(), s.VHD.Distro, err)
