@@ -987,7 +987,7 @@ func (a *App) rpmRepositoryPlan(info platformInfo, hotfixVersion string) (reposi
 	baseURL = strings.ReplaceAll(baseURL, "${basearch}", rpmArch)
 	if strings.Contains(baseURL, "$") {
 		return repositoryDownloadPlan{}, newUnsupportedRepositoryError(
-			"unsupported variable in ms-oss baseurl %q", repository.BaseURL)
+			"unsupported variable in Microsoft repository baseurl %q", repository.BaseURL)
 	}
 	origin, err := validateRepositoryURL(baseURL)
 	if err != nil {
@@ -1037,6 +1037,31 @@ func rpmReleaseSuffix(info platformInfo) (string, error) {
 	}
 }
 
+// matchesMicrosoftRPMRepo reports whether an INI section names the repository that carries
+// the ANC package, for either distro family. AzureLinux publishes it under "ms-oss"
+// (section [azurelinux-official-ms-oss], baseurl .../prod/ms-oss/$basearch), while Mariner
+// 2.0 has no ms-oss repository at all -- that path 404s -- and uses "Microsoft" instead
+// (section [mariner-microsoft], baseurl .../prod/Microsoft/$basearch). Matching only on
+// ms-oss silently excluded every Mariner node from the fast path. Comparisons are
+// lowercased so Mariner's capitalised "/Microsoft/" baseurl matches.
+func matchesMicrosoftRPMRepo(name, baseURL string) bool {
+	matchers := []struct {
+		section string
+		urlPath string
+	}{
+		{section: "ms-oss", urlPath: "/ms-oss/"},
+		{section: "microsoft", urlPath: "/microsoft/"},
+	}
+	lowerName := strings.ToLower(name)
+	lowerURL := strings.ToLower(baseURL)
+	for _, matcher := range matchers {
+		if strings.Contains(lowerName, matcher.section) || strings.Contains(lowerURL, matcher.urlPath) {
+			return true
+		}
+	}
+	return false
+}
+
 func parseMSOSSRepository(reposDir string) (rpmRepository, error) {
 	paths, err := filepath.Glob(filepath.Join(reposDir, "*.repo"))
 	if err != nil {
@@ -1049,8 +1074,7 @@ func parseMSOSSRepository(reposDir string) (rpmRepository, error) {
 		}
 		sections := parseINISections(string(data))
 		for name, values := range sections {
-			if !strings.Contains(strings.ToLower(name), "ms-oss") &&
-				!strings.Contains(strings.ToLower(values["baseurl"]), "/ms-oss/") {
+			if !matchesMicrosoftRPMRepo(name, values["baseurl"]) {
 				continue
 			}
 			if strings.TrimSpace(values["enabled"]) == "0" {
@@ -1072,7 +1096,8 @@ func parseMSOSSRepository(reposDir string) (rpmRepository, error) {
 			}, nil
 		}
 	}
-	return rpmRepository{}, newUnsupportedRepositoryError("no enabled ms-oss repository in %s", reposDir)
+	return rpmRepository{}, newUnsupportedRepositoryError(
+		"no enabled Microsoft-published RPM repository in %s", reposDir)
 }
 
 func parseINISections(contents string) map[string]map[string]string {
@@ -1118,7 +1143,7 @@ func localGPGKeyPaths(value string) ([]string, error) {
 		}
 	}
 	if len(paths) == 0 {
-		return nil, newUnsupportedRepositoryError("ms-oss repository has no local gpgkey")
+		return nil, newUnsupportedRepositoryError("Microsoft repository has no local gpgkey")
 	}
 	return paths, nil
 }

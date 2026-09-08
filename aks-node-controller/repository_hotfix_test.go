@@ -599,3 +599,60 @@ func TestRepositoryFastPathCancelsPeerBranchOnFailure(t *testing.T) {
 	assert.Less(t, elapsed, 5*time.Second,
 		"failure should return promptly rather than waiting out the peer branch")
 }
+
+// Mariner 2.0 has no ms-oss repository -- that path 404s on packages.microsoft.com. Its
+// Microsoft-published packages live in [mariner-microsoft] at .../prod/Microsoft/$basearch
+// (see mariner-package-update.sh, which lists mariner-microsoft.repo). Discovery keyed only
+// on "ms-oss" therefore excluded every Mariner node from the repository fast path.
+func TestParseMicrosoftRepositoryMariner(t *testing.T) {
+	dir := t.TempDir()
+	// Sibling repos that must not be selected, mirroring a real Mariner node.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "mariner-official-base.repo"), []byte(`
+[mariner-official-base]
+name=CBL-Mariner Official Base
+baseurl=https://packages.microsoft.com/cbl-mariner/$releasever/prod/base/$basearch
+gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
+enabled=1
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "mariner-microsoft.repo"), []byte(`
+[mariner-microsoft]
+name=CBL-Mariner Microsoft
+baseurl=https://packages.microsoft.com/cbl-mariner/$releasever/prod/Microsoft/$basearch
+gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
+enabled=1
+`), 0o644))
+
+	repository, err := parseMSOSSRepository(dir)
+	require.NoError(t, err)
+	assert.Equal(t, "mariner-microsoft", repository.Section)
+	assert.Equal(t,
+		"https://packages.microsoft.com/cbl-mariner/$releasever/prod/Microsoft/$basearch",
+		repository.BaseURL)
+
+	app := NewTestApp(t, TestAppConfig{}).App
+	app.yumReposDir = dir
+	plan, err := app.rpmRepositoryPlan(platformInfo{
+		OS: "linux", ID: "mariner", VersionID: "2.0", Arch: "amd64",
+	}, "202607.20.2")
+	require.NoError(t, err)
+	assert.Equal(t,
+		"https://packages.microsoft.com/cbl-mariner/2.0/prod/Microsoft/x86_64/"+
+			"Packages/a/aks-node-controller-202607.20.2-1.cm2.x86_64.rpm",
+		plan.packageURL)
+	assert.Equal(t, "rpm", plan.format)
+}
+
+// A disabled Microsoft repo must be skipped rather than selected.
+func TestParseMicrosoftRepositorySkipsDisabled(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "mariner-microsoft.repo"), []byte(`
+[mariner-microsoft]
+baseurl=https://packages.microsoft.com/cbl-mariner/$releasever/prod/Microsoft/$basearch
+gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
+enabled=0
+`), 0o644))
+
+	_, err := parseMSOSSRepository(dir)
+	require.Error(t, err)
+	assert.False(t, isIntegrityError(err), "an absent repository is unsupported, not tampering")
+}
