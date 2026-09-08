@@ -111,6 +111,7 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 			"version", hotfixVersion, "error", err)
 	}
 
+	pmcStart := time.Now()
 	if err := a.installFromPMC(ctx, hotfixVersion); err != nil {
 		return fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
 	}
@@ -119,7 +120,9 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 		return fmt.Errorf("stage hotfix binary: %w", err)
 	}
 
-	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", a.hotfixPath())
+	// Mirrors the fast path's durationMs so the two can be compared from node logs.
+	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", a.hotfixPath(),
+		"durationMs", time.Since(pmcStart).Milliseconds())
 	return nil
 }
 

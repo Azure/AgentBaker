@@ -656,3 +656,199 @@ enabled=0
 	require.Error(t, err)
 	assert.False(t, isIntegrityError(err), "an absent repository is unsupported, not tampering")
 }
+
+// gzipBytes compresses data the way a repository publishes Packages.gz.
+func gzipBytes(t *testing.T, data []byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	writer := gzip.NewWriter(&buf)
+	_, err := writer.Write(data)
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+	return buf.Bytes()
+}
+
+// clearSignedReleaseEntries builds an InRelease listing several checksum entries, as a real
+// InRelease does (both Packages and Packages.gz).
+func clearSignedReleaseEntries(entries ...[3]string) []byte {
+	var lines strings.Builder
+	for _, e := range entries {
+		// sum, size, suite-relative path
+		fmt.Fprintf(&lines, " %s %s %s\n", e[0], e[1], e[2])
+	}
+	return []byte(fmt.Sprintf(`-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA256
+
+Origin: Microsoft
+SHA256:
+%s-----BEGIN PGP SIGNATURE-----
+fake-signature
+-----END PGP SIGNATURE-----
+`, lines.String()))
+}
+
+// When the InRelease publishes Packages.gz, the fast path must fetch the compressed index
+// rather than the plain one: for jammy/main/binary-amd64 that is ~720 KB instead of ~4.2 MB,
+// which is what apt itself fetches. Downloading the plain index made the fast path heavier
+// on the wire than the package-manager path it exists to beat.
+func TestUbuntuFastPathPrefersCompressedPackagesIndex(t *testing.T) {
+	const (
+		hotfixVersion = "202608.21.1"
+		fullVersion   = hotfixVersion + "-ubuntu22.04u1"
+	)
+	packageBytes := []byte("authenticated-deb-package-bytes")
+	packageLocation := "pool/main/a/aks-node-controller/aks-node-controller_" +
+		fullVersion + "_amd64.deb"
+	packages := []byte(fmt.Sprintf(
+		"Package: aks-node-controller\nVersion: %s\nArchitecture: amd64\nFilename: %s\nSHA256: %s\n\n",
+		fullVersion, packageLocation, sha256Hex(packageBytes)))
+	packagesGz := gzipBytes(t, packages)
+
+	suiteRelative := "main/binary-amd64/Packages"
+	inRelease := clearSignedReleaseEntries(
+		[3]string{sha256Hex(packages), fmt.Sprint(len(packages)), suiteRelative},
+		[3]string{sha256Hex(packagesGz), fmt.Sprint(len(packagesGz)), suiteRelative + ".gz"},
+	)
+
+	var plainFetched, gzFetched atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/ubuntu/22.04/prod/" + packageLocation:
+			_, _ = w.Write(packageBytes)
+		case "/ubuntu/22.04/prod/dists/jammy/InRelease":
+			_, _ = w.Write(inRelease)
+		case "/ubuntu/22.04/prod/dists/jammy/" + suiteRelative + ".gz":
+			gzFetched.Store(true)
+			_, _ = w.Write(packagesGz)
+		case "/ubuntu/22.04/prod/dists/jammy/" + suiteRelative:
+			plainFetched.Store(true)
+			_, _ = w.Write(packages)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	app := configuredUbuntuRepositoryApp(t, dir, server.URL, func(*exec.Cmd) error {
+		return fmt.Errorf("package-manager fallback was not expected")
+	})
+	app.vhdBinaryPath = filepath.Join(dir, "aks-node-controller")
+	app.hotfixBinaryPath = filepath.Join(dir, "aks-node-controller-hotfix")
+	require.NoError(t, os.WriteFile(app.vhdBinaryPath, []byte("vhd-binary"), 0o755))
+	app.verifyRepositorySignature = func(context.Context, string, string, []string) error { return nil }
+	app.extractRepositoryPackage = func(
+		_ context.Context, _, _, destination string,
+	) error {
+		extracted := filepath.Join(destination, filepath.FromSlash(ancPackageBinaryRelativePath))
+		require.NoError(t, os.MkdirAll(filepath.Dir(extracted), 0o755))
+		return os.WriteFile(extracted, []byte("extracted-anc-binary"), 0o644)
+	}
+
+	require.NoError(t, app.tryRepositoryDownload(context.Background(), hotfixVersion))
+
+	assert.True(t, gzFetched.Load(), "the compressed Packages index should have been fetched")
+	assert.False(t, plainFetched.Load(),
+		"the plain Packages index must not be fetched when Packages.gz is published")
+	assert.FileExists(t, app.hotfixBinaryPath)
+}
+
+// Repositories that publish only the plain index must still work.
+func TestUbuntuFastPathFallsBackToPlainPackagesIndex(t *testing.T) {
+	const (
+		hotfixVersion = "202608.21.1"
+		fullVersion   = hotfixVersion + "-ubuntu22.04u1"
+	)
+	packageBytes := []byte("authenticated-deb-package-bytes")
+	packageLocation := "pool/main/a/aks-node-controller/aks-node-controller_" +
+		fullVersion + "_amd64.deb"
+	packages := []byte(fmt.Sprintf(
+		"Package: aks-node-controller\nVersion: %s\nArchitecture: amd64\nFilename: %s\nSHA256: %s\n\n",
+		fullVersion, packageLocation, sha256Hex(packageBytes)))
+
+	suiteRelative := "main/binary-amd64/Packages"
+	inRelease := clearSignedRelease(suiteRelative, sha256Hex(packages), int64(len(packages)))
+
+	var plainFetched atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/ubuntu/22.04/prod/" + packageLocation:
+			_, _ = w.Write(packageBytes)
+		case "/ubuntu/22.04/prod/dists/jammy/InRelease":
+			_, _ = w.Write(inRelease)
+		case "/ubuntu/22.04/prod/dists/jammy/" + suiteRelative:
+			plainFetched.Store(true)
+			_, _ = w.Write(packages)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	app := configuredUbuntuRepositoryApp(t, dir, server.URL, func(*exec.Cmd) error {
+		return fmt.Errorf("package-manager fallback was not expected")
+	})
+	app.vhdBinaryPath = filepath.Join(dir, "aks-node-controller")
+	app.hotfixBinaryPath = filepath.Join(dir, "aks-node-controller-hotfix")
+	require.NoError(t, os.WriteFile(app.vhdBinaryPath, []byte("vhd-binary"), 0o755))
+	app.verifyRepositorySignature = func(context.Context, string, string, []string) error { return nil }
+	app.extractRepositoryPackage = func(
+		_ context.Context, _, _, destination string,
+	) error {
+		extracted := filepath.Join(destination, filepath.FromSlash(ancPackageBinaryRelativePath))
+		require.NoError(t, os.MkdirAll(filepath.Dir(extracted), 0o755))
+		return os.WriteFile(extracted, []byte("extracted-anc-binary"), 0o644)
+	}
+
+	require.NoError(t, app.tryRepositoryDownload(context.Background(), hotfixVersion))
+	assert.True(t, plainFetched.Load(), "plain index should be used when no .gz is published")
+}
+
+// A tampered compressed index must be rejected before it is decompressed.
+func TestUbuntuFastPathRejectsTamperedCompressedIndex(t *testing.T) {
+	const (
+		hotfixVersion = "202608.21.1"
+		fullVersion   = hotfixVersion + "-ubuntu22.04u1"
+	)
+	packages := []byte("Package: aks-node-controller\nVersion: " + fullVersion + "\n\n")
+	packagesGz := gzipBytes(t, packages)
+	suiteRelative := "main/binary-amd64/Packages"
+	packageLocation := "pool/main/a/aks-node-controller/aks-node-controller_" +
+		fullVersion + "_amd64.deb"
+	// Advertise a checksum that the served bytes will not match.
+	inRelease := clearSignedReleaseEntries(
+		[3]string{strings.Repeat("b", 64), fmt.Sprint(len(packagesGz)), suiteRelative + ".gz"},
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		// The package must be served successfully: if it 404s, that failure wins the race
+		// and cancels the metadata branch, and the integrity error under test is correctly
+		// discarded as induced noise.
+		case "/ubuntu/22.04/prod/" + packageLocation:
+			_, _ = w.Write([]byte("authenticated-deb-package-bytes"))
+		case "/ubuntu/22.04/prod/dists/jammy/InRelease":
+			_, _ = w.Write(inRelease)
+		case "/ubuntu/22.04/prod/dists/jammy/" + suiteRelative + ".gz":
+			_, _ = w.Write(packagesGz)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	app := configuredUbuntuRepositoryApp(t, dir, server.URL, func(*exec.Cmd) error {
+		return fmt.Errorf("package-manager fallback was not expected")
+	})
+	app.vhdBinaryPath = filepath.Join(dir, "aks-node-controller")
+	app.hotfixBinaryPath = filepath.Join(dir, "aks-node-controller-hotfix")
+	require.NoError(t, os.WriteFile(app.vhdBinaryPath, []byte("vhd-binary"), 0o755))
+	app.verifyRepositorySignature = func(context.Context, string, string, []string) error { return nil }
+
+	err := app.tryRepositoryDownload(context.Background(), hotfixVersion)
+	require.Error(t, err)
+	assert.True(t, isIntegrityError(err), "a checksum mismatch on the index is an integrity failure")
+	assert.NoFileExists(t, app.hotfixBinaryPath, "no binary should be staged from a tampered index")
+}

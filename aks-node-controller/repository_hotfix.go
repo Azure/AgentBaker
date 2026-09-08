@@ -164,6 +164,7 @@ func (a *App) fetchPackageAndMetadata(
 }
 
 func (a *App) tryRepositoryDownload(ctx context.Context, hotfixVersion string) error {
+	start := time.Now()
 	info, err := a.parseLinuxPlatformInfo()
 	if err != nil {
 		return newUnsupportedRepositoryError("determine platform: %v", err)
@@ -208,8 +209,11 @@ func (a *App) tryRepositoryDownload(ctx context.Context, hotfixVersion string) e
 		return fmt.Errorf("stage extracted ANC binary: %w", err)
 	}
 
+	// durationMs makes the fast path measurable in the field against the package-manager
+	// path, which is the whole reason this code exists.
 	slog.Info("downloaded ANC hotfix through authenticated repository fast path",
-		"target", hotfixVersion, "format", plan.format, "path", a.hotfixPath())
+		"target", hotfixVersion, "format", plan.format, "path", a.hotfixPath(),
+		"durationMs", time.Since(start).Milliseconds())
 	return nil
 }
 
@@ -768,6 +772,68 @@ func containsString(values []string, target string) bool {
 	return false
 }
 
+// decompressGzipToTemp expands a gzip file into a new temp file under the staging dir,
+// bounded by repositoryMetadataMaxBytes so a decompression bomb cannot exhaust the disk.
+// The caller owns the returned path.
+func (a *App) decompressGzipToTemp(compressedPath, namePattern string) (string, error) {
+	compressed, err := os.Open(compressedPath)
+	if err != nil {
+		return "", fmt.Errorf("open compressed metadata: %w", err)
+	}
+	defer compressed.Close()
+	gzipReader, err := gzip.NewReader(compressed)
+	if err != nil {
+		return "", newIntegrityError("open metadata gzip: %v", err)
+	}
+	defer gzipReader.Close()
+
+	output, err := os.CreateTemp(a.repositoryStagingDir(), namePattern)
+	if err != nil {
+		return "", fmt.Errorf("create decompressed metadata temp file: %w", err)
+	}
+	outputPath := output.Name()
+	success := false
+	defer func() {
+		_ = output.Close()
+		if !success {
+			_ = os.Remove(outputPath)
+		}
+	}()
+	size, err := io.Copy(output, io.LimitReader(gzipReader, repositoryMetadataMaxBytes+1))
+	if err != nil {
+		return "", newIntegrityError("decompress metadata: %v", err)
+	}
+	if size > repositoryMetadataMaxBytes {
+		return "", newIntegrityError("decompressed metadata exceeds size limit")
+	}
+	if err := output.Close(); err != nil {
+		return "", fmt.Errorf("close decompressed metadata: %w", err)
+	}
+	success = true
+	return outputPath, nil
+}
+
+// packagesVariant is a candidate encoding of the Packages index, named as the InRelease
+// indexes it (suite-relative).
+type packagesVariant struct {
+	suiteRelativePath string
+	gzipped           bool
+}
+
+// selectPackagesVariant picks the Packages encoding to fetch. The gzipped index is ~6x
+// smaller (720 KB vs 4.2 MB for jammy/main/binary-amd64), and apt itself fetches the
+// compressed form, so preferring it keeps the fast path from being heavier on the wire than
+// the package-manager path it is meant to beat. Integrity is unaffected: the InRelease
+// signs a SHA-256 for each encoding, and we verify the bytes we actually downloaded.
+// Repositories that publish only the plain index still work.
+func selectPackagesVariant(releasePayload []byte, base string) packagesVariant {
+	gzipped := base + ".gz"
+	if _, _, err := parseReleaseSHA256(releasePayload, gzipped); err == nil {
+		return packagesVariant{suiteRelativePath: gzipped, gzipped: true}
+	}
+	return packagesVariant{suiteRelativePath: base}
+}
+
 func (a *App) resolveUbuntuPackageMetadata(
 	ctx context.Context,
 	origin *url.URL,
@@ -785,14 +851,8 @@ func (a *App) resolveUbuntuPackageMetadata(
 	// contains it (e.g. "main/binary-amd64/Packages"), while the download URL needs the
 	// full repository-root-relative path. Keep the two separate: the suite-relative form
 	// is what parseReleaseSHA256 must match against.
-	packagesSuiteRelativePath := filepath.ToSlash(filepath.Join(
+	packagesBaseSuiteRelative := filepath.ToSlash(filepath.Join(
 		repository.Component, "binary-"+arch, "Packages"))
-	packagesRelativePath := filepath.ToSlash(filepath.Join(
-		"dists", repository.Suite, packagesSuiteRelativePath))
-	packagesURL, err := resolveRepositoryURL(origin, packagesRelativePath)
-	if err != nil {
-		return repositoryPackageMetadata{}, err
-	}
 
 	inRelease, err := a.downloadRepositoryFile(ctx, inReleaseURL, origin, repositoryMetadataMaxBytes)
 	if err != nil {
@@ -807,9 +867,17 @@ func (a *App) resolveUbuntuPackageMetadata(
 	if err != nil {
 		return repositoryPackageMetadata{}, newIntegrityError("parse authenticated InRelease: %v", err)
 	}
-	expectedPackagesSHA, expectedPackagesSize, err := parseReleaseSHA256(releasePayload, packagesSuiteRelativePath)
+
+	variant := selectPackagesVariant(releasePayload, packagesBaseSuiteRelative)
+	expectedPackagesSHA, expectedPackagesSize, err := parseReleaseSHA256(
+		releasePayload, variant.suiteRelativePath)
 	if err != nil {
 		return repositoryPackageMetadata{}, newIntegrityError("%v", err)
+	}
+	packagesURL, err := resolveRepositoryURL(origin, filepath.ToSlash(filepath.Join(
+		"dists", repository.Suite, variant.suiteRelativePath)))
+	if err != nil {
+		return repositoryPackageMetadata{}, err
 	}
 
 	packages, err := a.downloadRepositoryFile(ctx, packagesURL, origin, repositoryMetadataMaxBytes)
@@ -817,14 +885,27 @@ func (a *App) resolveUbuntuPackageMetadata(
 		return repositoryPackageMetadata{}, fmt.Errorf("download Packages: %w", err)
 	}
 	defer os.Remove(packages.path)
+	// Verify the downloaded encoding against its own signed entry, before decompressing.
 	if packages.size != expectedPackagesSize || !strings.EqualFold(packages.sha256, expectedPackagesSHA) {
 		return repositoryPackageMetadata{}, newIntegrityError(
-			"Packages metadata mismatch: expected size/SHA256 %d/%s, got %d/%s",
-			expectedPackagesSize, expectedPackagesSHA, packages.size, packages.sha256)
+			"Packages metadata mismatch for %s: expected size/SHA256 %d/%s, got %d/%s",
+			variant.suiteRelativePath, expectedPackagesSize, expectedPackagesSHA,
+			packages.size, packages.sha256)
+	}
+
+	packagesPath := packages.path
+	if variant.gzipped {
+		decompressed, decErr := a.decompressGzipToTemp(
+			packages.path, ".aks-node-controller-packages-*")
+		if decErr != nil {
+			return repositoryPackageMetadata{}, decErr
+		}
+		defer os.Remove(decompressed)
+		packagesPath = decompressed
 	}
 
 	packageSHA, err := parseDebPackageMetadata(
-		packages.path, fullVersion, arch, expectedPackagePath)
+		packagesPath, fullVersion, arch, expectedPackagePath)
 	if err != nil {
 		return repositoryPackageMetadata{}, err
 	}
