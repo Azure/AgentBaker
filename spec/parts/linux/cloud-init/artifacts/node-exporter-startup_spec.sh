@@ -7,6 +7,7 @@ Describe 'node-exporter-startup.sh hardware arguments'
     setup_pci_devices() {
         PCI_DEVICES_PATH="$(mktemp -d)"
         MANA_OBSERVED_FILE="${PCI_DEVICES_PATH}/mana-observed"
+        NODE_EXPORTER_EXTRA_ARGS=''
     }
 
     add_pci_device() {
@@ -102,6 +103,28 @@ Describe 'node-exporter-startup.sh hardware arguments'
         The output should not include '--no-collector.infiniband'
     End
 
+    It 'replaces conflicting InfiniBand toggles with exactly one MANA override'
+        add_pci_device '7870:00:00.0' '0x1414' '0x00ba'
+        NODE_EXPORTER_EXTRA_ARGS='--collector.infiniband --collector.infiniband=true --no-collector.infiniband --no-collector.infiniband=false --collector.systemd'
+
+        When run run_startup
+        The status should be success
+        The output should not include '--collector.infiniband'
+        The output should not include '--no-collector.infiniband='
+        The output should include '--collector.systemd'
+        The output should end with '--no-collector.infiniband'
+        The lines of output should equal 12
+    End
+
+    It 'preserves explicit InfiniBand arguments on non-MANA nodes'
+        NODE_EXPORTER_EXTRA_ARGS='--collector.infiniband'
+
+        When run run_startup
+        The status should be success
+        The output should end with '--collector.infiniband'
+        The output should not include '--no-collector.infiniband'
+    End
+
     restart_during_vf_absence() {
         getNodeExporterHardwareArgs >/dev/null
         rm -rf "${PCI_DEVICES_PATH}/7870:00:00.0"
@@ -180,5 +203,17 @@ Describe 'node-exporter-startup.sh hardware arguments'
         When run run_attach_handler
         The status should be success
         The output should equal '--no-block try-restart node-exporter.service'
+    End
+
+    It 'does not inspect procfs for an invalid MainPID'
+        systemctl() {
+            if [ "$1" = 'show' ]; then printf '%s\n' '../123'; else printf '%s\n' "$*"; fi
+        }
+        grep() { printf '%s\n' 'unexpected procfs read' >&2; return 1; }
+
+        When run run_attach_handler
+        The status should be success
+        The output should equal '--no-block try-restart node-exporter.service'
+        The stderr should equal ''
     End
 End

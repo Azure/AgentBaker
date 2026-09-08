@@ -28,10 +28,14 @@ nodeExporterMANAAdded() {
     # applied the workaround, but do not use marker existence as proof of that.
     local pid
     pid=$(systemctl show --property=MainPID --value node-exporter.service) || return 1
-    if [[ "$pid" =~ ^[1-9][0-9]*$ ]] &&
-       grep -zFxq -- '--no-collector.infiniband' "/proc/${pid}/cmdline" 2>/dev/null; then
-        return 0
-    fi
+    case "$pid" in
+        ''|0*|*[!0-9]*) ;;
+        *)
+            if grep -zFxq -- '--no-collector.infiniband' "/proc/${pid}/cmdline" 2>/dev/null; then
+                return 0
+            fi
+            ;;
+    esac
     systemctl --no-block try-restart node-exporter.service
 }
 
@@ -158,9 +162,6 @@ ARGS=(
 # https://learn.microsoft.com/azure/virtual-network/accelerated-networking-mana-linux
 # https://github.com/torvalds/linux/blob/master/include/net/mana/gdma.h
 HARDWARE_ARG=$(getNodeExporterHardwareArgs) || exit 1
-if [ -n "$HARDWARE_ARG" ]; then
-    ARGS+=("$HARDWARE_ARG")
-fi
 
 if [ -n "$TLS_CONFIG_ARG" ]; then
     ARGS+=("$TLS_CONFIG_ARG")
@@ -170,7 +171,20 @@ fi
 # Example: NODE_EXPORTER_EXTRA_ARGS="--collector.systemd --no-collector.bonding"
 if [ -n "${NODE_EXPORTER_EXTRA_ARGS:-}" ]; then
     read -ra EXTRA <<< "$NODE_EXPORTER_EXTRA_ARGS"
-    ARGS+=("${EXTRA[@]}")
+    for arg in "${EXTRA[@]}"; do
+        if [ -n "$HARDWARE_ARG" ]; then
+            case "$arg" in
+                --collector.infiniband|--collector.infiniband=*|--no-collector.infiniband|--no-collector.infiniband=*) continue ;;
+            esac
+        fi
+        ARGS+=("$arg")
+    done
+fi
+
+# Kingpin rejects repeated flags. Remove conflicting optional toggles above and
+# append exactly one mandatory override so extra arguments cannot undo it.
+if [ -n "$HARDWARE_ARG" ]; then
+    ARGS+=("$HARDWARE_ARG")
 fi
 
 exec /opt/bin/node-exporter "${ARGS[@]}"
