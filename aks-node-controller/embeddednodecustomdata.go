@@ -122,11 +122,5 @@ func applyEmbeddedNodeCustomDataFS(
 }
 
 func isConcreteNodeCustomDataPlatform(platform nodeCustomDataPlatform) bool {
-	switch platform {
-	case nodeCustomDataPlatformUbuntu,
-		nodeCustomDataPlatformMariner:
-		return true
-	default:
-		return false
-	}
+	return platform == nodeCustomDataPlatformUbuntu || platform == nodeCustomDataPlatformMariner
 }

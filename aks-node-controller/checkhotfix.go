@@ -172,11 +172,12 @@ func (a *App) runCheckHotfixCommand(ctx context.Context) (err error) {
 	if err != nil {
 		message = fmt.Sprintf("%s error=%s", message, err.Error())
 	}
-	if level == helpers.EventLevelError {
+	switch {
+	case level == helpers.EventLevelError:
 		slog.Warn("check-hotfix completed with error (fail-open)", "outcome", outcome, "error", err)
-	} else if err != nil {
+	case err != nil:
 		slog.Info("check-hotfix completed (fail-open)", "outcome", outcome, "reason", err)
-	} else {
+	default:
 		slog.Info("check-hotfix completed", "outcome", outcome)
 	}
 	if a.eventLogger != nil {
