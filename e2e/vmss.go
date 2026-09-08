@@ -362,7 +362,6 @@ func usesScriptlessNBCCSECmd(s *Scenario) bool {
 	}
 	nbc := s.Runtime.NBC
 	return nbc.EnableScriptlessNBCCSECmd &&
-		!nbc.PreProvisionOnly &&
 		s.VHD.SupportsScriptless()
 }
 
