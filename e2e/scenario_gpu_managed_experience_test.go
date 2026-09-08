@@ -13,6 +13,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
@@ -829,16 +830,30 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_MultiGPU(t *testing.T) {
 }
 
 func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
-	RunScenario(t, &Scenario{
+	RunScenario(t, managedGPUWithoutVMSSTagScenario(config.VHDUbuntu2204Gen2Containerd, "r2204", "Standard_NV6ads_A10_v5"))
+}
+
+func Test_Ubuntu2604Minimal_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
+	scenario := managedGPUWithoutVMSSTagScenario(config.VHDUbuntu2604MinimalGen2Containerd, "r2604", "Standard_NC4as_T4_v3")
+	scenario.Cluster = ClusterLatestKubernetesVersionKubenet
+	RunScenario(t, scenario)
+}
+
+// managedGPUWithoutVMSSTagScenario checks the managed device plugin, DCGM, and
+// NPD on an Ubuntu GPU node, plus GRID licensing for GRID SKUs. osVersion selects
+// the components.json package pins (for example, "r2604"). No enabling VMSS tag is set.
+func managedGPUWithoutVMSSTagScenario(vhd *config.Image, osVersion, vmSize string) *Scenario {
+	return &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter work via NBC EnableManagedGPU field without VMSS tag",
 		Tags: Tags{
 			GPU: true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			VHD:     vhd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = vmSize
+				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
@@ -846,7 +861,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 				nbc.EnableManagedGPU = true
 			},
 			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
-				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+				vmss.SKU.Name = to.Ptr(vmSize)
 				// Explicitly DO NOT set the EnableManagedGPUExperience VMSS tag
 				// to test that NBC EnableManagedGPU field works independently
 
@@ -860,7 +875,6 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
 				os := "ubuntu"
-				osVersion := "r2204"
 
 				// Validate that the NVIDIA device plugin binary was installed correctly
 				devicePluginVersion, err := expectedPackageVersion("nvidia-device-plugin", os, osVersion)
@@ -906,11 +920,14 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 				if err := validateNPDNvidiaConditions(ctx, s); err != nil {
 					return err
 				}
-				// Verify NVIDIA GRID license status checks are reporting status correctly.
-				return validateNPDNvidiaGridLicense(ctx, s)
+				// CUDA nodes do not run the GRID licensing service.
+				if strings.HasPrefix(agent.GetGPUDriverType(vmSize), "grid") {
+					return validateNPDNvidiaGridLicense(ctx, s)
+				}
+				return nil
 			},
 		},
-	})
+	}
 }
 
 func Test_CreateVMExtensionLinuxAKSNode_Timing(t *testing.T) {

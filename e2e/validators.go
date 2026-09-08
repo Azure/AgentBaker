@@ -586,19 +586,25 @@ func ValidateNvidiaPersistencedRunning(ctx context.Context, s *Scenario) error {
 	return err
 }
 
-// ValidateNvidiaGridV20DriverInstalled asserts the node installed the grid-v20
-// (595.x) driver from the aks-gpu-grid-v20 image rather than falling back to a
-// cuda/grid driver. This is the grid-v20-specific check: if SKU->driver-type
-// selection regressed, nvidia-smi would report a different driver major.
+// ValidateNvidiaGridV20DriverInstalled checks the installed driver against the
+// aks-gpu-grid-v20 version pinned in components.json, including the patch version.
 func ValidateNvidiaGridV20DriverInstalled(ctx context.Context, s *Scenario) error {
-	command := []string{
-		"set -ex",
-		"driver_version=$(sudo nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -n1 | tr -d '[:space:]')",
-		"echo \"nvidia driver_version=$driver_version\"",
-		"case \"$driver_version\" in 595.*) ;; *) echo \"expected grid-v20 595.x driver, got '$driver_version'\"; exit 1 ;; esac",
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"sudo nvidia-smi --query-gpu=driver_version --format=csv,noheader", 0, "could not query the GRID v20 driver version")
+	if err != nil {
+		return err
 	}
-	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "expected grid-v20 (595.x) NVIDIA driver version")
-	return err
+	versions := strings.Fields(result.stdout)
+	if len(versions) == 0 {
+		return fmt.Errorf("nvidia-smi returned no GRID v20 driver version")
+	}
+	for _, version := range versions {
+		if err := assert.Equal(version, datamodel.NvidiaGridV20DriverVersion,
+			"expected the GRID v20 driver pinned in components.json"); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) error {
