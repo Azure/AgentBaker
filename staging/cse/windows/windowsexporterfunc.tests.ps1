@@ -73,10 +73,19 @@ Describe 'Windows exporter CSE functions' {
             }
         }
 
-        It 'takes ownership of an existing running service' {
+        It 'configures before restarting an existing <Status> service' -TestCases @(
+            @{ Status = 'Running' }
+            @{ Status = 'Paused' }
+        ) {
+            param($Status)
             Mock Test-Path -MockWith { return $true }
-            Mock Get-Service -MockWith { return @{ Status = 'Running' } }
-            Mock Invoke-WindowsExporterNssm
+            $script:exporterStatus = $Status
+            $script:exporterOperations = @()
+            Mock Get-Service -MockWith { return @{ Status = $script:exporterStatus } }
+            Mock Invoke-WindowsExporterNssm -MockWith {
+                param($Arguments)
+                $script:exporterOperations += $Arguments[0]
+            }
             Mock Test-WindowsExporterHealth -MockWith { return $true }
             Mock New-Item
 
@@ -97,6 +106,53 @@ Describe 'Windows exporter CSE functions' {
             Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter {
                 $Arguments[0] -eq 'start'
             }
+            $script:exporterOperations[-2] | Should -Be 'stop'
+            $script:exporterOperations[-1] | Should -Be 'start'
+            @($script:exporterOperations[0..($script:exporterOperations.Count - 3)] | Where-Object { $_ -ne 'set' }).Count | Should -Be 0
+        }
+
+        It 'starts an existing stopped service without stopping it again' {
+            Mock Test-Path -MockWith { return $true }
+            Mock Get-Service -MockWith { return @{ Status = 'Stopped' } }
+            Mock Invoke-WindowsExporterNssm
+            Mock Test-WindowsExporterHealth -MockWith { return $true }
+
+            Install-WindowsExporter | Should -Be $true
+
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 0 -ParameterFilter { $Arguments[0] -eq 'stop' }
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter { $Arguments[0] -eq 'start' }
+        }
+
+        It 'does not stop a running exporter when a later configuration setting fails' {
+            Mock Test-Path -MockWith { return $true }
+            Mock Get-Service -MockWith { return @{ Status = 'Running' } }
+            Mock Invoke-WindowsExporterNssm -MockWith {
+                param($Arguments)
+                if ($Arguments[0] -eq 'set' -and $Arguments[2] -eq 'AppRotateBytes') {
+                    throw 'configuration failed'
+                }
+            }
+
+            Install-WindowsExporter | Should -Be $false
+
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter { $Arguments[2] -eq 'Application' }
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 0 -ParameterFilter { $Arguments[0] -eq 'stop' }
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 0 -ParameterFilter { $Arguments[0] -eq 'start' }
+            Assert-MockCalled New-Item -Exactly -Times 0
+        }
+
+        It 'does not claim ownership when starting the reconfigured service fails' {
+            Mock Test-Path -MockWith { return $true }
+            Mock Get-Service -MockWith { return @{ Status = 'Running' } }
+            Mock Invoke-WindowsExporterNssm -MockWith {
+                param($Arguments)
+                if ($Arguments[0] -eq 'start') { throw 'start failed' }
+            }
+
+            Install-WindowsExporter | Should -Be $false
+
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter { $Arguments[0] -eq 'stop' }
+            Assert-MockCalled New-Item -Exactly -Times 0
         }
 
         It 'leaves ownership with the extension when nssm configuration fails' {

@@ -1177,11 +1177,13 @@ func ValidateWindowsSystemServicesRestartConfiguration(ctx context.Context, s *S
 }
 
 // ValidateWindowsExporter asserts that the service registered by windowsexporterfunc.ps1
-// is running and serving Prometheus metrics. Older VHDs without the sentinel remain
-// managed by aks-vm-extension, so AgentBaker cannot guarantee their service state.
+// is running and serving Prometheus metrics. Call this for scenarios expecting
+// takeover-capable CSE. Older VHDs without baked assets remain extension-managed;
+// intentional old-CSE compatibility scenarios must validate their own ownership expectations.
 func ValidateWindowsExporter(ctx context.Context, s *Scenario) error {
 	const (
 		sentinel    = `C:\k\skip_vhd_windows_exporter`
+		assets      = `C:\k\windows-exporter\windows-exporter-assets.complete`
 		binary      = `C:\k\windows-exporter\windows-exporter.exe`
 		configFile  = `C:\k\windows-exporter\windows-exporter-config.yml`
 		serviceName = "aks-windows-exporter"
@@ -1190,7 +1192,8 @@ func ValidateWindowsExporter(ctx context.Context, s *Scenario) error {
 
 	sentinelCheck := []string{
 		"$ErrorActionPreference = \"Stop\"",
-		fmt.Sprintf("if (-not (Test-Path '%s')) { Write-Output 'SKIP'; exit 0 }", sentinel),
+		fmt.Sprintf("if (-not (Test-Path '%s')) { Write-Output 'SKIP'; exit 0 }", assets),
+		fmt.Sprintf("if (-not (Test-Path '%s')) { Write-Output 'MISSING'; exit 0 }", sentinel),
 		"Write-Output 'PRESENT'",
 	}
 	res, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(sentinelCheck, "\n"), 0,
@@ -1198,8 +1201,12 @@ func ValidateWindowsExporter(ctx context.Context, s *Scenario) error {
 	if err != nil {
 		return fmt.Errorf("check aks-windows-exporter sentinel %s: %w", sentinel, err)
 	}
-	if strings.Contains(res.stdout, "SKIP") {
-		s.Logger.Logf("Skipping aks-windows-exporter validation: sentinel %s not found (aks-vm-extension manages the service on this VHD)", sentinel)
+	owned, err := validateWindowsExporterOwnership(res.stdout)
+	if err != nil {
+		return err
+	}
+	if !owned {
+		s.Logger.Logf("Skipping aks-windows-exporter validation: baked assets marker %s not found (aks-vm-extension manages the service on this VHD)", assets)
 		return nil
 	}
 
@@ -1232,6 +1239,19 @@ func ValidateWindowsExporter(ctx context.Context, s *Scenario) error {
 	}
 	s.Logger.Logf("aks-windows-exporter validation succeeded on %s: service is Running/Automatic and %s satisfies the metrics contract", s.Runtime.VM.PrivateIP, metricsURL)
 	return nil
+}
+
+func validateWindowsExporterOwnership(result string) (bool, error) {
+	switch strings.TrimSpace(result) {
+	case "SKIP":
+		return false, nil
+	case "PRESENT":
+		return true, nil
+	case "MISSING":
+		return false, fmt.Errorf("windows-exporter baked assets are present but the takeover sentinel is missing; expected CSE to claim ownership")
+	default:
+		return false, fmt.Errorf("unexpected windows-exporter ownership check result: %q", result)
+	}
 }
 
 func validateWindowsExporterMetrics(metricsText string) error {

@@ -669,6 +669,28 @@ func TestValidateWindowsExporterMetrics(t *testing.T) {
 	}
 }
 
+func TestValidateWindowsExporterOwnership(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		output  string
+		owned   bool
+		wantErr bool
+	}{
+		{name: "old VHD without assets", output: "SKIP\r\n"},
+		{name: "successful takeover", output: "PRESENT\r\n", owned: true},
+		{name: "failed takeover on baked VHD", output: "MISSING\r\n", wantErr: true},
+		{name: "empty output", wantErr: true},
+		{name: "unexpected output containing skip", output: "unexpected SKIP text", wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			owned, err := validateWindowsExporterOwnership(tc.output)
+			if owned != tc.owned || (err != nil) != tc.wantErr {
+				t.Fatalf("got owned=%t, err=%v; want owned=%t, error=%t", owned, err, tc.owned, tc.wantErr)
+			}
+		})
+	}
+}
+
 func TestValidateWindowsExporterMetricsRejectsMissingMetrics(t *testing.T) {
 	metrics := strings.Replace(validWindowsExporterMetrics(), `windows_memory_available_bytes 1`, "", 1)
 	metrics = strings.Replace(metrics, `windows_net_bytes_received_total{nic="Ethernet"} 1`, "", 1)
