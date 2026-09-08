@@ -34,7 +34,7 @@ func Test_ACL_COSIUpdate_AMD64(t *testing.T) {
 
 	image := *config.VHDACLGen2TL
 	image.Name = "acldevel"
-	image.ResourceID = aclCOSIAMD64ImageID
+	image.SharedGalleryImageID = aclCOSIAMD64ImageID
 	image.Version = aclCOSIAMD64ImageVersion
 
 	RunScenario(t, &Scenario{
@@ -104,6 +104,17 @@ func TestValidateCOSIUpdateInput(t *testing.T) {
 	require.NoError(t, validateCOSIUpdateInput("https://download.example.com/acl.cosi", validHash))
 	require.ErrorContains(t, validateCOSIUpdateInput("http://download.example.com/acl.cosi", validHash), "HTTPS")
 	require.ErrorContains(t, validateCOSIUpdateInput("https://download.example.com/acl.cosi", "abcd"), "48 bytes")
+}
+
+func TestResolveCOSISharedGalleryImageReference(t *testing.T) {
+	imageReference, err := resolveImageReference(context.Background(), &config.Image{
+		SharedGalleryImageID: aclCOSIAMD64ImageID,
+		Version:              "would-trigger-gallery-lookup-without-shared-id",
+	}, "westus2")
+
+	require.NoError(t, err)
+	require.Nil(t, imageReference.ID)
+	require.Equal(t, aclCOSIAMD64ImageID, *imageReference.SharedGalleryImageID)
 }
 
 func TestCOSIUpdateTagFilter(t *testing.T) {
