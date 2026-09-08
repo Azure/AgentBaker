@@ -29,6 +29,7 @@ package components
 	latestVersion:           string
 	previousLatestVersion?:  string
 	windowsSkuMatch?:        string
+	additionalTagsToApplyToContainer?: [...string]
 }
 
 #Images: [...#ContainerImage]

@@ -120,7 +120,7 @@ function GetContainerImageTagAliasesFromComponentsJson
         $versions = $containerImage.windowsVersions
         if ($versions -eq $null)
         {
-            $versions = $containerImage.multiArchVersionsV2
+            continue
         }
 
         $downloadUrl = $containerImage.windowsDownloadUrl
@@ -137,24 +137,19 @@ function GetContainerImageTagAliasesFromComponentsJson
                 continue
             }
 
-            $versionsToAlias = @($windowsVersion.latestVersion)
-            if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
+            $additionalTags = $windowsVersion.additionalTagsToApplyToContainer
+            if ($additionalTags -eq $null)
             {
-                $versionsToAlias += $windowsVersion.previousLatestVersion
+                continue
             }
 
-            foreach ($versionToAlias in $versionsToAlias)
-            {
-                if ($versionToAlias -notmatch '^(?<mainTag>.+)-\d+$')
-                {
-                    continue
-                }
+            $sourceImage = SafeReplaceString($downloadUrl)
+            $sourceImage = $sourceImage.replace("*", $windowsVersion.latestVersion)
 
-                $mainTag = $Matches.mainTag
-                $sourceImage = SafeReplaceString($downloadUrl)
-                $sourceImage = $sourceImage.replace("*", $versionToAlias)
+            foreach ($additionalTag in $additionalTags)
+            {
                 $targetImage = SafeReplaceString($downloadUrl)
-                $targetImage = $targetImage.replace("*", $mainTag)
+                $targetImage = $targetImage.replace("*", $additionalTag)
 
                 if ($targetImages.ContainsKey($targetImage))
                 {

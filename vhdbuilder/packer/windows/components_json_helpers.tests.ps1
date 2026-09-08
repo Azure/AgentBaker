@@ -128,6 +128,7 @@ Describe 'Tests of GetAllCachedThings ' {
     it 'has a derived container image tag alias in it' {
         $windowsSku = "2019-containerd"
         $componentsJson.ContainerImages[0].windowsVersions[0].latestVersion = "win-version-10"
+        $componentsJson.ContainerImages[0].windowsVersions[0] | Add-Member -NotePropertyName additionalTagsToApplyToContainer -NotePropertyValue @("win-version")
 
         $allpackages = GetAllCachedThings $componentsJson $windowsSettings
 
@@ -1097,14 +1098,15 @@ Describe 'Gets container image tag aliases' {
   "multiArchVersionsV2": [],
   "windowsVersions": [
     {
-      "latestVersion": "v2.19.0-5"
+      "latestVersion": "v2.19.0-5",
+      "additionalTagsToApplyToContainer": ["v2.19.0"]
     }
   ]
 }]}'
         $componentsJson = echo $testString | ConvertFrom-Json
     }
 
-    It 'derives the main tag from a numeric build suffix' {
+    It 'creates an explicitly configured tag alias' {
         $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
 
         $aliases | Should -HaveCount 1
@@ -1112,43 +1114,60 @@ Describe 'Gets container image tag aliases' {
         $aliases[0].Target | Should -Be "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.19.0"
     }
 
-    It 'removes the complete multi-digit build suffix' {
-        $componentsJson.ContainerImages[0].windowsVersions[0].latestVersion = "v2.18.0-10"
-
-        $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
-
-        $aliases | Should -HaveCount 1
-        $aliases[0].Target | Should -Be "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.18.0"
-    }
-
-    It 'does not create an alias for a version without a build suffix' {
-        $componentsJson.ContainerImages[0].windowsVersions[0].latestVersion = "v2.19.0"
-
-        $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
-
-        $aliases | Should -Be @()
-    }
-
-    It 'does not create an alias for a non-numeric suffix' {
-        $componentsJson.ContainerImages[0].windowsVersions[0].latestVersion = "v1.34.8-windows-hp"
-
-        $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
-
-        $aliases | Should -Be @()
-    }
-
-    It 'creates an alias for a previous latest version with a build suffix' {
-        $componentsJson.ContainerImages[0].windowsVersions[0] | Add-Member -NotePropertyName previousLatestVersion -NotePropertyValue "v2.18.0-10"
+    It 'creates multiple explicitly configured tag aliases' {
+        $componentsJson.ContainerImages[0].windowsVersions[0].additionalTagsToApplyToContainer = @("v2.19.0", "stable")
 
         $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
 
         $aliases | Should -HaveCount 2
-        $aliases[1].Source | Should -Be "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.18.0-10"
-        $aliases[1].Target | Should -Be "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.18.0"
+        $aliases[0].Target | Should -Be "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.19.0"
+        $aliases[1].Target | Should -Be "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:stable"
     }
 
-    It 'uses the first build version when aliases have the same target' {
-        $componentsJson.ContainerImages[0].windowsVersions[0] | Add-Member -NotePropertyName previousLatestVersion -NotePropertyValue "v2.19.0-4"
+    It 'does not infer an alias when additional tags are not configured' {
+        $componentsJson.ContainerImages[0].windowsVersions[0].PSObject.Properties.Remove("additionalTagsToApplyToContainer")
+
+        $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
+
+        $aliases | Should -Be @()
+    }
+
+    It 'does not create an alias when additional tags are empty' {
+        $componentsJson.ContainerImages[0].windowsVersions[0].additionalTagsToApplyToContainer = @()
+
+        $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
+
+        $aliases | Should -Be @()
+    }
+
+    It 'does not create aliases from multi-architecture fallback versions' {
+        $componentsJson.ContainerImages[0].windowsVersions = $null
+        $componentsJson.ContainerImages[0].multiArchVersionsV2 = @(
+            [PSCustomObject]@{
+                latestVersion = "v2.19.0-5"
+                additionalTagsToApplyToContainer = @("v2.19.0")
+            }
+        )
+
+        $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
+
+        $aliases | Should -Be @()
+    }
+
+    It 'applies additional tags to the latest version only' {
+        $componentsJson.ContainerImages[0].windowsVersions[0] | Add-Member -NotePropertyName previousLatestVersion -NotePropertyValue "v2.18.0-10"
+
+        $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
+
+        $aliases | Should -HaveCount 1
+        $aliases[0].Source | Should -Be "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.19.0-5"
+    }
+
+    It 'uses the first source version when aliases have the same target' {
+        $componentsJson.ContainerImages[0].windowsVersions += [PSCustomObject]@{
+            latestVersion = "v2.19.0-4"
+            additionalTagsToApplyToContainer = @("v2.19.0")
+        }
 
         $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
 
