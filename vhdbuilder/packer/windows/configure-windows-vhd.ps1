@@ -431,6 +431,16 @@ function Get-ContainerImages
         Retry-Command -ScriptBlock {
             & ctr.exe -n k8s.io image tag $imageTag.Source $imageTag.Target
         } -ErrorMessage "Failed to tag image $($imageTag.Source) as $($imageTag.Target)"
+
+        # ctr copies the CRI-managed label from the source, which prevents CRI from
+        # registering the new reference. Change it to trigger CRI reconciliation.
+        Retry-Command -ScriptBlock {
+            & ctr.exe -n k8s.io images label $imageTag.Target io.cri-containerd.image=unmanaged
+        } -ErrorMessage "Failed to trigger CRI registration for image alias $($imageTag.Target)"
+
+        Retry-Command -ScriptBlock {
+            & crictl.exe -c $configPath inspecti $imageTag.Target | Out-Null
+        } -ErrorMessage "CRI failed to register image alias $($imageTag.Target)"
     }
 
     # before stopping containerd, let's echo the cached images and their sizes.
