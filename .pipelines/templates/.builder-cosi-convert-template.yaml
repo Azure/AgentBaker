@@ -136,13 +136,15 @@ steps:
       azcopy --version
 
       # Go is needed to build cosi-upload.
+      # On apt-based agents, install the repo-pinned Go toolchain after sources are extracted.
       if ! command -v go >/dev/null 2>&1; then
-          case "$PKG" in
-              apt)       pkg_install golang-go ;;
-              tdnf|dnf) pkg_install golang ;;
-          esac
+          if [ "$PKG" = apt ]; then
+              echo "Go not found yet; will install pinned version after source extraction"
+          else
+              pkg_install golang
+          fi
       fi
-      go version || echo "Go will be installed by hack/setup_golang.sh"
+      command -v go >/dev/null 2>&1 && go version || true
 
       echo "==== Tooling bootstrap complete ===="
     displayName: Bootstrap arm64 convert tooling
@@ -158,7 +160,11 @@ steps:
       mkdir -p "$(Build.SourcesDirectory)"
       tar -xzf "$(Pipeline.Workspace)/agentbaker-sources/agentbaker-sources.tar.gz" -C "$(Build.SourcesDirectory)"
       ls "$(Build.SourcesDirectory)"
-    displayName: Extract AgentBaker source bundle
+      cd "$(Build.SourcesDirectory)"
+      if command -v apt-get >/dev/null 2>&1; then
+          ./hack/setup_golang.sh
+      fi
+      go version
 
   - bash: |
       SKU_NAME=${OS_VERSION} && \
