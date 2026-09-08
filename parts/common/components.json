@@ -631,7 +631,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.18.0"
+          "latestVersion": "v2.18.0-10"
         }
       ]
     },
