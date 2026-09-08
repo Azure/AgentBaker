@@ -611,6 +611,16 @@ copyPackerFiles() {
     # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
     cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
     cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
+
+    if [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$CPU_ARCH" = "arm64" ] && [ -z "$OS_VARIANT" ] && [ "${ENABLE_FIPS,,}" != "true" ]; then
+      GRUB_AZ_NV_SCRIPT_SRC=/home/packer/10_azure_nvidia
+      GRUB_AZ_NV_SCRIPT_DEST=/etc/grub.d/10_azure_nvidia
+      cpAndMode $GRUB_AZ_NV_SCRIPT_SRC $GRUB_AZ_NV_SCRIPT_DEST 755
+
+      GRUB_AZ_NV_ENV_SRC=/home/packer/51-azure-nvidia.cfg
+      GRUB_AZ_NV_ENV_DEST=/etc/default/grub.d/51-azure-nvidia.cfg
+      cpAndMode $GRUB_AZ_NV_ENV_SRC $GRUB_AZ_NV_ENV_DEST 644
+    fi
   elif isACL "$OS" "$OS_VARIANT"; then
     # ACL cannot share the isMarinerOrAzureLinux block because:
     # - containerd.service: ACL provides containerd via sysext.

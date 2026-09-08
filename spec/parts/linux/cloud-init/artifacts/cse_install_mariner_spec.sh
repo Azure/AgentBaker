@@ -27,6 +27,7 @@ Describe 'cse_install_mariner.sh'
     BeforeAll 'setup'
     Include "./parts/linux/cloud-init/artifacts/cse_install.sh"
     Include "./parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
+
     Describe 'installDeps'
         It 'installs the required packages with installDeps for Mariner 2.0'
             OS_VERSION="2.0"
@@ -340,6 +341,23 @@ Describe 'cse_install_mariner.sh'
             The variable GRID_CALLED should not equal "true"
         End
 
+        It 'selects the newest HWE OpenRM package for GB200'
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            MOCK_VM_SKU="Standard_ND128isr_NDR_GB200_v6"
+            MOCK_OPEN_RET=0
+            uname() { echo "9.9.2-1.azl3"; }
+            dnf() {
+                echo "cuda-open-hwe-999.1.2-1_9.9.2.1.azl3.aarch64"
+                echo "cuda-open-hwe-999.1.2-2_9.9.2.1.azl3.aarch64"
+                echo "cuda-open-hwe-999.1.2-2_9.8.1.1.azl3.aarch64"
+            }
+
+            When call downloadGPUDrivers
+
+            The status should be success
+            The output should include "dnf install 30 1 600 cuda-open-hwe-999.1.2-2_9.9.2.1.azl3.aarch64"
+        End
+
         It 'selects proprietary cuda path for T4 when NVIDIA_GPU_DRIVER_TYPE is cuda'
             NVIDIA_GPU_DRIVER_TYPE="cuda"
             MOCK_VM_SKU="Standard_NC4as_T4_v3"
@@ -389,7 +407,7 @@ Describe 'cse_install_mariner.sh'
             dnf() {
                 case "$4" in
                     "cuda-open*")
-                        echo "cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
+                        echo "cuda-open-hwe-999.1.2-2_6.6.121.1.1.azl3.x86_64"
                         ;;
                     "cuda")
                         echo "cuda-570.195.03-1_6.6.121.1.1.azl3.x86_64"
@@ -404,7 +422,7 @@ Describe 'cse_install_mariner.sh'
 
             The status should be success
             The output should include "NVIDIA GPU driver versions available at VHD build time for supported Azure Linux GPU VM sizes:"
-            The output should include "  - nvidia-cuda-open-driver version 580.126.09"
+            The output should include "  - nvidia-cuda-open-driver version 999.1.2"
             The output should include "  - nvidia-cuda-driver version 570.195.03"
             The output should include "  - nvidia-grid-driver version 570.211.01"
             The output should include "build-time snapshot only"

@@ -2909,6 +2909,55 @@ OVERRIDE_EOF
         End
     End
 
+    Describe 'ARM64 GPU driver dispatch'
+        isARM64() { echo 1; }
+        logs_to_events() {
+            shift
+            "$@"
+        }
+        configGPUDrivers() { echo "configGPUDrivers called"; }
+        validateGPUDrivers() { echo "validateGPUDrivers called"; }
+
+        Parameters
+            "$AZURELINUX_OS_NAME" "3.0" "" false true  "configGPUDrivers called"
+            "$AZURELINUX_OS_NAME" "3.0" "" false false "validateGPUDrivers called"
+            "$UBUNTU_OS_NAME"     "24.04" "" false true ""
+            "$AZURELINUX_OS_NAME" "2.0" "" false true ""
+            "$AZURELINUX_OS_NAME" "3.0" "$AZURELINUX_OSGUARD_OS_VARIANT" false true ""
+            "$AZURELINUX_OS_NAME" "3.0" "" true true ""
+        End
+
+        It "dispatches ARM64 driver setup for OS=$1 version=$2 variant=$3 fips=$4 install=$5"
+            OS=$1
+            OS_VERSION=$2
+            OS_VARIANT=$3
+            ENABLE_FIPS=$4
+            CONFIG_GPU_DRIVER_IF_NEEDED=$5
+
+            When call ensureGPUDrivers
+
+            The output should equal "$6"
+        End
+    End
+
+    Describe 'ARM64 GPU driver validation'
+        isARM64() { echo 1; }
+        retrycmd_if_failure() {
+            echo "retrycmd_if_failure $*" >&2
+            return 0
+        }
+        which() { return 0; }
+
+        It 'checks modprobe and nvidia-smi'
+            When call validateGPUDrivers
+
+            The status should be success
+            The output should include "gpu driver loaded"
+            The stderr should include "retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0"
+            The stderr should include "retrycmd_if_failure 24 5 30 nvidia-smi"
+        End
+    End
+
     Describe 'configGPUDrivers'
         # Assert the per-step CSE timing event names emitted via logs_to_events,
         # without running the real (hardware/daemon) driver steps. logs_to_events

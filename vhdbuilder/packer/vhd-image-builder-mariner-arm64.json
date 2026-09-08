@@ -403,6 +403,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/10_azure_nvidia",
+      "destination": "/home/packer/10_azure_nvidia"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/51-azure-nvidia.cfg",
+      "destination": "/home/packer/51-azure-nvidia.cfg"
+    },
+    {
+      "type": "file",
       "source": "parts/common/components.json",
       "destination": "/home/packer/components.json"
     },

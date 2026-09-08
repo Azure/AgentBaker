@@ -1081,6 +1081,10 @@ var _ = Describe("GetGPUDriverType", func() {
 	It("should use cuda-lts with nc v3", func() {
 		Expect(GetGPUDriverType("standard_nc6_v3")).To(Equal("cuda-lts"))
 	})
+	It("should use cuda-lts with GB", func() {
+		Expect(GetGPUDriverType("Standard_ND128isr_NDR_GB200_v6")).To(Equal("cuda-lts"))
+		Expect(GetGPUDriverType("Standard_ND128isr_GB300_v6")).To(Equal("cuda-lts"))
+	})
 	It("should keep cuda (legacy R470) with nc v1 (K80)", func() {
 		Expect(GetGPUDriverType("standard_nc6")).To(Equal("cuda"))
 	})
@@ -1116,6 +1120,13 @@ var _ = Describe("GetAKSGPUImageSHA", func() {
 	})
 	It("should use newest AKSGPUCudaLTSVersionSuffix with non grid SKU", func() {
 		Expect(GetAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaLTSVersionSuffix))
+	})
+})
+
+var _ = Describe("GPUNeedsFabricManager", func() {
+	It("should not use Fabric Manager with GB", func() {
+		Expect(GPUNeedsFabricManager("Standard_ND128isr_NDR_GB200_v6")).To(BeFalse())
+		Expect(GPUNeedsFabricManager("Standard_ND128isr_GB300_v6")).To(BeFalse())
 	})
 })
 
