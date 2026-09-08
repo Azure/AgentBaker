@@ -105,6 +105,74 @@ function GetComponentsFromComponentsJson
     return $output
 }
 
+function GetContainerImageTagAliasesFromComponentsJson
+{
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $componentsJsonContent
+    )
+
+    $output = New-Object System.Collections.ArrayList
+    $targetImages = @{}
+
+    foreach ($containerImage in $componentsJsonContent.ContainerImages)
+    {
+        $versions = $containerImage.windowsVersions
+        if ($versions -eq $null)
+        {
+            $versions = $containerImage.multiArchVersionsV2
+        }
+
+        $downloadUrl = $containerImage.windowsDownloadUrl
+        if ($downloadUrl -eq $null)
+        {
+            $downloadUrl = $containerImage.downloadUrl
+        }
+
+        foreach ($windowsVersion in $versions)
+        {
+            $skuMatch = $windowsVersion.windowsSkuMatch
+            if ($skuMatch -ne $null -and $windowsSku -ne $null -and $windowsSku -NotLike $skuMatch)
+            {
+                continue
+            }
+
+            $versionsToAlias = @($windowsVersion.latestVersion)
+            if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
+            {
+                $versionsToAlias += $windowsVersion.previousLatestVersion
+            }
+
+            foreach ($versionToAlias in $versionsToAlias)
+            {
+                if ($versionToAlias -notmatch '^(?<mainTag>.+)-\d+$')
+                {
+                    continue
+                }
+
+                $mainTag = $Matches.mainTag
+                $sourceImage = SafeReplaceString($downloadUrl)
+                $sourceImage = $sourceImage.replace("*", $versionToAlias)
+                $targetImage = SafeReplaceString($downloadUrl)
+                $targetImage = $targetImage.replace("*", $mainTag)
+
+                if ($targetImages.ContainsKey($targetImage))
+                {
+                    continue
+                }
+
+                $targetImages[$targetImage] = $true
+                $output += [PSCustomObject]@{
+                    Source = $sourceImage
+                    Target = $targetImage
+                }
+            }
+        }
+    }
+
+    return $output
+}
+
 function GetPackagesFromComponentsJson
 {
 
@@ -431,6 +499,7 @@ function GetAllCachedThings {
     )
 
     $items = GetComponentsFromComponentsJson $componentsJsonContent
+    $imageTagAliases = GetContainerImageTagAliasesFromComponentsJson $componentsJsonContent
     $packages = GetPackagesFromComponentsJson $componentsJsonContent
     $ociArtifacts = GetOCIArtifactsFromComponentsJson $componentsJsonContent
     $regKeys = GetRegKeysToApply $windowsSettingsContent
@@ -438,6 +507,10 @@ function GetAllCachedThings {
     $baseVersionBlock = $windowsSettingsContent.WindowsBaseVersions."$windowsSku"
 
     $items += "Windows ${windowsSku} base version: ${baseVersion}"
+    foreach ($imageTagAlias in $imageTagAliases) {
+        $items += $imageTagAlias.Target
+    }
+
     if ($baseVersionBlock -ne $null) {
         $items += "Windows ${windowsSku} base image sku: $($baseVersionBlock.base_image_sku)"
         $items += "Windows ${windowsSku} os disk size: $($baseVersionBlock.os_disk_size)"

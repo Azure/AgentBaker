@@ -425,6 +425,14 @@ function Get-ContainerImages
         }
     }
 
+    foreach ($imageTag in $imageTagsToCreate)
+    {
+        Write-Log "Tagging image $($imageTag.Source) as $($imageTag.Target)"
+        Retry-Command -ScriptBlock {
+            & ctr.exe -n k8s.io image tag $imageTag.Source $imageTag.Target
+        } -ErrorMessage "Failed to tag image $($imageTag.Source) as $($imageTag.Target)"
+    }
+
     # before stopping containerd, let's echo the cached images and their sizes.
     crictl -c $configPath images show
 

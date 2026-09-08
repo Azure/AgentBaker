@@ -125,6 +125,15 @@ Describe 'Tests of GetAllCachedThings ' {
         $allpackages | Should -Contain "mcr.microsoft.com/container/with/seperate/win/and/linux/versions:win-version"
     }
 
+    it 'has a derived container image tag alias in it' {
+        $windowsSku = "2019-containerd"
+        $componentsJson.ContainerImages[0].windowsVersions[0].latestVersion = "win-version-10"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        $allpackages | Should -Contain "mcr.microsoft.com/container/with/seperate/win/and/linux/versions:win-version"
+    }
+
     it 'has a package in it' {
         $windowsSku = "2019-containerd"
 
@@ -1075,6 +1084,95 @@ Describe 'Gets The Versions' {
         $components = GetComponentsFromComponentsJson $componentsJson
 
         $components | Should -Be @()
+    }
+}
+
+Describe 'Gets container image tag aliases' {
+    BeforeEach {
+        $testString = '{
+"ContainerImages": [
+{
+  "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:*",
+  "amd64OnlyVersions": [],
+  "multiArchVersionsV2": [],
+  "windowsVersions": [
+    {
+      "latestVersion": "v2.19.0-5"
+    }
+  ]
+}]}'
+        $componentsJson = echo $testString | ConvertFrom-Json
+    }
+
+    It 'derives the main tag from a numeric build suffix' {
+        $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
+
+        $aliases | Should -HaveCount 1
+        $aliases[0].Source | Should -Be "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.19.0-5"
+        $aliases[0].Target | Should -Be "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.19.0"
+    }
+
+    It 'removes the complete multi-digit build suffix' {
+        $componentsJson.ContainerImages[0].windowsVersions[0].latestVersion = "v2.18.0-10"
+
+        $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
+
+        $aliases | Should -HaveCount 1
+        $aliases[0].Target | Should -Be "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.18.0"
+    }
+
+    It 'does not create an alias for a version without a build suffix' {
+        $componentsJson.ContainerImages[0].windowsVersions[0].latestVersion = "v2.19.0"
+
+        $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
+
+        $aliases | Should -Be @()
+    }
+
+    It 'does not create an alias for a non-numeric suffix' {
+        $componentsJson.ContainerImages[0].windowsVersions[0].latestVersion = "v1.34.8-windows-hp"
+
+        $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
+
+        $aliases | Should -Be @()
+    }
+
+    It 'creates an alias for a previous latest version with a build suffix' {
+        $componentsJson.ContainerImages[0].windowsVersions[0] | Add-Member -NotePropertyName previousLatestVersion -NotePropertyValue "v2.18.0-10"
+
+        $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
+
+        $aliases | Should -HaveCount 2
+        $aliases[1].Source | Should -Be "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.18.0-10"
+        $aliases[1].Target | Should -Be "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.18.0"
+    }
+
+    It 'uses the first build version when aliases have the same target' {
+        $componentsJson.ContainerImages[0].windowsVersions[0] | Add-Member -NotePropertyName previousLatestVersion -NotePropertyValue "v2.19.0-4"
+
+        $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
+
+        $aliases | Should -HaveCount 1
+        $aliases[0].Source | Should -Be "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.19.0-5"
+    }
+
+    It 'uses the Windows download URL and replaces CPU_ARCH' {
+        $componentsJson.ContainerImages[0] | Add-Member -NotePropertyName windowsDownloadURL -NotePropertyValue "mcr.microsoft.com/oss/kubernetes-csi/`${CPU_ARCH}/livenessprobe:*"
+        $CPU_ARCH = "amd64"
+
+        $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
+
+        $aliases | Should -HaveCount 1
+        $aliases[0].Target | Should -Be "mcr.microsoft.com/oss/kubernetes-csi/amd64/livenessprobe:v2.19.0"
+    }
+
+    It 'does not create an alias when the Windows SKU does not match' {
+        $componentsJson.ContainerImages[0].windowsVersions[0] | Add-Member -NotePropertyName windowsSkuMatch -NotePropertyValue "2022-containerd*"
+        $windowsSku = "2019-containerd"
+
+        $aliases = GetContainerImageTagAliasesFromComponentsJson $componentsJson
+
+        $aliases | Should -Be @()
     }
 }
 
