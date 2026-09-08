@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -851,4 +852,74 @@ func TestUbuntuFastPathRejectsTamperedCompressedIndex(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, isIntegrityError(err), "a checksum mismatch on the index is an integrity failure")
 	assert.NoFileExists(t, app.hotfixBinaryPath, "no binary should be staged from a tampered index")
+}
+
+// The fast path must request an exact, closed set of URLs: the InRelease, one Packages
+// index, and the single .deb whose path is derived from name+version+arch+codename. This
+// asserts the whole request log, not just that the expected ones appear -- so any extra
+// fetch (a directory listing, a second architecture, a dbgsym or source package, a
+// Release/Release.gpg probe) fails the test rather than passing unnoticed.
+func TestUbuntuFastPathRequestsExactlyTheExpectedURLs(t *testing.T) {
+	const (
+		hotfixVersion = "202608.21.1"
+		fullVersion   = hotfixVersion + "-ubuntu22.04u1"
+	)
+	packageBytes := []byte("authenticated-deb-package-bytes")
+	packageLocation := "pool/main/a/aks-node-controller/aks-node-controller_" +
+		fullVersion + "_amd64.deb"
+	packages := []byte(fmt.Sprintf(
+		"Package: aks-node-controller\nVersion: %s\nArchitecture: amd64\nFilename: %s\nSHA256: %s\n\n",
+		fullVersion, packageLocation, sha256Hex(packageBytes)))
+	packagesGz := gzipBytes(t, packages)
+	suiteRelative := "main/binary-amd64/Packages"
+	inRelease := clearSignedReleaseEntries(
+		[3]string{sha256Hex(packages), fmt.Sprint(len(packages)), suiteRelative},
+		[3]string{sha256Hex(packagesGz), fmt.Sprint(len(packagesGz)), suiteRelative + ".gz"},
+	)
+
+	var mu sync.Mutex
+	var requested []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		requested = append(requested, r.Method+" "+r.URL.Path)
+		mu.Unlock()
+		switch r.URL.Path {
+		case "/ubuntu/22.04/prod/" + packageLocation:
+			_, _ = w.Write(packageBytes)
+		case "/ubuntu/22.04/prod/dists/jammy/InRelease":
+			_, _ = w.Write(inRelease)
+		case "/ubuntu/22.04/prod/dists/jammy/" + suiteRelative + ".gz":
+			_, _ = w.Write(packagesGz)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	app := configuredUbuntuRepositoryApp(t, dir, server.URL, func(*exec.Cmd) error {
+		return fmt.Errorf("package-manager fallback was not expected")
+	})
+	app.vhdBinaryPath = filepath.Join(dir, "aks-node-controller")
+	app.hotfixBinaryPath = filepath.Join(dir, "aks-node-controller-hotfix")
+	require.NoError(t, os.WriteFile(app.vhdBinaryPath, []byte("vhd-binary"), 0o755))
+	app.verifyRepositorySignature = func(context.Context, string, string, []string) error { return nil }
+	app.extractRepositoryPackage = func(_ context.Context, _, _, destination string) error {
+		extracted := filepath.Join(destination, filepath.FromSlash(ancPackageBinaryRelativePath))
+		require.NoError(t, os.MkdirAll(filepath.Dir(extracted), 0o755))
+		return os.WriteFile(extracted, []byte("extracted-anc-binary"), 0o644)
+	}
+
+	require.NoError(t, app.tryRepositoryDownload(context.Background(), hotfixVersion))
+
+	mu.Lock()
+	got := append([]string(nil), requested...)
+	mu.Unlock()
+	sort.Strings(got)
+
+	assert.Equal(t, []string{
+		"GET /ubuntu/22.04/prod/dists/jammy/InRelease",
+		"GET /ubuntu/22.04/prod/dists/jammy/main/binary-amd64/Packages.gz",
+		"GET /ubuntu/22.04/prod/" + packageLocation,
+	}, got, "the fast path must fetch exactly these three URLs and nothing else")
 }
