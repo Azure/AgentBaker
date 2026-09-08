@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -404,6 +405,7 @@ func TestCheckHotfix_FallbackOnlyForUnreachableLPS(t *testing.T) {
 // (exit 0) and emits telemetry, regardless of the underlying outcome.
 func TestRunCheckHotfixCommand_AlwaysFailOpen(t *testing.T) {
 	t.Run("success path emits informational event and exits 0", func(t *testing.T) {
+		logCap := installLogCapturer(t)
 		origVersion := Version
 		Version = "202604.01.0"
 		defer func() { Version = origVersion }()
@@ -422,9 +424,15 @@ func TestRunCheckHotfixCommand_AlwaysFailOpen(t *testing.T) {
 		assert.Equal(t, "AKS.AKSNodeController.CheckHotfix", events[0].TaskName)
 		assert.Equal(t, "Informational", events[0].EventLevel)
 		assert.Contains(t, events[0].Message, string(outcomeLPSRead))
+		assert.Contains(t, logCap.getRecords(), logRecord{
+			Level:   slog.LevelInfo,
+			Message: "check-hotfix completed",
+			Attrs:   map[string]string{"outcome": string(outcomeLPSRead)},
+		})
 	})
 
 	t.Run("authoritative client error emits error event but still exits 0", func(t *testing.T) {
+		logCap := installLogCapturer(t)
 		tt := NewTestApp(t, TestAppConfig{})
 		tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "hotfix.json")
 		tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nonexistent.json")
@@ -440,12 +448,23 @@ func TestRunCheckHotfixCommand_AlwaysFailOpen(t *testing.T) {
 		assert.Equal(t, "AKS.AKSNodeController.CheckHotfix", events[0].TaskName)
 		assert.Equal(t, "Error", events[0].EventLevel)
 		assert.Contains(t, events[0].Message, string(outcomeFailed))
+		var completions []logRecord
+		for _, record := range logCap.getRecords() {
+			if record.Attrs["outcome"] == string(outcomeFailed) {
+				completions = append(completions, record)
+			}
+		}
+		require.Len(t, completions, 1)
+		assert.Equal(t, slog.LevelWarn, completions[0].Level)
+		assert.Equal(t, "check-hotfix completed with error (fail-open)", completions[0].Message)
+		assert.NotEmpty(t, completions[0].Attrs["error"])
 	})
 
 	// An unreachable LPS on a node with no injected cold-start map is the common healthy case
 	// (it is exactly what a first-boot node sees when the LPS is briefly unavailable). It must
 	// emit an Informational event, not an Error, while still recording why the fetch failed.
 	t.Run("unreachable LPS without a cold-start pointer emits an informational event", func(t *testing.T) {
+		logCap := installLogCapturer(t)
 		tt := NewTestApp(t, TestAppConfig{})
 		tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "hotfix.json")
 		tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nonexistent.json")
@@ -463,6 +482,24 @@ func TestRunCheckHotfixCommand_AlwaysFailOpen(t *testing.T) {
 		assert.Contains(t, events[0].Message, string(outcomeNoColdStartPointer))
 		assert.Contains(t, events[0].Message, "LPS returned status 500",
 			"the fetch error must survive into the message for diagnosis")
+
+		records := logCap.getRecords()
+		assert.Contains(t, records, logRecord{
+			Level:   slog.LevelWarn,
+			Message: "failed to reach LPS, attempting cold-start fallback",
+			Attrs:   map[string]string{"error": "LPS returned status 500"},
+		})
+		var completions []logRecord
+		for _, record := range records {
+			if record.Attrs["outcome"] == string(outcomeNoColdStartPointer) {
+				completions = append(completions, record)
+			}
+		}
+		require.Len(t, completions, 1)
+		assert.Equal(t, slog.LevelInfo, completions[0].Level)
+		assert.Equal(t, "check-hotfix completed (fail-open)", completions[0].Message)
+		assert.Contains(t, completions[0].Attrs["reason"], "LPS returned status 500")
+		assert.NotContains(t, completions[0].Attrs, "error")
 	})
 
 	t.Run("cli wiring returns exit code 0 even on fetch failure", func(t *testing.T) {
