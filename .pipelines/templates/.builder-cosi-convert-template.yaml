@@ -80,7 +80,7 @@ steps:
       fi
       sudo systemctl start docker 2>/dev/null || sudo service docker start 2>/dev/null || true
       # Give the agent user access to the docker socket for the duration of the job.
-      sudo chmod 666 /var/run/docker.sock 2>/dev/null || true
+      sudo chown "$(id -u):$(id -g)" /var/run/docker.sock 2>/dev/null || true
       docker version
 
       # Azure CLI.
@@ -104,10 +104,14 @@ steps:
               *)             AZCOPY_URL=https://aka.ms/downloadazcopy-v10-linux ;;
           esac
           tmp="$(mktemp -d)"
-          curl -sSL "$AZCOPY_URL" -o "$tmp/azcopy.tgz"
+          curl -fsSL "$AZCOPY_URL" -o "$tmp/azcopy.tgz"
           tar -xzf "$tmp/azcopy.tgz" -C "$tmp"
           # extracted dir is like azcopy_linux_arm64_10.x.x/
           azcopy_bin="$(find "$tmp" -maxdepth 2 -type f -name azcopy | head -n1)"
+          if [ -z "$azcopy_bin" ] || [ ! -x "$azcopy_bin" ]; then
+              echo "##vso[task.logissue type=error]azcopy archive did not contain an executable binary"
+              exit 1
+          fi
           sudo install -m 0755 "$azcopy_bin" /usr/local/bin/azcopy
           rm -rf "$tmp"
       fi
