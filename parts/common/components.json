@@ -2183,7 +2183,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.9.1-ubuntu26.04u28"
+                "latestVersion": "1.12.1-ubuntu26.04u7"
               }
             ]
           },
@@ -2191,7 +2191,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.9.1-ubuntu24.04u28"
+                "latestVersion": "1.12.1-ubuntu24.04u7"
               }
             ]
           },
@@ -2199,7 +2199,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.9.1-ubuntu22.04u28"
+                "latestVersion": "1.12.1-ubuntu22.04u7"
               }
             ]
           },
@@ -2207,7 +2207,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.9.1-ubuntu20.04u28"
+                "latestVersion": "1.12.1-ubuntu20.04u7"
               }
             ]
           }
@@ -2217,7 +2217,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=node-exporter-kubernetes, os=azurelinux, release=3.0",
-                "latestVersion": "1.9.1-28.azl3"
+                "latestVersion": "1.12.1-7.azl3"
               }
             ]
           },
