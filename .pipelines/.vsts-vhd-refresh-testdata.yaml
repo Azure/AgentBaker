@@ -33,7 +33,7 @@ stages:
           displayName: Generate Testdata
         - task: PublishPipelineArtifact@1
           inputs:
-            targetPath: $(Pipeline.Workspace)/s/pkg/agent/testdata
+            targetPath: $(Pipeline.Workspace)/s/aks-node-controller/parser/testdata
             artifact: testdata
             publishLocation: pipeline
 

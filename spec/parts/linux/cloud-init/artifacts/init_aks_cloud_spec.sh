@@ -43,17 +43,17 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
     End
 
     It 'gates refresh schedule installation on install_ca_refresh_schedule'
-        When run grep -Eq '^[[:space:]]*if \[ "\$install_ca_refresh_schedule" -eq 1 \]; then$' "$script_path"
+        When run grep -Eq '\[ "\$install_ca_refresh_schedule" -eq 0 \]' "$script_path"
         The status should eq 0
     End
 
     It 'checks for ca-refresh mode after certificate refresh logic'
-        When run grep -Eq '^if \[ "\$action" = "ca-refresh" \]; then$' "$script_path"
+        When run grep -Eq '^if \[ "\$action" = "ca-refresh" \] \|\| \[ "\$install_ca_refresh_schedule" -eq 0 \]; then$' "$script_path"
         The status should eq 0
     End
 
     It 'exits early in ca-refresh mode after certificate refresh logic'
-        When run grep -Eq '^[[:space:]]*exit$' "$script_path"
+        When run grep -Eq '^[[:space:]]*exit 0$' "$script_path"
         The status should eq 0
     End
 

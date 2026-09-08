@@ -62,4 +62,21 @@ message LocalDnsOverrides {
 
   // Policy for serving stale data.
   string serve_stale = 8;
+
+  // Determines the handling of requests when all upstream servers are unhealthy.
+  optional bool failfast_all_unhealthy_upstreams = 9;
+
+  // Configures CoreDNS forward plugin health checking behavior for upstream servers.
+  LocalDnsHealthCheck health_check = 10;
+}
+
+message LocalDnsHealthCheck {
+  // Duration is the health check interval as a Go duration string, for example "500ms" or "1s".
+  optional string duration = 1;
+
+  // Sets the RecursionDesired flag of the health check query to false.
+  optional bool no_rec = 2;
+
+  // Domain name used for health check queries.
+  optional string domain = 3;
 }

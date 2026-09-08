@@ -121,7 +121,7 @@ func Test_parseVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := toolkit.ContextWithT(context.Background(), t)
+			ctx := toolkit.ContextWithLogger(context.Background(), toolkit.NewTestLogger(t))
 			img := &armcompute.VirtualMachineExtensionImage{Name: tt.inputName}
 			result := parseVersion(ctx, img)
 
@@ -274,7 +274,7 @@ func Test_getLatestVMExtensionImageVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := toolkit.ContextWithT(context.Background(), t)
+			ctx := toolkit.ContextWithLogger(context.Background(), toolkit.NewTestLogger(t))
 			got, err := getLatestVMExtensionImageVersion(
 				ctx,
 				tt.mock,

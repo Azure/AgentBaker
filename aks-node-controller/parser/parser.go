@@ -46,6 +46,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 
 	containerdVersion, _ := detectContainerdVersion(ctx)
 	cloudProviderSettings := getCloudProviderSettings(config)
+	isMIGNode := getIsMIGNode(config.GetGpuConfig().GetGpuInstanceProfile(), config.GetGpuConfig().GetMigProfileLayout())
 	env := map[string]string{
 		"PROVISION_OUTPUT":                                     "/var/log/azure/cluster-provision-cse-output.log",
 		"MOBY_VERSION":                                         "",
@@ -96,12 +97,13 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"IS_VHD":                                               fmt.Sprintf("%v", getIsVHD(config.IsVhd)),
 		"GPU_NODE":                                             fmt.Sprintf("%v", getEnableNvidia(config)),
 		"SGX_NODE":                                             fmt.Sprintf("%v", getIsSgxEnabledSKU(config.GetVmSize())),
-		"MIG_NODE":                                             fmt.Sprintf("%v", getIsMIGNode(config.GetGpuConfig().GetGpuInstanceProfile())),
+		"MIG_NODE":                                             fmt.Sprintf("%v", isMIGNode),
 		"CONFIG_GPU_DRIVER_IF_NEEDED":                          fmt.Sprintf("%v", config.GetGpuConfig().GetConfigGpuDriver()),
 		"ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED":                   fmt.Sprintf("%v", config.GetGpuConfig().GetGpuDevicePlugin()),
 		"MANAGED_GPU_EXPERIENCE_AFEC_ENABLED":                  fmt.Sprintf("%v", config.GetGpuConfig().GetManagedGpuExperienceAfecEnabled()),
 		"ENABLE_MANAGED_GPU":                                   fmt.Sprintf("%v", config.GetGpuConfig().GetEnableManagedGpu()),
 		"NVIDIA_MIG_STRATEGY":                                  config.GetGpuConfig().GetMigStrategy(),
+		"NVIDIA_MIG_PROFILE_LAYOUT":                            getStringifiedStringArray(config.GetGpuConfig().GetMigProfileLayout(), ","),
 		"CREDENTIAL_PROVIDER_DOWNLOAD_URL":                     config.GetKubeBinaryConfig().GetLinuxCredentialProviderUrl(),
 		"CONTAINERD_VERSION":                                   config.GetContainerdConfig().GetContainerdVersion(),
 		"CONTAINERD_PACKAGE_URL":                               config.GetContainerdConfig().GetContainerdPackageUrl(),
@@ -210,7 +212,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"SKIP_WAAGENT_HOLD":                            "true",
 		"NETWORK_ISOLATED_CLUSTER_TEST_MODE":           "false", // temp: needs to be added to config
 		"STANDARD_SECONDARY_NIC_COUNT":                 fmt.Sprintf("%d", config.GetNetworkConfig().GetStandardSecondaryNicCount()),
-		"ENABLE_MANAGED_GPU_DRA":                       "false", // TODO: add protobuf field
+		"ENABLE_MANAGED_GPU_DRA":                       fmt.Sprintf("%v", config.GetGpuConfig().GetEnableManagedGpuDra()),
 		"INIT_AKS_CLOUD_FILEPATH":                      getInitAKSCloudFilepath(),
 		"REPO_DEPOT_ENDPOINT":                          getRepoDepotEndpoint(config),
 	}

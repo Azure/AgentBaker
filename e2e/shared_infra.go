@@ -284,11 +284,33 @@ func ensureDualStackSubnet(ctx context.Context, rg, vnetName, subnetName, ipv4CI
 	})
 }
 
+// ensureBastionIPConnect turns on IP connect for a bastion that predates it being set at
+// creation time. Without it the /api/tokens call in bastionssh.go returns 403 forever, since
+// the bastion is only created once and is otherwise never updated.
+func ensureBastionIPConnect(ctx context.Context, rg string, bastion armnetwork.BastionHost) error {
+	if bastion.Properties.EnableIPConnect != nil && *bastion.Properties.EnableIPConnect {
+		return nil
+	}
+	toolkit.Logf(ctx, "enabling IP connect on existing shared bastion %s", SharedBastionName)
+	bastion.Properties.EnableIPConnect = to.Ptr(true)
+	poller, err := config.Azure.BastionHosts.BeginCreateOrUpdate(ctx, rg, SharedBastionName, bastion, nil)
+	if err != nil {
+		return fmt.Errorf("enabling bastion IP connect: %w", err)
+	}
+	if _, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions); err != nil {
+		return fmt.Errorf("waiting for bastion IP connect: %w", err)
+	}
+	return nil
+}
+
 func ensureSharedBastion(ctx context.Context, rg, location string) (string, error) {
 	existing, err := config.Azure.BastionHosts.Get(ctx, rg, SharedBastionName, nil)
 	if err == nil {
 		if existing.Properties == nil || existing.Properties.DNSName == nil {
 			return "", fmt.Errorf("shared bastion %s exists but has no DNS name", SharedBastionName)
+		}
+		if err := ensureBastionIPConnect(ctx, rg, existing.BastionHost); err != nil {
+			return "", err
 		}
 		return *existing.Properties.DNSName, nil
 	}
@@ -331,6 +353,9 @@ func ensureSharedBastion(ctx context.Context, rg, location string) (string, erro
 		},
 		Properties: &armnetwork.BastionHostPropertiesFormat{
 			EnableTunneling: to.Ptr(true),
+			// bastionssh.go connects via .../bh-hostConnect/<ip>, Bastion's IP-based connect
+			// flow, which returns 403 unless IP connect is enabled.
+			EnableIPConnect: to.Ptr(true),
 			IPConfigurations: []*armnetwork.BastionHostIPConfiguration{
 				{
 					Name: to.Ptr("bastion-ipcfg"),

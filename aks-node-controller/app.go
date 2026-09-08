@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -57,6 +58,10 @@ type App struct {
 	// source for check-hotfix's LPS endpoint (apiserver FQDN + cluster CA) and the
 	// cold-start fallback pointer.
 	nodeConfigPath string
+	// nbcCmdPath overrides the default nbc-cmd.sh path for testing. When the main
+	// node config (nodeConfigPath) is absent, check-hotfix parses this existing command
+	// file to obtain API_SERVER_NAME and KUBE_CA_CRT for the LPS connection.
+	nbcCmdPath string
 	// gpuComponentsFilePath overrides the default GPU components.json location for testing.
 	gpuComponentsFilePath string
 	// checkHotfixFetcher overrides the real LPS hotfix-pointer GET for testing, letting
@@ -66,6 +71,16 @@ type App struct {
 	// Authorization header for the check-hotfix LPS fetch. When nil, the real IMDS endpoint
 	// is queried.
 	fetchAttestedToken func(ctx context.Context) (string, error)
+	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
+	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
+	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
+	// httpDownload overrides the real HTTP GET for download-hotfix artifact fetching, letting
+	// unit tests inject canned binary content or errors without real networking. When nil, the
+	// real HTTP download is used.
+	httpDownload func(ctx context.Context, url string) ([]byte, error)
+	// downloadDir overrides the directory where artifact downloads are staged. When empty,
+	// defaults to filepath.Dir(hotfixBinaryPath). Used for testing.
+	downloadDir string
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.

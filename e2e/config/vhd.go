@@ -128,6 +128,18 @@ var (
 		Gallery: imageGalleryLinux,
 	}
 
+	// VHDAzureLinuxV3Gen2Kata is the AzureLinux V3 Gen2 VHD built with FEATURE_FLAGS=kata.
+	// The image definition name mirrors the SIG_IMAGE_NAME produced by the VHD builder for
+	// OS_VERSION=V3kata + HYPERV_GENERATION=V2 (SKU_NAME=V3katagen2, prefixed with "AzureLinux").
+	// See .pipelines/.vsts-vhd-builder-release.yaml (buildAzureLinuxV3gen2kata) and
+	// vhdbuilder/packer/produce-packer-settings-functions.sh (ensure_sig_image_name_linux).
+	VHDAzureLinuxV3Gen2Kata = &Image{
+		Name:    "AzureLinuxV3katagen2",
+		OS:      OSAzureLinux,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSAzureLinuxV3Gen2Kata,
+		Gallery: imageGalleryLinux,
+	}
 	VHDAzureLinux3OSGuard = &Image{
 		Name:                "AzureLinuxOSGuardOSGuardV3gen2fipsTL",
 		OS:                  OSAzureLinux,

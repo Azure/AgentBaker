@@ -54,7 +54,6 @@ parameters:
   - name: csePublishDir
     type: string
     default: $(Build.ArtifactStagingDirectory)/packages
-
 stages:
   - stage: Package
     displayName: "Package Windows CSE"

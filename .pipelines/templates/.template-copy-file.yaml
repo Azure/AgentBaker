@@ -15,7 +15,7 @@ steps:
 
       if [ ! -f "${destinationFile}" ]; then
         echo "##vso[task.logissue type=error]Destination file does not exist, could not copy: ${destinationFile}"
-        echo "destination file file does not exist, not copying as it must have been moved in a refactor: ${destinationFile}"
+        echo "destination file does not exist, not copying as it must have been moved in a refactor: ${destinationFile}"
         exit 1
       fi
 

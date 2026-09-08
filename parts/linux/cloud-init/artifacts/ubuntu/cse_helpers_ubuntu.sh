@@ -26,23 +26,70 @@ wait_for_apt_locks() {
     done
 }
 # Core update function used by apt_get_update and apt_get_install_from_local_repo
+# returns 0 if successful, 1 if retries are exhausted, 2 if the CSE timeout is approaching
+# and the caller should short-circuit.
 _apt_get_update() {
     local retries=$1
     local apt_opts=$2
     local apt_update_output=/tmp/apt-get-update.out
+    # Per-attempt cap for `apt-get update`. apt applies its own per-connection timeouts, but a run
+    # fetches many index files sequentially, so on broken DNS/NSG a single attempt can hang for many
+    # minutes. Without a cap, retries alone can consume the entire CSE budget and starve later steps.
+    local attemptTimeout=${APT_GET_UPDATE_TIMEOUT_SECONDS:-180}
+    local effectiveTimeout
+    local remainingCseTime
+    local aptStatus
 
     for i in $(seq 1 $retries); do
+        # Only apply *CSE budget* guards when CSE_STARTTIME_SECONDS is set (i.e. in a real CSE run).
+        # Note: the per-attempt `timeout` wrapper still applies in both CSE and VHD build;
+        # only the CSE budget checks are skipped during VHD build to avoid noisy "CSE_STARTTIME_SECONDS is not set" warnings.
+        if [ -n "${CSE_STARTTIME_SECONDS:-}" ] && ! check_cse_timeout; then
+            echo "CSE timeout approaching, exiting apt_get_update early." >&2
+            return 2
+        fi
+
         wait_for_apt_locks
         export DEBIAN_FRONTEND=noninteractive
         dpkg --configure -a --force-confdef
         apt-get ${apt_opts} -f -y install
-        ! (apt-get ${apt_opts} update 2>&1 | tee $apt_update_output | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
-        cat $apt_update_output && break || \
+
+        # Cap the per-attempt timeout to the remaining CSE budget so a single attempt cannot
+        # overrun the global provisioning window.
+        effectiveTimeout=$attemptTimeout
+        if [ -n "${CSE_STARTTIME_SECONDS:-}" ]; then
+            remainingCseTime=$(( ${CSE_MAX_DURATION_SECONDS:-780} - ( $(date +%s) - CSE_STARTTIME_SECONDS ) ))
+            if [ "$remainingCseTime" -lt 1 ]; then
+                echo "No CSE time remaining, exiting apt_get_update early." >&2
+                return 2
+            fi
+            if [ "$effectiveTimeout" -gt "$remainingCseTime" ]; then
+                effectiveTimeout=$remainingCseTime
+            fi
+        fi
+
+        timeout "$effectiveTimeout" apt-get ${apt_opts} update > $apt_update_output 2>&1
+        aptStatus=$?
         cat $apt_update_output
+        # apt-get must both exit 0 and emit no W:/E: lines. Checking the exit status matters now that
+        # attempts are wrapped in timeout: a killed apt-get may flush no diagnostics at all, which the
+        # grep-only check would have misread as success.
+        if [ $aptStatus -eq 0 ] && ! grep -qE "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$" $apt_update_output; then
+            break
+        fi
+        if [ $aptStatus -eq 124 ]; then
+            echo "apt-get update timed out after ${effectiveTimeout}s on attempt $i of $retries" >&2
+        fi
+
         if [ $i -eq $retries ]; then
             return 1
-        else sleep 5
         fi
+        # Re-check after the failure, before sleeping, so we give up as early as possible.
+        if [ -n "${CSE_STARTTIME_SECONDS:-}" ] && ! check_cse_timeout; then
+            echo "CSE timeout approaching, exiting apt_get_update early." >&2
+            return 2
+        fi
+        sleep 5
     done
     echo Executed apt-get update $i times
     wait_for_apt_locks

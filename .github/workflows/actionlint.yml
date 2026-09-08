@@ -1,0 +1,41 @@
+name: Lint GitHub Actions Workflows
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+
+permissions: {}
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Download actionlint
+      run: bash <(curl -sL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash)
+      shell: bash
+    - name: Lint workflow files with actionlint
+      run: ./actionlint -color
+      shell: bash
+
+  zizmor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Run zizmor security audit
+      uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+      with:
+        # Scope to workflow files only (default scope is the whole repo,
+        # which would also pull in unrelated configs like dependabot.yml).
+        inputs: .github/workflows
+        # Fail the workflow directly on findings instead of only reporting via
+        # the Security tab, so this behaves as a hard PR gate like actionlint.
+        advanced-security: false

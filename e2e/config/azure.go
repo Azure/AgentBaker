@@ -817,7 +817,7 @@ func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion, location
 
 // DeleteSIGImageVersion deletes a SIG image version
 func (a *AzureClient) DeleteSIGImageVersion(ctx context.Context, galleryResourceGroup, galleryName, imageName, version string) {
-	// Ignore errors, don't need to wait for the deletion to complete
+	// Ignore errors because the stage-2 VMSS deletion can still be in progress.
 	_, _ = a.GalleryImageVersions.BeginDelete(ctx, galleryResourceGroup, galleryName, imageName, version, nil)
 }
 

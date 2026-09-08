@@ -19,6 +19,7 @@ build/
 coverage/
 test-results/
 .devcontainer/devcontainer-lock.json
+.copilot-tracking/
 
 test/junit/
 coverage/

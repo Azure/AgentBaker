@@ -119,7 +119,7 @@ function extract_windows_image_urls() {
 		windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
 		windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
 		;;
-	"2025-gen2")
+	"2025-gen2" | "2025-gen2-tl")
 		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
 		windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
 		windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"

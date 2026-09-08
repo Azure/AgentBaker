@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"testing"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Masterminds/semver/v3"
@@ -14,7 +13,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/stretchr/testify/require"
 )
 
 // this is a base kubelet config for Scriptless e2e test
@@ -97,11 +95,25 @@ func baseKubeletConfig() *aksnodeconfigv1.KubeletConfig {
 	}
 }
 
-func getBaseNBC(ctx context.Context, t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.NodeBootstrappingConfiguration, error) {
+func getBaseNBC(ctx context.Context, cluster *Cluster, vhd *config.Image) (*datamodel.NodeBootstrappingConfiguration, error) {
+	if cluster == nil || cluster.Model == nil || cluster.Model.Location == nil || cluster.Model.Properties == nil ||
+		cluster.KubeletIdentity == nil || cluster.KubeletIdentity.ClientID == nil {
+		return nil, fmt.Errorf("cluster is incomplete")
+	}
+	if vhd == nil {
+		return nil, fmt.Errorf("VHD is nil")
+	}
 	var nbc *datamodel.NodeBootstrappingConfiguration
+	var err error
 
 	if vhd.Distro.IsWindowsDistro() {
-		nbc = baseTemplateWindows(t, *cluster.Model.Location)
+		if cluster.Model.ID == nil || cluster.Model.Properties.NodeResourceGroup == nil {
+			return nil, fmt.Errorf("Windows cluster is missing its ID or node resource group")
+		}
+		nbc, err = baseTemplateWindows(*cluster.Model.Location)
+		if err != nil {
+			return nil, err
+		}
 
 		// these aren't needed since we use TLS bootstrapping instead, though windows bootstrapping expects non-empty values
 		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = "none"
@@ -116,7 +128,13 @@ func getBaseNBC(ctx context.Context, t testing.TB, cluster *Cluster, vhd *config
 		nbc.SubscriptionID = config.Config.SubscriptionID
 		nbc.ResourceGroupName = *cluster.Model.Properties.NodeResourceGroup
 	} else {
-		nbc = baseTemplateLinux(t, *cluster.Model.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
+		if cluster.Model.Properties.CurrentKubernetesVersion == nil {
+			return nil, fmt.Errorf("cluster has no current Kubernetes version")
+		}
+		nbc, err = baseTemplateLinux(*cluster.Model.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	// use the cluster's kubelet identity to simulate how AKS works in production
@@ -142,9 +160,11 @@ func getBaseNBC(ctx context.Context, t testing.TB, cluster *Cluster, vhd *config
 
 // is a temporary workaround
 // eventually we want to phase out usage of nbc
-func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnodeconfigv1.Configuration {
+func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksnodeconfigv1.Configuration, error) {
 	cs := nbc.ContainerService
-	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
+	if err := agent.ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(nbc); err != nil {
+		return nil, err
+	}
 
 	bootstrappingConfig := &aksnodeconfigv1.BootstrappingConfig{
 		TlsBootstrappingToken:                           nbc.KubeletClientTLSBootstrapToken,
@@ -210,6 +230,12 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		DisableCustomData:   true,
 		LinuxAdminUsername:  "azureuser",
 		VmSize:              config.Config.DefaultVMSKU,
+		// The scriptless/aks-node-controller path gates its Kata containerd config blocks on
+		// this field alone, whereas the NBC/baker path derives Kata from the agent pool distro
+		// (see Distro.IsKataDistro and the IsKata template func in pkg/agent/baker.go). Without
+		// this mapping a scriptless scenario running on a Kata VHD would silently get a Kata
+		// image with a non-Kata containerd config.
+		IsKata: nbc.AgentPoolProfile.Distro.IsKataDistro(),
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
 			Location:            nbc.ContainerService.Location,
 			ResourceGroup:       nbc.ResourceGroupName,
@@ -256,8 +282,11 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			VnetCniPluginsUrl: vnetCNIPluginURL,
 		},
 		GpuConfig: &aksnodeconfigv1.GpuConfig{
-			ConfigGpuDriver: true,
-			GpuDevicePlugin: false,
+			ConfigGpuDriver:    true,
+			GpuDevicePlugin:    false,
+			GpuInstanceProfile: nbc.GPUInstanceProfile,
+			MigStrategy:        nbc.MigStrategy,
+			MigProfileLayout:   nbc.MIGProfileLayout,
 		},
 		EnableUnattendedUpgrade: enableUnattendedUpgrade,
 		EnableArtifactStreaming: nbc.EnableArtifactStreaming,
@@ -376,18 +405,20 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		cfg.KubeletConfig.KubeletFlags = kubeletFlags
 	}
 
-	return cfg
+	return cfg, nil
 }
 
 // this is huge, but accurate, so leave it here.
 // TODO(ace): minimize the actual required defaults.
 // this is what we previously used for bash e2e from e2e/nodebootstrapping_template.json.
 // which itself was extracted from baker_test.go logic, which was inherited from aks-engine.
-func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch string) *datamodel.NodeBootstrappingConfiguration {
+func baseTemplateLinux(location string, k8sVersion string, arch string) (*datamodel.NodeBootstrappingConfiguration, error) {
 	customKubeProxyImage := fmt.Sprintf("mcr.microsoft.com/oss/kubernetes/kube-proxy:v%s", k8sVersion)
 	customKubeBinaryURL := fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/binaries/kubernetes-node-linux-%s.tar.gz", k8sVersion, arch)
 	is134OrAbove, pErr := toolkit.CheckK8sConstraint(k8sVersion, ">=1.34.0")
-	require.NoError(t, pErr, "failed to parse Kubernetes version")
+	if pErr != nil {
+		return nil, fmt.Errorf("parse Kubernetes version %q: %w", k8sVersion, pErr)
+	}
 	if is134OrAbove {
 		customKubeProxyImage = ""
 		customKubeBinaryURL = ""
@@ -661,7 +692,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 				ContainerdDownloadURLBase:            "https://storage.googleapis.com/cri-containerd-release/",
 				CSIProxyDownloadURL:                  "https://packages.aks.azure.com/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
 				WindowsProvisioningScriptsPackageURL: "https://packages.aks.azure.com/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip",
-				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1",
+				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2",
 				AlwaysPullWindowsPauseImage:          false,
 				CseScriptsPackageURL:                 "https://packages.aks.azure.com/aks/windows/cse/",
 				CNIARM64PluginsDownloadURL:           "https://packages.aks.azure.com/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",
@@ -673,7 +704,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 			OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig(nil),
 		},
 		K8sComponents: &datamodel.K8sComponents{
-			PodInfraContainerImageURL:  "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
+			PodInfraContainerImageURL:  "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2",
 			HyperkubeImageURL:          "mcr.microsoft.com/oss/kubernetes/",
 			WindowsPackageURL:          "windowspackage",
 			LinuxCredentialProviderURL: "",
@@ -860,14 +891,16 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 		DisableCustomData:         false,
 	}
 	config, err := pruneKubeletConfig(k8sVersion, config)
-	require.NoError(t, err)
-	return config
+	if err != nil {
+		return nil, fmt.Errorf("prune Linux kubelet config: %w", err)
+	}
+	return config, nil
 }
 
 // this been crafted with a lot of trial and pain, some values are not needed, but it takes a lot of time to figure out which ones.
 // and we hope to move on to a different config, so I don't want to invest any more time in this-
 // please keep the kubernetesVersion in sync with componets.json so that during e2e no extra binaries are required.
-func baseTemplateWindows(t testing.TB, location string) *datamodel.NodeBootstrappingConfiguration {
+func baseTemplateWindows(location string) (*datamodel.NodeBootstrappingConfiguration, error) {
 	kubernetesVersion := "1.30.12"
 	// kubernetesVersion := "1.31.9"
 	// kubernetesVersion := "v1.32.5"
@@ -935,7 +968,7 @@ func baseTemplateWindows(t testing.TB, location string) *datamodel.NodeBootstrap
 					WindowsDockerVersion:           "",
 					WindowsImageSourceURL:          "",
 					WindowsOffer:                   "aks-windows",
-					WindowsPauseImageURL:           "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1",
+					WindowsPauseImageURL:           "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2",
 					WindowsPublisher:               "microsoft-aks",
 					WindowsSku:                     "",
 				},
@@ -978,7 +1011,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 				// VnetCNIARM64LinuxPluginsDownloadURL:  "https://packages.aks.azure.com/azure-cni/v1.4.13/binaries/azure-vnet-cni-linux-arm64-v1.4.14.tgz",
 				// VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
 				VnetCNIWindowsPluginsDownloadURL:     "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
-				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1",
+				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2",
 				WindowsProvisioningScriptsPackageURL: "",
 				WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
 			},
@@ -1059,8 +1092,10 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 		},
 	}
 	config, err := pruneKubeletConfig(kubernetesVersion, config)
-	require.NoError(t, err)
-	return config
+	if err != nil {
+		return nil, fmt.Errorf("prune Windows kubelet config: %w", err)
+	}
+	return config, nil
 }
 
 // k8s version > 1.30.0 contains deprecated kubelet flags

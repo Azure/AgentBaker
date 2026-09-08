@@ -250,8 +250,8 @@ func isContainerdV2(version string) bool {
 	return IsKubernetesVersionGe(version, "2.0.0")
 }
 
-func getIsMIGNode(gpuInstanceProfile string) bool {
-	return gpuInstanceProfile != ""
+func getIsMIGNode(gpuInstanceProfile string, migProfileLayout []string) bool {
+	return gpuInstanceProfile != "" || len(migProfileLayout) > 0
 }
 
 func getCustomCACertsStatus(customCACerts []string) bool {

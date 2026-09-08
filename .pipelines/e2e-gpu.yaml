@@ -3,7 +3,8 @@ variables:
   TAGS_TO_RUN: "gpu=true"
   TAGS_TO_SKIP: "os=windows,os=azurelinux,os=azurecontainerlinux"
   SKIP_E2E_TESTS: false
-  SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: true
+  # PRs skip quota/capacity-constrained scenarios; main and scheduled runs fail them.
+  SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: $[eq(variables['Build.Reason'], 'PullRequest')]
   E2E_GO_TEST_TIMEOUT: "75m"
   E2E_FAILED_TESTS_RETRY_COUNT: 2
   DISABLE_SCRIPTLESS_COMPILATION: true
@@ -37,5 +38,5 @@ jobs:
     parameters:
       name: Ubuntu GPU Tests
       IgnoreScenariosWithMissingVhd: false
-      jobTimeoutInMinutes: 120
+      jobTimeoutInMinutes: 180
       failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}

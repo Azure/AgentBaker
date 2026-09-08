@@ -470,6 +470,7 @@ health-check.localdns.local:53 {
         fallthrough
     }
     forward . 168.63.129.16 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -514,6 +515,7 @@ testdomain456.com:53 {
     log
     bind 169.254.10.10
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -539,6 +541,7 @@ testdomain456.com:53 {
         fallthrough
     }
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 2000
     }
@@ -659,6 +662,7 @@ health-check.localdns.local:53 {
         fallthrough
     }
     forward . 168.63.129.16 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -703,6 +707,7 @@ testdomain456.com:53 {
     log
     bind 169.254.10.10
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -728,6 +733,7 @@ testdomain456.com:53 {
         fallthrough
     }
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -772,6 +778,7 @@ testdomain567.com:53 {
     errors
     bind 169.254.10.11
     forward . 168.63.129.16 {
+        prefer_udp
         policy random
         max_concurrent 1000
     }
@@ -788,6 +795,60 @@ testdomain567.com:53 {
 }
 `
 				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefile))
+			})
+
+			It("omits failfast when explicitly disabled for localdns forward knobs", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS: true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+						".": {
+							QueryLogging:                  "Log",
+							Protocol:                      "PreferUDP",
+							ForwardDestination:            "VnetDNS",
+							ForwardPolicy:                 "Sequential",
+							MaxConcurrent:                 to.Int32Ptr(1000),
+							CacheDurationInSeconds:        to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds:   to.Int32Ptr(3600),
+							ServeStale:                    "Immediate",
+							FailfastAllUnhealthyUpstreams: to.BoolPtr(false),
+							HealthCheck: &datamodel.LocalDNSHealthCheck{
+								Duration: to.StringPtr("1s"),
+							},
+						},
+					},
+				}
+
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).To(ContainSubstring("health_check 1s"))
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("failfast_all_unhealthy_upstreams"))
+			})
+
+			It("renders localdns forward health knobs", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS: true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": {
+						QueryLogging: "Log", Protocol: "PreferUDP", ForwardDestination: "VnetDNS", ForwardPolicy: "Sequential",
+						MaxConcurrent: to.Int32Ptr(1000), CacheDurationInSeconds: to.Int32Ptr(3600), ServeStaleDurationInSeconds: to.Int32Ptr(3600), ServeStale: "Immediate",
+						FailfastAllUnhealthyUpstreams: to.BoolPtr(true),
+						HealthCheck: &datamodel.LocalDNSHealthCheck{
+							Duration: to.StringPtr("1s"),
+							NoRec:    to.BoolPtr(true),
+							Domain:   to.StringPtr("health.local."),
+						},
+					}},
+					KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": {
+						QueryLogging: "Error", Protocol: "PreferUDP", ForwardDestination: "ClusterCoreDNS", ForwardPolicy: "Sequential",
+						MaxConcurrent: to.Int32Ptr(1000), CacheDurationInSeconds: to.Int32Ptr(3600), ServeStaleDurationInSeconds: to.Int32Ptr(3600), ServeStale: "Immediate",
+						HealthCheck: &datamodel.LocalDNSHealthCheck{Duration: to.StringPtr("2s"), Domain: to.StringPtr("")},
+					}},
+				}
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).To(ContainSubstring("health_check 1s no_rec domain health.local."))
+				Expect(localDNSCoreFile).To(ContainSubstring("failfast_all_unhealthy_upstreams"))
+				Expect(localDNSCoreFile).To(ContainSubstring("health_check 2s"))
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("domain \n"))
 			})
 
 			// Expect a valid corefile WITHOUT hosts plugin blocks when includeHostsPlugin=false.
@@ -837,6 +898,7 @@ testdomain567.com:53 {
 				Expect(localDNSCoreFile).To(ContainSubstring("bind 169.254.10.10"))
 				Expect(localDNSCoreFile).To(ContainSubstring("bind 169.254.10.11"))
 				Expect(localDNSCoreFile).To(ContainSubstring("forward . 168.63.129.16"))
+				Expect(localDNSCoreFile).To(ContainSubstring("prefer_udp"))
 				Expect(localDNSCoreFile).To(ContainSubstring("nsid localdns"))
 				Expect(localDNSCoreFile).To(ContainSubstring("nsid localdns-pod"))
 			})
@@ -1481,6 +1543,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 	It("should handle MIG GPU configuration", func() {
 		baseConfig.GPUInstanceProfile = "MIG7g"
+		baseConfig.MigStrategy = "Single"
 		baseConfig.ConfigGPUDriverIfNeeded = true
 		baseConfig.EnableNvidia = true
 		baseConfig.AgentPoolProfile.VMSize = "Standard_ND96asr_v4"
@@ -1493,7 +1556,23 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		vars := decodeCSEVars(cseCmd)
 		Expect(vars).To(HaveKeyWithValue("GPU_NODE", "true"))
 		Expect(vars).To(HaveKeyWithValue("CONFIG_GPU_DRIVER_IF_NEEDED", "true"))
+		Expect(vars).To(HaveKeyWithValue("MIG_NODE", "true"))
 		Expect(vars).To(HaveKeyWithValue("GPU_INSTANCE_PROFILE", "MIG7g"))
+		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_PROFILE_LAYOUT", ""))
+		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_STRATEGY", "Single"))
+	})
+
+	It("should enable partitioning for a MIG profile layout", func() {
+		baseConfig.MIGProfileLayout = []string{"MIG3g", "MIG2g", "MIG1g", "MIG1g"}
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_PROFILE_LAYOUT", "MIG3g,MIG2g,MIG1g,MIG1g"))
+		Expect(vars).To(HaveKeyWithValue("MIG_NODE", "true"))
 	})
 
 	It("should handle disable unattended upgrades", func() {
@@ -1509,10 +1588,6 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 	})
 })
 
-// In the scriptless phase2 path (EnableScriptlessNBCCSECmd && !PreProvisionOnly) the boothook /
-// ignition document is no longer returned as custom data - getLinuxNodeBootstrappingPayload returns
-// an empty payload and the document is base64-embedded in the CSE command instead. The specs below
-// therefore assert on getScriptlessNBCCmd, which is the function that still renders that document.
 var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 	newConfig := func(preProvisionOnly bool) *datamodel.NodeBootstrappingConfiguration {
 		agentPoolProfile := &datamodel.AgentPoolProfile{
@@ -1551,7 +1626,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1562,7 +1637,6 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		Expect(string(decodedPayload)).To(ContainSubstring(aksNodeCustomDataFilepath))
 		Expect(string(decodedPayload)).To(ContainSubstring(encodedNodeCustomData))
-		Expect(string(decodedPayload)).To(ContainSubstring(aksNbcCmdFilepath))
 		Expect(string(decodedPayload)).To(ContainSubstring("/opt/azure/containers/provision_preload.sh"))
 	})
 
@@ -1571,14 +1645,12 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config := newConfig(false)
 		config.AKSNodeConfigJSON = `{"foo":"bar"}`
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
-		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
-		Expect(err).NotTo(HaveOccurred())
+		payload := templateGenerator.getScriptlessNBCCmd(config)
 
 		encodedAKSNodeConfig := getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
 
-		Expect(string(decodedPayload)).To(ContainSubstring(aksNodeConfigFilepath))
-		Expect(string(decodedPayload)).To(ContainSubstring(encodedAKSNodeConfig))
+		Expect(payload).To(ContainSubstring(aksNodeConfigFilepath))
+		Expect(payload).To(ContainSubstring(encodedAKSNodeConfig))
 	})
 
 	It("should not embed an AKSNodeConfig file entry in the scriptless NBC boothook when not provided", func() {
@@ -1586,7 +1658,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config := newConfig(false)
 		config.AKSNodeConfigJSON = ""
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1601,7 +1673,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1617,7 +1689,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, decodeErr := base64.StdEncoding.DecodeString(payload)
 		Expect(decodeErr).NotTo(HaveOccurred())
 
@@ -1631,7 +1703,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config := newConfig(false)
 		config.EnabledFeatures = map[string]string{"ENABLE_PROVISIONING_HOTFIX": "true"}
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1645,7 +1717,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config := newConfig(false)
 		config.EnabledFeatures = map[string]string{"ZED_FEATURE": "1", "ENABLE_PROVISIONING_HOTFIX": "true"}
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1659,7 +1731,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config := newConfig(false)
 		config.EnabledFeatures = map[string]string{}
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1673,7 +1745,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		// preserving the byte-identical-when-no-usable-toggle guarantee.
 		config.EnabledFeatures = map[string]string{"1BAD": "x", "has-dash": "y", "": "z"}
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1686,13 +1758,13 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		// A newline in a value could inject a spurious KEY=VALUE line; such entries are dropped.
 		// The lone tainted entry yields no file; a clean entry alongside it survives.
 		config.EnabledFeatures = map[string]string{"INJECT": "true\nEVIL=1"}
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(decodedPayload)).NotTo(ContainSubstring(enabledFeaturesFilepath))
 
 		config.EnabledFeatures = map[string]string{"INJECT": "x\nEVIL=1", "GOOD_KEY": "1"}
-		payload = templateGenerator.getScriptlessNBCCmd(config, true)
+		payload = templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err = base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 		encodedClean := getBase64EncodedGzippedCustomScriptFromStr("GOOD_KEY=1\n")
@@ -1709,31 +1781,15 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config.AgentPoolProfile.Distro = datamodel.AKSACLGen2TL
 		Expect(config.IsACL()).To(BeTrue())
 
-		payload := templateGenerator.getScriptlessNBCCmd(config, true)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
 		var ignition map[string]interface{}
 		Expect(json.Unmarshal(decodedPayload, &ignition)).To(Succeed())
 
-		systemd, ok := ignition["systemd"].(map[string]interface{})
-		Expect(ok).To(BeTrue())
-		units, ok := systemd["units"].([]interface{})
-		Expect(ok).To(BeTrue())
-		Expect(units).To(ConsistOf(map[string]interface{}{
-			"name":    "aks-node-controller.service",
-			"enabled": true,
-		}))
-
 		storage, ok := ignition["storage"].(map[string]interface{})
 		Expect(ok).To(BeTrue())
-		links, ok := storage["links"].([]interface{})
-		Expect(ok).To(BeTrue())
-		Expect(links).To(ConsistOf(map[string]interface{}{
-			"path":      "/etc/systemd/system/basic.target.wants/aks-node-controller.service",
-			"target":    "/etc/systemd/system/aks-node-controller.service",
-			"overwrite": true,
-		}))
 
 		files, ok := storage["files"].([]interface{})
 		Expect(ok).To(BeTrue())
@@ -1752,9 +1808,11 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		}
 		Expect(len(files)).To(Equal(expectedCount)) // nbc-cmd, nodecustomdata, aks-node-config (optional hotfix file present)
 
+		payload = templateGenerator.getScriptlessNBCCmd(config)
+
 		encodedAKSNodeConfig := getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
-		Expect(string(decodedPayload)).To(ContainSubstring(aksNodeConfigFilepath))
-		Expect(string(decodedPayload)).To(ContainSubstring(encodedAKSNodeConfig))
+		Expect(payload).To(ContainSubstring(aksNodeConfigFilepath))
+		Expect(payload).To(ContainSubstring(encodedAKSNodeConfig))
 	})
 
 	It("should render initAKSCloud file in scriptless custom data for default cloud with Ubuntu", func() {
@@ -1911,12 +1969,19 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		}
 	}
 
-	It("should embed the boothook in the CSE command and end with aks-node-controller provision-wait when scriptless phase2 is supported", func() {
+	It("should use the aks-node-controller provision-wait command when scriptless phase2 is supported", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newScriptlessCmdTestConfig()
 		config.EnableScriptlessNBCCSECmd = true
 		config.PreProvisionOnly = false
-
+		b := make([]byte, 87*1024)
+		_, err := rand.Read(b)
+		Expect(err).NotTo(HaveOccurred())
+		config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+			CustomCATrustCerts: []string{string(b)},
+		}
+		config.AKSNodeConfigJSON = `{"foo":"bar"}`
+		templateGenerator.getLinuxNodeBootstrappingPayload(config)
 		cmd := templateGenerator.getNodeBootstrappingCmd(config)
 
 		// Derive the wrapper from the template constant rather than hardcoding the command chain,
@@ -1938,10 +2003,13 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		decodedGzip, err := getGzipDecodedValue(decoded)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(decodedGzip)).To(ContainSubstring(aksNbcCmdFilepath))
-		Expect(string(decodedGzip)).To(ContainSubstring(aksNodeCustomDataFilepath))
+		Expect(string(decodedGzip)).To(ContainSubstring(aksNodeConfigFilepath))
 
-		// the payload now travels in the CSE command, so custom data is intentionally empty.
-		Expect(templateGenerator.getNodeBootstrappingPayload(config)).To(Equal(base64.StdEncoding.EncodeToString([]byte(""))))
+		// custom data now carries the early boothook, which fetches and decrypts these
+		// same CSE settings itself so provisioning can start ahead of the CSE handler.
+		payload, err := base64.StdEncoding.DecodeString(templateGenerator.getNodeBootstrappingPayload(config))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(payload)).To(HavePrefix("#cloud-boothook\n"))
 	})
 
 	It("should use the regular linux CSE command when EnableScriptlessNBCCSECmd is false", func() {
@@ -1950,31 +2018,6 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		config.EnableScriptlessNBCCSECmd = false
 		config.PreProvisionOnly = false
 
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
-	})
-
-	It("should use the regular linux CSE command when custom ca trust certs are populated", func() {
-		// TODO: re-enable once the MaxCustomDataLength fallback is restored in
-		// getLinuxNodeBootstrappingPayload - it is currently commented out in baker.go, so the
-		// scriptless phase2 path is taken unconditionally and never falls back to the regular
-		// linux CSE command no matter how large the rendered document gets.
-		Skip("size-based fallback to the regular linux CSE command is currently disabled in getLinuxNodeBootstrappingPayload")
-
-		templateGenerator := InitializeTemplateGenerator()
-		config := newScriptlessCmdTestConfig()
-		config.EnableScriptlessNBCCSECmd = true
-		config.PreProvisionOnly = false
-		// Create a large cert which crosses the 87kb limit
-		raw := make([]byte, base64.StdEncoding.DecodedLen(180000)+3)
-		if _, err := rand.Read(raw); err != nil {
-			Expect(err).To(BeNil())
-		}
-		config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-			CustomCATrustCerts: []string{string(raw)},
-		}
-
-		Expect(templateGenerator.getNodeBootstrappingPayload(config)).To(Not(BeEmpty()))
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 	})

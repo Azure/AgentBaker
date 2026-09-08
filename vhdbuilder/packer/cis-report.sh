@@ -56,8 +56,32 @@ pushd "$(dirname "$CISASSESSOR_TARBALL_PATH")" || exit 1
 
 # Disable GuestConfig agent to avoid interference with CIS checks
 systemctl disable --now gcd.service || true
-# Fix permissions of log files
-find /var/log -type f -exec chmod 640 {} \;
+
+# Reset /var/log permissions to satisfy the CIS logfile-access control
+# (6.1.3.1 / 6.1.4.1), which requires generic /var/log files to be 0640 or
+# more restrictive.
+reset_log_perms() {
+    find /var/log -type f -exec chmod 0640 {} \;
+}
+
+# A background writer (e.g. the GuestConfiguration extension writing
+# CommandExecution.log, or periodic telemetry timers creating new event files)
+# can reset a /var/log file to 0644 mid-scan, which intermittently flakes the
+# logfile-access control. A single up-front chmod is not enough because the
+# offending write can land during the ~13s assessor pass. Hold the permissions
+# at 0640 for the entire assessment phase by resetting them in the background,
+# then stop the guard before reading/uploading the reports.
+reset_log_perms
+( while :; do reset_log_perms || true; sleep 2; done ) &
+PERMS_GUARD_PID=$!
+stop_perms_guard() {
+    [ -n "${PERMS_GUARD_PID:-}" ] || return 0
+    kill "$PERMS_GUARD_PID" 2>/dev/null || true
+    wait "$PERMS_GUARD_PID" 2>/dev/null || true
+    PERMS_GUARD_PID=""
+}
+# Ensure the guard is reaped even if the assessor exits non-zero under set -e.
+trap stop_perms_guard EXIT
 
 tar xzf "$CISASSESSOR_TARBALL_PATH"
 
@@ -86,6 +110,9 @@ if [ -z "$L2_HTML_REPORT" ] || [ ! -f "$L2_HTML_REPORT" ]; then
     echo "No CIS L2 HTML report found in ${REPORT_DIR}"
     exit 1
 fi
+
+# Assessment is complete; stop holding /var/log permissions before uploads.
+stop_perms_guard
 
 # Upload reports to storage account
 az storage blob upload --container-name "$SIG_CONTAINER_NAME" --file "$L1_TXT_REPORT" --name "$CIS_REPORT_L1_TXT_NAME" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login

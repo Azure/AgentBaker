@@ -1476,7 +1476,9 @@ func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTim
 			if tc.isWindows {
 				validateAndSetWindowsNodeBootstrappingConfiguration(config)
 			} else {
-				ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+				if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
+					t.Fatalf("unexpected validation error: %v", err)
+				}
 			}
 
 			_, exists := config.KubeletConfig["--streaming-connection-idle-timeout"]
@@ -1506,7 +1508,9 @@ func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTim
 			},
 		}
 
-		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+		if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
+			t.Fatalf("unexpected validation error: %v", err)
+		}
 
 		_, exists := config.KubeletConfig["--streaming-connection-idle-timeout"]
 		if exists {
@@ -1559,7 +1563,9 @@ func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTim
 			},
 		}
 
-		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+		if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
+			t.Fatalf("unexpected validation error: %v", err)
+		}
 
 		cmdLine := GetOrderedKubeletConfigFlagString(config)
 		if strings.Contains(cmdLine, "streaming-connection-idle-timeout") {
@@ -1597,11 +1603,175 @@ func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTim
 			},
 		}
 
-		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+		if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
+			t.Fatalf("unexpected validation error: %v", err)
+		}
 
 		cmdLine := GetOrderedKubeletConfigFlagString(config)
 		if strings.Contains(cmdLine, "streaming-connection-idle-timeout") {
 			t.Fatalf("streaming-connection-idle-timeout must not appear in final kubelet command line via custom configuration for k8s >= 1.34, got: %s", cmdLine)
 		}
 	})
+}
+
+func TestValidateAndSetLinuxNodeBootstrappingConfiguration_TransparentHugePageValues(t *testing.T) {
+	testCases := []struct {
+		name        string
+		enabled     string
+		defrag      string
+		expectedErr string
+	}{
+		{
+			name: "accepts empty values",
+		},
+		{
+			name:    "accepts supported enabled values",
+			enabled: "always",
+		},
+		{
+			name:   "accepts supported defrag values",
+			defrag: "defer+madvise",
+		},
+		{
+			name:        "rejects unsupported enabled values",
+			enabled:     "within_size",
+			expectedErr: "customLinuxOSConfig.transparentHugePageEnabled",
+		},
+		{
+			name:        "rejects unsupported defrag values",
+			defrag:      "within_size",
+			expectedErr: "customLinuxOSConfig.transparentHugePageDefrag",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			config := &datamodel.NodeBootstrappingConfiguration{
+				AgentPoolProfile: &datamodel.AgentPoolProfile{
+					CustomLinuxOSConfig: &datamodel.CustomLinuxOSConfig{
+						TransparentHugePageEnabled: tc.enabled,
+						TransparentHugePageDefrag:  tc.defrag,
+					},
+				},
+			}
+
+			err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)
+			if tc.expectedErr == "" {
+				if err != nil {
+					t.Fatalf("unexpected validation error: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("expected validation error containing %q", tc.expectedErr)
+			}
+			if !strings.Contains(err.Error(), tc.expectedErr) {
+				t.Fatalf("expected validation error containing %q, got %q", tc.expectedErr, err.Error())
+			}
+		})
+	}
+}
+
+func TestEncodePowerShellBase64Literal(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"plain key", "ssh-rsa AAAAB3 user@host",
+			"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgdXNlckBob3N0'))"},
+		{"embedded apostrophe", "ssh-rsa AAAAB3 user's key",
+			"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgdXNlcidzIGtleQ=='))"},
+		{"subexpression and semicolon", "ssh-rsa AAAAB3 ;$(cmd)",
+			"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgOyQoY21kKQ=='))"},
+		{"unicode right single quote U+2019", "ssh-rsa AAAAB3 user\u2019s key",
+			"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgdXNlcuKAmXMga2V5'))"},
+		{"empty string", "",
+			"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(''))"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := encodePowerShellBase64Literal(tc.input)
+			if got != tc.expected {
+				t.Errorf("encodePowerShellBase64Literal(%q)\ngot:  %s\nwant: %s", tc.input, got, tc.expected)
+			}
+			// Round-trip: extract payload and decode back to original.
+			const prefix = "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('"
+			const suffix = "'))"
+			if !strings.HasPrefix(got, prefix) || !strings.HasSuffix(got, suffix) {
+				t.Fatalf("output does not match expected format")
+			}
+			payload := got[len(prefix) : len(got)-len(suffix)]
+			decoded, err := base64.StdEncoding.DecodeString(payload)
+			if err != nil {
+				t.Fatalf("base64 decode failed: %v", err)
+			}
+			if string(decoded) != tc.input {
+				t.Errorf("round-trip mismatch: got %q, want %q", string(decoded), tc.input)
+			}
+		})
+	}
+}
+
+func TestGetSSHPublicKeysPowerShell(t *testing.T) {
+	tests := []struct {
+		name     string
+		profile  *datamodel.LinuxProfile
+		expected string
+	}{
+		{
+			name:     "nil profile",
+			profile:  nil,
+			expected: "",
+		},
+		{
+			name: "single key with whitespace trimmed",
+			profile: &datamodel.LinuxProfile{
+				SSH: struct {
+					PublicKeys []datamodel.PublicKey `json:"publicKeys"`
+				}{
+					PublicKeys: []datamodel.PublicKey{
+						{KeyData: "  ssh-rsa AAAAB3 user@host  "},
+					},
+				},
+			},
+			expected: "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgdXNlckBob3N0'))",
+		},
+		{
+			name: "multiple keys",
+			profile: &datamodel.LinuxProfile{
+				SSH: struct {
+					PublicKeys []datamodel.PublicKey `json:"publicKeys"`
+				}{
+					PublicKeys: []datamodel.PublicKey{
+						{KeyData: "ssh-rsa AAAAB3 key1"},
+						{KeyData: "ssh-rsa AAAAC4 key2"},
+					},
+				},
+			},
+			expected: "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMga2V5MQ=='))" +
+				", " + "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQzQga2V5Mg=='))",
+		},
+		{
+			name: "key with special chars preserved",
+			profile: &datamodel.LinuxProfile{
+				SSH: struct {
+					PublicKeys []datamodel.PublicKey `json:"publicKeys"`
+				}{
+					PublicKeys: []datamodel.PublicKey{
+						{KeyData: "ssh-rsa AAAAB3 user's $(key)"},
+					},
+				},
+			},
+			expected: "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgdXNlcidzICQoa2V5KQ=='))",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := getSSHPublicKeysPowerShell(tc.profile)
+			if got != tc.expected {
+				t.Errorf("getSSHPublicKeysPowerShell()\ngot:  %s\nwant: %s", got, tc.expected)
+			}
+		})
+	}
 }

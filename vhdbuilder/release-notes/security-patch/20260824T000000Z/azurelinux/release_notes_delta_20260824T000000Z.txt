@@ -1,0 +1,19 @@
+Release notes for security patch 20260824T000000Z timestamp
+Package difference between 20260814T000000Z and 20260824T000000Z
+
+No reboot required
+
+
+=== Package Updates ===
+python3-cryptography  42.0.5-5.azl3  azurelinux-official-base
+python3-curses  3.12.14-1.azl3  azurelinux-official-base
+python3-libs  3.12.14-1.azl3  azurelinux-official-base
+python3  3.12.14-1.azl3  azurelinux-official-base
+postgresql-libs  16.15-1.azl3  azurelinux-official-base
+p11-kit-trust  0.26.5-1.azl3  azurelinux-official-base
+p11-kit  0.26.5-1.azl3  azurelinux-official-base
+libssh2  1.11.1-6.azl3  azurelinux-official-base
+kbd  2.2.0-3.azl3  azurelinux-official-base
+gawk  5.2.2-2.azl3  azurelinux-official-base
+expat-libs  2.8.3-1.azl3  azurelinux-official-base
+expat  2.8.3-1.azl3  azurelinux-official-base

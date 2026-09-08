@@ -27,6 +27,7 @@ function RegisterContainerDService {
   & "$KubeDir\nssm.exe" set containerd Start SERVICE_DEMAND_START | RemoveNulls
   & "$KubeDir\nssm.exe" set containerd ObjectName LocalSystem | RemoveNulls
   & "$KubeDir\nssm.exe" set containerd Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppPriority ABOVE_NORMAL_PRIORITY_CLASS | RemoveNulls
   & "$KubeDir\nssm.exe" set containerd AppThrottle 1500 | RemoveNulls
   & "$KubeDir\nssm.exe" set containerd AppStdout "$KubeDir\containerd.log" | RemoveNulls
   & "$KubeDir\nssm.exe" set containerd AppStderr "$KubeDir\containerd.err.log" | RemoveNulls

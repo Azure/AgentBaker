@@ -44,7 +44,12 @@ const rcv1pOptInTag = "platformsettings.host_environment.service.platform_optedi
 // on any other subscription the test is skipped.
 func skipIfRCV1PNotConfigured(t *testing.T) {
 	t.Helper()
-	registered := logE2ESubscriptionFeatureFlag(t)
+	registered, err := getE2ESubscriptionFeatureFlag(t.Context())
+	if err != nil {
+		t.Logf("PlatformSettingsOverride feature flag check on subscription %s failed: %v", config.Config.SubscriptionID, err)
+		t.Skip("could not verify PlatformSettingsOverride feature flag on E2E subscription, skipping RCV1P test")
+	}
+	t.Logf("PlatformSettingsOverride feature flag on subscription %s: registered=%v", config.Config.SubscriptionID, registered)
 	if !registered {
 		t.Skip("PlatformSettingsOverride feature flag not registered on E2E subscription, skipping RCV1P test")
 	}
@@ -74,44 +79,24 @@ type featureFlagResult struct {
 }
 
 // checkPlatformSettingsOverrideFeatureFlag checks the Microsoft.Compute/PlatformSettingsOverride
-// feature flag on the given subscription. When failIfMissing is true (RCV1P tests), the test
-// fails if the flag is not registered. When false (diagnostics), it only logs the result.
-// Returns true if the flag is registered.
-func checkPlatformSettingsOverrideFeatureFlag(t *testing.T, subscriptionID string, client *config.AzureClient, failIfMissing bool) bool {
-	t.Helper()
+// feature flag on the given subscription.
+func checkPlatformSettingsOverrideFeatureFlag(ctx context.Context, subscriptionID string, client *config.AzureClient) (bool, error) {
 	val, _ := featureFlagChecks.LoadOrStore(subscriptionID, &featureFlagResult{})
 	result := val.(*featureFlagResult)
 	result.once.Do(func() {
-		result.registered, result.err = queryFeatureFlag(t.Context(), subscriptionID, client)
+		result.registered, result.err = queryFeatureFlag(ctx, subscriptionID, client)
 	})
-
-	if result.err != nil {
-		t.Logf("PlatformSettingsOverride feature flag check on subscription %s: error: %v", subscriptionID, result.err)
-		if failIfMissing {
-			t.Fatalf("RCV1P feature flag check failed: %v", result.err)
-		}
-		return false
-	}
-
-	t.Logf("PlatformSettingsOverride feature flag on subscription %s: registered=%v", subscriptionID, result.registered)
-	if failIfMissing && !result.registered {
-		t.Fatalf("Microsoft.Compute/PlatformSettingsOverride is NOT registered on subscription %s; "+
-			"wireserver will not serve root certificates without this feature flag", subscriptionID)
-	}
-	return result.registered
+	return result.registered, result.err
 }
 
-// logE2ESubscriptionFeatureFlag logs the PlatformSettingsOverride feature flag status on the
-// default E2E subscription for diagnostic purposes. Returns true if the flag is registered.
-func logE2ESubscriptionFeatureFlag(t *testing.T) bool {
-	t.Helper()
+// getE2ESubscriptionFeatureFlag returns the PlatformSettingsOverride feature flag status on the
+// default E2E subscription.
+func getE2ESubscriptionFeatureFlag(ctx context.Context) (bool, error) {
 	e2eAzure, err := config.NewAzureClient()
 	if err != nil {
-		t.Logf("WARNING: failed to create E2E Azure client for feature flag check: %v", err)
-		return false
+		return false, fmt.Errorf("create E2E Azure client for feature flag check: %w", err)
 	}
-	registered := checkPlatformSettingsOverrideFeatureFlag(t, config.Config.SubscriptionID, e2eAzure, false)
-	return registered
+	return checkPlatformSettingsOverrideFeatureFlag(ctx, config.Config.SubscriptionID, e2eAzure)
 }
 
 func queryFeatureFlag(ctx context.Context, subscriptionID string, client *config.AzureClient) (bool, error) {
@@ -169,8 +154,7 @@ var (
 // pipeline packaging in .pipelines/scripts/windows_package_cse.sh) and uploads it to the
 // E2E blob storage. Returns a SAS-signed URL. Uses sync.Once so the zip is built and
 // uploaded exactly once across all parallel tests.
-func getOrBuildBranchCSEPackageURL(t *testing.T) string {
-	t.Helper()
+func getOrBuildBranchCSEPackageURL() (string, error) {
 	branchCSEZipOnce.Do(func() {
 		// 5m covers a cold-start storage account create (~30-90s) plus the zip build/upload.
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -195,10 +179,9 @@ func getOrBuildBranchCSEPackageURL(t *testing.T) string {
 		branchCSEZipURL, branchCSEZipErr = buildAndUploadCSEZip(ctx)
 	})
 	if branchCSEZipErr != nil {
-		t.Fatalf("failed to build/upload branch CSE zip: %v", branchCSEZipErr)
+		return "", fmt.Errorf("build or upload branch CSE zip: %w", branchCSEZipErr)
 	}
-	t.Logf("using branch CSE package URL: %s", branchCSEZipURL)
-	return branchCSEZipURL
+	return branchCSEZipURL, nil
 }
 
 func buildAndUploadCSEZip(ctx context.Context) (string, error) {
@@ -305,11 +288,14 @@ func findRepoRoot() (string, error) {
 
 // rcv1pWindowsCSEMutator returns a BootstrapConfigMutator that overrides CseScriptsPackageURL
 // to use the branch-built CSE zip containing the RCV1P code.
-func rcv1pWindowsCSEMutator(t *testing.T) func(*Cluster, *datamodel.NodeBootstrappingConfiguration) {
-	cseURL := getOrBuildBranchCSEPackageURL(t)
+func rcv1pWindowsCSEMutator() (func(*Cluster, *datamodel.NodeBootstrappingConfiguration), error) {
+	cseURL, err := getOrBuildBranchCSEPackageURL()
+	if err != nil {
+		return nil, err
+	}
 	return func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = cseURL
-	}
+	}, nil
 }
 
 // rcv1pOptInVMConfigMutator sets the platform opt-in tag on the VMSS resource level.
@@ -336,8 +322,8 @@ func Test_RCV1P_Ubuntu2204(t *testing.T) {
 			Cluster:         ClusterKubenet,
 			VHD:             config.VHDUbuntu2204Gen2Containerd,
 			VMConfigMutator: rcv1pVMConfigMutator(),
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateRCV1PCertMode(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateRCV1PCertMode(ctx, s)
 			},
 		},
 	})
@@ -357,8 +343,8 @@ func Test_RCV1P_Ubuntu2604Minimal(t *testing.T) {
 			Cluster:         ClusterLatestKubernetesVersionKubenet,
 			VHD:             config.VHDUbuntu2604MinimalGen2Containerd,
 			VMConfigMutator: rcv1pVMConfigMutator(),
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateRCV1PCertMode(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateRCV1PCertMode(ctx, s)
 			},
 		},
 	})
@@ -378,8 +364,8 @@ func Test_RCV1P_Ubuntu2404(t *testing.T) {
 			Cluster:         ClusterKubenet,
 			VHD:             config.VHDUbuntu2404Gen2Containerd,
 			VMConfigMutator: rcv1pVMConfigMutator(),
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateRCV1PCertMode(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateRCV1PCertMode(ctx, s)
 			},
 		},
 	})
@@ -399,8 +385,8 @@ func Test_RCV1P_AzureLinuxV3(t *testing.T) {
 			Cluster:         ClusterKubenet,
 			VHD:             config.VHDAzureLinuxV3Gen2,
 			VMConfigMutator: rcv1pVMConfigMutator(),
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateRCV1PCertMode(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateRCV1PCertMode(ctx, s)
 			},
 		},
 	})
@@ -425,8 +411,8 @@ func Test_RCV1P_ACL(t *testing.T) {
 					m(vmss)
 				}
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateRCV1PCertMode(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateRCV1PCertMode(ctx, s)
 			},
 		},
 	})
@@ -449,8 +435,8 @@ func Test_RCV1P_NotOptedIn(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateRCV1PNotOptedIn(ctx, s)
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return ValidateRCV1PNotOptedIn(ctx, s)
 			},
 		},
 	})

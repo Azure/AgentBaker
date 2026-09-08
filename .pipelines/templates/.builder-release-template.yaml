@@ -44,7 +44,7 @@ steps:
       command: download
       vstsFeed: AzCoreLinux-Compliance
       vstsFeedPackage: cisassessor
-      vstsPackageVersion: '0.0.230'
+      vstsPackageVersion: '0.0.249'
       downloadDirectory: vhdbuilder/
 
   - task: DownloadPipelineArtifact@2
@@ -278,6 +278,7 @@ steps:
     displayName: Test, Scan, and Cleanup
     env:
       BUILD_REPOSITORY_NAME: $(Build.Repository.Name)
+      SKIP_CLEANUP: $(SKIP_CLEANUP)
       BUILD_SOURCEVERSION: $(Build.SourceVersion)
       SYSTEM_COLLECTIONURI: $(System.CollectionUri)
       SYSTEM_TEAMPROJECT: $(System.TeamProject)

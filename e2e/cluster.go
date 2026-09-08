@@ -10,10 +10,10 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/agentbaker/e2e/dag"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -71,10 +71,6 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 	return 0, fmt.Errorf("cluster agentpool profiles were nil or empty: %+v", c.Model)
 }
 
-// prepareCluster runs all cluster preparation steps as a concurrent DAG.
-// This function contains complex concurrent orchestration — keep it as
-// minimal as possible and push all non-trivial logic into the individual
-// task functions it calls.
 func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, isNetworkIsolated, attachPrivateAcr bool) (*Cluster, error) {
 	defer toolkit.LogStepCtx(ctx, "preparing cluster")()
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
@@ -115,109 +111,179 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		return nil, fmt.Errorf("get or create cluster: %w", err)
 	}
 
-	g := dag.NewGroup(ctx)
+	bastion, err := getOrCreateBastion(ctx, cluster)
+	if err != nil {
+		return nil, fmt.Errorf("get or create bastion: %w", err)
+	}
 
-	// bastion creates AzureBastionSubnet — a VNet-level mutation that must
-	// finish before other subnet writes (firewall / network-isolated setup)
-	// to avoid Azure VNet serialisation races.
-	bastion := dag.Go(g, func(ctx context.Context) (*Bastion, error) {
-		return getOrCreateBastion(ctx, cluster)
-	})
-	dag.Run(g, func(ctx context.Context) error { return ensureMaintenanceConfiguration(ctx, cluster) })
-	subnet := dag.Go(g, func(ctx context.Context) (string, error) { return getClusterSubnetID(ctx, cluster) })
-	vNet := dag.Go(g, func(ctx context.Context) (VNet, error) {
-		return getClusterVNet(ctx, cluster)
-	})
-	// Fetch kubeconfig bytes once, then each heavy DAG task creates its own
-	// Kubeclient with an independent rate limiter to prevent starvation.
-	kubeconfigBytes := dag.Go(g, func(ctx context.Context) ([]byte, error) {
-		resourceGroupName := config.ResourceGroupName(*cluster.Location)
-		return getClusterKubeconfigBytes(ctx, resourceGroupName, *cluster.Name)
-	})
-	newKubeFromBytes := func(ctx context.Context, data []byte) (*Kubeclient, error) {
-		return NewKubeclient(data)
+	if err := ensureMaintenanceConfiguration(ctx, cluster); err != nil {
+		return nil, fmt.Errorf("ensuring maintenance configuration: %w", err)
 	}
-	kubeForGC := dag.Go1(g, kubeconfigBytes, newKubeFromBytes)
-	kubeForDebug := dag.Go1(g, kubeconfigBytes, newKubeFromBytes)
-	kubeForExtract := dag.Go1(g, kubeconfigBytes, newKubeFromBytes)
-	kubeForACR := dag.Go1(g, kubeconfigBytes, newKubeFromBytes)
-	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
-		return getClusterKubeletIdentity(ctx, cluster)
-	})
-	if !isNetworkIsolated {
-		dag.Run1(g, vNet, func(ctx context.Context, v VNet) error {
-			return setupPrivateDNSForAPIServer(ctx, cluster, v)
-		})
-	}
-	// networkSetup adds firewall routes to the existing AKS route table or
-	// creates/associates a dedicated one when Azure CNI has none, or applies
-	// the network-isolated NSG. It must run after bastion (both mutate the
-	// VNet) and before collectGarbageVMSS (which needs network setup done).
-	// collectGarbageVMSS also depends on kube to clean up stale K8s Node
-	// objects whose backing VMSS no longer exist.
-	var networkDeps []dag.Dep
-	if !isNetworkIsolated {
-		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addFirewallRules(ctx, infra, cluster) }, bastion))
-	}
-	if isNetworkIsolated {
-		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addNetworkIsolatedSettings(ctx, cluster) }, bastion))
-	}
-	dag.Run1(g, kubeForGC, func(ctx context.Context, k *Kubeclient) error { return collectGarbageVMSS(ctx, cluster, k) }, networkDeps...)
-	needACR := isNetworkIsolated || attachPrivateAcr
 
-	// The private DNS zone and VNet link must exist before any PE is created.
-	// Create them once as a dependency for both ACR tasks.
-	var acrNonAnon, acrAnon dag.Dep
-	if needACR {
-		dnsReady := dag.Run1(g, vNet, func(ctx context.Context, v VNet) error {
-			_, err := ensurePrivateDNSZone(ctx, v)
-			return err
-		}, bastion)
-		acrNonAnon = dag.Run2(g, kubeForACR, identity, addACR(cluster, true), dnsReady)
-		acrAnon = dag.Run2(g, kubeForACR, identity, addACR(cluster, false), dnsReady)
+	subnetID, err = getClusterSubnetID(cluster)
+	if err != nil {
+		return nil, fmt.Errorf("getting cluster subnet: %w", err)
 	}
-	debugDeps := append(networkDeps[:0:0], networkDeps...)
-	if acrNonAnon != nil {
-		debugDeps = append(debugDeps, acrNonAnon, acrAnon)
-	}
-	proxyURL := dag.Go1(g, kubeForDebug, func(ctx context.Context, k *Kubeclient) (string, error) {
-		k.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location))
-		if isNetworkIsolated {
-			return "", nil
-		}
-		return k.GetProxyURL(ctx)
-	}, debugDeps...)
-	extract := dag.Go1(g, kubeForExtract, extractClusterParams(cluster))
 
-	if err := g.Wait(); err != nil {
-		return nil, fmt.Errorf("prepare cluster tasks: %w", err)
+	vnet, err := getClusterVNet(ctx, cluster)
+	if err != nil {
+		return nil, fmt.Errorf("getting cluster VNet: %w", err)
 	}
+
+	kube, err := getClusterKubeClient(ctx, cluster)
+	if err != nil {
+		return nil, fmt.Errorf("getting cluster kube client: %w", err)
+	}
+
+	kubeletIdentity, err := getClusterKubeletIdentity(cluster)
+	if err != nil {
+		return nil, fmt.Errorf("getting cluster kubelet identity: %w", err)
+	}
+
+	clusterParams, err := extractClusterParameters(ctx, cluster, kube)
+	if err != nil {
+		return nil, fmt.Errorf("extracting cluster parameters: %w", err)
+	}
+
+	proxyURL, err := finishClusterSetup(ctx, infra, cluster, vnet, kube, kubeletIdentity, isNetworkIsolated, attachPrivateAcr)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Cluster{
 		Model:            cluster,
-		kubeconfig:       kubeconfigBytes.MustGet(),
-		KubeletIdentity:  identity.MustGet(),
-		SubnetID:         subnet.MustGet(),
-		VNetResourceGUID: vNet.MustGet().resourceGUID,
-		ClusterParams:    extract.MustGet(),
-		Bastion:          bastion.MustGet(),
-		ProxyURL:         proxyURL.MustGet(),
+		kubeconfig:       kube.KubeConfig,
+		KubeletIdentity:  kubeletIdentity,
+		SubnetID:         subnetID,
+		VNetResourceGUID: vnet.resourceGUID,
+		ClusterParams:    clusterParams,
+		Bastion:          bastion,
+		ProxyURL:         proxyURL,
 		TenantID:         infra.TenantID,
 	}, nil
 }
 
-func addACR(cluster *armcontainerservice.ManagedCluster, isNonAnonymousPull bool) func(context.Context, *Kubeclient, *armcontainerservice.UserAssignedIdentity) error {
-	return func(ctx context.Context, k *Kubeclient, id *armcontainerservice.UserAssignedIdentity) error {
-		return addPrivateAzureContainerRegistry(ctx, cluster, k, id, isNonAnonymousPull)
+func finishClusterSetup(
+	ctx context.Context,
+	infra *SharedInfra,
+	cluster *armcontainerservice.ManagedCluster,
+	vnet VNet,
+	kube *Kubeclient,
+	kubeletIdentity *armcontainerservice.UserAssignedIdentity,
+	isNetworkIsolated bool,
+	attachPrivateAcr bool,
+) (string, error) {
+	var dnsGroup sync.WaitGroup
+	var dnsErr error
+	if !isNetworkIsolated {
+		dnsGroup.Go(func() {
+			dnsErr = setupPrivateDNSForAPIServer(ctx, cluster, vnet)
+		})
 	}
+
+	proxyURL, setupErr := prepareClusterAccess(ctx, infra, cluster, vnet, kube, kubeletIdentity, isNetworkIsolated, attachPrivateAcr)
+	dnsGroup.Wait()
+	if setupErr != nil {
+		return "", setupErr
+	}
+	if dnsErr != nil {
+		return "", fmt.Errorf("setting up private DNS for API server: %w", dnsErr)
+	}
+	return proxyURL, nil
 }
 
-func extractClusterParams(cluster *armcontainerservice.ManagedCluster) func(context.Context, *Kubeclient) (*ClusterParams, error) {
-	return func(ctx context.Context, k *Kubeclient) (*ClusterParams, error) {
-		return extractClusterParameters(ctx, cluster, k)
+func prepareClusterAccess(
+	ctx context.Context,
+	infra *SharedInfra,
+	cluster *armcontainerservice.ManagedCluster,
+	vnet VNet,
+	kube *Kubeclient,
+	kubeletIdentity *armcontainerservice.UserAssignedIdentity,
+	isNetworkIsolated bool,
+	attachPrivateAcr bool,
+) (string, error) {
+	networkSetup := func() error {
+		if err := configureClusterNetworking(ctx, infra, cluster, vnet, isNetworkIsolated); err != nil {
+			return err
+		}
+		if err := collectGarbageVMSS(ctx, cluster, kube); err != nil {
+			return fmt.Errorf("collecting garbage VMSS: %w", err)
+		}
+		return nil
 	}
+
+	var networkErr, acrErr error
+	if isNetworkIsolated || attachPrivateAcr {
+		var group sync.WaitGroup
+		group.Go(func() {
+			networkErr = networkSetup()
+		})
+		group.Go(func() {
+			acrErr = ensurePrivateACRs(ctx, cluster, kube, kubeletIdentity, vnet)
+		})
+		group.Wait()
+	} else {
+		networkErr = networkSetup()
+	}
+	if networkErr != nil {
+		return "", networkErr
+	}
+	if acrErr != nil {
+		return "", acrErr
+	}
+
+	if err := kube.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location)); err != nil {
+		return "", fmt.Errorf("ensuring debug daemonsets: %w", err)
+	}
+	if isNetworkIsolated {
+		return "", nil
+	}
+
+	proxyURL, err := kube.GetProxyURL(ctx)
+	if err != nil {
+		return "", fmt.Errorf("getting proxy URL: %w", err)
+	}
+	return proxyURL, nil
 }
 
-func getClusterKubeletIdentity(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.UserAssignedIdentity, error) {
+func configureClusterNetworking(ctx context.Context, infra *SharedInfra, cluster *armcontainerservice.ManagedCluster, vnet VNet, isNetworkIsolated bool) error {
+	if isNetworkIsolated {
+		if err := addNetworkIsolatedSettings(ctx, cluster, vnet); err != nil {
+			return fmt.Errorf("adding network-isolated settings: %w", err)
+		}
+		return nil
+	}
+
+	if err := addFirewallRules(ctx, infra, cluster, vnet); err != nil {
+		return fmt.Errorf("adding firewall rules: %w", err)
+	}
+	return nil
+}
+
+func ensurePrivateACRs(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kube *Kubeclient, kubeletIdentity *armcontainerservice.UserAssignedIdentity, vnet VNet) error {
+	if _, err := ensurePrivateDNSZone(ctx, vnet); err != nil {
+		return fmt.Errorf("ensuring private ACR DNS zone: %w", err)
+	}
+
+	var group sync.WaitGroup
+	var nonAnonymousErr, anonymousErr error
+	group.Go(func() {
+		nonAnonymousErr = addPrivateAzureContainerRegistry(ctx, cluster, kube, kubeletIdentity, vnet, true)
+	})
+	group.Go(func() {
+		anonymousErr = addPrivateAzureContainerRegistry(ctx, cluster, kube, kubeletIdentity, vnet, false)
+	})
+	group.Wait()
+	if nonAnonymousErr != nil {
+		return fmt.Errorf("adding non-anonymous private ACR: %w", nonAnonymousErr)
+	}
+	if anonymousErr != nil {
+		return fmt.Errorf("adding anonymous private ACR: %w", anonymousErr)
+	}
+	return nil
+}
+
+func getClusterKubeletIdentity(cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.UserAssignedIdentity, error) {
 	if cluster == nil || cluster.Properties == nil || cluster.Properties.IdentityProfile == nil {
 		return nil, fmt.Errorf("cannot dereference cluster identity profile to extract kubelet identity ID")
 	}

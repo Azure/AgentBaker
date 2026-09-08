@@ -311,16 +311,11 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 }
 
 func addFirewallRules(
-	ctx context.Context, infra *SharedInfra, clusterModel *armcontainerservice.ManagedCluster,
+	ctx context.Context, infra *SharedInfra, clusterModel *armcontainerservice.ManagedCluster, vnet VNet,
 ) error {
 	defer toolkit.LogStepCtx(ctx, "adding firewall rules")()
 
 	nodeRG := *clusterModel.Properties.NodeResourceGroup
-	vnet, err := getClusterVNet(ctx, clusterModel)
-	if err != nil {
-		return err
-	}
-
 	firewallPrivateIP := infra.FirewallIP
 
 	// For kubenet, the AKS-managed route table must stay attached so that pod
@@ -435,7 +430,7 @@ func ensureFirewallRouteTable(
 	return routeTableName, nil
 }
 
-func addPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kube *Kubeclient, kubeletIdentity *armcontainerservice.UserAssignedIdentity, isNonAnonymousPull bool) error {
+func addPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kube *Kubeclient, kubeletIdentity *armcontainerservice.UserAssignedIdentity, vnet VNet, isNonAnonymousPull bool) error {
 	if cluster == nil || kube == nil || kubeletIdentity == nil {
 		return errors.New("cluster, kubeclient, and kubeletIdentity cannot be nil when adding Private Azure Container Registry")
 	}
@@ -447,12 +442,7 @@ func addPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontainer
 	if err := createPrivateAzureContainerRegistryPullSecret(ctx, cluster, kube, resourceGroupName, isNonAnonymousPull); err != nil {
 		return fmt.Errorf("create private acr pull secret: %w", err)
 	}
-	vnet, err := getClusterVNet(ctx, cluster)
-	if err != nil {
-		return err
-	}
-
-	err = addPrivateEndpointForACR(ctx, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), vnet, *cluster.Location)
+	err := addPrivateEndpointForACR(ctx, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), vnet, *cluster.Location)
 	if err != nil {
 		return err
 	}
@@ -464,14 +454,9 @@ func addPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontainer
 	return nil
 }
 
-func addNetworkIsolatedSettings(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster) error {
+func addNetworkIsolatedSettings(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, vnet VNet) error {
 	location := *clusterModel.Location
 	defer toolkit.LogStepCtx(ctx, fmt.Sprintf("Adding network settings for network isolated cluster %s in rg %s", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup))
-
-	vnet, err := getClusterVNet(ctx, clusterModel)
-	if err != nil {
-		return err
-	}
 
 	// The subnet is long-lived and shared across test runs. Once the NSG is
 	// associated we never need to touch it again. Private endpoints from

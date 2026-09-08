@@ -461,4 +461,15 @@ Describe 'CVE kernel module mitigation phase coverage'
         When call phase_body "nodePrep"
         The output should include "reconcileVulnerableKernelModuleMitigation"
     End
+
+    It 'configures transparent huge page from basePrep so VHD bakes keep the intended state'
+        When call phase_body "basePrep"
+        The output should include "configureTransparentHugePage"
+    End
+
+    It 'applies and reconciles transparent huge page from nodePrep for PIS and already-released VHDs'
+        When call phase_body "nodePrep"
+        The output should include "applyTransparentHugePageValues"
+        The output should include "reconcileTransparentHugePagePersistence"
+    End
 End

@@ -139,10 +139,13 @@ if ($global:CsiProxyEnabled) {
 }
 
 Write-Log "Starting kubelet service"
-Start-Service kubelet
-
-Write-Log "Do not start kubeproxy service since kubelet will restart kubeproxy"
-
-Register-HNSRemediatorScriptTask
-
-Write-Log "Exiting windowsnodereset.ps1"
+try {
+    Start-Service kubelet -ErrorAction Stop
+    Write-Log "Do not start kubeproxy service since kubelet will restart kubeproxy"
+} catch {
+    Write-Log "Failed to start kubelet service: $_"
+    throw
+} finally {
+    Register-HNSRemediatorScriptTask
+    Write-Log "Exiting windowsnodereset.ps1"
+}
