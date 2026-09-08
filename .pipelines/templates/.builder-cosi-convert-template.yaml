@@ -100,11 +100,18 @@ steps:
       # azcopy static binary.
       if ! command -v azcopy >/dev/null 2>&1; then
           case "$(uname -m)" in
-              aarch64|arm64) AZCOPY_URL=https://aka.ms/downloadazcopy-v10-linux-arm64 ;;
-              *)             AZCOPY_URL=https://aka.ms/downloadazcopy-v10-linux ;;
+              aarch64|arm64)
+                  AZCOPY_URL=https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_arm64_10.22.1.tar.gz
+                  AZCOPY_SHA256=4db9a4b48abc7775f1a5d6d928afc42361dcc57bbfcde23ac82e4c419a0dc8fc
+                  ;;
+              *)
+                  AZCOPY_URL=https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_amd64_10.22.1.tar.gz
+                  AZCOPY_SHA256=7549424d56ab2d8b4033c84c2a9bb167dc2dcbb23998acd7fffb37bc1a71a267
+                  ;;
           esac
           tmp="$(mktemp -d)"
           curl -fsSL "$AZCOPY_URL" -o "$tmp/azcopy.tgz"
+          echo "$AZCOPY_SHA256  $tmp/azcopy.tgz" | sha256sum --check --status
           tar -xzf "$tmp/azcopy.tgz" -C "$tmp"
           # extracted dir is like azcopy_linux_arm64_10.x.x/
           azcopy_bin="$(find "$tmp" -maxdepth 2 -type f -name azcopy | head -n1)"
@@ -117,10 +124,10 @@ steps:
       fi
       azcopy --version
 
-      # Go: on Ubuntu, hack/setup_golang.sh will install Microsoft Go via apt.
-      # On tdnf/dnf hosts it expects Go to already be on PATH, so install it here.
+      # Go is needed to build cosi-upload.
       if ! command -v go >/dev/null 2>&1; then
           case "$PKG" in
+              apt)       pkg_install golang-go ;;
               tdnf|dnf) pkg_install golang ;;
           esac
       fi
