@@ -166,7 +166,7 @@ function Get-Version {
         It 'loads the windows exporter functions' {
             $allScript = Get-Content -Path (Join-Path $PSScriptRoot 'all.ps1') -Raw
 
-            $allScript | Should -Match '(?m)^\. c:\\AzureData\\windows\\windowsexporterfunc\.ps1\r?$'
+            $allScript | Should -Match '(?m)^\. "\$WINDOWS_SCRIPTS_DIRECTORY\\windowsexporterfunc\.ps1"\r?$'
         }
 
         It 'registers the exporter during NodePrep rather than BasePrep' {
