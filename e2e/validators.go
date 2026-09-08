@@ -3482,9 +3482,13 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) error {
 	return errors.Join(errs...)
 }
 
-// ValidateScriptlessPhase3 validates that there are not diffs between ANC generated cse cmd NBC cse cmd vars
+// ValidateScriptlessPhase3 validates that there are not diffs between ANC generated cse cmd NBC cse cmd vars.
 func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) error {
-	if s.Runtime.AKSNodeConfig == nil || !usesScriptlessNBCCSECmd(s) {
+	// skip validation if
+	// 1. AKSNodeConfig not populated
+	// 2. using scriptless phase 1
+	// 3. E2E not run off of PR VHD build
+	if s.Runtime.AKSNodeConfig == nil || !usesScriptlessNBCCSECmd(s) || config.Config.VHDMetadataFile == "" {
 		return nil
 	}
 	logFile := "/var/log/azure/aks-node-controller.output"

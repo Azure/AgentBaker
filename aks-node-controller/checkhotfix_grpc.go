@@ -36,19 +36,6 @@ const (
 	// the "authorization" metadata header (per the live-patching client example / contract),
 	// mirroring the embargoed HTTP service's header-based auth.
 	lpsAttestedMetadataKey = "authorization"
-
-	// lpsServerName is the DNS name the live-patching service's serving certificate is issued for.
-	// The service mints its leaf cert with this exact value in both Subject.CN and the SAN
-	// (aks-rp: ccp/live-patching-controller/internal/server/cert.go sets CommonName/DNSNames =
-	// s.ServerName), and the chart hard-codes the flag "--server-name=aks-security-patch.data.mcr.microsoft.com".
-	// We pin it here to verify the presented cert by hostname. It must track that chart value.
-	//
-	// NOTE: this is used ONLY as the name we verify the cert against -- it is deliberately NOT set as
-	// tls.Config.ServerName. Go would put ServerName on the wire as the SNI, which would collide with
-	// the kube-api-proxy legacy SNI filter chain (server_names: [aks-security-patch...], no ALPN
-	// guard) and misroute the gRPC stream to the legacy embargo cluster. Leaving ServerName empty
-	// keeps the wire SNI at the apiserver authority so envoy routes on ALPN to the gRPC chain.
-	lpsServerName = "aks-security-patch.data.mcr.microsoft.com"
 )
 
 // lpsGRPCStatusError is a non-benign gRPC failure from the live-patching service. fallbackAllowed
@@ -106,13 +93,11 @@ func (a *App) fetchHotfixOverGRPC(ctx context.Context) ([]byte, error) {
 
 // dialLPSGRPC builds the gRPC client connection to the live-patching service: it dials the cluster
 // apiserver FQDN:443 (riding the existing apiserver egress rule) and advertises the live-patching
-// ALPN protocol so the kube-api-proxy envoy routes the stream to the LPS backend. The server
-// certificate is issued for lpsServerName (with a real SAN), but tls.Config.ServerName is left
-// EMPTY so the wire SNI stays the apiserver authority and envoy routes on ALPN (setting it would
-// collide with the legacy SNI filter chain). We therefore disable Go's default name check and
-// verify the presented chain against the cluster CA AND the hostname ourselves (see
-// verifyChainAgainstPool). The connection is lazy; the per-RPC context deadline bounds connect +
-// call. Tests inject grpcDialContext to reach an in-process (bufconn) server.
+// ALPN protocol so the kube-api-proxy envoy routes the stream to the LPS backend. The LPS server
+// presents a certificate issued for the same apiserver FQDN, so grpc-go's standard TLS verification
+// validates both the cluster CA chain and the dialed hostname. The connection is lazy; the per-RPC
+// context deadline bounds connect + call. Tests inject grpcDialContext to reach an in-process
+// (bufconn) server.
 //
 // The cluster CA is REQUIRED: without it the server certificate cannot be verified, so rather than
 // weaken TLS we return an error and the caller fails open (nothing staged).
@@ -138,54 +123,23 @@ func (a *App) dialLPSGRPC(fqdn string, caPEM []byte) (*grpc.ClientConn, error) {
 		host = h
 	}
 
-	// The live-patching serving cert is issued for lpsServerName (real SAN), but we do NOT set
-	// tls.Config.ServerName: Go would send it as the wire SNI, colliding with kube-api-proxy's legacy
-	// SNI filter chain and misrouting the gRPC stream. So we advertise the live-patching ALPN protocol
-	// (the value envoy's kube-api-proxy filter chain matches to route the stream to LPS) plus "h2" for
-	// the gRPC HTTP/2 handshake. grpc-go's credentials.NewTLS appends "h2" to NextProtos on its own,
-	// but we list it explicitly so the on-wire ALPN set (["aks-live-patching", "h2"]) is unambiguous:
-	// envoy routes on the custom proto while gRPC negotiates h2. We then disable Go's default
-	// name-based verification and verify the presented chain against the cluster CA AND the hostname
-	// (lpsServerName) ourselves.
+	// Advertise the live-patching ALPN protocol (the value envoy's kube-api-proxy filter chain
+	// matches to route the stream to LPS) plus "h2" for the gRPC HTTP/2 handshake. grpc-go derives
+	// the TLS server name from target, so the certificate is verified against the apiserver FQDN.
 	tlsConfig := &tls.Config{
-		MinVersion:            tls.VersionTLS12,
-		RootCAs:               pool,
-		NextProtos:            []string{lpsALPNProto, alpnH2Proto},
-		InsecureSkipVerify:    true, //nolint:gosec // default SNI-name check disabled to avoid the legacy-SNI routing collision; chain AND hostname verified in verifyChainAgainstPool
-		VerifyPeerCertificate: verifyChainAgainstPool(pool, lpsServerName),
+		MinVersion: tls.VersionTLS12,
+		RootCAs:    pool,
+		NextProtos: []string{lpsALPNProto, alpnH2Proto},
 	}
 
 	target := net.JoinHostPort(host, lpsAPIServerPort)
-	return grpc.NewClient(target, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
-}
-
-// verifyChainAgainstPool verifies that the server's presented certificate chains up to the trusted
-// pool AND is valid for serverName. The default TLS name check is disabled (see dialLPSGRPC) so we
-// re-implement full verification here: passing DNSName to x509.VerifyOptions makes leaf.Verify
-// enforce both the chain-to-CA and the hostname, giving standard-strength verification without
-// putting serverName on the wire as the SNI.
-func verifyChainAgainstPool(pool *x509.CertPool, serverName string) func([][]byte, [][]*x509.Certificate) error {
-	return func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
-		if len(rawCerts) == 0 {
-			return fmt.Errorf("server presented no certificates")
-		}
-		leaf, err := x509.ParseCertificate(rawCerts[0])
-		if err != nil {
-			return fmt.Errorf("failed to parse server certificate: %w", err)
-		}
-		intermediates := x509.NewCertPool()
-		for _, raw := range rawCerts[1:] {
-			cert, err := x509.ParseCertificate(raw)
-			if err != nil {
-				return fmt.Errorf("failed to parse intermediate certificate: %w", err)
-			}
-			intermediates.AddCert(cert)
-		}
-		if _, err := leaf.Verify(x509.VerifyOptions{Roots: pool, Intermediates: intermediates, DNSName: serverName}); err != nil {
-			return fmt.Errorf("server certificate verification failed: %w", err)
-		}
-		return nil
-	}
+	return grpc.NewClient(
+		target,
+		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
+		// The API server endpoint is already an explicitly trusted cluster address. Bypass
+		// environment proxies so private-connect IPs do not require a matching NO_PROXY entry.
+		grpc.WithNoProxy(),
+	)
 }
 
 // mapGRPCError classifies a gRPC error from GetComponentConfig into the existing check-hotfix
