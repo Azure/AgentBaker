@@ -134,9 +134,6 @@ function Install-WindowsExporter {
             Invoke-WindowsExporterNssm -Arguments @("install", $global:WindowsExporterServiceName, $global:WindowsExporterBinary)
         } else {
             Write-Log "$($global:WindowsExporterServiceName) is already registered; taking ownership of its settings and running state"
-            if ($existingService.Status -ne 'Stopped') {
-                Invoke-WindowsExporterNssm -Arguments @("stop", $global:WindowsExporterServiceName)
-            }
         }
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "Application", $global:WindowsExporterBinary)
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppDirectory", $global:WindowsExporterInstallDir)
@@ -156,6 +153,14 @@ function Install-WindowsExporter {
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppRotateOnline", "1")
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppRotateSeconds", "86400")
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppRotateBytes", "10485760")
+        # Keep the existing process running if configuration fails. Restart only
+        # after all settings succeed so the new application and arguments take effect.
+        if ($existingService) {
+            $serviceToRestart = Get-Service $global:WindowsExporterServiceName -ErrorAction Stop
+            if ($serviceToRestart.Status -ne 'Stopped') {
+                Invoke-WindowsExporterNssm -Arguments @("stop", $global:WindowsExporterServiceName)
+            }
+        }
         Invoke-WindowsExporterNssm -Arguments @("start", $global:WindowsExporterServiceName)
     }
     catch {
