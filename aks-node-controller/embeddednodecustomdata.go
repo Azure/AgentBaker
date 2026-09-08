@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,11 +21,9 @@ const (
 type nodeCustomDataPlatform string
 
 const (
-	nodeCustomDataPlatformUbuntu     nodeCustomDataPlatform = "ubuntu"
-	nodeCustomDataPlatformMariner    nodeCustomDataPlatform = "mariner"
-	nodeCustomDataPlatformACL        nodeCustomDataPlatform = "acl"
-	nodeCustomDataPlatformAzlOSGuard nodeCustomDataPlatform = "azlosguard"
-	nodeCustomDataPlatformFlatcar    nodeCustomDataPlatform = "flatcar"
+	nodeCustomDataPlatformUbuntu      nodeCustomDataPlatform = "ubuntu"
+	nodeCustomDataPlatformMariner     nodeCustomDataPlatform = "mariner"
+	nodeCustomDataPlatformUnsupported nodeCustomDataPlatform = "unsupported"
 )
 
 //go:embed scripthotfix/generated
@@ -48,6 +47,10 @@ func applyEmbeddedNodeCustomDataIfActive(osReleasePath string) (nodeCustomDataAp
 	if err != nil {
 		return nodeCustomDataApplyResult{}, err
 	}
+	if platform == nodeCustomDataPlatformUnsupported {
+		slog.Info("embedded script hotfix is not supported on this OS, skipping", "osReleasePath", osReleasePath)
+		return nodeCustomDataApplyResult{}, nil
+	}
 	return applyEmbeddedNodeCustomDataFS(generatedNodeCustomData, platform)
 }
 
@@ -61,14 +64,12 @@ func classifyNodeCustomDataPlatform(osReleasePath string) (nodeCustomDataPlatfor
 	variant := strings.ToLower(values["VARIANT_ID"])
 
 	switch {
-	case variant == "osguard":
-		return nodeCustomDataPlatformAzlOSGuard, nil
-	case variant == osReleaseIDAzureContainerLinux, id == osReleaseIDAzureContainerLinux:
-		return nodeCustomDataPlatformACL, nil
+	// Exclude immutable variants before matching their shared Azure Linux ID.
+	case variant == "osguard", variant == osReleaseIDAzureContainerLinux,
+		id == osReleaseIDAzureContainerLinux, id == osReleaseIDFlatcar:
+		return nodeCustomDataPlatformUnsupported, nil
 	case id == "ubuntu":
 		return nodeCustomDataPlatformUbuntu, nil
-	case id == osReleaseIDFlatcar:
-		return nodeCustomDataPlatformFlatcar, nil
 	case id == "mariner", id == "azurelinux":
 		return nodeCustomDataPlatformMariner, nil
 	case id == "":
@@ -123,10 +124,7 @@ func applyEmbeddedNodeCustomDataFS(
 func isConcreteNodeCustomDataPlatform(platform nodeCustomDataPlatform) bool {
 	switch platform {
 	case nodeCustomDataPlatformUbuntu,
-		nodeCustomDataPlatformMariner,
-		nodeCustomDataPlatformACL,
-		nodeCustomDataPlatformAzlOSGuard,
-		nodeCustomDataPlatformFlatcar:
+		nodeCustomDataPlatformMariner:
 		return true
 	default:
 		return false

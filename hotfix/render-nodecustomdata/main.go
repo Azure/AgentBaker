@@ -22,9 +22,6 @@ func main() {
 	platforms := []platform{
 		{name: "ubuntu", distro: datamodel.AKSUbuntuContainerd2204Gen2},
 		{name: "mariner", distro: datamodel.AKSAzureLinuxV3Gen2},
-		{name: "acl", distro: datamodel.AKSACLGen2TL},
-		{name: "azlosguard", distro: datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL},
-		{name: "flatcar", distro: datamodel.AKSFlatcarGen2},
 	}
 
 	templatePath := flag.String("template", "", "path to the hotfix nodecustomdata template")

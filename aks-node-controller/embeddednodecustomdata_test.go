@@ -28,15 +28,15 @@ func TestClassifyNodeCustomDataPlatform(t *testing.T) {
 		{
 			name:     "OS Guard variant wins over Azure Linux ID",
 			release:  "ID=azurelinux\nVARIANT_ID=osguard\n",
-			expected: nodeCustomDataPlatformAzlOSGuard,
+			expected: nodeCustomDataPlatformUnsupported,
 		},
 		{
 			name:     "ACL variant wins over Azure Linux ID",
 			release:  "ID=azurelinux\nVARIANT_ID=azurecontainerlinux\n",
-			expected: nodeCustomDataPlatformACL,
+			expected: nodeCustomDataPlatformUnsupported,
 		},
-		{name: "ACL dedicated ID", release: "ID=azurecontainerlinux\n", expected: nodeCustomDataPlatformACL},
-		{name: "Flatcar", release: "ID=flatcar\n", expected: nodeCustomDataPlatformFlatcar},
+		{name: "ACL dedicated ID", release: "ID=azurecontainerlinux\n", expected: nodeCustomDataPlatformUnsupported},
+		{name: "Flatcar", release: "ID=flatcar\n", expected: nodeCustomDataPlatformUnsupported},
 	}
 
 	for _, test := range tests {
@@ -76,40 +76,90 @@ func TestApplyEmbeddedNodeCustomDataIfActiveSkipsInactivePayload(t *testing.T) {
 	assert.Equal(t, nodeCustomDataApplyResult{}, result)
 }
 
-func TestApplyEmbeddedNodeCustomDataIfActiveSelectsPlatformPayload(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows rename cannot atomically replace an existing destination")
-	}
-
-	directory := t.TempDir()
-	destination := filepath.Join(directory, "provision.sh")
-	require.NoError(t, os.WriteFile(destination, []byte("old"), 0o600))
-	releasePath := filepath.Join(directory, "os-release")
-	require.NoError(t, os.WriteFile(releasePath, []byte("ID=ubuntu\n"), 0o600))
-	payload := []byte("#!/bin/sh\necho fixed\n")
-
+func TestApplyEmbeddedNodeCustomDataIfActiveSkipsUnsupportedPlatforms(t *testing.T) {
 	original := generatedNodeCustomData
 	generatedNodeCustomData = fstest.MapFS{
 		"scripthotfix/generated/active": &fstest.MapFile{Data: []byte("true\n")},
-		embeddedRenderedPath(nodeCustomDataPlatformUbuntu): &fstest.MapFile{Data: marshalNodeCustomData(t, []nodeCustomDataWriteFile{{
-			Path:        destination,
-			Permissions: "0744",
-			Encoding:    encodingBase64,
-			Owner:       "root",
-			Content:     base64.StdEncoding.EncodeToString(payload),
-		}})},
+		// A variant accidentally classified as Mariner must fail, not silently pass.
+		embeddedRenderedPath(nodeCustomDataPlatformMariner): &fstest.MapFile{Data: []byte("invalid: [")},
 	}
 	t.Cleanup(func() {
 		generatedNodeCustomData = original
 	})
 
-	result, err := applyEmbeddedNodeCustomDataIfActive(releasePath)
+	for _, release := range []string{
+		"ID=azurelinux\nVARIANT_ID=osguard\n",
+		"ID=azurelinux\nVARIANT_ID=azurecontainerlinux\n",
+		"ID=azurecontainerlinux\n",
+		"ID=flatcar\n",
+		"ID=\"AZURELINUX\"\nVARIANT_ID=\"OSGUARD\"\n",
+	} {
+		t.Run(release, func(t *testing.T) {
+			releasePath := filepath.Join(t.TempDir(), "os-release")
+			require.NoError(t, os.WriteFile(releasePath, []byte(release), 0o600))
 
-	require.NoError(t, err)
-	assert.Equal(t, nodeCustomDataApplyResult{Applied: 1}, result)
-	actual, err := os.ReadFile(destination)
-	require.NoError(t, err)
-	assert.Equal(t, payload, actual)
+			result, err := applyEmbeddedNodeCustomDataIfActive(releasePath)
+
+			require.NoError(t, err)
+			assert.Equal(t, nodeCustomDataApplyResult{}, result)
+		})
+	}
+}
+
+func TestApplyEmbeddedNodeCustomDataFSRejectsUnsupportedPlatforms(t *testing.T) {
+	for _, platform := range []nodeCustomDataPlatform{"acl", "azlosguard", "flatcar", nodeCustomDataPlatformUnsupported} {
+		t.Run(string(platform), func(t *testing.T) {
+			_, err := applyEmbeddedNodeCustomDataFS(fstest.MapFS{}, platform)
+			require.ErrorContains(t, err, "unsupported concrete platform")
+		})
+	}
+}
+
+func TestApplyEmbeddedNodeCustomDataIfActiveSelectsPlatformPayload(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows rename cannot atomically replace an existing destination")
+	}
+
+	for _, test := range []struct {
+		id       string
+		platform nodeCustomDataPlatform
+	}{
+		{id: "ubuntu", platform: nodeCustomDataPlatformUbuntu},
+		{id: "mariner", platform: nodeCustomDataPlatformMariner},
+		{id: "azurelinux", platform: nodeCustomDataPlatformMariner},
+	} {
+		t.Run(test.id, func(t *testing.T) {
+			directory := t.TempDir()
+			destination := filepath.Join(directory, "provision.sh")
+			require.NoError(t, os.WriteFile(destination, []byte("old"), 0o600))
+			releasePath := filepath.Join(directory, "os-release")
+			require.NoError(t, os.WriteFile(releasePath, []byte("ID="+test.id+"\n"), 0o600))
+			payload := []byte("#!/bin/sh\necho fixed\n")
+
+			original := generatedNodeCustomData
+			generatedNodeCustomData = fstest.MapFS{
+				"scripthotfix/generated/active": &fstest.MapFile{Data: []byte("true\n")},
+				embeddedRenderedPath(test.platform): &fstest.MapFile{Data: marshalNodeCustomData(t, []nodeCustomDataWriteFile{{
+					Path:        destination,
+					Permissions: "0744",
+					Encoding:    encodingBase64,
+					Owner:       "root",
+					Content:     base64.StdEncoding.EncodeToString(payload),
+				}})},
+			}
+			t.Cleanup(func() {
+				generatedNodeCustomData = original
+			})
+
+			result, err := applyEmbeddedNodeCustomDataIfActive(releasePath)
+
+			require.NoError(t, err)
+			assert.Equal(t, nodeCustomDataApplyResult{Applied: 1}, result)
+			actual, err := os.ReadFile(destination)
+			require.NoError(t, err)
+			assert.Equal(t, payload, actual)
+		})
+	}
 }
 
 func TestApplyEmbeddedNodeCustomDataIsReplaceOnlyAndIdempotent(t *testing.T) {

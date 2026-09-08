@@ -113,9 +113,6 @@ write_files:
             for source in (
                 "ubuntu/cse_helpers_ubuntu.sh",
                 "mariner/cse_helpers_mariner.sh",
-                "azlosguard/cse_helpers_osguard.sh",
-                "flatcar/cse_helpers_flatcar.sh",
-                "acl/cse_helpers_acl.sh",
             ):
                 path = artifacts / source
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -144,7 +141,24 @@ write_files:
                     available_varkeys=available,
                 )
 
-            self.assertEqual(available, selected)
+            self.assertEqual(
+                {"provisionSourceUbuntu", "provisionSourceMariner"}, selected
+            )
+
+    def test_detect_changed_varkeys_skips_unsupported_distros(self):
+        for distro in ("acl", "azlosguard", "flatcar"):
+            with self.subTest(distro=distro):
+                result = subprocess.CompletedProcess(
+                    args=[],
+                    returncode=0,
+                    stdout=f"{hotfix_generate.ARTIFACTS_DIR}/{distro}/cse_helpers_{distro}.sh\n",
+                )
+                with mock.patch.object(
+                    hotfix_generate.subprocess, "run", return_value=result
+                ):
+                    self.assertEqual(
+                        set(), hotfix_generate.detect_changed_varkeys("base")
+                    )
 
     def test_write_rendered_payload_uses_canonical_renderer(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -157,9 +171,6 @@ write_files:
                 for platform in (
                     "ubuntu",
                     "mariner",
-                    "acl",
-                    "azlosguard",
-                    "flatcar",
                 ):
                     (output_dir / f"rendered_nodecustomdata_{platform}.yml").write_text(
                         "#cloud-config\n"
@@ -183,9 +194,6 @@ write_files:
             expected = {
                 "ubuntu",
                 "mariner",
-                "acl",
-                "azlosguard",
-                "flatcar",
             }
             actual = {
                 path.name.removeprefix("rendered_nodecustomdata_").removesuffix(".yml")
@@ -204,7 +212,7 @@ write_files:
             generated = Path(temp_dir) / "generated"
             generated.mkdir()
             (generated / "active").write_text("true\n")
-            platforms = ("ubuntu", "mariner", "acl", "azlosguard", "flatcar")
+            platforms = ("ubuntu", "mariner")
             for platform in platforms:
                 (generated / f"rendered_nodecustomdata_{platform}.yml").write_text(
                     f"write_files:\n- path: /{platform}-existing\n"

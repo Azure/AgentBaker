@@ -11,7 +11,7 @@ Auto-detects what needs a hotfix and generates the version numbers for it:
 2. Detects which CSE provisioning scripts differ from the immutable VHD baseline
    (the release tag the VHD was built from, derived from linux_sig_version.json),
    selects their write_files entries from parts/linux/cloud-init/nodecustomdata.yml,
-   and renders self-contained ANC payloads for each Linux platform with AgentBaker's
+   and renders self-contained ANC payloads for Ubuntu and Mariner with AgentBaker's
    canonical Go-template renderer. Diffing against the frozen baseline (rather than
    the moving base branch) keeps every generated payload cumulative: a later hotfix
    re-renders all scripts changed since the VHD, so it never silently drops an
@@ -55,17 +55,11 @@ SOURCE_TO_VARKEY = {
     # CSE helpers — distro variants (all map to the same conditional block)
     "ubuntu/cse_helpers_ubuntu.sh": "provisionSourceUbuntu",
     "mariner/cse_helpers_mariner.sh": "provisionSourceMariner",
-    "azlosguard/cse_helpers_osguard.sh": "provisionSourceAzlOSGuard",
-    "flatcar/cse_helpers_flatcar.sh": "provisionSourceFlatcar",
-    "acl/cse_helpers_acl.sh": "provisionSourceACL",
     # CSE install — base
     "cse_install.sh": "provisionInstalls",
     # CSE install — distro variants
     "ubuntu/cse_install_ubuntu.sh": "provisionInstallsUbuntu",
     "mariner/cse_install_mariner.sh": "provisionInstallsMariner",
-    "azlosguard/cse_install_osguard.sh": "provisionInstallsAzlOSGuard",
-    "flatcar/cse_install_flatcar.sh": "provisionInstallsFlatcar",
-    "acl/cse_install_acl.sh": "provisionInstallsACL",
     # CSE config
     "cse_config.sh": "provisionConfigs",
     # CSE main / start
@@ -85,17 +79,12 @@ SOURCE_TO_VARKEY = {
 VARKEY_TO_BLOCK_GROUP = {
     "provisionSourceUbuntu": "helpers_distro",
     "provisionSourceMariner": "helpers_distro",
-    "provisionSourceAzlOSGuard": "helpers_distro",
-    "provisionSourceFlatcar": "helpers_distro",
-    "provisionSourceACL": "helpers_distro",
     "provisionInstallsUbuntu": "install_distro",
     "provisionInstallsMariner": "install_distro",
-    "provisionInstallsAzlOSGuard": "install_distro",
-    "provisionInstallsFlatcar": "install_distro",
-    "provisionInstallsACL": "install_distro",
 }
 
 VARKEY_TO_SOURCE = {varkey: source for source, varkey in SOURCE_TO_VARKEY.items()}
+UNSUPPORTED_DISTRO_DIRS = ("acl/", "azlosguard/", "flatcar/")
 
 HOTFIXABLE_SUFFIXES = (
     ".sh",
@@ -245,6 +234,9 @@ def detect_changed_varkeys(base_ref, available_varkeys=None):
     for filepath in changed_files.splitlines():
         local_path = filepath.removeprefix(f"{ARTIFACTS_DIR}/")
         if local_path in GENERATED_ARTIFACTS:
+            continue
+        if local_path.startswith(UNSUPPORTED_DISTRO_DIRS):
+            print(f"  Skipping unsupported embedded hotfix distro: {local_path}")
             continue
         if local_path in SOURCE_TO_VARKEY:
             source_path = os.path.join(ARTIFACTS_DIR, local_path)

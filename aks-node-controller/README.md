@@ -163,9 +163,15 @@ The embedded nodecustomdata coordinator distinguishes these script hotfixes from
 updates to the ANC binary itself. The generated files live under
 `aks-node-controller/scripthotfix/generated/` as
 `rendered_nodecustomdata_<platform>.yml`. The generator selects only changed
-hotfixable entries from `nodecustomdata.yml`, then renders Ubuntu, Mariner/Azure
-Linux, ACL, OS Guard, and Flatcar variants through AgentBaker's production
-Go-template functions.
+hotfixable entries from `nodecustomdata.yml`, then renders only Ubuntu and
+Mariner/standard Azure Linux variants through AgentBaker's production Go-template
+functions. OS Guard, ACL, and Flatcar are explicitly skipped during embedded
+application, including variants that share the `azurelinux` OS ID. Their
+distro-specific source changes do not trigger payload generation.
+
+The repository keeps two empty YAML templates (`write_files: []`) and an
+`active=false` marker until a script hotfix is generated. Generation populates
+those two payloads and sets `active=true`.
 
 When a PR has no new script hotfix, generation leaves the existing rendered
 payload unchanged. The active ANC version pointer is likewise retained until it
