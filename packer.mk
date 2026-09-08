@@ -109,6 +109,7 @@ convert-vhd-to-cosi: az-login
 
 build-cosi-upload:
 	@echo "Building cosi-upload binary"
+	@mkdir -p bin
 	@GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 go build -o bin/cosi-upload ./cmd/cosi-upload
 
 upload-cosi-to-pmc: build-cosi-upload
