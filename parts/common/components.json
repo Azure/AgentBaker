@@ -2009,6 +2009,14 @@
       "downloadLocation": "/opt/nvidia-device-plugin/downloads",
       "downloadURIs": {
         "ubuntu": {
+          "r2604": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=26.04",
+                "latestVersion": "0.19.3-ubuntu26.04u6"
+              }
+            ]
+          },
           "r2404": {
             "versionsV2": [
               {
@@ -2077,6 +2085,14 @@
       "downloadLocation": "/opt/datacenter-gpu-manager-4-core/downloads",
       "downloadURIs": {
         "ubuntu": {
+          "r2604": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=datacenter-gpu-manager-4-core, repository=nvidia, os=ubuntu, release=26.04",
+                "latestVersion": "1:4.6.0-1"
+              }
+            ]
+          },
           "r2404": {
             "versionsV2": [
               {
@@ -2111,6 +2127,14 @@
       "downloadLocation": "/opt/datacenter-gpu-manager-4-proprietary/downloads",
       "downloadURIs": {
         "ubuntu": {
+          "r2604": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=datacenter-gpu-manager-4-proprietary, repository=nvidia, os=ubuntu, release=26.04",
+                "latestVersion": "1:4.6.0-1"
+              }
+            ]
+          },
           "r2404": {
             "versionsV2": [
               {
@@ -2145,6 +2169,14 @@
       "downloadLocation": "/opt/dcgm-exporter/downloads",
       "downloadURIs": {
         "ubuntu": {
+          "r2604": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=dcgm-exporter, repository=production, os=ubuntu, release=26.04",
+                "latestVersion": "4.8.3-ubuntu26.04u4"
+              }
+            ]
+          },
           "r2404": {
             "versionsV2": [
               {
