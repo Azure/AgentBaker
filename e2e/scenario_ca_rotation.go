@@ -78,6 +78,7 @@ func validateContainerdCARotation(ctx context.Context, s *Scenario) error {
 	// released VHD's older script. This also tests refresh on an existing node.
 	for _, file := range []struct{ local, remote, mode string }{
 		{filepath.Join("..", "parts/linux/cloud-init/artifacts/init-aks-cloud.sh"), "init-aks-cloud.sh", "0600"},
+		{filepath.Join("..", "parts/linux/cloud-init/artifacts/cse_config.sh"), "cse_config.sh", "0600"},
 	} {
 		f, err := os.Open(file.local)
 		if err != nil {
@@ -94,7 +95,8 @@ func validateContainerdCARotation(ctx context.Context, s *Scenario) error {
 			return err
 		}
 	}
-	cmd := fmt.Sprintf("sudo %s/fixture --node-ip %s --refresh-script %s/init-aks-cloud.sh", remoteDir, s.Runtime.VM.PrivateIP, remoteDir)
+	cmd := fmt.Sprintf("sudo %s/fixture --node-ip %s --refresh-script %s/init-aks-cloud.sh --registry-script %s/cse_config.sh",
+		remoteDir, s.Runtime.VM.PrivateIP, remoteDir, remoteDir)
 	result, err := execScriptOnVMForScenario(ctx, s, cmd)
 	if err != nil {
 		return err

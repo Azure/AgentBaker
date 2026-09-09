@@ -1622,6 +1622,14 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		}
 	}
 
+	It("should keep scripted Ubuntu CustomData within the compute API limit", func() {
+		config := newConfig(false)
+		config.EnableScriptlessNBCCSECmd = false
+		config.EnableScriptlessCSECmd = false
+		payload := InitializeTemplateGenerator().getLinuxNodeBootstrappingPayload(config)
+		Expect(len(payload)).To(BeNumerically("<=", MaxCustomDataLength))
+	})
+
 	It("should persist nodecustomdata in the scriptless NBC boothook", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
