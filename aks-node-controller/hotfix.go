@@ -96,19 +96,13 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 	var terminalErr error
 	slog.Info("ANC hotfix binary operation started", "current", Version, "target", hotfixVersion)
 	defer func() {
-		if terminalErr != nil {
-			slog.Warn("ANC hotfix binary operation finished", "current", Version, "target", hotfixVersion,
-				"route", route, "outcome", outcome, "durationMs", time.Since(totalStart).Milliseconds(), "error", terminalErr)
-			return
-		}
-		slog.Info("ANC hotfix binary operation finished", "current", Version, "target", hotfixVersion,
-			"route", route, "outcome", outcome, "durationMs", time.Since(totalStart).Milliseconds())
+		logHotfixBinaryOperationFinished(Version, hotfixVersion, route, outcome, time.Since(totalStart), terminalErr)
 	}()
 
 	if hotfixVersion == "" {
 		outcome = hotfixOutcomeSkippedNoVersion
 		slog.Info("hotfix config does not request a version for this base, skipping download",
-			"current", Version, "durationMs", time.Since(totalStart).Milliseconds())
+			"current", Version)
 		return nil
 	}
 
@@ -125,7 +119,7 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 	if !shouldUpgrade {
 		outcome = hotfixOutcomeSkippedNotTargeted
 		slog.Info("ANC version not targeted by hotfix, skipping download",
-			"current", Version, "hotfix", hotfixVersion, "durationMs", time.Since(totalStart).Milliseconds())
+			"current", Version, "hotfix", hotfixVersion)
 		return nil
 	}
 
@@ -176,6 +170,22 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 		"durationMs", time.Since(totalStart).Milliseconds())
 	outcome = hotfixOutcomeSuccess
 	return nil
+}
+
+func logHotfixBinaryOperationFinished(current, target, route, outcome string, duration time.Duration, err error) {
+	attrs := []any{
+		"current", current,
+		"target", target,
+		"route", route,
+		"outcome", outcome,
+		"durationMs", duration.Milliseconds(),
+	}
+	if err != nil {
+		attrs = append(attrs, "error", err)
+		slog.Warn("ANC hotfix binary operation finished", attrs...)
+		return
+	}
+	slog.Info("ANC hotfix binary operation finished", attrs...)
 }
 
 func (a *App) vhdPath() string {
