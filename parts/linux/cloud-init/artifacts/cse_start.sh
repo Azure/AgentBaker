@@ -135,13 +135,7 @@ JSON_STRING=$( jq -n \
                   --arg kubelet "$KUBELET_START_TIME" \
                   '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CloudInitLocalStartTime: $cinitl, CloudInitStartTime: $cinit, CloudFinalStartTime: $cf, NetworkdStartTime: $ns, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss, BootDatapoints: { KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, KubeletStartTime: $kubelet }}' )
 
-if ! publishProvisionResponse "${JSON_STRING}"; then
-    echo "Failed to publish provisioning response" >&2
-    if [ "$EXIT_CODE" -ne 0 ]; then
-        exit "$EXIT_CODE"
-    fi
-    exit 1
-fi
+publishProvisionResponse "${JSON_STRING}" || echo "Failed to publish provisioning response" >&2
 if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
     echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
     echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log

@@ -44,6 +44,33 @@ Describe 'publishProvisionResponse'
         The result of function provision_json_temp_count should equal "0"
     End
 
+    Describe 'provision exit handling'
+        run_provision_exit() {
+            EXIT_CODE="$1"
+            PRE_PROVISION_ONLY="false"
+            JSON_STRING='{"ExitCode":"0"}'
+            publishProvisionResponse() { return 1; }
+            upload_logs() { echo "logs uploaded"; }
+            eval "$(sed -n '/^publishProvisionResponse /,$p' parts/linux/cloud-init/artifacts/cse_start.sh)"
+        }
+
+        It 'keeps a successful CSE exit code when publication fails'
+            When run run_provision_exit 0
+
+            The status should be success
+            The stdout should equal ""
+            The stderr should equal "Failed to publish provisioning response"
+        End
+
+        It 'uploads logs and keeps the failed CSE exit code when publication fails'
+            When run run_provision_exit 7
+
+            The status should equal 7
+            The stdout should equal "logs uploaded"
+            The stderr should equal "Failed to publish provisioning response"
+        End
+    End
+
     It 'preserves multiline JSON and glob characters'
         response='{
   "ExitCode": "7",
