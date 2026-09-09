@@ -8,9 +8,10 @@
 //   - The VMSS must have the tag "platformsettings.host_environment.service.platform_optedin_for_rootcerts=true".
 //     On subscriptions with the feature flag, the platform may auto-inject this tag on all VMSSes.
 //
-// RCV1P tests run against whichever subscription E2E_SUBSCRIPTION_ID points at; the RCV1P pipeline
-// job overrides this to an RCV1P-registered subscription. Positive tests always run and verify
-// cert installation. Negative tests are skipped when RCV1P_TAGS_AUTO_INJECTED=true (platform
+// RCV1P tests run against the configured SUBSCRIPTION_ID; the RCV1P pipeline job overrides
+// this to its dedicated subscription. Linux refresh tests additionally require explicit
+// --tags rcv1pcertmode=true selection. Negative tests are skipped when
+// RCV1P_TAGS_AUTO_INJECTED=true (platform
 // auto-injects the opt-in tag, making the "no tag" scenario impossible to reproduce).
 package e2e
 
@@ -38,8 +39,8 @@ import (
 const rcv1pOptInTag = "platformsettings.host_environment.service.platform_optedin_for_rootcerts"
 
 // skipIfRCV1PNotConfigured verifies the current E2E subscription has PlatformSettingsOverride
-// registered. The RCV1P pipeline job sets E2E_SUBSCRIPTION_ID to an RCV1P-registered subscription;
-// on any other subscription the test is skipped.
+// registered. This prerequisite alone does not identify the dedicated RCV1P subscription:
+// generic test subscriptions can also have the feature registered.
 func skipIfRCV1PNotConfigured(ctx context.Context) string {
 	registered, err := getE2ESubscriptionFeatureFlag(ctx)
 	if err != nil {
@@ -49,6 +50,30 @@ func skipIfRCV1PNotConfigured(ctx context.Context) string {
 		return "PlatformSettingsOverride feature flag is not registered on the E2E subscription"
 	}
 	return ""
+}
+
+// skipIfRCV1PRefreshNotSelected prevents unfiltered/general runs from exercising
+// refresh even when their subscription has the feature registered. The caller
+// must still route explicitly selected runs to the verified dedicated subscription;
+// neither a tag filter nor feature registration proves subscription identity.
+func skipIfRCV1PRefreshNotSelected(ctx context.Context) string {
+	const notSelected = "RCV1P refresh requires explicit --tags rcv1pcertmode=true (TAGS_TO_RUN) and dedicated subscription routing"
+	selected := false
+	for _, pair := range strings.Split(config.Config.TagsToRun, ",") {
+		key, _, ok := strings.Cut(pair, "=")
+		if !ok || !strings.EqualFold(strings.TrimSpace(key), "RCV1PCertMode") {
+			continue
+		}
+		matches, err := (Tags{RCV1PCertMode: true}).MatchesFilters(pair)
+		if err != nil || !matches {
+			return notSelected
+		}
+		selected = true
+	}
+	if !selected {
+		return notSelected
+	}
+	return skipIfRCV1PNotConfigured(ctx)
 }
 
 // skipIfRCV1PNotExplicit skips the test when the platform may auto-inject the RCV1P opt-in tag,
@@ -280,7 +305,7 @@ func rcv1pOptInVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet) {
 // to rebuild the trust bundle.
 var _ = Register(&Scenario{
 	Name:        "RCV1P_Ubuntu2204",
-	SkipIf:      skipIfRCV1PNotConfigured,
+	SkipIf:      skipIfRCV1PRefreshNotSelected,
 	Description: "Tests RCV1P cert mode on Ubuntu 22.04 with VM opt-in tag",
 	Tags: Tags{
 		RCV1PCertMode: true,
@@ -289,9 +314,7 @@ var _ = Register(&Scenario{
 		Cluster:         ClusterKubenet,
 		VHD:             config.VHDUbuntu2204Gen2Containerd,
 		VMConfigMutator: rcv1pOptInVMConfigMutator,
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateRCV1PCertMode(ctx, s)
-		},
+		Validator:       ValidateRCV1PRefreshHealth,
 	},
 })
 
@@ -300,7 +323,7 @@ var _ = Register(&Scenario{
 // work correctly across Ubuntu versions.
 var _ = Register(&Scenario{
 	Name:        "RCV1P_Ubuntu2604Minimal",
-	SkipIf:      skipIfRCV1PNotConfigured,
+	SkipIf:      skipIfRCV1PRefreshNotSelected,
 	Description: "Tests RCV1P cert mode on Ubuntu 26.04 minimal with VM opt-in tag",
 	Tags: Tags{
 		RCV1PCertMode: true,
@@ -309,9 +332,7 @@ var _ = Register(&Scenario{
 		Cluster:         ClusterLatestKubernetesVersionKubenet,
 		VHD:             config.VHDUbuntu2604MinimalGen2Containerd,
 		VMConfigMutator: rcv1pOptInVMConfigMutator,
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateRCV1PCertMode(ctx, s)
-		},
+		Validator:       ValidateRCV1PRefreshHealth,
 	},
 })
 
@@ -320,7 +341,7 @@ var _ = Register(&Scenario{
 // work correctly across Ubuntu versions.
 var _ = Register(&Scenario{
 	Name:        "RCV1P_Ubuntu2404",
-	SkipIf:      skipIfRCV1PNotConfigured,
+	SkipIf:      skipIfRCV1PRefreshNotSelected,
 	Description: "Tests RCV1P cert mode on Ubuntu 24.04 with VM opt-in tag",
 	Tags: Tags{
 		RCV1PCertMode: true,
@@ -329,9 +350,7 @@ var _ = Register(&Scenario{
 		Cluster:         ClusterKubenet,
 		VHD:             config.VHDUbuntu2404Gen2Containerd,
 		VMConfigMutator: rcv1pOptInVMConfigMutator,
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateRCV1PCertMode(ctx, s)
-		},
+		Validator:       ValidateRCV1PRefreshHealth,
 	},
 })
 
@@ -340,7 +359,7 @@ var _ = Register(&Scenario{
 // This ensures the provisioning script correctly detects the distro and uses the right paths.
 var _ = Register(&Scenario{
 	Name:        "RCV1P_AzureLinuxV3",
-	SkipIf:      skipIfRCV1PNotConfigured,
+	SkipIf:      skipIfRCV1PRefreshNotSelected,
 	Description: "Tests RCV1P cert mode on Azure Linux V3 with VM opt-in tag",
 	Tags: Tags{
 		RCV1PCertMode: true,
@@ -349,9 +368,7 @@ var _ = Register(&Scenario{
 		Cluster:         ClusterKubenet,
 		VHD:             config.VHDAzureLinuxV3Gen2,
 		VMConfigMutator: rcv1pOptInVMConfigMutator,
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateRCV1PCertMode(ctx, s)
-		},
+		Validator:       ValidateRCV1PRefreshHealth,
 	},
 })
 
@@ -360,7 +377,7 @@ var _ = Register(&Scenario{
 // so the VMConfigMutator combines both the TrustedLaunch and opt-in tag settings.
 var _ = Register(&Scenario{
 	Name:        "RCV1P_ACL",
-	SkipIf:      skipIfRCV1PNotConfigured,
+	SkipIf:      skipIfRCV1PRefreshNotSelected,
 	Description: "Tests RCV1P cert mode on ACL with VM opt-in tag",
 	Tags: Tags{
 		RCV1PCertMode: true,
@@ -372,9 +389,7 @@ var _ = Register(&Scenario{
 			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			rcv1pOptInVMConfigMutator(vmss)
 		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateRCV1PCertMode(ctx, s)
-		},
+		Validator: ValidateRCV1PRefreshHealth,
 	},
 })
 

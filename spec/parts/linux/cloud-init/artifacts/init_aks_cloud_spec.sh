@@ -12,8 +12,8 @@
 Describe 'init-aks-cloud.sh refresh mode wiring'
     script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
 
-    It 'parses action argument after deriving location, with init default'
-        When run grep -Eq '^action=\$\{1:-init\}$' "$script_path"
+    It 'defaults the action to init'
+        When run grep -Fq 'if [ "${1:-init}" = "ca-refresh" ]; then' "$script_path"
         The status should eq 0
     End
 
@@ -48,7 +48,7 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
     End
 
     It 'checks for ca-refresh mode after certificate refresh logic'
-        When run grep -Eq '^if \[ "\$action" = "ca-refresh" \] \|\| \[ "\$install_ca_refresh_schedule" -eq 0 \]; then$' "$script_path"
+        When run grep -Fq 'if [ "${1:-init}" = "ca-refresh" ]; then' "$script_path"
         The status should eq 0
     End
 
