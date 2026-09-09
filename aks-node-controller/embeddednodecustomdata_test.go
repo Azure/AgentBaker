@@ -1,13 +1,9 @@
 package main
 
 import (
-	"bytes"
-	"compress/gzip"
 	"encoding/base64"
-	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"testing/fstest"
 
@@ -22,416 +18,120 @@ func TestClassifyNodeCustomDataPlatform(t *testing.T) {
 		release  string
 		expected nodeCustomDataPlatform
 	}{
-		{name: "Ubuntu", release: "ID=ubuntu\n", expected: nodeCustomDataPlatformUbuntu},
-		{name: "Mariner", release: "ID=mariner\n", expected: nodeCustomDataPlatformMariner},
-		{name: "Azure Linux", release: "ID=azurelinux\n", expected: nodeCustomDataPlatformMariner},
-		{
-			name:     "OS Guard variant wins over Azure Linux ID",
-			release:  "ID=azurelinux\nVARIANT_ID=osguard\n",
-			expected: nodeCustomDataPlatformUnsupported,
-		},
-		{
-			name:     "ACL variant wins over Azure Linux ID",
-			release:  "ID=azurelinux\nVARIANT_ID=azurecontainerlinux\n",
-			expected: nodeCustomDataPlatformUnsupported,
-		},
-		{name: "ACL dedicated ID", release: "ID=azurecontainerlinux\n", expected: nodeCustomDataPlatformUnsupported},
-		{name: "Flatcar", release: "ID=flatcar\n", expected: nodeCustomDataPlatformUnsupported},
+		{"Ubuntu", "ID=ubuntu\n", nodeCustomDataPlatformUbuntu},
+		{"Mariner", "ID=mariner\n", nodeCustomDataPlatformMariner},
+		{"Azure Linux", "ID=azurelinux\n", nodeCustomDataPlatformMariner},
+		{"OS Guard", "ID=azurelinux\nVARIANT_ID=osguard\n", nodeCustomDataPlatformUnsupported},
+		{"ACL variant", "ID=azurelinux\nVARIANT_ID=azurecontainerlinux\n", nodeCustomDataPlatformUnsupported},
+		{"ACL ID", "ID=azurecontainerlinux\n", nodeCustomDataPlatformUnsupported},
+		{"Flatcar", "ID=flatcar\n", nodeCustomDataPlatformUnsupported},
+		{"Quoted OS Guard", "ID=\"AZURELINUX\"\nVARIANT_ID=\"OSGUARD\"\n", nodeCustomDataPlatformUnsupported},
 	}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			releasePath := filepath.Join(t.TempDir(), "os-release")
 			require.NoError(t, os.WriteFile(releasePath, []byte(test.release), 0o600))
-
 			actual, err := classifyNodeCustomDataPlatform(releasePath)
-
 			require.NoError(t, err)
 			assert.Equal(t, test.expected, actual)
-		})
-	}
-
-	t.Run("unsupported ID fails explicitly", func(t *testing.T) {
-		releasePath := filepath.Join(t.TempDir(), "os-release")
-		require.NoError(t, os.WriteFile(releasePath, []byte("ID=other\n"), 0o600))
-
-		_, err := classifyNodeCustomDataPlatform(releasePath)
-
-		require.ErrorContains(t, err, "unsupported OS ID")
-	})
-}
-
-func TestApplyEmbeddedNodeCustomDataIfActiveSkipsInactivePayload(t *testing.T) {
-	original := generatedNodeCustomData
-	generatedNodeCustomData = fstest.MapFS{
-		"scripthotfix/generated/active": &fstest.MapFile{Data: []byte("false\n")},
-	}
-	t.Cleanup(func() {
-		generatedNodeCustomData = original
-	})
-
-	result, err := applyEmbeddedNodeCustomDataIfActive(filepath.Join(t.TempDir(), "missing-os-release"))
-
-	require.NoError(t, err)
-	assert.Equal(t, nodeCustomDataApplyResult{}, result)
-}
-
-func TestApplyEmbeddedNodeCustomDataIfActiveSkipsUnsupportedPlatforms(t *testing.T) {
-	original := generatedNodeCustomData
-	generatedNodeCustomData = fstest.MapFS{
-		"scripthotfix/generated/active": &fstest.MapFile{Data: []byte("true\n")},
-		// A variant accidentally classified as Mariner must fail, not silently pass.
-		embeddedRenderedPath(nodeCustomDataPlatformMariner): &fstest.MapFile{Data: []byte("invalid: [")},
-	}
-	t.Cleanup(func() {
-		generatedNodeCustomData = original
-	})
-
-	for _, release := range []string{
-		"ID=azurelinux\nVARIANT_ID=osguard\n",
-		"ID=azurelinux\nVARIANT_ID=azurecontainerlinux\n",
-		"ID=azurecontainerlinux\n",
-		"ID=flatcar\n",
-		"ID=\"AZURELINUX\"\nVARIANT_ID=\"OSGUARD\"\n",
-	} {
-		t.Run(release, func(t *testing.T) {
-			releasePath := filepath.Join(t.TempDir(), "os-release")
-			require.NoError(t, os.WriteFile(releasePath, []byte(release), 0o600))
-
-			result, err := applyEmbeddedNodeCustomDataIfActive(releasePath)
-
-			require.NoError(t, err)
-			assert.Equal(t, nodeCustomDataApplyResult{}, result)
-		})
-	}
-}
-
-func TestApplyEmbeddedNodeCustomDataFSRejectsUnsupportedPlatforms(t *testing.T) {
-	for _, platform := range []nodeCustomDataPlatform{"acl", "azlosguard", "flatcar", nodeCustomDataPlatformUnsupported} {
-		t.Run(string(platform), func(t *testing.T) {
-			_, err := applyEmbeddedNodeCustomDataFS(fstest.MapFS{}, platform)
-			require.ErrorContains(t, err, "unsupported concrete platform")
-		})
-	}
-}
-
-func TestApplyEmbeddedNodeCustomDataIfActiveSelectsPlatformPayload(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows rename cannot atomically replace an existing destination")
-	}
-
-	for _, test := range []struct {
-		id       string
-		platform nodeCustomDataPlatform
-	}{
-		{id: "ubuntu", platform: nodeCustomDataPlatformUbuntu},
-		{id: "mariner", platform: nodeCustomDataPlatformMariner},
-		{id: "azurelinux", platform: nodeCustomDataPlatformMariner},
-	} {
-		t.Run(test.id, func(t *testing.T) {
-			directory := t.TempDir()
-			destination := filepath.Join(directory, "provision.sh")
-			require.NoError(t, os.WriteFile(destination, []byte("old"), 0o600))
-			releasePath := filepath.Join(directory, "os-release")
-			require.NoError(t, os.WriteFile(releasePath, []byte("ID="+test.id+"\n"), 0o600))
-			payload := []byte("#!/bin/sh\necho fixed\n")
-
-			original := generatedNodeCustomData
-			generatedNodeCustomData = fstest.MapFS{
-				"scripthotfix/generated/active": &fstest.MapFile{Data: []byte("true\n")},
-				embeddedRenderedPath(test.platform): &fstest.MapFile{Data: marshalNodeCustomData(t, []nodeCustomDataWriteFile{{
-					Path:        destination,
-					Permissions: "0744",
-					Encoding:    encodingBase64,
-					Owner:       "root",
-					Content:     base64.StdEncoding.EncodeToString(payload),
-				}})},
+			if actual == nodeCustomDataPlatformUnsupported {
+				files := fstest.MapFS{
+					"scripthotfix/generated/active": &fstest.MapFile{Data: []byte("true\n")},
+				}
+				require.NoError(t, applyEmbeddedNodeCustomDataIfActive(files, releasePath),
+					"unsupported platforms must skip without reading any payload")
 			}
-			t.Cleanup(func() {
-				generatedNodeCustomData = original
-			})
-
-			result, err := applyEmbeddedNodeCustomDataIfActive(releasePath)
-
-			require.NoError(t, err)
-			assert.Equal(t, nodeCustomDataApplyResult{Applied: 1}, result)
-			actual, err := os.ReadFile(destination)
-			require.NoError(t, err)
-			assert.Equal(t, payload, actual)
 		})
 	}
 }
 
-func TestApplyEmbeddedNodeCustomDataIsReplaceOnlyAndIdempotent(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows rename cannot atomically replace an existing destination")
+func TestApplyEmbeddedNodeCustomData(t *testing.T) {
+	for _, id := range []string{"ubuntu", "mariner", "azurelinux"} {
+		t.Run(id, func(t *testing.T) {
+			directory := t.TempDir()
+			t.Setenv("TMPDIR", directory)
+			t.Setenv("TMP", directory)
+			releasePath := filepath.Join(directory, "os-release")
+			require.NoError(t, os.WriteFile(releasePath, []byte("ID="+id+"\n"), 0o600))
+			existing := filepath.Join(directory, "existing.sh")
+			missing := filepath.Join(directory, "new", "script.sh")
+			require.NoError(t, os.WriteFile(existing, []byte("old"), 0o600))
+			payload := "echo hotfixed\n"
+			data, err := yaml.Marshal(nodeCustomData{WriteFiles: []nodeCustomDataWriteFile{
+				{Path: existing, Encoding: encodingBase64, Content: base64.StdEncoding.EncodeToString([]byte(payload))},
+				{Path: missing, Permissions: "0744", Content: payload},
+			}})
+			require.NoError(t, err)
+			platform := id
+			if id == osReleaseIDAzureLinux {
+				platform = string(nodeCustomDataPlatformMariner)
+			}
+			files := fstest.MapFS{
+				"scripthotfix/generated/active":                                       &fstest.MapFile{Data: []byte("true\n")},
+				"scripthotfix/generated/rendered_nodecustomdata_" + platform + ".yml": &fstest.MapFile{Data: data},
+			}
+			require.NoError(t, applyEmbeddedNodeCustomDataIfActive(files, releasePath))
+			for _, destination := range []string{existing, missing} {
+				actual, readErr := os.ReadFile(destination)
+				require.NoError(t, readErr)
+				assert.Equal(t, payload, string(actual))
+			}
+			temporary, err := filepath.Glob(filepath.Join(directory, "aks-node-controller-nodecustomdata-*.yml"))
+			require.NoError(t, err)
+			assert.Empty(t, temporary)
+		})
 	}
-
-	directory := t.TempDir()
-	destination := filepath.Join(directory, "provision.sh")
-	missing := filepath.Join(directory, "missing.sh")
-	require.NoError(t, os.WriteFile(destination, []byte("old"), 0o600))
-	files := embeddedRenderedFS(t, nodeCustomDataPlatformUbuntu, []nodeCustomDataWriteFile{
-		{
-			Path:        destination,
-			Permissions: "0744",
-			Owner:       "root",
-			Content:     "hotfix",
-		},
-		{
-			Path:        missing,
-			Permissions: "0744",
-			Owner:       "root",
-			Content:     "not-created",
-		},
-	})
-
-	first, err := applyEmbeddedNodeCustomDataFS(files, nodeCustomDataPlatformUbuntu)
-
-	require.NoError(t, err)
-	assert.Equal(t, nodeCustomDataApplyResult{Applied: 1, Skipped: 1}, first)
-	actual, err := os.ReadFile(destination)
-	require.NoError(t, err)
-	assert.Equal(t, []byte("hotfix"), actual)
-	info, err := os.Stat(destination)
-	require.NoError(t, err)
-	assert.Equal(t, os.FileMode(0o744), info.Mode().Perm())
-	_, statErr := os.Stat(missing)
-	assert.True(t, os.IsNotExist(statErr))
-
-	second, err := applyEmbeddedNodeCustomDataFS(files, nodeCustomDataPlatformUbuntu)
-	require.NoError(t, err)
-	assert.Equal(t, nodeCustomDataApplyResult{Skipped: 2}, second)
 }
 
-func TestEmbeddedNodeCustomDataStrictValidation(t *testing.T) {
-	validDestination := filepath.Join(t.TempDir(), "provision.sh")
-	valid := nodeCustomDataWriteFile{
-		Path:        validDestination,
-		Permissions: "0744",
-		Owner:       "root",
-		Content:     "hotfix",
-	}
-
+func TestApplyEmbeddedNodeCustomDataErrorsAndCleanup(t *testing.T) {
 	tests := []struct {
-		name        string
-		files       []nodeCustomDataWriteFile
-		expectedErr string
+		name      string
+		active    string
+		release   string
+		payload   string
+		missing   string
+		wantError string
 	}{
-		{
-			name: "unsafe destination",
-			files: []nodeCustomDataWriteFile{{
-				Path:        "../provision.sh",
-				Permissions: "0744",
-				Owner:       "root",
-				Content:     "hotfix",
-			}},
-			expectedErr: "unsafe destination",
-		},
-		{
-			name: "destination with embedded backslash",
-			files: []nodeCustomDataWriteFile{{
-				Path:        `/opt/provision\script.sh`,
-				Permissions: "0744",
-				Owner:       "root",
-				Content:     "hotfix",
-			}},
-			expectedErr: "backslashes are not allowed",
-		},
-		{
-			name: "absent mode",
-			files: []nodeCustomDataWriteFile{{
-				Path:    validDestination,
-				Owner:   "root",
-				Content: "hotfix",
-			}},
-			expectedErr: "invalid mode",
-		},
-		{
-			name: "invalid mode",
-			files: []nodeCustomDataWriteFile{{
-				Path:        validDestination,
-				Permissions: "0999",
-				Owner:       "root",
-				Content:     "hotfix",
-			}},
-			expectedErr: "invalid mode",
-		},
-		{
-			name: "unsupported owner",
-			files: []nodeCustomDataWriteFile{{
-				Path:        validDestination,
-				Permissions: "0744",
-				Owner:       "nobody",
-				Content:     "hotfix",
-			}},
-			expectedErr: "unsupported owner",
-		},
-		{
-			name: "unsupported encoding",
-			files: []nodeCustomDataWriteFile{{
-				Path:        validDestination,
-				Permissions: "0744",
-				Owner:       "root",
-				Encoding:    "rot13",
-				Content:     "hotfix",
-			}},
-			expectedErr: "unsupported encoding",
-		},
-		{
-			name: "empty decoded content",
-			files: []nodeCustomDataWriteFile{{
-				Path:        validDestination,
-				Permissions: "0744",
-				Owner:       "root",
-				Encoding:    encodingBase64,
-				Content:     "",
-			}},
-			expectedErr: "is empty",
-		},
-		{
-			name:        "duplicate destination",
-			files:       []nodeCustomDataWriteFile{valid, valid},
-			expectedErr: "duplicate destination",
-		},
+		{name: "inactive skips missing OS release", active: "false\n", missing: "release"},
+		{name: "missing active", missing: "active", wantError: "read embedded hotfix state"},
+		{name: "missing release", active: "true", missing: "release", wantError: "read OS release"},
+		{name: "unknown OS", active: "true", release: "ID=other", wantError: "unsupported OS ID"},
+		{name: "missing ID", active: "true", release: "VERSION_ID=3.0", wantError: "ID is missing"},
+		{name: "missing payload", active: "true", release: "ID=ubuntu", missing: "payload", wantError: "read embedded nodecustomdata"},
+		{name: "malformed YAML", active: "true", release: "ID=ubuntu", payload: "write_files: [", wantError: "unmarshal nodecustomdata"},
+		{name: "invalid entry", active: "true", release: "ID=ubuntu", payload: "write_files:\n- content: invalid\n", wantError: "path is required"},
+		{name: "empty payload", active: "true", release: "ID=ubuntu", payload: "write_files: []\n"},
+		{name: "temporary directory unavailable", active: "true", release: "ID=ubuntu", payload: "write_files: []\n", missing: "temp", wantError: "create temporary nodecustomdata"},
 	}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := applyEmbeddedNodeCustomDataFS(
-				embeddedRenderedFS(t, nodeCustomDataPlatformUbuntu, test.files),
-				nodeCustomDataPlatformUbuntu,
-			)
-			require.ErrorContains(t, err, test.expectedErr)
+			directory := t.TempDir()
+			tempDir := directory
+			if test.missing == "temp" {
+				tempDir = filepath.Join(directory, "missing")
+			}
+			t.Setenv("TMPDIR", tempDir)
+			t.Setenv("TMP", tempDir)
+			releasePath := filepath.Join(directory, "os-release")
+			if test.missing != "release" {
+				require.NoError(t, os.WriteFile(releasePath, []byte(test.release), 0o600))
+			}
+			files := fstest.MapFS{}
+			if test.missing != "active" {
+				files["scripthotfix/generated/active"] = &fstest.MapFile{Data: []byte(test.active)}
+			}
+			if test.missing != "payload" {
+				files["scripthotfix/generated/rendered_nodecustomdata_ubuntu.yml"] = &fstest.MapFile{Data: []byte(test.payload)}
+			}
+			err := applyEmbeddedNodeCustomDataIfActive(files, releasePath)
+			if test.wantError == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, test.wantError)
+			}
+			temporary, err := filepath.Glob(filepath.Join(directory, "aks-node-controller-nodecustomdata-*.yml"))
+			require.NoError(t, err)
+			assert.Empty(t, temporary)
 		})
 	}
-
-	t.Run("unknown YAML field", func(t *testing.T) {
-		files := fstest.MapFS{
-			embeddedRenderedPath(nodeCustomDataPlatformUbuntu): &fstest.MapFile{
-				Data: []byte("write_files: []\nunknown: true\n"),
-			},
-		}
-		_, err := applyEmbeddedNodeCustomDataFS(files, nodeCustomDataPlatformUbuntu)
-		require.ErrorContains(t, err, "field unknown not found")
-	})
-
-	t.Run("trailing YAML document", func(t *testing.T) {
-		files := fstest.MapFS{
-			embeddedRenderedPath(nodeCustomDataPlatformUbuntu): &fstest.MapFile{
-				Data: []byte("write_files: []\n---\nwrite_files: []\n"),
-			},
-		}
-		_, err := applyEmbeddedNodeCustomDataFS(files, nodeCustomDataPlatformUbuntu)
-		require.ErrorContains(t, err, "trailing content")
-	})
-}
-
-func TestNodeCustomDataSharedDecoderHandlesGzip(t *testing.T) {
-	var compressed bytes.Buffer
-	writer := gzip.NewWriter(&compressed)
-	_, err := writer.Write([]byte("rendered payload"))
-	require.NoError(t, err)
-	require.NoError(t, writer.Close())
-
-	decoded, err := decodeNodeCustomDataWriteFileContent(nodeCustomDataWriteFile{
-		Encoding: encodingGZIP,
-		Content:  compressed.String(),
-	})
-
-	require.NoError(t, err)
-	assert.Equal(t, []byte("rendered payload"), decoded)
-}
-
-func TestEmbeddedNodeCustomDataStagesAllBeforeCommit(t *testing.T) {
-	directory := t.TempDir()
-	firstDestination := filepath.Join(directory, "first.sh")
-	require.NoError(t, os.WriteFile(firstDestination, []byte("original"), 0o700))
-	files := embeddedRenderedFS(t, nodeCustomDataPlatformUbuntu, []nodeCustomDataWriteFile{
-		{
-			Path:        firstDestination,
-			Permissions: "0744",
-			Owner:       "root",
-			Content:     "first hotfix",
-		},
-		{
-			Path:        directory,
-			Permissions: "0744",
-			Owner:       "root",
-			Content:     "second hotfix",
-		},
-	})
-
-	_, err := applyEmbeddedNodeCustomDataFS(files, nodeCustomDataPlatformUbuntu)
-
-	require.ErrorContains(t, err, "read destination")
-	actual, readErr := os.ReadFile(firstDestination)
-	require.NoError(t, readErr)
-	assert.Equal(t, []byte("original"), actual)
-	staged, globErr := filepath.Glob(filepath.Join(directory, ".aks-node-controller-nodecustomdata-*"))
-	require.NoError(t, globErr)
-	assert.Empty(t, staged)
-}
-
-func TestCommitStagedNodeCustomDataRollsBackEarlierReplacement(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows rename cannot atomically replace an existing destination")
-	}
-	directory := t.TempDir()
-	firstDestination := filepath.Join(directory, "first.sh")
-	secondDestination := filepath.Join(directory, "second.sh")
-	require.NoError(t, os.WriteFile(firstDestination, []byte("first original"), 0o700))
-	require.NoError(t, os.WriteFile(secondDestination, []byte("second original"), 0o711))
-	first, changed, err := stageNodeCustomDataEntry(
-		nodeCustomDataEntry{destination: firstDestination, content: []byte("first hotfix"), mode: 0o744},
-		true,
-	)
-	require.NoError(t, err)
-	require.True(t, changed)
-	second, changed, err := stageNodeCustomDataEntry(
-		nodeCustomDataEntry{destination: secondDestination, content: []byte("second hotfix"), mode: 0o755},
-		true,
-	)
-	require.NoError(t, err)
-	require.True(t, changed)
-
-	err = commitStagedNodeCustomDataWithRename(
-		[]*stagedNodeCustomDataEntry{&first, &second},
-		func(source string, destination string) error {
-			if source == second.stagedPath {
-				return errors.New("injected rename failure")
-			}
-			return os.Rename(source, destination)
-		},
-	)
-
-	require.ErrorContains(t, err, "injected rename failure")
-	firstActual, readErr := os.ReadFile(firstDestination)
-	require.NoError(t, readErr)
-	assert.Equal(t, []byte("first original"), firstActual)
-	secondActual, readErr := os.ReadFile(secondDestination)
-	require.NoError(t, readErr)
-	assert.Equal(t, []byte("second original"), secondActual)
-}
-
-func embeddedRenderedFS(
-	t *testing.T,
-	platform nodeCustomDataPlatform,
-	files []nodeCustomDataWriteFile,
-) fstest.MapFS {
-	t.Helper()
-	return fstest.MapFS{
-		embeddedRenderedPath(platform): &fstest.MapFile{Data: marshalNodeCustomData(t, files)},
-	}
-}
-
-func marshalNodeCustomData(t *testing.T, files []nodeCustomDataWriteFile) []byte {
-	t.Helper()
-	data, err := yaml.Marshal(nodeCustomData{WriteFiles: files})
-	require.NoError(t, err)
-	return data
-}
-
-func embeddedRenderedPath(platform nodeCustomDataPlatform) string {
-	return "scripthotfix/generated/rendered_nodecustomdata_" + string(platform) + ".yml"
 }

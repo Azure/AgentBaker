@@ -740,7 +740,7 @@ func newUbuntu2204EmbeddedScriptHotfixScenario() *Scenario {
 						ctx,
 						s,
 						"/var/log/azure/aks-node-controller.output",
-						"processed embedded hotfix payload",
+						"applied embedded hotfix payload",
 					),
 				)
 			},

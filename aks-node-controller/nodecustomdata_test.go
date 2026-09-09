@@ -72,9 +72,6 @@ func TestApplyNodeCustomDataPreservesLegacyDefaultsAndCreatesParents(t *testing.
 	actual, err := os.ReadFile(destination)
 	require.NoError(t, err)
 	assert.Equal(t, []byte("base64-content"), actual)
-	mode, err := parseNodeCustomDataMode("", false)
-	require.NoError(t, err)
-	assert.Equal(t, os.FileMode(0o644), mode)
 	if runtime.GOOS != "windows" {
 		info, statErr := os.Stat(destination)
 		require.NoError(t, statErr)

@@ -234,9 +234,9 @@ func TestApp_Provision(t *testing.T) {
 	t.Run("embedded hotfix runs before command construction and execution", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		applied := false
-		tt.App.applyEmbeddedHotfix = func(string) (nodeCustomDataApplyResult, error) {
+		tt.App.applyEmbeddedHotfix = func(string) error {
 			applied = true
-			return nodeCustomDataApplyResult{Applied: 1}, nil
+			return nil
 		}
 
 		_, err := tt.App.runProvision(
@@ -258,8 +258,8 @@ func TestApp_Provision(t *testing.T) {
 				return nil
 			},
 		})
-		tt.App.applyEmbeddedHotfix = func(string) (nodeCustomDataApplyResult, error) {
-			return nodeCustomDataApplyResult{}, errors.New("rendered nodecustomdata validation failed")
+		tt.App.applyEmbeddedHotfix = func(string) error {
+			return errors.New("rendered nodecustomdata application failed")
 		}
 
 		_, err := tt.App.runProvision(
@@ -272,17 +272,17 @@ func TestApp_Provision(t *testing.T) {
 		assert.True(t, executed)
 		assert.Contains(t, logs.getRecords(), logRecord{
 			Level:   slog.LevelWarn,
-			Message: "failed to apply embedded hotfix payload; continuing with existing scripts",
-			Attrs:   map[string]string{"error": "rendered nodecustomdata validation failed"},
+			Message: "failed to apply embedded hotfix payload; continuing provisioning",
+			Attrs:   map[string]string{"error": "rendered nodecustomdata application failed"},
 		})
 	})
 
 	t.Run("dry-run does not apply embedded hotfix payload", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		applied := false
-		tt.App.applyEmbeddedHotfix = func(string) (nodeCustomDataApplyResult, error) {
+		tt.App.applyEmbeddedHotfix = func(string) error {
 			applied = true
-			return nodeCustomDataApplyResult{}, nil
+			return nil
 		}
 
 		_, err := tt.App.runProvision(

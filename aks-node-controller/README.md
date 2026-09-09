@@ -153,11 +153,11 @@ Key components:
 ### Provisioning script hotfix payloads
 
 Patched ANC binaries can embed selected Linux provisioning scripts generated from
-`parts/linux/cloud-init/artifacts/`. At the start of `provision`, ANC validates the
-rendered nodecustomdata matching the local platform and atomically applies its
-`write_files` entries before constructing the normal CSE command.
-Application is fail-open so the existing VHD scripts remain usable if validation
-or replacement fails.
+`parts/linux/cloud-init/artifacts/`. At the start of `provision`, ANC writes the
+rendered nodecustomdata matching the local platform to a private temporary YAML
+file and calls the existing `applyNodeCustomData` function before constructing the
+normal CSE command. The temporary YAML is removed afterward. Application errors
+are logged and provisioning continues.
 
 The embedded nodecustomdata coordinator distinguishes these script hotfixes from
 updates to the ANC binary itself. The generated files live under
@@ -177,10 +177,11 @@ When a PR has no new script hotfix, generation leaves the existing rendered
 payload unchanged. The active ANC version pointer is likewise retained until it
 is retired explicitly.
 
-Embedded payloads are replace-only: ANC skips an entry when its runtime
-destination does not already exist. File presence preserves non-platform
-template gates such as custom-image exclusions. New-file hotfixes are not
-supported by this delivery path.
+The existing applier writes entries sequentially and creates missing destination
+files and parent directories. There is no transactional rollback: if an entry
+fails, earlier writes remain. Generation selects by distro only; hotfix authors
+must separately account for non-distro template conditions such as custom-image
+exclusions.
 
 Script hotfix delivery is package-only. The existing base-to-version hotfix map
 selects the ANC package for the node's baked `YYYYMM.DD` version base; the package

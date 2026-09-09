@@ -6,7 +6,6 @@ import (
 	"io/fs"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -30,29 +29,52 @@ const (
 //go:embed scripthotfix/generated
 var embeddedGeneratedNodeCustomData embed.FS
 
-//nolint:gochecknoglobals // indirection point so tests can inject an alternate filesystem
-var generatedNodeCustomData fs.FS = embeddedGeneratedNodeCustomData
-
-func applyEmbeddedNodeCustomDataIfActive(osReleasePath string) (nodeCustomDataApplyResult, error) {
-	active, err := fs.ReadFile(generatedNodeCustomData, "scripthotfix/generated/active")
+func applyEmbeddedNodeCustomDataIfActive(payloadFS fs.FS, osReleasePath string) error {
+	active, err := fs.ReadFile(payloadFS, "scripthotfix/generated/active")
 	if err != nil {
-		return nodeCustomDataApplyResult{}, fmt.Errorf("read embedded hotfix state: %w", err)
+		return fmt.Errorf("read embedded hotfix state: %w", err)
 	}
 	if strings.TrimSpace(string(active)) != "true" {
-		return nodeCustomDataApplyResult{}, nil
+		return nil
 	}
 	if osReleasePath == "" {
 		osReleasePath = defaultOSReleasePath
 	}
 	platform, err := classifyNodeCustomDataPlatform(osReleasePath)
 	if err != nil {
-		return nodeCustomDataApplyResult{}, err
+		return err
 	}
 	if platform == nodeCustomDataPlatformUnsupported {
 		slog.Info("embedded script hotfix is not supported on this OS, skipping", "osReleasePath", osReleasePath)
-		return nodeCustomDataApplyResult{}, nil
+		return nil
 	}
-	return applyEmbeddedNodeCustomDataFS(generatedNodeCustomData, platform)
+	renderedPath := fmt.Sprintf("scripthotfix/generated/rendered_nodecustomdata_%s.yml", platform)
+	data, err := fs.ReadFile(payloadFS, renderedPath)
+	if err != nil {
+		return fmt.Errorf("read embedded nodecustomdata %s: %w", renderedPath, err)
+	}
+	temp, err := os.CreateTemp("", "aks-node-controller-nodecustomdata-*.yml")
+	if err != nil {
+		return fmt.Errorf("create temporary nodecustomdata: %w", err)
+	}
+	defer func() {
+		if err := os.Remove(temp.Name()); err != nil {
+			slog.Warn("failed to remove temporary nodecustomdata", "path", temp.Name(), "error", err)
+		}
+	}()
+	_, writeErr := temp.Write(data)
+	closeErr := temp.Close()
+	if writeErr != nil {
+		return fmt.Errorf("write temporary nodecustomdata: %w", writeErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close temporary nodecustomdata: %w", closeErr)
+	}
+	if err := applyNodeCustomData(temp.Name()); err != nil {
+		return err
+	}
+	slog.Info("applied embedded hotfix payload", "source", renderedPath)
+	return nil
 }
 
 func classifyNodeCustomDataPlatform(osReleasePath string) (nodeCustomDataPlatform, error) {
@@ -94,34 +116,4 @@ func parseNodeCustomDataOSRelease(data []byte) map[string]string {
 		values[strings.TrimSpace(key)] = strings.Trim(strings.TrimSpace(value), `"'`)
 	}
 	return values
-}
-
-func applyEmbeddedNodeCustomDataFS(
-	payloadFS fs.FS,
-	platform nodeCustomDataPlatform,
-) (nodeCustomDataApplyResult, error) {
-	if !isConcreteNodeCustomDataPlatform(platform) {
-		return nodeCustomDataApplyResult{}, fmt.Errorf("unsupported concrete platform %q", platform)
-	}
-	renderedPath := filepath.ToSlash(filepath.Join(
-		"scripthotfix",
-		"generated",
-		fmt.Sprintf("rendered_nodecustomdata_%s.yml", platform),
-	))
-	data, err := fs.ReadFile(payloadFS, renderedPath)
-	if err != nil {
-		return nodeCustomDataApplyResult{}, fmt.Errorf("read embedded nodecustomdata %s: %w", renderedPath, err)
-	}
-	return applyNodeCustomDataPayload(data, nodeCustomDataApplyOptions{
-		source:             renderedPath,
-		strict:             true,
-		replaceOnly:        true,
-		requirePermissions: true,
-		rejectUnsafePaths:  true,
-		rejectEmptyContent: true,
-	})
-}
-
-func isConcreteNodeCustomDataPlatform(platform nodeCustomDataPlatform) bool {
-	return platform == nodeCustomDataPlatformUbuntu || platform == nodeCustomDataPlatformMariner
 }
