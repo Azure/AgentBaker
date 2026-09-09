@@ -56,6 +56,7 @@ downloadURIs.default.current
 downloadURIs.ubuntu.r2004
 downloadURIs.ubuntu.r2204
 downloadURIs.ubuntu.r2404
+downloadURIs.ubuntu.r2604
 downloadURIs.mariner.current
 downloadURIs.azurelinux."v3.0"
 downloadURIs.azurelinux."DEFAULT/v3.0"

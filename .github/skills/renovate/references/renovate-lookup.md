@@ -47,13 +47,14 @@ Verify all of the following:
    custom manager matches the exact tag form.
 3. Add an ownership rule.
 
-### Azure Linux RPM
+### Azure Linux or Mariner RPM
 
-1. Locate the package in the correct `base`, `cloud-native`, `ms-oss`, or
-   `extended` repository.
-2. Use
-   `RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/<category>/x86_64/repodata, name=<package>, os=azurelinux, release=3.0`.
-3. Set `"ignoreUnstable": false` where valid RPM revisions would otherwise be
+1. Locate the package in the correct repository category.
+2. Use the matching OS-specific form:
+   - Mariner 2.0: `RPM_registry=https://packages.microsoft.com/cbl-mariner/2.0/prod/<category>/x86_64/repodata, name=<package>, os=mariner, release=2.0`.
+   - Azure Linux 3.0: `RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/<category>/x86_64/repodata, name=<package>, os=azurelinux, release=3.0`.
+3. Confirm the corresponding custom manager matches the exact tag.
+4. Set `"ignoreUnstable": false` where valid RPM revisions would otherwise be
    filtered.
 
 ### OCI artifact
