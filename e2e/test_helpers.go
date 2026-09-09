@@ -132,7 +132,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
 			validationErr = errors.Join(
 				ValidateFileExists(ctx, stage1, "/etc/containerd/config.toml"),
 				ValidateFileExists(ctx, stage1, "/opt/azure/containers/base_prep.complete"),
-				ValidateFileDoesNotExist(ctx, stage1, "/opt/azure/containers/provision.complete"),
+				ValidateFileExists(ctx, stage1, "/opt/azure/containers/provision.complete"),
 				ValidateSystemdUnitIsRunning(ctx, stage1, "containerd"),
 				ValidateSystemdUnitIsNotRunning(ctx, stage1, "kubelet"),
 			)
@@ -949,6 +949,11 @@ func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to run sysprep on Windows VM for image creation: %w", err)
+		}
+	} else {
+		s.Logger.Log("Removing Linux provisioning results before image capture...")
+		if _, err := RunCommand(ctx, s, "rm -f /var/log/azure/aks/provision.json /opt/azure/containers/provision.complete"); err != nil {
+			return nil, fmt.Errorf("failed to remove Linux provisioning results before image capture: %w", err)
 		}
 	}
 

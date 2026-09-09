@@ -7,7 +7,6 @@ BASE_PREP_COMPLETE_FILE_PATH="/opt/azure/containers/base_prep.complete"
 publishProvisionResponse() {
     local response="$1"
     local response_tmp="${PROVISION_JSON_FILE_PATH}.tmp"
-    local complete_file
 
     printf '%s\n' "${response}"
     mkdir -p "$(dirname "${PROVISION_JSON_FILE_PATH}")" || return 1
@@ -19,12 +18,11 @@ publishProvisionResponse() {
         return 1
     fi
 
+    mkdir -p "$(dirname "${PROVISION_COMPLETE_FILE_PATH}")" || return 1
     if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
-        complete_file="${BASE_PREP_COMPLETE_FILE_PATH}"
-    else
-        complete_file="${PROVISION_COMPLETE_FILE_PATH}"
+        touch "${BASE_PREP_COMPLETE_FILE_PATH}" || return 1
     fi
-    mkdir -p "$(dirname "${complete_file}")" && touch "${complete_file}"
+    touch "${PROVISION_COMPLETE_FILE_PATH}"
 }
 
 CSE_STARTTIME=$(date)

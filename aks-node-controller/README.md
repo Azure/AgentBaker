@@ -143,7 +143,7 @@ We do not guarantee power-loss durability; neither writer calls `fsync`.
 
 `cse_start.sh` writes the detailed result after bootstrap. If bootstrap cannot start, `aks-node-controller` writes a fallback result. An existing shell result is preserved because it contains richer diagnostics.
 
-PIS generalization must remove `provision.json` before image capture.
+PIS generalization must remove transient provisioning results before image capture, while retaining `base_prep.complete`.
 
 Key components:
 
