@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Review AgentBaker pull requests and diffs for production regressions, backward compatibility, security, architecture, cross-OS behavior, provisioning failures, and risky package updates. Use this skill whenever reviewing AgentBaker code, pull requests, diffs, dependency bumps, or changes to Linux or Windows VHD build and node provisioning paths.
+description: Review AgentBaker pull requests and diffs for production regressions, backward compatibility, security, architecture, cross-OS behavior, provisioning failures, risky package updates, and Renovate configuration errors. Use this skill whenever reviewing AgentBaker code, pull requests, diffs, dependency bumps, components.json changes, renovate.json changes, or Linux and Windows VHD build and node provisioning paths.
 ---
 
 # AgentBaker Code Review
@@ -75,70 +75,38 @@ Analyze PRs for these compatibility scenarios:
 
 **5. Package/Dependency Update PRs (Renovate)**
 
-- **Context**: Renovate bot automatically creates PRs to update component versions in `parts/common/components.json`. These components are cached on VHDs during build and directly affect node stability, GPU workloads, networking, and security. Updated packages are downloaded from `packages.aks.azure.com` or upstream registries during VHD build.
-- **What to check**: Every version bump—even patch versions—can introduce regressions that affect production nodes.
-- **Analysis steps for every package update PR**:
-  1. **Identify the component and version change**: Parse the diff in `parts/common/components.json` to extract exact old → new versions for each OS/release entry.
-  2. **Determine the update type**: Classify as major, minor, or patch using semver. Major and minor updates carry higher risk than patch updates.
-  3. **Research upstream changelog**: Look up the project's release notes, changelog, or GitHub releases to understand what changed between the old and new versions. Summarize:
-     - New features introduced
-     - Bug fixes included
-     - Breaking changes or deprecations
-     - Security fixes (CVEs patched)
-  4. **Assess OS coverage**: Check if the update covers all OS variants where the component is used (Ubuntu 22.04, 24.04, Azure Linux 3.0, etc.). Flag if some OS entries are updated but others are not — partial updates can cause inconsistency across node pools.
-  5. **Evaluate VHD size impact**: For components downloaded as binaries or packages, consider whether the new version significantly increases VHD size. Large size increases can affect VHD build time and storage costs.
-  6. **Check for configuration or API changes**: If the component exposes configuration files, CLI flags, systemd units, or APIs consumed by CSE scripts, verify that the update doesn't change defaults or remove options that provisioning scripts depend on.
-  7. **Verify download URL validity**: Confirm that the `downloadLocation` and `downloadURIs` structure in components.json remains valid for the new version. New versions sometimes change the artifact naming convention or repository layout.
+- **Context**: Renovate updates components cached in AKS VHDs. A bad update can affect node boot, networking, GPU workloads, security, VHD size, or provisioning latency.
+- **Required reference**: Read [Renovate architecture and risk](references/renovate-architecture.md) before reviewing `parts/common/components.json` changes. Read [Renovate lookup and configuration](references/renovate-lookup.md) when reviewing `.github/renovate.json`, onboarding a component, or diagnosing missing updates.
+- **Analysis steps**:
+  1. Extract every old-to-new version, affected OS/release, omitted OS variant, and `previousLatestVersion` rotation.
+  2. Classify the update as major, minor, patch, or distro revision. Do not assume every version follows plain semver.
+  3. Research the exact upstream range using releases, changelogs, commit history, and package metadata. State clearly when no reliable changelog exists.
+  4. Trace changed defaults, flags, configuration formats, systemd behavior, dependencies, kernel requirements, and artifact sizes into VHD build and CSE consumers.
+  5. Verify artifact availability for every affected architecture and OS. A URL pattern looking correct is not proof that the artifact exists.
+  6. Check cache coordination: determine whether the rotation removes a version still requested by AKS-RP, unless the component simply uses the version baked into the VHD.
+  7. Check required owners and PR gates. Never recommend merging over a configured component owner or before required gates pass.
 
-- **Risk assessment for package updates**:
-  - 🔴 **High Risk**: Major version bumps, components critical to node boot (kubelet, containerd, runc), GPU drivers (nvidia-driver, dcgm-exporter), or networking (azure-cni, cilium). Also high risk if upstream changelog mentions breaking changes or behavioral changes.
-  - 🟡 **Medium Risk**: Minor version bumps of non-critical components, updates that only affect specific OS variants, or updates where upstream changelog shows feature additions that could subtly change behavior.
-  - 🟢 **Low Risk**: Patch version bumps with only bug fixes or security patches, no breaking changes in upstream changelog, and full OS coverage.
+- **Review output for dependency updates**:
 
-- **Review output for package update PRs must include a detailed version diff analysis**:
-
-  **Header:**
-
-  ```
+  ```text
   ## Package Update Analysis: <component-name>
-  **Version change**: X.Y.Z → A.B.C (<major|minor|patch> update)
-  **OS variants affected**: Ubuntu 22.04, Ubuntu 24.04, Azure Linux 3.0 (list all)
-  **OS variants NOT updated**: <list any missing, or "None — full coverage">
-  ```
+  **Version change**: X.Y.Z -> A.B.C (<update type>)
+  **Component criticality**: Critical / Important / Standard
+  **OS variants affected**: <list>
+  **OS variants not updated**: <list or "None - full coverage">
 
-  **Detailed changelog between versions:**
-  Use web search, GitHub releases, or upstream project documentation to find the exact differences between the old and new version. Present each change as a line item with its own risk tag:
-
-  ```
   ### Changes between X.Y.Z and A.B.C
 
   | Change | Description | Risk |
   |--------|-------------|------|
-  | Feature | <brief description of new feature> | 🟢 Low / 🟡 Medium / 🔴 High |
-  | Bug fix | <brief description of bug fixed> | 🟢 Low / 🟡 Medium / 🔴 High |
-  | Breaking | <description of breaking change> | 🔴 High |
-  | Security | CVE-YYYY-XXXXX: <description> | 🟢 Low / 🟡 Medium / 🔴 High |
-  | Deprecation | <what was deprecated and migration path> | 🟡 Medium / 🔴 High |
-  | Config change | <default value changed or option removed> | 🟡 Medium / 🔴 High |
-  | Performance | <perf improvement or regression> | 🟢 Low / 🟡 Medium |
+  | <type> | <description> | Low / Medium / High |
+
+  ### Overall Risk: Low / Medium / High
+  **Justification**: <why>
+  **Recommendation**: Approve / Request more information / Require manual testing
   ```
 
-  For each individual change, assess risk by considering:
-  - Does it alter runtime behavior on AKS nodes?
-  - Does it change CLI flags, config file formats, or systemd unit behavior that CSE scripts depend on?
-  - Does it affect GPU workloads, networking, container runtime, or kubelet interaction?
-  - Could it increase binary size significantly (VHD bloat)?
-  - Does it introduce new system dependencies or kernel requirements?
-
-  **If upstream changelog is unavailable**, explicitly state: _"Upstream changelog not found for this version range. Manual testing recommended before merge."_
-
-  **Overall risk assessment:**
-
-  ```
-  ### Overall Risk: 🟢 Low / 🟡 Medium / 🔴 High
-  **Justification**: <1-2 sentence summary of why this risk level was chosen>
-  **Recommendation**: Approve / Request more info / Flag for manual testing
-  ```
+  Report a concrete defect as a review finding when the diff proves one. Otherwise provide the package analysis without inventing a finding.
 
 ## Analysis Approach
 
