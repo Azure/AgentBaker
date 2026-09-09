@@ -29,6 +29,8 @@ const (
 
 var durationMsRe = regexp.MustCompile(`durationMs=(\d+)`)
 
+var errNoHotfixCompletionLine = errors.New("no hotfix completion line found")
+
 // hotfixPathTiming is one observation of a hotfix install during bootstrap.
 type hotfixPathTiming struct {
 	// FastPath is true when the repository fast path completed, false when the run fell
@@ -58,7 +60,7 @@ func parseHotfixTiming(log string) (*hotfixPathTiming, error) {
 		found = &hotfixPathTiming{FastPath: isFast, Duration: ms, Line: strings.TrimSpace(line)}
 	}
 	if found == nil {
-		return nil, errors.New("no hotfix completion line found")
+		return nil, errNoHotfixCompletionLine
 	}
 	return found, nil
 }
@@ -79,13 +81,16 @@ func validateHotfixBootstrapTiming(ctx context.Context, s *Scenario) error {
 	}
 
 	timing, err := parseHotfixTiming(result.stdout + "\n" + result.stderr)
-	if err != nil {
+	if errors.Is(err, errNoHotfixCompletionLine) {
 		// Not a failure of the code under test: if no hotfix was configured for this run
 		// there is nothing to time. Log it plainly and pass, rather than failing on absent
 		// data or reporting a misleading zero. Validators no longer control test outcome
 		// (see 70d6199c3e), so this cannot skip the test from here.
 		s.Logger.Logf("NO BOOTSTRAP HOTFIX TIMING: %v (no hotfix ran on this node)", err)
 		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("parse hotfix bootstrap timing: %w", err)
 	}
 
 	path := "package-manager (apt/dnf)"

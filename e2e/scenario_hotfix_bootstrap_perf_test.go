@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,7 +31,7 @@ time=2026-09-03T01:00:13Z level=INFO msg="downloaded ANC hotfix" target=202608.2
 
 	t.Run("no hotfix ran", func(t *testing.T) {
 		_, err := parseHotfixTiming("time=... msg=\"ANC version not targeted by hotfix, skipping download\"")
-		assert.Error(t, err)
+		assert.ErrorIs(t, err, errNoHotfixCompletionLine)
 	})
 
 	// A completion line without durationMs means the build predates the instrumentation;
@@ -38,6 +39,14 @@ time=2026-09-03T01:00:13Z level=INFO msg="downloaded ANC hotfix" target=202608.2
 	t.Run("completion without durationMs is an error, not a zero", func(t *testing.T) {
 		_, err := parseHotfixTiming(`msg="downloaded ANC hotfix" target=202608.21.1`)
 		require.Error(t, err)
+		assert.False(t, errors.Is(err, errNoHotfixCompletionLine))
+		assert.Contains(t, err.Error(), "no durationMs")
+	})
+
+	t.Run("malformed durationMs is an error, not no-completion", func(t *testing.T) {
+		_, err := parseHotfixTiming(`msg="downloaded ANC hotfix" target=202608.21.1 durationMs=abc`)
+		require.Error(t, err)
+		assert.False(t, errors.Is(err, errNoHotfixCompletionLine))
 		assert.Contains(t, err.Error(), "no durationMs")
 	})
 }
