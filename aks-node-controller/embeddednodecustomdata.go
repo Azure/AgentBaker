@@ -93,7 +93,7 @@ func classifyNodeCustomDataPlatform(osReleasePath string) (nodeCustomDataPlatfor
 		return nodeCustomDataPlatformUnsupported, nil
 	case id == "ubuntu":
 		return nodeCustomDataPlatformUbuntu, nil
-	case id == "mariner", id == osReleaseIDAzureLinux:
+	case id == osReleaseIDAzureLinux:
 		return nodeCustomDataPlatformMariner, nil
 	case id == "":
 		return "", fmt.Errorf("ID is missing from %s", osReleasePath)

@@ -157,7 +157,7 @@ func TestDetectPackageManager(t *testing.T) {
 		assert.Equal(t, pkgMgrApt, pkgMgr)
 	})
 
-	t.Run("mariner or azurelinux returns dnf or tdnf", func(t *testing.T) {
+	t.Run("azurelinux returns dnf or tdnf", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "os-release")
 		require.NoError(t, os.WriteFile(path, []byte(`ID="azurelinux"`+"\n"), 0644))
 		a := &App{osReleasePath: path}
@@ -173,6 +173,14 @@ func TestDetectPackageManager(t *testing.T) {
 		_, err := a.detectPackageManager()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported OS")
+	})
+
+	t.Run("legacy mariner is unsupported", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "os-release")
+		require.NoError(t, os.WriteFile(path, []byte("ID=mariner\n"), 0644))
+		a := &App{osReleasePath: path}
+		_, err := a.detectPackageManager()
+		require.ErrorContains(t, err, "unsupported OS: mariner")
 	})
 
 	t.Run("ACL azurelinux variant reports self-update unsupported", func(t *testing.T) {

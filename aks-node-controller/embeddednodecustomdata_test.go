@@ -20,7 +20,6 @@ func TestClassifyNodeCustomDataPlatform(t *testing.T) {
 		expected nodeCustomDataPlatform
 	}{
 		{"Ubuntu", "ID=ubuntu\n", nodeCustomDataPlatformUbuntu},
-		{"Mariner", "ID=mariner\n", nodeCustomDataPlatformMariner},
 		{"Azure Linux", "ID=azurelinux\n", nodeCustomDataPlatformMariner},
 		{"OS Guard", "ID=azurelinux\nVARIANT_ID=osguard\n", nodeCustomDataPlatformUnsupported},
 		{"ACL variant", "ID=azurelinux\nVARIANT_ID=azurecontainerlinux\n", nodeCustomDataPlatformUnsupported},
@@ -47,7 +46,7 @@ func TestClassifyNodeCustomDataPlatform(t *testing.T) {
 }
 
 func TestApplyEmbeddedNodeCustomData(t *testing.T) {
-	for _, id := range []string{"ubuntu", "mariner", "azurelinux"} {
+	for _, id := range []string{"ubuntu", "azurelinux"} {
 		t.Run(id, func(t *testing.T) {
 			directory := t.TempDir()
 			t.Setenv("TMPDIR", directory)
@@ -102,6 +101,7 @@ func TestApplyEmbeddedNodeCustomDataErrorsAndCleanup(t *testing.T) {
 		{name: "missing active", missing: "active", wantError: "read embedded hotfix state"},
 		{name: "missing release", active: "true", missing: "release", wantError: "read OS release"},
 		{name: "unknown OS", active: "true", release: "ID=other", wantError: "unsupported OS ID"},
+		{name: "legacy mariner", active: "true", release: "ID=mariner", wantError: "unsupported OS ID"},
 		{name: "missing ID", active: "true", release: "VERSION_ID=3.0", wantError: "ID is missing"},
 		{name: "missing payload", active: "true", release: "ID=ubuntu", missing: "payload", wantError: "read embedded nodecustomdata"},
 		{name: "malformed YAML", active: "true", release: "ID=ubuntu", payload: "write_files: [", wantError: "unmarshal nodecustomdata"},
