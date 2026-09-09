@@ -1204,6 +1204,9 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
       if [ "${OS}" != "3.0" ]; then
         enableMarinerKata
       fi
+      # Enable without starting: the path activates on the real node only after
+      # CSE/nodePrep writes provision.complete.
+      systemctl enable stamp-kata-containerd-config.path || exit 1
     fi
     disableTimesyncd
     disableDNFAutomatic
