@@ -1623,11 +1623,18 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 	}
 
 	It("should keep scripted Ubuntu CustomData within the compute API limit", func() {
-		config := newConfig(false)
-		config.EnableScriptlessNBCCSECmd = false
-		config.EnableScriptlessCSECmd = false
-		payload := InitializeTemplateGenerator().getLinuxNodeBootstrappingPayload(config)
-		Expect(len(payload)).To(BeNumerically("<=", MaxCustomDataLength))
+		for _, distro := range []datamodel.Distro{datamodel.AKSUbuntuContainerd2204Gen2, datamodel.AKSUbuntuContainerd2404Gen2} {
+			config := newConfig(false)
+			config.AgentPoolProfile.Distro = distro
+			config.EnableScriptlessNBCCSECmd = false
+			config.EnableScriptlessCSECmd = false
+			payload := InitializeTemplateGenerator().getLinuxNodeBootstrappingPayload(config)
+			decoded, err := base64.StdEncoding.DecodeString(payload)
+			Expect(err).NotTo(HaveOccurred())
+			fmt.Fprintf(GinkgoWriter, "Scripted %s CustomData: %d bytes, %d encoded characters; limit %d; headroom %d\n",
+				distro, len(decoded), len(payload), MaxCustomDataLength, MaxCustomDataLength-len(payload))
+			Expect(len(payload)).To(BeNumerically("<=", MaxCustomDataLength))
+		}
 	})
 
 	It("should persist nodecustomdata in the scriptless NBC boothook", func() {

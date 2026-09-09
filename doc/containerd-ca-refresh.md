@@ -25,7 +25,8 @@ native system bundle explicitly for **both** the mirror and the implicit upstrea
 Their existing capabilities, URL path handling and headers remain unchanged.
 The standalone CA installer reconciles the fallback links after updating trust.
 It also upgrades only exact, unmodified older AKS mirror templates to reference
-the link, publishing the changed TOML atomically. This runs on the node actually
+the native bundle for both server and mirror, publishing the changed TOML
+atomically with GNU `sed -i` while retaining permissions. This runs on the node actually
 refreshing its CAs, without depending on base-preparation variables or changing
 node preparation. New mirror configurations do not depend on a link or helper
 from a newer VHD: they reference the existing OS bundle directly.
@@ -97,14 +98,24 @@ Omit `--disable-scriptless` to exercise ANC as well; test results must record
 which bootstrapping mode and image/runtime versions were actually used.
 Flatcar/ACL/Mariner paths are not proven by the three scenarios above.
 
-## Draft delivery blocker
+## Scripted delivery regression guard
 
-Scripted Ubuntu CustomData exceeds the compute API limit after adding this
-repair. The regression test `should keep scripted Ubuntu CustomData within the
-compute API limit` intentionally exposes this blocker; do not merge or roll out
-until it passes and scripted Ubuntu E2E provisioning succeeds. Passing
-standalone-refresh or baked-ANC scenarios does not prove scripted delivery.
-No production artifact-format change is included to work around this limit.
+The initial repair produced 65,791 bytes / 87,724 encoded characters of scripted
+Ubuntu CustomData, exceeding the existing 87,380-character compute API guard.
+The reconciler now shares the installation/error path between acquisition modes
+and uses native atomic file operations instead of duplicate template-building
+code. The same regression configuration produces **65,525 bytes / 87,368 encoded
+characters** for both Ubuntu 22.04 and 24.04: **12 encoded characters of headroom**.
+This is a narrow margin, not a general guarantee for every configuration.
+
+`should keep scripted Ubuntu CustomData within the compute API limit` asserts
+the unchanged limit for both Ubuntu versions. Do not bypass it when extending
+embedded scripts. No hotfix entry removal, unrelated script minification, or
+production artifact-format change is used to fit the payload.
+
+Passing the size guard, standalone-refresh tests, or baked-ANC scenarios does
+not by itself prove scripted provisioning, a new ANC build, or a newly baked
+VHD. Record actual E2E and hosted gate results separately before rollout.
 
 References:
 * [containerd hosts configuration](https://github.com/containerd/containerd/blob/v1.7.28/docs/hosts.md)

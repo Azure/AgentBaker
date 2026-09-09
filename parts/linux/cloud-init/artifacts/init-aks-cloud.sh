@@ -252,60 +252,45 @@ function retrieve_rcv1p_certs {
 
 # Keep this standalone: scheduled refresh does not source the provisioning
 # environment, and older CSE/VHD combinations may not carry the other helper.
-function upgrade_containerd_system_trust_host {
-    local hosts="$1" ca="$2" content first expected legacy temporary rc
-    content=$(cat "$hosts") || return $?
-    first="${content%%$'\n'*}"
-    # Migrate only exact old AKS templates; preserve customized TOML verbatim.
-    [[ "$first" == '[host."https://'*'"]' ]] || return 0
-    expected=$(printf '%s\n  capabilities = ["pull", "resolve"]\n  override_path = true' "$first")
-    legacy=$(printf '%s\n' \
-        '[host."https://mcr.azure.cn"]' \
-        '  capabilities = ["pull", "resolve"]' \
-        '[host."https://mcr.azure.cn".header]' \
-        '    X-Forwarded-For = ["mcr.azk8s.cn"]')
-    [ "$content" = "$expected" ] || [ "$content" = "$legacy" ] || return 0
-    temporary=$(mktemp "${hosts}.aks-XXXXXX") || return $?
-    if cp -p "$hosts" "$temporary" &&
-       printf 'ca = "%s"\n%s\n  ca = "%s"\n%s\n' "$ca" "$first" "$ca" "${content#*$'\n'}" > "$temporary" &&
-       mv -f "$temporary" "$hosts"; then
-        return 0
-    else
-        rc=$?
-        rm -f "$temporary"
-        return "$rc"
-    fi
-}
-
-function configure_containerd_system_trust {
-    local root="${1:-/etc/containerd/certs.d}"
-    local bundle="${2:-/etc/ssl/certs/ca-certificates.crt}"
-    # Ubuntu/Flatcar use ca-certificates.crt; Azure Linux/Mariner use ca-bundle.crt.
-    # Select from installed files so CSE need not initialize this script's OS flags.
-    if [ -z "${2:-}" ] && [ ! -s "$bundle" ]; then
-        bundle="/etc/pki/tls/certs/ca-bundle.crt"
-    fi
-    if [ ! -s "$bundle" ]; then
+function update_containerd_ca {
+    local root="$1" bundle=/etc/ssl/certs/ca-certificates.crt
+    # Select installed bundles without relying on provisioning-shell OS flags.
+    [ -s "$bundle" ] || bundle=/etc/pki/tls/certs/ca-bundle.crt
+    bundle="${2:-$bundle}"
+    [ -s "$bundle" ] || {
         echo "ERROR: missing system CA bundle: $bundle" >&2
         return 1
-    fi
+    }
     mkdir -p "$root/_default" || return $?
-    local host_dir link
-    for host_dir in "$root/_default" "$root"/*; do
-        [ -d "$host_dir" ] || continue
-        if [ "$host_dir" != "$root/_default" ] && [ -s "$host_dir/hosts.toml" ]; then
-            upgrade_containerd_system_trust_host "$host_dir/hosts.toml" "$root/_default/aks-system-ca.crt" || return $?
+    local dir hosts content first
+    for dir in "$root"/*; do
+        [ -d "$dir" ] || continue
+        hosts="$dir/hosts.toml"
+        if [ "$dir" != "$root/_default" ] && [ -s "$hosts" ]; then
+            content=$(cat "$hosts") || return $?
+            first="${content%%$'\n'*}"
+            # Only exact old AKS templates; custom TOML is left verbatim.
+            case "$first" in '[host."https://'*'"]') ;; *) continue ;; esac
+            case "$content" in
+                "$first"'
+  capabilities = ["pull", "resolve"]
+  override_path = true'|\
+                '[host."https://mcr.azure.cn"]
+  capabilities = ["pull", "resolve"]
+[host."https://mcr.azure.cn".header]
+    X-Forwarded-For = ["mcr.azk8s.cn"]') ;;
+                *) continue ;;
+            esac
+            # GNU sed -i preserves permissions and atomically renames its
+            # temporary file; readers never observe a half-written template.
+            # Insert before the host table and its first key: server + mirror CA.
+            sed -i "1,2i ca = \"$bundle\"" "$hosts" || return $?
             continue
         fi
-        link="$host_dir/aks-system-ca.crt"
-        if [ -L "$link" ] && [ "$(readlink "$link")" = "$bundle" ]; then
-            continue
-        fi
-        if [ -e "$link" ] || [ -L "$link" ]; then
-            echo "ERROR: refusing to replace existing containerd CA file: $link" >&2
-            return 1
-        fi
-        ln -s "$bundle" "$link" || return $?
+        hosts="$dir/aks-system-ca.crt"
+        # GNU ln without -f refuses collisions; -T also refuses directories
+        # and links to directories rather than creating a link inside them.
+        [ "$(readlink "$hosts")" = "$bundle" ] || ln -sT "$bundle" "$hosts" || return $?
     done
 }
 
@@ -346,10 +331,8 @@ function install_certs_to_trust_store {
         fi
     fi
 
-    # Go's process-wide system roots can be cached. Containerd reads explicit
-    # certs.d CA files for each resolver; point at the regenerated bundle
-    # rather than copying it or restarting a live runtime.
-    [ $rc -eq 0 ] && { configure_containerd_system_trust || rc=$?; }
+    # Explicit certs.d CA files are re-read; Go's system roots can stay cached.
+    [ $rc -eq 0 ] && { update_containerd_ca /etc/containerd/certs.d || rc=$?; }
     debug_print_trust_store "after"
     return $rc
 }
@@ -656,13 +639,7 @@ mkdir -p /root/AzureCACertificates
 rm -f /root/AzureCACertificates/*
 if [ "$cert_endpoint_mode" = "legacy" ]; then
     install_ca_refresh_schedule=1
-    if logs_to_events "AKS.CSE.rcv1p.retrieveLegacyCerts" retrieve_legacy_certs; then
-        logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store || {
-            echo "ERROR: failed to install legacy CA certificates into trust store" >&2
-            emit_event "AKS.CSE.rcv1p.installCertsFailed" "failed to install legacy CA certificates" "Error"
-            exit 1
-        }
-    else
+    if ! logs_to_events "AKS.CSE.rcv1p.retrieveLegacyCerts" retrieve_legacy_certs; then
         echo "ERROR: failed to retrieve legacy certificates from wireserver after retries"
         exit 1
     fi
@@ -683,11 +660,6 @@ elif [ "$cert_endpoint_mode" = "rcv1p" ]; then
         if logs_to_events "AKS.CSE.rcv1p.retrieveCerts" retrieve_rcv1p_certs; then
             cert_count=$(find /root/AzureCACertificates -name '*.crt' 2>/dev/null | wc -l)
             emit_event "AKS.CSE.rcv1p.certCount" "downloaded ${cert_count} certificates"
-            logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store || {
-                echo "ERROR: failed to install rcv1p CA certificates into trust store" >&2
-                emit_event "AKS.CSE.rcv1p.installCertsFailed" "failed to install rcv1p CA certificates" "Error"
-                exit 1
-            }
         else
             echo "ERROR: failed to retrieve rcv1p certificates from wireserver after retries"
             emit_event "AKS.CSE.rcv1p.retrieveCertsFailed" "failed to retrieve rcv1p certificates" "Error"
@@ -698,13 +670,21 @@ elif [ "$cert_endpoint_mode" = "rcv1p" ]; then
     fi
 fi
 
+# Nothing was acquired on a non-opted-in node.
+[ "$install_ca_refresh_schedule" -eq 0 ] && exit 0
+# Both acquisition paths require the same installation and failure reporting.
+logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store || {
+    echo "ERROR: failed to install ${cert_endpoint_mode} CA certificates into trust store" >&2
+    emit_event "AKS.CSE.rcv1p.installCertsFailed" "failed to install ${cert_endpoint_mode} CA certificates" "Error"
+    exit 1
+}
+
 # In ca-refresh mode (invoked by the scheduled cron/systemd task with the location as arg),
 # only the cert refresh above is needed; exit before running the full init path.
 # Action values:
 # - init (default): full provisioning path
 # - ca-refresh <location>: periodic refresh path; location is passed as arg to avoid env dependency
-action=${1:-init}
-if [ "$action" = "ca-refresh" ] || [ "$install_ca_refresh_schedule" -eq 0 ]; then
+if [ "${1:-init}" = "ca-refresh" ]; then
     exit 0
 fi
 
