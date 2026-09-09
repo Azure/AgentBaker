@@ -100,12 +100,12 @@ type repositoryDownloadPlan struct {
 // command timeout plus a 30s metadata request -- before the package-manager fallback can
 // start, directly extending node provisioning.
 //
-// Cancellation makes error classification load-bearing. A killed gpgv surfaces from
-// verifyRepoSignature as an integrityError, and downloadBinaryHotfixIfNeeded treats
-// integrity errors as terminal: it disarms the staged hotfix and skips the fallback. A
-// cancelled peer must therefore never be reported, or a benign 404 would masquerade as
-// tampering. Only the branch that failed first is returned; the peer's error is induced
-// noise and is dropped.
+// Cancellation makes error classification load-bearing. downloadBinaryHotfixIfNeeded
+// treats integrity errors as terminal: it disarms the staged hotfix and skips the
+// fallback. A cancelled peer must therefore never be reported as integrity, or a benign
+// 404 would masquerade as tampering. Conversely, a real integrity error from either
+// branch must outrank operational failures, even if the operational failure triggered
+// cancellation first.
 //
 // The returned file is the caller's to remove, including on the error paths.
 func (a *App) fetchPackageAndMetadata(
@@ -118,34 +118,28 @@ func (a *App) fetchPackageAndMetadata(
 	var (
 		packageFile downloadedRepositoryFile
 		metadata    repositoryPackageMetadata
-		firstErr    error
-		firstIsMeta bool
-		firstErrOne sync.Once
+		packageErr  error
+		metadataErr error
+		cancelOnce  sync.Once
 		wg          sync.WaitGroup
 	)
-	failBranch := func(err error, isMetadata bool) {
+	failBranch := func(err error) {
 		if err == nil {
 			return
 		}
-		firstErrOne.Do(func() {
-			firstErr = err
-			firstIsMeta = isMetadata
-			cancelBranches()
-		})
+		cancelOnce.Do(cancelBranches)
 	}
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		var err error
-		packageFile, err = a.downloadRepositoryFile(
+		packageFile, packageErr = a.downloadRepositoryFile(
 			branchCtx, plan.packageURL, plan.trustedOrigin, repositoryPackageMaxBytes)
-		failBranch(err, false)
+		failBranch(packageErr)
 	}()
 	go func() {
 		defer wg.Done()
-		var err error
-		metadata, err = plan.resolveMetadata(branchCtx)
-		failBranch(err, true)
+		metadata, metadataErr = plan.resolveMetadata(branchCtx)
+		failBranch(metadataErr)
 	}()
 	wg.Wait()
 
@@ -153,14 +147,40 @@ func (a *App) fetchPackageAndMetadata(
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return packageFile, metadata, fmt.Errorf("repository fast path cancelled: %w", ctxErr)
 	}
-	if firstErr != nil {
-		if firstIsMeta {
-			return packageFile, metadata, fmt.Errorf(
-				"resolve authenticated repository metadata: %w", firstErr)
-		}
-		return packageFile, metadata, fmt.Errorf("download repository package: %w", firstErr)
+	if err := preferredRepositoryDownloadError(packageErr, metadataErr); err != nil {
+		return packageFile, metadata, err
 	}
 	return packageFile, metadata, nil
+}
+
+func preferredRepositoryDownloadError(packageErr, metadataErr error) error {
+	branches := []struct {
+		label string
+		err   error
+	}{
+		{label: "download repository package", err: packageErr},
+		{label: "resolve authenticated repository metadata", err: metadataErr},
+	}
+	for _, branch := range branches {
+		if branch.err != nil && !isRepositoryCancellationError(branch.err) && isIntegrityError(branch.err) {
+			return fmt.Errorf("%s: %w", branch.label, branch.err)
+		}
+	}
+	for _, branch := range branches {
+		if branch.err != nil && !isRepositoryCancellationError(branch.err) {
+			return fmt.Errorf("%s: %w", branch.label, branch.err)
+		}
+	}
+	for _, branch := range branches {
+		if branch.err != nil {
+			return fmt.Errorf("%s: %w", branch.label, branch.err)
+		}
+	}
+	return nil
+}
+
+func isRepositoryCancellationError(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 func (a *App) tryRepositoryDownload(ctx context.Context, hotfixVersion string) error {
@@ -404,6 +424,9 @@ func (a *App) verifyRepoSignature(
 		if errors.Is(err, exec.ErrNotFound) {
 			return newUnsupportedRepositoryError("gpgv is not installed: %v", err)
 		}
+		if isRepositoryCancellationError(err) {
+			return err
+		}
 		return newIntegrityError("gpgv verification failed: %v", err)
 	}
 	return nil
@@ -511,16 +534,33 @@ func (a *App) extractRPM(ctx context.Context, packagePath, destination string) e
 	rpmErr := a.cmdRun(rpm2cpio)
 	_ = writer.Close()
 	cpioErr := <-cpioErrCh
-	if rpmErr != nil {
-		return fmt.Errorf("rpm2cpio: %w", rpmErr)
-	}
-	if cpioErr != nil {
-		return fmt.Errorf("cpio: %w", cpioErr)
-	}
-	if commandCtx.Err() != nil {
-		return commandCtx.Err()
+	if err := preferredRPMExtractionError(commandCtx.Err(), rpmErr, cpioErr); err != nil {
+		return err
 	}
 	return nil
+}
+
+func preferredRPMExtractionError(ctxErr, rpmErr, cpioErr error) error {
+	var errs []error
+	if ctxErr != nil {
+		errs = append(errs, fmt.Errorf("rpm extraction cancelled: %w", ctxErr))
+	}
+	if rpmErr != nil && !isRepositoryCancellationError(rpmErr) {
+		errs = append(errs, fmt.Errorf("rpm2cpio: %w", rpmErr))
+	}
+	if cpioErr != nil && !isRepositoryCancellationError(cpioErr) {
+		errs = append(errs, fmt.Errorf("cpio: %w", cpioErr))
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	if rpmErr != nil {
+		errs = append(errs, fmt.Errorf("rpm2cpio: %w", rpmErr))
+	}
+	if cpioErr != nil {
+		errs = append(errs, fmt.Errorf("cpio: %w", cpioErr))
+	}
+	return errors.Join(errs...)
 }
 
 type aptRepository struct {
@@ -1079,10 +1119,7 @@ func (a *App) rpmRepositoryPlan(info platformInfo, hotfixVersion string) (reposi
 	if err != nil {
 		return repositoryDownloadPlan{}, err
 	}
-releaseVersion := info.VersionID
-	if info.ID == osIDAzureLinux {
-		releaseVersion = strings.SplitN(info.VersionID, ".", 2)[0] + ".0"
-	}
+	releaseVersion := rpmReleaseVersion(info.VersionID)
 	baseURL := strings.ReplaceAll(repository.BaseURL, "$releasever", releaseVersion)
 	baseURL = strings.ReplaceAll(baseURL, "${releasever}", releaseVersion)
 	baseURL = strings.ReplaceAll(baseURL, "$basearch", rpmArch)
@@ -1124,6 +1161,20 @@ func rpmArchitecture(goarch string) (string, error) {
 	default:
 		return "", newUnsupportedRepositoryError("unsupported RPM architecture %q", goarch)
 	}
+}
+
+// rpmReleaseVersion reduces an os-release VERSION_ID to the major.minor form that PMC
+// publishes repositories under. Azure Linux and Mariner nodes can report a three-part
+// VERSION_ID that includes a build date (e.g. "3.0.20260304"), while the repository lives
+// at .../azurelinux/3.0/prod/... -- substituting the raw value into $releasever builds a
+// URL that 404s, silently costing every such node the fast path. Values already in
+// major.minor form, or with no dot at all, are returned unchanged.
+func rpmReleaseVersion(versionID string) string {
+	parts := strings.Split(versionID, ".")
+	if len(parts) < 2 {
+		return versionID
+	}
+	return parts[0] + "." + parts[1]
 }
 
 func rpmReleaseSuffix(info platformInfo) (string, error) {

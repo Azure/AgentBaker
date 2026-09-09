@@ -628,6 +628,44 @@ func TestRepositoryFastPathCancelsPeerBranchOnFailure(t *testing.T) {
 		"failure should return promptly rather than waiting out the peer branch")
 }
 
+func TestRepositoryFastPathPrefersIntegrityErrorFromEitherBranch(t *testing.T) {
+	packageRequested := make(chan struct{})
+	var closePackageRequested sync.Once
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, ".deb") {
+			closePackageRequested.Do(func() { close(packageRequested) })
+			http.NotFound(w, r)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	origin, err := validateRepositoryURL(server.URL)
+	require.NoError(t, err)
+	app := NewTestApp(t, TestAppConfig{}).App
+	app.repositoryTempDir = t.TempDir()
+	_, _, err = app.fetchPackageAndMetadata(context.Background(), repositoryDownloadPlan{
+		packageURL:    server.URL + "/aks-node-controller.deb",
+		trustedOrigin: origin,
+		resolveMetadata: func(context.Context) (repositoryPackageMetadata, error) {
+			<-packageRequested
+			return repositoryPackageMetadata{}, newIntegrityError("authenticated metadata checksum mismatch")
+		},
+	})
+	require.Error(t, err)
+	assert.True(t, isIntegrityError(err), "integrity errors must outrank operational package failures")
+	assert.Contains(t, err.Error(), "resolve authenticated repository metadata")
+	assert.Contains(t, err.Error(), "authenticated metadata checksum mismatch")
+}
+
+func TestPreferredRPMExtractionErrorPreservesBothCommandFailures(t *testing.T) {
+	err := preferredRPMExtractionError(nil, errors.New("bad rpm payload"), errors.New("cpio read failed"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "rpm2cpio: bad rpm payload")
+	assert.Contains(t, err.Error(), "cpio: cpio read failed")
+}
+
 // Mariner 2.0 has no ms-oss repository -- that path 404s on packages.microsoft.com. Its
 // Microsoft-published packages live in [mariner-microsoft] at .../prod/Microsoft/$basearch
 // (see mariner-package-update.sh, which lists mariner-microsoft.repo). Discovery keyed only
@@ -949,4 +987,56 @@ func TestUbuntuFastPathRequestsExactlyTheExpectedURLs(t *testing.T) {
 		"GET /ubuntu/22.04/prod/dists/jammy/main/binary-amd64/Packages.gz",
 		"GET /ubuntu/22.04/prod/" + packageLocation,
 	}, got, "the fast path must fetch exactly these three URLs and nothing else")
+}
+
+// Azure Linux and Mariner can report a three-part VERSION_ID carrying a build date, while
+// PMC publishes repositories under major.minor only: azurelinux/3.0/prod/... is HTTP 200,
+// azurelinux/3.0.20260304/prod/... is 404. Substituting the raw value silently costs every
+// such node the fast path.
+func TestRPMReleaseVersion(t *testing.T) {
+	tests := []struct {
+		versionID string
+		want      string
+	}{
+		{"3.0", "3.0"},
+		{"2.0", "2.0"},
+		// The case that motivated this: a dated VERSION_ID must reduce to the repo path.
+		{"3.0.20260304", "3.0"},
+		{"2.0.20240808", "2.0"},
+		// Must preserve minor rather than forcing ".0": a future 3.1 has to resolve to the
+		// 3.1 repository, not silently to 3.0's.
+		{"3.1", "3.1"},
+		{"3.1.20260101", "3.1"},
+		// Degenerate inputs pass through; rpmReleaseSuffix rejects unsupported majors.
+		{"3", "3"},
+		{"", ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.versionID, func(t *testing.T) {
+			assert.Equal(t, tc.want, rpmReleaseVersion(tc.versionID))
+		})
+	}
+}
+
+// The plan must build a major.minor repository URL even when the node reports a dated
+// VERSION_ID.
+func TestRPMRepositoryPlanUsesMajorMinorRepoPath(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "azurelinux-ms-oss.repo"), []byte(`
+[azurelinux-official-ms-oss]
+baseurl=https://packages.microsoft.com/azurelinux/$releasever/prod/ms-oss/$basearch
+gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
+enabled=1
+`), 0o644))
+
+	app := NewTestApp(t, TestAppConfig{}).App
+	app.yumReposDir = dir
+	plan, err := app.rpmRepositoryPlan(platformInfo{
+		OS: "linux", ID: osIDAzureLinux, VersionID: "3.0.20260304", Arch: archAMD64,
+	}, "202607.20.2")
+	require.NoError(t, err)
+	assert.Equal(t,
+		"https://packages.microsoft.com/azurelinux/3.0/prod/ms-oss/x86_64/"+
+			"Packages/a/aks-node-controller-202607.20.2-1.azl3.x86_64.rpm",
+		plan.packageURL)
 }
