@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/tar"
 	"bufio"
 	"bytes"
 	"compress/gzip"
@@ -33,6 +34,7 @@ const (
 	repositoryRequestTimeout     = 30 * time.Second
 	repositoryMetadataMaxBytes   = 128 << 20
 	repositoryPackageMaxBytes    = 512 << 20
+	repositoryBinaryMaxBytes     = 128 << 20
 	repositoryCommandTimeout     = 60 * time.Second
 	ancPackageName               = "aks-node-controller"
 	ancPackageBinaryRelativePath = "usr/bin/aks-node-controller"
@@ -499,12 +501,113 @@ func (a *App) extractPackage(ctx context.Context, format, packagePath, destinati
 	}
 	switch format {
 	case "deb":
-		return a.runRepositoryCommand(ctx, "dpkg-deb", "-x", packagePath, destination)
+		return a.extractDeb(ctx, packagePath, destination)
 	case "rpm":
 		return a.extractRPM(ctx, packagePath, destination)
 	default:
 		return newUnsupportedRepositoryError("unsupported package format %q", format)
 	}
+}
+
+func (a *App) extractDeb(ctx context.Context, packagePath, destination string) error {
+	commandCtx, cancel := context.WithTimeout(ctx, repositoryCommandTimeout)
+	defer cancel()
+
+	dpkgDeb := exec.CommandContext(commandCtx, "dpkg-deb", "--fsys-tarfile", packagePath)
+	dpkgDeb.Stderr = os.Stderr
+	stdout, err := dpkgDeb.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("create dpkg-deb stdout pipe: %w", err)
+	}
+	if err := dpkgDeb.Start(); err != nil {
+		return fmt.Errorf("start dpkg-deb: %w", err)
+	}
+
+	found, extractErr := extractRepositoryTarMember(stdout, destination)
+	if found {
+		cancel()
+	}
+	waitErr := dpkgDeb.Wait()
+	if extractErr != nil {
+		return fmt.Errorf("extract deb package member: %w", extractErr)
+	}
+	if !found {
+		if commandCtx.Err() != nil {
+			return commandCtx.Err()
+		}
+		if waitErr != nil {
+			return fmt.Errorf("dpkg-deb: %w", waitErr)
+		}
+		return fmt.Errorf("deb package does not contain %s", ancPackageBinaryRelativePath)
+	}
+	return nil
+}
+
+func extractRepositoryTarMember(tarStream io.Reader, destination string) (bool, error) {
+	reader := tar.NewReader(tarStream)
+	for {
+		header, err := reader.Next()
+		if errors.Is(err, io.EOF) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		if !isANCBinaryTarMember(header.Name) {
+			continue
+		}
+		return true, extractRepositoryANCBinary(reader, header, destination)
+	}
+}
+
+func isANCBinaryTarMember(name string) bool {
+	return strings.TrimPrefix(name, "./") == ancPackageBinaryRelativePath
+}
+
+func extractRepositoryANCBinary(reader io.Reader, header *tar.Header, destination string) error {
+	if header.Typeflag != tar.TypeReg && header.Typeflag != 0 {
+		return newIntegrityError("deb package member %s is not a regular file", header.Name)
+	}
+	if header.Size > repositoryBinaryMaxBytes {
+		return newIntegrityError("deb package member %s exceeds %d bytes", header.Name, repositoryBinaryMaxBytes)
+	}
+	outputPath := filepath.Join(destination, filepath.FromSlash(ancPackageBinaryRelativePath))
+	if mkdirErr := os.MkdirAll(filepath.Dir(outputPath), 0o755); mkdirErr != nil {
+		return fmt.Errorf("create extraction directory: %w", mkdirErr)
+	}
+	tmp, createErr := os.CreateTemp(filepath.Dir(outputPath), ".aks-node-controller-extract-*")
+	if createErr != nil {
+		return fmt.Errorf("create extracted binary temp file: %w", createErr)
+	}
+	tmpPath := tmp.Name()
+	success := false
+	defer func() {
+		_ = tmp.Close()
+		if !success {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+	copied, copyErr := io.Copy(tmp, io.LimitReader(reader, repositoryBinaryMaxBytes+1))
+	if copyErr != nil {
+		return fmt.Errorf("copy extracted binary: %w", copyErr)
+	}
+	if copied > repositoryBinaryMaxBytes {
+		return newIntegrityError("deb package member %s exceeds %d bytes", header.Name, repositoryBinaryMaxBytes)
+	}
+	if header.Size >= 0 && copied != header.Size {
+		return fmt.Errorf("short read extracting %s: copied %d of %d bytes", header.Name, copied, header.Size)
+	}
+	if chmodErr := tmp.Chmod(0o755); chmodErr != nil {
+		return fmt.Errorf("chmod extracted binary: %w", chmodErr)
+	}
+	if closeErr := tmp.Close(); closeErr != nil {
+		return fmt.Errorf("close extracted binary: %w", closeErr)
+	}
+	if renameErr := os.Rename(tmpPath, outputPath); renameErr != nil {
+		return fmt.Errorf("rename extracted binary: %w", renameErr)
+	}
+	success = true
+	return nil
 }
 
 func (a *App) extractRPM(ctx context.Context, packagePath, destination string) error {

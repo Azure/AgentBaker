@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/tar"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -353,6 +354,60 @@ func TestPrepareGPGVKeyringsDearmorsArmoredKeys(t *testing.T) {
 	assert.FileExists(t, keyrings[0])
 	cleanup()
 	assert.NoFileExists(t, keyrings[0])
+}
+
+func TestExtractRepositoryTarMemberOnlyWritesANCBinary(t *testing.T) {
+	var archive bytes.Buffer
+	writer := tar.NewWriter(&archive)
+	require.NoError(t, writer.WriteHeader(&tar.Header{
+		Name: "etc/not-anc",
+		Mode: 0o644,
+		Size: int64(len("not-anc")),
+	}))
+	_, err := writer.Write([]byte("not-anc"))
+	require.NoError(t, err)
+	require.NoError(t, writer.WriteHeader(&tar.Header{
+		Name: "./" + ancPackageBinaryRelativePath,
+		Mode: 0o755,
+		Size: int64(len("anc-binary")),
+	}))
+	_, err = writer.Write([]byte("anc-binary"))
+	require.NoError(t, err)
+	require.NoError(t, writer.WriteHeader(&tar.Header{
+		Name: "usr/bin/other",
+		Mode: 0o755,
+		Size: int64(len("other")),
+	}))
+	_, err = writer.Write([]byte("other"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	dir := t.TempDir()
+	found, err := extractRepositoryTarMember(bytes.NewReader(archive.Bytes()), dir)
+	require.NoError(t, err)
+	assert.True(t, found)
+	extracted, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(ancPackageBinaryRelativePath)))
+	require.NoError(t, err)
+	assert.Equal(t, []byte("anc-binary"), extracted)
+	assert.NoFileExists(t, filepath.Join(dir, "etc/not-anc"))
+	assert.NoFileExists(t, filepath.Join(dir, "usr/bin/other"))
+}
+
+func TestExtractRepositoryTarMemberRejectsOversizedANCBinary(t *testing.T) {
+	var archive bytes.Buffer
+	writer := tar.NewWriter(&archive)
+	require.NoError(t, writer.WriteHeader(&tar.Header{
+		Name: "./" + ancPackageBinaryRelativePath,
+		Mode: 0o755,
+		Size: repositoryBinaryMaxBytes + 1,
+	}))
+
+	dir := t.TempDir()
+	found, err := extractRepositoryTarMember(bytes.NewReader(archive.Bytes()), dir)
+	require.Error(t, err)
+	assert.True(t, found)
+	assert.True(t, isIntegrityError(err))
+	assert.NoFileExists(t, filepath.Join(dir, filepath.FromSlash(ancPackageBinaryRelativePath)))
 }
 
 func TestParseMSOSSRepository(t *testing.T) {
