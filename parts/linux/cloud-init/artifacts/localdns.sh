@@ -656,6 +656,13 @@ EOF
 
 # Remove iptables rules and revert DNS configuration.
 cleanup_iptables_and_dns() {
+    # Track failures across all cleanup steps so that a failure in one step
+    # (e.g. removing an iptables rule) does not skip the more important DNS
+    # restoration steps below. Restoring node DNS is the priority: if we return
+    # early on an iptables error we could leave the node pointed at a dead
+    # localdns listener via the network drop-in.
+    local cleanup_failed=false
+
     # Ensure network variables are initialized if not already set.
     # This is needed here because this function can be called from cleanup traps or systemd restarts initiated by watchdog.
     if [ -z "${NETWORK_DROPIN_FILE:-}" ] || [ -z "${NETWORK_DROPIN_DIR:-}" ]; then
@@ -688,7 +695,8 @@ cleanup_iptables_and_dns() {
             done
         done
         if [ "$failure_occurred" = true ]; then
-            return 1
+            # Record the failure but continue so DNS restoration still runs.
+            cleanup_failed=true
         fi
     else
         echo "No existing localdns iptables rules found."
@@ -696,22 +704,36 @@ cleanup_iptables_and_dns() {
 
     # Revert DNS configuration and network reload.
     echo "Removing network drop-in file ${NETWORK_DROPIN_FILE}."
-    rm -f "$NETWORK_DROPIN_FILE"
-    if [ "$?" -ne 0 ]; then
+    if ! rm -f "$NETWORK_DROPIN_FILE"; then
         echo "Failed to remove network drop-in file ${NETWORK_DROPIN_FILE}."
-        return 1
+        cleanup_failed=true
+    else
+        echo "Successfully removed network drop-in file."
     fi
-    echo "Successfully removed network drop-in file."
 
     echo "Attempt to reload network configuration."
-    eval "$NETWORKCTL_RELOAD_CMD"
-    if [ "$?" -ne 0 ]; then
+    if ! eval "$NETWORKCTL_RELOAD_CMD"; then
         echo "Failed to reload network after removing the DNS configuration."
+        cleanup_failed=true
+    else
+        echo "Reloading network configuration succeeded."
+    fi
+
+    if [ "$cleanup_failed" = true ]; then
         return 1
     fi
-    echo "Reloading network configuration succeeded."
 
     return 0
+}
+
+# localdns_cleanup_mode is the entry point for `localdns.sh cleanup`, invoked by
+# localdns.service ExecStopPost after both graceful and unexpected exits. It only
+# restores node DNS configuration; systemd owns process cleanup. It always exits
+# 0 so that a best-effort cleanup failure cannot wedge systemd's recovery of the
+# unit. Cleanup failures are logged (and surfaced by cleanup_iptables_and_dns).
+localdns_cleanup_mode() {
+    cleanup_iptables_and_dns || echo "Best-effort LocalDNS DNS cleanup reported errors."
+    exit 0
 }
 
 # Cleanup function to remove localdns related configurations.
@@ -983,6 +1005,13 @@ select_localdns_corefile() {
 
 ${__SOURCED__:+return}
 
+# ExecStopPost invokes this mode after both graceful and unexpected exits.
+# Only restore node DNS configuration here; systemd owns process cleanup.
+# Always exit successfully so a cleanup error cannot wedge systemd recovery.
+if [ "${1:-}" = "cleanup" ]; then
+    localdns_cleanup_mode
+fi
+
 # --------------------------------------- Main Execution starts here --------------------------------------------------
 
 # Regenerate corefile on every startup to enable dynamic variant selection.
@@ -1041,6 +1070,9 @@ build_localdns_iptable_rules
 # cleanup_localdns_configs function will be run on script exit/crash to revert config.
 # Ensure cleanup runs before exiting on an error.
 trap 'echo "Error occurred. Cleaning up..."; cleanup_localdns_configs; exit $ERR_LOCALDNS_FAIL' ABRT ERR INT PIPE
+
+# SIGTERM is the normal systemd stop signal and must be reported as a clean stop.
+trap 'echo "Received SIGTERM. Cleaning up..."; cleanup_localdns_configs || true; exit 0' TERM
 
 # Always cleanup when exiting.
 trap 'echo "Executing cleanup function."; cleanup_localdns_configs || echo "Cleanup failed with error code: $ERR_LOCALDNS_FAIL."' EXIT
