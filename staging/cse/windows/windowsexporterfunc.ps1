@@ -49,7 +49,8 @@ function Test-WindowsExporterHealth {
         . $global:WindowsExporterHealthScript
         for ($i = 0; $i -le $RetryCount; $i++) {
             $healthResult = Get-Health
-            if ($healthResult -ne "") {
+            $service = Get-Service $global:WindowsExporterServiceName -ErrorAction SilentlyContinue
+            if ($service -and $service.Status -eq 'Running' -and $healthResult -ne "") {
                 Write-Log "aks-windows-exporter health check passed: $healthResult"
                 $versionResult = Get-Version
                 if ($versionResult -ne "") {
@@ -74,7 +75,8 @@ function Test-WindowsExporterHealth {
         catch {
             $result = ""
         }
-        if ($null -ne $result -and $result.Contains("ok")) {
+        $service = Get-Service $global:WindowsExporterServiceName -ErrorAction SilentlyContinue
+        if ($service -and $service.Status -eq 'Running' -and $null -ne $result -and $result.Contains("ok")) {
             Write-Log "aks-windows-exporter health check passed: $result"
             return $true
         }
@@ -161,11 +163,19 @@ function Install-WindowsExporter {
                 Invoke-WindowsExporterNssm -Arguments @("stop", $global:WindowsExporterServiceName)
             }
         }
-        Invoke-WindowsExporterNssm -Arguments @("start", $global:WindowsExporterServiceName)
     }
     catch {
         Write-Log "failed to configure aks-windows-exporter: $_; leaving ownership with aks-vm-extension"
         return $false
+    }
+
+    try {
+        Invoke-WindowsExporterNssm -Arguments @("start", $global:WindowsExporterServiceName)
+    }
+    catch {
+        # NSSM can return nonzero while the service is still START_PENDING.
+        # The bounded health checks below also require the named service to be Running.
+        Write-Log "aks-windows-exporter start did not complete immediately: $_; waiting for service health"
     }
 
     if (-not (Test-WindowsExporterHealth)) {
