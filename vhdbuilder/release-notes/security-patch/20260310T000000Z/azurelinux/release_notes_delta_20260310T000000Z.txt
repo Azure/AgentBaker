@@ -1,9 +1,0 @@
-Release notes for security patch 20260310T000000Z timestamp
-Package difference between 20260218T000000Z and 20260310T000000Z
-
-No reboot required
-
-
-=== Package Updates ===
-python3-cryptography  42.0.5-4.azl3  azurelinux-official-base
-postgresql-libs  16.12-1.azl3  azurelinux-official-base
