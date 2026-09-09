@@ -82,7 +82,7 @@ Here is an example response return by CSE:
 
 ### Provisioning Flow
 
-On first startup, cloud-init processes CustomData and writes the bootstrap configuration to disk. The cloud boothook starts [`aks-node-controller.service`](../parts/linux/cloud-init/artifacts/aks-node-controller.service) after the configuration is available, and the controller starts the bootstrap process.
+On first startup, cloud-init processes CustomData and writes the bootstrap configuration to disk. The cloud-boothook starts [`aks-node-controller.service`](../parts/linux/cloud-init/artifacts/aks-node-controller.service) after the configuration is available, and the controller starts the bootstrap process.
 
 Clients need to provide CSE and Custom Data. [nodeconfigutils](pkg/nodeconfigutils) module contains helpers for generating these values.
 
@@ -138,6 +138,8 @@ sequenceDiagram
 #### Provision result
 
 `/var/log/azure/aks/provision.json` contains the CSE exit code, output, error, and boot timing data. Writers stage the result in the same directory, set mode `0644`, and atomically rename it to `provision.json`, so readers never observe partial JSON. The payload is also emitted to stdout.
+
+We do not guarantee power-loss durability; neither writer calls `fsync`.
 
 `cse_start.sh` writes the detailed result after bootstrap. If bootstrap cannot start, `aks-node-controller` writes a fallback result. An existing shell result is preserved because it contains richer diagnostics.
 
