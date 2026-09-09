@@ -20,9 +20,10 @@ publishProvisionResponse() {
 
     mkdir -p "$(dirname "${PROVISION_COMPLETE_FILE_PATH}")" || return 1
     if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
-        touch "${BASE_PREP_COMPLETE_FILE_PATH}" || return 1
+        touch "${BASE_PREP_COMPLETE_FILE_PATH}"
+    else
+        touch "${PROVISION_COMPLETE_FILE_PATH}"
     fi
-    touch "${PROVISION_COMPLETE_FILE_PATH}"
 }
 
 CSE_STARTTIME=$(date)

@@ -85,24 +85,18 @@ Describe 'publishProvisionResponse'
         The contents of file "${PROVISION_JSON_FILE_PATH}" should equal "${response}"
     End
 
-    It 'writes both markers with base preparation first for pre-provisioning'
+    It 'writes only the base preparation marker for pre-provisioning'
         PRE_PROVISION_ONLY="true"
-        touch() {
-            if [ "$1" = "${PROVISION_COMPLETE_FILE_PATH}" ] && [ ! -f "${BASE_PREP_COMPLETE_FILE_PATH}" ]; then
-                return 1
-            fi
-            command touch "$@"
-        }
 
         When call publishProvisionResponse '{"ExitCode":"0"}'
 
         The status should be success
         The output should equal '{"ExitCode":"0"}'
         The path "${BASE_PREP_COMPLETE_FILE_PATH}" should be file
-        The path "${PROVISION_COMPLETE_FILE_PATH}" should be file
+        The path "${PROVISION_COMPLETE_FILE_PATH}" should not be exist
     End
 
-    It 'withholds completion when the base preparation marker cannot be written'
+    It 'reports failure when the base preparation marker cannot be written'
         PRE_PROVISION_ONLY="true"
         touch() {
             if [ "$1" = "${BASE_PREP_COMPLETE_FILE_PATH}" ]; then

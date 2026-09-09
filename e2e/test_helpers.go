@@ -61,7 +61,7 @@ func runVHDCachingScenario(ctx context.Context, name string, logger toolkit.Logg
 			validationErr = errors.Join(
 				ValidateFileExists(ctx, scenario, "/etc/containerd/config.toml"),
 				ValidateFileExists(ctx, scenario, "/opt/azure/containers/base_prep.complete"),
-				ValidateFileExists(ctx, scenario, "/opt/azure/containers/provision.complete"),
+				ValidateFileDoesNotExist(ctx, scenario, "/opt/azure/containers/provision.complete"),
 				ValidateSystemdUnitIsRunning(ctx, scenario, "containerd"),
 				ValidateSystemdUnitIsNotRunning(ctx, scenario, "kubelet"),
 			)
@@ -868,11 +868,6 @@ func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to run sysprep on Windows VM for image creation: %w", err)
-		}
-	} else {
-		s.Logger.Log("Removing Linux provisioning results before image capture...")
-		if _, err := RunCommand(ctx, s, "rm -f /var/log/azure/aks/provision.json /opt/azure/containers/provision.complete"); err != nil {
-			return nil, fmt.Errorf("failed to remove Linux provisioning results before image capture: %w", err)
 		}
 	}
 
