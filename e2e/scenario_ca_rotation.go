@@ -51,6 +51,17 @@ func validateContainerdCARotation(ctx context.Context, s *Scenario) error {
 	if out, err := build.CombinedOutput(); err != nil {
 		return fmt.Errorf("build CA fixture: %w: %s", err, out)
 	}
+	// Use the same test blob transport as ANC binaries. Large SCP writes over
+	// the runner's Bastion websocket can close that shared SSH connection.
+	f, err := os.Open(binary)
+	if err != nil {
+		return err
+	}
+	url, uploadErr := config.Azure.UploadAndGetSignedLink(ctx, "ca-rotation/"+filepath.Base(dir), f)
+	f.Close()
+	if uploadErr != nil {
+		return fmt.Errorf("upload fixture: %w", uploadErr)
+	}
 	remoteDir := "/home/azureuser/" + filepath.Base(dir)
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "mkdir -m 700 "+remoteDir, 0, "create isolated CA fixture directory"); err != nil {
 		return err
@@ -59,6 +70,11 @@ func validateContainerdCARotation(ctx context.Context, s *Scenario) error {
 		_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo rm -rf -- "+remoteDir, 0, "remove CA fixture directory")
 		return err
 	})
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		fmt.Sprintf("curl --fail --silent --show-error --retry 3 '%s' -o %s/fixture && chmod 0700 %s/fixture", url, remoteDir, remoteDir),
+		0, "download CA fixture"); err != nil {
+		return err
+	}
 	client, err := scp.NewClientBySSH(s.Runtime.VM.SSHClient)
 	if err != nil {
 		return err
@@ -67,7 +83,6 @@ func validateContainerdCARotation(ctx context.Context, s *Scenario) error {
 	// Upload the branch refresh script rather than silently exercising the
 	// released VHD's older script. This also tests refresh on an existing node.
 	for _, file := range []struct{ local, remote, mode string }{
-		{binary, "fixture", "0700"},
 		{filepath.Join("..", "parts/linux/cloud-init/artifacts/init-aks-cloud.sh"), "init-aks-cloud.sh", "0600"},
 	} {
 		f, err := os.Open(file.local)
