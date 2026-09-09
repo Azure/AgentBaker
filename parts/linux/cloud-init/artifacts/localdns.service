@@ -7,13 +7,30 @@ Before=kubelet.service
 Before=containerd.service
 # don't run on old images; we're not compatible
 ConditionKernelVersion=>=5.15
+# Keep recovering from repeated unexpected exits instead of wedging the unit in
+# a terminal 'failed' state. LocalDNS binds the pod cluster listener
+# (169.254.10.11); if the unit stops being restarted, that listener stays dead
+# and every pod on the node black-holes DNS (its /etc/resolv.conf nameserver is
+# baked to 169.254.10.11 and cannot be repointed). A wide interval with a high
+# burst, combined with the RestartSec backoff below, means a crash storm slows
+# restarts but never gives up.
+StartLimitIntervalSec=300
+StartLimitBurst=30
 
 [Service]
 Type=notify
 NotifyAccess=all
 WatchdogSec=60
 Restart=on-failure
+# Back off between restarts so a crash loop does not exhaust the start-limit
+# burst in a couple of seconds, and so each restart has time to re-bind the
+# node (169.254.10.10) and cluster (169.254.10.11) listeners and re-apply config.
+RestartSec=2
 KillMode=mixed
+# On stop, SIGTERM the control group; on an unexpected exit / SIGKILL of the
+# supervisor, systemd still reaps orphaned coredns children so the next
+# ExecStart can re-bind the listeners cleanly.
+KillSignal=SIGTERM
 # Revert node DNS configuration even when the supervisor exits unexpectedly.
 ExecStopPost=/opt/azure/containers/localdns/localdns.sh cleanup
 TimeoutStopSec=30
