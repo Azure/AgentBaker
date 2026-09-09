@@ -1079,8 +1079,12 @@ func (a *App) rpmRepositoryPlan(info platformInfo, hotfixVersion string) (reposi
 	if err != nil {
 		return repositoryDownloadPlan{}, err
 	}
-	baseURL := strings.ReplaceAll(repository.BaseURL, "$releasever", info.VersionID)
-	baseURL = strings.ReplaceAll(baseURL, "${releasever}", info.VersionID)
+releaseVersion := info.VersionID
+	if info.ID == osIDAzureLinux {
+		releaseVersion = strings.SplitN(info.VersionID, ".", 2)[0] + ".0"
+	}
+	baseURL := strings.ReplaceAll(repository.BaseURL, "$releasever", releaseVersion)
+	baseURL = strings.ReplaceAll(baseURL, "${releasever}", releaseVersion)
 	baseURL = strings.ReplaceAll(baseURL, "$basearch", rpmArch)
 	baseURL = strings.ReplaceAll(baseURL, "${basearch}", rpmArch)
 	if strings.Contains(baseURL, "$") {
