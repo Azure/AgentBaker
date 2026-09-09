@@ -38,7 +38,7 @@ ubuntuKernelIncludesVulnerableModuleFixes() {
 
   case "$os_version" in
     20.04)
-      [[ "$kernel_release" =~ ^5\.4\.0-[0-9]+-azure-fips$ ]] || return 1
+      printf '%s\n' "$kernel_release" | grep -Eq '^5\.4\.0-[0-9]+-azure-fips$' || return 1
       fixed_kernel="5.4.0-1164-azure-fips"
       ;;
     22.04)

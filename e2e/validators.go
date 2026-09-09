@@ -4085,7 +4085,7 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) e
 			`absent_reason=""`,
 			`case "$VERSION_ID" in`,
 			`  20.04)`,
-			`    if [[ "$kernel_release" =~ ^5\.4\.0-[0-9]+-azure-fips$ ]]; then`,
+			`    if printf '%s\n' "$kernel_release" | grep -Eq '^5\.4\.0-[0-9]+-azure-fips$'; then`,
 			`      fixed_kernel="5.4.0-1164-azure-fips"`,
 			`    fi`,
 			`    ;;`,
