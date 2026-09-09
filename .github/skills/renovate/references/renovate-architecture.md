@@ -10,8 +10,8 @@ AgentBaker uses `parts/common/components.json` as its component manifest.
 
 1. Package rules controlling update types, ownership, and automerge.
 2. Custom managers that extract versions from `components.json`.
-3. Custom datasources for MCR, Microsoft package feeds, and Azure Linux RPM
-   repositories.
+3. Built-in `docker`, `rpm`, and `github-releases` datasources, plus custom
+   datasources for Microsoft and NVIDIA package feeds.
 
 The VHD build caches the selected versions. AKS-RP later requests component
 versions while provisioning nodes. If the requested version is absent from the
@@ -53,25 +53,25 @@ Each version entry can contain:
   compatibility.
 - `k8sVersion`: Kubernetes minor version associated with the entry.
 
-Check OS coverage across the applicable manifest paths:
+Check OS coverage across every applicable manifest path. For package entries, inspect:
 
-```text
-downloadURIs.default.current
-downloadURIs.ubuntu.r2004
-downloadURIs.ubuntu.r2204
-downloadURIs.ubuntu.r2404
-downloadURIs.ubuntu.r2604
-downloadURIs.mariner.current
-downloadURIs.azurelinux."v3.0"
-downloadURIs.azurelinux."DEFAULT/v3.0"
-downloadURIs.azurelinux."OSGUARD/v3.0"
-```
+- `downloadURIs.default.current`
+- `downloadURIs.ubuntu.r2004`, `.r2204`, `.r2404`, and `.r2604`
+- `downloadURIs.mariner.current` and `downloadURIs.marinerkata.current`
+- `downloadURIs.azurelinux.current`, `."v3.0"`, `."DEFAULT/v3.0"`, and `."OSGUARD/v3.0"`
+- `downloadURIs.azurelinuxkata.current`, `."v3.0"`, `."DEFAULT/v3.0"`, and `."OSGUARD/v3.0"`
+- `downloadURIs.windows.default`, `.ws2022`, `.ws23h2`, and `.ws2025`
+- `downloadURIs.flatcar.current`
 
-Dalec-built `oss/v2/*` images use tags shaped like
-`vMAJOR.MINOR.PATCH-REVISION`. Their package rule needs matching regex
-versioning. Azure Linux RPM suffixes such as `-1.azl3` and timestamped image
-tags may be classified as unstable; relevant rules need
-`"ignoreUnstable": false`.
+For container images, also compare `amd64OnlyVersions`,
+`multiArchVersionsV2`, and `windowsVersions`.
+
+Most Dalec-built `oss/v2/*` images use tags shaped like
+`vMAJOR.MINOR.PATCH-REVISION`, but system-extension artifacts append a
+distribution suffix and use dedicated rules. Match the component's actual tag
+shape before choosing regex versioning. Azure Linux RPM suffixes such as
+`-1.azl3` and timestamped image tags may be classified as unstable; relevant
+rules need `"ignoreUnstable": false`.
 
 ## Cache and AKS-RP coordination
 
