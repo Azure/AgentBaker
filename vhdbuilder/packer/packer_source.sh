@@ -37,7 +37,10 @@ ubuntuKernelIncludesVulnerableModuleFixes() {
   fi
 
   case "$os_version" in
-    20.04) return 1 ;;
+    20.04)
+      [[ "$kernel_release" =~ ^5\.4\.0-[0-9]+-azure-fips$ ]] || return 1
+      fixed_kernel="5.4.0-1164-azure-fips"
+      ;;
     22.04)
       case "$kernel_release" in
         # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
@@ -567,7 +570,7 @@ copyPackerFiles() {
   # is still baked in, so AzureLinux 3.0 keeps the same CIS module hardening as every other
   # OS stream instead of silently losing the whole file. See
   # https://github.com/Azure/AKS/issues/5753.
-  # Ubuntu 20.04, Mariner / AzureLinux 2.0, and AzureLinux OSGuard still get the unmodified bake-in.
+  # Other Ubuntu 20.04 kernels, Mariner / AzureLinux 2.0, and AzureLinux OSGuard still get the unmodified bake-in.
   if isUbuntu "$OS" && ubuntuKernelIncludesVulnerableModuleFixes; then
     bakeModprobeCISWithoutVulnerableModules "on Ubuntu ${OS_VERSION} (fixed or future Ubuntu kernels are not in mitigation scope)"
   elif isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then

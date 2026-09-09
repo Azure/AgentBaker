@@ -109,7 +109,10 @@ reconcileVulnerableKernelModuleMitigation() {
     # basePrep or carry stale modprobe files.
     # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
     #
-    # Ubuntu 20.04 remains in scope. Future Ubuntu releases are intentionally skipped
+    # Ubuntu 20.04 remains in scope except 5.4.0-1164-azure-fips and newer ABIs in the
+    # 5.4 Azure FIPS stream: linux-azure-fips 5.4.0-1164.170+fips1 fixes Copy Fail and
+    # DirtyFrag; Focal 5.4 is not affected by Fragnesia. Other 20.04 streams stay blocked.
+    # Future Ubuntu releases are intentionally skipped
     # unless explicitly added here so they do not inherit this deny mitigation by default.
     # Ubuntu 22.04 picked up the fixes in linux-azure 5.15.0-1116-azure (generic
     # fallback 5.15.0-181-generic); Ubuntu 24.04 picked up the fixes in linux-azure
