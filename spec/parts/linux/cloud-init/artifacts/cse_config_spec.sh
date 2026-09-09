@@ -226,6 +226,76 @@ Describe 'cse_config.sh'
             The contents of file "${TEST_FSTAB_FILE}" should equal '/other none swap sw 0 0'
         End
     End
+    Describe 'disableSSH'
+        systemctl() {
+            case "$1" in
+                daemon-reload) return 0 ;;
+                cat)
+                    # MISSING_UNITS simulates a distro where the unit isn't installed.
+                    case " ${MISSING_UNITS:-} " in
+                        *" $2 "*) return 1 ;;
+                    esac
+                    return 0
+                    ;;
+                stop|disable)
+                    echo "$*"
+                    [ "$*" != "${FAIL_COMMAND:-}" ]
+                    ;;
+                *) return 1 ;;
+            esac
+        }
+
+        timeout() {
+            shift
+            "$@"
+        }
+
+        sleep() {
+            :
+        }
+
+        It 'stops and disables every SSH unit that is present'
+            When call disableSSH
+            The output should equal "stop ssh
+disable ssh
+stop sshd
+disable sshd
+stop sshd.socket
+disable sshd.socket"
+            The status should be success
+        End
+
+        It 'skips units that are not installed'
+            MISSING_UNITS="ssh sshd"
+            When call disableSSH
+            The output should equal "stop sshd.socket
+disable sshd.socket"
+            The status should be success
+        End
+
+        It 'skips sshd.socket on distros without socket activation'
+            MISSING_UNITS="ssh sshd.socket"
+            When call disableSSH
+            The output should equal "stop sshd
+disable sshd"
+            The status should be success
+        End
+
+        It 'exits with the CSE SSH error code when a unit cannot be disabled'
+            FAIL_COMMAND="disable sshd.socket"
+            When run disableSSH
+            The output should include "sshd.socket could not be disabled"
+            The status should equal 172
+        End
+
+        It 'exits with the CSE SSH error code when a unit cannot be stopped'
+            FAIL_COMMAND="stop sshd"
+            When run disableSSH
+            The output should include "sshd could not be stopped"
+            The output should include "disable sshd"
+            The status should equal 172
+        End
+    End
     Describe 'disableSSHPubkeyAuth'
         setup() {
             SSHD_CONFIG_FILE="$(mktemp)"

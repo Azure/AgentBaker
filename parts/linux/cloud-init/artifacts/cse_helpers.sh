@@ -683,11 +683,14 @@ waitForContainerdReady() {
     fi
 }
 
+# A unit that isn't installed is not an error, a unit that resists stop/disable is.
 systemctlDisableAndStop() {
+    local result=0
     if systemctl cat "$1" &>/dev/null; then
-        systemctl_stop 20 5 25 $1 || echo "$1 could not be stopped"
-        systemctl_disable 20 5 25 $1 || echo "$1 could not be disabled"
+        systemctl_stop 20 5 25 $1 || { echo "$1 could not be stopped"; result=1; }
+        systemctl_disable 20 5 25 $1 || { echo "$1 could not be disabled"; result=1; }
     fi
+    return $result
 }
 
 # return true if a >= b
