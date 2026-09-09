@@ -74,6 +74,112 @@ Describe 'long running cse helper functions'
                 The stdout should not include "mock systemctl call"
                 The stdout should not include "mock journalctl call"
             End
+
+            It "bounds the journalctl dump so it does not grow with the retry count"
+                journalctl() {
+                    echo "journalctl args: $*"
+                }
+                When call _systemctl_retry_svc_operation 2 0 1 "restart" "nonexistent.service" "true"
+                The status should eq 1
+                The stdout should include "journalctl args: -u nonexistent.service --no-pager -n 50"
+            End
+        End
+
+        Describe '_systemctl_retry_svc_operation operation budget'
+            # the operation budget is a wall-clock bound, so let each attempt cost real time
+            timeout() {
+                sleep 1
+                return 124
+            }
+            systemctl() {
+                echo "mock systemctl call"
+            }
+            journalctl() {
+                echo "mock journalctl call"
+            }
+
+            budget_precheck() {
+                # exercise the operation budget in isolation from the global CSE timeout guard
+                unset CSE_STARTTIME_SECONDS
+            }
+            BeforeEach budget_precheck
+
+            It "gives up on the operation budget instead of exhausting all retries"
+                When call _systemctl_retry_svc_operation 100 1 5 "restart" "nonexistent.service" "false" 2
+                The status should eq 2
+                The stderr should include "nonexistent.service: operation budget of 2s exceeded"
+                The stderr should include "1 attempt(s)"
+                The stdout should be defined
+            End
+
+            It "keeps retrying until the retry count is exhausted when no budget is supplied"
+                When call _systemctl_retry_svc_operation 2 0 1 "restart" "nonexistent.service" "false"
+                The status should eq 1
+                The stdout should be defined
+                The stderr should be defined
+            End
+
+            It "returns 0 immediately when the operation succeeds"
+                timeout() {
+                    return 0
+                }
+                When call _systemctl_retry_svc_operation 100 5 30 "restart" "working.service" "false" 120
+                The status should eq 0
+                The stdout should be defined
+            End
+        End
+
+        Describe 'systemctl_restart budget passthrough'
+            _systemctl_retry_svc_operation() {
+                echo "_systemctl_retry_svc_operation args: $*"
+            }
+
+            It "defaults the budget to 0 when the caller omits it"
+                When call systemctl_restart 5 1 30 "some.service"
+                The status should eq 0
+                The stdout should include "_systemctl_retry_svc_operation args: 5 1 30 restart some.service true 0"
+            End
+
+            It "passes a caller-supplied budget through"
+                When call systemctl_restart 5 1 30 "some.service" 120
+                The status should eq 0
+                The stdout should include "_systemctl_retry_svc_operation args: 5 1 30 restart some.service true 120"
+            End
+        End
+
+        Describe 'systemctlEnableAndStart retry configuration'
+            systemctl_restart() {
+                echo "systemctl_restart args: $*"
+                return 1
+            }
+            systemctl_restart_no_block() {
+                echo "systemctl_restart_no_block args: $*"
+                return 1
+            }
+            systemctl() {
+                echo "mock systemctl call"
+            }
+
+            It "applies the default retry count and operation budget"
+                When call systemctlEnableAndStart some.service 30
+                The status should eq 1
+                The stdout should include "systemctl_restart args: 100 5 30 some.service 120"
+                The stderr should be defined
+            End
+
+            It "honors a caller-supplied retry count for optional units"
+                When call systemctlEnableAndStart some.service 30 3
+                The status should eq 1
+                The stdout should include "systemctl_restart args: 3 5 30 some.service 120"
+                The stderr should be defined
+            End
+
+            It "honors a caller-supplied retry count in the no-block variant"
+                When call systemctlEnableAndStartNoBlock some.service 30 3
+                The status should eq 1
+                The stdout should include "systemctl_restart_no_block args: 3 5 30 some.service 120"
+                The stderr should be defined
+            End
         End
     End
 
