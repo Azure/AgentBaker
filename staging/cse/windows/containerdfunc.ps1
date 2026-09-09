@@ -7,7 +7,7 @@ $global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containe
 $global:MinimalKubernetesVersionWithLatestContainerd2 = "1.32.0"
 $global:WindowsDataDir = "C:\AzureData\windows"
 
-# Function so it can be overriden in tests.
+# Function so it can be overridden in tests.
 function Get-RootRegistryPath {
   return "C:\ProgramData\containerd\certs.d"
 }
