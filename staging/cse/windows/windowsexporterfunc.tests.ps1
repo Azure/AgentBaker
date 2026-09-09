@@ -148,11 +148,28 @@ Describe 'Windows exporter CSE functions' {
                 param($Arguments)
                 if ($Arguments[0] -eq 'start') { throw 'start failed' }
             }
+            Mock Test-WindowsExporterHealth -MockWith { return $false }
 
             Install-WindowsExporter | Should -Be $false
 
             Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter { $Arguments[0] -eq 'stop' }
             Assert-MockCalled New-Item -Exactly -Times 0
+        }
+
+        It 'claims ownership when a nonzero start result is followed by service health' {
+            Mock Test-Path -MockWith { return $true }
+            Mock Get-Service -MockWith { return $null }
+            Mock Invoke-WindowsExporterNssm -MockWith {
+                param($Arguments)
+                if ($Arguments[0] -eq 'start') { throw 'nssm.exe start failed with exit code 1: SERVICE_START_PENDING' }
+            }
+            Mock Test-WindowsExporterHealth -MockWith { return $true }
+
+            Install-WindowsExporter | Should -Be $true
+
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter { $Arguments[0] -eq 'start' }
+            Assert-MockCalled Test-WindowsExporterHealth -Exactly -Times 1
+            Assert-MockCalled New-Item -Exactly -Times 1 -ParameterFilter { $Path -eq $global:WindowsExporterSkipFile }
         }
 
         It 'leaves ownership with the extension when nssm configuration fails' {
@@ -179,6 +196,11 @@ Describe 'Windows exporter CSE functions' {
     }
 
     Context 'Test-WindowsExporterHealth' {
+        BeforeEach {
+            Mock Get-Service -MockWith { return @{ Status = 'Running' } }
+            Mock Start-Sleep
+        }
+
         It 'uses the baked health script when it is present' {
             $global:WindowsExporterHealthScript = Join-Path $TestDrive 'windows-exporter-health.ps1'
             @'
@@ -204,6 +226,50 @@ function Get-Version {
             Test-WindowsExporterHealth -RetryCount 0 -RetryInterval 0 | Should -Be $true
 
             Assert-MockCalled Invoke-WebRequest -Exactly -Times 1
+        }
+
+        It 'waits for a pending service even when the health endpoint responds' {
+            $global:WindowsExporterHealthScript = Join-Path $TestDrive 'missing-health.ps1'
+            $script:serviceChecks = 0
+            Mock Get-Service -MockWith {
+                $script:serviceChecks++
+                if ($script:serviceChecks -eq 1) { return @{ Status = 'StartPending' } }
+                return @{ Status = 'Running' }
+            }
+            Mock Invoke-WebRequest -MockWith { return @{ Content = 'ok' } }
+
+            Test-WindowsExporterHealth -RetryCount 1 -RetryInterval 1 | Should -Be $true
+
+            Assert-MockCalled Get-Service -Exactly -Times 2
+            Assert-MockCalled Start-Sleep -Exactly -Times 1
+        }
+
+        It 'does not accept endpoint health without a running service (<Status>)' -TestCases @(
+            @{ Status = 'StartPending' }
+            @{ Status = 'Stopped' }
+            @{ Status = $null }
+        ) {
+            param($Status)
+            $global:WindowsExporterHealthScript = Join-Path $TestDrive 'missing-health.ps1'
+            $script:healthServiceStatus = $Status
+            Mock Get-Service -MockWith {
+                if ($null -eq $script:healthServiceStatus) { return $null }
+                return @{ Status = $script:healthServiceStatus }
+            }
+            Mock Invoke-WebRequest -MockWith { return @{ Content = 'ok' } }
+
+            Test-WindowsExporterHealth -RetryCount 1 -RetryInterval 1 | Should -Be $false
+
+            Assert-MockCalled Get-Service -Exactly -Times 2
+        }
+
+        It 'does not accept baked health script success for a stopped service' {
+            $global:WindowsExporterHealthScript = Join-Path $TestDrive 'healthy-script.ps1'
+            'function Get-Health { return "ok" }; function Get-Version { return "0.31.2" }' |
+                Set-Content -Path $global:WindowsExporterHealthScript
+            Mock Get-Service -MockWith { return @{ Status = 'Stopped' } }
+
+            Test-WindowsExporterHealth -RetryCount 0 -RetryInterval 0 | Should -Be $false
         }
     }
 
