@@ -101,6 +101,7 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 
 	slog.Info("downloading ANC hotfix", "current", Version, "target", hotfixVersion)
 
+	routeStart := time.Now()
 	if err := a.tryRepositoryDownload(ctx, hotfixVersion); err == nil {
 		return nil
 	} else if isIntegrityError(err) {
@@ -111,18 +112,17 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 			"version", hotfixVersion, "error", err)
 	}
 
-	pmcStart := time.Now()
 	if err := a.installFromPMC(ctx, hotfixVersion); err != nil {
 		return fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
 	}
 
-	if err := copyBinaryAlongside(pkgBinaryPath, a.hotfixPath(), a.vhdPath()); err != nil {
+	if err := copyBinaryAlongside(a.pkgPath(), a.hotfixPath(), a.vhdPath()); err != nil {
 		return fmt.Errorf("stage hotfix binary: %w", err)
 	}
 
 	// Mirrors the fast path's durationMs so the two can be compared from node logs.
 	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", a.hotfixPath(),
-		"durationMs", time.Since(pmcStart).Milliseconds())
+		"durationMs", time.Since(routeStart).Milliseconds())
 	return nil
 }
 
@@ -138,6 +138,13 @@ func (a *App) hotfixPath() string {
 		return a.hotfixBinaryPath
 	}
 	return hotfixBinaryPath
+}
+
+func (a *App) pkgPath() string {
+	if a.pkgBinaryPath != "" {
+		return a.pkgBinaryPath
+	}
+	return pkgBinaryPath
 }
 
 // removeStaleHotfix disarms a previously staged hotfix binary after an integrity failure,

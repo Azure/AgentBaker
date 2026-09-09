@@ -60,9 +60,10 @@ type App struct {
 	goArch string
 	// repositoryTempDir overrides where repository downloads and extraction are staged.
 	repositoryTempDir string
-	// vhdBinaryPath and hotfixBinaryPath override ANC binary paths for testing.
+	// vhdBinaryPath, hotfixBinaryPath, and pkgBinaryPath override ANC binary paths for testing.
 	vhdBinaryPath    string
 	hotfixBinaryPath string
+	pkgBinaryPath    string
 	// verifyRepositorySignature overrides gpgv-backed repository signature verification.
 	verifyRepositorySignature func(ctx context.Context, signedPath, signaturePath string, keyrings []string) error
 	// extractRepositoryPackage overrides package extraction for deterministic unit tests.

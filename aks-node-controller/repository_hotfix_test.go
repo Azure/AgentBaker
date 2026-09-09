@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -252,6 +253,48 @@ func TestUbuntuRepositoryHTTPErrorFallsBackToApt(t *testing.T) {
 		}
 		return false
 	}, "an operational direct-path failure must invoke apt fallback")
+}
+
+func TestUbuntuRepositoryFallbackDurationIncludesRepositoryAttempt(t *testing.T) {
+	const repositoryDelay = 50 * time.Millisecond
+	logs := installLogCapturer(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		time.Sleep(repositoryDelay)
+		http.Error(w, "transient repository failure", http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	app := configuredUbuntuRepositoryApp(t, dir, server.URL, func(*exec.Cmd) error {
+		return nil
+	})
+	app.vhdBinaryPath = filepath.Join(dir, "aks-node-controller")
+	app.pkgBinaryPath = filepath.Join(dir, "usr-bin-aks-node-controller")
+	app.hotfixBinaryPath = filepath.Join(dir, "aks-node-controller-hotfix")
+	require.NoError(t, os.WriteFile(app.vhdBinaryPath, []byte("vhd-binary"), 0o755))
+	require.NoError(t, os.WriteFile(app.pkgBinaryPath, []byte("package-manager-binary"), 0o755))
+
+	originalVersion := Version
+	Version = "202608.21.0"
+	t.Cleanup(func() { Version = originalVersion })
+	err := app.downloadBinaryHotfixIfNeeded(context.Background(), &hotfixConfig{
+		Hotfixes: map[string]string{"202608.21": "202608.21.1"},
+	})
+	require.NoError(t, err)
+
+	var durationMs int64 = -1
+	for _, record := range logs.getRecords() {
+		if record.Message != "downloaded ANC hotfix" {
+			continue
+		}
+		duration, parseErr := strconv.ParseInt(record.Attrs["durationMs"], 10, 64)
+		require.NoError(t, parseErr)
+		durationMs = duration
+	}
+	require.GreaterOrEqual(t, durationMs, repositoryDelay.Milliseconds())
+	staged, err := os.ReadFile(app.hotfixBinaryPath)
+	require.NoError(t, err)
+	assert.Equal(t, []byte("package-manager-binary"), staged)
 }
 
 func TestParseAptRepositoryFormats(t *testing.T) {
