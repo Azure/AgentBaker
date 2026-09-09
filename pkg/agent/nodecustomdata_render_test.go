@@ -49,13 +49,41 @@ write_files:
 	}
 }
 
-func TestRenderLinuxNodeCustomDataTemplateRejectsMissingOrchestratorProfile(t *testing.T) {
-	config := newNodeCustomDataRenderConfig(datamodel.AKSUbuntuContainerd2204Gen2)
-	config.ContainerService.Properties.OrchestratorProfile = nil
+func TestRenderLinuxNodeCustomDataTemplateRejectsMissingDependencies(t *testing.T) {
+	tests := []struct {
+		name   string
+		remove func(*datamodel.NodeBootstrappingConfiguration)
+	}{
+		{
+			name: "orchestrator profile",
+			remove: func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.OrchestratorProfile = nil
+			},
+		},
+		{
+			name: "Kubernetes components",
+			remove: func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.K8sComponents = nil
+			},
+		},
+		{
+			name: "cloud spec config",
+			remove: func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.CloudSpecConfig = nil
+			},
+		},
+	}
 
-	_, err := RenderLinuxNodeCustomDataTemplate([]byte("#cloud-config\nwrite_files: []\n"), config)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config := newNodeCustomDataRenderConfig(datamodel.AKSUbuntuContainerd2204Gen2)
+			test.remove(config)
 
-	require.EqualError(t, err, "node bootstrapping configuration is incomplete")
+			_, err := RenderLinuxNodeCustomDataTemplate([]byte("#cloud-config\nwrite_files: []\n"), config)
+
+			require.EqualError(t, err, "node bootstrapping configuration is incomplete")
+		})
+	}
 }
 
 func newNodeCustomDataRenderConfig(distro datamodel.Distro) *datamodel.NodeBootstrappingConfiguration {

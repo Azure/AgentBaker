@@ -639,7 +639,9 @@ func RenderLinuxNodeCustomDataTemplate(templateContent []byte, config *datamodel
 		config.AgentPoolProfile == nil ||
 		config.ContainerService == nil ||
 		config.ContainerService.Properties == nil ||
-		config.ContainerService.Properties.OrchestratorProfile == nil {
+		config.ContainerService.Properties.OrchestratorProfile == nil ||
+		config.K8sComponents == nil ||
+		config.CloudSpecConfig == nil {
 		return "", fmt.Errorf("node bootstrapping configuration is incomplete")
 	}
 
