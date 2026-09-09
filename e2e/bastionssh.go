@@ -3,14 +3,20 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
+	"syscall"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
@@ -23,7 +29,7 @@ import (
 var AllowedSSHPrefixes = []string{ssh.KeyAlgoED25519, ssh.KeyAlgoRSA, ssh.KeyAlgoRSASHA256, ssh.KeyAlgoRSASHA512}
 
 type Bastion struct {
-	credential                                 *azidentity.AzureCLICredential
+	credential                                 azcore.TokenCredential
 	subscriptionID, resourceGroupName, dnsName string
 	httpClient                                 *http.Client
 	httpTransport                              *http.Transport
@@ -61,10 +67,12 @@ type tunnelSession struct {
 
 	targetHost string
 	targetPort uint16
+	closeOnce  sync.Once
+	closeErr   error
 }
 
 func (b *Bastion) NewTunnelSession(ctx context.Context, targetHost string, port uint16) (*tunnelSession, error) {
-	session, err := b.newSessionToken(targetHost, port)
+	session, err := b.newSessionToken(ctx, targetHost, port)
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +85,7 @@ func (b *Bastion) NewTunnelSession(ctx context.Context, targetHost string, port 
 	})
 	cancel()
 	if err != nil {
+		b.deleteSessionTokenAsync(ctx, session)
 		return nil, err
 	}
 
@@ -102,17 +111,41 @@ type sessionToken struct {
 }
 
 func (t *tunnelSession) Close() error {
-	_ = t.ws.Close(websocket.StatusNormalClosure, "")
+	t.closeOnce.Do(func() {
+		_ = t.ws.CloseNow()
+		if t.ctx.Err() != nil {
+			t.bastion.deleteSessionTokenAsync(t.ctx, t.session)
+		} else {
+			t.closeErr = t.bastion.deleteSessionToken(t.ctx, t.session)
+		}
+	})
+	return t.closeErr
+}
 
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("https://%v/api/tokens/%v", t.bastion.dnsName, t.session.AuthToken), nil)
+func (b *Bastion) deleteSessionTokenAsync(ctx context.Context, session *sessionToken) {
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	go func() {
+		defer cancel()
+		if err := b.deleteSessionToken(cleanupCtx, session); err != nil {
+			toolkit.Logf(cleanupCtx, "Failed to delete bastion session: %v", err)
+		}
+	}()
+}
+
+func (b *Bastion) deleteSessionToken(ctx context.Context, session *sessionToken) error {
+	req, err := http.NewRequestWithContext(ctx, "DELETE", fmt.Sprintf("https://%v/api/tokens/%v", b.dnsName, session.AuthToken), nil)
 	if err != nil {
 		return err
 	}
 
-	req.Header.Add("X-Node-Id", t.session.NodeID)
+	req.Header.Add("X-Node-Id", session.NodeID)
 
-	resp, err := t.bastion.httpClient.Do(req)
+	resp, err := b.httpClient.Do(req)
 	if err != nil {
+		var requestErr *url.Error
+		if errors.As(err, &requestErr) {
+			return requestErr.Err
+		}
 		return err
 	}
 	defer resp.Body.Close()
@@ -125,16 +158,16 @@ func (t *tunnelSession) Close() error {
 		return fmt.Errorf("unexpected status code: %v", resp.StatusCode)
 	}
 
-	if t.bastion.httpTransport != nil {
-		t.bastion.httpTransport.CloseIdleConnections()
+	if b.httpTransport != nil {
+		b.httpTransport.CloseIdleConnections()
 	}
 
 	return nil
 }
 
-func (b *Bastion) newSessionToken(targetHost string, port uint16) (*sessionToken, error) {
+func (b *Bastion) newSessionToken(ctx context.Context, targetHost string, port uint16) (*sessionToken, error) {
 
-	token, err := b.credential.GetToken(context.Background(), policy.TokenRequestOptions{
+	token, err := b.credential.GetToken(ctx, policy.TokenRequestOptions{
 		Scopes: []string{fmt.Sprintf("%s/.default", cloud.AzurePublic.Services[cloud.ResourceManager].Endpoint)},
 	})
 
@@ -152,7 +185,7 @@ func (b *Bastion) newSessionToken(targetHost string, port uint16) (*sessionToken
 	data.Set("aztoken", token.Token)
 	data.Set("hostname", targetHost)
 
-	req, err := http.NewRequest("POST", apiUrl, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, "POST", apiUrl, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +304,6 @@ func sshClientConfig(user string, privateKey []byte) (*ssh.ClientConfig, error) 
 			}
 			return nil
 		},
-		Timeout: 5 * time.Second,
 	}, nil
 }
 
@@ -286,50 +318,142 @@ func DialSSHOverBastion(
 		return nil, err
 	}
 
+	return dialSSHOverBastion(ctx, vmPrivateIP, sshConfig, func(ctx context.Context) (net.Conn, error) {
+		return bastion.NewTunnelSession(ctx, vmPrivateIP, 22)
+	})
+}
+
+func dialSSHOverBastion(
+	ctx context.Context,
+	vmPrivateIP string,
+	sshConfig *ssh.ClientConfig,
+	openTunnel func(context.Context) (net.Conn, error),
+) (*ssh.Client, error) {
 	const (
-		sshDialAttempts = 5
-		sshDialTimeout  = 30 * time.Second
-		sshDialBackoff  = 10 * time.Second
+		sshReadinessTimeout = 5 * time.Minute
+		sshDialBackoff      = 10 * time.Second
 	)
+	ctx, cancel := context.WithTimeout(ctx, sshReadinessTimeout)
+	defer cancel()
+	start := time.Now()
+	deadline, _ := ctx.Deadline()
 
 	var lastErr error
-	for attempt := 1; attempt <= sshDialAttempts; attempt++ {
-		if attempt > 1 {
-			select {
-			case <-time.After(sshDialBackoff):
-			case <-ctx.Done():
-				return nil, ctx.Err()
+	for attempt := 1; ; attempt++ {
+		if ctx.Err() != nil || !time.Now().Before(deadline) {
+			err := ctx.Err()
+			if err == nil {
+				err = context.DeadlineExceeded
 			}
+			return nil, fmt.Errorf("SSH readiness to %s ended after %s: %w (last attempt: %v)", vmPrivateIP, time.Since(start), err, lastErr)
 		}
-		toolkit.Logf(ctx, "Attempt %d/%d establishing SSH over bastion to %s", attempt, sshDialAttempts, vmPrivateIP)
+		toolkit.Logf(ctx, "Attempt %d establishing SSH over bastion to %s (elapsed %s)", attempt, vmPrivateIP, time.Since(start))
 
-		// Intentionally use a background context to prevent cancelling the SSH connection before
-		// we fetch logs during cleanup.
-		tunnel, err := bastion.NewTunnelSession(context.Background(), vmPrivateIP, 22)
-		if err != nil {
-			lastErr = err
-			toolkit.Logf(ctx, "Attempt %d/%d failed to create bastion tunnel: %v", attempt, sshDialAttempts, err)
+		client, err := dialSSHAttempt(ctx, vmPrivateIP, sshConfig, openTunnel)
+		if err == nil {
+			toolkit.Logf(ctx, "SSH over bastion to %s ready after %s (%d attempts)", vmPrivateIP, time.Since(start), attempt)
+			return client, nil
+		}
+		lastErr = err
+		toolkit.Logf(ctx, "Attempt %d SSH over bastion failed after %s: %v", attempt, time.Since(start), err)
+		if ctx.Err() != nil {
 			continue
 		}
-
-		_ = tunnel.SetDeadline(time.Now().Add(sshDialTimeout))
-		sshConn, chans, reqs, err := ssh.NewClientConn(
-			tunnel,
-			vmPrivateIP,
-			sshConfig,
-		)
-		if err != nil {
-			lastErr = err
-			toolkit.Logf(ctx, "Attempt %d/%d SSH handshake failed: %v", attempt, sshDialAttempts, err)
-			_ = tunnel.Close()
-			continue
+		if !isTransientSSHError(err) {
+			return nil, err
 		}
-		_ = tunnel.SetDeadline(time.Time{})
-		return ssh.NewClient(sshConn, chans, reqs), nil
+		timer := time.NewTimer(sshDialBackoff)
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+		}
+		timer.Stop()
 	}
+}
 
-	if lastErr == nil {
-		lastErr = fmt.Errorf("failed to establish SSH connection over bastion")
+func dialSSHAttempt(
+	ctx context.Context,
+	address string,
+	config *ssh.ClientConfig,
+	openTunnel func(context.Context) (net.Conn, error),
+) (*ssh.Client, error) {
+	tunnelCtx, cancelTunnel := context.WithCancel(context.WithoutCancel(ctx))
+	stopReadiness := context.AfterFunc(ctx, cancelTunnel)
+	defer stopReadiness()
+
+	conn, err := openTunnel(tunnelCtx)
+	if err != nil {
+		cancelTunnel()
+		return nil, fmt.Errorf("open bastion tunnel: %w", err)
 	}
-	return nil, lastErr
+	tunnel := &sshReadinessConn{Conn: conn, cancel: cancelTunnel}
+
+	handshakeCtx, cancelHandshake := context.WithTimeout(ctx, 30*time.Second)
+	handshakeDeadline, _ := handshakeCtx.Deadline()
+	stopHandshake := context.AfterFunc(handshakeCtx, cancelTunnel)
+	sshConn, chans, reqs, err := ssh.NewClientConn(tunnel, address, config)
+	stopHandshake()
+	stopReadiness()
+	handshakeErr := handshakeCtx.Err()
+	if handshakeErr == nil && !time.Now().Before(handshakeDeadline) {
+		handshakeErr = context.DeadlineExceeded
+	}
+	cancelHandshake()
+	if handshakeErr != nil {
+		err = handshakeErr
+	}
+	if ctx.Err() != nil {
+		err = ctx.Err()
+	}
+	if err != nil {
+		if cleanupErr := tunnel.Close(); cleanupErr != nil {
+			toolkit.Logf(ctx, "Failed to close bastion tunnel: %v", cleanupErr)
+		}
+		return nil, fmt.Errorf("SSH handshake: %w", err)
+	}
+	tunnel.ready.Store(true)
+	return ssh.NewClient(sshConn, chans, reqs), nil
+}
+
+type sshReadinessConn struct {
+	net.Conn
+	cancel   context.CancelFunc
+	close    sync.Once
+	closeErr error
+	ready    atomic.Bool
+}
+
+func (c *sshReadinessConn) Close() error {
+	c.close.Do(func() {
+		defer c.cancel()
+		if !c.ready.Load() {
+			c.cancel()
+		}
+		c.closeErr = c.Conn.Close()
+	})
+	return c.closeErr
+}
+
+func isTransientSSHError(err error) bool {
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
+	switch websocket.CloseStatus(err) {
+	case websocket.StatusGoingAway, websocket.StatusAbnormalClosure, websocket.StatusInternalError,
+		websocket.StatusServiceRestart, websocket.StatusTryAgainLater:
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	return errors.Is(err, io.EOF) ||
+		errors.Is(err, io.ErrUnexpectedEOF) ||
+		errors.Is(err, syscall.ECONNREFUSED) ||
+		errors.Is(err, syscall.ECONNRESET) ||
+		errors.Is(err, syscall.ECONNABORTED) ||
+		errors.Is(err, syscall.EPIPE) ||
+		errors.Is(err, syscall.ETIMEDOUT) ||
+		errors.Is(err, syscall.EHOSTUNREACH) ||
+		errors.Is(err, syscall.ENETUNREACH)
 }

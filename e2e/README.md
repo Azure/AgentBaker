@@ -144,6 +144,24 @@ the ACRs are in the shared PE subnet, with DNS records in the shared `privatelin
    - Debug daemonsets
 4. SSH to test VMs goes through the shared Bastion, which can reach any VM in the VNet.
 
+### Initial SSH Readiness
+
+The initial SSH connection has a five-minute readiness limit, or the caller's shorter deadline.
+This includes credential acquisition, Bastion tunnel setup, SSH handshakes, and retry delays.
+Each handshake has a 30-second limit, capped by the remaining readiness time. Transient connection
+errors and timeouts retry after ten seconds. Authentication, host-key, and other non-transient
+errors fail without retry. There is no fixed attempt count.
+
+Caller cancellation stops readiness. Once SSH connects, readiness and caller cancellation no
+longer close that connection; scenario cleanup can still use it and must close it afterward.
+Failed attempts close their local tunnel immediately. Bastion token deletion runs separately with
+a 30-second limit and can finish after readiness returns. Deletion failures are logged.
+The readiness loop does not retry remote commands.
+
+This is a bounded readiness policy, not proof that an intermittent Bastion or GPU failure is fixed.
+Use the attempt count and elapsed-time logs to distinguish a quick pass from a pass that needed
+the longer readiness window.
+
 ### Test Flow
 
 ```mermaid
