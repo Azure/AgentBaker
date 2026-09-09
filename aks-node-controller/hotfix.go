@@ -272,7 +272,7 @@ func (a *App) detectPackageManager() (packageManager, error) {
 	if err != nil {
 		return "", err
 	}
-	if info.ID == "azurelinux" && info.VariantID == osReleaseIDAzureContainerLinux {
+	if info.ID == osReleaseIDAzureLinux && info.VariantID == osReleaseIDAzureContainerLinux {
 		return "", fmt.Errorf(
 			"PMC package-based ANC self-update is not supported on image-based OS %q variant %q",
 			info.ID,
@@ -282,7 +282,7 @@ func (a *App) detectPackageManager() (packageManager, error) {
 	switch info.ID {
 	case "ubuntu":
 		return pkgMgrApt, nil
-	case "azurelinux", "mariner":
+	case osReleaseIDAzureLinux, "mariner":
 		return preferredRpmManager(), nil
 	case osReleaseIDAzureContainerLinux, osReleaseIDFlatcar:
 		// ACL and Flatcar are image-based/immutable distros with no apt/dnf/tdnf.

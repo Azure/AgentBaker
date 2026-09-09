@@ -15,6 +15,7 @@ const defaultOSReleasePath = "/etc/os-release"
 // os-release ID values that appear in more than one classification path.
 const (
 	osReleaseIDAzureContainerLinux = "azurecontainerlinux"
+	osReleaseIDAzureLinux          = "azurelinux"
 	osReleaseIDFlatcar             = "flatcar"
 )
 
@@ -70,7 +71,7 @@ func classifyNodeCustomDataPlatform(osReleasePath string) (nodeCustomDataPlatfor
 		return nodeCustomDataPlatformUnsupported, nil
 	case id == "ubuntu":
 		return nodeCustomDataPlatformUbuntu, nil
-	case id == "mariner", id == "azurelinux":
+	case id == "mariner", id == osReleaseIDAzureLinux:
 		return nodeCustomDataPlatformMariner, nil
 	case id == "":
 		return "", fmt.Errorf("ID is missing from %s", osReleasePath)
