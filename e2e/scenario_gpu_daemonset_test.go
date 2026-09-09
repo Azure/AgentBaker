@@ -33,10 +33,10 @@ func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
 	RunScenario(t, nvidiaDevicePluginDaemonsetScenario(config.VHDUbuntu2204Gen2Containerd, "Standard_NV6ads_A10_v5"))
 }
 
-// Test_Ubuntu2604Minimal_GPUCUDA checks the CUDA LTS driver and kubelet stability
+// Test_Ubuntu2604Minimal_CUDA checks the CUDA LTS driver and kubelet stability
 // on a T4 node, then validates GPU resources and scheduling with a device plugin
 // DaemonSet. The managed GPU experience remains disabled.
-func Test_Ubuntu2604Minimal_GPUCUDA(t *testing.T) {
+func Test_Ubuntu2604Minimal_CUDA(t *testing.T) {
 	scenario := nvidiaDevicePluginDaemonsetScenario(config.VHDUbuntu2604MinimalGen2Containerd, "Standard_NC4as_T4_v3")
 	scenario.Cluster = ClusterLatestKubernetesVersionKubenet
 	scenario.Description = "Tests the Ubuntu 26.04 minimal CUDA LTS driver and GPU scheduling with a customer-managed device plugin"
@@ -63,10 +63,10 @@ func Test_Ubuntu2604Minimal_GPUCUDA(t *testing.T) {
 	RunScenario(t, scenario)
 }
 
-// Test_Ubuntu2604Minimal_NvidiaDevicePlugin_Daemonset_GridV20 checks the pinned
+// Test_Ubuntu2604Minimal_GridV20 checks the pinned
 // GRID v20 driver on A10 with a customer-managed device plugin, without managed DCGM.
 // Ubuntu 26.04 selects GRID v20 at provision time even on non-RTX GRID SKUs.
-func Test_Ubuntu2604Minimal_NvidiaDevicePlugin_Daemonset_GridV20(t *testing.T) {
+func Test_Ubuntu2604Minimal_GridV20(t *testing.T) {
 	scenario := nvidiaDevicePluginDaemonsetScenario(config.VHDUbuntu2604MinimalGen2Containerd, "Standard_NV6ads_A10_v5")
 	scenario.Cluster = ClusterLatestKubernetesVersionKubenet
 
