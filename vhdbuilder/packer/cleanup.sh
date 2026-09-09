@@ -8,6 +8,10 @@ EXPIRATION_IN_HOURS=168 # 7 days
 (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
 # deadline = the "date +%s" representation of the oldest age we're willing to keep
 (( deadline=$(date +%s)-${expirationInSecs%.*} ))
+# SIG image versions never carry the "now" tag: packer applies azure_tags to the managed image
+# only, not to the shared_image_gallery_destination. They're aged off using the ARM-provided
+# publishingProfile.publishedDate instead, which is ISO-8601 UTC and so sorts lexicographically.
+publishedDateDeadline=$(date -u -d "@${deadline}" +%Y-%m-%dT%H:%M:%SZ)
 
 if [ -z "$SIG_GALLERY_NAME" ]; then
   SIG_GALLERY_NAME="PackerSigGalleryEastUS"
@@ -169,12 +173,14 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
   # we limit deletion to 15 SIG image versions per image definition
   set +x
   for image_definition in $(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} | jq '.[].name' | tr -d '\"' || ""); do
-    for image_version in $(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${image_definition} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | head -n 15 | tr -d '\"' || ""); do
+    for image_version in $(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${image_definition} | jq --arg dl "$publishedDateDeadline" '.[] | select(.publishingProfile.publishedDate != null) | select(.publishingProfile.publishedDate < $dl).name' | head -n 15 | tr -d '\"' || ""); do
       image_version_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image_definition}/versions/${image_version}"
 
       # TODO: remove 2404gen2arm64gbcontainerd exemption once released to official production galleries
-      # shellcheck disable=SC3010
-      if [ "${image_definition,,}" = "2404gen2arm64gbcontainerd" ] && [[ "$image_version" == "1.1."* ]]; then
+      # NOTE: this deliberately matches the whole image definition. It previously also required the
+      # version to start with "1.1.", which silently stopped protecting anything once GB builds moved
+      # to 1.2.x, and 1.2.103-1.2.106 were garbage collected as a result.
+      if [ "${image_definition,,}" = "2404gen2arm64gbcontainerd" ]; then
         echo "Will not consider garbage collection of image: ${image_version_id}"
         continue
       fi
