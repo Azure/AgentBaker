@@ -159,21 +159,25 @@ fi
 # asynchronously, so poll (like wait_for_localdns_removed_from_resolv_conf does)
 # until the listener IP is gone rather than checking once. Prefer resolvectl
 # (the per-link view the drop-in configures); fall back to the resolved stub.
+# Only accept a successful, non-empty resolver snapshot: an errored or empty
+# read must not be treated as "restored", or a failed read would mask the very
+# regression under test. Retry those instead.
 dns_reverted=false
 for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
     if command -v resolvectl >/dev/null 2>&1; then
-        current_dns=$(resolvectl status 2>/dev/null || true)
+        current_dns=$(resolvectl status 2>/dev/null)
     else
-        current_dns=$(cat /run/systemd/resolve/resolv.conf 2>/dev/null || true)
+        current_dns=$(cat /run/systemd/resolve/resolv.conf 2>/dev/null)
     fi
-    if ! printf '%s' "$current_dns" | grep -q '169\.254\.10\.10'; then
+    # Require a non-empty snapshot before trusting the absence check.
+    if [ -n "$current_dns" ] && ! printf '%s' "$current_dns" | grep -q '169\.254\.10\.10'; then
         dns_reverted=true
         break
     fi
     sleep 1
 done
 if [ "$dns_reverted" != true ]; then
-    echo "FAIL: link DNS still points at 169.254.10.10 after localdns died"
+    echo "FAIL: link DNS still points at 169.254.10.10 (or resolver state unreadable) after localdns died"
     exit 1
 fi
 
