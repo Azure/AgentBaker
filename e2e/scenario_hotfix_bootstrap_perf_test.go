@@ -66,6 +66,51 @@ func parseHotfixTiming(log string) (*hotfixPathTiming, error) {
 	return found, nil
 }
 
+// validateHotfixBootstrapTiming reads the timing the node recorded for itself during
+// bootstrap and reports it. It reads past events from the log rather than re-running any
+// command, so the result is unaffected by the node now being warm and idle.
+//
+// It reports rather than asserting a threshold: a single sample is not a budget, and a
+// flaky perf gate is worse than no gate. Run a scenario a few times and read the values.
+func validateHotfixBootstrapTiming(ctx context.Context, s *Scenario) error {
+	result, err := execScriptOnVMForScenarioValidateExitCode(
+		ctx, s, "sudo cat "+ancOutputLog, 0,
+		"could not read the ANC bootstrap log",
+	)
+	if err != nil {
+		return err
+	}
+
+	timing, err := parseHotfixTiming(result.stdout + "\n" + result.stderr)
+	if err != nil {
+		// Not a failure of the code under test: if no hotfix was configured for this run
+		// there is nothing to time. Say so plainly rather than reporting a misleading zero.
+		s.Logger.Logf("no hotfix timing available: %v", err)
+		s.T.Skip("no hotfix ran during bootstrap; nothing to measure")
+		return nil
+	}
+
+	path := "package-manager (apt/dnf)"
+	if timing.FastPath {
+		path = "repository fast path"
+	}
+	s.Logger.Logf("BOOTSTRAP HOTFIX TIMING: distro=%s path=%s durationMs=%d",
+		s.VHD.Name, path, timing.Duration)
+	s.Logger.Logf("  source line: %s", timing.Line)
+	s.Logger.Logf("  measured during provisioning, on a node that had not yet joined")
+
+	// Surface the fallback reason when the fast path did not win, so a slow run can be
+	// explained rather than guessed at.
+	if !timing.FastPath {
+		fallback, ferr := execScriptOnVMForScenario(ctx, s,
+			"sudo grep -F 'falling back to package manager' "+ancOutputLog+" || true")
+		if ferr == nil && strings.TrimSpace(fallback.stdout) != "" {
+			s.Logger.Logf("  fell back because: %s", strings.TrimSpace(fallback.stdout))
+		}
+	}
+	return nil
+}
+
 // Test_Ubuntu2204_HotfixBootstrapTiming records how long the ANC hotfix install takes
 // during real provisioning, on a node that has not yet joined the cluster.
 //
@@ -74,57 +119,32 @@ func parseHotfixTiming(log string) (*hotfixPathTiming, error) {
 // previously reported from AgentBaker e2e. The gap is the environment, not the code.
 // During bootstrap /var/lib/apt/lists may be cold, CPU and IO contend with image pulls
 // and service startup, dpkg may be mid-operation, and networking has just come up. This
-// scenario reads the timing the node recorded for itself while all of that was true, so
-// it is a genuine bootstrap-time measurement rather than an approximation of one.
-//
-// It reports rather than asserts a threshold: a single sample is not a budget, and a
-// flaky perf gate is worse than no gate. Run it a few times and read the logged values.
+// scenario reads the timing the node recorded while all of that was true, so it is a
+// genuine bootstrap-time measurement rather than an approximation of one.
 func Test_Ubuntu2204_HotfixBootstrapTiming(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "records ANC hotfix install duration during bootstrap, before the node joins",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			Validator: func(ctx context.Context, s *Scenario) error {
-				// Read the log the node wrote during bootstrap. This reads past events,
-				// so it is unaffected by the node now being warm and idle.
-				result, err := execScriptOnVMForScenarioValidateExitCode(
-					ctx, s, "sudo cat "+ancOutputLog, 0,
-					"could not read the ANC bootstrap log",
-				)
-				if err != nil {
-					return err
-				}
+			Cluster:   ClusterKubenet,
+			VHD:       config.VHDUbuntu2204Gen2Containerd,
+			Validator: validateHotfixBootstrapTiming,
+		},
+	})
+}
 
-				timing, err := parseHotfixTiming(result.stdout + "\n" + result.stderr)
-				if err != nil {
-					// Not a failure of the code under test: if no hotfix was configured
-					// for this run there is nothing to time. Say so plainly rather than
-					// reporting a misleading zero.
-					s.Logger.Logf("no hotfix timing available: %v", err)
-					s.T.Skip("no hotfix ran during bootstrap; nothing to measure")
-					return nil
-				}
-
-				path := "package-manager (apt/dnf)"
-				if timing.FastPath {
-					path = "repository fast path"
-				}
-				s.Logger.Logf("BOOTSTRAP HOTFIX TIMING: path=%s durationMs=%d", path, timing.Duration)
-				s.Logger.Logf("  source line: %s", timing.Line)
-				s.Logger.Logf("  measured during provisioning, on a node that had not yet joined")
-
-				// Surface the fallback reason when the fast path did not win, so a slow
-				// run can be explained rather than guessed at.
-				if !timing.FastPath {
-					fallback, ferr := execScriptOnVMForScenario(ctx, s,
-						"sudo grep -F 'falling back to package manager' "+ancOutputLog+" || true")
-					if ferr == nil && strings.TrimSpace(fallback.stdout) != "" {
-						s.Logger.Logf("  fell back because: %s", strings.TrimSpace(fallback.stdout))
-					}
-				}
-				return nil
-			},
+// Test_AzureLinuxV3_HotfixBootstrapTiming is the dnf counterpart. Azure Linux is measured
+// separately because it was the slowest observed path: 21.23s on a standalone node against
+// 13.20s for Ubuntu 22.04, both including binary staging. dnf, its metadata handling, and
+// the RPM fast path (repomd.xml plus primary.xml.gz, rather than InRelease plus
+// Packages.gz) are a different code path with a different cost, so an Ubuntu number does
+// not stand in for it.
+func Test_AzureLinuxV3_HotfixBootstrapTiming(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "records ANC hotfix install duration during bootstrap on Azure Linux 3 (dnf)",
+		Config: Config{
+			Cluster:   ClusterKubenet,
+			VHD:       config.VHDAzureLinuxV3Gen2,
+			Validator: validateHotfixBootstrapTiming,
 		},
 	})
 }
