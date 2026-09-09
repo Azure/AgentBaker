@@ -64,7 +64,8 @@ Check OS coverage across every applicable manifest path. For package entries, in
 - `downloadURIs.flatcar.current`
 
 For container images, also compare `amd64OnlyVersions`,
-`multiArchVersionsV2`, and `windowsVersions`.
+`multiArchVersionsV2`, and `windowsVersions`. For OCI artifacts, compare
+`windowsVersions`.
 
 Most Dalec-built `oss/v2/*` images use tags shaped like
 `vMAJOR.MINOR.PATCH-REVISION`, but system-extension artifacts append a

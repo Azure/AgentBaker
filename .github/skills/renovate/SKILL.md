@@ -2,13 +2,13 @@
 name: renovate
 description: >
   Review, triage, or configure Renovate in AgentBaker. Use for
-  Renovate-authored pull requests, Renovate-managed changes to
-  parts/common/components.json, .github/renovate.json changes, component
-  onboarding, missing Renovate PRs, datasource no-result errors, or questions
-  about whether an AgentBaker component-manifest update is safe to merge. Do
-  not use for ordinary dependency files outside parts/common/components.json
-  or for external downloads changed only in provisioning code; use code-review
-  for those cases.
+  Renovate-authored pull requests that update parts/common/components.json,
+  any Renovate-managed changes to that manifest, .github/renovate.json changes,
+  component onboarding, missing Renovate PRs, datasource no-result errors, or
+  questions about whether an AgentBaker component-manifest update is safe to
+  merge. Do not use for ordinary dependency files outside
+  parts/common/components.json or for external downloads changed only in
+  provisioning code; use code-review for those cases.
 ---
 
 # AgentBaker Renovate
@@ -55,8 +55,11 @@ and architecture, and provide an evidence-based recommendation.
 8. Check VHD cache coordination. Determine whether the update rotates out a
    version still requested by AKS-RP, unless the component always uses the
    version baked into the VHD.
-9. Check ownership and required PR gates. Do not recommend merging over a
-   configured component owner or before required gates pass.
+9. Check effective assignees and reviewers from all matching package rules and
+   verify required PR gates. Do not recommend merging over a configured
+   component owner. If no owner is configured, treat that as a configuration
+   gap, identify the responsible team, and require its approval before
+   recommending merge.
 
 If no reliable upstream changelog exists, say so explicitly and recommend the
 smallest appropriate manual validation. Do not manufacture release details.
