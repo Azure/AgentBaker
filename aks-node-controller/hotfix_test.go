@@ -789,6 +789,16 @@ func TestDownloadBinaryHotfixTerminalEvaluationLog(t *testing.T) {
 			wantOutcome: hotfixOutcomeSkippedVersionCompareError,
 		},
 		{
+			name:    "map-based malformed current version skips",
+			current: "dev",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				return &hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.1"}}
+			},
+			wantLevel:   slog.LevelInfo,
+			wantRoute:   hotfixRouteNone,
+			wantOutcome: hotfixOutcomeSkippedVersionCompareError,
+		},
+		{
 			name:    "direct HTTP success",
 			current: "202607.02.0",
 			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {

@@ -100,6 +100,12 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 	}()
 
 	if hotfixVersion == "" {
+		if len(cfg.Hotfixes) > 0 {
+			if _, err := hotfixBaseFromVersion(Version); err != nil {
+				outcome = hotfixOutcomeSkippedVersionCompareError
+				return nil
+			}
+		}
 		outcome = hotfixOutcomeSkippedNoVersion
 		slog.Info("hotfix config does not request a version for this base, skipping download",
 			"current", Version)
