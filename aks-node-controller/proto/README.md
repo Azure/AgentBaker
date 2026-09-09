@@ -151,10 +151,10 @@ If the client (such as AKS-RP) doesn't specify a value for `EnableImdsRestrictio
 4. Add comprehensive tests to cover your changes.
 
    **Testing with AKSNodeConfig approach:**
-   - Add test cases using the `AKSNodeConfig` approach, such as `Test_AzureLinuxV2_ARM64_Scriptless` in `e2e/scenario_test.go`
+   - Add scenarios that use the `AKSNodeConfig` approach in `e2e/scenario.go`.
    - The key difference between the legacy and new approaches is the configuration interface:
      - **Legacy approach:** Uses `datamodel.NodeBootstrappingConfiguration`
      - **New approach:** Uses `AKSNodeConfig`
-   - In e2e tests (`scenario_test.go`), this means:
+   - In E2E scenarios (`e2e/scenario.go`), this means:
      - **Legacy:** Use `BootstrapConfigMutator` to set configurations
      - **New:** Use `AKSNodeConfigMutator` to set configurations

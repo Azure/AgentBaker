@@ -15,7 +15,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
@@ -99,7 +98,9 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 		return nil
 	})
 
-	skipTestIfSKUNotAvailableErr(s.T, err)
+	if skipErr := skipIfSKUNotAvailableErr(err); skipErr != nil {
+		return vm, skipErr
+	}
 
 	return vm, err
 }
@@ -200,7 +201,7 @@ func deleteVMSSAndWait(ctx context.Context, s *Scenario) {
 		s.Logger.Logf("failed to begin delete of vmss %q for retry: %s", s.Runtime.VMSSName, err)
 		return
 	}
-	if _, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions); err != nil {
+	if _, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
 		s.Logger.Logf("failed to wait for delete of vmss %q for retry: %s", s.Runtime.VMSSName, err)
 	}
 }
@@ -469,9 +470,9 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	result += fmt.Sprintf(`az network bastion ssh --target-resource-id "%s" --name "%s" --resource-group %s --auth-type ssh-key --username azureuser --ssh-key %s`, *vm.VM.ID, SharedBastionName, config.ResourceGroupName(*s.Runtime.Cluster.Model.Location), config.VMSSHPrivateKeyFileName) + "\n"
 	s.Logger.Log(result)
 
-	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	vmssResp, err := operation.PollUntilDone(ctx, config.PollUntilDoneOptions())
 
-	// Log VMSS tags for diagnostics (visible in test-log.json via gotestsum --jsonfile).
+	// Log VMSS tags for diagnostics in the scenario log.
 	// For RCV1P tests, annotates the opt-in tag to help distinguish our tags from platform-injected ones.
 	vmssID := "<unknown>"
 	if vmssResp.ID != nil {
@@ -497,7 +498,7 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		return vm, fmt.Errorf("failed to wait for VM to reach running state: %w", err)
 	}
 
-	// Log VM instance tags for diagnostics (visible in test-log.json via gotestsum --jsonfile)
+	// Log VM instance tags for diagnostics in the scenario log.
 	vmInstanceID := "<unknown>"
 	if vm.VM.ID != nil {
 		vmInstanceID = *vm.VM.ID
@@ -669,24 +670,23 @@ func getPrivateIPFromVMSSVM(ctx context.Context, resourceGroup, vmssName, instan
 	return *ipConfig.Properties.PrivateIPAddress, nil
 }
 
-func skipTestIfSKUNotAvailableErr(t testing.TB, err error) {
+func skipIfSKUNotAvailableErr(err error) error {
 	if !config.Config.SkipTestsWithSKUCapacityIssue {
-		return
+		return nil
 	}
 	var respErr *azcore.ResponseError
 	if !errors.As(err, &respErr) || respErr.StatusCode != 409 {
-		return
+		return nil
 	}
-	// sometimes the SKU is not available and we can't do anything. Skip the test in this case.
 	if respErr.ErrorCode == "SkuNotAvailable" {
-		t.Skip("skipping scenario SKU not available", t.Name(), err)
+		return &skipError{message: fmt.Sprintf("scenario SKU is not available: %v", err)}
 	}
-	// sometimes the SKU quota is exceeded and we can't do anything. Skip the test in this case.
 	if respErr.ErrorCode == "OperationNotAllowed" &&
 		strings.Contains(respErr.Error(), "exceeding approved") &&
 		strings.Contains(respErr.Error(), "quota") {
-		t.Skip("skipping scenario SKU quota exceeded", t.Name(), err)
+		return &skipError{message: fmt.Sprintf("scenario SKU quota is exceeded: %v", err)}
 	}
+	return nil
 }
 
 func extractLogsFromVM(ctx context.Context, s *Scenario, vm *ScenarioVM) {
@@ -706,7 +706,7 @@ func extractLogsFromVM(ctx context.Context, s *Scenario, vm *ScenarioVM) {
 	} else if err := extractLogsFromVMLinux(ctx, s, vm); err != nil {
 		s.Logger.Logf("failed to extract logs from VM: %s", err)
 	} else {
-		s.Logger.Logf("extracted VM logs to %s", testDir(s.testName))
+		s.Logger.Logf("extracted VM logs to %s", artifactDir(s.artifactName))
 	}
 	if err := extractBootDiagnostics(ctx, s); err != nil {
 		s.Logger.Logf("failed to extract boot diagnostics from VM: %s", err)
@@ -763,7 +763,7 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 					s.Logger.Logf("failed to read serial console log for VM %s: %v", *vmInstance.InstanceID, err)
 					continue
 				}
-				if err := writeToFile(s.testName, logFile, string(contents)); err != nil {
+				if err := writeToFile(s.artifactName, logFile, string(contents)); err != nil {
 					s.Logger.Logf("failed to write serial console log for VM %s: %v", *vmInstance.InstanceID, err)
 					continue
 				}
@@ -824,7 +824,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		}
 		logFiles[file] = execResult.String()
 	}
-	err = dumpFileMapToDir(s.testName, logFiles)
+	err = dumpFileMapToDir(s.artifactName, logFiles)
 	if err != nil {
 		return fmt.Errorf("failed to dump log files: %w", err)
 	}
@@ -897,7 +897,7 @@ if ($script:uploadFailures.Count -gt 0) {
 // extractLogsFromVMWindows runs a script on windows VM to collect logs and upload them to a blob storage
 // it then lists the blobs in the container and prints the content of each blob
 func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
-	if !s.T.Failed() {
+	if !s.failed {
 		return
 	}
 
@@ -969,7 +969,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	}
 
 	// Poll the result until the operation is completed
-	runCommandResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	runCommandResp, err := pollerResp.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		s.Logger.Logf("failed to poll run command on VMSS instance %s: %s", instanceID, err)
 	} else {
@@ -982,10 +982,10 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	defer cancel()
 
 	downloadBlob := func(blobSuffix string) {
-		fileName := filepath.Join(testDir(s.testName), blobSuffix)
-		err := os.MkdirAll(testDir(s.testName), 0755)
+		fileName := filepath.Join(artifactDir(s.artifactName), blobSuffix)
+		err := os.MkdirAll(artifactDir(s.artifactName), 0755)
 		if err != nil {
-			s.Logger.Logf("failed to create directory %q: %s", testDir(s.testName), err)
+			s.Logger.Logf("failed to create directory %q: %s", artifactDir(s.artifactName), err)
 			return
 		}
 		file, err := os.Create(fileName)
@@ -1010,13 +1010,13 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	downloadBlob("containerd.err.log")
 	downloadBlob("network_config.txt")
 	downloadBlob("collected-node-logs.zip")
-	s.Logger.Logf("logs collected to %s", testDir(s.testName))
+	s.Logger.Logf("logs collected to %s", artifactDir(s.artifactName))
 }
 
 func deleteVMSS(ctx context.Context, s *Scenario) error {
 	if config.Config.KeepVMSS {
 		s.Logger.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", s.Runtime.VMSSName)
-		if err := writeToFile(s.testName, "sshkey", string(config.VMSSHPrivateKey)); err != nil {
+		if err := writeToFile(s.artifactName, "sshkey", string(config.VMSSHPrivateKey)); err != nil {
 			s.Logger.Logf("failed to write retained vmss %s private ssh key to disk: %s", s.Runtime.VMSSName, err)
 		}
 		return nil
@@ -1164,8 +1164,8 @@ func addDualStackSecondaryNIC(vmss *armcompute.VirtualMachineScaleSet) {
 	)
 }
 
-func generateVMSSNameLinux(testName string) string {
-	name := fmt.Sprintf("%s-%s-%s", randomLowercaseString(4), time.Now().Format(time.DateOnly), testName)
+func generateVMSSNameLinux(artifactName string) string {
+	name := fmt.Sprintf("%s-%s-%s", randomLowercaseString(4), time.Now().Format(time.DateOnly), artifactName)
 	name = strings.ReplaceAll(name, "_", "")
 	name = strings.ReplaceAll(name, "/", "")
 	name = strings.ReplaceAll(name, "Test", "")
@@ -1186,7 +1186,7 @@ func generateVMSSName(s *Scenario) string {
 	if s.IsWindows() {
 		return generateVMSSNameWindows()
 	}
-	return generateVMSSNameLinux(s.testName)
+	return generateVMSSNameLinux(s.artifactName)
 }
 
 func injectWriteFilesEntriesToCustomData(customData string, entries []CustomDataWriteFile) (string, error) {
@@ -1350,7 +1350,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 	model := armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(s.Location),
 		SKU: &armcompute.SKU{
-			Name:     to.Ptr(config.Config.DefaultVMSKU),
+			Name:     to.Ptr(scenarioVMSize(s)),
 			Capacity: to.Ptr[int64](1),
 		},
 		Properties: &armcompute.VirtualMachineScaleSetProperties{
@@ -1464,6 +1464,13 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 		model.Properties.VirtualMachineProfile.OSProfile.AdminPassword = to.Ptr(generateWindowsPassword())
 	}
 	return model
+}
+
+func scenarioVMSize(s *Scenario) string {
+	if s.Runtime != nil && s.Runtime.VMSize != "" {
+		return s.Runtime.VMSize
+	}
+	return config.Config.DefaultVMSKU
 }
 
 func generateWindowsPassword() string {

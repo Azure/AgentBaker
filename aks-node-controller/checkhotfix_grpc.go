@@ -43,11 +43,12 @@ const (
 // permits the cold-start fallback, while an authoritative client rejection does not.
 type lpsGRPCStatusError struct {
 	code            codes.Code
+	message         string
 	fallbackAllowed bool
 }
 
 func (e *lpsGRPCStatusError) Error() string {
-	return fmt.Sprintf("LPS gRPC call failed with code %s", e.code)
+	return fmt.Sprintf("LPS gRPC call failed with code %s: %s", e.code, e.message)
 }
 
 // fetchHotfixOverGRPC performs the GetComponentConfig call against the live-patching service: it
@@ -159,10 +160,10 @@ func mapGRPCError(err error) error {
 	//exhaustive:ignore // benign/authoritative codes handled explicitly; all others fall through to fallback-eligible default.
 	switch st.Code() {
 	case codes.Unauthenticated, codes.PermissionDenied, codes.NotFound:
-		return fmt.Errorf("%w (code %s)", errLPSUnavailable, st.Code())
+		return fmt.Errorf("%w (code %s: %s)", errLPSUnavailable, st.Code(), st.Message())
 	case codes.InvalidArgument, codes.ResourceExhausted:
-		return &lpsGRPCStatusError{code: st.Code(), fallbackAllowed: false}
+		return &lpsGRPCStatusError{code: st.Code(), message: st.Message(), fallbackAllowed: false}
 	default:
-		return &lpsGRPCStatusError{code: st.Code(), fallbackAllowed: true}
+		return &lpsGRPCStatusError{code: st.Code(), message: st.Message(), fallbackAllowed: true}
 	}
 }

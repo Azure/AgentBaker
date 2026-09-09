@@ -8,8 +8,8 @@
         {
           "comment": "Windows 2022 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.5499",
-          "previousLatestVersion": "10.0.20348.5386",
+          "latestVersion": "10.0.20348.5622",
+          "previousLatestVersion": "10.0.20348.5499",
           "windowsSkuMatch": "2022-containerd*"
         },
         {
@@ -21,8 +21,8 @@
         {
           "comment": "Windows 2022 servercore for Windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.5499",
-          "previousLatestVersion": "10.0.20348.5386",
+          "latestVersion": "10.0.20348.5622",
+          "previousLatestVersion": "10.0.20348.5499",
           "windowsSkuMatch": "2025*"
         },
         {
@@ -34,8 +34,8 @@
         {
           "comment": "Windows 2025 servercore for windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.26100.33296",
-          "previousLatestVersion": "10.0.26100.33158",
+          "latestVersion": "10.0.26100.33438",
+          "previousLatestVersion": "10.0.26100.33296",
           "windowsSkuMatch": "2025*"
         },
         {
@@ -1690,24 +1690,6 @@
           "current": {
             "versionsV2": [
               {
-                "k8sVersion": "1.28",
-                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
-                "latestVersion": "v1.28.103-akslts",
-                "previousLatestVersion": "v1.28.102-akslts"
-              },
-              {
-                "k8sVersion": "1.29",
-                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
-                "latestVersion": "v1.29.101-akslts",
-                "previousLatestVersion": "v1.29.100-akslts"
-              },
-              {
-                "k8sVersion": "1.30",
-                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
-                "latestVersion": "v1.30.101-akslts",
-                "previousLatestVersion": "v1.30.100-akslts"
-              },
-              {
                 "k8sVersion": "1.31",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
                 "latestVersion": "v1.31.14",
@@ -2009,6 +1991,14 @@
       "downloadLocation": "/opt/nvidia-device-plugin/downloads",
       "downloadURIs": {
         "ubuntu": {
+          "r2604": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=26.04",
+                "latestVersion": "0.19.3-ubuntu26.04u6"
+              }
+            ]
+          },
           "r2404": {
             "versionsV2": [
               {
@@ -2077,6 +2067,14 @@
       "downloadLocation": "/opt/datacenter-gpu-manager-4-core/downloads",
       "downloadURIs": {
         "ubuntu": {
+          "r2604": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=datacenter-gpu-manager-4-core, repository=nvidia, os=ubuntu, release=26.04",
+                "latestVersion": "1:4.6.0-1"
+              }
+            ]
+          },
           "r2404": {
             "versionsV2": [
               {
@@ -2111,6 +2109,14 @@
       "downloadLocation": "/opt/datacenter-gpu-manager-4-proprietary/downloads",
       "downloadURIs": {
         "ubuntu": {
+          "r2604": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=datacenter-gpu-manager-4-proprietary, repository=nvidia, os=ubuntu, release=26.04",
+                "latestVersion": "1:4.6.0-1"
+              }
+            ]
+          },
           "r2404": {
             "versionsV2": [
               {
@@ -2145,6 +2151,14 @@
       "downloadLocation": "/opt/dcgm-exporter/downloads",
       "downloadURIs": {
         "ubuntu": {
+          "r2604": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=dcgm-exporter, repository=production, os=ubuntu, release=26.04",
+                "latestVersion": "4.8.3-ubuntu26.04u4"
+              }
+            ]
+          },
           "r2404": {
             "versionsV2": [
               {
@@ -2183,7 +2197,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.9.1-ubuntu26.04u28"
+                "latestVersion": "1.12.1-ubuntu26.04u7"
               }
             ]
           },
@@ -2191,7 +2205,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.9.1-ubuntu24.04u28"
+                "latestVersion": "1.12.1-ubuntu24.04u7"
               }
             ]
           },
@@ -2199,7 +2213,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.9.1-ubuntu22.04u28"
+                "latestVersion": "1.12.1-ubuntu22.04u7"
               }
             ]
           },
@@ -2207,7 +2221,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.9.1-ubuntu20.04u28"
+                "latestVersion": "1.12.1-ubuntu20.04u7"
               }
             ]
           }
@@ -2217,7 +2231,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=node-exporter-kubernetes, os=azurelinux, release=3.0",
-                "latestVersion": "1.9.1-28.azl3"
+                "latestVersion": "1.12.1-7.azl3"
               }
             ]
           },
