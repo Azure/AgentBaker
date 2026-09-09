@@ -40,9 +40,11 @@ Verify all of the following:
 
 ### Ubuntu package
 
-1. Add one entry per supported Ubuntu release using
-   `name=<package>, repository=production, os=ubuntu, release=<version>`.
-2. Confirm the release-specific Microsoft package feed publishes the package.
+1. Add one entry per supported Ubuntu release using the `repository` value
+   expected by the package's datasource (for example, `production`, `nvidia`,
+   or `test`).
+2. Confirm the release-specific feed publishes the package and that an existing
+   custom manager matches the exact tag form.
 3. Add an ownership rule.
 
 ### Azure Linux RPM

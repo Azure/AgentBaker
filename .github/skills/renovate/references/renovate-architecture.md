@@ -32,10 +32,12 @@ Common tag forms:
 | Azure Linux RPM | `RPM_registry=<repodata-url>, name=<package>, os=azurelinux, release=3.0` |
 | Disabled | `<DO_NOT_UPDATE>` |
 
-For Azure Linux packages, do not use the Ubuntu
-`repository=production` form. The `RPM_registry` category (`base`,
+For Azure Linux packages sourced from PMC RPM repositories, do not use the
+Ubuntu `repository=production` form. The `RPM_registry` category (`base`,
 `cloud-native`, `ms-oss`, or `extended`) must contain the package. A valid feed
-in the wrong category produces `no-result`.
+in the wrong category produces `no-result`. Packages sourced from a dedicated
+datasource must instead use the tag form matched by that manager; for example,
+NVIDIA packages use `name=<package>, repository=nvidia, os=azurelinux, release=3.0`.
 
 `<DO_NOT_UPDATE>` disables all future updates for the entry. It is not a way to
 skip only one bad version.
