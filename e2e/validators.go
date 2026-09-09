@@ -1297,7 +1297,7 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 		}
 		failedUnitLogs[unit.Name+".log"] = unitLogs.String()
 	}
-	if err := dumpFileMapToDir(s.testName, failedUnitLogs); err != nil {
+	if err := dumpFileMapToDir(s.artifactName, failedUnitLogs); err != nil {
 		errs = append(errs, fmt.Errorf("dump failed systemd unit logs: %w", err))
 	}
 
@@ -2827,7 +2827,11 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 	// so this also verifies that the endpoint is reachable on the address used by monitoring infrastructure.
 	s.Logger.Logf("Validating node-exporter metrics on port 19100")
 	metricsURL := fmt.Sprintf("http://%s:19100/metrics", s.Runtime.VM.PrivateIP)
-	errs = append(errs, scrapeAndValidateNodeExporter(ctx, s, metricsURL))
+	hasInfiniBand, err := nodeHasInfiniBandHardware(ctx, s)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	errs = append(errs, scrapeAndValidateNodeExporter(ctx, s, metricsURL, hasInfiniBand))
 
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-active %s", serviceName), 0,
 		"node-exporter should remain active after scraping"); err != nil {
@@ -2841,7 +2845,49 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 	return nil
 }
 
-func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL string) error {
+func nodeHasInfiniBandHardware(ctx context.Context, s *Scenario) (bool, error) {
+	// node-exporter 1.12.1 cannot parse MANA RDMA devices, so the startup script
+	// disables the collector once MANA PCI hardware is observed this boot. Keep this
+	// detection aligned so MANA and mixed-HCA nodes do not require metrics from a
+	// collector that must be disabled pending an upstream fix.
+	command := `if [ -f /run/node-exporter-mana-observed ]; then
+    echo "MANA observed earlier this boot; InfiniBand collector disabled"
+    exit 1
+fi
+for device in /sys/bus/pci/devices/*; do
+    if [ -d "$device" ] &&
+       grep -qi '^0x1414$' "$device/vendor" 2>/dev/null &&
+       grep -Eqi '^0x00(b9|ba|c1)$' "$device/device" 2>/dev/null; then
+        echo "MANA PCI device: $device; InfiniBand collector disabled"
+        exit 1
+    fi
+done
+for device in /sys/class/infiniband/*; do
+    [ -e "$device" ] || continue
+    echo "InfiniBand device: $device; requiring collector success and metrics"
+    exit 0
+done
+echo "No InfiniBand devices found"
+exit 1`
+	result, err := execScriptOnVMForScenario(ctx, s, command)
+	if err != nil {
+		return false, fmt.Errorf("detect InfiniBand hardware: %w", err)
+	}
+	if result.exitCode != "0" && result.exitCode != "1" {
+		return false, fmt.Errorf("detect InfiniBand hardware: exit %s: %s", result.exitCode, result.stderr)
+	}
+	s.Logger.Logf("node-exporter hardware detection: %s", strings.TrimSpace(result.stdout))
+	return result.exitCode == "0", nil
+}
+
+func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL string, requireInfiniBand bool) error {
+	// The boot-local marker only exists on VHDs with lifecycle-aware suppression;
+	// main/older VHDs used by standalone PR E2Es retain their existing checks.
+	manaObserved, err := fileExist(ctx, s, "/run/node-exporter-mana-observed")
+	if err != nil {
+		return fmt.Errorf("read node-exporter MANA workaround state: %w", err)
+	}
+	s.Logger.Logf("node-exporter InfiniBand expectations: required=%t, disabled=%t", requireInfiniBand, manaObserved)
 	result, err := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("curl --noproxy '*' -sS --max-time 10 %q", metricsURL))
 	if err != nil {
 		return fmt.Errorf("scrape node-exporter metrics from %s: %w", metricsURL, err)
@@ -2856,7 +2902,10 @@ func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL 
 	if len(responsePreview) > previewLimit {
 		responsePreview = responsePreview[:previewLimit] + "\n... response truncated"
 	}
-	return assert.NoError(nodeexporter.ValidateMetrics(result.stdout), "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview)
+	return errors.Join(
+		assert.NoError(nodeexporter.ValidateMetrics(result.stdout), "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview),
+		assert.NoError(nodeexporter.ValidateCollectors(result.stdout, requireInfiniBand, manaObserved), "node-exporter collectors did not satisfy the AgentBaker contract\nresponse preview:\n%s", responsePreview),
+	)
 }
 
 func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) (err error) {
@@ -2979,7 +3028,6 @@ func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) 
 }
 
 func ValidateNvidiaDevicePluginMIGStrategy(ctx context.Context, s *Scenario, strategy string) error {
-	s.T.Helper()
 	command := fmt.Sprintf("systemctl cat nvidia-device-plugin.service | grep -F -- '--mig-strategy %s'", strategy)
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "NVIDIA device plugin is not configured with MIG strategy "+strategy); err != nil {
 		return fmt.Errorf("validate NVIDIA device plugin MIG strategy %q: %w", strategy, err)
@@ -3017,8 +3065,7 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCou
 }
 
 func ValidateNodeAdvertisesExactGPUResources(ctx context.Context, s *Scenario, expected map[string]int64) error {
-	s.T.Helper()
-	s.T.Logf("validating that node advertises exactly the expected NVIDIA GPU resources")
+	s.Logger.Logf("validating that node advertises exactly the expected NVIDIA GPU resources")
 
 	for resourceName := range expected {
 		if err := waitUntilResourceAvailable(ctx, s, resourceName); err != nil {
@@ -3255,8 +3302,7 @@ func ValidateMIGModeEnabled(ctx context.Context, s *Scenario, gpuCountExpected i
 }
 
 func ValidateMIGInstanceProfileCounts(ctx context.Context, s *Scenario, expected map[string]int) error {
-	s.T.Helper()
-	s.T.Logf("validating exact MIG instance profile counts")
+	s.Logger.Logf("validating exact MIG instance profile counts")
 
 	command := []string{
 		"set -ex",
@@ -3482,9 +3528,13 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) error {
 	return errors.Join(errs...)
 }
 
-// ValidateScriptlessPhase3 validates that there are not diffs between ANC generated cse cmd NBC cse cmd vars
+// ValidateScriptlessPhase3 validates that there are not diffs between ANC generated cse cmd NBC cse cmd vars.
 func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) error {
-	if s.Runtime.AKSNodeConfig == nil || !usesScriptlessNBCCSECmd(s) {
+	// skip validation if
+	// 1. AKSNodeConfig not populated
+	// 2. using scriptless phase 1
+	// 3. E2E not run off of PR VHD build
+	if s.Runtime.AKSNodeConfig == nil || !usesScriptlessNBCCSECmd(s) || config.Config.VHDMetadataFile == "" {
 		return nil
 	}
 	logFile := "/var/log/azure/aks-node-controller.output"
@@ -3842,10 +3892,10 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) error {
 			return fmt.Errorf("retrieve full kernel logs: %w", err)
 		}
 		logFileName := "kernel-log.txt"
-		if err := writeToFile(s.testName, logFileName, fullDmesgResult.stdout); err != nil {
+		if err := writeToFile(s.artifactName, logFileName, fullDmesgResult.stdout); err != nil {
 			s.Logger.Logf("Warning: failed to write kernel log to file: %v", err)
 		} else {
-			s.Logger.Logf("Full kernel log written to: %s/%s", testDir(s.testName), logFileName)
+			s.Logger.Logf("Full kernel log written to: %s/%s", artifactDir(s.artifactName), logFileName)
 		}
 
 		// Log each category of issues found
@@ -3923,10 +3973,10 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
 	errOutput := strings.TrimSpace(extHandlerErrors.stdout)
 	if errOutput != "" {
 		logFileName := "waagent-exthandler-errors.log"
-		if err := writeToFile(s.testName, logFileName, logContents); err != nil {
+		if err := writeToFile(s.artifactName, logFileName, logContents); err != nil {
 			s.Logger.Logf("Warning: failed to write waagent log to file: %v", err)
 		} else {
-			s.Logger.Logf("Full waagent log written to: %s/%s", testDir(s.testName), logFileName)
+			s.Logger.Logf("Full waagent log written to: %s/%s", artifactDir(s.artifactName), logFileName)
 		}
 		errs = append(errs, fmt.Errorf("ExtHandler errors found in waagent.log:\n%s", errOutput))
 	}
