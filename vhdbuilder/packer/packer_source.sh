@@ -62,6 +62,35 @@ ubuntuKernelIncludesVulnerableModuleFixes() {
   kernelVersionGe "$kernel_release" "$fixed_kernel"
 }
 
+bakeModprobeCISWithoutVulnerableModules() {
+  local context_message="$1"
+
+  MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC=/home/packer/modprobe-CIS-without-vulnerable-kernel-modules.conf
+  sed -E \
+    -e '/^# CVE-2026-31431 \(Copy Fail\):/d' \
+    -e '/^# until kernel fix is available\. See https:\/\/ubuntu\.com\/blog\/copy-fail-vulnerability-fixes-available$/d' \
+    -e '/^# DirtyFrag \/ CopyFail2:/d' \
+    -e '/^# write LPE vulnerabilities\. rxrpc path bypasses AppArmor userns restrictions\.$/d' \
+    -e '/^# AKS platform components do not require kernel IPsec ESP\/XFRM or AFS\/RxRPC\.$/d' \
+    -e '/^# Disabling these modules prevents workloads that rely on those protocols from working$/d' \
+    -e '/^# on the node\. See https:\/\/github\.com\/V4bel\/dirtyfrag$/d' \
+    -e "/$VULNERABLE_KERNEL_MODULE_DENY_PATTERN/d" \
+    "$MODPROBE_CIS_SRC" > "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" || exit "$ERR_PACKER_COPY_FILE"
+  if grep -qE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC"; then
+    echo "Failed to remove vulnerable module deny rules from $MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC"
+    exit "$ERR_PACKER_COPY_FILE"
+  fi
+  echo "Copying modprobe-CIS.conf without algif_aead / esp4 / esp6 / rxrpc ${context_message}"
+  cpAndMode "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" "$MODPROBE_CIS_DEST" 644
+  rm -f "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" || exit "$ERR_PACKER_COPY_FILE"
+  removeVulnerableKernelModuleDenyRulesFromModprobeDirectory || exit "$ERR_PACKER_COPY_FILE"
+  if grep -qsE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf 2>/dev/null; then
+    echo "Failed to remove vulnerable module deny rules from /etc/modprobe.d/*.conf"
+    grep -nE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf || true
+    exit "$ERR_PACKER_COPY_FILE"
+  fi
+}
+
 removeVulnerableKernelModuleDenyRulesFromModprobeDirectory() {
   local modprobe_conf
   local tmp_modprobe_conf
@@ -520,47 +549,29 @@ copyPackerFiles() {
   cpAndMode $SSHD_CONFIG_SRC $SSHD_CONFIG_DEST 600
   # CVE-2026-31431 (Copy Fail), DirtyFrag, Fragnesia mitigation: bake modprobe blacklist
   # for algif_aead / esp4 / esp6 / rxrpc into the VHD only for OS streams that still need it.
-  # Keep the rest of the CIS module deny list on fixed Ubuntu VHDs; those entries are
-  # unrelated to the 2026 kernel CVEs and are required for the CIS baseline.
+  # Keep the rest of the CIS module deny list (dccp/sctp/rds/tipc/cramfs/etc.) intact on
+  # every OS stream; those entries are unrelated to the 2026 kernel CVEs and are required
+  # for the CIS baseline.
   #
   # The vulnerable-module block is omitted on fixed Ubuntu 22.04 / 24.04 kernels,
-  # and by default on future Ubuntu releases that are not explicitly in mitigation scope.
-  # the whole file is skipped on AzureLinux 3.0 because:
+  # and by default on future Ubuntu releases that are not explicitly in mitigation scope,
+  # and on AzureLinux 3.0 (non-OSGuard) because:
   #   1. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu 24.04 linux-azure
   #      6.8.0-1058-azure include the fixes. The CSE still applies the deny rules
   #      at runtime if it detects an older vulnerable Ubuntu kernel.
   #   2. The upstream kernel fix in 6.6.139.1-1.azl3+ supersedes the modprobe blacklist.
   #   3. Customer workloads require those kernel modules; the bake-in actively blocks
   #      legitimate use cases on fixed kernels.
-  # Ubuntu 20.04, Mariner / AzureLinux 2.0, and AzureLinux OSGuard still get the bake-in. See
+  # In both cases only the algif_aead/esp4/esp6/rxrpc lines are stripped — the rest of
+  # modprobe-CIS.conf (including the SCTP/DCCP/RDS/TIPC/cramfs/etc. CIS baseline denylist)
+  # is still baked in, so AzureLinux 3.0 keeps the same CIS module hardening as every other
+  # OS stream instead of silently losing the whole file. See
   # https://github.com/Azure/AKS/issues/5753.
+  # Ubuntu 20.04, Mariner / AzureLinux 2.0, and AzureLinux OSGuard still get the unmodified bake-in.
   if isUbuntu "$OS" && ubuntuKernelIncludesVulnerableModuleFixes; then
-    MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC=/home/packer/modprobe-CIS-without-vulnerable-kernel-modules.conf
-    sed -E \
-      -e '/^# CVE-2026-31431 \(Copy Fail\):/d' \
-      -e '/^# until kernel fix is available\. See https:\/\/ubuntu\.com\/blog\/copy-fail-vulnerability-fixes-available$/d' \
-      -e '/^# DirtyFrag \/ CopyFail2:/d' \
-      -e '/^# write LPE vulnerabilities\. rxrpc path bypasses AppArmor userns restrictions\.$/d' \
-      -e '/^# AKS platform components do not require kernel IPsec ESP\/XFRM or AFS\/RxRPC\.$/d' \
-      -e '/^# Disabling these modules prevents workloads that rely on those protocols from working$/d' \
-      -e '/^# on the node\. See https:\/\/github\.com\/V4bel\/dirtyfrag$/d' \
-      -e "/$VULNERABLE_KERNEL_MODULE_DENY_PATTERN/d" \
-      "$MODPROBE_CIS_SRC" > "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" || exit "$ERR_PACKER_COPY_FILE"
-    if grep -qE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC"; then
-      echo "Failed to remove vulnerable module deny rules from $MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC"
-      exit "$ERR_PACKER_COPY_FILE"
-    fi
-    echo "Copying modprobe-CIS.conf without algif_aead / esp4 / esp6 / rxrpc on Ubuntu ${OS_VERSION} (fixed or future Ubuntu kernels are not in mitigation scope)"
-    cpAndMode "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" "$MODPROBE_CIS_DEST" 644
-    rm -f "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" || exit "$ERR_PACKER_COPY_FILE"
-    removeVulnerableKernelModuleDenyRulesFromModprobeDirectory || exit "$ERR_PACKER_COPY_FILE"
-    if grep -qsE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf 2>/dev/null; then
-      echo "Failed to remove vulnerable module deny rules from /etc/modprobe.d/*.conf"
-      grep -nE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf || true
-      exit "$ERR_PACKER_COPY_FILE"
-    fi
+    bakeModprobeCISWithoutVulnerableModules "on Ubuntu ${OS_VERSION} (fixed or future Ubuntu kernels are not in mitigation scope)"
   elif isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-    echo "Skipping modprobe-CIS.conf bake-in on AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix; OSGuard intentionally retains the bake-in)"
+    bakeModprobeCISWithoutVulnerableModules "on AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix; OSGuard intentionally retains the full bake-in; the SCTP/DCCP/RDS/TIPC/cramfs/etc. CIS baseline denylist is preserved)"
   else
     cpAndMode $MODPROBE_CIS_SRC $MODPROBE_CIS_DEST 644
   fi

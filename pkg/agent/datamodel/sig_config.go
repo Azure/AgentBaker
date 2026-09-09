@@ -436,6 +436,9 @@ const (
 	// Flatcar is deprecated on June 8th.
 	FrozenFlatcarSIGImageVersion string = "202607.02.0"
 
+	// AzureLinuxOSGuard is deprecated on August 26th, 2026.
+	FrozenAzureLinuxOSGuardSIGImageVersion string = "202608.26.0"
+
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
 	Windows2022SIGImageVersion string = "20348.2022.221114"
@@ -772,7 +775,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "OSGuardV3gen2fipsTL",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenAzureLinuxOSGuardSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2KataGen2TLImageConfigTemplate = SigImageConfigTemplate{

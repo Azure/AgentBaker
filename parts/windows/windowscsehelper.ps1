@@ -333,9 +333,24 @@ function Start-NodeResetScriptTask {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask failed with result $($taskInfo.LastTaskResult)"
     }
 
-    $kubeletService=Get-Service -Name "kubelet" -ErrorAction SilentlyContinue
-    if ($null -eq $kubeletService -or $kubeletService.Status -ne "Running") {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet service is not running after NodeResetScriptTask completed"
+    if ([string]::IsNullOrEmpty($global:KubeletHealthzEndpoint)) {
+        $kubeletService=Get-Service -Name "kubelet" -ErrorAction SilentlyContinue
+        if ($null -eq $kubeletService -or $kubeletService.Status -ne "Running") {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet service is not running after NodeResetScriptTask completed"
+        }
+    } else {
+        try {
+            $healthCheckArgs=@{
+                Uri=$global:KubeletHealthzEndpoint
+                UseBasicParsing=$true
+                TimeoutSec=1
+                ErrorAction="Stop"
+            }
+            # Observed NSSM recovery took over 12 seconds; allow 30 attempts for slower hosts.
+            Retry-Command -Command "Invoke-WebRequest" -Args $healthCheckArgs -Retries 30 -RetryDelaySeconds 1 | Out-Null
+        } catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet did not become healthy after NodeResetScriptTask completed. Error: $($_.Exception.Message)"
+        }
     }
 
     Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
@@ -414,7 +429,7 @@ function Retry-Command {
             if ($i -ge $Retries) {
                 throw $_
             }
-            Start-Sleep $RetryDelaySeconds
+            Start-Sleep -Seconds $RetryDelaySeconds
         }
     }
 }

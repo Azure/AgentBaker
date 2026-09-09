@@ -3273,6 +3273,48 @@ EOF
             The output should include "Swap file will be saved to: /swapfile"
             The output should include "reconcileSwapFilePersistence /swapfile"
         End
+
+        It 'waits for the OS filesystem resize before creating the swap file'
+            DISK_FREE_KB=500
+            findmnt() {
+                return 1
+            }
+            df() {
+                printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda1 1000000 0 %s 0%% /\n' "${DISK_FREE_KB}"
+            }
+            sleep() {
+                echo "sleep $1"
+                DISK_FREE_KB=1000000
+            }
+
+            When call configureSwapFile
+
+            The status should be success
+            The output should include "waiting up to 30 seconds for filesystem resize"
+            The output should include "sleep 1"
+            The output should include "Will use OS disk for swap file"
+            The output should include "Swap file will be saved to: /swapfile"
+        End
+
+        It 'fails after waiting 30 seconds when the OS disk remains too small'
+            DISK_FREE_KB=500
+            findmnt() {
+                return 1
+            }
+            df() {
+                printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda1 1000000 0 %s 0%% /\n' "${DISK_FREE_KB}"
+            }
+            sleep() {
+                echo "sleep $1"
+            }
+
+            When run configureSwapFile
+
+            The status should equal "$ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE"
+            The output should include "waiting up to 30 seconds for filesystem resize"
+            The output should include "after waiting for filesystem resize"
+            The output should not include "Swap file will be saved to"
+        End
     End
 
     Describe 'reconcileSwapFilePersistence'

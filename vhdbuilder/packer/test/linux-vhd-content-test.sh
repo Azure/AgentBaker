@@ -1480,9 +1480,10 @@ testNfsServerService() {
 # To add a new CVE mitigation, append the module to BOTH loops below — the
 # absence loop AND the default presence + load-refusal loop.
 #
-# AzureLinux 3.0 is descoped: kernel 6.6.139.1-1.azl3+ fixes the CVEs upstream and
-# the modprobe blacklist is NOT baked into newly-built AzL3 VHDs (customer workloads
-# require those modules). Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu
+# AzureLinux 3.0 is descoped: kernel 6.6.139.1-1.azl3+ fixes the CVEs upstream, so only the
+# algif_aead/esp4/esp6/rxrpc lines are stripped from newly-built AzL3 VHDs (customer workloads
+# require those modules); the rest of the CIS module denylist (dccp/sctp/rds/tipc/cramfs/etc.)
+# is still baked in and asserted below. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu
 # 24.04 linux-azure 6.8.0-1058-azure include the fixes, so newly-built Ubuntu
 # 22.04/24.04 VHDs with a fixed running kernel also stop baking the vulnerable-module
 # blacklist while keeping the baseline CIS module deny list. Ubuntu 20.04 and vulnerable
@@ -1553,19 +1554,29 @@ testVulnerableKernelModulesDisabled() {
       fi
     done
 
-    if [ "$os_sku" = "Ubuntu" ]; then
-      for mod in cramfs freevxfs jffs2 hfs hfsplus usb-storage; do
-        if ! grep -qsE "^install ${mod} /bin/true" /etc/modprobe.d/*.conf 2>/dev/null; then
-          err "$test" "${mod} CIS disable rule not found in /etc/modprobe.d/*.conf"
-          failed=1
-        elif ! grep -qsE "^blacklist ${mod}" /etc/modprobe.d/*.conf 2>/dev/null; then
-          err "$test" "${mod} CIS blacklist rule not found in /etc/modprobe.d/*.conf"
-          failed=1
-        else
-          echo "$test: CIS modprobe config correctly blocks ${mod}"
-        fi
-      done
-    fi
+    # Only the algif_aead/esp4/esp6/rxrpc lines above are stripped for the CVE mitigation;
+    # the rest of the CIS 3.5.x / 1.1.1.x module denylist must remain intact on every OS
+    # stream (including AzureLinux 3.0, which used to skip the whole modprobe-CIS.conf file).
+    for mod in dccp sctp rds tipc; do
+      if ! grep -qsE "^install ${mod} /bin/true" /etc/modprobe.d/*.conf 2>/dev/null; then
+        err "$test" "${mod} CIS disable rule not found in /etc/modprobe.d/*.conf on ${os_sku} ${os_version}"
+        failed=1
+      else
+        echo "$test: CIS modprobe config correctly blocks ${mod} on ${os_sku} ${os_version}"
+      fi
+    done
+
+    for mod in cramfs freevxfs jffs2 hfs hfsplus usb-storage; do
+      if ! grep -qsE "^install ${mod} /bin/true" /etc/modprobe.d/*.conf 2>/dev/null; then
+        err "$test" "${mod} CIS disable rule not found in /etc/modprobe.d/*.conf on ${os_sku} ${os_version}"
+        failed=1
+      elif ! grep -qsE "^blacklist ${mod}" /etc/modprobe.d/*.conf 2>/dev/null; then
+        err "$test" "${mod} CIS blacklist rule not found in /etc/modprobe.d/*.conf on ${os_sku} ${os_version}"
+        failed=1
+      else
+        echo "$test: CIS modprobe config correctly blocks ${mod} on ${os_sku} ${os_version}"
+      fi
+    done
 
     if [ "$failed" -ne 0 ]; then
       return 1
@@ -1982,6 +1993,22 @@ testNodeExporter () {
   fi
   echo "$test: skip sentinel file exists at $skip_file"
 
+  local expectedVersion
+  expectedVersion=$(getPackageExpectedVersion "node-exporter" "" "" "")
+  if [ "$expectedVersion" = "<SKIP>" ]; then
+    err "$test" "node-exporter expected version is <SKIP> on supported OS $os_sku"
+    return 1
+  fi
+  assertPackageVersion "$test" "node-exporter-kubernetes" "$expectedVersion" || return 1
+
+  local expectedBinaryVersion="v${expectedVersion%%-*}"
+  local binaryVersion
+  binaryVersion=$(/usr/bin/node-exporter --version 2>&1 | awk 'NR == 1 { print $3 }')
+  if [ "$binaryVersion" != "$expectedBinaryVersion" ]; then
+    err "$test" "node-exporter binary version '$binaryVersion' does not match expected '$expectedBinaryVersion'"
+    return 1
+  fi
+
   # The Dalec-built deb/rpm installs the binary to /usr/bin/node-exporter.
   # We then create a symlink at /opt/bin/node-exporter for consistency with
   # other binaries (kubelet, kubectl) that live in /opt/bin.
@@ -2011,6 +2038,11 @@ testNodeExporter () {
     return 1
   fi
   echo "$test: node-exporter startup script exists"
+
+  if [ ! -s /etc/udev/rules.d/99-node-exporter-mana.rules ]; then
+    err "$test" "node-exporter MANA PCI-add rule is missing"
+    return 1
+  fi
 
   # Check that the service file exists
   if [ ! -f "/etc/systemd/system/node-exporter.service" ]; then
@@ -2077,9 +2109,19 @@ testAKSNodeControllerVersion() {
     return 1
   fi
 
-  if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]{6}\.[0-9]{2}\.[0-9]+$'; then
-    err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected 'YYYYMM.DD.PATCH'"
-    return 1
+  # Test builds (PR builds, and any build run off a non-main ref) are not tied to a real VHD release version,
+  # so binary stamped with a non-release version (e.g. a locally-generated dev/date-based fallback).
+  # Only enforce the strict release format when official build off of 'refs/heads/main'.
+  if [ "$GIT_BRANCH" = "refs/heads/main" ]; then
+    if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]{6}\.[0-9]{2}\.[0-9]+$'; then
+      err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected 'YYYYMM.DD.PATCH'"
+      return 1
+    fi
+  else
+    if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]+(\.[0-9]+)*$'; then
+      err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected a dotted numeric version"
+      return 1
+    fi
   fi
 
   echo "$test: aks-node-controller version '${ancVersion}' is valid"

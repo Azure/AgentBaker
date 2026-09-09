@@ -356,8 +356,9 @@ function Get-CACertificates {
         Write-Log "Get CA certificates. Location: $Location. EndpointMode: $certEndpointMode"
     }
 
-    # Get-CACertificates downloads Azure root CA certificates from wireserver and writes them
-    # to the local certificate folder. When called with -FailOnError, wireserver unreachable
+    # C:\ca is a staging location; installing WireServer certificates into LocalMachine trust
+    # stores is intentional and matches the system-wide trust behavior on Linux.
+    # When called with -FailOnError, wireserver unreachable
     # after retries is fatal — silently falling back to the OS default trust store would be a
     # security hole if the customer intended hardened root certs. This matches the Linux
     # behavior in init-aks-cloud.sh (is_opted_in_for_root_certs return code 2 = fatal).
@@ -379,7 +380,14 @@ function Get-CACertificates {
                 $name = $certificate.Name
                 $certFilePath = Join-Path $caFolder $name
                 Write-Log "Write certificate $name to $certFilePath"
-                $certificate.CertBody > $certFilePath
+                $certificate.CertBody | Out-File -Encoding ascii -FilePath $certFilePath
+                # The legacy endpoint returns trusted root certificates only.
+                Write-Log "Import certificate $name to the LocalMachine Root certificate store"
+                try {
+                    Import-Certificate -FilePath $certFilePath -CertStoreLocation 'Cert:\LocalMachine\Root' -ErrorAction Stop | Out-Null
+                } catch {
+                    throw "Failed to import CA certificate '$name' into Cert:\LocalMachine\Root. Error: $_"
+                }
             }
 
             return $true
@@ -400,6 +408,12 @@ function Get-CACertificates {
         $downloadedAny = $false
 
         foreach ($requestType in $operationRequestTypes) {
+            # Keep intermediates out of the trusted root store while making both chains system-wide.
+            $certStoreLocation = if ($requestType -eq "operationrequestsroot") {
+                'Cert:\LocalMachine\Root'
+            } else {
+                'Cert:\LocalMachine\CA'
+            }
             $operationRequestUri = "http://168.63.129.16/machine?comp=acmspackage&type=$requestType&ext=json"
             $operationResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$operationRequestUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
             $operationJson = ($operationResponse.Content) | ConvertFrom-Json
@@ -436,7 +450,13 @@ function Get-CACertificates {
 
                 $certFilePath = Join-Path $caFolder $resourceFileName
                 Write-Log "Write certificate $resourceFileName to $certFilePath"
-                $certContentResponse.Content > $certFilePath
+                $certContentResponse.Content | Out-File -Encoding ascii -FilePath $certFilePath
+                Write-Log "Import certificate $resourceFileName to $certStoreLocation"
+                try {
+                    Import-Certificate -FilePath $certFilePath -CertStoreLocation $certStoreLocation -ErrorAction Stop | Out-Null
+                } catch {
+                    throw "Failed to import CA certificate '$resourceFileName' into $certStoreLocation. Error: $_"
+                }
                 $downloadedAny = $true
             }
         }
@@ -465,9 +485,9 @@ function Get-CACertificates {
             Write-Log "Wireserver error response body: $responseBody"
         }
         if ($FailOnError) {
-            throw "Failed to retrieve CA certificates (HTTP $statusCode). Error: $_"
+            throw "Failed to process CA certificates (HTTP $statusCode). Error: $_"
         }
-        Write-Log "Warning: failed to retrieve CA certificates (HTTP $statusCode). Error: $_"
+        Write-Log "Warning: failed to process CA certificates (HTTP $statusCode). Error: $_"
         return $false
     }
 }

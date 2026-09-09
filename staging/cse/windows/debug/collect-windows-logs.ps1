@@ -43,6 +43,7 @@ $lockedFiles = @(
   "kubeproxy.err.log",
   "azure-vnet-telemetry.log",
   "azure-vnet.log",
+  "azure-vnet-ipam.log",
   "csi-proxy.log",
   "csi-proxy.err.log",
   "containerd.log",

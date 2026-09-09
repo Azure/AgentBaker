@@ -14,7 +14,7 @@ jobs:
     steps:
       - name: Install Go
         if: success()
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.25'
       - name: Checkout code
@@ -32,9 +32,9 @@ jobs:
         run: |
           sed '/pb.go/d' coverage-no-mocks.out > coverage.out
       - name: Convert coverage to lcov
-        uses: jandelgado/gcov2lcov-action@e4612787670fc5b5f49026b8c29c5569921de1db # v1
+        uses: jandelgado/gcov2lcov-action@e4612787670fc5b5f49026b8c29c5569921de1db # v1.2.0
       - name: Coveralls
-        uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # v2
+        uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # v2.3.8
         with:
           parallel: true
           flag-name: run-1
@@ -47,7 +47,7 @@ jobs:
       contents: read
     steps:
       - name: Coveralls Finished
-        uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # v2
+        uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # v2.3.8
         with:
           parallel-finished: true
           carryforward: "run-1"
