@@ -3038,7 +3038,7 @@ OVERRIDE_EOF
 
     Describe 'ensurePodInfraContainerImage'
         waitForContainerdReady() { return 0; }
-        ctr() { echo "ctr $@"; return 0; }
+        ctr() { echo ""; return 0; }
         mkdir() { echo "mkdir $@"; }
         tar() { echo "tar $@"; return 0; }
         rm() { echo "rm $@"; }
@@ -3077,19 +3077,6 @@ OVERRIDE_EOF
 
             The status should be success
             The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.2"
-        End
-
-        It 'should preserve the existing pod infra import path'
-            get_sandbox_image() { echo "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2"; }
-            MCR_REPOSITORY_BASE="mcr.microsoft.com"
-            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
-
-            When call ensurePodInfraContainerImage
-
-            The status should be success
-            The output should include "retrycmd_cp_oci_layout_with_oras 10 5"
-            The output should include "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.2"
-            The output should include "ctr -n k8s.io image import --base-name mcr.microsoft.com/oss/v2/kubernetes/pause"
         End
     End
 

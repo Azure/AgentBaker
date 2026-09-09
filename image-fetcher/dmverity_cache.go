@@ -68,3 +68,50 @@ func transferImage(ctx context.Context, client *containerd.Client, ref string, p
 	}
 	return containerd.NewImageWithPlatform(client, imageMeta, platforms.OnlyStrict(platform)), nil
 }
+
+// cacheImageWithDmverityReferrers uses a fetch-only server transfer so
+// containerd can retain the signed referrer graph. Small images are then
+// unpacked locally into overlayfs without another registry traversal.
+func cacheImageWithDmverityReferrers(
+	ctx context.Context,
+	client *containerd.Client,
+	ref string,
+	platform ocispec.Platform,
+	fetchOnly bool,
+) error {
+	image, err := transferImage(ctx, client, ref, platform)
+	if err != nil {
+		return fmt.Errorf("transfer failed: %w", err)
+	}
+	if err := validateImagePlatform(ctx, image, platform); err != nil {
+		return err
+	}
+
+	if fetchOnly {
+		fmt.Printf("OK    %s -> %s (transferred)\n", image.Name(), image.Target().Digest)
+		return nil
+	}
+
+	size, err := image.Size(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARN  %s: could not determine image size, skipping unpack: %v\n", ref, err)
+		fmt.Printf("OK    %s -> %s (transferred)\n", image.Name(), image.Target().Digest)
+		return nil
+	}
+
+	if size < pullSizeThreshold {
+		if err := image.Unpack(ctx, "overlayfs"); err != nil {
+			return fmt.Errorf("local overlayfs unpack failed: %w", err)
+		}
+		fmt.Printf(
+			"OK    %s -> %s (transferred and unpacked, %s)\n",
+			image.Name(),
+			image.Target().Digest,
+			formatSize(size),
+		)
+		return nil
+	}
+
+	fmt.Printf("OK    %s -> %s (transferred, %s)\n", image.Name(), image.Target().Digest, formatSize(size))
+	return nil
+}

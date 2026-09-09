@@ -59,10 +59,16 @@ func main() {
 	}
 }
 
-// fetchImage preserves the existing 150 MiB unpack policy. When containerd
-// retains dm-verity referrers, it uses a fetch-only server transfer first,
-// then unpacks small images locally into overlayfs from the shared content
-// store without a second registry traversal.
+// fetchImage uses the dm-verity-aware server transfer when available.
+// Otherwise, it uses client.Fetch(), which:
+//   - Downloads all blobs (manifest, config, layers) into the content store
+//   - Creates an image record in the metadata database
+//   - Does NOT unpack layers into the snapshotter
+//
+// If the total image content size is below pullSizeThreshold (150 MiB),
+// client.Pull() is called to additionally unpack the layers. Pull reuses
+// already-fetched content from the store and handles snapshotter resolution
+// internally (namespace label → platform default).
 func fetchImage(ctx context.Context, client *containerd.Client, ref string) error {
 	fetchOnly := os.Getenv("IMAGE_FETCH_ONLY") == "true"
 
@@ -76,36 +82,7 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 	platformMatcher := platforms.OnlyStrict(p)
 
 	if containerdRetainsDmverityReferrers(ctx, client) {
-		image, err := transferImage(ctx, client, ref, p)
-		if err != nil {
-			return fmt.Errorf("transfer failed: %w", err)
-		}
-		if err := validateImagePlatform(ctx, image, p); err != nil {
-			return err
-		}
-
-		if fetchOnly {
-			fmt.Printf("OK    %s -> %s (transferred)\n", image.Name(), image.Target().Digest)
-			return nil
-		}
-
-		size, err := image.Size(ctx)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARN  %s: could not determine image size, skipping unpack: %v\n", ref, err)
-			fmt.Printf("OK    %s -> %s (transferred)\n", image.Name(), image.Target().Digest)
-			return nil
-		}
-
-		if size < pullSizeThreshold {
-			if err := image.Unpack(ctx, "overlayfs"); err != nil {
-				return fmt.Errorf("local overlayfs unpack failed: %w", err)
-			}
-			fmt.Printf("OK    %s -> %s (transferred and unpacked, %s)\n", image.Name(), image.Target().Digest, formatSize(size))
-			return nil
-		}
-
-		fmt.Printf("OK    %s -> %s (transferred, %s)\n", image.Name(), image.Target().Digest, formatSize(size))
-		return nil
+		return cacheImageWithDmverityReferrers(ctx, client, ref, p, fetchOnly)
 	}
 
 	imageMeta, err := client.Fetch(ctx, ref,

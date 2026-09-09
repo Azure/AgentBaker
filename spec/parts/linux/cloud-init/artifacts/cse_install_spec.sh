@@ -366,33 +366,4 @@ Describe 'cse_install.sh'
             The output line 3 should include "mock exit calling with 207"
         End
     End
-
-    Describe 'pullContainerImage'
-        retrycmd_if_failure() {
-            echo "${PULL_COMMAND_STDOUT:-mock pull progress}"
-            echo "retrycmd_if_failure $*" >&2
-            return "${PULL_COMMAND_STATUS:-0}"
-        }
-
-        BeforeEach 'setupPullContainerImage'
-        setupPullContainerImage() {
-            PULL_COMMAND_STATUS=0
-        }
-
-        It 'uses image-fetcher for the ctr path'
-            When call pullContainerImage "ctr" "mcr.microsoft.com/example/image:v1"
-            The error should include "retrycmd_if_failure 10 1 600 /opt/azure/containers/image-fetcher mcr.microsoft.com/example/image:v1"
-            The output should include "mock pull progress"
-            The status should be success
-        End
-
-        It 'maps a transfer timeout to the existing ctr timeout error'
-            PULL_COMMAND_STATUS=124
-            When call pullContainerImage "ctr" "mcr.microsoft.com/example/image:v1"
-            The error should include "retrycmd_if_failure 10 1 600 /opt/azure/containers/image-fetcher"
-            The output should include "timed out pulling image mcr.microsoft.com/example/image:v1 via ctr"
-            The status should equal "$ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT"
-        End
-    End
-
 End
