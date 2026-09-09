@@ -906,7 +906,7 @@
             "versionsV2": [
               {
                 "renovateTag": "github-releases=oras-project/oras",
-                "latestVersion": "1.3.3"
+                "latestVersion": "1.3.4"
               }
             ],
             "downloadURL": "https://github.com/oras-project/oras/releases/download/v${version}/oras_${version}_linux_${CPU_ARCH}.tar.gz"
@@ -927,7 +927,7 @@
             "versionsV2": [
               {
                 "renovateTag": "github-releases=oras-project/oras",
-                "latestVersion": "1.3.3"
+                "latestVersion": "1.3.4"
               }
             ],
             "downloadURL": "https://github.com/oras-project/oras/releases/download/v${version}/oras_${version}_windows_amd64.zip"
