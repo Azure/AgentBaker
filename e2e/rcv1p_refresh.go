@@ -124,10 +124,14 @@ func validateInstalledRCV1PScript(ctx context.Context, s *Scenario) error {
 		return err
 	}
 	fields := strings.Fields(result.stdout)
-	if len(fields) != 2 || fields[0] != want {
+	if len(fields) != 2 {
+		return fmt.Errorf("could not parse installed refresh script SHA256 at %s", installedRCV1PScript)
+	}
+	toolkit.Logf(ctx, "Installed RCV1P artifact path=%s SHA256=%s; checkout SHA256=%s",
+		installedRCV1PScript, fields[0], want)
+	if fields[1] != installedRCV1PScript || fields[0] != want {
 		return fmt.Errorf("installed refresh script does not match checkout SHA256 %s; use branch-delivered scripted CSE or a matching candidate VHD for ANC/ACL (no test-only script substitution)", want)
 	}
-	toolkit.Logf(ctx, "Installed RCV1P refresh script matches checkout SHA256 %s", want)
 	return nil
 }
 
@@ -213,6 +217,7 @@ func runInstalledRCV1PRefresh(ctx context.Context, s *Scenario) error {
 		}
 		priorInvocation = strings.TrimSpace(result.stdout)
 	}
+	toolkit.Logf(ctx, "Invoking installed RCV1P refresh: %s (verified script %s)", command, installedRCV1PScript)
 	result, err := execScriptOnVMForScenario(ctx, s, command)
 	if err != nil {
 		return fmt.Errorf("execute installed refresh: %w", err)

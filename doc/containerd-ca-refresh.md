@@ -155,6 +155,15 @@ skip as live coverage. For ANC, omit `--disable-scriptless` and use candidate
 VHDs containing the branch refresh script. Ubuntu 26.04 minimal and ACL share
 the framework, but their inclusion in code is not evidence of live validation.
 
+Using an existing published VHD with `--disable-scriptless` validates that VHD's
+runtime together with the branch's normal cloud-init/CSE-delivered refresh
+script; it does **not** validate a newly baked/published repaired VHD. The
+validator logs the installed path, observed and expected SHA256, and invocation
+command, and fails on a mismatch without replacing the script. A successful PR
+VHD build does not prove its images are present in the dedicated gallery.
+Publishing/copying candidate images is a separate authorized operation, not
+part of this test or implied by the framework migration.
+
 ## Separate synthetic CA-addition regression
 
 `RCV1P_ContainerdSyntheticCARotation/{Ubuntu2204,Ubuntu2404,AzureLinuxV3}`
