@@ -26,7 +26,7 @@ func init() {
 			Name:        "RCV1P_ContainerdSyntheticCARotation/" + image.name,
 			Description: "Isolated synthetic CA additions through the trust helper, not real RCV1P acquisition",
 			Tags:        Tags{RCV1PCertMode: true},
-			SkipIf:      skipIfRCV1PNotConfigured,
+			SkipIf:      skipIfRCV1PRefreshNotSelected,
 			Config: Config{
 				Cluster:         ClusterKubenet,
 				VHD:             image.vhd,

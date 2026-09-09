@@ -140,9 +140,13 @@ Only set `RCV1P_TAGS_AUTO_INJECTED=true` where the platform is known to inject
 the tag. This variable controls **negative-case skipping only**: setting it
 false does not exclude positive cases. The existing negative pipeline is
 unchanged. Unfiltered CLI runs select all scenarios before applying guards;
-the tag alone is not a selector. The general `.pipelines/e2e.yaml` explicitly
-skips `rcv1pcertmode=true`, keeping this work in the dedicated suite. Other
-callers must choose their tag filters/subscription deliberately.
+the scenario tag alone is not a selector. Linux refresh and synthetic cases
+require explicit `--tags rcv1pcertmode=true` / `TAGS_TO_RUN`, then check the
+configured subscription's feature registration. Thus generic daily runs skip
+this coverage even if their subscription also has the feature registered.
+Pipeline filters need no changes. Selecting a case by name alone is insufficient.
+The explicit filter is a suite opt-in, not proof of subscription identity:
+callers must still use verified dedicated routing.
 
 For the complete dedicated suite, select `--tags rcv1pcertmode=true` without
 positional names. That also selects existing Windows/negative cases and the
@@ -207,10 +211,11 @@ build pass. Tests cover positive/synthetic registration, tag selection, the
 feature guard (including authentication errors), stage order/error propagation,
 strict schedule/location checks and fresh acquisition evidence.
 
-Dedicated-subscription live execution of the new health framework is still
-pending. The local Azure account cache does not contain an account matching
-the documented dedicated RCV1P subscription name; verified routing and usable
-authentication must be supplied before running there. The prior generic
+Dedicated daily routing has been verified, but live execution of the new health
+framework is still pending. The local Azure account cache does not contain the
+exact dedicated subscription, so no local live run was attempted. Hosted
+validation must use that existing dedicated routing and the PR commit, with
+matching candidate VHDs for paths that do not deliver the script via CSE. The prior generic
 fixture successes are not relabeled as dedicated RCV1P integration passes.
 Keep the PR draft until the required live matrix and broader gates are proven.
 

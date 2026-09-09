@@ -3,7 +3,6 @@ package e2e
 import (
 	"context"
 	"errors"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -27,9 +26,6 @@ func TestRCV1PRefreshWorkloadIsolation(t *testing.T) {
 }
 
 func TestRCV1PRefreshScenarioSelection(t *testing.T) {
-	generalPipeline, err := os.ReadFile("../.pipelines/e2e.yaml")
-	require.NoError(t, err)
-	require.Contains(t, string(generalPipeline), `TAGS_TO_SKIP: "os=windows,gpu=true,rcv1pcertmode=true"`)
 	positives := map[string]bool{
 		"RCV1P_Ubuntu2204": false, "RCV1P_Ubuntu2404": false,
 		"RCV1P_Ubuntu2604Minimal": false, "RCV1P_AzureLinuxV3": false, "RCV1P_ACL": false,
@@ -44,7 +40,7 @@ func TestRCV1PRefreshScenarioSelection(t *testing.T) {
 		}
 		require.True(t, s.Tags.RCV1PCertMode, s.Name)
 		require.NotNil(t, s.SkipIf, s.Name)
-		require.Equal(t, reflect.ValueOf(skipIfRCV1PNotConfigured).Pointer(), reflect.ValueOf(s.SkipIf).Pointer())
+		require.Equal(t, reflect.ValueOf(skipIfRCV1PRefreshNotSelected).Pointer(), reflect.ValueOf(s.SkipIf).Pointer())
 		vmss := &armcompute.VirtualMachineScaleSet{Properties: &armcompute.VirtualMachineScaleSetProperties{}}
 		s.VMConfigMutator(vmss)
 		require.Equal(t, "true", *vmss.Tags[rcv1pOptInTag], s.Name)
@@ -72,6 +68,43 @@ func TestRCV1PRefreshScenarioSelection(t *testing.T) {
 		require.True(t, found, name)
 	}
 	require.Equal(t, 3, synthetic)
+}
+
+func TestRCV1PRefreshSelectionGuard(t *testing.T) {
+	oldFeature, oldTags := CachedPlatformSettingsOverrideFeatureFlag, config.Config.TagsToRun
+	defer func() {
+		CachedPlatformSettingsOverrideFeatureFlag = oldFeature
+		config.Config.TagsToRun = oldTags
+	}()
+	for _, test := range []struct {
+		name, tags string
+		registered bool
+		err        error
+		query, run bool
+	}{
+		{name: "unfiltered registered generic subscription", registered: true},
+		{name: "generic Linux selection", tags: "os=linux", registered: true},
+		{name: "name alone is not suite opt in", tags: "name=RCV1P_Ubuntu2204", registered: true},
+		{name: "negative tag", tags: "rcv1pcertmode=false", registered: true},
+		{name: "conflicting tag", tags: "rcv1pcertmode=true,rcv1pcertmode=false", registered: true},
+		{name: "invalid boolean", tags: "rcv1pcertmode=maybe", registered: true},
+		{name: "dedicated suite selection", tags: "rcv1pcertmode=true", registered: true, query: true, run: true},
+		{name: "combined filters", tags: "os=linux, RCV1PCertMode = TRUE", registered: true, query: true, run: true},
+		{name: "wrong subscription feature absent", tags: "rcv1pcertmode=true", query: true},
+		{name: "dedicated auth failure", tags: "rcv1pcertmode=true", err: errors.New("unauthorized"), query: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config.Config.TagsToRun = test.tags
+			queried := false
+			CachedPlatformSettingsOverrideFeatureFlag = func(_ context.Context, sub string) (bool, error) {
+				queried = true
+				require.Equal(t, config.Config.SubscriptionID, sub)
+				return test.registered, test.err
+			}
+			require.Equal(t, test.run, skipIfRCV1PRefreshNotSelected(context.Background()) == "")
+			require.Equal(t, test.query, queried)
+		})
+	}
 }
 
 func TestRCV1PRefreshFeatureGuard(t *testing.T) {
