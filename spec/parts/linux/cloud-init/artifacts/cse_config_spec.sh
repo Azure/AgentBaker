@@ -2909,6 +2909,129 @@ OVERRIDE_EOF
         End
     End
 
+    Describe 'selectGPUDriverImage'
+        setup_gpu_image() {
+            OS="UBUNTU"
+            OS_VERSION="26.04"
+            GPU_DRIVER_TYPE="grid"
+            GPU_DRIVER_VERSION="570.211.01"
+            GPU_IMAGE_SHA="old-suffix"
+            GPU_DV="$GPU_DRIVER_VERSION"
+            NVIDIA_GPU_DRIVER_TYPE="$GPU_DRIVER_TYPE"
+            NVIDIA_DRIVER_IMAGE_SHA="$GPU_IMAGE_SHA"
+            NVIDIA_DRIVER_IMAGE_TAG="${GPU_DRIVER_VERSION}-${GPU_IMAGE_SHA}"
+            NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-grid"
+            NVIDIA_DRIVER_IMAGE_PULL_REF="$NVIDIA_DRIVER_IMAGE"
+            unset MCR_REPOSITORY_BASE
+            COMPONENTS_FILEPATH="parts/common/components.json"
+            expected_grid_v20_tag=$(jq -r '.GPUContainerImages[] | select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-grid-v20:*") | .gpuVersion.latestVersion' "$COMPONENTS_FILEPATH")
+        }
+        BeforeEach 'setup_gpu_image'
+
+        It 'selects the complete GRID v20 image pin for Ubuntu 26.04'
+            When call selectGPUDriverImage
+
+            The status should be success
+            The output should include "Ubuntu 26.04 GRID driver image: mcr.microsoft.com/aks/aks-gpu-grid-v20:$expected_grid_v20_tag"
+            The variable GPU_DRIVER_TYPE should equal "grid-v20"
+            The variable NVIDIA_GPU_DRIVER_TYPE should equal "grid-v20"
+            The variable GPU_DRIVER_VERSION should equal "${expected_grid_v20_tag%-*}"
+            The variable GPU_DV should equal "${expected_grid_v20_tag%-*}"
+            The variable GPU_IMAGE_SHA should equal "${expected_grid_v20_tag##*-}"
+            The variable NVIDIA_DRIVER_IMAGE_SHA should equal "${expected_grid_v20_tag##*-}"
+            The variable NVIDIA_DRIVER_IMAGE_TAG should equal "$expected_grid_v20_tag"
+            The variable NVIDIA_DRIVER_IMAGE should equal "mcr.microsoft.com/aks/aks-gpu-grid-v20"
+            The variable NVIDIA_DRIVER_IMAGE_PULL_REF should equal "mcr.microsoft.com/aks/aks-gpu-grid-v20"
+        End
+
+        It 'preserves the cloud-specific pull registry and canonical image name'
+            MCR_REPOSITORY_BASE="mcr.example/"
+            When call selectGPUDriverImage
+
+            The status should be success
+            The output should include "Ubuntu 26.04 GRID driver image:"
+            The variable NVIDIA_DRIVER_IMAGE should equal "mcr.microsoft.com/aks/aks-gpu-grid-v20"
+            The variable NVIDIA_DRIVER_IMAGE_PULL_REF should equal "mcr.example/aks/aks-gpu-grid-v20"
+            The variable NVIDIA_DRIVER_IMAGE_TAG should equal "$expected_grid_v20_tag"
+        End
+
+        Describe 'unchanged selections'
+            Parameters
+                "UBUNTU" "22.04" "grid"
+                "UBUNTU" "24.04" "grid"
+                "AZURELINUX" "3.0" "grid"
+                "MARINER" "2.0" "grid"
+                "AZURELINUX" "26.04" "grid"
+                "UBUNTU" "26.04" "cuda-lts"
+                "UBUNTU" "26.04" "cuda"
+                "UBUNTU" "26.04" "grid-v20"
+                "UBUNTU" "26.04" ""
+            End
+
+            It 'does not change image inputs or read components.json for other selections'
+                OS="$1"
+                OS_VERSION="$2"
+                NVIDIA_GPU_DRIVER_TYPE="$3"
+                COMPONENTS_FILEPATH="not-needed.json"
+                When call selectGPUDriverImage
+
+                The status should be success
+                The output should be blank
+                The variable NVIDIA_GPU_DRIVER_TYPE should equal "$3"
+                The variable GPU_DV should equal "570.211.01"
+                The variable NVIDIA_DRIVER_IMAGE_TAG should equal "570.211.01-old-suffix"
+                The variable NVIDIA_DRIVER_IMAGE should equal "mcr.microsoft.com/aks/aks-gpu-grid"
+                The variable NVIDIA_DRIVER_IMAGE_PULL_REF should equal "mcr.microsoft.com/aks/aks-gpu-grid"
+            End
+        End
+
+        It 'fails without changing the image when components.json is missing'
+            COMPONENTS_FILEPATH="missing-grid-v20-components.json"
+            When call selectGPUDriverImage
+
+            The status should be failure
+            The stderr should include "Ubuntu 26.04 requires a valid aks-gpu-grid-v20 pin"
+            The variable NVIDIA_GPU_DRIVER_TYPE should equal "grid"
+            The variable NVIDIA_DRIVER_IMAGE_TAG should equal "570.211.01-old-suffix"
+        End
+
+        It 'fails if components.json is empty'
+            COMPONENTS_FILEPATH="/dev/null"
+            When call selectGPUDriverImage
+
+            The status should be failure
+            The stderr should include "Ubuntu 26.04 requires a valid aks-gpu-grid-v20 pin"
+            The variable NVIDIA_GPU_DRIVER_TYPE should equal "grid"
+        End
+
+        Describe 'invalid GRID v20 pins'
+            setup_invalid_pin() {
+                pin_dir=$(mktemp -d)
+                COMPONENTS_FILEPATH="$pin_dir/components.json"
+                jq "$1" parts/common/components.json > "$COMPONENTS_FILEPATH"
+            }
+            cleanup_invalid_pin() { rm -rf "$pin_dir"; }
+            AfterEach 'cleanup_invalid_pin'
+
+            Parameters
+                'del(.GPUContainerImages[] | select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-grid-v20:*"))'
+                '(.GPUContainerImages[] | select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-grid-v20:*") | .gpuVersion.latestVersion) = "595.58.03"'
+                '(.GPUContainerImages[] | select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-grid-v20:*") | .gpuVersion.latestVersion) = "null"'
+                '.GPUContainerImages += [.GPUContainerImages[] | select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-grid-v20:*")]'
+            End
+
+            It 'rejects missing, malformed, or duplicate pins'
+                setup_invalid_pin "$1"
+                When call selectGPUDriverImage
+
+                The status should be failure
+                The stderr should include "Ubuntu 26.04 requires a valid aks-gpu-grid-v20 pin"
+                The variable NVIDIA_GPU_DRIVER_TYPE should equal "grid"
+                The variable NVIDIA_DRIVER_IMAGE_TAG should equal "570.211.01-old-suffix"
+            End
+        End
+    End
+
     Describe 'configGPUDrivers'
         # Assert the per-step CSE timing event names emitted via logs_to_events,
         # without running the real (hardware/daemon) driver steps. logs_to_events
@@ -2932,6 +3055,37 @@ OVERRIDE_EOF
         NVIDIA_GPU_DRIVER_TYPE="cuda"
         OS_VARIANT=""
         ERR_GPU_DRIVERS_START_FAIL=88
+
+        It 'selects GRID v20 before checking the cache and installing on Ubuntu 26.04'
+            OS="UBUNTU"
+            OS_VERSION="26.04"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            COMPONENTS_FILEPATH="parts/common/components.json"
+            expected_grid_v20_tag=$(jq -r '.GPUContainerImages[] | select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-grid-v20:*") | .gpuVersion.latestVersion' "$COMPONENTS_FILEPATH")
+            logs_to_events() { shift; eval "$@"; }
+            ctr() { echo "ctr $*" >&2; }
+            pullGPUDriverImage() { echo "pull $NVIDIA_DRIVER_IMAGE_PULL_REF:$NVIDIA_DRIVER_IMAGE_TAG"; }
+            installGPUDriverImage() { echo "install $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            The stderr should include "images ls -q name==mcr.microsoft.com/aks/aks-gpu-grid-v20:$expected_grid_v20_tag"
+            The output should include "pull mcr.microsoft.com/aks/aks-gpu-grid-v20:$expected_grid_v20_tag"
+            The output should include "install mcr.microsoft.com/aks/aks-gpu-grid-v20:$expected_grid_v20_tag"
+        End
+
+        It 'does not pull or install an old GRID driver when the Ubuntu 26.04 pin is missing'
+            OS="UBUNTU"
+            OS_VERSION="26.04"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            COMPONENTS_FILEPATH="missing-grid-v20-components.json"
+            When run configGPUDrivers
+
+            The status should equal 88
+            The stderr should include "Ubuntu 26.04 requires a valid aks-gpu-grid-v20 pin"
+            The output should be blank
+        End
 
         It 'times the image pull and install steps on Ubuntu'
             OS="UBUNTU"

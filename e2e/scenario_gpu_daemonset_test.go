@@ -9,6 +9,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
@@ -29,24 +30,81 @@ const (
 // Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset tests the upstream, customer-managed
 // NVIDIA device plugin DaemonSet deployment model instead of the systemd service.
 func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
-	RunScenario(t, &Scenario{
+	RunScenario(t, nvidiaDevicePluginDaemonsetScenario(config.VHDUbuntu2204Gen2Containerd, "Standard_NV6ads_A10_v5"))
+}
+
+// Test_Ubuntu2604Minimal_CUDA checks the CUDA LTS driver and kubelet stability
+// on a T4 node, then validates GPU resources and scheduling with a device plugin
+// DaemonSet. The managed GPU experience remains disabled.
+func Test_Ubuntu2604Minimal_CUDA(t *testing.T) {
+	scenario := nvidiaDevicePluginDaemonsetScenario(config.VHDUbuntu2604MinimalGen2Containerd, "Standard_NC4as_T4_v3")
+	scenario.Cluster = ClusterLatestKubernetesVersionKubenet
+	scenario.Description = "Tests the Ubuntu 26.04 minimal CUDA LTS driver and GPU scheduling with a customer-managed device plugin"
+
+	validateDaemonset := scenario.Validator
+	scenario.Validator = func(ctx context.Context, s *Scenario) error {
+		if err := errors.Join(
+			ValidateKubeletHasNotStopped(ctx, s),
+			ValidateServicesDoNotRestartKubelet(ctx, s),
+		); err != nil {
+			return err
+		}
+		result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"sudo nvidia-smi --query-gpu=driver_version --format=csv,noheader", 0, "could not query NVIDIA driver version")
+		if err != nil {
+			return err
+		}
+		if err := assert.Equal(strings.TrimSpace(result.stdout), datamodel.NvidiaCudaLTSDriverVersion,
+			"expected the CUDA LTS driver pinned in components.json"); err != nil {
+			return err
+		}
+		return validateDaemonset(ctx, s)
+	}
+	RunScenario(t, scenario)
+}
+
+// Test_Ubuntu2604Minimal_GridV20 checks the pinned
+// GRID v20 driver on A10 with a customer-managed device plugin, without managed DCGM.
+// Ubuntu 26.04 selects GRID v20 at provision time even on non-RTX GRID SKUs.
+func Test_Ubuntu2604Minimal_GridV20(t *testing.T) {
+	scenario := nvidiaDevicePluginDaemonsetScenario(config.VHDUbuntu2604MinimalGen2Containerd, "Standard_NV6ads_A10_v5")
+	scenario.Cluster = ClusterLatestKubernetesVersionKubenet
+
+	validateDaemonset := scenario.Validator
+	scenario.Validator = func(ctx context.Context, s *Scenario) error {
+		if err := ValidateNvidiaGridV20DriverInstalled(ctx, s); err != nil {
+			return err
+		}
+		return validateDaemonset(ctx, s)
+	}
+	RunScenario(t, scenario)
+}
+
+// nvidiaDevicePluginDaemonsetScenario installs the AKS GPU driver and validates
+// a node-scoped, customer-managed device plugin DaemonSet. Managed GPU services
+// remain disabled; the scenario owns and cleans up the DaemonSet.
+func nvidiaDevicePluginDaemonsetScenario(vhd *config.Image, vmSize string) *Scenario {
+	return &Scenario{
 		Description: "Tests that the NVIDIA device plugin works as a DaemonSet instead of a systemd service",
 		Tags: Tags{
 			GPU: true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			VHD:     vhd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = vmSize
+				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
-				// Don't enable the managed GPU experience - the test deploys the upstream DaemonSet.
-				// By not setting EnableManagedGPU=true or the VMSS tag, the systemd-based device plugin won't start.
+				// The test deploys the upstream DaemonSet, not the managed GPU services.
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
+				nbc.EnableManagedGPU = false
+				nbc.EnableManagedGPUDRA = false
+				nbc.ManagedGPUExperienceAFECEnabled = false
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+				vmss.SKU.Name = to.Ptr(vmSize)
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
 				// The device plugin is only meaningful once the driver is present and the
@@ -80,7 +138,61 @@ func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
 				return nil
 			},
 		},
-	})
+	}
+}
+
+func TestNvidiaDevicePluginDaemonsetScenario(t *testing.T) {
+	cases := []struct {
+		name          string
+		vhd           *config.Image
+		vmSize        string
+		driverType    string
+		driverVersion string
+	}{
+		{"Ubuntu2204", config.VHDUbuntu2204Gen2Containerd, "Standard_NV6ads_A10_v5", "grid", datamodel.NvidiaGridDriverVersion},
+		// The SKU-only bootstrap defaults are promoted to GRID v20 by the shared
+		// installer on Ubuntu 26.04. The E2E validator checks the installed version.
+		{"Ubuntu2604GridV20", config.VHDUbuntu2604MinimalGen2Containerd, "Standard_NV6ads_A10_v5", "grid", datamodel.NvidiaGridDriverVersion},
+		{"Ubuntu2604CUDA", config.VHDUbuntu2604MinimalGen2Containerd, "Standard_NC4as_T4_v3", "cuda-lts", datamodel.NvidiaCudaLTSDriverVersion},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			scenario := nvidiaDevicePluginDaemonsetScenario(tc.vhd, tc.vmSize)
+			// Keep the profile pointers distinct to check both bootstrap inputs.
+			pool := &datamodel.AgentPoolProfile{}
+			nbc := &datamodel.NodeBootstrappingConfiguration{
+				ContainerService: &datamodel.ContainerService{Properties: &datamodel.Properties{
+					AgentPoolProfiles: []*datamodel.AgentPoolProfile{pool},
+				}},
+				AgentPoolProfile:                &datamodel.AgentPoolProfile{},
+				EnableGPUDevicePluginIfNeeded:   true,
+				EnableManagedGPU:                true,
+				EnableManagedGPUDRA:             true,
+				ManagedGPUExperienceAFECEnabled: true,
+			}
+			scenario.BootstrapConfigMutator(nil, nbc)
+			vmss := &armcompute.VirtualMachineScaleSet{SKU: &armcompute.SKU{}}
+			scenario.VMConfigMutator(vmss)
+			if err := errors.Join(
+				assert.Equal(scenario.VHD, tc.vhd),
+				assert.Equal(scenario.Tags.GPU, true),
+				assert.Equal(scenario.UseNVMe, false),
+				assert.Equal(pool.VMSize, tc.vmSize),
+				assert.Equal(nbc.AgentPoolProfile.VMSize, tc.vmSize),
+				assert.Equal(*vmss.SKU.Name, tc.vmSize),
+				assert.Equal(nbc.ConfigGPUDriverIfNeeded, true),
+				assert.Equal(nbc.EnableNvidia, true),
+				assert.Equal(nbc.EnableGPUDevicePluginIfNeeded, false),
+				assert.Equal(nbc.EnableManagedGPU, false),
+				assert.Equal(nbc.EnableManagedGPUDRA, false),
+				assert.Equal(nbc.ManagedGPUExperienceAFECEnabled, false),
+				assert.Equal(agent.GetGPUDriverType(tc.vmSize), tc.driverType),
+				assert.Equal(agent.GetGPUDriverVersion(tc.vmSize), tc.driverVersion),
+			); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
 // validateNvidiaDevicePluginServiceNotRunning verifies that the systemd-based

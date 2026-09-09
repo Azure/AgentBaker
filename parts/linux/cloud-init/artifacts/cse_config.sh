@@ -1497,6 +1497,41 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
+# Select the OS-specific driver image before checking the cache or installing it.
+# AgentBaker and AKS node controller both call this installer, so the Ubuntu 26.04
+# GRID policy is applied here using the node's OS and the VHD's component pin.
+# Other OS versions, CUDA, and explicit grid-v20 selections retain their inputs.
+# A missing or invalid GRID v20 pin fails provisioning; do not fall back to GRID.
+selectGPUDriverImage() {
+    if [ "${OS:-}" != "UBUNTU" ] || [ "${OS_VERSION:-}" != "26.04" ] || [ "${NVIDIA_GPU_DRIVER_TYPE:-}" != "grid" ]; then
+        return 0
+    fi
+
+    local grid_v20_tag
+    if ! grid_v20_tag=$(jq -er '
+        [.GPUContainerImages[] |
+            select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-grid-v20:*") |
+            .gpuVersion.latestVersion] |
+        select(length == 1) | .[0] |
+        select(test("^[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+$"))
+    ' "$COMPONENTS_FILEPATH") || [ -z "$grid_v20_tag" ]; then
+        echo "Ubuntu 26.04 requires a valid aks-gpu-grid-v20 pin in $COMPONENTS_FILEPATH" >&2
+        return 1
+    fi
+
+    export GPU_DRIVER_TYPE="grid-v20"
+    export GPU_DRIVER_VERSION="${grid_v20_tag%-*}"
+    export GPU_IMAGE_SHA="${grid_v20_tag##*-}"
+    export GPU_DV="$GPU_DRIVER_VERSION"
+    export NVIDIA_GPU_DRIVER_TYPE="$GPU_DRIVER_TYPE"
+    export NVIDIA_DRIVER_IMAGE_SHA="$GPU_IMAGE_SHA"
+    export NVIDIA_DRIVER_IMAGE_TAG="$grid_v20_tag"
+    export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
+    local mcr_base="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
+    export NVIDIA_DRIVER_IMAGE_PULL_REF="${mcr_base%/}/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
+    echo "Ubuntu 26.04 GRID driver image: ${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}"
+}
+
 # Wrapped as functions so logs_to_events can time each step; the install's
 # bash -c command can't be passed to logs_to_events inline (it word-splits args).
 pullGPUDriverImage() {
@@ -1535,6 +1570,7 @@ configureNvidiaCDIRefresh() {
 }
 
 configGPUDrivers() {
+    selectGPUDriverImage || exit $ERR_GPU_DRIVERS_START_FAIL
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
         mkdir -p /opt/{actions,gpu}
