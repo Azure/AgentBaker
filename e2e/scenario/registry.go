@@ -1,4 +1,4 @@
-package e2e
+package scenario
 
 import "strings"
 
@@ -27,6 +27,6 @@ func Register(s *Scenario) *Scenario {
 	return s
 }
 
-func registeredScenarios() []*Scenario {
+func List() []*Scenario {
 	return append([]*Scenario(nil), registry...)
 }

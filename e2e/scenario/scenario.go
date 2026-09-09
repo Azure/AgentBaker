@@ -1,4 +1,4 @@
-package e2e
+package scenario
 
 import (
 	"context"
@@ -423,7 +423,7 @@ var _ = Register(&Scenario{
 // Kata Containers is a runtime, so the thing that can silently break is the containerd
 // configuration: pkg/agent/baker.go only emits the `kata` runtime handler blocks
 // when the agent pool's Distro satisfies Distro.IsKataDistro(). Selecting a Kata VHD here flows
-// through e2e/node_config.go -> AgentPoolProfile.Distro -> the IsKata template func, so this
+// through e2e/scenario/node_config.go -> AgentPoolProfile.Distro -> the IsKata template func, so this
 // scenario exercises that whole path against a real node.
 //
 // The scenario asserts three increasingly strong properties:

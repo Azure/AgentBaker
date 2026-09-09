@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/Azure/agentbaker/e2e"
+	"github.com/Azure/agentbaker/e2e/runner"
 )
 
 func main() {
@@ -19,5 +19,5 @@ func main() {
 		signal.Reset(os.Interrupt, syscall.SIGTERM)
 	}()
 
-	os.Exit(e2e.NewApp(os.Stdout, os.Stderr).Run(ctx, os.Args))
+	os.Exit(runner.NewApp(os.Stdout, os.Stderr).Run(ctx, os.Args))
 }

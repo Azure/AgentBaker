@@ -1,4 +1,4 @@
-package e2e
+package scenario
 
 import (
 	"bytes"
@@ -46,15 +46,18 @@ func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string
 	return url, nil
 }
 
-// compileAndUploadAKSNodeController compiles the aks-node-controller binary for the given architecture.
 func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error) {
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		return nil, err
+	}
 	goBin, err := exec.LookPath("go")
 	if err != nil {
 		return nil, fmt.Errorf("failed to find go binary in PATH: %w", err)
 	}
 	binName := "aks-node-controller-" + arch
 	cmd := exec.CommandContext(ctx, goBin, "build", "-o", binName, "-v")
-	cmd.Dir = filepath.Join("..", "aks-node-controller")
+	cmd.Dir = filepath.Join(repoRoot, "aks-node-controller")
 	cmd.Env = append(os.Environ(),
 		"CGO_ENABLED=0",
 		"GOOS=linux",
@@ -65,7 +68,7 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile aks-node-controller: %s", string(log))
 	}
-	f, err := os.Open(filepath.Join("..", "aks-node-controller", binName))
+	f, err := os.Open(filepath.Join(cmd.Dir, binName))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open compiled aks-node-controller binary: %w", err)
 	}

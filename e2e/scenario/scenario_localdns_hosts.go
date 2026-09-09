@@ -1,4 +1,4 @@
-package e2e
+package scenario
 
 import (
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"

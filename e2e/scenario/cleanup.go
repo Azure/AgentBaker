@@ -1,4 +1,4 @@
-package e2e
+package scenario
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	scenarioCleanupTimeout = 5 * time.Minute
+	CleanupTimeout = 5 * time.Minute
 )
 
 type scenarioCleanup struct {

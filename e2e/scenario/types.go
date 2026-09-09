@@ -1,4 +1,4 @@
-package e2e
+package scenario
 
 import (
 	"bytes"
@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os/exec"
 	"os/user"
-	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
@@ -37,108 +35,6 @@ type Tags struct {
 	MockAzureChinaCloud    bool
 	RCV1PCertMode          bool
 	VMSeriesCoverageTest   bool
-}
-
-// MatchesFilters checks if the Tags struct matches all given filters.
-// Filters are comma-separated "key=value" pairs (e.g., "gpu=true,os=x64").
-// Returns true if all filters match, false otherwise. Errors on invalid input.
-//
-// Special case: when ALL filters use the "Name" key (e.g., "Name=foo,Name=bar"),
-// OR semantics are used instead, matching if any name matches. This allows
-// selecting multiple scenarios by name with a single filter string.
-func (t Tags) MatchesFilters(filters string) (bool, error) {
-	return t.matchFilters(filters, true)
-}
-
-// MatchesAnyFilter checks if the Tags struct matches at least one of the given filters.
-// Filters are comma-separated "key=value" pairs (e.g., "gpu=true,os=x64").
-// Returns true if any filter matches, false if none match. Errors on invalid input.
-func (t Tags) MatchesAnyFilter(filters string) (bool, error) {
-	return t.matchFilters(filters, false)
-}
-
-// matchFilters is a helper function used by both MatchesFilters and MatchesAnyFilter.
-// The 'all' parameter determines whether all filters must match (true) or just any filter (false).
-// When all filters target the "Name" field, OR semantics are applied regardless of the 'all'
-// parameter, since a scenario can only have one name and AND would never match multiple names.
-func (t Tags) matchFilters(filters string, all bool) (bool, error) {
-	if filters == "" {
-		return true, nil
-	}
-
-	v := reflect.ValueOf(t)
-	filterPairs := strings.Split(filters, ",")
-
-	allNameFilters := true
-	anyMatch := false
-	allMatch := true
-
-	for _, pair := range filterPairs {
-		kv := strings.SplitN(pair, "=", 2)
-		if len(kv) != 2 {
-			return false, fmt.Errorf("invalid filter format: %s", pair)
-		}
-
-		key := strings.TrimSpace(kv[0])
-		value := strings.TrimSpace(kv[1])
-
-		if !strings.EqualFold(key, "Name") {
-			allNameFilters = false
-		}
-
-		// Case-insensitive field lookup
-		field := reflect.Value{}
-		for i := 0; i < v.NumField(); i++ {
-			if strings.EqualFold(v.Type().Field(i).Name, key) {
-				field = v.Field(i)
-				break
-			}
-		}
-
-		if !field.IsValid() {
-			return false, fmt.Errorf("unknown filter key: %s", key)
-		}
-
-		var match bool
-		switch field.Kind() {
-		case reflect.String:
-			fieldValue := field.String()
-			if strings.EqualFold(key, "Name") {
-				fieldValue = trimLegacyTestPrefix(fieldValue)
-				value = trimLegacyTestPrefix(value)
-			}
-			match = strings.EqualFold(fieldValue, value)
-		case reflect.Bool:
-			boolValue, err := strconv.ParseBool(value)
-			if err != nil {
-				return false, fmt.Errorf("invalid boolean value for %s: %s", key, value)
-			}
-			match = field.Bool() == boolValue
-		default:
-			return false, fmt.Errorf("unsupported field type for %s", key)
-		}
-
-		if match {
-			anyMatch = true
-		} else {
-			allMatch = false
-		}
-	}
-
-	if allNameFilters {
-		return anyMatch, nil
-	}
-	if all {
-		return allMatch, nil
-	}
-	return anyMatch, nil
-}
-
-func trimLegacyTestPrefix(name string) string {
-	if len(name) >= len("Test_") && strings.EqualFold(name[:len("Test_")], "Test_") {
-		return name[len("Test_"):]
-	}
-	return name
 }
 
 // Scenario represents an AgentBaker E2E scenario.
@@ -173,7 +69,7 @@ type Scenario struct {
 	// An empty reason runs the scenario.
 	SkipIf func(context.Context) string
 
-	// Logger writes the scenario log. It is set by the test runner before the
+	// Logger writes the scenario log. It is set by the execution flow before the
 	// scenario starts and carries no test-control capability.
 	Logger toolkit.Logger
 
@@ -182,12 +78,12 @@ type Scenario struct {
 
 	cleanup      *scenarioCleanup
 	failed       bool
-	adoTestCases []adoTestCase
+	adoTestCases []Measurement
 }
 
-// adoTestCase becomes a separate JUnit test case so ADO can track a focused
+// Measurement becomes a separate JUnit test case so ADO can track a focused
 // measurement or validation independently from the parent scenario.
-type adoTestCase struct {
+type Measurement struct {
 	Name      string
 	ClassName string
 	Duration  time.Duration
@@ -195,7 +91,7 @@ type adoTestCase struct {
 }
 
 func (s *Scenario) recordADOTestCase(name, className string, duration time.Duration, err error) {
-	testCase := adoTestCase{Name: name, ClassName: className, Duration: duration}
+	testCase := Measurement{Name: name, ClassName: className, Duration: duration}
 	if err != nil {
 		testCase.Message = err.Error()
 	}

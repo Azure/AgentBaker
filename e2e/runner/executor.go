@@ -1,4 +1,4 @@
-package e2e
+package runner
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/scenario"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 )
 
@@ -32,7 +33,7 @@ type attemptResult struct {
 	Duration     time.Duration
 	Message      string
 	LogPath      string
-	ADOTestCases []adoTestCase
+	ADOTestCases []scenario.Measurement
 }
 
 type scenarioResult struct {
@@ -61,7 +62,7 @@ type executor struct {
 	scheduled   []string
 	finalized   bool
 	scenarios   sync.WaitGroup
-	runScenario func(context.Context, string, toolkit.Logger, *Scenario) error
+	runScenario func(context.Context, string, string, toolkit.Logger, *scenario.Scenario) scenario.Outcome
 }
 
 func newExecutor(ctx context.Context, stdout io.Writer, opts runOptions, runnable int) *executor {
@@ -71,11 +72,11 @@ func newExecutor(ctx context.Context, stdout io.Writer, opts runOptions, runnabl
 		opts:        opts,
 		stream:      opts.outputMode == "stream" || (opts.outputMode == "auto" && runnable <= 3),
 		sem:         make(chan struct{}, opts.parallel),
-		runScenario: runScenarioFlow,
+		runScenario: scenario.Run,
 	}
 }
 
-func (e *executor) schedule(name string, original *Scenario) {
+func (e *executor) schedule(name string, original *scenario.Scenario) {
 	e.resultsMu.Lock()
 	e.scheduled = append(e.scheduled, name)
 	e.resultsMu.Unlock()
@@ -132,7 +133,7 @@ func (e *executor) failUnfinished(err error) {
 	}
 }
 
-func (e *executor) execute(name string, original *Scenario) {
+func (e *executor) execute(name string, original *scenario.Scenario) {
 	result := scenarioResult{Name: name}
 	hadFailure := false
 attempts:
@@ -176,7 +177,7 @@ attempts:
 	e.addResult(result)
 }
 
-func (e *executor) executeAttempt(name string, attempt int, original *Scenario) (result attemptResult) {
+func (e *executor) executeAttempt(name string, attempt int, original *scenario.Scenario) (result attemptResult) {
 	started := time.Now()
 	attemptCtx, cancel := context.WithTimeout(e.ctx, config.Config.TestTimeout)
 	defer cancel()
@@ -186,28 +187,16 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 		return attemptResult{Attempt: attempt, Status: statusFailed, Duration: time.Since(started), Message: err.Error()}
 	}
 	result = attemptResult{Attempt: attempt, LogPath: logPath}
-	var scenario *Scenario
-	var runErr error
-	// Everything created during an attempt shares one cleanup stack.
-	cleanup := &scenarioCleanup{}
+	var outcome scenario.Outcome
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			runErr = fmt.Errorf("panic: %v\n%s", recovered, debug.Stack())
-		}
-		if attemptErr := attemptCtx.Err(); attemptErr != nil {
-			_, skipped := runErr.(*skipError)
-			if runErr == nil || skipped {
-				runErr = errors.Join(runErr, fmt.Errorf("scenario attempt deadline exceeded: %w", attemptErr))
-			}
-		}
-		if cleanupErr := runScenarioCleanup(e.ctx, cleanup); cleanupErr != nil {
-			runErr = errors.Join(runErr, cleanupErr)
+			outcome.Error = fmt.Errorf("panic: %v\n%s", recovered, debug.Stack())
 		}
 		logErr := logger.Err()
 		if logErr != nil {
-			runErr = errors.Join(runErr, logErr)
+			addLogError(&outcome, logErr)
 		}
-		switch status, message := classifyAttempt(runErr); status {
+		switch status, message := classifyAttempt(outcome); status {
 		case statusSkipped:
 			logger.Log("SKIP:", message)
 		case statusFailed:
@@ -216,14 +205,12 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 		if closeErr := logger.Close(); logErr == nil {
 			logErr = closeErr
 			if closeErr != nil {
-				runErr = errors.Join(runErr, closeErr)
+				addLogError(&outcome, closeErr)
 			}
 		}
-		result.Status, result.Message = classifyAttempt(runErr)
+		result.Status, result.Message = classifyAttempt(outcome)
 		result.Duration = time.Since(started)
-		if scenario != nil {
-			result.ADOTestCases = append([]adoTestCase(nil), scenario.adoTestCases...)
-		}
+		result.ADOTestCases = outcome.Measurements
 		if result.Status != statusSkipped {
 			logger.FlushConsole(result.Status, attempt, e.opts.retries+1, result.Duration)
 		}
@@ -232,34 +219,29 @@ func (e *executor) executeAttempt(name string, attempt int, original *Scenario) 
 		}
 	}()
 
-	scenario = freshScenario(original)
-	scenario.artifactName = name
+	artifactName := name
 	if e.opts.retries > 0 {
-		scenario.artifactName = filepath.Join(name, fmt.Sprintf("attempt-%d", attempt))
+		artifactName = filepath.Join(name, fmt.Sprintf("attempt-%d", attempt))
 	}
-	scenario.cleanup = cleanup
-	if scenario.SkipReason != "" {
-		runErr = &skipError{message: scenario.SkipReason}
-		return result
-	}
-	if scenario.SkipIf != nil {
-		if message := scenario.SkipIf(attemptCtx); message != "" {
-			runErr = &skipError{message: message}
-			return result
-		}
-	}
-	runErr = e.runScenario(attemptCtx, name, logger, scenario)
+	outcome = e.runScenario(attemptCtx, name, artifactName, logger, original)
 	return result
 }
 
-func classifyAttempt(err error) (resultStatus, string) {
-	if err == nil {
-		return statusPassed, ""
+func addLogError(outcome *scenario.Outcome, err error) {
+	if outcome.Error == nil && outcome.SkipReason != "" {
+		outcome.Error = errors.New(outcome.SkipReason)
 	}
-	if skip, ok := err.(*skipError); ok {
-		return statusSkipped, skip.Error()
+	outcome.Error = errors.Join(outcome.Error, err)
+}
+
+func classifyAttempt(outcome scenario.Outcome) (resultStatus, string) {
+	if outcome.Error != nil {
+		return statusFailed, outcome.Error.Error()
 	}
-	return statusFailed, err.Error()
+	if outcome.SkipReason != "" {
+		return statusSkipped, outcome.SkipReason
+	}
+	return statusPassed, ""
 }
 
 func (e *executor) acquire() error {

@@ -1,4 +1,4 @@
-package e2e
+package runner
 
 import (
 	"encoding/xml"
@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/scenario"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,7 +28,7 @@ func TestWriteReportsSuiteDurationExcludesADOTestCases(t *testing.T) {
 					Attempt:  1,
 					Status:   statusPassed,
 					Duration: attemptDuration,
-					ADOTestCases: []adoTestCase{
+					ADOTestCases: []scenario.Measurement{
 						{Name: "TotalCSEDuration", ClassName: "e2e.cse", Duration: checkDuration},
 					},
 				},

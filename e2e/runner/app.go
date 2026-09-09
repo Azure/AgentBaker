@@ -1,4 +1,4 @@
-package e2e
+package runner
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/scenario"
 	"github.com/urfave/cli/v3"
 	ctrruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -60,7 +61,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				Name:  "list",
 				Usage: "List registered E2E scenario entry points",
 				Action: func(context.Context, *cli.Command) error {
-					scenarios := registeredScenarios()
+					scenarios := scenario.List()
 					sort.Slice(scenarios, func(i, j int) bool { return scenarios[i].Name < scenarios[j].Name })
 					for _, scenario := range scenarios {
 						_, _ = fmt.Fprintln(a.stdout, scenario.Name)
@@ -118,7 +119,7 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 		return &usageError{message: "--output must be auto, grouped, or stream"}
 	}
 
-	scenarios := selectScenarios(registeredScenarios(), opts.selectors)
+	scenarios := selectScenarios(scenario.List(), opts.selectors)
 	if len(scenarios) == 0 {
 		return &usageError{message: "no scenarios matched the requested names"}
 	}
@@ -150,7 +151,7 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	for _, scenario := range runnable {
 		exec.schedule(scenario.Name, scenario)
 	}
-	waitErr := exec.wait(scenarioCleanupTimeout + 30*time.Second)
+	waitErr := exec.wait(scenario.CleanupTimeout + 30*time.Second)
 
 	results := exec.snapshotResults(filtered)
 	if err := writeJUnitReport(opts.junitFile, results); err != nil {
@@ -192,11 +193,11 @@ func resetLogDirectory(path string) error {
 	return nil
 }
 
-func selectScenarios(scenarios []*Scenario, selectors []string) []*Scenario {
+func selectScenarios(scenarios []*scenario.Scenario, selectors []string) []*scenario.Scenario {
 	if len(selectors) == 0 {
 		return scenarios
 	}
-	var selected []*Scenario
+	var selected []*scenario.Scenario
 	for _, scenario := range scenarios {
 		for _, selector := range selectors {
 			if strings.EqualFold(scenario.Name, selector) || strings.HasPrefix(strings.ToLower(scenario.Name), strings.ToLower(selector)+"/") {

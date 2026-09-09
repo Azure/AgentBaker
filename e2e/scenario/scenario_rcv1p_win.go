@@ -6,7 +6,7 @@
 // C:\ca and imported into the Windows root or intermediate LocalMachine certificate store.
 // A scheduled task (aks-ca-certs-refresh-task) is registered to
 // periodically refresh the certificates.
-package e2e
+package scenario
 
 import (
 	"context"

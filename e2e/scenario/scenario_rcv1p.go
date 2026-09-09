@@ -12,7 +12,7 @@
 // job overrides this to an RCV1P-registered subscription. Positive tests always run and verify
 // cert installation. Negative tests are skipped when RCV1P_TAGS_AUTO_INJECTED=true (platform
 // auto-injects the opt-in tag, making the "no tag" scenario impossible to reproduce).
-package e2e
+package scenario
 
 import (
 	"archive/zip"
@@ -226,28 +226,6 @@ func buildAndUploadCSEZip(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("upload CSE zip: %w", err)
 	}
 	return url, nil
-}
-
-func findRepoRoot() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			// e2e/ has its own go.mod, go up one more
-			if filepath.Base(dir) == "e2e" {
-				dir = filepath.Dir(dir)
-				continue
-			}
-			return dir, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", fmt.Errorf("could not find repo root (go.mod) from %s", dir)
-		}
-		dir = parent
-	}
 }
 
 // rcv1pWindowsCSEMutator returns a BootstrapConfigMutator that overrides CseScriptsPackageURL

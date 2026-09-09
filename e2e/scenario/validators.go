@@ -1,4 +1,4 @@
-package e2e
+package scenario
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"slices"
@@ -1465,7 +1466,7 @@ func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []
 	//
 	// execOnVMForScenarioOnUnprivilegedPod executes inside the "debugnonhost" daemonset pod,
 	// which runs a bare mcr.microsoft.com/cbl-mariner/base/core:2.0 image with no volume mounts
-	// (see daemonsetDebug in e2e/kube.go). The host filesystem is not mounted into it, so the
+	// (see daemonsetDebug in e2e/scenario/kube.go). The host filesystem is not mounted into it, so the
 	// containerd binary is unreachable and the command exits 127 with an empty stdout and
 	// "command not found" on stderr. attemptExecOnPod treats a non-zero exit as a successful
 	// exec, so no error surfaces, and the NotContains check below then trivially passes against
@@ -1850,7 +1851,10 @@ func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario,
 		"(Get-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\" -Name BuildLabEx).BuildLabEx",
 	}
 
-	jsonBytes := getWindowsSettingsJson()
+	jsonBytes, err := getWindowsSettingsJson()
+	if err != nil {
+		return fmt.Errorf("read Windows settings: %w", err)
+	}
 	osVersion := gjson.GetBytes(jsonBytes, fmt.Sprintf("WindowsBaseVersions.%s.base_image_version", windowsVersion))
 	versionSliced := strings.Split(osVersion.String(), ".")
 	osMajorVersion := versionSliced[0]
@@ -1959,9 +1963,12 @@ func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVers
 	return assert.Contains(podExecResultStdout, displayVersion)
 }
 
-func getWindowsSettingsJson() []byte {
-	jsonBytes, _ := os.ReadFile("../vhdbuilder/packer/windows/windows_settings.json")
-	return jsonBytes
+func getWindowsSettingsJson() ([]byte, error) {
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		return nil, err
+	}
+	return os.ReadFile(filepath.Join(repoRoot, "vhdbuilder", "packer", "windows", "windows_settings.json"))
 }
 
 func ValidateCiliumIsRunningWindows(ctx context.Context, s *Scenario) error {

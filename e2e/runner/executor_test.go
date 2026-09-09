@@ -1,4 +1,4 @@
-package e2e
+package runner
 
 import (
 	"bytes"
@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/scenario"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -138,7 +139,7 @@ func TestAppSuggestsMistypedFlag(t *testing.T) {
 }
 
 func TestSelectScenariosUsesParentNameAsGroup(t *testing.T) {
-	scenarios := []*Scenario{
+	scenarios := []*scenario.Scenario{
 		{Name: "Group/one"},
 		{Name: "Group/two"},
 		{Name: "Other"},
@@ -185,19 +186,19 @@ func TestExecutorRetriesAndReportsFlakyScenario(t *testing.T) {
 
 	var calls atomic.Int32
 	var artifactNames []string
-	exec.runScenario = func(_ context.Context, _ string, logger toolkit.Logger, s *Scenario) error {
+	exec.runScenario = func(_ context.Context, _ string, artifactName string, logger toolkit.Logger, _ *scenario.Scenario) scenario.Outcome {
 		logger.Log("attempt output")
-		artifactNames = append(artifactNames, s.artifactName)
+		artifactNames = append(artifactNames, artifactName)
+		measurement := scenario.Measurement{Name: "Task_example", ClassName: "e2e.cse", Duration: time.Second}
 		if calls.Add(1) == 1 {
 			err := errors.New("transient failure")
-			s.recordADOTestCase("Task_example", "e2e.cse", time.Second, err)
-			return err
+			measurement.Message = err.Error()
+			return scenario.Outcome{Error: err, Measurements: []scenario.Measurement{measurement}}
 		}
-		s.recordADOTestCase("Task_example", "e2e.cse", time.Second, nil)
-		return nil
+		return scenario.Outcome{Measurements: []scenario.Measurement{measurement}}
 	}
 
-	exec.schedule("Retry", &Scenario{})
+	exec.schedule("Retry", &scenario.Scenario{})
 	exec.scenarios.Wait()
 	require.NoError(t, writeJUnitReport(opts.junitFile, exec.snapshotResults(nil)))
 
@@ -221,16 +222,48 @@ func TestExecutorPrintsPassedLogs(t *testing.T) {
 		logDir:     t.TempDir(),
 		outputMode: "grouped",
 	}, 1)
-	exec.runScenario = func(_ context.Context, _ string, logger toolkit.Logger, _ *Scenario) error {
+	exec.runScenario = func(_ context.Context, _ string, artifactName string, logger toolkit.Logger, _ *scenario.Scenario) scenario.Outcome {
 		logger.Log("passing output")
-		return nil
+		return scenario.Outcome{}
 	}
 
-	exec.schedule("Passed", &Scenario{Name: "Passed"})
+	exec.schedule("Passed", &scenario.Scenario{Name: "Passed"})
 	exec.scenarios.Wait()
 	assert.Regexp(t, `##\[group\]Passed \(passed, [^)]+\)`, stdout.String())
 	assert.Contains(t, stdout.String(), "passing output")
 	assert.Contains(t, stdout.String(), "##[endgroup]")
+}
+
+func TestExecutorPassesAttemptDeadlineToScenario(t *testing.T) {
+	restoreRunnerConfig(t)
+	config.Config.TestTimeout = time.Second
+	exec := newTestExecutor(t)
+	var deadline time.Time
+	started := time.Now()
+	exec.runScenario = func(ctx context.Context, _, _ string, _ toolkit.Logger, _ *scenario.Scenario) scenario.Outcome {
+		deadline, _ = ctx.Deadline()
+		return scenario.Outcome{}
+	}
+	exec.schedule("Deadline", &scenario.Scenario{Name: "Deadline"})
+	exec.scenarios.Wait()
+	assert.WithinRange(t, deadline, started.Add(time.Second), time.Now().Add(time.Second))
+	assert.Equal(t, statusPassed, exec.results[0].Status)
+}
+
+func TestExecutorLogFailureOverridesSkippedOutcome(t *testing.T) {
+	exec := newTestExecutor(t)
+	exec.runScenario = func(_ context.Context, _, _ string, logger toolkit.Logger, _ *scenario.Scenario) scenario.Outcome {
+		scenarioLog := logger.(*scenarioLogger)
+		assert.NoError(t, scenarioLog.file.Close())
+		logger.Log("lost output")
+		return scenario.Outcome{SkipReason: "not supported"}
+	}
+	exec.schedule("LogFailure", &scenario.Scenario{})
+	exec.scenarios.Wait()
+	result := exec.results[0].Attempts[0]
+	assert.Equal(t, statusFailed, result.Status)
+	assert.Contains(t, result.Message, "not supported")
+	assert.Contains(t, result.Message, "write scenario log")
 }
 
 func TestAttemptConsoleLabel(t *testing.T) {
@@ -261,28 +294,20 @@ func TestExecutorRecoversScenarioPanic(t *testing.T) {
 		logDir:     t.TempDir(),
 		outputMode: "grouped",
 	}, 2)
-	exec.runScenario = func(_ context.Context, name string, _ toolkit.Logger, _ *Scenario) error {
+	exec.runScenario = func(_ context.Context, name string, _ string, _ toolkit.Logger, _ *scenario.Scenario) scenario.Outcome {
 		if name == "Panics" {
 			panic("boom")
 		}
-		return nil
+		return scenario.Outcome{}
 	}
 
-	exec.schedule("Panics", &Scenario{Name: "Panics"})
-	exec.schedule("Passes", &Scenario{Name: "Passes"})
+	exec.schedule("Panics", &scenario.Scenario{Name: "Panics"})
+	exec.schedule("Passes", &scenario.Scenario{Name: "Passes"})
 	exec.scenarios.Wait()
 	summary := exec.summary()
 	assert.Equal(t, 1, summary.Failed)
 	assert.Equal(t, 1, summary.Passed)
 	assert.Contains(t, stdout.String(), "🔴 FAIL: panic: boom", "panic was not reported")
-}
-
-func TestCleanupFailureOverridesSkip(t *testing.T) {
-	err := errors.Join(&skipError{message: "skip"}, errors.New("cleanup failed"))
-	status, _ := classifyAttempt(err)
-	assert.Equal(t, statusFailed, status)
-	assert.ErrorContains(t, err, "skip")
-	assert.ErrorContains(t, err, "cleanup failed")
 }
 
 func newTestExecutor(t *testing.T) *executor {
@@ -294,123 +319,6 @@ func newTestExecutor(t *testing.T) *executor {
 	}, 1)
 }
 
-func TestExecutorRunsCleanupOncePerAttempt(t *testing.T) {
-	exec := newTestExecutor(t)
-	exec.opts.retries = 1
-
-	var ran atomic.Int32
-	var cleanups []*scenarioCleanup
-	exec.runScenario = func(_ context.Context, _ string, _ toolkit.Logger, s *Scenario) error {
-		cleanups = append(cleanups, s.cleanup)
-		s.Cleanup(func(context.Context) error {
-			ran.Add(1)
-			return nil
-		})
-		if len(cleanups) == 1 {
-			return errors.New("transient failure")
-		}
-		return nil
-	}
-
-	exec.schedule("Cleanups", &Scenario{Name: "Cleanups"})
-	exec.scenarios.Wait()
-
-	assert.Equal(t, int32(2), ran.Load(), "cleanups should run once per attempt")
-	require.Len(t, cleanups, 2)
-	assert.NotSame(t, cleanups[0], cleanups[1], "attempts did not get isolated cleanups")
-	assert.Equal(t, 1, exec.summary().Flaky)
-}
-
-func TestExecutorCleanupFailureOverridesAttemptStatus(t *testing.T) {
-	for _, test := range []struct {
-		name   string
-		runErr error
-	}{
-		{name: "passed", runErr: nil},
-		{name: "skipped", runErr: &skipError{message: "not supported"}},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			exec := newTestExecutor(t)
-			exec.runScenario = func(_ context.Context, _ string, _ toolkit.Logger, s *Scenario) error {
-				s.Cleanup(func(context.Context) error {
-					return errors.New("delete vmss")
-				})
-				return test.runErr
-			}
-
-			exec.schedule("CleanupFails", &Scenario{Name: "CleanupFails"})
-			exec.scenarios.Wait()
-
-			attempt := exec.results[0].Attempts[0]
-			assert.Equal(t, statusFailed, attempt.Status)
-			assert.Contains(t, attempt.Message, "delete vmss", "attempt message lost the cleanup failure")
-			if test.runErr != nil {
-				assert.Contains(t, attempt.Message, "not supported", "attempt message lost the original result")
-			}
-		})
-	}
-}
-
-func TestExecutorRunsCleanupAfterScenarioPanic(t *testing.T) {
-	exec := newTestExecutor(t)
-
-	var ran atomic.Int32
-	exec.runScenario = func(_ context.Context, _ string, _ toolkit.Logger, s *Scenario) error {
-		s.Cleanup(func(context.Context) error {
-			ran.Add(1)
-			return nil
-		})
-		panic("boom")
-	}
-
-	exec.schedule("Panics", &Scenario{Name: "Panics"})
-	exec.scenarios.Wait()
-
-	assert.Equal(t, int32(1), ran.Load(), "cleanup should run after a panic")
-	attempt := exec.results[0].Attempts[0]
-	assert.Equal(t, statusFailed, attempt.Status)
-	assert.Contains(t, attempt.Message, "panic: boom")
-}
-
-func TestFreshScenarioSharesAttemptCleanup(t *testing.T) {
-	cleanup := &scenarioCleanup{}
-	original := &Scenario{
-		Name:         "Staged",
-		cleanup:      cleanup,
-		Runtime:      &ScenarioRuntime{},
-		artifactName: "Staged",
-		failed:       true,
-		adoTestCases: []adoTestCase{{Name: "Task_example"}},
-	}
-
-	copied := freshScenario(original)
-
-	assert.Same(t, cleanup, copied.cleanup)
-	assert.Nil(t, copied.Runtime)
-	assert.Nil(t, copied.Logger)
-	assert.Equal(t, original.artifactName, copied.artifactName)
-	assert.False(t, copied.failed)
-	assert.Nil(t, copied.adoTestCases)
-}
-
-func TestVHDStageArtifactNamePreservesAttempt(t *testing.T) {
-	scenario := &Scenario{artifactName: filepath.Join("Retry", "attempt-2")}
-
-	assert.Equal(t, filepath.Join("Retry", "attempt-2", "vhd-bake"), vhdStageArtifactName(scenario, "Retry", "vhd-bake"))
-	assert.Equal(t, filepath.Join("Retry", "attempt-2", "vhd-provision"), vhdStageArtifactName(scenario, "Retry", "vhd-provision"))
-}
-
-func TestAnnotateVMSSCreateErrorPreservesSkip(t *testing.T) {
-	skip := &skipError{message: "SKU not available"}
-	scenario := &Scenario{
-		Runtime:      &ScenarioRuntime{VMSSName: "vmss"},
-		artifactName: "Scenario",
-	}
-
-	assert.Same(t, skip, annotateVMSSCreateError(scenario, skip))
-	assert.ErrorContains(t, annotateVMSSCreateError(scenario, errors.New("create failed")), "check "+artifactDir(scenario.artifactName)+" for vm logs")
-}
-
 func TestExecutorReportsCancellationAsFailure(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -420,7 +328,7 @@ func TestExecutorReportsCancellationAsFailure(t *testing.T) {
 		outputMode: "grouped",
 	}, 1)
 
-	exec.schedule("Cancelled", &Scenario{Name: "Cancelled"})
+	exec.schedule("Cancelled", &scenario.Scenario{Name: "Cancelled"})
 	exec.scenarios.Wait()
 	summary := exec.summary()
 	assert.Equal(t, 1, summary.Failed)
@@ -436,13 +344,13 @@ func TestExecutorWaitReturnsGracefulCancellation(t *testing.T) {
 		outputMode: "grouped",
 	}, 1)
 	started := make(chan struct{})
-	exec.runScenario = func(ctx context.Context, _ string, _ toolkit.Logger, _ *Scenario) error {
+	exec.runScenario = func(ctx context.Context, _ string, _ string, _ toolkit.Logger, _ *scenario.Scenario) scenario.Outcome {
 		close(started)
 		<-ctx.Done()
-		return ctx.Err()
+		return scenario.Outcome{Error: ctx.Err()}
 	}
 
-	exec.schedule("Cancelled", &Scenario{Name: "Cancelled"})
+	exec.schedule("Cancelled", &scenario.Scenario{Name: "Cancelled"})
 	<-started
 	cancel()
 
@@ -460,13 +368,13 @@ func TestExecutorWaitStopsAfterGracePeriod(t *testing.T) {
 	}, 1)
 	started := make(chan struct{})
 	release := make(chan struct{})
-	exec.runScenario = func(context.Context, string, toolkit.Logger, *Scenario) error {
+	exec.runScenario = func(context.Context, string, string, toolkit.Logger, *scenario.Scenario) scenario.Outcome {
 		close(started)
 		<-release
-		return nil
+		return scenario.Outcome{}
 	}
 
-	exec.schedule("Stuck", &Scenario{Name: "Stuck"})
+	exec.schedule("Stuck", &scenario.Scenario{Name: "Stuck"})
 	<-started
 	cancel()
 
@@ -519,7 +427,7 @@ func TestScenarioSkipReasonRecordsSkip(t *testing.T) {
 	}
 	exec := newExecutor(context.Background(), &stdout, opts, 1)
 
-	exec.schedule("Disabled", &Scenario{
+	exec.schedule("Disabled", &scenario.Scenario{
 		Name:       "Disabled",
 		SkipReason: "not supported",
 	})
@@ -535,68 +443,6 @@ func TestScenarioSkipReasonRecordsSkip(t *testing.T) {
 	report, err := os.ReadFile(opts.junitFile)
 	require.NoError(t, err)
 	assert.Contains(t, string(report), `<skipped message="not supported"`, "JUnit report dropped the ordinary skip")
-}
-
-func TestScenarioTimeoutCoversSkipAndRun(t *testing.T) {
-	restoreRunnerConfig(t)
-	config.Config.TestTimeout = time.Second
-
-	exec := newTestExecutor(t)
-	var skipDeadline, runDeadline time.Time
-	exec.runScenario = func(ctx context.Context, _ string, _ toolkit.Logger, _ *Scenario) error {
-		runDeadline, _ = ctx.Deadline()
-		return nil
-	}
-	exec.schedule("Deadline", &Scenario{
-		Name: "Deadline",
-		SkipIf: func(ctx context.Context) string {
-			skipDeadline, _ = ctx.Deadline()
-			return ""
-		},
-	})
-	exec.scenarios.Wait()
-
-	assert.False(t, skipDeadline.IsZero())
-	assert.Equal(t, runDeadline, skipDeadline, "SkipIf and scenario received different attempt deadlines")
-}
-
-func TestScenarioTimeoutCannotPassOrSkip(t *testing.T) {
-	restoreRunnerConfig(t)
-	config.Config.TestTimeout = 10 * time.Millisecond
-
-	for _, test := range []struct {
-		name   string
-		skipIf func(context.Context) string
-		run    func(context.Context) error
-	}{
-		{
-			name: "late success",
-			run: func(ctx context.Context) error {
-				<-ctx.Done()
-				return nil
-			},
-		},
-		{
-			name: "late skip",
-			skipIf: func(ctx context.Context) string {
-				<-ctx.Done()
-				return "not configured"
-			},
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			exec := newTestExecutor(t)
-			exec.runScenario = func(ctx context.Context, _ string, _ toolkit.Logger, _ *Scenario) error {
-				return test.run(ctx)
-			}
-			exec.schedule("Deadline", &Scenario{Name: "Deadline", SkipIf: test.skipIf})
-			exec.scenarios.Wait()
-
-			result := exec.results[0]
-			assert.Equal(t, statusFailed, result.Status)
-			assert.Contains(t, result.Attempts[0].Message, "scenario attempt deadline exceeded")
-		})
-	}
 }
 
 func TestSummaryOrdersImportantResultsLast(t *testing.T) {
@@ -638,7 +484,7 @@ func TestFilteredScenariosAreNotScheduled(t *testing.T) {
 		outputMode: "grouped",
 		tagFilter:  tagFilter{skip: "Name=Excluded"},
 	}
-	scenarios := []*Scenario{
+	scenarios := []*scenario.Scenario{
 		{
 			Name:       "Excluded",
 			SkipReason: "must not be consulted",
@@ -653,7 +499,9 @@ func TestFilteredScenariosAreNotScheduled(t *testing.T) {
 	require.Len(t, filtered, 1)
 
 	exec := newExecutor(context.Background(), &stdout, opts, len(runnable))
-	exec.runScenario = func(context.Context, string, toolkit.Logger, *Scenario) error { return nil }
+	exec.runScenario = func(context.Context, string, string, toolkit.Logger, *scenario.Scenario) scenario.Outcome {
+		return scenario.Outcome{Error: nil}
+	}
 	for _, scenario := range runnable {
 		exec.schedule(scenario.Name, scenario)
 	}
@@ -677,7 +525,7 @@ func TestFilteredScenariosAreNotScheduled(t *testing.T) {
 }
 
 func TestAutoOutputUsesRunnableCount(t *testing.T) {
-	scenarios := []*Scenario{
+	scenarios := []*scenario.Scenario{
 		{Name: "Only"},
 		{Name: "Second"},
 		{Name: "Third"},
@@ -704,10 +552,10 @@ func TestExecutorDoesNotReadGlobalTagFilters(t *testing.T) {
 	config.Config.TagsToSkip = "Name=Runs"
 
 	exec := newTestExecutor(t)
-	exec.runScenario = func(context.Context, string, toolkit.Logger, *Scenario) error {
-		return nil
+	exec.runScenario = func(context.Context, string, string, toolkit.Logger, *scenario.Scenario) scenario.Outcome {
+		return scenario.Outcome{}
 	}
-	exec.schedule("Runs", &Scenario{Name: "Runs"})
+	exec.schedule("Runs", &scenario.Scenario{Name: "Runs"})
 	exec.scenarios.Wait()
 
 	assert.Equal(t, statusPassed, exec.results[0].Status, "global filters changed executor result")
@@ -715,16 +563,16 @@ func TestExecutorDoesNotReadGlobalTagFilters(t *testing.T) {
 
 func TestExecutorFailsAttemptOnLogWriteFailure(t *testing.T) {
 	exec := newTestExecutor(t)
-	exec.runScenario = func(_ context.Context, _ string, logger toolkit.Logger, _ *Scenario) error {
+	exec.runScenario = func(_ context.Context, _ string, artifactName string, logger toolkit.Logger, _ *scenario.Scenario) scenario.Outcome {
 		scenarioLog := logger.(*scenarioLogger)
 		scenarioLog.mu.Lock()
 		_ = scenarioLog.file.Close()
 		scenarioLog.mu.Unlock()
 		logger.Log("output that cannot be persisted")
-		return nil
+		return scenario.Outcome{}
 	}
 
-	exec.schedule("LogWriteFails", &Scenario{Name: "LogWriteFails"})
+	exec.schedule("LogWriteFails", &scenario.Scenario{Name: "LogWriteFails"})
 	exec.scenarios.Wait()
 
 	attempt := exec.results[0].Attempts[0]
@@ -754,55 +602,13 @@ func TestExecutorDoesNotReportMissingLogAttachment(t *testing.T) {
 		outputMode: "grouped",
 	}, 1)
 
-	exec.schedule("LogOpenFails", &Scenario{Name: "LogOpenFails"})
+	exec.schedule("LogOpenFails", &scenario.Scenario{Name: "LogOpenFails"})
 	exec.scenarios.Wait()
 
 	attempt := exec.results[0].Attempts[0]
 	assert.Equal(t, statusFailed, attempt.Status)
 	assert.Empty(t, attempt.LogPath)
 	assert.Contains(t, attempt.Message, "create scenario log directory")
-}
-
-func TestSkippedScenarioIsNotMarkedFailed(t *testing.T) {
-	exec := newTestExecutor(t)
-
-	var failedDuringCleanup bool
-	exec.runScenario = func(_ context.Context, _ string, _ toolkit.Logger, s *Scenario) (runErr error) {
-		defer func() { markScenarioOutcome(s, runErr, recover()) }()
-		s.Cleanup(func(context.Context) error {
-			failedDuringCleanup = s.failed
-			return nil
-		})
-		return &skipError{message: "SKU not available"}
-	}
-
-	exec.schedule("Skipped", &Scenario{Name: "Skipped"})
-	exec.scenarios.Wait()
-
-	assert.False(t, failedDuringCleanup, "a skipped scenario was marked failed")
-	assert.Equal(t, statusSkipped, exec.results[0].Status)
-}
-
-func TestPanicMarksScenarioFailedBeforeCleanup(t *testing.T) {
-	exec := newTestExecutor(t)
-
-	var failedDuringCleanup bool
-	exec.runScenario = func(_ context.Context, _ string, _ toolkit.Logger, s *Scenario) (runErr error) {
-		defer func() { markScenarioOutcome(s, runErr, recover()) }()
-		s.Cleanup(func(context.Context) error {
-			failedDuringCleanup = s.failed
-			return nil
-		})
-		panic("boom")
-	}
-
-	exec.schedule("Panics", &Scenario{Name: "Panics"})
-	exec.scenarios.Wait()
-
-	assert.True(t, failedDuringCleanup, "panicking scenario was not marked failed before cleanup")
-	attempt := exec.results[0].Attempts[0]
-	assert.Equal(t, statusFailed, attempt.Status)
-	assert.Contains(t, attempt.Message, "panic: boom", "executor did not recover the re-raised panic")
 }
 
 func TestExecutorKeepsFailureWhenRetrySkips(t *testing.T) {
@@ -817,14 +623,14 @@ func TestExecutorKeepsFailureWhenRetrySkips(t *testing.T) {
 	exec := newExecutor(context.Background(), &bytes.Buffer{}, opts, 1)
 
 	var calls atomic.Int32
-	exec.runScenario = func(_ context.Context, _ string, _ toolkit.Logger, _ *Scenario) error {
+	exec.runScenario = func(_ context.Context, _ string, _ string, _ toolkit.Logger, _ *scenario.Scenario) scenario.Outcome {
 		if calls.Add(1) == 1 {
-			return errors.New("validation failed")
+			return scenario.Outcome{Error: errors.New("validation failed")}
 		}
-		return &skipError{message: "SKU not available"}
+		return scenario.Outcome{SkipReason: "SKU not available"}
 	}
 
-	exec.schedule("FailsThenSkips", &Scenario{Name: "FailsThenSkips"})
+	exec.schedule("FailsThenSkips", &scenario.Scenario{Name: "FailsThenSkips"})
 	exec.scenarios.Wait()
 	require.NoError(t, writeJUnitReport(opts.junitFile, exec.snapshotResults(nil)))
 

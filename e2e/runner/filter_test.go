@@ -1,4 +1,4 @@
-package e2e
+package runner
 
 import (
 	"bytes"
@@ -9,12 +9,13 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/scenario"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPartitionScenariosKeepsRegisteredScenariosUnchanged(t *testing.T) {
-	scenarios := []*Scenario{
+	scenarios := []*scenario.Scenario{
 		{Name: "Excluded"},
 		{Name: "Kept"},
 	}
@@ -34,7 +35,7 @@ func TestPartitionScenariosKeepsRegisteredScenariosUnchanged(t *testing.T) {
 }
 
 func TestPartitionScenariosAcceptsLegacyTestNameFilter(t *testing.T) {
-	scenarios := []*Scenario{{Name: "AzureLinuxV2"}, {Name: "Ubuntu2204"}}
+	scenarios := []*scenario.Scenario{{Name: "AzureLinuxV2"}, {Name: "Ubuntu2204"}}
 
 	runnable, filtered, err := partitionScenarios(scenarios, tagFilter{run: "Name=Test_AzureLinuxV2"})
 
@@ -46,7 +47,7 @@ func TestPartitionScenariosAcceptsLegacyTestNameFilter(t *testing.T) {
 }
 
 func TestPartitionScenariosRejectsInvalidFilters(t *testing.T) {
-	scenarios := []*Scenario{{Name: "Only"}}
+	scenarios := []*scenario.Scenario{{Name: "Only"}}
 	for _, filter := range []tagFilter{{run: "not-a-pair"}, {skip: "unknownKey=true"}} {
 		_, _, err := partitionScenarios(scenarios, filter)
 		require.Error(t, err, "invalid filter %+v was accepted", filter)
@@ -96,4 +97,27 @@ func restoreRunnerConfig(t *testing.T) {
 	t.Helper()
 	saved := *config.Config
 	t.Cleanup(func() { *config.Config = saved })
+}
+
+func TestMatchFiltersPreservesTagPolicy(t *testing.T) {
+	tags := scenario.Tags{Name: "Ubuntu2204", OS: "linux", GPU: true}
+	for _, test := range []struct {
+		filter string
+		all    bool
+		match  bool
+	}{
+		{filter: "Name=Other,Name=Test_Ubuntu2204", all: true, match: true},
+		{filter: "Name=Ubuntu2204,GPU=false", all: true, match: false},
+		{filter: "Name=Ubuntu2204,GPU=false", all: false, match: true},
+		{filter: " os = LINUX , gpu = true ", all: true, match: true},
+		{filter: "", all: true, match: true},
+	} {
+		t.Run(test.filter, func(t *testing.T) {
+			got, err := matchFilters(tags, test.filter, test.all)
+			require.NoError(t, err)
+			assert.Equal(t, test.match, got)
+		})
+	}
+	_, err := matchFilters(tags, "GPU=invalid", true)
+	require.ErrorContains(t, err, "invalid boolean")
 }

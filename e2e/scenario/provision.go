@@ -1,4 +1,4 @@
-package e2e
+package scenario
 
 import (
 	"context"
@@ -165,7 +165,7 @@ func freshScenario(s *Scenario) *Scenario {
 }
 
 func runScenarioCleanup(ctx context.Context, cleanup *scenarioCleanup) error {
-	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), scenarioCleanupTimeout)
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), CleanupTimeout)
 	defer cancel()
 	if err := cleanup.runCleanups(cleanupCtx); err != nil {
 		return fmt.Errorf("scenario cleanup failed: %w", err)
@@ -399,7 +399,7 @@ func annotateVMSSCreateError(s *Scenario, err error) error {
 }
 
 func maybeSkipScenario(ctx context.Context, name string, s *Scenario) error {
-	s.Tags = scenarioTags(s)
+	s.Tags = s.EffectiveTags()
 
 	_, err := CachedPrepareVHD(ctx, GetVHDRequest{
 		Image:    *s.VHD,

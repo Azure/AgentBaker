@@ -283,7 +283,7 @@ here_string_metric_lookup_succeeds_under_pipefail() {
 }
 
 Describe 'validate-localdns-exporter-metrics.sh pipefail regressions'
-    SCRIPT_PATH="./e2e/localdns/validate-localdns-exporter-metrics.sh"
+    SCRIPT_PATH="./e2e/scenario/localdns/validate-localdns-exporter-metrics.sh"
 
     It 'demonstrates why echo-grep pipelines are unsafe under pipefail for large metrics payloads'
         When call unsafe_grep_pipeline_fails_under_pipefail

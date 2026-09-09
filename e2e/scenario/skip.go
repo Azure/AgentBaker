@@ -1,4 +1,4 @@
-package e2e
+package scenario
 
 type skipError struct {
 	message string

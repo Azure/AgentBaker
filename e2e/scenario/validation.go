@@ -1,4 +1,4 @@
-package e2e
+package scenario
 
 import (
 	"context"
@@ -164,7 +164,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) error {
 	)
 
 	// base NBC templates define a mock service principal profile that we can still use to test
-	// the correct bootstrapping logic: https://github.com/Azure/AgentBaker/blob/master/e2e/node_config.go#L438-L441
+	// the correct bootstrapping logic: e2e/scenario/node_config.go
 	if s.HasServicePrincipalData() {
 		if _, err := execScriptOnVMForScenarioValidateExitCode(
 			ctx,
