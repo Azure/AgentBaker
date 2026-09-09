@@ -187,6 +187,22 @@ func TestDetectPackageManager(t *testing.T) {
 		}
 	})
 
+	t.Run("ACL azurelinux variant reports self-update unsupported", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "os-release")
+		require.NoError(t, os.WriteFile(
+			path,
+			[]byte("ID=azurelinux\nVARIANT_ID=azurecontainerlinux\n"),
+			0644,
+		))
+		a := &App{osReleasePath: path}
+
+		_, err := a.detectPackageManager()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not supported on image-based OS")
+		assert.Contains(t, err.Error(), "azurecontainerlinux")
+	})
+
 	t.Run("missing ID line errors", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "os-release")
 		require.NoError(t, os.WriteFile(path, []byte("VERSION_ID=1\n"), 0644))

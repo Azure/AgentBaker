@@ -49,6 +49,15 @@ write_files:
 	}
 }
 
+func TestRenderLinuxNodeCustomDataTemplateRejectsMissingOrchestratorProfile(t *testing.T) {
+	config := newNodeCustomDataRenderConfig(datamodel.AKSUbuntuContainerd2204Gen2)
+	config.ContainerService.Properties.OrchestratorProfile = nil
+
+	_, err := RenderLinuxNodeCustomDataTemplate([]byte("#cloud-config\nwrite_files: []\n"), config)
+
+	require.EqualError(t, err, "node bootstrapping configuration is incomplete")
+}
+
 func newNodeCustomDataRenderConfig(distro datamodel.Distro) *datamodel.NodeBootstrappingConfiguration {
 	profile := &datamodel.AgentPoolProfile{
 		Name:   "hotfix-render-test",

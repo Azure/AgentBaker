@@ -635,7 +635,11 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 // RenderLinuxNodeCustomDataTemplate renders a nodecustomdata template with the
 // same variables and functions used by the production AgentBaker path.
 func RenderLinuxNodeCustomDataTemplate(templateContent []byte, config *datamodel.NodeBootstrappingConfiguration) (string, error) {
-	if config == nil || config.AgentPoolProfile == nil || config.ContainerService == nil || config.ContainerService.Properties == nil {
+	if config == nil ||
+		config.AgentPoolProfile == nil ||
+		config.ContainerService == nil ||
+		config.ContainerService.Properties == nil ||
+		config.ContainerService.Properties.OrchestratorProfile == nil {
 		return "", fmt.Errorf("node bootstrapping configuration is incomplete")
 	}
 
