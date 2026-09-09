@@ -81,6 +81,7 @@ steps:
       if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}gb"; fi && \
       if [[ "${ENABLE_FIPS,,}" == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
       if grep -q "cvm" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}CVM"; fi && \
+      if grep -q "tdx-clock-test" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}${AZURE_VM_SIZE//_/}"; fi && \
       if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
       if [[ ${OS_SKU} != "CBLMariner" && ${OS_SKU} != "AzureLinux" && ${OS_SKU} != "AzureLinuxOSGuard" && ${OS_SKU} != "Flatcar" && ${OS_SKU} != "AzureContainerLinux" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
       SKU_NAME=$(echo ${SKU_NAME} | tr -d '.') && \
@@ -97,7 +98,7 @@ steps:
         make -f packer.mk run-packer
     condition: ne(variables['BUILDER'], 'imagecustomizer')
     displayName: Build VHD
-    retryCountOnTaskFailure: 3
+    retryCountOnTaskFailure: 0
     env:
       OS_TYPE: Linux
       GIT_VERSION: $(Build.SourceVersion)
@@ -118,7 +119,7 @@ steps:
         make -f packer.mk run-imagecustomizer
     condition: eq(variables['BUILDER'], 'imagecustomizer')
     displayName: Build VHD - Image Customizer
-    retryCountOnTaskFailure: 3
+    retryCountOnTaskFailure: 0
     env:
       OS_TYPE: Linux
       GIT_VERSION: $(Build.SourceVersion)
@@ -230,7 +231,7 @@ steps:
         make -f packer.mk publish-imagecustomizer
     condition: eq(variables['BUILDER'], 'imagecustomizer')
     displayName: Publish VHD - Image Customizer
-    retryCountOnTaskFailure: 3
+    retryCountOnTaskFailure: 0
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       GENERATE_PUBLISHING_INFO: $(GENERATE_PUBLISHING_INFO)
@@ -327,7 +328,7 @@ steps:
         eq(variables.PREFETCH_COMPATIBLE, 'True')
       )
     displayName: Run Prefetch Optimization and Convert to VHD blob
-    retryCountOnTaskFailure: 3
+    retryCountOnTaskFailure: 0
     env:
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       LOCATION: $(PACKER_BUILD_LOCATION)
