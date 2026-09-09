@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,19 +10,33 @@ import (
 )
 
 func TestFlagsRepeatedParseDoesNotInheritPreviousRun(t *testing.T) {
-	original := *Config
-	defer func() { *Config = original }()
+	for _, tc := range []struct {
+		name        string
+		envLocation string
+		want        string
+	}{
+		{name: "default", want: DefaultConfiguration().DefaultLocation},
+		{name: "environment", envLocation: "environment-location-xyz", want: "environment-location-xyz"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			original := *Config
+			defer func() { *Config = original }()
 
-	trueDefault := DefaultConfiguration().DefaultLocation
+			t.Setenv("E2E_LOCATION", tc.envLocation)
+			if tc.envLocation == "" {
+				require.NoError(t, os.Unsetenv("E2E_LOCATION"))
+			}
 
-	*Config = *DefaultConfiguration()
-	cmd1 := &cli.Command{Name: "e2e-test-config", Flags: Flags()}
-	require.NoError(t, cmd1.Run(t.Context(), []string{"e2e-test-config", "--location", "custom-location-xyz"}), "first parse failed")
-	assert.Equal(t, "custom-location-xyz", Config.DefaultLocation, "first parse did not set DefaultLocation")
+			*Config = *DefaultConfiguration()
+			cmd1 := &cli.Command{Name: "e2e-test-config", Flags: Flags()}
+			require.NoError(t, cmd1.Run(t.Context(), []string{"e2e-test-config", "--location", "custom-location-xyz"}), "first parse failed")
+			assert.Equal(t, "custom-location-xyz", Config.DefaultLocation, "first parse did not set DefaultLocation")
 
-	cmd2 := &cli.Command{Name: "e2e-test-config", Flags: Flags()}
-	require.NoError(t, cmd2.Run(t.Context(), []string{"e2e-test-config"}), "second parse failed")
-	assert.Equal(t, trueDefault, Config.DefaultLocation, "second parse leaked the first run's value")
+			cmd2 := &cli.Command{Name: "e2e-test-config", Flags: Flags()}
+			require.NoError(t, cmd2.Run(t.Context(), []string{"e2e-test-config"}), "second parse failed")
+			assert.Equal(t, tc.want, Config.DefaultLocation, "second parse leaked the first run's value")
+		})
+	}
 }
 
 func TestFlagsEnvironmentSourceStillWorks(t *testing.T) {
