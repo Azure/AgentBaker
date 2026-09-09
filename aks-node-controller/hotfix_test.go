@@ -742,7 +742,7 @@ func TestValidateArtifactURL(t *testing.T) {
 
 func TestDownloadBinaryHotfixTerminalEvaluationLog(t *testing.T) {
 	const (
-		terminalMessage = "ANC hotfix binary evaluation finished"
+		terminalMessage = "ANC hotfix binary operation finished"
 		binarySHA       = "3ab698426c19090c43a48950dcd94d196122b11149423f230b1234cda75e3293"
 	)
 

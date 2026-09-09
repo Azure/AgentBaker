@@ -94,14 +94,14 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 	route := hotfixRouteNone
 	outcome := hotfixOutcomeStarted
 	var terminalErr error
-	slog.Info("ANC hotfix binary evaluation started", "current", Version, "target", hotfixVersion)
+	slog.Info("ANC hotfix binary operation started", "current", Version, "target", hotfixVersion)
 	defer func() {
 		if terminalErr != nil {
-			slog.Warn("ANC hotfix binary evaluation finished", "current", Version, "target", hotfixVersion,
+			slog.Warn("ANC hotfix binary operation finished", "current", Version, "target", hotfixVersion,
 				"route", route, "outcome", outcome, "durationMs", time.Since(totalStart).Milliseconds(), "error", terminalErr)
 			return
 		}
-		slog.Info("ANC hotfix binary evaluation finished", "current", Version, "target", hotfixVersion,
+		slog.Info("ANC hotfix binary operation finished", "current", Version, "target", hotfixVersion,
 			"route", route, "outcome", outcome, "durationMs", time.Since(totalStart).Milliseconds())
 	}()
 
