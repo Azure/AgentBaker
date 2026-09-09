@@ -219,7 +219,11 @@ listInstalledPackages() {
     apt list --installed
 }
 
-# Only emit attachment/readiness state, never the account, contract or machine identity.
+# Report setup state separately from the Ubuntu Pro services still needing enablement:
+#   unattached
+#   ready
+#   needs-esm esm-apps esm-infra   (or just the one disabled ESM service)
+# Only esm-apps and esm-infra are required; never emit private account/contract/machine data.
 ubuntuProESMState() {
     local status_json
     status_json="$(timeout 120 ua status --all --format json 2>/dev/null)" || return 1
@@ -239,7 +243,7 @@ ubuntuProESMState() {
               then error("ESM unavailable")
               else
                 map(select(.status != "enabled") | .name)
-                | if length == 0 then "ready" else join(" ") end
+                | if length == 0 then "ready" else "needs-esm " + join(" ") end
               end
           end
     ' 2>/dev/null
@@ -250,34 +254,38 @@ attachUA() {
     # A subshell restores the caller's options without exposing private local variables.
     (
         set +x
-        local state response rc phase recovery recovered=false
-        local services=()
+        local status_summary setup_state pending_esm_services response rc phase recovery recovered=false
+        local services_to_enable=()
         if [ -z "${UA_TOKEN:-}" ] || ! command -v jq >/dev/null 2>&1; then
             echo "Ubuntu Pro attachment requires a token and jq" >&2
             exit 1
         fi
-        state="$(ubuntuProESMState)" || {
+        status_summary="$(ubuntuProESMState)" || {
             echo "Unable to determine initial Ubuntu Pro state" >&2
             exit 1
         }
-        if [ "${state}" != "unattached" ]; then
+        read -r setup_state pending_esm_services <<< "${status_summary}"
+        if [ "${setup_state}" != "unattached" ]; then
             echo "Refusing to change an initially attached Ubuntu Pro machine" >&2
             exit 1
         fi
 
-        while [ "${state}" != "ready" ]; do
+        while [ "${setup_state}" != "ready" ]; do
             rc=0
             recovery=""
-            if [ "${state}" = "unattached" ]; then
+            if [ "${setup_state}" = "unattached" ]; then
                 phase=attach
                 echo "attaching ua without auto-enabling services..."
                 response="$(timeout 1000 ua attach --no-auto-enable --format json "${UA_TOKEN}" 2>/dev/null)" || rc=$?
-            else
+            elif [ "${setup_state}" = "needs-esm" ]; then
                 phase=enable
-                # State contains only these two allowlisted service names, in order.
-                read -r -a services <<< "${state}"
-                echo "enabling required Ubuntu Pro ESM services: ${state}..."
-                response="$(timeout 1000 ua enable --assume-yes --format json "${services[@]}" 2>/dev/null)" || rc=$?
+                # Split only the pending names (e.g. "esm-infra"), not the setup-state marker.
+                read -r -a services_to_enable <<< "${pending_esm_services}"
+                echo "enabling required Ubuntu Pro ESM services: ${pending_esm_services}..."
+                response="$(timeout 1000 ua enable --assume-yes --format json "${services_to_enable[@]}" 2>/dev/null)" || rc=$?
+            else
+                echo "Invalid Ubuntu Pro setup state" >&2
+                exit 1
             fi
 
             if [ "${rc}" -eq 0 ]; then
@@ -294,7 +302,7 @@ attachUA() {
                 # Generic attach-failure/connectivity-error also cover permanent failures.
                 # Share ONE recovery across attachment and ESM setup, not one per command.
                 # Service retries require complete results and an explicit cause for every failure.
-                if [ "${recovered}" = true ] || [ "${rc}" -ne 1 ] || ! recovery="$(printf '%s' "${response}" | jq -ser --arg phase "${phase}" --arg requested "${state}" '
+                if [ "${recovered}" = true ] || [ "${rc}" -ne 1 ] || ! recovery="$(printf '%s' "${response}" | jq -ser --arg phase "${phase}" --arg requested "${pending_esm_services}" '
                     if length != 1 then error("invalid response") else .[0] end
                     | if ._schema_version == "0.1" and .result == "failure"
                         and (.errors | type) == "array" and (.errors | length) > 0
@@ -327,21 +335,22 @@ attachUA() {
 
             # Even --no-auto-enable can fail AFTER persisting attachment credentials.
             # Resume only missing ESM services; never reattach that machine or detach it.
-            state="$(ubuntuProESMState)" || {
+            status_summary="$(ubuntuProESMState)" || {
                 echo "Unable to determine Ubuntu Pro state after ${phase}" >&2
                 exit 1
             }
+            read -r setup_state pending_esm_services <<< "${status_summary}"
             # Enable reports accumulated service errors AFTER updating its activity token.
             # A system HTTP failure there can hide permanent service errors: check, never retry.
-            if [ "${recovery}" = "check-only" ] && [ "${state}" != "ready" ]; then
+            if [ "${recovery}" = "check-only" ] && [ "${setup_state}" != "ready" ]; then
                 echo "Ubuntu Pro ESM readiness incomplete after an ambiguous enable failure" >&2
                 exit 1
             fi
-            if { [ "${phase}" = "enable" ] || [ "${rc}" -eq 0 ]; } && [ "${state}" = "unattached" ]; then
+            if { [ "${phase}" = "enable" ] || [ "${rc}" -eq 0 ]; } && [ "${setup_state}" = "unattached" ]; then
                 echo "Ubuntu Pro attachment missing after ${phase}" >&2
                 exit 1
             fi
-            if [ "${phase}" = "enable" ] && [ "${rc}" -eq 0 ] && [ "${state}" != "ready" ]; then
+            if [ "${phase}" = "enable" ] && [ "${rc}" -eq 0 ] && [ "${setup_state}" != "ready" ]; then
                 echo "Required Ubuntu Pro ESM services are not enabled" >&2
                 exit 1
             fi

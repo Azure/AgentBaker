@@ -75,6 +75,24 @@ Describe 'attachUA'
   }
   sleep() { echo "sleep $*" >> "${TRACE}"; }
 
+  Describe 'setup state and pending ESM service names'
+    Parameters
+      '.attached = false' 'unattached'
+      '.' 'needs-esm esm-apps esm-infra'
+      '.services[0].status = "enabled"' 'needs-esm esm-infra'
+      '.services[1].status = "enabled"' 'needs-esm esm-apps'
+      '.services[0].status = "enabled" | .services[1].status = "enabled"' 'ready'
+    End
+    It 'returns a state marker followed only by services that still need enabling'
+      STATUS_RESPONSES=("$(printf '%s' "${DISABLED}" | jq -c "$1")")
+      When run ubuntuProESMState
+      The status should be success
+      The output should eq "$2"
+      The stderr should eq ''
+      The contents of file "${TRACE}" should eq 'status'
+    End
+  End
+
   It 'attaches without auto-enable and enables exactly both ESM services, with no backoff or detach'
     When run attachUA
     The status should be success
