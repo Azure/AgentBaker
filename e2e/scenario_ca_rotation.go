@@ -11,7 +11,6 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
-	scp "github.com/bramvdbogaerde/go-scp"
 )
 
 func init() {
@@ -75,11 +74,6 @@ func validateContainerdCARotation(ctx context.Context, s *Scenario) error {
 		0, "download CA fixture"); err != nil {
 		return err
 	}
-	client, err := scp.NewClientBySSH(s.Runtime.VM.SSHClient)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
 	// Upload the branch refresh script rather than silently exercising the
 	// released VHD's older script. This also tests refresh on an existing node.
 	for _, file := range []struct{ local, remote, mode string }{
@@ -89,10 +83,15 @@ func validateContainerdCARotation(ctx context.Context, s *Scenario) error {
 		if err != nil {
 			return err
 		}
-		err = client.CopyFile(ctx, f, remoteDir+"/"+file.remote, file.mode)
+		scriptURL, uploadErr := config.Azure.UploadAndGetSignedLink(ctx, "ca-rotation/"+filepath.Base(dir)+"/"+file.remote, f)
 		f.Close()
-		if err != nil {
-			return fmt.Errorf("upload %s: %w", file.remote, err)
+		if uploadErr != nil {
+			return fmt.Errorf("upload %s: %w", file.remote, uploadErr)
+		}
+		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			fmt.Sprintf("curl --fail --silent --show-error --retry 3 '%s' -o %s/%s && chmod %s %s/%s", scriptURL, remoteDir, file.remote, file.mode, remoteDir, file.remote),
+			0, "download fixture script"); err != nil {
+			return err
 		}
 	}
 	cmd := fmt.Sprintf("sudo %s/fixture --node-ip %s --refresh-script %s/init-aks-cloud.sh", remoteDir, s.Runtime.VM.PrivateIP, remoteDir)
