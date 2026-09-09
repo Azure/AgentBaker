@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -279,6 +280,15 @@ func TestParseAptRepositoryFormats(t *testing.T) {
 		assert.Equal(t, []string{expected}, keyrings)
 	})
 
+	t.Run("one-line deb rejects signed-by fingerprint constraints", func(t *testing.T) {
+		_, err := parseOneLineAptRepository(
+			"deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg ABCD1234] https://packages.microsoft.com/ubuntu/22.04/prod jammy main\n",
+			"microsoft-prod.list", "amd64")
+		require.Error(t, err)
+		var unsupported *unsupportedRepositoryError
+		assert.True(t, errors.As(err, &unsupported))
+	})
+
 	t.Run("deb822", func(t *testing.T) {
 		repository, err := parseDeb822Repository(`
 Types: deb
@@ -294,6 +304,23 @@ Signed-By: /usr/share/keyrings/microsoft-prod.gpg /usr/share/keyrings/microsoft-
 			"/usr/share/keyrings/microsoft-prod.gpg",
 			"/usr/share/keyrings/microsoft-2025.gpg",
 		}, repository.SignedBy)
+	})
+
+	t.Run("deb822 rejects embedded signed-by key", func(t *testing.T) {
+		_, err := parseDeb822Repository(`
+Types: deb
+URIs: https://repodepot.example/microsoft/ubuntu/22.04/prod
+Suites: jammy
+Components: main
+Architectures: amd64
+Signed-By:
+ -----BEGIN PGP PUBLIC KEY BLOCK-----
+ fake
+ -----END PGP PUBLIC KEY BLOCK-----
+`, "microsoft-prod.sources", "amd64")
+		require.Error(t, err)
+		var unsupported *unsupportedRepositoryError
+		assert.True(t, errors.As(err, &unsupported))
 	})
 }
 

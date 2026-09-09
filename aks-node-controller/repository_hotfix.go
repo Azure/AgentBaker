@@ -612,59 +612,72 @@ func parseAptRepositoryFile(path, arch string) (aptRepository, error) {
 // entry (e.g. `[arch=amd64 signed-by=/path/key.gpg]`). It returns the parsed options
 // and the index of the first field after the group. The bool is false when the group is
 // opened but never closed, in which case the caller must skip the line.
-func parseAptLineOptions(fields []string, index int) (map[string]string, int, bool) {
+func parseAptLineOptions(fields []string, index int) (map[string]string, int, bool, error) {
 	options := map[string]string{}
 	if !strings.HasPrefix(fields[index], "[") {
-		return options, index, true
+		return options, index, true, nil
 	}
 	end := index
 	for end < len(fields) && !strings.HasSuffix(fields[end], "]") {
 		end++
 	}
 	if end >= len(fields) {
-		return nil, 0, false
+		return nil, 0, false, nil
 	}
 	optionText := strings.Trim(strings.Join(fields[index:end+1], " "), "[]")
 	for _, option := range strings.Fields(optionText) {
 		keyValue := strings.SplitN(option, "=", 2)
-		if len(keyValue) == 2 {
-			options[strings.ToLower(keyValue[0])] = keyValue[1]
+		if len(keyValue) != 2 {
+			return nil, 0, false, newUnsupportedRepositoryError(
+				"APT source option contains unsupported non-key-value constraint %q", option)
 		}
+		options[strings.ToLower(keyValue[0])] = keyValue[1]
 	}
-	return options, end + 1, true
+	return options, end + 1, true, nil
 }
 
 // parseOneLineAptEntry parses a single non-comment one-line apt entry. The bool is
 // false when the line is not a usable deb entry for arch and must be skipped.
-func parseOneLineAptEntry(line, path, arch string) (aptRepository, bool) {
+func parseOneLineAptEntry(line, path, arch string) (aptRepository, bool, error) {
 	if line == "" || !strings.HasPrefix(line, "deb ") {
-		return aptRepository{}, false
+		return aptRepository{}, false, nil
 	}
 	fields := strings.Fields(line)
 	if len(fields) < 4 {
-		return aptRepository{}, false
+		return aptRepository{}, false, nil
 	}
-	options, index, ok := parseAptLineOptions(fields, 1)
+	options, index, ok, err := parseAptLineOptions(fields, 1)
+	if err != nil {
+		return aptRepository{}, false, err
+	}
 	if !ok || len(fields) < index+3 {
-		return aptRepository{}, false
+		return aptRepository{}, false, nil
 	}
 	if configuredArch := options["arch"]; configuredArch != "" &&
 		!containsString(strings.Split(configuredArch, ","), arch) {
-		return aptRepository{}, false
+		return aptRepository{}, false, nil
+	}
+	signedBy, err := splitConfiguredPaths(options["signed-by"])
+	if err != nil {
+		return aptRepository{}, false, err
 	}
 	return aptRepository{
 		URI:        fields[index],
 		Suite:      fields[index+1],
 		Component:  fields[index+2],
-		SignedBy:   splitConfiguredPaths(options["signed-by"]),
+		SignedBy:   signedBy,
 		SourcePath: path,
-	}, true
+	}, true, nil
 }
 
 func parseOneLineAptRepository(contents, path, arch string) (aptRepository, error) {
 	for _, rawLine := range strings.Split(contents, "\n") {
 		line := strings.TrimSpace(strings.SplitN(rawLine, "#", 2)[0])
-		if repo, ok := parseOneLineAptEntry(line, path, arch); ok {
+		repo, ok, err := parseOneLineAptEntry(line, path, arch)
+		if err != nil {
+			return aptRepository{}, err
+		}
+		if ok {
 			return repo, nil
 		}
 	}
@@ -685,7 +698,10 @@ func parseDeb822Repository(contents, path, arch string) (aptRepository, error) {
 		uris := strings.Fields(fields["uris"])
 		suites := strings.Fields(fields["suites"])
 		components := strings.Fields(fields["components"])
-		signedBy := splitConfiguredPaths(fields["signed-by"])
+		signedBy, err := splitConfiguredPaths(fields["signed-by"])
+		if err != nil {
+			return aptRepository{}, err
+		}
 		if len(uris) == 0 || len(suites) == 0 || len(components) == 0 {
 			continue
 		}
@@ -753,14 +769,15 @@ func parseDeb822Fields(paragraph string) map[string]string {
 	return fields
 }
 
-func splitConfiguredPaths(value string) []string {
+func splitConfiguredPaths(value string) ([]string, error) {
 	var paths []string
 	for _, field := range strings.Fields(strings.ReplaceAll(value, ",", " ")) {
-		if strings.HasPrefix(field, "/") {
-			paths = append(paths, field)
+		if !strings.HasPrefix(field, "/") {
+			return nil, newUnsupportedRepositoryError("APT Signed-By contains unsupported non-path constraint %q", field)
 		}
+		paths = append(paths, field)
 	}
-	return paths
+	return paths, nil
 }
 
 func containsString(values []string, target string) bool {
