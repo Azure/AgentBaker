@@ -46,150 +46,142 @@ func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) error
 }
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) error {
-	// Every validator below is independent, so all of them run and their failures are
-	// reported together instead of stopping at the first one.
-	errs := []error{
-		ValidateTLSBootstrapping(ctx, s),
-		ValidateKubeletServingCertificateRotation(ctx, s),
-		ValidateSystemdWatchdogForKubernetes132Plus(ctx, s),
-		ValidateAKSLogCollector(ctx, s),
-		ValidateDiskQueueService(ctx, s),
-		ValidateLeakedSecrets(ctx, s),
-		ValidateKubeletActiveFlagsEvent(ctx, s),
-		ValidateIPTablesCompatibleWithCiliumEBPF(ctx, s),
-		ValidateRxBufferDefault(ctx, s),
-	}
-
-	// Validate MANA (Accelerated Networking) when hardware is present.
-	// MANA is the standard network adapter on V5+ VM series.
-	hasMANA, err := hasMANAHardware(ctx, s)
-	switch {
-	case err != nil:
-		errs = append(errs, fmt.Errorf("failed to detect MANA hardware: %w", err))
-	case hasMANA:
-		errs = append(errs, ValidateMANA(ctx, s))
-	}
-
-	errs = append(errs,
-		ValidateKernelLogs(ctx, s),
-		ValidateWaagentLog(ctx, s),
-		ValidateScriptlessCSECmd(ctx, s),
-		ValidateScriptlessNBCCSECmd(ctx, s),
-		ValidateScriptlessPhase3(ctx, s),
-		ValidateNodeExporter(ctx, s),
-
-		ValidateSysctlConfig(ctx, s, map[string]string{
-			"net.ipv4.tcp_retries2":             "8",
-			"net.core.message_burst":            "80",
-			"net.core.message_cost":             "40",
-			"net.core.somaxconn":                "16384",
-			"net.ipv4.tcp_max_syn_backlog":      "16384",
-			"net.ipv4.neigh.default.gc_thresh1": "4096",
-			"net.ipv4.neigh.default.gc_thresh2": "8192",
-			"net.ipv4.neigh.default.gc_thresh3": "16384",
-		}),
-		ValidateDirectoryContent(ctx, s, "/var/log/azure/aks", []string{
-			"cluster-provision.log",
-			"cluster-provision-cse-output.log",
-			"cloud-init-files.paved",
-			"vhd-install.complete",
-		}),
+	parallelErr := runValidators(ctx, s,
+		ValidateTLSBootstrapping,
+		ValidateKubeletServingCertificateRotation,
+		ValidateSystemdWatchdogForKubernetes132Plus,
+		ValidateAKSLogCollector,
+		ValidateDiskQueueService,
+		ValidateLeakedSecrets,
+		ValidateKubeletActiveFlagsEvent,
+		ValidateIPTablesCompatibleWithCiliumEBPF,
+		ValidateRxBufferDefault,
+		ValidateKernelLogs,
+		ValidateWaagentLog,
+		ValidateScriptlessCSECmd,
+		ValidateScriptlessNBCCSECmd,
+		ValidateScriptlessPhase3,
+		ValidateNodeExporter,
+		ValidateCommonSysctlConfig,
+		ValidateAKSLogDirectory,
+		ValidateKubeletNodeIPIfSupported,
+		ValidateInspektorGadget,
+		ValidateKubeletDynamicConfigDisabled,
+		ValidateWireServerReachable,
+		ValidateWireServerBlocked,
+		ValidateStaleCachedKubeBinariesRemoved,
+		ValidateServicePrincipalData,
 	)
 
-	// kubeletNodeIPValidator cannot be run on older VHDs with kubelet < 1.29
-	if !s.VHD.UnsupportedKubeletNodeIP {
-		errs = append(errs, ValidateKubeletNodeIP(ctx, s))
-	}
-
-	// localdns validation is skipped for VHDs with UnsupportedLocalDns=true:
-	// FIPS VHDs, older pinned VHDs (privatekube, network-isolated-k8s-not-cached), and AzureLinux OSGuard.
-	// See e2e/config/vhd.go for the full list.
-	if !s.VHD.UnsupportedLocalDns && !config.Config.TestPreProvision && !s.VHDCaching {
-		errs = append(errs,
-			ValidateLocalDNSService(ctx, s, "enabled"),
-			ValidateLocalDNSResolution(ctx, s, "169.254.10.10"),
-			ValidateLocalDNSExporterMetrics(ctx, s),
-		)
-
-		// Validate hosts plugin validators only if hosts plugin is explicitly enabled
-		if s.IsHostsPluginEnabled() {
-			// Guard: skip hosts plugin validation if the VHD doesn't have the required artifacts.
-			// The Agentbaker E2E pipeline uses VHDs from main, which may not yet include
-			// aks-localdns-hosts-setup artifacts until the PR merges. This mirrors the pattern
-			// used by PR #7917 for the localdns-exporter feature.
-			hasHostsPluginArtifacts, err := vhdHasHostsPluginArtifacts(ctx, s)
-			switch {
-			case err != nil:
-				errs = append(errs, fmt.Errorf("failed to detect hosts plugin artifacts on the VHD: %w", err))
-			case !hasHostsPluginArtifacts:
-				s.Logger.Logf("WARNING: VHD does not have aks-localdns-hosts-setup.service — skipping hosts plugin validation")
-			default:
-				errs = append(errs,
-					// Validate hosts file contains resolved IPs for critical FQDNs (IPs resolved dynamically).
-					// CSE sets up the hosts file and enables the aks-localdns-hosts-setup timer, but population
-					// is performed asynchronously by the timer/service rather than synchronously during provisioning.
-					ValidateLocalDNSHostsFile(ctx, s, s.GetDefaultFQDNsForValidation()),
-					// Validate aks-localdns-hosts-setup service ran successfully and timer is active
-					ValidateAKSLocalDNSHostsSetupService(ctx, s),
-					// No restart needed: select_localdns_corefile() uses feature flag to select WITH_HOSTS corefile,
-					// and CoreDNS's reload 5s hot-reloads the hosts file when it gets populated.
-					// Validate hosts plugin serves responses with IPs matching /etc/localdns/hosts
-					ValidateLocalDNSHostsPluginBypass(ctx, s),
-					// Validate IPv6 entries in hosts file are served correctly by CoreDNS (skips if no IPv6 present)
-					ValidateLocalDNSHostsPluginIPv6(ctx, s),
-					// Validate localdns cold start with empty hosts file: restart → fallthrough → populate → reload
-					ValidateLocalDNSHostsPluginColdStart(ctx, s),
-				)
-			}
-		}
-	}
-
-	errs = append(errs, ValidateInspektorGadget(ctx, s))
-
-	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
-	if err != nil {
-		errs = append(errs, err)
-	} else {
-		errs = append(errs, assert.NotContains(execResult.stdout, "--dynamic-config-dir",
-			"kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s", execResult.stdout))
-	}
-
-	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo curl http://168.63.129.16:32526/vmSettings", 0, "curl to wireserver failed"); err != nil {
-		errs = append(errs, err)
-	}
-
-	errs = append(errs,
-		validateWireServerBlocked(ctx, s),
-		ValidateVulnerableKernelModulesDisabled(ctx, s),
+	return errors.Join(
+		parallelErr,
+		runValidator(ctx, s, ValidateMANAIfPresent),
+		runValidator(ctx, s, ValidateCommonLocalDNS),
+		runValidator(ctx, s, ValidateVulnerableKernelModulesDisabled),
+		runValidator(ctx, s, ValidateNoFailedSystemdUnits),
 	)
-
-	// base NBC templates define a mock service principal profile that we can still use to test
-	// the correct bootstrapping logic: https://github.com/Azure/AgentBaker/blob/master/e2e/node_config.go#L438-L441
-	if s.HasServicePrincipalData() {
-		if _, err := execScriptOnVMForScenarioValidateExitCode(
-			ctx,
-			s,
-			`sudo test -n "$(sudo cat /etc/kubernetes/azure.json | jq -r '.aadClientId')" && sudo test -n "$(sudo cat /etc/kubernetes/azure.json | jq -r '.aadClientSecret')"`,
-			0,
-			"AAD client ID and secret should be present in /etc/kubernetes/azure.json"); err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	errs = append(errs,
-		// ensure that no unexpected systemd units are in a failed state
-		ValidateNoFailedSystemdUnits(ctx, s),
-		ValidateStaleCachedKubeBinariesRemoved(ctx, s),
-	)
-
-	return errors.Join(errs...)
 }
 
 func ValidateCommonWindows(ctx context.Context, s *Scenario) error {
-	return errors.Join(
-		ValidateTLSBootstrapping(ctx, s),
-		ValidateKubeletServingCertificateRotation(ctx, s),
+	return runValidators(ctx, s,
+		ValidateTLSBootstrapping,
+		ValidateKubeletServingCertificateRotation,
 	)
+}
+
+func ValidateMANAIfPresent(ctx context.Context, s *Scenario) error {
+	hasMANA, err := hasMANAHardware(ctx, s)
+	if err != nil {
+		return fmt.Errorf("failed to detect MANA hardware: %w", err)
+	}
+	if !hasMANA {
+		return nil
+	}
+	return ValidateMANA(ctx, s)
+}
+
+func ValidateCommonSysctlConfig(ctx context.Context, s *Scenario) error {
+	return ValidateSysctlConfig(ctx, s, map[string]string{
+		"net.ipv4.tcp_retries2":             "8",
+		"net.core.message_burst":            "80",
+		"net.core.message_cost":             "40",
+		"net.core.somaxconn":                "16384",
+		"net.ipv4.tcp_max_syn_backlog":      "16384",
+		"net.ipv4.neigh.default.gc_thresh1": "4096",
+		"net.ipv4.neigh.default.gc_thresh2": "8192",
+		"net.ipv4.neigh.default.gc_thresh3": "16384",
+	})
+}
+
+func ValidateAKSLogDirectory(ctx context.Context, s *Scenario) error {
+	return ValidateDirectoryContent(ctx, s, "/var/log/azure/aks", []string{
+		"cluster-provision.log",
+		"cluster-provision-cse-output.log",
+		"cloud-init-files.paved",
+		"vhd-install.complete",
+	})
+}
+
+func ValidateKubeletNodeIPIfSupported(ctx context.Context, s *Scenario) error {
+	if s.VHD.UnsupportedKubeletNodeIP {
+		return nil
+	}
+	return ValidateKubeletNodeIP(ctx, s)
+}
+
+func ValidateCommonLocalDNS(ctx context.Context, s *Scenario) error {
+	if s.VHD.UnsupportedLocalDns || config.Config.TestPreProvision || s.VHDCaching {
+		return nil
+	}
+	errs := []error{
+		ValidateLocalDNSService(ctx, s, "enabled"),
+		ValidateLocalDNSResolution(ctx, s, "169.254.10.10"),
+		ValidateLocalDNSExporterMetrics(ctx, s),
+	}
+	if !s.IsHostsPluginEnabled() {
+		return errors.Join(errs...)
+	}
+	hasArtifacts, err := vhdHasHostsPluginArtifacts(ctx, s)
+	if err != nil {
+		return errors.Join(append(errs, fmt.Errorf("failed to detect hosts plugin artifacts on the VHD: %w", err))...)
+	}
+	if !hasArtifacts {
+		s.Logger.Logf("WARNING: VHD does not have aks-localdns-hosts-setup.service — skipping hosts plugin validation")
+		return errors.Join(errs...)
+	}
+	errs = append(errs,
+		ValidateLocalDNSHostsFile(ctx, s, s.GetDefaultFQDNsForValidation()),
+		ValidateAKSLocalDNSHostsSetupService(ctx, s),
+		ValidateLocalDNSHostsPluginBypass(ctx, s),
+		ValidateLocalDNSHostsPluginIPv6(ctx, s),
+		ValidateLocalDNSHostsPluginColdStart(ctx, s),
+	)
+	return errors.Join(errs...)
+}
+
+func ValidateKubeletDynamicConfigDisabled(ctx context.Context, s *Scenario) error {
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
+	if err != nil {
+		return err
+	}
+	return assert.NotContains(result.stdout, "--dynamic-config-dir",
+		"kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s", result.stdout)
+}
+
+func ValidateWireServerReachable(ctx context.Context, s *Scenario) error {
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo curl http://168.63.129.16:32526/vmSettings", 0, "curl to wireserver failed")
+	return err
+}
+
+func ValidateServicePrincipalData(ctx context.Context, s *Scenario) error {
+	if !s.HasServicePrincipalData() {
+		return nil
+	}
+	_, err := execScriptOnVMForScenarioValidateExitCode(
+		ctx, s,
+		`sudo test -n "$(sudo cat /etc/kubernetes/azure.json | jq -r '.aadClientId')" && sudo test -n "$(sudo cat /etc/kubernetes/azure.json | jq -r '.aadClientSecret')"`,
+		0, "AAD client ID and secret should be present in /etc/kubernetes/azure.json")
+	return err
 }
 
 func startPodAndCheckItRuns(ctx context.Context, s *Scenario, pod *corev1.Pod) error {
@@ -331,7 +323,7 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 	return tablePatterns, globalPatterns
 }
 
-// validateWireServerBlocked checks that unprivileged pods cannot reach WireServer.
+// ValidateWireServerBlocked checks that unprivileged pods cannot reach WireServer.
 // Wireserver must never be reachable from pods — any successful connection is a
 // security issue, not a transient condition to retry through.
 //
@@ -350,7 +342,7 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 // We do retry transient kube-apiserver exec hiccups, but never on the curl
 // result itself — a single observation of an unexpected exit code is enough
 // to fail loudly.
-func validateWireServerBlocked(ctx context.Context, s *Scenario) error {
+func ValidateWireServerBlocked(ctx context.Context, s *Scenario) error {
 	defer toolkit.LogStep(s.Logger, "validating wireserver is blocked from unprivileged pods")()
 
 	nonHostPod, err := s.Runtime.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)

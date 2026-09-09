@@ -74,14 +74,12 @@ func copyScriptToRemoteIfRequired(ctx context.Context, client *ssh.Client, comma
 	}
 	defer scpClient.Close()
 
-	copyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	return remoteCommand, scpClient.Copy(copyCtx,
-		strings.NewReader(command),
-		remotePath,
-		"0755",
-		int64(len(command)))
+	err = retrySSHSessionOpen(ctx, func() error {
+		copyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		return scpClient.Copy(copyCtx, strings.NewReader(command), remotePath, "0755", int64(len(command)))
+	})
+	return remoteCommand, err
 }
 
 func runSSHCommandWithPrivateKeyFile(
@@ -99,7 +97,12 @@ func runSSHCommandWithPrivateKeyFile(
 		return nil, err
 	}
 
-	session, err := client.NewSession()
+	var session *ssh.Session
+	err = retrySSHSessionOpen(ctx, func() error {
+		var openErr error
+		session, openErr = client.NewSession()
+		return openErr
+	})
 	if err != nil {
 		return nil, err
 	}
