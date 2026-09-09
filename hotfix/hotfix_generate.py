@@ -239,11 +239,6 @@ def detect_changed_varkeys(base_ref, available_varkeys=None):
             print(f"  Skipping unsupported embedded hotfix distro: {local_path}")
             continue
         if local_path in SOURCE_TO_VARKEY:
-            source_path = os.path.join(ARTIFACTS_DIR, local_path)
-            if not os.path.isfile(source_path):
-                raise GenerationError(
-                    f"changed hotfix source {local_path} does not exist at {source_path}"
-                )
             varkey = SOURCE_TO_VARKEY[local_path]
             if available_varkeys is not None and varkey not in available_varkeys:
                 raise GenerationError(
@@ -387,10 +382,8 @@ def build_hotfix_template(target_varkeys, traditional_lines):
         if varkeys & target_varkeys:
             selected_blocks.append(block_lines)
 
-    if target_varkeys and not selected_blocks:
-        raise GenerationError("no matching write_files blocks found")
     if not selected_blocks:
-        return "#cloud-config\nwrite_files: []\n"
+        raise GenerationError("no matching write_files blocks found")
 
     rendered = ["#cloud-config\n", "write_files:\n"]
     for block_lines in selected_blocks:

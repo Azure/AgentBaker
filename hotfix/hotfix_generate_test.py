@@ -99,14 +99,6 @@ write_files:
         self.assertIn("provisionSource", rendered)
         self.assertNotIn("provisionSourceUbuntu", rendered)
 
-    def test_build_hotfix_template_emits_valid_empty_document(self):
-        rendered = hotfix_generate.build_hotfix_template(
-            set(),
-            TRADITIONAL_TEMPLATE.splitlines(keepends=True),
-        )
-
-        self.assertEqual("#cloud-config\nwrite_files: []\n", rendered)
-
     def test_detect_changed_varkeys_expands_distro_group(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             artifacts = Path(temp_dir)

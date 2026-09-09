@@ -137,11 +137,8 @@ func writeScriptHotfixFixture(buildDir string, fixture ScriptHotfixFixture) erro
 		return fmt.Errorf("invalid script-hotfix fixture mode %q", fixture.Mode)
 	}
 	validPlatforms := map[string]bool{
-		"ubuntu":     true,
-		"mariner":    true,
-		"azlosguard": true,
-		"flatcar":    true,
-		"acl":        true,
+		"ubuntu":  true,
+		"mariner": true,
 	}
 	if !validPlatforms[fixture.Platform] {
 		return fmt.Errorf("invalid script-hotfix fixture platform %q", fixture.Platform)

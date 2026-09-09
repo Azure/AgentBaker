@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"testing/fstest"
 
@@ -59,7 +60,7 @@ func TestApplyEmbeddedNodeCustomData(t *testing.T) {
 			payload := "echo hotfixed\n"
 			data, err := yaml.Marshal(nodeCustomData{WriteFiles: []nodeCustomDataWriteFile{
 				{Path: existing, Encoding: encodingBase64, Content: base64.StdEncoding.EncodeToString([]byte(payload))},
-				{Path: missing, Permissions: "0744", Content: payload},
+				{Path: missing, Content: payload},
 			}})
 			require.NoError(t, err)
 			platform := id
@@ -79,6 +80,11 @@ func TestApplyEmbeddedNodeCustomData(t *testing.T) {
 			temporary, err := filepath.Glob(filepath.Join(directory, "aks-node-controller-nodecustomdata-*.yml"))
 			require.NoError(t, err)
 			assert.Empty(t, temporary)
+			if runtime.GOOS != "windows" {
+				info, statErr := os.Stat(missing)
+				require.NoError(t, statErr)
+				assert.Equal(t, os.FileMode(0o644), info.Mode().Perm())
+			}
 		})
 	}
 }
