@@ -23,18 +23,29 @@ func init() {
 		{"AzureLinuxV3", config.VHDAzureLinuxV3Gen2},
 	} {
 		Register(&Scenario{
-			Name:        "ContainerdCARotation/" + image.name,
-			Description: "Real CRI image pulls adopt refreshed OS trust without restarting containerd",
+			Name:        "RCV1P_ContainerdSyntheticCARotation/" + image.name,
+			Description: "Isolated synthetic CA additions through the trust helper, not real RCV1P acquisition",
+			Tags:        Tags{RCV1PCertMode: true},
+			SkipIf:      skipIfRCV1PNotConfigured,
 			Config: Config{
-				Cluster:   ClusterKubenet,
-				VHD:       image.vhd,
-				Validator: validateContainerdCARotation,
+				Cluster:         ClusterKubenet,
+				VHD:             image.vhd,
+				VMConfigMutator: rcv1pOptInVMConfigMutator,
+				Validator:       validateContainerdCARotation,
 			},
 		})
 	}
 }
 
 func validateContainerdCARotation(ctx context.Context, s *Scenario) error {
+	return validateContainerdCAFixture(ctx, s, false)
+}
+
+func validateContainerdCAPull(ctx context.Context, s *Scenario) error {
+	return validateContainerdCAFixture(ctx, s, true)
+}
+
+func validateContainerdCAFixture(ctx context.Context, s *Scenario, pullOnly bool) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 	dir, err := os.MkdirTemp("", "ab-ca-fixture-")
@@ -76,10 +87,14 @@ func validateContainerdCARotation(ctx context.Context, s *Scenario) error {
 	}
 	// Upload the branch refresh script rather than silently exercising the
 	// released VHD's older script. This also tests refresh on an existing node.
-	for _, file := range []struct{ local, remote, mode string }{
+	scripts := []struct{ local, remote, mode string }{
 		{filepath.Join("..", "parts/linux/cloud-init/artifacts/init-aks-cloud.sh"), "init-aks-cloud.sh", "0600"},
 		{filepath.Join("..", "parts/linux/cloud-init/artifacts/cse_config.sh"), "cse_config.sh", "0600"},
-	} {
+	}
+	if pullOnly {
+		scripts = nil
+	}
+	for _, file := range scripts {
 		f, err := os.Open(file.local)
 		if err != nil {
 			return err
@@ -97,12 +112,17 @@ func validateContainerdCARotation(ctx context.Context, s *Scenario) error {
 	}
 	cmd := fmt.Sprintf("sudo %s/fixture --node-ip %s --refresh-script %s/init-aks-cloud.sh --registry-script %s/cse_config.sh",
 		remoteDir, s.Runtime.VM.PrivateIP, remoteDir, remoteDir)
+	marker := "PASS: refreshed trust used by CRI without restarting containerd"
+	if pullOnly {
+		cmd = fmt.Sprintf("sudo %s/fixture --node-ip %s --pull-only", remoteDir, s.Runtime.VM.PrivateIP)
+		marker = "PASS: uncached CRI network pull without OS trust changes"
+	}
 	result, err := execScriptOnVMForScenario(ctx, s, cmd)
 	if err != nil {
 		return err
 	}
 	toolkit.Logf(ctx, "CA rotation fixture: %s", result)
-	if result.exitCode != "0" || !strings.Contains(result.stderr, "PASS: refreshed trust used by CRI without restarting containerd") {
+	if result.exitCode != "0" || !strings.Contains(result.stderr, marker) {
 		return fmt.Errorf("CA rotation fixture failed: %s", result)
 	}
 	return nil

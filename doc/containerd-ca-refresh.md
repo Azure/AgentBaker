@@ -58,10 +58,105 @@ bundle paths and is not changed here. Applying the change to source does not
 retroactively update already-running nodes: the corresponding updated
 provisioning/refresh artifacts must first be delivered.
 
-## Reproducer
+## RCV1P refresh and node-health framework
 
-`ContainerdCARotation/{Ubuntu2204,Ubuntu2404,AzureLinuxV3}` runs in the
-AgentBaker E2E harness on a disposable scenario node:
+The existing positive Linux scenarios `RCV1P_Ubuntu2204`, `RCV1P_Ubuntu2404`,
+`RCV1P_Ubuntu2604Minimal`, `RCV1P_AzureLinuxV3`, and `RCV1P_ACL` call
+`ValidateRCV1PRefreshHealth`. They retain `Tags{RCV1PCertMode: true}`, the
+subscription feature guard, and the VMSS opt-in mutator (plus Trusted Launch
+for ACL). Windows and negative opt-out validators are unchanged.
+
+The framework runs these stages sequentially, returning the first error:
+
+1. Verify provisioning selected RCV1P, the node opted in, certificates are
+   present, and the refresh schedule is installed.
+2. Compare SHA256 of the **installed** `/opt/azure/containers/init-aks-cloud.sh`
+   with the checkout. A stale VHD script is a failure, not a skip or an
+   opportunity to silently upload a substitute. Scripted CSE delivers branch
+   code; ANC/ACL coverage needs the matching candidate VHD. No test fixture is
+   embedded in production CustomData.
+3. Establish a Ready node and active/running kubelet and containerd baseline,
+   including PID, monotonic start timestamp and `NRestarts`. Schedule a uniquely
+   named ordinary HTTP workload on **only this scenario node**, using the
+   existing busybox image, `imagePullPolicy: Always`, and normal pod networking.
+   Verify pod readiness, exec, Kubernetes service DNS and local HTTP.
+4. Validate the installed cron command (Ubuntu/Azure Linux) or systemd
+   `ExecStart` (ACL) contains the actual scenario VMSS ARM location. Execute
+   that installed `ca-refresh` command, or start `azure-ca-refresh.service`.
+   No certificate endpoint, roots, or production script is substituted.
+5. Require successful exit and **fresh** output proving RCV1P mode, opt-in,
+   root/intermediate acquisition and trust installation. Reject partial-download
+   warnings. For systemd, require a new successful invocation and read only
+   that invocation's journal, not historical provisioning output. Compare
+   newly downloaded certificates with the installed anchors without printing
+   their contents. Raw refresh tracing is not emitted into the scenario log.
+6. Require unchanged service identities immediately after refresh. Check the
+   node remains Ready and the original workload remains ready with the same
+   pod UID, container ID and restart count; verify exec/DNS/HTTP again.
+7. Reuse the fixture in **pull-only** mode for a demonstrably uncached real
+   CRI network pull: a unique OCI manifest/config digest, observed registry
+   requests, and a test-owned explicit per-registry CA. This phase does **not**
+   change OS trust or invoke any refresh helper. It proves fresh CRI work, not
+   acceptance of a newly distributed platform CA.
+8. Schedule a second normal workload after refresh (including MCR resolution,
+   readiness, exec/DNS/HTTP); recheck service identity and the original workload.
+
+All waits are bounded. Service auto-recovery is not considered success: a
+kubelet or containerd restart changes the baseline even if it recovers.
+Scenario-owned pods are deleted with UID preconditions, and fixture-owned
+registry configuration/images are cleaned up. Shared pools, nodes and cluster
+configuration are not changed.
+
+**This is real-refresh health/idempotence validation.** The real distribution
+endpoint may return the same roots on consecutive runs. A passing test must
+not be described as an observed platform CA rotation or as proof of removal
+of roots cached by arbitrary services.
+
+### Selection and subscription routing
+
+Run against the **verified dedicated RCV1P E2E subscription** with
+`Microsoft.Compute/PlatformSettingsOverride` registered; do not silently
+fall back to a generic E2E subscription. The CLI flag is `--tags`, not
+`--run-tags`; the local CLI subscription flag is `--subscription-id` (environment
+`SUBSCRIPTION_ID`). Pipeline templates translate their E2E subscription
+configuration and can use `SUBSCRIPTION_ID_OVERRIDE`.
+
+From `e2e/`, with the existing approved E2E environment and gallery configuration:
+
+```sh
+go test ./...
+go vet ./...
+go build ./...
+
+# Focused real-refresh health on branch-delivered scripted CSE.
+# Set RCV1P_E2E_SUBSCRIPTION_ID to the verified dedicated test subscription.
+RCV1P_TAGS_AUTO_INJECTED=true go run ./cmd/e2e run \
+  --subscription-id "$RCV1P_E2E_SUBSCRIPTION_ID" \
+  --tags rcv1pcertmode=true --parallel 3 --retries 0 --disable-scriptless \
+  RCV1P_Ubuntu2204 RCV1P_Ubuntu2404 RCV1P_AzureLinuxV3
+```
+
+Only set `RCV1P_TAGS_AUTO_INJECTED=true` where the platform is known to inject
+the tag. This variable controls **negative-case skipping only**: setting it
+false does not exclude positive cases. The existing negative pipeline is
+unchanged. Unfiltered CLI runs select all scenarios before applying guards;
+the tag alone is not a selector. The general `.pipelines/e2e.yaml` explicitly
+skips `rcv1pcertmode=true`, keeping this work in the dedicated suite. Other
+callers must choose their tag filters/subscription deliberately.
+
+For the complete dedicated suite, select `--tags rcv1pcertmode=true` without
+positional names. That also selects existing Windows/negative cases and the
+separate synthetic cases below. Do not count a feature-query/authentication
+skip as live coverage. For ANC, omit `--disable-scriptless` and use candidate
+VHDs containing the branch refresh script. Ubuntu 26.04 minimal and ACL share
+the framework, but their inclusion in code is not evidence of live validation.
+
+## Separate synthetic CA-addition regression
+
+`RCV1P_ContainerdSyntheticCARotation/{Ubuntu2204,Ubuntu2404,AzureLinuxV3}`
+is the preserved isolated regression fixture, now RCV1P-tagged, guarded and
+opted in. It runs on separate disposable scenario nodes, not between the
+real-refresh health stages:
 
 1. Generate ephemeral CAs A/B and matching TLS server certificates on the node.
 2. Serve isolated OCI images on the node's private IP, **not localhost**
@@ -85,18 +180,39 @@ The fixture uses the harness's existing blob transport for its binary and
 script, avoiding large SCP messages over Bastion. It never downloads customer
 certificates and commits no private keys.
 
-For a local focused run, from `e2e/`, use the documented E2E environment:
+For a focused synthetic run in the same verified dedicated setup:
 
 ```sh
 go test ./cmd/ca-rotation-fixture
-go run ./cmd/e2e run --parallel 3 --retries 0 --disable-scriptless \
-  ContainerdCARotation/Ubuntu2204 ContainerdCARotation/Ubuntu2404 \
-  ContainerdCARotation/AzureLinuxV3
+go run ./cmd/e2e run --subscription-id "$RCV1P_E2E_SUBSCRIPTION_ID" \
+  --tags rcv1pcertmode=true --parallel 3 --retries 0 --disable-scriptless \
+  RCV1P_ContainerdSyntheticCARotation
 ```
 
 Omit `--disable-scriptless` to exercise ANC as well; test results must record
 which bootstrapping mode and image/runtime versions were actually used.
 Flatcar/ACL/Mariner paths are not proven by the three scenarios above.
+
+### Validation history and current limits
+
+Before the RCV1P-framework migration, the original synthetic fixture reproduced
+the stale-root failure on all three OS families. At `ec071b93b3`, its corrected
+scripted delivery passed 3/3, none skipped: Ubuntu 22.04/containerd 1.7.34-2,
+Ubuntu 24.04/2.3.3-2 and Azure Linux v3/2.2.4. Those tests sourced the trust
+installer and staged synthetic certificates. They **did not** prove invocation
+of the installed scheduled RCV1P acquisition/refresh path.
+
+Migration-local E2E unit tests, fixture unit tests, `go vet ./...`, and harness
+build pass. Tests cover positive/synthetic registration, tag selection, the
+feature guard (including authentication errors), stage order/error propagation,
+strict schedule/location checks and fresh acquisition evidence.
+
+Dedicated-subscription live execution of the new health framework is still
+pending. The local Azure account cache does not contain an account matching
+the documented dedicated RCV1P subscription name; verified routing and usable
+authentication must be supplied before running there. The prior generic
+fixture successes are not relabeled as dedicated RCV1P integration passes.
+Keep the PR draft until the required live matrix and broader gates are proven.
 
 ## Scripted delivery regression guard
 

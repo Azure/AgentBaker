@@ -289,9 +289,7 @@ var _ = Register(&Scenario{
 		Cluster:         ClusterKubenet,
 		VHD:             config.VHDUbuntu2204Gen2Containerd,
 		VMConfigMutator: rcv1pOptInVMConfigMutator,
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateRCV1PCertMode(ctx, s)
-		},
+		Validator:       ValidateRCV1PRefreshHealth,
 	},
 })
 
@@ -309,9 +307,7 @@ var _ = Register(&Scenario{
 		Cluster:         ClusterLatestKubernetesVersionKubenet,
 		VHD:             config.VHDUbuntu2604MinimalGen2Containerd,
 		VMConfigMutator: rcv1pOptInVMConfigMutator,
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateRCV1PCertMode(ctx, s)
-		},
+		Validator:       ValidateRCV1PRefreshHealth,
 	},
 })
 
@@ -329,9 +325,7 @@ var _ = Register(&Scenario{
 		Cluster:         ClusterKubenet,
 		VHD:             config.VHDUbuntu2404Gen2Containerd,
 		VMConfigMutator: rcv1pOptInVMConfigMutator,
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateRCV1PCertMode(ctx, s)
-		},
+		Validator:       ValidateRCV1PRefreshHealth,
 	},
 })
 
@@ -349,9 +343,7 @@ var _ = Register(&Scenario{
 		Cluster:         ClusterKubenet,
 		VHD:             config.VHDAzureLinuxV3Gen2,
 		VMConfigMutator: rcv1pOptInVMConfigMutator,
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateRCV1PCertMode(ctx, s)
-		},
+		Validator:       ValidateRCV1PRefreshHealth,
 	},
 })
 
@@ -372,9 +364,7 @@ var _ = Register(&Scenario{
 			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			rcv1pOptInVMConfigMutator(vmss)
 		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateRCV1PCertMode(ctx, s)
-		},
+		Validator: ValidateRCV1PRefreshHealth,
 	},
 })
 

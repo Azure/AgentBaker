@@ -1,6 +1,7 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
-  TAGS_TO_SKIP: "os=windows,gpu=true"
+  # Opted-in CA refresh belongs to the dedicated RCV1P suite/subscription.
+  TAGS_TO_SKIP: "os=windows,gpu=true,rcv1pcertmode=true"
   SKIP_E2E_TESTS: false
   E2E_FAILED_TESTS_RETRY_COUNT: 0
 schedules:

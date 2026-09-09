@@ -202,7 +202,7 @@ case "$ID" in
 esac
 `
 
-func run(ip net.IP, script, registryScript string) (result error) {
+func run(ip net.IP, script, registryScript string, pullOnly bool) (result error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	if os.Geteuid() != 0 || ip == nil || ip.IsLoopback() || ip.IsUnspecified() {
@@ -277,31 +277,6 @@ func run(ip net.IP, script, registryScript string) (result error) {
 	if err := os.WriteFile(filepath.Join(hostDir, "hosts.toml"), []byte(hosts), 0644); err != nil {
 		return err
 	}
-	// _default does not overlay explicit host policies. Exercise both the real
-	// current AKS generator and migration of its unchanged older layout.
-	mirror := filepath.Base(dir) + "-generated.invalid"
-	oldMirror := filepath.Base(dir) + "-old.invalid"
-	for _, host := range []string{mirror, oldMirror} {
-		hostDir := filepath.Join("/etc/containerd/certs.d", host)
-		if err := os.Mkdir(hostDir, 0755); err != nil {
-			return err
-		}
-		defer func() { result = errors.Join(result, os.RemoveAll(hostDir)) }()
-	}
-	const generateMirror = `
-set -e
-. "$1"
-MCR_REPOSITORY_BASE="$2"
-BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="$3"
-configureContainerdRegistryHost
-`
-	if _, err := command(ctx, "bash", "-c", generateMirror, "generate-mirror", registryScript, mirror, hostB); err != nil {
-		return err
-	}
-	oldHosts := fmt.Sprintf("[host.%q]\n  capabilities = [\"pull\", \"resolve\"]\n  override_path = true\n", "https://"+hostB+"/v2")
-	if err := os.WriteFile(filepath.Join("/etc/containerd/certs.d", oldMirror, "hosts.toml"), []byte(oldHosts), 0644); err != nil {
-		return err
-	}
 	var images []string
 	defer func() {
 		cleanCtx, stop := context.WithTimeout(context.Background(), time.Minute)
@@ -333,6 +308,37 @@ configureContainerdRegistryHost
 		return nil
 	}
 	if err := pull(hostA, "warm-custom-ca-a", registryA, false); err != nil {
+		return err
+	}
+	// No OS root manipulation or refresh helper execution in health mode.
+	// Unique config/manifest digests and observed requests prove an uncached
+	// network pull. Normal MCR workload pulls are verified separately.
+	if pullOnly {
+		return nil
+	}
+	// _default does not overlay explicit host policies. Exercise both the real
+	// current AKS generator and migration of its unchanged older layout.
+	mirror := filepath.Base(dir) + "-generated.invalid"
+	oldMirror := filepath.Base(dir) + "-old.invalid"
+	for _, host := range []string{mirror, oldMirror} {
+		hostDir := filepath.Join("/etc/containerd/certs.d", host)
+		if err := os.Mkdir(hostDir, 0755); err != nil {
+			return err
+		}
+		defer func() { result = errors.Join(result, os.RemoveAll(hostDir)) }()
+	}
+	const generateMirror = `
+set -e
+. "$1"
+MCR_REPOSITORY_BASE="$2"
+BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="$3"
+configureContainerdRegistryHost
+`
+	if _, err := command(ctx, "bash", "-c", generateMirror, "generate-mirror", registryScript, mirror, hostB); err != nil {
+		return err
+	}
+	oldHosts := fmt.Sprintf("[host.%q]\n  capabilities = [\"pull\", \"resolve\"]\n  override_path = true\n", "https://"+hostB+"/v2")
+	if err := os.WriteFile(filepath.Join("/etc/containerd/certs.d", oldMirror, "hosts.toml"), []byte(oldHosts), 0644); err != nil {
 		return err
 	}
 	if err := pull(hostB, "b-before-refresh", registryB, true); err != nil {
@@ -416,12 +422,17 @@ func main() {
 	ip := flag.String("node-ip", "", "private IP of the disposable scenario node")
 	script := flag.String("refresh-script", "", "branch init-aks-cloud.sh containing the real trust installer")
 	registryScript := flag.String("registry-script", "", "branch cse_config.sh containing the real registry generator")
+	pullOnly := flag.Bool("pull-only", false, "uncached CRI network pull only; never change OS trust or run a refresh helper")
 	flag.Parse()
-	if *script == "" || *registryScript == "" {
+	if !*pullOnly && (*script == "" || *registryScript == "") {
 		log.Fatal("--refresh-script and --registry-script are required")
 	}
-	if err := run(net.ParseIP(*ip), *script, *registryScript); err != nil {
+	if err := run(net.ParseIP(*ip), *script, *registryScript, *pullOnly); err != nil {
 		log.Fatal(err)
 	}
-	log.Print("PASS: refreshed trust used by CRI without restarting containerd")
+	if *pullOnly {
+		log.Print("PASS: uncached CRI network pull without OS trust changes")
+	} else {
+		log.Print("PASS: refreshed trust used by CRI without restarting containerd")
+	}
 }
