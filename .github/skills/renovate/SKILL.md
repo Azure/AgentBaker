@@ -1,6 +1,14 @@
 ---
 name: renovate
-description: Review, triage, or configure Renovate in AgentBaker. Use for Renovate pull requests, dependency or component version updates, components.json changes, renovate.json changes, package update risk, component onboarding, missing Renovate PRs, datasource no-result errors, or questions about whether a dependency update is safe to merge.
+description: >
+  Review, triage, or configure Renovate in AgentBaker. Use for
+  Renovate-authored pull requests, Renovate-managed changes to
+  parts/common/components.json, .github/renovate.json changes, component
+  onboarding, missing Renovate PRs, datasource no-result errors, or questions
+  about whether an AgentBaker component-manifest update is safe to merge. Do
+  not use for ordinary dependency files outside parts/common/components.json
+  or for external downloads changed only in provisioning code; use code-review
+  for those cases.
 ---
 
 # AgentBaker Renovate
@@ -38,12 +46,16 @@ and architecture, and provide an evidence-based recommendation.
    - `staging/cse/windows/`;
    - `vhdbuilder/packer/`;
    - other direct consumers found by code search.
-5. Verify artifacts exist for every intended OS and architecture. Do not treat
+5. For material artifact growth, assess VHD size, build duration,
+   provisioning and cache effects, and storage impact.
+6. Validate affected `downloadLocation` and `downloadURIs` structures against
+   `schemas/components.cue`, including required OS keys and fallback paths.
+7. Verify artifacts exist for every intended OS and architecture. Do not treat
    a plausible URL pattern as proof.
-6. Check VHD cache coordination. Determine whether the update rotates out a
+8. Check VHD cache coordination. Determine whether the update rotates out a
    version still requested by AKS-RP, unless the component always uses the
    version baked into the VHD.
-7. Check ownership and required PR gates. Do not recommend merging over a
+9. Check ownership and required PR gates. Do not recommend merging over a
    configured component owner or before required gates pass.
 
 If no reliable upstream changelog exists, say so explicitly and recommend the

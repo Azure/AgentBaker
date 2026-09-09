@@ -75,9 +75,10 @@ Analyze PRs for these compatibility scenarios:
 
 **5. Package/Dependency Update PRs (Renovate)**
 
-- When the PR is created by Renovate, changes component versions in
-  `parts/common/components.json`, or changes `.github/renovate.json`, invoke
-  the `/renovate` skill.
+- When the PR is created by Renovate, changes any Renovate-managed entry in
+  `parts/common/components.json` (including versions, `renovateTag`, download
+  locations, artifact names, or component onboarding), or changes
+  `.github/renovate.json`, invoke the `/renovate` skill.
 - Treat `/renovate` as the owner of upstream release research, artifact
   availability, OS coverage, cache rotation, AKS-RP coordination, Renovate
   configuration, and package-update risk classification.

@@ -1,7 +1,7 @@
 # Renovate Architecture and Risk
 
-Use this reference from the `/renovate` skill when reviewing generated changes
-to `parts/common/components.json`.
+Use this reference from the `/renovate` skill when reviewing Renovate-managed
+changes to `parts/common/components.json`.
 
 ## Data flow
 
@@ -18,6 +18,10 @@ versions while provisioning nodes. If the requested version is absent from the
 VHD, provisioning downloads it at runtime and becomes slower.
 
 ## Manifest invariants
+
+Validate changed `downloadLocation` and `downloadURIs` structures against
+`schemas/components.cue`, including required OS-specific keys and fallback
+paths.
 
 `renovateTag` must immediately precede `latestVersion`; the custom-manager
 regular expressions depend on that adjacency.
@@ -120,7 +124,8 @@ Treat these as medium risk:
 - minor updates to non-critical components;
 - partial but intentional OS coverage;
 - new features or deprecations that could change runtime behavior;
-- material binary or image growth.
+- material binary or image growth, after assessing VHD size, build duration,
+  provisioning and cache effects, and storage impact.
 
 Treat a patch or distro revision as low risk only when the evidence shows:
 
