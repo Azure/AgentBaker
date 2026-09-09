@@ -5,12 +5,20 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestCSEExitCodeOutboundConnFail pins the exit code constant to the value emitted by
 // ERR_OUTBOUND_CONN_FAIL in parts/linux/cloud-init/artifacts/cse_helpers.sh. If the
 // product error code changes, this test forces the harness mitigation to be updated.
+func TestGetBaseVMSSModelUsesScenarioVMSize(t *testing.T) {
+	s := &Scenario{
+		Runtime: &ScenarioRuntime{VMSize: "Standard_D2ds_v5"},
+	}
+	assert.Equal(t, s.Runtime.VMSize, scenarioVMSize(s))
+}
+
 func TestCSEExitCodeOutboundConnFail(t *testing.T) {
 	require.Equal(t, "50", cseExitCodeOutboundConnFail)
 }
@@ -46,7 +54,7 @@ func TestParseLinuxCSEMessageOutboundExitCode(t *testing.T) {
 			wantExitCode: "51",
 		},
 		{
-			// Real Test_Ubuntu2204_HTTPSProxy_PrivateDNS/default failure: the outer extension
+			// Real Ubuntu2204_HTTPSProxy_PrivateDNS/default failure: the outer extension
 			// wrapper and the CSE status both report 50.
 			name: "real outbound flake, outer exit 50 and cse exit 50",
 			code: "ProvisioningState/failed/0",
@@ -56,7 +64,7 @@ func TestParseLinuxCSEMessageOutboundExitCode(t *testing.T) {
 			wantExitCode: "50",
 		},
 		{
-			// Real Test_Ubuntu2204_HTTPSProxy_PrivateDNS/scriptless_nbc failure: the outer
+			// Real Ubuntu2204_HTTPSProxy_PrivateDNS/scriptless_nbc failure: the outer
 			// extension wrapper reports exit status=1, but the CSE status reports 50. The
 			// classifier must read the CSE ExitCode field, not the outer wrapper.
 			name: "real outbound flake, outer exit 1 but cse exit 50",
