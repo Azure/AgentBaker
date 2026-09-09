@@ -89,10 +89,26 @@ func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
 }
 
 func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfig) error {
+	totalStart := time.Now()
 	hotfixVersion := cfg.resolveVersion(Version)
+	route := hotfixRouteNone
+	outcome := hotfixOutcomeStarted
+	var terminalErr error
+	slog.Info("ANC hotfix binary evaluation started", "current", Version, "target", hotfixVersion)
+	defer func() {
+		if terminalErr != nil {
+			slog.Warn("ANC hotfix binary evaluation finished", "current", Version, "target", hotfixVersion,
+				"route", route, "outcome", outcome, "durationMs", time.Since(totalStart).Milliseconds(), "error", terminalErr)
+			return
+		}
+		slog.Info("ANC hotfix binary evaluation finished", "current", Version, "target", hotfixVersion,
+			"route", route, "outcome", outcome, "durationMs", time.Since(totalStart).Milliseconds())
+	}()
 
 	if hotfixVersion == "" {
-		slog.Info("hotfix config does not request a version for this base, skipping download", "current", Version)
+		outcome = hotfixOutcomeSkippedNoVersion
+		slog.Info("hotfix config does not request a version for this base, skipping download",
+			"current", Version, "durationMs", time.Since(totalStart).Milliseconds())
 		return nil
 	}
 
@@ -100,13 +116,16 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 	// a strictly higher PATCH. Parse errors (e.g. "dev" builds) result in skip.
 	shouldUpgrade, err := shouldUpgradeToHotfix(Version, hotfixVersion)
 	if err != nil {
+		outcome = hotfixOutcomeSkippedVersionCompareError
 		slog.Warn("failed to compare versions, skipping hotfix download",
-			"current", Version, "hotfix", hotfixVersion, "error", err)
+			"current", Version, "hotfix", hotfixVersion, "durationMs", time.Since(totalStart).Milliseconds(),
+			"error", err)
 		return nil
 	}
 	if !shouldUpgrade {
+		outcome = hotfixOutcomeSkippedNotTargeted
 		slog.Info("ANC version not targeted by hotfix, skipping download",
-			"current", Version, "hotfix", hotfixVersion)
+			"current", Version, "hotfix", hotfixVersion, "durationMs", time.Since(totalStart).Milliseconds())
 		return nil
 	}
 
@@ -117,22 +136,67 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 	// reducing hotfix latency while retaining SHA-256 verification. Transient download
 	// failures fall back to the package manager below.
 	if err := a.tryDirectDownload(ctx, cfg, hotfixVersion); err == nil {
+		route = hotfixRouteDirectHTTP
+		outcome = hotfixOutcomeSuccess
 		return nil
 	} else if isIntegrityError(err) {
+		route = hotfixRouteDirectHTTP
+		outcome = string(outcomeFailed)
+		terminalErr = err
 		return err
 	}
 
 	// Fallback: install via package manager (apt-get or dnf/tdnf).
+	route = hotfixRoutePackageManager
+	pkgMgrStart := time.Now()
+	slog.Info("ANC hotfix package-manager fallback started", "target", hotfixVersion)
 	if err := a.installFromPMC(ctx, hotfixVersion); err != nil {
-		return fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
+		outcome = string(outcomeFailed)
+		slog.Warn("ANC hotfix package-manager fallback failed", "target", hotfixVersion,
+			"durationMs", time.Since(pkgMgrStart).Milliseconds(), "error", err)
+		terminalErr = fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
+		return terminalErr
 	}
+	slog.Info("ANC hotfix package-manager install finished", "target", hotfixVersion,
+		"durationMs", time.Since(pkgMgrStart).Milliseconds())
 
-	if err := copyBinaryAlongside(pkgBinaryPath, hotfixBinaryPath, vhdBinaryPath); err != nil {
-		return fmt.Errorf("stage hotfix binary: %w", err)
+	stageStart := time.Now()
+	slog.Info("ANC hotfix binary staging started", "target", hotfixVersion, "src", a.pkgPath(), "dst", a.hotfixPath())
+	if err := copyBinaryAlongside(a.pkgPath(), a.hotfixPath(), a.vhdPath()); err != nil {
+		outcome = string(outcomeFailed)
+		slog.Warn("ANC hotfix binary staging failed", "target", hotfixVersion,
+			"durationMs", time.Since(stageStart).Milliseconds(), "error", err)
+		terminalErr = fmt.Errorf("stage hotfix binary: %w", err)
+		return terminalErr
 	}
+	slog.Info("ANC hotfix binary staging finished", "target", hotfixVersion,
+		"durationMs", time.Since(stageStart).Milliseconds())
 
-	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", hotfixBinaryPath)
+	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", a.hotfixPath(),
+		"durationMs", time.Since(totalStart).Milliseconds())
+	outcome = hotfixOutcomeSuccess
 	return nil
+}
+
+func (a *App) vhdPath() string {
+	if a.vhdBinaryPath != "" {
+		return a.vhdBinaryPath
+	}
+	return vhdBinaryPath
+}
+
+func (a *App) hotfixPath() string {
+	if a.hotfixBinaryPath != "" {
+		return a.hotfixBinaryPath
+	}
+	return hotfixBinaryPath
+}
+
+func (a *App) pkgPath() string {
+	if a.pkgBinaryPath != "" {
+		return a.pkgBinaryPath
+	}
+	return pkgBinaryPath
 }
 
 // artifactInfo describes a directly-downloadable package artifact with its integrity digest.
@@ -262,6 +326,18 @@ const (
 	pkgMgrTdnf packageManager = "tdnf"
 )
 
+const (
+	hotfixRouteNone           = "none"
+	hotfixRouteDirectHTTP     = "direct-http"
+	hotfixRoutePackageManager = "package-manager"
+
+	hotfixOutcomeSuccess                    = "success"
+	hotfixOutcomeStarted                    = "started"
+	hotfixOutcomeSkippedNoVersion           = "skipped-no-version"
+	hotfixOutcomeSkippedVersionCompareError = "skipped-version-compare-error"
+	hotfixOutcomeSkippedNotTargeted         = "skipped-not-targeted"
+)
+
 // detectPackageManager returns the package manager for the current OS.
 func (a *App) detectPackageManager() (packageManager, error) {
 	info, err := a.parseLinuxPlatformInfo()
@@ -305,6 +381,7 @@ func (a *App) installFromPMC(ctx context.Context, version string) error {
 
 // installWithApt refreshes the PMC repo index and installs the package via apt-get.
 func (a *App) installWithApt(ctx context.Context, version string) error {
+	totalStart := time.Now()
 	sourcesDir := a.aptSourcesDir
 	if sourcesDir == "" {
 		sourcesDir = defaultAptSourcesDir
@@ -315,24 +392,48 @@ func (a *App) installWithApt(ctx context.Context, version string) error {
 	}
 
 	// Ensure any interrupted dpkg state is reconciled before running apt operations.
+	dpkgStart := time.Now()
+	slog.Info("ANC hotfix apt dpkg configure started", "version", version)
 	if err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
 		"dpkg", "--configure", "-a", "--force-confdef", "--force-confold"); err != nil {
+		slog.Warn("ANC hotfix apt dpkg configure failed", "version", version,
+			"durationMs", time.Since(dpkgStart).Milliseconds(), "error", err)
 		return fmt.Errorf("dpkg --configure -a failed: %w", err)
 	}
+	slog.Info("ANC hotfix apt dpkg configure finished", "version", version,
+		"durationMs", time.Since(dpkgStart).Milliseconds())
 
 	// Refresh only the microsoft-prod repo to minimize time.
+	updateStart := time.Now()
+	slog.Info("ANC hotfix apt update started", "version", version, "sourceList", microsoftProdSourceListPath)
 	if err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
 		"apt-get", "update",
 		"-o", "Dpkg::Options::=--force-confold",
 		"-o", fmt.Sprintf("Dir::Etc::sourcelist=%s", microsoftProdSourceListPath),
 		"-o", "Dir::Etc::sourceparts=-"); err != nil {
+		slog.Warn("ANC hotfix apt update failed", "version", version, "sourceList", microsoftProdSourceListPath,
+			"durationMs", time.Since(updateStart).Milliseconds(), "error", err)
 		return fmt.Errorf("apt-get update failed: %w", err)
 	}
+	slog.Info("ANC hotfix apt update finished", "version", version, "sourceList", microsoftProdSourceListPath,
+		"durationMs", time.Since(updateStart).Milliseconds())
+
 	// Install with --allow-downgrades in case the hotfix is older than the VHD-baked version.
-	return a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
+	installStart := time.Now()
+	slog.Info("ANC hotfix apt install started", "version", version)
+	if err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
 		"apt-get", "install", "-y", "--allow-downgrades",
 		"-o", "Dpkg::Options::=--force-confold",
-		fmt.Sprintf("aks-node-controller=%s*", version))
+		fmt.Sprintf("aks-node-controller=%s*", version)); err != nil {
+		slog.Warn("ANC hotfix apt install failed", "version", version,
+			"durationMs", time.Since(installStart).Milliseconds(), "error", err)
+		return err
+	}
+	slog.Info("ANC hotfix apt install finished", "version", version,
+		"durationMs", time.Since(installStart).Milliseconds())
+	slog.Info("ANC hotfix apt path finished", "version", version,
+		"durationMs", time.Since(totalStart).Milliseconds())
+	return nil
 }
 
 func resolveMicrosoftProdSourceListPath(sourcesDir string) (string, error) {
@@ -355,8 +456,17 @@ func resolveMicrosoftProdSourceListPath(sourcesDir string) (string, error) {
 
 // installWithRpm installs the package via dnf or tdnf (repo index refreshed automatically).
 func (a *App) installWithRpm(ctx context.Context, pkgMgr string, version string) error {
-	return a.retryCommand(ctx, pkgMgr, "install", "-y", "--refresh", "--allowerasing",
-		fmt.Sprintf("aks-node-controller-%s", version))
+	start := time.Now()
+	slog.Info("ANC hotfix rpm install started", "packageManager", pkgMgr, "version", version)
+	if err := a.retryCommand(ctx, pkgMgr, "install", "-y", "--refresh", "--allowerasing",
+		fmt.Sprintf("aks-node-controller-%s", version)); err != nil {
+		slog.Warn("ANC hotfix rpm install failed", "packageManager", pkgMgr, "version", version,
+			"durationMs", time.Since(start).Milliseconds(), "error", err)
+		return err
+	}
+	slog.Info("ANC hotfix rpm install finished", "packageManager", pkgMgr, "version", version,
+		"durationMs", time.Since(start).Milliseconds())
+	return nil
 }
 
 // retryCommand runs a command with retries, per-attempt timeout, and backoff.
@@ -438,6 +548,7 @@ func copyBinaryAlongside(src, dst, refPath string) error {
 // (caller must NOT fallback), or a regular error on network/transient failure (caller may fallback).
 // Returns a non-nil non-integrity error when no artifact is available (signals fallback).
 func (a *App) tryDirectDownload(ctx context.Context, cfg *hotfixConfig, hotfixVersion string) error {
+	totalStart := time.Now()
 	artifact, artifactKey := a.resolveArtifact(cfg, hotfixVersion)
 	if artifact == nil {
 		return fmt.Errorf("no artifact descriptor available")
@@ -446,30 +557,42 @@ func (a *App) tryDirectDownload(ctx context.Context, cfg *hotfixConfig, hotfixVe
 	slog.Info("artifact descriptor found, attempting direct HTTP download",
 		"version", hotfixVersion, "key", artifactKey, "url", artifact.URL)
 
+	downloadStart := time.Now()
 	tmpPath, err := a.downloadAndVerify(ctx, artifact.URL, artifact.SHA256)
 	if err != nil {
 		if isIntegrityError(err) {
 			// Remove any previously staged hotfix binary so the wrapper falls back to the
 			// VHD-baked ANC — a stale hotfix binary must not run after an integrity failure.
-			if removeErr := os.Remove(hotfixBinaryPath); removeErr != nil && !os.IsNotExist(removeErr) {
+			if removeErr := os.Remove(a.hotfixPath()); removeErr != nil && !os.IsNotExist(removeErr) {
 				slog.Warn("failed to remove stale hotfix binary on integrity error",
-					"path", hotfixBinaryPath, "error", removeErr)
+					"path", a.hotfixPath(), "error", removeErr)
 			}
+			slog.Warn("ANC hotfix direct HTTP download failed integrity check", "version", hotfixVersion,
+				"durationMs", time.Since(downloadStart).Milliseconds(), "error", err)
 			return fmt.Errorf("artifact integrity check failed for %s: %w", hotfixVersion, err)
 		}
 		slog.Warn("direct HTTP download failed, falling back to package manager",
-			"version", hotfixVersion, "error", err)
+			"version", hotfixVersion, "durationMs", time.Since(downloadStart).Milliseconds(), "error", err)
 		return err
 	}
+	slog.Info("ANC hotfix direct HTTP download verified", "version", hotfixVersion,
+		"durationMs", time.Since(downloadStart).Milliseconds())
 
-	if err := copyBinaryAlongside(tmpPath, hotfixBinaryPath, vhdBinaryPath); err != nil {
+	stageStart := time.Now()
+	slog.Info("ANC hotfix binary staging started", "target", hotfixVersion, "src", tmpPath, "dst", a.hotfixPath())
+	if err := copyBinaryAlongside(tmpPath, a.hotfixPath(), a.vhdPath()); err != nil {
 		os.Remove(tmpPath)
 		// Staging failure after successful download+verify is a hard error — do not fallback
 		// to package manager since we already verified the binary integrity.
+		slog.Warn("ANC hotfix binary staging failed", "target", hotfixVersion,
+			"durationMs", time.Since(stageStart).Milliseconds(), "error", err)
 		return newIntegrityError("stage hotfix binary from artifact: %v", err)
 	}
+	slog.Info("ANC hotfix binary staging finished", "target", hotfixVersion,
+		"durationMs", time.Since(stageStart).Milliseconds())
 	os.Remove(tmpPath)
-	slog.Info("downloaded ANC hotfix via direct HTTP", "target", hotfixVersion, "path", hotfixBinaryPath)
+	slog.Info("downloaded ANC hotfix via direct HTTP", "target", hotfixVersion, "path", a.hotfixPath(),
+		"durationMs", time.Since(totalStart).Milliseconds())
 	return nil
 }
 
@@ -559,7 +682,7 @@ func (a *App) downloadAndVerify(ctx context.Context, artifactURL, expectedSHA256
 	// Create temp file for streaming.
 	dir := a.downloadDir
 	if dir == "" {
-		dir = filepath.Dir(hotfixBinaryPath)
+		dir = filepath.Dir(a.hotfixPath())
 	}
 	tmp, err := os.CreateTemp(dir, ".aks-node-controller-download-*")
 	if err != nil {

@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -736,6 +738,221 @@ func TestValidateArtifactURL(t *testing.T) {
 		err := validateArtifactURL("")
 		require.Error(t, err)
 	})
+}
+
+func TestDownloadBinaryHotfixTerminalEvaluationLog(t *testing.T) {
+	const (
+		terminalMessage = "ANC hotfix binary evaluation finished"
+		binarySHA       = "3ab698426c19090c43a48950dcd94d196122b11149423f230b1234cda75e3293"
+	)
+
+	binaryContent := []byte("hotfix-binary-content")
+	artifactKey := fmt.Sprintf("linux-ubuntu-22.04-%s", runtime.GOARCH)
+
+	tests := []struct {
+		name        string
+		current     string
+		setup       func(t *testing.T, app *App, dir string) *hotfixConfig
+		wantErr     bool
+		wantLevel   slog.Level
+		wantRoute   string
+		wantOutcome string
+	}{
+		{
+			name:    "no hotfix version skips",
+			current: "202604.01.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				return &hotfixConfig{}
+			},
+			wantLevel:   slog.LevelInfo,
+			wantRoute:   hotfixRouteNone,
+			wantOutcome: hotfixOutcomeSkippedNoVersion,
+		},
+		{
+			name:    "non-targeted version skips",
+			current: "202604.01.2",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				return &hotfixConfig{Version: "202604.01.1"}
+			},
+			wantLevel:   slog.LevelInfo,
+			wantRoute:   hotfixRouteNone,
+			wantOutcome: hotfixOutcomeSkippedNotTargeted,
+		},
+		{
+			name:    "malformed current version skips",
+			current: "dev",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				return &hotfixConfig{Version: "202604.01.1"}
+			},
+			wantLevel:   slog.LevelInfo,
+			wantRoute:   hotfixRouteNone,
+			wantOutcome: hotfixOutcomeSkippedVersionCompareError,
+		},
+		{
+			name:    "direct HTTP success",
+			current: "202607.02.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				app.osReleasePath = writeOSRelease(t, dir, "ID=ubuntu\nVERSION_ID=\"22.04\"\n")
+				app.downloadDir = dir
+				app.vhdBinaryPath = writeExecutable(t, dir, "vhd-anc", "original")
+				app.hotfixBinaryPath = filepath.Join(dir, "hotfix-anc")
+				app.httpDownload = func(context.Context, string) ([]byte, error) {
+					return binaryContent, nil
+				}
+				return &hotfixConfig{
+					Hotfixes: map[string]string{"202607.02": "202607.02.2"},
+					Artifacts: map[string]map[string]artifactInfo{
+						"202607.02.2": {
+							artifactKey: {
+								URL:    "https://packages.microsoft.com/fake.deb",
+								SHA256: binarySHA,
+							},
+						},
+					},
+				}
+			},
+			wantLevel:   slog.LevelInfo,
+			wantRoute:   hotfixRouteDirectHTTP,
+			wantOutcome: hotfixOutcomeSuccess,
+		},
+		{
+			name:    "direct HTTP integrity failure",
+			current: "202607.02.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				app.osReleasePath = writeOSRelease(t, dir, "ID=ubuntu\nVERSION_ID=\"22.04\"\n")
+				app.downloadDir = dir
+				app.hotfixBinaryPath = filepath.Join(dir, "hotfix-anc")
+				app.httpDownload = func(context.Context, string) ([]byte, error) {
+					return binaryContent, nil
+				}
+				return &hotfixConfig{
+					Hotfixes: map[string]string{"202607.02": "202607.02.2"},
+					Artifacts: map[string]map[string]artifactInfo{
+						"202607.02.2": {
+							artifactKey: {
+								URL:    "https://packages.microsoft.com/fake.deb",
+								SHA256: strings.Repeat("0", 64),
+							},
+						},
+					},
+				}
+			},
+			wantErr:     true,
+			wantLevel:   slog.LevelWarn,
+			wantRoute:   hotfixRouteDirectHTTP,
+			wantOutcome: string(outcomeFailed),
+		},
+		{
+			name:    "package manager success",
+			current: "202604.01.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				app.osReleasePath = writeOSRelease(t, dir, "ID=ubuntu\n")
+				app.aptSourcesDir = writeAptSourcesDir(t, dir)
+				app.vhdBinaryPath = writeExecutable(t, dir, "vhd-anc", "original")
+				app.pkgBinaryPath = writeExecutable(t, dir, "pkg-anc", "package-manager-hotfix")
+				app.hotfixBinaryPath = filepath.Join(dir, "hotfix-anc")
+				return &hotfixConfig{Version: "202604.01.1"}
+			},
+			wantLevel:   slog.LevelInfo,
+			wantRoute:   hotfixRoutePackageManager,
+			wantOutcome: hotfixOutcomeSuccess,
+		},
+		{
+			name:    "package manager install failure",
+			current: "202604.01.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				app.osReleasePath = writeOSRelease(t, dir, "ID=unsupported\n")
+				return &hotfixConfig{Version: "202604.01.1"}
+			},
+			wantErr:     true,
+			wantLevel:   slog.LevelWarn,
+			wantRoute:   hotfixRoutePackageManager,
+			wantOutcome: string(outcomeFailed),
+		},
+		{
+			name:    "package manager staging failure",
+			current: "202604.01.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				app.osReleasePath = writeOSRelease(t, dir, "ID=ubuntu\n")
+				app.aptSourcesDir = writeAptSourcesDir(t, dir)
+				app.vhdBinaryPath = writeExecutable(t, dir, "vhd-anc", "original")
+				app.pkgBinaryPath = filepath.Join(dir, "missing-pkg-anc")
+				app.hotfixBinaryPath = filepath.Join(dir, "hotfix-anc")
+				return &hotfixConfig{Version: "202604.01.1"}
+			},
+			wantErr:     true,
+			wantLevel:   slog.LevelWarn,
+			wantRoute:   hotfixRoutePackageManager,
+			wantOutcome: string(outcomeFailed),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			origVersion := Version
+			Version = tc.current
+			t.Cleanup(func() { Version = origVersion })
+
+			logCap := installLogCapturer(t)
+			dir := t.TempDir()
+			tt := NewTestApp(t, TestAppConfig{})
+			cfg := tc.setup(t, tt.App, dir)
+
+			err := tt.App.downloadBinaryHotfixIfNeeded(context.Background(), cfg)
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			rec := requireHotfixTerminalLog(t, logCap, terminalMessage)
+			assert.Equal(t, tc.wantLevel, rec.Level)
+			assert.Equal(t, tc.wantRoute, rec.Attrs["route"])
+			assert.Equal(t, tc.wantOutcome, rec.Attrs["outcome"])
+			durationMs, err := strconv.ParseInt(rec.Attrs["durationMs"], 10, 64)
+			require.NoError(t, err)
+			assert.GreaterOrEqual(t, durationMs, int64(0))
+			if tc.wantErr {
+				assert.NotEmpty(t, rec.Attrs["error"])
+			} else {
+				assert.Empty(t, rec.Attrs["error"])
+			}
+		})
+	}
+}
+
+func requireHotfixTerminalLog(t *testing.T, logCap *logCapturer, message string) logRecord {
+	t.Helper()
+	var matches []logRecord
+	for _, rec := range logCap.getRecords() {
+		if rec.Message == message {
+			matches = append(matches, rec)
+		}
+	}
+	require.Len(t, matches, 1)
+	return matches[0]
+}
+
+func writeOSRelease(t *testing.T, dir, content string) string {
+	t.Helper()
+	path := filepath.Join(dir, "os-release")
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
+	return path
+}
+
+func writeAptSourcesDir(t *testing.T, dir string) string {
+	t.Helper()
+	aptDir := filepath.Join(dir, "sources.list.d")
+	require.NoError(t, os.MkdirAll(aptDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(aptDir, "microsoft-prod.list"), []byte("deb ..."), 0o644))
+	return aptDir
+}
+
+func writeExecutable(t *testing.T, dir, name, content string) string {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o755))
+	return path
 }
 
 func TestDownloadHotfix_ArtifactHTTPSuccess(t *testing.T) {

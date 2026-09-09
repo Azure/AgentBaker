@@ -81,6 +81,10 @@ type App struct {
 	// downloadDir overrides the directory where artifact downloads are staged. When empty,
 	// defaults to filepath.Dir(hotfixBinaryPath). Used for testing.
 	downloadDir string
+	// vhdBinaryPath, hotfixBinaryPath, and pkgBinaryPath override ANC binary paths for testing.
+	vhdBinaryPath    string
+	hotfixBinaryPath string
+	pkgBinaryPath    string
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
