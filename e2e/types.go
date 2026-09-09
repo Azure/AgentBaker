@@ -204,6 +204,8 @@ func (s *Scenario) recordADOTestCase(name, className string, duration time.Durat
 
 type ScenarioRuntime struct {
 	NBC                       *datamodel.NodeBootstrappingConfiguration
+	RCV1PRefreshArtifact      *rcv1pRefreshArtifact // expected bytes from the production render, never a node override
+	RCV1PRefreshArtifactErr   error
 	AKSNodeConfig             *aksnodeconfigv1.Configuration
 	Cluster                   *Cluster
 	Kube                      *Kubeclient // per-test client with independent rate limiter

@@ -71,10 +71,15 @@ The framework runs these stages sequentially, returning the first error:
 1. Verify provisioning selected RCV1P, the node opted in, certificates are
    present, and the refresh schedule is installed.
 2. Compare SHA256 of the **installed** `/opt/azure/containers/init-aks-cloud.sh`
-   with the checkout. A stale VHD script is a failure, not a skip or an
-   opportunity to silently upload a substitute. Scripted CSE delivers branch
-   code; ANC/ACL coverage needs the matching candidate VHD. No test fixture is
-   embedded in production CustomData.
+   with the exact script bytes in AgentBaker's production-rendered CustomData,
+   recorded before test-only injections. This honors normal comment removal,
+   templating, compression, and ACL/Flatcar Ignition tar packaging without
+   duplicating the renderer. Only the expected digest and delivery origin are
+   retained. When a recognized payload does not deliver that file (normally
+   ANC/scriptless), require the exact current VHD source instead; such coverage
+   needs the matching candidate image. Missing provenance, malformed/ambiguous
+   payloads, and mismatched hashes fail closed. The test never uploads a
+   substitute or adds a fixture to production CustomData.
 3. Establish a Ready node and active/running kubelet and containerd baseline,
    including PID, monotonic start timestamp and `NRestarts`. Schedule a uniquely
    named ordinary HTTP workload on **only this scenario node**, using the
@@ -218,11 +223,25 @@ of the installed scheduled RCV1P acquisition/refresh path.
 Migration-local E2E unit tests, fixture unit tests, `go vet ./...`, and harness
 build pass. Tests cover positive/synthetic registration, tag selection, the
 feature guard (including authentication errors), stage order/error propagation,
-strict schedule/location checks and fresh acquisition evidence.
+strict schedule/location checks and fresh acquisition evidence. Provenance
+regression tests use the real AgentBaker renderer for all five Linux distros
+in scripted, scriptless and scriptless-NBC modes, including Ignition packaging.
+Malformed payloads, missing provenance, altered bytes and incorrect paths fail.
 
-Dedicated daily routing has been verified, but live execution of the new health
-framework is still pending. The local Azure account cache does not contain the
-exact dedicated subscription, so no local live run was attempted. Hosted
+The first dedicated hosted attempt (180373926) failed before live execution:
+an existing configuration test assumed the region environment variable was
+unset. Test-isolation commit `f9851f37a5` unblocked that preflight. The rerun
+(180376228) executed exactly the three selected Ubuntu 22.04/24.04 and Azure
+Linux v3 cases, none skipped; all original attempts and two retries per case
+failed at the same provenance assertion. The installed script matched the
+normal production-rendered bytes, but the validator incorrectly compared raw
+source before CSE comment removal. The corrected validator derives its expected
+digest from the actual production payload instead. That correction and all
+subsequent refresh/health stages still need an authorized hosted rerun; these
+failed runs provide **no** real-refresh health pass.
+
+Dedicated daily routing is verified. The local Azure account cache does not
+contain the exact dedicated subscription, so no local live run was attempted. Hosted
 validation must use that existing dedicated routing and the PR commit, with
 matching candidate VHDs for paths that do not deliver the script via CSE. The prior generic
 fixture successes are not relabeled as dedicated RCV1P integration passes.

@@ -2,10 +2,7 @@ package e2e
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -109,28 +106,30 @@ func ValidateRCV1PRefreshHealth(ctx context.Context, s *Scenario) error {
 }
 
 func validateInstalledRCV1PScript(ctx context.Context, s *Scenario) error {
-	root, err := findRepoRoot()
-	if err != nil {
-		return err
+	if s.Runtime.RCV1PRefreshArtifactErr != nil {
+		return fmt.Errorf("identify production RCV1P refresh artifact: %w", s.Runtime.RCV1PRefreshArtifactErr)
 	}
-	source, err := os.ReadFile(filepath.Join(root, "parts/linux/cloud-init/artifacts/init-aks-cloud.sh"))
-	if err != nil {
-		return err
+	want := s.Runtime.RCV1PRefreshArtifact
+	if want == nil {
+		return fmt.Errorf("production RCV1P refresh artifact was not recorded during provisioning")
 	}
-	want := fmt.Sprintf("%x", sha256.Sum256(source))
 	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		"sudo sha256sum "+installedRCV1PScript, 0, "hash installed RCV1P refresh script")
 	if err != nil {
 		return err
 	}
-	fields := strings.Fields(result.stdout)
+	return validateRCV1PRefreshHash(ctx, result.stdout, want)
+}
+
+func validateRCV1PRefreshHash(ctx context.Context, output string, want *rcv1pRefreshArtifact) error {
+	fields := strings.Fields(output)
 	if len(fields) != 2 {
 		return fmt.Errorf("could not parse installed refresh script SHA256 at %s", installedRCV1PScript)
 	}
-	toolkit.Logf(ctx, "Installed RCV1P artifact path=%s SHA256=%s; checkout SHA256=%s",
-		installedRCV1PScript, fields[0], want)
-	if fields[1] != installedRCV1PScript || fields[0] != want {
-		return fmt.Errorf("installed refresh script does not match checkout SHA256 %s; use branch-delivered scripted CSE or a matching candidate VHD for ANC/ACL (no test-only script substitution)", want)
+	toolkit.Logf(ctx, "Installed RCV1P artifact path=%s SHA256=%s; expected %s SHA256=%s",
+		installedRCV1PScript, fields[0], want.origin, want.sha256)
+	if fields[1] != installedRCV1PScript || fields[0] != want.sha256 {
+		return fmt.Errorf("installed refresh script does not match %s SHA256 %s; use branch-delivered CSE or a matching candidate VHD (no test-only script substitution)", want.origin, want.sha256)
 	}
 	return nil
 }

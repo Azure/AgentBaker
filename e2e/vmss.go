@@ -262,6 +262,11 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 
 	cse = nodeBootstrapping.CSE
 	customData = nodeBootstrapping.CustomData
+	if s.Tags.RCV1PCertMode && !s.IsWindows() {
+		// Only the refresh validator consumes this result. Negative opt-out
+		// scenarios retain their existing provisioning/validation behavior.
+		s.Runtime.RCV1PRefreshArtifact, s.Runtime.RCV1PRefreshArtifactErr = expectedRCV1PRefreshArtifact(customData)
+	}
 	if enableScriptlessCompilation(s) {
 		binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 		if err != nil {
