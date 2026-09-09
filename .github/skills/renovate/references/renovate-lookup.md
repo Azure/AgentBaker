@@ -1,7 +1,8 @@
 # Renovate Lookup and Configuration
 
-Use this reference when reviewing `.github/renovate.json`, onboarding a
-component, or investigating why Renovate did not create the expected update.
+Use this reference from the `/renovate` skill when reviewing
+`.github/renovate.json`, onboarding a component, or investigating why Renovate
+did not create the expected update.
 
 ## Configuration guardrails
 

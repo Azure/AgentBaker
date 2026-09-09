@@ -1,7 +1,7 @@
 # Renovate Architecture and Risk
 
-Use this reference when reviewing Renovate-generated changes to
-`parts/common/components.json`.
+Use this reference from the `/renovate` skill when reviewing generated changes
+to `parts/common/components.json`.
 
 ## Data flow
 

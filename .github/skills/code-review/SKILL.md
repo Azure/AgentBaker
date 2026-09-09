@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Review AgentBaker pull requests and diffs for production regressions, backward compatibility, security, architecture, cross-OS behavior, provisioning failures, risky package updates, and Renovate configuration errors. Use this skill whenever reviewing AgentBaker code, pull requests, diffs, dependency bumps, components.json changes, renovate.json changes, or Linux and Windows VHD build and node provisioning paths.
+description: Review AgentBaker pull requests and diffs for production regressions, backward compatibility, security, architecture, cross-OS behavior, provisioning failures, and risky package updates. Use this skill whenever reviewing AgentBaker code, pull requests, diffs, dependency bumps, or Linux and Windows VHD build and node provisioning paths.
 ---
 
 # AgentBaker Code Review
@@ -75,38 +75,15 @@ Analyze PRs for these compatibility scenarios:
 
 **5. Package/Dependency Update PRs (Renovate)**
 
-- **Context**: Renovate updates components cached in AKS VHDs. A bad update can affect node boot, networking, GPU workloads, security, VHD size, or provisioning latency.
-- **Required reference**: Read [Renovate architecture and risk](references/renovate-architecture.md) before reviewing `parts/common/components.json` changes. Read [Renovate lookup and configuration](references/renovate-lookup.md) when reviewing `.github/renovate.json`, onboarding a component, or diagnosing missing updates.
-- **Analysis steps**:
-  1. Extract every old-to-new version, affected OS/release, omitted OS variant, and `previousLatestVersion` rotation.
-  2. Classify the update as major, minor, patch, or distro revision. Do not assume every version follows plain semver.
-  3. Research the exact upstream range using releases, changelogs, commit history, and package metadata. State clearly when no reliable changelog exists.
-  4. Trace changed defaults, flags, configuration formats, systemd behavior, dependencies, kernel requirements, and artifact sizes into VHD build and CSE consumers.
-  5. Verify artifact availability for every affected architecture and OS. A URL pattern looking correct is not proof that the artifact exists.
-  6. Check cache coordination: determine whether the rotation removes a version still requested by AKS-RP, unless the component simply uses the version baked into the VHD.
-  7. Check required owners and PR gates. Never recommend merging over a configured component owner or before required gates pass.
-
-- **Review output for dependency updates**:
-
-  ```text
-  ## Package Update Analysis: <component-name>
-  **Version change**: X.Y.Z -> A.B.C (<update type>)
-  **Component criticality**: Critical / Important / Standard
-  **OS variants affected**: <list>
-  **OS variants not updated**: <list or "None - full coverage">
-
-  ### Changes between X.Y.Z and A.B.C
-
-  | Change | Description | Risk |
-  |--------|-------------|------|
-  | <type> | <description> | Low / Medium / High |
-
-  ### Overall Risk: Low / Medium / High
-  **Justification**: <why>
-  **Recommendation**: Approve / Request more information / Require manual testing
-  ```
-
-  Report a concrete defect as a review finding when the diff proves one. Otherwise provide the package analysis without inventing a finding.
+- When the PR is created by Renovate, changes component versions in
+  `parts/common/components.json`, or changes `.github/renovate.json`, invoke
+  the `/renovate` skill.
+- Treat `/renovate` as the owner of upstream release research, artifact
+  availability, OS coverage, cache rotation, AKS-RP coordination, Renovate
+  configuration, and package-update risk classification.
+- Incorporate substantive defects found by `/renovate` into the overall code
+  review. Do not repeat its research or report its risk summary as a defect
+  unless the changed code supports a concrete failure mode.
 
 ## Analysis Approach
 
