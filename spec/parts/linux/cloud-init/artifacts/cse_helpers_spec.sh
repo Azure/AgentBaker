@@ -17,6 +17,42 @@ readContainerImage() {
 
 Describe 'cse_helpers.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Describe 'systemctlDisableAndStop'
+        systemctl() {
+            [ "$1" = "cat" ] && [ "${UNIT_EXISTS:-true}" = "true" ]
+        }
+
+        systemctl_stop() {
+            [ "${STOP_SUCCEEDS:-true}" = "true" ]
+        }
+
+        systemctl_disable() {
+            DISABLE_CALLED="true"
+            [ "${DISABLE_SUCCEEDS:-true}" = "true" ]
+        }
+
+        It 'succeeds when the unit does not exist'
+            UNIT_EXISTS="false"
+            When call systemctlDisableAndStop missing.service
+            The status should be success
+        End
+
+        It 'still disables the unit and succeeds when stopping fails'
+            STOP_SUCCEEDS="false"
+            When call systemctlDisableAndStop sshd.service
+            The output should equal "sshd.service could not be stopped"
+            The variable DISABLE_CALLED should equal "true"
+            The status should be success
+        End
+
+        It 'preserves best-effort success when disabling fails'
+            DISABLE_SUCCEEDS="false"
+            When call systemctlDisableAndStop sshd.service
+            The output should equal "sshd.service could not be disabled"
+            The status should be success
+        End
+    End
+
     Describe 'updatePackageVersions'
         It 'returns downloadURIs.ubuntu.r2204.versionsV2 of package pkgVersionsV2 for UBUNTU 22.04'
             package=$(readPackage "pkgVersionsV2")

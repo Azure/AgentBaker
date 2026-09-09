@@ -262,7 +262,12 @@ var _ = Register(&Scenario{
 		SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
 		SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
 		Validator: func(ctx context.Context, s *Scenario) error {
-			// Validate SSH daemon is disabled via RunCommand
+			if err := ValidateSSHServiceDisabled(ctx, s); err != nil {
+				return err
+			}
+			if err := RestartVMSSVM(ctx, s); err != nil {
+				return err
+			}
 			return ValidateSSHServiceDisabled(ctx, s)
 		},
 	},
