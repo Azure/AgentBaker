@@ -220,6 +220,87 @@ EOF
         End
     End
 
+    Describe 'Chrony time source selection'
+        It 'identifies an Ubuntu 26.04 CVM from its OS version and FDE kernel'
+            IS_UBUNTU=1
+            VERSION_ID="26.04"
+            Mock uname
+                echo "7.0.0-1011-azure-fde"
+            End
+
+            When call is_ubuntu_2604_cvm
+            The status should be success
+        End
+
+        It 'does not identify an Ubuntu 26.04 non-CVM image'
+            IS_UBUNTU=1
+            VERSION_ID="26.04"
+            Mock uname
+                echo "7.0.0-1011-azure"
+            End
+
+            When call is_ubuntu_2604_cvm
+            The status should be failure
+        End
+
+        It 'does not identify an Ubuntu 24.04 CVM image'
+            IS_UBUNTU=1
+            VERSION_ID="24.04"
+            Mock uname
+                echo "6.11.0-1018-azure-fde"
+            End
+
+            When call is_ubuntu_2604_cvm
+            The status should be failure
+        End
+
+        It 'prefers the stable Hyper-V PTP device name'
+            export PTP_DEV_DIR="${TEST_DIR}/dev"
+            export PTP_SYSFS_DIR="${TEST_DIR}/sys/class/ptp"
+            mkdir -p "$PTP_DEV_DIR" "$PTP_SYSFS_DIR"
+            ln -s /dev/null "${PTP_DEV_DIR}/ptp_hyperv"
+
+            When call find_hyperv_phc_device
+            The output should eq "${PTP_DEV_DIR}/ptp_hyperv"
+            The status should be success
+        End
+
+        It 'finds the Hyper-V clock when it has a numbered PTP device'
+            export PTP_DEV_DIR="${TEST_DIR}/dev"
+            export PTP_SYSFS_DIR="${TEST_DIR}/sys/class/ptp"
+            mkdir -p "${PTP_DEV_DIR}" "${PTP_SYSFS_DIR}/ptp1"
+            ln -s /dev/null "${PTP_DEV_DIR}/ptp1"
+            echo "hyperv" > "${PTP_SYSFS_DIR}/ptp1/clock_name"
+
+            When call find_hyperv_phc_device
+            The output should eq "${PTP_DEV_DIR}/ptp1"
+            The status should be success
+        End
+
+        It 'uses the discovered Hyper-V clock as the Chrony source'
+            Mock find_hyperv_phc_device
+                echo "/dev/ptp_hyperv"
+            End
+
+            When call resolve_ubuntu_2604_cvm_time_source
+            The output should eq "refclock PHC /dev/ptp_hyperv poll 3 dpoll -2 offset 0"
+            The status should be success
+        End
+
+        It 'uses network NTP after five unsuccessful PHC checks'
+            Mock find_hyperv_phc_device
+                false
+            End
+            Mock sleep
+                :
+            End
+
+            When call resolve_ubuntu_2604_cvm_time_source
+            The output should eq "pool ntp.ubuntu.com iburst maxsources 4"
+            The status should be success
+        End
+    End
+
     Describe 'init_mariner_repo_depot'
         It 'creates extended, nvidia, and cloud-native repos and points all at RepoDepot'
             export YUM_REPOS_DIR="${TEST_DIR}/yum.repos.d"
