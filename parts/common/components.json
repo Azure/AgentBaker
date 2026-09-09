@@ -1040,7 +1040,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.4.3-ubuntu22.04u2"
+                "latestVersion": "1.4.3-ubuntu22.04u7"
               }
             ]
           },
@@ -1048,7 +1048,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.4.3-ubuntu24.04u2"
+                "latestVersion": "1.4.3-ubuntu24.04u7"
               }
             ]
           },
@@ -1056,7 +1056,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.4.3-ubuntu26.04u2"
+                "latestVersion": "1.4.3-ubuntu26.04u7"
               }
             ]
           }
@@ -1073,7 +1073,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "2.3.3-ubuntu26.04u2"
+                "latestVersion": "2.3.4-ubuntu26.04u2"
               }
             ]
           },
@@ -1081,7 +1081,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "2.3.3-ubuntu24.04u2"
+                "latestVersion": "2.3.4-ubuntu24.04u2"
               }
             ]
           },
@@ -1089,7 +1089,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.7.34-ubuntu22.04u2"
+                "latestVersion": "1.7.34-ubuntu22.04u3"
               }
             ]
           },
@@ -1097,7 +1097,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.34-ubuntu20.04u2"
+                "latestVersion": "1.7.34-ubuntu20.04u3"
               }
             ]
           }
