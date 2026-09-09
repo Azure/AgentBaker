@@ -1382,7 +1382,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=kubernetes-cri-tools, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.34.0-ubuntu26.04u21"
+                "latestVersion": "1.34.0-ubuntu26.04u24"
               }
             ]
           }
