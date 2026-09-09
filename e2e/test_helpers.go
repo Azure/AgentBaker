@@ -1163,10 +1163,7 @@ func vmSKUGeneration(sku string) (int, error) {
 func ensureMinVMGeneration(minSku string) string {
 	// Ensure that the VM SKU used is at least the minimum generation required for the test
 	// Get the minimum generation for the specified SKU
-	defaultGen, err := vmSKUGeneration(config.Config.DefaultVMSKU)
-	if err != nil {
-		panic(fmt.Sprintf("Warning: No minimum generation found for SKU %s", config.Config.DefaultVMSKU))
-	}
+	defaultGen, _ := vmSKUGeneration(config.Config.DefaultVMSKU)
 	minGen, err := vmSKUGeneration(minSku)
 	if err != nil {
 		panic(fmt.Sprintf("Warning: No minimum generation found for SKU %s", minSku))
