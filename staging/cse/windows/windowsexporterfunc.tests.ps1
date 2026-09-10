@@ -212,6 +212,27 @@ Describe 'Windows exporter CSE functions' {
             Mock Start-Sleep
         }
 
+        It 'sleeps only between failed attempts (baked script: <Baked>, retries: <Retries>)' -TestCases @(
+            @{ Baked = $true; Retries = 5 }
+            @{ Baked = $false; Retries = 5 }
+            @{ Baked = $true; Retries = 0 }
+            @{ Baked = $false; Retries = 0 }
+        ) {
+            param($Baked, $Retries)
+            $global:WindowsExporterHealthScript = Join-Path $TestDrive 'retry-health.ps1'
+            if ($Baked) {
+                'function Get-Health { return "" }' | Set-Content -Path $global:WindowsExporterHealthScript
+            } else {
+                $global:WindowsExporterHealthScript = Join-Path $TestDrive 'missing-health.ps1'
+                Mock Invoke-WebRequest -MockWith { throw 'endpoint unavailable' }
+            }
+
+            Test-WindowsExporterHealth -RetryCount $Retries -RetryInterval 5 | Should -Be $false
+
+            Assert-MockCalled Get-Service -Exactly -Times ($Retries + 1)
+            Assert-MockCalled Start-Sleep -Exactly -Times $Retries -ParameterFilter { $Seconds -eq 5 }
+        }
+
         It 'uses the baked health script when it is present' {
             $global:WindowsExporterHealthScript = Join-Path $TestDrive 'windows-exporter-health.ps1'
             @'

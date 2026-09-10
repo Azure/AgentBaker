@@ -59,7 +59,9 @@ function Test-WindowsExporterHealth {
                 }
                 return $true
             }
-            Start-Sleep -Seconds $RetryInterval
+            if ($i -lt $RetryCount) {
+                Start-Sleep -Seconds $RetryInterval
+            }
         }
 
         Write-Log "aks-windows-exporter health script check failed after $($RetryCount + 1) attempts"
@@ -81,7 +83,9 @@ function Test-WindowsExporterHealth {
             Write-Log "aks-windows-exporter health check passed: $result"
             return $true
         }
-        Start-Sleep -Seconds $RetryInterval
+        if ($i -lt $RetryCount) {
+            Start-Sleep -Seconds $RetryInterval
+        }
     }
     Write-Log "aks-windows-exporter health check failed after $($RetryCount + 1) attempts"
     return $false
