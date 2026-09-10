@@ -463,9 +463,32 @@ type readinessBufferedConn struct {
 	net.Conn
 	writes chan []byte
 	done   chan struct{}
+	once   sync.Once
 }
 
-func (c readinessBufferedConn) Write(p []byte) (int, error) {
+func TestReadinessBufferedConnDrainsBeforeClose(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		conn, peer := net.Pipe()
+		defer peer.Close()
+		buffered := newReadinessBufferedConn(ctx, conn)
+		_, err := buffered.Write([]byte("first"))
+		require.NoError(t, err)
+		_, err = buffered.Write([]byte("second"))
+		require.NoError(t, err)
+		go buffered.Close()
+		synctest.Wait()
+		data, err := io.ReadAll(peer)
+		require.NoError(t, err)
+		assert.Equal(t, "firstsecond", string(data))
+	})
+}
+
+func (c *readinessBufferedConn) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
 	select {
 	case c.writes <- bytes.Clone(p):
 		return len(p), nil
@@ -474,16 +497,29 @@ func (c readinessBufferedConn) Write(p []byte) (int, error) {
 	}
 }
 
-func readinessSSHServer(t *testing.T, ctx context.Context, config *ssh.ServerConfig) *readinessTestConn {
-	t.Helper()
-	client, server := net.Pipe()
-	buffered := readinessBufferedConn{Conn: server, writes: make(chan []byte, 16), done: make(chan struct{})}
+func (c *readinessBufferedConn) Close() error {
+	c.once.Do(func() {
+		select {
+		case c.writes <- nil:
+		case <-c.done:
+		}
+		<-c.done
+		_ = c.Conn.Close()
+	})
+	return nil
+}
+
+func newReadinessBufferedConn(ctx context.Context, conn net.Conn) *readinessBufferedConn {
+	buffered := &readinessBufferedConn{Conn: conn, writes: make(chan []byte, 16), done: make(chan struct{})}
 	go func() {
 		defer close(buffered.done)
 		for {
 			select {
 			case data := <-buffered.writes:
-				if _, err := server.Write(data); err != nil {
+				if data == nil {
+					return
+				}
+				if _, err := conn.Write(data); err != nil {
 					return
 				}
 			case <-ctx.Done():
@@ -491,8 +527,15 @@ func readinessSSHServer(t *testing.T, ctx context.Context, config *ssh.ServerCon
 			}
 		}
 	}()
+	return buffered
+}
+
+func readinessSSHServer(t *testing.T, ctx context.Context, config *ssh.ServerConfig) *readinessTestConn {
+	t.Helper()
+	client, server := net.Pipe()
+	buffered := newReadinessBufferedConn(ctx, server)
 	go func() {
-		defer server.Close()
+		defer buffered.Close()
 		conn, channels, requests, err := ssh.NewServerConn(buffered, config)
 		if err != nil {
 			return
