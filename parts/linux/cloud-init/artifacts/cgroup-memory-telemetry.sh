@@ -1,6 +1,22 @@
 #!/bin/bash
 set -uo pipefail
 
+getServiceMemory() {
+    local memory_stat="$1"
+    local cgroup_version="$2"
+
+    if [ ! -f "${memory_stat}" ]; then
+        echo "Not Found"
+        return
+    fi
+
+    if [ "${cgroup_version}" = "cgroupv2" ]; then
+        expr "$(awk '/^file /{print $2}' "${memory_stat}")" + "$(awk '/^anon /{print $2}' "${memory_stat}")"
+    else
+        expr "$(awk '/^total_cache /{print $2}' "${memory_stat}")" + "$(awk '/^total_rss /{print $2}' "${memory_stat}")"
+    fi
+}
+
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 EVENTS_FILE_NAME=$(date +%s%3N)
 STARTTIME_FORMATTED=$(date +"%F %T.%3N")
@@ -21,12 +37,12 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
         --arg AZURE_SLICE_MEMORY "$(if [ -f "${CGROUP}/azure.slice/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
         --arg KUBEPODS_SLICE_MEMORY "$(if [ -f "${CGROUP}/kubepods.slice/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
         --arg USER_SLICE_MEMORY "$(if [ -f "${CGROUP}/user.slice/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/user.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/user.slice/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
-        --arg CONTAINERD_MEMORY "$(if [ -f "${CGROUP}/${CSLICE}/containerd.service/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
-        --arg KUBELET_MEMORY "$(if [ -f "${CGROUP}/${KSLICE}/kubelet.service/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
-        --arg NODE_PROBLEM_DETECTOR_MEMORY "$(if [ -f "${CGROUP}/system.slice/node-problem-detector.service/memory.stat" ]; then echo $(expr $(awk '/^file /{print $2}' "${CGROUP}/system.slice/node-problem-detector.service/memory.stat") + $(awk '/^anon /{print $2}' "${CGROUP}/system.slice/node-problem-detector.service/memory.stat")); else echo "Not Found"; fi)" \
-        --arg NODE_EXPORTER_MEMORY "$(if [ -f "${CGROUP}/system.slice/node-exporter.service/memory.stat" ]; then echo $(expr $(awk '/^file /{print $2}' "${CGROUP}/system.slice/node-exporter.service/memory.stat") + $(awk '/^anon /{print $2}' "${CGROUP}/system.slice/node-exporter.service/memory.stat")); else echo "Not Found"; fi)" \
-        --arg SYNC_CONTAINER_LOGS_MEMORY "$(if [ -f "${CGROUP}/system.slice/sync-container-logs.service/memory.stat" ]; then echo $(expr $(awk '/^file /{print $2}' "${CGROUP}/system.slice/sync-container-logs.service/memory.stat") + $(awk '/^anon /{print $2}' "${CGROUP}/system.slice/sync-container-logs.service/memory.stat")); else echo "Not Found"; fi)" \
-        --arg LOCALDNS_MEMORY "$(if [ -f "${CGROUP}/localdns.slice/localdns.service/memory.stat" ]; then echo $(expr $(awk '/^file /{print $2}' "${CGROUP}/localdns.slice/localdns.service/memory.stat") + $(awk '/^anon /{print $2}' "${CGROUP}/localdns.slice/localdns.service/memory.stat")); else echo "Not Found"; fi)" \
+        --arg CONTAINERD_MEMORY "$(getServiceMemory "${CGROUP}/${CSLICE}/containerd.service/memory.stat" "${VERSION}")" \
+        --arg KUBELET_MEMORY "$(getServiceMemory "${CGROUP}/${KSLICE}/kubelet.service/memory.stat" "${VERSION}")" \
+        --arg NODE_PROBLEM_DETECTOR_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/node-problem-detector.service/memory.stat" "${VERSION}")" \
+        --arg NODE_EXPORTER_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/node-exporter.service/memory.stat" "${VERSION}")" \
+        --arg SYNC_CONTAINER_LOGS_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/sync-container-logs.service/memory.stat" "${VERSION}")" \
+        --arg LOCALDNS_MEMORY "$(getServiceMemory "${CGROUP}/localdns.slice/localdns.service/memory.stat" "${VERSION}")" \
         --arg EMPLOYED_MEMORY "$(if [ -f "${CGROUP}/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
         --arg CAPACITY_MEMORY "$(grep MemTotal /proc/meminfo | awk '{print $2}' | awk '{print $1 * 1000}')" \
         --arg KUBEPODS_CGROUP_MEMORY_MAX "$(if [ -f "${CGROUP}/kubepods.slice/memory.max" ]; then cat ${CGROUP}/kubepods.slice/memory.max; else echo "Not Found"; fi)" \
@@ -42,12 +58,12 @@ elif [ "$CGROUP_VERSION" = "tmpfs" ]; then
         --arg AZURE_SLICE_MEMORY "$(if [ -f ${CGROUP}/azure.slice/memory.stat ]; then expr $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
         --arg KUBEPODS_SLICE_MEMORY "$(if [ -f ${CGROUP}/kubepods/memory.stat ]; then expr $(cat ${CGROUP}/kubepods/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/kubepods/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
         --arg USER_SLICE_MEMORY "$(if [ -f ${CGROUP}/user.slice/memory.stat ]; then expr $(cat ${CGROUP}/user.slice/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/user.slice/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
-        --arg CONTAINERD_MEMORY "$(if [ -f ${CGROUP}/${CSLICE}/containerd.service/memory.stat ]; then expr $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
-        --arg KUBELET_MEMORY "$(if [ -f ${CGROUP}/${KSLICE}/kubelet.service/memory.stat ]; then expr $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
-        --arg NODE_PROBLEM_DETECTOR_MEMORY "$(if [ -f "${CGROUP}/system.slice/node-problem-detector.service/memory.stat" ]; then expr $(awk '/^total_cache /{print $2}' "${CGROUP}/system.slice/node-problem-detector.service/memory.stat") + $(awk '/^total_rss /{print $2}' "${CGROUP}/system.slice/node-problem-detector.service/memory.stat"); else echo "Not Found"; fi)" \
-        --arg NODE_EXPORTER_MEMORY "$(if [ -f "${CGROUP}/system.slice/node-exporter.service/memory.stat" ]; then expr $(awk '/^total_cache /{print $2}' "${CGROUP}/system.slice/node-exporter.service/memory.stat") + $(awk '/^total_rss /{print $2}' "${CGROUP}/system.slice/node-exporter.service/memory.stat"); else echo "Not Found"; fi)" \
-        --arg SYNC_CONTAINER_LOGS_MEMORY "$(if [ -f "${CGROUP}/system.slice/sync-container-logs.service/memory.stat" ]; then expr $(awk '/^total_cache /{print $2}' "${CGROUP}/system.slice/sync-container-logs.service/memory.stat") + $(awk '/^total_rss /{print $2}' "${CGROUP}/system.slice/sync-container-logs.service/memory.stat"); else echo "Not Found"; fi)" \
-        --arg LOCALDNS_MEMORY "$(if [ -f "${CGROUP}/localdns.slice/localdns.service/memory.stat" ]; then expr $(awk '/^total_cache /{print $2}' "${CGROUP}/localdns.slice/localdns.service/memory.stat") + $(awk '/^total_rss /{print $2}' "${CGROUP}/localdns.slice/localdns.service/memory.stat"); else echo "Not Found"; fi)" \
+        --arg CONTAINERD_MEMORY "$(getServiceMemory "${CGROUP}/${CSLICE}/containerd.service/memory.stat" "${VERSION}")" \
+        --arg KUBELET_MEMORY "$(getServiceMemory "${CGROUP}/${KSLICE}/kubelet.service/memory.stat" "${VERSION}")" \
+        --arg NODE_PROBLEM_DETECTOR_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/node-problem-detector.service/memory.stat" "${VERSION}")" \
+        --arg NODE_EXPORTER_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/node-exporter.service/memory.stat" "${VERSION}")" \
+        --arg SYNC_CONTAINER_LOGS_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/sync-container-logs.service/memory.stat" "${VERSION}")" \
+        --arg LOCALDNS_MEMORY "$(getServiceMemory "${CGROUP}/localdns.slice/localdns.service/memory.stat" "${VERSION}")" \
         --arg EMPLOYED_MEMORY "$(if [ -f ${CGROUP}/memory.stat ]; then expr $(cat ${CGROUP}/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
         --arg CAPACITY_MEMORY "$(grep MemTotal /proc/meminfo | awk '{print $2}' | awk '{print $1 * 1000}')" \
         --arg KUBEPODS_CGROUP_MEMORY_MAX "$(if [ -f ${CGROUP}/kubepods/memory.limit_in_bytes ]; then cat ${CGROUP}/kubepods/memory.limit_in_bytes; else echo "Not Found"; fi)" \
