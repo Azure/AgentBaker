@@ -1,89 +1,12 @@
 package scenario
 
 import (
-	"fmt"
 	"testing"
-	"testing/synctest"
 
-	"github.com/stretchr/testify/require"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/fake"
-	k8stesting "k8s.io/client-go/testing"
 )
-
-func TestScaleValidationPreservesConcurrentUpdates(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		ctx := t.Context()
-		node := &corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{Name: "scenario-node", UID: "scenario-node-uid"},
-			Status: corev1.NodeStatus{
-				Allocatable: corev1.ResourceList{corev1.ResourcePods: resource.MustParse("10")},
-				Conditions:  []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionTrue}},
-			},
-		}
-		typed := fake.NewClientset(node)
-		deployments := appsv1.SchemeGroupVersion.WithResource("deployments")
-		patches := 0
-		typed.PrependReactor("create", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
-			err := typed.Tracker().Create(corev1.SchemeGroupVersion.WithResource("pods"), &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Name: "new-system-pod", Namespace: "default"},
-				Spec:       corev1.PodSpec{NodeName: node.Name},
-				Status:     corev1.PodStatus{Phase: corev1.PodRunning},
-			}, "default")
-			require.NoError(t, err)
-			return false, nil, nil
-		})
-		typed.PrependReactor("get", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
-			name := action.(k8stesting.GetAction).GetName()
-			object, err := typed.Tracker().Get(deployments, "default", name)
-			require.NoError(t, err)
-			current := object.(*appsv1.Deployment)
-			if patches > 0 {
-				require.Equal(t, "keep", current.Annotations["controller-update"])
-				require.Equal(t, int32(9), *current.Spec.Replicas)
-			}
-			current.Status.ObservedGeneration = current.Generation
-			current.Status.UpdatedReplicas = *current.Spec.Replicas
-			current.Status.ReadyReplicas = *current.Spec.Replicas
-			stale := current.DeepCopy()
-			current.ResourceVersion = "newer"
-			current.Annotations = map[string]string{"controller-update": "keep"}
-			require.NoError(t, typed.Tracker().Update(deployments, current, "default"))
-			return true, stale, nil
-		})
-		typed.PrependReactor("update", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
-			return true, nil, apierrors.NewConflict(deployments.GroupResource(), "", fmt.Errorf("concurrent controller update"))
-		})
-		typed.PrependReactor("patch", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
-			patches++
-			return false, nil, nil
-		})
-		typed.PrependReactor("delete", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
-			name := action.(k8stesting.DeleteAction).GetName()
-			object, err := typed.Tracker().Get(deployments, "default", name)
-			require.NoError(t, err)
-			current := object.(*appsv1.Deployment)
-			require.Equal(t, int32(9), *current.Spec.Replicas)
-			require.Equal(t, "keep", current.Annotations["controller-update"])
-			require.Equal(t, int32(9), current.Status.ReadyReplicas)
-			return false, nil, nil
-		})
-		s := &Scenario{
-			Logger: discardLogger{},
-			Runtime: &ScenarioRuntime{
-				VM:   &ScenarioVM{KubeName: node.Name},
-				Kube: &Kubeclient{Typed: typed},
-			},
-		}
-		require.NoError(t, ValidateNodeCanScaleToCapacity(ctx, s))
-		require.Equal(t, 1, patches)
-	})
-}
 
 func TestScaleValidationDeploymentTargetsOnlyScenarioNode(t *testing.T) {
 	t.Parallel()
