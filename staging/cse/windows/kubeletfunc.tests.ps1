@@ -429,11 +429,31 @@ Describe 'New-NSSMService' {
         }
     }
 
-    It 'sets Kubelet dependencies to <ExpectedDependencies>' -TestCases @(
-        @{ EnableCsiProxy = $false; EnableHostsConfigAgent = $false; ExpectedDependencies = 'containerd' }
-        @{ EnableCsiProxy = $true; EnableHostsConfigAgent = $false; ExpectedDependencies = 'containerd csi-proxy' }
-        @{ EnableCsiProxy = $false; EnableHostsConfigAgent = $true; ExpectedDependencies = 'containerd hosts-config-agent' }
-        @{ EnableCsiProxy = $true; EnableHostsConfigAgent = $true; ExpectedDependencies = 'containerd csi-proxy hosts-config-agent' }
+    It 'sets Kubelet dependencies to <Name>' -TestCases @(
+        @{
+            Name = 'containerd'
+            EnableCsiProxy = $false
+            EnableHostsConfigAgent = $false
+            ExpectedArguments = @('set', 'Kubelet', 'DependOnService', 'containerd')
+        }
+        @{
+            Name = 'containerd and csi-proxy'
+            EnableCsiProxy = $true
+            EnableHostsConfigAgent = $false
+            ExpectedArguments = @('set', 'Kubelet', 'DependOnService', 'containerd', 'csi-proxy')
+        }
+        @{
+            Name = 'containerd and hosts-config-agent'
+            EnableCsiProxy = $false
+            EnableHostsConfigAgent = $true
+            ExpectedArguments = @('set', 'Kubelet', 'DependOnService', 'containerd', 'hosts-config-agent')
+        }
+        @{
+            Name = 'containerd, csi-proxy, and hosts-config-agent'
+            EnableCsiProxy = $true
+            EnableHostsConfigAgent = $true
+            ExpectedArguments = @('set', 'Kubelet', 'DependOnService', 'containerd', 'csi-proxy', 'hosts-config-agent')
+        }
     ) {
         $global:EnableCsiProxy = $EnableCsiProxy
         $global:EnableHostsConfigAgent = $EnableHostsConfigAgent
@@ -441,8 +461,17 @@ Describe 'New-NSSMService' {
         New-NSSMService -KubeDir 'c:\k' -KubeletStartFile 'c:\k\kubeletstart.ps1' -KubeProxyStartFile 'c:\k\kubeproxystart.ps1'
 
         Assert-MockCalled -CommandName Invoke-Nssm -Exactly -Times 1 -ParameterFilter {
-            $KubeDir -eq 'c:\k' -and
-            $NssmArguments -join ' ' -eq "set Kubelet DependOnService $ExpectedDependencies"
+            if ($KubeDir -ne 'c:\k' -or $NssmArguments.Count -ne $ExpectedArguments.Count) {
+                return $false
+            }
+
+            for ($i = 0; $i -lt $ExpectedArguments.Count; $i++) {
+                if ($NssmArguments[$i] -ne $ExpectedArguments[$i]) {
+                    return $false
+                }
+            }
+
+            return $true
         }
     }
 
