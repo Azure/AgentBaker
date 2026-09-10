@@ -2110,7 +2110,7 @@ EOF
             cleanup_iptables_and_dns() { return 1; }
             When run localdns_cleanup_mode
             The status should be success
-            The stdout should include "Best-effort LocalDNS DNS cleanup reported errors."
+            The stdout should include "LocalDNS cleanup failed: network drop-in may not have been removed"
         End
     End
 End

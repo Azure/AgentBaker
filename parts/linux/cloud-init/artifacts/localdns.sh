@@ -740,11 +740,15 @@ cleanup_iptables_and_dns() {
 
 # localdns_cleanup_mode is the entry point for `localdns.sh cleanup`, invoked by
 # localdns.service ExecStopPost after both graceful and unexpected exits. It only
-# restores node DNS configuration; systemd owns process cleanup. It always exits
-# 0 so that a best-effort cleanup failure cannot wedge systemd's recovery of the
-# unit. Cleanup failures are logged (and surfaced by cleanup_iptables_and_dns).
+# restores node DNS configuration. It intentionally does not delete the dummy
+# localdns interface or its .10/.11 addresses: if an orphaned CoreDNS child
+# survives a failed cgroup teardown, removing the interface could break a
+# listener that is still serving pods and turn a fast failure into default-route
+# DNS timeouts. Service/process recovery handles the next-start interface
+# lifecycle separately. It always exits 0 so that a best-effort cleanup failure
+# cannot wedge systemd's recovery. Cleanup failures are logged.
 localdns_cleanup_mode() {
-    cleanup_iptables_and_dns || echo "Best-effort LocalDNS DNS cleanup reported errors."
+    cleanup_iptables_and_dns || echo "LocalDNS cleanup failed: network drop-in may not have been removed; node DNS may still point at the dead listener ${LOCALDNS_NODE_LISTENER_IP}."
     exit 0
 }
 
@@ -941,7 +945,10 @@ start_localdns_watchdog() {
             # Update resource metrics .prom file for the exporter (best-effort, non-fatal)
             export_resource_metrics
 
-            sleep "${HEALTH_CHECK_INTERVAL}"
+            # Run sleep in a child so SIGTERM can interrupt the wait and let
+            # the service's signal/exit cleanup run promptly.
+            sleep "${HEALTH_CHECK_INTERVAL}" &
+            wait $!
         done
     else
         # No watchdog configured — write metrics once then wait for CoreDNS to exit
@@ -1082,9 +1089,6 @@ build_localdns_iptable_rules
 # cleanup_localdns_configs function will be run on script exit/crash to revert config.
 # Ensure cleanup runs before exiting on an error.
 trap 'echo "Error occurred. Cleaning up..."; cleanup_localdns_configs; exit $ERR_LOCALDNS_FAIL' ABRT ERR INT PIPE
-
-# SIGTERM is the normal systemd stop signal and must be reported as a clean stop.
-trap 'echo "Received SIGTERM. Cleaning up..."; cleanup_localdns_configs || true; exit 0' TERM
 
 # Always cleanup when exiting.
 trap 'echo "Executing cleanup function."; cleanup_localdns_configs || echo "Cleanup failed with error code: $ERR_LOCALDNS_FAIL."' EXIT
