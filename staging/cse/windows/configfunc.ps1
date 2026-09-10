@@ -198,6 +198,56 @@ function Enable-Privilege {
     $type[0]::EnablePrivilege($processHandle, $Privilege)
 }
 
+function Test-GmsaPluginRegistry {
+    try {
+        $interfacePath = "HKLM:\SOFTWARE\Classes\Interface\{6ECDA518-2010-4437-8BC3-46E752B7B172}"
+        $appIdPath = "HKLM:\SOFTWARE\Classes\AppID\{557110E1-88BC-4583-8281-6AAC6F708584}"
+        $classPath = "HKLM:\SOFTWARE\Classes\CLSID\{CCC2A336-D7F3-4818-A213-272B7924213E}"
+        $inprocServerPath = "$classPath\InprocServer32"
+        $ccgClassPath = "HKLM:\SYSTEM\CurrentControlSet\Control\CCG\COMClasses\{CCC2A336-D7F3-4818-A213-272B7924213E}"
+        $expectedPluginPath = [Io.path]::Combine($env:SystemRoot, "System32", "CCGAKVPlugin.dll")
+
+        return (Test-Path $interfacePath) `
+            -and (Get-ItemPropertyValue -Path $interfacePath -Name "(default)") -eq "ICcgDomainAuthCredentials" `
+            -and (Test-Path $appIdPath) `
+            -and $null -ne (Get-ItemPropertyValue -Path $appIdPath -Name "AccessPermission") `
+            -and $null -ne (Get-ItemPropertyValue -Path $appIdPath -Name "LaunchPermission") `
+            -and (Test-Path $classPath) `
+            -and (Get-ItemPropertyValue -Path $classPath -Name "AppID") -eq "{557110E1-88BC-4583-8281-6AAC6F708584}" `
+            -and (Test-Path $inprocServerPath) `
+            -and (Get-ItemPropertyValue -Path $inprocServerPath -Name "(default)") -eq $expectedPluginPath `
+            -and (Get-ItemPropertyValue -Path $inprocServerPath -Name "ThreadingModel") -eq "Both" `
+            -and (Test-Path $ccgClassPath)
+    } catch {
+        Write-Log "Failed to validate GMSA plugin registry values: $_"
+        return $false
+    }
+}
+
+function Import-GmsaPluginRegistry {
+    Param(
+        [Parameter(Mandatory=$true)]
+        [String] $RegistryFilePath
+    )
+
+    Write-Log "Setting the appropriate GMSA plugin registry values"
+    $registryImportOutput = & reg.exe import $RegistryFilePath 2>&1
+    $registryImportExitCode = $LASTEXITCODE
+
+    if ($registryImportExitCode -eq 0) {
+        return
+    }
+
+    if (Test-GmsaPluginRegistry) {
+        Write-Log "reg.exe import returned exit code $registryImportExitCode, but the GMSA plugin registry values are valid. Output: $registryImportOutput"
+        return
+    }
+
+    Set-ExitCode `
+        -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES `
+        -ErrorMessage "Failed to set GMSA plugin registry values. reg.exe import '$RegistryFilePath' failed with exit code $registryImportExitCode. Output: $registryImportOutput"
+}
+
 function Install-GmsaPlugin {
     Param(
         [Parameter(Mandatory=$true)]
@@ -261,16 +311,7 @@ function Install-GmsaPlugin {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION -ErrorMessage "Failed to set GMSA plugin registry permissions. $_"
     }
 
-    # Set the appropriate registry values.
-    try {
-        Write-Log "Setting the appropriate GMSA plugin registry values"
-        reg.exe import "$tempInstallPackageFoler\registerplugin.reg" 2>$null 1>$null
-        if ($LASTEXITCODE -ne 0) {
-            throw "reg.exe import '$tempInstallPackageFoler\registerplugin.reg' failed with exit code $LASTEXITCODE"
-        }
-    } catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES -ErrorMessage  "Failed to set GMSA plugin registry values. $_"
-    }
+    Import-GmsaPluginRegistry -RegistryFilePath "$tempInstallPackageFoler\registerplugin.reg"
 
     # Enable the logging manifest.
     Write-Log "Importing the CCGEvents manifest file"

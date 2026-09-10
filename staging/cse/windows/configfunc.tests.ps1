@@ -218,6 +218,103 @@ Describe 'Validate-CredentialProviderConfigFlags' {
     }
 }
 
+Describe 'Test-GmsaPluginRegistry' {
+    BeforeEach {
+        $env:SystemRoot = 'C:\Windows'
+
+        Mock Write-Log
+        Mock Test-Path -MockWith { return $true }
+        Mock Get-ItemPropertyValue -MockWith {
+            param($Path, $Name)
+
+            if ($Path -like '*\Interface\*' -and $Name -eq '(default)') {
+                return 'ICcgDomainAuthCredentials'
+            }
+            if ($Path -like '*\AppID\*' -and $Name -in @('AccessPermission', 'LaunchPermission')) {
+                return [byte[]](1)
+            }
+            if ($Path -like '*\CLSID\*' -and $Name -eq 'AppID') {
+                return '{557110E1-88BC-4583-8281-6AAC6F708584}'
+            }
+            if ($Path -like '*\InprocServer32' -and $Name -eq '(default)') {
+                return [Io.path]::Combine($env:SystemRoot, 'System32', 'CCGAKVPlugin.dll')
+            }
+            if ($Path -like '*\InprocServer32' -and $Name -eq 'ThreadingModel') {
+                return 'Both'
+            }
+
+            throw "Unexpected registry value: $Path $Name"
+        }
+    }
+
+    It 'returns true when all required registry values are present' {
+        Test-GmsaPluginRegistry | Should -BeTrue
+    }
+
+    It 'returns false when a required registry key is missing' {
+        Mock Test-Path -MockWith {
+            param($Path)
+            return $Path -notlike '*\CCG\COMClasses\*'
+        }
+
+        Test-GmsaPluginRegistry | Should -BeFalse
+    }
+}
+
+Describe 'Import-GmsaPluginRegistry' {
+    BeforeEach {
+        $script:logMessages = @()
+
+        Mock Write-Log -MockWith {
+            param($Message)
+            $script:logMessages += $Message
+        }
+        Mock Set-ExitCode
+        Mock Test-GmsaPluginRegistry -MockWith { return $false }
+        Mock reg.exe -MockWith {
+            $global:LASTEXITCODE = 0
+            return ""
+        }
+    }
+
+    It 'does not validate registry state when reg.exe succeeds' {
+        Import-GmsaPluginRegistry -RegistryFilePath 'c:\temp\registerplugin.reg'
+
+        Assert-MockCalled -CommandName 'Test-GmsaPluginRegistry' -Exactly -Times 0
+        Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 0
+    }
+
+    It 'continues when reg.exe fails but the required registry state is valid' {
+        Mock reg.exe -MockWith {
+            $global:LASTEXITCODE = 1
+            return "The operation completed with errors."
+        }
+        Mock Test-GmsaPluginRegistry -MockWith { return $true }
+
+        Import-GmsaPluginRegistry -RegistryFilePath 'c:\temp\registerplugin.reg'
+
+        Assert-MockCalled -CommandName 'Test-GmsaPluginRegistry' -Exactly -Times 1
+        Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 0
+        $script:logMessages[-1] | Should -Match 'registry values are valid'
+    }
+
+    It 'fails when reg.exe fails and the required registry state is invalid' {
+        Mock reg.exe -MockWith {
+            $global:LASTEXITCODE = 1
+            return "The operation failed."
+        }
+
+        Import-GmsaPluginRegistry -RegistryFilePath 'c:\temp\registerplugin.reg'
+
+        Assert-MockCalled -CommandName 'Test-GmsaPluginRegistry' -Exactly -Times 1
+        Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter {
+            $ExitCode -eq $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES `
+                -and $ErrorMessage -match 'exit code 1' `
+                -and $ErrorMessage -match 'The operation failed'
+        }
+    }
+}
+
 Describe 'Install-CredentialProvider' {
     BeforeEach {
         $global:credentialProviderConfigPath = ""
