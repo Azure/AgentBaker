@@ -21,6 +21,7 @@ import (
 	errorsk8s "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -335,16 +336,24 @@ func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, isNetworkIsolate
 }
 
 func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) error {
-	desired := ds.DeepCopy()
-	_, err := controllerutil.CreateOrUpdate(ctx, k.Dynamic, ds, func() error {
-		ds.Spec = desired.Spec
-		ds.Labels = desired.Labels
-		return nil
+	patch, err := json.Marshal(map[string]any{
+		"apiVersion": appsv1.SchemeGroupVersion.String(),
+		"kind":       "DaemonSet",
+		"metadata": map[string]any{
+			"name":      ds.Name,
+			"namespace": ds.Namespace,
+			"labels":    ds.Labels,
+		},
+		"spec": ds.Spec,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("encode daemonset apply request: %w", err)
 	}
-	return nil
+	_, err = k.Typed.AppsV1().DaemonSets(ds.Namespace).Patch(ctx, ds.Name, types.ApplyPatchType, patch, metav1.PatchOptions{
+		FieldManager: "agentbaker-e2e",
+		Force:        to.Ptr(true),
+	})
+	return err
 }
 
 func (k *Kubeclient) createKubernetesSecret(ctx context.Context, namespace, secretName, registryName, username, password string) error {
