@@ -1,0 +1,68 @@
+package config
+
+import "github.com/urfave/cli/v3"
+
+func Flags() []cli.Flag {
+	defaults := DefaultConfiguration()
+	return []cli.Flag{
+		&cli.StringFlag{Name: "acr-secret-name", Value: defaults.ACRSecretName, Destination: &Config.ACRSecretName, Sources: cli.EnvVars("ACR_SECRET_NAME")},
+		&cli.StringFlag{Name: "acr-target-repository", Value: defaults.AzureContainerRegistrytargetRepository, Destination: &Config.AzureContainerRegistrytargetRepository, Sources: cli.EnvVars("ACR_TARGET_REPOSITORY")},
+		&cli.StringFlag{Name: "blob-container", Value: defaults.BlobContainer, Destination: &Config.BlobContainer, Sources: cli.EnvVars("BLOB_CONTAINER")},
+		&cli.StringFlag{Name: "blob-storage-account-prefix", Value: defaults.BlobStorageAccountPrefix, Destination: &Config.BlobStorageAccountPrefix, Sources: cli.EnvVars("BLOB_STORAGE_ACCOUNT_PREFIX")},
+		&cli.StringFlag{Name: "build-id", Value: defaults.BuildID, Destination: &Config.BuildID, Sources: cli.EnvVars("BUILD_ID")},
+		&cli.StringFlag{Name: "location", Value: defaults.DefaultLocation, Destination: &Config.DefaultLocation, Sources: cli.EnvVars("E2E_LOCATION")},
+		&cli.DurationFlag{Name: "poll-interval", Value: defaults.DefaultPollInterval, Destination: &Config.DefaultPollInterval, Sources: cli.EnvVars("DEFAULT_POLL_INTERVAL")},
+		&cli.StringFlag{Name: "subnet-name", Value: defaults.DefaultSubnetName, Destination: &Config.DefaultSubnetName, Sources: cli.EnvVars("DEFAULT_SUBNET_NAME")},
+		&cli.StringFlag{Name: "vm-sku", Value: defaults.DefaultVMSKU, Destination: &Config.DefaultVMSKU, Sources: cli.EnvVars("DEFAULT_VM_SKU")},
+		&cli.BoolFlag{Name: "disable-scriptless", Value: defaults.DisableScriptless, Destination: &Config.DisableScriptless, Sources: cli.EnvVars("DISABLE_SCRIPTLESS")},
+		&cli.BoolFlag{Name: "disable-scriptless-compilation", Value: defaults.DisableScriptLessCompilation, Destination: &Config.DisableScriptLessCompilation, Sources: cli.EnvVars("DISABLE_SCRIPTLESS_COMPILATION")},
+		&cli.StringFlag{Name: "log-dir", Value: defaults.E2ELoggingDir, Destination: &Config.E2ELoggingDir, Sources: cli.EnvVars("LOGGING_DIR")},
+		&cli.BoolFlag{Name: "secure-tls-bootstrapping", Value: defaults.EnableSecureTLSBootstrapping, Destination: &Config.EnableSecureTLSBootstrapping, Sources: cli.EnvVars("ENABLE_SECURE_TLS_BOOTSTRAPPING")},
+		&cli.StringFlag{Name: "extended-tests", Value: defaults.ExtendedTests, Destination: &Config.ExtendedTests, Sources: cli.EnvVars("EXTENDED_TESTS")},
+		&cli.StringFlag{
+			Name:        "linux-gallery-name",
+			Value:       defaults.GalleryLinux.Name,
+			Destination: &Config.GalleryLinux.Name,
+			Sources:     cli.EnvVars("GALLERY_NAME"),
+		},
+		&cli.StringFlag{
+			Name:        "linux-gallery-resource-group",
+			Value:       defaults.GalleryLinux.ResourceGroupName,
+			Destination: &Config.GalleryLinux.ResourceGroupName,
+			Sources:     cli.EnvVars("GALLERY_RESOURCE_GROUP"),
+		},
+		&cli.StringFlag{
+			Name:        "linux-gallery-subscription-id",
+			Value:       defaults.GalleryLinux.SubscriptionID,
+			Destination: &Config.GalleryLinux.SubscriptionID,
+			Sources:     cli.EnvVars("GALLERY_SUBSCRIPTION_ID"),
+		},
+		&cli.StringFlag{Name: "windows-gallery-name", Value: defaults.GalleryWindows.Name, Destination: &Config.GalleryWindows.Name, Sources: cli.EnvVars("GALLERY_NAME")},
+		&cli.StringFlag{Name: "windows-gallery-resource-group", Value: defaults.GalleryWindows.ResourceGroupName, Destination: &Config.GalleryWindows.ResourceGroupName, Sources: cli.EnvVars("GALLERY_RESOURCE_GROUP")},
+		&cli.StringFlag{Name: "windows-gallery-subscription-id", Value: defaults.GalleryWindows.SubscriptionID, Destination: &Config.GalleryWindows.SubscriptionID, Sources: cli.EnvVars("GALLERY_SUBSCRIPTION_ID")},
+		&cli.BoolFlag{Name: "ignore-missing-vhd", Value: defaults.IgnoreScenariosWithMissingVHD, Destination: &Config.IgnoreScenariosWithMissingVHD, Sources: cli.EnvVars("IGNORE_SCENARIOS_WITH_MISSING_VHD")},
+		&cli.BoolFlag{Name: "keep-vmss", Value: defaults.KeepVMSS, Destination: &Config.KeepVMSS, Sources: cli.EnvVars("KEEP_VMSS")},
+		&cli.StringFlag{Name: "network-isolated-nsg-name", Value: defaults.NetworkIsolatedNSGName, Destination: &Config.NetworkIsolatedNSGName, Sources: cli.EnvVars("NETWORK_ISOLATED_NSG_NAME")},
+		&cli.IntFlag{Name: "parallel", Value: defaults.Parallel, Destination: &Config.Parallel, Sources: cli.EnvVars("E2E_PARALLEL", "PARALLEL")},
+		&cli.IntFlag{Name: "retries", Value: defaults.Retries, Destination: &Config.Retries, Sources: cli.EnvVars("E2E_FAILED_TESTS_RETRY_COUNT")},
+		&cli.StringFlag{Name: "junit-file", Value: defaults.JUnitFile, Destination: &Config.JUnitFile, Sources: cli.EnvVars("E2E_JUNIT_FILE")},
+		&cli.StringFlag{Name: "output", Value: defaults.OutputMode, Destination: &Config.OutputMode, Sources: cli.EnvVars("E2E_OUTPUT")},
+		&cli.StringFlag{Name: "sig-version-tag-name", Value: defaults.SIGVersionTagName, Destination: &Config.SIGVersionTagName, Sources: cli.EnvVars("SIG_VERSION_TAG_NAME")},
+		&cli.StringFlag{Name: "sig-version-tag-value", Value: defaults.SIGVersionTagValue, Destination: &Config.SIGVersionTagValue, Sources: cli.EnvVars("SIG_VERSION_TAG_VALUE")},
+		&cli.BoolFlag{Name: "skip-capacity-errors", Value: defaults.SkipTestsWithSKUCapacityIssue, Destination: &Config.SkipTestsWithSKUCapacityIssue, Sources: cli.EnvVars("SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE")},
+		&cli.StringFlag{Name: "subscription-id", Value: defaults.SubscriptionID, Destination: &Config.SubscriptionID, Sources: cli.EnvVars("SUBSCRIPTION_ID")},
+		&cli.StringFlag{Name: "tags", Value: defaults.TagsToRun, Destination: &Config.TagsToRun, Sources: cli.EnvVars("TAGS_TO_RUN")},
+		&cli.StringFlag{Name: "skip-tags", Value: defaults.TagsToSkip, Destination: &Config.TagsToSkip, Sources: cli.EnvVars("TAGS_TO_SKIP")},
+		&cli.StringFlag{Name: "test-gallery-image-prefix", Value: defaults.TestGalleryImagePrefix, Destination: &Config.TestGalleryImagePrefix, Sources: cli.EnvVars("TEST_GALLERY_IMAGE_PREFIX")},
+		&cli.StringFlag{Name: "test-gallery-name-prefix", Value: defaults.TestGalleryNamePrefix, Destination: &Config.TestGalleryNamePrefix, Sources: cli.EnvVars("TEST_GALLERY_NAME_PREFIX")},
+		&cli.BoolFlag{Name: "test-pre-provision", Value: defaults.TestPreProvision, Destination: &Config.TestPreProvision, Sources: cli.EnvVars("TEST_PRE_PROVISION")},
+		&cli.DurationFlag{Name: "timeout", Value: defaults.TestTimeout, Destination: &Config.TestTimeout, Sources: cli.EnvVars("TEST_TIMEOUT")},
+		&cli.DurationFlag{Name: "suite-timeout", Value: defaults.SuiteTimeout, Destination: &Config.SuiteTimeout, Sources: cli.EnvVars("E2E_GO_TEST_TIMEOUT", "SUITE_TIMEOUT", "TIMEOUT")},
+		&cli.StringFlag{Name: "vhd-metadata-file", Value: defaults.VHDMetadataFile, Destination: &Config.VHDMetadataFile, Sources: cli.EnvVars("E2E_VHD_METADATA_FILE")},
+		&cli.DurationFlag{Name: "cluster-timeout", Value: defaults.TestTimeoutCluster, Destination: &Config.TestTimeoutCluster, Sources: cli.EnvVars("TEST_TIMEOUT_CLUSTER")},
+		&cli.DurationFlag{Name: "vmss-timeout", Value: defaults.TestTimeoutVMSS, Destination: &Config.TestTimeoutVMSS, Sources: cli.EnvVars("TEST_TIMEOUT_VMSS")},
+		&cli.StringFlag{Name: "system-ssh-public-key", Destination: &Config.SysSSHPublicKey, Sources: cli.EnvVars("SYS_SSH_PUBLIC_KEY"), Hidden: true},
+		&cli.StringFlag{Name: "system-ssh-private-key", Destination: &Config.SysSSHPrivateKeyB64, Sources: cli.EnvVars("SYS_SSH_PRIVATE_KEY_B64"), Hidden: true},
+		&cli.StringFlag{Name: "windows-admin-password", Destination: &Config.WindowsAdminPassword, Sources: cli.EnvVars("WINDOWS_ADMIN_PASSWORD"), Hidden: true},
+	}
+}

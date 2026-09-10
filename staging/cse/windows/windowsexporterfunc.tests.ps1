@@ -172,6 +172,20 @@ Describe 'Windows exporter CSE functions' {
             Assert-MockCalled New-Item -Exactly -Times 1 -ParameterFilter { $Path -eq $global:WindowsExporterSkipFile }
         }
 
+        It 'returns failure when the ownership marker cannot be written' {
+            Mock Test-Path -MockWith { return $true }
+            Mock Get-Service -MockWith { return $null }
+            Mock Invoke-WindowsExporterNssm
+            Mock Test-WindowsExporterHealth -MockWith { return $true }
+            Mock New-Item -MockWith { throw 'marker write failed' }
+
+            Install-WindowsExporter | Should -Be $false
+
+            Assert-MockCalled New-Item -Exactly -Times 1 -ParameterFilter {
+                $Path -eq $global:WindowsExporterSkipFile -and $ErrorAction -eq 'Stop'
+            }
+        }
+
         It 'leaves ownership with the extension when nssm configuration fails' {
             Mock Test-Path -MockWith { return $true }
             Mock Get-Service -MockWith { return $null }

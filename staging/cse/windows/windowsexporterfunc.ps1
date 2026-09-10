@@ -185,7 +185,13 @@ function Install-WindowsExporter {
 
     # Commit ownership only after the service is healthy. Old CSE versions never
     # create this marker, so the extension remains responsible on new VHDs.
-    New-Item -ItemType File -Path $global:WindowsExporterSkipFile -Force | Out-Null
+    try {
+        New-Item -ItemType File -Path $global:WindowsExporterSkipFile -Force -ErrorAction Stop | Out-Null
+    }
+    catch {
+        Write-Log "failed to create windows-exporter ownership marker: $_"
+        return $false
+    }
     Write-Log "Ensured $($global:WindowsExporterServiceName) is installed and running"
     return $true
 }
