@@ -60,6 +60,7 @@
       "use_azure_cli_auth": "true",
       "polling_duration_timeout": "1h",
       "managed_image_storage_account_type": "Premium_LRS",
+      "disk_controller_type": "NVMe",
       "shared_image_gallery_destination": {
         "subscription": "{{user `gallery_subscription_id`}}",
         "resource_group": "{{user `resource_group_name`}}",
