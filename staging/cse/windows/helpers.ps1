@@ -29,7 +29,7 @@ function Remove-ServiceIfExists
     }
 
     sc.exe delete "$ServiceName"
-    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 1072) {
+    if ($LASTEXITCODE -notin @(0, 1060, 1072)) {
         throw "sc.exe failed to delete existing $ServiceName service (exit code $LASTEXITCODE)"
     }
 

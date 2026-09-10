@@ -102,6 +102,14 @@ Describe 'Remove-ServiceIfExists' {
             Assert-MockCalled -CommandName Get-Service -Exactly -Times 2
         }
 
+        It 'continues when the service disappears before deletion' {
+            Mock sc.exe -MockWith { $global:LASTEXITCODE = 1060 }
+
+            { Remove-ServiceIfExists -ServiceName 'some-service' } | Should -Not -Throw
+
+            Assert-MockCalled -CommandName Get-Service -Exactly -Times 2
+        }
+
         It 'throws when sc.exe delete fails unexpectedly' {
             Mock sc.exe -MockWith { $global:LASTEXITCODE = 1 }
 
