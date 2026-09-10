@@ -155,6 +155,8 @@ write_files:
     def test_write_rendered_payload_uses_canonical_renderer(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             generated = Path(temp_dir) / "generated"
+            generated.mkdir()
+            (generated / "README").write_text("placeholder\n")
 
             def render(command, check):
                 self.assertTrue(check)
@@ -197,13 +199,35 @@ write_files:
                 self.assertIn("/opt/azure/containers/provision_source.sh", content)
                 self.assertNotIn("{{", content)
             self.assertFalse((generated / ".nodecustomdata-hotfix.template").exists())
-            self.assertEqual("true\n", (generated / "active").read_text())
+            self.assertEqual(
+                {f"rendered_nodecustomdata_{platform}.yml" for platform in expected},
+                {path.name for path in generated.iterdir()},
+            )
+
+    def test_write_rendered_payload_preserves_placeholder_without_hotfix(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            generated = Path(temp_dir) / "generated"
+            generated.mkdir()
+            placeholder = generated / "README"
+            placeholder.write_text("placeholder\n")
+            with mock.patch.object(
+                hotfix_generate, "GENERATED_DIR", str(generated)
+            ), mock.patch.object(
+                hotfix_generate.subprocess, "run"
+            ) as run:
+                hotfix_generate.write_rendered_payload(
+                    set(),
+                    TRADITIONAL_TEMPLATE.splitlines(keepends=True),
+                )
+
+            run.assert_not_called()
+            self.assertEqual("placeholder\n", placeholder.read_text())
+            self.assertEqual({"README"}, {path.name for path in generated.iterdir()})
 
     def test_write_rendered_payload_preserves_previous_hotfix_when_unchanged(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             generated = Path(temp_dir) / "generated"
             generated.mkdir()
-            (generated / "active").write_text("true\n")
             platforms = ("ubuntu", "mariner")
             for platform in platforms:
                 (generated / f"rendered_nodecustomdata_{platform}.yml").write_text(
@@ -221,7 +245,6 @@ write_files:
                 )
 
             run.assert_not_called()
-            self.assertEqual("true\n", (generated / "active").read_text())
             for platform in platforms:
                 self.assertIn(
                     f"/{platform}-existing",

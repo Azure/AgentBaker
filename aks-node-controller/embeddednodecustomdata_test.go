@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -35,10 +36,7 @@ func TestClassifyNodeCustomDataPlatform(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, test.expected, actual)
 			if actual == nodeCustomDataPlatformUnsupported {
-				files := fstest.MapFS{
-					"scripthotfix/generated/active": &fstest.MapFile{Data: []byte("true\n")},
-				}
-				require.NoError(t, applyEmbeddedNodeCustomDataIfActive(files, releasePath),
+				require.NoError(t, applyEmbeddedNodeCustomData(fstest.MapFS{}, releasePath),
 					"unsupported platforms must skip without reading any payload")
 			}
 		})
@@ -67,10 +65,9 @@ func TestApplyEmbeddedNodeCustomData(t *testing.T) {
 				platform = string(nodeCustomDataPlatformMariner)
 			}
 			files := fstest.MapFS{
-				"scripthotfix/generated/active":                                       &fstest.MapFile{Data: []byte("true\n")},
 				"scripthotfix/generated/rendered_nodecustomdata_" + platform + ".yml": &fstest.MapFile{Data: data},
 			}
-			require.NoError(t, applyEmbeddedNodeCustomDataIfActive(files, releasePath))
+			require.NoError(t, applyEmbeddedNodeCustomData(files, releasePath))
 			for _, destination := range []string{existing, missing} {
 				actual, readErr := os.ReadFile(destination)
 				require.NoError(t, readErr)
@@ -91,23 +88,22 @@ func TestApplyEmbeddedNodeCustomData(t *testing.T) {
 func TestApplyEmbeddedNodeCustomDataErrorsAndCleanup(t *testing.T) {
 	tests := []struct {
 		name      string
-		active    string
 		release   string
 		payload   string
 		missing   string
 		wantError string
 	}{
-		{name: "inactive skips missing OS release", active: "false\n", missing: "release"},
-		{name: "missing active", missing: "active", wantError: "read embedded hotfix state"},
-		{name: "missing release", active: "true", missing: "release", wantError: "read OS release"},
-		{name: "unknown OS", active: "true", release: "ID=other", wantError: "unsupported OS ID"},
-		{name: "legacy mariner", active: "true", release: "ID=mariner", wantError: "unsupported OS ID"},
-		{name: "missing ID", active: "true", release: "VERSION_ID=3.0", wantError: "ID is missing"},
-		{name: "missing payload", active: "true", release: "ID=ubuntu", missing: "payload", wantError: "read embedded nodecustomdata"},
-		{name: "malformed YAML", active: "true", release: "ID=ubuntu", payload: "write_files: [", wantError: "unmarshal nodecustomdata"},
-		{name: "invalid entry", active: "true", release: "ID=ubuntu", payload: "write_files:\n- content: invalid\n", wantError: "path is required"},
-		{name: "empty payload", active: "true", release: "ID=ubuntu", payload: "write_files: []\n"},
-		{name: "temporary directory unavailable", active: "true", release: "ID=ubuntu", payload: "write_files: []\n", missing: "temp", wantError: "create temporary nodecustomdata"},
+		{name: "missing release", missing: "release", wantError: "read OS release"},
+		{name: "unknown OS", release: "ID=other", wantError: "unsupported OS ID"},
+		{name: "legacy mariner", release: "ID=mariner", wantError: "unsupported OS ID"},
+		{name: "missing ID", release: "VERSION_ID=3.0", wantError: "ID is missing"},
+		{name: "missing payload", release: "ID=ubuntu", missing: "payload"},
+		{name: "other platform payload only", release: "ID=azurelinux", payload: "write_files: ["},
+		{name: "unreadable payload directory", release: "ID=ubuntu", missing: "payload-file", wantError: "read embedded nodecustomdata"},
+		{name: "malformed YAML", release: "ID=ubuntu", payload: "write_files: [", wantError: "unmarshal nodecustomdata"},
+		{name: "invalid entry", release: "ID=ubuntu", payload: "write_files:\n- content: invalid\n", wantError: "path is required"},
+		{name: "empty payload", release: "ID=ubuntu", payload: "write_files: []\n"},
+		{name: "temporary directory unavailable", release: "ID=ubuntu", payload: "write_files: []\n", missing: "temp", wantError: "create temporary nodecustomdata"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -122,14 +118,16 @@ func TestApplyEmbeddedNodeCustomDataErrorsAndCleanup(t *testing.T) {
 			if test.missing != "release" {
 				require.NoError(t, os.WriteFile(releasePath, []byte(test.release), 0o600))
 			}
-			files := fstest.MapFS{}
-			if test.missing != "active" {
-				files["scripthotfix/generated/active"] = &fstest.MapFile{Data: []byte(test.active)}
+			files := fstest.MapFS{
+				"scripthotfix/generated/README": &fstest.MapFile{Data: []byte("placeholder")},
 			}
 			if test.missing != "payload" {
 				files["scripthotfix/generated/rendered_nodecustomdata_ubuntu.yml"] = &fstest.MapFile{Data: []byte(test.payload)}
 			}
-			err := applyEmbeddedNodeCustomDataIfActive(files, releasePath)
+			if test.missing == "payload-file" {
+				files["scripthotfix/generated/rendered_nodecustomdata_ubuntu.yml"].Mode = fs.ModeDir
+			}
+			err := applyEmbeddedNodeCustomData(files, releasePath)
 			if test.wantError == "" {
 				require.NoError(t, err)
 			} else {

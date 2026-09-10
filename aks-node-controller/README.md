@@ -170,9 +170,10 @@ functions. Azure Linux retains the `mariner` payload filename; the legacy
 application, including variants that share the `azurelinux` OS ID. Their
 distro-specific source changes do not trigger payload generation.
 
-The repository keeps two empty YAML templates (`write_files: []`) and an
-`active=false` marker until a script hotfix is generated. Generation populates
-those two payloads and sets `active=true`.
+The repository keeps a README placeholder so `go:embed` builds without any
+script hotfix payloads. Generation replaces it with Ubuntu and Azure Linux YAMLs.
+ANC skips application when the local platform's YAML is absent; no separate
+activation flag is needed. Other payload read errors are logged.
 
 When a PR has no new script hotfix, generation leaves the existing rendered
 payload unchanged. The active ANC version pointer is likewise retained until it

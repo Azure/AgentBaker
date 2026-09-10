@@ -176,9 +176,6 @@ func writeScriptHotfixFixture(buildDir string, fixture ScriptHotfixFixture) erro
 	if err := os.WriteFile(outputPath, data, 0o600); err != nil {
 		return fmt.Errorf("write rendered script-hotfix fixture: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(generatedDir, "active"), []byte("true\n"), 0o600); err != nil {
-		return fmt.Errorf("enable rendered script-hotfix fixture: %w", err)
-	}
 	return nil
 }
 

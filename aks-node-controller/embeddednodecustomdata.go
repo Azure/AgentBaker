@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -29,14 +30,7 @@ const (
 //go:embed scripthotfix/generated
 var embeddedGeneratedNodeCustomData embed.FS
 
-func applyEmbeddedNodeCustomDataIfActive(payloadFS fs.FS, osReleasePath string) error {
-	active, err := fs.ReadFile(payloadFS, "scripthotfix/generated/active")
-	if err != nil {
-		return fmt.Errorf("read embedded hotfix state: %w", err)
-	}
-	if strings.TrimSpace(string(active)) != "true" {
-		return nil
-	}
+func applyEmbeddedNodeCustomData(payloadFS fs.FS, osReleasePath string) error {
 	if osReleasePath == "" {
 		osReleasePath = defaultOSReleasePath
 	}
@@ -50,6 +44,9 @@ func applyEmbeddedNodeCustomDataIfActive(payloadFS fs.FS, osReleasePath string) 
 	}
 	renderedPath := fmt.Sprintf("scripthotfix/generated/rendered_nodecustomdata_%s.yml", platform)
 	data, err := fs.ReadFile(payloadFS, renderedPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("read embedded nodecustomdata %s: %w", renderedPath, err)
 	}

@@ -24,6 +24,10 @@ func TestWriteScriptHotfixFixture(t *testing.T) {
 	}
 
 	require.NoError(t, writeScriptHotfixFixture(buildDir, fixture))
+	entries, err := os.ReadDir(filepath.Join(buildDir, "scripthotfix", "generated"))
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	require.Equal(t, "rendered_nodecustomdata_ubuntu.yml", entries[0].Name())
 
 	renderedData, err := os.ReadFile(filepath.Join(
 		buildDir,

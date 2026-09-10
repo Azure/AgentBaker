@@ -437,8 +437,6 @@ def write_rendered_payload(target_varkeys, traditional_lines):
         except FileNotFoundError:
             pass
 
-    with open(os.path.join(GENERATED_DIR, "active"), "w", newline="\n") as active_file:
-        active_file.write("true\n")
     print(
         f"Rendered {len(target_varkeys)} hotfix variable keys into {GENERATED_DIR}",
         file=sys.stderr,

@@ -709,7 +709,7 @@ func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun boo
 		applyHotfix := a.applyEmbeddedHotfix
 		if applyHotfix == nil {
 			applyHotfix = func(osReleasePath string) error {
-				return applyEmbeddedNodeCustomDataIfActive(embeddedGeneratedNodeCustomData, osReleasePath)
+				return applyEmbeddedNodeCustomData(embeddedGeneratedNodeCustomData, osReleasePath)
 			}
 		}
 		if err := applyHotfix(a.osReleasePath); err != nil {
