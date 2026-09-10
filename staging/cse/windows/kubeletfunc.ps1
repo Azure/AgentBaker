@@ -352,12 +352,12 @@ function New-NSSMService {
         $KubeProxyStartFile
     )
 
-    $kubeletDependOnServices = "containerd"
+    $kubeletDependOnServices = @("containerd")
     if ($global:EnableCsiProxy) {
-        $kubeletDependOnServices += " csi-proxy"
+        $kubeletDependOnServices += "csi-proxy"
     }
     if ($global:EnableHostsConfigAgent) {
-        $kubeletDependOnServices += " hosts-config-agent"
+        $kubeletDependOnServices += "hosts-config-agent"
     }
 
     # setup kubelet
@@ -381,12 +381,7 @@ function New-NSSMService {
     Invoke-Nssm -KubeDir $KubeDir set Kubelet AppRotateSeconds 86400
     Invoke-Nssm -KubeDir $KubeDir set Kubelet AppRotateBytes 10485760
 
-    # Do not use Invoke-Nssm when calling DependOnService since 'docker csi-proxy'
-    # is parsed as a single string instead of two separate strings
-    $LASTEXITCODE = 0
-    Invoke-Expression "$KubeDir\nssm.exe set Kubelet DependOnService $kubeletDependOnServices | RemoveNulls"
-    if (-not $?) { throw "Invoke-Expression failed to invoke before calling nssm.exe (PowerShell invocation failed - exit code $LASTEXITCODE)" }
-    if ($LASTEXITCODE -ne 0) { throw "nssm.exe failed to set Kubelet DependOnService (exit code $LASTEXITCODE)" }
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet DependOnService @kubeletDependOnServices
 
     # setup kubeproxy
     Remove-ServiceIfExists -ServiceName "Kubeproxy"

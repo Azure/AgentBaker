@@ -433,6 +433,14 @@ Describe 'New-NSSMService' {
             New-NSSMService -KubeDir 'c:\k' -KubeletStartFile 'c:\k\kubeletstart.ps1' -KubeProxyStartFile 'c:\k\kubeproxystart.ps1'
 
             $script:scExeCallCount | Should -Be 0
+            Assert-MockCalled -CommandName Invoke-Nssm -Exactly -Times 1 -ParameterFilter {
+                $KubeDir -eq 'c:\k' -and
+                $NssmArguments -join ' ' -eq 'install Kubelet C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+            }
+            Assert-MockCalled -CommandName Invoke-Nssm -Exactly -Times 1 -ParameterFilter {
+                $KubeDir -eq 'c:\k' -and
+                $NssmArguments -join ' ' -eq 'install Kubeproxy C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+            }
         }
     }
 
