@@ -20,6 +20,7 @@ import (
 
 const (
 	DefaultV5VMSKU = "Standard_D2ds_v5"
+	MANAVMSKU      = "Standard_D2ds_v6"
 )
 
 var (

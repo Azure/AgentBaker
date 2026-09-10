@@ -17,8 +17,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 )
 
-const manaVMSKU = "Standard_D2ds_v6"
-
 var _ = Register(&Scenario{
 	Name:        "AzureLinux3OSGuard",
 	Description: "Tests that a node using an Azure Linux V3 OS Guard VHD can be properly bootstrapped",
@@ -2530,11 +2528,11 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 		UseNVMe: true,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = manaVMSKU
-			nbc.AgentPoolProfile.VMSize = manaVMSKU
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.MANAVMSKU
+			nbc.AgentPoolProfile.VMSize = config.MANAVMSKU
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr(manaVMSKU)
+			vmss.SKU.Name = to.Ptr(config.MANAVMSKU)
 			enableAcceleratedNetworking(vmss)
 		},
 	},
@@ -3818,11 +3816,11 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDUbuntu2404Gen2Containerd,
 		UseNVMe: true,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = manaVMSKU
-			nbc.AgentPoolProfile.VMSize = manaVMSKU
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.MANAVMSKU
+			nbc.AgentPoolProfile.VMSize = config.MANAVMSKU
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr(manaVMSKU)
+			vmss.SKU.Name = to.Ptr(config.MANAVMSKU)
 			enableAcceleratedNetworking(vmss)
 		},
 	},
@@ -3839,11 +3837,11 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDUbuntu2204Gen2Containerd,
 		UseNVMe: true,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = manaVMSKU
-			nbc.AgentPoolProfile.VMSize = manaVMSKU
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.MANAVMSKU
+			nbc.AgentPoolProfile.VMSize = config.MANAVMSKU
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr(manaVMSKU)
+			vmss.SKU.Name = to.Ptr(config.MANAVMSKU)
 			enableAcceleratedNetworking(vmss)
 		},
 	},
@@ -3860,11 +3858,11 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDAzureLinuxV3Gen2,
 		UseNVMe: true,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = manaVMSKU
-			nbc.AgentPoolProfile.VMSize = manaVMSKU
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.MANAVMSKU
+			nbc.AgentPoolProfile.VMSize = config.MANAVMSKU
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr(manaVMSKU)
+			vmss.SKU.Name = to.Ptr(config.MANAVMSKU)
 			enableAcceleratedNetworking(vmss)
 		},
 	},
