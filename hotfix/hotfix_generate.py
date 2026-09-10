@@ -62,9 +62,8 @@ SOURCE_TO_VARKEY = {
     "mariner/cse_install_mariner.sh": "provisionInstallsMariner",
     # CSE config
     "cse_config.sh": "provisionConfigs",
-    # CSE main / start
+    # CSE main
     "cse_main.sh": "provisionScript",
-    "cse_start.sh": "provisionStartScript",
     # Other scripts present in traditional nodecustomdata
     "configure-azure-network.sh": "configureAzureNetworkScript",
     "init-aks-cloud.sh": "initAKSCloud",
@@ -238,6 +237,18 @@ def detect_changed_varkeys(base_ref, available_varkeys=None):
         if local_path.startswith(UNSUPPORTED_DISTRO_DIRS):
             print(f"  Skipping unsupported embedded hotfix distro: {local_path}")
             continue
+        if local_path == "cse_start.sh":
+            # Custom images may supply their own provision_start.sh; distro-only
+            # rendering loses the template's not IsCustomImage condition.
+            # Future option: aks-rp can send explicit wrapper-hotfix eligibility
+            # via enabled_features.sh. The launcher already exports those flags;
+            # ANC would omit this entry unless explicitly allowed, including when
+            # the flag is absent, before calling the existing applyNodeCustomData.
+            raise GenerationError(
+                "cse_start.sh cannot be delivered as an embedded hotfix because "
+                "custom-image wrapper eligibility is unavailable; publish a new "
+                "node image or implement explicit runtime eligibility"
+            )
         if local_path in SOURCE_TO_VARKEY:
             varkey = SOURCE_TO_VARKEY[local_path]
             if available_varkeys is not None and varkey not in available_varkeys:

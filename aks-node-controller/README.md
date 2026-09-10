@@ -184,6 +184,11 @@ fails, earlier writes remain. Generation selects by distro only; hotfix authors
 must separately account for non-distro template conditions such as custom-image
 exclusions.
 
+`cse_start.sh` (`provision_start.sh` on the node) is excluded from embedded
+hotfixes to preserve custom-image wrappers. Generation fails explicitly if this
+script differs from the VHD baseline, even when other scripts also changed.
+Wrapper fixes require a new node image until runtime eligibility is available.
+
 Script hotfix delivery is package-only. The existing base-to-version hotfix map
 selects the ANC package for the node's baked `YYYYMM.DD` version base; the package
 contains its corresponding rendered scripts. If the package cannot be installed,

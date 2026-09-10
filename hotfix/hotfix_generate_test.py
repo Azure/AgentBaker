@@ -256,6 +256,30 @@ write_files:
                 hotfix_generate.write_hotfix_file("")
                 self.assertFalse(target.exists())
 
+    def test_cse_start_hotfix_fails_even_with_supported_changes(self):
+        self.assertNotIn("cse_start.sh", hotfix_generate.SOURCE_TO_VARKEY)
+        for sources in (["cse_start.sh"], ["cse_config.sh", "cse_start.sh"]):
+            with self.subTest(sources=sources):
+                result = subprocess.CompletedProcess(
+                    args=[],
+                    returncode=0,
+                    stdout="".join(
+                        f"{hotfix_generate.ARTIFACTS_DIR}/{source}\n"
+                        for source in sources
+                    ),
+                )
+                with mock.patch.object(
+                    hotfix_generate.subprocess, "run", return_value=result
+                ):
+                    with self.assertRaisesRegex(
+                        hotfix_generate.GenerationError,
+                        "cse_start.sh cannot be delivered.*custom-image wrapper eligibility",
+                    ):
+                        hotfix_generate.detect_changed_varkeys(
+                            "base",
+                            available_varkeys={"provisionConfigs", "provisionStartScript"},
+                        )
+
     def test_unmapped_hotfixable_script_fails(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             changed = Path(temp_dir) / "unmapped.sh"
