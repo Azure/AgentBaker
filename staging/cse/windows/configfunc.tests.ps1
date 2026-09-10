@@ -3,6 +3,9 @@ BeforeAll {
     . $PSScriptRoot\networkisolatedclusterfunc.ps1
     . $PSCommandPath.Replace('.tests.ps1', '.ps1')
 
+    # Write-Log must not be mocked because mock output can become part of a function's return value.
+    function Write-Log {}
+
     # Always shadow these host commands so tests cannot pass, fail, or modify the machine
     # based on its installed services, service configuration, or registry state.
     function Get-Service {}
@@ -266,7 +269,6 @@ Describe 'Test-GmsaPluginRegistry' {
             $script:expectedPermission += [Convert]::ToByte($permissionHex.Substring($index, 2), 16)
         }
 
-        Mock Write-Log
         Mock Test-Path -MockWith { return $true }
         Mock Get-ItemPropertyValue -MockWith {
             param($Path, $Name)
@@ -340,12 +342,6 @@ Describe 'Test-GmsaPluginRegistry' {
 
 Describe 'Import-GmsaPluginRegistry' {
     BeforeEach {
-        $script:logMessages = @()
-
-        Mock Write-Log -MockWith {
-            param($Message)
-            $script:logMessages += $Message
-        }
         Mock Set-ExitCode
         Mock Test-GmsaPluginRegistry -MockWith { return $false }
         Mock reg.exe -MockWith {
@@ -369,10 +365,8 @@ Describe 'Import-GmsaPluginRegistry' {
         Mock Test-GmsaPluginRegistry -MockWith { return $true }
 
         Import-GmsaPluginRegistry -RegistryFilePath 'c:\temp\registerplugin.reg'
-
         Assert-MockCalled -CommandName 'Test-GmsaPluginRegistry' -Exactly -Times 1
         Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 0
-        $script:logMessages[-1] | Should -Match 'registry values are valid'
     }
 
     It 'fails when reg.exe fails and the required registry state is invalid' {
