@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
+	"github.com/fsnotify/fsnotify"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -429,6 +430,155 @@ func TestApp_ProvisionWait(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "context deadline exceeded")
 	})
+}
+
+func TestWriteProvisionExitResponse(t *testing.T) {
+	t.Run("writes result and completion marker", func(t *testing.T) {
+		tempDir := t.TempDir()
+		filepaths := ProvisionStatusFiles{
+			ProvisionJSONFile:     filepath.Join(tempDir, "logs", "provision.json"),
+			ProvisionCompleteFile: filepath.Join(tempDir, "provision.complete"),
+		}
+		result := &ProvisionResult{ExitCode: "240", Error: "invalid config", Output: "details"}
+
+		require.NoError(t, writeProvisionExitResponse(result, filepaths))
+
+		data, err := os.ReadFile(filepaths.ProvisionJSONFile)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"ExitCode":"240","Error":"invalid config","Output":"details"}`, string(data))
+		info, err := os.Stat(filepaths.ProvisionJSONFile)
+		require.NoError(t, err)
+		assert.Equal(t, os.FileMode(0644), info.Mode().Perm())
+		_, err = os.Stat(filepaths.ProvisionCompleteFile)
+		require.NoError(t, err)
+	})
+
+	t.Run("preserves an existing result", func(t *testing.T) {
+		tempDir := t.TempDir()
+		filepaths := ProvisionStatusFiles{
+			ProvisionJSONFile:     filepath.Join(tempDir, "provision.json"),
+			ProvisionCompleteFile: filepath.Join(tempDir, "provision.complete"),
+		}
+		existing := []byte(`{"ExitCode":"0","Output":"existing","Error":""}`)
+		require.NoError(t, os.WriteFile(filepaths.ProvisionJSONFile, existing, 0600))
+
+		require.NoError(t, writeProvisionExitResponse(
+			&ProvisionResult{ExitCode: "240", Error: "new failure"},
+			filepaths,
+		))
+
+		data, err := os.ReadFile(filepaths.ProvisionJSONFile)
+		require.NoError(t, err)
+		assert.Equal(t, existing, data)
+		_, err = os.Stat(filepaths.ProvisionCompleteFile)
+		require.NoError(t, err)
+	})
+
+	t.Run("is idempotent after completion", func(t *testing.T) {
+		tempDir := t.TempDir()
+		filepaths := ProvisionStatusFiles{
+			ProvisionJSONFile:     filepath.Join(tempDir, "provision.json"),
+			ProvisionCompleteFile: filepath.Join(tempDir, "provision.complete"),
+		}
+		result := &ProvisionResult{ExitCode: "240", Error: "invalid config"}
+
+		require.NoError(t, writeProvisionExitResponse(result, filepaths))
+		require.NoError(t, writeProvisionExitResponse(result, filepaths))
+	})
+
+	t.Run("does not signal completion when result publication fails", func(t *testing.T) {
+		tempDir := t.TempDir()
+		notDirectory := filepath.Join(tempDir, "not-a-directory")
+		require.NoError(t, os.WriteFile(notDirectory, []byte("block"), 0600))
+		filepaths := ProvisionStatusFiles{
+			ProvisionJSONFile:     filepath.Join(notDirectory, "provision.json"),
+			ProvisionCompleteFile: filepath.Join(tempDir, "provision.complete"),
+		}
+
+		err := writeProvisionExitResponse(&ProvisionResult{ExitCode: "240"}, filepaths)
+
+		require.Error(t, err)
+		_, statErr := os.Stat(filepaths.ProvisionCompleteFile)
+		require.ErrorIs(t, statErr, os.ErrNotExist)
+	})
+}
+
+func TestWriteProvisionResultAtomically(t *testing.T) {
+	t.Run("replaces the result and removes the temporary file", func(t *testing.T) {
+		tempDir := t.TempDir()
+		path := filepath.Join(tempDir, "provision.json")
+		require.NoError(t, os.WriteFile(path, []byte("old"), 0600))
+
+		require.NoError(t, writeProvisionResultAtomically(path, []byte("new")))
+
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+		assert.Equal(t, "new", string(data))
+		info, err := os.Stat(path)
+		require.NoError(t, err)
+		assert.Equal(t, os.FileMode(0644), info.Mode().Perm())
+		tempFiles, err := filepath.Glob(filepath.Join(tempDir, ".provision.json.tmp-*"))
+		require.NoError(t, err)
+		assert.Empty(t, tempFiles)
+	})
+
+	t.Run("preserves the destination and removes the temporary file when rename fails", func(t *testing.T) {
+		tempDir := t.TempDir()
+		path := filepath.Join(tempDir, "provision.json")
+		require.NoError(t, os.Mkdir(path, 0755))
+
+		err := writeProvisionResultAtomically(path, []byte("new"))
+
+		require.Error(t, err)
+		info, statErr := os.Stat(path)
+		require.NoError(t, statErr)
+		assert.True(t, info.IsDir())
+		tempFiles, globErr := filepath.Glob(filepath.Join(tempDir, ".provision.json.tmp-*"))
+		require.NoError(t, globErr)
+		assert.Empty(t, tempFiles)
+	})
+}
+
+func TestAtomicRenameProducesCreateEvent(t *testing.T) {
+	tempDir := t.TempDir()
+	watcher, err := fsnotify.NewWatcher()
+	require.NoError(t, err)
+	defer watcher.Close()
+	require.NoError(t, watcher.Add(tempDir))
+
+	path := filepath.Join(tempDir, "provision.json")
+	require.NoError(t, writeProvisionResultAtomically(path, []byte(`{"ExitCode":"0"}`)))
+
+	timeout := time.After(time.Second)
+	for {
+		select {
+		case event := <-watcher.Events:
+			if event.Name == path && event.Op&fsnotify.Create != 0 {
+				return
+			}
+		case watchErr := <-watcher.Errors:
+			require.NoError(t, watchErr)
+		case <-timeout:
+			t.Fatal("timed out waiting for Create event after atomic rename")
+		}
+	}
+}
+
+func TestRunProvisionRecoversPanic(t *testing.T) {
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(*exec.Cmd) error {
+			panic("runner panic")
+		},
+	})
+
+	result, err := tt.App.runProvision(context.Background(), ProvisionFlags{
+		ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
+	}, false)
+
+	require.Error(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, "240", result.ExitCode)
+	assert.Contains(t, result.Error, "runner panic")
 }
 
 func Test_readAndEvaluateProvision(t *testing.T) {
