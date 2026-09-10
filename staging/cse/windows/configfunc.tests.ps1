@@ -315,6 +315,51 @@ Describe 'Import-GmsaPluginRegistry' {
     }
 }
 
+Describe 'Install-OpenSSH' {
+    BeforeAll {
+        function Start-Service {}
+        function Restart-Service {}
+        function Set-Service {}
+        function Get-NetFirewallRule {}
+        function icacls {}
+    }
+
+    BeforeEach {
+        $script:icaclsCallCount = 0
+
+        Mock Logs-To-Event
+        Mock Get-Service -MockWith { return [PSCustomObject]@{ Name = 'sshd' } }
+        Mock Start-Service
+        Mock Test-Path -MockWith { return $true }
+        Mock Add-Content
+        Mock Restart-Service
+        Mock Set-Service
+        Mock Get-NetFirewallRule -MockWith { return [PSCustomObject]@{ Name = 'OpenSSH-Server-In-TCP' } }
+        Mock icacls -MockWith {
+            $script:icaclsCallCount++
+            $global:LASTEXITCODE = 0
+        }
+    }
+
+    It 'configures the authorized keys permissions when icacls succeeds' {
+        { Install-OpenSSH -SSHKeys @('ssh-rsa test') } | Should -Not -Throw
+
+        $script:icaclsCallCount | Should -Be 4
+    }
+
+    It 'throws when Authenticated Users permissions cannot be removed' {
+        Mock icacls -MockWith {
+            $script:icaclsCallCount++
+            $global:LASTEXITCODE = 5
+        }
+
+        { Install-OpenSSH -SSHKeys @('ssh-rsa test') } | Should -Throw '*remove Authenticated Users permissions*exit code 5*'
+
+        $script:icaclsCallCount | Should -Be 1
+        Assert-MockCalled -CommandName Restart-Service -Exactly -Times 0
+    }
+}
+
 Describe 'Install-CredentialProvider' {
     BeforeEach {
         $global:credentialProviderConfigPath = ""
