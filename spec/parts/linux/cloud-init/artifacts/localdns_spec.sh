@@ -986,6 +986,38 @@ EOF
             The status should be success
             The stdout should include "No existing localdns iptables rules found."
         End
+
+        It 'should initialize network variables when DEFAULT_ROUTE_INTERFACE is unset and still remove the drop-in'
+            # Regression cover for the guard that now also checks DEFAULT_ROUTE_INTERFACE:
+            # cleanup can be invoked from a trap/watchdog restart with the interface unset,
+            # so it must call initialize_network_variables (re-deriving the interface via the
+            # mocked ip/networkctl) and still complete cleanup successfully.
+            iptables() { mock_iptables "$@"; }
+            AZURE_DNS_IP="168.63.129.16"
+            NETWORKCTL_RELOAD_CMD="true"
+            # A real network file must exist for verify_network_file during initialization.
+            NETWORK_FILE="/tmp/test-eth0.network"
+            touch "$NETWORK_FILE"
+            networkctl() {
+                if [[ "$1" == "--json=short" && "$2" == "status" && "$3" == "eth0" ]]; then
+                    echo "{\"NetworkFile\":\"${NETWORK_FILE}\"}"
+                elif [[ "$1" == "reload" ]]; then
+                    return 0
+                else
+                    command networkctl "$@"
+                fi
+            }
+            touch "$NETWORK_DROPIN_FILE"
+            # Force the new initialization branch: interface not yet known.
+            unset DEFAULT_ROUTE_INTERFACE
+            When call cleanup_iptables_and_dns
+            The status should be success
+            The stdout should include "Network variables not initialized, attempting to determine them..."
+            The stdout should include "Removing network drop-in file"
+            The variable DEFAULT_ROUTE_INTERFACE should equal "eth0"
+            The file "${NETWORK_DROPIN_FILE}" should not be exist
+            rm -f "$NETWORK_FILE"
+        End
     End
 
 
@@ -1338,11 +1370,30 @@ EOF
             The stdout should include "Current DNS:"
         End
 
-        It 'should return success if resolv.conf is empty'
+        It 'should keep waiting if resolv.conf has no nameservers'
             > "$RESOLV_CONF"
+            When run wait_for_localdns_removed_from_resolv_conf 1
+            The status should be failure
+            The stdout should include "Timed out waiting for localdns to be removed"
+        End
+
+        It 'should succeed when nameservers appear during wait (async recovery)'
+            # Start empty, then have the upstream nameserver appear mid-wait.
+            # This is the point of the fix: an empty resolver must keep waiting
+            # until the upstream is repopulated, then succeed - not false-succeed
+            # on the empty window.
+            > "$RESOLV_CONF"
+            (sleep 1 && echo "nameserver 10.0.0.1" > "$RESOLV_CONF") &
             When run wait_for_localdns_removed_from_resolv_conf 5
             The status should be success
-            The stdout should include "DNS configuration refreshed successfully"
+            The stdout should include "Current DNS: 10.0.0.1"
+        End
+
+        It 'should keep waiting if resolv.conf contains only comments'
+            printf '# nameserver 10.0.0.1\n' > "$RESOLV_CONF"
+            When run wait_for_localdns_removed_from_resolv_conf 1
+            The status should be failure
+            The stdout should include "Timed out waiting for localdns to be removed"
         End
 
         It 'should use default timeout of 5 seconds when not specified'
@@ -1354,11 +1405,11 @@ EOF
             The stdout should include "DNS configuration refreshed successfully"
         End
 
-        It 'should handle resolv.conf not existing gracefully'
+        It 'should fail when resolv.conf does not exist'
             rm -f "$RESOLV_CONF"
-            When run wait_for_localdns_removed_from_resolv_conf 2
-            The status should be success
-            The stdout should include "DNS configuration refreshed successfully"
+            When run wait_for_localdns_removed_from_resolv_conf 1
+            The status should be failure
+            The stdout should include "Timed out waiting for localdns to be removed"
         End
 
         It 'should not match partial IP addresses'
