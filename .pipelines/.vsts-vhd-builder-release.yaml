@@ -831,6 +831,7 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
               echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
               echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
+              echo '##vso[task.setvariable variable=GENERATE_PUBLISHING_INFO]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
@@ -883,6 +884,7 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
               echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
               echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
+              echo '##vso[task.setvariable variable=GENERATE_PUBLISHING_INFO]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
@@ -944,6 +946,7 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
               echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
               echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
+              echo '##vso[task.setvariable variable=GENERATE_PUBLISHING_INFO]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-cosi-convert-template.yaml
             parameters:
@@ -973,6 +976,7 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
               echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
               echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
+              echo '##vso[task.setvariable variable=GENERATE_PUBLISHING_INFO]True'
             displayName: Setup Build Variables
           - template: ./templates/.builder-cosi-convert-template.yaml
             parameters:
