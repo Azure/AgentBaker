@@ -67,19 +67,18 @@ var _ = Register(&Scenario{
 			// exactly this and does NOT set HighSpeedInterconnectPlacement, so we don't either.
 			p.SinglePlacementGroup = to.Ptr(false)
 			p.PlatformFaultDomainCount = to.Ptr[int32](1)
-			// GB300 OS disk, matching a real AKS GB300 VMSS: ephemeral on the CacheDisk
-			// (ResourceDisk -> InvalidParameter, NvmeDisk -> NotSupported), 1024 GB,
-			// Standard_LRS, ReadOnly. The image advertises DiskControllerTypes: SCSI,NVMe
-			// so Compute picks NVMe automatically — no explicit diskControllerType needed.
+			// GB300 supports ONLY the NVMe disk controller (resource-skus: DiskControllerTypes=NVMe)
+			// and rejects every ephemeral OS-disk placement (CacheDisk=SCSI, NvmeDisk=NotSupported,
+			// ResourceDisk=InvalidParameter). The e2e base VMSS model sets an ephemeral OS disk, so
+			// null it out and use a regular managed NVMe OS disk (the image def advertises NVMe).
+			// NVMe-controller disks require host caching = None.
+			p.VirtualMachineProfile.StorageProfile.DiskControllerType = to.Ptr("NVMe")
 			osd := p.VirtualMachineProfile.StorageProfile.OSDisk
-			osd.DiffDiskSettings = &armcompute.DiffDiskSettings{
-				Option:    to.Ptr(armcompute.DiffDiskOptionsLocal),
-				Placement: to.Ptr(armcompute.DiffDiskPlacementCacheDisk),
-			}
-			osd.Caching = to.Ptr(armcompute.CachingTypesReadOnly)
+			osd.DiffDiskSettings = nil
+			osd.Caching = to.Ptr(armcompute.CachingTypesNone)
 			osd.DiskSizeGB = to.Ptr[int32](1024)
 			osd.ManagedDisk = &armcompute.VirtualMachineScaleSetManagedDiskParameters{
-				StorageAccountType: to.Ptr(armcompute.StorageAccountTypesStandardLRS),
+				StorageAccountType: to.Ptr(armcompute.StorageAccountTypesPremiumLRS),
 			}
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
