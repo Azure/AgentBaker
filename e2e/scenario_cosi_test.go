@@ -1,12 +1,15 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha512"
 	"encoding/base64"
-	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -21,16 +24,48 @@ import (
 )
 
 const (
-	aclCOSIAMD64ImageVersion = "0.20260827.1192019"
-	aclCOSIAMD64ImageID      = "/SharedGalleries/035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL/Images/acldevel/Versions/0.20260827.1192019"
-	remoteCOSIConfigPath     = "/home/azureuser/update-config.yaml"
+	aclCOSIAMD64ImageVersion    = "0.20260827.1192019"
+	aclCOSIAMD64ImageID         = "/SharedGalleries/035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL/Images/acldevel/Versions/0.20260827.1192019"
+	remoteCOSIConfigPath        = "/home/azureuser/update-config.yaml"
+	cosiAMD64PublishingArtifact = "cosi-publishing-info-acl-tl-gen2"
 )
 
-func Test_ACL_COSIUpdate_AMD64(t *testing.T) {
-	if !config.Config.COSIUpdateEnabled {
-		t.Skip("COSI_UPDATE_ENABLED is not set")
+// cosiPublishingInfo mirrors the JSON written by convert-vhd-to-cosi.sh.
+type cosiPublishingInfo struct {
+	CosiURL        string `json:"cosi_url"`
+	MetadataSHA384 string `json:"metadata_sha384"`
+}
+
+// loadCOSIPublishingInfo reads cosi-publishing-info.json from a downloaded
+// pipeline artifact directory. artifactName is the pipeline artifact name
+// (e.g., "cosi-publishing-info-acl-tl-gen2"). Returns ok=false if
+// COSI_ARTIFACTS_DIR is not set or the artifact was not downloaded (variant
+// not built for this run).
+func loadCOSIPublishingInfo(t *testing.T, artifactName string) (cosiPublishingInfo, bool) {
+	t.Helper()
+	dir := os.Getenv("COSI_ARTIFACTS_DIR")
+	if dir == "" {
+		return cosiPublishingInfo{}, false
 	}
-	require.NoError(t, validateCOSIUpdateInput(config.Config.COSIUpdateURL, config.Config.COSIUpdateMetadataSHA384))
+	infoPath := filepath.Join(dir, artifactName, "cosi-publishing-info.json")
+	data, err := os.ReadFile(infoPath)
+	if os.IsNotExist(err) {
+		return cosiPublishingInfo{}, false
+	}
+	require.NoError(t, err, "reading %s", infoPath)
+	var info cosiPublishingInfo
+	require.NoError(t, json.Unmarshal(data, &info), "parsing %s", infoPath)
+	require.NotEmpty(t, info.CosiURL, "cosi_url is empty in %s", infoPath)
+	require.NotEmpty(t, info.MetadataSHA384, "metadata_sha384 is empty in %s", infoPath)
+	return info, true
+}
+
+func Test_ACL_COSIUpdate_AMD64(t *testing.T) {
+	info, ok := loadCOSIPublishingInfo(t, cosiAMD64PublishingArtifact)
+	if !ok {
+		t.Skip("COSI artifact not available for acl-tl-gen2, skipping COSI update test")
+	}
+	require.NoError(t, validateCOSIUpdateInput(info.CosiURL, info.MetadataSHA384))
 
 	image := *config.VHDACLGen2TL
 	image.Name = "acldevel"
@@ -50,14 +85,16 @@ func Test_ACL_COSIUpdate_AMD64(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
-			Validator: validateACLAMD64COSIUpdate,
+			Validator: func(ctx context.Context, scenario *Scenario) error {
+				return validateACLAMD64COSIUpdate(ctx, scenario, info.CosiURL, info.MetadataSHA384)
+			},
 		},
 	})
 }
 
-func validateACLAMD64COSIUpdate(ctx context.Context, scenario *Scenario) error {
-	cosiURL := strings.TrimSpace(config.Config.COSIUpdateURL)
-	metadataHash := strings.ToLower(strings.TrimSpace(config.Config.COSIUpdateMetadataSHA384))
+func validateACLAMD64COSIUpdate(ctx context.Context, scenario *Scenario, rawCosiURL, rawMetadataHash string) error {
+	cosiURL := strings.TrimSpace(rawCosiURL)
+	metadataHash := strings.TrimSpace(rawMetadataHash)
 
 	beforeBootID, err := runCOSICommand(ctx, scenario, "cat /proc/sys/kernel/random/boot_id")
 	require.NoError(scenario.T, err)
@@ -100,7 +137,7 @@ func validateACLAMD64COSIUpdate(ctx context.Context, scenario *Scenario) error {
 }
 
 func TestValidateCOSIUpdateInput(t *testing.T) {
-	validHash := strings.Repeat("ab", sha512.Size384)
+	validHash := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{0xab}, sha512.Size384))
 	require.NoError(t, validateCOSIUpdateInput("https://download.example.com/acl.cosi", validHash))
 	require.ErrorContains(t, validateCOSIUpdateInput("http://download.example.com/acl.cosi", validHash), "HTTPS")
 	require.ErrorContains(t, validateCOSIUpdateInput("https://download.example.com/acl.cosi", "abcd"), "48 bytes")
@@ -132,7 +169,7 @@ func validateCOSIUpdateInput(rawURL, metadataSHA384 string) error {
 		return fmt.Errorf("COSI update URL must be an absolute HTTPS URL")
 	}
 
-	metadataHash, err := hex.DecodeString(strings.TrimSpace(metadataSHA384))
+	metadataHash, err := base64.StdEncoding.DecodeString(strings.TrimSpace(metadataSHA384))
 	if err != nil {
 		return fmt.Errorf("decode COSI metadata SHA-384: %w", err)
 	}

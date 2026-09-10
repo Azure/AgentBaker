@@ -35,18 +35,10 @@ parameters:
       because they cannot verify the not-opted-in behavior on such subscriptions.
       Msft tenant E2E subs auto-inject; the RCV1P subscription does not.
     default: true
-  - name: runACL1192019COSIUpdate
-    type: boolean
-    displayName: Run the AMD64 COSI update test using ACL build 1192019
-    default: false
-  - name: COSIUpdateURL
-    type: string
-    displayName: Public COSI download URL
-    default: ""
-  - name: COSIUpdateMetadataSHA384
-    type: string
-    displayName: SHA-384 of COSI metadata.json
-    default: ""
+  - name: cosiArtifactNames
+    type: object
+    displayName: List of COSI publishing info pipeline artifact names to download. Leave empty to skip COSI validation.
+    default: []
 
 jobs:
   - job: e2e
@@ -64,6 +56,13 @@ jobs:
         path: s
         fetchTags: false
         fetchDepth: 1
+
+      - ${{ each artifactName in parameters.cosiArtifactNames }}:
+        - task: DownloadPipelineArtifact@2
+          displayName: "Download COSI info: ${{ artifactName }}"
+          inputs:
+            artifact: "${{ artifactName }}"
+            path: "$(Pipeline.Workspace)/cosi-info/${{ artifactName }}"
 
       - ${{ if eq(parameters.useVhdMetadataArtifacts, true) }}:
         - task: DownloadPipelineArtifact@2
@@ -110,9 +109,7 @@ jobs:
           RCV1P_TAGS_AUTO_INJECTED: ${{parameters.rcv1pTagsAutoInjected}}
           ${{ if eq(parameters.useVhdMetadataArtifacts, true) }}:
             E2E_VHD_METADATA_FILE: $(E2E_VHD_METADATA_FILE)
-          COSI_UPDATE_ENABLED: ${{ parameters.runACL1192019COSIUpdate }}
-          COSI_UPDATE_URL: ${{ parameters.COSIUpdateURL }}
-          COSI_UPDATE_METADATA_SHA384: ${{ parameters.COSIUpdateMetadataSHA384 }}
+          COSI_ARTIFACTS_DIR: $(Pipeline.Workspace)/cosi-info
 
       - task: PublishTestResults@2
         displayName: Upload test results

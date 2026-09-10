@@ -177,6 +177,10 @@ COSI_SHA256=$(sha256sum "$STAGED_COSI" | awk '{print $1}')
 COSI_SHA1=$(sha1sum "$STAGED_COSI" | awk '{print $1}')
 COSI_SIZE=$(stat -c%s "$STAGED_COSI")
 
+# sha384 of the internal metadata.json, used by e2e tests to verify the COSI
+# metadata without downloading and extracting the (potentially multi-GB) file.
+METADATA_SHA384=$(tar -xOf "$STAGED_COSI" --occurrence=1 metadata.json | openssl dgst -sha384 -binary | base64)
+
 if [ -z "${IMAGE_VERSION:-}" ]; then
     IMAGE_VERSION=$(date +%Y%m.%d.0)
     echo "IMAGE_VERSION was not set, defaulting to ${IMAGE_VERSION}"
@@ -210,7 +214,8 @@ cat <<EOF > cosi-publishing-info.json
     "offer_name": "${OFFER_NAME:-}",
     "hyperv_generation": "${HYPERV_GENERATION:-}",
     "image_architecture": "${IMAGE_ARCH}",
-    "image_version": "${COSI_IMAGE_VERSION}"
+    "image_version": "${COSI_IMAGE_VERSION}",
+    "metadata_sha384": "${METADATA_SHA384}"
 }
 EOF
 
