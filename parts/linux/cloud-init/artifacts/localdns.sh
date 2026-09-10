@@ -663,15 +663,21 @@ cleanup_iptables_and_dns() {
     # localdns listener via the network drop-in.
     local cleanup_failed=false
 
-    # Ensure network variables are initialized if not already set.
-    # This is needed here because this function can be called from cleanup traps or systemd restarts initiated by watchdog.
-    if [ -z "${DEFAULT_ROUTE_INTERFACE:-}" ] || [ -z "${NETWORK_DROPIN_FILE:-}" ] || [ -z "${NETWORK_DROPIN_DIR:-}" ]; then
-        echo "Network variables not initialized, attempting to determine them..."
-        if ! initialize_network_variables; then
-            echo "Failed to initialize network variables during cleanup."
-            return 1
-        fi
+    # Do not derive the route/interface during post-exit cleanup. At this point
+    # network state may already be torn down, so ip route/networkctl discovery
+    # can fail and leave the node pointed at the dead LocalDNS listener. Sweep
+    # the known drop-in name directly; the glob also handles a cleanup call
+    # where NETWORK_DROPIN_FILE was never initialized in this process.
+    local network_dropin_file
+    local -a network_dropin_files=()
+    if [ -n "${NETWORK_DROPIN_FILE:-}" ]; then
+        network_dropin_files+=("${NETWORK_DROPIN_FILE}")
     fi
+    for network_dropin_file in /run/systemd/network/*.d/70-localdns.conf; do
+        if [ -e "$network_dropin_file" ] && [ "$network_dropin_file" != "${NETWORK_DROPIN_FILE:-}" ]; then
+            network_dropin_files+=("$network_dropin_file")
+        fi
+    done
 
     # Remove any existing localdns iptables rules by searching for our comment.
     echo "Cleaning up any existing localdns iptables rules..."
@@ -702,14 +708,20 @@ cleanup_iptables_and_dns() {
         echo "No existing localdns iptables rules found."
     fi
 
-    # Revert DNS configuration and network reload.
-    echo "Removing network drop-in file ${NETWORK_DROPIN_FILE}."
-    if ! rm -f "$NETWORK_DROPIN_FILE"; then
-        echo "Failed to remove network drop-in file ${NETWORK_DROPIN_FILE}."
-        cleanup_failed=true
-    else
-        echo "Successfully removed network drop-in file."
-    fi
+    # Revert DNS configuration and network reload. Keep the dummy interface
+    # and its .10/.11 addresses here: if an orphaned CoreDNS child survived a
+    # failed cgroup teardown, removing the interface would break a listener
+    # that may still be serving pods. The service-recovery path handles the
+    # next-start interface lifecycle separately.
+    for network_dropin_file in "${network_dropin_files[@]}"; do
+        echo "Removing network drop-in file ${network_dropin_file}."
+        if ! rm -f "$network_dropin_file"; then
+            echo "Failed to remove network drop-in file ${network_dropin_file}."
+            cleanup_failed=true
+        else
+            echo "Successfully removed network drop-in file."
+        fi
+    done
 
     echo "Attempt to reload network configuration."
     if ! eval "$NETWORKCTL_RELOAD_CMD"; then

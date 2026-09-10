@@ -987,36 +987,35 @@ EOF
             The stdout should include "No existing localdns iptables rules found."
         End
 
-        It 'should initialize network variables when DEFAULT_ROUTE_INTERFACE is unset and still remove the drop-in'
-            # Regression cover for the guard that now also checks DEFAULT_ROUTE_INTERFACE:
-            # cleanup can be invoked from a trap/watchdog restart with the interface unset,
-            # so it must call initialize_network_variables (re-deriving the interface via the
-            # mocked ip/networkctl) and still complete cleanup successfully.
+        It 'should remove the known drop-in without deriving network variables'
             iptables() { mock_iptables "$@"; }
-            AZURE_DNS_IP="168.63.129.16"
             NETWORKCTL_RELOAD_CMD="true"
-            # A real network file must exist for verify_network_file during initialization.
-            NETWORK_FILE="/tmp/test-eth0.network"
-            touch "$NETWORK_FILE"
-            networkctl() {
-                if [[ "$1" == "--json=short" && "$2" == "status" && "$3" == "eth0" ]]; then
-                    echo "{\"NetworkFile\":\"${NETWORK_FILE}\"}"
-                elif [[ "$1" == "reload" ]]; then
-                    return 0
-                else
-                    command networkctl "$@"
-                fi
-            }
             touch "$NETWORK_DROPIN_FILE"
-            # Force the new initialization branch: interface not yet known.
+            # Cleanup must not need route/networkctl discovery.
             unset DEFAULT_ROUTE_INTERFACE
+            unset NETWORK_DROPIN_DIR
             When call cleanup_iptables_and_dns
             The status should be success
-            The stdout should include "Network variables not initialized, attempting to determine them..."
             The stdout should include "Removing network drop-in file"
-            The variable DEFAULT_ROUTE_INTERFACE should equal "eth0"
             The file "${NETWORK_DROPIN_FILE}" should not be exist
-            rm -f "$NETWORK_FILE"
+        End
+
+        It 'continues DNS cleanup when network variable discovery would fail'
+            iptables() { mock_iptables "$@"; }
+            NETWORK_DROPIN_FILE="/tmp/localdns-cleanup-test/network/10-netplan-eth0.network.d/70-localdns.conf"
+            mkdir -p "$(dirname "$NETWORK_DROPIN_FILE")"
+            touch "$NETWORK_DROPIN_FILE"
+            NETWORKCTL_RELOAD_CMD="true"
+            unset NETWORK_DROPIN_DIR
+            unset DEFAULT_ROUTE_INTERFACE
+            # If the old implementation attempted network discovery here, this
+            # mock would fail. The cleanup path must remove the known drop-in
+            # without attempting discovery.
+            initialize_network_variables() { return 1; }
+            When call cleanup_iptables_and_dns
+            The status should be success
+            The file "${NETWORK_DROPIN_FILE}" should not be exist
+            rm -rf /tmp/localdns-cleanup-test
         End
     End
 
