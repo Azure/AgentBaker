@@ -360,6 +360,8 @@ done
 echo "   ✓ curl exited 0 on all ${TEARDOWN_ITERATIONS} scrapes (connection closed with FIN, not RST)"
 echo ""
 
+
+
 # ---------------------------------------------------------------------------
 # 12. Socket-activated worker must not be left in a failed state.
 #
