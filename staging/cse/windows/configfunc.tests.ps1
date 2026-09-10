@@ -3,9 +3,11 @@ BeforeAll {
     . $PSScriptRoot\networkisolatedclusterfunc.ps1
     . $PSCommandPath.Replace('.tests.ps1', '.ps1')
 
-    # Get-Service is a Windows-only cmdlet; stub it so Mock can override it when
-    # tests run in isolation (e.g. locally on non-Windows, outside the full suite).
+    # Always shadow these host commands so tests cannot pass, fail, or modify the machine
+    # based on its installed services, service configuration, or registry state.
     function Get-Service {}
+    function sc.exe {}
+    function reg.exe {}
 
     $capturedContent = $null
     Mock Set-Content -MockWith {
@@ -41,10 +43,6 @@ Describe 'Adjust-DynamicPortRange' {
 }
 
 Describe 'Update-ServiceFailureActions' {
-    BeforeAll {
-        function sc.exe {}
-    }
-
     BeforeEach {
         $script:scExeCallCount = 0
         $script:failedScExeCall = 0
