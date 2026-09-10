@@ -309,6 +309,133 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     kubepods_slice_pressure=$(echo $kubepods_slice_pressure | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
     kubelet_service_pressure=$(echo $kubelet_service_pressure | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
     containerd_service_pressure=$(echo $containerd_service_pressure | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    NODEPROBLEMDETECTORSERVICE="${CGROUP}/system.slice/node-problem-detector.service"
+    if [ -f "${NODEPROBLEMDETECTORSERVICE}/cpu.pressure" ] && [ -f "${NODEPROBLEMDETECTORSERVICE}/memory.pressure" ] && [ -f "${NODEPROBLEMDETECTORSERVICE}/io.pressure" ]; then
+        node_problem_detector_service_cpu_pressure=$(cat "${NODEPROBLEMDETECTORSERVICE}/cpu.pressure")
+        node_problem_detector_service_memory_pressure=$(cat "${NODEPROBLEMDETECTORSERVICE}/memory.pressure")
+        node_problem_detector_service_io_pressure=$(cat "${NODEPROBLEMDETECTORSERVICE}/io.pressure")
+        node_problem_detector_service_pressure=$( jq -c -n \
+            --arg CPU_SOME_AVG10 "$(echo "$node_problem_detector_service_cpu_pressure" | awk -F "=" '{print $2}' | awk '{print $1}')" \
+            --arg CPU_SOME_AVG60 "$(echo "$node_problem_detector_service_cpu_pressure" | awk -F "=" '{print $3}' | awk '{print $1}')" \
+            --arg CPU_SOME_AVG300 "$(echo "$node_problem_detector_service_cpu_pressure" | awk -F "=" '{print $4}' | awk '{print $1}')" \
+            --arg CPU_SOME_TOTAL "$(echo "$node_problem_detector_service_cpu_pressure" | awk -F "=" '{print $5}' | awk '{print $1}')" \
+            --arg MEMORY_SOME_AVG10 "$(echo $node_problem_detector_service_memory_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+            --arg MEMORY_SOME_AVG60 "$(echo $node_problem_detector_service_memory_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+            --arg MEMORY_SOME_AVG300 "$(echo $node_problem_detector_service_memory_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+            --arg MEMORY_SOME_TOTAL "$(echo $node_problem_detector_service_memory_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+            --arg MEMORY_FULL_AVG10 "$(echo $node_problem_detector_service_memory_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+            --arg MEMORY_FULL_AVG60 "$(echo $node_problem_detector_service_memory_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+            --arg MEMORY_FULL_AVG300 "$(echo $node_problem_detector_service_memory_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+            --arg MEMORY_FULL_TOTAL "$(echo $node_problem_detector_service_memory_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+            --arg IO_SOME_AVG10 "$(echo $node_problem_detector_service_io_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+            --arg IO_SOME_AVG60 "$(echo $node_problem_detector_service_io_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+            --arg IO_SOME_AVG300 "$(echo $node_problem_detector_service_io_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+            --arg IO_SOME_TOTAL "$(echo $node_problem_detector_service_io_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+            --arg IO_FULL_AVG10 "$(echo $node_problem_detector_service_io_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+            --arg IO_FULL_AVG60 "$(echo $node_problem_detector_service_io_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+            --arg IO_FULL_AVG300 "$(echo $node_problem_detector_service_io_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+            --arg IO_FULL_TOTAL "$(echo $node_problem_detector_service_io_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+            '{ CPUPressure: { some_avg10: $CPU_SOME_AVG10, some_avg60: $CPU_SOME_AVG60, some_avg300: $CPU_SOME_AVG300, some_total: $CPU_SOME_TOTAL }, MemoryPressure: { some_avg10: $MEMORY_SOME_AVG10, some_avg60: $MEMORY_SOME_AVG60, some_avg300: $MEMORY_SOME_AVG300, some_total: $MEMORY_SOME_TOTAL, full_avg10: $MEMORY_FULL_AVG10, full_avg60: $MEMORY_FULL_AVG60, full_avg300: $MEMORY_FULL_AVG300, full_total: $MEMORY_FULL_TOTAL }, IOPressure: { some_avg10: $IO_SOME_AVG10, some_avg60: $IO_SOME_AVG60, some_avg300: $IO_SOME_AVG300, some_total: $IO_SOME_TOTAL, full_avg10: $IO_FULL_AVG10, full_avg60: $IO_FULL_AVG60, full_avg300: $IO_FULL_AVG300, full_total: $IO_FULL_TOTAL } }'
+        )
+    else
+        node_problem_detector_service_pressure='"Not Found"'
+    fi
+
+    NODEEXPORTERSERVICE="${CGROUP}/system.slice/node-exporter.service"
+    if [ -f "${NODEEXPORTERSERVICE}/cpu.pressure" ] && [ -f "${NODEEXPORTERSERVICE}/memory.pressure" ] && [ -f "${NODEEXPORTERSERVICE}/io.pressure" ]; then
+        node_exporter_service_cpu_pressure=$(cat "${NODEEXPORTERSERVICE}/cpu.pressure")
+        node_exporter_service_memory_pressure=$(cat "${NODEEXPORTERSERVICE}/memory.pressure")
+        node_exporter_service_io_pressure=$(cat "${NODEEXPORTERSERVICE}/io.pressure")
+        node_exporter_service_pressure=$( jq -c -n \
+            --arg CPU_SOME_AVG10 "$(echo "$node_exporter_service_cpu_pressure" | awk -F "=" '{print $2}' | awk '{print $1}')" \
+            --arg CPU_SOME_AVG60 "$(echo "$node_exporter_service_cpu_pressure" | awk -F "=" '{print $3}' | awk '{print $1}')" \
+            --arg CPU_SOME_AVG300 "$(echo "$node_exporter_service_cpu_pressure" | awk -F "=" '{print $4}' | awk '{print $1}')" \
+            --arg CPU_SOME_TOTAL "$(echo "$node_exporter_service_cpu_pressure" | awk -F "=" '{print $5}' | awk '{print $1}')" \
+            --arg MEMORY_SOME_AVG10 "$(echo $node_exporter_service_memory_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+            --arg MEMORY_SOME_AVG60 "$(echo $node_exporter_service_memory_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+            --arg MEMORY_SOME_AVG300 "$(echo $node_exporter_service_memory_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+            --arg MEMORY_SOME_TOTAL "$(echo $node_exporter_service_memory_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+            --arg MEMORY_FULL_AVG10 "$(echo $node_exporter_service_memory_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+            --arg MEMORY_FULL_AVG60 "$(echo $node_exporter_service_memory_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+            --arg MEMORY_FULL_AVG300 "$(echo $node_exporter_service_memory_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+            --arg MEMORY_FULL_TOTAL "$(echo $node_exporter_service_memory_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+            --arg IO_SOME_AVG10 "$(echo $node_exporter_service_io_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+            --arg IO_SOME_AVG60 "$(echo $node_exporter_service_io_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+            --arg IO_SOME_AVG300 "$(echo $node_exporter_service_io_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+            --arg IO_SOME_TOTAL "$(echo $node_exporter_service_io_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+            --arg IO_FULL_AVG10 "$(echo $node_exporter_service_io_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+            --arg IO_FULL_AVG60 "$(echo $node_exporter_service_io_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+            --arg IO_FULL_AVG300 "$(echo $node_exporter_service_io_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+            --arg IO_FULL_TOTAL "$(echo $node_exporter_service_io_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+            '{ CPUPressure: { some_avg10: $CPU_SOME_AVG10, some_avg60: $CPU_SOME_AVG60, some_avg300: $CPU_SOME_AVG300, some_total: $CPU_SOME_TOTAL }, MemoryPressure: { some_avg10: $MEMORY_SOME_AVG10, some_avg60: $MEMORY_SOME_AVG60, some_avg300: $MEMORY_SOME_AVG300, some_total: $MEMORY_SOME_TOTAL, full_avg10: $MEMORY_FULL_AVG10, full_avg60: $MEMORY_FULL_AVG60, full_avg300: $MEMORY_FULL_AVG300, full_total: $MEMORY_FULL_TOTAL }, IOPressure: { some_avg10: $IO_SOME_AVG10, some_avg60: $IO_SOME_AVG60, some_avg300: $IO_SOME_AVG300, some_total: $IO_SOME_TOTAL, full_avg10: $IO_FULL_AVG10, full_avg60: $IO_FULL_AVG60, full_avg300: $IO_FULL_AVG300, full_total: $IO_FULL_TOTAL } }'
+        )
+    else
+        node_exporter_service_pressure='"Not Found"'
+    fi
+
+    SYNCCONTAINERLOGSSERVICE="${CGROUP}/system.slice/sync-container-logs.service"
+    if [ -f "${SYNCCONTAINERLOGSSERVICE}/cpu.pressure" ] && [ -f "${SYNCCONTAINERLOGSSERVICE}/memory.pressure" ] && [ -f "${SYNCCONTAINERLOGSSERVICE}/io.pressure" ]; then
+        sync_container_logs_service_cpu_pressure=$(cat "${SYNCCONTAINERLOGSSERVICE}/cpu.pressure")
+        sync_container_logs_service_memory_pressure=$(cat "${SYNCCONTAINERLOGSSERVICE}/memory.pressure")
+        sync_container_logs_service_io_pressure=$(cat "${SYNCCONTAINERLOGSSERVICE}/io.pressure")
+        sync_container_logs_service_pressure=$( jq -c -n \
+            --arg CPU_SOME_AVG10 "$(echo "$sync_container_logs_service_cpu_pressure" | awk -F "=" '{print $2}' | awk '{print $1}')" \
+            --arg CPU_SOME_AVG60 "$(echo "$sync_container_logs_service_cpu_pressure" | awk -F "=" '{print $3}' | awk '{print $1}')" \
+            --arg CPU_SOME_AVG300 "$(echo "$sync_container_logs_service_cpu_pressure" | awk -F "=" '{print $4}' | awk '{print $1}')" \
+            --arg CPU_SOME_TOTAL "$(echo "$sync_container_logs_service_cpu_pressure" | awk -F "=" '{print $5}' | awk '{print $1}')" \
+            --arg MEMORY_SOME_AVG10 "$(echo $sync_container_logs_service_memory_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+            --arg MEMORY_SOME_AVG60 "$(echo $sync_container_logs_service_memory_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+            --arg MEMORY_SOME_AVG300 "$(echo $sync_container_logs_service_memory_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+            --arg MEMORY_SOME_TOTAL "$(echo $sync_container_logs_service_memory_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+            --arg MEMORY_FULL_AVG10 "$(echo $sync_container_logs_service_memory_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+            --arg MEMORY_FULL_AVG60 "$(echo $sync_container_logs_service_memory_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+            --arg MEMORY_FULL_AVG300 "$(echo $sync_container_logs_service_memory_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+            --arg MEMORY_FULL_TOTAL "$(echo $sync_container_logs_service_memory_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+            --arg IO_SOME_AVG10 "$(echo $sync_container_logs_service_io_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+            --arg IO_SOME_AVG60 "$(echo $sync_container_logs_service_io_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+            --arg IO_SOME_AVG300 "$(echo $sync_container_logs_service_io_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+            --arg IO_SOME_TOTAL "$(echo $sync_container_logs_service_io_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+            --arg IO_FULL_AVG10 "$(echo $sync_container_logs_service_io_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+            --arg IO_FULL_AVG60 "$(echo $sync_container_logs_service_io_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+            --arg IO_FULL_AVG300 "$(echo $sync_container_logs_service_io_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+            --arg IO_FULL_TOTAL "$(echo $sync_container_logs_service_io_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+            '{ CPUPressure: { some_avg10: $CPU_SOME_AVG10, some_avg60: $CPU_SOME_AVG60, some_avg300: $CPU_SOME_AVG300, some_total: $CPU_SOME_TOTAL }, MemoryPressure: { some_avg10: $MEMORY_SOME_AVG10, some_avg60: $MEMORY_SOME_AVG60, some_avg300: $MEMORY_SOME_AVG300, some_total: $MEMORY_SOME_TOTAL, full_avg10: $MEMORY_FULL_AVG10, full_avg60: $MEMORY_FULL_AVG60, full_avg300: $MEMORY_FULL_AVG300, full_total: $MEMORY_FULL_TOTAL }, IOPressure: { some_avg10: $IO_SOME_AVG10, some_avg60: $IO_SOME_AVG60, some_avg300: $IO_SOME_AVG300, some_total: $IO_SOME_TOTAL, full_avg10: $IO_FULL_AVG10, full_avg60: $IO_FULL_AVG60, full_avg300: $IO_FULL_AVG300, full_total: $IO_FULL_TOTAL } }'
+        )
+    else
+        sync_container_logs_service_pressure='"Not Found"'
+    fi
+
+    LOCALDNSSERVICE="${CGROUP}/localdns.slice/localdns.service"
+    if [ -f "${LOCALDNSSERVICE}/cpu.pressure" ] && [ -f "${LOCALDNSSERVICE}/memory.pressure" ] && [ -f "${LOCALDNSSERVICE}/io.pressure" ]; then
+        localdns_service_cpu_pressure=$(cat "${LOCALDNSSERVICE}/cpu.pressure")
+        localdns_service_memory_pressure=$(cat "${LOCALDNSSERVICE}/memory.pressure")
+        localdns_service_io_pressure=$(cat "${LOCALDNSSERVICE}/io.pressure")
+        localdns_service_pressure=$( jq -c -n \
+            --arg CPU_SOME_AVG10 "$(echo "$localdns_service_cpu_pressure" | awk -F "=" '{print $2}' | awk '{print $1}')" \
+            --arg CPU_SOME_AVG60 "$(echo "$localdns_service_cpu_pressure" | awk -F "=" '{print $3}' | awk '{print $1}')" \
+            --arg CPU_SOME_AVG300 "$(echo "$localdns_service_cpu_pressure" | awk -F "=" '{print $4}' | awk '{print $1}')" \
+            --arg CPU_SOME_TOTAL "$(echo "$localdns_service_cpu_pressure" | awk -F "=" '{print $5}' | awk '{print $1}')" \
+            --arg MEMORY_SOME_AVG10 "$(echo $localdns_service_memory_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+            --arg MEMORY_SOME_AVG60 "$(echo $localdns_service_memory_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+            --arg MEMORY_SOME_AVG300 "$(echo $localdns_service_memory_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+            --arg MEMORY_SOME_TOTAL "$(echo $localdns_service_memory_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+            --arg MEMORY_FULL_AVG10 "$(echo $localdns_service_memory_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+            --arg MEMORY_FULL_AVG60 "$(echo $localdns_service_memory_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+            --arg MEMORY_FULL_AVG300 "$(echo $localdns_service_memory_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+            --arg MEMORY_FULL_TOTAL "$(echo $localdns_service_memory_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+            --arg IO_SOME_AVG10 "$(echo $localdns_service_io_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+            --arg IO_SOME_AVG60 "$(echo $localdns_service_io_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+            --arg IO_SOME_AVG300 "$(echo $localdns_service_io_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+            --arg IO_SOME_TOTAL "$(echo $localdns_service_io_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+            --arg IO_FULL_AVG10 "$(echo $localdns_service_io_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+            --arg IO_FULL_AVG60 "$(echo $localdns_service_io_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+            --arg IO_FULL_AVG300 "$(echo $localdns_service_io_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+            --arg IO_FULL_TOTAL "$(echo $localdns_service_io_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+            '{ CPUPressure: { some_avg10: $CPU_SOME_AVG10, some_avg60: $CPU_SOME_AVG60, some_avg300: $CPU_SOME_AVG300, some_total: $CPU_SOME_TOTAL }, MemoryPressure: { some_avg10: $MEMORY_SOME_AVG10, some_avg60: $MEMORY_SOME_AVG60, some_avg300: $MEMORY_SOME_AVG300, some_total: $MEMORY_SOME_TOTAL, full_avg10: $MEMORY_FULL_AVG10, full_avg60: $MEMORY_FULL_AVG60, full_avg300: $MEMORY_FULL_AVG300, full_total: $MEMORY_FULL_TOTAL }, IOPressure: { some_avg10: $IO_SOME_AVG10, some_avg60: $IO_SOME_AVG60, some_avg300: $IO_SOME_AVG300, some_total: $IO_SOME_TOTAL, full_avg10: $IO_FULL_AVG10, full_avg60: $IO_FULL_AVG60, full_avg300: $IO_FULL_AVG300, full_total: $IO_FULL_TOTAL } }'
+        )
+    else
+        localdns_service_pressure='"Not Found"'
+    fi
 
     pressure_string=$( jq -n \
     --argjson CGROUP "$(echo $cgroup_pressure)" \
@@ -317,7 +444,11 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     --argjson KUBEPODSSLICE "$(echo $kubepods_slice_pressure)" \
     --argjson KUBELETSERVICE "$(echo $kubelet_service_pressure)" \
     --argjson CONTAINERDSERVICE "$(echo $containerd_service_pressure)" \
-    '{ cgroup_pressure: $CGROUP, system_slice_pressure: $SYSTEMSLICE, azure_slice_pressure: $AZURESLICE, kubepods_slice_pressure: $KUBEPODSSLICE, kubelet_service_pressure: $KUBELETSERVICE, containerd_service_pressure: $CONTAINERDSERVICE } | tostring'
+    --argjson NODEPROBLEMDETECTORSERVICE "${node_problem_detector_service_pressure}" \
+    --argjson NODEEXPORTERSERVICE "${node_exporter_service_pressure}" \
+    --argjson SYNCCONTAINERLOGSSERVICE "${sync_container_logs_service_pressure}" \
+    --argjson LOCALDNSSERVICE "${localdns_service_pressure}" \
+    '{ cgroup_pressure: $CGROUP, system_slice_pressure: $SYSTEMSLICE, azure_slice_pressure: $AZURESLICE, kubepods_slice_pressure: $KUBEPODSSLICE, kubelet_service_pressure: $KUBELETSERVICE, containerd_service_pressure: $CONTAINERDSERVICE, node_problem_detector_service_pressure: $NODEPROBLEMDETECTORSERVICE, node_exporter_service_pressure: $NODEEXPORTERSERVICE, sync_container_logs_service_pressure: $SYNCCONTAINERLOGSSERVICE, localdns_service_pressure: $LOCALDNSSERVICE } | tostring'
     )
 
     pressure_string=$(echo $pressure_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
