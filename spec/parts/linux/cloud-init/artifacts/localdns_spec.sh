@@ -57,6 +57,7 @@ fi
 EOF
             chmod +x "$COREDNS_BINARY_PATH"
             RESOLV_CONF="${TEST_DIR}/run/systemd/resolve/resolv.conf"
+            UPSTREAM_VNET_DNS_SERVERS="10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
             mkdir -p "$(dirname "$RESOLV_CONF")"
 cat <<EOF > "$RESOLV_CONF"
 nameserver 10.0.0.1
@@ -222,7 +223,7 @@ EOF
 
         #------------------------- replace_azurednsip_in_corefile -----------------------------------------------
         It 'should replace 168.63.129.16 with UpstreamDNSIP if it is not same as AzureDNSIP'
-            When run replace_azurednsip_in_corefile
+            When run replace_azurednsip_in_corefile "$UPSTREAM_VNET_DNS_SERVERS"
             The status should be success
             The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
             The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
@@ -234,7 +235,7 @@ EOF
         End
 
         It 'should create forward_ips.prom file when corefile is updated'
-            When run replace_azurednsip_in_corefile
+            When run replace_azurednsip_in_corefile "$UPSTREAM_VNET_DNS_SERVERS"
             The status should be success
             The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
             The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
@@ -258,7 +259,7 @@ health-check.localdns.local:53 {
     }
 }
 EOF
-            When run replace_azurednsip_in_corefile
+            When run replace_azurednsip_in_corefile "$UPSTREAM_VNET_DNS_SERVERS"
             The status should be success
             The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
             The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include "localdns_vnetdns_forward_info"
@@ -289,7 +290,7 @@ health-check.localdns.local:53 {
     }
 }
 EOF
-            When run replace_azurednsip_in_corefile
+            When run replace_azurednsip_in_corefile "$UPSTREAM_VNET_DNS_SERVERS"
             The status should be success
             The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
             The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include "localdns_vnetdns_forward_info"
@@ -316,7 +317,7 @@ health-check.localdns.local:53 {
     }
 }
 EOF
-            When run replace_azurednsip_in_corefile
+            When run replace_azurednsip_in_corefile "$UPSTREAM_VNET_DNS_SERVERS"
             The status should be success
             The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
             # Verify all 4 IPs are exported as separate metric lines
@@ -349,7 +350,7 @@ health-check.localdns.local:53 {
     }
 }
 EOF
-            When run replace_azurednsip_in_corefile
+            When run replace_azurednsip_in_corefile "$UPSTREAM_VNET_DNS_SERVERS"
             The status should be success
             The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
             # Verify all 4 IPs are exported for both VnetDNS and KubeDNS
@@ -382,7 +383,7 @@ health-check.localdns.local:53 {
     # No forward directive here
 }
 EOF
-            When run replace_azurednsip_in_corefile
+            When run replace_azurednsip_in_corefile "$UPSTREAM_VNET_DNS_SERVERS"
             The status should be success
             The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
             # Verify status="missing" when no forward IPs are found
@@ -392,58 +393,60 @@ EOF
         End
 
         It 'should set correct permissions on forward_ips.prom file'
-            When run replace_azurednsip_in_corefile
+            When run replace_azurednsip_in_corefile "$UPSTREAM_VNET_DNS_SERVERS"
             The status should be success
             The path "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be file
             The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
             Assert check_file_permissions "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" "644"
         End
 
-        It 'should fail if resolv.conf not found'
-            rm -f "$RESOLV_CONF"
-            When run replace_azurednsip_in_corefile
-            The status should be failure
-            The stdout should include ""$RESOLV_CONF" not found."
+        Parameters
+            empty
+            changed
+            missing
         End
-
-        It 'should fail if UpstreamDNSIP is not found in resolv.conf'
-cat <<EOF > "$RESOLV_CONF"
-invalid
-EOF
-            When run replace_azurednsip_in_corefile
-            The status should be failure
-            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
-            The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
-            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
+        It 'should use the accepted snapshot when resolv.conf becomes' "$1"
+            generate_from_snapshot() {
+                local upstream_dns
+                upstream_dns=$(wait_for_localdns_removed_from_resolv_conf 1) || return 1
+                case "$1" in
+                    empty) > "$RESOLV_CONF" ;;
+                    changed) printf 'nameserver 169.254.10.10\n' > "$RESOLV_CONF" ;;
+                    missing) rm -f "$RESOLV_CONF" ;;
+                esac
+                replace_azurednsip_in_corefile "$upstream_dns"
+            }
+            When run generate_from_snapshot "$1"
+            The status should be success
+            The stdout should include "Found upstream VNET DNS servers: $UPSTREAM_VNET_DNS_SERVERS"
+            The stderr should include "DNS configuration refreshed successfully"
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . $UPSTREAM_VNET_DNS_SERVERS"
         End
 
         It 'should not replace 168.63.129.16 with UpstreamDNSIP if it is ""'
-cat <<EOF > "$RESOLV_CONF"
-nameserver ""
-EOF
-            When run replace_azurednsip_in_corefile
+            When run replace_azurednsip_in_corefile '""'
             The status should be failure
             The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
-            The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
+            The stdout should include "No upstream VNET DNS servers supplied."
             The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
         End
 
         It 'should not replace 168.63.129.16 with UpstreamDNSIP if it is blank'
-cat <<EOF > "$RESOLV_CONF"
-nameserver
-EOF
+            When run replace_azurednsip_in_corefile ""
+            The status should be failure
+            The stdout should include "No upstream VNET DNS servers supplied."
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
+        End
+
+        It 'should fail if the upstream snapshot is not supplied'
             When run replace_azurednsip_in_corefile
             The status should be failure
-            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
-            The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
+            The stdout should include "No upstream VNET DNS servers supplied."
             The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
         End
 
         It 'should not replace 168.63.129.16 with UpstreamDNSIP if it is same as AzureDNSIP'
-cat <<EOF > "$RESOLV_CONF"
-nameserver 168.63.129.16
-EOF
-            When run replace_azurednsip_in_corefile
+            When run replace_azurednsip_in_corefile "168.63.129.16"
             The status should be success
             The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
             The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
@@ -452,10 +455,7 @@ EOF
         End
 
         It 'should not replace 168.63.129.16 with UpstreamDNSIP if it is same as localdns node listener IP'
-cat <<EOF > "$RESOLV_CONF"
-nameserver 169.254.10.10
-EOF
-            When run replace_azurednsip_in_corefile
+            When run replace_azurednsip_in_corefile "169.254.10.10"
             The status should be success
             The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
             The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
@@ -464,7 +464,7 @@ EOF
 
         It 'should return failure if AZURE_DNS_IP is unset'
             unset AZURE_DNS_IP
-            When run replace_azurednsip_in_corefile
+            When run replace_azurednsip_in_corefile "$UPSTREAM_VNET_DNS_SERVERS"
             The status should be failure
             The stdout should include "AZURE_DNS_IP is not set or is empty."
         End
@@ -1323,8 +1323,9 @@ nameserver 10.0.0.2
 EOF
             When run wait_for_localdns_removed_from_resolv_conf 5
             The status should be success
-            The stdout should include "DNS configuration refreshed successfully"
-            The stdout should include "Current DNS: 10.0.0.1 10.0.0.2"
+            The stdout should equal "10.0.0.1 10.0.0.2"
+            The stderr should include "DNS configuration refreshed successfully"
+            The stderr should include "Current DNS: 10.0.0.1 10.0.0.2"
         End
 
         It 'should timeout if localdns IP is still present'
@@ -1334,15 +1335,47 @@ nameserver 10.0.0.1
 EOF
             When run wait_for_localdns_removed_from_resolv_conf 2
             The status should be failure
-            The stdout should include "Timed out waiting for localdns to be removed from resolv.conf after 2 seconds"
-            The stdout should include "Current DNS:"
+            The stdout should be blank
+            The stderr should include "Timed out waiting for localdns to be removed from resolv.conf after 2 seconds"
+            The stderr should include "Current DNS:"
         End
 
-        It 'should return success if resolv.conf is empty'
+        It 'should keep waiting if resolv.conf is empty'
             > "$RESOLV_CONF"
-            When run wait_for_localdns_removed_from_resolv_conf 5
+            When run wait_for_localdns_removed_from_resolv_conf 1
+            The status should be failure
+            The stdout should be blank
+            The stderr should include "Timed out waiting for localdns to be removed"
+        End
+
+        It 'should keep waiting if resolv.conf contains only comments'
+            printf '# nameserver 10.0.0.1\n' > "$RESOLV_CONF"
+            When run wait_for_localdns_removed_from_resolv_conf 1
+            The status should be failure
+            The stdout should be blank
+            The stderr should include "Timed out waiting for localdns to be removed"
+        End
+
+        It 'should return the upstream snapshot when nameservers appear during wait'
+            > "$RESOLV_CONF"
+            sleep() {
+                printf 'nameserver 10.0.0.1\nnameserver 10.0.0.2\n' > "$RESOLV_CONF"
+            }
+            When run wait_for_localdns_removed_from_resolv_conf 1
             The status should be success
-            The stdout should include "DNS configuration refreshed successfully"
+            The stdout should equal "10.0.0.1 10.0.0.2"
+            The stderr should include "DNS configuration refreshed successfully"
+        End
+
+        It 'should reject partial output from a failed resolver read'
+            awk() {
+                printf '10.0.0.1\n'
+                return 1
+            }
+            When run wait_for_localdns_removed_from_resolv_conf 1
+            The status should be failure
+            The stdout should be blank
+            The stderr should include "Timed out waiting for localdns to be removed"
         End
 
         It 'should use default timeout of 5 seconds when not specified'
@@ -1351,14 +1384,16 @@ nameserver 10.0.0.1
 EOF
             When run wait_for_localdns_removed_from_resolv_conf
             The status should be success
-            The stdout should include "DNS configuration refreshed successfully"
+            The stdout should equal "10.0.0.1"
+            The stderr should include "DNS configuration refreshed successfully"
         End
 
-        It 'should handle resolv.conf not existing gracefully'
+        It 'should keep waiting if resolv.conf does not exist'
             rm -f "$RESOLV_CONF"
-            When run wait_for_localdns_removed_from_resolv_conf 2
-            The status should be success
-            The stdout should include "DNS configuration refreshed successfully"
+            When run wait_for_localdns_removed_from_resolv_conf 1
+            The status should be failure
+            The stdout should be blank
+            The stderr should include "Timed out waiting for localdns to be removed"
         End
 
         It 'should not match partial IP addresses'
@@ -1368,7 +1403,8 @@ EOF
             # 169.254.10.100 should NOT match 169.254.10.10
             When run wait_for_localdns_removed_from_resolv_conf 2
             The status should be success
-            The stdout should include "DNS configuration refreshed successfully"
+            The stdout should equal "169.254.10.100"
+            The stderr should include "DNS configuration refreshed successfully"
         End
 
         It 'should detect localdns IP among multiple nameservers'
@@ -1379,7 +1415,8 @@ nameserver 10.0.0.2
 EOF
             When run wait_for_localdns_removed_from_resolv_conf 2
             The status should be failure
-            The stdout should include "Timed out waiting for localdns to be removed"
+            The stdout should be blank
+            The stderr should include "Timed out waiting for localdns to be removed"
         End
 
         It 'should succeed when localdns IP is removed during wait (async removal)'
@@ -1392,7 +1429,8 @@ EOF
             (sleep 2 && echo "nameserver 10.0.0.1" > "$RESOLV_CONF") &
             When run wait_for_localdns_removed_from_resolv_conf 5
             The status should be success
-            The stdout should include "DNS configuration refreshed successfully"
+            The stdout should equal "10.0.0.1"
+            The stderr should include "DNS configuration refreshed successfully"
         End
 
         It 'should ignore commented lines in resolv.conf'
@@ -1404,7 +1442,8 @@ nameserver 10.0.0.2
 EOF
             When run wait_for_localdns_removed_from_resolv_conf 2
             The status should be success
-            The stdout should include "DNS configuration refreshed successfully"
+            The stdout should equal "10.0.0.1 10.0.0.2"
+            The stderr should include "DNS configuration refreshed successfully"
         End
 
         It 'should timeout when only localdns IP is present'
@@ -1413,7 +1452,8 @@ nameserver 169.254.10.10
 EOF
             When run wait_for_localdns_removed_from_resolv_conf 2
             The status should be failure
-            The stdout should include "Timed out waiting for localdns to be removed"
+            The stdout should be blank
+            The stderr should include "Timed out waiting for localdns to be removed"
         End
 
         It 'should handle IPv6 nameservers mixed with IPv4'
@@ -1424,7 +1464,8 @@ nameserver 10.0.0.2
 EOF
             When run wait_for_localdns_removed_from_resolv_conf 2
             The status should be success
-            The stdout should include "DNS configuration refreshed successfully"
+            The stdout should equal "10.0.0.1 2001:4860:4860::8888 10.0.0.2"
+            The stderr should include "DNS configuration refreshed successfully"
         End
 
         It 'should handle resolv.conf with search and options directives'
@@ -1436,8 +1477,9 @@ options timeout:2 attempts:3
 EOF
             When run wait_for_localdns_removed_from_resolv_conf 2
             The status should be success
-            The stdout should include "DNS configuration refreshed successfully"
-            The stdout should include "Current DNS: 10.0.0.1 10.0.0.2"
+            The stdout should equal "10.0.0.1 10.0.0.2"
+            The stderr should include "DNS configuration refreshed successfully"
+            The stderr should include "Current DNS: 10.0.0.1 10.0.0.2"
         End
 
         It 'should handle whitespace variations in resolv.conf'
@@ -1445,7 +1487,8 @@ EOF
             printf "nameserver\t10.0.0.1\nnameserver   10.0.0.2\n" > "$RESOLV_CONF"
             When run wait_for_localdns_removed_from_resolv_conf 2
             The status should be success
-            The stdout should include "DNS configuration refreshed successfully"
+            The stdout should equal "10.0.0.1 10.0.0.2"
+            The stderr should include "DNS configuration refreshed successfully"
         End
     End
 
