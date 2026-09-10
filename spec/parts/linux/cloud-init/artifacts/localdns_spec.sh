@@ -986,6 +986,38 @@ EOF
             The status should be success
             The stdout should include "No existing localdns iptables rules found."
         End
+
+        It 'should initialize network variables when DEFAULT_ROUTE_INTERFACE is unset and still remove the drop-in'
+            # Regression cover for the guard that now also checks DEFAULT_ROUTE_INTERFACE:
+            # cleanup can be invoked from a trap/watchdog restart with the interface unset,
+            # so it must call initialize_network_variables (re-deriving the interface via the
+            # mocked ip/networkctl) and still complete cleanup successfully.
+            iptables() { mock_iptables "$@"; }
+            AZURE_DNS_IP="168.63.129.16"
+            NETWORKCTL_RELOAD_CMD="true"
+            # A real network file must exist for verify_network_file during initialization.
+            NETWORK_FILE="/tmp/test-eth0.network"
+            touch "$NETWORK_FILE"
+            networkctl() {
+                if [[ "$1" == "--json=short" && "$2" == "status" && "$3" == "eth0" ]]; then
+                    echo "{\"NetworkFile\":\"${NETWORK_FILE}\"}"
+                elif [[ "$1" == "reload" ]]; then
+                    return 0
+                else
+                    command networkctl "$@"
+                fi
+            }
+            touch "$NETWORK_DROPIN_FILE"
+            # Force the new initialization branch: interface not yet known.
+            unset DEFAULT_ROUTE_INTERFACE
+            When call cleanup_iptables_and_dns
+            The status should be success
+            The stdout should include "Network variables not initialized, attempting to determine them..."
+            The stdout should include "Removing network drop-in file"
+            The variable DEFAULT_ROUTE_INTERFACE should equal "eth0"
+            The file "${NETWORK_DROPIN_FILE}" should not be exist
+            rm -f "$NETWORK_FILE"
+        End
     End
 
 
