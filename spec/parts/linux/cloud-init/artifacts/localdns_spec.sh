@@ -1345,6 +1345,18 @@ EOF
             The stdout should include "Timed out waiting for localdns to be removed"
         End
 
+        It 'should succeed when nameservers appear during wait (async recovery)'
+            # Start empty, then have the upstream nameserver appear mid-wait.
+            # This is the point of the fix: an empty resolver must keep waiting
+            # until the upstream is repopulated, then succeed - not false-succeed
+            # on the empty window.
+            > "$RESOLV_CONF"
+            (sleep 1 && echo "nameserver 10.0.0.1" > "$RESOLV_CONF") &
+            When run wait_for_localdns_removed_from_resolv_conf 5
+            The status should be success
+            The stdout should include "Current DNS: 10.0.0.1"
+        End
+
         It 'should keep waiting if resolv.conf contains only comments'
             printf '# nameserver 10.0.0.1\n' > "$RESOLV_CONF"
             When run wait_for_localdns_removed_from_resolv_conf 1
