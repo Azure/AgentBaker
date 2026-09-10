@@ -1,0 +1,251 @@
+#################################################################################
+# .kompli-scan-template.yaml                                         #
+#                                                                               #
+# Shared ADO steps template that downloads the kompli       #
+# binary and the benchmark definition packages from an Azure Artifacts NuGet feed onto #
+# the build agent. It is the AgentBaker counterpart of the Augmentation         #
+# Engine's .pipelines/templates/test/kompli-scan.yml, and is meant   #
+# to be the shared entry point for evolving compliance/benchmark integrations   #
+# (CIS today, STIG next) in the ADO VHD builder.                                #
+#                                                                               #
+# Package NAMES and VERSIONS are NOT hard-coded here: they are pinned in the    #
+# repo manifest vhdbuilder/packer/kompli-scan.json and read at runtime          #
+# with jq. Bumping a version therefore always requires a PR (PR-gating), the    #
+# same model ACL uses. A non-blocking staleness warning fires when a pin is     #
+# older than stalenessThresholdDays.                                            #
+#                                                                               #
+# Unlike the Augmentation Engine template, this one does NOT run the scan on   #
+# the agent: the kompli must scan the live node OS, so the actual scan runs #
+# on the scan VM built from the VHD (see vhdbuilder/packer/vhd-scanning.sh ->    #
+# kompli-report.sh). This template only performs the reusable,        #
+# benchmark-agnostic download and lays artifacts down at a predictable path.    #
+#                                                                               #
+# Output layout (under downloadRoot):                                           #
+#   kompli        the kompli binary (chmod +x)             #
+#   definitions/<key>.benchmark.json  one definition per benchmark key in the manifest  #
+#                                                                               #
+# Dependencies (agent tools): curl, unzip, jq, bash.                            #
+#                                                                               #
+# Feed auth:                                                                     #
+#   authMode=basic (default): System.AccessToken basic auth, same ADO org as    #
+#     the running pipeline. The build identity needs Feed Reader on the feed.    #
+#   authMode=bearer: workload-identity Azure service connection (Feed Reader),   #
+#     for a feed in a different ADO org. Provide feedServiceConnection.          #
+#################################################################################
+
+parameters:
+- name: condition
+  type: string
+  default: succeeded()
+  displayName: 'Runtime condition gating every step (e.g. restrict to specific OS/versions)'
+
+- name: manifestPath
+  type: string
+  default: '$(Build.SourcesDirectory)/vhdbuilder/packer/kompli-scan.json'
+  displayName: 'Path to the PR-gated version manifest'
+
+- name: stalenessThresholdDays
+  type: number
+  default: 180
+  displayName: 'Emit a non-blocking warning when a pinned version is older than this many days'
+
+- name: feedName
+  type: string
+  default: 'ComplianceEnginePackages'
+  displayName: 'Azure Artifacts NuGet feed name hosting the kompli + benchmark packages'
+
+- name: feedProject
+  type: string
+  default: ''
+  displayName: 'ADO project hosting the feed (empty = org-scoped feed)'
+
+- name: feedOrg
+  type: string
+  default: ''
+  displayName: 'ADO organization hosting the feed (empty = derive from System.CollectionUri)'
+
+- name: authMode
+  type: string
+  default: 'basic'
+  values:
+  - basic
+  - bearer
+  displayName: 'Feed auth: basic (System.AccessToken, same org) or bearer (service connection, cross-org)'
+
+- name: feedServiceConnection
+  type: string
+  default: ''
+  displayName: 'Azure service connection with Feed Reader (required when authMode=bearer)'
+
+- name: downloadRoot
+  type: string
+  default: '$(Build.SourcesDirectory)/vhdbuilder/kompli'
+  displayName: 'Agent directory to place the kompli binary and benchmark definitions'
+
+steps:
+# ── Phase 0: resolve a feed auth header ────────────────────────────────────────
+# Both auth modes converge on a single secret variable, kompliFeedAuthHeader, so the
+# download step below stays identical regardless of how the feed is reached.
+- ${{ if eq(parameters.authMode, 'bearer') }}:
+  - task: AzureCLI@2
+    displayName: 'kompli: resolve feed auth (bearer)'
+    condition: ${{ parameters.condition }}
+    inputs:
+      azureSubscription: ${{ parameters.feedServiceConnection }}
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -euo pipefail
+        # 499b84ac-... is the well-known Azure DevOps resource ID; the token it
+        # returns is accepted by the Azure Artifacts flat2 API.
+        token=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv)
+        echo "##vso[task.setvariable variable=kompliFeedAuthHeader;issecret=true]Authorization: Bearer ${token}"
+- ${{ else }}:
+  - script: |
+      set -euo pipefail
+      # Basic auth with the build identity's token (username empty, password=token).
+      header="Authorization: Basic $(printf ':%s' "${SYSTEM_ACCESSTOKEN}" | base64 | tr -d '\n')"
+      echo "##vso[task.setvariable variable=kompliFeedAuthHeader;issecret=true]${header}"
+    displayName: 'kompli: resolve feed auth (basic)'
+    condition: ${{ parameters.condition }}
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+# ── Phase 1: download kompli + benchmark definitions (manifest-driven) ──────────────
+- script: |
+    set -euo pipefail
+
+    manifest="${{ parameters.manifestPath }}"
+    if [ ! -f "${manifest}" ]; then
+        echo "##[error]Compliance version manifest not found: ${manifest}"
+        exit 1
+    fi
+    command -v jq >/dev/null 2>&1 || { echo "##[error]jq is required but not installed"; exit 1; }
+
+    # Derive the flat2 base URL.
+    feed_org="${{ parameters.feedOrg }}"
+    if [ -z "${feed_org}" ]; then
+        col_uri="${SYSTEM_COLLECTIONURI%/}"
+        if [ "${col_uri#https://dev.azure.com/}" != "${col_uri}" ]; then
+            feed_org="${col_uri#https://dev.azure.com/}"
+        else
+            feed_org="${col_uri#https://}"; feed_org="${feed_org%%.*}"
+        fi
+    fi
+    feed_project="${{ parameters.feedProject }}"
+    feed_name="${{ parameters.feedName }}"
+    if [ -n "${feed_project}" ]; then
+        base_url="https://pkgs.dev.azure.com/${feed_org}/${feed_project}/_packaging/${feed_name}/nuget/v3/flat2"
+    else
+        base_url="https://pkgs.dev.azure.com/${feed_org}/_packaging/${feed_name}/nuget/v3/flat2"
+    fi
+
+    download_root="${{ parameters.downloadRoot }}"
+    def_dir="${download_root}/definitions"
+    tmp_dir="${download_root}/.download"
+    rm -rf "${download_root}"
+    mkdir -p "${def_dir}" "${tmp_dir}"
+
+    threshold="${{ parameters.stalenessThresholdDays }}"
+    now=$(date -u +%s)
+    # Splits a '<package>@<version>' pin into _name / _ver (package names contain
+    # no '@'). Fails on a malformed pin.
+    split_pin() {
+        local label="$1" pin="$2"
+        _name="${pin%@*}"; _ver="${pin##*@}"
+        if [ "${_name}" = "${pin}" ] || [ -z "${_name}" ] || [ -z "${_ver}" ]; then
+            echo "##[error]'${label}' pin must be '<package>@<version>' (got '${pin}')"
+            exit 1
+        fi
+    }
+    # Compliance package versions are '<YYYYMMDD>.<buildid>[-suffix]', so the pin
+    # date is the version's leading 8 digits — no separate 'updated' field.
+    warn_if_stale() {
+        local label="$1" ver="$2" datestr upd_epoch age
+        datestr="${ver:0:8}"
+        if ! printf '%s' "$datestr" | grep -Eq '^[0-9]{8}$' || ! upd_epoch=$(date -u -d "${datestr:0:4}-${datestr:4:2}-${datestr:6:2}" +%s 2>/dev/null); then
+            echo "##vso[task.logissue type=warning]${label}: cannot derive a date from version '${ver}'; skipping staleness check."
+            return 0
+        fi
+        age=$(( (now - upd_epoch) / 86400 ))
+        if [ "${age}" -gt "${threshold}" ]; then
+            echo "##vso[task.logissue type=warning]${label} version '${ver}' is ${age} days old (threshold ${threshold}). Open a PR to bump vhdbuilder/packer/kompli-scan.json."
+        fi
+    }
+
+    # Downloads and extracts a NuGet package via the flat2 API.
+    #   $1 = package name, $2 = version, $3 = extract dir
+    download_pkg() {
+        local name="$1" ver="$2" out="$3"
+        # NuGet normalizes 2-part versions (X.Y[-pre] -> X.Y.0[-pre]) in flat2 URLs.
+        if printf '%s' "$ver" | grep -Eq '^[0-9]+\.[0-9]+(-.*)?$'; then
+            local pre=""
+            case "$ver" in *-*) pre="-${ver#*-}"; ver="${ver%%-*}";; esac
+            ver="${ver}.0${pre}"
+        fi
+        local url="${base_url}/${name}/${ver}/${name}.${ver}.nupkg"
+        echo "Downloading ${name} ${ver}"
+        echo "  URL: ${url}"
+        curl -sSfL -H "${KOMPLI_FEED_AUTH_HEADER}" "${url}" -o "${tmp_dir}/${name}.nupkg"
+        mkdir -p "${out}"
+        unzip -q -o "${tmp_dir}/${name}.nupkg" -d "${out}"
+    }
+
+    # Kompli pin ('<package>@<version>') from the manifest.
+    a_pin=$(jq -r '.kompli // empty' "${manifest}")
+    [ -n "${a_pin}" ] || { echo "##[error]'kompli' pin missing in ${manifest}"; exit 1; }
+    split_pin "kompli" "${a_pin}"; a_name="${_name}"; a_ver="${_ver}"
+    warn_if_stale "kompli" "${a_ver}"
+    download_pkg "${a_name}" "${a_ver}" "${tmp_dir}/kompli"
+
+    # The package ships multiarch runtimes/<rid>/native/kompli (ADR-0003 in
+    # unified-definitions) — select the binary matching this agent's build
+    # architecture; a flat `find` here would non-deterministically pick
+    # whichever arch happens to sort first, silently staging the wrong ELF on
+    # an arm64 build. Fall back to a flat layout (single binary, no
+    # runtimes/ tree) for older/non-RID packages.
+    case "${ARCHITECTURE^^}" in
+        ARM64) kompli_rid=linux-arm64 ;;
+        X86_64|AMD64) kompli_rid=linux-x64 ;;
+        *) echo "##[error]Unrecognized ARCHITECTURE '${ARCHITECTURE}' for kompli RID selection"; exit 1 ;;
+    esac
+    kompli_bin="${tmp_dir}/kompli/runtimes/${kompli_rid}/native/kompli"
+    if [ ! -f "${kompli_bin}" ]; then
+        kompli_bin=$(find "${tmp_dir}/kompli" -name 'kompli' -type f | head -1)
+    fi
+    if [ -z "${kompli_bin}" ] || [ ! -f "${kompli_bin}" ]; then
+        echo "##[error]kompli binary not found in package ${a_name} (looked for RID ${kompli_rid})"
+        find "${tmp_dir}/kompli" -type f || true
+        exit 1
+    fi
+    cp "${kompli_bin}" "${download_root}/kompli"
+    chmod +x "${download_root}/kompli"
+    echo "Kompli staged at ${download_root}/kompli (RID ${kompli_rid})"
+
+    # Benchmark definitions: one per key under .benchmarks (each value a
+    # '<package>@<version>' pin), renamed to definitions/<key>.benchmark.json.
+    bench_count=$(jq -r '(.benchmarks // {}) | length' "${manifest}")
+    [ "${bench_count}" -ge 1 ] || { echo "##[error]'benchmarks' must contain at least one entry in ${manifest}"; exit 1; }
+    for key in $(jq -r '.benchmarks | keys[]' "${manifest}"); do
+        b_pin=$(jq -r --arg k "$key" '.benchmarks[$k]' "${manifest}")
+        split_pin "${key}" "${b_pin}"; b_name="${_name}"; b_ver="${_ver}"
+        warn_if_stale "${key}" "${b_ver}"
+        download_pkg "${b_name}" "${b_ver}" "${tmp_dir}/${key}"
+        def=$(find "${tmp_dir}/${key}" -name '*.benchmark.json' -type f | head -1)
+        if [ -z "${def}" ]; then
+            echo "##[error]No *.benchmark.json found in benchmark package ${b_name} (key ${key})"
+            find "${tmp_dir}/${key}" -type f || true
+            exit 1
+        fi
+        cp "${def}" "${def_dir}/${key}.benchmark.json"
+        echo "Definition for ${key} staged at ${def_dir}/${key}.benchmark.json"
+    done
+
+    rm -rf "${tmp_dir}"
+    echo "kompli artifacts ready under ${download_root}:"
+    ls -lR "${download_root}" || true
+  displayName: 'kompli: download kompli + benchmark definitions'
+  condition: ${{ parameters.condition }}
+  env:
+    KOMPLI_FEED_AUTH_HEADER: $(kompliFeedAuthHeader)
+    SYSTEM_COLLECTIONURI: $(System.CollectionUri)
