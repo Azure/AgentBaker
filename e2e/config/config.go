@@ -49,7 +49,7 @@ type Configuration struct {
 	DefaultPollInterval                    time.Duration
 	DefaultSubnetName                      string
 	DefaultVMSKU                           string
-	DefaultGen1VMSKU                       string
+	Gen1SCSIVMSKU                          string
 	MANAVMSKU                              string
 	DisableScriptless                      bool
 	DisableScriptLessCompilation           bool
@@ -97,7 +97,7 @@ func DefaultConfiguration() *Configuration {
 		DefaultPollInterval:                    15 * time.Second,
 		DefaultSubnetName:                      "aks-subnet",
 		DefaultVMSKU:                           "Standard_D2ds_v5",
-		DefaultGen1VMSKU:                       "Standard_D2ds_v5",
+		Gen1SCSIVMSKU:                          "Standard_D2ds_v5",
 		MANAVMSKU:                              "Standard_D2ds_v6",
 		E2ELoggingDir:                          "scenario-logs",
 		EnableSecureTLSBootstrapping:           false,

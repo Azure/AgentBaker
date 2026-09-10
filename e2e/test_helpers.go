@@ -337,9 +337,9 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		return nil, fmt.Errorf("checking if VM size %q supports only Gen2: %w", s.Runtime.VMSize, err)
 	}
 	if gen2Only && s.Config.VHD.UnsupportedGen2 {
-		s.Logger.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supports Gen1 %q", s.Runtime.VMSize, config.Config.DefaultGen1VMSKU)
-		s.Runtime.VMSize = config.Config.DefaultGen1VMSKU
-		nbc.AgentPoolProfile.VMSize = config.Config.DefaultGen1VMSKU
+		s.Logger.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supports Gen1 %q", s.Runtime.VMSize, config.Config.Gen1SCSIVMSKU)
+		s.Runtime.VMSize = config.Config.Gen1SCSIVMSKU
+		nbc.AgentPoolProfile.VMSize = config.Config.Gen1SCSIVMSKU
 	}
 	supportsNVMe, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
 		Location: s.Location,
@@ -350,9 +350,9 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	}
 	if supportsNVMe {
 		if s.Config.VHD.UnsupportedNVMe {
-			s.Logger.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", s.Runtime.VMSize, config.Config.DefaultGen1VMSKU)
-			s.Runtime.VMSize = config.Config.DefaultGen1VMSKU
-			nbc.AgentPoolProfile.VMSize = config.Config.DefaultGen1VMSKU
+			s.Logger.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", s.Runtime.VMSize, config.Config.Gen1SCSIVMSKU)
+			s.Runtime.VMSize = config.Config.Gen1SCSIVMSKU
+			nbc.AgentPoolProfile.VMSize = config.Config.Gen1SCSIVMSKU
 		} else {
 			s.Config.UseNVMe = true
 		}

@@ -20,9 +20,9 @@ func TestFlagsConfigureSpecializedVMSKUs(t *testing.T) {
 			value: func(c *Configuration) string { return c.MANAVMSKU },
 		},
 		{
-			name: "Gen1 fallback", flag: "--gen1-vm-sku", env: "DEFAULT_GEN1_VM_SKU",
+			name: "Gen1 SCSI fallback", flag: "--gen1-scsi-vm-sku", env: "GEN1_SCSI_VM_SKU",
 			defaultSKU: "Standard_D2ds_v5", envSKU: "Standard_D4ds_v5", argSKU: "Standard_D8ds_v5",
-			value: func(c *Configuration) string { return c.DefaultGen1VMSKU },
+			value: func(c *Configuration) string { return c.Gen1SCSIVMSKU },
 		},
 	} {
 		t.Run(setting.name, func(t *testing.T) {
