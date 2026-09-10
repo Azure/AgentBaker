@@ -33,6 +33,39 @@ func TestValidateRxBufferDefaultDoesNotSkipBySKU(t *testing.T) {
 	}
 }
 
+func TestParseCurrentRxBuffer(t *testing.T) {
+	for _, tc := range []struct {
+		name, output, want string
+		wantError          bool
+	}{
+		{
+			name: "current not maximum",
+			output: "Ring parameters for eth1:\nPre-set maximums:\nRX:\t8192\nTX:\t16384\n" +
+				"Current hardware settings:\nRX:\t512\nRX Mini:\t0\nRX Jumbo:\t0\nTX:\t256\n",
+			want: "512",
+		},
+		{
+			name:   "whitespace and other RX fields",
+			output: "Current hardware settings:\nRX Mini: 0\nRX Jumbo: 0\n  RX:\t2048  \nTX: 256\n",
+			want:   "2048",
+		},
+		{name: "missing current section", output: "Pre-set maximums:\nRX: 8192\n", wantError: true},
+		{name: "missing RX", output: "Current hardware settings:\nTX: 256\n", wantError: true},
+		{name: "empty RX", output: "Current hardware settings:\nRX:\n", wantError: true},
+		{name: "extra RX fields", output: "Current hardware settings:\nRX: 512 1024\n", wantError: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := parseCurrentRxBuffer(tc.output)
+			if tc.wantError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestValidateDefaultRxBufferSize(t *testing.T) {
 	tests := []struct {
 		cpus      int

@@ -2523,19 +2523,7 @@ var _ = Register(&Scenario{
 	Tags: Tags{
 		VMSeriesCoverageTest: true,
 	},
-	Config: Config{
-		Cluster: ClusterLatestKubernetesVersionKubenet,
-		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
-		UseNVMe: true,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.Config.MANAVMSKU
-			nbc.AgentPoolProfile.VMSize = config.Config.MANAVMSKU
-		},
-		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr(config.Config.MANAVMSKU)
-			enableAcceleratedNetworking(vmss)
-		},
-	},
+	Config: manaScenarioConfig(config.VHDUbuntu2604MinimalGen2Containerd, ClusterLatestKubernetesVersionKubenet),
 })
 
 var _ = Register(&Scenario{
@@ -3811,19 +3799,7 @@ var _ = Register(&Scenario{
 	Tags: Tags{
 		VMSeriesCoverageTest: true,
 	},
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDUbuntu2404Gen2Containerd,
-		UseNVMe: true,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.Config.MANAVMSKU
-			nbc.AgentPoolProfile.VMSize = config.Config.MANAVMSKU
-		},
-		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr(config.Config.MANAVMSKU)
-			enableAcceleratedNetworking(vmss)
-		},
-	},
+	Config: manaScenarioConfig(config.VHDUbuntu2404Gen2Containerd, ClusterKubenet),
 })
 
 var _ = Register(&Scenario{
@@ -3832,19 +3808,7 @@ var _ = Register(&Scenario{
 	Tags: Tags{
 		VMSeriesCoverageTest: true,
 	},
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDUbuntu2204Gen2Containerd,
-		UseNVMe: true,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.Config.MANAVMSKU
-			nbc.AgentPoolProfile.VMSize = config.Config.MANAVMSKU
-		},
-		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr(config.Config.MANAVMSKU)
-			enableAcceleratedNetworking(vmss)
-		},
-	},
+	Config: manaScenarioConfig(config.VHDUbuntu2204Gen2Containerd, ClusterKubenet),
 })
 
 var _ = Register(&Scenario{
@@ -3853,9 +3817,13 @@ var _ = Register(&Scenario{
 	Tags: Tags{
 		VMSeriesCoverageTest: true,
 	},
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDAzureLinuxV3Gen2,
+	Config: manaScenarioConfig(config.VHDAzureLinuxV3Gen2, ClusterKubenet),
+})
+
+func manaScenarioConfig(vhd *config.Image, cluster func(context.Context, ClusterRequest) (*Cluster, error)) Config {
+	return Config{
+		Cluster: cluster,
+		VHD:     vhd,
 		UseNVMe: true,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.Config.MANAVMSKU
@@ -3865,8 +3833,8 @@ var _ = Register(&Scenario{
 			vmss.SKU.Name = to.Ptr(config.Config.MANAVMSKU)
 			enableAcceleratedNetworking(vmss)
 		},
-	},
-})
+	}
+}
 
 // Ubuntu2204_NodeHardening_KubeReservedSlice_ConfigFile validates the config-file
 // kubelet path (kubelet reads /etc/default/kubeletconfig.json), which is selected whenever

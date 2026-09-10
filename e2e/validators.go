@@ -492,29 +492,40 @@ func validateRxBufferConfig(ctx context.Context, s *Scenario, cpuCount int) erro
 			return errors.Join(append(errs, fmt.Errorf("get ethtool output for nic %s: %w", nic, err))...)
 		}
 		s.Logger.Logf("Full ethtool output for %s:\n%s", nic, debugResult.stdout)
-		oldEthtool := strings.Contains(debugResult.stdout, "Current hardware settings")
-
-		var cmd string
-		if oldEthtool {
-			cmd = fmt.Sprintf("sudo env LC_ALL=C ethtool -g %q | grep -A 5 'Current hardware settings' | grep -i '^RX:' | awk '{print $2}'", nic)
+		var actualValue string
+		if strings.Contains(debugResult.stdout, "Current hardware settings") {
+			actualValue, err = parseCurrentRxBuffer(debugResult.stdout)
+			if err != nil {
+				return errors.Join(append(errs, fmt.Errorf("parse RX buffer for nic %s: %w\nFull ethtool output:\n%s", nic, err, debugResult.stdout))...)
+			}
 		} else {
-			cmd = fmt.Sprintf("sudo env LC_ALL=C ethtool --json -g %q | jq -r '.[0].rx'", nic)
+			cmd := fmt.Sprintf("set -euo pipefail\nsudo env LC_ALL=C ethtool --json -g %q | jq -r '.[0].rx'", nic)
+			execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0, "could not get ethtool RX buffer")
+			if err != nil {
+				return errors.Join(append(errs, fmt.Errorf("get RX buffer for nic %s: %w", nic, err))...)
+			}
+			actualValue = strings.TrimSpace(execResult.stdout)
 		}
-		command := []string{
-			"set -euo pipefail",
-			cmd,
-		}
-		execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get ethtool RX buffer")
-		if err != nil {
-			return errors.Join(append(errs, fmt.Errorf("get RX buffer for nic %s: %w", nic, err))...)
-		}
-		actualValue := strings.TrimSpace(execResult.stdout)
 		s.Logger.Logf("NIC %s has RX buffer %s with %d CPUs", nic, actualValue, cpuCount)
 		if err := validateDefaultRxBufferSize(cpuCount, actualValue); err != nil {
 			errs = append(errs, fmt.Errorf("validate RX buffer for nic %s: %w\nFull ethtool output:\n%s", nic, err, debugResult.stdout))
 		}
 	}
 	return errors.Join(errs...)
+}
+
+func parseCurrentRxBuffer(output string) (string, error) {
+	_, current, found := strings.Cut(output, "Current hardware settings")
+	if !found {
+		return "", fmt.Errorf("missing current hardware settings")
+	}
+	for _, line := range strings.Split(current, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 2 && strings.EqualFold(fields[0], "RX:") {
+			return fields[1], nil
+		}
+	}
+	return "", fmt.Errorf("missing or malformed current RX buffer size")
 }
 
 func validateDefaultRxBufferSize(cpuCount int, actual string) error {

@@ -36,6 +36,7 @@ func TestMANAScenariosUseExplicitSKU(t *testing.T) {
 				t.Run(name, func(t *testing.T) {
 					s, ok := scenarios[name]
 					require.True(t, ok, "MANA scenario must remain registered")
+					require.True(t, s.UseNVMe)
 					nbc := &datamodel.NodeBootstrappingConfiguration{
 						ContainerService: &datamodel.ContainerService{
 							Properties: &datamodel.Properties{
