@@ -590,7 +590,7 @@ function NodePrep {
             Write-Log "aks-windows-exporter startup failed: $_; continuing node provisioning without enabling extension fallback"
         }
     } else {
-        Write-Log "Install-WindowsExporter not available; skipping exporter startup (baked extension skip marker is unchanged)"
+        Write-Log "Install-WindowsExporter not available; skipping exporter startup (extension skip-marker state was not modified)"
     }
 
     Write-Log "Starting NodePrep - Cluster integration"
