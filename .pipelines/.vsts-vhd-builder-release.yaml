@@ -148,6 +148,7 @@ variables:
   - group: "AKS Node SIG UA Token (KV)"
   - group: build_performance
   - group: aks-vuln-to-kusto-tme
+  - group: "AKS Node SIG - PMC COSI TME"
 
 stages:
   - stage: build
