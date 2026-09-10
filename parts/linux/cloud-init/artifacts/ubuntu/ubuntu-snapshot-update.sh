@@ -464,7 +464,10 @@ knead_main() {
 ${__SOURCED__:+return}
 # --------------------------------------- Main Execution starts here --------------------------------------------------
 
+# The securityPatch handler lives in a sibling script that is delivered separately.
+# Source it only when present so the reconciler still runs (e.g. for localDNS) on
+# nodes where the security-update handler has not been baked in.
 # shellcheck disable=SC1091
-source /opt/azure/containers/security-update.sh
+[ -f /opt/azure/containers/security-update.sh ] && source /opt/azure/containers/security-update.sh
 
 knead_main "$@"
