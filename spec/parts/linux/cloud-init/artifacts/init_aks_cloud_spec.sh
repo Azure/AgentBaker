@@ -8,6 +8,7 @@
 #    - repo-depot helpers (init_ubuntu_main_repo_depot, init_ubuntu_pmc_repo_depot,
 #      init_mariner_repo_depot, init_azurelinux_repo_depot, check_url)
 #    - cloud mode selection helper (determine_cert_endpoint_mode)
+#    - Chrony source selection and network synchronization verification
 
 Describe 'init-aks-cloud.sh refresh mode wiring'
     script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
@@ -64,6 +65,20 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
 
     It 'passes LOCATION directly into systemd refresh command'
         When run grep -Eq '^ExecStart=\$script_path ca-refresh \$LOCATION$' "$script_path"
+        The status should eq 0
+    End
+End
+
+Describe 'cse_cmd.sh Chrony failure wiring'
+    script_path='./parts/linux/cloud-init/artifacts/cse_cmd.sh'
+
+    It 'captures the init-aks-cloud exit code'
+        When run grep -Eq '^[[:space:]]*initAKSCloudExitCode=\$\?;$' "$script_path"
+        The status should eq 0
+    End
+
+    It 'fails provisioning only for the outbound connectivity exit code'
+        When run grep -Eq '^[[:space:]]*if \[ "\$initAKSCloudExitCode" -eq 50 \]; then$' "$script_path"
         The status should eq 0
     End
 End
@@ -297,6 +312,92 @@ EOF
 
             When call resolve_ubuntu_2604_cvm_time_source
             The output should eq "pool ntp.ubuntu.com iburst maxsources 4"
+            The status should be success
+        End
+
+        It 'waits for Chrony to synchronize with the configured NTP pool'
+            Mock chronyc
+                echo "$*"
+            End
+            Mock emit_event
+                echo "event: $*"
+            End
+
+            When call verify_chrony_sync
+            The output should include "waitsync 12 0 0 5"
+            The output should include "NTP synchronization confirmed through ntp.ubuntu.com"
+            The output should include "AKS.CSE.chrony.ntpSynchronized"
+            The status should be success
+        End
+
+        It 'reports Chrony diagnostics when NTP synchronization fails'
+            Mock chronyc
+                case "$1" in
+                    waitsync)
+                        return 1
+                        ;;
+                    sources)
+                        echo "mock Chrony sources"
+                        ;;
+                    tracking)
+                        echo "mock Chrony tracking"
+                        ;;
+                esac
+            End
+            Mock emit_event
+                echo "event: $*" >&2
+            End
+
+            When call verify_chrony_sync
+            The error should include "NTP unavailable, failing provisioning"
+            The error should include "AKS.CSE.chrony.ntpUnavailable"
+            The error should include "mock Chrony sources"
+            The error should include "mock Chrony tracking"
+            The status should equal 50
+        End
+
+        It 'verifies synchronization after selecting the network NTP fallback'
+            Mock resolve_ubuntu_2604_cvm_time_source
+                echo "pool ntp.ubuntu.com iburst maxsources 4"
+            End
+            Mock configure_chrony
+                :
+            End
+            Mock verify_chrony_sync
+                echo "verified network synchronization"
+            End
+            Mock emit_event
+                echo "event: $*"
+            End
+
+            When call configure_ubuntu_2604_cvm_time_sync
+            The output should include "PHC unavailable after retries"
+            The output should include "Using NTP pool: ntp.ubuntu.com"
+            The output should include "AKS.CSE.chrony.phcUnavailable"
+            The output should include "AKS.CSE.chrony.usingNTP"
+            The output should include "verified network synchronization"
+            The status should be success
+        End
+
+        It 'does not wait for network synchronization when using the Hyper-V clock'
+            Mock resolve_ubuntu_2604_cvm_time_source
+                echo "refclock PHC /dev/ptp_hyperv poll 3 dpoll -2 offset 0"
+            End
+            Mock configure_chrony
+                :
+            End
+            Mock verify_chrony_sync
+                echo "unexpected network synchronization check"
+                return 1
+            End
+            Mock emit_event
+                echo "event: $*"
+            End
+
+            When call configure_ubuntu_2604_cvm_time_sync
+            The output should include "Using PHC time source: /dev/ptp_hyperv"
+            The output should include "AKS.CSE.chrony.usingPHC"
+            The output should not include "unexpected network synchronization check"
             The status should be success
         End
     End

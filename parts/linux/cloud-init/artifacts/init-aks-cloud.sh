@@ -81,6 +81,8 @@ IS_ACL=0
 IS_MARINER=0
 IS_AZURELINUX=0
 
+ERR_OUTBOUND_CONN_FAIL=50 # Unable to establish outbound connection
+
 # http://168.63.129.16 is a constant for the host's wireserver endpoint.
 WIRESERVER_ENDPOINT="http://168.63.129.16"
 
@@ -593,6 +595,23 @@ function resolve_ubuntu_2604_cvm_time_source {
     echo "pool ntp.ubuntu.com iburst maxsources 4"
 }
 
+function verify_chrony_sync {
+    local max_attempts=12
+    local retry_interval_seconds=5
+
+    if chronyc waitsync "$max_attempts" 0 0 "$retry_interval_seconds"; then
+        echo "NTP synchronization confirmed through ntp.ubuntu.com"
+        emit_event "AKS.CSE.chrony.ntpSynchronized" "NTP synchronization confirmed through ntp.ubuntu.com"
+        return 0
+    fi
+
+    echo "ERROR: NTP unavailable, failing provisioning" >&2
+    emit_event "AKS.CSE.chrony.ntpUnavailable" "NTP unavailable after ${max_attempts} synchronization checks; failing provisioning" "Error"
+    chronyc sources -v >&2
+    chronyc tracking >&2
+    return "$ERR_OUTBOUND_CONN_FAIL"
+}
+
 function configure_chrony {
     local time_source="${1:-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0}"
     local chrony_conf="/etc/chrony/chrony.conf"
@@ -666,10 +685,26 @@ EOF
 
 function configure_ubuntu_2604_cvm_time_sync {
     local time_source
+    local phc_device
 
     time_source="$(resolve_ubuntu_2604_cvm_time_source)"
-    echo "Ubuntu 26.04 CVM Chrony time source: ${time_source}"
-    configure_chrony "$time_source"
+    if [[ "$time_source" == refclock\ PHC\ * ]]; then
+        phc_device="${time_source#refclock PHC }"
+        phc_device="${phc_device%% *}"
+        echo "Using PHC time source: ${phc_device}"
+        emit_event "AKS.CSE.chrony.usingPHC" "Using PHC time source ${phc_device}"
+    else
+        echo "PHC unavailable after retries; falling back to network NTP"
+        emit_event "AKS.CSE.chrony.phcUnavailable" "PHC unavailable after retries; falling back to network NTP" "Warning"
+        echo "Using NTP pool: ntp.ubuntu.com"
+        emit_event "AKS.CSE.chrony.usingNTP" "Using NTP pool ntp.ubuntu.com"
+    fi
+
+    configure_chrony "$time_source" || return 1
+
+    if [[ "$time_source" == pool\ * ]]; then
+        verify_chrony_sync
+    fi
 }
 
 # shellcheck disable=SC2317
