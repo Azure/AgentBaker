@@ -3581,12 +3581,12 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) error {
 		vmSKUDescription = "VM SKU"
 	}
 
-	vmSKUGen, hasVMGeneration, err := vmSKUGeneration(vmSKU)
+	vmSKUGen, err := vmSKUGeneration(vmSKU)
 	if err != nil {
 		return fmt.Errorf("get %s generation for %s: %w", vmSKUDescription, vmSKU, err)
 	}
 
-	if hasVMGeneration && vmSKUGen >= 6 && skipValidationForDistro {
+	if vmSKUGen >= 6 && skipValidationForDistro {
 		return nil
 	}
 

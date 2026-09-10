@@ -1146,33 +1146,33 @@ func runScenarioUbuntu2404GPUNPD(name, vmSize, location, k8sSystemPoolSKU string
 		}}
 }
 
-// vmSKUGeneration extracts a generation from a _vN suffix. The boolean reports
-// whether the SKU name encodes a generation.
-func vmSKUGeneration(sku string) (int, bool, error) {
+// vmSKUGeneration extracts a generation from a _vN suffix, or returns zero
+// when the SKU name does not encode a generation.
+func vmSKUGeneration(sku string) (int, error) {
 	sku = strings.ToLower(sku)
 	idx := strings.LastIndex(sku, "_v")
 	if idx < 0 {
-		return 0, false, nil
+		return 0, nil
 	}
 	gen, err := strconv.Atoi(sku[idx+2:])
 	if err != nil {
-		return 0, false, fmt.Errorf("SKU %q has non-numeric generation suffix: %w", sku, err)
+		return 0, fmt.Errorf("SKU %q has non-numeric generation suffix: %w", sku, err)
 	}
-	return gen, true, nil
+	return gen, nil
 }
 
 func ensureMinVMGeneration(minSku string) string {
 	// Ensure that the VM SKU used is at least the minimum generation required for the test
 	// Get the minimum generation for the specified SKU
-	defaultGen, defaultHasGeneration, err := vmSKUGeneration(config.Config.DefaultVMSKU)
+	defaultGen, err := vmSKUGeneration(config.Config.DefaultVMSKU)
 	if err != nil {
 		panic(fmt.Sprintf("Warning: No minimum generation found for SKU %s", config.Config.DefaultVMSKU))
 	}
-	minGen, minHasGeneration, err := vmSKUGeneration(minSku)
-	if err != nil || !minHasGeneration {
+	minGen, err := vmSKUGeneration(minSku)
+	if err != nil || minGen == 0 {
 		panic(fmt.Sprintf("Warning: No minimum generation found for SKU %s", minSku))
 	}
-	if !defaultHasGeneration || defaultGen < minGen {
+	if defaultGen < minGen {
 		return minSku
 	} else {
 		return config.Config.DefaultVMSKU

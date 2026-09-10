@@ -13,26 +13,22 @@ func TestVMSKUGeneration(t *testing.T) {
 		name           string
 		sku            string
 		wantGeneration int
-		wantFound      bool
 		wantError      bool
 	}{
 		{
 			name:           "versioned SKU",
 			sku:            "Standard_D2s_v3",
 			wantGeneration: 3,
-			wantFound:      true,
 		},
 		{
 			name:           "uppercase version marker",
 			sku:            "Standard_D2pds_V5",
 			wantGeneration: 5,
-			wantFound:      true,
 		},
 		{
 			name:           "GPU SKU with hardware suffix",
 			sku:            "Standard_ND96isr_H100_v5",
 			wantGeneration: 5,
-			wantFound:      true,
 		},
 		{
 			name: "SKU without version marker",
@@ -47,15 +43,13 @@ func TestVMSKUGeneration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			generation, found, err := vmSKUGeneration(tt.sku)
+			generation, err := vmSKUGeneration(tt.sku)
 			if tt.wantError {
 				require.Error(t, err)
 				return
 			}
-
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantGeneration, generation)
-			assert.Equal(t, tt.wantFound, found)
 		})
 	}
 }
@@ -68,4 +62,10 @@ func TestEnsureMinVMGenerationUsesMinimumForUnversionedDefault(t *testing.T) {
 	})
 
 	assert.Equal(t, "Standard_D2ds_v6", ensureMinVMGeneration("Standard_D2ds_v6"))
+}
+
+func TestEnsureMinVMGenerationRejectsUnversionedMinimum(t *testing.T) {
+	require.Panics(t, func() {
+		ensureMinVMGeneration("Standard_NM16ads_MA35D")
+	})
 }
