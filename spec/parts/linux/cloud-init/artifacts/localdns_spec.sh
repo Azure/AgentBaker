@@ -2023,6 +2023,7 @@ KUBECTL_EOF
             Include "./parts/linux/cloud-init/artifacts/localdns.sh"
 
             TEST_DIR="$(mktemp -d)"
+            DEFAULT_ROUTE_INTERFACE="eth0"
             NETWORK_DROPIN_DIR="${TEST_DIR}/run/systemd/network/eth0.network.d"
             NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-localdns.conf"
             mkdir -p "${NETWORK_DROPIN_DIR}"
