@@ -63,6 +63,43 @@ func init() {
 func validateLocalDNSLifecycle(ctx context.Context, s *Scenario) error {
 	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, `
 set -eu
+
+# This validation requires the ExecStopPost hook baked into the branch VHD.
+# Standalone E2E may run against an older published VHD, where this behavior
+# is unavailable and should be skipped rather than reported as a false failure.
+if ! sudo systemctl show localdns.service -p ExecStopPost --value | grep -q 'localdns.sh cleanup'; then
+    echo "SKIP: VHD predates the ExecStopPost cleanup hook"
+    exit 0
+fi
+
+NORESTART=/run/systemd/system/localdns.service.d/99-e2e-no-restart.conf
+
+# Install cleanup before any service mutation so set -e cannot leave the node
+# with the temporary Restart=no override or a failed LocalDNS unit.
+restore_localdns_test_state() {
+    test_status=$?
+    trap - EXIT
+    set +e
+    cleanup_status=0
+    if [ -f "$NORESTART" ]; then
+        sudo rm -f "$NORESTART" || { echo "ERROR: failed to remove $NORESTART"; cleanup_status=1; }
+        sudo systemctl daemon-reload || { echo "ERROR: systemd daemon-reload failed during test cleanup"; cleanup_status=1; }
+        sudo systemctl reset-failed localdns.service || { echo "ERROR: reset-failed localdns.service failed during test cleanup"; cleanup_status=1; }
+    fi
+    if ! sudo systemctl is-active --quiet localdns.service; then
+        sudo systemctl start localdns.service || { echo "ERROR: failed to restart localdns.service during test cleanup"; cleanup_status=1; }
+    fi
+    if ! sudo systemctl is-active --quiet localdns.service; then
+        echo "ERROR: localdns.service is not active after test cleanup"
+        cleanup_status=1
+    fi
+    if [ "$test_status" -eq 0 ] && [ "$cleanup_status" -ne 0 ]; then
+        test_status=$cleanup_status
+    fi
+    exit "$test_status"
+}
+trap restore_localdns_test_state EXIT
+
 sudo systemctl is-active --quiet localdns.service
 
 # Normal systemd stop must complete cleanup and return success.
@@ -74,44 +111,14 @@ sudo systemctl start localdns.service
 sudo systemctl is-active --quiet localdns.service
 
 # Repeatedly kill the supervisor and wait for Restart=on-failure recovery.
+# This loop validates ordinary service recovery; the terminal dead-service
+# regression for ExecStopPost is covered by the block below.
 # Require a genuinely new MainPID after each kill: immediately after kill -9,
 # systemd may still report the killed invocation as active/running until it
 # processes SIGCHLD, so checking active/running alone can observe the old
 # process and falsely declare recovery. Save the killed PID and require the
 # new MainPID to be nonzero and different from it.
 test_start=$(date +%s)
-
-# The terminal-dead test installs a runtime systemd drop-in below. Always
-# remove it when this validation exits, including when set -e stops the script
-# after a failed assertion, so a failed scenario cannot contaminate a node or
-# subsequent validation. Preserve the original test result and report cleanup
-# failures separately instead of masking either result.
-NORESTART=/run/systemd/system/localdns.service.d/99-e2e-no-restart.conf
-restore_localdns_test_state() {
-    test_status=$?
-    trap - EXIT
-    set +e
-
-    if [ -f "$NORESTART" ]; then
-        cleanup_status=0
-        sudo rm -f "$NORESTART" || { echo "ERROR: failed to remove $NORESTART"; cleanup_status=1; }
-        sudo systemctl daemon-reload || { echo "ERROR: systemd daemon-reload failed during test cleanup"; cleanup_status=1; }
-        sudo systemctl reset-failed localdns.service || { echo "ERROR: reset-failed localdns.service failed during test cleanup"; cleanup_status=1; }
-        if ! sudo systemctl is-active --quiet localdns.service; then
-            sudo systemctl start localdns.service || { echo "ERROR: failed to restart localdns.service during test cleanup"; cleanup_status=1; }
-        fi
-        if ! sudo systemctl is-active --quiet localdns.service; then
-            echo "ERROR: localdns.service is not active after test cleanup"
-            cleanup_status=1
-        fi
-        if [ "$test_status" -eq 0 ] && [ "$cleanup_status" -ne 0 ]; then
-            test_status=$cleanup_status
-        fi
-    fi
-
-    exit "$test_status"
-}
-trap restore_localdns_test_state EXIT
 
 for i in 1 2 3; do
     killed=$(sudo systemctl show -p MainPID --value localdns.service)
@@ -198,9 +205,9 @@ fi
 dns_reverted=false
 for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
     if command -v resolvectl >/dev/null 2>&1; then
-        current_dns=$(resolvectl status 2>/dev/null)
+        current_dns=$(resolvectl status 2>/dev/null) || current_dns=""
     else
-        current_dns=$(cat /run/systemd/resolve/resolv.conf 2>/dev/null)
+        current_dns=$(cat /run/systemd/resolve/resolv.conf 2>/dev/null) || current_dns=""
     fi
     # Require a non-empty snapshot before trusting the absence check.
     if [ -n "$current_dns" ] && ! printf '%s' "$current_dns" | grep -q '169\.254\.10\.10'; then
@@ -211,6 +218,13 @@ for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
 done
 if [ "$dns_reverted" != true ]; then
     echo "FAIL: link DNS still points at 169.254.10.10 (or resolver state unreadable) after localdns died"
+    exit 1
+fi
+
+# Removing the LocalDNS address is not sufficient: verify the node has a
+# working resolver after cleanup.
+if ! getent hosts mcr.microsoft.com >/dev/null 2>&1; then
+    echo "FAIL: node cannot resolve DNS after localdns died"
     exit 1
 fi
 
