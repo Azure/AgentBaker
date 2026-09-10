@@ -13,9 +13,10 @@
     handle the service (dual-mode coexistence).
 
     Coordination with aks-vm-extension:
-    - The VHD build creates windows-exporter-assets.complete after staging assets.
-    - CSE creates C:\k\skip_vhd_windows_exporter only after the service is healthy.
-      Older CSE versions leave it absent, so aks-vm-extension remains the owner.
+    - The VHD build creates windows-exporter-assets.complete and
+      C:\k\skip_vhd_windows_exporter after staging assets.
+    - The extension never manages the service on these VHDs. CSE logs startup
+      failures and continues provisioning without removing the baked skip marker.
 #>
 
 $global:WindowsExporterInstallDir     = "C:\k\windows-exporter"
@@ -96,22 +97,26 @@ function Install-WindowsExporter {
         - The VHD assets marker is absent (older VHD without baked assets;
           aks-vm-extension still covers it).
 
-        Returns false without creating the extension skip marker when takeover fails,
-        allowing node provisioning and the extension fallback to continue.
+        Returns false on startup failure so the caller can log and continue node
+        provisioning. The extension remains disabled by the baked skip marker.
     #>
 
     if (-not (Test-Path $global:WindowsExporterAssetsFile)) {
+        if (Test-Path $global:WindowsExporterSkipFile) {
+            Write-Log "windows-exporter assets marker is missing but the baked skip marker disables the extension"
+            return $false
+        }
         Write-Log "windows-exporter assets marker not present; aks-vm-extension will manage windows-exporter on this node"
         return $true
     }
 
     if (-not (Test-Path $global:WindowsExporterBinary)) {
-        Write-Log "windows-exporter assets marker is present but binary is missing at $($global:WindowsExporterBinary); leaving ownership with aks-vm-extension"
+        Write-Log "windows-exporter assets marker is present but binary is missing at $($global:WindowsExporterBinary)"
         return $false
     }
 
     if (-not (Test-Path $global:WindowsExporterConfig)) {
-        Write-Log "windows-exporter assets marker is present but config is missing at $($global:WindowsExporterConfig); leaving ownership with aks-vm-extension"
+        Write-Log "windows-exporter assets marker is present but config is missing at $($global:WindowsExporterConfig)"
         return $false
     }
 
@@ -135,7 +140,7 @@ function Install-WindowsExporter {
         if (-not $existingService) {
             Invoke-WindowsExporterNssm -Arguments @("install", $global:WindowsExporterServiceName, $global:WindowsExporterBinary)
         } else {
-            Write-Log "$($global:WindowsExporterServiceName) is already registered; taking ownership of its settings and running state"
+            Write-Log "$($global:WindowsExporterServiceName) is already registered; ensuring its settings and running state"
         }
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "Application", $global:WindowsExporterBinary)
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppDirectory", $global:WindowsExporterInstallDir)
@@ -165,7 +170,7 @@ function Install-WindowsExporter {
         }
     }
     catch {
-        Write-Log "failed to configure aks-windows-exporter: $_; leaving ownership with aks-vm-extension"
+        Write-Log "failed to configure aks-windows-exporter: $_"
         return $false
     }
 
@@ -179,19 +184,10 @@ function Install-WindowsExporter {
     }
 
     if (-not (Test-WindowsExporterHealth)) {
-        Write-Log "aks-windows-exporter failed to become healthy; leaving ownership with aks-vm-extension"
+        Write-Log "aks-windows-exporter failed to become healthy"
         return $false
     }
 
-    # Commit ownership only after the service is healthy. Old CSE versions never
-    # create this marker, so the extension remains responsible on new VHDs.
-    try {
-        New-Item -ItemType File -Path $global:WindowsExporterSkipFile -Force -ErrorAction Stop | Out-Null
-    }
-    catch {
-        Write-Log "failed to create windows-exporter ownership marker: $_"
-        return $false
-    }
     Write-Log "Ensured $($global:WindowsExporterServiceName) is installed and running"
     return $true
 }

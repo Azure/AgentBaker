@@ -770,8 +770,7 @@ function Install-WindowsExporterOnVHD
     # Install-WindowsExporter function (staging/cse/windows/windowsexporterfunc.ps1)
     # can register the aks-windows-exporter service at node provisioning.
     #
-    # Migrated from aks-vm-extension. The VHD marker records that assets are
-    # complete; CSE creates the extension skip marker only after taking ownership.
+    # The baked skip marker disables aks-vm-extension before node provisioning.
     $exporterCacheDir   = "c:\akse-cache\windows-exporter"
     $exporterInstallDir = "C:\k\windows-exporter"
     $exporterConfigSrc  = "c:\k\windows-exporter-config.yml"
@@ -837,8 +836,9 @@ function Install-WindowsExporterOnVHD
         throw "windows-exporter health script not staged at $exporterHealthSrc"
     }
 
-    # Create the assets marker last so partial installs don't appear complete to CSE.
-    New-Item -ItemType File -Path $exporterAssetsFile -Force | Out-Null
+    # Commit the markers only after staging is complete. Marker write failures fail the build.
+    New-Item -ItemType File -Path $exporterAssetsFile -Force -ErrorAction Stop | Out-Null
+    New-Item -ItemType File -Path "C:\k\skip_vhd_windows_exporter" -Force -ErrorAction Stop | Out-Null
 
     LogFilesInDirectory $exporterInstallDir
     Write-Log "windows-exporter staged on VHD; assets marker $exporterAssetsFile created"

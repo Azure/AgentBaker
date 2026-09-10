@@ -12,6 +12,12 @@ Describe 'Windows exporter CSE functions' {
     Context 'Install-WindowsExporter' {
         BeforeEach {
             Mock New-Item
+            Mock Remove-Item
+        }
+
+        AfterEach {
+            Assert-MockCalled New-Item -Exactly -Times 0
+            Assert-MockCalled Remove-Item -Exactly -Times 0
         }
 
         It 'no-ops when the VHD assets marker is absent' {
@@ -31,6 +37,15 @@ Describe 'Windows exporter CSE functions' {
             Assert-MockCalled New-Item -Exactly -Times 0
         }
 
+        It 'does not assume extension fallback if only the baked skip marker exists' {
+            Mock Test-Path -MockWith {
+                param($Path)
+                return $Path -eq $global:WindowsExporterSkipFile
+            }
+
+            Install-WindowsExporter | Should -Be $false
+        }
+
         It 'fails when the assets marker and binary are present but the config is absent' {
             Mock Test-Path -MockWith {
                 param($Path)
@@ -41,7 +56,7 @@ Describe 'Windows exporter CSE functions' {
             Assert-MockCalled New-Item -Exactly -Times 0
         }
 
-        It 'leaves ownership with the extension when nssm is absent after assets are present' {
+        It 'returns failure without changing the baked marker when nssm is absent' {
             Mock Test-Path -MockWith {
                 param($Path)
                 return $Path -ne $global:WindowsExporterNssm
@@ -67,9 +82,6 @@ Describe 'Windows exporter CSE functions' {
             }
             Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter {
                 $Arguments[0] -eq 'start' -and $Arguments[1] -eq $global:WindowsExporterServiceName
-            }
-            Assert-MockCalled New-Item -Exactly -Times 1 -ParameterFilter {
-                $Path -eq $global:WindowsExporterSkipFile
             }
         }
 
@@ -141,7 +153,7 @@ Describe 'Windows exporter CSE functions' {
             Assert-MockCalled New-Item -Exactly -Times 0
         }
 
-        It 'does not claim ownership when starting the reconfigured service fails' {
+        It 'returns failure without changing the baked marker when service startup fails' {
             Mock Test-Path -MockWith { return $true }
             Mock Get-Service -MockWith { return @{ Status = 'Running' } }
             Mock Invoke-WindowsExporterNssm -MockWith {
@@ -156,7 +168,7 @@ Describe 'Windows exporter CSE functions' {
             Assert-MockCalled New-Item -Exactly -Times 0
         }
 
-        It 'claims ownership when a nonzero start result is followed by service health' {
+        It 'succeeds when a nonzero start result is followed by service health' {
             Mock Test-Path -MockWith { return $true }
             Mock Get-Service -MockWith { return $null }
             Mock Invoke-WindowsExporterNssm -MockWith {
@@ -169,24 +181,9 @@ Describe 'Windows exporter CSE functions' {
 
             Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter { $Arguments[0] -eq 'start' }
             Assert-MockCalled Test-WindowsExporterHealth -Exactly -Times 1
-            Assert-MockCalled New-Item -Exactly -Times 1 -ParameterFilter { $Path -eq $global:WindowsExporterSkipFile }
         }
 
-        It 'returns failure when the ownership marker cannot be written' {
-            Mock Test-Path -MockWith { return $true }
-            Mock Get-Service -MockWith { return $null }
-            Mock Invoke-WindowsExporterNssm
-            Mock Test-WindowsExporterHealth -MockWith { return $true }
-            Mock New-Item -MockWith { throw 'marker write failed' }
-
-            Install-WindowsExporter | Should -Be $false
-
-            Assert-MockCalled New-Item -Exactly -Times 1 -ParameterFilter {
-                $Path -eq $global:WindowsExporterSkipFile -and $ErrorAction -eq 'Stop'
-            }
-        }
-
-        It 'leaves ownership with the extension when nssm configuration fails' {
+        It 'returns failure without changing the baked marker when configuration fails' {
             Mock Test-Path -MockWith { return $true }
             Mock Get-Service -MockWith { return $null }
             Mock Invoke-WindowsExporterNssm -MockWith { throw 'nssm failed' }
@@ -195,7 +192,7 @@ Describe 'Windows exporter CSE functions' {
             Assert-MockCalled New-Item -Exactly -Times 0
         }
 
-        It 'leaves ownership with the extension when the service stays unhealthy' {
+        It 'returns failure without changing the baked marker when health checks fail' {
             Mock Test-Path -MockWith { return $true }
             Mock Get-Service -MockWith { return $null }
             Mock Invoke-WindowsExporterNssm
@@ -288,6 +285,31 @@ function Get-Version {
     }
 
     Context 'CSE function bundle' {
+        It 'bakes the extension skip marker after staging assets' {
+            $builderPath = Join-Path $PSScriptRoot '..\..\..\vhdbuilder\packer\windows\configure-windows-vhd.ps1'
+            $builder = Get-Content -Path $builderPath -Raw
+            $stage = (($builder -split 'function Install-WindowsExporterOnVHD', 2)[1] -split 'function Set-WinRmServiceDelayedStart', 2)[0]
+
+            $stage | Should -Match 'New-Item -ItemType File -Path "C:\\k\\skip_vhd_windows_exporter" -Force -ErrorAction Stop'
+            $stage.IndexOf('New-Item -ItemType File -Path "C:\k\skip_vhd_windows_exporter"') |
+                Should -BeGreaterThan $stage.IndexOf('Copy-Item -Path $exporterHealthSrc')
+        }
+
+        It 'continues NodePrep after exporter failure or exception' {
+            $templatePath = Join-Path $PSScriptRoot '..\..\..\parts\windows\kuberneteswindowssetup.ps1.template'
+            $template = Get-Content -Path $templatePath -Raw
+            $installBlock = [regex]::Match($template, '(?s)    if \(Get-Command -Name Install-WindowsExporter.*?(?=    Write-Log "Starting NodePrep)').Value
+            $installBlock | Should -Not -BeNullOrEmpty
+            Mock Logs-To-Event
+            Mock Install-WindowsExporter -MockWith { return $false }
+
+            $result = & { & ([scriptblock]::Create($installBlock)); 'continued' }
+            $result | Should -Be 'continued'
+            Mock Install-WindowsExporter -MockWith { throw 'unexpected startup failure' }
+            $result = & { & ([scriptblock]::Create($installBlock)); 'continued' }
+            $result | Should -Be 'continued'
+        }
+
         It 'uses the Linux exporter port for all Windows exporter endpoints' {
             $configPath = Join-Path $PSScriptRoot '..\..\..\parts\windows\windowsexporter\windows-exporter-config.yml'
             $healthScriptPath = Join-Path $PSScriptRoot '..\..\..\parts\windows\windowsexporter\windows-exporter-health.ps1'

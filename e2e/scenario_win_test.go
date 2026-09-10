@@ -19,8 +19,8 @@ func TestValidateWindowsExporterOwnership(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "old VHD without assets", output: "SKIP\r\n"},
-		{name: "successful takeover", output: "PRESENT\r\n", owned: true},
-		{name: "failed takeover on baked VHD", output: "MISSING\r\n", wantErr: true},
+		{name: "baked extension skip marker", output: "PRESENT\r\n", owned: true},
+		{name: "missing skip marker on baked VHD", output: "MISSING\r\n", wantErr: true},
 		{name: "empty output", wantErr: true},
 		{name: "unexpected output containing skip", output: "unexpected SKIP text", wantErr: true},
 	} {

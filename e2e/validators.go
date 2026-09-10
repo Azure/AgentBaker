@@ -1177,9 +1177,9 @@ func ValidateWindowsSystemServicesRestartConfiguration(ctx context.Context, s *S
 }
 
 // ValidateWindowsExporter asserts that the service registered by windowsexporterfunc.ps1
-// is running and serving Prometheus metrics. Call this for scenarios expecting
-// takeover-capable CSE. Older VHDs without baked assets remain extension-managed;
-// intentional old-CSE compatibility scenarios must validate their own ownership expectations.
+// is running and serving Prometheus metrics. Older VHDs without baked assets remain
+// extension-managed. On new VHDs the baked skip marker disables the extension;
+// its presence is not proof of successful CSE startup, so service and metrics are checked below.
 func ValidateWindowsExporter(ctx context.Context, s *Scenario) error {
 	const (
 		sentinel    = `C:\k\skip_vhd_windows_exporter`
@@ -1248,7 +1248,7 @@ func validateWindowsExporterOwnership(result string) (bool, error) {
 	case "PRESENT":
 		return true, nil
 	case "MISSING":
-		return false, fmt.Errorf("windows-exporter baked assets are present but the takeover sentinel is missing; expected CSE to claim ownership")
+		return false, fmt.Errorf("windows-exporter baked assets are present but the baked extension skip marker is missing")
 	default:
 		return false, fmt.Errorf("unexpected windows-exporter ownership check result: %q", result)
 	}

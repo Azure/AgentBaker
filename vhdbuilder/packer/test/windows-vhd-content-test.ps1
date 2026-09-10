@@ -609,7 +609,7 @@ function Test-WindowsExporterOnVHD {
     #   1. Extracted windows-exporter.exe into C:\k\windows-exporter
     #   2. Placed windows-exporter-config.yml alongside it
     #   3. Placed windows-exporter-health.ps1 alongside it
-    #   4. Created the VHD assets marker consumed by CSE
+    #   4. Created the VHD assets marker and extension skip marker
     # The service is registered at CSE time (staging/cse/windows/windowsexporterfunc.ps1),
     # so we intentionally do NOT expect the service to exist on the VHD itself.
     $exporterDir = "C:\k\windows-exporter"
@@ -617,7 +617,8 @@ function Test-WindowsExporterOnVHD {
         (Join-Path $exporterDir "windows-exporter.exe"),
         (Join-Path $exporterDir "windows-exporter-config.yml"),
         (Join-Path $exporterDir "windows-exporter-health.ps1"),
-        (Join-Path $exporterDir "windows-exporter-assets.complete")
+        (Join-Path $exporterDir "windows-exporter-assets.complete"),
+        "C:\k\skip_vhd_windows_exporter"
     )
 
     $missing = @()
@@ -647,12 +648,6 @@ function Test-WindowsExporterOnVHD {
         exit 1
     }
     Write-OutputWithTimestamp "windows-exporter binary is executable: $versionOutput"
-
-    if (Test-Path "C:\k\skip_vhd_windows_exporter")
-    {
-        Write-ErrorWithTimestamp "C:\k\skip_vhd_windows_exporter must not be baked into the VHD; CSE creates it after successful service startup"
-        exit 1
-    }
 
     $svc = Get-Service "aks-windows-exporter" -ErrorAction SilentlyContinue
     if ($svc)
