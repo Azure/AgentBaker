@@ -148,6 +148,10 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
       --scripts "@$SCRIPT_PATH" \
       --parameters "${OS_VERSION}" "${ENABLE_FIPS}" "${OS_SKU}" "${GIT_BRANCH}" "${IMG_SKU}" "${FEATURE_FLAGS}" "${GIT_COMMIT_HASH}") && break
+    if [ "$i" -eq 3 ]; then
+      echo "Linux content-test Run Command failed after ${i} attempts." >&2
+      exit 1
+    fi
     echo "${i}: retrying az vm run-command"
   done
   # The error message for a Linux VM run-command is as follows:
