@@ -90,7 +90,7 @@ fi
 
 TEST_VM_USER_DATA_ARGS=()
 if [ "${OS_TYPE}" = "Linux" ] && [ "${OS_SKU:-}" = "AzureContainerLinux" ]; then
-  TEST_VM_USER_DATA_ARGS=(--user-data "./vhdbuilder/packer/acl-customdata.json")
+  TEST_VM_USER_DATA_ARGS=(--user-data "@./vhdbuilder/packer/acl-customdata.json")
 fi
 
 # NVIDIA GB specific test VM configuration (uses standard ARM64 VM for now)
