@@ -40,6 +40,47 @@ Describe 'Adjust-DynamicPortRange' {
     }
 }
 
+Describe 'Update-ServiceFailureActions' {
+    BeforeAll {
+        function sc.exe {}
+    }
+
+    BeforeEach {
+        $script:scExeCallCount = 0
+        $script:failedScExeCall = 0
+
+        Mock Logs-To-Event
+        Mock sc.exe -MockWith {
+            $script:scExeCallCount++
+            if ($script:scExeCallCount -eq $script:failedScExeCall) {
+                $global:LASTEXITCODE = 1
+                return
+            }
+
+            $global:LASTEXITCODE = 0
+        }
+    }
+
+    It 'configures failure actions for all services when sc.exe succeeds' {
+        { Update-ServiceFailureActions } | Should -Not -Throw
+
+        $script:scExeCallCount | Should -Be 3
+    }
+
+    It 'throws when configuring <Service>' -TestCases @(
+        @{ FailedCall = 1; Service = 'kubelet' }
+        @{ FailedCall = 2; Service = 'kubeproxy' }
+        @{ FailedCall = 3; Service = 'containerd' }
+    ) {
+        param($FailedCall, $Service)
+        $script:failedScExeCall = $FailedCall
+
+        { Update-ServiceFailureActions } | Should -Throw "*$Service*exit code 1*"
+
+        $script:scExeCallCount | Should -Be $FailedCall
+    }
+}
+
 Describe 'Resize-OSDrive' {
     BeforeEach {
         Mock Invoke-Executable
