@@ -38,10 +38,6 @@ spec/parts/linux/cloud-init/artifacts/localdns_spec.sh @saewoni @yewmsft
 parts/common/components.json
 vhdbuilder/packer/windows/windows_settings.json
 
-# No code-owner requirement for E2E tests
-
-/e2e/
-
 # Code owners for localdns exporter
 
 parts/linux/cloud-init/artifacts/localdns_exporter.sh @saewoni @yewmsft
