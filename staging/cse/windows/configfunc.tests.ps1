@@ -421,8 +421,15 @@ Describe 'New-CsiProxyService' {
 
     Context 'when csi-proxy service already exists' {
         BeforeEach {
+            $script:getServiceCallCount = 0
             $mockExistingSvc = [PSCustomObject]@{Name = 'csi-proxy'; Status = 'Stopped'}
-            Mock Get-Service -MockWith { return $mockExistingSvc }
+            Mock Get-Service -MockWith {
+                $script:getServiceCallCount++
+                if ($script:getServiceCallCount -eq 1) {
+                    return $mockExistingSvc
+                }
+                return $null
+            }
         }
 
         It 'calls sc.exe delete to remove the existing service before install' {
@@ -431,10 +438,10 @@ Describe 'New-CsiProxyService' {
             $script:scExeCallCount | Should -Be 1
         }
 
-        It 'does not throw when sc.exe delete fails (best-effort cleanup)' {
+        It 'throws when sc.exe delete fails' {
             Mock sc.exe -MockWith { $script:scExeCallCount++; $global:LASTEXITCODE = 1 }
 
-            { New-CsiProxyService -CsiProxyPackageUrl 'https://example.com/csiproxy.tar.gz' -KubeDir 'c:\k' } | Should -Not -Throw
+            { New-CsiProxyService -CsiProxyPackageUrl 'https://example.com/csiproxy.tar.gz' -KubeDir 'c:\k' } | Should -Throw '*exit code 1*'
         }
     }
 }
@@ -463,8 +470,15 @@ Describe 'New-HostsConfigService' {
 
     Context 'when hosts-config-agent service already exists' {
         BeforeEach {
+            $script:getServiceCallCount = 0
             $mockExistingSvc = [PSCustomObject]@{Name = 'hosts-config-agent'; Status = 'Stopped'}
-            Mock Get-Service -MockWith { return $mockExistingSvc }
+            Mock Get-Service -MockWith {
+                $script:getServiceCallCount++
+                if ($script:getServiceCallCount -eq 1) {
+                    return $mockExistingSvc
+                }
+                return $null
+            }
         }
 
         It 'calls sc.exe delete to remove the existing service before install' {
@@ -473,10 +487,10 @@ Describe 'New-HostsConfigService' {
             $script:scExeCallCount | Should -Be 1
         }
 
-        It 'does not throw when sc.exe delete fails (best-effort cleanup)' {
+        It 'throws when sc.exe delete fails' {
             Mock sc.exe -MockWith { $script:scExeCallCount++; $global:LASTEXITCODE = 1 }
 
-            { New-HostsConfigService } | Should -Not -Throw
+            { New-HostsConfigService } | Should -Throw '*exit code 1*'
         }
     }
 }

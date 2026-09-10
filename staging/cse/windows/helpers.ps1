@@ -5,16 +5,31 @@ function Remove-ServiceIfExists
     param(
         [Parameter(Mandatory = $true)][string]$ServiceName
     )
-    # A prior provisioning attempt may have already registered this service (e.g. CSE re-invoked
-    # after a partial failure). Best-effort remove it so the subsequent nssm.exe install doesn't
-    # fail against an already-existing service.
+
     $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-    if ($null -ne $svc) {
-        sc.exe delete "$ServiceName"
-        # sc.exe delete can legitimately return non-zero here (e.g. 1072 - service already marked for deletion)
-        # since this is best-effort cleanup of a pre-existing service, don't treat that as fatal.
-        if ($LASTEXITCODE -ne 0) { Write-Log "sc.exe failed to delete existing $ServiceName service (exit code $LASTEXITCODE), continuing anyway" }
+    if ($null -eq $svc) {
+        return
     }
+
+    if ($svc.Status -ne 'Stopped') {
+        Stop-Service -Name $ServiceName -Force -ErrorAction Stop
+    }
+
+    sc.exe delete "$ServiceName"
+    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 1072) {
+        throw "sc.exe failed to delete existing $ServiceName service (exit code $LASTEXITCODE)"
+    }
+
+    for ($attempt = 0; $attempt -lt 30; $attempt++) {
+        $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+        if ($null -eq $svc) {
+            return
+        }
+
+        Start-Sleep -Seconds 1
+    }
+
+    throw "Timed out waiting for existing $ServiceName service to be deleted"
 }
 
 function Invoke-NssmExe
