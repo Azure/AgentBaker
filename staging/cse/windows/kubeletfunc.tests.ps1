@@ -428,4 +428,21 @@ Describe 'New-NSSMService' {
             $NssmArguments -join ' ' -eq 'install Kubeproxy C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
         }
     }
+
+    It 'sets Kubelet dependencies to <ExpectedDependencies>' -TestCases @(
+        @{ EnableCsiProxy = $false; EnableHostsConfigAgent = $false; ExpectedDependencies = 'containerd' }
+        @{ EnableCsiProxy = $true; EnableHostsConfigAgent = $false; ExpectedDependencies = 'containerd csi-proxy' }
+        @{ EnableCsiProxy = $false; EnableHostsConfigAgent = $true; ExpectedDependencies = 'containerd hosts-config-agent' }
+        @{ EnableCsiProxy = $true; EnableHostsConfigAgent = $true; ExpectedDependencies = 'containerd csi-proxy hosts-config-agent' }
+    ) {
+        $global:EnableCsiProxy = $EnableCsiProxy
+        $global:EnableHostsConfigAgent = $EnableHostsConfigAgent
+
+        New-NSSMService -KubeDir 'c:\k' -KubeletStartFile 'c:\k\kubeletstart.ps1' -KubeProxyStartFile 'c:\k\kubeproxystart.ps1'
+
+        Assert-MockCalled -CommandName Invoke-Nssm -Exactly -Times 1 -ParameterFilter {
+            $KubeDir -eq 'c:\k' -and
+            $NssmArguments -join ' ' -eq "set Kubelet DependOnService $ExpectedDependencies"
+        }
+    }
 }
