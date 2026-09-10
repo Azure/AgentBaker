@@ -192,7 +192,7 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk convert-vhd-to-cosi
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+    condition: succeeded()
     displayName: Convert ACL VHD to COSI
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
@@ -208,14 +208,14 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk upload-cosi-to-pmc
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+    condition: succeeded()
     displayName: Upload COSI to PMC
     env:
       AFD_UPLOAD_ENDPOINT: $(AFD_UPLOAD_ENDPOINT)
       COSI_CONTAINER: $(COSI_CONTAINER)
 
   - task: PublishPipelineArtifact@1
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+    condition: succeeded()
     displayName: Publish COSI Publishing Info
     inputs:
       artifactName: 'cosi-publishing-info-${{ parameters.artifactName }}'
@@ -234,10 +234,5 @@ steps:
         echo "Successfully copied to immutable container"
         # Remove old VHD from staging container after copy to immutable container is complete
         azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
-    condition: |
-      and(
-        succeeded(),
-        eq(variables.ENVIRONMENT, 'tme'),
-        eq(variables.GENERATE_PUBLISHING_INFO, 'True')
-      )
+    condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'))
     displayName: Copy to Immutable Storage Container

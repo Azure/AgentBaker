@@ -483,7 +483,6 @@ steps:
     condition: |
       and(
         succeeded(),
-        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
         eq(variables['OS_SKU'], 'AzureContainerLinux'),
         ne(variables['ARCHITECTURE'], 'ARM64')
       )
@@ -505,7 +504,6 @@ steps:
     condition: |
       and(
         succeeded(),
-        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
         eq(variables['OS_SKU'], 'AzureContainerLinux'),
         ne(variables['ARCHITECTURE'], 'ARM64')
       )
@@ -518,7 +516,6 @@ steps:
     condition: |
       and(
         succeeded(),
-        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
         eq(variables['OS_SKU'], 'AzureContainerLinux'),
         ne(variables['ARCHITECTURE'], 'ARM64')
       )
