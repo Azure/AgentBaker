@@ -29,6 +29,10 @@ Describe 'bind-mount.sh'
         echo "chmod $*"
     }
 
+    chown() {
+        echo "chown $*"
+    }
+
     BeforeEach 'setup'
     AfterEach 'cleanup'
 
@@ -42,6 +46,9 @@ Describe 'bind-mount.sh'
         The path "${SENTINEL_FILE}" should be file
         The path "${KUBELET_DIR}" should be directory
         The output should include "mount --bind ${KUBELET_MOUNT_POINT} ${KUBELET_DIR}"
+        The output should include "chown root:root ${KUBELET_DIR}"
+        The output should include "chmod 0755 ${KUBELET_DIR}"
+        The output should not include "chmod a+w"
     End
 
     It 'resets retained kubelet state after an OS disk reimage'
@@ -58,6 +65,7 @@ Describe 'bind-mount.sh'
         The path "${MOUNT_POINT}/containers/image-cache" should be file
         The path "${SENTINEL_FILE}" should be file
         The output should include "mount --bind ${KUBELET_MOUNT_POINT} ${KUBELET_DIR}"
+        The output should not include "chmod a+w"
     End
 
     It 'preserves kubelet state when the sentinel exists on reboot'
@@ -70,5 +78,8 @@ Describe 'bind-mount.sh'
         The status should be success
         The path "${KUBELET_MOUNT_POINT}/current-state" should be file
         The output should include "mount --bind ${KUBELET_MOUNT_POINT} ${KUBELET_DIR}"
+        The output should include "chown root:root ${KUBELET_DIR}"
+        The output should include "chmod 0755 ${KUBELET_DIR}"
+        The output should not include "chmod a+w"
     End
 End
