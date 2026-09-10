@@ -144,12 +144,6 @@ the ACRs are in the shared PE subnet, with DNS records in the shared `privatelin
    - Debug daemonsets
 4. SSH to test VMs goes through the shared Bastion, which can reach any VM in the VNet.
 
-Shared debug and proxy DaemonSets use one server-side apply request to create or update each
-object. The `agentbaker-e2e` field manager forces ownership of the supplied fields without a
-`resourceVersion` precondition. Concurrent applies to those fields use the last accepted values;
-branches must keep their shared DaemonSet definitions compatible. Permission and immutable-field
-errors still fail setup.
-
 ### Test Flow
 
 ```mermaid
