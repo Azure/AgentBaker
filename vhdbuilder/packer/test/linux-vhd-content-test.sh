@@ -727,7 +727,7 @@ testFips() {
   # OpenSSL must have an active FIPS or SymCrypt provider on 3.x (ICM 51000001009688
   # was caused by kernel FIPS on with no provider, causing portmap to panic). Ubuntu
   # 20.04 ships 1.1.x and uses the legacy FIPS module — skip there. Keep in sync with
-  # the Go validator in e2e/validators.go.
+  # the Go validator in e2e/scenario/validators.go.
   if ! command -v openssl >/dev/null 2>&1; then
     err $test "openssl binary not found on a FIPS-enabled VHD."
     echo "$test:Finish"
