@@ -415,6 +415,7 @@ Describe 'New-CsiProxyService' {
             New-CsiProxyService -CsiProxyPackageUrl 'https://example.com/csiproxy.tar.gz' -KubeDir 'c:\k'
 
             $script:scExeCallCount | Should -Be 0
+            Assert-MockCalled -CommandName 'Invoke-Nssm' -Exactly -Times 1 -ParameterFilter { $KubeDir -eq 'c:\k' -and $NssmArguments[0] -eq 'install' -and $NssmArguments[1] -eq 'csi-proxy' }
         }
     }
 
