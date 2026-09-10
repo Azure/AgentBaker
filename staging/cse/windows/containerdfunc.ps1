@@ -38,22 +38,26 @@ function RegisterContainerDService {
   Remove-ServiceIfExists -ServiceName "containerd"
 
   Write-Log "Registering containerd as a service"
-  # setup containerd
-  Invoke-Nssm -KubeDir $KubeDir install containerd $global:Containerdbinary
-  Invoke-Nssm -KubeDir $KubeDir set containerd AppDirectory $KubeDir
-  Invoke-Nssm -KubeDir $KubeDir set containerd DisplayName containerd
-  Invoke-Nssm -KubeDir $KubeDir set containerd Description containerd
-  Invoke-Nssm -KubeDir $KubeDir set containerd Start SERVICE_DEMAND_START
-  Invoke-Nssm -KubeDir $KubeDir set containerd ObjectName LocalSystem
-  Invoke-Nssm -KubeDir $KubeDir set containerd Type SERVICE_WIN32_OWN_PROCESS
-  Invoke-Nssm -KubeDir $KubeDir set containerd AppPriority ABOVE_NORMAL_PRIORITY_CLASS
-  Invoke-Nssm -KubeDir $KubeDir set containerd AppThrottle 1500
-  Invoke-Nssm -KubeDir $KubeDir set containerd AppStdout "$KubeDir\containerd.log"
-  Invoke-Nssm -KubeDir $KubeDir set containerd AppStderr "$KubeDir\containerd.err.log"
-  Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateFiles 1
-  Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateOnline 1
-  Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateSeconds 86400
-  Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateBytes 10485760
+  try {
+    # setup containerd
+    Invoke-Nssm -KubeDir $KubeDir install containerd $global:Containerdbinary
+    Invoke-Nssm -KubeDir $KubeDir set containerd AppDirectory $KubeDir
+    Invoke-Nssm -KubeDir $KubeDir set containerd DisplayName containerd
+    Invoke-Nssm -KubeDir $KubeDir set containerd Description containerd
+    Invoke-Nssm -KubeDir $KubeDir set containerd Start SERVICE_DEMAND_START
+    Invoke-Nssm -KubeDir $KubeDir set containerd ObjectName LocalSystem
+    Invoke-Nssm -KubeDir $KubeDir set containerd Type SERVICE_WIN32_OWN_PROCESS
+    Invoke-Nssm -KubeDir $KubeDir set containerd AppPriority ABOVE_NORMAL_PRIORITY_CLASS
+    Invoke-Nssm -KubeDir $KubeDir set containerd AppThrottle 1500
+    Invoke-Nssm -KubeDir $KubeDir set containerd AppStdout "$KubeDir\containerd.log"
+    Invoke-Nssm -KubeDir $KubeDir set containerd AppStderr "$KubeDir\containerd.err.log"
+    Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateFiles 1
+    Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateOnline 1
+    Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateSeconds 86400
+    Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateBytes 10485760
+  } catch {
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED -ErrorMessage "Failed to register containerd as a service. Error: $_"
+  }
 
   $retryCount=0
   $maxRetryCount=6 # 1 minutes

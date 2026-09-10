@@ -618,5 +618,22 @@ Describe "Containerd Functions Tests" {
         { RegisterContainerDService -kubedir 'C:\k' } | Should -Not -Throw
       }
     }
+
+    Context 'when nssm fails to register containerd' {
+      BeforeEach {
+        Mock Get-Service -MockWith { return $null }
+        Mock Invoke-Nssm -MockWith { throw 'nssm failed' }
+        Mock Set-ExitCode -MockWith {
+          param($ExitCode, $ErrorMessage)
+          throw "Set-ExitCode:${ExitCode}:${ErrorMessage}"
+        }
+      }
+
+      It 'reports a containerd installation error' {
+        {
+          RegisterContainerDService -kubedir 'C:\k'
+        } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED):Failed to register containerd as a service. Error: nssm failed*"
+      }
+    }
   }
 }
