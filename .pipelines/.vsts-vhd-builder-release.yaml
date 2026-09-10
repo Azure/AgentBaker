@@ -145,12 +145,6 @@ parameters:
 variables:
   - name: MODE
     value: "linuxVhdMode"
-  # TEST-ONLY (GB300 e2e): replicate the captured SIG image version to eastus2euap so the
-  # GB300 arm64 e2e can consume it there (the shared build gallery is in c4c3550e, which we
-  # can't write to directly). The build's own service connection performs the replication.
-  # Revert before merge.
-  - name: REPLICATIONS
-    value: "eastus2euap=1"
   - group: aks-vuln-to-kusto
   - group: "AKS Node SIG UA Token (KV)"
   - group: build_performance
