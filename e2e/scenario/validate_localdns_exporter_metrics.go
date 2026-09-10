@@ -2,16 +2,13 @@ package scenario
 
 import (
 	"context"
-	_ "embed"
 	"encoding/base64"
 	"fmt"
 
 	"github.com/Azure/agentbaker/e2e/assert"
+	"github.com/Azure/agentbaker/e2e/localdns"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-//go:embed localdns/validate-localdns-exporter-metrics.sh
-var validateLocalDNSExporterMetricsScript string
 
 // ValidateLocalDNSExporterMetrics checks if the localdns metrics exporter is working
 // and exports the expected VnetDNS and KubeDNS forward IP metrics.
@@ -39,7 +36,7 @@ func ValidateLocalDNSExporterMetrics(ctx context.Context, s *Scenario) error {
 	}
 	s.Logger.Logf("node %q has label %q — proceeding with full exporter validation", s.Runtime.VM.KubeName, exporterLabelKey)
 
-	encoded := base64.StdEncoding.EncodeToString([]byte(validateLocalDNSExporterMetricsScript))
+	encoded := base64.StdEncoding.EncodeToString([]byte(localdns.ExporterMetricsScript()))
 	remotePath := "/home/azureuser/validate_localdns_exporter_metrics.sh"
 	remoteB64 := remotePath + ".b64"
 
