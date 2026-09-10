@@ -330,6 +330,7 @@ func dialSSHOverBastion(
 	openTunnel func(context.Context) (net.Conn, error),
 ) (*ssh.Client, error) {
 	const (
+		sshDialAttempts     = 5
 		sshReadinessTimeout = 5 * time.Minute
 		sshDialBackoff      = 10 * time.Second
 	)
@@ -339,7 +340,7 @@ func dialSSHOverBastion(
 	deadline, _ := ctx.Deadline()
 
 	var lastErr error
-	for attempt := 1; ; attempt++ {
+	for attempt := 1; attempt <= sshDialAttempts; attempt++ {
 		if ctx.Err() != nil || !time.Now().Before(deadline) {
 			err := ctx.Err()
 			if err == nil {
@@ -357,9 +358,9 @@ func dialSSHOverBastion(
 		lastErr = err
 		toolkit.Logf(ctx, "Attempt %d SSH over bastion failed after %s: %v", attempt, time.Since(start), err)
 		if ctx.Err() != nil {
-			continue
+			return nil, fmt.Errorf("SSH readiness to %s canceled: %w", vmPrivateIP, ctx.Err())
 		}
-		if !isTransientSSHError(err) {
+		if !isTransientSSHError(err) || attempt == sshDialAttempts {
 			return nil, err
 		}
 		timer := time.NewTimer(sshDialBackoff)
@@ -369,6 +370,7 @@ func dialSSHOverBastion(
 		}
 		timer.Stop()
 	}
+	return nil, lastErr
 }
 
 func dialSSHAttempt(

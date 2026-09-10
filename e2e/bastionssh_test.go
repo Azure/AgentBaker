@@ -29,27 +29,24 @@ import (
 	"github.com/Azure/agentbaker/e2e/toolkit"
 )
 
-func TestSSHReadinessRetriesBeyondFiveAttempts(t *testing.T) {
+func TestSSHReadinessStopsAfterFiveAttempts(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		config, serverConfig := readinessSSHConfigs(t)
+		config, _ := readinessSSHConfigs(t)
 		start := time.Now()
 		attempts := 0
 		client, err := dialSSHOverBastion(context.Background(), "vm", config, func(ctx context.Context) (net.Conn, error) {
 			attempts++
-			if attempts <= 5 {
-				return nil, fmt.Errorf("open tunnel: %w", syscall.ECONNREFUSED)
-			}
-			return readinessSSHServer(t, ctx, serverConfig), nil
+			return nil, fmt.Errorf("open tunnel: %w", syscall.ECONNREFUSED)
 		})
-		require.NoError(t, err)
-		defer client.Close()
-		assert.Equal(t, 6, attempts)
-		assert.Equal(t, 50*time.Second, time.Since(start))
+		require.Nil(t, client)
+		require.ErrorIs(t, err, syscall.ECONNREFUSED)
+		assert.Equal(t, 5, attempts)
+		assert.Equal(t, 40*time.Second, time.Since(start))
 	})
 }
 
 func TestSSHReadinessOverallDeadline(t *testing.T) {
-	for _, phase := range []string{"tunnel", "handshake", "backoff"} {
+	for _, phase := range []string{"tunnel", "handshake"} {
 		t.Run(phase, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				config, _ := readinessSSHConfigs(t)
@@ -74,15 +71,13 @@ func TestSSHReadinessOverallDeadline(t *testing.T) {
 				})
 				require.Nil(t, client)
 				require.ErrorIs(t, err, context.DeadlineExceeded)
-				assert.Equal(t, 5*time.Minute, time.Since(start))
 				if phase == "tunnel" {
+					assert.Equal(t, 5*time.Minute, time.Since(start))
 					assert.Equal(t, 1, attempts)
 				}
 				if phase == "handshake" {
-					assert.Equal(t, 8, attempts)
-				}
-				if phase == "backoff" {
-					assert.Equal(t, 30, attempts)
+					assert.Equal(t, 190*time.Second, time.Since(start))
+					assert.Equal(t, 5, attempts)
 				}
 				for _, tunnel := range tunnels {
 					assert.Equal(t, int32(1), tunnel.closes.Load())

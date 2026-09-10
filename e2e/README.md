@@ -152,11 +152,11 @@ errors still fail setup.
 
 ### Initial SSH Readiness
 
-The initial SSH connection has a five-minute readiness limit, or the caller's shorter deadline.
-This includes credential acquisition, Bastion tunnel setup, SSH handshakes, and retry delays.
+The initial SSH connection makes at most five attempts. A five-minute safety limit, or the caller's
+shorter deadline, bounds credential acquisition, Bastion tunnel setup, handshakes, and retry delays.
 Each handshake has a 30-second limit, capped by the remaining readiness time. Transient connection
 errors and timeouts retry after ten seconds. Authentication, host-key, and other non-transient
-errors fail without retry. There is no fixed attempt count.
+errors fail without retry. Exhausting five attempts returns immediately, even if time remains.
 
 Caller cancellation stops readiness. Once SSH connects, readiness and caller cancellation no
 longer close that connection; scenario cleanup can still use it and must close it afterward.
@@ -164,9 +164,7 @@ Failed attempts close their local tunnel immediately. Bastion token deletion run
 a 30-second limit and can finish after readiness returns. Deletion failures are logged.
 The readiness loop does not retry remote commands.
 
-This is a bounded readiness policy, not proof that an intermittent Bastion or GPU failure is fixed.
-Use the attempt count and elapsed-time logs to distinguish a quick pass from a pass that needed
-the longer readiness window.
+This does not extend the retry count or resolve the intermittent RTX SSH failure observed in E2E.
 
 ### Test Flow
 
