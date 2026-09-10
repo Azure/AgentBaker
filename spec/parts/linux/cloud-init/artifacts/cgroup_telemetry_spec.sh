@@ -73,6 +73,8 @@ Describe 'cgroup telemetry'
 
         When run bash "${TEST_ROOT}/cgroup-memory-telemetry.sh"
         The status should be success
+        The contents of file "${EVENTS_ROOT}"/* should include '\"containerd_service_memory\":\"3\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"kubelet_service_memory\":\"3\"'
         The contents of file "${EVENTS_ROOT}"/* should include 'node_problem_detector_service_memory'
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_problem_detector_service_memory\":\"30\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_memory\":\"70\"'
@@ -97,6 +99,8 @@ Describe 'cgroup telemetry'
 
         When run bash "${TEST_ROOT}/cgroup-pressure-telemetry.sh"
         The status should be success
+        The contents of file "${EVENTS_ROOT}"/* should include '\"kubelet_service_pressure\":{\"CPUPressure\":{'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"containerd_service_pressure\":{\"CPUPressure\":{'
         The contents of file "${EVENTS_ROOT}"/* should include 'node_problem_detector_service_pressure'
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_problem_detector_service_pressure\":\"Not Found\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_pressure\":{'
