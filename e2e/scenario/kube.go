@@ -28,7 +28,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type Kubeclient struct {
@@ -568,12 +567,21 @@ while True:
     threading.Thread(target=handle, args=(c,), daemon=True).start()
 `
 
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: "e2e-proxy-config", Namespace: "default"},
+	patch, err := json.Marshal(map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]string{
+			"name":      "e2e-proxy-config",
+			"namespace": "default",
+		},
+		"data": map[string]string{"proxy.py": proxyScript},
+	})
+	if err != nil {
+		return fmt.Errorf("encode proxy configmap apply request: %w", err)
 	}
-	_, err := controllerutil.CreateOrUpdate(ctx, k.Dynamic, cm, func() error {
-		cm.Data = map[string]string{"proxy.py": proxyScript}
-		return nil
+	_, err = k.Typed.CoreV1().ConfigMaps("default").Patch(ctx, "e2e-proxy-config", types.ApplyPatchType, patch, metav1.PatchOptions{
+		FieldManager: "agentbaker-e2e",
+		Force:        to.Ptr(true),
 	})
 	if err != nil {
 		return fmt.Errorf("ensuring proxy configmap: %w", err)
