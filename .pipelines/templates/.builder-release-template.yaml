@@ -117,6 +117,7 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
+        printenv
         make -f packer.mk run-packer
     condition: ne(variables['BUILDER'], 'imagecustomizer')
     displayName: Build VHD
