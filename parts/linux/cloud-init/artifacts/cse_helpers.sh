@@ -752,8 +752,13 @@ ubuntuKernelNeedsVulnerableModuleMitigation() {
 
     case "$ubuntu_release" in
         20.04)
-            echo "Ubuntu 20.04 remains in scope for Copy Fail / DirtyFrag / Fragnesia vulnerable kernel module mitigation"
-            return 0
+            # Only linux-azure-fips 5.4 has a verified Focal fix for all applicable CVEs.
+            if printf '%s\n' "$kernel_release" | grep -Eq '^5\.4\.0-[0-9]+-azure-fips$'; then
+                fixed_kernel="5.4.0-1164-azure-fips"
+            else
+                echo "Ubuntu 20.04 remains in scope for Copy Fail / DirtyFrag / Fragnesia vulnerable kernel module mitigation on ${kernel_release}"
+                return 0
+            fi
             ;;
         22.04)
             case "$kernel_release" in
