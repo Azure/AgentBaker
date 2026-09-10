@@ -302,7 +302,7 @@ EOF
             The status should be success
         End
 
-        It 'uses network NTP after five unsuccessful PHC checks'
+        It 'uses all Ubuntu NTP pools after five unsuccessful PHC checks'
             Mock find_hyperv_phc_device
                 false
             End
@@ -311,7 +311,11 @@ EOF
             End
 
             When call resolve_ubuntu_2604_cvm_time_source
-            The output should eq "pool ntp.ubuntu.com iburst maxsources 4"
+            The lines of output should eq 4
+            The output should include "pool ntp.ubuntu.com        iburst maxsources 4"
+            The output should include "pool 0.ubuntu.pool.ntp.org iburst maxsources 1"
+            The output should include "pool 1.ubuntu.pool.ntp.org iburst maxsources 1"
+            The output should include "pool 2.ubuntu.pool.ntp.org iburst maxsources 2"
             The status should be success
         End
 
@@ -325,7 +329,7 @@ EOF
 
             When call verify_chrony_sync
             The output should include "waitsync 12 0 0 5"
-            The output should include "NTP synchronization confirmed through ntp.ubuntu.com"
+            The output should include "NTP synchronization confirmed through the Ubuntu NTP pools"
             The output should include "AKS.CSE.chrony.ntpSynchronized"
             The status should be success
         End
@@ -358,7 +362,12 @@ EOF
 
         It 'verifies synchronization after selecting the network NTP fallback'
             Mock resolve_ubuntu_2604_cvm_time_source
-                echo "pool ntp.ubuntu.com iburst maxsources 4"
+                cat <<'EOF'
+pool ntp.ubuntu.com        iburst maxsources 4
+pool 0.ubuntu.pool.ntp.org iburst maxsources 1
+pool 1.ubuntu.pool.ntp.org iburst maxsources 1
+pool 2.ubuntu.pool.ntp.org iburst maxsources 2
+EOF
             End
             Mock configure_chrony
                 :
@@ -372,7 +381,7 @@ EOF
 
             When call configure_ubuntu_2604_cvm_time_sync
             The output should include "PHC unavailable after retries"
-            The output should include "Using NTP pool: ntp.ubuntu.com"
+            The output should include "Using the Ubuntu NTP pools"
             The output should include "AKS.CSE.chrony.phcUnavailable"
             The output should include "AKS.CSE.chrony.usingNTP"
             The output should include "verified network synchronization"

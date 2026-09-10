@@ -591,7 +591,12 @@ function resolve_ubuntu_2604_cvm_time_source {
         fi
     done
 
-    echo "pool ntp.ubuntu.com iburst maxsources 4"
+    cat <<'EOF'
+pool ntp.ubuntu.com        iburst maxsources 4
+pool 0.ubuntu.pool.ntp.org iburst maxsources 1
+pool 1.ubuntu.pool.ntp.org iburst maxsources 1
+pool 2.ubuntu.pool.ntp.org iburst maxsources 2
+EOF
 }
 
 function verify_chrony_sync {
@@ -599,8 +604,8 @@ function verify_chrony_sync {
     local retry_interval_seconds=5
 
     if chronyc waitsync "$max_attempts" 0 0 "$retry_interval_seconds"; then
-        echo "NTP synchronization confirmed through ntp.ubuntu.com"
-        emit_event "AKS.CSE.chrony.ntpSynchronized" "NTP synchronization confirmed through ntp.ubuntu.com"
+        echo "NTP synchronization confirmed through the Ubuntu NTP pools"
+        emit_event "AKS.CSE.chrony.ntpSynchronized" "NTP synchronization confirmed through the Ubuntu NTP pools"
         return 0
     fi
 
@@ -693,8 +698,8 @@ function configure_ubuntu_2604_cvm_time_sync {
     else
         echo "PHC unavailable after retries; falling back to network NTP"
         emit_event "AKS.CSE.chrony.phcUnavailable" "PHC unavailable after retries; falling back to network NTP" "Warning"
-        echo "Using NTP pool: ntp.ubuntu.com"
-        emit_event "AKS.CSE.chrony.usingNTP" "Using NTP pool ntp.ubuntu.com"
+        echo "Using the Ubuntu NTP pools"
+        emit_event "AKS.CSE.chrony.usingNTP" "Using ntp.ubuntu.com and the 0, 1, and 2 ubuntu.pool.ntp.org pools"
 
         configure_chrony "$time_source" || return 1
         verify_chrony_sync
