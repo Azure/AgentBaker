@@ -4027,7 +4027,8 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) error {
 //     blacklist entries. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu 24.04
 //     linux-azure 6.8.0-1058-azure include the fixes, thus new VHDs must stop blocking
 //     legitimate module use. Future Ubuntu releases do not inherit this mitigation by default.
-//   - Ubuntu 20.04 and vulnerable/unknown 22.04 / 24.04 kernels / Mariner: full check —
+//     Ubuntu 20.04 also removes the mitigation on 5.4 Azure FIPS kernels at ABI 1164 or newer.
+//   - Other Ubuntu 20.04 and vulnerable/unknown 22.04 / 24.04 kernels / Mariner: full check —
 //     modprobe config entries are present, modules are NOT loaded, and modprobe refuses to load them.
 //   - AzureLinux 3.0: assert ABSENCE of the four modprobe blacklist entries. AzL3 is
 //     descoped from the mitigation because kernel 6.6.139.1-1.azl3 and later fix all
@@ -4091,6 +4092,11 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) e
 			`absent_reason=""`,
 			`case "$VERSION_ID" in`,
 			`  20.04)`,
+			`    if printf '%s\n' "$kernel_release" | grep -Eq '^5\.4\.0-[0-9]+-azure-fips$'; then`,
+			`      fixed_kernel="5.4.0-1164-azure-fips"`,
+			`    fi`,
+			`    ;;`,
+			`  "")`,
 			`    ;;`,
 			`  22.04)`,
 			`    case "$kernel_release" in`,
@@ -4128,7 +4134,7 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) e
 		}, "\n")
 		script += "\n" + kernelModuleFullBlockValidationScript()
 		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-			"Ubuntu vulnerable kernel module validation failed (fixed/future Ubuntu should have no blacklist; Ubuntu 20.04 and older/unknown 22.04/24.04 kernels should keep algif_aead/esp4/esp6/rxrpc blocked)"); err != nil {
+			"Ubuntu vulnerable kernel module validation failed (fixed/future Ubuntu, including 20.04 Azure FIPS 5.4 ABI 1164+, should have no blacklist; other 20.04 and older/unknown 22.04/24.04 kernels should keep algif_aead/esp4/esp6/rxrpc blocked)"); err != nil {
 			return fmt.Errorf("validate vulnerable kernel modules on Ubuntu: %w", err)
 		}
 		return nil

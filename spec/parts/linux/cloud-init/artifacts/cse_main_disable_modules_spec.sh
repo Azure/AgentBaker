@@ -262,11 +262,98 @@ Describe 'ubuntuKernelNeedsVulnerableModuleMitigation()'
     End
 End
 
+# Exercise the Ubuntu 20.04 Azure FIPS exception across all four shell policies.
+# Extract only the functions: never run VHD setup/cleanup or real modprobe operations.
+Describe 'Ubuntu 20.04 Azure FIPS mitigation policy consistency'
+    get_ubuntu_release() { echo "$UBUNTU_RELEASE"; }
+    uname() { echo "$KERNEL_RELEASE"; }
+    awk() { echo "$UBUNTU_RELEASE"; }
+
+    verify_policy() {
+        UBUNTU_RELEASE="$1"
+        OS_VERSION="$1"
+        KERNEL_RELEASE="$2"
+        local expected="$3"
+        local actual
+        local source_file
+        local output
+
+        load_kernel_mitigation_helpers
+        if output="$(ubuntuKernelNeedsVulnerableModuleMitigation)"; then
+            actual="keep"
+        else
+            actual="remove"
+        fi
+        if [ "$actual" != "$expected" ]; then
+            echo "CSE: expected ${expected}, got ${actual}: ${output}"
+            return 1
+        fi
+
+        for source_file in \
+            vhdbuilder/packer/packer_source.sh \
+            vhdbuilder/packer/cleanup-vhd.sh \
+            vhdbuilder/packer/test/linux-vhd-content-test.sh; do
+            eval "$(sed -n '/^kernelVersionGe()/,/^}/p' "$source_file")"
+            eval "$(sed -n '/^ubuntuKernelIncludesVulnerableModuleFixes()/,/^}/p' "$source_file")"
+            if ubuntuKernelIncludesVulnerableModuleFixes "$UBUNTU_RELEASE"; then
+                actual="remove"
+            else
+                actual="keep"
+            fi
+            if [ "$actual" != "$expected" ]; then
+                echo "${source_file}: expected ${expected}, got ${actual}"
+                return 1
+            fi
+        done
+    }
+
+    Parameters
+        "20.04" "5.4.0-1162-azure-fips" "keep"
+        "20.04" "5.4.0-1163-azure-fips" "keep"
+        "20.04" "5.4.0-1164-azure-fips" "remove"
+        "20.04" "5.4.0-1165-azure-fips" "remove"
+        "20.04" "5.4.0-1200-azure-fips" "remove"
+        "20.04" "5.4.0-1164-azure" "keep"
+        "20.04" "5.4.0-1200-azure" "keep"
+        "20.04" "5.4.0-1164-azure-fde" "keep"
+        "20.04" "5.15.0-1114-azure-fde" "keep"
+        "20.04" "5.4.0-1164-generic" "keep"
+        "20.04" "5.4.0-1164-azure-nvidia" "keep"
+        "20.04" "6.14.0-1010-azure-nvidia" "keep"
+        "20.04" "5.15.0-1116-azure-fips" "keep"
+        "20.04" "6.8.0-1058-azure-fips" "keep"
+        "20.04" "5.4.1-1164-azure-fips" "keep"
+        "20.04" "5.4.0-1164-azure-fips-custom" "keep"
+        "20.04" "5.4.0-1164.170-azure-fips" "keep"
+        "20.04" "5.4.0-1164custom-azure-fips" "keep"
+        "20.04" "5.4.0-unknown-azure-fips" "keep"
+        "20.04" "unknown" "keep"
+        "20.04" "" "keep"
+        "" "5.4.0-1164-azure-fips" "keep"
+        "" "" "keep"
+        "22.04" "5.15.0-1115-azure" "keep"
+        "22.04" "5.15.0-1116-azure" "remove"
+        "22.04" "5.15.0-1116-azure-fips" "remove"
+        "22.04" "5.15.0-1120-azure-fde" "remove"
+        "24.04" "6.8.0-1057-azure" "keep"
+        "24.04" "6.8.0-1058-azure" "remove"
+        "24.04" "6.8.0-1061-azure-fde" "remove"
+        "24.04" "6.8.0-1058-azure-fips" "remove"
+        "24.04" "6.14.0-1010-azure" "remove"
+    End
+
+    It 'only exempts fixed 5.4 Azure FIPS kernels on 20.04 and preserves later Ubuntu behavior'
+        When call verify_policy "$1" "$2" "$3"
+        The status should be success
+        The output should be blank
+    End
+End
+
 # Tests the OS gate that decides whether to apply or remove vulnerable-module
-# deny rules during VHD build and provisioning. Apply on: Ubuntu 20.04, vulnerable Ubuntu 22.04 / 24.04
+# deny rules during VHD build and provisioning. Apply on: other Ubuntu 20.04, vulnerable Ubuntu 22.04 / 24.04
 # kernels, Mariner/AzureLinux 2.0 (AzL2), AzureLinux OSGuard (defense-in-depth —
 # hardened secure-boot variant intentionally retains the mitigation). Remove stale deny rules on
-# fixed Ubuntu 22.04 / 24.04 kernels and future Ubuntu releases. Skip on AzureLinux
+# fixed Ubuntu 20.04 Azure FIPS 5.4, fixed Ubuntu 22.04 / 24.04 kernels and future Ubuntu releases. Skip on AzureLinux
 # 3.0 regular/Kata (kernel 6.6.139.1-1.azl3+ has the upstream fix and customers reported
 # the blacklist actively blocks legitimate workloads), ACL, Flatcar.
 # See https://github.com/Azure/AKS/issues/5753.
@@ -357,6 +444,42 @@ Describe 'CVE kernel module mitigation OS gate'
         When call gate
         The output should include "REMOVE"
         The output should not include "APPLY"
+    End
+
+    It 'removes stale deny rules on fixed Ubuntu 20.04 Azure FIPS kernels'
+        OS="${UBUNTU_OS_NAME}"
+        OS_VERSION="20.04"
+        UBUNTU_RELEASE="20.04"
+        KERNEL_RELEASE="5.4.0-1164-azure-fips"
+        When call gate
+        The output should include "REMOVE"
+        The output should not include "APPLY"
+    End
+
+    It 'applies all four deny rules on older Ubuntu 20.04 Azure FIPS kernels'
+        OS="${UBUNTU_OS_NAME}"
+        OS_VERSION="20.04"
+        UBUNTU_RELEASE="20.04"
+        KERNEL_RELEASE="5.4.0-1163-azure-fips"
+        When call gate
+        The output should include "APPLY:algif_aead"
+        The output should include "APPLY:esp4"
+        The output should include "APPLY:esp6"
+        The output should include "APPLY:rxrpc"
+        The output should not include "REMOVE"
+    End
+
+    It 'applies all four deny rules on Ubuntu 20.04 CVM kernels'
+        OS="${UBUNTU_OS_NAME}"
+        OS_VERSION="20.04"
+        UBUNTU_RELEASE="20.04"
+        KERNEL_RELEASE="5.15.0-1114-azure-fde"
+        When call gate
+        The output should include "APPLY:algif_aead"
+        The output should include "APPLY:esp4"
+        The output should include "APPLY:esp6"
+        The output should include "APPLY:rxrpc"
+        The output should not include "REMOVE"
     End
 
     It 'applies the mitigation when a fixed Ubuntu generic kernel has an unexpected suffix'
