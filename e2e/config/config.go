@@ -20,7 +20,6 @@ import (
 
 const (
 	DefaultV5VMSKU = "Standard_D2ds_v5"
-	MANAVMSKU      = "Standard_D2ds_v6"
 )
 
 var (
@@ -54,6 +53,7 @@ type Configuration struct {
 	DefaultPollInterval                    time.Duration
 	DefaultSubnetName                      string
 	DefaultVMSKU                           string
+	MANAVMSKU                              string
 	DisableScriptless                      bool
 	DisableScriptLessCompilation           bool
 	E2ELoggingDir                          string
@@ -100,6 +100,7 @@ func DefaultConfiguration() *Configuration {
 		DefaultPollInterval:                    15 * time.Second,
 		DefaultSubnetName:                      "aks-subnet",
 		DefaultVMSKU:                           "Standard_D2ds_v5",
+		MANAVMSKU:                              "Standard_D2ds_v6",
 		E2ELoggingDir:                          "scenario-logs",
 		EnableSecureTLSBootstrapping:           false,
 		GalleryLinux: Gallery{

@@ -2519,7 +2519,7 @@ func newUbuntu2604Minimal_CustomSysctlsScenario() *Scenario {
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2604Minimal_MANA",
-	Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 26.04 minimal with Standard_D2ds_v6",
+	Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 26.04 minimal",
 	Tags: Tags{
 		VMSeriesCoverageTest: true,
 	},
@@ -2528,11 +2528,11 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 		UseNVMe: true,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.MANAVMSKU
-			nbc.AgentPoolProfile.VMSize = config.MANAVMSKU
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.Config.MANAVMSKU
+			nbc.AgentPoolProfile.VMSize = config.Config.MANAVMSKU
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr(config.MANAVMSKU)
+			vmss.SKU.Name = to.Ptr(config.Config.MANAVMSKU)
 			enableAcceleratedNetworking(vmss)
 		},
 	},
@@ -3807,7 +3807,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_MANA",
-	Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 24.04 with Standard_D2ds_v6",
+	Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 24.04",
 	Tags: Tags{
 		VMSeriesCoverageTest: true,
 	},
@@ -3816,11 +3816,11 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDUbuntu2404Gen2Containerd,
 		UseNVMe: true,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.MANAVMSKU
-			nbc.AgentPoolProfile.VMSize = config.MANAVMSKU
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.Config.MANAVMSKU
+			nbc.AgentPoolProfile.VMSize = config.Config.MANAVMSKU
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr(config.MANAVMSKU)
+			vmss.SKU.Name = to.Ptr(config.Config.MANAVMSKU)
 			enableAcceleratedNetworking(vmss)
 		},
 	},
@@ -3828,7 +3828,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_MANA",
-	Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 22.04 with Standard_D2ds_v6",
+	Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 22.04",
 	Tags: Tags{
 		VMSeriesCoverageTest: true,
 	},
@@ -3837,11 +3837,11 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDUbuntu2204Gen2Containerd,
 		UseNVMe: true,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.MANAVMSKU
-			nbc.AgentPoolProfile.VMSize = config.MANAVMSKU
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.Config.MANAVMSKU
+			nbc.AgentPoolProfile.VMSize = config.Config.MANAVMSKU
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr(config.MANAVMSKU)
+			vmss.SKU.Name = to.Ptr(config.Config.MANAVMSKU)
 			enableAcceleratedNetworking(vmss)
 		},
 	},
@@ -3849,7 +3849,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "AzureLinuxV3_MANA",
-	Description: "Tests that MANA (Accelerated Networking) is properly configured on Azure Linux V3 with Standard_D2ds_v6",
+	Description: "Tests that MANA (Accelerated Networking) is properly configured on Azure Linux V3",
 	Tags: Tags{
 		VMSeriesCoverageTest: true,
 	},
@@ -3858,11 +3858,11 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDAzureLinuxV3Gen2,
 		UseNVMe: true,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.MANAVMSKU
-			nbc.AgentPoolProfile.VMSize = config.MANAVMSKU
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.Config.MANAVMSKU
+			nbc.AgentPoolProfile.VMSize = config.Config.MANAVMSKU
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr(config.MANAVMSKU)
+			vmss.SKU.Name = to.Ptr(config.Config.MANAVMSKU)
 			enableAcceleratedNetworking(vmss)
 		},
 	},

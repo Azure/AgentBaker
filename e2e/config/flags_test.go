@@ -1,12 +1,42 @@
 package config
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v3"
 )
+
+func TestFlagsConfigureMANAVMSKU(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		env  string
+		args []string
+		want string
+	}{
+		{name: "default", want: "Standard_D2ds_v6"},
+		{name: "environment", env: "Standard_D4ds_v6", want: "Standard_D4ds_v6"},
+		{name: "argument", args: []string{"--mana-vm-sku", "Standard_D8ds_v6"}, want: "Standard_D8ds_v6"},
+		{name: "argument overrides environment", env: "Standard_D4ds_v6", args: []string{"--mana-vm-sku", "Standard_D8ds_v6"}, want: "Standard_D8ds_v6"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			original := *Config
+			t.Cleanup(func() { *Config = original })
+			t.Setenv("MANA_VM_SKU", tc.env)
+			if tc.env == "" {
+				require.NoError(t, os.Unsetenv("MANA_VM_SKU"))
+			}
+			t.Setenv("DEFAULT_VM_SKU", "Standard_E4s_v7")
+			*Config = *DefaultConfiguration()
+			cmd := &cli.Command{Name: "e2e-test-config", Flags: Flags()}
+			require.NoError(t, cmd.Run(t.Context(), append([]string{"e2e-test-config"}, tc.args...)))
+			assert.Equal(t, tc.want, Config.MANAVMSKU)
+			assert.Equal(t, "Standard_E4s_v7", Config.DefaultVMSKU)
+		})
+	}
+}
 
 func TestFlagsRepeatedParseDoesNotInheritPreviousRun(t *testing.T) {
 	original := *Config

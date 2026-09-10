@@ -38,6 +38,16 @@ To write an E2E scenario,
   it is necessary to set `nbc.agentPoolProfile.VMSize` to match the VMSS SKU if you choose to change.
 - use `Validator` to include your own verification of the VM's live state, such as file existsnce, sysctl settings, etc.
 
+## VM size configuration
+
+The general VM size defaults to `Standard_D2ds_v5`. Set it with `--vm-sku` or
+`DEFAULT_VM_SKU`.
+
+The four MANA (Microsoft Azure Network Adapter) scenarios use a separate VM size,
+which defaults to `Standard_D2ds_v6`. Set it with `--mana-vm-sku` or `MANA_VM_SKU`.
+Choose a size that supports MANA and NVMe. This setting controls both the bootstrap
+configuration and the VMSS SKU. Command-line arguments take precedence over environment variables.
+
 ## Infrastructure Architecture
 
 All E2E clusters share a single VNet and Azure Bastion in the `abe2e-{location}` resource group. This

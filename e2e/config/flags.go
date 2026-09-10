@@ -14,6 +14,7 @@ func Flags() []cli.Flag {
 		&cli.DurationFlag{Name: "poll-interval", Value: defaults.DefaultPollInterval, Destination: &Config.DefaultPollInterval, Sources: cli.EnvVars("DEFAULT_POLL_INTERVAL")},
 		&cli.StringFlag{Name: "subnet-name", Value: defaults.DefaultSubnetName, Destination: &Config.DefaultSubnetName, Sources: cli.EnvVars("DEFAULT_SUBNET_NAME")},
 		&cli.StringFlag{Name: "vm-sku", Value: defaults.DefaultVMSKU, Destination: &Config.DefaultVMSKU, Sources: cli.EnvVars("DEFAULT_VM_SKU")},
+		&cli.StringFlag{Name: "mana-vm-sku", Value: defaults.MANAVMSKU, Destination: &Config.MANAVMSKU, Sources: cli.EnvVars("MANA_VM_SKU"), Usage: "VM size for MANA scenarios; must support MANA"},
 		&cli.BoolFlag{Name: "disable-scriptless", Value: defaults.DisableScriptless, Destination: &Config.DisableScriptless, Sources: cli.EnvVars("DISABLE_SCRIPTLESS")},
 		&cli.BoolFlag{Name: "disable-scriptless-compilation", Value: defaults.DisableScriptLessCompilation, Destination: &Config.DisableScriptLessCompilation, Sources: cli.EnvVars("DISABLE_SCRIPTLESS_COMPILATION")},
 		&cli.StringFlag{Name: "log-dir", Value: defaults.E2ELoggingDir, Destination: &Config.E2ELoggingDir, Sources: cli.EnvVars("LOGGING_DIR")},

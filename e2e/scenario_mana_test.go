@@ -16,11 +16,21 @@ func TestMANAScenariosUseExplicitSKU(t *testing.T) {
 		scenarios[s.Name] = s
 	}
 
-	for _, defaultSKU := range []string{"Standard_NM16ads_MA35D", "Standard_D2ds_v5", "Standard_E4s_v7"} {
-		t.Run(defaultSKU, func(t *testing.T) {
+	for _, tc := range []struct{ defaultSKU, manaSKU string }{
+		{"Standard_NM16ads_MA35D", "Standard_D2ds_v6"},
+		{"Standard_D2ds_v5", "Standard_D4ds_v6"},
+		{"Standard_E4s_v7", "Standard_D2ds_v6"},
+	} {
+		t.Run(tc.defaultSKU+"/"+tc.manaSKU, func(t *testing.T) {
+			defaultSKU := tc.defaultSKU
 			originalSKU := config.Config.DefaultVMSKU
-			t.Cleanup(func() { config.Config.DefaultVMSKU = originalSKU })
+			originalMANASKU := config.Config.MANAVMSKU
+			t.Cleanup(func() {
+				config.Config.DefaultVMSKU = originalSKU
+				config.Config.MANAVMSKU = originalMANASKU
+			})
 			config.Config.DefaultVMSKU = defaultSKU
+			config.Config.MANAVMSKU = tc.manaSKU
 
 			for _, name := range []string{"Ubuntu2204_MANA", "Ubuntu2404_MANA", "Ubuntu2604Minimal_MANA", "AzureLinuxV3_MANA"} {
 				t.Run(name, func(t *testing.T) {
@@ -35,8 +45,8 @@ func TestMANAScenariosUseExplicitSKU(t *testing.T) {
 						AgentPoolProfile: &datamodel.AgentPoolProfile{VMSize: defaultSKU},
 					}
 					s.BootstrapConfigMutator(nil, nbc)
-					require.Equal(t, "Standard_D2ds_v6", nbc.AgentPoolProfile.VMSize)
-					require.Equal(t, "Standard_D2ds_v6", nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize)
+					require.Equal(t, tc.manaSKU, nbc.AgentPoolProfile.VMSize)
+					require.Equal(t, tc.manaSKU, nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize)
 
 					nic := &armcompute.VirtualMachineScaleSetNetworkConfiguration{}
 					vmss := &armcompute.VirtualMachineScaleSet{
@@ -50,7 +60,7 @@ func TestMANAScenariosUseExplicitSKU(t *testing.T) {
 						},
 					}
 					s.VMConfigMutator(vmss)
-					require.Equal(t, "Standard_D2ds_v6", *vmss.SKU.Name)
+					require.Equal(t, tc.manaSKU, *vmss.SKU.Name)
 					require.NotNil(t, nic.Properties)
 					require.Equal(t, to.Ptr(true), nic.Properties.EnableAcceleratedNetworking)
 				})
