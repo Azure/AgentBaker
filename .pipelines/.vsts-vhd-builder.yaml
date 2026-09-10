@@ -31,7 +31,7 @@ pr:
     - vhdbuilder/packer/*windows*
     - vhdbuilder/packer/**/*windows*
     - .github/**
-    - e2e/scenario_win.go
+    - e2e/scenario/scenario_win.go
     - "**/*.md"
 
 pool:

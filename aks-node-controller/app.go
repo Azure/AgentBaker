@@ -33,7 +33,8 @@ func isExpectedDiffCSEVar(key string) bool {
 		"MCR_REPOSITORY_BASE",
 		"BLOCK_OUTBOUND_NETWORK",
 		"REPO_DEPOT_ENDPOINT",
-		"SKIP_WAAGENT_HOLD":
+		"SKIP_WAAGENT_HOLD",
+		"PROXY_VARS":
 		return true
 	}
 	return false

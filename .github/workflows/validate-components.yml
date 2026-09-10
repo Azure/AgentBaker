@@ -59,7 +59,7 @@ jobs:
       working-directory: ./e2e
       run: |
         set -ex
-        go test -v -run ^TestVersionConsistencyGPUManagedComponents$ .
+        go test -v -run ^TestVersionConsistencyGPUManagedComponents$ ./scenario
 
   dcgm-compatibility:
     runs-on: ubuntu-latest
