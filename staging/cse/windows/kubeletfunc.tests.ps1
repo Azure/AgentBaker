@@ -461,4 +461,20 @@ Describe 'New-NSSMService' {
             $NssmArguments -join ' ' -eq 'install Kubeproxy C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
         }
     }
+
+    It 'stops when configuring Kubeproxy fails' {
+        Mock Invoke-Nssm -ParameterFilter {
+            $NssmArguments -join ' ' -eq 'set Kubeproxy AppDirectory c:\k'
+        } -MockWith {
+            throw 'nssm.exe failed to configure Kubeproxy'
+        }
+
+        {
+            New-NSSMService -KubeDir 'c:\k' -KubeletStartFile 'c:\k\kubeletstart.ps1' -KubeProxyStartFile 'c:\k\kubeproxystart.ps1'
+        } | Should -Throw '*failed to configure Kubeproxy*'
+
+        Assert-MockCalled -CommandName Invoke-Nssm -Exactly -Times 0 -ParameterFilter {
+            $NssmArguments -join ' ' -eq 'set Kubeproxy AppParameters c:\k\kubeproxystart.ps1'
+        }
+    }
 }
