@@ -1,7 +1,16 @@
 BeforeAll {
     . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
     . $PSScriptRoot\networkisolatedclusterfunc.ps1
-    . $PSCommandPath.Replace('.tests.ps1','.ps1')
+    . $PSCommandPath.Replace('.tests.ps1', '.ps1')
+
+    # Write-Log must not be mocked because mock output can become part of a function's return value.
+    function Write-Log {}
+
+    # Always shadow these host commands so tests cannot pass, fail, or modify the machine
+    # based on its installed services, service configuration, or registry state.
+    function Get-Service {}
+    function sc.exe {}
+    function reg.exe {}
 
     $capturedContent = $null
     Mock Set-Content -MockWith {
@@ -36,25 +45,62 @@ Describe 'Adjust-DynamicPortRange' {
     }
 }
 
+Describe 'Update-ServiceFailureActions' {
+    BeforeEach {
+        $script:scExeCallCount = 0
+        $script:failedScExeCall = 0
+
+        Mock Logs-To-Event
+        Mock sc.exe -MockWith {
+            $script:scExeCallCount++
+            if ($script:scExeCallCount -eq $script:failedScExeCall) {
+                $global:LASTEXITCODE = 1
+                return
+            }
+
+            $global:LASTEXITCODE = 0
+        }
+    }
+
+    It 'configures failure actions for all services when sc.exe succeeds' {
+        { Update-ServiceFailureActions } | Should -Not -Throw
+
+        $script:scExeCallCount | Should -Be 3
+    }
+
+    It 'throws when configuring <Service>' -TestCases @(
+        @{ FailedCall = 1; Service = 'kubelet' }
+        @{ FailedCall = 2; Service = 'kubeproxy' }
+        @{ FailedCall = 3; Service = 'containerd' }
+    ) {
+        param($FailedCall, $Service)
+        $script:failedScExeCall = $FailedCall
+
+        { Update-ServiceFailureActions } | Should -Throw "*$Service*exit code 1*"
+
+        $script:scExeCallCount | Should -Be $FailedCall
+    }
+}
+
 Describe 'Resize-OSDrive' {
     BeforeEach {
         Mock Invoke-Executable
     }
 
-    BeforeAll{
+    BeforeAll {
         Mock Get-Disk -MockWith {
             Write-Host "Get-Disk $ErrorAction"
-                $valueObj = [PSCustomObject]@{
-                    Size = 1024*1024;
-                    AllocatedSize = 1024*1024
-                }
-                return $valueObj
+            $valueObj = [PSCustomObject]@{
+                Size          = 1024 * 1024;
+                AllocatedSize = 1024 * 1024
+            }
+            return $valueObj
         } -Verifiable
 
         Mock Set-ExitCode -MockWith {
             Param(
-              $ExitCode,
-              $ErrorMessage
+                $ExitCode,
+                $ErrorMessage
             )
             Write-Host "Set-ExitCode $ExitCode $ErrorMessage"
         } -Verifiable
@@ -74,7 +120,7 @@ Describe 'Resize-OSDrive' {
             Mock Get-Disk -MockWith {
                 Write-Host "Get-Disk Size: 512GB, AllocatedSize: 30GB $ErrorAction"
                 $valueObj = [PSCustomObject]@{
-                    Size = 512GB;
+                    Size          = 512GB;
                     AllocatedSize = 30GB
                 }
                 return $valueObj
@@ -88,7 +134,7 @@ Describe 'Resize-OSDrive' {
             Mock Get-Disk -MockWith {
                 Write-Host "Get-Disk Size: 30GB, AllocatedSize: 30GB $ErrorAction"
                 $valueObj = [PSCustomObject]@{
-                    Size = 30GB;
+                    Size          = 30GB;
                     AllocatedSize = 30GB
                 }
                 return $valueObj
@@ -118,7 +164,7 @@ Describe 'Resize-OSDrive' {
 Describe 'Config-CredentialProvider' {
     BeforeEach {
         $global:credentialProviderConfigDir = "staging\cse\windows\credentialProvider.tests.suites"
-        $CredentialProviderConfPATH=[Io.path]::Combine("$global:credentialProviderConfigDir", "credential-provider-config.yaml")
+        $CredentialProviderConfPATH = [Io.path]::Combine("$global:credentialProviderConfigDir", "credential-provider-config.yaml")
         function Read-Format-Yaml ([string]$YamlFile) {
             # Read the file content directly without conversion
             return Get-Content -Path $YamlFile -Raw
@@ -142,7 +188,7 @@ Describe 'Config-CredentialProvider' {
         }
     }
     Context 'CustomCloudContainerRegistryDNSSuffix is not empty' {
-       It "should match the expected config file content" {
+        It "should match the expected config file content" {
             $expectedCredentialProviderConfig = Read-Format-Yaml ([Io.path]::Combine($credentialProviderConfigDir, "CustomCloudContainerRegistryDNSSuffixNotEmpty.config.yaml"))
             Config-CredentialProvider -KubeDir $credentialProviderConfigDir -CredentialProviderConfPath $CredentialProviderConfPATH -CustomCloudContainerRegistryDNSSuffix ".azurecr.microsoft.fakecloud"
             $acutalCredentialProviderConfig = Read-Format-Yaml $CredentialProviderConfPATH
@@ -151,7 +197,7 @@ Describe 'Config-CredentialProvider' {
             $normalizedExpected = $expectedCredentialProviderConfig.Trim().Replace("`r`n", "`n")
             $normalizedActual = $acutalCredentialProviderConfig.Trim().Replace("`r`n", "`n")
             $normalizedActual | Should -Be $normalizedExpected
-       }
+        }
     }
 }
 
@@ -162,11 +208,11 @@ Describe 'Validate-CredentialProviderConfigFlags' {
         $global:credentialProviderBinDir = ""
     }
 
-    BeforeAll{
+    BeforeAll {
         Mock Set-ExitCode -MockWith {
             Param(
-              $ExitCode,
-              $ErrorMessage
+                $ExitCode,
+                $ErrorMessage
             )
             Write-Host "Set-ExitCode $ExitCode $ErrorMessage"
         } -Verifiable
@@ -174,18 +220,18 @@ Describe 'Validate-CredentialProviderConfigFlags' {
 
     Context 'success' {
         It "Should return expected config path and bin path" {
-            $expectedCredentialProviderConfigPath="c:\k\credential-provider-config.yaml"
-            $expectedCredentialProviderBinDir="c:\var\lib\kubelet\credential-provider"
-            $global:KubeletConfigArgs+="--image-credential-provider-config="+$expectedCredentialProviderConfigPath
-            $global:KubeletConfigArgs+="--image-credential-provider-bin-dir="+$expectedCredentialProviderBinDir
+            $expectedCredentialProviderConfigPath = "c:\k\credential-provider-config.yaml"
+            $expectedCredentialProviderBinDir = "c:\var\lib\kubelet\credential-provider"
+            $global:KubeletConfigArgs += "--image-credential-provider-config=" + $expectedCredentialProviderConfigPath
+            $global:KubeletConfigArgs += "--image-credential-provider-bin-dir=" + $expectedCredentialProviderBinDir
             Validate-CredentialProviderConfigFlags
             Compare-Object $global:credentialProviderConfigPath $expectedCredentialProviderConfigPath | Should -Be $null
             Compare-Object $global:credentialProviderBinDir $expectedCredentialProviderBinDir | Should -Be $null
         }
 
         It "Should return empty config path and bin path" {
-            $expectedCredentialProviderConfigPath=""
-            $expectedCredentialProviderBinDir=""
+            $expectedCredentialProviderConfigPath = ""
+            $expectedCredentialProviderBinDir = ""
             Validate-CredentialProviderConfigFlags
             Compare-Object $global:credentialProviderConfigPath $expectedCredentialProviderConfigPath | Should -Be $null
             Compare-Object $global:credentialProviderBinDir $expectedCredentialProviderBinDir | Should -Be $null
@@ -194,23 +240,194 @@ Describe 'Validate-CredentialProviderConfigFlags' {
 
     Context 'fail' {
         It "Should call Set-ExitCode when only config path is specified" {
-            $expectedCredentialProviderConfigPath="c:\k\credential-provider_config.yaml"
-            $global:KubeletConfigArgs+="--image-credential-provider-config="+$expectedCredentialProviderConfigPath
+            $expectedCredentialProviderConfigPath = "c:\k\credential-provider_config.yaml"
+            $global:KubeletConfigArgs += "--image-credential-provider-config=" + $expectedCredentialProviderConfigPath
             $credentialProviderConfigs = Validate-CredentialProviderConfigFlags
             Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG }
         }
         It "Should call Set-ExitCode when only bin dir is specified" {
-            $expectedCredentialProviderBinDir="c:\var\lib\kubelet\credential-provider"
-            $global:KubeletConfigArgs+="--image-credential-provider-bin-dir="+$expectedCredentialProviderBinDir
+            $expectedCredentialProviderBinDir = "c:\var\lib\kubelet\credential-provider"
+            $global:KubeletConfigArgs += "--image-credential-provider-bin-dir=" + $expectedCredentialProviderBinDir
             $credentialProviderConfigs = Validate-CredentialProviderConfigFlags
             Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG }
         }
         It "Should call Set-ExitCode when flag value is emtpy string" {
-            $expectedCredentialProviderBinDir="c:\var\lib\kubelet\credential-provider"
-            $global:KubeletConfigArgs+="--image-credential-provider-bin-dir="
+            $expectedCredentialProviderBinDir = "c:\var\lib\kubelet\credential-provider"
+            $global:KubeletConfigArgs += "--image-credential-provider-bin-dir="
             $credentialProviderConfigs = Validate-CredentialProviderConfigFlags
             Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG }
         }
+    }
+}
+
+Describe 'Test-GmsaPluginRegistry' {
+    BeforeEach {
+        $env:SystemRoot = 'C:\Windows'
+        $permissionHex = '01000480440000005400000000000000140000000200300002000000000014000B000000010100000000000512000000000014000B00000001010000000000050B0000000102000000000005200000002002000001020000000000052000000020020000'
+        $script:expectedPermission = [byte[]]@()
+        for ($index = 0; $index -lt $permissionHex.Length; $index += 2) {
+            $script:expectedPermission += [Convert]::ToByte($permissionHex.Substring($index, 2), 16)
+        }
+
+        Mock Test-Path -MockWith { return $true }
+        Mock Get-ItemPropertyValue -MockWith {
+            param($Path, $Name)
+
+            if ($Path -like '*\ProxyStubClsid32' -and $Name -eq '(default)') {
+                return '{A6FF50C0-56C0-71CA-5732-BED303A59628}'
+            }
+            if ($Path -like '*\Interface\{*}' -and $Name -eq '(default)') {
+                return 'ICcgDomainAuthCredentials'
+            }
+            if ($Path -like '*\AppID\*' -and $Name -in @('AccessPermission', 'LaunchPermission')) {
+                return $script:expectedPermission
+            }
+            if ($Path -like '*\AppID\*' -and $Name -eq 'DllSurrogate') {
+                return ''
+            }
+            if ($Path -like '*\CLSID\*' -and $Name -eq 'AppID') {
+                return '{557110E1-88BC-4583-8281-6AAC6F708584}'
+            }
+            if ($Path -like '*\InprocServer32' -and $Name -eq '(default)') {
+                return [Io.path]::Combine($env:SystemRoot, 'System32', 'CCGAKVPlugin.dll')
+            }
+            if ($Path -like '*\InprocServer32' -and $Name -eq 'ThreadingModel') {
+                return 'Both'
+            }
+            if ($Path -like '*\CCG\COMClasses\*' -and $Name -eq '(default)') {
+                return ''
+            }
+
+            throw "Unexpected registry value: $Path $Name"
+        }
+    }
+
+    It 'returns true when all required registry values are present' {
+        Test-GmsaPluginRegistry | Should -BeTrue
+    }
+
+    It 'returns false when a required registry key is missing' {
+        Mock Test-Path -MockWith {
+            param($Path)
+            return $Path -notlike '*\CCG\COMClasses\*'
+        }
+
+        Test-GmsaPluginRegistry | Should -BeFalse
+    }
+
+    It 'returns false when the proxy stub registration is invalid' {
+        Mock Get-ItemPropertyValue -MockWith {
+            return '{invalid}'
+        } -ParameterFilter { $Path -like '*\ProxyStubClsid32' -and $Name -eq '(default)' }
+
+        Test-GmsaPluginRegistry | Should -BeFalse
+    }
+
+    It 'returns false when the permission descriptor is invalid' {
+        Mock Get-ItemPropertyValue -MockWith {
+            return [byte[]](1)
+        } -ParameterFilter { $Path -like '*\AppID\*' -and $Name -eq 'AccessPermission' }
+
+        Test-GmsaPluginRegistry | Should -BeFalse
+    }
+
+    It 'returns false when the plugin DLL is missing' {
+        Mock Test-Path -MockWith {
+            return $false
+        } -ParameterFilter { $Path -like '*CCGAKVPlugin.dll' -and $PathType -eq 'Leaf' }
+
+        Test-GmsaPluginRegistry | Should -BeFalse
+    }
+}
+
+Describe 'Import-GmsaPluginRegistry' {
+    BeforeEach {
+        Mock Set-ExitCode
+        Mock Test-GmsaPluginRegistry -MockWith { return $false }
+        Mock reg.exe -MockWith {
+            $global:LASTEXITCODE = 0
+            return ""
+        }
+    }
+
+    It 'does not validate registry state when reg.exe succeeds' {
+        Import-GmsaPluginRegistry -RegistryFilePath 'c:\temp\registerplugin.reg'
+
+        Assert-MockCalled -CommandName 'Test-GmsaPluginRegistry' -Exactly -Times 0
+        Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 0
+    }
+
+    It 'continues when reg.exe fails but the required registry state is valid' {
+        Mock reg.exe -MockWith {
+            $global:LASTEXITCODE = 1
+            return "The operation completed with errors."
+        }
+        Mock Test-GmsaPluginRegistry -MockWith { return $true }
+
+        Import-GmsaPluginRegistry -RegistryFilePath 'c:\temp\registerplugin.reg'
+        Assert-MockCalled -CommandName 'Test-GmsaPluginRegistry' -Exactly -Times 1
+        Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 0
+    }
+
+    It 'fails when reg.exe fails and the required registry state is invalid' {
+        Mock reg.exe -MockWith {
+            $global:LASTEXITCODE = 1
+            return "The operation failed."
+        }
+
+        Import-GmsaPluginRegistry -RegistryFilePath 'c:\temp\registerplugin.reg'
+
+        Assert-MockCalled -CommandName 'Test-GmsaPluginRegistry' -Exactly -Times 1
+        Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter {
+            $ExitCode -eq $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES `
+                -and $ErrorMessage -match 'exit code 1' `
+                -and $ErrorMessage -match 'The operation failed'
+        }
+    }
+}
+
+Describe 'Install-OpenSSH' {
+    BeforeAll {
+        function Start-Service {}
+        function Restart-Service {}
+        function Set-Service {}
+        function Get-NetFirewallRule {}
+        function icacls {}
+    }
+
+    BeforeEach {
+        $script:icaclsCallCount = 0
+
+        Mock Logs-To-Event
+        Mock Get-Service -MockWith { return [PSCustomObject]@{ Name = 'sshd' } }
+        Mock Start-Service
+        Mock Test-Path -MockWith { return $true }
+        Mock Add-Content
+        Mock Restart-Service
+        Mock Set-Service
+        Mock Get-NetFirewallRule -MockWith { return [PSCustomObject]@{ Name = 'OpenSSH-Server-In-TCP' } }
+        Mock icacls -MockWith {
+            $script:icaclsCallCount++
+            $global:LASTEXITCODE = 0
+        }
+    }
+
+    It 'configures the authorized keys permissions when icacls succeeds' {
+        { Install-OpenSSH -SSHKeys @('ssh-rsa test') } | Should -Not -Throw
+
+        $script:icaclsCallCount | Should -Be 4
+    }
+
+    It 'throws when Authenticated Users permissions cannot be removed' {
+        Mock icacls -MockWith {
+            $script:icaclsCallCount++
+            $global:LASTEXITCODE = 5
+        }
+
+        { Install-OpenSSH -SSHKeys @('ssh-rsa test') } | Should -Throw '*remove Authenticated Users permissions*exit code 5*'
+
+        $script:icaclsCallCount | Should -Be 1
+        Assert-MockCalled -CommandName Restart-Service -Exactly -Times 0
     }
 }
 
@@ -287,5 +504,109 @@ Describe 'Install-CredentialProvider' {
         $global:CredentialProviderURL = 'https://packages.aks.azure.com/invalid/credential-provider.zip'
         Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
         $script:lastDownloadReference | Should -Be 'myregistry.azurecr.io/aks/packages/kubernetes/azure-acr-credential-provider:v1.31.9'
+    }
+}
+
+Describe 'New-CsiProxyService' {
+    BeforeEach {
+        $global:KubeDir = 'c:\k'
+        $script:scExeCallCount = 0
+
+        Mock Logs-To-Event
+        Mock DownloadFileOverHttp
+        Mock tar { $global:LASTEXITCODE = 0 }
+        Mock cp
+        Mock del
+        Mock New-TemporaryDirectory -MockWith { return 'c:\temp\csiproxy' }
+        Mock Invoke-Nssm
+        Mock sc.exe -MockWith { $script:scExeCallCount++; $global:LASTEXITCODE = 0 }
+    }
+
+    Context 'when csi-proxy service does not exist' {
+        BeforeEach {
+            Mock Get-Service -MockWith { return $null }
+        }
+
+        It 'does not call sc.exe and still installs the service' {
+            New-CsiProxyService -CsiProxyPackageUrl 'https://example.com/csiproxy.tar.gz' -KubeDir 'c:\k'
+
+            $script:scExeCallCount | Should -Be 0
+            Assert-MockCalled -CommandName 'Invoke-Nssm' -Exactly -Times 1 -ParameterFilter { $KubeDir -eq 'c:\k' -and $NssmArguments[0] -eq 'install' -and $NssmArguments[1] -eq 'csi-proxy' }
+        }
+    }
+
+    Context 'when csi-proxy service already exists' {
+        BeforeEach {
+            $script:getServiceCallCount = 0
+            $mockExistingSvc = [PSCustomObject]@{Name = 'csi-proxy'; Status = 'Stopped'}
+            Mock Get-Service -MockWith {
+                $script:getServiceCallCount++
+                if ($script:getServiceCallCount -eq 1) {
+                    return $mockExistingSvc
+                }
+                return $null
+            }
+        }
+
+        It 'calls sc.exe delete to remove the existing service before install' {
+            New-CsiProxyService -CsiProxyPackageUrl 'https://example.com/csiproxy.tar.gz' -KubeDir 'c:\k'
+
+            $script:scExeCallCount | Should -Be 1
+        }
+
+        It 'throws when sc.exe delete fails' {
+            Mock sc.exe -MockWith { $script:scExeCallCount++; $global:LASTEXITCODE = 1 }
+
+            { New-CsiProxyService -CsiProxyPackageUrl 'https://example.com/csiproxy.tar.gz' -KubeDir 'c:\k' } | Should -Throw '*exit code 1*'
+        }
+    }
+}
+
+Describe 'New-HostsConfigService' {
+    BeforeEach {
+        $global:KubeDir = 'c:\k'
+        $script:scExeCallCount = 0
+
+        Mock Logs-To-Event
+        Mock Invoke-Nssm
+        Mock sc.exe -MockWith { $script:scExeCallCount++; $global:LASTEXITCODE = 0 }
+    }
+
+    Context 'when hosts-config-agent service does not exist' {
+        BeforeEach {
+            Mock Get-Service -MockWith { return $null }
+        }
+
+        It 'does not call sc.exe and still installs the service' {
+            New-HostsConfigService
+
+            $script:scExeCallCount | Should -Be 0
+        }
+    }
+
+    Context 'when hosts-config-agent service already exists' {
+        BeforeEach {
+            $script:getServiceCallCount = 0
+            $mockExistingSvc = [PSCustomObject]@{Name = 'hosts-config-agent'; Status = 'Stopped'}
+            Mock Get-Service -MockWith {
+                $script:getServiceCallCount++
+                if ($script:getServiceCallCount -eq 1) {
+                    return $mockExistingSvc
+                }
+                return $null
+            }
+        }
+
+        It 'calls sc.exe delete to remove the existing service before install' {
+            New-HostsConfigService
+
+            $script:scExeCallCount | Should -Be 1
+        }
+
+        It 'throws when sc.exe delete fails' {
+            Mock sc.exe -MockWith { $script:scExeCallCount++; $global:LASTEXITCODE = 1 }
+
+            { New-HostsConfigService } | Should -Throw '*exit code 1*'
+        }
     }
 }

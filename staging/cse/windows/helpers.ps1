@@ -5,16 +5,49 @@ function Remove-ServiceIfExists
     param(
         [Parameter(Mandatory = $true)][string]$ServiceName
     )
-    # A prior provisioning attempt may have already registered this service (e.g. CSE re-invoked
-    # after a partial failure). Best-effort remove it so the subsequent nssm.exe install doesn't
-    # fail against an already-existing service.
+
     $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-    if ($null -ne $svc) {
-        sc.exe delete "$ServiceName"
-        # sc.exe delete can legitimately return non-zero here (e.g. 1072 - service already marked for deletion)
-        # since this is best-effort cleanup of a pre-existing service, don't treat that as fatal.
-        if ($LASTEXITCODE -ne 0) { Write-Log "sc.exe failed to delete existing $ServiceName service (exit code $LASTEXITCODE), continuing anyway" }
+    if ($null -eq $svc) {
+        return
     }
+
+    $pendingStatuses = @('StartPending', 'ContinuePending', 'PausePending')
+    for ($attempt = 0; $svc.Status -in $pendingStatuses -and $attempt -lt 30; $attempt++) {
+        Start-Sleep -Seconds 1
+        $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+        if ($null -eq $svc) {
+            return
+        }
+    }
+
+    if ($svc.Status -in $pendingStatuses) {
+        throw "Timed out waiting for existing $ServiceName service to leave the $($svc.Status) state"
+    }
+
+    if ($svc.Status -ne 'Stopped' -and $svc.Status -ne 'StopPending') {
+        Stop-Service -Name $ServiceName -Force -ErrorAction Stop
+    }
+
+    sc.exe delete "$ServiceName"
+    if ($LASTEXITCODE -notin @(0, 1060, 1072)) {
+        throw "sc.exe failed to delete existing $ServiceName service (exit code $LASTEXITCODE)"
+    }
+
+    for ($attempt = 0; $attempt -lt 30; $attempt++) {
+        $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+        if ($null -eq $svc) {
+            return
+        }
+
+        Start-Sleep -Seconds 1
+    }
+
+    $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+    if ($null -eq $svc) {
+        return
+    }
+
+    throw "Timed out waiting for existing $ServiceName service to be deleted"
 }
 
 function Invoke-NssmExe
