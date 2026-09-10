@@ -67,6 +67,33 @@ Describe 'Remove-ServiceIfExists' {
             $script:stopServiceCallCount | Should -Be 1
         }
 
+        It 'does not stop a service that is already stopping' {
+            $script:serviceStatus = 'StopPending'
+            Mock sc.exe -MockWith { $script:scExeCallCount++; $global:LASTEXITCODE = 0 }
+
+            Remove-ServiceIfExists -ServiceName 'some-service'
+
+            $script:stopServiceCallCount | Should -Be 0
+            $script:scExeCallCount | Should -Be 1
+        }
+
+        It 'waits for another pending state before stopping the service' {
+            Mock Get-Service -MockWith {
+                $script:getServiceCallCount++
+                switch ($script:getServiceCallCount) {
+                    1 { return [PSCustomObject]@{Name = 'some-service'; Status = 'StartPending'} }
+                    2 { return [PSCustomObject]@{Name = 'some-service'; Status = 'Running'} }
+                    default { return $null }
+                }
+            }
+            Mock sc.exe -MockWith { $global:LASTEXITCODE = 0 }
+
+            Remove-ServiceIfExists -ServiceName 'some-service'
+
+            $script:stopServiceCallCount | Should -Be 1
+            Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 1
+        }
+
         It 'waits when the service is already marked for deletion' {
             Mock sc.exe -MockWith { $global:LASTEXITCODE = 1072 }
 
@@ -96,6 +123,21 @@ Describe 'Remove-ServiceIfExists' {
             Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 2 -ParameterFilter {
                 $Seconds -eq 1
             }
+        }
+
+        It 'accepts deletion during the final wait interval' {
+            Mock Get-Service -MockWith {
+                $script:getServiceCallCount++
+                if ($script:getServiceCallCount -le 31) {
+                    return [PSCustomObject]@{Name = 'some-service'; Status = $script:serviceStatus}
+                }
+                return $null
+            }
+            Mock sc.exe -MockWith { $global:LASTEXITCODE = 0 }
+
+            { Remove-ServiceIfExists -ServiceName 'some-service' } | Should -Not -Throw
+
+            Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 30
         }
 
         It 'throws when the service remains registered' {

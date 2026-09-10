@@ -11,7 +11,20 @@ function Remove-ServiceIfExists
         return
     }
 
-    if ($svc.Status -ne 'Stopped') {
+    $pendingStatuses = @('StartPending', 'ContinuePending', 'PausePending')
+    for ($attempt = 0; $svc.Status -in $pendingStatuses -and $attempt -lt 30; $attempt++) {
+        Start-Sleep -Seconds 1
+        $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+        if ($null -eq $svc) {
+            return
+        }
+    }
+
+    if ($svc.Status -in $pendingStatuses) {
+        throw "Timed out waiting for existing $ServiceName service to leave the $($svc.Status) state"
+    }
+
+    if ($svc.Status -ne 'Stopped' -and $svc.Status -ne 'StopPending') {
         Stop-Service -Name $ServiceName -Force -ErrorAction Stop
     }
 
@@ -27,6 +40,11 @@ function Remove-ServiceIfExists
         }
 
         Start-Sleep -Seconds 1
+    }
+
+    $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+    if ($null -eq $svc) {
+        return
     }
 
     throw "Timed out waiting for existing $ServiceName service to be deleted"
