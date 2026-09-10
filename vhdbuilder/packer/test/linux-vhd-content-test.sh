@@ -1486,7 +1486,8 @@ testNfsServerService() {
 # is still baked in and asserted below. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu
 # 24.04 linux-azure 6.8.0-1058-azure include the fixes, so newly-built Ubuntu
 # 22.04/24.04 VHDs with a fixed running kernel also stop baking the vulnerable-module
-# blacklist while keeping the baseline CIS module deny list. Ubuntu 20.04 and vulnerable
+# blacklist while keeping the baseline CIS module deny list. Ubuntu 20.04 Azure FIPS
+# 5.4 kernels at ABI 1164 or newer also assert ABSENCE. Other Ubuntu 20.04 and vulnerable
 # 22.04/24.04 kernels assert presence + load-refusal; fixed 22.04/24.04 kernels and
 # future Ubuntu releases assert ABSENCE so future releases do not inherit the mitigation.
 # Mariner/AzureLinux 2.0 and AzureLinux OSGuard still assert presence + load-refusal.
@@ -1507,12 +1508,15 @@ ubuntuKernelIncludesVulnerableModuleFixes() {
   local fixed_kernel
 
   kernel_release="$(uname -r 2>/dev/null || true)"
-  if [ -z "$kernel_release" ]; then
+  if [ -z "$os_version" ] || [ -z "$kernel_release" ]; then
     return 1
   fi
 
   case "$os_version" in
-    20.04) return 1 ;;
+    20.04)
+      printf '%s\n' "$kernel_release" | grep -Eq '^5\.4\.0-[0-9]+-azure-fips$' || return 1
+      fixed_kernel="5.4.0-1164-azure-fips"
+      ;;
     22.04)
       case "$kernel_release" in
         # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
@@ -1993,6 +1997,22 @@ testNodeExporter () {
   fi
   echo "$test: skip sentinel file exists at $skip_file"
 
+  local expectedVersion
+  expectedVersion=$(getPackageExpectedVersion "node-exporter" "" "" "")
+  if [ "$expectedVersion" = "<SKIP>" ]; then
+    err "$test" "node-exporter expected version is <SKIP> on supported OS $os_sku"
+    return 1
+  fi
+  assertPackageVersion "$test" "node-exporter-kubernetes" "$expectedVersion" || return 1
+
+  local expectedBinaryVersion="v${expectedVersion%%-*}"
+  local binaryVersion
+  binaryVersion=$(/usr/bin/node-exporter --version 2>&1 | awk 'NR == 1 { print $3 }')
+  if [ "$binaryVersion" != "$expectedBinaryVersion" ]; then
+    err "$test" "node-exporter binary version '$binaryVersion' does not match expected '$expectedBinaryVersion'"
+    return 1
+  fi
+
   # The Dalec-built deb/rpm installs the binary to /usr/bin/node-exporter.
   # We then create a symlink at /opt/bin/node-exporter for consistency with
   # other binaries (kubelet, kubectl) that live in /opt/bin.
@@ -2022,6 +2042,11 @@ testNodeExporter () {
     return 1
   fi
   echo "$test: node-exporter startup script exists"
+
+  if [ ! -s /etc/udev/rules.d/99-node-exporter-mana.rules ]; then
+    err "$test" "node-exporter MANA PCI-add rule is missing"
+    return 1
+  fi
 
   # Check that the service file exists
   if [ ! -f "/etc/systemd/system/node-exporter.service" ]; then
@@ -2088,9 +2113,19 @@ testAKSNodeControllerVersion() {
     return 1
   fi
 
-  if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]{6}\.[0-9]{2}\.[0-9]+$'; then
-    err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected 'YYYYMM.DD.PATCH'"
-    return 1
+  # Test builds (PR builds, and any build run off a non-main ref) are not tied to a real VHD release version,
+  # so binary stamped with a non-release version (e.g. a locally-generated dev/date-based fallback).
+  # Only enforce the strict release format when official build off of 'refs/heads/main'.
+  if [ "$GIT_BRANCH" = "refs/heads/main" ]; then
+    if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]{6}\.[0-9]{2}\.[0-9]+$'; then
+      err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected 'YYYYMM.DD.PATCH'"
+      return 1
+    fi
+  else
+    if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]+(\.[0-9]+)*$'; then
+      err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected a dotted numeric version"
+      return 1
+    fi
   fi
 
   echo "$test: aks-node-controller version '${ancVersion}' is valid"

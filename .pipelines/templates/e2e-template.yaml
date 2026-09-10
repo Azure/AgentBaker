@@ -31,7 +31,7 @@ parameters:
     displayName: |
       Set to true when the target subscription auto-injects the RCV1P opt-in VMSS tag
       (platformsettings.host_environment.service.platform_optedin_for_rootcerts).
-      When true, RCV1P negative tests (e.g. Test_RCV1P_Windows_NotOptedIn) are skipped
+      When true, RCV1P negative tests (e.g. RCV1P_Windows_NotOptedIn) are skipped
       because they cannot verify the not-opted-in behavior on such subscriptions.
       Msft tenant E2E subs auto-inject; the RCV1P subscription does not.
     default: true

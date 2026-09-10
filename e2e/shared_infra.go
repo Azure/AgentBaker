@@ -121,7 +121,7 @@ func ensureSharedVNet(ctx context.Context, rg, location string) error {
 			if updateErr != nil {
 				return fmt.Errorf("adding IPv6 to shared VNet: %w", updateErr)
 			}
-			if _, updateErr = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions); updateErr != nil {
+			if _, updateErr = poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); updateErr != nil {
 				return fmt.Errorf("waiting for IPv6 VNet update: %w", updateErr)
 			}
 		}
@@ -143,7 +143,7 @@ func ensureSharedVNet(ctx context.Context, rg, location string) error {
 	if err != nil {
 		return fmt.Errorf("creating shared VNet: %w", err)
 	}
-	_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	_, err = poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return fmt.Errorf("waiting for shared VNet creation: %w", err)
 	}
@@ -168,7 +168,7 @@ func ensurePESubnet(ctx context.Context, rg string) error {
 	if err != nil {
 		return fmt.Errorf("creating PE subnet: %w", err)
 	}
-	_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	_, err = poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return fmt.Errorf("waiting for PE subnet creation: %w", err)
 	}
@@ -210,7 +210,7 @@ func cleanupOrphanedSubnets(ctx context.Context, rg string) {
 				toolkit.Logf(ctx, "warning: failed to start deleting subnet %s: %v", name, err)
 				continue
 			}
-			if _, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions); err != nil {
+			if _, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
 				toolkit.Logf(ctx, "warning: failed to delete subnet %s: %v", name, err)
 			}
 		}
@@ -247,7 +247,7 @@ func ensureSubnet(ctx context.Context, rg, vnetName, subnetName, cidr string) er
 		if err != nil {
 			return fmt.Errorf("creating subnet %s: %w", subnetName, err)
 		}
-		_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+		_, err = poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 		if err != nil {
 			return fmt.Errorf("waiting for subnet %s: %w", subnetName, err)
 		}
@@ -276,7 +276,7 @@ func ensureDualStackSubnet(ctx context.Context, rg, vnetName, subnetName, ipv4CI
 		if err != nil {
 			return fmt.Errorf("creating dual-stack subnet %s: %w", subnetName, err)
 		}
-		_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+		_, err = poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 		if err != nil {
 			return fmt.Errorf("waiting for dual-stack subnet %s: %w", subnetName, err)
 		}
@@ -297,7 +297,7 @@ func ensureBastionIPConnect(ctx context.Context, rg string, bastion armnetwork.B
 	if err != nil {
 		return fmt.Errorf("enabling bastion IP connect: %w", err)
 	}
-	if _, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions); err != nil {
+	if _, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
 		return fmt.Errorf("waiting for bastion IP connect: %w", err)
 	}
 	return nil
@@ -335,7 +335,7 @@ func ensureSharedBastion(ctx context.Context, rg, location string) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("creating bastion public IP: %w", err)
 	}
-	pipResp, err := pipPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	pipResp, err := pipPoller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return "", fmt.Errorf("waiting for bastion public IP: %w", err)
 	}
@@ -374,7 +374,7 @@ func ensureSharedBastion(ctx context.Context, rg, location string) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("creating shared bastion: %w", err)
 	}
-	resp, err := bastionPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	resp, err := bastionPoller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return "", fmt.Errorf("waiting for shared bastion: %w", err)
 	}
@@ -421,7 +421,7 @@ func ensureSharedFirewall(ctx context.Context, rg, location string) (string, err
 		if err != nil {
 			return "", fmt.Errorf("updating shared firewall app rules: %w", err)
 		}
-		fwResp, err := fwPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+		fwResp, err := fwPoller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 		if err != nil {
 			return "", fmt.Errorf("waiting for shared firewall update: %w", err)
 		}
@@ -455,7 +455,7 @@ func ensureSharedFirewall(ctx context.Context, rg, location string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("creating firewall public IP: %w", err)
 	}
-	pipResp, err := pipPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	pipResp, err := pipPoller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return "", fmt.Errorf("waiting for firewall public IP: %w", err)
 	}
@@ -467,7 +467,7 @@ func ensureSharedFirewall(ctx context.Context, rg, location string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("creating shared firewall: %w", err)
 	}
-	fwResp, err := fwPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	fwResp, err := fwPoller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
 		return "", fmt.Errorf("waiting for shared firewall: %w", err)
 	}
@@ -674,7 +674,7 @@ func detachNodeResourceGroupReferencesFromClusterSubnet(ctx context.Context, loc
 		if err != nil {
 			return fmt.Errorf("detaching node resource group references from subnet %s: %w", subnetName, err)
 		}
-		_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+		_, err = poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 		return err
 	})
 }

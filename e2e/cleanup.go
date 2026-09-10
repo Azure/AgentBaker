@@ -19,7 +19,7 @@ type scenarioCleanup struct {
 	closed   bool
 }
 
-// Cleanup registers fn to run after the scenario and its subtests finish.
+// Cleanup registers fn to run after the scenario attempt finishes.
 func (s *Scenario) Cleanup(fn func(context.Context) error) {
 	if s.cleanup == nil {
 		panic("Scenario.Cleanup called outside of a scenario run")

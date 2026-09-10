@@ -59,7 +59,7 @@ jobs:
       working-directory: ./e2e
       run: |
         set -ex
-        go test -v -run ^Test_Version_Consistency_GPU_Managed_Components$ .
+        go test -v -run ^TestVersionConsistencyGPUManagedComponents$ .
 
   dcgm-compatibility:
     runs-on: ubuntu-latest
@@ -77,5 +77,4 @@ jobs:
       working-directory: ./e2e
       run: |
         set -ex
-        go test -v -run ^TestDCGMExporterCompatibility$ ./components/
-
+        go test -v -tags=dcgmcompat ./components/
