@@ -659,3 +659,44 @@ func TestShouldUpgradeToHotfix(t *testing.T) {
 		})
 	}
 }
+
+func TestRemoveStaleHotfix(t *testing.T) {
+	t.Run("removes the staged binary", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "aks-node-controller-hotfix")
+		require.NoError(t, os.WriteFile(path, []byte("stale"), 0o755))
+
+		app := &App{hotfixBinaryPath: path}
+		app.removeStaleHotfix()
+
+		_, err := os.Stat(path)
+		assert.True(t, os.IsNotExist(err), "stale hotfix binary should be gone")
+	})
+
+	t.Run("absent binary is a no-op", func(t *testing.T) {
+		app := &App{hotfixBinaryPath: filepath.Join(t.TempDir(), "missing")}
+		assert.NotPanics(t, app.removeStaleHotfix)
+	})
+
+	// The launcher selects the hotfix on `[ -x ]` alone and ignores this process's exit
+	// status, so removal failing must not leave the stale binary runnable.
+	t.Run("disarms the binary when removal fails", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("root bypasses directory write permissions, so unlink cannot be made to fail")
+		}
+		dir := t.TempDir()
+		path := filepath.Join(dir, "aks-node-controller-hotfix")
+		require.NoError(t, os.WriteFile(path, []byte("stale"), 0o755))
+
+		// Unlink needs write permission on the parent directory; chmod on the file does not.
+		require.NoError(t, os.Chmod(dir, 0o500))
+		t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+
+		app := &App{hotfixBinaryPath: path}
+		app.removeStaleHotfix()
+
+		info, err := os.Stat(path)
+		require.NoError(t, err, "removal was expected to fail, leaving the file in place")
+		assert.Zero(t, info.Mode().Perm()&0o111, "stale hotfix binary must not remain executable")
+	})
+}
