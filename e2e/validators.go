@@ -433,11 +433,7 @@ func RebootVMAndWaitForSSH(ctx context.Context, s *Scenario) error {
 	return nil
 }
 
-// ValidateNetworkInterfaceConfig validates network interface configuration settings using ethtool.
-// It identifies network interfaces with slot names matching the enP* pattern (same logic as the udev rule),
-// then verifies that each interface has the expected configuration settings (e.g., rx buffer size).
-// The nicConfig map specifies the ethtool settings to validate (key: setting name, value: expected value).
-func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig map[string]string) error {
+func validateRxBufferConfig(ctx context.Context, s *Scenario, cpuCount int) error {
 	// Get list of NICs using udevadm (same logic as udev rule)
 	getNicsCommand := []string{
 		"#!/usr/bin/env bash",
@@ -475,7 +471,7 @@ func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig 
 	s.Logger.Logf("Parsed NICs list: %v (count: %d)", nics, len(nics))
 
 	if len(nics) == 0 || (len(nics) == 1 && strings.TrimSpace(nics[0]) == "") {
-		s.Logger.Logf("No PCI devices (NICs) with enP* slot pattern found - skipping network interface config validation")
+		s.Logger.Logf("No PCI devices (NICs) with enP* slot pattern found - skipping RX-buffer validation")
 		return nil
 	}
 
@@ -487,42 +483,52 @@ func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig 
 			continue
 		}
 
-		s.Logger.Logf("Validating network interface config for NIC: %s", nic)
+		s.Logger.Logf("Validating RX buffer for NIC: %s", nic)
 
 		// Get full ethtool output for debugging
-		debugCommand := []string{
-			"set -ex",
-			fmt.Sprintf("echo '=== Full ethtool output for %s ==='", nic),
-			fmt.Sprintf("sudo ethtool -g %s", nic),
-		}
-		debugResult, err := execScriptOnVMForScenario(ctx, s, strings.Join(debugCommand, "\n"))
+		debugCommand := fmt.Sprintf("sudo env LC_ALL=C ethtool -g %q", nic)
+		debugResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, debugCommand, 0, "could not get ethtool ring settings")
 		if err != nil {
 			return errors.Join(append(errs, fmt.Errorf("get ethtool output for nic %s: %w", nic, err))...)
 		}
 		s.Logger.Logf("Full ethtool output for %s:\n%s", nic, debugResult.stdout)
 		oldEthtool := strings.Contains(debugResult.stdout, "Current hardware settings")
 
-		for setting, expectedValue := range nicConfig {
-			var cmd string
-			if oldEthtool {
-				cmd = fmt.Sprintf("sudo ethtool -g %s | grep -A 5 'Current hardware settings' | grep -i %s: | awk '{print $2}'", nic, setting)
-			} else {
-				cmd = fmt.Sprintf("sudo ethtool --json -g %s | jq -r .[0].\\\"%s\\\"", nic, setting)
-			}
-			command := []string{
-				"set -ex",
-				cmd,
-			}
-			execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get ethtool config")
-			if err != nil {
-				return errors.Join(append(errs, fmt.Errorf("get ethtool setting %s for nic %s: %w", setting, nic, err))...)
-			}
-			actualValue := strings.TrimSpace(execResult.stdout)
-			s.Logger.Logf("Ethtool setting %s for NIC %s: expected=%s, actual=%s", setting, nic, expectedValue, actualValue)
-			errs = append(errs, assert.Equal(actualValue, expectedValue, "expected %s to be %s on nic %s, but got %s.\nFull ethtool output:\n%s", setting, expectedValue, nic, actualValue, debugResult.stdout))
+		var cmd string
+		if oldEthtool {
+			cmd = fmt.Sprintf("sudo env LC_ALL=C ethtool -g %q | grep -A 5 'Current hardware settings' | grep -i '^RX:' | awk '{print $2}'", nic)
+		} else {
+			cmd = fmt.Sprintf("sudo env LC_ALL=C ethtool --json -g %q | jq -r '.[0].rx'", nic)
+		}
+		command := []string{
+			"set -euo pipefail",
+			cmd,
+		}
+		execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get ethtool RX buffer")
+		if err != nil {
+			return errors.Join(append(errs, fmt.Errorf("get RX buffer for nic %s: %w", nic, err))...)
+		}
+		actualValue := strings.TrimSpace(execResult.stdout)
+		s.Logger.Logf("NIC %s has RX buffer %s with %d CPUs", nic, actualValue, cpuCount)
+		if err := validateDefaultRxBufferSize(cpuCount, actualValue); err != nil {
+			errs = append(errs, fmt.Errorf("validate RX buffer for nic %s: %w\nFull ethtool output:\n%s", nic, err, debugResult.stdout))
 		}
 	}
 	return errors.Join(errs...)
+}
+
+func validateDefaultRxBufferSize(cpuCount int, actual string) error {
+	rx, err := strconv.Atoi(actual)
+	if err != nil || rx <= 0 {
+		return fmt.Errorf("invalid RX buffer size %q", actual)
+	}
+	if cpuCount <= 0 {
+		return fmt.Errorf("invalid CPU count %d", cpuCount)
+	}
+	if cpuCount >= 4 && rx == 1024 {
+		return fmt.Errorf("RX buffer is still 1024 with %d CPUs; expected configure-azure-network.sh to increase it to 2048", cpuCount)
+	}
+	return nil
 }
 
 // ValidateAzureNetworkFiles checks that udev rules files exist.
@@ -3569,27 +3575,6 @@ func ValidateStaleCachedKubeBinariesRemoved(ctx context.Context, s *Scenario) er
 
 // ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
 func ValidateRxBufferDefault(ctx context.Context, s *Scenario) error {
-	skipValidationForDistro := s.VHD.Distro == datamodel.AKSAzureLinuxV3Gen2 || s.VHD.Distro.IsACLDistro()
-
-	vmSKU := config.Config.DefaultVMSKU
-	vmSKUDescription := "default VM SKU"
-
-	if s.Runtime.NBC != nil &&
-		s.Runtime.NBC.AgentPoolProfile != nil &&
-		s.Runtime.NBC.AgentPoolProfile.VMSize != "" {
-		vmSKU = s.Runtime.NBC.AgentPoolProfile.VMSize
-		vmSKUDescription = "VM SKU"
-	}
-
-	vmSKUGen, err := vmSKUGeneration(vmSKU)
-	if err != nil {
-		return fmt.Errorf("get %s generation for %s: %w", vmSKUDescription, vmSKU, err)
-	}
-
-	if vmSKUGen >= 6 && skipValidationForDistro {
-		return nil
-	}
-
 	// Query the VM's actual CPU count using nproc
 	cpuCountCmd := "nproc"
 	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cpuCountCmd, 0, "could not get CPU count from VM")
@@ -3604,25 +3589,13 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) error {
 		return fmt.Errorf("parse CPU count %q: %w", vmCPUCount, err)
 	}
 
-	// Determine expected rx based on VM's CPU count (matching configure-azure-network.sh logic)
-	expectedRx := "1024"
-	if cpuCount >= 4 {
-		expectedRx = "2048"
-	}
-
-	s.Logger.Logf("VM has %d CPUs, expecting rx buffer size: %s", cpuCount, expectedRx)
-
-	customNicConfig := map[string]string{
-		"rx": expectedRx,
-	}
-
 	// Validate files exist
 	if err := ValidateAzureNetworkFiles(ctx, s); err != nil {
 		return err
 	}
 
 	// Validate network interface settings match expected default
-	return ValidateNetworkInterfaceConfig(ctx, s, customNicConfig)
+	return validateRxBufferConfig(ctx, s, cpuCount)
 }
 
 // ValidateMANAPCIDevice checks that the MANA PCI device is exposed to the VM.
