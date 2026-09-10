@@ -221,17 +221,28 @@ Describe 'Validate-CredentialProviderConfigFlags' {
 Describe 'Test-GmsaPluginRegistry' {
     BeforeEach {
         $env:SystemRoot = 'C:\Windows'
+        $permissionHex = '01000480440000005400000000000000140000000200300002000000000014000B000000010100000000000512000000000014000B00000001010000000000050B0000000102000000000005200000002002000001020000000000052000000020020000'
+        $script:expectedPermission = [byte[]]@()
+        for ($index = 0; $index -lt $permissionHex.Length; $index += 2) {
+            $script:expectedPermission += [Convert]::ToByte($permissionHex.Substring($index, 2), 16)
+        }
 
         Mock Write-Log
         Mock Test-Path -MockWith { return $true }
         Mock Get-ItemPropertyValue -MockWith {
             param($Path, $Name)
 
-            if ($Path -like '*\Interface\*' -and $Name -eq '(default)') {
+            if ($Path -like '*\ProxyStubClsid32' -and $Name -eq '(default)') {
+                return '{A6FF50C0-56C0-71CA-5732-BED303A59628}'
+            }
+            if ($Path -like '*\Interface\{*}' -and $Name -eq '(default)') {
                 return 'ICcgDomainAuthCredentials'
             }
             if ($Path -like '*\AppID\*' -and $Name -in @('AccessPermission', 'LaunchPermission')) {
-                return [byte[]](1)
+                return $script:expectedPermission
+            }
+            if ($Path -like '*\AppID\*' -and $Name -eq 'DllSurrogate') {
+                return ''
             }
             if ($Path -like '*\CLSID\*' -and $Name -eq 'AppID') {
                 return '{557110E1-88BC-4583-8281-6AAC6F708584}'
@@ -241,6 +252,9 @@ Describe 'Test-GmsaPluginRegistry' {
             }
             if ($Path -like '*\InprocServer32' -and $Name -eq 'ThreadingModel') {
                 return 'Both'
+            }
+            if ($Path -like '*\CCG\COMClasses\*' -and $Name -eq '(default)') {
+                return ''
             }
 
             throw "Unexpected registry value: $Path $Name"
@@ -256,6 +270,30 @@ Describe 'Test-GmsaPluginRegistry' {
             param($Path)
             return $Path -notlike '*\CCG\COMClasses\*'
         }
+
+        Test-GmsaPluginRegistry | Should -BeFalse
+    }
+
+    It 'returns false when the proxy stub registration is invalid' {
+        Mock Get-ItemPropertyValue -MockWith {
+            return '{invalid}'
+        } -ParameterFilter { $Path -like '*\ProxyStubClsid32' -and $Name -eq '(default)' }
+
+        Test-GmsaPluginRegistry | Should -BeFalse
+    }
+
+    It 'returns false when the permission descriptor is invalid' {
+        Mock Get-ItemPropertyValue -MockWith {
+            return [byte[]](1)
+        } -ParameterFilter { $Path -like '*\AppID\*' -and $Name -eq 'AccessPermission' }
+
+        Test-GmsaPluginRegistry | Should -BeFalse
+    }
+
+    It 'returns false when the plugin DLL is missing' {
+        Mock Test-Path -MockWith {
+            return $false
+        } -ParameterFilter { $Path -like '*CCGAKVPlugin.dll' -and $PathType -eq 'Leaf' }
 
         Test-GmsaPluginRegistry | Should -BeFalse
     }

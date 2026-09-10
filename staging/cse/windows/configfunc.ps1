@@ -201,23 +201,34 @@ function Enable-Privilege {
 function Test-GmsaPluginRegistry {
     try {
         $interfacePath = "HKLM:\SOFTWARE\Classes\Interface\{6ECDA518-2010-4437-8BC3-46E752B7B172}"
+        $proxyStubPath = "$interfacePath\ProxyStubClsid32"
         $appIdPath = "HKLM:\SOFTWARE\Classes\AppID\{557110E1-88BC-4583-8281-6AAC6F708584}"
         $classPath = "HKLM:\SOFTWARE\Classes\CLSID\{CCC2A336-D7F3-4818-A213-272B7924213E}"
         $inprocServerPath = "$classPath\InprocServer32"
         $ccgClassPath = "HKLM:\SYSTEM\CurrentControlSet\Control\CCG\COMClasses\{CCC2A336-D7F3-4818-A213-272B7924213E}"
         $expectedPluginPath = [Io.path]::Combine($env:SystemRoot, "System32", "CCGAKVPlugin.dll")
+        $expectedPermissionHex = "01000480440000005400000000000000140000000200300002000000000014000B000000010100000000000512000000000014000B00000001010000000000050B0000000102000000000005200000002002000001020000000000052000000020020000"
+        $accessPermission = Get-ItemPropertyValue -Path $appIdPath -Name "AccessPermission"
+        $launchPermission = Get-ItemPropertyValue -Path $appIdPath -Name "LaunchPermission"
+        $accessPermissionHex = [BitConverter]::ToString([byte[]]$accessPermission).Replace("-", "")
+        $launchPermissionHex = [BitConverter]::ToString([byte[]]$launchPermission).Replace("-", "")
 
         return (Test-Path $interfacePath) `
             -and (Get-ItemPropertyValue -Path $interfacePath -Name "(default)") -eq "ICcgDomainAuthCredentials" `
+            -and (Test-Path $proxyStubPath) `
+            -and (Get-ItemPropertyValue -Path $proxyStubPath -Name "(default)") -eq "{A6FF50C0-56C0-71CA-5732-BED303A59628}" `
             -and (Test-Path $appIdPath) `
-            -and $null -ne (Get-ItemPropertyValue -Path $appIdPath -Name "AccessPermission") `
-            -and $null -ne (Get-ItemPropertyValue -Path $appIdPath -Name "LaunchPermission") `
+            -and $accessPermissionHex -eq $expectedPermissionHex `
+            -and $launchPermissionHex -eq $expectedPermissionHex `
+            -and (Get-ItemPropertyValue -Path $appIdPath -Name "DllSurrogate") -eq "" `
             -and (Test-Path $classPath) `
             -and (Get-ItemPropertyValue -Path $classPath -Name "AppID") -eq "{557110E1-88BC-4583-8281-6AAC6F708584}" `
             -and (Test-Path $inprocServerPath) `
             -and (Get-ItemPropertyValue -Path $inprocServerPath -Name "(default)") -eq $expectedPluginPath `
             -and (Get-ItemPropertyValue -Path $inprocServerPath -Name "ThreadingModel") -eq "Both" `
-            -and (Test-Path $ccgClassPath)
+            -and (Test-Path -Path $expectedPluginPath -PathType Leaf) `
+            -and (Test-Path $ccgClassPath) `
+            -and (Get-ItemPropertyValue -Path $ccgClassPath -Name "(default)") -eq ""
     } catch {
         Write-Log "Failed to validate GMSA plugin registry values: $_"
         return $false
