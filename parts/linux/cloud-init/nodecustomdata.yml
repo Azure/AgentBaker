@@ -154,6 +154,20 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "initAKSCloud"}}
 
+# Deliver the generic reconciler that hosts the dispatched LocalDNS handler.
+{{if IsACL }}
+{{- else if IsAzlOSGuard}}
+{{- else if IsMariner}}
+{{- else if IsFlatcar }}
+{{- else }}
+- path: /opt/azure/containers/ubuntu-snapshot-update.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "snapshotUpdateScript"}}
+{{end}}
+
 - path: /etc/systemd/system/reconcile-private-hosts.service
   permissions: "0644"
   encoding: gzip
