@@ -80,6 +80,39 @@ sudo systemctl is-active --quiet localdns.service
 # process and falsely declare recovery. Save the killed PID and require the
 # new MainPID to be nonzero and different from it.
 test_start=$(date +%s)
+
+# The terminal-dead test installs a runtime systemd drop-in below. Always
+# remove it when this validation exits, including when set -e stops the script
+# after a failed assertion, so a failed scenario cannot contaminate a node or
+# subsequent validation. Preserve the original test result and report cleanup
+# failures separately instead of masking either result.
+NORESTART=/run/systemd/system/localdns.service.d/99-e2e-no-restart.conf
+restore_localdns_test_state() {
+    test_status=$?
+    trap - EXIT
+    set +e
+
+    if [ -f "$NORESTART" ]; then
+        cleanup_status=0
+        sudo rm -f "$NORESTART" || { echo "ERROR: failed to remove $NORESTART"; cleanup_status=1; }
+        sudo systemctl daemon-reload || { echo "ERROR: systemd daemon-reload failed during test cleanup"; cleanup_status=1; }
+        sudo systemctl reset-failed localdns.service || { echo "ERROR: reset-failed localdns.service failed during test cleanup"; cleanup_status=1; }
+        if ! sudo systemctl is-active --quiet localdns.service; then
+            sudo systemctl start localdns.service || { echo "ERROR: failed to restart localdns.service during test cleanup"; cleanup_status=1; }
+        fi
+        if ! sudo systemctl is-active --quiet localdns.service; then
+            echo "ERROR: localdns.service is not active after test cleanup"
+            cleanup_status=1
+        fi
+        if [ "$test_status" -eq 0 ] && [ "$cleanup_status" -ne 0 ]; then
+            test_status=$cleanup_status
+        fi
+    fi
+
+    exit "$test_status"
+}
+trap restore_localdns_test_state EXIT
+
 for i in 1 2 3; do
     killed=$(sudo systemctl show -p MainPID --value localdns.service)
     test "$killed" -gt 0
@@ -122,8 +155,8 @@ dig +short +time=5 +tries=1 mcr.microsoft.com @169.254.10.10 | grep -q .
 # by disabling auto-restart with a transient drop-in, then killing the
 # supervisor -- tripping StartLimit via rapid kills is timing dependent and
 # flaky. ExecStopPost runs on the SIGKILL path regardless of Restart=.
-sudo mkdir -p /run/systemd/system/localdns.service.d
-printf '[Service]\nRestart=no\n' | sudo tee /run/systemd/system/localdns.service.d/99-e2e-no-restart.conf >/dev/null
+sudo mkdir -p "$(dirname "$NORESTART")"
+printf '[Service]\nRestart=no\n' | sudo tee "$NORESTART" >/dev/null
 sudo systemctl daemon-reload
 
 dead_main=$(sudo systemctl show -p MainPID --value localdns.service)
@@ -181,13 +214,8 @@ if [ "$dns_reverted" != true ]; then
     exit 1
 fi
 
-# Restore the node to a healthy state for any subsequent validation.
-sudo rm -f /run/systemd/system/localdns.service.d/99-e2e-no-restart.conf
-sudo systemctl daemon-reload
-sudo systemctl reset-failed localdns.service || true
-sudo systemctl start localdns.service
-sudo systemctl is-active --quiet localdns.service
-dig +short +time=5 +tries=1 mcr.microsoft.com @169.254.10.10 | grep -q .
+# The EXIT trap removes the temporary override and restores LocalDNS even if
+# an assertion above exits the validation early.
 `, 0, "LocalDNS lifecycle validation failed")
 	return err
 }
