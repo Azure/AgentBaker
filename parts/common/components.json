@@ -410,7 +410,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/secrets-store/provider-azure",
-          "latestVersion": "v1.8.2-6"
+          "latestVersion": "v1.8.2-7"
         }
       ]
     },
