@@ -43,6 +43,11 @@ To write an E2E scenario,
 The general VM size defaults to `Standard_D2ds_v5`. Set it with `--vm-sku` or
 `DEFAULT_VM_SKU`.
 
+The compatibility fallback defaults to `Standard_D2ds_v5`. Set it with
+`--gen1-vm-sku` or `DEFAULT_GEN1_VM_SKU`. The runner uses it when the selected VM
+requires Gen2 but the image does not support Gen2, or when the selected VM supports
+NVMe but the image does not support NVMe. Choose a size that supports both Gen1 and SCSI.
+
 The four MANA (Microsoft Azure Network Adapter) scenarios use a separate VM size,
 which defaults to `Standard_D2ds_v6`. Set it with `--mana-vm-sku` or `MANA_VM_SKU`.
 Choose a size that supports MANA and NVMe. This setting controls both the bootstrap
