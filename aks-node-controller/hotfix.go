@@ -241,7 +241,8 @@ func (a *App) detectPackageManager() (packageManager, error) {
 	if err != nil {
 		return "", err
 	}
-	if info.ID == osReleaseIDAzureLinux && info.VariantID == osReleaseIDAzureContainerLinux {
+	if info.ID == osReleaseIDAzureLinux &&
+		(info.VariantID == osReleaseIDAzureContainerLinux || info.VariantID == "osguard") {
 		return "", fmt.Errorf(
 			"PMC package-based ANC self-update is not supported on image-based OS %q variant %q",
 			info.ID,
