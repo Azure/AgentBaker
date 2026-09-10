@@ -579,11 +579,10 @@ function find_hyperv_phc_device {
 function resolve_ubuntu_2604_cvm_time_source {
     local max_attempts=5
     local attempt
-    local phc_device
 
     for attempt in $(seq 1 "$max_attempts"); do
-        if phc_device="$(find_hyperv_phc_device)"; then
-            echo "refclock PHC ${phc_device} poll 3 dpoll -2 offset 0"
+        if find_hyperv_phc_device >/dev/null; then
+            echo "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
             return 0
         fi
 
@@ -685,24 +684,19 @@ EOF
 
 function configure_ubuntu_2604_cvm_time_sync {
     local time_source
-    local phc_device
 
     time_source="$(resolve_ubuntu_2604_cvm_time_source)"
     if [[ "$time_source" == refclock\ PHC\ * ]]; then
-        phc_device="${time_source#refclock PHC }"
-        phc_device="${phc_device%% *}"
-        echo "Using PHC time source: ${phc_device}"
-        emit_event "AKS.CSE.chrony.usingPHC" "Using PHC time source ${phc_device}"
+        echo "Hyper-V PHC detected; using the standard /dev/ptp0 Chrony configuration"
+        emit_event "AKS.CSE.chrony.usingPHC" "Hyper-V PHC detected; using the standard /dev/ptp0 Chrony configuration"
+        configure_chrony || return 1
     else
         echo "PHC unavailable after retries; falling back to network NTP"
         emit_event "AKS.CSE.chrony.phcUnavailable" "PHC unavailable after retries; falling back to network NTP" "Warning"
         echo "Using NTP pool: ntp.ubuntu.com"
         emit_event "AKS.CSE.chrony.usingNTP" "Using NTP pool ntp.ubuntu.com"
-    fi
 
-    configure_chrony "$time_source" || return 1
-
-    if [[ "$time_source" == pool\ * ]]; then
+        configure_chrony "$time_source" || return 1
         verify_chrony_sync
     fi
 }

@@ -292,13 +292,13 @@ EOF
             The status should be success
         End
 
-        It 'uses the discovered Hyper-V clock as the Chrony source'
+        It 'uses the standard PHC configuration when a Hyper-V clock is present'
             Mock find_hyperv_phc_device
                 echo "/dev/ptp_hyperv"
             End
 
             When call resolve_ubuntu_2604_cvm_time_source
-            The output should eq "refclock PHC /dev/ptp_hyperv poll 3 dpoll -2 offset 0"
+            The output should eq "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
             The status should be success
         End
 
@@ -381,10 +381,13 @@ EOF
 
         It 'does not wait for network synchronization when using the Hyper-V clock'
             Mock resolve_ubuntu_2604_cvm_time_source
-                echo "refclock PHC /dev/ptp_hyperv poll 3 dpoll -2 offset 0"
+                echo "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
             End
             Mock configure_chrony
-                :
+                if [ "$#" -ne 0 ]; then
+                    echo "unexpected Chrony arguments: $*"
+                    return 1
+                fi
             End
             Mock verify_chrony_sync
                 echo "unexpected network synchronization check"
@@ -395,8 +398,9 @@ EOF
             End
 
             When call configure_ubuntu_2604_cvm_time_sync
-            The output should include "Using PHC time source: /dev/ptp_hyperv"
+            The output should include "using the standard /dev/ptp0 Chrony configuration"
             The output should include "AKS.CSE.chrony.usingPHC"
+            The output should not include "unexpected Chrony arguments"
             The output should not include "unexpected network synchronization check"
             The status should be success
         End
