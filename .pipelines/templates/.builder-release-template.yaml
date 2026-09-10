@@ -457,14 +457,22 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk convert-sig-to-classic-storage-account-blob
+    # ACL always needs its VHD staged as a blob for the COSI convert steps
+    # (inline here for x64, or the native-arm64 convert job) to download, so it
+    # bypasses the legacy GENERATE_PUBLISHING_INFO/prefetch gating below.
     condition: |
       and(
         succeeded(),
-        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
         ne(variables.BUILDER, 'imagecustomizer'),
         or(
-          eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
-          eq(variables.PREFETCH_COMPATIBLE, 'False')
+          eq(variables['OS_SKU'], 'AzureContainerLinux'),
+          and(
+            eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+            or(
+              eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
+              eq(variables.PREFETCH_COMPATIBLE, 'False')
+            )
+          )
         )
       )
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
