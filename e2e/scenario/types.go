@@ -1,0 +1,450 @@
+package scenario
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"os/exec"
+	"os/user"
+	"strings"
+	"time"
+
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"golang.org/x/crypto/ssh"
+)
+
+type Tags struct {
+	Name                   string
+	ImageName              string
+	OS                     string
+	Arch                   string
+	NetworkIsolated        bool
+	NonAnonymousACR        bool
+	GPU                    bool
+	WASM                   bool
+	Kata                   bool
+	BootstrapTokenFallback bool
+	KubeletCustomConfig    bool
+	Scriptless             bool
+	VHDCaching             bool
+	MockAzureChinaCloud    bool
+	RCV1PCertMode          bool
+	VMSeriesCoverageTest   bool
+}
+
+// Scenario represents an AgentBaker E2E scenario.
+type Scenario struct {
+	// Name is the stable scenario name used by filters, logs, and test reports.
+	Name string
+
+	// Description is a short description of what the scenario does and tests for
+	Description string
+
+	// Tags are used for filtering scenarios to run based on the tags provided
+	Tags Tags
+
+	// Config contains the configuration of the scenario
+	Config
+
+	// Location is the Azure location where the scenario will run. This can be
+	// used to override the default location.
+	Location string
+
+	// K8sSystemPoolSKU is the VM size to use for the system nodepool. If empty,
+	// a default size will be used.
+	K8sSystemPoolSKU string
+
+	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
+	Runtime *ScenarioRuntime
+
+	// SkipReason disables the scenario with a fixed reason.
+	SkipReason string
+
+	// SkipIf returns a reason to skip before the scenario creates Azure resources.
+	// An empty reason runs the scenario.
+	SkipIf func(context.Context) string
+
+	// Logger writes the scenario log. It is set by the execution flow before the
+	// scenario starts and carries no test-control capability.
+	Logger toolkit.Logger
+
+	// artifactName isolates files and Azure resource names created by this run.
+	artifactName string
+
+	cleanup      *scenarioCleanup
+	failed       bool
+	adoTestCases []Measurement
+}
+
+// Measurement becomes a separate JUnit test case so ADO can track a focused
+// measurement or validation independently from the parent scenario.
+type Measurement struct {
+	Name      string
+	ClassName string
+	Duration  time.Duration
+	Message   string
+}
+
+func (s *Scenario) recordADOTestCase(name, className string, duration time.Duration, err error) {
+	testCase := Measurement{Name: name, ClassName: className, Duration: duration}
+	if err != nil {
+		testCase.Message = err.Error()
+	}
+	s.adoTestCases = append(s.adoTestCases, testCase)
+}
+
+type ScenarioRuntime struct {
+	NBC                       *datamodel.NodeBootstrappingConfiguration
+	AKSNodeConfig             *aksnodeconfigv1.Configuration
+	Cluster                   *Cluster
+	Kube                      *Kubeclient // per-test client with independent rate limiter
+	VM                        *ScenarioVM
+	VMSize                    string
+	VMSSName                  string
+	EnableScriptlessNBCCSECmd bool
+	CSETimingReport           *CSETimingReport // eagerly extracted before GA can sweep events
+}
+
+type ScenarioVM struct {
+	KubeName  string
+	VMSS      *armcompute.VirtualMachineScaleSet
+	VM        *armcompute.VirtualMachineScaleSetVM
+	PrivateIP string
+	SSHClient *ssh.Client
+}
+
+// CustomDataWriteFile defines an e2e-only cloud-init write_files entry.
+type CustomDataWriteFile struct {
+	Path        string
+	Permissions string
+	Owner       string
+	Content     string
+}
+
+// ScriptHotfixFixture describes one script hotfix embedded into an isolated
+// scenario-specific ANC build.
+type ScriptHotfixFixture struct {
+	Platform    string
+	Destination string
+	Mode        string
+	Payload     []byte
+}
+
+// Config represents the configuration of an AgentBaker E2E scenario.
+type Config struct {
+	// Cluster creates, updates or re-uses an AKS cluster for the scenario
+	Cluster func(ctx context.Context, request ClusterRequest) (*Cluster, error)
+
+	// VHD is the node image used by the scenario.
+	VHD *config.Image
+
+	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
+	BootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
+
+	// BootstrapConfigMutatorWithError is used when preparing the bootstrap configuration can fail.
+	// It runs after BootstrapConfigMutator.
+	BootstrapConfigMutatorWithError func(context.Context, *Cluster, *datamodel.NodeBootstrappingConfiguration) error
+
+	// PreProvisionBootstrapConfigMutator mutates only the NodeBootstrappingConfig used to bake a cached VHD.
+	// It runs after BootstrapConfigMutator and after PreProvisionOnly is set. Use it to deliberately make
+	// bake-time state differ from provision-time state - e.g. inject a sentinel TLS bootstrap token -
+	// so that staleness regressions in the BasePrep->NodePrep split are caught positively.
+	PreProvisionBootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
+
+	// AKSNodeConfigMutator if defined then aks-node-controller will be used to provision nodes
+	AKSNodeConfigMutator func(*Cluster, *aksnodeconfigv1.Configuration)
+
+	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
+	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)
+
+	// VMConfigMutatorWithError is used when preparing the VMSS model can fail.
+	// It runs after VMConfigMutator.
+	VMConfigMutatorWithError func(context.Context, *armcompute.VirtualMachineScaleSet) error
+
+	// CustomDataWriteFiles injects additional cloud-init write_files entries into rendered customData.
+	// This is for e2e-only validation scenarios.
+	CustomDataWriteFiles []CustomDataWriteFile
+
+	// ScriptHotfixFixture builds ANC in an isolated temporary module with this
+	// generated script-hotfix entry. It bypasses the shared ANC binary cache.
+	ScriptHotfixFixture *ScriptHotfixFixture
+
+	// Validator is a function where the scenario can perform any extra validation checks
+	Validator func(ctx context.Context, s *Scenario) error
+
+	// SkipDefaultValidation is a flag to indicate whether the common validation (like spawning a pod) should be skipped.
+	// It shouldn't be used for the majority of scenarios; VHD caching uses it while preparing the image.
+	SkipDefaultValidation bool
+
+	// SkipSSHConnectivityValidation is a flag to indicate whether the ssh connectivity validation should be skipped.
+	// It shouldn't be used for majority of scenarios, currently only used for scenarios where the node is not expected to be reachable via ssh
+	SkipSSHConnectivityValidation bool
+
+	// WaitForSSHAfterReboot if set to non-zero duration, SSH connectivity validation will retry with exponential backoff
+	// for up to this duration when encountering reboot-related errors. This is useful for scenarios where the node
+	// reboots during provisioning (e.g., MIG-enabled GPU nodes). Default (zero value) means no retry.
+	WaitForSSHAfterReboot time.Duration
+
+	// if VHDCaching is set then a VHD will be created first for the test scenario and then a VM will be created from that VHD.
+	// The main purpose is to validate VHD Caching logic and ensure a reboot step between basePrep and nodePrep doesn't break anything.
+	VHDCaching bool
+
+	// ExpectedError, when set, indicates that VMSS creation is expected to fail with an error containing this substring.
+	// The assertion is performed during the scenario run.
+	ExpectedError string
+
+	// UseNVMe indicates whether to use NVMe-based disk placement/controller. This is required for certain VM sizes (e.g., v6 and v7 series) which only support NVMe disk controllers.
+	UseNVMe bool
+
+	// EagerCSETimingExtraction when true causes CSE timing events to be extracted
+	// immediately after SSH is established, before other validators run.
+	// This prevents the Guest Agent from sweeping events before they can be read.
+	// Only set this on CSE performance test scenarios.
+	EagerCSETimingExtraction bool
+}
+
+// PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
+// This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
+func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
+	if s.VHD == nil {
+		return fmt.Errorf("scenario VHD is nil")
+	}
+	resourceID, err := CachedPrepareVHD(ctx, GetVHDRequest{
+		Image:    *s.VHD,
+		Location: s.Location,
+	})
+	if err != nil {
+		return fmt.Errorf("prepare VHD: %w", err)
+	}
+	if resourceID == "" {
+		return fmt.Errorf("VHD selector returned an empty resource ID")
+	}
+	if vmss == nil {
+		return fmt.Errorf("input virtual machine scale set is nil")
+	}
+	if vmss.Properties == nil {
+		return fmt.Errorf("input virtual machine scale set properties are nil")
+	}
+
+	if s.VMConfigMutator != nil {
+		s.VMConfigMutator(vmss)
+	}
+	if s.VMConfigMutatorWithError != nil {
+		if err := s.VMConfigMutatorWithError(ctx, vmss); err != nil {
+			return fmt.Errorf("mutate VMSS model: %w", err)
+		}
+	}
+
+	if vmss.Properties.VirtualMachineProfile == nil {
+		vmss.Properties.VirtualMachineProfile = &armcompute.VirtualMachineScaleSetVMProfile{}
+	}
+	if vmss.Properties.VirtualMachineProfile.StorageProfile == nil {
+		vmss.Properties.VirtualMachineProfile.StorageProfile = &armcompute.VirtualMachineScaleSetStorageProfile{}
+	}
+	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
+		ID: to.Ptr(string(resourceID)),
+	}
+
+	// Override OS disk size if the VHD requires a non-default size.
+	if s.VHD.OSDiskSizeGB > 0 {
+		osDisk := vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk
+		if osDisk != nil {
+			osDisk.DiskSizeGB = to.Ptr(s.VHD.OSDiskSizeGB)
+		}
+	}
+
+	s.updateTags(ctx, vmss)
+	return nil
+}
+
+func (s *Scenario) SecureTLSBootstrappingEnabled() bool {
+	if s.Runtime == nil {
+		return false
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.SecureTLSBootstrappingConfig.GetEnabled() {
+		return true
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.BootstrappingConfig.GetBootstrappingAuthMethod() ==
+		aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING {
+		return true
+	}
+	return false
+}
+
+func (s *Scenario) KubeletConfigFileEnabled() bool {
+	if s.Runtime == nil {
+		return false
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.KubeletConfig != nil && nodeConfig.KubeletConfig.EnableKubeletConfigFile {
+		return true
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && (nbc.EnableKubeletConfigFile ||
+		(nbc.AgentPoolProfile != nil && (nbc.AgentPoolProfile.CustomKubeletConfig != nil || nbc.AgentPoolProfile.CustomLinuxOSConfig != nil))) {
+		return true
+	}
+	return false
+}
+
+func (s *Scenario) HasServicePrincipalData() bool {
+	if s.Runtime == nil {
+		return false
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.ContainerService != nil && nbc.ContainerService.Properties != nil && nbc.ContainerService.Properties.ServicePrincipalProfile != nil {
+		return nbc.ContainerService.Properties.ServicePrincipalProfile.ClientID != "" && nbc.ContainerService.Properties.ServicePrincipalProfile.Secret != ""
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.AuthConfig != nil {
+		return nodeConfig.AuthConfig.ServicePrincipalId != "" && nodeConfig.AuthConfig.ServicePrincipalSecret != ""
+	}
+	return false
+}
+
+func (s *Scenario) GetK8sVersion() string {
+	if s.Runtime == nil {
+		return ""
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.ContainerService != nil && nbc.ContainerService.Properties != nil && nbc.ContainerService.Properties.OrchestratorProfile != nil {
+		return nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil {
+		return nodeConfig.GetKubernetesVersion()
+	}
+	return ""
+}
+
+func (s *Scenario) GetClientPrivateKey() string {
+	if s.Runtime == nil {
+		return ""
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.ContainerService != nil && nbc.ContainerService.Properties != nil && nbc.ContainerService.Properties.CertificateProfile != nil {
+		return nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil {
+		return nodeConfig.GetKubeletConfig().GetKubeletClientKey()
+	}
+	return ""
+}
+
+func (s *Scenario) GetServicePrincipalSecret() string {
+	if s.Runtime == nil {
+		return ""
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.ContainerService != nil && nbc.ContainerService.Properties != nil && nbc.ContainerService.Properties.ServicePrincipalProfile != nil {
+		return nbc.ContainerService.Properties.ServicePrincipalProfile.Secret
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil {
+		return nodeConfig.GetAuthConfig().GetServicePrincipalSecret()
+	}
+	return ""
+}
+
+func (s *Scenario) GetTLSBootstrapToken() string {
+	if s.Runtime == nil {
+		return ""
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.KubeletClientTLSBootstrapToken != nil {
+		return *nbc.KubeletClientTLSBootstrapToken
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil {
+		return nodeConfig.GetBootstrappingConfig().GetTlsBootstrappingToken()
+	}
+	return ""
+}
+
+func (s *Scenario) updateTags(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) {
+	if vmss.Tags == nil {
+		vmss.Tags = map[string]*string{}
+	}
+
+	// don't clean up VMSS in other tests
+	if config.Config.KeepVMSS {
+		vmss.Tags["KEEP_VMSS"] = to.Ptr("true")
+	}
+
+	if config.Config.BuildID != "" {
+		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
+	}
+
+	owner, err := getLoggedInAzUser(ctx)
+	if err != nil {
+		owner, err = getLocalUsername()
+		if err != nil {
+			owner = "unknown"
+		}
+	}
+	vmss.Tags["owner"] = to.Ptr(owner)
+}
+
+func getLoggedInAzUser(ctx context.Context) (string, error) {
+	cmd := exec.CommandContext(ctx, "az", "account", "show", "--query", "user.name", "-o", "tsv")
+
+	// Create a buffer to capture stdout
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	// Run the command
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+
+	return out.String(), nil
+}
+
+func getLocalUsername() (string, error) {
+	currentUser, err := user.Current()
+	if err == nil {
+		return currentUser.Username, nil
+	}
+
+	return "", err
+}
+
+func (s *Scenario) IsWindows() bool {
+	return s.VHD.OS == config.OSWindows
+}
+
+func (s *Scenario) IsLinux() bool {
+	return !s.IsWindows()
+}
+
+// IsHostsPluginEnabled returns true if the hosts plugin is explicitly enabled
+// via either NBC (traditional) or AKSNodeConfig (scriptless) paths.
+func (s *Scenario) IsHostsPluginEnabled() bool {
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil {
+		return s.Runtime.NBC.AgentPoolProfile.ShouldEnableHostsPlugin()
+	}
+	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.LocalDnsProfile != nil {
+		return s.Runtime.AKSNodeConfig.LocalDnsProfile.EnableLocalDns &&
+			s.Runtime.AKSNodeConfig.LocalDnsProfile.EnableHostsPlugin
+	}
+	return false
+}
+
+// GetDefaultFQDNsForValidation returns the public cloud FQDNs to validate in hosts file checks.
+// AgentBaker e2e only runs in public cloud, so sovereign cloud branches are unnecessary.
+func (s *Scenario) GetDefaultFQDNsForValidation() []string {
+	return []string{
+		"mcr.microsoft.com",
+		"login.microsoftonline.com",
+		"packages.aks.azure.com",
+	}
+}
+
+// GetContainerRegistryFQDN returns the container registry FQDN for the cloud environment
+// determined by the cluster's location. Uses Runtime.Cluster.Model.Location so it works
+// for both legacy (NBC) and scriptless (AKSNodeConfig) bootstrap paths.
+func (s *Scenario) GetContainerRegistryFQDN() string {
+	if s.Runtime != nil && s.Runtime.Cluster != nil && s.Runtime.Cluster.Model != nil && s.Runtime.Cluster.Model.Location != nil {
+		location := strings.ToLower(*s.Runtime.Cluster.Model.Location)
+		if strings.HasPrefix(location, "china") {
+			return "mcr.azure.cn"
+		}
+	}
+	// Default to public cloud container registry (also used by Fairfax/US Gov)
+	return "mcr.microsoft.com"
+}

@@ -844,3 +844,16 @@ func TestCompareEnvs_MultipleDifferences(t *testing.T) {
 	}
 	assert.True(t, found, "expected CompareEnvs guest agent event")
 }
+
+func TestDiffEnvMaps_IgnoresProxyVarsCompatibilityDifference(t *testing.T) {
+	pcEnv := map[string]string{
+		"PROXY_VARS": `if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}"; fi`,
+		"VM_TYPE":    "vmss",
+	}
+	nbcEnv := map[string]string{
+		"PROXY_VARS": `export http_proxy="http://proxy.example:8080";`,
+		"VM_TYPE":    "standard",
+	}
+
+	assert.Equal(t, []string{"differs: VM_TYPE"}, diffEnvMaps(pcEnv, nbcEnv))
+}
