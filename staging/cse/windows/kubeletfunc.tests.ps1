@@ -445,4 +445,20 @@ Describe 'New-NSSMService' {
             $NssmArguments -join ' ' -eq "set Kubelet DependOnService $ExpectedDependencies"
         }
     }
+
+    It 'stops when setting Kubelet dependencies fails' {
+        Mock Invoke-Nssm -ParameterFilter {
+            $NssmArguments -join ' ' -eq 'set Kubelet DependOnService containerd'
+        } -MockWith {
+            throw 'nssm.exe failed to set Kubelet dependencies'
+        }
+
+        {
+            New-NSSMService -KubeDir 'c:\k' -KubeletStartFile 'c:\k\kubeletstart.ps1' -KubeProxyStartFile 'c:\k\kubeproxystart.ps1'
+        } | Should -Throw '*failed to set Kubelet dependencies*'
+
+        Assert-MockCalled -CommandName Invoke-Nssm -Exactly -Times 0 -ParameterFilter {
+            $NssmArguments -join ' ' -eq 'install Kubeproxy C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+        }
+    }
 }
