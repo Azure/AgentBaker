@@ -48,4 +48,24 @@ EOF
     The status should be success
     The output should include "Using pre-CPS ACL image settings derived from $BASE_TEMPLATE"
   End
+
+  It 'keeps the production Packer destination generalized and uses generalized ACL CVM deployment flags'
+    # These assertions intentionally match literal Packer and shell expressions.
+    # shellcheck disable=SC2016
+    When call sh -c '
+      jq -e '\''
+        .variables.sig_image_name == "{{env `SIG_IMAGE_NAME`}}" and
+        .builders[0].shared_image_gallery_destination.image_name == "{{user `sig_image_name`}}" and
+        (.builders[0].shared_image_gallery_destination | has("specialized") | not)
+      '\'' vhdbuilder/packer/vhd-image-builder-acl.json >/dev/null &&
+      grep -F -- '\''--security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly'\'' vhdbuilder/packer/test/run-test.sh >/dev/null &&
+      grep -F '\''if [ "${OS_SKU:-}" != "AzureContainerLinux" ]; then'\'' vhdbuilder/packer/test/run-test.sh >/dev/null &&
+      grep -F '\''TARGET_COMMAND_STRING+=" --specialized true"'\'' vhdbuilder/packer/test/run-test.sh >/dev/null &&
+      grep -F '\''TEST_VM_USER_DATA_ARGS=(--user-data "@./vhdbuilder/packer/acl-customdata.json")'\'' vhdbuilder/packer/test/run-test.sh >/dev/null &&
+      grep -F -- '\''--security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly'\'' vhdbuilder/packer/vhd-scanning.sh >/dev/null &&
+      grep -F '\''if [ "${OS_SKU:-}" != "AzureContainerLinux" ]; then'\'' vhdbuilder/packer/vhd-scanning.sh >/dev/null &&
+      grep -F '\''VM_OPTIONS+=" --specialized true"'\'' vhdbuilder/packer/vhd-scanning.sh >/dev/null
+    '
+    The status should be success
+  End
 End
