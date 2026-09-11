@@ -508,6 +508,42 @@ EOF
             The stdout should include "Invalid upstream VNET DNS server '10.0.0.1/24'"
         End
 
+        It 'should fail if an IPv4 octet is out of range'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 999.999.999.999
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be failure
+            The stdout should include "Invalid upstream VNET DNS server '999.999.999.999'"
+        End
+
+        It 'should fail if an IPv6 address has no separators'
+cat <<EOF > "$RESOLV_CONF"
+nameserver deadbeef
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be failure
+            The stdout should include "Invalid upstream VNET DNS server 'deadbeef'"
+        End
+
+        It 'should fail if an IPv6 address has no hextets'
+cat <<EOF > "$RESOLV_CONF"
+nameserver :::
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be failure
+            The stdout should include "Invalid upstream VNET DNS server ':::'"
+        End
+
+        It 'should fail if an address contains only punctuation'
+cat <<EOF > "$RESOLV_CONF"
+nameserver ....
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be failure
+            The stdout should include "Invalid upstream VNET DNS server '....'"
+        End
+
         It 'should replace Azure DNS with multiple valid upstream DNS servers'
 cat <<EOF > "$RESOLV_CONF"
 nameserver 10.0.0.1
