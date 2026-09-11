@@ -51,7 +51,7 @@ else ifeq (${CVM_BUILD_STAGE},final)
 	@echo "Using packer template file vhd-image-builder-cvm-2604.json"
 	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm-2604.json
 else
-	$(error CVM_BUILD_STAGE must be prep or final for Ubuntu 26.04 CVM)
+	$(error CVM_BUILD_STAGE must be "prep" or "final" for Ubuntu 26.04 CVM)
 endif
 else
 	@echo "Using packer template file vhd-image-builder-cvm.json"

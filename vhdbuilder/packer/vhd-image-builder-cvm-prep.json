@@ -70,13 +70,13 @@
   "provisioners": [
     {
       "type": "file",
-      "source": "vhdbuilder/packer/cvm-prep-install-kernel.sh",
-      "destination": "/home/packer/cvm-prep-install-kernel.sh"
+      "source": "vhdbuilder/packer/cvm-prep.sh",
+      "destination": "/home/packer/cvm-prep.sh"
     },
     {
       "type": "shell",
       "inline": [
-        "sudo /bin/bash -eux /home/packer/cvm-prep-install-kernel.sh"
+        "sudo /bin/bash -eux /home/packer/cvm-prep.sh"
       ]
     },
     {
@@ -87,14 +87,9 @@
       "pause_after": "60s"
     },
     {
-      "type": "file",
-      "source": "vhdbuilder/packer/cvm-prep-verify-and-cleanup.sh",
-      "destination": "/home/packer/cvm-prep-verify-and-cleanup.sh"
-    },
-    {
       "type": "shell",
       "inline": [
-        "sudo /bin/bash -eux /home/packer/cvm-prep-verify-and-cleanup.sh"
+        "case \"$(uname -r)\" in *-azure-fde) ;; *) echo \"Expected azure-fde kernel after reboot, got $(uname -r)\" >&2; exit 1 ;; esac"
       ]
     },
     {
