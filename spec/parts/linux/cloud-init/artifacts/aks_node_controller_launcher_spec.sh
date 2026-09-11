@@ -83,6 +83,22 @@ EOF
         chmod +x "${BIN_PATH}-hotfix"
     }
 
+    # Stands in for a VHD-baked binary whose download-hotfix fails. Mirrors the worst case the
+    # Go-side disarm cannot cover: repository integrity failed, but neither unlink nor chmod
+    # could clear the previously staged binary (read-only mount, immutable attribute), so it is
+    # still present and still executable when the wrapper makes its selection.
+    create_failing_download_aks_node_controller() {
+        cat >"$BIN_PATH" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$1" >>"${TEST_DIR}/calls"
+if [ "$1" = "download-hotfix" ]; then
+    exit 1
+fi
+exit 0
+EOF
+        chmod +x "$BIN_PATH"
+    }
+
     # Mirrors the real chain: the VHD-baked binary itself stages the hotfix binary while handling
     # download-hotfix, so binary selection observes a file that did not exist when the wrapper started.
     create_staging_aks_node_controller() {
@@ -358,6 +374,40 @@ EOF
         hotfixCall=$(tail -n 1 "${TEST_DIR}/hotfix_calls")
         # The baked binary only downloads; it must never be the one that provisions.
         The variable bakedCalls should eq "download-hotfix"
+        The variable hotfixCall should eq "provision"
+    End
+
+    # download-hotfix disarms a stale binary on integrity failure by unlinking it and, failing
+    # that, clearing its executable bits. Neither works on a read-only mount or an immutable
+    # file, so selection cannot rest on `[ -x ]` alone: a non-zero download-hotfix must veto
+    # the staged binary no matter what survived on disk.
+    It 'ignores a staged hotfix binary that download-hotfix could not disarm'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        create_failing_download_aks_node_controller
+        create_staged_hotfix_binary
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "ANC download-hotfix failed; ignoring any staged hotfix binary"
+        The output should include "Using VHD-baked binary: ${BIN_PATH}"
+        # The undisarmed binary must run neither provision nor apply-embedded-hotfix.
+        The path "${TEST_DIR}/hotfix_calls" should not be exist
+        lastCall=$(tail -n 1 "${TEST_DIR}/calls")
+        The variable lastCall should eq "provision"
+    End
+
+    # The veto is scoped to a failed download: a hotfix staged on an earlier boot, with no
+    # pointer present this time, is still legitimate and must keep running.
+    It 'still uses a staged hotfix binary when download-hotfix never runs'
+        touch "$CONFIG_PATH"
+        create_failing_download_aks_node_controller
+        create_staged_hotfix_binary
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should not include "download-hotfix"
+        The output should include "Using hotfix binary: ${BIN_PATH}-hotfix"
+        hotfixCall=$(tail -n 1 "${TEST_DIR}/hotfix_calls")
         The variable hotfixCall should eq "provision"
     End
 End

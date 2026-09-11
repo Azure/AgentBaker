@@ -19,6 +19,7 @@ const (
 	osReleaseIDAzureContainerLinux = "azurecontainerlinux"
 	osReleaseIDAzureLinux          = "azurelinux"
 	osReleaseIDFlatcar             = "flatcar"
+	osReleaseIDUbuntu              = "ubuntu"
 )
 
 type nodeCustomDataPlatform string
@@ -79,7 +80,7 @@ func classifyNodeCustomDataPlatform(osReleasePath string) (nodeCustomDataPlatfor
 	case variant == "osguard", variant == osReleaseIDAzureContainerLinux,
 		id == osReleaseIDAzureContainerLinux, id == osReleaseIDFlatcar:
 		return nodeCustomDataPlatformUnsupported, nil
-	case id == "ubuntu":
+	case id == osReleaseIDUbuntu:
 		return nodeCustomDataPlatformUbuntu, nil
 	case id == osReleaseIDAzureLinux:
 		return nodeCustomDataPlatformMariner, nil

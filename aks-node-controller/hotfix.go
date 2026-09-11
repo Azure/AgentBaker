@@ -101,23 +101,84 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 
 	slog.Info("downloading ANC hotfix", "current", Version, "target", hotfixVersion)
 
-	// Install via package manager (apt-get or dnf/tdnf). A future direct-download path must
-	// resolve the package from the node's configured repository and extract the ANC binary;
-	// package artifacts cannot be staged directly as executables.
+	routeStart := time.Now()
+	if err := a.tryRepositoryDownload(ctx, hotfixVersion); err == nil {
+		return nil
+	} else if isIntegrityError(err) {
+		a.removeStaleHotfix()
+		return fmt.Errorf("repository integrity check failed for hotfix version %s: %w", hotfixVersion, err)
+	} else {
+		slog.Warn("safe repository download unavailable, falling back to package manager",
+			"version", hotfixVersion, "error", err)
+	}
+
 	if err := a.installFromPMC(ctx, hotfixVersion); err != nil {
 		return fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
 	}
 
-	if err := copyBinaryAlongside(pkgBinaryPath, hotfixBinaryPath, vhdBinaryPath); err != nil {
+	if err := copyBinaryAlongside(a.pkgPath(), a.hotfixPath(), a.vhdPath()); err != nil {
 		return fmt.Errorf("stage hotfix binary: %w", err)
 	}
 
-	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", hotfixBinaryPath)
+	// Mirrors the fast path's durationMs so the two can be compared from node logs.
+	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", a.hotfixPath(),
+		"durationMs", time.Since(routeStart).Milliseconds())
 	return nil
 }
 
-// hotfixConfig is the JSON structure of the hotfix configuration file.
-// Using JSON allows future extension (e.g., adding checksum, source URL) without format changes.
+func (a *App) vhdPath() string {
+	if a.vhdBinaryPath != "" {
+		return a.vhdBinaryPath
+	}
+	return vhdBinaryPath
+}
+
+func (a *App) hotfixPath() string {
+	if a.hotfixBinaryPath != "" {
+		return a.hotfixBinaryPath
+	}
+	return hotfixBinaryPath
+}
+
+func (a *App) pkgPath() string {
+	if a.pkgBinaryPath != "" {
+		return a.pkgBinaryPath
+	}
+	return pkgBinaryPath
+}
+
+// removeStaleHotfix disarms a previously staged hotfix binary after an integrity failure,
+// so the launcher falls back to the VHD-baked ANC instead of re-running the stale copy.
+//
+// This is best-effort defense in depth, not the guarantee. Removal is the intent; clearing
+// the executable bits is a second attempt for when unlink cannot succeed. Both fail on a
+// read-only mount or an immutable file, so the authoritative gate is download-hotfix's exit
+// status: aks-node-controller-launcher.sh refuses the staged binary when this process exits
+// non-zero, regardless of what remains on disk. Keep that check in place if this path is
+// ever refactored.
+//
+// The staged binary is only ever written by copyBinaryAlongside from a
+// package-manager-verified install, so the risk being contained here is running a
+// stale-but-authentic ANC, not attacker-controlled code.
+func (a *App) removeStaleHotfix() {
+	path := a.hotfixPath()
+	err := os.Remove(path)
+	if err == nil || os.IsNotExist(err) {
+		return
+	}
+	slog.Warn("failed to remove stale hotfix binary after repository integrity failure",
+		"path", path, "error", err)
+
+	if chmodErr := os.Chmod(path, 0o600); chmodErr != nil {
+		slog.Error("stale hotfix binary remains executable after repository integrity failure",
+			"path", path, "removeError", err, "chmodError", chmodErr)
+		return
+	}
+	slog.Warn("cleared executable bits on stale hotfix binary that could not be removed",
+		"path", path)
+}
+
+// hotfixConfig is the version-only JSON structure shared with LPS and cloud-init.
 type hotfixConfig struct {
 	// Version is the legacy single-version pointer. It is still honored when Hotfixes
 	// is empty, preserving backward compatibility with the original config shape.
@@ -207,7 +268,11 @@ func (a *App) parseLinuxPlatformInfo() (platformInfo, error) {
 	if err != nil {
 		return platformInfo{}, fmt.Errorf("reading %s: %w", osReleasePath, err)
 	}
-	info := platformInfo{OS: "linux", Arch: runtime.GOARCH}
+	arch := a.goArch
+	if arch == "" {
+		arch = runtime.GOARCH
+	}
+	info := platformInfo{OS: "linux", Arch: arch}
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "ID=") {
@@ -250,7 +315,7 @@ func (a *App) detectPackageManager() (packageManager, error) {
 		)
 	}
 	switch info.ID {
-	case "ubuntu":
+	case osReleaseIDUbuntu:
 		return pkgMgrApt, nil
 	case osReleaseIDAzureLinux:
 		return preferredRpmManager(), nil
