@@ -10,7 +10,6 @@ KERNEL_PACKAGES=(
     "linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
     "linux-headers-azure-lts-${UBUNTU_RELEASE}"
 )
-MODULES_EXTRA_PKG="linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
 
 waitForAptLocks() {
     while fuser /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
@@ -25,10 +24,6 @@ DEBIAN_FRONTEND=noninteractive apt-get update
 if ! apt-cache show "${KERNEL_IMAGE}" &>/dev/null; then
     echo "Kernel package ${KERNEL_IMAGE} is not available" >&2
     exit 1
-fi
-
-if apt-cache show "${MODULES_EXTRA_PKG}" &>/dev/null; then
-    KERNEL_PACKAGES+=("${MODULES_EXTRA_PKG}")
 fi
 
 waitForAptLocks
