@@ -281,6 +281,7 @@ Cleanup callbacks run concurrently. Register only independent work with `Scenari
 keep dependent operations in one callback, such as collecting VM logs before deleting that VM.
 Linux log collection runs up to eight commands concurrently per VM. Collection errors are saved
 in the affected log files; the console reports failed file names without the full error details.
+SSH channel-open connection failures are retried up to four times with a 200 ms delay.
 
 The other directories contain helper packages and embedded resources.
 
