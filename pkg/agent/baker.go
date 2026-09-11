@@ -632,6 +632,27 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 	return expandedTemplate, nil
 }
 
+// RenderLinuxNodeCustomDataTemplate renders a nodecustomdata template with the
+// same variables and functions used by the production AgentBaker path.
+// Callers must supply a complete configuration, as required by the production
+// rendering helpers.
+func RenderLinuxNodeCustomDataTemplate(templateContent []byte, config *datamodel.NodeBootstrappingConfiguration) (string, error) {
+	parameters := getParameters(config)
+	variables := getCustomDataVariables(config)
+	templ := template.New("nodecustomdata template").
+		Option("missingkey=zero").
+		Funcs(getBakerFuncMap(config, parameters, variables))
+	if _, err := templ.Parse(string(removeComments(templateContent))); err != nil {
+		return "", fmt.Errorf("error parsing nodecustomdata template: %w", err)
+	}
+
+	var buffer bytes.Buffer
+	if err := templ.Execute(&buffer, config.AgentPoolProfile); err != nil {
+		return "", fmt.Errorf("error executing nodecustomdata template: %w", err)
+	}
+	return buffer.String(), nil
+}
+
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)

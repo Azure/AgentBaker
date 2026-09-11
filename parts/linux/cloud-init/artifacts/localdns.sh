@@ -613,7 +613,7 @@ wait_for_localdns_removed_from_resolv_conf() {
         current_dns=$(awk '/^nameserver/ {print $2}' "$RESOLV_CONF" 2>/dev/null | paste -sd' ')
 
         # Use word boundary matching (-w) with fixed string (-F) to avoid partial IP matches.
-        if ! grep -qwF "$LOCALDNS_NODE_LISTENER_IP" <<< "$current_dns"; then
+        if [ -n "$current_dns" ] && ! grep -qwF "$LOCALDNS_NODE_LISTENER_IP" <<< "$current_dns"; then
             echo "DNS configuration refreshed successfully. Current DNS: ${current_dns}"
             return 0
         fi
@@ -658,7 +658,7 @@ EOF
 cleanup_iptables_and_dns() {
     # Ensure network variables are initialized if not already set.
     # This is needed here because this function can be called from cleanup traps or systemd restarts initiated by watchdog.
-    if [ -z "${NETWORK_DROPIN_FILE:-}" ] || [ -z "${NETWORK_DROPIN_DIR:-}" ]; then
+    if [ -z "${DEFAULT_ROUTE_INTERFACE:-}" ] || [ -z "${NETWORK_DROPIN_FILE:-}" ] || [ -z "${NETWORK_DROPIN_DIR:-}" ]; then
         echo "Network variables not initialized, attempting to determine them..."
         if ! initialize_network_variables; then
             echo "Failed to initialize network variables during cleanup."

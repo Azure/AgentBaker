@@ -72,6 +72,8 @@ type App struct {
 	// Authorization header for the check-hotfix LPS fetch. When nil, the real IMDS endpoint
 	// is queried.
 	fetchAttestedToken func(ctx context.Context) (string, error)
+	// applyEmbeddedHotfix overrides embedded script application for tests.
+	applyEmbeddedHotfix func(string) error
 	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
 	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
 	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
@@ -169,6 +171,16 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				},
 			},
 			{
+				Name:  "apply-embedded-hotfix",
+				Usage: "Apply embedded hotfix scripts",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if len(cmd.Args().Slice()) > 0 {
+						return fmt.Errorf("unexpected apply-embedded-hotfix arguments: %s", strings.Join(cmd.Args().Slice(), " "))
+					}
+					return a.runApplyHotfixCommand(ctx)
+				},
+			},
+			{
 				Name:  "check-hotfix",
 				Usage: "Read the hotfix pointer from the live-patching-service and stage it (fail-open)",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
@@ -234,6 +246,23 @@ func (a *App) runDownloadHotfixCommand(ctx context.Context) error {
 		return err
 	}
 	slog.Info("aks-node-controller hotfix download finished")
+	return nil
+}
+
+func (a *App) runApplyHotfixCommand(context.Context) error {
+	slog.Info("aks-node-controller hotfix apply started")
+	applyHotfix := a.applyEmbeddedHotfix
+	if applyHotfix == nil {
+		applyHotfix = func(osReleasePath string) error {
+			return applyEmbeddedNodeCustomData(embeddedGeneratedNodeCustomData, osReleasePath, embeddedNodeCustomDataPath)
+		}
+	}
+	if err := applyHotfix(a.osReleasePath); err != nil {
+		slog.Error("aks-node-controller failed to apply embedded hotfix payload", "error", err)
+		return err
+	}
+
+	slog.Info("aks-node-controller apply embedded hotfix payload finished")
 	return nil
 }
 
