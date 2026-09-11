@@ -1146,3 +1146,51 @@ enabled=1
 			"Packages/a/aks-node-controller-202607.20.2-1.azl3.x86_64.rpm",
 		plan.packageURL)
 }
+
+// Proxy-only clusters route all outbound traffic through HTTP(S)_PROXY, which cse_main.sh
+// exports into ANC's environment. NewBaseTransport defaults to Proxy: nil (correct for its
+// IMDS/LPS callers), so repository downloads must opt back in or every fast-path attempt
+// burns the request timeout on a direct dial before falling back to apt/dnf.
+func TestDownloadRepositoryFileUsesEnvironmentProxy(t *testing.T) {
+	var proxiedURL atomic.Value
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// A forward proxy receives the absolute-form request URI, so r.RequestURI names
+		// the origin the client wanted rather than a path on the proxy itself.
+		proxiedURL.Store(r.RequestURI)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("proxied-body"))
+	}))
+	defer proxy.Close()
+
+	// The origin must satisfy two constraints at once: validateRepositoryURL only allows
+	// plain HTTP for trusted-local hosts, while ProxyFromEnvironment deliberately bypasses
+	// loopback. A private-range address (RFC 1918) is local enough for the first and not
+	// loopback for the second. Nothing listens on it, so a successful download proves the
+	// transport consulted the environment instead of dialing the origin directly.
+	const deadOrigin = "http://10.255.255.1:9"
+	t.Setenv("HTTP_PROXY", proxy.URL)
+	t.Setenv("http_proxy", proxy.URL)
+	t.Setenv("NO_PROXY", "")
+	t.Setenv("no_proxy", "")
+
+	trustedOrigin, err := validateRepositoryURL(deadOrigin)
+	require.NoError(t, err)
+	app := NewTestApp(t, TestAppConfig{}).App
+	app.repositoryTempDir = t.TempDir()
+
+	packageURL := deadOrigin + "/aks-node-controller.deb"
+	downloaded, err := app.downloadRepositoryFile(
+		context.Background(),
+		packageURL,
+		trustedOrigin,
+		repositoryPackageMaxBytes,
+	)
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(downloaded.path) }()
+
+	assert.Equal(t, packageURL, proxiedURL.Load(),
+		"request should reach the origin through the configured proxy")
+	body, err := os.ReadFile(downloaded.path)
+	require.NoError(t, err)
+	assert.Equal(t, "proxied-body", string(body))
+}

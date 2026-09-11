@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/aks-node-controller/common"
+	"golang.org/x/net/http/httpproxy"
 )
 
 const (
@@ -346,6 +347,15 @@ func (a *App) downloadRepositoryFile(
 		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout: 10 * time.Second,
 	})
+	// NewBaseTransport defaults to Proxy: nil, which is right for the IMDS/LPS callers that
+	// must not be proxied. Repository traffic goes to PMC over the internet, so on
+	// proxy-only clusters a direct dial just burns the request timeout before falling back
+	// to apt/dnf. cse_main.sh exports HTTP(S)_PROXY/NO_PROXY into ANC's environment, and the
+	// redirect and origin checks below still apply to whatever the proxy returns.
+	//
+	// httpproxy rather than http.ProxyFromEnvironment: the latter snapshots the environment
+	// once per process, which silently ignores any proxy configured after the first use.
+	transport.Proxy = environmentProxy
 	transport.DisableCompression = true
 	defer transport.CloseIdleConnections()
 	client := &http.Client{
@@ -1689,4 +1699,10 @@ func parseRPMPrimaryMetadata(path, version, release, arch, expectedLocation stri
 	return "", newUnsupportedRepositoryError(
 		"primary metadata has no exact %s %s-%s.%s package",
 		ancPackageName, version, release, arch)
+}
+
+// environmentProxy resolves the proxy for req from HTTP_PROXY/HTTPS_PROXY/NO_PROXY, reading
+// the environment on every call so a proxy configured after process start is still honored.
+func environmentProxy(req *http.Request) (*url.URL, error) {
+	return httpproxy.FromEnvironment().ProxyFunc()(req.URL)
 }
