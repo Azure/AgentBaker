@@ -1014,6 +1014,8 @@ EOF
             initialize_network_variables() { return 1; }
             When call cleanup_iptables_and_dns
             The status should be success
+            The stdout should include "Successfully removed existing localdns iptables rule"
+            The stdout should include "Reloading network configuration succeeded."
             The file "${NETWORK_DROPIN_FILE}" should not be exist
             rm -rf /tmp/localdns-cleanup-test
         End
