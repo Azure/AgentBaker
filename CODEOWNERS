@@ -44,6 +44,12 @@ parts/linux/cloud-init/artifacts/localdns_exporter.sh @saewoni @yewmsft
 spec/parts/linux/cloud-init/artifacts/localdns_exporter_spec.sh @saewoni @yewmsft
 e2e/localdns/validate-localdns-exporter-metrics.sh @saewoni @yewmsft
 
+# Code owners for localdns-related e2e files
+
+e2e/localdns/ @saewoni @yewmsft
+e2e/scenario/scenario_localdns_hosts.go @saewoni @yewmsft
+e2e/scenario/validate_localdns_exporter_metrics.go @saewoni @yewmsft
+
 # Code owners for Windows CSE files
 
 parts/windows/ @timmy-wright @r2k1 @benjamin-brady @djsly @awesomenix @cameronmeissner
