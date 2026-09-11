@@ -198,11 +198,11 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 		if vm != nil {
 			defer cleanupBastionTunnel(vm.SSHClient)
 		}
-		return deleteVMSS(ctx, s)
-	})
-	s.Cleanup(func(ctx context.Context) error {
-		extractLogsFromVM(ctx, s, vm)
-		return nil
+		logErr := runCleanup(ctx, func(ctx context.Context) error {
+			extractLogsFromVM(ctx, s, vm)
+			return nil
+		})
+		return errors.Join(logErr, deleteVMSS(ctx, s))
 	})
 
 	if skipErr := skipIfSKUNotAvailableErr(err); skipErr != nil {
@@ -905,6 +905,11 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 	return nil
 }
 
+const cloudInitAnalyzeCommand = "printf '%s\\n' '=== cloud-init analyze show ==='; sudo cloud-init analyze show; " +
+	"printf '\\n%s\\n' '=== cloud-init analyze dump ==='; sudo cloud-init analyze dump; " +
+	"printf '\\n%s\\n' '=== cloud-init analyze blame ==='; sudo cloud-init analyze blame; " +
+	"printf '\\n%s\\n' '=== cloud-init analyze boot ==='; sudo cloud-init analyze boot"
+
 func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) error {
 	syslogHandle := "syslog"
 	if s.VHD.OS == config.OSMariner || s.VHD.OS == config.OSAzureLinux {
@@ -929,12 +934,9 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"provision.json":                   "sudo cat /var/log/azure/aks/provision.json",
 		"cloud-init.log":                   "sudo cat /var/log/cloud-init.log",
 		"cloud-init-output.log":            "sudo cat /var/log/cloud-init-output.log",
-		"cloud-init-analyze.log": "printf '%s\n' '=== cloud-init analyze show ==='; sudo cloud-init analyze show; " +
-			"printf '\\n%s\\n' '=== cloud-init analyze dump ==='; sudo cloud-init analyze dump; " +
-			"printf '\\n%s\\n' '=== cloud-init analyze blame ==='; sudo cloud-init analyze blame; " +
-			"printf '\\n%s\\n' '=== cloud-init analyze boot ==='; sudo cloud-init analyze boot",
-		"systemd-analyze.log":       "sudo systemd-analyze critical-chain cloud-init-local.service",
-		"systemd-analyze-blame.log": "sudo systemd-analyze blame",
+		"cloud-init-analyze.log":           cloudInitAnalyzeCommand,
+		"systemd-analyze.log":              "sudo systemd-analyze critical-chain cloud-init-local.service",
+		"systemd-analyze-blame.log":        "sudo systemd-analyze blame",
 	}
 	if s.SecureTLSBootstrappingEnabled() {
 		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
@@ -946,20 +948,9 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		commandList["azure-vnet-ipam.log"] = "sudo cat /var/log/azure-vnet-ipam.log"
 	}
 
-	var logFiles = map[string]string{}
-	for file, sourceCmd := range commandList {
-		execResult, err := execScriptOnVm(ctx, s, vm, sourceCmd)
-		if err != nil {
-			s.Logger.Logf("error executing %s: %s", sourceCmd, err)
-			continue
-		}
-		logFiles[file] = execResult.String()
-	}
-	err = dumpFileMapToDir(s.artifactName, logFiles)
-	if err != nil {
-		return fmt.Errorf("failed to dump log files: %w", err)
-	}
-	return nil
+	return collectCommandLogs(ctx, s.artifactName, commandList, func(ctx context.Context, command string) (*podExecResult, error) {
+		return execScriptOnVm(ctx, s, vm, command)
+	})
 }
 
 const uploadLogsPowershellScript = `
@@ -1162,7 +1153,6 @@ func deleteVMSS(ctx context.Context, s *Scenario) error {
 		}
 		return fmt.Errorf("begin deleting vmss %q: %w", s.Runtime.VMSSName, err)
 	}
-	s.Logger.Logf("vmss %q deletion started", s.Runtime.VMSSName)
 	return nil
 }
 
