@@ -16,12 +16,13 @@ import (
 )
 
 const (
-	defaultHotfixVersionPath = "/opt/azure/containers/aks-node-controller-hotfix.json"
-	defaultHotfixTimingPath  = "/var/log/azure/aks-node-controller-hotfix-timing.json"
-	maxInstallRetries        = 5
-	retryBackoff             = 3 * time.Second
-	commandTimeout           = 60 * time.Second
-	defaultAptSourcesDir     = "/etc/apt/sources.list.d"
+	defaultHotfixVersionPath     = "/opt/azure/containers/aks-node-controller-hotfix.json"
+	defaultHotfixTimingPath      = "/var/log/azure/aks-node-controller-hotfix-timing.json"
+	disableRepositoryFastPathEnv = "DISABLE_ANC_REPOSITORY_HOTFIX_FAST_PATH"
+	maxInstallRetries            = 5
+	retryBackoff                 = 3 * time.Second
+	commandTimeout               = 60 * time.Second
+	defaultAptSourcesDir         = "/etc/apt/sources.list.d"
 	// vhdBinaryPath is where packer installs the VHD-baked binary.
 	vhdBinaryPath = "/opt/azure/containers/aks-node-controller"
 	// hotfixBinaryPath is where the hotfix binary is placed alongside the VHD-baked binary.
@@ -103,14 +104,18 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 	slog.Info("downloading ANC hotfix", "current", Version, "target", hotfixVersion)
 
 	routeStart := time.Now()
-	if err := a.tryRepositoryDownload(ctx, hotfixVersion); err == nil {
-		return nil
-	} else if isIntegrityError(err) {
-		a.removeStaleHotfix()
-		return fmt.Errorf("repository integrity check failed for hotfix version %s: %w", hotfixVersion, err)
+	if os.Getenv(disableRepositoryFastPathEnv) == "true" {
+		slog.Info("ANC repository hotfix fast path disabled by environment", "env", disableRepositoryFastPathEnv)
 	} else {
-		slog.Warn("safe repository download unavailable, falling back to package manager",
-			"version", hotfixVersion, "error", err)
+		if err := a.tryRepositoryDownload(ctx, hotfixVersion); err == nil {
+			return nil
+		} else if isIntegrityError(err) {
+			a.removeStaleHotfix()
+			return fmt.Errorf("repository integrity check failed for hotfix version %s: %w", hotfixVersion, err)
+		} else {
+			slog.Warn("safe repository download unavailable, falling back to package manager",
+				"version", hotfixVersion, "error", err)
+		}
 	}
 
 	if err := a.installFromPMC(ctx, hotfixVersion); err != nil {

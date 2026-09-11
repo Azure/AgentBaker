@@ -275,6 +275,59 @@ func TestUbuntuRepositoryHTTPErrorFallsBackToApt(t *testing.T) {
 	}, "an operational direct-path failure must invoke apt fallback")
 }
 
+func TestRepositoryFastPathCanBeDisabledForPackageManagerSpeedTest(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		http.Error(w, "repository should not be contacted", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	var commands []string
+	var mu sync.Mutex
+	app := configuredUbuntuRepositoryApp(t, dir, server.URL, func(cmd *exec.Cmd) error {
+		mu.Lock()
+		commands = append(commands, strings.Join(cmd.Args, " "))
+		mu.Unlock()
+		return nil
+	})
+	app.vhdBinaryPath = filepath.Join(dir, "aks-node-controller")
+	app.pkgBinaryPath = filepath.Join(dir, "usr-bin-aks-node-controller")
+	app.hotfixBinaryPath = filepath.Join(dir, "aks-node-controller-hotfix")
+	app.hotfixTimingPath = filepath.Join(dir, "aks-node-controller-hotfix-timing.json")
+	require.NoError(t, os.WriteFile(app.vhdBinaryPath, []byte("vhd-binary"), 0o755))
+	require.NoError(t, os.WriteFile(app.pkgBinaryPath, []byte("package-manager-binary"), 0o755))
+	t.Setenv(disableRepositoryFastPathEnv, "true")
+
+	originalVersion := Version
+	Version = "202608.21.0"
+	t.Cleanup(func() { Version = originalVersion })
+	err := app.downloadBinaryHotfixIfNeeded(context.Background(), &hotfixConfig{
+		Hotfixes: map[string]string{"202608.21": "202608.21.1"},
+	})
+	require.NoError(t, err)
+
+	assert.Zero(t, requests.Load(), "disabled repository fast path must not contact the repository")
+	assert.Condition(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		for _, command := range commands {
+			if strings.Contains(command, "apt-get install") {
+				return true
+			}
+		}
+		return false
+	}, "disabled repository fast path must invoke apt fallback")
+
+	var timing hotfixTiming
+	timingBytes, err := os.ReadFile(app.hotfixTimingPath)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(timingBytes, &timing))
+	assert.Equal(t, "package-manager", timing.Route)
+	assert.Equal(t, "succeeded", timing.Outcome)
+}
+
 func TestUbuntuRepositoryFallbackDurationIncludesRepositoryAttempt(t *testing.T) {
 	const repositoryDelay = 50 * time.Millisecond
 	logs := installLogCapturer(t)
