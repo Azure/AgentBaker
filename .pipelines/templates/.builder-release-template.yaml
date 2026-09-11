@@ -94,7 +94,16 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
+        set -e
         make -f packer.mk run-packer
+        if [[ "${CVM_TWO_STAGE_BUILD:-}" == "True" ]]; then
+          PREP_SETTINGS="vhdbuilder/packer/settings.json"
+          echo "##vso[task.setvariable variable=CVM_PREP_SUBSCRIPTION_ID]$(jq -r '.gallery_subscription_id' "${PREP_SETTINGS}")"
+          echo "##vso[task.setvariable variable=CVM_PREP_RESOURCE_GROUP_NAME]$(jq -r '.resource_group_name' "${PREP_SETTINGS}")"
+          echo "##vso[task.setvariable variable=CVM_PREP_SIG_GALLERY_NAME]$(jq -r '.sig_gallery_name' "${PREP_SETTINGS}")"
+          echo "##vso[task.setvariable variable=CVM_PREP_SIG_IMAGE_NAME]$(jq -r '.sig_image_name' "${PREP_SETTINGS}")"
+          echo "##vso[task.setvariable variable=CVM_PREP_SIG_IMAGE_VERSION]$(jq -r '.captured_sig_version' "${PREP_SETTINGS}")"
+        fi
     condition: ne(variables['BUILDER'], 'imagecustomizer')
     displayName: Build VHD
     retryCountOnTaskFailure: 3
@@ -108,6 +117,34 @@ steps:
       UA_TOKEN: $(ua-token)
       LOCAL_DOCA_REPO_URL: $(LOCAL_DOCA_REPO_URL)
       CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR: $(CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR)
+
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        make -f packer.mk run-packer
+    condition: and(succeeded(), eq(variables['CVM_TWO_STAGE_BUILD'], 'True'))
+    displayName: Build VHD - CVM Final (Stage 2)
+    retryCountOnTaskFailure: 3
+    env:
+      CVM_BUILD_STAGE: final
+      AZURE_VM_SIZE: $(CVM_FINAL_VM_SIZE)
+      OS_TYPE: Linux
+      GIT_VERSION: $(Build.SourceVersion)
+      BRANCH: $(Build.SourceBranch)
+      BUILD_NUMBER: $(Build.BuildNumber)
+      BUILD_ID: $(Build.BuildId)
+      BUILD_DEFINITION_NAME: $(Build.DefinitionName)
+      UA_TOKEN: $(ua-token)
+      LOCAL_DOCA_REPO_URL: $(LOCAL_DOCA_REPO_URL)
+      CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR: $(CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR)
+      CVM_PREP_SUBSCRIPTION_ID: $(CVM_PREP_SUBSCRIPTION_ID)
+      CVM_PREP_RESOURCE_GROUP_NAME: $(CVM_PREP_RESOURCE_GROUP_NAME)
+      CVM_PREP_SIG_GALLERY_NAME: $(CVM_PREP_SIG_GALLERY_NAME)
+      CVM_PREP_SIG_IMAGE_NAME: $(CVM_PREP_SIG_IMAGE_NAME)
+      CVM_PREP_SIG_IMAGE_VERSION: $(CVM_PREP_SIG_IMAGE_VERSION)
 
   - task: AzureCLI@2
     inputs:
