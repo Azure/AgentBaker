@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
@@ -674,6 +677,83 @@ func newUbuntu2204_ScriptlessCSECmd_HotfixScenario() *Scenario {
 			},
 		},
 	}
+}
+
+var _ = Register(newUbuntu2204EmbeddedScriptHotfixScenario())
+
+func newUbuntu2204EmbeddedScriptHotfixScenario() *Scenario {
+	const (
+		runtimeScriptPath = "/opt/azure/containers/provision_configs.sh"
+		executionMarker   = "/opt/azure/containers/e2e-script-hotfix-executed"
+	)
+	marker := fmt.Sprintf("EMBEDDED_SCRIPT_HOTFIX_%d", time.Now().UnixNano())
+	payload, err := os.ReadFile(repoPath("parts/linux/cloud-init/artifacts/cse_config.sh"))
+	if err != nil {
+		panic(fmt.Sprintf("read hotfix payload: %v", err))
+	}
+	payload = append(payload, []byte(fmt.Sprintf(
+		"\nprintf '%%s\\n' '%s' > %s\n# %s\n",
+		marker,
+		executionMarker,
+		marker,
+	))...)
+
+	return &Scenario{
+		Name:        "Ubuntu2204_EmbeddedScriptHotfix",
+		Description: "tests that a PR-built ANC applies an embedded script hotfix before provisioning",
+		SkipIf: func(context.Context) string {
+			if config.Config.DisableScriptLessCompilation {
+				return "embedded script-hotfix E2E requires scriptless ANC compilation"
+			}
+			if config.Config.TestPreProvision {
+				return "embedded script-hotfix E2E does not run during two-stage VHD caching"
+			}
+			return ""
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			},
+			// The fixture intentionally replaces an older VHD's provision config
+			// with the current source, so broad source/VHD parity checks do not apply.
+			SkipDefaultValidation: true,
+			ScriptHotfixFixture: &ScriptHotfixFixture{
+				Platform:    "ubuntu",
+				Destination: runtimeScriptPath,
+				Mode:        "0744",
+				Payload:     payload,
+			},
+			Validator: func(ctx context.Context, s *Scenario) error {
+				nodeName, err := s.Runtime.Kube.WaitUntilNodeReady(ctx, s.Logger, s.Runtime.VMSSName)
+				if err != nil {
+					return err
+				}
+				s.Runtime.VM.KubeName = nodeName
+				return errors.Join(
+					ValidateNodeCanRunAPod(ctx, s),
+					ValidateFileHasContent(ctx, s, runtimeScriptPath, marker),
+					ValidateFileHasContent(ctx, s, executionMarker, marker),
+					ValidateFileHasContent(
+						ctx,
+						s,
+						"/var/log/azure/aks-node-controller.output",
+						"applied embedded hotfix payload",
+					),
+				)
+			},
+		},
+	}
+}
+
+func repoPath(path string) string {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("resolve repository path")
+	}
+	return filepath.Join(filepath.Dir(file), "..", "..", path)
 }
 
 var _ = Register(&Scenario{
