@@ -116,7 +116,7 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         set -euo pipefail
-        make -f packer.mk run-packer-cvm-bootstrap
+        make -f packer.mk run-packer
         BOOTSTRAP_SETTINGS="vhdbuilder/packer/settings.json"
         echo "##vso[task.setvariable variable=CVM_BOOTSTRAP_SUBSCRIPTION_ID]$(jq -r '.gallery_subscription_id' "${BOOTSTRAP_SETTINGS}")"
         echo "##vso[task.setvariable variable=CVM_BOOTSTRAP_RESOURCE_GROUP_NAME]$(jq -r '.resource_group_name' "${BOOTSTRAP_SETTINGS}")"
@@ -142,7 +142,7 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
-        make -f packer.mk run-packer-cvm-final
+        make -f packer.mk run-packer
     condition: and(succeeded(), eq(variables['CVM_TWO_STAGE_BUILD'], 'True'), eq(variables['OS_SKU'], 'Ubuntu'), eq(variables['OS_VERSION'], '26.04'), contains(variables['FEATURE_FLAGS'], 'cvm'))
     displayName: Build VHD - CVM Final (Stage 2)
     retryCountOnTaskFailure: 3

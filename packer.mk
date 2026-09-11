@@ -6,7 +6,11 @@ ifeq (${ARCHITECTURE},ARM64)
 endif
 GOHOSTARCH = $(shell go env GOHOSTARCH)
 
+ifeq (${CVM_BUILD_STAGE},bootstrap)
+build-packer:
+else
 build-packer: setup-golang generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
+endif
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
@@ -39,8 +43,20 @@ else
 endif
 ifeq (${OS_SKU},Ubuntu)
 ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
+ifeq (${OS_VERSION},26.04)
+ifeq (${CVM_BUILD_STAGE},bootstrap)
+	@echo "Using packer template file vhd-image-builder-cvm-bootstrap.json"
+	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm-bootstrap.json
+else ifeq (${CVM_BUILD_STAGE},final)
+	@echo "Using packer template file vhd-image-builder-cvm-2604.json"
+	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm-2604.json
+else
+	$(error CVM_BUILD_STAGE must be bootstrap or final for Ubuntu 26.04 CVM)
+endif
+else
 	@echo "Using packer template file vhd-image-builder-cvm.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm.json
+endif
 else
 	@echo "Using packer template file vhd-image-builder-base.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
@@ -97,42 +113,6 @@ run-packer: az-login
 
 run-imagecustomizer: az-login
 	@($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-imagecustomizer | tee -a packer-output)
-
-CVM_BOOTSTRAP_PACKER_OUTPUT := packer-output-bootstrap
-CVM_FINAL_TEMPLATE := vhdbuilder/packer/vhd-image-builder-cvm-2604.json
-
-validate-cvm-two-stage:
-	@test "$(CVM_TWO_STAGE_BUILD)" = "True" || { echo "CVM two-stage builds require CVM_TWO_STAGE_BUILD=True"; exit 1; }
-	@test "$(OS_SKU)" = "Ubuntu" || { echo "CVM two-stage builds require OS_SKU=Ubuntu"; exit 1; }
-	@test "$(OS_VERSION)" = "26.04" || { echo "CVM two-stage builds require OS_VERSION=26.04"; exit 1; }
-	@case "$(FEATURE_FLAGS)" in *cvm*) ;; *) echo "CVM two-stage builds require FEATURE_FLAGS to contain cvm"; exit 1 ;; esac
-
-validate-cvm-final: validate-cvm-two-stage
-	@test -n "$(CVM_BOOTSTRAP_SUBSCRIPTION_ID)" || { echo "CVM final build requires CVM_BOOTSTRAP_SUBSCRIPTION_ID"; exit 1; }
-	@test -n "$(CVM_BOOTSTRAP_RESOURCE_GROUP_NAME)" || { echo "CVM final build requires CVM_BOOTSTRAP_RESOURCE_GROUP_NAME"; exit 1; }
-	@test -n "$(CVM_BOOTSTRAP_SIG_GALLERY_NAME)" || { echo "CVM final build requires CVM_BOOTSTRAP_SIG_GALLERY_NAME"; exit 1; }
-	@test -n "$(CVM_BOOTSTRAP_SIG_IMAGE_NAME)" || { echo "CVM final build requires CVM_BOOTSTRAP_SIG_IMAGE_NAME"; exit 1; }
-	@test -n "$(CVM_BOOTSTRAP_SIG_IMAGE_VERSION)" || { echo "CVM final build requires CVM_BOOTSTRAP_SIG_IMAGE_VERSION"; exit 1; }
-
-init-packer-cvm-bootstrap:
-	@CVM_BUILD_STAGE=bootstrap ./vhdbuilder/packer/produce-packer-settings.sh
-
-build-packer-cvm-bootstrap:
-	@echo "Using packer template file vhd-image-builder-cvm-bootstrap.json"
-	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm-bootstrap.json
-
-run-packer-cvm-bootstrap: validate-cvm-two-stage az-login
-	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer-cvm-bootstrap | tee $(CVM_BOOTSTRAP_PACKER_OUTPUT)) && ($(MAKE) -f packer.mk build-packer-cvm-bootstrap | tee -a $(CVM_BOOTSTRAP_PACKER_OUTPUT))
-
-init-packer-cvm-final:
-	@CVM_BUILD_STAGE=final ./vhdbuilder/packer/produce-packer-settings.sh
-
-build-packer-cvm-final: setup-golang generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
-	@echo "Using packer template file $(CVM_FINAL_TEMPLATE)"
-	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json $(CVM_FINAL_TEMPLATE)
-
-run-packer-cvm-final: validate-cvm-final az-login
-	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer-cvm-final | tee packer-output) && ($(MAKE) -f packer.mk build-packer-cvm-final | tee -a packer-output)
 
 generate-publishing-info: az-login
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh
