@@ -155,7 +155,7 @@ func writeScriptHotfixFixture(buildDir string, fixture ScriptHotfixFixture) erro
 		return fmt.Errorf("script-hotfix fixture payload is empty")
 	}
 
-	generatedDir := filepath.Join(buildDir, "scripthotfix", "generated")
+	generatedDir := filepath.Join(buildDir, "generated")
 	rendered := scriptHotfixFixtureNodeCustomData{
 		WriteFiles: []scriptHotfixFixtureWriteFile{{
 			Path:        fixture.Destination,

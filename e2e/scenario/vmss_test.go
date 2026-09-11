@@ -15,7 +15,7 @@ import (
 
 func TestWriteScriptHotfixFixture(t *testing.T) {
 	buildDir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(buildDir, "scripthotfix", "generated"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(buildDir, "generated"), 0o755))
 	fixture := ScriptHotfixFixture{
 		Platform:    "ubuntu",
 		Destination: "/opt/azure/containers/provision_configs.sh",
@@ -24,14 +24,13 @@ func TestWriteScriptHotfixFixture(t *testing.T) {
 	}
 
 	require.NoError(t, writeScriptHotfixFixture(buildDir, fixture))
-	entries, err := os.ReadDir(filepath.Join(buildDir, "scripthotfix", "generated"))
+	entries, err := os.ReadDir(filepath.Join(buildDir, "generated"))
 	require.NoError(t, err)
 	require.Len(t, entries, 1)
 	require.Equal(t, "rendered_nodecustomdata_ubuntu.yml", entries[0].Name())
 
 	renderedData, err := os.ReadFile(filepath.Join(
 		buildDir,
-		"scripthotfix",
 		"generated",
 		"rendered_nodecustomdata_ubuntu.yml",
 	))
@@ -88,7 +87,7 @@ func TestWriteScriptHotfixFixtureRejectsInvalidData(t *testing.T) {
 			fixture := valid
 			test.mutate(&fixture)
 			buildDir := t.TempDir()
-			require.NoError(t, os.MkdirAll(filepath.Join(buildDir, "scripthotfix", "generated"), 0o755))
+			require.NoError(t, os.MkdirAll(filepath.Join(buildDir, "generated"), 0o755))
 			require.Error(t, writeScriptHotfixFixture(buildDir, fixture))
 		})
 	}

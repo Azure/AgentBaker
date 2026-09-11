@@ -70,7 +70,7 @@ func TestApplyEmbeddedNodeCustomData(t *testing.T) {
 				platform = string(nodeCustomDataPlatformMariner)
 			}
 			files := fstest.MapFS{
-				"scripthotfix/generated/rendered_nodecustomdata_" + platform + ".yml": &fstest.MapFile{Data: data},
+				"generated/rendered_nodecustomdata_" + platform + ".yml": &fstest.MapFile{Data: data},
 			}
 			require.NoError(t, applyEmbeddedNodeCustomData(files, releasePath, outputPath))
 			for _, destination := range []string{existing, missing} {
@@ -134,13 +134,13 @@ func TestApplyEmbeddedNodeCustomDataErrorsAndRetention(t *testing.T) {
 				require.NoError(t, os.WriteFile(releasePath, []byte(test.release), 0o600))
 			}
 			files := fstest.MapFS{
-				"scripthotfix/generated/README": &fstest.MapFile{Data: []byte("placeholder")},
+				"generated/README": &fstest.MapFile{Data: []byte("placeholder")},
 			}
 			if test.missing != "payload" {
-				files["scripthotfix/generated/rendered_nodecustomdata_ubuntu.yml"] = &fstest.MapFile{Data: []byte(test.payload)}
+				files["generated/rendered_nodecustomdata_ubuntu.yml"] = &fstest.MapFile{Data: []byte(test.payload)}
 			}
 			if test.missing == "payload-file" {
-				files["scripthotfix/generated/rendered_nodecustomdata_ubuntu.yml"].Mode = fs.ModeDir
+				files["generated/rendered_nodecustomdata_ubuntu.yml"].Mode = fs.ModeDir
 			}
 			err := applyEmbeddedNodeCustomData(files, releasePath, outputPath)
 			if test.wantError == "" {

@@ -95,7 +95,7 @@ jobs:
           done < <(
             git status --porcelain --untracked-files=all -- \
               parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json \
-              aks-node-controller/scripthotfix/generated
+              aks-node-controller/generated
           )
           if [ "${#FILES[@]}" -eq 0 ]; then
             echo "No template changes needed."

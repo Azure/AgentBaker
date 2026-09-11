@@ -42,7 +42,7 @@ TEMPLATE = "parts/linux/cloud-init/nodecustomdata.yml"
 ARTIFACTS_DIR = "parts/linux/cloud-init/artifacts"
 LINUX_SIG_VERSION_FILE = "pkg/agent/datamodel/linux_sig_version.json"
 ANC_DIR = "aks-node-controller/"
-GENERATED_DIR = os.path.join(ANC_DIR, "scripthotfix", "generated")
+GENERATED_DIR = os.path.join(ANC_DIR, "generated")
 
 VERSION_RE = re.compile(r'^\d{6}\.\d{2}\.\d+$')
 

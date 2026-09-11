@@ -165,7 +165,7 @@ is left untouched. Application errors are logged and provisioning continues.
 
 The embedded nodecustomdata coordinator distinguishes these script hotfixes from
 updates to the ANC binary itself. The generated files live under
-`aks-node-controller/scripthotfix/generated/` as
+`aks-node-controller/generated/` as
 `rendered_nodecustomdata_<platform>.yml`. The generator selects only changed
 hotfixable entries from `nodecustomdata.yml`, then renders only Ubuntu and
 standard Azure Linux variants through AgentBaker's production Go-template

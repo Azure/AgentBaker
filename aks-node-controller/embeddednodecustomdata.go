@@ -29,7 +29,7 @@ const (
 	nodeCustomDataPlatformUnsupported nodeCustomDataPlatform = "unsupported"
 )
 
-//go:embed scripthotfix/generated
+//go:embed generated
 var embeddedGeneratedNodeCustomData embed.FS
 
 func applyEmbeddedNodeCustomData(payloadFS fs.FS, osReleasePath, outputPath string) error {
@@ -44,7 +44,7 @@ func applyEmbeddedNodeCustomData(payloadFS fs.FS, osReleasePath, outputPath stri
 		slog.Info("embedded script hotfix is not supported on this OS, skipping", "osReleasePath", osReleasePath)
 		return nil
 	}
-	renderedPath := fmt.Sprintf("scripthotfix/generated/rendered_nodecustomdata_%s.yml", platform)
+	renderedPath := fmt.Sprintf("generated/rendered_nodecustomdata_%s.yml", platform)
 	data, err := fs.ReadFile(payloadFS, renderedPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
