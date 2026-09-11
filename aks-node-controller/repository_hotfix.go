@@ -42,10 +42,6 @@ const (
 
 	archAMD64 = "amd64"
 	archARM64 = "arm64"
-
-	// osIDMariner is the pre-rename ID for Azure Linux; osReleaseIDAzureLinux (declared in
-	// embeddednodecustomdata.go) covers the current ID.
-	osIDMariner = "mariner"
 )
 
 type integrityError struct {
@@ -198,7 +194,7 @@ func (a *App) tryRepositoryDownload(ctx context.Context, hotfixVersion string) e
 	switch info.ID {
 	case osReleaseIDUbuntu:
 		plan, err = a.ubuntuRepositoryPlan(info, hotfixVersion)
-	case osReleaseIDAzureLinux, osIDMariner:
+	case osReleaseIDAzureLinux:
 		plan, err = a.rpmRepositoryPlan(info, hotfixVersion)
 	default:
 		err = newUnsupportedRepositoryError("unsupported repository platform %q", info.ID)
@@ -1294,7 +1290,7 @@ func rpmArchitecture(goarch string) (string, error) {
 }
 
 // rpmReleaseVersion reduces an os-release VERSION_ID to the major.minor form that PMC
-// publishes repositories under. Azure Linux and Mariner nodes can report a three-part
+// publishes repositories under. Azure Linux nodes can report a three-part
 // VERSION_ID that includes a build date (e.g. "3.0.20260304"), while the repository lives
 // at .../azurelinux/3.0/prod/... -- substituting the raw value into $releasever builds a
 // URL that 404s, silently costing every such node the fast path. Values already in
@@ -1312,8 +1308,6 @@ func rpmReleaseSuffix(info platformInfo) (string, error) {
 	switch {
 	case info.ID == osReleaseIDAzureLinux && major == "3":
 		return "azl3", nil
-	case info.ID == osIDMariner && major == "2":
-		return "cm2", nil
 	default:
 		return "", newUnsupportedRepositoryError(
 			"cannot establish ANC RPM release suffix for %s %s", info.ID, info.VersionID)
@@ -1321,12 +1315,10 @@ func rpmReleaseSuffix(info platformInfo) (string, error) {
 }
 
 // matchesMicrosoftRPMRepo reports whether an INI section names the repository that carries
-// the ANC package, for either distro family. AzureLinux publishes it under "ms-oss"
-// (section [azurelinux-official-ms-oss], baseurl .../prod/ms-oss/$basearch), while Mariner
-// 2.0 has no ms-oss repository at all -- that path 404s -- and uses "Microsoft" instead
-// (section [mariner-microsoft], baseurl .../prod/Microsoft/$basearch). Matching only on
-// ms-oss silently excluded every Mariner node from the fast path. Comparisons are
-// lowercased so Mariner's capitalised "/Microsoft/" baseurl matches.
+// the ANC package. Azure Linux publishes it under "ms-oss" (section
+// [azurelinux-official-ms-oss], baseurl .../prod/ms-oss/$basearch). The "Microsoft" spelling
+// is also accepted because PMC uses it for some repository layouts; comparisons are
+// lowercased so a capitalised "/Microsoft/" baseurl still matches.
 func matchesMicrosoftRPMRepo(name, baseURL string) bool {
 	matchers := []struct {
 		section string

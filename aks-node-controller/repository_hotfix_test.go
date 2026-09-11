@@ -498,9 +498,11 @@ func TestRepositoryArchitectureAndReleaseMappings(t *testing.T) {
 	azlSuffix, err := rpmReleaseSuffix(platformInfo{ID: "azurelinux", VersionID: "3.0"})
 	require.NoError(t, err)
 	assert.Equal(t, "azl3", azlSuffix)
-	marinerSuffix, err := rpmReleaseSuffix(platformInfo{ID: "mariner", VersionID: "2.0"})
-	require.NoError(t, err)
-	assert.Equal(t, "cm2", marinerSuffix)
+	// ANC self-update does not support legacy Mariner (see detectPackageManager, which
+	// rejects ID=mariner): the fast path must not claim a platform the PMC fallback cannot
+	// serve, or an operational failure would strand those nodes with no install route.
+	_, err = rpmReleaseSuffix(platformInfo{ID: "mariner", VersionID: "2.0"})
+	assert.Error(t, err)
 	_, err = rpmReleaseSuffix(platformInfo{ID: "azurelinux", VersionID: "2.0"})
 	assert.Error(t, err)
 }
@@ -772,20 +774,12 @@ func TestPreferredRPMExtractionErrorPreservesBothCommandFailures(t *testing.T) {
 	assert.Contains(t, err.Error(), "cpio: cpio read failed")
 }
 
-// Mariner 2.0 has no ms-oss repository -- that path 404s on packages.microsoft.com. Its
-// Microsoft-published packages live in [mariner-microsoft] at .../prod/Microsoft/$basearch
-// (see mariner-package-update.sh, which lists mariner-microsoft.repo). Discovery keyed only
-// on "ms-oss" therefore excluded every Mariner node from the repository fast path.
-func TestParseMicrosoftRepositoryMariner(t *testing.T) {
+// Legacy Mariner is out of scope for ANC self-update: detectPackageManager rejects
+// ID=mariner, so the fast path must reject it too. Claiming the platform here would mean an
+// operational fast-path failure (timeout, missing metadata) falls back to installFromPMC,
+// which then reports "unsupported OS" -- leaving the node with no install route at all.
+func TestRPMRepositoryPlanRejectsLegacyMariner(t *testing.T) {
 	dir := t.TempDir()
-	// Sibling repos that must not be selected, mirroring a real Mariner node.
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "mariner-official-base.repo"), []byte(`
-[mariner-official-base]
-name=CBL-Mariner Official Base
-baseurl=https://packages.microsoft.com/cbl-mariner/$releasever/prod/base/$basearch
-gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
-enabled=1
-`), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "mariner-microsoft.repo"), []byte(`
 [mariner-microsoft]
 name=CBL-Mariner Microsoft
@@ -794,24 +788,41 @@ gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
 enabled=1
 `), 0o644))
 
-	repository, err := parseMSOSSRepository(dir)
-	require.NoError(t, err)
-	assert.Equal(t, "mariner-microsoft", repository.Section)
-	assert.Equal(t,
-		"https://packages.microsoft.com/cbl-mariner/$releasever/prod/Microsoft/$basearch",
-		repository.BaseURL)
-
 	app := NewTestApp(t, TestAppConfig{}).App
 	app.yumReposDir = dir
-	plan, err := app.rpmRepositoryPlan(platformInfo{
+	_, err := app.rpmRepositoryPlan(platformInfo{
 		OS: "linux", ID: "mariner", VersionID: "2.0", Arch: "amd64",
 	}, "202607.20.2")
+	require.Error(t, err)
+	assert.False(t, isIntegrityError(err), "an out-of-scope platform is unsupported, not tampering")
+}
+
+// The "Microsoft" repository spelling is still recognised -- PMC uses it for some layouts,
+// and the match is lowercased so a capitalised baseurl path works.
+func TestParseMicrosoftRepositoryAcceptsMicrosoftSpelling(t *testing.T) {
+	dir := t.TempDir()
+	// A sibling repo that must not be selected.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "official-base.repo"), []byte(`
+[official-base]
+name=Official Base
+baseurl=https://packages.microsoft.com/azurelinux/$releasever/prod/base/$basearch
+gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
+enabled=1
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "official-microsoft.repo"), []byte(`
+[official-microsoft]
+name=Official Microsoft
+baseurl=https://packages.microsoft.com/azurelinux/$releasever/prod/Microsoft/$basearch
+gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
+enabled=1
+`), 0o644))
+
+	repository, err := parseMSOSSRepository(dir)
 	require.NoError(t, err)
+	assert.Equal(t, "official-microsoft", repository.Section)
 	assert.Equal(t,
-		"https://packages.microsoft.com/cbl-mariner/2.0/prod/Microsoft/x86_64/"+
-			"Packages/a/aks-node-controller-202607.20.2-1.cm2.x86_64.rpm",
-		plan.packageURL)
-	assert.Equal(t, "rpm", plan.format)
+		"https://packages.microsoft.com/azurelinux/$releasever/prod/Microsoft/$basearch",
+		repository.BaseURL)
 }
 
 // A disabled Microsoft repo must be skipped rather than selected.
@@ -1261,4 +1272,78 @@ func TestExtractRPMValidatesExtractedBinary(t *testing.T) {
 
 		require.NoError(t, app.extractRPM(context.Background(), "package.rpm", t.TempDir()))
 	})
+}
+
+// extractRPM shells out to rpm2cpio | cpio, so the argument list and the member path it asks
+// for are only validated by actually running the pipeline. Stubbing both commands (as the
+// validation tests above do) cannot catch a wrong cpio flag or a mismatched member path --
+// that would make every Azure Linux fast-path attempt fall back silently. rpm2cpio is stubbed
+// on PATH because building a real .rpm needs rpmbuild, but cpio is the real binary: the stub
+// only stands in for the rpm-to-cpio conversion, and everything under test runs for real.
+func TestExtractRPMStagesOnlyTheANCBinary(t *testing.T) {
+	if _, err := exec.LookPath("cpio"); err != nil {
+		t.Skip("cpio is required to exercise rpm extraction")
+	}
+
+	const binaryContent = "ELF-ish ANC payload"
+	// Members mirroring a real ANC rpm: the binary plus files that must NOT be staged.
+	archiveRoot := t.TempDir()
+	members := map[string]string{
+		ancPackageBinaryRelativePath:                     binaryContent,
+		"usr/share/doc/aks-node-controller/README":       "docs",
+		"etc/systemd/system/aks-node-controller.service": "[Unit]",
+	}
+	var memberList []string
+	for name, content := range members {
+		path := filepath.Join(archiveRoot, filepath.FromSlash(name))
+		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o755))
+		memberList = append(memberList, "./"+name)
+	}
+	sort.Strings(memberList)
+
+	// Build the cpio stream that rpm2cpio would emit for such a package.
+	archivePath := filepath.Join(t.TempDir(), "payload.cpio")
+	archive, err := os.Create(archivePath)
+	require.NoError(t, err)
+	build := exec.Command("cpio", "-o", "--quiet")
+	build.Dir = archiveRoot
+	build.Stdin = strings.NewReader(strings.Join(memberList, "\n") + "\n")
+	build.Stdout = archive
+	require.NoError(t, build.Run())
+	require.NoError(t, archive.Close())
+
+	// Stub rpm2cpio on PATH so it replays that stream; cpio itself is the real binary.
+	stubDir := t.TempDir()
+	stub := "#!/bin/sh\nexec cat " + archivePath + "\n"
+	require.NoError(t, os.WriteFile(filepath.Join(stubDir, "rpm2cpio"), []byte(stub), 0o755))
+	t.Setenv("PATH", stubDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	destination := t.TempDir()
+	app := NewTestApp(t, TestAppConfig{}).App
+	app.cmdRun = cmdRunner
+	require.NoError(t, app.extractRPM(context.Background(), "aks-node-controller.rpm", destination))
+
+	staged, err := os.ReadFile(filepath.Join(destination, filepath.FromSlash(ancPackageBinaryRelativePath)))
+	require.NoError(t, err)
+	assert.Equal(t, binaryContent, string(staged))
+
+	// Nothing else from the package may be written: extraction names a single member, and a
+	// widened pattern would quietly start staging service units and docs onto the node.
+	var extracted []string
+	require.NoError(t, filepath.WalkDir(destination, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, relErr := filepath.Rel(destination, path)
+		if relErr != nil {
+			return relErr
+		}
+		extracted = append(extracted, filepath.ToSlash(rel))
+		return nil
+	}))
+	assert.Equal(t, []string{ancPackageBinaryRelativePath}, extracted)
 }
