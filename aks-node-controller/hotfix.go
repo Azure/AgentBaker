@@ -150,13 +150,16 @@ func (a *App) pkgPath() string {
 // removeStaleHotfix disarms a previously staged hotfix binary after an integrity failure,
 // so the launcher falls back to the VHD-baked ANC instead of re-running the stale copy.
 //
-// Removal is the intent, but it is not the guarantee: the launcher selects the hotfix on
-// `[ -x ]` alone and ignores this process's exit status, so a remove that fails would
-// silently leave the stale binary armed. Clearing the executable bits closes that gate
-// independently, giving a second way to disarm when unlink cannot succeed (e.g. an
-// immutable attribute or a read-only mount). The staged binary is only ever written by
-// copyBinaryAlongside from a package-manager-verified install, so the risk being contained
-// here is running a stale-but-authentic ANC, not attacker-controlled code.
+// This is best-effort defense in depth, not the guarantee. Removal is the intent; clearing
+// the executable bits is a second attempt for when unlink cannot succeed. Both fail on a
+// read-only mount or an immutable file, so the authoritative gate is download-hotfix's exit
+// status: aks-node-controller-launcher.sh refuses the staged binary when this process exits
+// non-zero, regardless of what remains on disk. Keep that check in place if this path is
+// ever refactored.
+//
+// The staged binary is only ever written by copyBinaryAlongside from a
+// package-manager-verified install, so the risk being contained here is running a
+// stale-but-authentic ANC, not attacker-controlled code.
 func (a *App) removeStaleHotfix() {
 	path := a.hotfixPath()
 	err := os.Remove(path)

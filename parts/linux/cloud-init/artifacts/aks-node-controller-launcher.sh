@@ -74,23 +74,29 @@ if [ "${ENABLE_PROVISIONING_HOTFIX:-}" = "true" ]; then
     fi
 fi
 
+# hotfix_download_failed records a download-hotfix failure so binary selection below can
+# refuse the staged hotfix. download-hotfix tries to disarm a stale binary itself (unlink,
+# then clearing the executable bits), but neither can succeed on a read-only mount or an
+# immutable file -- so selection must not rest on the executable bit alone.
+hotfix_download_failed=0
 if [ -f "$HOTFIX_JSON" ]; then
     log "Found ANC hotfix config at ${HOTFIX_JSON}; running download-hotfix"
     if "$BIN_PATH" download-hotfix; then
         log "ANC download-hotfix completed; binary selection follows"
     else
-        log "ANC download-hotfix failed; binary selection follows"
+        hotfix_download_failed=1
+        log "ANC download-hotfix failed; ignoring any staged hotfix binary"
     fi
 fi
 
-if [ -x "$HOTFIX_BIN" ]; then
+if [ -x "$HOTFIX_BIN" ] && [ "$hotfix_download_failed" -eq 0 ]; then
     BIN_PATH="$HOTFIX_BIN"
     log "Using hotfix binary: $HOTFIX_BIN"
 else
     log "Using VHD-baked binary: $BIN_PATH"
 fi
 
-if [ -x "$HOTFIX_BIN" ]; then
+if [ -x "$HOTFIX_BIN" ] && [ "$hotfix_download_failed" -eq 0 ]; then
     if "$HOTFIX_BIN" apply-embedded-hotfix; then
         log "ANC apply-embedded-hotfix completed"
     else
