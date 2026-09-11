@@ -17,6 +17,13 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+func TestCloudInitAnalyzeCommandDoesNotRequireSCP(t *testing.T) {
+	require.NotContains(t, cloudInitAnalyzeCommand, "\n")
+	command, err := copyScriptToRemoteIfRequired(t.Context(), nil, cloudInitAnalyzeCommand, false)
+	require.NoError(t, err)
+	assert.Equal(t, cloudInitAnalyzeCommand, command)
+}
+
 func TestCollectCommandLogsConcurrency(t *testing.T) {
 	original := config.Config.E2ELoggingDir
 	config.Config.E2ELoggingDir = t.TempDir()

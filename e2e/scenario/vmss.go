@@ -905,6 +905,11 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 	return nil
 }
 
+const cloudInitAnalyzeCommand = "printf '%s\\n' '=== cloud-init analyze show ==='; sudo cloud-init analyze show; " +
+	"printf '\\n%s\\n' '=== cloud-init analyze dump ==='; sudo cloud-init analyze dump; " +
+	"printf '\\n%s\\n' '=== cloud-init analyze blame ==='; sudo cloud-init analyze blame; " +
+	"printf '\\n%s\\n' '=== cloud-init analyze boot ==='; sudo cloud-init analyze boot"
+
 func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) error {
 	syslogHandle := "syslog"
 	if s.VHD.OS == config.OSMariner || s.VHD.OS == config.OSAzureLinux {
@@ -929,12 +934,9 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"provision.json":                   "sudo cat /var/log/azure/aks/provision.json",
 		"cloud-init.log":                   "sudo cat /var/log/cloud-init.log",
 		"cloud-init-output.log":            "sudo cat /var/log/cloud-init-output.log",
-		"cloud-init-analyze.log": "printf '%s\n' '=== cloud-init analyze show ==='; sudo cloud-init analyze show; " +
-			"printf '\\n%s\\n' '=== cloud-init analyze dump ==='; sudo cloud-init analyze dump; " +
-			"printf '\\n%s\\n' '=== cloud-init analyze blame ==='; sudo cloud-init analyze blame; " +
-			"printf '\\n%s\\n' '=== cloud-init analyze boot ==='; sudo cloud-init analyze boot",
-		"systemd-analyze.log":       "sudo systemd-analyze critical-chain cloud-init-local.service",
-		"systemd-analyze-blame.log": "sudo systemd-analyze blame",
+		"cloud-init-analyze.log":           cloudInitAnalyzeCommand,
+		"systemd-analyze.log":              "sudo systemd-analyze critical-chain cloud-init-local.service",
+		"systemd-analyze-blame.log":        "sudo systemd-analyze blame",
 	}
 	if s.SecureTLSBootstrappingEnabled() {
 		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
