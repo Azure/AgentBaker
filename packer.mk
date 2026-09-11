@@ -98,7 +98,6 @@ run-packer: az-login
 run-imagecustomizer: az-login
 	@($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-imagecustomizer | tee -a packer-output)
 
-CVM_BOOTSTRAP_SETTINGS_JSON := vhdbuilder/packer/settings-bootstrap.json
 CVM_BOOTSTRAP_PACKER_OUTPUT := packer-output-bootstrap
 CVM_FINAL_TEMPLATE := vhdbuilder/packer/vhd-image-builder-cvm-2604.json
 
@@ -116,11 +115,11 @@ validate-cvm-final: validate-cvm-two-stage
 	@test -n "$(CVM_BOOTSTRAP_SIG_IMAGE_VERSION)" || { echo "CVM final build requires CVM_BOOTSTRAP_SIG_IMAGE_VERSION"; exit 1; }
 
 init-packer-cvm-bootstrap:
-	@CVM_BUILD_STAGE=bootstrap SETTINGS_JSON=$(CVM_BOOTSTRAP_SETTINGS_JSON) ./vhdbuilder/packer/produce-packer-settings.sh
+	@CVM_BUILD_STAGE=bootstrap ./vhdbuilder/packer/produce-packer-settings.sh
 
 build-packer-cvm-bootstrap:
 	@echo "Using packer template file vhd-image-builder-cvm-bootstrap.json"
-	@packer build -timestamp-ui -var-file=$(CVM_BOOTSTRAP_SETTINGS_JSON) vhdbuilder/packer/vhd-image-builder-cvm-bootstrap.json
+	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm-bootstrap.json
 
 run-packer-cvm-bootstrap: validate-cvm-two-stage az-login
 	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer-cvm-bootstrap | tee $(CVM_BOOTSTRAP_PACKER_OUTPUT)) && ($(MAKE) -f packer.mk build-packer-cvm-bootstrap | tee -a $(CVM_BOOTSTRAP_PACKER_OUTPUT))
