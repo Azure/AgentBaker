@@ -33,20 +33,11 @@ func (r podExecResult) String() string {
 `, r.exitCode, r.stderr, r.stdout)
 }
 
-func cleanupBastionTunnel(sshClient *ssh.Client) {
+func cleanupBastionTunnel(sshClient *SSHClient) {
 	// We have to do this because az network tunnel creates a new detached process for tunnel
 	if sshClient != nil {
 		_ = sshClient.Close()
 	}
-}
-
-func runSSHCommand(
-	ctx context.Context,
-	client *ssh.Client,
-	command string,
-	isWindows bool,
-) (*podExecResult, error) {
-	return runSSHCommandWithPrivateKeyFile(ctx, client, command, isWindows)
 }
 
 func copyScriptToRemoteIfRequired(ctx context.Context, client *ssh.Client, command string, isWindows bool) (string, error) {
@@ -74,32 +65,48 @@ func copyScriptToRemoteIfRequired(ctx context.Context, client *ssh.Client, comma
 	}
 	defer scpClient.Close()
 
-	copyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	return remoteCommand, scpClient.Copy(copyCtx,
-		strings.NewReader(command),
-		remotePath,
-		"0755",
-		int64(len(command)))
+	err = retrySSHSessionOpen(ctx, func() error {
+		copyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		return scpClient.Copy(copyCtx, strings.NewReader(command), remotePath, "0755", int64(len(command)))
+	})
+	return remoteCommand, err
 }
 
-func runSSHCommandWithPrivateKeyFile(
+func runSSHCommand(
 	ctx context.Context,
-	client *ssh.Client,
+	client *SSHClient,
 	command string,
 	isWindows bool,
 ) (*podExecResult, error) {
 	if client == nil {
 		return nil, fmt.Errorf("Permission denied: ssh client is nil")
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	select {
+	case client.operations <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	defer func() { <-client.operations }()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	var err error
-	command, err = copyScriptToRemoteIfRequired(ctx, client, command, isWindows)
+	command, err = copyScriptToRemoteIfRequired(ctx, client.Client, command, isWindows)
 	if err != nil {
 		return nil, err
 	}
 
-	session, err := client.NewSession()
+	var session *ssh.Session
+	err = retrySSHSessionOpen(ctx, func() error {
+		var openErr error
+		session, openErr = client.NewSession()
+		return openErr
+	})
 	if err != nil {
 		return nil, err
 	}
