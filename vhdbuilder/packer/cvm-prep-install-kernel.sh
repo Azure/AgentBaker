@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-ORIGINAL_KERNEL_MARKER="${ORIGINAL_KERNEL_MARKER:-/opt/azure/cvm-bootstrap-original-kernel}"
+ORIGINAL_KERNEL_MARKER="${ORIGINAL_KERNEL_MARKER:-/opt/azure/cvm-prep-original-kernel}"
 
 waitForAptLocks() {
     while fuser /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
@@ -19,10 +19,10 @@ failIfNullbootPresent() {
     local context="$1"
     if isNullbootInstalled; then
         echo "ERROR: nullboot is installed (${context})." >&2
-        echo "       The CVM bootstrap image intentionally uses a GRUB-managed boot chain," >&2
+        echo "       The CVM prep image intentionally uses a GRUB-managed boot chain," >&2
         echo "       not nullboot's UKI/systemd-boot trust chain. Investigate why nullboot" >&2
         echo "       was pulled in (likely a kernel metapackage Depends/Recommends change)" >&2
-        echo "       before re-running the bootstrap build." >&2
+        echo "       before re-running the prep build." >&2
         exit 1
     fi
     echo "nullboot check (${context}): not installed, continuing"
@@ -51,7 +51,7 @@ buildFdeKernelPackageList() {
 
 configureGrubForNewKernel() {
     if ! command -v update-grub &>/dev/null; then
-        echo "ERROR: update-grub not found; the CVM bootstrap base image is expected to use GRUB" >&2
+        echo "ERROR: update-grub not found; the CVM prep base image is expected to use GRUB" >&2
         exit 1
     fi
 
@@ -85,7 +85,7 @@ main() {
 
     mkdir -p "$(dirname "${ORIGINAL_KERNEL_MARKER}")"
     uname -r > "${ORIGINAL_KERNEL_MARKER}"
-    echo "Recorded original (pre-bootstrap) kernel: $(cat "${ORIGINAL_KERNEL_MARKER}")"
+    echo "Recorded original kernel: $(cat "${ORIGINAL_KERNEL_MARKER}")"
 
     failIfNullbootPresent "before kernel install"
 
@@ -103,7 +103,7 @@ main() {
 
     configureGrubForNewKernel
 
-    echo "cvm-bootstrap-install-kernel.sh finished successfully; rebooting to verify azure-fde kernel boots"
+    echo "cvm-prep-install-kernel.sh finished successfully; rebooting to verify azure-fde kernel boots"
 }
 
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then

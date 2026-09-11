@@ -48,7 +48,7 @@
         "createdBy": "aks-vhd-pipeline",
         "image_sku": "{{user `img_sku`}}",
         "branch": "{{user `branch`}}",
-        "cvmBuildStage": "bootstrap"
+        "cvmBuildStage": "prep"
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
@@ -70,13 +70,13 @@
   "provisioners": [
     {
       "type": "file",
-      "source": "vhdbuilder/packer/cvm-bootstrap-install-kernel.sh",
-      "destination": "/home/packer/cvm-bootstrap-install-kernel.sh"
+      "source": "vhdbuilder/packer/cvm-prep-install-kernel.sh",
+      "destination": "/home/packer/cvm-prep-install-kernel.sh"
     },
     {
       "type": "shell",
       "inline": [
-        "sudo /bin/bash -eux /home/packer/cvm-bootstrap-install-kernel.sh"
+        "sudo /bin/bash -eux /home/packer/cvm-prep-install-kernel.sh"
       ]
     },
     {
@@ -88,13 +88,13 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/cvm-bootstrap-verify-and-cleanup.sh",
-      "destination": "/home/packer/cvm-bootstrap-verify-and-cleanup.sh"
+      "source": "vhdbuilder/packer/cvm-prep-verify-and-cleanup.sh",
+      "destination": "/home/packer/cvm-prep-verify-and-cleanup.sh"
     },
     {
       "type": "shell",
       "inline": [
-        "sudo /bin/bash -eux /home/packer/cvm-bootstrap-verify-and-cleanup.sh"
+        "sudo /bin/bash -eux /home/packer/cvm-prep-verify-and-cleanup.sh"
       ]
     },
     {

@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-ORIGINAL_KERNEL_MARKER="${ORIGINAL_KERNEL_MARKER:-/opt/azure/cvm-bootstrap-original-kernel}"
+ORIGINAL_KERNEL_MARKER="${ORIGINAL_KERNEL_MARKER:-/opt/azure/cvm-prep-original-kernel}"
 
 assertRunningAzureFdeKernel() {
     local current_kernel="$1"
@@ -123,7 +123,7 @@ main() {
     assertEfiBoot
     assertPackageStateClean
 
-    echo "cvm-bootstrap-verify-and-cleanup.sh finished successfully; image is ready to be deprovisioned and captured"
+    echo "cvm-prep-verify-and-cleanup.sh finished successfully; image is ready to be deprovisioned and captured"
 }
 
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then

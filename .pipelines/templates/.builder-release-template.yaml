@@ -117,18 +117,18 @@ steps:
       inlineScript: |
         set -euo pipefail
         make -f packer.mk run-packer
-        BOOTSTRAP_SETTINGS="vhdbuilder/packer/settings.json"
-        echo "##vso[task.setvariable variable=CVM_BOOTSTRAP_SUBSCRIPTION_ID]$(jq -r '.gallery_subscription_id' "${BOOTSTRAP_SETTINGS}")"
-        echo "##vso[task.setvariable variable=CVM_BOOTSTRAP_RESOURCE_GROUP_NAME]$(jq -r '.resource_group_name' "${BOOTSTRAP_SETTINGS}")"
-        echo "##vso[task.setvariable variable=CVM_BOOTSTRAP_SIG_GALLERY_NAME]$(jq -r '.sig_gallery_name' "${BOOTSTRAP_SETTINGS}")"
-        echo "##vso[task.setvariable variable=CVM_BOOTSTRAP_SIG_IMAGE_NAME]$(jq -r '.sig_image_name' "${BOOTSTRAP_SETTINGS}")"
-        echo "##vso[task.setvariable variable=CVM_BOOTSTRAP_SIG_IMAGE_VERSION]$(jq -r '.captured_sig_version' "${BOOTSTRAP_SETTINGS}")"
+        PREP_SETTINGS="vhdbuilder/packer/settings.json"
+        echo "##vso[task.setvariable variable=CVM_PREP_SUBSCRIPTION_ID]$(jq -r '.gallery_subscription_id' "${PREP_SETTINGS}")"
+        echo "##vso[task.setvariable variable=CVM_PREP_RESOURCE_GROUP_NAME]$(jq -r '.resource_group_name' "${PREP_SETTINGS}")"
+        echo "##vso[task.setvariable variable=CVM_PREP_SIG_GALLERY_NAME]$(jq -r '.sig_gallery_name' "${PREP_SETTINGS}")"
+        echo "##vso[task.setvariable variable=CVM_PREP_SIG_IMAGE_NAME]$(jq -r '.sig_image_name' "${PREP_SETTINGS}")"
+        echo "##vso[task.setvariable variable=CVM_PREP_SIG_IMAGE_VERSION]$(jq -r '.captured_sig_version' "${PREP_SETTINGS}")"
     condition: and(succeeded(), eq(variables['CVM_TWO_STAGE_BUILD'], 'True'), eq(variables['OS_SKU'], 'Ubuntu'), eq(variables['OS_VERSION'], '26.04'), contains(variables['FEATURE_FLAGS'], 'cvm'))
-    displayName: Build VHD - CVM Bootstrap (Stage 1)
+    displayName: Build VHD - CVM Prep (Stage 1)
     retryCountOnTaskFailure: 3
     env:
-      CVM_BUILD_STAGE: bootstrap
-      AZURE_VM_SIZE: $(CVM_BOOTSTRAP_VM_SIZE)
+      CVM_BUILD_STAGE: prep
+      AZURE_VM_SIZE: $(CVM_PREP_VM_SIZE)
       OS_TYPE: Linux
       GIT_VERSION: $(Build.SourceVersion)
       BRANCH: $(Build.SourceBranch)
@@ -158,11 +158,11 @@ steps:
       UA_TOKEN: $(ua-token)
       LOCAL_DOCA_REPO_URL: $(LOCAL_DOCA_REPO_URL)
       CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR: $(CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR)
-      CVM_BOOTSTRAP_SUBSCRIPTION_ID: $(CVM_BOOTSTRAP_SUBSCRIPTION_ID)
-      CVM_BOOTSTRAP_RESOURCE_GROUP_NAME: $(CVM_BOOTSTRAP_RESOURCE_GROUP_NAME)
-      CVM_BOOTSTRAP_SIG_GALLERY_NAME: $(CVM_BOOTSTRAP_SIG_GALLERY_NAME)
-      CVM_BOOTSTRAP_SIG_IMAGE_NAME: $(CVM_BOOTSTRAP_SIG_IMAGE_NAME)
-      CVM_BOOTSTRAP_SIG_IMAGE_VERSION: $(CVM_BOOTSTRAP_SIG_IMAGE_VERSION)
+      CVM_PREP_SUBSCRIPTION_ID: $(CVM_PREP_SUBSCRIPTION_ID)
+      CVM_PREP_RESOURCE_GROUP_NAME: $(CVM_PREP_RESOURCE_GROUP_NAME)
+      CVM_PREP_SIG_GALLERY_NAME: $(CVM_PREP_SIG_GALLERY_NAME)
+      CVM_PREP_SIG_IMAGE_NAME: $(CVM_PREP_SIG_IMAGE_NAME)
+      CVM_PREP_SIG_IMAGE_VERSION: $(CVM_PREP_SIG_IMAGE_VERSION)
 
   - task: AzureCLI@2
     inputs:

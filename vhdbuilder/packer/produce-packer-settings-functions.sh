@@ -52,8 +52,8 @@ function ensure_sig_image_name_linux() {
 			SIG_IMAGE_NAME="AzureLinuxOSGuard${SIG_IMAGE_NAME}"
 		elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
 			# shellcheck disable=SC3010
-			if [ "${CVM_BUILD_STAGE,,}" = "bootstrap" ]; then
-				SIG_IMAGE_NAME+="bootstrap"
+			if [ "${CVM_BUILD_STAGE,,}" = "prep" ]; then
+				SIG_IMAGE_NAME+="prep"
 			else
 				SIG_IMAGE_NAME+="Specialized"
 			fi
@@ -528,7 +528,7 @@ function ensure_sig_vhd_exists() {
 				fi
 			elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
 				# shellcheck disable=SC3010
-				if [ "${CVM_BUILD_STAGE,,}" = "bootstrap" ]; then
+				if [ "${CVM_BUILD_STAGE,,}" = "prep" ]; then
 					az sig image-definition create \
 						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
 						--gallery-name ${SIG_GALLERY_NAME} \

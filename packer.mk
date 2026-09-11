@@ -6,7 +6,7 @@ ifeq (${ARCHITECTURE},ARM64)
 endif
 GOHOSTARCH = $(shell go env GOHOSTARCH)
 
-ifeq (${CVM_BUILD_STAGE},bootstrap)
+ifeq (${CVM_BUILD_STAGE},prep)
 build-packer:
 else
 build-packer: setup-golang generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
@@ -44,14 +44,14 @@ endif
 ifeq (${OS_SKU},Ubuntu)
 ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
 ifeq (${OS_VERSION},26.04)
-ifeq (${CVM_BUILD_STAGE},bootstrap)
-	@echo "Using packer template file vhd-image-builder-cvm-bootstrap.json"
-	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm-bootstrap.json
+ifeq (${CVM_BUILD_STAGE},prep)
+	@echo "Using packer template file vhd-image-builder-cvm-prep.json"
+	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm-prep.json
 else ifeq (${CVM_BUILD_STAGE},final)
 	@echo "Using packer template file vhd-image-builder-cvm-2604.json"
 	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm-2604.json
 else
-	$(error CVM_BUILD_STAGE must be bootstrap or final for Ubuntu 26.04 CVM)
+	$(error CVM_BUILD_STAGE must be prep or final for Ubuntu 26.04 CVM)
 endif
 else
 	@echo "Using packer template file vhd-image-builder-cvm.json"

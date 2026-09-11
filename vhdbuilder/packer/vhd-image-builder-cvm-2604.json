@@ -27,11 +27,11 @@
     "branch": "{{env `BRANCH`}}",
     "ua_token": "{{env `UA_TOKEN`}}",
     "vhd_build_timestamp": "{{user `VHD_BUILD_TIMESTAMP`}}",
-    "cvm_bootstrap_subscription_id": "{{env `CVM_BOOTSTRAP_SUBSCRIPTION_ID`}}",
-    "cvm_bootstrap_resource_group_name": "{{env `CVM_BOOTSTRAP_RESOURCE_GROUP_NAME`}}",
-    "cvm_bootstrap_sig_gallery_name": "{{env `CVM_BOOTSTRAP_SIG_GALLERY_NAME`}}",
-    "cvm_bootstrap_sig_image_name": "{{env `CVM_BOOTSTRAP_SIG_IMAGE_NAME`}}",
-    "cvm_bootstrap_sig_image_version": "{{env `CVM_BOOTSTRAP_SIG_IMAGE_VERSION`}}"
+    "cvm_prep_subscription_id": "{{env `CVM_PREP_SUBSCRIPTION_ID`}}",
+    "cvm_prep_resource_group_name": "{{env `CVM_PREP_RESOURCE_GROUP_NAME`}}",
+    "cvm_prep_sig_gallery_name": "{{env `CVM_PREP_SIG_GALLERY_NAME`}}",
+    "cvm_prep_sig_image_name": "{{env `CVM_PREP_SIG_IMAGE_NAME`}}",
+    "cvm_prep_sig_image_version": "{{env `CVM_PREP_SIG_IMAGE_VERSION`}}"
   },
   "builders": [
     {
@@ -77,11 +77,11 @@
       },
       "user_assigned_managed_identities": "{{user `msi_resource_strings`}}",
       "shared_image_gallery": {
-        "subscription": "{{user `cvm_bootstrap_subscription_id`}}",
-        "resource_group": "{{user `cvm_bootstrap_resource_group_name`}}",
-        "gallery_name": "{{user `cvm_bootstrap_sig_gallery_name`}}",
-        "image_name": "{{user `cvm_bootstrap_sig_image_name`}}",
-        "image_version": "{{user `cvm_bootstrap_sig_image_version`}}"
+        "subscription": "{{user `cvm_prep_subscription_id`}}",
+        "resource_group": "{{user `cvm_prep_resource_group_name`}}",
+        "gallery_name": "{{user `cvm_prep_sig_gallery_name`}}",
+        "image_name": "{{user `cvm_prep_sig_image_name`}}",
+        "image_version": "{{user `cvm_prep_sig_image_version`}}"
       }
     }
   ],
