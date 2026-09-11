@@ -1194,3 +1194,71 @@ func TestDownloadRepositoryFileUsesEnvironmentProxy(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "proxied-body", string(body))
 }
+
+// extractRPM shells out to cpio, which writes whatever member type the archive declares.
+// The deb path screens the tar header before copying; the rpm path has no equivalent
+// pre-write hook, so a malformed package must be caught after extraction -- before
+// copyBinaryAlongside's os.ReadFile follows a symlink or stages an oversized blob.
+func TestExtractRPMValidatesExtractedBinary(t *testing.T) {
+	// plant simulates what cpio leaves at the ANC binary path for a given package.
+	newAppExtracting := func(t *testing.T, plant func(t *testing.T, binaryPath string)) *App {
+		t.Helper()
+		app := NewTestApp(t, TestAppConfig{}).App
+		app.cmdRun = func(cmd *exec.Cmd) error {
+			// Only cpio writes to the destination; rpm2cpio just feeds the pipe.
+			if filepath.Base(cmd.Path) != "cpio" {
+				return nil
+			}
+			binaryPath := filepath.Join(cmd.Dir, filepath.FromSlash(ancPackageBinaryRelativePath))
+			require.NoError(t, os.MkdirAll(filepath.Dir(binaryPath), 0o755))
+			plant(t, binaryPath)
+			return nil
+		}
+		return app
+	}
+
+	t.Run("rejects a symlink", func(t *testing.T) {
+		outside := filepath.Join(t.TempDir(), "outside-the-package")
+		require.NoError(t, os.WriteFile(outside, []byte("bytes from elsewhere"), 0o755))
+
+		app := newAppExtracting(t, func(t *testing.T, binaryPath string) {
+			require.NoError(t, os.Symlink(outside, binaryPath))
+		})
+
+		err := app.extractRPM(context.Background(), "package.rpm", t.TempDir())
+		require.Error(t, err)
+		assert.True(t, isIntegrityError(err), "a non-regular member is an integrity failure")
+		assert.Contains(t, err.Error(), "is not a regular file")
+	})
+
+	t.Run("rejects an oversized binary", func(t *testing.T) {
+		app := newAppExtracting(t, func(t *testing.T, binaryPath string) {
+			f, err := os.Create(binaryPath)
+			require.NoError(t, err)
+			defer f.Close()
+			// Sparse: sets the size without writing repositoryBinaryMaxBytes of data.
+			require.NoError(t, f.Truncate(repositoryBinaryMaxBytes+1))
+		})
+
+		err := app.extractRPM(context.Background(), "package.rpm", t.TempDir())
+		require.Error(t, err)
+		assert.True(t, isIntegrityError(err), "an oversized member is an integrity failure")
+		assert.Contains(t, err.Error(), "exceeds")
+	})
+
+	t.Run("reports a package missing the binary", func(t *testing.T) {
+		app := newAppExtracting(t, func(_ *testing.T, _ string) {})
+
+		err := app.extractRPM(context.Background(), "package.rpm", t.TempDir())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "does not contain")
+	})
+
+	t.Run("accepts a regular binary", func(t *testing.T) {
+		app := newAppExtracting(t, func(t *testing.T, binaryPath string) {
+			require.NoError(t, os.WriteFile(binaryPath, []byte("ELF-ish"), 0o755))
+		})
+
+		require.NoError(t, app.extractRPM(context.Background(), "package.rpm", t.TempDir()))
+	})
+}

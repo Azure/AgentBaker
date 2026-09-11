@@ -651,6 +651,22 @@ func (a *App) extractRPM(ctx context.Context, packagePath, destination string) e
 	if err := preferredRPMExtractionError(commandCtx.Err(), rpmErr, cpioErr); err != nil {
 		return err
 	}
+	// cpio writes whatever member type the archive declares, so unlike the deb path -- which
+	// inspects the tar header before copying -- these checks have to come after extraction.
+	// Lstat rather than Stat: a symlink here would otherwise be followed by the os.ReadFile
+	// in copyBinaryAlongside and stage bytes from outside the package.
+	extracted := filepath.Join(destination, filepath.FromSlash(ancPackageBinaryRelativePath))
+	info, statErr := os.Lstat(extracted)
+	if statErr != nil {
+		return fmt.Errorf("rpm package does not contain %s: %w", ancPackageBinaryRelativePath, statErr)
+	}
+	if !info.Mode().IsRegular() {
+		return newIntegrityError("rpm package member %s is not a regular file", ancPackageBinaryRelativePath)
+	}
+	if info.Size() > repositoryBinaryMaxBytes {
+		return newIntegrityError(
+			"rpm package member %s exceeds %d bytes", ancPackageBinaryRelativePath, repositoryBinaryMaxBytes)
+	}
 	return nil
 }
 
