@@ -280,7 +280,7 @@ func DialSSHOverBastion(
 	bastion *Bastion,
 	vmPrivateIP string,
 	sshPrivateKey []byte,
-) (*ssh.Client, error) {
+) (*SSHClient, error) {
 	sshConfig, err := sshClientConfig("azureuser", sshPrivateKey)
 	if err != nil {
 		return nil, err
@@ -325,7 +325,7 @@ func DialSSHOverBastion(
 			continue
 		}
 		_ = tunnel.SetDeadline(time.Time{})
-		return ssh.NewClient(sshConn, chans, reqs), nil
+		return newSSHClient(ssh.NewClient(sshConn, chans, reqs)), nil
 	}
 
 	if lastErr == nil {
