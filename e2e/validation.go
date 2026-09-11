@@ -46,6 +46,8 @@ func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) error
 }
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) error {
+	defer toolkit.LogStep(s.Logger, "running common Linux validation")()
+
 	parallelErr := runValidators(ctx, s,
 		ValidateTLSBootstrapping,
 		ValidateKubeletServingCertificateRotation,
@@ -83,6 +85,8 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) error {
 }
 
 func ValidateCommonWindows(ctx context.Context, s *Scenario) error {
+	defer toolkit.LogStep(s.Logger, "running common Windows validation")()
+
 	return runValidators(ctx, s,
 		ValidateTLSBootstrapping,
 		ValidateKubeletServingCertificateRotation,
