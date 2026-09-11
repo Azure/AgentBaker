@@ -1,12 +1,60 @@
 package config
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v3"
 )
+
+func TestFlagsConfigureSpecializedVMSKUs(t *testing.T) {
+	for _, setting := range []struct {
+		name, flag, env, defaultSKU, envSKU, argSKU string
+		value                                       func(*Configuration) string
+	}{
+		{
+			name: "MANA", flag: "--mana-vm-sku", env: "MANA_VM_SKU",
+			defaultSKU: "Standard_D2ds_v6", envSKU: "Standard_D4ds_v6", argSKU: "Standard_D8ds_v6",
+			value: func(c *Configuration) string { return c.MANAVMSKU },
+		},
+		{
+			name: "Gen1 SCSI fallback", flag: "--gen1-scsi-vm-sku", env: "GEN1_SCSI_VM_SKU",
+			defaultSKU: "Standard_D2ds_v5", envSKU: "Standard_D4ds_v5", argSKU: "Standard_D8ds_v5",
+			value: func(c *Configuration) string { return c.Gen1SCSIVMSKU },
+		},
+	} {
+		t.Run(setting.name, func(t *testing.T) {
+			for _, tc := range []struct {
+				name string
+				env  string
+				args []string
+				want string
+			}{
+				{name: "default", want: setting.defaultSKU},
+				{name: "environment", env: setting.envSKU, want: setting.envSKU},
+				{name: "argument", args: []string{setting.flag, setting.argSKU}, want: setting.argSKU},
+				{name: "argument overrides environment", env: setting.envSKU, args: []string{setting.flag, setting.argSKU}, want: setting.argSKU},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					original := *Config
+					t.Cleanup(func() { *Config = original })
+					t.Setenv(setting.env, tc.env)
+					if tc.env == "" {
+						require.NoError(t, os.Unsetenv(setting.env))
+					}
+					t.Setenv("DEFAULT_VM_SKU", "Standard_E4s_v7")
+					*Config = *DefaultConfiguration()
+					cmd := &cli.Command{Name: "e2e-test-config", Flags: Flags()}
+					require.NoError(t, cmd.Run(t.Context(), append([]string{"e2e-test-config"}, tc.args...)))
+					assert.Equal(t, tc.want, setting.value(Config))
+					assert.Equal(t, "Standard_E4s_v7", Config.DefaultVMSKU)
+				})
+			}
+		})
+	}
+}
 
 func TestFlagsRepeatedParseDoesNotInheritPreviousRun(t *testing.T) {
 	original := *Config

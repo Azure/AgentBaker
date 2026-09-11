@@ -47,6 +47,20 @@ source "${CSE_INSTALL_FILEPATH}"
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 source "${CSE_CONFIG_FILEPATH}"
 
+# configureEtcEnvironment persists these values, but the current CSE process needs them immediately.
+if [ -n "${HTTP_PROXY_URLS}" ]; then
+    export HTTP_PROXY="${HTTP_PROXY_URLS}"
+    export http_proxy="${HTTP_PROXY_URLS}"
+fi
+if [ -n "${HTTPS_PROXY_URLS}" ]; then
+    export HTTPS_PROXY="${HTTPS_PROXY_URLS}"
+    export https_proxy="${HTTPS_PROXY_URLS}"
+fi
+if [ -n "${NO_PROXY_URLS}" ]; then
+    export NO_PROXY="${NO_PROXY_URLS}"
+    export no_proxy="${NO_PROXY_URLS}"
+fi
+
 # Disable a single kernel module with a known LPE vulnerability.
 # Writes a modprobe blacklist rule and unloads the module if loaded.
 # Safe to run repeatedly during VHD build or provisioning; idempotent (overwrites with same content if already present).
@@ -109,7 +123,10 @@ reconcileVulnerableKernelModuleMitigation() {
     # basePrep or carry stale modprobe files.
     # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
     #
-    # Ubuntu 20.04 remains in scope. Future Ubuntu releases are intentionally skipped
+    # Ubuntu 20.04 remains in scope except 5.4.0-1164-azure-fips and newer ABIs in the
+    # 5.4 Azure FIPS stream: linux-azure-fips 5.4.0-1164.170+fips1 fixes Copy Fail and
+    # DirtyFrag; Focal 5.4 is not affected by Fragnesia. Other 20.04 streams stay blocked.
+    # Future Ubuntu releases are intentionally skipped
     # unless explicitly added here so they do not inherit this deny mitigation by default.
     # Ubuntu 22.04 picked up the fixes in linux-azure 5.15.0-1116-azure (generic
     # fallback 5.15.0-181-generic); Ubuntu 24.04 picked up the fixes in linux-azure
@@ -179,13 +196,6 @@ function basePrep {
         apt-get -y autoremove chrony
         echo $?
         systemctl restart systemd-timesyncd
-    fi
-
-    # Eval proxy vars to ensure curl commands use proxy if configured.
-    # e.g. PROXY_VARS=`export HTTPS_PROXY="https://proxy.example.com:8080"; export http_proxy="http://proxy.example.com:8080"; export NO_PROXY="127.0.0.1,localhost";`
-    # Setting vars in etc environment (configureEtcEnvironment) won't take effect in current shell session.
-    if [ -n "${PROXY_VARS}" ]; then
-        eval $PROXY_VARS
     fi
 
     resolve_packages_source_url
@@ -447,9 +457,6 @@ function nodePrep {
     fi
 
     if [ -n "${OUTBOUND_COMMAND}" ]; then
-        if [ -n "${PROXY_VARS}" ]; then
-            eval $PROXY_VARS
-        fi
         retrycmd_if_failure 20 1 15 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
     fi
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
