@@ -94,8 +94,17 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
+        set -euo pipefail
         make -f packer.mk run-packer
-    condition: and(ne(variables['BUILDER'], 'imagecustomizer'), ne(variables['CVM_TWO_STAGE_BUILD'], 'True'))
+        if [[ "${CVM_TWO_STAGE_BUILD:-}" == "True" ]]; then
+          PREP_SETTINGS="vhdbuilder/packer/settings.json"
+          echo "##vso[task.setvariable variable=CVM_PREP_SUBSCRIPTION_ID]$(jq -r '.gallery_subscription_id' "${PREP_SETTINGS}")"
+          echo "##vso[task.setvariable variable=CVM_PREP_RESOURCE_GROUP_NAME]$(jq -r '.resource_group_name' "${PREP_SETTINGS}")"
+          echo "##vso[task.setvariable variable=CVM_PREP_SIG_GALLERY_NAME]$(jq -r '.sig_gallery_name' "${PREP_SETTINGS}")"
+          echo "##vso[task.setvariable variable=CVM_PREP_SIG_IMAGE_NAME]$(jq -r '.sig_image_name' "${PREP_SETTINGS}")"
+          echo "##vso[task.setvariable variable=CVM_PREP_SIG_IMAGE_VERSION]$(jq -r '.captured_sig_version' "${PREP_SETTINGS}")"
+        fi
+    condition: ne(variables['BUILDER'], 'imagecustomizer')
     displayName: Build VHD
     retryCountOnTaskFailure: 3
     env:
@@ -115,35 +124,8 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
-        set -euo pipefail
         make -f packer.mk run-packer
-        PREP_SETTINGS="vhdbuilder/packer/settings.json"
-        echo "##vso[task.setvariable variable=CVM_PREP_SUBSCRIPTION_ID]$(jq -r '.gallery_subscription_id' "${PREP_SETTINGS}")"
-        echo "##vso[task.setvariable variable=CVM_PREP_RESOURCE_GROUP_NAME]$(jq -r '.resource_group_name' "${PREP_SETTINGS}")"
-        echo "##vso[task.setvariable variable=CVM_PREP_SIG_GALLERY_NAME]$(jq -r '.sig_gallery_name' "${PREP_SETTINGS}")"
-        echo "##vso[task.setvariable variable=CVM_PREP_SIG_IMAGE_NAME]$(jq -r '.sig_image_name' "${PREP_SETTINGS}")"
-        echo "##vso[task.setvariable variable=CVM_PREP_SIG_IMAGE_VERSION]$(jq -r '.captured_sig_version' "${PREP_SETTINGS}")"
-    condition: and(succeeded(), eq(variables['CVM_TWO_STAGE_BUILD'], 'True'), eq(variables['OS_SKU'], 'Ubuntu'), eq(variables['OS_VERSION'], '26.04'), contains(variables['FEATURE_FLAGS'], 'cvm'))
-    displayName: Build VHD - CVM Prep (Stage 1)
-    retryCountOnTaskFailure: 3
-    env:
-      CVM_BUILD_STAGE: prep
-      AZURE_VM_SIZE: $(CVM_PREP_VM_SIZE)
-      OS_TYPE: Linux
-      GIT_VERSION: $(Build.SourceVersion)
-      BRANCH: $(Build.SourceBranch)
-      BUILD_NUMBER: $(Build.BuildNumber)
-      BUILD_ID: $(Build.BuildId)
-      BUILD_DEFINITION_NAME: $(Build.DefinitionName)
-
-  - task: AzureCLI@2
-    inputs:
-      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
-      scriptType: bash
-      scriptLocation: inlineScript
-      inlineScript: |
-        make -f packer.mk run-packer
-    condition: and(succeeded(), eq(variables['CVM_TWO_STAGE_BUILD'], 'True'), eq(variables['OS_SKU'], 'Ubuntu'), eq(variables['OS_VERSION'], '26.04'), contains(variables['FEATURE_FLAGS'], 'cvm'))
+    condition: and(succeeded(), eq(variables['CVM_TWO_STAGE_BUILD'], 'True'))
     displayName: Build VHD - CVM Final (Stage 2)
     retryCountOnTaskFailure: 3
     env:
