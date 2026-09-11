@@ -198,11 +198,11 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 		if vm != nil {
 			defer cleanupBastionTunnel(vm.SSHClient)
 		}
-		return deleteVMSS(ctx, s)
-	})
-	s.Cleanup(func(ctx context.Context) error {
-		extractLogsFromVM(ctx, s, vm)
-		return nil
+		logErr := runCleanup(ctx, func(ctx context.Context) error {
+			extractLogsFromVM(ctx, s, vm)
+			return nil
+		})
+		return errors.Join(logErr, deleteVMSS(ctx, s))
 	})
 
 	if skipErr := skipIfSKUNotAvailableErr(err); skipErr != nil {
@@ -946,20 +946,9 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		commandList["azure-vnet-ipam.log"] = "sudo cat /var/log/azure-vnet-ipam.log"
 	}
 
-	var logFiles = map[string]string{}
-	for file, sourceCmd := range commandList {
-		execResult, err := execScriptOnVm(ctx, s, vm, sourceCmd)
-		if err != nil {
-			s.Logger.Logf("error executing %s: %s", sourceCmd, err)
-			continue
-		}
-		logFiles[file] = execResult.String()
-	}
-	err = dumpFileMapToDir(s.artifactName, logFiles)
-	if err != nil {
-		return fmt.Errorf("failed to dump log files: %w", err)
-	}
-	return nil
+	return collectCommandLogs(ctx, s.artifactName, commandList, func(ctx context.Context, command string) (*podExecResult, error) {
+		return execScriptOnVm(ctx, s, vm, command)
+	})
 }
 
 const uploadLogsPowershellScript = `
@@ -1162,7 +1151,6 @@ func deleteVMSS(ctx context.Context, s *Scenario) error {
 		}
 		return fmt.Errorf("begin deleting vmss %q: %w", s.Runtime.VMSSName, err)
 	}
-	s.Logger.Logf("vmss %q deletion started", s.Runtime.VMSSName)
 	return nil
 }
 

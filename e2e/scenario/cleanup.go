@@ -19,7 +19,7 @@ type scenarioCleanup struct {
 	closed   bool
 }
 
-// Cleanup registers fn to run after the scenario attempt finishes.
+// Cleanup registers an independent callback. Keep dependent operations in one callback.
 func (s *Scenario) Cleanup(fn func(context.Context) error) {
 	if s.cleanup == nil {
 		panic("Scenario.Cleanup called outside of a scenario run")
@@ -43,29 +43,33 @@ func (c *scenarioCleanup) add(fn func(context.Context) error) {
 func (c *scenarioCleanup) runCleanups(ctx context.Context) error {
 	var errs []error
 	for {
-		fn, ok := c.popCleanup()
-		if !ok {
+		cleanups := c.takeCleanups()
+		if len(cleanups) == 0 {
 			return errors.Join(errs...)
 		}
-		if err := runCleanup(ctx, fn); err != nil {
-			errs = append(errs, err)
+		batchErrs := make([]error, len(cleanups))
+		var wg sync.WaitGroup
+		for i, fn := range cleanups {
+			wg.Go(func() {
+				batchErrs[i] = runCleanup(ctx, fn)
+			})
 		}
+		wg.Wait()
+		errs = append(errs, batchErrs...)
 	}
 }
 
-func (c *scenarioCleanup) popCleanup() (func(context.Context) error, bool) {
+func (c *scenarioCleanup) takeCleanups() []func(context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(c.cleanups) == 0 {
 		c.closed = true
-		return nil, false
+		return nil
 	}
 
-	last := len(c.cleanups) - 1
-	fn := c.cleanups[last]
-	c.cleanups[last] = nil
-	c.cleanups = c.cleanups[:last]
-	return fn, true
+	cleanups := c.cleanups
+	c.cleanups = nil
+	return cleanups
 }
 
 func runCleanup(ctx context.Context, fn func(context.Context) error) (err error) {

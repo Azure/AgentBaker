@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -88,12 +89,15 @@ func TestExecutionCleanupFailureOverridesOutcome(t *testing.T) {
 
 func TestExecutionSharesCleanupAcrossVHDStages(t *testing.T) {
 	var cleaned []string
+	var mu sync.Mutex
 	outcome := runExecution(context.Background(), "VHD", "VHD/attempt-2", discardLogger{}, &Scenario{},
 		func(_ context.Context, _ string, _ toolkit.Logger, original *Scenario) error {
 			for _, name := range []string{"vhd-bake", "vhd-provision"} {
 				stage := freshScenario(original)
 				assert.Same(t, original.cleanup, stage.cleanup)
 				stage.Cleanup(func(context.Context) error {
+					mu.Lock()
+					defer mu.Unlock()
 					cleaned = append(cleaned, name)
 					return nil
 				})
@@ -102,7 +106,7 @@ func TestExecutionSharesCleanupAcrossVHDStages(t *testing.T) {
 			return nil
 		})
 	require.NoError(t, outcome.Error)
-	assert.Equal(t, []string{"vhd-provision", "vhd-bake"}, cleaned)
+	assert.ElementsMatch(t, []string{"vhd-provision", "vhd-bake"}, cleaned)
 }
 
 func TestExecutionPanicMarksFailureAndRunsCleanup(t *testing.T) {
