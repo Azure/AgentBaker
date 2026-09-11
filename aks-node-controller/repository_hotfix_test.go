@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -127,9 +128,11 @@ func TestUbuntuRepositoryFastPathParallelSuccessExtractsBinary(t *testing.T) {
 	})
 	vhdPath := filepath.Join(dir, "aks-node-controller")
 	hotfixPath := filepath.Join(dir, "aks-node-controller-hotfix")
+	timingPath := filepath.Join(dir, "aks-node-controller-hotfix-timing.json")
 	require.NoError(t, os.WriteFile(vhdPath, []byte("vhd-binary"), 0o755))
 	app.vhdBinaryPath = vhdPath
 	app.hotfixBinaryPath = hotfixPath
+	app.hotfixTimingPath = timingPath
 	app.verifyRepositorySignature = func(
 		_ context.Context, signedPath, signaturePath string, keyrings []string,
 	) error {
@@ -164,6 +167,23 @@ func TestUbuntuRepositoryFastPathParallelSuccessExtractsBinary(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []byte("extracted-anc-binary"), staged)
 	assert.NotEqual(t, packageBytes, staged, "the .deb bytes must never be staged as the executable")
+
+	var timing hotfixTiming
+	timingBytes, err := os.ReadFile(timingPath)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(timingBytes, &timing))
+	assert.Equal(t, hotfixTiming{
+		Current: "202608.21.0",
+		Target:  hotfixVersion,
+		Route:   "repository",
+		Outcome: "succeeded",
+	}, hotfixTiming{
+		Current: timing.Current,
+		Target:  timing.Target,
+		Route:   timing.Route,
+		Outcome: timing.Outcome,
+	})
+	assert.GreaterOrEqual(t, timing.DurationMs, int64(0))
 }
 
 func TestUbuntuRepositoryPackageChecksumMismatchIsHardFailure(t *testing.T) {
@@ -271,6 +291,7 @@ func TestUbuntuRepositoryFallbackDurationIncludesRepositoryAttempt(t *testing.T)
 	app.vhdBinaryPath = filepath.Join(dir, "aks-node-controller")
 	app.pkgBinaryPath = filepath.Join(dir, "usr-bin-aks-node-controller")
 	app.hotfixBinaryPath = filepath.Join(dir, "aks-node-controller-hotfix")
+	app.hotfixTimingPath = filepath.Join(dir, "aks-node-controller-hotfix-timing.json")
 	require.NoError(t, os.WriteFile(app.vhdBinaryPath, []byte("vhd-binary"), 0o755))
 	require.NoError(t, os.WriteFile(app.pkgBinaryPath, []byte("package-manager-binary"), 0o755))
 
@@ -295,6 +316,16 @@ func TestUbuntuRepositoryFallbackDurationIncludesRepositoryAttempt(t *testing.T)
 	staged, err := os.ReadFile(app.hotfixBinaryPath)
 	require.NoError(t, err)
 	assert.Equal(t, []byte("package-manager-binary"), staged)
+
+	var timing hotfixTiming
+	timingBytes, err := os.ReadFile(app.hotfixTimingPath)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(timingBytes, &timing))
+	assert.Equal(t, "202608.21.0", timing.Current)
+	assert.Equal(t, "202608.21.1", timing.Target)
+	assert.Equal(t, "package-manager", timing.Route)
+	assert.Equal(t, "succeeded", timing.Outcome)
+	assert.GreaterOrEqual(t, timing.DurationMs, repositoryDelay.Milliseconds())
 }
 
 func TestParseAptRepositoryFormats(t *testing.T) {

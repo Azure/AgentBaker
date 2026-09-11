@@ -229,11 +229,20 @@ func (a *App) tryRepositoryDownload(ctx context.Context, hotfixVersion string) e
 		return fmt.Errorf("stage extracted ANC binary: %w", err)
 	}
 
+	duration := time.Since(start)
+	a.writeHotfixTiming(hotfixTiming{
+		Current:    Version,
+		Target:     hotfixVersion,
+		Route:      "repository",
+		Outcome:    "succeeded",
+		DurationMs: duration.Milliseconds(),
+	})
+
 	// durationMs makes the fast path measurable in the field against the package-manager
 	// path, which is the whole reason this code exists.
 	slog.Info("downloaded ANC hotfix through authenticated repository fast path",
 		"target", hotfixVersion, "format", plan.format, "path", a.hotfixPath(),
-		"durationMs", time.Since(start).Milliseconds())
+		"durationMs", duration.Milliseconds())
 	return nil
 }
 
