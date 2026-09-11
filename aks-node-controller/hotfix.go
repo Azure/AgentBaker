@@ -98,11 +98,12 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 
 func (a *App) runBinaryHotfix(ctx context.Context, cfg *hotfixConfig, hotfixVersion string, progress *hotfixProgress) error {
 	if hotfixVersion == "" {
-		if len(cfg.Hotfixes) > 0 {
-			if _, baseErr := hotfixBaseFromVersion(Version); baseErr != nil {
-				progress.outcome = hotfixOutcomeSkippedVersionCompareError
-				return nil
-			}
+		// A map-based config that does not resolve for this base means the running
+		// version could not be parsed. Both cases are fail-open skips: never block
+		// provisioning on a version we cannot interpret.
+		if len(cfg.Hotfixes) > 0 && !isParsableHotfixBase(Version) {
+			progress.outcome = hotfixOutcomeSkippedVersionCompareError
+			return nil
 		}
 		progress.outcome = hotfixOutcomeSkippedNoVersion
 		slog.Info("hotfix config does not request a version for this base, skipping download", "current", Version)
@@ -236,6 +237,14 @@ func hotfixBaseFromVersion(version string) (string, error) {
 		return "", fmt.Errorf("version %q is not in YYYYMM.DD.PATCH form", version)
 	}
 	return parts[0] + "." + parts[1], nil
+}
+
+// isParsableHotfixBase reports whether version is in the YYYYMM.DD.PATCH form that
+// hotfixBaseFromVersion accepts. Callers that only need the yes/no answer use this so a
+// fail-open skip does not read as swallowed error handling.
+func isParsableHotfixBase(version string) bool {
+	_, err := hotfixBaseFromVersion(version)
+	return err == nil
 }
 
 // resolveVersion picks the hotfix ANC version that applies to the given current ANC version.
