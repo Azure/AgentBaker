@@ -751,6 +751,31 @@ cachePackageAndBinaryComponents() {
   done <<< "$packages"
 }
 
+# Temporary diagnostic: the 'wait -n' calls below reap ANY background job of this shell, not
+# only container-image pulls. The eBPF/BCC install started by startEBPFToolsInstallation runs
+# in the background and writes to /var/log/bcc_installation.log, which is otherwise only
+# surfaced by finishEBPFToolsInstallation. If BCC exits non-zero it gets reaped here and
+# misreported as a pull failure, so dump its log and report BCC_PID liveness to identify the
+# real culprit.
+diagnoseBackgroundJobFailure() {
+  local ret=$1
+  local bcc_log="/var/log/bcc_installation.log"
+  echo "diagnoseBackgroundJobFailure: a background job exited with code ${ret}" >&2
+  echo "diagnoseBackgroundJobFailure: BCC_PID=${BCC_PID:-<unset>}" >&2
+  if [ -n "${BCC_PID:-}" ] && ! kill -0 "${BCC_PID}" 2>/dev/null; then
+    echo "diagnoseBackgroundJobFailure: eBPF/BCC background install (PID ${BCC_PID}) has exited and is the likely source of exit ${ret} (ERR_BCC_INSTALL_TIMEOUT=170)" >&2
+  else
+    echo "diagnoseBackgroundJobFailure: eBPF/BCC background install still running or not started; failure may be an actual container image pull" >&2
+  fi
+  if [ -f "${bcc_log}" ]; then
+    echo "===== BEGIN ${bcc_log} =====" >&2
+    cat "${bcc_log}" >&2 || true
+    echo "===== END ${bcc_log} =====" >&2
+  else
+    echo "diagnoseBackgroundJobFailure: ${bcc_log} not found" >&2
+  fi
+}
+
 cacheContainerImageComponents() {
   # Download/cache all declared container images within components.json that apply to the respective OS SKU
 
@@ -791,6 +816,7 @@ cacheContainerImageComponents() {
         wait -n || {
           ret=$?
           echo "A background job pullContainerImage failed: ${ret}, ${CONTAINER_IMAGE}. Exiting..." >&2
+          diagnoseBackgroundJobFailure "${ret}"
           for pid in "${image_pids[@]}"; do
             kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
           done
@@ -804,6 +830,7 @@ cacheContainerImageComponents() {
     wait -n || {
       ret=$?
       echo "A background job pullContainerImage failed: ${ret}. Exiting..." >&2
+      diagnoseBackgroundJobFailure "${ret}"
       for pid in "${image_pids[@]}"; do
         kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
       done
