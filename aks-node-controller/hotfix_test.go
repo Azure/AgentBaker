@@ -392,6 +392,18 @@ func TestDownloadHotfix_UnreadableFileFailsOpen(t *testing.T) {
 	// so download-hotfix never blocks provisioning.
 	require.NoError(t, tt.App.downloadHotfix(context.Background()))
 	assert.False(t, installCalled, "should skip install when the config cannot be read")
+
+	events := tt.eventLogger.Events()
+	require.Len(t, events, 1)
+	assert.Equal(t, "AKS.AKSNodeController.Hotfix.BinaryOperation", events[0].TaskName)
+	assert.Equal(t, "Error", events[0].EventLevel)
+	assert.Contains(t, events[0].Message, "current=202604.01.0")
+	assert.Contains(t, events[0].Message, "target=")
+	assert.Contains(t, events[0].Message, "route=none")
+	assert.Contains(t, events[0].Message, "outcome=skipped-config-error")
+	assert.Contains(t, events[0].Message, "configPath="+path)
+	assert.Contains(t, events[0].Message, "error=")
+	assert.Contains(t, events[0].Message, "durationMs=")
 }
 
 func TestDownloadHotfix_InvalidJSONFailsOpen(t *testing.T) {
@@ -419,6 +431,18 @@ func TestDownloadHotfix_InvalidJSONFailsOpen(t *testing.T) {
 	// Fail-open: malformed JSON must skip the hotfix without erroring.
 	require.NoError(t, tt.App.downloadHotfix(context.Background()))
 	assert.False(t, installCalled, "should skip install when the config is invalid JSON")
+
+	events := tt.eventLogger.Events()
+	require.Len(t, events, 1)
+	assert.Equal(t, "AKS.AKSNodeController.Hotfix.BinaryOperation", events[0].TaskName)
+	assert.Equal(t, "Error", events[0].EventLevel)
+	assert.Contains(t, events[0].Message, "current=202604.01.0")
+	assert.Contains(t, events[0].Message, "target=")
+	assert.Contains(t, events[0].Message, "route=none")
+	assert.Contains(t, events[0].Message, "outcome=skipped-config-error")
+	assert.Contains(t, events[0].Message, "configPath="+path)
+	assert.Contains(t, events[0].Message, "error=")
+	assert.Contains(t, events[0].Message, "durationMs=")
 }
 
 func TestDownloadHotfix_MapBaseNotPresentSkips(t *testing.T) {

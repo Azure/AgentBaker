@@ -37,22 +37,31 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 	if hotfixPath == "" {
 		hotfixPath = defaultHotfixVersionPath
 	}
-	cfg, err := readHotfixConfig(hotfixPath)
-	if err != nil {
-		// Fail-open: an unreadable or malformed hotfix config must never block
-		// provisioning. Log and skip so the node boots on its VHD-baked binary.
-		slog.Warn("failed to read hotfix config, skipping hotfix download",
-			"path", hotfixPath, "error", err)
-		return nil
-	}
-	// Applying node custom data is best-effort/fail-open: it must never block the
-	// binary hotfix download below, or provisioning as a whole.
-	if err := a.applyNodeCustomDataIfNeeded(cfg); err != nil {
-		slog.Warn("failed to apply node custom data", "path", hotfixPath, "error", err)
-	}
-	return a.eventLogger.RunTimedOperation("Hotfix.BinaryOperation", func() (string, error) {
+	configReadFailed := false
+	err := a.eventLogger.RunTimedOperation("Hotfix.BinaryOperation", func() (string, error) {
+		cfg, err := readHotfixConfig(hotfixPath)
+		if err != nil {
+			configReadFailed = true
+			slog.Warn("failed to read hotfix config, skipping hotfix download",
+				"path", hotfixPath, "error", err)
+			return fmt.Sprintf("%s configPath=%s",
+				hotfixOperationMessage(Version, "", hotfixRouteNone, hotfixOutcomeSkippedConfigError),
+				hotfixPath,
+			), err
+		}
+
+		// Applying node custom data is best-effort/fail-open: it must never block the
+		// binary hotfix download below, or provisioning as a whole.
+		if err := a.applyNodeCustomDataIfNeeded(cfg); err != nil {
+			slog.Warn("failed to apply node custom data", "path", hotfixPath, "error", err)
+		}
 		return a.downloadBinaryHotfixIfNeeded(ctx, cfg)
 	})
+	if configReadFailed {
+		// An unreadable or malformed hotfix config must never block provisioning.
+		return nil
+	}
+	return err
 }
 
 func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
@@ -332,6 +341,7 @@ const (
 
 	hotfixOutcomeSuccess                    = "success"
 	hotfixOutcomeStarted                    = "started"
+	hotfixOutcomeSkippedConfigError         = "skipped-config-error"
 	hotfixOutcomeSkippedNoVersion           = "skipped-no-version"
 	hotfixOutcomeSkippedVersionCompareError = "skipped-version-compare-error"
 	hotfixOutcomeSkippedNotTargeted         = "skipped-not-targeted"
