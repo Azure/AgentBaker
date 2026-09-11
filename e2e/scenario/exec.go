@@ -40,15 +40,6 @@ func cleanupBastionTunnel(sshClient *SSHClient) {
 	}
 }
 
-func runSSHCommand(
-	ctx context.Context,
-	client *SSHClient,
-	command string,
-	isWindows bool,
-) (*podExecResult, error) {
-	return runSSHCommandWithPrivateKeyFile(ctx, client, command, isWindows)
-}
-
 func copyScriptToRemoteIfRequired(ctx context.Context, client *ssh.Client, command string, isWindows bool) (string, error) {
 	if !strings.Contains(command, "\n") && !isWindows {
 		return command, nil
@@ -82,7 +73,7 @@ func copyScriptToRemoteIfRequired(ctx context.Context, client *ssh.Client, comma
 	return remoteCommand, err
 }
 
-func runSSHCommandWithPrivateKeyFile(
+func runSSHCommand(
 	ctx context.Context,
 	client *SSHClient,
 	command string,
