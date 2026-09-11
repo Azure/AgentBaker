@@ -113,7 +113,7 @@ var AvailableUbuntu2404Distros = []Distro{
 var AvailableUbuntu2604Distros = []Distro{
 	AKSUbuntuMinimalContainerd2604Gen2,
 	AKSUbuntuMinimalArm64Containerd2604Gen2,
-	AKSUbuntuContainerd2604CVMGen2,
+	AKSUbuntuMinimalContainerd2604CVMGen2,
 }
 
 //nolint:gochecknoglobals
@@ -174,7 +174,7 @@ var AvailableContainerdDistros = []Distro{
 	AKSAzureLinuxV3OSGuardGen2FIPSTL,
 	AKSUbuntuMinimalContainerd2604Gen2,
 	AKSUbuntuMinimalArm64Containerd2604Gen2,
-	AKSUbuntuContainerd2604CVMGen2,
+	AKSUbuntuMinimalContainerd2604CVMGen2,
 }
 
 //nolint:gochecknoglobals
@@ -196,7 +196,7 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuContainerd2404TLGen2,
 	AKSUbuntuMinimalContainerd2604Gen2,
 	AKSUbuntuMinimalArm64Containerd2604Gen2,
-	AKSUbuntuContainerd2604CVMGen2,
+	AKSUbuntuMinimalContainerd2604CVMGen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
@@ -613,10 +613,10 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	SIGUbuntuContainerd2604CVMGen2ImageConfigTemplate = SigImageConfigTemplate{
+	SIGUbuntuMinimalContainerd2604CVMGen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "2604gen2CVMcontainerd",
+		Definition:    "2604minimalgen2CVMcontainerd",
 		Version:       LinuxSIGImageVersion,
 	}
 
@@ -960,7 +960,7 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuContainerd2404TLGen2:           SIGUbuntuContainerd2404TLGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuMinimalContainerd2604Gen2:      SIGUbuntuMinimalContainerd2604Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuMinimalArm64Containerd2604Gen2: SIGUbuntuMinimalArm64Containerd2604Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd2604CVMGen2:          SIGUbuntuContainerd2604CVMGen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuMinimalContainerd2604CVMGen2:   SIGUbuntuMinimalContainerd2604CVMGen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
