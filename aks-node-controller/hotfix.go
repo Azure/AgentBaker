@@ -38,18 +38,8 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 	if hotfixPath == "" {
 		hotfixPath = defaultHotfixVersionPath
 	}
-	cfg, err := readHotfixConfig(hotfixPath)
-	if err != nil {
-		slog.Warn("failed to read hotfix config, skipping hotfix download",
-			"path", hotfixPath, "error", err)
-		// Still reported as a BinaryOperation so every download-hotfix run emits exactly one
-		// such event; the config read is what gates the binary route.
-		_ = a.eventLogger.RunTimedOperation("Hotfix.BinaryOperation", func() (string, error) {
-			return fmt.Sprintf("%s configPath=%s",
-				hotfixOperationMessage(Version, "", hotfixRouteNone, hotfixOutcomeSkippedConfigError),
-				hotfixPath,
-			), err
-		})
+	cfg, ok := a.readHotfixConfigOrSkip(hotfixPath)
+	if !ok {
 		// An unreadable or malformed hotfix config must never block provisioning.
 		return nil
 	}
@@ -67,6 +57,26 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 	return a.eventLogger.RunTimedOperation("Hotfix.BinaryOperation", func() (string, error) {
 		return a.downloadBinaryHotfixIfNeeded(ctx, cfg)
 	})
+}
+
+// readHotfixConfigOrSkip reads the hotfix config, reporting ok=false when the caller should
+// skip the hotfix path entirely. An unreadable or malformed config is fail-open by design --
+// it must never block provisioning -- so the read failure is reported as a skipped
+// BinaryOperation event rather than returned, keeping one such event per download-hotfix run.
+func (a *App) readHotfixConfigOrSkip(hotfixPath string) (*hotfixConfig, bool) {
+	cfg, err := readHotfixConfig(hotfixPath)
+	if err == nil {
+		return cfg, true
+	}
+	slog.Warn("failed to read hotfix config, skipping hotfix download",
+		"path", hotfixPath, "error", err)
+	_ = a.eventLogger.RunTimedOperation("Hotfix.BinaryOperation", func() (string, error) {
+		return fmt.Sprintf("%s configPath=%s",
+			hotfixOperationMessage(Version, "", hotfixRouteNone, hotfixOutcomeSkippedConfigError),
+			hotfixPath,
+		), err
+	})
+	return nil, false
 }
 
 // applyScriptHotfix applies the CSE-script hotfix under its own timing event. It reports
