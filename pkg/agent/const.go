@@ -71,6 +71,7 @@ const (
 	reconcilePrivateHostsService          = "linux/cloud-init/artifacts/reconcile-private-hosts.service"
 	bindMountScript                       = "linux/cloud-init/artifacts/bind-mount.sh"
 	bindMountSystemdService               = "linux/cloud-init/artifacts/bind-mount.service"
+	nvidiaGBFormatMountNVMeRootScript     = "linux/cloud-init/artifacts/ubuntu/gb/format-mount-nvme-root.sh"
 	snapshotUpdateScript                  = "linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh"
 	snapshotUpdateSystemdService          = "linux/cloud-init/artifacts/ubuntu/snapshot-update.service"
 	snapshotUpdateSystemdTimer            = "linux/cloud-init/artifacts/ubuntu/snapshot-update.timer"

@@ -34,6 +34,17 @@ write_files:
     {{GetVariableProperty "cloudInitData" "initAKSCloud"}}
 {{end}}
 
+
+# ---- hotfix-scripts: auto-generated ----
+{{if IsUbuntuArm64GB}}
+- path: /opt/azure/containers/format-mount-nvme-root.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "nvidiaGBFormatMountNVMeRootScript"}}
+{{end}}
+# ---- end hotfix-scripts ----
 {{- else }}
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"
@@ -181,4 +192,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "azureNetworkUdevRule"}}
+
+{{if IsUbuntuArm64GB}}
+- path: /opt/azure/containers/format-mount-nvme-root.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "nvidiaGBFormatMountNVMeRootScript"}}
+{{end}}
 {{- end }}
