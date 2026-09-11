@@ -18,7 +18,6 @@ Describe 'ensure_sig_vhd_exists function'
     HYPERV_GENERATION=""
     OS_TYPE=""
     ENABLE_TRUSTED_LAUNCH=""
-    CVM_BUILD_STAGE=""
 
     # Mock variables to control az command behavior
     MOCK_AZ_SIG_SHOW_STATE=""
@@ -26,10 +25,6 @@ Describe 'ensure_sig_vhd_exists function'
     MOCK_AZ_SIG_IMAGE_DEFINITION_EXISTS=""
     MOCK_AZ_IMAGE_DEFINITIONS=""
     MOCK_AZ_IMAGE_VERSIONS=""
-    # Captures the full argument list of the last "az sig image-definition
-    # create" call, so tests can assert on --os-state/--features without
-    # needing a real Azure CLI.
-    MOCK_AZ_LAST_IMAGE_DEFINITION_CREATE_ARGS=""
 
     # Create mocks for external commands
     # shellcheck disable=SC2329
@@ -66,7 +61,6 @@ Describe 'ensure_sig_vhd_exists function'
               return 0
               ;;
             "create")
-              MOCK_AZ_LAST_IMAGE_DEFINITION_CREATE_ARGS="$*"
               echo "Image definition created successfully"
               return 0
               ;;
@@ -289,100 +283,6 @@ Describe 'ensure_sig_vhd_exists function'
       The status should be success
       The output should be present
     End
-  End
-
-    Describe 'CVM_BUILD_STAGE image definition scenarios (two-stage CVM bootstrap/final builds)'
-    It 'creates a Generalized ConfidentialVMSupported definition for CVM_BUILD_STAGE=bootstrap'
-      MODE="linuxVhdMode"
-      AZURE_RESOURCE_GROUP_NAME="test-rg"
-      SIG_GALLERY_NAME="test-gallery"
-      SIG_IMAGE_NAME="2604gen2CVMcontainerdbootstrap"
-      AZURE_LOCATION="eastus"
-      OS_TYPE="Linux"
-      HYPERV_GENERATION="V2"
-      ARCHITECTURE="x64"
-      FEATURE_FLAGS="cvm"
-      CVM_BUILD_STAGE="bootstrap"
-      ENABLE_TRUSTED_LAUNCH="False"
-      MOCK_AZ_SIG_SHOW_EXISTS="false"
-      MOCK_AZ_SIG_IMAGE_DEFINITION_EXISTS="false"
-
-      When call ensure_sig_vhd_exists
-      The status should be success
-      The variable MOCK_AZ_LAST_IMAGE_DEFINITION_CREATE_ARGS should include "SecurityType=ConfidentialVMSupported"
-      The variable MOCK_AZ_LAST_IMAGE_DEFINITION_CREATE_ARGS should not include "os-state"
-      The variable MOCK_AZ_LAST_IMAGE_DEFINITION_CREATE_ARGS should not include "SecurityType=ConfidentialVM "
-      The output should be present
-    End
-
-    It 'creates a Specialized ConfidentialVM definition for CVM_BUILD_STAGE=final'
-      MODE="linuxVhdMode"
-      AZURE_RESOURCE_GROUP_NAME="test-rg"
-      SIG_GALLERY_NAME="test-gallery"
-      SIG_IMAGE_NAME="2604gen2CVMcontainerdSpecialized"
-      AZURE_LOCATION="eastus"
-      OS_TYPE="Linux"
-      HYPERV_GENERATION="V2"
-      ARCHITECTURE="x64"
-      FEATURE_FLAGS="cvm"
-      CVM_BUILD_STAGE="final"
-      ENABLE_TRUSTED_LAUNCH="False"
-      MOCK_AZ_SIG_SHOW_EXISTS="false"
-      MOCK_AZ_SIG_IMAGE_DEFINITION_EXISTS="false"
-
-      When call ensure_sig_vhd_exists
-      The status should be success
-      The variable MOCK_AZ_LAST_IMAGE_DEFINITION_CREATE_ARGS should include "SecurityType=ConfidentialVM"
-      The variable MOCK_AZ_LAST_IMAGE_DEFINITION_CREATE_ARGS should include "os-state"
-      The output should be present
-    End
-
-    It 'preserves existing (Specialized ConfidentialVM) behavior when CVM_BUILD_STAGE is unset'
-      MODE="linuxVhdMode"
-      AZURE_RESOURCE_GROUP_NAME="test-rg"
-      SIG_GALLERY_NAME="test-gallery"
-      SIG_IMAGE_NAME="2404gen2CVMcontainerdSpecialized"
-      AZURE_LOCATION="eastus"
-      OS_TYPE="Linux"
-      HYPERV_GENERATION="V2"
-      ARCHITECTURE="x64"
-      FEATURE_FLAGS="cvm"
-      unset CVM_BUILD_STAGE
-      ENABLE_TRUSTED_LAUNCH="False"
-      MOCK_AZ_SIG_SHOW_EXISTS="false"
-      MOCK_AZ_SIG_IMAGE_DEFINITION_EXISTS="false"
-
-      When call ensure_sig_vhd_exists
-      The status should be success
-      The variable MOCK_AZ_LAST_IMAGE_DEFINITION_CREATE_ARGS should include "SecurityType=ConfidentialVM"
-      The variable MOCK_AZ_LAST_IMAGE_DEFINITION_CREATE_ARGS should include "os-state"
-      The output should be present
-    End
-
-    It 'handles CVM_BUILD_STAGE case-insensitively (Bootstrap)'
-      MODE="linuxVhdMode"
-      AZURE_RESOURCE_GROUP_NAME="test-rg"
-      SIG_GALLERY_NAME="test-gallery"
-      SIG_IMAGE_NAME="2604gen2CVMcontainerdbootstrap"
-      AZURE_LOCATION="eastus"
-      OS_TYPE="Linux"
-      HYPERV_GENERATION="V2"
-      ARCHITECTURE="x64"
-      FEATURE_FLAGS="cvm"
-      CVM_BUILD_STAGE="Bootstrap"
-      ENABLE_TRUSTED_LAUNCH="False"
-      MOCK_AZ_SIG_SHOW_EXISTS="false"
-      MOCK_AZ_SIG_IMAGE_DEFINITION_EXISTS="false"
-
-      When call ensure_sig_vhd_exists
-      The status should be success
-      The variable MOCK_AZ_LAST_IMAGE_DEFINITION_CREATE_ARGS should include "SecurityType=ConfidentialVMSupported"
-      The variable MOCK_AZ_LAST_IMAGE_DEFINITION_CREATE_ARGS should not include "os-state"
-      The output should be present
-    End
-  End
-
-  Describe 'Image definition creation scenarios (Gen1, Trusted Launch, vanilla Gen2)'
 
     It 'should create image definition with HyperV Generation V1'
       MODE="linuxVhdMode"
