@@ -544,6 +544,42 @@ EOF
             The stdout should include "Invalid upstream VNET DNS server '....'"
         End
 
+        It 'should fail if an IPv6 address contains triple colons'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 1:::2
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be failure
+            The stdout should include "Invalid upstream VNET DNS server '1:::2'"
+        End
+
+        It 'should fail if an IPv6 address has an unmatched leading colon'
+cat <<EOF > "$RESOLV_CONF"
+nameserver :1:2:3:4:5:6:7:8
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be failure
+            The stdout should include "Invalid upstream VNET DNS server ':1:2:3:4:5:6:7:8'"
+        End
+
+        It 'should fail if an IPv6 address has an unmatched trailing colon'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 1:2:3:4:5:6:7:8:
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be failure
+            The stdout should include "Invalid upstream VNET DNS server '1:2:3:4:5:6:7:8:'"
+        End
+
+        It 'should accept the unspecified IPv6 address'
+cat <<EOF > "$RESOLV_CONF"
+nameserver ::
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . ::"
+        End
+
         It 'should replace Azure DNS with multiple valid upstream DNS servers'
 cat <<EOF > "$RESOLV_CONF"
 nameserver 10.0.0.1
