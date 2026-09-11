@@ -12,6 +12,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// Leave headroom below OpenSSH's default MaxSessions of 10 per connection.
+// Capacity retries remain necessary: this client-side limit does not eliminate rejections.
 const maxConcurrentSSHOperations = 8
 
 type SSHClient struct {
