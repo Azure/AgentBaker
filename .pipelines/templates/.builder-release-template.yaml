@@ -94,7 +94,7 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
-        set -euo pipefail
+        set -e
         make -f packer.mk run-packer
         if [[ "${CVM_TWO_STAGE_BUILD:-}" == "True" ]]; then
           PREP_SETTINGS="vhdbuilder/packer/settings.json"
