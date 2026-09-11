@@ -185,10 +185,12 @@ replace_azurednsip_in_corefile() {
     # Never allow localdns to forward to either of its own listeners.
     local upstream_dns_ip
     for upstream_dns_ip in ${UPSTREAM_VNET_DNS_SERVERS}; do
-        if ! [[ "${upstream_dns_ip}" =~ ^[0-9a-fA-F.:]+$ ]]; then
-            echo "Invalid upstream VNET DNS server '${upstream_dns_ip}' in ${RESOLV_CONF}."
-            return 1
-        fi
+        case "${upstream_dns_ip}" in
+            *[!0-9a-fA-F.:]*|"")
+                echo "Invalid upstream VNET DNS server '${upstream_dns_ip}' in ${RESOLV_CONF}."
+                return 1
+                ;;
+        esac
         if [ "${upstream_dns_ip}" = "${LOCALDNS_NODE_LISTENER_IP}" ] ||
             [ "${upstream_dns_ip}" = "${LOCALDNS_CLUSTER_LISTENER_IP}" ]; then
             echo "Upstream VNET DNS servers contain localdns listener IP ${upstream_dns_ip}."
