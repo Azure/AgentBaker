@@ -33,7 +33,7 @@ func (r podExecResult) String() string {
 `, r.exitCode, r.stderr, r.stdout)
 }
 
-func cleanupBastionTunnel(sshClient *ssh.Client) {
+func cleanupBastionTunnel(sshClient *SSHClient) {
 	// We have to do this because az network tunnel creates a new detached process for tunnel
 	if sshClient != nil {
 		_ = sshClient.Close()
@@ -42,7 +42,7 @@ func cleanupBastionTunnel(sshClient *ssh.Client) {
 
 func runSSHCommand(
 	ctx context.Context,
-	client *ssh.Client,
+	client *SSHClient,
 	command string,
 	isWindows bool,
 ) (*podExecResult, error) {
@@ -84,15 +84,28 @@ func copyScriptToRemoteIfRequired(ctx context.Context, client *ssh.Client, comma
 
 func runSSHCommandWithPrivateKeyFile(
 	ctx context.Context,
-	client *ssh.Client,
+	client *SSHClient,
 	command string,
 	isWindows bool,
 ) (*podExecResult, error) {
 	if client == nil {
 		return nil, fmt.Errorf("Permission denied: ssh client is nil")
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	select {
+	case client.operations <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	defer func() { <-client.operations }()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	var err error
-	command, err = copyScriptToRemoteIfRequired(ctx, client, command, isWindows)
+	command, err = copyScriptToRemoteIfRequired(ctx, client.Client, command, isWindows)
 	if err != nil {
 		return nil, err
 	}

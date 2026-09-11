@@ -12,6 +12,20 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+const maxConcurrentSSHOperations = 8
+
+type SSHClient struct {
+	*ssh.Client
+	operations chan struct{}
+}
+
+func newSSHClient(client *ssh.Client) *SSHClient {
+	return &SSHClient{
+		Client:     client,
+		operations: make(chan struct{}, maxConcurrentSSHOperations),
+	}
+}
+
 func retrySSHSessionOpen(ctx context.Context, open func() error) error {
 	delay := 100 * time.Millisecond
 	var lastErr error

@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
@@ -190,7 +191,7 @@ func TestSCPCopyRetriesOnlyRejectedOpens(t *testing.T) {
 			})
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			remote, err := copyScriptToRemoteIfRequired(ctx, client, script, false)
+			remote, err := copyScriptToRemoteIfRequired(ctx, client.Client, script, false)
 			if failTransfer {
 				require.Error(t, err)
 			} else {
@@ -203,7 +204,7 @@ func TestSCPCopyRetriesOnlyRejectedOpens(t *testing.T) {
 	}
 }
 
-func newSessionTestSSHClient(t *testing.T, handle func(ssh.NewChannel) error) *ssh.Client {
+func newSessionTestSSHClient(t *testing.T, handle func(ssh.NewChannel) error) *SSHClient {
 	t.Helper()
 	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
@@ -228,8 +229,12 @@ func newSessionTestSSHClient(t *testing.T, handle func(ssh.NewChannel) error) *s
 		}
 		defer server.Close()
 		go ssh.DiscardRequests(requests)
+		var handlers sync.WaitGroup
+		defer handlers.Wait()
 		for channel := range channels {
-			assert.NoError(t, handle(channel))
+			handlers.Go(func() {
+				assert.NoError(t, handle(channel))
+			})
 		}
 	}()
 	t.Cleanup(func() {
@@ -243,7 +248,7 @@ func newSessionTestSSHClient(t *testing.T, handle func(ssh.NewChannel) error) *s
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = client.Close() })
-	return client
+	return newSSHClient(client)
 }
 
 func serveSessionTestCommand(ch ssh.NewChannel, run func(string, ssh.Channel) uint32) error {

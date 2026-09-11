@@ -15,7 +15,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
-	"golang.org/x/crypto/ssh"
 )
 
 type Tags struct {
@@ -115,7 +114,7 @@ type ScenarioVM struct {
 	VMSS      *armcompute.VirtualMachineScaleSet
 	VM        *armcompute.VirtualMachineScaleSetVM
 	PrivateIP string
-	SSHClient *ssh.Client
+	SSHClient *SSHClient
 }
 
 // CustomDataWriteFile defines an e2e-only cloud-init write_files entry.
