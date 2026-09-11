@@ -297,20 +297,6 @@ assertions on the contents of both the stdout and stderr streams that result fro
 validators can be used to assert on numerous types of properties of the live VM, such as the live file system and kernel
 state.
 
-Independent common validators each run in their own goroutine, without a concurrency limit.
-All failures are collected in declaration order. `--parallel` controls concurrent scenarios, not validators.
-After the concurrent group finishes, the remaining checks run sequentially: MANA traffic, all LocalDNS
-checks (including cold-start), kernel modules, and failed systemd units. This keeps other validators
-from affecting MANA counters or running during a LocalDNS restart. Scenario-specific validators still
-run after common validation. Keep checks that change node state out of the parallel group.
-
-SSH session opens rejected for capacity are retried with backoff until the caller's context is canceled.
-This includes OpenSSH's `connect failed (open failed)` session rejection and explicit resource-shortage
-rejections. Transport errors, permission denials, and failures after command or transfer startup are not retried.
-The SCP library formats session-open errors as text, so its exact session-open error prefix is required
-before retrying an upload. The 10-second transfer timeout starts on each upload attempt; waiting between
-rejected opens uses the scenario deadline.
-
 ## Log Collection
 
 Each E2E scenario will generate its own logs after execution. Currently, these logs consist of:
