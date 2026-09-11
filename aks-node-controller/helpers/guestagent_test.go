@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -31,4 +32,52 @@ func TestEventLogger_Events_EmptyDirectory(t *testing.T) {
 	logger := NewEventLogger(t.TempDir())
 	events := logger.Events()
 	assert.Empty(t, events)
+}
+
+func TestEventLogger_RunTimedOperation(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		logger := NewEventLogger(t.TempDir())
+
+		err := logger.RunTimedOperation("Hotfix.BinaryOperation", func() error {
+			return nil
+		})
+
+		require.NoError(t, err)
+		events := logger.Events()
+		require.Len(t, events, 1)
+		assert.Equal(t, "AKS.AKSNodeController.Hotfix.BinaryOperation", events[0].TaskName)
+		assert.Equal(t, string(EventLevelInformational), events[0].EventLevel)
+		assert.Contains(t, events[0].Message, "Completed")
+		assert.Contains(t, events[0].Message, "durationMs=")
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		logger := NewEventLogger(t.TempDir())
+		wantErr := errors.New("operation failed")
+
+		err := logger.RunTimedOperation("Hotfix.BinaryOperation", func() error {
+			return wantErr
+		})
+
+		require.ErrorIs(t, err, wantErr)
+		events := logger.Events()
+		require.Len(t, events, 1)
+		assert.Equal(t, "AKS.AKSNodeController.Hotfix.BinaryOperation", events[0].TaskName)
+		assert.Equal(t, string(EventLevelError), events[0].EventLevel)
+		assert.Contains(t, events[0].Message, wantErr.Error())
+		assert.Contains(t, events[0].Message, "durationMs=")
+	})
+
+	t.Run("nil logger still runs operation", func(t *testing.T) {
+		var logger *EventLogger
+		called := false
+
+		err := logger.RunTimedOperation("Hotfix.BinaryOperation", func() error {
+			called = true
+			return nil
+		})
+
+		require.NoError(t, err)
+		assert.True(t, called)
+	})
 }

@@ -2,11 +2,10 @@ package main
 
 import (
 	"context"
-	"log/slog"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -662,17 +661,14 @@ func TestShouldUpgradeToHotfix(t *testing.T) {
 	}
 }
 
-func TestDownloadBinaryHotfixTerminalOperationLog(t *testing.T) {
-	const terminalMessage = "ANC hotfix binary operation finished"
-
+func TestDownloadHotfixGuestAgentTimingEvents(t *testing.T) {
 	tests := []struct {
-		name        string
-		current     string
-		setup       func(t *testing.T, app *App, dir string) *hotfixConfig
-		wantErr     bool
-		wantLevel   slog.Level
-		wantRoute   string
-		wantOutcome string
+		name          string
+		current       string
+		setup         func(t *testing.T, app *App, dir string) *hotfixConfig
+		wantErr       bool
+		wantTaskNames []string
+		wantLevel     string
 	}{
 		{
 			name:    "no hotfix version skips",
@@ -680,9 +676,8 @@ func TestDownloadBinaryHotfixTerminalOperationLog(t *testing.T) {
 			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
 				return &hotfixConfig{}
 			},
-			wantLevel:   slog.LevelInfo,
-			wantRoute:   hotfixRouteNone,
-			wantOutcome: hotfixOutcomeSkippedNoVersion,
+			wantTaskNames: []string{"AKS.AKSNodeController.Hotfix.BinaryOperation"},
+			wantLevel:     "Informational",
 		},
 		{
 			name:    "non-targeted version skips",
@@ -690,9 +685,8 @@ func TestDownloadBinaryHotfixTerminalOperationLog(t *testing.T) {
 			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
 				return &hotfixConfig{Version: "202604.01.1"}
 			},
-			wantLevel:   slog.LevelInfo,
-			wantRoute:   hotfixRouteNone,
-			wantOutcome: hotfixOutcomeSkippedNotTargeted,
+			wantTaskNames: []string{"AKS.AKSNodeController.Hotfix.BinaryOperation"},
+			wantLevel:     "Informational",
 		},
 		{
 			name:    "malformed current version skips",
@@ -700,9 +694,8 @@ func TestDownloadBinaryHotfixTerminalOperationLog(t *testing.T) {
 			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
 				return &hotfixConfig{Version: "202604.01.1"}
 			},
-			wantLevel:   slog.LevelInfo,
-			wantRoute:   hotfixRouteNone,
-			wantOutcome: hotfixOutcomeSkippedVersionCompareError,
+			wantTaskNames: []string{"AKS.AKSNodeController.Hotfix.BinaryOperation"},
+			wantLevel:     "Informational",
 		},
 		{
 			name:    "map-based malformed current version skips",
@@ -710,9 +703,8 @@ func TestDownloadBinaryHotfixTerminalOperationLog(t *testing.T) {
 			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
 				return &hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.1"}}
 			},
-			wantLevel:   slog.LevelInfo,
-			wantRoute:   hotfixRouteNone,
-			wantOutcome: hotfixOutcomeSkippedVersionCompareError,
+			wantTaskNames: []string{"AKS.AKSNodeController.Hotfix.BinaryOperation"},
+			wantLevel:     "Informational",
 		},
 		{
 			name:    "package manager success",
@@ -725,9 +717,15 @@ func TestDownloadBinaryHotfixTerminalOperationLog(t *testing.T) {
 				app.hotfixBinaryPath = filepath.Join(dir, "hotfix-anc")
 				return &hotfixConfig{Version: "202604.01.1"}
 			},
-			wantLevel:   slog.LevelInfo,
-			wantRoute:   hotfixRoutePackageManager,
-			wantOutcome: hotfixOutcomeSuccess,
+			wantTaskNames: []string{
+				"AKS.AKSNodeController.Hotfix.AptDpkgConfigure",
+				"AKS.AKSNodeController.Hotfix.AptUpdate",
+				"AKS.AKSNodeController.Hotfix.AptInstall",
+				"AKS.AKSNodeController.Hotfix.PackageManagerInstall",
+				"AKS.AKSNodeController.Hotfix.BinaryStaging",
+				"AKS.AKSNodeController.Hotfix.BinaryOperation",
+			},
+			wantLevel: "Informational",
 		},
 		{
 			name:    "package manager install failure",
@@ -736,10 +734,12 @@ func TestDownloadBinaryHotfixTerminalOperationLog(t *testing.T) {
 				app.osReleasePath = writeOSRelease(t, dir, "ID=unsupported\n")
 				return &hotfixConfig{Version: "202604.01.1"}
 			},
-			wantErr:     true,
-			wantLevel:   slog.LevelWarn,
-			wantRoute:   hotfixRoutePackageManager,
-			wantOutcome: string(outcomeFailed),
+			wantErr: true,
+			wantTaskNames: []string{
+				"AKS.AKSNodeController.Hotfix.PackageManagerInstall",
+				"AKS.AKSNodeController.Hotfix.BinaryOperation",
+			},
+			wantLevel: "Error",
 		},
 		{
 			name:    "package manager staging failure",
@@ -752,10 +752,16 @@ func TestDownloadBinaryHotfixTerminalOperationLog(t *testing.T) {
 				app.hotfixBinaryPath = filepath.Join(dir, "hotfix-anc")
 				return &hotfixConfig{Version: "202604.01.1"}
 			},
-			wantErr:     true,
-			wantLevel:   slog.LevelWarn,
-			wantRoute:   hotfixRoutePackageManager,
-			wantOutcome: string(outcomeFailed),
+			wantErr: true,
+			wantTaskNames: []string{
+				"AKS.AKSNodeController.Hotfix.AptDpkgConfigure",
+				"AKS.AKSNodeController.Hotfix.AptUpdate",
+				"AKS.AKSNodeController.Hotfix.AptInstall",
+				"AKS.AKSNodeController.Hotfix.PackageManagerInstall",
+				"AKS.AKSNodeController.Hotfix.BinaryStaging",
+				"AKS.AKSNodeController.Hotfix.BinaryOperation",
+			},
+			wantLevel: "Error",
 		},
 	}
 
@@ -765,44 +771,35 @@ func TestDownloadBinaryHotfixTerminalOperationLog(t *testing.T) {
 			Version = tc.current
 			t.Cleanup(func() { Version = origVersion })
 
-			logCap := installLogCapturer(t)
 			dir := t.TempDir()
 			tt := NewTestApp(t, TestAppConfig{})
 			cfg := tc.setup(t, tt.App, dir)
+			configData, err := json.Marshal(cfg)
+			require.NoError(t, err)
+			tt.App.hotfixVersionPath = filepath.Join(dir, "hotfix-config.json")
+			require.NoError(t, os.WriteFile(tt.App.hotfixVersionPath, configData, 0o644))
 
-			err := tt.App.downloadBinaryHotfixIfNeeded(context.Background(), cfg)
+			err = tt.App.downloadHotfix(context.Background())
 			if tc.wantErr {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
 			}
 
-			rec := requireHotfixTerminalLog(t, logCap, terminalMessage)
-			assert.Equal(t, tc.wantLevel, rec.Level)
-			assert.Equal(t, tc.wantRoute, rec.Attrs["route"])
-			assert.Equal(t, tc.wantOutcome, rec.Attrs["outcome"])
-			durationMs, err := strconv.ParseInt(rec.Attrs["durationMs"], 10, 64)
-			require.NoError(t, err)
-			assert.GreaterOrEqual(t, durationMs, int64(0))
+			events := tt.eventLogger.Events()
+			require.Len(t, events, len(tc.wantTaskNames))
+			for i, taskName := range tc.wantTaskNames {
+				assert.Equal(t, taskName, events[i].TaskName)
+				assert.Contains(t, events[i].Message, "durationMs=")
+			}
+			assert.Equal(t, tc.wantLevel, events[len(events)-1].EventLevel)
 			if tc.wantErr {
-				assert.NotEmpty(t, rec.Attrs["error"])
+				assert.NotContains(t, events[len(events)-1].Message, "Completed")
 			} else {
-				assert.Empty(t, rec.Attrs["error"])
+				assert.Contains(t, events[len(events)-1].Message, "Completed")
 			}
 		})
 	}
-}
-
-func requireHotfixTerminalLog(t *testing.T, logCap *logCapturer, message string) logRecord {
-	t.Helper()
-	var matches []logRecord
-	for _, rec := range logCap.getRecords() {
-		if rec.Message == message {
-			matches = append(matches, rec)
-		}
-	}
-	require.Len(t, matches, 1)
-	return matches[0]
 }
 
 func writeOSRelease(t *testing.T, dir, content string) string {

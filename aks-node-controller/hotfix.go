@@ -50,7 +50,9 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 	if err := a.applyNodeCustomDataIfNeeded(cfg); err != nil {
 		slog.Warn("failed to apply node custom data", "path", hotfixPath, "error", err)
 	}
-	return a.downloadBinaryHotfixIfNeeded(ctx, cfg)
+	return a.eventLogger.RunTimedOperation("Hotfix.BinaryOperation", func() error {
+		return a.downloadBinaryHotfixIfNeeded(ctx, cfg)
+	})
 }
 
 func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
@@ -78,14 +80,13 @@ func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
 }
 
 func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfig) error {
-	totalStart := time.Now()
 	hotfixVersion := cfg.resolveVersion(Version)
 	route := hotfixRouteNone
 	outcome := hotfixOutcomeStarted
 	var terminalErr error
 	slog.Info("ANC hotfix binary operation started", "current", Version, "target", hotfixVersion)
 	defer func() {
-		logHotfixBinaryOperationFinished(Version, hotfixVersion, route, outcome, time.Since(totalStart), terminalErr)
+		logHotfixBinaryOperationFinished(Version, hotfixVersion, route, outcome, terminalErr)
 	}()
 
 	if hotfixVersion == "" {
@@ -122,43 +123,39 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 	// resolve the package from the node's configured repository and extract the ANC binary;
 	// package artifacts cannot be staged directly as executables.
 	route = hotfixRoutePackageManager
-	pkgMgrStart := time.Now()
 	slog.Info("ANC hotfix package-manager install started", "target", hotfixVersion)
-	if err := a.installFromPMC(ctx, hotfixVersion); err != nil {
+	if err := a.eventLogger.RunTimedOperation("Hotfix.PackageManagerInstall", func() error {
+		return a.installFromPMC(ctx, hotfixVersion)
+	}); err != nil {
 		outcome = string(outcomeFailed)
-		slog.Warn("ANC hotfix package-manager install failed", "target", hotfixVersion,
-			"durationMs", time.Since(pkgMgrStart).Milliseconds(), "error", err)
+		slog.Warn("ANC hotfix package-manager install failed", "target", hotfixVersion, "error", err)
 		terminalErr = fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
 		return terminalErr
 	}
-	slog.Info("ANC hotfix package-manager install finished", "target", hotfixVersion,
-		"durationMs", time.Since(pkgMgrStart).Milliseconds())
+	slog.Info("ANC hotfix package-manager install finished", "target", hotfixVersion)
 
-	stageStart := time.Now()
 	slog.Info("ANC hotfix binary staging started", "target", hotfixVersion, "src", a.pkgPath(), "dst", a.hotfixPath())
-	if err := copyBinaryAlongside(a.pkgPath(), a.hotfixPath(), a.vhdPath()); err != nil {
+	if err := a.eventLogger.RunTimedOperation("Hotfix.BinaryStaging", func() error {
+		return copyBinaryAlongside(a.pkgPath(), a.hotfixPath(), a.vhdPath())
+	}); err != nil {
 		outcome = string(outcomeFailed)
-		slog.Warn("ANC hotfix binary staging failed", "target", hotfixVersion,
-			"durationMs", time.Since(stageStart).Milliseconds(), "error", err)
+		slog.Warn("ANC hotfix binary staging failed", "target", hotfixVersion, "error", err)
 		terminalErr = fmt.Errorf("stage hotfix binary: %w", err)
 		return terminalErr
 	}
-	slog.Info("ANC hotfix binary staging finished", "target", hotfixVersion,
-		"durationMs", time.Since(stageStart).Milliseconds())
+	slog.Info("ANC hotfix binary staging finished", "target", hotfixVersion)
 
-	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", a.hotfixPath(),
-		"durationMs", time.Since(totalStart).Milliseconds())
+	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", a.hotfixPath())
 	outcome = hotfixOutcomeSuccess
 	return nil
 }
 
-func logHotfixBinaryOperationFinished(current, target, route, outcome string, duration time.Duration, err error) {
+func logHotfixBinaryOperationFinished(current, target, route, outcome string, err error) {
 	attrs := []any{
 		"current", current,
 		"target", target,
 		"route", route,
 		"outcome", outcome,
-		"durationMs", duration.Milliseconds(),
 	}
 	if err != nil {
 		attrs = append(attrs, "error", err)
@@ -358,7 +355,6 @@ func (a *App) installFromPMC(ctx context.Context, version string) error {
 
 // installWithApt refreshes the PMC repo index and installs the package via apt-get.
 func (a *App) installWithApt(ctx context.Context, version string) error {
-	totalStart := time.Now()
 	sourcesDir := a.aptSourcesDir
 	if sourcesDir == "" {
 		sourcesDir = defaultAptSourcesDir
@@ -369,47 +365,42 @@ func (a *App) installWithApt(ctx context.Context, version string) error {
 	}
 
 	// Ensure any interrupted dpkg state is reconciled before running apt operations.
-	dpkgStart := time.Now()
 	slog.Info("ANC hotfix apt dpkg configure started", "version", version)
-	if err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
-		"dpkg", "--configure", "-a", "--force-confdef", "--force-confold"); err != nil {
-		slog.Warn("ANC hotfix apt dpkg configure failed", "version", version,
-			"durationMs", time.Since(dpkgStart).Milliseconds(), "error", err)
+	if err := a.eventLogger.RunTimedOperation("Hotfix.AptDpkgConfigure", func() error {
+		return a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
+			"dpkg", "--configure", "-a", "--force-confdef", "--force-confold")
+	}); err != nil {
+		slog.Warn("ANC hotfix apt dpkg configure failed", "version", version, "error", err)
 		return fmt.Errorf("dpkg --configure -a failed: %w", err)
 	}
-	slog.Info("ANC hotfix apt dpkg configure finished", "version", version,
-		"durationMs", time.Since(dpkgStart).Milliseconds())
+	slog.Info("ANC hotfix apt dpkg configure finished", "version", version)
 
 	// Refresh only the microsoft-prod repo to minimize time.
-	updateStart := time.Now()
 	slog.Info("ANC hotfix apt update started", "version", version, "sourceList", microsoftProdSourceListPath)
-	if err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
-		"apt-get", "update",
-		"-o", "Dpkg::Options::=--force-confold",
-		"-o", fmt.Sprintf("Dir::Etc::sourcelist=%s", microsoftProdSourceListPath),
-		"-o", "Dir::Etc::sourceparts=-"); err != nil {
-		slog.Warn("ANC hotfix apt update failed", "version", version, "sourceList", microsoftProdSourceListPath,
-			"durationMs", time.Since(updateStart).Milliseconds(), "error", err)
+	if err := a.eventLogger.RunTimedOperation("Hotfix.AptUpdate", func() error {
+		return a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
+			"apt-get", "update",
+			"-o", "Dpkg::Options::=--force-confold",
+			"-o", fmt.Sprintf("Dir::Etc::sourcelist=%s", microsoftProdSourceListPath),
+			"-o", "Dir::Etc::sourceparts=-")
+	}); err != nil {
+		slog.Warn("ANC hotfix apt update failed", "version", version, "sourceList", microsoftProdSourceListPath, "error", err)
 		return fmt.Errorf("apt-get update failed: %w", err)
 	}
-	slog.Info("ANC hotfix apt update finished", "version", version, "sourceList", microsoftProdSourceListPath,
-		"durationMs", time.Since(updateStart).Milliseconds())
+	slog.Info("ANC hotfix apt update finished", "version", version, "sourceList", microsoftProdSourceListPath)
 
 	// Install with --allow-downgrades in case the hotfix is older than the VHD-baked version.
-	installStart := time.Now()
 	slog.Info("ANC hotfix apt install started", "version", version)
-	if err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
-		"apt-get", "install", "-y", "--allow-downgrades",
-		"-o", "Dpkg::Options::=--force-confold",
-		fmt.Sprintf("aks-node-controller=%s*", version)); err != nil {
-		slog.Warn("ANC hotfix apt install failed", "version", version,
-			"durationMs", time.Since(installStart).Milliseconds(), "error", err)
+	if err := a.eventLogger.RunTimedOperation("Hotfix.AptInstall", func() error {
+		return a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
+			"apt-get", "install", "-y", "--allow-downgrades",
+			"-o", "Dpkg::Options::=--force-confold",
+			fmt.Sprintf("aks-node-controller=%s*", version))
+	}); err != nil {
+		slog.Warn("ANC hotfix apt install failed", "version", version, "error", err)
 		return err
 	}
-	slog.Info("ANC hotfix apt install finished", "version", version,
-		"durationMs", time.Since(installStart).Milliseconds())
-	slog.Info("ANC hotfix apt path finished", "version", version,
-		"durationMs", time.Since(totalStart).Milliseconds())
+	slog.Info("ANC hotfix apt install finished", "version", version)
 	return nil
 }
 
@@ -433,16 +424,15 @@ func resolveMicrosoftProdSourceListPath(sourcesDir string) (string, error) {
 
 // installWithRpm installs the package via dnf or tdnf (repo index refreshed automatically).
 func (a *App) installWithRpm(ctx context.Context, pkgMgr string, version string) error {
-	start := time.Now()
 	slog.Info("ANC hotfix rpm install started", "packageManager", pkgMgr, "version", version)
-	if err := a.retryCommand(ctx, pkgMgr, "install", "-y", "--refresh", "--allowerasing",
-		fmt.Sprintf("aks-node-controller-%s", version)); err != nil {
-		slog.Warn("ANC hotfix rpm install failed", "packageManager", pkgMgr, "version", version,
-			"durationMs", time.Since(start).Milliseconds(), "error", err)
+	if err := a.eventLogger.RunTimedOperation("Hotfix.RpmInstall", func() error {
+		return a.retryCommand(ctx, pkgMgr, "install", "-y", "--refresh", "--allowerasing",
+			fmt.Sprintf("aks-node-controller-%s", version))
+	}); err != nil {
+		slog.Warn("ANC hotfix rpm install failed", "packageManager", pkgMgr, "version", version, "error", err)
 		return err
 	}
-	slog.Info("ANC hotfix rpm install finished", "packageManager", pkgMgr, "version", version,
-		"durationMs", time.Since(start).Milliseconds())
+	slog.Info("ANC hotfix rpm install finished", "packageManager", pkgMgr, "version", version)
 	return nil
 }
 

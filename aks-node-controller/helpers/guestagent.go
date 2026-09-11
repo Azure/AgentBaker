@@ -41,6 +41,23 @@ func NewEventLogger(dir string) *EventLogger {
 	return &EventLogger{Dir: dir}
 }
 
+// RunTimedOperation runs an operation and emits one guest agent event with its duration.
+func (l *EventLogger) RunTimedOperation(taskName string, operation func() error) error {
+	startTime := time.Now()
+	err := operation()
+	endTime := time.Now()
+
+	if l == nil {
+		return err
+	}
+	if err != nil {
+		l.LogEvent(taskName, err.Error(), EventLevelError, startTime, endTime)
+		return err
+	}
+	l.LogEvent(taskName, "Completed", EventLevelInformational, startTime, endTime)
+	return nil
+}
+
 // LogEvent creates an event file for the Azure VM guest agent.
 //
 // The implementation follows the established bash pattern used across the codebase
