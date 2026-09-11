@@ -195,6 +195,10 @@ replace_azurednsip_in_corefile() {
                 return 1
             }
             function valid_ipv6(value, group, count, i, nonempty, compressed) {
+                if (value == "::") return 1
+                if (value ~ /:::/) return 0
+                if ((value ~ /^:/ && value !~ /^::/) ||
+                    (value ~ /:$/ && value !~ /::$/)) return 0
                 compressed = (value ~ /::/)
                 if (compressed && value ~ /::.*::/) return 0
                 count = split(value, group, ":")
