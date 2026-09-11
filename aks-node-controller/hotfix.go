@@ -248,7 +248,8 @@ func readHotfixConfig(path string) (*hotfixConfig, error) {
 // platformInfo holds the OS family, platform identity, and architecture for the current host.
 type platformInfo struct {
 	OS        string // e.g. "linux", "windows"
-	ID        string // e.g. "ubuntu", "azurelinux", "mariner"
+	ID        string // e.g. "ubuntu", "azurelinux"
+	VariantID string // e.g. "azurecontainerlinux", "osguard"
 	VersionID string // e.g. "22.04", "3.0"
 	Arch      string // e.g. "amd64", "arm64"
 }
@@ -273,6 +274,9 @@ func (a *App) parseLinuxPlatformInfo() (platformInfo, error) {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "ID=") {
 			info.ID = strings.ToLower(strings.Trim(strings.TrimPrefix(line, "ID="), `"`))
+		}
+		if strings.HasPrefix(line, "VARIANT_ID=") {
+			info.VariantID = strings.ToLower(strings.Trim(strings.TrimPrefix(line, "VARIANT_ID="), `"`))
 		}
 		if strings.HasPrefix(line, "VERSION_ID=") {
 			info.VersionID = strings.Trim(strings.TrimPrefix(line, "VERSION_ID="), `"`)
@@ -299,10 +303,18 @@ func (a *App) detectPackageManager() (packageManager, error) {
 	if err != nil {
 		return "", err
 	}
+	if info.ID == osReleaseIDAzureLinux &&
+		(info.VariantID == osReleaseIDAzureContainerLinux || info.VariantID == "osguard") {
+		return "", fmt.Errorf(
+			"PMC package-based ANC self-update is not supported on image-based OS %q variant %q",
+			info.ID,
+			info.VariantID,
+		)
+	}
 	switch info.ID {
 	case "ubuntu":
 		return pkgMgrApt, nil
-	case osIDAzureLinux, osIDMariner:
+	case osReleaseIDAzureLinux:
 		return preferredRpmManager(), nil
 	default:
 		return "", fmt.Errorf("unsupported OS: %s", info.ID)

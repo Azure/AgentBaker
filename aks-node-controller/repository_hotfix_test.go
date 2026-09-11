@@ -1138,7 +1138,7 @@ enabled=1
 	app := NewTestApp(t, TestAppConfig{}).App
 	app.yumReposDir = dir
 	plan, err := app.rpmRepositoryPlan(platformInfo{
-		OS: "linux", ID: osIDAzureLinux, VersionID: "3.0.20260304", Arch: archAMD64,
+		OS: "linux", ID: osReleaseIDAzureLinux, VersionID: "3.0.20260304", Arch: archAMD64,
 	}, "202607.20.2")
 	require.NoError(t, err)
 	assert.Equal(t,

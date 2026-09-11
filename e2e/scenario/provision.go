@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -338,9 +337,9 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		return nil, fmt.Errorf("checking if VM size %q supports only Gen2: %w", s.Runtime.VMSize, err)
 	}
 	if gen2Only && s.Config.VHD.UnsupportedGen2 {
-		s.Logger.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supports Gen1 %q", s.Runtime.VMSize, config.DefaultV5VMSKU)
-		s.Runtime.VMSize = config.DefaultV5VMSKU
-		nbc.AgentPoolProfile.VMSize = config.DefaultV5VMSKU
+		s.Logger.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supports Gen1 %q", s.Runtime.VMSize, config.Config.Gen1SCSIVMSKU)
+		s.Runtime.VMSize = config.Config.Gen1SCSIVMSKU
+		nbc.AgentPoolProfile.VMSize = config.Config.Gen1SCSIVMSKU
 	}
 	supportsNVMe, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
 		Location: s.Location,
@@ -351,9 +350,9 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	}
 	if supportsNVMe {
 		if s.Config.VHD.UnsupportedNVMe {
-			s.Logger.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", s.Runtime.VMSize, config.DefaultV5VMSKU)
-			s.Runtime.VMSize = config.DefaultV5VMSKU
-			nbc.AgentPoolProfile.VMSize = config.DefaultV5VMSKU
+			s.Logger.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", s.Runtime.VMSize, config.Config.Gen1SCSIVMSKU)
+			s.Runtime.VMSize = config.Config.Gen1SCSIVMSKU
+			nbc.AgentPoolProfile.VMSize = config.Config.Gen1SCSIVMSKU
 		} else {
 			s.Config.UseNVMe = true
 		}
@@ -1144,36 +1143,4 @@ func runScenarioUbuntu2404GPUNPD(name, vmSize, location, k8sSystemPoolSKU string
 				return ValidateNPDIBLinkFlappingAfterFailure(ctx, s)
 			},
 		}}
-}
-
-func vmSKUGeneration(sku string) (int, error) {
-	// Extract the generation number from the SKU string (e.g., "Standard_D2s_v3" -> 3)
-	sku = strings.ToLower(sku)
-	idx := strings.LastIndex(sku, "_v")
-	if idx < 0 {
-		return 0, fmt.Errorf("invalid SKU format: %s", sku)
-	}
-	gen, err := strconv.Atoi(sku[idx+2:])
-	if err != nil {
-		return 0, fmt.Errorf("SKU %q has non-numeric generation suffix: %w", sku, err)
-	}
-	return gen, nil
-}
-
-func ensureMinVMGeneration(minSku string) string {
-	// Ensure that the VM SKU used is at least the minimum generation required for the test
-	// Get the minimum generation for the specified SKU
-	defaultGen, err := vmSKUGeneration(config.Config.DefaultVMSKU)
-	if err != nil {
-		panic(fmt.Sprintf("Warning: No minimum generation found for SKU %s", config.Config.DefaultVMSKU))
-	}
-	minGen, err := vmSKUGeneration(minSku)
-	if err != nil {
-		panic(fmt.Sprintf("Warning: No minimum generation found for SKU %s", minSku))
-	}
-	if defaultGen < minGen {
-		return minSku
-	} else {
-		return config.Config.DefaultVMSKU
-	}
 }

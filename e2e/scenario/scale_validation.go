@@ -12,6 +12,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -126,8 +127,8 @@ func ValidateNodeCanScaleToCapacity(ctx context.Context, s *Scenario) (retErr er
 		}
 
 		if current.Spec.Replicas == nil || *current.Spec.Replicas != desiredReplicas {
-			current.Spec.Replicas = &desiredReplicas
-			if _, err := s.Runtime.Kube.Typed.AppsV1().Deployments(deployment.Namespace).Update(ctx, current, metav1.UpdateOptions{}); err != nil {
+			patch := []byte(fmt.Sprintf(`{"spec":{"replicas":%d}}`, desiredReplicas))
+			if _, err := s.Runtime.Kube.Typed.AppsV1().Deployments(deployment.Namespace).Patch(ctx, deployment.Name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
 				consecutiveStable = 0
 				lastPollErr = fmt.Errorf("update scale validation deployment %q to %d replicas: %w", deployment.Name, desiredReplicas, err)
 				s.Logger.Log(lastPollErr.Error())

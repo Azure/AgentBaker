@@ -230,7 +230,65 @@ func TestApp_Run(t *testing.T) {
 	})
 }
 
+func TestApp_ApplyHotfix(t *testing.T) {
+	t.Run("apply embedded hotfix payload", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		applied := false
+		tt.App.applyEmbeddedHotfix = func(string) error {
+			applied = true
+			return nil
+		}
+
+		err := tt.App.runApplyHotfixCommand(context.Background())
+
+		require.NoError(t, err)
+		assert.True(t, applied)
+	})
+
+	t.Run("embedded hotfix failure is logged ", func(t *testing.T) {
+		logs := installLogCapturer(t)
+		executed := false
+		tt := NewTestApp(t, TestAppConfig{
+			RunFunc: func(*exec.Cmd) error {
+				executed = true
+				return nil
+			},
+		})
+		tt.App.applyEmbeddedHotfix = func(string) error {
+			return errors.New("rendered nodecustomdata application failed")
+		}
+
+		err := tt.App.runApplyHotfixCommand(context.Background())
+
+		require.Error(t, err)
+		assert.False(t, executed)
+		assert.Contains(t, logs.getRecords(), logRecord{
+			Level:   slog.LevelError,
+			Message: "aks-node-controller failed to apply embedded hotfix payload",
+			Attrs:   map[string]string{"error": "rendered nodecustomdata application failed"},
+		})
+	})
+}
+
 func TestApp_Provision(t *testing.T) {
+	t.Run("dry-run does not apply embedded hotfix payload", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		applied := false
+		tt.App.applyEmbeddedHotfix = func(string) error {
+			applied = true
+			return nil
+		}
+
+		_, err := tt.App.runProvision(
+			context.Background(),
+			ProvisionFlags{NBCCmd: "parser/testdata/test_nbccmd.sh"},
+			true,
+		)
+
+		require.NoError(t, err)
+		assert.False(t, applied)
+	})
+
 	t.Run("valid provision config", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		_, err := tt.App.Provision(context.Background(), ProvisionFlags{ProvisionConfig: "parser/testdata/test_aksnodeconfig.json"})

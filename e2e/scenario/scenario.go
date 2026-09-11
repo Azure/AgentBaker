@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
@@ -674,6 +677,83 @@ func newUbuntu2204_ScriptlessCSECmd_HotfixScenario() *Scenario {
 			},
 		},
 	}
+}
+
+var _ = Register(newUbuntu2204EmbeddedScriptHotfixScenario())
+
+func newUbuntu2204EmbeddedScriptHotfixScenario() *Scenario {
+	const (
+		runtimeScriptPath = "/opt/azure/containers/provision_configs.sh"
+		executionMarker   = "/opt/azure/containers/e2e-script-hotfix-executed"
+	)
+	marker := fmt.Sprintf("EMBEDDED_SCRIPT_HOTFIX_%d", time.Now().UnixNano())
+	payload, err := os.ReadFile(repoPath("parts/linux/cloud-init/artifacts/cse_config.sh"))
+	if err != nil {
+		panic(fmt.Sprintf("read hotfix payload: %v", err))
+	}
+	payload = append(payload, []byte(fmt.Sprintf(
+		"\nprintf '%%s\\n' '%s' > %s\n# %s\n",
+		marker,
+		executionMarker,
+		marker,
+	))...)
+
+	return &Scenario{
+		Name:        "Ubuntu2204_EmbeddedScriptHotfix",
+		Description: "tests that a PR-built ANC applies an embedded script hotfix before provisioning",
+		SkipIf: func(context.Context) string {
+			if config.Config.DisableScriptLessCompilation {
+				return "embedded script-hotfix E2E requires scriptless ANC compilation"
+			}
+			if config.Config.TestPreProvision {
+				return "embedded script-hotfix E2E does not run during two-stage VHD caching"
+			}
+			return ""
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			},
+			// The fixture intentionally replaces an older VHD's provision config
+			// with the current source, so broad source/VHD parity checks do not apply.
+			SkipDefaultValidation: true,
+			ScriptHotfixFixture: &ScriptHotfixFixture{
+				Platform:    "ubuntu",
+				Destination: runtimeScriptPath,
+				Mode:        "0744",
+				Payload:     payload,
+			},
+			Validator: func(ctx context.Context, s *Scenario) error {
+				nodeName, err := s.Runtime.Kube.WaitUntilNodeReady(ctx, s.Logger, s.Runtime.VMSSName)
+				if err != nil {
+					return err
+				}
+				s.Runtime.VM.KubeName = nodeName
+				return errors.Join(
+					ValidateNodeCanRunAPod(ctx, s),
+					ValidateFileHasContent(ctx, s, runtimeScriptPath, marker),
+					ValidateFileHasContent(ctx, s, executionMarker, marker),
+					ValidateFileHasContent(
+						ctx,
+						s,
+						"/var/log/azure/aks-node-controller.output",
+						"applied embedded hotfix payload",
+					),
+				)
+			},
+		},
+	}
+}
+
+func repoPath(path string) string {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("resolve repository path")
+	}
+	return filepath.Join(filepath.Dir(file), "..", "..", path)
 }
 
 var _ = Register(&Scenario{
@@ -2519,23 +2599,11 @@ func newUbuntu2604Minimal_CustomSysctlsScenario() *Scenario {
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2604Minimal_MANA",
-	Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 26.04 minimal with a V6+ SKU",
+	Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 26.04 minimal",
 	Tags: Tags{
 		VMSeriesCoverageTest: true,
 	},
-	Config: Config{
-		Cluster: ClusterLatestKubernetesVersionKubenet,
-		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
-		UseNVMe: true,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
-			nbc.AgentPoolProfile.VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
-		},
-		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr(ensureMinVMGeneration("Standard_D2ds_v6"))
-			enableAcceleratedNetworking(vmss)
-		},
-	},
+	Config: manaScenarioConfig(config.VHDUbuntu2604MinimalGen2Containerd, ClusterLatestKubernetesVersionKubenet),
 })
 
 var _ = Register(&Scenario{
@@ -3807,66 +3875,46 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_MANA",
-	Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 24.04 with a V6+ SKU",
+	Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 24.04",
 	Tags: Tags{
 		VMSeriesCoverageTest: true,
 	},
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDUbuntu2404Gen2Containerd,
-		UseNVMe: true,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
-			nbc.AgentPoolProfile.VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
-		},
-		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr(ensureMinVMGeneration("Standard_D2ds_v6"))
-			enableAcceleratedNetworking(vmss)
-		},
-	},
+	Config: manaScenarioConfig(config.VHDUbuntu2404Gen2Containerd, ClusterKubenet),
 })
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_MANA",
-	Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 22.04 with a V6+ SKU",
+	Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 22.04",
 	Tags: Tags{
 		VMSeriesCoverageTest: true,
 	},
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDUbuntu2204Gen2Containerd,
-		UseNVMe: true,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
-			nbc.AgentPoolProfile.VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
-		},
-		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr(ensureMinVMGeneration("Standard_D2ds_v6"))
-			enableAcceleratedNetworking(vmss)
-		},
-	},
+	Config: manaScenarioConfig(config.VHDUbuntu2204Gen2Containerd, ClusterKubenet),
 })
 
 var _ = Register(&Scenario{
 	Name:        "AzureLinuxV3_MANA",
-	Description: "Tests that MANA (Accelerated Networking) is properly configured on Azure Linux V3 with a V6+ SKU",
+	Description: "Tests that MANA (Accelerated Networking) is properly configured on Azure Linux V3",
 	Tags: Tags{
 		VMSeriesCoverageTest: true,
 	},
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDAzureLinuxV3Gen2,
+	Config: manaScenarioConfig(config.VHDAzureLinuxV3Gen2, ClusterKubenet),
+})
+
+func manaScenarioConfig(vhd *config.Image, cluster func(context.Context, ClusterRequest) (*Cluster, error)) Config {
+	return Config{
+		Cluster: cluster,
+		VHD:     vhd,
 		UseNVMe: true,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
-			nbc.AgentPoolProfile.VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.Config.MANAVMSKU
+			nbc.AgentPoolProfile.VMSize = config.Config.MANAVMSKU
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr(ensureMinVMGeneration("Standard_D2ds_v6"))
+			vmss.SKU.Name = to.Ptr(config.Config.MANAVMSKU)
 			enableAcceleratedNetworking(vmss)
 		},
-	},
-})
+	}
+}
 
 // Ubuntu2204_NodeHardening_KubeReservedSlice_ConfigFile validates the config-file
 // kubelet path (kubelet reads /etc/default/kubeletconfig.json), which is selected whenever

@@ -42,8 +42,9 @@ const (
 	archAMD64 = "amd64"
 	archARM64 = "arm64"
 
-	osIDAzureLinux = "azurelinux"
-	osIDMariner    = "mariner"
+	// osIDMariner is the pre-rename ID for Azure Linux; osReleaseIDAzureLinux (declared in
+	// embeddednodecustomdata.go) covers the current ID.
+	osIDMariner = "mariner"
 )
 
 type integrityError struct {
@@ -196,7 +197,7 @@ func (a *App) tryRepositoryDownload(ctx context.Context, hotfixVersion string) e
 	switch info.ID {
 	case "ubuntu":
 		plan, err = a.ubuntuRepositoryPlan(info, hotfixVersion)
-	case osIDAzureLinux, osIDMariner:
+	case osReleaseIDAzureLinux, osIDMariner:
 		plan, err = a.rpmRepositoryPlan(info, hotfixVersion)
 	default:
 		err = newUnsupportedRepositoryError("unsupported repository platform %q", info.ID)
@@ -1283,7 +1284,7 @@ func rpmReleaseVersion(versionID string) string {
 func rpmReleaseSuffix(info platformInfo) (string, error) {
 	major := strings.SplitN(info.VersionID, ".", 2)[0]
 	switch {
-	case info.ID == osIDAzureLinux && major == "3":
+	case info.ID == osReleaseIDAzureLinux && major == "3":
 		return "azl3", nil
 	case info.ID == osIDMariner && major == "2":
 		return "cm2", nil
