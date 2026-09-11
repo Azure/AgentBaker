@@ -315,15 +315,24 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 	}
 	command := []string{
 		"set -ex",
-		fmt.Sprintf("sudo sysctl %s | sed -E 's/([0-9])\\s+([0-9])/\\1 \\2/g'", strings.Join(keysToCheck, " ")),
+		fmt.Sprintf("sudo sysctl %s", strings.Join(keysToCheck, " ")),
 	}
 	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "sysctl command failed")
 	if err != nil {
 		return fmt.Errorf("read sysctl config: %w", err)
 	}
+	return validateSysctlOutput(execResult.stdout, customSysctls)
+}
+
+func validateSysctlOutput(output string, customSysctls map[string]string) error {
+	lines := strings.Split(output, "\n")
+	for i, line := range lines {
+		lines[i] = strings.Join(strings.Fields(line), " ")
+	}
 	var errs []error
 	for name, value := range customSysctls {
-		errs = append(errs, assert.Contains(execResult.stdout, fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not.\nStdout:\n%s", name, value, execResult.stdout))
+		expectedLine := strings.Join(strings.Fields(fmt.Sprintf("%s = %s", name, value)), " ")
+		errs = append(errs, assert.Equal(slices.Contains(lines, expectedLine), true, "expected to find %s set to %q, but was not.\nStdout:\n%s", name, value, output))
 	}
 	return errors.Join(errs...)
 }
@@ -3515,6 +3524,47 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 		return err
 	}
 	return assert.Equal(actualValue, expectedValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
+}
+
+func ValidateHotfixFromNBCCmd(ctx context.Context, s *Scenario) error {
+	result, err := execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		`set -eu
+config_path=/opt/azure/containers/aks-node-controller-config.json
+nbc_cmd_path=/opt/azure/containers/aks-node-controller-nbc-cmd.sh
+anc_path=/opt/azure/containers/aks-node-controller-hotfix
+
+sudo test ! -e "$config_path" || {
+	echo "$config_path unexpectedly exists" >&2
+	exit 1
+}
+sudo test -e "$nbc_cmd_path" || {
+	echo "$nbc_cmd_path does not exist" >&2
+	exit 1
+}
+if ! sudo test -x "$anc_path"; then
+	anc_path=/opt/azure/containers/aks-node-controller
+fi
+sudo test -x "$anc_path" || {
+	echo "no executable aks-node-controller binary found" >&2
+	exit 1
+}
+
+echo "using ANC binary: $anc_path"
+sudo "$anc_path" check-hotfix`,
+		0,
+		"check-hotfix NBC command fallback failed",
+	)
+	if err != nil {
+		return err
+	}
+
+	output := result.stdout + "\n" + result.stderr
+	return errors.Join(
+		assert.Contains(output, "node config not found, trying nbc-cmd.sh fallback"),
+		assert.Contains(output, "loaded LPS target from nbc-cmd.sh fallback"),
+	)
 }
 
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled

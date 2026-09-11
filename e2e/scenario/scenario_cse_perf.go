@@ -422,25 +422,3 @@ var _ = Register(&Scenario{
 		},
 	},
 })
-
-var _ = Register(&Scenario{
-	Name: "AzureLinuxV3_CSE_FullInstallPerformance",
-	Description: "Validates CSE timing on the full install path for Azure Linux V3. " +
-		"Uses SkipBinaryCleanup VMSS tag to force FULL_INSTALL_REQUIRED=true.",
-	Config: Config{
-		Cluster:                  ClusterKubenet,
-		VHD:                      config.VHDAzureLinuxV3Gen2,
-		EagerCSETimingExtraction: true,
-		SkipDefaultValidation:    true,
-		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			if vmss.Tags == nil {
-				vmss.Tags = map[string]*string{}
-			}
-			vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
-		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			_, err := ValidateCSETimings(ctx, s, fullInstallCSEThresholdsAzureLinuxV3)
-			return err
-		},
-	},
-})

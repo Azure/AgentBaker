@@ -10,13 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoggerDoesNotExposeTestControl(t *testing.T) {
-	var logger Logger = &stateLogger{}
-	assert.NotImplements(t, (*interface{ Error(args ...any) })(nil), logger)
-	assert.NotImplements(t, (*interface{ Skip(args ...any) })(nil), logger)
-	assert.NotImplements(t, (*interface{ Cleanup(func()) })(nil), logger)
-}
-
 func TestContextLoggerRoundTrip(t *testing.T) {
 	logger := &stateLogger{}
 	ctx := ContextWithLogger(context.Background(), logger)

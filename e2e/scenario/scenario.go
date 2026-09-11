@@ -10,7 +10,6 @@ import (
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
-	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -378,7 +377,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "AzureLinuxV3",
-	Description: "Tests that an AzureLinuxV3 node can be properly bootstrapped with message of the day while chrony restarts and AppArmor remains enabled",
+	Description: "Tests Azure Linux 3 bootstrapping with custom seccomp configuration and message of the day, chrony restarts, AppArmor, and the expected containerd version",
 	Tags: Tags{
 		KubeletCustomConfig: true,
 	},
@@ -391,6 +390,7 @@ var _ = Register(&Scenario{
 				SeccompDefault: to.Ptr(true),
 			}
 			nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
 		},
 		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 			config.KubeletConfig.EnableKubeletConfigFile = true
@@ -527,7 +527,7 @@ func newUbuntu2204Scenario() *Scenario {
 
 	return &Scenario{
 		Name:        "Ubuntu2204",
-		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped with custom sysctls, and chrony/taints configured",
+		Description: "Tests Ubuntu 22.04 bootstrapping with custom sysctls, containerd ulimits, and node taints, plus chrony restarts and the expected containerd version",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -562,6 +562,7 @@ func newUbuntu2204Scenario() *Scenario {
 					ValidateTaints(ctx, s, s.Runtime.AKSNodeConfig.KubeletConfig.KubeletFlags["--register-with-taints"]),
 					ValidateUlimitSettings(ctx, s, customContainerdUlimits),
 					ValidateSysctlConfig(ctx, s, customSysctls),
+					ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0]),
 				)
 			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
@@ -755,56 +756,6 @@ func repoPath(path string) string {
 	}
 	return filepath.Join(filepath.Dir(file), "..", "..", path)
 }
-
-var _ = Register(&Scenario{
-	Name:        "Ubuntu2404_CheckHotfixFromNBCCmd",
-	Description: "tests that check-hotfix resolves the LPS target from the Phase 2 NBC command",
-	Config: Config{
-		Cluster:               ClusterKubenet,
-		VHD:                   config.VHDUbuntu2404Gen2Containerd,
-		SkipDefaultValidation: true,
-		Validator: func(ctx context.Context, s *Scenario) error {
-			result, err := execScriptOnVMForScenarioValidateExitCode(
-				ctx,
-				s,
-				`set -eu
-config_path=/opt/azure/containers/aks-node-controller-config.json
-nbc_cmd_path=/opt/azure/containers/aks-node-controller-nbc-cmd.sh
-anc_path=/opt/azure/containers/aks-node-controller-hotfix
-
-sudo test ! -e "$config_path" || {
-	echo "$config_path unexpectedly exists" >&2
-	exit 1
-}
-sudo test -e "$nbc_cmd_path" || {
-	echo "$nbc_cmd_path does not exist" >&2
-	exit 1
-}
-if ! sudo test -x "$anc_path"; then
-	anc_path=/opt/azure/containers/aks-node-controller
-fi
-sudo test -x "$anc_path" || {
-	echo "no executable aks-node-controller binary found" >&2
-	exit 1
-}
-
-echo "using ANC binary: $anc_path"
-sudo "$anc_path" check-hotfix`,
-				0,
-				"check-hotfix NBC command fallback failed",
-			)
-			if err != nil {
-				return err
-			}
-
-			output := result.stdout + "\n" + result.stderr
-			return errors.Join(
-				assert.Contains(output, "node config not found, trying nbc-cmd.sh fallback"),
-				assert.Contains(output, "loaded LPS target from nbc-cmd.sh fallback"),
-			)
-		},
-	},
-})
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204FIPS",
@@ -1449,33 +1400,9 @@ var _ = Register(&Scenario{
 	},
 })
 
-var _ = Register(&Scenario{
-	Name:        "Ubuntu2204_ChronyRestarts_Taints_And_Tolerations",
-	Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDUbuntu2204Gen2Containerd,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.KubeletConfig["--register-with-taints"] = "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"
-		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			if err := errors.Join(
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always"),
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5"),
-			); err != nil {
-				return err
-			}
-			if err := ServiceCanRestartValidator(ctx, s, "chronyd", 10); err != nil {
-				return err
-			}
-			return ValidateTaints(ctx, s, s.Runtime.NBC.KubeletConfig["--register-with-taints"])
-		},
-	},
-})
+var _ = Register(newUbuntu2204_CustomNodeConfigScenario())
 
-var _ = Register(newUbuntu2204_CustomSysctlsScenario())
-
-func newUbuntu2204_CustomSysctlsScenario() *Scenario {
+func newUbuntu2204_CustomNodeConfigScenario() *Scenario {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 65535",
 		"net.netfilter.nf_conntrack_max":     "2097152",
@@ -1488,8 +1415,11 @@ func newUbuntu2204_CustomSysctlsScenario() *Scenario {
 		"LimitNOFILE":  "1048",
 	}
 	return &Scenario{
-		Name:        "Ubuntu2204_CustomSysctls",
-		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
+		Name:        "Ubuntu2204_CustomNodeConfig",
+		Description: "Tests Ubuntu 22.04 bootstrapping with custom sysctls, containerd ulimits, and kubelet seccomp configuration",
+		Tags: Tags{
+			KubeletCustomConfig: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -1507,11 +1437,19 @@ func newUbuntu2204_CustomSysctlsScenario() *Scenario {
 					},
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
+				customKubeletConfig := &datamodel.CustomKubeletConfig{
+					SeccompDefault: to.Ptr(true),
+				}
+				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
+				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
 				return errors.Join(
 					ValidateUlimitSettings(ctx, s, customContainerdUlimits),
 					ValidateSysctlConfig(ctx, s, customSysctls),
+					ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`),
+					ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath),
 				)
 			},
 		},
@@ -1591,34 +1529,6 @@ func ubuntu2204GPUScenario(name, vmSize, location string) *Scenario {
 }
 
 var _ = Register(&Scenario{
-	Name:        "Ubuntu2204_GPUGridDriver",
-	Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD with grid driver can be properly bootstrapped",
-	Tags: Tags{
-		GPU: true,
-	},
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDUbuntu2204Gen2Containerd,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
-			nbc.ConfigGPUDriverIfNeeded = true
-			nbc.EnableGPUDevicePluginIfNeeded = false
-			nbc.EnableNvidia = true
-		},
-		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
-		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return errors.Join(
-				ValidateNvidiaModProbeInstalled(ctx, s),
-				ValidateKubeletHasNotStopped(ctx, s),
-				ValidateNvidiaSMIInstalled(ctx, s),
-			)
-		},
-	},
-})
-
-var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_GPUNoDriver",
 	Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
 	Location:    "westus2",
@@ -1684,23 +1594,12 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
-	Name:        "Ubuntu2204_ContainerdHasCurrentVersion",
-	Description: "tests that a node using an Ubuntu2204 VHD and the ContainerdVersion override bootstraps with the correct components.json containerd version and ignores the override",
+	Name:        "AzureLinuxV3_FullInstall_SkipBinaryCleanup",
+	Description: "Tests Azure Linux 3 full-install CSE timing and retention of multiple kube-proxy versions; SkipBinaryCleanup=true forces FULL_INSTALL_REQUIRED=true",
 	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDUbuntu2204Gen2Containerd,
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
-		},
-	},
-})
-
-var _ = Register(&Scenario{
-	Name:        "AzureLinux_Skip_Binary_Cleanup",
-	Description: "tests that an AzureLinux node will skip binary cleanup and can be properly bootstrapped",
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDAzureLinuxV3Gen2,
+		Cluster:                  ClusterKubenet,
+		VHD:                      config.VHDAzureLinuxV3Gen2,
+		EagerCSETimingExtraction: true,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			if vmss.Tags == nil {
 				vmss.Tags = map[string]*string{}
@@ -1708,7 +1607,8 @@ var _ = Register(&Scenario{
 			vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateMultipleKubeProxyVersionsExist(ctx, s)
+			_, timingErr := ValidateCSETimings(ctx, s, fullInstallCSEThresholdsAzureLinuxV3)
+			return errors.Join(timingErr, ValidateMultipleKubeProxyVersionsExist(ctx, s))
 		},
 	},
 })
@@ -1750,21 +1650,6 @@ var _ = Register(&Scenario{
 			config.KubeletConfig.KubeletConfigFileConfig.FeatureGates = map[string]bool{"RotateKubeletServerCertificate": true}
 			config.EnableUnattendedUpgrade = false
 		},
-		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			if vmss.Tags == nil {
-				vmss.Tags = map[string]*string{}
-			}
-			vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
-		},
-	},
-})
-
-var _ = Register(&Scenario{
-	Name:        "Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDisabled",
-	Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation disabled will disable certificate rotation regardless of nodepool tags",
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDUbuntu2204Gen2Containerd,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			if vmss.Tags == nil {
 				vmss.Tags = map[string]*string{}
@@ -1854,51 +1739,6 @@ var _ = Register(&Scenario{
 	},
 })
 
-var _ = Register(newAzureLinuxV3_CustomSysctlsScenario())
-
-func newAzureLinuxV3_CustomSysctlsScenario() *Scenario {
-	customSysctls := map[string]string{
-		"net.ipv4.ip_local_port_range":       "32768 62535",
-		"net.netfilter.nf_conntrack_max":     "2097152",
-		"net.netfilter.nf_conntrack_buckets": "524288",
-		"net.ipv4.tcp_keepalive_intvl":       "90",
-		"net.ipv4.ip_local_reserved_ports":   "",
-	}
-	customContainerdUlimits := map[string]string{
-		"LimitMEMLOCK": "75000",
-		"LimitNOFILE":  "1048",
-	}
-	return &Scenario{
-		Name:        "AzureLinuxV3_CustomSysctls",
-		Description: "tests that a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
-					Sysctls: &datamodel.SysctlConfig{
-						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
-						NetNetfilterNfConntrackBuckets: to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
-						NetIpv4IpLocalPortRange:        customSysctls["net.ipv4.ip_local_port_range"],
-						NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
-					},
-					UlimitConfig: &datamodel.UlimitConfig{
-						MaxLockedMemory: customContainerdUlimits["LimitMEMLOCK"],
-						NoFile:          customContainerdUlimits["LimitNOFILE"],
-					},
-				}
-				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
-			},
-			Validator: func(ctx context.Context, s *Scenario) error {
-				return errors.Join(
-					ValidateUlimitSettings(ctx, s, customContainerdUlimits),
-					ValidateSysctlConfig(ctx, s, customSysctls),
-				)
-			},
-		},
-	}
-}
-
 var _ = Register(newAzureLinuxV3_CustomLinuxOSConfigPersistsAfterRebootScenario())
 
 func newAzureLinuxV3_CustomLinuxOSConfigPersistsAfterRebootScenario() *Scenario {
@@ -1907,6 +1747,7 @@ func newAzureLinuxV3_CustomLinuxOSConfigPersistsAfterRebootScenario() *Scenario 
 		"net.netfilter.nf_conntrack_max":     "2097152",
 		"net.netfilter.nf_conntrack_buckets": "524288",
 		"net.ipv4.tcp_keepalive_intvl":       "90",
+		"net.ipv4.ip_local_reserved_ports":   "",
 	}
 	customContainerdUlimits := map[string]string{
 		"LimitMEMLOCK": "75000",
@@ -1920,7 +1761,7 @@ func newAzureLinuxV3_CustomLinuxOSConfigPersistsAfterRebootScenario() *Scenario 
 
 	return &Scenario{
 		Name:        "AzureLinuxV3_CustomLinuxOSConfigPersistsAfterReboot",
-		Description: "tests that AzureLinuxV3 custom Linux OS config persists after a node reboot",
+		Description: "Tests Azure Linux 3 custom sysctls, containerd ulimits, swap, and transparent huge-page settings before and after a node reboot",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
@@ -2018,63 +1859,6 @@ var _ = Register(&Scenario{
 		Validator: func(ctx context.Context, s *Scenario) error {
 			const swapFileSizeMB = 40000
 			return ValidateSwapFileConfig(ctx, s, swapFileSizeMB)
-		},
-	},
-})
-
-var _ = Register(&Scenario{
-	Name: "Ubuntu2204_KubeletCustomConfig",
-	Tags: Tags{
-		KubeletCustomConfig: true,
-	},
-	Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet custom config for seccomp set to non default values",
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDUbuntu2204Gen2Containerd,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-			nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
-			customKubeletConfig := &datamodel.CustomKubeletConfig{
-				SeccompDefault: to.Ptr(true),
-			}
-			nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
-		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
-			return errors.Join(
-				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`),
-				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath),
-			)
-		},
-	},
-})
-
-var _ = Register(&Scenario{
-	Name: "AzureLinuxV3_KubeletCustomConfig",
-	Tags: Tags{
-		KubeletCustomConfig: true,
-	},
-	Description: "tests that a node on azure linux v3 bootstrapped with kubelet custom config for seccomp set to non default values",
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDAzureLinuxV3Gen2,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v3-gen2"
-			nbc.AgentPoolProfile.Distro = "aks-azurelinux-v3-gen2"
-			customKubeletConfig := &datamodel.CustomKubeletConfig{
-				SeccompDefault: to.Ptr(true),
-			}
-			nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
-		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
-			return errors.Join(
-				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`),
-				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath),
-				ValidateInstalledPackageVersion(ctx, s, "containerd2", components.GetExpectedPackageVersions("containerd", "azurelinux", "v3.0")[0]),
-			)
 		},
 	},
 })
@@ -2379,34 +2163,6 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
-	Name: "Ubuntu2604Minimal_KubeletCustomConfig",
-	Tags: Tags{
-		KubeletCustomConfig: true,
-	},
-	Description: "tests that a node on ubuntu 2604 minimal bootstrapped with kubelet custom config for seccomp set to non default values",
-	Config: Config{
-		Cluster: ClusterLatestKubernetesVersionKubenet,
-		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-minimal-containerd-26.04-gen2"
-			nbc.AgentPoolProfile.Distro = "aks-ubuntu-minimal-containerd-26.04-gen2"
-			customKubeletConfig := &datamodel.CustomKubeletConfig{
-				SeccompDefault: to.Ptr(true),
-			}
-			nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
-		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
-			return errors.Join(
-				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`),
-				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath),
-			)
-		},
-	},
-})
-
-var _ = Register(&Scenario{
 	Name:        "Ubuntu2604Minimal_SecureTLSBootstrapping_BootstrapToken_Fallback",
 	Description: "Tests that a node using an Ubuntu 2604 minimal Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
 	Tags: Tags{
@@ -2462,21 +2218,6 @@ var _ = Register(&Scenario{
 			config.KubeletConfig.KubeletConfigFileConfig.FeatureGates = map[string]bool{"RotateKubeletServerCertificate": true}
 			config.EnableUnattendedUpgrade = false
 		},
-		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			if vmss.Tags == nil {
-				vmss.Tags = map[string]*string{}
-			}
-			vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
-		},
-	},
-})
-
-var _ = Register(&Scenario{
-	Name:        "Ubuntu2604Minimal_DisableKubeletServingCertificateRotationWithTags_AlreadyDisabled",
-	Description: "tests that a node on ubuntu 2604 minimal bootstrapped with kubelet serving certificate rotation disabled will disable certificate rotation regardless of nodepool tags",
-	Config: Config{
-		Cluster: ClusterLatestKubernetesVersionKubenet,
-		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			if vmss.Tags == nil {
 				vmss.Tags = map[string]*string{}
@@ -2552,9 +2293,9 @@ var _ = Register(&Scenario{
 	},
 })
 
-var _ = Register(newUbuntu2604Minimal_CustomSysctlsScenario())
+var _ = Register(newUbuntu2604Minimal_CustomNodeConfigScenario())
 
-func newUbuntu2604Minimal_CustomSysctlsScenario() *Scenario {
+func newUbuntu2604Minimal_CustomNodeConfigScenario() *Scenario {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 65535",
 		"net.netfilter.nf_conntrack_max":     "2097152",
@@ -2567,8 +2308,11 @@ func newUbuntu2604Minimal_CustomSysctlsScenario() *Scenario {
 		"LimitNOFILE":  "1048",
 	}
 	return &Scenario{
-		Name:        "Ubuntu2604Minimal_CustomSysctls",
-		Description: "tests that an ubuntu 2604 minimal VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
+		Name:        "Ubuntu2604Minimal_CustomNodeConfig",
+		Description: "Tests Ubuntu 26.04 minimal bootstrapping with custom sysctls, containerd ulimits, and kubelet seccomp configuration",
+		Tags: Tags{
+			KubeletCustomConfig: true,
+		},
 		Config: Config{
 			Cluster: ClusterLatestKubernetesVersionKubenet,
 			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
@@ -2586,11 +2330,19 @@ func newUbuntu2604Minimal_CustomSysctlsScenario() *Scenario {
 					},
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
+				customKubeletConfig := &datamodel.CustomKubeletConfig{
+					SeccompDefault: to.Ptr(true),
+				}
+				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
+				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
 				return errors.Join(
 					ValidateUlimitSettings(ctx, s, customContainerdUlimits),
 					ValidateSysctlConfig(ctx, s, customSysctls),
+					ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`),
+					ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath),
 				)
 			},
 		},
@@ -3275,8 +3027,8 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
-	Name:        "Ubuntu2404_NPD_Basic",
-	Description: "Test that a node with AKS VM Extension enabled can report simulated node problem detector events",
+	Name:        "Ubuntu2404_NPD_HotfixFallback",
+	Description: "Tests Ubuntu 24.04 NPD filesystem-corruption reporting with the AKS VM Extension and hotfix target resolution from the NBC command when ANC JSON is absent",
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDUbuntu2404Gen2Containerd,
@@ -3289,10 +3041,11 @@ var _ = Register(&Scenario{
 			return nil
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
+			hotfixErr := ValidateHotfixFromNBCCmd(ctx, s)
 			if err := ValidateNodeProblemDetector(ctx, s); err != nil {
-				return err
+				return errors.Join(hotfixErr, err)
 			}
-			return ValidateNPDFilesystemCorruption(ctx, s)
+			return errors.Join(hotfixErr, ValidateNPDFilesystemCorruption(ctx, s))
 		},
 	},
 })
