@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"golang.org/x/crypto/ssh"
 )
 
 const logCollectionConcurrency = 8
@@ -22,12 +24,22 @@ func collectCommandLogs(ctx context.Context, artifactName string, commands map[s
 
 			var result *podExecResult
 			err := runCleanup(ctx, func(ctx context.Context) error {
-				if err := ctx.Err(); err != nil {
-					return err
+				for attempt := 0; ; attempt++ {
+					if err := ctx.Err(); err != nil {
+						return err
+					}
+					var err error
+					result, err = exec(ctx, command)
+					var rejected *ssh.OpenChannelError
+					if attempt >= 4 || !errors.As(err, &rejected) || rejected.Reason != ssh.ConnectionFailed {
+						return err
+					}
+					select {
+					case <-time.After(200 * time.Millisecond):
+					case <-ctx.Done():
+						return errors.Join(ctx.Err(), err)
+					}
 				}
-				var err error
-				result, err = exec(ctx, command)
-				return err
 			})
 			var content string
 			var collectionErr error

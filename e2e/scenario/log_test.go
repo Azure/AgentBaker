@@ -14,6 +14,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/ssh"
 )
 
 func TestCollectCommandLogsConcurrency(t *testing.T) {
@@ -114,6 +115,52 @@ func TestCollectCommandLogsCanceledContextAndWriteFailure(t *testing.T) {
 
 	require.NoError(t, os.WriteFile(filepath.Join(config.Config.E2ELoggingDir, "blocked"), nil, 0600))
 	require.ErrorContains(t, collectCommandLogs(ctx, "blocked", commands, exec), "write log error.log")
+}
+
+func TestCollectCommandLogsRetriesRejectedSessions(t *testing.T) {
+	original := config.Config.E2ELoggingDir
+	config.Config.E2ELoggingDir = t.TempDir()
+	t.Cleanup(func() { config.Config.E2ELoggingDir = original })
+	for _, test := range []struct {
+		name     string
+		failures int
+		reason   ssh.RejectionReason
+		wantRuns int
+		wantErr  bool
+		cancel   bool
+	}{
+		{"recovers", 1, ssh.ConnectionFailed, 2, false, false},
+		{"exhausted", 10, ssh.ConnectionFailed, 5, true, false},
+		{"denied", 1, ssh.Prohibited, 1, true, false},
+		{"canceled", 1, ssh.ConnectionFailed, 1, true, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			runs := 0
+			err := collectCommandLogs(ctx, test.name, map[string]string{"test.log": "command"},
+				func(context.Context, string) (*podExecResult, error) {
+					runs++
+					if test.cancel {
+						cancel()
+					}
+					if runs <= test.failures {
+						return nil, &ssh.OpenChannelError{Reason: test.reason, Message: "open failed"}
+					}
+					return &podExecResult{exitCode: "0", stdout: "collected"}, nil
+				})
+			assert.Equal(t, test.wantRuns, runs)
+			content, readErr := os.ReadFile(filepath.Join(artifactDir(test.name), "test.log"))
+			require.NoError(t, readErr)
+			if test.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, string(content), "open failed")
+			} else {
+				require.NoError(t, err)
+				assert.Contains(t, string(content), "collected")
+			}
+		})
+	}
 }
 
 func TestArtifactHelpersUseTheGivenArtifactName(t *testing.T) {
