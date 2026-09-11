@@ -277,6 +277,11 @@ The runner calls the scenario package to execute a scenario once. The scenario p
 cleans up that execution and returns its outcome. The runner decides whether to retry.
 The scenario package does not depend on the runner.
 
+Cleanup callbacks run concurrently. Register only independent work with `Scenario.Cleanup`;
+keep dependent operations in one callback, such as collecting VM logs before deleting that VM.
+Linux log collection runs up to eight commands concurrently per VM. Collection errors are saved
+in the affected log files; the console reports failed file names without the full error details.
+
 The other directories contain helper packages and embedded resources.
 
 ## E2E VHDs.
