@@ -79,42 +79,50 @@ func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
 	return applyNodeCustomData(a.getNodeCustomDataPath())
 }
 
-func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfig) (message string, err error) {
-	hotfixVersion := cfg.resolveVersion(Version)
-	route := hotfixRouteNone
-	outcome := hotfixOutcomeStarted
-	slog.Info("ANC hotfix binary operation started", "current", Version, "target", hotfixVersion)
-	defer func() {
-		logHotfixBinaryOperationFinished(Version, hotfixVersion, route, outcome, err)
-		message = hotfixOperationMessage(Version, hotfixVersion, route, outcome)
-	}()
+// hotfixProgress tracks which install route was taken and how the attempt ended, so the
+// caller can emit a single summary event no matter which branch returns.
+type hotfixProgress struct {
+	route   string
+	outcome string
+}
 
+func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfig) (string, error) {
+	hotfixVersion := cfg.resolveVersion(Version)
+	progress := &hotfixProgress{route: hotfixRouteNone, outcome: hotfixOutcomeStarted}
+	slog.Info("ANC hotfix binary operation started", "current", Version, "target", hotfixVersion)
+
+	err := a.runBinaryHotfix(ctx, cfg, hotfixVersion, progress)
+	logHotfixBinaryOperationFinished(Version, hotfixVersion, progress.route, progress.outcome, err)
+	return hotfixOperationMessage(Version, hotfixVersion, progress.route, progress.outcome), err
+}
+
+func (a *App) runBinaryHotfix(ctx context.Context, cfg *hotfixConfig, hotfixVersion string, progress *hotfixProgress) error {
 	if hotfixVersion == "" {
 		if len(cfg.Hotfixes) > 0 {
-			if _, err := hotfixBaseFromVersion(Version); err != nil {
-				outcome = hotfixOutcomeSkippedVersionCompareError
-				return "", nil
+			if _, baseErr := hotfixBaseFromVersion(Version); baseErr != nil {
+				progress.outcome = hotfixOutcomeSkippedVersionCompareError
+				return nil
 			}
 		}
-		outcome = hotfixOutcomeSkippedNoVersion
+		progress.outcome = hotfixOutcomeSkippedNoVersion
 		slog.Info("hotfix config does not request a version for this base, skipping download", "current", Version)
-		return "", nil
+		return nil
 	}
 
 	// Patch-only matching: only upgrade if same YYYYMM.DD base and hotfix has
 	// a strictly higher PATCH. Parse errors (e.g. "dev" builds) result in skip.
 	shouldUpgrade, err := shouldUpgradeToHotfix(Version, hotfixVersion)
 	if err != nil {
-		outcome = hotfixOutcomeSkippedVersionCompareError
+		progress.outcome = hotfixOutcomeSkippedVersionCompareError
 		slog.Warn("failed to compare versions, skipping hotfix download",
 			"current", Version, "hotfix", hotfixVersion, "error", err)
-		return "", nil
+		return nil
 	}
 	if !shouldUpgrade {
-		outcome = hotfixOutcomeSkippedNotTargeted
+		progress.outcome = hotfixOutcomeSkippedNotTargeted
 		slog.Info("ANC version not targeted by hotfix, skipping download",
 			"current", Version, "hotfix", hotfixVersion)
-		return "", nil
+		return nil
 	}
 
 	slog.Info("downloading ANC hotfix", "current", Version, "target", hotfixVersion)
@@ -122,33 +130,33 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 	// Install via package manager (apt-get or dnf/tdnf). A future direct-download path must
 	// resolve the package from the node's configured repository and extract the ANC binary;
 	// package artifacts cannot be staged directly as executables.
-	route = hotfixRoutePackageManager
+	progress.route = hotfixRoutePackageManager
 	slog.Info("ANC hotfix package-manager install started", "target", hotfixVersion)
 	if err := a.eventLogger.RunTimedOperation("Hotfix.PackageManagerInstall", func() (string, error) {
-		err := a.installFromPMC(ctx, hotfixVersion)
-		return fmt.Sprintf("target=%s route=%s outcome=%s", hotfixVersion, route, hotfixOutcome(err)), err
+		installErr := a.installFromPMC(ctx, hotfixVersion)
+		return fmt.Sprintf("target=%s route=%s outcome=%s", hotfixVersion, progress.route, hotfixOutcome(installErr)), installErr
 	}); err != nil {
-		outcome = string(outcomeFailed)
+		progress.outcome = string(outcomeFailed)
 		slog.Warn("ANC hotfix package-manager install failed", "target", hotfixVersion, "error", err)
-		return "", fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
+		return fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
 	}
 	slog.Info("ANC hotfix package-manager install finished", "target", hotfixVersion)
 
 	slog.Info("ANC hotfix binary staging started", "target", hotfixVersion, "src", a.pkgPath(), "dst", a.hotfixPath())
 	if err := a.eventLogger.RunTimedOperation("Hotfix.BinaryStaging", func() (string, error) {
-		err := copyBinaryAlongside(a.pkgPath(), a.hotfixPath(), a.vhdPath())
+		stageErr := copyBinaryAlongside(a.pkgPath(), a.hotfixPath(), a.vhdPath())
 		return fmt.Sprintf("target=%s source=%s destination=%s outcome=%s",
-			hotfixVersion, a.pkgPath(), a.hotfixPath(), hotfixOutcome(err)), err
+			hotfixVersion, a.pkgPath(), a.hotfixPath(), hotfixOutcome(stageErr)), stageErr
 	}); err != nil {
-		outcome = string(outcomeFailed)
+		progress.outcome = string(outcomeFailed)
 		slog.Warn("ANC hotfix binary staging failed", "target", hotfixVersion, "error", err)
-		return "", fmt.Errorf("stage hotfix binary: %w", err)
+		return fmt.Errorf("stage hotfix binary: %w", err)
 	}
 	slog.Info("ANC hotfix binary staging finished", "target", hotfixVersion)
 
 	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", a.hotfixPath())
-	outcome = hotfixOutcomeSuccess
-	return "", nil
+	progress.outcome = hotfixOutcomeSuccess
+	return nil
 }
 
 func hotfixOperationMessage(current, target, route, outcome string) string {
