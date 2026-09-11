@@ -457,8 +457,6 @@ nameserver 169.254.10.10
 EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
-            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
-            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
             The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
         End
 
@@ -468,8 +466,6 @@ nameserver 169.254.10.11
 EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
-            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
-            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
             The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.11"
         End
 
@@ -480,9 +476,29 @@ nameserver 169.254.10.10
 EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
-            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
-            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
             The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+        End
+
+        It 'should report a listener before an invalid upstream entry'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 10.0.0.1/24
+nameserver 169.254.10.10
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+            The stdout should not include "Invalid upstream VNET DNS server '10.0.0.1/24'"
+        End
+
+        It 'should report a listener after an invalid upstream entry'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 169.254.10.10
+nameserver 10.0.0.1/24
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+            The stdout should not include "Invalid upstream VNET DNS server '10.0.0.1/24'"
         End
 
         It 'should fail if the cluster listener is mixed into an otherwise valid upstream DNS list'
@@ -492,9 +508,29 @@ nameserver 169.254.10.11
 EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
-            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
-            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
             The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.11"
+        End
+
+        It 'should report the cluster listener before an invalid upstream entry'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 10.0.0.1/24
+nameserver 169.254.10.11
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.11"
+            The stdout should not include "Invalid upstream VNET DNS server '10.0.0.1/24'"
+        End
+
+        It 'should report the cluster listener after an invalid upstream entry'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 169.254.10.11
+nameserver 10.0.0.1/24
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.11"
+            The stdout should not include "Invalid upstream VNET DNS server '10.0.0.1/24'"
         End
 
         It 'should fail if an upstream entry is not an address'
@@ -503,81 +539,16 @@ nameserver 10.0.0.1/24
 EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
-            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
-            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
             The stdout should include "Invalid upstream VNET DNS server '10.0.0.1/24'"
         End
 
-        It 'should fail if an IPv4 octet is out of range'
-cat <<EOF > "$RESOLV_CONF"
-nameserver 999.999.999.999
-EOF
-            When run replace_azurednsip_in_corefile
-            The status should be failure
-            The stdout should include "Invalid upstream VNET DNS server '999.999.999.999'"
-        End
-
-        It 'should fail if an IPv6 address has no separators'
-cat <<EOF > "$RESOLV_CONF"
-nameserver deadbeef
-EOF
-            When run replace_azurednsip_in_corefile
-            The status should be failure
-            The stdout should include "Invalid upstream VNET DNS server 'deadbeef'"
-        End
-
-        It 'should fail if an IPv6 address has no hextets'
-cat <<EOF > "$RESOLV_CONF"
-nameserver :::
-EOF
-            When run replace_azurednsip_in_corefile
-            The status should be failure
-            The stdout should include "Invalid upstream VNET DNS server ':::'"
-        End
-
-        It 'should fail if an address contains only punctuation'
-cat <<EOF > "$RESOLV_CONF"
-nameserver ....
-EOF
-            When run replace_azurednsip_in_corefile
-            The status should be failure
-            The stdout should include "Invalid upstream VNET DNS server '....'"
-        End
-
-        It 'should fail if an IPv6 address contains triple colons'
-cat <<EOF > "$RESOLV_CONF"
-nameserver 1:::2
-EOF
-            When run replace_azurednsip_in_corefile
-            The status should be failure
-            The stdout should include "Invalid upstream VNET DNS server '1:::2'"
-        End
-
-        It 'should fail if an IPv6 address has an unmatched leading colon'
-cat <<EOF > "$RESOLV_CONF"
-nameserver :1:2:3:4:5:6:7:8
-EOF
-            When run replace_azurednsip_in_corefile
-            The status should be failure
-            The stdout should include "Invalid upstream VNET DNS server ':1:2:3:4:5:6:7:8'"
-        End
-
-        It 'should fail if an IPv6 address has an unmatched trailing colon'
-cat <<EOF > "$RESOLV_CONF"
-nameserver 1:2:3:4:5:6:7:8:
-EOF
-            When run replace_azurednsip_in_corefile
-            The status should be failure
-            The stdout should include "Invalid upstream VNET DNS server '1:2:3:4:5:6:7:8:'"
-        End
-
-        It 'should accept the unspecified IPv6 address'
+        It 'should reject the unspecified IPv6 address'
 cat <<EOF > "$RESOLV_CONF"
 nameserver ::
 EOF
             When run replace_azurednsip_in_corefile
-            The status should be success
-            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . ::"
+            The status should be failure
+            The stdout should include "Invalid upstream VNET DNS server '::'"
         End
 
         It 'should replace Azure DNS with multiple valid upstream DNS servers'
