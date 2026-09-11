@@ -861,6 +861,7 @@ func TestDownloadHotfixGuestAgentTimingEvents(t *testing.T) {
 			configData, err := json.Marshal(cfg)
 			require.NoError(t, err)
 			tt.App.hotfixVersionPath = filepath.Join(dir, "hotfix-config.json")
+			tt.App.hotfixTimingPath = filepath.Join(dir, "hotfix-timing.json")
 			require.NoError(t, os.WriteFile(tt.App.hotfixVersionPath, configData, 0o644))
 
 			err = tt.App.downloadHotfix(context.Background())
@@ -891,6 +892,19 @@ func TestDownloadHotfixGuestAgentTimingEvents(t *testing.T) {
 			assert.Equal(t, tc.wantLevel, events[len(events)-1].EventLevel)
 			for _, expected := range tc.wantMessage {
 				assert.Contains(t, events[len(events)-1].Message, expected)
+			}
+
+			var timing hotfixTiming
+			timingBytes, err := os.ReadFile(tt.App.hotfixTimingPath)
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(timingBytes, &timing))
+			assert.Equal(t, tc.current, timing.Current)
+			assert.NotEqual(t, hotfixOutcomeStarted, timing.Outcome)
+			assert.GreaterOrEqual(t, timing.DurationMs, int64(0))
+			if tc.wantErr {
+				assert.NotEmpty(t, timing.Error)
+			} else {
+				assert.Empty(t, timing.Error)
 			}
 		})
 	}

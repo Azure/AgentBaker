@@ -17,6 +17,7 @@ import (
 
 const (
 	defaultHotfixVersionPath = "/opt/azure/containers/aks-node-controller-hotfix.json"
+	defaultHotfixTimingPath  = "/var/log/azure/aks-node-controller-hotfix-timing.json"
 	maxInstallRetries        = 5
 	retryBackoff             = 3 * time.Second
 	commandTimeout           = 60 * time.Second
@@ -96,12 +97,22 @@ type hotfixProgress struct {
 }
 
 func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfig) (string, error) {
+	start := time.Now()
 	hotfixVersion, resolveErr := cfg.resolveVersion(Version)
 	progress := &hotfixProgress{route: hotfixRouteNone, outcome: hotfixOutcomeStarted}
 	slog.Info("ANC hotfix binary operation started", "current", Version, "target", hotfixVersion)
 
 	err := a.runBinaryHotfix(ctx, hotfixVersion, resolveErr, progress)
-	logHotfixBinaryOperationFinished(Version, hotfixVersion, progress.route, progress.outcome, err)
+	duration := time.Since(start)
+	a.writeHotfixTiming(hotfixTiming{
+		Current:    Version,
+		Target:     hotfixVersion,
+		Route:      progress.route,
+		Outcome:    progress.outcome,
+		DurationMs: duration.Milliseconds(),
+		Error:      hotfixTimingError(err),
+	})
+	logHotfixBinaryOperationFinished(Version, hotfixVersion, progress.route, progress.outcome, duration, err)
 	return hotfixOperationMessage(Version, hotfixVersion, progress.route, progress.outcome), err
 }
 
@@ -181,12 +192,13 @@ func hotfixOutcome(err error) string {
 	return hotfixOutcomeSuccess
 }
 
-func logHotfixBinaryOperationFinished(current, target, route, outcome string, err error) {
+func logHotfixBinaryOperationFinished(current, target, route, outcome string, duration time.Duration, err error) {
 	attrs := []any{
 		"current", current,
 		"target", target,
 		"route", route,
 		"outcome", outcome,
+		"durationMs", duration.Milliseconds(),
 	}
 	if err != nil {
 		attrs = append(attrs, "error", err)
@@ -215,6 +227,73 @@ func (a *App) pkgPath() string {
 		return a.pkgBinaryPath
 	}
 	return pkgBinaryPath
+}
+
+func (a *App) timingPath() string {
+	if a.hotfixTimingPath != "" {
+		return a.hotfixTimingPath
+	}
+	return defaultHotfixTimingPath
+}
+
+type hotfixTiming struct {
+	Current    string `json:"current"`
+	Target     string `json:"target"`
+	Route      string `json:"route"`
+	Outcome    string `json:"outcome"`
+	DurationMs int64  `json:"durationMs"`
+	Error      string `json:"error,omitempty"`
+}
+
+func hotfixTimingError(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
+func (a *App) writeHotfixTiming(timing hotfixTiming) {
+	path := a.timingPath()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		slog.Warn("failed to create ANC hotfix timing directory", "path", path, "error", err)
+		return
+	}
+	data, err := json.Marshal(timing)
+	if err != nil {
+		slog.Warn("failed to marshal ANC hotfix timing", "path", path, "error", err)
+		return
+	}
+	data = append(data, '\n')
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".aks-node-controller-hotfix-timing-*")
+	if err != nil {
+		slog.Warn("failed to create ANC hotfix timing temp file", "path", path, "error", err)
+		return
+	}
+	tmpPath := tmp.Name()
+	success := false
+	defer func() {
+		_ = tmp.Close()
+		if !success {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+	if _, err := tmp.Write(data); err != nil {
+		slog.Warn("failed to write ANC hotfix timing temp file", "path", path, "error", err)
+		return
+	}
+	if err := tmp.Chmod(0o644); err != nil {
+		slog.Warn("failed to chmod ANC hotfix timing temp file", "path", path, "error", err)
+		return
+	}
+	if err := tmp.Close(); err != nil {
+		slog.Warn("failed to close ANC hotfix timing temp file", "path", path, "error", err)
+		return
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		slog.Warn("failed to publish ANC hotfix timing file", "path", path, "error", err)
+		return
+	}
+	success = true
 }
 
 // hotfixConfig is the JSON structure of the hotfix configuration file.

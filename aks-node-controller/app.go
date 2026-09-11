@@ -65,6 +65,8 @@ type App struct {
 	nbcCmdPath string
 	// gpuComponentsFilePath overrides the default GPU components.json location for testing.
 	gpuComponentsFilePath string
+	// hotfixTimingPath overrides the default hotfix timing artifact path for testing.
+	hotfixTimingPath string
 	// checkHotfixFetcher overrides the real LPS hotfix-pointer GET for testing, letting
 	// unit tests inject a canned pointer body or errors without real networking.
 	checkHotfixFetcher func(ctx context.Context) ([]byte, error)
