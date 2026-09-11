@@ -7,10 +7,12 @@ import (
 	"io/fs"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
 const defaultOSReleasePath = "/etc/os-release"
+const embeddedNodeCustomDataPath = "/opt/azure/containers/embedded-nodecustomdata.yml"
 
 // os-release ID values that appear in more than one classification path.
 const (
@@ -30,7 +32,7 @@ const (
 //go:embed scripthotfix/generated
 var embeddedGeneratedNodeCustomData embed.FS
 
-func applyEmbeddedNodeCustomData(payloadFS fs.FS, osReleasePath string) error {
+func applyEmbeddedNodeCustomData(payloadFS fs.FS, osReleasePath, outputPath string) error {
 	if osReleasePath == "" {
 		osReleasePath = defaultOSReleasePath
 	}
@@ -50,27 +52,16 @@ func applyEmbeddedNodeCustomData(payloadFS fs.FS, osReleasePath string) error {
 	if err != nil {
 		return fmt.Errorf("read embedded nodecustomdata %s: %w", renderedPath, err)
 	}
-	temp, err := os.CreateTemp("", "aks-node-controller-nodecustomdata-*.yml")
-	if err != nil {
-		return fmt.Errorf("create temporary nodecustomdata: %w", err)
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
+		return fmt.Errorf("create embedded nodecustomdata directory: %w", err)
 	}
-	defer func() {
-		if err := os.Remove(temp.Name()); err != nil {
-			slog.Warn("failed to remove temporary nodecustomdata", "path", temp.Name(), "error", err)
-		}
-	}()
-	_, writeErr := temp.Write(data)
-	closeErr := temp.Close()
-	if writeErr != nil {
-		return fmt.Errorf("write temporary nodecustomdata: %w", writeErr)
+	if err := os.WriteFile(outputPath, data, 0o600); err != nil {
+		return fmt.Errorf("write embedded nodecustomdata %s: %w", outputPath, err)
 	}
-	if closeErr != nil {
-		return fmt.Errorf("close temporary nodecustomdata: %w", closeErr)
-	}
-	if err := applyNodeCustomData(temp.Name()); err != nil {
+	if err := applyNodeCustomData(outputPath); err != nil {
 		return err
 	}
-	slog.Info("applied embedded hotfix payload", "source", renderedPath)
+	slog.Info("applied embedded hotfix payload", "source", renderedPath, "path", outputPath)
 	return nil
 }
 

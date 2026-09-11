@@ -154,10 +154,14 @@ Key components:
 
 Patched ANC binaries can embed selected Linux provisioning scripts generated from
 `parts/linux/cloud-init/artifacts/`. At the start of `provision`, ANC writes the
-rendered nodecustomdata matching the local platform to a private temporary YAML
-file and calls the existing `applyNodeCustomData` function before constructing the
-normal CSE command. The temporary YAML is removed afterward. Application errors
-are logged and provisioning continues.
+rendered nodecustomdata matching the local platform to
+`/opt/azure/containers/embedded-nodecustomdata.yml` (mode `0600` on creation)
+and calls the existing `applyNodeCustomData` function before constructing the
+normal CSE command. This file is retained for debugging, separate from the legacy
+`nodecustomdata.yml`. It contains the most recently written payload, including
+when application fails; the `applied embedded hotfix payload` log confirms
+successful application. If no payload is selected, any previously retained file
+is left untouched. Application errors are logged and provisioning continues.
 
 The embedded nodecustomdata coordinator distinguishes these script hotfixes from
 updates to the ANC binary itself. The generated files live under
