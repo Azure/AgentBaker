@@ -66,11 +66,6 @@ func Test_ACL_COSIUpdate_AMD64(t *testing.T) {
 	}
 	require.NoError(t, validateCOSIUpdateInput(info.CosiURL, info.MetadataSHA384))
 
-	image := *config.VHDACLGen2TL
-	image.Name = "acldevel"
-	image.SharedGalleryImageID = aclCOSIAMD64ImageID
-	image.Version = aclCOSIAMD64ImageVersion
-
 	RunScenario(t, &Scenario{
 		Description: "Tests that an AMD64 ACL node remains Ready after a COSI A/B update",
 		Location:    "westus2",
@@ -79,7 +74,7 @@ func Test_ACL_COSIUpdate_AMD64(t *testing.T) {
 		},
 		Config: Config{
 			Cluster:                 ClusterKubenet,
-			VHD:                     &image,
+			VHD:                     config.VHDACLGen2TL,
 			SkipScriptlessNBCCSECmd: true,
 			// TODO: re-enable TrustedLaunch/SecureBoot once COSI A/B update is
 			// validated against it; for now run without SecureBoot.
