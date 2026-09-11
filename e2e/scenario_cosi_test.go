@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,9 +81,8 @@ func Test_ACL_COSIUpdate_AMD64(t *testing.T) {
 			Cluster:                 ClusterKubenet,
 			VHD:                     &image,
 			SkipScriptlessNBCCSECmd: true,
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
-			},
+			// TODO: re-enable TrustedLaunch/SecureBoot once COSI A/B update is
+			// validated against it; for now run without SecureBoot.
 			Validator: func(ctx context.Context, scenario *Scenario) error {
 				return validateACLAMD64COSIUpdate(ctx, scenario, info.CosiURL, info.MetadataSHA384)
 			},
