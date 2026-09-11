@@ -71,6 +71,7 @@ $global:imagesToPull = GetComponentsFromComponentsJson $componentsJson
 $global:ociArtifactsToPull = GetOCIArtifactsFromComponentsJson $componentsJson
 $global:keysToSet = GetRegKeysToApply $windowsSettingsJson
 $global:map = GetPackagesFromComponentsJson $componentsJson
+$global:packageCacheFileNames = GetWindowsPackageCacheFileNamesFromComponentsJson $componentsJson
 $global:releaseNotesToSet = GetKeyMapForReleaseNotes $windowsSettingsJson
 
 $validSKU = GetWindowsBaseVersions $windowsSettingsJson
