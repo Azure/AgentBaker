@@ -532,8 +532,7 @@ function ensure_sig_vhd_exists() {
 					--os-type ${OS_TYPE} \
 					--hyper-v-generation ${HYPERV_GENERATION} \
 					--location ${AZURE_LOCATION} \
-					--os-state Specialized \
-					--features "SecurityType=ConfidentialVM"
+					--features "SecurityType=ConfidentialVMSupported"
 			else
 				az sig image-definition create \
 					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
