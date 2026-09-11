@@ -18,89 +18,43 @@ From a high-level, for each scenario,
 
 ## Writing and extending scenarios
 
-A scenario defines a node configuration and runs checks on that node. Adding a
-check usually means extending an existing scenario's `Validator`, not registering
-another scenario. Separate scenarios create separate test VM resources; the runner
-does not automatically combine them.
+Extend an existing scenario's `Validator` when its node has the required settings.
+Each separate scenario creates test VM resources; the runner does not combine them.
 
-1. Find a scenario with the settings the check needs. Read its configuration,
-   not just its name: image, architecture, VM size, cluster/network, NBC and ANC
-   settings, VMSS tags, and direct provisioning or VHD caching.
-2. Add the check to that scenario's `Validator` if its current inputs already
-   exercise the intended behavior. Keep errors attributable to each check.
-   Keep default-input coverage when a feature needs both default and custom cases.
-3. Keep execution order explicit. Read provisioning state before changing it;
-   capture timing before service restarts or other disruptive work. Restore state
-   and remove test-owned resources when later checks need a clean node. A reboot
-   or filesystem-corruption test is a lifecycle, not an interchangeable read-only
-   check.
-4. Create a separate scenario when the required inputs differ or the checks need
-   separate nodes. Explain that reason in the PR. Keep configuration and checks
-   together in `Scenario`; no additional profile or compatibility framework is
-   required.
-
-For example, add another containerd check to
-`Ubuntu2204_CustomLinuxOSConfig_Taints_ANC` if it needs that node's existing
-settings. Keep `Ubuntu2204_A10_UpstreamDevicePlugin` separate because it needs an
-A10 VM and different GPU settings. Set a custom sysctl through the provisioning
-configuration, then validate it on the node; setting it over SSH first would hide
-a provisioning failure.
+1. Compare actual inputs: image, architecture, VM size, network, NBC/ANC settings,
+   VMSS tags, and direct provisioning or VHD caching. Preserve required default
+   and custom input cases.
+2. Keep configuration and checks together. Identify each check's errors, validate
+   provisioning state before changing it, and capture timing before disruptive work.
+   Keep reboot/corruption steps ordered; restore state and clean up test resources.
+3. Add a scenario only for different required inputs or a separate-node lifecycle.
+   Explain the reason in the PR.
 
 ### Scenario names
 
-Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`. Include architecture,
-hardware, network, or provisioning mode where it distinguishes the case. Use the
-configuration fields for the full specification; names need not encode every value.
+Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
+`Ubuntu2204_CustomLinuxOSConfig_Taints_ANC` or
+`AzureLinuxV3_CustomLinuxOSConfig_ANC_Reboot`.
 
-- Name the configured node or lifecycle, not a list of assertions or an expected
-  result such as `Running`, `HasCurrentVersion`, or `PersistsAfterReboot`.
-- Put checked behaviors and disruptive steps in `Description`. A new assertion
-  does not require renaming a scenario whose configuration and lifecycle stay the same.
-- Use an OS-only name only when the scenario has no distinguishing custom setup.
-  Existing custom sysctls, taints, or explicit ANC configuration are not a default node.
-- Keep names that already describe the configuration. Avoid unrelated spelling
-  changes when extending a scenario.
-
-| Scenario | What the name identifies | Checks described separately |
-|---|---|---|
-| `Ubuntu2204_CustomLinuxOSConfig_Taints_ANC` | Custom OS settings and taints, provisioned with ANC | Sysctls, ulimits, taints, chrony restart, containerd version |
-| `Ubuntu2204_CustomNodeConfig` | Custom OS and kubelet settings | Sysctls, ulimits, seccomp |
-| `AzureLinuxV3_CustomLinuxOSConfig_ANC_Reboot` | Custom OS settings with ANC and a reboot | Settings before and after reboot |
-| `Ubuntu2404_AKSVMExtension_FilesystemCorruption` | AKS VM extension and injected filesystem corruption | NBC hotfix fallback, NPD service and event reporting |
-| `Ubuntu2204_PreinstalledBinaries_PMCInstall` | Preinstalled VHD binaries and forced PMC package path | CSE timing thresholds |
-
-`PreinstalledBinaries` means binaries on the source VHD, not the separate
-`VHDCaching` bake/real-node lifecycle. Performance scenarios keep their existing
-timing extraction, validation settings, and isolation requirements.
-
-Names are used by CLI selectors, name tags, resource/log names, and test reports.
-When renaming, update repository references and give the old-to-new mapping in the
-PR. External exact-name selectors need updating; report history will use the new
-name. Renaming does not create an alias.
+- Name the configuration or lifecycle; put assertions and disruptive steps in
+  `Description`. Adding a check alone does not require a rename.
+- Include hardware, network, architecture, or provisioning mode when relevant.
+  Reserve OS-only names for nodes without distinguishing custom settings.
+- `PreinstalledBinaries` means source-VHD binaries, not `VHDCaching`'s bake/real-node
+  lifecycle. Preserve performance-test timing extraction and isolation.
+- Renames affect selectors, logs, and report history; there are no aliases.
+  Update repository references, list old/new names in the PR, and flag external
+  exact-name selectors for update.
 
 ### Configuring a separate scenario
 
-When an existing node cannot cover the required case:
-
-- Choose a test cluster. The cluster definitions are in [cache.go](scenario/cache.go).
-    - ClusterKubenet
-    - ClusterAzureNetwork
-    - ClusterAzureOverlayNetwork
-    - ClusterAzureOverlayNetworkDualStack
-    - ClusterCiliumNetwork
-    - ClusterLatestKubernetesVersion
-    - ClusterAzureBootstrapProfileCache (private ACR)
-    - ClusterAzureNetworkIsolated (no internet access)
-- use `NodeBootstrappingConfiguration` (`nbc`) to set up your scenario. It is used to invoke the primary
-  node-bootstrapping
-  API [GetLatestNodeBootstrapping](https://github.com/Azure/AgentBaker/blob/2e730b5a498c5be9b082d912fd08ac9346582db9/pkg/agent/bakerapi.go#L14).
-  to modify agentpool properties, usually you need to set both`nbc.containerService.properties.AgentPoolProfiles[0].xxx`
-  as well as `nbc.agentPoolProfile`. It is because when RP invokes AgentBaker, it will set the properties in this way
-  and in e2e we follow the pattern.
-- use `VMConfigMutator` to set VMSS properties such as SKU when needed.
-  Read [vmss.go](scenario/vmss.go) for other configuration values.
-  it is necessary to set `nbc.agentPoolProfile.VMSize` to match the VMSS SKU if you choose to change.
-- use `Validator` to check the VM's live state, such as file existence or sysctl settings.
+- Choose a cluster from [cache.go](scenario/cache.go).
+- Set bootstrap inputs through `NodeBootstrappingConfiguration`. Mirror RP's
+  agent-pool settings in both `nbc.ContainerService.Properties.AgentPoolProfiles[0]`
+  and `nbc.AgentPoolProfile` where required.
+- Set VMSS properties through `VMConfigMutator`; keep its SKU and
+  `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
+- Use `Validator` to check the resulting node state.
 
 ## VM size configuration
 

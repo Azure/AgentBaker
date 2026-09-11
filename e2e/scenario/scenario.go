@@ -1398,9 +1398,16 @@ var _ = Register(&Scenario{
 	},
 })
 
-var _ = Register(newUbuntu2204_CustomNodeConfigScenario())
+var _ = Register(&Scenario{
+	Name:        "Ubuntu2204_CustomNodeConfig",
+	Description: "Tests Ubuntu 22.04 bootstrapping with custom sysctls, containerd ulimits, and kubelet seccomp configuration",
+	Tags: Tags{
+		KubeletCustomConfig: true,
+	},
+	Config: customNodeConfig(config.VHDUbuntu2204Gen2Containerd, ClusterKubenet),
+})
 
-func newUbuntu2204_CustomNodeConfigScenario() *Scenario {
+func customNodeConfig(vhd *config.Image, cluster func(context.Context, ClusterRequest) (*Cluster, error)) Config {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 65535",
 		"net.netfilter.nf_conntrack_max":     "2097152",
@@ -1412,44 +1419,37 @@ func newUbuntu2204_CustomNodeConfigScenario() *Scenario {
 		"LimitMEMLOCK": "75000",
 		"LimitNOFILE":  "1048",
 	}
-	return &Scenario{
-		Name:        "Ubuntu2204_CustomNodeConfig",
-		Description: "Tests Ubuntu 22.04 bootstrapping with custom sysctls, containerd ulimits, and kubelet seccomp configuration",
-		Tags: Tags{
-			KubeletCustomConfig: true,
+	return Config{
+		Cluster: cluster,
+		VHD:     vhd,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			customLinuxConfig := &datamodel.CustomLinuxOSConfig{
+				Sysctls: &datamodel.SysctlConfig{
+					NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
+					NetNetfilterNfConntrackBuckets: to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
+					NetIpv4IpLocalPortRange:        customSysctls["net.ipv4.ip_local_port_range"],
+					NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
+				},
+				UlimitConfig: &datamodel.UlimitConfig{
+					MaxLockedMemory: "75000",
+					NoFile:          "1048",
+				},
+			}
+			nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
+			customKubeletConfig := &datamodel.CustomKubeletConfig{
+				SeccompDefault: to.Ptr(true),
+			}
+			nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
 		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
-					Sysctls: &datamodel.SysctlConfig{
-						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
-						NetNetfilterNfConntrackBuckets: to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
-						NetIpv4IpLocalPortRange:        customSysctls["net.ipv4.ip_local_port_range"],
-						NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
-					},
-					UlimitConfig: &datamodel.UlimitConfig{
-						MaxLockedMemory: "75000",
-						NoFile:          "1048",
-					},
-				}
-				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
-				customKubeletConfig := &datamodel.CustomKubeletConfig{
-					SeccompDefault: to.Ptr(true),
-				}
-				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
-			},
-			Validator: func(ctx context.Context, s *Scenario) error {
-				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
-				return errors.Join(
-					ValidateUlimitSettings(ctx, s, customContainerdUlimits),
-					ValidateSysctlConfig(ctx, s, customSysctls),
-					ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`),
-					ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath),
-				)
-			},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
+			return errors.Join(
+				ValidateUlimitSettings(ctx, s, customContainerdUlimits),
+				ValidateSysctlConfig(ctx, s, customSysctls),
+				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`),
+				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath),
+			)
 		},
 	}
 }
@@ -2291,61 +2291,14 @@ var _ = Register(&Scenario{
 	},
 })
 
-var _ = Register(newUbuntu2604Minimal_CustomNodeConfigScenario())
-
-func newUbuntu2604Minimal_CustomNodeConfigScenario() *Scenario {
-	customSysctls := map[string]string{
-		"net.ipv4.ip_local_port_range":       "32768 65535",
-		"net.netfilter.nf_conntrack_max":     "2097152",
-		"net.netfilter.nf_conntrack_buckets": "524288",
-		"net.ipv4.tcp_keepalive_intvl":       "90",
-		"net.ipv4.ip_local_reserved_ports":   "65330",
-	}
-	customContainerdUlimits := map[string]string{
-		"LimitMEMLOCK": "75000",
-		"LimitNOFILE":  "1048",
-	}
-	return &Scenario{
-		Name:        "Ubuntu2604Minimal_CustomNodeConfig",
-		Description: "Tests Ubuntu 26.04 minimal bootstrapping with custom sysctls, containerd ulimits, and kubelet seccomp configuration",
-		Tags: Tags{
-			KubeletCustomConfig: true,
-		},
-		Config: Config{
-			Cluster: ClusterLatestKubernetesVersionKubenet,
-			VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
-					Sysctls: &datamodel.SysctlConfig{
-						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
-						NetNetfilterNfConntrackBuckets: to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
-						NetIpv4IpLocalPortRange:        customSysctls["net.ipv4.ip_local_port_range"],
-						NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
-					},
-					UlimitConfig: &datamodel.UlimitConfig{
-						MaxLockedMemory: "75000",
-						NoFile:          "1048",
-					},
-				}
-				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
-				customKubeletConfig := &datamodel.CustomKubeletConfig{
-					SeccompDefault: to.Ptr(true),
-				}
-				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
-			},
-			Validator: func(ctx context.Context, s *Scenario) error {
-				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
-				return errors.Join(
-					ValidateUlimitSettings(ctx, s, customContainerdUlimits),
-					ValidateSysctlConfig(ctx, s, customSysctls),
-					ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`),
-					ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath),
-				)
-			},
-		},
-	}
-}
+var _ = Register(&Scenario{
+	Name:        "Ubuntu2604Minimal_CustomNodeConfig",
+	Description: "Tests Ubuntu 26.04 minimal bootstrapping with custom sysctls, containerd ulimits, and kubelet seccomp configuration",
+	Tags: Tags{
+		KubeletCustomConfig: true,
+	},
+	Config: customNodeConfig(config.VHDUbuntu2604MinimalGen2Containerd, ClusterLatestKubernetesVersionKubenet),
+})
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2604Minimal_MANA",

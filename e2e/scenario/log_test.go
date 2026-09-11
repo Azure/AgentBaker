@@ -3,9 +3,9 @@ package scenario
 import (
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/assert"
@@ -43,6 +43,15 @@ func TestGenerateVMSSNameLinuxUsesTheGivenArtifactName(t *testing.T) {
 	assert.Contains(t, name, "scenarioubuntu2204", "name does not carry the test name")
 }
 
+func TestGenerateVMSSNameLinuxStartsWithDate(t *testing.T) {
+	before := time.Now().Format(time.DateOnly)
+	name := generateVMSSNameLinux("scenario")
+	after := time.Now().Format(time.DateOnly)
+
+	require.Regexp(t, `^\d{4}-\d{2}-\d{2}-[a-z0-9]{4}-scenario$`, name)
+	assert.Contains(t, []string{before, after}, name[:10])
+}
+
 func TestGenerateVMSSNameLinuxHasValidEnding(t *testing.T) {
 	for _, artifactName := range []string{
 		"Ubuntu2204_A10_UpstreamDevicePlugin/attempt-1",
@@ -54,7 +63,7 @@ func TestGenerateVMSSNameLinuxHasValidEnding(t *testing.T) {
 		t.Run(artifactName, func(t *testing.T) {
 			name := generateVMSSNameLinux(artifactName)
 			require.LessOrEqual(t, len(name), 57)
-			require.Regexp(t, regexp.MustCompile(`^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$`), name)
+			require.Regexp(t, `^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$`, name)
 		})
 	}
 }
