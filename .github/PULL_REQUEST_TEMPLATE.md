@@ -18,3 +18,8 @@ Pull Request Requirements - PLEASE READ BEFORE CREATING A PR AGAINST Azure/Agent
 Usage: `Fixes #<issue number>`, or `Fixes (paste link of issue)`.
 -->
 Fixes #
+
+**GPU E2E**:
+
+<!-- PRs run the core Ubuntu GPU E2E suite by default. -->
+- [ ] Run the full Ubuntu GPU E2E suite for this PR <!-- gpu-e2e-profile:full -->
