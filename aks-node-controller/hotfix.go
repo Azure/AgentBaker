@@ -92,17 +92,25 @@ func (a *App) applyScriptHotfix(cfg *hotfixConfig) error {
 		return nil
 	}
 	return a.eventLogger.RunTimedOperation("Hotfix.ScriptApplication", func() (string, error) {
-		applyErr := a.applyNodeCustomDataIfNeeded(cfg)
+		// The outcome comes from the helper, not from applyErr: a configured script hotfix
+		// that is malformed, targets another base, or is not newer is skipped fail-open with
+		// a nil error, and deriving the outcome from that would report success for work that
+		// never happened.
+		outcome, applyErr := a.applyNodeCustomDataIfNeeded(cfg)
 		return fmt.Sprintf("current=%s scriptsVersion=%s outcome=%s",
-			Version, scriptsVersion, hotfixOutcome(applyErr)), applyErr
+			Version, scriptsVersion, outcome), applyErr
 	})
 }
 
-func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
+// applyNodeCustomDataIfNeeded applies the CSE-script hotfix, returning the outcome that
+// describes what actually happened. Every branch here is fail-open -- a malformed, untargeted
+// or not-newer version is skipped rather than surfaced as an error -- so the outcome, not the
+// error, is what distinguishes "applied" from "skipped" for telemetry.
+func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) (string, error) {
 	hotfixVersion := strings.TrimSpace(cfg.ScriptsVersion)
 	if hotfixVersion == "" {
 		slog.Info("hotfix config does not request a scripts version for this base, skipping nodecustomdata apply", "current", Version)
-		return nil
+		return hotfixOutcomeSkippedNoVersion, nil
 	}
 
 	// Patch-only matching: only upgrade if same YYYYMM.DD base and hotfix has
@@ -111,15 +119,18 @@ func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
 	if err != nil {
 		slog.Warn("failed to compare versions, skipping nodecustomdata apply",
 			"current", Version, "hotfix", hotfixVersion, "error", err)
-		return nil
+		return hotfixOutcomeSkippedVersionCompareError, nil
 	}
 	if !shouldUpgrade {
 		slog.Info("CSE scripts version not targeted by hotfix, skipping nodecustomdata apply",
 			"current", Version, "hotfix", hotfixVersion)
-		return nil
+		return hotfixOutcomeSkippedNotTargeted, nil
 	}
 
-	return applyNodeCustomData(a.getNodeCustomDataPath())
+	if applyErr := applyNodeCustomData(a.getNodeCustomDataPath()); applyErr != nil {
+		return string(outcomeFailed), applyErr
+	}
+	return hotfixOutcomeSuccess, nil
 }
 
 // hotfixProgress tracks which install route was taken and how the attempt ended, so the

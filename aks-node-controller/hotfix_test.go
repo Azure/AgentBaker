@@ -728,6 +728,9 @@ func TestDownloadHotfixGuestAgentTimingEvents(t *testing.T) {
 		wantTaskNames []string
 		wantLevel     string
 		wantMessage   []string
+		// Asserted against the Hotfix.ScriptApplication event, which is not the last one
+		// emitted and so is not covered by wantMessage.
+		wantScriptMessage []string
 	}{
 		{
 			name:    "no hotfix version skips",
@@ -825,7 +828,38 @@ func TestDownloadHotfixGuestAgentTimingEvents(t *testing.T) {
 				"AKS.AKSNodeController.Hotfix.ScriptApplication",
 				"AKS.AKSNodeController.Hotfix.BinaryOperation",
 			},
-			wantLevel: "Informational",
+			wantLevel:         "Informational",
+			wantScriptMessage: []string{"scriptsVersion=202604.01.1", "outcome=success"},
+		},
+		{
+			// A configured script hotfix for a different base is skipped fail-open with a
+			// nil error. Reporting outcome=success here would mean every such node claims
+			// to have applied scripts it never touched.
+			name:    "script application reports a different-base skip",
+			current: "202604.01.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				return &hotfixConfig{ScriptsVersion: "202699.31.9"}
+			},
+			wantTaskNames: []string{
+				"AKS.AKSNodeController.Hotfix.ScriptApplication",
+				"AKS.AKSNodeController.Hotfix.BinaryOperation",
+			},
+			wantLevel:         "Informational",
+			wantScriptMessage: []string{"scriptsVersion=202699.31.9", "outcome=skipped-not-targeted"},
+		},
+		{
+			// Same trap for an unparseable version: skipped, not applied.
+			name:    "script application reports a version-compare skip",
+			current: "dev",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				return &hotfixConfig{ScriptsVersion: "202604.01.1"}
+			},
+			wantTaskNames: []string{
+				"AKS.AKSNodeController.Hotfix.ScriptApplication",
+				"AKS.AKSNodeController.Hotfix.BinaryOperation",
+			},
+			wantLevel:         "Informational",
+			wantScriptMessage: []string{"outcome=skipped-version-compare-error"},
 		},
 		{
 			// The common case: no scripts_version, so no script event is emitted at all
@@ -921,6 +955,18 @@ func TestDownloadHotfixGuestAgentTimingEvents(t *testing.T) {
 			assert.Equal(t, tc.wantLevel, events[len(events)-1].EventLevel)
 			for _, expected := range tc.wantMessage {
 				assert.Contains(t, events[len(events)-1].Message, expected)
+			}
+			if len(tc.wantScriptMessage) > 0 {
+				var scriptEvent string
+				for _, event := range events {
+					if event.TaskName == "AKS.AKSNodeController.Hotfix.ScriptApplication" {
+						scriptEvent = event.Message
+					}
+				}
+				require.NotEmpty(t, scriptEvent, "expected a script application event")
+				for _, expected := range tc.wantScriptMessage {
+					assert.Contains(t, scriptEvent, expected)
+				}
 			}
 
 			var timing hotfixTiming
