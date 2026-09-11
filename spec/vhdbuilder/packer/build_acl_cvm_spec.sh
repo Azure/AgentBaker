@@ -29,8 +29,8 @@ EOF
   build_and_validate_cvm_template() {
     ./vhdbuilder/packer/build-acl-cvm.sh &&
       jq -e '
-        (.builders[0] | has("managed_image_name") | not) and
-        (.builders[0] | has("managed_image_resource_group_name") | not) and
+        (.builders[0].managed_image_name == "{{user `sig_image_name`}}-{{user `captured_sig_version`}}") and
+        (.builders[0].managed_image_resource_group_name == "{{user `resource_group_name`}}") and
         (.builders[0] | has("secure_boot_enabled") | not) and
         (.builders[0] | has("vtpm_enabled") | not) and
         (.builders[0] | has("security_type") | not) and
@@ -41,7 +41,7 @@ EOF
       ' "$CAPTURED_TEMPLATE" >/dev/null
   }
 
-  It 'reuses the ACL template without changing the builder or provisioners'
+  It 'publishes via a managed image without changing security settings or provisioners'
     ACL_PACKER_TEMPLATE="$BASE_TEMPLATE"
     export ACL_PACKER_TEMPLATE
     When call build_and_validate_cvm_template
