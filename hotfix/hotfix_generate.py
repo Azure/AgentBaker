@@ -79,6 +79,7 @@ SOURCE_TO_VARKEY = {
     # CSE main
     "cse_main.sh": "provisionScript",
     # Other scripts present in traditional nodecustomdata
+    "ubuntu/gb/format-mount-nvme-root.sh": "nvidiaGBFormatMountNVMeRootScript",
     "configure-azure-network.sh": "configureAzureNetworkScript",
     "init-aks-cloud.sh": "initAKSCloud",
     # Systemd files present in traditional nodecustomdata
