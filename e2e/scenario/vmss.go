@@ -1304,7 +1304,7 @@ func generateVMSSNameLinux(artifactName string) string {
 	if len(name) > 57 { // a limit for VMSS name
 		name = name[:57]
 	}
-	return name
+	return strings.TrimRight(name, "-.")
 }
 
 func generateVMSSNameWindows() string {

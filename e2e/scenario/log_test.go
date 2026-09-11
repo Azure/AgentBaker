@@ -3,6 +3,7 @@ package scenario
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -40,4 +41,20 @@ func TestGenerateVMSSNameLinuxUsesTheGivenArtifactName(t *testing.T) {
 	assert.NotContains(t, name, "Test")
 	assert.Equal(t, strings.ToLower(name), name, "name is not lowercase")
 	assert.Contains(t, name, "scenarioubuntu2204", "name does not carry the test name")
+}
+
+func TestGenerateVMSSNameLinuxHasValidEnding(t *testing.T) {
+	for _, artifactName := range []string{
+		"Ubuntu2204_A10_UpstreamDevicePlugin/attempt-1",
+		strings.Repeat("a", 40) + "-suffix",
+		strings.Repeat("a", 40) + ".suffix",
+		"scenario-",
+		"scenario.",
+	} {
+		t.Run(artifactName, func(t *testing.T) {
+			name := generateVMSSNameLinux(artifactName)
+			require.LessOrEqual(t, len(name), 57)
+			require.Regexp(t, regexp.MustCompile(`^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$`), name)
+		})
+	}
 }
