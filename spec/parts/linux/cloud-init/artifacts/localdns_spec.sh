@@ -518,6 +518,8 @@ EOF
             The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1 10.0.0.2"
             The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should not include "169.254.10.10"
             The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should not include "169.254.10.11"
+            The stdout should include "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
+            The stdout should include "Persisted upstream DNS servers to /etc/localdns/upstream-dns: 10.0.0.1 10.0.0.2"
         End
 
         It 'should return failure if AZURE_DNS_IP is unset'
