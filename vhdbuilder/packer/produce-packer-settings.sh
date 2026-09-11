@@ -5,7 +5,12 @@ SCRIPT_DIR=$(dirname "$0")
 source "$SCRIPT_DIR/produce-packer-settings-functions.sh"
 
 CDIR=$(dirname "${BASH_SOURCE}")
-SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
+# Overridable so a CVM two-stage bootstrap (Stage 1) build can write its own
+# settings file (e.g. vhdbuilder/packer/settings-bootstrap.json) without
+# colliding with, or being overwritten by, the final-stage (Stage 2) build,
+# which always uses the default path so every downstream pipeline step keeps
+# working unmodified.
+SETTINGS_JSON="${SETTINGS_JSON:-vhdbuilder/packer/settings.json}"
 PUBLISHER_BASE_IMAGE_VERSION_JSON="${PUBLISHER_BASE_IMAGE_VERSION_JSON:-./vhdbuilder/publisher_base_image_version.json}"
 VHD_BUILD_TIMESTAMP_JSON="${VHD_BUILD_TIMESTAMP_JSON:-./vhdbuilder/vhd_build_timestamp.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
@@ -209,7 +214,7 @@ fi
 produce_ua_token
 
 # windows_image_version refers to the version from azure gallery
-cat <<EOF > vhdbuilder/packer/settings.json
+cat <<EOF > "${SETTINGS_JSON}"
 {
   "subscription_id": "${SUBSCRIPTION_ID}",
   "gallery_subscription_id": "${GALLERY_SUBSCRIPTION_ID}",
@@ -249,5 +254,5 @@ EOF
 
 # so we don't accidently log UA_TOKEN, though ADO will automatically mask it if it appears in stdout
 # since it's coming from a variable group
-echo "packer settings:"
-jq 'del(.ua_token)' < vhdbuilder/packer/settings.json
+echo "packer settings (${SETTINGS_JSON}):"
+jq 'del(.ua_token)' < "${SETTINGS_JSON}"

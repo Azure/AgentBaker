@@ -125,6 +125,10 @@ parameters:
     displayName: Build 2604 Minimal ARM64 Gen2 Containerd
     type: boolean
     default: true
+  - name: build2604cvmgen2containerd
+    displayName: Build 2604 CVM Gen2 Containerd (Two-Stage)
+    type: boolean
+    default: false
   - name: buildacltlgen2
     displayName: Build Azure Container Linux TL Gen2
     type: boolean
@@ -811,6 +815,39 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2604-minimal-arm64-gen2-containerd
+      # Two-stage CVM build: Ubuntu 26.04 has no ready-made Marketplace "cvm" SKU yet, so Stage 1
+      # (bootstrap) builds a minimal, generalized, ConfidentialVMSupported intermediate SIG image
+      # from the normal "minimal" Marketplace source on a regular VM, and Stage 2 (final) runs the
+      # dedicated Ubuntu 26.04 CVM template on a real ConfidentialVM sourced from that intermediate
+      # image. See .templates/.builder-release-template.yaml and packer.mk
+      # (run-packer-cvm-bootstrap / run-packer-cvm-final) for the two-task implementation.
+      - job: build2604cvmgen2containerd
+        condition: eq('${{ parameters.build2604cvmgen2containerd }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 360
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+              echo '##vso[task.setvariable variable=OS_VERSION]26.04'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+              echo '##vso[task.setvariable variable=IMG_OFFER]ubuntu-26_04-lts'
+              echo '##vso[task.setvariable variable=IMG_SKU]minimal'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]cvm'
+              echo '##vso[task.setvariable variable=CVM_TWO_STAGE_BUILD]True'
+              echo '##vso[task.setvariable variable=CVM_BOOTSTRAP_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=CVM_FINAL_VM_SIZE]Standard_DC16ads_v5'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: 2604-cvm-gen2-containerd
       - job: buildacltlgen2
         condition: eq('${{ parameters.buildacltlgen2 }}', true)
         dependsOn: [ ]

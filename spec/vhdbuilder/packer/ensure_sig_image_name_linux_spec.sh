@@ -14,6 +14,7 @@ Describe 'ensure_sig_image_name_linux function'
     ENABLE_CGROUPV2=""
     OS_SKU=""
     FEATURE_FLAGS=""
+    CVM_BUILD_STAGE=""
   }
 
   BeforeEach 'setup_environment'
@@ -405,6 +406,63 @@ Describe 'ensure_sig_image_name_linux function'
       When call ensure_sig_image_name_linux
       The status should be success
       The variable SIG_IMAGE_NAME should eq "test-skuSpecialized"
+	  The output should be present
+    End
+  End
+
+  Describe 'CVM_BUILD_STAGE scenarios (two-stage CVM bootstrap/final builds)'
+    It 'should add lowercase bootstrap suffix when CVM_BUILD_STAGE is bootstrap'
+      SIG_IMAGE_NAME=""
+      SKU_NAME="2604gen2CVMcontainerd"
+      FEATURE_FLAGS="cvm"
+      CVM_BUILD_STAGE="bootstrap"
+      When call ensure_sig_image_name_linux
+      The status should be success
+      The variable SIG_IMAGE_NAME should eq "2604gen2CVMcontainerdbootstrap"
+	  The output should be present
+    End
+
+    It 'should add bootstrap suffix case-insensitively when CVM_BUILD_STAGE is Bootstrap'
+      SIG_IMAGE_NAME=""
+      SKU_NAME="test-sku"
+      FEATURE_FLAGS="cvm"
+      CVM_BUILD_STAGE="Bootstrap"
+      When call ensure_sig_image_name_linux
+      The status should be success
+      The variable SIG_IMAGE_NAME should eq "test-skubootstrap"
+	  The output should be present
+    End
+
+    It 'should still add Specialized suffix when CVM_BUILD_STAGE is final'
+      SIG_IMAGE_NAME=""
+      SKU_NAME="test-sku"
+      FEATURE_FLAGS="cvm"
+      CVM_BUILD_STAGE="final"
+      When call ensure_sig_image_name_linux
+      The status should be success
+      The variable SIG_IMAGE_NAME should eq "test-skuSpecialized"
+	  The output should be present
+    End
+
+    It 'should preserve existing (Specialized) behavior when CVM_BUILD_STAGE is unset'
+      SIG_IMAGE_NAME=""
+      SKU_NAME="test-sku"
+      FEATURE_FLAGS="cvm"
+      unset CVM_BUILD_STAGE
+      When call ensure_sig_image_name_linux
+      The status should be success
+      The variable SIG_IMAGE_NAME should eq "test-skuSpecialized"
+	  The output should be present
+    End
+
+    It 'should not add bootstrap suffix when CVM_BUILD_STAGE is bootstrap but FEATURE_FLAGS lacks cvm'
+      SIG_IMAGE_NAME=""
+      SKU_NAME="test-sku"
+      FEATURE_FLAGS="gpu,networking"
+      CVM_BUILD_STAGE="bootstrap"
+      When call ensure_sig_image_name_linux
+      The status should be success
+      The variable SIG_IMAGE_NAME should eq "test-sku"
 	  The output should be present
     End
   End

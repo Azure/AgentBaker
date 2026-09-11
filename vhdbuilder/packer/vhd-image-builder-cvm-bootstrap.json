@@ -1,0 +1,115 @@
+{
+  "variables": {
+    "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
+    "gallery_subscription_id": "{{user `gallery_subscription_id`}}",
+    "location": "{{env `PACKER_BUILD_LOCATION`}}",
+    "vm_size": "{{env `AZURE_VM_SIZE`}}",
+    "build_definition_name": "{{env `BUILD_DEFINITION_NAME`}}",
+    "build_number": "{{env `BUILD_NUMBER`}}",
+    "build_id": "{{env `BUILD_ID`}}",
+    "commit": "{{env `GIT_VERSION`}}",
+    "branch": "{{env `BRANCH`}}",
+    "os_version": "{{env `OS_VERSION`}}",
+    "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
+    "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
+    "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
+    "captured_sig_version": "{{env `CAPTURED_SIG_VERSION`}}",
+    "img_publisher": "{{env `IMG_PUBLISHER`}}",
+    "img_offer": "{{env `IMG_OFFER`}}",
+    "img_sku": "{{env `IMG_SKU`}}",
+    "img_version": "{{env `IMG_VERSION`}}",
+    "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}",
+    "vnet_name": "{{env `VNET_NAME`}}",
+    "subnet_name": "{{env `SUBNET_NAME`}}",
+    "resource_group_name": "{{env `AZURE_RESOURCE_GROUP_NAME`}}",
+    "create_time": "{{env `CREATE_TIME`}}"
+  },
+  "builders": [
+    {
+      "type": "azure-arm",
+      "subscription_id": "{{user `subscription_id`}}",
+      "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
+      "virtual_network_name": "{{user `vnet_name`}}",
+      "virtual_network_subnet_name": "{{user `subnet_name`}}",
+      "ssh_read_write_timeout": "5m",
+      "os_type": "Linux",
+      "os_disk_size_gb": 30,
+      "image_publisher": "{{user `img_publisher`}}",
+      "image_offer": "{{user `img_offer`}}",
+      "image_sku": "{{user `img_sku`}}",
+      "image_version": "{{user `img_version`}}",
+      "azure_tags": {
+        "buildDefinitionName": "{{user `build_definition_name`}}",
+        "buildNumber": "{{user `build_number`}}",
+        "buildId": "{{user `build_id`}}",
+        "SkipLinuxAzSecPack": "true",
+        "os": "Linux",
+        "now": "{{user `create_time`}}",
+        "createdBy": "aks-vhd-pipeline",
+        "image_sku": "{{user `img_sku`}}",
+        "branch": "{{user `branch`}}",
+        "cvmBuildStage": "bootstrap"
+      },
+      "location": "{{user `location`}}",
+      "vm_size": "{{user `vm_size`}}",
+      "use_azure_cli_auth": "true",
+      "polling_duration_timeout": "1h",
+      "managed_image_storage_account_type": "Premium_LRS",
+      "shared_image_gallery_destination": {
+        "subscription": "{{user `gallery_subscription_id`}}",
+        "resource_group": "{{user `resource_group_name`}}",
+        "gallery_name": "{{user `sig_gallery_name`}}",
+        "image_name": "{{user `sig_image_name`}}",
+        "image_version": "{{user `captured_sig_version`}}",
+        "replication_regions": [
+          "{{user `location`}}"
+        ]
+      }
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/cvm-bootstrap-install-kernel.sh",
+      "destination": "/home/packer/cvm-bootstrap-install-kernel.sh"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo /bin/bash -eux /home/packer/cvm-bootstrap-install-kernel.sh"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": "sudo reboot",
+      "expect_disconnect": true,
+      "skip_clean": true,
+      "pause_after": "60s"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/cvm-bootstrap-verify-and-cleanup.sh",
+      "destination": "/home/packer/cvm-bootstrap-verify-and-cleanup.sh"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo /bin/bash -eux /home/packer/cvm-bootstrap-verify-and-cleanup.sh"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo /bin/bash -c '/usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0' || exit 125"
+      ]
+    }
+  ],
+  "error-cleanup-provisioner": {
+    "type": "shell",
+    "inline": [
+      "sudo journalctl -xe --no-pager | tail -n 200 || true",
+      "sudo dmesg | tail -n 200 || true",
+      "cat /boot/grub/grub.cfg 2>/dev/null | head -n 100 || true"
+    ]
+  }
+}

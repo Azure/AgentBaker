@@ -51,7 +51,17 @@ function ensure_sig_image_name_linux() {
 		elif [ "${OS_SKU,,}" = "azurelinuxosguard" ]; then
 			SIG_IMAGE_NAME="AzureLinuxOSGuard${SIG_IMAGE_NAME}"
 		elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
-			SIG_IMAGE_NAME+="Specialized"
+			# shellcheck disable=SC3010
+			if [ "${CVM_BUILD_STAGE,,}" = "bootstrap" ]; then
+				# Stage 1 (bootstrap): a Generalized, non-specialized intermediate image
+				# derived from the normal SIG image name, distinguished with a lowercase
+				# suffix so it never collides with the specialized final image definition.
+				SIG_IMAGE_NAME+="bootstrap"
+			else
+				# Stage 2 (final) and the existing single-stage CVM builds (CVM_BUILD_STAGE
+				# unset): unchanged behavior.
+				SIG_IMAGE_NAME+="Specialized"
+			fi
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
 	else
@@ -522,18 +532,40 @@ function ensure_sig_vhd_exists() {
 						--features "DiskControllerTypes=SCSI,NVMe"
 				fi
 			elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
-				az sig image-definition create \
-					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-					--gallery-name ${SIG_GALLERY_NAME} \
-					--gallery-image-definition ${SIG_IMAGE_NAME} \
-					--publisher microsoft-aks \
-					--offer ${SIG_GALLERY_NAME} \
-					--sku ${SIG_IMAGE_NAME} \
-					--os-type ${OS_TYPE} \
-					--hyper-v-generation ${HYPERV_GENERATION} \
-					--location ${AZURE_LOCATION} \
-					--os-state Specialized \
-					--features "SecurityType=ConfidentialVM"
+				# shellcheck disable=SC3010
+				if [ "${CVM_BUILD_STAGE,,}" = "bootstrap" ]; then
+					# Stage 1 (bootstrap): a Generalized (default os-state, no --os-state
+					# Specialized) intermediate definition. SecurityType=ConfidentialVMSupported
+					# (not ConfidentialVM) marks the definition as eligible to be booted as a
+					# real ConfidentialVM later, without requiring the source image itself to
+					# already be specialized/CVM-ready.
+					az sig image-definition create \
+						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+						--gallery-name ${SIG_GALLERY_NAME} \
+						--gallery-image-definition ${SIG_IMAGE_NAME} \
+						--publisher microsoft-aks \
+						--offer ${SIG_GALLERY_NAME} \
+						--sku ${SIG_IMAGE_NAME} \
+						--os-type ${OS_TYPE} \
+						--hyper-v-generation ${HYPERV_GENERATION} \
+						--location ${AZURE_LOCATION} \
+						--features "SecurityType=ConfidentialVMSupported"
+				else
+					# Stage 2 (final) and the existing single-stage CVM builds (CVM_BUILD_STAGE
+					# unset): unchanged behavior.
+					az sig image-definition create \
+						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+						--gallery-name ${SIG_GALLERY_NAME} \
+						--gallery-image-definition ${SIG_IMAGE_NAME} \
+						--publisher microsoft-aks \
+						--offer ${SIG_GALLERY_NAME} \
+						--sku ${SIG_IMAGE_NAME} \
+						--os-type ${OS_TYPE} \
+						--hyper-v-generation ${HYPERV_GENERATION} \
+						--location ${AZURE_LOCATION} \
+						--os-state Specialized \
+						--features "SecurityType=ConfidentialVM"
+				fi
 			else
 				az sig image-definition create \
 					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
