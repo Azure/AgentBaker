@@ -185,12 +185,44 @@ replace_azurednsip_in_corefile() {
     # Never allow localdns to forward to either of its own listeners.
     local upstream_dns_ip
     for upstream_dns_ip in ${UPSTREAM_VNET_DNS_SERVERS}; do
-        case "${upstream_dns_ip}" in
-            *[!0-9a-fA-F.:]*|"")
-                echo "Invalid upstream VNET DNS server '${upstream_dns_ip}' in ${RESOLV_CONF}."
+        if ! printf '%s\n' "${upstream_dns_ip}" | awk '
+            function valid_ipv4(value, octet, count, i) {
+                count = split(value, octet, ".")
+                if (count != 4) return 0
+                for (i = 1; i <= count; i++) {
+                    if (octet[i] !~ /^[0-9]+$/ || octet[i] + 0 > 255) return 0
+                }
                 return 1
-                ;;
-        esac
+            }
+            function valid_ipv6(value, group, count, i, nonempty, compressed) {
+                compressed = (value ~ /::/)
+                if (compressed && value ~ /::.*::/) return 0
+                count = split(value, group, ":")
+                nonempty = 0
+                for (i = 1; i <= count; i++) {
+                    if (group[i] == "") continue
+                    if (group[i] !~ /^[0-9a-fA-F][0-9a-fA-F]?[0-9a-fA-F]?[0-9a-fA-F]?$/) return 0
+                    nonempty++
+                }
+                if (compressed) return nonempty > 0 && nonempty < 8
+                return nonempty == 8
+            }
+            {
+                value = $0
+                if (value ~ /\./) {
+                    if (value !~ /:[^:]+$/) exit 1
+                    tail = value
+                    sub(/^.*:/, "", tail)
+                    if (!valid_ipv4(tail)) exit 1
+                    sub(/:[^:]+$/, ":0:0", value)
+                }
+                if (value !~ /:/) exit !valid_ipv4(value)
+                exit !valid_ipv6(value)
+            }
+        '; then
+            echo "Invalid upstream VNET DNS server '${upstream_dns_ip}' in ${RESOLV_CONF}."
+            return 1
+        fi
         if [ "${upstream_dns_ip}" = "${LOCALDNS_NODE_LISTENER_IP}" ] ||
             [ "${upstream_dns_ip}" = "${LOCALDNS_CLUSTER_LISTENER_IP}" ]; then
             echo "Upstream VNET DNS servers contain localdns listener IP ${upstream_dns_ip}."
