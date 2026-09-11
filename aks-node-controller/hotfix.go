@@ -100,12 +100,12 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 	progress := &hotfixProgress{route: hotfixRouteNone, outcome: hotfixOutcomeStarted}
 	slog.Info("ANC hotfix binary operation started", "current", Version, "target", hotfixVersion)
 
-	err := a.runBinaryHotfix(ctx, cfg, hotfixVersion, resolveErr, progress)
+	err := a.runBinaryHotfix(ctx, hotfixVersion, resolveErr, progress)
 	logHotfixBinaryOperationFinished(Version, hotfixVersion, progress.route, progress.outcome, err)
 	return hotfixOperationMessage(Version, hotfixVersion, progress.route, progress.outcome), err
 }
 
-func (a *App) runBinaryHotfix(ctx context.Context, cfg *hotfixConfig, hotfixVersion string, resolveErr error, progress *hotfixProgress) error {
+func (a *App) runBinaryHotfix(ctx context.Context, hotfixVersion string, resolveErr error, progress *hotfixProgress) error {
 	// An unparseable running version is a fail-open skip: never block provisioning on a
 	// version we cannot interpret.
 	if resolveErr != nil {
@@ -265,6 +265,14 @@ func (cfg hotfixConfig) resolveVersion(current string) (string, error) {
 		return strings.TrimSpace(cfg.Hotfixes[base]), nil
 	}
 	return strings.TrimSpace(cfg.Version), nil
+}
+
+// targetsVersion reports whether cfg names a hotfix for current. Callers that only need
+// the yes/no answer use this: an unparseable current version and an absent pointer are
+// both "no", so neither needs to be distinguished from the other.
+func (cfg hotfixConfig) targetsVersion(current string) bool {
+	resolved, err := cfg.resolveVersion(current)
+	return err == nil && resolved != ""
 }
 
 // readHotfixConfig reads and parses the JSON hotfix config from the given path.
