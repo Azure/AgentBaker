@@ -230,8 +230,8 @@ func TestApp_Run(t *testing.T) {
 	})
 }
 
-func TestApp_Provision(t *testing.T) {
-	t.Run("embedded hotfix runs before command construction and execution", func(t *testing.T) {
+func TestApp_ApplyHotfix(t *testing.T) {
+	t.Run("apply embedded hotfix payload", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		applied := false
 		tt.App.applyEmbeddedHotfix = func(string) error {
@@ -239,17 +239,13 @@ func TestApp_Provision(t *testing.T) {
 			return nil
 		}
 
-		_, err := tt.App.runProvision(
-			context.Background(),
-			ProvisionFlags{ProvisionConfig: "does-not-exist.json"},
-			false,
-		)
+		err := tt.App.runApplyHotfixCommand(context.Background())
 
-		require.Error(t, err)
-		assert.True(t, applied, "embedded payload must run before config parsing")
+		require.NoError(t, err)
+		assert.True(t, applied)
 	})
 
-	t.Run("embedded hotfix failure is logged and provisioning continues", func(t *testing.T) {
+	t.Run("embedded hotfix failure is logged ", func(t *testing.T) {
 		logs := installLogCapturer(t)
 		executed := false
 		tt := NewTestApp(t, TestAppConfig{
@@ -262,21 +258,20 @@ func TestApp_Provision(t *testing.T) {
 			return errors.New("rendered nodecustomdata application failed")
 		}
 
-		_, err := tt.App.runProvision(
-			context.Background(),
-			ProvisionFlags{NBCCmd: "parser/testdata/test_nbccmd.sh"},
-			false,
-		)
+		err := tt.App.runApplyHotfixCommand(context.Background())
 
-		require.NoError(t, err)
-		assert.True(t, executed)
+		require.Error(t, err)
+		assert.False(t, executed)
 		assert.Contains(t, logs.getRecords(), logRecord{
-			Level:   slog.LevelWarn,
-			Message: "failed to apply embedded hotfix payload; continuing provisioning",
+			Level:   slog.LevelError,
+			Message: "aks-node-controller failed to apply embedded hotfix payload",
 			Attrs:   map[string]string{"error": "rendered nodecustomdata application failed"},
 		})
 	})
 
+}
+
+func TestApp_Provision(t *testing.T) {
 	t.Run("dry-run does not apply embedded hotfix payload", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		applied := false

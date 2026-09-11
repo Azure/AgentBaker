@@ -90,6 +90,14 @@ else
     log "Using VHD-baked binary: $BIN_PATH"
 fi
 
+if [ -x "$HOTFIX_BIN" ]; then
+    f "$HOTFIX_BIN" apply-hotfix; then
+        log "ANC apply-hotfix completed"
+    else
+        log "ANC apply-hotfix failed"
+    fi
+fi
+
 command=("$BIN_PATH" provision)
 if [ -f "$CONFIG_PATH" ]; then
     log "Launching aks-node-controller with config ${CONFIG_PATH}"
