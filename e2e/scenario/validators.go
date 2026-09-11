@@ -3204,53 +3204,16 @@ fi`)
 	return nil
 }
 
-// ValidateSSHServiceDisabled validates that the SSH daemon service is disabled and stopped on the node
+// ValidateSSHServiceDisabled validates that SSH services and sockets are disabled and stopped on the node
 func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) error {
-	// Use VMSS RunCommand to check SSH service status directly on the node
-	// Ubuntu uses 'ssh' as service name, while AzureLinux and Mariner use 'sshd'
-	resp, err := RunCommand(ctx, s, `#!/bin/bash
-# Determine the correct SSH service name based on the distro
-# Ubuntu uses 'ssh', AzureLinux and Mariner use 'sshd'
-if [ -f /etc/os-release ]; then
-    . /etc/os-release
-    if [[ "$ID" == "ubuntu" ]]; then
-        SSH_SERVICE="ssh"
-    else
-        SSH_SERVICE="sshd"
-    fi
-else
-    # Default to sshd if we can't determine the OS
-    SSH_SERVICE="sshd"
-fi
-
-echo "Detected SSH service name: $SSH_SERVICE"
-
-# Check SSH service status
-status_output=$(systemctl status "$SSH_SERVICE" 2>&1)
-echo "SSH service status output:"
-echo "$status_output"
-
-# Check if the service is inactive (dead) and disabled
-if echo "$status_output" | grep -q "Active: inactive (dead)"; then
-    if echo "$status_output" | grep -q "Loaded:.*disabled"; then
-        echo "SUCCESS: SSH service is disabled and stopped"
-        exit 0
-    else
-        echo "FAILED: SSH service is inactive but not disabled"
-        exit 1
-    fi
-else
-    echo "FAILED: SSH service is not inactive"
-    exit 1
-fi`)
+	resp, err := RunCommand(ctx, s, validateSSHServiceDisabledScript)
 	if err != nil {
 		return fmt.Errorf("run command to check SSH service status: %w", err)
 	}
 	stdout := lo.FromPtr(resp.Output)
 	s.Logger.Logf("Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
-	// Check if the command execution was successful by looking for our success message in the output
-	if err := assert.Contains(stdout, "SUCCESS: SSH service is disabled and stopped", "SSH service is not properly disabled and stopped"); err != nil {
+	if err := assert.Contains(stdout, "SUCCESS: SSH units are disabled and stopped", "SSH service is not properly disabled and stopped"); err != nil {
 		return err
 	}
 

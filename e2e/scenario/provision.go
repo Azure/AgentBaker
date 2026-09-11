@@ -746,6 +746,25 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 	return view, runCommandScriptError(view)
 }
 
+func RestartVMSSVM(ctx context.Context, s *Scenario) error {
+	if s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
+		s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil ||
+		s.Runtime.VM == nil || s.Runtime.VM.VM == nil || s.Runtime.VM.VM.InstanceID == nil {
+		return fmt.Errorf("scenario runtime is incomplete for VMSS VM restart")
+	}
+
+	rg := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
+	instanceID := *s.Runtime.VM.VM.InstanceID
+	poller, err := config.Azure.VMSSVM.BeginRestart(ctx, rg, s.Runtime.VMSSName, instanceID, nil)
+	if err != nil {
+		return fmt.Errorf("begin VMSS VM restart: %w", err)
+	}
+	if _, err = poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
+		return fmt.Errorf("restart VMSS VM: %w", err)
+	}
+	return nil
+}
+
 // runCommandScriptError converts a RunCommand instance view into an error if the
 // script itself failed. The ARM CreateOrUpdate operation reports success as long as
 // the extension was able to run the script — a non-zero exit, throw, or timeout
