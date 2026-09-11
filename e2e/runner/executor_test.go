@@ -24,7 +24,7 @@ func TestAppListsRegisteredScenarios(t *testing.T) {
 	app := NewApp(&stdout, &stderr)
 
 	assert.Equal(t, exitSuccess, app.Run(context.Background(), []string{"e2e", "list"}), stderr.String())
-	assert.Contains(t, stdout.String(), "Ubuntu2204\n", "list did not contain a known scenario")
+	assert.Contains(t, stdout.String(), "Ubuntu2204_CustomLinuxOSConfig_Taints_ANC\n", "list did not contain a known scenario")
 }
 
 func TestAppRejectsUnknownScenario(t *testing.T) {
@@ -126,7 +126,7 @@ func TestAppRejectsUnknownScenarioChild(t *testing.T) {
 	var stderr bytes.Buffer
 	app := NewApp(&stdout, &stderr)
 
-	assert.Equal(t, exitUsage, app.Run(context.Background(), []string{"e2e", "run", "--log-dir", t.TempDir(), "Ubuntu2204/not-a-scenario"}), "stderr: %s", stderr.String())
+	assert.Equal(t, exitUsage, app.Run(context.Background(), []string{"e2e", "run", "--log-dir", t.TempDir(), "Ubuntu2204_CustomLinuxOSConfig_Taints_ANC/not-a-scenario"}), "stderr: %s", stderr.String())
 }
 
 func TestAppSuggestsMistypedFlag(t *testing.T) {

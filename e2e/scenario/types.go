@@ -39,10 +39,10 @@ type Tags struct {
 
 // Scenario represents an AgentBaker E2E scenario.
 type Scenario struct {
-	// Name is the stable scenario name used by filters, logs, and test reports.
+	// Name: OS/image plus distinguishing configuration or lifecycle; see ../README.md#scenario-names.
 	Name string
 
-	// Description is a short description of what the scenario does and tests for
+	// Description: configured node, checked behaviors, and disruptive steps.
 	Description string
 
 	// Tags are used for filtering scenarios to run based on the tags provided

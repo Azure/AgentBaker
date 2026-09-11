@@ -16,27 +16,45 @@ From a high-level, for each scenario,
 3. Liveness and health checks and then run to make sure the new VM's kubelet is posting NodeReady, and that workload
    pods can successfully be scheduled and run on the new node.
 
-To write an E2E scenario,
+## Writing and extending scenarios
 
-- Choose a test cluster. The cluster definitions are in [cache.go](scenario/cache.go).
-    - ClusterKubenet
-    - ClusterAzureNetwork
-    - ClusterAzureOverlayNetwork
-    - ClusterAzureOverlayNetworkDualStack
-    - ClusterCiliumNetwork
-    - ClusterLatestKubernetesVersion
-    - ClusterAzureBootstrapProfileCache (private ACR)
-    - ClusterAzureNetworkIsolated (no internet access)
-- use `NodeBootstrappingConfiugration` (`nbc`) to setup your scenario. it is used to invoke the primary
-  node-bootstrapping
-  API [GetLatestNodeBootstrapping](https://github.com/Azure/AgentBaker/blob/2e730b5a498c5be9b082d912fd08ac9346582db9/pkg/agent/bakerapi.go#L14).
-  to modify agentpool properties, usually you need to set both`nbc.containerService.properties.AgentPoolProfiles[0].xxx`
-  as well as `nbc.agentPoolProfile`. It is because when RP invokes AgentBaker, it will set the properties in this way
-  and in e2e we follow the pattern.
-- use `VMConfigMutator` to set VMSS properties such as SKU when needed.
-  Read [vmss.go](scenario/vmss.go) for other configuration values.
-  it is necessary to set `nbc.agentPoolProfile.VMSize` to match the VMSS SKU if you choose to change.
-- use `Validator` to include your own verification of the VM's live state, such as file existsnce, sysctl settings, etc.
+Extend an existing scenario's `Validator` when its node has the required settings.
+Each separate scenario creates test VM resources; the runner does not combine them.
+
+1. Compare actual inputs: image, architecture, VM size, network, NBC/ANC settings,
+   VMSS tags, and direct provisioning or VHD caching. Preserve required default
+   and custom input cases.
+2. Keep configuration and checks together. Identify each check's errors, validate
+   provisioning state before changing it, and capture timing before disruptive work.
+   Keep reboot/corruption steps ordered; restore state and clean up test resources.
+3. Add a scenario only for different required inputs or a separate-node lifecycle.
+   Explain the reason in the PR.
+
+### Scenario names
+
+Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
+`Ubuntu2204_CustomLinuxOSConfig_Taints_ANC` or
+`AzureLinuxV3_CustomLinuxOSConfig_ANC_Reboot`.
+
+- Name the configuration or lifecycle; put assertions and disruptive steps in
+  `Description`. Adding a check alone does not require a rename.
+- Include hardware, network, architecture, or provisioning mode when relevant.
+  Reserve OS-only names for nodes without distinguishing custom settings.
+- `PreinstalledBinaries` means source-VHD binaries, not `VHDCaching`'s bake/real-node
+  lifecycle. Preserve performance-test timing extraction and isolation.
+- Renames affect selectors, logs, and report history; there are no aliases.
+  Update repository references, list old/new names in the PR, and flag external
+  exact-name selectors for update.
+
+### Configuring a separate scenario
+
+- Choose a cluster from [cache.go](scenario/cache.go).
+- Set bootstrap inputs through `NodeBootstrappingConfiguration`. Mirror RP's
+  agent-pool settings in both `nbc.ContainerService.Properties.AgentPoolProfiles[0]`
+  and `nbc.AgentPoolProfile` where required.
+- Set VMSS properties through `VMConfigMutator`; keep its SKU and
+  `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
+- Use `Validator` to check the resulting node state.
 
 ## VM size configuration
 
@@ -231,7 +249,7 @@ To run one scenario, give its name to the script:
 Give more than one name to run multiple scenarios:
 
 ```bash
-./e2e-local.sh AzureLinuxV2 Ubuntu2204
+./e2e-local.sh AzureLinuxV2 Ubuntu2204_CustomLinuxOSConfig_Taints_ANC
 ```
 
 ### Debugging

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/config"
@@ -25,11 +26,9 @@ const (
 	nvidiaDevicePluginImage = "mcr.microsoft.com/oss/v2/nvidia/k8s-device-plugin:v0.18.2"
 )
 
-// Ubuntu2204_NvidiaDevicePlugin_Daemonset tests the upstream, customer-managed
-// NVIDIA device plugin DaemonSet deployment model instead of the systemd service.
 var _ = Register(&Scenario{
-	Name:        "Ubuntu2204_NvidiaDevicePlugin_Daemonset",
-	Description: "Tests that the NVIDIA device plugin works as a DaemonSet instead of a systemd service",
+	Name:        "Ubuntu2204_A10_UpstreamDevicePlugin",
+	Description: "Tests Ubuntu 22.04 A10 driver readiness, kubelet continuity, and GPU workloads with the upstream NVIDIA device plugin DaemonSet and the managed plugin inactive",
 	Tags: Tags{
 		GPU: true,
 	},
@@ -48,30 +47,27 @@ var _ = Register(&Scenario{
 			vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			// The device plugin is only meaningful once the driver is present and the
-			// systemd-based plugin is confirmed inactive, so gate the deployment on both.
 			if err := errors.Join(
-				// First, validate that GPU drivers are installed
-				ValidateNvidiaModProbeInstalled(ctx, s),
-				// Verify that the systemd-based device plugin is NOT running
-				// (managed GPU experience is not enabled, so the service should not be active)
-				validateNvidiaDevicePluginServiceNotRunning(ctx, s),
+				validateNvidiaDriverInstalled(ctx, s),
+				runGPUCheck(ctx, s, "bootstrap/kubelet-continuity", ValidateKubeletHasNotStopped),
+				runGPUCheck(ctx, s, "plugin/managed-service-inactive", validateNvidiaDevicePluginServiceNotRunning),
 			); err != nil {
 				return err
 			}
 
-			if err := deployNvidiaDevicePluginDaemonset(ctx, s); err != nil {
+			if err := runGPUCheck(ctx, s, "plugin/deploy", deployNvidiaDevicePluginDaemonset); err != nil {
 				return err
 			}
 
-			// Validate that GPU resources are advertised by the device plugin
-			if err := ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+			if err := runGPUCheck(ctx, s, "plugin/gpu-resources", func(ctx context.Context, s *Scenario) error {
+				return ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
+			}); err != nil {
 				return err
 			}
 
-			// Validate that GPU workloads can be scheduled. Only meaningful once the
-			// resources above are advertised, otherwise the pod just waits to be scheduled.
-			if err := ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+			if err := runGPUCheck(ctx, s, "plugin/workload", func(ctx context.Context, s *Scenario) error {
+				return ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
+			}); err != nil {
 				return err
 			}
 
@@ -80,6 +76,23 @@ var _ = Register(&Scenario{
 		},
 	},
 })
+
+func validateNvidiaDriverInstalled(ctx context.Context, s *Scenario) error {
+	return errors.Join(
+		runGPUCheck(ctx, s, "driver/nvidia-modprobe", ValidateNvidiaModProbeInstalled),
+		runGPUCheck(ctx, s, "driver/nvidia-smi", ValidateNvidiaSMIInstalled),
+	)
+}
+
+func runGPUCheck(ctx context.Context, s *Scenario, name string, check func(context.Context, *Scenario) error) error {
+	start := time.Now()
+	err := check(ctx, s)
+	s.recordADOTestCase(name, "e2e.gpu", time.Since(start), err)
+	if err != nil {
+		return fmt.Errorf("%s: %w", name, err)
+	}
+	return nil
+}
 
 // validateNvidiaDevicePluginServiceNotRunning verifies that the systemd-based
 // NVIDIA device plugin service is not running because the test uses the DaemonSet model.
