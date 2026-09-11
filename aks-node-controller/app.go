@@ -33,7 +33,8 @@ func isExpectedDiffCSEVar(key string) bool {
 		"MCR_REPOSITORY_BASE",
 		"BLOCK_OUTBOUND_NETWORK",
 		"REPO_DEPOT_ENDPOINT",
-		"SKIP_WAAGENT_HOLD":
+		"SKIP_WAAGENT_HOLD",
+		"PROXY_VARS":
 		return true
 	}
 	return false
@@ -71,16 +72,11 @@ type App struct {
 	// Authorization header for the check-hotfix LPS fetch. When nil, the real IMDS endpoint
 	// is queried.
 	fetchAttestedToken func(ctx context.Context) (string, error)
+	// applyEmbeddedHotfix overrides embedded script application for tests.
+	applyEmbeddedHotfix func(string) error
 	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
 	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
 	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
-	// httpDownload overrides the real HTTP GET for download-hotfix artifact fetching, letting
-	// unit tests inject canned binary content or errors without real networking. When nil, the
-	// real HTTP download is used.
-	httpDownload func(ctx context.Context, url string) ([]byte, error)
-	// downloadDir overrides the directory where artifact downloads are staged. When empty,
-	// defaults to filepath.Dir(hotfixBinaryPath). Used for testing.
-	downloadDir string
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
@@ -709,6 +705,16 @@ func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun boo
 	}
 	if dryRun {
 		a.cmdRun = cmdRunnerDryRun
+	} else {
+		applyHotfix := a.applyEmbeddedHotfix
+		if applyHotfix == nil {
+			applyHotfix = func(osReleasePath string) error {
+				return applyEmbeddedNodeCustomData(embeddedGeneratedNodeCustomData, osReleasePath, embeddedNodeCustomDataPath)
+			}
+		}
+		if err := applyHotfix(a.osReleasePath); err != nil {
+			slog.Warn("failed to apply embedded hotfix payload; continuing provisioning", "error", err)
+		}
 	}
 	return a.Provision(ctx, flags)
 }

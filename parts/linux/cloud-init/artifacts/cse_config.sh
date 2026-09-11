@@ -1774,10 +1774,27 @@ setupAmdAma() {
 }
 
 disableSSH() {
-    # On ubuntu, the ssh service is named "ssh.service"
-    systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
-    # On AzureLinux, the ssh service is named "sshd.service"
-    systemctlDisableAndStop sshd || exit $ERR_DISABLE_SSH
+    local units=() unit result=0
+    if isACL "$OS" "$OS_VARIANT"; then
+        units=(sshd.socket sshd.service)
+    elif isUbuntu "$OS"; then
+        units=(ssh.service)
+    elif isMarinerOrAzureLinux "$OS" "$OS_VARIANT" || isFlatcar "$OS"; then
+        units=(sshd.service)
+    else
+        echo "Disabling SSH is not supported on OS $OS"
+        return 1
+    fi
+
+    for unit in "${units[@]}"; do
+        if ! systemctl cat "$unit" >/dev/null 2>&1; then
+            echo "Cannot inspect expected SSH unit $unit"
+            return 1
+        fi
+        systemctl_stop 20 5 25 "$unit" || { echo "$unit could not be stopped"; result=1; }
+        systemctl_disable 20 5 25 "$unit" || { echo "$unit could not be disabled"; result=1; }
+    done
+    return "$result"
 }
 
 disableSSHPubkeyAuth() {
