@@ -669,6 +669,7 @@ func TestDownloadHotfixGuestAgentTimingEvents(t *testing.T) {
 		wantErr       bool
 		wantTaskNames []string
 		wantLevel     string
+		wantMessage   []string
 	}{
 		{
 			name:    "no hotfix version skips",
@@ -678,6 +679,7 @@ func TestDownloadHotfixGuestAgentTimingEvents(t *testing.T) {
 			},
 			wantTaskNames: []string{"AKS.AKSNodeController.Hotfix.BinaryOperation"},
 			wantLevel:     "Informational",
+			wantMessage:   []string{"current=202604.01.0", "route=none", "outcome=skipped-no-version"},
 		},
 		{
 			name:    "non-targeted version skips",
@@ -687,6 +689,7 @@ func TestDownloadHotfixGuestAgentTimingEvents(t *testing.T) {
 			},
 			wantTaskNames: []string{"AKS.AKSNodeController.Hotfix.BinaryOperation"},
 			wantLevel:     "Informational",
+			wantMessage:   []string{"target=202604.01.1", "route=none", "outcome=skipped-not-targeted"},
 		},
 		{
 			name:    "malformed current version skips",
@@ -696,6 +699,7 @@ func TestDownloadHotfixGuestAgentTimingEvents(t *testing.T) {
 			},
 			wantTaskNames: []string{"AKS.AKSNodeController.Hotfix.BinaryOperation"},
 			wantLevel:     "Informational",
+			wantMessage:   []string{"current=dev", "route=none", "outcome=skipped-version-compare-error"},
 		},
 		{
 			name:    "map-based malformed current version skips",
@@ -705,6 +709,7 @@ func TestDownloadHotfixGuestAgentTimingEvents(t *testing.T) {
 			},
 			wantTaskNames: []string{"AKS.AKSNodeController.Hotfix.BinaryOperation"},
 			wantLevel:     "Informational",
+			wantMessage:   []string{"current=dev", "route=none", "outcome=skipped-version-compare-error"},
 		},
 		{
 			name:    "package manager success",
@@ -725,6 +730,25 @@ func TestDownloadHotfixGuestAgentTimingEvents(t *testing.T) {
 				"AKS.AKSNodeController.Hotfix.BinaryStaging",
 				"AKS.AKSNodeController.Hotfix.BinaryOperation",
 			},
+			wantLevel:   "Informational",
+			wantMessage: []string{"target=202604.01.1", "route=package-manager", "outcome=success"},
+		},
+		{
+			name:    "rpm package manager success",
+			current: "202604.01.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				app.osReleasePath = writeOSRelease(t, dir, "ID=azurelinux\n")
+				app.vhdBinaryPath = writeExecutable(t, dir, "vhd-anc", "original")
+				app.pkgBinaryPath = writeExecutable(t, dir, "pkg-anc", "package-manager-hotfix")
+				app.hotfixBinaryPath = filepath.Join(dir, "hotfix-anc")
+				return &hotfixConfig{Version: "202604.01.1"}
+			},
+			wantTaskNames: []string{
+				"AKS.AKSNodeController.Hotfix.RpmInstall",
+				"AKS.AKSNodeController.Hotfix.PackageManagerInstall",
+				"AKS.AKSNodeController.Hotfix.BinaryStaging",
+				"AKS.AKSNodeController.Hotfix.BinaryOperation",
+			},
 			wantLevel: "Informational",
 		},
 		{
@@ -739,7 +763,8 @@ func TestDownloadHotfixGuestAgentTimingEvents(t *testing.T) {
 				"AKS.AKSNodeController.Hotfix.PackageManagerInstall",
 				"AKS.AKSNodeController.Hotfix.BinaryOperation",
 			},
-			wantLevel: "Error",
+			wantLevel:   "Error",
+			wantMessage: []string{"target=202604.01.1", "route=package-manager", "outcome=failed"},
 		},
 		{
 			name:    "package manager staging failure",
@@ -761,7 +786,8 @@ func TestDownloadHotfixGuestAgentTimingEvents(t *testing.T) {
 				"AKS.AKSNodeController.Hotfix.BinaryStaging",
 				"AKS.AKSNodeController.Hotfix.BinaryOperation",
 			},
-			wantLevel: "Error",
+			wantLevel:   "Error",
+			wantMessage: []string{"target=202604.01.1", "route=package-manager", "outcome=failed"},
 		},
 	}
 
@@ -791,12 +817,22 @@ func TestDownloadHotfixGuestAgentTimingEvents(t *testing.T) {
 			for i, taskName := range tc.wantTaskNames {
 				assert.Equal(t, taskName, events[i].TaskName)
 				assert.Contains(t, events[i].Message, "durationMs=")
+				assert.Contains(t, events[i].Message, "outcome=")
+				switch {
+				case strings.Contains(taskName, "Apt"):
+					assert.Contains(t, events[i].Message, "version=202604.01.1")
+				case strings.Contains(taskName, "PackageManagerInstall"):
+					assert.Contains(t, events[i].Message, "target=202604.01.1")
+					assert.Contains(t, events[i].Message, "route=package-manager")
+				case strings.Contains(taskName, "BinaryStaging"):
+					assert.Contains(t, events[i].Message, "target=202604.01.1")
+					assert.Contains(t, events[i].Message, "source=")
+					assert.Contains(t, events[i].Message, "destination=")
+				}
 			}
 			assert.Equal(t, tc.wantLevel, events[len(events)-1].EventLevel)
-			if tc.wantErr {
-				assert.NotContains(t, events[len(events)-1].Message, "Completed")
-			} else {
-				assert.Contains(t, events[len(events)-1].Message, "Completed")
+			for _, expected := range tc.wantMessage {
+				assert.Contains(t, events[len(events)-1].Message, expected)
 			}
 		})
 	}

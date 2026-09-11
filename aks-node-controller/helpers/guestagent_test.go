@@ -38,8 +38,8 @@ func TestEventLogger_RunTimedOperation(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		logger := NewEventLogger(t.TempDir())
 
-		err := logger.RunTimedOperation("Hotfix.BinaryOperation", func() error {
-			return nil
+		err := logger.RunTimedOperation("Hotfix.BinaryOperation", func() (string, error) {
+			return "route=package-manager outcome=success target=202604.01.1", nil
 		})
 
 		require.NoError(t, err)
@@ -47,7 +47,9 @@ func TestEventLogger_RunTimedOperation(t *testing.T) {
 		require.Len(t, events, 1)
 		assert.Equal(t, "AKS.AKSNodeController.Hotfix.BinaryOperation", events[0].TaskName)
 		assert.Equal(t, string(EventLevelInformational), events[0].EventLevel)
-		assert.Contains(t, events[0].Message, "Completed")
+		assert.Contains(t, events[0].Message, "route=package-manager")
+		assert.Contains(t, events[0].Message, "outcome=success")
+		assert.Contains(t, events[0].Message, "target=202604.01.1")
 		assert.Contains(t, events[0].Message, "durationMs=")
 	})
 
@@ -55,8 +57,8 @@ func TestEventLogger_RunTimedOperation(t *testing.T) {
 		logger := NewEventLogger(t.TempDir())
 		wantErr := errors.New("operation failed")
 
-		err := logger.RunTimedOperation("Hotfix.BinaryOperation", func() error {
-			return wantErr
+		err := logger.RunTimedOperation("Hotfix.BinaryOperation", func() (string, error) {
+			return "route=package-manager outcome=failed target=202604.01.1", wantErr
 		})
 
 		require.ErrorIs(t, err, wantErr)
@@ -64,6 +66,8 @@ func TestEventLogger_RunTimedOperation(t *testing.T) {
 		require.Len(t, events, 1)
 		assert.Equal(t, "AKS.AKSNodeController.Hotfix.BinaryOperation", events[0].TaskName)
 		assert.Equal(t, string(EventLevelError), events[0].EventLevel)
+		assert.Contains(t, events[0].Message, "route=package-manager")
+		assert.Contains(t, events[0].Message, "outcome=failed")
 		assert.Contains(t, events[0].Message, wantErr.Error())
 		assert.Contains(t, events[0].Message, "durationMs=")
 	})
@@ -72,9 +76,9 @@ func TestEventLogger_RunTimedOperation(t *testing.T) {
 		var logger *EventLogger
 		called := false
 
-		err := logger.RunTimedOperation("Hotfix.BinaryOperation", func() error {
+		err := logger.RunTimedOperation("Hotfix.BinaryOperation", func() (string, error) {
 			called = true
-			return nil
+			return "", nil
 		})
 
 		require.NoError(t, err)

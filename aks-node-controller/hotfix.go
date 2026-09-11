@@ -50,7 +50,7 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 	if err := a.applyNodeCustomDataIfNeeded(cfg); err != nil {
 		slog.Warn("failed to apply node custom data", "path", hotfixPath, "error", err)
 	}
-	return a.eventLogger.RunTimedOperation("Hotfix.BinaryOperation", func() error {
+	return a.eventLogger.RunTimedOperation("Hotfix.BinaryOperation", func() (string, error) {
 		return a.downloadBinaryHotfixIfNeeded(ctx, cfg)
 	})
 }
@@ -79,26 +79,26 @@ func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
 	return applyNodeCustomData(a.getNodeCustomDataPath())
 }
 
-func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfig) error {
+func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfig) (message string, err error) {
 	hotfixVersion := cfg.resolveVersion(Version)
 	route := hotfixRouteNone
 	outcome := hotfixOutcomeStarted
-	var terminalErr error
 	slog.Info("ANC hotfix binary operation started", "current", Version, "target", hotfixVersion)
 	defer func() {
-		logHotfixBinaryOperationFinished(Version, hotfixVersion, route, outcome, terminalErr)
+		logHotfixBinaryOperationFinished(Version, hotfixVersion, route, outcome, err)
+		message = hotfixOperationMessage(Version, hotfixVersion, route, outcome)
 	}()
 
 	if hotfixVersion == "" {
 		if len(cfg.Hotfixes) > 0 {
 			if _, err := hotfixBaseFromVersion(Version); err != nil {
 				outcome = hotfixOutcomeSkippedVersionCompareError
-				return nil
+				return "", nil
 			}
 		}
 		outcome = hotfixOutcomeSkippedNoVersion
 		slog.Info("hotfix config does not request a version for this base, skipping download", "current", Version)
-		return nil
+		return "", nil
 	}
 
 	// Patch-only matching: only upgrade if same YYYYMM.DD base and hotfix has
@@ -108,13 +108,13 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 		outcome = hotfixOutcomeSkippedVersionCompareError
 		slog.Warn("failed to compare versions, skipping hotfix download",
 			"current", Version, "hotfix", hotfixVersion, "error", err)
-		return nil
+		return "", nil
 	}
 	if !shouldUpgrade {
 		outcome = hotfixOutcomeSkippedNotTargeted
 		slog.Info("ANC version not targeted by hotfix, skipping download",
 			"current", Version, "hotfix", hotfixVersion)
-		return nil
+		return "", nil
 	}
 
 	slog.Info("downloading ANC hotfix", "current", Version, "target", hotfixVersion)
@@ -124,30 +124,42 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 	// package artifacts cannot be staged directly as executables.
 	route = hotfixRoutePackageManager
 	slog.Info("ANC hotfix package-manager install started", "target", hotfixVersion)
-	if err := a.eventLogger.RunTimedOperation("Hotfix.PackageManagerInstall", func() error {
-		return a.installFromPMC(ctx, hotfixVersion)
+	if err := a.eventLogger.RunTimedOperation("Hotfix.PackageManagerInstall", func() (string, error) {
+		err := a.installFromPMC(ctx, hotfixVersion)
+		return fmt.Sprintf("target=%s route=%s outcome=%s", hotfixVersion, route, hotfixOutcome(err)), err
 	}); err != nil {
 		outcome = string(outcomeFailed)
 		slog.Warn("ANC hotfix package-manager install failed", "target", hotfixVersion, "error", err)
-		terminalErr = fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
-		return terminalErr
+		return "", fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
 	}
 	slog.Info("ANC hotfix package-manager install finished", "target", hotfixVersion)
 
 	slog.Info("ANC hotfix binary staging started", "target", hotfixVersion, "src", a.pkgPath(), "dst", a.hotfixPath())
-	if err := a.eventLogger.RunTimedOperation("Hotfix.BinaryStaging", func() error {
-		return copyBinaryAlongside(a.pkgPath(), a.hotfixPath(), a.vhdPath())
+	if err := a.eventLogger.RunTimedOperation("Hotfix.BinaryStaging", func() (string, error) {
+		err := copyBinaryAlongside(a.pkgPath(), a.hotfixPath(), a.vhdPath())
+		return fmt.Sprintf("target=%s source=%s destination=%s outcome=%s",
+			hotfixVersion, a.pkgPath(), a.hotfixPath(), hotfixOutcome(err)), err
 	}); err != nil {
 		outcome = string(outcomeFailed)
 		slog.Warn("ANC hotfix binary staging failed", "target", hotfixVersion, "error", err)
-		terminalErr = fmt.Errorf("stage hotfix binary: %w", err)
-		return terminalErr
+		return "", fmt.Errorf("stage hotfix binary: %w", err)
 	}
 	slog.Info("ANC hotfix binary staging finished", "target", hotfixVersion)
 
 	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", a.hotfixPath())
 	outcome = hotfixOutcomeSuccess
-	return nil
+	return "", nil
+}
+
+func hotfixOperationMessage(current, target, route, outcome string) string {
+	return fmt.Sprintf("current=%s target=%s route=%s outcome=%s", current, target, route, outcome)
+}
+
+func hotfixOutcome(err error) string {
+	if err != nil {
+		return string(outcomeFailed)
+	}
+	return hotfixOutcomeSuccess
 }
 
 func logHotfixBinaryOperationFinished(current, target, route, outcome string, err error) {
@@ -366,9 +378,10 @@ func (a *App) installWithApt(ctx context.Context, version string) error {
 
 	// Ensure any interrupted dpkg state is reconciled before running apt operations.
 	slog.Info("ANC hotfix apt dpkg configure started", "version", version)
-	if err := a.eventLogger.RunTimedOperation("Hotfix.AptDpkgConfigure", func() error {
-		return a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
+	if err := a.eventLogger.RunTimedOperation("Hotfix.AptDpkgConfigure", func() (string, error) {
+		err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
 			"dpkg", "--configure", "-a", "--force-confdef", "--force-confold")
+		return fmt.Sprintf("version=%s outcome=%s", version, hotfixOutcome(err)), err
 	}); err != nil {
 		slog.Warn("ANC hotfix apt dpkg configure failed", "version", version, "error", err)
 		return fmt.Errorf("dpkg --configure -a failed: %w", err)
@@ -377,12 +390,14 @@ func (a *App) installWithApt(ctx context.Context, version string) error {
 
 	// Refresh only the microsoft-prod repo to minimize time.
 	slog.Info("ANC hotfix apt update started", "version", version, "sourceList", microsoftProdSourceListPath)
-	if err := a.eventLogger.RunTimedOperation("Hotfix.AptUpdate", func() error {
-		return a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
+	if err := a.eventLogger.RunTimedOperation("Hotfix.AptUpdate", func() (string, error) {
+		err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
 			"apt-get", "update",
 			"-o", "Dpkg::Options::=--force-confold",
 			"-o", fmt.Sprintf("Dir::Etc::sourcelist=%s", microsoftProdSourceListPath),
 			"-o", "Dir::Etc::sourceparts=-")
+		return fmt.Sprintf("version=%s sourceList=%s outcome=%s",
+			version, microsoftProdSourceListPath, hotfixOutcome(err)), err
 	}); err != nil {
 		slog.Warn("ANC hotfix apt update failed", "version", version, "sourceList", microsoftProdSourceListPath, "error", err)
 		return fmt.Errorf("apt-get update failed: %w", err)
@@ -391,11 +406,12 @@ func (a *App) installWithApt(ctx context.Context, version string) error {
 
 	// Install with --allow-downgrades in case the hotfix is older than the VHD-baked version.
 	slog.Info("ANC hotfix apt install started", "version", version)
-	if err := a.eventLogger.RunTimedOperation("Hotfix.AptInstall", func() error {
-		return a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
+	if err := a.eventLogger.RunTimedOperation("Hotfix.AptInstall", func() (string, error) {
+		err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
 			"apt-get", "install", "-y", "--allow-downgrades",
 			"-o", "Dpkg::Options::=--force-confold",
 			fmt.Sprintf("aks-node-controller=%s*", version))
+		return fmt.Sprintf("version=%s outcome=%s", version, hotfixOutcome(err)), err
 	}); err != nil {
 		slog.Warn("ANC hotfix apt install failed", "version", version, "error", err)
 		return err
@@ -425,9 +441,11 @@ func resolveMicrosoftProdSourceListPath(sourcesDir string) (string, error) {
 // installWithRpm installs the package via dnf or tdnf (repo index refreshed automatically).
 func (a *App) installWithRpm(ctx context.Context, pkgMgr string, version string) error {
 	slog.Info("ANC hotfix rpm install started", "packageManager", pkgMgr, "version", version)
-	if err := a.eventLogger.RunTimedOperation("Hotfix.RpmInstall", func() error {
-		return a.retryCommand(ctx, pkgMgr, "install", "-y", "--refresh", "--allowerasing",
+	if err := a.eventLogger.RunTimedOperation("Hotfix.RpmInstall", func() (string, error) {
+		err := a.retryCommand(ctx, pkgMgr, "install", "-y", "--refresh", "--allowerasing",
 			fmt.Sprintf("aks-node-controller-%s", version))
+		return fmt.Sprintf("packageManager=%s version=%s outcome=%s",
+			pkgMgr, version, hotfixOutcome(err)), err
 	}); err != nil {
 		slog.Warn("ANC hotfix rpm install failed", "packageManager", pkgMgr, "version", version, "error", err)
 		return err

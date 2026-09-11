@@ -41,20 +41,28 @@ func NewEventLogger(dir string) *EventLogger {
 	return &EventLogger{Dir: dir}
 }
 
-// RunTimedOperation runs an operation and emits one guest agent event with its duration.
-func (l *EventLogger) RunTimedOperation(taskName string, operation func() error) error {
+// RunTimedOperation runs an operation and emits one guest agent event with its result and duration.
+func (l *EventLogger) RunTimedOperation(taskName string, operation func() (string, error)) error {
 	startTime := time.Now()
-	err := operation()
+	message, err := operation()
 	endTime := time.Now()
 
 	if l == nil {
 		return err
 	}
 	if err != nil {
-		l.LogEvent(taskName, err.Error(), EventLevelError, startTime, endTime)
+		if message == "" {
+			message = fmt.Sprintf("error=%q", err)
+		} else {
+			message = fmt.Sprintf("%s error=%q", message, err)
+		}
+		l.LogEvent(taskName, message, EventLevelError, startTime, endTime)
 		return err
 	}
-	l.LogEvent(taskName, "Completed", EventLevelInformational, startTime, endTime)
+	if message == "" {
+		message = "outcome=success"
+	}
+	l.LogEvent(taskName, message, EventLevelInformational, startTime, endTime)
 	return nil
 }
 
