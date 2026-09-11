@@ -65,6 +65,8 @@ type App struct {
 	nbcCmdPath string
 	// gpuComponentsFilePath overrides the default GPU components.json location for testing.
 	gpuComponentsFilePath string
+	// hotfixTimingPath overrides the default hotfix timing artifact path for testing.
+	hotfixTimingPath string
 	// checkHotfixFetcher overrides the real LPS hotfix-pointer GET for testing, letting
 	// unit tests inject a canned pointer body or errors without real networking.
 	checkHotfixFetcher func(ctx context.Context) ([]byte, error)
@@ -77,6 +79,10 @@ type App struct {
 	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
 	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
 	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
+	// vhdBinaryPath, hotfixBinaryPath, and pkgBinaryPath override ANC binary paths for testing.
+	vhdBinaryPath    string
+	hotfixBinaryPath string
+	pkgBinaryPath    string
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.

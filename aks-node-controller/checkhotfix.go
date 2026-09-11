@@ -231,8 +231,9 @@ func (a *App) checkHotfix(ctx context.Context) (checkHotfixOutcome, error) {
 
 	// Report whether this node's base actually has a pointer in the staged config.
 	// download-hotfix still performs the authoritative patch-only-strictly-higher gating;
-	// this is telemetry only.
-	if staged.resolveVersion(Version) == "" {
+	// this is telemetry only, so an unparseable running version counts as "no pointer"
+	// rather than a check-hotfix failure: either way this node has no hotfix to apply.
+	if !staged.targetsVersion(Version) {
 		return outcomeNoHotfixForBase, nil
 	}
 	return outcomeLPSRead, nil

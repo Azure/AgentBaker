@@ -912,23 +912,24 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 	}
 
 	commandList := map[string]string{
-		"cluster-provision.log":            "sudo cat /var/log/azure/cluster-provision.log",
-		"kubelet.log":                      "sudo journalctl -u kubelet",
-		"aks-log-collector.log":            "sudo journalctl -u aks-log-collector",
-		"containerd.log":                   "sudo journalctl -u containerd",
-		"cluster-provision-cse-output.log": "sudo cat /var/log/azure/cluster-provision-cse-output.log",
-		"sysctl-out.log":                   "sudo sysctl -a",
-		"waagent.log":                      "sudo cat /var/log/waagent.log",
-		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
-		"aks-node-controller.output":       "sudo cat /var/log/azure/aks-node-controller.output",
-		"aks-node-controller-config.json":  "sudo cat /opt/azure/containers/aks-node-controller-config.json", // Only available in Scriptless.
-		"aks-early-boothook.log":           "sudo cat /var/log/azure/aks-early-boothook.log",
-		"syslog":                           "sudo cat /var/log/" + syslogHandle,
-		"journalctl":                       "sudo journalctl --boot=0 --no-pager",
-		"azure.json":                       "sudo cat /etc/kubernetes/azure.json",
-		"provision.json":                   "sudo cat /var/log/azure/aks/provision.json",
-		"cloud-init.log":                   "sudo cat /var/log/cloud-init.log",
-		"cloud-init-output.log":            "sudo cat /var/log/cloud-init-output.log",
+		"cluster-provision.log":                  "sudo cat /var/log/azure/cluster-provision.log",
+		"kubelet.log":                            "sudo journalctl -u kubelet",
+		"aks-log-collector.log":                  "sudo journalctl -u aks-log-collector",
+		"containerd.log":                         "sudo journalctl -u containerd",
+		"cluster-provision-cse-output.log":       "sudo cat /var/log/azure/cluster-provision-cse-output.log",
+		"sysctl-out.log":                         "sudo sysctl -a",
+		"waagent.log":                            "sudo cat /var/log/waagent.log",
+		"aks-node-controller.log":                "sudo cat /var/log/azure/aks-node-controller.log",
+		"aks-node-controller.output":             "sudo cat /var/log/azure/aks-node-controller.output",
+		"aks-node-controller-hotfix-timing.json": "sudo cat /var/log/azure/aks-node-controller-hotfix-timing.json",
+		"aks-node-controller-config.json":        "sudo cat /opt/azure/containers/aks-node-controller-config.json", // Only available in Scriptless.
+		"aks-early-boothook.log":                 "sudo cat /var/log/azure/aks-early-boothook.log",
+		"syslog":                                 "sudo cat /var/log/" + syslogHandle,
+		"journalctl":                             "sudo journalctl --boot=0 --no-pager",
+		"azure.json":                             "sudo cat /etc/kubernetes/azure.json",
+		"provision.json":                         "sudo cat /var/log/azure/aks/provision.json",
+		"cloud-init.log":                         "sudo cat /var/log/cloud-init.log",
+		"cloud-init-output.log":                  "sudo cat /var/log/cloud-init-output.log",
 		"cloud-init-analyze.log": "printf '%s\n' '=== cloud-init analyze show ==='; sudo cloud-init analyze show; " +
 			"printf '\\n%s\\n' '=== cloud-init analyze dump ==='; sudo cloud-init analyze dump; " +
 			"printf '\\n%s\\n' '=== cloud-init analyze blame ==='; sudo cloud-init analyze blame; " +

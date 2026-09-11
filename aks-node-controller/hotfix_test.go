@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -91,14 +92,22 @@ func TestHotfixBaseFromVersion(t *testing.T) {
 }
 
 func TestHotfixConfigResolveVersion(t *testing.T) {
+	// requireResolves asserts a successful resolution and returns the resolved version.
+	requireResolves := func(t *testing.T, cfg hotfixConfig, current string) string {
+		t.Helper()
+		resolved, err := cfg.resolveVersion(current)
+		require.NoError(t, err)
+		return resolved
+	}
+
 	t.Run("empty map falls back to legacy Version field", func(t *testing.T) {
 		cfg := hotfixConfig{Version: "202604.01.1"}
-		assert.Equal(t, "202604.01.1", cfg.resolveVersion("202604.01.0"))
+		assert.Equal(t, "202604.01.1", requireResolves(t, cfg, "202604.01.0"))
 	})
 
 	t.Run("empty config resolves to empty", func(t *testing.T) {
 		cfg := hotfixConfig{}
-		assert.Equal(t, "", cfg.resolveVersion("202604.01.0"))
+		assert.Equal(t, "", requireResolves(t, cfg, "202604.01.0"))
 	})
 
 	t.Run("map hit returns matching base entry", func(t *testing.T) {
@@ -106,18 +115,18 @@ func TestHotfixConfigResolveVersion(t *testing.T) {
 			"202604.01": "202604.01.1",
 			"202605.30": "202605.30.2",
 		}}
-		assert.Equal(t, "202604.01.1", cfg.resolveVersion("202604.01.0"))
-		assert.Equal(t, "202605.30.2", cfg.resolveVersion("202605.30.0"))
+		assert.Equal(t, "202604.01.1", requireResolves(t, cfg, "202604.01.0"))
+		assert.Equal(t, "202605.30.2", requireResolves(t, cfg, "202605.30.0"))
 	})
 
 	t.Run("map miss returns empty (default deny for unlisted base)", func(t *testing.T) {
 		cfg := hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.1"}}
-		assert.Equal(t, "", cfg.resolveVersion("202606.09.0"))
+		assert.Equal(t, "", requireResolves(t, cfg, "202606.09.0"))
 	})
 
 	t.Run("map preserves leading-zero day matching", func(t *testing.T) {
 		cfg := hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.1"}}
-		assert.Equal(t, "202604.01.1", cfg.resolveVersion("202604.01.0"))
+		assert.Equal(t, "202604.01.1", requireResolves(t, cfg, "202604.01.0"))
 	})
 
 	t.Run("map takes precedence over legacy Version field", func(t *testing.T) {
@@ -125,12 +134,14 @@ func TestHotfixConfigResolveVersion(t *testing.T) {
 			Version:  "202604.01.9",
 			Hotfixes: map[string]string{"202604.01": "202604.01.1"},
 		}
-		assert.Equal(t, "202604.01.1", cfg.resolveVersion("202604.01.0"))
+		assert.Equal(t, "202604.01.1", requireResolves(t, cfg, "202604.01.0"))
 	})
 
-	t.Run("unparseable current version with map returns empty (fail-open)", func(t *testing.T) {
+	t.Run("unparseable current version with map reports an error", func(t *testing.T) {
 		cfg := hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.1"}}
-		assert.Equal(t, "", cfg.resolveVersion("dev"))
+		resolved, err := cfg.resolveVersion("dev")
+		require.Error(t, err)
+		assert.Equal(t, "", resolved)
 	})
 }
 
@@ -381,6 +392,18 @@ func TestDownloadHotfix_UnreadableFileFailsOpen(t *testing.T) {
 	// so download-hotfix never blocks provisioning.
 	require.NoError(t, tt.App.downloadHotfix(context.Background()))
 	assert.False(t, installCalled, "should skip install when the config cannot be read")
+
+	events := tt.eventLogger.Events()
+	require.Len(t, events, 1)
+	assert.Equal(t, "AKS.AKSNodeController.Hotfix.BinaryOperation", events[0].TaskName)
+	assert.Equal(t, "Error", events[0].EventLevel)
+	assert.Contains(t, events[0].Message, "current=202604.01.0")
+	assert.Contains(t, events[0].Message, "target=")
+	assert.Contains(t, events[0].Message, "route=none")
+	assert.Contains(t, events[0].Message, "outcome=skipped-config-error")
+	assert.Contains(t, events[0].Message, "configPath="+path)
+	assert.Contains(t, events[0].Message, "error=")
+	assert.Contains(t, events[0].Message, "durationMs=")
 }
 
 func TestDownloadHotfix_InvalidJSONFailsOpen(t *testing.T) {
@@ -408,6 +431,18 @@ func TestDownloadHotfix_InvalidJSONFailsOpen(t *testing.T) {
 	// Fail-open: malformed JSON must skip the hotfix without erroring.
 	require.NoError(t, tt.App.downloadHotfix(context.Background()))
 	assert.False(t, installCalled, "should skip install when the config is invalid JSON")
+
+	events := tt.eventLogger.Events()
+	require.Len(t, events, 1)
+	assert.Equal(t, "AKS.AKSNodeController.Hotfix.BinaryOperation", events[0].TaskName)
+	assert.Equal(t, "Error", events[0].EventLevel)
+	assert.Contains(t, events[0].Message, "current=202604.01.0")
+	assert.Contains(t, events[0].Message, "target=")
+	assert.Contains(t, events[0].Message, "route=none")
+	assert.Contains(t, events[0].Message, "outcome=skipped-config-error")
+	assert.Contains(t, events[0].Message, "configPath="+path)
+	assert.Contains(t, events[0].Message, "error=")
+	assert.Contains(t, events[0].Message, "durationMs=")
 }
 
 func TestDownloadHotfix_MapBaseNotPresentSkips(t *testing.T) {
@@ -682,4 +717,292 @@ func TestShouldUpgradeToHotfix(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDownloadHotfixGuestAgentTimingEvents(t *testing.T) {
+	tests := []struct {
+		name          string
+		current       string
+		setup         func(t *testing.T, app *App, dir string) *hotfixConfig
+		wantErr       bool
+		wantTaskNames []string
+		wantLevel     string
+		wantMessage   []string
+		// Asserted against the Hotfix.ScriptApplication event, which is not the last one
+		// emitted and so is not covered by wantMessage.
+		wantScriptMessage []string
+	}{
+		{
+			name:    "no hotfix version skips",
+			current: "202604.01.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				return &hotfixConfig{}
+			},
+			wantTaskNames: []string{"AKS.AKSNodeController.Hotfix.BinaryOperation"},
+			wantLevel:     "Informational",
+			wantMessage:   []string{"current=202604.01.0", "route=none", "outcome=skipped-no-version"},
+		},
+		{
+			name:    "non-targeted version skips",
+			current: "202604.01.2",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				return &hotfixConfig{Version: "202604.01.1"}
+			},
+			wantTaskNames: []string{"AKS.AKSNodeController.Hotfix.BinaryOperation"},
+			wantLevel:     "Informational",
+			wantMessage:   []string{"target=202604.01.1", "route=none", "outcome=skipped-not-targeted"},
+		},
+		{
+			name:    "malformed current version skips",
+			current: "dev",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				return &hotfixConfig{Version: "202604.01.1"}
+			},
+			wantTaskNames: []string{"AKS.AKSNodeController.Hotfix.BinaryOperation"},
+			wantLevel:     "Informational",
+			wantMessage:   []string{"current=dev", "route=none", "outcome=skipped-version-compare-error"},
+		},
+		{
+			name:    "map-based malformed current version skips",
+			current: "dev",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				return &hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.1"}}
+			},
+			wantTaskNames: []string{"AKS.AKSNodeController.Hotfix.BinaryOperation"},
+			wantLevel:     "Informational",
+			wantMessage:   []string{"current=dev", "route=none", "outcome=skipped-version-compare-error"},
+		},
+		{
+			name:    "package manager success",
+			current: "202604.01.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				app.osReleasePath = writeOSRelease(t, dir, "ID=ubuntu\n")
+				app.aptSourcesDir = writeAptSourcesDir(t, dir)
+				app.vhdBinaryPath = writeExecutable(t, dir, "vhd-anc", "original")
+				app.pkgBinaryPath = writeExecutable(t, dir, "pkg-anc", "package-manager-hotfix")
+				app.hotfixBinaryPath = filepath.Join(dir, "hotfix-anc")
+				return &hotfixConfig{Version: "202604.01.1"}
+			},
+			wantTaskNames: []string{
+				"AKS.AKSNodeController.Hotfix.AptDpkgConfigure",
+				"AKS.AKSNodeController.Hotfix.AptUpdate",
+				"AKS.AKSNodeController.Hotfix.AptInstall",
+				"AKS.AKSNodeController.Hotfix.PackageManagerInstall",
+				"AKS.AKSNodeController.Hotfix.BinaryStaging",
+				"AKS.AKSNodeController.Hotfix.BinaryOperation",
+			},
+			wantLevel:   "Informational",
+			wantMessage: []string{"target=202604.01.1", "route=package-manager", "outcome=success"},
+		},
+		{
+			name:    "rpm package manager success",
+			current: "202604.01.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				app.osReleasePath = writeOSRelease(t, dir, "ID=azurelinux\n")
+				app.vhdBinaryPath = writeExecutable(t, dir, "vhd-anc", "original")
+				app.pkgBinaryPath = writeExecutable(t, dir, "pkg-anc", "package-manager-hotfix")
+				app.hotfixBinaryPath = filepath.Join(dir, "hotfix-anc")
+				return &hotfixConfig{Version: "202604.01.1"}
+			},
+			wantTaskNames: []string{
+				"AKS.AKSNodeController.Hotfix.RpmInstall",
+				"AKS.AKSNodeController.Hotfix.PackageManagerInstall",
+				"AKS.AKSNodeController.Hotfix.BinaryStaging",
+				"AKS.AKSNodeController.Hotfix.BinaryOperation",
+			},
+			wantLevel: "Informational",
+		},
+		{
+			// scripts_version work used to run inside the Hotfix.BinaryOperation timer, so
+			// its duration was charged to an event whose route/outcome only described the
+			// binary. It now reports separately.
+			name:    "script application is timed separately from the binary operation",
+			current: "202604.01.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				customData := filepath.Join(dir, "nodecustomdata.yml")
+				require.NoError(t, os.WriteFile(customData, []byte("write_files: []\n"), 0o644))
+				app.nodeCustomDataPath = customData
+				return &hotfixConfig{ScriptsVersion: "202604.01.1"}
+			},
+			wantTaskNames: []string{
+				"AKS.AKSNodeController.Hotfix.ScriptApplication",
+				"AKS.AKSNodeController.Hotfix.BinaryOperation",
+			},
+			wantLevel:         "Informational",
+			wantScriptMessage: []string{"scriptsVersion=202604.01.1", "outcome=success"},
+		},
+		{
+			// A configured script hotfix for a different base is skipped fail-open with a
+			// nil error. Reporting outcome=success here would mean every such node claims
+			// to have applied scripts it never touched.
+			name:    "script application reports a different-base skip",
+			current: "202604.01.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				return &hotfixConfig{ScriptsVersion: "202699.31.9"}
+			},
+			wantTaskNames: []string{
+				"AKS.AKSNodeController.Hotfix.ScriptApplication",
+				"AKS.AKSNodeController.Hotfix.BinaryOperation",
+			},
+			wantLevel:         "Informational",
+			wantScriptMessage: []string{"scriptsVersion=202699.31.9", "outcome=skipped-not-targeted"},
+		},
+		{
+			// Same trap for an unparseable version: skipped, not applied.
+			name:    "script application reports a version-compare skip",
+			current: "dev",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				return &hotfixConfig{ScriptsVersion: "202604.01.1"}
+			},
+			wantTaskNames: []string{
+				"AKS.AKSNodeController.Hotfix.ScriptApplication",
+				"AKS.AKSNodeController.Hotfix.BinaryOperation",
+			},
+			wantLevel:         "Informational",
+			wantScriptMessage: []string{"outcome=skipped-version-compare-error"},
+		},
+		{
+			// The common case: no scripts_version, so no script event is emitted at all
+			// rather than a zero-duration one on every node.
+			name:    "no script application event without a scripts version",
+			current: "202604.01.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				return &hotfixConfig{}
+			},
+			wantTaskNames: []string{"AKS.AKSNodeController.Hotfix.BinaryOperation"},
+			wantLevel:     "Informational",
+		},
+		{
+			name:    "package manager install failure",
+			current: "202604.01.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				app.osReleasePath = writeOSRelease(t, dir, "ID=unsupported\n")
+				return &hotfixConfig{Version: "202604.01.1"}
+			},
+			wantErr: true,
+			wantTaskNames: []string{
+				"AKS.AKSNodeController.Hotfix.PackageManagerInstall",
+				"AKS.AKSNodeController.Hotfix.BinaryOperation",
+			},
+			wantLevel:   "Error",
+			wantMessage: []string{"target=202604.01.1", "route=package-manager", "outcome=failed"},
+		},
+		{
+			name:    "package manager staging failure",
+			current: "202604.01.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				app.osReleasePath = writeOSRelease(t, dir, "ID=ubuntu\n")
+				app.aptSourcesDir = writeAptSourcesDir(t, dir)
+				app.vhdBinaryPath = writeExecutable(t, dir, "vhd-anc", "original")
+				app.pkgBinaryPath = filepath.Join(dir, "missing-pkg-anc")
+				app.hotfixBinaryPath = filepath.Join(dir, "hotfix-anc")
+				return &hotfixConfig{Version: "202604.01.1"}
+			},
+			wantErr: true,
+			wantTaskNames: []string{
+				"AKS.AKSNodeController.Hotfix.AptDpkgConfigure",
+				"AKS.AKSNodeController.Hotfix.AptUpdate",
+				"AKS.AKSNodeController.Hotfix.AptInstall",
+				"AKS.AKSNodeController.Hotfix.PackageManagerInstall",
+				"AKS.AKSNodeController.Hotfix.BinaryStaging",
+				"AKS.AKSNodeController.Hotfix.BinaryOperation",
+			},
+			wantLevel:   "Error",
+			wantMessage: []string{"target=202604.01.1", "route=package-manager", "outcome=failed"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			origVersion := Version
+			Version = tc.current
+			t.Cleanup(func() { Version = origVersion })
+
+			dir := t.TempDir()
+			tt := NewTestApp(t, TestAppConfig{})
+			cfg := tc.setup(t, tt.App, dir)
+			configData, err := json.Marshal(cfg)
+			require.NoError(t, err)
+			tt.App.hotfixVersionPath = filepath.Join(dir, "hotfix-config.json")
+			tt.App.hotfixTimingPath = filepath.Join(dir, "hotfix-timing.json")
+			require.NoError(t, os.WriteFile(tt.App.hotfixVersionPath, configData, 0o644))
+
+			err = tt.App.downloadHotfix(context.Background())
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			events := tt.eventLogger.Events()
+			require.Len(t, events, len(tc.wantTaskNames))
+			for i, taskName := range tc.wantTaskNames {
+				assert.Equal(t, taskName, events[i].TaskName)
+				assert.Contains(t, events[i].Message, "durationMs=")
+				assert.Contains(t, events[i].Message, "outcome=")
+				switch {
+				case strings.Contains(taskName, "Apt"):
+					assert.Contains(t, events[i].Message, "version=202604.01.1")
+				case strings.Contains(taskName, "PackageManagerInstall"):
+					assert.Contains(t, events[i].Message, "target=202604.01.1")
+					assert.Contains(t, events[i].Message, "route=package-manager")
+				case strings.Contains(taskName, "BinaryStaging"):
+					assert.Contains(t, events[i].Message, "target=202604.01.1")
+					assert.Contains(t, events[i].Message, "source=")
+					assert.Contains(t, events[i].Message, "destination=")
+				}
+			}
+			assert.Equal(t, tc.wantLevel, events[len(events)-1].EventLevel)
+			for _, expected := range tc.wantMessage {
+				assert.Contains(t, events[len(events)-1].Message, expected)
+			}
+			if len(tc.wantScriptMessage) > 0 {
+				var scriptEvent string
+				for _, event := range events {
+					if event.TaskName == "AKS.AKSNodeController.Hotfix.ScriptApplication" {
+						scriptEvent = event.Message
+					}
+				}
+				require.NotEmpty(t, scriptEvent, "expected a script application event")
+				for _, expected := range tc.wantScriptMessage {
+					assert.Contains(t, scriptEvent, expected)
+				}
+			}
+
+			var timing hotfixTiming
+			timingBytes, err := os.ReadFile(tt.App.hotfixTimingPath)
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(timingBytes, &timing))
+			assert.Equal(t, tc.current, timing.Current)
+			assert.NotEqual(t, hotfixOutcomeStarted, timing.Outcome)
+			assert.GreaterOrEqual(t, timing.DurationMs, int64(0))
+			if tc.wantErr {
+				assert.NotEmpty(t, timing.Error)
+			} else {
+				assert.Empty(t, timing.Error)
+			}
+		})
+	}
+}
+
+func writeOSRelease(t *testing.T, dir, content string) string {
+	t.Helper()
+	path := filepath.Join(dir, "os-release")
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
+	return path
+}
+
+func writeAptSourcesDir(t *testing.T, dir string) string {
+	t.Helper()
+	aptDir := filepath.Join(dir, "sources.list.d")
+	require.NoError(t, os.MkdirAll(aptDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(aptDir, "microsoft-prod.list"), []byte("deb ..."), 0o644))
+	return aptDir
+}
+
+func writeExecutable(t *testing.T, dir, name, content string) string {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o755))
+	return path
 }

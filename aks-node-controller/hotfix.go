@@ -17,6 +17,7 @@ import (
 
 const (
 	defaultHotfixVersionPath = "/opt/azure/containers/aks-node-controller-hotfix.json"
+	defaultHotfixTimingPath  = "/var/log/azure/aks-node-controller-hotfix-timing.json"
 	maxInstallRetries        = 5
 	retryBackoff             = 3 * time.Second
 	commandTimeout           = 60 * time.Second
@@ -37,27 +38,79 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 	if hotfixPath == "" {
 		hotfixPath = defaultHotfixVersionPath
 	}
-	cfg, err := readHotfixConfig(hotfixPath)
-	if err != nil {
-		// Fail-open: an unreadable or malformed hotfix config must never block
-		// provisioning. Log and skip so the node boots on its VHD-baked binary.
-		slog.Warn("failed to read hotfix config, skipping hotfix download",
-			"path", hotfixPath, "error", err)
+	cfg, ok := a.readHotfixConfigOrSkip(hotfixPath)
+	if !ok {
+		// An unreadable or malformed hotfix config must never block provisioning.
 		return nil
 	}
-	// Applying node custom data is best-effort/fail-open: it must never block the
-	// binary hotfix download below, or provisioning as a whole.
-	if err := a.applyNodeCustomDataIfNeeded(cfg); err != nil {
+
+	// Timed separately from the binary operation below: script application can dominate the
+	// wall clock when scripts_version is set, and folding it into Hotfix.BinaryOperation
+	// would report a duration that the binary route/outcome in that event does not explain.
+	//
+	// Applying node custom data is best-effort/fail-open: it must never block the binary
+	// hotfix download below, or provisioning as a whole.
+	if err := a.applyScriptHotfix(cfg); err != nil {
 		slog.Warn("failed to apply node custom data", "path", hotfixPath, "error", err)
 	}
-	return a.downloadBinaryHotfixIfNeeded(ctx, cfg)
+
+	return a.eventLogger.RunTimedOperation("Hotfix.BinaryOperation", func() (string, error) {
+		return a.downloadBinaryHotfixIfNeeded(ctx, cfg)
+	})
 }
 
-func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
+// readHotfixConfigOrSkip reads the hotfix config, reporting ok=false when the caller should
+// skip the hotfix path entirely. An unreadable or malformed config is fail-open by design --
+// it must never block provisioning -- so the read failure is reported as a skipped
+// BinaryOperation event rather than returned, keeping one such event per download-hotfix run.
+func (a *App) readHotfixConfigOrSkip(hotfixPath string) (*hotfixConfig, bool) {
+	cfg, err := readHotfixConfig(hotfixPath)
+	if err == nil {
+		return cfg, true
+	}
+	slog.Warn("failed to read hotfix config, skipping hotfix download",
+		"path", hotfixPath, "error", err)
+	_ = a.eventLogger.RunTimedOperation("Hotfix.BinaryOperation", func() (string, error) {
+		return fmt.Sprintf("%s configPath=%s",
+			hotfixOperationMessage(Version, "", hotfixRouteNone, hotfixOutcomeSkippedConfigError),
+			hotfixPath,
+		), err
+	})
+	return nil, false
+}
+
+// applyScriptHotfix applies the CSE-script hotfix under its own timing event. It reports
+// whether a script version was requested and how the attempt ended, so a long
+// Hotfix.ScriptApplication duration can be told apart from a skipped one in Kusto.
+func (a *App) applyScriptHotfix(cfg *hotfixConfig) error {
+	scriptsVersion := strings.TrimSpace(cfg.ScriptsVersion)
+	if scriptsVersion == "" {
+		// Nothing to do, and no event: a timing event here would add noise to every node
+		// that has no script hotfix, which is the overwhelming majority.
+		slog.Info("hotfix config does not request a scripts version for this base, skipping nodecustomdata apply",
+			"current", Version)
+		return nil
+	}
+	return a.eventLogger.RunTimedOperation("Hotfix.ScriptApplication", func() (string, error) {
+		// The outcome comes from the helper, not from applyErr: a configured script hotfix
+		// that is malformed, targets another base, or is not newer is skipped fail-open with
+		// a nil error, and deriving the outcome from that would report success for work that
+		// never happened.
+		outcome, applyErr := a.applyNodeCustomDataIfNeeded(cfg)
+		return fmt.Sprintf("current=%s scriptsVersion=%s outcome=%s",
+			Version, scriptsVersion, outcome), applyErr
+	})
+}
+
+// applyNodeCustomDataIfNeeded applies the CSE-script hotfix, returning the outcome that
+// describes what actually happened. Every branch here is fail-open -- a malformed, untargeted
+// or not-newer version is skipped rather than surfaced as an error -- so the outcome, not the
+// error, is what distinguishes "applied" from "skipped" for telemetry.
+func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) (string, error) {
 	hotfixVersion := strings.TrimSpace(cfg.ScriptsVersion)
 	if hotfixVersion == "" {
 		slog.Info("hotfix config does not request a scripts version for this base, skipping nodecustomdata apply", "current", Version)
-		return nil
+		return hotfixOutcomeSkippedNoVersion, nil
 	}
 
 	// Patch-only matching: only upgrade if same YYYYMM.DD base and hotfix has
@@ -66,21 +119,58 @@ func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
 	if err != nil {
 		slog.Warn("failed to compare versions, skipping nodecustomdata apply",
 			"current", Version, "hotfix", hotfixVersion, "error", err)
-		return nil
+		return hotfixOutcomeSkippedVersionCompareError, nil
 	}
 	if !shouldUpgrade {
 		slog.Info("CSE scripts version not targeted by hotfix, skipping nodecustomdata apply",
 			"current", Version, "hotfix", hotfixVersion)
-		return nil
+		return hotfixOutcomeSkippedNotTargeted, nil
 	}
 
-	return applyNodeCustomData(a.getNodeCustomDataPath())
+	if applyErr := applyNodeCustomData(a.getNodeCustomDataPath()); applyErr != nil {
+		return string(outcomeFailed), applyErr
+	}
+	return hotfixOutcomeSuccess, nil
 }
 
-func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfig) error {
-	hotfixVersion := cfg.resolveVersion(Version)
+// hotfixProgress tracks which install route was taken and how the attempt ended, so the
+// caller can emit a single summary event no matter which branch returns.
+type hotfixProgress struct {
+	route   string
+	outcome string
+}
 
+func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfig) (string, error) {
+	start := time.Now()
+	hotfixVersion, resolveErr := cfg.resolveVersion(Version)
+	progress := &hotfixProgress{route: hotfixRouteNone, outcome: hotfixOutcomeStarted}
+	slog.Info("ANC hotfix binary operation started", "current", Version, "target", hotfixVersion)
+
+	err := a.runBinaryHotfix(ctx, hotfixVersion, resolveErr, progress)
+	duration := time.Since(start)
+	a.writeHotfixTiming(hotfixTiming{
+		Current:    Version,
+		Target:     hotfixVersion,
+		Route:      progress.route,
+		Outcome:    progress.outcome,
+		DurationMs: duration.Milliseconds(),
+		Error:      hotfixTimingError(err),
+	})
+	logHotfixBinaryOperationFinished(Version, hotfixVersion, progress.route, progress.outcome, duration, err)
+	return hotfixOperationMessage(Version, hotfixVersion, progress.route, progress.outcome), err
+}
+
+func (a *App) runBinaryHotfix(ctx context.Context, hotfixVersion string, resolveErr error, progress *hotfixProgress) error {
+	// An unparseable running version is a fail-open skip: never block provisioning on a
+	// version we cannot interpret.
+	if resolveErr != nil {
+		progress.outcome = hotfixOutcomeSkippedVersionCompareError
+		slog.Warn("cannot resolve hotfix version for current build, skipping download",
+			"current", Version, "error", resolveErr)
+		return nil
+	}
 	if hotfixVersion == "" {
+		progress.outcome = hotfixOutcomeSkippedNoVersion
 		slog.Info("hotfix config does not request a version for this base, skipping download", "current", Version)
 		return nil
 	}
@@ -89,11 +179,13 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 	// a strictly higher PATCH. Parse errors (e.g. "dev" builds) result in skip.
 	shouldUpgrade, err := shouldUpgradeToHotfix(Version, hotfixVersion)
 	if err != nil {
+		progress.outcome = hotfixOutcomeSkippedVersionCompareError
 		slog.Warn("failed to compare versions, skipping hotfix download",
 			"current", Version, "hotfix", hotfixVersion, "error", err)
 		return nil
 	}
 	if !shouldUpgrade {
+		progress.outcome = hotfixOutcomeSkippedNotTargeted
 		slog.Info("ANC version not targeted by hotfix, skipping download",
 			"current", Version, "hotfix", hotfixVersion)
 		return nil
@@ -104,16 +196,148 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 	// Install via package manager (apt-get or dnf/tdnf). A future direct-download path must
 	// resolve the package from the node's configured repository and extract the ANC binary;
 	// package artifacts cannot be staged directly as executables.
-	if err := a.installFromPMC(ctx, hotfixVersion); err != nil {
+	progress.route = hotfixRoutePackageManager
+	slog.Info("ANC hotfix package-manager install started", "target", hotfixVersion)
+	if err := a.eventLogger.RunTimedOperation("Hotfix.PackageManagerInstall", func() (string, error) {
+		installErr := a.installFromPMC(ctx, hotfixVersion)
+		return fmt.Sprintf("target=%s route=%s outcome=%s", hotfixVersion, progress.route, hotfixOutcome(installErr)), installErr
+	}); err != nil {
+		progress.outcome = string(outcomeFailed)
+		slog.Warn("ANC hotfix package-manager install failed", "target", hotfixVersion, "error", err)
 		return fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
 	}
+	slog.Info("ANC hotfix package-manager install finished", "target", hotfixVersion)
 
-	if err := copyBinaryAlongside(pkgBinaryPath, hotfixBinaryPath, vhdBinaryPath); err != nil {
+	slog.Info("ANC hotfix binary staging started", "target", hotfixVersion, "src", a.pkgPath(), "dst", a.hotfixPath())
+	if err := a.eventLogger.RunTimedOperation("Hotfix.BinaryStaging", func() (string, error) {
+		stageErr := copyBinaryAlongside(a.pkgPath(), a.hotfixPath(), a.vhdPath())
+		return fmt.Sprintf("target=%s source=%s destination=%s outcome=%s",
+			hotfixVersion, a.pkgPath(), a.hotfixPath(), hotfixOutcome(stageErr)), stageErr
+	}); err != nil {
+		progress.outcome = string(outcomeFailed)
+		slog.Warn("ANC hotfix binary staging failed", "target", hotfixVersion, "error", err)
 		return fmt.Errorf("stage hotfix binary: %w", err)
 	}
+	slog.Info("ANC hotfix binary staging finished", "target", hotfixVersion)
 
-	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", hotfixBinaryPath)
+	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", a.hotfixPath())
+	progress.outcome = hotfixOutcomeSuccess
 	return nil
+}
+
+func hotfixOperationMessage(current, target, route, outcome string) string {
+	return fmt.Sprintf("current=%s target=%s route=%s outcome=%s", current, target, route, outcome)
+}
+
+func hotfixOutcome(err error) string {
+	if err != nil {
+		return string(outcomeFailed)
+	}
+	return hotfixOutcomeSuccess
+}
+
+func logHotfixBinaryOperationFinished(current, target, route, outcome string, duration time.Duration, err error) {
+	attrs := []any{
+		"current", current,
+		"target", target,
+		"route", route,
+		"outcome", outcome,
+		"durationMs", duration.Milliseconds(),
+	}
+	if err != nil {
+		attrs = append(attrs, "error", err)
+		slog.Warn("ANC hotfix binary operation finished", attrs...)
+		return
+	}
+	slog.Info("ANC hotfix binary operation finished", attrs...)
+}
+
+func (a *App) vhdPath() string {
+	if a.vhdBinaryPath != "" {
+		return a.vhdBinaryPath
+	}
+	return vhdBinaryPath
+}
+
+func (a *App) hotfixPath() string {
+	if a.hotfixBinaryPath != "" {
+		return a.hotfixBinaryPath
+	}
+	return hotfixBinaryPath
+}
+
+func (a *App) pkgPath() string {
+	if a.pkgBinaryPath != "" {
+		return a.pkgBinaryPath
+	}
+	return pkgBinaryPath
+}
+
+func (a *App) timingPath() string {
+	if a.hotfixTimingPath != "" {
+		return a.hotfixTimingPath
+	}
+	return defaultHotfixTimingPath
+}
+
+type hotfixTiming struct {
+	Current    string `json:"current"`
+	Target     string `json:"target"`
+	Route      string `json:"route"`
+	Outcome    string `json:"outcome"`
+	DurationMs int64  `json:"durationMs"`
+	Error      string `json:"error,omitempty"`
+}
+
+func hotfixTimingError(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
+func (a *App) writeHotfixTiming(timing hotfixTiming) {
+	path := a.timingPath()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		slog.Warn("failed to create ANC hotfix timing directory", "path", path, "error", err)
+		return
+	}
+	data, err := json.Marshal(timing)
+	if err != nil {
+		slog.Warn("failed to marshal ANC hotfix timing", "path", path, "error", err)
+		return
+	}
+	data = append(data, '\n')
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".aks-node-controller-hotfix-timing-*")
+	if err != nil {
+		slog.Warn("failed to create ANC hotfix timing temp file", "path", path, "error", err)
+		return
+	}
+	tmpPath := tmp.Name()
+	success := false
+	defer func() {
+		_ = tmp.Close()
+		if !success {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+	if _, err := tmp.Write(data); err != nil {
+		slog.Warn("failed to write ANC hotfix timing temp file", "path", path, "error", err)
+		return
+	}
+	if err := tmp.Chmod(0o644); err != nil {
+		slog.Warn("failed to chmod ANC hotfix timing temp file", "path", path, "error", err)
+		return
+	}
+	if err := tmp.Close(); err != nil {
+		slog.Warn("failed to close ANC hotfix timing temp file", "path", path, "error", err)
+		return
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		slog.Warn("failed to publish ANC hotfix timing file", "path", path, "error", err)
+		return
+	}
+	success = true
 }
 
 // hotfixConfig is the JSON structure of the hotfix configuration file.
@@ -150,21 +374,28 @@ func hotfixBaseFromVersion(version string) (string, error) {
 
 // resolveVersion picks the hotfix ANC version that applies to the given current ANC version.
 // When the base->version map is populated it takes precedence: the entry matching the
-// current version's "YYYYMM.DD" base is returned, while an absent base (or an unparseable
-// current version) yields "" so provisioning proceeds with no hotfix. When the map is
-// empty it falls back to the legacy single Version field. The returned version is still
-// subject to shouldUpgradeToHotfix's patch-only-strictly-higher gating in the caller.
-func (cfg hotfixConfig) resolveVersion(current string) string {
+// current version's "YYYYMM.DD" base is returned, while an absent base yields "" so
+// provisioning proceeds with no hotfix. When the map is empty it falls back to the legacy
+// single Version field. A non-nil error means current could not be parsed, which callers
+// treat as a fail-open skip distinct from "no hotfix configured". The returned version is
+// still subject to shouldUpgradeToHotfix's patch-only-strictly-higher gating in the caller.
+func (cfg hotfixConfig) resolveVersion(current string) (string, error) {
 	if len(cfg.Hotfixes) > 0 {
 		base, err := hotfixBaseFromVersion(current)
 		if err != nil {
-			slog.Warn("cannot derive hotfix base from current version, skipping hotfix",
-				"current", current, "error", err)
-			return ""
+			return "", fmt.Errorf("deriving hotfix base from %q: %w", current, err)
 		}
-		return strings.TrimSpace(cfg.Hotfixes[base])
+		return strings.TrimSpace(cfg.Hotfixes[base]), nil
 	}
-	return strings.TrimSpace(cfg.Version)
+	return strings.TrimSpace(cfg.Version), nil
+}
+
+// targetsVersion reports whether cfg names a hotfix for current. Callers that only need
+// the yes/no answer use this: an unparseable current version and an absent pointer are
+// both "no", so neither needs to be distinguished from the other.
+func (cfg hotfixConfig) targetsVersion(current string) bool {
+	resolved, err := cfg.resolveVersion(current)
+	return err == nil && resolved != ""
 }
 
 // readHotfixConfig reads and parses the JSON hotfix config from the given path.
@@ -235,6 +466,18 @@ const (
 	pkgMgrTdnf packageManager = "tdnf"
 )
 
+const (
+	hotfixRouteNone           = "none"
+	hotfixRoutePackageManager = "package-manager"
+
+	hotfixOutcomeSuccess                    = "success"
+	hotfixOutcomeStarted                    = "started"
+	hotfixOutcomeSkippedConfigError         = "skipped-config-error"
+	hotfixOutcomeSkippedNoVersion           = "skipped-no-version"
+	hotfixOutcomeSkippedVersionCompareError = "skipped-version-compare-error"
+	hotfixOutcomeSkippedNotTargeted         = "skipped-not-targeted"
+)
+
 // detectPackageManager returns the package manager for the current OS.
 func (a *App) detectPackageManager() (packageManager, error) {
 	info, err := a.parseLinuxPlatformInfo()
@@ -296,24 +539,47 @@ func (a *App) installWithApt(ctx context.Context, version string) error {
 	}
 
 	// Ensure any interrupted dpkg state is reconciled before running apt operations.
-	if err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
-		"dpkg", "--configure", "-a", "--force-confdef", "--force-confold"); err != nil {
+	slog.Info("ANC hotfix apt dpkg configure started", "version", version)
+	if err := a.eventLogger.RunTimedOperation("Hotfix.AptDpkgConfigure", func() (string, error) {
+		err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
+			"dpkg", "--configure", "-a", "--force-confdef", "--force-confold")
+		return fmt.Sprintf("version=%s outcome=%s", version, hotfixOutcome(err)), err
+	}); err != nil {
+		slog.Warn("ANC hotfix apt dpkg configure failed", "version", version, "error", err)
 		return fmt.Errorf("dpkg --configure -a failed: %w", err)
 	}
+	slog.Info("ANC hotfix apt dpkg configure finished", "version", version)
 
 	// Refresh only the microsoft-prod repo to minimize time.
-	if err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
-		"apt-get", "update",
-		"-o", "Dpkg::Options::=--force-confold",
-		"-o", fmt.Sprintf("Dir::Etc::sourcelist=%s", microsoftProdSourceListPath),
-		"-o", "Dir::Etc::sourceparts=-"); err != nil {
+	slog.Info("ANC hotfix apt update started", "version", version, "sourceList", microsoftProdSourceListPath)
+	if err := a.eventLogger.RunTimedOperation("Hotfix.AptUpdate", func() (string, error) {
+		err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
+			"apt-get", "update",
+			"-o", "Dpkg::Options::=--force-confold",
+			"-o", fmt.Sprintf("Dir::Etc::sourcelist=%s", microsoftProdSourceListPath),
+			"-o", "Dir::Etc::sourceparts=-")
+		return fmt.Sprintf("version=%s sourceList=%s outcome=%s",
+			version, microsoftProdSourceListPath, hotfixOutcome(err)), err
+	}); err != nil {
+		slog.Warn("ANC hotfix apt update failed", "version", version, "sourceList", microsoftProdSourceListPath, "error", err)
 		return fmt.Errorf("apt-get update failed: %w", err)
 	}
+	slog.Info("ANC hotfix apt update finished", "version", version, "sourceList", microsoftProdSourceListPath)
+
 	// Install with --allow-downgrades in case the hotfix is older than the VHD-baked version.
-	return a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
-		"apt-get", "install", "-y", "--allow-downgrades",
-		"-o", "Dpkg::Options::=--force-confold",
-		fmt.Sprintf("aks-node-controller=%s*", version))
+	slog.Info("ANC hotfix apt install started", "version", version)
+	if err := a.eventLogger.RunTimedOperation("Hotfix.AptInstall", func() (string, error) {
+		err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
+			"apt-get", "install", "-y", "--allow-downgrades",
+			"-o", "Dpkg::Options::=--force-confold",
+			fmt.Sprintf("aks-node-controller=%s*", version))
+		return fmt.Sprintf("version=%s outcome=%s", version, hotfixOutcome(err)), err
+	}); err != nil {
+		slog.Warn("ANC hotfix apt install failed", "version", version, "error", err)
+		return err
+	}
+	slog.Info("ANC hotfix apt install finished", "version", version)
+	return nil
 }
 
 func resolveMicrosoftProdSourceListPath(sourcesDir string) (string, error) {
@@ -336,8 +602,18 @@ func resolveMicrosoftProdSourceListPath(sourcesDir string) (string, error) {
 
 // installWithRpm installs the package via dnf or tdnf (repo index refreshed automatically).
 func (a *App) installWithRpm(ctx context.Context, pkgMgr string, version string) error {
-	return a.retryCommand(ctx, pkgMgr, "install", "-y", "--refresh", "--allowerasing",
-		fmt.Sprintf("aks-node-controller-%s", version))
+	slog.Info("ANC hotfix rpm install started", "packageManager", pkgMgr, "version", version)
+	if err := a.eventLogger.RunTimedOperation("Hotfix.RpmInstall", func() (string, error) {
+		err := a.retryCommand(ctx, pkgMgr, "install", "-y", "--refresh", "--allowerasing",
+			fmt.Sprintf("aks-node-controller-%s", version))
+		return fmt.Sprintf("packageManager=%s version=%s outcome=%s",
+			pkgMgr, version, hotfixOutcome(err)), err
+	}); err != nil {
+		slog.Warn("ANC hotfix rpm install failed", "packageManager", pkgMgr, "version", version, "error", err)
+		return err
+	}
+	slog.Info("ANC hotfix rpm install finished", "packageManager", pkgMgr, "version", version)
+	return nil
 }
 
 // retryCommand runs a command with retries, per-attempt timeout, and backoff.

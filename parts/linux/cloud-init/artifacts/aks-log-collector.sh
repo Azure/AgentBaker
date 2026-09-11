@@ -99,6 +99,7 @@ GLOBS+=(/var/log/auth*)
 GLOBS+=(/var/log/cloud-init*)
 GLOBS+=(/var/log/azure/*/*)
 GLOBS+=(/var/log/azure/*/*/*)
+GLOBS+=(/var/log/azure/aks-node-controller-hotfix-timing.json)
 GLOBS+=(/var/log/azure/custom-script/handler.log)
 GLOBS+=(/var/log/azure/run-command/handler.log)
 
