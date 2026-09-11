@@ -92,14 +92,22 @@ func TestHotfixBaseFromVersion(t *testing.T) {
 }
 
 func TestHotfixConfigResolveVersion(t *testing.T) {
+	// requireResolves asserts a successful resolution and returns the resolved version.
+	requireResolves := func(t *testing.T, cfg hotfixConfig, current string) string {
+		t.Helper()
+		resolved, err := cfg.resolveVersion(current)
+		require.NoError(t, err)
+		return resolved
+	}
+
 	t.Run("empty map falls back to legacy Version field", func(t *testing.T) {
 		cfg := hotfixConfig{Version: "202604.01.1"}
-		assert.Equal(t, "202604.01.1", cfg.resolveVersion("202604.01.0"))
+		assert.Equal(t, "202604.01.1", requireResolves(t, cfg, "202604.01.0"))
 	})
 
 	t.Run("empty config resolves to empty", func(t *testing.T) {
 		cfg := hotfixConfig{}
-		assert.Equal(t, "", cfg.resolveVersion("202604.01.0"))
+		assert.Equal(t, "", requireResolves(t, cfg, "202604.01.0"))
 	})
 
 	t.Run("map hit returns matching base entry", func(t *testing.T) {
@@ -107,18 +115,18 @@ func TestHotfixConfigResolveVersion(t *testing.T) {
 			"202604.01": "202604.01.1",
 			"202605.30": "202605.30.2",
 		}}
-		assert.Equal(t, "202604.01.1", cfg.resolveVersion("202604.01.0"))
-		assert.Equal(t, "202605.30.2", cfg.resolveVersion("202605.30.0"))
+		assert.Equal(t, "202604.01.1", requireResolves(t, cfg, "202604.01.0"))
+		assert.Equal(t, "202605.30.2", requireResolves(t, cfg, "202605.30.0"))
 	})
 
 	t.Run("map miss returns empty (default deny for unlisted base)", func(t *testing.T) {
 		cfg := hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.1"}}
-		assert.Equal(t, "", cfg.resolveVersion("202606.09.0"))
+		assert.Equal(t, "", requireResolves(t, cfg, "202606.09.0"))
 	})
 
 	t.Run("map preserves leading-zero day matching", func(t *testing.T) {
 		cfg := hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.1"}}
-		assert.Equal(t, "202604.01.1", cfg.resolveVersion("202604.01.0"))
+		assert.Equal(t, "202604.01.1", requireResolves(t, cfg, "202604.01.0"))
 	})
 
 	t.Run("map takes precedence over legacy Version field", func(t *testing.T) {
@@ -126,12 +134,14 @@ func TestHotfixConfigResolveVersion(t *testing.T) {
 			Version:  "202604.01.9",
 			Hotfixes: map[string]string{"202604.01": "202604.01.1"},
 		}
-		assert.Equal(t, "202604.01.1", cfg.resolveVersion("202604.01.0"))
+		assert.Equal(t, "202604.01.1", requireResolves(t, cfg, "202604.01.0"))
 	})
 
-	t.Run("unparseable current version with map returns empty (fail-open)", func(t *testing.T) {
+	t.Run("unparseable current version with map reports an error", func(t *testing.T) {
 		cfg := hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.1"}}
-		assert.Equal(t, "", cfg.resolveVersion("dev"))
+		resolved, err := cfg.resolveVersion("dev")
+		require.Error(t, err)
+		assert.Equal(t, "", resolved)
 	})
 }
 

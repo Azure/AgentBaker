@@ -87,24 +87,25 @@ type hotfixProgress struct {
 }
 
 func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfig) (string, error) {
-	hotfixVersion := cfg.resolveVersion(Version)
+	hotfixVersion, resolveErr := cfg.resolveVersion(Version)
 	progress := &hotfixProgress{route: hotfixRouteNone, outcome: hotfixOutcomeStarted}
 	slog.Info("ANC hotfix binary operation started", "current", Version, "target", hotfixVersion)
 
-	err := a.runBinaryHotfix(ctx, cfg, hotfixVersion, progress)
+	err := a.runBinaryHotfix(ctx, cfg, hotfixVersion, resolveErr, progress)
 	logHotfixBinaryOperationFinished(Version, hotfixVersion, progress.route, progress.outcome, err)
 	return hotfixOperationMessage(Version, hotfixVersion, progress.route, progress.outcome), err
 }
 
-func (a *App) runBinaryHotfix(ctx context.Context, cfg *hotfixConfig, hotfixVersion string, progress *hotfixProgress) error {
+func (a *App) runBinaryHotfix(ctx context.Context, cfg *hotfixConfig, hotfixVersion string, resolveErr error, progress *hotfixProgress) error {
+	// An unparseable running version is a fail-open skip: never block provisioning on a
+	// version we cannot interpret.
+	if resolveErr != nil {
+		progress.outcome = hotfixOutcomeSkippedVersionCompareError
+		slog.Warn("cannot resolve hotfix version for current build, skipping download",
+			"current", Version, "error", resolveErr)
+		return nil
+	}
 	if hotfixVersion == "" {
-		// A map-based config that does not resolve for this base means the running
-		// version could not be parsed. Both cases are fail-open skips: never block
-		// provisioning on a version we cannot interpret.
-		if len(cfg.Hotfixes) > 0 && !isParsableHotfixBase(Version) {
-			progress.outcome = hotfixOutcomeSkippedVersionCompareError
-			return nil
-		}
 		progress.outcome = hotfixOutcomeSkippedNoVersion
 		slog.Info("hotfix config does not request a version for this base, skipping download", "current", Version)
 		return nil
@@ -239,31 +240,22 @@ func hotfixBaseFromVersion(version string) (string, error) {
 	return parts[0] + "." + parts[1], nil
 }
 
-// isParsableHotfixBase reports whether version is in the YYYYMM.DD.PATCH form that
-// hotfixBaseFromVersion accepts. Callers that only need the yes/no answer use this so a
-// fail-open skip does not read as swallowed error handling.
-func isParsableHotfixBase(version string) bool {
-	_, err := hotfixBaseFromVersion(version)
-	return err == nil
-}
-
 // resolveVersion picks the hotfix ANC version that applies to the given current ANC version.
 // When the base->version map is populated it takes precedence: the entry matching the
-// current version's "YYYYMM.DD" base is returned, while an absent base (or an unparseable
-// current version) yields "" so provisioning proceeds with no hotfix. When the map is
-// empty it falls back to the legacy single Version field. The returned version is still
-// subject to shouldUpgradeToHotfix's patch-only-strictly-higher gating in the caller.
-func (cfg hotfixConfig) resolveVersion(current string) string {
+// current version's "YYYYMM.DD" base is returned, while an absent base yields "" so
+// provisioning proceeds with no hotfix. When the map is empty it falls back to the legacy
+// single Version field. A non-nil error means current could not be parsed, which callers
+// treat as a fail-open skip distinct from "no hotfix configured". The returned version is
+// still subject to shouldUpgradeToHotfix's patch-only-strictly-higher gating in the caller.
+func (cfg hotfixConfig) resolveVersion(current string) (string, error) {
 	if len(cfg.Hotfixes) > 0 {
 		base, err := hotfixBaseFromVersion(current)
 		if err != nil {
-			slog.Warn("cannot derive hotfix base from current version, skipping hotfix",
-				"current", current, "error", err)
-			return ""
+			return "", fmt.Errorf("deriving hotfix base from %q: %w", current, err)
 		}
-		return strings.TrimSpace(cfg.Hotfixes[base])
+		return strings.TrimSpace(cfg.Hotfixes[base]), nil
 	}
-	return strings.TrimSpace(cfg.Version)
+	return strings.TrimSpace(cfg.Version), nil
 }
 
 // readHotfixConfig reads and parses the JSON hotfix config from the given path.

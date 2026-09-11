@@ -71,7 +71,9 @@ func TestParseHotfixConfig(t *testing.T) {
 			cfg, err := parseHotfixConfig([]byte(body))
 			require.NoError(t, err)
 			assert.Nil(t, cfg.Hotfixes)
-			assert.Equal(t, "", cfg.resolveVersion("202604.01.1"))
+			resolved, resolveErr := cfg.resolveVersion("202604.01.1")
+			require.NoError(t, resolveErr)
+			assert.Equal(t, "", resolved)
 		}
 	})
 
@@ -733,7 +735,9 @@ func TestWriteHotfixConfig_ShapeAndAtomicity(t *testing.T) {
 	// Round-trips through download-hotfix's reader.
 	cfg, err := readHotfixConfig(path)
 	require.NoError(t, err)
-	assert.Equal(t, "202604.01.1", cfg.resolveVersion("202604.01.0"))
+	resolved, err := cfg.resolveVersion("202604.01.0")
+	require.NoError(t, err)
+	assert.Equal(t, "202604.01.1", resolved)
 }
 
 // TestWriteHotfixConfig_EmptyMapKeepsStableKey guards the on-disk/LPS contract: even when the
