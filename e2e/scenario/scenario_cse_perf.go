@@ -246,7 +246,7 @@ var fullInstallCSEThresholdsAzureLinuxV3 = CSETimingThresholds{
 }
 
 var _ = Register(&Scenario{
-	Name: "Ubuntu2204_CSE_CachedPerformance",
+	Name: "Ubuntu2204_PreinstalledBinaries_PMCInstall",
 	Description: "Validates CSE timing on the golden image (cached) path where binaries are pre-installed on VHD. " +
 		"Forces the PMC deb package install path (installKubeletKubectlFromPkg → installDebPackageFromFile) " +
 		"by clearing CustomKubeBinaryURL and setting ShouldEnforceKubePMCInstall with k8s 1.34. " +
@@ -282,7 +282,7 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
-	Name: "Ubuntu2204_CSE_FullInstallPerformance",
+	Name: "Ubuntu2204_FullInstall_SkipBinaryCleanup",
 	Description: "Validates CSE timing on the full install path where all dependencies are installed from scratch. " +
 		"Uses SkipBinaryCleanup VMSS tag to force FULL_INSTALL_REQUIRED=true.",
 	Config: Config{
@@ -306,7 +306,7 @@ var _ = Register(&Scenario{
 // --- Ubuntu 24.04 CSE Performance Tests ---
 
 var _ = Register(&Scenario{
-	Name: "Ubuntu2404_CSE_CachedPerformance",
+	Name: "Ubuntu2404_PreinstalledBinaries_PMCInstall",
 	Description: "Validates CSE timing on the golden image (cached) path for Ubuntu 24.04. " +
 		"Forces the PMC deb package install path by clearing CustomKubeBinaryURL and setting ShouldEnforceKubePMCInstall.",
 	Config: Config{
@@ -333,7 +333,7 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
-	Name: "Ubuntu2404_CSE_FullInstallPerformance",
+	Name: "Ubuntu2404_FullInstall_SkipBinaryCleanup",
 	Description: "Validates CSE timing on the full install path for Ubuntu 24.04. " +
 		"Uses SkipBinaryCleanup VMSS tag to force FULL_INSTALL_REQUIRED=true.",
 	Config: Config{
@@ -357,7 +357,7 @@ var _ = Register(&Scenario{
 // --- Ubuntu 26.04 minimal CSE Performance Tests ---
 
 var _ = Register(&Scenario{
-	Name: "Ubuntu2604Minimal_CSE_CachedPerformance",
+	Name: "Ubuntu2604Minimal_PreinstalledBinaries_PMCInstall",
 	Description: "Validates CSE timing on the golden image (cached) path for Ubuntu 26.04 minimal. " +
 		"Forces the PMC deb package install path by clearing CustomKubeBinaryURL and setting ShouldEnforceKubePMCInstall.",
 	Config: Config{
@@ -384,7 +384,7 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
-	Name: "Ubuntu2604Minimal_CSE_FullInstallPerformance",
+	Name: "Ubuntu2604Minimal_FullInstall_SkipBinaryCleanup",
 	Description: "Validates CSE timing on the full install path for Ubuntu 26.04 minimal. " +
 		"Uses SkipBinaryCleanup VMSS tag to force FULL_INSTALL_REQUIRED=true.",
 	Config: Config{
@@ -408,7 +408,7 @@ var _ = Register(&Scenario{
 // --- Azure Linux V3 CSE Performance Tests ---
 
 var _ = Register(&Scenario{
-	Name: "AzureLinuxV3_CSE_CachedPerformance",
+	Name: "AzureLinuxV3_PreinstalledBinaries",
 	Description: "Validates CSE timing on the golden image (cached) path for Azure Linux V3. " +
 		"Azure Linux uses RPM packages — no apt lock contention, but different install paths.",
 	Config: Config{

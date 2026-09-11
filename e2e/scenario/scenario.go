@@ -376,8 +376,8 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
-	Name:        "AzureLinuxV3",
-	Description: "Tests Azure Linux 3 bootstrapping with custom seccomp configuration and message of the day, chrony restarts, AppArmor, and the expected containerd version",
+	Name:        "AzureLinuxV3_CustomKubeletConfig_ANC",
+	Description: "Tests Azure Linux 3 ANC bootstrapping with custom seccomp configuration and message of the day, chrony restarts, AppArmor, and the expected containerd version",
 	Tags: Tags{
 		KubeletCustomConfig: true,
 	},
@@ -507,11 +507,9 @@ var _ = Register(&Scenario{
 	},
 })
 
-// Returns config for the 'base' E2E scenario
+var _ = Register(newUbuntu2204_CustomLinuxOSConfig_Taints_ANCScenario())
 
-var _ = Register(newUbuntu2204Scenario())
-
-func newUbuntu2204Scenario() *Scenario {
+func newUbuntu2204_CustomLinuxOSConfig_Taints_ANCScenario() *Scenario {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 65535",
 		"net.netfilter.nf_conntrack_max":     "2097152",
@@ -526,8 +524,8 @@ func newUbuntu2204Scenario() *Scenario {
 	registerWithTaints := "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"
 
 	return &Scenario{
-		Name:        "Ubuntu2204",
-		Description: "Tests Ubuntu 22.04 bootstrapping with custom sysctls, containerd ulimits, and node taints, plus chrony restarts and the expected containerd version",
+		Name:        "Ubuntu2204_CustomLinuxOSConfig_Taints_ANC",
+		Description: "Tests Ubuntu 22.04 ANC bootstrapping with custom sysctls, containerd ulimits, and node taints, plus chrony restarts and the expected containerd version",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -604,8 +602,8 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
-	Name:        "Ubuntu2204_PreProvisionFailureIsReported",
-	Description: "tests that a pre-provision failure is reported by CSE",
+	Name:        "Ubuntu2204_PreProvision_CustomCAFailure",
+	Description: "Tests that CSE reports a custom CA update failure during pre-provisioning",
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -1739,9 +1737,9 @@ var _ = Register(&Scenario{
 	},
 })
 
-var _ = Register(newAzureLinuxV3_CustomLinuxOSConfigPersistsAfterRebootScenario())
+var _ = Register(newAzureLinuxV3_CustomLinuxOSConfig_ANC_RebootScenario())
 
-func newAzureLinuxV3_CustomLinuxOSConfigPersistsAfterRebootScenario() *Scenario {
+func newAzureLinuxV3_CustomLinuxOSConfig_ANC_RebootScenario() *Scenario {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 62535",
 		"net.netfilter.nf_conntrack_max":     "2097152",
@@ -1760,8 +1758,8 @@ func newAzureLinuxV3_CustomLinuxOSConfigPersistsAfterRebootScenario() *Scenario 
 	)
 
 	return &Scenario{
-		Name:        "AzureLinuxV3_CustomLinuxOSConfigPersistsAfterReboot",
-		Description: "Tests Azure Linux 3 custom sysctls, containerd ulimits, swap, and transparent huge-page settings before and after a node reboot",
+		Name:        "AzureLinuxV3_CustomLinuxOSConfig_ANC_Reboot",
+		Description: "Tests Azure Linux 3 ANC custom sysctls, containerd ulimits, swap, and transparent huge-page settings before and after a node reboot",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
@@ -2064,8 +2062,8 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
-	Name:        "Ubuntu2604Minimal_NPD_Basic",
-	Description: "Test that a node using Ubuntu 26.04 minimal with AKS VM Extension enabled can report simulated node problem detector events",
+	Name:        "Ubuntu2604Minimal_AKSVMExtension_FilesystemCorruption",
+	Description: "Tests Ubuntu 26.04 minimal NPD service and filesystem-corruption reporting with the AKS VM extension",
 	Config: Config{
 		Cluster: ClusterLatestKubernetesVersionKubenet,
 		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
@@ -2391,8 +2389,8 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
-	Name:        "Ubuntu2604Minimal_ChronyRestarts_Taints_And_Tolerations",
-	Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
+	Name:        "Ubuntu2604Minimal_Taints",
+	Description: "Tests Ubuntu 26.04 minimal node taints, workload tolerations, and chrony restart after the service is killed",
 	Config: Config{
 		Cluster: ClusterLatestKubernetesVersionKubenet,
 		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
@@ -2761,8 +2759,8 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
-	Name:        "Ubuntu2604MinimalArm64_NPD_Basic",
-	Description: "Test that a node using Ubuntu 26.04 minimal ARM64 with AKS VM Extension enabled can report simulated node problem detector events",
+	Name:        "Ubuntu2604MinimalArm64_AKSVMExtension_FilesystemCorruption",
+	Description: "Tests Ubuntu 26.04 minimal ARM64 NPD service and filesystem-corruption reporting with the AKS VM extension",
 	Config: Config{
 		Cluster: ClusterLatestKubernetesVersionKubenet,
 		VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
@@ -3027,7 +3025,7 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
-	Name:        "Ubuntu2404_NPD_HotfixFallback",
+	Name:        "Ubuntu2404_AKSVMExtension_FilesystemCorruption",
 	Description: "Tests Ubuntu 24.04 NPD filesystem-corruption reporting with the AKS VM Extension and hotfix target resolution from the NBC command when ANC JSON is absent",
 	Config: Config{
 		Cluster: ClusterKubenet,
