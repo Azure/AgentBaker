@@ -8,6 +8,7 @@
 #    - repo-depot helpers (init_ubuntu_main_repo_depot, init_ubuntu_pmc_repo_depot,
 #      init_mariner_repo_depot, init_azurelinux_repo_depot, check_url)
 #    - cloud mode selection helper (determine_cert_endpoint_mode)
+#    - Chrony source selection and network synchronization verification
 
 Describe 'init-aks-cloud.sh refresh mode wiring'
     script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
@@ -64,6 +65,20 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
 
     It 'passes LOCATION directly into systemd refresh command'
         When run grep -Eq '^ExecStart=\$script_path ca-refresh \$LOCATION$' "$script_path"
+        The status should eq 0
+    End
+End
+
+Describe 'cse_cmd.sh Chrony failure wiring'
+    script_path='./parts/linux/cloud-init/artifacts/cse_cmd.sh'
+
+    It 'captures the init-aks-cloud exit code'
+        When run grep -Eq '^[[:space:]]*initAKSCloudExitCode=\$\?;$' "$script_path"
+        The status should eq 0
+    End
+
+    It 'fails provisioning only for the outbound connectivity exit code'
+        When run grep -Eq '^[[:space:]]*if \[ "\$initAKSCloudExitCode" -eq 50 \]; then$' "$script_path"
         The status should eq 0
     End
 End
@@ -217,6 +232,186 @@ EOF
         It 'returns rcv1p for empty location'
             When call determine_cert_endpoint_mode ""
             The output should eq "rcv1p"
+        End
+    End
+
+    Describe 'Chrony time source selection'
+        It 'identifies an Ubuntu 26.04 CVM from its OS version and FDE kernel'
+            IS_UBUNTU=1
+            VERSION_ID="26.04"
+            Mock uname
+                echo "7.0.0-1011-azure-fde"
+            End
+
+            When call is_ubuntu_2604_cvm
+            The status should be success
+        End
+
+        It 'does not identify an Ubuntu 26.04 non-CVM image'
+            IS_UBUNTU=1
+            VERSION_ID="26.04"
+            Mock uname
+                echo "7.0.0-1011-azure"
+            End
+
+            When call is_ubuntu_2604_cvm
+            The status should be failure
+        End
+
+        It 'does not identify an Ubuntu 24.04 CVM image'
+            IS_UBUNTU=1
+            VERSION_ID="24.04"
+            Mock uname
+                echo "6.11.0-1018-azure-fde"
+            End
+
+            When call is_ubuntu_2604_cvm
+            The status should be failure
+        End
+
+        It 'prefers the stable Hyper-V PTP device name'
+            export PTP_DEV_DIR="${TEST_DIR}/dev"
+            export PTP_SYSFS_DIR="${TEST_DIR}/sys/class/ptp"
+            mkdir -p "$PTP_DEV_DIR" "$PTP_SYSFS_DIR"
+            ln -s /dev/null "${PTP_DEV_DIR}/ptp_hyperv"
+
+            When call find_hyperv_phc_device
+            The output should eq "${PTP_DEV_DIR}/ptp_hyperv"
+            The status should be success
+        End
+
+        It 'finds the Hyper-V clock when it has a numbered PTP device'
+            export PTP_DEV_DIR="${TEST_DIR}/dev"
+            export PTP_SYSFS_DIR="${TEST_DIR}/sys/class/ptp"
+            mkdir -p "${PTP_DEV_DIR}" "${PTP_SYSFS_DIR}/ptp1"
+            ln -s /dev/null "${PTP_DEV_DIR}/ptp1"
+            echo "hyperv" > "${PTP_SYSFS_DIR}/ptp1/clock_name"
+
+            When call find_hyperv_phc_device
+            The output should eq "${PTP_DEV_DIR}/ptp1"
+            The status should be success
+        End
+
+        It 'uses the standard PHC configuration when a Hyper-V clock is present'
+            Mock find_hyperv_phc_device
+                echo "/dev/ptp_hyperv"
+            End
+
+            When call resolve_ubuntu_2604_cvm_time_source
+            The output should eq "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
+            The status should be success
+        End
+
+        It 'uses all Ubuntu NTP pools after five unsuccessful PHC checks'
+            Mock find_hyperv_phc_device
+                false
+            End
+            Mock sleep
+                :
+            End
+
+            When call resolve_ubuntu_2604_cvm_time_source
+            The lines of output should eq 4
+            The output should include "pool ntp.ubuntu.com        iburst maxsources 4"
+            The output should include "pool 0.ubuntu.pool.ntp.org iburst maxsources 1"
+            The output should include "pool 1.ubuntu.pool.ntp.org iburst maxsources 1"
+            The output should include "pool 2.ubuntu.pool.ntp.org iburst maxsources 2"
+            The status should be success
+        End
+
+        It 'waits for Chrony to synchronize with the configured NTP pool'
+            Mock chronyc
+                echo "$*"
+            End
+            Mock emit_event
+                echo "event: $*"
+            End
+
+            When call verify_chrony_sync
+            The output should include "waitsync 12 0 0 5"
+            The output should include "NTP synchronization confirmed through the Ubuntu NTP pools"
+            The output should include "AKS.CSE.chrony.ntpSynchronized"
+            The status should be success
+        End
+
+        It 'reports Chrony diagnostics when NTP synchronization fails'
+            Mock chronyc
+                case "$1" in
+                    waitsync)
+                        return 1
+                        ;;
+                    sources)
+                        echo "mock Chrony sources"
+                        ;;
+                    tracking)
+                        echo "mock Chrony tracking"
+                        ;;
+                esac
+            End
+            Mock emit_event
+                echo "event: $*" >&2
+            End
+
+            When call verify_chrony_sync
+            The error should include "NTP unavailable, failing provisioning"
+            The error should include "AKS.CSE.chrony.ntpUnavailable"
+            The error should include "mock Chrony sources"
+            The error should include "mock Chrony tracking"
+            The status should equal 50
+        End
+
+        It 'verifies synchronization after selecting the network NTP fallback'
+            Mock resolve_ubuntu_2604_cvm_time_source
+                cat <<'EOF'
+pool ntp.ubuntu.com        iburst maxsources 4
+pool 0.ubuntu.pool.ntp.org iburst maxsources 1
+pool 1.ubuntu.pool.ntp.org iburst maxsources 1
+pool 2.ubuntu.pool.ntp.org iburst maxsources 2
+EOF
+            End
+            Mock configure_chrony
+                :
+            End
+            Mock verify_chrony_sync
+                echo "verified network synchronization"
+            End
+            Mock emit_event
+                echo "event: $*"
+            End
+
+            When call configure_ubuntu_2604_cvm_time_sync
+            The output should include "PHC unavailable after retries"
+            The output should include "Using the Ubuntu NTP pools"
+            The output should include "AKS.CSE.chrony.phcUnavailable"
+            The output should include "AKS.CSE.chrony.usingNTP"
+            The output should include "verified network synchronization"
+            The status should be success
+        End
+
+        It 'does not wait for network synchronization when using the Hyper-V clock'
+            Mock resolve_ubuntu_2604_cvm_time_source
+                echo "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
+            End
+            Mock configure_chrony
+                if [ "$#" -ne 0 ]; then
+                    echo "unexpected Chrony arguments: $*"
+                    return 1
+                fi
+            End
+            Mock verify_chrony_sync
+                echo "unexpected network synchronization check"
+                return 1
+            End
+            Mock emit_event
+                echo "event: $*"
+            End
+
+            When call configure_ubuntu_2604_cvm_time_sync
+            The output should include "using the standard /dev/ptp0 Chrony configuration"
+            The output should include "AKS.CSE.chrony.usingPHC"
+            The output should not include "unexpected Chrony arguments"
+            The output should not include "unexpected network synchronization check"
+            The status should be success
         End
     End
 

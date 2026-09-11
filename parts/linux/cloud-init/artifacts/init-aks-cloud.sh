@@ -81,6 +81,8 @@ IS_ACL=0
 IS_MARINER=0
 IS_AZURELINUX=0
 
+ERR_OUTBOUND_CONN_FAIL=50 # Unable to establish outbound connection
+
 # http://168.63.129.16 is a constant for the host's wireserver endpoint.
 WIRESERVER_ENDPOINT="http://168.63.129.16"
 
@@ -541,6 +543,169 @@ function determine_cert_endpoint_mode {
     echo "$mode"
 }
 
+function is_ubuntu_2604_cvm {
+    [ "$IS_UBUNTU" -eq 1 ] && \
+        [ "${VERSION_ID:-}" = "26.04" ] && \
+        [[ "$(uname -r)" == *-azure-fde* ]]
+}
+
+function find_hyperv_phc_device {
+    local dev_dir="${PTP_DEV_DIR:-/dev}"
+    local sysfs_dir="${PTP_SYSFS_DIR:-/sys/class/ptp}"
+    local clock_name_file
+    local ptp_name
+    local ptp_device
+
+    if [ -c "${dev_dir}/ptp_hyperv" ]; then
+        echo "${dev_dir}/ptp_hyperv"
+        return 0
+    fi
+
+    for clock_name_file in "${sysfs_dir}"/ptp*/clock_name; do
+        [ -r "$clock_name_file" ] || continue
+        [ "$(cat "$clock_name_file")" = "hyperv" ] || continue
+
+        ptp_name="$(basename "$(dirname "$clock_name_file")")"
+        ptp_device="${dev_dir}/${ptp_name}"
+        if [ -c "$ptp_device" ]; then
+            echo "$ptp_device"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+function resolve_ubuntu_2604_cvm_time_source {
+    local max_attempts=5
+    local attempt
+
+    for attempt in $(seq 1 "$max_attempts"); do
+        if find_hyperv_phc_device >/dev/null; then
+            echo "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
+            return 0
+        fi
+
+        if [ "$attempt" -lt "$max_attempts" ]; then
+            sleep 1
+        fi
+    done
+
+    cat <<'EOF'
+pool ntp.ubuntu.com        iburst maxsources 4
+pool 0.ubuntu.pool.ntp.org iburst maxsources 1
+pool 1.ubuntu.pool.ntp.org iburst maxsources 1
+pool 2.ubuntu.pool.ntp.org iburst maxsources 2
+EOF
+}
+
+function verify_chrony_sync {
+    local max_attempts=12
+    local retry_interval_seconds=5
+
+    if chronyc waitsync "$max_attempts" 0 0 "$retry_interval_seconds"; then
+        echo "NTP synchronization confirmed through the Ubuntu NTP pools"
+        emit_event "AKS.CSE.chrony.ntpSynchronized" "NTP synchronization confirmed through the Ubuntu NTP pools"
+        return 0
+    fi
+
+    echo "ERROR: NTP unavailable, failing provisioning" >&2
+    emit_event "AKS.CSE.chrony.ntpUnavailable" "NTP unavailable after ${max_attempts} synchronization checks; failing provisioning" "Error"
+    chronyc sources -v >&2
+    chronyc tracking >&2
+    return "$ERR_OUTBOUND_CONN_FAIL"
+}
+
+function configure_chrony {
+    local time_source="${1:-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0}"
+    local chrony_conf="/etc/chrony/chrony.conf"
+
+    if [ "$IS_UBUNTU" -eq 1 ]; then
+        systemctl stop systemd-timesyncd
+        systemctl disable systemd-timesyncd
+
+        if [ ! -e "$chrony_conf" ]; then
+            apt-get update
+            apt-get install chrony -y
+        fi
+    elif [ "$IS_FLATCAR" -eq 1 ]; then
+        rm -f "$chrony_conf"
+    fi
+
+    cat > "$chrony_conf" <<EOF
+# Welcome to the chrony configuration file. See chrony.conf(5) for more
+# information about usuable directives.
+
+# This will use (up to):
+# - 4 sources from ntp.ubuntu.com which some are ipv6 enabled
+# - 2 sources from 2.ubuntu.pool.ntp.org which is ipv6 enabled as well
+# - 1 source from [01].ubuntu.pool.ntp.org each (ipv4 only atm)
+# This means by default, up to 6 dual-stack and up to 2 additional IPv4-only
+# sources will be used.
+# At the same time it retains some protection against one of the entries being
+# down (compare to just using one of the lines). See (LP: #1754358) for the
+# discussion.
+#
+# About using servers from the NTP Pool Project in general see (LP: #104525).
+# Approved by Ubuntu Technical Board on 2011-02-08.
+# See http://www.pool.ntp.org/join.html for more information.
+#pool ntp.ubuntu.com        iburst maxsources 4
+#pool 0.ubuntu.pool.ntp.org iburst maxsources 1
+#pool 1.ubuntu.pool.ntp.org iburst maxsources 1
+#pool 2.ubuntu.pool.ntp.org iburst maxsources 2
+
+# This directive specify the location of the file containing ID/key pairs for
+# NTP authentication.
+keyfile /etc/chrony/chrony.keys
+
+# This directive specify the file into which chronyd will store the rate
+# information.
+driftfile /var/lib/chrony/chrony.drift
+
+# Uncomment the following line to turn logging on.
+#log tracking measurements statistics
+
+# Log files location.
+logdir /var/log/chrony
+
+# Stop bad estimates upsetting machine clock.
+maxupdateskew 100.0
+
+# This directive enables kernel synchronisation (every 11 minutes) of the
+# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
+rtcsync
+
+# Settings come from: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
+${time_source}
+makestep 1.0 -1
+EOF
+
+    if [ "$IS_UBUNTU" -eq 1 ]; then
+        systemctl restart chrony
+    elif [ "$IS_FLATCAR" -eq 1 ]; then
+        systemctl restart chronyd
+    fi
+}
+
+function configure_ubuntu_2604_cvm_time_sync {
+    local time_source
+
+    time_source="$(resolve_ubuntu_2604_cvm_time_source)"
+    if [[ "$time_source" == refclock\ PHC\ * ]]; then
+        echo "Hyper-V PHC detected; using the standard /dev/ptp0 Chrony configuration"
+        emit_event "AKS.CSE.chrony.usingPHC" "Hyper-V PHC detected; using the standard /dev/ptp0 Chrony configuration"
+        configure_chrony || return 1
+    else
+        echo "PHC unavailable after retries; falling back to network NTP"
+        emit_event "AKS.CSE.chrony.phcUnavailable" "PHC unavailable after retries; falling back to network NTP" "Warning"
+        echo "Using the Ubuntu NTP pools"
+        emit_event "AKS.CSE.chrony.usingNTP" "Using ntp.ubuntu.com and the 0, 1, and 2 ubuntu.pool.ntp.org pools"
+
+        configure_chrony "$time_source" || return 1
+        verify_chrony_sync
+    fi
+}
+
 # shellcheck disable=SC2317
 ${__SOURCED__:+return}
 set -x
@@ -759,71 +924,10 @@ EOF
 
     systemctl restart chronyd
 else
-    chrony_conf="/etc/chrony/chrony.conf"
-    if [ "$IS_UBUNTU" -eq 1 ]; then
-        systemctl stop systemd-timesyncd
-        systemctl disable systemd-timesyncd
-
-        if [ ! -e "$chrony_conf" ]; then
-            apt-get update
-            apt-get install chrony -y
-        fi
-    elif [ "$IS_FLATCAR" -eq 1 ]; then
-        rm -f ${chrony_conf}
-    fi
-
-    cat > $chrony_conf <<EOF
-# Welcome to the chrony configuration file. See chrony.conf(5) for more
-# information about usuable directives.
-
-# This will use (up to):
-# - 4 sources from ntp.ubuntu.com which some are ipv6 enabled
-# - 2 sources from 2.ubuntu.pool.ntp.org which is ipv6 enabled as well
-# - 1 source from [01].ubuntu.pool.ntp.org each (ipv4 only atm)
-# This means by default, up to 6 dual-stack and up to 2 additional IPv4-only
-# sources will be used.
-# At the same time it retains some protection against one of the entries being
-# down (compare to just using one of the lines). See (LP: #1754358) for the
-# discussion.
-#
-# About using servers from the NTP Pool Project in general see (LP: #104525).
-# Approved by Ubuntu Technical Board on 2011-02-08.
-# See http://www.pool.ntp.org/join.html for more information.
-#pool ntp.ubuntu.com        iburst maxsources 4
-#pool 0.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 1.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 2.ubuntu.pool.ntp.org iburst maxsources 2
-
-# This directive specify the location of the file containing ID/key pairs for
-# NTP authentication.
-keyfile /etc/chrony/chrony.keys
-
-# This directive specify the file into which chronyd will store the rate
-# information.
-driftfile /var/lib/chrony/chrony.drift
-
-# Uncomment the following line to turn logging on.
-#log tracking measurements statistics
-
-# Log files location.
-logdir /var/log/chrony
-
-# Stop bad estimates upsetting machine clock.
-maxupdateskew 100.0
-
-# This directive enables kernel synchronisation (every 11 minutes) of the
-# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
-rtcsync
-
-# Settings come from: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
-makestep 1.0 -1
-EOF
-
-    if [ "$IS_UBUNTU" -eq 1 ]; then
-        systemctl restart chrony
-    elif [ "$IS_FLATCAR" -eq 1 ]; then
-        systemctl restart chronyd
+    if is_ubuntu_2604_cvm; then
+        configure_ubuntu_2604_cvm_time_sync
+    else
+        configure_chrony
     fi
 fi
 
