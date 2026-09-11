@@ -1,10 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC2329,SC2317
 
-# Tests for the pure functions in vhdbuilder/packer/cvm-bootstrap-install-kernel.sh
-# (CVM Stage 1 / bootstrap, pre-reboot half). The script is guarded so that
-# sourcing it (via Include) never executes main().
-
 Describe 'cvm-bootstrap-install-kernel.sh'
   Include './vhdbuilder/packer/cvm-bootstrap-install-kernel.sh'
 
@@ -18,7 +14,6 @@ Describe 'cvm-bootstrap-install-kernel.sh'
       dpkg-query() { return 1; }
     }
     mock_dpkg_query_removed() {
-      # nullboot was purged but dpkg still has a "deinstall" record
       # shellcheck disable=SC2329
       dpkg-query() { echo 'deinstall ok config-files'; }
     }
@@ -96,7 +91,6 @@ Describe 'cvm-bootstrap-install-kernel.sh'
     It 'reads VERSION_ID from /etc/os-release'
       When call getUbuntuRelease
       The status should be success
-      # Whatever distro this happens to run on in CI, VERSION_ID must be non-empty.
       The output should not eq ""
     End
   End

@@ -1,31 +1,9 @@
 #!/bin/bash
-# CVM bootstrap (Stage 1, CVM_BUILD_STAGE=bootstrap) post-reboot provisioning.
-#
-# Runs after vhd-image-builder-cvm-bootstrap.json reboots the VM into the new
-# azure-fde kernel installed by cvm-bootstrap-install-kernel.sh. Responsible
-# for:
-#   1. Verifying the VM actually booted the azure-fde kernel (fails the build
-#      otherwise -- a silent fallback to the old kernel must never produce a
-#      usable "bootstrap" image).
-#   2. Safely purging only packages tied to the prior (pre-bootstrap) kernel
-#      plus obsolete non-FDE kernel metapackages -- and NEVER anything tied to
-#      the kernel currently running.
-#   3. Verifying the image is in a sane state to hand off to Stage 2:
-#      /sys/firmware/efi is present (UEFI boot, required for Gen2/CVM),
-#      'dpkg --audit' reports no packages in an inconsistent state, and
-#      'apt-get check' reports no broken dependencies.
-#
-# This script does not deprovision/generalize the VM; that remains an inline
-# provisioner in vhd-image-builder-cvm-bootstrap.json (mirroring the existing
-# vhd-image-builder-cvm.json convention) so the deprovision command is easy to
-# diff against the rest of the CVM template family.
 
 set -euo pipefail
 
 ORIGINAL_KERNEL_MARKER="${ORIGINAL_KERNEL_MARKER:-/opt/azure/cvm-bootstrap-original-kernel}"
 
-# assertRunningAzureFdeKernel fails the build unless the currently running
-# kernel release ends in the expected "-azure-fde" suffix.
 assertRunningAzureFdeKernel() {
     local current_kernel="$1"
     case "${current_kernel}" in
@@ -40,10 +18,6 @@ assertRunningAzureFdeKernel() {
     esac
 }
 
-# assertEfiBoot fails the build unless the VM booted via UEFI
-# (/sys/firmware/efi present), which Gen2/ConfidentialVM requires. Accepts an
-# optional path override (defaults to /sys/firmware/efi) so it can be
-# exercised in tests without requiring a real UEFI host.
 # shellcheck disable=SC2120
 assertEfiBoot() {
     local efi_path="${1:-/sys/firmware/efi}"
@@ -54,8 +28,6 @@ assertEfiBoot() {
     echo "${efi_path} present: VM booted in UEFI mode"
 }
 
-# assertPackageStateClean fails the build if dpkg reports packages in an
-# inconsistent state, or apt reports broken dependencies.
 assertPackageStateClean() {
     local audit_output
     audit_output="$(dpkg --audit 2>&1 || true)"
@@ -73,12 +45,6 @@ assertPackageStateClean() {
     echo "apt-get check: clean"
 }
 
-# computeSafeKernelPurgeList prints (one per line) the set of installed
-# packages that are safe to purge: packages whose name contains the prior
-# (pre-bootstrap) kernel version, plus known non-FDE kernel metapackages --
-# but NEVER anything whose name contains the currently running kernel
-# version. $1 = prior kernel release, $2 = current kernel release,
-# $3 = ubuntu release (e.g. "26.04").
 computeSafeKernelPurgeList() {
     local prior_kernel="$1"
     local current_kernel="$2"
@@ -95,16 +61,10 @@ computeSafeKernelPurgeList() {
         return 1
     fi
 
-    # Packages tied to the specific prior kernel version (image/headers/
-    # modules/modules-extra/tools/cloud-tools all embed the kernel version in
-    # their package name).
     while IFS= read -r pkg; do
         [ -n "${pkg}" ] && candidates+=("${pkg}")
     done < <(dpkg-query -W -f='${Package}\n' 'linux-image-*' 'linux-modules-*' 'linux-headers-*' 'linux-tools-*' 'linux-cloud-tools-*' 2>/dev/null | grep -F -- "${prior_kernel}" || true)
 
-    # Obsolete non-FDE kernel metapackages: once the azure-fde kernel is in
-    # place these are only useful for tracking/reinstalling the vanilla
-    # (non-encrypted) Azure kernel line, which we never want on a CVM image.
     for pkg in "linux-azure-lts-${ubuntu_release}" "linux-image-azure-lts-${ubuntu_release}"; do
         if dpkg-query -W -f='${Status}' "${pkg}" 2>/dev/null | grep -q "install ok installed"; then
             candidates+=("${pkg}")
@@ -166,8 +126,6 @@ main() {
     echo "cvm-bootstrap-verify-and-cleanup.sh finished successfully; image is ready to be deprovisioned and captured"
 }
 
-# Allow the pure functions above to be sourced (e.g. by ShellSpec) without
-# executing main.
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
     main "$@"
 fi

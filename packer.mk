@@ -98,17 +98,6 @@ run-packer: az-login
 run-imagecustomizer: az-login
 	@($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-imagecustomizer | tee -a packer-output)
 
-# --- CVM two-stage build (Ubuntu 26.04, until a Marketplace "cvm" SKU exists) ---
-#
-# Stage 1 (bootstrap): builds a minimal, generalized, SecurityType=ConfidentialVMSupported
-# intermediate SIG image from a normal (non-CVM) Marketplace source. Writes its own
-# settings/output files so they never collide with, or get cleaned up by, Stage 2.
-#
-# Stage 2 (final): runs the dedicated vhd-image-builder-cvm-2604.json template on a real
-# ConfidentialVM sourced from the exact Stage 1 image version. Writes the normal
-# settings.json/packer-output so every downstream pipeline step (publishing, scanning,
-# prefetch, etc.) behaves exactly as it does for a single-stage build.
-
 CVM_BOOTSTRAP_SETTINGS_JSON := vhdbuilder/packer/settings-bootstrap.json
 CVM_BOOTSTRAP_PACKER_OUTPUT := packer-output-bootstrap
 CVM_FINAL_TEMPLATE := vhdbuilder/packer/vhd-image-builder-cvm-2604.json
@@ -133,9 +122,6 @@ build-packer-cvm-bootstrap:
 	@echo "Using packer template file vhd-image-builder-cvm-bootstrap.json"
 	@packer build -timestamp-ui -var-file=$(CVM_BOOTSTRAP_SETTINGS_JSON) vhdbuilder/packer/vhd-image-builder-cvm-bootstrap.json
 
-# Stage 1 is intentionally NOT cleaned up on failure: its settings/output files are the
-# primary debugging artifact when the bootstrap image fails to build, so they are left in
-# place for the pipeline to publish/inspect.
 run-packer-cvm-bootstrap: validate-cvm-two-stage az-login
 	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer-cvm-bootstrap | tee $(CVM_BOOTSTRAP_PACKER_OUTPUT)) && ($(MAKE) -f packer.mk build-packer-cvm-bootstrap | tee -a $(CVM_BOOTSTRAP_PACKER_OUTPUT))
 

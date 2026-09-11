@@ -5,11 +5,6 @@ SCRIPT_DIR=$(dirname "$0")
 source "$SCRIPT_DIR/produce-packer-settings-functions.sh"
 
 CDIR=$(dirname "${BASH_SOURCE}")
-# Overridable so a CVM two-stage bootstrap (Stage 1) build can write its own
-# settings file (e.g. vhdbuilder/packer/settings-bootstrap.json) without
-# colliding with, or being overwritten by, the final-stage (Stage 2) build,
-# which always uses the default path so every downstream pipeline step keeps
-# working unmodified.
 SETTINGS_JSON="${SETTINGS_JSON:-vhdbuilder/packer/settings.json}"
 PUBLISHER_BASE_IMAGE_VERSION_JSON="${PUBLISHER_BASE_IMAGE_VERSION_JSON:-./vhdbuilder/publisher_base_image_version.json}"
 VHD_BUILD_TIMESTAMP_JSON="${VHD_BUILD_TIMESTAMP_JSON:-./vhdbuilder/vhd_build_timestamp.json}"

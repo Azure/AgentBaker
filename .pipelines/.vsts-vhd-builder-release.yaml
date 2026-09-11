@@ -815,12 +815,6 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2604-minimal-arm64-gen2-containerd
-      # Two-stage CVM build: Ubuntu 26.04 has no ready-made Marketplace "cvm" SKU yet, so Stage 1
-      # (bootstrap) builds a minimal, generalized, ConfidentialVMSupported intermediate SIG image
-      # from the normal "minimal" Marketplace source on a regular VM, and Stage 2 (final) runs the
-      # dedicated Ubuntu 26.04 CVM template on a real ConfidentialVM sourced from that intermediate
-      # image. See .templates/.builder-release-template.yaml and packer.mk
-      # (run-packer-cvm-bootstrap / run-packer-cvm-final) for the two-task implementation.
       - job: build2604cvmgen2containerd
         condition: eq('${{ parameters.build2604cvmgen2containerd }}', true)
         dependsOn: [ ]

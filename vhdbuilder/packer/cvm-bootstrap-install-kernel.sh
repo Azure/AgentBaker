@@ -1,34 +1,9 @@
 #!/bin/bash
-# CVM bootstrap (Stage 1, CVM_BUILD_STAGE=bootstrap) pre-reboot provisioning.
-#
-# Used only by vhd-image-builder-cvm-bootstrap.json to prepare a minimal,
-# bootable "intermediate" Ubuntu 26.04 image capable of running on a real
-# ConfidentialVM (SecurityType=ConfidentialVM). It intentionally does NOT run
-# the full AgentBaker VHD provisioning chain (pre/post-install-dependencies.sh,
-# containerd, k8s binaries, CNI, CSE, etc.) -- that happens entirely in Stage 2
-# against the dedicated vhd-image-builder-cvm-2604.json.
-#
-# Responsibilities (this half, before reboot):
-#   1. Record the kernel running before any change, so Stage 1's post-reboot
-#      half can later purge it (and only it) once the new kernel is confirmed
-#      booted.
-#   2. Install the Ubuntu Full-Disk-Encryption ("azure-fde") kernel and its
-#      companion packages with --no-install-recommends.
-#   3. Fail loudly if 'nullboot' is present (as a dependency or otherwise).
-#      nullboot manages a UKI-only (systemd-boot) Secure Boot trust chain that
-#      bypasses GRUB entirely. If it slips in, the GRUB configuration below
-#      would silently have no effect on the resulting boot chain, so we would
-#      rather fail the build than ship an unvalidated hybrid boot config.
-#   4. Configure GRUB so the new azure-fde kernel is the default boot entry.
-#
-# The packer template reboots the VM immediately after this script runs; see
-# cvm-bootstrap-verify-and-cleanup.sh for the post-reboot half.
 
 set -euo pipefail
 
 ORIGINAL_KERNEL_MARKER="${ORIGINAL_KERNEL_MARKER:-/opt/azure/cvm-bootstrap-original-kernel}"
 
-# waitForAptLocks blocks until no other process holds an apt/dpkg lock file.
 waitForAptLocks() {
     while fuser /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
         echo "Waiting for release of apt locks"
@@ -36,15 +11,10 @@ waitForAptLocks() {
     done
 }
 
-# isNullbootInstalled returns success (0) if the nullboot package is currently
-# installed (dpkg status "install ok installed"), failure (1) otherwise.
 isNullbootInstalled() {
     dpkg-query -W -f='${Status}' nullboot 2>/dev/null | grep -q "install ok installed"
 }
 
-# failIfNullbootPresent exits the build with a clear diagnostic if nullboot is
-# installed. $1 is a short label describing when the check ran, used only for
-# the error message.
 failIfNullbootPresent() {
     local context="$1"
     if isNullbootInstalled; then
@@ -58,18 +28,10 @@ failIfNullbootPresent() {
     echo "nullboot check (${context}): not installed, continuing"
 }
 
-# getUbuntuRelease prints the Ubuntu release (VERSION_ID from /etc/os-release),
-# e.g. "26.04".
 getUbuntuRelease() {
     (. /etc/os-release 2>/dev/null && echo "${VERSION_ID:-}")
 }
 
-# buildFdeKernelPackageList prints the list of packages (one per line) needed
-# to install the azure-fde kernel for the given Ubuntu release. Mirrors the
-# package naming used for the existing 22.04/24.04 CVM builds in
-# pre-install-dependencies.sh: only the *image* package carries the "-fde-"
-# infix, the tools/cloud-tools/headers metapackages are shared with the
-# vanilla azure kernel line.
 buildFdeKernelPackageList() {
     local ubuntu_release="$1"
     local modules_extra_pkg="linux-modules-extra-azure-lts-${ubuntu_release}"
@@ -87,18 +49,12 @@ buildFdeKernelPackageList() {
     fi
 }
 
-# configureGrubForNewKernel regenerates grub.cfg so the newly-installed
-# azure-fde kernel becomes the default boot entry, and fails if grub.cfg does
-# not end up referencing an azure-fde kernel entry afterwards.
 configureGrubForNewKernel() {
     if ! command -v update-grub &>/dev/null; then
         echo "ERROR: update-grub not found; the CVM bootstrap base image is expected to use GRUB" >&2
         exit 1
     fi
 
-    # GRUB_DEFAULT=0 boots the first ("Advanced options" ordering places the
-    # newest installed kernel first) menu entry; make this explicit rather
-    # than relying on distro defaults.
     if [ -f /etc/default/grub ]; then
         if grep -q '^GRUB_DEFAULT=' /etc/default/grub; then
             sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=0/' /etc/default/grub
@@ -150,8 +106,6 @@ main() {
     echo "cvm-bootstrap-install-kernel.sh finished successfully; rebooting to verify azure-fde kernel boots"
 }
 
-# Allow the pure functions above to be sourced (e.g. by ShellSpec) without
-# executing main.
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
     main "$@"
 fi

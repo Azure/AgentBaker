@@ -1,10 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC2329,SC2317
 
-# Tests for the pure functions in vhdbuilder/packer/cvm-bootstrap-verify-and-cleanup.sh
-# (CVM Stage 1 / bootstrap, post-reboot half). The script is guarded so that
-# sourcing it (via Include) never executes main().
-
 Describe 'cvm-bootstrap-verify-and-cleanup.sh'
   Include './vhdbuilder/packer/cvm-bootstrap-verify-and-cleanup.sh'
 
@@ -80,9 +76,6 @@ Describe 'cvm-bootstrap-verify-and-cleanup.sh'
 
   Describe 'computeSafeKernelPurgeList'
     setup_dpkg_query_mock() {
-      # Args become the fake set of installed 'linux-*' packages, one per
-      # invocation of dpkg-query -W -f='${Package}\n' ... , OR the fake
-      # per-package status check dpkg-query -W -f='${Status}' <pkg>.
       # shellcheck disable=SC2329
       dpkg-query() {
         case "$*" in
@@ -129,10 +122,6 @@ Describe 'cvm-bootstrap-verify-and-cleanup.sh'
     End
 
     It 'never includes a package matching the currently running kernel, even if matched'
-      # Realistic overlap: the azure-fde flavor often shares the exact same
-      # upstream version/ABI as the vanilla azure kernel it replaces, so a
-      # package name tied to the prior kernel can be a substring of the
-      # current (azure-fde) kernel's package name.
       MOCK_INSTALLED_KERNEL_PACKAGES=(
         "linux-image-6.14.0-1008-azure-fde"
       )
