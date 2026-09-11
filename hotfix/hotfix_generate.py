@@ -75,7 +75,6 @@ SOURCE_TO_VARKEY = {
     # Other scripts
     "reconcile-private-hosts.sh": "reconcilePrivateHostsScript",
     "bind-mount.sh": "bindMountScript",
-    "ubuntu/gb/format-mount-nvme-root.sh": "nvidiaGBFormatMountNVMeRootScript",
     "mig-partition.sh": "migPartitionScript",
     "enable-dhcpv6.sh": "dhcpv6ConfigurationScript",
     "ensure_imds_restriction.sh": "ensureIMDSRestrictionScript",

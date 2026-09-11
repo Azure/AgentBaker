@@ -1939,33 +1939,6 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
 	})
 
-	It("should render the NVIDIA GB NVMe root formatter for GB custom data", func() {
-		templateGenerator := InitializeTemplateGenerator()
-		config := newConfig(false)
-		config.AgentPoolProfile.Distro = datamodel.AKSUbuntuArm64GB200Containerd2404Gen2
-		cloudInitData := getCustomDataVariables(config)["cloudInitData"].(paramsMap)
-		encodedScript := cloudInitData["nvidiaGBFormatMountNVMeRootScript"].(string)
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(config))
-
-		Expect(nodeCustomData).To(ContainSubstring("/opt/azure/containers/format-mount-nvme-root.sh"))
-		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0544\""))
-		Expect(nodeCustomData).To(ContainSubstring(encodedScript))
-	})
-
-	It("should render the NVIDIA GB NVMe root formatter for scriptless GB custom data", func() {
-		templateGenerator := InitializeTemplateGenerator()
-		config := newConfig(false)
-		config.AgentPoolProfile.Distro = datamodel.AKSUbuntuArm64GB200Containerd2404Gen2
-		config.EnableScriptlessCSECmd = true
-		cloudInitData := getCustomDataVariables(config)["cloudInitData"].(paramsMap)
-		encodedScript := cloudInitData["nvidiaGBFormatMountNVMeRootScript"].(string)
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(config))
-
-		Expect(nodeCustomData).To(ContainSubstring("/opt/azure/containers/format-mount-nvme-root.sh"))
-		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0544\""))
-		Expect(nodeCustomData).To(ContainSubstring(encodedScript))
-	})
-
 	It("should fall back to regular custom data when pre-provisioning is enabled", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(true)

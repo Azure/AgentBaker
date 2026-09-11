@@ -1051,9 +1051,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return profile.Distro.IsAzureLinuxOSGuardDistro() ||
 				profile.Distro == datamodel.CustomizedImageLinuxGuard
 		},
-		"IsUbuntuArm64GB": func() bool {
-			return profile.Distro == datamodel.AKSUbuntuArm64GB200Containerd2404Gen2
-		},
 		"IsCustomImage": func() bool {
 			return profile.Distro == datamodel.CustomizedImage ||
 				profile.Distro == datamodel.CustomizedImageKata ||
