@@ -100,7 +100,7 @@ func DefaultConfiguration() *Configuration {
 		DefaultSubnetName:                      "aks-subnet",
 		DefaultVMSKU:                           "Standard_D2ds_v5",
 		E2ELoggingDir:                          "scenario-logs",
-		EnableSecureTLSBootstrapping:           true,
+		EnableSecureTLSBootstrapping:           false,
 		GalleryLinux: Gallery{
 			Name:              "PackerSigGalleryEastUS",
 			ResourceGroupName: "aksvhdtestbuildrg",
