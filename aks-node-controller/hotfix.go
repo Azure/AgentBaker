@@ -38,31 +38,54 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 	if hotfixPath == "" {
 		hotfixPath = defaultHotfixVersionPath
 	}
-	configReadFailed := false
-	err := a.eventLogger.RunTimedOperation("Hotfix.BinaryOperation", func() (string, error) {
-		cfg, err := readHotfixConfig(hotfixPath)
-		if err != nil {
-			configReadFailed = true
-			slog.Warn("failed to read hotfix config, skipping hotfix download",
-				"path", hotfixPath, "error", err)
+	cfg, err := readHotfixConfig(hotfixPath)
+	if err != nil {
+		slog.Warn("failed to read hotfix config, skipping hotfix download",
+			"path", hotfixPath, "error", err)
+		// Still reported as a BinaryOperation so every download-hotfix run emits exactly one
+		// such event; the config read is what gates the binary route.
+		_ = a.eventLogger.RunTimedOperation("Hotfix.BinaryOperation", func() (string, error) {
 			return fmt.Sprintf("%s configPath=%s",
 				hotfixOperationMessage(Version, "", hotfixRouteNone, hotfixOutcomeSkippedConfigError),
 				hotfixPath,
 			), err
-		}
-
-		// Applying node custom data is best-effort/fail-open: it must never block the
-		// binary hotfix download below, or provisioning as a whole.
-		if err := a.applyNodeCustomDataIfNeeded(cfg); err != nil {
-			slog.Warn("failed to apply node custom data", "path", hotfixPath, "error", err)
-		}
-		return a.downloadBinaryHotfixIfNeeded(ctx, cfg)
-	})
-	if configReadFailed {
+		})
 		// An unreadable or malformed hotfix config must never block provisioning.
 		return nil
 	}
-	return err
+
+	// Timed separately from the binary operation below: script application can dominate the
+	// wall clock when scripts_version is set, and folding it into Hotfix.BinaryOperation
+	// would report a duration that the binary route/outcome in that event does not explain.
+	//
+	// Applying node custom data is best-effort/fail-open: it must never block the binary
+	// hotfix download below, or provisioning as a whole.
+	if err := a.applyScriptHotfix(cfg); err != nil {
+		slog.Warn("failed to apply node custom data", "path", hotfixPath, "error", err)
+	}
+
+	return a.eventLogger.RunTimedOperation("Hotfix.BinaryOperation", func() (string, error) {
+		return a.downloadBinaryHotfixIfNeeded(ctx, cfg)
+	})
+}
+
+// applyScriptHotfix applies the CSE-script hotfix under its own timing event. It reports
+// whether a script version was requested and how the attempt ended, so a long
+// Hotfix.ScriptApplication duration can be told apart from a skipped one in Kusto.
+func (a *App) applyScriptHotfix(cfg *hotfixConfig) error {
+	scriptsVersion := strings.TrimSpace(cfg.ScriptsVersion)
+	if scriptsVersion == "" {
+		// Nothing to do, and no event: a timing event here would add noise to every node
+		// that has no script hotfix, which is the overwhelming majority.
+		slog.Info("hotfix config does not request a scripts version for this base, skipping nodecustomdata apply",
+			"current", Version)
+		return nil
+	}
+	return a.eventLogger.RunTimedOperation("Hotfix.ScriptApplication", func() (string, error) {
+		applyErr := a.applyNodeCustomDataIfNeeded(cfg)
+		return fmt.Sprintf("current=%s scriptsVersion=%s outcome=%s",
+			Version, scriptsVersion, hotfixOutcome(applyErr)), applyErr
+	})
 }
 
 func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {

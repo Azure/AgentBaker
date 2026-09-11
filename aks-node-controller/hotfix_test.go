@@ -810,6 +810,35 @@ func TestDownloadHotfixGuestAgentTimingEvents(t *testing.T) {
 			wantLevel: "Informational",
 		},
 		{
+			// scripts_version work used to run inside the Hotfix.BinaryOperation timer, so
+			// its duration was charged to an event whose route/outcome only described the
+			// binary. It now reports separately.
+			name:    "script application is timed separately from the binary operation",
+			current: "202604.01.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				customData := filepath.Join(dir, "nodecustomdata.yml")
+				require.NoError(t, os.WriteFile(customData, []byte("write_files: []\n"), 0o644))
+				app.nodeCustomDataPath = customData
+				return &hotfixConfig{ScriptsVersion: "202604.01.1"}
+			},
+			wantTaskNames: []string{
+				"AKS.AKSNodeController.Hotfix.ScriptApplication",
+				"AKS.AKSNodeController.Hotfix.BinaryOperation",
+			},
+			wantLevel: "Informational",
+		},
+		{
+			// The common case: no scripts_version, so no script event is emitted at all
+			// rather than a zero-duration one on every node.
+			name:    "no script application event without a scripts version",
+			current: "202604.01.0",
+			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
+				return &hotfixConfig{}
+			},
+			wantTaskNames: []string{"AKS.AKSNodeController.Hotfix.BinaryOperation"},
+			wantLevel:     "Informational",
+		},
+		{
 			name:    "package manager install failure",
 			current: "202604.01.0",
 			setup: func(t *testing.T, app *App, dir string) *hotfixConfig {
