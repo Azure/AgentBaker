@@ -167,11 +167,11 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				},
 			},
 			{
-				Name:  "apply-hotfix",
+				Name:  "apply-embedded-hotfix",
 				Usage: "Apply embedded hotfix scripts",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					if len(cmd.Args().Slice()) > 0 {
-						return fmt.Errorf("unexpected apply-hotfix arguments: %s", strings.Join(cmd.Args().Slice(), " "))
+						return fmt.Errorf("unexpected apply-embedded-hotfix arguments: %s", strings.Join(cmd.Args().Slice(), " "))
 					}
 					return a.runApplyHotfixCommand(ctx)
 				},

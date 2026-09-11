@@ -268,7 +268,6 @@ func TestApp_ApplyHotfix(t *testing.T) {
 			Attrs:   map[string]string{"error": "rendered nodecustomdata application failed"},
 		})
 	})
-
 }
 
 func TestApp_Provision(t *testing.T) {

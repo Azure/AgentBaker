@@ -91,10 +91,10 @@ else
 fi
 
 if [ -x "$HOTFIX_BIN" ]; then
-    f "$HOTFIX_BIN" apply-hotfix; then
-        log "ANC apply-hotfix completed"
+    if "$HOTFIX_BIN" apply-embedded-hotfix; then
+        log "ANC apply-embedded-hotfix completed"
     else
-        log "ANC apply-hotfix failed"
+        log "ANC apply-embedded-hotfix failed"
     fi
 fi
 
