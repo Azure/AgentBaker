@@ -195,7 +195,7 @@ func (a *App) tryRepositoryDownload(ctx context.Context, hotfixVersion string) e
 
 	var plan repositoryDownloadPlan
 	switch info.ID {
-	case "ubuntu":
+	case osReleaseIDUbuntu:
 		plan, err = a.ubuntuRepositoryPlan(info, hotfixVersion)
 	case osReleaseIDAzureLinux, osIDMariner:
 		plan, err = a.rpmRepositoryPlan(info, hotfixVersion)

@@ -312,7 +312,7 @@ func (a *App) detectPackageManager() (packageManager, error) {
 		)
 	}
 	switch info.ID {
-	case "ubuntu":
+	case osReleaseIDUbuntu:
 		return pkgMgrApt, nil
 	case osReleaseIDAzureLinux:
 		return preferredRpmManager(), nil
