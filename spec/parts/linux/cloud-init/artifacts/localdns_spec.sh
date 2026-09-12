@@ -24,6 +24,7 @@ Describe 'localdns.sh'
             LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
             LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
             UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
+            EXPECTED_UPDATED_LOCALDNS_CORE_FILE="${TEST_DIR}/expected.updated.localdns.corefile"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
             # Use production-realistic corefile format with brace syntax
             cat > "$LOCALDNS_CORE_FILE" <<'EOF'
@@ -40,6 +41,7 @@ EOF
     }
 }
 EOF
+            cp "$UPDATED_LOCALDNS_CORE_FILE" "$EXPECTED_UPDATED_LOCALDNS_CORE_FILE"
 
             LOCALDNS_SLICE_PATH="${TEST_DIR}/etc/systemd/system"
             LOCALDNS_SLICE_FILE="${LOCALDNS_SLICE_PATH}/localdns.slice"
@@ -68,9 +70,13 @@ EOF
         }
         cleanup() {
             rm -rf "$LOCALDNS_SCRIPT_PATH"
+            rm -f "$EXPECTED_UPDATED_LOCALDNS_CORE_FILE"
             rm -rf "$LOCALDNS_SLICE_PATH"
             rm -rf "$COREDNS_BINARY_PATH"
             rm -rf "$RESOLV_CONF"
+        }
+        assert_updated_localdns_corefile_unchanged() {
+            cmp -s "$UPDATED_LOCALDNS_CORE_FILE" "$EXPECTED_UPDATED_LOCALDNS_CORE_FILE"
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
@@ -458,6 +464,8 @@ EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
             The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+            When call assert_updated_localdns_corefile_unchanged
+            The status should be success
         End
 
         It 'should fail if upstream DNS is the localdns cluster listener IP'
@@ -467,6 +475,8 @@ EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
             The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.11"
+            When call assert_updated_localdns_corefile_unchanged
+            The status should be success
         End
 
         It 'should fail if a listener IP is mixed into an otherwise valid upstream DNS list'
@@ -477,6 +487,8 @@ EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
             The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+            When call assert_updated_localdns_corefile_unchanged
+            The status should be success
         End
 
         It 'should report a listener before an invalid upstream entry'
@@ -488,6 +500,8 @@ EOF
             The status should be failure
             The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
             The stdout should not include "Invalid upstream VNET DNS server '10.0.0.1/24'"
+            When call assert_updated_localdns_corefile_unchanged
+            The status should be success
         End
 
         It 'should report a listener after an invalid upstream entry'
@@ -499,6 +513,8 @@ EOF
             The status should be failure
             The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
             The stdout should not include "Invalid upstream VNET DNS server '10.0.0.1/24'"
+            When call assert_updated_localdns_corefile_unchanged
+            The status should be success
         End
 
         It 'should fail if the cluster listener is mixed into an otherwise valid upstream DNS list'
@@ -509,6 +525,8 @@ EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
             The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.11"
+            When call assert_updated_localdns_corefile_unchanged
+            The status should be success
         End
 
         It 'should report the cluster listener before an invalid upstream entry'
@@ -520,6 +538,8 @@ EOF
             The status should be failure
             The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.11"
             The stdout should not include "Invalid upstream VNET DNS server '10.0.0.1/24'"
+            When call assert_updated_localdns_corefile_unchanged
+            The status should be success
         End
 
         It 'should report the cluster listener after an invalid upstream entry'
@@ -531,6 +551,8 @@ EOF
             The status should be failure
             The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.11"
             The stdout should not include "Invalid upstream VNET DNS server '10.0.0.1/24'"
+            When call assert_updated_localdns_corefile_unchanged
+            The status should be success
         End
 
         It 'should fail if an upstream entry is not an address'
@@ -540,6 +562,8 @@ EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
             The stdout should include "Invalid upstream VNET DNS server '10.0.0.1/24'"
+            When call assert_updated_localdns_corefile_unchanged
+            The status should be success
         End
 
         It 'should reject the unspecified IPv6 address'
@@ -549,6 +573,8 @@ EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
             The stdout should include "Invalid upstream VNET DNS server '::'"
+            When call assert_updated_localdns_corefile_unchanged
+            The status should be success
         End
 
         It 'should replace Azure DNS with multiple valid upstream DNS servers'
