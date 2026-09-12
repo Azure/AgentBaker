@@ -180,11 +180,30 @@ replace_azurednsip_in_corefile() {
         echo "No Upstream VNET DNS servers found in $RESOLV_CONF."
         return 1
     fi
+
+    # Check all nameservers for localdns listeners before validating their format.
+    local upstream_dns_ip
+    for upstream_dns_ip in ${UPSTREAM_VNET_DNS_SERVERS}; do
+        if [ "${upstream_dns_ip}" = "${LOCALDNS_NODE_LISTENER_IP}" ] ||
+            [ "${upstream_dns_ip}" = "${LOCALDNS_CLUSTER_LISTENER_IP}" ]; then
+            echo "Upstream VNET DNS servers contain localdns listener IP ${upstream_dns_ip}."
+            return 1
+        fi
+    done
+
+    # systemd-resolved emits canonical address values; reject tokens outside that format.
+    for upstream_dns_ip in ${UPSTREAM_VNET_DNS_SERVERS}; do
+        case "${upstream_dns_ip}" in
+            "::"|*[!0-9a-fA-F.:]*|"")
+                echo "Invalid upstream VNET DNS server '${upstream_dns_ip}' in ${RESOLV_CONF}."
+                return 1
+                ;;
+        esac
+    done
     echo "Found upstream VNET DNS servers: ${UPSTREAM_VNET_DNS_SERVERS}"
 
     # Based on customer input, corefile was generated in pkg/agent/baker.go.
-    # Replace 168.63.129.16 with VNET DNS ServerIPs only if VNET DNS ServerIPs is not equal to 168.63.129.16
-    # and also not equal to the localdns node listener IP to avoid creating a circular dependency.
+    # Replace 168.63.129.16 with VNET DNS ServerIPs only if VNET DNS ServerIPs is not equal to 168.63.129.16.
     # Corefile will have 168.63.129.16 when user input has VnetDNS value for forwarddestination.
     # Note - For root domain under VnetDNSOverrides, all DNS traffic should be forwarded to VnetDNS.
     cp "${LOCALDNS_CORE_FILE}" "${UPDATED_LOCALDNS_CORE_FILE}" || {
@@ -192,7 +211,7 @@ replace_azurednsip_in_corefile() {
         return 1
     }
 
-    if [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ] && [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${LOCALDNS_NODE_LISTENER_IP}" ]; then
+    if [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ]; then
         echo "Replacing Azure DNS IP ${AZURE_DNS_IP} with upstream VNET DNS servers ${UPSTREAM_VNET_DNS_SERVERS} in corefile ${UPDATED_LOCALDNS_CORE_FILE}"
         sed -i -e "s|${AZURE_DNS_IP}|${UPSTREAM_VNET_DNS_SERVERS}|g" "${UPDATED_LOCALDNS_CORE_FILE}" || {
             echo "Replacing AzureDNSIP in corefile failed."
@@ -200,7 +219,7 @@ replace_azurednsip_in_corefile() {
         }
         echo "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
     else
-        echo "Skipping DNS IP replacement. Upstream VNET DNS servers (${UPSTREAM_VNET_DNS_SERVERS}) match either Azure DNS IP (${AZURE_DNS_IP}) or localdns node listener IP (${LOCALDNS_NODE_LISTENER_IP})"
+        echo "Skipping DNS IP replacement. Upstream VNET DNS servers (${UPSTREAM_VNET_DNS_SERVERS}) already match Azure DNS IP (${AZURE_DNS_IP})."
     fi
 
     if [ ! -f "${UPDATED_LOCALDNS_CORE_FILE}" ] || [ ! -s "${UPDATED_LOCALDNS_CORE_FILE}" ]; then
