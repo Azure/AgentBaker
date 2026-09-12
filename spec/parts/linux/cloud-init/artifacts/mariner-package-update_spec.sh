@@ -230,6 +230,24 @@ EOF
             The output should include 'golden timestamp is not set, skip live patching'
         End
 
+        It 'should reject a malformed golden timestamp before running dnf update'
+            Mock kubectl
+                echo "2025-08-15T00:00:00Z"
+            End
+            When run main
+            The status should be failure
+            The output should include 'golden timestamp has invalid format'
+        End
+
+        It 'should reject a newline-bearing golden timestamp'
+            Mock kubectl
+                printf '20250815T000000Z\nmalicious-injected-line\n'
+            End
+            When run main
+            The status should be failure
+            The output should include 'golden timestamp has invalid format'
+        End
+
         It 'should do nothing if golden timestamp equals current timestamp'
             Mock kubectl
                 echo "20250820T000000Z"
@@ -428,6 +446,24 @@ EOF
             When run main
             The status should be success
             The output should include 'golden timestamp is not set, skip live patching'
+        End
+
+        It 'should reject a malformed golden timestamp before computing snapshottime'
+            Mock kubectl
+                echo "2025-08-15T00:00:00Z"
+            End
+            When run main
+            The status should be failure
+            The output should include 'golden timestamp has invalid format'
+        End
+
+        It 'should reject a newline-bearing golden timestamp'
+            Mock kubectl
+                printf '20250815T000000Z\nmalicious-injected-line\n'
+            End
+            When run main
+            The status should be failure
+            The output should include 'golden timestamp has invalid format'
         End
 
         It 'should do nothing if golden timestamp equals current timestamp'
