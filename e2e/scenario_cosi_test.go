@@ -68,7 +68,7 @@ func Test_ACL_COSIUpdate_AMD64(t *testing.T) {
 
 	RunScenario(t, &Scenario{
 		Description: "Tests that an AMD64 ACL node remains Ready after a COSI A/B update",
-		Location:    "westus2",
+		Location:    "westus3",
 		Tags: Tags{
 			COSIUpdate: true,
 		},
