@@ -141,6 +141,7 @@ function extract_windows_image_urls() {
 }
 
 function create_windows_storage_account() {
+	local mirs_classification_tag="ms-resiliency-classification=Non-Recovery Critical"
 
 	avail=$(az storage account check-name -n "${STORAGE_ACCOUNT_NAME}" -o json | jq -r .nameAvailable)
 	if $avail; then
@@ -149,7 +150,7 @@ function create_windows_storage_account() {
 			-n "$STORAGE_ACCOUNT_NAME" \
 			-g "$AZURE_RESOURCE_GROUP_NAME" \
 			--sku "Standard_RAGRS" \
-			--tags "now=${CREATE_TIME}" \
+			--tags "now=${CREATE_TIME}" "${mirs_classification_tag}" \
 			--allow-shared-key-access false \
 			--min-tls-version TLS1_2 \
 			--location "${AZURE_LOCATION}"
