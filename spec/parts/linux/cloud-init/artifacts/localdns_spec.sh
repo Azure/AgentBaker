@@ -491,6 +491,18 @@ EOF
             The status should be success
         End
 
+        It 'should fail if a listener IP precedes an otherwise valid upstream DNS list'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 169.254.10.10
+nameserver 10.0.0.1
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+            When call assert_updated_localdns_corefile_unchanged
+            The status should be success
+        End
+
         It 'should report a listener before an invalid upstream entry'
 cat <<EOF > "$RESOLV_CONF"
 nameserver 10.0.0.1/24
@@ -525,6 +537,18 @@ EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
             The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.11"
+            When call assert_updated_localdns_corefile_unchanged
+            The status should be success
+        End
+
+        It 'should fail if both localdns listener IPs are upstream DNS servers'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 169.254.10.10
+nameserver 169.254.10.11
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
             When call assert_updated_localdns_corefile_unchanged
             The status should be success
         End
@@ -589,6 +613,29 @@ EOF
             The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should not include "169.254.10.11"
             The stdout should include "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
             The stdout should include "Persisted upstream DNS servers to /etc/localdns/upstream-dns: 10.0.0.1 10.0.0.2"
+        End
+
+        It 'should replace Azure DNS with a single valid non-Azure upstream DNS server'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 10.0.0.1
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1"
+            The stdout should include "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
+            The stdout should include "Persisted upstream DNS servers to /etc/localdns/upstream-dns: 10.0.0.1"
+        End
+
+        It 'should replace Azure DNS when it is mixed with another valid upstream DNS server'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 168.63.129.16
+nameserver 10.0.0.1
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16 10.0.0.1"
+            The stdout should include "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
+            The stdout should include "Persisted upstream DNS servers to /etc/localdns/upstream-dns: 168.63.129.16 10.0.0.1"
         End
 
         It 'should return failure if AZURE_DNS_IP is unset'
