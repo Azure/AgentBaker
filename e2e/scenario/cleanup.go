@@ -51,7 +51,7 @@ func (c *scenarioCleanup) runCleanups(ctx context.Context) error {
 		var wg sync.WaitGroup
 		for i, fn := range cleanups {
 			wg.Go(func() {
-				batchErrs[i] = runCleanup(ctx, fn)
+				batchErrs[i] = runWithPanicRecovery(ctx, fn)
 			})
 		}
 		wg.Wait()
@@ -72,7 +72,7 @@ func (c *scenarioCleanup) takeCleanups() []func(context.Context) error {
 	return cleanups
 }
 
-func runCleanup(ctx context.Context, fn func(context.Context) error) (err error) {
+func runWithPanicRecovery(ctx context.Context, fn func(context.Context) error) (err error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			err = fmt.Errorf("scenario cleanup panicked: %v\n%s", recovered, debug.Stack())

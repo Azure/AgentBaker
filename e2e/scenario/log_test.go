@@ -7,14 +7,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/ssh"
 )
 
 func TestCloudInitAnalyzeCommandDoesNotRequireSCP(t *testing.T) {
@@ -31,19 +29,14 @@ func TestCollectCommandLogsConcurrency(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	commands := map[string]string{}
-	for i := range 2 * logCollectionConcurrency {
+	for i := range 16 {
 		commands[fmt.Sprintf("%d.log", i)] = fmt.Sprint(i)
 	}
 	started := make(chan struct{}, len(commands))
 	release := make(chan struct{})
-	var active atomic.Int32
 	done := make(chan error, 1)
 	go func() {
 		done <- collectCommandLogs(ctx, "batch", commands, func(ctx context.Context, command string) (*podExecResult, error) {
-			if active.Add(1) > logCollectionConcurrency {
-				t.Error("SSH concurrency limit exceeded")
-			}
-			defer active.Add(-1)
 			started <- struct{}{}
 			select {
 			case <-release:
@@ -53,7 +46,7 @@ func TestCollectCommandLogsConcurrency(t *testing.T) {
 			}
 		})
 	}()
-	for range logCollectionConcurrency {
+	for range commands {
 		select {
 		case <-started:
 		case <-ctx.Done():
@@ -122,52 +115,6 @@ func TestCollectCommandLogsCanceledContextAndWriteFailure(t *testing.T) {
 
 	require.NoError(t, os.WriteFile(filepath.Join(config.Config.E2ELoggingDir, "blocked"), nil, 0600))
 	require.ErrorContains(t, collectCommandLogs(ctx, "blocked", commands, exec), "write log error.log")
-}
-
-func TestCollectCommandLogsRetriesRejectedSessions(t *testing.T) {
-	original := config.Config.E2ELoggingDir
-	config.Config.E2ELoggingDir = t.TempDir()
-	t.Cleanup(func() { config.Config.E2ELoggingDir = original })
-	for _, test := range []struct {
-		name     string
-		failures int
-		reason   ssh.RejectionReason
-		wantRuns int
-		wantErr  bool
-		cancel   bool
-	}{
-		{"recovers", 1, ssh.ConnectionFailed, 2, false, false},
-		{"exhausted", 10, ssh.ConnectionFailed, 5, true, false},
-		{"denied", 1, ssh.Prohibited, 1, true, false},
-		{"canceled", 1, ssh.ConnectionFailed, 1, true, true},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(t.Context())
-			defer cancel()
-			runs := 0
-			err := collectCommandLogs(ctx, test.name, map[string]string{"test.log": "command"},
-				func(context.Context, string) (*podExecResult, error) {
-					runs++
-					if test.cancel {
-						cancel()
-					}
-					if runs <= test.failures {
-						return nil, &ssh.OpenChannelError{Reason: test.reason, Message: "open failed"}
-					}
-					return &podExecResult{exitCode: "0", stdout: "collected"}, nil
-				})
-			assert.Equal(t, test.wantRuns, runs)
-			content, readErr := os.ReadFile(filepath.Join(artifactDir(test.name), "test.log"))
-			require.NoError(t, readErr)
-			if test.wantErr {
-				require.Error(t, err)
-				assert.Contains(t, string(content), "open failed")
-			} else {
-				require.NoError(t, err)
-				assert.Contains(t, string(content), "collected")
-			}
-		})
-	}
 }
 
 func TestArtifactHelpersUseTheGivenArtifactName(t *testing.T) {

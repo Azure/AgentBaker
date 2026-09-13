@@ -6,40 +6,22 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
-	"golang.org/x/crypto/ssh"
 )
-
-const logCollectionConcurrency = 8
 
 func collectCommandLogs(ctx context.Context, artifactName string, commands map[string]string, exec func(context.Context, string) (*podExecResult, error)) error {
 	batch := &scenarioCleanup{}
-	slots := make(chan struct{}, logCollectionConcurrency)
 	for file, command := range commands {
 		batch.add(func(ctx context.Context) error {
-			slots <- struct{}{}
-			defer func() { <-slots }()
-
 			var result *podExecResult
-			err := runCleanup(ctx, func(ctx context.Context) error {
-				for attempt := 0; ; attempt++ {
-					if err := ctx.Err(); err != nil {
-						return err
-					}
-					var err error
-					result, err = exec(ctx, command)
-					var rejected *ssh.OpenChannelError
-					if attempt >= 4 || !errors.As(err, &rejected) || rejected.Reason != ssh.ConnectionFailed {
-						return err
-					}
-					select {
-					case <-time.After(200 * time.Millisecond):
-					case <-ctx.Done():
-						return errors.Join(ctx.Err(), err)
-					}
+			err := runWithPanicRecovery(ctx, func(ctx context.Context) error {
+				if err := ctx.Err(); err != nil {
+					return err
 				}
+				var err error
+				result, err = exec(ctx, command)
+				return err
 			})
 			var content string
 			var collectionErr error

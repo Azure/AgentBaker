@@ -198,7 +198,7 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 		if vm != nil {
 			defer cleanupBastionTunnel(vm.SSHClient)
 		}
-		logErr := runCleanup(ctx, func(ctx context.Context) error {
+		logErr := runWithPanicRecovery(ctx, func(ctx context.Context) error {
 			extractLogsFromVM(ctx, s, vm)
 			return nil
 		})
