@@ -279,9 +279,10 @@ The scenario package does not depend on the runner.
 
 Cleanup callbacks run concurrently. Register only independent work with `Scenario.Cleanup`;
 keep dependent operations in one callback, such as collecting VM logs before deleting that VM.
-SSH execution limits each connection to eight concurrent commands, including script uploads.
-Linux log collection shares this limit with other SSH callers. Collection errors are saved
-in the affected log files; the console reports failed file names without the full error details.
+Linux log collection runs commands concurrently in one remote Bash script and returns one
+compressed archive through the shared SSH execution layer. Each log retains its stdout,
+stderr, and exit code. Commands have a timeout that reserves time to return partial output.
+Collection errors are saved in the affected log files; the console reports failed file names.
 
 The other directories contain helper packages and embedded resources.
 
