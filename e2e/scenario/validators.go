@@ -1233,8 +1233,12 @@ func ValidateKubeletActiveFlagsEvent(ctx context.Context, s *Scenario) error {
 const kubeletActiveFlagsValidationScript = `sudo -n bash <<'VALIDATE_KUBELET_ACTIVE_FLAGS'
 set -ex
 journalctl -u emit-kubelet-active-flags.service --no-pager | grep -q "Finished\|Deactivated successfully"
-grep -rl 'kubeletActiveFlags' /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/ | head -1 | xargs cat | ` +
-	`jq -e '.TaskName == "AKS.CSE.ensureKubelet.kubeletActiveFlags"'
+event_file="$(grep -rl 'kubeletActiveFlags' /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/ | head -1)"
+if [ -z "$event_file" ] || [ ! -s "$event_file" ]; then
+    echo "kubelet active flags event file is missing or empty" >&2
+    exit 1
+fi
+jq -se 'length == 1 and .[0].TaskName == "AKS.CSE.ensureKubelet.kubeletActiveFlags"' "$event_file"
 VALIDATE_KUBELET_ACTIVE_FLAGS`
 
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {

@@ -92,8 +92,10 @@ func TestKubeletActiveFlagsValidationScript(t *testing.T) {
 		{name: "Azure Linux protected journal", journalProtected: true, journal: activeFlagsTestJournal, event: activeFlagsTestEvent},
 		{name: "Ubuntu protected event directory", journal: activeFlagsTestJournal, event: activeFlagsTestEvent},
 		{name: "missing event", journal: activeFlagsTestJournal, wantError: true},
+		{name: "whitespace-only event", journal: activeFlagsTestJournal, event: " \n\t", wantError: true},
 		{name: "malformed event JSON", journal: activeFlagsTestJournal, event: `{"TaskName":"kubeletActiveFlags"`, wantError: true},
 		{name: "wrong task", journal: activeFlagsTestJournal, event: `{"TaskName":"other","Message":"kubeletActiveFlags"}`, wantError: true},
+		{name: "multiple JSON objects", journal: activeFlagsTestJournal, event: activeFlagsTestEvent + "\n" + activeFlagsTestEvent, wantError: true},
 		{name: "service did not complete", journal: "Starting emit-kubelet-active-flags.service...", event: activeFlagsTestEvent, wantError: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
