@@ -11,11 +11,9 @@ import (
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
-	"golang.org/x/crypto/ssh"
 )
 
 type Tags struct {
@@ -69,10 +67,6 @@ type Scenario struct {
 	// An empty reason runs the scenario.
 	SkipIf func(context.Context) string
 
-	// Logger writes the scenario log. It is set by the execution flow before the
-	// scenario starts and carries no test-control capability.
-	Logger toolkit.Logger
-
 	// artifactName isolates files and Azure resource names created by this run.
 	artifactName string
 
@@ -115,7 +109,7 @@ type ScenarioVM struct {
 	VMSS      *armcompute.VirtualMachineScaleSet
 	VM        *armcompute.VirtualMachineScaleSetVM
 	PrivateIP string
-	SSHClient *ssh.Client
+	SSHClient *SSHClient
 }
 
 // CustomDataWriteFile defines an e2e-only cloud-init write_files entry.

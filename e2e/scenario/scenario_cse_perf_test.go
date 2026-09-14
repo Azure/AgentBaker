@@ -26,7 +26,6 @@ func TestValidateCSETimings(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s := &Scenario{
-				Logger: discardLogger{},
 				Runtime: &ScenarioRuntime{
 					CSETimingReport: &CSETimingReport{Tasks: []CSETaskTiming{
 						{TaskName: "AKS.CSE.cse_start", Duration: tc.total},

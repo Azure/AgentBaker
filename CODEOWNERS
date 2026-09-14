@@ -1,4 +1,4 @@
-* @Azure/agentbakeradmin @Azure/agentbakerwrite @Azure/aks-node-lifecycle
+* @Azure/agentbakeradmin @Azure/aks-node-lifecycle
 
 # Code owners for cse_cmd.sh and nodecustomdata.yml. This is to ensure that the scriptless v-team is aware of the changes in order to sync with AKSNodeConfig
 

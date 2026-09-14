@@ -1,3 +1,4 @@
+import io
 import json
 import os
 from pathlib import Path
@@ -253,31 +254,114 @@ write_files:
                     ).read_text(),
                 )
 
-    def test_write_hotfix_file_contains_only_anc_version_and_preserves_it(self):
+    def test_update_nodecustomdata_injects_and_removes_selected_blocks(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            template = Path(temp_dir) / "nodecustomdata.yml"
+            template.write_text(
+                "#cloud-config\n"
+                "write_files:\n"
+                "{{if EnableScriptlessCSECmd}}\n"
+                "{{- else }}\n"
+                f"{TRADITIONAL_TEMPLATE}"
+                "{{- end }}\n"
+            )
+            with mock.patch.object(hotfix_generate, "TEMPLATE", str(template)):
+                hotfix_generate.update_nodecustomdata({"provisionSource"})
+                injected = template.read_text()
+                self.assertIn(hotfix_generate.SCRIPTS_BEGIN, injected)
+                self.assertIn("provisionSource", injected)
+                self.assertNotIn(
+                    "provisionSourceUbuntu",
+                    injected.split(hotfix_generate.SCRIPTS_END, 1)[0],
+                )
+
+                hotfix_generate.update_nodecustomdata(set())
+                cleaned = template.read_text()
+                self.assertNotIn(hotfix_generate.SCRIPTS_BEGIN, cleaned)
+                self.assertEqual(1, cleaned.count("provisionSourceUbuntu"))
+
+    def test_write_hotfix_file_contains_both_versions_and_preserves_them(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             target = Path(temp_dir) / "hotfix.json"
             with mock.patch.object(
                 hotfix_generate, "TARGET_FILE", str(target)
             ):
-                hotfix_generate.write_hotfix_file("202608.14.1")
+                hotfix_generate.write_hotfix_file(
+                    "202608.14.1",
+                    "202608.14.2",
+                )
                 self.assertEqual(
-                    {"version": "202608.14.1"},
+                    {
+                        "version": "202608.14.1",
+                        "scripts_version": "202608.14.2",
+                    },
                     json.loads(target.read_text()),
                 )
-                hotfix_generate.write_hotfix_file("")
+                hotfix_generate.write_hotfix_file("", "")
                 self.assertEqual(
-                    {"version": "202608.14.1"},
+                    {
+                        "version": "202608.14.1",
+                        "scripts_version": "202608.14.2",
+                    },
                     json.loads(target.read_text()),
                 )
 
-    def test_write_hotfix_file_without_version_keeps_missing_target_absent(self):
+    def test_write_hotfix_file_without_versions_keeps_missing_target_absent(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             target = Path(temp_dir) / "hotfix.json"
             with mock.patch.object(
                 hotfix_generate, "TARGET_FILE", str(target)
             ):
-                hotfix_generate.write_hotfix_file("")
+                hotfix_generate.write_hotfix_file("", "")
                 self.assertFalse(target.exists())
+
+    def test_resolve_hotfix_versions_defaults_scripts_to_scripts_version(self):
+        with mock.patch.object(
+            hotfix_generate,
+            "bump_version",
+            return_value="202608.14.1",
+        ):
+            self.assertEqual(
+                ("", "202608.14.1"),
+                hotfix_generate.resolve_hotfix_versions(
+                    "202608.14.0",
+                    anc_changed=False,
+                    script_hotfix_changed=True,
+                    use_anc_for_scripts=False,
+                ),
+            )
+
+    def test_resolve_hotfix_versions_adds_version_for_anc_script_delivery(self):
+        with mock.patch.object(
+            hotfix_generate,
+            "bump_version",
+            return_value="202608.14.1",
+        ):
+            self.assertEqual(
+                ("202608.14.1", "202608.14.1"),
+                hotfix_generate.resolve_hotfix_versions(
+                    "202608.14.0",
+                    anc_changed=False,
+                    script_hotfix_changed=True,
+                    use_anc_for_scripts=True,
+                ),
+            )
+
+    def test_resolve_hotfix_versions_keeps_independent_anc_version(self):
+        with mock.patch.object(
+            hotfix_generate,
+            "bump_version",
+            return_value="202608.14.1",
+        ):
+            self.assertEqual(
+                ("202608.14.1", "202608.14.1"),
+                hotfix_generate.resolve_hotfix_versions(
+                    "202608.14.0",
+                    anc_changed=True,
+                    script_hotfix_changed=True,
+                    use_anc_for_scripts=False,
+                ),
+            )
 
     def test_cse_start_hotfix_fails_even_with_supported_changes(self):
         self.assertNotIn("cse_start.sh", hotfix_generate.SOURCE_TO_VARKEY)
@@ -380,6 +464,22 @@ write_files:
                 "v0.20260826.0",
                 hotfix_generate.resolve_baseline_ref("202608.26.0"),
             )
+
+    def test_resolve_baseline_ref_uses_testing_override(self):
+        with mock.patch.object(
+            hotfix_generate.subprocess, "run"
+        ) as run, mock.patch.object(
+            hotfix_generate, "tag_exists"
+        ) as tag_exists, mock.patch(
+            "sys.stderr", new_callable=io.StringIO
+        ) as stderr:
+            self.assertEqual(
+                "HEAD",
+                hotfix_generate.resolve_baseline_ref("202608.26.0", "HEAD"),
+            )
+        run.assert_not_called()
+        tag_exists.assert_not_called()
+        self.assertIn("non-cumulative script baseline override HEAD", stderr.getvalue())
 
     def test_detect_changed_varkeys_accumulates_all_scripts_since_baseline(self):
         # A later hotfix must re-select every script that differs from the VHD

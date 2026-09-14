@@ -120,6 +120,10 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
+          "latestVersion": "v1.14.7-1"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
           "latestVersion": "v1.14.3-11"
         },
         {
@@ -292,6 +296,25 @@
             "latestVersion": {
               "binaries": [
                 "/dropgz"
+              ]
+            }
+          }
+        }
+      ],
+      "windowsVersions": []
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/containernetworking/azure-iptables-monitor:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-iptables-monitor",
+          "latestVersion": "v0.0.5-0",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/azure-iptables-monitor",
+                "/azure-block-iptables"
               ]
             }
           }
@@ -689,7 +712,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/windows-gmsa-webhook",
-          "latestVersion": "v0.12.1-18"
+          "latestVersion": "v0.14.1"
         }
       ],
       "windowsVersions": []

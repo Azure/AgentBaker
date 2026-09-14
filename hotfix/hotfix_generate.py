@@ -11,20 +11,24 @@ Auto-detects what needs a hotfix and generates the version numbers for it:
 2. Detects which CSE provisioning scripts differ from the immutable VHD baseline
    (the release tag the VHD was built from, derived from linux_sig_version.json),
    selects their write_files entries from parts/linux/cloud-init/nodecustomdata.yml,
-   and renders self-contained ANC payloads for Ubuntu and Mariner with AgentBaker's
-   canonical Go-template renderer. Diffing against the frozen baseline (rather than
-   the moving base branch) keeps every generated payload cumulative: a later hotfix
-   re-renders all scripts changed since the VHD, so it never silently drops an
-   earlier hotfix's script.
+   injects those entries into the scriptless section of nodecustomdata.yml, and
+   renders self-contained ANC payloads for Ubuntu and Mariner with AgentBaker's
+   canonical Go-template renderer. Diffing against the frozen baseline keeps both
+   delivery paths cumulative.
 
-3. Writes the resolved ANC `version` to
-   parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json when active.
+3. Writes `scripts_version` for script hotfixes. With --use-anc-for-scripts, also
+   writes `version` to activate the embedded ANC payload. Independent ANC code
+   changes always write `version`.
 
-Usage: python3 hotfix/hotfix_generate.py <base_ref>
+Usage: python3 hotfix/hotfix_generate.py <base_ref> [options]
   base_ref: git ref for the PR base branch, used only to detect ANC Go-module
             changes for the version bump (e.g., origin/official/v20260219). The
             changed-script detection instead diffs against the VHD baseline tag
             derived from linux_sig_version.json.
+  --baseline-ref: optional testing override for changed-script detection. Payloads
+                  generated with this option are not necessarily cumulative.
+  --use-anc-for-scripts: additionally activate generated script payloads through
+                         the ANC version.
 
 This script is called by the hotfix-generate GH Action.
 """
@@ -45,6 +49,10 @@ ANC_DIR = "aks-node-controller/"
 GENERATED_DIR = os.path.join(ANC_DIR, "generated")
 
 VERSION_RE = re.compile(r'^\d{6}\.\d{2}\.\d+$')
+
+# Marker comments for idempotent injection of the selected script blocks.
+SCRIPTS_BEGIN = "# ---- hotfix-scripts: auto-generated ----"
+SCRIPTS_END = "# ---- end hotfix-scripts ----"
 
 # Map from source file paths (relative to artifacts/) to the GetVariableProperty
 # keys used in nodecustomdata.yml. Only scripts that appear as write_files entries
@@ -164,7 +172,7 @@ def baseline_tag(base_version):
     return f"v0.{yyyymm}{dd}.{patch}"
 
 
-def resolve_baseline_ref(base_version):
+def resolve_baseline_ref(base_version, override_ref=None):
     """Resolve the VHD baseline git ref, fetching the tag if needed.
 
     Script hotfixes are cumulative, so changed-script detection diffs against the
@@ -172,6 +180,13 @@ def resolve_baseline_ref(base_version):
     cannot be resolved, since diffing against a missing ref would silently produce
     a non-cumulative (or empty) payload.
     """
+    if override_ref:
+        print(
+            f"WARNING: using non-cumulative script baseline override {override_ref}",
+            file=sys.stderr,
+        )
+        return override_ref
+
     tag = baseline_tag(base_version)
     # Best-effort fetch of just this tag in case the checkout did not include it.
     subprocess.run(
@@ -196,20 +211,43 @@ def path_changed(base_ref, *paths):
     raise subprocess.CalledProcessError(result.returncode, result.args)
 
 
-def write_hotfix_file(version):
-    """Write a new ANC version while retaining any active inherited pointer."""
-    if not version:
+def write_hotfix_file(version, scripts_version):
+    """Write resolved hotfix pointers while retaining inherited pointers if idle."""
+    payload = {}
+    if version:
+        payload["version"] = version
+    if scripts_version:
+        payload["scripts_version"] = scripts_version
+
+    if not payload:
         print(
-            f"No new ANC hotfix version; preserving {TARGET_FILE} if present",
+            f"No new hotfix version; preserving {TARGET_FILE} if present",
             file=sys.stderr,
         )
         return
 
-    payload = {"version": version}
     with open(TARGET_FILE, "w") as f:
         json.dump(payload, f, indent=4)
         f.write("\n")
     print(f"Wrote {payload} to {TARGET_FILE}", file=sys.stderr)
+
+
+def resolve_hotfix_versions(
+    base_version,
+    anc_changed,
+    script_hotfix_changed,
+    use_anc_for_scripts,
+):
+    """Resolve pointer fields for independent ANC and script hotfix changes."""
+    if not anc_changed and not script_hotfix_changed:
+        return "", ""
+
+    hotfix_version = bump_version(base_version)
+    version = hotfix_version if anc_changed or (
+        script_hotfix_changed and use_anc_for_scripts
+    ) else ""
+    scripts_version = hotfix_version if script_hotfix_changed else ""
+    return version, scripts_version
 
 
 def detect_changed_varkeys(base_ref, available_varkeys=None):
@@ -402,6 +440,51 @@ def build_hotfix_template(target_varkeys, traditional_lines):
     return "".join(rendered)
 
 
+def update_nodecustomdata(target_varkeys):
+    """Replace the generated script block in the scriptless template section."""
+    with open(TEMPLATE) as template_file:
+        content = template_file.read()
+
+    clean_content = re.sub(
+        rf'\n?{re.escape(SCRIPTS_BEGIN)}\n.*?{re.escape(SCRIPTS_END)}\n',
+        '',
+        content,
+        flags=re.DOTALL,
+    )
+    if not target_varkeys:
+        if clean_content != content:
+            with open(TEMPLATE, "w") as template_file:
+                template_file.write(clean_content)
+            print(f"Removed previous hotfix script block from {TEMPLATE}", file=sys.stderr)
+        return
+
+    lines = clean_content.splitlines(keepends=True)
+    _, else_line, end_line = find_block_boundaries(lines)
+    if else_line is None or end_line is None:
+        raise GenerationError(
+            f"could not find traditional write_files section in {TEMPLATE}"
+        )
+
+    selected_blocks = []
+    for varkeys, block_lines in parse_write_files_blocks(lines[else_line + 1:end_line]):
+        if varkeys & target_varkeys:
+            selected_blocks.append(block_lines)
+    if not selected_blocks:
+        raise GenerationError("no matching write_files blocks found for nodecustomdata")
+
+    injected_lines = ["\n", f"{SCRIPTS_BEGIN}\n"]
+    for block_lines in selected_blocks:
+        injected_lines.extend(block_lines)
+    injected_lines.append(f"{SCRIPTS_END}\n")
+
+    with open(TEMPLATE, "w") as template_file:
+        template_file.writelines(lines[:else_line] + injected_lines + lines[else_line:])
+    print(
+        f"Injected {len(selected_blocks)} hotfix script blocks into {TEMPLATE}",
+        file=sys.stderr,
+    )
+
+
 def write_rendered_payload(target_varkeys, traditional_lines):
     """Render platform-specific YAML through AgentBaker's production template path."""
     if not target_varkeys:
@@ -449,6 +532,21 @@ def main():
         "base_ref",
         help="git ref for the PR base branch, used to detect ANC module changes",
     )
+    parser.add_argument(
+        "--baseline-ref",
+        help=(
+            "testing override for changed-script detection; defaults to the "
+            "immutable VHD baseline tag"
+        ),
+    )
+    parser.add_argument(
+        "--use-anc-for-scripts",
+        action="store_true",
+        help=(
+            "also set version for script hotfixes to activate the embedded ANC "
+            "payload"
+        ),
+    )
     args = parser.parse_args()
     base_ref = args.base_ref
 
@@ -463,7 +561,7 @@ def main():
         validate_source_mappings()
         # Diff changed scripts against the frozen VHD baseline (not the moving base
         # branch) so the rendered payload stays cumulative across hotfixes.
-        baseline_ref = resolve_baseline_ref(base_version)
+        baseline_ref = resolve_baseline_ref(base_version, args.baseline_ref)
         with open(TEMPLATE, "r") as template_file:
             template_lines = template_file.readlines()
         _, else_line, end_line = find_block_boundaries(template_lines)
@@ -480,25 +578,51 @@ def main():
             available_varkeys=available_varkeys,
         )
         write_rendered_payload(changed_varkeys, traditional_lines)
+        update_nodecustomdata(changed_varkeys)
     except GenerationError as err:
         print(f"ERROR: {err}", file=sys.stderr)
         sys.exit(1)
 
-    version = ""
-    if path_changed(
+    template_changed = path_changed(base_ref, TEMPLATE)
+    embedded_payload_changed = path_changed(base_ref, GENERATED_DIR)
+    script_hotfix_changed = template_changed or embedded_payload_changed
+    anc_changed = path_changed(
         base_ref,
         ANC_DIR,
         f":(exclude,glob){ANC_DIR}**/*_test.go",
         f":(exclude,glob){ANC_DIR}**/testdata/**",
-    ):
-        version = bump_version(base_version)
-        print(f"aks-node-controller/ production files changed vs {base_ref}; "
-              f"version={version}", file=sys.stderr)
+        f":(exclude,glob){GENERATED_DIR}/**",
+    )
+    version, scripts_version = resolve_hotfix_versions(
+        base_version,
+        anc_changed,
+        script_hotfix_changed,
+        args.use_anc_for_scripts,
+    )
+
+    if version:
+        reason = "ANC production files changed"
+        if script_hotfix_changed and args.use_anc_for_scripts:
+            reason = "ANC production files or generated script payloads changed"
+        print(f"{reason} vs {base_ref}; version={version}", file=sys.stderr)
     else:
         print(f"aks-node-controller/ has no production changes vs {base_ref}; "
               "version not set", file=sys.stderr)
 
-    write_hotfix_file(version)
+    if scripts_version:
+        print(
+            f"Script hotfix payload changed vs {base_ref}; "
+            f"scripts_version={scripts_version}",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            f"Script hotfix payload unchanged vs {base_ref}; "
+            "scripts_version not set",
+            file=sys.stderr,
+        )
+
+    write_hotfix_file(version, scripts_version)
 
 
 if __name__ == '__main__':
