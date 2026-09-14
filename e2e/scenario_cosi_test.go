@@ -37,6 +37,11 @@ const (
 type cosiPublishingInfo struct {
 	CosiURL        string `json:"cosi_url"`
 	MetadataSHA384 string `json:"metadata_sha384"`
+	// SkipSecureBoot is true only when the source VHD came from the
+	// unsigned acldevel pipeline (SKIP_SECURE_BOOT=true in
+	// .acl-base-image-vars.yaml), which cannot pass UEFI Secure Boot
+	// signature verification. Absent/false means Secure Boot stays enforced.
+	SkipSecureBoot bool `json:"skip_secure_boot"`
 }
 
 // loadCOSIPublishingInfo reads cosi-publishing-info.json from a downloaded
@@ -123,7 +128,11 @@ func Test_ACL_COSIUpdate_AMD64(t *testing.T) {
 			VHD:                     config.VHDACLGen2TL,
 			SkipScriptlessNBCCSECmd: true,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchNoSecureBootToVMSS(vmss.Properties)
+				if info.SkipSecureBoot {
+					vmss.Properties = addTrustedLaunchNoSecureBootToVMSS(vmss.Properties)
+				} else {
+					vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				}
 			},
 			Validator: func(ctx context.Context, scenario *Scenario) error {
 				return validateACLAMD64COSIUpdate(ctx, scenario, info.CosiURL, info.MetadataSHA384)

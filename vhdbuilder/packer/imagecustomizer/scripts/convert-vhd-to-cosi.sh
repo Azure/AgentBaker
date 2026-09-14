@@ -203,6 +203,12 @@ fi
 # OS_NAME is always Linux for ACL COSI artifacts
 OS_NAME="Linux"
 
+# SKIP_SECURE_BOOT is only set (to "true") by the acldevel branch of
+# .acl-base-image-vars.yaml, since acldevel images are unsigned and cannot
+# pass UEFI Secure Boot signature verification. Absent/unset defaults to
+# false, so marketplace/acg builds keep Secure Boot enforced.
+SKIP_SECURE_BOOT="${SKIP_SECURE_BOOT:-false}"
+
 cat <<EOF > cosi-publishing-info.json
 {
     "cosi_url": "${COSI_DOWNLOAD_URL}",
@@ -215,7 +221,8 @@ cat <<EOF > cosi-publishing-info.json
     "hyperv_generation": "${HYPERV_GENERATION:-}",
     "image_architecture": "${IMAGE_ARCH}",
     "image_version": "${COSI_IMAGE_VERSION}",
-    "metadata_sha384": "${METADATA_SHA384}"
+    "metadata_sha384": "${METADATA_SHA384}",
+    "skip_secure_boot": ${SKIP_SECURE_BOOT}
 }
 EOF
 
