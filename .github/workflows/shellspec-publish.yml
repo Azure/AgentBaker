@@ -15,7 +15,9 @@ name: Shellspec Coverage (Publish)
 # default branch, never the PR branch, no matter what the PR changes. It runs after
 # shellspec.yaml completes, downloads that run's artifact by run ID, and does the actual
 # publishing here, where the PR can't alter it.
-on:
+on: # zizmor: ignore[dangerous-triggers] no PR code is checked out or executed here - see the
+    # comments above and in the job below: only trusted actions run, against artifacts and
+    # metadata from the completed run, never the PR's own workflow-controlled checkout.
   workflow_run:
     workflows: ["Shell/Bash Script Unit Tests"]
     types:
