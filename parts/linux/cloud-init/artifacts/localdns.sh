@@ -665,9 +665,9 @@ cleanup_iptables_and_dns() {
 
     # Do not derive the route/interface during post-exit cleanup. At this point
     # network state may already be torn down, so ip route/networkctl discovery
-    # can fail and leave the node pointed at the dead LocalDNS listener. Sweep
-    # the known drop-in name directly; the glob also handles a cleanup call
-    # where NETWORK_DROPIN_FILE was never initialized in this process.
+    # can fail and leave the node pointed at the dead LocalDNS listener. Remove
+    # the configured drop-in and any matching drop-ins directly; this also works
+    # when NETWORK_DROPIN_FILE was never initialized in this process.
     # Remove any existing localdns iptables rules by searching for our comment.
     echo "Cleaning up any existing localdns iptables rules..."
 
