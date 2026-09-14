@@ -258,6 +258,14 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
 
     sync_container_logs_service_pressure=$(getServicePressure "${CGROUP}/system.slice/sync-container-logs.service")
     localdns_service_pressure=$(getServicePressure "${CGROUP}/localdns.slice/localdns.service")
+    nvidia_persistenced_service_pressure=$(getServicePressure "${CGROUP}/system.slice/nvidia-persistenced.service")
+    nvidia_gridd_service_pressure=$(getServicePressure "${CGROUP}/system.slice/nvidia-gridd.service")
+    nvidia_fabricmanager_service_pressure=$(getServicePressure "${CGROUP}/system.slice/nvidia-fabricmanager.service")
+    nvidia_device_plugin_service_pressure=$(getServicePressure "${CGROUP}/system.slice/nvidia-device-plugin.service")
+    dra_driver_nvidia_gpu_service_pressure=$(getServicePressure "${CGROUP}/system.slice/dra-driver-nvidia-gpu.service")
+    nvidia_dcgm_service_pressure=$(getServicePressure "${CGROUP}/system.slice/nvidia-dcgm.service")
+    nvidia_dcgm_exporter_service_pressure=$(getServicePressure "${CGROUP}/system.slice/nvidia-dcgm-exporter.service")
+    openibd_service_pressure=$(getServicePressure "${CGROUP}/system.slice/openibd.service")
 
     pressure_string=$( jq -n \
     --argjson CGROUP "$(echo $cgroup_pressure)" \
@@ -270,7 +278,15 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     --argjson NODEEXPORTERSERVICE "${node_exporter_service_pressure}" \
     --argjson SYNCCONTAINERLOGSSERVICE "${sync_container_logs_service_pressure}" \
     --argjson LOCALDNSSERVICE "${localdns_service_pressure}" \
-    '{ cgroup_pressure: $CGROUP, system_slice_pressure: $SYSTEMSLICE, azure_slice_pressure: $AZURESLICE, kubepods_slice_pressure: $KUBEPODSSLICE, kubelet_service_pressure: $KUBELETSERVICE, containerd_service_pressure: $CONTAINERDSERVICE, node_problem_detector_service_pressure: $NODEPROBLEMDETECTORSERVICE, node_exporter_service_pressure: $NODEEXPORTERSERVICE, sync_container_logs_service_pressure: $SYNCCONTAINERLOGSSERVICE, localdns_service_pressure: $LOCALDNSSERVICE } | tostring'
+    --argjson NVIDIAPERSISTENCEDSERVICE "${nvidia_persistenced_service_pressure}" \
+    --argjson NVIDIAGRIDDSERVICE "${nvidia_gridd_service_pressure}" \
+    --argjson NVIDIAFABRICMANAGERSERVICE "${nvidia_fabricmanager_service_pressure}" \
+    --argjson NVIDIADEVICEPLUGINSERVICE "${nvidia_device_plugin_service_pressure}" \
+    --argjson DRADRIVERNVIDIAGPUSERVICE "${dra_driver_nvidia_gpu_service_pressure}" \
+    --argjson NVIDIADCGMSERVICE "${nvidia_dcgm_service_pressure}" \
+    --argjson NVIDIADCGMEXPORTERSERVICE "${nvidia_dcgm_exporter_service_pressure}" \
+    --argjson OPENIBDSERVICE "${openibd_service_pressure}" \
+    '{ cgroup_pressure: $CGROUP, system_slice_pressure: $SYSTEMSLICE, azure_slice_pressure: $AZURESLICE, kubepods_slice_pressure: $KUBEPODSSLICE, kubelet_service_pressure: $KUBELETSERVICE, containerd_service_pressure: $CONTAINERDSERVICE, node_problem_detector_service_pressure: $NODEPROBLEMDETECTORSERVICE, node_exporter_service_pressure: $NODEEXPORTERSERVICE, sync_container_logs_service_pressure: $SYNCCONTAINERLOGSSERVICE, localdns_service_pressure: $LOCALDNSSERVICE, nvidia_persistenced_service_pressure: $NVIDIAPERSISTENCEDSERVICE, nvidia_gridd_service_pressure: $NVIDIAGRIDDSERVICE, nvidia_fabricmanager_service_pressure: $NVIDIAFABRICMANAGERSERVICE, nvidia_device_plugin_service_pressure: $NVIDIADEVICEPLUGINSERVICE, dra_driver_nvidia_gpu_service_pressure: $DRADRIVERNVIDIAGPUSERVICE, nvidia_dcgm_service_pressure: $NVIDIADCGMSERVICE, nvidia_dcgm_exporter_service_pressure: $NVIDIADCGMEXPORTERSERVICE, openibd_service_pressure: $OPENIBDSERVICE } | tostring'
     )
 
     pressure_string=$(echo $pressure_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
