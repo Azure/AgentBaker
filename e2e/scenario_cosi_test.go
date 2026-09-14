@@ -123,7 +123,7 @@ func Test_ACL_COSIUpdate_AMD64(t *testing.T) {
 			VHD:                     config.VHDACLGen2TL,
 			SkipScriptlessNBCCSECmd: true,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.Properties = addTrustedLaunchNoSecureBootToVMSS(vmss.Properties)
 			},
 			Validator: func(ctx context.Context, scenario *Scenario) error {
 				return validateACLAMD64COSIUpdate(ctx, scenario, info.CosiURL, info.MetadataSHA384)
