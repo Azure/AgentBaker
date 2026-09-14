@@ -112,19 +112,30 @@ upload_logs() {
         python3 /opt/azure/containers/provision_send_logs.py >/dev/null 2>&1
     fi
 }
-# Create the marker for the completed provisioning stage.
-if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
-    # Stage 1: Create marker indicating Stage 2 is needed
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete
-    echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
-    echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
-else
-    # provision.complete signals that a normal provisioning attempt finished.
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
-fi
+finalizeProvisioning() {
+    local base_prep_complete_file="${BASE_PREP_COMPLETE_FILE:-/opt/azure/containers/base_prep.complete}"
+    local provision_complete_file="${PROVISION_COMPLETE_FILE:-/opt/azure/containers/provision.complete}"
+    local provision_log_file="${PROVISION_LOG_FILE:-/var/log/azure/cluster-provision.log}"
 
-if [ "$EXIT_CODE" -ne 0 ]; then
-    upload_logs
-fi
+    if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
+        if [ "$EXIT_CODE" -eq 0 ] &&
+           ! { mkdir -p "$(dirname "${base_prep_complete_file}")" && touch "${base_prep_complete_file}"; }; then
+            EXIT_CODE=1
+        elif [ "$EXIT_CODE" -eq 0 ]; then
+            printf '%s\n' "Stage 1 complete - kubelet configuration skipped, Stage 2 required" \
+                "Created base_prep.complete marker file" >> "${provision_log_file}" || true
+        fi
+    else
+        { mkdir -p "$(dirname "${provision_complete_file}")" && touch "${provision_complete_file}"; } ||
+            printf '%s\n' "Failed to create provision.complete marker file" >> "${provision_log_file}" || true
+    fi
 
+    if [ "$EXIT_CODE" -ne 0 ]; then
+        upload_logs
+    fi
+
+    return "$EXIT_CODE"
+}
+
+finalizeProvisioning
 exit "$EXIT_CODE"
