@@ -1,0 +1,66 @@
+name: Go Coverage (Publish)
+
+# Publishes the coverage comment produced by go-test.yml's go-test job, from a workflow_run
+# trigger rather than a second job in that same pull_request-triggered workflow.
+#
+# Why: go-test.yml is a `pull_request` workflow, so its *entire file* - every job, every
+# permission - is read from the PR's own branch. A same-repo PR (this repo doesn't accept
+# forks, so that's the only kind we get) can edit that file to add steps to any job in it,
+# including a "publish" job, and have them run with whatever permissions that job requests.
+# Splitting into two jobs in one file only stops PR-controlled *test code* from reaching a
+# write-scoped token in the same job - it does nothing against a PR editing the workflow
+# definition itself.
+#
+# workflow_run is what actually fixes this: this file's definition is always read from the
+# default branch, never the PR branch, no matter what the PR changes. It runs after go-test.yml
+# completes, downloads that run's artifact by run ID, and does the actual publishing here,
+# where the PR can't alter it.
+on:
+  workflow_run:
+    workflows: ["Go Unit Tests"]
+    types:
+      - completed
+
+permissions: {}
+
+jobs:
+  publish-coverage:
+    name: Publish coverage report
+    runs-on: ubuntu-latest
+    if: |
+      github.event.workflow_run.event == 'pull_request' &&
+      (github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure')
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+    steps:
+      - name: Download coverage reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: go-coverage
+          path: coverage
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Code Coverage Report
+        uses: irongut/CodeCoverageSummary@51cc3a756ddcd398d447c044c02cb6aa83fdae95 # v1.3.0
+        with:
+          filename: coverage/*.xml
+          badge: true
+          fail_below_min: false
+          format: markdown
+          hide_branch_rate: false
+          hide_complexity: true
+          indicators: true
+          output: both
+          thresholds: '60 80'
+
+      - name: Add Coverage PR Comment
+        if: github.event.workflow_run.pull_requests[0] != null
+        uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2.9.4
+        with:
+          number: ${{ github.event.workflow_run.pull_requests[0].number }}
+          header: go-coverage
+          recreate: true
+          path: code-coverage-results.md
