@@ -69,14 +69,26 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
 
-      - name: Download event file
+      # EnricoMi/publish-unit-test-result-action needs an event_file to resolve which PR to
+      # comment on when run outside a pull_request event (see its docs on supporting
+      # workflow_run publishers). That file must NOT be the one validate-windows-ut.yml could
+      # upload as an artifact: it would be produced by the pester-test job after PR-controlled
+      # Pester test code has already run, so a malicious PR could forge its content (e.g.
+      # overwrite $env:GITHUB_EVENT_PATH with a different pull_request.number) before it's
+      # uploaded - the action trusts that number directly with no cross-check against the
+      # tested commit, so a forged file could make this write-scoped job comment on an
+      # unrelated PR. Instead, build the event file here from only trusted workflow_run
+      # metadata, so there's nothing from the PR-controlled run left to forge.
+      - name: Construct trusted event file
         if: steps.freshness.outputs.current == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: pester-event-file
-          path: event
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ github.token }}
+        env:
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -ex
+          mkdir -p event
+          jq -n --argjson number "$PR_NUMBER" --arg repo "$REPO" \
+            '{pull_request: {number: $number, base: {repo: {full_name: $repo}}}}' > event/event.json
 
       - name: Publish Unit Test Results
         if: steps.freshness.outputs.current == 'true'
