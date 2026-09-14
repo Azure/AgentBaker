@@ -67,31 +67,31 @@ set -x
 # In SIG mode, Windows VM requires admin-username and admin-password to be set,
 # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
 # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
-TARGET_COMMAND_STRING=""
+TEST_VM_SIZE="Standard_D2ds_v5"
+TEST_VM_SECURITY_TYPE=""
+if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+  TEST_VM_SECURITY_TYPE="TrustedLaunch"
+elif [ "${OS_TYPE,,}" = "linux" ]; then
+  IMAGE_DEFINITION=$(az sig image-definition show --ids "${MANAGED_SIG_ID%/versions/*}")
+  IMAGE_DEFAULTS_TO_TL=$(jq '.hyperVGeneration == "V2" and any(.features[]?;
+    .name == "SecurityType" and (.value == "TrustedLaunchSupported" or .value == "TrustedLaunchAndConfidentialVmSupported"))' <<< "$IMAGE_DEFINITION")
+  if [ "$IMAGE_DEFAULTS_TO_TL" = true ]; then
+    TEST_VM_SECURITY_TYPE="TrustedLaunch"
+  fi
+fi
+
 if [ "${ARCHITECTURE,,}" = "arm64" ]; then
   # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
-  if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
-    VM_SIZE="Standard_D2pds_v6"
+  if [ "$TEST_VM_SECURITY_TYPE" = "TrustedLaunch" ]; then
+    TEST_VM_SIZE="Standard_D2pds_v6"
   else
-    VM_SIZE="Standard_D2pds_v5"
+    TEST_VM_SIZE="Standard_D2pds_v5"
   fi
-else
-  VM_SIZE="Standard_D2ds_v5"
-fi
-TARGET_COMMAND_STRING="--size $VM_SIZE"
-
-if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
-  if [ -n "$TARGET_COMMAND_STRING" ]; then
-    # To take care of Mariner Kata TL images
-    TARGET_COMMAND_STRING+=" "
-  fi
-  TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-    # We completely re-assign the TARGET_COMMAND_STRING string here to ensure that no artifacts from earlier conditionals are included
-    VM_SIZE="Standard_DC8ads_v5"
-    TARGET_COMMAND_STRING="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+    TEST_VM_SIZE="Standard_DC8ads_v5"
+    TEST_VM_SECURITY_TYPE="ConfidentialVM"
 fi
 
 # NVIDIA GB specific test VM configuration (uses standard ARM64 VM for now)
@@ -113,29 +113,48 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       echo "unable to create new NIC for test VM"
       exit 1
   fi
-  if [ "${OS_SKU}" = "Ubuntu" ] && [ "${OS_VERSION}" = "22.04" ] && [ "$(printf %s "${ENABLE_FIPS}" | tr '[:upper:]' '[:lower:]')" = "true" ]; then
-    source "$CDIR/../fips-helper.sh"
-    ensure_fips_feature_registered || exit $?
-    create_fips_vm \
-      "$VM_SIZE" \
-      "$VM_NAME" \
-      "$TEST_VM_ADMIN_USERNAME" \
-      TEST_VM_ADMIN_PASSWORD \
-      "$MANAGED_SIG_ID" \
-      "$TESTING_NIC_ID" \
-      "" \
-      "$TEST_VM_RESOURCE_GROUP_NAME" || exit $?
-  else
-    az vm create \
-        --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
-        --name "$VM_NAME" \
-        --image "$MANAGED_SIG_ID" \
-        --admin-username "$TEST_VM_ADMIN_USERNAME" \
-        --admin-password "$TEST_VM_ADMIN_PASSWORD" \
-        --nics "$TESTING_NIC_ID" \
-        ${TARGET_COMMAND_STRING}
-  fi
+  (
+    set +x
+    VM_BODY=$(jq -n \
+      --arg location "$AZURE_LOCATION" --arg name "$VM_NAME" \
+      --arg size "$TEST_VM_SIZE" --arg image "$MANAGED_SIG_ID" --arg nic "$TESTING_NIC_ID" \
+      --arg username "$TEST_VM_ADMIN_USERNAME" --arg password "$TEST_VM_ADMIN_PASSWORD" \
+      --arg securityType "$TEST_VM_SECURITY_TYPE" \
+      --arg osSKU "$OS_SKU" --arg osVersion "$OS_VERSION" --arg fips "${ENABLE_FIPS,,}" '
+      {
+        location: $location,
+        properties: {
+          hardwareProfile: {vmSize: $size},
+          storageProfile: {
+            imageReference: {id: $image},
+            osDisk: {createOption: "FromImage", caching: "ReadWrite", managedDisk: {}}
+          },
+          osProfile: {computerName: $name, adminUsername: $username, adminPassword: $password},
+          networkProfile: {networkInterfaces: [{id: $nic}]}
+        }
+      }
+      | if $securityType != "" then
+          .properties.securityProfile = {
+            securityType: $securityType,
+            uefiSettings: {secureBootEnabled: true, vTpmEnabled: true}
+          }
+        else . end
+      | if $securityType == "ConfidentialVM" then
+          del(.properties.osProfile)
+          | .properties.storageProfile.osDisk.managedDisk.securityProfile.securityEncryptionType = "VMGuestStateOnly"
+        else . end
+      | if $osSKU == "Ubuntu" and $osVersion == "22.04" and $fips == "true" then
+          .properties.additionalCapabilities.enableFips1403Encryption = true
+        else . end')
+    az rest --method put \
+      --url "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${TEST_VM_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}?api-version=2024-11-01" \
+      --body "$VM_BODY" --output none
+  )
 else
+  TARGET_COMMAND_ARGS=(--size "$TEST_VM_SIZE")
+  if [ -n "$TEST_VM_SECURITY_TYPE" ]; then
+    TARGET_COMMAND_ARGS+=(--security-type "$TEST_VM_SECURITY_TYPE" --enable-secure-boot true --enable-vtpm true)
+  fi
   az vm create \
       --debug \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
@@ -144,7 +163,7 @@ else
       --admin-username "$TEST_VM_ADMIN_USERNAME" \
       --admin-password "$TEST_VM_ADMIN_PASSWORD" \
       --public-ip-address "" \
-      ${TARGET_COMMAND_STRING}
+      "${TARGET_COMMAND_ARGS[@]}"
 fi
 
 echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
