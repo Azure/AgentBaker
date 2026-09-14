@@ -415,12 +415,18 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) error {
 	var errs []error
 	numberRetries := 3
 	if s.IsWindows() {
-		serverCorePods := components.GetServercoreImagesForVHD(s.VHD)
+		serverCorePods, err := components.GetServercoreImagesForVHD(s.VHD)
+		if err != nil {
+			return fmt.Errorf("get servercore workload images for %s: %w", s.VHD.Name, err)
+		}
+		nanoServerPods, err := components.GetNanoserverImagesForVhd(s.VHD)
+		if err != nil {
+			return fmt.Errorf("get nanoserver workload images for %s: %w", s.VHD.Name, err)
+		}
 		for i, pod := range serverCorePods {
 			errs = append(errs, ValidatePodRunningWithRetry(ctx, s, debugPodWindows(s, fmt.Sprintf("servercore%d", i), pod), numberRetries))
 		}
 
-		nanoServerPods := components.GetNanoserverImagesForVhd(s.VHD)
 		for i, pod := range nanoServerPods {
 			errs = append(errs, ValidatePodRunningWithRetry(ctx, s, debugPodWindows(s, fmt.Sprintf("nanoserver%d", i), pod), numberRetries))
 		}
@@ -978,8 +984,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 	}
 
 	s.Cleanup(func(ctx context.Context) error {
-		config.Azure.DeleteSIGImageVersion(ctx, rg, *gallery.Name, *image.Name, version)
-		return nil
+		return config.Azure.DeleteSIGImageVersion(ctx, rg, *gallery.Name, *image.Name, version)
 	})
 	customVHD := *s.Config.VHD
 	customVHD.Name = *image.Name // Use the architecture-specific image name

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -136,13 +137,11 @@ func runSSHCommand(
 
 	exitCode := 0
 	if err != nil {
-		if exitErr, ok := err.(*ssh.ExitError); ok {
+		var exitErr *ssh.ExitError
+		if errors.As(err, &exitErr) {
 			exitCode = exitErr.ExitStatus()
-		} else if _, ok := err.(*ssh.ExitMissingError); ok {
-			// Bastion closed channel early – ignore
-			err = nil
 		} else {
-			return nil, err // real SSH failure
+			return nil, err
 		}
 	}
 
