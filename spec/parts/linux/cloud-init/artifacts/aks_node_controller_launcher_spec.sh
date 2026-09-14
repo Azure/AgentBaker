@@ -83,6 +83,20 @@ EOF
         chmod +x "${BIN_PATH}-hotfix"
     }
 
+    # Stands in for a VHD-baked binary whose download-hotfix fails, leaving whatever was
+    # already staged untouched.
+    create_failing_download_aks_node_controller() {
+        cat >"$BIN_PATH" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$1" >>"${TEST_DIR}/calls"
+if [ "$1" = "download-hotfix" ]; then
+    exit 1
+fi
+exit 0
+EOF
+        chmod +x "$BIN_PATH"
+    }
+
     # Mirrors the real chain: the VHD-baked binary itself stages the hotfix binary while handling
     # download-hotfix, so binary selection observes a file that did not exist when the wrapper started.
     create_staging_aks_node_controller() {
@@ -358,6 +372,25 @@ EOF
         hotfixCall=$(tail -n 1 "${TEST_DIR}/hotfix_calls")
         # The baked binary only downloads; it must never be the one that provisions.
         The variable bakedCalls should eq "download-hotfix"
+        The variable hotfixCall should eq "provision"
+    End
+
+    # download-hotfix disarms a stale binary on integrity failure by unlinking it and, failing
+    # that, clearing its executable bits. Selection deliberately rests on the executable bit
+    # alone: a failed download never writes a new hotfix pointer, so there is nothing for this
+    # wrapper to re-arm. This covers the resulting contract -- a hotfix binary that survives a
+    # failed download-hotfix is still selected -- so a future change to that policy is a
+    # deliberate one.
+    It 'selects a staged hotfix binary that survived a failed download-hotfix'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        create_failing_download_aks_node_controller
+        create_staged_hotfix_binary
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "ANC download-hotfix failed; binary selection follows"
+        The output should include "Using hotfix binary: ${BIN_PATH}-hotfix"
+        hotfixCall=$(tail -n 1 "${TEST_DIR}/hotfix_calls")
         The variable hotfixCall should eq "provision"
     End
 End
