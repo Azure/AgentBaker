@@ -565,6 +565,17 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	if err != nil {
 		return vm, err
 	}
+	return createVMSS(ctx, s, resourceGroupName, model, DialSSHOverBastion)
+}
+
+func createVMSS(
+	ctx context.Context,
+	s *Scenario,
+	resourceGroupName string,
+	model armcompute.VirtualMachineScaleSet,
+	dialSSH func(context.Context, *Bastion, string, []byte) (*SSHClient, error),
+) (*ScenarioVM, error) {
+	vm := &ScenarioVM{}
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
@@ -613,10 +624,13 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	weSetRCV1PTag := s.Tags.RCV1PCertMode
 	logRCV1PAwareTags(ctx, s, "VMSS", "creation", s.Runtime.VMSSName, vmssID, vmssResp.Tags, weSetRCV1PTag, false)
 	if !s.Config.SkipSSHConnectivityValidation {
+		if err != nil && !vmssVMRunningAfterFailure(ctx, s, vm.VM) {
+			return vm, err
+		}
 		var bastErr error
-		vm.SSHClient, bastErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
+		vm.SSHClient, bastErr = dialSSH(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
 		if bastErr != nil {
-			return vm, fmt.Errorf("failed to start bastion tunnel: %w", bastErr)
+			return vm, errors.Join(err, fmt.Errorf("failed to start bastion tunnel: %w", bastErr))
 		}
 	}
 	if err != nil {
@@ -642,6 +656,27 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		VM:        vm.VM,
 		SSHClient: vm.SSHClient,
 	}, nil
+}
+
+func vmssVMRunningAfterFailure(ctx context.Context, s *Scenario, vm *armcompute.VirtualMachineScaleSetVM) bool {
+	current, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
+		s.Runtime.VMSSName, *vm.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+			Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
+		})
+	if err != nil {
+		logging.Logf(ctx, "Skipping SSH diagnostics after provisioning failure: cannot read VM instance view: %v", err)
+		return false
+	}
+	*vm = current.VirtualMachineScaleSetVM
+	if vm.Properties != nil && vm.Properties.InstanceView != nil {
+		for _, status := range vm.Properties.InstanceView.Statuses {
+			if status != nil && status.Code != nil && *status.Code == "PowerState/running" {
+				return true
+			}
+		}
+	}
+	logging.Log(ctx, "Skipping SSH diagnostics after provisioning failure: VM is not confirmed running")
+	return false
 }
 
 // rcv1pTagKey is the VMSS/VM tag that opts a resource into hardened root-cert bootstrap.
