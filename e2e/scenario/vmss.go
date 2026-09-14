@@ -560,10 +560,9 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 
 func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*ScenarioVM, error) {
 	defer logging.LogStepf(ctx, "creating VMSS %s", s.Runtime.VMSSName)()
-	vm := &ScenarioVM{}
 	model, err := createVMSSModel(ctx, s)
 	if err != nil {
-		return vm, err
+		return &ScenarioVM{}, err
 	}
 	return createVMSS(ctx, s, resourceGroupName, model, DialSSHOverBastion)
 }
@@ -612,7 +611,7 @@ func createVMSS(
 	result += fmt.Sprintf(`az network bastion ssh --target-resource-id "%s" --name "%s" --resource-group %s --auth-type ssh-key --username azureuser --ssh-key %s`, *vm.VM.ID, SharedBastionName, config.ResourceGroupName(*s.Runtime.Cluster.Model.Location), config.VMSSHPrivateKeyFileName) + "\n"
 	logging.Log(ctx, result)
 
-	vmssResp, err := operation.PollUntilDone(ctx, config.PollUntilDoneOptions())
+	vmssResp, provisionErr := operation.PollUntilDone(ctx, config.PollUntilDoneOptions())
 
 	// Log VMSS tags for diagnostics in the scenario log.
 	// For RCV1P tests, annotates the opt-in tag to help distinguish our tags from platform-injected ones.
@@ -623,18 +622,15 @@ func createVMSS(
 	// In the single-subscription model, if the scenario tags RCV1PCertMode we set the opt-in tag ourselves.
 	weSetRCV1PTag := s.Tags.RCV1PCertMode
 	logRCV1PAwareTags(ctx, s, "VMSS", "creation", s.Runtime.VMSSName, vmssID, vmssResp.Tags, weSetRCV1PTag, false)
-	if !s.Config.SkipSSHConnectivityValidation {
-		if err != nil && !vmssVMRunningAfterFailure(ctx, s, vm.VM) {
-			return vm, err
-		}
+	if !s.Config.SkipSSHConnectivityValidation && (provisionErr == nil || vmssVMRunningAfterFailure(ctx, s, vm.VM)) {
 		var bastErr error
 		vm.SSHClient, bastErr = dialSSH(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
 		if bastErr != nil {
-			return vm, errors.Join(err, fmt.Errorf("failed to start bastion tunnel: %w", bastErr))
+			return vm, errors.Join(provisionErr, fmt.Errorf("failed to start bastion tunnel: %w", bastErr))
 		}
 	}
-	if err != nil {
-		return vm, err
+	if provisionErr != nil {
+		return vm, provisionErr
 	}
 
 	// Wait for VM to be in "Running" power state before proceeding

@@ -1217,7 +1217,7 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 // Guarded: skips gracefully on VHDs that don't have the service baked in yet.
 func ValidateKubeletActiveFlagsEvent(ctx context.Context, s *Scenario) error {
 	// Guard: skip on VHDs that don't have the service
-	serviceCheck, err := execScriptOnVMForScenario(ctx, s,
+	serviceCheck, err := execOnVMForScenarioOnUnprivilegedPod(ctx, s,
 		"systemctl cat emit-kubelet-active-flags.service 2>/dev/null")
 	if err != nil {
 		return fmt.Errorf("check whether emit-kubelet-active-flags.service exists: %w", err)
@@ -1226,20 +1226,16 @@ func ValidateKubeletActiveFlagsEvent(ctx context.Context, s *Scenario) error {
 		logging.Log(ctx, "emit-kubelet-active-flags.service not on this VHD, skipping validation")
 		return nil
 	}
-	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, kubeletActiveFlagsValidationScript, 0, "failed to validate emit-kubelet-active-flags.service")
+	command := []string{
+		"set -ex",
+		// Verify service completed successfully via journalctl
+		`journalctl -u emit-kubelet-active-flags.service --no-pager | grep -q "Finished\|Deactivated successfully"`,
+		// Verify the event file was produced with correct TaskName
+		`grep -rl 'kubeletActiveFlags' /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/ | head -1 | xargs cat | jq -e '.TaskName == "AKS.CSE.ensureKubelet.kubeletActiveFlags"'`,
+	}
+	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate emit-kubelet-active-flags.service")
 	return err
 }
-
-const kubeletActiveFlagsValidationScript = `sudo -n bash <<'VALIDATE_KUBELET_ACTIVE_FLAGS'
-set -ex
-journalctl -u emit-kubelet-active-flags.service --no-pager | grep -q "Finished\|Deactivated successfully"
-event_file="$(grep -rl 'kubeletActiveFlags' /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/ | head -1)"
-if [ -z "$event_file" ] || [ ! -s "$event_file" ]; then
-    echo "kubelet active flags event file is missing or empty" >&2
-    exit 1
-fi
-jq -se 'length == 1 and .[0].TaskName == "AKS.CSE.ensureKubelet.kubeletActiveFlags"' "$event_file"
-VALIDATE_KUBELET_ACTIVE_FLAGS`
 
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
