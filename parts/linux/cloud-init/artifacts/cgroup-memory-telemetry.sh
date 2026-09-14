@@ -43,10 +43,18 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
         --arg NODE_EXPORTER_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/node-exporter.service/memory.stat" "${VERSION}")" \
         --arg SYNC_CONTAINER_LOGS_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/sync-container-logs.service/memory.stat" "${VERSION}")" \
         --arg LOCALDNS_MEMORY "$(getServiceMemory "${CGROUP}/localdns.slice/localdns.service/memory.stat" "${VERSION}")" \
+        --arg NVIDIA_PERSISTENCED_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-persistenced.service/memory.stat" "${VERSION}")" \
+        --arg NVIDIA_GRIDD_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-gridd.service/memory.stat" "${VERSION}")" \
+        --arg NVIDIA_FABRICMANAGER_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-fabricmanager.service/memory.stat" "${VERSION}")" \
+        --arg NVIDIA_DEVICE_PLUGIN_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-device-plugin.service/memory.stat" "${VERSION}")" \
+        --arg DRA_DRIVER_NVIDIA_GPU_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/dra-driver-nvidia-gpu.service/memory.stat" "${VERSION}")" \
+        --arg NVIDIA_DCGM_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-dcgm.service/memory.stat" "${VERSION}")" \
+        --arg NVIDIA_DCGM_EXPORTER_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-dcgm-exporter.service/memory.stat" "${VERSION}")" \
+        --arg OPENIBD_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/openibd.service/memory.stat" "${VERSION}")" \
         --arg EMPLOYED_MEMORY "$(if [ -f "${CGROUP}/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
         --arg CAPACITY_MEMORY "$(grep MemTotal /proc/meminfo | awk '{print $2}' | awk '{print $1 * 1000}')" \
         --arg KUBEPODS_CGROUP_MEMORY_MAX "$(if [ -f "${CGROUP}/kubepods.slice/memory.max" ]; then cat ${CGROUP}/kubepods.slice/memory.max; else echo "Not Found"; fi)" \
-        '{ system_slice_memory: $SYSTEM_SLICE_MEMORY, azure_slice_memory: $AZURE_SLICE_MEMORY, kubepods_slice_memory: $KUBEPODS_SLICE_MEMORY, user_slice_memory: $USER_SLICE_MEMORY, containerd_service_memory: $CONTAINERD_MEMORY, kubelet_service_memory: $KUBELET_MEMORY, node_problem_detector_service_memory: $NODE_PROBLEM_DETECTOR_MEMORY, node_exporter_service_memory: $NODE_EXPORTER_MEMORY, sync_container_logs_service_memory: $SYNC_CONTAINER_LOGS_MEMORY, localdns_service_memory: $LOCALDNS_MEMORY, cgroup_memory: $EMPLOYED_MEMORY, cgroup_capacity_memory: $CAPACITY_MEMORY, kubepods_max_memory: $KUBEPODS_CGROUP_MEMORY_MAX } | tostring'
+        '{ system_slice_memory: $SYSTEM_SLICE_MEMORY, azure_slice_memory: $AZURE_SLICE_MEMORY, kubepods_slice_memory: $KUBEPODS_SLICE_MEMORY, user_slice_memory: $USER_SLICE_MEMORY, containerd_service_memory: $CONTAINERD_MEMORY, kubelet_service_memory: $KUBELET_MEMORY, node_problem_detector_service_memory: $NODE_PROBLEM_DETECTOR_MEMORY, node_exporter_service_memory: $NODE_EXPORTER_MEMORY, sync_container_logs_service_memory: $SYNC_CONTAINER_LOGS_MEMORY, localdns_service_memory: $LOCALDNS_MEMORY, nvidia_persistenced_service_memory: $NVIDIA_PERSISTENCED_MEMORY, nvidia_gridd_service_memory: $NVIDIA_GRIDD_MEMORY, nvidia_fabricmanager_service_memory: $NVIDIA_FABRICMANAGER_MEMORY, nvidia_device_plugin_service_memory: $NVIDIA_DEVICE_PLUGIN_MEMORY, dra_driver_nvidia_gpu_service_memory: $DRA_DRIVER_NVIDIA_GPU_MEMORY, nvidia_dcgm_service_memory: $NVIDIA_DCGM_MEMORY, nvidia_dcgm_exporter_service_memory: $NVIDIA_DCGM_EXPORTER_MEMORY, openibd_service_memory: $OPENIBD_MEMORY, cgroup_memory: $EMPLOYED_MEMORY, cgroup_capacity_memory: $CAPACITY_MEMORY, kubepods_max_memory: $KUBEPODS_CGROUP_MEMORY_MAX } | tostring'
     )
 elif [ "$CGROUP_VERSION" = "tmpfs" ]; then
     VERSION="cgroupv1"
@@ -64,10 +72,18 @@ elif [ "$CGROUP_VERSION" = "tmpfs" ]; then
         --arg NODE_EXPORTER_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/node-exporter.service/memory.stat" "${VERSION}")" \
         --arg SYNC_CONTAINER_LOGS_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/sync-container-logs.service/memory.stat" "${VERSION}")" \
         --arg LOCALDNS_MEMORY "$(getServiceMemory "${CGROUP}/localdns.slice/localdns.service/memory.stat" "${VERSION}")" \
+        --arg NVIDIA_PERSISTENCED_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-persistenced.service/memory.stat" "${VERSION}")" \
+        --arg NVIDIA_GRIDD_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-gridd.service/memory.stat" "${VERSION}")" \
+        --arg NVIDIA_FABRICMANAGER_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-fabricmanager.service/memory.stat" "${VERSION}")" \
+        --arg NVIDIA_DEVICE_PLUGIN_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-device-plugin.service/memory.stat" "${VERSION}")" \
+        --arg DRA_DRIVER_NVIDIA_GPU_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/dra-driver-nvidia-gpu.service/memory.stat" "${VERSION}")" \
+        --arg NVIDIA_DCGM_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-dcgm.service/memory.stat" "${VERSION}")" \
+        --arg NVIDIA_DCGM_EXPORTER_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-dcgm-exporter.service/memory.stat" "${VERSION}")" \
+        --arg OPENIBD_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/openibd.service/memory.stat" "${VERSION}")" \
         --arg EMPLOYED_MEMORY "$(if [ -f ${CGROUP}/memory.stat ]; then expr $(cat ${CGROUP}/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
         --arg CAPACITY_MEMORY "$(grep MemTotal /proc/meminfo | awk '{print $2}' | awk '{print $1 * 1000}')" \
         --arg KUBEPODS_CGROUP_MEMORY_MAX "$(if [ -f ${CGROUP}/kubepods/memory.limit_in_bytes ]; then cat ${CGROUP}/kubepods/memory.limit_in_bytes; else echo "Not Found"; fi)" \
-        '{ system_slice_memory: $SYSTEM_SLICE_MEMORY, azure_slice_memory: $AZURE_SLICE_MEMORY, kubepods_slice_memory: $KUBEPODS_SLICE_MEMORY, user_slice_memory: $USER_SLICE_MEMORY, containerd_service_memory: $CONTAINERD_MEMORY, kubelet_service_memory: $KUBELET_MEMORY, node_problem_detector_service_memory: $NODE_PROBLEM_DETECTOR_MEMORY, node_exporter_service_memory: $NODE_EXPORTER_MEMORY, sync_container_logs_service_memory: $SYNC_CONTAINER_LOGS_MEMORY, localdns_service_memory: $LOCALDNS_MEMORY, cgroup_memory: $EMPLOYED_MEMORY, cgroup_capacity_memory: $CAPACITY_MEMORY, kubepods_max_memory: $KUBEPODS_CGROUP_MEMORY_MAX } | tostring'
+        '{ system_slice_memory: $SYSTEM_SLICE_MEMORY, azure_slice_memory: $AZURE_SLICE_MEMORY, kubepods_slice_memory: $KUBEPODS_SLICE_MEMORY, user_slice_memory: $USER_SLICE_MEMORY, containerd_service_memory: $CONTAINERD_MEMORY, kubelet_service_memory: $KUBELET_MEMORY, node_problem_detector_service_memory: $NODE_PROBLEM_DETECTOR_MEMORY, node_exporter_service_memory: $NODE_EXPORTER_MEMORY, sync_container_logs_service_memory: $SYNC_CONTAINER_LOGS_MEMORY, localdns_service_memory: $LOCALDNS_MEMORY, nvidia_persistenced_service_memory: $NVIDIA_PERSISTENCED_MEMORY, nvidia_gridd_service_memory: $NVIDIA_GRIDD_MEMORY, nvidia_fabricmanager_service_memory: $NVIDIA_FABRICMANAGER_MEMORY, nvidia_device_plugin_service_memory: $NVIDIA_DEVICE_PLUGIN_MEMORY, dra_driver_nvidia_gpu_service_memory: $DRA_DRIVER_NVIDIA_GPU_MEMORY, nvidia_dcgm_service_memory: $NVIDIA_DCGM_MEMORY, nvidia_dcgm_exporter_service_memory: $NVIDIA_DCGM_EXPORTER_MEMORY, openibd_service_memory: $OPENIBD_MEMORY, cgroup_memory: $EMPLOYED_MEMORY, cgroup_capacity_memory: $CAPACITY_MEMORY, kubepods_max_memory: $KUBEPODS_CGROUP_MEMORY_MAX } | tostring'
     )
 else
     echo "Unexpected cgroup type. Exiting"
