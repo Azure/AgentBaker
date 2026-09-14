@@ -1636,6 +1636,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetLocalDNSMemoryLimitInMB": func() string {
 			return profile.GetLocalDNSMemoryLimitInMB()
 		},
+		"GetCoreDNSServiceIP": func() string {
+			return profile.GetCoreDNSServiceIP()
+		},
 		"GetLocalDNSCriticalFQDNs": func() string {
 			if profile.LocalDNSProfile == nil {
 				return ""

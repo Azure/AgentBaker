@@ -197,6 +197,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"LOCALDNS_MEMORY_LIMIT":                                getLocalDnsMemoryLimitInMb(config),
 		"LOCALDNS_CRITICAL_FQDNS":                              getLocalDnsCriticalFqdns(config),
 		"LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS":    getLocalDnsHostsPluginRefreshIntervalInSeconds(config),
+		"COREDNS_SERVICE_IP":                                   getCoreDnsServiceIp(config),
 		// LOCALDNS_GENERATED_COREFILE is the legacy key read by older VHDs that predate the hosts plugin.
 		// It must remain the base (no hosts plugin) corefile for backward compatibility.
 		// LOCALDNS_COREFILE_BASE is the new explicit name used by the dynamic corefile selection logic.
