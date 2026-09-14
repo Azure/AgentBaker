@@ -2110,6 +2110,11 @@ var _ = Register(&Scenario{
 	Config: Config{
 		Cluster: ClusterLatestKubernetesVersionKubenet,
 		VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
+		UseNVMe: true,
+		BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.AgentPoolProfile.VMSize = "Standard_D2pds_v6"
+			nbc.IsARM64 = true
+		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.SKU.Name = to.Ptr("Standard_D2pds_v6")
 			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
