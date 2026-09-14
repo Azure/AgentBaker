@@ -76,8 +76,11 @@ restore_localdns_test_state() {
     if [ -f "$NORESTART" ]; then
         sudo rm -f "$NORESTART" || { echo "ERROR: failed to remove $NORESTART"; cleanup_status=1; }
         sudo systemctl daemon-reload || { echo "ERROR: systemd daemon-reload failed during test cleanup"; cleanup_status=1; }
-        sudo systemctl reset-failed localdns.service || { echo "ERROR: reset-failed localdns.service failed during test cleanup"; cleanup_status=1; }
     fi
+    # The restart loop can hit systemd's start limit without creating NORESTART.
+    # Clear any failed state before trying to start LocalDNS; this is best-effort
+    # so a reset failure does not prevent the rest of cleanup.
+    sudo systemctl reset-failed localdns.service || true
     if ! sudo systemctl is-active --quiet localdns.service; then
         sudo systemctl start localdns.service || { echo "ERROR: failed to restart localdns.service during test cleanup"; cleanup_status=1; }
     fi
