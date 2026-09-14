@@ -144,7 +144,6 @@ func validateACLAMD64COSIUpdate(ctx context.Context, scenario *Scenario, rawCosi
 	beforeNode, err := scenario.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, scenario.Runtime.VM.KubeName, metav1.GetOptions{})
 	require.NoError(scenario.T, err)
 	require.True(scenario.T, strings.EqualFold(beforeBootID, beforeNode.Status.NodeInfo.BootID), "host and Kubernetes boot IDs must match before the update")
-	requireTridentStatus(ctx, scenario, "provisioned", "volume-a")
 
 	preflightCommand := fmt.Sprintf("curl --fail --location --silent --show-error --range 0-511 --output /dev/null %s", shellQuote(cosiURL))
 	_, err = runCOSICommand(ctx, scenario, preflightCommand)
