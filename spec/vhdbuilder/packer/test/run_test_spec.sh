@@ -131,6 +131,8 @@ Describe 'Content VM FIPS encryption contract'
       Ubuntu 22.04 true False true amd64 Standard_D2ds_v5 TrustedLaunchSupported V2 '' TrustedLaunch
       Ubuntu 22.04 false False false amd64 Standard_D2ds_v5 TrustedLaunchSupported V2 '' TrustedLaunch
       Ubuntu 22.04 false False false amd64 Standard_D2ds_v5 TrustedLaunchAndConfidentialVmSupported V2 '' TrustedLaunch
+      Ubuntu 22.04 true False true arm64 Standard_D2pds_v6 TrustedLaunchSupported V2 '' TrustedLaunch
+      AzureLinux V3 True False false arm64 Standard_D2pds_v6 TrustedLaunchSupported V2 '' TrustedLaunch
       Ubuntu 22.04 false False false amd64 Standard_DC8ads_v5 '' V2 cvm ConfidentialVM
       AzureLinux 3.0 false True false amd64 Standard_DC8ads_v5 '' V2 cvm ConfidentialVM
     End

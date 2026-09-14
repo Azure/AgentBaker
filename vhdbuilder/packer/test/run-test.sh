@@ -68,17 +68,24 @@ set -x
 # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
 TEST_VM_SIZE="Standard_D2ds_v5"
 TEST_VM_SECURITY_TYPE=""
+if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+  TEST_VM_SECURITY_TYPE="TrustedLaunch"
+elif [ "${OS_TYPE,,}" = "linux" ]; then
+  IMAGE_DEFINITION=$(az sig image-definition show --ids "${MANAGED_SIG_ID%/versions/*}")
+  IMAGE_DEFAULTS_TO_TL=$(jq '.hyperVGeneration == "V2" and any(.features[]?;
+    .name == "SecurityType" and (.value == "TrustedLaunchSupported" or .value == "TrustedLaunchAndConfidentialVmSupported"))' <<< "$IMAGE_DEFINITION")
+  if [ "$IMAGE_DEFAULTS_TO_TL" = true ]; then
+    TEST_VM_SECURITY_TYPE="TrustedLaunch"
+  fi
+fi
+
 if [ "${ARCHITECTURE,,}" = "arm64" ]; then
   # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
-  if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+  if [ "$TEST_VM_SECURITY_TYPE" = "TrustedLaunch" ]; then
     TEST_VM_SIZE="Standard_D2pds_v6"
   else
     TEST_VM_SIZE="Standard_D2pds_v5"
   fi
-fi
-
-if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
-  TEST_VM_SECURITY_TYPE="TrustedLaunch"
 fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
@@ -104,14 +111,6 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
   if [ -z "$TESTING_NIC_ID" ]; then
       echo "unable to create new NIC for test VM"
       exit 1
-  fi
-  if [ -z "$TEST_VM_SECURITY_TYPE" ]; then
-    IMAGE_DEFINITION=$(az sig image-definition show --ids "${MANAGED_SIG_ID%/versions/*}")
-    IMAGE_DEFAULTS_TO_TL=$(jq '.hyperVGeneration == "V2" and any(.features[]?;
-      .name == "SecurityType" and (.value == "TrustedLaunchSupported" or .value == "TrustedLaunchAndConfidentialVmSupported"))' <<< "$IMAGE_DEFINITION")
-    if [ "$IMAGE_DEFAULTS_TO_TL" = true ]; then
-      TEST_VM_SECURITY_TYPE="TrustedLaunch"
-    fi
   fi
   (
     set +x
