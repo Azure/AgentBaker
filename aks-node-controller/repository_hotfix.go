@@ -195,6 +195,16 @@ func (a *App) tryRepositoryDownload(ctx context.Context, hotfixVersion string) e
 	case osReleaseIDUbuntu:
 		plan, err = a.ubuntuRepositoryPlan(info, hotfixVersion)
 	case osReleaseIDAzureLinux:
+		// Image-based Azure Linux variants ship no package repositories, so discovery would
+		// fail below with a misleading "no enabled Microsoft-published RPM repository".
+		// detectPackageManager rejects these variants too, so the fallback cannot serve them
+		// either -- but naming the reason beats reporting it as a missing repository.
+		if isImageBasedOSVariant(info.VariantID) {
+			err = newUnsupportedRepositoryError(
+				"repository fast path is not supported on image-based OS %q variant %q",
+				info.ID, info.VariantID)
+			break
+		}
 		plan, err = a.rpmRepositoryPlan(info, hotfixVersion)
 	default:
 		err = newUnsupportedRepositoryError("unsupported repository platform %q", info.ID)

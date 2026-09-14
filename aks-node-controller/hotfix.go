@@ -315,8 +315,7 @@ func (a *App) detectPackageManager() (packageManager, error) {
 	if err != nil {
 		return "", err
 	}
-	if info.ID == osReleaseIDAzureLinux &&
-		(info.VariantID == osReleaseIDAzureContainerLinux || info.VariantID == "osguard") {
+	if info.ID == osReleaseIDAzureLinux && isImageBasedOSVariant(info.VariantID) {
 		return "", fmt.Errorf(
 			"PMC package-based ANC self-update is not supported on image-based OS %q variant %q",
 			info.ID,
@@ -513,4 +512,11 @@ func shouldUpgradeToHotfix(current, hotfix string) (bool, error) {
 		return false, fmt.Errorf("parsing hotfix version %q: %w", hotfix, err)
 	}
 	return cv.Major() == hv.Major() && cv.Minor() == hv.Minor() && hv.Patch() > cv.Patch(), nil
+}
+
+// isImageBasedOSVariant reports whether an os-release VARIANT_ID names an image-based Azure
+// Linux flavour. These ship no package manager repositories, so neither the repository fast
+// path nor a PMC install can serve them.
+func isImageBasedOSVariant(variantID string) bool {
+	return variantID == osReleaseIDAzureContainerLinux || variantID == osVariantIDOSGuard
 }
