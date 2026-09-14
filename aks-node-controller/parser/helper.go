@@ -752,8 +752,10 @@ func getShouldConfigTransparentHugePage(v *aksnodeconfigv1.CustomLinuxOsConfig) 
 }
 
 func getProxyVariables(proxyConfig *aksnodeconfigv1.HttpProxyConfig) string {
-	if proxyConfig == nil ||
-		(proxyConfig.GetHttpProxy() == "" && proxyConfig.GetHttpsProxy() == "" && proxyConfig.GetNoProxyEntries() == nil) {
+	if proxyConfig == nil {
+		return ""
+	}
+	if proxyConfig.GetHttpProxy() == "" && proxyConfig.GetHttpsProxy() == "" && proxyConfig.GetNoProxyEntries() == nil {
 		return ""
 	}
 
