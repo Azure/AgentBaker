@@ -1172,6 +1172,55 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 	}
 }
 
+func Test_getProxyVariables(t *testing.T) {
+	const expectedProxyVars = `if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}" http_proxy="${HTTP_PROXY_URLS}"; fi; ` +
+		`if [ -n "${HTTPS_PROXY_URLS}" ]; then export HTTPS_PROXY="${HTTPS_PROXY_URLS}" https_proxy="${HTTPS_PROXY_URLS}"; fi; ` +
+		`if [ -n "${NO_PROXY_URLS}" ]; then export NO_PROXY="${NO_PROXY_URLS}" no_proxy="${NO_PROXY_URLS}"; fi`
+
+	t.Run("empty config has no compatibility payload", func(t *testing.T) {
+		if got := getProxyVariables(nil); got != "" {
+			t.Errorf("getProxyVariables() = %q, want empty string", got)
+		}
+		if got := getProxyVariables(&aksnodeconfigv1.HttpProxyConfig{}); got != "" {
+			t.Errorf("getProxyVariables() = %q, want empty string", got)
+		}
+	})
+
+	t.Run("exports uppercase and lowercase proxy variables", func(t *testing.T) {
+		got := getProxyVariables(&aksnodeconfigv1.HttpProxyConfig{
+			HttpProxy:      "http://proxy.example.com:8080",
+			HttpsProxy:     "https://proxy.example.com:8443",
+			NoProxyEntries: []string{"127.0.0.1", "localhost", ".svc"},
+		})
+
+		if got != expectedProxyVars {
+			t.Errorf("getProxyVariables() = %q, want %q", got, expectedProxyVars)
+		}
+		for _, proxyVar := range []string{"HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "NO_PROXY", "no_proxy"} {
+			if !strings.Contains(got, proxyVar) {
+				t.Errorf("getProxyVariables() missing %s in %q", proxyVar, got)
+			}
+		}
+	})
+
+	t.Run("does not embed customer controlled shell content", func(t *testing.T) {
+		httpProxy := `http://user:p'ass"word/$(touch http-injected);` + "`touch http-injected`" + `/*?[x]\value`
+		httpsProxy := `https://proxy.example/$(touch https-injected)`
+		noProxyEntry := `$(touch no-proxy-injected)`
+		got := getProxyVariables(&aksnodeconfigv1.HttpProxyConfig{
+			HttpProxy:      httpProxy,
+			HttpsProxy:     httpsProxy,
+			NoProxyEntries: []string{"localhost", noProxyEntry, ".svc"},
+		})
+
+		for _, unsafeValue := range []string{httpProxy, httpsProxy, noProxyEntry} {
+			if strings.Contains(got, unsafeValue) {
+				t.Errorf("getProxyVariables() embedded unsafe value %q in %q", unsafeValue, got)
+			}
+		}
+	})
+}
+
 func Test_getShouldConfigureHTTPProxyCA(t *testing.T) {
 	type args struct {
 		httpProxyConfig *aksnodeconfigv1.HttpProxyConfig
