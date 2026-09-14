@@ -132,16 +132,16 @@ func getWindowsContainerImageTagsFromFS(fsys fs.FS, containerName, windowsVersio
 	return expectedVersions, nil
 }
 
-func getWindowsEnvVarForName(vhd *config.Image) string {
-	return strings.TrimPrefix(vhd.Name, "windows-")
+func getWindowsSKU(vhd *config.Image) string {
+	return strings.TrimPrefix(string(vhd.Distro), "aks-windows-")
 }
 
 func GetServercoreImagesForVHD(vhd *config.Image) ([]string, error) {
-	return GetWindowsContainerImages("mcr.microsoft.com/windows/servercore:*", getWindowsEnvVarForName(vhd))
+	return GetWindowsContainerImages("mcr.microsoft.com/windows/servercore:*", getWindowsSKU(vhd))
 }
 
 func GetNanoserverImagesForVhd(vhd *config.Image) ([]string, error) {
-	return GetWindowsContainerImages("mcr.microsoft.com/windows/nanoserver:*", getWindowsEnvVarForName(vhd))
+	return GetWindowsContainerImages("mcr.microsoft.com/windows/nanoserver:*", getWindowsSKU(vhd))
 }
 
 func RemoveLeadingV(version string) string {

@@ -89,17 +89,25 @@ func TestWindowsImagesHaveServercoreAndNanoserverSpecified(t *testing.T) {
 	}
 
 	for _, image := range windowsImages {
+		cached := *image
+		cached.Name = "abe2etest-westus3-amd64-genV1-windows"
 		t.Run(fmt.Sprintf("testing servercore has versions for %s", image.Name), func(t *testing.T) {
 			images, err := GetServercoreImagesForVHD(image)
 			require.NoError(t, err)
 			t.Logf("found servercore version %v", images)
 			require.NotEmpty(t, images, "No Windows servercore images found")
+			cachedImages, err := GetServercoreImagesForVHD(&cached)
+			require.NoError(t, err)
+			require.Equal(t, images, cachedImages)
 		})
 		t.Run(fmt.Sprintf("testing nanoserver has versions for %s", image.Name), func(t *testing.T) {
 			images, err := GetNanoserverImagesForVhd(image)
 			require.NoError(t, err)
 			t.Logf("found servercore version %v", images)
 			require.NotEmpty(t, images, "No Windows nanoserver images found")
+			cachedImages, err := GetNanoserverImagesForVhd(&cached)
+			require.NoError(t, err)
+			require.Equal(t, images, cachedImages)
 		})
 	}
 }
