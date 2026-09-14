@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v3"
@@ -72,7 +72,7 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 }
 
 func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, isNetworkIsolated, attachPrivateAcr bool) (*Cluster, error) {
-	defer toolkit.LogStepCtx(ctx, "preparing cluster")()
+	defer logging.LogStep(ctx, "preparing cluster")()
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
 	defer cancel()
 
@@ -315,7 +315,7 @@ func extractClusterParameters(ctx context.Context, cluster *armcontainerservice.
 }
 
 func assignACRPullToIdentity(ctx context.Context, privateACRName, principalID string, location string) error {
-	toolkit.Logf(ctx, "assigning ACR-Pull role to %s", principalID)
+	logging.Logf(ctx, "assigning ACR-Pull role to %s", principalID)
 	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, config.ResourceGroupName(location), privateACRName)
 
 	uid := uuid.New().String()
@@ -333,7 +333,7 @@ func assignACRPullToIdentity(ctx context.Context, privateACRName, principalID st
 		if errors.As(err, &respError) && respError.StatusCode == http.StatusConflict {
 			return nil
 		}
-		toolkit.Logf(ctx, "failed to assign ACR-Pull role to identity %s, error: %v", config.VMIdentityName, err)
+		logging.Logf(ctx, "failed to assign ACR-Pull role to identity %s, error: %v", config.VMIdentityName, err)
 		return err
 	}
 	return nil
@@ -375,7 +375,7 @@ func hash(cluster *armcontainerservice.ManagedCluster) string {
 }
 
 func getOrCreateCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
-	defer toolkit.LogStepCtxf(ctx, "get or create cluster %s", *cluster.Name)()
+	defer logging.LogStepf(ctx, "get or create cluster %s", *cluster.Name)()
 	existingCluster, err := getExistingCluster(ctx, *cluster.Location, *cluster.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get existing cluster %q: %w, and wont retry", *cluster.Name, err)
@@ -414,10 +414,10 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 		if nodeRGExists {
 			return &existingCluster.ManagedCluster, nil
 		}
-		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s has deleting or missing node resource group %s, deleting cluster", clusterName, *existingCluster.Properties.NodeResourceGroup)
+		logging.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s has deleting or missing node resource group %s, deleting cluster", clusterName, *existingCluster.Properties.NodeResourceGroup)
 		nodeResourceGroup := *existingCluster.Properties.NodeResourceGroup
 		if cleanupErr := detachNodeResourceGroupReferencesFromClusterSubnet(ctx, *existingCluster.Location, *existingCluster.Name, nodeResourceGroup); cleanupErr != nil {
-			toolkit.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
+			logging.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
 		}
 		if err := deleteCluster(ctx, clusterName, resourceGroupName); err != nil {
 			return nil, err
@@ -431,10 +431,10 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 		}
 		return nil, nil
 	case "Failed", "Deleting":
-		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s in Failed state, deleting", clusterName)
+		logging.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s in Failed state, deleting", clusterName)
 		nodeResourceGroup := *existingCluster.Properties.NodeResourceGroup
 		if cleanupErr := detachNodeResourceGroupReferencesFromClusterSubnet(ctx, *existingCluster.Location, *existingCluster.Name, nodeResourceGroup); cleanupErr != nil {
-			toolkit.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
+			logging.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
 		}
 		if err := deleteCluster(ctx, clusterName, resourceGroupName); err != nil {
 			return nil, err
@@ -450,29 +450,29 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 
 	case "Creating":
 		// For Creating state, wait for the cluster to become ready.
-		toolkit.Logf(ctx, "Cluster is currently being created. Will wait for creation to finish: %s", clusterName)
+		logging.Logf(ctx, "Cluster is currently being created. Will wait for creation to finish: %s", clusterName)
 		return waitUntilClusterReady(ctx, clusterName, location)
 
 	case "Starting":
 		// For Starting state, wait for the cluster to become ready.
-		toolkit.Logf(ctx, "Cluster is currently being started. Will wait for start to finish: %s", clusterName)
+		logging.Logf(ctx, "Cluster is currently being started. Will wait for start to finish: %s", clusterName)
 		return waitUntilClusterReady(ctx, clusterName, location)
 
 	default:
 		// For other non-terminal provisioning states (e.g., Updating, Scaling, Migrating, Upgrading, Restoring), wait for the cluster to become ready.
-		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Unexpected cluster provisioning state for cluster %s: %s", clusterName, *existingCluster.Properties.ProvisioningState)
+		logging.Logf(ctx, "##vso[task.logissue type=warning;]Unexpected cluster provisioning state for cluster %s: %s", clusterName, *existingCluster.Properties.ProvisioningState)
 		return waitUntilClusterReady(ctx, clusterName, location)
 	}
 }
 
 func deleteCluster(ctx context.Context, clusterName, resourceGroupName string) error {
-	defer toolkit.LogStepCtxf(ctx, "deleting cluster %s", clusterName)()
+	defer logging.LogStepf(ctx, "deleting cluster %s", clusterName)()
 	// beileih: why do we do this?
 	_, err := config.Azure.AKS.Get(ctx, resourceGroupName, clusterName, nil)
 	if err != nil {
 		var azErr *azcore.ResponseError
 		if errors.As(err, &azErr) && azErr.StatusCode == 404 {
-			toolkit.Logf(ctx, "cluster %s does not exist, skipping deletion", clusterName)
+			logging.Logf(ctx, "cluster %s does not exist, skipping deletion", clusterName)
 			return nil
 		}
 		return fmt.Errorf("failed to retrieve cluster while trying to delete it %q: %w", clusterName, err)
@@ -542,10 +542,10 @@ func waitUntilClusterReady(ctx context.Context, name, location string) (*armcont
 		if !nodeRGExists {
 			nodeResourceGroup := *cluster.ManagedCluster.Properties.NodeResourceGroup
 			if cleanupErr := detachNodeResourceGroupReferencesFromClusterSubnet(ctx, *cluster.Location, *cluster.Name, nodeResourceGroup); cleanupErr != nil {
-				toolkit.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
+				logging.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
 			}
 			resourceGroupName := config.ResourceGroupName(location)
-			toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s became ready with deleting or missing node resource group %s, deleting cluster", name, *cluster.ManagedCluster.Properties.NodeResourceGroup)
+			logging.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s became ready with deleting or missing node resource group %s, deleting cluster", name, *cluster.ManagedCluster.Properties.NodeResourceGroup)
 			if err := deleteCluster(ctx, name, resourceGroupName); err != nil {
 				return nil, err
 			}
@@ -570,9 +570,9 @@ func isUsableNodeResourceGroup(ctx context.Context, location, clusterName, resou
 
 	if rg.Properties != nil && rg.Properties.ProvisioningState != nil && strings.EqualFold(*rg.Properties.ProvisioningState, "Deleting") {
 		if err := detachNodeResourceGroupReferencesFromClusterSubnet(ctx, location, clusterName, resourceGroupName); err != nil {
-			toolkit.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", resourceGroupName, err)
+			logging.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", resourceGroupName, err)
 		}
-		toolkit.Logf(ctx, "node resource group %q is deleting; recreating cluster %q", resourceGroupName, clusterName)
+		logging.Logf(ctx, "node resource group %q is deleting; recreating cluster %q", resourceGroupName, clusterName)
 		return false, nil
 	}
 
@@ -581,7 +581,7 @@ func isUsableNodeResourceGroup(ctx context.Context, location, clusterName, resou
 		return false, err
 	}
 	if !hasVMSS {
-		toolkit.Logf(ctx, "node resource group %q has no VMSS; recreating cluster %q", resourceGroupName, clusterName)
+		logging.Logf(ctx, "node resource group %q has no VMSS; recreating cluster %q", resourceGroupName, clusterName)
 		return false, nil
 	}
 
@@ -631,7 +631,7 @@ func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerserv
 	var lastErr error
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		if attempt > 0 {
-			toolkit.Logf(ctx, "Attempt %d: creating or updating cluster %s in region %s and rg %s", attempt+1, *cluster.Name, *cluster.Location, config.ResourceGroupName(*cluster.Location))
+			logging.Logf(ctx, "Attempt %d: creating or updating cluster %s in region %s and rg %s", attempt+1, *cluster.Name, *cluster.Location, config.ResourceGroupName(*cluster.Location))
 		}
 
 		createdCluster, err := createNewAKSCluster(ctx, cluster)
@@ -642,7 +642,7 @@ func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerserv
 		if isRetryableClusterError(err) {
 			lastErr = err
 			if isClusterCreateOperationInProgressError(err) {
-				toolkit.Logf(ctx, "cluster %s has an in-progress create operation; waiting for it to finish", *cluster.Name)
+				logging.Logf(ctx, "cluster %s has an in-progress create operation; waiting for it to finish", *cluster.Name)
 				createdCluster, waitErr := waitUntilClusterReady(ctx, *cluster.Name, *cluster.Location)
 				if waitErr != nil {
 					return nil, fmt.Errorf("waiting for in-progress cluster creation: %w", waitErr)
@@ -658,7 +658,7 @@ func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerserv
 					nodeResourceGroup = *cluster.Properties.NodeResourceGroup
 				}
 				if cleanupErr := detachNodeResourceGroupReferencesFromClusterSubnet(ctx, *cluster.Location, *cluster.Name, nodeResourceGroup); cleanupErr != nil {
-					toolkit.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
+					logging.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
 				}
 				if deleteErr := deleteCluster(ctx, *cluster.Name, config.ResourceGroupName(*cluster.Location)); deleteErr != nil {
 					return nil, fmt.Errorf("deleting cluster with deleting node resource group %q: %w", nodeResourceGroup, deleteErr)
@@ -667,7 +667,7 @@ func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerserv
 					return nil, fmt.Errorf("failed waiting for cluster deletion: %w", deleteErr)
 				}
 			}
-			toolkit.Logf(ctx, "Attempt %d failed with retryable error: %v. Retrying in %v...", attempt+1, err, retryInterval)
+			logging.Logf(ctx, "Attempt %d failed with retryable error: %v. Retrying in %v...", attempt+1, err, retryInterval)
 
 			select {
 			case <-time.After(retryInterval):
@@ -736,7 +736,7 @@ func ensureMaintenanceConfiguration(ctx context.Context, cluster *armcontainerse
 }
 
 func createNewMaintenanceConfiguration(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.MaintenanceConfiguration, error) {
-	toolkit.Logf(ctx, "creating maintenance configuration for cluster %s in rg %s", *cluster.Name, config.ResourceGroupName(*cluster.Location))
+	logging.Logf(ctx, "creating maintenance configuration for cluster %s in rg %s", *cluster.Name, config.ResourceGroupName(*cluster.Location))
 	maintenance := armcontainerservice.MaintenanceConfiguration{
 		Properties: &armcontainerservice.MaintenanceConfigurationProperties{
 			MaintenanceWindow: &armcontainerservice.MaintenanceWindow{
@@ -774,14 +774,14 @@ func getOrCreateBastion(ctx context.Context, cluster *armcontainerservice.Manage
 		if !isNotFoundError(err) {
 			return nil, fmt.Errorf("checking shared bastion %s in %s: %w", SharedBastionName, sharedRG, err)
 		}
-		toolkit.Logf(ctx, "shared bastion not found, recreating")
+		logging.Logf(ctx, "shared bastion not found, recreating")
 		dnsName, createErr := ensureSharedBastion(ctx, sharedRG, location)
 		if createErr != nil {
 			return nil, fmt.Errorf("recreating shared bastion: %w", createErr)
 		}
 		return NewBastion(config.Azure.Credential, config.Config.SubscriptionID, sharedRG, dnsName), nil
 	}
-	toolkit.Logf(ctx, "using shared bastion %s in %s", SharedBastionName, sharedRG)
+	logging.Logf(ctx, "using shared bastion %s in %s", SharedBastionName, sharedRG)
 	return NewBastion(config.Azure.Credential, config.Config.SubscriptionID, sharedRG, *sharedBastion.Properties.DNSName), nil
 }
 
@@ -805,7 +805,7 @@ func getClusterVNet(ctx context.Context, cluster *armcontainerservice.ManagedClu
 }
 
 func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kube *Kubeclient) error {
-	defer toolkit.LogStepCtx(ctx, "collecting garbage VMSS")()
+	defer logging.LogStep(ctx, "collecting garbage VMSS")()
 	rg := *cluster.Properties.NodeResourceGroup
 
 	// Build a set of VMSS name prefixes belonging to the cluster's managed pools.
@@ -856,12 +856,12 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 				ForceDeletion: to.Ptr(true),
 			})
 			if err != nil {
-				toolkit.Logf(ctx, "failed to delete vmss %q: %s", *vmss.Name, err)
+				logging.Logf(ctx, "failed to delete vmss %q: %s", *vmss.Name, err)
 				// Keep in map so we don't try to delete its nodes while VMSS is still around
 				keptVMSS[*vmss.Name] = struct{}{}
 				continue
 			}
-			toolkit.Logf(ctx, "deleted vmss %q (age: %v)", *vmss.ID, time.Since(*vmss.Properties.TimeCreated))
+			logging.Logf(ctx, "deleted vmss %q (age: %v)", *vmss.ID, time.Since(*vmss.Properties.TimeCreated))
 			// Don't add to keptVMSS — nodes from this VMSS should be cleaned up
 		}
 	}
@@ -877,7 +877,7 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 // and overwhelming the cloud-provider-azure route controller with perpetual
 // "instance not found" failures.
 func collectGarbageNodes(ctx context.Context, kube *Kubeclient, keptVMSS map[string]struct{}) error {
-	defer toolkit.LogStepCtx(ctx, "collecting garbage K8s nodes")()
+	defer logging.LogStep(ctx, "collecting garbage K8s nodes")()
 
 	nodes, err := kube.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
@@ -903,15 +903,15 @@ func collectGarbageNodes(ctx context.Context, kube *Kubeclient, keptVMSS map[str
 
 		if err := kube.Typed.CoreV1().Nodes().Delete(ctx, node.Name, metav1.DeleteOptions{}); err != nil {
 			if apierrors.IsNotFound(err) {
-				toolkit.Logf(ctx, "stale K8s node %q already gone", node.Name)
+				logging.Logf(ctx, "stale K8s node %q already gone", node.Name)
 				deleted++
 				continue
 			}
-			toolkit.Logf(ctx, "warning: failed to delete stale K8s node %q: %v", node.Name, err)
+			logging.Logf(ctx, "warning: failed to delete stale K8s node %q: %v", node.Name, err)
 			failed++
 			continue
 		}
-		toolkit.Logf(ctx, "deleted stale K8s node %q (VMSS %q not found)", node.Name, vmssName)
+		logging.Logf(ctx, "deleted stale K8s node %q (VMSS %q not found)", node.Name, vmssName)
 		deleted++
 	}
 
@@ -950,7 +950,7 @@ func ensureResourceGroup(ctx context.Context, location string) (armresources.Res
 // setupPrivateDNSForAPIServer adds an A record for the cluster's API server FQDN
 // to the shared private DNS zone. The zone and VNet link are created once by ensureSharedInfra.
 func setupPrivateDNSForAPIServer(ctx context.Context, cluster *armcontainerservice.ManagedCluster, vnet VNet) error {
-	defer toolkit.LogStepCtx(ctx, "setting up private DNS for API server")()
+	defer logging.LogStep(ctx, "setting up private DNS for API server")()
 
 	fqdn := *cluster.Properties.Fqdn
 	nodeRG := *cluster.Properties.NodeResourceGroup
@@ -989,7 +989,7 @@ func setupPrivateDNSForAPIServer(ctx context.Context, cluster *armcontainerservi
 			}
 		}
 		if allMatch {
-			toolkit.Logf(ctx, "private DNS zone %q already up to date", fqdn)
+			logging.Logf(ctx, "private DNS zone %q already up to date", fqdn)
 			return nil
 		}
 	}
@@ -1008,6 +1008,6 @@ func setupPrivateDNSForAPIServer(ctx context.Context, cluster *armcontainerservi
 		return fmt.Errorf("creating A record in zone %q: %w", fqdn, err)
 	}
 
-	toolkit.Logf(ctx, "private DNS zone %q → %v", fqdn, ips)
+	logging.Logf(ctx, "private DNS zone %q → %v", fqdn, ips)
 	return nil
 }

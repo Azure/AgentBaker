@@ -5,19 +5,62 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-type discardLogger struct{}
+type executionLogger struct {
+	logs []string
+}
 
-func (discardLogger) Log(...any)          {}
-func (discardLogger) Logf(string, ...any) {}
+func (l *executionLogger) Log(args ...any) {
+	l.logs = append(l.logs, strings.TrimSuffix(fmt.Sprintln(args...), "\n"))
+}
+
+func (l *executionLogger) Logf(format string, args ...any) {
+	l.logs = append(l.logs, fmt.Sprintf(format, args...))
+}
+
+func TestExecutionKeepsLoggerThroughSkipRunAndCleanup(t *testing.T) {
+	for _, cancelled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("cancelled=%t", cancelled), func(t *testing.T) {
+			logger := &executionLogger{}
+			ctx, cancel := context.WithCancel(logging.WithLogger(t.Context(), logger))
+			defer cancel()
+			original := &Scenario{
+				SkipIf: func(ctx context.Context) string {
+					logging.Log(ctx, "skip check")
+					return ""
+				},
+			}
+			outcome := runExecution(ctx, "Logging", "Logging", original,
+				func(ctx context.Context, _ string, s *Scenario) error {
+					logging.Logf(ctx, "running %s", "scenario")
+					s.Cleanup(func(cleanupCtx context.Context) error {
+						require.NoError(t, cleanupCtx.Err())
+						logging.Log(cleanupCtx, "cleanup")
+						return nil
+					})
+					if cancelled {
+						cancel()
+					}
+					return nil
+				})
+			if cancelled {
+				require.ErrorIs(t, outcome.Error, context.Canceled)
+			} else {
+				require.NoError(t, outcome.Error)
+			}
+			assert.Equal(t, []string{"skip check", "running scenario", "cleanup"}, logger.logs)
+		})
+	}
+}
 
 func TestExecutionRunsCleanupOnceWithFreshState(t *testing.T) {
 	original := &Scenario{Name: "Retry", Runtime: &ScenarioRuntime{}, failed: true}
@@ -26,8 +69,8 @@ func TestExecutionRunsCleanupOnceWithFreshState(t *testing.T) {
 	var cleanupCount int
 	for attempt := 1; attempt <= 2; attempt++ {
 		artifactName := filepath.Join("Retry", fmt.Sprintf("attempt-%d", attempt))
-		outcome := runExecution(context.Background(), original.Name, artifactName, discardLogger{}, original,
-			func(_ context.Context, _ string, _ toolkit.Logger, s *Scenario) error {
+		outcome := runExecution(context.Background(), original.Name, artifactName, original,
+			func(_ context.Context, _ string, s *Scenario) error {
 				assert.Nil(t, s.Runtime)
 				assert.False(t, s.failed)
 				assert.Empty(t, s.adoTestCases)
@@ -73,8 +116,8 @@ func TestExecutionCleanupFailureOverridesOutcome(t *testing.T) {
 		{name: "failed", runErr: errors.New("validation failed")},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			outcome := runExecution(context.Background(), "CleanupFails", "CleanupFails", discardLogger{}, &Scenario{},
-				func(_ context.Context, _ string, _ toolkit.Logger, s *Scenario) error {
+			outcome := runExecution(context.Background(), "CleanupFails", "CleanupFails", &Scenario{},
+				func(_ context.Context, _ string, s *Scenario) error {
 					s.Cleanup(func(context.Context) error { return errors.New("delete vmss") })
 					return test.runErr
 				})
@@ -90,8 +133,8 @@ func TestExecutionCleanupFailureOverridesOutcome(t *testing.T) {
 func TestExecutionSharesCleanupAcrossVHDStages(t *testing.T) {
 	var cleaned []string
 	var mu sync.Mutex
-	outcome := runExecution(context.Background(), "VHD", "VHD/attempt-2", discardLogger{}, &Scenario{},
-		func(_ context.Context, _ string, _ toolkit.Logger, original *Scenario) error {
+	outcome := runExecution(context.Background(), "VHD", "VHD/attempt-2", &Scenario{},
+		func(_ context.Context, _ string, original *Scenario) error {
 			for _, name := range []string{"vhd-bake", "vhd-provision"} {
 				stage := freshScenario(original)
 				assert.Same(t, original.cleanup, stage.cleanup)
@@ -112,8 +155,8 @@ func TestExecutionSharesCleanupAcrossVHDStages(t *testing.T) {
 func TestExecutionPanicMarksFailureAndRunsCleanup(t *testing.T) {
 	for _, markedByFlow := range []bool{false, true} {
 		var cleanupCount int
-		outcome := runExecution(context.Background(), "Panics", "Panics", discardLogger{}, &Scenario{},
-			func(_ context.Context, _ string, _ toolkit.Logger, s *Scenario) (runErr error) {
+		outcome := runExecution(context.Background(), "Panics", "Panics", &Scenario{},
+			func(_ context.Context, _ string, s *Scenario) (runErr error) {
 				if markedByFlow {
 					defer func() { markScenarioOutcome(s, runErr, recover()) }()
 				}
@@ -132,8 +175,8 @@ func TestExecutionPanicMarksFailureAndRunsCleanup(t *testing.T) {
 
 func TestSkippedScenarioIsNotMarkedFailed(t *testing.T) {
 	var cleaned bool
-	outcome := runExecution(context.Background(), "Skipped", "Skipped", discardLogger{}, &Scenario{},
-		func(_ context.Context, _ string, _ toolkit.Logger, s *Scenario) (runErr error) {
+	outcome := runExecution(context.Background(), "Skipped", "Skipped", &Scenario{},
+		func(_ context.Context, _ string, s *Scenario) (runErr error) {
 			defer func() { markScenarioOutcome(s, runErr, recover()) }()
 			s.Cleanup(func(context.Context) error {
 				assert.False(t, s.failed)
@@ -151,12 +194,12 @@ func TestExecutionTimeoutCoversSkipAndRun(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	var skipDeadline, runDeadline time.Time
-	outcome := runExecution(ctx, "Deadline", "Deadline", discardLogger{}, &Scenario{
+	outcome := runExecution(ctx, "Deadline", "Deadline", &Scenario{
 		SkipIf: func(ctx context.Context) string {
 			skipDeadline, _ = ctx.Deadline()
 			return ""
 		},
-	}, func(ctx context.Context, _ string, _ toolkit.Logger, _ *Scenario) error {
+	}, func(ctx context.Context, _ string, _ *Scenario) error {
 		runDeadline, _ = ctx.Deadline()
 		return nil
 	})
@@ -169,11 +212,11 @@ func TestExecutionTimeoutCannotPassOrSkip(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		skipIf func(context.Context) string
-		run    func(context.Context, string, toolkit.Logger, *Scenario) error
+		run    func(context.Context, string, *Scenario) error
 	}{
 		{
 			name: "late success",
-			run: func(ctx context.Context, _ string, _ toolkit.Logger, s *Scenario) error {
+			run: func(ctx context.Context, _ string, s *Scenario) error {
 				s.Cleanup(func(cleanupCtx context.Context) error {
 					assert.NoError(t, cleanupCtx.Err())
 					assert.True(t, s.failed)
@@ -198,7 +241,7 @@ func TestExecutionTimeoutCannotPassOrSkip(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 			defer cancel()
-			outcome := runExecution(ctx, "Deadline", "Deadline", discardLogger{}, &Scenario{SkipIf: test.skipIf}, test.run)
+			outcome := runExecution(ctx, "Deadline", "Deadline", &Scenario{SkipIf: test.skipIf}, test.run)
 			require.ErrorContains(t, outcome.Error, "scenario attempt deadline exceeded")
 			require.ErrorIs(t, outcome.Error, context.DeadlineExceeded)
 			assert.Empty(t, outcome.SkipReason)
@@ -211,8 +254,8 @@ func TestExecutionSkipDecisionsDoNotRunFlow(t *testing.T) {
 		{SkipReason: "not supported"},
 		{SkipIf: func(context.Context) string { return "not supported" }},
 	} {
-		outcome := runExecution(context.Background(), "Skip", "Skip", discardLogger{}, s,
-			func(context.Context, string, toolkit.Logger, *Scenario) error {
+		outcome := runExecution(context.Background(), "Skip", "Skip", s,
+			func(context.Context, string, *Scenario) error {
 				t.Fatal("flow ran for skipped scenario")
 				return nil
 			})
@@ -236,7 +279,6 @@ func TestFreshScenarioSharesAttemptCleanup(t *testing.T) {
 
 	assert.Same(t, cleanup, copied.cleanup)
 	assert.Nil(t, copied.Runtime)
-	assert.Nil(t, copied.Logger)
 	assert.Equal(t, original.artifactName, copied.artifactName)
 	assert.False(t, copied.failed)
 	assert.Nil(t, copied.adoTestCases)

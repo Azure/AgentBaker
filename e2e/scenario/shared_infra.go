@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -48,7 +48,7 @@ type SharedInfra struct {
 var CachedEnsureSharedInfra = cachedFunc(ensureSharedInfra)
 
 func ensureSharedInfra(ctx context.Context, location string) (*SharedInfra, error) {
-	defer toolkit.LogStepCtx(ctx, "ensuring shared infrastructure")()
+	defer logging.LogStep(ctx, "ensuring shared infrastructure")()
 	rg := config.ResourceGroupName(location)
 
 	if err := ensureSharedVNet(ctx, rg, location); err != nil {
@@ -101,7 +101,7 @@ func ensureSharedVNet(ctx context.Context, rg, location string) error {
 			}
 		}
 		if !hasIPv6 {
-			toolkit.Logf(ctx, "adding IPv6 address space %s to shared VNet %s", SharedVNetIPv6CIDR, SharedVNetName)
+			logging.Logf(ctx, "adding IPv6 address space %s to shared VNet %s", SharedVNetIPv6CIDR, SharedVNetName)
 			if existing.Properties == nil {
 				existing.Properties = &armnetwork.VirtualNetworkPropertiesFormat{}
 			}
@@ -131,7 +131,7 @@ func ensureSharedVNet(ctx context.Context, rg, location string) error {
 		return fmt.Errorf("checking shared VNet: %w", err)
 	}
 
-	toolkit.Logf(ctx, "creating shared VNet %s in %s", SharedVNetName, rg)
+	logging.Logf(ctx, "creating shared VNet %s in %s", SharedVNetName, rg)
 	poller, err := config.Azure.VNet.BeginCreateOrUpdate(ctx, rg, SharedVNetName, armnetwork.VirtualNetwork{
 		Location: to.Ptr(location),
 		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
@@ -159,7 +159,7 @@ func ensurePESubnet(ctx context.Context, rg string) error {
 	if !isNotFoundError(err) {
 		return fmt.Errorf("checking PE subnet: %w", err)
 	}
-	toolkit.Logf(ctx, "creating PE subnet %s", PESubnetName)
+	logging.Logf(ctx, "creating PE subnet %s", PESubnetName)
 	poller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, rg, SharedVNetName, PESubnetName, armnetwork.Subnet{
 		Properties: &armnetwork.SubnetPropertiesFormat{
 			AddressPrefix: to.Ptr(PESubnetCIDR),
@@ -184,7 +184,7 @@ func cleanupOrphanedSubnets(ctx context.Context, rg string) {
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			toolkit.Logf(ctx, "warning: failed to list subnets for cleanup: %v", err)
+			logging.Logf(ctx, "warning: failed to list subnets for cleanup: %v", err)
 			return
 		}
 		for _, subnet := range page.Value {
@@ -201,17 +201,17 @@ func cleanupOrphanedSubnets(ctx context.Context, rg string) {
 				continue
 			}
 			if !isNotFoundError(err) {
-				toolkit.Logf(ctx, "warning: transient error checking cluster %s, skipping subnet cleanup: %v", clusterName, err)
+				logging.Logf(ctx, "warning: transient error checking cluster %s, skipping subnet cleanup: %v", clusterName, err)
 				continue
 			}
-			toolkit.Logf(ctx, "deleting orphaned subnet %s", name)
+			logging.Logf(ctx, "deleting orphaned subnet %s", name)
 			poller, err := config.Azure.Subnet.BeginDelete(ctx, rg, SharedVNetName, name, nil)
 			if err != nil {
-				toolkit.Logf(ctx, "warning: failed to start deleting subnet %s: %v", name, err)
+				logging.Logf(ctx, "warning: failed to start deleting subnet %s: %v", name, err)
 				continue
 			}
 			if _, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
-				toolkit.Logf(ctx, "warning: failed to delete subnet %s: %v", name, err)
+				logging.Logf(ctx, "warning: failed to delete subnet %s: %v", name, err)
 			}
 		}
 	}
@@ -238,7 +238,7 @@ func ensureSubnet(ctx context.Context, rg, vnetName, subnetName, cidr string) er
 	}
 
 	return retryOn409(ctx, fmt.Sprintf("creating subnet %s", subnetName), func() error {
-		toolkit.Logf(ctx, "creating subnet %s (%s) in VNet %s", subnetName, cidr, vnetName)
+		logging.Logf(ctx, "creating subnet %s (%s) in VNet %s", subnetName, cidr, vnetName)
 		poller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, rg, vnetName, subnetName, armnetwork.Subnet{
 			Properties: &armnetwork.SubnetPropertiesFormat{
 				AddressPrefix: to.Ptr(cidr),
@@ -267,7 +267,7 @@ func ensureDualStackSubnet(ctx context.Context, rg, vnetName, subnetName, ipv4CI
 	}
 
 	return retryOn409(ctx, fmt.Sprintf("creating dual-stack subnet %s", subnetName), func() error {
-		toolkit.Logf(ctx, "creating dual-stack subnet %s (%s, %s) in VNet %s", subnetName, ipv4CIDR, ipv6CIDR, vnetName)
+		logging.Logf(ctx, "creating dual-stack subnet %s (%s, %s) in VNet %s", subnetName, ipv4CIDR, ipv6CIDR, vnetName)
 		poller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, rg, vnetName, subnetName, armnetwork.Subnet{
 			Properties: &armnetwork.SubnetPropertiesFormat{
 				AddressPrefixes: []*string{to.Ptr(ipv4CIDR), to.Ptr(ipv6CIDR)},
@@ -291,7 +291,7 @@ func ensureBastionIPConnect(ctx context.Context, rg string, bastion armnetwork.B
 	if bastion.Properties.EnableIPConnect != nil && *bastion.Properties.EnableIPConnect {
 		return nil
 	}
-	toolkit.Logf(ctx, "enabling IP connect on existing shared bastion %s", SharedBastionName)
+	logging.Logf(ctx, "enabling IP connect on existing shared bastion %s", SharedBastionName)
 	bastion.Properties.EnableIPConnect = to.Ptr(true)
 	poller, err := config.Azure.BastionHosts.BeginCreateOrUpdate(ctx, rg, SharedBastionName, bastion, nil)
 	if err != nil {
@@ -322,7 +322,7 @@ func ensureSharedBastion(ctx context.Context, rg, location string) (string, erro
 		return "", fmt.Errorf("ensuring bastion subnet: %w", err)
 	}
 
-	toolkit.Logf(ctx, "creating shared bastion public IP %s", SharedBastionPIPName)
+	logging.Logf(ctx, "creating shared bastion public IP %s", SharedBastionPIPName)
 	pipPoller, err := config.Azure.PublicIPAddresses.BeginCreateOrUpdate(ctx, rg, SharedBastionPIPName, armnetwork.PublicIPAddress{
 		Location: to.Ptr(location),
 		SKU: &armnetwork.PublicIPAddressSKU{
@@ -345,7 +345,7 @@ func ensureSharedBastion(ctx context.Context, rg, location string) (string, erro
 		config.Config.SubscriptionID, rg, SharedVNetName,
 	)
 
-	toolkit.Logf(ctx, "creating shared bastion %s (Standard SKU, tunneling enabled)", SharedBastionName)
+	logging.Logf(ctx, "creating shared bastion %s (Standard SKU, tunneling enabled)", SharedBastionName)
 	bastionPoller, err := config.Azure.BastionHosts.BeginCreateOrUpdate(ctx, rg, SharedBastionName, armnetwork.BastionHost{
 		Location: to.Ptr(location),
 		SKU: &armnetwork.SKU{
@@ -400,7 +400,7 @@ func ensureSharedFirewall(ctx context.Context, rg, location string) (string, err
 		if firewallAppRulesUpToDate(existing.AzureFirewall) {
 			return getFirewallPrivateIP(existing.AzureFirewall)
 		}
-		toolkit.Logf(ctx, "shared firewall %s exists but app rules are stale; updating", SharedFirewallName)
+		logging.Logf(ctx, "shared firewall %s exists but app rules are stale; updating", SharedFirewallName)
 		firewallSubnetID := fmt.Sprintf(
 			"/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/AzureFirewallSubnet",
 			config.Config.SubscriptionID, rg, SharedVNetName,
@@ -442,7 +442,7 @@ func ensureSharedFirewall(ctx context.Context, rg, location string) (string, err
 	)
 
 	// Create public IP for firewall
-	toolkit.Logf(ctx, "creating shared firewall public IP %s", SharedFirewallPIPName)
+	logging.Logf(ctx, "creating shared firewall public IP %s", SharedFirewallPIPName)
 	pipPoller, err := config.Azure.PublicIPAddresses.BeginCreateOrUpdate(ctx, rg, SharedFirewallPIPName, armnetwork.PublicIPAddress{
 		Location: to.Ptr(location),
 		SKU: &armnetwork.PublicIPAddressSKU{
@@ -461,7 +461,7 @@ func ensureSharedFirewall(ctx context.Context, rg, location string) (string, err
 	}
 
 	// Create firewall
-	toolkit.Logf(ctx, "creating shared firewall %s", SharedFirewallName)
+	logging.Logf(ctx, "creating shared firewall %s", SharedFirewallName)
 	firewall := getFirewall(ctx, location, firewallSubnetID, *pipResp.ID)
 	fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, rg, SharedFirewallName, *firewall, nil)
 	if err != nil {
@@ -526,7 +526,7 @@ func ensureClusterIdentity(ctx context.Context, rg, location string) (string, st
 		return "", "", fmt.Errorf("checking cluster identity: %w", err)
 	}
 
-	toolkit.Logf(ctx, "creating shared cluster identity %s", SharedClusterIdentity)
+	logging.Logf(ctx, "creating shared cluster identity %s", SharedClusterIdentity)
 	resp, err := config.Azure.UserAssignedIdentities.CreateOrUpdate(ctx, rg, SharedClusterIdentity, armmsi.Identity{
 		Location: to.Ptr(location),
 	}, nil)
@@ -541,7 +541,7 @@ func ensureClusterIdentity(ctx context.Context, rg, location string) (string, st
 		"/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s",
 		config.Config.SubscriptionID, rg, SharedVNetName,
 	)
-	toolkit.Logf(ctx, "assigning Network Contributor to %s on shared VNet", SharedClusterIdentity)
+	logging.Logf(ctx, "assigning Network Contributor to %s on shared VNet", SharedClusterIdentity)
 	_, err = config.Azure.RoleAssignments.Create(ctx, vnetScope, uuid.New().String(), armauthorization.RoleAssignmentCreateParameters{
 		Properties: &armauthorization.RoleAssignmentProperties{
 			PrincipalID:      resp.Properties.PrincipalID,
@@ -658,12 +658,12 @@ func detachNodeResourceGroupReferencesFromClusterSubnet(ctx context.Context, loc
 
 		if shouldDetachRouteTable {
 			routeTableID := *subnetResp.Properties.RouteTable.ID
-			toolkit.Logf(ctx, "detaching route table %q from shared subnet %q because resource group %q is deleting", routeTableID, subnetName, nodeResourceGroup)
+			logging.Logf(ctx, "detaching route table %q from shared subnet %q because resource group %q is deleting", routeTableID, subnetName, nodeResourceGroup)
 			subnetResp.Subnet.Properties.RouteTable = nil
 		}
 		if shouldDetachNSG {
 			nsgID := *subnetResp.Properties.NetworkSecurityGroup.ID
-			toolkit.Logf(ctx, "detaching network security group %q from shared subnet %q because resource group %q is deleting", nsgID, subnetName, nodeResourceGroup)
+			logging.Logf(ctx, "detaching network security group %q from shared subnet %q because resource group %q is deleting", nsgID, subnetName, nodeResourceGroup)
 			subnetResp.Subnet.Properties.NetworkSecurityGroup = nil
 		}
 		if !shouldDetachRouteTable && !shouldDetachNSG {
@@ -829,7 +829,7 @@ func retryOn409(ctx context.Context, operation string, fn func() error) error {
 		}
 		// jittered backoff: 2-8s
 		backoff := time.Duration(2+rand.Intn(6)) * time.Second
-		toolkit.Logf(ctx, "%s: 409 conflict (attempt %d/%d), retrying in %s...", operation, attempt+1, maxRetries, backoff)
+		logging.Logf(ctx, "%s: 409 conflict (attempt %d/%d), retrying in %s...", operation, attempt+1, maxRetries, backoff)
 		select {
 		case <-time.After(backoff):
 		case <-ctx.Done():
