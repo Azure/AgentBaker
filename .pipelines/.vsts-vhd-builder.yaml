@@ -37,6 +37,20 @@ pr:
 pool:
   name: $(POOL_NAME)
 
+parameters:
+  - name: aclBaseImageSource
+    displayName: ACL base image source
+    type: string
+    default: acldevel
+    values:
+      - marketplace
+      - acg
+      - acldevel
+  - name: sigSourceImageVersionOverride
+    displayName: Override SIG_SOURCE_IMAGE_VERSION (acg/acldevel only, blank = use pinned default)
+    type: string
+    default: ""
+
 variables:
   - name: MODE
     value: "linuxVhdMode"
@@ -262,9 +276,6 @@ stages:
         - bash: |
             echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
             echo '##vso[task.setvariable variable=OS_VERSION]acl'
-            echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL'
-            echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acldevel'
-            echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20260910.1199828'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -275,6 +286,11 @@ stages:
             echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
             echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
           displayName: Setup Build Variables
+        - template: ./templates/.acl-base-image-vars.yaml
+          parameters:
+            aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
+            variant: amd64
+            sigSourceImageVersionOverride: ${{ parameters.sigSourceImageVersionOverride }}
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-tl-gen2
@@ -285,9 +301,6 @@ stages:
         - bash: |
             echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
             echo '##vso[task.setvariable variable=OS_VERSION]acl'
-            echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL'
-            echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acldevel'
-            echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20260910.1199828'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -298,6 +311,11 @@ stages:
             echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
             echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
           displayName: Setup Build Variables
+        - template: ./templates/.acl-base-image-vars.yaml
+          parameters:
+            aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
+            variant: arm64
+            sigSourceImageVersionOverride: ${{ parameters.sigSourceImageVersionOverride }}
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-arm64-tl-gen2
@@ -308,9 +326,6 @@ stages:
         - bash: |
             echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
             echo '##vso[task.setvariable variable=OS_VERSION]acl'
-            echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL'
-            echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acldevel'
-            echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20260910.1199828'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -321,6 +336,11 @@ stages:
             echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
             echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
           displayName: Setup Build Variables
+        - template: ./templates/.acl-base-image-vars.yaml
+          parameters:
+            aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
+            variant: amd64
+            sigSourceImageVersionOverride: ${{ parameters.sigSourceImageVersionOverride }}
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-fips-tl-gen2
@@ -331,9 +351,6 @@ stages:
         - bash: |
             echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
             echo '##vso[task.setvariable variable=OS_VERSION]acl'
-            echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL'
-            echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acldevel'
-            echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20260910.1199828'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -344,6 +361,11 @@ stages:
             echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
             echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
           displayName: Setup Build Variables
+        - template: ./templates/.acl-base-image-vars.yaml
+          parameters:
+            aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
+            variant: arm64
+            sigSourceImageVersionOverride: ${{ parameters.sigSourceImageVersionOverride }}
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-arm64-fips-tl-gen2
