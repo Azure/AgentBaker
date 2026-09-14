@@ -681,7 +681,7 @@ func (a *AzureClient) waitForImageVersion(ctx context.Context, image *Image, ver
 
 	var ready bool
 	var lastLoggedState armcompute.GalleryProvisioningState
-	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
+	err = wait.PollUntilContextCancel(ctx, Config.DefaultPollInterval, true, func(ctx context.Context) (bool, error) {
 		resp, getErr := imgVersionClient.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, &armcompute.GalleryImageVersionsClientGetOptions{
 			Expand: to.Ptr(armcompute.ReplicationStatusTypesReplicationStatus),
 		})
@@ -697,13 +697,13 @@ func (a *AzureClient) waitForImageVersion(ctx context.Context, image *Image, ver
 			logging.Logf(ctx, "Image version %s current state: %s", *version.ID, currentState)
 			lastLoggedState = currentState
 		}
-		if currentState != armcompute.GalleryProvisioningStateSucceeded && currentState != armcompute.GalleryProvisioningStateUpdating {
-			return false, fmt.Errorf("image version %s operation failed with state: %s", *version.ID, currentState)
-		}
 		*version = resp.GalleryImageVersion
 		regionReady, replicationErr := imageVersionReplicatedToRegion(version, location)
 		if replicationErr != nil {
 			return false, replicationErr
+		}
+		if currentState != armcompute.GalleryProvisioningStateSucceeded && currentState != armcompute.GalleryProvisioningStateUpdating {
+			return false, fmt.Errorf("image version %s operation failed with state: %s", *version.ID, currentState)
 		}
 		ready = regionReady
 		return ready || (!requireReplication && currentState == armcompute.GalleryProvisioningStateSucceeded), nil
@@ -779,10 +779,6 @@ func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image, l
 	}
 
 	liveVersion := &resp.GalleryImageVersion
-	if *liveVersion.Properties.ProvisioningState != armcompute.GalleryProvisioningStateSucceeded && *liveVersion.Properties.ProvisioningState != armcompute.GalleryProvisioningStateUpdating {
-		return "", fmt.Errorf("unexpected provisioning state: %q", *liveVersion.Properties.ProvisioningState)
-	}
-
 	if err := a.ensureReplication(ctx, image, liveVersion, location); err != nil {
 		return "", fmt.Errorf("Failed ensuring image replication: %w", err)
 	}

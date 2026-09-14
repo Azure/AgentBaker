@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
@@ -57,6 +59,7 @@ func TestEnsureReplicationChecksRegionalReadiness(t *testing.T) {
 		{name: "advertised but still replicating", provisioning: "Succeeded", replication: "InProgress", cancelAfterRead: true, errorContains: "context canceled"},
 		{name: "unknown regional state", provisioning: "Succeeded", replication: "Unknown", cancelAfterRead: true, errorContains: "context canceled"},
 		{name: "regional replication failed", provisioning: "Succeeded", replication: "Failed", errorContains: "replication failed in eastus"},
+		{name: "aggregate and regional failure", provisioning: "Failed", replication: "Failed", errorContains: "replication failed in eastus"},
 		{name: "version failed", provisioning: "Failed", replication: "Completed", errorContains: "operation failed with state: Failed"},
 		{name: "another region updating", provisioning: "Updating", replication: "Completed", cancelAfterRead: true},
 	} {
@@ -117,4 +120,60 @@ func TestEnsureReplicationPreservesLiveRegions(t *testing.T) {
 	require.NoError(t, client.ensureReplication(ctx, image, &snapshot, "eastus"))
 	require.True(t, updated)
 	require.True(t, readAfterUpdate)
+}
+
+func TestEnsureSIGImageVersionReportsRegionalFailure(t *testing.T) {
+	ctx := logging.WithLogger(t.Context(), discardLogger{})
+	client := galleryTestClient(func(req *http.Request) string {
+		require.Equal(t, http.MethodGet, req.Method)
+		return strings.Replace(galleryTestVersion("Failed", "Failed"),
+			`"state": "Failed"`, `"state": "Failed", "details": "regional storage quota exceeded"`, 1)
+	})
+	image := &Image{Name: "image", Version: "1.0.0", Gallery: &Gallery{SubscriptionID: "test", ResourceGroupName: "rg", Name: "gallery"}}
+	_, err := client.EnsureSIGImageVersion(ctx, image, "eastus")
+	require.ErrorContains(t, err, "replication failed in eastus: regional storage quota exceeded")
+}
+
+func TestEnsureReplicationUsesCallerDeadlineAndPollInterval(t *testing.T) {
+	for _, provisioning := range []string{"Succeeded", "Updating"} {
+		for _, outcome := range []string{"deadline", "completed"} {
+			t.Run(provisioning+"/"+outcome, func(t *testing.T) {
+				previousInterval := Config.DefaultPollInterval
+				Config.DefaultPollInterval = 37 * time.Second
+				defer func() { Config.DefaultPollInterval = previousInterval }()
+				synctest.Test(t, func(t *testing.T) {
+					ctx, cancel := context.WithTimeout(logging.WithLogger(t.Context(), discardLogger{}), 12*time.Minute)
+					defer cancel()
+					start := time.Now()
+					var reads []time.Duration
+					client := galleryTestClient(func(req *http.Request) string {
+						require.Equal(t, http.MethodGet, req.Method)
+						reads = append(reads, time.Since(start))
+						regionalState := "InProgress"
+						if outcome == "completed" && time.Since(start) >= 11*time.Minute {
+							regionalState = "Completed"
+						}
+						return galleryTestVersion(provisioning, regionalState)
+					})
+					image := &Image{Name: "image", Gallery: &Gallery{SubscriptionID: "test", ResourceGroupName: "rg", Name: "gallery"}}
+					var snapshot armcompute.GalleryImageVersion
+					require.NoError(t, json.Unmarshal([]byte(galleryTestVersion(provisioning, "InProgress")), &snapshot))
+					err := client.ensureReplication(ctx, image, &snapshot, "eastus")
+					if outcome == "completed" {
+						require.NoError(t, err)
+						require.GreaterOrEqual(t, time.Since(start), 11*time.Minute)
+					} else {
+						require.ErrorIs(t, err, context.DeadlineExceeded)
+						require.Equal(t, 12*time.Minute, time.Since(start))
+					}
+					require.Greater(t, len(reads), 2)
+					for i := 1; i < len(reads); i++ {
+						if reads[i] != reads[i-1] {
+							require.Equal(t, Config.DefaultPollInterval, reads[i]-reads[i-1])
+						}
+					}
+				})
+			})
+		}
+	}
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"gopkg.in/yaml.v3"
@@ -587,14 +588,14 @@ func createVMSS(
 	}
 	// We want to generate SSH instructions as soon as possible, so we can debug CSE issues
 	// Wait for VMSS VM to appear before extracting the private IP
-	vm.VM, err = waitForVMSSVM(ctx, s)
+	vm.VM, err = waitForVMSSVM(ctx, s, operation)
 	if err != nil {
 		return vm, fmt.Errorf("failed to wait for VMSS VM: %w", err)
 	}
 
 	vm.PrivateIP, err = getPrivateIPFromVMSSVM(ctx, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID)
 	if err != nil {
-		return vm, fmt.Errorf("failed to get VM private IP address: %w", err)
+		return vm, errors.Join(pollVMSSCreation(ctx, operation), fmt.Errorf("failed to get VM private IP address: %w", err))
 	}
 
 	// NOTE: teardown (log extraction + VMSS deletion) is registered once by the caller
@@ -761,7 +762,7 @@ func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.
 }
 
 // waitForVMSSVM polls until a VMSS VM instance appears with network profile or the timeout elapses.
-func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachineScaleSetVM, error) {
+func waitForVMSSVM(ctx context.Context, s *Scenario, operation *runtime.Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse]) (*armcompute.VirtualMachineScaleSetVM, error) {
 	ticker := time.NewTicker(config.Config.DefaultPollInterval)
 	defer ticker.Stop()
 
@@ -785,6 +786,10 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 			}
 		}
 
+		if err := pollVMSSCreation(ctx, operation); err != nil {
+			return nil, err
+		}
+
 		select {
 		case <-ctx.Done():
 			if lastErr != nil {
@@ -794,6 +799,17 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 		case <-ticker.C:
 		}
 	}
+}
+
+func pollVMSSCreation(ctx context.Context, operation *runtime.Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse]) error {
+	if _, err := operation.Poll(ctx); err != nil {
+		return fmt.Errorf("polling VMSS creation: %w", err)
+	}
+	if operation.Done() {
+		_, err := operation.Result(ctx)
+		return err
+	}
+	return nil
 }
 
 // getPrivateIPFromVMSSVM extracts the private IP address from a VMSS VM by querying its network interfaces.
