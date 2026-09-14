@@ -12,6 +12,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
@@ -202,7 +203,7 @@ func init() {
 		},
 	}
 
-	getVersions := func(s *Scenario, tc testCase) (string, string, string, error) {
+	getVersions := func(tc testCase) (string, string, string, error) {
 		dcgmExporterVersion, err := expectedPackageVersion("dcgm-exporter", tc.os, tc.osVersion)
 		if err != nil {
 			return "", "", "", err
@@ -216,15 +217,10 @@ func init() {
 			return "", "", "", err
 		}
 
-		s.Logger.Logf("Expected versions from components.json:")
-		s.Logger.Logf("  dcgm-exporter: %s", dcgmExporterVersion)
-		s.Logger.Logf("  datacenter-gpu-manager-4-core: %s", expectedCoreVersion)
-		s.Logger.Logf("  datacenter-gpu-manager-4-proprietary: %s", expectedPropVersion)
-
 		return dcgmExporterVersion, expectedCoreVersion, expectedPropVersion, nil
 	}
 
-	parseVersions := func(s *Scenario, tc testCase, cmdLineOutput string) (string, string, error) {
+	parseVersions := func(tc testCase, cmdLineOutput string) (string, string, error) {
 		coreRegex := regexp.MustCompile(tc.coreRegex)
 		coreMatches := coreRegex.FindStringSubmatch(cmdLineOutput)
 
@@ -239,10 +235,6 @@ func init() {
 		}
 		actualCoreVersion := coreMatches[1]
 		actualPropVersion := propMatches[1]
-
-		s.Logger.Logf("Actual versions from dcgm-exporter package:")
-		s.Logger.Logf("  datacenter-gpu-manager-4-core: %s", actualCoreVersion)
-		s.Logger.Logf("  datacenter-gpu-manager-4-proprietary: %s", actualPropVersion)
 
 		return actualCoreVersion, actualPropVersion, nil
 	}
@@ -260,33 +252,42 @@ func init() {
 				SkipDefaultValidation: true,
 				Validator: func(ctx context.Context, s *Scenario) error {
 					// Step 1: Get expected versions from components.json
-					dcgmExporterVersion, expectedCoreVersion, expectedPropVersion, err := getVersions(s, tc)
+					dcgmExporterVersion, expectedCoreVersion, expectedPropVersion, err := getVersions(tc)
 					if err != nil {
 						return err
 					}
 
+					logging.Logf(ctx, "Expected versions from components.json:")
+					logging.Logf(ctx, "  dcgm-exporter: %s", dcgmExporterVersion)
+					logging.Logf(ctx, "  datacenter-gpu-manager-4-core: %s", expectedCoreVersion)
+					logging.Logf(ctx, "  datacenter-gpu-manager-4-proprietary: %s", expectedPropVersion)
+
 					// Step 2: Download dcgm-exporter package from PMC
-					s.Logger.Logf("Downloading dcgm-exporter package from PMC...")
+					logging.Logf(ctx, "Downloading dcgm-exporter package from PMC...")
 					downloadCmd := fmt.Sprintf(tc.downloadCmd, dcgmExporterVersion)
 					if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, downloadCmd, 0, "Failed to download dcgm-exporter package"); err != nil {
 						return err
 					}
 
 					// Step 3: Extract dependency versions from the package
-					s.Logger.Logf("Extracting dependency versions from package...")
+					logging.Logf(ctx, "Extracting dependency versions from package...")
 					result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, tc.extractDepsCmd, 0, "Failed to extract dependencies from package")
 					if err != nil {
 						return err
 					}
 
 					dependsOutput := result.stdout
-					s.Logger.Logf("Package dependencies: %s", dependsOutput)
+					logging.Logf(ctx, "Package dependencies: %s", dependsOutput)
 
 					// Step 4: Parse and verify versions match components.json
-					actualCoreVersion, actualPropVersion, err := parseVersions(s, tc, dependsOutput)
+					actualCoreVersion, actualPropVersion, err := parseVersions(tc, dependsOutput)
 					if err != nil {
 						return err
 					}
+
+					logging.Logf(ctx, "Actual versions from dcgm-exporter package:")
+					logging.Logf(ctx, "  datacenter-gpu-manager-4-core: %s", actualCoreVersion)
+					logging.Logf(ctx, "  datacenter-gpu-manager-4-proprietary: %s", actualPropVersion)
 
 					// Verify versions match
 					if err := errors.Join(
@@ -300,7 +301,7 @@ func init() {
 						return err
 					}
 
-					s.Logger.Logf("✅ Version compatibility verified: dcgm-exporter %s is compatible with DCGM packages %s",
+					logging.Logf(ctx, "✅ Version compatibility verified: dcgm-exporter %s is compatible with DCGM packages %s",
 						dcgmExporterVersion, expectedCoreVersion)
 					return nil
 				},

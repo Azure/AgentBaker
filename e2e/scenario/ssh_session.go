@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -40,7 +40,7 @@ func retrySSHSessionOpen(ctx context.Context, open func() error) error {
 			return err
 		}
 		if lastErr == nil {
-			toolkit.Logf(ctx, "SSH session open rejected; retrying: %v", err)
+			logging.Logf(ctx, "SSH session open rejected; retrying: %v", err)
 		}
 		lastErr = err
 		timer := time.NewTimer(delay + time.Duration(rand.IntN(100))*time.Millisecond)

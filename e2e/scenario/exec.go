@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/logging"
 	scp "github.com/bramvdbogaerde/go-scp"
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
@@ -192,7 +193,7 @@ func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario,
 
 	expectedExitCodeStr := fmt.Sprint(expectedExitCode)
 	if expectedExitCodeStr != execResult.exitCode {
-		s.Logger.Logf("Command: %s\nStdout: %s\nStderr: %s", cmd, execResult.stdout, execResult.stderr)
+		logging.Logf(ctx, "Command: %s\nStdout: %s\nStderr: %s", cmd, execResult.stdout, execResult.stderr)
 		return execResult, fmt.Errorf("expected exit code %s, got %s for command %q: %s", expectedExitCodeStr, execResult.exitCode, cmd, additionalErrorMessage)
 	}
 	return execResult, nil
