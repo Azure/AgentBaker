@@ -141,19 +141,11 @@ parameters:
     displayName: Build Azure Container Linux ARM64 FIPS TL Gen2
     type: boolean
     default: true
-  - name: aclBaseImageSource
-    displayName: ACL base image source
-    type: string
-    default: acldevel
-    values:
-      - marketplace
-      - acg
-      - acldevel
-  - name: sigSourceImageVersionOverride
-    displayName: Override SIG_SOURCE_IMAGE_VERSION (acg/acldevel only, blank = use pinned default)
-    type: string
-    default: ""
 variables:
+  - name: aclBaseImageSource
+    value: acldevel
+  - name: sigSourceImageVersionOverride
+    value: ""
   - name: MODE
     value: "linuxVhdMode"
   - group: aks-vuln-to-kusto
@@ -841,9 +833,9 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.acl-build-vars.yaml
             parameters:
-              aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
+              aclBaseImageSource: ${{ variables.aclBaseImageSource }}
               variant: amd64
-              sigSourceImageVersionOverride: ${{ parameters.sigSourceImageVersionOverride }}
+              sigSourceImageVersionOverride: ${{ variables.sigSourceImageVersionOverride }}
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
@@ -867,9 +859,9 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.acl-build-vars.yaml
             parameters:
-              aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
+              aclBaseImageSource: ${{ variables.aclBaseImageSource }}
               variant: arm64
-              sigSourceImageVersionOverride: ${{ parameters.sigSourceImageVersionOverride }}
+              sigSourceImageVersionOverride: ${{ variables.sigSourceImageVersionOverride }}
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
@@ -893,9 +885,9 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.acl-build-vars.yaml
             parameters:
-              aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
+              aclBaseImageSource: ${{ variables.aclBaseImageSource }}
               variant: amd64
-              sigSourceImageVersionOverride: ${{ parameters.sigSourceImageVersionOverride }}
+              sigSourceImageVersionOverride: ${{ variables.sigSourceImageVersionOverride }}
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
@@ -919,9 +911,9 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.acl-build-vars.yaml
             parameters:
-              aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
+              aclBaseImageSource: ${{ variables.aclBaseImageSource }}
               variant: arm64
-              sigSourceImageVersionOverride: ${{ parameters.sigSourceImageVersionOverride }}
+              sigSourceImageVersionOverride: ${{ variables.sigSourceImageVersionOverride }}
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
