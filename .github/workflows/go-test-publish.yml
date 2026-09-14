@@ -74,6 +74,9 @@ jobs:
         # codecoveragesummary:v1.3.0 even when the action is pinned to a commit SHA - that's
         # a mutable tag, so the SHA pin doesn't actually pin what runs with pull-requests:
         # write. Invoke the image by digest directly instead of going through the action.
+        # --hidebranch: Go coverage profiles don't record branch data (gocover-cobertura
+        # always emits branches-covered=0/branches-valid=0/branch-rate=0), so there's nothing
+        # meaningful to show there.
         run: |
           set -ex
           docker run --rm \
@@ -84,7 +87,7 @@ jobs:
             --badge true \
             --fail false \
             --format markdown \
-            --hidebranch false \
+            --hidebranch true \
             --hidecomplexity true \
             --indicators true \
             --output both \

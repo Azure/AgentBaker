@@ -103,6 +103,11 @@ jobs:
         # codecoveragesummary:v1.3.0 even when the action is pinned to a commit SHA - that's
         # a mutable tag, so the SHA pin doesn't actually pin what runs with checks/pull-requests
         # write. Invoke the image by digest directly instead of going through the action.
+        # --hidebranch: Pester's Cobertura export reports a hardcoded branch-rate of 1.0 at
+        # the summary level even though branches-covered/branches-valid are both 0 (no real
+        # branch data), which without this flag renders as a misleading "100% (0 / 0)"
+        # alongside packages correctly showing 0% - see this exact contradiction in the
+        # pre-workflow_run-migration coverage comment still on this PR.
         run: |
           set -ex
           docker run --rm \
@@ -113,7 +118,7 @@ jobs:
             --badge true \
             --fail false \
             --format markdown \
-            --hidebranch false \
+            --hidebranch true \
             --hidecomplexity true \
             --indicators true \
             --output both \
