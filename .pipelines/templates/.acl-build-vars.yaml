@@ -18,9 +18,10 @@
 # newer acldevel build without editing this file). Leave empty to use the
 # pinned default below.
 #
-# IMG_CUSTOMIZER_CONTAINER/IMG_CUSTOMIZER_CONTAINER_FALLBACK are pinned here
-# rather than parameterized, since every ACL job currently uses the same
-# image-customizer version regardless of base-image source or variant.
+# imgCustomizerContainer/imgCustomizerContainerFallback default to the pin
+# every ACL job currently uses, but are exposed as parameters so a caller
+# can override them (e.g. to test a newer image-customizer version) without
+# editing this file.
 parameters:
   - name: aclBaseImageSource
     type: string
@@ -36,11 +37,17 @@ parameters:
   - name: sigSourceImageVersionOverride
     type: string
     default: ""
+  - name: imgCustomizerContainer
+    type: string
+    default: mcr.microsoft.com/azurelinux/imagecustomizer:1.5
+  - name: imgCustomizerContainerFallback
+    type: string
+    default: ghcr.io/microsoft/imagecustomizer:1.5.0
 
 steps:
   - bash: |
-      echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
-      echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
+      echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]${{ parameters.imgCustomizerContainer }}'
+      echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]${{ parameters.imgCustomizerContainerFallback }}'
     displayName: Set ACL image-customizer vars
 
   - ${{ if eq(parameters.aclBaseImageSource, 'marketplace') }}:
