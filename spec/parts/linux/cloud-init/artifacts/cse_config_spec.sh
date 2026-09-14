@@ -1977,6 +1977,46 @@ providers:
             The contents of file "$LOCALDNS_ENV_FILE" should include "SHOULD_ENABLE_HOSTS_PLUGIN=true"
         End
 
+        # CoreDNS service IP is persisted so the localdns .11 fallback can read the
+        # real kube-dns ClusterIP from the environment file (not by parsing the corefile).
+        It 'should persist COREDNS_SERVICE_IP to the environment file when set'
+            LOCALDNS_COREFILE_BASE=$(echo -n "corefile without hosts plugin" | base64)
+            LOCALDNS_ENV_FILE="$TMP_DIR/environment"
+            COREDNS_SERVICE_IP="10.0.0.10"
+
+            When call enableLocalDNS
+            The status should be success
+            The stdout should include "Enable localdns succeeded."
+            The path "$LOCALDNS_ENV_FILE" should be file
+            The contents of file "$LOCALDNS_ENV_FILE" should include "COREDNS_SERVICE_IP=10.0.0.10"
+        End
+
+        # Custom service CIDR: whatever ClusterIP is provided must be persisted verbatim,
+        # so the fallback forwards to the correct kube-dns ClusterIP (not a hardcoded default).
+        It 'should persist a custom COREDNS_SERVICE_IP verbatim'
+            LOCALDNS_COREFILE_BASE=$(echo -n "corefile without hosts plugin" | base64)
+            LOCALDNS_ENV_FILE="$TMP_DIR/environment"
+            COREDNS_SERVICE_IP="172.16.0.10"
+
+            When call enableLocalDNS
+            The status should be success
+            The path "$LOCALDNS_ENV_FILE" should be file
+            The contents of file "$LOCALDNS_ENV_FILE" should include "COREDNS_SERVICE_IP=172.16.0.10"
+        End
+
+        # The key must always be written (empty when unset) so the fallback unit's
+        # EnvironmentFile= read is well-defined rather than referencing a missing key.
+        It 'should write an empty COREDNS_SERVICE_IP when unset'
+            LOCALDNS_COREFILE_BASE=$(echo -n "corefile without hosts plugin" | base64)
+            LOCALDNS_ENV_FILE="$TMP_DIR/environment"
+            unset COREDNS_SERVICE_IP
+
+            When call enableLocalDNS
+            The status should be success
+            The path "$LOCALDNS_ENV_FILE" should be file
+            The contents of file "$LOCALDNS_ENV_FILE" should include "COREDNS_SERVICE_IP="
+        End
+
         # Old CSE + new VHD backward compatibility.
         # An old AgentBaker service only sets LOCALDNS_GENERATED_COREFILE (not LOCALDNS_COREFILE_BASE).
         # The new VHD's generateLocalDNSFiles must fall back to the legacy variable.
