@@ -785,36 +785,7 @@ cleanup_iptables_and_dns() {
     # can fail and leave the node pointed at the dead LocalDNS listener. Remove
     # the configured drop-in and any matching drop-ins directly; this also works
     # when NETWORK_DROPIN_FILE was never initialized in this process.
-    # Remove any existing localdns iptables rules by searching for our comment.
-    echo "Cleaning up any existing localdns iptables rules..."
-
-    # Get list of existing localdns rules by searching for our comment.
-    existing_rules=$(iptables -w -t raw -L --line-numbers -n | grep "localdns: skip conntrack" | awk '{print $1}' | sort -nr)
-
-    if [ -n "$existing_rules" ]; then
-        echo "Found existing localdns iptables rules, removing them..."
-        failure_occurred=false
-        for chain in OUTPUT PREROUTING; do
-            # Get rule numbers for this chain and remove them (in reverse order to maintain line numbers)
-            chain_rules=$(iptables -w -t raw -L "$chain" --line-numbers -n | grep "localdns: skip conntrack" | awk '{print $1}' | sort -nr)
-            for rule_num in $chain_rules; do
-                if iptables -w -t raw -D "$chain" "$rule_num" 2>/dev/null; then
-                    echo "Successfully removed existing localdns iptables rule from $chain chain (rule $rule_num)."
-                else
-                    echo "Failed to remove existing localdns iptables rule from $chain chain (rule $rule_num)."
-                    failure_occurred=true
-                fi
-            done
-        done
-        if [ "$failure_occurred" = true ]; then
-            # Record the failure but continue so DNS restoration still runs.
-            cleanup_failed=true
-        fi
-    else
-        echo "No existing localdns iptables rules found."
-    fi
-
-    # Revert DNS configuration and network reload. Keep the dummy interface
+    # Revert DNS configuration before touching iptables. Keep the dummy interface
     # and its .10/.11 addresses here: if an orphaned CoreDNS child survived a
     # failed cgroup teardown, removing the interface would break a listener
     # that may still be serving pods. The service-recovery path handles the
@@ -837,6 +808,36 @@ cleanup_iptables_and_dns() {
         cleanup_failed=true
     else
         echo "Reloading network configuration succeeded."
+    fi
+
+    # Remove any existing localdns iptables rules by searching for our comment.
+    # This runs after DNS restoration so an xtables lock cannot delay removal of
+    # the network drop-in that points the node at the LocalDNS listener.
+    echo "Cleaning up any existing localdns iptables rules..."
+
+    # Get list of existing localdns rules by searching for our comment.
+    existing_rules=$(iptables -w -t raw -L --line-numbers -n | grep "localdns: skip conntrack" | awk '{print $1}' | sort -nr)
+
+    if [ -n "$existing_rules" ]; then
+        echo "Found existing localdns iptables rules, removing them..."
+        failure_occurred=false
+        for chain in OUTPUT PREROUTING; do
+            # Get rule numbers for this chain and remove them (in reverse order to maintain line numbers)
+            chain_rules=$(iptables -w -t raw -L "$chain" --line-numbers -n | grep "localdns: skip conntrack" | awk '{print $1}' | sort -nr)
+            for rule_num in $chain_rules; do
+                if iptables -w -t raw -D "$chain" "$rule_num" 2>/dev/null; then
+                    echo "Successfully removed existing localdns iptables rule from $chain chain (rule $rule_num)."
+                else
+                    echo "Failed to remove existing localdns iptables rule from $chain chain (rule $rule_num)."
+                    failure_occurred=true
+                fi
+            done
+        done
+        if [ "$failure_occurred" = true ]; then
+            cleanup_failed=true
+        fi
+    else
+        echo "No existing localdns iptables rules found."
     fi
 
     if [ "$cleanup_failed" = true ]; then
