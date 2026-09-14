@@ -313,6 +313,13 @@ The runner calls the scenario package to execute a scenario once. The scenario p
 cleans up that execution and returns its outcome. The runner decides whether to retry.
 The scenario package does not depend on the runner.
 
+Cleanup callbacks run concurrently. Register only independent work with `Scenario.Cleanup`;
+keep dependent operations in one callback, such as collecting VM logs before deleting that VM.
+Linux log collection runs commands concurrently in one remote Bash script and returns one
+compressed archive through the shared SSH execution layer. Each log retains its stdout,
+stderr, and exit code. Commands have a timeout that reserves time to return partial output.
+Collection errors are saved in the affected log files; the console reports failed file names.
+
 The other directories contain helper packages and embedded resources.
 
 ## E2E VHDs.
