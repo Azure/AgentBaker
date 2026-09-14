@@ -118,7 +118,8 @@ if [ "${OS_SKU}" = "Ubuntu" ] && [ "${OS_VERSION}" = "22.04" ] && [ "$(printf %s
 
     # Register FIPS feature and create VM using REST API. Exit if any step fails.
     ensure_fips_feature_registered || exit $?
-    create_fips_vm "$VM_SIZE" || exit $?
+    create_fips_vm "$RESOURCE_GROUP_NAME" "$SCAN_VM_NAME" "$SCAN_VM_ADMIN_USERNAME" "$SCAN_VM_ADMIN_PASSWORD" \
+        "$VHD_IMAGE" "$SCANNING_NIC_ID" "$UMSI_RESOURCE_ID" "$VM_SIZE" "$ENABLE_TRUSTED_LAUNCH" || exit $?
 else
     echo "Creating VM using standard az vm create command..."
 

@@ -61,16 +61,16 @@ set -x
 # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
 # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
 TARGET_COMMAND_STRING=""
+VM_SIZE="Standard_D2ds_v5"
 if [ "${ARCHITECTURE,,}" = "arm64" ]; then
   # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
   if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
-    TARGET_COMMAND_STRING="--size Standard_D2pds_v6"
+    VM_SIZE="Standard_D2pds_v6"
   else
-    TARGET_COMMAND_STRING="--size Standard_D2pds_v5"
+    VM_SIZE="Standard_D2pds_v5"
   fi
-else
-  TARGET_COMMAND_STRING="--size Standard_D2ds_v5"
 fi
+TARGET_COMMAND_STRING="--size $VM_SIZE"
 
 if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
   if [ -n "$TARGET_COMMAND_STRING" ]; then
@@ -82,7 +82,8 @@ fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     # We completely re-assign the TARGET_COMMAND_STRING string here to ensure that no artifacts from earlier conditionals are included
-    TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+    VM_SIZE="Standard_DC8ads_v5"
+    TARGET_COMMAND_STRING="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
 # NVIDIA GB specific test VM configuration (uses standard ARM64 VM for now)
@@ -104,14 +105,31 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       echo "unable to create new NIC for test VM"
       exit 1
   fi
-  az vm create \
-      --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
-      --name "$VM_NAME" \
-      --image "$MANAGED_SIG_ID" \
-      --admin-username "$TEST_VM_ADMIN_USERNAME" \
-      --admin-password "$TEST_VM_ADMIN_PASSWORD" \
-      --nics "$TESTING_NIC_ID" \
-      ${TARGET_COMMAND_STRING}
+  if [ "${OS_SKU}" = "Ubuntu" ] && [ "${OS_VERSION}" = "22.04" ] && [ "$(printf %s "${ENABLE_FIPS}" | tr '[:upper:]' '[:lower:]')" = "true" ]; then
+    # Ubuntu 22.04 FIPS VHDs are not fully onboarded to FIPS 140-3 extension support: a test
+    # VM created via the standard `az vm create` path lacks the `enableFips1403Encryption`
+    # capability, so WALinuxAgent cannot decrypt the RunCommand extension's protected settings
+    # (fails with "unregistered scheme: file" while loading its transport cert), and
+    # `az vm run-command invoke` for the content test fails deterministically. Create the VM
+    # via the FIPS-aware REST API path instead, matching the workaround already used for the
+    # scanning VM in vhd-scanning.sh. See vhdbuilder/packer/fips-helper.sh for details.
+    FULL_PATH=$(realpath "$0")
+    CDIR=$(dirname "$FULL_PATH")
+    # shellcheck source=vhdbuilder/packer/fips-helper.sh
+    source "$CDIR/../fips-helper.sh"
+    ensure_fips_feature_registered || exit $?
+    create_fips_vm "$TEST_VM_RESOURCE_GROUP_NAME" "$VM_NAME" "$TEST_VM_ADMIN_USERNAME" "$TEST_VM_ADMIN_PASSWORD" \
+        "$MANAGED_SIG_ID" "$TESTING_NIC_ID" "" "$VM_SIZE" "$ENABLE_TRUSTED_LAUNCH" || exit $?
+  else
+    az vm create \
+        --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
+        --name "$VM_NAME" \
+        --image "$MANAGED_SIG_ID" \
+        --admin-username "$TEST_VM_ADMIN_USERNAME" \
+        --admin-password "$TEST_VM_ADMIN_PASSWORD" \
+        --nics "$TESTING_NIC_ID" \
+        ${TARGET_COMMAND_STRING}
+  fi
 else
   az vm create \
       --debug \
