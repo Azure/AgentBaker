@@ -24,10 +24,13 @@ import (
 )
 
 const (
-	aclCOSIAMD64ImageVersion    = "0.20260827.1192019"
-	aclCOSIAMD64ImageID         = "/SharedGalleries/035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL/Images/acldevel/Versions/0.20260827.1192019"
-	remoteCOSIConfigPath        = "/home/azureuser/update-config.yaml"
-	cosiAMD64PublishingArtifact = "cosi-publishing-info-acl-tl-gen2"
+	aclCOSIAMD64ImageVersion        = "0.20260827.1192019"
+	aclCOSIAMD64ImageID             = "/SharedGalleries/035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL/Images/acldevel/Versions/0.20260827.1192019"
+	remoteCOSIConfigPath            = "/home/azureuser/update-config.yaml"
+	cosiAMD64PublishingArtifact     = "cosi-publishing-info-acl-tl-gen2"
+	cosiARM64PublishingArtifact     = "cosi-publishing-info-acl-arm64-tl-gen2"
+	cosiAMD64FIPSPublishingArtifact = "cosi-publishing-info-acl-fips-tl-gen2"
+	cosiARM64FIPSPublishingArtifact = "cosi-publishing-info-acl-arm64-fips-tl-gen2"
 )
 
 // cosiPublishingInfo mirrors the JSON written by convert-vhd-to-cosi.sh.
@@ -58,6 +61,48 @@ func loadCOSIPublishingInfo(t *testing.T, artifactName string) (cosiPublishingIn
 	require.NotEmpty(t, info.CosiURL, "cosi_url is empty in %s", infoPath)
 	require.NotEmpty(t, info.MetadataSHA384, "metadata_sha384 is empty in %s", infoPath)
 	return info, true
+}
+
+// Test_ACL_COSI validates the contents of the AMD64 ACL COSI artifact
+// (tar structure, metadata.json, and image SHA-384 hashes) without
+// provisioning a VM.
+func Test_ACL_COSI(t *testing.T) {
+	info, ok := loadCOSIPublishingInfo(t, cosiAMD64PublishingArtifact)
+	if !ok {
+		t.Skip("COSI artifact not available for acl-tl-gen2, skipping COSI content validation")
+	}
+	t.Parallel()
+	ValidateACLCOSI(t, info.CosiURL)
+}
+
+// Test_ACL_COSI_ARM64 validates the contents of the ARM64 ACL COSI artifact.
+func Test_ACL_COSI_ARM64(t *testing.T) {
+	info, ok := loadCOSIPublishingInfo(t, cosiARM64PublishingArtifact)
+	if !ok {
+		t.Skip("COSI artifact not available for acl-arm64-tl-gen2, skipping COSI content validation")
+	}
+	t.Parallel()
+	ValidateACLCOSI(t, info.CosiURL)
+}
+
+// Test_ACL_COSI_FIPS validates the contents of the AMD64 FIPS ACL COSI artifact.
+func Test_ACL_COSI_FIPS(t *testing.T) {
+	info, ok := loadCOSIPublishingInfo(t, cosiAMD64FIPSPublishingArtifact)
+	if !ok {
+		t.Skip("COSI artifact not available for acl-fips-tl-gen2, skipping COSI content validation")
+	}
+	t.Parallel()
+	ValidateACLCOSI(t, info.CosiURL)
+}
+
+// Test_ACL_COSI_ARM64_FIPS validates the contents of the ARM64 FIPS ACL COSI artifact.
+func Test_ACL_COSI_ARM64_FIPS(t *testing.T) {
+	info, ok := loadCOSIPublishingInfo(t, cosiARM64FIPSPublishingArtifact)
+	if !ok {
+		t.Skip("COSI artifact not available for acl-arm64-fips-tl-gen2, skipping COSI content validation")
+	}
+	t.Parallel()
+	ValidateACLCOSI(t, info.CosiURL)
 }
 
 func Test_ACL_COSIUpdate_AMD64(t *testing.T) {
