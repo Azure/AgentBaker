@@ -1,6 +1,13 @@
 name: Go Unit Tests
 on: pull_request
 
+# Cancel a superseded run when a new commit is pushed to the same PR, so its (now stale)
+# results never race the newer push's publisher for the coverage comment - see
+# go-test-publish.yml for the belt-and-braces check on the publishing side too.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   go-test:
     runs-on: ubuntu-latest

@@ -1,6 +1,13 @@
 name: Windows Powershell Unit Test
 on: pull_request
 
+# Cancel a superseded run when a new commit is pushed to the same PR, so its (now stale)
+# results never race the newer push's publisher for the test-results/coverage comments - see
+# windows-ut-publish.yml for the belt-and-braces check on the publishing side too.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # To run these tests on a Windows machine, you can use the commands below. However, most people have their git repo
 # stored in WSL. So you'll need to change directory to whereever you have the repo checked out in WSL. Something like this:
 # cd \\wsl$\Ubuntu\home\tim\git\AgentBaker
