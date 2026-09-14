@@ -7,6 +7,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/logging"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -54,7 +55,7 @@ func ValidateNodeCanScaleToCapacity(ctx context.Context, s *Scenario) (retErr er
 		return err
 	}
 
-	s.Logger.Logf("scaling deployment %q to %d available slots on node %q", deployment.Name, initialReplicas, nodeName)
+	logging.Logf(ctx, "scaling deployment %q to %d available slots on node %q", deployment.Name, initialReplicas, nodeName)
 	if _, err := s.Runtime.Kube.Typed.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
 		return fmt.Errorf("create scale validation deployment %q: %w", deployment.Name, err)
 	}
@@ -78,7 +79,7 @@ func ValidateNodeCanScaleToCapacity(ctx context.Context, s *Scenario) (retErr er
 			}
 			consecutiveStable = 0
 			lastPollErr = fmt.Errorf("get node %q while scaling pods: %w", nodeName, err)
-			s.Logger.Log(lastPollErr.Error())
+			logging.Log(ctx, lastPollErr.Error())
 			return false, nil
 		}
 		if !scaleValidationNodeReady(node) {
@@ -103,7 +104,7 @@ func ValidateNodeCanScaleToCapacity(ctx context.Context, s *Scenario) (retErr er
 		if err != nil {
 			consecutiveStable = 0
 			lastPollErr = fmt.Errorf("list pods on node %q while scaling: %w", nodeName, err)
-			s.Logger.Log(lastPollErr.Error())
+			logging.Log(ctx, lastPollErr.Error())
 			return false, nil
 		}
 		lastPollErr = nil
@@ -122,7 +123,7 @@ func ValidateNodeCanScaleToCapacity(ctx context.Context, s *Scenario) (retErr er
 		if err != nil {
 			consecutiveStable = 0
 			lastPollErr = fmt.Errorf("get scale validation deployment %q: %w", deployment.Name, err)
-			s.Logger.Log(lastPollErr.Error())
+			logging.Log(ctx, lastPollErr.Error())
 			return false, nil
 		}
 
@@ -131,12 +132,12 @@ func ValidateNodeCanScaleToCapacity(ctx context.Context, s *Scenario) (retErr er
 			if _, err := s.Runtime.Kube.Typed.AppsV1().Deployments(deployment.Namespace).Patch(ctx, deployment.Name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
 				consecutiveStable = 0
 				lastPollErr = fmt.Errorf("update scale validation deployment %q to %d replicas: %w", deployment.Name, desiredReplicas, err)
-				s.Logger.Log(lastPollErr.Error())
+				logging.Log(ctx, lastPollErr.Error())
 				return false, nil
 			}
 			finalReplicas = desiredReplicas
 			consecutiveStable = 0
-			s.Logger.Logf("adjusted scale validation deployment %q to %d available slots", deployment.Name, desiredReplicas)
+			logging.Logf(ctx, "adjusted scale validation deployment %q to %d available slots", deployment.Name, desiredReplicas)
 			return false, nil
 		}
 
@@ -150,7 +151,7 @@ func ValidateNodeCanScaleToCapacity(ctx context.Context, s *Scenario) (retErr er
 		} else {
 			consecutiveStable = 0
 		}
-		s.Logger.Logf(
+		logging.Logf(ctx,
 			"scale validation deployment %q: %d/%d replicas ready, stability %d/%d",
 			deployment.Name,
 			current.Status.ReadyReplicas,
@@ -179,7 +180,7 @@ func ValidateNodeCanScaleToCapacity(ctx context.Context, s *Scenario) (retErr er
 		)
 	}
 
-	s.Logger.Logf("deployment %q successfully ran all %d requested replicas on node %q", deployment.Name, finalReplicas, nodeName)
+	logging.Logf(ctx, "deployment %q successfully ran all %d requested replicas on node %q", deployment.Name, finalReplicas, nodeName)
 	return nil
 }
 
@@ -281,7 +282,7 @@ func cleanupScaleValidationDeployment(ctx context.Context, s *Scenario, deployme
 		}
 
 		lastDeleteErr = err
-		s.Logger.Logf("error deleting scale validation deployment %q: %v", deployment.Name, err)
+		logging.Logf(ctx, "error deleting scale validation deployment %q: %v", deployment.Name, err)
 		return false, nil
 	})
 	if err != nil {
@@ -296,7 +297,7 @@ func cleanupScaleValidationDeployment(ctx context.Context, s *Scenario, deployme
 		})
 		if err != nil {
 			lastPollErr = err
-			s.Logger.Logf("error listing scale validation pods during cleanup: %v", err)
+			logging.Logf(ctx, "error listing scale validation pods during cleanup: %v", err)
 			return false, nil
 		}
 		lastPollErr = nil
