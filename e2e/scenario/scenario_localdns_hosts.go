@@ -103,8 +103,9 @@ sudo systemctl start localdns.service
 sudo systemctl is-active --quiet localdns.service
 
 # Repeatedly kill the supervisor and wait for Restart=on-failure recovery.
-# This loop validates ordinary service recovery; the terminal dead-service
-# regression for ExecStopPost is covered by the block below.
+# This verifies that systemd can restart LocalDNS; startup cleanup may restore
+# DNS on this path, so it does not by itself validate the ExecStopPost fix.
+# The terminal dead-service block below validates that fix directly.
 # Require a genuinely new MainPID after each kill: immediately after kill -9,
 # systemd may still report the killed invocation as active/running until it
 # processes SIGCHLD, so checking active/running alone can observe the old
