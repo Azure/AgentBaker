@@ -295,6 +295,84 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'Ubuntu CUDA-LTS artifact reconciliation'
+        setup_gpu_artifact_reconcile() {
+            GPU_ARTIFACT_TEST_DIR="$(mktemp -d)"
+            GPU_DKMS_MARKER_FILE="${GPU_ARTIFACT_TEST_DIR}/dkms-marker"
+            GPU_ARTIFACT_MANIFEST_FILE="${GPU_ARTIFACT_TEST_DIR}/artifact-manifest-v1"
+            printf 'kernel=test-kernel\ndriver_version=580.159.04\ndriver_kind=cuda\narch=x86_64\n' > "${GPU_DKMS_MARKER_FILE}"
+            OS="UBUNTU"
+            OS_VERSION="24.04"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            GPU_DV="580.159.04"
+            NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-cuda-lts"
+            NVIDIA_DRIVER_IMAGE_TAG="580.159.04-build"
+            MOCK_GPU_IMAGE_DIGEST="sha256:abc123"
+        }
+        cleanup_gpu_artifact_reconcile() {
+            rm -rf "${GPU_ARTIFACT_TEST_DIR}"
+            unset MOCK_KERNEL MOCK_GPU_FILES_STATUS
+        }
+
+        BeforeEach 'setup_gpu_artifact_reconcile'
+        AfterEach 'cleanup_gpu_artifact_reconcile'
+
+        uname() { [ "$1" = "-m" ] && echo "x86_64" || echo "${MOCK_KERNEL:-test-kernel}"; }
+        getGPUDriverImageDigest() { echo "${MOCK_GPU_IMAGE_DIGEST}"; }
+        dkms() { return "${MOCK_GPU_FILES_STATUS:-0}"; }
+        modinfo() { return "${MOCK_GPU_FILES_STATUS:-0}"; }
+        write_reconcile_manifest() {
+            writeGPUDriverArtifactManifest "${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}" "sha256:abc123"
+        }
+
+        It 'bounds skip-build and falls back to the normal install'
+            write_reconcile_manifest
+            installGPUDriverImage() {
+                echo "$1:${2:-5}:${3:-10}:${4:-600}"
+                [ "$1" = "install" ]
+            }
+            logs_to_events() { shift; "$@"; }
+            When call installGPUDriverImageWithFallback install-skip-build
+            The status should be success
+            The output should equal "install-skip-build:1:0:240
+AKS_GPU_ARTIFACT event=nodeprep status=fast_path_failed action=install
+install:5:10:600"
+            The path "${GPU_ARTIFACT_MANIFEST_FILE}" should not be exist
+        End
+
+        It 'does not add a second fallback budget to a normal install'
+            installGPUDriverImage() { echo "$1:${2:-5}:${3:-10}:${4:-600}"; return 1; }
+            logs_to_events() { shift; "$@"; }
+            When call installGPUDriverImageWithFallback install
+            The status should be failure
+            The output should equal "install:5:10:600"
+        End
+
+        Parameters
+            "valid" "install-skip-build"
+            "missing" "install"
+            "corrupt" "install"
+            "kernel" "install"
+            "digest" "install"
+            "module" "install"
+            "grid" "install"
+        End
+
+        Example "$1 artifact selects $2"
+            write_reconcile_manifest
+            case "$1" in
+                missing) rm -f "${GPU_ARTIFACT_MANIFEST_FILE}" ;;
+                corrupt) printf 'corrupt=true\n' >> "${GPU_ARTIFACT_MANIFEST_FILE}" ;;
+                kernel) MOCK_KERNEL="custom-kernel" ;;
+                digest) MOCK_GPU_IMAGE_DIGEST="sha256:different" ;;
+                module) MOCK_GPU_FILES_STATUS=1 ;;
+                grid) NVIDIA_GPU_DRIVER_TYPE="grid" ;;
+            esac
+            selectGPUDriverInstallAction >/dev/null
+            The variable GPU_INSTALL_ACTION should equal "$2"
+        End
+    End
+
     Describe 'ensureArtifactStreaming'
         # ensureArtifactStreaming enables the acr-mirror/overlaybd services and then
         # runs the version-appropriate enablement path:

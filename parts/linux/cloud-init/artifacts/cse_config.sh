@@ -1514,7 +1514,77 @@ pullGPUDriverImage() {
 }
 
 installGPUDriverImage() {
-    retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
+    local gpu_install_action="${1:-install}"
+    local retries="${2:-5}"
+    local retry_delay="${3:-10}"
+    local timeout="${4:-600}"
+    retrycmd_if_failure "${retries}" "${retry_delay}" "${timeout}" bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh ${gpu_install_action}"
+}
+
+installGPUDriverImageWithFallback() {
+    local gpu_install_action="${1:-install}"
+    local ret
+
+    if [ "${gpu_install_action}" = "install-skip-build" ]; then
+        # Reserve enough of the global CSE budget for the full-install fallback.
+        logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImage" installGPUDriverImage "${gpu_install_action}" 1 0 240
+    else
+        logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImage" installGPUDriverImage "${gpu_install_action}"
+    fi
+    ret=$?
+    if [ "${ret}" -ne 0 ] && [ "${gpu_install_action}" = "install-skip-build" ]; then
+        echo "AKS_GPU_ARTIFACT event=nodeprep status=fast_path_failed action=install"
+        rm -f "${GPU_ARTIFACT_MANIFEST_FILE}"
+        logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImageFallback" installGPUDriverImage install
+        ret=$?
+    fi
+
+    return "${ret}"
+}
+
+gpuDriverArtifactContextMatches() {
+    local source_digest="${1}"
+    local kernel architecture source_identity expected
+
+    [ -f "${GPU_DKMS_MARKER_FILE}" ] && [ -f "${GPU_ARTIFACT_MANIFEST_FILE}" ] || return 1
+    kernel=$(uname -r)
+    architecture=$(uname -m)
+    source_identity="${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}"
+    expected=$(cat <<EOF
+schema_version=${GPU_ARTIFACT_SCHEMA_VERSION}
+recipe_version=${GPU_ARTIFACT_RECIPE_VERSION}
+complete=true
+os_id=${OS}
+os_version=${OS_VERSION}
+driver_family=nvidia
+source_identity=${source_identity}
+source_digest=${source_digest}
+EOF
+)
+    [ "$(cat "${GPU_ARTIFACT_MANIFEST_FILE}")" = "${expected}" ] || return 1
+    grep -Fqx "kernel=${kernel}" "${GPU_DKMS_MARKER_FILE}" &&
+        grep -Fqx "driver_version=${GPU_DV}" "${GPU_DKMS_MARKER_FILE}" &&
+        grep -Fqx "driver_kind=cuda" "${GPU_DKMS_MARKER_FILE}" &&
+        grep -Fqx "arch=${architecture}" "${GPU_DKMS_MARKER_FILE}" &&
+        dkms status >/dev/null 2>&1 &&
+        modinfo -k "${kernel}" nvidia >/dev/null 2>&1
+}
+
+selectGPUDriverInstallAction() {
+    GPU_INSTALL_ACTION="install"
+
+    if [ "${OS}" != "${UBUNTU_OS_NAME}" ] || [ "${NVIDIA_GPU_DRIVER_TYPE}" != "cuda-lts" ]; then
+        return 0
+    fi
+
+    local source_digest
+    source_digest=$(getGPUDriverImageDigest "${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}")
+    if [ -n "${source_digest}" ] && gpuDriverArtifactContextMatches "${source_digest}"; then
+        GPU_INSTALL_ACTION="install-skip-build"
+        echo "AKS_GPU_ARTIFACT event=nodeprep status=ready action=install-skip-build"
+    else
+        echo "AKS_GPU_ARTIFACT event=nodeprep status=invalid_or_unavailable action=install"
+    fi
 }
 
 # nvidia-cdi-refresh.service (nvidia-container-toolkit-base) is Type=oneshot with Restart=on-failure
@@ -1547,7 +1617,8 @@ configGPUDrivers() {
         if [ -z "$(ctr -n k8s.io images ls -q "name==${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}")" ]; then
             logs_to_events "AKS.CSE.configGPUDrivers.pullGPUDriverImage" pullGPUDriverImage || exit $ERR_GPU_DRIVERS_START_FAIL
         fi
-        logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImage" installGPUDriverImage
+        selectGPUDriverInstallAction
+        installGPUDriverImageWithFallback "${GPU_INSTALL_ACTION}"
         ret=$?
         if [ "$ret" -ne 0 ]; then
             echo "Failed to install GPU driver, exiting..."

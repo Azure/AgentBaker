@@ -901,6 +901,14 @@ buildNVIDIAKernelModule() {
         echo "Error: NVIDIA CUDA prebake did not produce /opt/azure/aks-gpu/dkms-marker"
         exit 1
       fi
+      NVIDIA_DRIVER_IMAGE_DIGEST=""
+      if ! NVIDIA_DRIVER_IMAGE_DIGEST=$(getGPUDriverImageDigest "${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}") ||
+        [ -z "${NVIDIA_DRIVER_IMAGE_DIGEST}" ] ||
+        ! writeGPUDriverArtifactManifest "${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}" "${NVIDIA_DRIVER_IMAGE_DIGEST}"; then
+        rm -f "${GPU_ARTIFACT_MANIFEST_FILE}"
+        echo "Error: NVIDIA CUDA prebake manifest unavailable"
+        exit 1
+      fi
       cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver-prebaked=${NVIDIA_DRIVER_IMAGE_TAG} (kernel $(uname -r))
 EOF

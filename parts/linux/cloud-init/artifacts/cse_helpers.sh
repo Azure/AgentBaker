@@ -209,12 +209,49 @@ NVIDIA_DRIVER_IMAGE_MCR_BASE="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
 export NVIDIA_DRIVER_IMAGE_PULL_REF="${NVIDIA_DRIVER_IMAGE_MCR_BASE%/}/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
 export CTR_GPU_INSTALL_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
 export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
+export GPU_DKMS_MARKER_FILE="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+export GPU_ARTIFACT_MANIFEST_FILE="${GPU_ARTIFACT_MANIFEST_FILE:-/opt/azure/aks-gpu/artifact-manifest-v1}"
+# aks-gpu owns kernel, architecture, kind, and version in its marker; this sidecar pins AgentBaker provenance.
+GPU_ARTIFACT_SCHEMA_VERSION="1"
+GPU_ARTIFACT_RECIPE_VERSION="aks-gpu-cuda-lts-kernel-artifact-v1"
 APT_CACHE_DIR=/var/cache/apt/archives/
 PERMANENT_CACHE_DIR=/root/aptcache/
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined"
+
+getGPUDriverImageDigest() {
+    local image_ref="${1}"
+    ctr -n k8s.io images ls "name==${image_ref}" 2>/dev/null |
+        awk -v image_ref="${image_ref}" 'NR > 1 && $1 == image_ref { print $3; exit }'
+}
+
+writeGPUDriverArtifactManifest() {
+    local source_identity="${1}"
+    local source_digest="${2}"
+    local tmp_manifest
+
+    [ -f "${GPU_DKMS_MARKER_FILE}" ] && [ -n "${source_digest}" ] || return 1
+
+    mkdir -p "$(dirname "${GPU_ARTIFACT_MANIFEST_FILE}")" || return 1
+    tmp_manifest="${GPU_ARTIFACT_MANIFEST_FILE}.tmp.$$"
+    cat > "${tmp_manifest}" <<EOF
+schema_version=${GPU_ARTIFACT_SCHEMA_VERSION}
+recipe_version=${GPU_ARTIFACT_RECIPE_VERSION}
+complete=true
+os_id=${OS}
+os_version=${OS_VERSION}
+driver_family=nvidia
+source_identity=${source_identity}
+source_digest=${source_digest}
+EOF
+    chmod 0644 "${tmp_manifest}" || {
+        rm -f "${tmp_manifest}"
+        return 1
+    }
+    mv -f "${tmp_manifest}" "${GPU_ARTIFACT_MANIFEST_FILE}"
+}
 
 # used by secure TLS bootstrapping to request AAD tokens - uniquely identifies AKS's Entra ID application.
 # more details: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks

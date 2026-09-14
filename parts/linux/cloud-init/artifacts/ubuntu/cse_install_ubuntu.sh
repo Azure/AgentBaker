@@ -321,9 +321,14 @@ removeNvidiaRepos() {
 # install. So we rmmod it first, when idle, before removing the files. No-op unless the marker exists.
 cleanUpPrebakedGPUDriver() {
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    local manifest="${GPU_ARTIFACT_MANIFEST_FILE:-/opt/azure/aks-gpu/artifact-manifest-v1}"
     if [ ! -f "${marker}" ]; then
+        rm -f "${manifest}" || true
         return 0
     fi
+    # Never leave a trusted-looking AgentBaker manifest behind once teardown begins. If cleanup is
+    # incomplete, the aks-gpu marker remains as the retry signal but NodePrep cannot take the fast path.
+    rm -f "${manifest}" || true
     echo "Removing pre-baked NVIDIA driver inherited from shared VHD (node does not install the managed driver)"
     local dkms_before=false module_before=false module_after=false
     [ -d /var/lib/dkms/nvidia ] && dkms_before=true
