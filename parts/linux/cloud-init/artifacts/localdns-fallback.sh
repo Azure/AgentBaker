@@ -121,6 +121,10 @@ cleanup_fallback() {
     return 0
 }
 
+# When sourced (e.g. by ShellSpec), stop here so functions can be tested without
+# dispatching a mode.
+${__SOURCED__:+return}
+
 case "${1:-start}" in
     start)   start_fallback ;;
     cleanup) cleanup_fallback ;;
