@@ -166,7 +166,13 @@ func TestUbuntuRepositoryFastPathParallelSuccessExtractsBinary(t *testing.T) {
 	assert.NotEqual(t, packageBytes, staged, "the .deb bytes must never be staged as the executable")
 }
 
-func TestUbuntuRepositoryPackageChecksumMismatchIsHardFailure(t *testing.T) {
+// A checksum mismatch against signed metadata is the strongest tampering signal this path
+// has, and it still falls back to apt rather than failing closed. apt does not reuse the
+// bytes downloaded here -- they are a temp file, already removed -- it re-fetches from the
+// same signed repository under its own GPG verification, so a genuinely bad package is still
+// rejected, just by apt. Failing closed would instead let a bug in this newer code block
+// hotfix installs outright.
+func TestUbuntuRepositoryPackageChecksumMismatchFallsBackToApt(t *testing.T) {
 	const (
 		hotfixVersion = "202608.21.1"
 		fullVersion   = hotfixVersion + "-ubuntu22.04u1"
@@ -205,6 +211,13 @@ func TestUbuntuRepositoryPackageChecksumMismatchIsHardFailure(t *testing.T) {
 	hotfixPath := filepath.Join(dir, "aks-node-controller-hotfix")
 	app.hotfixBinaryPath = hotfixPath
 	require.NoError(t, os.WriteFile(hotfixPath, []byte("stale-hotfix"), 0o755))
+	// Stand in for what the package manager installs, so the fallback can stage a binary.
+	pkgPath := filepath.Join(dir, "pkg-anc")
+	require.NoError(t, os.WriteFile(pkgPath, []byte("package-manager-hotfix"), 0o755))
+	app.pkgBinaryPath = pkgPath
+	vhdPath := filepath.Join(dir, "vhd-anc")
+	require.NoError(t, os.WriteFile(vhdPath, []byte("original"), 0o755))
+	app.vhdBinaryPath = vhdPath
 
 	originalVersion := Version
 	Version = "202608.21.0"
@@ -212,11 +225,16 @@ func TestUbuntuRepositoryPackageChecksumMismatchIsHardFailure(t *testing.T) {
 	err := app.downloadBinaryHotfixIfNeeded(context.Background(), &hotfixConfig{
 		Hotfixes: map[string]string{"202608.21": hotfixVersion},
 	})
-	require.Error(t, err)
-	assert.True(t, isIntegrityError(err))
-	assert.False(t, packageManagerCalled.Load(), "integrity failures must not use apt fallback")
+	// The overall install succeeds: the stub package manager reports success, and the fast
+	// path's failure is not propagated.
+	require.NoError(t, err)
+	assert.True(t, packageManagerCalled.Load(),
+		"an integrity failure must still reach the package-manager fallback")
+	// The stale binary is disarmed before the fallback runs, so a failed fallback cannot
+	// leave the previous hotfix armed. A successful one re-stages it.
 	_, statErr := os.Stat(hotfixPath)
-	assert.True(t, os.IsNotExist(statErr), "stale hotfix must be removed after integrity failure")
+	assert.False(t, os.IsNotExist(statErr),
+		"a successful fallback re-stages the hotfix binary")
 }
 
 func TestUbuntuRepositoryHTTPErrorFallsBackToApt(t *testing.T) {

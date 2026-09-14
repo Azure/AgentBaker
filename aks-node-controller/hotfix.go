@@ -105,8 +105,21 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 	if err := a.tryRepositoryDownload(ctx, hotfixVersion); err == nil {
 		return nil
 	} else if isIntegrityError(err) {
+		// Fall back to the package manager rather than failing closed. apt/dnf do not reuse
+		// anything this path downloaded -- the artifact is a temp file, already removed --
+		// they re-fetch from the same signed repository and run their own GPG verification.
+		// So a genuinely tampered repository is still rejected, just by them instead of us.
+		//
+		// What this does buy: several integrity checks here (package member types, path
+		// containment) constrain how we extract the binary ourselves, and apt/dnf never take
+		// that path. When those fire it is more likely our assumptions about the package
+		// layout are too narrow than that the package is bad, and failing closed would let a
+		// bug in this newer code block hotfix installs outright.
+		//
+		// Logged at error level: this is not a routine fallback and should stay visible.
+		slog.Error("repository integrity check failed, falling back to package manager",
+			"version", hotfixVersion, "error", err)
 		a.removeStaleHotfix()
-		return fmt.Errorf("repository integrity check failed for hotfix version %s: %w", hotfixVersion, err)
 	} else {
 		slog.Warn("safe repository download unavailable, falling back to package manager",
 			"version", hotfixVersion, "error", err)
@@ -347,11 +360,7 @@ func (a *App) installFromPMC(ctx context.Context, version string) error {
 
 // installWithApt refreshes the PMC repo index and installs the package via apt-get.
 func (a *App) installWithApt(ctx context.Context, version string) error {
-	sourcesDir := a.aptSourcesDir
-	if sourcesDir == "" {
-		sourcesDir = defaultAptSourcesDir
-	}
-	microsoftProdSourceListPath, err := resolveMicrosoftProdSourceListPath(sourcesDir)
+	microsoftProdSourceListPath, err := a.microsoftProdSourceListPath()
 	if err != nil {
 		return err
 	}
@@ -375,6 +384,14 @@ func (a *App) installWithApt(ctx context.Context, version string) error {
 		"apt-get", "install", "-y", "--allow-downgrades",
 		"-o", "Dpkg::Options::=--force-confold",
 		fmt.Sprintf("aks-node-controller=%s*", version))
+}
+
+func (a *App) microsoftProdSourceListPath() (string, error) {
+	sourcesDir := a.aptSourcesDir
+	if sourcesDir == "" {
+		sourcesDir = defaultAptSourcesDir
+	}
+	return resolveMicrosoftProdSourceListPath(sourcesDir)
 }
 
 func resolveMicrosoftProdSourceListPath(sourcesDir string) (string, error) {
