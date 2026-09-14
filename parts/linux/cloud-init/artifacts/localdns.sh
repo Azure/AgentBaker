@@ -668,17 +668,6 @@ cleanup_iptables_and_dns() {
     # can fail and leave the node pointed at the dead LocalDNS listener. Sweep
     # the known drop-in name directly; the glob also handles a cleanup call
     # where NETWORK_DROPIN_FILE was never initialized in this process.
-    local network_dropin_file
-    local -a network_dropin_files=()
-    if [ -n "${NETWORK_DROPIN_FILE:-}" ]; then
-        network_dropin_files+=("${NETWORK_DROPIN_FILE}")
-    fi
-    for network_dropin_file in /run/systemd/network/*.d/70-localdns.conf; do
-        if [ -e "$network_dropin_file" ] && [ "$network_dropin_file" != "${NETWORK_DROPIN_FILE:-}" ]; then
-            network_dropin_files+=("$network_dropin_file")
-        fi
-    done
-
     # Remove any existing localdns iptables rules by searching for our comment.
     echo "Cleaning up any existing localdns iptables rules..."
 
@@ -713,7 +702,9 @@ cleanup_iptables_and_dns() {
     # failed cgroup teardown, removing the interface would break a listener
     # that may still be serving pods. The service-recovery path handles the
     # next-start interface lifecycle separately.
-    for network_dropin_file in "${network_dropin_files[@]}"; do
+    local network_dropin_file
+    for network_dropin_file in "${NETWORK_DROPIN_FILE:-}" /run/systemd/network/*.d/70-localdns.conf; do
+        [ -e "$network_dropin_file" ] || continue
         echo "Removing network drop-in file ${network_dropin_file}."
         if ! rm -f "$network_dropin_file"; then
             echo "Failed to remove network drop-in file ${network_dropin_file}."
