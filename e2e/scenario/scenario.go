@@ -1127,6 +1127,20 @@ var _ = Register(&Scenario{
 				},
 			}
 		},
+		AKSNodeConfigMutator: func(cluster *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.HttpProxyConfig = &aksnodeconfigv1.HttpProxyConfig{
+				HttpsProxy: cluster.ProxyURL,
+				NoProxyEntries: []string{
+					"localhost",
+					"127.0.0.1",
+					"168.63.129.16",
+					"169.254.169.254",
+					"10.0.0.0/8",
+					"172.16.0.0/12",
+					cluster.ClusterParams.FQDN,
+				},
+			}
+		},
 	},
 })
 
