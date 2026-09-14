@@ -37,7 +37,6 @@ jobs:
             feat
             fix
             refactor
-            revert
             test
 
           # Configure which scopes are allowed (newline-delimited).
@@ -118,7 +117,6 @@ jobs:
             - \`chore: remove dead code\` - for maintenance tasks
             - \`chore(deps): update dependencies\` - for updating dependencies
             - \`ci: update build pipeline\` - for CI/CD changes
-            - \`revert: add new feature\` - for reverting a previously merged change
 
             ### Guidelines:
             - Use lowercase for the type and description
