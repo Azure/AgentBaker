@@ -36,7 +36,6 @@ TEST_VM_ADMIN_USERNAME=${3}
 ARCHITECTURE=${4}
 SIG_CONTAINER_NAME=${5}
 STORAGE_ACCOUNT_NAME=${6}
-ENABLE_TRUSTED_LAUNCH=${7}
 VHD_ARTIFACT_NAME=${8}
 SKU_NAME=${9}
 KUSTO_ENDPOINT=${10}
@@ -161,12 +160,8 @@ login_with_user_assigned_managed_identity() {
     local ID=$2
 
     LOGIN_FLAGS="--identity $TYPE_FLAG $ID"
-    if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
-        LOGIN_FLAGS="$LOGIN_FLAGS --allow-no-subscriptions"
-    fi
-
-   echo "logging into azure with flags: $LOGIN_FLAGS"
-   az login $LOGIN_FLAGS
+    echo "logging into azure with flags: $LOGIN_FLAGS"
+    az login $LOGIN_FLAGS
 }
 
 login_with_umsi_object_id() {

@@ -79,6 +79,7 @@ VM_OPTIONS="--size $VM_SIZE"
 # shellcheck disable=SC3010
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
+    # TODO: remove ENABLE_TRUSTED_LAUNCH check once replaced by TRUSTED_LAUNCH_SUPPORTED
     if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
         VM_SIZE="Standard_D8pds_v6"
     else
@@ -189,7 +190,6 @@ az vm run-command invoke \
         "ARCHITECTURE=${ARCHITECTURE}" \
         "SIG_CONTAINER_NAME"=${SIG_CONTAINER_NAME} \
         "STORAGE_ACCOUNT_NAME"=${STORAGE_ACCOUNT_NAME} \
-        "ENABLE_TRUSTED_LAUNCH"=${ENABLE_TRUSTED_LAUNCH} \
         "VHD_ARTIFACT_NAME"=${VHD_ARTIFACT_NAME} \
         "SKU_NAME"=${SKU_NAME} \
         "KUSTO_ENDPOINT"=${KUSTO_ENDPOINT} \

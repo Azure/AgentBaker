@@ -61,6 +61,7 @@ build_fips_vm_body() {
 
     # Build security profile section if Trusted Launch is enabled
     local security_profile=""
+    # TODO: remove ENABLE_TRUSTED_LAUNCH check once replaced by TRUSTED_LAUNCH_SUPPORTED
     if [ "$enable_trusted_launch" = "True" ]; then
         security_profile=',
     "securityProfile": {
