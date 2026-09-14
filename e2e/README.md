@@ -259,6 +259,23 @@ The runner writes plain-text scenario logs. It does not write a JUnit file by de
 
 ADO uses `--output grouped`. Local runs stream prefixed logs when three or fewer scenario entry points are selected.
 
+### Logging
+
+Use `logging.Log(ctx, ...)` or `logging.Logf(ctx, ...)` from `e2e/logging`.
+The runner attaches a logger to each attempt's context before it calls the scenario.
+Pass that context through skip checks, provisioning, validation, and cleanup. Do not
+store a logger on a scenario or pass a separate logger argument.
+
+For timed steps, use `defer logging.LogStep(ctx, "creating VMSS")()` or
+`defer logging.LogStepf(ctx, "creating VMSS %s", name)()`.
+Use `logging.LogDuration` to emit a warning when a duration exceeds its threshold.
+
+The runner owns log files and console output. The logging package falls back to the
+standard logger when a context has no logger. In unit tests, use
+`logging.WithLogger(t.Context(), t)` to send messages to the test log.
+For cleanup that must continue after cancellation, derive its context with
+`context.WithoutCancel(ctx)` and set a timeout. This preserves the attempt logger.
+
 ### Cleanup
 
 Azure resources are deleted periodically by an external garbage collector. Locally stopped tests attempt a graceful
@@ -272,6 +289,7 @@ The executable entry point is [main.go](main.go). It handles signals and starts 
 |---------|----------------|
 | [runner](runner/) | CLI, selection, concurrency, retries, logs, and JUnit reports |
 | [scenario](scenario/) | Scenario definitions, registration, provisioning, validation, and cleanup |
+| [logging](logging/) | Logging interface, context helpers, and timed steps |
 
 The runner calls the scenario package to execute a scenario once. The scenario package
 cleans up that execution and returns its outcome. The runner decides whether to retry.

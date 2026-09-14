@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/stretchr/testify/assert"
@@ -127,7 +127,7 @@ func TestParseVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := toolkit.ContextWithLogger(context.Background(), discardLogger{})
+			ctx := logging.WithLogger(context.Background(), discardLogger{})
 			img := &armcompute.VirtualMachineExtensionImage{Name: tt.inputName}
 			result := parseVersion(ctx, img)
 
@@ -270,7 +270,7 @@ func TestGetLatestVMExtensionImageVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := toolkit.ContextWithLogger(context.Background(), discardLogger{})
+			ctx := logging.WithLogger(context.Background(), discardLogger{})
 			got, err := getLatestVMExtensionImageVersion(
 				ctx,
 				tt.mock,

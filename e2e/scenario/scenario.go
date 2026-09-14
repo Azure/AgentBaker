@@ -727,7 +727,7 @@ func newUbuntu2204EmbeddedScriptHotfixScenario() *Scenario {
 				Payload:     payload,
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
-				nodeName, err := s.Runtime.Kube.WaitUntilNodeReady(ctx, s.Logger, s.Runtime.VMSSName)
+				nodeName, err := s.Runtime.Kube.WaitUntilNodeReady(ctx, s.Runtime.VMSSName)
 				if err != nil {
 					return err
 				}

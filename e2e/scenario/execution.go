@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
-
-	"github.com/Azure/agentbaker/e2e/toolkit"
 )
 
 type Outcome struct {
@@ -15,12 +13,12 @@ type Outcome struct {
 	Measurements []Measurement
 }
 
-func Run(ctx context.Context, name, artifactName string, logger toolkit.Logger, original *Scenario) Outcome {
-	return runExecution(ctx, name, artifactName, logger, original, runScenarioFlow)
+func Run(ctx context.Context, name, artifactName string, original *Scenario) Outcome {
+	return runExecution(ctx, name, artifactName, original, runScenarioFlow)
 }
 
-func runExecution(ctx context.Context, name, artifactName string, logger toolkit.Logger, original *Scenario,
-	run func(context.Context, string, toolkit.Logger, *Scenario) error,
+func runExecution(ctx context.Context, name, artifactName string, original *Scenario,
+	run func(context.Context, string, *Scenario) error,
 ) (outcome Outcome) {
 	cleanup := &scenarioCleanup{}
 	var s *Scenario
@@ -64,7 +62,7 @@ func runExecution(ctx context.Context, name, artifactName string, logger toolkit
 			return outcome
 		}
 	}
-	runErr = run(ctx, name, logger, s)
+	runErr = run(ctx, name, s)
 	return outcome
 }
 
