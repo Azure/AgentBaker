@@ -295,8 +295,13 @@ func sameRepositoryOrigin(a, b *url.URL) bool {
 }
 
 func isWithinRepositoryBase(base, candidate *url.URL) bool {
-	return sameRepositoryOrigin(base, candidate) &&
-		strings.HasPrefix(candidate.EscapedPath(), base.EscapedPath())
+	if !sameRepositoryOrigin(base, candidate) {
+		return false
+	}
+	basePath := pathpkg.Clean(base.Path)
+	candidatePath := pathpkg.Clean(candidate.Path)
+	return basePath == "/" || candidatePath == basePath ||
+		strings.HasPrefix(candidatePath, strings.TrimSuffix(basePath, "/")+"/")
 }
 
 func resolveRepositoryURL(base *url.URL, relative string) (string, error) {
