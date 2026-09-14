@@ -507,6 +507,19 @@ function ensure_sig_vhd_exists() {
 						--location ${AZURE_LOCATION} \
 						--architecture Arm64 \
 						--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
+				elif [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+					az sig image-definition create \
+						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+						--gallery-name ${SIG_GALLERY_NAME} \
+						--gallery-image-definition ${SIG_IMAGE_NAME} \
+						--publisher microsoft-aks \
+						--offer ${SIG_GALLERY_NAME} \
+						--sku ${SIG_IMAGE_NAME} \
+						--os-type ${OS_TYPE} \
+						--hyper-v-generation ${HYPERV_GENERATION} \
+						--location ${AZURE_LOCATION} \
+						--architecture Arm64 \
+						--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchSupported"
 				else
 					az sig image-definition create \
 						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
@@ -560,6 +573,18 @@ function ensure_sig_vhd_exists() {
 					--hyper-v-generation ${HYPERV_GENERATION} \
 					--location ${AZURE_LOCATION} \
 					--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
+			elif [ "${TRUSTED_LAUNCH_SUPPORTED}" = "True" ]; then
+				az sig image-definition create \
+					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+					--gallery-name ${SIG_GALLERY_NAME} \
+					--gallery-image-definition ${SIG_IMAGE_NAME} \
+					--publisher microsoft-aks \
+					--offer ${SIG_GALLERY_NAME} \
+					--sku ${SIG_IMAGE_NAME} \
+					--os-type ${OS_TYPE} \
+					--hyper-v-generation ${HYPERV_GENERATION} \
+					--location ${AZURE_LOCATION} \
+					--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchSupported"
 			else
 				# For vanilla Gen2, mark only NVMe
 				az sig image-definition create \

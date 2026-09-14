@@ -54,12 +54,14 @@ disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GR
 capture_benchmark "${SCRIPT_NAME}_set_variables_for_converting_to_disk"
 
 echo "Converting $sig_resource_id to $disk_resource_id"
-if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ] || [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+  security_type="TrustedLaunchSupported"
+  [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ] && security_type="TrustedLaunch"
   az resource create --id $disk_resource_id  --api-version 2024-03-02 --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
       \"securityProfile\": { \
-        \"securityType\": \"TrustedLaunch\" \
+        \"securityType\": \"${security_type}\" \
       }, \
       \"creationData\": { \
         \"createOption\": \"FromImage\", \
