@@ -525,6 +525,34 @@ func TestRepositoryArchitectureAndReleaseMappings(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestTryRepositoryDownloadRejectsImageBasedAzureLinuxVariants(t *testing.T) {
+	tests := []struct {
+		name      string
+		variantID string
+	}{
+		{name: "Azure Container Linux variant", variantID: osReleaseIDAzureContainerLinux},
+		{name: "OS Guard variant", variantID: "osguard"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			osReleasePath := filepath.Join(dir, "os-release")
+			require.NoError(t, os.WriteFile(osReleasePath, []byte(fmt.Sprintf(
+				"ID=azurelinux\nVARIANT_ID=%s\nVERSION_ID=3.0\n", tc.variantID)), 0o644))
+
+			app := NewTestApp(t, TestAppConfig{}).App
+			app.osReleasePath = osReleasePath
+
+			err := app.tryRepositoryDownload(context.Background(), "202607.20.2")
+			require.Error(t, err)
+			assert.False(t, isIntegrityError(err), "an image-based OS variant is unsupported, not tampering")
+			assert.Contains(t, err.Error(), "repository fast path is not supported on image-based OS")
+			assert.Contains(t, err.Error(), tc.variantID)
+		})
+	}
+}
+
 func TestRPMMetadataParsing(t *testing.T) {
 	const (
 		primaryLocation = "repodata/abc-primary.xml.gz"
@@ -1305,31 +1333,15 @@ func TestExtractRPMStagesOnlyTheANCBinary(t *testing.T) {
 
 	const binaryContent = "ELF-ish ANC payload"
 	// Members mirroring a real ANC rpm: the binary plus files that must NOT be staged.
-	archiveRoot := t.TempDir()
-	members := map[string]string{
-		ancPackageBinaryRelativePath:                     binaryContent,
-		"usr/share/doc/aks-node-controller/README":       "docs",
-		"etc/systemd/system/aks-node-controller.service": "[Unit]",
-	}
-	var memberList []string
-	for name, content := range members {
-		path := filepath.Join(archiveRoot, filepath.FromSlash(name))
-		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
-		require.NoError(t, os.WriteFile(path, []byte(content), 0o755))
-		memberList = append(memberList, "./"+name)
-	}
-	sort.Strings(memberList)
-
-	// Build the cpio stream that rpm2cpio would emit for such a package.
+	// Written as a newc-format stream rather than shelled out to `cpio -o`, whose default
+	// format and name handling differ between BSD and GNU cpio. newc is what rpm2cpio
+	// actually emits, so this is both deterministic and representative.
 	archivePath := filepath.Join(t.TempDir(), "payload.cpio")
-	archive, err := os.Create(archivePath)
-	require.NoError(t, err)
-	build := exec.Command("cpio", "-o", "--quiet")
-	build.Dir = archiveRoot
-	build.Stdin = strings.NewReader(strings.Join(memberList, "\n") + "\n")
-	build.Stdout = archive
-	require.NoError(t, build.Run())
-	require.NoError(t, archive.Close())
+	require.NoError(t, os.WriteFile(archivePath, newcArchive([][2]string{
+		{"./" + ancPackageBinaryRelativePath, binaryContent},
+		{"./usr/share/doc/aks-node-controller/README", "docs"},
+		{"./etc/systemd/system/aks-node-controller.service", "[Unit]"},
+	}), 0o644))
 
 	// Stub rpm2cpio on PATH so it replays that stream; cpio itself is the real binary.
 	stubDir := t.TempDir()
@@ -1364,4 +1376,34 @@ func TestExtractRPMStagesOnlyTheANCBinary(t *testing.T) {
 		return nil
 	}))
 	assert.Equal(t, []string{ancPackageBinaryRelativePath}, extracted)
+}
+
+// newcArchive builds a cpio archive in the "new ASCII" (newc) format -- the format rpm
+// payloads use and rpm2cpio emits. Each entry is a 110-byte ASCII header followed by the
+// name and data, both padded to a 4-byte boundary, and the stream ends with a TRAILER!!!
+// entry. Building this in Go keeps the test input identical across platforms, where
+// `cpio -o` would vary between BSD and GNU.
+func newcArchive(entries [][2]string) []byte {
+	var out bytes.Buffer
+	pad := func() {
+		for out.Len()%4 != 0 {
+			out.WriteByte(0)
+		}
+	}
+	write := func(name, data string, mode int) {
+		// Field order is fixed by the format: magic, ino, mode, uid, gid, nlink, mtime,
+		// filesize, devmajor, devminor, rdevmajor, rdevminor, namesize, check.
+		fmt.Fprintf(&out, "070701%08x%08x%08x%08x%08x%08x%08x%08x%08x%08x%08x%08x%08x",
+			0, mode, 0, 0, 1, 0, len(data), 0, 0, 0, 0, len(name)+1, 0)
+		out.WriteString(name)
+		out.WriteByte(0)
+		pad()
+		out.WriteString(data)
+		pad()
+	}
+	for _, entry := range entries {
+		write(entry[0], entry[1], 0o100755) // regular file, rwxr-xr-x
+	}
+	write("TRAILER!!!", "", 0)
+	return out.Bytes()
 }
