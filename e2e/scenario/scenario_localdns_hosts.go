@@ -93,6 +93,9 @@ restore_localdns_test_state() {
 trap restore_localdns_test_state EXIT
 
 sudo systemctl is-active --quiet localdns.service
+control_group=$(sudo systemctl show localdns.service -p ControlGroup --value)
+test "$control_group" = "/localdns.slice/localdns.service"
+restarts_before=$(sudo systemctl show localdns.service -p NRestarts --value)
 
 # Normal systemd stop must complete cleanup and return success.
 sudo systemctl restart localdns.service
@@ -130,6 +133,9 @@ for i in 1 2 3; do
     done
     test "$recovered" = true
 done
+
+restarts_after=$(sudo systemctl show localdns.service -p NRestarts --value)
+test "$restarts_after" -gt "$restarts_before"
 
 state=$(sudo systemctl show localdns.service -p ActiveState -p SubState -p Result -p ControlGroup)
 printf '%s\n' "$state"
