@@ -22,15 +22,26 @@ jobs:
       name: Print failure message
     - run: echo "Shell/Bash script unit tests completed successfully!"
       name: Print completion message
+    - name: Fix up kcov's Cobertura output for CodeCoverageSummary
+      # kcov's Cobertura report omits the `branches-valid` attribute (it doesn't track
+      # branch coverage, only lines), which crashes irongut/CodeCoverageSummary v1.3.0 with
+      # "Sequence contains no elements" (https://github.com/irongut/CodeCoverageSummary/pull/162,
+      # never merged/released upstream). Add the missing attribute so parsing doesn't blow up.
+      # Written to a new file rather than edited in place: coverage/ is root-owned (created by
+      # the shellspec container), so this (non-root) step can't write into it directly.
+      run: |
+        set -ex
+        sed -E 's/(<coverage [^>]*branches-rate="[^"]*")/\1 branches-valid="0"/' coverage/cobertura.xml > shellspec-cobertura.xml
+      if: (!cancelled())
     - name: Code Coverage Report
       uses: irongut/CodeCoverageSummary@51cc3a756ddcd398d447c044c02cb6aa83fdae95 # v1.3.0
       if: (!cancelled())
       with:
-        filename: coverage/cobertura.xml
+        filename: shellspec-cobertura.xml
         badge: true
         fail_below_min: false
         format: markdown
-        hide_branch_rate: false
+        hide_branch_rate: true
         hide_complexity: true
         indicators: true
         output: both
