@@ -1217,7 +1217,7 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 // Guarded: skips gracefully on VHDs that don't have the service baked in yet.
 func ValidateKubeletActiveFlagsEvent(ctx context.Context, s *Scenario) error {
 	// Guard: skip on VHDs that don't have the service
-	serviceCheck, err := execOnVMForScenarioOnUnprivilegedPod(ctx, s,
+	serviceCheck, err := execScriptOnVMForScenario(ctx, s,
 		"systemctl cat emit-kubelet-active-flags.service 2>/dev/null")
 	if err != nil {
 		return fmt.Errorf("check whether emit-kubelet-active-flags.service exists: %w", err)
