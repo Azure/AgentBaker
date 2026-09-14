@@ -95,7 +95,6 @@ trap restore_localdns_test_state EXIT
 sudo systemctl is-active --quiet localdns.service
 control_group=$(sudo systemctl show localdns.service -p ControlGroup --value)
 test "$control_group" = "/localdns.slice/localdns.service"
-restarts_before=$(sudo systemctl show localdns.service -p NRestarts --value)
 
 # Normal systemd stop must complete cleanup and return success.
 sudo systemctl restart localdns.service
@@ -135,7 +134,12 @@ for i in 1 2 3; do
 done
 
 restarts_after=$(sudo systemctl show localdns.service -p NRestarts --value)
-test "$restarts_after" -gt "$restarts_before"
+# The loop above performs three kill/restart cycles. The manual start before
+# the loop resets NRestarts to zero, so assert the absolute restart count.
+test "$restarts_after" -ge 3 || {
+    echo "FAIL: expected >=3 systemd restarts, got $restarts_after"
+    exit 1
+}
 
 state=$(sudo systemctl show localdns.service -p ActiveState -p SubState -p Result -p ControlGroup)
 printf '%s\n' "$state"
