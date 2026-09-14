@@ -2111,6 +2111,7 @@ var _ = Register(&Scenario{
 		Cluster: ClusterLatestKubernetesVersionKubenet,
 		VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
