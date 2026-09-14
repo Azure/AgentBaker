@@ -101,7 +101,6 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 
 	slog.Info("downloading ANC hotfix", "current", Version, "target", hotfixVersion)
 
-	routeStart := time.Now()
 	if err := a.tryRepositoryDownload(ctx, hotfixVersion); err == nil {
 		return nil
 	} else if isIntegrityError(err) {
@@ -133,9 +132,7 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 		return fmt.Errorf("stage hotfix binary: %w", err)
 	}
 
-	// Mirrors the fast path's durationMs so the two can be compared from node logs.
-	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", a.hotfixPath(),
-		"durationMs", time.Since(routeStart).Milliseconds())
+	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", a.hotfixPath())
 	return nil
 }
 
