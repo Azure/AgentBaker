@@ -1226,16 +1226,16 @@ func ValidateKubeletActiveFlagsEvent(ctx context.Context, s *Scenario) error {
 		logging.Log(ctx, "emit-kubelet-active-flags.service not on this VHD, skipping validation")
 		return nil
 	}
-	command := []string{
-		"set -ex",
-		// Verify service completed successfully via journalctl
-		`journalctl -u emit-kubelet-active-flags.service --no-pager | grep -q "Finished\|Deactivated successfully"`,
-		// Verify the event file was produced with correct TaskName
-		`grep -rl 'kubeletActiveFlags' /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/ | head -1 | xargs cat | jq -e '.TaskName == "AKS.CSE.ensureKubelet.kubeletActiveFlags"'`,
-	}
-	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate emit-kubelet-active-flags.service")
+	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, kubeletActiveFlagsValidationScript, 0, "failed to validate emit-kubelet-active-flags.service")
 	return err
 }
+
+const kubeletActiveFlagsValidationScript = `sudo -n bash <<'VALIDATE_KUBELET_ACTIVE_FLAGS'
+set -ex
+journalctl -u emit-kubelet-active-flags.service --no-pager | grep -q "Finished\|Deactivated successfully"
+grep -rl 'kubeletActiveFlags' /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/ | head -1 | xargs cat | ` +
+	`jq -e '.TaskName == "AKS.CSE.ensureKubelet.kubeletActiveFlags"'
+VALIDATE_KUBELET_ACTIVE_FLAGS`
 
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 	if s.VHD != nil && s.VHD.SkipOldVHDValidations {

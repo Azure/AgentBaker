@@ -7,6 +7,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -76,10 +79,98 @@ func TestValidateKubeletActiveFlagsEventUsesHost(t *testing.T) {
 	}
 }
 
-const activeFlagsTestScript = `set -ex
-journalctl -u emit-kubelet-active-flags.service --no-pager | grep -q "Finished\|Deactivated successfully"
-grep -rl 'kubeletActiveFlags' /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/ | head -1 | xargs cat | ` +
-	`jq -e '.TaskName == "AKS.CSE.ensureKubelet.kubeletActiveFlags"'`
+const activeFlagsTestScript = kubeletActiveFlagsValidationScript
+
+func TestKubeletActiveFlagsValidationScript(t *testing.T) {
+	for _, tt := range []struct {
+		name             string
+		journalProtected bool
+		journal          string
+		event            string
+		wantError        bool
+	}{
+		{name: "Azure Linux protected journal", journalProtected: true, journal: activeFlagsTestJournal, event: activeFlagsTestEvent},
+		{name: "Ubuntu protected event directory", journal: activeFlagsTestJournal, event: activeFlagsTestEvent},
+		{name: "missing event", journal: activeFlagsTestJournal, wantError: true},
+		{name: "malformed event JSON", journal: activeFlagsTestJournal, event: `{"TaskName":"kubeletActiveFlags"`, wantError: true},
+		{name: "wrong task", journal: activeFlagsTestJournal, event: `{"TaskName":"other","Message":"kubeletActiveFlags"}`, wantError: true},
+		{name: "service did not complete", journal: "Starting emit-kubelet-active-flags.service...", event: activeFlagsTestEvent, wantError: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := activeFlagsScriptTestCommand(t, tt.journalProtected, tt.journal, tt.event)
+			output, err := cmd.CombinedOutput()
+			if tt.wantError {
+				require.Error(t, err, "%s", output)
+			} else {
+				require.NoError(t, err, "%s", output)
+				assert.Contains(t, string(output), "true")
+			}
+		})
+	}
+}
+
+const activeFlagsTestJournal = `Sep 14 06:24:07 node systemd[1]: Finished emit-kubelet-active-flags.service - Emit kubelet active flags telemetry event.`
+
+const activeFlagsTestEvent = `{
+  "Timestamp": "2026-09-14 06:24:07.000",
+  "OperationId": "2026-09-14 06:24:07.000",
+  "Version": "1.23",
+  "TaskName": "AKS.CSE.ensureKubelet.kubeletActiveFlags",
+  "EventLevel": "Informational",
+  "Message": "{\"uses_config_file\":true,\"config_path\":\"/etc/default/kubeletconfig.json\",\"flag_count\":1,\"flags\":{\"max-pods\":\"110\"},\"config_file\":{\"maxPods\":110}}",
+  "EventPid": "0",
+  "EventTid": "0"
+}`
+
+func activeFlagsScriptTestCommand(t *testing.T, journalProtected bool, journal, event string) *exec.Cmd {
+	t.Helper()
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "bin")
+	events := filepath.Join(dir, "events")
+	require.NoError(t, os.Mkdir(bin, 0o700))
+	require.NoError(t, os.Mkdir(events, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "journal"), []byte(journal), 0o600))
+	if event != "" {
+		require.NoError(t, os.WriteFile(filepath.Join(events, "1789367047000.json"), []byte(event), 0o600))
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(bin, "sudo"), []byte(`#!/bin/bash
+if [ "${1:-}" = "-n" ]; then shift; fi
+export TEST_ROOT=1
+exec "$@"
+`), 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(bin, "journalctl"), []byte(`#!/bin/bash
+if [ "$TEST_JOURNAL_PROTECTED" = true ] && [ "${TEST_ROOT:-0}" != 1 ]; then
+    echo "Hint: You are currently not seeing messages from other users and the system." >&2
+    exit 1
+fi
+cat "$TEST_JOURNAL"
+`), 0o700))
+	for _, name := range []string{"grep", "cat", "jq"} {
+		realCommand, err := exec.LookPath(name)
+		require.NoError(t, err)
+		wrapper := `#!/bin/bash
+for arg in "$@"; do
+    case "$arg" in
+        "$TEST_EVENTS"*)
+            if [ "${TEST_ROOT:-0}" != 1 ]; then
+                echo "$0: $arg: Permission denied" >&2
+                exit 2
+            fi
+            ;;
+    esac
+done
+exec ` + fmt.Sprintf("%q", realCommand) + ` "$@"
+`
+		require.NoError(t, os.WriteFile(filepath.Join(bin, name), []byte(wrapper), 0o700))
+	}
+	script := strings.ReplaceAll(kubeletActiveFlagsValidationScript,
+		"/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/", events+"/")
+	cmd := exec.CommandContext(t.Context(), "bash", "-c", script)
+	cmd.Env = append(os.Environ(), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"),
+		"TEST_ROOT=0", "TEST_EVENTS="+events, "TEST_JOURNAL="+filepath.Join(dir, "journal"),
+		fmt.Sprintf("TEST_JOURNAL_PROTECTED=%t", journalProtected))
+	return cmd
+}
 
 func newActiveFlagsTestSSHClient(t *testing.T, presenceExit, telemetryExit uint32, presenceChecks, validations *atomic.Int32) *SSHClient {
 	t.Helper()
