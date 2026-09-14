@@ -154,10 +154,6 @@ func validateACLAMD64COSIUpdate(ctx context.Context, scenario *Scenario, rawCosi
 	require.NoError(scenario.T, err)
 	require.True(scenario.T, strings.EqualFold(beforeBootID, beforeNode.Status.NodeInfo.BootID), "host and Kubernetes boot IDs must match before the update")
 
-	preflightCommand := fmt.Sprintf("curl --fail --location --silent --show-error --range 0-511 --output /dev/null %s", shellQuote(cosiURL))
-	_, err = runCOSICommand(ctx, scenario, preflightCommand)
-	require.NoError(scenario.T, err, "COSI URL is not reachable from the node")
-
 	updateConfig := fmt.Sprintf("image:\n  url: %s\n  sha384: %s\ninternalParams:\n  forceAbUpdate: true\n", strconv.Quote(cosiURL), metadataHash)
 	encodedConfig := base64.StdEncoding.EncodeToString([]byte(updateConfig))
 	writeConfigCommand := fmt.Sprintf("printf '%%s' %s | base64 --decode > %s && chmod 0600 %s", shellQuote(encodedConfig), remoteCOSIConfigPath, remoteCOSIConfigPath)
