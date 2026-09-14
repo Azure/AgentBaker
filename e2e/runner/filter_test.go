@@ -67,7 +67,7 @@ func TestAppFailsBeforeInitializationWhenFiltersMatchNothing(t *testing.T) {
 	var stderr bytes.Buffer
 	app := NewApp(&bytes.Buffer{}, &stderr)
 	code := app.Run(context.Background(), []string{
-		"e2e", "run", "--log-dir", t.TempDir(), "--junit-file", junitFile, "--tags", "Name=DoesNotExist", "Ubuntu2204",
+		"e2e", "run", "--log-dir", t.TempDir(), "--junit-file", junitFile, "--tags", "Name=DoesNotExist", "Ubuntu2204_CustomLinuxOSConfig_Taints_ANC",
 	})
 
 	assert.Equal(t, exitUsage, code, "stderr: %s", stderr.String())
@@ -85,7 +85,7 @@ func TestAppFailsFastOnInvalidTagFilter(t *testing.T) {
 	var stderr bytes.Buffer
 	app := NewApp(&bytes.Buffer{}, &stderr)
 	code := app.Run(context.Background(), []string{
-		"e2e", "run", "--log-dir", t.TempDir(), "--tags", "not-a-pair", "Ubuntu2204",
+		"e2e", "run", "--log-dir", t.TempDir(), "--tags", "not-a-pair", "Ubuntu2204_CustomLinuxOSConfig_Taints_ANC",
 	})
 
 	assert.Equal(t, exitFailure, code, "stderr: %s", stderr.String())

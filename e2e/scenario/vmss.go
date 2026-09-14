@@ -1296,7 +1296,7 @@ func addDualStackSecondaryNIC(vmss *armcompute.VirtualMachineScaleSet) {
 }
 
 func generateVMSSNameLinux(artifactName string) string {
-	name := fmt.Sprintf("%s-%s-%s", randomLowercaseString(4), time.Now().Format(time.DateOnly), artifactName)
+	name := fmt.Sprintf("%s-%s-%s", time.Now().Format(time.DateOnly), randomLowercaseString(4), artifactName)
 	name = strings.ReplaceAll(name, "_", "")
 	name = strings.ReplaceAll(name, "/", "")
 	name = strings.ReplaceAll(name, "Test", "")
@@ -1304,7 +1304,7 @@ func generateVMSSNameLinux(artifactName string) string {
 	if len(name) > 57 { // a limit for VMSS name
 		name = name[:57]
 	}
-	return name
+	return strings.TrimRight(name, "-.")
 }
 
 func generateVMSSNameWindows() string {
