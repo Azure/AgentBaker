@@ -812,9 +812,16 @@ func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion, location
 }
 
 // DeleteSIGImageVersion deletes a SIG image version
-func (a *AzureClient) DeleteSIGImageVersion(ctx context.Context, galleryResourceGroup, galleryName, imageName, version string) {
-	// Ignore errors because the stage-2 VMSS deletion can still be in progress.
-	_, _ = a.GalleryImageVersions.BeginDelete(ctx, galleryResourceGroup, galleryName, imageName, version, nil)
+func (a *AzureClient) DeleteSIGImageVersion(ctx context.Context, galleryResourceGroup, galleryName, imageName, version string) error {
+	_, err := a.GalleryImageVersions.BeginDelete(ctx, galleryResourceGroup, galleryName, imageName, version, nil)
+	if err != nil {
+		var responseError *azcore.ResponseError
+		if errors.As(err, &responseError) && responseError.StatusCode == http.StatusNotFound {
+			return nil
+		}
+		return fmt.Errorf("begin deleting gallery image version %s/%s/%s: %w", galleryName, imageName, version, err)
+	}
+	return nil
 }
 
 // DeleteDisk deletes a managed disk

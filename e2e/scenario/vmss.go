@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -850,6 +851,8 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 		return nil
 	}
 
+	httpClient := config.NewHttpClient()
+	defer httpClient.CloseIdleConnections()
 	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -873,28 +876,24 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 			// Save serial console log if available
 			logFile := fmt.Sprintf("serial-console-vm-%s.log", *vmInstance.InstanceID)
 			attempts := 0
+			var lastErr error
 			for {
+				if err := ctx.Err(); err != nil {
+					return fmt.Errorf("collect serial console log for VM %s: %w", *vmInstance.InstanceID, err)
+				}
 				if attempts >= 3 {
-					logging.Logf(ctx, "failed to download serial console log for VM %s after 3 attempts", *vmInstance.InstanceID)
-					break
+					return fmt.Errorf("failed to collect serial console log for VM %s after 3 attempts: %w", *vmInstance.InstanceID, lastErr)
 				}
 				attempts++
 
-				httpClient := config.NewHttpClient()
-				resp, err := httpClient.Get(*bootDiagResp.SerialConsoleLogBlobURI)
+				contents, err := downloadSerialConsoleLog(ctx, httpClient, *bootDiagResp.SerialConsoleLogBlobURI)
 				if err != nil {
+					lastErr = err
 					logging.Logf(ctx, "failed to download serial console log for VM %s: %v", *vmInstance.InstanceID, err)
 					continue
 				}
-				body := resp.Body
-				defer body.Close()
-
-				contents, err := io.ReadAll(body)
-				if err != nil {
-					logging.Logf(ctx, "failed to read serial console log for VM %s: %v", *vmInstance.InstanceID, err)
-					continue
-				}
 				if err := writeToFile(s.artifactName, logFile, string(contents)); err != nil {
+					lastErr = err
 					logging.Logf(ctx, "failed to write serial console log for VM %s: %v", *vmInstance.InstanceID, err)
 					continue
 				}
@@ -903,6 +902,22 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 		}
 	}
 	return nil
+}
+
+func downloadSerialConsoleLog(ctx context.Context, client *http.Client, blobURI string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, blobURI, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create serial console log request: %w", err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("download serial console log: HTTP %s", resp.Status)
+	}
+	return io.ReadAll(resp.Body)
 }
 
 const cloudInitAnalyzeCommand = "printf '%s\\n' '=== cloud-init analyze show ==='; sudo cloud-init analyze show; " +

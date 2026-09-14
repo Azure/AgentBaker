@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -61,70 +62,85 @@ func GetExpectedPackageVersions(packageName, distro, release string) []string {
 	return expectedVersions
 }
 
-func GetWindowsContainerImages(containerName string, windowsVersion string) []string {
-	return toolkit.Map(getWindowsContainerImageTags(containerName, windowsVersion), func(tag string) string {
+func GetWindowsContainerImages(containerName string, windowsVersion string) ([]string, error) {
+	tags, err := getWindowsContainerImageTags(containerName, windowsVersion)
+	if err != nil {
+		return nil, err
+	}
+	return toolkit.Map(tags, func(tag string) string {
 		return strings.Replace(containerName, "*", tag, 1)
-	})
+	}), nil
 }
 
 // TODO: expand this logic to support linux container images as well
-func getWindowsContainerImageTags(containerName string, windowsVersion string) []string {
-	var expectedVersions []string
-	// since we control this json, we assume its going to be properly formatted here
-
-	// Get the project root dynamically
+func getWindowsContainerImageTags(containerName string, windowsVersion string) ([]string, error) {
 	_, filename, _, _ := runtime.Caller(0)
-	projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(filename))) // Go up 3 levels from e2e/components/
-	componentsPath := filepath.Join(projectRoot, "parts", "common", "components.json")
+	projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(filename)))
+	return getWindowsContainerImageTagsFromFS(os.DirFS(projectRoot), containerName, windowsVersion)
+}
 
-	jsonBytes, _ := os.ReadFile(componentsPath)
-
-	containerImages := gjson.GetBytes(jsonBytes, "ContainerImages") //fmt.Sprintf("ContainerImages", containerName))
-
+func getWindowsContainerImageTagsFromFS(fsys fs.FS, containerName, windowsVersion string) ([]string, error) {
+	const componentsPath = "parts/common/components.json"
+	jsonBytes, err := fs.ReadFile(fsys, componentsPath)
+	if err != nil {
+		return nil, fmt.Errorf("read %s for Windows image %q (%s): %w", componentsPath, containerName, windowsVersion, err)
+	}
+	if !gjson.ValidBytes(jsonBytes) {
+		return nil, fmt.Errorf("parse %s for Windows image %q (%s): invalid JSON", componentsPath, containerName, windowsVersion)
+	}
+	containerImages := gjson.GetBytes(jsonBytes, "ContainerImages")
+	if !containerImages.IsArray() {
+		return nil, fmt.Errorf("%s: ContainerImages must be an array", componentsPath)
+	}
+	var expectedVersions []string
 	for _, containerImage := range containerImages.Array() {
-		imageDownloadUrl := containerImage.Get("downloadURL").String()
-		if strings.EqualFold(imageDownloadUrl, containerName) {
-			packages := containerImage.Get("windowsVersions")
-			//t.Logf("got packages: %s", packages.String())
-
-			for _, packageItem := range packages.Array() {
-				// check if versionsV2 exists
-				if packageItem.Get("windowsSkuMatch").Exists() {
-					windowsSkuMatch := packageItem.Get("windowsSkuMatch").String()
-					matched, err := filepath.Match(windowsSkuMatch, windowsVersion)
-					if matched && err == nil {
-
-						// get versions.latestVersion and append to expectedVersions
-						expectedVersions = append(expectedVersions, packageItem.Get("latestVersion").String())
-						// get versions.previousLatestVersion (if exists) and append to expectedVersions
-						if packageItem.Get("previousLatestVersion").Exists() {
-							expectedVersions = append(expectedVersions, packageItem.Get("previousLatestVersion").String())
-						}
-					}
-				} else {
-					// get versions.latestVersion and append to expectedVersions
-					expectedVersions = append(expectedVersions, packageItem.Get("latestVersion").String())
-					// get versions.previousLatestVersion (if exists) and append to expectedVersions
-					if packageItem.Get("previousLatestVersion").Exists() {
-						expectedVersions = append(expectedVersions, packageItem.Get("previousLatestVersion").String())
-					}
+		if !strings.EqualFold(containerImage.Get("downloadURL").String(), containerName) {
+			continue
+		}
+		packages := containerImage.Get("windowsVersions")
+		if !packages.IsArray() {
+			return nil, fmt.Errorf("%s: windowsVersions for %q must be an array", componentsPath, containerName)
+		}
+		for _, packageItem := range packages.Array() {
+			if pattern := packageItem.Get("windowsSkuMatch"); pattern.Exists() {
+				if pattern.Type != gjson.String {
+					return nil, fmt.Errorf("%s: windowsSkuMatch for %q must be a string", componentsPath, containerName)
 				}
+				matched, err := filepath.Match(pattern.String(), windowsVersion)
+				if err != nil {
+					return nil, fmt.Errorf("%s: invalid windowsSkuMatch %q for %q: %w", componentsPath, pattern.String(), containerName, err)
+				}
+				if !matched {
+					continue
+				}
+			}
+			for _, field := range []string{"latestVersion", "previousLatestVersion"} {
+				tag := packageItem.Get(field)
+				if field == "previousLatestVersion" && !tag.Exists() {
+					continue
+				}
+				if tag.Type != gjson.String || strings.TrimSpace(tag.String()) == "" {
+					return nil, fmt.Errorf("%s: %s for Windows image %q (%s) must be a non-empty string", componentsPath, field, containerName, windowsVersion)
+				}
+				expectedVersions = append(expectedVersions, tag.String())
 			}
 		}
 	}
-
-	return expectedVersions
+	if len(expectedVersions) == 0 {
+		return nil, fmt.Errorf("%s: no Windows image tags for %q matching %q", componentsPath, containerName, windowsVersion)
+	}
+	return expectedVersions, nil
 }
 
 func getWindowsEnvVarForName(vhd *config.Image) string {
 	return strings.TrimPrefix(vhd.Name, "windows-")
 }
 
-func GetServercoreImagesForVHD(vhd *config.Image) []string {
+func GetServercoreImagesForVHD(vhd *config.Image) ([]string, error) {
 	return GetWindowsContainerImages("mcr.microsoft.com/windows/servercore:*", getWindowsEnvVarForName(vhd))
 }
 
-func GetNanoserverImagesForVhd(vhd *config.Image) []string {
+func GetNanoserverImagesForVhd(vhd *config.Image) ([]string, error) {
 	return GetWindowsContainerImages("mcr.microsoft.com/windows/nanoserver:*", getWindowsEnvVarForName(vhd))
 }
 

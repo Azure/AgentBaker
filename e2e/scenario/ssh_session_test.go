@@ -155,6 +155,34 @@ func TestSSHCommandFailureIsNotRetried(t *testing.T) {
 	assert.EqualValues(t, 1, opens.Load())
 }
 
+func TestSSHCommandMissingExitStatusIsNotSuccess(t *testing.T) {
+	var opens atomic.Int32
+	client := newSessionTestSSHClient(t, func(ch ssh.NewChannel) error {
+		opens.Add(1)
+		channel, requests, err := ch.Accept()
+		if err != nil {
+			return err
+		}
+		defer channel.Close()
+		for request := range requests {
+			if err := request.Reply(request.Type == "exec", nil); err != nil {
+				return err
+			}
+			if request.Type == "exec" {
+				return nil
+			}
+		}
+		return nil
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	result, err := runSSHCommand(ctx, client, "false", false)
+	var missingStatus *ssh.ExitMissingError
+	require.ErrorAs(t, err, &missingStatus)
+	assert.Nil(t, result)
+	assert.EqualValues(t, 1, opens.Load())
+}
+
 func TestSCPCopyRetriesOnlyRejectedOpens(t *testing.T) {
 	for _, failTransfer := range []bool{false, true} {
 		t.Run(fmt.Sprintf("fail-transfer=%t", failTransfer), func(t *testing.T) {
