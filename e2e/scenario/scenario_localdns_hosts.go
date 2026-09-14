@@ -64,14 +64,6 @@ func validateLocalDNSLifecycle(ctx context.Context, s *Scenario) error {
 	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, `
 set -eu
 
-# This validation requires the ExecStopPost hook baked into the branch VHD.
-# Standalone E2E may run against an older published VHD, where this behavior
-# is unavailable and should be skipped rather than reported as a false failure.
-if ! sudo systemctl show localdns.service -p ExecStopPost --value | grep -q 'localdns.sh cleanup'; then
-    echo "SKIP: VHD predates the ExecStopPost cleanup hook"
-    exit 0
-fi
-
 NORESTART=/run/systemd/system/localdns.service.d/99-e2e-no-restart.conf
 
 # Install cleanup before any service mutation so set -e cannot leave the node
@@ -155,6 +147,7 @@ if sudo journalctl -u localdns.service --since "@$test_start" --no-pager | grep 
 fi
 dig +short +time=5 +tries=1 mcr.microsoft.com @169.254.10.10 | grep -q .
 
+if sudo systemctl show localdns.service -p ExecStopPost --value | grep -q 'localdns.sh cleanup'; then
 # Terminal dead-service case: this is the incident scenario the PR fixes.
 # When localdns ends up dead (systemd exhausts restart attempts), ExecStopPost
 # must still revert node DNS so the node does not keep pointing at the dead
@@ -226,6 +219,9 @@ fi
 if ! getent hosts mcr.microsoft.com >/dev/null 2>&1; then
     echo "FAIL: node cannot resolve DNS after localdns died"
     exit 1
+fi
+else
+    echo "SKIP: VHD predates the ExecStopPost cleanup hook"
 fi
 
 # The EXIT trap removes the temporary override and restores LocalDNS even if
