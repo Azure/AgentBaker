@@ -68,6 +68,7 @@ Analyze PRs for these compatibility scenarios:
   - Generated ANC payloads under `aks-node-controller/generated/`
   - Wiring and command selection in `pkg/agent/`
   - Template delivery in `parts/linux/cloud-init/nodecustomdata.yml`
+- For proxy-related changes, compare uppercase and lowercase exports (`HTTP_PROXY`/`http_proxy`, `HTTPS_PROXY`/`https_proxy`, and `NO_PROXY`/`no_proxy`) across classic CSE, ANC compatibility payloads, and generated scripts. Confirm that customer-controlled values remain data passed through dedicated environment variables rather than shell code evaluated by legacy VHDs.
 - **Breaking signals**:
   - A fix changes only the classic script or only ANC without documenting why the other path is unaffected
   - The paths use different configuration inputs, environment variables, file paths, commands, or exit/error behavior for the same feature
