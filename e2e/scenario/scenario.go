@@ -2076,6 +2076,58 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
+	Name:        "Ubuntu2604Minimal_TrustedLaunch",
+	Description: "Tests that a node using the Ubuntu 2604 minimal VHD can be properly bootstrapped using Trusted Launch",
+	Tags: Tags{
+		VMSeriesCoverageTest: true,
+	},
+	Config: Config{
+		Cluster: ClusterLatestKubernetesVersionKubenet,
+		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
+			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
+			return errors.Join(
+				ValidateContainerd2Properties(ctx, s, containerdVersions),
+				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerRuntimePlugins(ctx, s),
+				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
+				ValidateSSHServiceEnabled(ctx, s),
+			)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:        "Ubuntu2604Minimal_TrustedLaunch_ARM64",
+	Description: "Tests that a node using the Ubuntu 2604 minimal ARM64 VHD can be properly bootstrapped using Trusted Launch",
+	Tags: Tags{
+		VMSeriesCoverageTest: true,
+	},
+	Config: Config{
+		Cluster: ClusterLatestKubernetesVersionKubenet,
+		VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
+			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
+			return errors.Join(
+				ValidateContainerd2Properties(ctx, s, containerdVersions),
+				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerRuntimePlugins(ctx, s),
+				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
+				ValidateSSHServiceEnabled(ctx, s),
+			)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
 	Name:        "Ubuntu2604Minimal_AKSVMExtension_FilesystemCorruption",
 	Description: "Tests Ubuntu 26.04 minimal NPD service and filesystem-corruption reporting with the AKS VM extension",
 	Config: Config{
