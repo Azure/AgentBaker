@@ -4,17 +4,6 @@ OS_VERSION=$(sort -r /etc/*-release | sed -n 's/^VERSION_ID=//p' | head -n1 | tr
 OS_VARIANT=$(sort -r /etc/*-release | sed -n 's/^VARIANT_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
-if [ "$OS" = "UBUNTU" ] && [ "$OS_VERSION" = "26.04" ] && [ "${IMG_SKU:-}" = "server-cvm" ]; then
-  case ",${FEATURE_FLAGS:-}," in
-    *,cvm,*)
-      echo "===== BASE IMAGE INSTALLED PACKAGES BEGIN ====="
-      dpkg-query -W -f='${binary:Package}\t${Version}\n' | sort
-      echo "===== BASE IMAGE INSTALLED PACKAGES END ====="
-      exit 1
-      ;;
-  esac
-fi
-
 #the following sed removes all comments of the format {{/* */}}
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/tool_installs_distro.sh

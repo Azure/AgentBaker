@@ -375,6 +375,12 @@
       "destination": "/home/packer/required-packages.txt"
     },
     {
+      "type": "shell",
+      "inline": [
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} IMG_SKU={{user `img_sku`}} /bin/bash -eux /home/packer/prune-server-cvm.sh"
+      ]
+    },
+    {
       "type": "file",
       "source": "vhdbuilder/packer/install-ig.sh",
       "destination": "/home/packer/install-ig.sh"
