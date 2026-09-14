@@ -196,21 +196,36 @@ fi
 # read must not be treated as "restored", or a failed read would mask the very
 # regression under test. Retry those instead.
 dns_reverted=false
+resolver_state_readable=false
+localdns_listener_present=false
 for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
     if command -v resolvectl >/dev/null 2>&1; then
         current_dns=$(resolvectl status 2>/dev/null) || current_dns=""
     else
         current_dns=$(cat /run/systemd/resolve/resolv.conf 2>/dev/null) || current_dns=""
     fi
-    # Require a non-empty snapshot before trusting the absence check.
-    if [ -n "$current_dns" ] && ! printf '%s' "$current_dns" | grep -q '169\.254\.10\.10'; then
-        dns_reverted=true
-        break
+    if [ -z "$current_dns" ]; then
+        resolver_state_readable=false
+    else
+        resolver_state_readable=true
+        if printf '%s' "$current_dns" | grep -q '169\.254\.10\.10'; then
+            localdns_listener_present=true
+        else
+            localdns_listener_present=false
+            dns_reverted=true
+            break
+        fi
     fi
     sleep 1
 done
 if [ "$dns_reverted" != true ]; then
-    echo "FAIL: link DNS still points at 169.254.10.10 (or resolver state unreadable) after localdns died"
+    if [ "$resolver_state_readable" != true ]; then
+        echo "FAIL: resolver state was empty or unreadable after localdns died"
+    elif [ "$localdns_listener_present" = true ]; then
+        echo "FAIL: link DNS still points at 169.254.10.10 after localdns died"
+    else
+        echo "FAIL: node DNS was not restored after localdns died"
+    fi
     exit 1
 fi
 
