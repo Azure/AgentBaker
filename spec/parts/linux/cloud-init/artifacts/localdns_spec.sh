@@ -1019,6 +1019,23 @@ EOF
             The file "${NETWORK_DROPIN_FILE}" should not be exist
             rm -rf /tmp/localdns-cleanup-test
         End
+
+        It 'reports a drop-in removal failure but still reloads the network'
+            iptables() { return 0; }
+            NETWORKCTL_RELOAD_CMD="true"
+            touch "$NETWORK_DROPIN_FILE"
+            rm() {
+                if [ "$1" = "-f" ] && [ "$2" = "$NETWORK_DROPIN_FILE" ]; then
+                    return 1
+                fi
+                command rm "$@"
+            }
+            When call cleanup_iptables_and_dns
+            The status should be failure
+            The stdout should include "Failed to remove network drop-in file ${NETWORK_DROPIN_FILE}."
+            The stdout should include "Reloading network configuration succeeded."
+            The file "${NETWORK_DROPIN_FILE}" should be exist
+        End
     End
 
 
