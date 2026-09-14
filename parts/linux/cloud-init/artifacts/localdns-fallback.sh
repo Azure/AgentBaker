@@ -32,7 +32,7 @@ LOCALDNS_CLUSTER_LISTENER_IP="169.254.10.11"
 # via EnvironmentFile=/etc/localdns/environment.
 DEFAULT_COREDNS_SERVICE_IP="10.0.0.10"
 
-log() { echo "localdns-fallback: $*"; }
+log() { echo "localdns-fallback: $*" >&2; }
 
 resolve_upstream() {
     local ip="${COREDNS_SERVICE_IP:-}"
