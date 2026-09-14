@@ -235,7 +235,7 @@ main() {
     fi
     # shellcheck disable=SC3010
     if [[ ! "${golden_timestamp}" =~ ${GOLDEN_TIMESTAMP_REGEX} ]]; then
-        echo "golden timestamp has invalid format, expected YYYYMMDDTHHMMSSZ, got: ${golden_timestamp}"
+        echo "golden timestamp has invalid format; expected YYYYMMDDTHHMMSSZ"
         exit 1
     fi
     echo "golden timestamp is: ${golden_timestamp}"
