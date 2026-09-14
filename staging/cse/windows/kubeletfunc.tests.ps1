@@ -400,3 +400,110 @@ Describe 'Remove-KubeletNodeLabel' {
         Compare-Object $global:KubeletNodeLabels $expected | Should -Be $null
     }
 }
+
+Describe 'New-NSSMService' {
+    BeforeEach {
+        $global:EnableCsiProxy = $false
+        $global:EnableHostsConfigAgent = $false
+
+        Mock Remove-ServiceIfExists
+        Mock Invoke-Nssm
+    }
+
+    It 'removes existing service registrations before installing both services' {
+        New-NSSMService -KubeDir 'c:\k' -KubeletStartFile 'c:\k\kubeletstart.ps1' -KubeProxyStartFile 'c:\k\kubeproxystart.ps1'
+
+        Assert-MockCalled -CommandName Remove-ServiceIfExists -Exactly -Times 1 -ParameterFilter {
+            $ServiceName -eq 'Kubelet'
+        }
+        Assert-MockCalled -CommandName Remove-ServiceIfExists -Exactly -Times 1 -ParameterFilter {
+            $ServiceName -eq 'Kubeproxy'
+        }
+        Assert-MockCalled -CommandName Invoke-Nssm -Exactly -Times 1 -ParameterFilter {
+            $KubeDir -eq 'c:\k' -and
+            $NssmArguments -join ' ' -eq 'install Kubelet C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+        }
+        Assert-MockCalled -CommandName Invoke-Nssm -Exactly -Times 1 -ParameterFilter {
+            $KubeDir -eq 'c:\k' -and
+            $NssmArguments -join ' ' -eq 'install Kubeproxy C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+        }
+    }
+
+    It 'sets Kubelet dependencies to <Name>' -TestCases @(
+        @{
+            Name = 'containerd'
+            EnableCsiProxy = $false
+            EnableHostsConfigAgent = $false
+            ExpectedArguments = @('set', 'Kubelet', 'DependOnService', 'containerd')
+        }
+        @{
+            Name = 'containerd and csi-proxy'
+            EnableCsiProxy = $true
+            EnableHostsConfigAgent = $false
+            ExpectedArguments = @('set', 'Kubelet', 'DependOnService', 'containerd', 'csi-proxy')
+        }
+        @{
+            Name = 'containerd and hosts-config-agent'
+            EnableCsiProxy = $false
+            EnableHostsConfigAgent = $true
+            ExpectedArguments = @('set', 'Kubelet', 'DependOnService', 'containerd', 'hosts-config-agent')
+        }
+        @{
+            Name = 'containerd, csi-proxy, and hosts-config-agent'
+            EnableCsiProxy = $true
+            EnableHostsConfigAgent = $true
+            ExpectedArguments = @('set', 'Kubelet', 'DependOnService', 'containerd', 'csi-proxy', 'hosts-config-agent')
+        }
+    ) {
+        $global:EnableCsiProxy = $EnableCsiProxy
+        $global:EnableHostsConfigAgent = $EnableHostsConfigAgent
+
+        New-NSSMService -KubeDir 'c:\k' -KubeletStartFile 'c:\k\kubeletstart.ps1' -KubeProxyStartFile 'c:\k\kubeproxystart.ps1'
+
+        Assert-MockCalled -CommandName Invoke-Nssm -Exactly -Times 1 -ParameterFilter {
+            if ($KubeDir -ne 'c:\k' -or $NssmArguments.Count -ne $ExpectedArguments.Count) {
+                return $false
+            }
+
+            for ($i = 0; $i -lt $ExpectedArguments.Count; $i++) {
+                if ($NssmArguments[$i] -ne $ExpectedArguments[$i]) {
+                    return $false
+                }
+            }
+
+            return $true
+        }
+    }
+
+    It 'stops when setting Kubelet dependencies fails' {
+        Mock Invoke-Nssm -ParameterFilter {
+            $NssmArguments -join ' ' -eq 'set Kubelet DependOnService containerd'
+        } -MockWith {
+            throw 'nssm.exe failed to set Kubelet dependencies'
+        }
+
+        {
+            New-NSSMService -KubeDir 'c:\k' -KubeletStartFile 'c:\k\kubeletstart.ps1' -KubeProxyStartFile 'c:\k\kubeproxystart.ps1'
+        } | Should -Throw '*failed to set Kubelet dependencies*'
+
+        Assert-MockCalled -CommandName Invoke-Nssm -Exactly -Times 0 -ParameterFilter {
+            $NssmArguments -join ' ' -eq 'install Kubeproxy C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+        }
+    }
+
+    It 'stops when configuring Kubeproxy fails' {
+        Mock Invoke-Nssm -ParameterFilter {
+            $NssmArguments -join ' ' -eq 'set Kubeproxy AppDirectory c:\k'
+        } -MockWith {
+            throw 'nssm.exe failed to configure Kubeproxy'
+        }
+
+        {
+            New-NSSMService -KubeDir 'c:\k' -KubeletStartFile 'c:\k\kubeletstart.ps1' -KubeProxyStartFile 'c:\k\kubeproxystart.ps1'
+        } | Should -Throw '*failed to configure Kubeproxy*'
+
+        Assert-MockCalled -CommandName Invoke-Nssm -Exactly -Times 0 -ParameterFilter {
+            $NssmArguments -join ' ' -eq 'set Kubeproxy AppParameters c:\k\kubeproxystart.ps1'
+        }
+    }
+}
