@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/require"
 )
@@ -19,14 +20,13 @@ func TestValidateRxBufferDefaultDoesNotSkipBySKU(t *testing.T) {
 			t.Run(string(distro)+"/"+sku, func(t *testing.T) {
 				s := &Scenario{
 					Config: Config{VHD: &config.Image{Distro: distro}},
-					Logger: t,
 					Runtime: &ScenarioRuntime{
 						NBC: &datamodel.NodeBootstrappingConfiguration{
 							AgentPoolProfile: &datamodel.AgentPoolProfile{VMSize: sku},
 						},
 					},
 				}
-				err := ValidateRxBufferDefault(t.Context(), s)
+				err := ValidateRxBufferDefault(logging.WithLogger(t.Context(), t), s)
 				require.ErrorContains(t, err, "cannot execute script on a nil VM")
 			})
 		}
