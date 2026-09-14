@@ -1310,6 +1310,8 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(cseCmd).To(ContainSubstring("handleCloudInitStatus"))
 		Expect(cseCmd).To(ContainSubstring("cloud-init status --wait"))
 		Expect(cseCmd).To(ContainSubstring("cloudInitExitCode=$?"))
+		Expect(cseCmd).To(ContainSubstring("initAKSCloudExitCode=$?"))
+		Expect(cseCmd).To(ContainSubstring("if [ \"$initAKSCloudExitCode\" -eq 50 ]"))
 	})
 
 	It("should handle configuration with custom kubelet config", func() {
