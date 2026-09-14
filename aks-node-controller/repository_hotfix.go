@@ -702,11 +702,7 @@ func (a *App) ubuntuRepositoryPlan(info platformInfo, hotfixVersion string) (rep
 	if err != nil {
 		return repositoryDownloadPlan{}, err
 	}
-	sourcesDir := a.aptSourcesDir
-	if sourcesDir == "" {
-		sourcesDir = defaultAptSourcesDir
-	}
-	sourcePath, err := resolveMicrosoftProdSourceListPath(sourcesDir)
+	sourcePath, err := a.microsoftProdSourceListPath()
 	if err != nil {
 		return repositoryDownloadPlan{}, newUnsupportedRepositoryError("%v", err)
 	}
