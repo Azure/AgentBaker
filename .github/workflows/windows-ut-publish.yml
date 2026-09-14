@@ -53,7 +53,13 @@ jobs:
           github-token: ${{ github.token }}
 
       - name: Publish Unit Test Results
-        uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
+        # The default (Docker) entry point's action.yml resolves to a floating
+        # `docker://ghcr.io/enricomi/publish-unit-test-result-action:v2.24.0` tag even when
+        # pinned to a commit SHA here, so pinning the SHA doesn't actually pin what runs. The
+        # `linux` composite entry point has no such indirection - it's plain steps executed
+        # directly at this commit, so the SHA pin is meaningful. ubuntu-latest doesn't need
+        # Docker for it; that variant exists specifically for runners without Docker.
+        uses: EnricoMi/publish-unit-test-result-action/linux@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
         with:
           commit: ${{ github.event.workflow_run.head_sha }}
           event_file: event/event.json
