@@ -2,6 +2,12 @@
 applyTo: "e2e/**"
 ---
 
+# E2E review scope
+
+- Report concrete correctness, reliability, and shared-environment safety problems.
+- Do not request additional test coverage for code in `e2e/**`, including validators, helpers, and framework code. This applies to inline comments and review summaries.
+- If an existing test masks a demonstrated bug, report the bug itself rather than a coverage request.
+
 # Reuse E2E scenarios
 
 - When adding checks, defining a scenario, or renaming one, read [Writing and extending scenarios](../../e2e/README.md#writing-and-extending-scenarios). It defines the configuration-based naming and reuse pattern.
