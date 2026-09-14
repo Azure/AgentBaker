@@ -14,6 +14,10 @@ ConditionKernelVersion=>=5.15
 # so slow failures (PID file never appears, watchdog kill, ready-check timeout,
 # hung start) still reach 'failed'. That terminal state is what lets an
 # OnFailure= handoff fire and gives NPD a stable state to observe.
+# OnFailure= only fires on entry to 'failed', which the StartLimit budget above
+# guarantees for unrecoverable failures. It starts the pod-DNS fallback so
+# 169.254.10.11 keeps answering for already-running pods while localdns is down.
+OnFailure=localdns-fallback.service
 StartLimitIntervalSec=720
 StartLimitBurst=5
 
@@ -22,6 +26,12 @@ Type=notify
 NotifyAccess=all
 WatchdogSec=60
 Restart=on-failure
+# Stop the pod-DNS fallback before we touch the shared dummy interface. localdns
+# start (add_iptable_rules_to_skip_conntrack_from_pods) deletes and recreates the
+# interface carrying .11; if the fallback were still bound, recovery would yank
+# its socket mid-flight. A synchronous ExecStartPre stop avoids the Conflicts=
+# race (which resolves concurrently). '-' so a not-running fallback is not an error.
+ExecStartPre=-/usr/bin/systemctl stop localdns-fallback.service
 # Load-bearing: give each restart time to sample real system state instead of
 # re-entering the transient it is retrying against. cleanup_iptables_and_dns
 # runs 'networkctl reload' on every start, and the dummy interface carrying the

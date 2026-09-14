@@ -427,6 +427,14 @@ copyPackerFiles() {
   LOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/localdns.service.d/delegate.conf
   cpAndMode $LOCALDNS_SERVICE_DELEGATE_SRC $LOCALDNS_SERVICE_DELEGATE_DEST 0644
 
+  LOCALDNS_FALLBACK_SCRIPT_SRC=/home/packer/localdns-fallback.sh
+  LOCALDNS_FALLBACK_SCRIPT_DEST=/opt/azure/containers/localdns/localdns-fallback.sh
+  cpAndMode $LOCALDNS_FALLBACK_SCRIPT_SRC $LOCALDNS_FALLBACK_SCRIPT_DEST 0755
+
+  LOCALDNS_FALLBACK_SERVICE_SRC=/home/packer/localdns-fallback.service
+  LOCALDNS_FALLBACK_SERVICE_DEST=/etc/systemd/system/localdns-fallback.service
+  cpAndMode $LOCALDNS_FALLBACK_SERVICE_SRC $LOCALDNS_FALLBACK_SERVICE_DEST 0644
+
   # Skip localdns exporter for Flatcar (EOL June 2026, no new features)
   if ! isFlatcar "$OS"; then
     LOCALDNS_EXPORTER_SCRIPT_SRC=/home/packer/localdns_exporter.sh

@@ -1,0 +1,30 @@
+[Unit]
+Description=Localdns pod-DNS fallback (binds 169.254.10.11, forwards to kube-dns ClusterIP)
+# Only meaningful on images that run localdns.
+ConditionKernelVersion=>=5.15
+# This unit is started by localdns.service's OnFailure= when localdns reaches
+# 'failed'. It must never win a race against a recovering localdns for the .11
+# interface: localdns.service has ExecStartPre that stops this unit before it
+# deletes/recreates the dummy interface. Belt-and-suspenders ordering here too.
+Before=localdns.service
+Conflicts=localdns.service
+
+[Service]
+Type=simple
+# Read COREDNS_SERVICE_IP (the real kube-dns Service ClusterIP) persisted at
+# bootstrap. '-' so a missing file does not block start; the script falls back
+# to the datamodel default if the value is absent.
+EnvironmentFile=-/etc/localdns/environment
+ExecStart=/opt/azure/containers/localdns/localdns-fallback.sh start
+ExecStopPost=/opt/azure/containers/localdns/localdns-fallback.sh cleanup
+# Keep the fallback answering for as long as localdns stays failed; if the
+# fallback itself dies, restart it (bounded) rather than leaving pods dark.
+Restart=on-failure
+RestartSec=2
+StartLimitIntervalSec=0
+KillMode=mixed
+TimeoutStopSec=15
+Slice=localdns.slice
+
+# Deliberately NOT installed / not WantedBy any target: this unit is only ever
+# activated on demand via localdns.service OnFailure=, never enabled at boot.
