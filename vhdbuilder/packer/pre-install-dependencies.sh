@@ -4,6 +4,17 @@ OS_VERSION=$(sort -r /etc/*-release | sed -n 's/^VERSION_ID=//p' | head -n1 | tr
 OS_VARIANT=$(sort -r /etc/*-release | sed -n 's/^VARIANT_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
+if [ "$OS" = "UBUNTU" ] && [ "$OS_VERSION" = "26.04" ] && [ "${IMG_SKU:-}" = "server-cvm" ]; then
+  case ",${FEATURE_FLAGS:-}," in
+    *,cvm,*)
+      echo "===== BASE IMAGE INSTALLED PACKAGES BEGIN ====="
+      dpkg-query -W -f='${binary:Package}\t${Version}\n' | sort
+      echo "===== BASE IMAGE INSTALLED PACKAGES END ====="
+      exit 1
+      ;;
+  esac
+fi
+
 #the following sed removes all comments of the format {{/* */}}
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/tool_installs_distro.sh
@@ -36,8 +47,9 @@ capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 copyPackerFiles
 
-# Install required dependencies needed to build minimal images if needed (currently only Ubuntu 26.04)
-if isMinimalImage && isUbuntu "$OS"; then
+# Install required dependencies needed to build pruned/minimal images if needed (currently only Ubuntu 26.04).
+# server-cvm is pruned before this script runs, but intentionally does not carry the misleading minimal feature flag.
+if isUbuntu "$OS" && { isMinimalImage || { [ "${OS_VERSION}" = "26.04" ] && [ "${IMG_SKU}" = "server-cvm" ] && tr ',' '\n' <<<"${FEATURE_FLAGS}" | grep -Fxq "cvm"; }; }; then
   installMinimalBuildDeps
 fi
 

@@ -76,6 +76,7 @@ steps:
   - bash: |
       SKU_NAME=${OS_VERSION} && \
       if grep -q "minimal" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}minimal"; fi && \
+      if [[ "${OS_SKU}" == "Ubuntu" && "${OS_VERSION}" == "26.04" && "${IMG_SKU}" == "server-cvm" ]] && tr ',' '\n' <<<"${FEATURE_FLAGS}" | grep -Fxq "cvm"; then SKU_NAME="${SKU_NAME}minimal"; fi && \
       if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
       if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
       if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}gb"; fi && \
@@ -97,7 +98,6 @@ steps:
         make -f packer.mk run-packer
     condition: ne(variables['BUILDER'], 'imagecustomizer')
     displayName: Build VHD
-    retryCountOnTaskFailure: 3
     env:
       OS_TYPE: Linux
       GIT_VERSION: $(Build.SourceVersion)
