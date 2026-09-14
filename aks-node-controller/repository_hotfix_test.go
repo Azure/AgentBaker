@@ -525,30 +525,38 @@ func TestRepositoryArchitectureAndReleaseMappings(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestTryRepositoryDownloadRejectsImageBasedAzureLinuxVariants(t *testing.T) {
+// The fast path is Ubuntu/deb only for now. RPM packages carry their own GPG signature and
+// Azure Linux repositories set gpgcheck=1, so dnf/tdnf verify it on install; this path
+// authenticates only the metadata chain, which would make it weaker than the fallback it is
+// meant to accelerate. Every Azure Linux node -- plain or image-based -- must therefore be
+// turned away here and left to dnf/tdnf.
+func TestTryRepositoryDownloadRejectsAzureLinuxRPMPlatforms(t *testing.T) {
 	tests := []struct {
 		name      string
 		variantID string
 	}{
+		{name: "Azure Linux", variantID: ""},
 		{name: "Azure Container Linux variant", variantID: osReleaseIDAzureContainerLinux},
-		{name: "OS Guard variant", variantID: "osguard"},
+		{name: "OS Guard variant", variantID: osVariantIDOSGuard},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
 			osReleasePath := filepath.Join(dir, "os-release")
-			require.NoError(t, os.WriteFile(osReleasePath, []byte(fmt.Sprintf(
-				"ID=azurelinux\nVARIANT_ID=%s\nVERSION_ID=3.0\n", tc.variantID)), 0o644))
+			osRelease := "ID=azurelinux\nVERSION_ID=3.0\n"
+			if tc.variantID != "" {
+				osRelease += fmt.Sprintf("VARIANT_ID=%s\n", tc.variantID)
+			}
+			require.NoError(t, os.WriteFile(osReleasePath, []byte(osRelease), 0o644))
 
 			app := NewTestApp(t, TestAppConfig{}).App
 			app.osReleasePath = osReleasePath
 
 			err := app.tryRepositoryDownload(context.Background(), "202607.20.2")
 			require.Error(t, err)
-			assert.False(t, isIntegrityError(err), "an image-based OS variant is unsupported, not tampering")
-			assert.Contains(t, err.Error(), "repository fast path is not supported on image-based OS")
-			assert.Contains(t, err.Error(), tc.variantID)
+			assert.False(t, isIntegrityError(err), "an unsupported platform is not tampering")
+			assert.Contains(t, err.Error(), "repository fast path is not supported for RPM platforms yet")
 		})
 	}
 }

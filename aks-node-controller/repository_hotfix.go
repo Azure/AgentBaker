@@ -195,17 +195,21 @@ func (a *App) tryRepositoryDownload(ctx context.Context, hotfixVersion string) e
 	case osReleaseIDUbuntu:
 		plan, err = a.ubuntuRepositoryPlan(info, hotfixVersion)
 	case osReleaseIDAzureLinux:
-		// Image-based Azure Linux variants ship no package repositories, so discovery would
-		// fail below with a misleading "no enabled Microsoft-published RPM repository".
-		// detectPackageManager rejects these variants too, so the fallback cannot serve them
-		// either -- but naming the reason beats reporting it as a missing repository.
-		if isImageBasedOSVariant(info.VariantID) {
-			err = newUnsupportedRepositoryError(
-				"repository fast path is not supported on image-based OS %q variant %q",
-				info.ID, info.VariantID)
-			break
-		}
-		plan, err = a.rpmRepositoryPlan(info, hotfixVersion)
+		// Deliberately unsupported for now, so Azure Linux keeps using dnf/tdnf.
+		//
+		// The deb chain is equivalent to apt's: InRelease signature -> Packages SHA256 ->
+		// .deb SHA256, and Debian packages carry no in-package signature, so nothing is
+		// skipped. RPM is different: packages embed their own GPG signature, and Azure Linux
+		// repositories set gpgcheck=1, so dnf/tdnf verify it on every install. This path only
+		// authenticates the metadata chain (repomd.xml.asc -> primary.xml -> .rpm SHA256),
+		// which proves the package is the one the repository published but not that it was
+		// signed by the expected key. Installing it here would therefore be weaker than the
+		// fallback it is meant to accelerate.
+		//
+		// Lifting this requires verifying the RPM package signature; rpmRepositoryPlan and
+		// its tests stay in place for that work.
+		err = newUnsupportedRepositoryError(
+			"repository fast path is not supported for RPM platforms yet")
 	default:
 		err = newUnsupportedRepositoryError("unsupported repository platform %q", info.ID)
 	}
