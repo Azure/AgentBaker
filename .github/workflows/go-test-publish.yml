@@ -44,17 +44,25 @@ jobs:
           github-token: ${{ github.token }}
 
       - name: Code Coverage Report
-        uses: irongut/CodeCoverageSummary@51cc3a756ddcd398d447c044c02cb6aa83fdae95 # v1.3.0
-        with:
-          filename: coverage/*.xml
-          badge: true
-          fail_below_min: false
-          format: markdown
-          hide_branch_rate: false
-          hide_complexity: true
-          indicators: true
-          output: both
-          thresholds: '60 80'
+        # irongut/CodeCoverageSummary's action.yml resolves to docker://ghcr.io/irongut/
+        # codecoveragesummary:v1.3.0 even when the action is pinned to a commit SHA - that's
+        # a mutable tag, so the SHA pin doesn't actually pin what runs with pull-requests:
+        # write. Invoke the image by digest directly instead of going through the action.
+        run: |
+          set -ex
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/github/workspace" \
+            -w /github/workspace \
+            ghcr.io/irongut/codecoveragesummary@sha256:daebdede906ca84788b94378a1504a88d38621198d3836df24d60d6215e64a86 \
+            --files "coverage/*.xml" \
+            --badge true \
+            --fail false \
+            --format markdown \
+            --hidebranch false \
+            --hidecomplexity true \
+            --indicators true \
+            --output both \
+            --thresholds "60 80"
 
       - name: Add Coverage PR Comment
         if: github.event.workflow_run.pull_requests[0] != null
