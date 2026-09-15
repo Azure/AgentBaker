@@ -8,6 +8,7 @@ required_env_vars=(
     "SKU_NAME"
     "HYPERV_GENERATION"
     "IMAGE_VERSION"
+    "SECURITY_TYPE_FEATURE"
 )
 
 # Higher the replication_inverse, lower is the usage and number of replicas
@@ -100,6 +101,7 @@ if [ "${OS_NAME,,}" = "linux" ]; then
     "hyperv_generation": "${HYPERV_GENERATION}",
     "image_architecture": "${IMAGE_ARCH}",
     "image_version": "${IMAGE_VERSION}",
+    "security_type_feature": "${SECURITY_TYPE_FEATURE}",
     "replication_inverse": "${REPLICATION_INVERSE}",
     "publisher_base_image_version": "${PUBLISHER_BASE_IMAGE_VERSION}",
     "publisher_base_image_sku": "${IMG_SKU}"

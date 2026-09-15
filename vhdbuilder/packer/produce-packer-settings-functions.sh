@@ -20,6 +20,18 @@ function produce_ua_token() {
 	fi
 }
 
+function resolve_security_type_feature() {
+	if [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+		SECURITY_TYPE_FEATURE="TrustedLaunchSupported"
+	elif [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+		SECURITY_TYPE_FEATURE="TrustedLaunch"
+	elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
+		SECURITY_TYPE_FEATURE="ConfidentialVM"
+	else
+		SECURITY_TYPE_FEATURE=""
+	fi
+}
+
 function ensure_sig_image_name_linux() {
 	# Ensure the SIG name
 	if [ -z "${SIG_GALLERY_NAME}" ]; then
