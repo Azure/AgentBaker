@@ -311,7 +311,7 @@ func init() {
 }
 
 var _ = Register(newUbuntuNvidiaDevicePluginScenario(
-	"Ubuntu2204_NvidiaDevicePluginRunning",
+	"Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag",
 	"Tests that NVIDIA device plugin and DCGM Exporter work on Ubuntu 22.04 via NBC EnableManagedGPU field without a VMSS tag",
 	ClusterKubenet,
 	config.VHDUbuntu2204Gen2Containerd,
