@@ -3,12 +3,6 @@ OS=$(sort -r /etc/*-release | sed -n 's/^ID=//p' | head -n1 | tr -d '"' | tr '[:
 OS_VERSION=$(sort -r /etc/*-release | sed -n 's/^VERSION_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
 OS_VARIANT=$(sort -r /etc/*-release | sed -n 's/^VARIANT_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
 
-if [ "$OS" = "UBUNTU" ] &&
-  [ "$OS_VERSION" = "26.04" ] &&
-  [ "${IMG_SKU:-}" = "server-cvm" ]; then
-  /bin/bash /home/packer/trim-2604-cvm-packages.sh
-fi
-
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 #the following sed removes all comments of the format {{/* */}}
@@ -135,6 +129,12 @@ else
   # Run apt dist get upgrade to install packages/kernels
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
+
+  if [ "$OS" = "UBUNTU" ] &&
+    [ "$OS_VERSION" = "26.04" ] &&
+    [ "${IMG_SKU:-}" = "server-cvm" ]; then
+    /bin/bash /home/packer/trim-2604-cvm-packages.sh
+  fi
 
   # shellcheck disable=SC3010
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
@@ -312,12 +312,6 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   fi
 fi
 capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernel_if_2204"
-
-if [ "$OS" = "UBUNTU" ] &&
-  [ "$OS_VERSION" = "26.04" ] &&
-  [ "${IMG_SKU:-}" = "server-cvm" ]; then
-  /bin/bash /home/packer/trim-2604-cvm-packages.sh --systemd-packages
-fi
 
 echo "pre-install-dependencies step finished successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
