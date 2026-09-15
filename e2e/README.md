@@ -81,7 +81,8 @@ The region does not need to be known at VHD build time.
 Each update preserves the live target list and disables region deletion. After a
 rejected update, the runner logs the error, waits, and re-reads the image before
 trying again. Polling uses `--poll-interval` and the caller's deadline. A persistent
-write failure returns at the deadline with the last update error.
+write failure returns at the deadline with the last update error. Authentication
+and authorization failures (HTTP 401/403) return immediately.
 
 ## Infrastructure Architecture
 

@@ -141,6 +141,7 @@ func TestEnsureReplicationReconcilesRejectedUpdates(t *testing.T) {
 		{name: "conflict without new targets", status: http.StatusConflict, rejects: 1},
 		{name: "persistent invalid request", status: http.StatusBadRequest, rejects: -1},
 		{name: "persistent conflict", status: http.StatusConflict, rejects: -1},
+		{name: "authentication failed", status: http.StatusUnauthorized, rejects: -1},
 		{name: "permission denied", status: http.StatusForbidden, rejects: -1},
 		{name: "deadline preserves update error", status: http.StatusConflict, rejects: 1, regions: []string{"northeurope"}, stalled: true},
 	} {
@@ -197,11 +198,17 @@ func TestEnsureReplicationReconcilesRejectedUpdates(t *testing.T) {
 					require.ErrorAs(t, err, &responseErr)
 					require.Equal(t, tt.status, responseErr.StatusCode)
 					require.Equal(t, "TestRejectedUpdate", responseErr.ErrorCode)
-					require.ErrorIs(t, err, context.DeadlineExceeded)
-					if tt.stalled {
+					if tt.status == http.StatusUnauthorized || tt.status == http.StatusForbidden {
+						require.NotErrorIs(t, err, context.DeadlineExceeded)
 						require.Equal(t, 1, writes)
+						require.Equal(t, 1, reads)
 					} else {
-						require.Greater(t, writes, 1)
+						require.ErrorIs(t, err, context.DeadlineExceeded)
+						if tt.stalled {
+							require.Equal(t, 1, writes)
+						} else {
+							require.Greater(t, writes, 1)
+						}
 					}
 				} else {
 					require.NoError(t, err)

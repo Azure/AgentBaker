@@ -690,12 +690,19 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 		logging.Logf(ctx, "Replicating image version %s to region %s", *version.ID, location)
 		updateErr = replicateImageVersion(ctx, imgVersionClient, image, version, location)
 		if updateErr != nil {
-			logging.Logf(ctx, "Image replication update failed; checking live target regions: %v", updateErr)
+			logging.Logf(ctx, "Image replication update failed: %v", updateErr)
+			var responseErr *azcore.ResponseError
+			if errors.As(updateErr, &responseErr) && (responseErr.StatusCode == http.StatusUnauthorized || responseErr.StatusCode == http.StatusForbidden) {
+				return false, updateErr
+			}
 		}
 		return false, nil
 	})
 	if err != nil {
-		return fmt.Errorf("waiting for image version %s in region %s: %w", *version.Name, location, errors.Join(err, updateErr))
+		if !errors.Is(err, updateErr) {
+			err = errors.Join(err, updateErr)
+		}
+		return fmt.Errorf("waiting for image version %s in region %s: %w", *version.Name, location, err)
 	}
 	logging.LogDuration(ctx, time.Since(start), 3*time.Minute, fmt.Sprintf("Image ready in %s (%s)", location, *version.ID))
 	return nil
