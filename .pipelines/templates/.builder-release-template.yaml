@@ -10,6 +10,17 @@ parameters:
     default: master
 
 steps:
+  # Computed once per job, before the VHD is built, so every later step in this
+  # job (Build VHD, Convert ACL VHD to COSI, Generate Publishing Info) and the
+  # downstream arm64 COSI convert job (via output variable, see
+  # exportImageVersion below) all agree on the same value. Recomputing
+  # date +%Y%m.%d.0 independently in each consumer risks drift when a job run
+  # straddles a UTC day boundary. Runs for every SKU, not just ACL, since this
+  # template is shared by every VHD build job.
+  - bash: |
+      echo "##vso[task.setvariable variable=IMAGE_VERSION]$(date +%Y%m.%d.0)"
+    displayName: Set IMAGE_VERSION
+
   - template: ./.template-override-components-json.yaml
     parameters:
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -132,6 +143,7 @@ steps:
       UA_TOKEN: $(ua-token)
       LOCAL_DOCA_REPO_URL: $(LOCAL_DOCA_REPO_URL)
       CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR: $(CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR)
+      IMAGE_VERSION: $(IMAGE_VERSION)
 
   - task: AzureCLI@2
     inputs:
@@ -194,6 +206,17 @@ steps:
       echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION;isOutput=true]${CAPTURED_SIG_VERSION}"
     name: exportCapturedSigVersion
     displayName: Export Captured SIG Version for arm64 COSI convert
+    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
+
+  # Expose the same IMAGE_VERSION computed for this job (see the Set IMAGE_VERSION
+  # step at the top of this template) to the separate native-arm64 COSI convert
+  # job, so the OS-baked image-version file and the COSI's image_version
+  # metadata agree, even though the convert job runs later (potentially
+  # crossing a UTC day boundary from the build job).
+  - bash: |
+      echo "##vso[task.setvariable variable=IMAGE_VERSION;isOutput=true]${IMAGE_VERSION}"
+    name: exportImageVersion
+    displayName: Export Image Version for arm64 COSI convert
     condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
 
   - bash: |
@@ -502,6 +525,7 @@ steps:
       AFD_DOWNLOAD_HOSTNAME: $(AFD_DOWNLOAD_HOSTNAME)
       COSI_CONTAINER: $(COSI_CONTAINER)
       SKIP_SECURE_BOOT: $(SKIP_SECURE_BOOT)
+      IMAGE_VERSION: $(IMAGE_VERSION)
 
   - task: AzureCLI@2
     inputs:
@@ -618,6 +642,7 @@ steps:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
       OFFER_NAME: $(OS_SKU)
+      IMAGE_VERSION: $(IMAGE_VERSION)
 
   - task: PublishPipelineArtifact@1
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))

@@ -931,6 +931,7 @@ stages:
           name: $(NODE_SIG_TME_POOL_ARM64_NAME)
         variables:
           CAPTURED_SIG_VERSION: $[ dependencies.buildaclarm64tlgen2.outputs['exportCapturedSigVersion.CAPTURED_SIG_VERSION'] ]
+          IMAGE_VERSION: $[ dependencies.buildaclarm64tlgen2.outputs['exportImageVersion.IMAGE_VERSION'] ]
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
@@ -960,6 +961,7 @@ stages:
           name: $(NODE_SIG_TME_POOL_ARM64_NAME)
         variables:
           CAPTURED_SIG_VERSION: $[ dependencies.buildaclarm64fipstlgen2.outputs['exportCapturedSigVersion.CAPTURED_SIG_VERSION'] ]
+          IMAGE_VERSION: $[ dependencies.buildaclarm64fipstlgen2.outputs['exportImageVersion.IMAGE_VERSION'] ]
         steps:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
