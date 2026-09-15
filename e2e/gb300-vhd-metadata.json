@@ -1,0 +1,7 @@
+{
+  "2404gen2arm64containerd": {
+    "resourceId": "/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2404gen2arm64containerd/versions/1.1789003081.19599",
+    "version": "1.1789003081.19599",
+    "regions": ["eastus2euap"]
+  }
+}
