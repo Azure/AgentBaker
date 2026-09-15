@@ -1,0 +1,4 @@
+libnss-systemd
+python3-systemd
+systemd-cryptsetup
+systemd-hwe-hwdb

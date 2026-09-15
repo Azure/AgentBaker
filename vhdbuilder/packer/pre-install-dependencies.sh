@@ -3,29 +3,35 @@ OS=$(sort -r /etc/*-release | sed -n 's/^ID=//p' | head -n1 | tr -d '"' | tr '[:
 OS_VERSION=$(sort -r /etc/*-release | sed -n 's/^VERSION_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
 OS_VARIANT=$(sort -r /etc/*-release | sed -n 's/^VARIANT_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
 
+logInstalledPackages() {
+  local manifest_name="$1"
+
+  echo "===== ${manifest_name} INSTALLED PACKAGES BEGIN ====="
+  echo "OS=${OS}"
+  echo "OS_VERSION=${OS_VERSION}"
+  echo "IMG_SKU=${IMG_SKU:-}"
+  echo -e "PACKAGE\tVERSION"
+  if command -v dpkg-query > /dev/null 2>&1; then
+    dpkg-query -W -f='${binary:Package}\t${Version}\t${db:Status-Status}\n' |
+      awk -F '\t' '$3 == "installed" { print $1 "\t" $2 }' |
+      sort
+  elif command -v rpm > /dev/null 2>&1; then
+    rpm -qa --qf '%{NAME}\t%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort
+  elif command -v apk > /dev/null 2>&1; then
+    apk list --installed | sort
+  else
+    echo "No supported package manager found"
+  fi
+  echo "===== ${manifest_name} INSTALLED PACKAGES END ====="
+}
+
 if [ "$OS" = "UBUNTU" ] &&
   [ "$OS_VERSION" = "26.04" ] &&
   [ "${IMG_SKU:-}" = "server-cvm" ]; then
   /bin/bash /home/packer/trim-2604-cvm-packages.sh
 fi
 
-echo "===== BASE IMAGE INSTALLED PACKAGES BEGIN ====="
-echo "OS=${OS}"
-echo "OS_VERSION=${OS_VERSION}"
-echo "IMG_SKU=${IMG_SKU:-}"
-echo -e "PACKAGE\tVERSION"
-if command -v dpkg-query > /dev/null 2>&1; then
-  dpkg-query -W -f='${binary:Package}\t${Version}\t${db:Status-Status}\n' |
-    awk -F '\t' '$3 == "installed" { print $1 "\t" $2 }' |
-    sort
-elif command -v rpm > /dev/null 2>&1; then
-  rpm -qa --qf '%{NAME}\t%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort
-elif command -v apk > /dev/null 2>&1; then
-  apk list --installed | sort
-else
-  echo "No supported package manager found"
-fi
-echo "===== BASE IMAGE INSTALLED PACKAGES END ====="
+logInstalledPackages "BASE IMAGE"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
@@ -330,6 +336,14 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   fi
 fi
 capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernel_if_2204"
+
+if [ "$OS" = "UBUNTU" ] &&
+  [ "$OS_VERSION" = "26.04" ] &&
+  [ "${IMG_SKU:-}" = "server-cvm" ]; then
+  /bin/bash /home/packer/trim-2604-cvm-packages.sh --systemd-packages
+fi
+
+logInstalledPackages "PRE-REBOOT"
 echo "pre-install-dependencies step finished successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks

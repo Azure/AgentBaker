@@ -371,6 +371,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/ubuntu-2604-cvm/deferred-systemd-packages.txt",
+      "destination": "/home/packer/deferred-systemd-packages.txt"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/ubuntu-2604-cvm/required-packages.txt",
       "destination": "/home/packer/required-packages.txt"
     },
