@@ -1,7 +1,9 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
-  TAGS_TO_RUN: "gpu=true"
-  TAGS_TO_SKIP: "os=windows,os=azurelinux,os=azurecontainerlinux"
+  VHD_BUILD_ID: "181004859"
+  TAGS_TO_RUN: "name=Ubuntu2404_NvidiaDevicePluginRunning_MIG,name=Ubuntu2404_GPUA10,name=Ubuntu2404_DraDriverNvidiaGpuRunning,name=Ubuntu2404_GPU_A100"
+  TAGS_TO_SKIP: ""
+  KEEP_VMSS: true
   SKIP_E2E_TESTS: false
   # PRs skip quota/capacity-constrained scenarios; main and scheduled runs fail them.
   SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: $[eq(variables['Build.Reason'], 'PullRequest')]
