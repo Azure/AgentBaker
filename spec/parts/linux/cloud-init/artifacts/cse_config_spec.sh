@@ -296,16 +296,11 @@ Describe 'cse_config.sh'
     End
 
     Describe 'ensureArtifactStreaming'
-        # ensureArtifactStreaming enables the acr-mirror/overlaybd services and then
-        # runs the version-appropriate enablement path:
-        #   - acr-mirror 1.0.0+ -> setup.sh aks
-        #   - older packages    -> acr-config --enable-containerd
-        # The enablement binary paths are overridable (ACR_MIRROR_SETUP_SCRIPT /
-        # ACR_CONFIG_BIN), so the stubs live in a temp dir instead of mutating /opt.
         setup_streaming() {
             TEST_ACR_DIR="$(mktemp -d)"
             ACR_MIRROR_SETUP_SCRIPT="${TEST_ACR_DIR}/setup.sh"
             ACR_CONFIG_BIN="${TEST_ACR_DIR}/acr-config"
+            unset RETRYCMD_RC RESTART_RC SETUP_RC ACR_CONFIG_RC WAIT_CONTAINERD_RC
         }
         cleanup_streaming() {
             rm -rf "${TEST_ACR_DIR}"
@@ -314,10 +309,14 @@ Describe 'cse_config.sh'
         AfterEach 'cleanup_streaming'
 
         waitForContainerdReady() {
-            return 0
+            return "${WAIT_CONTAINERD_RC:-0}"
         }
         systemctl() {
             echo "systemctl $@"
+            if [ "${1:-}" = "restart" ]; then
+                return "${RESTART_RC:-0}"
+            fi
+            return 0
         }
         retrycmd_if_failure() {
             echo "retrycmd_if_failure $@"
@@ -325,28 +324,67 @@ Describe 'cse_config.sh'
         }
 
         install_setup_sh() {
-            printf '#!/bin/sh\necho "setup.sh $@"\n' > "${ACR_MIRROR_SETUP_SCRIPT}"
+            printf '#!/bin/sh\necho "setup.sh $@"\nexit %s\n' "${SETUP_RC:-0}" > "${ACR_MIRROR_SETUP_SCRIPT}"
             chmod +x "${ACR_MIRROR_SETUP_SCRIPT}"
         }
         install_acr_config() {
-            printf '#!/bin/sh\necho "acr-config $@"\n' > "${ACR_CONFIG_BIN}"
+            printf '#!/bin/sh\necho "acr-config $@"\nexit %s\n' "${ACR_CONFIG_RC:-0}" > "${ACR_CONFIG_BIN}"
             chmod +x "${ACR_CONFIG_BIN}"
         }
 
-        It 'uses setup.sh aks when acr-mirror 1.0.0+ is installed'
+        It 'restarts acr-mirror after configuring the modern package'
             install_setup_sh
             When run ensureArtifactStreaming
-            The output should include "setup.sh aks"
+            The line 1 of output should equal "retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter"
+            The line 2 of output should equal "setup.sh aks"
+            The line 3 of output should equal "systemctl restart acr-mirror"
             The output should not include "Older acr-mirror package"
             The status should be success
         End
 
-        It 'falls back to acr-config enablement when setup.sh is absent (older package)'
+        It 'preserves the legacy enablement path without restarting the mirror'
             install_acr_config
             When run ensureArtifactStreaming
             The output should include "Older acr-mirror package is detected"
-            The output should include "acr-config --enable-containerd azurecr.io"
+            The line 1 of output should equal "retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter"
+            The line 3 of output should equal "acr-config --enable-containerd azurecr.io"
+            The output should not include "systemctl restart"
             The status should be success
+        End
+
+        It 'does not restart the mirror when setup.sh fails'
+            SETUP_RC=42
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should include "setup.sh aks"
+            The output should not include "systemctl restart"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+
+        It 'propagates legacy configuration failures without restarting the mirror'
+            ACR_CONFIG_RC=42
+            install_acr_config
+            When run ensureArtifactStreaming
+            The output should include "acr-config --enable-containerd azurecr.io"
+            The output should not include "systemctl restart"
+            The status should equal 42
+        End
+
+        It 'fails provisioning when the configured mirror cannot restart'
+            RESTART_RC=1
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should include "setup.sh aks"
+            The output should include "systemctl restart acr-mirror"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+
+        It 'does not configure or start streaming when containerd is not ready'
+            WAIT_CONTAINERD_RC=1
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should be blank
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
         End
 
         It 'fails fast when enabling the streaming services fails'
