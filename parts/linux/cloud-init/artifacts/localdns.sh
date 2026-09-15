@@ -937,8 +937,11 @@ start_localdns_watchdog() {
             # Update resource metrics .prom file for the exporter (best-effort, non-fatal)
             export_resource_metrics
 
-            # Wait for the next watchdog interval.
-            sleep "${HEALTH_CHECK_INTERVAL}"
+            # Wait for the next watchdog interval. Run sleep in a child so
+            # SIGTERM can interrupt the wait and let the service's signal/exit
+            # cleanup run promptly.
+            sleep "${HEALTH_CHECK_INTERVAL}" &
+            wait $!
         done
     else
         # No watchdog configured — write metrics once then wait for CoreDNS to exit

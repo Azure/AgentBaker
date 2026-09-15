@@ -7,12 +7,40 @@ Before=kubelet.service
 Before=containerd.service
 # don't run on old images; we're not compatible
 ConditionKernelVersion=>=5.15
+# Bound the restart budget so every unrecoverable failure mode terminates in
+# 'failed' rather than restarting forever. The threshold is
+# StartLimitIntervalSec/StartLimitBurst = 720/5 = 144s, just above the slowest
+# restart cycle (~125s = TimeoutStartSec 90 + TimeoutStopSec 30 + RestartSec 2),
+# so slow failures (PID file never appears, watchdog kill, ready-check timeout,
+# hung start) still reach 'failed'. That terminal state is what lets an
+# OnFailure= handoff fire and gives NPD a stable state to observe.
+#
+# The budget is shared with CSE's provisioning restarts, not just systemd's own
+# auto-restart cycles: enableLocalDNS -> systemctlEnableAndStart ->
+# _systemctl_retry_svc_operation issues up to 100 'systemctl restart' at 5s, and
+# manual restarts count against StartLimitBurst exactly like automatic ones. That
+# is survivable only because the loop runs 'systemctl daemon-reload' before every
+# restart, and start_ratelimit is not serialized across manager_reload (which
+# destroys and rebuilds every unit), so each pass starts from a fresh budget and
+# the 12min window never spans more than one iteration. Measured on systemd 249,
+# 10 iterations against a permanently failing unit: 28 starts / 0 refusals at
+# both 5/10s and 720/5; with that daemon-reload removed, 5 starts / 9 refusals
+# and a wedged unit. Don't drop it from _systemctl_retry_svc_operation.
+StartLimitIntervalSec=720
+StartLimitBurst=5
 
 [Service]
 Type=notify
 NotifyAccess=all
 WatchdogSec=60
 Restart=on-failure
+# Load-bearing: give each restart time to sample real system state instead of
+# re-entering the transient it is retrying against. cleanup_iptables_and_dns
+# runs 'networkctl reload' on every start, and the dummy interface carrying the
+# node (169.254.10.10) and cluster (169.254.10.11) listeners is deleted and
+# recreated on every start. At sub-second retries these overlap; 2s lets
+# networkd settle and an orphaned coredns release its sockets before ExecStart.
+RestartSec=2
 KillMode=mixed
 # Revert node DNS configuration even when the supervisor exits unexpectedly.
 ExecStopPost=/opt/azure/containers/localdns/localdns.sh cleanup
