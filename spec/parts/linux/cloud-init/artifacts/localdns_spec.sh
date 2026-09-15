@@ -1553,6 +1553,17 @@ EOF
                 [ "$calls" -gt 2 ]
             }
         }
+        # Routable for two checks, unroutable for two, routable again - a reload that networkd
+        # only begins acting on after the first samples have already come back clean.
+        route_up_then_down_then_up() {
+            ip() {
+                local calls
+                calls=$(cat "$ROUTE_CALL_COUNT_FILE" 2>/dev/null || echo 0)
+                calls=$((calls + 1))
+                echo "$calls" > "$ROUTE_CALL_COUNT_FILE"
+                [ "$calls" -le 2 ] || [ "$calls" -gt 4 ]
+            }
+        }
 
         #------------------------- upstream_dns_servers_routable ------------------------------------------------------
         It 'should report all upstream servers routable'
@@ -1614,6 +1625,34 @@ EOF
             echo "nameserver 10.0.0.1" > "$RESOLV_CONF"
             NETWORK_RELOAD_SETTLE_CHECKS=2
             route_up
+            When run wait_for_network_reload_settled "10.0.0.1" 5
+            The status should be success
+            The stdout should include "upstream DNS servers are routable"
+            The stdout should not include "systemd-networkd applied"
+        End
+
+        # The consecutive-sample fallback cannot tell "the reload has already converged" from
+        # "the reload has not started yet" - both look like a steadily routable upstream. These
+        # two cases pin that: same route mock, only the threshold differs.
+        It 'should accept the fallback when the tear-down lands after the settle threshold'
+            # Known limitation. The threshold is met before networkd drops the route, so the wait
+            # returns early and the caller is left with the pre-fix behaviour - no worse, just not
+            # helped. Raising the threshold buys margin but cannot close this.
+            echo "nameserver 10.0.0.1" > "$RESOLV_CONF"
+            NETWORK_RELOAD_SETTLE_CHECKS=2
+            route_up_then_down_then_up
+            When run wait_for_network_reload_settled "10.0.0.1" 5
+            The status should be success
+            The stdout should include "upstream DNS servers are routable"
+            The stdout should not include "systemd-networkd applied"
+        End
+
+        It 'should catch a delayed tear-down when the settle threshold outlasts it'
+            # Same mock at the shipping threshold: the route drops while sampling is still short
+            # of the threshold, so the tear-down is observed and the wait rides it out instead.
+            echo "nameserver 10.0.0.1" > "$RESOLV_CONF"
+            NETWORK_RELOAD_SETTLE_CHECKS=8
+            route_up_then_down_then_up
             When run wait_for_network_reload_settled "10.0.0.1" 5
             The status should be success
             The stdout should include "upstream DNS servers are routable"

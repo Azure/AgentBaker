@@ -715,6 +715,13 @@ upstream_dns_servers_listed() {
 # resolver on a second link), it falls back to the upstreams staying routable across
 # NETWORK_RELOAD_SETTLE_CHECKS consecutive samples.
 #
+# That fallback is a heuristic and has a known limit: it cannot tell "the reload has already
+# converged" from "the reload has not started yet", since both look like a steadily routable
+# upstream. If networkd only begins re-configuring after NETWORK_RELOAD_SETTLE_CHECKS clean
+# samples, this returns early and the caller is left with the same gap it had before this wait
+# existed - no worse, just not helped. Raising the threshold buys margin but cannot close it,
+# because networkctl reload hands back nothing we can tie an acknowledgement to.
+#
 # This is best effort. The caller logs and continues on failure: traffic is already pointed at
 # localdns by this point, so failing the unit would be a far worse outcome than a brief gap.
 #
