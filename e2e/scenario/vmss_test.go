@@ -1,17 +1,115 @@
 package scenario
 
 import (
+	"context"
 	"encoding/base64"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
+
+func TestVMSSProvisioningErrorClassification(t *testing.T) {
+	oldSkip := config.Config.SkipTestsWithSKUCapacityIssue
+	t.Cleanup(func() { config.Config.SkipTestsWithSKUCapacityIssue = oldSkip })
+	for _, tc := range []struct {
+		code      string
+		status    int
+		message   string
+		wantRetry bool
+		wantSkip  bool
+	}{
+		{code: "AllocationFailed", status: 200, wantRetry: true},
+		{code: "GalleryImageNotFound", status: 404, wantRetry: true},
+		{code: "SkuNotAvailable", status: 409, wantSkip: true},
+		{code: "OperationNotAllowed", status: 409, message: "exceeding approved quota", wantSkip: true},
+		{code: "OperationNotAllowed", status: 409, message: "another operation is pending"},
+		{code: "VMExtensionProvisioningError", status: 200},
+		{code: "AllocationFailed", status: 500},
+		{code: "GalleryImageNotFound", status: 500},
+		{code: "SkuNotAvailable", status: 500},
+	} {
+		t.Run(fmt.Sprintf("%s/%d/%s", tc.code, tc.status, tc.message), func(t *testing.T) {
+			armErr := &azcore.ResponseError{
+				StatusCode: tc.status,
+				ErrorCode:  tc.code,
+				RawResponse: &http.Response{
+					StatusCode: tc.status,
+					Header:     http.Header{"Content-Type": {"application/json"}},
+					Body:       io.NopCloser(strings.NewReader(fmt.Sprintf(`{"error":{"code":%q,"message":%q}}`, tc.code, tc.message))),
+				},
+			}
+			for _, sshErr := range []error{nil, context.DeadlineExceeded} {
+				err := fmt.Errorf("create VMSS: %w", joinProvisioningErrors(armErr, sshErr))
+				var responseErr *azcore.ResponseError
+				require.ErrorAs(t, err, &responseErr)
+				require.Same(t, armErr, responseErr)
+				require.Equal(t, tc.wantRetry, isRetryableVMSSCreationError(err))
+				for _, skipEnabled := range []bool{false, true} {
+					config.Config.SkipTestsWithSKUCapacityIssue = skipEnabled
+					skipErr := skipIfSKUNotAvailableErr(err)
+					if tc.wantSkip && skipEnabled {
+						var skipped *skipError
+						require.ErrorAs(t, skipErr, &skipped)
+					} else {
+						require.NoError(t, skipErr)
+					}
+				}
+			}
+		})
+	}
+	require.False(t, isRetryableVMSSCreationError(nil))
+	require.False(t, isRetryableVMSSCreationError(joinProvisioningErrors(nil, context.DeadlineExceeded)))
+}
+
+func TestJoinProvisioningErrors(t *testing.T) {
+	allocationErr := &azcore.ResponseError{StatusCode: 200, ErrorCode: "AllocationFailed"}
+	cseErr := &azcore.ResponseError{StatusCode: 200, ErrorCode: "VMExtensionProvisioningError"}
+	for _, tc := range []struct {
+		name         string
+		provisionErr error
+		sshErr       error
+	}{
+		{name: "success"},
+		{name: "SSH failure", sshErr: context.DeadlineExceeded},
+		{name: "CSE failure with SSH success", provisionErr: cseErr},
+		{name: "CSE and SSH failure", provisionErr: cseErr, sshErr: context.DeadlineExceeded},
+		{name: "allocation and SSH failure", provisionErr: allocationErr, sshErr: context.DeadlineExceeded},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := joinProvisioningErrors(tc.provisionErr, tc.sshErr)
+			if tc.provisionErr == nil && tc.sshErr == nil {
+				require.NoError(t, err)
+				return
+			}
+			if tc.provisionErr != nil {
+				var responseErr *azcore.ResponseError
+				require.ErrorAs(t, err, &responseErr)
+				require.Same(t, tc.provisionErr, responseErr)
+			}
+			if tc.sshErr == nil {
+				require.Same(t, tc.provisionErr, err)
+			} else {
+				require.ErrorIs(t, err, tc.sshErr)
+				require.ErrorContains(t, err, "failed to start bastion tunnel:")
+			}
+			if tc.provisionErr != nil && tc.sshErr != nil {
+				require.EqualError(t, err, tc.provisionErr.Error()+"\nfailed to start bastion tunnel: "+tc.sshErr.Error())
+			}
+		})
+	}
+}
 
 func TestWriteScriptHotfixFixture(t *testing.T) {
 	buildDir := t.TempDir()

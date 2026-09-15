@@ -511,26 +511,6 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 	resourceGroupName := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
 
 	delay := 5 * time.Second
-	retryOn := func(err error) bool {
-		var respErr *azcore.ResponseError
-		// only retry on Azure API errors with specific error codes
-		if !errors.As(err, &respErr) {
-			return false
-		}
-		// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
-		// It's not a quota issue
-		if respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed" {
-			return true
-		}
-		// GalleryImageNotFound can happen transiently after image replication completes
-		// due to Azure eventual consistency - the gallery API reports success but the
-		// compute fabric in the target region hasn't fully propagated the image yet
-		if respErr.StatusCode == 404 && respErr.ErrorCode == "GalleryImageNotFound" {
-			return true
-		}
-		return false
-	}
-
 	maxAttempts := 10
 	attempt := 0
 
@@ -542,7 +522,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 		}
 
 		// not a retryable error
-		if !retryOn(err) {
+		if !isRetryableVMSSCreationError(err) {
 			return vm, err
 		}
 
@@ -557,6 +537,25 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 		case <-time.After(delay):
 		}
 	}
+}
+
+func isRetryableVMSSCreationError(err error) bool {
+	var respErr *azcore.ResponseError
+	if !errors.As(err, &respErr) {
+		return false
+	}
+	// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
+	// It's not a quota issue
+	if respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed" {
+		return true
+	}
+	// GalleryImageNotFound can happen transiently after image replication completes
+	// due to Azure eventual consistency - the gallery API reports success but the
+	// compute fabric in the target region hasn't fully propagated the image yet
+	if respErr.StatusCode == 404 && respErr.ErrorCode == "GalleryImageNotFound" {
+		return true
+	}
+	return false
 }
 
 func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*ScenarioVM, error) {
@@ -604,21 +603,22 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.PollUntilDoneOptions())
 
-	// Log VMSS tags for diagnostics in the scenario log.
-	// For RCV1P tests, annotates the opt-in tag to help distinguish our tags from platform-injected ones.
-	vmssID := "<unknown>"
-	if vmssResp.ID != nil {
-		vmssID = *vmssResp.ID
-	}
-	// In the single-subscription model, if the scenario tags RCV1PCertMode we set the opt-in tag ourselves.
-	weSetRCV1PTag := s.Tags.RCV1PCertMode
-	logRCV1PAwareTags(ctx, s, "VMSS", "creation", s.Runtime.VMSSName, vmssID, vmssResp.Tags, weSetRCV1PTag, false)
-	if !s.Config.SkipSSHConnectivityValidation {
-		var bastErr error
-		vm.SSHClient, bastErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
-		if bastErr != nil {
-			return vm, fmt.Errorf("failed to start bastion tunnel: %w", bastErr)
+	if err != nil {
+		logging.Logf(ctx, "VMSS %s provisioning failed: %v", s.Runtime.VMSSName, err)
+	} else {
+		// For RCV1P tests, annotates the opt-in tag to help distinguish our tags from platform-injected ones.
+		vmssID := "<unknown>"
+		if vmssResp.ID != nil {
+			vmssID = *vmssResp.ID
 		}
+		// In the single-subscription model, if the scenario tags RCV1PCertMode we set the opt-in tag ourselves.
+		weSetRCV1PTag := s.Tags.RCV1PCertMode
+		logRCV1PAwareTags(ctx, s, "VMSS", "creation", s.Runtime.VMSSName, vmssID, vmssResp.Tags, weSetRCV1PTag, false)
+	}
+	if !s.Config.SkipSSHConnectivityValidation {
+		var sshErr error
+		vm.SSHClient, sshErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
+		err = joinProvisioningErrors(err, sshErr)
 	}
 	if err != nil {
 		return vm, err
@@ -635,7 +635,7 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	if vm.VM.ID != nil {
 		vmInstanceID = *vm.VM.ID
 	}
-	logRCV1PAwareTags(ctx, s, "VM instance", "running", *vm.VM.InstanceID, vmInstanceID, vm.VM.Tags, weSetRCV1PTag, true)
+	logRCV1PAwareTags(ctx, s, "VM instance", "running", *vm.VM.InstanceID, vmInstanceID, vm.VM.Tags, s.Tags.RCV1PCertMode, true)
 
 	return &ScenarioVM{
 		VMSS:      &vmssResp.VirtualMachineScaleSet,
@@ -643,6 +643,13 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		VM:        vm.VM,
 		SSHClient: vm.SSHClient,
 	}, nil
+}
+
+func joinProvisioningErrors(provisionErr, sshErr error) error {
+	if sshErr == nil {
+		return provisionErr
+	}
+	return errors.Join(provisionErr, fmt.Errorf("failed to start bastion tunnel: %w", sshErr))
 }
 
 // rcv1pTagKey is the VMSS/VM tag that opts a resource into hardened root-cert bootstrap.
