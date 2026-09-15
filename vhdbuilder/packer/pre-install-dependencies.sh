@@ -5,8 +5,7 @@ OS_VARIANT=$(sort -r /etc/*-release | sed -n 's/^VARIANT_ID=//p' | head -n1 | tr
 
 if [ "$OS" = "UBUNTU" ] &&
   [ "$OS_VERSION" = "26.04" ] &&
-  [ "${IMG_SKU:-}" = "server-cvm" ] &&
-  tr ',' '\n' <<<"${FEATURE_FLAGS:-}" | grep -Fxq "cvm"; then
+  [ "${IMG_SKU:-}" = "server-cvm" ]; then
   /bin/bash /home/packer/trim-2604-cvm-packages.sh
 fi
 
@@ -45,7 +44,7 @@ capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 copyPackerFiles
 
 # Install required dependencies needed to build minimal images if needed (currently only Ubuntu 26.04)
-if isUbuntu "$OS" && { isMinimalImage || { [ "${OS_VERSION}" = "26.04" ] && [ "${IMG_SKU}" = "server-cvm" ] && tr ',' '\n' <<<"${FEATURE_FLAGS}" | grep -Fxq "cvm"; }; }; then
+if isUbuntu "$OS" && { isMinimalImage || { [ "${OS_VERSION}" = "26.04" ] && [ "${IMG_SKU}" = "server-cvm" ]; }; }; then
   installMinimalBuildDeps
 fi
 
