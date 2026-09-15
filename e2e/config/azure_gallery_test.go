@@ -131,16 +131,18 @@ func TestEnsureReplicationReconcilesRejectedUpdates(t *testing.T) {
 	for _, tt := range []struct {
 		name    string
 		status  int
+		rejects int
 		regions []string
 		stalled bool
 	}{
-		{name: "stale targets", status: http.StatusBadRequest, regions: []string{"northeurope", "westeurope"}},
-		{name: "operation conflict", status: http.StatusConflict, regions: []string{"northeurope"}},
-		{name: "another writer adds requested region", status: http.StatusConflict, regions: []string{"eastus"}},
-		{name: "unchanged invalid request", status: http.StatusBadRequest},
-		{name: "unchanged conflict", status: http.StatusConflict},
-		{name: "permission denied", status: http.StatusForbidden},
-		{name: "deadline preserves update error", status: http.StatusConflict, regions: []string{"northeurope"}, stalled: true},
+		{name: "stale targets", status: http.StatusBadRequest, rejects: 2, regions: []string{"northeurope", "westeurope"}},
+		{name: "operation conflict", status: http.StatusConflict, rejects: 1, regions: []string{"northeurope"}},
+		{name: "another writer adds requested region", status: http.StatusConflict, rejects: 1, regions: []string{"eastus"}},
+		{name: "conflict without new targets", status: http.StatusConflict, rejects: 1},
+		{name: "persistent invalid request", status: http.StatusBadRequest, rejects: -1},
+		{name: "persistent conflict", status: http.StatusConflict, rejects: -1},
+		{name: "permission denied", status: http.StatusForbidden, rejects: -1},
+		{name: "deadline preserves update error", status: http.StatusConflict, rejects: 1, regions: []string{"northeurope"}, stalled: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
@@ -169,12 +171,11 @@ func TestEnsureReplicationReconcilesRejectedUpdates(t *testing.T) {
 							expected = append(expected, *region.Name)
 						}
 						require.ElementsMatch(t, expected, targets)
-						if writes <= len(tt.regions) {
-							live.Properties.PublishingProfile.TargetRegions = append(live.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{Name: to.Ptr(tt.regions[writes-1])})
-							live.Properties.ProvisioningState = to.Ptr(armcompute.GalleryProvisioningStateUpdating)
-							return tt.status, `{"error":{"code":"TestRejectedUpdate","message":"update rejected"}}`
-						}
-						if len(tt.regions) == 0 {
+						if tt.rejects < 0 || writes <= tt.rejects {
+							if writes <= len(tt.regions) {
+								live.Properties.PublishingProfile.TargetRegions = append(live.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{Name: to.Ptr(tt.regions[writes-1])})
+								live.Properties.ProvisioningState = to.Ptr(armcompute.GalleryProvisioningStateUpdating)
+							}
 							return tt.status, `{"error":{"code":"TestRejectedUpdate","message":"update rejected"}}`
 						}
 						live.Properties.PublishingProfile = update.Properties.PublishingProfile
@@ -191,17 +192,16 @@ func TestEnsureReplicationReconcilesRejectedUpdates(t *testing.T) {
 					return http.StatusOK, string(body)
 				})
 				err := client.ensureReplication(ctx, image, &snapshot, "eastus")
-				if len(tt.regions) == 0 || tt.stalled {
+				if tt.rejects < 0 || tt.stalled {
 					var responseErr *azcore.ResponseError
 					require.ErrorAs(t, err, &responseErr)
 					require.Equal(t, tt.status, responseErr.StatusCode)
 					require.Equal(t, "TestRejectedUpdate", responseErr.ErrorCode)
-					require.Equal(t, 1, writes)
+					require.ErrorIs(t, err, context.DeadlineExceeded)
 					if tt.stalled {
-						require.ErrorIs(t, err, context.DeadlineExceeded)
+						require.Equal(t, 1, writes)
 					} else {
-						require.NotErrorIs(t, err, context.DeadlineExceeded)
-						require.Equal(t, 2, reads)
+						require.Greater(t, writes, 1)
 					}
 				} else {
 					require.NoError(t, err)
@@ -209,13 +209,13 @@ func TestEnsureReplicationReconcilesRejectedUpdates(t *testing.T) {
 					for _, region := range tt.regions {
 						require.True(t, targetsRegion(&snapshot, region))
 					}
-					expectedWrites := len(tt.regions) + 1
-					if tt.regions[0] == "eastus" {
+					expectedWrites := tt.rejects + 1
+					if len(tt.regions) > 0 && tt.regions[0] == "eastus" {
 						expectedWrites = 1
 					}
 					require.Equal(t, expectedWrites, writes)
 				}
-				require.Greater(t, reads, writes)
+				require.GreaterOrEqual(t, reads, writes)
 			})
 		})
 	}

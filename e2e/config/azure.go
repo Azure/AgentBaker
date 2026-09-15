@@ -656,7 +656,6 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 
 	start := time.Now()
 	var updateErr error
-	var attemptedVersion *armcompute.GalleryImageVersion
 	var lastLoggedState armcompute.GalleryProvisioningState
 	err = wait.PollUntilContextCancel(ctx, Config.DefaultPollInterval, true, func(ctx context.Context) (bool, error) {
 		resp, getErr := imgVersionClient.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, &armcompute.GalleryImageVersionsClientGetOptions{
@@ -688,18 +687,7 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 		if currentState == armcompute.GalleryProvisioningStateUpdating || targetsRegion(version, location) {
 			return false, nil
 		}
-		if updateErr != nil {
-			addedRegion := slices.ContainsFunc(version.Properties.PublishingProfile.TargetRegions, func(region *armcompute.TargetRegion) bool {
-				return region != nil && region.Name != nil && !targetsRegion(attemptedVersion, *region.Name)
-			})
-			if !addedRegion {
-				return false, updateErr
-			}
-			logging.Logf(ctx, "Image version %s gained target regions; retrying replication to %s", *version.ID, location)
-		}
-
 		logging.Logf(ctx, "Replicating image version %s to region %s", *version.ID, location)
-		attemptedVersion = &resp.GalleryImageVersion
 		updateErr = replicateImageVersion(ctx, imgVersionClient, image, version, location)
 		if updateErr != nil {
 			logging.Logf(ctx, "Image replication update failed; checking live target regions: %v", updateErr)
@@ -707,10 +695,7 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 		return false, nil
 	})
 	if err != nil {
-		if updateErr != nil && !errors.Is(err, updateErr) {
-			err = errors.Join(err, updateErr)
-		}
-		return fmt.Errorf("waiting for image version %s in region %s: %w", *version.Name, location, err)
+		return fmt.Errorf("waiting for image version %s in region %s: %w", *version.Name, location, errors.Join(err, updateErr))
 	}
 	logging.LogDuration(ctx, time.Since(start), 3*time.Minute, fmt.Sprintf("Image ready in %s (%s)", location, *version.ID))
 	return nil
