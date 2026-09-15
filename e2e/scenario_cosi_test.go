@@ -165,10 +165,14 @@ func validateACLAMD64COSIUpdate(ctx context.Context, scenario *Scenario, rawCosi
 	require.NoError(scenario.T, err)
 	scenario.Logger.Logf("Trident version: %s", strings.TrimSpace(version))
 
-	stageResult, stageErr := runSSHCommand(ctx, scenario.Runtime.VM.SSHClient, "sudo trident update -v trace --allowed-operations stage "+remoteCOSIConfigPath, false)
+	stageCommand := fmt.Sprintf("sudo trident update -v trace %s --allowed-operations=stage", remoteCOSIConfigPath)
+	scenario.Logger.Logf("Trident update (stage) SSH command: %s", stageCommand)
+	stageResult, stageErr := runSSHCommand(ctx, scenario.Runtime.VM.SSHClient, stageCommand, false)
 	logTridentUpdateResult(scenario, "stage", stageResult, stageErr)
 
-	finalizeResult, finalizeErr := runSSHCommand(ctx, scenario.Runtime.VM.SSHClient, "sudo trident update -v trace --allowed-operations finalize "+remoteCOSIConfigPath, false)
+	finalizeCommand := fmt.Sprintf("sudo trident update -v trace %s --allowed-operations=finalize", remoteCOSIConfigPath)
+	scenario.Logger.Logf("Trident update (finalize) SSH command: %s", finalizeCommand)
+	finalizeResult, finalizeErr := runSSHCommand(ctx, scenario.Runtime.VM.SSHClient, finalizeCommand, false)
 	logTridentUpdateResult(scenario, "finalize", finalizeResult, finalizeErr)
 
 	require.NoError(scenario.T, RebootVMAndWaitForSSH(ctx, scenario))
