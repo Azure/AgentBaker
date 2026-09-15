@@ -9,6 +9,24 @@ if [ "$OS" = "UBUNTU" ] &&
   /bin/bash /home/packer/trim-2604-cvm-packages.sh
 fi
 
+echo "===== BASE IMAGE INSTALLED PACKAGES BEGIN ====="
+echo "OS=${OS}"
+echo "OS_VERSION=${OS_VERSION}"
+echo "IMG_SKU=${IMG_SKU:-}"
+echo -e "PACKAGE\tVERSION"
+if command -v dpkg-query > /dev/null 2>&1; then
+  dpkg-query -W -f='${binary:Package}\t${Version}\t${db:Status-Status}\n' |
+    awk -F '\t' '$3 == "installed" { print $1 "\t" $2 }' |
+    sort
+elif command -v rpm > /dev/null 2>&1; then
+  rpm -qa --qf '%{NAME}\t%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort
+elif command -v apk > /dev/null 2>&1; then
+  apk list --installed | sort
+else
+  echo "No supported package manager found"
+fi
+echo "===== BASE IMAGE INSTALLED PACKAGES END ====="
+
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 #the following sed removes all comments of the format {{/* */}}
@@ -315,3 +333,5 @@ capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernel_if_2204"
 echo "pre-install-dependencies step finished successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
+echo "Failing build after logging the base image package manifest"
+exit 1

@@ -98,7 +98,6 @@ steps:
         make -f packer.mk run-packer
     condition: ne(variables['BUILDER'], 'imagecustomizer')
     displayName: Build VHD
-    retryCountOnTaskFailure: 3
     env:
       OS_TYPE: Linux
       GIT_VERSION: $(Build.SourceVersion)
@@ -119,7 +118,6 @@ steps:
         make -f packer.mk run-imagecustomizer
     condition: eq(variables['BUILDER'], 'imagecustomizer')
     displayName: Build VHD - Image Customizer
-    retryCountOnTaskFailure: 3
     env:
       OS_TYPE: Linux
       GIT_VERSION: $(Build.SourceVersion)
@@ -231,7 +229,6 @@ steps:
         make -f packer.mk publish-imagecustomizer
     condition: eq(variables['BUILDER'], 'imagecustomizer')
     displayName: Publish VHD - Image Customizer
-    retryCountOnTaskFailure: 3
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       GENERATE_PUBLISHING_INFO: $(GENERATE_PUBLISHING_INFO)
@@ -328,7 +325,6 @@ steps:
         eq(variables.PREFETCH_COMPATIBLE, 'True')
       )
     displayName: Run Prefetch Optimization and Convert to VHD blob
-    retryCountOnTaskFailure: 3
     env:
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       LOCATION: $(PACKER_BUILD_LOCATION)
