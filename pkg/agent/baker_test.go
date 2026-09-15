@@ -118,6 +118,62 @@ func newNodeCustomDataRenderConfig(distro datamodel.Distro) *datamodel.NodeBoots
 	}
 }
 
+func TestWindowsPreProvisionCustomDataOmitsTLSBootstrapToken(t *testing.T) {
+	const bootstrapToken = "bake00.0123456789abcdef"
+
+	newConfig := func(preProvisionOnly bool) *datamodel.NodeBootstrappingConfiguration {
+		profile := &datamodel.AgentPoolProfile{
+			Name:   "windowspool",
+			OSType: datamodel.Windows,
+			Distro: datamodel.AKSWindows2022Containerd,
+		}
+		return &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Location: "eastus",
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.29.0",
+						OrchestratorType:    datamodel.Kubernetes,
+						KubernetesConfig: &datamodel.KubernetesConfig{
+							ContainerRuntimeConfig: map[string]string{},
+						},
+					},
+					HostedMasterProfile: &datamodel.HostedMasterProfile{
+						FQDN: "test-cluster.hcp.eastus.azmk8s.io",
+					},
+					AgentPoolProfiles: []*datamodel.AgentPoolProfile{profile},
+					WindowsProfile:    &datamodel.WindowsProfile{},
+				},
+			},
+			AgentPoolProfile:               profile,
+			CloudSpecConfig:                datamodel.AzurePublicCloudSpecForTest,
+			K8sComponents:                  &datamodel.K8sComponents{},
+			KubeletConfig:                  map[string]string{},
+			KubeletClientTLSBootstrapToken: to.StringPtr(bootstrapToken),
+			SecureTLSBootstrappingConfig:   &datamodel.SecureTLSBootstrappingConfig{},
+			PreProvisionOnly:               preProvisionOnly,
+		}
+	}
+	templateGenerator := InitializeTemplateGenerator()
+	render := func(preProvisionOnly bool) string {
+		t.Helper()
+		payload := templateGenerator.getWindowsNodeBootstrappingPayload(newConfig(preProvisionOnly))
+		decoded, err := base64.StdEncoding.DecodeString(payload)
+		require.NoError(t, err)
+		return string(decoded)
+	}
+
+	bakeCustomData := render(true)
+	provisionCustomData := render(false)
+
+	require.NotContains(t, bakeCustomData, bootstrapToken)
+	require.Contains(t, bakeCustomData, `$global:TLSBootstrapToken=""`)
+	require.Contains(t, bakeCustomData, "function NodePrep")
+	require.Contains(t, bakeCustomData, "Write-BootstrapKubeConfig")
+	require.Contains(t, bakeCustomData, "if (-not $PreProvisionOnly)")
+	require.Contains(t, provisionCustomData, fmt.Sprintf(`$global:TLSBootstrapToken="%s"`, bootstrapToken))
+}
+
 type decodedValue struct {
 	value string
 	mode  int64
