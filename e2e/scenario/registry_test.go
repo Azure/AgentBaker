@@ -12,6 +12,19 @@ func TestRegisteredScenarioCount(t *testing.T) {
 	assert.NotEmpty(t, List(), "at least one scenario must be registered")
 }
 
+func TestAKSNodeConfigScenariosHaveBootstrapConfigMutator(t *testing.T) {
+	var mismatched []string
+	for _, scenario := range List() {
+		if scenario.VHD == nil || scenario.IsWindows() || scenario.EagerCSETimingExtraction {
+			continue
+		}
+		if (scenario.BootstrapConfigMutator != nil) != (scenario.AKSNodeConfigMutator != nil) {
+			mismatched = append(mismatched, scenario.Name)
+		}
+	}
+	assert.Empty(t, mismatched, "scenarios must define both BootstrapConfigMutator and AKSNodeConfigMutator")
+}
+
 func TestRegisterDuplicateNameCaseInsensitive(t *testing.T) {
 	defer resetRegistryForTest(t)()
 

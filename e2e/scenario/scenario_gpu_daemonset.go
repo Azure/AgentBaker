@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
@@ -43,6 +44,12 @@ var _ = Register(&Scenario{
 			// By not setting EnableManagedGPU=true or the VMSS tag, the systemd-based device plugin won't start.
 			nbc.EnableGPUDevicePluginIfNeeded = false
 			nbc.EnableNvidia = true
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.VmSize = "Standard_NV6ads_A10_v5"
+			config.GpuConfig.ConfigGpuDriver = true
+			config.GpuConfig.GpuDevicePlugin = false
+			config.GpuConfig.EnableNvidia = to.Ptr(true)
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")

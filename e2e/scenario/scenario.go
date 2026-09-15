@@ -19,6 +19,48 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 )
 
+func secureTLSFallbackAKSNodeConfigMutator(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+	config.BootstrappingConfig.BootstrappingAuthMethod = aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
+	config.BootstrappingConfig.SecureTlsBootstrappingGetAccessTokenTimeout = to.Ptr((10 * time.Second).String())
+	config.BootstrappingConfig.SecureTlsBootstrappingUserAssignedIdentityId = to.Ptr("invalid")
+}
+
+func gpuAKSNodeConfigMutator(vmSize string, configureDriver, enableDevicePlugin bool) func(*Cluster, *aksnodeconfigv1.Configuration) {
+	return func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+		config.VmSize = vmSize
+		config.GpuConfig.ConfigGpuDriver = configureDriver
+		config.GpuConfig.GpuDevicePlugin = enableDevicePlugin
+		config.GpuConfig.EnableNvidia = to.Ptr(true)
+	}
+}
+
+func secondaryNICAKSNodeConfigMutator(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+	config.NetworkConfig.StandardSecondaryNicCount = 1
+}
+
+func dualStackSecondaryNICAKSNodeConfigMutator(cluster *Cluster, config *aksnodeconfigv1.Configuration) {
+	config.NetworkConfig.StandardSecondaryNicCount = 1
+	config.Ipv6DualStackEnabled = true
+	config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_NONE
+	config.KubeletConfig.KubeletNodeLabels["kubernetes.azure.com/podnetwork-type"] = "overlay"
+	config.KubeletConfig.KubeletNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = cluster.VNetResourceGUID
+	config.KubeletConfig.KubeletNodeLabels["kubernetes.azure.com/azure-cni-overlay"] = "true"
+}
+
+func taintsAKSNodeConfigMutator(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+	config.KubeletConfig.KubeletFlags["--register-with-taints"] = "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"
+}
+
+func nodeHardeningAKSNodeConfigMutator(enableConfigFile bool) func(*Cluster, *aksnodeconfigv1.Configuration) {
+	return func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+		config.KubeletConfig.KubeletFlags["--enforce-node-allocatable"] = "pods,kube-reserved,system-reserved"
+		config.KubeletConfig.KubeletFlags["--system-reserved"] = "cpu=200m,memory=500Mi"
+		config.KubeletConfig.KubeletFlags["--kube-reserved-cgroup"] = "/kubelet.slice"
+		config.KubeletConfig.KubeletFlags["--system-reserved-cgroup"] = "/kubelet.slice"
+		config.KubeletConfig.EnableKubeletConfigFile = enableConfigFile
+	}
+}
+
 var _ = Register(&Scenario{
 	Name:        "AzureLinux3OSGuard",
 	Description: "Tests that a node using an Azure Linux V3 OS Guard VHD can be properly bootstrapped",
@@ -27,6 +69,9 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDAzureLinux3OSGuard,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.AgentPoolProfile.LocalDNSProfile = nil
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.LocalDnsProfile.EnableLocalDns = false
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return ValidateFIPSProvider(ctx, s)
@@ -46,6 +91,9 @@ var _ = Register(&Scenario{
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 			nbc.IsARM64 = true
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.VmSize = "Standard_D2pds_V5"
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return nil
@@ -67,6 +115,11 @@ var _ = Register(&Scenario{
 			nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginNone)
 			nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/podnetwork-type"] = "overlay"
 			nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = c.VNetResourceGUID
+		},
+		AKSNodeConfigMutator: func(c *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_NONE
+			config.KubeletConfig.KubeletNodeLabels["kubernetes.azure.com/podnetwork-type"] = "overlay"
+			config.KubeletConfig.KubeletNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = c.VNetResourceGUID
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return nil
@@ -109,6 +162,9 @@ var _ = Register(&Scenario{
 				},
 			}
 		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.CustomCaCerts = []string{encodedTestCert}
+		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 		},
@@ -137,6 +193,9 @@ var _ = Register(&Scenario{
 			nbc.AgentPoolProfile.VMSize = "Standard_D2pds_v6"
 			nbc.IsARM64 = true
 		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.VmSize = "Standard_D2pds_v6"
+		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			vmss.SKU.Name = to.Ptr("Standard_D2pds_v6")
@@ -161,6 +220,9 @@ var _ = Register(&Scenario{
 			// LocalDNS isn't currently supported on FIPS-enabled VHDs; mirror AzureLinux3OSGuard.
 			nbc.AgentPoolProfile.LocalDNSProfile = nil
 		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.LocalDnsProfile.EnableLocalDns = false
+		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 		},
@@ -184,6 +246,9 @@ var _ = Register(&Scenario{
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			// LocalDNS isn't currently supported on FIPS-enabled VHDs.
 			nbc.AgentPoolProfile.LocalDNSProfile = nil
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.LocalDnsProfile.EnableLocalDns = false
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
@@ -243,6 +308,7 @@ var _ = Register(&Scenario{
 				UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 			}
 		},
+		AKSNodeConfigMutator: secureTLSFallbackAKSNodeConfigMutator,
 	},
 })
 
@@ -257,6 +323,9 @@ var _ = Register(&Scenario{
 		},
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.SSHStatus = datamodel.SSHOff
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.EnableSsh = to.Ptr(false)
 		},
 		SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
 		SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
@@ -293,6 +362,7 @@ func aclGPUScenario(name, vmSize, location string) *Scenario {
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
+			AKSNodeConfigMutator: gpuAKSNodeConfigMutator(vmSize, true, false),
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
@@ -324,6 +394,7 @@ func aclGRIDScenario(name, vmSize string) *Scenario {
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
+			AKSNodeConfigMutator: gpuAKSNodeConfigMutator(vmSize, true, false),
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
@@ -356,6 +427,7 @@ var _ = Register(&Scenario{
 				UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 			}
 		},
+		AKSNodeConfigMutator: secureTLSFallbackAKSNodeConfigMutator,
 	},
 })
 
@@ -371,6 +443,9 @@ var _ = Register(&Scenario{
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 			nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
 		},
 	},
 })
@@ -483,6 +558,9 @@ var _ = Register(&Scenario{
 				},
 			}
 		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.CustomCaCerts = []string{encodedTestCert}
+		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return ValidateNonEmptyDirectory(ctx, s, "/usr/share/pki/ca-trust-source/anchors")
 		},
@@ -594,6 +672,9 @@ var _ = Register(&Scenario{
 			nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
 				CustomCATrustCerts: []string{encodedTestCert},
 			}
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.CustomCaCerts = []string{encodedTestCert}
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
@@ -885,6 +966,9 @@ var _ = Register(&Scenario{
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.SSHStatus = datamodel.SSHOff
 		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.EnableSsh = to.Ptr(false)
+		},
 		SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
 		SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
 		Validator: func(ctx context.Context, s *Scenario) error {
@@ -902,6 +986,9 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDUbuntu2204Gen2Containerd,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.SSHStatus = datamodel.SSHOff
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.EnableSsh = to.Ptr(false)
 		},
 		SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
 		SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
@@ -1102,6 +1189,9 @@ var _ = Register(&Scenario{
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 			nbc.IsARM64 = true
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.VmSize = "Standard_D2pds_V5"
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
@@ -1417,6 +1507,27 @@ var _ = Register(&Scenario{
 	Description: "Tests Ubuntu 22.04 bootstrapping with custom sysctls, containerd ulimits, and kubelet seccomp configuration",
 	Tags: Tags{
 		KubeletCustomConfig: true,
+	Name:        "Ubuntu2204_ChronyRestarts_Taints_And_Tolerations",
+	Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDUbuntu2204Gen2Containerd,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.KubeletConfig["--register-with-taints"] = "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"
+		},
+		AKSNodeConfigMutator: taintsAKSNodeConfigMutator,
+		Validator: func(ctx context.Context, s *Scenario) error {
+			if err := errors.Join(
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always"),
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5"),
+			); err != nil {
+				return err
+			}
+			if err := ServiceCanRestartValidator(ctx, s, "chronyd", 10); err != nil {
+				return err
+			}
+			return ValidateTaints(ctx, s, s.Runtime.NBC.KubeletConfig["--register-with-taints"])
+		},
 	},
 	Config: customNodeConfig(config.VHDUbuntu2204Gen2Containerd, ClusterKubenet),
 })
@@ -1525,6 +1636,7 @@ func ubuntu2204GPUScenario(name, vmSize, location string) *Scenario {
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
+			AKSNodeConfigMutator: gpuAKSNodeConfigMutator(vmSize, true, false),
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
 			},
@@ -1539,6 +1651,35 @@ func ubuntu2204GPUScenario(name, vmSize, location string) *Scenario {
 		},
 	}
 }
+
+var _ = Register(&Scenario{
+	Name:        "Ubuntu2204_GPUGridDriver",
+	Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD with grid driver can be properly bootstrapped",
+	Tags: Tags{
+		GPU: true,
+	},
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDUbuntu2204Gen2Containerd,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
+			nbc.ConfigGPUDriverIfNeeded = true
+			nbc.EnableGPUDevicePluginIfNeeded = false
+			nbc.EnableNvidia = true
+		},
+		AKSNodeConfigMutator: gpuAKSNodeConfigMutator("Standard_NV6ads_A10_v5", true, false),
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateNvidiaModProbeInstalled(ctx, s),
+				ValidateKubeletHasNotStopped(ctx, s),
+				ValidateNvidiaSMIInstalled(ctx, s),
+			)
+		},
+	},
+})
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_GPUNoDriver",
@@ -1891,6 +2032,7 @@ var _ = Register(&Scenario{
 			nbc.EnableGPUDevicePluginIfNeeded = false
 			nbc.EnableNvidia = true
 		},
+		AKSNodeConfigMutator: gpuAKSNodeConfigMutator("Standard_NC4as_T4_v3", true, false),
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 		},
@@ -1917,6 +2059,7 @@ func init() {
 					nbc.EnableGPUDevicePluginIfNeeded = false
 					nbc.EnableNvidia = true
 				},
+				AKSNodeConfigMutator: gpuAKSNodeConfigMutator(vmSize, true, false),
 				VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 					vmss.SKU.Name = to.Ptr(vmSize)
 				},
@@ -2168,6 +2311,7 @@ var _ = Register(&Scenario{
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.StandardSecondaryNICCount = 1
 		},
+		AKSNodeConfigMutator: secondaryNICAKSNodeConfigMutator,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			addSecondaryNIC(vmss)
 		},
@@ -2207,6 +2351,7 @@ var _ = Register(&Scenario{
 			nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = c.VNetResourceGUID
 			nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/azure-cni-overlay"] = "true"
 		},
+		AKSNodeConfigMutator: dualStackSecondaryNICAKSNodeConfigMutator,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			DualStackVMConfigMutator(vmss)
 			addDualStackSecondaryNIC(vmss)
@@ -2422,6 +2567,7 @@ var _ = Register(&Scenario{
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.KubeletConfig["--register-with-taints"] = "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"
 		},
+		AKSNodeConfigMutator: taintsAKSNodeConfigMutator,
 		Validator: func(ctx context.Context, s *Scenario) error {
 			if err := errors.Join(
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always"),
@@ -2445,6 +2591,9 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.SSHStatus = datamodel.SSHOff
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.EnableSsh = to.Ptr(false)
 		},
 		SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
 		SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
@@ -2505,6 +2654,7 @@ var _ = Register(&Scenario{
 			// config-file (kubeletconfig.json) path instead of CLI flags.
 			nbc.AgentPoolProfile.CustomKubeletConfig = &datamodel.CustomKubeletConfig{}
 		},
+		AKSNodeConfigMutator: nodeHardeningAKSNodeConfigMutator(true),
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice"),
@@ -2540,6 +2690,7 @@ var _ = Register(&Scenario{
 			nbc.KubeletConfig["--kube-reserved-cgroup"] = "/kubelet.slice"
 			nbc.KubeletConfig["--system-reserved-cgroup"] = "/kubelet.slice"
 		},
+		AKSNodeConfigMutator: nodeHardeningAKSNodeConfigMutator(false),
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice"),
@@ -2826,6 +2977,7 @@ var _ = Register(&Scenario{
 				UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 			}
 		},
+		AKSNodeConfigMutator: secureTLSFallbackAKSNodeConfigMutator,
 	},
 })
 
@@ -2877,6 +3029,7 @@ var _ = Register(&Scenario{
 				UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 			}
 		},
+		AKSNodeConfigMutator: secureTLSFallbackAKSNodeConfigMutator,
 	},
 })
 
@@ -2896,6 +3049,7 @@ var _ = Register(&Scenario{
 				UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 			}
 		},
+		AKSNodeConfigMutator: secureTLSFallbackAKSNodeConfigMutator,
 	},
 })
 
@@ -3366,6 +3520,7 @@ var _ = Register(&Scenario{
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.StandardSecondaryNICCount = 1
 		},
+		AKSNodeConfigMutator: secondaryNICAKSNodeConfigMutator,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			addSecondaryNIC(vmss)
 		},
@@ -3396,6 +3551,7 @@ var _ = Register(&Scenario{
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.StandardSecondaryNICCount = 1
 		},
+		AKSNodeConfigMutator: secondaryNICAKSNodeConfigMutator,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			addSecondaryNIC(vmss)
 		},
@@ -3426,6 +3582,7 @@ var _ = Register(&Scenario{
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.StandardSecondaryNICCount = 1
 		},
+		AKSNodeConfigMutator: secondaryNICAKSNodeConfigMutator,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			addSecondaryNIC(vmss)
 		},
@@ -3456,6 +3613,7 @@ var _ = Register(&Scenario{
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.StandardSecondaryNICCount = 1
 		},
+		AKSNodeConfigMutator: secondaryNICAKSNodeConfigMutator,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			addSecondaryNIC(vmss)
@@ -3496,6 +3654,7 @@ var _ = Register(&Scenario{
 			nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = c.VNetResourceGUID
 			nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/azure-cni-overlay"] = "true"
 		},
+		AKSNodeConfigMutator: dualStackSecondaryNICAKSNodeConfigMutator,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			DualStackVMConfigMutator(vmss)
 			addDualStackSecondaryNIC(vmss)
@@ -3539,6 +3698,7 @@ var _ = Register(&Scenario{
 			nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = c.VNetResourceGUID
 			nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/azure-cni-overlay"] = "true"
 		},
+		AKSNodeConfigMutator: dualStackSecondaryNICAKSNodeConfigMutator,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			DualStackVMConfigMutator(vmss)
 			addDualStackSecondaryNIC(vmss)
@@ -3582,6 +3742,7 @@ var _ = Register(&Scenario{
 			nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = c.VNetResourceGUID
 			nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/azure-cni-overlay"] = "true"
 		},
+		AKSNodeConfigMutator: dualStackSecondaryNICAKSNodeConfigMutator,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			DualStackVMConfigMutator(vmss)
 			addDualStackSecondaryNIC(vmss)
@@ -3624,6 +3785,7 @@ var _ = Register(&Scenario{
 			nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = c.VNetResourceGUID
 			nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/azure-cni-overlay"] = "true"
 		},
+		AKSNodeConfigMutator: dualStackSecondaryNICAKSNodeConfigMutator,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			DualStackVMConfigMutator(vmss)
@@ -3685,6 +3847,9 @@ func manaScenarioConfig(vhd *config.Image, cluster func(context.Context, Cluster
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = config.Config.MANAVMSKU
 			nbc.AgentPoolProfile.VMSize = config.Config.MANAVMSKU
 		},
+		AKSNodeConfigMutator: func(_ *Cluster, nodeConfig *aksnodeconfigv1.Configuration) {
+			nodeConfig.VmSize = config.Config.MANAVMSKU
+		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.SKU.Name = to.Ptr(config.Config.MANAVMSKU)
 			enableAcceleratedNetworking(vmss)
@@ -3719,6 +3884,7 @@ var _ = Register(&Scenario{
 			// config-file (kubeletconfig.json) path instead of CLI flags.
 			nbc.AgentPoolProfile.CustomKubeletConfig = &datamodel.CustomKubeletConfig{}
 		},
+		AKSNodeConfigMutator: nodeHardeningAKSNodeConfigMutator(true),
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice"),
@@ -3757,6 +3923,7 @@ var _ = Register(&Scenario{
 			nbc.KubeletConfig["--kube-reserved-cgroup"] = "/kubelet.slice"
 			nbc.KubeletConfig["--system-reserved-cgroup"] = "/kubelet.slice"
 		},
+		AKSNodeConfigMutator: nodeHardeningAKSNodeConfigMutator(false),
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateFileExists(ctx, s, "/etc/systemd/system/kubereserved.slice"),

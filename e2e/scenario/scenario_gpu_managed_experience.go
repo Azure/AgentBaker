@@ -327,6 +327,14 @@ var _ = Register(&Scenario{
 			nbc.ManagedGPUExperienceAFECEnabled = true
 			nbc.EnableManagedGPU = true
 		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.VmSize = "Standard_NV6ads_A10_v5"
+			config.GpuConfig.ConfigGpuDriver = true
+			config.GpuConfig.GpuDevicePlugin = true
+			config.GpuConfig.EnableNvidia = to.Ptr(true)
+			config.GpuConfig.ManagedGpuExperienceAfecEnabled = true
+			config.GpuConfig.EnableManagedGpu = true
+		},
 		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 			vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 			// Do not set EnableManagedGPUExperience: this test verifies that
@@ -409,6 +417,13 @@ var _ = Register(&Scenario{
 			nbc.EnableGPUDevicePluginIfNeeded = true
 			nbc.EnableNvidia = true
 			nbc.ManagedGPUExperienceAFECEnabled = true
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.VmSize = "Standard_NV6ads_A10_v5"
+			config.GpuConfig.ConfigGpuDriver = true
+			config.GpuConfig.GpuDevicePlugin = true
+			config.GpuConfig.EnableNvidia = to.Ptr(true)
+			config.GpuConfig.ManagedGpuExperienceAfecEnabled = true
 		},
 		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 			vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
@@ -496,6 +511,13 @@ var _ = Register(&Scenario{
 			nbc.EnableNvidia = true
 			nbc.ManagedGPUExperienceAFECEnabled = true
 		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.VmSize = "Standard_NC4as_T4_v3"
+			config.GpuConfig.ConfigGpuDriver = true
+			config.GpuConfig.GpuDevicePlugin = true
+			config.GpuConfig.EnableNvidia = to.Ptr(true)
+			config.GpuConfig.ManagedGpuExperienceAfecEnabled = true
+		},
 		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 			vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 			if vmss.Tags == nil {
@@ -567,6 +589,9 @@ var _ = Register(newUbuntu2404NvidiaDevicePluginMIGSingleScenario(
 	func(nbc *datamodel.NodeBootstrappingConfiguration) {
 		nbc.GPUInstanceProfile = "MIG2g"
 	},
+	func(config *aksnodeconfigv1.Configuration) {
+		config.GpuConfig.GpuInstanceProfile = "MIG2g"
+	},
 ))
 
 var _ = Register(newUbuntu2404NvidiaDevicePluginMIGSingleScenario(
@@ -575,9 +600,16 @@ var _ = Register(newUbuntu2404NvidiaDevicePluginMIGSingleScenario(
 	func(nbc *datamodel.NodeBootstrappingConfiguration) {
 		nbc.MIGProfileLayout = []string{"MIG2g", "MIG2g", "MIG2g"}
 	},
+	func(config *aksnodeconfigv1.Configuration) {
+		config.GpuConfig.MigProfileLayout = []string{"MIG2g", "MIG2g", "MIG2g"}
+	},
 ))
 
-func newUbuntu2404NvidiaDevicePluginMIGSingleScenario(name, description string, setMIGProfile func(*datamodel.NodeBootstrappingConfiguration)) *Scenario {
+func newUbuntu2404NvidiaDevicePluginMIGSingleScenario(
+	name, description string,
+	setMIGProfile func(*datamodel.NodeBootstrappingConfiguration),
+	setAKSMIGProfile func(*aksnodeconfigv1.Configuration),
+) *Scenario {
 	return &Scenario{
 		Name:        name,
 		Description: description,
@@ -597,6 +629,15 @@ func newUbuntu2404NvidiaDevicePluginMIGSingleScenario(name, description string, 
 				setMIGProfile(nbc)
 				nbc.EnableManagedGPU = true
 				nbc.MigStrategy = "Single"
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.VmSize = "Standard_NC24ads_A100_v4"
+				config.GpuConfig.ConfigGpuDriver = true
+				config.GpuConfig.GpuDevicePlugin = true
+				config.GpuConfig.EnableNvidia = to.Ptr(true)
+				setAKSMIGProfile(config)
+				config.GpuConfig.EnableManagedGpu = true
+				config.GpuConfig.MigStrategy = "Single"
 			},
 			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
@@ -692,6 +733,15 @@ func newUbuntu2404_NvidiaDevicePluginRunning_MIG_MultiGPUScenario() *Scenario {
 				nbc.EnableManagedGPU = true
 				nbc.MigStrategy = "Single"
 			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.VmSize = multiGPUA100VMSize
+				config.GpuConfig.ConfigGpuDriver = true
+				config.GpuConfig.GpuDevicePlugin = true
+				config.GpuConfig.EnableNvidia = to.Ptr(true)
+				config.GpuConfig.GpuInstanceProfile = "MIG2g"
+				config.GpuConfig.EnableManagedGpu = true
+				config.GpuConfig.MigStrategy = "Single"
+			},
 			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 				vmss.SKU.Name = to.Ptr(multiGPUA100VMSize)
 
@@ -745,6 +795,14 @@ var _ = Register(&Scenario{
 			nbc.EnableNvidia = true
 			nbc.ManagedGPUExperienceAFECEnabled = true
 			nbc.EnableManagedGPU = true
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.VmSize = "Standard_NV6ads_A10_v5"
+			config.GpuConfig.ConfigGpuDriver = true
+			config.GpuConfig.GpuDevicePlugin = true
+			config.GpuConfig.EnableNvidia = to.Ptr(true)
+			config.GpuConfig.ManagedGpuExperienceAfecEnabled = true
+			config.GpuConfig.EnableManagedGpu = true
 		},
 		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 			vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
@@ -833,6 +891,15 @@ var _ = Register(&Scenario{
 			nbc.EnableManagedGPU = true
 			nbc.MigStrategy = "Mixed"
 		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.VmSize = "Standard_NC24ads_A100_v4"
+			config.GpuConfig.ConfigGpuDriver = true
+			config.GpuConfig.GpuDevicePlugin = true
+			config.GpuConfig.EnableNvidia = to.Ptr(true)
+			config.GpuConfig.GpuInstanceProfile = "MIG1g"
+			config.GpuConfig.EnableManagedGpu = true
+			config.GpuConfig.MigStrategy = "Mixed"
+		},
 		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 			vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
 
@@ -893,6 +960,12 @@ var _ = Register(&Scenario{
 			nbc.ConfigGPUDriverIfNeeded = true
 			nbc.EnableNvidia = true
 			nbc.EnableManagedGPUDRA = true
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.VmSize = "Standard_NV6ads_A10_v5"
+			config.GpuConfig.ConfigGpuDriver = true
+			config.GpuConfig.EnableNvidia = to.Ptr(true)
+			config.GpuConfig.EnableManagedGpuDra = true
 		},
 		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 			vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
