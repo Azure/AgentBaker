@@ -344,6 +344,7 @@ Describe 'Import-GmsaPluginRegistry' {
     BeforeEach {
         Mock Set-ExitCode
         Mock Test-GmsaPluginRegistry -MockWith { return $false }
+        Mock Repair-GmsaPluginRegistryPermissions
         Mock reg.exe -MockWith {
             $global:LASTEXITCODE = 0
             return ""
@@ -366,23 +367,122 @@ Describe 'Import-GmsaPluginRegistry' {
 
         Import-GmsaPluginRegistry -RegistryFilePath 'c:\temp\registerplugin.reg'
         Assert-MockCalled -CommandName 'Test-GmsaPluginRegistry' -Exactly -Times 1
+        Assert-MockCalled -CommandName 'Repair-GmsaPluginRegistryPermissions' -Exactly -Times 0
         Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 0
     }
 
-    It 'fails when reg.exe fails and the required registry state is invalid' {
+    It 'repairs registry permissions and retries when the registry state is invalid' {
+        $script:regExeCallCount = 0
         Mock reg.exe -MockWith {
-            $global:LASTEXITCODE = 1
-            return "The operation failed."
+            $script:regExeCallCount++
+            if ($script:regExeCallCount -eq 1) {
+                $global:LASTEXITCODE = 1
+                return "Access is denied."
+            }
+
+            $global:LASTEXITCODE = 0
+            return ""
         }
 
         Import-GmsaPluginRegistry -RegistryFilePath 'c:\temp\registerplugin.reg'
 
-        Assert-MockCalled -CommandName 'Test-GmsaPluginRegistry' -Exactly -Times 1
+        Assert-MockCalled -CommandName 'Repair-GmsaPluginRegistryPermissions' -Exactly -Times 1
+        Assert-MockCalled -CommandName 'reg.exe' -Exactly -Times 2
+        Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 0
+    }
+
+    It 'continues when the retry fails but the repaired registry state is valid' {
+        $script:validationCallCount = 0
+        Mock reg.exe -MockWith {
+            $global:LASTEXITCODE = 1
+            return "Access is denied."
+        }
+        Mock Test-GmsaPluginRegistry -MockWith {
+            $script:validationCallCount++
+            return $script:validationCallCount -eq 2
+        }
+
+        Import-GmsaPluginRegistry -RegistryFilePath 'c:\temp\registerplugin.reg'
+
+        Assert-MockCalled -CommandName 'Repair-GmsaPluginRegistryPermissions' -Exactly -Times 1
+        Assert-MockCalled -CommandName 'Test-GmsaPluginRegistry' -Exactly -Times 2
+        Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 0
+    }
+
+    It 'fails when the retry fails and the repaired registry state remains invalid' {
+        Mock reg.exe -MockWith {
+            $global:LASTEXITCODE = 1
+            return "Access is denied."
+        }
+
+        Import-GmsaPluginRegistry -RegistryFilePath 'c:\temp\registerplugin.reg'
+
+        Assert-MockCalled -CommandName 'Repair-GmsaPluginRegistryPermissions' -Exactly -Times 1
+        Assert-MockCalled -CommandName 'Test-GmsaPluginRegistry' -Exactly -Times 2
         Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter {
             $ExitCode -eq $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES `
                 -and $ErrorMessage -match 'exit code 1' `
-                -and $ErrorMessage -match 'The operation failed'
+                -and $ErrorMessage -match 'retry failed with exit code 1' `
+                -and $ErrorMessage -match 'Access is denied'
         }
+    }
+
+    It 'retries and reports an unexpected permission repair failure' {
+        Mock reg.exe -MockWith {
+            $global:LASTEXITCODE = 1
+            return "Access is denied."
+        }
+        Mock Repair-GmsaPluginRegistryPermissions -MockWith {
+            throw "permission repair failed"
+        }
+
+        Import-GmsaPluginRegistry -RegistryFilePath 'c:\temp\registerplugin.reg'
+
+        Assert-MockCalled -CommandName 'reg.exe' -Exactly -Times 2
+        Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter {
+            $ExitCode -eq $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES `
+                -and $ErrorMessage -match 'permission repair failed'
+        }
+    }
+}
+
+Describe 'Repair-GmsaPluginRegistryPermissions' {
+    BeforeEach {
+        Mock Set-GmsaPluginRegistryKeyPermission
+    }
+
+    It 'repairs only the GMSA plugin registry subtrees' {
+        Repair-GmsaPluginRegistryPermissions
+
+        Assert-MockCalled -CommandName 'Set-GmsaPluginRegistryKeyPermission' -Exactly -Times 4
+        Assert-MockCalled -CommandName 'Set-GmsaPluginRegistryKeyPermission' -Exactly -Times 1 -ParameterFilter {
+            $RegistryKeyPath -eq 'SOFTWARE\Classes\Interface\{6ECDA518-2010-4437-8BC3-46E752B7B172}'
+        }
+        Assert-MockCalled -CommandName 'Set-GmsaPluginRegistryKeyPermission' -Exactly -Times 1 -ParameterFilter {
+            $RegistryKeyPath -eq 'SOFTWARE\Classes\AppID\{557110E1-88BC-4583-8281-6AAC6F708584}'
+        }
+        Assert-MockCalled -CommandName 'Set-GmsaPluginRegistryKeyPermission' -Exactly -Times 1 -ParameterFilter {
+            $RegistryKeyPath -eq 'SOFTWARE\Classes\CLSID\{CCC2A336-D7F3-4818-A213-272B7924213E}'
+        }
+        Assert-MockCalled -CommandName 'Set-GmsaPluginRegistryKeyPermission' -Exactly -Times 1 -ParameterFilter {
+            $RegistryKeyPath -eq 'SYSTEM\CurrentControlSet\Control\CCG\COMClasses'
+        }
+    }
+
+    It 'continues repairing the remaining keys when one repair fails' {
+        Mock Set-GmsaPluginRegistryKeyPermission -MockWith {
+            param($RegistryKeyPath)
+            if ($RegistryKeyPath -like 'SOFTWARE\Classes\Interface\*') {
+                throw "Access is denied."
+            }
+        }
+
+        $repairFailures = @(Repair-GmsaPluginRegistryPermissions)
+
+        Assert-MockCalled -CommandName 'Set-GmsaPluginRegistryKeyPermission' -Exactly -Times 4
+        $repairFailures | Should -HaveCount 1
+        $repairFailures[0] | Should -Match 'SOFTWARE\\Classes\\Interface'
+        $repairFailures[0] | Should -Match 'Access is denied'
     }
 }
 

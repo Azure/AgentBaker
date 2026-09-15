@@ -235,6 +235,73 @@ function Test-GmsaPluginRegistry {
     }
 }
 
+function Set-GmsaPluginRegistryKeyPermission {
+    Param(
+        [Parameter(Mandatory=$true)]
+        [String] $RegistryKeyPath
+    )
+
+    $owner = [System.Security.Principal.NTAccount]"BUILTIN\Administrators"
+    $key = $null
+
+    try {
+        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
+            $RegistryKeyPath,
+            [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,
+            [System.Security.AccessControl.RegistryRights]::TakeOwnership)
+        if ($null -eq $key) {
+            Write-Log "GMSA plugin registry key '$RegistryKeyPath' does not exist; reg.exe will create it"
+            return
+        }
+
+        $acl = $key.GetAccessControl()
+        $acl.SetOwner($owner)
+        $key.SetAccessControl($acl)
+        $key.Dispose()
+        $key = $null
+
+        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
+            $RegistryKeyPath,
+            [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,
+            [System.Security.AccessControl.RegistryRights]::ChangePermissions)
+        $acl = $key.GetAccessControl()
+        $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
+            $owner,
+            [System.Security.AccessControl.RegistryRights]::FullControl,
+            [System.Security.AccessControl.InheritanceFlags]::ContainerInherit,
+            [System.Security.AccessControl.PropagationFlags]::None,
+            [System.Security.AccessControl.AccessControlType]::Allow)
+        $acl.SetAccessRule($rule)
+        $key.SetAccessControl($acl)
+    } finally {
+        if ($null -ne $key) {
+            $key.Dispose()
+        }
+    }
+}
+
+function Repair-GmsaPluginRegistryPermissions {
+    $registryKeyPaths = @(
+        "SOFTWARE\Classes\Interface\{6ECDA518-2010-4437-8BC3-46E752B7B172}",
+        "SOFTWARE\Classes\AppID\{557110E1-88BC-4583-8281-6AAC6F708584}",
+        "SOFTWARE\Classes\CLSID\{CCC2A336-D7F3-4818-A213-272B7924213E}",
+        "SYSTEM\CurrentControlSet\Control\CCG\COMClasses"
+    )
+
+    $repairFailures = @()
+    foreach ($registryKeyPath in $registryKeyPaths) {
+        try {
+            Set-GmsaPluginRegistryKeyPermission -RegistryKeyPath $registryKeyPath
+        } catch {
+            $repairFailure = "${registryKeyPath}: $_"
+            Write-Log "Failed to repair GMSA plugin registry key permissions for '$registryKeyPath': $_"
+            $repairFailures += $repairFailure
+        }
+    }
+
+    return $repairFailures
+}
+
 function Import-GmsaPluginRegistry {
     Param(
         [Parameter(Mandatory=$true)]
@@ -254,9 +321,33 @@ function Import-GmsaPluginRegistry {
         return
     }
 
+    Write-Log "reg.exe import failed and the GMSA plugin registry is invalid; repairing plugin registry permissions before retry"
+    try {
+        $repairFailures = @(Repair-GmsaPluginRegistryPermissions)
+    } catch {
+        $repairFailures = @("Unexpected permission repair failure: $_")
+        Write-Log $repairFailures[0]
+    }
+
+    $retryImportOutput = & reg.exe import $RegistryFilePath 2>&1
+    $retryImportExitCode = $LASTEXITCODE
+    if ($retryImportExitCode -eq 0) {
+        return
+    }
+
+    if (Test-GmsaPluginRegistry) {
+        Write-Log "reg.exe import retry returned exit code $retryImportExitCode, but the GMSA plugin registry values are valid. Output: $retryImportOutput"
+        return
+    }
+
+    $repairFailureMessage = if ($repairFailures.Count -gt 0) {
+        " Permission repair failures: $($repairFailures -join '; ')."
+    } else {
+        ""
+    }
     Set-ExitCode `
         -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES `
-        -ErrorMessage "Failed to set GMSA plugin registry values. reg.exe import '$RegistryFilePath' failed with exit code $registryImportExitCode. Output: $registryImportOutput"
+        -ErrorMessage "Failed to set GMSA plugin registry values. reg.exe import '$RegistryFilePath' failed with exit code $registryImportExitCode and retry failed with exit code $retryImportExitCode. Initial output: $registryImportOutput. Retry output: $retryImportOutput.$repairFailureMessage"
 }
 
 function Install-GmsaPlugin {
@@ -296,28 +387,7 @@ function Install-GmsaPlugin {
     # Set the registry permissions.
     Write-Log "Setting GMSA plugin registry permissions"
     try {
-        $ccgKeyPath = "System\CurrentControlSet\Control\CCG\COMClasses"
-        $owner = [System.Security.Principal.NTAccount]"BUILTIN\Administrators"
-
-        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
-            $ccgKeyPath,
-            [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,
-            [System.Security.AccessControl.RegistryRights]::TakeOwnership)
-        $acl = $key.GetAccessControl()
-        $acl.SetOwner($owner)
-        $key.SetAccessControl($acl)
-
-        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
-            $ccgKeyPath,
-            [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,
-            [System.Security.AccessControl.RegistryRights]::ChangePermissions)
-        $acl = $key.GetAccessControl()
-        $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
-            $owner,
-            [System.Security.AccessControl.RegistryRights]::FullControl,
-            [System.Security.AccessControl.AccessControlType]::Allow)
-        $acl.SetAccessRule($rule)
-        $key.SetAccessControl($acl)
+        Set-GmsaPluginRegistryKeyPermission -RegistryKeyPath "SYSTEM\CurrentControlSet\Control\CCG\COMClasses"
     } catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION -ErrorMessage "Failed to set GMSA plugin registry permissions. $_"
     }
