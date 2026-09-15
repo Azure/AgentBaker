@@ -141,7 +141,6 @@ parameters:
     displayName: Build Azure Container Linux ARM64 FIPS TL Gen2
     type: boolean
     default: true
-
 variables:
   - name: MODE
     value: "linuxVhdMode"
@@ -819,10 +818,6 @@ stages:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]acl'
-              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
-              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
-              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-acl'
-              echo '##vso[task.setvariable variable=IMG_VERSION]3.20260809.01'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -831,6 +826,9 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
+          - template: ./templates/.acl-base-image-vars.yaml
+            parameters:
+              variant: amd64
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
@@ -844,10 +842,6 @@ stages:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]acl'
-              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
-              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
-              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64-gen2-acl'
-              echo '##vso[task.setvariable variable=IMG_VERSION]3.20260809.01'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -856,6 +850,9 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
+          - template: ./templates/.acl-base-image-vars.yaml
+            parameters:
+              variant: arm64
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
@@ -869,10 +866,6 @@ stages:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]acl'
-              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
-              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
-              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-acl'
-              echo '##vso[task.setvariable variable=IMG_VERSION]3.20260809.01'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -881,6 +874,9 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
+          - template: ./templates/.acl-base-image-vars.yaml
+            parameters:
+              variant: amd64
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
@@ -894,10 +890,6 @@ stages:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]acl'
-              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
-              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
-              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64-gen2-acl'
-              echo '##vso[task.setvariable variable=IMG_VERSION]3.20260809.01'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -906,6 +898,9 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
+          - template: ./templates/.acl-base-image-vars.yaml
+            parameters:
+              variant: arm64
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
