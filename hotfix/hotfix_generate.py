@@ -70,6 +70,11 @@ SOURCE_TO_VARKEY = {
     "mariner/cse_install_mariner.sh": "provisionInstallsMariner",
     # CSE config
     "cse_config.sh": "provisionConfigs",
+    "cse_config_gpu.sh": "provisionConfigsGPU",
+    "cse_config_localdns.sh": "provisionConfigsLocalDNS",
+    "cse_config_kubelet.sh": "provisionConfigsKubelet",
+    "cse_config_network.sh": "provisionConfigsNetwork",
+    "cse_config_addons.sh": "provisionConfigsAddons",
     # CSE main
     "cse_main.sh": "provisionScript",
     # Other scripts present in traditional nodecustomdata
