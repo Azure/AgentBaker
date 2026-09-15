@@ -26,11 +26,20 @@ function Remove-ServiceIfExists
 
     if ($svc.Status -ne 'Stopped' -and $svc.Status -ne 'StopPending') {
         sc.exe stop "$ServiceName" | Out-Null
+        $stopExitCode = $LASTEXITCODE
 
         for ($attempt = 0; $attempt -lt 60; $attempt++) {
             $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
             if ($null -eq $svc -or $svc.Status -eq 'Stopped') {
                 break
+            }
+
+            # ERROR_SERVICE_CANNOT_ACCEPT_CTRL (1061): the service was mid-transition when we
+            # requested the stop. Once it clears that transient state, retry the stop instead of
+            # just waiting, otherwise a service that never received a stop request can time out.
+            if ($stopExitCode -eq 1061 -and $svc.Status -notin $pendingStatuses) {
+                sc.exe stop "$ServiceName" | Out-Null
+                $stopExitCode = $LASTEXITCODE
             }
 
             Start-Sleep -Seconds 1

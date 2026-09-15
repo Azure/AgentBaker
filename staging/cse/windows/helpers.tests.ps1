@@ -127,6 +127,34 @@ Describe 'Remove-ServiceIfExists' {
             Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 60
         }
 
+        It 'retries the stop request when the service was mid-transition (1061) and later becomes controllable' {
+            $script:serviceStatus = 'Running'
+            Mock Get-Service -MockWith {
+                $script:getServiceCallCount++
+                switch ($script:getServiceCallCount) {
+                    1 { return [PSCustomObject]@{Name = 'some-service'; Status = 'Running'} }
+                    2 { return [PSCustomObject]@{Name = 'some-service'; Status = 'StartPending'} }
+                    3 { return [PSCustomObject]@{Name = 'some-service'; Status = 'Running'} }
+                    4 { return [PSCustomObject]@{Name = 'some-service'; Status = 'Stopped'} }
+                    default { return $null }
+                }
+            }
+            Mock sc.exe -MockWith {
+                $script:scExeCallCount++
+                if ($args[0] -eq 'stop') {
+                    $script:scStopCallCount++
+                    # First stop request races with the service entering a pending state.
+                    $global:LASTEXITCODE = if ($script:scStopCallCount -eq 1) { 1061 } else { 0 }
+                }
+                if ($args[0] -eq 'delete') { $script:scDeleteCallCount++; $global:LASTEXITCODE = 0 }
+            }
+
+            Remove-ServiceIfExists -ServiceName 'some-service'
+
+            $script:scStopCallCount | Should -Be 2
+            $script:scDeleteCallCount | Should -Be 1
+        }
+
         It 'waits when the service is already marked for deletion' {
             Mock sc.exe -MockWith { $global:LASTEXITCODE = 1072 }
 
