@@ -16,14 +16,56 @@ Describe 'Remove-ServiceIfExists' {
     Context 'when the service does not exist' {
         BeforeEach {
             $script:scExeCallCount = 0
+            $script:scQueryCallCount = 0
             Mock Get-Service -MockWith { return $null }
-            Mock sc.exe -MockWith { $script:scExeCallCount++ }
+            Mock sc.exe -MockWith {
+                $script:scExeCallCount++
+                if ($args[0] -eq 'query') { $script:scQueryCallCount++ }
+                $global:LASTEXITCODE = 1060
+            }
         }
 
-        It 'does not call sc.exe' {
+        It 'probes with sc.exe query and returns without calling delete when truly absent' {
             Remove-ServiceIfExists -ServiceName 'some-service'
 
-            $script:scExeCallCount | Should -Be 0
+            $script:scQueryCallCount | Should -Be 1
+            $script:scExeCallCount | Should -Be 1
+            Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 0
+        }
+
+        It 'waits out a service still marked for deletion from a prior attempt, then returns' {
+            Mock sc.exe -MockWith {
+                $script:scExeCallCount++
+                $script:scQueryCallCount++
+                $global:LASTEXITCODE = if ($script:scQueryCallCount -lt 3) { 1072 } else { 1060 }
+            }
+
+            { Remove-ServiceIfExists -ServiceName 'some-service' } | Should -Not -Throw
+
+            $script:scQueryCallCount | Should -Be 3
+            Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 2
+        }
+
+        It 'throws when a service marked for deletion never clears' {
+            Mock sc.exe -MockWith {
+                $script:scExeCallCount++
+                $global:LASTEXITCODE = 1072
+            }
+
+            { Remove-ServiceIfExists -ServiceName 'some-service' } | Should -Throw '*Timed out*'
+
+            Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 30
+        }
+
+        It 'throws immediately, without waiting, when sc.exe query returns an unexpected exit code' {
+            Mock sc.exe -MockWith {
+                $script:scExeCallCount++
+                $global:LASTEXITCODE = 5
+            }
+
+            { Remove-ServiceIfExists -ServiceName 'some-service' } | Should -Throw '*exit code 5*'
+
+            $script:scExeCallCount | Should -Be 1
             Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 0
         }
     }
@@ -94,6 +136,30 @@ Describe 'Remove-ServiceIfExists' {
 
             $script:scStopCallCount | Should -Be 1
             Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 1
+        }
+
+        It 'waits out marked-for-deletion when the service disappears from Get-Service during the pending-state wait' {
+            Mock Get-Service -MockWith {
+                $script:getServiceCallCount++
+                switch ($script:getServiceCallCount) {
+                    1 { return [PSCustomObject]@{Name = 'some-service'; Status = 'StartPending'} }
+                    default { return $null }
+                }
+            }
+            Mock sc.exe -MockWith {
+                $script:scExeCallCount++
+                if ($args[0] -eq 'query') {
+                    $script:scQueryCallCount++
+                    $global:LASTEXITCODE = if ($script:scQueryCallCount -lt 2) { 1072 } else { 1060 }
+                }
+            }
+
+            { Remove-ServiceIfExists -ServiceName 'some-service' } | Should -Not -Throw
+
+            $script:scStopCallCount | Should -Be 0
+            $script:scDeleteCallCount | Should -Be 0
+            $script:scQueryCallCount | Should -Be 2
+            Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 2
         }
 
         It 'polls without blocking while the service stops, up to 60 seconds' {
