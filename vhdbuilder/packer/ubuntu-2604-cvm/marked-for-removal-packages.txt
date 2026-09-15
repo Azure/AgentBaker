@@ -1,5 +1,3 @@
-# Derived from server_fde_20260913.cvm-only-excluding-required.diff (2026-09-13).
-# Versions and native :amd64 architecture qualifiers were removed.
 apport-symptoms
 appstream
 bash-completion
@@ -327,6 +325,5 @@ xauth
 xdg-user-dirs
 xfsprogs
 xml-core
-xxd
 zerofree
 zstd

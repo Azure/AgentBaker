@@ -2,7 +2,7 @@
 # shellcheck disable=SC3010 # This script is invoked explicitly with bash by the CVM Packer template.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CANDIDATE_PACKAGES_FILE="${CANDIDATE_PACKAGES_FILE:-${SCRIPT_DIR}/candidate-packages.txt}"
+MARKED_FOR_REMOVAL_PACKAGES_FILE="${MARKED_FOR_REMOVAL_PACKAGES_FILE:-${SCRIPT_DIR}/marked-for-removal-packages.txt}"
 REQUIRED_PACKAGES_FILE="${REQUIRED_PACKAGES_FILE:-${SCRIPT_DIR}/required-packages.txt}"
 OS_RELEASE_FILE="${OS_RELEASE_FILE:-/etc/os-release}"
 
@@ -32,10 +32,10 @@ read_package_list() {
 }
 
 validate_package_lists() {
-    local candidate package required
+    local marked_for_removal package required
 
-    [ -s "${CANDIDATE_PACKAGES_FILE}" ] || {
-        echo "Candidate package list is missing or empty: ${CANDIDATE_PACKAGES_FILE}" >&2
+    [ -s "${MARKED_FOR_REMOVAL_PACKAGES_FILE}" ] || {
+        echo "Marked-for-removal package list is missing or empty: ${MARKED_FOR_REMOVAL_PACKAGES_FILE}" >&2
         return 1
     }
     [ -s "${REQUIRED_PACKAGES_FILE}" ] || {
@@ -43,25 +43,25 @@ validate_package_lists() {
         return 1
     }
 
-    while IFS= read -r candidate; do
-        if [[ ! "${candidate}" =~ ^[a-z0-9][a-z0-9+.-]*$ ]]; then
-            echo "Invalid candidate package name: ${candidate}" >&2
+    while IFS= read -r marked_for_removal; do
+        if [[ ! "${marked_for_removal}" =~ ^[a-z0-9][a-z0-9+.-]*$ ]]; then
+            echo "Invalid marked-for-removal package name: ${marked_for_removal}" >&2
             return 1
         fi
-    done < <(read_package_list "${CANDIDATE_PACKAGES_FILE}")
+    done < <(read_package_list "${MARKED_FOR_REMOVAL_PACKAGES_FILE}")
 
     while IFS= read -r required; do
         if [[ ! "${required}" =~ ^[a-z0-9][a-z0-9+.*-]*$ ]]; then
             echo "Invalid required package pattern: ${required}" >&2
             return 1
         fi
-        while IFS= read -r candidate; do
+        while IFS= read -r marked_for_removal; do
             # shellcheck disable=SC2053 # required entries intentionally support package-name globs.
-            if [[ "${candidate}" == ${required} ]]; then
-                echo "Candidate package is protected by required pattern ${required}: ${candidate}" >&2
+            if [[ "${marked_for_removal}" == ${required} ]]; then
+                echo "Marked-for-removal package is protected by required pattern ${required}: ${marked_for_removal}" >&2
                 return 1
             fi
-        done < <(read_package_list "${CANDIDATE_PACKAGES_FILE}")
+        done < <(read_package_list "${MARKED_FOR_REMOVAL_PACKAGES_FILE}")
     done < <(read_package_list "${REQUIRED_PACKAGES_FILE}")
 }
 
@@ -69,10 +69,10 @@ normalize_package_name() {
     printf '%s\n' "${1%%:*}"
 }
 
-package_is_candidate() {
+package_is_marked_for_removal() {
     local package
     package="$(normalize_package_name "$1")"
-    grep -Fxq "${package}" < <(read_package_list "${CANDIDATE_PACKAGES_FILE}")
+    grep -Fxq "${package}" < <(read_package_list "${MARKED_FOR_REMOVAL_PACKAGES_FILE}")
 }
 
 package_is_required() {
@@ -138,12 +138,12 @@ validate_removal_plan() {
 
     while IFS= read -r package; do
         normalized="$(normalize_package_name "${package}")"
-        if ! package_is_candidate "${normalized}"; then
-            echo "apt simulation would remove non-candidate package: ${package}" >&2
-            return 1
-        fi
         if package_is_required "${normalized}"; then
             echo "apt simulation would remove required CVM package: ${package}" >&2
+            return 1
+        fi
+        if ! package_is_marked_for_removal "${normalized}"; then
+            echo "apt simulation would remove unspecified package: ${package}" >&2
             return 1
         fi
         if grep -Fxq "${normalized}" "${essential_file}"; then
@@ -153,35 +153,35 @@ validate_removal_plan() {
     done < "${removal_file}"
 }
 
-verify_all_candidates_planned() {
-    local installed_candidates_file="$1"
+verify_all_marked_for_removal_planned() {
+    local installed_marked_for_removal_file="$1"
     local removal_file="$2"
     local package normalized
 
     while IFS= read -r package; do
         normalized="$(normalize_package_name "${package}")"
         if ! grep -Fxq "${normalized}" < <(sed 's/:.*//' "${removal_file}"); then
-            echo "apt simulation omitted installed candidate package: ${package}" >&2
+            echo "apt simulation omitted installed marked-for-removal package: ${package}" >&2
             return 1
         fi
-    done < "${installed_candidates_file}"
+    done < "${installed_marked_for_removal_file}"
 }
 
-verify_no_candidates_installed() {
+verify_no_marked_for_removal_installed() {
     local installed_file="$1"
     local package
 
     while IFS= read -r package; do
-        if package_is_candidate "${package}"; then
-            echo "Candidate package remained installed after pruning: ${package}" >&2
+        if package_is_marked_for_removal "${package}"; then
+            echo "Marked-for-removal package remained installed after pruning: ${package}" >&2
             return 1
         fi
     done < "${installed_file}"
 }
 
 main() {
-    local work_dir installed_before installed_after installed_candidates
-    local manual_packages essential_packages simulation_output removal_plan audit_output
+    local work_dir installed_before installed_after installed_marked_for_removal
+    local unspecified_packages essential_packages simulation_output removal_plan audit_output
     local package normalized
     local -a purge_packages=()
 
@@ -197,8 +197,8 @@ main() {
     trap 'rm -rf "${PRUNE_WORK_DIR}"' EXIT
     installed_before="${work_dir}/installed-before.txt"
     installed_after="${work_dir}/installed-after.txt"
-    installed_candidates="${work_dir}/installed-candidates.txt"
-    manual_packages="${work_dir}/manual-packages.txt"
+    installed_marked_for_removal="${work_dir}/installed-marked-for-removal.txt"
+    unspecified_packages="${work_dir}/unspecified-packages.txt"
     essential_packages="${work_dir}/essential-packages.txt"
     simulation_output="${work_dir}/apt-simulation.txt"
     removal_plan="${work_dir}/removal-plan.txt"
@@ -209,22 +209,22 @@ main() {
 
     while IFS= read -r package; do
         normalized="$(normalize_package_name "${package}")"
-        if package_is_candidate "${normalized}"; then
-            printf '%s\n' "${package}" >> "${installed_candidates}"
+        if package_is_marked_for_removal "${normalized}"; then
+            printf '%s\n' "${package}" >> "${installed_marked_for_removal}"
         else
-            printf '%s\n' "${package}" >> "${manual_packages}"
+            printf '%s\n' "${package}" >> "${unspecified_packages}"
         fi
         if [ "$(dpkg-query -W -f='${Essential}' "${package}")" = "yes" ]; then
             printf '%s\n' "${normalized}" >> "${essential_packages}"
         fi
     done < "${installed_before}"
 
-    if [ -s "${manual_packages}" ]; then
-        xargs -r -n 100 apt-mark -o DPkg::Lock::Timeout=300 manual < "${manual_packages}"
+    if [ -s "${unspecified_packages}" ]; then
+        xargs -r -n 100 apt-mark -o DPkg::Lock::Timeout=300 manual < "${unspecified_packages}"
     fi
 
-    if [ ! -s "${installed_candidates}" ]; then
-        echo "No installed server-cvm pruning candidates were found"
+    if [ ! -s "${installed_marked_for_removal}" ]; then
+        echo "No installed server-cvm packages marked for removal were found"
         dpkg --audit > "${audit_output}"
         [ ! -s "${audit_output}" ] || {
             cat "${audit_output}" >&2
@@ -234,7 +234,7 @@ main() {
         return 0
     fi
 
-    mapfile -t purge_packages < "${installed_candidates}"
+    mapfile -t purge_packages < "${installed_marked_for_removal}"
     if ! DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 --simulate purge "${purge_packages[@]}" > "${simulation_output}" 2>&1; then
         cat "${simulation_output}" >&2
         echo "apt purge simulation failed" >&2
@@ -243,14 +243,14 @@ main() {
 
     parse_simulated_removals < "${simulation_output}" | sort -u > "${removal_plan}"
     validate_removal_plan "${removal_plan}" "${essential_packages}"
-    verify_all_candidates_planned "${installed_candidates}" "${removal_plan}"
+    verify_all_marked_for_removal_planned "${installed_marked_for_removal}" "${removal_plan}"
 
-    echo "Purging $(wc -l < "${installed_candidates}") installed server-cvm candidate packages"
+    echo "Purging $(wc -l < "${installed_marked_for_removal}") installed server-cvm packages marked for removal"
     DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 purge -y --no-auto-remove "${purge_packages[@]}"
 
     list_installed_packages | sort -u > "${installed_after}"
     verify_required_packages_installed "${installed_after}"
-    verify_no_candidates_installed "${installed_after}"
+    verify_no_marked_for_removal_installed "${installed_after}"
 
     dpkg --audit > "${audit_output}"
     if [ -s "${audit_output}" ]; then

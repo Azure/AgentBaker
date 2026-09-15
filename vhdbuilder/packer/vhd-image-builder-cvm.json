@@ -366,8 +366,8 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/ubuntu-2604-cvm/candidate-packages.txt",
-      "destination": "/home/packer/candidate-packages.txt"
+      "source": "vhdbuilder/packer/ubuntu-2604-cvm/marked-for-removal-packages.txt",
+      "destination": "/home/packer/marked-for-removal-packages.txt"
     },
     {
       "type": "file",
