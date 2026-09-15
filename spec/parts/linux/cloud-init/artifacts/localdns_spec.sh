@@ -1518,6 +1518,117 @@ EOF
         End
     End
 
+#------------------------------------------------------------------------------------------------------------------------------------
+# This section tests - upstream_dns_servers_routable, upstream_dns_servers_listed and wait_for_network_reload_settled
+# These functions are defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'wait_for_network_reload_settled'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            TEST_DIR="/tmp/localdnstest-$$"
+            RESOLV_CONF="${TEST_DIR}/run/systemd/resolve/resolv.conf"
+            ROUTE_CALL_COUNT_FILE="${TEST_DIR}/route-calls"
+            mkdir -p "$(dirname "$RESOLV_CONF")"
+            LOCALDNS_NODE_LISTENER_IP="169.254.10.10"
+            NETWORK_DROPIN_FILE="${TEST_DIR}/70-localdns.conf"
+            NETWORK_RELOAD_SETTLE_CHECKS=8
+        }
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        # Stand-ins for 'ip route get'. The script only ever checks the exit status.
+        route_up() { ip() { return 0; }; }
+        route_down() { ip() { return 1; }; }
+        # Unroutable for the first two checks, routable afterwards - the tear-down and
+        # re-acquire that a networkctl reload puts the link through.
+        route_down_then_up() {
+            ip() {
+                local calls
+                calls=$(cat "$ROUTE_CALL_COUNT_FILE" 2>/dev/null || echo 0)
+                calls=$((calls + 1))
+                echo "$calls" > "$ROUTE_CALL_COUNT_FILE"
+                [ "$calls" -gt 2 ]
+            }
+        }
+
+        #------------------------- upstream_dns_servers_routable ------------------------------------------------------
+        It 'should report all upstream servers routable'
+            route_up
+            When call upstream_dns_servers_routable "10.0.0.1 10.0.0.2"
+            The status should be success
+        End
+
+        It 'should report upstream servers unroutable when a route is missing'
+            route_down
+            When call upstream_dns_servers_routable "10.0.0.1"
+            The status should be failure
+        End
+
+        #------------------------- upstream_dns_servers_listed --------------------------------------------------------
+        It 'should detect an upstream server still listed in resolv.conf'
+            When call upstream_dns_servers_listed "10.0.0.1 10.0.0.2" "169.254.10.10 10.0.0.2"
+            The status should be success
+        End
+
+        It 'should not detect an upstream server that has been removed'
+            When call upstream_dns_servers_listed "10.0.0.1 10.0.0.2" "169.254.10.10"
+            The status should be failure
+        End
+
+        It 'should not match an upstream server as a substring of another IP'
+            When call upstream_dns_servers_listed "10.0.0.1" "110.0.0.10"
+            The status should be failure
+        End
+
+        #------------------------- wait_for_network_reload_settled ----------------------------------------------------
+        It 'should skip the wait when there are no upstream servers'
+            route_down
+            When run wait_for_network_reload_settled "" 1
+            The status should be success
+            The stdout should include "No upstream DNS servers to check"
+        End
+
+        It 'should return as soon as the drop-in is applied and upstreams are routable'
+            echo "nameserver 169.254.10.10" > "$RESOLV_CONF"
+            route_up
+            When run wait_for_network_reload_settled "10.0.0.1" 5
+            The status should be success
+            The stdout should include "systemd-networkd applied"
+            The stdout should include "upstream DNS servers are routable"
+        End
+
+        It 'should keep waiting while an upstream is unroutable and return once it comes back'
+            # resolv.conf never drops the upstream here, so the only convergence signal is the
+            # route disappearing and coming back.
+            echo "nameserver 10.0.0.1" > "$RESOLV_CONF"
+            route_down_then_up
+            When run wait_for_network_reload_settled "10.0.0.1" 5
+            The status should be success
+            The stdout should include "upstream DNS servers are routable"
+        End
+
+        It 'should fall back to consecutive routable samples when networkd gives no signal'
+            echo "nameserver 10.0.0.1" > "$RESOLV_CONF"
+            NETWORK_RELOAD_SETTLE_CHECKS=2
+            route_up
+            When run wait_for_network_reload_settled "10.0.0.1" 5
+            The status should be success
+            The stdout should include "upstream DNS servers are routable"
+            The stdout should not include "systemd-networkd applied"
+        End
+
+        It 'should time out when the upstream never becomes routable'
+            echo "nameserver 169.254.10.10" > "$RESOLV_CONF"
+            route_down
+            When run wait_for_network_reload_settled "10.0.0.1" 1
+            The status should be failure
+            The stdout should include "Timed out after 1 seconds"
+        End
+    End
+
     Describe 'export_resource_metrics'
         setup() {
             Include "./parts/linux/cloud-init/artifacts/localdns.sh"
