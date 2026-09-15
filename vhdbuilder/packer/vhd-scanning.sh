@@ -80,7 +80,7 @@ VM_OPTIONS="--size $VM_SIZE"
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
     # TODO: remove ENABLE_TRUSTED_LAUNCH check once replaced by TRUSTED_LAUNCH_SUPPORTED
-    if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+    if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ] || [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ] ; then
         VM_SIZE="Standard_D8pds_v6"
     else
         VM_SIZE="Standard_D8pds_v5"
@@ -88,7 +88,7 @@ if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     VM_OPTIONS="--size $VM_SIZE"
 fi
 
-if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+if [ "${OS_TYPE}" = "Linux" ] && { [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ] || [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; }; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 

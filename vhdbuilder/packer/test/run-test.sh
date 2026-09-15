@@ -70,7 +70,7 @@ TARGET_COMMAND_STRING=""
 if [ "${ARCHITECTURE,,}" = "arm64" ]; then
   # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
   # TODO: remove ENABLE_TRUSTED_LAUNCH check once replaced by TRUSTED_LAUNCH_SUPPORTED
-  if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+  if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ] || [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
     VM_SIZE="Standard_D2pds_v6"
   else
     VM_SIZE="Standard_D2pds_v5"
@@ -81,7 +81,7 @@ fi
 TARGET_COMMAND_STRING="--size $VM_SIZE"
 
 # TODO: remove ENABLE_TRUSTED_LAUNCH check once replaced by TRUSTED_LAUNCH_SUPPORTED
-if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ] || [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
   if [ -n "$TARGET_COMMAND_STRING" ]; then
     # To take care of Mariner Kata TL images
     TARGET_COMMAND_STRING+=" "
