@@ -2,7 +2,7 @@
 
 Describe 'block_wireserver.sh'
     SCRIPT="./parts/linux/cloud-init/artifacts/block_wireserver.sh"
-    CSE_CONFIG="./parts/linux/cloud-init/artifacts/cse_config.sh"
+    CSE_CONFIG="./parts/linux/cloud-init/artifacts/cse_config_kubelet.sh"
 
     Mock iptables
         echo "iptables $*"
