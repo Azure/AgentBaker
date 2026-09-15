@@ -62,7 +62,6 @@ ibverbs-providers
 ieee-data
 inetutils-telnet
 info
-init
 install-info
 iptables
 iputils-ping
