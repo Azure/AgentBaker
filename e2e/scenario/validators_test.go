@@ -84,3 +84,44 @@ func TestWindowsFileContainsBootstrapTokenScriptDoesNotExposeToken(t *testing.T)
 		require.Contains(t, script, marker)
 	}
 }
+
+func TestParseWindowsBootstrapTokenScanResult(t *testing.T) {
+	tests := []struct {
+		name          string
+		result        *podExecResult
+		containsToken bool
+		wantErr       bool
+	}{
+		{
+			name:   "absent marker with success",
+			result: &podExecResult{exitCode: "0", stdout: windowsScanAbsentMarker},
+		},
+		{
+			name:          "present marker with collapsed Windows SSH exit code",
+			result:        &podExecResult{exitCode: "1", stdout: windowsScanPresentMarker},
+			containsToken: true,
+		},
+		{
+			name:    "runtime error marker",
+			result:  &podExecResult{exitCode: "1", stdout: windowsScanErrorMarker},
+			wantErr: true,
+		},
+		{
+			name:    "missing marker",
+			result:  &podExecResult{exitCode: "0"},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			containsToken, err := parseWindowsBootstrapTokenScanResult(tt.result)
+			require.Equal(t, tt.containsToken, containsToken)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}

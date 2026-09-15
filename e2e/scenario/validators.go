@@ -953,14 +953,21 @@ func windowsFileContainsBootstrapToken(ctx context.Context, s *Scenario, fileNam
 		return false, fmt.Errorf("execute bootstrap token validation: %w", err)
 	}
 
-	switch {
-	case result.exitCode == "0" && strings.TrimSpace(result.stdout) == windowsScanAbsentMarker:
+	return parseWindowsBootstrapTokenScanResult(result)
+}
+
+func parseWindowsBootstrapTokenScanResult(result *podExecResult) (bool, error) {
+	switch strings.TrimSpace(result.stdout) {
+	case windowsScanAbsentMarker:
+		if result.exitCode != "0" {
+			return false, fmt.Errorf("bootstrap token validation reported absence with exit code %s", result.exitCode)
+		}
 		return false, nil
-	case result.exitCode == "10" && strings.TrimSpace(result.stdout) == windowsScanPresentMarker:
+	case windowsScanPresentMarker:
 		return true, nil
-	case result.exitCode == "20" && strings.TrimSpace(result.stdout) == windowsScanFileMissingMarker:
+	case windowsScanFileMissingMarker:
 		return false, errors.New("file does not exist")
-	case result.exitCode == "30" && strings.TrimSpace(result.stdout) == windowsScanErrorMarker:
+	case windowsScanErrorMarker:
 		return false, errors.New("bootstrap token validation encountered a runtime error")
 	default:
 		return false, fmt.Errorf("bootstrap token validation failed with exit code %s", result.exitCode)
