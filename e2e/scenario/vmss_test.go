@@ -1,17 +1,57 @@
 package scenario
 
 import (
+	"context"
 	"encoding/base64"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
+
+func TestJoinProvisioningErrors(t *testing.T) {
+	allocationErr := &azcore.ResponseError{StatusCode: 200, ErrorCode: "AllocationFailed"}
+	cseErr := &azcore.ResponseError{StatusCode: 200, ErrorCode: "VMExtensionProvisioningError"}
+	for _, tc := range []struct {
+		name         string
+		provisionErr error
+		sshErr       error
+	}{
+		{name: "success"},
+		{name: "SSH failure", sshErr: context.DeadlineExceeded},
+		{name: "CSE failure with SSH success", provisionErr: cseErr},
+		{name: "CSE and SSH failure", provisionErr: cseErr, sshErr: context.DeadlineExceeded},
+		{name: "allocation and SSH failure", provisionErr: allocationErr, sshErr: context.DeadlineExceeded},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := joinProvisioningErrors(tc.provisionErr, tc.sshErr)
+			if tc.provisionErr == nil && tc.sshErr == nil {
+				require.NoError(t, err)
+				return
+			}
+			if tc.provisionErr != nil {
+				var responseErr *azcore.ResponseError
+				require.ErrorAs(t, err, &responseErr)
+				require.Same(t, tc.provisionErr, responseErr)
+			}
+			if tc.sshErr == nil {
+				require.Same(t, tc.provisionErr, err)
+			} else {
+				require.ErrorIs(t, err, tc.sshErr)
+				require.ErrorContains(t, err, "failed to start bastion tunnel:")
+			}
+			if tc.provisionErr != nil && tc.sshErr != nil {
+				require.EqualError(t, err, tc.provisionErr.Error()+"\nfailed to start bastion tunnel: "+tc.sshErr.Error())
+			}
+		})
+	}
+}
 
 func TestWriteScriptHotfixFixture(t *testing.T) {
 	buildDir := t.TempDir()

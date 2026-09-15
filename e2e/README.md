@@ -294,6 +294,11 @@ standard logger when a context has no logger. In unit tests, use
 For cleanup that must continue after cancellation, derive its context with
 `context.WithoutCancel(ctx)` and set a timeout. This preserves the attempt logger.
 
+VMSS provisioning errors are logged before SSH setup and remain in the returned
+error if SSH also fails. Check the provisioning error first: an SSH timeout can
+follow a failed VM allocation. SSH is still attempted after provisioning failure
+so that booted VMs with CSE failures can provide guest logs.
+
 ### Cleanup
 
 Azure resources are deleted periodically by an external garbage collector. Locally stopped tests attempt a graceful
