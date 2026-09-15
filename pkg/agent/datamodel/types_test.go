@@ -1051,6 +1051,13 @@ func TestAgentPoolProfileIs2604VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "26.04 minimal CVM Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuMinimalContainerd2604CVMGen2,
+			},
+			expected: true,
+		},
+		{
 			name: "24.04 VHD distro is not a 2604 distro",
 			ap: AgentPoolProfile{
 				Distro: AKSUbuntuContainerd2404,
