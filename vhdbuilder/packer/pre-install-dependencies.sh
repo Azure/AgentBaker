@@ -7,7 +7,7 @@ if [ "$OS" = "UBUNTU" ] &&
   [ "$OS_VERSION" = "26.04" ] &&
   [ "${IMG_SKU:-}" = "server-cvm" ] &&
   tr ',' '\n' <<<"${FEATURE_FLAGS:-}" | grep -Fxq "cvm"; then
-  /bin/bash /home/packer/prune-server-cvm.sh
+  /bin/bash /home/packer/trim-2604-cvm-packages.sh
 fi
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
