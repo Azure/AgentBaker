@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -209,22 +210,74 @@ func validateACLCosi31(t *testing.T, m cosiMetadata) {
 // ESP partition type GUID per Discoverable Partition Specification
 const espPartTypeGUID = "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"
 
+// cosiHTTPGet issues the shared HTTP GET used to fetch a COSI file, applying
+// the download timeout and validating the response status. Callers must
+// close the returned response body and call the returned cancel function.
+func cosiHTTPGet(ctx context.Context, cosiURL string) (*http.Response, context.CancelFunc, error) {
+	ctx, cancel := context.WithTimeout(ctx, cosiDownloadTimeout)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, cosiURL, nil)
+	if err != nil {
+		cancel()
+		return nil, nil, fmt.Errorf("creating HTTP request for COSI download: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		cancel()
+		return nil, nil, fmt.Errorf("downloading COSI file: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		cancel()
+		return nil, nil, fmt.Errorf("COSI download returned non-200 status: %d", resp.StatusCode)
+	}
+
+	return resp, cancel, nil
+}
+
+// DownloadCOSIFile downloads the COSI file at cosiURL to destPath on local
+// disk on the test runner. It shares the HTTP client/timeout behavior with
+// ValidateACLCOSI so callers (e.g., the COSI update test) can fetch the
+// artifact themselves instead of relying on the cluster node downloading it
+// directly, since the node's network path to the COSI publishing endpoint
+// may not be reachable or may not support the auth/redirect behavior the
+// endpoint requires.
+func DownloadCOSIFile(ctx context.Context, cosiURL, destPath string) (err error) {
+	resp, cancel, err := cosiHTTPGet(ctx, cosiURL)
+	if err != nil {
+		return err
+	}
+	defer cancel()
+	defer resp.Body.Close()
+
+	out, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("creating local COSI file %s: %w", destPath, err)
+	}
+	defer func() {
+		if closeErr := out.Close(); err == nil {
+			err = closeErr
+		}
+	}()
+
+	if _, err := io.Copy(out, resp.Body); err != nil {
+		return fmt.Errorf("writing COSI file to %s: %w", destPath, err)
+	}
+	return nil
+}
+
 // ValidateACLCOSI downloads a COSI file from the given URL and validates its
 // structure and metadata against the expected ACL disk layout.
 func ValidateACLCOSI(t *testing.T, cosiURL string) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), cosiDownloadTimeout)
-	defer cancel()
 
 	t.Logf("downloading COSI from %s", sanitizeURL(cosiURL))
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, cosiURL, nil)
-	require.NoError(t, err, "creating HTTP request for COSI download")
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err, "downloading COSI file")
+	resp, cancel, err := cosiHTTPGet(context.Background(), cosiURL)
+	require.NoError(t, err)
+	defer cancel()
 	defer resp.Body.Close()
-	require.Equal(t, http.StatusOK, resp.StatusCode, "COSI download returned non-200 status: %d", resp.StatusCode)
 
 	tr := tar.NewReader(resp.Body)
 

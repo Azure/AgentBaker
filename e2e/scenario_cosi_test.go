@@ -18,6 +18,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	scp "github.com/bramvdbogaerde/go-scp"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +29,7 @@ const (
 	aclCOSIAMD64ImageVersion        = "0.20260827.1192019"
 	aclCOSIAMD64ImageID             = "/SharedGalleries/035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL/Images/acldevel/Versions/0.20260827.1192019"
 	remoteCOSIConfigPath            = "/home/azureuser/update-config.yaml"
+	remoteCOSIImagePath             = "/home/azureuser/update.cosi"
 	cosiAMD64PublishingArtifact     = "cosi-publishing-info-acl-tl-gen2"
 	cosiARM64PublishingArtifact     = "cosi-publishing-info-acl-arm64-tl-gen2"
 	cosiAMD64FIPSPublishingArtifact = "cosi-publishing-info-acl-fips-tl-gen2"
@@ -163,7 +165,15 @@ func validateACLAMD64COSIUpdate(ctx context.Context, scenario *Scenario, rawCosi
 	require.NoError(scenario.T, err)
 	metadataHashHex := hex.EncodeToString(metadataHashBytes)
 
-	updateConfig := fmt.Sprintf("image:\n  url: %s\n  sha384: %s\ninternalParams:\n  forceAbUpdate: true\n  noTransition: true\n", strconv.Quote(cosiURL), metadataHashHex)
+	// The node's network path to the COSI publishing endpoint is not always
+	// reachable/supported, but the test runner's is (see Test_ACL_COSI).
+	// Download the COSI file here, then stage it directly on the VM over the
+	// existing SSH connection and reference it via a local file:// URL so
+	// Trident never has to reach the original endpoint itself.
+	imageURL, err := downloadAndStageCOSIFile(ctx, scenario, cosiURL)
+	require.NoError(scenario.T, err)
+
+	updateConfig := fmt.Sprintf("image:\n  url: %s\n  sha384: %s\ninternalParams:\n  forceAbUpdate: true\n  noTransition: true\n", strconv.Quote(imageURL), metadataHashHex)
 	scenario.Logger.Logf("Trident update host configuration:\n%s", updateConfig)
 	encodedConfig := base64.StdEncoding.EncodeToString([]byte(updateConfig))
 	writeConfigCommand := fmt.Sprintf("printf '%%s' %s | base64 --decode > %s && chmod 0600 %s", shellQuote(encodedConfig), remoteCOSIConfigPath, remoteCOSIConfigPath)
@@ -201,6 +211,38 @@ func validateACLAMD64COSIUpdate(ctx context.Context, scenario *Scenario, rawCosi
 	postUpdatePod.Name += "-cosi-post-update"
 	ValidatePodRunning(ctx, scenario, postUpdatePod)
 	return nil
+}
+
+// downloadAndStageCOSIFile downloads the COSI file at cosiURL onto the test
+// runner (reusing the same download logic as Test_ACL_COSI), then copies it
+// onto the scenario VM over the existing SSH connection. It returns a
+// file:// URL that Trident can use to apply the update entirely from local
+// disk, avoiding the VM having to reach the COSI publishing endpoint itself.
+func downloadAndStageCOSIFile(ctx context.Context, scenario *Scenario, cosiURL string) (string, error) {
+	localPath := filepath.Join(scenario.T.TempDir(), "update.cosi")
+	scenario.Logger.Logf("downloading COSI to test runner: %s -> %s", sanitizeURL(cosiURL), localPath)
+	if err := DownloadCOSIFile(ctx, cosiURL, localPath); err != nil {
+		return "", fmt.Errorf("download COSI file to test runner: %w", err)
+	}
+
+	scpClient, err := scp.NewClientBySSH(scenario.Runtime.VM.SSHClient)
+	if err != nil {
+		return "", fmt.Errorf("create SCP client: %w", err)
+	}
+	defer scpClient.Close()
+
+	localFile, err := os.Open(localPath)
+	if err != nil {
+		return "", fmt.Errorf("open downloaded COSI file: %w", err)
+	}
+	defer localFile.Close()
+
+	scenario.Logger.Logf("copying COSI file to VM: %s", remoteCOSIImagePath)
+	if err := scpClient.CopyFromFile(ctx, *localFile, remoteCOSIImagePath, "0644"); err != nil {
+		return "", fmt.Errorf("copy COSI file to VM: %w", err)
+	}
+
+	return "file://" + remoteCOSIImagePath, nil
 }
 
 func TestValidateCOSIUpdateInput(t *testing.T) {
