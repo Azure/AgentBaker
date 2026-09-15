@@ -72,6 +72,17 @@ which defaults to `Standard_D2ds_v6`. Set it with `--mana-vm-sku` or `MANA_VM_SK
 Choose a size that supports MANA and NVMe. This setting controls both the bootstrap
 configuration and the VMSS SKU. Command-line arguments take precedence over environment variables.
 
+## Gallery replication
+
+When selecting a gallery image by version or tag, the runner adds the test region
+if needed and waits for that region's replication status to reach `Completed`.
+The region does not need to be known at VHD build time.
+
+Each update preserves the live target list and disables region deletion. After a
+rejected update, the runner re-reads the image. It retries with the new targets only
+if another writer added a region; otherwise it returns the update error. Polling
+uses `--poll-interval` and the caller's deadline.
+
 ## Infrastructure Architecture
 
 All E2E clusters share a single VNet and Azure Bastion in the `abe2e-{location}` resource group. This
