@@ -1211,6 +1211,9 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
     activateNfConntrack
 elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
   updateAptWithMicrosoftPkg
+  if [ "${OS_VERSION}" = "26.04" ]; then
+    find /var/lib/apt/lists -maxdepth 2 -type f -name 'developer.download.nvidia.com_compute_cuda_repos_ubuntu2604_*' -delete
+  fi
   updateAptWithNvidiaPkg
 fi
 capture_benchmark "${SCRIPT_NAME}_handle_os_specific_configurations"

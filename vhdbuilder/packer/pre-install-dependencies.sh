@@ -2,6 +2,7 @@
 OS=$(sort -r /etc/*-release | sed -n 's/^ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
 OS_VERSION=$(sort -r /etc/*-release | sed -n 's/^VERSION_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
 OS_VARIANT=$(sort -r /etc/*-release | sed -n 's/^VARIANT_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
+
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 #the following sed removes all comments of the format {{/* */}}
@@ -21,6 +22,76 @@ CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
+
+collectUbuntu2604RebootDiagnostics() {
+  local stage="$1"
+
+  if ! isUbuntu "$OS" || [ "$OS_VERSION" != "26.04" ]; then
+    return
+  fi
+
+  echo "===== Ubuntu 26.04 reboot diagnostics: ${stage} ====="
+  echo "--- system state ---"
+  date --iso-8601=seconds || true
+  uptime || true
+  systemctl is-system-running || true
+  systemctl --failed --no-pager --full || true
+  systemctl list-jobs --no-pager || true
+  busctl --system list --no-pager || true
+  loginctl list-sessions --no-pager || true
+
+  echo "--- shutdown inhibitors ---"
+  systemd-inhibit --list --no-pager || true
+  ls -la /run/systemd/inhibit || true
+
+  echo "--- upgrade and systemd services ---"
+  systemctl status \
+    systemd-logind.service \
+    dbus.service \
+    unattended-upgrades.service \
+    apt-daily.service \
+    apt-daily-upgrade.service \
+    --no-pager --full || true
+  systemctl show \
+    systemd-logind.service \
+    dbus.service \
+    unattended-upgrades.service \
+    apt-daily.service \
+    apt-daily-upgrade.service \
+    --property=Id,LoadState,ActiveState,SubState,MainPID,ExecMainStatus,Result \
+    --no-pager || true
+
+  echo "--- package-manager processes and locks ---"
+  dpkg-query -W \
+    -f='${binary:Package}\t${Version}\t${db:Status-Abbrev}\n' \
+    systemd systemd-sysv dbus unattended-upgrades 2>&1 || true
+  # Keep start time and parent PID in the output; pgrep does not provide both.
+  # shellcheck disable=SC2009
+  ps -eo pid,ppid,state,lstart,cmd --sort=pid | grep -E '[a]pt|[d]pkg|[u]nattended|[p]ackagekit' || true
+  if command -v lslocks >/dev/null 2>&1; then
+    lslocks || true
+  fi
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -v \
+      /var/lib/dpkg/lock \
+      /var/lib/dpkg/lock-frontend \
+      /var/lib/apt/lists/lock \
+      /var/cache/apt/archives/lock || true
+  fi
+  dpkg --audit || true
+
+  echo "--- recent system and upgrade journal ---"
+  journalctl -b --since "-15 minutes" \
+    -u systemd-logind.service \
+    -u dbus.service \
+    -u unattended-upgrades.service \
+    -u apt-daily.service \
+    -u apt-daily-upgrade.service \
+    --no-pager || true
+  journalctl -b --since "-15 minutes" --priority=warning --no-pager || true
+  echo "===== End Ubuntu 26.04 reboot diagnostics: ${stage} ====="
+}
+
 #this is used by post build test to check whether the compoenents do indeed exist
 cat components.json > ${COMPONENTS_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
@@ -37,7 +108,7 @@ capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 copyPackerFiles
 
 # Install required dependencies needed to build minimal images if needed (currently only Ubuntu 26.04)
-if isMinimalImage && isUbuntu "$OS"; then
+if isUbuntu "$OS" && { isMinimalImage || { [ "${OS_VERSION}" = "26.04" ] && [ "${IMG_SKU}" = "server-cvm" ]; }; }; then
   installMinimalBuildDeps
 fi
 
@@ -128,6 +199,13 @@ else
   # Run apt dist get upgrade to install packages/kernels
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
+  collectUbuntu2604RebootDiagnostics "after dist-upgrade"
+
+  if [ "$OS" = "UBUNTU" ] &&
+    [ "$OS_VERSION" = "26.04" ] &&
+    [ "${IMG_SKU:-}" = "server-cvm" ]; then
+    /bin/bash /home/packer/trim-2604-cvm-packages.sh
+  fi
 
   # shellcheck disable=SC3010
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
@@ -305,6 +383,8 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   fi
 fi
 capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernel_if_2204"
+
 echo "pre-install-dependencies step finished successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
+collectUbuntu2604RebootDiagnostics "immediately before first Packer reboot"
