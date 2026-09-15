@@ -597,7 +597,7 @@ func TestFilteredScenariosAreNotScheduled(t *testing.T) {
 	report, err := os.ReadFile(opts.junitFile)
 	require.NoError(t, err)
 	assert.Contains(t, string(report), `name="Excluded"`)
-	assert.Contains(t, string(report), "<skipped message=\"filtered: scenario &#34;Excluded&#34;", "JUnit report dropped the filtered scenario")
+	assert.Contains(t, string(report), "<skipped message=\"filtered: matches skip filter &#34;Name=Excluded&#34;", "JUnit report dropped the filtered scenario")
 	assert.Contains(t, string(report), `name="Kept"`, "JUnit report dropped the runnable scenario")
 }
 

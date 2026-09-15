@@ -355,7 +355,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		}
 	}
 
-	start := time.Now() // Record the start time
+	start := time.Now()
 	scenarioVM, err := ConfigureAndCreateVMSS(ctx, s)
 	// Expected failures are checked by the runner; cleanup still collects debug information.
 	if s.ExpectedError != "" {
@@ -373,15 +373,18 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	}
 
 	if !s.Config.SkipDefaultValidation {
-		vmssCreatedAt := time.Now()         // Record the start time
-		creationElapse := time.Since(start) // Calculate the elapsed time
+		readinessWaitStarted := time.Now()
+		provisioningElapsed := readinessWaitStarted.Sub(start)
 		scenarioVM.KubeName, err = s.Runtime.Kube.WaitUntilNodeReady(ctx, s.Runtime.VMSSName)
 		if err != nil {
 			return scenarioVM, err
 		}
-		readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
-		totalElapse := time.Since(start)
-		logging.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, creationElapse, readyElapse))
+		readyObservedAt := time.Now()
+		logging.Logf(ctx, "Node %s observed Ready after %s (VMSS provisioning and CSE status check: %s; additional readiness wait: %s)",
+			scenarioVM.KubeName,
+			readyObservedAt.Sub(start).Round(time.Millisecond),
+			provisioningElapsed.Round(time.Millisecond),
+			readyObservedAt.Sub(readinessWaitStarted).Round(time.Millisecond))
 	}
 
 	return scenarioVM, nil
