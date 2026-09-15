@@ -37,7 +37,15 @@ prepareKubeletDisk() {
     # location before kubelet itself may start.
     mkdir -p "${KUBELET_DIR}"
     mount --bind "${KUBELET_MOUNT_POINT}" "${KUBELET_DIR}"
-    chmod a+w "${KUBELET_DIR}"
+
+    # Restore the same root-owned, non-world-writable permissions that
+    # kubelet.service itself applies when it creates this directory fresh
+    # (a plain "mkdir -p" with the default umask, i.e. 0755 root:root). The
+    # directory holds the kubelet kubeconfig and TLS material, so it must
+    # never be writable by unprivileged local users, whether or not it was
+    # bind-mounted from the temp/ephemeral disk.
+    chown root:root "${KUBELET_DIR}"
+    chmod 0755 "${KUBELET_DIR}"
 }
 
 # Prevent ShellSpec from executing the production entry point when sourcing.
