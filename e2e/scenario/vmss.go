@@ -834,7 +834,11 @@ func extractLogsFromVM(ctx context.Context, s *Scenario, vm *ScenarioVM) {
 	// errors that would otherwise obscure the real provisioning failure. Boot diagnostics are
 	// still collected best-effort below, and VMSS deletion is handled by the caller.
 	if vm == nil || vm.SSHClient == nil {
-		logging.Logf(ctx, "skipping SSH log extraction for VMSS %q: no SSH connection (provisioning likely failed before SSH was established)", s.Runtime.VMSSName)
+		if s.Config.SkipSSHConnectivityValidation {
+			logging.Logf(ctx, "skipping SSH log extraction for VMSS %q: scenario skips SSH connectivity", s.Runtime.VMSSName)
+		} else {
+			logging.Logf(ctx, "skipping SSH log extraction for VMSS %q: no SSH connection; SSH logs unavailable", s.Runtime.VMSSName)
+		}
 	} else if err := extractLogsFromVMLinux(ctx, s, vm); err != nil {
 		logging.Logf(ctx, "failed to extract logs from VM: %s", err)
 	} else {

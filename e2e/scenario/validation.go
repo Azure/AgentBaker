@@ -222,8 +222,12 @@ func startPodAndCheckItRuns(ctx context.Context, s *Scenario, pod *corev1.Pod) e
 	}
 
 	timeForReady := time.Since(start)
-	logging.LogDuration(ctx, timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s", pod.Name, timeForReady))
-	logging.Logf(ctx, "node health validation: test pod %q is running on node %q", pod.Name, s.Runtime.VM.KubeName)
+	const readinessWarningThreshold = time.Minute
+	logging.LogDuration(ctx, timeForReady, readinessWarningThreshold,
+		fmt.Sprintf("Pod %q in namespace %q on node %q observed ready after %s (warning threshold: %s)",
+			pod.Name, pod.Namespace, s.Runtime.VM.KubeName, timeForReady.Round(time.Millisecond), readinessWarningThreshold))
+	logging.Logf(ctx, "node health validation: test pod %q in namespace %q is running on node %q",
+		pod.Name, pod.Namespace, s.Runtime.VM.KubeName)
 	return nil
 }
 
