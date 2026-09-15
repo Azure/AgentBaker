@@ -64,7 +64,9 @@ CURL_COMMAND=(curl -s --noproxy "${LOCALDNS_NODE_LISTENER_IP}" --connect-timeout
 NETWORKCTL_RELOAD_CMD="networkctl reload"
 
 # Maximum time in seconds to wait for a networkctl reload to converge before giving up.
-NETWORK_RELOAD_SETTLE_TIMEOUT=10
+# Matches the budget wait_for_localdns_removed_from_resolv_conf gets for the mirror-image
+# reload on the cleanup path.
+NETWORK_RELOAD_SETTLE_TIMEOUT=5
 
 START_LOCALDNS_TIMEOUT=10
 
@@ -717,10 +719,10 @@ upstream_dns_servers_listed() {
 #
 # Arguments:
 #   $1: upstream_dns_servers - Space separated upstream DNS server IPs to check routes for.
-#   $2: max_wait_seconds - Maximum time to wait for the reload to converge (default: 10).
+#   $2: max_wait_seconds - Maximum time to wait for the reload to converge (default: 5).
 wait_for_network_reload_settled() {
     local upstream_dns_servers="$1"
-    local max_wait_seconds="${2:-10}"
+    local max_wait_seconds="${2:-5}"
     local sleep_interval=0.25
     local max_iterations=$((max_wait_seconds * 4))  # 4 iterations per second with 0.25s sleep
     local iteration=0
