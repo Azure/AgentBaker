@@ -88,10 +88,11 @@ type repositoryPackageMetadata struct {
 }
 
 type repositoryDownloadPlan struct {
-	format          string
-	packageURL      string
-	trustedOrigin   *url.URL
-	resolveMetadata func(context.Context) (repositoryPackageMetadata, error)
+	format                 string
+	packageURL             string
+	trustedOrigin          *url.URL
+	verifyPackageSignature func(context.Context, string) error
+	resolveMetadata        func(context.Context) (repositoryPackageMetadata, error)
 }
 
 // fetchPackageAndMetadata downloads the package and resolves its authenticated metadata
@@ -195,21 +196,12 @@ func (a *App) tryRepositoryDownload(ctx context.Context, hotfixVersion string) e
 	case osReleaseIDUbuntu:
 		plan, err = a.ubuntuRepositoryPlan(info, hotfixVersion)
 	case osReleaseIDAzureLinux:
-		// Deliberately unsupported for now, so Azure Linux keeps using dnf/tdnf.
-		//
-		// The deb chain is equivalent to apt's: InRelease signature -> Packages SHA256 ->
-		// .deb SHA256, and Debian packages carry no in-package signature, so nothing is
-		// skipped. RPM is different: packages embed their own GPG signature, and Azure Linux
-		// repositories set gpgcheck=1, so dnf/tdnf verify it on every install. This path only
-		// authenticates the metadata chain (repomd.xml.asc -> primary.xml -> .rpm SHA256),
-		// which proves the package is the one the repository published but not that it was
-		// signed by the expected key. Installing it here would therefore be weaker than the
-		// fallback it is meant to accelerate.
-		//
-		// Lifting this requires verifying the RPM package signature; rpmRepositoryPlan and
-		// its tests stay in place for that work.
-		err = newUnsupportedRepositoryError(
-			"repository fast path is not supported for RPM platforms yet")
+		if isImageBasedOSVariant(info.VariantID) {
+			return newUnsupportedRepositoryError(
+				"repository fast path is not supported on image-based OS %q variant %q",
+				info.ID, info.VariantID)
+		}
+		plan, err = a.rpmRepositoryPlan(info, hotfixVersion)
 	default:
 		err = newUnsupportedRepositoryError("unsupported repository platform %q", info.ID)
 	}
@@ -227,6 +219,11 @@ func (a *App) tryRepositoryDownload(ctx context.Context, hotfixVersion string) e
 	if !strings.EqualFold(packageFile.sha256, metadata.sha256) {
 		return newIntegrityError("package SHA-256 mismatch: expected %s, got %s",
 			metadata.sha256, packageFile.sha256)
+	}
+	if plan.verifyPackageSignature != nil {
+		if verifyErr := plan.verifyPackageSignature(ctx, packageFile.path); verifyErr != nil {
+			return verifyErr
+		}
 	}
 
 	extractDir, err := os.MkdirTemp(a.repositoryStagingDir(), ".aks-node-controller-extract-*")
@@ -640,47 +637,167 @@ func (a *App) extractRPM(ctx context.Context, packagePath, destination string) e
 	commandCtx, cancel := context.WithTimeout(ctx, repositoryCommandTimeout)
 	defer cancel()
 
-	reader, writer, err := os.Pipe()
+	pipes, err := newRPMExtractionPipes()
 	if err != nil {
-		return fmt.Errorf("create rpm extraction pipe: %w", err)
+		return err
 	}
-	defer reader.Close()
-	defer writer.Close()
+	defer pipes.close()
 
-	rpm2cpio := exec.CommandContext(commandCtx, "rpm2cpio", packagePath)
-	rpm2cpio.Stdout = writer
-	rpm2cpio.Stderr = os.Stderr
-	cpio := exec.CommandContext(commandCtx, "cpio", "-idmu", "--quiet", "./usr/bin/aks-node-controller")
-	cpio.Dir = destination
-	cpio.Stdin = reader
-	cpio.Stdout = os.Stdout
-	cpio.Stderr = os.Stderr
+	outputPath, tmp, cleanup, err := createExtractedBinaryTemp(destination)
+	if err != nil {
+		return err
+	}
+	success := false
+	defer func() { cleanup(success) }()
 
-	cpioErrCh := make(chan error, 1)
-	go func() {
-		cpioErrCh <- a.cmdRun(cpio)
-	}()
-	rpmErr := a.cmdRun(rpm2cpio)
-	_ = writer.Close()
+	rpmErrCh, cpioErrCh := a.startRPMExtractionCommands(commandCtx, packagePath, pipes)
+	copied, copyErr := io.Copy(tmp, io.LimitReader(pipes.outputReader, repositoryBinaryMaxBytes+1))
+	if copyErr != nil || copied > repositoryBinaryMaxBytes {
+		cancel()
+		_ = pipes.outputReader.Close()
+		_ = pipes.inputReader.Close()
+	}
+	rpmErr := <-rpmErrCh
 	cpioErr := <-cpioErrCh
+	if copied > repositoryBinaryMaxBytes {
+		return newIntegrityError(
+			"rpm package member %s exceeds %d bytes", ancPackageBinaryRelativePath, repositoryBinaryMaxBytes)
+	}
+	if copyErr != nil {
+		return fmt.Errorf("copy extracted rpm package member: %w", copyErr)
+	}
 	if err := preferredRPMExtractionError(commandCtx.Err(), rpmErr, cpioErr); err != nil {
 		return err
 	}
-	// cpio writes whatever member type the archive declares, so unlike the deb path -- which
-	// inspects the tar header before copying -- these checks have to come after extraction.
-	// Lstat rather than Stat: a symlink here would otherwise be followed by the os.ReadFile
-	// in copyBinaryAlongside and stage bytes from outside the package.
-	extracted := filepath.Join(destination, filepath.FromSlash(ancPackageBinaryRelativePath))
-	info, statErr := os.Lstat(extracted)
-	if statErr != nil {
-		return fmt.Errorf("rpm package does not contain %s: %w", ancPackageBinaryRelativePath, statErr)
+	if copied == 0 {
+		return fmt.Errorf("rpm package does not contain %s", ancPackageBinaryRelativePath)
 	}
-	if !info.Mode().IsRegular() {
-		return newIntegrityError("rpm package member %s is not a regular file", ancPackageBinaryRelativePath)
+	if err := finishExtractedBinary(tmp, outputPath); err != nil {
+		return err
 	}
-	if info.Size() > repositoryBinaryMaxBytes {
-		return newIntegrityError(
-			"rpm package member %s exceeds %d bytes", ancPackageBinaryRelativePath, repositoryBinaryMaxBytes)
+	success = true
+	return nil
+}
+
+type rpmExtractionPipes struct {
+	inputReader  *os.File
+	inputWriter  *os.File
+	outputReader *os.File
+	outputWriter *os.File
+}
+
+func newRPMExtractionPipes() (rpmExtractionPipes, error) {
+	inputReader, inputWriter, err := os.Pipe()
+	if err != nil {
+		return rpmExtractionPipes{}, fmt.Errorf("create rpm extraction pipe: %w", err)
+	}
+	outputReader, outputWriter, err := os.Pipe()
+	if err != nil {
+		_ = inputReader.Close()
+		_ = inputWriter.Close()
+		return rpmExtractionPipes{}, fmt.Errorf("create rpm member output pipe: %w", err)
+	}
+	return rpmExtractionPipes{
+		inputReader:  inputReader,
+		inputWriter:  inputWriter,
+		outputReader: outputReader,
+		outputWriter: outputWriter,
+	}, nil
+}
+
+func (p rpmExtractionPipes) close() {
+	_ = p.inputReader.Close()
+	_ = p.inputWriter.Close()
+	_ = p.outputReader.Close()
+	_ = p.outputWriter.Close()
+}
+
+func createExtractedBinaryTemp(destination string) (string, *os.File, func(bool), error) {
+	outputPath := filepath.Join(destination, filepath.FromSlash(ancPackageBinaryRelativePath))
+	if mkdirErr := os.MkdirAll(filepath.Dir(outputPath), 0o755); mkdirErr != nil {
+		return "", nil, nil, fmt.Errorf("create extraction directory: %w", mkdirErr)
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(outputPath), ".aks-node-controller-extract-*")
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("create extracted binary temp file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	cleanup := func(success bool) {
+		_ = tmp.Close()
+		if !success {
+			_ = os.Remove(tmpPath)
+		}
+	}
+	return outputPath, tmp, cleanup, nil
+}
+
+func finishExtractedBinary(tmp *os.File, outputPath string) error {
+	if err := tmp.Chmod(0o755); err != nil {
+		return fmt.Errorf("chmod extracted binary: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close extracted binary: %w", err)
+	}
+	if err := os.Rename(tmp.Name(), outputPath); err != nil {
+		return fmt.Errorf("rename extracted binary: %w", err)
+	}
+	return nil
+}
+
+func (a *App) startRPMExtractionCommands(
+	ctx context.Context,
+	packagePath string,
+	pipes rpmExtractionPipes,
+) (<-chan error, <-chan error) {
+	rpm2cpio := exec.CommandContext(ctx, "rpm2cpio", packagePath)
+	rpm2cpio.Stdout = pipes.inputWriter
+	rpm2cpio.Stderr = os.Stderr
+	cpio := exec.CommandContext(ctx, "cpio", "-i", "--to-stdout", "--quiet", "./"+ancPackageBinaryRelativePath)
+	cpio.Stdin = pipes.inputReader
+	cpio.Stdout = pipes.outputWriter
+	cpio.Stderr = os.Stderr
+
+	rpmErrCh := make(chan error, 1)
+	cpioErrCh := make(chan error, 1)
+	go func() {
+		err := a.cmdRun(rpm2cpio)
+		_ = pipes.inputWriter.Close()
+		rpmErrCh <- err
+	}()
+	go func() {
+		err := a.cmdRun(cpio)
+		_ = pipes.outputWriter.Close()
+		_ = pipes.inputReader.Close()
+		cpioErrCh <- err
+	}()
+	return rpmErrCh, cpioErrCh
+}
+
+func (a *App) verifyRPMPackage(ctx context.Context, packagePath string) error {
+	if a.verifyRPMPackageSignature != nil {
+		return a.verifyRPMPackageSignature(ctx, packagePath)
+	}
+	commandCtx, cancel := context.WithTimeout(ctx, repositoryCommandTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(
+		commandCtx,
+		"rpmkeys",
+		"--define", "_pkgverify_level signature",
+		"--checksig",
+		"--verbose",
+		packagePath,
+	)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := a.cmdRun(cmd); err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			return newUnsupportedRepositoryError("rpmkeys is not installed: %v", err)
+		}
+		if isRepositoryCancellationError(commandCtx.Err()) {
+			return commandCtx.Err()
+		}
+		return newIntegrityError("RPM package signature verification failed: %v", err)
 	}
 	return nil
 }
@@ -1283,9 +1400,10 @@ func (a *App) rpmRepositoryPlan(info platformInfo, hotfixVersion string) (reposi
 		return repositoryDownloadPlan{}, err
 	}
 	return repositoryDownloadPlan{
-		format:        "rpm",
-		packageURL:    packageURL,
-		trustedOrigin: origin,
+		format:                 "rpm",
+		packageURL:             packageURL,
+		trustedOrigin:          origin,
+		verifyPackageSignature: a.verifyRPMPackage,
 		resolveMetadata: func(ctx context.Context) (repositoryPackageMetadata, error) {
 			return a.resolveRPMPackageMetadata(
 				ctx, origin, repository.GPGKeys, hotfixVersion, expectedRelease, rpmArch, relativePackagePath)

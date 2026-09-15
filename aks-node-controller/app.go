@@ -67,6 +67,8 @@ type App struct {
 	pkgBinaryPath    string
 	// verifyRepositorySignature overrides gpgv-backed repository signature verification.
 	verifyRepositorySignature func(ctx context.Context, signedPath, signaturePath string, keyrings []string) error
+	// verifyRPMPackageSignature overrides rpmkeys-backed package signature verification.
+	verifyRPMPackageSignature func(ctx context.Context, packagePath string) error
 	// extractRepositoryPackage overrides package extraction for deterministic unit tests.
 	extractRepositoryPackage func(ctx context.Context, format, packagePath, destination string) error
 	// nodeCustomDataPath overrides the default nodecustomdata path for testing.
