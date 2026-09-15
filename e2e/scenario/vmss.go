@@ -544,8 +544,18 @@ func isRetryableVMSSCreationError(err error) bool {
 	if !errors.As(err, &respErr) {
 		return false
 	}
-	return (respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed") ||
-		(respErr.StatusCode == 404 && respErr.ErrorCode == "GalleryImageNotFound")
+	// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
+	// It's not a quota issue
+	if respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed" {
+		return true
+	}
+	// GalleryImageNotFound can happen transiently after image replication completes
+	// due to Azure eventual consistency - the gallery API reports success but the
+	// compute fabric in the target region hasn't fully propagated the image yet
+	if respErr.StatusCode == 404 && respErr.ErrorCode == "GalleryImageNotFound" {
+		return true
+	}
+	return false
 }
 
 func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*ScenarioVM, error) {
@@ -596,10 +606,12 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	if err != nil {
 		logging.Logf(ctx, "VMSS %s provisioning failed: %v", s.Runtime.VMSSName, err)
 	} else {
+		// For RCV1P tests, annotates the opt-in tag to help distinguish our tags from platform-injected ones.
 		vmssID := "<unknown>"
 		if vmssResp.ID != nil {
 			vmssID = *vmssResp.ID
 		}
+		// In the single-subscription model, if the scenario tags RCV1PCertMode we set the opt-in tag ourselves.
 		weSetRCV1PTag := s.Tags.RCV1PCertMode
 		logRCV1PAwareTags(ctx, s, "VMSS", "creation", s.Runtime.VMSSName, vmssID, vmssResp.Tags, weSetRCV1PTag, false)
 	}
