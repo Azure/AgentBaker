@@ -161,6 +161,66 @@ function GetPackagesFromComponentsJson
     return $output
 }
 
+function GetAzCopyDownloadUrlsFromComponentsJson
+{
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $componentsJsonContent
+    )
+
+    # Returns a set (hashtable keyed by URL) of resolved download URLs that must be fetched with
+    # AzCopy (managed-identity authenticated) rather than the default unauthenticated curl download.
+    # A package/part opts in by setting "windowsDownloadRequiresAzCopy": true alongside its
+    # "windowsDownloadURL" in components.json - this is used for private blob storage
+    # locations that public curl access can't reach.
+    $output = @{ }
+
+    foreach ($package in $componentsJsonContent.Packages)
+    {
+        $downloadLocation = $package.windowsDownloadLocation
+        if ($downloadLocation -eq $null -or $downloadLocation -eq "")
+        {
+            continue
+        }
+
+        $part = GetWindowsDownloadPartForPackage $package
+        if ($part -eq $null -or $part.windowsDownloadRequiresAzCopy -ne $true)
+        {
+            continue
+        }
+
+        $downloadUrl = $part.windowsDownloadUrl
+
+        # no specific windows download url means fall back to regular windows spots, matching
+        # GetPackagesFromComponentsJson's URL resolution.
+        if ($downloadUrl -eq $null -or $downloadUrl -eq "")
+        {
+            $downloadUrl = $part.downloadUrl
+        }
+
+        if ($downloadUrl -eq $null -or $downloadUrl -eq "")
+        {
+            continue
+        }
+
+        foreach ($windowsVersion in $part.versionsV2)
+        {
+            $version = $windowsVersion.latestVersion
+            $url = SafeReplaceString($downloadUrl)
+            $output[$url] = $true
+
+            if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
+            {
+                $version = $windowsVersion.previousLatestVersion
+                $url = SafeReplaceString($downloadUrl)
+                $output[$url] = $true
+            }
+        }
+    }
+
+    return $output
+}
+
 function GetWindowsPackageVersionFromComponentsJson
 {
     Param(

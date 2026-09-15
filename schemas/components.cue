@@ -47,6 +47,10 @@ package components
 	versionsV2:   [...#VersionV2]
 	downloadURL?:  string
 	windowsDownloadURL?: string
+	// windowsDownloadRequiresAzCopy indicates windowsDownloadURL points at a private/authenticated
+	// blob store location that must be fetched with AzCopy using the VHD builder's managed identity,
+	// rather than the default unauthenticated curl-based download.
+	windowsDownloadRequiresAzCopy?: bool
 }
 
 #UbuntuOSDistro: {

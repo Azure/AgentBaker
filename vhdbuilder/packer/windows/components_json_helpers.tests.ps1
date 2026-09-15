@@ -736,6 +736,66 @@ Describe 'Gets the Binaries' {
     }
 }
 
+Describe 'GetAzCopyDownloadUrlsFromComponentsJson' {
+    BeforeEach {
+        $testString = '{
+  "Packages": [
+    {
+      "windowsDownloadLocation": "c:\\akse-cache\\private\\",
+      "downloadLocation": null,
+      "downloadUris": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.0.0",
+                "previousLatestVersion": "0.9.0"
+              }
+            ],
+            "downloadURL": "https://privatestorageaccount.blob.core.windows.net/private-container/private-package-v${version}.zip"
+          }
+        }
+      }
+    }
+  ]
+}'
+        $componentsJson = echo $testString | ConvertFrom-Json
+    }
+
+    It 'given no package sets windowsDownloadRequiresAzCopy, it returns an empty set' {
+        $azCopyUrls = GetAzCopyDownloadUrlsFromComponentsJson $componentsJson
+
+        $azCopyUrls.Count | Should -Be 0
+    }
+
+    It 'given windowsDownloadRequiresAzCopy is false, it returns an empty set' {
+        $componentsJson.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $false
+
+        $azCopyUrls = GetAzCopyDownloadUrlsFromComponentsJson $componentsJson
+
+        $azCopyUrls.Count | Should -Be 0
+    }
+
+    It 'given windowsDownloadRequiresAzCopy is true, it collects the latest and previous version URLs' {
+        $componentsJson.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $true
+
+        $azCopyUrls = GetAzCopyDownloadUrlsFromComponentsJson $componentsJson
+
+        $azCopyUrls.ContainsKey("https://privatestorageaccount.blob.core.windows.net/private-container/private-package-v1.0.0.zip") | Should -Be $true
+        $azCopyUrls.ContainsKey("https://privatestorageaccount.blob.core.windows.net/private-container/private-package-v0.9.0.zip") | Should -Be $true
+    }
+
+    It 'given windowsDownloadLocation is not set, it is skipped even if windowsDownloadRequiresAzCopy is true' {
+        $componentsJson.Packages[0].windowsDownloadLocation = $null
+        $componentsJson.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $true
+
+        $azCopyUrls = GetAzCopyDownloadUrlsFromComponentsJson $componentsJson
+
+        $azCopyUrls.Count | Should -Be 0
+    }
+}
+
 Describe 'Gets the OCI Artifacts' {
     BeforeEach {
         $testString = '{

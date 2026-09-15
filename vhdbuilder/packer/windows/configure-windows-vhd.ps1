@@ -446,7 +446,14 @@ function Get-PackagesToCacheOnVHD
             $dest = [IO.Path]::Combine($dir, $fileName)
 
             Write-Log "Downloading $URL to $dest"
-            Download-File -URL $URL -Dest $dest
+            if ($global:azCopyUrls -and $global:azCopyUrls.ContainsKey($URL))
+            {
+                Download-FileWithAzCopy -URL $URL -Dest $dest
+            }
+            else
+            {
+                Download-File -URL $URL -Dest $dest
+            }
         }
     }
 
