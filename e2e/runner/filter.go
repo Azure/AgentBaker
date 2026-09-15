@@ -22,7 +22,7 @@ func filterReason(name string, s *scenario.Scenario, filter tagFilter) (string, 
 			return "", fmt.Errorf("could not match tags for %q: %w", name, err)
 		}
 		if !matches {
-			return fmt.Sprintf("filtered: scenario %q tags %+v do not match %q", name, tags, filter.run), nil
+			return fmt.Sprintf("filtered: does not match run filter %q", filter.run), nil
 		}
 	}
 	if filter.skip != "" {
@@ -31,7 +31,7 @@ func filterReason(name string, s *scenario.Scenario, filter tagFilter) (string, 
 			return "", fmt.Errorf("could not match tags for %q: %w", name, err)
 		}
 		if matches {
-			return fmt.Sprintf("filtered: scenario %q tags %+v match skip filter %q", name, tags, filter.skip), nil
+			return fmt.Sprintf("filtered: matches skip filter %q", filter.skip), nil
 		}
 	}
 	return "", nil
