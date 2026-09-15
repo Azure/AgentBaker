@@ -310,89 +310,126 @@ func init() {
 	}
 }
 
-var _ = Register(&Scenario{
-	Name:        "Ubuntu2404_NvidiaDevicePluginRunning",
-	Description: "Tests that NVIDIA device plugin and DCGM Exporter work on Ubuntu 24.04 via NBC EnableManagedGPU without a VMSS tag",
-	Tags: Tags{
-		GPU: true,
-	},
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDUbuntu2404Gen2Containerd,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
-			nbc.ConfigGPUDriverIfNeeded = true
-			nbc.EnableGPUDevicePluginIfNeeded = true
-			nbc.EnableNvidia = true
-			nbc.ManagedGPUExperienceAFECEnabled = true
-			nbc.EnableManagedGPU = true
+var _ = Register(newUbuntuNvidiaDevicePluginScenario(
+	"Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag",
+	"Tests that NVIDIA device plugin and DCGM Exporter work on Ubuntu 22.04 via NBC EnableManagedGPU field without a VMSS tag",
+	ClusterKubenet,
+	config.VHDUbuntu2204Gen2Containerd,
+	"r2204",
+	"Standard_NV6ads_A10_v5",
+	true,
+))
+
+var _ = Register(newUbuntuNvidiaDevicePluginScenario(
+	"Ubuntu2404_NvidiaDevicePluginRunning",
+	"Tests that NVIDIA device plugin and DCGM Exporter work on Ubuntu 24.04 via NBC EnableManagedGPU without a VMSS tag",
+	ClusterKubenet,
+	config.VHDUbuntu2404Gen2Containerd,
+	"r2404",
+	"Standard_NV6ads_A10_v5",
+	true,
+))
+
+var _ = Register(newUbuntuNvidiaDevicePluginScenario(
+	"Ubuntu2604Minimal_NvidiaDevicePluginRunning",
+	"Tests that NVIDIA device plugin and DCGM Exporter work on Ubuntu 26.04 minimal via NBC EnableManagedGPU without a VMSS tag",
+	ClusterLatestKubernetesVersionKubenet,
+	config.VHDUbuntu2604MinimalGen2Containerd,
+	"r2604",
+	"Standard_NC24ads_A100_v4",
+	false,
+))
+
+func newUbuntuNvidiaDevicePluginScenario(name, description string, cluster func(context.Context, ClusterRequest) (*Cluster, error),
+	vhd *config.Image, osVersion, vmSize string, isGRIDDriver bool) *Scenario {
+	return &Scenario{
+		Name:        name,
+		Description: description,
+		Tags: Tags{
+			GPU: true,
 		},
-		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
-			vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
-			// Do not set EnableManagedGPUExperience: this test verifies that
-			// the NBC EnableManagedGPU field activates the managed GPU path.
+		Config: Config{
+			Cluster: cluster,
+			VHD:     vhd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = true
+				nbc.EnableNvidia = true
+				nbc.ManagedGPUExperienceAFECEnabled = true
+				nbc.EnableManagedGPU = true
+			},
+			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
+				vmss.SKU.Name = to.Ptr(vmSize)
+				// Do not set EnableManagedGPUExperience: this test verifies that
+				// the NBC EnableManagedGPU field activates the managed GPU path.
 
-			// Enable the AKS VM extension for GPU nodes
-			extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
-			if err != nil {
-				return fmt.Errorf("create AKS VM extension: %w", err)
-			}
-			vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
-			return nil
+				// Enable the AKS VM extension for GPU nodes
+				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+				if err != nil {
+					return fmt.Errorf("create AKS VM extension: %w", err)
+				}
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+				return nil
+			},
+			Validator: func(ctx context.Context, s *Scenario) error {
+				os := "ubuntu"
+
+				// Validate that the NVIDIA device plugin binary was installed correctly
+				devicePluginVersion, err := expectedPackageVersion("nvidia-device-plugin", os, osVersion)
+				if err != nil {
+					return err
+				}
+				if err := errors.Join(
+					ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
+					// Validate that the NVIDIA device plugin systemd service is running
+					ValidateNvidiaDevicePluginServiceRunning(ctx, s),
+				); err != nil {
+					return err
+				}
+				// Resource advertisement depends on the device plugin service.
+				if err := ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+					return err
+				}
+
+				// Validate that GPU workloads can be scheduled. Only meaningful once the GPU
+				// resources above are advertised, otherwise the pod simply never gets scheduled.
+				if err := ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+					return err
+				}
+
+				// Validate that the NVIDIA DCGM packages were installed correctly
+				if err := errors.Join(
+					validateDCGMPackageVersions(ctx, s, os, osVersion),
+					validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_UTIL"),
+				); err != nil {
+					return err
+				}
+
+				// Let's run the NPD validation tests to verify that the nvidia
+				// device plugin & DCGM services are reporting status correctly
+				if err := ValidateNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
+				// Restart NPD to ensure it picks up the managed GPU experience marker file,
+				// which may have been created after NPD's initial startup during provisioning.
+				if err := RestartNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
+				if err := validateNPDNvidiaConditions(ctx, s); err != nil {
+					return err
+				}
+
+				// If the node is not using the GRID driver, we can skip the GRID license validation.
+				if isGRIDDriver {
+					// Verify NVIDIA GRID license status checks are reporting status correctly.
+					return validateNPDNvidiaGridLicense(ctx, s)
+				}
+				return nil
+			},
 		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			os := "ubuntu"
-			osVersion := "r2404"
-
-			// Validate that the NVIDIA device plugin binary was installed correctly
-			devicePluginVersion, err := expectedPackageVersion("nvidia-device-plugin", os, osVersion)
-			if err != nil {
-				return err
-			}
-			if err := errors.Join(
-				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
-				// Validate that the NVIDIA device plugin systemd service is running
-				ValidateNvidiaDevicePluginServiceRunning(ctx, s),
-			); err != nil {
-				return err
-			}
-			// Resource advertisement depends on the device plugin service.
-			if err := ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu"); err != nil {
-				return err
-			}
-
-			// Validate that GPU workloads can be scheduled. Only meaningful once the GPU
-			// resources above are advertised, otherwise the pod simply never gets scheduled.
-			if err := ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu"); err != nil {
-				return err
-			}
-
-			// Validate that the NVIDIA DCGM packages were installed correctly
-			if err := errors.Join(
-				validateDCGMPackageVersions(ctx, s, os, osVersion),
-				validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_UTIL"),
-			); err != nil {
-				return err
-			}
-
-			// Let's run the NPD validation tests to verify that the nvidia
-			// device plugin & DCGM services are reporting status correctly
-			if err := ValidateNodeProblemDetector(ctx, s); err != nil {
-				return err
-			}
-			// Restart NPD to ensure it picks up the managed GPU experience marker file,
-			// which may have been created after NPD's initial startup during provisioning.
-			if err := RestartNodeProblemDetector(ctx, s); err != nil {
-				return err
-			}
-			if err := validateNPDNvidiaConditions(ctx, s); err != nil {
-				return err
-			}
-			// Verify NVIDIA GRID license status checks are reporting status correctly.
-			return validateNPDNvidiaGridLicense(ctx, s)
-		},
-	},
-})
+	}
+}
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_NvidiaDevicePluginRunning",
@@ -728,90 +765,6 @@ func newUbuntu2404_NvidiaDevicePluginRunning_MIG_MultiGPUScenario() *Scenario {
 		},
 	}
 }
-
-var _ = Register(&Scenario{
-	Name:        "Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag",
-	Description: "Tests that NVIDIA device plugin and DCGM Exporter work via NBC EnableManagedGPU field without VMSS tag",
-	Tags: Tags{
-		GPU: true,
-	},
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDUbuntu2204Gen2Containerd,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
-			nbc.ConfigGPUDriverIfNeeded = true
-			nbc.EnableGPUDevicePluginIfNeeded = true
-			nbc.EnableNvidia = true
-			nbc.ManagedGPUExperienceAFECEnabled = true
-			nbc.EnableManagedGPU = true
-		},
-		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
-			vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
-			// Explicitly DO NOT set the EnableManagedGPUExperience VMSS tag
-			// to test that NBC EnableManagedGPU field works independently
-
-			// Enable the AKS VM extension for GPU nodes
-			extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
-			if err != nil {
-				return fmt.Errorf("create AKS VM extension: %w", err)
-			}
-			vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
-			return nil
-		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			os := "ubuntu"
-			osVersion := "r2204"
-
-			// Validate that the NVIDIA device plugin binary was installed correctly
-			devicePluginVersion, err := expectedPackageVersion("nvidia-device-plugin", os, osVersion)
-			if err != nil {
-				return err
-			}
-			if err := errors.Join(
-				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
-				// Validate that the NVIDIA device plugin systemd service is running
-				ValidateNvidiaDevicePluginServiceRunning(ctx, s),
-			); err != nil {
-				return err
-			}
-			// Resource advertisement depends on the device plugin service.
-			if err := ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu"); err != nil {
-				return err
-			}
-
-			// Validate that GPU workloads can be scheduled. Only meaningful once the GPU
-			// resources above are advertised, otherwise the pod simply never gets scheduled.
-			if err := ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu"); err != nil {
-				return err
-			}
-
-			// Validate that the NVIDIA DCGM packages were installed correctly
-			if err := errors.Join(
-				validateDCGMPackageVersions(ctx, s, os, osVersion),
-				validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_UTIL"),
-			); err != nil {
-				return err
-			}
-
-			// Let's run the NPD validation tests to verify that the nvidia
-			// device plugin & DCGM services are reporting status correctly
-			if err := ValidateNodeProblemDetector(ctx, s); err != nil {
-				return err
-			}
-			// Restart NPD to ensure it picks up the managed GPU experience marker file,
-			// which may have been created after NPD's initial startup during provisioning.
-			if err := RestartNodeProblemDetector(ctx, s); err != nil {
-				return err
-			}
-			if err := validateNPDNvidiaConditions(ctx, s); err != nil {
-				return err
-			}
-			// Verify NVIDIA GRID license status checks are reporting status correctly.
-			return validateNPDNvidiaGridLicense(ctx, s)
-		},
-	},
-})
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed",
