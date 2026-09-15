@@ -127,6 +127,7 @@ func Test_ACL_COSIUpdate_AMD64(t *testing.T) {
 			Cluster:                 ClusterKubenet,
 			VHD:                     config.VHDACLGen2TL,
 			SkipScriptlessNBCCSECmd: true,
+			WaitForSSHAfterReboot:   5 * time.Minute,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if info.SkipSecureBoot {
 					vmss.Properties = addTrustedLaunchNoSecureBootToVMSS(vmss.Properties)
@@ -154,21 +155,30 @@ func validateACLAMD64COSIUpdate(ctx context.Context, scenario *Scenario, rawCosi
 	require.NoError(scenario.T, err)
 	require.True(scenario.T, strings.EqualFold(beforeBootID, beforeNode.Status.NodeInfo.BootID), "host and Kubernetes boot IDs must match before the update")
 
-	updateConfig := fmt.Sprintf("image:\n  url: %s\n  sha384: %s\ninternalParams:\n  forceAbUpdate: true\n", strconv.Quote(cosiURL), metadataHash)
+	updateConfig := fmt.Sprintf("image:\n  url: %s\n  sha384: %s\ninternalParams:\n  forceAbUpdate: true\n  noTransition: true\n", strconv.Quote(cosiURL), metadataHash)
 	encodedConfig := base64.StdEncoding.EncodeToString([]byte(updateConfig))
 	writeConfigCommand := fmt.Sprintf("printf '%%s' %s | base64 --decode > %s && chmod 0600 %s", shellQuote(encodedConfig), remoteCOSIConfigPath, remoteCOSIConfigPath)
 	_, err = runCOSICommand(ctx, scenario, writeConfigCommand)
 	require.NoError(scenario.T, err)
 
-	updateResult, updateErr := runSSHCommand(ctx, scenario.Runtime.VM.SSHClient, "sudo trident update -v trace "+remoteCOSIConfigPath, false)
-	if updateErr != nil {
-		scenario.Logger.Logf("Trident update disconnected SSH for reboot: %v", updateErr)
-	} else if updateResult != nil {
-		scenario.Logger.Logf("Trident update SSH command exited with code %s", updateResult.exitCode)
-	}
-
-	afterBootID, err := reconnectAfterCOSIReboot(ctx, scenario, beforeBootID)
+	version, err := runCOSICommand(ctx, scenario, "sudo trident --version")
 	require.NoError(scenario.T, err)
+	scenario.Logger.Logf("Trident version: %s", strings.TrimSpace(version))
+
+	stageResult, stageErr := runSSHCommand(ctx, scenario.Runtime.VM.SSHClient, "sudo trident update -v trace --allowed-operations stage "+remoteCOSIConfigPath, false)
+	logTridentUpdateResult(scenario, "stage", stageResult, stageErr)
+
+	finalizeResult, finalizeErr := runSSHCommand(ctx, scenario.Runtime.VM.SSHClient, "sudo trident update -v trace --allowed-operations finalize "+remoteCOSIConfigPath, false)
+	logTridentUpdateResult(scenario, "finalize", finalizeResult, finalizeErr)
+
+	require.NoError(scenario.T, RebootVMAndWaitForSSH(ctx, scenario))
+
+	afterBootIDRaw, err := runCOSICommand(ctx, scenario, "cat /proc/sys/kernel/random/boot_id")
+	require.NoError(scenario.T, err)
+	afterBootID := strings.TrimSpace(afterBootIDRaw)
+	require.NotEmpty(scenario.T, afterBootID)
+	require.NotEqual(scenario.T, beforeBootID, afterBootID, "boot ID must change after the COSI update reboot")
+
 	requireTridentStatus(ctx, scenario, "ab-update-finalized", "")
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, scenario, "sudo trident grpc-client commit -v trace", 0, "failed to commit the COSI update")
@@ -234,6 +244,19 @@ func runCOSICommand(ctx context.Context, scenario *Scenario, command string) (st
 	return result.stdout, nil
 }
 
+func logTridentUpdateResult(scenario *Scenario, step string, result *podExecResult, err error) {
+	if err != nil {
+		scenario.Logger.Logf("Trident update (%s) SSH command error: %v", step, err)
+		return
+	}
+	if result == nil {
+		return
+	}
+	scenario.Logger.Logf("Trident update (%s) exited with code %s", step, result.exitCode)
+	scenario.Logger.Logf("Trident update (%s) stdout: %s", step, result.stdout)
+	scenario.Logger.Logf("Trident update (%s) stderr: %s", step, result.stderr)
+}
+
 func requireTridentStatus(ctx context.Context, scenario *Scenario, servicingState, activeVolume string) {
 	status, err := runCOSICommand(ctx, scenario, "sudo trident get status")
 	require.NoError(scenario.T, err)
@@ -241,42 +264,6 @@ func requireTridentStatus(ctx context.Context, scenario *Scenario, servicingStat
 	if activeVolume != "" {
 		require.Contains(scenario.T, status, "abActiveVolume: "+activeVolume)
 	}
-}
-
-func reconnectAfterCOSIReboot(ctx context.Context, scenario *Scenario, beforeBootID string) (string, error) {
-	cleanupBastionTunnel(scenario.Runtime.VM.SSHClient)
-	scenario.Runtime.VM.SSHClient = nil
-
-	var afterBootID string
-	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 5*time.Minute, true, func(pollCtx context.Context) (bool, error) {
-		client, err := DialSSHOverBastion(pollCtx, scenario.Runtime.Cluster.Bastion, scenario.Runtime.VM.PrivateIP, config.VMSSHPrivateKey)
-		if err != nil {
-			scenario.Logger.Logf("waiting for SSH after COSI reboot: %v", err)
-			return false, nil
-		}
-
-		result, err := runSSHCommand(pollCtx, client, "cat /proc/sys/kernel/random/boot_id", false)
-		if err != nil || result.exitCode != "0" {
-			cleanupBastionTunnel(client)
-			return false, nil
-		}
-
-		afterBootID = strings.TrimSpace(result.stdout)
-		if afterBootID == "" || strings.EqualFold(afterBootID, beforeBootID) {
-			cleanupBastionTunnel(client)
-			return false, nil
-		}
-
-		scenario.Runtime.VM.SSHClient = client
-		scenario.T.Cleanup(func() {
-			cleanupBastionTunnel(client)
-		})
-		return true, nil
-	})
-	if err != nil {
-		return "", fmt.Errorf("wait for node SSH with a new boot ID: %w", err)
-	}
-	return afterBootID, nil
 }
 
 func waitForSameNodeReadyAfterCOSIUpdate(ctx context.Context, scenario *Scenario, beforeNode *corev1.Node, hostBootID string) {
