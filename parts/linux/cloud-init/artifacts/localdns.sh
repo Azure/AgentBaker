@@ -63,6 +63,14 @@ CURL_COMMAND=(curl -s --noproxy "${LOCALDNS_NODE_LISTENER_IP}" --connect-timeout
 # This is used by disable_dhcp_use_clusterlistener and cleanup_localdns_configs functions.
 NETWORKCTL_RELOAD_CMD="networkctl reload"
 
+# Maximum time in seconds to wait for a networkctl reload to converge before giving up.
+NETWORK_RELOAD_SETTLE_TIMEOUT=10
+
+# Number of consecutive routable samples (0.25s apart) that count as settled when networkd
+# gives no observable signal that it re-configured the link. This is a fallback, so it has to
+# be longer than the time networkd takes to start re-configuring after a reload is accepted.
+NETWORK_RELOAD_SETTLE_CHECKS=8
+
 START_LOCALDNS_TIMEOUT=10
 
 # DNS health check timeout.
@@ -654,6 +662,115 @@ EOF
     return 0
 }
 
+# Return 0 only if every upstream DNS server in $1 currently has a usable route.
+# 'ip route get' exits non-zero ("Network is unreachable") while networkd has the link's
+# DHCP state torn down, which is exactly the window this is here to observe.
+# Arguments:
+#   $1: upstream_dns_servers - Space separated upstream DNS server IPs.
+upstream_dns_servers_routable() {
+    local upstream_dns_servers="$1"
+    local server
+    for server in ${upstream_dns_servers}; do
+        if ! ip route get "${server}" > /dev/null 2>&1; then
+            return 1
+        fi
+    done
+    return 0
+}
+
+# Return 0 if any upstream DNS server in $1 is still listed in the nameserver list $2.
+# Arguments:
+#   $1: upstream_dns_servers - Space separated upstream DNS server IPs.
+#   $2: current_dns - Space separated nameserver IPs currently in resolv.conf.
+upstream_dns_servers_listed() {
+    local upstream_dns_servers="$1"
+    local current_dns="$2"
+    local server
+    for server in ${upstream_dns_servers}; do
+        # Word boundary matching (-w) with fixed string (-F) to avoid partial IP matches.
+        if grep -qwF "${server}" <<< "${current_dns}"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Wait for systemd-networkd to finish applying the localdns drop-in after a reload.
+#
+# 'networkctl reload' is asynchronous - it returns as soon as networkd accepts the request.
+# networkd then re-configures the default route interface, which drops and re-acquires its DHCP
+# lease and so briefly removes the route to the upstream DNS servers. By that point localdns is
+# already listening and resolv.conf already points at it, so any query arriving in that gap is
+# forwarded onto an unreachable network and fails immediately. Since localdns.service is
+# Type=notify, returning from startup here is what unblocks 'systemctl start localdns' - which
+# is why a freshly provisioned node can see a SERVFAIL on its very first DNS query.
+#
+# The reload is treated as converged once the upstream servers are routable AND at least one of
+# the following has been observed, so that we do not mistake pre-reload state for convergence:
+#   - an upstream server became unroutable (the tear-down itself), or
+#   - resolv.conf lists the localdns listener and no longer lists any upstream server. With
+#     UseDNS=false the upstream servers only disappear once networkd has processed the DHCP
+#     lease loss, so this is a positive signal that the re-configure is underway.
+# On interfaces where neither signal is observable (for example a statically configured
+# resolver on a second link), it falls back to the upstreams staying routable across
+# NETWORK_RELOAD_SETTLE_CHECKS consecutive samples.
+#
+# This is best effort. The caller logs and continues on failure: traffic is already pointed at
+# localdns by this point, so failing the unit would be a far worse outcome than a brief gap.
+#
+# Arguments:
+#   $1: upstream_dns_servers - Space separated upstream DNS server IPs to check routes for.
+#   $2: max_wait_seconds - Maximum time to wait for the reload to converge (default: 10).
+wait_for_network_reload_settled() {
+    local upstream_dns_servers="$1"
+    local max_wait_seconds="${2:-10}"
+    local sleep_interval=0.25
+    local max_iterations=$((max_wait_seconds * 4))  # 4 iterations per second with 0.25s sleep
+    local settle_checks="${NETWORK_RELOAD_SETTLE_CHECKS:-8}"
+    local iteration=0
+    local reconfigure_observed="false"
+    local consecutive_routable=0
+    local current_dns=""
+
+    if [ -z "${upstream_dns_servers}" ]; then
+        echo "No upstream DNS servers to check, skipping wait for systemd-networkd reload."
+        return 0
+    fi
+
+    echo "Waiting for systemd-networkd reload to converge. Upstream DNS servers: ${upstream_dns_servers}"
+
+    while [ "$iteration" -lt "$max_iterations" ]; do
+        current_dns=$(awk '/^nameserver/ {print $2}' "$RESOLV_CONF" 2>/dev/null | paste -sd' ')
+
+        if [ "$reconfigure_observed" = "false" ] &&
+           grep -qwF "$LOCALDNS_NODE_LISTENER_IP" <<< "$current_dns" &&
+           ! upstream_dns_servers_listed "$upstream_dns_servers" "$current_dns"; then
+            echo "systemd-networkd applied ${NETWORK_DROPIN_FILE}. Current DNS: ${current_dns}"
+            reconfigure_observed="true"
+        fi
+
+        if upstream_dns_servers_routable "$upstream_dns_servers"; then
+            consecutive_routable=$((consecutive_routable + 1))
+            if [ "$reconfigure_observed" = "true" ] || [ "$consecutive_routable" -ge "$settle_checks" ]; then
+                echo "systemd-networkd reload converged, upstream DNS servers are routable. Current DNS: ${current_dns}"
+                return 0
+            fi
+        else
+            # The route to the upstream is gone, so networkd is mid re-configure. Nothing is
+            # settled until it comes back.
+            consecutive_routable=0
+            reconfigure_observed="true"
+        fi
+
+        sleep $sleep_interval
+        iteration=$((iteration + 1))
+    done
+
+    echo "Timed out after ${max_wait_seconds} seconds waiting for the systemd-networkd reload to converge."
+    echo "Current DNS: ${current_dns}"
+    return 1
+}
+
 # Remove iptables rules and revert DNS configuration.
 cleanup_iptables_and_dns() {
     # Ensure network variables are initialized if not already set.
@@ -1068,6 +1185,13 @@ wait_for_localdns_ready 60 60 || exit $ERR_LOCALDNS_FAIL
 # --------------------------------------------------------------------------------------------------------------------
 echo "Updating network DNS configuration to point to localdns via ${NETWORK_DROPIN_FILE}."
 disable_dhcp_use_clusterlistener || exit $ERR_LOCALDNS_FAIL
+
+# The reload above is asynchronous, and re-configuring the link briefly takes out the route to
+# the upstream DNS servers. Hold off on declaring startup complete until that has settled, so we
+# do not hand traffic to localdns while its egress is still down.
+wait_for_network_reload_settled "${UPSTREAM_VNET_DNS_SERVERS}" "${NETWORK_RELOAD_SETTLE_TIMEOUT}" ||
+    echo "WARNING: Could not confirm the systemd-networkd reload converged, DNS queries may fail briefly."
+
 echo "Startup complete - serving node and pod DNS traffic."
 
 # Export initial resource metrics so the exporter has data before the first watchdog tick.
