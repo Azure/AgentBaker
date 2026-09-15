@@ -1,6 +1,9 @@
 package scenario
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -61,5 +64,24 @@ func TestValidateSysctlOutput(t *testing.T) {
 				require.NoError(t, err)
 			}
 		})
+	}
+}
+
+func TestWindowsFileContainsBootstrapTokenScriptDoesNotExposeToken(t *testing.T) {
+	const token = "bake00.0123456789abcdef"
+
+	script, err := windowsFileContainsBootstrapTokenScript(`C:\AzureData\CustomDataSetupScript.ps1`, token)
+	require.NoError(t, err)
+	require.NotContains(t, script, token)
+
+	hash := sha256.Sum256([]byte(token))
+	require.Contains(t, script, hex.EncodeToString(hash[:]))
+	for _, marker := range []string{
+		windowsScanAbsentMarker,
+		windowsScanPresentMarker,
+		windowsScanFileMissingMarker,
+		windowsScanErrorMarker,
+	} {
+		require.Contains(t, script, marker)
 	}
 }
