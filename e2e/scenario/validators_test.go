@@ -3,7 +3,6 @@ package scenario
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
