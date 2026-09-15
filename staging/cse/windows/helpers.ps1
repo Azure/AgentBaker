@@ -37,6 +37,10 @@ function Remove-ServiceIfExists
         }
 
         if ($null -ne $svc -and $svc.Status -ne 'Stopped') {
+            $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+        }
+
+        if ($null -ne $svc -and $svc.Status -ne 'Stopped') {
             throw "Timed out waiting for existing $ServiceName service to stop"
         }
     }
