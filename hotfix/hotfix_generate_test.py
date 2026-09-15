@@ -56,6 +56,87 @@ TRADITIONAL_TEMPLATE = """- path: {{GetCSEHelpersScriptFilepath}}
 
 
 class HotfixGenerateTests(unittest.TestCase):
+    def test_config_modules_are_independently_hotfixable(self):
+        repository = Path(__file__).resolve().parents[1]
+        lines = (repository / hotfix_generate.TEMPLATE).read_text().splitlines(
+            keepends=True
+        )
+        _, outer_else, end = hotfix_generate.find_block_boundaries(lines)
+        self.assertIsNotNone(outer_else)
+        self.assertIsNotNone(end)
+        traditional = lines[outer_else + 1:end]
+        available = set().union(
+            *(keys for keys, _ in hotfix_generate.parse_write_files_blocks(traditional))
+        )
+        modules = (
+            ("cse_config_gpu.sh", "provisionConfigsGPU", "GetCSEConfigGPUScriptFilepath"),
+            (
+                "cse_config_localdns.sh",
+                "provisionConfigsLocalDNS",
+                "GetCSEConfigLocalDNSScriptFilepath",
+            ),
+            (
+                "cse_config_kubelet.sh",
+                "provisionConfigsKubelet",
+                "GetCSEConfigKubeletScriptFilepath",
+            ),
+        )
+        artifacts = str(repository / hotfix_generate.ARTIFACTS_DIR)
+        hotfix_generate.validate_source_mappings()
+        for source, variable, path_function in modules:
+            with self.subTest(source=source):
+                self.assertEqual(variable, hotfix_generate.SOURCE_TO_VARKEY[source])
+                self.assertEqual(source, hotfix_generate.VARKEY_TO_SOURCE[variable])
+                result = subprocess.CompletedProcess(
+                    args=[],
+                    returncode=0,
+                    stdout=f"{artifacts}/{source}\n",
+                )
+                with mock.patch.object(
+                    hotfix_generate, "ARTIFACTS_DIR", artifacts
+                ), mock.patch.object(
+                    hotfix_generate.subprocess, "run", return_value=result
+                ), mock.patch("sys.stdout", new_callable=io.StringIO):
+                    selected = hotfix_generate.detect_changed_varkeys(
+                        "baseline", available_varkeys=available
+                    )
+                self.assertEqual({variable}, selected)
+                template = hotfix_generate.build_hotfix_template(selected, traditional)
+                blocks = hotfix_generate.parse_write_files_blocks(
+                    template.splitlines(keepends=True)
+                )
+                self.assertEqual(1, len(blocks))
+                self.assertEqual({variable}, blocks[0][0])
+                self.assertIn(f"- path: {{{{{path_function}}}}}", template)
+                self.assertIn('permissions: "0744"', template)
+                self.assertIn("encoding: gzip", template)
+                self.assertNotIn("{{if", template)
+
+    def test_config_refactor_hotfix_selects_parent_and_new_modules(self):
+        repository = Path(__file__).resolve().parents[1]
+        artifacts = str(repository / hotfix_generate.ARTIFACTS_DIR)
+        sources = (
+            "cse_config.sh",
+            "cse_config_gpu.sh",
+            "cse_config_localdns.sh",
+            "cse_config_kubelet.sh",
+        )
+        expected = {hotfix_generate.SOURCE_TO_VARKEY[source] for source in sources}
+        result = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout="".join(f"{artifacts}/{source}\n" for source in sources),
+        )
+        with mock.patch.object(
+            hotfix_generate, "ARTIFACTS_DIR", artifacts
+        ), mock.patch.object(
+            hotfix_generate.subprocess, "run", return_value=result
+        ), mock.patch("sys.stdout", new_callable=io.StringIO):
+            selected = hotfix_generate.detect_changed_varkeys(
+                "baseline", available_varkeys=expected
+            )
+        self.assertEqual(expected, selected)
+
     def test_find_block_boundaries(self):
         content = f"""#cloud-config
 write_files:

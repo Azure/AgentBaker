@@ -136,15 +136,6 @@ func compileAKSNodeControllerInDir(ctx context.Context, arch, buildDir string) (
 }
 
 func writeScriptHotfixFixture(buildDir string, fixture ScriptHotfixFixture) error {
-	if !path.IsAbs(fixture.Destination) ||
-		path.Clean(fixture.Destination) != fixture.Destination ||
-		strings.Contains(fixture.Destination, `\`) {
-		return fmt.Errorf("invalid script-hotfix fixture destination %q", fixture.Destination)
-	}
-	mode, err := strconv.ParseUint(fixture.Mode, 8, 32)
-	if err != nil || mode == 0 || mode > 0o777 {
-		return fmt.Errorf("invalid script-hotfix fixture mode %q", fixture.Mode)
-	}
 	validPlatforms := map[string]bool{
 		"ubuntu":  true,
 		"mariner": true,
@@ -152,19 +143,37 @@ func writeScriptHotfixFixture(buildDir string, fixture ScriptHotfixFixture) erro
 	if !validPlatforms[fixture.Platform] {
 		return fmt.Errorf("invalid script-hotfix fixture platform %q", fixture.Platform)
 	}
-	if len(fixture.Payload) == 0 {
-		return fmt.Errorf("script-hotfix fixture payload is empty")
+	if len(fixture.Files) == 0 {
+		return fmt.Errorf("script-hotfix fixture has no files")
 	}
 
 	generatedDir := filepath.Join(buildDir, "generated")
-	rendered := scriptHotfixFixtureNodeCustomData{
-		WriteFiles: []scriptHotfixFixtureWriteFile{{
-			Path:        fixture.Destination,
-			Permissions: fixture.Mode,
+	rendered := scriptHotfixFixtureNodeCustomData{}
+	destinations := make(map[string]bool, len(fixture.Files))
+	for _, file := range fixture.Files {
+		if !path.IsAbs(file.Destination) ||
+			path.Clean(file.Destination) != file.Destination ||
+			strings.Contains(file.Destination, `\`) {
+			return fmt.Errorf("invalid script-hotfix fixture destination %q", file.Destination)
+		}
+		if destinations[file.Destination] {
+			return fmt.Errorf("duplicate script-hotfix fixture destination %q", file.Destination)
+		}
+		destinations[file.Destination] = true
+		mode, err := strconv.ParseUint(file.Mode, 8, 32)
+		if err != nil || mode == 0 || mode > 0o777 {
+			return fmt.Errorf("invalid script-hotfix fixture mode %q", file.Mode)
+		}
+		if len(file.Payload) == 0 {
+			return fmt.Errorf("script-hotfix fixture payload for %q is empty", file.Destination)
+		}
+		rendered.WriteFiles = append(rendered.WriteFiles, scriptHotfixFixtureWriteFile{
+			Path:        file.Destination,
+			Permissions: file.Mode,
 			Encoding:    "base64",
 			Owner:       "root",
-			Content:     base64.StdEncoding.EncodeToString(fixture.Payload),
-		}},
+			Content:     base64.StdEncoding.EncodeToString(file.Payload),
+		})
 	}
 	data, err := yaml.Marshal(rendered)
 	if err != nil {
