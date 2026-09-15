@@ -700,7 +700,8 @@ ensureArtifactStreaming() {
 
   local acr_mirror_setup="${ACR_MIRROR_SETUP_SCRIPT:-/opt/acr/tools/mirror/setup.sh}"
   if [ -x "$acr_mirror_setup" ]; then
-    "$acr_mirror_setup" aks
+    "$acr_mirror_setup" aks || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    systemctl restart acr-mirror || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
   else
     echo "Older acr-mirror package is detected, using old acr-config enablement"
     # setup.sh is only available in acr-mirror 1.0.0 and above
