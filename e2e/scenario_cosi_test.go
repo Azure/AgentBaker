@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha512"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -155,7 +156,15 @@ func validateACLAMD64COSIUpdate(ctx context.Context, scenario *Scenario, rawCosi
 	require.NoError(scenario.T, err)
 	require.True(scenario.T, strings.EqualFold(beforeBootID, beforeNode.Status.NodeInfo.BootID), "host and Kubernetes boot IDs must match before the update")
 
-	updateConfig := fmt.Sprintf("image:\n  url: %s\n  sha384: %s\ninternalParams:\n  forceAbUpdate: true\n  noTransition: true\n", strconv.Quote(cosiURL), metadataHash)
+	// Trident's Host Configuration expects the image SHA384 as a 96-character
+	// lowercase hex string, but the COSI publishing artifact stores it base64
+	// encoded (see convert-vhd-to-cosi.sh). Convert before embedding it below.
+	metadataHashBytes, err := base64.StdEncoding.DecodeString(metadataHash)
+	require.NoError(scenario.T, err)
+	metadataHashHex := hex.EncodeToString(metadataHashBytes)
+
+	updateConfig := fmt.Sprintf("image:\n  url: %s\n  sha384: %s\ninternalParams:\n  forceAbUpdate: true\n  noTransition: true\n", strconv.Quote(cosiURL), metadataHashHex)
+	scenario.Logger.Logf("Trident update host configuration:\n%s", updateConfig)
 	encodedConfig := base64.StdEncoding.EncodeToString([]byte(updateConfig))
 	writeConfigCommand := fmt.Sprintf("printf '%%s' %s | base64 --decode > %s && chmod 0600 %s", shellQuote(encodedConfig), remoteCOSIConfigPath, remoteCOSIConfigPath)
 	_, err = runCOSICommand(ctx, scenario, writeConfigCommand)
