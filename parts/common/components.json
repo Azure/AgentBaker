@@ -1706,37 +1706,37 @@
             "versionsV2": [
               {
                 "k8sVersion": "1.37",
-                "renovateTag": "<DO_NOT_UPDATE>",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
                 "latestVersion": "v1.37.0"
               },
               {
                 "k8sVersion": "1.36",
-                "renovateTag": "<DO_NOT_UPDATE>",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
                 "latestVersion": "v1.36.4"
               },
               {
                 "k8sVersion": "1.35",
-                "renovateTag": "<DO_NOT_UPDATE>",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
                 "latestVersion": "v1.35.8"
               },
               {
                 "k8sVersion": "1.34",
-                "renovateTag": "<DO_NOT_UPDATE>",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
                 "latestVersion": "v1.34.11"
               },
               {
                 "k8sVersion": "1.33",
-                "renovateTag": "<DO_NOT_UPDATE>",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
                 "latestVersion": "v1.33.13"
               },
               {
                 "k8sVersion": "1.32",
-                "renovateTag": "<DO_NOT_UPDATE>",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
                 "latestVersion": "v1.32.11"
               },
               {
                 "k8sVersion": "1.31",
-                "renovateTag": "<DO_NOT_UPDATE>",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
                 "latestVersion": "v1.31.13"
               }
             ],
