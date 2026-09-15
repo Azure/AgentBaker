@@ -41,7 +41,7 @@ main() {
 
     if [ "${#purge_packages[@]}" -gt 0 ]; then
         echo "Purging ${#purge_packages[@]} installed server-cvm packages marked for removal"
-        DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 purge -y --no-auto-remove "${purge_packages[@]}"
+        DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 purge -y --no-auto-remove --allow-remove-essential "${purge_packages[@]}"
     else
         echo "No installed server-cvm packages marked for removal were found"
     fi
