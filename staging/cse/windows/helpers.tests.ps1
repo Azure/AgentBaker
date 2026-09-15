@@ -33,6 +33,7 @@ Describe 'Remove-ServiceIfExists' {
             $script:scExeCallCount = 0
             $script:scStopCallCount = 0
             $script:scDeleteCallCount = 0
+            $script:scQueryCallCount = 0
             $script:serviceStatus = 'Stopped'
             Mock Get-Service -MockWith {
                 $script:getServiceCallCount++
@@ -45,7 +46,10 @@ Describe 'Remove-ServiceIfExists' {
                 $script:scExeCallCount++
                 if ($args[0] -eq 'stop') { $script:scStopCallCount++ }
                 if ($args[0] -eq 'delete') { $script:scDeleteCallCount++ }
-                $global:LASTEXITCODE = 0
+                if ($args[0] -eq 'query') { $script:scQueryCallCount++ }
+                # By default, treat the service as already fully removed once we get to the
+                # post-delete query loop, so unrelated tests don't need to care about it.
+                $global:LASTEXITCODE = if ($args[0] -eq 'query') { 1060 } else { 0 }
             }
         }
 
@@ -147,6 +151,7 @@ Describe 'Remove-ServiceIfExists' {
                     $global:LASTEXITCODE = if ($script:scStopCallCount -eq 1) { 1061 } else { 0 }
                 }
                 if ($args[0] -eq 'delete') { $script:scDeleteCallCount++; $global:LASTEXITCODE = 0 }
+                if ($args[0] -eq 'query') { $global:LASTEXITCODE = 1060 }
             }
 
             Remove-ServiceIfExists -ServiceName 'some-service'
@@ -155,20 +160,34 @@ Describe 'Remove-ServiceIfExists' {
             $script:scDeleteCallCount | Should -Be 1
         }
 
-        It 'waits when the service is already marked for deletion' {
-            Mock sc.exe -MockWith { $global:LASTEXITCODE = 1072 }
+        It 'keeps waiting while the service is marked for deletion, then succeeds once fully removed' {
+            Mock sc.exe -MockWith {
+                $script:scExeCallCount++
+                if ($args[0] -eq 'delete') {
+                    $script:scDeleteCallCount++
+                    $global:LASTEXITCODE = 1072
+                }
+                if ($args[0] -eq 'query') {
+                    $script:scQueryCallCount++
+                    $global:LASTEXITCODE = if ($script:scQueryCallCount -lt 3) { 1072 } else { 1060 }
+                }
+            }
 
             { Remove-ServiceIfExists -ServiceName 'some-service' } | Should -Not -Throw
 
-            Assert-MockCalled -CommandName Get-Service -Exactly -Times 2
+            $script:scQueryCallCount | Should -Be 3
+            Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 2
         }
 
-        It 'continues when the service disappears before deletion' {
-            Mock sc.exe -MockWith { $global:LASTEXITCODE = 1060 }
+        It 'returns immediately when the service is already fully removed' {
+            Mock sc.exe -MockWith {
+                $script:scExeCallCount++
+                $global:LASTEXITCODE = 1060
+            }
 
             { Remove-ServiceIfExists -ServiceName 'some-service' } | Should -Not -Throw
 
-            Assert-MockCalled -CommandName Get-Service -Exactly -Times 2
+            Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 0
         }
 
         It 'throws when sc.exe delete fails unexpectedly' {
@@ -177,32 +196,32 @@ Describe 'Remove-ServiceIfExists' {
             { Remove-ServiceIfExists -ServiceName 'some-service' } | Should -Throw '*exit code 1*'
         }
 
-        It 'waits until the service is no longer registered' {
-            Mock Get-Service -MockWith {
-                $script:getServiceCallCount++
-                if ($script:getServiceCallCount -le 3) {
-                    return [PSCustomObject]@{Name = 'some-service'; Status = $script:serviceStatus}
+        It 'waits until sc.exe query reports the service is no longer registered' {
+            Mock sc.exe -MockWith {
+                $script:scExeCallCount++
+                if ($args[0] -eq 'delete') { $global:LASTEXITCODE = 0 }
+                if ($args[0] -eq 'query') {
+                    $script:scQueryCallCount++
+                    $global:LASTEXITCODE = if ($script:scQueryCallCount -le 3) { 0 } else { 1060 }
                 }
-                return $null
             }
-            Mock sc.exe -MockWith { $global:LASTEXITCODE = 0 }
 
             Remove-ServiceIfExists -ServiceName 'some-service'
 
-            Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 2 -ParameterFilter {
+            Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 3 -ParameterFilter {
                 $Seconds -eq 1
             }
         }
 
         It 'accepts deletion during the final wait interval' {
-            Mock Get-Service -MockWith {
-                $script:getServiceCallCount++
-                if ($script:getServiceCallCount -le 31) {
-                    return [PSCustomObject]@{Name = 'some-service'; Status = $script:serviceStatus}
+            Mock sc.exe -MockWith {
+                $script:scExeCallCount++
+                if ($args[0] -eq 'delete') { $global:LASTEXITCODE = 0 }
+                if ($args[0] -eq 'query') {
+                    $script:scQueryCallCount++
+                    $global:LASTEXITCODE = if ($script:scQueryCallCount -le 30) { 0 } else { 1060 }
                 }
-                return $null
             }
-            Mock sc.exe -MockWith { $global:LASTEXITCODE = 0 }
 
             { Remove-ServiceIfExists -ServiceName 'some-service' } | Should -Not -Throw
 
@@ -210,10 +229,11 @@ Describe 'Remove-ServiceIfExists' {
         }
 
         It 'throws when the service remains registered' {
-            Mock Get-Service -MockWith {
-                return [PSCustomObject]@{Name = 'some-service'; Status = $script:serviceStatus}
+            Mock sc.exe -MockWith {
+                $script:scExeCallCount++
+                if ($args[0] -eq 'delete') { $global:LASTEXITCODE = 0 }
+                if ($args[0] -eq 'query') { $global:LASTEXITCODE = 0 }
             }
-            Mock sc.exe -MockWith { $global:LASTEXITCODE = 0 }
 
             { Remove-ServiceIfExists -ServiceName 'some-service' } | Should -Throw '*Timed out*'
 

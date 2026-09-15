@@ -59,17 +59,22 @@ function Remove-ServiceIfExists
         throw "sc.exe failed to delete existing $ServiceName service (exit code $LASTEXITCODE)"
     }
 
+    # Get-Service (and any other name-based lookup) fails once a service is merely marked for
+    # deletion (1072) -- not only once it is fully removed -- so it can't prove deletion is
+    # complete. Query sc.exe directly instead: keep waiting on 0 (still present) or 1072
+    # (marked for deletion, still blocking a reinstall), and only report success on 1060
+    # (ERROR_SERVICE_DOES_NOT_EXIST), i.e. truly gone.
     for ($attempt = 0; $attempt -lt 30; $attempt++) {
-        $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-        if ($null -eq $svc) {
+        sc.exe query "$ServiceName" | Out-Null
+        if ($LASTEXITCODE -eq 1060) {
             return
         }
 
         Start-Sleep -Seconds 1
     }
 
-    $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-    if ($null -eq $svc) {
+    sc.exe query "$ServiceName" | Out-Null
+    if ($LASTEXITCODE -eq 1060) {
         return
     }
 
