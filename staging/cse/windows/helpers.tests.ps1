@@ -4,14 +4,12 @@ BeforeAll {
 
     # Service cmdlets and sc.exe are Windows-only; stub them for isolated non-Windows test runs.
     function Get-Service {}
-    function Stop-Service { $script:stopServiceCallCount++ }
     function sc.exe {}
 }
 
 Describe 'Remove-ServiceIfExists' {
     BeforeEach {
         $script:getServiceCallCount = 0
-        $script:stopServiceCallCount = 0
         Mock Start-Sleep
     }
 
@@ -26,7 +24,6 @@ Describe 'Remove-ServiceIfExists' {
             Remove-ServiceIfExists -ServiceName 'some-service'
 
             $script:scExeCallCount | Should -Be 0
-            $script:stopServiceCallCount | Should -Be 0
             Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 0
         }
     }
@@ -34,6 +31,8 @@ Describe 'Remove-ServiceIfExists' {
     Context 'when the service already exists' {
         BeforeEach {
             $script:scExeCallCount = 0
+            $script:scStopCallCount = 0
+            $script:scDeleteCallCount = 0
             $script:serviceStatus = 'Stopped'
             Mock Get-Service -MockWith {
                 $script:getServiceCallCount++
@@ -42,39 +41,39 @@ Describe 'Remove-ServiceIfExists' {
                 }
                 return $null
             }
+            Mock sc.exe -MockWith {
+                $script:scExeCallCount++
+                if ($args[0] -eq 'stop') { $script:scStopCallCount++ }
+                if ($args[0] -eq 'delete') { $script:scDeleteCallCount++ }
+                $global:LASTEXITCODE = 0
+            }
         }
 
         It 'calls sc.exe delete to remove the existing service' {
-            Mock sc.exe -MockWith { $script:scExeCallCount++; $global:LASTEXITCODE = 0 }
-
             Remove-ServiceIfExists -ServiceName 'some-service'
 
-            $script:scExeCallCount | Should -Be 1
+            $script:scDeleteCallCount | Should -Be 1
         }
 
         It 'does not throw when sc.exe delete succeeds' {
-            Mock sc.exe -MockWith { $global:LASTEXITCODE = 0 }
-
             { Remove-ServiceIfExists -ServiceName 'some-service' } | Should -Not -Throw
         }
 
         It 'stops a running service before deleting it' {
             $script:serviceStatus = 'Running'
-            Mock sc.exe -MockWith { $global:LASTEXITCODE = 0 }
 
             Remove-ServiceIfExists -ServiceName 'some-service'
 
-            $script:stopServiceCallCount | Should -Be 1
+            $script:scStopCallCount | Should -Be 1
         }
 
         It 'does not stop a service that is already stopping' {
             $script:serviceStatus = 'StopPending'
-            Mock sc.exe -MockWith { $script:scExeCallCount++; $global:LASTEXITCODE = 0 }
 
             Remove-ServiceIfExists -ServiceName 'some-service'
 
-            $script:stopServiceCallCount | Should -Be 0
-            $script:scExeCallCount | Should -Be 1
+            $script:scStopCallCount | Should -Be 0
+            $script:scDeleteCallCount | Should -Be 1
         }
 
         It 'waits for another pending state before stopping the service' {
@@ -86,12 +85,46 @@ Describe 'Remove-ServiceIfExists' {
                     default { return $null }
                 }
             }
-            Mock sc.exe -MockWith { $global:LASTEXITCODE = 0 }
 
             Remove-ServiceIfExists -ServiceName 'some-service'
 
-            $script:stopServiceCallCount | Should -Be 1
+            $script:scStopCallCount | Should -Be 1
             Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 1
+        }
+
+        It 'polls without blocking while the service stops, up to 60 seconds' {
+            $script:serviceStatus = 'Running'
+            Mock Get-Service -MockWith {
+                $script:getServiceCallCount++
+                if ($script:getServiceCallCount -le 5) {
+                    return [PSCustomObject]@{Name = 'some-service'; Status = 'Running'}
+                }
+                if ($script:getServiceCallCount -eq 6) {
+                    return [PSCustomObject]@{Name = 'some-service'; Status = 'Stopped'}
+                }
+                return $null
+            }
+
+            Remove-ServiceIfExists -ServiceName 'some-service'
+
+            $script:scStopCallCount | Should -Be 1
+            $script:scDeleteCallCount | Should -Be 1
+            Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 4 -ParameterFilter {
+                $Seconds -eq 1
+            }
+        }
+
+        It 'throws when the service does not stop within 60 seconds' {
+            $script:serviceStatus = 'Running'
+            Mock Get-Service -MockWith {
+                return [PSCustomObject]@{Name = 'some-service'; Status = 'Running'}
+            }
+
+            { Remove-ServiceIfExists -ServiceName 'some-service' } | Should -Throw '*Timed out*to stop*'
+
+            $script:scStopCallCount | Should -Be 1
+            $script:scDeleteCallCount | Should -Be 0
+            Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 60
         }
 
         It 'waits when the service is already marked for deletion' {

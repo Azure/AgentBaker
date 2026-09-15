@@ -25,7 +25,20 @@ function Remove-ServiceIfExists
     }
 
     if ($svc.Status -ne 'Stopped' -and $svc.Status -ne 'StopPending') {
-        Stop-Service -Name $ServiceName -Force -ErrorAction Stop
+        sc.exe stop "$ServiceName" | Out-Null
+
+        for ($attempt = 0; $attempt -lt 60; $attempt++) {
+            $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+            if ($null -eq $svc -or $svc.Status -eq 'Stopped') {
+                break
+            }
+
+            Start-Sleep -Seconds 1
+        }
+
+        if ($null -ne $svc -and $svc.Status -ne 'Stopped') {
+            throw "Timed out waiting for existing $ServiceName service to stop"
+        }
     }
 
     sc.exe delete "$ServiceName"
