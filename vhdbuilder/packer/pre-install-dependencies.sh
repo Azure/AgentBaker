@@ -312,6 +312,13 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   fi
 fi
 capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernel_if_2204"
+
+if [ "$OS" = "UBUNTU" ] &&
+  [ "$OS_VERSION" = "26.04" ] &&
+  [ "${IMG_SKU:-}" = "server-cvm" ]; then
+  /bin/bash /home/packer/trim-2604-cvm-packages.sh --systemd-packages
+fi
+
 echo "pre-install-dependencies step finished successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks

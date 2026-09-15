@@ -160,7 +160,6 @@ libnfnetlink0
 libnl-route-3-200
 libnpth0t64
 libnspr4
-libnss-systemd
 libnss3
 libntfs-3g89t64
 libnuma1
@@ -278,7 +277,6 @@ python3-s3transfer
 python3-service-identity
 python3-six
 python3-software-properties
-python3-systemd
 python3-twisted
 python3-uc-micro
 python3-zope.interface
@@ -292,8 +290,6 @@ shared-mime-info
 software-properties-common
 sos
 strace
-systemd-cryptsetup
-systemd-hwe-hwdb
 tcl
 tcl8.6
 tcpdump
