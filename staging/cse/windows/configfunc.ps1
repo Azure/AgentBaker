@@ -1,4 +1,4 @@
-
+. $PSScriptRoot\helpers.ps1
 
 # Set the service telemetry GUID. This is used with Windows Analytics https://docs.microsoft.com/en-us/sccm/core/clients/manage/monitor-windows-analytics
 function Set-TelemetrySetting
@@ -106,8 +106,11 @@ function Update-ServiceFailureActions
     Logs-To-Event -TaskName "AKS.WindowsCSE.UpdateServiceFailureActions" -TaskMessage "Start to update service failure actions"
 
     sc.exe failure "kubelet" actions= restart/60000/restart/60000/restart/60000 reset= 900
+    if ($LASTEXITCODE -ne 0) { throw "sc.exe failed to set failure actions for kubelet (exit code $LASTEXITCODE)" }
     sc.exe failure "kubeproxy" actions= restart/60000/restart/60000/restart/60000 reset= 900
+    if ($LASTEXITCODE -ne 0) { throw "sc.exe failed to set failure actions for kubeproxy (exit code $LASTEXITCODE)" }
     sc.exe failure "containerd" actions= restart/60000/restart/60000/restart/60000 reset= 900
+    if ($LASTEXITCODE -ne 0) { throw "sc.exe failed to set failure actions for containerd (exit code $LASTEXITCODE)" }
 }
 
 function Add-SystemPathEntry
@@ -195,6 +198,67 @@ function Enable-Privilege {
     $type[0]::EnablePrivilege($processHandle, $Privilege)
 }
 
+function Test-GmsaPluginRegistry {
+    try {
+        $interfacePath = "HKLM:\SOFTWARE\Classes\Interface\{6ECDA518-2010-4437-8BC3-46E752B7B172}"
+        $proxyStubPath = "$interfacePath\ProxyStubClsid32"
+        $appIdPath = "HKLM:\SOFTWARE\Classes\AppID\{557110E1-88BC-4583-8281-6AAC6F708584}"
+        $classPath = "HKLM:\SOFTWARE\Classes\CLSID\{CCC2A336-D7F3-4818-A213-272B7924213E}"
+        $inprocServerPath = "$classPath\InprocServer32"
+        $ccgClassPath = "HKLM:\SYSTEM\CurrentControlSet\Control\CCG\COMClasses\{CCC2A336-D7F3-4818-A213-272B7924213E}"
+        $expectedPluginPath = [Io.path]::Combine($env:SystemRoot, "System32", "CCGAKVPlugin.dll")
+        $expectedPermissionHex = "01000480440000005400000000000000140000000200300002000000000014000B000000010100000000000512000000000014000B00000001010000000000050B0000000102000000000005200000002002000001020000000000052000000020020000"
+        $accessPermission = Get-ItemPropertyValue -Path $appIdPath -Name "AccessPermission"
+        $launchPermission = Get-ItemPropertyValue -Path $appIdPath -Name "LaunchPermission"
+        $accessPermissionHex = [BitConverter]::ToString([byte[]]$accessPermission).Replace("-", "")
+        $launchPermissionHex = [BitConverter]::ToString([byte[]]$launchPermission).Replace("-", "")
+
+        return (Test-Path $interfacePath) `
+            -and (Get-ItemPropertyValue -Path $interfacePath -Name "(default)") -eq "ICcgDomainAuthCredentials" `
+            -and (Test-Path $proxyStubPath) `
+            -and (Get-ItemPropertyValue -Path $proxyStubPath -Name "(default)") -eq "{A6FF50C0-56C0-71CA-5732-BED303A59628}" `
+            -and (Test-Path $appIdPath) `
+            -and $accessPermissionHex -eq $expectedPermissionHex `
+            -and $launchPermissionHex -eq $expectedPermissionHex `
+            -and (Get-ItemPropertyValue -Path $appIdPath -Name "DllSurrogate") -eq "" `
+            -and (Test-Path $classPath) `
+            -and (Get-ItemPropertyValue -Path $classPath -Name "AppID") -eq "{557110E1-88BC-4583-8281-6AAC6F708584}" `
+            -and (Test-Path $inprocServerPath) `
+            -and (Get-ItemPropertyValue -Path $inprocServerPath -Name "(default)") -eq $expectedPluginPath `
+            -and (Get-ItemPropertyValue -Path $inprocServerPath -Name "ThreadingModel") -eq "Both" `
+            -and (Test-Path -Path $expectedPluginPath -PathType Leaf) `
+            -and (Test-Path $ccgClassPath) `
+            -and (Get-ItemPropertyValue -Path $ccgClassPath -Name "(default)") -eq ""
+    } catch {
+        Write-Log "Failed to validate GMSA plugin registry values: $_"
+        return $false
+    }
+}
+
+function Import-GmsaPluginRegistry {
+    Param(
+        [Parameter(Mandatory=$true)]
+        [String] $RegistryFilePath
+    )
+
+    Write-Log "Setting the appropriate GMSA plugin registry values"
+    $registryImportOutput = & reg.exe import $RegistryFilePath 2>&1
+    $registryImportExitCode = $LASTEXITCODE
+
+    if ($registryImportExitCode -eq 0) {
+        return
+    }
+
+    if (Test-GmsaPluginRegistry) {
+        Write-Log "reg.exe import returned exit code $registryImportExitCode, but the GMSA plugin registry values are valid. Output: $registryImportOutput"
+        return
+    }
+
+    Set-ExitCode `
+        -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES `
+        -ErrorMessage "Failed to set GMSA plugin registry values. reg.exe import '$RegistryFilePath' failed with exit code $registryImportExitCode. Output: $registryImportOutput"
+}
+
 function Install-GmsaPlugin {
     Param(
         [Parameter(Mandatory=$true)]
@@ -258,13 +322,7 @@ function Install-GmsaPlugin {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION -ErrorMessage "Failed to set GMSA plugin registry permissions. $_"
     }
 
-    # Set the appropriate registry values.
-    try {
-        Write-Log "Setting the appropriate GMSA plugin registry values"
-        reg.exe import "$tempInstallPackageFoler\registerplugin.reg" 2>$null 1>$null
-    } catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES -ErrorMessage  "Failed to set GMSA plugin registry values. $_"
-    }
+    Import-GmsaPluginRegistry -RegistryFilePath "$tempInstallPackageFoler\registerplugin.reg"
 
     # Enable the logging manifest.
     Write-Log "Importing the CCGEvents manifest file"
@@ -333,9 +391,13 @@ function Install-OpenSSH {
 
     Write-Log "Setting required permissions..."
     icacls $adminpath\$adminfile /remove "NT AUTHORITY\Authenticated Users"
+    if ($LASTEXITCODE -ne 0) { throw "icacls failed to remove Authenticated Users permissions from $adminpath\$adminfile (exit code $LASTEXITCODE)" }
     icacls $adminpath\$adminfile /inheritance:r
+    if ($LASTEXITCODE -ne 0) { throw "icacls failed to set inheritance on $adminpath\$adminfile (exit code $LASTEXITCODE)" }
     icacls $adminpath\$adminfile /grant SYSTEM:`(F`)
+    if ($LASTEXITCODE -ne 0) { throw "icacls failed to grant SYSTEM permissions on $adminpath\$adminfile (exit code $LASTEXITCODE)" }
     icacls $adminpath\$adminfile /grant BUILTIN\Administrators:`(F`)
+    if ($LASTEXITCODE -ne 0) { throw "icacls failed to grant Administrators permissions on $adminpath\$adminfile (exit code $LASTEXITCODE)" }
 
     Write-Log "Restarting sshd service..."
     Restart-Service sshd
@@ -531,26 +593,27 @@ function New-CsiProxyService {
         throw "Failed to extract the '$binaryPackage' archive."
     }
 
-    cp "$tempdir\bin\csi-proxy.exe" "$KubeDir\csi-proxy.exe"
+    Remove-ServiceIfExists -ServiceName "csi-proxy"
 
+    cp "$tempdir\bin\csi-proxy.exe" "$KubeDir\csi-proxy.exe"
     del $tempdir -Recurse
 
-    & "$KubeDir\nssm.exe" install csi-proxy "$KubeDir\csi-proxy.exe" | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppDirectory "$KubeDir" | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppRestartDelay 5000 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy Description csi-proxy | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy Start SERVICE_DEMAND_START | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy ObjectName LocalSystem | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppThrottle 1500 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppStdout "$KubeDir\csi-proxy.log" | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppStderr "$KubeDir\csi-proxy.err.log" | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppStdoutCreationDisposition 4 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppStderrCreationDisposition 4 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppRotateFiles 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppRotateOnline 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppRotateSeconds 86400 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppRotateBytes 10485760 | RemoveNulls
+    Invoke-Nssm -KubeDir $KubeDir install csi-proxy "$KubeDir\csi-proxy.exe"
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppDirectory "$KubeDir"
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppRestartDelay 5000
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy Description csi-proxy
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy Start SERVICE_DEMAND_START
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy ObjectName LocalSystem
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy Type SERVICE_WIN32_OWN_PROCESS
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppThrottle 1500
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppStdout "$KubeDir\csi-proxy.log"
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppStderr "$KubeDir\csi-proxy.err.log"
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppStdoutCreationDisposition 4
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppStderrCreationDisposition 4
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppRotateFiles 1
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppRotateOnline 1
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppRotateSeconds 86400
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppRotateBytes 10485760
 }
 
 function New-HostsConfigService {
@@ -558,23 +621,25 @@ function New-HostsConfigService {
 
     $HostsConfigParameters = [io.path]::Combine($KubeDir, "hostsconfigagent.ps1")
 
-    & "$KubeDir\nssm.exe" install hosts-config-agent C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppDirectory "$KubeDir" | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppParameters $HostsConfigParameters | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppRestartDelay 5000 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent Description hosts-config-agent | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent Start SERVICE_DEMAND_START | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent ObjectName LocalSystem | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppThrottle 1500 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppStdout "$KubeDir\hosts-config-agent.log" | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppStderr "$KubeDir\hosts-config-agent.err.log" | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppStdoutCreationDisposition 4 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppStderrCreationDisposition 4 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateFiles 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateOnline 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateSeconds 86400 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateBytes 10485760 | RemoveNulls
+    Remove-ServiceIfExists -ServiceName "hosts-config-agent"
+
+    Invoke-Nssm -KubeDir $KubeDir install hosts-config-agent C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppDirectory "$KubeDir"
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppParameters $HostsConfigParameters
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppRestartDelay 5000
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent Description hosts-config-agent
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent Start SERVICE_DEMAND_START
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent ObjectName LocalSystem
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent Type SERVICE_WIN32_OWN_PROCESS
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppThrottle 1500
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppStdout "$KubeDir\hosts-config-agent.log"
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppStderr "$KubeDir\hosts-config-agent.err.log"
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppStdoutCreationDisposition 4
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppStderrCreationDisposition 4
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppRotateFiles 1
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppRotateOnline 1
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppRotateSeconds 86400
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppRotateBytes 10485760
 }
 
 function Register-LogCollectorScriptTask {
