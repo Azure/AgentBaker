@@ -432,7 +432,7 @@ func newUbuntuNvidiaDevicePluginScenario(name, description string, cluster func(
 }
 
 var _ = Register(&Scenario{
-	Name:        "Ubuntu2204_NvidiaDevicePluginRunning_with_VMSS_Tag",
+	Name:        "Ubuntu2204_NvidiaDevicePluginRunning",
 	Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Ubuntu 22.04 GPU nodes",
 	Tags: Tags{
 		GPU: true,
