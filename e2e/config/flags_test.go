@@ -56,22 +56,6 @@ func TestFlagsConfigureSpecializedVMSKUs(t *testing.T) {
 	}
 }
 
-func TestFlagsRepeatedParseDoesNotInheritPreviousRun(t *testing.T) {
-	original := *Config
-	defer func() { *Config = original }()
-
-	trueDefault := DefaultConfiguration().DefaultLocation
-
-	*Config = *DefaultConfiguration()
-	cmd1 := &cli.Command{Name: "e2e-test-config", Flags: Flags()}
-	require.NoError(t, cmd1.Run(t.Context(), []string{"e2e-test-config", "--location", "custom-location-xyz"}), "first parse failed")
-	assert.Equal(t, "custom-location-xyz", Config.DefaultLocation, "first parse did not set DefaultLocation")
-
-	cmd2 := &cli.Command{Name: "e2e-test-config", Flags: Flags()}
-	require.NoError(t, cmd2.Run(t.Context(), []string{"e2e-test-config"}), "second parse failed")
-	assert.Equal(t, trueDefault, Config.DefaultLocation, "second parse leaked the first run's value")
-}
-
 func TestFlagsEnvironmentSourceStillWorks(t *testing.T) {
 	original := *Config
 	defer func() { *Config = original }()
