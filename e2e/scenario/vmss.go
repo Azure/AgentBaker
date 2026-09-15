@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -198,11 +199,11 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 		if vm != nil {
 			defer cleanupBastionTunnel(vm.SSHClient)
 		}
-		return deleteVMSS(ctx, s)
-	})
-	s.Cleanup(func(ctx context.Context) error {
-		extractLogsFromVM(ctx, s, vm)
-		return nil
+		logErr := runWithPanicRecovery(ctx, func(ctx context.Context) error {
+			extractLogsFromVM(ctx, s, vm)
+			return nil
+		})
+		return errors.Join(logErr, deleteVMSS(ctx, s))
 	})
 
 	if skipErr := skipIfSKUNotAvailableErr(err); skipErr != nil {
@@ -833,7 +834,11 @@ func extractLogsFromVM(ctx context.Context, s *Scenario, vm *ScenarioVM) {
 	// errors that would otherwise obscure the real provisioning failure. Boot diagnostics are
 	// still collected best-effort below, and VMSS deletion is handled by the caller.
 	if vm == nil || vm.SSHClient == nil {
-		logging.Logf(ctx, "skipping SSH log extraction for VMSS %q: no SSH connection (provisioning likely failed before SSH was established)", s.Runtime.VMSSName)
+		if s.Config.SkipSSHConnectivityValidation {
+			logging.Logf(ctx, "skipping SSH log extraction for VMSS %q: scenario skips SSH connectivity", s.Runtime.VMSSName)
+		} else {
+			logging.Logf(ctx, "skipping SSH log extraction for VMSS %q: no SSH connection; SSH logs unavailable", s.Runtime.VMSSName)
+		}
 	} else if err := extractLogsFromVMLinux(ctx, s, vm); err != nil {
 		logging.Logf(ctx, "failed to extract logs from VM: %s", err)
 	} else {
@@ -850,6 +855,8 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 		return nil
 	}
 
+	httpClient := config.NewHttpClient()
+	defer httpClient.CloseIdleConnections()
 	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -873,28 +880,24 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 			// Save serial console log if available
 			logFile := fmt.Sprintf("serial-console-vm-%s.log", *vmInstance.InstanceID)
 			attempts := 0
+			var lastErr error
 			for {
+				if err := ctx.Err(); err != nil {
+					return fmt.Errorf("collect serial console log for VM %s: %w", *vmInstance.InstanceID, err)
+				}
 				if attempts >= 3 {
-					logging.Logf(ctx, "failed to download serial console log for VM %s after 3 attempts", *vmInstance.InstanceID)
-					break
+					return fmt.Errorf("failed to collect serial console log for VM %s after 3 attempts: %w", *vmInstance.InstanceID, lastErr)
 				}
 				attempts++
 
-				httpClient := config.NewHttpClient()
-				resp, err := httpClient.Get(*bootDiagResp.SerialConsoleLogBlobURI)
+				contents, err := downloadSerialConsoleLog(ctx, httpClient, *bootDiagResp.SerialConsoleLogBlobURI)
 				if err != nil {
+					lastErr = err
 					logging.Logf(ctx, "failed to download serial console log for VM %s: %v", *vmInstance.InstanceID, err)
 					continue
 				}
-				body := resp.Body
-				defer body.Close()
-
-				contents, err := io.ReadAll(body)
-				if err != nil {
-					logging.Logf(ctx, "failed to read serial console log for VM %s: %v", *vmInstance.InstanceID, err)
-					continue
-				}
 				if err := writeToFile(s.artifactName, logFile, string(contents)); err != nil {
+					lastErr = err
 					logging.Logf(ctx, "failed to write serial console log for VM %s: %v", *vmInstance.InstanceID, err)
 					continue
 				}
@@ -904,6 +907,27 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 	}
 	return nil
 }
+
+func downloadSerialConsoleLog(ctx context.Context, client *http.Client, blobURI string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, blobURI, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create serial console log request: %w", err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("download serial console log: HTTP %s", resp.Status)
+	}
+	return io.ReadAll(resp.Body)
+}
+
+const cloudInitAnalyzeCommand = "printf '%s\\n' '=== cloud-init analyze show ==='; sudo cloud-init analyze show; " +
+	"printf '\\n%s\\n' '=== cloud-init analyze dump ==='; sudo cloud-init analyze dump; " +
+	"printf '\\n%s\\n' '=== cloud-init analyze blame ==='; sudo cloud-init analyze blame; " +
+	"printf '\\n%s\\n' '=== cloud-init analyze boot ==='; sudo cloud-init analyze boot"
 
 func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) error {
 	syslogHandle := "syslog"
@@ -929,12 +953,9 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"provision.json":                   "sudo cat /var/log/azure/aks/provision.json",
 		"cloud-init.log":                   "sudo cat /var/log/cloud-init.log",
 		"cloud-init-output.log":            "sudo cat /var/log/cloud-init-output.log",
-		"cloud-init-analyze.log": "printf '%s\n' '=== cloud-init analyze show ==='; sudo cloud-init analyze show; " +
-			"printf '\\n%s\\n' '=== cloud-init analyze dump ==='; sudo cloud-init analyze dump; " +
-			"printf '\\n%s\\n' '=== cloud-init analyze blame ==='; sudo cloud-init analyze blame; " +
-			"printf '\\n%s\\n' '=== cloud-init analyze boot ==='; sudo cloud-init analyze boot",
-		"systemd-analyze.log":       "sudo systemd-analyze critical-chain cloud-init-local.service",
-		"systemd-analyze-blame.log": "sudo systemd-analyze blame",
+		"cloud-init-analyze.log":           cloudInitAnalyzeCommand,
+		"systemd-analyze.log":              "sudo systemd-analyze critical-chain cloud-init-local.service",
+		"systemd-analyze-blame.log":        "sudo systemd-analyze blame",
 	}
 	if s.SecureTLSBootstrappingEnabled() {
 		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
@@ -946,20 +967,9 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		commandList["azure-vnet-ipam.log"] = "sudo cat /var/log/azure-vnet-ipam.log"
 	}
 
-	var logFiles = map[string]string{}
-	for file, sourceCmd := range commandList {
-		execResult, err := execScriptOnVm(ctx, s, vm, sourceCmd)
-		if err != nil {
-			logging.Logf(ctx, "error executing %s: %s", sourceCmd, err)
-			continue
-		}
-		logFiles[file] = execResult.String()
-	}
-	err = dumpFileMapToDir(s.artifactName, logFiles)
-	if err != nil {
-		return fmt.Errorf("failed to dump log files: %w", err)
-	}
-	return nil
+	return collectCommandLogs(ctx, s.artifactName, commandList, func(ctx context.Context, command string) (*podExecResult, error) {
+		return execScriptOnVm(ctx, s, vm, command)
+	})
 }
 
 const uploadLogsPowershellScript = `
@@ -1162,7 +1172,6 @@ func deleteVMSS(ctx context.Context, s *Scenario) error {
 		}
 		return fmt.Errorf("begin deleting vmss %q: %w", s.Runtime.VMSSName, err)
 	}
-	logging.Logf(ctx, "vmss %q deletion started", s.Runtime.VMSSName)
 	return nil
 }
 
@@ -1296,7 +1305,7 @@ func addDualStackSecondaryNIC(vmss *armcompute.VirtualMachineScaleSet) {
 }
 
 func generateVMSSNameLinux(artifactName string) string {
-	name := fmt.Sprintf("%s-%s-%s", randomLowercaseString(4), time.Now().Format(time.DateOnly), artifactName)
+	name := fmt.Sprintf("%s-%s-%s", time.Now().Format(time.DateOnly), randomLowercaseString(4), artifactName)
 	name = strings.ReplaceAll(name, "_", "")
 	name = strings.ReplaceAll(name, "/", "")
 	name = strings.ReplaceAll(name, "Test", "")
@@ -1304,7 +1313,7 @@ func generateVMSSNameLinux(artifactName string) string {
 	if len(name) > 57 { // a limit for VMSS name
 		name = name[:57]
 	}
-	return name
+	return strings.TrimRight(name, "-.")
 }
 
 func generateVMSSNameWindows() string {

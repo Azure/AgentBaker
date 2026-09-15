@@ -101,23 +101,90 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 
 	slog.Info("downloading ANC hotfix", "current", Version, "target", hotfixVersion)
 
-	// Install via package manager (apt-get or dnf/tdnf). A future direct-download path must
-	// resolve the package from the node's configured repository and extract the ANC binary;
-	// package artifacts cannot be staged directly as executables.
+	if err := a.tryRepositoryDownload(ctx, hotfixVersion); err == nil {
+		return nil
+	} else if isIntegrityError(err) {
+		// Fall back to the package manager rather than failing closed. apt/dnf do not reuse
+		// anything this path downloaded -- the artifact is a temp file, already removed --
+		// they re-fetch from the same signed repository and run their own GPG verification.
+		// So a genuinely tampered repository is still rejected, just by them instead of us.
+		//
+		// What this does buy: several integrity checks here (package member types, path
+		// containment) constrain how we extract the binary ourselves, and apt/dnf never take
+		// that path. When those fire it is more likely our assumptions about the package
+		// layout are too narrow than that the package is bad, and failing closed would let a
+		// bug in this newer code block hotfix installs outright.
+		//
+		// Logged at error level: this is not a routine fallback and should stay visible.
+		slog.Error("repository integrity check failed, falling back to package manager",
+			"version", hotfixVersion, "error", err)
+		a.removeStaleHotfix()
+	} else {
+		slog.Warn("safe repository download unavailable, falling back to package manager",
+			"version", hotfixVersion, "error", err)
+	}
+
 	if err := a.installFromPMC(ctx, hotfixVersion); err != nil {
 		return fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
 	}
 
-	if err := copyBinaryAlongside(pkgBinaryPath, hotfixBinaryPath, vhdBinaryPath); err != nil {
+	if err := copyBinaryAlongside(a.pkgPath(), a.hotfixPath(), a.vhdPath()); err != nil {
 		return fmt.Errorf("stage hotfix binary: %w", err)
 	}
 
-	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", hotfixBinaryPath)
+	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", a.hotfixPath())
 	return nil
 }
 
-// hotfixConfig is the JSON structure of the hotfix configuration file.
-// Using JSON allows future extension (e.g., adding checksum, source URL) without format changes.
+func (a *App) vhdPath() string {
+	if a.vhdBinaryPath != "" {
+		return a.vhdBinaryPath
+	}
+	return vhdBinaryPath
+}
+
+func (a *App) hotfixPath() string {
+	if a.hotfixBinaryPath != "" {
+		return a.hotfixBinaryPath
+	}
+	return hotfixBinaryPath
+}
+
+func (a *App) pkgPath() string {
+	if a.pkgBinaryPath != "" {
+		return a.pkgBinaryPath
+	}
+	return pkgBinaryPath
+}
+
+// removeStaleHotfix disarms a previously staged hotfix binary after an integrity failure,
+// so the launcher falls back to the VHD-baked ANC instead of re-running the stale copy.
+//
+// Removal is the intent; clearing the executable bits is a second attempt for when unlink
+// cannot succeed. Both fail on a read-only mount or an immutable file, and the launcher
+// selects on `[ -x ]` alone, so a stale binary can survive. That is accepted: a failed
+// download never writes a new hotfix pointer, and the staged binary is only ever written by
+// copyBinaryAlongside from a package-manager-verified install -- so the exposure is running a
+// stale-but-authentic ANC, not attacker-controlled code.
+func (a *App) removeStaleHotfix() {
+	path := a.hotfixPath()
+	err := os.Remove(path)
+	if err == nil || os.IsNotExist(err) {
+		return
+	}
+	slog.Warn("failed to remove stale hotfix binary after repository integrity failure",
+		"path", path, "error", err)
+
+	if chmodErr := os.Chmod(path, 0o600); chmodErr != nil {
+		slog.Error("stale hotfix binary remains executable after repository integrity failure",
+			"path", path, "removeError", err, "chmodError", chmodErr)
+		return
+	}
+	slog.Warn("cleared executable bits on stale hotfix binary that could not be removed",
+		"path", path)
+}
+
+// hotfixConfig is the version-only JSON structure shared with LPS and cloud-init.
 type hotfixConfig struct {
 	// Version is the legacy single-version pointer. It is still honored when Hotfixes
 	// is empty, preserving backward compatibility with the original config shape.
@@ -207,7 +274,11 @@ func (a *App) parseLinuxPlatformInfo() (platformInfo, error) {
 	if err != nil {
 		return platformInfo{}, fmt.Errorf("reading %s: %w", osReleasePath, err)
 	}
-	info := platformInfo{OS: "linux", Arch: runtime.GOARCH}
+	arch := a.goArch
+	if arch == "" {
+		arch = runtime.GOARCH
+	}
+	info := platformInfo{OS: "linux", Arch: arch}
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "ID=") {
@@ -241,8 +312,7 @@ func (a *App) detectPackageManager() (packageManager, error) {
 	if err != nil {
 		return "", err
 	}
-	if info.ID == osReleaseIDAzureLinux &&
-		(info.VariantID == osReleaseIDAzureContainerLinux || info.VariantID == "osguard") {
+	if info.ID == osReleaseIDAzureLinux && isImageBasedOSVariant(info.VariantID) {
 		return "", fmt.Errorf(
 			"PMC package-based ANC self-update is not supported on image-based OS %q variant %q",
 			info.ID,
@@ -250,7 +320,7 @@ func (a *App) detectPackageManager() (packageManager, error) {
 		)
 	}
 	switch info.ID {
-	case "ubuntu":
+	case osReleaseIDUbuntu:
 		return pkgMgrApt, nil
 	case osReleaseIDAzureLinux:
 		return preferredRpmManager(), nil
@@ -286,11 +356,7 @@ func (a *App) installFromPMC(ctx context.Context, version string) error {
 
 // installWithApt refreshes the PMC repo index and installs the package via apt-get.
 func (a *App) installWithApt(ctx context.Context, version string) error {
-	sourcesDir := a.aptSourcesDir
-	if sourcesDir == "" {
-		sourcesDir = defaultAptSourcesDir
-	}
-	microsoftProdSourceListPath, err := resolveMicrosoftProdSourceListPath(sourcesDir)
+	microsoftProdSourceListPath, err := a.microsoftProdSourceListPath()
 	if err != nil {
 		return err
 	}
@@ -314,6 +380,14 @@ func (a *App) installWithApt(ctx context.Context, version string) error {
 		"apt-get", "install", "-y", "--allow-downgrades",
 		"-o", "Dpkg::Options::=--force-confold",
 		fmt.Sprintf("aks-node-controller=%s*", version))
+}
+
+func (a *App) microsoftProdSourceListPath() (string, error) {
+	sourcesDir := a.aptSourcesDir
+	if sourcesDir == "" {
+		sourcesDir = defaultAptSourcesDir
+	}
+	return resolveMicrosoftProdSourceListPath(sourcesDir)
 }
 
 func resolveMicrosoftProdSourceListPath(sourcesDir string) (string, error) {
@@ -435,4 +509,11 @@ func shouldUpgradeToHotfix(current, hotfix string) (bool, error) {
 		return false, fmt.Errorf("parsing hotfix version %q: %w", hotfix, err)
 	}
 	return cv.Major() == hv.Major() && cv.Minor() == hv.Minor() && hv.Patch() > cv.Patch(), nil
+}
+
+// isImageBasedOSVariant reports whether an os-release VARIANT_ID names an image-based Azure
+// Linux flavour. These ship no package manager repositories, so neither the repository fast
+// path nor a PMC install can serve them.
+func isImageBasedOSVariant(variantID string) bool {
+	return variantID == osReleaseIDAzureContainerLinux || variantID == osVariantIDOSGuard
 }
