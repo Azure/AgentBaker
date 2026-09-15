@@ -1531,7 +1531,6 @@ EOF
             mkdir -p "$(dirname "$RESOLV_CONF")"
             LOCALDNS_NODE_LISTENER_IP="169.254.10.10"
             NETWORK_DROPIN_FILE="${TEST_DIR}/70-localdns.conf"
-            NETWORK_RELOAD_SETTLE_CHECKS=8
         }
         cleanup() {
             rm -rf "$TEST_DIR"
@@ -1551,17 +1550,6 @@ EOF
                 calls=$((calls + 1))
                 echo "$calls" > "$ROUTE_CALL_COUNT_FILE"
                 [ "$calls" -gt 2 ]
-            }
-        }
-        # Routable for two checks, unroutable for two, routable again - a reload that networkd
-        # only begins acting on after the first samples have already come back clean.
-        route_up_then_down_then_up() {
-            ip() {
-                local calls
-                calls=$(cat "$ROUTE_CALL_COUNT_FILE" 2>/dev/null || echo 0)
-                calls=$((calls + 1))
-                echo "$calls" > "$ROUTE_CALL_COUNT_FILE"
-                [ "$calls" -le 2 ] || [ "$calls" -gt 4 ]
             }
         }
 
@@ -1602,61 +1590,50 @@ EOF
             The stdout should include "No upstream DNS servers to check"
         End
 
-        It 'should return as soon as the drop-in is applied and upstreams are routable'
+        It 'should return once resolv.conf lists localdns and upstreams are routable'
             echo "nameserver 169.254.10.10" > "$RESOLV_CONF"
             route_up
             When run wait_for_network_reload_settled "10.0.0.1" 5
             The status should be success
-            The stdout should include "systemd-networkd applied"
             The stdout should include "upstream DNS servers are routable"
         End
 
         It 'should keep waiting while an upstream is unroutable and return once it comes back'
-            # resolv.conf never drops the upstream here, so the only convergence signal is the
+            # resolv.conf is already converged here, so the only thing left to wait on is the
             # route disappearing and coming back.
-            echo "nameserver 10.0.0.1" > "$RESOLV_CONF"
+            echo "nameserver 169.254.10.10" > "$RESOLV_CONF"
             route_down_then_up
             When run wait_for_network_reload_settled "10.0.0.1" 5
             The status should be success
             The stdout should include "upstream DNS servers are routable"
         End
 
-        It 'should fall back to consecutive routable samples when networkd gives no signal'
+        It 'should keep waiting while resolv.conf still lists an upstream server'
+            # networkd has not applied the drop-in yet. Returning here would signal ready before
+            # the re-configure that takes the upstream route down has even started.
             echo "nameserver 10.0.0.1" > "$RESOLV_CONF"
-            NETWORK_RELOAD_SETTLE_CHECKS=2
             route_up
-            When run wait_for_network_reload_settled "10.0.0.1" 5
-            The status should be success
-            The stdout should include "upstream DNS servers are routable"
-            The stdout should not include "systemd-networkd applied"
+            When run wait_for_network_reload_settled "10.0.0.1" 1
+            The status should be failure
+            The stdout should include "Timed out after 1 seconds"
         End
 
-        # The consecutive-sample fallback cannot tell "the reload has already converged" from
-        # "the reload has not started yet" - both look like a steadily routable upstream. These
-        # two cases pin that: same route mock, only the threshold differs.
-        It 'should accept the fallback when the tear-down lands after the settle threshold'
-            # Known limitation. The threshold is met before networkd drops the route, so the wait
-            # returns early and the caller is left with the pre-fix behaviour - no worse, just not
-            # helped. Raising the threshold buys margin but cannot close this.
-            echo "nameserver 10.0.0.1" > "$RESOLV_CONF"
-            NETWORK_RELOAD_SETTLE_CHECKS=2
-            route_up_then_down_then_up
-            When run wait_for_network_reload_settled "10.0.0.1" 5
-            The status should be success
-            The stdout should include "upstream DNS servers are routable"
-            The stdout should not include "systemd-networkd applied"
+        It 'should keep waiting while resolv.conf is empty'
+            # A reload can leave resolv.conf with no nameservers at all for a moment. Signalling
+            # ready there would release containerd and kubelet onto a node with no resolver.
+            : > "$RESOLV_CONF"
+            route_up
+            When run wait_for_network_reload_settled "10.0.0.1" 1
+            The status should be failure
+            The stdout should include "Timed out after 1 seconds"
         End
 
-        It 'should catch a delayed tear-down when the settle threshold outlasts it'
-            # Same mock at the shipping threshold: the route drops while sampling is still short
-            # of the threshold, so the tear-down is observed and the wait rides it out instead.
-            echo "nameserver 10.0.0.1" > "$RESOLV_CONF"
-            NETWORK_RELOAD_SETTLE_CHECKS=8
-            route_up_then_down_then_up
-            When run wait_for_network_reload_settled "10.0.0.1" 5
-            The status should be success
-            The stdout should include "upstream DNS servers are routable"
-            The stdout should not include "systemd-networkd applied"
+        It 'should keep waiting when resolv.conf is missing entirely'
+            rm -f "$RESOLV_CONF"
+            route_up
+            When run wait_for_network_reload_settled "10.0.0.1" 1
+            The status should be failure
+            The stdout should include "Timed out after 1 seconds"
         End
 
         It 'should time out when the upstream never becomes routable'
