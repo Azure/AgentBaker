@@ -5,6 +5,7 @@ import "github.com/urfave/cli/v3"
 func Flags() []cli.Flag {
 	defaults := DefaultConfiguration()
 	return []cli.Flag{
+		&cli.BoolFlag{Name: "skip-secure-boot", Value: defaults.ACLNonProdSkipSecureBoot, Destination: &Config.ACLNonProdSkipSecureBoot, Sources: cli.EnvVars("SKIP_SECURE_BOOT"), Usage: "Skip Secure Boot on ACL non-prod (e.g. acldevel-sourced) scenarios whose kernel/shim is not enrolled in the platform Secure Boot db"},
 		&cli.StringFlag{Name: "acr-secret-name", Value: defaults.ACRSecretName, Destination: &Config.ACRSecretName, Sources: cli.EnvVars("ACR_SECRET_NAME")},
 		&cli.StringFlag{Name: "acr-target-repository", Value: defaults.AzureContainerRegistrytargetRepository, Destination: &Config.AzureContainerRegistrytargetRepository, Sources: cli.EnvVars("ACR_TARGET_REPOSITORY")},
 		&cli.StringFlag{Name: "blob-container", Value: defaults.BlobContainer, Destination: &Config.BlobContainer, Sources: cli.EnvVars("BLOB_CONTAINER")},

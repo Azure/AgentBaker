@@ -94,7 +94,7 @@ steps:
           echo '##vso[task.setvariable variable=SKIP_SECURE_BOOT]true'
         displayName: Set ACL base image vars (acldevel, ${{ parameters.variant }})
       - ${{ if eq(parameters.sigSourceImageVersionOverride, '') }}:
-          - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20260910.1199828'
+          - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20260912.1202056'
             displayName: Set SIG_SOURCE_IMAGE_VERSION (acldevel, default)
       - ${{ if ne(parameters.sigSourceImageVersionOverride, '') }}:
           - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]${{ parameters.sigSourceImageVersionOverride }}'

@@ -40,6 +40,7 @@ func PrivateACRName(location string) string {
 }
 
 type Configuration struct {
+	ACLNonProdSkipSecureBoot               bool
 	ACRSecretName                          string
 	AzureContainerRegistrytargetRepository string
 	BlobContainer                          string
