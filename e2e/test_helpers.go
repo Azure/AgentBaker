@@ -105,7 +105,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 }
 
 func scriptlessUnsupported(s *Scenario) bool {
-	return s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
+	return s.Config.SkipScriptlessNBCCSECmd || s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
 }
 
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) error {
@@ -478,10 +478,7 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) error {
 		}
 	}
 
-	_, err := CachedPrepareVHD(ctx, GetVHDRequest{
-		Image:    *s.VHD,
-		Location: s.Location,
-	})
+	_, err := resolveImageReference(ctx, s.VHD, s.Location)
 	if err != nil {
 		if config.Config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
 			t.Skipf("skipping scenario %q: could not find image for VHD %s due to %s", t.Name(), s.VHD.Distro, err)
@@ -716,6 +713,51 @@ func addTrustedLaunchToVMSS(properties *armcompute.VirtualMachineScaleSetPropert
 		properties.VirtualMachineProfile.SecurityProfile.UefiSettings = &armcompute.UefiSettings{}
 	}
 	properties.VirtualMachineProfile.SecurityProfile.UefiSettings.SecureBootEnabled = to.Ptr(true)
+	properties.VirtualMachineProfile.SecurityProfile.UefiSettings.VTpmEnabled = to.Ptr(true)
+
+	return properties
+}
+
+// aclVMSSSecurityProfile returns properties configured with ACL's required
+// TrustedLaunch security type (ACL's SIG image definition is created with
+// --features SecurityType=TrustedLaunch and rejects SecurityType=Standard
+// deployments). Secure Boot is disabled only when skipSecureBoot is true,
+// which is required for unsigned/dev ACL builds (e.g. acldevel-sourced
+// images) whose kernel/shim is not enrolled in the platform's Secure Boot
+// db -- with Secure Boot on, UEFI firmware returns "Access denied" loading
+// the kernel EFI stub and boot never completes.
+func aclVMSSSecurityProfile(properties *armcompute.VirtualMachineScaleSetProperties, skipSecureBoot bool) *armcompute.VirtualMachineScaleSetProperties {
+	if skipSecureBoot {
+		return addTrustedLaunchNoSecureBootToVMSS(properties)
+	}
+	return addTrustedLaunchToVMSS(properties)
+}
+
+// addTrustedLaunchNoSecureBootToVMSS sets SecurityType=TrustedLaunch (required by
+// ACL's SIG image definition, which is created with --features SecurityType=TrustedLaunch
+// and therefore rejects SecurityType=Standard deployments) but disables Secure Boot
+// enforcement while keeping vTPM enabled. This is required for unsigned/dev ACL
+// builds (e.g. acldevel-sourced COSI images) whose kernel/shim is not enrolled in
+// the platform's Secure Boot db -- with Secure Boot on, UEFI firmware returns
+// "Access denied" loading the kernel EFI stub and boot never completes.
+func addTrustedLaunchNoSecureBootToVMSS(properties *armcompute.VirtualMachineScaleSetProperties) *armcompute.VirtualMachineScaleSetProperties {
+	if properties == nil {
+		properties = &armcompute.VirtualMachineScaleSetProperties{}
+	}
+
+	if properties.VirtualMachineProfile == nil {
+		properties.VirtualMachineProfile = &armcompute.VirtualMachineScaleSetVMProfile{}
+	}
+
+	if properties.VirtualMachineProfile.SecurityProfile == nil {
+		properties.VirtualMachineProfile.SecurityProfile = &armcompute.SecurityProfile{}
+	}
+
+	properties.VirtualMachineProfile.SecurityProfile.SecurityType = to.Ptr(armcompute.SecurityTypesTrustedLaunch)
+	if properties.VirtualMachineProfile.SecurityProfile.UefiSettings == nil {
+		properties.VirtualMachineProfile.SecurityProfile.UefiSettings = &armcompute.UefiSettings{}
+	}
+	properties.VirtualMachineProfile.SecurityProfile.UefiSettings.SecureBootEnabled = to.Ptr(false)
 	properties.VirtualMachineProfile.SecurityProfile.UefiSettings.VTpmEnabled = to.Ptr(true)
 
 	return properties

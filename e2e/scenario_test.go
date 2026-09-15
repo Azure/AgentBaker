@@ -87,7 +87,7 @@ func Test_ACL(t *testing.T) {
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLNonProdSkipSecureBoot)
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
 				return errors.Join(
@@ -113,7 +113,7 @@ func Test_ACL_CustomCA(t *testing.T) {
 				}
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLNonProdSkipSecureBoot)
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
 				return errors.Join(
@@ -142,7 +142,7 @@ func Test_ACL_ARM64(t *testing.T) {
 				nbc.IsARM64 = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLNonProdSkipSecureBoot)
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_v6")
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
@@ -167,7 +167,7 @@ func Test_ACLGen2FIPSTL(t *testing.T) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLNonProdSkipSecureBoot)
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
 				return errors.Join(
@@ -210,7 +210,7 @@ func Test_ACL_AzureCNI(t *testing.T) {
 			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDACLGen2TL,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLNonProdSkipSecureBoot)
 			},
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
@@ -242,7 +242,7 @@ func Test_ACL_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLGen2TL,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLNonProdSkipSecureBoot)
 			},
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
@@ -262,7 +262,7 @@ func Test_ACL_DisableSSH(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLGen2TL,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLNonProdSkipSecureBoot)
 			},
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SSHStatus = datamodel.SSHOff
@@ -311,7 +311,7 @@ func runScenarioACLGPU(t *testing.T, vmSize string, location string) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLNonProdSkipSecureBoot)
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
 				return errors.Join(
@@ -341,7 +341,7 @@ func runScenarioACLGRID(t *testing.T, vmSize string) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLNonProdSkipSecureBoot)
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
 				return errors.Join(
@@ -922,7 +922,7 @@ func Test_ACL_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
 			Cluster: ClusterAzureNetworkIsolated,
 			VHD:     config.VHDACLGen2TL,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLNonProdSkipSecureBoot)
 			},
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
@@ -3716,7 +3716,7 @@ func Test_ACL_SecondaryNIC(t *testing.T) {
 				nbc.StandardSecondaryNICCount = 1
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLNonProdSkipSecureBoot)
 				addSecondaryNIC(vmss)
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
@@ -3888,7 +3888,7 @@ func Test_ACL_SecondaryNIC_DualStack(t *testing.T) {
 				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/azure-cni-overlay"] = "true"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLNonProdSkipSecureBoot)
 				DualStackVMConfigMutator(vmss)
 				addDualStackSecondaryNIC(vmss)
 			},

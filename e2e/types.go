@@ -32,6 +32,7 @@ type Tags struct {
 	WASM                   bool
 	Kata                   bool
 	BootstrapTokenFallback bool
+	COSIUpdate             bool
 	KubeletCustomConfig    bool
 	Scriptless             bool
 	VHDCaching             bool
@@ -241,6 +242,9 @@ type Config struct {
 	// It shouldn't be used for majority of scenarios, currently only used for scenarios where the node is not expected to be reachable via ssh
 	SkipSSHConnectivityValidation bool
 
+	// SkipScriptlessNBCCSECmd prevents RunScenario from automatically repeating the scenario using scriptless NBC provisioning.
+	SkipScriptlessNBCCSECmd bool
+
 	// WaitForSSHAfterReboot if set to non-zero duration, SSH connectivity validation will retry with exponential backoff
 	// for up to this duration when encountering reboot-related errors. This is useful for scenarios where the node
 	// reboots during provisioning (e.g., MIG-enabled GPU nodes). Default (zero value) means no retry.
@@ -274,15 +278,9 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.Virtua
 	if s.VHD == nil {
 		return fmt.Errorf("scenario VHD is nil")
 	}
-	resourceID, err := CachedPrepareVHD(ctx, GetVHDRequest{
-		Image:    *s.VHD,
-		Location: s.Location,
-	})
+	imageReference, err := resolveImageReference(ctx, s.VHD, s.Location)
 	if err != nil {
 		return fmt.Errorf("prepare VHD: %w", err)
-	}
-	if resourceID == "" {
-		return fmt.Errorf("VHD selector returned an empty resource ID")
 	}
 	if vmss == nil {
 		return fmt.Errorf("input virtual machine scale set is nil")
@@ -306,9 +304,7 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.Virtua
 	if vmss.Properties.VirtualMachineProfile.StorageProfile == nil {
 		vmss.Properties.VirtualMachineProfile.StorageProfile = &armcompute.VirtualMachineScaleSetStorageProfile{}
 	}
-	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-		ID: to.Ptr(string(resourceID)),
-	}
+	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = imageReference
 
 	// Override OS disk size if the VHD requires a non-default size.
 	if s.VHD.OSDiskSizeGB > 0 {
@@ -320,6 +316,22 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.Virtua
 
 	s.updateTags(ctx, vmss)
 	return nil
+}
+
+func resolveImageReference(ctx context.Context, image *config.Image, location string) (*armcompute.ImageReference, error) {
+	if image.SharedGalleryImageID != "" {
+		toolkit.Logf(ctx, "Using shared gallery image ID: %s", image.SharedGalleryImageID)
+		return &armcompute.ImageReference{SharedGalleryImageID: to.Ptr(string(image.SharedGalleryImageID))}, nil
+	}
+
+	resourceID, err := CachedPrepareVHD(ctx, GetVHDRequest{Image: *image, Location: location})
+	if err != nil {
+		return nil, err
+	}
+	if resourceID == "" {
+		return nil, fmt.Errorf("VHD selector returned an empty resource ID")
+	}
+	return &armcompute.ImageReference{ID: to.Ptr(string(resourceID))}, nil
 }
 
 func (s *Scenario) SecureTLSBootstrappingEnabled() bool {

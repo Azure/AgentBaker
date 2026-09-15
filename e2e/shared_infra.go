@@ -492,26 +492,44 @@ func firewallAppRulesUpToDate(fw armnetwork.AzureFirewall) bool {
 	if fw.Properties == nil {
 		return false
 	}
-	expectedFqdn := config.Config.BlobStorageAccount() + ".blob.core.windows.net"
+
+	// expectedStaticRuleFqdns maps rule name -> the single FQDN it must target
+	// for the firewall to be considered current. Extend this map whenever a
+	// new static application rule is added to getFirewall so that existing
+	// shared firewalls (persisted across runs in the RG) get recreated with
+	// the new rule instead of being treated as already up to date.
+	expectedStaticRuleFqdns := map[string]string{
+		"blob-storage-fqdn": config.Config.BlobStorageAccount() + ".blob.core.windows.net",
+		"nebraska-poc-fqdn": "nebraska-poc-download-ep-hjf7e5fseafnejha.b01.azurefd.net",
+	}
+	foundRuleFqdns := make(map[string]string, len(expectedStaticRuleFqdns))
+
 	for _, coll := range fw.Properties.ApplicationRuleCollections {
 		if coll == nil || coll.Properties == nil {
 			continue
 		}
 		for _, rule := range coll.Properties.Rules {
-			if rule == nil || rule.Name == nil || *rule.Name != "blob-storage-fqdn" {
+			if rule == nil || rule.Name == nil {
 				continue
 			}
-			// Found the dynamic rule; match means firewall is current.
+			if _, tracked := expectedStaticRuleFqdns[*rule.Name]; !tracked {
+				continue
+			}
 			for _, fqdn := range rule.TargetFqdns {
-				if fqdn != nil && *fqdn == expectedFqdn {
-					return true
+				if fqdn != nil {
+					foundRuleFqdns[*rule.Name] = *fqdn
 				}
 			}
+		}
+	}
+
+	for name, expectedFqdn := range expectedStaticRuleFqdns {
+		if foundRuleFqdns[name] != expectedFqdn {
+			// Rule missing or stale → firewall predates this rule, treat as stale.
 			return false
 		}
 	}
-	// Rule not found at all → firewall predates this rule, treat as stale.
-	return false
+	return true
 }
 
 // ensureClusterIdentity creates a user-assigned managed identity for AKS clusters
