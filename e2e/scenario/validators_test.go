@@ -1,6 +1,8 @@
 package scenario
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -55,6 +57,66 @@ func TestValidateSysctlOutput(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateSysctlOutput(tt.output, tt.expected)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestWindowsFileContainsBootstrapTokenScriptDoesNotExposeToken(t *testing.T) {
+	const token = "bake00.0123456789abcdef"
+
+	script, err := windowsFileContainsBootstrapTokenScript(`C:\AzureData\CustomDataSetupScript.ps1`, token)
+	require.NoError(t, err)
+	require.NotContains(t, script, token)
+
+	hash := sha256.Sum256([]byte(token))
+	require.Contains(t, script, hex.EncodeToString(hash[:]))
+	for _, marker := range []string{
+		windowsScanAbsentMarker,
+		windowsScanPresentMarker,
+		windowsScanFileMissingMarker,
+		windowsScanErrorMarker,
+	} {
+		require.Contains(t, script, marker)
+	}
+}
+
+func TestParseWindowsBootstrapTokenScanResult(t *testing.T) {
+	tests := []struct {
+		name          string
+		result        *podExecResult
+		containsToken bool
+		wantErr       bool
+	}{
+		{
+			name:   "absent marker with success",
+			result: &podExecResult{exitCode: "0", stdout: windowsScanAbsentMarker},
+		},
+		{
+			name:          "present marker with collapsed Windows SSH exit code",
+			result:        &podExecResult{exitCode: "1", stdout: windowsScanPresentMarker},
+			containsToken: true,
+		},
+		{
+			name:    "runtime error marker",
+			result:  &podExecResult{exitCode: "1", stdout: windowsScanErrorMarker},
+			wantErr: true,
+		},
+		{
+			name:    "missing marker",
+			result:  &podExecResult{exitCode: "0"},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			containsToken, err := parseWindowsBootstrapTokenScanResult(tt.result)
+			require.Equal(t, tt.containsToken, containsToken)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
