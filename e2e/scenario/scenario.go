@@ -1503,12 +1503,10 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
-<<<<<<< Updated upstream
 	Name:        "Ubuntu2204_CustomNodeConfig",
 	Description: "Tests Ubuntu 22.04 bootstrapping with custom sysctls, containerd ulimits, and kubelet seccomp configuration",
 	Tags: Tags{
 		KubeletCustomConfig: true,
-=======
 	Name:        "Ubuntu2204_ChronyRestarts_Taints_And_Tolerations",
 	Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
 	Config: Config{
@@ -1530,7 +1528,6 @@ var _ = Register(&Scenario{
 			}
 			return ValidateTaints(ctx, s, s.Runtime.NBC.KubeletConfig["--register-with-taints"])
 		},
->>>>>>> Stashed changes
 	},
 	Config: customNodeConfig(config.VHDUbuntu2204Gen2Containerd, ClusterKubenet),
 })
@@ -1656,8 +1653,6 @@ func ubuntu2204GPUScenario(name, vmSize, location string) *Scenario {
 }
 
 var _ = Register(&Scenario{
-<<<<<<< Updated upstream
-=======
 	Name:        "Ubuntu2204_GPUGridDriver",
 	Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD with grid driver can be properly bootstrapped",
 	Tags: Tags{
@@ -1687,7 +1682,6 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
->>>>>>> Stashed changes
 	Name:        "Ubuntu2204_GPUNoDriver",
 	Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
 	Location:    "westus2",
