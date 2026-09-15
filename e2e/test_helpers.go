@@ -718,6 +718,21 @@ func addTrustedLaunchToVMSS(properties *armcompute.VirtualMachineScaleSetPropert
 	return properties
 }
 
+// aclVMSSSecurityProfile returns properties configured with ACL's required
+// TrustedLaunch security type (ACL's SIG image definition is created with
+// --features SecurityType=TrustedLaunch and rejects SecurityType=Standard
+// deployments). Secure Boot is disabled only when skipSecureBoot is true,
+// which is required for unsigned/dev ACL builds (e.g. acldevel-sourced
+// images) whose kernel/shim is not enrolled in the platform's Secure Boot
+// db -- with Secure Boot on, UEFI firmware returns "Access denied" loading
+// the kernel EFI stub and boot never completes.
+func aclVMSSSecurityProfile(properties *armcompute.VirtualMachineScaleSetProperties, skipSecureBoot bool) *armcompute.VirtualMachineScaleSetProperties {
+	if skipSecureBoot {
+		return addTrustedLaunchNoSecureBootToVMSS(properties)
+	}
+	return addTrustedLaunchToVMSS(properties)
+}
+
 // addTrustedLaunchNoSecureBootToVMSS sets SecurityType=TrustedLaunch (required by
 // ACL's SIG image definition, which is created with --features SecurityType=TrustedLaunch
 // and therefore rejects SecurityType=Standard deployments) but disables Secure Boot

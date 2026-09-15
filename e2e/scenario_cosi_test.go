@@ -130,11 +130,7 @@ func Test_ACL_COSIUpdate_AMD64(t *testing.T) {
 			SkipScriptlessNBCCSECmd: true,
 			WaitForSSHAfterReboot:   5 * time.Minute,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				if info.SkipSecureBoot {
-					vmss.Properties = addTrustedLaunchNoSecureBootToVMSS(vmss.Properties)
-				} else {
-					vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
-				}
+				vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, info.SkipSecureBoot)
 			},
 			Validator: func(ctx context.Context, scenario *Scenario) error {
 				return validateACLAMD64COSIUpdate(ctx, scenario, info.CosiURL, info.MetadataSHA384)

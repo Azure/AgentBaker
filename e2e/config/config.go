@@ -56,6 +56,7 @@ func PrivateACRName(location string) string {
 type Configuration struct {
 	// The defaults should only be used when running tests locally, as the CI will set these env vars.
 	// We have separate Linux and Windows consts to have different defaults - they use the same env vars.
+	ACLSkipSecureBoot                      bool          `env:"SKIP_SECURE_BOOT"`
 	ACRSecretName                          string        `env:"ACR_SECRET_NAME" envDefault:"acr-secret-code2"`
 	AzureContainerRegistrytargetRepository string        `env:"ACR_TARGET_REPOSITORY" envDefault:"aks-managed-repository/*"`
 	BlobContainer                          string        `env:"BLOB_CONTAINER" envDefault:"abe2e"`
