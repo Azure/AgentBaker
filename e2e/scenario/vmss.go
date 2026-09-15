@@ -511,26 +511,6 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 	resourceGroupName := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
 
 	delay := 5 * time.Second
-	retryOn := func(err error) bool {
-		var respErr *azcore.ResponseError
-		// only retry on Azure API errors with specific error codes
-		if !errors.As(err, &respErr) {
-			return false
-		}
-		// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
-		// It's not a quota issue
-		if respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed" {
-			return true
-		}
-		// GalleryImageNotFound can happen transiently after image replication completes
-		// due to Azure eventual consistency - the gallery API reports success but the
-		// compute fabric in the target region hasn't fully propagated the image yet
-		if respErr.StatusCode == 404 && respErr.ErrorCode == "GalleryImageNotFound" {
-			return true
-		}
-		return false
-	}
-
 	maxAttempts := 10
 	attempt := 0
 
@@ -542,7 +522,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 		}
 
 		// not a retryable error
-		if !retryOn(err) {
+		if !isRetryableVMSSCreationError(err) {
 			return vm, err
 		}
 
@@ -557,6 +537,15 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 		case <-time.After(delay):
 		}
 	}
+}
+
+func isRetryableVMSSCreationError(err error) bool {
+	var respErr *azcore.ResponseError
+	if !errors.As(err, &respErr) {
+		return false
+	}
+	return (respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed") ||
+		(respErr.StatusCode == 404 && respErr.ErrorCode == "GalleryImageNotFound")
 }
 
 func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*ScenarioVM, error) {

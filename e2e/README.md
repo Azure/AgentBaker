@@ -298,6 +298,11 @@ VMSS provisioning errors are logged before SSH setup and remain in the returned
 error if SSH also fails. Check the provisioning error first: an SSH timeout can
 follow a failed VM allocation. SSH is still attempted after provisioning failure
 so that booted VMs with CSE failures can provide guest logs.
+The preserved ARM error also reaches the existing retry and capacity-skip
+classifiers, even if SSH fails. Allocation failures can retry; unavailable SKUs
+and quota failures can skip when capacity skipping is enabled. A later retry can
+fail differently, so check earlier attempt logs for the original provisioning
+failure.
 
 ### Cleanup
 
