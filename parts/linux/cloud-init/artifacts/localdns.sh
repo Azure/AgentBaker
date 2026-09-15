@@ -656,17 +656,46 @@ EOF
 
 # Remove iptables rules and revert DNS configuration.
 cleanup_iptables_and_dns() {
-    # Ensure network variables are initialized if not already set.
-    # This is needed here because this function can be called from cleanup traps or systemd restarts initiated by watchdog.
-    if [ -z "${DEFAULT_ROUTE_INTERFACE:-}" ] || [ -z "${NETWORK_DROPIN_FILE:-}" ] || [ -z "${NETWORK_DROPIN_DIR:-}" ]; then
-        echo "Network variables not initialized, attempting to determine them..."
-        if ! initialize_network_variables; then
-            echo "Failed to initialize network variables during cleanup."
-            return 1
+    # Track failures across all cleanup steps so that a failure in one step
+    # (e.g. removing an iptables rule) does not skip the more important DNS
+    # restoration steps below. Restoring node DNS is the priority: if we return
+    # early on an iptables error we could leave the node pointed at a dead
+    # localdns listener via the network drop-in.
+    local cleanup_failed=false
+
+    # Do not derive the route/interface during post-exit cleanup. At this point
+    # network state may already be torn down, so ip route/networkctl discovery
+    # can fail and leave the node pointed at the dead LocalDNS listener. Remove
+    # the configured drop-in and any matching drop-ins directly; this also works
+    # when NETWORK_DROPIN_FILE was never initialized in this process.
+    # Revert DNS configuration before touching iptables. Keep the dummy interface
+    # and its .10/.11 addresses here: if an orphaned CoreDNS child survived a
+    # failed cgroup teardown, removing the interface would break a listener
+    # that may still be serving pods. The service-recovery path handles the
+    # next-start interface lifecycle separately.
+    local network_dropin_file
+    for network_dropin_file in "${NETWORK_DROPIN_FILE:-}" /run/systemd/network/*.d/70-localdns.conf; do
+        [ -e "$network_dropin_file" ] || continue
+        echo "Removing network drop-in file ${network_dropin_file}."
+        if ! rm -f "$network_dropin_file"; then
+            echo "Failed to remove network drop-in file ${network_dropin_file}."
+            cleanup_failed=true
+        else
+            echo "Successfully removed network drop-in file."
         fi
+    done
+
+    echo "Attempt to reload network configuration."
+    if ! eval "$NETWORKCTL_RELOAD_CMD"; then
+        echo "Failed to reload network after removing the DNS configuration."
+        cleanup_failed=true
+    else
+        echo "Reloading network configuration succeeded."
     fi
 
     # Remove any existing localdns iptables rules by searching for our comment.
+    # This runs after DNS restoration so an xtables lock cannot delay removal of
+    # the network drop-in that points the node at the LocalDNS listener.
     echo "Cleaning up any existing localdns iptables rules..."
 
     # Get list of existing localdns rules by searching for our comment.
@@ -688,30 +717,31 @@ cleanup_iptables_and_dns() {
             done
         done
         if [ "$failure_occurred" = true ]; then
-            return 1
+            cleanup_failed=true
         fi
     else
         echo "No existing localdns iptables rules found."
     fi
 
-    # Revert DNS configuration and network reload.
-    echo "Removing network drop-in file ${NETWORK_DROPIN_FILE}."
-    rm -f "$NETWORK_DROPIN_FILE"
-    if [ "$?" -ne 0 ]; then
-        echo "Failed to remove network drop-in file ${NETWORK_DROPIN_FILE}."
+    if [ "$cleanup_failed" = true ]; then
         return 1
     fi
-    echo "Successfully removed network drop-in file."
-
-    echo "Attempt to reload network configuration."
-    eval "$NETWORKCTL_RELOAD_CMD"
-    if [ "$?" -ne 0 ]; then
-        echo "Failed to reload network after removing the DNS configuration."
-        return 1
-    fi
-    echo "Reloading network configuration succeeded."
 
     return 0
+}
+
+# localdns_cleanup_mode is the entry point for `localdns.sh cleanup`, invoked by
+# localdns.service ExecStopPost after both graceful and unexpected exits. It only
+# restores node DNS configuration. It intentionally does not delete the dummy
+# localdns interface or its .10/.11 addresses: if an orphaned CoreDNS child
+# survives a failed cgroup teardown, removing the interface could break a
+# listener that is still serving pods and turn a fast failure into default-route
+# DNS timeouts. Service/process recovery handles the next-start interface
+# lifecycle separately. It always exits 0 so that a best-effort cleanup failure
+# cannot wedge systemd's recovery. Cleanup failures are logged.
+localdns_cleanup_mode() {
+    cleanup_iptables_and_dns || echo "LocalDNS cleanup failed: network drop-in may not have been removed; node DNS may still point at the dead listener ${LOCALDNS_NODE_LISTENER_IP}."
+    exit 0
 }
 
 # Cleanup function to remove localdns related configurations.
@@ -907,6 +937,7 @@ start_localdns_watchdog() {
             # Update resource metrics .prom file for the exporter (best-effort, non-fatal)
             export_resource_metrics
 
+            # Wait for the next watchdog interval.
             sleep "${HEALTH_CHECK_INTERVAL}"
         done
     else
@@ -982,6 +1013,13 @@ select_localdns_corefile() {
 }
 
 ${__SOURCED__:+return}
+
+# ExecStopPost invokes this mode after both graceful and unexpected exits.
+# Only restore node DNS configuration here; systemd owns process cleanup.
+# Always exit successfully so a cleanup error cannot wedge systemd recovery.
+if [ "${1:-}" = "cleanup" ]; then
+    localdns_cleanup_mode
+fi
 
 # --------------------------------------- Main Execution starts here --------------------------------------------------
 
