@@ -24,6 +24,7 @@ Describe 'localdns.sh'
             LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
             LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
             UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
+            EXPECTED_UPDATED_LOCALDNS_CORE_FILE="${TEST_DIR}/expected.updated.localdns.corefile"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
             # Use production-realistic corefile format with brace syntax
             cat > "$LOCALDNS_CORE_FILE" <<'EOF'
@@ -40,6 +41,7 @@ EOF
     }
 }
 EOF
+            cp "$UPDATED_LOCALDNS_CORE_FILE" "$EXPECTED_UPDATED_LOCALDNS_CORE_FILE"
 
             LOCALDNS_SLICE_PATH="${TEST_DIR}/etc/systemd/system"
             LOCALDNS_SLICE_FILE="${LOCALDNS_SLICE_PATH}/localdns.slice"
@@ -68,9 +70,22 @@ EOF
         }
         cleanup() {
             rm -rf "$LOCALDNS_SCRIPT_PATH"
+            rm -f "$EXPECTED_UPDATED_LOCALDNS_CORE_FILE"
             rm -rf "$LOCALDNS_SLICE_PATH"
             rm -rf "$COREDNS_BINARY_PATH"
             rm -rf "$RESOLV_CONF"
+        }
+        assert_updated_localdns_corefile_unchanged() {
+            cmp -s "$UPDATED_LOCALDNS_CORE_FILE" "$EXPECTED_UPDATED_LOCALDNS_CORE_FILE"
+        }
+        run_replace_azurednsip_and_verify_unchanged() {
+            replace_azurednsip_in_corefile
+            local status=$?
+            if ! assert_updated_localdns_corefile_unchanged; then
+                echo "Updated localdns corefile changed unexpectedly."
+                return 1
+            fi
+            return "$status"
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
@@ -401,7 +416,7 @@ EOF
 
         It 'should fail if resolv.conf not found'
             rm -f "$RESOLV_CONF"
-            When run replace_azurednsip_in_corefile
+            When run run_replace_azurednsip_and_verify_unchanged
             The status should be failure
             The stdout should include ""$RESOLV_CONF" not found."
         End
@@ -410,7 +425,7 @@ EOF
 cat <<EOF > "$RESOLV_CONF"
 invalid
 EOF
-            When run replace_azurednsip_in_corefile
+            When run run_replace_azurednsip_and_verify_unchanged
             The status should be failure
             The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
@@ -421,7 +436,7 @@ EOF
 cat <<EOF > "$RESOLV_CONF"
 nameserver ""
 EOF
-            When run replace_azurednsip_in_corefile
+            When run run_replace_azurednsip_and_verify_unchanged
             The status should be failure
             The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
@@ -432,7 +447,7 @@ EOF
 cat <<EOF > "$RESOLV_CONF"
 nameserver
 EOF
-            When run replace_azurednsip_in_corefile
+            When run run_replace_azurednsip_and_verify_unchanged
             The status should be failure
             The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
@@ -448,23 +463,169 @@ EOF
             The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
             The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
             The stdout should include "Found upstream VNET DNS servers: 168.63.129.16"
-            The stdout should include "Skipping DNS IP replacement. Upstream VNET DNS servers (168.63.129.16) match either Azure DNS IP (168.63.129.16) or localdns node listener IP (169.254.10.10)"
+            The stdout should include "Skipping DNS IP replacement. Upstream VNET DNS servers (168.63.129.16) already match Azure DNS IP (168.63.129.16)."
         End
 
-        It 'should not replace 168.63.129.16 with UpstreamDNSIP if it is same as localdns node listener IP'
+        It 'should fail if upstream DNS is the localdns node listener IP'
 cat <<EOF > "$RESOLV_CONF"
 nameserver 169.254.10.10
 EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+        End
+
+        It 'should fail if upstream DNS is the localdns cluster listener IP'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 169.254.10.11
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.11"
+        End
+
+        It 'should fail if a listener IP is mixed into an otherwise valid upstream DNS list'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 10.0.0.1
+nameserver 169.254.10.10
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+        End
+
+        It 'should fail if a listener IP precedes an otherwise valid upstream DNS list'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 169.254.10.10
+nameserver 10.0.0.1
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+        End
+
+        It 'should report a listener before an invalid upstream entry'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 10.0.0.1/24
+nameserver 169.254.10.10
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+            The stdout should not include "Invalid upstream VNET DNS server '10.0.0.1/24'"
+        End
+
+        It 'should report a listener after an invalid upstream entry'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 169.254.10.10
+nameserver 10.0.0.1/24
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+            The stdout should not include "Invalid upstream VNET DNS server '10.0.0.1/24'"
+        End
+
+        It 'should fail if the cluster listener is mixed into an otherwise valid upstream DNS list'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 10.0.0.1
+nameserver 169.254.10.11
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.11"
+        End
+
+        It 'should fail if both localdns listener IPs are upstream DNS servers'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 169.254.10.10
+nameserver 169.254.10.11
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+        End
+
+        It 'should report the cluster listener before an invalid upstream entry'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 10.0.0.1/24
+nameserver 169.254.10.11
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.11"
+            The stdout should not include "Invalid upstream VNET DNS server '10.0.0.1/24'"
+        End
+
+        It 'should report the cluster listener after an invalid upstream entry'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 169.254.10.11
+nameserver 10.0.0.1/24
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.11"
+            The stdout should not include "Invalid upstream VNET DNS server '10.0.0.1/24'"
+        End
+
+        It 'should fail if an upstream entry is not an address'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 10.0.0.1/24
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Invalid upstream VNET DNS server '10.0.0.1/24'"
+        End
+
+        It 'should reject the unspecified IPv6 address'
+cat <<EOF > "$RESOLV_CONF"
+nameserver ::
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Invalid upstream VNET DNS server '::'"
+        End
+
+        It 'should replace Azure DNS with multiple valid upstream DNS servers'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 10.0.0.1
+nameserver 10.0.0.2
+EOF
             When run replace_azurednsip_in_corefile
             The status should be success
-            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
-            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
-            The stdout should include "Skipping DNS IP replacement. Upstream VNET DNS servers (169.254.10.10) match either Azure DNS IP (168.63.129.16) or localdns node listener IP (169.254.10.10)"
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1 10.0.0.2"
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should not include "169.254.10.10"
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should not include "169.254.10.11"
+            The stdout should include "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
+            The stdout should include "Persisted upstream DNS servers to /etc/localdns/upstream-dns: 10.0.0.1 10.0.0.2"
+        End
+
+        It 'should replace Azure DNS with a single valid non-Azure upstream DNS server'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 10.0.0.1
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1"
+            The stdout should include "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
+            The stdout should include "Persisted upstream DNS servers to /etc/localdns/upstream-dns: 10.0.0.1"
+        End
+
+        It 'should replace Azure DNS when it is mixed with another valid upstream DNS server'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 168.63.129.16
+nameserver 10.0.0.1
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16 10.0.0.1"
+            The stdout should include "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
+            The stdout should include "Persisted upstream DNS servers to /etc/localdns/upstream-dns: 168.63.129.16 10.0.0.1"
         End
 
         It 'should return failure if AZURE_DNS_IP is unset'
             unset AZURE_DNS_IP
-            When run replace_azurednsip_in_corefile
+            When run run_replace_azurednsip_and_verify_unchanged
             The status should be failure
             The stdout should include "AZURE_DNS_IP is not set or is empty."
         End
@@ -987,36 +1148,54 @@ EOF
             The stdout should include "No existing localdns iptables rules found."
         End
 
-        It 'should initialize network variables when DEFAULT_ROUTE_INTERFACE is unset and still remove the drop-in'
-            # Regression cover for the guard that now also checks DEFAULT_ROUTE_INTERFACE:
-            # cleanup can be invoked from a trap/watchdog restart with the interface unset,
-            # so it must call initialize_network_variables (re-deriving the interface via the
-            # mocked ip/networkctl) and still complete cleanup successfully.
+        It 'should remove the known drop-in without deriving network variables'
             iptables() { mock_iptables "$@"; }
-            AZURE_DNS_IP="168.63.129.16"
             NETWORKCTL_RELOAD_CMD="true"
-            # A real network file must exist for verify_network_file during initialization.
-            NETWORK_FILE="/tmp/test-eth0.network"
-            touch "$NETWORK_FILE"
-            networkctl() {
-                if [[ "$1" == "--json=short" && "$2" == "status" && "$3" == "eth0" ]]; then
-                    echo "{\"NetworkFile\":\"${NETWORK_FILE}\"}"
-                elif [[ "$1" == "reload" ]]; then
-                    return 0
-                else
-                    command networkctl "$@"
-                fi
-            }
             touch "$NETWORK_DROPIN_FILE"
-            # Force the new initialization branch: interface not yet known.
+            # Cleanup must not need route/networkctl discovery.
             unset DEFAULT_ROUTE_INTERFACE
+            unset NETWORK_DROPIN_DIR
             When call cleanup_iptables_and_dns
             The status should be success
-            The stdout should include "Network variables not initialized, attempting to determine them..."
             The stdout should include "Removing network drop-in file"
-            The variable DEFAULT_ROUTE_INTERFACE should equal "eth0"
             The file "${NETWORK_DROPIN_FILE}" should not be exist
-            rm -f "$NETWORK_FILE"
+        End
+
+        It 'continues DNS cleanup when network variable discovery would fail'
+            iptables() { mock_iptables "$@"; }
+            NETWORK_DROPIN_FILE="/tmp/localdns-cleanup-test/network/10-netplan-eth0.network.d/70-localdns.conf"
+            mkdir -p "$(dirname "$NETWORK_DROPIN_FILE")"
+            touch "$NETWORK_DROPIN_FILE"
+            NETWORKCTL_RELOAD_CMD="true"
+            unset NETWORK_DROPIN_DIR
+            unset DEFAULT_ROUTE_INTERFACE
+            # If the old implementation attempted network discovery here, this
+            # mock would fail. The cleanup path must remove the known drop-in
+            # without attempting discovery.
+            initialize_network_variables() { return 1; }
+            When call cleanup_iptables_and_dns
+            The status should be success
+            The stdout should include "Successfully removed existing localdns iptables rule"
+            The stdout should include "Reloading network configuration succeeded."
+            The file "${NETWORK_DROPIN_FILE}" should not be exist
+            rm -rf /tmp/localdns-cleanup-test
+        End
+
+        It 'reports a drop-in removal failure but still reloads the network'
+            iptables() { return 0; }
+            NETWORKCTL_RELOAD_CMD="true"
+            touch "$NETWORK_DROPIN_FILE"
+            rm() {
+                if [ "$1" = "-f" ] && [ "$2" = "$NETWORK_DROPIN_FILE" ]; then
+                    return 1
+                fi
+                command rm "$@"
+            }
+            When call cleanup_iptables_and_dns
+            The status should be failure
+            The stdout should include "Failed to remove network drop-in file ${NETWORK_DROPIN_FILE}."
+            The stdout should include "Reloading network configuration succeeded."
+            The file "${NETWORK_DROPIN_FILE}" should be exist
         End
     End
 
@@ -1497,6 +1676,117 @@ EOF
             When run wait_for_localdns_removed_from_resolv_conf 2
             The status should be success
             The stdout should include "DNS configuration refreshed successfully"
+        End
+    End
+
+#------------------------------------------------------------------------------------------------------------------------------------
+# This section tests - upstream_dns_servers_routable, upstream_dns_servers_listed and wait_for_network_reload_settled
+# These functions are defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'wait_for_network_reload_settled'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            TEST_DIR="/tmp/localdnstest-$$"
+            RESOLV_CONF="${TEST_DIR}/run/systemd/resolve/resolv.conf"
+            ROUTE_CALL_COUNT_FILE="${TEST_DIR}/route-calls"
+            mkdir -p "$(dirname "$RESOLV_CONF")"
+            LOCALDNS_NODE_LISTENER_IP="169.254.10.10"
+            NETWORK_DROPIN_FILE="${TEST_DIR}/70-localdns.conf"
+            NETWORK_RELOAD_SETTLE_CHECKS=8
+        }
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        # Stand-ins for 'ip route get'. The script only ever checks the exit status.
+        route_up() { ip() { return 0; }; }
+        route_down() { ip() { return 1; }; }
+        # Unroutable for the first two checks, routable afterwards - the tear-down and
+        # re-acquire that a networkctl reload puts the link through.
+        route_down_then_up() {
+            ip() {
+                local calls
+                calls=$(cat "$ROUTE_CALL_COUNT_FILE" 2>/dev/null || echo 0)
+                calls=$((calls + 1))
+                echo "$calls" > "$ROUTE_CALL_COUNT_FILE"
+                [ "$calls" -gt 2 ]
+            }
+        }
+
+        #------------------------- upstream_dns_servers_routable ------------------------------------------------------
+        It 'should report all upstream servers routable'
+            route_up
+            When call upstream_dns_servers_routable "10.0.0.1 10.0.0.2"
+            The status should be success
+        End
+
+        It 'should report upstream servers unroutable when a route is missing'
+            route_down
+            When call upstream_dns_servers_routable "10.0.0.1"
+            The status should be failure
+        End
+
+        #------------------------- upstream_dns_servers_listed --------------------------------------------------------
+        It 'should detect an upstream server still listed in resolv.conf'
+            When call upstream_dns_servers_listed "10.0.0.1 10.0.0.2" "169.254.10.10 10.0.0.2"
+            The status should be success
+        End
+
+        It 'should not detect an upstream server that has been removed'
+            When call upstream_dns_servers_listed "10.0.0.1 10.0.0.2" "169.254.10.10"
+            The status should be failure
+        End
+
+        It 'should not match an upstream server as a substring of another IP'
+            When call upstream_dns_servers_listed "10.0.0.1" "110.0.0.10"
+            The status should be failure
+        End
+
+        #------------------------- wait_for_network_reload_settled ----------------------------------------------------
+        It 'should skip the wait when there are no upstream servers'
+            route_down
+            When run wait_for_network_reload_settled "" 1
+            The status should be success
+            The stdout should include "No upstream DNS servers to check"
+        End
+
+        It 'should return as soon as the drop-in is applied and upstreams are routable'
+            echo "nameserver 169.254.10.10" > "$RESOLV_CONF"
+            route_up
+            When run wait_for_network_reload_settled "10.0.0.1" 5
+            The status should be success
+            The stdout should include "systemd-networkd applied"
+            The stdout should include "upstream DNS servers are routable"
+        End
+
+        It 'should keep waiting while an upstream is unroutable and return once it comes back'
+            # resolv.conf never drops the upstream here, so the only convergence signal is the
+            # route disappearing and coming back.
+            echo "nameserver 10.0.0.1" > "$RESOLV_CONF"
+            route_down_then_up
+            When run wait_for_network_reload_settled "10.0.0.1" 5
+            The status should be success
+            The stdout should include "upstream DNS servers are routable"
+        End
+
+        It 'should fall back to consecutive routable samples when networkd gives no signal'
+            echo "nameserver 10.0.0.1" > "$RESOLV_CONF"
+            NETWORK_RELOAD_SETTLE_CHECKS=2
+            route_up
+            When run wait_for_network_reload_settled "10.0.0.1" 5
+            The status should be success
+            The stdout should include "upstream DNS servers are routable"
+            The stdout should not include "systemd-networkd applied"
+        End
+
+        It 'should time out when the upstream never becomes routable'
+            echo "nameserver 169.254.10.10" > "$RESOLV_CONF"
+            route_down
+            When run wait_for_network_reload_settled "10.0.0.1" 1
+            The status should be failure
+            The stdout should include "Timed out after 1 seconds"
         End
     End
 
@@ -2008,6 +2298,110 @@ KUBECTL_EOF
             The status should be success
             The stdout should include "Waiting for node registration"
             The stdout should include "Timeout waiting for node testnode123 to be registered"
+        End
+    End
+
+# This section tests cleanup_iptables_and_dns and the "cleanup" mode contract
+# invoked by localdns.service ExecStopPost. The key guarantees under test:
+#   1. DNS restoration (drop-in removal + network reload) still runs even when
+#      iptables rule deletion fails (no early return).
+#   2. cleanup_iptables_and_dns reports overall failure when any step fails.
+#   3. "cleanup" mode exits 0 whether cleanup succeeds or fails, so a cleanup
+#      error cannot wedge systemd recovery.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'cleanup_iptables_and_dns'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+
+            TEST_DIR="$(mktemp -d)"
+            DEFAULT_ROUTE_INTERFACE="eth0"
+            NETWORK_DROPIN_DIR="${TEST_DIR}/run/systemd/network/eth0.network.d"
+            NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-localdns.conf"
+            mkdir -p "${NETWORK_DROPIN_DIR}"
+            cat > "${NETWORK_DROPIN_FILE}" <<'EOF'
+[Network]
+DNS=169.254.10.10
+EOF
+            # No localdns iptables rules by default (empty listing).
+            iptables() { return 0; }
+            # networkctl reload succeeds by default.
+            NETWORKCTL_RELOAD_CMD="networkctl_reload_mock"
+            networkctl_reload_mock() { return 0; }
+        }
+
+        cleanup_dirs() {
+            rm -rf "$TEST_DIR"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup_dirs'
+
+        It 'removes the DNS drop-in and reloads network on success'
+            When call cleanup_iptables_and_dns
+            The status should be success
+            The stdout should include "Successfully removed network drop-in file."
+            The stdout should include "Reloading network configuration succeeded."
+            The path "$NETWORK_DROPIN_FILE" should not be exist
+        End
+
+        It 'removes existing localdns iptables rules and reports success'
+            # Simulate existing localdns rules whose deletion succeeds. The
+            # listing output must contain the "localdns: skip conntrack" comment
+            # so the script's grep keeps it; the rule number is the first field.
+            iptables() {
+                case "$*" in
+                    *"-D "*) return 0 ;;   # deletion succeeds
+                    *"-L "*) echo "1    RETURN  all  --  0.0.0.0/0  0.0.0.0/0  /* localdns: skip conntrack */" ;;
+                    *) return 0 ;;
+                esac
+            }
+            When call cleanup_iptables_and_dns
+            The status should be success
+            The stdout should include "Successfully removed existing localdns iptables rule"
+            The stdout should include "Successfully removed network drop-in file."
+            The stdout should include "Reloading network configuration succeeded."
+            The path "$NETWORK_DROPIN_FILE" should not be exist
+        End
+
+        It 'still removes the DNS drop-in and reloads when iptables deletion fails'
+            # Simulate existing localdns rules whose deletion fails. The listing
+            # output must contain the "localdns: skip conntrack" comment so the
+            # script's grep keeps it; the rule number is the first field.
+            iptables() {
+                case "$*" in
+                    *"-D "*) return 1 ;;   # deletion always fails
+                    *"-L "*) echo "1    RETURN  all  --  0.0.0.0/0  0.0.0.0/0  /* localdns: skip conntrack */" ;;
+                    *) return 0 ;;
+                esac
+            }
+            When call cleanup_iptables_and_dns
+            # Overall status is failure because iptables cleanup failed...
+            The status should be failure
+            # ...but DNS restoration still ran.
+            The stdout should include "Failed to remove existing localdns iptables rule"
+            The stdout should include "Successfully removed network drop-in file."
+            The stdout should include "Reloading network configuration succeeded."
+            The path "$NETWORK_DROPIN_FILE" should not be exist
+        End
+
+        It 'reports failure when network reload fails'
+            networkctl_reload_mock() { return 1; }
+            When call cleanup_iptables_and_dns
+            The status should be failure
+            The stdout should include "Failed to reload network after removing the DNS configuration."
+        End
+
+        It 'cleanup mode exits 0 when cleanup succeeds'
+            cleanup_iptables_and_dns() { return 0; }
+            When run localdns_cleanup_mode
+            The status should be success
+        End
+
+        It 'cleanup mode exits 0 even when cleanup fails'
+            cleanup_iptables_and_dns() { return 1; }
+            When run localdns_cleanup_mode
+            The status should be success
+            The stdout should include "LocalDNS cleanup failed: network drop-in may not have been removed"
         End
     End
 End

@@ -63,6 +63,14 @@ CURL_COMMAND=(curl -s --noproxy "${LOCALDNS_NODE_LISTENER_IP}" --connect-timeout
 # This is used by disable_dhcp_use_clusterlistener and cleanup_localdns_configs functions.
 NETWORKCTL_RELOAD_CMD="networkctl reload"
 
+# Maximum time in seconds to wait for a networkctl reload to converge before giving up.
+NETWORK_RELOAD_SETTLE_TIMEOUT=10
+
+# Number of consecutive routable samples (0.25s apart) that count as settled when networkd
+# gives no observable signal that it re-configured the link. This is a fallback, so it has to
+# be longer than the time networkd takes to start re-configuring after a reload is accepted.
+NETWORK_RELOAD_SETTLE_CHECKS=8
+
 START_LOCALDNS_TIMEOUT=10
 
 # DNS health check timeout.
@@ -180,11 +188,30 @@ replace_azurednsip_in_corefile() {
         echo "No Upstream VNET DNS servers found in $RESOLV_CONF."
         return 1
     fi
+
+    # Check all nameservers for localdns listeners before validating their format.
+    local upstream_dns_ip
+    for upstream_dns_ip in ${UPSTREAM_VNET_DNS_SERVERS}; do
+        if [ "${upstream_dns_ip}" = "${LOCALDNS_NODE_LISTENER_IP}" ] ||
+            [ "${upstream_dns_ip}" = "${LOCALDNS_CLUSTER_LISTENER_IP}" ]; then
+            echo "Upstream VNET DNS servers contain localdns listener IP ${upstream_dns_ip}."
+            return 1
+        fi
+    done
+
+    # systemd-resolved emits canonical address values; reject tokens outside that format.
+    for upstream_dns_ip in ${UPSTREAM_VNET_DNS_SERVERS}; do
+        case "${upstream_dns_ip}" in
+            "::"|*[!0-9a-fA-F.:]*|"")
+                echo "Invalid upstream VNET DNS server '${upstream_dns_ip}' in ${RESOLV_CONF}."
+                return 1
+                ;;
+        esac
+    done
     echo "Found upstream VNET DNS servers: ${UPSTREAM_VNET_DNS_SERVERS}"
 
     # Based on customer input, corefile was generated in pkg/agent/baker.go.
-    # Replace 168.63.129.16 with VNET DNS ServerIPs only if VNET DNS ServerIPs is not equal to 168.63.129.16
-    # and also not equal to the localdns node listener IP to avoid creating a circular dependency.
+    # Replace 168.63.129.16 with VNET DNS ServerIPs only if VNET DNS ServerIPs is not equal to 168.63.129.16.
     # Corefile will have 168.63.129.16 when user input has VnetDNS value for forwarddestination.
     # Note - For root domain under VnetDNSOverrides, all DNS traffic should be forwarded to VnetDNS.
     cp "${LOCALDNS_CORE_FILE}" "${UPDATED_LOCALDNS_CORE_FILE}" || {
@@ -192,7 +219,7 @@ replace_azurednsip_in_corefile() {
         return 1
     }
 
-    if [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ] && [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${LOCALDNS_NODE_LISTENER_IP}" ]; then
+    if [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ]; then
         echo "Replacing Azure DNS IP ${AZURE_DNS_IP} with upstream VNET DNS servers ${UPSTREAM_VNET_DNS_SERVERS} in corefile ${UPDATED_LOCALDNS_CORE_FILE}"
         sed -i -e "s|${AZURE_DNS_IP}|${UPSTREAM_VNET_DNS_SERVERS}|g" "${UPDATED_LOCALDNS_CORE_FILE}" || {
             echo "Replacing AzureDNSIP in corefile failed."
@@ -200,7 +227,7 @@ replace_azurednsip_in_corefile() {
         }
         echo "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
     else
-        echo "Skipping DNS IP replacement. Upstream VNET DNS servers (${UPSTREAM_VNET_DNS_SERVERS}) match either Azure DNS IP (${AZURE_DNS_IP}) or localdns node listener IP (${LOCALDNS_NODE_LISTENER_IP})"
+        echo "Skipping DNS IP replacement. Upstream VNET DNS servers (${UPSTREAM_VNET_DNS_SERVERS}) already match Azure DNS IP (${AZURE_DNS_IP})."
     fi
 
     if [ ! -f "${UPDATED_LOCALDNS_CORE_FILE}" ] || [ ! -s "${UPDATED_LOCALDNS_CORE_FILE}" ]; then
@@ -654,19 +681,157 @@ EOF
     return 0
 }
 
-# Remove iptables rules and revert DNS configuration.
-cleanup_iptables_and_dns() {
-    # Ensure network variables are initialized if not already set.
-    # This is needed here because this function can be called from cleanup traps or systemd restarts initiated by watchdog.
-    if [ -z "${DEFAULT_ROUTE_INTERFACE:-}" ] || [ -z "${NETWORK_DROPIN_FILE:-}" ] || [ -z "${NETWORK_DROPIN_DIR:-}" ]; then
-        echo "Network variables not initialized, attempting to determine them..."
-        if ! initialize_network_variables; then
-            echo "Failed to initialize network variables during cleanup."
+# Return 0 only if every upstream DNS server in $1 currently has a usable route.
+# 'ip route get' exits non-zero ("Network is unreachable") while networkd has the link's
+# DHCP state torn down, which is exactly the window this is here to observe.
+# Arguments:
+#   $1: upstream_dns_servers - Space separated upstream DNS server IPs.
+upstream_dns_servers_routable() {
+    local upstream_dns_servers="$1"
+    local server
+    for server in ${upstream_dns_servers}; do
+        if ! ip route get "${server}" > /dev/null 2>&1; then
             return 1
         fi
+    done
+    return 0
+}
+
+# Return 0 if any upstream DNS server in $1 is still listed in the nameserver list $2.
+# Arguments:
+#   $1: upstream_dns_servers - Space separated upstream DNS server IPs.
+#   $2: current_dns - Space separated nameserver IPs currently in resolv.conf.
+upstream_dns_servers_listed() {
+    local upstream_dns_servers="$1"
+    local current_dns="$2"
+    local server
+    for server in ${upstream_dns_servers}; do
+        # Word boundary matching (-w) with fixed string (-F) to avoid partial IP matches.
+        if grep -qwF "${server}" <<< "${current_dns}"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Wait for systemd-networkd to finish applying the localdns drop-in after a reload.
+#
+# 'networkctl reload' is asynchronous - it returns as soon as networkd accepts the request.
+# networkd then re-configures the default route interface, which drops and re-acquires its DHCP
+# lease and so briefly removes the route to the upstream DNS servers. By that point localdns is
+# already listening and resolv.conf already points at it, so any query arriving in that gap is
+# forwarded onto an unreachable network and fails immediately. Since localdns.service is
+# Type=notify, returning from startup here is what unblocks 'systemctl start localdns' - which
+# is why a freshly provisioned node can see a SERVFAIL on its very first DNS query.
+#
+# The reload is treated as converged once the upstream servers are routable AND at least one of
+# the following has been observed, so that we do not mistake pre-reload state for convergence:
+#   - an upstream server became unroutable (the tear-down itself), or
+#   - resolv.conf lists the localdns listener and no longer lists any upstream server. With
+#     UseDNS=false the upstream servers only disappear once networkd has processed the DHCP
+#     lease loss, so this is a positive signal that the re-configure is underway.
+# On interfaces where neither signal is observable (for example a statically configured
+# resolver on a second link), it falls back to the upstreams staying routable across
+# NETWORK_RELOAD_SETTLE_CHECKS consecutive samples.
+#
+# This is best effort. The caller logs and continues on failure: traffic is already pointed at
+# localdns by this point, so failing the unit would be a far worse outcome than a brief gap.
+#
+# Arguments:
+#   $1: upstream_dns_servers - Space separated upstream DNS server IPs to check routes for.
+#   $2: max_wait_seconds - Maximum time to wait for the reload to converge (default: 10).
+wait_for_network_reload_settled() {
+    local upstream_dns_servers="$1"
+    local max_wait_seconds="${2:-10}"
+    local sleep_interval=0.25
+    local max_iterations=$((max_wait_seconds * 4))  # 4 iterations per second with 0.25s sleep
+    local settle_checks="${NETWORK_RELOAD_SETTLE_CHECKS:-8}"
+    local iteration=0
+    local reconfigure_observed="false"
+    local consecutive_routable=0
+    local current_dns=""
+
+    if [ -z "${upstream_dns_servers}" ]; then
+        echo "No upstream DNS servers to check, skipping wait for systemd-networkd reload."
+        return 0
+    fi
+
+    echo "Waiting for systemd-networkd reload to converge. Upstream DNS servers: ${upstream_dns_servers}"
+
+    while [ "$iteration" -lt "$max_iterations" ]; do
+        current_dns=$(awk '/^nameserver/ {print $2}' "$RESOLV_CONF" 2>/dev/null | paste -sd' ')
+
+        if [ "$reconfigure_observed" = "false" ] &&
+           grep -qwF "$LOCALDNS_NODE_LISTENER_IP" <<< "$current_dns" &&
+           ! upstream_dns_servers_listed "$upstream_dns_servers" "$current_dns"; then
+            echo "systemd-networkd applied ${NETWORK_DROPIN_FILE}. Current DNS: ${current_dns}"
+            reconfigure_observed="true"
+        fi
+
+        if upstream_dns_servers_routable "$upstream_dns_servers"; then
+            consecutive_routable=$((consecutive_routable + 1))
+            if [ "$reconfigure_observed" = "true" ] || [ "$consecutive_routable" -ge "$settle_checks" ]; then
+                echo "systemd-networkd reload converged, upstream DNS servers are routable. Current DNS: ${current_dns}"
+                return 0
+            fi
+        else
+            # The route to the upstream is gone, so networkd is mid re-configure. Nothing is
+            # settled until it comes back.
+            consecutive_routable=0
+            reconfigure_observed="true"
+        fi
+
+        sleep $sleep_interval
+        iteration=$((iteration + 1))
+    done
+
+    echo "Timed out after ${max_wait_seconds} seconds waiting for the systemd-networkd reload to converge."
+    echo "Current DNS: ${current_dns}"
+    return 1
+}
+
+# Remove iptables rules and revert DNS configuration.
+cleanup_iptables_and_dns() {
+    # Track failures across all cleanup steps so that a failure in one step
+    # (e.g. removing an iptables rule) does not skip the more important DNS
+    # restoration steps below. Restoring node DNS is the priority: if we return
+    # early on an iptables error we could leave the node pointed at a dead
+    # localdns listener via the network drop-in.
+    local cleanup_failed=false
+
+    # Do not derive the route/interface during post-exit cleanup. At this point
+    # network state may already be torn down, so ip route/networkctl discovery
+    # can fail and leave the node pointed at the dead LocalDNS listener. Remove
+    # the configured drop-in and any matching drop-ins directly; this also works
+    # when NETWORK_DROPIN_FILE was never initialized in this process.
+    # Revert DNS configuration before touching iptables. Keep the dummy interface
+    # and its .10/.11 addresses here: if an orphaned CoreDNS child survived a
+    # failed cgroup teardown, removing the interface would break a listener
+    # that may still be serving pods. The service-recovery path handles the
+    # next-start interface lifecycle separately.
+    local network_dropin_file
+    for network_dropin_file in "${NETWORK_DROPIN_FILE:-}" /run/systemd/network/*.d/70-localdns.conf; do
+        [ -e "$network_dropin_file" ] || continue
+        echo "Removing network drop-in file ${network_dropin_file}."
+        if ! rm -f "$network_dropin_file"; then
+            echo "Failed to remove network drop-in file ${network_dropin_file}."
+            cleanup_failed=true
+        else
+            echo "Successfully removed network drop-in file."
+        fi
+    done
+
+    echo "Attempt to reload network configuration."
+    if ! eval "$NETWORKCTL_RELOAD_CMD"; then
+        echo "Failed to reload network after removing the DNS configuration."
+        cleanup_failed=true
+    else
+        echo "Reloading network configuration succeeded."
     fi
 
     # Remove any existing localdns iptables rules by searching for our comment.
+    # This runs after DNS restoration so an xtables lock cannot delay removal of
+    # the network drop-in that points the node at the LocalDNS listener.
     echo "Cleaning up any existing localdns iptables rules..."
 
     # Get list of existing localdns rules by searching for our comment.
@@ -688,30 +853,31 @@ cleanup_iptables_and_dns() {
             done
         done
         if [ "$failure_occurred" = true ]; then
-            return 1
+            cleanup_failed=true
         fi
     else
         echo "No existing localdns iptables rules found."
     fi
 
-    # Revert DNS configuration and network reload.
-    echo "Removing network drop-in file ${NETWORK_DROPIN_FILE}."
-    rm -f "$NETWORK_DROPIN_FILE"
-    if [ "$?" -ne 0 ]; then
-        echo "Failed to remove network drop-in file ${NETWORK_DROPIN_FILE}."
+    if [ "$cleanup_failed" = true ]; then
         return 1
     fi
-    echo "Successfully removed network drop-in file."
-
-    echo "Attempt to reload network configuration."
-    eval "$NETWORKCTL_RELOAD_CMD"
-    if [ "$?" -ne 0 ]; then
-        echo "Failed to reload network after removing the DNS configuration."
-        return 1
-    fi
-    echo "Reloading network configuration succeeded."
 
     return 0
+}
+
+# localdns_cleanup_mode is the entry point for `localdns.sh cleanup`, invoked by
+# localdns.service ExecStopPost after both graceful and unexpected exits. It only
+# restores node DNS configuration. It intentionally does not delete the dummy
+# localdns interface or its .10/.11 addresses: if an orphaned CoreDNS child
+# survives a failed cgroup teardown, removing the interface could break a
+# listener that is still serving pods and turn a fast failure into default-route
+# DNS timeouts. Service/process recovery handles the next-start interface
+# lifecycle separately. It always exits 0 so that a best-effort cleanup failure
+# cannot wedge systemd's recovery. Cleanup failures are logged.
+localdns_cleanup_mode() {
+    cleanup_iptables_and_dns || echo "LocalDNS cleanup failed: network drop-in may not have been removed; node DNS may still point at the dead listener ${LOCALDNS_NODE_LISTENER_IP}."
+    exit 0
 }
 
 # Cleanup function to remove localdns related configurations.
@@ -907,6 +1073,7 @@ start_localdns_watchdog() {
             # Update resource metrics .prom file for the exporter (best-effort, non-fatal)
             export_resource_metrics
 
+            # Wait for the next watchdog interval.
             sleep "${HEALTH_CHECK_INTERVAL}"
         done
     else
@@ -982,6 +1149,13 @@ select_localdns_corefile() {
 }
 
 ${__SOURCED__:+return}
+
+# ExecStopPost invokes this mode after both graceful and unexpected exits.
+# Only restore node DNS configuration here; systemd owns process cleanup.
+# Always exit successfully so a cleanup error cannot wedge systemd recovery.
+if [ "${1:-}" = "cleanup" ]; then
+    localdns_cleanup_mode
+fi
 
 # --------------------------------------- Main Execution starts here --------------------------------------------------
 
@@ -1068,6 +1242,13 @@ wait_for_localdns_ready 60 60 || exit $ERR_LOCALDNS_FAIL
 # --------------------------------------------------------------------------------------------------------------------
 echo "Updating network DNS configuration to point to localdns via ${NETWORK_DROPIN_FILE}."
 disable_dhcp_use_clusterlistener || exit $ERR_LOCALDNS_FAIL
+
+# The reload above is asynchronous, and re-configuring the link briefly takes out the route to
+# the upstream DNS servers. Hold off on declaring startup complete until that has settled, so we
+# do not hand traffic to localdns while its egress is still down.
+wait_for_network_reload_settled "${UPSTREAM_VNET_DNS_SERVERS}" "${NETWORK_RELOAD_SETTLE_TIMEOUT}" ||
+    echo "WARNING: Could not confirm the systemd-networkd reload converged, DNS queries may fail briefly."
+
 echo "Startup complete - serving node and pod DNS traffic."
 
 # Export initial resource metrics so the exporter has data before the first watchdog tick.
