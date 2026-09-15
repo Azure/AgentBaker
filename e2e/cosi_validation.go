@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -19,6 +21,15 @@ import (
 // cosiDownloadTimeout is the maximum time allowed for downloading and
 // streaming through the entire COSI file. ACL COSIs can be multi-GB.
 const cosiDownloadTimeout = 30 * time.Minute
+
+// cosiDownloadRetries is the number of attempts made to download a COSI file
+// before giving up. Multi-GB COSI downloads are occasionally interrupted
+// mid-stream by transient network errors, so the whole download is retried
+// from scratch on failure.
+const cosiDownloadRetries = 3
+
+// cosiDownloadRetryBackoff is the delay between COSI download retry attempts.
+const cosiDownloadRetryBackoff = 15 * time.Second
 
 // COSI metadata structs mirroring the COSI v1.2 specification.
 // See: https://github.com/microsoft/trident/docs/Reference/Composable-OS-Image.md
@@ -209,24 +220,83 @@ func validateACLCosi31(t *testing.T, m cosiMetadata) {
 // ESP partition type GUID per Discoverable Partition Specification
 const espPartTypeGUID = "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"
 
+// downloadCOSIFileOnce performs a single attempt at downloading the COSI file
+// at cosiURL to destPath on local disk.
+func downloadCOSIFileOnce(ctx context.Context, cosiURL, destPath string) (err error) {
+	ctx, cancel := context.WithTimeout(ctx, cosiDownloadTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, cosiURL, nil)
+	if err != nil {
+		return fmt.Errorf("creating HTTP request for COSI download: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("downloading COSI file: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("COSI download returned non-200 status: %d", resp.StatusCode)
+	}
+
+	out, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("creating local COSI file %s: %w", destPath, err)
+	}
+	defer func() {
+		if closeErr := out.Close(); err == nil {
+			err = closeErr
+		}
+	}()
+
+	if _, err := io.Copy(out, resp.Body); err != nil {
+		return fmt.Errorf("writing COSI file to %s: %w", destPath, err)
+	}
+	return nil
+}
+
+// downloadCOSIFileWithRetry downloads the COSI file at cosiURL to destPath on
+// local disk, retrying the whole download on failure. Multi-GB COSI
+// downloads are occasionally interrupted mid-stream, and since a partially
+// read tar stream can't be resumed, the simplest reliable fix is to retry
+// the entire download from scratch.
+func downloadCOSIFileWithRetry(ctx context.Context, t *testing.T, cosiURL, destPath string) error {
+	t.Helper()
+	var lastErr error
+	for attempt := 1; attempt <= cosiDownloadRetries; attempt++ {
+		if attempt > 1 {
+			t.Logf("retrying COSI download (attempt %d/%d) after error: %v", attempt, cosiDownloadRetries, lastErr)
+			select {
+			case <-time.After(cosiDownloadRetryBackoff):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		if err := downloadCOSIFileOnce(ctx, cosiURL, destPath); err != nil {
+			lastErr = err
+			continue
+		}
+		return nil
+	}
+	return fmt.Errorf("download COSI file after %d attempts: %w", cosiDownloadRetries, lastErr)
+}
+
 // ValidateACLCOSI downloads a COSI file from the given URL and validates its
 // structure and metadata against the expected ACL disk layout.
 func ValidateACLCOSI(t *testing.T, cosiURL string) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), cosiDownloadTimeout)
-	defer cancel()
 
-	t.Logf("downloading COSI from %s", sanitizeURL(cosiURL))
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, cosiURL, nil)
-	require.NoError(t, err, "creating HTTP request for COSI download")
-
-	resp, err := http.DefaultClient.Do(req)
+	localPath := filepath.Join(t.TempDir(), "acl.cosi")
+	t.Logf("downloading COSI from %s to %s", sanitizeURL(cosiURL), localPath)
+	err := downloadCOSIFileWithRetry(context.Background(), t, cosiURL, localPath)
 	require.NoError(t, err, "downloading COSI file")
-	defer resp.Body.Close()
-	require.Equal(t, http.StatusOK, resp.StatusCode, "COSI download returned non-200 status: %d", resp.StatusCode)
 
-	tr := tar.NewReader(resp.Body)
+	f, err := os.Open(localPath)
+	require.NoError(t, err, "opening downloaded COSI file")
+	defer f.Close()
+
+	tr := tar.NewReader(f)
 
 	// Track which image paths we find in the tar
 	tarImagePaths := make(map[string]string) // path -> sha384 hex
