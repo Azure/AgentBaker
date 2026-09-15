@@ -67,7 +67,6 @@ iptables
 iputils-ping
 iputils-tracepath
 iso-codes
-jq
 kpartx
 krb5-locales
 landscape-common
@@ -131,7 +130,6 @@ libip6tc2
 libisns0t64
 libjcat1
 libjemalloc2
-libjq1
 libjson-glib-1.0-0
 libjson-glib-1.0-common
 libksba8
