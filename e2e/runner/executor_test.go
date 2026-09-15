@@ -26,7 +26,7 @@ func TestAppListsRegisteredScenarios(t *testing.T) {
 	app := NewApp(&stdout, &stderr)
 
 	assert.Equal(t, exitSuccess, app.Run(context.Background(), []string{"e2e", "list"}), stderr.String())
-	assert.Contains(t, stdout.String(), "Ubuntu2204\n", "list did not contain a known scenario")
+	assert.Contains(t, stdout.String(), "Ubuntu2204_CustomLinuxOSConfig_Taints_ANC\n", "list did not contain a known scenario")
 }
 
 func TestAppRejectsUnknownScenario(t *testing.T) {
@@ -128,7 +128,7 @@ func TestAppRejectsUnknownScenarioChild(t *testing.T) {
 	var stderr bytes.Buffer
 	app := NewApp(&stdout, &stderr)
 
-	assert.Equal(t, exitUsage, app.Run(context.Background(), []string{"e2e", "run", "--log-dir", t.TempDir(), "Ubuntu2204/not-a-scenario"}), "stderr: %s", stderr.String())
+	assert.Equal(t, exitUsage, app.Run(context.Background(), []string{"e2e", "run", "--log-dir", t.TempDir(), "Ubuntu2204_CustomLinuxOSConfig_Taints_ANC/not-a-scenario"}), "stderr: %s", stderr.String())
 }
 
 func TestAppSuggestsMistypedFlag(t *testing.T) {
@@ -597,7 +597,7 @@ func TestFilteredScenariosAreNotScheduled(t *testing.T) {
 	report, err := os.ReadFile(opts.junitFile)
 	require.NoError(t, err)
 	assert.Contains(t, string(report), `name="Excluded"`)
-	assert.Contains(t, string(report), "<skipped message=\"filtered: scenario &#34;Excluded&#34;", "JUnit report dropped the filtered scenario")
+	assert.Contains(t, string(report), "<skipped message=\"filtered: matches skip filter &#34;Name=Excluded&#34;", "JUnit report dropped the filtered scenario")
 	assert.Contains(t, string(report), `name="Kept"`, "JUnit report dropped the runnable scenario")
 }
 

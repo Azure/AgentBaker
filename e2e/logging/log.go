@@ -19,7 +19,7 @@ func WithLogger(ctx context.Context, logger Logger) context.Context {
 		log.Println("WARNING: no logger provided, falling back to the standard logger")
 		return ctx
 	}
-	return context.WithValue(ctx, loggerKey{}, logger)
+	return withKlogLogger(context.WithValue(ctx, loggerKey{}, logger))
 }
 
 func FromContext(ctx context.Context) Logger {
