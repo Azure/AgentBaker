@@ -446,6 +446,147 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'disableSSH'
+        run_disable_ssh_cse() {
+            disableSSH || exit "$ERR_DISABLE_SSH"
+        }
+
+        systemctl() {
+            case "$1" in
+                daemon-reload) return 0 ;;
+                cat|stop|disable)
+                    echo "$*"
+                    [ "$*" != "${FAIL_COMMAND:-}" ]
+                    ;;
+                *) return 1 ;;
+            esac
+        }
+
+        timeout() {
+            shift
+            "$@"
+        }
+
+        sleep() {
+            :
+        }
+
+        It 'disables ssh.service on Ubuntu'
+            OS="$UBUNTU_OS_NAME"
+            OS_VARIANT=""
+            When call disableSSH
+            The output should equal "stop ssh.service
+disable ssh.service"
+            The status should be success
+        End
+
+        It 'disables sshd.service on Azure Linux'
+            OS="$AZURELINUX_OS_NAME"
+            OS_VARIANT=""
+            When call disableSSH
+            The output should equal "stop sshd.service
+disable sshd.service"
+            The status should be success
+        End
+
+        It 'disables the socket and service on ACL'
+            OS="$ACL_OS_NAME"
+            OS_VARIANT=""
+            When call disableSSH
+            The output should equal "stop sshd.socket
+disable sshd.socket
+stop sshd.service
+disable sshd.service"
+            The status should be success
+        End
+
+        It 'recognizes ACL through the Azure Linux variant'
+            OS="$AZURELINUX_OS_NAME"
+            OS_VARIANT="$ACL_OS_VARIANT"
+            When call disableSSH
+            The output should equal "stop sshd.socket
+disable sshd.socket
+stop sshd.service
+disable sshd.service"
+            The status should be success
+        End
+
+        It 'returns failure when the socket cannot be disabled'
+            OS="$ACL_OS_NAME"
+            OS_VARIANT=""
+            FAIL_COMMAND="disable sshd.socket"
+            When call disableSSH
+            The output should include "sshd.socket could not be disabled"
+            The output should include "disable sshd.service"
+            The status should be failure
+        End
+
+        It 'still disables both units when stopping the socket fails'
+            OS="$ACL_OS_NAME"
+            OS_VARIANT=""
+            FAIL_COMMAND="stop sshd.socket"
+            When call disableSSH
+            The output should include "sshd.socket could not be stopped"
+            The output should include "disable sshd.socket"
+            The output should include "disable sshd.service"
+            The status should be failure
+        End
+
+        It 'returns failure when the service cannot be disabled'
+            OS="$ACL_OS_NAME"
+            OS_VARIANT=""
+            FAIL_COMMAND="disable sshd.service"
+            When call disableSSH
+            The output should include "sshd.service could not be disabled"
+            The status should be failure
+        End
+
+        It 'rejects an absent or uninspectable expected socket'
+            OS="$ACL_OS_NAME"
+            OS_VARIANT=""
+            FAIL_COMMAND="cat sshd.socket"
+            When call disableSSH
+            The output should equal "Cannot inspect expected SSH unit sshd.socket"
+            The status should be failure
+        End
+
+        It 'maps a stop failure to the CSE SSH error code'
+            OS="$ACL_OS_NAME"
+            OS_VARIANT=""
+            FAIL_COMMAND="stop sshd.service"
+            When run run_disable_ssh_cse
+            The output should include "sshd.service could not be stopped"
+            The output should include "disable sshd.service"
+            The status should equal 172
+        End
+
+        It 'disables sshd.service on Mariner'
+            OS="$MARINER_OS_NAME"
+            OS_VARIANT=""
+            When call disableSSH
+            The output should equal "stop sshd.service
+disable sshd.service"
+            The status should be success
+        End
+
+        It 'disables sshd.service on Flatcar'
+            OS="$FLATCAR_OS_NAME"
+            OS_VARIANT=""
+            When call disableSSH
+            The output should equal "stop sshd.service
+disable sshd.service"
+            The status should be success
+        End
+
+        It 'rejects unsupported operating systems'
+            OS="UNKNOWN"
+            OS_VARIANT=""
+            When call disableSSH
+            The output should equal "Disabling SSH is not supported on OS UNKNOWN"
+            The status should be failure
+        End
+    End
+
     Describe 'disableSSHPubkeyAuth'
         setup() {
             SSHD_CONFIG_FILE="$(mktemp)"
