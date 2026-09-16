@@ -69,6 +69,18 @@ systemctlEnableAndStart ci-syslog-watcher.service 30 || exit 1
 if isACL "$OS" "$OS_VARIANT"; then
     # Arm the Trident ACL Agent, which drives A/B OS updates on ACL nodes.
     #
+    # The agent's service unit comes from the trident-acl-agent package in the
+    # base image. Fail the build if it is absent rather than shipping an image
+    # whose update agent can never start: this is the point at which a missing
+    # package is both visible and actionable. At runtime the path unit below
+    # carries a matching condition, so a node that somehow lacks the unit skips
+    # it with the reason logged instead of failing.
+    TAA_SERVICE_UNIT=/usr/lib/systemd/system/trident-acl-agent.service
+    if [ ! -f "${TAA_SERVICE_UNIT}" ]; then
+        echo "ERROR: ${TAA_SERVICE_UNIT} not found. The trident-acl-agent package must be installed in the ACL base image."
+        exit 1
+    fi
+
     # Only the path unit is enabled, not the service. The agent authenticates
     # to the API server with kubelet's kubeconfig and exits if that file is
     # absent, which on a new node it is until kubelet finishes TLS
