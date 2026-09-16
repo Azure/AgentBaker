@@ -169,6 +169,31 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_gpu.sh",
+      "destination": "/home/packer/provision_configs_gpu.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_localdns.sh",
+      "destination": "/home/packer/provision_configs_localdns.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_kubelet.sh",
+      "destination": "/home/packer/provision_configs_kubelet.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_network.sh",
+      "destination": "/home/packer/provision_configs_network.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_addons.sh",
+      "destination": "/home/packer/provision_configs_addons.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_main.sh",
       "destination": "/home/packer/provision.sh"
     },

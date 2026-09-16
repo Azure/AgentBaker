@@ -1,6 +1,13 @@
 name: Windows Powershell Unit Test
 on: pull_request
 
+# Cancel a superseded run when a new commit is pushed to the same PR, so its (now stale)
+# results never race the newer push's publisher for the test-results/coverage comments - see
+# windows-ut-publish.yml for the belt-and-braces check on the publishing side too.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # To run these tests on a Windows machine, you can use the commands below. However, most people have their git repo
 # stored in WSL. So you'll need to change directory to whereever you have the repo checked out in WSL. Something like this:
 # cd \\wsl$\Ubuntu\home\tim\git\AgentBaker
@@ -11,9 +18,6 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: read
-      checks: write
-      issues: write
-      pull-requests: write
     steps:
       - name: Check out repository code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -112,34 +116,24 @@ jobs:
           $result
           $result.Failed | Format-Table
 
-      - name: Publish Unit Test Results
-        uses: EnricoMi/publish-unit-test-result-action/windows@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
+      # EnricoMi/publish-unit-test-result-action needs pull-requests: write (to post its
+      # summary comment) and checks: write (to create the check run). Keeping those scopes
+      # out of this job (which executes PR-controlled PowerShell) matters here: this repo
+      # only accepts PRs from branches within Azure/AgentBaker (no forks), so the "fork PRs
+      # get a read-only token" GitHub Actions safety net doesn't apply. Upload the test
+      # results (and Cobertura reports) as artifacts and publish both from
+      # windows-ut-publish.yml, a separate workflow_run-triggered workflow, instead - see
+      # that file for why this can't just be a second job here.
+      - name: Upload test results and coverage reports
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: (!cancelled())
         with:
-          check_name: Windows Unit Test Results
-          files: |
-            test-results/parts_windows.xml
-            test-results/vhdbuilder_packer_windows.xml
-            test-results/staging_cse_windows.xml
-
-      # coverage upload is linux runner only - need to find a windows way of doing this.
-      # - name: Code Coverage Report
-      #   uses: irongut/CodeCoverageSummary@51cc3a756ddcd398d447c044c02cb6aa83fdae95 # v1.3.0
-      #   if: (!cancelled())
-      #   with:
-      #     filename: coverage/*.xml
-      #     badge: true
-      #     fail_below_min: false
-      #     format: markdown
-      #     hide_branch_rate: false
-      #     hide_complexity: true
-      #     indicators: true
-      #     output: both
-      #     thresholds: '60 80'
-
-      # - name: Add Coverage PR Comment
-      #   uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2.9.4
-      #   if: github.event_name == 'pull_request'
-      #   with:
-      #     recreate: true
-      #     path: code-coverage-results.md
+          name: pester-coverage
+          # Whole directories, not globs: upload-artifact strips everything before the first
+          # wildcard in a glob (e.g. `coverage/*.xml` -> bare filenames), which would collide
+          # with `test-results/*.xml`'s bare filenames once both share one artifact. Directory
+          # paths instead use the least-common-ancestor rule, keeping both subtrees intact.
+          path: |
+            test-results/
+            coverage/
+          retention-days: 5

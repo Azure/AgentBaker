@@ -1,5 +1,5 @@
 #!/bin/bash
-# FIPS Helper Functions for VHD Scanning
+# FIPS Helper Functions for VHD Validation
 
 # FIPS 140-3 encryption is not automatically supported in Linux VMs.
 # Because not all extensions are onboarded to FIPS 140-3 yet, subscriptions must register the Microsoft.Compute/OptInToFips1403Compliance feature.
@@ -59,9 +59,19 @@ build_fips_vm_body() {
     local vm_size="$8"
     local enable_trusted_launch="$9"
 
+    local identity=""
+    if [ -n "$umsi_resource_id" ]; then
+        identity='"identity": {
+    "type": "UserAssigned",
+    "userAssignedIdentities": {
+      "'"$umsi_resource_id"'": {}
+    }
+  },'
+    fi
+
     # Build security profile section if Trusted Launch is enabled
     local security_profile=""
-    if [ "$enable_trusted_launch" = "True" ]; then
+    if [ "${enable_trusted_launch,,}" = "true" ]; then
         security_profile=',
     "securityProfile": {
       "securityType": "TrustedLaunch",
@@ -75,12 +85,7 @@ build_fips_vm_body() {
     cat <<EOF
 {
   "location": "$location",
-  "identity": {
-    "type": "UserAssigned",
-    "userAssignedIdentities": {
-      "$umsi_resource_id": {}
-    }
-  },
+  $identity
   "properties": {
     "additionalCapabilities": {
       "enableFips1403Encryption": true
@@ -121,27 +126,36 @@ EOF
 # Function to create FIPS-enabled VM using REST API
 create_fips_vm() {
     local vm_size="$1"
+    local vm_name="$2"
+    local admin_username="$3"
+    local admin_password_variable="$4"
+    local image_id="$5"
+    local nic_id="$6"
+    local umsi_resource_id="$7"
+    local resource_group_name="$8"
     echo "Creating VM with FIPS 140-3 encryption using REST API..."
 
     # Disable tracing to prevent password from appearing in logs
     set +x
+    local admin_password="${!admin_password_variable}"
     # Build the VM request body for FIPS scenario
-    local VM_BODY=$(build_fips_vm_body \
+    local vm_body
+    vm_body=$(build_fips_vm_body \
         "$PACKER_BUILD_LOCATION" \
-        "$SCAN_VM_NAME" \
-        "$SCAN_VM_ADMIN_USERNAME" \
-        "$SCAN_VM_ADMIN_PASSWORD" \
-        "$VHD_IMAGE" \
-        "$SCANNING_NIC_ID" \
-        "$UMSI_RESOURCE_ID" \
+        "$vm_name" \
+        "$admin_username" \
+        "$admin_password" \
+        "$image_id" \
+        "$nic_id" \
+        "$umsi_resource_id" \
         "$vm_size" \
         "$ENABLE_TRUSTED_LAUNCH")
 
     # Create the VM using REST API
     az rest \
         --method put \
-        --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/virtualMachines/${SCAN_VM_NAME}?api-version=2024-11-01" \
-        --body "$VM_BODY"
+        --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${resource_group_name}/providers/Microsoft.Compute/virtualMachines/${vm_name}?api-version=2024-11-01" \
+        --body "$vm_body"
 
     # Check for errors in the REST API call
     local az_rest_exit_code=$?
@@ -154,7 +168,7 @@ create_fips_vm() {
 
     # Wait for VM to be ready (timeout after 10 minutes)
     echo "Waiting for VM to be ready..."
-    az vm wait --created --name $SCAN_VM_NAME --resource-group $RESOURCE_GROUP_NAME --timeout 600
+    az vm wait --created --name "$vm_name" --resource-group "$resource_group_name" --timeout 600
 
     # Check for errors in the az wait command
     local az_wait_exit_code=$?

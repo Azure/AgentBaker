@@ -12,7 +12,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.25'
+          go-version: '1.26'
       - name: Install cue
         run: |
           go version
@@ -59,7 +59,7 @@ jobs:
       working-directory: ./e2e
       run: |
         set -ex
-        go test -v -run ^TestVersionConsistencyGPUManagedComponents$ .
+        go test -v -run ^TestVersionConsistencyGPUManagedComponents$ ./scenario
 
   dcgm-compatibility:
     runs-on: ubuntu-latest

@@ -51,7 +51,7 @@ mkdir -p "${DefaultWorkingDirectory}/e2e/${LOGGING_DIR}"
 VHD_BUILD_ID="${VHD_BUILD_ID:-}"
 IGNORE_SCENARIOS_WITH_MISSING_VHD="${IGNORE_SCENARIOS_WITH_MISSING_VHD:-}"
 LOGGING_DIR="${LOGGING_DIR:-}"
-ENABLE_SECURE_TLS_BOOTSTRAPPING="${ENABLE_SECURE_TLS_BOOTSTRAPPING:-true}"
+ENABLE_SECURE_TLS_BOOTSTRAPPING="${ENABLE_SECURE_TLS_BOOTSTRAPPING:-false}"
 TAGS_TO_SKIP="${TAGS_TO_SKIP:-}"
 TAGS_TO_RUN="${TAGS_TO_RUN:-}"
 E2E_GO_TEST_TIMEOUT="${E2E_GO_TEST_TIMEOUT:-80m}"
@@ -98,7 +98,7 @@ az extension add --name bastion
 cd e2e
 go test -count=1 ./...
 
-go run ./cmd/e2e run \
+go run . run \
   --parallel 60 \
   --suite-timeout "${E2E_GO_TEST_TIMEOUT}" \
   --retries "${E2E_FAILED_TESTS_RETRY_COUNT}" \

@@ -13,4 +13,4 @@ if [ -n "${VHD_BUILD_ID:-}" ]; then
 fi
 
 go version
-go run ./cmd/e2e run "$@"
+go run . run "$@"

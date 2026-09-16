@@ -162,7 +162,7 @@ go build ./...
 
 # Focused real-refresh health on branch-delivered scripted CSE.
 # Set RCV1P_E2E_SUBSCRIPTION_ID to the verified dedicated test subscription.
-TEST_TIMEOUT=90m RCV1P_TAGS_AUTO_INJECTED=true go run ./cmd/e2e run \
+TEST_TIMEOUT=90m RCV1P_TAGS_AUTO_INJECTED=true go run . run \
   --subscription-id "$RCV1P_E2E_SUBSCRIPTION_ID" \
   --tags rcv1pcertmode=true --parallel 3 --retries 0 --disable-scriptless \
   RCV1P_Ubuntu2204 RCV1P_Ubuntu2404 RCV1P_AzureLinuxV3
@@ -229,14 +229,17 @@ real-refresh health stages:
    temporary files. The harness tears down the scenario VM.
 
 The fixture uses the harness's existing blob transport for its binary and
-script, avoiding large SCP messages over Bastion. It never downloads customer
-certificates and commits no private keys.
+branch scripts, including the sibling modules sourced by `cse_config.sh`,
+avoiding large SCP messages over Bastion. Scripts come from the embedded
+repository artifacts, and the fixture build resolves the E2E module independently
+of the caller's working directory. It never downloads customer certificates
+and commits no private keys.
 
 For a focused synthetic run in the same verified dedicated setup:
 
 ```sh
 go test ./cmd/ca-rotation-fixture
-TEST_TIMEOUT=90m go run ./cmd/e2e run --subscription-id "$RCV1P_E2E_SUBSCRIPTION_ID" \
+TEST_TIMEOUT=90m go run . run --subscription-id "$RCV1P_E2E_SUBSCRIPTION_ID" \
   --tags rcv1pcertmode=true --parallel 3 --retries 0 --disable-scriptless \
   RCV1P_ContainerdSyntheticCARotation
 ```
@@ -247,14 +250,39 @@ Flatcar/ACL/Mariner paths are not proven by the three scenarios above.
 
 ### Local restart-revision validation
 
-The 56 focused shell cases, root Go suite and vet, E2E unit suite and vet,
-harness build and Linux fixture cross-build pass locally. The fixture and shared
-evidence package also pass race tests. The two scripted Ubuntu size guards pass,
+Before integrating main, at `5c7eea23415df2fee4a56ce29ecbf616b8753bab`,
+the 56 focused shell cases, root Go suite and vet, E2E unit suite and vet,
+harness build and Linux fixture cross-build passed locally. The fixture and shared
+evidence package also passed race tests. The two scripted Ubuntu size guards passed,
 as detailed below. Standard gzip decoding, deterministic encoding, artifact
 round trips and production-rendered provenance remain covered. ANC parser
 regeneration passes without snapshot changes. macOS tests and cross-compilation
 do not establish live Linux/systemd restart safety, workload continuity or
 cross-OS coverage.
+
+### Main integration: payload-size blocker
+
+Integrating main at `2944b6dce46ce9721aadb099a2adf94b4ac498e7` preserves the
+conditional-restart production script, ports the CA validators to the new
+scenario/runner packages, and stages the registry generator's split modules
+together. The E2E unit suite, vet and builds pass, as do root vet, gzip
+compatibility, fixture/shared-evidence race tests, the Linux fixture cross-build
+and 70 focused shell cases.
+
+**The root Go suite is not passing:** both scripted Ubuntu 22.04 and 24.04
+CustomData guards now measure **68,190 bytes / 90,920 encoded characters**,
+exceeding the unchanged **87,380-character limit by 3,540 characters**.
+The earlier passing payload measurements below predate this integration.
+Conflict resolution is published with this explicit blocker; additional
+payload/compression work is deferred. No guard is weakened, provisioning
+safeguard removed, or production encoding changed to hide the failure.
+This branch must not be treated as merge- or rollout-ready.
+
+Repository-wide `make validate-shell` also fails its POSIX-only pass
+(`SC3010`/`SC3014`) on Bash-specific syntax across existing scripts, including
+the unchanged refresh coordinator's digest check. The normal shell-dialect
+pass succeeds. This lint failure is recorded rather than waived or addressed
+through unrelated production-script edits in the conflict-resolution commit.
 
 ### Historical validation of the superseded design
 
@@ -325,7 +353,7 @@ contain the exact dedicated subscription, so no local live run was attempted. Ho
 validation must use that existing dedicated routing and the PR commit, with
 matching candidate VHDs for paths that do not deliver the script via CSE. The prior generic
 fixture successes are not relabeled as dedicated RCV1P integration passes.
-Review readiness is not merge or rollout readiness. The last reviewed pipeline
+Review readiness is not merge or rollout readiness. The pre-integration pipeline
 snapshot had merge-conflict-blocked gates; earlier general/GPU failures remain
 unresolved. New design changes do not waive those gates or replace live coverage.
 
@@ -348,10 +376,11 @@ switch**. There is no new node-side dependency, no alternate cloud-init encoding
 and no per-file format exception. The standard-library gzip reader remains in
 the decoder and compatibility tests.
 
-Both Ubuntu cases now produce **65,488 bytes / 87,320 encoded characters**,
+Before main integration, both Ubuntu cases produced **65,488 bytes / 87,320 encoded characters**,
 leaving **60 encoded characters** below the unchanged 87,380 limit. This is
-still a narrow margin for these configurations, not a guarantee for arbitrary
-CustomData. Keep the guard when extending embedded scripts.
+a historical measurement, superseded by the failing merged measurements above,
+not a guarantee for arbitrary CustomData. Keep the guard when extending embedded
+scripts.
 
 Local three-run compression benchmarks on Apple M4 Pro measured the init script
 at 0.58-0.62 ms versus 0.70-0.71 ms with the standard encoder, and `cse_config.sh`

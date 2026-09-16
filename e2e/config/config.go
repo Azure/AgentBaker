@@ -18,10 +18,6 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-const (
-	DefaultV5VMSKU = "Standard_D2ds_v5"
-)
-
 var (
 	// Config is populated before scenario goroutines start and is immutable after Initialize.
 	Config                                                             = DefaultConfiguration()
@@ -53,6 +49,8 @@ type Configuration struct {
 	DefaultPollInterval                    time.Duration
 	DefaultSubnetName                      string
 	DefaultVMSKU                           string
+	Gen1SCSIVMSKU                          string
+	MANAVMSKU                              string
 	DisableScriptless                      bool
 	DisableScriptLessCompilation           bool
 	E2ELoggingDir                          string
@@ -99,8 +97,10 @@ func DefaultConfiguration() *Configuration {
 		DefaultPollInterval:                    15 * time.Second,
 		DefaultSubnetName:                      "aks-subnet",
 		DefaultVMSKU:                           "Standard_D2ds_v5",
+		Gen1SCSIVMSKU:                          "Standard_D2ds_v5",
+		MANAVMSKU:                              "Standard_D2ds_v6",
 		E2ELoggingDir:                          "scenario-logs",
-		EnableSecureTLSBootstrapping:           true,
+		EnableSecureTLSBootstrapping:           false,
 		GalleryLinux: Gallery{
 			Name:              "PackerSigGalleryEastUS",
 			ResourceGroupName: "aksvhdtestbuildrg",

@@ -87,7 +87,7 @@ EOF
     When run bash -c 'cd "${TEST_REPO}/e2e" && unset TIMEOUT PARALLEL && "${ROOT_DIR}/e2e/e2e-local.sh" "Ubuntu 2204" "--flag=value"'
     The status should be success
     The stderr should be present
-    The contents of file "${COMMAND_LOG}" should include 'go <run> <./cmd/e2e> <run> <Ubuntu 2204> <--flag=value>'
+    The contents of file "${COMMAND_LOG}" should include 'go <run> <.> <run> <Ubuntu 2204> <--flag=value>'
     The contents of file "${COMMAND_LOG}" should include 'runner-env <90m> <100>'
   End
 
@@ -110,7 +110,7 @@ EOF
     The status should be success
     The output should be present
     The contents of file "${COMMAND_LOG}" should include 'go <test> <-count=1> <./...>'
-    The contents of file "${COMMAND_LOG}" should include 'go <run> <./cmd/e2e> <run> <--parallel> <60> <--suite-timeout> <75m> <--retries> <2> <--log-dir> <scenario-logs-12345> <--junit-file>'
+    The contents of file "${COMMAND_LOG}" should include 'go <run> <.> <run> <--parallel> <60> <--suite-timeout> <75m> <--retries> <2> <--log-dir> <scenario-logs-12345> <--junit-file>'
     The contents of file "${COMMAND_LOG}" should include '<--output> <grouped>'
   End
 

@@ -1,0 +1,337 @@
+package scenario
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sync"
+
+	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+)
+
+// cachedFunc creates a thread-safe memoized version of a function.
+// Results, including errors, are cached per unique Request key so concurrent
+// scenarios cannot repeatedly start the same shared-infrastructure operation.
+// Waiters may stop waiting when their own context is canceled without canceling
+// the shared operation started by the first caller.
+// Request type must be comparable (no slices/maps/pointers).
+// Cache persists for program lifetime with no TTL or invalidation.
+// WARNING: Incorrect keys can cause hard-to-debug cache collisions.
+func cachedFunc[Request comparable, Response any](fn func(context.Context, Request) (Response, error)) func(context.Context, Request) (Response, error) {
+	type entry struct {
+		start sync.Once
+		done  chan struct{}
+		value Response
+		err   error
+	}
+
+	var cache sync.Map
+
+	return func(ctx context.Context, key Request) (Response, error) {
+		actual, _ := cache.LoadOrStore(key, &entry{done: make(chan struct{})})
+		e := actual.(*entry)
+		owner := false
+		e.start.Do(func() {
+			owner = true
+		})
+		if owner {
+			defer close(e.done)
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					e.err = fmt.Errorf("cached operation panicked: %v", recovered)
+					panic(recovered)
+				}
+			}()
+			e.value, e.err = fn(ctx, key)
+			return e.value, e.err
+		}
+
+		select {
+		case <-e.done:
+			return e.value, e.err
+		case <-ctx.Done():
+			var zero Response
+			return zero, ctx.Err()
+		}
+	}
+}
+
+var CachedCreateGallery = cachedFunc(createGallery)
+
+type CreateGalleryRequest struct {
+	Location      string
+	ResourceGroup string
+}
+
+// createGallery creates or retrieves an Azure Compute Gallery for e2e testing
+func createGallery(ctx context.Context, request CreateGalleryRequest) (armcompute.Gallery, error) {
+	// gallery name should be unique within the subscription
+	// minus isn't allowed
+	galleryName := config.Config.TestGalleryNamePrefix + request.Location
+
+	gallery, err := config.Azure.Galleries.Get(ctx, request.ResourceGroup, galleryName, nil)
+	if err == nil {
+		return gallery.Gallery, nil
+	}
+	if !isNotFoundErr(err) {
+		return armcompute.Gallery{}, fmt.Errorf("failed to get gallery: %w", err)
+	}
+	// If the gallery does not exist, create it.
+	poller, err := config.Azure.Galleries.BeginCreateOrUpdate(ctx, request.ResourceGroup, galleryName, armcompute.Gallery{
+		Location: to.Ptr(request.Location),
+		Properties: &armcompute.GalleryProperties{
+			Description: to.Ptr("E2E test gallery for VHD caching"),
+		},
+	}, nil)
+	if err != nil {
+		return armcompute.Gallery{}, fmt.Errorf("failed to create gallery: %w", err)
+	}
+	resp, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
+	if err != nil {
+		return armcompute.Gallery{}, fmt.Errorf("failed to poll gallery creation: %w", err)
+	}
+	return resp.Gallery, nil
+}
+
+var CachedCreateGalleryImage = cachedFunc(createGalleryImage)
+
+type CreateGalleryImageRequest struct {
+	ResourceGroup    string
+	GalleryName      string
+	Location         string
+	Arch             string
+	Windows          bool
+	HyperVGeneration *armcompute.HyperVGeneration
+}
+
+// createGalleryImage creates or retrieves an Azure Compute Gallery Image for e2e testing
+func createGalleryImage(ctx context.Context, request CreateGalleryImageRequest) (armcompute.GalleryImage, error) {
+	imageName := fmt.Sprintf("%s-%s-%s-gen%s", config.Config.TestGalleryImagePrefix, request.Location, request.Arch, *request.HyperVGeneration)
+	if request.Windows {
+		imageName += "-windows"
+	} else {
+		imageName += "-linux"
+	}
+	image, err := config.Azure.GalleryImages.Get(ctx, request.ResourceGroup, request.GalleryName, imageName, nil)
+	if err == nil {
+		return image.GalleryImage, nil
+	}
+	if !isNotFoundErr(err) {
+		return armcompute.GalleryImage{}, fmt.Errorf("failed to get gallery image: %w", err)
+	}
+	poller, err := config.Azure.GalleryImages.BeginCreateOrUpdate(ctx, request.ResourceGroup, request.GalleryName, imageName, armcompute.GalleryImage{
+		Location: to.Ptr(request.Location),
+		Properties: &armcompute.GalleryImageProperties{
+			Architecture: func() *armcompute.Architecture {
+				if request.Arch == "arm64" {
+					return to.Ptr(armcompute.ArchitectureArm64)
+				}
+				return to.Ptr(armcompute.ArchitectureX64)
+			}(),
+			OSType: func() *armcompute.OperatingSystemTypes {
+				if request.Windows {
+					return to.Ptr(armcompute.OperatingSystemTypesWindows)
+				}
+				return to.Ptr(armcompute.OperatingSystemTypesLinux)
+			}(),
+			OSState: to.Ptr(armcompute.OperatingSystemStateTypesGeneralized),
+			Identifier: &armcompute.GalleryImageIdentifier{
+				// Combination of these 3 fields must be unique for each image
+				Publisher: to.Ptr("akse2e"),
+				Offer:     to.Ptr("akse2e"),
+				SKU:       to.Ptr(imageName),
+			},
+			HyperVGeneration: request.HyperVGeneration, // IMPORTANT, INCORRECT VALUE CAUSES VM PROVISIONING TO FAIL WITHOUT CLEAR ERROR MESSAGE
+		},
+	}, nil)
+	if err != nil {
+		return armcompute.GalleryImage{}, fmt.Errorf("failed to create gallery image: %w", err)
+	}
+	resp, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
+	if err != nil {
+		return armcompute.GalleryImage{}, fmt.Errorf("failed to poll gallery image creation: %w", err)
+	}
+	return resp.GalleryImage, nil
+}
+
+// ClusterRequest represents the parameters needed to create a cluster
+type ClusterRequest struct {
+	Location         string
+	K8sSystemPoolSKU string
+}
+
+var ClusterLatestKubernetesVersion = cachedFunc(clusterLatestKubernetesVersion)
+
+// clusterLatestKubernetesVersion creates a cluster with the latest available Kubernetes version
+func clusterLatestKubernetesVersion(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-k8s-v2", request.Location, request.K8sSystemPoolSKU)
+	if err != nil {
+		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
+	}
+	return prepareCluster(ctx, model, false, false)
+}
+
+var ClusterLatestKubernetesVersionKubenet = cachedFunc(clusterLatestKubernetesVersionKubenet)
+
+func clusterLatestKubernetesVersionKubenet(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-k8s-kubenet-v1", request.Location, request.K8sSystemPoolSKU)
+	if err != nil {
+		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
+	}
+	model = kubenetClusterModelMutator(model)
+	return prepareCluster(ctx, model, false, false)
+}
+
+var ClusterLatestKubernetesVersionAzureNetwork = cachedFunc(clusterLatestKubernetesVersionAzureNetwork)
+
+func clusterLatestKubernetesVersionAzureNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-k8s-azure-network-v1", request.Location, request.K8sSystemPoolSKU)
+	if err != nil {
+		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
+	}
+	model = azureNetworkClusterModelMutator(model)
+	return prepareCluster(ctx, model, false, false)
+}
+
+var ClusterLatestKubernetesVersionAzureOverlayNetworkDualStack = cachedFunc(clusterLatestKubernetesVersionAzureOverlayNetworkDualStack)
+
+func clusterLatestKubernetesVersionAzureOverlayNetworkDualStack(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-k8s-azure-overlay-dualstack-v1", request.Location, request.K8sSystemPoolSKU)
+	if err != nil {
+		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
+	}
+	model = azureOverlayNetworkDualStackClusterModelMutator(model)
+	return prepareCluster(ctx, model, false, false)
+}
+
+var ClusterLatestKubernetesVersionAzureBootstrapProfileCache = cachedFunc(clusterLatestKubernetesVersionAzureBootstrapProfileCache)
+
+// clusterAzureBootstrapProfileCache creates a cluster with bootstrap profile cache but without network isolation
+func clusterLatestKubernetesVersionAzureBootstrapProfileCache(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-k8s-azure-bootstrapprofile-cache-v1", request.Location, request.K8sSystemPoolSKU)
+	if err != nil {
+		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
+	}
+	model = azureNetworkClusterModelMutator(model)
+	return prepareCluster(ctx, model, false, true)
+}
+
+var ClusterKubenet = cachedFunc(clusterKubenet)
+
+// clusterKubenet creates a basic cluster using kubenet networking with shared VNet
+func clusterKubenet(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	clusterName := "abe2e-kubenet-v5"
+	model := getKubenetClusterModel(clusterName, request.Location, request.K8sSystemPoolSKU)
+	return prepareCluster(ctx, model, false, false)
+}
+
+var ClusterAzureNetwork = cachedFunc(clusterAzureNetwork)
+
+// clusterAzureNetwork creates a cluster with Azure CNI networking
+func clusterAzureNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model := getAzureNetworkClusterModel("abe2e-azure-network-v4", request.Location, request.K8sSystemPoolSKU)
+	return prepareCluster(ctx, model, false, false)
+}
+
+var ClusterAzureBootstrapProfileCache = cachedFunc(clusterAzureBootstrapProfileCache)
+
+// clusterAzureBootstrapProfileCache creates a cluster with bootstrap profile cache but without network isolation
+func clusterAzureBootstrapProfileCache(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model := getAzureNetworkClusterModel("abe2e-azure-bootstrapprofile-cache-v2", request.Location, request.K8sSystemPoolSKU)
+	return prepareCluster(ctx, model, false, true)
+}
+
+var ClusterAzureNetworkIsolated = cachedFunc(clusterAzureNetworkIsolated)
+
+// clusterAzureNetworkIsolated creates a networkisolated Azure network cluster (no internet access)
+func clusterAzureNetworkIsolated(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model := getAzureNetworkClusterModel("abe2e-azure-networkisolated-v3", request.Location, request.K8sSystemPoolSKU)
+	return prepareCluster(ctx, model, true, false)
+}
+
+var ClusterAzureOverlayNetwork = cachedFunc(clusterAzureOverlayNetwork)
+
+// clusterAzureOverlayNetwork creates a cluster with Azure CNI Overlay networking
+func clusterAzureOverlayNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model := getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network-v4", request.Location, request.K8sSystemPoolSKU)
+	return prepareCluster(ctx, model, false, false)
+}
+
+var ClusterAzureOverlayNetworkDualStack = cachedFunc(clusterAzureOverlayNetworkDualStack)
+
+func clusterAzureOverlayNetworkDualStack(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model := getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack-v6", request.Location, request.K8sSystemPoolSKU)
+	return prepareCluster(ctx, model, false, false)
+}
+
+var ClusterCiliumNetwork = cachedFunc(clusterCiliumNetwork)
+
+// clusterCiliumNetwork creates a cluster with Cilium CNI networking
+func clusterCiliumNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model := getCiliumNetworkClusterModel("abe2e-cilium-network-v4", request.Location, request.K8sSystemPoolSKU)
+	return prepareCluster(ctx, model, false, false)
+}
+
+// isNotFoundErr checks if an error represents a "not found" response from Azure API
+func isNotFoundErr(err error) bool {
+	var respErr *azcore.ResponseError
+	if errors.As(err, &respErr) {
+		return respErr.StatusCode == 404
+	}
+	return false
+}
+
+var CachedPrepareVHD = cachedFunc(prepareVHD)
+
+type GetVHDRequest struct {
+	Location string
+	Image    config.Image
+}
+
+// prepareVHD retrieves the Azure resource ID for a VHD image. A gallery is scanned for the correct version
+// and replicated to the location specified in the request if it does not already exist.
+func prepareVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceID, error) {
+	return config.GetVHDResourceID(ctx, request.Image, request.Location)
+}
+
+var CachedEnsureResourceGroup = cachedFunc(ensureResourceGroup)
+var CachedCreateVMManagedIdentity = cachedFunc(func(ctx context.Context, location string) (string, error) {
+	return config.Azure.CreateVMManagedIdentity(ctx, location)
+})
+var CachedCompileAndUploadAKSNodeController = cachedFunc(compileAndUploadAKSNodeController)
+
+// VMSizeSKURequest is the cache key for Resource SKU lookups by VM size and location.
+type VMSizeSKURequest struct {
+	Location string
+	VMSize   string
+}
+
+// CachedVMSizeSupportsNVMe caches the result of querying the Azure Resource SKUs API
+// to determine if a VM size supports the NVMe disk controller type.
+var CachedVMSizeSupportsNVMe = cachedFunc(func(ctx context.Context, req VMSizeSKURequest) (bool, error) {
+	return config.Azure.VMSizeSupportsNVMe(ctx, req.Location, req.VMSize)
+})
+
+// CachedIsVMSizeGen2Only caches the result of querying the Azure Resource SKUs API
+// to determine if a VM size only supports the Gen2 hypervisor.
+var CachedIsVMSizeGen2Only = cachedFunc(func(ctx context.Context, req VMSizeSKURequest) (bool, error) {
+	return config.Azure.IsVMSizeGen2Only(ctx, req.Location, req.VMSize)
+})
+
+// GetLatestExtensionVersionRequest is the cache key for VM extension version lookups.
+type GetLatestExtensionVersionRequest struct {
+	Location  string
+	ExtType   string
+	Publisher string
+}
+
+// CachedGetLatestVMExtensionImageVersion caches the result of querying the Azure API
+// for the latest VM extension image version.
+var CachedGetLatestVMExtensionImageVersion = cachedFunc(
+	func(ctx context.Context, req GetLatestExtensionVersionRequest) (string, error) {
+		return config.Azure.GetLatestVMExtensionImageVersion(ctx, req.Location, req.ExtType, req.Publisher)
+	},
+)

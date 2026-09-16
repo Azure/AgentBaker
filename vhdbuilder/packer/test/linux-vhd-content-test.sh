@@ -727,7 +727,7 @@ testFips() {
   # OpenSSL must have an active FIPS or SymCrypt provider on 3.x (ICM 51000001009688
   # was caused by kernel FIPS on with no provider, causing portmap to panic). Ubuntu
   # 20.04 ships 1.1.x and uses the legacy FIPS module — skip there. Keep in sync with
-  # the Go validator in e2e/validators.go.
+  # the Go validator in e2e/scenario/validators.go.
   if ! command -v openssl >/dev/null 2>&1; then
     err $test "openssl binary not found on a FIPS-enabled VHD."
     echo "$test:Finish"
@@ -1486,7 +1486,8 @@ testNfsServerService() {
 # is still baked in and asserted below. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu
 # 24.04 linux-azure 6.8.0-1058-azure include the fixes, so newly-built Ubuntu
 # 22.04/24.04 VHDs with a fixed running kernel also stop baking the vulnerable-module
-# blacklist while keeping the baseline CIS module deny list. Ubuntu 20.04 and vulnerable
+# blacklist while keeping the baseline CIS module deny list. Ubuntu 20.04 Azure FIPS
+# 5.4 kernels at ABI 1164 or newer also assert ABSENCE. Other Ubuntu 20.04 and vulnerable
 # 22.04/24.04 kernels assert presence + load-refusal; fixed 22.04/24.04 kernels and
 # future Ubuntu releases assert ABSENCE so future releases do not inherit the mitigation.
 # Mariner/AzureLinux 2.0 and AzureLinux OSGuard still assert presence + load-refusal.
@@ -1507,12 +1508,15 @@ ubuntuKernelIncludesVulnerableModuleFixes() {
   local fixed_kernel
 
   kernel_release="$(uname -r 2>/dev/null || true)"
-  if [ -z "$kernel_release" ]; then
+  if [ -z "$os_version" ] || [ -z "$kernel_release" ]; then
     return 1
   fi
 
   case "$os_version" in
-    20.04) return 1 ;;
+    20.04)
+      printf '%s\n' "$kernel_release" | grep -Eq '^5\.4\.0-[0-9]+-azure-fips$' || return 1
+      fixed_kernel="5.4.0-1164-azure-fips"
+      ;;
     22.04)
       case "$kernel_release" in
         # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.

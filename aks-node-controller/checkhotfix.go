@@ -103,6 +103,13 @@ const (
 	outcomeNoHotfixAvailable checkHotfixOutcome = "noHotfixAvailable"
 	// outcomeCustomDataFallback: LPS read failed; the embedded customdata pointer was used.
 	outcomeCustomDataFallback checkHotfixOutcome = "customDataFallback"
+	// outcomeNoColdStartPointer: the LPS could not be reached and the node config carried no
+	// cold-start hotfixes map, so there was nothing to stage. This is benign and expected on a
+	// node whose config was seeded without an injected map: download-hotfix simply keeps the
+	// existing on-disk pointer (the single-version one cloud-init wrote). Nothing failed, so it
+	// must not be reported at error level; the wrapped fetch error is still carried in the
+	// telemetry message to preserve why the LPS was unreachable.
+	outcomeNoColdStartPointer checkHotfixOutcome = "noColdStartPointer"
 	// outcomeFailed: everything failed; nothing was staged. Provisioning still proceeds (exit 0).
 	outcomeFailed checkHotfixOutcome = "failed"
 )
@@ -164,8 +171,13 @@ func (a *App) runCheckHotfixCommand(ctx context.Context) (err error) {
 	message := fmt.Sprintf("check-hotfix outcome=%s", outcome)
 	if err != nil {
 		message = fmt.Sprintf("%s error=%s", message, err.Error())
+	}
+	switch {
+	case level == helpers.EventLevelError:
 		slog.Warn("check-hotfix completed with error (fail-open)", "outcome", outcome, "error", err)
-	} else {
+	case err != nil:
+		slog.Info("check-hotfix completed (fail-open)", "outcome", outcome, "reason", err)
+	default:
 		slog.Info("check-hotfix completed", "outcome", outcome)
 	}
 	if a.eventLogger != nil {
@@ -211,7 +223,7 @@ func (a *App) checkHotfix(ctx context.Context) (checkHotfixOutcome, error) {
 	// value keeps the reported outcome consistent with what download-hotfix will actually read:
 	// a pointer with no entry for this node's base stages nothing resolvable, so it must report
 	// noHotfixForBase, not LPSRead.
-	staged := hotfixConfig{Hotfixes: cfg.Hotfixes, Artifacts: cfg.Artifacts}
+	staged := hotfixConfig{Hotfixes: cfg.Hotfixes}
 
 	if err := writeHotfixConfig(hotfixPath, staged); err != nil {
 		return outcomeFailed, fmt.Errorf("writing hotfix config: %w", err)
@@ -253,7 +265,10 @@ func (a *App) handleFetchError(hotfixPath string, fetchErr error) (checkHotfixOu
 		return outcomeFailed, fmt.Errorf("LPS fetch failed (%w) and cold-start fallback failed: %w", fetchErr, coldErr)
 	}
 	if !ok {
-		return outcomeFailed, fmt.Errorf("LPS fetch failed and no cold-start pointer present: %w", fetchErr)
+		// Benign: no map was injected into the node config, so there is nothing to stage and
+		// the existing on-disk pointer stays intact. Report a non-error outcome while keeping
+		// the fetch error for diagnosis of why the LPS was unreachable.
+		return outcomeNoColdStartPointer, fmt.Errorf("LPS fetch failed and no cold-start pointer present: %w", fetchErr)
 	}
 	if err := writeHotfixConfig(hotfixPath, cfg); err != nil {
 		return outcomeFailed, fmt.Errorf("writing cold-start hotfix config: %w", err)
@@ -444,8 +459,7 @@ func (a *App) coldStartHotfixConfig() (hotfixConfig, bool, error) {
 	// Lenient parse: the AKSNodeConfig is protojson, but the cold-start pointer is an
 	// out-of-contract top-level object, so parse it permissively with encoding/json.
 	var lenient struct {
-		Hotfixes  map[string]string                  `json:"hotfixes"`
-		Artifacts map[string]map[string]artifactInfo `json:"artifacts"`
+		Hotfixes map[string]string `json:"hotfixes"`
 	}
 	if err := json.Unmarshal(raw, &lenient); err != nil {
 		return hotfixConfig{}, false, fmt.Errorf("parsing cold-start hotfixes from node config: %w", err)
@@ -453,7 +467,7 @@ func (a *App) coldStartHotfixConfig() (hotfixConfig, bool, error) {
 	if len(lenient.Hotfixes) == 0 {
 		return hotfixConfig{}, false, nil
 	}
-	return hotfixConfig{Hotfixes: lenient.Hotfixes, Artifacts: lenient.Artifacts}, true, nil
+	return hotfixConfig{Hotfixes: lenient.Hotfixes}, true, nil
 }
 
 // writeHotfixConfig stages the LPS-served hotfixes map to the path download-hotfix reads.
@@ -482,21 +496,13 @@ func writeHotfixConfig(path string, cfg hotfixConfig) error {
 		hotfixes = map[string]string{}
 	}
 	out := struct {
-		Version        string                             `json:"version,omitempty"`
-		ScriptsVersion string                             `json:"scripts_version,omitempty"`
-		Hotfixes       map[string]string                  `json:"hotfixes"`
-		Artifacts      map[string]map[string]artifactInfo `json:"artifacts,omitempty"`
+		Version        string            `json:"version,omitempty"`
+		ScriptsVersion string            `json:"scripts_version,omitempty"`
+		Hotfixes       map[string]string `json:"hotfixes"`
 	}{
 		Version:        existing.Version,
 		ScriptsVersion: existing.ScriptsVersion,
 		Hotfixes:       hotfixes,
-		Artifacts:      cfg.Artifacts,
-	}
-	// Preserve existing artifacts when the incoming config has none (e.g. LPS response
-	// doesn't include artifacts yet). This mirrors the Version/ScriptsVersion preservation
-	// and avoids erasing artifacts that cloud-init originally wrote.
-	if out.Artifacts == nil {
-		out.Artifacts = existing.Artifacts
 	}
 	data, err := json.Marshal(out)
 	if err != nil {

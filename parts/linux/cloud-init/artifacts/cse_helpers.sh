@@ -637,19 +637,17 @@ systemctlEnableAndStart() {
 }
 
 systemctlEnableAndStartNoBlock() {
-    service=$1; timeout=$2
+    local service=$1 timeout=$2
 
-    systemctl_restart_no_block 100 5 $timeout $service
-    RESTART_STATUS=$?
-    if [ $RESTART_STATUS -ne 0 ]; then
-        echo "$service could not be enqueued for startup"
-        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
+    if ! retrycmd_if_failure 120 5 25 systemctl enable --no-reload "$service"; then
+        echo "$service could not be enabled by systemctl"
+        systemctl status "$service" --no-pager -l > "/var/log/azure/$service-status.log" || true
         return 1
     fi
 
-    if ! retrycmd_if_failure 120 5 25 systemctl enable $service; then
-        echo "$service could not be enabled by systemctl"
-        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
+    if ! systemctl_restart_no_block 100 5 "$timeout" "$service"; then
+        echo "$service could not be enqueued for startup"
+        systemctl status "$service" --no-pager -l > "/var/log/azure/$service-status.log" || true
         return 1
     fi
 }
@@ -752,8 +750,13 @@ ubuntuKernelNeedsVulnerableModuleMitigation() {
 
     case "$ubuntu_release" in
         20.04)
-            echo "Ubuntu 20.04 remains in scope for Copy Fail / DirtyFrag / Fragnesia vulnerable kernel module mitigation"
-            return 0
+            # Only linux-azure-fips 5.4 has a verified Focal fix for all applicable CVEs.
+            if printf '%s\n' "$kernel_release" | grep -Eq '^5\.4\.0-[0-9]+-azure-fips$'; then
+                fixed_kernel="5.4.0-1164-azure-fips"
+            else
+                echo "Ubuntu 20.04 remains in scope for Copy Fail / DirtyFrag / Fragnesia vulnerable kernel module mitigation on ${kernel_release}"
+                return 0
+            fi
             ;;
         22.04)
             case "$kernel_release" in
