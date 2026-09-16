@@ -1,20 +1,17 @@
 BeforeAll {
     # windows-vhd-content-test.ps1 is a real test-runner script (dot-sources
-    # windows-vhd-configuration.ps1 and unconditionally runs every Test-* function at the bottom),
-    # not a pure function library, so we strip the dot-source and swallow the resulting top-level
-    # errors from those unconditional calls (they run against an undefined $map/$windowsSku here) -
-    # every function above that point, including Test-PrivatePackageSignature, is already defined
-    # by the time we get there.
+    # windows-vhd-configuration.ps1, then unconditionally runs every Test-* function starting at
+    # its "Starting Tests" marker), not a pure function library, so we strip both the dot-source
+    # and that entire trailing invocation block before loading it - every function we need,
+    # including Test-PrivatePackageSignature, is defined above that marker. We can't just wrap
+    # Invoke-Expression in try/catch and let the invocation block run: several of those Test-*
+    # functions call `exit` directly on a real failure (e.g. Test-PatchInstalled on a plain CI
+    # runner that isn't an actual built VHD), and `exit` isn't a catchable exception - it would
+    # kill the whole Pester process before Test-PrivatePackageSignature is even defined.
     $content = Get-Content "$PSScriptRoot\windows-vhd-content-test.ps1" -Raw
     $content = $content -replace [regex]::Escape(". c:\k\windows-vhd-configuration.ps1"), ""
-    try
-    {
-        Invoke-Expression $content
-    }
-    catch
-    {
-        # expected - see comment above
-    }
+    $content = $content -replace '(?s)Write-OutputWithTimestamp "Starting Tests".*', ""
+    Invoke-Expression $content
 }
 
 Describe 'Test-PrivatePackageSignature' {
@@ -111,7 +108,8 @@ Describe 'Test-PrivatePackageSignature' {
         $childScript = @"
 `$content = Get-Content '$PSScriptRoot\windows-vhd-content-test.ps1' -Raw
 `$content = `$content -replace [regex]::Escape('. c:\k\windows-vhd-configuration.ps1'), ''
-try { Invoke-Expression `$content } catch { }
+`$content = `$content -replace '(?s)Write-OutputWithTimestamp "Starting Tests".*', ''
+Invoke-Expression `$content
 function Write-ErrorWithTimestamp(`$m) { Write-Host `$m }
 function Write-OutputWithTimestamp(`$m) { Write-Host `$m }
 function Test-Path { param(`$Path) `$true }
