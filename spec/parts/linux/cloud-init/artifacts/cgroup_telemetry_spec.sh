@@ -21,6 +21,14 @@ Describe 'cgroup telemetry'
         printf 'anon %s\nfile %s\n' "${anon}" "${file}" > "${CGROUP_ROOT}/${cgroup_path}/memory.stat"
     }
 
+    create_memory_stat_v1() {
+        local cgroup_path="$1"
+        local total_rss="$2"
+        local total_cache="$3"
+        mkdir -p "${CGROUP_ROOT}/${cgroup_path}"
+        printf 'total_rss %s\ntotal_cache %s\n' "${total_rss}" "${total_cache}" > "${CGROUP_ROOT}/${cgroup_path}/memory.stat"
+    }
+
     create_pressure_files() {
         local cgroup_path="$1"
         mkdir -p "${CGROUP_ROOT}/${cgroup_path}"
@@ -30,12 +38,14 @@ Describe 'cgroup telemetry'
     }
 
     prepare_memory_script() {
+        local cgroup_version="${1:-cgroup2fs}"
         sed \
             -e "s|EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/|EVENTS_LOGGING_DIR=${EVENTS_ROOT}/|" \
-            -e 's|CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)|CGROUP_VERSION=cgroup2fs|' \
+            -e "s|CGROUP_VERSION=\$(stat -fc %T /sys/fs/cgroup)|CGROUP_VERSION=${cgroup_version}|" \
             -e 's@CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)@CSLICE=system.slice@' \
             -e 's@KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)@KSLICE=system.slice@' \
             -e "s|CGROUP=\"/sys/fs/cgroup\"|CGROUP=\"${CGROUP_ROOT}\"|" \
+            -e "s|CGROUP=\"/sys/fs/cgroup/memory\"|CGROUP=\"${CGROUP_ROOT}\"|" \
             -e "s|/proc/meminfo|${TEST_ROOT}/meminfo|" \
             ./parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.sh > "${TEST_ROOT}/cgroup-memory-telemetry.sh"
     }
@@ -80,6 +90,29 @@ Describe 'cgroup telemetry'
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_memory\":\"70\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"sync_container_logs_service_memory\":\"Not Found\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"localdns_service_memory\":\"110\"'
+    End
+
+    It 'emits cgroup v1 memory for an available service and tolerates an unavailable service'
+        for cgroup_path in \
+            . \
+            system.slice \
+            azure.slice \
+            kubepods \
+            user.slice \
+            system.slice/containerd.service \
+            system.slice/kubelet.service; do
+            create_memory_stat_v1 "${cgroup_path}" 1 2
+        done
+        printf 'max\n' > "${CGROUP_ROOT}/kubepods/memory.limit_in_bytes"
+        create_memory_stat_v1 system.slice/node-exporter.service 30 40
+        prepare_memory_script tmpfs
+
+        When run bash "${TEST_ROOT}/cgroup-memory-telemetry.sh"
+        The status should be success
+        The contents of file "${EVENTS_ROOT}"/* should include '\"CgroupVersion\":\"cgroupv1\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"containerd_service_memory\":\"3\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_memory\":\"70\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"sync_container_logs_service_memory\":\"Not Found\"'
     End
 
     It 'emits pressure for available services when another service is unavailable'
