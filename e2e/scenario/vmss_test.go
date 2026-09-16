@@ -30,6 +30,16 @@ import (
 
 type vmssCreationTestPolicy func(*http.Request) *http.Response
 
+type vmssCreationTestLogger struct {
+	*testing.T
+	messages []string
+}
+
+func (l *vmssCreationTestLogger) Logf(format string, args ...any) {
+	l.messages = append(l.messages, fmt.Sprintf(format, args...))
+	l.T.Logf(format, args...)
+}
+
 func (f vmssCreationTestPolicy) Do(req *policy.Request) (*http.Response, error) {
 	return f(req.Raw()), nil
 }
@@ -56,6 +66,7 @@ type vmssCreationTestCase struct {
 func TestCreateVMSSProvisioningErrorPrecedence(t *testing.T) {
 	for _, tt := range []vmssCreationTestCase{
 		{name: "allocation failed", provisionCode: "AllocationFailed", sshFails: true},
+		{name: "allocation failed with running guest and SSH failure", provisionCode: "AllocationFailed", running: true, sshFails: true, wantSSH: true},
 		{name: "allocation failed without VM", provisionCode: "AllocationFailed", noVM: true},
 		{name: "allocation failed without network profile", provisionCode: "AllocationFailed", noNetwork: true},
 		{name: "allocation failed while instance listing fails", provisionCode: "AllocationFailed", listFails: true},
@@ -95,9 +106,13 @@ func TestCreateVMSSProvisioningErrorPrecedence(t *testing.T) {
 				sshErr := errors.New("SSH handshake failed")
 				sshClient := &SSHClient{}
 				sshCalled := false
+				logger := &vmssCreationTestLogger{T: t}
 				dialSSH := func(_ context.Context, _ *Bastion, ip string, _ []byte) (*SSHClient, error) {
 					require.True(t, tt.polled)
 					require.Equal(t, "10.0.0.4", ip)
+					if tt.provisionCode != "" {
+						require.Contains(t, strings.Join(logger.messages, "\n"), "VMSS vmss provisioning failed:")
+					}
 					sshCalled = true
 					if tt.sshFails {
 						return nil, sshErr
@@ -106,13 +121,15 @@ func TestCreateVMSSProvisioningErrorPrecedence(t *testing.T) {
 				}
 				ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 				defer cancel()
-				vm, err := createVMSS(logging.WithLogger(ctx, t), s, "rg", armcompute.VirtualMachineScaleSet{}, dialSSH)
+				vm, err := createVMSS(logging.WithLogger(ctx, logger), s, "rg", armcompute.VirtualMachineScaleSet{}, dialSSH)
 				require.NotNil(t, vm)
 				assert.Equal(t, tt.wantSSH, sshCalled)
 				if tt.provisionCode != "" {
 					var responseErr *azcore.ResponseError
 					require.ErrorAs(t, err, &responseErr, "provisioning error must survive discovery or SSH failure")
 					assert.Equal(t, tt.provisionCode, responseErr.ErrorCode)
+					assert.Equal(t, tt.provisionCode == "AllocationFailed", isRetryableVMSSCreationError(fmt.Errorf("create VMSS: %w", err)))
+					assert.NotContains(t, strings.Join(logger.messages, "\n"), "after creation")
 				} else if tt.wantErr != "" {
 					require.ErrorContains(t, err, tt.wantErr)
 				} else if !tt.sshFails {
@@ -122,12 +139,79 @@ func TestCreateVMSSProvisioningErrorPrecedence(t *testing.T) {
 				require.True(t, tt.polled, "must exercise the actual SDK provisioning result")
 				if tt.wantSSH && tt.sshFails {
 					assert.ErrorIs(t, err, sshErr)
+					assert.ErrorContains(t, err, "failed to start bastion tunnel:")
+					if tt.provisionCode == "" {
+						assert.False(t, isRetryableVMSSCreationError(err))
+					}
 				}
 				if tt.wantSSH && !tt.sshFails {
 					assert.Same(t, sshClient, vm.SSHClient, "retain the connection for guest diagnostics")
 				}
 			})
 		})
+	}
+}
+
+func TestVMSSProvisioningErrorClassification(t *testing.T) {
+	oldSkip := config.Config.SkipTestsWithSKUCapacityIssue
+	t.Cleanup(func() { config.Config.SkipTestsWithSKUCapacityIssue = oldSkip })
+	for _, tc := range []struct {
+		code      string
+		status    int
+		message   string
+		wantRetry bool
+		wantSkip  bool
+	}{
+		{code: "AllocationFailed", status: 200, wantRetry: true},
+		{code: "GalleryImageNotFound", status: 404, wantRetry: true},
+		{code: "SkuNotAvailable", status: 409, wantSkip: true},
+		{code: "OperationNotAllowed", status: 409, message: "exceeding approved quota", wantSkip: true},
+		{code: "OperationNotAllowed", status: 409, message: "another operation is pending"},
+		{code: "VMExtensionProvisioningError", status: 200},
+		{code: "AllocationFailed", status: 500},
+		{code: "GalleryImageNotFound", status: 500},
+		{code: "SkuNotAvailable", status: 500},
+		{code: "OperationNotAllowed", status: 500, message: "exceeding approved quota"},
+	} {
+		t.Run(fmt.Sprintf("%s/%d/%s", tc.code, tc.status, tc.message), func(t *testing.T) {
+			armErr := &azcore.ResponseError{
+				StatusCode: tc.status,
+				ErrorCode:  tc.code,
+				RawResponse: &http.Response{
+					StatusCode: tc.status,
+					Header:     http.Header{"Content-Type": {"application/json"}},
+					Body:       io.NopCloser(strings.NewReader(fmt.Sprintf(`{"error":{"code":%q,"message":%q}}`, tc.code, tc.message))),
+				},
+			}
+			for _, sshErr := range []error{nil, context.DeadlineExceeded} {
+				var err error = armErr
+				if sshErr != nil {
+					err = errors.Join(err, fmt.Errorf("failed to start bastion tunnel: %w", sshErr))
+				}
+				err = fmt.Errorf("create VMSS: %w", err)
+				var responseErr *azcore.ResponseError
+				require.ErrorAs(t, err, &responseErr)
+				require.Same(t, armErr, responseErr)
+				require.Equal(t, tc.wantRetry, isRetryableVMSSCreationError(err))
+				for _, skipEnabled := range []bool{false, true} {
+					config.Config.SkipTestsWithSKUCapacityIssue = skipEnabled
+					skipErr := skipIfSKUNotAvailableErr(err)
+					if tc.wantSkip && skipEnabled {
+						var skipped *skipError
+						require.ErrorAs(t, skipErr, &skipped)
+					} else {
+						require.NoError(t, skipErr)
+					}
+				}
+			}
+		})
+	}
+	for _, err := range []error{nil, fmt.Errorf("failed to start bastion tunnel: %w", context.DeadlineExceeded)} {
+		require.False(t, isRetryableVMSSCreationError(err))
+		for _, enabled := range []bool{false, true} {
+			config.Config.SkipTestsWithSKUCapacityIssue = enabled
+			require.NoError(t, skipIfSKUNotAvailableErr(err))
+		}
 	}
 }
 
