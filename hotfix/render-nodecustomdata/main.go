@@ -53,6 +53,7 @@ func main() {
 			*outputDir,
 			"rendered_nodecustomdata_"+target.name+".yml",
 		)
+		//nolint:gosec // The caller intentionally selects the output directory; filenames are fixed by this tool.
 		if err := os.WriteFile(outputPath, []byte(rendered), 0o600); err != nil {
 			fatalf("write %s nodecustomdata: %v", target.name, err)
 		}

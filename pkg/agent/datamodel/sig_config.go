@@ -10,6 +10,8 @@ import (
 const (
 	AzurePublicCloudSigTenantID     string = "33e01921-4d64-4f8c-a055-5bdaffd5e33d" // AME Tenant
 	AzurePublicCloudSigSubscription string = "109a5e88-712a-48ae-9078-9ca8b3c81345" // AKS VHD
+
+	ubuntu2204Gen2ContainerdImageDefinition = "2204gen2containerd"
 )
 
 // SIGAzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
@@ -550,7 +552,7 @@ var (
 	SIGUbuntuContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "2204gen2containerd",
+		Definition:    ubuntu2204Gen2ContainerdImageDefinition,
 		Version:       LinuxSIGImageVersion,
 	}
 
@@ -571,7 +573,7 @@ var (
 	SIGUbuntuEgressContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "2204gen2containerd",
+		Definition:    ubuntu2204Gen2ContainerdImageDefinition,
 		Version:       FrozenLinuxSIGImageVersionForEgressTest,
 	}
 
@@ -1027,7 +1029,7 @@ func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[D
 	sigUbuntuEdgeZoneContainerd2204Gen2ImageConfigTemplate := SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
 		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    "2204gen2containerd",
+		Definition:    ubuntu2204Gen2ContainerdImageDefinition,
 		Version:       LinuxSIGImageVersion,
 	}
 
