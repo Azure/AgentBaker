@@ -97,8 +97,8 @@ graph TB
             BASTION_SUBNET["AzureBastionSubnet<br/>10.0.0.0/26"]
             FW_SUBNET["AzureFirewallSubnet<br/>10.0.1.0/24"]
             PE_SUBNET["abe2e-pe-subnet<br/>10.0.2.0/24<br/>(shared private endpoints)"]
-            KUBENET_SUBNET["aks-subnet-abe2e-kubenet-v5<br/>10.x.x.0/20"]
-            AZNET_SUBNET["aks-subnet-abe2e-azure-network-v4<br/>10.x.x.0/20"]
+            KUBENET_SUBNET["Kubenet cluster subnet<br/>10.x.x.0/20"]
+            AZNET_SUBNET["Network-isolated cluster subnet<br/>10.x.x.0/20"]
             MORE_SUBNETS["... more cluster subnets"]
         end
         BASTION["abe2e-shared-bastion<br/>(Standard SKU, Tunneling)"]
@@ -110,13 +110,13 @@ graph TB
         ACR_NONANON["abe2eprivatenonanon{location}<br/>(Non-anonymous Private ACR)"]
     end
 
-    subgraph MC_KUBENET["MC_abe2e-kubenet-v5 Resource Group"]
+    subgraph MC_KUBENET["Kubenet node resource group"]
         VMSS_K["VMSS (system pool)"]
         VMSS_K_TEST["VMSS (test VMs)"]
         RT_K["Route Table<br/>(pod routes + firewall)"]
     end
 
-    subgraph MC_NI["MC_abe2e-azure-networkisolated-v2 Resource Group"]
+    subgraph MC_NI["Network-isolated node resource group"]
         VMSS_NI["VMSS (system pool)"]
         NSG_NI["NSG<br/>(blocks internet)"]
     end
@@ -140,6 +140,9 @@ graph TB
 The shared infrastructure is created **automatically** on first test run via cached idempotent
 functions — no separate setup script is needed.
 
+Cluster setup keeps three Konnectivity agents to avoid scale-down interruptions during pod exec.
+See [Azure's autoscaler configuration](https://learn.microsoft.com/en-us/troubleshoot/azure/azure-kubernetes/connectivity/tunnel-connectivity-issues#solution-6-cluster-proportional-autoscaler-for-konnectivity-agent).
+
 | Resource | Name | Details |
 |----------|------|---------|
 | VNet | `abe2e-shared-vnet` | `10.0.0.0/8` — supports ~4096 `/20` cluster subnets |
@@ -157,18 +160,19 @@ avoid collisions.
 ### Cluster Types
 
 All clusters use BYOV (Bring Your Own VNet) with the shared VNet. They differ in networking
-plugin, isolation level, and whether private ACR is needed.
+plugin, isolation level, and whether private ACR is needed. Current cluster names and versions
+are defined in [`scenario/cache.go`](scenario/cache.go).
 
-| Cluster | Network Plugin | Special Features | Private ACR |
+| Cluster Type | Network Plugin | Special Features | Private ACR |
 |---------|---------------|-----------------|:-----------:|
-| `abe2e-kubenet-v5` | Kubenet | Basic pod routing via route table | ❌ |
-| `abe2e-azure-network-v4` | Azure CNI | Pods get IPs from subnet (MaxPods=30) | ❌ |
-| `abe2e-azure-overlay-network-v4` | Azure CNI Overlay | Pods in virtual overlay, not subnet | ❌ |
-| `abe2e-azure-overlay-dualstack-v4` | Azure CNI Overlay | IPv4+IPv6 dual-stack | ❌ |
-| `abe2e-cilium-network-v4` | Azure CNI + Cilium | eBPF dataplane, replaces kube-proxy | ❌ |
-| `abe2e-latest-kubernetes-version-v2` | Kubenet | Auto-discovers latest GA K8s version | ❌ |
-| `abe2e-azure-bootstrapprofile-cache-v2` | Azure CNI | Bootstrap artifact caching from private ACR | ✅ |
-| `abe2e-azure-networkisolated-v2` | Azure CNI | NSG blocks all internet except allowlist | ✅ |
+| Kubenet | Kubenet | Basic pod routing via route table | ❌ |
+| Azure CNI | Azure CNI | Pods get IPs from subnet (MaxPods=30) | ❌ |
+| Overlay | Azure CNI Overlay | Pods in virtual overlay, not subnet | ❌ |
+| Dual-stack overlay | Azure CNI Overlay | IPv4+IPv6 dual-stack | ❌ |
+| Cilium | Azure CNI + Cilium | eBPF dataplane, replaces kube-proxy | ❌ |
+| Latest Kubernetes | Kubenet | Auto-discovers latest GA K8s version | ❌ |
+| Bootstrap artifact cache | Azure CNI | Bootstrap artifact caching from private ACR | ✅ |
+| Network isolated | Azure CNI | NSG blocks all internet except allowlist | ✅ |
 
 **Network-isolated cluster** adds an NSG to its subnet that blocks all outbound traffic except
 `management.azure.com`, the cluster FQDN, and `packages.aks.azure.com`. Private endpoints for

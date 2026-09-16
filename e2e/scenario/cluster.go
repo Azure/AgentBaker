@@ -135,6 +135,10 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		return nil, fmt.Errorf("getting cluster kube client: %w", err)
 	}
 
+	if err := kube.EnsureKonnectivityAgentAutoscaler(ctx); err != nil {
+		return nil, err
+	}
+
 	kubeletIdentity, err := getClusterKubeletIdentity(cluster)
 	if err != nil {
 		return nil, fmt.Errorf("getting cluster kubelet identity: %w", err)
@@ -382,7 +386,6 @@ func getOrCreateCluster(ctx context.Context, cluster *armcontainerservice.Manage
 	}
 
 	if existingCluster != nil {
-		// create new cluster;
 		return existingCluster, nil
 	}
 
