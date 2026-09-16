@@ -66,6 +66,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -90,6 +91,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -111,6 +113,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -135,6 +138,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -178,6 +182,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]False'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
@@ -204,6 +209,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
@@ -226,6 +232,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
@@ -250,6 +257,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+            echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
           displayName: Setup Build Variables
@@ -273,6 +281,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+            echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
@@ -295,6 +304,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+            echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
@@ -317,6 +327,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+            echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
@@ -339,6 +350,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+            echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml

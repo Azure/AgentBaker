@@ -21,10 +21,10 @@ function produce_ua_token() {
 }
 
 function resolve_security_type_feature() {
-	if [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
-		SECURITY_TYPE_FEATURE="TrustedLaunchSupported"
-	elif [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+	if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
 		SECURITY_TYPE_FEATURE="TrustedLaunch"
+	elif [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+		SECURITY_TYPE_FEATURE="TrustedLaunchSupported"
 	elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
 		SECURITY_TYPE_FEATURE="ConfidentialVM"
 	else
