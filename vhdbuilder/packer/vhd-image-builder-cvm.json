@@ -386,6 +386,21 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/ubuntu-2604-cvm/trim-2604-cvm-packages.sh",
+      "destination": "/home/packer/trim-2604-cvm-packages.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/ubuntu-2604-cvm/marked-for-removal-packages.txt",
+      "destination": "/home/packer/marked-for-removal-packages.txt"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/ubuntu-2604-cvm/required-packages.txt",
+      "destination": "/home/packer/required-packages.txt"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/install-ig.sh",
       "destination": "/home/packer/install-ig.sh"
     },
