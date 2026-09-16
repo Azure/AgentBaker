@@ -37,9 +37,23 @@ Describe 'cse_config_localdns.sh'
             touch /etc/systemd/system/localdns.service
             touch /opt/azure/containers/localdns/localdns.sh
 
-            systemctlEnableAndStart() {
-                echo "systemctlEnableAndStart $@"
+            # enableLocalDNS drives systemd directly rather than going through
+            # systemctlEnableAndStart, so it can clear the StartLimit budget
+            # between attempts. Mock the primitives it actually calls.
+            systemctl() {
+                echo "systemctl $*"
                 return 0
+            }
+            timeout() {
+                shift
+                "$@"
+            }
+            retrycmd_if_failure() {
+                echo "retrycmd_if_failure $*"
+                return 0
+            }
+            sleep() {
+                :
             }
             systemctlEnableAndStartNoBlock() {
                 echo "systemctlEnableAndStartNoBlock $@"
@@ -88,14 +102,24 @@ Describe 'cse_config_localdns.sh'
             The output should not include "localdns should be enabled."
         End
 
+        It 'should clear the StartLimit budget before each start attempt'
+            When run enableLocalDNS
+            The status should be success
+            The output should include "systemctl reset-failed localdns"
+            The output should include "systemctl restart localdns"
+            The output should include "Enable localdns succeeded."
+        End
+
         It 'should return error when systemctl fails to start localdns'
-            systemctlEnableAndStart() {
-                echo "systemctlEnableAndStart $@"
-                return 1
+            systemctl() {
+                echo "systemctl $*"
+                [ "$1" = "restart" ] && return 1
+                return 0
             }
             When run enableLocalDNS
             The status should equal 216
             The output should include "localdns should be enabled."
+            The output should include "systemctl reset-failed localdns"
         End
     End
     Describe 'enableLocalDNSForScriptless'
@@ -113,9 +137,23 @@ Describe 'cse_config_localdns.sh'
             touch /etc/systemd/system/localdns.service
             touch /opt/azure/containers/localdns/localdns.sh
 
-            systemctlEnableAndStart() {
-                echo "systemctlEnableAndStart $@"
+            # enableLocalDNS drives systemd directly rather than going through
+            # systemctlEnableAndStart, so it can clear the StartLimit budget
+            # between attempts. Mock the primitives it actually calls.
+            systemctl() {
+                echo "systemctl $*"
                 return 0
+            }
+            timeout() {
+                shift
+                "$@"
+            }
+            retrycmd_if_failure() {
+                echo "retrycmd_if_failure $*"
+                return 0
+            }
+            sleep() {
+                :
             }
             systemctlEnableAndStartNoBlock() {
                 echo "systemctlEnableAndStartNoBlock $@"

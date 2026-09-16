@@ -15,17 +15,17 @@ ConditionKernelVersion=>=5.15
 # hung start) still reach 'failed'. That terminal state is what lets an
 # OnFailure= handoff fire and gives NPD a stable state to observe.
 #
-# The budget is shared with CSE's provisioning restarts, not just systemd's own
-# auto-restart cycles: enableLocalDNS -> systemctlEnableAndStart ->
-# _systemctl_retry_svc_operation issues up to 100 'systemctl restart' at 5s, and
-# manual restarts count against StartLimitBurst exactly like automatic ones. That
-# is survivable only because the loop runs 'systemctl daemon-reload' before every
-# restart, and start_ratelimit is not serialized across manager_reload (which
-# destroys and rebuilds every unit), so each pass starts from a fresh budget and
-# the 12min window never spans more than one iteration. Measured on systemd 249,
-# 10 iterations against a permanently failing unit: 28 starts / 0 refusals at
-# both 5/10s and 720/5; with that daemon-reload removed, 5 starts / 9 refusals
-# and a wedged unit. Don't drop it from _systemctl_retry_svc_operation.
+# This budget is shared with CSE's provisioning restarts, not just systemd's own
+# auto-restart cycles: a manual 'systemctl start/restart' counts against
+# StartLimitBurst exactly like an automatic restart. A single CSE start therefore
+# costs one slot and lets Restart=on-failure spend the remaining four within
+# ~11s, after which every further CSE attempt is refused with "Start request
+# repeated too quickly" for the rest of the 720s window. enableLocalDNS() runs
+# 'systemctl reset-failed localdns' before each provisioning attempt to keep that
+# from wedging node provisioning, and deliberately skips it on the give-up path
+# so the unit is left in 'failed'. Don't rely on 'systemctl daemon-reload' to
+# clear this instead: it resets start_ratelimit on systemd 249 but not on 255
+# (Ubuntu 24.04), which is what AKS ships.
 StartLimitIntervalSec=720
 StartLimitBurst=5
 

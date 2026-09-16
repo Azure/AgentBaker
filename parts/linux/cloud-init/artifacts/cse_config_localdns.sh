@@ -107,7 +107,30 @@ enableLocalDNS() {
     fi
 
     echo "localdns should be enabled."
-    systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
+    # localdns.service budgets StartLimitBurst=5 / StartLimitIntervalSec=720 so steady-state
+    # failures terminate in 'failed' for NPD to observe. Provisioning restarts draw on that same
+    # budget -- a manual restart costs a slot just like an automatic one -- so clear it before each
+    # attempt. Otherwise the first burst wedges the unit for 12 minutes and every retry below is
+    # refused with "Start request repeated too quickly". daemon-reload is not a substitute: it
+    # clears start_ratelimit on systemd 249 but not on 255 (Ubuntu 24.04).
+    local localdns_started=false
+    local i
+    for i in $(seq 1 30); do
+        systemctl reset-failed localdns 2>/dev/null || true
+        systemctl daemon-reload
+        if timeout 30 systemctl restart localdns; then
+            localdns_started=true
+            break
+        fi
+        sleep 5
+    done
+    if [ "${localdns_started}" != "true" ]; then
+        # No reset here -- the last failure's auto-restarts land the unit in 'failed', which is the
+        # terminal state NPD needs.
+        systemctl status localdns --no-pager -l > /var/log/azure/localdns-status.log || true
+        exit $ERR_LOCALDNS_FAIL
+    fi
+    retrycmd_if_failure 120 5 25 systemctl enable localdns || exit $ERR_LOCALDNS_FAIL
     echo "Enable localdns succeeded."
     # Exporter socket setup is deferred to configureLocalDNSExporterSocket() (after ensureKubelet)
     # to avoid delaying kubelet start. The kubelet node label is added separately in cse_main.sh.
