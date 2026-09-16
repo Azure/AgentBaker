@@ -231,31 +231,6 @@ stages:
           parameters:
             artifactName: azurelinuxv3-gen2-arm64-fips
 
-    - job: buildAzureLinuxOSGuardV3gen2fipsTL
-      timeoutInMinutes: 360
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=BUILDER]imagecustomizer'
-            echo '##vso[task.setvariable variable=OS_SKU]AzureLinuxOSGuard'
-            echo '##vso[task.setvariable variable=OS_VERSION]OSGuardV3'
-            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer'
-            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_VERSION]0.17.0'
-            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONFIG]azlosguard'
-            echo '##vso[task.setvariable variable=BASE_IMG]mcr.microsoft.com/azurelinux/3.0/image/osguard'
-            echo '##vso[task.setvariable variable=BASE_IMG_VERSION]3.0.20251021'
-            echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-osguard-3'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
-            echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
-            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
-            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
-            echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-release-template.yaml
-          parameters:
-            artifactName: azurelinuxosguardv3-gen2-fips-trustedlaunch
-
     - job: buildacltlgen2
       timeoutInMinutes: 360
       steps:

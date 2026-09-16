@@ -59,9 +59,19 @@ build_fips_vm_body() {
     local vm_size="$8"
     local enable_trusted_launch="$9"
 
+    local identity=""
+    if [ -n "$umsi_resource_id" ]; then
+        identity='"identity": {
+    "type": "UserAssigned",
+    "userAssignedIdentities": {
+      "'"$umsi_resource_id"'": {}
+    }
+  },'
+    fi
+
     # Build security profile section if Trusted Launch is enabled
     local security_profile=""
-    if [ "$enable_trusted_launch" = "True" ]; then
+    if [ "${enable_trusted_launch,,}" = "true" ]; then
         security_profile=',
     "securityProfile": {
       "securityType": "TrustedLaunch",
@@ -75,12 +85,7 @@ build_fips_vm_body() {
     cat <<EOF
 {
   "location": "$location",
-  "identity": {
-    "type": "UserAssigned",
-    "userAssignedIdentities": {
-      "$umsi_resource_id": {}
-    }
-  },
+  $identity
   "properties": {
     "additionalCapabilities": {
       "enableFips1403Encryption": true

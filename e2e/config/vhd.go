@@ -127,14 +127,6 @@ var (
 		Distro:  datamodel.AKSAzureLinuxV3Gen2Kata,
 		Gallery: &Config.GalleryLinux,
 	}
-	VHDAzureLinux3OSGuard = &Image{
-		Name:                "AzureLinuxOSGuardOSGuardV3gen2fipsTL",
-		OS:                  OSAzureLinux,
-		Arch:                "amd64",
-		Distro:              datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL,
-		Gallery:             &Config.GalleryLinux,
-		UnsupportedLocalDns: true,
-	}
 
 	VHDAzureLinuxV3Gen2FIPS = &Image{
 		Name:                "AzureLinuxV3gen2fips",
