@@ -11,7 +11,7 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 )
 
-var fileLogger = slog.New(slog.NewJSONHandler(io.Discard, nil))
+var fileLogger = slog.New(slog.NewJSONHandler(io.Discard, nil)) //nolint:gochecknoglobals // Configured once at startup alongside slog.Default.
 
 func main() {
 	// defer calls are not executed on os.Exit
