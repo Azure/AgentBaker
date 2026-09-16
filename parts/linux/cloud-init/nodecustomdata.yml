@@ -147,6 +147,41 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
 
+- path: {{GetCSEConfigGPUScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionConfigsGPU"}}
+
+- path: {{GetCSEConfigLocalDNSScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionConfigsLocalDNS"}}
+
+- path: {{GetCSEConfigKubeletScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionConfigsKubelet"}}
+
+- path: {{GetCSEConfigNetworkScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionConfigsNetwork"}}
+
+- path: {{GetCSEConfigAddonsScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionConfigsAddons"}}
+
 - path: {{GetInitAKSCloudFilepath}}
   permissions: "0744"
   encoding: gzip

@@ -679,6 +679,25 @@ func newUbuntu2204EmbeddedScriptHotfixScenario() *Scenario {
 		marker,
 	))...)
 
+	hotfixFiles := []ScriptHotfixFile{{
+		Destination: runtimeScriptPath,
+		Mode:        "0744",
+		Payload:     payload,
+	}}
+	// Older VHDs do not have the modules sourced by the current provision config.
+	for _, suffix := range []string{"gpu", "localdns", "kubelet", "network", "addons"} {
+		name := "cse_config_" + suffix + ".sh"
+		module, err := os.ReadFile(repoPath("parts/linux/cloud-init/artifacts/" + name))
+		if err != nil {
+			panic(fmt.Sprintf("read hotfix module %s: %v", name, err))
+		}
+		hotfixFiles = append(hotfixFiles, ScriptHotfixFile{
+			Destination: "/opt/azure/containers/provision_configs_" + suffix + ".sh",
+			Mode:        "0744",
+			Payload:     module,
+		})
+	}
+
 	return &Scenario{
 		Name:        "Ubuntu2204_EmbeddedScriptHotfix",
 		Description: "tests that a PR-built ANC applies an embedded script hotfix before provisioning",
@@ -702,10 +721,8 @@ func newUbuntu2204EmbeddedScriptHotfixScenario() *Scenario {
 			// with the current source, so broad source/VHD parity checks do not apply.
 			SkipDefaultValidation: true,
 			ScriptHotfixFixture: &ScriptHotfixFixture{
-				Platform:    "ubuntu",
-				Destination: runtimeScriptPath,
-				Mode:        "0744",
-				Payload:     payload,
+				Platform: "ubuntu",
+				Files:    hotfixFiles,
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
 				nodeName, err := s.Runtime.Kube.WaitUntilNodeReady(ctx, s.Runtime.VMSSName)

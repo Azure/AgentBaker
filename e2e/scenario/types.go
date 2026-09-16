@@ -120,10 +120,14 @@ type CustomDataWriteFile struct {
 	Content     string
 }
 
-// ScriptHotfixFixture describes one script hotfix embedded into an isolated
+// ScriptHotfixFixture describes script hotfix files embedded into an isolated
 // scenario-specific ANC build.
 type ScriptHotfixFixture struct {
-	Platform    string
+	Platform string
+	Files    []ScriptHotfixFile
+}
+
+type ScriptHotfixFile struct {
 	Destination string
 	Mode        string
 	Payload     []byte
@@ -165,7 +169,7 @@ type Config struct {
 	CustomDataWriteFiles []CustomDataWriteFile
 
 	// ScriptHotfixFixture builds ANC in an isolated temporary module with this
-	// generated script-hotfix entry. It bypasses the shared ANC binary cache.
+	// generated script-hotfix payload. It bypasses the shared ANC binary cache.
 	ScriptHotfixFixture *ScriptHotfixFixture
 
 	// Validator is a function where the scenario can perform any extra validation checks

@@ -1409,6 +1409,21 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetCSEConfigScriptFilepath": func() string {
 			return cseConfigScriptFilepath
 		},
+		"GetCSEConfigGPUScriptFilepath": func() string {
+			return cseConfigGPUScriptFilepath
+		},
+		"GetCSEConfigLocalDNSScriptFilepath": func() string {
+			return cseConfigLocalDNSScriptFilepath
+		},
+		"GetCSEConfigKubeletScriptFilepath": func() string {
+			return cseConfigKubeletScriptFilepath
+		},
+		"GetCSEConfigNetworkScriptFilepath": func() string {
+			return cseConfigNetworkScriptFilepath
+		},
+		"GetCSEConfigAddonsScriptFilepath": func() string {
+			return cseConfigAddonsScriptFilepath
+		},
 		"GetCustomSearchDomainsCSEScriptFilepath": func() string {
 			return customSearchDomainsCSEScriptFilepath
 		},
