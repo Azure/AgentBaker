@@ -112,6 +112,94 @@ Describe 'localdns-fallback.sh'
         End
     End
 
+    Describe 'localdns_is_mid_restart_cycle'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns-fallback.sh"
+            # Mock 'systemctl show ... -p SubState --value'.
+            systemctl() { echo "${SUBSTATE:-}"; }
+        }
+        BeforeEach 'setup'
+
+        It 'reports true while systemd is holding the unit for an auto-restart'
+            SUBSTATE="auto-restart"
+            When call localdns_is_mid_restart_cycle
+            The status should be success
+        End
+
+        It 'reports true for the queued auto-restart substate (systemd 255)'
+            SUBSTATE="auto-restart-queued"
+            When call localdns_is_mid_restart_cycle
+            The status should be success
+        End
+
+        It 'reports false once the unit has settled in failed'
+            SUBSTATE="failed"
+            When call localdns_is_mid_restart_cycle
+            The status should be failure
+        End
+
+        It 'reports false for a cleanly stopped unit'
+            SUBSTATE="dead"
+            When call localdns_is_mid_restart_cycle
+            The status should be failure
+        End
+
+        It 'reports false for a running (possibly wedged) unit'
+            SUBSTATE="running"
+            When call localdns_is_mid_restart_cycle
+            The status should be failure
+        End
+
+        It 'reports false when the substate cannot be read'
+            SUBSTATE=""
+            When call localdns_is_mid_restart_cycle
+            The status should be failure
+        End
+    End
+
+    Describe 'start_fallback (restart-cycle guard)'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns-fallback.sh"
+            MARKER=$(mktemp)
+            : > "${MARKER}"
+            systemctl() { echo "${SUBSTATE:-}"; }
+            # Any of these running means the guard did not short-circuit.
+            verify_coredns_binary()           { echo "verify" >> "${MARKER}"; }
+            ensure_cluster_listener_interface() { echo "iface" >> "${MARKER}"; }
+            generate_fallback_corefile()      { echo "corefile" >> "${MARKER}"; }
+        }
+        cleanup() { rm -f "${MARKER}"; }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        # Regression: systemd fires OnFailure= on every failed start attempt, not
+        # only on entry to terminal 'failed'. Binding .11 on those early
+        # invocations made the fallback flap instead of covering the outage.
+        It 'does not take over .11 while localdns is between restart attempts'
+            SUBSTATE="auto-restart"
+            When call start_fallback
+            The status should be success
+            The stderr should include "not taking over 169.254.10.11 yet"
+            The contents of file "${MARKER}" should not include "iface"
+            The contents of file "${MARKER}" should not include "corefile"
+        End
+
+        It 'proceeds once localdns has settled in failed'
+            SUBSTATE="failed"
+            # start_fallback ends in 'exec', which replaces the process. 'When run'
+            # isolates that in a subshell; /bin/true stands in for the coredns
+            # binary so the exec succeeds instead of aborting the example.
+            COREDNS_BINARY_PATH="/bin/true"
+            unset SYSTEMD_EXEC_PID
+            When run start_fallback
+            The status should be success
+            The stderr should include "starting fallback coredns bound to 169.254.10.11"
+            The contents of file "${MARKER}" should include "verify"
+            The contents of file "${MARKER}" should include "iface"
+            The contents of file "${MARKER}" should include "corefile"
+        End
+    End
+
     Describe 'cleanup_fallback (localdns-aware, no address removal)'
         setup() {
             Include "./parts/linux/cloud-init/artifacts/localdns-fallback.sh"
