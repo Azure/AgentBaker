@@ -73,13 +73,17 @@ func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
 		return nil
 	}
 
-	platform, err := classifyNodeCustomDataPlatform(a.osReleasePath)
+	osReleasePath := a.osReleasePath
+	if osReleasePath == "" {
+		osReleasePath = defaultOSReleasePath
+	}
+	platform, err := classifyNodeCustomDataPlatform(osReleasePath)
 	if err != nil {
 		return err
 	}
 	if platform == nodeCustomDataPlatformUnsupported {
 		slog.Info("direct script hotfix is not supported on this OS, skipping",
-			"osReleasePath", a.osReleasePath)
+			"osReleasePath", osReleasePath)
 		return nil
 	}
 
