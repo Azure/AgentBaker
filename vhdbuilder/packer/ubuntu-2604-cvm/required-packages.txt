@@ -19,3 +19,4 @@ linux-tools-*-azure
 linux-tools-*-azure-fde
 linux-tools-azure-fde
 nullboot
+rsyslog

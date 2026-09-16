@@ -281,7 +281,6 @@ python3-uc-micro
 python3-zope.interface
 python3.14-gdbm
 rsync
-rsyslog
 sg3-utils
 sg3-utils-udev
 sgml-base

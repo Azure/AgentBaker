@@ -39,7 +39,7 @@ capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 copyPackerFiles
 
 # Install required dependencies needed to build minimal images if needed (currently only Ubuntu 26.04)
-if isUbuntu "$OS" && { isMinimalImage || { [ "${OS_VERSION}" = "26.04" ] && [ "${IMG_SKU}" = "server-cvm" ]; }; }; then
+if isUbuntu "$OS" && isMinimalImage; then
   installMinimalBuildDeps
 fi
 
@@ -131,9 +131,10 @@ else
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
-  if [ "$OS" = "UBUNTU" ] &&
+  if isUbuntu "$OS" &&
     [ "$OS_VERSION" = "26.04" ] &&
-    [ "${IMG_SKU:-}" = "server-cvm" ]; then
+    isMinimalImage &&
+    grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     /bin/bash /home/packer/trim-2604-cvm-packages.sh
   fi
 
