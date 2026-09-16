@@ -176,21 +176,9 @@ windows_servercore_image_url=""
 windows_nanoserver_image_url=""
 windows_private_packages_url=""
 
-# msi_resource_strings is an array that will be used to build VHD build vm
-# test pipelines may not set it
-COMPONENTS_JSON="${COMPONENTS_JSON:-./parts/common/components.json}"
-windows_azcopy_private_package_present="false"
-if [ -f "${COMPONENTS_JSON}" ] && jq -e '[.. | objects | select(has("windowsDownloadRequiresAzCopy")) | select(.windowsDownloadRequiresAzCopy == true)] | length > 0' "${COMPONENTS_JSON}" >/dev/null 2>&1; then
-	windows_azcopy_private_package_present="true"
-fi
-
-msi_resource_strings=()
-if [ -n "${AZURE_MSI_RESOURCE_STRING}" ] && { [ -n "${PRIVATE_PACKAGES_URL}" ] || [ -n "${WINDOWS_PRIVATE_PACKAGES_URL}" ] || [ -n "${WINDOWS_BASE_IMAGE_URL}" ] || [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ] || [ "${windows_azcopy_private_package_present}" = "true" ]; }; then
-	echo "AZURE_MSI_RESOURCE_STRING is set and at least one of PRIVATE_PACKAGES_URL, WINDOWS_PRIVATE_PACKAGES_URL, WINDOWS_BASE_IMAGE_URL, WINDOWS_CONTAINERIMAGE_JSON_URL is set, or ${COMPONENTS_JSON} has a package with windowsDownloadRequiresAzCopy=true. Assigning UAMI to Packer VM for VHD Build."
-	msi_resource_strings+=(${AZURE_MSI_RESOURCE_STRING})
-else
-	echo "AZURE_MSI_RESOURCE_STRING is not set, none of PRIVATE_PACKAGES_URL/WINDOWS_PRIVATE_PACKAGES_URL/WINDOWS_BASE_IMAGE_URL is set, and no package in ${COMPONENTS_JSON} sets windowsDownloadRequiresAzCopy=true. Skipping UAMI assignment to Packer VM for VHD Build."
-fi
+# See compute_msi_resource_strings in produce-packer-settings-functions.sh for the UAMI-attachment
+# logic and its ShellSpec coverage in spec/vhdbuilder/packer/compute_msi_resource_strings_spec.sh.
+compute_msi_resource_strings
 
 # shellcheck disable=SC2236
 if [ "$OS_TYPE" = "Windows" ]; then

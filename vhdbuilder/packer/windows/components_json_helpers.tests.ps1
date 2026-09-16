@@ -213,6 +213,14 @@ Describe 'Tests of GetAllCachedThings ' {
 
         ($allpackages | Where-Object { $_ -like "Windows 23H2-gen2 base image offer:*" }) | Should -BeNullOrEmpty
     }
+
+    it 'throws if a windowsDownloadRequiresAzCopy package has a query-string URL, so the public PR-comment diff workflow fails loudly instead of disclosing it' {
+        $windowsSku = "2019-containerd"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://privatestorageaccount.blob.core.windows.net/c/f-v`${version}.zip?sv=2021-01-01&sig=leaked"
+        $componentsJson.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $true
+
+        { GetAllCachedThings $componentsJson $windowsSettings } | Should -Throw -ExpectedMessage "*MSI-only*"
+    }
 }
 
 
@@ -799,7 +807,7 @@ Describe 'GetAzCopyDownloadUrlsFromComponentsJson' {
         $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://privatestorageaccount.blob.core.windows.net/private-container/private-package-v`${version}.zip?sv=2021-01-01&sig=abc123"
         $componentsJson.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $true
 
-        { GetAzCopyDownloadUrlsFromComponentsJson $componentsJson } | Should -Throw
+        { GetAzCopyDownloadUrlsFromComponentsJson $componentsJson } | Should -Throw -ExpectedMessage "*MSI-only*"
     }
 }
 

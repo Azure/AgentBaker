@@ -509,6 +509,15 @@ function GetAllCachedThings {
     $baseVersion =  GetWindowsBaseVersion -windowsSku $windowsSku -windowsSettingsContent $windowsSettingsContent
     $baseVersionBlock = $windowsSettingsContent.WindowsBaseVersions."$windowsSku"
 
+    # GetAllCachedThings backs vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1, which the
+    # check-windows-packages-change.yml workflow runs on every PR and posts as a public GitHub PR
+    # comment. Calling this here (for its validation side effect - the return value isn't otherwise
+    # used) means a windowsDownloadRequiresAzCopy package with a query-string/SAS URL fails this
+    # workflow loudly instead of having its (still-secret-bearing) resolved URL silently included in
+    # that public comment before a VHD is ever built. The components.cue schema also rejects this at
+    # validate-components time; this is a second, independent layer of the same guarantee.
+    GetAzCopyDownloadUrlsFromComponentsJson $componentsJsonContent | Out-Null
+
     $items += "Windows ${windowsSku} base version: ${baseVersion}"
     if ($baseVersionBlock -ne $null) {
         $items += "Windows ${windowsSku} base image sku: $($baseVersionBlock.base_image_sku)"
