@@ -50,10 +50,8 @@ git-man
 gnupg
 gnupg-l10n
 gnupg-utils
-gpg
 gpg-agent
 gpg-wks-client
-gpgconf
 gpgsm
 groff-base
 hdparm
@@ -74,7 +72,6 @@ landscape-common
 less
 libaio1t64
 libappstream5
-libassuan9
 libatasmart4
 libbinutils
 libblockdev-crypto3

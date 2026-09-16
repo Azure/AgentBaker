@@ -1,6 +1,7 @@
 cryptsetup
 cryptsetup-bin
 curl
+gpg
 jq
 libcryptsetup12
 lsscsi
