@@ -133,28 +133,63 @@ function Download-FileWithAzCopy
     }
 
     pushd "$global:aksTempDir"
-    $env:AZCOPY_JOB_PLAN_LOCATION = "$global:aksTempDir\azcopy"
-    $env:AZCOPY_LOG_LOCATION = "$global:aksTempDir\azcopy"
-
-    mkdir -Force $env:AZCOPY_LOG_LOCATION
-    if (Test-Path -Path "$env:AZCOPY_LOG_LOCATION\*.log")
+    try
     {
-        rm -Force "$env:AZCOPY_LOG_LOCATION\*.log"
+        $env:AZCOPY_JOB_PLAN_LOCATION = "$global:aksTempDir\azcopy"
+        $env:AZCOPY_LOG_LOCATION = "$global:aksTempDir\azcopy"
+
+        mkdir -Force $env:AZCOPY_LOG_LOCATION
+        if (Test-Path -Path "$env:AZCOPY_LOG_LOCATION\*.log")
+        {
+            rm -Force "$env:AZCOPY_LOG_LOCATION\*.log"
+        }
+
+        Write-Log "Logging in to AzCopy"
+        # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows/windows-vhd-builder-sig.json
+        .\azcopy.exe login --login-type=MSI
+        if ($LASTEXITCODE)
+        {
+            throw "azcopy login --login-type=MSI failed with exit code $LASTEXITCODE. This download path is MSI-only: ensure the build VM has the managed identity attached and it has read access to the source storage account."
+        }
+
+        Write-Log "Copying $URL to $Dest"
+        .\azcopy.exe copy "$URL" "$Dest"
+        if ($LASTEXITCODE)
+        {
+            throw "azcopy copy '$URL' '$Dest' failed with exit code $LASTEXITCODE"
+        }
+
+        dir "$Dest"
     }
+    finally
+    {
+        Write-Log "--- START AzCopy Log"
+        Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" -ErrorAction SilentlyContinue | Write-Log
+        Write-Log "--- END AzCopy Log"
+        popd
+    }
+}
 
-    Write-Log "Logging in to AzCopy"
-    # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows/windows-vhd-builder-sig.json
-    .\azcopy.exe login --login-type=MSI
+function Invoke-PackageDownload
+{
+    # Shared dispatcher: routes a resolved package URL to AzCopy (MSI-authenticated) if it was
+    # flagged with windowsDownloadRequiresAzCopy in components.json, otherwise the default
+    # unauthenticated curl-based download. Every call site that downloads a components.json
+    # package URL (cached packages, containerd, ...) must go through this so the AzCopy set
+    # (populated once in windows-vhd-configuration.ps1) is consistently honored.
+    param (
+        $URL,
+        $Dest
+    )
 
-    Write-Log "Copying $URL to $Dest"
-    .\azcopy.exe copy "$URL" "$Dest"
-
-    dir "$Dest"
-
-    Write-Log "--- START AzCopy Log"
-    Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" | Write-Log
-    Write-Log "--- END AzCopy Log"
-    popd
+    if ($global:azCopyUrls -and $global:azCopyUrls.ContainsKey($URL))
+    {
+        Download-FileWithAzCopy -URL $URL -Dest $Dest
+    }
+    else
+    {
+        Download-File -URL $URL -Dest $Dest
+    }
 }
 
 function Pull-OCIArtifact
@@ -446,7 +481,7 @@ function Get-PackagesToCacheOnVHD
             $dest = [IO.Path]::Combine($dir, $fileName)
 
             Write-Log "Downloading $URL to $dest"
-            Download-File -URL $URL -Dest $dest
+            Invoke-PackageDownload -URL $URL -Dest $dest
         }
     }
 
@@ -606,7 +641,7 @@ function Install-ContainerD
 
     $containerdFilename = [IO.Path]::GetFileName($global:defaultContainerdPackageUrl)
     $containerdTmpDest = [IO.Path]::Combine($installDir, $containerdFilename)
-    Download-File -URL $global:defaultContainerdPackageUrl -Dest $containerdTmpDest
+    Invoke-PackageDownload -URL $global:defaultContainerdPackageUrl -Dest $containerdTmpDest
     # The released containerd package format is either zip or tar.gz
     if ( $containerdFilename.endswith(".zip"))
     {

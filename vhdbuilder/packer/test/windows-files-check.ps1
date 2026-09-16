@@ -227,6 +227,14 @@ function Test-CompareSingleDir {
 
     foreach ($URL in $map[$dir]) {
 
+        if ($global:azCopyUrls -and $global:azCopyUrls.ContainsKey($URL)) {
+            # This URL is only reachable via AzCopy with the build VM's managed identity, which this
+            # test VM isn't guaranteed to have, and it's never an acs-mirror/Mooncake URL anyway, so
+            # there is nothing for this function to usefully check for it.
+            Write-Output "Skipping Mooncake comparison for $URL - source URL requires AzCopy/MSI auth"
+            continue
+        }
+
         # root paths like cri-tools can be ignored since they are only cached in VHD and won't be referenced in control plane.
         $rootPathExceptions = @("cri-tools")
         # When proxy location is not correctly defined in MoonCake, we will get 404 error when downloading files from MoonCake.

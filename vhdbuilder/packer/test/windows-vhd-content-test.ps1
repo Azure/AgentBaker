@@ -146,6 +146,15 @@ function Test-FilesToCacheOnVHD {
                 continue
             }
 
+            if ($global:azCopyUrls -and $global:azCopyUrls.ContainsKey($URL)) {
+                # This URL is only reachable via AzCopy with the build VM's managed identity - this
+                # test VM isn't guaranteed to have that identity, so anonymous curl re-download for
+                # hash comparison would fail here regardless of whether the cached file is correct.
+                # Existence was already confirmed above; that's as far as we can validate here.
+                Write-OutputWithTimestamp "Skipping remote hash comparison for $dest - source URL requires AzCopy/MSI auth"
+                continue
+            }
+
             $fileName = [IO.Path]::GetFileName($URL.Split("?")[0])
             $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
             DownloadFileWithRetry -URL $URL -Dest $tmpDest -redactUrl
