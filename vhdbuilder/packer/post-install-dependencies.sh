@@ -131,3 +131,40 @@ capture_benchmark "${SCRIPT_NAME}_resolve_conf"
 echo "post-install-dependencies step completed successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
+
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$UBUNTU_RELEASE" = "26.04" ]; then
+  (
+    auto_packages_file="$(mktemp)"
+    package_inventory_file="$(mktemp)"
+    trap 'rm -f "${auto_packages_file}" "${package_inventory_file}"' EXIT
+
+    apt-mark showauto > "${auto_packages_file}"
+    {
+      echo "=== Final Ubuntu Package Inventory (TSV) Begin ==="
+      printf '%s\t%s\n' "Build-ID" "${BUILD_ID}"
+      printf '%s\t%s\n' "Commit" "${COMMIT}"
+      printf '%s\t%s\n' "Image-SKU" "${IMG_SKU}"
+      printf '%s\t%s\n' "Feature-Flags" "${FEATURE_FLAGS}"
+      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "Package" "Version" "Architecture" "APT-Mark" "Essential" "Priority" "Section" "Installed-Size-KiB"
+      dpkg-query -W -f='${Package}\t${Version}\t${Architecture}\t${Essential}\t${Priority}\t${Section}\t${Installed-Size}\t${db:Status-Status}\n' |
+        LC_ALL=C sort |
+        awk -F '\t' -v OFS='\t' '
+          FILENAME == ARGV[1] {
+            package = $1
+            sub(/:[^:]+$/, "", package)
+            auto[package] = 1
+            next
+          }
+          $8 == "installed" {
+            print $1, $2, $3, (($1 in auto) ? "auto" : "manual"),
+                  ($4 == "" ? "-" : $4), ($5 == "" ? "-" : $5),
+                  ($6 == "" ? "-" : $6), ($7 == "" ? "-" : $7)
+          }
+        ' "${auto_packages_file}" -
+      echo "=== Final Ubuntu Package Inventory (TSV) End ==="
+    } > "${package_inventory_file}"
+
+    tee -a "${VHD_LOGS_FILEPATH}" < "${package_inventory_file}"
+  )
+fi
