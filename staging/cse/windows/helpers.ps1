@@ -73,8 +73,18 @@ function Remove-ServiceIfExists
     }
 
     if ($svc.Status -ne 'Stopped' -and $svc.Status -ne 'StopPending') {
+        # Expected sc.exe stop outcomes: 0 (queued), 1061 (mid-transition, retried below), 1062
+        # (already inactive), 1060/1072 (disappeared or marked for deletion by a concurrent
+        # removal -- benign races the rest of this function already handles). Anything else is
+        # a genuine failure (e.g. access denied) and should fail fast with its exit code rather
+        # than silently burning the 60-second poll and reporting a generic timeout.
+        $expectedStopExitCodes = @(0, 1060, 1061, 1062, 1072)
+
         sc.exe stop "$ServiceName" | Out-Null
         $stopExitCode = $LASTEXITCODE
+        if ($stopExitCode -notin $expectedStopExitCodes) {
+            throw "sc.exe stop failed unexpectedly for existing $ServiceName service (exit code $stopExitCode)"
+        }
 
         for ($attempt = 0; $attempt -lt 60; $attempt++) {
             $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
@@ -88,6 +98,9 @@ function Remove-ServiceIfExists
             if ($stopExitCode -eq 1061 -and $svc.Status -notin $pendingStatuses) {
                 sc.exe stop "$ServiceName" | Out-Null
                 $stopExitCode = $LASTEXITCODE
+                if ($stopExitCode -notin $expectedStopExitCodes) {
+                    throw "sc.exe stop failed unexpectedly for existing $ServiceName service (exit code $stopExitCode)"
+                }
             }
 
             Start-Sleep -Seconds 1

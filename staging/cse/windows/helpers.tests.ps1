@@ -162,6 +162,20 @@ Describe 'Remove-ServiceIfExists' {
             Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 2
         }
 
+        It 'throws when the service remains in a pending state for 30 attempts' {
+            Mock Get-Service -MockWith {
+                $script:getServiceCallCount++
+                return [PSCustomObject]@{Name = 'some-service'; Status = 'StartPending'}
+            }
+
+            { Remove-ServiceIfExists -ServiceName 'some-service' } | Should -Throw '*Timed out*leave*StartPending*'
+
+            $script:getServiceCallCount | Should -Be 31
+            $script:scStopCallCount | Should -Be 0
+            $script:scDeleteCallCount | Should -Be 0
+            Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 30
+        }
+
         It 'polls without blocking while the service stops, up to 60 seconds' {
             $script:serviceStatus = 'Running'
             Mock Get-Service -MockWith {
@@ -223,6 +237,70 @@ Describe 'Remove-ServiceIfExists' {
             Remove-ServiceIfExists -ServiceName 'some-service'
 
             $script:scStopCallCount | Should -Be 2
+            $script:scDeleteCallCount | Should -Be 1
+        }
+
+        It 'throws immediately when sc.exe stop fails unexpectedly' {
+            $script:serviceStatus = 'Running'
+            Mock sc.exe -MockWith {
+                $script:scExeCallCount++
+                if ($args[0] -eq 'stop') {
+                    $script:scStopCallCount++
+                    $global:LASTEXITCODE = 5
+                }
+            }
+
+            { Remove-ServiceIfExists -ServiceName 'some-service' } | Should -Throw '*exit code 5*'
+
+            $script:scStopCallCount | Should -Be 1
+            $script:scDeleteCallCount | Should -Be 0
+            Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 0
+        }
+
+        It 'throws immediately when the retried sc.exe stop fails unexpectedly' {
+            $script:serviceStatus = 'Running'
+            Mock Get-Service -MockWith {
+                $script:getServiceCallCount++
+                return [PSCustomObject]@{Name = 'some-service'; Status = 'Running'}
+            }
+            Mock sc.exe -MockWith {
+                $script:scExeCallCount++
+                if ($args[0] -eq 'stop') {
+                    $script:scStopCallCount++
+                    # First stop races with a pending transition (1061, retryable); the retry
+                    # then fails for a genuine reason (e.g. access denied).
+                    $global:LASTEXITCODE = if ($script:scStopCallCount -eq 1) { 1061 } else { 5 }
+                }
+            }
+
+            { Remove-ServiceIfExists -ServiceName 'some-service' } | Should -Throw '*exit code 5*'
+
+            $script:scStopCallCount | Should -Be 2
+            $script:scDeleteCallCount | Should -Be 0
+        }
+
+        It 'proceeds to wait for stop when sc.exe stop reports a benign concurrent-removal race (1072)' {
+            $script:serviceStatus = 'Running'
+            Mock Get-Service -MockWith {
+                $script:getServiceCallCount++
+                if ($script:getServiceCallCount -eq 1) {
+                    return [PSCustomObject]@{Name = 'some-service'; Status = 'Running'}
+                }
+                return $null
+            }
+            Mock sc.exe -MockWith {
+                $script:scExeCallCount++
+                if ($args[0] -eq 'stop') {
+                    $script:scStopCallCount++
+                    $global:LASTEXITCODE = 1072
+                }
+                if ($args[0] -eq 'delete') { $script:scDeleteCallCount++; $global:LASTEXITCODE = 0 }
+                if ($args[0] -eq 'query') { $global:LASTEXITCODE = 1060 }
+            }
+
+            { Remove-ServiceIfExists -ServiceName 'some-service' } | Should -Not -Throw
+
+            $script:scStopCallCount | Should -Be 1
             $script:scDeleteCallCount | Should -Be 1
         }
 
