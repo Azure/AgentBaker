@@ -176,9 +176,12 @@ windows_servercore_image_url=""
 windows_nanoserver_image_url=""
 windows_private_packages_url=""
 
-# See compute_msi_resource_strings in produce-packer-settings-functions.sh for the UAMI-attachment
-# logic and its ShellSpec coverage in spec/vhdbuilder/packer/compute_msi_resource_strings_spec.sh.
-compute_msi_resource_strings
+# msi_resource_strings is an array that will be used to build VHD build vm; test pipelines
+# may not set it. See compute_msi_resource_strings in produce-packer-settings-functions.sh for
+# the UAMI-attachment logic and its ShellSpec coverage in
+# spec/vhdbuilder/packer/compute_msi_resource_strings_spec.sh.
+msi_resource_strings=()
+compute_msi_resource_strings msi_resource_strings
 
 # shellcheck disable=SC2236
 if [ "$OS_TYPE" = "Windows" ]; then

@@ -69,7 +69,7 @@ EOF
     It 'leaves msi_resource_strings empty even when AZURE_MSI_RESOURCE_STRING is set'
       AZURE_MSI_RESOURCE_STRING="/subscriptions/x/resourceGroups/y/providers/.../uami"
       write_components_json "false"
-      When call compute_msi_resource_strings
+      When call compute_msi_resource_strings msi_resource_strings
       The status should be success
       The value "${#msi_resource_strings[@]}" should eq "0"
       The output should include "Skipping UAMI assignment"
@@ -78,7 +78,7 @@ EOF
     It 'leaves msi_resource_strings empty when AZURE_MSI_RESOURCE_STRING is unset, regardless of the flag'
       unset AZURE_MSI_RESOURCE_STRING
       write_components_json "true"
-      When call compute_msi_resource_strings
+      When call compute_msi_resource_strings msi_resource_strings
       The status should be success
       The value "${#msi_resource_strings[@]}" should eq "0"
       The output should include "Skipping UAMI assignment"
@@ -89,7 +89,7 @@ EOF
     It 'populates msi_resource_strings when AZURE_MSI_RESOURCE_STRING is set'
       AZURE_MSI_RESOURCE_STRING="/subscriptions/x/resourceGroups/y/providers/.../uami"
       write_components_json "true"
-      When call compute_msi_resource_strings
+      When call compute_msi_resource_strings msi_resource_strings
       The status should be success
       The variable msi_resource_strings[0] should eq "$AZURE_MSI_RESOURCE_STRING"
       The output should be present
@@ -102,7 +102,7 @@ EOF
       AZURE_MSI_RESOURCE_STRING="/subscriptions/x/resourceGroups/y/providers/.../uami"
       PRIVATE_PACKAGES_URL="https://example.com/private.tar"
       write_components_json "false"
-      When call compute_msi_resource_strings
+      When call compute_msi_resource_strings msi_resource_strings
       The status should be success
       The variable msi_resource_strings[0] should eq "$AZURE_MSI_RESOURCE_STRING"
       The output should be present
@@ -112,7 +112,7 @@ EOF
       AZURE_MSI_RESOURCE_STRING="/subscriptions/x/resourceGroups/y/providers/.../uami"
       WINDOWS_PRIVATE_PACKAGES_URL="https://example.com/win-private.zip"
       write_components_json "false"
-      When call compute_msi_resource_strings
+      When call compute_msi_resource_strings msi_resource_strings
       The status should be success
       The variable msi_resource_strings[0] should eq "$AZURE_MSI_RESOURCE_STRING"
       The output should be present
@@ -122,7 +122,7 @@ EOF
       AZURE_MSI_RESOURCE_STRING="/subscriptions/x/resourceGroups/y/providers/.../uami"
       WINDOWS_BASE_IMAGE_URL="https://example.com/base.vhd"
       write_components_json "false"
-      When call compute_msi_resource_strings
+      When call compute_msi_resource_strings msi_resource_strings
       The status should be success
       The variable msi_resource_strings[0] should eq "$AZURE_MSI_RESOURCE_STRING"
       The output should be present
@@ -132,7 +132,7 @@ EOF
       AZURE_MSI_RESOURCE_STRING="/subscriptions/x/resourceGroups/y/providers/.../uami"
       WINDOWS_CONTAINERIMAGE_JSON_URL="https://example.com/images.json"
       write_components_json "false"
-      When call compute_msi_resource_strings
+      When call compute_msi_resource_strings msi_resource_strings
       The status should be success
       The variable msi_resource_strings[0] should eq "$AZURE_MSI_RESOURCE_STRING"
       The output should be present
@@ -143,7 +143,7 @@ EOF
     It 'does not error and treats it as no AzCopy signal present'
       AZURE_MSI_RESOURCE_STRING="/subscriptions/x/resourceGroups/y/providers/.../uami"
       COMPONENTS_JSON="./.shellspec-scratch/does-not-exist-$$-${RANDOM}.json"
-      When call compute_msi_resource_strings
+      When call compute_msi_resource_strings msi_resource_strings
       The status should be success
       The value "${#msi_resource_strings[@]}" should eq "0"
       The output should include "Skipping UAMI assignment"
