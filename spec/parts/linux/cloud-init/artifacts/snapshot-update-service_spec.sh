@@ -13,6 +13,8 @@ Describe 'snapshot update service commands'
             jq -e '
                 [.. | objects | .source? // empty] as $sources |
                 ($sources | index("parts/linux/cloud-init/artifacts/ubuntu/security-update.sh")) != null and
+                ($sources | index("parts/linux/cloud-init/artifacts/ubuntu/npd-update.sh")) != null and
+                ($sources | index("vhdbuilder/packer/install-npd.sh")) != null and
                 ($sources | index("parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh")) != null and
                 ($sources | index("parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.service")) != null and
                 ($sources | index("parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.timer")) != null and
@@ -43,7 +45,7 @@ Describe 'snapshot update service commands'
         local generator="hotfix/hotfix_generate.py"
         local key
 
-        for key in snapshotUpdateScript securityUpdateScript
+        for key in snapshotUpdateScript securityUpdateScript npdUpdateScript
         do
             grep -Fq "GetVariableProperty \"cloudInitData\" \"${key}\"" "${template}" || return 1
             grep -Fq ": \"${key}\"" "${generator}" || return 1

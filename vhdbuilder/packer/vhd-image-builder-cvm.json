@@ -326,6 +326,16 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/install-npd.sh",
+      "destination": "/home/packer/install-npd.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/npd-update.sh",
+      "destination": "/home/packer/npd-update.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/ubuntu/security-update.sh",
       "destination": "/home/packer/security-update.sh"
     },

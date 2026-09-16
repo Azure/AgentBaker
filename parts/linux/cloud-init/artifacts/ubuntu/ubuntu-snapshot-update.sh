@@ -275,6 +275,10 @@ knead_apply_components() {
                 component_comparator=securityPatchIsCurrent
                 component_handler=updateSecurityPatch
                 ;;
+            npdConfig)
+                component_comparator=npdConfigsIsCurrent
+                component_handler=updateNPDConfigs
+                ;;
             *)
                 echo "unsupported component: ${component}"
                 component_index=$((component_index + 1))
@@ -410,5 +414,7 @@ ${__SOURCED__:+return}
 
 # shellcheck disable=SC1091
 source /opt/azure/containers/security-update.sh
+# shellcheck disable=SC1091
+source /opt/azure/containers/npd-update.sh
 
 knead_main "$@"

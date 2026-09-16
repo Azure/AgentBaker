@@ -90,6 +90,7 @@ SOURCE_TO_VARKEY = {
     # either file hotfix-delivers both atomically.
     "ubuntu/ubuntu-snapshot-update.sh": "snapshotUpdateScript",
     "ubuntu/security-update.sh": "securityUpdateScript",
+    "ubuntu/npd-update.sh": "npdUpdateScript",
     "mariner/mariner-package-update.sh": "packageUpdateScriptMariner",
     # Systemd services
     "kubelet.service": "kubeletSystemdService",

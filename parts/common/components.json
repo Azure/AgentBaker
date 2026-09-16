@@ -2175,6 +2175,74 @@
       }
     },
     {
+      "name": "node-problem-detector-kubernetes",
+      "downloadLocation": "/opt/node-problem-detector/downloads",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versionsV2": []
+          }
+        },
+        "ubuntu": {
+          "r2004": {
+            "versionsV2": [{
+              "renovateTag": "name=node-problem-detector-kubernetes, repository=production, os=ubuntu, release=20.04",
+              "latestVersion": "0.8.25-ubuntu20.04u16"
+            }]
+          },
+          "r2204": {
+            "versionsV2": [{
+              "renovateTag": "name=node-problem-detector-kubernetes, repository=production, os=ubuntu, release=22.04",
+              "latestVersion": "0.8.25-ubuntu22.04u16"
+            }]
+          },
+          "r2404": {
+            "versionsV2": [{
+              "renovateTag": "name=node-problem-detector-kubernetes, repository=production, os=ubuntu, release=24.04",
+              "latestVersion": "0.8.25-ubuntu24.04u16"
+            }]
+          },
+          "r2604": {
+            "versionsV2": []
+          }
+        }
+      }
+    },
+    {
+      "name": "node-problem-detector-aks-config",
+      "downloadLocation": "/opt/node-problem-detector/downloads",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versionsV2": []
+          }
+        },
+        "ubuntu": {
+          "r2004": {
+            "versionsV2": [{
+              "renovateTag": "name=node-problem-detector-aks-config, repository=production, os=ubuntu, release=20.04",
+              "latestVersion": "1.0.0-ubuntu20.04u1"
+            }]
+          },
+          "r2204": {
+            "versionsV2": [{
+              "renovateTag": "name=node-problem-detector-aks-config, repository=production, os=ubuntu, release=22.04",
+              "latestVersion": "1.0.0-ubuntu22.04u1"
+            }]
+          },
+          "r2404": {
+            "versionsV2": [{
+              "renovateTag": "name=node-problem-detector-aks-config, repository=production, os=ubuntu, release=24.04",
+              "latestVersion": "1.0.0-ubuntu24.04u1"
+            }]
+          },
+          "r2604": {
+            "versionsV2": []
+          }
+        }
+      }
+    },
+    {
       "name": "node-exporter",
       "downloadLocation": "/opt/node-exporter",
       "downloadURIs": {

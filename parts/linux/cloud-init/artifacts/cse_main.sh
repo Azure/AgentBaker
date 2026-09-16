@@ -633,6 +633,7 @@ function nodePrep {
     fi
 
     logs_to_events "AKS.CSE.configureNodeExporter" configureNodeExporter
+    logs_to_events "AKS.CSE.configureNodeProblemDetector" configureNodeProblemDetector
 
 
     # Clean up GPU drivers if not a GPU node or if skipping driver install

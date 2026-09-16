@@ -706,6 +706,14 @@ cachePackageAndBinaryComponents() {
           installNodeExporter "${PACKAGE_VERSIONS[0]}"
         fi
         ;;
+      "node-problem-detector-kubernetes"|"node-problem-detector-aks-config")
+        # Only Ubuntu builders carry this helper. Empty manifest entries leave
+        # other OSes (and unpublished Ubuntu targets) extension-managed.
+        if isUbuntu && [ "${IS_KATA}" != "true" ]; then
+          source /home/packer/install-npd.sh
+          installNPDPackage "${name}" "${PACKAGE_VERSIONS[0]}" || exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+        ;;
       "acr-mirror")
         # TODO(2604): install acr-mirror for artifact streaming support once acr-mirror is available in resolute PMC repos
         # Artifact streaming (acr-mirror) - version and URLs resolved from components.json,

@@ -218,6 +218,8 @@ copyPackerFiles() {
   SECURE_TLS_BOOTSTRAP_SERVICE_DEST=/etc/systemd/system/secure-tls-bootstrap.service
   SECURITY_UPDATE_SH_SRC=/home/packer/security-update.sh
   SECURITY_UPDATE_SH_DEST=/opt/azure/containers/security-update.sh
+  NPD_UPDATE_SH_SRC=/home/packer/npd-update.sh
+  NPD_UPDATE_SH_DEST=/opt/azure/containers/npd-update.sh
   USU_SH_SRC=/home/packer/ubuntu-snapshot-update.sh
   USU_SH_DEST=/opt/azure/containers/ubuntu-snapshot-update.sh
   MPU_SH_SRC=/home/packer/mariner-package-update.sh
@@ -618,6 +620,7 @@ copyPackerFiles() {
     cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
     cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
     cpAndMode $SECURITY_UPDATE_SH_SRC $SECURITY_UPDATE_SH_DEST 544
+    cpAndMode $NPD_UPDATE_SH_SRC $NPD_UPDATE_SH_DEST 544
     cpAndMode $USU_SH_SRC $USU_SH_DEST 544
 
     if [ "$UBUNTU_RELEASE" = "24.04" ] && [ "$CPU_ARCH" = "arm64" ]; then

@@ -67,6 +67,32 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         return "${TEST_SECURITY_STATUS}"
     }
 
+    updateNPDConfigs() {
+        echo "updateNPDConfigs called with args: $*"
+        return "${TEST_NPD_STATUS:-0}"
+    }
+
+    npdConfigsIsCurrent() {
+        [ "$1" = "$2" ]
+    }
+
+    It 'dispatches the RP NPD contract alongside securityPatch'
+        When call knead_apply_components '{"components":[{"name":"npdConfig","nodeConfig":"{\"ubuntuPackageVersions\":{\"24.04\":\"1.0.0-ubuntu24.04u1\"}}"},{"name":"securityPatch","nodeConfig":"{}"}]}' '{}'
+        The status should be success
+        The output should include 'updateNPDConfigs called'
+        The output should include 'updateSecurityPatch called'
+        The contents of file "${KNEAD_COMPONENT_STATE_FILE}" should include 'npdConfig'
+    End
+
+    It 'continues securityPatch when NPD fails'
+        TEST_NPD_STATUS=1
+        When call knead_apply_components '{"components":[{"name":"npdConfig","nodeConfig":"{}"},{"name":"securityPatch","nodeConfig":"{}"}]}' '{}'
+        The status should be failure
+        The output should include 'updateSecurityPatch called'
+        The contents of file "${KNEAD_COMPONENT_STATE_FILE}" should include 'securityPatch'
+        The contents of file "${KNEAD_COMPONENT_STATE_FILE}" should not include 'npdConfig'
+    End
+
     securityPatchIsCurrent() {
         local desired_payload="$1"
         local current_payload="$2"

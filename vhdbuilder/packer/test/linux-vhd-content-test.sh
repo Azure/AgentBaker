@@ -2492,6 +2492,22 @@ checkLocaldnsScriptsAndConfigs() {
 
 #------------------------ End of test code related to localdns ------------------------
 
+testNodeProblemDetector() {
+  local test="testNodeProblemDetector" os_sku="$1" version executable
+  [ "${os_sku}" = Ubuntu ] || return 0
+  # Ubuntu 26.04 remains extension-managed until its config package is published.
+  [ "$(. /etc/os-release; echo "$VERSION_ID")" != 26.04 ] || return 0
+  case "${FEATURE_FLAGS}" in *kata*) return 0 ;; esac
+  for executable in /usr/bin/node-problem-detector /usr/bin/npd-log-counter /usr/bin/npd-health-checker /opt/bin/node-problem-detector-startup.sh; do
+    [ -x "${executable}" ] || err "$test" "Missing executable ${executable}"
+  done
+  [ -f /etc/node-problem-detector.d/skip_vhd_npd ] || err "$test" "Missing NPD skip marker"
+  [ -s /etc/node-problem-detector.d/custom-plugin-monitor/custom-kubelet-monitor.json ] || err "$test" "Missing NPD monitors"
+  version="$(dpkg-query -W -f='${Version}' node-problem-detector-aks-config)" || err "$test" "Missing config package"
+  [ -f "/opt/node-problem-detector/downloads/node-problem-detector-aks-config_${version}_$(dpkg --print-architecture).deb" ] || err "$test" "Missing NPD recovery package"
+  [ "$(systemctl is-enabled node-problem-detector.service)" = disabled ] || err "$test" "NPD must be disabled for capture"
+}
+
 testKneadSecurityPatchingAssets() {
   local test="testKneadSecurityPatchingAssets"
   local os_sku="$1"
@@ -2501,6 +2517,7 @@ testKneadSecurityPatchingAssets() {
     ["/etc/systemd/system/snapshot-update.service"]=644
     ["/etc/systemd/system/snapshot-update.timer"]=644
     ["/opt/azure/containers/security-update.sh"]=544
+    ["/opt/azure/containers/npd-update.sh"]=544
     ["/opt/azure/containers/ubuntu-snapshot-update.sh"]=544
   )
 
@@ -2768,6 +2785,7 @@ testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
 testNodeExporter $OS_SKU
+testNodeProblemDetector $OS_SKU
 testAKSNodeControllerBinary
 testAKSNodeControllerVersion
 testAKSNodeControllerService

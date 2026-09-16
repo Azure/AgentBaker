@@ -48,6 +48,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"ensureIMDSRestrictionScript":           getBase64EncodedGzippedCustomScript(ensureIMDSRestrictionScript, config),
 			"snapshotUpdateScript":                  getBase64EncodedGzippedCustomScript(snapshotUpdateScript, config),
 			"securityUpdateScript":                  getBase64EncodedGzippedCustomScript(securityUpdateScript, config),
+			"npdUpdateScript":                       getBase64EncodedGzippedCustomScript(npdUpdateScript, config),
 			"snapshotUpdateService":                 getBase64EncodedGzippedCustomScript(snapshotUpdateSystemdService, config),
 			"snapshotUpdateTimer":                   getBase64EncodedGzippedCustomScript(snapshotUpdateSystemdTimer, config),
 			"packageUpdateScriptMariner":            getBase64EncodedGzippedCustomScript(packageUpdateScriptMariner, config),
