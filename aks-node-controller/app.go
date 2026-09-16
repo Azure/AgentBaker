@@ -248,6 +248,8 @@ func (a *App) runProvisionWaitCommand(ctx context.Context, provisionStatusFiles 
 		a.eventLogger.LogEvent("ProvisionWait", "Completed", helpers.EventLevelInformational, startTime, endTime)
 		slog.Info("aks-node-controller finished successfully.")
 	}
+	// CSE reports both stdout and stderr to RP. Keep the full JSON in the local log
+	// without duplicating the stdout payload in stderr.
 	fileLogger.Info("provision-wait finished", "provisionOutput", provisionOutput)
 	slog.Info("provision-wait finished")
 	return provisionOutput, err
