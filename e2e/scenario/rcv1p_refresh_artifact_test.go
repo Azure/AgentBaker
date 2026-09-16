@@ -104,6 +104,7 @@ func TestRCV1PRefreshArtifactRejectsMalformedPayload(t *testing.T) {
 	}
 	entry := fmt.Sprintf("\n- path: %s\n  encoding: gzip\n  content: !!binary |\n    %s\n",
 		installedRCV1PScript, compress("#!/bin/bash\ntrue\n"))
+	textEntry := fmt.Sprintf("\n- path: %s\n  content: \"#!/bin/bash\\ntrue\\n\"\n", installedRCV1PScript)
 	for name, customData := range map[string]string{
 		"bad base64":              "not base64",
 		"empty":                   "",
@@ -115,6 +116,10 @@ func TestRCV1PRefreshArtifactRejectsMalformedPayload(t *testing.T) {
 		"invalid script gzip":     encode("#cloud-config\nwrite_files:" + strings.Replace(entry, compress("#!/bin/bash\ntrue\n"), encode("not gzip"), 1)),
 		"empty script":            encode("#cloud-config\nwrite_files:" + strings.Replace(entry, compress("#!/bin/bash\ntrue\n"), compress(""), 1)),
 		"invalid yaml":            encode("#cloud-config\nwrite_files: ["),
+		"duplicate text script":   encode("#cloud-config\nwrite_files:" + textEntry + textEntry),
+		"mixed duplicate script":  encode("#cloud-config\nwrite_files:" + entry + textEntry),
+		"empty text script":       encode("#cloud-config\nwrite_files:" + strings.Replace(textEntry, "#!/bin/bash\\ntrue\\n", "", 1)),
+		"binary without gzip":     encode("#cloud-config\nwrite_files:" + strings.Replace(entry, "encoding: gzip", "encoding: ''", 1)),
 		"unknown boothook writer": encode("#cloud-boothook\nwrite " + installedRCV1PScript),
 		"invalid ignition":        encode(`{"storage":{}}`),
 		"external ignition":       encode(`{"ignition":{"version":"3.4.0"},"storage":{"files":[{"path":"/var/lib/ignition/ignition-files.tar","contents":{"source":"https://example.invalid/payload","compression":"gzip"}}]}}`),
@@ -128,6 +133,7 @@ func TestRCV1PRefreshArtifactRejectsMalformedPayload(t *testing.T) {
 	for name, customData := range map[string]string{
 		"gzip cloud-config":  compress("#cloud-config\nwrite_files:" + entry),
 		"plain cloud-config": encode("#cloud-config\nwrite_files:" + entry),
+		"text file":          compress("#cloud-config\nwrite_files:" + textEntry),
 	} {
 		t.Run(name, func(t *testing.T) {
 			got, err := rcv1pRefreshPayload(customData)

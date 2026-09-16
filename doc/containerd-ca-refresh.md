@@ -260,7 +260,7 @@ regeneration passes without snapshot changes. macOS tests and cross-compilation
 do not establish live Linux/systemd restart safety, workload continuity or
 cross-OS coverage.
 
-### Main integration: payload-size blocker
+### Main integration and cloud-init payload fix
 
 Integrating main at `2944b6dce46ce9721aadb099a2adf94b4ac498e7` preserves the
 conditional-restart production script, ports the CA validators to the new
@@ -269,14 +269,22 @@ together. The E2E unit suite, vet and builds pass, as do root vet, gzip
 compatibility, fixture/shared-evidence race tests, the Linux fixture cross-build
 and 70 focused shell cases.
 
-**The root Go suite is not passing:** both scripted Ubuntu 22.04 and 24.04
-CustomData guards now measure **68,190 bytes / 90,920 encoded characters**,
-exceeding the unchanged **87,380-character limit by 3,540 characters**.
-The earlier passing payload measurements below predate this integration.
-Conflict resolution is published with this explicit blocker; additional
-payload/compression work is deferred. No guard is weakened, provisioning
-safeguard removed, or production encoding changed to hide the failure.
-This branch must not be treated as merge- or rollout-ready.
+The initial merge (`e28b0818d2`) failed both scripted Ubuntu 22.04 and 24.04
+CustomData guards at **68,190 bytes / 90,920 encoded characters**, exceeding
+the unchanged **87,380-character limit by 3,540 characters**. Conflict
+resolution was published separately with that blocker explicitly recorded.
+
+The subsequent cloud-init fix renders script contents as losslessly quoted
+YAML text before compressing the entire cloud-config, instead of compressing
+each file separately first. Both Ubuntu guards now pass at **62,296 bytes /
+83,064 encoded characters**, with **4,316 characters of headroom**. No script,
+hotfix, or coordinator safeguard is removed, and neither size limit changes.
+See the encoding scope and compatibility evidence below.
+
+Root and E2E Go unit suites and vet pass locally; all 25 hotfix-generator tests
+pass. These results do not clear hosted gates or establish live restart,
+workload-survival, or freshly baked image/delivery-path coverage. This branch
+must not be treated as merge- or rollout-ready.
 
 Repository-wide `make validate-shell` also fails its POSIX-only pass
 (`SC3010`/`SC3014`) on Bash-specific syntax across existing scripts, including
@@ -366,38 +374,89 @@ baseline was reproduced with the current Go toolchain using an isolated overlay.
 
 With the standard-library encoder, the restart revision produced **66,003 bytes /
 88,004 encoded characters**, exceeding the limit by **624 characters**.
-Source deduplication and literal/quoted cloud-init embedding did not solve the
-compressed-size problem and were reverted rather than dropping recovery checks.
+Early source-deduplication and alternate-embedding experiments did not establish
+a complete fix and were reverted rather than dropping recovery checks. The
+merged-tree direct-rendering result below supersedes those experiments.
 
-The producer now uses `github.com/klauspost/compress/gzip` **v1.18.5**, already
+The producer uses `github.com/klauspost/compress/gzip` **v1.18.5**, already
 used by the E2E module, at best compression. The **wire format remains standard
 gzip/base64 and decompressed artifact bytes are unchanged by this encoder
-switch**. There is no new node-side dependency, no alternate cloud-init encoding,
-and no per-file format exception. The standard-library gzip reader remains in
-the decoder and compatibility tests.
+switch**. That encoder-only change did not alter the inner file representation.
+The standard-library gzip reader remains in the decoder and compatibility tests.
 
 Before main integration, both Ubuntu cases produced **65,488 bytes / 87,320 encoded characters**,
 leaving **60 encoded characters** below the unchanged 87,380 limit. This is
-a historical measurement, superseded by the failing merged measurements above,
+a historical measurement, superseded first by the merged overflow and then by
+the direct-rendering measurements below,
 not a guarantee for arbitrary CustomData. Keep the guard when extending embedded
 scripts.
 
-Local three-run compression benchmarks on Apple M4 Pro measured the init script
+Historical three-run compression benchmarks on Apple M4 Pro measured the init script
 at 0.58-0.62 ms versus 0.70-0.71 ms with the standard encoder, and `cse_config.sh`
 at 1.94-1.98 ms versus 2.10-2.20 ms. The trade-off is approximately **329 KB more
 allocation per compression call** (with two fewer allocations). These are
 producer microbenchmarks, not API load, VHD build or node provisioning tests.
 
+### Direct rendering and shared compression
+
+Ordinary scripted Linux cloud-init now embeds each rendered script as a YAML
+double-quoted scalar with empty `write_files.encoding`, then applies the
+existing outer gzip/base64 encoding. Removing the inner gzip/base64 streams
+allows compression across files. This is a **cloud-config representation
+change**, not script minification: the shared script renderer retains existing
+templating, comment stripping and line-ending normalization, and YAML quoting
+preserves the resulting bytes, whitespace and final newlines. It adds no
+node-side dependency and does not decode/remarshal the whole document.
+
+The default internal renderer still produces individually compressed files.
+Scriptless/NBC, ANC hotfix rendering and ACL/Flatcar Ignition keep that
+representation; Windows is unchanged. Encoding metadata uses a separate
+`cloudInitFile` variable namespace so hotfix selection continues to identify
+only actual script keys in `cloudInitData`. No generated hotfix entry is removed.
+The RCV1P provenance parser accepts both representations, retaining duplicate,
+empty-content and malformed-encoding rejection and hashing the delivered bytes.
+
+Measured synthetic provisioning fixtures:
+
+| Cloud-init distro | Decoded bytes | Encoded characters | Headroom |
+| --- | ---: | ---: | ---: |
+| Ubuntu 22.04 / 24.04 / 26.04 minimal | 62,296 | 83,064 | 4,316 |
+| Azure Linux v3 / v3 FIPS | 59,847 | 79,796 | 7,584 |
+| Azure Linux v3 OSGuard FIPS | 55,255 | 73,676 | 13,704 |
+
+The matrix covers custom-cloud and pre-provisioning on/off combinations,
+compares every decoded file, metadata, order and boot command against legacy
+rendering, and checks deterministic output and both size limits. Independent
+PyYAML decoding also confirms all 17 files in the Ubuntu fixture are unchanged.
+Escaping tests cover YAML/shell syntax, whitespace, Unicode, control bytes and
+non-UTF-8 content; approximately 123,200 fuzz executions found no mismatch.
+Scriptless/NBC compatibility is checked byte-for-byte.
+
+**Scope limitation:** unchanged scripted ACL and Flatcar Ignition fixtures
+measure **99,836** and **98,368 encoded characters**, respectively, and still
+exceed the limit. Their compatibility assertions do not claim size compliance.
+This fix addresses the deferred Ubuntu/cloud-init overflow, not Ignition
+payload packing or arbitrary additional user configuration.
+
+Three full-producer benchmark runs on Apple M4 Pro, without competing test
+workloads, measured **18.7-19.1 ms** for direct/shared compression versus
+**17.8-18.0 ms** for nested compression. Allocated bytes dropped from about
+**67.7 MB to 15.1 MB per operation**. This trades approximately 1 ms of producer
+CPU time for payload headroom and lower allocation; it is not an API-load,
+VHD-build or provisioning-performance claim.
+
 `should keep scripted Ubuntu CustomData within the compute API limit` has an
 independent case for each Ubuntu version so regressions in either remain visible.
-No hotfix entry removal, unrelated script minification or production
-artifact-format change is used to fit the payload.
+The independent guards remain in place. No hotfix entry removal, unrelated
+script minification or limit relaxation is used to fit the payload.
 
 Passing the size guard, standalone-refresh tests, or baked-ANC scenarios does
 not by itself prove scripted provisioning, a new ANC build, or a newly baked
 VHD. Record actual E2E and hosted gate results separately before rollout.
 
 References:
+* [Azure VM custom data](https://learn.microsoft.com/azure/virtual-machines/custom-data)
+* [cloud-init 22.2 write_files encoding handling](https://github.com/canonical/cloud-init/blob/22.2/cloudinit/config/cc_write_files.py)
 * [containerd hosts configuration](https://github.com/containerd/containerd/blob/v1.7.28/docs/hosts.md)
 * [containerd resolver CA loading](https://github.com/containerd/containerd/blob/v1.7.28/remotes/docker/config/hosts.go)
 * [CRI resolver configuration](https://github.com/containerd/containerd/blob/v1.7.28/pkg/cri/server/image_pull.go)

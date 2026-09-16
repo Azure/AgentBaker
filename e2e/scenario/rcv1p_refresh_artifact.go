@@ -78,16 +78,23 @@ func rcv1pRefreshPayload(customData string) ([]byte, error) {
 			if script != nil {
 				return nil, fmt.Errorf("duplicate refresh script in cloud-config")
 			}
-			if file.Encoding != "gzip" || file.Content.Tag != "!!binary" {
+			switch {
+			case file.Encoding == "" && file.Content.Tag == "!!str":
+				script = []byte(file.Content.Value)
+			case file.Encoding == "gzip" && file.Content.Tag == "!!binary":
+				compressed, err := base64.StdEncoding.DecodeString(strings.TrimSpace(file.Content.Value))
+				if err != nil {
+					return nil, fmt.Errorf("decode rendered refresh script: %w", err)
+				}
+				script, err = rcv1pGunzip(compressed)
+				if err != nil {
+					return nil, fmt.Errorf("invalid compressed refresh script: %w", err)
+				}
+			default:
 				return nil, fmt.Errorf("unexpected refresh script cloud-config encoding")
 			}
-			compressed, err := base64.StdEncoding.DecodeString(strings.TrimSpace(file.Content.Value))
-			if err != nil {
-				return nil, fmt.Errorf("decode rendered refresh script: %w", err)
-			}
-			script, err = rcv1pGunzip(compressed)
-			if err != nil || len(script) == 0 {
-				return nil, fmt.Errorf("invalid compressed refresh script")
+			if len(script) == 0 {
+				return nil, fmt.Errorf("empty refresh script")
 			}
 		}
 		return script, nil
