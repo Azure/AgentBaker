@@ -26,13 +26,24 @@ func TestRCV1PRefreshProductionRender(t *testing.T) {
 		datamodel.AKSUbuntuMinimalContainerd2604Gen2, datamodel.AKSAzureLinuxV3Gen2,
 		datamodel.AKSACLGen2TL,
 	} {
-		for _, mode := range []string{"scripted", "scriptless", "scriptless-nbc"} {
-			t.Run(fmt.Sprintf("%s/%s", distro, mode), func(t *testing.T) {
+		for _, name := range []string{
+			"scripted", "scriptless", "scriptless-nbc",
+			"scripted-custom-cloud", "scriptless-custom-cloud", "scriptless-nbc-custom-cloud",
+		} {
+			t.Run(fmt.Sprintf("%s/%s", distro, name), func(t *testing.T) {
+				mode := strings.TrimSuffix(name, "-custom-cloud")
+				customCloud := mode != name
 				nbc, err := baseTemplateLinux("eastus", "1.34.0", "amd64")
 				require.NoError(t, err)
 				nbc.AgentPoolProfile.Distro = distro
 				nbc.EnableScriptlessCSECmd = mode != "scripted"
 				nbc.EnableScriptlessNBCCSECmd = mode == "scriptless-nbc"
+				if customCloud {
+					nbc.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+						Name:                    "akscustom",
+						ResourceManagerEndpoint: "https://management.fixture.invalid/",
+					}
+				}
 				baker, err := agent.NewAgentBaker()
 				require.NoError(t, err)
 				// Exercise the real renderer, including comment removal,
@@ -41,7 +52,7 @@ func TestRCV1PRefreshProductionRender(t *testing.T) {
 				require.NoError(t, err)
 				want, err := expectedRCV1PRefreshArtifact(payload.CustomData)
 				require.NoError(t, err)
-				if mode != "scripted" {
+				if mode == "scriptless-nbc" || (mode == "scriptless" && !customCloud) {
 					require.Equal(t, rawHash, want.sha256)
 					require.Contains(t, want.origin, "not delivered by customData")
 					require.Error(t, validateRCV1PRefreshHash(context.Background(),
@@ -49,7 +60,10 @@ func TestRCV1PRefreshProductionRender(t *testing.T) {
 				} else {
 					script, err := rcv1pRefreshPayload(payload.CustomData)
 					require.NoError(t, err)
-					require.Contains(t, string(script), "update_containerd_ca")
+					require.Contains(t, string(script), "refresh_certs_and_containerd")
+					require.Contains(t, string(script), "containerd_cri_ready")
+					require.Contains(t, string(script), "CA_REFRESH_RESULT=")
+					require.NotContains(t, string(script), "update_containerd_ca")
 					require.NotEqual(t, rawHash, want.sha256, "normal production comment removal must be honored")
 					require.Equal(t, fmt.Sprintf("%x", sha256.Sum256(script)), want.sha256)
 					require.Equal(t, "production-rendered customData", want.origin)

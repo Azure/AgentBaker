@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/internal/carefresh"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -174,7 +175,7 @@ func TestRCV1PRefreshCommand(t *testing.T) {
 		{"wrong location", cron, "eastus2", false, false},
 		{"missing location", cron, "", false, false},
 		{"duplicate", cron + "\n" + cron, "westus3", false, false},
-		{"other script", strings.ReplaceAll(cron, installedRCV1PScript, "/tmp/fixture"), "westus3", false, false},
+		{"other script", strings.ReplaceAll(cron, installedRCV1PScript, "/test/fixture"), "westus3", false, false},
 		{"shell suffix", cron + "; true", "westus3", false, false},
 		{"comment only", "#" + cron, "westus3", false, false},
 	} {
@@ -182,12 +183,27 @@ func TestRCV1PRefreshCommand(t *testing.T) {
 			command, err := rcv1pRefreshCommand(test.schedule, test.location, test.systemd)
 			if test.valid {
 				require.NoError(t, err)
-				require.Contains(t, command, "timeout 300")
+				require.Contains(t, command, "timeout 1200")
+				require.Equal(t, 1200, int(carefresh.RefreshTimeout.Seconds()))
+				require.NotContains(t, command, "RANDOM")
+				require.NotContains(t, command, "__SOURCED__")
+				if test.systemd {
+					require.Equal(t, "sudo timeout 1200 systemctl start azure-ca-refresh.service", command)
+				} else {
+					require.Equal(t, "sudo timeout 1200 "+installedRCV1PScript+" ca-refresh westus3", command)
+				}
 			} else {
 				require.Error(t, err)
 				require.Empty(t, command)
 			}
 		})
+	}
+}
+
+func TestRCV1PRefreshTimerHasNoDuplicateJitter(t *testing.T) {
+	require.NoError(t, validateRCV1PRefreshTimer("0\n"))
+	for _, output := range []string{"", "5min\n", "1s\n", "300000000\n", "0\n5min\n"} {
+		require.Error(t, validateRCV1PRefreshTimer(output), output)
 	}
 }
 
@@ -198,12 +214,34 @@ Retrieving certificate operations for type: operationrequestsroot
 Successfully saved certificate: root.crt
 Retrieving certificate operations for type: operationrequestsintermediate
 Successfully saved certificate: intermediate.crt
-Trust store contents after cert copy: /usr/local/share/ca-certificates`
+Trust store contents after cert copy: /usr/local/share/ca-certificates
+CA_REFRESH_RESULT=unchanged`
 	require.NoError(t, validateRCV1PRefreshOutput(output))
-	for _, marker := range []string{"rcv1p", "IsOptedInForRootCerts=true", "operationrequestsroot", "operationrequestsintermediate", "Successfully saved certificate:", "Trust store contents after cert copy:"} {
+	for _, marker := range []string{"rcv1p", "IsOptedInForRootCerts=true", "operationrequestsroot", "operationrequestsintermediate", "Successfully saved certificate:", "Trust store contents after cert copy:", "CA_REFRESH_RESULT="} {
 		require.Error(t, validateRCV1PRefreshOutput(strings.ReplaceAll(output, marker, "")), marker)
 	}
-	for _, marker := range []string{"Warning: No response received", "ERROR: install failed", "Skipping custom cloud", "No certificate filenames"} {
+	for _, marker := range []string{
+		"Warning: No response received or request failed for: http://wireserver/certificate",
+		"Warning: rejecting certificate filename with path separators or traversal: '../root.crt'",
+		"Warning: failed to retrieve legacy custom cloud certificates",
+		"ERROR: wireserver unreachable after retries for IsOptedInForRootCerts check",
+		"ERROR: cannot refresh certificates - wireserver unreachable for cert opt-in check",
+		"ERROR: failed to retrieve rcv1p certificates from wireserver after retries",
+		"ERROR: failed to retrieve legacy certificates from wireserver after retries",
+		"ERROR: no *.crt files in /root/AzureCACertificates to install",
+		"ERROR: failed to install rcv1p CA certificates into trust store",
+		"ERROR: failed to install legacy CA certificates into trust store",
+		"Skipping custom cloud", "No certificate filenames", "LOCATION is empty",
+	} {
 		require.Error(t, validateRCV1PRefreshOutput(output+"\n"+marker), marker)
+	}
+	require.Error(t, validateRCV1PRefreshOutput(output+"\nCA_REFRESH_RESULT=restarted"))
+	require.Error(t, validateRCV1PRefreshOutput(strings.ReplaceAll(output, "CA_REFRESH_RESULT=unchanged", "+ echo CA_REFRESH_RESULT=unchanged")))
+	for _, marker := range []string{"restarted", "recovered"} {
+		require.NoError(t, validateRCV1PRefreshOutput(strings.ReplaceAll(output, "CA_REFRESH_RESULT=unchanged", "CA_REFRESH_RESULT="+marker)))
+		recovered := strings.ReplaceAll(output, "CA_REFRESH_RESULT=unchanged",
+			"ERROR: containerd CRI did not become ready\nCA_REFRESH_RESULT="+marker)
+		require.NoError(t, validateRCV1PRefreshOutput(recovered))
+		require.Error(t, validateRCV1PRefreshOutput(strings.ReplaceAll(recovered, "CA_REFRESH_RESULT="+marker, "")))
 	}
 }

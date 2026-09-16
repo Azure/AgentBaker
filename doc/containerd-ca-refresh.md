@@ -1,62 +1,84 @@
 # Containerd and Linux CA refresh
 
-Containerd's CRI registry resolver reads `certs.d` when resolving an image.
-An explicit CA file is read for a new resolver, but the Go system-root pool in
-the long-running daemon may retain the roots from its first use. Updating the
-OS trust store alone therefore does not reliably enable pulls from a registry
-whose CA was added later.
+Linux containerd already uses OS trust without an explicit `ca =` override.
+Go initializes and caches its system-root pool on first use. A later OS CA
+installation does not replace that pool in a long-running daemon, so new
+registry CAs can fail with `x509` errors until containerd starts again.
 
-## Configuration
+## Design decision: conditional restart, not registry migration
 
-AgentBaker provides an `aks-system-ca.crt` symlink to the distribution's generated
-system trust bundle:
+This revision replaces the earlier restart-free design with a scheduled,
+trust-change-triggered containerd restart. It removes `update_containerd_ca`,
+the `aks-system-ca.crt` links, and the added `ca =` lines in the AKS mirror
+generators. No registry configuration is reconciled or rewritten.
 
-* Ubuntu and Flatcar: `/etc/ssl/certs/ca-certificates.crt`
-* Mariner, Azure Linux and ACL: `/etc/pki/tls/certs/ca-bundle.crt`
+Explicit CA references can let newly constructed resolvers read updated files,
+but applying that design to existing nodes requires handling fallback directories,
+per-host and upstream TOML scopes, customized policies and symlinks. Restarting
+the daemon instead addresses the cached system-root pool directly and leaves
+registry policy ownership unchanged. This also removes the migration code that
+could replace a symlinked `hosts.toml` with a regular file.
 
-The link in `/etc/containerd/certs.d/_default` uses containerd's Docker-style
-certificate-directory fallback. No wildcard registry, HTTP endpoint, or
-`skip_verify` setting is needed. The link follows replacement of the bundle by
-the distribution's trust-update command. It does not contain a copied snapshot
-of the CA data.
+The trade-off is a temporary interruption to CRI operations and image pulls.
+The checked-in containerd unit uses `KillMode=process`; runtime shims are expected
+to preserve existing containers while the daemon restarts. This expectation
+requires live verification for each supported runtime/unit combination, including
+ACL/Flatcar units delivered through system extensions. The code does not restart
+kubelet, kill containers, drain nodes, reboot or modify unit policy.
 
-New AKS-generated bootstrap and legacy mirror configurations reference the
-native system bundle explicitly for **both** the mirror and the implicit upstream server.
-Their existing capabilities, URL path handling and headers remain unchanged.
-The standalone CA installer reconciles the fallback links after updating trust.
-It also upgrades only exact, unmodified older AKS mirror templates to reference
-the native bundle for both server and mirror, publishing the changed TOML
-atomically with GNU `sed -i` while retaining permissions. This runs on the node actually
-refreshing its CAs, without depending on base-preparation variables or changing
-node preparation. New mirror configurations do not depend on a link or helper
-from a newer VHD: they reference the existing OS bundle directly.
-No containerd or kubelet restart is performed by the reconciliation.
+## Scheduled refresh and recovery
+
+Only `init-aks-cloud.sh ca-refresh <location>` invokes
+`refresh_certs_and_containerd`. Initial provisioning still acquires and installs
+certificates without runtime lifecycle changes, jitter or recovery state.
+
+Each scheduled invocation sleeps once for a random 0-300 seconds, then holds
+a node-local lock across acquisition, installation and recovery. The systemd
+timer has `RandomizedDelaySec=0` to avoid a second delay; cron and systemd retain
+their installed location argument. Lock acquisition is bounded at 60 seconds.
+
+The coordinator compares SHA256 of the generated native system-bundle bytes,
+not download count or timestamps. It uses `/etc/ssl/certs/ca-certificates.crt`,
+or `/etc/pki/tls/certs/ca-bundle.crt` when the former is absent/empty, matching
+the normal Ubuntu/Flatcar and Mariner/Azure Linux/ACL paths. A missing/empty
+bundle is an error. Reordered bundle bytes can conservatively trigger a restart;
+the implementation does not normalize certificate sets.
+
+The baseline is saved before acquisition so a partially failed installation
+cannot make a later retry mistake changed roots for already-loaded roots.
+Root-owned `/run/aks-ca-refresh/pending` is written atomically with restrictive
+permissions under the lock. Before a restart it records the attempted bundle
+digest and the prior systemd InvocationID. It is data, never executable shell.
+Boot-local state disappears on reboot and is not relied on across PIS baking.
+
+Unchanged trust with no pending recovery does not restart containerd. Changed
+trust uses `systemctl try-restart` for an active daemon, avoiding starting a
+service stopped between the state check and request. A failed daemon is retried
+with `restart` only when this coordinator previously attempted recovery.
+An unrelated inactive or failed daemon is never started. Recovery requests are
+bounded at 90 seconds, followed by bounded active-service and CRI `RuntimeReady`
+checks. A new systemd InvocationID is required; `NRestarts` alone is insufficient.
+
+Failed acquisition, installation or recovery returns nonzero and retains pending
+state. A later refresh retries even if it downloads identical certificates.
+If the earlier restart completed, its digest still matches, and the changed
+invocation is healthy, recovery is acknowledged without another restart.
+Pending state is removed only after success. Telemetry and a final
+`CA_REFRESH_RESULT=unchanged|restarted|recovered|inactive` marker identify the
+outcome; failures have no success marker.
 
 ## Deliberate boundaries
 
-`_default` is a fallback, **not** an overlay on an existing per-registry
-directory. Docker-style directories without a nonempty `hosts.toml` receive
-the system-bundle link without replacing other `.crt`, `.cert`, or `.key`
-files. An existing `aks-system-ca.crt` pointing somewhere else is an error,
-not something to overwrite silently.
+Custom registry policies, authentication, client keys, mirrors and symlinks are
+left untouched. No wildcard registry, HTTP endpoint or `skip_verify` is added.
+A restart does not override an owner's explicit trust policy. This PR has not
+shipped the superseded experimental links/configurations: use clean scenario
+nodes rather than inventing a production cleanup migration.
 
-Custom `hosts.toml` files, including a custom `_default/hosts.toml`, retain
-their owner's policy. Owners that want refreshed OS trust must add the bundle
-path to the `ca` list for each configured host and the root/default server,
-while retaining their custom CA paths. This also applies to configurations
-installed by an external registry or artifact-streaming component. AgentBaker
-does not parse/rewrite arbitrary custom TOML or alter authentication. Modified
-older AKS templates are treated as custom rather than silently overwritten.
-On older containerd versions, a root-only TOML configuration also needs an
-empty `[host]` table.
-
-This addresses **CA additions**. Explicit CA files augment the process's system
-roots; they do not guarantee distrust/removal of roots already cached by Go.
-Certificate revocation/removal and trust reload in other processes require a
-separate assessment. Windows uses certificate stores rather than these PEM
-bundle paths and is not changed here. Applying the change to source does not
-retroactively update already-running nodes: the corresponding updated
-provisioning/refresh artifacts must first be delivered.
+This addresses **CA additions**, not general revocation/removal correctness or
+trust reload in other processes. Windows is unchanged. Changing this source
+does not update existing customer nodes; delivery of the repaired artifact and
+release tracking are separate from this implementation.
 
 ## RCV1P refresh and node-health framework
 
@@ -95,9 +117,13 @@ The framework runs these stages sequentially, returning the first error:
    that invocation's journal, not historical provisioning output. Compare
    newly downloaded certificates with the installed anchors without printing
    their contents. Raw refresh tracing is not emitted into the scenario log.
-6. Require unchanged service identities immediately after refresh. Check the
-   node remains Ready and the original workload remains ready with the same
-   pod UID, container ID and restart count; verify exec/DNS/HTTP again.
+6. Compare independent before/after bundle fingerprints and the coordinator
+   outcome. Unchanged trust requires containerd continuity; changed trust
+   requires a new healthy invocation. Kubelet identity must remain unchanged.
+   Check node readiness and the survivor workload's pod UID, container ID and
+   restart count, then verify exec/DNS/HTTP again. Repeat the installed refresh
+   for idempotence, applying the same change-aware expectations if the platform
+   changes trust again.
 7. Reuse the fixture in **pull-only** mode for a demonstrably uncached real
    CRI network pull: a unique OCI manifest/config digest, observed registry
    requests, and a test-owned explicit per-registry CA. This phase does **not**
@@ -106,8 +132,9 @@ The framework runs these stages sequentially, returning the first error:
 8. Schedule a second normal workload after refresh (including MCR resolution,
    readiness, exec/DNS/HTTP); recheck service identity and the original workload.
 
-All waits are bounded. Service auto-recovery is not considered success: a
-kubelet or containerd restart changes the baseline even if it recovers.
+All waits are bounded and include the scheduled jitter and recovery budget.
+A kubelet restart, unexpected containerd restart on unchanged trust, or changed
+workload identity is not considered success merely because it later recovers.
 Scenario-owned pods are deleted with UID preconditions, and fixture-owned
 registry configuration/images are cleaned up. Shared pools, nodes and cluster
 configuration are not changed.
@@ -135,11 +162,17 @@ go build ./...
 
 # Focused real-refresh health on branch-delivered scripted CSE.
 # Set RCV1P_E2E_SUBSCRIPTION_ID to the verified dedicated test subscription.
-RCV1P_TAGS_AUTO_INJECTED=true go run ./cmd/e2e run \
+TEST_TIMEOUT=90m RCV1P_TAGS_AUTO_INJECTED=true go run ./cmd/e2e run \
   --subscription-id "$RCV1P_E2E_SUBSCRIPTION_ID" \
   --tags rcv1pcertmode=true --parallel 3 --retries 0 --disable-scriptless \
   RCV1P_Ubuntu2204 RCV1P_Ubuntu2404 RCV1P_AzureLinuxV3
 ```
+
+Use `TEST_TIMEOUT=90m` for dedicated restart validation. The unchanged global
+50-minute scenario default can expire during provisioning plus the 55-minute
+refresh-health framework budget. Individual scheduled invocations are bounded
+at 20 minutes and the two-refresh synthetic fixture at 43 minutes; these budgets
+include acquisition retries, jitter and runtime recovery.
 
 Only set `RCV1P_TAGS_AUTO_INJECTED=true` where the platform is known to inject
 the tag. This variable controls **negative-case skipping only**: setting it
@@ -181,16 +214,17 @@ real-refresh health stages:
    (which has special containerd TLS behavior).
 3. Pull an image through real CRI with a test-owned per-host CA A configuration.
 4. Verify an unconfigured CA B endpoint fails TLS validation.
-5. Stage B and invoke the real `install_certs_to_trust_store` function from
-   the branch's `init-aks-cloud.sh`. Only certificate acquisition is replaced;
-   the actual OS trust update and runtime integration execute.
+5. Stage B through fixture acquisition and invoke the production
+   `refresh_certs_and_containerd` coordinator from `init-aks-cloud.sh`.
+   The actual installer, jitter and recovery execute; repeat the refresh to
+   require a no-op with identical trust.
 6. Verify a fresh OS-trust client accepts B, then pull a new image through the
-   still-running containerd. Tags have distinct config/manifest digests and
+   recovered containerd. Tags have distinct config/manifest digests and
    successful pulls must make registry requests.
 7. Pull through the real generated bootstrap mirror and an unchanged older
-   mirror template migrated by refresh. Verify custom CA A still works, and
-   wrong-SAN/untrusted-CA endpoints still fail. Compare containerd's PID and
-   monotonic start timestamp before/after.
+   mirror template, without migration. Verify custom CA A still works and
+   wrong-SAN/untrusted-CA endpoints still fail. Require runtime recovery, stable
+   kubelet identity and survival of the harness's existing workload.
 8. Remove only fixture-owned images, certificates, host configuration and
    temporary files. The harness tears down the scenario VM.
 
@@ -202,7 +236,7 @@ For a focused synthetic run in the same verified dedicated setup:
 
 ```sh
 go test ./cmd/ca-rotation-fixture
-go run ./cmd/e2e run --subscription-id "$RCV1P_E2E_SUBSCRIPTION_ID" \
+TEST_TIMEOUT=90m go run ./cmd/e2e run --subscription-id "$RCV1P_E2E_SUBSCRIPTION_ID" \
   --tags rcv1pcertmode=true --parallel 3 --retries 0 --disable-scriptless \
   RCV1P_ContainerdSyntheticCARotation
 ```
@@ -211,7 +245,22 @@ Omit `--disable-scriptless` to exercise ANC as well; test results must record
 which bootstrapping mode and image/runtime versions were actually used.
 Flatcar/ACL/Mariner paths are not proven by the three scenarios above.
 
-### Validation history and current limits
+### Local restart-revision validation
+
+The 56 focused shell cases, root Go suite and vet, E2E unit suite and vet,
+harness build and Linux fixture cross-build pass locally. The fixture and shared
+evidence package also pass race tests. The two scripted Ubuntu size guards pass,
+as detailed below. Standard gzip decoding, deterministic encoding, artifact
+round trips and production-rendered provenance remain covered. ANC parser
+regeneration passes without snapshot changes. macOS tests and cross-compilation
+do not establish live Linux/systemd restart safety, workload continuity or
+cross-OS coverage.
+
+### Historical validation of the superseded design
+
+**None of the hosted results below validates the conditional-restart revision.**
+They are preserved for traceability, not counted as runtime-restart,
+workload-survival or release evidence for the new design.
 
 Before the RCV1P-framework migration, the original synthetic fixture reproduced
 the stale-root failure on all three OS families. At `ec071b93b3`, its corrected
@@ -220,8 +269,8 @@ Ubuntu 24.04/2.3.3-2 and Azure Linux v3/2.2.4. Those tests sourced the trust
 installer and staged synthetic certificates. They **did not** prove invocation
 of the installed scheduled RCV1P acquisition/refresh path.
 
-Migration-local E2E unit tests, fixture unit tests, `go vet ./...`, and harness
-build pass. Tests cover positive/synthetic registration, tag selection, the
+The earlier framework migration's local E2E unit tests, fixture unit tests,
+`go vet ./...`, and harness build passed. Those tests covered registration, tag selection, the
 feature guard (including authentication errors), stage order/error propagation,
 strict schedule/location checks and fresh acquisition evidence. Provenance
 regression tests use the real AgentBaker renderer for all five Linux distros
@@ -276,22 +325,44 @@ contain the exact dedicated subscription, so no local live run was attempted. Ho
 validation must use that existing dedicated routing and the PR commit, with
 matching candidate VHDs for paths that do not deliver the script via CSE. The prior generic
 fixture successes are not relabeled as dedicated RCV1P integration passes.
-Keep the PR draft until the required live matrix and broader gates are proven.
+Review readiness is not merge or rollout readiness. The last reviewed pipeline
+snapshot had merge-conflict-blocked gates; earlier general/GPU failures remain
+unresolved. New design changes do not waive those gates or replace live coverage.
 
 ## Scripted delivery regression guard
 
-The initial repair produced 65,791 bytes / 87,724 encoded characters of scripted
-Ubuntu CustomData, exceeding the existing 87,380-character compute API guard.
-The reconciler now shares the installation/error path between acquisition modes
-and uses native atomic file operations instead of duplicate template-building
-code. The same regression configuration produces **65,525 bytes / 87,368 encoded
-characters** for both Ubuntu 22.04 and 24.04: **12 encoded characters of headroom**.
-This is a narrow margin, not a general guarantee for every configuration.
+The superseded implementation at `f837e10adf541654eb3475aa0d0fa9c90900fd6b`
+produces **65,525 bytes / 87,368 encoded characters** for both Ubuntu 22.04 and
+24.04, leaving just **12 encoded characters** below the 87,380 limit. This
+baseline was reproduced with the current Go toolchain using an isolated overlay.
 
-`should keep scripted Ubuntu CustomData within the compute API limit` asserts
-the unchanged limit for both Ubuntu versions. Do not bypass it when extending
-embedded scripts. No hotfix entry removal, unrelated script minification, or
-production artifact-format change is used to fit the payload.
+With the standard-library encoder, the restart revision produced **66,003 bytes /
+88,004 encoded characters**, exceeding the limit by **624 characters**.
+Source deduplication and literal/quoted cloud-init embedding did not solve the
+compressed-size problem and were reverted rather than dropping recovery checks.
+
+The producer now uses `github.com/klauspost/compress/gzip` **v1.18.5**, already
+used by the E2E module, at best compression. The **wire format remains standard
+gzip/base64 and decompressed artifact bytes are unchanged by this encoder
+switch**. There is no new node-side dependency, no alternate cloud-init encoding,
+and no per-file format exception. The standard-library gzip reader remains in
+the decoder and compatibility tests.
+
+Both Ubuntu cases now produce **65,488 bytes / 87,320 encoded characters**,
+leaving **60 encoded characters** below the unchanged 87,380 limit. This is
+still a narrow margin for these configurations, not a guarantee for arbitrary
+CustomData. Keep the guard when extending embedded scripts.
+
+Local three-run compression benchmarks on Apple M4 Pro measured the init script
+at 0.58-0.62 ms versus 0.70-0.71 ms with the standard encoder, and `cse_config.sh`
+at 1.94-1.98 ms versus 2.10-2.20 ms. The trade-off is approximately **329 KB more
+allocation per compression call** (with two fewer allocations). These are
+producer microbenchmarks, not API load, VHD build or node provisioning tests.
+
+`should keep scripted Ubuntu CustomData within the compute API limit` has an
+independent case for each Ubuntu version so regressions in either remain visible.
+No hotfix entry removal, unrelated script minification or production
+artifact-format change is used to fit the payload.
 
 Passing the size guard, standalone-refresh tests, or baked-ANC scenarios does
 not by itself prove scripted provisioning, a new ANC build, or a newly baked

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/internal/carefresh"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -43,18 +44,35 @@ func runRefreshHealthStages(ctx context.Context, stages []refreshHealthStage) er
 // synthetic roots or replace scripts. Re-fetching unchanged roots is a real
 // refresh/idempotence check, not evidence of a naturally occurring CA rotation.
 func ValidateRCV1PRefreshHealth(ctx context.Context, s *Scenario) error {
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, carefresh.HealthTimeout)
 	defer cancel()
-	var before string
+	var expected carefresh.Snapshot
 	var survivor *corev1.Pod
 	checkServices := func(ctx context.Context) error {
-		after, err := rcv1pServiceIdentity(ctx, s)
+		after, err := rcv1pSnapshot(ctx, s)
 		if err != nil {
 			return err
 		}
-		if after != before {
-			return fmt.Errorf("kubelet/containerd restarted or changed state: before=%q after=%q", before, after)
+		return carefresh.ValidateStable(expected, after)
+	}
+	refresh := func(ctx context.Context) error {
+		if err := checkServices(ctx); err != nil {
+			return err
 		}
+		marker, err := runInstalledRCV1PRefresh(ctx, s)
+		if err != nil {
+			return err
+		}
+		after, err := rcv1pSnapshot(ctx, s)
+		if err != nil {
+			return err
+		}
+		if err := carefresh.ValidateTransition(expected, after, marker); err != nil {
+			return err
+		}
+		toolkit.Logf(ctx, "Real refresh result=%s trust SHA256 before=%s after=%s containerd before=%+v after=%+v; unchanged roots prove idempotence, not forced platform rotation",
+			marker, expected.BundleSHA256, after.BundleSHA256, expected.Containerd, after.Containerd)
+		expected = after
 		return nil
 	}
 	return runRefreshHealthStages(ctx, []refreshHealthStage{
@@ -69,7 +87,7 @@ func ValidateRCV1PRefreshHealth(ctx context.Context, s *Scenario) error {
 		}},
 		{"baseline services and workload", func(ctx context.Context) error {
 			var err error
-			before, err = rcv1pServiceIdentity(ctx, s)
+			expected, err = rcv1pSnapshot(ctx, s)
 			if err != nil {
 				return err
 			}
@@ -79,11 +97,20 @@ func ValidateRCV1PRefreshHealth(ctx context.Context, s *Scenario) error {
 			survivor, err = rcv1pWorkload(ctx, s)
 			return err
 		}},
-		{"installed refresh and acquisition", func(ctx context.Context) error {
-			return runInstalledRCV1PRefresh(ctx, s)
-		}},
+		{"installed refresh and acquisition", refresh},
 		{"immediate service continuity", checkServices},
 		{"node and persistent workload", func(ctx context.Context) error {
+			if err := rcv1pNodeReady(ctx, s); err != nil {
+				return err
+			}
+			return rcv1pSurvivor(ctx, s, survivor)
+		}},
+		// Invoke the real schedule a second time. External platform roots may
+		// genuinely change again, so validate their actual bytes rather than
+		// declaring the repeat a guaranteed no-op.
+		{"repeat installed refresh and acquisition", refresh},
+		{"repeat service continuity", checkServices},
+		{"repeat node and persistent workload", func(ctx context.Context) error {
 			if err := rcv1pNodeReady(ctx, s); err != nil {
 				return err
 			}
@@ -141,10 +168,10 @@ func rcv1pRefreshCommand(schedule, location string, systemd bool) (string, error
 		return "", fmt.Errorf("missing or invalid node ARM location")
 	}
 	want := fmt.Sprintf(`0 19 * * * "%s" ca-refresh "%s"`, installedRCV1PScript, location)
-	command := fmt.Sprintf("sudo timeout 300 %s ca-refresh %s", installedRCV1PScript, location)
+	command := fmt.Sprintf("sudo timeout %d %s ca-refresh %s", int(carefresh.RefreshTimeout.Seconds()), installedRCV1PScript, location)
 	if systemd {
 		want = fmt.Sprintf("ExecStart=%s ca-refresh %s", installedRCV1PScript, location)
-		command = "sudo timeout 300 systemctl start azure-ca-refresh.service"
+		command = fmt.Sprintf("sudo timeout %d systemctl start azure-ca-refresh.service", int(carefresh.RefreshTimeout.Seconds()))
 	}
 	matches, refreshLines := 0, 0
 	for _, line := range strings.Split(schedule, "\n") {
@@ -180,16 +207,40 @@ func validateRCV1PRefreshOutput(output string) error {
 	}
 	// The production downloader can continue after one failed certificate.
 	// A happy-path test must not treat that partial acquisition as success.
-	for _, marker := range []string{"Warning:", "ERROR:", "Skipping custom cloud", "No certificate filenames", "LOCATION is empty"} {
+	// A readiness probe can fail before recovery succeeds, so only reject
+	// concrete certificate acquisition/installation failures here.
+	for _, marker := range []string{
+		"Warning: No response received or request failed for:",
+		"Warning: rejecting certificate filename with path separators or traversal:",
+		"Warning: failed to retrieve legacy custom cloud certificates",
+		"ERROR: wireserver unreachable after retries for IsOptedInForRootCerts check",
+		"ERROR: cannot refresh certificates - wireserver unreachable for cert opt-in check",
+		"ERROR: failed to retrieve rcv1p certificates from wireserver after retries",
+		"ERROR: failed to retrieve legacy certificates from wireserver after retries",
+		"ERROR: no *.crt files in /root/AzureCACertificates to install",
+		"ERROR: failed to install rcv1p CA certificates into trust store",
+		"ERROR: failed to install legacy CA certificates into trust store",
+		"Skipping custom cloud",
+		"No certificate filenames",
+		"LOCATION is empty",
+	} {
 		if strings.Contains(output, marker) {
 			return fmt.Errorf("fresh refresh output contains failure marker %q", marker)
 		}
 	}
+	_, err := carefresh.Result(output)
+	return err
+}
+
+func validateRCV1PRefreshTimer(delay string) error {
+	if strings.TrimSpace(delay) != "0" {
+		return fmt.Errorf("installed refresh timer must not add jitter; RandomizedDelayUSec=%q", strings.TrimSpace(delay))
+	}
 	return nil
 }
 
-func runInstalledRCV1PRefresh(ctx context.Context, s *Scenario) error {
-	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
+func runInstalledRCV1PRefresh(ctx context.Context, s *Scenario) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, carefresh.HelperTimeout)
 	defer cancel()
 	systemd := s.VHD.Flatcar || s.VHD.OS == config.OSACL
 	readSchedule := "sudo crontab -l"
@@ -198,40 +249,48 @@ func runInstalledRCV1PRefresh(ctx context.Context, s *Scenario) error {
 	}
 	schedule, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, readSchedule, 0, "read installed refresh schedule")
 	if err != nil {
-		return err
+		return "", err
 	}
 	if s.Runtime.VM.VMSS.Location == nil {
-		return fmt.Errorf("scenario VMSS has no ARM location")
+		return "", fmt.Errorf("scenario VMSS has no ARM location")
 	}
 	command, err := rcv1pRefreshCommand(schedule.stdout, *s.Runtime.VM.VMSS.Location, systemd)
 	if err != nil {
-		return err
+		return "", err
 	}
 	var priorInvocation string
 	if systemd {
+		timer, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"systemctl show azure-ca-refresh.timer --property=RandomizedDelayUSec --value", 0, "verify installed timer has no duplicate jitter")
+		if err != nil {
+			return "", err
+		}
+		if err := validateRCV1PRefreshTimer(timer.stdout); err != nil {
+			return "", err
+		}
 		result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 			"systemctl show azure-ca-refresh.service --property=InvocationID --value", 0, "read refresh invocation")
 		if err != nil {
-			return err
+			return "", err
 		}
 		priorInvocation = strings.TrimSpace(result.stdout)
 	}
 	toolkit.Logf(ctx, "Invoking installed RCV1P refresh: %s (verified script %s)", command, installedRCV1PScript)
 	result, err := execScriptOnVMForScenario(ctx, s, command)
 	if err != nil {
-		return fmt.Errorf("execute installed refresh: %w", err)
+		return "", fmt.Errorf("execute installed refresh: %w", err)
 	}
 	// Do not print raw stderr: production bash tracing includes certificate
 	// bodies. Log the semantic evidence only, never certificates.
 	if result.exitCode != "0" {
-		return fmt.Errorf("installed refresh exited %s (node refresh logs contain details)", result.exitCode)
+		return "", fmt.Errorf("installed refresh exited %s (node refresh logs contain details)", result.exitCode)
 	}
 	output := result.stdout
 	if systemd {
 		state, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 			"systemctl show azure-ca-refresh.service --property=Result --property=ExecMainStatus --property=InvocationID", 0, "read refresh result")
 		if err != nil {
-			return err
+			return "", err
 		}
 		invocation := ""
 		for _, line := range strings.Split(state.stdout, "\n") {
@@ -241,15 +300,15 @@ func runInstalledRCV1PRefresh(ctx context.Context, s *Scenario) error {
 		}
 		if !regexp.MustCompile(`^[a-f0-9]{32}$`).MatchString(invocation) || invocation == priorInvocation ||
 			!strings.Contains(state.stdout, "Result=success\n") || !strings.Contains(state.stdout, "ExecMainStatus=0\n") {
-			return fmt.Errorf("refresh did not complete a new successful systemd invocation")
+			return "", fmt.Errorf("refresh did not complete a new successful systemd invocation")
 		}
 		logs, err := execScriptOnVMForScenario(ctx, s,
 			"sudo journalctl --no-pager -o cat _SYSTEMD_INVOCATION_ID="+invocation)
 		if err != nil {
-			return err
+			return "", err
 		}
 		if logs.exitCode != "0" {
-			return fmt.Errorf("read fresh refresh journal: exit %s", logs.exitCode)
+			return "", fmt.Errorf("read fresh refresh journal: exit %s", logs.exitCode)
 		}
 		// systemd journals include xtrace. Keep only normal stdout messages.
 		var lines []string
@@ -261,7 +320,7 @@ func runInstalledRCV1PRefresh(ctx context.Context, s *Scenario) error {
 		output = strings.Join(lines, "\n")
 	}
 	if err := validateRCV1PRefreshOutput(output); err != nil {
-		return err
+		return "", err
 	}
 	// Refresh clears the download directory first. Compare each newly acquired
 	// certificate with its installed anchor without printing its contents.
@@ -271,22 +330,19 @@ func runInstalledRCV1PRefresh(ctx context.Context, s *Scenario) error {
 	if err == nil {
 		toolkit.Logf(ctx, "Real installed refresh completed: RCV1P mode, opted in, acquired certificates, installed matching anchors; no forced rotation")
 	}
-	return err
-}
-
-func rcv1pServiceIdentity(ctx context.Context, s *Scenario) (string, error) {
-	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		"sudo systemctl show kubelet containerd --property=Id --property=ActiveState --property=SubState --property=MainPID --property=ExecMainStartTimestampMonotonic --property=NRestarts", 0, "check kubelet/containerd identity")
 	if err != nil {
 		return "", err
 	}
-	if strings.Count(result.stdout, "ActiveState=active\n") != 2 || strings.Count(result.stdout, "SubState=running\n") != 2 ||
-		strings.Count(result.stdout, "MainPID=") != 2 || strings.Contains(result.stdout, "MainPID=0\n") ||
-		strings.Count(result.stdout, "ExecMainStartTimestampMonotonic=") != 2 ||
-		strings.Contains(result.stdout, "ExecMainStartTimestampMonotonic=0\n") {
-		return "", fmt.Errorf("missing live kubelet/containerd service identity")
+	return carefresh.Result(output)
+}
+
+func rcv1pSnapshot(ctx context.Context, s *Scenario) (carefresh.Snapshot, error) {
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"sudo timeout 30 bash -c '"+strings.ReplaceAll(carefresh.SnapshotCommand, "'", "'\\''")+"'", 0, "check independent trust, service identities and CRI readiness")
+	if err != nil {
+		return carefresh.Snapshot{}, err
 	}
-	return result.stdout, nil
+	return carefresh.ParseSnapshot(result.stdout)
 }
 
 func rcv1pNodeReady(ctx context.Context, s *Scenario) error {

@@ -30,6 +30,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/Azure/agentbaker/e2e/internal/carefresh"
 )
 
 const criEndpoint = "unix:///run/containerd/containerd.sock"
@@ -166,21 +168,58 @@ func command(ctx context.Context, name string, args ...string) (string, error) {
 	return string(out), nil
 }
 
-func runtimeIdentity(ctx context.Context) (string, error) {
-	out, err := command(ctx, "systemctl", "show", "containerd", "--property=MainPID", "--property=ExecMainStartTimestampMonotonic")
-	if err == nil && (strings.Contains(out, "MainPID=0\n") || !strings.Contains(out, "MainPID=")) {
-		err = fmt.Errorf("containerd is not running: %s", out)
+func snapshot(ctx context.Context) (carefresh.Snapshot, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	out, err := command(ctx, "bash", "-c", carefresh.SnapshotCommand)
+	if err != nil {
+		return carefresh.Snapshot{}, err
 	}
-	return out, err
+	return carefresh.ParseSnapshot(out)
 }
 
-// Use the real trust installation function invoked by ca-refresh. The fixture
-// replaces certificate acquisition, not OS trust regeneration or runtime logic.
-// Do not contact or change the node's certificate distribution endpoint.
+type policyEvidence struct {
+	contents, link string
+	mode           os.FileMode
+}
+
+func readPolicy(path string) (policyEvidence, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return policyEvidence{}, err
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return policyEvidence{}, err
+	}
+	policy := policyEvidence{contents: string(content), mode: info.Mode()}
+	if info.Mode()&os.ModeSymlink != 0 {
+		policy.link, err = os.Readlink(path)
+	}
+	return policy, err
+}
+
+func validateSyntheticRefresh(before, after carefresh.Snapshot, output string, wantChanged bool) (string, error) {
+	marker, err := carefresh.Result(output)
+	if err != nil {
+		return "", err
+	}
+	if (before.BundleSHA256 != after.BundleSHA256) != wantChanged {
+		return "", fmt.Errorf("synthetic trust change mismatch: want changed=%t", wantChanged)
+	}
+	return marker, carefresh.ValidateTransition(before, after, marker)
+}
+
+// Replace acquisition only. The sourceable production coordinator still owns
+// locking, the full random delay, trust comparison, restart and CRI recovery.
+// Keep platform certificate staging intact; add only this fixture's own anchor.
 const refresh = `
 set -e
 __SOURCED__=1 . "$1"
+fixture_certificate="$2"
+fixture_name="$3"
 . /etc/os-release
+IS_UBUNTU=0 IS_MARINER=0 IS_AZURELINUX=0 IS_ACL=0 IS_FLATCAR=0
 case "$ID" in
   ubuntu) IS_UBUNTU=1 ;;
   mariner) IS_MARINER=1 ;;
@@ -189,7 +228,12 @@ case "$ID" in
   flatcar) IS_FLATCAR=1 ;;
   *) echo "unsupported fixture OS: $ID" >&2; exit 1 ;;
 esac
-install_certs_to_trust_store
+refresh_certs() {
+  mkdir -p /root/AzureCACertificates || return $?
+  cp -- "$fixture_certificate" "/root/AzureCACertificates/$fixture_name.crt" || return $?
+  install_certs_to_trust_store
+}
+refresh_certs_and_containerd fixture
 `
 
 const trustPaths = `
@@ -203,12 +247,12 @@ esac
 `
 
 func run(ip net.IP, script, registryScript string, pullOnly bool) (result error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), carefresh.FixtureTimeout)
 	defer cancel()
 	if os.Geteuid() != 0 || ip == nil || ip.IsLoopback() || ip.IsUnspecified() {
 		return errors.New("run as root on a disposable scenario node with its non-loopback IP (localhost bypasses TLS in containerd)")
 	}
-	before, err := runtimeIdentity(ctx)
+	before, err := snapshot(ctx)
 	if err != nil {
 		return err
 	}
@@ -217,17 +261,33 @@ func run(ip net.IP, script, registryScript string, pullOnly bool) (result error)
 		return err
 	}
 	log.Printf("runtime version: %s", strings.TrimSpace(version))
-	log.Printf("runtime before: %s", before)
+	expected := before
+	log.Printf("services/trust before: %+v", before)
 	defer func() {
 		checkCtx, stop := context.WithTimeout(context.Background(), time.Minute)
 		defer stop()
-		after, err := runtimeIdentity(checkCtx)
-		if err != nil || after != before {
-			result = errors.Join(result, fmt.Errorf("runtime changed: before=%q after=%q error=%v", before, after, err))
+		after, err := snapshot(checkCtx)
+		// Trust cleanup runs before this defer. Both modes must finish with
+		// the original OS trust; only synthetic mode may have a new runtime.
+		expected.BundlePath, expected.BundleSHA256 = before.BundlePath, before.BundleSHA256
+		result = errors.Join(result, err)
+		if err == nil {
+			result = errors.Join(result, carefresh.ValidateStable(expected, after))
 		}
-		log.Printf("runtime after: %s", after)
+		if result == nil {
+			state, err := json.Marshal(carefresh.FixtureReport{Before: before, After: after})
+			result = errors.Join(result, err)
+			if err == nil {
+				fmt.Printf("%s%s\n", carefresh.FixtureReportPrefix, state)
+			}
+		}
+		log.Printf("services/trust after cleanup: %+v", after)
 	}()
-	dir, err := os.MkdirTemp("", "ab-ca-rotation-")
+	dir, err := os.MkdirTemp(".", "ab-ca-rotation-")
+	if err != nil {
+		return err
+	}
+	dir, err = filepath.Abs(dir)
 	if err != nil {
 		return err
 	}
@@ -286,8 +346,10 @@ func run(ip net.IP, script, registryScript string, pullOnly bool) (result error)
 			result = errors.Join(result, err)
 		}
 	}()
+	pulls := 0
 	pull := func(host, tag string, r *registry, wantX509 bool) error {
-		ref := host + "/test:" + filepath.Base(dir) + "-" + tag
+		pulls++
+		ref := fmt.Sprintf("%s/test:%s-%d-%s", host, filepath.Base(dir), pulls, tag)
 		count := r.requests.Load()
 		out, err := command(ctx, "crictl", "--runtime-endpoint", criEndpoint, "pull", ref)
 		if wantX509 {
@@ -316,8 +378,33 @@ func run(ip net.IP, script, registryScript string, pullOnly bool) (result error)
 	if pullOnly {
 		return nil
 	}
-	// _default does not overlay explicit host policies. Exercise both the real
-	// current AKS generator and migration of its unchanged older layout.
+	// Exercise the generated and older mirror layouts with implicit system
+	// trust. Neither refresh nor restart may rewrite custom host/CA symlinks.
+	symlinkHost, symlinkRegistry, closeSymlink, err := startRegistry(ip, certA)
+	if err != nil {
+		return err
+	}
+	defer closeSymlink()
+	symlinkHostDir := filepath.Join("/etc/containerd/certs.d", symlinkHost)
+	if err := os.Mkdir(symlinkHostDir, 0755); err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, os.RemoveAll(symlinkHostDir)) }()
+	caLink := filepath.Join(dir, "a-link.crt")
+	if err := os.Symlink(caPath, caLink); err != nil {
+		return err
+	}
+	policyTarget := filepath.Join(dir, "custom-hosts.toml")
+	if err := os.WriteFile(policyTarget, []byte(fmt.Sprintf("server = %q\nca = %q\n[host]\n", "https://"+symlinkHost, caLink)), 0644); err != nil {
+		return err
+	}
+	policyLink := filepath.Join(symlinkHostDir, "hosts.toml")
+	if err := os.Symlink(policyTarget, policyLink); err != nil {
+		return err
+	}
+	if err := pull(symlinkHost, "warm-custom-ca-symlinks", symlinkRegistry, false); err != nil {
+		return err
+	}
 	mirror := filepath.Base(dir) + "-generated.invalid"
 	oldMirror := filepath.Base(dir) + "-old.invalid"
 	for _, host := range []string{mirror, oldMirror} {
@@ -341,8 +428,38 @@ configureContainerdRegistryHost
 	if err := os.WriteFile(filepath.Join("/etc/containerd/certs.d", oldMirror, "hosts.toml"), []byte(oldHosts), 0644); err != nil {
 		return err
 	}
+	policies := map[string]policyEvidence{}
+	for _, path := range []string{
+		filepath.Join(hostDir, "hosts.toml"), caPath, caLink, policyLink, policyTarget,
+		filepath.Join("/etc/containerd/certs.d", mirror, "hosts.toml"),
+		filepath.Join("/etc/containerd/certs.d", oldMirror, "hosts.toml"),
+	} {
+		policy, err := readPolicy(path)
+		if err != nil {
+			return err
+		}
+		policies[path] = policy
+	}
+	generated := policies[filepath.Join("/etc/containerd/certs.d", mirror, "hosts.toml")]
+	if generated.contents != oldHosts {
+		return fmt.Errorf("generated mirror must use the original implicit-system-trust layout")
+	}
+	checkPolicies := func() error {
+		for path, before := range policies {
+			after, err := readPolicy(path)
+			if err != nil || before != after {
+				return fmt.Errorf("custom/mirror policy changed at %s: %v", path, err)
+			}
+		}
+		return nil
+	}
 	if err := pull(hostB, "b-before-refresh", registryB, true); err != nil {
 		return err
+	}
+	for _, host := range []string{mirror, oldMirror} {
+		if err := pull(host, "mirror-before-refresh", registryB, true); err != nil {
+			return err
+		}
 	}
 	name := filepath.Base(dir)
 	paths, err := command(ctx, "bash", "-c", trustPaths, "trust-paths", name)
@@ -354,16 +471,16 @@ configureContainerdRegistryHost
 		return fmt.Errorf("unexpected trust paths: %q", paths)
 	}
 	staged := filepath.Join("/root/AzureCACertificates", name+".crt")
-	if err := os.MkdirAll(filepath.Dir(staged), 0700); err != nil {
-		return err
-	}
-	if err := os.WriteFile(staged, b.pem, 0600); err != nil {
+	fixtureCert := filepath.Join(dir, "b.crt")
+	if err := os.WriteFile(fixtureCert, b.pem, 0600); err != nil {
 		return err
 	}
 	defer func() {
 		cleanCtx, stop := context.WithTimeout(context.Background(), time.Minute)
 		defer stop()
-		result = errors.Join(result, os.Remove(staged))
+		if err := os.Remove(staged); err != nil && !os.IsNotExist(err) {
+			result = errors.Join(result, err)
+		}
 		if err := os.Remove(fields[0]); err != nil && !os.IsNotExist(err) {
 			result = errors.Join(result, err)
 		}
@@ -374,8 +491,35 @@ configureContainerdRegistryHost
 			result = errors.Join(result, err)
 		}
 	}()
-	if out, err := command(ctx, "bash", "-c", refresh, "refresh", script); err != nil {
-		return fmt.Errorf("OS trust refresh: %w: %s", err, out)
+	refreshAndCheck := func(wantChanged bool) error {
+		current, err := snapshot(ctx)
+		if err != nil {
+			return err
+		}
+		if err := carefresh.ValidateStable(expected, current); err != nil {
+			return err
+		}
+		refreshCtx, stop := context.WithTimeout(ctx, carefresh.RefreshTimeout)
+		defer stop()
+		out, err := command(refreshCtx, "bash", "-c", refresh, "refresh", script, fixtureCert, name)
+		if err != nil {
+			return fmt.Errorf("coordinated OS trust refresh: %w", err)
+		}
+		after, err := snapshot(ctx)
+		if err != nil {
+			return err
+		}
+		marker, err := validateSyntheticRefresh(expected, after, out, wantChanged)
+		if err != nil {
+			return err
+		}
+		log.Printf("coordinator result=%s trust SHA256 before=%s after=%s containerd before=%+v after=%+v",
+			marker, expected.BundleSHA256, after.BundleSHA256, expected.Containerd, after.Containerd)
+		expected = after
+		return checkPolicies()
+	}
+	if err := refreshAndCheck(true); err != nil {
+		return err
 	}
 	// A new process proves the OS trust update really succeeded independently
 	// of containerd's long-lived Go root pool.
@@ -393,6 +537,25 @@ configureContainerdRegistryHost
 		return err
 	}
 	if err := pull(hostA, "custom-ca-a-preserved", registryA, false); err != nil {
+		return err
+	}
+	if err := pull(symlinkHost, "custom-ca-symlinks-preserved", symlinkRegistry, false); err != nil {
+		return err
+	}
+	// Unlike external platform data, this fixture's identical B is guaranteed
+	// not to change trust. A second real coordinator invocation must be a no-op.
+	if err := refreshAndCheck(false); err != nil {
+		return err
+	}
+	for _, host := range []string{hostB, mirror, oldMirror} {
+		if err := pull(host, "b-after-identical-refresh", registryB, false); err != nil {
+			return err
+		}
+	}
+	if err := pull(hostA, "custom-ca-a-after-repeat", registryA, false); err != nil {
+		return err
+	}
+	if err := pull(symlinkHost, "custom-ca-symlinks-after-repeat", symlinkRegistry, false); err != nil {
 		return err
 	}
 	// Trusted CA, wrong SAN: adding trust must not disable hostname verification.
@@ -415,12 +578,19 @@ configureContainerdRegistryHost
 		return err
 	}
 	defer closeUntrusted()
-	return pull(untrustedHost, "untrusted-ca", untrustedRegistry, true)
+	if err := pull(untrustedHost, "untrusted-ca", untrustedRegistry, true); err != nil {
+		return err
+	}
+	final, err := snapshot(ctx)
+	if err != nil {
+		return err
+	}
+	return errors.Join(checkPolicies(), carefresh.ValidateStable(expected, final))
 }
 
 func main() {
 	ip := flag.String("node-ip", "", "private IP of the disposable scenario node")
-	script := flag.String("refresh-script", "", "branch init-aks-cloud.sh containing the real trust installer")
+	script := flag.String("refresh-script", "", "branch init-aks-cloud.sh containing the real refresh coordinator and installer")
 	registryScript := flag.String("registry-script", "", "branch cse_config.sh containing the real registry generator")
 	pullOnly := flag.Bool("pull-only", false, "uncached CRI network pull only; never change OS trust or run a refresh helper")
 	flag.Parse()
@@ -433,6 +603,6 @@ func main() {
 	if *pullOnly {
 		log.Print("PASS: uncached CRI network pull without OS trust changes")
 	} else {
-		log.Print("PASS: refreshed trust used by CRI without restarting containerd")
+		log.Print("PASS: changed trust restarted containerd; identical refresh preserved runtime; CRI TLS policies preserved")
 	}
 }

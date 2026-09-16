@@ -656,8 +656,6 @@ EOF
 }
 
 configureContainerdRegistryHost() {
-  local ca=/etc/ssl/certs/ca-certificates.crt
-  [ -s "$ca" ] || ca=/etc/pki/tls/certs/ca-bundle.crt
   MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
   MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
   CONTAINERD_CONFIG_REGISTRY_HOST_MCR="/etc/containerd/certs.d/${MCR_REPOSITORY_BASE}/hosts.toml"
@@ -666,9 +664,7 @@ configureContainerdRegistryHost() {
   chmod 0644 "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
   CONTAINER_REGISTRY_URL=$(sed 's@/@/v2/@1' <<< "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/")
   tee "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}" > /dev/null <<EOF
-ca = "${ca}"
 [host."https://${CONTAINER_REGISTRY_URL%/}"]
-  ca = "${ca}"
   capabilities = ["pull", "resolve"]
   override_path = true
 EOF
@@ -679,8 +675,6 @@ EOF
 # https://github.com/containerd/containerd/blob/main/docs/hosts.md#registry-configuration---examples
 # TODO(xinhl): remove when aks rp fully deprecates mcr.azk8s.cn
 configureContainerdLegacyMooncakeMcrHost() {
-  local ca=/etc/ssl/certs/ca-certificates.crt
-  [ -s "$ca" ] || ca=/etc/pki/tls/certs/ca-bundle.crt
     LEGACY_MCR_REPOSITORY_BASE="mcr.azk8s.cn"
     CONTAINERD_CONFIG_REGISTRY_HOST_MCR="/etc/containerd/certs.d/${LEGACY_MCR_REPOSITORY_BASE}/hosts.toml"
     mkdir -p "$(dirname "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}")"
@@ -689,9 +683,7 @@ configureContainerdLegacyMooncakeMcrHost() {
 
     TARGET_MCR_REPOSITORY_BASE="mcr.azure.cn"
     tee "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}" > /dev/null <<EOF
-ca = "${ca}"
 [host."https://${TARGET_MCR_REPOSITORY_BASE}"]
-  ca = "${ca}"
   capabilities = ["pull", "resolve"]
 [host."https://${TARGET_MCR_REPOSITORY_BASE}".header]
     X-Forwarded-For = ["${LEGACY_MCR_REPOSITORY_BASE}"]

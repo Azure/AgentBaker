@@ -1,274 +1,535 @@
 # shellcheck shell=bash
 
-Describe 'containerd dynamic system trust'
-    # Scheduled refresh must work without the provisioning shell environment.
-    Describe 'CA installer error propagation'
-        setup() {
-            __SOURCED__=1 . "./parts/linux/cloud-init/artifacts/init-aks-cloud.sh"
-            # No real host trust files are touched in these unit tests.
-            mkdir() { :; }
-            compgen() { return 0; }
-            cp() { :; }
-            debug_print_trust_store() { :; }
-            update-ca-trust() { return "$UPDATE_STATUS"; }
-            update_containerd_ca() {
-                echo reconciled
-                return "$TRUST_STATUS"
-            }
-            IS_AZURELINUX=1
-            UPDATE_STATUS=0
-            TRUST_STATUS=0
-        }
-        BeforeEach 'setup'
-
-        It 'reconciles runtime trust after the OS update succeeds'
-            When call install_certs_to_trust_store
-            The status should be success
-            The output should eq 'reconciled'
-        End
-
-        It 'does not hide trust integration failures with diagnostic output'
-            TRUST_STATUS=7
-            When call install_certs_to_trust_store
-            The status should eq 7
-            The output should eq 'reconciled'
-        End
-
-        It 'does not reconcile after the OS update failed'
-            UPDATE_STATUS=9
-            When call install_certs_to_trust_store
-            The status should eq 9
-            The output should be blank
-        End
-    End
-
+Describe 'scheduled containerd trust refresh'
     setup() {
         __SOURCED__=1 . "./parts/linux/cloud-init/artifacts/init-aks-cloud.sh"
         TEST_DIR=$(mktemp -d)
-        ROOT="$TEST_DIR/certs.d"
+        STATE="$TEST_DIR/state"
         BUNDLE="$TEST_DIR/system.crt"
+        CALLS="$TEST_DIR/calls"
+        OLD_ID=11111111111111111111111111111111
+        NEW_ID=22222222222222222222222222222222
         printf 'CA-A\n' > "$BUNDLE"
+        printf '%s\n' "$OLD_ID" > "$TEST_DIR/instance"
+        echo active > "$TEST_DIR/active"
+        : > "$CALLS"
+        CA_AFTER=CA-B
+        ACQUIRE_STATUS=0 INSTALL_STATUS=0 RESTART_STATUS=0 READY_STATUS=0 LOCK_STATUS=0 STOP_BEFORE_RESTART=0
+        emit_event() { :; }
+        system_ca_bundle() { echo "$BUNDLE"; }
+        sleep() {
+            [ "$1" -ge 0 ] && [ "$1" -le 300 ] || return 8
+            echo "delay:$1" >> "$CALLS"
+        }
+        timeout() { shift; "$@"; }
+        flock() { echo lock >> "$CALLS"; return "$LOCK_STATUS"; }
+        refresh_certs() {
+            echo "acquire:$1" >> "$CALLS"
+            [ "$ACQUIRE_STATUS" -eq 0 ] || return "$ACQUIRE_STATUS"
+            printf '%s\n' "$CA_AFTER" > "$BUNDLE"
+            return "$INSTALL_STATUS"
+        }
+        systemctl() {
+            case "$*" in
+                'show containerd --property=ActiveState --value') cat "$TEST_DIR/active" ;;
+                'show containerd --property=InvocationID --value') cat "$TEST_DIR/instance" ;;
+                'try-restart containerd'|'restart containerd')
+                    if [ "$STOP_BEFORE_RESTART" -eq 1 ]; then
+                        [ "$1" = try-restart ] || return 8
+                        echo inactive > "$TEST_DIR/active"
+                        : > "$TEST_DIR/instance"
+                        return 0
+                    fi
+                    if [ "$(cat "$TEST_DIR/active")" = failed ]; then
+                        [ "$1" = restart ] || return 8
+                    else
+                        [ "$1" = try-restart ] || return 8
+                    fi
+                    echo restart >> "$CALLS"
+                    if [ "$RESTART_STATUS" -ne 0 ]; then
+                        echo failed > "$TEST_DIR/active"
+                        : > "$TEST_DIR/instance"
+                        return "$RESTART_STATUS"
+                    fi
+                    echo active > "$TEST_DIR/active"
+                    printf '%s\n' "$NEW_ID" > "$TEST_DIR/instance"
+                    ;;
+                *) echo "unexpected systemctl: $*" >&2; return 8 ;;
+            esac
+        }
+        containerd_cri_ready() { echo ready >> "$CALLS"; return "$READY_STATUS"; }
     }
     cleanup() { rm -rf "$TEST_DIR"; }
     BeforeEach 'setup'
     AfterEach 'cleanup'
 
-    It 'reads the current bundle after replacement, without copying roots or restarting'
-        update_containerd_ca "$ROOT" "$BUNDLE"
-        printf 'CA-B\n' > "$TEST_DIR/new.crt"
-        mv "$TEST_DIR/new.crt" "$BUNDLE"
-        When call update_containerd_ca "$ROOT" "$BUNDLE"
+    run_refresh() { refresh_certs_and_containerd eastus "$STATE"; }
+
+    It 'restarts changed trust, checks CRI, and acknowledges recovery'
+        When call run_refresh
         The status should be success
-        The path "$ROOT/_default/aks-system-ca.crt" should be symlink
-        The contents of file "$ROOT/_default/aks-system-ca.crt" should eq 'CA-B'
-        The path "$ROOT/_default/hosts.toml" should not be exist
+        The output should eq 'CA_REFRESH_RESULT=restarted'
+        The contents of file "$CALLS" should include restart
+        The contents of file "$CALLS" should include ready
+        The contents of file "$TEST_DIR/instance" should eq "$NEW_ID"
+        The path "$STATE/pending" should not be exist
     End
 
-    It 'preserves explicit host policies, custom roots, and client keys'
-        mkdir -p "$ROOT/custom.example" "$ROOT/docker.example"
-        printf 'ca = "custom.pem"\n[host]\n' > "$ROOT/custom.example/hosts.toml"
-        printf 'private-client-key\n' > "$ROOT/docker.example/client.key"
-        printf 'custom-root\n' > "$ROOT/docker.example/custom.crt"
-        When call update_containerd_ca "$ROOT" "$BUNDLE"
+    It 'does not restart on identical regenerated bundle content'
+        CA_AFTER=CA-A
+        When call run_refresh
         The status should be success
-        The contents of file "$ROOT/custom.example/hosts.toml" should include 'ca = "custom.pem"'
-        The path "$ROOT/custom.example/aks-system-ca.crt" should not be exist
-        The contents of file "$ROOT/docker.example/custom.crt" should eq 'custom-root'
-        The contents of file "$ROOT/docker.example/client.key" should eq 'private-client-key'
-        The path "$ROOT/docker.example/aks-system-ca.crt" should be symlink
+        The output should eq 'CA_REFRESH_RESULT=unchanged'
+        The contents of file "$CALLS" should not include restart
+        The contents of file "$TEST_DIR/instance" should eq "$OLD_ID"
+        The path "$STATE/pending" should not be exist
     End
 
-    It 'does not replace an existing default TOML policy'
-        mkdir -p "$ROOT/_default"
-        printf 'server = "https://mirror.example"\n[host]\n' > "$ROOT/_default/hosts.toml"
-        When call update_containerd_ca "$ROOT" "$BUNDLE"
+    It 'supports a caller with nounset enabled'
+        run_with_nounset() (set -u; run_refresh)
+        When call run_with_nounset
         The status should be success
-        The contents of file "$ROOT/_default/hosts.toml" should include 'server = "https://mirror.example"'
+        The output should eq 'CA_REFRESH_RESULT=restarted'
     End
 
-    It 'upgrades an unchanged older AKS bootstrap mirror and is idempotent'
-        mkdir -p "$ROOT/mcr.example"
-        printf '%s\n' '[host."https://mirror.example/v2/cache"]' \
-            '  capabilities = ["pull", "resolve"]' '  override_path = true' > "$ROOT/mcr.example/hosts.toml"
-        update_containerd_ca "$ROOT" "$BUNDLE"
-        When call update_containerd_ca "$ROOT" "$BUNDLE"
-        The status should be success
-        The line 1 of contents of file "$ROOT/mcr.example/hosts.toml" should eq "ca = \"$BUNDLE\""
-        The line 3 of contents of file "$ROOT/mcr.example/hosts.toml" should eq "ca = \"$BUNDLE\""
-        The contents of file "$ROOT/mcr.example/hosts.toml" should include 'override_path = true'
-    End
-
-    It 'upgrades an unchanged older legacy mirror without losing its header'
-        mkdir -p "$ROOT/mcr.azk8s.cn"
-        printf '%s\n' '[host."https://mcr.azure.cn"]' \
-            '  capabilities = ["pull", "resolve"]' \
-            '[host."https://mcr.azure.cn".header]' \
-            '    X-Forwarded-For = ["mcr.azk8s.cn"]' > "$ROOT/mcr.azk8s.cn/hosts.toml"
-        When call update_containerd_ca "$ROOT" "$BUNDLE"
-        The status should be success
-        The line 1 of contents of file "$ROOT/mcr.azk8s.cn/hosts.toml" should eq "ca = \"$BUNDLE\""
-        The contents of file "$ROOT/mcr.azk8s.cn/hosts.toml" should include 'X-Forwarded-For = ["mcr.azk8s.cn"]'
-    End
-
-    It 'does not rewrite a customized AKS mirror'
-        mkdir -p "$ROOT/mcr.example"
-        printf '%s\n' '[host."https://mirror.example/v2/cache"]' \
-            '  capabilities = ["pull", "resolve"]' '  override_path = true' \
-            '  ca = "/custom/root.pem"' > "$ROOT/mcr.example/hosts.toml"
-        When call update_containerd_ca "$ROOT" "$BUNDLE"
-        The status should be success
-        The contents of file "$ROOT/mcr.example/hosts.toml" should include 'ca = "/custom/root.pem"'
-        The contents of file "$ROOT/mcr.example/hosts.toml" should not include 'aks-system-ca'
-    End
-
-    It 'refuses a conflicting AKS-owned filename without overwriting it'
-        mkdir -p "$ROOT/_default"
-        printf 'existing-root\n' > "$ROOT/_default/aks-system-ca.crt"
-        When call update_containerd_ca "$ROOT" "$BUNDLE"
+    It 'does not start a runtime stopped after its active-state check'
+        STOP_BEFORE_RESTART=1
+        When call run_refresh
         The status should be failure
-        The stderr should include 'aks-system-ca.crt'
-        The contents of file "$ROOT/_default/aks-system-ca.crt" should eq 'existing-root'
+        The stderr should include 'scheduled CA refresh or containerd recovery failed'
+        The output should be blank
+        The contents of file "$TEST_DIR/active" should eq inactive
+        The contents of file "$CALLS" should not include restart
+        The path "$STATE/pending" should be exist
     End
 
-    Describe 'non-file CA link collisions'
-        Parameters
-            directory
-            dangling
-            directory-link
-        End
-
-        It 'refuses the collision without following or replacing it'
-            mkdir -p "$ROOT/_default" "$TEST_DIR/target"
-            case "$1" in
-                directory) mkdir "$ROOT/_default/aks-system-ca.crt" ;;
-                dangling) ln -s "$TEST_DIR/missing" "$ROOT/_default/aks-system-ca.crt" ;;
-                directory-link) ln -s "$TEST_DIR/target" "$ROOT/_default/aks-system-ca.crt" ;;
-            esac
-            When call update_containerd_ca "$ROOT" "$BUNDLE"
-            The status should be failure
-            The stderr should include 'aks-system-ca.crt'
-            The path "$ROOT/_default/aks-system-ca.crt/system.crt" should not be exist
-            The path "$TEST_DIR/target/system.crt" should not be exist
-        End
-    End
-
-    prepare_mirror() {
-        mkdir -p "$ROOT/mcr.example"
-        printf '%s\n' '[host."https://mirror.example/v2/cache"]' \
-            '  capabilities = ["pull", "resolve"]' '  override_path = true' > "$ROOT/mcr.example/hosts.toml"
-        cp "$ROOT/mcr.example/hosts.toml" "$TEST_DIR/original"
-    }
-
-    It 'publishes a new inode without mutating old readers or dropping permissions'
-        prepare_mirror
-        chmod 640 "$ROOT/mcr.example/hosts.toml"
-        ln "$ROOT/mcr.example/hosts.toml" "$TEST_DIR/old-reader"
-        migrate_and_stat() {
-            update_containerd_ca "$ROOT" "$BUNDLE" && stat -c '%a' "$ROOT/mcr.example/hosts.toml"
+    It 'is idempotent on the next identical refresh'
+        twice() {
+            run_refresh >/dev/null || return $?
+            run_refresh || return $?
+            grep -c '^restart$' "$CALLS"
         }
-        When call migrate_and_stat
+        When call twice
         The status should be success
-        The contents of file "$TEST_DIR/old-reader" should eq "$(cat "$TEST_DIR/original")"
-        The contents of file "$ROOT/mcr.example/hosts.toml" should include "ca = \"$BUNDLE\""
-        The output should eq 640
+        The line 1 should eq 'CA_REFRESH_RESULT=unchanged'
+        The line 2 should eq 1
     End
 
-    It 'propagates a failed atomic edit and leaves the original template intact'
-        prepare_mirror
-        sed() { return 7; }
-        When call update_containerd_ca "$ROOT" "$BUNDLE"
+    Describe 'inactive runtime without owned recovery'
+        Parameters
+            inactive
+            failed
+        End
+        It 'installs trust without starting containerd'
+            echo "$1" > "$TEST_DIR/active"
+            When call run_refresh
+            The status should be success
+            The output should eq 'CA_REFRESH_RESULT=inactive'
+            The contents of file "$BUNDLE" should eq CA-B
+            The contents of file "$CALLS" should not include restart
+            The path "$STATE/pending" should not be exist
+        End
+    End
+
+    It 'does not install or restart on opt-out'
+        ACQUIRE_STATUS=3
+        When call run_refresh
+        The status should be success
+        The output should eq 'CA_REFRESH_RESULT=unchanged'
+        The contents of file "$BUNDLE" should eq CA-A
+        The contents of file "$CALLS" should not include restart
+    End
+
+    It 'reports failed acquisition without restarting'
+        ACQUIRE_STATUS=9
+        When call run_refresh
+        The status should eq 9
+        The stderr should include 'scheduled CA refresh or containerd recovery failed'
+        The output should be blank
+        The contents of file "$BUNDLE" should eq CA-A
+        The contents of file "$CALLS" should not include restart
+        The path "$STATE/pending" should be exist
+    End
+
+    It 'keeps the original baseline after partial installation failure'
+        INSTALL_STATUS=7
+        When call run_refresh
         The status should eq 7
-        The contents of file "$ROOT/mcr.example/hosts.toml" should eq "$(cat "$TEST_DIR/original")"
+        The stderr should include 'scheduled CA refresh or containerd recovery failed'
+        The output should be blank
+        The contents of file "$BUNDLE" should eq CA-B
+        The contents of file "$CALLS" should not include restart
+        The contents of file "$STATE/pending" should eq "$(printf 'CA-A\n' | sha256sum | cut -d' ' -f1)"
     End
 
-    It 'propagates a missing or empty bundle error'
-        rm "$BUNDLE"
-        When call update_containerd_ca "$ROOT" "$BUNDLE"
+    It 'recovers partial installation even when the next acquisition is identical'
+        retry_install() {
+            INSTALL_STATUS=7
+            if run_refresh >/dev/null 2>&1; then return 8; fi
+            INSTALL_STATUS=0
+            run_refresh
+        }
+        When call retry_install
+        The status should be success
+        The output should eq 'CA_REFRESH_RESULT=restarted'
+        The path "$STATE/pending" should not be exist
+    End
+
+    It 'retains recovery state when restart fails'
+        RESTART_STATUS=7
+        When call run_refresh
+        The status should eq 7
+        The stderr should include 'scheduled CA refresh or containerd recovery failed'
+        The output should be blank
+        The contents of file "$TEST_DIR/active" should eq failed
+        The path "$STATE/pending" should be exist
+    End
+
+    It 'retries its own failed runtime with identical certificates'
+        retry_restart() {
+            RESTART_STATUS=7
+            if run_refresh >/dev/null 2>&1; then return 8; fi
+            RESTART_STATUS=0
+            run_refresh
+        }
+        When call retry_restart
+        The status should be success
+        The output should eq 'CA_REFRESH_RESULT=restarted'
+        The path "$STATE/pending" should not be exist
+    End
+
+    It 'does not treat daemon activation alone as recovery'
+        READY_STATUS=7
+        When call run_refresh
+        The status should eq 7
+        The stderr should include 'scheduled CA refresh or containerd recovery failed'
+        The output should be blank
+        The path "$STATE/pending" should be exist
+    End
+
+    It 'acknowledges a previous successful restart without restarting again'
+        retry_readiness() {
+            READY_STATUS=7
+            if run_refresh >/dev/null 2>&1; then return 8; fi
+            READY_STATUS=0
+            run_refresh || return $?
+            grep -c '^restart$' "$CALLS"
+        }
+        When call retry_readiness
+        The status should be success
+        The line 1 should eq 'CA_REFRESH_RESULT=recovered'
+        The line 2 should eq 1
+        The path "$STATE/pending" should not be exist
+    End
+
+    It 'does not start a runtime subsequently stopped by its owner'
+        stopped_after_failure() {
+            RESTART_STATUS=7
+            if run_refresh >/dev/null 2>&1; then return 8; fi
+            echo inactive > "$TEST_DIR/active"
+            RESTART_STATUS=0
+            run_refresh
+        }
+        When call stopped_after_failure
         The status should be failure
-        The stderr should include 'missing system CA bundle'
+        The stderr should include 'scheduled CA refresh or containerd recovery failed'
+        The output should be blank
+        The contents of file "$TEST_DIR/active" should eq inactive
+        The path "$STATE/pending" should be exist
     End
 
-    Describe 'CA acquisition and refresh control flow'
-        # Execute the actual entry-point refresh block, independent of host distro.
-        # All acquisition/filesystem/installation commands are stubs. The marker
-        # after the block represents continuing into scheduling/full initialization.
-        run_refresh() (
-            __SOURCED__=1 . "./parts/linux/cloud-init/artifacts/init-aks-cloud.sh"
-            local location="$1" action="$2"
-            OPT_STATUS="$3" RETRIEVE_STATUS="$4" INSTALL_STATUS="$5"
-            mkdir() { :; }
-            rm() { :; }
+    It 'restarts again if trust changed after a prior unacknowledged restart'
+        changed_again() {
+            READY_STATUS=7
+            if run_refresh >/dev/null 2>&1; then return 8; fi
+            READY_STATUS=0
+            CA_AFTER=CA-A
+            NEW_ID=33333333333333333333333333333333
+            run_refresh
+        }
+        When call changed_again
+        The status should be success
+        The output should eq 'CA_REFRESH_RESULT=restarted'
+        The path "$STATE/pending" should not be exist
+    End
+
+    It 'fails if systemctl did not actually replace the runtime instance'
+        NEW_ID="$OLD_ID"
+        When call run_refresh
+        The status should be failure
+        The stderr should include 'scheduled CA refresh or containerd recovery failed'
+        The output should be blank
+        The path "$STATE/pending" should be exist
+    End
+
+    It 'does not replay pending recovery after boot-local state is gone'
+        rebooted() {
+            READY_STATUS=7
+            if run_refresh >/dev/null 2>&1; then return 8; fi
+            rm "$STATE/pending"
+            READY_STATUS=0
+            run_refresh || return $?
+            grep -c '^restart$' "$CALLS"
+        }
+        When call rebooted
+        The status should be success
+        The line 1 should eq 'CA_REFRESH_RESULT=unchanged'
+        The line 2 should eq 1
+    End
+
+    It 'fails before acquisition when the refresh lock cannot be obtained'
+        LOCK_STATUS=1
+        When call run_refresh
+        The status should be failure
+        The stderr should include 'scheduled CA refresh or containerd recovery failed'
+        The output should be blank
+        The contents of file "$CALLS" should not include acquire
+    End
+
+    It 'applies one bounded delay before the lock and acquisition'
+        delay_and_order() {
+            run_refresh >/dev/null || return $?
+            sed -n '1,3p' "$CALLS"
+        }
+        When call delay_and_order
+        The status should be success
+        The line 1 should start with 'delay:'
+        The line 2 should eq lock
+        The line 3 should eq 'acquire:eastus'
+    End
+
+    It 'rejects corrupt pending state without executing its contents'
+        mkdir -p "$STATE"
+        printf 'touch %s/unsafe\n' "$TEST_DIR" > "$STATE/pending"
+        When call run_refresh
+        The status should be failure
+        The stderr should include 'scheduled CA refresh or containerd recovery failed'
+        The output should be blank
+        The contents of file "$CALLS" should not include acquire
+        The path "$TEST_DIR/unsafe" should not be exist
+    End
+
+    It 'preserves custom registry policies including symlinks'
+        mkdir -p "$TEST_DIR/certs.d/custom"
+        printf 'ca = "/custom/root.pem"\n[host]\n' > "$TEST_DIR/policy"
+        ln -s "$TEST_DIR/policy" "$TEST_DIR/certs.d/custom/hosts.toml"
+        printf 'private-key\n' > "$TEST_DIR/certs.d/custom/client.key"
+        When call run_refresh
+        The status should be success
+        The output should eq 'CA_REFRESH_RESULT=restarted'
+        The path "$TEST_DIR/certs.d/custom/hosts.toml" should be symlink
+        The contents of file "$TEST_DIR/policy" should include 'ca = "/custom/root.pem"'
+        The contents of file "$TEST_DIR/certs.d/custom/client.key" should eq private-key
+    End
+
+    It 'rejects an emptied bundle without restarting'
+        refresh_certs() { : > "$BUNDLE"; }
+        When call run_refresh
+        The status should be failure
+        The stderr should include 'scheduled CA refresh or containerd recovery failed'
+        The output should be blank
+        The contents of file "$CALLS" should not include restart
+        The path "$STATE/pending" should be exist
+    End
+
+    It 'does not mutate trust if the baseline cannot be read'
+        rm "$BUNDLE"
+        When call run_refresh
+        The status should be failure
+        The stderr should include 'scheduled CA refresh or containerd recovery failed'
+        The output should be blank
+        The contents of file "$CALLS" should not include acquire
+    End
+
+    It 'serializes actual concurrent acquisition and restarts only once'
+        unset -f flock
+        flock_missing() { ! command -v flock >/dev/null; }
+        Skip if 'flock is not installed' flock_missing
+        refresh_certs() {
+            mkdir "$TEST_DIR/acquiring" || return $?
+            command sleep 0.2
+            printf '%s\n' "$CA_AFTER" > "$BUNDLE"
+            rmdir "$TEST_DIR/acquiring"
+        }
+        concurrent() {
+            local first second first_status second_status
+            run_refresh > "$TEST_DIR/first" & first=$!
+            run_refresh > "$TEST_DIR/second" & second=$!
+            wait "$first"; first_status=$?
+            wait "$second"; second_status=$?
+            [ "$first_status" -eq 0 ] && [ "$second_status" -eq 0 ] || return 8
+            grep -c '^restart$' "$CALLS"
+            cat "$TEST_DIR/first" "$TEST_DIR/second" | sort
+        }
+        When call concurrent
+        The status should be success
+        The line 1 should eq 1
+        The line 2 should eq 'CA_REFRESH_RESULT=restarted'
+        The line 3 should eq 'CA_REFRESH_RESULT=unchanged'
+        The path "$STATE/pending" should not be exist
+    End
+End
+
+Describe 'bounded CRI runtime readiness'
+    setup() {
+        __SOURCED__=1 . "./parts/linux/cloud-init/artifacts/init-aks-cloud.sh"
+        TEST_DIR=$(mktemp -d)
+        CALLS="$TEST_DIR/calls"
+        : > "$CALLS"
+        READY=true
+        CRI_STATUS=0
+        sleep() { :; }
+        systemctl() {
+            [ "$*" = 'is-active --quiet containerd' ] || return 8
+        }
+        timeout() {
+            [ "$1" = 5 ] || return 8
+            shift
+            "$@"
+        }
+        crictl() {
+            [ "$*" = '--runtime-endpoint unix:///run/containerd/containerd.sock info' ] || return 8
+            echo cri >> "$CALLS"
+            [ "$CRI_STATUS" -eq 0 ] || return "$CRI_STATUS"
+            printf '{"status":{"conditions":[{"type":"RuntimeReady","status":%s}]}}\n' "$READY"
+        }
+    }
+    cleanup() { rm -rf "$TEST_DIR"; }
+    BeforeEach 'setup'
+    AfterEach 'cleanup'
+
+    It 'requires CRI RuntimeReady on the containerd socket'
+        When call containerd_cri_ready
+        The status should be success
+        The output should be blank
+        The contents of file "$CALLS" should eq cri
+    End
+
+    It 'stops polling after twelve unsuccessful probes'
+        READY=false
+        not_ready() {
+            containerd_cri_ready
+            local rc=$?
+            grep -c '^cri$' "$CALLS"
+            return "$rc"
+        }
+        When call not_ready
+        The status should be failure
+        The stderr should include 'containerd CRI did not become ready'
+        The output should eq 12
+    End
+
+    It 'does not treat a failed CRI command as healthy'
+        CRI_STATUS=7
+        When call containerd_cri_ready
+        The status should be failure
+        The stderr should include 'containerd CRI did not become ready'
+        The output should be blank
+    End
+End
+
+Describe 'CA installation and acquisition'
+    setup() {
+        __SOURCED__=1 . "./parts/linux/cloud-init/artifacts/init-aks-cloud.sh"
+        mkdir() { :; }
+        rm() { :; }
+        cp() { return "$COPY_STATUS"; }
+        compgen() { return "$GLOB_STATUS"; }
+        debug_print_trust_store() { :; }
+        update-ca-trust() { return "$UPDATE_STATUS"; }
+        systemctl() { echo 'unexpected runtime operation' >&2; return 8; }
+        emit_event() { :; }
+        logs_to_events() { shift; "$@"; }
+        IS_AZURELINUX=1
+        COPY_STATUS=0 UPDATE_STATUS=0 GLOB_STATUS=0
+    }
+    BeforeEach 'setup'
+
+    It 'installs OS trust without a runtime operation during provisioning'
+        When call install_certs_to_trust_store
+        The status should be success
+        The output should be blank
+    End
+
+    It 'propagates copy failures'
+        COPY_STATUS=7
+        When call install_certs_to_trust_store
+        The status should eq 7
+        The output should be blank
+    End
+
+    It 'propagates OS update failures rather than diagnostic status'
+        UPDATE_STATUS=9
+        When call install_certs_to_trust_store
+        The status should eq 9
+        The output should be blank
+    End
+
+    It 'rejects an empty download'
+        GLOB_STATUS=1
+        When call install_certs_to_trust_store
+        The status should be failure
+        The stderr should include 'no *.crt files'
+    End
+
+    Describe 'real acquisition function'
+        BeforeEach 'stub_acquisition'
+        stub_acquisition() {
+            OPT_STATUS=0 RETRIEVE_STATUS=0 INSTALL_STATUS=0
             find() { :; }
-            emit_event() { :; }
-            logs_to_events() { shift; "$@"; }
             is_opted_in_for_root_certs() { return "$OPT_STATUS"; }
             retrieve_legacy_certs() { return "$RETRIEVE_STATUS"; }
             retrieve_rcv1p_certs() { return "$RETRIEVE_STATUS"; }
             install_certs_to_trust_store() { echo installed; return "$INSTALL_STATUS"; }
-            # shellcheck disable=SC1090
-            . <(awk '/^refresh_location=/{copy=1}
-                /^if \[ "\$IS_UBUNTU" -eq 1 \] \|\|/{exit}
-                copy' ./parts/linux/cloud-init/artifacts/init-aks-cloud.sh) "$action" "$location"
-            echo full-init
-        )
-
+        }
         Parameters
             ussec-test
             eastus
         End
 
-        It 'installs for either successful acquisition mode, then exits ca-refresh'
-            When run run_refresh "$1" ca-refresh 0 0 0
+        It 'installs after acquisition succeeds'
+            When call refresh_certs "$1"
             The status should be success
             The output should include installed
-            The output should not include full-init
         End
 
-        It 'continues to full initialization only after successful installation'
-            When run run_refresh "$1" init 0 0 0
-            The status should be success
-            The output should include installed
-            The output should include full-init
-        End
-
-        It 'fails either mode when installation fails'
-            When run run_refresh "$1" init 0 0 7
-            The status should eq 1
-            The stderr should include 'failed to install'
-            The output should include installed
-            The output should not include full-init
-        End
-
-        It 'does not install after failed acquisition'
-            When run run_refresh "$1" init 0 9 0
-            The status should eq 1
+        It 'does not install when acquisition fails'
+            RETRIEVE_STATUS=9
+            When call refresh_certs "$1"
+            The status should be failure
             The output should include 'failed to retrieve'
             The output should not include installed
-            The output should not include full-init
         End
 
-        It 'does not install or schedule on RCV1P opt-out'
-            When run run_refresh eastus init 1 0 0
-            The status should be success
+        It 'does not hide installation failure'
+            INSTALL_STATUS=7
+            When call refresh_certs "$1"
+            The status should be failure
+            The stderr should include 'failed to install'
+            The output should include installed
+        End
+
+        It 'returns the explicit opt-out status without installation'
+            OPT_STATUS=1
+            When call refresh_certs eastus
+            The status should eq 3
             The output should not include installed
-            The output should not include full-init
         End
 
-        It 'fails without installing when the opt-in check cannot reach wireserver'
-            When run run_refresh eastus init 2 0 0
-            The status should eq 1
+        It 'fails when wireserver opt-in cannot be determined'
+            OPT_STATUS=2
+            When call refresh_certs eastus
+            The status should be failure
             The output should include 'wireserver unreachable'
             The output should not include installed
         End
     End
 End
 
-Describe 'generated containerd mirror trust'
+Describe 'generated containerd mirrors retain implicit system trust'
     setup() {
         . ./parts/linux/cloud-init/artifacts/cse_config.sh
         TEST_DIR=$(mktemp -d)
-        EXPECTED_BUNDLE=/etc/ssl/certs/ca-certificates.crt
-        [ -s "$EXPECTED_BUNDLE" ] || EXPECTED_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
         mkdir() { :; }
         touch() { :; }
         chmod() { :; }
@@ -278,24 +539,23 @@ Describe 'generated containerd mirror trust'
     BeforeEach 'setup'
     AfterEach 'cleanup'
 
-    It 'configures both the bootstrap mirror and implicit server without losing path semantics'
+    It 'preserves bootstrap routing without overriding root selection'
         BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="mirror.example/cache"
         When call configureContainerdRegistryHost
         The status should be success
-        The line 1 of contents of file "$TEST_DIR/hosts.toml" should eq "ca = \"$EXPECTED_BUNDLE\""
         The contents of file "$TEST_DIR/hosts.toml" should include '[host."https://mirror.example/v2/cache"]'
-        The contents of file "$TEST_DIR/hosts.toml" should include "  ca = \"$EXPECTED_BUNDLE\""
         The contents of file "$TEST_DIR/hosts.toml" should include '  override_path = true'
         The contents of file "$TEST_DIR/hosts.toml" should include '  capabilities = ["pull", "resolve"]'
+        The contents of file "$TEST_DIR/hosts.toml" should not include 'ca ='
+        The contents of file "$TEST_DIR/hosts.toml" should not include skip_verify
     End
 
     It 'preserves the legacy mirror header and implicit fallback'
         When call configureContainerdLegacyMooncakeMcrHost
         The status should be success
-        The line 1 of contents of file "$TEST_DIR/hosts.toml" should eq "ca = \"$EXPECTED_BUNDLE\""
         The contents of file "$TEST_DIR/hosts.toml" should include '[host."https://mcr.azure.cn"]'
-        The contents of file "$TEST_DIR/hosts.toml" should include "  ca = \"$EXPECTED_BUNDLE\""
         The contents of file "$TEST_DIR/hosts.toml" should include 'X-Forwarded-For = ["mcr.azk8s.cn"]'
-        The contents of file "$TEST_DIR/hosts.toml" should not include 'skip_verify'
+        The contents of file "$TEST_DIR/hosts.toml" should not include 'ca ='
+        The contents of file "$TEST_DIR/hosts.toml" should not include skip_verify
     End
 End

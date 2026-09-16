@@ -21,6 +21,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/Masterminds/semver/v3"
+	compressedgzip "github.com/klauspost/compress/gzip"
 )
 
 /*
@@ -250,12 +251,13 @@ func isCommentAtTheEndOfLine(lastHashIndex int, trimmedToCheck string) bool {
 	return getSlice(lastHashIndex-1, lastHashIndex+1, trimmedToCheck) != "<#" && getSlice(lastHashIndex, lastHashIndex+tailingCommentSegmentLen, trimmedToCheck) == "# "
 }
 
-func newGzipWriter(buf *bytes.Buffer) *gzip.Writer {
-	writer, err := gzip.NewWriterLevel(buf, gzip.BestCompression)
-	if err == nil {
-		return writer
+func newGzipWriter(buf *bytes.Buffer) *compressedgzip.Writer {
+	// Retain the gzip wire format while fitting scripted CustomData's size budget.
+	writer, err := compressedgzip.NewWriterLevel(buf, compressedgzip.BestCompression)
+	if err != nil {
+		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
-	return gzip.NewWriter(buf)
+	return writer
 }
 
 func getGzippedBufferFromBytes(b []byte) []byte {
@@ -266,7 +268,9 @@ func getGzippedBufferFromBytes(b []byte) []byte {
 		// this should never happen and this is a bug.
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
-	w.Close()
+	if err := w.Close(); err != nil {
+		panic(fmt.Sprintf("BUG: %s", err.Error()))
+	}
 	return gzipB.Bytes()
 }
 
