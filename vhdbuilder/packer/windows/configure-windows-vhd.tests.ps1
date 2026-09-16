@@ -6,6 +6,14 @@ BeforeAll {
     # already been defined, so stripping the dot-source line and swallowing the expected trailing
     # throw is sufficient to safely load every function for testing without needing a real VHD
     # build context.
+    #
+    # The script also sets $ErrorActionPreference = "Stop" at its top level with no scoping, which
+    # otherwise leaks into the global session (confirmed: $ErrorActionPreference is "Continue"
+    # before this BeforeAll and "Stop" after) and breaks other, unrelated *.tests.ps1 files that
+    # run later in the same Pester/PowerShell process (e.g. in CI, where all of
+    # vhdbuilder/packer/windows/ plus windows-files-check.tests.ps1 run together) - save and
+    # restore it explicitly so this file's loading never has that side effect.
+    $originalErrorActionPreference = $ErrorActionPreference
     $content = Get-Content "$PSScriptRoot\configure-windows-vhd.ps1" -Raw
     $content = $content -replace [regex]::Escape(". c:/k/windows-vhd-configuration.ps1"), ""
     try
@@ -19,6 +27,10 @@ BeforeAll {
         # Get-CimInstance and aren't available cross-platform (e.g. on Linux pwsh) - that failure
         # can override the original exception. Either way, every function above that point in the
         # file has already been defined by the time we get here, which is all this test file needs.
+    }
+    finally
+    {
+        $ErrorActionPreference = $originalErrorActionPreference
     }
 }
 

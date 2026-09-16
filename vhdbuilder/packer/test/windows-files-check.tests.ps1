@@ -39,7 +39,12 @@ Describe 'Test-ValidateSinglePackageSignature' {
 
         # A non-flagged URL should NOT be skipped, so it proceeds to Expand-Archive on a file that
         # (deliberately, in this test) doesn't exist either, and fails there instead of being
-        # silently skipped - proving the skip really is scoped to AzCopy-flagged URLs only.
-        { Test-ValidateSinglePackageSignature -dir $script:nonExistentDir } | Should -Throw "*Expand-Archive*"
+        # silently skipped - proving the skip really is scoped to AzCopy-flagged URLs only. Match
+        # broadly on "archive" rather than the specific throw text ("Expand-Archive failed for..."):
+        # if $ErrorActionPreference is "Stop" in the ambient session, the preceding Write-Error call
+        # becomes terminating first, surfacing its own message ("Failed to expand archive...")
+        # instead - both indicate the same "didn't skip, attempted extraction" outcome this test
+        # wants to verify.
+        { Test-ValidateSinglePackageSignature -dir $script:nonExistentDir } | Should -Throw "*archive*"
     }
 }
