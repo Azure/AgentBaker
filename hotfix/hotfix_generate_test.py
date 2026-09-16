@@ -280,7 +280,7 @@ write_files:
                 self.assertNotIn(hotfix_generate.SCRIPTS_BEGIN, cleaned)
                 self.assertEqual(1, cleaned.count("provisionSourceUbuntu"))
 
-    def test_write_hotfix_file_contains_both_versions_and_preserves_them(self):
+    def test_write_hotfix_file_uses_hotfixes_and_preserves_scripts_version(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             target = Path(temp_dir) / "hotfix.json"
             with mock.patch.object(
@@ -292,7 +292,7 @@ write_files:
                 )
                 self.assertEqual(
                     {
-                        "version": "202608.14.1",
+                        "hotfixes": {"202608.14": "202608.14.1"},
                         "scripts_version": "202608.14.2",
                     },
                     json.loads(target.read_text()),
@@ -300,7 +300,7 @@ write_files:
                 hotfix_generate.write_hotfix_file("", "")
                 self.assertEqual(
                     {
-                        "version": "202608.14.1",
+                        "hotfixes": {"202608.14": "202608.14.1"},
                         "scripts_version": "202608.14.2",
                     },
                     json.loads(target.read_text()),
@@ -331,7 +331,7 @@ write_files:
                 ),
             )
 
-    def test_resolve_hotfix_versions_adds_version_for_anc_script_delivery(self):
+    def test_resolve_hotfix_versions_adds_hotfix_for_anc_script_delivery(self):
         with mock.patch.object(
             hotfix_generate,
             "bump_version",
@@ -347,7 +347,7 @@ write_files:
                 ),
             )
 
-    def test_resolve_hotfix_versions_keeps_independent_anc_version(self):
+    def test_resolve_hotfix_versions_keeps_independent_anc_hotfix(self):
         with mock.patch.object(
             hotfix_generate,
             "bump_version",
@@ -362,6 +362,114 @@ write_files:
                     use_anc_for_scripts=False,
                 ),
             )
+
+    def test_pointer_only_hotfix_version_requires_higher_patch_in_same_stream(self):
+        self.assertEqual(
+            "202608.14.2",
+            hotfix_generate.validate_pointer_only_version(
+                "202608.14.0", "202608.14.2"
+            ),
+        )
+        with self.assertRaisesRegex(ValueError, "must use base '202608.14'"):
+            hotfix_generate.validate_pointer_only_version(
+                "202608.14.0", "202609.14.1"
+            )
+
+    def test_read_pointer_only_hotfixes_preserves_scripts_version(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / "aks-node-controller-hotfix.json"
+            target.write_text(
+                json.dumps(
+                    {
+                        "hotfixes": {"202608.14": "202608.14.2"},
+                        "scripts_version": "202608.14.2",
+                    }
+                )
+            )
+            with mock.patch.object(
+                hotfix_generate, "TARGET_FILE", str(target)
+            ), mock.patch.object(
+                hotfix_generate, "target_file_changed", return_value=True
+            ):
+                self.assertEqual(
+                    ("202608.14.2", "202608.14.2"),
+                    hotfix_generate.read_pointer_only_versions(
+                        "origin/official/v20260814", "202608.14.0"
+                    ),
+                )
+
+    def test_pointer_only_scripts_version_is_validated(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / "aks-node-controller-hotfix.json"
+            target.write_text(
+                json.dumps(
+                    {
+                        "hotfixes": {"202608.14": "202608.14.2"},
+                        "scripts_version": "202609.14.1",
+                    }
+                )
+            )
+            with mock.patch.object(
+                hotfix_generate, "TARGET_FILE", str(target)
+            ), mock.patch.object(
+                hotfix_generate, "target_file_changed", return_value=True
+            ):
+                with self.assertRaisesRegex(
+                    ValueError, "must use base '202608.14'"
+                ):
+                    hotfix_generate.read_pointer_only_versions(
+                        "origin/official/v20260814", "202608.14.0"
+                    )
+
+    def test_read_pointer_only_versions_rejects_legacy_version_input(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / "aks-node-controller-hotfix.json"
+            target.write_text(json.dumps({"version": "202608.14.2"}))
+            with mock.patch.object(
+                hotfix_generate, "TARGET_FILE", str(target)
+            ), mock.patch.object(
+                hotfix_generate, "target_file_changed", return_value=True
+            ):
+                with self.assertRaisesRegex(
+                    ValueError, "'version' is deprecated"
+                ):
+                    hotfix_generate.read_pointer_only_versions(
+                        "origin/official/v20260814", "202608.14.0"
+                    )
+
+    def test_read_pointer_only_versions_ignores_unchanged_file_without_hotfixes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / "aks-node-controller-hotfix.json"
+            target.write_text(json.dumps({"scripts_version": "202608.14.1"}))
+            with mock.patch.object(
+                hotfix_generate, "TARGET_FILE", str(target)
+            ), mock.patch.object(
+                hotfix_generate, "target_file_changed", return_value=True
+            ):
+                self.assertEqual(
+                    ("", ""),
+                    hotfix_generate.read_pointer_only_versions(
+                        "origin/official/v20260814", "202608.14.0"
+                    ),
+                )
+
+    def test_read_pointer_only_hotfixes_requires_current_base_key(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / "aks-node-controller-hotfix.json"
+            target.write_text(
+                json.dumps({"hotfixes": {"202609.14": "202609.14.2"}})
+            )
+            with mock.patch.object(
+                hotfix_generate, "TARGET_FILE", str(target)
+            ), mock.patch.object(
+                hotfix_generate, "target_file_changed", return_value=True
+            ):
+                with self.assertRaisesRegex(
+                    ValueError, "must contain only base '202608.14'"
+                ):
+                    hotfix_generate.read_pointer_only_versions(
+                        "origin/official/v20260814", "202608.14.0"
+                    )
 
     def test_cse_start_hotfix_fails_even_with_supported_changes(self):
         self.assertNotIn("cse_start.sh", hotfix_generate.SOURCE_TO_VARKEY)
