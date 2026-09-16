@@ -168,6 +168,10 @@ type Config struct {
 	// This is for e2e-only validation scenarios.
 	CustomDataWriteFiles []CustomDataWriteFile
 
+	// CustomDataWriteFilesWithError injects additional cloud-init write_files entries that depend
+	// on runtime e2e configuration.
+	CustomDataWriteFilesWithError func() ([]CustomDataWriteFile, error)
+
 	// ScriptHotfixFixture builds ANC in an isolated temporary module with this
 	// generated script-hotfix payload. It bypasses the shared ANC binary cache.
 	ScriptHotfixFixture *ScriptHotfixFixture
