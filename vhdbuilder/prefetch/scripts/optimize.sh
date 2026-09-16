@@ -18,7 +18,6 @@ set -uxo pipefail
 [ -z "${CAPTURED_SIG_VERSION:-}" ] && echo "CAPTURED_SIG_VERSION is not set" && exit 1
 [ -z "${HYPERV_GENERATION:-}" ] && echo "HYPERV_GENERATION is not set" && exit 1
 [ -z "${FEATURE_FLAGS:-}" ] && echo "FEATURE_FLAGS is not set" && exit 1
-[ -z "${ENABLE_TRUSTED_LAUNCH:-}" ] && echo "ENABLE_TRUSTED_LAUNCH is not set" && exit 1
 [ -z "${WORKLOAD_OPTIMIZATION_SCRIPT_URL:-}" ] && echo "WORKLOAD_OPTIMIZATION_SCRIPT_URL is not set" && exit 1
 
 IMAGE_BUILDER_API_VERSION="2025-10-01"
