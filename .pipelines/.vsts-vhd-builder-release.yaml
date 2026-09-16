@@ -52,7 +52,7 @@ parameters:
   - name: buildAzureLinuxOSGuardV3gen2fipsTL
     displayName: Build AzureLinuxOSGuardV3 Gen2 FIPS - Trusted Launch
     type: boolean
-    default: true
+    default: false
   - name: build2004fipscontainerd
     displayName: Build 2004 FIPS containerd
     type: boolean

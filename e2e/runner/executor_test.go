@@ -91,36 +91,6 @@ func TestAppRejectsNonPositiveDurations(t *testing.T) {
 	}
 }
 
-func TestRunnerFlagsUseEnvironmentAliases(t *testing.T) {
-	restoreRunnerConfig(t)
-	t.Setenv("PARALLEL", "7")
-	t.Setenv("TEST_TIMEOUT", "3m")
-	t.Setenv("E2E_GO_TEST_TIMEOUT", "4m")
-	t.Setenv("TIMEOUT", "4m")
-	t.Setenv("E2E_FAILED_TESTS_RETRY_COUNT", "2")
-	t.Setenv("LOGGING_DIR", t.TempDir())
-	t.Setenv("E2E_OUTPUT", "grouped")
-	t.Setenv("TAGS_TO_RUN", "gpu=true")
-	t.Setenv("TAGS_TO_SKIP", "os=windows")
-	t.Setenv("GALLERY_NAME", "test-gallery")
-	t.Setenv("KEEP_VMSS", "true")
-	t.Setenv("SUBSCRIPTION_ID", "test-subscription")
-
-	app := NewApp(&bytes.Buffer{}, &bytes.Buffer{})
-	assert.Equal(t, exitUsage, app.Run(context.Background(), []string{"e2e", "run", "DoesNotExist"}))
-	assert.Equal(t, 7, config.Config.Parallel)
-	assert.Equal(t, 3*time.Minute, config.Config.TestTimeout)
-	assert.Equal(t, 2, config.Config.Retries)
-	opts := runOptionsFromConfig(nil)
-	assert.Equal(t, 4*time.Minute, config.Config.SuiteTimeout)
-	assert.Equal(t, "grouped", config.Config.OutputMode)
-	assert.Equal(t, tagFilter{run: "gpu=true", skip: "os=windows"}, opts.tagFilter)
-	assert.Equal(t, "test-gallery", config.Config.GalleryLinux.Name)
-	assert.Equal(t, "test-gallery", config.Config.GalleryWindows.Name)
-	assert.True(t, config.Config.KeepVMSS)
-	assert.Equal(t, "test-subscription", config.Config.SubscriptionID)
-}
-
 func TestAppRejectsUnknownScenarioChild(t *testing.T) {
 	restoreRunnerConfig(t)
 

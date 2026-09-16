@@ -26,6 +26,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"gopkg.in/yaml.v3"
@@ -511,26 +512,6 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 	resourceGroupName := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
 
 	delay := 5 * time.Second
-	retryOn := func(err error) bool {
-		var respErr *azcore.ResponseError
-		// only retry on Azure API errors with specific error codes
-		if !errors.As(err, &respErr) {
-			return false
-		}
-		// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
-		// It's not a quota issue
-		if respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed" {
-			return true
-		}
-		// GalleryImageNotFound can happen transiently after image replication completes
-		// due to Azure eventual consistency - the gallery API reports success but the
-		// compute fabric in the target region hasn't fully propagated the image yet
-		if respErr.StatusCode == 404 && respErr.ErrorCode == "GalleryImageNotFound" {
-			return true
-		}
-		return false
-	}
-
 	maxAttempts := 10
 	attempt := 0
 
@@ -542,7 +523,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 		}
 
 		// not a retryable error
-		if !retryOn(err) {
+		if !isRetryableVMSSCreationError(err) {
 			return vm, err
 		}
 
@@ -559,13 +540,43 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 	}
 }
 
+func isRetryableVMSSCreationError(err error) bool {
+	var respErr *azcore.ResponseError
+	// only retry on Azure API errors with specific error codes
+	if !errors.As(err, &respErr) {
+		return false
+	}
+	// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
+	// It's not a quota issue
+	if respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed" {
+		return true
+	}
+	// GalleryImageNotFound can happen transiently after image replication completes
+	// due to Azure eventual consistency - the gallery API reports success but the
+	// compute fabric in the target region hasn't fully propagated the image yet
+	if respErr.StatusCode == 404 && respErr.ErrorCode == "GalleryImageNotFound" {
+		return true
+	}
+	return false
+}
+
 func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*ScenarioVM, error) {
 	defer logging.LogStepf(ctx, "creating VMSS %s", s.Runtime.VMSSName)()
-	vm := &ScenarioVM{}
 	model, err := createVMSSModel(ctx, s)
 	if err != nil {
-		return vm, err
+		return &ScenarioVM{}, err
 	}
+	return createVMSS(ctx, s, resourceGroupName, model, DialSSHOverBastion)
+}
+
+func createVMSS(
+	ctx context.Context,
+	s *Scenario,
+	resourceGroupName string,
+	model armcompute.VirtualMachineScaleSet,
+	dialSSH func(context.Context, *Bastion, string, []byte) (*SSHClient, error),
+) (*ScenarioVM, error) {
+	vm := &ScenarioVM{}
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
@@ -578,14 +589,14 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	}
 	// We want to generate SSH instructions as soon as possible, so we can debug CSE issues
 	// Wait for VMSS VM to appear before extracting the private IP
-	vm.VM, err = waitForVMSSVM(ctx, s)
+	vm.VM, err = waitForVMSSVM(ctx, s, operation)
 	if err != nil {
 		return vm, fmt.Errorf("failed to wait for VMSS VM: %w", err)
 	}
 
 	vm.PrivateIP, err = getPrivateIPFromVMSSVM(ctx, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID)
 	if err != nil {
-		return vm, fmt.Errorf("failed to get VM private IP address: %w", err)
+		return vm, errors.Join(pollVMSSCreation(ctx, operation), fmt.Errorf("failed to get VM private IP address: %w", err))
 	}
 
 	// NOTE: teardown (log extraction + VMSS deletion) is registered once by the caller
@@ -602,26 +613,30 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	result += fmt.Sprintf(`az network bastion ssh --target-resource-id "%s" --name "%s" --resource-group %s --auth-type ssh-key --username azureuser --ssh-key %s`, *vm.VM.ID, SharedBastionName, config.ResourceGroupName(*s.Runtime.Cluster.Model.Location), config.VMSSHPrivateKeyFileName) + "\n"
 	logging.Log(ctx, result)
 
-	vmssResp, err := operation.PollUntilDone(ctx, config.PollUntilDoneOptions())
+	vmssResp, provisionErr := operation.PollUntilDone(ctx, config.PollUntilDoneOptions())
 
-	// Log VMSS tags for diagnostics in the scenario log.
-	// For RCV1P tests, annotates the opt-in tag to help distinguish our tags from platform-injected ones.
-	vmssID := "<unknown>"
-	if vmssResp.ID != nil {
-		vmssID = *vmssResp.ID
-	}
 	// In the single-subscription model, if the scenario tags RCV1PCertMode we set the opt-in tag ourselves.
 	weSetRCV1PTag := s.Tags.RCV1PCertMode
-	logRCV1PAwareTags(ctx, s, "VMSS", "creation", s.Runtime.VMSSName, vmssID, vmssResp.Tags, weSetRCV1PTag, false)
-	if !s.Config.SkipSSHConnectivityValidation {
+	if provisionErr != nil {
+		logging.Logf(ctx, "VMSS %s provisioning failed: %v", s.Runtime.VMSSName, provisionErr)
+	} else {
+		// Log VMSS tags for diagnostics in the scenario log.
+		// For RCV1P tests, annotates the opt-in tag to help distinguish our tags from platform-injected ones.
+		vmssID := "<unknown>"
+		if vmssResp.ID != nil {
+			vmssID = *vmssResp.ID
+		}
+		logRCV1PAwareTags(ctx, s, "VMSS", "creation", s.Runtime.VMSSName, vmssID, vmssResp.Tags, weSetRCV1PTag, false)
+	}
+	if !s.Config.SkipSSHConnectivityValidation && (provisionErr == nil || vmssVMRunningAfterFailure(ctx, s, vm.VM)) {
 		var bastErr error
-		vm.SSHClient, bastErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
+		vm.SSHClient, bastErr = dialSSH(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
 		if bastErr != nil {
-			return vm, fmt.Errorf("failed to start bastion tunnel: %w", bastErr)
+			return vm, errors.Join(provisionErr, fmt.Errorf("failed to start bastion tunnel: %w", bastErr))
 		}
 	}
-	if err != nil {
-		return vm, err
+	if provisionErr != nil {
+		return vm, provisionErr
 	}
 
 	// Wait for VM to be in "Running" power state before proceeding
@@ -643,6 +658,27 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		VM:        vm.VM,
 		SSHClient: vm.SSHClient,
 	}, nil
+}
+
+func vmssVMRunningAfterFailure(ctx context.Context, s *Scenario, vm *armcompute.VirtualMachineScaleSetVM) bool {
+	current, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
+		s.Runtime.VMSSName, *vm.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+			Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
+		})
+	if err != nil {
+		logging.Logf(ctx, "Skipping SSH diagnostics after provisioning failure: cannot read VM instance view: %v", err)
+		return false
+	}
+	*vm = current.VirtualMachineScaleSetVM
+	if vm.Properties != nil && vm.Properties.InstanceView != nil {
+		for _, status := range vm.Properties.InstanceView.Statuses {
+			if status != nil && status.Code != nil && *status.Code == "PowerState/running" {
+				return true
+			}
+		}
+	}
+	logging.Log(ctx, "Skipping SSH diagnostics after provisioning failure: VM is not confirmed running")
+	return false
 }
 
 // rcv1pTagKey is the VMSS/VM tag that opts a resource into hardened root-cert bootstrap.
@@ -731,7 +767,7 @@ func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.
 }
 
 // waitForVMSSVM polls until a VMSS VM instance appears with network profile or the timeout elapses.
-func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachineScaleSetVM, error) {
+func waitForVMSSVM(ctx context.Context, s *Scenario, operation *runtime.Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse]) (*armcompute.VirtualMachineScaleSetVM, error) {
 	ticker := time.NewTicker(config.Config.DefaultPollInterval)
 	defer ticker.Stop()
 
@@ -755,6 +791,10 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 			}
 		}
 
+		if err := pollVMSSCreation(ctx, operation); err != nil {
+			return nil, err
+		}
+
 		select {
 		case <-ctx.Done():
 			if lastErr != nil {
@@ -764,6 +804,17 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 		case <-ticker.C:
 		}
 	}
+}
+
+func pollVMSSCreation(ctx context.Context, operation *runtime.Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse]) error {
+	if _, err := operation.Poll(ctx); err != nil {
+		return fmt.Errorf("polling VMSS creation: %w", err)
+	}
+	if operation.Done() {
+		_, err := operation.Result(ctx)
+		return err
+	}
+	return nil
 }
 
 // getPrivateIPFromVMSSVM extracts the private IP address from a VMSS VM by querying its network interfaces.
