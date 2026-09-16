@@ -794,6 +794,13 @@ Describe 'GetAzCopyDownloadUrlsFromComponentsJson' {
 
         $azCopyUrls.Count | Should -Be 0
     }
+
+    It 'given windowsDownloadRequiresAzCopy is true and the URL contains a query string, it throws (MSI-only, no SAS support)' {
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://privatestorageaccount.blob.core.windows.net/private-container/private-package-v`${version}.zip?sv=2021-01-01&sig=abc123"
+        $componentsJson.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $true
+
+        { GetAzCopyDownloadUrlsFromComponentsJson $componentsJson } | Should -Throw
+    }
 }
 
 Describe 'Gets the OCI Artifacts' {

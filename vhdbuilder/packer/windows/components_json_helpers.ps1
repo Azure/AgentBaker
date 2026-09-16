@@ -207,12 +207,24 @@ function GetAzCopyDownloadUrlsFromComponentsJson
         {
             $version = $windowsVersion.latestVersion
             $url = SafeReplaceString($downloadUrl)
+            if ($url.Contains("?"))
+            {
+                # This download path is MSI-only (the build VM's managed identity authenticates via
+                # azcopy login --login-type=MSI): a query string almost always means a SAS token,
+                # which isn't supported here and must not be embedded in components.json. Reject it
+                # up front rather than silently accepting a URL shape this path can't use safely.
+                throw "windowsDownloadRequiresAzCopy is set for a package whose resolved Windows download URL contains a query string ('$($url.Split('?')[0])?...'): this path is MSI-only and does not support SAS or other query-string credentials in components.json."
+            }
             $output[$url] = $true
 
             if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
             {
                 $version = $windowsVersion.previousLatestVersion
                 $url = SafeReplaceString($downloadUrl)
+                if ($url.Contains("?"))
+                {
+                    throw "windowsDownloadRequiresAzCopy is set for a package whose resolved Windows download URL contains a query string ('$($url.Split('?')[0])?...'): this path is MSI-only and does not support SAS or other query-string credentials in components.json."
+                }
                 $output[$url] = $true
             }
         }
