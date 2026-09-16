@@ -2,32 +2,16 @@
 Description=Start the Trident ACL Agent once kubelet's kubeconfig exists
 Documentation=https://microsoft.github.io/trident/
 
-# The agent's binary and its service unit come from the trident-acl-agent
-# package and therefore live on /usr, while this path unit lives on the root
-# partition. An A/B update replaces /usr and leaves the root partition alone, so
-# an image whose /usr lacks that package leaves this unit pointing at a service
-# that no longer exists.
-#
-# Without this condition systemd refuses to start the path unit and both units
-# land in a failed state, reported only as "unit trident-acl-agent.service to
-# trigger not loaded" in the path unit's own journal, which is easy to miss.
-# The condition instead skips the unit and logs the absent path by name:
-#
-#   trident-acl-agent.path ... skipped, unmet condition check
-#   ConditionPathExists=/usr/lib/systemd/system/trident-acl-agent.service
-#
-# so the reason is stated in the log rather than inferred. A missing agent is
-# caught loudly at image build time instead, where it is actionable.
+# The service unit lives on /usr, which an A/B update replaces; this path unit
+# lives on the root partition, which it does not. Without this condition, an
+# image whose /usr lacks the agent leaves both units failed with the reason
+# buried in the path unit's journal. Skipped units are not failed units, and
+# systemd logs the missing path by name.
 ConditionPathExists=/usr/lib/systemd/system/trident-acl-agent.service
 
 [Path]
-# The agent authenticates to the API server as this node using kubelet's
-# kubeconfig, and fails to start if the file is absent. On a new node that file
-# does not appear until kubelet completes TLS bootstrapping, so trigger on the
-# file itself rather than on a unit or target that only approximates it.
-#
-# On later boots the file already exists, and systemd activates the unit
-# immediately when the path unit starts, so no special case is needed.
+# The agent exits if kubelet's kubeconfig is absent, which it is until kubelet
+# finishes TLS bootstrapping. Wait for the file rather than enabling the service.
 PathExists=/var/lib/kubelet/kubeconfig
 Unit=trident-acl-agent.service
 
