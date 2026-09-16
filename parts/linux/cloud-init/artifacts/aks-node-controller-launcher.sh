@@ -7,9 +7,6 @@ done
 
 BIN_PATH="${BIN_PATH:-/opt/azure/containers/aks-node-controller}"
 HOTFIX_BIN="${BIN_PATH}-hotfix"
-# Keep the ordering-sensitive hotfix workflow in a separately callable script so tests can cover
-# the sequence without also running the rest of the launcher/provision wrapper.
-HOTFIX_FLOW_SCRIPT="${HOTFIX_FLOW_SCRIPT:-/opt/azure/containers/aks-node-controller-hotfix.sh}"
 # HOTFIX_JSON is only used by this wrapper for the -f gate/logs below. The check-hotfix and
 # download-hotfix subcommands read/write their own internal default path and do NOT consume
 # this variable, so overriding it does not change binary behavior (it exists mainly so
@@ -34,16 +31,10 @@ log() {
     echo "$message"
 }
 
-if [ -f "$HOTFIX_FLOW_SCRIPT" ]; then
-    # shellcheck source=/dev/null
-    source "$HOTFIX_FLOW_SCRIPT"
-else
-    # Fail-open: the hotfix flow is an optional, default-off enhancement, so a missing script
-    # (older VHD, an image variant that did not pick up the artifact, or a failed packer copy)
-    # must not block provisioning. Fall through with the VHD-baked binary, which is exactly the
-    # behavior before the hotfix flow existed.
-    log "Missing ANC hotfix flow script: ${HOTFIX_FLOW_SCRIPT}; continuing with the VHD-baked binary (fail-open)"
-fi
+# Keep the ordering-sensitive hotfix workflow in a separately callable script so tests can cover
+# the sequence without also running the rest of the launcher/provision wrapper.
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/aks-node-controller-hotfix.sh"
 
 # this is to ensure that shellspec won't interpret any further lines below
 ${__SOURCED__:+return}
@@ -53,13 +44,8 @@ if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
     exit 0
 fi
 
-# Only run the hotfix flow when the script was sourced successfully. The ":-$BIN_PATH" default
-# also keeps "set -u" from aborting the launcher if the flow ever returns without exporting a
-# selection; either way provisioning proceeds with the VHD-baked binary.
-if declare -f anc_run_hotfix_flow >/dev/null; then
-    anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH"
-    BIN_PATH="${ANC_HOTFIX_SELECTED_BIN:-$BIN_PATH}"
-fi
+anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH"
+BIN_PATH="$ANC_HOTFIX_SELECTED_BIN"
 
 command=("$BIN_PATH" provision)
 if [ -f "$CONFIG_PATH" ]; then

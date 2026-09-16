@@ -42,12 +42,11 @@ EOF
         # Feature-flag file is test-local and absent by default; tests that exercise the
         # source path create it explicitly.
         export FEATURES_PATH="${TEST_DIR}/enabled_features.sh"
-        export HOTFIX_FLOW_SCRIPT="$HOTFIX_SCRIPT"
     }
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
-        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH HOTFIX_FLOW_SCRIPT ANC_HOTFIX_SELECTED_BIN
+        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN
     }
 
     create_fake_aks_node_controller() {
@@ -150,25 +149,6 @@ EOF
         The status should be success
         The output should include "Gracefully exit aks-node-controller without provision config or nbc cmd"
         The output should not include "Spawned aks-node-controller"
-    End
-
-    It 'provisions with the VHD-baked binary when the hotfix flow script is missing (fail-open)'
-        touch "$CONFIG_PATH" "$HOTFIX_JSON"
-        create_recording_aks_node_controller
-        create_staged_hotfix_binary
-        printf 'ENABLE_PROVISIONING_HOTFIX=true\n' >"$FEATURES_PATH"
-        export HOTFIX_FLOW_SCRIPT="${TEST_DIR}/absent-hotfix-flow.sh"
-
-        When run bash "$SCRIPT"
-        The status should be success
-        The output should include "Missing ANC hotfix flow script"
-        The output should include "Spawned aks-node-controller"
-        # The optional flow is skipped entirely, so no hotfix subcommand runs and the staged
-        # hotfix binary is never selected -- provisioning falls back to the VHD-baked binary.
-        The path "${TEST_DIR}/calls" should be exist
-        calls=$(cat "${TEST_DIR}/calls")
-        The variable calls should eq "provision"
-        The path "${TEST_DIR}/hotfix_calls" should not be exist
     End
 
     It 'passes both provision config and nbc cmd when both files are present'
@@ -343,6 +323,22 @@ EOF
         The output should not include "running check-hotfix"
         calls=$(cat "${TEST_DIR}/calls")
         The variable calls should eq "provision"
+    End
+
+    It 'does not let feature keys overwrite hotfix flow arguments'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        create_recording_aks_node_controller
+        {
+            printf 'bin_path=/tmp/changed-bin\n'
+            printf 'hotfix_bin=/tmp/changed-hotfix-bin\n'
+            printf 'hotfix_json=/tmp/changed-hotfix-json\n'
+        } >"$FEATURES_PATH"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Using VHD-baked binary: ${BIN_PATH}"
+        calls=$(cat "${TEST_DIR}/calls")
+        The variable calls should eq "$(printf 'download-hotfix\nprovision')"
     End
 
     # Security/fail-open: the file is PARSED, never executed. A hostile or malformed file

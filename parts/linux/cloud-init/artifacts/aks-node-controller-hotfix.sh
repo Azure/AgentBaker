@@ -19,7 +19,7 @@ anc_hotfix_read_feature_flags() {
         ''|\#*) continue ;;
         [!a-zA-Z_]*|*[!a-zA-Z0-9_]*) continue ;;
         esac
-        export "${_key}=${_val}"
+        declare -gx "${_key}=${_val}"
     done <"$features_path"
 }
 
