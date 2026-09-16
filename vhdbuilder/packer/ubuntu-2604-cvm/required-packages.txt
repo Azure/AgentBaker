@@ -1,5 +1,6 @@
 cryptsetup
 cryptsetup-bin
+jq
 libcryptsetup12
 lsscsi
 linux-azure-fde
@@ -20,3 +21,4 @@ linux-tools-*-azure-fde
 linux-tools-azure-fde
 nullboot
 rsyslog
+sudo
