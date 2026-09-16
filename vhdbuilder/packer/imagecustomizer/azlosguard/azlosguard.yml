@@ -241,6 +241,16 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.timer
       destination: /etc/systemd/system/cgroup-memory-telemetry.timer
       permissions: 600
+    # cgroup-cpu
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.sh
+      destination: /opt/scripts/cgroup-cpu-telemetry.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.service
+      destination: /etc/systemd/system/cgroup-cpu-telemetry.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.timer
+      destination: /etc/systemd/system/cgroup-cpu-telemetry.timer
+      permissions: 600
     # cgroup-pressure
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh
       destination: /opt/scripts/cgroup-pressure-telemetry.sh
