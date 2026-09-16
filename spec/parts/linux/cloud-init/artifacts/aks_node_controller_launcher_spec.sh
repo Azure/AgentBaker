@@ -368,6 +368,24 @@ EOF
         The path "${TEST_DIR}/hotfix_calls" should not be exist
     End
 
+    It 'falls back to direct nodecustomdata when the staged hotfix path is not executable'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        create_recording_aks_node_controller
+        create_staged_hotfix_binary
+        chmod -x "${BIN_PATH}-hotfix"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Hotfix binary unavailable; falling back to direct nodecustomdata apply with VHD-baked binary"
+        firstCall=$(sed -n '1p' "${TEST_DIR}/calls")
+        secondCall=$(sed -n '2p' "${TEST_DIR}/calls")
+        thirdCall=$(sed -n '3p' "${TEST_DIR}/calls")
+        The variable firstCall should eq "download-hotfix"
+        The variable secondCall should eq "apply-node-custom-data"
+        The variable thirdCall should eq "provision"
+        The path "${TEST_DIR}/hotfix_calls" should not be exist
+    End
+
     # The full production seam for a version-only hotfix pointer: the baked binary handles
     # download-hotfix and stages the replacement, then provision runs on the STAGED binary. That
     # handoff is what lets the staged binary apply its compiled-in script payload; no scripts_version
