@@ -343,11 +343,11 @@ function Start-NodeResetScriptTask {
             $healthCheckArgs=@{
                 Uri=$global:KubeletHealthzEndpoint
                 UseBasicParsing=$true
-                TimeoutSec=1
+                TimeoutSec=5
                 ErrorAction="Stop"
             }
-            # Observed NSSM recovery took over 12 seconds; allow 90 attempts (~3 minutes) for slower hosts.
-            Retry-Command -Command "Invoke-WebRequest" -Args $healthCheckArgs -Retries 90 -RetryDelaySeconds 1 | Out-Null
+            # Observed NSSM recovery took over 12 seconds; allow 18 attempts (~3 minutes) for slower hosts.
+            Retry-Command -Command "Invoke-WebRequest" -Args $healthCheckArgs -Retries 18 -RetryDelaySeconds 5 | Out-Null
         } catch {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet did not become healthy after NodeResetScriptTask completed. Error: $($_.Exception.Message)"
         }
