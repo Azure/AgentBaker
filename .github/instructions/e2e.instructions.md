@@ -15,11 +15,6 @@ Report bugs in `e2e/**`, not missing test coverage.
 - Before completing a rename, update in-repository selectors and documentation examples. Report the old and new names in the PR because external selectors and report history also use them.
 - Unit tests for scenario definitions are usually unnecessary. Focus unit tests on validator and framework behavior, rather than repeating scenario names, counts, or configuration values.
 
-# E2E unit-test configuration
-
-- Test behavior such as validation, selection, retries, and deadlines. Omit tests whose only result is that a configured value or default equals an expected value.
-- Treat pipeline configuration as input, not as a test expectation. Behavior tests must set and restore the inputs they depend on, including environment aliases with higher precedence.
-
 # E2E shared-environment rules
 
 E2E scenarios run concurrently across branches and share predefined AKS clusters with unrelated tests.
