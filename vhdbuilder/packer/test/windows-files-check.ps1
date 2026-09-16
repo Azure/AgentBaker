@@ -131,6 +131,16 @@ function Test-ValidateSinglePackageSignature {
     )
 
     foreach ($URL in $map[$dir]) {
+        if ($global:azCopyUrls -and $global:azCopyUrls.ContainsKey($URL)) {
+            # This workflow (validate-windows-binary-signature.yaml) runs on a clean windows-latest
+            # runner, not a built VHD - Test-CompareSingleDir is what would normally have downloaded
+            # this URL into $dest, but it skips AzCopy-flagged URLs (they require the build VM's
+            # managed identity, which this runner doesn't have), so $dest never gets created for
+            # them here. Skip signature validation too instead of failing on a missing archive.
+            Write-Output "Skipping signature validation for $URL - source URL requires AzCopy/MSI auth, not available on this runner"
+            continue
+        }
+
         $fileName = [IO.Path]::GetFileName($URL)
         $dest = [IO.Path]::Combine($dir, $fileName)
 

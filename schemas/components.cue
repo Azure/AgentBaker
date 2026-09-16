@@ -93,7 +93,6 @@ package components
 #WindowsOsDistro: {
 	default?: #ReleaseDownloadURI
 	ws2022?: #ReleaseDownloadURI
-	ws23h2?: #ReleaseDownloadURI
 	ws2025?: #ReleaseDownloadURI
 }
 

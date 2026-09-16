@@ -110,11 +110,39 @@ function Download-File
     Get-ChildItem "$Dest"
 }
 
+function Invoke-AzCopyLogin
+{
+    # Thin wrapper around the native azcopy.exe invocation so tests can Mock this function instead
+    # of needing a real azcopy.exe binary. Sets $LASTEXITCODE as a side effect, same as the direct
+    # call would.
+    .\azcopy.exe login --login-type=MSI
+}
+
+function Invoke-AzCopyCopy
+{
+    # Thin wrapper around the native azcopy.exe invocation so tests can Mock this function instead
+    # of needing a real azcopy.exe binary. Sets $LASTEXITCODE as a side effect, same as the direct
+    # call would.
+    param (
+        $URL,
+        $Dest
+    )
+    .\azcopy.exe copy "$URL" "$Dest"
+}
+
 function Download-FileWithAzCopy
 {
     param (
         $URL,
-        $Dest
+        $Dest,
+        # RequireMSILogin: only the new windowsDownloadRequiresAzCopy component path (via
+        # Invoke-PackageDownload) sets this - that path is explicitly MSI-only, so a failed login
+        # must stop the download outright. Pre-existing callers (Get-PrivatePackagesToCacheOnVHD,
+        # the servercore/nanoserver base image override in Get-ContainerImages) may pass a
+        # SAS-bearing URL that `azcopy copy` can still authenticate with directly even if
+        # `azcopy login` fails (e.g. no managed identity attached at all) - don't break that
+        # existing fallback behavior for them.
+        [Switch]$RequireMSILogin = $false
     )
 
 
@@ -146,14 +174,18 @@ function Download-FileWithAzCopy
 
         Write-Log "Logging in to AzCopy"
         # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows/windows-vhd-builder-sig.json
-        .\azcopy.exe login --login-type=MSI
+        Invoke-AzCopyLogin
         if ($LASTEXITCODE)
         {
-            throw "azcopy login --login-type=MSI failed with exit code $LASTEXITCODE. This download path is MSI-only: ensure the build VM has the managed identity attached and it has read access to the source storage account."
+            if ($RequireMSILogin)
+            {
+                throw "azcopy login --login-type=MSI failed with exit code $LASTEXITCODE. This download path is MSI-only: ensure the build VM has the managed identity attached and it has read access to the source storage account."
+            }
+            Write-Log "azcopy login --login-type=MSI failed with exit code $LASTEXITCODE - continuing, since $URL may carry its own credential (e.g. a SAS token) that 'azcopy copy' can use directly without a successful login."
         }
 
         Write-Log "Copying $URL to $Dest"
-        .\azcopy.exe copy "$URL" "$Dest"
+        Invoke-AzCopyCopy -URL $URL -Dest $Dest
         if ($LASTEXITCODE)
         {
             throw "azcopy copy '$URL' '$Dest' failed with exit code $LASTEXITCODE"
@@ -184,7 +216,8 @@ function Invoke-PackageDownload
 
     if ($global:azCopyUrls -and $global:azCopyUrls.ContainsKey($URL))
     {
-        Download-FileWithAzCopy -URL $URL -Dest $Dest
+        # This is the new, explicitly MSI-only component path - require azcopy login to succeed.
+        Download-FileWithAzCopy -URL $URL -Dest $Dest -RequireMSILogin
     }
     else
     {
