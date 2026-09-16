@@ -46,7 +46,7 @@ main() {
         echo "No installed server-cvm packages marked for removal were found"
     fi
 
-    apt-mark manual jq rsyslog sudo
+    apt-mark manual curl jq rsyslog sudo
     verifyRequiredPackagesInstalled
 }
 

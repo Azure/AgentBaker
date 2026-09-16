@@ -319,5 +319,6 @@ xauth
 xdg-user-dirs
 xfsprogs
 xml-core
+xxd
 zerofree
 zstd
