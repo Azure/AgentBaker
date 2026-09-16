@@ -2,6 +2,7 @@
 
 Describe 'aks-node-controller-launcher.sh'
     SCRIPT="./parts/linux/cloud-init/artifacts/aks-node-controller-launcher.sh"
+    HOTFIX_SCRIPT="./parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.sh"
 
     setup_wrapper_test() {
         TEST_DIR="${SHELLSPEC_WORKDIR}/aks-node-controller-launcher"
@@ -41,11 +42,12 @@ EOF
         # Feature-flag file is test-local and absent by default; tests that exercise the
         # source path create it explicitly.
         export FEATURES_PATH="${TEST_DIR}/enabled_features.sh"
+        export HOTFIX_FLOW_SCRIPT="$HOTFIX_SCRIPT"
     }
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
-        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH
+        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH HOTFIX_FLOW_SCRIPT ANC_HOTFIX_SELECTED_BIN
     }
 
     create_fake_aks_node_controller() {
@@ -392,5 +394,20 @@ EOF
         The output should include "Using hotfix binary: ${BIN_PATH}-hotfix"
         hotfixCall=$(tail -n 1 "${TEST_DIR}/hotfix_calls")
         The variable hotfixCall should eq "provision"
+    End
+
+    It 'can run the extracted hotfix flow without invoking provision'
+        touch "$HOTFIX_JSON"
+        create_recording_aks_node_controller
+        create_staged_hotfix_binary
+        printf 'ENABLE_PROVISIONING_HOTFIX=true\n' >"$FEATURES_PATH"
+
+        When run bash -c 'source "$1"; anc_run_hotfix_flow "$2" "$3" "$4" "$5"; printf "%s\n" "$ANC_HOTFIX_SELECTED_BIN"' _ "$HOTFIX_SCRIPT" "$BIN_PATH" "${BIN_PATH}-hotfix" "$HOTFIX_JSON" "$FEATURES_PATH"
+        The status should be success
+        The output should include "${BIN_PATH}-hotfix"
+        calls=$(cat "${TEST_DIR}/calls")
+        hotfixCalls=$(cat "${TEST_DIR}/hotfix_calls")
+        The variable calls should eq "$(printf 'check-hotfix\ndownload-hotfix')"
+        The variable hotfixCalls should eq "apply-embedded-hotfix"
     End
 End

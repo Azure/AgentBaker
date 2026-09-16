@@ -7,6 +7,9 @@ done
 
 BIN_PATH="${BIN_PATH:-/opt/azure/containers/aks-node-controller}"
 HOTFIX_BIN="${BIN_PATH}-hotfix"
+# Keep the ordering-sensitive hotfix workflow in a separately callable script so tests can cover
+# the sequence without also running the rest of the launcher/provision wrapper.
+HOTFIX_FLOW_SCRIPT="${HOTFIX_FLOW_SCRIPT:-/opt/azure/containers/aks-node-controller-hotfix.sh}"
 # HOTFIX_JSON is only used by this wrapper for the -f gate/logs below. The check-hotfix and
 # download-hotfix subcommands read/write their own internal default path and do NOT consume
 # this variable, so overriding it does not change binary behavior (it exists mainly so
@@ -31,6 +34,14 @@ log() {
     echo "$message"
 }
 
+if [ -f "$HOTFIX_FLOW_SCRIPT" ]; then
+    # shellcheck source=/dev/null
+    source "$HOTFIX_FLOW_SCRIPT"
+else
+    log "Missing ANC hotfix flow script: ${HOTFIX_FLOW_SCRIPT}"
+    exit 1
+fi
+
 # this is to ensure that shellspec won't interpret any further lines below
 ${__SOURCED__:+return}
 
@@ -39,64 +50,8 @@ if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
     exit 0
 fi
 
-# Read the optional feature-flag file if present. The boothook writes it (KEY=VALUE lines only)
-# at provision time BEFORE this wrapper runs, so reading it here rests on the same
-# write-before-read ordering that config delivery already relies on - no systemd env-passing or
-# boot-ordering assumption. Absent file (default-off, or an older VHD) is a no-op, preserving
-# today's behavior exactly. We PARSE KEY=VALUE lines rather than sourcing the file, so a malformed
-# file can never execute arbitrary shell or exit the wrapper (fail-open). The file is fully
-# controlled by the producer, so any valid identifier=value is accepted (not a fixed key list);
-# blank lines, comments, and non-identifier keys are skipped. The "|| [ -n "$_key" ]" guard
-# ensures the final line is still parsed even if the file has no trailing newline (read returns
-# non-zero at EOF but still populates the variables).
-if [ -f "$FEATURES_PATH" ]; then
-    log "Reading feature flags from ${FEATURES_PATH}"
-    while IFS='=' read -r _key _val || [ -n "$_key" ]; do
-        case "$_key" in
-        ''|\#*) continue ;;
-        [!a-zA-Z_]*|*[!a-zA-Z0-9_]*) continue ;;
-        esac
-        export "${_key}=${_val}"
-    done <"$FEATURES_PATH"
-fi
-
-# check-hotfix refreshes the on-disk hotfix pointer (its own default path, mirrored by
-# $HOTFIX_JSON) that download-hotfix reads below, so it must run first. Gated default-off
-# behind ENABLE_PROVISIONING_HOTFIX (only the literal "true" enables it) - the on-node
-# terminal of the EnableProvisioningHotfix aks-rp region toggle. Wrapped defensively: it is
-# fail-open, but an older ANC binary predating the subcommand exits non-zero.
-if [ "${ENABLE_PROVISIONING_HOTFIX:-}" = "true" ]; then
-    log "ENABLE_PROVISIONING_HOTFIX=true; running check-hotfix to refresh hotfix pointer"
-    if "$BIN_PATH" check-hotfix; then
-        log "ANC check-hotfix completed; hotfix pointer refresh attempted"
-    else
-        log "ANC check-hotfix failed; continuing (fail-open)"
-    fi
-fi
-
-if [ -f "$HOTFIX_JSON" ]; then
-    log "Found ANC hotfix config at ${HOTFIX_JSON}; running download-hotfix"
-    if "$BIN_PATH" download-hotfix; then
-        log "ANC download-hotfix completed; binary selection follows"
-    else
-        log "ANC download-hotfix failed; binary selection follows"
-    fi
-fi
-
-if [ -x "$HOTFIX_BIN" ]; then
-    BIN_PATH="$HOTFIX_BIN"
-    log "Using hotfix binary: $HOTFIX_BIN"
-else
-    log "Using VHD-baked binary: $BIN_PATH"
-fi
-
-if [ -x "$HOTFIX_BIN" ]; then
-    if "$HOTFIX_BIN" apply-embedded-hotfix; then
-        log "ANC apply-embedded-hotfix completed"
-    else
-        log "ANC apply-embedded-hotfix failed"
-    fi
-fi
+anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH"
+BIN_PATH="$ANC_HOTFIX_SELECTED_BIN"
 
 command=("$BIN_PATH" provision)
 if [ -f "$CONFIG_PATH" ]; then

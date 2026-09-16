@@ -119,6 +119,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.sh",
+      "destination": "/home/packer/aks-node-controller-hotfix.sh"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/prefetch.sh",
       "destination": "/home/packer/prefetch.sh"
     },
