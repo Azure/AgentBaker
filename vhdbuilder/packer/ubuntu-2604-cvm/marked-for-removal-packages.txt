@@ -24,7 +24,6 @@ cpio
 cron
 cron-daemon-common
 debconf-i18n
-dirmngr
 dmeventd
 dosfstools
 dracut
@@ -47,12 +46,6 @@ gdisk
 gir1.2-packagekitglib-1.0
 git
 git-man
-gnupg
-gnupg-l10n
-gnupg-utils
-gpg-agent
-gpg-wks-client
-gpgsm
 groff-base
 hdparm
 htop
