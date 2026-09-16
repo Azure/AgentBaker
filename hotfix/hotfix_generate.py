@@ -8,10 +8,6 @@ Auto-detects what needs a hotfix and generates the version numbers for it:
    testdata files vs the base branch, bumps the patch of the current
    pkg/agent/datamodel/linux_sig_version.json version and writes it in the
    `hotfixes` map.
-   If the module is unchanged, a pointer-only hotfix may instead change
-   `hotfixes` in parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json.
-   The legacy `version`-only format is deprecated: it is rejected with a
-   migration error rather than honored.
 
 2. Detects which CSE provisioning scripts differ from the immutable VHD baseline
    (the release tag the VHD was built from, derived from linux_sig_version.json),
@@ -214,93 +210,6 @@ def path_changed(base_ref, *paths):
     if result.returncode == 1:
         return True
     raise subprocess.CalledProcessError(result.returncode, result.args)
-
-
-def target_file_changed(base_ref):
-    """Return whether the hotfix pointer file differs from the base."""
-    if path_changed(base_ref, TARGET_FILE):
-        return True
-    if not os.path.exists(TARGET_FILE):
-        return False
-    result = subprocess.run(
-        ["git", "cat-file", "-e", f"{base_ref}:{TARGET_FILE}"],
-        capture_output=True,
-    )
-    return result.returncode != 0
-
-
-def validate_pointer_only_version(base_version, requested_version):
-    """Validate a pointer-only version against the current VHD version stream."""
-    if not VERSION_RE.match(requested_version):
-        raise ValueError(
-            f"requested version '{requested_version}' is invalid; "
-            "expected YYYYMM.DD.PATCH"
-        )
-    base_parts = base_version.split(".")
-    requested_parts = requested_version.split(".")
-    if requested_parts[:2] != base_parts[:2]:
-        raise ValueError(
-            f"requested version '{requested_version}' must use base "
-            f"'{base_parts[0]}.{base_parts[1]}'"
-        )
-    if int(requested_parts[2]) <= int(base_parts[2]):
-        raise ValueError(
-            f"requested version '{requested_version}' must have a higher patch "
-            f"than base version '{base_version}'"
-        )
-    return requested_version
-
-
-def read_pointer_only_versions(base_ref, base_version):
-    """Read an explicit `hotfixes` pointer-only request from a changed pointer file.
-
-    The legacy `version` key is deprecated for this input: a file that sets
-    `version` without `hotfixes` raises a migration error instead of being
-    silently honored, so pointer-only requests always move to the new format.
-    """
-    if not target_file_changed(base_ref):
-        return "", ""
-    try:
-        with open(TARGET_FILE) as f:
-            payload = json.load(f)
-    except FileNotFoundError:
-        return "", ""
-    if not isinstance(payload, dict):
-        raise ValueError(f"{TARGET_FILE} must contain a JSON object")
-
-    base = ".".join(base_version.split(".")[:2])
-    hotfixes = payload.get("hotfixes")
-    if hotfixes is None:
-        if payload.get("version"):
-            raise ValueError(
-                f"{TARGET_FILE} 'version' is deprecated for pointer-only hotfix "
-                f"requests; use \"hotfixes\": {{\"{base}\": \"<version>\"}} instead"
-            )
-        return "", ""
-
-    if not isinstance(hotfixes, dict):
-        raise ValueError(f"{TARGET_FILE} hotfixes must be an object")
-    if set(hotfixes) != {base}:
-        raise ValueError(
-            f"{TARGET_FILE} hotfixes must contain only base '{base}'"
-        )
-    requested_version = hotfixes[base]
-    if not isinstance(requested_version, str):
-        raise ValueError(
-            f"{TARGET_FILE} hotfixes value for '{base}' must be a string"
-        )
-    requested_version = requested_version.strip()
-    if not requested_version:
-        return "", ""
-    requested_version = validate_pointer_only_version(base_version, requested_version)
-
-    scripts_version = payload.get("scripts_version", "")
-    if not isinstance(scripts_version, str):
-        raise ValueError(f"{TARGET_FILE} scripts_version must be a string")
-    scripts_version = scripts_version.strip()
-    if scripts_version:
-        validate_pointer_only_version(base_version, scripts_version)
-    return requested_version, scripts_version
 
 
 def write_hotfix_file(version, scripts_version):
@@ -686,35 +595,15 @@ def main():
         f":(exclude,glob){ANC_DIR}**/testdata/**",
         f":(exclude,glob){GENERATED_DIR}/**",
     )
-    pointer_only = not anc_changed and not script_hotfix_changed
-    if not pointer_only:
-        version, scripts_version = resolve_hotfix_versions(
-            base_version,
-            anc_changed,
-            script_hotfix_changed,
-            args.use_anc_for_scripts,
-        )
-    else:
-        try:
-            version, scripts_version = read_pointer_only_versions(
-                base_ref, base_version
-            )
-        except (OSError, json.JSONDecodeError, ValueError) as err:
-            print(f"ERROR: invalid pointer-only hotfix request: {err}", file=sys.stderr)
-            sys.exit(1)
-        if version:
-            print(
-                f"ANC and script sources unchanged vs {base_ref}; "
-                f"preserving pointer-only hotfixes entry={version}",
-                file=sys.stderr,
-            )
+    version, scripts_version = resolve_hotfix_versions(
+        base_version,
+        anc_changed,
+        script_hotfix_changed,
+        args.use_anc_for_scripts,
+    )
 
     if version:
-        reason = (
-            "pointer-only hotfix requested"
-            if pointer_only
-            else "ANC production files changed"
-        )
+        reason = "ANC production files changed"
         if script_hotfix_changed and args.use_anc_for_scripts:
             reason = "ANC production files or generated script payloads changed"
         print(f"{reason} vs {base_ref}; hotfixes={version}", file=sys.stderr)
