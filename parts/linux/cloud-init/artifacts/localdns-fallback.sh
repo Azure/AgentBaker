@@ -1,11 +1,21 @@
 #!/usr/bin/env bash
 # localdns-fallback.sh
 #
-# Minimal pod-DNS fallback for LocalDNS. When localdns.service reaches the
-# terminal 'failed' state (see StartLimit* in localdns.service), its OnFailure=
-# starts this unit. Pods on the node have 169.254.10.11 baked into their
-# /etc/resolv.conf and cannot be repointed, so without something answering on
-# .11 their DNS black-holes until localdns recovers.
+# Minimal pod-DNS fallback for LocalDNS. Started by localdns.service's
+# OnFailure= and by localdns-fallback-probe.timer. Pods on the node have
+# 169.254.10.11 baked into their /etc/resolv.conf and cannot be repointed, so
+# without something answering on .11 their DNS black-holes until localdns
+# recovers.
+#
+# NOTE on the OnFailure= trigger: systemd fires OnFailure= on EVERY failed start
+# attempt, not only on entry to the terminal 'failed' state. Measured on a live
+# node (systemd 255) with Restart=on-failure, 'systemctl is-failed' reported
+# 'activating' throughout while the journal logged 'Triggering OnFailure=
+# dependencies' once per restart cycle. Binding .11 on each of those would make
+# the fallback flap (localdns's ExecStartPre tears it down ~2s later, on the way
+# into the next doomed attempt), leaving .11 dark for most of the storm. See
+# localdns_is_mid_restart_cycle() below, which makes those early invocations
+# no-ops so only a settled localdns hands over.
 #
 # This binds 169.254.10.11:53 and forwards to the real kube-dns Service
 # ClusterIP (COREDNS_SERVICE_IP, persisted to /etc/localdns/environment at
@@ -33,6 +43,25 @@ LOCALDNS_CLUSTER_LISTENER_IP="169.254.10.11"
 DEFAULT_COREDNS_SERVICE_IP="10.0.0.10"
 
 log() { echo "localdns-fallback: $*" >&2; }
+
+# True while localdns.service is between failing start attempts, i.e. systemd has
+# already scheduled (or is about to schedule) another restart. In that window the
+# unit is NOT settled: binding .11 here only to have localdns's ExecStartPre stop
+# us ~RestartSec later produces flapping rather than coverage.
+#
+# systemd reports this as ActiveState=activating with SubState=auto-restart (255
+# also uses auto-restart-queued). A unit that has genuinely given up is
+# ActiveState=failed/SubState=failed; a cleanly stopped one is inactive/dead; a
+# running-but-wedged one is active/running. All three of those are legitimate
+# reasons to take over .11, so only the auto-restart window is excluded.
+localdns_is_mid_restart_cycle() {
+    local state
+    state="$(systemctl show localdns.service -p SubState --value 2>/dev/null || true)"
+    case "${state}" in
+        auto-restart|auto-restart-queued) return 0 ;;
+        *) return 1 ;;
+    esac
+}
 
 resolve_upstream() {
     local ip="${COREDNS_SERVICE_IP:-}"
@@ -92,6 +121,14 @@ verify_coredns_binary() {
 }
 
 start_fallback() {
+    # Exit 0, not non-zero: a refused start is an expected outcome of the
+    # per-attempt OnFailure= trigger, not a fault. Failing here would burn the
+    # unit's own restart budget and could latch it into 'failed'.
+    if localdns_is_mid_restart_cycle; then
+        log "localdns.service is between restart attempts; not taking over ${LOCALDNS_CLUSTER_LISTENER_IP} yet."
+        return 0
+    fi
+
     verify_coredns_binary
     ensure_cluster_listener_interface
     generate_fallback_corefile

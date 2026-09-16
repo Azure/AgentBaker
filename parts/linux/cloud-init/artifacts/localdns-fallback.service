@@ -2,12 +2,23 @@
 Description=Localdns pod-DNS fallback (binds 169.254.10.11, forwards to kube-dns ClusterIP)
 # Only meaningful on images that run localdns.
 ConditionKernelVersion=>=5.15
-# This unit is started by localdns.service's OnFailure= when localdns reaches
-# 'failed'. It must never win a race against a recovering localdns for the .11
-# interface: localdns.service has ExecStartPre that stops this unit before it
-# deletes/recreates the dummy interface. Belt-and-suspenders ordering here too.
+# This unit is started by localdns.service's OnFailure= and by the probe timer.
+# It must never win a race against a recovering localdns for the .11 interface:
+# localdns.service has ExecStartPre that stops this unit before it deletes and
+# recreates the dummy interface. That synchronous stop is the only handoff.
+#
+# Deliberately NO 'Conflicts=localdns.service'. Measured on a live node (systemd
+# 255): starting this unit resolved that Conflicts by stopping localdns.service,
+# and a stop RESETS localdns's restart counter ('Scheduled restart job, restart
+# counter is at 1' on every cycle). localdns therefore never spent its 720/5
+# budget and never reached terminal 'failed' — defeating both the OnFailure=
+# handoff this unit is gated on and the stable state NPD is meant to observe.
 Before=localdns.service
-Conflicts=localdns.service
+# Unbounded restart budget: this unit is the last line of defence for pod DNS,
+# so it must never be refused a restart. StartLimitIntervalSec is a [Unit] key —
+# in [Service] systemd logs "Unknown key name ... in section 'Service', ignoring"
+# and silently applies the 10s/5 default instead.
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -21,7 +32,6 @@ ExecStopPost=/opt/azure/containers/localdns/localdns-fallback.sh cleanup
 # fallback itself dies, restart it (bounded) rather than leaving pods dark.
 Restart=on-failure
 RestartSec=2
-StartLimitIntervalSec=0
 KillMode=mixed
 TimeoutStopSec=15
 Slice=localdns.slice
