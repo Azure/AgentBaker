@@ -153,11 +153,10 @@ Key components:
 ### Provisioning script hotfix payloads
 
 Patched ANC binaries can embed selected Linux provisioning scripts generated from
-`parts/linux/cloud-init/artifacts/`. At the start of `provision`, ANC writes the
-rendered nodecustomdata matching the local platform to
+`parts/linux/cloud-init/artifacts/`. Before `provision`, the launcher asks the
+downloaded hotfix binary to write the rendered nodecustomdata matching the local platform to
 `/opt/azure/containers/embedded-nodecustomdata.yml` (mode `0600` on creation)
-and calls the existing `applyNodeCustomData` function before constructing the
-normal CSE command. This file is retained for debugging, separate from the legacy
+and calls the existing `applyNodeCustomData` function. This file is retained for debugging, separate from the legacy
 `nodecustomdata.yml`. It contains the most recently written payload, including
 when application fails; the `applied embedded hotfix payload` log confirms
 successful application. If no payload is selected, any previously retained file
