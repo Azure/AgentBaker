@@ -4,15 +4,32 @@ Describe 'cse_install_ubuntu.sh'
     Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
 
     Describe 'cleanUpPrebakedGPUDriver'
+        setup_cleanup() {
+            TEST_DIR="${SHELLSPEC_WORKDIR}/gpu-cleanup"
+            command mkdir -p "${TEST_DIR}"
+            marker="${TEST_DIR}/marker"
+            : > "${marker}"
+        }
+        cleanup_fixture() { command rm -rf "${TEST_DIR}"; }
+        BeforeEach 'setup_cleanup'
+        AfterEach 'cleanup_fixture'
+        # Exercise marker removal, never remove installed drivers from the test host.
+        rm() {
+            local arg
+            for arg in "$@"; do
+                case "${arg}" in -*) ;; "${TEST_DIR}"/*) ;; *) return 0 ;; esac
+            done
+            command rm "$@"
+        }
+
         It 'is a no-op when the prebake marker is absent'
-            GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
+            GPU_DKMS_MARKER_FILE="${TEST_DIR}/absent"
             When call cleanUpPrebakedGPUDriver
             The status should be success
             The output should equal ""
         End
 
         It 'deregisters the nvidia DKMS module and removes baked artifacts (libs, binaries, marker) when present'
-            marker="$(mktemp)"
             GPU_DKMS_MARKER_FILE="${marker}"
             rm() { echo "mock rm $*"; }
             ldconfig() { echo "mock ldconfig"; }
@@ -22,6 +39,7 @@ Describe 'cse_install_ubuntu.sh'
             The output should include "Removing pre-baked NVIDIA driver"
             # deregisters via the DKMS source tree + built module removal (no slow dkms remove)
             The output should include "mock rm -rf /var/lib/dkms/nvidia"
+            The output should include "mock rm -rf /opt/azure/aks-gpu/dkms/nvidia"
             The output should include "mock rm -f /lib/modules"
             # relocated userspace libs
             The output should include "mock rm -rf /usr/bin/lib64"
@@ -37,7 +55,6 @@ Describe 'cse_install_ubuntu.sh'
         End
 
         It 'reports status=cleaned once the marker and DKMS state are actually gone'
-            marker="$(mktemp)"
             GPU_DKMS_MARKER_FILE="${marker}"
             ldconfig() { echo "mock ldconfig"; }
             lsmod() { echo ""; }  # no nvidia module loaded (grid-style prebake)
@@ -53,7 +70,6 @@ Describe 'cse_install_ubuntu.sh'
         End
 
         It 'unloads an idle prebaked nvidia module that auto-loaded at boot (cuda/cuda-lts SKUs)'
-            marker="$(mktemp)"
             GPU_DKMS_MARKER_FILE="${marker}"
             ldconfig() { echo "mock ldconfig"; }
             # simulate a loaded-but-idle module: lsmod shows nvidia until rmmod is "run"
@@ -71,7 +87,6 @@ Describe 'cse_install_ubuntu.sh'
         End
 
         It 'keeps the marker (incomplete) when a busy nvidia module cannot be unloaded'
-            marker="$(mktemp)"
             GPU_DKMS_MARKER_FILE="${marker}"
             ldconfig() { echo "mock ldconfig"; }
             lsmod() { echo "nvidia 104165376 2"; }  # stays loaded (refcnt shows in-use)
