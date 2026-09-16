@@ -1,10 +1,13 @@
 name: Hotfix Template Update
 # Auto-detects whether a hotfix is needed for a PR targeting an official/* release
 # branch and, if so, computes the version numbers and updates the generated files:
-#   - If aks-node-controller/ changed vs the base branch, bumps `version`.
+#   - If aks-node-controller/ changed vs the base branch, updates `hotfixes`.
 #   - Changed CSE scripts are injected into nodecustomdata.yml and rendered into
 #     platform-specific YAML files for optional embedded ANC delivery.
-#   - Script changes use `scripts_version` by default.
+#   - Script changes set `scripts_version` by default (unchanged, current prod
+#     behavior). --use-anc-for-scripts is supported by the generator to also
+#     set `hotfixes` for consolidated ANC delivery, but this workflow does not
+#     pass it yet; that switch-over is a separate follow-up.
 #   - Writes the result to
 #     parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json (embedded
 #     directly into scriptless customData by pkg/agent/baker.go).
