@@ -26,7 +26,7 @@ function resolve_security_type_feature() {
 	elif [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
 		SECURITY_TYPE_FEATURE="TrustedLaunchSupported"
 	elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
-		SECURITY_TYPE_FEATURE="ConfidentialVM"
+		SECURITY_TYPE_FEATURE="ConfidentialVMSupported"
 	else
 		SECURITY_TYPE_FEATURE=""
 	fi
