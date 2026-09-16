@@ -39,7 +39,7 @@ capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 copyPackerFiles
 
 # Install required dependencies needed to build minimal images if needed (currently only Ubuntu 26.04)
-if isUbuntu "$OS" && isMinimalImage; then
+if isMinimalImage && isUbuntu "$OS"; then
   installMinimalBuildDeps
 fi
 
@@ -314,7 +314,6 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   fi
 fi
 capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernel_if_2204"
-
 echo "pre-install-dependencies step finished successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
