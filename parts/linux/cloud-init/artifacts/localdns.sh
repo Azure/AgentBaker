@@ -714,6 +714,13 @@ upstream_dns_servers_listed() {
 # and release containerd and kubelet (both ordered After= this unit) onto a node that cannot
 # resolve anything. See PR #9361 for the same bug on the teardown path.
 #
+# One limit worth naming: nothing observable here separates "the reload already converged" from
+# "the reload has not started yet". If networkd has written the post-drop-in resolv.conf but has
+# not yet begun re-configuring the link, both conditions hold on the very first sample and this
+# returns immediately with the tear-down still ahead of it. That is why the wait is bounded and
+# advisory rather than a gate: when it misfires the result is exactly the pre-fix ordering - one
+# transient SERVFAIL - so the worst case is that it fails to help, not a new failure mode.
+#
 # This is best effort. The caller logs and continues on failure: traffic is already pointed at
 # localdns by this point, so failing the unit would be a far worse outcome than a brief gap.
 #
