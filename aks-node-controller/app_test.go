@@ -76,6 +76,37 @@ type testExitError struct {
 	Code int
 }
 
+func TestRunProvisionWaitLogsOutputOnlyToFile(t *testing.T) {
+	stderrLogs := installLogCapturer(t)
+	fileLogs := &logCapturer{}
+	original := fileLogger
+	fileLogger = slog.New(fileLogs)
+	t.Cleanup(func() { fileLogger = original })
+
+	dir := t.TempDir()
+	files := ProvisionStatusFiles{
+		ProvisionJSONFile:     filepath.Join(dir, "provision.json"),
+		ProvisionCompleteFile: filepath.Join(dir, "provision.complete"),
+	}
+	output := `{"ExitCode":"0","Output":"provisioning output","Error":""}`
+	require.NoError(t, os.WriteFile(files.ProvisionJSONFile, []byte(output), 0600))
+	require.NoError(t, os.WriteFile(files.ProvisionCompleteFile, nil, 0600))
+	app := App{eventLogger: helpers.NewEventLogger(filepath.Join(dir, "events"))}
+
+	got, err := app.runProvisionWaitCommand(context.Background(), files)
+	require.NoError(t, err)
+	assert.Equal(t, output, got)
+	records := fileLogs.getRecords()
+	require.Len(t, records, 1)
+	assert.Equal(t, "provision-wait finished", records[0].Message)
+	assert.Equal(t, output, records[0].Attrs["provisionOutput"])
+	require.NotEmpty(t, stderrLogs.getRecords())
+	for _, record := range stderrLogs.getRecords() {
+		assert.NotContains(t, record.Attrs, "provisionOutput")
+		assert.NotContains(t, record.Message, output)
+	}
+}
+
 func (e *testExitError) Error() string {
 	return "exit status " + strconv.Itoa(e.ExitCode())
 }

@@ -248,7 +248,7 @@ func (a *App) runProvisionWaitCommand(ctx context.Context, provisionStatusFiles 
 		a.eventLogger.LogEvent("ProvisionWait", "Completed", helpers.EventLevelInformational, startTime, endTime)
 		slog.Info("aks-node-controller finished successfully.")
 	}
-	slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
+	fileLogger.Info("provision-wait finished", "provisionOutput", provisionOutput)
 	return provisionOutput, err
 }
 

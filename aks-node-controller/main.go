@@ -11,6 +11,8 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 )
 
+var fileLogger = slog.New(slog.NewJSONHandler(io.Discard, nil))
+
 func main() {
 	// defer calls are not executed on os.Exit
 	logCleanup := configureLogging()
@@ -40,6 +42,7 @@ func configureLogging() func() {
 		fmt.Printf("failed to open log file: %s\n", err)
 		os.Exit(1)
 	}
+	fileLogger = slog.New(slog.NewJSONHandler(logFile, nil))
 	mw := io.MultiWriter(logFile, os.Stderr)
 	logger := slog.New(slog.NewJSONHandler(mw, nil))
 	slog.SetDefault(logger)
