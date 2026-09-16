@@ -1,0 +1,124 @@
+package e2e
+
+import (
+	"context"
+	"errors"
+	"os"
+	"strings"
+
+	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+)
+
+// GB300 arm64 managed-driver scenario. Provisions an 18-node GB300 (arm64) VMSS
+// and drives the *managed* aks-gpu driver install straight through CSE, deliberately
+// bypassing the RP's VMSizeDoesNotSupportGPU gate (the RP refuses --gpu-driver Install
+// for GB300 because Compute SKU metadata lacks the "GPUs" capability). This answers
+// design-doc Experiment 2: does the managed aks-gpu image DKMS-build the open R580
+// driver on the linux-azure-nvidia arm64 kernel?
+//
+// How the bypass works: the GPU-install gate in CSE is GPU_NODE, and variables.go maps
+// "gpuNode" -> config.EnableNvidia (NOT any SKU allowlist). Setting EnableNvidia +
+// ConfigGPUDriverIfNeeded here forces the install, and GetGPUDriverVersion defaults
+// GB300 to the cuda-lts (R580 LTS) image mcr.microsoft.com/aks/aks-gpu-cuda-lts.
+//
+// This SKU needs an 18-node ICB/NVLink rack and dedicated GB300 quota, which the shared
+// E2E subscription does not have, so it is gated behind RUN_GB300_E2E=true (see
+// skipIfGB300NotConfigured) and stays skipped in the general CI e2e run. Run it against
+// a GB300-capable subscription with:
+//
+//	RUN_GB300_E2E=true go test -run '^Test' -count=1 -v -timeout 120m \
+//	  # (filtered to this scenario by the executor's name filter)
+var _ = Register(&Scenario{
+	Name:        "Ubuntu2404Arm64_GB300_ManagedDriver",
+	Description: "Provisions an 18-node GB300 arm64 VMSS with the managed aks-gpu (R580 LTS) driver install and verifies nvidia-smi + open kernel module on-node",
+	Tags: Tags{
+		GPU: true,
+	},
+	SkipIf: skipIfGB300NotConfigured,
+	Config: Config{
+		Cluster: ClusterKubenet,
+		// The plain 2404gen2arm64containerd definition is the UNIFIED dual-kernel arm64
+		// 24.04 image: its release notes bake both linux-azure (6.8 LTS) and
+		// linux-azure-nvidia (6.14.0-1007) — the same kernel a real GB300 node runs.
+		// grub's 10_azure_nvidia selects the -azure-nvidia kernel on GB hardware.
+		VHD: config.VHDUbuntu2404ArmContainerd,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.AgentPoolProfile.VMSize = "Standard_ND128isr_GB300_v6"
+			// GPU_NODE=true (variables.go: gpuNode <- EnableNvidia) + run the aks-gpu
+			// install; GB300 falls through GetGPUDriverVersion to cuda-lts.
+			nbc.ConfigGPUDriverIfNeeded = true
+			nbc.EnableNvidia = true
+			// localdns fails to start on GB300 and CSE retries it ~100x (basePrep),
+			// exhausting the provisioning window before the GPU install runs. It's not
+			// needed for the driver test — disable it so CSE reaches nodePrep.
+			nbc.AgentPoolProfile.LocalDNSProfile = nil
+		},
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.SKU.Name = to.Ptr("Standard_ND128isr_GB300_v6")
+			// GB300 allocates as an 18-node ICB/NVLink rack (dedicated quota covers it).
+			vmss.SKU.Capacity = to.Ptr[int64](18)
+			p := vmss.Properties
+			// The GB300 NVLink rack must span placement groups — a single placement group
+			// can't hold the vertical-connect rack. SinglePlacementGroup=false is what makes
+			// the VMSS eligible for Vertical Connect; a real AKS GB300 nodepool VMSS sets
+			// exactly this and does NOT set HighSpeedInterconnectPlacement, so we don't either.
+			p.SinglePlacementGroup = to.Ptr(false)
+			p.PlatformFaultDomainCount = to.Ptr[int32](1)
+			// GB300 supports ONLY the NVMe disk controller (resource-skus: DiskControllerTypes=NVMe)
+			// and rejects every ephemeral OS-disk placement (CacheDisk=SCSI, NvmeDisk=NotSupported,
+			// ResourceDisk=InvalidParameter). The e2e base VMSS model sets an ephemeral OS disk, so
+			// null it out and use a regular managed NVMe OS disk (the image def advertises NVMe).
+			// NVMe-controller disks require host caching = None.
+			p.VirtualMachineProfile.StorageProfile.DiskControllerType = to.Ptr("NVMe")
+			osd := p.VirtualMachineProfile.StorageProfile.OSDisk
+			osd.DiffDiskSettings = nil
+			osd.Caching = to.Ptr(armcompute.CachingTypesNone)
+			osd.DiskSizeGB = to.Ptr[int32](1024)
+			osd.ManagedDisk = &armcompute.VirtualMachineScaleSetManagedDiskParameters{
+				StorageAccountType: to.Ptr(armcompute.StorageAccountTypesPremiumLRS),
+			}
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			// The managed driver install must succeed on arm64 GB300, landing the R580
+			// OPEN kernel module (Blackwell is open-module only).
+			return errors.Join(
+				ValidateNvidiaSMIInstalled(ctx, s),
+				ValidateNvidiaModProbeInstalled(ctx, s),
+				ValidateGB300ManagedDriverOpenR580(ctx, s),
+			)
+		},
+	},
+})
+
+// skipIfGB300NotConfigured gates the GB300 scenario behind RUN_GB300_E2E=true. The
+// shared E2E subscription has no GB300 quota/capacity for an 18-node NVLink rack, so
+// the scenario stays skipped in the general CI e2e run and only executes when a DRI
+// points it at a GB300-capable subscription.
+func skipIfGB300NotConfigured(_ context.Context) string {
+	if os.Getenv("RUN_GB300_E2E") == "true" {
+		return ""
+	}
+	return "GB300 scenario is skipped unless RUN_GB300_E2E=true (needs dedicated 18-node GB300 rack quota/capacity)"
+}
+
+// ValidateGB300ManagedDriverOpenR580 asserts the managed aks-gpu install landed the
+// R580 (580.x) driver and that it is the NVIDIA *open* kernel module — the only variant
+// Blackwell supports. It reads the driver version from nvidia-smi and the module flavor
+// from /proc/driver/nvidia/version.
+func ValidateGB300ManagedDriverOpenR580(ctx context.Context, s *Scenario) error {
+	command := []string{
+		"set -ex",
+		"driver_version=$(sudo nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -n1 | tr -d '[:space:]')",
+		"echo \"nvidia driver_version=$driver_version\"",
+		"case \"$driver_version\" in 580.*) ;; *) echo \"expected R580 (580.x) driver, got '$driver_version'\"; exit 1 ;; esac",
+		// Open kernel module: /proc/driver/nvidia/version reports the flavor.
+		"ver=$(cat /proc/driver/nvidia/version)",
+		"echo \"$ver\"",
+		"echo \"$ver\" | grep -qi 'Open Kernel Module' || { echo 'expected NVIDIA OPEN kernel module (Blackwell is open-only)'; exit 1; }",
+	}
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "expected managed R580 open-module GPU driver on GB300")
+	return err
+}

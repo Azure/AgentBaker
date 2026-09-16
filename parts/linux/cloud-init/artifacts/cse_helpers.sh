@@ -207,6 +207,12 @@ export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TY
 # where this file is sourced under `set -o nounset`, hence the default.
 NVIDIA_DRIVER_IMAGE_MCR_BASE="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
 export NVIDIA_DRIVER_IMAGE_PULL_REF="${NVIDIA_DRIVER_IMAGE_MCR_BASE%/}/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
+# TEST-ONLY (aks-gpu #170 validation): pull the aks-gpu image from the euap test ACR
+# (multi-arch amd64+arm64) instead of MCR. Only the runtime pull path changes; the tag still
+# comes from stock components.json (580.159.04-20260629214430), and our #170 image is mirrored
+# into the ACR under that same tag. The amd64 VHD bakes the stock MCR image at build time (arm64
+# is where #170 matters, and arm64 pulls this PULL_REF at runtime). Revert before merge.
+export NVIDIA_DRIVER_IMAGE_PULL_REF="gb300imgeuapxuxue.azurecr.io/public/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
 export CTR_GPU_INSTALL_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
 export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
 APT_CACHE_DIR=/var/cache/apt/archives/
