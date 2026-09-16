@@ -38,8 +38,11 @@ if [ -f "$HOTFIX_FLOW_SCRIPT" ]; then
     # shellcheck source=/dev/null
     source "$HOTFIX_FLOW_SCRIPT"
 else
-    log "Missing ANC hotfix flow script: ${HOTFIX_FLOW_SCRIPT}"
-    exit 1
+    # Fail-open: the hotfix flow is an optional, default-off enhancement, so a missing script
+    # (older VHD, an image variant that did not pick up the artifact, or a failed packer copy)
+    # must not block provisioning. Fall through with the VHD-baked binary, which is exactly the
+    # behavior before the hotfix flow existed.
+    log "Missing ANC hotfix flow script: ${HOTFIX_FLOW_SCRIPT}; continuing with the VHD-baked binary (fail-open)"
 fi
 
 # this is to ensure that shellspec won't interpret any further lines below
@@ -50,8 +53,13 @@ if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
     exit 0
 fi
 
-anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH"
-BIN_PATH="$ANC_HOTFIX_SELECTED_BIN"
+# Only run the hotfix flow when the script was sourced successfully. The ":-$BIN_PATH" default
+# also keeps "set -u" from aborting the launcher if the flow ever returns without exporting a
+# selection; either way provisioning proceeds with the VHD-baked binary.
+if declare -f anc_run_hotfix_flow >/dev/null; then
+    anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH"
+    BIN_PATH="${ANC_HOTFIX_SELECTED_BIN:-$BIN_PATH}"
+fi
 
 command=("$BIN_PATH" provision)
 if [ -f "$CONFIG_PATH" ]; then

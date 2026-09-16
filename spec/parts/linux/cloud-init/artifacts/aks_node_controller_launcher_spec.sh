@@ -130,6 +130,25 @@ EOF
         The output should not include "Spawned aks-node-controller"
     End
 
+    It 'provisions with the VHD-baked binary when the hotfix flow script is missing (fail-open)'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        create_recording_aks_node_controller
+        create_staged_hotfix_binary
+        printf 'ENABLE_PROVISIONING_HOTFIX=true\n' >"$FEATURES_PATH"
+        export HOTFIX_FLOW_SCRIPT="${TEST_DIR}/absent-hotfix-flow.sh"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Missing ANC hotfix flow script"
+        The output should include "Spawned aks-node-controller"
+        # The optional flow is skipped entirely, so no hotfix subcommand runs and the staged
+        # hotfix binary is never selected -- provisioning falls back to the VHD-baked binary.
+        The path "${TEST_DIR}/calls" should be exist
+        calls=$(cat "${TEST_DIR}/calls")
+        The variable calls should eq "provision"
+        The path "${TEST_DIR}/hotfix_calls" should not be exist
+    End
+
     It 'passes both provision config and nbc cmd when both files are present'
         touch "$CONFIG_PATH" "$NBC_CMD_PATH"
         create_fake_aks_node_controller
