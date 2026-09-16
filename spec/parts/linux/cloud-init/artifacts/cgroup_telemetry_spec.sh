@@ -4,8 +4,9 @@ Describe 'cgroup telemetry'
     setup_cgroup_telemetry_test() {
         TEST_ROOT=$(mktemp -d)
         CGROUP_ROOT="${TEST_ROOT}/cgroup"
+        CPUACCT_ROOT="${TEST_ROOT}/cpuacct"
         EVENTS_ROOT="${TEST_ROOT}/events"
-        mkdir -p "${CGROUP_ROOT}" "${EVENTS_ROOT}"
+        mkdir -p "${CGROUP_ROOT}" "${CPUACCT_ROOT}" "${EVENTS_ROOT}"
         printf 'MemTotal: 1000 kB\n' > "${TEST_ROOT}/meminfo"
     }
 
@@ -37,6 +38,20 @@ Describe 'cgroup telemetry'
         printf 'some avg10=13.00 avg60=14.00 avg300=15.00 total=16\nfull avg10=17.00 avg60=18.00 avg300=19.00 total=20\n' > "${CGROUP_ROOT}/${cgroup_path}/io.pressure"
     }
 
+    create_cpu_stat_v2() {
+        local cgroup_path="$1"
+        mkdir -p "${CGROUP_ROOT}/${cgroup_path}"
+        printf 'usage_usec 100\nuser_usec 60\nsystem_usec 40\nnr_periods 20\nnr_throttled 3\nthrottled_usec 7\n' > "${CGROUP_ROOT}/${cgroup_path}/cpu.stat"
+    }
+
+    create_cpu_stat_v1() {
+        local cgroup_path="$1"
+        mkdir -p "${CGROUP_ROOT}/${cgroup_path}" "${CPUACCT_ROOT}/${cgroup_path}"
+        printf '100000\n' > "${CPUACCT_ROOT}/${cgroup_path}/cpuacct.usage"
+        printf 'user 6\nsystem 4\n' > "${CPUACCT_ROOT}/${cgroup_path}/cpuacct.stat"
+        printf 'nr_periods 20\nnr_throttled 3\nthrottled_time 7000\n' > "${CGROUP_ROOT}/${cgroup_path}/cpu.stat"
+    }
+
     prepare_memory_script() {
         local cgroup_version="${1:-cgroup2fs}"
         sed \
@@ -58,6 +73,23 @@ Describe 'cgroup telemetry'
             -e 's@CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)@CSLICE=system.slice@' \
             -e 's@KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)@KSLICE=system.slice@' \
             ./parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh > "${TEST_ROOT}/cgroup-pressure-telemetry.sh"
+    }
+
+    prepare_cpu_script() {
+        local cgroup_version="${1:-cgroup2fs}"
+        sed \
+            -e "s|EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/|EVENTS_LOGGING_DIR=${EVENTS_ROOT}/|" \
+            -e "s|CGROUP_VERSION=\$(stat -fc %T /sys/fs/cgroup)|CGROUP_VERSION=${cgroup_version}|" \
+            -e 's@CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)@CSLICE=system.slice@' \
+            -e 's@KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)@KSLICE=system.slice@' \
+            -e "s|CPU_CGROUP=\"/sys/fs/cgroup\"|CPU_CGROUP=\"${CGROUP_ROOT}\"|" \
+            -e "s|CPU_CGROUP=\"/sys/fs/cgroup/cpu,cpuacct\"|CPU_CGROUP=\"${CGROUP_ROOT}\"|" \
+            -e "s|CPU_CGROUP=\"/sys/fs/cgroup/cpuacct,cpu\"|CPU_CGROUP=\"${CGROUP_ROOT}\"|" \
+            -e "s|CPU_CGROUP=\"/sys/fs/cgroup/cpu\"|CPU_CGROUP=\"${CGROUP_ROOT}\"|" \
+            -e "s|CPUACCT_CGROUP=\"/sys/fs/cgroup/cpuacct\"|CPUACCT_CGROUP=\"${CPUACCT_ROOT}\"|" \
+            -e "s|CPUACCT_CGROUP=\"\${CPU_CGROUP}\"|CPUACCT_CGROUP=\"${CPUACCT_ROOT}\"|" \
+            -e 's/CPU_TICKS_PER_SECOND=$(getconf CLK_TCK)/CPU_TICKS_PER_SECOND=100/' \
+            ./parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.sh > "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
     }
 
     BeforeEach 'setup_cgroup_telemetry_test'
@@ -140,5 +172,41 @@ Describe 'cgroup telemetry'
         The contents of file "${EVENTS_ROOT}"/* should include '\"CPUPressure\":{\"some_avg10\":\"1.00\",\"some_avg60\":\"2.00\",\"some_avg300\":\"3.00\",\"some_total\":\"4\"}'
         The contents of file "${EVENTS_ROOT}"/* should include '\"sync_container_logs_service_pressure\":{'
         The contents of file "${EVENTS_ROOT}"/* should include '\"localdns_service_pressure\":{'
+    End
+
+    It 'emits cgroup v2 CPU usage and throttling counters with explicit units'
+        create_cpu_stat_v2 system.slice/containerd.service
+        create_cpu_stat_v2 system.slice/kubelet.service
+        prepare_cpu_script
+
+        When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
+        The status should be success
+        The contents of file "${EVENTS_ROOT}"/* should include '\"CgroupVersion\":\"cgroupv2\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"counter_units\":{\"usage_usec\":\"microseconds\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"containerd_service_cpu_usage\":{\"usage_usec\":\"100\",\"user_usec\":\"60\",\"system_usec\":\"40\",\"nr_periods\":\"20\",\"nr_throttled\":\"3\",\"throttled_usec\":\"7\"}'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_cpu_usage\":\"Not Found\"'
+        The contents of file "${EVENTS_ROOT}"/* should include 'downstream rates must discard negative deltas'
+    End
+
+    It 'emits normalized cgroup v1 CPU counters'
+        create_cpu_stat_v1 system.slice/containerd.service
+        create_cpu_stat_v1 system.slice/kubelet.service
+        prepare_cpu_script tmpfs
+
+        When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
+        The status should be success
+        The contents of file "${EVENTS_ROOT}"/* should include '\"CgroupVersion\":\"cgroupv1\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"containerd_service_cpu_usage\":{\"usage_usec\":\"100\",\"user_usec\":\"60000\",\"system_usec\":\"40000\",\"nr_periods\":\"20\",\"nr_throttled\":\"3\",\"throttled_usec\":\"7\"}'
+    End
+
+    It 'marks missing and malformed CPU counters without failing the observation'
+        mkdir -p "${CGROUP_ROOT}/system.slice/containerd.service"
+        printf 'usage_usec invalid\nuser_usec 60\nnr_periods nope\nnr_throttled 3\n' > "${CGROUP_ROOT}/system.slice/containerd.service/cpu.stat"
+        create_cpu_stat_v2 system.slice/kubelet.service
+        prepare_cpu_script
+
+        When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
+        The status should be success
+        The contents of file "${EVENTS_ROOT}"/* should include '\"containerd_service_cpu_usage\":{\"usage_usec\":\"Not Found\",\"user_usec\":\"60\",\"system_usec\":\"Not Found\",\"nr_periods\":\"Not Found\",\"nr_throttled\":\"3\",\"throttled_usec\":\"Not Found\"}'
     End
 End
