@@ -19,6 +19,8 @@ const (
 	osReleaseIDAzureContainerLinux = "azurecontainerlinux"
 	osReleaseIDAzureLinux          = "azurelinux"
 	osReleaseIDFlatcar             = "flatcar"
+	osReleaseIDUbuntu              = "ubuntu"
+	osVariantIDOSGuard             = "osguard"
 )
 
 type nodeCustomDataPlatform string
@@ -76,10 +78,10 @@ func classifyNodeCustomDataPlatform(osReleasePath string) (nodeCustomDataPlatfor
 
 	switch {
 	// Exclude immutable variants before matching their shared Azure Linux ID.
-	case variant == "osguard", variant == osReleaseIDAzureContainerLinux,
+	case variant == osVariantIDOSGuard, variant == osReleaseIDAzureContainerLinux,
 		id == osReleaseIDAzureContainerLinux, id == osReleaseIDFlatcar:
 		return nodeCustomDataPlatformUnsupported, nil
-	case id == "ubuntu":
+	case id == osReleaseIDUbuntu:
 		return nodeCustomDataPlatformUbuntu, nil
 	case id == osReleaseIDAzureLinux:
 		return nodeCustomDataPlatformMariner, nil

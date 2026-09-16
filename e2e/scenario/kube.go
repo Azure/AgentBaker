@@ -285,6 +285,7 @@ func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod) {
 		StartTime:  pod.Status.StartTime,
 		Events:     formattedEvents,
 		Containers: containers,
+		Conditions: conditions,
 		Logs:       string(logs),
 	}, "", "  ")
 	if err != nil {

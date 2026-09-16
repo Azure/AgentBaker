@@ -13,7 +13,8 @@ FULL_PATH=$(realpath "$0")
 CDIR=$(dirname "$FULL_PATH")
 
 if [ "${OS_TYPE,,}" = "linux" ]; then
-  ENABLE_FIPS="${ENABLE_FIPS:-false}"
+  ENABLE_FIPS="${ENABLE_FIPS:-}"
+  [ -z "${ENABLE_FIPS// }" ] && ENABLE_FIPS="false"
 fi
 
 if [ -z "${MANAGED_SIG_ID}" ]; then
@@ -124,7 +125,7 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       TEST_VM_ADMIN_PASSWORD \
       "$MANAGED_SIG_ID" \
       "$TESTING_NIC_ID" \
-      "$UMSI_RESOURCE_ID" \
+      "" \
       "$TEST_VM_RESOURCE_GROUP_NAME" || exit $?
   else
     az vm create \

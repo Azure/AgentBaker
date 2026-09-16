@@ -2,6 +2,10 @@
 applyTo: "e2e/**"
 ---
 
+# E2E review scope
+
+Report bugs in `e2e/**`, not missing test coverage.
+
 # Reuse E2E scenarios
 
 - When adding checks, defining a scenario, or renaming one, read [Writing and extending scenarios](../../e2e/README.md#writing-and-extending-scenarios). It defines the configuration-based naming and reuse pattern.

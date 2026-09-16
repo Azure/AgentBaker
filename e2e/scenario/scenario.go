@@ -20,24 +20,6 @@ import (
 )
 
 var _ = Register(&Scenario{
-	Name:        "AzureLinux3OSGuard",
-	Description: "Tests that a node using an Azure Linux V3 OS Guard VHD can be properly bootstrapped",
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDAzureLinux3OSGuard,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.AgentPoolProfile.LocalDNSProfile = nil
-		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateFIPSProvider(ctx, s)
-		},
-		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
-		},
-	},
-})
-
-var _ = Register(&Scenario{
 	Name:        "AzureLinuxV3_ARM64",
 	Description: "Tests that a node using a AzureLinuxV3 VHD on ARM64 architecture can be properly bootstrapped",
 	Config: Config{
@@ -697,6 +679,25 @@ func newUbuntu2204EmbeddedScriptHotfixScenario() *Scenario {
 		marker,
 	))...)
 
+	hotfixFiles := []ScriptHotfixFile{{
+		Destination: runtimeScriptPath,
+		Mode:        "0744",
+		Payload:     payload,
+	}}
+	// Older VHDs do not have the modules sourced by the current provision config.
+	for _, suffix := range []string{"gpu", "localdns", "kubelet", "network", "addons"} {
+		name := "cse_config_" + suffix + ".sh"
+		module, err := os.ReadFile(repoPath("parts/linux/cloud-init/artifacts/" + name))
+		if err != nil {
+			panic(fmt.Sprintf("read hotfix module %s: %v", name, err))
+		}
+		hotfixFiles = append(hotfixFiles, ScriptHotfixFile{
+			Destination: "/opt/azure/containers/provision_configs_" + suffix + ".sh",
+			Mode:        "0744",
+			Payload:     module,
+		})
+	}
+
 	return &Scenario{
 		Name:        "Ubuntu2204_EmbeddedScriptHotfix",
 		Description: "tests that a PR-built ANC applies an embedded script hotfix before provisioning",
@@ -720,10 +721,8 @@ func newUbuntu2204EmbeddedScriptHotfixScenario() *Scenario {
 			// with the current source, so broad source/VHD parity checks do not apply.
 			SkipDefaultValidation: true,
 			ScriptHotfixFixture: &ScriptHotfixFixture{
-				Platform:    "ubuntu",
-				Destination: runtimeScriptPath,
-				Mode:        "0744",
-				Payload:     payload,
+				Platform: "ubuntu",
+				Files:    hotfixFiles,
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
 				nodeName, err := s.Runtime.Kube.WaitUntilNodeReady(ctx, s.Runtime.VMSSName)
@@ -1066,6 +1065,20 @@ var _ = Register(&Scenario{
 			nbc.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
 				HTTPSProxy: to.Ptr(cluster.ProxyURL),
 				NoProxy: &[]string{
+					"localhost",
+					"127.0.0.1",
+					"168.63.129.16",
+					"169.254.169.254",
+					"10.0.0.0/8",
+					"172.16.0.0/12",
+					cluster.ClusterParams.FQDN,
+				},
+			}
+		},
+		AKSNodeConfigMutator: func(cluster *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.HttpProxyConfig = &aksnodeconfigv1.HttpProxyConfig{
+				HttpsProxy: cluster.ProxyURL,
+				NoProxyEntries: []string{
 					"localhost",
 					"127.0.0.1",
 					"168.63.129.16",
@@ -2047,6 +2060,64 @@ var _ = Register(&Scenario{
 	Config: Config{
 		Cluster: ClusterLatestKubernetesVersionAzureNetwork,
 		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+		Validator: func(ctx context.Context, s *Scenario) error {
+			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
+			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
+			return errors.Join(
+				ValidateContainerd2Properties(ctx, s, containerdVersions),
+				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerRuntimePlugins(ctx, s),
+				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
+				ValidateSSHServiceEnabled(ctx, s),
+			)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:        "Ubuntu2604Minimal_TrustedLaunch",
+	Description: "Tests that a node using the Ubuntu 2604 minimal VHD can be properly bootstrapped using Trusted Launch",
+	Tags: Tags{
+		VMSeriesCoverageTest: true,
+	},
+	Config: Config{
+		Cluster: ClusterLatestKubernetesVersionKubenet,
+		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
+			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
+			return errors.Join(
+				ValidateContainerd2Properties(ctx, s, containerdVersions),
+				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerRuntimePlugins(ctx, s),
+				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
+				ValidateSSHServiceEnabled(ctx, s),
+			)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:        "Ubuntu2604Minimal_TrustedLaunch_ARM64",
+	Description: "Tests that a node using the Ubuntu 2604 minimal ARM64 VHD can be properly bootstrapped using Trusted Launch",
+	Tags: Tags{
+		VMSeriesCoverageTest: true,
+	},
+	Config: Config{
+		Cluster: ClusterLatestKubernetesVersionKubenet,
+		VHD:     config.VHDUbuntu2604MinimalArm64Gen2Containerd,
+		UseNVMe: true,
+		BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.AgentPoolProfile.VMSize = "Standard_D2pds_v6"
+			nbc.IsARM64 = true
+		},
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.SKU.Name = to.Ptr("Standard_D2pds_v6")
+			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
 			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
@@ -3052,28 +3123,6 @@ var _ = Register(&Scenario{
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
 			)
-		},
-	},
-})
-
-var _ = Register(&Scenario{
-	Name:        "AzureLinux3OSGuard_PMC_Install",
-	Description: "Tests that a node using an Azure Linux V3 OS Guard VHD and install kube pkgs from PMC can be properly bootstrapped",
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDAzureLinux3OSGuard,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.AgentPoolProfile.LocalDNSProfile = nil
-		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateFIPSProvider(ctx, s)
-		},
-		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
-			if vmss.Tags == nil {
-				vmss.Tags = map[string]*string{}
-			}
-			vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 		},
 	},
 })

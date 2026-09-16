@@ -213,7 +213,9 @@ updateAptWithNvidiaPkg() {
     elif [ "${UBUNTU_RELEASE}" = "24.04" ]; then
         nvidia_ubuntu_release="ubuntu2404"
     elif [ "${UBUNTU_RELEASE}" = "26.04" ]; then
-        nvidia_ubuntu_release="ubuntu2604"
+        # TODO: Restore ubuntu2604 after NVIDIA republishes a valid Packages index.
+        nvidia_ubuntu_release="ubuntu2404"
+        echo "Using the Ubuntu 24.04 NVIDIA repository while the Ubuntu 26.04 index is malformed"
     else
         echo "NVIDIA repo setup is not supported on Ubuntu ${UBUNTU_RELEASE}"
         return
@@ -224,7 +226,7 @@ updateAptWithNvidiaPkg() {
 
     # Add NVIDIA repository
     local nvidia_gpg_key_name="3bf863cc.pub"
-    if [ "${UBUNTU_RELEASE}" = "26.04" ]; then
+    if [ "${nvidia_ubuntu_release}" = "ubuntu2604" ]; then
         nvidia_gpg_key_name="60DF8A40.pub"
     fi
     local nvidia_gpg_key_url="https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch}/${nvidia_gpg_key_name}"
