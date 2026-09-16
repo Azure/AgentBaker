@@ -140,6 +140,7 @@ var _ = Register(&Scenario{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDACLGen2FIPSTL,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			// LocalDNS isn't currently supported on FIPS-enabled VHDs; mirror AzureLinux3OSGuard.
 			nbc.AgentPoolProfile.LocalDNSProfile = nil
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
