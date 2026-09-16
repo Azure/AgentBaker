@@ -6,6 +6,7 @@ until [ "$(hostname)" = "$(cat /etc/hostname)" ]; do
 done
 
 BIN_PATH="${BIN_PATH:-/opt/azure/containers/aks-node-controller}"
+VHD_BIN_PATH="$BIN_PATH"
 HOTFIX_BIN="${BIN_PATH}-hotfix"
 # HOTFIX_JSON is only used by this wrapper for the -f gate/logs below. The check-hotfix and
 # download-hotfix subcommands read/write their own internal default path and do NOT consume
@@ -95,6 +96,21 @@ if [ -x "$HOTFIX_BIN" ]; then
         log "ANC apply-embedded-hotfix completed"
     else
         log "ANC apply-embedded-hotfix failed"
+        if [ -f "$HOTFIX_JSON" ]; then
+            log "Falling back to direct nodecustomdata apply with VHD-baked binary"
+            if "$VHD_BIN_PATH" apply-node-custom-data; then
+                log "ANC direct nodecustomdata apply completed"
+            else
+                log "ANC direct nodecustomdata apply failed; continuing (fail-open)"
+            fi
+        fi
+    fi
+elif [ -f "$HOTFIX_JSON" ]; then
+    log "Hotfix binary unavailable; falling back to direct nodecustomdata apply with VHD-baked binary"
+    if "$VHD_BIN_PATH" apply-node-custom-data; then
+        log "ANC direct nodecustomdata apply completed"
+    else
+        log "ANC direct nodecustomdata apply failed; continuing (fail-open)"
     fi
 fi
 

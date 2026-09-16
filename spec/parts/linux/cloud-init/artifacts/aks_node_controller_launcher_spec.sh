@@ -83,6 +83,18 @@ EOF
         chmod +x "${BIN_PATH}-hotfix"
     }
 
+    create_failing_embedded_hotfix_binary() {
+        cat >"${BIN_PATH}-hotfix" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$1" >>"${TEST_DIR}/hotfix_calls"
+if [ "$1" = "apply-embedded-hotfix" ]; then
+    exit 1
+fi
+exit 0
+EOF
+        chmod +x "${BIN_PATH}-hotfix"
+    }
+
     # Stands in for a VHD-baked binary whose download-hotfix fails, leaving whatever was
     # already staged untouched.
     create_failing_download_aks_node_controller() {
@@ -392,5 +404,53 @@ EOF
         The output should include "Using hotfix binary: ${BIN_PATH}-hotfix"
         hotfixCall=$(tail -n 1 "${TEST_DIR}/hotfix_calls")
         The variable hotfixCall should eq "provision"
+    End
+
+    It 'falls back to direct nodecustomdata when the hotfix binary is missing'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        create_recording_aks_node_controller
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Hotfix binary unavailable; falling back to direct nodecustomdata apply with VHD-baked binary"
+        firstCall=$(sed -n '1p' "${TEST_DIR}/calls")
+        secondCall=$(sed -n '2p' "${TEST_DIR}/calls")
+        thirdCall=$(sed -n '3p' "${TEST_DIR}/calls")
+        The variable firstCall should eq "download-hotfix"
+        The variable secondCall should eq "apply-node-custom-data"
+        The variable thirdCall should eq "provision"
+    End
+
+    It 'falls back to direct nodecustomdata when embedded application fails'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        create_recording_aks_node_controller
+        create_failing_embedded_hotfix_binary
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "ANC apply-embedded-hotfix failed"
+        The output should include "Falling back to direct nodecustomdata apply with VHD-baked binary"
+        firstCall=$(sed -n '1p' "${TEST_DIR}/calls")
+        secondCall=$(sed -n '2p' "${TEST_DIR}/calls")
+        thirdCall=$(sed -n '3p' "${TEST_DIR}/calls")
+        hotfixCall=$(sed -n '1p' "${TEST_DIR}/hotfix_calls")
+        The variable firstCall should eq "download-hotfix"
+        The variable secondCall should eq "apply-node-custom-data"
+        The variable thirdCall should eq "provision"
+        The variable hotfixCall should eq "apply-embedded-hotfix"
+    End
+
+    It 'does not run direct nodecustomdata after embedded application succeeds'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        create_recording_aks_node_controller
+        create_staged_hotfix_binary
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should not include "Falling back to direct nodecustomdata"
+        calls=$(cat "${TEST_DIR}/calls")
+        hotfixCalls=$(cat "${TEST_DIR}/hotfix_calls")
+        The variable calls should eq "provision"
+        The variable hotfixCalls should eq "apply-embedded-hotfix\nprovision"
     End
 End

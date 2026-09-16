@@ -195,6 +195,16 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				},
 			},
 			{
+				Name:  "apply-node-custom-data",
+				Usage: "Apply the delivered nodecustomdata hotfix payload",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if len(cmd.Args().Slice()) > 0 {
+						return fmt.Errorf("unexpected apply-node-custom-data arguments: %s", strings.Join(cmd.Args().Slice(), " "))
+					}
+					return a.runApplyNodeCustomDataCommand()
+				},
+			},
+			{
 				Name:  "check-hotfix",
 				Usage: "Read the hotfix pointer from the live-patching-service and stage it (fail-open)",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
@@ -277,6 +287,24 @@ func (a *App) runApplyHotfixCommand(context.Context) error {
 	}
 
 	slog.Info("aks-node-controller apply embedded hotfix payload finished")
+	return nil
+}
+
+func (a *App) runApplyNodeCustomDataCommand() error {
+	slog.Info("aks-node-controller direct hotfix apply started")
+	hotfixPath := a.hotfixVersionPath
+	if hotfixPath == "" {
+		hotfixPath = defaultHotfixVersionPath
+	}
+	cfg, err := readHotfixConfig(hotfixPath)
+	if err != nil {
+		return fmt.Errorf("read hotfix config: %w", err)
+	}
+	if err := a.applyNodeCustomDataIfNeeded(cfg); err != nil {
+		slog.Error("aks-node-controller failed to apply direct hotfix payload", "error", err)
+		return err
+	}
+	slog.Info("aks-node-controller direct hotfix apply finished")
 	return nil
 }
 

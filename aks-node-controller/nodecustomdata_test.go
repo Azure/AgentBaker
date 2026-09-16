@@ -53,10 +53,10 @@ write_files:
 	assert.Equal(t, "gzip-content", string(gzipContent))
 }
 
-// TestDownloadHotfixAppliesRenderedWriteFilesWhenScriptsVersionMatches verifies that
-// downloadHotfix applies the rendered nodecustomdata write_files when the hotfix config's
-// scripts_version targets the current ANC version's YYYYMM.DD base with a strictly higher patch.
-func TestDownloadHotfixAppliesRenderedWriteFilesWhenScriptsVersionMatches(t *testing.T) {
+// TestApplyNodeCustomDataCommandAppliesRenderedWriteFilesWhenScriptsVersionMatches verifies that
+// the direct fallback applies nodecustomdata only when the config targets the current ANC
+// version's YYYYMM.DD base with a strictly higher patch.
+func TestApplyNodeCustomDataCommandAppliesRenderedWriteFilesWhenScriptsVersionMatches(t *testing.T) {
 	origVersion := Version
 	Version = "202604.01.0"
 	defer func() { Version = origVersion }()
@@ -80,14 +80,53 @@ write_files:
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.nodeCustomDataPath = renderedPath
 	tt.App.hotfixVersionPath = hotfixPath
+	tt.App.osReleasePath = filepath.Join(tempDir, "os-release")
+	require.NoError(t, os.WriteFile(tt.App.osReleasePath, []byte("ID=ubuntu\n"), 0o600))
 
-	// No Hotfixes/Version set, so downloadBinaryHotfixIfNeeded is a no-op and downloadHotfix
-	// should return nil while still having applied the rendered custom data.
-	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+	require.NoError(t, tt.App.runApplyNodeCustomDataCommand())
 
 	markerContent, err := os.ReadFile(markerPath)
 	require.NoError(t, err)
 	assert.Equal(t, "rendered-marker\n", string(markerContent))
+}
+
+func TestApplyNodeCustomDataCommandSkipsIneligibleAndUnsupportedNodes(t *testing.T) {
+	tests := []struct {
+		name       string
+		version    string
+		osRelease  string
+		wantMarker bool
+	}{
+		{name: "different base", version: "202605.30.1", osRelease: "ID=ubuntu\n"},
+		{name: "same version", version: "202604.01.0", osRelease: "ID=ubuntu\n"},
+		{name: "OS Guard", version: "202604.01.1", osRelease: "ID=azurelinux\nVARIANT_ID=osguard\n"},
+		{name: "ACL", version: "202604.01.1", osRelease: "ID=azurelinux\nVARIANT_ID=azurecontainerlinux\n"},
+		{name: "Flatcar", version: "202604.01.1", osRelease: "ID=flatcar\n"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			origVersion := Version
+			Version = "202604.01.0"
+			defer func() { Version = origVersion }()
+
+			dir := t.TempDir()
+			markerPath := filepath.Join(dir, "marker")
+			customDataPath := filepath.Join(dir, "nodecustomdata.yml")
+			hotfixPath := filepath.Join(dir, "hotfix.json")
+			osReleasePath := filepath.Join(dir, "os-release")
+			require.NoError(t, os.WriteFile(customDataPath, []byte(fmt.Sprintf("write_files:\n- path: %s\n  content: marker\n", markerPath)), 0o600))
+			require.NoError(t, os.WriteFile(hotfixPath, []byte(fmt.Sprintf(`{"scripts_version": %q}`, test.version)), 0o600))
+			require.NoError(t, os.WriteFile(osReleasePath, []byte(test.osRelease), 0o600))
+
+			tt := NewTestApp(t, TestAppConfig{})
+			tt.App.nodeCustomDataPath = customDataPath
+			tt.App.hotfixVersionPath = hotfixPath
+			tt.App.osReleasePath = osReleasePath
+			require.NoError(t, tt.App.runApplyNodeCustomDataCommand())
+			_, err := os.Stat(markerPath)
+			assert.Equal(t, test.wantMarker, err == nil)
+		})
+	}
 }
 
 // TestDownloadHotfixSkipsRenderedWriteFilesWhenScriptsVersionAbsent verifies that no

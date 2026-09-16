@@ -45,14 +45,13 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 			"path", hotfixPath, "error", err)
 		return nil
 	}
-	// Applying node custom data is best-effort/fail-open: it must never block the
-	// binary hotfix download below, or provisioning as a whole.
-	if err := a.applyNodeCustomDataIfNeeded(cfg); err != nil {
-		slog.Warn("failed to apply node custom data", "path", hotfixPath, "error", err)
-	}
 	return a.downloadBinaryHotfixIfNeeded(ctx, cfg)
 }
 
+// applyNodeCustomDataIfNeeded applies the ABSvc-delivered nodecustomdata payload
+// only for an eligible scripts_version and a supported platform. The launcher
+// calls this from the VHD-baked binary only after the embedded payload is absent
+// or fails, so the two paths cannot both apply the same hotfix.
 func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
 	hotfixVersion := strings.TrimSpace(cfg.ScriptsVersion)
 	if hotfixVersion == "" {
@@ -71,6 +70,16 @@ func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
 	if !shouldUpgrade {
 		slog.Info("CSE scripts version not targeted by hotfix, skipping nodecustomdata apply",
 			"current", Version, "hotfix", hotfixVersion)
+		return nil
+	}
+
+	platform, err := classifyNodeCustomDataPlatform(a.osReleasePath)
+	if err != nil {
+		return err
+	}
+	if platform == nodeCustomDataPlatformUnsupported {
+		slog.Info("direct script hotfix is not supported on this OS, skipping",
+			"osReleasePath", a.osReleasePath)
 		return nil
 	}
 

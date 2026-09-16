@@ -194,8 +194,13 @@ hotfixes to preserve custom-image wrappers. Generation fails explicitly if this
 script differs from the VHD baseline, even when other scripts also changed.
 Wrapper fixes require a new node image until runtime eligibility is available.
 
-Script hotfix delivery is package-only. The existing base-to-version hotfix map
-selects the ANC package for the node's baked `YYYYMM.DD` version base; the package
-contains its corresponding rendered scripts. If the package cannot be installed,
-provisioning fails open to the original VHD scripts. The operational fallback is
-to upgrade the node image.
+Script hotfix delivery prefers the rendered payload embedded in the downloaded
+ANC hotfix binary. The existing base-to-version hotfix map selects the ANC
+package for the node's baked `YYYYMM.DD` version base; the package contains its
+corresponding rendered scripts. If the hotfix binary is unavailable or its
+embedded payload fails to apply, the launcher invokes the VHD-baked ANC binary's
+`apply-node-custom-data` command, which re-validates `scripts_version` and
+directly applies the ABSvc-delivered `nodecustomdata.yml`. Embedded success
+suppresses this fallback, preventing double application. The direct fallback
+keeps the existing Flatcar, ACL, and OS Guard exclusions and remains fail-open
+so provisioning continues if neither path can apply the payload.
