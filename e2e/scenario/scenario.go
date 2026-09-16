@@ -20,6 +20,24 @@ import (
 )
 
 var _ = Register(&Scenario{
+	Name:        "AzureLinux3OSGuard",
+	Description: "Tests that a node using an Azure Linux V3 OS Guard VHD can be properly bootstrapped",
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDAzureLinux3OSGuard,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.AgentPoolProfile.LocalDNSProfile = nil
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateFIPSProvider(ctx, s)
+		},
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
 	Name:        "AzureLinuxV3_ARM64",
 	Description: "Tests that a node using a AzureLinuxV3 VHD on ARM64 architecture can be properly bootstrapped",
 	Config: Config{
@@ -3106,6 +3124,28 @@ var _ = Register(&Scenario{
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
 			)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:        "AzureLinux3OSGuard_PMC_Install",
+	Description: "Tests that a node using an Azure Linux V3 OS Guard VHD and install kube pkgs from PMC can be properly bootstrapped",
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDAzureLinux3OSGuard,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.AgentPoolProfile.LocalDNSProfile = nil
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateFIPSProvider(ctx, s)
+		},
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			if vmss.Tags == nil {
+				vmss.Tags = map[string]*string{}
+			}
+			vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 		},
 	},
 })
