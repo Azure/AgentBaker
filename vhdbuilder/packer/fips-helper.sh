@@ -61,7 +61,7 @@ build_fips_vm_body() {
 
     # Build security profile section if Trusted Launch is enabled
     local security_profile=""
-    # TODO: remove ENABLE_TRUSTED_LAUNCH check once replaced by TRUSTED_LAUNCH_SUPPORTED
+    # TODO: only check TRUSTED_LAUNCH_SUPPORTED once all relevant images have been updated to TrustedLaunchSupported
     if [ "$enable_trusted_launch" = "True" ]; then
         security_profile=',
     "securityProfile": {
@@ -131,6 +131,13 @@ create_fips_vm() {
     local resource_group_name="$8"
     echo "Creating VM with FIPS 140-3 encryption using REST API..."
 
+    local enable_trusted_launch
+    enable_trusted_launch="false"
+    # TODO: only check TRUSTED_LAUNCH_SUPPORTED once all relevant images have been updated to TrustedLaunchSupported
+    if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ] || [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+      enable_trusted_launch="true"
+    fi
+
     # Disable tracing to prevent password from appearing in logs
     set +x
     local admin_password="${!admin_password_variable}"
@@ -145,7 +152,7 @@ create_fips_vm() {
         "$nic_id" \
         "$umsi_resource_id" \
         "$vm_size" \
-        "$ENABLE_TRUSTED_LAUNCH")
+        "$enable_trusted_launch")
 
     # Create the VM using REST API
     az rest \

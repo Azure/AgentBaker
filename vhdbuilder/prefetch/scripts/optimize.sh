@@ -173,16 +173,15 @@ need_new_template() {
 }
 
 prepare_source() {
-    # TODO: remove ENABLE_TRUSTED_LAUNCH check once replaced by TRUSTED_LAUNCH_SUPPORTED
-    if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ] || grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-        echo "image ${SKU_NAME} is a TL/CVM flavor, will create managed image source"
+    if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+        echo "image ${SKU_NAME} is a CVM SKU, will create managed image source"
         convert_specialized_sig_version_to_managed_image || return $?
         SOURCE_TYPE="ManagedImage"
         SOURCE_ID_KEY="imageId"
         SOURCE_ID="${SOURCE_MANAGED_IMAGE_ID}"
         return 0
     fi
-    echo "image ${SKU_NAME} is NOT a TL/CVM flavor, will source from existing gallery image version: ${CAPTURED_SIG_VERSION_ID}"
+    echo "image ${SKU_NAME} is NOT a CVM SKU, will source from existing gallery image version: ${CAPTURED_SIG_VERSION_ID}"
     SOURCE_TYPE="SharedImageVersion"
     SOURCE_ID_KEY="imageVersionId"
     SOURCE_ID="${CAPTURED_SIG_VERSION_ID}"
@@ -191,7 +190,7 @@ prepare_source() {
 # This function is needed to convert SIG image versions within a specialized image defintion
 # To a managed image which can be used as a source image for the image builder template.
 # This is needed since image builder templates do not support SIG image version sources that
-# have a "Specialized" OS state. As of writing, this only applies to TrustedLaunch and CVM SKUs,
+# have a "Specialized" OS state. As of writing, this only applies to CVM SKUs,
 # since those SKUs must be built on special hardware, and thus must be captured within a Specialized
 # SIG image definition after being built with Packer.
 # This function performs the following steps to create a suitable source image based on an image version
@@ -229,10 +228,6 @@ convert_specialized_sig_version_to_managed_image() {
     disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${IMAGE_BUILDER_RG_NAME}/providers/Microsoft.Compute/disks/${CAPTURED_SIG_VERSION}"
     if [ -z "$(az disk show --ids "${disk_resource_id}" | jq -r '.id')" ]; then
         security_type="ConfidentialVM_VMGuestStateOnlyEncryptedWithPlatformKey"
-        # TODO: remove ENABLE_TRUSTED_LAUNCH check once replaced by TRUSTED_LAUNCH_SUPPORTED
-        if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
-            security_type="TrustedLaunch"
-        fi
         disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${IMAGE_BUILDER_RG_NAME}/providers/Microsoft.Compute/disks/${CAPTURED_SIG_VERSION}"
         echo "converting $CAPTURED_SIG_VERSION_ID to ${disk_resource_id}"
         echo "will use security type: ${security_type}"

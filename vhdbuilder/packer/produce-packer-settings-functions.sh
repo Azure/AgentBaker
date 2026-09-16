@@ -22,6 +22,8 @@ function produce_ua_token() {
 
 function resolve_security_type_feature() {
 	if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+		# TODO: remove once all relevant images have been updated to TrustedLaunchSupported
+		# Note that ordering matters here - ENABLE_TRUSTED_LAUNCH -> TrustedLaunch takes precedence over TRUSTED_LAUNCH_SUPPORTED -> TrustedLaunchSupported
 		SECURITY_TYPE_FEATURE="TrustedLaunch"
 	elif [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
 		SECURITY_TYPE_FEATURE="TrustedLaunchSupported"
@@ -506,6 +508,9 @@ function ensure_sig_vhd_exists() {
 		# shellcheck disable=SC3010
 		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<<"$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
 			if [ "${ARCHITECTURE,,}" = "arm64" ]; then
+				# This path must be used for images that are built on VMs with TrustedLaunch enabled (e.g. images that ONLY are designed to run on VMs with TrustedLaunch enabled).
+				# At the time of writing, all "TL" images are built using the "Standard" security type, and thus can be snapshotted into image definitions with the "TrustedLaunchSupported" security type.
+				# TODO: revisit whether we can remove this image definition creation path if we plan on continuing to always build trusted launch capable images on standard VMs.
 				if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
 					az sig image-definition create \
 						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
@@ -573,6 +578,9 @@ function ensure_sig_vhd_exists() {
 			fi
 		else
 			# TL can only be enabled on Gen2 VMs, therefore if TL enabled = true, mark features for both TL and NVMe
+			# This path must be used for images that are built on VMs with TrustedLaunch enabled (e.g. images that ONLY are designed to run on VMs with TrustedLaunch enabled).
+			# At the time of writing, all "TL" images are built using the "Standard" security type, and thus can be snapshotted into image definitions with the "TrustedLaunchSupported" security type.
+			# TODO: revisit whether we can remove this image definition creation path if we plan on continuing to always build trusted launch capable images on standard VMs.
 			if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
 				az sig image-definition create \
 					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
