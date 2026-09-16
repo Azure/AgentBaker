@@ -480,41 +480,41 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.33.17-2"
+          "latestVersion": "v1.33.18-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.34.13-2"
+          "latestVersion": "v1.34.14-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.35.8-2"
+          "latestVersion": "v1.35.9-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.36.5-2"
+          "latestVersion": "v1.36.6-1"
         }
       ],
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.33.17-windows-hpc-1",
-          "previousLatestVersion": "v1.33.16-windows-hpc-1"
+          "latestVersion": "v1.33.18-windows-hpc-1",
+          "previousLatestVersion": "v1.33.17-windows-hpc-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.34.13-windows-hpc-1",
-          "previousLatestVersion": "v1.34.12-windows-hpc-1"
+          "latestVersion": "v1.34.14-windows-hpc-1",
+          "previousLatestVersion": "v1.34.13-windows-hpc-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.35.8-windows-hpc-1",
-          "previousLatestVersion": "v1.35.7-windows-hpc-1"
+          "latestVersion": "v1.35.9-windows-hpc-1",
+          "previousLatestVersion": "v1.35.8-windows-hpc-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.36.5-windows-hpc-1",
-          "previousLatestVersion": "v1.36.4-windows-hpc-1"
+          "latestVersion": "v1.36.6-windows-hpc-1",
+          "previousLatestVersion": "v1.36.5-windows-hpc-1"
         }
       ]
     },
@@ -1055,7 +1055,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.4.3-ubuntu22.04u2"
+                "latestVersion": "1.4.3-ubuntu22.04u7"
               }
             ]
           },
@@ -1063,7 +1063,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.4.3-ubuntu24.04u2"
+                "latestVersion": "1.4.3-ubuntu24.04u7"
               }
             ]
           },
@@ -1071,7 +1071,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.4.3-ubuntu26.04u2"
+                "latestVersion": "1.4.3-ubuntu26.04u7"
               }
             ]
           }
@@ -1088,7 +1088,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "2.3.3-ubuntu26.04u2"
+                "latestVersion": "2.3.4-ubuntu26.04u2"
               }
             ]
           },
@@ -1096,7 +1096,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "2.3.3-ubuntu24.04u2"
+                "latestVersion": "2.3.4-ubuntu24.04u2"
               }
             ]
           },
@@ -1104,7 +1104,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.7.34-ubuntu22.04u2"
+                "latestVersion": "1.7.34-ubuntu22.04u3"
               }
             ]
           },
@@ -1112,7 +1112,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.34-ubuntu20.04u2"
+                "latestVersion": "1.7.34-ubuntu20.04u3"
               }
             ]
           }
@@ -1820,7 +1820,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "0.55.1-ubuntu26.04u2"
+                "latestVersion": "0.55.1-ubuntu26.04u4"
               }
             ]
           },
@@ -1828,7 +1828,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.55.1-ubuntu24.04u2"
+                "latestVersion": "0.55.1-ubuntu24.04u4"
               }
             ]
           },
@@ -1836,7 +1836,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.55.1-ubuntu22.04u3"
+                "latestVersion": "0.55.1-ubuntu22.04u4"
               }
             ]
           },
@@ -1844,7 +1844,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "0.55.1-ubuntu20.04u3"
+                "latestVersion": "0.55.1-ubuntu20.04u4"
               }
             ]
           }
@@ -1854,7 +1854,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=ig, os=azurelinux, release=3.0",
-                "latestVersion": "0.55.1-2.azl3"
+                "latestVersion": "0.55.1-4.azl3"
               }
             ]
           }

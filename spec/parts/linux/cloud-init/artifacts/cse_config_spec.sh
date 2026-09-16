@@ -19,6 +19,11 @@ check_test_fstab_permissions() {
 }
 
 Describe 'cse_config.sh'
+    CSE_CONFIG_GPU_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_gpu.sh"
+    CSE_CONFIG_LOCALDNS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_localdns.sh"
+    CSE_CONFIG_KUBELET_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_kubelet.sh"
+    CSE_CONFIG_NETWORK_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_network.sh"
+    CSE_CONFIG_ADDONS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_addons.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
 

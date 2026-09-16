@@ -1032,13 +1032,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			var sb strings.Builder
 			sb.WriteString("[Service]\n")
 			if ulimitConfig.MaxLockedMemory != "" {
-				sb.WriteString(fmt.Sprintf("LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory))
+				fmt.Fprintf(&sb, "LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory)
 			}
 			if ulimitConfig.NoFile != "" {
 				// ulimit is removed in containerd 2.0+, which is available only in ubuntu2404/ubuntu2604 distros
 				// https://github.com/containerd/containerd/blob/main/docs/containerd-2.0.md#limitnofile-configuration-has-been-removed
 				if !profile.Is2404VHDDistro() && !profile.Is2604VHDDistro() {
-					sb.WriteString(fmt.Sprintf("LimitNOFILE=%s\n", ulimitConfig.NoFile))
+					fmt.Fprintf(&sb, "LimitNOFILE=%s\n", ulimitConfig.NoFile)
 				}
 			}
 			return sb.String()
@@ -1408,6 +1408,21 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetCSEConfigScriptFilepath": func() string {
 			return cseConfigScriptFilepath
+		},
+		"GetCSEConfigGPUScriptFilepath": func() string {
+			return cseConfigGPUScriptFilepath
+		},
+		"GetCSEConfigLocalDNSScriptFilepath": func() string {
+			return cseConfigLocalDNSScriptFilepath
+		},
+		"GetCSEConfigKubeletScriptFilepath": func() string {
+			return cseConfigKubeletScriptFilepath
+		},
+		"GetCSEConfigNetworkScriptFilepath": func() string {
+			return cseConfigNetworkScriptFilepath
+		},
+		"GetCSEConfigAddonsScriptFilepath": func() string {
+			return cseConfigAddonsScriptFilepath
 		},
 		"GetCustomSearchDomainsCSEScriptFilepath": func() string {
 			return customSearchDomainsCSEScriptFilepath
