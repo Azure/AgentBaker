@@ -162,7 +162,6 @@ libnss-systemd
 libnss3
 libntfs-3g89t64
 libnuma1
-libonig5
 libopeniscsiusr
 libpackagekit-glib2-18
 libpam-cap
