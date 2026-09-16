@@ -101,10 +101,8 @@ libdrm-amdgpu1
 libduktape207
 libeatmydata1
 liberror-perl
-libestr0
 libevdev2
 libevent-core-2.1-7t64
-libfastjson4
 libflashrom1
 libfribidi0
 libftdi1-2
