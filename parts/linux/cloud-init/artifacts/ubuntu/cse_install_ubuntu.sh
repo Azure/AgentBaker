@@ -309,6 +309,84 @@ removeNvidiaRepos() {
     fi
 }
 
+# setPrebakedGPUDriverRegistration parks the NVIDIA DKMS registration for VHD capture, or restores
+# it before managed GPU setup. Module files and userspace stay in place; no module is compiled.
+# "park" requires a completed prebake. "restore" is a no-op on legacy VHDs or after a prior restore.
+# Conflicting paths, a missing prebake, and cross-filesystem moves return failure without replacement.
+setPrebakedGPUDriverRegistration() {
+    local action="${1}"
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    local live=/var/lib/dkms/nvidia
+    local parked="${marker%/*}/dkms/nvidia"
+    local source destination
+
+    case "${action}" in
+        park)
+            source="${live}"
+            destination="${parked}"
+            ;;
+        restore)
+            source="${parked}"
+            destination="${live}"
+            if [ ! -e "${parked}" ] && [ ! -L "${parked}" ]; then
+                # A new-layout marker with neither tree must not pass driver validation merely
+                # because the .ko is loadable: later kernel updates would have no registration.
+                if grep -q '^dkms_parked_path=' "${marker}" 2>/dev/null && { [ ! -d "${live}" ] || [ -L "${live}" ]; }; then
+                    echo "Missing NVIDIA DKMS registration for parked prebake" >&2
+                    return 1
+                fi
+                return 0
+            fi
+            ;;
+        *)
+            echo "Invalid NVIDIA DKMS registration action: ${action}" >&2
+            return 1
+            ;;
+    esac
+
+    if [ ! -f "${marker}" ] || [ ! -d "${source}" ] || [ -L "${source}" ]; then
+        echo "Cannot ${action} NVIDIA DKMS registration: prebake marker or source tree is missing or invalid" >&2
+        return 1
+    fi
+    if [ -e "${destination}" ] || [ -L "${destination}" ]; then
+        echo "Cannot ${action} NVIDIA DKMS registration: destination already exists: ${destination}" >&2
+        return 1
+    fi
+
+    local destination_parent="${destination%/*}"
+    local source_device destination_device
+    mkdir -p "${destination_parent}" || return 1
+    source_device=$(stat -c '%d' "${source}") || return 1
+    destination_device=$(stat -c '%d' "${destination_parent}") || return 1
+    if [ "${source_device}" != "${destination_device}" ]; then
+        echo "Cannot ${action} NVIDIA DKMS registration across filesystems" >&2
+        return 1
+    fi
+
+    # GNU mv must rename, not merge into an existing tree or copy across mounts. -n also protects
+    # a destination created after the check above; verify the move because -n can succeed without it.
+    mv -Tn -- "${source}" "${destination}" || return 1
+    if [ -e "${source}" ] || [ -L "${source}" ] || [ ! -d "${destination}" ]; then
+        echo "Failed to ${action} NVIDIA DKMS registration" >&2
+        return 1
+    fi
+
+    if [ "${action}" = park ]; then
+        if ! grep -Fxq "dkms_parked_path=${parked}" "${marker}"; then
+            printf 'dkms_parked_path=%s\n' "${parked}" >> "${marker}" || return 1
+        fi
+        # Check the effective DKMS configuration too. A framework.conf redirect to the parked
+        # tree would keep autoinstall armed even though /var/lib/dkms/nvidia is absent.
+        local dkms_status
+        dkms_status=$(dkms status) || return 1
+        if grep -Eq '^nvidia[/,]' <<< "${dkms_status}"; then
+            echo "NVIDIA remains registered with DKMS after parking" >&2
+            return 1
+        fi
+    fi
+    echo "NVIDIA DKMS registration: ${action} completed"
+}
+
 # cleanUpPrebakedGPUDriver removes a CUDA driver pre-baked into the shared VHD on any node that does
 # NOT install the AKS-managed driver -- the cleanUpGPUDrivers path (GPU_NODE != true OR
 # skip_nvidia_driver_install=true): non-GPU VMs, and GPU VMs opted out via --gpu-driver None or the
@@ -320,10 +398,12 @@ removeNvidiaRepos() {
 # is resident even though ensureGPUDrivers never ran. (grid prebakes do not auto-load, so grid nodes
 # arrive here with no module.) Deleting the on-disk .ko then leaves a stale loaded module -- unused
 # (refcnt 0, no /dev/nvidia*) but resident until reboot, and a landmine for a subsequent GPU Operator
-# install. So we rmmod it first, when idle, before removing the files. No-op unless the marker exists.
+# install. So we rmmod it first, when idle, before removing the files. The parked tree also proves
+# prebake ownership if the marker was lost; do not use an arbitrary live registration as that proof.
 cleanUpPrebakedGPUDriver() {
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
-    if [ ! -f "${marker}" ]; then
+    local parked="${marker%/*}/dkms/nvidia"
+    if [ ! -f "${marker}" ] && [ ! -e "${parked}" ] && [ ! -L "${parked}" ]; then
         return 0
     fi
     echo "Removing pre-baked NVIDIA driver inherited from shared VHD (node does not install the managed driver)"
@@ -345,9 +425,10 @@ cleanUpPrebakedGPUDriver() {
     fi
     lsmod | grep -q '^nvidia' && module_after=true
 
-    # Deregister the nvidia DKMS module by removing its source tree (avoids the slow `dkms remove
-    # --all`, ~35s). Any loaded module was unloaded above, so no depmod/initramfs refresh is needed.
+    # Remove either VHD layout, including the live tree restored before GRID cleanup. Do not remove
+    # /usr/src: this is the registration tree, not the driver source. Avoid slow dkms remove --all.
     rm -rf /var/lib/dkms/nvidia || true
+    rm -rf "${parked}" || true
     rm -f /lib/modules/*/updates/dkms/nvidia*.ko* 2>/dev/null || true
     # The prebake stages libs under the aks-gpu *container's* GPU_DEST=/usr/bin (aks-gpu config.sh),
     # NOT this script's GPU_DEST=/usr/local/nvidia -- so clear /usr/bin.
@@ -362,22 +443,20 @@ cleanUpPrebakedGPUDriver() {
     rm -f /etc/ld.so.conf.d/nvidia.conf || true
     ldconfig || true
 
-    # Stage-1 observability + retry: assess completeness BEFORE dropping the marker. status=incomplete
-    # means the DKMS registration, the setuid nvidia-modprobe binary, or a still-resident nvidia
-    # module lingered (a security-coverage alert). On an incomplete teardown we KEEP the marker so the
-    # next provision re-runs this cleanup (the marker is the "still needs cleanup" flag); on a clean
-    # teardown we drop it. status=cleaned counts toward fleet-wide coverage. Greppable AKS_GPU_PREBAKE.
-    local dkms_after=false modprobe_after=false marker_after=true status=cleaned
+    # Keep the marker while registration, parked files, nvidia-modprobe, or a loaded module remain,
+    # so a later cleanup can retry. This node-local verdict neither schedules a retry nor fails CSE.
+    local dkms_after=false parked_after=false modprobe_after=false marker_after=true status=cleaned
     [ -d /var/lib/dkms/nvidia ] && dkms_after=true
+    { [ -e "${parked}" ] || [ -L "${parked}" ]; } && parked_after=true
     [ -e /usr/bin/nvidia-modprobe ] && modprobe_after=true
-    if [ "${dkms_after}" = false ] && [ "${modprobe_after}" = false ] && [ "${module_after}" = false ]; then
+    if [ "${dkms_after}" = false ] && [ "${parked_after}" = false ] && [ "${modprobe_after}" = false ] && [ "${module_after}" = false ]; then
         rm -f "${marker}" || true
-        [ -f "${marker}" ] || marker_after=false
     fi
-    if [ "${marker_after}" = true ] || [ "${dkms_after}" = true ] || [ "${modprobe_after}" = true ] || [ "${module_after}" = true ]; then
+    [ -f "${marker}" ] || marker_after=false
+    if [ "${marker_after}" = true ] || [ "${dkms_after}" = true ] || [ "${parked_after}" = true ] || [ "${modprobe_after}" = true ] || [ "${module_after}" = true ]; then
         status=incomplete
     fi
-    echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=${status} dkms_before=${dkms_before} module_before=${module_before} module_after=${module_after} marker_after=${marker_after} dkms_after=${dkms_after} modprobe_after=${modprobe_after}"
+    echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=${status} dkms_before=${dkms_before} module_before=${module_before} module_after=${module_after} marker_after=${marker_after} dkms_after=${dkms_after} parked_after=${parked_after} modprobe_after=${modprobe_after}"
 }
 
 cleanUpGPUDrivers() {
@@ -390,7 +469,7 @@ cleanUpGPUDrivers() {
     # A CUDA driver pre-baked into a shared Ubuntu VHD is dead weight on a node that doesn't install
     # the managed driver (non-GPU, or GPU opted out via --gpu-driver None / skip), and while
     # DKMS-registered it forces an nvidia.ko rebuild on every kernel patch. Tear it down here.
-    # No-op on VHDs without the aks-gpu prebake marker.
+    # No-op on VHDs without the aks-gpu prebake marker or parked tree.
     cleanUpPrebakedGPUDriver
 }
 

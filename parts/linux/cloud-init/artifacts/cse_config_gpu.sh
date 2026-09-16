@@ -197,6 +197,9 @@ ensureGPUDrivers() {
     # stale module/libs collide with the grid driver (NVML version mismatch). Runs before the dispatch
     # below so it covers both the configGPUDrivers and validateGPUDrivers paths.
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        # Called only by nodePrep for managed GPU nodes. Restore before GRID teardown or driver
+        # validation; a loadable .ko alone does not ensure DKMS can handle later kernel updates.
+        logs_to_events "AKS.CSE.ensureGPUDrivers.restorePrebakedGPUDriverRegistration" setPrebakedGPUDriverRegistration restore || exit $ERR_GPU_DRIVERS_START_FAIL
         logs_to_events "AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake" cleanUpGridNodeCudaPrebake || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 
