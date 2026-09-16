@@ -33,6 +33,7 @@ source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/install-ig.sh
 source /home/packer/install-node-exporter.sh
+source /home/packer/azcopy-private-package-login.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 SYSTEMD_ARCH=$(getSystemdArch)  # x86-64 or arm64
@@ -1305,6 +1306,8 @@ capture_benchmark "${SCRIPT_NAME}_configure_lsm_with_bpf"
 
 # use the private_packages_url to download and cache packages
 if [ -n "${PRIVATE_PACKAGES_URL:-}" ]; then
+  ensure_azure_login_for_private_packages
+
   IFS=',' read -ra PRIVATE_URLS <<< "${PRIVATE_PACKAGES_URL}"
 
   for private_url in "${PRIVATE_URLS[@]}"; do
