@@ -425,7 +425,7 @@ cleanUpPrebakedGPUDriver() {
     fi
     lsmod | grep -q '^nvidia' && module_after=true
 
-    # Remove either VHD layout, including the live tree restored before GRID cleanup. Do not remove
+    # Remove either VHD layout without first restoring a parked registration. Do not remove
     # /usr/src: this is the registration tree, not the driver source. Avoid slow dkms remove --all.
     rm -rf /var/lib/dkms/nvidia || true
     rm -rf "${parked}" || true

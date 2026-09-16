@@ -316,6 +316,88 @@ Describe 'NVIDIA prebake registration layout'
         The contents of file "${LIVE}/${BUILT_MODULE}" should equal 'prebuilt module'
     End
 
+    Describe 'GRID cleanup of CUDA prebake'
+        Include './parts/linux/cloud-init/artifacts/cse_config_gpu.sh'
+        OS=UBUNTU
+        UBUNTU_OS_NAME=UBUNTU
+        NVIDIA_GPU_DRIVER_TYPE=grid
+
+        It 'removes parked CUDA registration and installed artifacts without restoring it'
+            park_prebake
+            setPrebakedGPUDriverRegistration() { echo 'unexpected restoration' >&2; return 99; }
+            When call cleanUpGridNodeCudaPrebake
+            The status should be success
+            The output should include 'status=cleaned'
+            The output should include 'dkms_before=false'
+            The stderr should equal ''
+            The directory "${LIVE}" should not be exist
+            The directory "${PARKED}" should not be exist
+            The file "${INSTALLED_MODULE}" should not be exist
+            The file "${TEST_ROOT}/usr/bin/nvidia-modprobe" should not be exist
+            The file "${GPU_DKMS_MARKER_FILE}" should not be exist
+        End
+
+        It 'cleans parked CUDA registration even if its marker was lost'
+            park_prebake
+            rm "${GPU_DKMS_MARKER_FILE}"
+            When call cleanUpGridNodeCudaPrebake
+            The status should be success
+            The output should include 'marker_kind=none'
+            The output should include 'status=cleaned'
+            The stderr should equal ''
+            The directory "${LIVE}" should not be exist
+            The directory "${PARKED}" should not be exist
+            The file "${INSTALLED_MODULE}" should not be exist
+        End
+
+        It 'removes a parked CUDA tree even if a GRID install replaced the marker'
+            park_prebake
+            printf 'driver_kind=grid\n' > "${GPU_DKMS_MARKER_FILE}"
+            When call cleanUpGridNodeCudaPrebake
+            The status should be success
+            The output should include 'marker_kind=grid'
+            The output should include 'status=cleaned'
+            The directory "${LIVE}" should not be exist
+            The directory "${PARKED}" should not be exist
+        End
+
+        It 'preserves an existing GRID driver when no parked CUDA tree remains'
+            printf 'driver_kind=grid\n' > "${GPU_DKMS_MARKER_FILE}"
+            When call cleanUpGridNodeCudaPrebake
+            The status should be success
+            The output should equal ''
+            The contents of file "${LIVE}/${BUILT_MODULE}" should equal 'prebuilt module'
+            The file "${INSTALLED_MODULE}" should be exist
+            The file "${GPU_DKMS_MARKER_FILE}" should be exist
+        End
+
+        It 'cleans a dangling parked symlink with no marker'
+            rm -rf "${LIVE}" "${GPU_DKMS_MARKER_FILE}"
+            mkdir -p "${PARKED%/*}"
+            ln -s "${TEST_ROOT}/missing" "${PARKED}"
+            When call cleanUpGridNodeCudaPrebake
+            The status should be success
+            The output should include 'status=cleaned'
+            The output should include 'parked_after=false'
+            The path "${PARKED}" should not be exist
+            The directory "${LIVE}" should not be exist
+        End
+
+        It 'fails if best-effort cleanup leaves parked CUDA registration behind'
+            park_prebake
+            rm() {
+                [ "${2:-}" != "${PARKED}" ] || return 1
+                command rm "$@"
+            }
+            When call cleanUpGridNodeCudaPrebake
+            The status should be failure
+            The output should include 'status=incomplete'
+            The output should include 'reason=grid_parked_cleanup_failed'
+            The directory "${PARKED}" should be exist
+            The directory "${LIVE}" should not be exist
+        End
+    End
+
     Describe 'VHD build integration'
         setup_build() {
             eval "$(sed -n '/^buildNVIDIAKernelModule()/,/^}/p' vhdbuilder/packer/install-dependencies.sh | \
@@ -374,6 +456,7 @@ Describe 'managed GPU registration dispatch'
     OS=UBUNTU
     UBUNTU_OS_NAME=UBUNTU
     ERR_GPU_DRIVERS_START_FAIL=84
+    NVIDIA_GPU_DRIVER_TYPE=cuda-lts
     isARM64() { echo 0; }
     logs_to_events() { shift; ${@}; }
     setPrebakedGPUDriverRegistration() { echo "registration $*"; }
@@ -383,22 +466,67 @@ Describe 'managed GPU registration dispatch'
     systemctlEnableAndStart() { :; }
     logGPUDriverPrebakeReadiness() { :; }
 
-    It 'restores before GRID cleanup and installation'
+    Describe 'managed CUDA'
+        Parameters
+            cuda true install
+            cuda false validate
+            cuda-lts true install
+            cuda-lts false validate
+        End
+        It 'restores the CUDA registration before installation or validation'
+            NVIDIA_GPU_DRIVER_TYPE="$1"
+            CONFIG_GPU_DRIVER_IF_NEEDED="$2"
+            When call ensureGPUDrivers
+            The status should be success
+            The line 1 of output should equal 'GRID cleanup'
+            The line 2 of output should equal 'registration restore'
+            The line 3 of output should equal "$3"
+        End
+    End
+
+    Describe 'managed GRID'
+        Parameters
+            grid true install
+            grid false validate
+            grid-v20 true install
+            grid-v20 false validate
+        End
+        It 'cleans CUDA without restoring it before GRID installation or validation'
+            NVIDIA_GPU_DRIVER_TYPE="$1"
+            CONFIG_GPU_DRIVER_IF_NEEDED="$2"
+            When call ensureGPUDrivers
+            The status should be success
+            The line 1 of output should equal 'GRID cleanup'
+            The line 2 of output should equal "$3"
+            The output should not include 'registration restore'
+        End
+
+        It 'fails provisioning before GRID setup if CUDA cleanup fails'
+            NVIDIA_GPU_DRIVER_TYPE="$1"
+            CONFIG_GPU_DRIVER_IF_NEEDED="$2"
+            cleanUpGridNodeCudaPrebake() { return 1; }
+            When run ensureGPUDrivers
+            The status should equal 84
+            The output should equal ''
+        End
+    End
+
+    It 'does not restore CUDA for an unknown driver kind'
+        NVIDIA_GPU_DRIVER_TYPE=unknown
         CONFIG_GPU_DRIVER_IF_NEEDED=true
         When call ensureGPUDrivers
         The status should be success
-        The line 1 of output should equal 'registration restore'
-        The line 2 of output should equal 'GRID cleanup'
-        The line 3 of output should equal 'install'
+        The output should not include 'registration restore'
+        The line 2 of output should equal 'install'
     End
 
-    It 'restores even when a loadable module only needs validation'
-        CONFIG_GPU_DRIVER_IF_NEEDED=false
+    It 'does not assume CUDA when the driver kind is unset'
+        unset NVIDIA_GPU_DRIVER_TYPE
+        CONFIG_GPU_DRIVER_IF_NEEDED=true
         When call ensureGPUDrivers
         The status should be success
-        The line 1 of output should equal 'registration restore'
-        The line 2 of output should equal 'GRID cleanup'
-        The line 3 of output should equal 'validate'
+        The output should not include 'registration restore'
+        The line 2 of output should equal 'install'
     End
 
     It 'fails provisioning before driver setup if restoration fails'
@@ -406,7 +534,7 @@ Describe 'managed GPU registration dispatch'
         CONFIG_GPU_DRIVER_IF_NEEDED=true
         When run ensureGPUDrivers
         The status should equal 84
-        The output should equal ''
+        The output should equal 'GRID cleanup'
     End
 
     It 'does not restore an Ubuntu prebake on Azure Linux'
