@@ -121,7 +121,6 @@ libjcat1
 libjemalloc2
 libjson-glib-1.0-0
 libjson-glib-1.0-common
-libksba8
 liblastlog2-2
 libllvm21
 liblmdb0
@@ -145,7 +144,6 @@ libnetfilter-conntrack3
 libnewt0.52
 libnfnetlink0
 libnl-route-3-200
-libnpth0t64
 libnspr4
 libnss-systemd
 libnss3
@@ -224,7 +222,6 @@ packagekit
 patch
 perl
 perl-modules-5.40
-pinentry-curses
 plymouth
 plymouth-theme-ubuntu-text
 polkitd
