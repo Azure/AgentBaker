@@ -69,6 +69,7 @@ export IMAGE_FETCH_ONLY=true
 
 # Cleanup scripts only used during the build
 rm /home/packer/install-dependencies.sh
+rm /home/packer/azcopy-private-package-login.sh
 rm /home/packer/provision_source_benchmarks.sh
 rm /home/packer/tool_installs.sh
 rm /home/packer/tool_installs_distro.sh

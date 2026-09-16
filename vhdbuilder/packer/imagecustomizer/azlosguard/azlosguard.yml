@@ -16,6 +16,9 @@ os:
     - source: /AgentBaker/vhdbuilder/packer/install-dependencies.sh
       destination: /opt/azure/containers/install-dependencies.sh
       permissions: 744
+    - source: /AgentBaker/vhdbuilder/packer/azcopy-private-package-login.sh
+      destination: /opt/azure/containers/azcopy-private-package-login.sh
+      permissions: 744
     - source: /AgentBaker/vhdbuilder/packer/install-ig.sh
       destination: /opt/azure/containers/install-ig.sh
       permissions: 744

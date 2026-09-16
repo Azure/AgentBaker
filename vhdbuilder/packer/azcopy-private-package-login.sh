@@ -43,12 +43,33 @@ install_azure_cli_for_private_packages() {
     return 0
   fi
 
+  if isACL "$OS" "$OS_VARIANT"; then
+    # ACL (Azure Container Linux) is Flatcar-derived and reports as either OS=AZURECONTAINERLINUX
+    # (matched by the `*)` fallback below) or the newer OS=AZURELINUX + VARIANT=AZURECONTAINERLINUX
+    # combination - which, left unchecked, would otherwise match the Azure Linux/Mariner branch
+    # below and wrongly attempt an rpm/dnf install against a system that doesn't support it. Treat
+    # ACL as unsupported explicitly, the same as the `*)` fallback, rather than risk that.
+    echo "install_azure_cli_for_private_packages: no azure-cli install recipe for Azure Container Linux (ACL) - private package download will fall back to whatever identity (if any) the Azure CLI is already logged in as"
+    return 1
+  fi
+
   case "$OS" in
     "$UBUNTU_OS_NAME")
-      apt_get_install 5 1 60 ca-certificates curl apt-transport-https lsb-release gnupg || return 1
-      write_apt_azure_cli_repo || return 1
-      apt_get_update || return 1
-      apt_get_install 5 1 60 azure-cli || return 1
+      if [ "$OS_VERSION" = "26.04" ]; then
+        # azure-cli isn't yet published in the Ubuntu 26.04 (Resolute) PMC apt repo - same gap
+        # trivy-scan.sh already works around for the post-build scan VM (see its install_azure_cli
+        # "TODO(2604)" branch) - so fall back to pip here too until PMC catches up.
+        apt_get_update || return 1
+        apt_get_install 5 1 60 python3-pip || return 1
+        python3 -m pip install azure-cli --break-system-packages || return 1
+        export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
+        hash -r
+      else
+        apt_get_install 5 1 60 ca-certificates curl apt-transport-https lsb-release gnupg || return 1
+        write_apt_azure_cli_repo || return 1
+        apt_get_update || return 1
+        apt_get_install 5 1 60 azure-cli || return 1
+      fi
       ;;
     "$MARINER_OS_NAME" | "$MARINER_KATA_OS_NAME" | "$AZURELINUX_OS_NAME" | "$AZURELINUX_KATA_OS_NAME")
       rpm --import https://packages.microsoft.com/keys/microsoft.asc || return 1
@@ -60,6 +81,13 @@ install_azure_cli_for_private_packages() {
       return 1
       ;;
   esac
+
+  # Belt-and-suspenders: confirm the install actually put a usable az on PATH (e.g. the pip
+  # fallback above depends on PATH updates taking effect) rather than silently reporting success.
+  if ! azure_cli_is_present; then
+    echo "install_azure_cli_for_private_packages: azure-cli install completed but az is still not on PATH"
+    return 1
+  fi
 }
 
 # login_with_user_assigned_managed_identity logs the Azure CLI in as the exact UAMI attached to
@@ -68,6 +96,16 @@ login_with_user_assigned_managed_identity() {
   local resource_id="$1"
   echo "logging into azure with user-assigned managed identity: $resource_id"
   az login --identity --resource-id "$resource_id"
+}
+
+# clear_azure_cli_login_state removes the token cache `az login` created (normally under
+# $HOME/.azure, i.e. /root/.azure since install-dependencies.sh runs as root) so a live
+# managed-identity access token isn't captured into the released VHD image. install-dependencies.sh
+# calls this once every private package download has finished, mirroring its existing `rm -f
+# ./azcopy` cleanup of the azcopy binary itself right after the same loop.
+clear_azure_cli_login_state() {
+  az account clear > /dev/null 2>&1 || true
+  rm -rf "${HOME:-/root}/.azure"
 }
 
 # ensure_azure_login_for_private_packages is the single entry point install-dependencies.sh calls

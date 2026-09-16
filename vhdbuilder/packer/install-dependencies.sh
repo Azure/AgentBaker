@@ -1314,6 +1314,11 @@ if [ -n "${PRIVATE_PACKAGES_URL:-}" ]; then
     echo "download kube package from ${private_url}"
     cacheKubePackageFromPrivateUrl "$private_url"
   done
+
+  # Remove any cached managed-identity token ensure_azure_login_for_private_packages's `az login`
+  # created, so it isn't captured into the released VHD image. Harmless no-op if that function
+  # never actually logged in (e.g. AZURE_MSI_RESOURCE_STRING wasn't set).
+  clear_azure_cli_login_state
 fi
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 
