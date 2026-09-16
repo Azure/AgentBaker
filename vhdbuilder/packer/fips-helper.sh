@@ -71,7 +71,6 @@ build_fips_vm_body() {
 
     # Build security profile section if Trusted Launch is enabled
     local security_profile=""
-    # TODO: only check TRUSTED_LAUNCH_SUPPORTED once all relevant images have been updated to TrustedLaunchSupported
     if [ "${enable_trusted_launch,,}" = "true" ]; then
         security_profile=',
     "securityProfile": {
