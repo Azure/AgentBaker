@@ -15,6 +15,7 @@ BeforeAll {
 Describe 'Test-ValidateSinglePackageSignature' {
     BeforeEach {
         $global:azCopyUrls = @{ "https://privatestorageaccount.blob.core.windows.net/c/private-package.zip" = $true }
+        $script:nonExistentDir = Join-Path ([System.IO.Path]::GetTempPath()) "pester-wfc-doesnotexist-$(New-Guid)"
     }
 
     It 'skips signature validation for an AzCopy-flagged URL instead of failing on a missing archive' {
@@ -24,21 +25,21 @@ Describe 'Test-ValidateSinglePackageSignature' {
         # Test-ValidateSinglePackageSignature previously trying (and failing) to Expand-Archive it
         # anyway.
         $map = @{
-            "TestDrive:\doesnotexist\" = @("https://privatestorageaccount.blob.core.windows.net/c/private-package.zip")
+            $script:nonExistentDir = @("https://privatestorageaccount.blob.core.windows.net/c/private-package.zip")
         }
 
-        { Test-ValidateSinglePackageSignature -dir "TestDrive:\doesnotexist\" } | Should -Not -Throw
+        { Test-ValidateSinglePackageSignature -dir $script:nonExistentDir } | Should -Not -Throw
     }
 
     It 'still attempts signature validation for a non-flagged URL (regression check: the skip is scoped to AzCopy URLs only)' {
         $global:azCopyUrls = @{ }
         $map = @{
-            "TestDrive:\doesnotexist\" = @("https://acs-mirror.azureedge.net/public-package.zip")
+            $script:nonExistentDir = @("https://acs-mirror.azureedge.net/public-package.zip")
         }
 
         # A non-flagged URL should NOT be skipped, so it proceeds to Expand-Archive on a file that
         # (deliberately, in this test) doesn't exist either, and fails there instead of being
         # silently skipped - proving the skip really is scoped to AzCopy-flagged URLs only.
-        { Test-ValidateSinglePackageSignature -dir "TestDrive:\doesnotexist\" } | Should -Throw "*Expand-Archive*"
+        { Test-ValidateSinglePackageSignature -dir $script:nonExistentDir } | Should -Throw "*Expand-Archive*"
     }
 }

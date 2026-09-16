@@ -24,7 +24,10 @@ BeforeAll {
 
 Describe 'Download-FileWithAzCopy' {
     BeforeEach {
-        $global:aksTempDir = "TestDrive:\aksTemp"
+        $script:tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "pester-configure-windows-vhd-$(New-Guid)"
+        New-Item -ItemType Directory -Path $script:tempDir -Force | Out-Null
+
+        $global:aksTempDir = (Join-Path $script:tempDir "aksTemp")
         New-Item -ItemType Directory -Path $global:aksTempDir -Force | Out-Null
         New-Item -ItemType File -Path "$global:aksTempDir\azcopy.exe" -Force | Out-Null
 
@@ -33,12 +36,16 @@ Describe 'Download-FileWithAzCopy' {
         Mock Get-Content {} -ParameterFilter { $Path -like "*azcopy*.log*" }
     }
 
+    AfterEach {
+        Remove-Item -Path $script:tempDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
     Context 'without -RequireMSILogin (legacy callers: Get-PrivatePackagesToCacheOnVHD, Get-ContainerImages base image override)' {
         It 'falls through to copy when login fails, and succeeds if copy succeeds (e.g. a SAS-bearing URL)' {
             Mock Invoke-AzCopyLogin { $global:LASTEXITCODE = 1 }
             Mock Invoke-AzCopyCopy { $global:LASTEXITCODE = 0 }
 
-            { Download-FileWithAzCopy -URL "https://example.com/f.zip?sv=sas" -Dest "TestDrive:\out.zip" } | Should -Not -Throw
+            { Download-FileWithAzCopy -URL "https://example.com/f.zip?sv=sas" -Dest (Join-Path $script:tempDir "out.zip") } | Should -Not -Throw
 
             Should -Invoke Invoke-AzCopyLogin -Times 1
             Should -Invoke Invoke-AzCopyCopy -Times 1
@@ -48,14 +55,14 @@ Describe 'Download-FileWithAzCopy' {
             Mock Invoke-AzCopyLogin { $global:LASTEXITCODE = 1 }
             Mock Invoke-AzCopyCopy { $global:LASTEXITCODE = 1 }
 
-            { Download-FileWithAzCopy -URL "https://example.com/f.zip?sv=sas" -Dest "TestDrive:\out.zip" } | Should -Throw "*azcopy copy*failed*"
+            { Download-FileWithAzCopy -URL "https://example.com/f.zip?sv=sas" -Dest (Join-Path $script:tempDir "out.zip") } | Should -Throw "*azcopy copy*failed*"
         }
 
         It 'succeeds normally when both login and copy succeed' {
             Mock Invoke-AzCopyLogin { $global:LASTEXITCODE = 0 }
             Mock Invoke-AzCopyCopy { $global:LASTEXITCODE = 0 }
 
-            { Download-FileWithAzCopy -URL "https://example.com/f.zip" -Dest "TestDrive:\out.zip" } | Should -Not -Throw
+            { Download-FileWithAzCopy -URL "https://example.com/f.zip" -Dest (Join-Path $script:tempDir "out.zip") } | Should -Not -Throw
         }
     }
 
@@ -64,7 +71,7 @@ Describe 'Download-FileWithAzCopy' {
             Mock Invoke-AzCopyLogin { $global:LASTEXITCODE = 1 }
             Mock Invoke-AzCopyCopy { $global:LASTEXITCODE = 0 }
 
-            { Download-FileWithAzCopy -URL "https://privatestorageaccount.blob.core.windows.net/c/f.zip" -Dest "TestDrive:\out.zip" -RequireMSILogin } | Should -Throw "*MSI-only*"
+            { Download-FileWithAzCopy -URL "https://privatestorageaccount.blob.core.windows.net/c/f.zip" -Dest (Join-Path $script:tempDir "out.zip") -RequireMSILogin } | Should -Throw "*MSI-only*"
 
             Should -Invoke Invoke-AzCopyCopy -Times 0
         }
@@ -73,20 +80,21 @@ Describe 'Download-FileWithAzCopy' {
             Mock Invoke-AzCopyLogin { $global:LASTEXITCODE = 0 }
             Mock Invoke-AzCopyCopy { $global:LASTEXITCODE = 0 }
 
-            { Download-FileWithAzCopy -URL "https://privatestorageaccount.blob.core.windows.net/c/f.zip" -Dest "TestDrive:\out.zip" -RequireMSILogin } | Should -Not -Throw
+            { Download-FileWithAzCopy -URL "https://privatestorageaccount.blob.core.windows.net/c/f.zip" -Dest (Join-Path $script:tempDir "out.zip") -RequireMSILogin } | Should -Not -Throw
         }
 
         It 'throws if copy fails even when login succeeded' {
             Mock Invoke-AzCopyLogin { $global:LASTEXITCODE = 0 }
             Mock Invoke-AzCopyCopy { $global:LASTEXITCODE = 1 }
 
-            { Download-FileWithAzCopy -URL "https://privatestorageaccount.blob.core.windows.net/c/f.zip" -Dest "TestDrive:\out.zip" -RequireMSILogin } | Should -Throw "*azcopy copy*failed*"
+            { Download-FileWithAzCopy -URL "https://privatestorageaccount.blob.core.windows.net/c/f.zip" -Dest (Join-Path $script:tempDir "out.zip") -RequireMSILogin } | Should -Throw "*azcopy copy*failed*"
         }
     }
 }
 
 Describe 'Invoke-PackageDownload' {
     BeforeEach {
+        $script:tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "pester-configure-windows-vhd-$(New-Guid)"
         Mock Write-Log {}
         Mock Download-File {}
         Mock Download-FileWithAzCopy {}
@@ -95,7 +103,7 @@ Describe 'Invoke-PackageDownload' {
     It 'dispatches to Download-FileWithAzCopy with -RequireMSILogin when the URL is in the AzCopy set' {
         $global:azCopyUrls = @{ "https://privatestorageaccount.blob.core.windows.net/c/f.zip" = $true }
 
-        Invoke-PackageDownload -URL "https://privatestorageaccount.blob.core.windows.net/c/f.zip" -Dest "TestDrive:\out.zip"
+        Invoke-PackageDownload -URL "https://privatestorageaccount.blob.core.windows.net/c/f.zip" -Dest (Join-Path $script:tempDir "out.zip")
 
         Should -Invoke Download-FileWithAzCopy -Times 1 -ParameterFilter { $RequireMSILogin -eq $true }
         Should -Invoke Download-File -Times 0
@@ -104,7 +112,7 @@ Describe 'Invoke-PackageDownload' {
     It 'dispatches to Download-File when the URL is not in the AzCopy set' {
         $global:azCopyUrls = @{ "https://privatestorageaccount.blob.core.windows.net/c/f.zip" = $true }
 
-        Invoke-PackageDownload -URL "https://acs-mirror.azureedge.net/f.zip" -Dest "TestDrive:\out.zip"
+        Invoke-PackageDownload -URL "https://acs-mirror.azureedge.net/f.zip" -Dest (Join-Path $script:tempDir "out.zip")
 
         Should -Invoke Download-File -Times 1
         Should -Invoke Download-FileWithAzCopy -Times 0
@@ -113,7 +121,7 @@ Describe 'Invoke-PackageDownload' {
     It 'dispatches to Download-File when the AzCopy set is empty/unset' {
         $global:azCopyUrls = @{ }
 
-        Invoke-PackageDownload -URL "https://acs-mirror.azureedge.net/f.zip" -Dest "TestDrive:\out.zip"
+        Invoke-PackageDownload -URL "https://acs-mirror.azureedge.net/f.zip" -Dest (Join-Path $script:tempDir "out.zip")
 
         Should -Invoke Download-File -Times 1
         Should -Invoke Download-FileWithAzCopy -Times 0
