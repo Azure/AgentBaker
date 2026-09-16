@@ -249,6 +249,7 @@ func (a *App) runProvisionWaitCommand(ctx context.Context, provisionStatusFiles 
 		slog.Info("aks-node-controller finished successfully.")
 	}
 	fileLogger.Info("provision-wait finished", "provisionOutput", provisionOutput)
+	slog.Info("provision-wait finished")
 	return provisionOutput, err
 }
 

@@ -101,6 +101,7 @@ func TestRunProvisionWaitLogsOutputOnlyToFile(t *testing.T) {
 	assert.Equal(t, "provision-wait finished", records[0].Message)
 	assert.Equal(t, output, records[0].Attrs["provisionOutput"])
 	require.NotEmpty(t, stderrLogs.getRecords())
+	assert.Equal(t, "provision-wait finished", stderrLogs.getRecords()[len(stderrLogs.getRecords())-1].Message)
 	for _, record := range stderrLogs.getRecords() {
 		assert.NotContains(t, record.Attrs, "provisionOutput")
 		assert.NotContains(t, record.Message, output)
