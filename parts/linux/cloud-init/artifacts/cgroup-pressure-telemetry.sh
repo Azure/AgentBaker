@@ -12,7 +12,7 @@ getServicePressure() {
         return
     fi
 
-    cpu_pressure=$(cat "${service_cgroup}/cpu.pressure")
+    cpu_pressure=$(awk '$1 == "some"' "${service_cgroup}/cpu.pressure")
     memory_pressure=$(cat "${service_cgroup}/memory.pressure")
     io_pressure=$(cat "${service_cgroup}/io.pressure")
 

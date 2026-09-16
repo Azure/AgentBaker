@@ -32,7 +32,7 @@ Describe 'cgroup telemetry'
     create_pressure_files() {
         local cgroup_path="$1"
         mkdir -p "${CGROUP_ROOT}/${cgroup_path}"
-        printf 'some avg10=1.00 avg60=2.00 avg300=3.00 total=4\n' > "${CGROUP_ROOT}/${cgroup_path}/cpu.pressure"
+        printf 'some avg10=1.00 avg60=2.00 avg300=3.00 total=4\nfull avg10=21.00 avg60=22.00 avg300=23.00 total=24\n' > "${CGROUP_ROOT}/${cgroup_path}/cpu.pressure"
         printf 'some avg10=5.00 avg60=6.00 avg300=7.00 total=8\nfull avg10=9.00 avg60=10.00 avg300=11.00 total=12\n' > "${CGROUP_ROOT}/${cgroup_path}/memory.pressure"
         printf 'some avg10=13.00 avg60=14.00 avg300=15.00 total=16\nfull avg10=17.00 avg60=18.00 avg300=19.00 total=20\n' > "${CGROUP_ROOT}/${cgroup_path}/io.pressure"
     }
@@ -137,6 +137,7 @@ Describe 'cgroup telemetry'
         The contents of file "${EVENTS_ROOT}"/* should include 'node_problem_detector_service_pressure'
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_problem_detector_service_pressure\":\"Not Found\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_pressure\":{'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"CPUPressure\":{\"some_avg10\":\"1.00\",\"some_avg60\":\"2.00\",\"some_avg300\":\"3.00\",\"some_total\":\"4\"}'
         The contents of file "${EVENTS_ROOT}"/* should include '\"sync_container_logs_service_pressure\":{'
         The contents of file "${EVENTS_ROOT}"/* should include '\"localdns_service_pressure\":{'
     End
