@@ -910,17 +910,15 @@ func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName stri
 	return fmt.Errorf("expected file %s to not have contents %q, but it does. It had contents %s", fileName, contents, actualContents)
 }
 
-// ValidateWindowsBakeCustomDataExcludesBootstrapToken checks bake custom data without
-// including the token or file contents in the remote command, logs, or returned errors.
-func ValidateWindowsBakeCustomDataExcludesBootstrapToken(ctx context.Context, s *Scenario) error {
-	const customDataPath = `C:\AzureData\CustomDataSetupScript.ps1`
-
-	containsToken, err := windowsFileContainsBootstrapToken(ctx, s, customDataPath)
+// ValidateWindowsFileExcludesBootstrapToken checks that a file does not contain
+// the scenario's runtime token without including the token or file contents in output.
+func ValidateWindowsFileExcludesBootstrapToken(ctx context.Context, s *Scenario, fileName string) error {
+	containsToken, err := windowsFileContainsBootstrapToken(ctx, s, fileName)
 	if err != nil {
-		return fmt.Errorf("validate bake custom data: %w", err)
+		return fmt.Errorf("validate bootstrap token absence in file %s: %w", fileName, err)
 	}
 	if containsToken {
-		return errors.New("bootstrap token remains in bake custom data")
+		return fmt.Errorf("bootstrap token remains in file %s", fileName)
 	}
 	return nil
 }
@@ -953,14 +951,14 @@ func windowsFileContainsBootstrapToken(ctx context.Context, s *Scenario, fileNam
 		return false, fmt.Errorf("execute bootstrap token validation: %w", err)
 	}
 
-	return parseWindowsBootstrapTokenScanResult(result)
+	return parseWindowsContentScanResult(result)
 }
 
-func parseWindowsBootstrapTokenScanResult(result *podExecResult) (bool, error) {
+func parseWindowsContentScanResult(result *podExecResult) (bool, error) {
 	switch strings.TrimSpace(result.stdout) {
 	case windowsScanAbsentMarker:
 		if result.exitCode != "0" {
-			return false, fmt.Errorf("bootstrap token validation reported absence with exit code %s", result.exitCode)
+			return false, fmt.Errorf("content validation reported absence with exit code %s", result.exitCode)
 		}
 		return false, nil
 	case windowsScanPresentMarker:
@@ -968,9 +966,9 @@ func parseWindowsBootstrapTokenScanResult(result *podExecResult) (bool, error) {
 	case windowsScanFileMissingMarker:
 		return false, errors.New("file does not exist")
 	case windowsScanErrorMarker:
-		return false, errors.New("bootstrap token validation encountered a runtime error")
+		return false, errors.New("content validation encountered a runtime error")
 	default:
-		return false, fmt.Errorf("bootstrap token validation failed with exit code %s", result.exitCode)
+		return false, fmt.Errorf("content validation failed with exit code %s", result.exitCode)
 	}
 }
 

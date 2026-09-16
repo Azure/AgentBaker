@@ -410,6 +410,8 @@ var _ = Register(&Scenario{
 // uses the live provision-time token.
 var _ = Register(newWindows2022_VHDCaching_LegacyTLSBootstrapScenario())
 
+const windowsPISBakeBootstrapToken = "pisbak.0000000000000000"
+
 func newWindows2022_VHDCaching_LegacyTLSBootstrapScenario() *Scenario {
 	return &Scenario{
 		Name:        "Windows2022_VHDCaching_LegacyTLSBootstrap",
@@ -426,6 +428,9 @@ func newWindows2022_VHDCaching_LegacyTLSBootstrapScenario() *Scenario {
 					nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{}
 				}
 				nbc.SecureTLSBootstrappingConfig.Enabled = false
+			},
+			PreProvisionBootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.KubeletClientTLSBootstrapToken = to.Ptr(windowsPISBakeBootstrapToken)
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
 				return ValidateWindowsFileContainsBootstrapToken(ctx, s, "C:\\k\\bootstrap-config")

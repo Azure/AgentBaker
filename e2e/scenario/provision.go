@@ -54,7 +54,8 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 				ValidateFileExists(ctx, scenario, "C:\\AzureData\\base_prep.complete"),
 				ValidateFileDoesNotExist(ctx, scenario, "C:\\AzureData\\provision.complete"),
 				ValidateFileDoesNotExist(ctx, scenario, "C:\\k\\bootstrap-config"),
-				ValidateWindowsBakeCustomDataExcludesBootstrapToken(ctx, scenario),
+				ValidateWindowsFileExcludesBootstrapToken(ctx, scenario, "C:\\AzureData\\CustomData.bin"),
+				ValidateWindowsFileExcludesBootstrapToken(ctx, scenario, "C:\\AzureData\\CustomDataSetupScript.ps1"),
 				ValidateWindowsServiceIsNotRunning(ctx, scenario, "kubelet"),
 				ValidateWindowsServiceIsRunning(ctx, scenario, "containerd"),
 			)

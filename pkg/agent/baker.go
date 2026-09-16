@@ -960,6 +960,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.SecureTLSBootstrappingConfig.GetGetCredentialTimeout()
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
+			if config.PreProvisionOnly {
+				return ""
+			}
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
 		},
 		"EnableKubeletServingCertificateRotation": func() bool {

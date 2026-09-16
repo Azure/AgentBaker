@@ -85,7 +85,7 @@ func TestWindowsFileContainsBootstrapTokenScriptDoesNotExposeToken(t *testing.T)
 	}
 }
 
-func TestParseWindowsBootstrapTokenScanResult(t *testing.T) {
+func TestParseWindowsContentScanResult(t *testing.T) {
 	tests := []struct {
 		name          string
 		result        *podExecResult
@@ -107,6 +107,11 @@ func TestParseWindowsBootstrapTokenScanResult(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "file missing marker",
+			result:  &podExecResult{exitCode: "1", stdout: windowsScanFileMissingMarker},
+			wantErr: true,
+		},
+		{
 			name:    "missing marker",
 			result:  &podExecResult{exitCode: "0"},
 			wantErr: true,
@@ -115,7 +120,7 @@ func TestParseWindowsBootstrapTokenScanResult(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			containsToken, err := parseWindowsBootstrapTokenScanResult(tt.result)
+			containsToken, err := parseWindowsContentScanResult(tt.result)
 			require.Equal(t, tt.containsToken, containsToken)
 			if tt.wantErr {
 				require.Error(t, err)

@@ -179,7 +179,7 @@ $global:ConfigGPUDriverIfNeeded=[System.Convert]::ToBoolean("{{GetVariable "conf
 $global:WindowsGmsaPackageUrl="{{GetVariable "windowsGmsaPackageUrl"}}";
 
 # TLS Bootstrap Token
-$global:TLSBootstrapToken="{{if not GetPreProvisionOnly}}{{GetTLSBootstrapTokenForKubeConfig}}{{end}}"
+$global:TLSBootstrapToken="{{GetTLSBootstrapTokenForKubeConfig}}"
 
 # Secure TLS Bootstrap settings
 $global:EnableSecureTLSBootstrapping=[System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}");
