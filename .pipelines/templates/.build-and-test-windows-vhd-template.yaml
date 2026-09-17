@@ -91,6 +91,7 @@ stages:
               hyperVGeneration: ${{ parameters.hyperVGeneration }}
               architecture: ${{ parameters.architecture }}
               enableTrustedLaunch: ${{ parameters.enableTrustedLaunch }}
+              trustedLaunchSupported: ${{ parameters.trustedLaunchSupported }}
               buildVmSize: ${{ parameters.buildVmSize }}
               build: ${{ parameters.build }}
               vhddebug: ${{ parameters.vhddebug }}

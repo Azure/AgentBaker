@@ -117,6 +117,7 @@ else
     "hyperv_generation": "${HYPERV_GENERATION}",
     "image_architecture": "${IMAGE_ARCH}",
     "image_version": "${IMAGE_VERSION}",
+    "security_type_feature": "${SECURITY_TYPE_FEATURE}",
     "replication_inverse": "${REPLICATION_INVERSE}"
 }
 EOF
