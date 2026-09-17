@@ -122,10 +122,15 @@ enableLocalDNS() {
     # cse_start.sh and be SIGKILLed mid-iteration, losing the status log and the exit code
     # below. Breaking out early lets the give-up path run and report properly, matching the
     # other retry loops in cse_helpers.sh.
+    #
+    # Every systemd call here is wrapped in timeout, as _systemctl_retry_svc_operation did.
+    # These all talk to PID 1 over D-Bus; an unbounded one that wedges would never return to
+    # the top of the loop, so check_cse_timeout above would never be re-evaluated and CSE
+    # would be SIGKILLed before it could report.
     for i in $(seq 1 100); do
         check_cse_timeout || break
-        systemctl reset-failed localdns 2>/dev/null || true
-        systemctl daemon-reload
+        timeout 30 systemctl reset-failed localdns 2>/dev/null || true
+        timeout 30 systemctl daemon-reload
         if timeout 30 systemctl restart localdns; then
             localdns_started=true
             break
@@ -135,7 +140,7 @@ enableLocalDNS() {
     if [ "${localdns_started}" != "true" ]; then
         # No reset here -- the last failure's auto-restarts land the unit in 'failed', which is the
         # terminal state NPD needs.
-        systemctl status localdns --no-pager -l > /var/log/azure/localdns-status.log || true
+        timeout 30 systemctl status localdns --no-pager -l > /var/log/azure/localdns-status.log || true
         exit $ERR_LOCALDNS_FAIL
     fi
     retrycmd_if_failure 120 5 25 systemctl enable localdns || exit $ERR_LOCALDNS_FAIL
