@@ -42,15 +42,18 @@ dnf_update() {
         repo_list=(--repo mariner-official-base --repo mariner-official-microsoft --repo mariner-official-extras --repo mariner-official-nvidia)
     fi
     for i in $(seq 1 $retries); do
-        if ! ($update_cmd update \
+        set +e
+        $update_cmd update \
             --exclude mshv-linuxloader \
             --exclude kernel-mshv \
             "${repo_list[@]}" \
-            -y --refresh 2>&1 | tee "$dnf_update_output" | grep -E "^([WE]:.*)|([eE]rr.*)$"); then
-            cat "$dnf_update_output"
+            -y --refresh > "$dnf_update_output" 2>&1
+        local update_status=$?
+        set -e
+        cat "$dnf_update_output"
+        if [ "${update_status}" -eq 0 ] && ! grep -Eq "^([WE]:.*)|([eE]rr.*)$" "$dnf_update_output"; then
             break
         fi
-        cat "$dnf_update_output"
 
         if [ "$i" -eq "$retries" ]; then
         return 1
@@ -210,7 +213,10 @@ kubelet_update() {
     echo "current kubelet raw version: $(${KUBELET_EXECUTABLE} --version=raw)"
     echo "target kubelet raw version: $(${target_kubelet_path} --version=raw)"
     mv ${target_kubelet_path} ${KUBELET_EXECUTABLE}
-    systemctl restart kubelet.service
+    if ! systemctl restart kubelet.service; then
+        echo "failed to restart kubelet.service"
+        return 1
+    fi
     echo "kubelet update completed successfully"
 
     rm -rf ${SECURITY_PATCH_TMP_DIR}

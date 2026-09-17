@@ -95,6 +95,22 @@ EOF
             echo "dnf mock called with args: $*"
         End
 
+        It 'fails when tdnf exits nonzero without an error-looking message'
+            Mock tdnf
+                echo 'package manager stopped'
+                return 1
+            End
+            Mock sleep
+                :
+            End
+            golden_timestamp='20260815T000000Z'
+
+            When call dnf_update
+            The status should be failure
+            The output should include 'package manager stopped'
+            The output should not include 'Executed dnf update'
+        End
+
         It 'dispatches a generic securityPatch profile on Azure Linux 3'
             set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\"}}}"}]}'
 
@@ -871,6 +887,20 @@ KUBELET_EOF
                 The output should include "to version 1.29.11"
                 The output should include "systemctl mock called with args: restart kubelet.service"
                 The output should include "kubelet update completed successfully"
+            End
+
+            It 'should fail when kubelet restart fails'
+                setup_kubelet_executable "1.29.10"
+                setup_target_kubelet_version "1.29.11" ""
+                Mock systemctl
+                    echo "systemctl mock called with args: $@"
+                    exit 1
+                End
+
+                When run kubelet_update
+                The status should be failure
+                The output should include "failed to restart kubelet.service"
+                The output should not include "kubelet update completed successfully"
             End
 
             It 'should successfully update kubelet with same version but different release'
