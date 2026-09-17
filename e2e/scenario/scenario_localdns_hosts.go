@@ -249,7 +249,12 @@ test "$dead" = true
 # The localdns network drop-in must have been removed by ExecStopPost. This is
 # the authoritative signal that DNS was reverted: the drop-in is what points the
 # link's DNS at the localdns listener.
-if ls /run/systemd/network/*.d/70-localdns.conf >/dev/null 2>&1; then
+# 'sudo ls' rather than a bare ls: this is an assertion that concludes "absent" from a
+# failed glob, so if the drop-in's directory were ever created root-only (as the test's own
+# service drop-in dir is, under root's umask), an unprivileged ls would fail, the check
+# would read that as success, and the regression under test would pass silently. The
+# directory is 0755 today, but the assertion should not depend on that.
+if sudo ls /run/systemd/network/*.d/70-localdns.conf >/dev/null 2>&1; then
     echo "FAIL: 70-localdns.conf still present after localdns died"
     exit 1
 fi
