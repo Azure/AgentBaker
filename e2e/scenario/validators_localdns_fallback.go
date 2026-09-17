@@ -174,19 +174,32 @@ func startLocalDNSProbePod(ctx context.Context, s *Scenario, suffix string) (str
 //	        born with the real CoreDNS ClusterIP and never touches .11 at all
 //	Case 3  pod created AFTER recovery      -> back to .11, served by localdns
 //
-// Also covered: that localdns's own cleanup tore the dummy interface down (so the
-// fallback rebuilt it from nothing), that the fallback corefile is DERIVED from the
-// .11 half of localdns's real corefile rather than a lossy hand-written minimum,
-// the minimal-corefile floor when that derivation is impossible, and the three
-// no-op guards that keep a spurious trigger from hot-looping on a healthy node.
+// Two DIFFERENT faults are exercised, because localdns has two cleanup paths with
+// different scopes and a single fault only reaches one of them. Measured on a live
+// node (Ubuntu 24.04, systemd 255), with #9360's ExecStopPost installed:
 //
-// Fault injection corrupts LOCALDNS_COREFILE_BASE in /etc/localdns/environment.
-// Two alternatives do NOT work and must not be reintroduced:
-//   - Corrupting localdns.corefile: localdns.sh logs "Regenerating localdns
-//     corefile" and rebuilds it from the base64 on every start, so it self-heals.
-//   - kill -9 on the supervisor: SIGKILL means localdns's trap never runs, so
-//     cleanup_localdns_configs never deletes the dummy interface and the teardown
-//     case is silently skipped (ExecStopPost deliberately leaves it in place).
+//	              node DNS + iptables        dummy interface
+//	kill -9       restored (ExecStopPost)    SURVIVES
+//	script exit   restored                   DELETED (EXIT trap)
+//
+// ExecStopPost is run by systemd, not by the dying process, so SIGKILL does NOT
+// skip it -- node DNS is restored either way. But bash traps cannot catch SIGKILL,
+// and the EXIT trap is the only thing that deletes the interface
+// (localdns.sh: 'ip link del name localdns'); ExecStopPost deliberately leaves it
+// alone (localdns.sh: "It intentionally does not delete the dummy localdns
+// interface"). So a kill -9 test can never exercise the rebuild-from-nothing path,
+// and a graceful-failure test can never exercise the interface-already-present
+// path. Both are covered below; do not collapse them into one.
+//
+// Also covered: that the fallback corefile is DERIVED from the .11 half of
+// localdns's real corefile rather than a lossy hand-written minimum, the minimal
+// corefile floor when that derivation is impossible, and the no-op guards that keep
+// a spurious trigger from hot-looping on a healthy node.
+//
+// Fault injection for the teardown path corrupts LOCALDNS_COREFILE_BASE in
+// /etc/localdns/environment. Corrupting localdns.corefile does NOT work:
+// localdns.sh logs "Regenerating localdns corefile" and rebuilds it from the
+// base64 on every start, so it self-heals and the node never breaks.
 func ValidateLocalDNSFallbackRecovery(ctx context.Context, s *Scenario) error {
 	hasArtifacts, err := vhdHasLocalDNSFallbackArtifacts(ctx, s)
 	if err != nil {
@@ -215,10 +228,18 @@ func ValidateLocalDNSFallbackRecovery(ctx context.Context, s *Scenario) error {
 [ -f "$ENVBAK" ] && sudo cp -a "$ENVBAK" "$ENVF"
 [ -f "$COREFILE_BAK" ] && sudo cp -a "$COREFILE_BAK" "$UPDATED_COREFILE"
 sudo rm -f "$ENVBAK" "$COREFILE_BAK" /run/localdns-fallback/consecutive_fails 2>/dev/null || true
+# Drop-in from the crash phase, in case that phase aborted before removing it.
+sudo rm -f /etc/systemd/system/localdns.service.d/99-e2e-crashpath.conf 2>/dev/null || true
+sudo systemctl daemon-reload 2>/dev/null || true
 sudo systemctl stop localdns-fallback.service 2>/dev/null || true
 sudo systemctl reset-failed localdns.service 2>/dev/null || true
 sudo systemctl start localdns.service 2>/dev/null || true
 sleep 10
+# The fallback repoints kubelet; if a phase aborted mid-outage, put it back so the
+# node is not left sending new pods somewhere the next scenario does not expect.
+if [ "$(kubelet_cluster_dns)" != "$CLUSTER_IP" ]; then
+  sudo /opt/azure/containers/localdns/localdns-kubelet-dns.sh restore 2>/dev/null || true
+fi
 log "post-test state: localdns=$(systemctl is-active localdns.service) cluster-dns=$(kubelet_cluster_dns)"
 exit 0
 `
@@ -234,7 +255,85 @@ exit 0
 	}
 	defer del1()
 
-	// ---- Phase 1: wiring, baseline, induce failure ---------------------------
+	// ---- Phase 0: the crash path (kill -9) ----------------------------------
+	// SIGKILL is the most realistic failure there is -- a crash, an OOM kill, a
+	// watchdog kill -- and it produces a genuinely different end state from a
+	// graceful failure. Asserting the difference is the point.
+	if err := phase("phase0-crash-path", fmt.Sprintf(`
+POD1=%q
+# Restart=no for this phase only. With Restart=on-failure the unit comes back
+# within RestartSec and its START path deletes and recreates the interface, so the
+# post-kill state would be a race instead of an observation.
+sudo mkdir -p /etc/systemd/system/localdns.service.d
+printf '[Service]\nRestart=no\n' | sudo tee /etc/systemd/system/localdns.service.d/99-e2e-crashpath.conf >/dev/null
+sudo systemctl daemon-reload
+sudo systemctl reset-failed localdns.service 2>/dev/null || true
+sudo systemctl start localdns.service 2>/dev/null || true
+wait_for 90 "localdns healthy before the crash" sh -c 'systemctl is-active --quiet localdns.service' || true
+ip link show localdns >/dev/null 2>&1 && ok "pre-crash: dummy interface exists" || fail "pre-crash: no dummy interface"
+
+MARK=$(date -u '+%%Y-%%m-%%d %%H:%%M:%%S'); sleep 1
+PID=$(systemctl show -p MainPID --value localdns.service)
+log "sending SIGKILL to localdns MainPID=${PID}"
+sudo kill -9 "$PID"
+wait_for 60 "localdns in terminal failed after SIGKILL" \
+  sh -c '[ "$(systemctl is-failed localdns.service)" = "failed" ]' || true
+
+# #9360: ExecStopPost is run by systemd, not the dying process, so SIGKILL does
+# not skip it. Node DNS and iptables must be restored even here.
+[ "$(grep -m1 nameserver /run/systemd/resolve/resolv.conf 2>/dev/null | awk '{print $2}')" != "$NODE_IP" ] \
+  && ok "CRASH: node DNS was restored off ${NODE_IP} (ExecStopPost ran despite SIGKILL)" \
+  || fail "CRASH: node DNS still points at ${NODE_IP}; ExecStopPost did not run"
+[ "$(sudo iptables -w -t raw -L -n 2>/dev/null | grep -c 'localdns: skip conntrack')" = "0" ] \
+  && ok "CRASH: localdns iptables rules were removed" \
+  || fail "CRASH: localdns iptables rules survived the crash"
+
+# ...but the EXIT trap cannot run under SIGKILL, and it is the only thing that
+# deletes the interface. This asymmetry is exactly why a kill -9 test cannot stand
+# in for the teardown test.
+ip link show localdns >/dev/null 2>&1 \
+  && ok "CRASH: dummy interface SURVIVES a SIGKILL (EXIT trap never ran)" \
+  || fail "CRASH: dummy interface was deleted; the crash/teardown asymmetry no longer holds"
+ip addr show dev localdns 2>/dev/null | grep -qw "$CLUSTER_IP" \
+  && ok "CRASH: ${CLUSTER_IP} is still assigned after the crash" \
+  || fail "CRASH: ${CLUSTER_IP} missing after the crash"
+journalctl -u localdns.service --since "$MARK" --no-pager -o cat 2>/dev/null \
+  | grep -q "Removing localdns dummy interface" \
+  && fail "CRASH: the EXIT trap ran under SIGKILL, which should be impossible" \
+  || ok "CRASH: no EXIT-trap teardown in the journal, as expected under SIGKILL"
+
+# The fallback's other branch: taking over an interface that is ALREADY present.
+# The teardown phases only ever exercise the create-from-nothing branch.
+sudo systemctl reset-failed localdns-fallback.service 2>/dev/null || true
+sudo systemctl start localdns-fallback.service 2>/dev/null || true
+wait_for 30 "fallback active over the surviving interface" \
+  sh -c 'systemctl is-active --quiet localdns-fallback.service' || true
+journalctl -u localdns-fallback.service --since "$MARK" --no-pager -o cat 2>/dev/null \
+  | grep -q "already present on localdns" \
+  && ok "CRASH: fallback reused the surviving interface instead of recreating it" \
+  || fail "CRASH: fallback did not report reusing an already-present ${CLUSTER_IP}"
+assert_fallback_owns_11 "CRASH"
+wait_for 30 "pod resolution over the surviving interface" pod_resolves_via "$POD1" "$CLUSTER_IP" \
+  && ok "CRASH: pre-existing pod resolves through the fallback after a SIGKILL" \
+  || fail "CRASH: pre-existing pod cannot resolve after a SIGKILL"
+
+# Restore for the teardown phases that follow.
+sudo systemctl stop localdns-fallback.service 2>/dev/null || true
+sudo rm -f /etc/systemd/system/localdns.service.d/99-e2e-crashpath.conf
+sudo systemctl daemon-reload
+sudo systemctl reset-failed localdns.service 2>/dev/null || true
+sudo systemctl start localdns.service 2>/dev/null || true
+wait_for 90 "localdns healthy again" sh -c 'systemctl is-active --quiet localdns.service' || true
+wait_for 60 "kubelet --cluster-dns restored after the crash phase" \
+  sh -c '[ "$(grep -oE "\-\-cluster-dns=[^\" ]+" /etc/default/kubelet | head -1 | cut -d= -f2-)" = "169.254.10.11" ]' \
+  && ok "CRASH: kubelet --cluster-dns was restored on recovery" \
+  || fail "CRASH: kubelet --cluster-dns is $(kubelet_cluster_dns) after recovery"
+finish
+`, pod1)); err != nil {
+		return err
+	}
+
+	// ---- Phase 1: wiring, baseline, induce the teardown failure --------------
 	if err := phase("phase1-induce-failure", fmt.Sprintf(`
 POD1=%q
 sudo cp -a "$ENVF" "$ENVBAK"
@@ -294,8 +393,8 @@ ok "localdns reached terminal 'failed' in $(( $(date +%%s) - START ))s"
 
 J=$(journalctl -u localdns.service --since "-6min" --no-pager -o cat 2>/dev/null)
 echo "$J" | grep -q "Successfully removed localdns dummy interface" \
-  && ok "localdns cleanup deleted the dummy interface (.11 off the node entirely)" \
-  || fail "cleanup did not delete the dummy interface; the teardown case was not exercised"
+  && ok "TEARDOWN: localdns's EXIT trap deleted the dummy interface (.11 off the node entirely)" \
+  || fail "TEARDOWN: interface was not deleted; this is the path kill -9 cannot reach, so it must be exercised here"
 journalctl -u localdns.service --since "-6min" --no-pager -o short 2>/dev/null | grep -q "Triggering OnFailure= dependencies" \
   && ok "systemd triggered OnFailure=" || fail "OnFailure= never triggered"
 
