@@ -92,6 +92,38 @@ ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} || true
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
 
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "${UBUNTU_RELEASE}" = "26.04" ]; then
+  manual_packages_file=$(mktemp)
+  apt-mark showmanual | LC_ALL=C sort -u > "${manual_packages_file}"
+  {
+    echo "=== AKS 2604 VM PACKAGE INVENTORY BEGIN ==="
+    echo "schema=package<TAB>version<TAB>architecture<TAB>status<TAB>install_reason"
+    echo "os=${OS}"
+    echo "os_version=${UBUNTU_RELEASE}"
+    echo "image_publisher=${IMG_PUBLISHER}"
+    echo "image_offer=${IMG_OFFER}"
+    echo "image_sku=${IMG_SKU}"
+    echo "image_version=${IMG_VERSION}"
+    echo "feature_flags=${FEATURE_FLAGS}"
+    echo "cpu_arch=${CPU_ARCH}"
+    echo "build_id=${BUILD_ID}"
+    echo "build_number=${BUILD_NUMBER}"
+    echo "commit=${COMMIT}"
+    printf 'package\tversion\tarchitecture\tstatus\tinstall_reason\n'
+    dpkg-query -W -f='${binary:Package}\t${Version}\t${Architecture}\t${db:Status-Status}\n' \
+      | LC_ALL=C sort \
+      | awk -F '\t' 'NR == FNR { manual[$1] = 1; next } {
+          if ($4 != "installed") {
+            next
+          }
+          install_reason = ($1 in manual) ? "manual" : "automatic"
+          print $0 "\t" install_reason
+        }' "${manual_packages_file}" -
+    echo "=== AKS 2604 VM PACKAGE INVENTORY END ==="
+  } | tee -a "${VHD_LOGS_FILEPATH}"
+  rm -f "${manual_packages_file}"
+fi
+
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
 
