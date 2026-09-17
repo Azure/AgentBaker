@@ -40,6 +40,7 @@ func PrivateACRName(location string) string {
 }
 
 type Configuration struct {
+	ACLBaseImageSigned                     bool
 	ACRSecretName                          string
 	AzureContainerRegistrytargetRepository string
 	BlobContainer                          string
@@ -88,6 +89,7 @@ type Configuration struct {
 
 func DefaultConfiguration() *Configuration {
 	return &Configuration{
+		ACLBaseImageSigned:                     true,
 		ACRSecretName:                          "acr-secret-code2",
 		AzureContainerRegistrytargetRepository: "aks-managed-repository/*",
 		BlobContainer:                          "abe2e",
