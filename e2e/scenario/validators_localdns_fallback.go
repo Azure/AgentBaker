@@ -24,7 +24,11 @@ import (
 // The ownership check is load-bearing, not decoration: without it an answer from a
 // still-running localdns would make every "the fallback served this" assertion
 // vacuous, which is exactly how a broken harness run once scored green.
-const localDNSFallbackPrelude = `set -uo pipefail
+// The shebang is load-bearing: these are uploaded as files and executed, and
+// without it the node runs them with /bin/sh (dash), which rejects 'pipefail' and
+// every other bashism below with "Illegal option -o pipefail".
+const localDNSFallbackPrelude = `#!/bin/bash
+set -uo pipefail
 CLUSTER_IP=169.254.10.11
 NODE_IP=169.254.10.10
 ENVF=/etc/localdns/environment
@@ -51,6 +55,15 @@ wait_for() {
   return 1
 }
 
+# True only when this node is configured the way aks-rp configures a localdns node:
+# kubelet pinned to .11, so pods are born pinned to it and cannot be repointed. On
+# the scriptless/ANC path that is not the case (see the COREDNS_SERVICE_IP assertion
+# in the wiring phase), and pod-level assertions there would be testing a premise the
+# environment never provided -- so they are skipped loudly rather than failed or,
+# worse, quietly passed.
+pods_are_pinned_to_11() { [ "$(kubelet_cluster_dns)" = "$CLUSTER_IP" ]; }
+skip_unpinned() { log "SKIP ($1): kubelet --cluster-dns is $(kubelet_cluster_dns), not ${CLUSTER_IP}, so no pod on this node was ever pinned to the fallback listener"; }
+
 kubelet_cluster_dns() { grep -oE '\-\-cluster-dns=[^" ]+' "$KUBELET_DEFAULT_FILE" 2>/dev/null | head -1 | cut -d= -f2-; }
 localdns_substate()   { systemctl show localdns.service -p SubState --value 2>/dev/null; }
 owner_of_11() { sudo ss -lunpH 2>/dev/null | grep "${CLUSTER_IP}:53" | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2; }
@@ -58,6 +71,25 @@ owner_unit() {
   local p; p=$(owner_of_11); [ -z "$p" ] && { echo "NONE"; return; }
   sudo grep -oE 'localdns[a-z-]*\.service' /proc/"$p"/cgroup 2>/dev/null | head -1 || echo "unknown"
 }
+# Dump enough state to diagnose a DNS failure from the CI log alone. A phase is a
+# single shot -- there is no second look -- so anything not captured here is lost.
+diag() {
+  echo "fallback-e2e: ---- diagnostics: $* ----"
+  echo "  localdns=$(systemctl is-active localdns.service)/$(systemctl is-failed localdns.service) fallback=$(systemctl is-active localdns-fallback.service)"
+  echo "  .11 owner unit=$(owner_unit) pid=$(owner_of_11)"
+  echo "  iface: $(ip -br addr show dev localdns 2>&1 | tr -s ' ')"
+  echo "  kubelet --cluster-dns=$(kubelet_cluster_dns)"
+  echo "  COREDNS_SERVICE_IP=$(grep -m1 '^COREDNS_SERVICE_IP=' "$ENVF" 2>/dev/null)"
+  echo "  recorded-original: $(sudo cat /etc/localdns/kubelet-cluster-dns.orig 2>/dev/null || echo NONE)"
+  echo "  node dig @.11: [$(dig +short +timeout=3 +tries=1 kubernetes.default.svc.cluster.local "@${CLUSTER_IP}" 2>&1 | tr '\n' ' ')]"
+  echo "  dig binary: $(command -v dig || echo MISSING)   crictl: $(command -v crictl || echo MISSING)   nsenter: $(command -v nsenter || echo MISSING)"
+  echo "  --- fallback corefile ---"; sudo sed 's/^/    /' "$FALLBACK_COREFILE" 2>/dev/null || echo "    (none)"
+  echo "  --- fallback journal ---"; journalctl -u localdns-fallback.service --since "-5min" --no-pager -o cat 2>/dev/null | grep -v "Unknown key" | tail -12 | sed 's/^/    /'
+  echo "  --- kubelet-dns journal ---"; journalctl --since "-5min" --no-pager -o cat 2>/dev/null | grep "localdns-kubelet-dns:" | tail -6 | sed 's/^/    /'
+  echo "  --- localdns journal ---"; journalctl -u localdns.service --since "-5min" --no-pager -o cat 2>/dev/null | tail -8 | sed 's/^/    /'
+  echo "fallback-e2e: ---- end diagnostics ----"
+}
+
 assert_fallback_owns_11() {
   local u; u=$(owner_unit)
   [ "$u" = "localdns-fallback.service" ] \
@@ -112,6 +144,49 @@ func vhdHasLocalDNSFallbackArtifacts(ctx context.Context, s *Scenario) (bool, er
 	return result.exitCode == "0", nil
 }
 
+// uploadAndRunOnVM writes content to the node in 4KB chunks, then runs it.
+//
+// Bastion SSH tunnels have an 8KB WebSocket buffer, so any single command larger
+// than that dies as "remote command exited without exit status or exit signal" -- a
+// transport error that says nothing about the script. Both this scenario's phase
+// scripts (~10-15KB) and its staged artifacts (up to 19KB) exceed it, so neither
+// could ever have run as a single command. Same chunked-upload approach as
+// ValidateLocalDNSExporterMetrics, which documents the limit.
+//
+// runCmd receives the remote path; return "" from it to upload without executing.
+func uploadAndRunOnVM(ctx context.Context, s *Scenario, content, remotePath string, runCmd func(remote string) string, label string) (*podExecResult, error) {
+	encoded := base64.StdEncoding.EncodeToString([]byte(content))
+	remoteB64 := remotePath + ".b64"
+	const chunkSize = 4096
+	for i := 0; i < len(encoded); i += chunkSize {
+		end := min(i+chunkSize, len(encoded))
+		redirect := ">>"
+		if i == 0 {
+			redirect = ">"
+		}
+		// Each chunk appends to the last, so a failed chunk leaves a truncated file:
+		// abort rather than continue.
+		cmd := fmt.Sprintf("echo -n '%s' %s %s", encoded[i:end], redirect, remoteB64)
+		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+			fmt.Sprintf("%s: upload chunk at offset %d", label, i)); err != nil {
+			return nil, err
+		}
+	}
+	decode := fmt.Sprintf("base64 -d %s > %s && chmod +x %s && rm -f %s", remoteB64, remotePath, remotePath, remoteB64)
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, decode, 0, label+": decode uploaded file"); err != nil {
+		return nil, err
+	}
+	run := runCmd(remotePath)
+	if run == "" {
+		return nil, nil
+	}
+	res, err := execScriptOnVMForScenario(ctx, s, run)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", label, err)
+	}
+	return res, nil
+}
+
 // localDNSFallbackArtifacts are the files this PR adds to the VHD, with their
 // on-node destination and mode. Kept in one place so staging and the presence
 // check cannot drift apart.
@@ -148,35 +223,84 @@ var localDNSFallbackArtifacts = []struct {
 // Staging closes that gap: it is the same thing a human does by hand to test a
 // VHD-baked change, done deterministically. It is a no-op once the artifacts ship.
 func stageLocalDNSFallbackArtifacts(ctx context.Context, s *Scenario) error {
-	var b strings.Builder
-	b.WriteString("set -euo pipefail\n")
-	b.WriteString("sudo mkdir -p /opt/azure/containers/localdns /etc/systemd/system\n")
+	// One small command per file, gzipped. A single command carrying all eight
+	// files inline is ~150KB of base64, and execScriptOnVMForScenario scp's the
+	// script under a 10s timeout (exec.go), so a large payload over a tunneled
+	// connection fails as "remote command exited without exit status or exit
+	// signal" -- a transport error that says nothing about what went wrong.
+	// Per-file also means a failure names the file it failed on.
 	for _, a := range localDNSFallbackArtifacts {
 		src := repoPath(filepath.Join("parts", "linux", "cloud-init", "artifacts", a.repoFile))
 		content, err := os.ReadFile(src)
 		if err != nil {
 			return fmt.Errorf("read %s for staging: %w", src, err)
 		}
-		fmt.Fprintf(&b, "echo %s | base64 -d | sudo tee %s >/dev/null\n",
-			base64.StdEncoding.EncodeToString(content), a.dest)
-		fmt.Fprintf(&b, "sudo chmod %s %s\n", a.mode, a.dest)
-		fmt.Fprintf(&b, "echo staged %s\n", a.dest)
+		staged := "/home/azureuser/stage_" + a.repoFile
+		install := func(remote string) string {
+			// Small enough to stay well under the tunnel's 8KB command limit.
+			return fmt.Sprintf("sudo mkdir -p $(dirname %s) && sudo cp %s %s && sudo chmod %s %s && test -s %s && echo staged %s",
+				a.dest, remote, a.dest, a.mode, a.dest, a.dest, a.dest)
+		}
+		res, err := uploadAndRunOnVM(ctx, s, string(content), staged, install, "stage "+a.repoFile)
+		if err != nil {
+			return fmt.Errorf("stage %s: %w", a.repoFile, err)
+		}
+		if res.exitCode != "0" {
+			return fmt.Errorf("stage %s: exit %s: %s", a.repoFile, res.exitCode, res.stderr)
+		}
 	}
-	// localdns.service was replaced, so the running unit is stale until reloaded.
-	// The probe timer is normally enabled by enableLocalDNS, but its backward-compat
-	// guard skipped it at provisioning time because the unit did not exist yet.
-	b.WriteString("sudo systemctl daemon-reload\n")
-	b.WriteString("sudo systemctl enable --now localdns-fallback-probe.timer\n")
-	b.WriteString("sudo systemctl reset-failed localdns.service 2>/dev/null || true\n")
-	b.WriteString("sudo systemctl restart localdns.service\n")
-	b.WriteString("sleep 10\n")
-	b.WriteString(`echo "staged: localdns=$(systemctl is-active localdns.service) probe-timer=$(systemctl is-active localdns-fallback-probe.timer)"` + "\n")
 
-	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, b.String(), 0,
-		"stage localdns fallback artifacts onto the node"); err != nil {
-		return fmt.Errorf("stage localdns fallback artifacts: %w", err)
+	// localdns.service was replaced, so the loaded unit is stale until reloaded. The
+	// probe timer is normally enabled by enableLocalDNS, but its backward-compat guard
+	// skipped it at provisioning time because the unit did not exist yet.
+	//
+	// Deliberately NO restart here: see restartLocalDNSDetached below.
+	reload := `set -euo pipefail
+sudo systemctl daemon-reload
+sudo systemctl enable --now localdns-fallback-probe.timer
+echo "staged: daemon reloaded, probe-timer=$(systemctl is-active localdns-fallback-probe.timer)"`
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, reload, 0,
+		"reload systemd after staging localdns fallback artifacts"); err != nil {
+		return fmt.Errorf("reload after staging: %w", err)
 	}
-	return nil
+	return restartLocalDNSDetached(ctx, s)
+}
+
+// restartLocalDNSDetached restarts localdns without holding the SSH session open
+// across the restart, then waits for it to come back in separate calls.
+//
+// Restarting localdns inline is what a straightforward implementation does, and it
+// fails: localdns owns the node resolver, so the restart tears down DNS underneath
+// the connection running it and the channel closes with "remote command exited
+// without exit status or exit signal" -- the command's real result is lost, and the
+// caller sees a transport error rather than anything about localdns. Detaching the
+// restart keeps the disruptive part off the connection, and the readiness poll is
+// retried because those probes can themselves land in the DNS-down window.
+func restartLocalDNSDetached(ctx context.Context, s *Scenario) error {
+	detach := `sudo systemctl reset-failed localdns.service 2>/dev/null || true
+sudo setsid nohup systemctl restart localdns.service >/dev/null 2>&1 &
+exit 0`
+	if _, err := execScriptOnVMForScenario(ctx, s, detach); err != nil {
+		return fmt.Errorf("request detached localdns restart: %w", err)
+	}
+
+	const attempts = 20
+	var lastErr error
+	for i := 0; i < attempts; i++ {
+		time.Sleep(5 * time.Second)
+		res, err := execScriptOnVMForScenario(ctx, s, "systemctl is-active localdns.service")
+		if err != nil {
+			// Expected while DNS is down mid-restart; keep polling.
+			lastErr = err
+			continue
+		}
+		if strings.TrimSpace(res.stdout) == "active" {
+			logging.Logf(ctx, "localdns is active again after staging (attempt %d)", i+1)
+			return nil
+		}
+		lastErr = fmt.Errorf("localdns is %q", strings.TrimSpace(res.stdout))
+	}
+	return fmt.Errorf("localdns did not become active after staging: %w", lastErr)
 }
 
 // podClusterFirstDNSLinux builds a ClusterFirst pod pinned to the scenario's node.
@@ -214,7 +338,11 @@ func podClusterFirstDNSLinux(s *Scenario, suffix string) *corev1.Pod {
 func alternateKubeDNSService(s *Scenario) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-kube-dns-alt", s.Runtime.VM.KubeName),
+			// Literal prefix first: Service names are RFC 1035 labels and must start
+			// with a letter, but the scenario's node name starts with the date, so
+			// "<node>-kube-dns-alt" is rejected. (Pod names are RFC 1123 subdomains
+			// and do allow a leading digit, which is why only this one needs it.)
+			Name:      fmt.Sprintf("kube-dns-alt-%s", s.Runtime.VM.KubeName),
 			Namespace: "kube-system",
 		},
 		Spec: corev1.ServiceSpec{
@@ -317,10 +445,18 @@ func ValidateLocalDNSFallbackRecovery(ctx context.Context, s *Scenario) error {
 		}
 	}
 
+	// Phase scripts are 10-15KB, well past the bastion tunnel's 8KB command limit,
+	// so they are uploaded in chunks and then executed rather than sent inline.
 	phase := func(name, script string) error {
-		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, localDNSFallbackPrelude+script, 0,
-			"localdns fallback e2e: "+name); err != nil {
+		remote := "/home/azureuser/localdns_fallback_" + name + ".sh"
+		res, err := uploadAndRunOnVM(ctx, s, localDNSFallbackPrelude+script, remote,
+			func(r string) string { return "sudo " + r }, "localdns fallback e2e: "+name)
+		if err != nil {
 			return fmt.Errorf("%s: %w", name, err)
+		}
+		logging.Logf(ctx, "localdns fallback e2e %s output:\n%s", name, res.stdout)
+		if res.exitCode != "0" {
+			return fmt.Errorf("%s failed (exit %s)\nstdout: %s\nstderr: %s", name, res.exitCode, res.stdout, res.stderr)
 		}
 		return nil
 	}
@@ -350,7 +486,8 @@ fi
 log "post-test state: localdns=$(systemctl is-active localdns.service) cluster-dns=$(kubelet_cluster_dns)"
 exit 0
 `
-		if _, err := execScriptOnVMForScenario(cleanupCtx, s, restore); err != nil {
+		if _, err := uploadAndRunOnVM(cleanupCtx, s, restore, "/home/azureuser/localdns_fallback_restore.sh",
+			func(r string) string { return "sudo " + r }, "localdns fallback e2e: restore"); err != nil {
 			logging.Logf(ctx, "localdns fallback e2e: node restore failed: %v", err)
 		}
 	}()
@@ -370,6 +507,13 @@ exit 0
 			logging.Logf(ctx, "could not delete alternate kube-dns service %s: %v", createdSvc.Name, err)
 		}
 	}()
+	kubeDNS, err := kube.Typed.CoreV1().Services("kube-system").Get(ctx, "kube-dns", metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("get kube-dns service: %w", err)
+	}
+	kubeDNSClusterIP := kubeDNS.Spec.ClusterIP
+	logging.Logf(ctx, "cluster kube-dns ClusterIP is %s", kubeDNSClusterIP)
+
 	altClusterIP := createdSvc.Spec.ClusterIP
 	if altClusterIP == "" {
 		return fmt.Errorf("alternate kube-dns service %q was not allocated a ClusterIP", createdSvc.Name)
@@ -388,7 +532,8 @@ exit 0
 	// fault, and each maps to a specific defect found on a live node. If one of
 	// them regresses, it must surface as its own message rather than as a
 	// confusing downstream failure in a phase that assumed the wiring was sound.
-	if err := phase("phase0-wiring", `
+	if err := phase("phase0-wiring", fmt.Sprintf(`
+KUBE_DNS_IP=%q
 # Wiring regressions, each tied to a defect found on a live node.
 systemctl show localdns.service -p OnFailure 2>/dev/null | grep -q "OnFailure=localdns-fallback.service" \
   && ok "localdns declares OnFailure=localdns-fallback.service" || fail "localdns missing OnFailure="
@@ -406,6 +551,24 @@ sli=$(systemctl show localdns-fallback.service -p StartLimitIntervalUSec --value
 [ "$sli" = "0" ] && ok "fallback StartLimitIntervalUSec=0 (key is in [Unit])" \
   || fail "fallback StartLimitIntervalUSec should be 0; got '$sli'"
 
+# The upstream this whole feature forwards to must actually be the cluster's kube-dns
+# ClusterIP. Asserted by name so a failure reads as the aks-rp gap it is, rather than
+# surfacing later as an unexplained DNS timeout on .11.
+coredns_ip=$(grep -m1 '^COREDNS_SERVICE_IP=' "$ENVF" 2>/dev/null | cut -d= -f2-)
+if [ -z "$coredns_ip" ]; then
+  fail "COREDNS_SERVICE_IP is empty in ${ENVF}. aks-rp does not populate ClusterNetworkConfig.core_dns_service_ip on the scriptless/ANC path, so the generated corefile falls back to the hardcoded 10.0.0.10. On this cluster kube-dns is ${KUBE_DNS_IP}, so 169.254.10.11 cannot resolve cluster names at all. Needs an aks-rp fix; see the PR description."
+elif [ "$coredns_ip" != "$KUBE_DNS_IP" ]; then
+  fail "COREDNS_SERVICE_IP is ${coredns_ip} but this cluster's kube-dns ClusterIP is ${KUBE_DNS_IP}"
+else
+  ok "COREDNS_SERVICE_IP is populated and matches the cluster's kube-dns ClusterIP (${coredns_ip})"
+fi
+# Same check against what localdns is actually running, which is what the fallback derives from.
+fwd=$(sudo grep -oE 'forward \. [0-9.]+' "$UPDATED_COREFILE" 2>/dev/null | awk '{print $3}' | grep -v '^168\.63\.129\.16$' | sort -u | tr '\n' ' ')
+case " $fwd " in
+  *" $KUBE_DNS_IP "*) ok "localdns's corefile forwards cluster DNS to ${KUBE_DNS_IP}" ;;
+  *) fail "localdns's corefile forwards cluster DNS to [${fwd}], not this cluster's kube-dns ClusterIP ${KUBE_DNS_IP} -- pods using 169.254.10.11 cannot resolve cluster names" ;;
+esac
+
 # Distro invariant. localdns-fallback-probe.sh calls dig unconditionally, but nothing
 # in the VHD build installs it -- localdns itself health-checks with curl against
 # :8181. On an image without dig the probe fails open and never fires, which silently
@@ -422,7 +585,7 @@ else
 fi
 
 finish
-`); err != nil {
+`, kubeDNSClusterIP)); err != nil {
 		return err
 	}
 
@@ -484,9 +647,14 @@ journalctl -u localdns-fallback.service --since "$MARK" --no-pager -o cat 2>/dev
   && ok "CRASH: fallback reused the surviving interface instead of recreating it" \
   || fail "CRASH: fallback did not report reusing an already-present ${CLUSTER_IP}"
 assert_fallback_owns_11 "CRASH"
-wait_for 30 "pod resolution over the surviving interface" pod_resolves_via "$POD1" "$CLUSTER_IP" \
-  && ok "CRASH: pre-existing pod resolves through the fallback after a SIGKILL" \
-  || fail "CRASH: pre-existing pod cannot resolve after a SIGKILL"
+if pods_are_pinned_to_11; then
+  wait_for 30 "pod resolution over the surviving interface" pod_resolves_via "$POD1" "$CLUSTER_IP" \
+    && ok "CRASH: pre-existing pod resolves through the fallback after a SIGKILL" \
+    || { diag "pod cannot resolve through the fallback"; fail "CRASH: pre-existing pod cannot resolve after a SIGKILL"; }
+  log "pod netns=$(pod_netns "$POD1") nameserver=$(pod_nameserver "$POD1")"
+else
+  skip_unpinned "CRASH pod resolution"
+fi
 
 # Restore for the teardown phases that follow.
 sudo systemctl stop localdns-fallback.service 2>/dev/null || true
@@ -495,10 +663,14 @@ sudo systemctl daemon-reload
 sudo systemctl reset-failed localdns.service 2>/dev/null || true
 sudo systemctl start localdns.service 2>/dev/null || true
 wait_for 90 "localdns healthy again" sh -c 'systemctl is-active --quiet localdns.service' || true
-wait_for 60 "kubelet --cluster-dns restored after the crash phase" \
-  sh -c '[ "$(grep -oE "\-\-cluster-dns=[^\" ]+" /etc/default/kubelet | head -1 | cut -d= -f2-)" = "169.254.10.11" ]' \
-  && ok "CRASH: kubelet --cluster-dns was restored on recovery" \
-  || fail "CRASH: kubelet --cluster-dns is $(kubelet_cluster_dns) after recovery"
+if pods_are_pinned_to_11; then
+  wait_for 60 "kubelet --cluster-dns restored after the crash phase" \
+    sh -c '[ "$(grep -oE "\-\-cluster-dns=[^\" ]+" /etc/default/kubelet | head -1 | cut -d= -f2-)" = "169.254.10.11" ]' \
+    && ok "CRASH: kubelet --cluster-dns was restored on recovery" \
+    || { diag "kubelet --cluster-dns not restored"; fail "CRASH: kubelet --cluster-dns is $(kubelet_cluster_dns) after recovery"; }
+else
+  skip_unpinned "CRASH kubelet repoint round trip"
+fi
 finish
 `, pod1)); err != nil {
 		return err
@@ -510,13 +682,19 @@ POD1=%q
 sudo cp -a "$ENVF" "$ENVBAK"
 sudo cp -a "$UPDATED_COREFILE" "$COREFILE_BAK"
 
-[ "$(kubelet_cluster_dns)" = "$CLUSTER_IP" ] \
-  && ok "baseline: kubelet --cluster-dns is ${CLUSTER_IP}" \
-  || fail "baseline: kubelet --cluster-dns is $(kubelet_cluster_dns), expected ${CLUSTER_IP}"
-[ "$(pod_nameserver "$POD1")" = "$CLUSTER_IP" ] \
-  && ok "baseline: pre-failure pod resolv.conf points at ${CLUSTER_IP}" \
-  || fail "baseline: pre-failure pod nameserver is $(pod_nameserver "$POD1")"
-wait_for 60 "baseline pod resolution" pod_resolves_via "$POD1" "$CLUSTER_IP" || true
+if pods_are_pinned_to_11; then
+  ok "baseline: kubelet --cluster-dns is ${CLUSTER_IP}"
+else
+  skip_unpinned "baseline kubelet --cluster-dns"
+fi
+if pods_are_pinned_to_11; then
+  [ "$(pod_nameserver "$POD1")" = "$CLUSTER_IP" ] \
+    && ok "baseline: pre-failure pod resolv.conf points at ${CLUSTER_IP}" \
+    || fail "baseline: pre-failure pod nameserver is $(pod_nameserver "$POD1")"
+  wait_for 60 "baseline pod resolution" pod_resolves_via "$POD1" "$CLUSTER_IP" || true
+else
+  skip_unpinned "baseline pod resolution"
+fi
 
 # Corrupt the base64 corefile SOURCE so localdns fails unrecoverably.
 bad=$(printf 'THIS IS NOT A VALID COREFILE {{{\n' | base64 -w0)
@@ -580,37 +758,41 @@ ALT_CLUSTER_IP=%q
 COREDNS_IP=$(kubelet_cluster_dns)
 log "kubelet --cluster-dns is now ${COREDNS_IP}"
 
-# --- Case 1: the pod that predates the failure is still on .11, served by us ---
-[ "$(pod_nameserver "$POD1")" = "$CLUSTER_IP" ] \
-  && ok "CASE 1: pre-failure pod is still pinned to ${CLUSTER_IP}" \
-  || fail "CASE 1: pre-failure pod nameserver changed to $(pod_nameserver "$POD1")"
-assert_fallback_owns_11 "CASE 1"
-wait_for 30 "CASE 1 cluster lookup" pod_resolves_via "$POD1" "$CLUSTER_IP" \
-  && ok "CASE 1: pre-failure pod resolves a cluster name through the fallback" \
-  || fail "CASE 1: pre-failure pod cannot resolve through ${CLUSTER_IP}"
-pod_resolves_external_via "$POD1" "$CLUSTER_IP" \
-  && ok "CASE 1: pre-failure pod resolves an external name through the fallback" \
-  || fail "CASE 1: external lookup failed through ${CLUSTER_IP}"
+if pods_are_pinned_to_11; then
+  # --- Case 1: the pod that predates the failure is still on .11, served by us ---
+  [ "$(pod_nameserver "$POD1")" = "$CLUSTER_IP" ] \
+    && ok "CASE 1: pre-failure pod is still pinned to ${CLUSTER_IP}" \
+    || fail "CASE 1: pre-failure pod nameserver changed to $(pod_nameserver "$POD1")"
+  assert_fallback_owns_11 "CASE 1"
+  wait_for 30 "CASE 1 cluster lookup" pod_resolves_via "$POD1" "$CLUSTER_IP" \
+    && ok "CASE 1: pre-failure pod resolves a cluster name through the fallback" \
+    || fail "CASE 1: pre-failure pod cannot resolve through ${CLUSTER_IP}"
+  pod_resolves_external_via "$POD1" "$CLUSTER_IP" \
+    && ok "CASE 1: pre-failure pod resolves an external name through the fallback" \
+    || fail "CASE 1: external lookup failed through ${CLUSTER_IP}"
 
-# --- Case 2: the pod born during the outage bypasses .11 entirely ---
-[ "$COREDNS_IP" != "$CLUSTER_IP" ] \
-  && ok "CASE 2: kubelet --cluster-dns was repointed away from ${CLUSTER_IP}" \
-  || fail "CASE 2: kubelet --cluster-dns is still ${CLUSTER_IP}"
-[ "$(pod_nameserver "$POD2")" = "$COREDNS_IP" ] \
-  && ok "CASE 2: during-failure pod was born with nameserver ${COREDNS_IP}" \
-  || fail "CASE 2: during-failure pod nameserver is $(pod_nameserver "$POD2"), expected ${COREDNS_IP}"
-[ "$(pod_nameserver "$POD2")" != "$CLUSTER_IP" ] \
-  && ok "CASE 2: during-failure pod does not depend on the fallback at all" \
-  || fail "CASE 2: during-failure pod is pinned to ${CLUSTER_IP}"
-wait_for 30 "CASE 2 cluster lookup" pod_resolves_via "$POD2" "$COREDNS_IP" \
-  && ok "CASE 2: during-failure pod resolves a cluster name directly against CoreDNS" \
-  || fail "CASE 2: during-failure pod cannot resolve against ${COREDNS_IP}"
-pod_resolves_external_via "$POD2" "$COREDNS_IP" \
-  && ok "CASE 2: during-failure pod resolves an external name" \
-  || fail "CASE 2: external lookup failed against ${COREDNS_IP}"
-sudo test -s /etc/localdns/kubelet-cluster-dns.orig \
-  && ok "CASE 2: original --cluster-dns was recorded for restore" \
-  || fail "CASE 2: no recorded original --cluster-dns"
+  # --- Case 2: the pod born during the outage bypasses .11 entirely ---
+  [ "$COREDNS_IP" != "$CLUSTER_IP" ] \
+    && ok "CASE 2: kubelet --cluster-dns was repointed away from ${CLUSTER_IP}" \
+    || fail "CASE 2: kubelet --cluster-dns is still ${CLUSTER_IP}"
+  [ "$(pod_nameserver "$POD2")" = "$COREDNS_IP" ] \
+    && ok "CASE 2: during-failure pod was born with nameserver ${COREDNS_IP}" \
+    || fail "CASE 2: during-failure pod nameserver is $(pod_nameserver "$POD2"), expected ${COREDNS_IP}"
+  [ "$(pod_nameserver "$POD2")" != "$CLUSTER_IP" ] \
+    && ok "CASE 2: during-failure pod does not depend on the fallback at all" \
+    || fail "CASE 2: during-failure pod is pinned to ${CLUSTER_IP}"
+  wait_for 30 "CASE 2 cluster lookup" pod_resolves_via "$POD2" "$COREDNS_IP" \
+    && ok "CASE 2: during-failure pod resolves a cluster name directly against CoreDNS" \
+    || fail "CASE 2: during-failure pod cannot resolve against ${COREDNS_IP}"
+  pod_resolves_external_via "$POD2" "$COREDNS_IP" \
+    && ok "CASE 2: during-failure pod resolves an external name" \
+    || fail "CASE 2: external lookup failed against ${COREDNS_IP}"
+  sudo test -s /etc/localdns/kubelet-cluster-dns.orig \
+    && ok "CASE 2: original --cluster-dns was recorded for restore" \
+    || fail "CASE 2: no recorded original --cluster-dns"
+else
+  skip_unpinned "CASE 1 and CASE 2 pod generations"
+fi
 
 # --- Minimal-corefile floor: the fault corrupted the corefile source, so the
 # derivation must have rejected it rather than shipping garbage to coredns. ---
@@ -641,9 +823,13 @@ if journalctl -u localdns-fallback.service --since "-2min" --no-pager -o cat 2>/
   sudo grep -q "force_tcp" "$FALLBACK_COREFILE" \
     && ok "DERIVED: inherited the cluster.local force_tcp block" \
     || log "note: source corefile has no force_tcp block"
-  wait_for 30 "CASE 1 lookup on the derived corefile" pod_resolves_via "$POD1" "$CLUSTER_IP" \
-    && ok "DERIVED: pre-failure pod still resolves on the derived corefile" \
-    || fail "DERIVED: pre-failure pod cannot resolve on the derived corefile"
+if pods_are_pinned_to_11; then
+    wait_for 30 "CASE 1 lookup on the derived corefile" pod_resolves_via "$POD1" "$CLUSTER_IP" \
+      && ok "DERIVED: pre-failure pod still resolves on the derived corefile" \
+      || fail "DERIVED: pre-failure pod cannot resolve on the derived corefile"
+else
+  skip_unpinned "derived-corefile pod lookup"
+fi
 
   # Hosts plugin. This is the single largest behavioural difference between the
   # derived corefile and the minimal one, and it only matters on clusters that
@@ -696,9 +882,14 @@ assert_fallback_owns_11 "custom-clusterip"
 sudo grep -q "forward . ${ALT_CLUSTER_IP}" "$FALLBACK_COREFILE" \
   && ok "CUSTOM: fallback forwards to the alternate ClusterIP ${ALT_CLUSTER_IP}" \
   || fail "CUSTOM: corefile does not forward to ${ALT_CLUSTER_IP}"
-wait_for 30 "pod resolution via the alternate ClusterIP" pod_resolves_via "$POD1" "$CLUSTER_IP" \
-  && ok "CUSTOM: existing pod resolves through the alternate ClusterIP" \
-  || fail "CUSTOM: pod could not resolve via ${ALT_CLUSTER_IP}"
+if pods_are_pinned_to_11; then
+  wait_for 30 "pod resolution via the alternate ClusterIP" pod_resolves_via "$POD1" "$CLUSTER_IP" \
+    && ok "CUSTOM: existing pod resolves through the alternate ClusterIP" \
+    || fail "CUSTOM: pod could not resolve via ${ALT_CLUSTER_IP}"
+else
+  skip_unpinned "custom ClusterIP pod lookup"
+fi
+
 if command -v conntrack >/dev/null 2>&1; then
   sudo conntrack -L -p udp 2>/dev/null | grep "dst=${ALT_CLUSTER_IP}" | head -2 || true
   sudo conntrack -L -p udp 2>/dev/null | grep -q "dst=${ALT_CLUSTER_IP}" \
@@ -708,23 +899,32 @@ else
   log "note: conntrack not installed on this image; packet-path assertion skipped"
 fi
 
-# Negative control: an unroutable upstream must break resolution. If it does not,
-# COREDNS_SERVICE_IP is being ignored and the positive case above was meaningless.
-set_upstream "240.0.0.1"
-sudo systemctl restart localdns-fallback.service; sleep 5
-assert_fallback_owns_11 "bogus-upstream"
-if pod_resolves_via "$POD1" "$CLUSTER_IP"; then
-  fail "CUSTOM: pod still resolved with upstream 240.0.0.1 — COREDNS_SERVICE_IP is being ignored"
+if pods_are_pinned_to_11; then
+  # Negative control: an unroutable upstream must break resolution. If it does not,
+  # COREDNS_SERVICE_IP is being ignored and the positive case above was meaningless.
+  set_upstream "240.0.0.1"
+  sudo systemctl restart localdns-fallback.service; sleep 5
+  assert_fallback_owns_11 "bogus-upstream"
+  if pod_resolves_via "$POD1" "$CLUSTER_IP"; then
+    fail "CUSTOM: pod still resolved with upstream 240.0.0.1 — COREDNS_SERVICE_IP is being ignored"
+  else
+    ok "CUSTOM: pod correctly failed to resolve with a bogus upstream (the value is honoured)"
+  fi
 else
-  ok "CUSTOM: pod correctly failed to resolve with a bogus upstream (the value is honoured)"
+  skip_unpinned "custom ClusterIP negative control"
 fi
 
 # Back to the alternate ClusterIP, so the negative result above is shown to be causal.
 set_upstream "$ALT_CLUSTER_IP"
 sudo systemctl restart localdns-fallback.service; sleep 5
-wait_for 30 "pod resolution restored on the alternate ClusterIP" pod_resolves_via "$POD1" "$CLUSTER_IP" \
-  && ok "CUSTOM: pod resolves again on the alternate ClusterIP (the negative was causal)" \
-  || fail "CUSTOM: pod did not recover on ${ALT_CLUSTER_IP}"
+if pods_are_pinned_to_11; then
+  wait_for 30 "pod resolution restored on the alternate ClusterIP" pod_resolves_via "$POD1" "$CLUSTER_IP" \
+    && ok "CUSTOM: pod resolves again on the alternate ClusterIP (the negative was causal)" \
+    || fail "CUSTOM: pod did not recover on ${ALT_CLUSTER_IP}"
+else
+  skip_unpinned "custom ClusterIP recovery"
+fi
+
 finish
 `, pod1, pod2, altClusterIP)); err != nil {
 		return err
@@ -765,15 +965,19 @@ POD1=%q
 POD3=%q
 
 # --- Case 3: pods born after recovery are back on the localdns listener ---
-[ "$(pod_nameserver "$POD3")" = "$CLUSTER_IP" ] \
-  && ok "CASE 3: post-recovery pod was born with nameserver ${CLUSTER_IP}" \
-  || fail "CASE 3: post-recovery pod nameserver is $(pod_nameserver "$POD3"), expected ${CLUSTER_IP}"
-wait_for 30 "CASE 3 cluster lookup" pod_resolves_via "$POD3" "$CLUSTER_IP" \
-  && ok "CASE 3: post-recovery pod resolves through localdns" \
-  || fail "CASE 3: post-recovery pod cannot resolve"
-pod_resolves_via "$POD1" "$CLUSTER_IP" \
-  && ok "CASE 1: pre-failure pod still resolves after recovery" \
-  || fail "CASE 1: pre-failure pod broken after recovery"
+if pods_are_pinned_to_11; then
+  [ "$(pod_nameserver "$POD3")" = "$CLUSTER_IP" ] \
+    && ok "CASE 3: post-recovery pod was born with nameserver ${CLUSTER_IP}" \
+    || fail "CASE 3: post-recovery pod nameserver is $(pod_nameserver "$POD3"), expected ${CLUSTER_IP}"
+  wait_for 30 "CASE 3 cluster lookup" pod_resolves_via "$POD3" "$CLUSTER_IP" \
+    && ok "CASE 3: post-recovery pod resolves through localdns" \
+    || fail "CASE 3: post-recovery pod cannot resolve"
+  pod_resolves_via "$POD1" "$CLUSTER_IP" \
+    && ok "CASE 1: pre-failure pod still resolves after recovery" \
+    || fail "CASE 1: pre-failure pod broken after recovery"
+else
+  skip_unpinned "CASE 3 pod generation"
+fi
 
 # --- Guard: a spurious start must not fight a healthy localdns for .11. Without
 # this the unit's unbounded restart budget turns a bind conflict into a hot loop. ---
@@ -822,9 +1026,15 @@ wait_for 60 "fallback started by the probe (debounce ~15s)" \
   && ok "PROBE: the probe started the fallback with no OnFailure= event" \
   || fail "PROBE: the probe never started the fallback"
 assert_fallback_owns_11 "PROBE"
-wait_for 30 "pod resolution via the probe-started fallback" pod_resolves_via "$POD1" "$CLUSTER_IP" \
-  && ok "PROBE: pre-existing pod resolves again after a clean localdns stop" \
-  || fail "PROBE: pod could not resolve after a clean localdns stop"
+if pods_are_pinned_to_11; then
+  wait_for 30 "pod resolution via the probe-started fallback" pod_resolves_via "$POD1" "$CLUSTER_IP" \
+    && ok "PROBE: pre-existing pod resolves again after a clean localdns stop" \
+    || fail "PROBE: pod could not resolve after a clean localdns stop"
+else
+  skip_unpinned "probe-path pod lookup"
+fi
+
+
 finish
 `, pod1, pod3))
 }
