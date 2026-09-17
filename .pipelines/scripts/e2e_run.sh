@@ -96,7 +96,7 @@ fi
 az extension add --name bastion
 
 cd e2e
-go test -count=1 -timeout "${E2E_GO_TEST_TIMEOUT}" ./...
+go test -v -count=1 -timeout "${E2E_GO_TEST_TIMEOUT}" ./...
 
 go run . run \
   --parallel 60 \
