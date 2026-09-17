@@ -447,6 +447,10 @@ copyPackerFiles() {
   LOCALDNS_FALLBACK_PROBE_TIMER_DEST=/etc/systemd/system/localdns-fallback-probe.timer
   cpAndMode $LOCALDNS_FALLBACK_PROBE_TIMER_SRC $LOCALDNS_FALLBACK_PROBE_TIMER_DEST 0644
 
+  LOCALDNS_KUBELET_DNS_SCRIPT_SRC=/home/packer/localdns-kubelet-dns.sh
+  LOCALDNS_KUBELET_DNS_SCRIPT_DEST=/opt/azure/containers/localdns/localdns-kubelet-dns.sh
+  cpAndMode $LOCALDNS_KUBELET_DNS_SCRIPT_SRC $LOCALDNS_KUBELET_DNS_SCRIPT_DEST 0755
+
   # Skip localdns exporter for Flatcar (EOL June 2026, no new features)
   if ! isFlatcar "$OS"; then
     LOCALDNS_EXPORTER_SCRIPT_SRC=/home/packer/localdns_exporter.sh

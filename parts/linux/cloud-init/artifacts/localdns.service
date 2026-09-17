@@ -39,6 +39,11 @@ Restart=on-failure
 # above was never spent and 'failed' was never reached. '-' so a not-running
 # fallback is not an error.
 ExecStartPre=-/usr/bin/systemctl stop localdns-fallback.service
+# Undo the kubelet repoint the fallback may have made, so pods created from here
+# on go back to the localdns cluster listener. Idempotent and silent in the
+# common case (nothing was ever repointed), so it costs a no-op on every normal
+# start and never restarts kubelet unless it actually changed something.
+ExecStartPost=-/opt/azure/containers/localdns/localdns-kubelet-dns.sh restore
 # Load-bearing: give each restart time to sample real system state instead of
 # re-entering the transient it is retrying against. cleanup_iptables_and_dns
 # runs 'networkctl reload' on every start, and the dummy interface carrying the

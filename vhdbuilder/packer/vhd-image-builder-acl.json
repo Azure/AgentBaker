@@ -674,6 +674,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-kubelet-dns.sh",
+      "destination": "/home/packer/localdns-kubelet-dns.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/localdns-delegate.conf",
       "destination": "/home/packer/localdns-delegate.conf"
     },

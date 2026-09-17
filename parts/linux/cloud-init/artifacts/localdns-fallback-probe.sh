@@ -30,7 +30,6 @@ STATE_DIR="/run/localdns-fallback"
 FAIL_COUNTER_FILE="${STATE_DIR}/consecutive_fails"
 
 FALLBACK_SERVICE="localdns-fallback.service"
-LOCALDNS_SERVICE="localdns.service"
 
 log() { echo "localdns-fallback-probe: $*"; }
 
@@ -65,6 +64,17 @@ fallback_is_active() {
 }
 
 main() {
+    # Fail OPEN, not closed. dig is not installed by the VHD build on every image
+    # (localdns itself never needs it - it health-checks with curl against the
+    # ready endpoint on :8181), and a missing dig makes cluster_listener_answers
+    # return 127, which reads as ".11 is dark" on every single tick. That would
+    # start the fallback against a perfectly healthy localdns forever. Doing
+    # nothing is the correct response to "cannot measure".
+    if ! command -v dig >/dev/null 2>&1; then
+        log "dig is not available on this image; cannot evaluate ${LOCALDNS_CLUSTER_LISTENER_IP}, taking no action."
+        return 0
+    fi
+
     if cluster_listener_answers; then
         # .11 is being served. Reset the debounce counter. Do NOT stop the
         # fallback here: if the fallback is what is answering, stopping it would

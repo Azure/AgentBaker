@@ -200,6 +200,146 @@ Describe 'localdns-fallback.sh'
         End
     End
 
+
+    Describe 'cluster_listener_owned_by_localdns'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns-fallback.sh"
+            TMP_DIR=$(mktemp -d)
+            # Mock 'ss' to report whoever we say holds .11:53.
+            ss() { [ -n "${SS_PID:-}" ] && echo "UNCONN 0 0 169.254.10.11:53 0.0.0.0:* users:((\"coredns\",pid=${SS_PID},fd=12))"; }
+            # Redirect /proc/<pid>/cgroup lookups at a fixture.
+            grep() {
+                if [ "$1" = "-q" ] && [ "$3" = "/proc/${SS_PID:-none}/cgroup" ]; then
+                    command grep -q "$2" "${TMP_DIR}/cgroup"
+                else
+                    command grep "$@"
+                fi
+            }
+        }
+        cleanup() { rm -rf "${TMP_DIR}"; }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'reports true when localdns.service holds .11:53'
+            SS_PID=4242
+            echo "0::/system.slice/localdns.slice/localdns.service" > "${TMP_DIR}/cgroup"
+            When call cluster_listener_owned_by_localdns
+            The status should be success
+        End
+
+        It 'reports false when the fallback itself holds .11:53'
+            SS_PID=4242
+            echo "0::/system.slice/localdns.slice/localdns-fallback.service" > "${TMP_DIR}/cgroup"
+            When call cluster_listener_owned_by_localdns
+            The status should be failure
+        End
+
+        It 'reports false when nothing holds .11:53'
+            unset SS_PID
+            When call cluster_listener_owned_by_localdns
+            The status should be failure
+        End
+    End
+
+    Describe 'derive_fallback_corefile_from_localdns'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns-fallback.sh"
+            TMP_DIR=$(mktemp -d)
+            FALLBACK_COREFILE="${TMP_DIR}/fallback.corefile"
+            UPDATED_LOCALDNS_CORE_FILE="${TMP_DIR}/updated.corefile"
+            LOCALDNS_CORE_FILE="${TMP_DIR}/localdns.corefile"
+            # A corefile shaped like the real one: a health-check block bound to
+            # BOTH listeners, a node-only block, and two cluster-listener blocks.
+            cat > "${UPDATED_LOCALDNS_CORE_FILE}" <<'EOF'
+# comment outside any block
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+.:53 {
+    errors
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        prefer_udp
+    }
+}
+.:53 {
+    errors
+    bind 169.254.10.11
+    hosts /etc/localdns/hosts {
+        ttl 5
+        fallthrough
+    }
+    forward . 10.0.0.10 {
+        prefer_udp
+    }
+    cache 3600 {
+        serve_stale 3600s immediate
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+    prometheus :9253
+}
+cluster.local:53 {
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        force_tcp
+    }
+}
+EOF
+        }
+        cleanup() { rm -rf "${TMP_DIR}"; }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'keeps only the blocks bound to the cluster listener'
+            When call derive_fallback_corefile_from_localdns
+            The status should be success
+            The stderr should include "derived fallback corefile"
+            The contents of file "${FALLBACK_COREFILE}" should include "cluster.local:53"
+            The contents of file "${FALLBACK_COREFILE}" should include "health-check.localdns.local:53"
+            The contents of file "${FALLBACK_COREFILE}" should not include "168.63.129.16"
+        End
+
+        It 'never lets a derived block bind the node listener'
+            When call derive_fallback_corefile_from_localdns
+            The status should be success
+            The stderr should include "derived fallback corefile"
+            The contents of file "${FALLBACK_COREFILE}" should not include "169.254.10.10"
+        End
+
+        It 'preserves behaviour the minimal corefile would have dropped'
+            When call derive_fallback_corefile_from_localdns
+            The status should be success
+            The stderr should include "derived fallback corefile"
+            The contents of file "${FALLBACK_COREFILE}" should include "hosts /etc/localdns/hosts"
+            The contents of file "${FALLBACK_COREFILE}" should include "serve_stale 3600s immediate"
+            The contents of file "${FALLBACK_COREFILE}" should include "template ANY ANY reddog.microsoft.com"
+            The contents of file "${FALLBACK_COREFILE}" should include "force_tcp"
+            The contents of file "${FALLBACK_COREFILE}" should include "prometheus :9253"
+        End
+
+        It 'falls back when no localdns corefile exists'
+            rm -f "${UPDATED_LOCALDNS_CORE_FILE}" "${LOCALDNS_CORE_FILE}"
+            When call derive_fallback_corefile_from_localdns
+            The status should be failure
+            The stderr should include "no localdns corefile to derive from"
+        End
+
+        It 'falls back when the corefile has no cluster-listener block'
+            cat > "${UPDATED_LOCALDNS_CORE_FILE}" <<'EOF'
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16
+}
+EOF
+            When call derive_fallback_corefile_from_localdns
+            The status should be failure
+            The stderr should include "no 169.254.10.11 server block"
+        End
+    End
+
     Describe 'cleanup_fallback (localdns-aware, no address removal)'
         setup() {
             Include "./parts/linux/cloud-init/artifacts/localdns-fallback.sh"
