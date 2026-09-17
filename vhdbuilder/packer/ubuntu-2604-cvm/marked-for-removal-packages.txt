@@ -110,8 +110,6 @@ libgprofng0
 libgstreamer1.0-0
 libgudev-1.0-0
 libibverbs1
-libicu78
-libinih1
 libintl-perl
 libintl-xs-perl
 libip4tc2
@@ -180,7 +178,6 @@ libtracefs1
 libuchardet0
 libudisks2-0
 libunwind8
-liburcu8t64
 libuv1t64
 libvolume-key1
 libx11-6
