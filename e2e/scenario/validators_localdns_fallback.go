@@ -2,7 +2,11 @@ package scenario
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/logging"
@@ -108,6 +112,73 @@ func vhdHasLocalDNSFallbackArtifacts(ctx context.Context, s *Scenario) (bool, er
 	return result.exitCode == "0", nil
 }
 
+// localDNSFallbackArtifacts are the files this PR adds to the VHD, with their
+// on-node destination and mode. Kept in one place so staging and the presence
+// check cannot drift apart.
+var localDNSFallbackArtifacts = []struct {
+	repoFile string
+	dest     string
+	mode     string
+}{
+	// localdns.sh must be staged alongside localdns.service, not left at the VHD's
+	// version. The unit's ExecStopPost calls 'localdns.sh cleanup', a mode older
+	// scripts do not have, and ExecStopPost carries no '-' prefix -- so a mismatched
+	// pair fails on every stop and leaves the unit 'failed' instead of 'inactive',
+	// which silently converts the clean-stop case into the OnFailure= case.
+	{"localdns.sh", "/opt/azure/containers/localdns/localdns.sh", "0755"},
+	{"localdns.service", "/etc/systemd/system/localdns.service", "0644"},
+	{"localdns-fallback.service", "/etc/systemd/system/localdns-fallback.service", "0644"},
+	{"localdns-fallback.sh", "/opt/azure/containers/localdns/localdns-fallback.sh", "0755"},
+	{"localdns-fallback-probe.service", "/etc/systemd/system/localdns-fallback-probe.service", "0644"},
+	{"localdns-fallback-probe.timer", "/etc/systemd/system/localdns-fallback-probe.timer", "0644"},
+	{"localdns-fallback-probe.sh", "/opt/azure/containers/localdns/localdns-fallback-probe.sh", "0755"},
+	{"localdns-kubelet-dns.sh", "/opt/azure/containers/localdns/localdns-kubelet-dns.sh", "0755"},
+}
+
+// stageLocalDNSFallbackArtifacts installs this branch's localdns artifacts onto the
+// node.
+//
+// Without it this scenario can never run before the PR merges. The e2e provisions a
+// node with CSE and custom data generated from THIS branch, but the base VHD is a
+// published image, and these files are baked into the VHD by packer rather than
+// delivered at provision time. So vhdHasLocalDNSFallbackArtifacts is false on every
+// pipeline run and the whole scenario skips -- which means it would first execute
+// only after merging, which is exactly backwards.
+//
+// Staging closes that gap: it is the same thing a human does by hand to test a
+// VHD-baked change, done deterministically. It is a no-op once the artifacts ship.
+func stageLocalDNSFallbackArtifacts(ctx context.Context, s *Scenario) error {
+	var b strings.Builder
+	b.WriteString("set -euo pipefail\n")
+	b.WriteString("sudo mkdir -p /opt/azure/containers/localdns /etc/systemd/system\n")
+	for _, a := range localDNSFallbackArtifacts {
+		src := repoPath(filepath.Join("parts", "linux", "cloud-init", "artifacts", a.repoFile))
+		content, err := os.ReadFile(src)
+		if err != nil {
+			return fmt.Errorf("read %s for staging: %w", src, err)
+		}
+		fmt.Fprintf(&b, "echo %s | base64 -d | sudo tee %s >/dev/null\n",
+			base64.StdEncoding.EncodeToString(content), a.dest)
+		fmt.Fprintf(&b, "sudo chmod %s %s\n", a.mode, a.dest)
+		fmt.Fprintf(&b, "echo staged %s\n", a.dest)
+	}
+	// localdns.service was replaced, so the running unit is stale until reloaded.
+	// The probe timer is normally enabled by enableLocalDNS, but its backward-compat
+	// guard skipped it at provisioning time because the unit did not exist yet.
+	b.WriteString("sudo systemctl daemon-reload\n")
+	b.WriteString("sudo systemctl enable --now localdns-fallback-probe.timer\n")
+	b.WriteString("sudo systemctl reset-failed localdns.service 2>/dev/null || true\n")
+	b.WriteString("sudo systemctl restart localdns.service\n")
+	b.WriteString("sleep 10\n")
+	b.WriteString(`echo "staged: localdns=$(systemctl is-active localdns.service) probe-timer=$(systemctl is-active localdns-fallback-probe.timer)"` + "\n")
+
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, b.String(), 0,
+		"stage localdns fallback artifacts onto the node"); err != nil {
+		return fmt.Errorf("stage localdns fallback artifacts: %w", err)
+	}
+	return nil
+}
+
 // podClusterFirstDNSLinux builds a ClusterFirst pod pinned to the scenario's node.
 // kubelet writes whatever --cluster-dns currently says into the pod's sandbox
 // resolv.conf at creation time and never revisits it, so WHEN a pod is created
@@ -130,6 +201,28 @@ func podClusterFirstDNSLinux(s *Scenario, suffix string) *corev1.Pod {
 			},
 			Tolerations:  getPodTolerations(),
 			NodeSelector: getNodeSelectorForScenario(s),
+		},
+	}
+}
+
+// alternateKubeDNSService is a second Service in front of the same CoreDNS pods,
+// used to prove COREDNS_SERVICE_IP is honoured verbatim rather than falling back to
+// the hardcoded 10.0.0.10 default. The ClusterIP is deliberately left unset so the
+// API server allocates one from whatever service CIDR this cluster uses --
+// hardcoding an address would guess wrong on a custom-CIDR cluster, which is
+// precisely the case this assertion exists to cover.
+func alternateKubeDNSService(s *Scenario) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-kube-dns-alt", s.Runtime.VM.KubeName),
+			Namespace: "kube-system",
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{"k8s-app": "kube-dns"},
+			Ports: []corev1.ServicePort{
+				{Name: "dns", Port: 53, Protocol: corev1.ProtocolUDP},
+				{Name: "dns-tcp", Port: 53, Protocol: corev1.ProtocolTCP},
+			},
 		},
 	}
 }
@@ -208,8 +301,20 @@ func ValidateLocalDNSFallbackRecovery(ctx context.Context, s *Scenario) error {
 		return fmt.Errorf("detect localdns fallback artifacts: %w", err)
 	}
 	if !hasArtifacts {
-		logging.Logf(ctx, "WARNING: VHD does not have localdns-fallback artifacts — skipping fallback validation")
-		return nil
+		// Do not skip: install this branch's artifacts and test them. See
+		// stageLocalDNSFallbackArtifacts for why skipping would mean this scenario
+		// only ever runs after the code it covers has already merged.
+		logging.Logf(ctx, "VHD predates the localdns-fallback artifacts; staging them from the working tree")
+		if err := stageLocalDNSFallbackArtifacts(ctx, s); err != nil {
+			return err
+		}
+		staged, err := vhdHasLocalDNSFallbackArtifacts(ctx, s)
+		if err != nil {
+			return fmt.Errorf("re-check localdns fallback artifacts after staging: %w", err)
+		}
+		if !staged {
+			return fmt.Errorf("localdns fallback artifacts still absent after staging")
+		}
 	}
 
 	phase := func(name, script string) error {
@@ -250,6 +355,27 @@ exit 0
 		}
 	}()
 
+	// Alternate kube-dns Service: a real, kube-proxy-programmed ClusterIP that is
+	// provably not the cluster default, for the custom-ClusterIP assertions below.
+	kube := s.Runtime.Kube
+	svc := alternateKubeDNSService(s)
+	createdSvc, err := kube.Typed.CoreV1().Services(svc.Namespace).Create(ctx, svc, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("create alternate kube-dns service: %w", err)
+	}
+	defer func() {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		if err := kube.Typed.CoreV1().Services(createdSvc.Namespace).Delete(cleanupCtx, createdSvc.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			logging.Logf(ctx, "could not delete alternate kube-dns service %s: %v", createdSvc.Name, err)
+		}
+	}()
+	altClusterIP := createdSvc.Spec.ClusterIP
+	if altClusterIP == "" {
+		return fmt.Errorf("alternate kube-dns service %q was not allocated a ClusterIP", createdSvc.Name)
+	}
+	logging.Logf(ctx, "alternate kube-dns Service %q allocated ClusterIP %s", createdSvc.Name, altClusterIP)
+
 	// ---- Case 1 subject: created while localdns is healthy -------------------
 	pod1, del1, err := startLocalDNSProbePod(ctx, s, "before")
 	if err != nil {
@@ -279,6 +405,21 @@ esac
 sli=$(systemctl show localdns-fallback.service -p StartLimitIntervalUSec --value 2>/dev/null || true)
 [ "$sli" = "0" ] && ok "fallback StartLimitIntervalUSec=0 (key is in [Unit])" \
   || fail "fallback StartLimitIntervalUSec should be 0; got '$sli'"
+
+# Distro invariant. localdns-fallback-probe.sh calls dig unconditionally, but nothing
+# in the VHD build installs it -- localdns itself health-checks with curl against
+# :8181. On an image without dig the probe fails open and never fires, which silently
+# removes the ONLY trigger for the clean-stop case below. This scenario runs on
+# Ubuntu and AzureLinux, and dig is far likelier to be missing on the latter, so make
+# that a CI failure rather than a quiet loss of coverage.
+if systemctl is-enabled --quiet localdns-fallback-probe.timer 2>/dev/null \
+   || systemctl is-active --quiet localdns-fallback-probe.timer 2>/dev/null; then
+  command -v dig >/dev/null 2>&1 \
+    && ok "dig is present, so the fallback probe can actually evaluate ${CLUSTER_IP}" \
+    || fail "the probe timer is enabled but dig is not installed on this image; the probe fails open and the clean-stop path can never trigger"
+else
+  log "note: probe timer neither enabled nor active; skipping the dig invariant"
+fi
 
 finish
 `); err != nil {
@@ -435,6 +576,7 @@ finish
 	if err := phase("phase3-cases-1-and-2", fmt.Sprintf(`
 POD1=%q
 POD2=%q
+ALT_CLUSTER_IP=%q
 COREDNS_IP=$(kubelet_cluster_dns)
 log "kubelet --cluster-dns is now ${COREDNS_IP}"
 
@@ -536,8 +678,55 @@ if journalctl -u localdns-fallback.service --since "-2min" --no-pager -o cat 2>/
 else
   log "note: derivation did not run (corefile still unusable); minimal floor already asserted"
 fi
+
+# --- Custom CoreDNS ClusterIP: positive, then a negative control -------------
+# COREDNS_SERVICE_IP must be honoured verbatim. The positive case alone proves
+# nothing on a default-CIDR cluster: a silent fall back to the hardcoded 10.0.0.10
+# would pass it. The negative control is what makes the pair meaningful.
+sudo conntrack -D -p udp --dport 53 >/dev/null 2>&1 || true
+set_upstream() {
+  local ip="$1" tmp; tmp=$(mktemp)
+  grep -v '^COREDNS_SERVICE_IP=' "$ENVF" > "$tmp"
+  echo "COREDNS_SERVICE_IP=${ip}" >> "$tmp"
+  sudo cp "$tmp" "$ENVF"; rm -f "$tmp"
+}
+set_upstream "$ALT_CLUSTER_IP"
+sudo systemctl restart localdns-fallback.service; sleep 5
+assert_fallback_owns_11 "custom-clusterip"
+sudo grep -q "forward . ${ALT_CLUSTER_IP}" "$FALLBACK_COREFILE" \
+  && ok "CUSTOM: fallback forwards to the alternate ClusterIP ${ALT_CLUSTER_IP}" \
+  || fail "CUSTOM: corefile does not forward to ${ALT_CLUSTER_IP}"
+wait_for 30 "pod resolution via the alternate ClusterIP" pod_resolves_via "$POD1" "$CLUSTER_IP" \
+  && ok "CUSTOM: existing pod resolves through the alternate ClusterIP" \
+  || fail "CUSTOM: pod could not resolve via ${ALT_CLUSTER_IP}"
+if command -v conntrack >/dev/null 2>&1; then
+  sudo conntrack -L -p udp 2>/dev/null | grep "dst=${ALT_CLUSTER_IP}" | head -2 || true
+  sudo conntrack -L -p udp 2>/dev/null | grep -q "dst=${ALT_CLUSTER_IP}" \
+    && ok "CUSTOM: conntrack confirms queries went to ${ALT_CLUSTER_IP} and were DNAT'd by kube-proxy" \
+    || log "note: no conntrack entry to ${ALT_CLUSTER_IP} captured (may have aged out)"
+else
+  log "note: conntrack not installed on this image; packet-path assertion skipped"
+fi
+
+# Negative control: an unroutable upstream must break resolution. If it does not,
+# COREDNS_SERVICE_IP is being ignored and the positive case above was meaningless.
+set_upstream "240.0.0.1"
+sudo systemctl restart localdns-fallback.service; sleep 5
+assert_fallback_owns_11 "bogus-upstream"
+if pod_resolves_via "$POD1" "$CLUSTER_IP"; then
+  fail "CUSTOM: pod still resolved with upstream 240.0.0.1 — COREDNS_SERVICE_IP is being ignored"
+else
+  ok "CUSTOM: pod correctly failed to resolve with a bogus upstream (the value is honoured)"
+fi
+
+# Back to the alternate ClusterIP, so the negative result above is shown to be causal.
+set_upstream "$ALT_CLUSTER_IP"
+sudo systemctl restart localdns-fallback.service; sleep 5
+wait_for 30 "pod resolution restored on the alternate ClusterIP" pod_resolves_via "$POD1" "$CLUSTER_IP" \
+  && ok "CUSTOM: pod resolves again on the alternate ClusterIP (the negative was causal)" \
+  || fail "CUSTOM: pod did not recover on ${ALT_CLUSTER_IP}"
 finish
-`, pod1, pod2)); err != nil {
+`, pod1, pod2, altClusterIP)); err != nil {
 		return err
 	}
 
@@ -612,6 +801,30 @@ out=$(sudo env PATH=/nonexistent /bin/bash /opt/azure/containers/localdns/locald
 [ "$(systemctl is-active localdns-fallback.service)" != "active" ] \
   && ok "GUARD: probe without dig did not start the fallback" \
   || fail "GUARD: probe without dig started the fallback"
+
+# --- Clean stop: the one row of the behaviour matrix OnFailure= cannot cover ---
+# 'systemctl stop' is not a failure, so OnFailure= never fires and the unit lands in
+# 'inactive', not 'failed'. The probe timer is then the ONLY thing that can restore
+# .11, and its trap path has also deleted the dummy interface. This path had never
+# been exercised on any node before this assertion existed.
+log "probe path: stopping localdns cleanly so .11 goes dark without a failure"
+sudo systemctl stop localdns-fallback.service 2>/dev/null || true
+sudo rm -f /run/localdns-fallback/consecutive_fails 2>/dev/null || true
+sudo systemctl stop localdns.service 2>/dev/null || true
+sleep 2
+[ "$(systemctl is-failed localdns.service 2>/dev/null || true)" != "failed" ] \
+  && ok "PROBE: localdns is stopped but NOT 'failed', so OnFailure= cannot fire" \
+  || fail "PROBE: localdns reports 'failed' after a clean stop; this is not the clean-stop path"
+systemctl is-active --quiet localdns-fallback-probe.timer \
+  && ok "PROBE: the probe timer is active" || fail "PROBE: probe timer is not active"
+wait_for 60 "fallback started by the probe (debounce ~15s)" \
+  sh -c 'systemctl is-active --quiet localdns-fallback.service' \
+  && ok "PROBE: the probe started the fallback with no OnFailure= event" \
+  || fail "PROBE: the probe never started the fallback"
+assert_fallback_owns_11 "PROBE"
+wait_for 30 "pod resolution via the probe-started fallback" pod_resolves_via "$POD1" "$CLUSTER_IP" \
+  && ok "PROBE: pre-existing pod resolves again after a clean localdns stop" \
+  || fail "PROBE: pod could not resolve after a clean localdns stop"
 finish
 `, pod1, pod3))
 }
