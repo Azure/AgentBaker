@@ -145,7 +145,10 @@ enableLocalDNS() {
     # Enable the pod-DNS fallback probe timer (safety net for cases OnFailure=
     # does not cover: clean stop that stays stopped, or active-but-not-serving).
     # Backward-compat guard: skip on old VHDs that predate the probe unit.
-    if systemctl cat localdns-fallback-probe.timer &>/dev/null; then
+    # 'timeout' for the same reason the restart above is bounded -- this runs in the
+    # provisioning path, and an unresponsive PID 1 / D-Bus must not be able to
+    # consume the outer CSE deadline here.
+    if timeout 30 systemctl cat localdns-fallback-probe.timer &>/dev/null; then
         systemctlEnableAndStartNoBlock localdns-fallback-probe.timer 30 || exit "$ERR_LOCALDNS_FAIL"
         echo "Enabled localdns-fallback-probe.timer."
     else
