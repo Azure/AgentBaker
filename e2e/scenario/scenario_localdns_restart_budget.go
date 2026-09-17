@@ -3,6 +3,7 @@ package scenario
 import (
 	"context"
 	"fmt"
+	"time"
 )
 
 // LocalDNS restart-budget validation.
@@ -100,9 +101,15 @@ func validateLocalDNSRestartBudget(ctx context.Context, s *Scenario, faults []lo
 		return fmt.Errorf("install LocalDNS fault harness: %w", err)
 	}
 	// Always tear the harness down, including on early return, so the node is not left
-	// running the patched script or a temporary drop-in.
+	// running the patched script or a temporary drop-in. This runs even when ctx is already
+	// cancelled -- a scenario deadline or a dropped exec is exactly the path where cleanup
+	// matters most, and reusing ctx would make this return immediately, leaving the fault
+	// file, the patched script and the drop-in behind for whatever runs next. WithoutCancel
+	// keeps the exec's credentials and values; the timeout stops teardown hanging forever.
 	defer func() {
-		_, _ = execScriptOnVMForScenario(ctx, s, localdnsFaultTeardownScript)
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Minute)
+		defer cancel()
+		_, _ = execScriptOnVMForScenario(cleanupCtx, s, localdnsFaultTeardownScript)
 	}()
 
 	for _, fault := range faults {
@@ -187,7 +194,10 @@ set -eu
 
 for i in 1 2 3 4 5 6; do
     sudo systemctl reset-failed localdns.service 2>/dev/null || true
-    if ! sudo timeout 60 systemctl restart localdns.service; then
+    # timeout 30 mirrors the production path exactly (cse_config_localdns.sh). A longer
+    # bound here would let a restart that takes 30-60s pass this test while still failing
+    # node provisioning, which is the regression this is meant to catch.
+    if ! sudo timeout 30 systemctl restart localdns.service; then
         echo "FAIL: provisioning-style restart $i was refused"
         sudo systemctl status localdns.service --no-pager -l || true
         exit 1
