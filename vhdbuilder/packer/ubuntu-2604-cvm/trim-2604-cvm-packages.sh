@@ -1,10 +1,10 @@
 #!/bin/bash
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MARKED_FOR_REMOVAL_PACKAGES_FILE="${SCRIPT_DIR}/marked-for-removal-packages.txt"
-REQUIRED_PACKAGES_FILE="${SCRIPT_DIR}/required-packages.txt"
-FINAL_REQUIRED_PACKAGES_FILE="${SCRIPT_DIR}/final-required-packages.txt"
-FINAL_FORBIDDEN_PACKAGES_FILE="${SCRIPT_DIR}/final-forbidden-packages.txt"
+MARKED_FOR_REMOVAL_PACKAGES_FILE="${SCRIPT_DIR}/2604-minimal-cvm-marked-for-removal-packages.txt"
+REQUIRED_PACKAGES_FILE="${SCRIPT_DIR}/2604-minimal-cvm-required-packages.txt"
+FINAL_REQUIRED_PACKAGES_FILE="${SCRIPT_DIR}/2604-minimal-cvm-final-required-packages.txt"
+FINAL_FORBIDDEN_PACKAGES_FILE="${SCRIPT_DIR}/2604-minimal-cvm-final-forbidden-packages.txt"
 
 readPackageList() {
     sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$1"

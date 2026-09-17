@@ -391,23 +391,23 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/ubuntu-2604-cvm/marked-for-removal-packages.txt",
-      "destination": "/home/packer/marked-for-removal-packages.txt"
+      "source": "vhdbuilder/packer/ubuntu-2604-cvm/2604-minimal-cvm-marked-for-removal-packages.txt",
+      "destination": "/home/packer/2604-minimal-cvm-marked-for-removal-packages.txt"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/ubuntu-2604-cvm/required-packages.txt",
-      "destination": "/home/packer/required-packages.txt"
+      "source": "vhdbuilder/packer/ubuntu-2604-cvm/2604-minimal-cvm-required-packages.txt",
+      "destination": "/home/packer/2604-minimal-cvm-required-packages.txt"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/ubuntu-2604-cvm/final-required-packages.txt",
-      "destination": "/home/packer/final-required-packages.txt"
+      "source": "vhdbuilder/packer/ubuntu-2604-cvm/2604-minimal-cvm-final-required-packages.txt",
+      "destination": "/home/packer/2604-minimal-cvm-final-required-packages.txt"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/ubuntu-2604-cvm/final-forbidden-packages.txt",
-      "destination": "/home/packer/final-forbidden-packages.txt"
+      "source": "vhdbuilder/packer/ubuntu-2604-cvm/2604-minimal-cvm-final-forbidden-packages.txt",
+      "destination": "/home/packer/2604-minimal-cvm-final-forbidden-packages.txt"
     },
     {
       "type": "file",
