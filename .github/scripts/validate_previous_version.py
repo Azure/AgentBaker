@@ -21,11 +21,14 @@ This script:
      patch (major.minor.patch).
   3. If they do, queries the same upstream source the entry's `renovateTag`
      points at (mirroring .github/renovate.json's customManagers /
-     customDatasources) to compute what the newest build of the PRIOR
-     Kubernetes patch actually is, and prints a recommendation.
+     customDatasources) to compute a best-effort recommendation: the
+     highest build found upstream for the PRIOR Kubernetes patch.
 
-This script only reports; it never rewrites components.json. A human is
-expected to apply the recommended value.
+This script only reports; it never rewrites components.json. Recommendations
+are best-effort and not independently re-verified here -- if a suggested
+value doesn't actually exist, a later CI step (schema/build validation)
+will fail and catch it. A human applies the fix (using the recommendation
+as a starting point, not a guarantee).
 """
 from __future__ import annotations
 
@@ -248,6 +251,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", required=True, help="git ref to diff against, e.g. origin/main")
     parser.add_argument("--file", required=True, help="path to components.json")
+    parser.add_argument(
+        "--report",
+        help="optional path to write a Markdown report for PR-commenting when issues are found",
+    )
     args = parser.parse_args()
 
     try:
@@ -260,7 +267,9 @@ def main() -> int:
     base_entries = {entry_key(e): e for e in collect_entries(base_json)}
     head_entries = collect_entries(head_json)
 
-    had_error = False
+    # Each row: (entry, recommendation_or_None, note)
+    findings = []
+
     for entry in head_entries:
         base_entry = base_entries.get(entry_key(entry))
         changed = (
@@ -278,7 +287,6 @@ def main() -> int:
         if latest_patch is None or previous_patch is None or latest_patch != previous_patch:
             continue  # different Kubernetes patches -> already correct shape
 
-        had_error = True
         print(
             f"::error::{entry.path}: latestVersion ({entry.latest_version}) and "
             f"previousLatestVersion ({entry.previous_latest_version}) are both "
@@ -290,34 +298,68 @@ def main() -> int:
             recommendation = recommend_previous_version(entry.latest_version, available)
             if recommendation:
                 print(
-                    f"::error::{entry.path}: recommended previousLatestVersion: "
-                    f"{recommendation} (newest build found for the prior Kubernetes patch)"
+                    f"::error::{entry.path}: best-effort recommendation: {recommendation} "
+                    f"(highest build found upstream for the prior Kubernetes patch)"
                 )
+                findings.append((entry, recommendation, None))
             else:
-                print(
-                    f"::error::{entry.path}: could not find any available build for a prior "
-                    f"Kubernetes patch upstream; please confirm the correct value manually."
-                )
+                note = "no build found upstream for a prior Kubernetes patch; set this manually."
+                print(f"::error::{entry.path}: {note}")
+                findings.append((entry, None, note))
         except NotImplementedError as e:
-            print(
-                f"::warning::{entry.path}: cannot auto-recommend a value ({e}). "
-                f"Please determine the correct previousLatestVersion manually."
-            )
+            note = f"cannot auto-recommend a value ({e}); set this manually."
+            print(f"::warning::{entry.path}: {note}")
+            findings.append((entry, None, note))
         except (urllib.error.URLError, urllib.error.HTTPError, RuntimeError) as e:
-            print(
-                f"::warning::{entry.path}: failed to query upstream source ({e}). "
-                f"Please determine the correct previousLatestVersion manually."
-            )
+            note = f"failed to query upstream source ({e}); set this manually."
+            print(f"::warning::{entry.path}: {note}")
+            findings.append((entry, None, note))
 
-    if had_error:
+    if args.report:
+        write_report(args.report, findings)
+
+    if findings:
         print(
-            "::error::One or more previousLatestVersion entries need a manual fix. "
-            "This check never edits components.json automatically."
+            "::error::One or more previousLatestVersion entries need a fix. "
+            "This check never edits components.json automatically; recommendations are "
+            "best-effort (highest version found upstream) and are not independently "
+            "re-verified here — a subsequent CI step (schema/build validation) will fail "
+            "if an applied value turns out not to exist."
         )
         return 1
 
     print("previousLatestVersion validation passed.")
     return 0
+
+
+def write_report(path: str, findings: list) -> None:
+    if not findings:
+        return
+    lines = [
+        "### `previousLatestVersion` needs a fix",
+        "",
+        "One or more changed entries in `parts/common/components.json` have "
+        "`latestVersion` and `previousLatestVersion` pointing at the same Kubernetes "
+        "patch. `previousLatestVersion` must reference a genuinely prior patch. "
+        "This check does not edit the file for you — please apply a value below "
+        "(or replace it with a better one if you know it).",
+        "",
+        "| Entry | latestVersion | previousLatestVersion (current) | Suggested previousLatestVersion |",
+        "|---|---|---|---|",
+    ]
+    for entry, recommendation, note in findings:
+        suggestion = f"`{recommendation}`" if recommendation else f"_{note}_"
+        lines.append(
+            f"| `{entry.path}` | `{entry.latest_version}` | `{entry.previous_latest_version}` | {suggestion} |"
+        )
+    lines.append("")
+    lines.append(
+        "_Suggestions are best-effort: the highest version this check found upstream for "
+        "the prior Kubernetes patch. If a suggested value doesn't actually exist, a later "
+        "CI step (schema/build validation) will catch it._"
+    )
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
 
 
 if __name__ == "__main__":
