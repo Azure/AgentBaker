@@ -25,3 +25,60 @@ reset and must be discarded rather than interpreted as a rate.
 An unavailable service is emitted as `"Not Found"`. If a service cgroup exists
 but a counter is absent or malformed, only that counter is emitted as
 `"Not Found"` so the remaining counters in the observation remain usable.
+
+# Recurring service execution telemetry
+
+`service-execution-telemetry.sh` emits one
+`AKS.Runtime.systemd_service_execution` event after each execution of the
+following timer-triggered services:
+
+| Service | Schedule |
+| --- | --- |
+| `cgroup-memory-telemetry.service` | Every five minutes |
+| `cgroup-pressure-telemetry.service` | Every five minutes |
+| `aks-log-collector.service` | Every hour |
+
+The allowlist is explicit; the collector rejects all other systemd units. Each
+event contains:
+
+| Field | Unit or meaning |
+| --- | --- |
+| `ServiceName` | systemd unit name |
+| `ExecMainStartTimestamp` | systemd execution start timestamp |
+| `ExecMainExitTimestamp` | systemd execution exit timestamp |
+| `DurationUsec` | microseconds, calculated from monotonic timestamps |
+| `Result` | systemd result such as `success`, `exit-code`, `timeout`, or `signal` |
+| `ExecMainCode` | systemd main-process termination code |
+| `ExecMainStatus` | process exit status or signal |
+| `CPUUsageNSec` | nanoseconds of CPU used by the execution cgroup |
+| `MemoryPeakAvailable` | whether systemd exposed a reliable peak-memory value |
+| `MemoryPeakBytes` | peak bytes; omitted when unavailable |
+
+`CPUAccounting` and `MemoryAccounting` are enabled on the monitored units.
+`OnSuccess` and `OnFailure` start a separate
+`service-execution-telemetry@.service` instance after the monitored unit has
+finished. Keeping the collector outside the monitored cgroup prevents its CPU
+and memory usage from contaminating the observed values. Values describe one
+execution and reset when systemd recreates the service cgroup; consumers must
+not calculate deltas between timer invocations.
+
+Peak memory is capability-based. The collector emits `MemoryPeakBytes` only
+when the runtime `MemoryPeak` property is present and numeric. It does not infer
+support from the distribution or systemd version and does not emit a
+misleading zero when the property is unavailable.
+
+The completion handlers run after both successful and failed executions. A
+telemetry failure belongs to the separate collector unit and therefore cannot
+change the result of the monitored workload.
+
+Ubuntu 20.04 uses systemd 245, before `OnSuccess` was introduced. During the VHD
+build, `packer_source.sh` replaces the completion handlers on systemd versions
+older than 249 with an asynchronous `ExecStopPost` that starts the same separate
+collector unit. Peak memory is unavailable on these older versions; the small
+legacy trigger overhead can affect `CPUUsageNSec` and is an explicit limitation
+of the compatibility path.
+
+Starting with systemd 258, cgroup v2 accounting is always enabled and the
+`CPUAccounting` and `MemoryAccounting` unit directives are obsolete. The VHD
+build removes those directives on 258 and newer while retaining the modern
+completion handlers.

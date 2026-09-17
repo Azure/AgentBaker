@@ -245,6 +245,12 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.sh
       destination: /opt/scripts/cgroup-cpu-telemetry.sh
       permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/service-execution-telemetry.sh
+      destination: /opt/scripts/service-execution-telemetry.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/service-execution-telemetry@.service
+      destination: /etc/systemd/system/service-execution-telemetry@.service
+      permissions: 600
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.service
       destination: /etc/systemd/system/cgroup-cpu-telemetry.service
       permissions: 600
