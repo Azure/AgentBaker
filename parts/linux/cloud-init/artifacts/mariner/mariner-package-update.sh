@@ -212,11 +212,20 @@ kubelet_update() {
     echo "updating kubelet from ${current_kubelet_version} (sha256: ${current_kubelet_sha256}) to version ${target_kubelet_version} (sha256: ${target_kubelet_sha256})"
     echo "current kubelet raw version: $(${KUBELET_EXECUTABLE} --version=raw)"
     echo "target kubelet raw version: $(${target_kubelet_path} --version=raw)"
-    mv ${target_kubelet_path} ${KUBELET_EXECUTABLE}
-    if ! systemctl restart kubelet.service; then
-        echo "failed to restart kubelet.service"
+    local kubelet_backup="${SECURITY_PATCH_TMP_DIR}/kubelet.backup"
+    if ! cp --preserve=mode,ownership,timestamps "${KUBELET_EXECUTABLE}" "${kubelet_backup}"; then
+        echo "failed to back up kubelet executable"
         return 1
     fi
+    mv ${target_kubelet_path} ${KUBELET_EXECUTABLE}
+    if ! systemctl restart kubelet.service; then
+        echo "failed to restart kubelet.service, restoring previous kubelet"
+        if ! mv "${kubelet_backup}" "${KUBELET_EXECUTABLE}" || ! systemctl restart kubelet.service; then
+            echo "failed to restore previous kubelet"
+        fi
+        return 1
+    fi
+    rm -f "${kubelet_backup}"
     echo "kubelet update completed successfully"
 
     rm -rf ${SECURITY_PATCH_TMP_DIR}

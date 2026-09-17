@@ -892,15 +892,20 @@ KUBELET_EOF
             It 'should fail when kubelet restart fails'
                 setup_kubelet_executable "1.29.10"
                 setup_target_kubelet_version "1.29.11" ""
+                TEST_SYSTEMCTL_ATTEMPT=0
+                export TEST_SYSTEMCTL_ATTEMPT
                 Mock systemctl
+                    TEST_SYSTEMCTL_ATTEMPT=$((TEST_SYSTEMCTL_ATTEMPT + 1))
                     echo "systemctl mock called with args: $@"
-                    exit 1
+                    [ "${TEST_SYSTEMCTL_ATTEMPT}" -ge 2 ]
                 End
 
                 When run kubelet_update
                 The status should be failure
-                The output should include "failed to restart kubelet.service"
+                The output should include "failed to restart kubelet.service, restoring previous kubelet"
+                The output should include "systemctl mock called with args: restart kubelet.service"
                 The output should not include "kubelet update completed successfully"
+                The contents of file "${KUBELET_EXECUTABLE}" should include "Kubernetes v1.29.10"
             End
 
             It 'should successfully update kubelet with same version but different release'
