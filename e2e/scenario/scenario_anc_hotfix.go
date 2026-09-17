@@ -35,6 +35,12 @@ func newANCHotfixPackageScenario(name, description string, vhd *config.Image) *S
 		Name:        name,
 		Description: description,
 		SkipIf: func(context.Context) string {
+			// Two-stage VHD caching would bake the bake VM's downloaded hotfix binary and its
+			// aks-node-controller.log into the custom image, so the provision-stage validators
+			// could match that cached evidence even if the real node never downloaded anything.
+			if config.Config.TestPreProvision {
+				return "ANC hotfix package E2E does not run during two-stage VHD caching"
+			}
 			if config.Config.ANCHotfixE2EVersion == "" {
 				return "ANC hotfix package E2E requires --anc-hotfix-e2e-version or ANC_HOTFIX_E2E_VERSION"
 			}
