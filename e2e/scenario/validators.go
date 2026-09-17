@@ -2645,11 +2645,22 @@ has_valid_ip() {
 }
 
 # Helper: dump localdns state for debugging.
+# Egress state is captured alongside the localdns unit because a cold-start SERVFAIL can
+# come from the node losing its route/address to the upstream DNS server rather than from
+# localdns itself. localdns.sh reloads systemd-networkd (to point DNS at the cluster
+# listener) *after* the ready gate opens, so the networkd journal for the last 30s is the
+# window in which that reload lands.
 dump_localdns_diagnostics() {
     echo "--- localdns service status ---"
     sudo systemctl status localdns --no-pager 2>&1 || true
     echo "--- localdns journal (last 50 lines) ---"
     sudo journalctl -u localdns --no-pager -n 50 2>&1 || true
+    echo "--- systemd-networkd journal (last 30s) ---"
+    sudo journalctl -u systemd-networkd --no-pager --since "-30s" 2>&1 || true
+    echo "--- ip route ---"
+    ip route 2>&1 || true
+    echo "--- ip -br addr ---"
+    ip -br addr 2>&1 || true
 }
 
 # Helper: wait for localdns teardown side effects to settle before starting again.
