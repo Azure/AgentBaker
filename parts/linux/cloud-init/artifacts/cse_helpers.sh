@@ -1051,6 +1051,16 @@ isAzureLinux() {
     return 1
 }
 
+isAzureLinuxArm64BaseImage() {
+    local os="$1"
+    local cpu_arch="$2"
+    local os_variant="$3"
+
+    [ "$os" = "$AZURELINUX_OS_NAME" ] &&
+        [ "$cpu_arch" = "arm64" ] &&
+        [ -z "$os_variant" ]
+}
+
 isFlatcar() {
     local os=${1-$OS}
     if [ "$os" = "$FLATCAR_OS_NAME" ]; then

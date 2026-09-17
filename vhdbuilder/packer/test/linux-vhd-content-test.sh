@@ -811,7 +811,7 @@ testAzureLinuxArm64DualKernel() {
   local enable_fips=$3
 
   echo "$test:Start"
-  if [ "$os_sku" != "AzureLinux" ] || [ "$os_version" != "3.0" ] || [ "${enable_fips,,}" = "true" ] || [ "$(getCPUArch)" != "arm64" ]; then
+  if [ "$os_version" != "3.0" ] || [ "${enable_fips,,}" = "true" ] || ! isAzureLinuxArm64BaseImage "${os_sku^^}" "$(getCPUArch)" "$OS_VARIANT"; then
     echo "$test: Skipping for non-FIPS AzureLinux 3 ARM64 image"
     return
   fi
@@ -833,14 +833,8 @@ testAzureLinuxArm64DualKernel() {
     err "$test" "GRUB package versions do not match: grub2=$grub_version, binary=$grub_efi_binary_version, modules=$grub_efi_modules_version"
   fi
 
-  local grub_module_file
-  for grub_module_file in extcmd.mod smbios.mod moddep.lst; do
-    if [ ! -s "/boot/grub2/arm64-efi/$grub_module_file" ]; then
-      err "$test" "/boot/grub2/arm64-efi/$grub_module_file is missing or empty"
-    fi
-  done
-  if ! grep -q '^smbios: extcmd$' /boot/grub2/arm64-efi/moddep.lst; then
-    err "$test" "GRUB smbios module dependency metadata is invalid"
+  if [ ! -s /usr/lib/grub/arm64-efi/smbios.mod ]; then
+    err "$test" "/usr/lib/grub/arm64-efi/smbios.mod is missing or empty"
   fi
 
   if [ ! -x /etc/grub.d/10_azure_nvidia ] || [ ! -f /etc/default/grub.d/51-azure-nvidia.cfg ]; then

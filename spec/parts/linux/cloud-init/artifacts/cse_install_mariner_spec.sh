@@ -290,10 +290,25 @@ Describe 'cse_install_mariner.sh'
 
         # Mock uname to return a kernel version matching our fake package
         uname() { echo "6.6.121.1-1.azl3"; }
+        getCPUArch() { echo "arm64"; }
+
+        MOCK_KERNEL_PACKAGE="kernel"
+        rpm() { echo "$MOCK_KERNEL_PACKAGE"; }
+
+        imex_config_path="$PWD/spec/tmp/nvidia-imex.conf"
+        NVIDIA_IMEX_MODPROBE_CONFIG_PATH="$imex_config_path"
+        updateDnfWithNvidiaPkg() { echo "updateDnfWithNvidiaPkg"; }
+        removeNvidiaRepos() { echo "removeNvidiaRepos"; }
+        systemctl_disable() { echo "systemctl_disable $*"; }
+
+        cleanup_imex_config() { rm -f "$imex_config_path"; }
+        BeforeEach 'cleanup_imex_config'
+        AfterEach 'cleanup_imex_config'
 
         # Mock dnf repoquery to return fake packages matching both cuda and cuda-open patterns
         dnf() {
             echo "cuda-open-570.195.03-1_6.6.121.1.1.azl3.x86_64"
+            echo "cuda-open-hwe-570.195.03-1_6.6.121.1.1.azl3.x86_64"
             echo "cuda-570.195.03-1_6.6.121.1.1.azl3.x86_64"
         }
 
@@ -338,15 +353,21 @@ Describe 'cse_install_mariner.sh'
             GRID_CALLED=""
             When call downloadGPUDrivers
             The output should include "NVIDIA OpenRM driver (cuda-open)"
+            The output should include "dnf install 30 1 600 cuda-open-570.195.03-1_6.6.121.1.1.azl3.x86_64"
+            The output should not include "cuda-open-hwe"
+            The output should not include "nvidia-imex"
             The variable GRID_CALLED should not equal "true"
         End
 
         It 'selects the newest HWE OpenRM package for GB200'
+            OS_VERSION="3.0"
             NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
             MOCK_VM_SKU="Standard_ND128isr_NDR_GB200_v6"
             MOCK_OPEN_RET=0
+            MOCK_KERNEL_PACKAGE="kernel-hwe"
             uname() { echo "9.9.2-1.azl3"; }
             dnf() {
+                echo "cuda-open-999.1.2-2_9.9.2.1.azl3.aarch64"
                 echo "cuda-open-hwe-999.1.2-1_9.9.2.1.azl3.aarch64"
                 echo "cuda-open-hwe-999.1.2-2_9.9.2.1.azl3.aarch64"
                 echo "cuda-open-hwe-999.1.2-2_9.8.1.1.azl3.aarch64"
@@ -355,7 +376,14 @@ Describe 'cse_install_mariner.sh'
             When call downloadGPUDrivers
 
             The status should be success
-            The output should include "dnf install 30 1 600 cuda-open-hwe-999.1.2-2_9.9.2.1.azl3.aarch64"
+            The output should include "updateDnfWithNvidiaPkg"
+            The output should include "dnf install 30 1 600 cuda-open-hwe-999.1.2-2_9.9.2.1.azl3.aarch64 nvidia-imex-999.1.2"
+            The output should include "removeNvidiaRepos"
+            The output should include "systemctl_disable 20 5 25 nvidia-imex"
+            The output should not include "dnf install 30 1 600 cuda-open-999.1.2-2_9.9.2.1.azl3.aarch64"
+            The output should not include "dracut"
+            The output should not include "shutdown"
+            The contents of file "$imex_config_path" should equal "options nvidia NVreg_CreateImexChannel0=1"
         End
 
         It 'selects proprietary cuda path for T4 when NVIDIA_GPU_DRIVER_TYPE is cuda'

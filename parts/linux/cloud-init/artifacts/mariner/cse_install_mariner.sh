@@ -166,7 +166,9 @@ downloadGPUDrivers() {
     # "grid-v20" (Ubuntu-only, rejected below); modern CUDA SKUs get "cuda-lts" and legacy
     # NCv1 gets "cuda". Only grid vs non-grid matters here, so both take the CUDA path below.
     # Legacy GPUs (T4, V100) require proprietary CUDA drivers; A100+ use NVIDIA open drivers.
-    KERNEL_VERSION=$(uname -r | sed 's/-/./g')
+    local running_kernel
+    running_kernel=$(uname -r)
+    KERNEL_VERSION=$(echo "$running_kernel" | sed 's/-/./g')
     VM_SKU=$(get_compute_sku)
 
     # Converged GPU sizes use GRID drivers instead of CUDA drivers
@@ -194,7 +196,14 @@ downloadGPUDrivers() {
         exit $ERR_MISSING_CUDA_PACKAGE
     elif [ "$driver_ret" -eq 0 ]; then
         echo "VM SKU ${VM_SKU} uses NVIDIA OpenRM driver (cuda-open)"
-      CUDA_PACKAGE=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda-open*" "^cuda-open(-hwe)?-[0-9]" "$KERNEL_VERSION")
+        local kernel_package cuda_open_package
+        kernel_package=$(rpm -qf --queryformat '%{NAME}' "/boot/vmlinuz-${running_kernel}" 2>/dev/null || true)
+        case "$kernel_package" in
+            kernel) cuda_open_package="cuda-open" ;;
+            kernel-hwe) cuda_open_package="cuda-open-hwe" ;;
+            *) echo "Unsupported running kernel package: ${kernel_package:-unknown}"; exit $ERR_MISSING_CUDA_PACKAGE ;;
+        esac
+        CUDA_PACKAGE=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "$cuda_open_package" "^${cuda_open_package}-[0-9]" "$KERNEL_VERSION")
     else
         echo "VM SKU ${VM_SKU} uses NVIDIA proprietary driver (cuda)"
       CUDA_PACKAGE=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda" "^cuda-[0-9]" "$KERNEL_VERSION")
@@ -205,8 +214,38 @@ downloadGPUDrivers() {
         exit $ERR_MISSING_CUDA_PACKAGE
     fi
 
-    echo "Installing: ${CUDA_PACKAGE}"
-    dnf_install 30 1 600 ${CUDA_PACKAGE} || exit $ERR_APT_INSTALL_TIMEOUT
+    local nvidia_packages=("${CUDA_PACKAGE}")
+    local imex_package=""
+    if [ "$OS_VERSION" = "3.0" ] && [ "$(getCPUArch)" = "arm64" ]; then
+        case "${VM_SKU,,}" in
+            *gb200*|*gb300*)
+                local driver_version
+                driver_version=$(getAzureLinuxNvidiaDriverVersionFromPackage "$CUDA_PACKAGE" "cuda-open-")
+                if [ -z "$driver_version" ]; then
+                    echo "Failed to determine NVIDIA driver version for IMEX"
+                    exit $ERR_NVIDIA_DRIVER_INSTALL
+                fi
+
+                imex_package="nvidia-imex-${driver_version}"
+                local config_path="${NVIDIA_IMEX_MODPROBE_CONFIG_PATH:-/etc/modprobe.d/nvidia-imex.conf}"
+                mkdir -p "$(dirname "$config_path")" || exit $ERR_NVIDIA_DRIVER_INSTALL
+                printf '%s\n' 'options nvidia NVreg_CreateImexChannel0=1' > "$config_path" || exit $ERR_NVIDIA_DRIVER_INSTALL
+                updateDnfWithNvidiaPkg
+                nvidia_packages+=("$imex_package")
+                ;;
+        esac
+    fi
+
+    echo "Installing: ${nvidia_packages[*]}"
+    if ! dnf_install 30 1 600 "${nvidia_packages[@]}"; then
+        [ -z "$imex_package" ] || removeNvidiaRepos
+        exit $ERR_APT_INSTALL_TIMEOUT
+    fi
+
+    if [ -n "$imex_package" ]; then
+        removeNvidiaRepos
+        systemctl_disable 20 5 25 nvidia-imex || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
 }
 
 createNvidiaSymlinkToAllDeviceNodes() {

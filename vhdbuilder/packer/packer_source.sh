@@ -612,7 +612,7 @@ copyPackerFiles() {
     cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
     cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
 
-    if [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$CPU_ARCH" = "arm64" ] && [ -z "$OS_VARIANT" ] && [ "${ENABLE_FIPS,,}" != "true" ]; then
+    if [ "$OS_VERSION" = "3.0" ] && [ "${ENABLE_FIPS,,}" != "true" ] && isAzureLinuxArm64BaseImage "$OS" "$CPU_ARCH" "$OS_VARIANT"; then
       GRUB_AZ_NV_SCRIPT_SRC=/home/packer/10_azure_nvidia
       GRUB_AZ_NV_SCRIPT_DEST=/etc/grub.d/10_azure_nvidia
       cpAndMode $GRUB_AZ_NV_SCRIPT_SRC $GRUB_AZ_NV_SCRIPT_DEST 755

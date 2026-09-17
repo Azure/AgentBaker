@@ -1630,8 +1630,10 @@ cleanUpGridNodeCudaPrebake() {
 }
 
 ensureGPUDrivers() {
-    if [ "$(isARM64)" -eq 1 ]; then
-        if [ "$OS" != "$AZURELINUX_OS_NAME" ] || [ "$OS_VERSION" != "3.0" ] || [ -n "$OS_VARIANT" ] || [ "${ENABLE_FIPS,,}" = "true" ]; then
+    local cpu_arch
+    cpu_arch=$(getCPUArch)
+    if [ "$cpu_arch" = "arm64" ]; then
+        if [ "$OS_VERSION" != "3.0" ] || [ "${ENABLE_FIPS,,}" = "true" ] || ! isAzureLinuxArm64BaseImage "$OS" "$cpu_arch" "$OS_VARIANT"; then
             return
         fi
     fi

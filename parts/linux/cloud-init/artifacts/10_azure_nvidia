@@ -7,6 +7,7 @@ GRUB_LINUX_SCRIPT="${GRUB_LINUX_SCRIPT:-/etc/grub.d/10_linux}"
 
 boot_device_id=
 reverse_sorted_list=
+grub_probe=
 if [ -r "$GRUB_LINUX_SCRIPT" ]; then
 	# shellcheck source=/etc/grub.d/10_linux
 	# shellcheck disable=SC1091
@@ -15,6 +16,7 @@ fi
 
 NVIDIA=
 OTHER=
+rpm_kernels=false
 
 # Azure Linux kernel filenames do not identify their track, so use RPM ownership.
 if command -v rpm >/dev/null 2>&1; then
@@ -27,6 +29,9 @@ if command -v rpm >/dev/null 2>&1; then
 			kernel) OTHER=$(printf '%s\n%s\n' "$OTHER" "$linux" | sed '/^$/d' | sort -V | tail -n1) ;;
 		esac
 	done
+	if [ -n "$NVIDIA" ] && [ -n "$OTHER" ]; then
+		rpm_kernels=true
+	fi
 fi
 
 # Ubuntu identifies its NVIDIA kernel by filename and exposes a sorted list from 10_linux.
@@ -60,8 +65,31 @@ fi
 
 echo "Default NVIDIA image: $NVIDIA, non-NVIDIA image: $OTHER, boot_device_id: $boot_device_id" >&2
 
-cat << EOF
+if "$rpm_kernels"; then
+	module_directory=/usr/lib/grub/arm64-efi
+	if ! is_path_readable_by_grub "$module_directory"; then
+		echo "GRUB cannot read module directory: $module_directory" >&2
+		exit 1
+	fi
+	module_device=$("$grub_probe" --target=device "$module_directory")
+	module_access=$(prepare_grub_to_access_device "$module_device")
+	module_prefix=$(make_system_path_relative_to_its_root "${module_directory%/*}")
+	cat << EOF
+set azure_nvidia_saved_root="\$root"
+set azure_nvidia_saved_prefix="\$prefix"
+${module_access}
+set prefix="(\$root)${module_prefix}"
 insmod smbios
+set prefix="\$azure_nvidia_saved_prefix"
+set root="\$azure_nvidia_saved_root"
+unset azure_nvidia_saved_prefix
+unset azure_nvidia_saved_root
+EOF
+else
+	echo 'insmod smbios'
+fi
+
+cat << EOF
 smbios --type 4 --get-string 7 --set cpu_manufacturer
 
 if [ x\$cpu_manufacturer = xNVIDIA ]; then
