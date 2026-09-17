@@ -881,11 +881,10 @@ buildNVIDIAKernelModule() {
 
     # Opt-in: cache the NVIDIA kernel module and userspace in the shared VHD without device access.
     # build-only registers DKMS against the VHD kernel and writes /opt/azure/aks-gpu/dkms-marker.
-    # Park that registration so kernel updates cannot compile NVIDIA on non-GPU nodes, even when
-    # provisioning cleanup never runs. Modules and userspace stay installed. Managed GPU nodePrep
-    # restores the registration before the existing installer/validator; skip-build is not enabled.
-    # Deploy the CSE restore support before publishing this layout. Security-patched VHDs may need
-    # a managed-node compile if their newer kernel has no cached module; a rename cannot build one.
+    # Park the whole prebake (DKMS, modules, userspace and installer metadata) outside active paths.
+    # setPrebakedGPUDriverState owns the inventory and rebuilds affected module/library indexes.
+    # Deploy compatible CSE before publishing this layout. Managed CUDA nodePrep restores matching
+    # payloads; a kernel/driver mismatch uses the normal installer. Skip-build is not enabled.
     # The driver image is intentionally LEFT in the VHD: boot-time device init still sources the
     # container toolkit debs, fabric manager, containerd runtime config and udev rules from it.
     # Dropping the image is a separate, deferred size optimization.
@@ -901,7 +900,7 @@ buildNVIDIAKernelModule() {
         echo "Error: NVIDIA CUDA prebake did not produce /opt/azure/aks-gpu/dkms-marker"
         exit 1
       fi
-      setPrebakedGPUDriverRegistration park || exit 1
+      setPrebakedGPUDriverState park || exit 1
       cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver-prebaked=${NVIDIA_DRIVER_IMAGE_TAG} (kernel $(uname -r))
 EOF

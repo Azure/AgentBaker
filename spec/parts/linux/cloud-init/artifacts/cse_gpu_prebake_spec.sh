@@ -413,6 +413,8 @@ Describe 'NVIDIA prebake registration layout'
         isARM64() { echo 0; }
         apt_get_install() { return 0; }
         retrycmd_if_failure() { echo 'build-only completed'; }
+        # This group tests build call ordering; full-payload filesystem coverage is separate.
+        setPrebakedGPUDriverState() { setPrebakedGPUDriverRegistration "$@"; }
 
         It 'parks after build-only and before recording a successful prebake'
             When run buildNVIDIAKernelModule
@@ -458,8 +460,13 @@ Describe 'managed GPU registration dispatch'
     ERR_GPU_DRIVERS_START_FAIL=84
     NVIDIA_GPU_DRIVER_TYPE=cuda-lts
     isARM64() { echo 0; }
-    logs_to_events() { shift; ${@}; }
-    setPrebakedGPUDriverRegistration() { echo "registration $*"; }
+    logs_to_events() {
+        shift
+        # Production logs_to_events also accepts a single command string with arguments.
+        # shellcheck disable=SC2068
+        ${@}
+    }
+    setPrebakedGPUDriverState() { echo "registration $*"; }
     cleanUpGridNodeCudaPrebake() { echo 'GRID cleanup'; }
     configGPUDrivers() { echo 'install'; }
     validateGPUDrivers() { echo 'validate'; }
@@ -530,11 +537,20 @@ Describe 'managed GPU registration dispatch'
     End
 
     It 'fails provisioning before driver setup if restoration fails'
-        setPrebakedGPUDriverRegistration() { return 1; }
+        setPrebakedGPUDriverState() { return 1; }
         CONFIG_GPU_DRIVER_IF_NEEDED=true
         When run ensureGPUDrivers
         The status should equal 84
         The output should equal 'GRID cleanup'
+    End
+
+    It 'uses the normal installer on a cache miss even when configured only to validate'
+        CONFIG_GPU_DRIVER_IF_NEEDED=false
+        setPrebakedGPUDriverState() { return 2; }
+        When call ensureGPUDrivers
+        The status should be success
+        The output should include 'install'
+        The output should not include 'validate'
     End
 
     It 'does not restore an Ubuntu prebake on Azure Linux'

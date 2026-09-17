@@ -172,7 +172,9 @@ cleanUpGridNodeCudaPrebake() {
     [ "$OS" = "$UBUNTU_OS_NAME" ] || return 0
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
     local parked="${marker%/*}/dkms/nvidia"
-    if [ ! -f "${marker}" ] && [ ! -e "${parked}" ] && [ ! -L "${parked}" ]; then
+    local payload="${marker%/*}/prebake"
+    if [ ! -f "${marker}" ] && [ ! -e "${parked}" ] && [ ! -L "${parked}" ] &&
+        [ ! -e "${payload}" ] && [ ! -L "${payload}" ]; then
         return 0
     fi
 
@@ -187,12 +189,13 @@ cleanUpGridNodeCudaPrebake() {
 
     # A GRID install can replace the marker, but any remaining parked tree is still the CUDA
     # prebake. Preserve an existing GRID driver only when no parked CUDA state remains.
-    if [ "${m_kind}" = "grid" ] && [ ! -e "${parked}" ] && [ ! -L "${parked}" ]; then
+    if [ "${m_kind}" = "grid" ] && [ ! -e "${parked}" ] && [ ! -L "${parked}" ] &&
+        [ ! -e "${payload}" ] && [ ! -L "${payload}" ]; then
         return 0
     fi
     echo "AKS_GPU_PREBAKE event=grid_cuda_prebake_teardown driver_type=${NVIDIA_GPU_DRIVER_TYPE:-} marker_kind=${m_kind:-none} node_kind=${node_kind} action=teardown"
     cleanUpPrebakedGPUDriver || return 1
-    if [ -e "${parked}" ] || [ -L "${parked}" ]; then
+    if [ -e "${parked}" ] || [ -L "${parked}" ] || [ -e "${payload}" ] || [ -L "${payload}" ]; then
         echo "AKS_GPU_PREBAKE event=dkms_error reason=grid_parked_cleanup_failed"
         return 1
     fi
@@ -204,21 +207,23 @@ ensureGPUDrivers() {
         return
     fi
 
+    local prebake_status=0
     # Tear down a mismatched cuda-lts VHD prebake before a GRID node installs its own driver, or the
     # stale module/libs collide with the grid driver (NVML version mismatch). Runs before the dispatch
     # below so it covers both the configGPUDrivers and validateGPUDrivers paths.
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake" cleanUpGridNodeCudaPrebake || exit $ERR_GPU_DRIVERS_START_FAIL
-        # Called only by nodePrep for managed GPU nodes. The prebake is CUDA-only; GRID must not
-        # activate it. Restore CUDA even before validation so later kernel updates can use DKMS.
+        # Called only by nodePrep. Restore the full CUDA payload (or the legacy registration)
+        # before validation. A cache mismatch requests a normal install, not a validation retry.
         case "${NVIDIA_GPU_DRIVER_TYPE:-}" in
             cuda*)
-                logs_to_events "AKS.CSE.ensureGPUDrivers.restorePrebakedGPUDriverRegistration" setPrebakedGPUDriverRegistration restore || exit $ERR_GPU_DRIVERS_START_FAIL
+                logs_to_events "AKS.CSE.ensureGPUDrivers.restorePrebakedGPUDriver" setPrebakedGPUDriverState restore || prebake_status=$?
+                case "${prebake_status}" in 0|2) ;; *) exit $ERR_GPU_DRIVERS_START_FAIL ;; esac
                 ;;
         esac
     fi
 
-    if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]; then
+    if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ] || [ "${prebake_status}" -eq 2 ]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
     else
         logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
