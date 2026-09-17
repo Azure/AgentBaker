@@ -36,6 +36,10 @@ parameters:
     type: boolean
     displayName: Enable Trusted Launch on the SIG image definition
     default: False
+  - name: trustedLaunchSupported
+    type: boolean
+    displayName: Determines if the image is capable of supporting Trusted Launch
+    default: False
   - name: skipExtensionCheck
     displayName: Skip Extension Check
     type: boolean
