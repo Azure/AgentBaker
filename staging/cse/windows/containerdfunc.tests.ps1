@@ -63,6 +63,9 @@ Describe "Containerd Functions Tests" {
       return "ltsc2022"
     }
 
+    function Get-Service {}
+
+    . $PSScriptRoot\helpers.ps1
     . $PSScriptRoot\containerdfunc.ps1
     . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
     . $PSScriptRoot\networkisolatedclusterfunc.ps1
@@ -547,6 +550,59 @@ Describe "Containerd Functions Tests" {
         Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Exactly -Times 1 -ParameterFilter {
           $Url -eq $containerdUrl
         }
+      }
+    }
+  }
+
+  Describe 'RegisterContainerDService' {
+    BeforeEach {
+      Mock Assert-FileExists
+      Mock Remove-ServiceIfExists
+      Mock Invoke-Nssm
+      Mock Get-Service -MockWith {
+        return [PSCustomObject]@{Name = 'containerd'; Status = 'Running'}
+      }
+    }
+
+    It 'removes an existing containerd service before registering it' {
+      RegisterContainerDService -kubedir 'C:\k'
+
+      Assert-MockCalled Remove-ServiceIfExists -Exactly -Times 1 -ParameterFilter {
+        $ServiceName -eq 'containerd'
+      }
+    }
+
+    Context 'when the existing containerd service cannot be removed' {
+      BeforeEach {
+        Mock Remove-ServiceIfExists -MockWith { throw 'service removal failed' }
+        Mock Set-ExitCode -MockWith {
+          param($ExitCode, $ErrorMessage)
+          throw "Set-ExitCode:${ExitCode}:${ErrorMessage}"
+        }
+      }
+
+      It 'reports a containerd installation error' {
+        {
+          RegisterContainerDService -kubedir 'C:\k'
+        } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED):Failed to remove existing containerd service before registration. Error: service removal failed*"
+
+        Assert-MockCalled Invoke-Nssm -Exactly -Times 0
+      }
+    }
+
+    Context 'when nssm fails to register containerd' {
+      BeforeEach {
+        Mock Invoke-Nssm -MockWith { throw 'nssm failed' }
+        Mock Set-ExitCode -MockWith {
+          param($ExitCode, $ErrorMessage)
+          throw "Set-ExitCode:${ExitCode}:${ErrorMessage}"
+        }
+      }
+
+      It 'reports a containerd installation error' {
+        {
+          RegisterContainerDService -kubedir 'C:\k'
+        } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED):Failed to register containerd as a service. Error: nssm failed*"
       }
     }
   }

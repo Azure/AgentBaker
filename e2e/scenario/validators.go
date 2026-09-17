@@ -3,8 +3,10 @@ package scenario
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -906,6 +908,107 @@ func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName stri
 		return fmt.Errorf("expected file %s to not have contents %q. Could not determine actual contents due to %w", fileName, contents, err)
 	}
 	return fmt.Errorf("expected file %s to not have contents %q, but it does. It had contents %s", fileName, contents, actualContents)
+}
+
+// ValidateWindowsFileExcludesBootstrapToken checks that a file does not contain
+// the scenario's runtime token without including the token or file contents in output.
+func ValidateWindowsFileExcludesBootstrapToken(ctx context.Context, s *Scenario, fileName string) error {
+	containsToken, err := windowsFileContainsBootstrapToken(ctx, s, fileName)
+	if err != nil {
+		return fmt.Errorf("validate bootstrap token absence in file %s: %w", fileName, err)
+	}
+	if containsToken {
+		return fmt.Errorf("bootstrap token remains in file %s", fileName)
+	}
+	return nil
+}
+
+// ValidateWindowsFileContainsBootstrapToken checks for the live bootstrap token
+// without including the token or file contents in the remote command, logs, or errors.
+func ValidateWindowsFileContainsBootstrapToken(ctx context.Context, s *Scenario, fileName string) error {
+	containsToken, err := windowsFileContainsBootstrapToken(ctx, s, fileName)
+	if err != nil {
+		return fmt.Errorf("validate bootstrap token presence: %w", err)
+	}
+	if !containsToken {
+		return errors.New("expected bootstrap token is missing")
+	}
+	return nil
+}
+
+func windowsFileContainsBootstrapToken(ctx context.Context, s *Scenario, fileName string) (bool, error) {
+	token := s.GetTLSBootstrapToken()
+	if token == "" {
+		return false, errors.New("bootstrap token unavailable for file validation")
+	}
+
+	script, err := windowsFileContainsBootstrapTokenScript(fileName, token)
+	if err != nil {
+		return false, fmt.Errorf("prepare bootstrap token validation: %w", err)
+	}
+	result, err := execScriptOnVMForScenario(ctx, s, script)
+	if err != nil {
+		return false, fmt.Errorf("execute bootstrap token validation: %w", err)
+	}
+
+	return parseWindowsContentScanResult(result)
+}
+
+func parseWindowsContentScanResult(result *podExecResult) (bool, error) {
+	switch strings.TrimSpace(result.stdout) {
+	case windowsScanAbsentMarker:
+		if result.exitCode != "0" {
+			return false, fmt.Errorf("content validation reported absence with exit code %s", result.exitCode)
+		}
+		return false, nil
+	case windowsScanPresentMarker:
+		return true, nil
+	case windowsScanFileMissingMarker:
+		return false, errors.New("file does not exist")
+	case windowsScanErrorMarker:
+		return false, errors.New("content validation encountered a runtime error")
+	default:
+		return false, fmt.Errorf("content validation failed with exit code %s", result.exitCode)
+	}
+}
+
+const (
+	windowsScanAbsentMarker      = "AKS_SECRET_SCAN_ABSENT"
+	windowsScanPresentMarker     = "AKS_SECRET_SCAN_PRESENT"
+	windowsScanFileMissingMarker = "AKS_SECRET_SCAN_FILE_MISSING"
+	windowsScanErrorMarker       = "AKS_SECRET_SCAN_ERROR"
+)
+
+func windowsFileContainsBootstrapTokenScript(fileName, token string) (string, error) {
+	if !regexp.MustCompile(`^[a-z0-9]{6}\.[a-z0-9]{16}$`).MatchString(token) {
+		return "", errors.New("bootstrap token has an unexpected format")
+	}
+
+	hash := sha256.Sum256([]byte(token))
+	escapedFileName := strings.ReplaceAll(fileName, "'", "''")
+	return strings.Join([]string{
+		`$ErrorActionPreference = "Stop"`,
+		fmt.Sprintf("$path = '%s'", escapedFileName),
+		fmt.Sprintf("$targetHash = '%s'", hex.EncodeToString(hash[:])),
+		"$sha256 = $null",
+		"try {",
+		fmt.Sprintf("    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { Write-Output '%s'; exit 20 }", windowsScanFileMissingMarker),
+		"    $content = Get-Content -LiteralPath $path -Raw",
+		"    $sha256 = [System.Security.Cryptography.SHA256]::Create()",
+		`    foreach ($match in [regex]::Matches($content, '[a-z0-9]{6}\.[a-z0-9]{16}')) {`,
+		"        $candidateBytes = [System.Text.Encoding]::UTF8.GetBytes($match.Value)",
+		"        $candidateHash = -join ($sha256.ComputeHash($candidateBytes) | ForEach-Object { $_.ToString('x2') })",
+		fmt.Sprintf("        if ($candidateHash -eq $targetHash) { Write-Output '%s'; exit 10 }", windowsScanPresentMarker),
+		"    }",
+		fmt.Sprintf("    Write-Output '%s'", windowsScanAbsentMarker),
+		"    exit 0",
+		"} catch {",
+		fmt.Sprintf("    Write-Output '%s'", windowsScanErrorMarker),
+		"    exit 30",
+		"} finally {",
+		"    if ($null -ne $sha256) { $sha256.Dispose() }",
+		"}",
+	}, "\n"), nil
 }
 
 // ValidateFileExcludesExactContent fails the test if the specified file contains the specified contents.
