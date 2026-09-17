@@ -1,0 +1,93 @@
+diff --git a/pkg/operator/operator.go b/pkg/operator/operator.go
+index e64361c..55b9a1f 100644
+--- a/pkg/operator/operator.go
++++ b/pkg/operator/operator.go
+@@ -21,6 +21,7 @@ import (
+ 	"encoding/base64"
+ 	"fmt"
+ 	"net"
++	"os"
+ 	"strings"
+ 	"time"
+ 
+@@ -409,6 +410,17 @@ func ensureToken(cred azcore.TokenCredential, env *auth.Environment) error {
+ }
+ 
+ func getCredential(env *auth.Environment) (azcore.TokenCredential, error) {
++	// AgentBaker's E2E controller runs out of cluster under an authenticated Azure
++	// CLI session. Prefer that explicit identity instead of allowing
++	// DefaultAzureCredential to select an unrelated managed identity from the test
++	// runner host.
++	if os.Getenv("AGENTBAKER_E2E_USE_AZURE_CLI") == "true" {
++		cred, err := azidentity.NewAzureCLICredential(&azidentity.AzureCLICredentialOptions{
++			Subscription: os.Getenv("AZURE_SUBSCRIPTION_ID"),
++		})
++		return auth.NewTokenWrapper(cred), err
++	}
++
+ 	// TODO: Don't use NewDefaultAzureCredential
+ 	cred, err := azidentity.NewDefaultAzureCredential(&azidentity.DefaultAzureCredentialOptions{
+ 		ClientOptions: policy.ClientOptions{
+@@ -145,7 +157,12 @@ func NewOperator(ctx context.Context, operator *operator.Operator) (context.Cont
+ 	}
+ 
+ 	// These options are set similarly to those used by operator.KubernetesInterface
+-	inClusterConfig := lo.Must(rest.InClusterConfig())
++	inClusterConfig := rest.CopyConfig(operator.GetConfig())
++	if os.Getenv("AGENTBAKER_E2E_USE_AZURE_CLI") != "true" {
++		// Production deployments still use the pod's in-cluster identity and
++		// endpoint. The E2E controller instead uses its supplied kubeconfig.
++		inClusterConfig = lo.Must(rest.InClusterConfig())
++	}
+ 	inClusterConfig.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(float32(coreoptions.FromContext(ctx).KubeClientQPS), coreoptions.FromContext(ctx).KubeClientBurst)
+ 	inClusterConfig.UserAgent = auth.GetUserAgentExtension()
+ 	inClusterClient := kubernetes.NewForConfigOrDie(inClusterConfig)
+diff --git a/pkg/providers/imagefamily/resolver.go b/pkg/providers/imagefamily/resolver.go
+index 295667b..c26c900 100644
+--- a/pkg/providers/imagefamily/resolver.go
++++ b/pkg/providers/imagefamily/resolver.go
+@@ -268,8 +268,18 @@ func defaultUbuntu(fipsMode *v1beta1.FIPSMode, kubernetesVersion string, paramet
+ 	return &Ubuntu2204{Options: parameters}
+ }
+ 
++const agentBakerE2EImageIDAnnotation = "agentbaker.azure.com/e2e-image-id"
++
+ // ResolveNodeImageFromNodeClass resolves Distro and image ID for the given node class and instance type. Images may vary due to architecture, accelerator, etc
+ func (r *defaultResolver) ResolveNodeImageFromNodeClass(nodeClass *v1beta1.AKSNodeClass, instanceType *cloudprovider.InstanceType) (string, error) {
++	// Upstream v1.14.2 does not expose its internal ImageID field through the
++	// AKSNodeClass API. AgentBaker's compatibility E2E needs an exact candidate VHD,
++	// so its test-only controller accepts a private annotation without changing any
++	// bootstrap or CSE rendering code.
++	if imageID := nodeClass.GetAnnotations()[agentBakerE2EImageIDAnnotation]; imageID != "" {
++		return imageID, nil
++	}
++
+ 	// ASSUMPTION: nodeImages in a NodeClass are always sorted by priority order.
+ 	nodeImages, err := nodeClass.GetImages()
+ 	if err != nil {
+diff --git a/pkg/providers/instance/vminstance.go b/pkg/providers/instance/vminstance.go
+index 7d61761..77beeb5 100644
+--- a/pkg/providers/instance/vminstance.go
++++ b/pkg/providers/instance/vminstance.go
+@@ -22,6 +22,7 @@ import (
+ 	"errors"
+ 	"fmt"
+ 	"net/http"
++	"strings"
+ 	"sync"
+ 	"time"
+ 
+@@ -650,8 +651,12 @@ func setVMPropertiesOSDiskEncryption(vmProperties *armcompute.VirtualMachineProp
+ }
+ 
+ // setImageReference sets the image reference for the VM based on if we are using self hosted karpenter or the node auto provisioning addon
+ func setImageReference(vmProperties *armcompute.VirtualMachineProperties, imageID string, useSIG bool) {
+-	if useSIG {
++	// AgentBaker's E2E image override is a private Azure Compute Gallery resource
++	// ID even though the self-hosted controller otherwise uses community images.
++	// Select the ARM field from the actual ID shape so the exact candidate VHD can
++	// be exercised without enabling managed-NAP SIG auxiliary-token behavior.
++	if useSIG || strings.HasPrefix(strings.ToLower(imageID), "/subscriptions/") {
+ 		vmProperties.StorageProfile.ImageReference = &armcompute.ImageReference{
+ 			ID: lo.ToPtr(imageID),
+ 		}
