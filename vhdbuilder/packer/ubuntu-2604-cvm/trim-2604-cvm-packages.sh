@@ -3,6 +3,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MARKED_FOR_REMOVAL_PACKAGES_FILE="${SCRIPT_DIR}/marked-for-removal-packages.txt"
 REQUIRED_PACKAGES_FILE="${SCRIPT_DIR}/required-packages.txt"
+FINAL_REQUIRED_PACKAGES_FILE="${SCRIPT_DIR}/final-required-packages.txt"
 
 readPackageList() {
     sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$1"
@@ -19,16 +20,17 @@ validatePackageList() {
 }
 
 verifyRequiredPackagesInstalled() {
+    local package_file="$1"
     local required
 
-    validatePackageList "${REQUIRED_PACKAGES_FILE}" "Required package list" || return 1
+    validatePackageList "${package_file}" "Required package list" || return 1
 
     while IFS= read -r required; do
         if ! dpkg-query -W -f='${db:Status-Status}\n' "${required}" 2>/dev/null | grep -Fxq "installed"; then
             echo "Required CVM package pattern is not installed: ${required}" >&2
             return 1
         fi
-    done < <(readPackageList "${REQUIRED_PACKAGES_FILE}")
+    done < <(readPackageList "${package_file}")
 }
 
 main() {
@@ -37,7 +39,7 @@ main() {
 
     case "${1:-}" in
         --verify-only)
-            verifyRequiredPackagesInstalled
+            verifyRequiredPackagesInstalled "${FINAL_REQUIRED_PACKAGES_FILE}"
             return
             ;;
         "")
@@ -64,7 +66,7 @@ main() {
     fi
 
     apt-mark manual curl gpg jq logrotate rsyslog sudo xfsprogs
-    verifyRequiredPackagesInstalled
+    verifyRequiredPackagesInstalled "${REQUIRED_PACKAGES_FILE}"
 }
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then

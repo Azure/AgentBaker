@@ -10,6 +10,7 @@ Describe 'trim-2604-cvm-packages'
     source "${TRIM_SCRIPT}"
     MARKED_FOR_REMOVAL_PACKAGES_FILE="${TEST_DIR}/marked-for-removal-packages.txt"
     REQUIRED_PACKAGES_FILE="${TEST_DIR}/required-packages.txt"
+    FINAL_REQUIRED_PACKAGES_FILE="${TEST_DIR}/final-required-packages.txt"
   }
 
   cleanup_trim() {
@@ -71,10 +72,14 @@ Describe 'trim-2604-cvm-packages'
 
   It 'supports final verification without running another purge'
     printf '%s\n' remove-me > "${MARKED_FOR_REMOVAL_PACKAGES_FILE}"
-    printf '%s\n' required-package > "${REQUIRED_PACKAGES_FILE}"
+    printf '%s\n' initial-required-package > "${REQUIRED_PACKAGES_FILE}"
+    printf '%s\n' final-required-package > "${FINAL_REQUIRED_PACKAGES_FILE}"
 
     dpkg-query() {
-      echo installed
+      for argument in "$@"; do
+        package="${argument}"
+      done
+      [ "${package}" = "final-required-package" ] && echo installed
     }
     apt-get() {
       echo "unexpected apt-get"
@@ -91,7 +96,7 @@ Describe 'trim-2604-cvm-packages'
   End
 
   It 'fails final verification when the required package list is empty'
-    : > "${REQUIRED_PACKAGES_FILE}"
+    : > "${FINAL_REQUIRED_PACKAGES_FILE}"
 
     When call main --verify-only
     The status should be failure
