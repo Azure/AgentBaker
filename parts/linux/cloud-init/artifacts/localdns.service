@@ -26,6 +26,15 @@ ConditionKernelVersion=>=5.15
 # so the unit is left in 'failed'. Don't rely on 'systemctl daemon-reload' to
 # clear this instead: it resets start_ratelimit on systemd 249 but not on 255
 # (Ubuntu 24.04), which is what AKS ships.
+#
+# OnFailure= starts the pod-DNS fallback so 169.254.10.11 keeps answering for
+# already-running pods while localdns is down. Note that systemd fires this on
+# EVERY failed start attempt, not only on entry to the terminal 'failed' state:
+# measured on a live node (systemd 255), 'Triggering OnFailure= dependencies'
+# appears once per restart cycle while 'systemctl is-failed' still reports
+# 'activating'. localdns-fallback.sh therefore re-checks localdns's SubState and
+# no-ops while it is in auto-restart, so only a settled localdns hands over .11.
+OnFailure=localdns-fallback.service
 StartLimitIntervalSec=720
 StartLimitBurst=5
 
@@ -34,6 +43,20 @@ Type=notify
 NotifyAccess=all
 WatchdogSec=60
 Restart=on-failure
+# Stop the pod-DNS fallback before we touch the shared dummy interface. localdns
+# start (add_iptable_rules_to_skip_conntrack_from_pods) deletes and recreates the
+# interface carrying .11; if the fallback were still bound, recovery would yank
+# its socket mid-flight. This synchronous stop is the ONLY handoff — the fallback
+# deliberately carries no Conflicts=localdns.service, because resolving that
+# conflict stopped this unit and reset its restart counter, so the 720/5 budget
+# above was never spent and 'failed' was never reached. '-' so a not-running
+# fallback is not an error.
+ExecStartPre=-/usr/bin/systemctl stop localdns-fallback.service
+# Undo the kubelet repoint the fallback may have made, so pods created from here
+# on go back to the localdns cluster listener. Idempotent and silent in the
+# common case (nothing was ever repointed), so it costs a no-op on every normal
+# start and never restarts kubelet unless it actually changed something.
+ExecStartPost=-/opt/azure/containers/localdns/localdns-kubelet-dns.sh restore
 # Load-bearing: give each restart time to sample real system state instead of
 # re-entering the transient it is retrying against. cleanup_iptables_and_dns
 # runs 'networkctl reload' on every start, and the dummy interface carrying the

@@ -58,6 +58,7 @@ LOCALDNS_COREFILE_BASE=${corefile_base}
 LOCALDNS_COREFILE_WITH_HOSTS=${LOCALDNS_COREFILE_WITH_HOSTS:-}
 SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN:-false}
 LOCALDNS_CRITICAL_FQDNS=${LOCALDNS_CRITICAL_FQDNS:-}
+COREDNS_SERVICE_IP=${COREDNS_SERVICE_IP:-}
 EOF
     chmod 0644 "${LOCALDNS_ENV_FILE}"
 
@@ -145,6 +146,19 @@ enableLocalDNS() {
     fi
     retrycmd_if_failure 120 5 25 systemctl enable localdns || exit $ERR_LOCALDNS_FAIL
     echo "Enable localdns succeeded."
+
+    # Enable the pod-DNS fallback probe timer (safety net for cases OnFailure=
+    # does not cover: clean stop that stays stopped, or active-but-not-serving).
+    # Backward-compat guard: skip on old VHDs that predate the probe unit.
+    # 'timeout' for the same reason the restart above is bounded -- this runs in the
+    # provisioning path, and an unresponsive PID 1 / D-Bus must not be able to
+    # consume the outer CSE deadline here.
+    if timeout 30 systemctl cat localdns-fallback-probe.timer &>/dev/null; then
+        systemctlEnableAndStartNoBlock localdns-fallback-probe.timer 30 || exit "$ERR_LOCALDNS_FAIL"
+        echo "Enabled localdns-fallback-probe.timer."
+    else
+        echo "localdns-fallback-probe.timer not found on this VHD, skipping fallback probe."
+    fi
     # Exporter socket setup is deferred to configureLocalDNSExporterSocket() (after ensureKubelet)
     # to avoid delaying kubelet start. The kubelet node label is added separately in cse_main.sh.
 }

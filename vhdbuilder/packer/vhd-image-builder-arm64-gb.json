@@ -759,6 +759,36 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-fallback.sh",
+      "destination": "/home/packer/localdns-fallback.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-fallback.service",
+      "destination": "/home/packer/localdns-fallback.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-fallback-probe.sh",
+      "destination": "/home/packer/localdns-fallback-probe.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-fallback-probe.service",
+      "destination": "/home/packer/localdns-fallback-probe.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-fallback-probe.timer",
+      "destination": "/home/packer/localdns-fallback-probe.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-kubelet-dns.sh",
+      "destination": "/home/packer/localdns-kubelet-dns.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/localdns-delegate.conf",
       "destination": "/home/packer/localdns-delegate.conf"
     },

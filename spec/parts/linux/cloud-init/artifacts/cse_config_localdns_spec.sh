@@ -107,6 +107,26 @@ Describe 'cse_config_localdns.sh'
             The output should not include "localdns should be enabled."
         End
 
+        # The probe timer is the safety net for the cases OnFailure= cannot cover:
+        # a clean stop that stays stopped, or localdns active but not serving .11.
+        It 'should enable the pod-DNS fallback probe timer'
+            When run enableLocalDNS
+            The status should be success
+            The output should include "Enabled localdns-fallback-probe.timer."
+        End
+
+        # Backward compatibility: VHDs predating the probe unit must still provision.
+        It 'should skip the probe timer on a VHD that predates it'
+            systemctl() {
+                echo "systemctl $*"
+                [ "$1" = "cat" ] && return 1
+                return 0
+            }
+            When run enableLocalDNS
+            The status should be success
+            The output should include "localdns-fallback-probe.timer not found on this VHD, skipping fallback probe."
+        End
+
         It 'should clear the StartLimit budget before each start attempt'
             When run enableLocalDNS
             The status should be success
@@ -239,6 +259,48 @@ Describe 'cse_config_localdns.sh'
             The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_COREFILE_BASE="
             The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_COREFILE_WITH_HOSTS=${LOCALDNS_COREFILE_WITH_HOSTS}"
             The contents of file "$LOCALDNS_ENV_FILE" should include "SHOULD_ENABLE_HOSTS_PLUGIN=true"
+        End
+
+        # CoreDNS service IP is persisted so the localdns .11 fallback can read the real
+        # kube-dns ClusterIP from the environment file rather than parsing the corefile.
+        It 'should persist COREDNS_SERVICE_IP to the environment file when set'
+            LOCALDNS_COREFILE_BASE=$(echo -n "corefile without hosts plugin" | base64)
+            LOCALDNS_ENV_FILE="$TMP_DIR/environment"
+            COREDNS_SERVICE_IP="10.0.0.10"
+
+            When call enableLocalDNS
+            The status should be success
+            The stdout should include "Enable localdns succeeded."
+            The path "$LOCALDNS_ENV_FILE" should be file
+            The contents of file "$LOCALDNS_ENV_FILE" should include "COREDNS_SERVICE_IP=10.0.0.10"
+        End
+
+        # Custom service CIDR: whatever ClusterIP is provided must be persisted verbatim,
+        # so the fallback forwards to the correct kube-dns ClusterIP, not a hardcoded default.
+        It 'should persist a custom COREDNS_SERVICE_IP verbatim'
+            LOCALDNS_COREFILE_BASE=$(echo -n "corefile without hosts plugin" | base64)
+            LOCALDNS_ENV_FILE="$TMP_DIR/environment"
+            COREDNS_SERVICE_IP="172.16.0.10"
+
+            When call enableLocalDNS
+            The status should be success
+            The stdout should include "Enable localdns succeeded."
+            The path "$LOCALDNS_ENV_FILE" should be file
+            The contents of file "$LOCALDNS_ENV_FILE" should include "COREDNS_SERVICE_IP=172.16.0.10"
+        End
+
+        # The key must always be written (empty when unset) so the fallback unit's
+        # EnvironmentFile= read is well-defined rather than referencing a missing key.
+        It 'should write an empty COREDNS_SERVICE_IP when unset'
+            LOCALDNS_COREFILE_BASE=$(echo -n "corefile without hosts plugin" | base64)
+            LOCALDNS_ENV_FILE="$TMP_DIR/environment"
+            unset COREDNS_SERVICE_IP
+
+            When call enableLocalDNS
+            The status should be success
+            The stdout should include "Enable localdns succeeded."
+            The path "$LOCALDNS_ENV_FILE" should be file
+            The contents of file "$LOCALDNS_ENV_FILE" should include "COREDNS_SERVICE_IP="
         End
 
         # Old CSE + new VHD backward compatibility.
