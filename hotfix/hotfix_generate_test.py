@@ -361,7 +361,7 @@ write_files:
                 self.assertNotIn(hotfix_generate.SCRIPTS_BEGIN, cleaned)
                 self.assertEqual(1, cleaned.count("provisionSourceUbuntu"))
 
-    def test_write_hotfix_file_contains_both_versions_and_preserves_them(self):
+    def test_write_hotfix_file_uses_hotfixes_and_preserves_scripts_version(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             target = Path(temp_dir) / "hotfix.json"
             with mock.patch.object(
@@ -373,7 +373,7 @@ write_files:
                 )
                 self.assertEqual(
                     {
-                        "version": "202608.14.1",
+                        "hotfixes": {"202608.14": "202608.14.1"},
                         "scripts_version": "202608.14.2",
                     },
                     json.loads(target.read_text()),
@@ -381,7 +381,7 @@ write_files:
                 hotfix_generate.write_hotfix_file("", "")
                 self.assertEqual(
                     {
-                        "version": "202608.14.1",
+                        "hotfixes": {"202608.14": "202608.14.1"},
                         "scripts_version": "202608.14.2",
                     },
                     json.loads(target.read_text()),
@@ -412,7 +412,7 @@ write_files:
                 ),
             )
 
-    def test_resolve_hotfix_versions_adds_version_for_anc_script_delivery(self):
+    def test_resolve_hotfix_versions_adds_hotfix_for_anc_script_delivery(self):
         with mock.patch.object(
             hotfix_generate,
             "bump_version",
@@ -428,7 +428,7 @@ write_files:
                 ),
             )
 
-    def test_resolve_hotfix_versions_keeps_independent_anc_version(self):
+    def test_resolve_hotfix_versions_keeps_independent_anc_hotfix(self):
         with mock.patch.object(
             hotfix_generate,
             "bump_version",

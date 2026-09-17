@@ -94,6 +94,11 @@ func ValidateCommonWindows(ctx context.Context, s *Scenario) error {
 }
 
 func ValidateMANAIfPresent(ctx context.Context, s *Scenario) error {
+	if s.VHD != nil && (s.VHD.SkipOldVHDValidations || s.VHD.Distro.IsAzureLinuxOSGuardDistro()) {
+		logging.Logf(ctx, "Skipping MANA validation: not supported for %s", s.VHD.Distro)
+		return nil
+	}
+
 	hasMANA, err := hasMANAHardware(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to detect MANA hardware: %w", err)
