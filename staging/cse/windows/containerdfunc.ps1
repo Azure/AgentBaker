@@ -35,7 +35,11 @@ function RegisterContainerDService {
   Assert-FileExists -Filename $global:Containerdbinary -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_BINARY_EXIST
 
   # in the past service was not installed via nssm so remove it in case
-  Remove-ServiceIfExists -ServiceName "containerd"
+  try {
+    Remove-ServiceIfExists -ServiceName "containerd"
+  } catch {
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED -ErrorMessage "Failed to remove existing containerd service before registration. Error: $_"
+  }
 
   Write-Log "Registering containerd as a service"
   try {
