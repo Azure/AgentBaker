@@ -197,15 +197,40 @@ ensureGPUDrivers() {
     # stale module/libs collide with the grid driver (NVML version mismatch). Runs before the dispatch
     # below so it covers both the configGPUDrivers and validateGPUDrivers paths.
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        logs_to_events "AKS.CSE.ensureGPUDrivers.restoreStagedGPUDriver" restoreStagedGPUDriver || exit $ERR_GPU_DRIVERS_START_FAIL
         logs_to_events "AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake" cleanUpGridNodeCudaPrebake || exit $ERR_GPU_DRIVERS_START_FAIL
+        if [ -d "${GPU_PREBAKE_ROOT:-}/opt/azure/aks-gpu/staged-needs-install" ]; then
+            echo "AKS_GPU_PREBAKE event=initialization_required action=normal_install"
+            CONFIG_GPU_DRIVER_IF_NEEDED=true
+        fi
+    fi
+
+    # Validation-only must not accept loadable modules without DKMS registration (including
+    # a retry after restoration), or a cache for another kernel/version. The normal installer
+    # remains the repair path: no skip-build action and no replay of missed kernel hooks.
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ -f "$marker" ] && [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" != true ]; then
+        local version kernel registration
+        version=$(sed -n 's/^driver_version=//p' "$marker" | head -n1)
+        kernel=$(uname -r)
+        if [ "$version" != "${GPU_DV:-}" ] ||
+            [ "$(sed -n 's/^kernel=//p' "$marker" | head -n1)" != "$kernel" ] ||
+            [ "$(sed -n 's/^arch=//p' "$marker" | head -n1)" != "$(uname -m)" ] ||
+            ! registration=$(dkms status -m nvidia -v "$version" -k "$kernel") ||
+            ! grep -q ': installed$' <<< "$registration" ||
+            [ "$(modinfo -k "$kernel" -F version nvidia)" != "$version" ]; then
+            echo "AKS_GPU_PREBAKE event=repair_required; running normal NVIDIA installer"
+            CONFIG_GPU_DRIVER_IF_NEEDED=true
+        fi
     fi
 
     if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]; then
-        logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
+        logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
     else
         logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
     fi
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        logs_to_events "AKS.CSE.ensureGPUDrivers.retireStagedGPUDriver" "removeStagedGPUDriver installed" || exit $ERR_GPU_DRIVERS_START_FAIL
         logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe 30" || exit $ERR_GPU_DRIVERS_START_FAIL
         logGPUDriverPrebakeReadiness
     fi

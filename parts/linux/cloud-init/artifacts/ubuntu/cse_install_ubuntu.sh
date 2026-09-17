@@ -309,6 +309,225 @@ removeNvidiaRepos() {
     fi
 }
 
+# The root override is only for filesystem fixtures. Production always uses the host root.
+# Keep these helpers in the existing distro artifact: both Packer and CSE already source it.
+prepareStagedGPUDriver() {
+    local root="${GPU_PREBAKE_ROOT:-}" path modules libraries
+    for path in /opt/azure/aks-gpu/staged /opt/azure/aks-gpu/staged-needs-install \
+        /opt/azure/aks-gpu/staged-discard /opt/azure/aks-gpu/dkms-marker \
+        /var/lib/dkms/nvidia /var/lib/nvidia /usr/bin/lib64 \
+        /etc/ld.so.conf.d/nvidia.conf /etc/modprobe.d/blacklist-nouveau.conf; do
+        if [ -e "${root}${path}" ] || [ -L "${root}${path}" ]; then
+            echo "Cannot stage NVIDIA prebake: existing ${path}" >&2
+            return 1
+        fi
+    done
+    # Never cache a live driver, even on an accidentally GPU-equipped builder.
+    modules=$(lsmod) || return 1
+    if grep -q '^nvidia' <<< "$modules"; then
+        echo "Cannot stage a loaded NVIDIA driver" >&2
+        return 1
+    fi
+    modules=$(find "${root}/lib/modules" -name 'nvidia*.ko*' -print) || return 1
+    libraries=$(ldconfig -p) || return 1
+    if [ -n "$modules" ] || grep -Eq 'lib(cuda|nvidia-)' <<< "$libraries"; then
+        echo "Cannot stage over existing NVIDIA modules or linker entries" >&2
+        return 1
+    fi
+    install -d -o root -g root -m 0700 "${root}/opt/azure/aks-gpu/staged" || return 1
+}
+
+gpuPrebakeManifest() {
+    local root="${GPU_PREBAKE_ROOT:-}" version kernel registration path
+    version=$(sed -n 's/^driver_version=//p' "${root}/opt/azure/aks-gpu/dkms-marker") || return 1
+    grep -Eq '^[0-9]+[.][0-9]+[.][0-9]+$' <<< "$version" || return 1
+    grep -qx 'driver_kind=cuda' "${root}/opt/azure/aks-gpu/dkms-marker" || return 1
+    grep -qx 'arch=x86_64' "${root}/opt/azure/aks-gpu/dkms-marker" || return 1
+    kernel=$(sed -n 's/^kernel=//p' "${root}/opt/azure/aks-gpu/dkms-marker") || return 1
+    registration=$(dkms status -m nvidia -v "$version" -k "$kernel") || return 1
+    grep -q ': installed$' <<< "$registration" || return 1
+    [ "$(modinfo -k "$kernel" -F version nvidia)" = "$version" ] || return 1
+    [ -d "${root}/usr/src/nvidia-${version}" ] || return 1
+    [ -L "${root}/var/lib/dkms/nvidia/${version}/source" ] || return 1
+    [ "$(readlink "${root}/var/lib/dkms/nvidia/${version}/source")" = "/usr/src/nvidia-${version}" ] || return 1
+
+    # NVIDIA's uninstall log is the ownership record, not a guess based on file names.
+    # Records 0/1 are installed symlinks/files, followed by one target/checksum line.
+    # Reject unknown formats and replacements outside the disposable library overlay.
+    awk '
+        NR <= 2 { next }
+        {
+            tag = $1; path = substr($0, length(tag) + 2)
+            if (tag !~ /^[0-9]+:$/ || path !~ /^\//) exit 1
+            if (tag == "0:" || tag == "1:") {
+                if (path !~ /^\/usr\/lib\/x86_64-linux-gnu\// &&
+                    path !~ /^\/usr\/src\/nvidia-[0-9.]+\//) print path
+                if ((getline) <= 0) exit 1
+            } else {
+                if (tag != "2:" && (tag + 0) < 100) exit 1
+                if (path !~ /^\/usr\/lib\/x86_64-linux-gnu\//) exit 1
+                if ((getline) <= 0) exit 1
+                if (tag == "2:" && (getline) <= 0) exit 1
+            }
+        }
+    ' "${root}/var/lib/nvidia/log" || return 1
+    printf '%s\n' /var/lib/nvidia /var/lib/dkms/nvidia /usr/bin/lib64 \
+        /etc/modprobe.d/blacklist-nouveau.conf /etc/ld.so.conf.d/nvidia.conf \
+        /opt/azure/aks-gpu/dkms-marker
+    # DKMS installs are not in the runfile log. Only the driver's named modules are owned;
+    # unrelated modules in updates/dkms remain untouched.
+    for path in "${root}"/lib/modules/*/updates/dkms/nvidia{,-modeset,-uvm,-drm,-peermem}.ko{,.xz,.zst,.gz}; do
+        [ -e "$path" ] || [ -L "$path" ] || continue
+        printf '%s\n' "${path#"${root}"}"
+    done
+}
+
+moveGPUPrebakeFiles() {
+    local direction="$1" root="${GPU_PREBAKE_ROOT:-}" cache path src dst device
+    cache="${root}/opt/azure/aks-gpu/staged"
+    device=$(stat -c %d "$cache") || return 1
+    # Preflight the WHOLE transaction before moving anything. A completed rename has exactly
+    # one endpoint. Refuse separate mounts: mv's cross-filesystem copy/remove is not atomic.
+    while IFS= read -r path; do
+        case "$path" in
+            /var/lib/nvidia|/var/lib/dkms/nvidia|/usr/bin/lib64|/opt/azure/aks-gpu/dkms-marker|/etc/*|/usr/*|/lib/*) ;;
+            *) return 1 ;;
+        esac
+        case "$path" in *'/../'*|*'/./'*|*/..|*/.|*'//'*) return 1 ;; esac
+        src="${root}${path}"; dst="${cache}/files${path}"
+        if [ "$direction" = restore ]; then src="${cache}/files${path}"; dst="${root}${path}"; fi
+        if { [ -e "$src" ] || [ -L "$src" ]; } && { [ -e "$dst" ] || [ -L "$dst" ]; }; then
+            echo "NVIDIA prebake collision: ${path}" >&2
+            return 1
+        fi
+        if [ ! -e "$src" ] && [ ! -L "$src" ]; then
+            [ -e "$dst" ] || [ -L "$dst" ] || return 1
+            continue # this entry was already renamed by this transaction
+        fi
+        if [ -d "$src" ] && [ ! -L "$src" ]; then
+            case "$path" in /var/lib/nvidia|/var/lib/dkms/nvidia|/usr/bin/lib64) ;; *) return 1 ;; esac
+        fi
+        [ "$(stat -c %d "$src")" = "$device" ] || return 1
+        mkdir -p "$(dirname "$dst")" || return 1
+        [ "$(stat -c %d "$(dirname "$dst")")" = "$device" ] || return 1
+    done < "${cache}/manifest"
+    while IFS= read -r path; do
+        src="${root}${path}"; dst="${cache}/files${path}"
+        if [ "$direction" = restore ]; then src="${cache}/files${path}"; dst="${root}${path}"; fi
+        [ -e "$src" ] || [ -L "$src" ] || continue
+        mv -T -n -- "$src" "$dst" || return 1
+        # GNU mv -n may report success without moving. Verify the rename, including dangling links.
+        if [ -e "$src" ] || [ -L "$src" ]; then return 1; fi
+        [ -e "$dst" ] || [ -L "$dst" ] || return 1
+    done < "${cache}/manifest"
+}
+
+refreshGPUPrebake() {
+    local root="${GPU_PREBAKE_ROOT:-}" modules
+    for modules in "${root}"/lib/modules/*; do
+        [ -d "$modules" ] || continue
+        depmod -a "${modules##*/}" || return 1
+    done
+    ldconfig || return 1
+    systemctl daemon-reload || return 1
+}
+
+stageGPUDriver() {
+    local root="${GPU_PREBAKE_ROOT:-}" cache image listing residual found=false
+    cache="${root}/opt/azure/aks-gpu/staged"
+    [ -d "$cache" ] && [ ! -L "$cache" ] || return 1
+    [ ! -e "${cache}/restoring" ] || return 1
+    if [ ! -f "${cache}/manifest" ]; then
+        gpuPrebakeManifest > "${cache}/manifest.new" || return 1
+        sort -u "${cache}/manifest.new" > "${cache}/manifest.sorted" || return 1
+        mv -T "${cache}/manifest.sorted" "${cache}/manifest" || return 1
+        rm "${cache}/manifest.new" || return 1
+    fi
+    moveGPUPrebakeFiles stage || return 1
+    residual=$(find "${root}/lib/modules" -name 'nvidia*.ko*' -print) || return 1
+    if [ -n "$residual" ]; then
+        echo "Unstaged NVIDIA modules remain: ${residual}" >&2
+        return 1
+    fi
+    refreshGPUPrebake || return 1
+    # depmod cannot remove modules already embedded in an initrd. Rebuild ALL generated
+    # images and inspect them; failing to prove inactivity must fail the opt-in VHD build.
+    update-initramfs -u -k all || return 1
+    for image in "${root}"/boot/initrd.img-*; do
+        [ -f "$image" ] || continue
+        found=true
+        listing=$(lsinitramfs "$image") || return 1
+        if grep -Eq '(^|/)(nvidia[^/]*[.]ko([.][^/]*)?|[^/]*nvidia[^/]*[.](conf|service|rules|json)|lib(nvidia|cuda)[^/]*|s?bin/nvidia[^/]*|system-sleep/nvidia)$|opt/azure/aks-gpu/staged' <<< "$listing"; then
+            echo "NVIDIA payload remains in ${image}" >&2
+            return 1
+        fi
+    done
+    [ "$found" = true ] || return 1
+    touch "${cache}/staged" || return 1
+    echo "AKS_GPU_PREBAKE event=staged"
+}
+
+removeStagedGPUDriver() {
+    local cache="${GPU_PREBAKE_ROOT:-}/opt/azure/aks-gpu/staged" discard="${GPU_PREBAKE_ROOT:-}/opt/azure/aks-gpu/staged-discard"
+    # The discard name, not a file inside it, commits disposal. An interrupted rm is retryable.
+    if [ -e "$discard" ] || [ -L "$discard" ]; then
+        rm -rf -- "$discard" || return 1
+        [ ! -e "$discard" ] && [ ! -L "$discard" ] || return 1
+    fi
+    if [ "${1:-}" = installed ]; then cache="${cache}-needs-install"; fi
+    [ -e "$cache" ] || [ -L "$cache" ] || return 0
+    if [ -L "$cache" ] || { [ "${1:-}" != installed ] && { [ ! -f "${cache}/staged" ] || [ -e "${cache}/restoring" ]; }; }; then
+        echo "NVIDIA prebake transaction is incomplete; refusing inactive-cache cleanup" >&2
+        return 1
+    fi
+    mv -T -n -- "$cache" "$discard" || return 1
+    [ ! -e "$cache" ] && [ ! -L "$cache" ] || return 1
+    [ -d "$discard" ] || return 1
+    rm -rf -- "$discard" || return 1
+    [ ! -e "$discard" ] && [ ! -L "$discard" ] || return 1
+    echo "AKS_GPU_PREBAKE event=inactive_cache_removed"
+}
+
+restoreStagedGPUDriver() {
+    local cache="${GPU_PREBAKE_ROOT:-}/opt/azure/aks-gpu/staged" complete=true path
+    [ -e "$cache" ] || [ -L "$cache" ] || return 0
+    # Use live node decisions, never a basePrep/PIS-baked decision.
+    if [ "${GPU_NODE:-}" != true ] || [ "${skip_nvidia_driver_install:-}" = true ]; then
+        removeStagedGPUDriver
+        return $?
+    fi
+    case "${NVIDIA_GPU_DRIVER_TYPE:-}" in cuda|cuda-lts) ;; *) removeStagedGPUDriver; return $? ;; esac
+    [ ! -L "$cache" ] || return 1
+    [ ! -e "${cache}-needs-install" ] && [ ! -L "${cache}-needs-install" ] || return 1
+    [ -s "${cache}/manifest" ] || return 1
+    if [ -f "${cache}/staged" ]; then
+        # Preflight while still inactive. Missing cache files can fall back to the ordinary
+        # installer; independent active destinations and partial active transactions cannot.
+        while IFS= read -r path; do
+            if [ -e "${GPU_PREBAKE_ROOT:-}${path}" ] || [ -L "${GPU_PREBAKE_ROOT:-}${path}" ]; then
+                echo "NVIDIA prebake restore collision: ${path}" >&2
+                return 1
+            fi
+            if [ ! -e "${cache}/files${path}" ] && [ ! -L "${cache}/files${path}" ]; then complete=false; fi
+        done < "${cache}/manifest"
+        if [ "$complete" = false ]; then
+            mv -T -n -- "$cache" "${cache}-needs-install" || return 1
+            [ ! -e "$cache" ] && [ -d "${cache}-needs-install" ] || return 1
+            echo "AKS_GPU_PREBAKE event=cache_incomplete action=normal_install"
+            return 0
+        fi
+        mv -T "${cache}/staged" "${cache}/restoring" || return 1
+    fi
+    [ -f "${cache}/restoring" ] || return 1
+    moveGPUPrebakeFiles restore || return 1
+    refreshGPUPrebake || return 1
+    # build-only omits runtime/toolkit/fabric-manager setup. Persist the normal-install
+    # requirement across CSE retries; only retire it after configGPUDrivers succeeds.
+    mv -T -n -- "$cache" "${cache}-needs-install" || return 1
+    [ ! -e "$cache" ] && [ -d "${cache}-needs-install" ] || return 1
+    echo "AKS_GPU_PREBAKE event=restored"
+}
+
 # cleanUpPrebakedGPUDriver removes a CUDA driver pre-baked into the shared VHD on any node that does
 # NOT install the AKS-managed driver -- the cleanUpGPUDrivers path (GPU_NODE != true OR
 # skip_nvidia_driver_install=true): non-GPU VMs, and GPU VMs opted out via --gpu-driver None or the
@@ -322,6 +541,19 @@ removeNvidiaRepos() {
 # (refcnt 0, no /dev/nvidia*) but resident until reboot, and a landmine for a subsequent GPU Operator
 # install. So we rmmod it first, when idle, before removing the files. No-op unless the marker exists.
 cleanUpPrebakedGPUDriver() {
+    if [ -e "${GPU_PREBAKE_ROOT:-}/opt/azure/aks-gpu/staged" ] || [ -L "${GPU_PREBAKE_ROOT:-}/opt/azure/aks-gpu/staged" ]; then
+        if ! removeStagedGPUDriver; then
+            echo "AKS_GPU_PREBAKE event=inactive_cache_cleanup status=incomplete" >&2
+        fi
+        if [ -e "${GPU_PREBAKE_ROOT:-}/opt/azure/aks-gpu/staged-needs-install" ]; then
+            echo "AKS_GPU_PREBAKE event=initialization_pending status=incomplete" >&2
+        fi
+        return 0 # CPU/opt-out cleanup remains best effort; never call inactive residue active DKMS.
+    fi
+    # Retry disposal after an interrupted inactive-cache cleanup without treating it as active.
+    if ! removeStagedGPUDriver; then
+        echo "AKS_GPU_PREBAKE event=inactive_cache_cleanup status=incomplete" >&2
+    fi
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
     if [ ! -f "${marker}" ]; then
         return 0
