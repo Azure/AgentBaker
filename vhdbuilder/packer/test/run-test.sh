@@ -67,6 +67,7 @@ set -x
 # In SIG mode, Windows VM requires admin-username and admin-password to be set,
 # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
 # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
+VM_SIZE="Standard_D2ds_v5"
 TARGET_COMMAND_STRING=""
 if [ "${ARCHITECTURE,,}" = "arm64" ]; then
   # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
@@ -76,8 +77,6 @@ if [ "${ARCHITECTURE,,}" = "arm64" ]; then
   else
     VM_SIZE="Standard_D2pds_v5"
   fi
-else
-  VM_SIZE="Standard_D2ds_v5"
 fi
 TARGET_COMMAND_STRING="--size $VM_SIZE"
 

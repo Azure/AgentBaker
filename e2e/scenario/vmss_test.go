@@ -396,7 +396,7 @@ func TestWriteScriptHotfixFixtureRejectsInvalidData(t *testing.T) {
 // product error code changes, this test forces the harness mitigation to be updated.
 func TestGetBaseVMSSModelUsesScenarioVMSize(t *testing.T) {
 	s := &Scenario{
-		Runtime: &ScenarioRuntime{VMSize: "Standard_D2ds_v5"},
+		Runtime: &ScenarioRuntime{VMSize: config.DEFAULT_VMSKU},
 	}
 	assert.Equal(t, s.Runtime.VMSize, scenarioVMSize(s))
 }

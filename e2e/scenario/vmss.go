@@ -1670,7 +1670,7 @@ func scenarioVMSize(s *Scenario) string {
 	if s.Runtime != nil && s.Runtime.VMSize != "" {
 		return s.Runtime.VMSize
 	}
-	return config.Config.DefaultVMSKU
+	return config.Config.VMSKU()
 }
 
 func generateWindowsPassword() string {
