@@ -50,10 +50,25 @@ func init() {
 					// unexpected-exit DNS teardown this PR fixes) on the target
 					// distros. The hosts-plugin functionality itself is covered by
 					// the scenario's default provisioning validation.
-					if tt.name == "Ubuntu2204" || tt.name == "Ubuntu2404" || tt.name == "AzureLinuxV3" {
-						return validateLocalDNSLifecycle(ctx, s)
+					if tt.name != "Ubuntu2204" && tt.name != "Ubuntu2404" && tt.name != "AzureLinuxV3" {
+						return nil
 					}
-					return nil
+					if err := validateLocalDNSLifecycle(ctx, s); err != nil {
+						return err
+					}
+					// Then assert the restart budget actually bounds failures.
+					//
+					// The full failure-mode matrix runs on Ubuntu2404 only: it is
+					// systemd 255, where daemon-reload does not clear the start
+					// limiter and where the provisioning regression was found. It
+					// costs ~23min, so the other distros run the single
+					// discriminating mode instead (~40s) -- enough to catch the
+					// directives being dropped on those images.
+					faults := localdnsDiscriminatingFault()
+					if tt.name == "Ubuntu2404" {
+						faults = localdnsFaultMatrix
+					}
+					return validateLocalDNSRestartBudget(ctx, s, faults)
 				},
 			},
 		})
@@ -63,14 +78,6 @@ func init() {
 func validateLocalDNSLifecycle(ctx context.Context, s *Scenario) error {
 	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, `
 set -eu
-
-# This validation requires the ExecStopPost hook baked into the branch VHD.
-# Standalone E2E may run against an older published VHD, where this behavior
-# is unavailable and should be skipped rather than reported as a false failure.
-if ! sudo systemctl show localdns.service -p ExecStopPost --value | grep -q 'localdns.sh cleanup'; then
-    echo "SKIP: VHD predates the ExecStopPost cleanup hook"
-    exit 0
-fi
 
 NORESTART=/run/systemd/system/localdns.service.d/99-e2e-no-restart.conf
 
@@ -84,8 +91,11 @@ restore_localdns_test_state() {
     if [ -f "$NORESTART" ]; then
         sudo rm -f "$NORESTART" || { echo "ERROR: failed to remove $NORESTART"; cleanup_status=1; }
         sudo systemctl daemon-reload || { echo "ERROR: systemd daemon-reload failed during test cleanup"; cleanup_status=1; }
-        sudo systemctl reset-failed localdns.service || { echo "ERROR: reset-failed localdns.service failed during test cleanup"; cleanup_status=1; }
     fi
+    # The restart loop can hit systemd's start limit without creating NORESTART.
+    # Clear any failed state before trying to start LocalDNS; this is best-effort
+    # so a reset failure does not prevent the rest of cleanup.
+    sudo systemctl reset-failed localdns.service || true
     if ! sudo systemctl is-active --quiet localdns.service; then
         sudo systemctl start localdns.service || { echo "ERROR: failed to restart localdns.service during test cleanup"; cleanup_status=1; }
     fi
@@ -101,6 +111,11 @@ restore_localdns_test_state() {
 trap restore_localdns_test_state EXIT
 
 sudo systemctl is-active --quiet localdns.service
+control_group=$(sudo systemctl show localdns.service -p ControlGroup --value)
+test "$control_group" = "/localdns.slice/localdns.service" || {
+    echo "FAIL: expected LocalDNS ControlGroup=/localdns.slice/localdns.service, got $control_group"
+    exit 1
+}
 
 # Normal systemd stop must complete cleanup and return success.
 sudo systemctl restart localdns.service
@@ -111,8 +126,9 @@ sudo systemctl start localdns.service
 sudo systemctl is-active --quiet localdns.service
 
 # Repeatedly kill the supervisor and wait for Restart=on-failure recovery.
-# This loop validates ordinary service recovery; the terminal dead-service
-# regression for ExecStopPost is covered by the block below.
+# This verifies that systemd can restart LocalDNS; startup cleanup may restore
+# DNS on this path, so it does not by itself validate the ExecStopPost fix.
+# The terminal dead-service block below validates that fix directly.
 # Require a genuinely new MainPID after each kill: immediately after kill -9,
 # systemd may still report the killed invocation as active/running until it
 # processes SIGCHLD, so checking active/running alone can observe the old
@@ -138,6 +154,14 @@ for i in 1 2 3; do
     test "$recovered" = true
 done
 
+restarts_after=$(sudo systemctl show localdns.service -p NRestarts --value)
+# The loop above performs three kill/restart cycles. The manual start before
+# the loop resets NRestarts to zero, so assert the absolute restart count.
+test "$restarts_after" -ge 3 || {
+    echo "FAIL: expected >=3 systemd restarts, got $restarts_after"
+    exit 1
+}
+
 state=$(sudo systemctl show localdns.service -p ActiveState -p SubState -p Result -p ControlGroup)
 printf '%s\n' "$state"
 printf '%s\n' "$state" | grep -q '^ActiveState=active$'
@@ -149,12 +173,17 @@ printf '%s\n' "$state" | grep -q '^Result=success$'
 if sudo journalctl -u localdns.service --since "@$test_start" --no-pager | grep -q 'Failed to kill control group'; then
     echo "WARNING: LocalDNS cgroup teardown warning observed"
 fi
+# Three kills well inside the window must not exhaust the budget -- if they do, recovery
+# from ordinary crashes is broken. Note this is scoped to the kill/recovery cycles above
+# via --since: deliberately exhausting the budget is the expected outcome in the
+# restart-budget validation, which runs separately after this function returns.
 if sudo journalctl -u localdns.service --since "@$test_start" --no-pager | grep -q 'Start request repeated too quickly'; then
-    echo "LocalDNS reached systemd StartLimit"
+    echo "LocalDNS reached systemd StartLimit during the kill/recovery cycles"
     exit 1
 fi
 dig +short +time=5 +tries=1 mcr.microsoft.com @169.254.10.10 | grep -q .
 
+if sudo systemctl show localdns.service -p ExecStopPost --value | grep -q 'localdns.sh cleanup'; then
 # Terminal dead-service case: this is the incident scenario the PR fixes.
 # When localdns ends up dead (systemd exhausts restart attempts), ExecStopPost
 # must still revert node DNS so the node does not keep pointing at the dead
@@ -203,21 +232,36 @@ fi
 # read must not be treated as "restored", or a failed read would mask the very
 # regression under test. Retry those instead.
 dns_reverted=false
+resolver_state_readable=false
+localdns_listener_present=false
 for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
     if command -v resolvectl >/dev/null 2>&1; then
         current_dns=$(resolvectl status 2>/dev/null) || current_dns=""
     else
         current_dns=$(cat /run/systemd/resolve/resolv.conf 2>/dev/null) || current_dns=""
     fi
-    # Require a non-empty snapshot before trusting the absence check.
-    if [ -n "$current_dns" ] && ! printf '%s' "$current_dns" | grep -q '169\.254\.10\.10'; then
-        dns_reverted=true
-        break
+    if [ -z "$current_dns" ]; then
+        resolver_state_readable=false
+    else
+        resolver_state_readable=true
+        if printf '%s' "$current_dns" | grep -q '169\.254\.10\.10'; then
+            localdns_listener_present=true
+        else
+            localdns_listener_present=false
+            dns_reverted=true
+            break
+        fi
     fi
     sleep 1
 done
 if [ "$dns_reverted" != true ]; then
-    echo "FAIL: link DNS still points at 169.254.10.10 (or resolver state unreadable) after localdns died"
+    if [ "$resolver_state_readable" != true ]; then
+        echo "FAIL: resolver state was empty or unreadable after localdns died"
+    elif [ "$localdns_listener_present" = true ]; then
+        echo "FAIL: link DNS still points at 169.254.10.10 after localdns died"
+    else
+        echo "FAIL: node DNS was not restored after localdns died"
+    fi
     exit 1
 fi
 
@@ -226,6 +270,9 @@ fi
 if ! getent hosts mcr.microsoft.com >/dev/null 2>&1; then
     echo "FAIL: node cannot resolve DNS after localdns died"
     exit 1
+fi
+else
+    echo "SKIP: VHD predates the ExecStopPost cleanup hook"
 fi
 
 # The EXIT trap removes the temporary override and restores LocalDNS even if

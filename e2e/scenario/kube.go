@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"golang.org/x/net/http2"
@@ -107,7 +107,7 @@ func NewKubeclient(kubeconfigBytes []byte) (*Kubeclient, error) {
 }
 
 func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
-	defer toolkit.LogStepCtxf(ctx, "waiting for pod %s %s in %q namespace", labelSelector, fieldSelector, namespace)()
+	defer logging.LogStepf(ctx, "waiting for pod %s %s in %q namespace", labelSelector, fieldSelector, namespace)()
 	var pod *corev1.Pod
 
 	err := wait.PollUntilContextTimeout(ctx, 3*time.Second, 6*time.Minute, true, func(ctx context.Context) (bool, error) {
@@ -165,14 +165,14 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 	return pod, err
 }
 
-func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, logger toolkit.Logger, vmssName string) (string, error) {
-	defer toolkit.LogStepf(logger, "waiting for node %s to be ready", vmssName)()
+func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, vmssName string) (string, error) {
+	defer logging.LogStepf(ctx, "waiting for node %s to be ready", vmssName)()
 	var lastNode *corev1.Node
 
 	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
 		nodes, err := k.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 		if err != nil {
-			logger.Logf("error listing nodes: %v", err)
+			logging.Logf(ctx, "error listing nodes: %v", err)
 			return false, nil
 		}
 
@@ -188,12 +188,12 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, logger toolkit.Logg
 
 			for _, cond := range node.Status.Conditions {
 				if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
-					logger.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
+					logging.Logf(ctx, "node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
 					return true, nil
 				}
 			}
 
-			logger.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
+			logging.Logf(ctx, "node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
 		}
 
 		return false, nil
@@ -285,12 +285,13 @@ func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod) {
 		StartTime:  pod.Status.StartTime,
 		Events:     formattedEvents,
 		Containers: containers,
+		Conditions: conditions,
 		Logs:       string(logs),
 	}, "", "  ")
 	if err != nil {
-		toolkit.Logf(ctx, "couldn't debug info: %s", info)
+		logging.Logf(ctx, "couldn't debug info: %s", info)
 	}
-	toolkit.Log(ctx, string(info))
+	logging.Log(ctx, string(info))
 }
 
 func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterName string) ([]byte, error) {
@@ -356,7 +357,7 @@ func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) 
 }
 
 func (k *Kubeclient) createKubernetesSecret(ctx context.Context, namespace, secretName, registryName, username, password string) error {
-	defer toolkit.LogStepCtxf(ctx, "creating kubernetes secret %s in namespace %s for registry %s", secretName, namespace, registryName)()
+	defer logging.LogStepf(ctx, "creating kubernetes secret %s in namespace %s for registry %s", secretName, namespace, registryName)()
 	clientset, err := kubernetes.NewForConfig(k.RESTConfig)
 	if err != nil {
 		return fmt.Errorf("create Kubernetes client: %w", err)
@@ -399,7 +400,7 @@ func daemonsetDebug(ctx context.Context, deploymentName string, nodeSelector map
 		image = fmt.Sprintf("%s.azurecr.io/aks-managed-repository/cbl-mariner/base/core:2.0", privateACRName)
 		secretName = config.Config.ACRSecretName
 	}
-	toolkit.Logf(ctx, "Creating daemonset %s with image %s", deploymentName, image)
+	logging.Logf(ctx, "Creating daemonset %s with image %s", deploymentName, image)
 
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
@@ -591,7 +592,7 @@ while True:
 
 func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 	image := "mcr.microsoft.com/cbl-mariner/base/python:3"
-	toolkit.Logf(ctx, "Creating proxy daemonset %s with image %s", proxyAppLabel, image)
+	logging.Logf(ctx, "Creating proxy daemonset %s with image %s", proxyAppLabel, image)
 
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{Kind: "DaemonSet", APIVersion: "apps/v1"},
@@ -709,9 +710,9 @@ func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 		if !selfHealed && len(pods.Items) > 0 && time.Since(start) >= selfHealDelay {
 			selfHealed = true
 			if rerr := k.recreateProxyPods(ctx); rerr != nil {
-				toolkit.Logf(ctx, "failed to recreate proxy pods after %s: %v", selfHealDelay, rerr)
+				logging.Logf(ctx, "failed to recreate proxy pods after %s: %v", selfHealDelay, rerr)
 			} else {
-				toolkit.Logf(ctx, "recreated proxy pods after %s without a ready proxy", selfHealDelay)
+				logging.Logf(ctx, "recreated proxy pods after %s without a ready proxy", selfHealDelay)
 			}
 		}
 		return false, nil
@@ -792,9 +793,9 @@ func formatPodDiagnostics(pod *corev1.Pod) string {
 }
 
 func (k *Kubeclient) logProxyTimeoutDiagnostics(ctx context.Context, lastPodStatuses []string) {
-	toolkit.Logf(ctx, "⚠️  proxy pod readiness timeout — last observed pod statuses:")
+	logging.Logf(ctx, "⚠️  proxy pod readiness timeout — last observed pod statuses:")
 	for _, s := range lastPodStatuses {
-		toolkit.Logf(ctx, "    %s", s)
+		logging.Logf(ctx, "    %s", s)
 	}
 
 	listCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -802,9 +803,9 @@ func (k *Kubeclient) logProxyTimeoutDiagnostics(ctx context.Context, lastPodStat
 
 	ds, err := k.Typed.AppsV1().DaemonSets(defaultNamespace).Get(listCtx, proxyAppLabel, metav1.GetOptions{})
 	if err != nil {
-		toolkit.Logf(ctx, "    (failed to get proxy daemonset: %v)", err)
+		logging.Logf(ctx, "    (failed to get proxy daemonset: %v)", err)
 	} else {
-		toolkit.Logf(
+		logging.Logf(
 			ctx,
 			"    --- proxy daemonset status: desired=%d current=%d updated=%d ready=%d available=%d unavailable=%d ---",
 			ds.Status.DesiredNumberScheduled,
@@ -815,13 +816,13 @@ func (k *Kubeclient) logProxyTimeoutDiagnostics(ctx context.Context, lastPodStat
 			ds.Status.NumberUnavailable,
 		)
 		for _, condition := range ds.Status.Conditions {
-			toolkit.Logf(ctx, "    condition(%s=%s reason=%s message=%s)", condition.Type, condition.Status, condition.Reason, condition.Message)
+			logging.Logf(ctx, "    condition(%s=%s reason=%s message=%s)", condition.Type, condition.Status, condition.Reason, condition.Message)
 		}
 	}
 
 	events, err := k.Typed.CoreV1().Events(defaultNamespace).List(listCtx, metav1.ListOptions{})
 	if err != nil {
-		toolkit.Logf(ctx, "    (failed to list proxy events: %v)", err)
+		logging.Logf(ctx, "    (failed to list proxy events: %v)", err)
 	} else {
 		eventCount := 0
 		for _, event := range events.Items {
@@ -831,10 +832,10 @@ func (k *Kubeclient) logProxyTimeoutDiagnostics(ctx context.Context, lastPodStat
 				continue
 			}
 			if eventCount == 0 {
-				toolkit.Logf(ctx, "    --- proxy daemonset and pod events ---")
+				logging.Logf(ctx, "    --- proxy daemonset and pod events ---")
 			}
 			eventCount++
-			toolkit.Logf(
+			logging.Logf(
 				ctx,
 				"    type=%s object=%s/%s reason=%s count=%d message=%s",
 				event.Type,
@@ -846,21 +847,21 @@ func (k *Kubeclient) logProxyTimeoutDiagnostics(ctx context.Context, lastPodStat
 			)
 		}
 		if eventCount == 0 {
-			toolkit.Logf(ctx, "    --- no proxy daemonset or pod events found ---")
+			logging.Logf(ctx, "    --- no proxy daemonset or pod events found ---")
 		}
 	}
 
 	// Log ALL nodes with labels and conditions to diagnose scheduling issues
 	nodes, err := k.Typed.CoreV1().Nodes().List(listCtx, metav1.ListOptions{})
 	if err != nil {
-		toolkit.Logf(ctx, "    (failed to list nodes: %v)", err)
+		logging.Logf(ctx, "    (failed to list nodes: %v)", err)
 		return
 	}
 	if len(nodes.Items) == 0 {
-		toolkit.Logf(ctx, "    ⚠️  no nodes found in cluster")
+		logging.Logf(ctx, "    ⚠️  no nodes found in cluster")
 		return
 	}
-	toolkit.Logf(ctx, "    --- cluster nodes (%d total) ---", len(nodes.Items))
+	logging.Logf(ctx, "    --- cluster nodes (%d total) ---", len(nodes.Items))
 	for _, node := range nodes.Items {
 		// Collect key labels
 		labels := ""
@@ -883,7 +884,7 @@ func (k *Kubeclient) logProxyTimeoutDiagnostics(ctx context.Context, lastPodStat
 				conditions += fmt.Sprintf(" %s=%s(%s)", c.Type, c.Status, c.Message)
 			}
 		}
-		toolkit.Logf(ctx, "    node=%s |%s |%s", node.Name, labels, conditions)
+		logging.Logf(ctx, "    node=%s |%s |%s", node.Name, labels, conditions)
 	}
 }
 

@@ -51,8 +51,26 @@ type App struct {
 	hotfixVersionPath string
 	// aptSourcesDir overrides the default APT sources directory for testing.
 	aptSourcesDir string
+	// aptTrustedKeyringsDir overrides the default APT trusted keyrings directory for testing.
+	aptTrustedKeyringsDir string
+	// yumReposDir overrides the default RPM repositories directory for testing.
+	yumReposDir string
 	// osReleasePath overrides the default /etc/os-release path for testing.
 	osReleasePath string
+	// goArch overrides runtime.GOARCH for repository-path tests.
+	goArch string
+	// repositoryTempDir overrides where repository downloads and extraction are staged.
+	repositoryTempDir string
+	// vhdBinaryPath, hotfixBinaryPath, and pkgBinaryPath override ANC binary paths for testing.
+	vhdBinaryPath    string
+	hotfixBinaryPath string
+	pkgBinaryPath    string
+	// verifyRepositorySignature overrides gpgv-backed repository signature verification.
+	verifyRepositorySignature func(ctx context.Context, signedPath, signaturePath string, keyrings []string) error
+	// verifyRPMPackageSignature overrides rpmkeys-backed package signature verification.
+	verifyRPMPackageSignature func(ctx context.Context, packagePath string) error
+	// extractRepositoryPackage overrides package extraction for deterministic unit tests.
+	extractRepositoryPackage func(ctx context.Context, format, packagePath, destination string) error
 	// nodeCustomDataPath overrides the default nodecustomdata path for testing.
 	nodeCustomDataPath string
 	// nodeConfigPath overrides the default AKSNodeConfig path for testing. It is the
@@ -167,6 +185,16 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				},
 			},
 			{
+				Name:  "apply-embedded-hotfix",
+				Usage: "Apply embedded hotfix scripts",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if len(cmd.Args().Slice()) > 0 {
+						return fmt.Errorf("unexpected apply-embedded-hotfix arguments: %s", strings.Join(cmd.Args().Slice(), " "))
+					}
+					return a.runApplyHotfixCommand(ctx)
+				},
+			},
+			{
 				Name:  "check-hotfix",
 				Usage: "Read the hotfix pointer from the live-patching-service and stage it (fail-open)",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
@@ -220,7 +248,7 @@ func (a *App) runProvisionWaitCommand(ctx context.Context, provisionStatusFiles 
 		a.eventLogger.LogEvent("ProvisionWait", "Completed", helpers.EventLevelInformational, startTime, endTime)
 		slog.Info("aks-node-controller finished successfully.")
 	}
-	slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
+	slog.Info("provision-wait finished")
 	return provisionOutput, err
 }
 
@@ -232,6 +260,23 @@ func (a *App) runDownloadHotfixCommand(ctx context.Context) error {
 		return err
 	}
 	slog.Info("aks-node-controller hotfix download finished")
+	return nil
+}
+
+func (a *App) runApplyHotfixCommand(context.Context) error {
+	slog.Info("aks-node-controller hotfix apply started")
+	applyHotfix := a.applyEmbeddedHotfix
+	if applyHotfix == nil {
+		applyHotfix = func(osReleasePath string) error {
+			return applyEmbeddedNodeCustomData(embeddedGeneratedNodeCustomData, osReleasePath, embeddedNodeCustomDataPath)
+		}
+	}
+	if err := applyHotfix(a.osReleasePath); err != nil {
+		slog.Error("aks-node-controller failed to apply embedded hotfix payload", "error", err)
+		return err
+	}
+
+	slog.Info("aks-node-controller apply embedded hotfix payload finished")
 	return nil
 }
 
@@ -705,16 +750,6 @@ func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun boo
 	}
 	if dryRun {
 		a.cmdRun = cmdRunnerDryRun
-	} else {
-		applyHotfix := a.applyEmbeddedHotfix
-		if applyHotfix == nil {
-			applyHotfix = func(osReleasePath string) error {
-				return applyEmbeddedNodeCustomData(embeddedGeneratedNodeCustomData, osReleasePath, embeddedNodeCustomDataPath)
-			}
-		}
-		if err := applyHotfix(a.osReleasePath); err != nil {
-			slog.Warn("failed to apply embedded hotfix payload; continuing provisioning", "error", err)
-		}
 	}
 	return a.Provision(ctx, flags)
 }
@@ -804,7 +839,10 @@ func evaluateProvisionStatus(data []byte) error {
 	}
 	if code != 0 {
 		outSnippet := result.Output
-		return fmt.Errorf("provision failed: exitCode=%d error=%s output=%q", code, result.Error, outSnippet)
+		return cli.Exit(
+			fmt.Sprintf("provision failed: exitCode=%d error=%s output=%q", code, result.Error, outSnippet),
+			code,
+		)
 	}
 	return nil
 }

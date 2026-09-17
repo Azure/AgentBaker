@@ -4,17 +4,20 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/logging"
 	scp "github.com/bramvdbogaerde/go-scp"
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/klog/v2"
 )
 
 type podExecResult struct {
@@ -33,20 +36,11 @@ func (r podExecResult) String() string {
 `, r.exitCode, r.stderr, r.stdout)
 }
 
-func cleanupBastionTunnel(sshClient *ssh.Client) {
+func cleanupBastionTunnel(sshClient *SSHClient) {
 	// We have to do this because az network tunnel creates a new detached process for tunnel
 	if sshClient != nil {
 		_ = sshClient.Close()
 	}
-}
-
-func runSSHCommand(
-	ctx context.Context,
-	client *ssh.Client,
-	command string,
-	isWindows bool,
-) (*podExecResult, error) {
-	return runSSHCommandWithPrivateKeyFile(ctx, client, command, isWindows)
 }
 
 func copyScriptToRemoteIfRequired(ctx context.Context, client *ssh.Client, command string, isWindows bool) (string, error) {
@@ -74,32 +68,48 @@ func copyScriptToRemoteIfRequired(ctx context.Context, client *ssh.Client, comma
 	}
 	defer scpClient.Close()
 
-	copyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	return remoteCommand, scpClient.Copy(copyCtx,
-		strings.NewReader(command),
-		remotePath,
-		"0755",
-		int64(len(command)))
+	err = retrySSHSessionOpen(ctx, func() error {
+		copyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		return scpClient.Copy(copyCtx, strings.NewReader(command), remotePath, "0755", int64(len(command)))
+	})
+	return remoteCommand, err
 }
 
-func runSSHCommandWithPrivateKeyFile(
+func runSSHCommand(
 	ctx context.Context,
-	client *ssh.Client,
+	client *SSHClient,
 	command string,
 	isWindows bool,
 ) (*podExecResult, error) {
 	if client == nil {
 		return nil, fmt.Errorf("Permission denied: ssh client is nil")
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	select {
+	case client.operations <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	defer func() { <-client.operations }()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	var err error
-	command, err = copyScriptToRemoteIfRequired(ctx, client, command, isWindows)
+	command, err = copyScriptToRemoteIfRequired(ctx, client.Client, command, isWindows)
 	if err != nil {
 		return nil, err
 	}
 
-	session, err := client.NewSession()
+	var session *ssh.Session
+	err = retrySSHSessionOpen(ctx, func() error {
+		var openErr error
+		session, openErr = client.NewSession()
+		return openErr
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -128,13 +138,11 @@ func runSSHCommandWithPrivateKeyFile(
 
 	exitCode := 0
 	if err != nil {
-		if exitErr, ok := err.(*ssh.ExitError); ok {
+		var exitErr *ssh.ExitError
+		if errors.As(err, &exitErr) {
 			exitCode = exitErr.ExitStatus()
-		} else if _, ok := err.(*ssh.ExitMissingError); ok {
-			// Bastion closed channel early – ignore
-			err = nil
 		} else {
-			return nil, err // real SSH failure
+			return nil, err
 		}
 	}
 
@@ -185,7 +193,7 @@ func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario,
 
 	expectedExitCodeStr := fmt.Sprint(expectedExitCode)
 	if expectedExitCodeStr != execResult.exitCode {
-		s.Logger.Logf("Command: %s\nStdout: %s\nStderr: %s", cmd, execResult.stdout, execResult.stderr)
+		logging.Logf(ctx, "Command: %s\nStdout: %s\nStderr: %s", cmd, execResult.stdout, execResult.stderr)
 		return execResult, fmt.Errorf("expected exit code %s, got %s for command %q: %s", expectedExitCodeStr, execResult.exitCode, cmd, additionalErrorMessage)
 	}
 	return execResult, nil
@@ -194,7 +202,11 @@ func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario,
 // isRetryableConnectionError checks if the error is a transient connection issue that should be retried
 func isRetryableConnectionError(err error) bool {
 	errorMsg := err.Error()
-	return strings.Contains(errorMsg, "error dialing backend") ||
+	// client-go flattens proxy failures received after HTTP 101 into plain text.
+	proxy502 := strings.Contains(errorMsg, "proxy error from ") &&
+		strings.Contains(errorMsg, "while dialing ") &&
+		strings.Contains(errorMsg, ", code 502:")
+	return proxy502 || strings.Contains(errorMsg, "error dialing backend") ||
 		strings.Contains(errorMsg, "connection refused") ||
 		strings.Contains(errorMsg, "dial tcp") ||
 		strings.Contains(errorMsg, "i/o timeout") ||
@@ -230,6 +242,7 @@ func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string,
 }
 
 func attemptExecOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string, command []string) (*podExecResult, error) {
+	ctx = klog.NewContext(ctx, klog.FromContext(ctx).WithValues("operation", "pod exec", "namespace", namespace, "pod", podName))
 	req := kube.Typed.CoreV1().RESTClient().Get().Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
 
 	option := &corev1.PodExecOptions{

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/logging"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -152,14 +154,14 @@ func startLocalDNSProbePod(ctx context.Context, s *Scenario, suffix string) (str
 		defer cancel()
 		opts := metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))}
 		if err := kube.Typed.CoreV1().Pods(created.Namespace).Delete(cleanupCtx, created.Name, opts); err != nil && !apierrors.IsNotFound(err) {
-			s.Logger.Logf("could not delete pod %s: %v", created.Name, err)
+			logging.Logf(ctx, "could not delete pod %s: %v", created.Name, err)
 		}
 	}
 	if _, err := kube.WaitUntilPodRunning(ctx, created.Namespace, "", "metadata.name="+created.Name); err != nil {
 		del()
 		return "", func() {}, fmt.Errorf("wait for pod %q to run: %w", created.Name, err)
 	}
-	s.Logger.Logf("localdns probe pod %q is running", created.Name)
+	logging.Logf(ctx, "localdns probe pod %q is running", created.Name)
 	return created.Name, del, nil
 }
 
@@ -206,7 +208,7 @@ func ValidateLocalDNSFallbackRecovery(ctx context.Context, s *Scenario) error {
 		return fmt.Errorf("detect localdns fallback artifacts: %w", err)
 	}
 	if !hasArtifacts {
-		s.Logger.Logf("WARNING: VHD does not have localdns-fallback artifacts — skipping fallback validation")
+		logging.Logf(ctx, "WARNING: VHD does not have localdns-fallback artifacts — skipping fallback validation")
 		return nil
 	}
 
@@ -244,7 +246,7 @@ log "post-test state: localdns=$(systemctl is-active localdns.service) cluster-d
 exit 0
 `
 		if _, err := execScriptOnVMForScenario(cleanupCtx, s, restore); err != nil {
-			s.Logger.Logf("localdns fallback e2e: node restore failed: %v", err)
+			logging.Logf(ctx, "localdns fallback e2e: node restore failed: %v", err)
 		}
 	}()
 

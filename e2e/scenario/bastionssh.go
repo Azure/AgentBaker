@@ -11,13 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/coder/websocket"
 	"golang.org/x/crypto/ssh"
-
-	"github.com/Azure/agentbaker/e2e/toolkit"
 )
 
 var AllowedSSHPrefixes = []string{ssh.KeyAlgoED25519, ssh.KeyAlgoRSA, ssh.KeyAlgoRSASHA256, ssh.KeyAlgoRSASHA512}
@@ -280,7 +279,7 @@ func DialSSHOverBastion(
 	bastion *Bastion,
 	vmPrivateIP string,
 	sshPrivateKey []byte,
-) (*ssh.Client, error) {
+) (*SSHClient, error) {
 	sshConfig, err := sshClientConfig("azureuser", sshPrivateKey)
 	if err != nil {
 		return nil, err
@@ -301,14 +300,14 @@ func DialSSHOverBastion(
 				return nil, ctx.Err()
 			}
 		}
-		toolkit.Logf(ctx, "Attempt %d/%d establishing SSH over bastion to %s", attempt, sshDialAttempts, vmPrivateIP)
+		logging.Logf(ctx, "Attempt %d/%d establishing SSH over bastion to %s", attempt, sshDialAttempts, vmPrivateIP)
 
 		// Intentionally use a background context to prevent cancelling the SSH connection before
 		// we fetch logs during cleanup.
 		tunnel, err := bastion.NewTunnelSession(context.Background(), vmPrivateIP, 22)
 		if err != nil {
 			lastErr = err
-			toolkit.Logf(ctx, "Attempt %d/%d failed to create bastion tunnel: %v", attempt, sshDialAttempts, err)
+			logging.Logf(ctx, "Attempt %d/%d failed to create bastion tunnel: %v", attempt, sshDialAttempts, err)
 			continue
 		}
 
@@ -320,12 +319,12 @@ func DialSSHOverBastion(
 		)
 		if err != nil {
 			lastErr = err
-			toolkit.Logf(ctx, "Attempt %d/%d SSH handshake failed: %v", attempt, sshDialAttempts, err)
+			logging.Logf(ctx, "Attempt %d/%d SSH handshake failed: %v", attempt, sshDialAttempts, err)
 			_ = tunnel.Close()
 			continue
 		}
 		_ = tunnel.SetDeadline(time.Time{})
-		return ssh.NewClient(sshConn, chans, reqs), nil
+		return newSSHClient(ssh.NewClient(sshConn, chans, reqs)), nil
 	}
 
 	if lastErr == nil {

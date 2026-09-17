@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Masterminds/semver/v3"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
@@ -27,7 +28,6 @@ import (
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/nodeexporter"
-	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	certv1 "k8s.io/api/certificates/v1"
@@ -58,14 +58,14 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) error {
 	var errs []error
 	switch {
 	case s.SecureTLSBootstrappingEnabled() && s.Tags.BootstrapTokenFallback:
-		s.Logger.Logf("will validate bootstrapping mode: secure TLS bootstrapping failure with bootstrap token fallback")
+		logging.Logf(ctx, "will validate bootstrapping mode: secure TLS bootstrapping failure with bootstrap token fallback")
 		errs = append(errs, assert.Equal(
 			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
 			true,
 			"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
 		))
 	case s.SecureTLSBootstrappingEnabled():
-		s.Logger.Logf("will validate bootstrapping mode: secure TLS bootstrapping")
+		logging.Logf(ctx, "will validate bootstrapping mode: secure TLS bootstrapping")
 		errs = append(errs,
 			ValidateSystemdUnitIsRunning(ctx, s, "secure-tls-bootstrap"),
 			validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx, s),
@@ -76,7 +76,7 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) error {
 			),
 		)
 	default:
-		s.Logger.Logf("will validate bootstrapping mode: bootstrap token")
+		logging.Logf(ctx, "will validate bootstrapping mode: bootstrap token")
 		errs = append(errs,
 			ValidateSystemdUnitIsNotRunning(ctx, s, "secure-tls-bootstrap"),
 			ValidateSystemdUnitIsNotFailed(ctx, s, "secure-tls-bootstrap"),
@@ -107,13 +107,13 @@ func validateTLSBootstrappingWindows(ctx context.Context, s *Scenario) error {
 	}
 	switch {
 	case s.SecureTLSBootstrappingEnabled() && s.Tags.BootstrapTokenFallback:
-		s.Logger.Logf("will validate bootstrapping mode: secure TLS bootstrapping failure with bootstrap token fallback")
+		logging.Logf(ctx, "will validate bootstrapping mode: secure TLS bootstrapping failure with bootstrap token fallback")
 		// nothing to validate other than node readiness
 	case s.SecureTLSBootstrappingEnabled():
-		s.Logger.Logf("will validate bootstrapping mode: secure TLS bootstrapping")
+		logging.Logf(ctx, "will validate bootstrapping mode: secure TLS bootstrapping")
 		errs = append(errs, validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx, s))
 	default:
-		s.Logger.Logf("will validate bootstrapping mode: bootstrap token")
+		logging.Logf(ctx, "will validate bootstrapping mode: bootstrap token")
 		// nothing to validate other than node readiness
 	}
 	return errors.Join(errs...)
@@ -130,7 +130,7 @@ func ValidateKubeletServingCertificateRotation(ctx context.Context, s *Scenario)
 
 func validateKubeletServingCertificateRotationLinux(ctx context.Context, s *Scenario) error {
 	if _, ok := s.Runtime.VM.VMSS.Tags["aks-disable-kubelet-serving-certificate-rotation"]; ok {
-		s.Logger.Logf("linux VMSS has KSCR disablement tag, will validate that KSCR has been disabled")
+		logging.Logf(ctx, "linux VMSS has KSCR disablement tag, will validate that KSCR has been disabled")
 		errs := []error{
 			ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"}),
 			ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster"),
@@ -150,7 +150,7 @@ func validateKubeletServingCertificateRotationLinux(ctx context.Context, s *Scen
 		}
 		return errors.Join(errs...)
 	}
-	s.Logger.Logf("will validate linux KSCR enablement")
+	logging.Logf(ctx, "will validate linux KSCR enablement")
 	errs := []error{
 		ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-server-current.pem"}),
 		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster"),
@@ -173,13 +173,13 @@ func validateKubeletServingCertificateRotationLinux(ctx context.Context, s *Scen
 
 func validateKubeletServingCertificateRotationWindows(ctx context.Context, s *Scenario) error {
 	if _, ok := s.Runtime.VM.VMSS.Tags["aks-disable-kubelet-serving-certificate-rotation"]; ok {
-		s.Logger.Logf("windows VMSS has KSCR disablement tag, will validate that KSCR has been disabled")
+		logging.Logf(ctx, "windows VMSS has KSCR disablement tag, will validate that KSCR has been disabled")
 		return errors.Join(
 			ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet.crt", "kubelet.key"}),
 			ValidateWindowsProcessDoesNotContainArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-server-certificates=true", "kubernetes.azure.com/kubelet-serving-ca=cluster"}),
 		)
 	}
-	s.Logger.Logf("will validate windows KSCR enablement")
+	logging.Logf(ctx, "will validate windows KSCR enablement")
 	return errors.Join(
 		ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet-server-current.pem"}),
 		ValidateWindowsProcessContainsArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-server-certificates=true", "kubernetes.azure.com/kubelet-serving-ca=cluster"}),
@@ -315,15 +315,24 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 	}
 	command := []string{
 		"set -ex",
-		fmt.Sprintf("sudo sysctl %s | sed -E 's/([0-9])\\s+([0-9])/\\1 \\2/g'", strings.Join(keysToCheck, " ")),
+		fmt.Sprintf("sudo sysctl %s", strings.Join(keysToCheck, " ")),
 	}
 	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "sysctl command failed")
 	if err != nil {
 		return fmt.Errorf("read sysctl config: %w", err)
 	}
+	return validateSysctlOutput(execResult.stdout, customSysctls)
+}
+
+func validateSysctlOutput(output string, customSysctls map[string]string) error {
+	lines := strings.Split(output, "\n")
+	for i, line := range lines {
+		lines[i] = strings.Join(strings.Fields(line), " ")
+	}
 	var errs []error
 	for name, value := range customSysctls {
-		errs = append(errs, assert.Contains(execResult.stdout, fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not.\nStdout:\n%s", name, value, execResult.stdout))
+		expectedLine := strings.Join(strings.Fields(fmt.Sprintf("%s = %s", name, value)), " ")
+		errs = append(errs, assert.Equal(slices.Contains(lines, expectedLine), true, "expected to find %s set to %q, but was not.\nStdout:\n%s", name, value, output))
 	}
 	return errors.Join(errs...)
 }
@@ -405,7 +414,7 @@ func RebootVMAndWaitForSSH(ctx context.Context, s *Scenario) error {
 	err = wait.PollUntilContextTimeout(ctx, 15*time.Second, waitTimeout, true, func(ctx context.Context) (bool, error) {
 		sshClient, err := DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, s.Runtime.VM.PrivateIP, config.VMSSHPrivateKey)
 		if err != nil {
-			s.Logger.Logf("waiting for SSH after reboot: %v", err)
+			logging.Logf(ctx, "waiting for SSH after reboot: %v", err)
 			return false, nil
 		}
 
@@ -414,14 +423,14 @@ func RebootVMAndWaitForSSH(ctx context.Context, s *Scenario) error {
 		cancel()
 		if err != nil {
 			cleanupBastionTunnel(sshClient)
-			s.Logger.Logf("waiting for boot ID after reboot: %v", err)
+			logging.Logf(ctx, "waiting for boot ID after reboot: %v", err)
 			return false, nil
 		}
 
 		afterRebootBootID := strings.TrimSpace(execResult.stdout)
 		if afterRebootBootID == "" || afterRebootBootID == beforeRebootBootID {
 			cleanupBastionTunnel(sshClient)
-			s.Logger.Logf("waiting for VM reboot to complete: boot ID is still %q", afterRebootBootID)
+			logging.Logf(ctx, "waiting for VM reboot to complete: boot ID is still %q", afterRebootBootID)
 			return false, nil
 		}
 
@@ -452,7 +461,7 @@ func validateRxBufferConfig(ctx context.Context, s *Scenario, cpuCount int) erro
 	if err != nil {
 		return fmt.Errorf("get NICs to configure: %w", err)
 	}
-	s.Logger.Logf("NICs to configure:\n%s", nicsResult.stdout)
+	logging.Logf(ctx, "NICs to configure:\n%s", nicsResult.stdout)
 
 	// Parse NIC output - it may be multi-line with header
 	lines := strings.Split(strings.TrimSpace(nicsResult.stdout), "\n")
@@ -469,10 +478,10 @@ func validateRxBufferConfig(ctx context.Context, s *Scenario, cpuCount int) erro
 
 	nics := strings.Split(nicsOutput, ",")
 
-	s.Logger.Logf("Parsed NICs list: %v (count: %d)", nics, len(nics))
+	logging.Logf(ctx, "Parsed NICs list: %v (count: %d)", nics, len(nics))
 
 	if len(nics) == 0 || (len(nics) == 1 && strings.TrimSpace(nics[0]) == "") {
-		s.Logger.Logf("No PCI devices (NICs) with enP* slot pattern found - skipping RX-buffer validation")
+		logging.Logf(ctx, "No PCI devices (NICs) with enP* slot pattern found - skipping RX-buffer validation")
 		return nil
 	}
 
@@ -484,7 +493,7 @@ func validateRxBufferConfig(ctx context.Context, s *Scenario, cpuCount int) erro
 			continue
 		}
 
-		s.Logger.Logf("Validating RX buffer for NIC: %s", nic)
+		logging.Logf(ctx, "Validating RX buffer for NIC: %s", nic)
 
 		// Get full ethtool output for debugging
 		debugCommand := fmt.Sprintf("sudo env LC_ALL=C ethtool -g %q", nic)
@@ -492,7 +501,7 @@ func validateRxBufferConfig(ctx context.Context, s *Scenario, cpuCount int) erro
 		if err != nil {
 			return errors.Join(append(errs, fmt.Errorf("get ethtool output for nic %s: %w", nic, err))...)
 		}
-		s.Logger.Logf("Full ethtool output for %s:\n%s", nic, debugResult.stdout)
+		logging.Logf(ctx, "Full ethtool output for %s:\n%s", nic, debugResult.stdout)
 		var actualValue string
 		if strings.Contains(debugResult.stdout, "Current hardware settings") {
 			actualValue, err = parseCurrentRxBuffer(debugResult.stdout)
@@ -507,7 +516,7 @@ func validateRxBufferConfig(ctx context.Context, s *Scenario, cpuCount int) erro
 			}
 			actualValue = strings.TrimSpace(execResult.stdout)
 		}
-		s.Logger.Logf("NIC %s has RX buffer %s with %d CPUs", nic, actualValue, cpuCount)
+		logging.Logf(ctx, "NIC %s has RX buffer %s with %d CPUs", nic, actualValue, cpuCount)
 		if err := validateDefaultRxBufferSize(cpuCount, actualValue); err != nil {
 			errs = append(errs, fmt.Errorf("validate RX buffer for nic %s: %w\nFull ethtool output:\n%s", nic, err, debugResult.stdout))
 		}
@@ -648,11 +657,11 @@ func ValidateInspektorGadget(ctx context.Context, s *Scenario) error {
 		return fmt.Errorf("check for Inspektor Gadget sentinel file %s: %w", skipFile, err)
 	}
 	if !skipFileExists {
-		s.Logger.Logf("Skipping Inspektor Gadget validation: sentinel file %s not found (VHD does not have IG installed)", skipFile)
+		logging.Logf(ctx, "Skipping Inspektor Gadget validation: sentinel file %s not found (VHD does not have IG installed)", skipFile)
 		return nil
 	}
 
-	s.Logger.Logf("skip_vhd_ig sentinel file found, validating Inspektor Gadget installation")
+	logging.Logf(ctx, "skip_vhd_ig sentinel file found, validating Inspektor Gadget installation")
 
 	errs := []error{ValidateSystemdUnitIsNotFailed(ctx, s, serviceName)}
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s | grep -qx disabled", serviceName), 0, fmt.Sprintf("%s should be disabled", serviceName)); err != nil {
@@ -667,13 +676,13 @@ func ValidateInspektorGadget(ctx context.Context, s *Scenario) error {
 	// Validate that gadgets were actually imported
 	trackingFile := "/var/lib/ig/imported-gadgets.txt"
 	errs = append(errs, ValidateFileExists(ctx, s, trackingFile))
-	s.Logger.Logf("Validating imported gadgets tracking file is not empty")
+	logging.Logf(ctx, "Validating imported gadgets tracking file is not empty")
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("test -s %s", trackingFile), 0, "tracking file should not be empty"); err != nil {
 		errs = append(errs, err)
 	}
 
 	// Verify ig image list shows imported gadgets
-	s.Logger.Logf("Validating ig image list shows imported gadgets")
+	logging.Logf(ctx, "Validating ig image list shows imported gadgets")
 	result, err := execScriptOnVMForScenario(ctx, s, "sudo ig image list")
 	if err != nil {
 		return errors.Join(append(errs, fmt.Errorf("run ig image list: %w", err))...)
@@ -684,7 +693,7 @@ func ValidateInspektorGadget(ctx context.Context, s *Scenario) error {
 	if len(result.stdout) == 0 {
 		return errors.Join(append(errs, errors.New("ig image list returned empty output, expected at least one imported gadget"))...)
 	}
-	s.Logger.Logf("ig image list output:\n%s", result.stdout)
+	logging.Logf(ctx, "ig image list output:\n%s", result.stdout)
 
 	// Run a simple gadget as a functional test.
 	// We dynamically get the trace_exec tag from ig image list since gadgets are imported
@@ -693,7 +702,7 @@ func ValidateInspektorGadget(ctx context.Context, s *Scenario) error {
 	// We use timeout(1) to kill the gadget after 3s in case it hangs.
 	// The ig --timeout flag expects an integer (seconds), not a duration string.
 	// Exit codes: 0 = success, 124 = timeout killed it (also OK), anything else = failure.
-	s.Logger.Logf("Running functional test with trace_exec gadget")
+	logging.Logf(ctx, "Running functional test with trace_exec gadget")
 	funcTestScript := `
 set -e
 TRACE_EXEC_TAG=$(sudo ig image list | grep trace_exec | awk '{print $2}')
@@ -715,7 +724,7 @@ echo "trace_exec gadget ran successfully"
 	if joined := errors.Join(errs...); joined != nil {
 		return joined
 	}
-	s.Logger.Logf("Inspektor Gadget functional validation passed")
+	logging.Logf(ctx, "Inspektor Gadget functional validation passed")
 	return nil
 }
 
@@ -766,7 +775,7 @@ func fileExist(ctx context.Context, s *Scenario, fileName string) (bool, error) 
 		if err != nil {
 			return false, err
 		}
-		s.Logger.Logf("stdout: %s\nstderr: %s", execResult.stdout, execResult.stderr)
+		logging.Logf(ctx, "stdout: %s\nstderr: %s", execResult.stdout, execResult.stderr)
 		return execResult.exitCode == "0", nil
 	}
 	steps := []string{
@@ -949,7 +958,7 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) error {
 		errs = append(errs, assert.Equal(opensslProviderActive(providers.stdout, "fips", "symcrypt"), true,
 			"expected openssl to have an active fips or symcrypt provider, got:\n%s", providers.stdout))
 	case strings.HasPrefix(version, "1.1."):
-		s.Logger.Logf("openssl providers check skipped: detected version %q (legacy FIPS module)", strings.TrimSpace(opensslVersion.stdout))
+		logging.Logf(ctx, "openssl providers check skipped: detected version %q (legacy FIPS module)", strings.TrimSpace(opensslVersion.stdout))
 	default:
 		return errors.Join(append(errs, fmt.Errorf("unexpected openssl version %q: FIPS VHDs are expected to ship OpenSSL 3.x or 1.1.x", strings.TrimSpace(opensslVersion.stdout)))...)
 	}
@@ -965,11 +974,11 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) error {
 		return errors.Join(append(errs, fmt.Errorf("check whether %s is executable: %w", portmapBin, err))...)
 	}
 	if portmapPresent.exitCode != "0" {
-		s.Logger.Logf("portmap panic check skipped: %s not present or not executable on this VHD", portmapBin)
+		logging.Logf(ctx, "portmap panic check skipped: %s not present or not executable on this VHD", portmapBin)
 		if joined := errors.Join(errs...); joined != nil {
 			return joined
 		}
-		s.Logger.Logf("FIPS provider validation passed")
+		logging.Logf(ctx, "FIPS provider validation passed")
 		return nil
 	}
 	portmap, err := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("%s < /dev/null", portmapBin))
@@ -994,7 +1003,7 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) error {
 	if joined := errors.Join(errs...); joined != nil {
 		return joined
 	}
-	s.Logger.Logf("FIPS provider validation passed")
+	logging.Logf(ctx, "FIPS provider validation passed")
 	return nil
 }
 
@@ -1223,7 +1232,7 @@ func ValidateKubeletActiveFlagsEvent(ctx context.Context, s *Scenario) error {
 		return fmt.Errorf("check whether emit-kubelet-active-flags.service exists: %w", err)
 	}
 	if serviceCheck.exitCode != "0" {
-		s.Logger.Log("emit-kubelet-active-flags.service not on this VHD, skipping validation")
+		logging.Log(ctx, "emit-kubelet-active-flags.service not on this VHD, skipping validation")
 		return nil
 	}
 	command := []string{
@@ -1363,7 +1372,7 @@ func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component
 	}
 	for _, line := range strings.Split(execResult.stdout, "\n") {
 		if strings.Contains(line, component) && strings.Contains(line, version) {
-			s.Logger.Logf("found %s %s in the installed packages", component, version)
+			logging.Logf(ctx, "found %s %s in the installed packages", component, version)
 			return nil
 		}
 	}
@@ -1430,7 +1439,7 @@ func ValidateMultipleKubeProxyVersionsExist(ctx context.Context, s *Scenario) er
 	case 1:
 		return fmt.Errorf("only one kube-proxy version exists: %v", versionMap)
 	default:
-		s.Logger.Logf("Multiple kube-proxy versions exist: %v", versionMap)
+		logging.Logf(ctx, "Multiple kube-proxy versions exist: %v", versionMap)
 		return nil
 	}
 }
@@ -1526,7 +1535,7 @@ func validateNPDCondition(ctx context.Context, s *Scenario, conditionType, condi
 	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
 		node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
-			s.Logger.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
+			logging.Logf(ctx, "Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
 			return false, nil // Continue polling on transient errors
 		}
 
@@ -1882,8 +1891,8 @@ func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario,
 	}
 	podExecResultStdout := strings.TrimSpace(podExecResult.stdout)
 
-	s.Logger.Logf("Found windows version in windows_settings: \"%s\": \"%s\" (\"%s\")", windowsVersion, osMajorVersion, osVersion)
-	s.Logger.Logf("Windows version returned from VM \"%s\"", podExecResultStdout)
+	logging.Logf(ctx, "Found windows version in windows_settings: \"%s\": \"%s\" (\"%s\")", windowsVersion, osMajorVersion, osVersion)
+	logging.Logf(ctx, "Windows version returned from VM \"%s\"", podExecResultStdout)
 
 	return assert.Contains(podExecResultStdout, osMajorVersion)
 }
@@ -1975,7 +1984,7 @@ func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVers
 	}
 	podExecResultStdout := strings.TrimSpace(podExecResult.stdout)
 
-	s.Logger.Logf("Windows display version returned from VM \"%s\". Expected display version \"%s\"", podExecResultStdout, displayVersion)
+	logging.Logf(ctx, "Windows display version returned from VM \"%s\". Expected display version \"%s\"", podExecResultStdout, displayVersion)
 
 	return assert.Contains(podExecResultStdout, displayVersion)
 }
@@ -2247,7 +2256,7 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) error {
 	// Step 1: Verify the node has the hosts plugin annotation
 	// The annotation is set asynchronously by localdns.sh (background job waiting for kubeconfig + node registration)
 	// Poll for up to 5 minutes with exponential backoff to avoid flaky failures
-	s.Logger.Log("Polling for node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled...")
+	logging.Log(ctx, "Polling for node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled...")
 	annotationKey := "kubernetes.azure.com/localdns-hosts-plugin"
 
 	var node *corev1.Node
@@ -2264,12 +2273,12 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) error {
 
 		annotationValue, exists = node.Annotations[annotationKey]
 		if exists && annotationValue == "enabled" {
-			s.Logger.Logf("✓ Node annotation %s=%s found after %d attempts", annotationKey, annotationValue, attempt)
+			logging.Logf(ctx, "✓ Node annotation %s=%s found after %d attempts", annotationKey, annotationValue, attempt)
 			break
 		}
 
 		if attempt == maxAttempts {
-			s.Logger.Logf("WARNING: node %q annotation %q not found or not 'enabled' after %d attempts (~5 minutes). Current value: exists=%v, value=%q. Annotation is best-effort in production, continuing with stronger validators.",
+			logging.Logf(ctx, "WARNING: node %q annotation %q not found or not 'enabled' after %d attempts (~5 minutes). Current value: exists=%v, value=%q. Annotation is best-effort in production, continuing with stronger validators.",
 				s.Runtime.VM.KubeName, annotationKey, maxAttempts, exists, annotationValue)
 		}
 
@@ -2278,12 +2287,12 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) error {
 		if sleepDuration > 10*time.Second {
 			sleepDuration = 10 * time.Second
 		}
-		s.Logger.Logf("Attempt %d/%d: annotation not ready (exists=%v, value=%q), retrying in %v...", attempt, maxAttempts, exists, annotationValue, sleepDuration)
+		logging.Logf(ctx, "Attempt %d/%d: annotation not ready (exists=%v, value=%q), retrying in %v...", attempt, maxAttempts, exists, annotationValue, sleepDuration)
 		time.Sleep(sleepDuration)
 	}
 
 	// Step 2: Verify the Corefile has the hosts plugin configured
-	s.Logger.Log("Verifying Corefile contains hosts plugin configuration...")
+	logging.Log(ctx, "Verifying Corefile contains hosts plugin configuration...")
 	corefileCheckScript := `set -euo pipefail
 corefile="/opt/azure/containers/localdns/updated.localdns.corefile"
 
@@ -2340,7 +2349,7 @@ echo "=== Corefile validation successful ==="
 	// it's a real FQDN that aks-localdns-hosts-setup.service populates from the NBC's CriticalFQDNs list.
 	// This avoids race conditions with the aks-localdns-hosts-setup.timer overwriting fake test entries.
 	testFQDN := s.GetDefaultFQDNsForValidation()[0]
-	s.Logger.Logf("Testing hosts plugin resolves %s from /etc/localdns/hosts with matching IPs", testFQDN)
+	logging.Logf(ctx, "Testing hosts plugin resolves %s from /etc/localdns/hosts with matching IPs", testFQDN)
 
 	script := fmt.Sprintf(`set -euo pipefail
 test_fqdn=%q
@@ -2424,7 +2433,7 @@ echo "  Resolved IPs match /etc/localdns/hosts entries"
 //  2. Query localdns for AAAA records for that FQDN
 //  3. Verify the returned IPv6 addresses match the hosts file entries
 func ValidateLocalDNSHostsPluginIPv6(ctx context.Context, s *Scenario) error {
-	s.Logger.Log("Testing hosts plugin serves IPv6 entries from hosts file")
+	logging.Log(ctx, "Testing hosts plugin serves IPv6 entries from hosts file")
 
 	script := `set -euo pipefail
 hosts_file="/etc/localdns/hosts"
@@ -2517,7 +2526,7 @@ echo "IPv6 entries in hosts file are correctly served by CoreDNS hosts plugin"
 //  4. Wait for CoreDNS reload (5s), verify canary resolves (hosts plugin picks up new file)
 //  5. Restore original hosts file and stop/start localdns to leave node in clean state
 func ValidateLocalDNSHostsPluginColdStart(ctx context.Context, s *Scenario) error {
-	s.Logger.Log("Testing localdns cold start with empty hosts file then population")
+	logging.Log(ctx, "Testing localdns cold start with empty hosts file then population")
 
 	script := `#!/bin/bash
 set -euo pipefail
@@ -2794,7 +2803,7 @@ func ValidateNodeProblemDetector(ctx context.Context, s *Scenario) error {
 }
 
 func RestartNodeProblemDetector(ctx context.Context, s *Scenario) error {
-	s.Logger.Log("restarting node-problem-detector to pick up managed GPU health checks")
+	logging.Log(ctx, "restarting node-problem-detector to pick up managed GPU health checks")
 	command := []string{
 		"set -ex",
 		"sudo systemctl restart node-problem-detector",
@@ -2818,11 +2827,11 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 		return fmt.Errorf("check existence of file %s: %w", skipFile, err)
 	}
 	if !exists {
-		s.Logger.Logf("Skipping node-exporter validation: sentinel file %s not found (VHD does not have node-exporter installed)", skipFile)
+		logging.Logf(ctx, "Skipping node-exporter validation: sentinel file %s not found (VHD does not have node-exporter installed)", skipFile)
 		return nil
 	}
 
-	s.Logger.Logf("skip_vhd_node_exporter sentinel file found, validating node-exporter installation")
+	logging.Logf(ctx, "skip_vhd_node_exporter sentinel file found, validating node-exporter installation")
 
 	// Validate service is running
 	var errs []error
@@ -2849,7 +2858,7 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 
 	// Validate the metrics contract consumed by the AKS Prometheus default profile. Scrape the node IP directly
 	// so this also verifies that the endpoint is reachable on the address used by monitoring infrastructure.
-	s.Logger.Logf("Validating node-exporter metrics on port 19100")
+	logging.Logf(ctx, "Validating node-exporter metrics on port 19100")
 	metricsURL := fmt.Sprintf("http://%s:19100/metrics", s.Runtime.VM.PrivateIP)
 	hasInfiniBand, err := nodeHasInfiniBandHardware(ctx, s)
 	if err != nil {
@@ -2865,7 +2874,7 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 	if err := errors.Join(errs...); err != nil {
 		return err
 	}
-	s.Logger.Logf("node-exporter validation passed")
+	logging.Logf(ctx, "node-exporter validation passed")
 	return nil
 }
 
@@ -2900,7 +2909,7 @@ exit 1`
 	if result.exitCode != "0" && result.exitCode != "1" {
 		return false, fmt.Errorf("detect InfiniBand hardware: exit %s: %s", result.exitCode, result.stderr)
 	}
-	s.Logger.Logf("node-exporter hardware detection: %s", strings.TrimSpace(result.stdout))
+	logging.Logf(ctx, "node-exporter hardware detection: %s", strings.TrimSpace(result.stdout))
 	return result.exitCode == "0", nil
 }
 
@@ -2911,7 +2920,7 @@ func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL 
 	if err != nil {
 		return fmt.Errorf("read node-exporter MANA workaround state: %w", err)
 	}
-	s.Logger.Logf("node-exporter InfiniBand expectations: required=%t, disabled=%t", requireInfiniBand, manaObserved)
+	logging.Logf(ctx, "node-exporter InfiniBand expectations: required=%t, disabled=%t", requireInfiniBand, manaObserved)
 	result, err := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("curl --noproxy '*' -sS --max-time 10 %q", metricsURL))
 	if err != nil {
 		return fmt.Errorf("scrape node-exporter metrics from %s: %w", metricsURL, err)
@@ -2953,7 +2962,7 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) (err erro
 	if err != nil {
 		return fmt.Errorf("read NPD filesystem corruption plugin config and script: %w", err)
 	}
-	s.Logger.Logf("NPD filesystem corruption plugin config and script:\nstdout:\n%s\nstderr:\n%s", diagResult.stdout, diagResult.stderr)
+	logging.Logf(ctx, "NPD filesystem corruption plugin config and script:\nstdout:\n%s\nstderr:\n%s", diagResult.stdout, diagResult.stderr)
 
 	// Simulate filesystem corruption by replacing the check script with one that
 	// always reports corruption. This is the most reliable approach because:
@@ -2984,7 +2993,7 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) (err erro
 			err = errors.Join(err, fmt.Errorf("restore original check_fs_corruption.sh: %w", restoreErr))
 			return
 		}
-		s.Logger.Logf("Restored original check_fs_corruption.sh:\nstdout:\n%s\nstderr:\n%s", restoreResult.stdout, restoreResult.stderr)
+		logging.Logf(ctx, "Restored original check_fs_corruption.sh:\nstdout:\n%s\nstderr:\n%s", restoreResult.stdout, restoreResult.stderr)
 	}()
 
 	// Verify the replacement script works correctly
@@ -2998,7 +3007,7 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) (err erro
 	if err != nil {
 		return fmt.Errorf("verify simulated filesystem corruption: %w", err)
 	}
-	s.Logger.Logf("Simulation verification:\nstdout:\n%s\nstderr:\n%s", verifyResult.stdout, verifyResult.stderr)
+	logging.Logf(ctx, "Simulation verification:\nstdout:\n%s\nstderr:\n%s", verifyResult.stdout, verifyResult.stderr)
 
 	// Wait for NPD to detect the problem. NPD's custom plugin monitor polls
 	// every 5 minutes. With continuous simulation, the first check cycle after
@@ -3007,7 +3016,7 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) (err erro
 	err = wait.PollUntilContextTimeout(ctx, 10*time.Second, 8*time.Minute, true, func(ctx context.Context) (bool, error) {
 		node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
-			s.Logger.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
+			logging.Logf(ctx, "Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
 			return false, nil // Continue polling on transient errors
 		}
 
@@ -3033,12 +3042,12 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) (err erro
 }
 
 func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) error {
-	s.Logger.Logf("waiting for Nvidia GPU resource to be available")
+	logging.Logf(ctx, "waiting for Nvidia GPU resource to be available")
 	return waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 }
 
 func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) error {
-	s.Logger.Logf("validating that NVIDIA device plugin systemd service is running")
+	logging.Logf(ctx, "validating that NVIDIA device plugin systemd service is running")
 
 	command := []string{
 		"set -ex",
@@ -3060,7 +3069,7 @@ func ValidateNvidiaDevicePluginMIGStrategy(ctx context.Context, s *Scenario, str
 }
 
 func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCountExpected int64, resourceName string) error {
-	s.Logger.Logf("validating that node advertises GPU resources")
+	logging.Logf(ctx, "validating that node advertises GPU resources")
 
 	// First, wait for the GPU resource to be available
 	if err := waitUntilResourceAvailable(ctx, s, resourceName); err != nil {
@@ -3084,12 +3093,12 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCou
 	if err := assert.Equal(gpuCount, gpuCountExpected, "node should advertise %s=%d, but got %s=%d", resourceName, gpuCountExpected, resourceName, gpuCount); err != nil {
 		return err
 	}
-	s.Logger.Logf("node %s advertises %s=%d resources", nodeName, resourceName, gpuCount)
+	logging.Logf(ctx, "node %s advertises %s=%d resources", nodeName, resourceName, gpuCount)
 	return nil
 }
 
 func ValidateNodeAdvertisesExactGPUResources(ctx context.Context, s *Scenario, expected map[string]int64) error {
-	s.Logger.Logf("validating that node advertises exactly the expected NVIDIA GPU resources")
+	logging.Logf(ctx, "validating that node advertises exactly the expected NVIDIA GPU resources")
 
 	for resourceName := range expected {
 		if err := waitUntilResourceAvailable(ctx, s, resourceName); err != nil {
@@ -3125,7 +3134,7 @@ func ValidateNodeAdvertisesExactGPUResources(ctx context.Context, s *Scenario, e
 }
 
 func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount int, resourceName string) error {
-	s.Logger.Logf("validating that GPU workloads can be scheduled")
+	logging.Logf(ctx, "validating that GPU workloads can be scheduled")
 
 	// Wait for resources to be available and add delay for device health
 	if err := waitUntilResourceAvailable(ctx, s, resourceName); err != nil {
@@ -3165,7 +3174,7 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount i
 		return fmt.Errorf("run GPU workload pod: %w", err)
 	}
 
-	s.Logger.Logf("GPU workload is schedulable and runs successfully")
+	logging.Logf(ctx, "GPU workload is schedulable and runs successfully")
 	return nil
 }
 
@@ -3187,7 +3196,7 @@ fi`)
 		return fmt.Errorf("run command to check sshd_config: %w", err)
 	}
 	stdout := lo.FromPtr(resp.Output)
-	s.Logger.Logf("Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
+	logging.Logf(ctx, "Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
 	// Check if the command execution was successful by looking for our success message in the output
 	if err := assert.Contains(stdout, "SUCCESS: PubkeyAuthentication is disabled", "PubkeyAuthentication is not properly disabled"); err != nil {
@@ -3200,7 +3209,7 @@ fi`)
 		return err
 	}
 
-	s.Logger.Logf("PubkeyAuthentication is properly disabled as expected")
+	logging.Logf(ctx, "PubkeyAuthentication is properly disabled as expected")
 	return nil
 }
 
@@ -3247,14 +3256,14 @@ fi`)
 		return fmt.Errorf("run command to check SSH service status: %w", err)
 	}
 	stdout := lo.FromPtr(resp.Output)
-	s.Logger.Logf("Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
+	logging.Logf(ctx, "Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
 	// Check if the command execution was successful by looking for our success message in the output
 	if err := assert.Contains(stdout, "SUCCESS: SSH service is disabled and stopped", "SSH service is not properly disabled and stopped"); err != nil {
 		return err
 	}
 
-	s.Logger.Logf("SSH service is properly disabled and stopped as expected")
+	logging.Logf(ctx, "SSH service is properly disabled and stopped as expected")
 	return nil
 }
 
@@ -3297,7 +3306,7 @@ func ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx context.Context, s *Scenar
 }
 
 func ValidateMIGModeEnabled(ctx context.Context, s *Scenario, gpuCountExpected int) error {
-	s.Logger.Logf("validating that MIG mode is enabled on %d GPUs", gpuCountExpected)
+	logging.Logf(ctx, "validating that MIG mode is enabled on %d GPUs", gpuCountExpected)
 
 	command := []string{
 		"set -ex",
@@ -3309,7 +3318,7 @@ func ValidateMIGModeEnabled(ctx context.Context, s *Scenario, gpuCountExpected i
 	}
 
 	stdout := strings.TrimSpace(execResult.stdout)
-	s.Logger.Logf("MIG mode status: %s", stdout)
+	logging.Logf(ctx, "MIG mode status: %s", stdout)
 	gpuStatuses := strings.Split(stdout, "\n")
 	if err := assert.Equal(len(gpuStatuses), gpuCountExpected, "expected MIG status for %d GPUs, but got: %s", gpuCountExpected, stdout); err != nil {
 		return err
@@ -3321,12 +3330,12 @@ func ValidateMIGModeEnabled(ctx context.Context, s *Scenario, gpuCountExpected i
 	if err := errors.Join(errs...); err != nil {
 		return err
 	}
-	s.Logger.Logf("MIG mode is enabled on %d GPUs", gpuCountExpected)
+	logging.Logf(ctx, "MIG mode is enabled on %d GPUs", gpuCountExpected)
 	return nil
 }
 
 func ValidateMIGInstanceProfileCounts(ctx context.Context, s *Scenario, expected map[string]int) error {
-	s.Logger.Logf("validating exact MIG instance profile counts")
+	logging.Logf(ctx, "validating exact MIG instance profile counts")
 
 	command := []string{
 		"set -ex",
@@ -3355,7 +3364,7 @@ func ValidateMIGInstanceProfileCounts(ctx context.Context, s *Scenario, expected
 }
 
 func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile string, instanceCountExpected int) error {
-	s.Logger.Logf("validating that %d MIG instances are created with profile %s", instanceCountExpected, migProfile)
+	logging.Logf(ctx, "validating that %d MIG instances are created with profile %s", instanceCountExpected, migProfile)
 
 	command := []string{
 		"set -ex",
@@ -3380,7 +3389,7 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 	if err := assert.Equal(instanceCount, instanceCountExpected, "expected %d MIG instances with profile %s, but found %d.\nOutput:\n%s", instanceCountExpected, migProfile, instanceCount, stdout); err != nil {
 		return err
 	}
-	s.Logger.Logf("%d MIG instances with profile %s are created", instanceCountExpected, migProfile)
+	logging.Logf(ctx, "%d MIG instances with profile %s are created", instanceCountExpected, migProfile)
 	return nil
 }
 
@@ -3440,7 +3449,7 @@ func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) 
 			}
 
 			if !matched {
-				s.Logger.Logf("Rule in table %s did not match any pattern: %s", table, rule)
+				logging.Logf(ctx, "Rule in table %s did not match any pattern: %s", table, rule)
 				success = false
 			}
 		}
@@ -3493,16 +3502,6 @@ func ValidateAppArmorBasic(ctx context.Context, s *Scenario) error {
 	return errors.Join(errs...)
 }
 
-func truncatePodName(logger toolkit.Logger, pod *corev1.Pod) {
-	name := pod.Name
-	if len(pod.Name) < 63 {
-		return
-	}
-	pod.Name = pod.Name[:63]
-	pod.Name = strings.TrimRight(pod.Name, "-")
-	logger.Logf("truncated pod name %q to %q", name, pod.Name)
-}
-
 // ValidateNodeHasLabel checks if the node has the expected label with the expected value
 func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedValue string) error {
 	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
@@ -3515,6 +3514,47 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 		return err
 	}
 	return assert.Equal(actualValue, expectedValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
+}
+
+func ValidateHotfixFromNBCCmd(ctx context.Context, s *Scenario) error {
+	result, err := execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		`set -eu
+config_path=/opt/azure/containers/aks-node-controller-config.json
+nbc_cmd_path=/opt/azure/containers/aks-node-controller-nbc-cmd.sh
+anc_path=/opt/azure/containers/aks-node-controller-hotfix
+
+sudo test ! -e "$config_path" || {
+	echo "$config_path unexpectedly exists" >&2
+	exit 1
+}
+sudo test -e "$nbc_cmd_path" || {
+	echo "$nbc_cmd_path does not exist" >&2
+	exit 1
+}
+if ! sudo test -x "$anc_path"; then
+	anc_path=/opt/azure/containers/aks-node-controller
+fi
+sudo test -x "$anc_path" || {
+	echo "no executable aks-node-controller binary found" >&2
+	exit 1
+}
+
+echo "using ANC binary: $anc_path"
+sudo "$anc_path" check-hotfix`,
+		0,
+		"check-hotfix NBC command fallback failed",
+	)
+	if err != nil {
+		return err
+	}
+
+	output := result.stdout + "\n" + result.stderr
+	return errors.Join(
+		assert.Contains(output, "node config not found, trying nbc-cmd.sh fallback"),
+		assert.Contains(output, "loaded LPS target from nbc-cmd.sh fallback"),
+	)
 }
 
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
@@ -3619,7 +3659,7 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) error {
 // ValidateMANAPCIDevice checks that the MANA PCI device is exposed to the VM.
 // MANA hardware is identified by PCI device ID 0x00ba (Microsoft Corporation).
 func ValidateMANAPCIDevice(ctx context.Context, s *Scenario) error {
-	defer toolkit.LogStep(s.Logger, "validating MANA PCI device is present")()
+	defer logging.LogStep(ctx, "validating MANA PCI device is present")()
 	cmd := "grep -Rqi '^0x00ba$' /sys/bus/pci/devices/*/device 2>/dev/null"
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
 		"MANA PCI device (0x00ba) not found in /sys/bus/pci/devices"); err != nil {
@@ -3632,7 +3672,7 @@ func ValidateMANAPCIDevice(ctx context.Context, s *Scenario) error {
 // in the running kernel. For built-in drivers they appear in modules.builtin;
 // for loadable modules they must be present in lsmod.
 func ValidateMANADriverLoaded(ctx context.Context, s *Scenario) error {
-	defer toolkit.LogStep(s.Logger, "validating MANA kernel driver is loaded")()
+	defer logging.LogStep(ctx, "validating MANA kernel driver is loaded")()
 	cmd := `lsmod | grep -q '^mana ' || grep -q '/mana\.ko' /lib/modules/$(uname -r)/modules.builtin`
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
 		"MANA kernel driver (mana) not found in lsmod or modules.builtin"); err != nil {
@@ -3644,7 +3684,7 @@ func ValidateMANADriverLoaded(ctx context.Context, s *Scenario) error {
 // ValidateAcceleratedNetworkingVFBonded checks that the accelerated networking
 // VF interface exists and is properly bonded to the primary eth0 interface.
 func ValidateAcceleratedNetworkingVFBonded(ctx context.Context, s *Scenario) error {
-	defer toolkit.LogStep(s.Logger, "validating accelerated networking VF is bonded to eth0")()
+	defer logging.LogStep(ctx, "validating accelerated networking VF is bonded to eth0")()
 	// Look for any interface that has "master eth0" in ip link output,
 	// indicating it is bonded as a VF to the primary synthetic NIC.
 	cmd := `ip link show | grep 'master eth0'`
@@ -3653,14 +3693,14 @@ func ValidateAcceleratedNetworkingVFBonded(ctx context.Context, s *Scenario) err
 	if err != nil {
 		return fmt.Errorf("check accelerated networking VF bonding: %w", err)
 	}
-	s.Logger.Logf("Accelerated networking VF bonding: %s", strings.TrimSpace(result.stdout))
+	logging.Logf(ctx, "Accelerated networking VF bonding: %s", strings.TrimSpace(result.stdout))
 	return nil
 }
 
 // ValidateAcceleratedNetworkingVFHardware verifies the accelerated networking VF
 // is backed by a PCI function and bound to a kernel network driver.
 func ValidateAcceleratedNetworkingVFHardware(ctx context.Context, s *Scenario) error {
-	defer toolkit.LogStep(s.Logger, "validating accelerated networking VF PCI hardware")()
+	defer logging.LogStep(ctx, "validating accelerated networking VF PCI hardware")()
 
 	cmd := strings.Join([]string{
 		"set -e",
@@ -3691,7 +3731,7 @@ func ValidateAcceleratedNetworkingVFHardware(ctx context.Context, s *Scenario) e
 	if err != nil {
 		return fmt.Errorf("check accelerated networking VF PCI hardware: %w", err)
 	}
-	s.Logger.Logf("Accelerated networking VF hardware: %s", strings.TrimSpace(result.stdout))
+	logging.Logf(ctx, "Accelerated networking VF hardware: %s", strings.TrimSpace(result.stdout))
 	return nil
 }
 
@@ -3711,7 +3751,7 @@ func ValidateMANAVFBonded(ctx context.Context, s *Scenario) error {
 // It sends HTTP requests from a pod to the node's default gateway and verifies
 // that the VF TX packet counters increase by at least that amount.
 func ValidateAcceleratedNetworkingTrafficFlowing(ctx context.Context, s *Scenario) error {
-	defer toolkit.LogStep(s.Logger, "validating traffic is flowing through accelerated networking VF")()
+	defer logging.LogStep(ctx, "validating traffic is flowing through accelerated networking VF")()
 
 	const requestCount = 10
 	getVFTxPackets := `val=$(sudo ethtool -S eth0 | awk '/^[[:space:]]*vf_tx_packets:/{print $2; exit}'); [ -n "$val" ] && echo "$val" || { echo "vf_tx_packets not found in ethtool -S eth0 output" >&2; exit 1; }`
@@ -3725,7 +3765,7 @@ func ValidateAcceleratedNetworkingTrafficFlowing(ctx context.Context, s *Scenari
 	if err != nil {
 		return fmt.Errorf("parse vf_tx_packets before value %q: %w", resultBefore.stdout, err)
 	}
-	s.Logger.Logf("Accelerated networking VF tx packets before: %d", countBefore)
+	logging.Logf(ctx, "Accelerated networking VF tx packets before: %d", countBefore)
 
 	// Generate traffic from a pod on this node using curl to the node's default
 	// gateway. We use vf_tx_packets (not rx) so the test passes regardless of
@@ -3742,7 +3782,7 @@ func ValidateAcceleratedNetworkingTrafficFlowing(ctx context.Context, s *Scenari
 	if err := assert.NotEqual(gatewayIP, "", "default gateway IP is empty"); err != nil {
 		return err
 	}
-	s.Logger.Logf("Accelerated networking traffic test: using gateway %s as target", gatewayIP)
+	logging.Logf(ctx, "Accelerated networking traffic test: using gateway %s as target", gatewayIP)
 
 	// The "; true" ensures exit 0 regardless of curl's result — the gateway has
 	// no HTTP server so connections will fail, but TCP SYN packets still traverse
@@ -3764,7 +3804,7 @@ func ValidateAcceleratedNetworkingTrafficFlowing(ctx context.Context, s *Scenari
 	}
 
 	delta := countAfter - countBefore
-	s.Logger.Logf("Accelerated networking VF tx packets after: %d (delta: %d, expected >= %d)", countAfter, delta, requestCount)
+	logging.Logf(ctx, "Accelerated networking VF tx packets after: %d (delta: %d, expected >= %d)", countAfter, delta, requestCount)
 
 	return assert.Equal(delta >= requestCount, true,
 		"vf_tx_packets increased by %d but expected at least %d \u2014 traffic may not be flowing through the accelerated networking VF", delta, requestCount)
@@ -3884,9 +3924,9 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) error {
 		}
 		logFileName := "kernel-log.txt"
 		if err := writeToFile(s.artifactName, logFileName, fullDmesgResult.stdout); err != nil {
-			s.Logger.Logf("Warning: failed to write kernel log to file: %v", err)
+			logging.Logf(ctx, "Warning: failed to write kernel log to file: %v", err)
 		} else {
-			s.Logger.Logf("Full kernel log written to: %s/%s", artifactDir(s.artifactName), logFileName)
+			logging.Logf(ctx, "Full kernel log written to: %s/%s", artifactDir(s.artifactName), logFileName)
 		}
 
 		// Log each category of issues found
@@ -3898,7 +3938,7 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) error {
 		return errors.New(summary.String())
 	}
 
-	s.Logger.Logf("No critical kernel issues found")
+	logging.Logf(ctx, "No critical kernel issues found")
 	return nil
 }
 
@@ -3909,13 +3949,13 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) error {
 // Skipped on Flatcar and OSGuard VHDs which manage WALinuxAgent independently.
 func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
 	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") || s.VHD.SkipOldVHDValidations {
-		s.Logger.Logf("Skipping waagent log validation: not applicable for %s", s.VHD.Distro)
+		logging.Logf(ctx, "Skipping waagent log validation: not applicable for %s", s.VHD.Distro)
 		return nil
 	}
 
 	versions := components.GetExpectedPackageVersions("walinuxagent", "default", "current")
 	if len(versions) == 0 || versions[0] == "<SKIP>" {
-		s.Logger.Log("Skipping waagent log validation: no walinuxagent version in components.json")
+		logging.Log(ctx, "Skipping waagent log validation: no walinuxagent version in components.json")
 		return nil
 	}
 	expectedVersion := versions[0]
@@ -3965,9 +4005,9 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
 	if errOutput != "" {
 		logFileName := "waagent-exthandler-errors.log"
 		if err := writeToFile(s.artifactName, logFileName, logContents); err != nil {
-			s.Logger.Logf("Warning: failed to write waagent log to file: %v", err)
+			logging.Logf(ctx, "Warning: failed to write waagent log to file: %v", err)
 		} else {
-			s.Logger.Logf("Full waagent log written to: %s/%s", artifactDir(s.artifactName), logFileName)
+			logging.Logf(ctx, "Full waagent log written to: %s/%s", artifactDir(s.artifactName), logFileName)
 		}
 		errs = append(errs, fmt.Errorf("ExtHandler errors found in waagent.log:\n%s", errOutput))
 	}
@@ -3975,7 +4015,7 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
 	if err := errors.Join(errs...); err != nil {
 		return err
 	}
-	s.Logger.Logf("waagent.log validation passed: WALinuxAgent-%s running correctly with no ExtHandler errors", expectedVersion)
+	logging.Logf(ctx, "waagent.log validation passed: WALinuxAgent-%s running correctly with no ExtHandler errors", expectedVersion)
 	return nil
 }
 
@@ -4027,7 +4067,7 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) error {
 // the absence-check list AND the default presence + load-refusal list.
 func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) error {
 	if s.VHD.Flatcar && s.VHD.OS != config.OSACL {
-		s.Logger.Log("Skipping vulnerable kernel module validation: not applicable for Flatcar")
+		logging.Log(ctx, "Skipping vulnerable kernel module validation: not applicable for Flatcar")
 		return nil
 	}
 
@@ -4223,7 +4263,7 @@ func ValidateSecondaryNICDualStack(ctx context.Context, s *Scenario, ifaceName s
 }
 
 func ValidateDraDriverNvidiaGpuServiceRunning(ctx context.Context, s *Scenario) error {
-	s.Logger.Logf("validating DRA driver NVIDIA GPU systemd service is running")
+	logging.Logf(ctx, "validating DRA driver NVIDIA GPU systemd service is running")
 
 	command := []string{
 		"set -ex",
@@ -4237,7 +4277,7 @@ func ValidateDraDriverNvidiaGpuServiceRunning(ctx context.Context, s *Scenario) 
 }
 
 func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) (err error) {
-	s.Logger.Logf("validating that DRA workloads can be scheduled")
+	logging.Logf(ctx, "validating that DRA workloads can be scheduled")
 
 	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
 
@@ -4337,7 +4377,7 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) (err error
 		return fmt.Errorf("run DRA workload pod: %w", err)
 	}
 
-	s.Logger.Logf("GPU workload is schedulable and runs successfully")
+	logging.Logf(ctx, "GPU workload is schedulable and runs successfully")
 	return nil
 }
 

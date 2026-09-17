@@ -1,3 +1,4 @@
+import io
 import json
 import os
 from pathlib import Path
@@ -55,6 +56,87 @@ TRADITIONAL_TEMPLATE = """- path: {{GetCSEHelpersScriptFilepath}}
 
 
 class HotfixGenerateTests(unittest.TestCase):
+    def test_config_modules_are_independently_hotfixable(self):
+        repository = Path(__file__).resolve().parents[1]
+        lines = (repository / hotfix_generate.TEMPLATE).read_text().splitlines(
+            keepends=True
+        )
+        _, outer_else, end = hotfix_generate.find_block_boundaries(lines)
+        self.assertIsNotNone(outer_else)
+        self.assertIsNotNone(end)
+        traditional = lines[outer_else + 1:end]
+        available = set().union(
+            *(keys for keys, _ in hotfix_generate.parse_write_files_blocks(traditional))
+        )
+        modules = (
+            ("cse_config_gpu.sh", "provisionConfigsGPU", "GetCSEConfigGPUScriptFilepath"),
+            (
+                "cse_config_localdns.sh",
+                "provisionConfigsLocalDNS",
+                "GetCSEConfigLocalDNSScriptFilepath",
+            ),
+            (
+                "cse_config_kubelet.sh",
+                "provisionConfigsKubelet",
+                "GetCSEConfigKubeletScriptFilepath",
+            ),
+        )
+        artifacts = str(repository / hotfix_generate.ARTIFACTS_DIR)
+        hotfix_generate.validate_source_mappings()
+        for source, variable, path_function in modules:
+            with self.subTest(source=source):
+                self.assertEqual(variable, hotfix_generate.SOURCE_TO_VARKEY[source])
+                self.assertEqual(source, hotfix_generate.VARKEY_TO_SOURCE[variable])
+                result = subprocess.CompletedProcess(
+                    args=[],
+                    returncode=0,
+                    stdout=f"{artifacts}/{source}\n",
+                )
+                with mock.patch.object(
+                    hotfix_generate, "ARTIFACTS_DIR", artifacts
+                ), mock.patch.object(
+                    hotfix_generate.subprocess, "run", return_value=result
+                ), mock.patch("sys.stdout", new_callable=io.StringIO):
+                    selected = hotfix_generate.detect_changed_varkeys(
+                        "baseline", available_varkeys=available
+                    )
+                self.assertEqual({variable}, selected)
+                template = hotfix_generate.build_hotfix_template(selected, traditional)
+                blocks = hotfix_generate.parse_write_files_blocks(
+                    template.splitlines(keepends=True)
+                )
+                self.assertEqual(1, len(blocks))
+                self.assertEqual({variable}, blocks[0][0])
+                self.assertIn(f"- path: {{{{{path_function}}}}}", template)
+                self.assertIn('permissions: "0744"', template)
+                self.assertIn("encoding: gzip", template)
+                self.assertNotIn("{{if", template)
+
+    def test_config_refactor_hotfix_selects_parent_and_new_modules(self):
+        repository = Path(__file__).resolve().parents[1]
+        artifacts = str(repository / hotfix_generate.ARTIFACTS_DIR)
+        sources = (
+            "cse_config.sh",
+            "cse_config_gpu.sh",
+            "cse_config_localdns.sh",
+            "cse_config_kubelet.sh",
+        )
+        expected = {hotfix_generate.SOURCE_TO_VARKEY[source] for source in sources}
+        result = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout="".join(f"{artifacts}/{source}\n" for source in sources),
+        )
+        with mock.patch.object(
+            hotfix_generate, "ARTIFACTS_DIR", artifacts
+        ), mock.patch.object(
+            hotfix_generate.subprocess, "run", return_value=result
+        ), mock.patch("sys.stdout", new_callable=io.StringIO):
+            selected = hotfix_generate.detect_changed_varkeys(
+                "baseline", available_varkeys=expected
+            )
+        self.assertEqual(expected, selected)
+
     def test_find_block_boundaries(self):
         content = f"""#cloud-config
 write_files:
@@ -253,31 +335,114 @@ write_files:
                     ).read_text(),
                 )
 
-    def test_write_hotfix_file_contains_only_anc_version_and_preserves_it(self):
+    def test_update_nodecustomdata_injects_and_removes_selected_blocks(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            template = Path(temp_dir) / "nodecustomdata.yml"
+            template.write_text(
+                "#cloud-config\n"
+                "write_files:\n"
+                "{{if EnableScriptlessCSECmd}}\n"
+                "{{- else }}\n"
+                f"{TRADITIONAL_TEMPLATE}"
+                "{{- end }}\n"
+            )
+            with mock.patch.object(hotfix_generate, "TEMPLATE", str(template)):
+                hotfix_generate.update_nodecustomdata({"provisionSource"})
+                injected = template.read_text()
+                self.assertIn(hotfix_generate.SCRIPTS_BEGIN, injected)
+                self.assertIn("provisionSource", injected)
+                self.assertNotIn(
+                    "provisionSourceUbuntu",
+                    injected.split(hotfix_generate.SCRIPTS_END, 1)[0],
+                )
+
+                hotfix_generate.update_nodecustomdata(set())
+                cleaned = template.read_text()
+                self.assertNotIn(hotfix_generate.SCRIPTS_BEGIN, cleaned)
+                self.assertEqual(1, cleaned.count("provisionSourceUbuntu"))
+
+    def test_write_hotfix_file_uses_hotfixes_and_preserves_scripts_version(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             target = Path(temp_dir) / "hotfix.json"
             with mock.patch.object(
                 hotfix_generate, "TARGET_FILE", str(target)
             ):
-                hotfix_generate.write_hotfix_file("202608.14.1")
+                hotfix_generate.write_hotfix_file(
+                    "202608.14.1",
+                    "202608.14.2",
+                )
                 self.assertEqual(
-                    {"version": "202608.14.1"},
+                    {
+                        "hotfixes": {"202608.14": "202608.14.1"},
+                        "scripts_version": "202608.14.2",
+                    },
                     json.loads(target.read_text()),
                 )
-                hotfix_generate.write_hotfix_file("")
+                hotfix_generate.write_hotfix_file("", "")
                 self.assertEqual(
-                    {"version": "202608.14.1"},
+                    {
+                        "hotfixes": {"202608.14": "202608.14.1"},
+                        "scripts_version": "202608.14.2",
+                    },
                     json.loads(target.read_text()),
                 )
 
-    def test_write_hotfix_file_without_version_keeps_missing_target_absent(self):
+    def test_write_hotfix_file_without_versions_keeps_missing_target_absent(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             target = Path(temp_dir) / "hotfix.json"
             with mock.patch.object(
                 hotfix_generate, "TARGET_FILE", str(target)
             ):
-                hotfix_generate.write_hotfix_file("")
+                hotfix_generate.write_hotfix_file("", "")
                 self.assertFalse(target.exists())
+
+    def test_resolve_hotfix_versions_defaults_scripts_to_scripts_version(self):
+        with mock.patch.object(
+            hotfix_generate,
+            "bump_version",
+            return_value="202608.14.1",
+        ):
+            self.assertEqual(
+                ("", "202608.14.1"),
+                hotfix_generate.resolve_hotfix_versions(
+                    "202608.14.0",
+                    anc_changed=False,
+                    script_hotfix_changed=True,
+                    use_anc_for_scripts=False,
+                ),
+            )
+
+    def test_resolve_hotfix_versions_adds_hotfix_for_anc_script_delivery(self):
+        with mock.patch.object(
+            hotfix_generate,
+            "bump_version",
+            return_value="202608.14.1",
+        ):
+            self.assertEqual(
+                ("202608.14.1", "202608.14.1"),
+                hotfix_generate.resolve_hotfix_versions(
+                    "202608.14.0",
+                    anc_changed=False,
+                    script_hotfix_changed=True,
+                    use_anc_for_scripts=True,
+                ),
+            )
+
+    def test_resolve_hotfix_versions_keeps_independent_anc_hotfix(self):
+        with mock.patch.object(
+            hotfix_generate,
+            "bump_version",
+            return_value="202608.14.1",
+        ):
+            self.assertEqual(
+                ("202608.14.1", "202608.14.1"),
+                hotfix_generate.resolve_hotfix_versions(
+                    "202608.14.0",
+                    anc_changed=True,
+                    script_hotfix_changed=True,
+                    use_anc_for_scripts=False,
+                ),
+            )
 
     def test_cse_start_hotfix_fails_even_with_supported_changes(self):
         self.assertNotIn("cse_start.sh", hotfix_generate.SOURCE_TO_VARKEY)
@@ -380,6 +545,22 @@ write_files:
                 "v0.20260826.0",
                 hotfix_generate.resolve_baseline_ref("202608.26.0"),
             )
+
+    def test_resolve_baseline_ref_uses_testing_override(self):
+        with mock.patch.object(
+            hotfix_generate.subprocess, "run"
+        ) as run, mock.patch.object(
+            hotfix_generate, "tag_exists"
+        ) as tag_exists, mock.patch(
+            "sys.stderr", new_callable=io.StringIO
+        ) as stderr:
+            self.assertEqual(
+                "HEAD",
+                hotfix_generate.resolve_baseline_ref("202608.26.0", "HEAD"),
+            )
+        run.assert_not_called()
+        tag_exists.assert_not_called()
+        self.assertIn("non-cumulative script baseline override HEAD", stderr.getvalue())
 
     def test_detect_changed_varkeys_accumulates_all_scripts_since_baseline(self):
         # A later hotfix must re-select every script that differs from the VHD

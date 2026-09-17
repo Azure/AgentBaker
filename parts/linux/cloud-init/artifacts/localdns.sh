@@ -665,21 +665,37 @@ cleanup_iptables_and_dns() {
 
     # Do not derive the route/interface during post-exit cleanup. At this point
     # network state may already be torn down, so ip route/networkctl discovery
-    # can fail and leave the node pointed at the dead LocalDNS listener. Sweep
-    # the known drop-in name directly; the glob also handles a cleanup call
-    # where NETWORK_DROPIN_FILE was never initialized in this process.
+    # can fail and leave the node pointed at the dead LocalDNS listener. Remove
+    # the configured drop-in and any matching drop-ins directly; this also works
+    # when NETWORK_DROPIN_FILE was never initialized in this process.
+    # Revert DNS configuration before touching iptables. Keep the dummy interface
+    # and its .10/.11 addresses here: if an orphaned CoreDNS child survived a
+    # failed cgroup teardown, removing the interface would break a listener
+    # that may still be serving pods. The service-recovery path handles the
+    # next-start interface lifecycle separately.
     local network_dropin_file
-    local -a network_dropin_files=()
-    if [ -n "${NETWORK_DROPIN_FILE:-}" ]; then
-        network_dropin_files+=("${NETWORK_DROPIN_FILE}")
-    fi
-    for network_dropin_file in /run/systemd/network/*.d/70-localdns.conf; do
-        if [ -e "$network_dropin_file" ] && [ "$network_dropin_file" != "${NETWORK_DROPIN_FILE:-}" ]; then
-            network_dropin_files+=("$network_dropin_file")
+    for network_dropin_file in "${NETWORK_DROPIN_FILE:-}" /run/systemd/network/*.d/70-localdns.conf; do
+        [ -e "$network_dropin_file" ] || continue
+        echo "Removing network drop-in file ${network_dropin_file}."
+        if ! rm -f "$network_dropin_file"; then
+            echo "Failed to remove network drop-in file ${network_dropin_file}."
+            cleanup_failed=true
+        else
+            echo "Successfully removed network drop-in file."
         fi
     done
 
+    echo "Attempt to reload network configuration."
+    if ! eval "$NETWORKCTL_RELOAD_CMD"; then
+        echo "Failed to reload network after removing the DNS configuration."
+        cleanup_failed=true
+    else
+        echo "Reloading network configuration succeeded."
+    fi
+
     # Remove any existing localdns iptables rules by searching for our comment.
+    # This runs after DNS restoration so an xtables lock cannot delay removal of
+    # the network drop-in that points the node at the LocalDNS listener.
     echo "Cleaning up any existing localdns iptables rules..."
 
     # Get list of existing localdns rules by searching for our comment.
@@ -701,34 +717,10 @@ cleanup_iptables_and_dns() {
             done
         done
         if [ "$failure_occurred" = true ]; then
-            # Record the failure but continue so DNS restoration still runs.
             cleanup_failed=true
         fi
     else
         echo "No existing localdns iptables rules found."
-    fi
-
-    # Revert DNS configuration and network reload. Keep the dummy interface
-    # and its .10/.11 addresses here: if an orphaned CoreDNS child survived a
-    # failed cgroup teardown, removing the interface would break a listener
-    # that may still be serving pods. The service-recovery path handles the
-    # next-start interface lifecycle separately.
-    for network_dropin_file in "${network_dropin_files[@]}"; do
-        echo "Removing network drop-in file ${network_dropin_file}."
-        if ! rm -f "$network_dropin_file"; then
-            echo "Failed to remove network drop-in file ${network_dropin_file}."
-            cleanup_failed=true
-        else
-            echo "Successfully removed network drop-in file."
-        fi
-    done
-
-    echo "Attempt to reload network configuration."
-    if ! eval "$NETWORKCTL_RELOAD_CMD"; then
-        echo "Failed to reload network after removing the DNS configuration."
-        cleanup_failed=true
-    else
-        echo "Reloading network configuration succeeded."
     fi
 
     if [ "$cleanup_failed" = true ]; then
@@ -945,8 +937,9 @@ start_localdns_watchdog() {
             # Update resource metrics .prom file for the exporter (best-effort, non-fatal)
             export_resource_metrics
 
-            # Run sleep in a child so SIGTERM can interrupt the wait and let
-            # the service's signal/exit cleanup run promptly.
+            # Wait for the next watchdog interval. Run sleep in a child so
+            # SIGTERM can interrupt the wait and let the service's signal/exit
+            # cleanup run promptly.
             sleep "${HEALTH_CHECK_INTERVAL}" &
             wait $!
         done

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Azure/agentbaker/e2e/assert"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	corev1 "k8s.io/api/core/v1"
 	nodev1 "k8s.io/api/node/v1"
@@ -224,7 +225,7 @@ func ValidateKataPodIsIsolated(ctx context.Context, s *Scenario, handler string)
 		return err
 	}
 
-	s.Logger.Logf("host kernel: %q, kata guest kernel: %q", hostKernel, guestKernel)
+	logging.Logf(ctx, "host kernel: %q, kata guest kernel: %q", hostKernel, guestKernel)
 	return assert.NotEqual(guestKernel, hostKernel,
 		"pod running under the %q RuntimeClass reported the same kernel release as the host, "+
 			"which means it was not launched inside a Kata VM", handler)
@@ -297,7 +298,7 @@ func createKataPod(ctx context.Context, s *Scenario, runtimeClassName, handler s
 		},
 	}
 
-	s.Logger.Logf("creating pod %q under RuntimeClass %q", pod.Name, runtimeClassName)
+	logging.Logf(ctx, "creating pod %q under RuntimeClass %q", pod.Name, runtimeClassName)
 	created, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kata pod %q: %w", pod.Name, err)

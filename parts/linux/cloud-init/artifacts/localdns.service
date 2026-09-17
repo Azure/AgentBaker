@@ -14,6 +14,19 @@ ConditionKernelVersion=>=5.15
 # so slow failures (PID file never appears, watchdog kill, ready-check timeout,
 # hung start) still reach 'failed'. That terminal state is what lets an
 # OnFailure= handoff fire and gives NPD a stable state to observe.
+#
+# This budget is shared with CSE's provisioning restarts, not just systemd's own
+# auto-restart cycles: a manual 'systemctl start/restart' counts against
+# StartLimitBurst exactly like an automatic restart. A single CSE start therefore
+# costs one slot and lets Restart=on-failure spend the remaining four within
+# ~11s, after which every further CSE attempt is refused with "Start request
+# repeated too quickly" for the rest of the 720s window. enableLocalDNS() runs
+# 'systemctl reset-failed localdns' before each provisioning attempt to keep that
+# from wedging node provisioning, and deliberately skips it on the give-up path
+# so the unit is left in 'failed'. Don't rely on 'systemctl daemon-reload' to
+# clear this instead: it resets start_ratelimit on systemd 249 but not on 255
+# (Ubuntu 24.04), which is what AKS ships.
+#
 # OnFailure= starts the pod-DNS fallback so 169.254.10.11 keeps answering for
 # already-running pods while localdns is down. Note that systemd fires this on
 # EVERY failed start attempt, not only on entry to the terminal 'failed' state:
