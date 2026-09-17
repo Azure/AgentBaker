@@ -9,31 +9,42 @@ Many components in this file track two fields:
                               the same release)
 
 Renovate only knows how to copy the old `latestVersion` into
-`previousLatestVersion` when it bumps `latestVersion`. It has no logic to
-detect that both fields ended up pointing at the SAME underlying release
-(only differing by package/image revision), which happens when a package
-gets rebuilt (e.g. a Debian revision bump) without an actual version bump.
+`previousLatestVersion` when it bumps `latestVersion`. That leads to two
+distinct problems this script checks for:
 
-This script:
+  1. "collision" -- `previousLatestVersion` ends up pointing at the SAME
+     release as the new `latestVersion` (only differing by package/image
+     build revision), which happens when a package gets rebuilt (e.g. a
+     Debian revision bump) without an actual version bump.
+  2. "stale" -- `previousLatestVersion` does reference a genuinely prior
+     release, but not the newest build known upstream for that release
+     (e.g. it was copied forward from an old `latestVersion` that was
+     itself already several builds behind upstream by the time it became
+     `previousLatestVersion`).
+
+For both, this script:
   1. Diffs parts/common/components.json against the PR's base ref.
   2. For every changed entry that has both `latestVersion` and
-     `previousLatestVersion`, checks whether they share the same
-     major.minor.patch release (a `k8sVersion` field is not required --
-     this applies to any component tracking these two fields).
-  3. If they do, queries the same upstream source the entry's `renovateTag`
-     points at (mirroring .github/renovate.json's customManagers /
-     customDatasources) to compute a best-effort recommendation: the
-     highest build found upstream for the PRIOR release.
+     `previousLatestVersion` (a `k8sVersion` field is not required -- this
+     applies to any component tracking these two fields), parses their
+     releases/build numbers.
+  3. Queries the same upstream source the entry's `renovateTag` points at
+     (mirroring .github/renovate.json's customManagers / customDatasources)
+     to compute a best-effort recommendation: for a collision, the highest
+     build found upstream for a genuinely prior release; for staleness,
+     the highest build found upstream for `previousLatestVersion`'s own
+     release.
 
 Version comparison currently only understands one narrow, unambiguous shape:
-an exact `v?MAJOR.MINOR.PATCH-BUILD` string where BUILD is purely numeric
-(e.g. "v0.1.16-16" or "0.1.16-16"). That's the one case where "same release,
-different build" can be confirmed with certainty. Entries whose
-latestVersion/previousLatestVersion don't match this exact shape -- e.g.
-"1.35.7-ubuntu24.04u2" (distro suffix), "10.0.20348.5622" (4-part Windows
-build), or a bare "1.35.7" (no build suffix) -- are skipped rather than
-guessed at; broadening to those formats is left for a follow-up once we're
-confident how to compare them unambiguously.
+a prefix of `v?MAJOR.MINOR.PATCH-BUILD` where BUILD is purely numeric
+(e.g. "v0.1.16-16" or "0.1.16-16", optionally followed by an arbitrary
+suffix like ".azl3" or "-azlinux3"). That's the one case where both "same
+release" and "build number" can be identified with certainty. Entries whose
+latestVersion/previousLatestVersion don't match this shape -- e.g.
+"1.35.7-ubuntu24.04u2" (the character after the dash isn't a digit),
+"10.0.20348.5622" (no dash at all), or a bare "1.35.7" (no build suffix) --
+are skipped rather than guessed at; broadening to those formats is left for
+a follow-up once we're confident how to compare them unambiguously.
 
 This script only reports; it never rewrites components.json. Recommendations
 are best-effort and not independently re-verified here -- if a suggested
@@ -77,36 +88,43 @@ class ComponentEntry:
     previous_latest_version: Optional[str]
 
 
-RELEASE_RE = re.compile(r"^v?(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)-(?P<build>\d+)$")
+RELEASE_RE = re.compile(r"^(?P<prefix>v?\d+\.\d+\.\d+)-(?P<build>\d+)(?P<suffix>.*)$")
 
 
-def extract_release(version: str) -> Optional[tuple]:
-    """Extract the major.minor.patch release from a version string, but
-    only for the narrow, unambiguous shape this check targets: an exact
-    `v?MAJOR.MINOR.PATCH-BUILD` string where BUILD is purely numeric, e.g.
-    "v0.1.16-16" or "0.1.16-16". This is the one shape where "same release,
-    different build" can be confirmed with certainty -- the dash cleanly
-    separates the semver release from a package/image build/revision
-    counter.
+@dataclass
+class ParsedVersion:
+    release: tuple  # (major, minor, patch)
+    build: int
+    prefix: str  # e.g. "v0.1.16" -- everything before "-BUILD", kept verbatim (with leading "v" if present)
+    suffix: str  # e.g. "" or ".azl3" or "-azlinux3" -- everything after BUILD, kept verbatim
 
-    Anything else (e.g. "1.35.7-ubuntu24.04u2", "10.0.20348.5622", a bare
-    "1.35.7" with no build suffix, or non-numeric suffixes like
-    "-windows-hpc-1") returns None and is skipped rather than guessed at:
-    those formats mix in OS/distro identifiers or extra version segments
-    that make "same release" ambiguous to determine (see module
-    docstring)."""
+
+def parse_version(version: str) -> Optional[ParsedVersion]:
+    """Parse a version string, but only for the narrow, unambiguous shape
+    this check targets: a prefix of `v?MAJOR.MINOR.PATCH-BUILD` where BUILD
+    is a purely numeric run immediately after the dash (an arbitrary
+    string, such as ".azl3" or "-azlinux3", may follow). This is the one
+    shape where "same release" and "build number" can both be identified
+    with certainty -- the dash cleanly separates the semver release from a
+    package/image build/revision counter, and the digits right after it
+    are unambiguously the build number.
+
+    Anything else (e.g. "1.35.7-ubuntu24.04u2", where the character right
+    after the dash is not a digit, "10.0.20348.5622", which has no dash at
+    all, or a bare "1.35.7" with no build suffix) returns None and is
+    skipped rather than guessed at: those formats mix in OS/distro
+    identifiers or extra version segments that make "same release"/"build
+    number" ambiguous to determine (see module docstring)."""
     m = RELEASE_RE.match(version)
     if not m:
         return None
-    return (int(m.group("major")), int(m.group("minor")), int(m.group("patch")))
+    release = tuple(int(part) for part in m.group("prefix").lstrip("v").split("."))
+    return ParsedVersion(release=release, build=int(m.group("build")), prefix=m.group("prefix"), suffix=m.group("suffix"))
 
 
-def natural_sort_key(revision: str):
-    """Split a revision/suffix string into alternating text/number chunks so
-    that e.g. "2" < "10" and "ubuntu20.04u3" compares sanely. This is a
-    best-effort stand-in for `dpkg --compare-versions` / rpm version compare;
-    it is not a full implementation of either ecosystem's version rules."""
-    return [int(chunk) if chunk.isdigit() else chunk for chunk in re.split(r"(\d+)", revision)]
+def extract_release(version: str) -> Optional[tuple]:
+    parsed = parse_version(version)
+    return parsed.release if parsed else None
 
 
 def load_json_at_ref(ref: str, path: str) -> dict:
@@ -147,12 +165,16 @@ def collect_entries(node, path="root") -> list:
     return entries
 
 
-def entry_key(entry: ComponentEntry) -> tuple:
-    # renovateTag uniquely identifies an entry across versions of the file
-    # even if its surrounding array index shifts. Entries without a
-    # renovateTag (uncommon) fall back to their JSON path, which is only
-    # stable if the file's array ordering doesn't change around them.
-    return entry.renovate_tag if entry.renovate_tag else ("path", entry.path)
+def entry_key(entry: ComponentEntry) -> str:
+    # JSON path (array index / dict key chain) uniquely and stably identifies
+    # an entry across base/head diffs for this kind of PR: Renovate only
+    # replaces the latestVersion/previousLatestVersion *values* in place, it
+    # never reorders or adds/removes array entries. renovateTag looks like a
+    # natural identity key, but it is NOT unique -- multiple rows for
+    # different k8sVersion minors commonly share the exact same
+    # `name=..., os=..., release=...` tag (same package/OS/release), which
+    # would otherwise collide different entries onto the same dict key.
+    return entry.path
 
 
 # ---------------------------------------------------------------------------
@@ -259,20 +281,45 @@ def lookup_available_versions(renovate_tag: Optional[str]) -> list:
     raise NotImplementedError(f"unrecognized renovateTag format: {renovate_tag!r}")
 
 
-def recommend_previous_version(latest_version: str, available_versions: list) -> Optional[str]:
-    latest_release = extract_release(latest_version)
-    if latest_release is None:
-        return None
-    candidates_by_release: dict = {}
+def find_highest_build(available_versions: list, target_release: tuple) -> Optional[ParsedVersion]:
+    """Among available upstream version strings, return the ParsedVersion
+    with the highest build number for exactly `target_release`, or None if
+    no upstream version matches that release at all."""
+    best: Optional[ParsedVersion] = None
     for v in available_versions:
-        release = extract_release(v)
-        if release is None or release >= latest_release:
+        parsed = parse_version(v)
+        if parsed is None or parsed.release != target_release:
             continue
-        candidates_by_release.setdefault(release, []).append(v)
-    if not candidates_by_release:
+        if best is None or parsed.build > best.build:
+            best = parsed
+    return best
+
+
+def find_prior_release_highest_build(available_versions: list, latest_release: tuple) -> Optional[ParsedVersion]:
+    """Among available upstream version strings, find the highest release
+    that is still strictly lower than `latest_release`, then return the
+    ParsedVersion with the highest build number within that release."""
+    candidates: dict = {}
+    for v in available_versions:
+        parsed = parse_version(v)
+        if parsed is None or parsed.release >= latest_release:
+            continue
+        candidates.setdefault(parsed.release, []).append(parsed)
+    if not candidates:
         return None
-    prior_release = max(candidates_by_release.keys())
-    return max(candidates_by_release[prior_release], key=natural_sort_key)
+    prior_release = max(candidates.keys())
+    return max(candidates[prior_release], key=lambda p: p.build)
+
+
+def format_recommendation(parsed: ParsedVersion, like: ParsedVersion) -> str:
+    """Render `parsed` (a release + build found upstream) using the same
+    textual style (leading "v" or not, trailing suffix) as `like` (the
+    entry's current previousLatestVersion) -- upstream tags/packages may
+    include extra formatting (e.g. CPU-arch suffixes on OCI tags) that
+    components.json doesn't use, so we don't just echo the upstream string
+    verbatim."""
+    prefix = ("v" if like.prefix.startswith("v") else "") + ".".join(map(str, parsed.release))
+    return f"{prefix}-{parsed.build}{like.suffix}"
 
 
 def main() -> int:
@@ -295,7 +342,10 @@ def main() -> int:
     base_entries = {entry_key(e): e for e in collect_entries(base_json)}
     head_entries = collect_entries(head_json)
 
-    # Each row: (entry, recommendation_or_None, note)
+    # Each row: (entry, kind, recommendation_or_None, note)
+    # kind is "collision" (previousLatestVersion == latestVersion's release)
+    # or "stale" (previousLatestVersion is a real prior release, but not the
+    # highest build known upstream for that release).
     findings = []
 
     for entry in head_entries:
@@ -310,40 +360,62 @@ def main() -> int:
         if not entry.latest_version or not entry.previous_latest_version:
             continue
 
-        latest_release = extract_release(entry.latest_version)
-        previous_release = extract_release(entry.previous_latest_version)
-        if latest_release is None or previous_release is None:
-            continue  # no recognizable major.minor.patch in one of the fields -- skip
-        if latest_release != previous_release:
-            continue  # different releases -> already correct shape
+        previous = parse_version(entry.previous_latest_version)
+        if previous is None:
+            continue  # unrecognized version shape -- skip rather than guess (see module docstring)
+        latest = parse_version(entry.latest_version)
 
-        print(
-            f"::error::{entry.path}: latestVersion ({entry.latest_version}) and "
-            f"previousLatestVersion ({entry.previous_latest_version}) are both "
-            f"version {'.'.join(map(str, latest_release))}. "
-            f"previousLatestVersion must reference a genuinely prior release."
-        )
+        if latest is not None and latest.release == previous.release:
+            kind = "collision"
+            print(
+                f"::error::{entry.path}: latestVersion ({entry.latest_version}) and "
+                f"previousLatestVersion ({entry.previous_latest_version}) are both "
+                f"release {'.'.join(map(str, latest.release))}. "
+                f"previousLatestVersion must reference a genuinely prior release."
+            )
+        else:
+            kind = "stale"
+
         try:
             available = lookup_available_versions(entry.renovate_tag)
-            recommendation = recommend_previous_version(entry.latest_version, available)
-            if recommendation:
+        except NotImplementedError as e:
+            note = f"cannot auto-check this entry ({e}); please verify manually."
+            print(f"::warning::{entry.path}: {note}")
+            if kind == "collision":
+                findings.append((entry, kind, None, note))
+            continue
+        except (urllib.error.URLError, urllib.error.HTTPError, RuntimeError) as e:
+            note = f"failed to query upstream source ({e}); please verify manually."
+            print(f"::warning::{entry.path}: {note}")
+            if kind == "collision":
+                findings.append((entry, kind, None, note))
+            continue
+
+        if kind == "collision":
+            rec = find_prior_release_highest_build(available, latest.release)
+            if rec:
+                recommendation = format_recommendation(rec, previous)
                 print(
                     f"::error::{entry.path}: best-effort recommendation: {recommendation} "
                     f"(highest build found upstream for the prior release)"
                 )
-                findings.append((entry, recommendation, None))
+                findings.append((entry, kind, recommendation, None))
             else:
                 note = "no build found upstream for a prior release; set this manually."
                 print(f"::error::{entry.path}: {note}")
-                findings.append((entry, None, note))
-        except NotImplementedError as e:
-            note = f"cannot auto-recommend a value ({e}); set this manually."
-            print(f"::warning::{entry.path}: {note}")
-            findings.append((entry, None, note))
-        except (urllib.error.URLError, urllib.error.HTTPError, RuntimeError) as e:
-            note = f"failed to query upstream source ({e}); set this manually."
-            print(f"::warning::{entry.path}: {note}")
-            findings.append((entry, None, note))
+                findings.append((entry, kind, None, note))
+        else:
+            rec = find_highest_build(available, previous.release)
+            if rec is not None and rec.build > previous.build:
+                recommendation = format_recommendation(rec, previous)
+                print(
+                    f"::error::{entry.path}: previousLatestVersion ({entry.previous_latest_version}) "
+                    f"is not the newest known build for release {'.'.join(map(str, previous.release))}: "
+                    f"upstream has build {rec.build}. best-effort recommendation: {recommendation}"
+                )
+                findings.append((entry, kind, recommendation, None))
+            # else: previousLatestVersion is already the highest known build (or upstream has
+            # nothing newer that we could find) -- no finding.
 
     if args.report:
         write_report(args.report, findings)
@@ -368,28 +440,32 @@ def write_report(path: str, findings: list) -> None:
     lines = [
         "### `previousLatestVersion` needs a fix",
         "",
-        "One or more changed entries in `parts/common/components.json` have "
-        "`latestVersion` and `previousLatestVersion` pointing at the same release. "
-        "`previousLatestVersion` must reference a genuinely prior release. "
+        "One or more changed entries in `parts/common/components.json` have a "
+        "`previousLatestVersion` problem: either it points at the same release as "
+        "`latestVersion` (must reference a genuinely prior release), or it's a real "
+        "prior release but not the newest build known upstream for that release. "
         "This check does not edit the file for you — please apply a value below "
         "(or replace it with a better one if you know it).",
         "",
-        "| Entry | latestVersion | previousLatestVersion (current) | Suggested previousLatestVersion |",
-        "|---|---|---|---|",
+        "| Entry | Issue | latestVersion | previousLatestVersion (current) | Suggested previousLatestVersion |",
+        "|---|---|---|---|---|",
     ]
-    for entry, recommendation, note in findings:
+    issue_label = {"collision": "same release as latestVersion", "stale": "newer build available upstream"}
+    for entry, kind, recommendation, note in findings:
         suggestion = f"`{recommendation}`" if recommendation else f"_{note}_"
         lines.append(
-            f"| `{entry.path}` | `{entry.latest_version}` | `{entry.previous_latest_version}` | {suggestion} |"
+            f"| `{entry.path}` | {issue_label.get(kind, kind)} | `{entry.latest_version}` | "
+            f"`{entry.previous_latest_version}` | {suggestion} |"
         )
     lines.append("")
     lines.append(
-        "_Suggestions are best-effort: the highest version this check found upstream for "
-        "the prior release. If a suggested value doesn't actually exist, a later "
+        "_Suggestions are best-effort: the highest build this check found upstream for the "
+        "relevant release. If a suggested value doesn't actually exist, a later "
         "CI step (schema/build validation) will catch it._"
     )
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
+
 
 
 if __name__ == "__main__":
