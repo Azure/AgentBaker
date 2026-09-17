@@ -500,6 +500,37 @@ if journalctl -u localdns-fallback.service --since "-2min" --no-pager -o cat 2>/
   wait_for 30 "CASE 1 lookup on the derived corefile" pod_resolves_via "$POD1" "$CLUSTER_IP" \
     && ok "DERIVED: pre-failure pod still resolves on the derived corefile" \
     || fail "DERIVED: pre-failure pod cannot resolve on the derived corefile"
+
+  # Hosts plugin. This is the single largest behavioural difference between the
+  # derived corefile and the minimal one, and it only matters on clusters that
+  # opted into extra DNS hardening -- i.e. exactly the ones that can least afford
+  # to lose it mid-outage. Measured on a live node: with the minimal corefile a
+  # name that exists ONLY in /etc/localdns/hosts returns empty; with the derived
+  # corefile it still resolves.
+  src_hosts=$(sudo grep -c 'hosts /etc/localdns/hosts' "$UPDATED_COREFILE" 2>/dev/null || echo 0)
+  drv_hosts=$(sudo grep -c 'hosts /etc/localdns/hosts' "$FALLBACK_COREFILE" 2>/dev/null || echo 0)
+  if [ "$src_hosts" -gt 0 ]; then
+    [ "$drv_hosts" -gt 0 ] \
+      && ok "DERIVED: inherited the hosts plugin block from localdns's corefile" \
+      || fail "DERIVED: source corefile has a hosts block but the derived one does not"
+    # Functional proof, not just structural: a canary that exists nowhere but the
+    # local hosts file must still resolve through the fallback.
+    CANARY="localdns-fallback-e2e-canary.invalid"
+    if sudo test -f /etc/localdns/hosts; then
+      printf '10.99.99.99 %%s\n' "$CANARY" | sudo tee -a /etc/localdns/hosts >/dev/null
+      sleep 7   # hosts plugin is configured with reload 5s
+      got=$(sudo nsenter --net="$(pod_netns "$POD1")" dig +short +timeout=3 +tries=1 "$CANARY" "@${CLUSTER_IP}" 2>/dev/null | head -1)
+      [ "$got" = "10.99.99.99" ] \
+        && ok "DERIVED: hosts-plugin entries still resolve through the fallback (canary=${got})" \
+        || fail "DERIVED: hosts-plugin canary returned '${got}', expected 10.99.99.99"
+      sudo sed -i "/${CANARY}/d" /etc/localdns/hosts
+    fi
+  else
+    [ "$drv_hosts" -eq 0 ] \
+      && ok "DERIVED: no hosts block in the source, and none invented in the derived corefile" \
+      || fail "DERIVED: derived corefile has a hosts block the source does not"
+    log "note: hosts plugin not enabled on this cluster; canary check skipped"
+  fi
 else
   log "note: derivation did not run (corefile still unusable); minimal floor already asserted"
 fi
