@@ -24,6 +24,9 @@ import (
 )
 
 func runScenarioFlow(ctx context.Context, name string, s *Scenario) error {
+	if s.Config.LocalValidator != nil {
+		return s.Config.LocalValidator(ctx)
+	}
 	if config.Config.TestPreProvision || s.VHDCaching {
 		return runVHDCachingScenario(ctx, name, s)
 	}
