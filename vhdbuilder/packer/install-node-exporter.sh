@@ -37,6 +37,13 @@ installNodeExporter() {
     systemctl daemon-reload
     systemctl disable node-exporter.service node-exporter-restart.path || exit 1
 
+    # VFs can arrive after exporter startup or return after Azure host servicing.
+    # The handler records MANA for this boot and restarts only an active exporter.
+    mkdir -p /etc/udev/rules.d
+    printf '%s\n' 'ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x1414", ATTR{device}=="0x00b9|0x00ba|0x00c1", RUN+="/opt/bin/node-exporter-startup.sh --mana-added"' \
+        > /etc/udev/rules.d/99-node-exporter-mana.rules
+    udevadm control --reload-rules
+
     # Create skip sentinel file to indicate node-exporter was installed from VHD
     mkdir -p /etc/node-exporter.d
     touch /etc/node-exporter.d/skip_vhd_node_exporter

@@ -230,7 +230,65 @@ func TestApp_Run(t *testing.T) {
 	})
 }
 
+func TestApp_ApplyHotfix(t *testing.T) {
+	t.Run("apply embedded hotfix payload", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		applied := false
+		tt.App.applyEmbeddedHotfix = func(string) error {
+			applied = true
+			return nil
+		}
+
+		err := tt.App.runApplyHotfixCommand(context.Background())
+
+		require.NoError(t, err)
+		assert.True(t, applied)
+	})
+
+	t.Run("embedded hotfix failure is logged ", func(t *testing.T) {
+		logs := installLogCapturer(t)
+		executed := false
+		tt := NewTestApp(t, TestAppConfig{
+			RunFunc: func(*exec.Cmd) error {
+				executed = true
+				return nil
+			},
+		})
+		tt.App.applyEmbeddedHotfix = func(string) error {
+			return errors.New("rendered nodecustomdata application failed")
+		}
+
+		err := tt.App.runApplyHotfixCommand(context.Background())
+
+		require.Error(t, err)
+		assert.False(t, executed)
+		assert.Contains(t, logs.getRecords(), logRecord{
+			Level:   slog.LevelError,
+			Message: "aks-node-controller failed to apply embedded hotfix payload",
+			Attrs:   map[string]string{"error": "rendered nodecustomdata application failed"},
+		})
+	})
+}
+
 func TestApp_Provision(t *testing.T) {
+	t.Run("dry-run does not apply embedded hotfix payload", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		applied := false
+		tt.App.applyEmbeddedHotfix = func(string) error {
+			applied = true
+			return nil
+		}
+
+		_, err := tt.App.runProvision(
+			context.Background(),
+			ProvisionFlags{NBCCmd: "parser/testdata/test_nbccmd.sh"},
+			true,
+		)
+
+		require.NoError(t, err)
+		assert.False(t, applied)
+	})
+
 	t.Run("valid provision config", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		_, err := tt.App.Provision(context.Background(), ProvisionFlags{ProvisionConfig: "parser/testdata/test_aksnodeconfig.json"})
@@ -464,10 +522,11 @@ func Test_readAndEvaluateProvision(t *testing.T) {
 	})
 
 	t.Run("non-zero ExitCode returns error", func(t *testing.T) {
-		p := writeTemp(t, `{"ExitCode":"7","Output":"boom","Error":"bad"}`)
+		p := writeTemp(t, `{"ExitCode":"50","Output":"boom","Error":"bad"}`)
 		_, err := readAndEvaluateProvision(p)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "provision failed")
+		assert.Equal(t, 50, errToExitCode(err))
 	})
 
 	t.Run("invalid ExitCode returns error", func(t *testing.T) {
@@ -779,4 +838,17 @@ func TestCompareEnvs_MultipleDifferences(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "expected CompareEnvs guest agent event")
+}
+
+func TestDiffEnvMaps_IgnoresProxyVarsCompatibilityDifference(t *testing.T) {
+	pcEnv := map[string]string{
+		"PROXY_VARS": `if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}"; fi`,
+		"VM_TYPE":    "vmss",
+	}
+	nbcEnv := map[string]string{
+		"PROXY_VARS": `export http_proxy="http://proxy.example:8080";`,
+		"VM_TYPE":    "standard",
+	}
+
+	assert.Equal(t, []string{"differs: VM_TYPE"}, diffEnvMaps(pcEnv, nbcEnv))
 }

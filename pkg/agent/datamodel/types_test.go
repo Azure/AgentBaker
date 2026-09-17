@@ -3017,7 +3017,11 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 						CustomConfiguration: &CustomConfiguration{
 							WindowsKubernetesConfigurations: map[string]*ComponentConfiguration{
 								string(Componentkubelet): {
-									Config: map[string]string{"--address": "127.0.0.1"},
+									Config: map[string]string{
+										"--address":              "127.0.0.1",
+										"--healthz-bind-address": "0.0.0.0",
+										"--healthz-port":         "0",
+									},
 								},
 							},
 						},
@@ -3034,7 +3038,7 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
 				ContainerLogMaxFiles:  to.Int32Ptr(20),
 			},
-			expected: `"--address=127.0.0.1", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi"`,
+			expected: `"--address=127.0.0.1", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--healthz-bind-address=0.0.0.0", "--healthz-port=0"`, //nolint:lll
 		},
 		{
 			name: "custom configuration does not override default KubeletConfig",
@@ -3077,6 +3081,81 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 			actual := c.config.GetOrderedKubeletConfigStringForPowershell(c.CustomKubeletConfig)
 			if c.expected != actual {
 				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
+			}
+		})
+	}
+}
+
+func TestGetKubeletHealthzEndpoint(t *testing.T) {
+	cases := []struct {
+		name     string
+		config   *NodeBootstrappingConfiguration
+		expected string
+	}{
+		{
+			name:     "uses kubelet defaults",
+			config:   &NodeBootstrappingConfiguration{},
+			expected: "http://127.0.0.1:10248/healthz",
+		},
+		{
+			name: "uses configured endpoint",
+			config: &NodeBootstrappingConfiguration{
+				KubeletConfig: map[string]string{
+					"--healthz-bind-address": "10.0.0.4",
+					"--healthz-port":         "10255",
+				},
+			},
+			expected: "http://10.0.0.4:10255/healthz",
+		},
+		{
+			name: "uses loopback for IPv4 wildcard",
+			config: &NodeBootstrappingConfiguration{
+				KubeletConfig: map[string]string{"--healthz-bind-address": "0.0.0.0"},
+			},
+			expected: "http://127.0.0.1:10248/healthz",
+		},
+		{
+			name: "uses loopback for IPv6 wildcard",
+			config: &NodeBootstrappingConfiguration{
+				KubeletConfig: map[string]string{"--healthz-bind-address": "::"},
+			},
+			expected: "http://[::1]:10248/healthz",
+		},
+		{
+			name: "returns empty endpoint when disabled",
+			config: &NodeBootstrappingConfiguration{
+				KubeletConfig: map[string]string{"--healthz-port": "0"},
+			},
+			expected: "",
+		},
+		{
+			name: "uses Windows component configuration",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						CustomConfiguration: &CustomConfiguration{
+							WindowsKubernetesConfigurations: map[string]*ComponentConfiguration{
+								string(Componentkubelet): {
+									Config: map[string]string{
+										"--healthz-bind-address": "0.0.0.0",
+										"--healthz-port":         "10255",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "http://127.0.0.1:10255/healthz",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			actual := c.config.GetKubeletHealthzEndpoint(nil)
+			if c.expected != actual {
+				t.Fatalf("expected %q, got %q", c.expected, actual)
 			}
 		})
 	}

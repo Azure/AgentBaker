@@ -224,7 +224,7 @@ updateAptWithNvidiaPkg() {
 
     # Add NVIDIA repository
     local nvidia_gpg_key_name="3bf863cc.pub"
-    if [ "${UBUNTU_RELEASE}" = "26.04" ]; then
+    if [ "${nvidia_ubuntu_release}" = "ubuntu2604" ]; then
         nvidia_gpg_key_name="60DF8A40.pub"
     fi
     local nvidia_gpg_key_url="https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch}/${nvidia_gpg_key_name}"

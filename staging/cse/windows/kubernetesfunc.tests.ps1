@@ -168,6 +168,7 @@ Describe 'Get-CACertificates' {
         if (Test-Path 'C:\ca') {
             Remove-Item -Path 'C:\ca' -Recurse -Force
         }
+        Mock Import-Certificate
     }
 
     It 'uses the legacy endpoint when location is a ussec/usnat region' {
@@ -186,6 +187,45 @@ Describe 'Get-CACertificates' {
         Assert-MockCalled -CommandName Retry-Command -Exactly -Times 1
         $script:retryUris | Should -Contain 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
         $script:retryUris | Should -Not -Contain 'http://168.63.129.16/acms/isOptedInForRootCerts'
+        [IO.File]::ReadAllBytes('C:\ca\legacy.crt') | Should -Not -Contain 0
+        Assert-MockCalled -CommandName Import-Certificate -Exactly -Times 1 -ParameterFilter {
+            $FilePath -eq 'C:\ca\legacy.crt' -and
+            $CertStoreLocation -eq 'Cert:\LocalMachine\Root' -and
+            $ErrorAction -eq 'Stop'
+        }
+    }
+
+    It 'imports rcv1p root and intermediate certificates into their LocalMachine stores' {
+        Mock Retry-Command -MockWith {
+            param($Command, $Args, $Retries, $RetryDelaySeconds)
+            $uri = $PSBoundParameters['Args'].Uri
+            if ($uri -eq 'http://168.63.129.16/acms/isOptedInForRootCerts') {
+                return [PSCustomObject]@{ Content = '{"IsOptedInForRootCerts":true}' }
+            }
+            if ($uri -like '*type=operationrequestsroot&*') {
+                return [PSCustomObject]@{ Content = '{"OperationsInfo":[{"ResouceFileName":"root.crt"}]}' }
+            }
+            if ($uri -like '*type=operationrequestsintermediate&*') {
+                return [PSCustomObject]@{ Content = '{"OperationsInfo":[{"ResouceFileName":"intermediate.crt"}]}' }
+            }
+            return [PSCustomObject]@{ Content = 'certificate-body' }
+        }
+
+        $result = Get-CACertificates -Location 'southcentralus'
+
+        $result | Should -Be $true
+        [IO.File]::ReadAllBytes('C:\ca\root.crt') | Should -Not -Contain 0
+        [IO.File]::ReadAllBytes('C:\ca\intermediate.crt') | Should -Not -Contain 0
+        Assert-MockCalled -CommandName Import-Certificate -Exactly -Times 1 -ParameterFilter {
+            $FilePath -eq 'C:\ca\root.crt' -and
+            $CertStoreLocation -eq 'Cert:\LocalMachine\Root' -and
+            $ErrorAction -eq 'Stop'
+        }
+        Assert-MockCalled -CommandName Import-Certificate -Exactly -Times 1 -ParameterFilter {
+            $FilePath -eq 'C:\ca\intermediate.crt' -and
+            $CertStoreLocation -eq 'Cert:\LocalMachine\CA' -and
+            $ErrorAction -eq 'Stop'
+        }
     }
 
     It 'returns false when certificate retrieval throws' {
@@ -203,7 +243,22 @@ Describe 'Get-CACertificates' {
             throw 'simulated retrieval failure'
         }
 
-        { Get-CACertificates -Location 'southcentralus' -FailOnError } | Should -Throw '*Failed to retrieve CA certificates*'
+        { Get-CACertificates -Location 'southcentralus' -FailOnError } | Should -Throw '*Failed to process CA certificates*simulated retrieval failure*'
+    }
+
+    It 'identifies the certificate and store when import fails with -FailOnError' {
+        Mock Retry-Command -MockWith {
+            return [PSCustomObject]@{
+                Content = '{"Certificates":[{"Name":"broken.crt","CertBody":"invalid-body"}]}'
+            }
+        }
+        Mock Import-Certificate -MockWith {
+            throw 'simulated import failure'
+        }
+
+        {
+            Get-CACertificates -Location 'ussecwest' -FailOnError
+        } | Should -Throw "*Failed to import CA certificate 'broken.crt' into Cert:\LocalMachine\Root*simulated import failure*"
     }
 
     It 'throws when legacy endpoint returns empty data with -FailOnError' {
