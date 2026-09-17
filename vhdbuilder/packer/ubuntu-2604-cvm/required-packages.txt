@@ -21,6 +21,8 @@ linux-modules-*-azure-fde
 linux-tools-*-azure
 linux-tools-*-azure-fde
 linux-tools-azure-fde
+logrotate
 nullboot
 rsyslog
 sudo
+xfsprogs

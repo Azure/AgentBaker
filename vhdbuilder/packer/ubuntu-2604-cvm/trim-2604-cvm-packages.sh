@@ -1,5 +1,4 @@
 #!/bin/bash
-set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MARKED_FOR_REMOVAL_PACKAGES_FILE="${SCRIPT_DIR}/marked-for-removal-packages.txt"
@@ -9,8 +8,20 @@ readPackageList() {
     sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$1"
 }
 
+validatePackageList() {
+    local package_file="$1"
+    local description="$2"
+
+    if [ ! -s "${package_file}" ] || [ -z "$(readPackageList "${package_file}")" ]; then
+        echo "${description} is missing or empty: ${package_file}" >&2
+        return 1
+    fi
+}
+
 verifyRequiredPackagesInstalled() {
     local required
+
+    validatePackageList "${REQUIRED_PACKAGES_FILE}" "Required package list" || return 1
 
     while IFS= read -r required; do
         if ! dpkg-query -W -f='${db:Status-Status}\n' "${required}" 2>/dev/null | grep -Fxq "installed"; then
@@ -24,14 +35,20 @@ main() {
     local package
     local -a purge_packages=()
 
-    [ -s "${MARKED_FOR_REMOVAL_PACKAGES_FILE}" ] || {
-        echo "Marked-for-removal package list is missing or empty: ${MARKED_FOR_REMOVAL_PACKAGES_FILE}" >&2
-        return 1
-    }
-    [ -s "${REQUIRED_PACKAGES_FILE}" ] || {
-        echo "Required package list is missing or empty: ${REQUIRED_PACKAGES_FILE}" >&2
-        return 1
-    }
+    case "${1:-}" in
+        --verify-only)
+            verifyRequiredPackagesInstalled
+            return
+            ;;
+        "")
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            return 1
+            ;;
+    esac
+
+    validatePackageList "${MARKED_FOR_REMOVAL_PACKAGES_FILE}" "Marked-for-removal package list" || return 1
 
     while IFS= read -r package; do
         if [ "$(dpkg-query -W -f='${db:Status-Status}' "${package}" 2>/dev/null || true)" = "installed" ]; then
@@ -46,8 +63,11 @@ main() {
         echo "No installed server-cvm packages marked for removal were found"
     fi
 
-    apt-mark manual curl gpg jq rsyslog sudo
+    apt-mark manual curl gpg jq logrotate rsyslog sudo xfsprogs
     verifyRequiredPackagesInstalled
 }
 
-main "$@"
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+    set -euo pipefail
+    main "$@"
+fi

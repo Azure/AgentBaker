@@ -198,7 +198,6 @@ libxmuu1
 libxslt1.1
 linux-perf
 locales
-logrotate
 lshw
 lsof
 lvm2
@@ -304,7 +303,6 @@ vim-tiny
 whiptail
 xauth
 xdg-user-dirs
-xfsprogs
 xml-core
 xxd
 zerofree
