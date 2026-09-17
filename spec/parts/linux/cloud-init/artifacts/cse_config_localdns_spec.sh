@@ -37,6 +37,11 @@ Describe 'cse_config_localdns.sh'
             touch /etc/systemd/system/localdns.service
             touch /opt/azure/containers/localdns/localdns.sh
 
+            # enableLocalDNS's retry loop calls check_cse_timeout, which warns on stderr
+            # when this is unset. Set it so the real guard is exercised (elapsed ~0s, well
+            # under CSE_MAX_DURATION_SECONDS) instead of taking its unset short-circuit.
+            CSE_STARTTIME_SECONDS=$(date +%s)
+
             # enableLocalDNS drives systemd directly rather than going through
             # systemctlEnableAndStart, so it can clear the StartLimit budget
             # between attempts. Mock the primitives it actually calls.
@@ -136,6 +141,11 @@ Describe 'cse_config_localdns.sh'
             mkdir -p /opt/azure/containers/localdns
             touch /etc/systemd/system/localdns.service
             touch /opt/azure/containers/localdns/localdns.sh
+
+            # enableLocalDNS's retry loop calls check_cse_timeout, which warns on stderr
+            # when this is unset. Set it so the real guard is exercised (elapsed ~0s, well
+            # under CSE_MAX_DURATION_SECONDS) instead of taking its unset short-circuit.
+            CSE_STARTTIME_SECONDS=$(date +%s)
 
             # enableLocalDNS drives systemd directly rather than going through
             # systemctlEnableAndStart, so it can clear the StartLimit budget
