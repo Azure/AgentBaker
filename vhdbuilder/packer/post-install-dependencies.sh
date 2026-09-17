@@ -76,6 +76,10 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
     ua status
     detachAndCleanUpUA
   fi
+
+  if [ "${UBUNTU_RELEASE}" = "26.04" ] && isMinimalImage && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+    /bin/bash /home/packer/trim-2604-cvm-packages.sh --verify-only || exit 1
+  fi
   capture_benchmark "${SCRIPT_NAME}_log_and_detach_ua"
 fi
 
