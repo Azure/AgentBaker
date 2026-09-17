@@ -135,13 +135,43 @@ EOF
             The path "${ORIGINAL_STATE_FILE}" should not be exist
         End
 
-        It 'falls back to the cluster listener constant when no state file exists'
-            write_kubelet_file "10.0.0.10"
+        # Regression. restore() runs from localdns.service ExecStartPost, i.e. on
+        # every localdns start including every boot. An earlier version treated
+        # "not the localdns listener" as licence to rewrite, which would silently
+        # overwrite RP-provided configuration and bounce kubelet on a healthy node.
+        It 'leaves an unrelated --cluster-dns alone when nothing was ever repointed'
+            write_kubelet_file "10.1.2.3"
             rm -f "${ORIGINAL_STATE_FILE}"
+            COREDNS_SERVICE_IP="10.0.0.10"
             When call restore
             The status should be success
-            The stderr should include "-> 169.254.10.11"
+            The stderr should equal ""
+            The contents of file "${KUBELET_DEFAULT_FILE}" should include "--cluster-dns=10.1.2.3"
+            The contents of file "${RESTART_LOG}" should equal ""
+        End
+
+        # If the recorded original is lost but the value on disk is exactly the
+        # CoreDNS ClusterIP we would have written, it is safe to hand it back.
+        It 'restores when the state file is lost but the value is one we would have set'
+            write_kubelet_file "10.0.0.10"
+            rm -f "${ORIGINAL_STATE_FILE}"
+            COREDNS_SERVICE_IP="10.0.0.10"
+            When call restore
+            The status should be success
+            The stderr should include "no recorded original"
             The contents of file "${KUBELET_DEFAULT_FILE}" should include "--cluster-dns=169.254.10.11"
+            The contents of file "${RESTART_LOG}" should include "restart --no-block kubelet.service"
+        End
+
+        It 'does not guess when the state file is lost and COREDNS_SERVICE_IP is unset'
+            write_kubelet_file "10.0.0.10"
+            rm -f "${ORIGINAL_STATE_FILE}"
+            unset COREDNS_SERVICE_IP
+            When call restore
+            The status should be success
+            The stderr should equal ""
+            The contents of file "${KUBELET_DEFAULT_FILE}" should include "--cluster-dns=10.0.0.10"
+            The contents of file "${RESTART_LOG}" should equal ""
         End
 
         # This runs from localdns.service ExecStartPost on EVERY start, including

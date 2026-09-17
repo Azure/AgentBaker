@@ -255,11 +255,39 @@ exit 0
 	}
 	defer del1()
 
-	// ---- Phase 0: the crash path (kill -9) ----------------------------------
+	// ---- Phase 0: wiring ----------------------------------------------------
+	// Runs before anything is broken, deliberately. These are cheap, they need no
+	// fault, and each maps to a specific defect found on a live node. If one of
+	// them regresses, it must surface as its own message rather than as a
+	// confusing downstream failure in a phase that assumed the wiring was sound.
+	if err := phase("phase0-wiring", `
+# Wiring regressions, each tied to a defect found on a live node.
+systemctl show localdns.service -p OnFailure 2>/dev/null | grep -q "OnFailure=localdns-fallback.service" \
+  && ok "localdns declares OnFailure=localdns-fallback.service" || fail "localdns missing OnFailure="
+systemctl show localdns.service -p ExecStartPost --value 2>/dev/null | grep -q "localdns-kubelet-dns.sh restore" \
+  && ok "localdns restores kubelet --cluster-dns via ExecStartPost" || fail "localdns missing the kubelet restore ExecStartPost"
+# Conflicts=localdns.service made every fallback start stop localdns, resetting its
+# restart counter so terminal 'failed' was never reached.
+conflicts=$(systemctl show localdns-fallback.service -p Conflicts --value 2>/dev/null || true)
+case "$conflicts" in
+  *localdns.service*) fail "fallback must not declare Conflicts=localdns.service (got: $conflicts)" ;;
+  *) ok "fallback declares no Conflicts= on localdns.service" ;;
+esac
+# StartLimitIntervalSec= in [Service] is silently dropped, leaving the 10s/5 default.
+sli=$(systemctl show localdns-fallback.service -p StartLimitIntervalUSec --value 2>/dev/null || true)
+[ "$sli" = "0" ] && ok "fallback StartLimitIntervalUSec=0 (key is in [Unit])" \
+  || fail "fallback StartLimitIntervalUSec should be 0; got '$sli'"
+
+finish
+`); err != nil {
+		return err
+	}
+
+	// ---- Phase 1: the crash path (kill -9) ----------------------------------
 	// SIGKILL is the most realistic failure there is -- a crash, an OOM kill, a
 	// watchdog kill -- and it produces a genuinely different end state from a
 	// graceful failure. Asserting the difference is the point.
-	if err := phase("phase0-crash-path", fmt.Sprintf(`
+	if err := phase("phase1-crash-path", fmt.Sprintf(`
 POD1=%q
 # Restart=no for this phase only. With Restart=on-failure the unit comes back
 # within RestartSec and its START path deletes and recreates the interface, so the
@@ -333,28 +361,11 @@ finish
 		return err
 	}
 
-	// ---- Phase 1: wiring, baseline, induce the teardown failure --------------
-	if err := phase("phase1-induce-failure", fmt.Sprintf(`
+	// ---- Phase 2: baseline, induce the teardown failure ----------------------
+	if err := phase("phase2-induce-failure", fmt.Sprintf(`
 POD1=%q
 sudo cp -a "$ENVF" "$ENVBAK"
 sudo cp -a "$UPDATED_COREFILE" "$COREFILE_BAK"
-
-# Wiring regressions, each tied to a defect found on a live node.
-systemctl show localdns.service -p OnFailure 2>/dev/null | grep -q "OnFailure=localdns-fallback.service" \
-  && ok "localdns declares OnFailure=localdns-fallback.service" || fail "localdns missing OnFailure="
-systemctl show localdns.service -p ExecStartPost --value 2>/dev/null | grep -q "localdns-kubelet-dns.sh restore" \
-  && ok "localdns restores kubelet --cluster-dns via ExecStartPost" || fail "localdns missing the kubelet restore ExecStartPost"
-# Conflicts=localdns.service made every fallback start stop localdns, resetting its
-# restart counter so terminal 'failed' was never reached.
-conflicts=$(systemctl show localdns-fallback.service -p Conflicts --value 2>/dev/null || true)
-case "$conflicts" in
-  *localdns.service*) fail "fallback must not declare Conflicts=localdns.service (got: $conflicts)" ;;
-  *) ok "fallback declares no Conflicts= on localdns.service" ;;
-esac
-# StartLimitIntervalSec= in [Service] is silently dropped, leaving the 10s/5 default.
-sli=$(systemctl show localdns-fallback.service -p StartLimitIntervalUSec --value 2>/dev/null || true)
-[ "$sli" = "0" ] && ok "fallback StartLimitIntervalUSec=0 (key is in [Unit])" \
-  || fail "fallback StartLimitIntervalUSec should be 0; got '$sli'"
 
 [ "$(kubelet_cluster_dns)" = "$CLUSTER_IP" ] \
   && ok "baseline: kubelet --cluster-dns is ${CLUSTER_IP}" \
@@ -418,8 +429,8 @@ finish
 	}
 	defer del2()
 
-	// ---- Phase 2: assert cases 1 and 2, and the derived corefile -------------
-	if err := phase("phase2-cases-1-and-2", fmt.Sprintf(`
+	// ---- Phase 3: assert cases 1 and 2, and the derived corefile -------------
+	if err := phase("phase3-cases-1-and-2", fmt.Sprintf(`
 POD1=%q
 POD2=%q
 COREDNS_IP=$(kubelet_cluster_dns)
@@ -497,8 +508,8 @@ finish
 		return err
 	}
 
-	// ---- Phase 3: recover ----------------------------------------------------
-	if err := phase("phase3-recover", `
+	// ---- Phase 4: recover ----------------------------------------------------
+	if err := phase("phase4-recover", `
 sudo cp -a "$ENVBAK" "$ENVF"
 sudo systemctl reset-failed localdns.service || true
 sudo systemctl start --no-block localdns.service || true
@@ -526,8 +537,8 @@ finish
 	}
 	defer del3()
 
-	// ---- Phase 4: case 3 and the anti-hot-loop guards ------------------------
-	return phase("phase4-case-3-and-guards", fmt.Sprintf(`
+	// ---- Phase 5: case 3 and the anti-hot-loop guards ------------------------
+	return phase("phase5-case-3-and-guards", fmt.Sprintf(`
 POD1=%q
 POD3=%q
 

@@ -100,19 +100,36 @@ point_to_coredns() {
 }
 
 restore() {
-    local cur want
+    local cur want coredns_ip
     cur="$(current_cluster_dns || true)"
     if [ -z "${cur}" ]; then
         log "no --cluster-dns found in ${KUBELET_DEFAULT_FILE}; nothing to restore."
         return 0
     fi
-    want="${LOCALDNS_CLUSTER_LISTENER_IP}"
+
+    # Only ever undo a change WE made. This runs from localdns.service's
+    # ExecStartPost, i.e. on every localdns start including every boot, so it must
+    # not treat "the current value is not the localdns listener" as licence to
+    # rewrite it: on a node whose --cluster-dns legitimately differs, that would
+    # silently overwrite RP-provided configuration and bounce kubelet every time
+    # localdns starts. Evidence that it was us is either the recorded original, or
+    # a current value that is exactly the CoreDNS ClusterIP we would have set.
+    coredns_ip="${COREDNS_SERVICE_IP:-}"
     if [ -s "${ORIGINAL_STATE_FILE}" ]; then
         want="$(cat "${ORIGINAL_STATE_FILE}")"
+    elif [ -n "${coredns_ip}" ] && [ "${cur}" = "${coredns_ip}" ]; then
+        # Recorded original lost (e.g. /etc/localdns wiped), but the value on disk
+        # is the one we would have written. Safe to hand it back.
+        want="${LOCALDNS_CLUSTER_LISTENER_IP}"
+        log "no recorded original, but --cluster-dns is ${cur} (the CoreDNS ClusterIP); restoring to ${want}."
+    else
+        # Not a value we set. Leave it alone, silently: the overwhelmingly common
+        # case is a normal start where nothing was ever repointed.
+        return 0
     fi
+
     if [ "${cur}" = "${want}" ]; then
-        # The overwhelmingly common case: localdns started normally and was never
-        # repointed. Must stay silent and cheap - this runs on every localdns start.
+        rm -f "${ORIGINAL_STATE_FILE}"
         return 0
     fi
     set_cluster_dns "${want}" || return 1
