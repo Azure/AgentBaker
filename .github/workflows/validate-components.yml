@@ -81,22 +81,28 @@ jobs:
 
   previous-version-consistency:
     runs-on: ubuntu-latest
+    # This check only targets Renovate-authored version bumps: Renovate is
+    # the actor that copies latestVersion -> previousLatestVersion without
+    # noticing a same-release collision, so that's where this failure mode
+    # actually originates.
+    if: github.event.pull_request.user.login == 'renovate[bot]'
     permissions:
       contents: read
       pull-requests: write
-    # Only k8sVersion-keyed entries (kubectl/kubelet and their *-sysext
-    # siblings) can go stale here: latestVersion and previousLatestVersion
-    # must reference two different Kubernetes patch releases. Renovate can
-    # bump latestVersion but has no logic to detect that a package/image
-    # rebuild left both fields pointing at the same Kubernetes patch, so
-    # this check catches that case and posts a best-effort recommendation.
-    # It never edits components.json; a human must apply the fix.
+    # Any entry in components.json tracking both latestVersion and
+    # previousLatestVersion can go stale: the two fields must reference two
+    # genuinely different releases. Renovate can bump latestVersion but has
+    # no logic to detect that a package/image rebuild left both fields
+    # pointing at the same release (only differing by package/image
+    # revision), so this check catches that case and posts a best-effort
+    # recommendation. It never edits components.json; a human must apply
+    # the fix.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Validate previousLatestVersion targets the prior Kubernetes patch
+      - name: Validate previousLatestVersion targets a genuinely prior release
         run: |
           set -ex
           python3 .github/scripts/validate_previous_version.py \

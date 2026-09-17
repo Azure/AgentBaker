@@ -1,28 +1,37 @@
 #!/usr/bin/env python3
 """Validate `previousLatestVersion` entries in parts/common/components.json.
 
-Renovate keeps two fields in sync for Kubernetes-versioned components
-(kubectl/kubelet and their *-sysext OCI counterparts):
+Many components in this file track two fields:
 
     "latestVersion":         the newest available package/image build
-    "previousLatestVersion": the newest available build for the PRIOR
-                              Kubernetes patch release
+    "previousLatestVersion": the newest available build for a genuinely
+                              PRIOR release (not just an older build of
+                              the same release)
 
 Renovate only knows how to copy the old `latestVersion` into
 `previousLatestVersion` when it bumps `latestVersion`. It has no logic to
-detect that both fields ended up pointing at the SAME Kubernetes patch
+detect that both fields ended up pointing at the SAME underlying release
 (only differing by package/image revision), which happens when a package
-gets rebuilt (e.g. a Debian revision bump) without a Kubernetes patch bump.
+gets rebuilt (e.g. a Debian revision bump) without an actual version bump.
 
 This script:
   1. Diffs parts/common/components.json against the PR's base ref.
-  2. For every changed entry that has a `k8sVersion` field, checks whether
-     `latestVersion` and `previousLatestVersion` share the same Kubernetes
-     patch (major.minor.patch).
+  2. For every changed entry that has both `latestVersion` and
+     `previousLatestVersion`, checks whether they share the same
+     major.minor.patch release (a `k8sVersion` field is not required --
+     this applies to any component tracking these two fields).
   3. If they do, queries the same upstream source the entry's `renovateTag`
      points at (mirroring .github/renovate.json's customManagers /
      customDatasources) to compute a best-effort recommendation: the
-     highest build found upstream for the PRIOR Kubernetes patch.
+     highest build found upstream for the PRIOR release.
+
+Version comparison currently only understands a `major.minor.patch` style
+release embedded in the version string (the format used by every entry in
+components.json today, e.g. "1.35.7-ubuntu24.04u2" or "v1.35.7-2-azlinux3").
+Entries whose version strings don't contain a recognizable major.minor.patch
+are skipped rather than guessed at -- broadening to other formats (date-based
+tags, bare commit SHAs, etc.) is left for a follow-up once real examples of
+those formats show up in this file.
 
 This script only reports; it never rewrites components.json. Recommendations
 are best-effort and not independently re-verified here -- if a suggested
@@ -61,21 +70,29 @@ DEB_PACKAGE_INDEXES = {
 @dataclass
 class ComponentEntry:
     path: str  # human-readable JSON path, for messages
-    k8s_version: str
-    renovate_tag: str
+    renovate_tag: Optional[str]
     latest_version: Optional[str]
     previous_latest_version: Optional[str]
 
 
-K8S_PATCH_RE = re.compile(r"v?(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)")
+RELEASE_RE = re.compile(r"v?(?P<nums>\d+(?:\.\d+)+)")
 
 
-def k8s_patch(version: str) -> Optional[tuple]:
-    """Extract the (major, minor, patch) Kubernetes version from a build string."""
-    m = K8S_PATCH_RE.search(version)
+def extract_release(version: str) -> Optional[tuple]:
+    """Extract the full dot-separated numeric release embedded in a
+    build/version string, e.g. "1.35.7" from "1.35.7-ubuntu24.04u2", or
+    "10.0.20348.5622" from a 4-part Windows build number. Returns None if
+    no such pattern is found -- entries in that shape are skipped rather
+    than guessed at (see module docstring).
+
+    The whole numeric run is captured (not hardcoded to 3 parts) so that
+    schemes with more segments than major.minor.patch, such as Windows's
+    major.minor.build.revision, aren't falsely treated as "the same
+    release" just because their first three segments match."""
+    m = RELEASE_RE.search(version)
     if not m:
         return None
-    return (int(m.group("major")), int(m.group("minor")), int(m.group("patch")))
+    return tuple(int(part) for part in m.group("nums").split("."))
 
 
 def natural_sort_key(revision: str):
@@ -102,16 +119,16 @@ def load_json_file(path: str) -> dict:
 
 
 def collect_entries(node, path="root") -> list:
-    """Recursively find every dict that looks like a k8sVersion-keyed
-    component entry (kubectl/kubelet and their *-sysext siblings)."""
+    """Recursively find every dict in components.json that tracks both
+    `latestVersion` and `previousLatestVersion`, regardless of component
+    type (kubectl/kubelet, containerd, CNI plugins, GPU drivers, etc.)."""
     entries = []
     if isinstance(node, dict):
-        if "k8sVersion" in node and "renovateTag" in node and "latestVersion" in node:
+        if "latestVersion" in node and "previousLatestVersion" in node:
             entries.append(
                 ComponentEntry(
                     path=path,
-                    k8s_version=node["k8sVersion"],
-                    renovate_tag=node["renovateTag"],
+                    renovate_tag=node.get("renovateTag"),
                     latest_version=node.get("latestVersion"),
                     previous_latest_version=node.get("previousLatestVersion"),
                 )
@@ -125,9 +142,11 @@ def collect_entries(node, path="root") -> list:
 
 
 def entry_key(entry: ComponentEntry) -> tuple:
-    # renovateTag + k8sVersion uniquely identifies an entry across versions
-    # of the file (the surrounding array index can shift between commits).
-    return (entry.renovate_tag, entry.k8s_version)
+    # renovateTag uniquely identifies an entry across versions of the file
+    # even if its surrounding array index shifts. Entries without a
+    # renovateTag (uncommon) fall back to their JSON path, which is only
+    # stable if the file's array ordering doesn't change around them.
+    return entry.renovate_tag if entry.renovate_tag else ("path", entry.path)
 
 
 # ---------------------------------------------------------------------------
@@ -215,10 +234,13 @@ DEB_TAG_RE = re.compile(
 )
 
 
-def lookup_available_versions(renovate_tag: str) -> list:
+def lookup_available_versions(renovate_tag: Optional[str]) -> list:
     """Returns the raw list of available upstream version strings for the
     package described by `renovate_tag`. Raises NotImplementedError for
-    sources this script does not yet know how to query."""
+    sources this script does not yet know how to query (including entries
+    with no renovateTag at all)."""
+    if not renovate_tag:
+        raise NotImplementedError("entry has no renovateTag to identify its upstream source")
     m = RENOVATE_TAG_RE.match(renovate_tag)
     if m:
         if m.group("oci") or m.group("docker"):
@@ -232,19 +254,19 @@ def lookup_available_versions(renovate_tag: str) -> list:
 
 
 def recommend_previous_version(latest_version: str, available_versions: list) -> Optional[str]:
-    latest_patch = k8s_patch(latest_version)
-    if latest_patch is None:
+    latest_release = extract_release(latest_version)
+    if latest_release is None:
         return None
-    candidates_by_patch: dict = {}
+    candidates_by_release: dict = {}
     for v in available_versions:
-        patch = k8s_patch(v)
-        if patch is None or patch >= latest_patch:
+        release = extract_release(v)
+        if release is None or release >= latest_release:
             continue
-        candidates_by_patch.setdefault(patch, []).append(v)
-    if not candidates_by_patch:
+        candidates_by_release.setdefault(release, []).append(v)
+    if not candidates_by_release:
         return None
-    prior_patch = max(candidates_by_patch.keys())
-    return max(candidates_by_patch[prior_patch], key=natural_sort_key)
+    prior_release = max(candidates_by_release.keys())
+    return max(candidates_by_release[prior_release], key=natural_sort_key)
 
 
 def main() -> int:
@@ -282,16 +304,18 @@ def main() -> int:
         if not entry.latest_version or not entry.previous_latest_version:
             continue
 
-        latest_patch = k8s_patch(entry.latest_version)
-        previous_patch = k8s_patch(entry.previous_latest_version)
-        if latest_patch is None or previous_patch is None or latest_patch != previous_patch:
-            continue  # different Kubernetes patches -> already correct shape
+        latest_release = extract_release(entry.latest_version)
+        previous_release = extract_release(entry.previous_latest_version)
+        if latest_release is None or previous_release is None:
+            continue  # no recognizable major.minor.patch in one of the fields -- skip
+        if latest_release != previous_release:
+            continue  # different releases -> already correct shape
 
         print(
             f"::error::{entry.path}: latestVersion ({entry.latest_version}) and "
             f"previousLatestVersion ({entry.previous_latest_version}) are both "
-            f"Kubernetes patch {'.'.join(map(str, latest_patch))}. "
-            f"previousLatestVersion must reference the prior Kubernetes patch."
+            f"version {'.'.join(map(str, latest_release))}. "
+            f"previousLatestVersion must reference a genuinely prior release."
         )
         try:
             available = lookup_available_versions(entry.renovate_tag)
@@ -299,11 +323,11 @@ def main() -> int:
             if recommendation:
                 print(
                     f"::error::{entry.path}: best-effort recommendation: {recommendation} "
-                    f"(highest build found upstream for the prior Kubernetes patch)"
+                    f"(highest build found upstream for the prior release)"
                 )
                 findings.append((entry, recommendation, None))
             else:
-                note = "no build found upstream for a prior Kubernetes patch; set this manually."
+                note = "no build found upstream for a prior release; set this manually."
                 print(f"::error::{entry.path}: {note}")
                 findings.append((entry, None, note))
         except NotImplementedError as e:
@@ -339,8 +363,8 @@ def write_report(path: str, findings: list) -> None:
         "### `previousLatestVersion` needs a fix",
         "",
         "One or more changed entries in `parts/common/components.json` have "
-        "`latestVersion` and `previousLatestVersion` pointing at the same Kubernetes "
-        "patch. `previousLatestVersion` must reference a genuinely prior patch. "
+        "`latestVersion` and `previousLatestVersion` pointing at the same release. "
+        "`previousLatestVersion` must reference a genuinely prior release. "
         "This check does not edit the file for you — please apply a value below "
         "(or replace it with a better one if you know it).",
         "",
@@ -355,7 +379,7 @@ def write_report(path: str, findings: list) -> None:
     lines.append("")
     lines.append(
         "_Suggestions are best-effort: the highest version this check found upstream for "
-        "the prior Kubernetes patch. If a suggested value doesn't actually exist, a later "
+        "the prior release. If a suggested value doesn't actually exist, a later "
         "CI step (schema/build validation) will catch it._"
     )
     with open(path, "w", encoding="utf-8") as f:
