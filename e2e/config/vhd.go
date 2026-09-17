@@ -299,6 +299,7 @@ type Image struct {
 	Distro                              datamodel.Distro
 	Name                                string
 	OS                                  OS
+	SharedGalleryImageID                VHDResourceID
 	Version                             string
 	Gallery                             *Gallery
 	UnsupportedKubeletNodeIP            bool

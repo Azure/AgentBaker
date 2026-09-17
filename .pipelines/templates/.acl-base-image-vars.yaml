@@ -1,6 +1,8 @@
 # Sets the ACL build variables shared by all ACL build jobs: the
 # image-customizer container/fallback pins, and the base-image source
-# variables selected by aclBaseImageSource.
+# variables selected by aclBaseImageSource. ACL_BASE_IMAGE_SIGNED is set by
+# .acl-base-image-signed-vars.yaml (included below), which callers who only
+# need the signed flag (e.g. the e2e stage) can invoke directly instead.
 #
 # aclBaseImageSource selects where the ACL base image comes from:
 #   marketplace - Azure Marketplace image (what "main" uses today). Default
@@ -8,13 +10,8 @@
 #   acg         - the ACL prod pipeline's Azure Compute Gallery image
 #                 (see aadagarwal/switch-acl-base-image-to-acg)
 #   acldevel    - the acldevel dev pipeline's unsigned image (see PR #9458).
-#                 Sets ACL_BASE_IMAGE_SIGNED=false because acldevel images are
-#                 unsigned and cannot pass UEFI Secure Boot signature
-#                 verification; this flows through to cosi-publishing-info.json
-#                 and is read by the e2e COSI update test to select a VM
-#                 config with Secure Boot disabled. Every other source
-#                 initializes ACL_BASE_IMAGE_SIGNED=true so callers can
-#                 always reference it without risking an unresolved macro.
+#                 See .acl-base-image-signed-vars.yaml for how this affects
+#                 ACL_BASE_IMAGE_SIGNED.
 #
 # sigSourceImageVersionOverride optionally overrides the pinned
 # SIG_SOURCE_IMAGE_VERSION for the acg/acldevel sources (e.g. to pick up a
@@ -49,14 +46,13 @@ parameters:
     default: ghcr.io/microsoft/imagecustomizer:1.5.0
 
 steps:
+  - template: ./.acl-base-image-signed-vars.yaml
+    parameters:
+      aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
+
   - bash: |
       echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]${{ parameters.imgCustomizerContainer }}'
       echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]${{ parameters.imgCustomizerContainerFallback }}'
-      # Always initialize ACL_BASE_IMAGE_SIGNED to true so the E2E job's
-      # env var reference below never sees an unresolved macro, regardless of
-      # which aclBaseImageSource is used. Only the acldevel branch below
-      # overrides this to false.
-      echo '##vso[task.setvariable variable=ACL_BASE_IMAGE_SIGNED]true'
     displayName: Set ACL image-customizer vars
 
   - ${{ if eq(parameters.aclBaseImageSource, 'marketplace') }}:
@@ -101,13 +97,11 @@ steps:
           - bash: |
               echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL'
               echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acldevel'
-              echo '##vso[task.setvariable variable=ACL_BASE_IMAGE_SIGNED]false'
             displayName: Set ACL base image vars (acldevel, amd64)
       - ${{ if eq(parameters.variant, 'arm64') }}:
           - bash: |
               echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL'
               echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acldevel-arm64-test'
-              echo '##vso[task.setvariable variable=ACL_BASE_IMAGE_SIGNED]false'
             displayName: Set ACL base image vars (acldevel, arm64)
       - ${{ if eq(parameters.sigSourceImageVersionOverride, '') }}:
           - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20260912.1202056'
@@ -115,4 +109,3 @@ steps:
       - ${{ if ne(parameters.sigSourceImageVersionOverride, '') }}:
           - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]${{ parameters.sigSourceImageVersionOverride }}'
             displayName: Set SIG_SOURCE_IMAGE_VERSION (acldevel, override)
-
