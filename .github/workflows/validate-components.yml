@@ -78,3 +78,26 @@ jobs:
       run: |
         set -ex
         go test -v -tags=dcgmcompat ./components/
+
+  previous-version-consistency:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    # Only k8sVersion-keyed entries (kubectl/kubelet and their *-sysext
+    # siblings) can go stale here: latestVersion and previousLatestVersion
+    # must reference two different Kubernetes patch releases. Renovate can
+    # bump latestVersion but has no logic to detect that a package/image
+    # rebuild left both fields pointing at the same Kubernetes patch, so
+    # this check catches that case and recommends the correct value.
+    # It never edits components.json; a human must apply the fix.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Validate previousLatestVersion targets the prior Kubernetes patch
+        run: |
+          set -ex
+          python3 .github/scripts/validate_previous_version.py \
+            --base "origin/${{ github.event.pull_request.base.ref }}" \
+            --file parts/common/components.json
