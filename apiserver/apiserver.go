@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -25,8 +27,9 @@ type OptionConfigurator func(opts *Options)
 
 // Options holds the options for the api server.
 type Options struct {
-	Addr    string
-	Toggles toggles.Toggles
+	Addr      string
+	PProfAddr string
+	Toggles   toggles.Toggles
 }
 
 func (o *Options) validate() error {
@@ -36,6 +39,9 @@ func (o *Options) validate() error {
 
 	if o.Addr == "" {
 		return errors.New("addr must not be empty")
+	}
+	if o.PProfAddr != "" && o.PProfAddr == o.Addr {
+		return errors.New("pprof addr must differ from api addr")
 	}
 	return nil
 }
@@ -89,22 +95,61 @@ func positiveIntFromEnv(name string, defaultValue int) (int, error) {
 
 // ListenAndServe wraps http.Server and provides context-based cancelation.
 func (api *APIServer) ListenAndServe(ctx context.Context) error {
-	svr := http.Server{
+	servers := []*http.Server{{
 		Addr:              api.Options.Addr,
 		Handler:           api.NewRouter(),
 		ReadHeaderTimeout: readHeaderTimeoutSeconds * time.Second,
+	}}
+	if api.Options.PProfAddr != "" {
+		servers = append(servers, &http.Server{
+			Addr:              api.Options.PProfAddr,
+			Handler:           newPProfHandler(),
+			ReadHeaderTimeout: readHeaderTimeoutSeconds * time.Second,
+		})
+		runtime.SetBlockProfileRate(1)
+		previousMutexProfileFraction := runtime.SetMutexProfileFraction(1)
+		defer func() {
+			runtime.SetBlockProfileRate(0)
+			runtime.SetMutexProfileFraction(previousMutexProfileFraction)
+		}()
 	}
 
-	errors := make(chan error)
-	go func() {
-		errors <- svr.ListenAndServe()
-	}()
+	serverErrors := make(chan error, len(servers))
+	for _, server := range servers {
+		go func(server *http.Server) {
+			serverErrors <- server.ListenAndServe()
+		}(server)
+		log.Printf("Starting APIServer at %s\n", server.Addr)
+	}
 
-	log.Printf("Starting APIServer at %s\n", api.Options.Addr)
 	select {
 	case <-ctx.Done():
-		return svr.Shutdown(context.Background())
-	case err := <-errors:
+		return shutdownServers(servers)
+	case err := <-serverErrors:
+		if shutdownErr := shutdownServers(servers); shutdownErr != nil {
+			return fmt.Errorf("server failed: %w; shutdown failed: %v", err, shutdownErr)
+		}
 		return err
 	}
+}
+
+func shutdownServers(servers []*http.Server) error {
+	shutdownContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	for _, server := range servers {
+		if err := server.Shutdown(shutdownContext); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func newPProfHandler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	return mux
 }
