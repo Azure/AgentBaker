@@ -144,6 +144,21 @@ check RestartUSec "2s"
 # and silently invalidate the margin. Assert it so that change fails here instead.
 check TimeoutStartUSec "1min 30s"
 
+if [ "$fail" -ne 0 ]; then
+    echo
+    echo "localdns.service is baked into the VHD (vhdbuilder/packer/packer_source.sh), not"
+    echo "delivered through CustomData, so these directives only exist on an image built"
+    echo "from a branch that carries them."
+    echo
+    echo "If you are running e2e locally, the default is SIG_VERSION_TAG_VALUE=refs/heads/main,"
+    echo "which pulls a main-built image -- that image legitimately has the old 10s/5/100ms"
+    echo "budget and this failure is expected. Re-run against the PR's VHD build instead:"
+    echo "    VHD_BUILD_ID=<pr vhd build id> ./e2e-local.sh <scenario>"
+    echo
+    echo "In PR CI this runs against the PR's own VHD build, so a failure here means the"
+    echo "directives were actually removed or overridden."
+fi
+
 exit "$fail"
 `
 
