@@ -284,6 +284,7 @@ Describe 'cse_config_localdns.sh'
 
             When call enableLocalDNS
             The status should be success
+            The stdout should include "Enable localdns succeeded."
             The path "$LOCALDNS_ENV_FILE" should be file
             The contents of file "$LOCALDNS_ENV_FILE" should include "COREDNS_SERVICE_IP=172.16.0.10"
         End
@@ -297,6 +298,7 @@ Describe 'cse_config_localdns.sh'
 
             When call enableLocalDNS
             The status should be success
+            The stdout should include "Enable localdns succeeded."
             The path "$LOCALDNS_ENV_FILE" should be file
             The contents of file "$LOCALDNS_ENV_FILE" should include "COREDNS_SERVICE_IP="
         End
