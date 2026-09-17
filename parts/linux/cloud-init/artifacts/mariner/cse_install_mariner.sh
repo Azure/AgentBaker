@@ -150,6 +150,13 @@ getAzureLinuxNvidiaDriverReleaseNotes() {
 }
 
 downloadGPUDrivers() {
+  local nvidia_repo="${AZURELINUX_NVIDIA_REPO_FILEPATH:-/etc/yum.repos.d/azurelinux-nvidia.repo}"
+  if [ "$OS_VERSION" = "3.0" ] && [ "$(getCPUArch)" = "arm64" ] && [ -f "$nvidia_repo" ] &&
+    grep -Eq '^baseurl=https://packages[.]microsoft[.]com/azurelinux/3[.]0/prod/nvidia/x86_64/?$' "$nvidia_repo"; then
+    sed -i -E "s|^(baseurl=https://packages[.]microsoft[.]com/azurelinux/3[.]0/prod/nvidia/)x86_64/?$|\1\$basearch/|" "$nvidia_repo" || exit $ERR_NVIDIA_DRIVER_INSTALL
+    dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
+  fi
+
     # Mariner CUDA rpm name comes in the following format:
     #
     # 1. NVIDIA proprietary driver:
