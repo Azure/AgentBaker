@@ -138,9 +138,12 @@ process_benchmarks
 
 if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$UBUNTU_RELEASE" = "26.04" ]; then
   (
-    auto_packages_file="$(mktemp)"
-    package_inventory_file="$(mktemp)"
-    trap 'rm -f "${auto_packages_file}" "${package_inventory_file}"' EXIT
+    set -euo pipefail
+
+    package_inventory_dir="$(mktemp -d)"
+    trap 'rm -rf "${package_inventory_dir}"' EXIT
+    auto_packages_file="${package_inventory_dir}/auto-packages"
+    package_inventory_file="${package_inventory_dir}/package-inventory"
 
     apt-mark showauto > "${auto_packages_file}"
     {
