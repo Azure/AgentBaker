@@ -19,6 +19,11 @@ import (
 // path in localdns.sh or a real systemd timeout rather than replacing the service with a
 // stub, and each asserts that the unit reaches 'failed'.
 //
+// Scope note: the slow modes run on shortened unit clocks so the matrix fits the
+// VMSS-scoped validation budget. That means this validates the mechanism -- each mode
+// reaches 'failed' because the limiter refused a start after the burst -- not the shipped
+// wall-clock durations, which are measured separately and recorded on the PR.
+//
 // Measured note that shapes the assertions: systemd does NOT report
 // Result=start-limit-hit here. It reports the underlying cause -- exit-code for most
 // modes, watchdog for the watchdog kill, timeout for the hung start -- and the journal
@@ -36,22 +41,32 @@ type localdnsFault struct {
 	deadlineSeconds int
 }
 
-// localdnsFaultMatrix is the full set of modes, with the measured time to 'failed' under
-// 720/5/2 noted against each deadline.
+// localdnsFaultMatrix is the full set of modes.
 //
 // Every fault is driven by a hook inside the patched localdns.sh rather than by a systemd
 // drop-in. Inducing pre-flight and hung-start with ExecStartPre= would be simpler, but
 // ExecStartPre short-circuits before localdns.sh runs, so the ExecStart counter would
 // never increment and the burst assertion could not be made. Driving them from inside the
 // script also keeps each fault on the real code path.
+//
+// The three slow modes run on shortened clocks (see installLocalDNSFaultHarness): at their
+// shipped values they need ~19.6min between them, and the whole validation phase is bounded
+// by TestTimeoutVMSS, which it shares with VM creation. The "shipped" column is what those
+// modes take with the real clocks, measured by hand and recorded on the PR; the deadline is
+// sized for the shortened run with roughly 2x headroom.
+//
+//	mode           shipped   shortened by
+//	readytimeout     318s    wait_for_localdns_ready args 60/60 -> 8/8
+//	watchdog         370s    WatchdogSec 60 -> 10
+//	hungstart        487s    TimeoutStartSec 90 -> 15
 var localdnsFaultMatrix = []localdnsFault{
-	{name: "preflight", label: "pre-flight abort", deadlineSeconds: 60},           // measured 11s
-	{name: "resolvdrain", label: "resolv.conf never drains", deadlineSeconds: 90}, // measured 37s
-	{name: "postready", label: "dies right after READY", deadlineSeconds: 150},    // measured 64s
-	{name: "nopidfile", label: "PID file never appears", deadlineSeconds: 150},    // measured 64s
-	{name: "readytimeout", label: "ready-check timeout", deadlineSeconds: 420},    // measured 318s
-	{name: "watchdog", label: "watchdog pings cease", deadlineSeconds: 480},       // measured 370s
-	{name: "hungstart", label: "hung start", deadlineSeconds: 600},                // measured 487s
+	{name: "preflight", label: "pre-flight abort", deadlineSeconds: 45},           // ~11s
+	{name: "resolvdrain", label: "resolv.conf never drains", deadlineSeconds: 80}, // ~37s
+	{name: "postready", label: "dies right after READY", deadlineSeconds: 120},    // ~64s
+	{name: "nopidfile", label: "PID file never appears", deadlineSeconds: 90},     // ~30s shortened
+	{name: "readytimeout", label: "ready-check timeout", deadlineSeconds: 120},    // ~75s shortened
+	{name: "watchdog", label: "watchdog pings cease", deadlineSeconds: 120},       // ~90s shortened
+	{name: "hungstart", label: "hung start", deadlineSeconds: 120},                // ~90s shortened
 }
 
 // localdnsDiscriminatingFault is the single mode used on distros that do not carry the
@@ -312,6 +327,16 @@ cat > "$WORK/b3" <<'HOOK'
 HOOK
 insert_hook 'start_localdns_watchdog() {' after "$WORK/b3"
 
+# (3b) Shorten the readiness wait for the readytimeout mode only. The real polling loop
+# still runs and still times out on its own; it just does not need a full 60s per cycle to
+# prove the point.
+cat > "$WORK/b3b" <<'HOOK'
+    if [ "$(cat /run/localdns-e2e-fault 2>/dev/null)" = "readytimeout" ]; then
+        maxattempts=8; timeout_duration=8
+    fi
+HOOK
+insert_hook '    local timeout_duration=$2' after "$WORK/b3b"
+
 # (4) PID file never appears: repoint the wait loop at a path CoreDNS will not create so
 # the real START_LOCALDNS_TIMEOUT=10 loop times out. COREDNS_COMMAND has already been built
 # from the real path, so CoreDNS itself still behaves normally.
@@ -319,6 +344,8 @@ cat > "$WORK/b4" <<'HOOK'
 if [ "${LDNS_FAULT}" = "nopidfile" ]; then
     echo "E2EFAULT nopidfile: pid file will never appear"
     LOCALDNS_PID_FILE=/run/localdns-e2e-never-appears.pid
+    # the real wait loop still runs, on a shorter clock
+    START_LOCALDNS_TIMEOUT=3
 fi
 HOOK
 insert_hook 'start_localdns || exit $ERR_LOCALDNS_FAIL' before "$WORK/b4"
@@ -360,7 +387,17 @@ rm -rf "$WORK"
 # Point the unit at the patched copy. Invoking through bash avoids any noexec concern on
 # /run. ExecStart= clears the shipped value before setting the replacement.
 sudo mkdir -p "$(dirname "$DROPIN")"
-printf '[Service]\nExecStart=\nExecStart=/bin/bash %s\n' "$DST" | sudo tee "$DROPIN" >/dev/null
+# Shorten the two unit-level clocks for the duration of the fault run. WatchdogSec and
+# TimeoutStartSec drive how long the watchdog and hung-start modes take to cycle: at their
+# shipped values (60s and an inherited 90s) those two modes alone need ~14 minutes to
+# exhaust the burst, which does not fit the VMSS-scoped validation budget (TestTimeoutVMSS,
+# shared with VM creation). Shortened, the same code paths run -- a real watchdog timeout, a
+# real start timeout, SIGTERM, restart, limiter -- just on a faster clock.
+#
+# StartLimitIntervalSec, StartLimitBurst and RestartSec are deliberately NOT touched: they
+# are what is under test. Note this does mean the matrix validates the mechanism rather than
+# the shipped durations; the real timings are measured separately and recorded on the PR.
+printf '[Service]\nExecStart=\nExecStart=/bin/bash %s\nWatchdogSec=10\nTimeoutStartSec=15\n' "$DST" | sudo tee "$DROPIN" >/dev/null
 sudo systemctl daemon-reload
 echo "fault harness installed"
 `
