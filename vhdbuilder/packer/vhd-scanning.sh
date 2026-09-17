@@ -92,9 +92,12 @@ if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
 fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-    VM_SIZE="Standard_DC8ads_v5"
+    VM_SIZE="${CVM_TEST_VM_SIZE:-Standard_DC8ads_v5}"
     # We completely re-assign the VM_OPTIONS string here to ensure that no artifacts from earlier conditionals are included
-    VM_OPTIONS="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+    VM_OPTIONS="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly"
+    if [ "${OS_SKU:-}" != "AzureContainerLinux" ]; then
+        VM_OPTIONS+=" --specialized true"
+    fi
 fi
 
 # NVIDIA GB specific VM options for scanning (uses standard ARM64 VM for now)
