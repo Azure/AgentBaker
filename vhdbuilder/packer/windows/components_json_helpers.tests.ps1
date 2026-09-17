@@ -29,9 +29,87 @@ Describe 'SafeReplaceString' {
         SafeReplaceString $str | Should -Be "this is an  string"
     }
 
+    It 'given versionNoBuild var is present, it replaces versionNoBuild' {
+        $str = "this is a `${versionNoBuild}` string"
+        $versionNoBuild = "1.2.3"
+        SafeReplaceString $str | Should -Be "this is a 1.2.3 string"
+    }
+
+    It 'given buildNumber var is present, it replaces buildNumber' {
+        $str = "this is a `${buildNumber}` string"
+        $buildNumber = "45"
+        SafeReplaceString $str | Should -Be "this is a 45 string"
+    }
+
 }
 
+Describe 'SetupVersionVariablesForSubstitution' {
+    It 'sets version, versionNoBuild, and buildNumber, splitting on the final separator' {
+        . SetupVersionVariablesForSubstitution "1.2.3-45"
+        $version | Should -Be "1.2.3-45"
+        $versionNoBuild | Should -Be "1.2.3"
+        $buildNumber | Should -Be "45"
+    }
 
+    It 'given multiple hyphens, splits on the final hyphen only, keeping earlier ones in versionNoBuild' {
+        . SetupVersionVariablesForSubstitution "1.2.3-rc1-45"
+        $version | Should -Be "1.2.3-rc1-45"
+        $versionNoBuild | Should -Be "1.2.3-rc1"
+        $buildNumber | Should -Be "45"
+    }
+
+    It 'given no build separator, buildNumber is empty and versionNoBuild is unchanged' {
+        . SetupVersionVariablesForSubstitution "1.2.3"
+        $version | Should -Be "1.2.3"
+        $versionNoBuild | Should -Be "1.2.3"
+        $buildNumber | Should -Be ""
+    }
+
+    It 'strips a leading v from versionNoBuild but keeps it in version (DALEC-style tags)' {
+        . SetupVersionVariablesForSubstitution "v1.37.0-45"
+        $version | Should -Be "v1.37.0-45"
+        $versionNoBuild | Should -Be "1.37.0"
+        $buildNumber | Should -Be "45"
+    }
+
+    It 'given a leading v with no build separator, still strips the v from versionNoBuild' {
+        . SetupVersionVariablesForSubstitution "v1.37.0"
+        $version | Should -Be "v1.37.0"
+        $versionNoBuild | Should -Be "1.37.0"
+        $buildNumber | Should -Be ""
+    }
+
+    It 'given the same variable names already set from a previous version, overwrites them (loop reuse regression)' {
+        . SetupVersionVariablesForSubstitution "v1.36.0-9"
+        . SetupVersionVariablesForSubstitution "v1.37.0-45"
+        $version | Should -Be "v1.37.0-45"
+        $versionNoBuild | Should -Be "1.37.0"
+        $buildNumber | Should -Be "45"
+    }
+}
+
+Describe 'ReplaceVarsInUrl' {
+    It 'substitutes version, versionNoBuild, and buildNumber in the same URL template' {
+        $url = ReplaceVarsInUrl -versionString "1.2.3-45" -stringToReplace 'https://example/${versionNoBuild}/pkg-${version}-b${buildNumber}.zip'
+        $url | Should -Be "https://example/1.2.3/pkg-1.2.3-45-b45.zip"
+    }
+
+    It 'strips the leading v for a DALEC-style path while keeping the full tag in the filename' {
+        $url = ReplaceVarsInUrl -versionString "v1.37.0-45" -stringToReplace 'https://packages.aks.azure.com/dalec-packages/pkg/${versionNoBuild}/windows/amd64/pkg_${version}_amd64.zip'
+        $url | Should -Be "https://packages.aks.azure.com/dalec-packages/pkg/1.37.0/windows/amd64/pkg_v1.37.0-45_amd64.zip"
+    }
+
+    It 'resolves previousLatestVersion the same way as latestVersion' {
+        $url = ReplaceVarsInUrl -versionString "v1.36.0-9" -stringToReplace 'https://packages.aks.azure.com/dalec-packages/pkg/${versionNoBuild}/windows/amd64/pkg_${version}_amd64.zip'
+        $url | Should -Be "https://packages.aks.azure.com/dalec-packages/pkg/1.36.0/windows/amd64/pkg_v1.36.0-9_amd64.zip"
+    }
+
+    It 'given consecutive calls for different versions, does not leak variables from the prior call' {
+        ReplaceVarsInUrl -versionString "v1.36.0-9" -stringToReplace 'unused' | Out-Null
+        $url = ReplaceVarsInUrl -versionString "v1.37.0-45" -stringToReplace '${versionNoBuild}-${buildNumber}'
+        $url | Should -Be "1.37.0-45"
+    }
+}
 
 Describe 'Tests of GetAllCachedThings ' {
     BeforeEach {
@@ -808,6 +886,18 @@ Describe 'GetAzCopyDownloadUrlsFromComponentsJson' {
         $componentsJson.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $true
 
         { GetAzCopyDownloadUrlsFromComponentsJson $componentsJson } | Should -Throw -ExpectedMessage "*MSI-only*"
+    }
+
+    It 'given a DALEC-style version with a leading v and build number, resolves versionNoBuild and buildNumber for latest and previous versions' {
+        $componentsJson.Packages[0].downloadUris.windows.default.versionsV2[0].latestVersion = "v1.37.0-45"
+        $componentsJson.Packages[0].downloadUris.windows.default.versionsV2[0].previousLatestVersion = "v1.36.0-9"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = 'https://packages.aks.azure.com/dalec-packages/pkg/${versionNoBuild}/windows/amd64/pkg_${version}_amd64.zip'
+        $componentsJson.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $true
+
+        $azCopyUrls = GetAzCopyDownloadUrlsFromComponentsJson $componentsJson
+
+        $azCopyUrls.ContainsKey("https://packages.aks.azure.com/dalec-packages/pkg/1.37.0/windows/amd64/pkg_v1.37.0-45_amd64.zip") | Should -Be $true
+        $azCopyUrls.ContainsKey("https://packages.aks.azure.com/dalec-packages/pkg/1.36.0/windows/amd64/pkg_v1.36.0-9_amd64.zip") | Should -Be $true
     }
 }
 

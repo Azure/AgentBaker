@@ -8,29 +8,26 @@ function SafeReplaceString {
     # this is a security guard - ensure that only allow-listed variables can be replaced by removing all others.
     # We run in a sub-shell so clearing all other variables doesn't impact the shell running this code.
     $stringToReplace = &{
-        Clear-Variable -Name * -Exclude version,CPU_ARCH,stringToReplace -ErrorAction SilentlyContinue
+        Clear-Variable -Name * -Exclude buildNumber,versionNoBuild,version,CPU_ARCH,stringToReplace -ErrorAction SilentlyContinue
         $executionContext.InvokeCommand.ExpandString($stringToReplace)
     }
 
     return $stringToReplace
 }
 
-function GetWindowsDownloadPartForPackage
-{
+function GetWindowsDownloadPartForPackage {
     Param(
         [Parameter(Mandatory = $true)][Object]
         $package
     )
 
     $downloadUrls = $package.downloadURIs.windows
-    if ($downloadUrls -eq $null)
-    {
+    if ($null -eq $downloadUrls) {
         return $package.downloadURIs.default.current
     }
 
     $part = $downloadUrls.default
-    switch -Regex ($windowsSku)
-    {
+    switch -Regex ($windowsSku) {
         "2019-containerd" {
             $part = $downloadUrls.ws2019
             break
@@ -45,52 +42,78 @@ function GetWindowsDownloadPartForPackage
         }
     }
 
-    if ($part -eq $null)
-    {
+    if ($null -eq $part) {
         return $downloadUrls.default
     }
 
     return $part
 }
 
+function SetupVersionVariablesForSubstitution {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $versionString
+    )
 
-function GetComponentsFromComponentsJson
-{
+    # $version keeps the exact tag as given (e.g. Dalec-style "v1.37.0-45"), since some URLs
+    # need the leading 'v' and/or the build number verbatim.
+    $version = $versionString
+
+    # $versionNoBuild and $buildNumber split on the *final* "-" only, so prerelease segments
+    # containing their own hyphens (e.g. "1.2.3-rc1-45") are preserved in versionNoBuild.
+    # A leading "v"/"V" is stripped from versionNoBuild because Dalec download paths use the
+    # bare version (e.g. "1.37.0"), not the "v1.37.0" tag.
+    $versionWithoutPrefix = $version -replace "^[vV]", ""
+    $separatorIndex = $versionWithoutPrefix.LastIndexOf('-')
+    if ($separatorIndex -ge 0) {
+        $versionNoBuild = $versionWithoutPrefix.Substring(0, $separatorIndex)
+        $buildNumber = $versionWithoutPrefix.Substring($separatorIndex + 1)
+    } else {
+        $versionNoBuild = $versionWithoutPrefix
+        $buildNumber = ""
+    }
+}
+
+function ReplaceVarsInUrl {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $versionString,
+        [Parameter(Mandatory = $true)][string]
+        $stringToReplace
+    )
+    . SetupVersionVariablesForSubstitution($versionString)
+    return SafeReplaceString($stringToReplace)
+}
+
+function GetComponentsFromComponentsJson {
     Param(
         [Parameter(Mandatory = $true)][Object]
         $componentsJsonContent
     )
 
+
     $output = New-Object System.Collections.ArrayList
 
-    foreach ($containerImage in $componentsJsonContent.ContainerImages)
-    {
+    foreach ($containerImage in $componentsJsonContent.ContainerImages) {
         $versions = $containerImage.windowsVersions
-        if ($versions -eq $null)
-        {
+        if ($null -eq $versions) {
             $versions = $containerImage.multiArchVersionsV2
         }
 
         $downloadUrl = $containerImage.windowsDownloadUrl
-        if ($downloadUrl -eq $null)
-        {
+        if ($null -eq $downloadUrl) {
             $downloadUrl = $containerImage.downloadUrl
         }
 
-        foreach ($windowsVersion in $versions)
-        {
+        foreach ($windowsVersion in $versions) {
             $skuMatch = $windowsVersion.windowsSkuMatch
-            if ($skuMatch -eq $null -or $windowsSku -eq $null -or $windowsSku -Like $skuMatch)
-            {
-                $version = $windowsVersion.latestVersion
-                $url = SafeReplaceString($downloadUrl)
+            if ($null -eq $skuMatch -or $null -eq $windowsSku -or $windowsSku -Like $skuMatch) {
+                $url = ReplaceVarsInUrl -versionString $windowsVersion.latestVersion -stringToReplace $downloadUrl
                 $url = $url.replace("*", $windowsVersion.latestVersion)
                 $output += $url
 
-                if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
-                {
-                    $version = $windowsVersion.previousLatestVersion
-                    $url = SafeReplaceString($downloadUrl)
+                if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion)) {
+                    $url = ReplaceVarsInUrl -versionString $windowsVersion.previousLatestVersion -stringToReplace $downloadUrl
                     $url = $url.replace("*", $windowsVersion.previousLatestVersion)
                     $output += $url
                 }
@@ -101,8 +124,7 @@ function GetComponentsFromComponentsJson
     return $output
 }
 
-function GetPackagesFromComponentsJson
-{
+function GetPackagesFromComponentsJson {
 
     Param(
         [Parameter(Mandatory = $true)][Object]
@@ -110,17 +132,14 @@ function GetPackagesFromComponentsJson
     )
     $output = @{ }
 
-    foreach ($package in $componentsJsonContent.Packages)
-    {
+    foreach ($package in $componentsJsonContent.Packages) {
         $downloadLocation = $package.windowsDownloadLocation
-        if ($downloadLocation -eq $null -or $downloadLocation -eq "")
-        {
+        if ($null -eq $downloadLocation -or $downloadLocation -eq "") {
             continue
         }
 
         $thisList = $output[$downloadLocation]
-        if ($thisList -eq $null)
-        {
+        if ($null -eq $thisList) {
             $thisList = New-Object System.Collections.ArrayList
         }
 
@@ -129,27 +148,21 @@ function GetPackagesFromComponentsJson
         $items = $part.versionsV2
 
         # no specific windows download url means fall back to regular windows spots.
-        if ($downloadUrl -eq $null -or $downloadUrl -eq "")
-        {
+        if ($null -eq $downloadUrl -or $downloadUrl -eq "") {
             $downloadUrl = $part.downloadUrl
         }
 
-        foreach ($windowsVersion in $items)
-        {
-            $version = $windowsVersion.latestVersion
-            $url = SafeReplaceString($downloadUrl)
+        foreach ($windowsVersion in $items) {
+            $url = ReplaceVarsInUrl -versionString $windowsVersion.latestVersion -stringToReplace $downloadUrl
             $thisList += $url
 
-            if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
-            {
-                $version = $windowsVersion.previousLatestVersion
-                $url = SafeReplaceString($downloadUrl)
+            if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion)) {
+                $url = ReplaceVarsInUrl -versionString $windowsVersion.previousLatestVersion -stringToReplace $downloadUrl
                 $thisList += $url
             }
         }
 
-        if ($thisList.Length -gt 0)
-        {
+        if ($thisList.Length -gt 0) {
             $output[$downloadLocation] = $thisList
         }
     }
@@ -157,8 +170,7 @@ function GetPackagesFromComponentsJson
     return $output
 }
 
-function GetAzCopyDownloadUrlsFromComponentsJson
-{
+function GetAzCopyDownloadUrlsFromComponentsJson {
     Param(
         [Parameter(Mandatory = $true)][Object]
         $componentsJsonContent
@@ -171,17 +183,14 @@ function GetAzCopyDownloadUrlsFromComponentsJson
     # locations that public curl access can't reach.
     $output = @{ }
 
-    foreach ($package in $componentsJsonContent.Packages)
-    {
+    foreach ($package in $componentsJsonContent.Packages) {
         $downloadLocation = $package.windowsDownloadLocation
-        if ($downloadLocation -eq $null -or $downloadLocation -eq "")
-        {
+        if ($null -eq $downloadLocation -or $downloadLocation -eq "") {
             continue
         }
 
         $part = GetWindowsDownloadPartForPackage $package
-        if ($part -eq $null -or $part.windowsDownloadRequiresAzCopy -ne $true)
-        {
+        if ($null -eq $part -or $part.windowsDownloadRequiresAzCopy -ne $true) {
             continue
         }
 
@@ -189,22 +198,17 @@ function GetAzCopyDownloadUrlsFromComponentsJson
 
         # no specific windows download url means fall back to regular windows spots, matching
         # GetPackagesFromComponentsJson's URL resolution.
-        if ($downloadUrl -eq $null -or $downloadUrl -eq "")
-        {
+        if ($null -eq $downloadUrl -or $downloadUrl -eq "") {
             $downloadUrl = $part.downloadUrl
         }
 
-        if ($downloadUrl -eq $null -or $downloadUrl -eq "")
-        {
+        if ($null -eq $downloadUrl -or $downloadUrl -eq "") {
             continue
         }
 
-        foreach ($windowsVersion in $part.versionsV2)
-        {
-            $version = $windowsVersion.latestVersion
-            $url = SafeReplaceString($downloadUrl)
-            if ($url.Contains("?"))
-            {
+        foreach ($windowsVersion in $part.versionsV2) {
+            $url = ReplaceVarsInUrl -versionString $windowsVersion.latestVersion -stringToReplace $downloadUrl
+            if ($url.Contains("?")) {
                 # This download path is MSI-only (the build VM's managed identity authenticates via
                 # azcopy login --login-type=MSI): a query string almost always means a SAS token,
                 # which isn't supported here and must not be embedded in components.json. Reject it
@@ -213,12 +217,9 @@ function GetAzCopyDownloadUrlsFromComponentsJson
             }
             $output[$url] = $true
 
-            if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
-            {
-                $version = $windowsVersion.previousLatestVersion
-                $url = SafeReplaceString($downloadUrl)
-                if ($url.Contains("?"))
-                {
+            if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion)) {
+                $url = ReplaceVarsInUrl -versionString $windowsVersion.previousLatestVersion -stringToReplace $downloadUrl
+                if ($url.Contains("?")) {
                     throw "windowsDownloadRequiresAzCopy is set for a package whose resolved Windows download URL contains a query string ('$($url.Split('?')[0])?...'): this path is MSI-only and does not support SAS or other query-string credentials in components.json."
                 }
                 $output[$url] = $true
@@ -229,8 +230,7 @@ function GetAzCopyDownloadUrlsFromComponentsJson
     return $output
 }
 
-function GetWindowsPackageVersionFromComponentsJson
-{
+function GetWindowsPackageVersionFromComponentsJson {
     Param(
         [Parameter(Mandatory = $true)][Object]
         $componentsJsonContent,
@@ -239,22 +239,18 @@ function GetWindowsPackageVersionFromComponentsJson
         $packageName
     )
 
-    foreach ($package in $componentsJsonContent.Packages)
-    {
-        if ($package.name -ne $packageName)
-        {
+    foreach ($package in $componentsJsonContent.Packages) {
+        if ($package.name -ne $packageName) {
             continue
         }
 
         $part = GetWindowsDownloadPartForPackage $package
-        if ($part -eq $null -or $part.versionsV2 -eq $null -or $part.versionsV2.Count -eq 0)
-        {
+        if ($null -eq $part -or $null -eq $part.versionsV2 -or $part.versionsV2.Count -eq 0) {
             throw "Could not find Windows versions for package '$packageName' in components.json"
         }
 
         $latestVersion = $part.versionsV2[0].latestVersion
-        if ([string]::IsNullOrEmpty($latestVersion) -or $latestVersion -eq "<SKIP>")
-        {
+        if ([string]::IsNullOrEmpty($latestVersion) -or $latestVersion -eq "<SKIP>") {
             throw "Could not find a valid Windows version for package '$packageName' in components.json"
         }
 
@@ -264,8 +260,7 @@ function GetWindowsPackageVersionFromComponentsJson
     throw "Could not find package '$packageName' in components.json"
 }
 
-function GetOCIArtifactsFromComponentsJson
-{
+function GetOCIArtifactsFromComponentsJson {
 
     Param(
         [Parameter(Mandatory = $true)][Object]
@@ -273,49 +268,39 @@ function GetOCIArtifactsFromComponentsJson
     )
     $output = @{ }
 
-    foreach ($ociArtifact in $componentsJsonContent.OCIArtifacts)
-    {
+    foreach ($ociArtifact in $componentsJsonContent.OCIArtifacts) {
         $registry = $ociArtifact.registry
         $downloadLocation = $ociArtifact.windowsDownloadLocation
-        if ($downloadLocation -eq $null -or $downloadLocation -eq "")
-        {
+        if ($null -eq $downloadLocation -or $downloadLocation -eq "") {
             continue
         }
 
         $thisList = $output[$downloadLocation]
-        if ($thisList -eq $null)
-        {
+        if ($null -eq $thisList) {
             $thisList = New-Object System.Collections.ArrayList
         }
 
         $versions = $ociArtifact.windowsVersions
-        if ($versions -eq $null)
-        {
+        if ($null -eq $versions) {
             continue
         }
 
-        foreach ($windowsVersion in $versions)
-        {
+        foreach ($windowsVersion in $versions) {
             $skuMatch = $windowsVersion.windowsSkuMatch
-            if ([string]::IsNullOrEmpty($skuMatch) -or $windowsSku -Like $skuMatch)
-            {
-                $version = $windowsVersion.latestVersion
-                $artifactName = SafeReplaceString($registry)
-                $artifactName = $artifactName.replace("*", $version)
+            if ([string]::IsNullOrEmpty($skuMatch) -or $windowsSku -Like $skuMatch) {
+                $artifactName = ReplaceVarsInUrl -versionString $windowsVersion.latestVersion -stringToReplace $registry
+                $artifactName = $artifactName.replace("*", $windowsVersion.latestVersion)
                 $thisList += $artifactName
             }
 
-            if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
-            {
-                $version = $windowsVersion.previousLatestVersion
-                $artifactName = SafeReplaceString($registry)
-                $artifactName = $artifactName.replace("*", $version)
+            if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion)) {
+                $artifactName = ReplaceVarsInUrl -versionString $windowsVersion.previousLatestVersion -stringToReplace $registry
+                $artifactName = $artifactName.replace("*", $windowsVersion.previousLatestVersion)
                 $thisList += $artifactName
             }
         }
 
-        if ($thisList.Length -gt 0)
-        {
+        if ($thisList.Length -gt 0) {
             $output[$downloadLocation] = $thisList
         }
     }
@@ -323,8 +308,7 @@ function GetOCIArtifactsFromComponentsJson
     return $output
 }
 
-function GetDefaultContainerDFromComponentsJson
-{
+function GetDefaultContainerDFromComponentsJson {
     Param(
         [Parameter(Mandatory = $true)][Object]
         $componentsJsonContent
@@ -336,18 +320,15 @@ function GetDefaultContainerDFromComponentsJson
 }
 
 
-function GetRegKeysToApply
-{
+function GetRegKeysToApply {
     Param(
         [Parameter(Mandatory = $true)][Object]
         $windowsSettingsContent
     )
     $output = New-Object System.Collections.ArrayList
 
-    foreach ($key in $windowsSettingsContent.WindowsRegistryKeys)
-    {
-        if ($windowsSku -Like $key.WindowsSkuMatch)
-        {
+    foreach ($key in $windowsSettingsContent.WindowsRegistryKeys) {
+        if ($windowsSku -Like $key.WindowsSkuMatch) {
             $output += $key
         }
     }
@@ -355,8 +336,7 @@ function GetRegKeysToApply
     return $output;
 }
 
-function GetKeyMapForReleaseNotes
-{
+function GetKeyMapForReleaseNotes {
     Param(
         [Parameter(Mandatory = $true)][Object]
         $windowsSettingsContent
@@ -364,15 +344,11 @@ function GetKeyMapForReleaseNotes
 
     $output = @{ }
 
-    foreach ($key in $windowsSettingsContent.WindowsRegistryKeys)
-    {
-        if ($windowsSku -Like $key.WindowsSkuMatch)
-        {
+    foreach ($key in $windowsSettingsContent.WindowsRegistryKeys) {
+        if ($windowsSku -Like $key.WindowsSkuMatch) {
             $path = $key.Path
             $name = $key.Name
-            $arr = $output[$path]
-            if ($output[$path] -eq $null)
-            {
+            if ($null -eq $output[$path]) {
                 $output[$path] = New-Object System.Collections.ArrayList
             }
             $output[$path] += $name
@@ -382,30 +358,27 @@ function GetKeyMapForReleaseNotes
     return $output;
 }
 
-function LogReleaseNotesForWindowsRegistryKeys
-{
+function LogReleaseNotesForWindowsRegistryKeys {
     Param(
         [Parameter(Mandatory = $true)][Object]
         $windowsSettingsContent
     )
 
+
     $logLines = New-Object System.Collections.ArrayList
     $releaseNotesToSet = GetKeyMapForReleaseNotes $windowsSettingsContent
 
-    foreach ($key in $releaseNotesToSet.Keys)
-    {
+    foreach ($key in $releaseNotesToSet.Keys) {
         $logLines += ("`t{0}" -f $key)
         $names = $releaseNotesToSet[$key]
-        foreach ($name in $names)
-        {
+        foreach ($name in $names) {
             # Set error action to stop so that if the key or name doesn't exist we get notified - as this indicates an issue
             # with setting the field
             try {
                 $value = (Get-ItemProperty -Path $key -Name $name -ErrorAction Stop).$name
                 Write-Host "Found registry key value for $key\$name : $value"
                 $logLines += ("`t`t{0} : {1}" -f $name, $value)
-            }
-            catch {
+            } catch {
                 throw "Failed to get registry key value for $key\$name. $_"
             }
         }
@@ -414,8 +387,7 @@ function LogReleaseNotesForWindowsRegistryKeys
     return $logLines
 }
 
-function GetPatchInfo
-{
+function GetPatchInfo {
     Param(
         [Parameter(Mandatory = $true)][Object]
         $windowsSku,
@@ -428,7 +400,7 @@ function GetPatchInfo
 
     $baseVersionBlock = $windowsSettingsContent.WindowsBaseVersions."$windowsSku";
 
-    if ($baseVersionBlock -eq $null) {
+    if ($null -eq $baseVersionBlock) {
         return $output
     }
 
@@ -441,8 +413,7 @@ function GetPatchInfo
     return $patchData
 }
 
-function GetWindowsBaseVersion
-{
+function GetWindowsBaseVersion {
     Param(
         [Parameter(Mandatory = $true)][String]
         $windowsSku,
@@ -454,7 +425,7 @@ function GetWindowsBaseVersion
 
     $baseVersionBlock = $windowsSettingsContent.WindowsBaseVersions."$windowsSku";
 
-    if ($baseVersionBlock -eq $null) {
+    if ($null -eq $baseVersionBlock) {
         return ""
     }
 
@@ -515,7 +486,7 @@ function GetAllCachedThings {
     GetAzCopyDownloadUrlsFromComponentsJson $componentsJsonContent | Out-Null
 
     $items += "Windows ${windowsSku} base version: ${baseVersion}"
-    if ($baseVersionBlock -ne $null) {
+    if ($null -ne $baseVersionBlock) {
         $items += "Windows ${windowsSku} base image sku: $($baseVersionBlock.base_image_sku)"
         $items += "Windows ${windowsSku} os disk size: $($baseVersionBlock.os_disk_size)"
 
@@ -528,7 +499,7 @@ function GetAllCachedThings {
     }
 
     $patchInfo = GetPatchInfo -windowsSku $windowsSku -windowsSettingsContent $windowsSettingsContent
-    if ($patchInfo -ne $null -and $patchInfo.Count -gt 0) {
+    if ($null -ne $patchInfo -and $patchInfo.Count -gt 0) {
         foreach ($patch in $patchInfo) {
             $items += "Windows ${windowsSku} patch: $($patch.id) $($patch.url)"
         }
