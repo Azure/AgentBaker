@@ -12,8 +12,8 @@
 Describe 'init-aks-cloud.sh refresh mode wiring'
     script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
 
-    It 'parses action argument after deriving location, with init default'
-        When run grep -Eq '^action=\$\{1:-init\}$' "$script_path"
+    It 'defaults the action to init'
+        When run grep -Fq 'if [ "${1:-init}" = "ca-refresh" ]; then' "$script_path"
         The status should eq 0
     End
 
@@ -22,39 +22,61 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
         The status should eq 0
     End
 
-    It 'always derives cert endpoint mode from refresh_location'
-        When run grep -Eq '^location_normalized="\$\{refresh_location,,\}"$' "$script_path"
+    It 'derives cert endpoint mode from the selected location'
+        When run grep -Eq '^[[:space:]]+cert_endpoint_mode=\$\(determine_cert_endpoint_mode "\$refresh_location"\)$' "$script_path"
         The status should eq 0
     End
 
-    It 'passes refresh_location (not the raw positional arg) into determine_cert_endpoint_mode'
-        When run grep -Eq '^cert_endpoint_mode=\$\(determine_cert_endpoint_mode "\$refresh_location"\)$' "$script_path"
-        The status should eq 0
+    run_entry() (
+        LOCATION=ussec-fallback
+        refresh_certs() { echo "install:$1"; return "${INSTALL_STATUS:-0}"; }
+        refresh_certs_and_containerd() { echo "scheduled:$1"; return "${INSTALL_STATUS:-0}"; }
+        # Run the actual dispatch block, stopping before host schedule writes.
+        # shellcheck disable=SC1090
+        . <(awk '/^refresh_location=/{copy=1}
+            /^if \[ "\$IS_UBUNTU" -eq 1 \] \|\|/{exit}
+            copy' "$script_path") "$@"
+        echo schedule-and-init
+    )
+
+    It 'runs the coordinator only for scheduled refresh and exits before init'
+        When run run_entry ca-refresh eastus
+        The status should be success
+        The output should eq scheduled:eastus
     End
 
-    It 'initializes refresh schedule installation as disabled'
-        When run grep -Eq '^install_ca_refresh_schedule=0$' "$script_path"
-        The status should eq 0
+    It 'does not restart or jitter during initial provisioning'
+        When run run_entry init eastus
+        The status should be success
+        The line 1 should eq install:eastus
+        The line 2 should eq schedule-and-init
     End
 
-    It 'enables refresh schedule installation for eligible certificate modes'
-        When run grep -Eq '^[[:space:]]*install_ca_refresh_schedule=1$' "$script_path"
-        The status should eq 0
+    It 'uses the live provisioning location when no explicit location is supplied'
+        When run run_entry
+        The status should be success
+        The line 1 should eq install:ussec-fallback
+        The line 2 should eq schedule-and-init
     End
 
-    It 'gates refresh schedule installation on install_ca_refresh_schedule'
-        When run grep -Eq '\[ "\$install_ca_refresh_schedule" -eq 0 \]' "$script_path"
-        The status should eq 0
+    It 'does not schedule or continue init after opt-out'
+        INSTALL_STATUS=3
+        When run run_entry init eastus
+        The status should be success
+        The output should eq install:eastus
     End
 
-    It 'checks for ca-refresh mode after certificate refresh logic'
-        When run grep -Eq '^if \[ "\$action" = "ca-refresh" \] \|\| \[ "\$install_ca_refresh_schedule" -eq 0 \]; then$' "$script_path"
-        The status should eq 0
+    It 'propagates coordinator failure'
+        INSTALL_STATUS=7
+        When run run_entry ca-refresh eastus
+        The status should eq 7
+        The output should eq scheduled:eastus
     End
 
-    It 'exits early in ca-refresh mode after certificate refresh logic'
-        When run grep -Eq '^[[:space:]]*exit 0$' "$script_path"
-        The status should eq 0
+    It 'does not double the coordinator jitter in systemd'
+        When run grep -F 'RandomizedDelaySec=' "$script_path"
+        The status should be success
+        The output should eq RandomizedDelaySec=0
     End
 
     It 'passes LOCATION directly into cron refresh command'

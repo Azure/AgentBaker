@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 	"github.com/vincent-petithory/dataurl"
+	"gopkg.in/yaml.v3"
 )
 
 // this regex looks for groups of the following forms, returning KEY and VALUE as submatches.
@@ -1826,6 +1827,21 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		}
 	}
 
+	for _, distro := range []datamodel.Distro{datamodel.AKSUbuntuContainerd2204Gen2, datamodel.AKSUbuntuContainerd2404Gen2} {
+		It(fmt.Sprintf("should keep scripted Ubuntu CustomData within the compute API limit (%s)", distro), func() {
+			config := newConfig(false)
+			config.AgentPoolProfile.Distro = distro
+			config.EnableScriptlessNBCCSECmd = false
+			config.EnableScriptlessCSECmd = false
+			payload := InitializeTemplateGenerator().getLinuxNodeBootstrappingPayload(config)
+			decoded, err := base64.StdEncoding.DecodeString(payload)
+			Expect(err).NotTo(HaveOccurred())
+			fmt.Fprintf(GinkgoWriter, "Scripted %s CustomData: %d bytes, %d encoded characters; limit %d; headroom %d\n",
+				distro, len(decoded), len(payload), MaxCustomDataLength, MaxCustomDataLength-len(payload))
+			Expect(len(payload)).To(BeNumerically("<=", MaxCustomDataLength))
+		})
+	}
+
 	It("should persist nodecustomdata in the scriptless NBC boothook", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
@@ -2100,9 +2116,13 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		expectedCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(config))
 
-		Expect(string(decompressedPayload)).To(Equal(expectedCustomData))
-		Expect(string(decompressedPayload)).NotTo(ContainSubstring(aksNodeCustomDataFilepath))
-		Expect(string(decompressedPayload)).NotTo(ContainSubstring(aksNbcCmdFilepath))
+		Expect(normalizedCloudConfig(GinkgoT(), string(decompressedPayload))).To(Equal(normalizedCloudConfig(GinkgoT(), expectedCustomData)))
+		var cloudConfig cloudInit
+		Expect(yaml.Unmarshal(decompressedPayload, &cloudConfig)).To(Succeed())
+		for _, file := range cloudConfig.WriteFiles {
+			Expect(file.Path).NotTo(Equal(aksNodeCustomDataFilepath))
+			Expect(file.Path).NotTo(Equal(aksNbcCmdFilepath))
+		}
 	})
 })
 

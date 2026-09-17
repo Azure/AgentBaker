@@ -1269,7 +1269,7 @@ func TestRemoveComments_ShellPatterns(t *testing.T) {
 // syntax error after stripping.
 //
 // The script list is dynamically derived by parsing variables.go and const.go source
-// to find all .sh files passed to getBase64EncodedGzippedCustomScript(). If a new script
+// to find all .sh files passed to the selected script renderer. If a new script
 // is added to the CSE pipeline, it is automatically covered by this test.
 func TestCSEScriptRoundTrip(t *testing.T) {
 	cseScripts := discoverCSEScripts(t)
@@ -1289,21 +1289,20 @@ func TestCSEScriptRoundTrip(t *testing.T) {
 }
 
 // discoverCSEScripts parses variables.go to find all constant names passed to
-// getBase64EncodedGzippedCustomScript(), then resolves those constants to file
+// the selected script renderer, then resolves those constants to file
 // paths from const.go, filtering to .sh files only.
 func discoverCSEScripts(t *testing.T) []string {
 	t.Helper()
 	root := repoRoot()
 
-	// Step 1: Read variables.go and extract constant names from getBase64EncodedGzippedCustomScript() calls
+	// Step 1: Read variables.go and extract constant names from script renderer calls
 	variablesPath := filepath.Join(root, "pkg", "agent", "variables.go")
 	variablesBytes, err := os.ReadFile(variablesPath)
 	if err != nil {
 		t.Fatalf("failed to read variables.go: %v", err)
 	}
 
-	// Match: getBase64EncodedGzippedCustomScript(constantName, config)
-	callRe := regexp.MustCompile(`getBase64EncodedGzippedCustomScript\((\w+),`)
+	callRe := regexp.MustCompile(`(?:getBase64EncodedGzippedCustomScript|renderScript)\((\w+),`)
 	matches := callRe.FindAllStringSubmatch(string(variablesBytes), -1)
 	constNames := make(map[string]bool)
 	for _, m := range matches {

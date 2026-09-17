@@ -155,7 +155,9 @@ func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.N
 		customData := getCustomDataFromJSON(t.getFlatcarLinuxNodeCustomDataJSONObject(config))
 		encoded = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
-		customData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+		// Scripted cloud-init files share the outer gzip dictionary. Keep
+		// scriptless/NBC and Ignition encodings compatible with existing images.
+		customData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObjectWithEncoding(config, config.EnableScriptlessCSECmd))
 		encoded = getBase64EncodedGzippedCustomScriptFromStr(customData)
 	}
 	return encoded
@@ -308,10 +310,14 @@ func buildScriptlessCustomData(cloudInitTemplate, fileListTemplate, separator st
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
 // { "customData": "<customData string>" }.
 func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
+	return t.getLinuxNodeCustomDataJSONObjectWithEncoding(config, true)
+}
+
+func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObjectWithEncoding(config *datamodel.NodeBootstrappingConfiguration, compressFiles bool) string {
 	// get parameters
 	parameters := getParameters(config)
 	// get variable cloudInit
-	variables := getCustomDataVariables(config)
+	variables := getCustomDataVariablesWithEncoding(config, compressFiles)
 	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml, config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables), true)
 
 	if e != nil {

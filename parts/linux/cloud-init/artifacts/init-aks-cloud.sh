@@ -250,14 +250,100 @@ function retrieve_rcv1p_certs {
     process_cert_operations "operationrequestsintermediate" || return 1
 }
 
+function system_ca_bundle {
+    local bundle=/etc/ssl/certs/ca-certificates.crt
+    [ -s "$bundle" ] || bundle=/etc/pki/tls/certs/ca-bundle.crt
+    [ -s "$bundle" ] || {
+        echo "ERROR: missing system CA bundle: $bundle" >&2
+        return 1
+    }
+    printf '%s\n' "$bundle"
+}
+
+function containerd_cri_ready {
+    local attempt
+    for attempt in {1..12}; do
+        if timeout 5 systemctl is-active --quiet containerd &&
+            timeout 5 crictl --runtime-endpoint unix:///run/containerd/containerd.sock info 2>/dev/null |
+                jq -e '.status.conditions | any(.type == "RuntimeReady" and .status == true)' >/dev/null; then
+            return 0
+        fi
+        sleep 5
+    done
+    echo "ERROR: containerd CRI did not become ready" >&2
+    return 1
+}
+
+function containerd_property {
+    timeout 10 systemctl show containerd --property="$1" --value
+}
+
+# Boot-local state survives failed attempts, but never PIS baking or reboot.
+refresh_certs_and_containerd() (
+    set -o pipefail
+    umask 077
+    local location="$1" state="${2:-/run/aks-ca-refresh}" bundle before prior="" after current active result rc action
+    trap 'rc=$?; if [ "$rc" -ne 0 ]; then
+        echo "ERROR: scheduled CA refresh or containerd recovery failed ($rc)" >&2
+        emit_event "AKS.CSE.rcv1p.containerdRefresh" "refresh/recovery failed ($rc)" "Error"
+    fi' EXIT
+    sleep "$((RANDOM % 301))" || return $?
+    mkdir -p "$state" || return $?
+    exec 9>"$state/lock" || return $?
+    flock -w 60 9 || return $?
+    bundle=$(system_ca_bundle) || return $?
+    before=$(sha256sum "$bundle" | cut -d' ' -f1) || return $?
+    active=$(containerd_property ActiveState) || return $?
+    if [ -f "$state/pending" ]; then
+        read -r before prior < "$state/pending" || return $?
+        # Optional invocation ID means a restart was attempted for this digest.
+        [[ "$before" =~ ^[a-f0-9]{64}$ ]] || return 1
+    elif [ "$active" = active ]; then
+        printf '%s\n' "$before" > "$state/pending.tmp" &&
+            mv "$state/pending.tmp" "$state/pending" || return $?
+    fi
+    # The baseline must precede even a partially failed installation.
+    refresh_certs "$location"
+    rc=$?
+    [ "$rc" -eq 0 ] || [ "$rc" -eq 3 ] || return "$rc"
+    [ -s "$bundle" ] || return 1
+    after=$(sha256sum "$bundle" | cut -d' ' -f1) || return $?
+    result=inactive
+    if [ -f "$state/pending" ]; then
+        result=unchanged
+        if [ "$before" != "$after" ] || [ -n "$prior" ]; then
+            active=$(containerd_property ActiveState) || return $?
+            current=$(containerd_property InvocationID) || return $?
+            # A failed restart may be retried; never start an unrelated stopped service.
+            [ "$active" = active ] && [ -n "$current" ] || { [ "$active" = failed ] && [ -n "$prior" ]; } || return 1
+            if [ "$before" = "$after" ] && [ -n "$prior" ] && [ -n "$current" ] && [ "$current" != "$prior" ] &&
+                containerd_cri_ready; then
+                result=recovered
+            else
+                prior="${current:--}"
+                printf '%s %s\n' "$after" "$prior" > "$state/pending.tmp" &&
+                    mv "$state/pending.tmp" "$state/pending" || return $?
+                action=try-restart
+                [ "$active" = failed ] && action=restart
+                timeout 90 systemctl "$action" containerd || return $?
+                containerd_cri_ready || return $?
+                current=$(containerd_property InvocationID) || return $?
+                [ -n "$current" ] && [ "$current" != "$prior" ] || return 1
+                result=restarted
+            fi
+        fi
+        rm "$state/pending" || return $?
+    fi
+    emit_event "AKS.CSE.rcv1p.containerdRefresh" "$result" || return $?
+    echo "CA_REFRESH_RESULT=$result"
+)
+
 function install_certs_to_trust_store {
     mkdir -p /root/AzureCACertificates
 
     debug_print_trust_store "before"
 
-    # Guard against empty glob: if no *.crt files exist, bash leaves the literal
-    # '*.crt', which would silently fail cp and could mask the failure since
-    # debug_print_trust_store below always returns 0.
+    # Do not copy an unexpanded glob or let diagnostics hide installation errors.
     if ! compgen -G "/root/AzureCACertificates/*.crt" > /dev/null; then
         echo "ERROR: no *.crt files in /root/AzureCACertificates to install" >&2
         return 1
@@ -278,10 +364,7 @@ function install_certs_to_trust_store {
         cp /root/AzureCACertificates/*.crt /usr/local/share/ca-certificates/ || rc=$?
         [ $rc -eq 0 ] && { update-ca-certificates || rc=$?; }
 
-        # This copies the updated bundle to the location used by OpenSSL which is commonly used.
-        # On Ubuntu 24.04, /usr/lib/ssl/cert.pem is already a symlink to
-        # /etc/ssl/certs/ca-certificates.crt; skip the cp in that case to avoid a
-        # "same file" error that would falsely fail trust-store installation.
+        # Ubuntu 24.04's OpenSSL path already links to this bundle.
         if [ $rc -eq 0 ] && [ ! /etc/ssl/certs/ca-certificates.crt -ef /usr/lib/ssl/cert.pem ]; then
             cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem || rc=$?
         fi
@@ -541,6 +624,50 @@ function determine_cert_endpoint_mode {
     echo "$mode"
 }
 
+function refresh_certs {
+    local refresh_location="$1" location_normalized cert_endpoint_mode opt_in_result cert_count
+    location_normalized="${refresh_location,,}"
+    location_normalized="${location_normalized//[[:space:]]/}"
+    if [ -z "$location_normalized" ]; then
+        echo "Warning: LOCATION is empty; defaulting custom cloud certificate endpoint mode to rcv1p"
+    fi
+    cert_endpoint_mode=$(determine_cert_endpoint_mode "$refresh_location")
+    echo "Using custom cloud certificate endpoint mode: ${cert_endpoint_mode}"
+    emit_event "AKS.CSE.rcv1p.certEndpointMode" "mode=${cert_endpoint_mode}, location=${location_normalized}"
+    mkdir -p /root/AzureCACertificates && rm -f /root/AzureCACertificates/* || return $?
+    if [ "$cert_endpoint_mode" = "legacy" ]; then
+        if ! logs_to_events "AKS.CSE.rcv1p.retrieveLegacyCerts" retrieve_legacy_certs; then
+            echo "ERROR: failed to retrieve legacy certificates from wireserver after retries"
+            return 1
+        fi
+    else
+        logs_to_events "AKS.CSE.rcv1p.isOptedIn" is_opted_in_for_root_certs
+        opt_in_result=$?
+        if [ "$opt_in_result" -eq 2 ]; then
+            echo "ERROR: cannot refresh certificates - wireserver unreachable for cert opt-in check"
+            emit_event "AKS.CSE.rcv1p.optInCheckFailed" "wireserver unreachable after retries" "Error"
+            return 1
+        elif [ "$opt_in_result" -ne 0 ]; then
+            emit_event "AKS.CSE.rcv1p.notOptedIn" "IsOptedInForRootCerts=false, skipping cert installation"
+            return 3
+        fi
+        emit_event "AKS.CSE.rcv1p.optedIn" "IsOptedInForRootCerts=true"
+        if logs_to_events "AKS.CSE.rcv1p.retrieveCerts" retrieve_rcv1p_certs; then
+            cert_count=$(find /root/AzureCACertificates -name '*.crt' | wc -l)
+            emit_event "AKS.CSE.rcv1p.certCount" "downloaded ${cert_count} certificates"
+        else
+            echo "ERROR: failed to retrieve rcv1p certificates from wireserver after retries"
+            emit_event "AKS.CSE.rcv1p.retrieveCertsFailed" "failed to retrieve rcv1p certificates" "Error"
+            return 1
+        fi
+    fi
+    logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store || {
+        echo "ERROR: failed to install ${cert_endpoint_mode} CA certificates into trust store" >&2
+        emit_event "AKS.CSE.rcv1p.installCertsFailed" "failed to install ${cert_endpoint_mode} CA certificates" "Error"
+        return 1
+    }
+}
+
 # shellcheck disable=SC2317
 ${__SOURCED__:+return}
 set -x
@@ -571,75 +698,15 @@ fi
 echo "Running on $NAME"
 
 
-# Certificate refresh behavior summary:
-# - legacy mode directly attempts certificate download from wireserver and only in ussec and usnat regions.
-# - rcv1p mode first checks IsOptedInForRootCerts, then downloads only when opted in.
-# - Wireserver failures are fatal — cert installation must succeed for the selected mode.
-
 refresh_location="${2:-${LOCATION}}"
-
-location_normalized="${refresh_location,,}"
-location_normalized="${location_normalized//[[:space:]]/}"
-if [ -z "$location_normalized" ]; then
-    echo "Warning: LOCATION is empty; defaulting custom cloud certificate endpoint mode to rcv1p"
+if [ "${1:-init}" = "ca-refresh" ]; then
+    refresh_certs_and_containerd "$refresh_location"
+    exit $?
 fi
-
-cert_endpoint_mode=$(determine_cert_endpoint_mode "$refresh_location")
-
-echo "Using custom cloud certificate endpoint mode: ${cert_endpoint_mode}"
-emit_event "AKS.CSE.rcv1p.certEndpointMode" "mode=${cert_endpoint_mode}, location=${location_normalized}"
-install_ca_refresh_schedule=0
-mkdir -p /root/AzureCACertificates
-rm -f /root/AzureCACertificates/*
-if [ "$cert_endpoint_mode" = "legacy" ]; then
-    install_ca_refresh_schedule=1
-    if logs_to_events "AKS.CSE.rcv1p.retrieveLegacyCerts" retrieve_legacy_certs; then
-        logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store
-    else
-        echo "ERROR: failed to retrieve legacy certificates from wireserver after retries"
-        exit 1
-    fi
-elif [ "$cert_endpoint_mode" = "rcv1p" ]; then
-    logs_to_events "AKS.CSE.rcv1p.isOptedIn" is_opted_in_for_root_certs
-    opt_in_result=$?
-    if [ $opt_in_result -eq 2 ]; then
-        # Fatal: wireserver was unreachable after retries. We cannot determine whether
-        # the node should use hardened certs or the default trust store. Silently
-        # falling back to the distro trust store would be a security hole if the
-        # customer intended hardened certs, so we fail hard here.
-        echo "ERROR: cannot provision node — wireserver unreachable for cert opt-in check"
-        emit_event "AKS.CSE.rcv1p.optInCheckFailed" "wireserver unreachable after retries" "Error"
-        exit 1
-    elif [ $opt_in_result -eq 0 ]; then
-        install_ca_refresh_schedule=1
-        emit_event "AKS.CSE.rcv1p.optedIn" "IsOptedInForRootCerts=true"
-        if logs_to_events "AKS.CSE.rcv1p.retrieveCerts" retrieve_rcv1p_certs; then
-            cert_count=$(find /root/AzureCACertificates -name '*.crt' 2>/dev/null | wc -l)
-            emit_event "AKS.CSE.rcv1p.certCount" "downloaded ${cert_count} certificates"
-            logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store || {
-                echo "ERROR: failed to install rcv1p CA certificates into trust store" >&2
-                emit_event "AKS.CSE.rcv1p.installCertsFailed" "failed to install rcv1p CA certificates" "Error"
-                exit 1
-            }
-        else
-            echo "ERROR: failed to retrieve rcv1p certificates from wireserver after retries"
-            emit_event "AKS.CSE.rcv1p.retrieveCertsFailed" "failed to retrieve rcv1p certificates" "Error"
-            exit 1
-        fi
-    else
-        emit_event "AKS.CSE.rcv1p.notOptedIn" "IsOptedInForRootCerts=false, skipping cert installation"
-    fi
-fi
-
-# In ca-refresh mode (invoked by the scheduled cron/systemd task with the location as arg),
-# only the cert refresh above is needed; exit before running the full init path.
-# Action values:
-# - init (default): full provisioning path
-# - ca-refresh <location>: periodic refresh path; location is passed as arg to avoid env dependency
-action=${1:-init}
-if [ "$action" = "ca-refresh" ] || [ "$install_ca_refresh_schedule" -eq 0 ]; then
-    exit 0
-fi
+refresh_certs "$refresh_location"
+refresh_result=$?
+[ "$refresh_result" -eq 3 ] && exit 0
+[ "$refresh_result" -eq 0 ] || exit "$refresh_result"
 
 if [ "$IS_UBUNTU" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
     scriptPath=$0
@@ -682,7 +749,7 @@ Description=Daily refresh of Azure Custom Cloud CA certificates
 [Timer]
 OnCalendar=19:00
 Persistent=true
-RandomizedDelaySec=300
+RandomizedDelaySec=0
 
 [Install]
 WantedBy=timers.target

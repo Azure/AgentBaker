@@ -109,7 +109,10 @@ class HotfixGenerateTests(unittest.TestCase):
                 self.assertEqual({variable}, blocks[0][0])
                 self.assertIn(f"- path: {{{{{path_function}}}}}", template)
                 self.assertIn('permissions: "0744"', template)
-                self.assertIn("encoding: gzip", template)
+                self.assertIn(
+                    'encoding: {{GetVariableProperty "cloudInitFile" "encoding"}}',
+                    template,
+                )
                 self.assertNotIn("{{if", template)
 
     def test_config_refactor_hotfix_selects_parent_and_new_modules(self):

@@ -76,6 +76,42 @@ func TestPartitionScenariosRejectsInvalidFilters(t *testing.T) {
 	}
 }
 
+func TestRCV1PRefreshScenarioFilters(t *testing.T) {
+	names := map[string]bool{
+		"RCV1P_Ubuntu2204": false, "RCV1P_Ubuntu2404": false,
+		"RCV1P_Ubuntu2604Minimal": false, "RCV1P_AzureLinuxV3": false, "RCV1P_ACL": false,
+		"RCV1P_ContainerdSyntheticCARotation/Ubuntu2204":   false,
+		"RCV1P_ContainerdSyntheticCARotation/Ubuntu2404":   false,
+		"RCV1P_ContainerdSyntheticCARotation/AzureLinuxV3": false,
+	}
+	for _, s := range scenario.List() {
+		if _, relevant := names[s.Name]; !relevant {
+			continue
+		}
+		names[s.Name] = true
+		for _, tc := range []struct {
+			name     string
+			filter   tagFilter
+			excluded bool
+		}{
+			{"opted in", tagFilter{run: "rcv1pcertmode=true"}, false},
+			{"explicit skip", tagFilter{skip: "rcv1pcertmode=true"}, true},
+			{"opted out", tagFilter{run: "rcv1pcertmode=false"}, true},
+			// Unfiltered runs rely on the scenario's explicit opt-in guard.
+			{"unfiltered", tagFilter{}, false},
+		} {
+			t.Run(s.Name+"/"+tc.name, func(t *testing.T) {
+				reason, err := filterReason(s.Name, s, tc.filter)
+				require.NoError(t, err)
+				require.Equal(t, tc.excluded, reason != "", reason)
+			})
+		}
+	}
+	for name, found := range names {
+		require.True(t, found, name)
+	}
+}
+
 // azureInitProbe returns a value that changes whenever config.Initialize runs.
 func azureInitProbe() string {
 	return config.VMSSHPrivateKeyFileName
