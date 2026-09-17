@@ -248,7 +248,7 @@ func (a *App) runProvisionWaitCommand(ctx context.Context, provisionStatusFiles 
 		a.eventLogger.LogEvent("ProvisionWait", "Completed", helpers.EventLevelInformational, startTime, endTime)
 		slog.Info("aks-node-controller finished successfully.")
 	}
-	slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
+	slog.Info("provision-wait finished")
 	return provisionOutput, err
 }
 
@@ -839,7 +839,10 @@ func evaluateProvisionStatus(data []byte) error {
 	}
 	if code != 0 {
 		outSnippet := result.Output
-		return fmt.Errorf("provision failed: exitCode=%d error=%s output=%q", code, result.Error, outSnippet)
+		return cli.Exit(
+			fmt.Sprintf("provision failed: exitCode=%d error=%s output=%q", code, result.Error, outSnippet),
+			code,
+		)
 	}
 	return nil
 }

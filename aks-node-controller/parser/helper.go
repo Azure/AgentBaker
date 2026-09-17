@@ -294,6 +294,26 @@ func getCSEConfigFilepath() string {
 	return cseConfigScriptFilepath
 }
 
+func getCSEConfigGPUFilepath() string {
+	return cseConfigGPUScriptFilepath
+}
+
+func getCSEConfigLocalDNSFilepath() string {
+	return cseConfigLocalDNSScriptFilepath
+}
+
+func getCSEConfigKubeletFilepath() string {
+	return cseConfigKubeletScriptFilepath
+}
+
+func getCSEConfigNetworkFilepath() string {
+	return cseConfigNetworkScriptFilepath
+}
+
+func getCSEConfigAddonsFilepath() string {
+	return cseConfigAddonsScriptFilepath
+}
+
 func getCustomSearchDomainFilepath() string {
 	return customSearchDomainsCSEScriptFilepath
 }

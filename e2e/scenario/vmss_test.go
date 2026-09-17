@@ -309,10 +309,12 @@ func TestWriteScriptHotfixFixture(t *testing.T) {
 	buildDir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(buildDir, "generated"), 0o755))
 	fixture := ScriptHotfixFixture{
-		Platform:    "ubuntu",
-		Destination: "/opt/azure/containers/provision_configs.sh",
-		Mode:        "0744",
-		Payload:     []byte("#!/bin/bash\necho e2e\n"),
+		Platform: "ubuntu",
+		Files: []ScriptHotfixFile{{
+			Destination: "/opt/azure/containers/provision_configs.sh",
+			Mode:        "0744",
+			Payload:     []byte("#!/bin/bash\necho e2e\n"),
+		}},
 	}
 
 	require.NoError(t, writeScriptHotfixFixture(buildDir, fixture))
@@ -330,20 +332,24 @@ func TestWriteScriptHotfixFixture(t *testing.T) {
 	var rendered scriptHotfixFixtureNodeCustomData
 	require.NoError(t, yaml.Unmarshal(renderedData, &rendered))
 	require.Len(t, rendered.WriteFiles, 1)
-	require.Equal(t, fixture.Destination, rendered.WriteFiles[0].Path)
-	require.Equal(t, fixture.Mode, rendered.WriteFiles[0].Permissions)
+	require.Equal(t, fixture.Files[0].Destination, rendered.WriteFiles[0].Path)
+	require.Equal(t, fixture.Files[0].Mode, rendered.WriteFiles[0].Permissions)
 	require.Equal(t, "base64", rendered.WriteFiles[0].Encoding)
 	payload, err := base64.StdEncoding.DecodeString(rendered.WriteFiles[0].Content)
 	require.NoError(t, err)
-	require.Equal(t, fixture.Payload, payload)
+	require.Equal(t, fixture.Files[0].Payload, payload)
 }
 
 func TestWriteScriptHotfixFixtureRejectsInvalidData(t *testing.T) {
-	valid := ScriptHotfixFixture{
-		Platform:    "ubuntu",
-		Destination: "/opt/azure/containers/provision_configs.sh",
-		Mode:        "0744",
-		Payload:     []byte("#!/bin/bash\n"),
+	validFixture := func() ScriptHotfixFixture {
+		return ScriptHotfixFixture{
+			Platform: "ubuntu",
+			Files: []ScriptHotfixFile{{
+				Destination: "/opt/azure/containers/provision_configs.sh",
+				Mode:        "0744",
+				Payload:     []byte("#!/bin/bash\n"),
+			}},
+		}
 	}
 	tests := []struct {
 		name   string
@@ -352,13 +358,13 @@ func TestWriteScriptHotfixFixtureRejectsInvalidData(t *testing.T) {
 		{
 			name: "relative destination",
 			mutate: func(fixture *ScriptHotfixFixture) {
-				fixture.Destination = "opt/provision_configs.sh"
+				fixture.Files[0].Destination = "opt/provision_configs.sh"
 			},
 		},
 		{
 			name: "invalid mode",
 			mutate: func(fixture *ScriptHotfixFixture) {
-				fixture.Mode = "0999"
+				fixture.Files[0].Mode = "0999"
 			},
 		},
 		{
@@ -370,13 +376,13 @@ func TestWriteScriptHotfixFixtureRejectsInvalidData(t *testing.T) {
 		{
 			name: "empty payload",
 			mutate: func(fixture *ScriptHotfixFixture) {
-				fixture.Payload = nil
+				fixture.Files[0].Payload = nil
 			},
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			fixture := valid
+			fixture := validFixture()
 			test.mutate(&fixture)
 			buildDir := t.TempDir()
 			require.NoError(t, os.MkdirAll(filepath.Join(buildDir, "generated"), 0o755))
