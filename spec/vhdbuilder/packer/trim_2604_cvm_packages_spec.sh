@@ -11,6 +11,7 @@ Describe 'trim-2604-cvm-packages'
     MARKED_FOR_REMOVAL_PACKAGES_FILE="${TEST_DIR}/marked-for-removal-packages.txt"
     REQUIRED_PACKAGES_FILE="${TEST_DIR}/required-packages.txt"
     FINAL_REQUIRED_PACKAGES_FILE="${TEST_DIR}/final-required-packages.txt"
+    FINAL_FORBIDDEN_PACKAGES_FILE="${TEST_DIR}/final-forbidden-packages.txt"
   }
 
   cleanup_trim() {
@@ -74,6 +75,7 @@ Describe 'trim-2604-cvm-packages'
     printf '%s\n' remove-me > "${MARKED_FOR_REMOVAL_PACKAGES_FILE}"
     printf '%s\n' initial-required-package > "${REQUIRED_PACKAGES_FILE}"
     printf '%s\n' final-required-package > "${FINAL_REQUIRED_PACKAGES_FILE}"
+    printf '%s\n' forbidden-package > "${FINAL_FORBIDDEN_PACKAGES_FILE}"
 
     dpkg-query() {
       for argument in "$@"; do
@@ -95,12 +97,45 @@ Describe 'trim-2604-cvm-packages'
     The output should not include "unexpected"
   End
 
+  It 'fails final verification when a forbidden vanilla package is installed'
+    printf '%s\n' final-required-package > "${FINAL_REQUIRED_PACKAGES_FILE}"
+    printf '%s\n' vanilla-package > "${FINAL_FORBIDDEN_PACKAGES_FILE}"
+
+    dpkg-query() {
+      for argument in "$@"; do
+        package="${argument}"
+      done
+      case "${package}" in
+        final-required-package|vanilla-package)
+          echo installed
+          ;;
+      esac
+    }
+
+    When call main --verify-only
+    The status should be failure
+    The error should include "Forbidden CVM package pattern is installed: vanilla-package"
+  End
+
   It 'fails final verification when the required package list is empty'
     : > "${FINAL_REQUIRED_PACKAGES_FILE}"
 
     When call main --verify-only
     The status should be failure
     The error should include "Required package list is missing or empty"
+  End
+
+  It 'fails final verification when the forbidden package list is empty'
+    printf '%s\n' final-required-package > "${FINAL_REQUIRED_PACKAGES_FILE}"
+    : > "${FINAL_FORBIDDEN_PACKAGES_FILE}"
+
+    dpkg-query() {
+      echo installed
+    }
+
+    When call main --verify-only
+    The status should be failure
+    The error should include "Forbidden package list is missing or empty"
   End
 
   It 'rejects unknown arguments'

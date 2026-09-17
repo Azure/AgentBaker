@@ -4,6 +4,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MARKED_FOR_REMOVAL_PACKAGES_FILE="${SCRIPT_DIR}/marked-for-removal-packages.txt"
 REQUIRED_PACKAGES_FILE="${SCRIPT_DIR}/required-packages.txt"
 FINAL_REQUIRED_PACKAGES_FILE="${SCRIPT_DIR}/final-required-packages.txt"
+FINAL_FORBIDDEN_PACKAGES_FILE="${SCRIPT_DIR}/final-forbidden-packages.txt"
 
 readPackageList() {
     sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$1"
@@ -33,13 +34,28 @@ verifyRequiredPackagesInstalled() {
     done < <(readPackageList "${package_file}")
 }
 
+verifyForbiddenPackagesAbsent() {
+    local package_file="$1"
+    local forbidden
+
+    validatePackageList "${package_file}" "Forbidden package list" || return 1
+
+    while IFS= read -r forbidden; do
+        if dpkg-query -W -f='${db:Status-Status}\n' "${forbidden}" 2>/dev/null | grep -Fxq "installed"; then
+            echo "Forbidden CVM package pattern is installed: ${forbidden}" >&2
+            return 1
+        fi
+    done < <(readPackageList "${package_file}")
+}
+
 main() {
     local package
     local -a purge_packages=()
 
     case "${1:-}" in
         --verify-only)
-            verifyRequiredPackagesInstalled "${FINAL_REQUIRED_PACKAGES_FILE}"
+            verifyRequiredPackagesInstalled "${FINAL_REQUIRED_PACKAGES_FILE}" || return 1
+            verifyForbiddenPackagesAbsent "${FINAL_FORBIDDEN_PACKAGES_FILE}"
             return
             ;;
         "")
