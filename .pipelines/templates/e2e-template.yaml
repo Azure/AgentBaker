@@ -92,13 +92,19 @@ jobs:
       # Sets ACL_BASE_IMAGE_SIGNED in this job's own scope, so the env var
       # below can resolve it via runtime macro syntax -- task.setvariable
       # only propagates to later steps within the SAME job, not across
-      # jobs/stages. Uses the default aclBaseImageSource (marketplace),
-      # which leaves ACL_BASE_IMAGE_SIGNED true; only the dedicated ACL
-      # VHD-build jobs pass aclBaseImageSource: acldevel explicitly. Calls
-      # .acl-base-image-signed-vars.yaml directly (not
+      # jobs/stages. All ACL VHD builds are pinned to the unsigned acldevel
+      # source (see the build stage's .acl-base-image-vars.yaml
+      # invocations), so this job must set the same aclBaseImageSource to
+      # get ACL_BASE_IMAGE_SIGNED=false here too; otherwise ACL scenarios
+      # would incorrectly run with Secure Boot enforced against an unsigned
+      # image. Calls .acl-base-image-signed-vars.yaml directly (not
       # .acl-base-image-vars.yaml) since this job only needs the signed
-      # flag, not the variant-specific image-pinning vars.
+      # flag, not the variant-specific image-pinning vars -- and variant is
+      # not meaningful here anyway, since this single job tests all
+      # variants of the pinned source.
       - template: ./.acl-base-image-signed-vars.yaml
+        parameters:
+          aclBaseImageSource: acldevel
 
       - task: AzureCLI@2
         inputs:

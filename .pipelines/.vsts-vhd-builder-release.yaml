@@ -829,9 +829,9 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.acl-base-image-vars.yaml
             parameters:
-              aclBaseImageSource: ${{ variables.aclBaseImageSource }}
+              aclBaseImageSource: acldevel
               variant: amd64
-              sigSourceImageVersionOverride: ${{ variables.sigSourceImageVersionOverride }}
+              sigSourceImageVersionOverride: 0.20260912.1202056
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
@@ -855,9 +855,9 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.acl-base-image-vars.yaml
             parameters:
-              aclBaseImageSource: ${{ variables.aclBaseImageSource }}
+              aclBaseImageSource: acldevel
               variant: arm64
-              sigSourceImageVersionOverride: ${{ variables.sigSourceImageVersionOverride }}
+              sigSourceImageVersionOverride: 0.20260912.1202056
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
@@ -881,9 +881,9 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.acl-base-image-vars.yaml
             parameters:
-              aclBaseImageSource: ${{ variables.aclBaseImageSource }}
+              aclBaseImageSource: acldevel
               variant: amd64
-              sigSourceImageVersionOverride: ${{ variables.sigSourceImageVersionOverride }}
+              sigSourceImageVersionOverride: 0.20260912.1202056
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
@@ -907,9 +907,9 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.acl-base-image-vars.yaml
             parameters:
-              aclBaseImageSource: ${{ variables.aclBaseImageSource }}
+              aclBaseImageSource: acldevel
               variant: arm64
-              sigSourceImageVersionOverride: ${{ variables.sigSourceImageVersionOverride }}
+              sigSourceImageVersionOverride: 0.20260912.1202056
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}

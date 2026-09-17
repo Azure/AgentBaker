@@ -272,7 +272,9 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.acl-base-image-vars.yaml
           parameters:
+            aclBaseImageSource: acldevel
             variant: amd64
+            sigSourceImageVersionOverride: 0.20260912.1202056
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-tl-gen2
@@ -293,7 +295,9 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.acl-base-image-vars.yaml
           parameters:
+            aclBaseImageSource: acldevel
             variant: arm64
+            sigSourceImageVersionOverride: 0.20260912.1202056
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-arm64-tl-gen2
@@ -314,7 +318,9 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.acl-base-image-vars.yaml
           parameters:
+            aclBaseImageSource: acldevel
             variant: amd64
+            sigSourceImageVersionOverride: 0.20260912.1202056
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-fips-tl-gen2
@@ -335,7 +341,9 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.acl-base-image-vars.yaml
           parameters:
+            aclBaseImageSource: acldevel
             variant: arm64
+            sigSourceImageVersionOverride: 0.20260912.1202056
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-arm64-fips-tl-gen2
