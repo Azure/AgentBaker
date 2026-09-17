@@ -184,12 +184,9 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
 
   # Choose kernel packages based on Ubuntu version and architecture
   if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-    KERNEL_IMAGE="linux-image-azure-fde-lts-${UBUNTU_RELEASE}"
+    KERNEL_IMAGE="linux-azure-fde-lts-${UBUNTU_RELEASE}"
     KERNEL_PACKAGES=(
-      "linux-image-azure-fde-lts-${UBUNTU_RELEASE}"
-      "linux-tools-azure-lts-${UBUNTU_RELEASE}"
-      "linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
-      "linux-headers-azure-lts-${UBUNTU_RELEASE}"
+      "${KERNEL_IMAGE}"
     )
     echo "Installing fde LTS kernel for CVM Ubuntu ${UBUNTU_RELEASE}"
   else

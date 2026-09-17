@@ -401,6 +401,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/ubuntu-2604-cvm/final-required-packages.txt",
+      "destination": "/home/packer/final-required-packages.txt"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/install-ig.sh",
       "destination": "/home/packer/install-ig.sh"
     },
