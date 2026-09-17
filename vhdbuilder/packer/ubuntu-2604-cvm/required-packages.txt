@@ -9,7 +9,6 @@ linux-azure-fde
 linux-azure-fde-cloud-tools-*
 linux-azure-fde-headers-*
 linux-azure-fde-tools-*
-linux-azure-tools-*
 linux-cloud-tools-*-azure-fde
 linux-cloud-tools-azure-fde
 linux-headers-*-azure-fde
@@ -18,7 +17,6 @@ linux-image-*-azure-fde
 linux-image-azure-fde
 linux-main-modules-zfs-*-azure-fde
 linux-modules-*-azure-fde
-linux-tools-*-azure
 linux-tools-*-azure-fde
 linux-tools-azure-fde
 logrotate
