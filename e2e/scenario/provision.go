@@ -194,7 +194,7 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 	s.Location = strings.ToLower(s.Location)
 
 	if s.K8sSystemPoolSKU == "" {
-		s.K8sSystemPoolSKU = config.Config.DefaultVMSKU
+		s.K8sSystemPoolSKU = config.Config.VMSKU()
 	}
 
 	defer func() {
@@ -239,7 +239,7 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 		s.Runtime = &ScenarioRuntime{}
 	}
 	s.Runtime.Cluster = cluster
-	s.Runtime.VMSize = config.Config.DefaultVMSKU
+	s.Runtime.VMSize = config.Config.VMSKU()
 	s.Runtime.VMSSName = generateVMSSName(s)
 
 	testKube, err := cluster.NewKubeclientForTest()
