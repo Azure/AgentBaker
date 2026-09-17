@@ -103,12 +103,21 @@ restore_localdns_test_state() {
     # The restart loop can hit systemd's start limit without creating NORESTART.
     # Clear any failed state before trying to start LocalDNS; this is best-effort
     # so a reset failure does not prevent the rest of cleanup.
-    sudo systemctl reset-failed localdns.service || true
-    if ! sudo systemctl is-active --quiet localdns.service; then
-        sudo systemctl start localdns.service || { echo "ERROR: failed to restart localdns.service during test cleanup"; cleanup_status=1; }
-    fi
+    # Retry the restore rather than firing a single start. The block above kills the
+    # supervisor, and the "Failed to kill control group" warning this test tolerates means
+    # an orphaned CoreDNS can still hold 169.254.10.10:53 for a moment afterwards -- an
+    # immediate start then fails to bind and exits with an error. That is the exact
+    # transient RestartSec=2 exists to wait out in production, so wait for it here too
+    # instead of failing the scenario on a cleanup race.
+    for cleanup_attempt in 1 2 3 4 5 6; do
+        sudo systemctl is-active --quiet localdns.service && break
+        sudo systemctl reset-failed localdns.service || true
+        sudo systemctl start localdns.service && break
+        sleep 3
+    done
     if ! sudo systemctl is-active --quiet localdns.service; then
         echo "ERROR: localdns.service is not active after test cleanup"
+        sudo systemctl status localdns.service --no-pager -l || true
         cleanup_status=1
     fi
     if [ "$test_status" -eq 0 ] && [ "$cleanup_status" -ne 0 ]; then
