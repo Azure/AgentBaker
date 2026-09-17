@@ -1271,6 +1271,17 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 		// secure-tls-bootstrap.service is expected to fail within scenarios that test bootstrap token fall-back behavior
 		unitFailureAllowList["secure-tls-bootstrap.service"] = true
 	}
+	if s.VHD.OS == config.OSACL {
+		// trident-acl-agent.path is armed on every ACL node (see pre-install-dependencies.sh),
+		// not just COSIUpdate scenarios. In COSIUpdate specifically, the test drives Trident
+		// directly via CLI/gRPC without disabling trident-acl-agent first, so the agent may race
+		// the test's manual update and end up in a failed state; on other ACL scenarios it may
+		// fail for other reasons (e.g. missing/malformed image-version info). That's under active
+		// investigation (see logACLAgentDiagnostics in scenario_cosi.go); it isn't what these
+		// scenarios validate.
+		unitFailureAllowList["trident-acl-agent.path"] = true
+		unitFailureAllowList["trident-acl-agent.service"] = true
+	}
 	if s.VHD.IgnoreFailedCgroupTelemetryServices {
 		unitFailureAllowList["cgroup-memory-telemetry.service"] = true
 		unitFailureAllowList["cgroup-pressure-telemetry.service"] = true

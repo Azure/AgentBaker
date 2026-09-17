@@ -18,7 +18,7 @@ func init() {
 		{name: "Ubuntu2604Minimal", vhd: config.VHDUbuntu2604MinimalGen2Containerd},
 		{name: "AzureLinuxV3", vhd: config.VHDAzureLinuxV3Gen2},
 		{name: "ACL", vhd: config.VHDACLGen2TL, vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 		}},
 	}
 
