@@ -564,6 +564,14 @@
       "destination": "/home/packer/cgroup-cpu-telemetry.sh"
     },
     {
+      "source": "parts/linux/cloud-init/artifacts/service-execution-telemetry.sh",
+      "destination": "/home/packer/service-execution-telemetry.sh"
+    },
+    {
+      "source": "parts/linux/cloud-init/artifacts/service-execution-telemetry@.service",
+      "destination": "/home/packer/service-execution-telemetry@.service"
+    },
+    {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.service",
       "destination": "/home/packer/cgroup-cpu-telemetry.service"

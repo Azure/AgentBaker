@@ -1,8 +1,12 @@
 [Unit]
 Description=AKS Log Collector
+OnSuccess=service-execution-telemetry@aks\x2dlog\x2dcollector.service.service
+OnFailure=service-execution-telemetry@aks\x2dlog\x2dcollector.service.service
 
 [Service]
 Type=oneshot
 Slice=aks-log-collector.slice
+CPUAccounting=true
+MemoryAccounting=true
 ExecStart=/opt/azure/containers/aks-log-collector.sh
 RemainAfterExit=no
