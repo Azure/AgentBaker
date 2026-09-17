@@ -1377,6 +1377,24 @@ func cseRoundTrip(t *testing.T, path string) []byte {
 	return decoded
 }
 
+func TestGzipWriterPoolDoesNotMixPayloads(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		payload := strings.Repeat(string(rune('a'+i)), 4096)
+		t.Run(string(rune('a'+i)), func(t *testing.T) {
+			t.Parallel()
+
+			compressed := getGzippedBufferFromBytes([]byte(payload))
+			decoded, err := getGzipDecodedValue(compressed)
+			if err != nil {
+				t.Fatalf("gzip decode failed: %v", err)
+			}
+			if string(decoded) != payload {
+				t.Fatal("gzip payload was corrupted")
+			}
+		})
+	}
+}
+
 // cseValidateBashSyntax runs bash -n on the decoded script to catch syntax errors
 // introduced by comment stripping. Skips scripts with Go template directives.
 func cseValidateBashSyntax(t *testing.T, script string, decoded []byte) {
