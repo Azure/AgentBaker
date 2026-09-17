@@ -218,7 +218,12 @@ DROPIN=` + localdnsFaultDropIn + `
 WORK=$(mktemp -d)
 
 sudo test -f "$SRC"
-sudo cp "$SRC" "$WORK/script"
+# 'sudo cat > file' rather than 'sudo cp': cp creates the copy root-owned and, under
+# root's umask, mode 0750. This script runs unprivileged (hence sudo everywhere), so the
+# greps and awks below could not read a root-only copy -- grep would fail with permission
+# denied, print nothing to stdout, and the anchor count would come back empty rather than
+# a number. Redirecting makes the copy owned by the calling user.
+sudo cat "$SRC" > "$WORK/script"
 
 # insert_hook <anchor-line> <before|after> <block-file>
 #
@@ -227,7 +232,17 @@ sudo cp "$SRC" "$WORK/script"
 # always passes.
 insert_hook() {
     anchor=$1; pos=$2; blockfile=$3
-    count=$(grep -c -x -F "$anchor" "$WORK/script" || true)
+    count=$(grep -c -x -F "$anchor" "$WORK/script" 2>/dev/null || true)
+    # Distinguish "could not read the file" from "did not match": an unreadable file makes
+    # grep print nothing, leaving count empty, which otherwise surfaces as a confusing
+    # "matched  lines" and looks like a missing anchor.
+    case "$count" in
+        ''|*[!0-9]*)
+            echo "ANCHOR-FAIL: could not count '$anchor' in $WORK/script (got [$count])"
+            ls -la "$WORK/script" || true
+            exit 1
+            ;;
+    esac
     if [ "$count" != "1" ]; then
         echo "ANCHOR-FAIL: '$anchor' matched $count lines in localdns.sh, expected exactly 1"
         echo "localdns.sh has changed; refresh the e2e fault anchors."

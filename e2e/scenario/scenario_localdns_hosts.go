@@ -137,6 +137,16 @@ sudo systemctl is-active --quiet localdns.service
 test_start=$(date +%s)
 
 for i in 1 2 3; do
+    # Clear the start counter before each kill. The budget (StartLimitBurst=5 in any
+    # StartLimitIntervalSec=720 window) belongs to the unit and is shared by every actor
+    # that starts it -- CSE at provisioning, the validations above, and systemd's own
+    # Restart=on-failure. Without this, the starts already spent by the time we get here
+    # leave fewer than three slots, and the third kill's automatic restart is refused with
+    # "Start request repeated too quickly", so the service never returns and this loop
+    # fails for the wrong reason. What we are testing here is that Restart=on-failure
+    # recovers the service, not the rate limiter, so take the limiter out of the picture.
+    # restart_localdns_cleanly (validators.go) and the cleanup trap above do the same.
+    sudo systemctl reset-failed localdns.service || true
     killed=$(sudo systemctl show -p MainPID --value localdns.service)
     test "$killed" -gt 0
     sudo kill -9 "$killed"
@@ -155,10 +165,14 @@ for i in 1 2 3; do
 done
 
 restarts_after=$(sudo systemctl show localdns.service -p NRestarts --value)
-# The loop above performs three kill/restart cycles. The manual start before
-# the loop resets NRestarts to zero, so assert the absolute restart count.
-test "$restarts_after" -ge 3 || {
-    echo "FAIL: expected >=3 systemd restarts, got $restarts_after"
+# 'systemctl reset-failed' zeroes NRestarts as well as the start-limit counter, and the
+# loop above resets before every kill, so this now reports the restarts from the final
+# cycle only -- expect 1, not 3. The three cycles are already proven individually: each
+# iteration requires "$recovered" = true, which demands a new, different MainPID, so a
+# missed recovery fails there rather than here. This remains as a check that the last
+# kill really was recovered by Restart=on-failure and not by something else.
+test "$restarts_after" -ge 1 || {
+    echo "FAIL: expected >=1 systemd restart after the final kill, got $restarts_after"
     exit 1
 }
 
