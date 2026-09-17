@@ -63,6 +63,8 @@ Describe "Containerd Functions Tests" {
       return "ltsc2022"
     }
 
+    function Get-Service {}
+
     . $PSScriptRoot\helpers.ps1
     . $PSScriptRoot\containerdfunc.ps1
     . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
@@ -555,73 +557,23 @@ Describe "Containerd Functions Tests" {
   Describe 'RegisterContainerDService' {
     BeforeEach {
       Mock Assert-FileExists
+      Mock Remove-ServiceIfExists
       Mock Invoke-Nssm
-      Mock Start-Service
-
-      $script:capturedFilePath = $null
-      $script:capturedContent = $null
-      Mock Out-FileAscii -MockWith {
-        param($Content,$FilePath)
-        $script:capturedFilePath = $FilePath
-        $script:capturedContent = $Content
+      Mock Get-Service -MockWith {
+        return [PSCustomObject]@{Name = 'containerd'; Status = 'Running'}
       }
     }
 
-    Context 'when containerd service does not exist' {
-      BeforeEach {
-        $script:GetServiceCallCount = 0
-        $mockRunningSvc = [PSCustomObject]@{Name = 'containerd'; Status = 'Running'}
-        Mock Get-Service -MockWith {
-          $script:GetServiceCallCount++
-          if ($script:GetServiceCallCount -eq 1) { return $null }
-          return $mockRunningSvc
-        }
-        Mock sc.exe
-      }
+    It 'removes an existing containerd service before registering it' {
+      RegisterContainerDService -kubedir 'C:\k'
 
-      It 'does not call sc.exe when service does not exist' {
-        RegisterContainerDService -kubedir 'C:\k'
-
-        Assert-MockCalled sc.exe -Exactly -Times 0
-      }
-    }
-
-    Context 'when containerd service already exists' {
-      BeforeEach {
-        $script:GetServiceCallCount = 0
-        $mockExistingSvc = [PSCustomObject]@{Name = 'containerd'; Status = 'Stopped'}
-        $mockRunningSvc = [PSCustomObject]@{Name = 'containerd'; Status = 'Running'}
-        Mock Get-Service -MockWith {
-          $script:GetServiceCallCount++
-          if ($script:GetServiceCallCount -eq 1) { return $mockExistingSvc }
-          return $mockRunningSvc
-        }
-      }
-
-      It 'calls sc.exe delete to remove the existing service' {
-        Mock sc.exe -MockWith { $global:LASTEXITCODE = 0 }
-
-        RegisterContainerDService -kubedir 'C:\k'
-
-        Assert-MockCalled sc.exe -Exactly -Times 1
-      }
-
-      It 'does not throw when sc.exe delete succeeds' {
-        Mock sc.exe -MockWith { $global:LASTEXITCODE = 0 }
-
-        { RegisterContainerDService -kubedir 'C:\k' } | Should -Not -Throw
-      }
-
-      It 'does not throw when sc.exe delete fails (best-effort cleanup)' {
-        Mock sc.exe -MockWith { $global:LASTEXITCODE = 1 }
-
-        { RegisterContainerDService -kubedir 'C:\k' } | Should -Not -Throw
+      Assert-MockCalled Remove-ServiceIfExists -Exactly -Times 1 -ParameterFilter {
+        $ServiceName -eq 'containerd'
       }
     }
 
     Context 'when nssm fails to register containerd' {
       BeforeEach {
-        Mock Get-Service -MockWith { return $null }
         Mock Invoke-Nssm -MockWith { throw 'nssm failed' }
         Mock Set-ExitCode -MockWith {
           param($ExitCode, $ErrorMessage)
