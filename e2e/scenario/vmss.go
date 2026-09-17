@@ -414,8 +414,16 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("generate custom data with NBC cmd hack: %w", err)
 		}
 	}
-	if len(s.Config.CustomDataWriteFiles) > 0 {
-		customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
+	customDataWriteFiles := s.Config.CustomDataWriteFiles
+	if s.Config.CustomDataWriteFilesWithError != nil {
+		generatedWriteFiles, err := s.Config.CustomDataWriteFilesWithError()
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("generate customData write_files entries: %w", err)
+		}
+		customDataWriteFiles = append(customDataWriteFiles, generatedWriteFiles...)
+	}
+	if len(customDataWriteFiles) > 0 {
+		customData, err = injectWriteFilesEntriesToCustomData(customData, customDataWriteFiles)
 		if err != nil {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("inject customData write_files entries: %w", err)
 		}
@@ -510,7 +518,7 @@ func usesScriptlessNBCCSECmd(s *Scenario) bool {
 }
 
 func enableScriptlessCompilation(s *Scenario) bool {
-	return usesScriptlessNBCCSECmd(s) && len(s.Config.CustomDataWriteFiles) <= 0 && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.VHD.Flatcar
+	return usesScriptlessNBCCSECmd(s) && len(s.Config.CustomDataWriteFiles) <= 0 && s.Config.CustomDataWriteFilesWithError == nil && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.VHD.Flatcar
 }
 
 func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) {

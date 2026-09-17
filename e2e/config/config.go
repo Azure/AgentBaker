@@ -49,6 +49,8 @@ type Configuration struct {
 	DefaultPollInterval                    time.Duration
 	DefaultSubnetName                      string
 	DefaultVMSKU                           string
+	ANCHotfixE2EBaseVersion                string
+	ANCHotfixE2EVersion                    string
 	Gen1SCSIVMSKU                          string
 	MANAVMSKU                              string
 	DisableScriptless                      bool
