@@ -1,6 +1,20 @@
 #!/bin/bash
 set -uo pipefail
 
+isNonNegativeInteger() {
+    case "$1" in
+        ''|*[!0-9]*) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+isPositiveInteger() {
+    case "$1" in
+        ''|*[!0-9]*|0) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
 readCounter() {
     local file="$1"
     local key="$2"
@@ -12,7 +26,7 @@ readCounter() {
     fi
 
     value=$(awk -v key="${key}" '$1 == key { print $2; exit }' "${file}")
-    if [[ "${value}" =~ ^[0-9]+$ ]]; then
+    if isNonNegativeInteger "${value}"; then
         echo "${value}"
     else
         echo "Not Found"
@@ -23,7 +37,7 @@ convertCounterToUsec() {
     local value="$1"
     local divisor="$2"
 
-    if [[ "${value}" =~ ^[0-9]+$ ]] && [[ "${divisor}" =~ ^[1-9][0-9]*$ ]]; then
+    if isNonNegativeInteger "${value}" && isPositiveInteger "${divisor}"; then
         echo $((value / divisor))
     else
         echo "Not Found"
@@ -34,7 +48,7 @@ convertTicksToUsec() {
     local value="$1"
     local ticks_per_second="$2"
 
-    if [[ "${value}" =~ ^[0-9]+$ ]] && [[ "${ticks_per_second}" =~ ^[1-9][0-9]*$ ]]; then
+    if isNonNegativeInteger "${value}" && isPositiveInteger "${ticks_per_second}"; then
         echo $(((value / ticks_per_second) * 1000000 + (value % ticks_per_second) * 1000000 / ticks_per_second))
     else
         echo "Not Found"
