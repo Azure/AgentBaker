@@ -25,13 +25,15 @@ This script:
      customDatasources) to compute a best-effort recommendation: the
      highest build found upstream for the PRIOR release.
 
-Version comparison currently only understands a `major.minor.patch` style
-release embedded in the version string (the format used by every entry in
-components.json today, e.g. "1.35.7-ubuntu24.04u2" or "v1.35.7-2-azlinux3").
-Entries whose version strings don't contain a recognizable major.minor.patch
-are skipped rather than guessed at -- broadening to other formats (date-based
-tags, bare commit SHAs, etc.) is left for a follow-up once real examples of
-those formats show up in this file.
+Version comparison currently only understands one narrow, unambiguous shape:
+an exact `v?MAJOR.MINOR.PATCH-BUILD` string where BUILD is purely numeric
+(e.g. "v0.1.16-16" or "0.1.16-16"). That's the one case where "same release,
+different build" can be confirmed with certainty. Entries whose
+latestVersion/previousLatestVersion don't match this exact shape -- e.g.
+"1.35.7-ubuntu24.04u2" (distro suffix), "10.0.20348.5622" (4-part Windows
+build), or a bare "1.35.7" (no build suffix) -- are skipped rather than
+guessed at; broadening to those formats is left for a follow-up once we're
+confident how to compare them unambiguously.
 
 This script only reports; it never rewrites components.json. Recommendations
 are best-effort and not independently re-verified here -- if a suggested
@@ -75,24 +77,28 @@ class ComponentEntry:
     previous_latest_version: Optional[str]
 
 
-RELEASE_RE = re.compile(r"v?(?P<nums>\d+(?:\.\d+)+)")
+RELEASE_RE = re.compile(r"^v?(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)-(?P<build>\d+)$")
 
 
 def extract_release(version: str) -> Optional[tuple]:
-    """Extract the full dot-separated numeric release embedded in a
-    build/version string, e.g. "1.35.7" from "1.35.7-ubuntu24.04u2", or
-    "10.0.20348.5622" from a 4-part Windows build number. Returns None if
-    no such pattern is found -- entries in that shape are skipped rather
-    than guessed at (see module docstring).
+    """Extract the major.minor.patch release from a version string, but
+    only for the narrow, unambiguous shape this check targets: an exact
+    `v?MAJOR.MINOR.PATCH-BUILD` string where BUILD is purely numeric, e.g.
+    "v0.1.16-16" or "0.1.16-16". This is the one shape where "same release,
+    different build" can be confirmed with certainty -- the dash cleanly
+    separates the semver release from a package/image build/revision
+    counter.
 
-    The whole numeric run is captured (not hardcoded to 3 parts) so that
-    schemes with more segments than major.minor.patch, such as Windows's
-    major.minor.build.revision, aren't falsely treated as "the same
-    release" just because their first three segments match."""
-    m = RELEASE_RE.search(version)
+    Anything else (e.g. "1.35.7-ubuntu24.04u2", "10.0.20348.5622", a bare
+    "1.35.7" with no build suffix, or non-numeric suffixes like
+    "-windows-hpc-1") returns None and is skipped rather than guessed at:
+    those formats mix in OS/distro identifiers or extra version segments
+    that make "same release" ambiguous to determine (see module
+    docstring)."""
+    m = RELEASE_RE.match(version)
     if not m:
         return None
-    return tuple(int(part) for part in m.group("nums").split("."))
+    return (int(m.group("major")), int(m.group("minor")), int(m.group("patch")))
 
 
 def natural_sort_key(revision: str):
