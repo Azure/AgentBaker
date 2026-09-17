@@ -103,10 +103,12 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Validate previousLatestVersion targets a genuinely prior release
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           set -ex
           python3 .github/scripts/validate_previous_version.py \
-            --base "origin/${{ github.event.pull_request.base.ref }}" \
+            --base "origin/${BASE_REF}" \
             --file parts/common/components.json \
             --report previous_version_report.md
 
