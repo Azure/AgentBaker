@@ -46,7 +46,7 @@ Describe 'trim-2604-cvm-packages'
     The output should include "Purging 1 installed server-cvm packages marked for removal"
     The output should include "apt-get -o DPkg::Lock::Timeout=300 purge -y --no-auto-remove --allow-remove-essential remove-me"
     The output should not include "allow-remove-essential absent-package"
-    The output should include "apt-mark manual curl gpg jq logrotate rsyslog sudo xfsprogs"
+    The output should include "apt-mark manual cron curl gpg jq logrotate rsyslog sudo tcpdump xfsprogs"
   End
 
   It 'fails when the removal list is empty'

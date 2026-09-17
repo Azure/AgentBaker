@@ -81,7 +81,7 @@ main() {
         echo "No installed server-cvm packages marked for removal were found"
     fi
 
-    apt-mark manual curl gpg jq logrotate rsyslog sudo xfsprogs
+    apt-mark manual cron curl gpg jq logrotate rsyslog sudo tcpdump xfsprogs
     verifyRequiredPackagesInstalled "${REQUIRED_PACKAGES_FILE}"
 }
 
