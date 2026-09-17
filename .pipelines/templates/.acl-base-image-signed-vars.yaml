@@ -1,0 +1,39 @@
+# Sets ACL_BASE_IMAGE_SIGNED from aclBaseImageSource alone. Deliberately
+# independent of variant (amd64/arm64): the e2e stage runs a single job
+# across all variants of a given source, so no per-variant value could ever
+# be selected correctly there. Every base-image source must therefore set
+# (or leave) ACL_BASE_IMAGE_SIGNED the same for all variants it supports --
+# if a future source's signed status ever needs to vary by variant, this
+# template (and the single-flag Config.ACLBaseImageSigned it feeds) will
+# need a larger redesign, not just a parameter added here.
+#
+# aclBaseImageSource selects where the ACL base image comes from:
+#   marketplace - Azure Marketplace image (what "main" uses today). Default
+#                 when not specified. Signed.
+#   acg         - the ACL prod pipeline's Azure Compute Gallery image
+#                 (see aadagarwal/switch-acl-base-image-to-acg). Signed.
+#   acldevel    - the acldevel dev pipeline's unsigned image (see PR #9458).
+#                 Sets ACL_BASE_IMAGE_SIGNED=false because acldevel images
+#                 are unsigned and cannot pass UEFI Secure Boot signature
+#                 verification; read by all ACL e2e scenarios to select a VM
+#                 config with Secure Boot disabled.
+#
+# Included by .acl-base-image-vars.yaml (for build jobs) and invoked
+# directly by e2e-template.yaml (which only needs the signed flag, not the
+# variant-specific image-pinning vars).
+parameters:
+  - name: aclBaseImageSource
+    type: string
+    default: marketplace
+    values:
+      - marketplace
+      - acg
+      - acldevel
+
+steps:
+  - bash: echo '##vso[task.setvariable variable=ACL_BASE_IMAGE_SIGNED]true'
+    displayName: Set ACL_BASE_IMAGE_SIGNED (default signed)
+
+  - ${{ if eq(parameters.aclBaseImageSource, 'acldevel') }}:
+      - bash: echo '##vso[task.setvariable variable=ACL_BASE_IMAGE_SIGNED]false'
+        displayName: Set ACL_BASE_IMAGE_SIGNED (acldevel, unsigned)
