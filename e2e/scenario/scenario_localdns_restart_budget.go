@@ -138,6 +138,13 @@ check StartLimitIntervalUSec "12min"
 check StartLimitBurst "5"
 check RestartUSec "2s"
 
+# Restart= is not part of this PR, but the whole matrix depends on it: with Restart=no the
+# unit goes terminal after a single start and every fault would report "reached 'failed'
+# without the start limiter refusing a start". An earlier e2e validation leaving a
+# Restart=no drop-in behind caused exactly that, so assert it here where the message is
+# unambiguous rather than letting each fault fail confusingly.
+check Restart "on-failure"
+
 # The threshold is StartLimitIntervalSec/StartLimitBurst = 720/5 = 144s, which only clears
 # the slowest restart cycle while TimeoutStartSec stays at the inherited 90s. It is not
 # pinned in the unit, so a change to DefaultTimeoutStartSec would move the slowest cycle
@@ -432,6 +439,14 @@ fi
 if ! sudo journalctl -u localdns.service --since "$since" --no-pager | grep -q 'Start request repeated too quickly'; then
     echo "FAIL: $LABEL reached 'failed' without the start limiter refusing a start."
     echo "      Something other than the restart budget produced the terminal state."
+    echo "      ExecStarts observed: $starts (expected the burst of $burst)."
+    echo "--- unit properties ---"
+    sudo systemctl show localdns.service -p Restart -p RestartUSec -p StartLimitIntervalUSec \
+        -p StartLimitBurst -p NRestarts -p Result -p ExecMainStatus --no-pager || true
+    echo "--- journal for this fault ---"
+    sudo journalctl -u localdns.service --since "$since" --no-pager | tail -40 || true
+    echo "--- drop-ins in effect ---"
+    ls -la /run/systemd/system/localdns.service.d/ 2>/dev/null || true
     exit 1
 fi
 

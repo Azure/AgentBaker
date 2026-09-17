@@ -88,9 +88,17 @@ restore_localdns_test_state() {
     trap - EXIT
     set +e
     cleanup_status=0
-    if [ -f "$NORESTART" ]; then
-        sudo rm -f "$NORESTART" || { echo "ERROR: failed to remove $NORESTART"; cleanup_status=1; }
-        sudo systemctl daemon-reload || { echo "ERROR: systemd daemon-reload failed during test cleanup"; cleanup_status=1; }
+    # Remove unconditionally rather than guarding on [ -f "$NORESTART" ]. That test runs
+    # unprivileged, but the drop-in is created by sudo into a directory that root's umask
+    # makes 0750 root:root -- so the test could not stat the file, returned false, and the
+    # removal was skipped. The Restart=no override then survived the test and stayed in
+    # effect for everything that ran afterwards on the node. 'rm -f' is a no-op when the
+    # file is absent, so there is nothing to guard.
+    sudo rm -f "$NORESTART" || { echo "ERROR: failed to remove $NORESTART"; cleanup_status=1; }
+    sudo systemctl daemon-reload || { echo "ERROR: systemd daemon-reload failed during test cleanup"; cleanup_status=1; }
+    if sudo test -f "$NORESTART"; then
+        echo "ERROR: $NORESTART still present after cleanup"
+        cleanup_status=1
     fi
     # The restart loop can hit systemd's start limit without creating NORESTART.
     # Clear any failed state before trying to start LocalDNS; this is best-effort
