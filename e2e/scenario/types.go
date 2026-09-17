@@ -205,6 +205,13 @@ type Config struct {
 	// This prevents the Guest Agent from sweeping events before they can be read.
 	// Only set this on CSE performance test scenarios.
 	EagerCSETimingExtraction bool
+
+	// LocalValidator, when set, makes the scenario run entirely on the test
+	// runner without provisioning a VM or cluster. Register rejects it if
+	// Cluster, VHD, or VMConfigMutator is also set. Use this for scenarios
+	// that validate an artifact (e.g. downloading and checking a COSI file)
+	// rather than exercising node bootstrap behavior.
+	LocalValidator func(ctx context.Context) error
 }
 
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
