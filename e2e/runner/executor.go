@@ -67,7 +67,7 @@ type executor struct {
 
 func newExecutor(ctx context.Context, stdout io.Writer, opts runOptions, runnable int) *executor {
 	return &executor{
-		ctx:         scenario.WithSuiteDeadline(ctx),
+		ctx:         ctx,
 		stdout:      stdout,
 		opts:        opts,
 		stream:      opts.outputMode == "stream" || (opts.outputMode == "auto" && runnable <= 3),

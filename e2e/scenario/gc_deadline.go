@@ -21,18 +21,6 @@ const deletionDueTimeTag = "deletion_due_time"
 // tag permissions or GC metadata do not block otherwise usable test infrastructure.
 // Renewal cannot stop a DELETE already selected by GC; the initial shared-infra
 // setup also precedes the AKS lookup needed to identify the node RG.
-type suiteGCDeadlineKey struct{}
-
-// WithSuiteDeadline captures the suite deadline before shorter attempt and setup
-// timeouts are applied.
-func WithSuiteDeadline(ctx context.Context) context.Context {
-	deadline, ok := ctx.Deadline()
-	if !ok {
-		return ctx
-	}
-	return context.WithValue(ctx, suiteGCDeadlineKey{}, deadline.Add(CleanupTimeout))
-}
-
 func renewResourceGroupDeadline(ctx context.Context, resourceGroup string) {
 	if err := extendResourceGroupDeadline(ctx, resourceGroup); err != nil {
 		logging.Logf(ctx, "warning: failed to renew resource group %q GC deadline: %v", resourceGroup, err)
@@ -51,10 +39,10 @@ func extendResourceGroupDeadline(ctx context.Context, resourceGroup string) erro
 	if resourceGroup == "" {
 		return fmt.Errorf("cannot renew an empty resource group name")
 	}
-	due, ok := ctx.Value(suiteGCDeadlineKey{}).(time.Time)
-	if !ok {
+	if config.Config.SuiteDeadline.IsZero() {
 		return fmt.Errorf("suite deadline is required to protect shared resource groups")
 	}
+	due := config.Config.SuiteDeadline.Add(CleanupTimeout)
 	rg, err := config.Azure.ResourceGroup.Get(ctx, resourceGroup, nil)
 	if err != nil {
 		return fmt.Errorf("reading GC deadline for RG %q: %w", resourceGroup, err)

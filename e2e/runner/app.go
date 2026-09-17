@@ -136,6 +136,7 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 
 	ctx, cancel := context.WithTimeout(ctx, config.Config.SuiteTimeout)
 	defer cancel()
+	config.Config.SuiteDeadline, _ = ctx.Deadline()
 
 	if err := config.Initialize(); err != nil {
 		return fmt.Errorf("initialize E2E configuration: %w", err)

@@ -59,42 +59,21 @@ func gcTestResponse(req *http.Request, status int, body any) *http.Response {
 
 func gcTestContext(t *testing.T) (context.Context, time.Time) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(t.Context(), config.Config.SuiteTimeout)
-	t.Cleanup(cancel)
-	deadline, _ := ctx.Deadline()
-	return logging.WithLogger(WithSuiteDeadline(ctx), t), deadline.Add(CleanupTimeout)
+	previousDeadline := config.Config.SuiteDeadline
+	t.Cleanup(func() { config.Config.SuiteDeadline = previousDeadline })
+	config.Config.SuiteDeadline = time.Now().Add(config.Config.SuiteTimeout)
+	return logging.WithLogger(t.Context(), t), config.Config.SuiteDeadline.Add(CleanupTimeout)
 }
 
-func TestGCDeadlineUsesSuiteDeadline(t *testing.T) {
-	previousTimeout := config.Config.SuiteTimeout
-	config.Config.SuiteTimeout = 47 * time.Minute
-	t.Cleanup(func() { config.Config.SuiteTimeout = previousTimeout })
-	for _, parentTimeout := range []time.Duration{2 * time.Hour, 23 * time.Minute} {
-		t.Run(parentTimeout.String(), func(t *testing.T) {
-			parent, cancel := context.WithTimeout(t.Context(), parentTimeout)
-			defer cancel()
-			suite, cancel := context.WithTimeout(parent, config.Config.SuiteTimeout)
-			defer cancel()
-			suiteDeadline, _ := suite.Deadline()
-			attempt, cancel := context.WithTimeout(WithSuiteDeadline(suite), time.Minute)
-			defer cancel()
-			for range 2 {
-				deadline, ok := attempt.Value(suiteGCDeadlineKey{}).(time.Time)
-				require.True(t, ok)
-				assert.Equal(t, suiteDeadline.Add(CleanupTimeout), deadline)
-				attemptDeadline, _ := attempt.Deadline()
-				assert.True(t, deadline.After(attemptDeadline.Add(CleanupTimeout)))
-			}
-		})
-	}
-}
-
-func TestGCDeadlineRequiresSuiteContext(t *testing.T) {
+func TestGCDeadlineRequiresConfiguredDeadline(t *testing.T) {
+	previousDeadline := config.Config.SuiteDeadline
+	t.Cleanup(func() { config.Config.SuiteDeadline = previousDeadline })
+	config.Config.SuiteDeadline = time.Time{}
 	gcTestAzure(t, func(req *http.Request) *http.Response {
 		t.Errorf("unexpected ARM call: %s %s", req.Method, req.URL)
 		return gcTestResponse(req, http.StatusInternalServerError, nil)
 	})
-	err := extendResourceGroupDeadline(WithSuiteDeadline(context.Background()), "rg")
+	err := extendResourceGroupDeadline(context.Background(), "rg")
 	require.ErrorContains(t, err, "suite deadline is required")
 }
 
@@ -379,9 +358,8 @@ func TestGCDeadlineProtectsBothResourceGroups(t *testing.T) {
 			}
 			// A later suite must renew even though infrastructure creation is cached.
 			nodeWrites := writes[nodeName]
-			laterSuite, cancel := context.WithDeadline(t.Context(), due.Add(time.Hour))
-			defer cancel()
-			laterCtx := logging.WithLogger(WithSuiteDeadline(laterSuite), t)
+			config.Config.SuiteDeadline = due.Add(time.Hour)
+			laterCtx := logging.WithLogger(t.Context(), t)
 			_, err := CachedEnsureResourceGroup(laterCtx, "westus3")
 			require.NoError(t, err)
 			cluster, err := getCluster(laterCtx, "cluster")

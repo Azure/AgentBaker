@@ -78,6 +78,7 @@ type Configuration struct {
 	TestPreProvision                       bool
 	TestTimeout                            time.Duration
 	SuiteTimeout                           time.Duration
+	SuiteDeadline                          time.Time // Set once by the runner before Initialize.
 	VHDMetadataFile                        string
 	// Must cover cluster-create AND bastion-create (run serially in prepareCluster, ~10-11m each).
 	TestTimeoutCluster   time.Duration

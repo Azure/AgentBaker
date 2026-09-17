@@ -27,15 +27,26 @@ func (f runnerGCPolicy) Do(req *policy.Request) (*http.Response, error) {
 }
 
 func TestExecutorPreservesSuiteGCDeadlineAcrossRetries(t *testing.T) {
+	for _, parentTimeout := range []time.Duration{2 * time.Hour, 23 * time.Minute} {
+		t.Run(parentTimeout.String(), func(t *testing.T) {
+			testExecutorPreservesSuiteGCDeadline(t, parentTimeout)
+		})
+	}
+}
+
+func testExecutorPreservesSuiteGCDeadline(t *testing.T, parentTimeout time.Duration) {
 	restoreRunnerConfig(t)
 	config.Config.SuiteTimeout = 47 * time.Minute
 	config.Config.TestTimeout = time.Minute
 	previousAzure := config.Azure
 	t.Cleanup(func() { config.Azure = previousAzure })
 
-	ctx, cancel := context.WithTimeout(t.Context(), config.Config.SuiteTimeout)
+	parent, cancelParent := context.WithTimeout(t.Context(), parentTimeout)
+	defer cancelParent()
+	ctx, cancel := context.WithTimeout(parent, config.Config.SuiteTimeout)
 	defer cancel()
 	deadline, _ := ctx.Deadline()
+	config.Config.SuiteDeadline = deadline
 	writes := 0
 	dueTag := ""
 	respond := runnerGCPolicy(func(req *http.Request) *http.Response {
