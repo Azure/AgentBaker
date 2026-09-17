@@ -96,6 +96,9 @@ const (
 	localdnsFaultFile    = "/run/localdns-e2e-fault"
 	localdnsFaultCounter = "/run/localdns-e2e-starts"
 	localdnsFaultDropIn  = "/run/systemd/system/localdns.service.d/99-e2e-fault.conf"
+	// Kept separate from localdnsFaultDropIn so the real-clock measurement can run with the
+	// shipped timeouts before the matrix speeds them up.
+	localdnsFastClockDropIn = "/run/systemd/system/localdns.service.d/99-e2e-fastclock.conf"
 )
 
 // validateLocalDNSRestartBudget asserts that the unit's restart budget terminates each
@@ -127,6 +130,18 @@ func validateLocalDNSRestartBudget(ctx context.Context, s *Scenario, faults []lo
 		_, _ = execScriptOnVMForScenario(cleanupCtx, s, localdnsFaultTeardownScript)
 	}()
 
+	// Ground truth before anything is sped up: measure one real failure cycle against the
+	// shipped timeouts and check it fits under the threshold. The margin assertion above is
+	// arithmetic on a model of the unit; this is the machine's own answer. The matrix below
+	// runs on shortened clocks and cannot check this.
+	if err := measureLocalDNSWorstCycle(ctx, s); err != nil {
+		return err
+	}
+
+	if err := installLocalDNSFastClocks(ctx, s); err != nil {
+		return fmt.Errorf("install shortened fault clocks: %w", err)
+	}
+
 	for _, fault := range faults {
 		if err := runLocalDNSFault(ctx, s, fault); err != nil {
 			return err
@@ -134,6 +149,100 @@ func validateLocalDNSRestartBudget(ctx context.Context, s *Scenario, faults []lo
 	}
 	return nil
 }
+
+// installLocalDNSFastClocks shortens WatchdogSec and TimeoutStartSec for the matrix.
+//
+// At their shipped values (60s, and an inherited 90s) the watchdog and hung-start modes
+// need ~14 minutes between them to exhaust the burst, which does not fit the VMSS-scoped
+// validation budget that TestTimeoutVMSS shares with VM creation. Shortened, the same code
+// paths still run -- a real watchdog timeout, a real start timeout, SIGTERM, restart,
+// limiter -- on a faster clock.
+//
+// StartLimitIntervalSec, StartLimitBurst and RestartSec are never touched: they are what is
+// under test. The sizing this shortening stops exercising is covered by the margin
+// assertion and by measureLocalDNSWorstCycle, both of which run before this.
+func installLocalDNSFastClocks(ctx context.Context, s *Scenario) error {
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, `
+set -eu
+printf '[Service]\nWatchdogSec=10\nTimeoutStartSec=15\n' | sudo tee `+localdnsFastClockDropIn+` >/dev/null
+sudo systemctl daemon-reload
+echo "shortened fault clocks installed"
+`, 0, "failed to install the shortened fault clocks")
+	return err
+}
+
+// measureLocalDNSWorstCycle times one real restart cycle of the slowest failure mode and
+// asserts it fits under the budget's threshold.
+//
+// This is the design claim checked against reality rather than against the formula. Waiting
+// for the full burst would cost ~8 minutes; two consecutive ExecStarts give the cycle
+// length, which is the quantity the budget is sized against, in about 100 seconds.
+func measureLocalDNSWorstCycle(ctx context.Context, s *Scenario) error {
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, localdnsWorstCycleScript, 0,
+		"LocalDNS worst restart cycle does not fit under the start-limit threshold")
+	return err
+}
+
+const localdnsWorstCycleScript = `
+set -eu
+
+usec() { systemd-analyze timespan "$1" 2>/dev/null | sed -n '2s/.*: *//p'; }
+interval_us=$(usec "$(systemctl show localdns.service -p StartLimitIntervalUSec --value)")
+burst_n=$(systemctl show localdns.service -p StartLimitBurst --value)
+threshold_s=$(( interval_us / burst_n / 1000000 ))
+
+echo "=== measuring the real worst restart cycle (hung start, shipped clocks) ==="
+echo "threshold is ${threshold_s}s"
+
+sudo systemctl stop localdns.service 2>/dev/null || true
+sudo systemctl reset-failed localdns.service 2>/dev/null || true
+echo hungstart | sudo tee ` + localdnsFaultFile + ` >/dev/null
+sudo rm -f ` + localdnsFaultCounter + `
+sudo systemctl start --no-block localdns.service || true
+
+# Two ExecStarts is all that is needed. Worst case here is TimeoutStartSec 90 +
+# TimeoutStopSec 30 + RestartSec 2 = ~122s, so 240s leaves generous headroom.
+observed=0
+for i in $(seq 1 240); do
+    observed=$(sudo grep -c EXECSTART ` + localdnsFaultCounter + ` 2>/dev/null || echo 0)
+    [ "$observed" -ge 2 ] && break
+    sleep 1
+done
+
+# Abort the run: the remaining starts would only repeat the same cycle.
+sudo rm -f ` + localdnsFaultFile + `
+sudo systemctl stop localdns.service 2>/dev/null || true
+sudo systemctl reset-failed localdns.service 2>/dev/null || true
+
+if [ "$observed" -lt 2 ]; then
+    echo "FAIL: only observed $observed ExecStart(s) in 240s; cannot measure a restart cycle"
+    sudo systemctl status localdns.service --no-pager -l || true
+    exit 1
+fi
+
+t1=$(sudo sed -n '1p' ` + localdnsFaultCounter + ` | awk '{print $1}')
+t2=$(sudo sed -n '2p' ` + localdnsFaultCounter + ` | awk '{print $1}')
+cycle_s=$(( t2 - t1 ))
+echo "measured worst restart cycle: ${cycle_s}s (threshold ${threshold_s}s)"
+
+if [ "$cycle_s" -ge "$threshold_s" ]; then
+    echo "FAIL: the slowest failure cycle (${cycle_s}s) is not under the threshold (${threshold_s}s)."
+    echo "      A failure on this cycle never accumulates StartLimitBurst starts inside the"
+    echo "      window, so it would restart forever instead of terminating in 'failed'."
+    exit 1
+fi
+
+# Leave the service healthy for the matrix that follows.
+sudo systemctl start localdns.service
+for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+    sudo systemctl is-active --quiet localdns.service && break
+    sleep 1
+done
+sudo systemctl is-active --quiet localdns.service || {
+    echo "FAIL: localdns did not recover after the worst-cycle measurement"
+    exit 1
+}
+`
 
 // assertLocalDNSBudgetDirectives checks the effective directives rather than the file, so
 // a drop-in that quietly overrides them is caught too.
@@ -172,6 +281,42 @@ check Restart "on-failure"
 # pinned in the unit, so a change to DefaultTimeoutStartSec would move the slowest cycle
 # and silently invalidate the margin. Assert it so that change fails here instead.
 check TimeoutStartUSec "1min 30s"
+
+# The design rule itself, as arithmetic on the live values rather than on the numbers this
+# comment happens to quote.
+#
+#   threshold   = StartLimitIntervalSec / StartLimitBurst
+#   worst cycle = TimeoutStartSec + TimeoutStopSec + RestartSec
+#
+# A failure repeating more slowly than the threshold never accumulates StartLimitBurst
+# starts inside the window, so it restarts forever instead of reaching 'failed' -- exactly
+# the behaviour this PR exists to prevent. Checking every input this way means any change
+# to the interval, the burst, either timeout, or RestartSec that closes the margin fails
+# here, instead of silently shipping a budget that cannot catch the slow modes.
+usec() { systemd-analyze timespan "$1" 2>/dev/null | sed -n '2s/.*: *//p'; }
+
+interval_us=$(usec "$(systemctl show localdns.service -p StartLimitIntervalUSec --value)")
+tstart_us=$(usec  "$(systemctl show localdns.service -p TimeoutStartUSec        --value)")
+tstop_us=$(usec   "$(systemctl show localdns.service -p TimeoutStopUSec         --value)")
+restart_us=$(usec "$(systemctl show localdns.service -p RestartUSec             --value)")
+burst_n=$(systemctl show localdns.service -p StartLimitBurst --value)
+
+if [ -z "$interval_us" ] || [ -z "$tstart_us" ] || [ -z "$tstop_us" ] || [ -z "$restart_us" ] \
+   || [ -z "$burst_n" ] || [ "$burst_n" -le 0 ] 2>/dev/null; then
+    echo "FAIL: could not read the restart-budget inputs needed for the margin check"
+    echo "      interval=[$interval_us] burst=[$burst_n] tstart=[$tstart_us] tstop=[$tstop_us] restart=[$restart_us]"
+    fail=1
+else
+    threshold_us=$(( interval_us / burst_n ))
+    worst_us=$(( tstart_us + tstop_us + restart_us ))
+    echo "margin: threshold $((threshold_us/1000000))s vs worst cycle $((worst_us/1000000))s"
+    if [ "$threshold_us" -le "$worst_us" ]; then
+        echo "FAIL: threshold $((threshold_us/1000000))s does not clear the worst restart cycle $((worst_us/1000000))s"
+        echo "      (TimeoutStartSec $((tstart_us/1000000))s + TimeoutStopSec $((tstop_us/1000000))s + RestartSec $((restart_us/1000000))s)"
+        echo "      A failure on that cycle would restart forever rather than terminate in 'failed'."
+        fail=1
+    fi
+fi
 
 if [ "$fail" -ne 0 ]; then
     echo
@@ -387,17 +532,9 @@ rm -rf "$WORK"
 # Point the unit at the patched copy. Invoking through bash avoids any noexec concern on
 # /run. ExecStart= clears the shipped value before setting the replacement.
 sudo mkdir -p "$(dirname "$DROPIN")"
-# Shorten the two unit-level clocks for the duration of the fault run. WatchdogSec and
-# TimeoutStartSec drive how long the watchdog and hung-start modes take to cycle: at their
-# shipped values (60s and an inherited 90s) those two modes alone need ~14 minutes to
-# exhaust the burst, which does not fit the VMSS-scoped validation budget (TestTimeoutVMSS,
-# shared with VM creation). Shortened, the same code paths run -- a real watchdog timeout, a
-# real start timeout, SIGTERM, restart, limiter -- just on a faster clock.
-#
-# StartLimitIntervalSec, StartLimitBurst and RestartSec are deliberately NOT touched: they
-# are what is under test. Note this does mean the matrix validates the mechanism rather than
-# the shipped durations; the real timings are measured separately and recorded on the PR.
-printf '[Service]\nExecStart=\nExecStart=/bin/bash %s\nWatchdogSec=10\nTimeoutStartSec=15\n' "$DST" | sudo tee "$DROPIN" >/dev/null
+# ExecStart only. The clock shortening lives in a separate drop-in installed later, so the
+# real-clock worst-cycle measurement can run against the shipped timeouts first.
+printf '[Service]\nExecStart=\nExecStart=/bin/bash %s\n' "$DST" | sudo tee "$DROPIN" >/dev/null
 sudo systemctl daemon-reload
 echo "fault harness installed"
 `
@@ -406,7 +543,7 @@ echo "fault harness installed"
 // best-effort by design: it runs from a defer, including on the failure path.
 const localdnsFaultTeardownScript = `
 set -u
-sudo rm -f ` + localdnsFaultFile + ` ` + localdnsFaultCounter + ` ` + localdnsFaultDropIn + ` ` + localdnsFaultScript + `
+sudo rm -f ` + localdnsFaultFile + ` ` + localdnsFaultCounter + ` ` + localdnsFaultDropIn + ` ` + localdnsFastClockDropIn + ` ` + localdnsFaultScript + `
 sudo systemctl daemon-reload || true
 sudo systemctl reset-failed localdns.service || true
 sudo systemctl start localdns.service || true
