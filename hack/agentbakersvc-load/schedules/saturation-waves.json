@@ -1,0 +1,34 @@
+{
+  "phases": [
+    {
+      "name": "warmup",
+      "duration": "2m",
+      "rps": 10
+    },
+    {
+      "name": "wave-30",
+      "duration": "30s",
+      "concurrency": 30
+    },
+    {
+      "name": "wave-45",
+      "duration": "30s",
+      "concurrency": 45
+    },
+    {
+      "name": "wave-60",
+      "duration": "30s",
+      "concurrency": 60
+    },
+    {
+      "name": "wave-90",
+      "duration": "30s",
+      "concurrency": 90
+    },
+    {
+      "name": "recovery",
+      "duration": "1m",
+      "rps": 10
+    }
+  ]
+}

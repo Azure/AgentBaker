@@ -1,0 +1,19 @@
+{
+  "phases": [
+    {
+      "name": "baseline",
+      "duration": "2m",
+      "rps": 10
+    },
+    {
+      "name": "incident-burst",
+      "duration": "15s",
+      "rps": 72
+    },
+    {
+      "name": "recovery",
+      "duration": "45s",
+      "rps": 10
+    }
+  ]
+}
