@@ -50,10 +50,25 @@ func init() {
 					// unexpected-exit DNS teardown this PR fixes) on the target
 					// distros. The hosts-plugin functionality itself is covered by
 					// the scenario's default provisioning validation.
-					if tt.name == "Ubuntu2204" || tt.name == "Ubuntu2404" || tt.name == "AzureLinuxV3" {
-						return validateLocalDNSLifecycle(ctx, s)
+					if tt.name != "Ubuntu2204" && tt.name != "Ubuntu2404" && tt.name != "AzureLinuxV3" {
+						return nil
 					}
-					return nil
+					if err := validateLocalDNSLifecycle(ctx, s); err != nil {
+						return err
+					}
+					// Then assert the restart budget actually bounds failures.
+					//
+					// The full failure-mode matrix runs on Ubuntu2404 only: it is
+					// systemd 255, where daemon-reload does not clear the start
+					// limiter and where the provisioning regression was found. It
+					// costs ~23min, so the other distros run the single
+					// discriminating mode instead (~40s) -- enough to catch the
+					// directives being dropped on those images.
+					faults := localdnsDiscriminatingFault()
+					if tt.name == "Ubuntu2404" {
+						faults = localdnsFaultMatrix
+					}
+					return validateLocalDNSRestartBudget(ctx, s, faults)
 				},
 			},
 		})
@@ -158,8 +173,12 @@ printf '%s\n' "$state" | grep -q '^Result=success$'
 if sudo journalctl -u localdns.service --since "@$test_start" --no-pager | grep -q 'Failed to kill control group'; then
     echo "WARNING: LocalDNS cgroup teardown warning observed"
 fi
+# Three kills well inside the window must not exhaust the budget -- if they do, recovery
+# from ordinary crashes is broken. Note this is scoped to the kill/recovery cycles above
+# via --since: deliberately exhausting the budget is the expected outcome in the
+# restart-budget validation, which runs separately after this function returns.
 if sudo journalctl -u localdns.service --since "@$test_start" --no-pager | grep -q 'Start request repeated too quickly'; then
-    echo "LocalDNS reached systemd StartLimit"
+    echo "LocalDNS reached systemd StartLimit during the kill/recovery cycles"
     exit 1
 fi
 dig +short +time=5 +tries=1 mcr.microsoft.com @169.254.10.10 | grep -q .
