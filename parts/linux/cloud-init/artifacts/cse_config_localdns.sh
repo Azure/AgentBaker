@@ -115,7 +115,15 @@ enableLocalDNS() {
     # clears start_ratelimit on systemd 249 but not on 255 (Ubuntu 24.04).
     local localdns_started=false
     local i
-    for i in $(seq 1 30); do
+    # 100 attempts at 5s matches what systemctlEnableAndStart did before (systemctl_restart
+    # 100 5 30, cse_helpers.sh), so the provisioning recovery window is unchanged -- a fast
+    # transient still gets ~10 minutes to clear. check_cse_timeout bounds the slow case: if
+    # every restart hangs for its full 30s timeout, this loop would outlive CSE's 15m kill in
+    # cse_start.sh and be SIGKILLed mid-iteration, losing the status log and the exit code
+    # below. Breaking out early lets the give-up path run and report properly, matching the
+    # other retry loops in cse_helpers.sh.
+    for i in $(seq 1 100); do
+        check_cse_timeout || break
         systemctl reset-failed localdns 2>/dev/null || true
         systemctl daemon-reload
         if timeout 30 systemctl restart localdns; then
