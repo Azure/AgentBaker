@@ -21,8 +21,6 @@ cloud-initramfs-copymods
 cloud-initramfs-dyn-netconf
 command-not-found
 cpio
-cron
-cron-daemon-common
 debconf-i18n
 dmeventd
 dosfstools
@@ -274,7 +272,6 @@ systemd-cryptsetup
 systemd-hwe-hwdb
 tcl
 tcl8.6
-tcpdump
 telnet
 thin-provisioning-tools
 time
