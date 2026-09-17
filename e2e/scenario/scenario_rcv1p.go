@@ -130,18 +130,7 @@ func buildBranchCSEPackageURL(ctx context.Context, request branchCSEZipRequest) 
 	// 5m covers a cold-start storage account create (~30-90s) plus the zip build/upload.
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
-	// The blob storage account lives in the DefaultLocation resource group, which is created
-	// lazily by CachedCreateVMManagedIdentity. runScenario only ensures the RG/identity for
-	// the scenario's own location, so on a brand-new region/subscription combo (or when the
-	// scenario runs outside DefaultLocation) the account may not exist yet and the upload
-	// below fails with NXDOMAIN. Ensure it here; both calls are cached no-ops otherwise.
-	//
-	// CachedCreateVMManagedIdentity depends on the per-location resource group already
-	// existing, so ensure the RG first for the identity/storage-account creation to
-	// succeed on a fresh sub/region.
-	if _, err := CachedEnsureResourceGroup(ctx, request.Location); err != nil {
-		return "", fmt.Errorf("ensure shared resource group: %w", err)
-	}
+	// The runner prepares DefaultLocation's RG; create its shared storage if needed.
 	if _, err := CachedCreateVMManagedIdentity(ctx, request.Location); err != nil {
 		return "", fmt.Errorf("ensure shared storage account: %w", err)
 	}

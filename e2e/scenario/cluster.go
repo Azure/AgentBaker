@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -94,11 +95,7 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 			}
 		}
 	}
-	subnetID, err := CachedEnsureClusterSubnet(ctx, ClusterSubnetRequest{
-		Location:    *clusterModel.Location,
-		ClusterName: *clusterModel.Name,
-		DualStack:   isDualStack,
-	})
+	subnetID, err := ensureClusterSubnet(ctx, *clusterModel.Location, *clusterModel.Name, isDualStack)
 	if err != nil {
 		return nil, fmt.Errorf("ensuring cluster subnet: %w", err)
 	}
@@ -390,7 +387,7 @@ func getOrCreateCluster(ctx context.Context, cluster *armcontainerservice.Manage
 	if err != nil {
 		return nil, err
 	}
-	renewNodeResourceGroupDeadline(ctx, createdCluster)
+	renewNodeResourceGroupDeadline(ctx, config.Azure, config.Config, createdCluster)
 	return createdCluster, nil
 }
 
@@ -459,13 +456,13 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 		return waitUntilClusterReady(ctx, clusterName, location)
 
 	case "Starting":
-		renewNodeResourceGroupDeadline(ctx, &existingCluster.ManagedCluster)
+		renewNodeResourceGroupDeadline(ctx, config.Azure, config.Config, &existingCluster.ManagedCluster)
 		// For Starting state, wait for the cluster to become ready.
 		logging.Logf(ctx, "Cluster is currently being started. Will wait for start to finish: %s", clusterName)
 		return waitUntilClusterReady(ctx, clusterName, location)
 
 	default:
-		renewNodeResourceGroupDeadline(ctx, &existingCluster.ManagedCluster)
+		renewNodeResourceGroupDeadline(ctx, config.Azure, config.Config, &existingCluster.ManagedCluster)
 		// For other non-terminal provisioning states (e.g., Updating, Scaling, Migrating, Upgrading, Restoring), wait for the cluster to become ready.
 		logging.Logf(ctx, "##vso[task.logissue type=warning;]Unexpected cluster provisioning state for cluster %s: %s", clusterName, *existingCluster.Properties.ProvisioningState)
 		return waitUntilClusterReady(ctx, clusterName, location)
@@ -583,7 +580,7 @@ func isUsableNodeResourceGroup(ctx context.Context, location, clusterName, resou
 		return false, nil
 	}
 
-	renewResourceGroupDeadline(ctx, resourceGroupName)
+	renewResourceGroupDeadline(ctx, config.Azure, config.Config, resourceGroupName)
 	hasVMSS, err := hasVMSSInResourceGroup(ctx, resourceGroupName)
 	if err != nil {
 		return false, err
@@ -938,16 +935,38 @@ func isManagedPoolVMSS(vmssName string, managedPoolPrefixes []string) bool {
 	return false
 }
 
-func ensureResourceGroup(ctx context.Context, location string) (armresources.ResourceGroup, error) {
+// EnsureResourceGroups prepares each shared RG once before scenarios start.
+// DefaultLocation is also required for shared storage when scenarios override it.
+func EnsureResourceGroups(ctx context.Context, azure *config.AzureClient, cfg *config.Configuration, scenarios []*Scenario) error {
+	locations := []string{strings.ToLower(cfg.DefaultLocation)}
+	for _, s := range scenarios {
+		if s.Location != "" {
+			locations = append(locations, strings.ToLower(s.Location))
+		}
+	}
+	slices.Sort(locations)
+	for _, location := range slices.Compact(locations) {
+		if err := ensureResourceGroup(ctx, azure, location); err != nil {
+			return err
+		}
+		renewResourceGroupDeadline(ctx, azure, cfg, config.ResourceGroupName(location))
+	}
+	return nil
+}
+
+func ensureResourceGroup(ctx context.Context, azure *config.AzureClient, location string) error {
 	resourceGroupName := config.ResourceGroupName(location)
-	existing, err := config.Azure.ResourceGroup.Get(ctx, resourceGroupName, nil)
+	existing, err := azure.ResourceGroup.Get(ctx, resourceGroupName, nil)
 	if err == nil {
-		return existing.ResourceGroup, nil
+		if existing.Properties != nil && existing.Properties.ProvisioningState != nil && strings.EqualFold(*existing.Properties.ProvisioningState, "Deleting") {
+			return fmt.Errorf("RG %q is deleting", resourceGroupName)
+		}
+		return nil
 	}
 	if !isNotFoundErr(err) {
-		return armresources.ResourceGroup{}, fmt.Errorf("getting RG %q: %w", resourceGroupName, err)
+		return fmt.Errorf("getting RG %q: %w", resourceGroupName, err)
 	}
-	rg, err := config.Azure.ResourceGroup.CreateOrUpdate(
+	_, err = azure.ResourceGroup.CreateOrUpdate(
 		ctx,
 		resourceGroupName,
 		armresources.ResourceGroup{
@@ -957,9 +976,9 @@ func ensureResourceGroup(ctx context.Context, location string) (armresources.Res
 		nil)
 
 	if err != nil {
-		return armresources.ResourceGroup{}, fmt.Errorf("creating RG %q: %w", resourceGroupName, err)
+		return fmt.Errorf("creating RG %q: %w", resourceGroupName, err)
 	}
-	return rg.ResourceGroup, nil
+	return nil
 }
 
 // setupPrivateDNSForAPIServer adds an A record for the cluster's API server FQDN

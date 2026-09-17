@@ -561,17 +561,9 @@ func ensureClusterIdentity(ctx context.Context, rg, location string) (string, st
 	return *resp.ID, *resp.Properties.TenantID, nil
 }
 
-type ClusterSubnetRequest struct {
-	Location    string
-	ClusterName string
-	DualStack   bool
-}
-
-var CachedEnsureClusterSubnet = cachedFunc(ensureClusterSubnet)
-
-func ensureClusterSubnet(ctx context.Context, req ClusterSubnetRequest) (string, error) {
-	rg := config.ResourceGroupName(req.Location)
-	subnetName := clusterSubnetName(req.ClusterName)
+func ensureClusterSubnet(ctx context.Context, location, clusterName string, dualStack bool) (string, error) {
+	rg := config.ResourceGroupName(location)
+	subnetName := clusterSubnetName(clusterName)
 
 	// Check if this subnet already exists (idempotent)
 	existing, err := config.Azure.Subnet.Get(ctx, rg, SharedVNetName, subnetName, nil)
@@ -610,7 +602,7 @@ func ensureClusterSubnet(ctx context.Context, req ClusterSubnetRequest) (string,
 		return "", fmt.Errorf("no free /20 CIDR available in shared VNet")
 	}
 
-	if req.DualStack {
+	if dualStack {
 		ipv6CIDR := allocateSubnetIPv6CIDR(subnetName, usedCIDRs)
 		if ipv6CIDR == "" {
 			return "", fmt.Errorf("no free IPv6 /64 CIDR available in shared VNet")

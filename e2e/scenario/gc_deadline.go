@@ -8,6 +8,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
@@ -15,35 +16,30 @@ import (
 
 const deletionDueTimeTag = "deletion_due_time"
 
-// DevInfra GC expires the cluster and node RGs independently, even during active
-// tests. Extend both through the suite deadline plus cleanup, without permanently
-// exempting unused infrastructure. Log renewal failures and continue so
-// tag permissions or GC metadata do not block otherwise usable test infrastructure.
-// Renewal cannot stop a DELETE already selected by GC; the initial shared-infra
-// setup also precedes the AKS lookup needed to identify the node RG.
-func renewResourceGroupDeadline(ctx context.Context, resourceGroup string) {
-	if err := extendResourceGroupDeadline(ctx, resourceGroup); err != nil {
+// GC expires parent and node RGs independently. Allow a suite plus cleanup from
+// now, without a permanent exemption. Renewal is best-effort so tag failures do
+// not block usable infrastructure. This cannot stop a DELETE already selected
+// by GC or protect the node RG before the initial AKS lookup.
+func renewResourceGroupDeadline(ctx context.Context, azure *config.AzureClient, cfg *config.Configuration, resourceGroup string) {
+	if err := extendResourceGroupDeadline(ctx, azure, cfg, resourceGroup); err != nil {
 		logging.Logf(ctx, "warning: failed to renew resource group %q GC deadline: %v", resourceGroup, err)
 	}
 }
 
-func renewNodeResourceGroupDeadline(ctx context.Context, cluster *armcontainerservice.ManagedCluster) {
+func renewNodeResourceGroupDeadline(ctx context.Context, azure *config.AzureClient, cfg *config.Configuration, cluster *armcontainerservice.ManagedCluster) {
 	if cluster == nil || cluster.Properties == nil || cluster.Properties.NodeResourceGroup == nil {
 		logging.Log(ctx, "warning: cannot renew GC deadline: AKS response has no node resource group")
 		return
 	}
-	renewResourceGroupDeadline(ctx, *cluster.Properties.NodeResourceGroup)
+	renewResourceGroupDeadline(ctx, azure, cfg, *cluster.Properties.NodeResourceGroup)
 }
 
-func extendResourceGroupDeadline(ctx context.Context, resourceGroup string) error {
+func extendResourceGroupDeadline(ctx context.Context, azure *config.AzureClient, cfg *config.Configuration, resourceGroup string) error {
 	if resourceGroup == "" {
 		return fmt.Errorf("cannot renew an empty resource group name")
 	}
-	if config.Config.SuiteDeadline.IsZero() {
-		return fmt.Errorf("suite deadline is required to protect shared resource groups")
-	}
-	due := config.Config.SuiteDeadline.Add(CleanupTimeout)
-	rg, err := config.Azure.ResourceGroup.Get(ctx, resourceGroup, nil)
+	due := time.Now().Add(cfg.SuiteTimeout + CleanupTimeout)
+	rg, err := azure.ResourceGroup.Get(ctx, resourceGroup, nil)
 	if err != nil {
 		return fmt.Errorf("reading GC deadline for RG %q: %w", resourceGroup, err)
 	}
@@ -68,7 +64,7 @@ func extendResourceGroupDeadline(ctx context.Context, resourceGroup string) erro
 
 	// Merge only this tag: replacing the tag map could erase another writer's
 	// unrelated tags. ARM does not provide an atomic max-deadline operation.
-	poller, err := config.Azure.Tags.BeginUpdateAtScope(ctx, *rg.ID, armresources.TagsPatchResource{
+	poller, err := azure.Tags.BeginUpdateAtScope(ctx, *rg.ID, armresources.TagsPatchResource{
 		Operation: to.Ptr(armresources.TagsPatchOperationMerge),
 		Properties: &armresources.Tags{Tags: map[string]*string{
 			deletionDueTimeTag: to.Ptr(due.UTC().Format(time.RFC3339Nano)),
@@ -77,7 +73,7 @@ func extendResourceGroupDeadline(ctx context.Context, resourceGroup string) erro
 	if err != nil {
 		return fmt.Errorf("renewing GC deadline for RG %q: %w", resourceGroup, err)
 	}
-	if _, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
+	if _, err := poller.PollUntilDone(ctx, &runtime.PollUntilDoneOptions{Frequency: cfg.DefaultPollInterval}); err != nil {
 		return fmt.Errorf("waiting for GC deadline renewal for RG %q: %w", resourceGroup, err)
 	}
 	logging.Logf(ctx, "extended RG %q GC deadline to %s", resourceGroup, due.UTC().Format(time.RFC3339Nano))
