@@ -386,7 +386,12 @@ func getOrCreateCluster(ctx context.Context, cluster *armcontainerservice.Manage
 		return existingCluster, nil
 	}
 
-	return createNewAKSClusterWithRetry(ctx, cluster)
+	createdCluster, err := createNewAKSClusterWithRetry(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	renewNodeResourceGroupDeadline(ctx, createdCluster)
+	return createdCluster, nil
 }
 
 // isExistingCluster checks if an AKS cluster exists. return the cluster only if its provisioning state is Succeeded and can be used. non-nil error if not retriable
@@ -454,11 +459,13 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 		return waitUntilClusterReady(ctx, clusterName, location)
 
 	case "Starting":
+		renewNodeResourceGroupDeadline(ctx, &existingCluster.ManagedCluster)
 		// For Starting state, wait for the cluster to become ready.
 		logging.Logf(ctx, "Cluster is currently being started. Will wait for start to finish: %s", clusterName)
 		return waitUntilClusterReady(ctx, clusterName, location)
 
 	default:
+		renewNodeResourceGroupDeadline(ctx, &existingCluster.ManagedCluster)
 		// For other non-terminal provisioning states (e.g., Updating, Scaling, Migrating, Upgrading, Restoring), wait for the cluster to become ready.
 		logging.Logf(ctx, "##vso[task.logissue type=warning;]Unexpected cluster provisioning state for cluster %s: %s", clusterName, *existingCluster.Properties.ProvisioningState)
 		return waitUntilClusterReady(ctx, clusterName, location)
@@ -576,6 +583,7 @@ func isUsableNodeResourceGroup(ctx context.Context, location, clusterName, resou
 		return false, nil
 	}
 
+	renewResourceGroupDeadline(ctx, resourceGroupName)
 	hasVMSS, err := hasVMSSInResourceGroup(ctx, resourceGroupName)
 	if err != nil {
 		return false, err
@@ -932,6 +940,13 @@ func isManagedPoolVMSS(vmssName string, managedPoolPrefixes []string) bool {
 
 func ensureResourceGroup(ctx context.Context, location string) (armresources.ResourceGroup, error) {
 	resourceGroupName := config.ResourceGroupName(location)
+	existing, err := config.Azure.ResourceGroup.Get(ctx, resourceGroupName, nil)
+	if err == nil {
+		return existing.ResourceGroup, nil
+	}
+	if !isNotFoundErr(err) {
+		return armresources.ResourceGroup{}, fmt.Errorf("getting RG %q: %w", resourceGroupName, err)
+	}
 	rg, err := config.Azure.ResourceGroup.CreateOrUpdate(
 		ctx,
 		resourceGroupName,
@@ -942,7 +957,7 @@ func ensureResourceGroup(ctx context.Context, location string) (armresources.Res
 		nil)
 
 	if err != nil {
-		return armresources.ResourceGroup{}, fmt.Errorf("creating or updating RG %q: %w", resourceGroupName, err)
+		return armresources.ResourceGroup{}, fmt.Errorf("creating RG %q: %w", resourceGroupName, err)
 	}
 	return rg.ResourceGroup, nil
 }

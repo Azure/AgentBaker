@@ -222,9 +222,10 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 
 	// in some edge cases cluster cache is broken and nil cluster is returned
 	// need to find the root cause and fix it, this should help to catch such cases
-	if cluster == nil || cluster.Model == nil || cluster.Model.Name == nil || cluster.Model.Location == nil || cluster.Model.Properties == nil {
+	if cluster == nil || cluster.Model == nil || cluster.Model.Name == nil || cluster.Model.Location == nil || cluster.Model.Properties == nil || cluster.Model.Properties.NodeResourceGroup == nil {
 		return fmt.Errorf("cluster cache returned an incomplete cluster")
 	}
+	renewResourceGroupDeadline(ctx, *cluster.Model.Properties.NodeResourceGroup)
 
 	// Log cluster identity for debugging
 	clusterName := *cluster.Model.Name
