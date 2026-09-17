@@ -360,8 +360,11 @@ function New-NSSMService {
         $kubeletDependOnServices += "hosts-config-agent"
     }
 
-    # setup kubelet
+    # Remove services in reverse dependency order before reinstalling them.
+    Remove-ServiceIfExists -ServiceName "Kubeproxy"
     Remove-ServiceIfExists -ServiceName "Kubelet"
+
+    # setup kubelet
     Invoke-Nssm -KubeDir $KubeDir install Kubelet C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
     Invoke-Nssm -KubeDir $KubeDir set Kubelet AppDirectory $KubeDir
     Invoke-Nssm -KubeDir $KubeDir set Kubelet AppParameters $KubeletStartFile
@@ -384,7 +387,6 @@ function New-NSSMService {
     Invoke-Nssm -KubeDir $KubeDir set Kubelet DependOnService @kubeletDependOnServices
 
     # setup kubeproxy
-    Remove-ServiceIfExists -ServiceName "Kubeproxy"
     Invoke-Nssm -KubeDir $KubeDir install Kubeproxy C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
     Invoke-Nssm -KubeDir $KubeDir set Kubeproxy AppDirectory $KubeDir
     Invoke-Nssm -KubeDir $KubeDir set Kubeproxy AppParameters $KubeProxyStartFile

@@ -410,9 +410,15 @@ Describe 'New-NSSMService' {
         Mock Invoke-Nssm
     }
 
-    It 'removes existing service registrations before installing both services' {
+    It 'removes existing service registrations in reverse dependency order before installing both services' {
+        $removedServices = [System.Collections.Generic.List[string]]::new()
+        Mock Remove-ServiceIfExists {
+            [void]$removedServices.Add($ServiceName)
+        }
+
         New-NSSMService -KubeDir 'c:\k' -KubeletStartFile 'c:\k\kubeletstart.ps1' -KubeProxyStartFile 'c:\k\kubeproxystart.ps1'
 
+        $removedServices | Should -Be @('Kubeproxy', 'Kubelet')
         Assert-MockCalled -CommandName Remove-ServiceIfExists -Exactly -Times 1 -ParameterFilter {
             $ServiceName -eq 'Kubelet'
         }
