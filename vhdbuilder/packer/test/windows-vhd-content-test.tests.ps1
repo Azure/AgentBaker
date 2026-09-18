@@ -20,7 +20,9 @@ Describe 'Test-PrivatePackageSignature' {
         Mock Write-OutputWithTimestamp {}
         $script:realTempDir = $null
         # Normally set by windows-vhd-configuration.ps1 (dot-source stripped above for tests).
-        $global:SkipSignatureCheckForBinaries = @{ "win-bridge.exe" = $True }
+        # Left empty by default; tests that need an allowlisted binary set it explicitly, keyed
+        # by the (per-test, dynamically generated) cache directory.
+        $global:SkipSignatureCheckForBinaries = @{}
     }
 
     AfterEach {
@@ -102,6 +104,7 @@ Describe 'Test-PrivatePackageSignature' {
             $script:realTempDir = @("https://privatestorageaccount.blob.core.windows.net/c/private-package.zip")
         }
         $global:azCopyUrls = @{ "https://privatestorageaccount.blob.core.windows.net/c/private-package.zip" = $true }
+        $global:SkipSignatureCheckForBinaries = @{ $script:realTempDir = @("win-bridge.exe") }
 
         Mock Test-Path {}
         Mock Remove-Item {}
@@ -140,7 +143,45 @@ function Remove-Item { param(`$Path, [switch]`$Recurse, [switch]`$Force) }
 function Expand-Archive { param(`$Path, `$DestinationPath, [switch]`$Force, `$ErrorAction) }
 function Get-UnsignedBinariesInDirectory { param(`$Directory, `$IncludeList) @( [PSCustomObject]@{ Path = 'win-bridge.exe'; Status = 'HashMismatch' } ) }
 `$global:azCopyUrls = @{ 'https://privatestorageaccount.blob.core.windows.net/c/private-package.zip' = `$true }
-`$global:SkipSignatureCheckForBinaries = @{ 'win-bridge.exe' = `$True }
+`$global:SkipSignatureCheckForBinaries = @{ '$($script:realTempDir)' = @('win-bridge.exe') }
+`$map = @{ '$($script:realTempDir)' = @('https://privatestorageaccount.blob.core.windows.net/c/private-package.zip') }
+Test-PrivatePackageSignature
+"@
+        $result = & pwsh -NoProfile -Command $childScript 2>&1
+        $LASTEXITCODE | Should -Be 1
+        ($result -join "`n") | Should -Match "not signed"
+    }
+
+    It 'still fails an unsigned allowlisted filename found in a different (non-allowlisted) directory' {
+        $script:realTempDir = Join-Path ([System.IO.Path]::GetTempPath()) "pester-vhd-content-test-$(New-Guid)"
+        New-Item -ItemType Directory -Path $script:realTempDir -Force | Out-Null
+        Set-Content -Path (Join-Path $script:realTempDir "private-package.zip") -Value "placeholder"
+
+        $map = @{
+            $script:realTempDir = @("https://privatestorageaccount.blob.core.windows.net/c/private-package.zip")
+        }
+        $global:azCopyUrls = @{ "https://privatestorageaccount.blob.core.windows.net/c/private-package.zip" = $true }
+        # Allowlist entry exists, but for a different directory than the one being validated - it
+        # must not apply here, otherwise any private package could bypass validation just by
+        # shipping a same-named binary.
+        $global:SkipSignatureCheckForBinaries = @{ "c:\akse-cache\win-k8s\" = @("win-bridge.exe") }
+
+        # Test-PrivatePackageSignature calls `exit 1` once it detects an invalid file - run in a
+        # child pwsh process, same as the other exit-triggering tests.
+        $childScript = @"
+`$content = Get-Content '$PSScriptRoot\windows-vhd-content-test.ps1' -Raw
+`$content = `$content -replace [regex]::Escape('. c:\k\windows-vhd-configuration.ps1'), ''
+`$content = `$content -replace '(?s)Write-OutputWithTimestamp "Starting Tests".*', ''
+Invoke-Expression `$content
+function Write-ErrorWithTimestamp(`$m) { Write-Host `$m }
+function Write-OutputWithTimestamp(`$m) { Write-Host `$m }
+function Test-Path { param(`$Path) `$true }
+function New-Item { param(`$ItemType, `$Path, [switch]`$Force) }
+function Remove-Item { param(`$Path, [switch]`$Recurse, [switch]`$Force) }
+function Expand-Archive { param(`$Path, `$DestinationPath, [switch]`$Force, `$ErrorAction) }
+function Get-UnsignedBinariesInDirectory { param(`$Directory, `$IncludeList) @( [PSCustomObject]@{ Path = 'win-bridge.exe'; Status = 'NotSigned' } ) }
+`$global:azCopyUrls = @{ 'https://privatestorageaccount.blob.core.windows.net/c/private-package.zip' = `$true }
+`$global:SkipSignatureCheckForBinaries = @{ 'c:\akse-cache\win-k8s\' = @('win-bridge.exe') }
 `$map = @{ '$($script:realTempDir)' = @('https://privatestorageaccount.blob.core.windows.net/c/private-package.zip') }
 Test-PrivatePackageSignature
 "@
@@ -176,7 +217,7 @@ function Remove-Item { param(`$Path, [switch]`$Recurse, [switch]`$Force) }
 function Expand-Archive { param(`$Path, `$DestinationPath, [switch]`$Force, `$ErrorAction) }
 function Get-UnsignedBinariesInDirectory { param(`$Directory, `$IncludeList) @( [PSCustomObject]@{ Path = 'tool.exe'; Status = 'NotSigned' } ) }
 `$global:azCopyUrls = @{ 'https://privatestorageaccount.blob.core.windows.net/c/private-package.zip' = `$true }
-`$global:SkipSignatureCheckForBinaries = @{ 'win-bridge.exe' = `$True }
+`$global:SkipSignatureCheckForBinaries = @{ '$($script:realTempDir)' = @('win-bridge.exe') }
 `$map = @{ '$($script:realTempDir)' = @('https://privatestorageaccount.blob.core.windows.net/c/private-package.zip') }
 Test-PrivatePackageSignature
 "@

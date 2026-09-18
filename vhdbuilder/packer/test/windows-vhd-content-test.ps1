@@ -337,7 +337,11 @@ function Test-PrivatePackageSignature {
             foreach ($notSignedFile in $notSignedList) {
                 $notSignedFileName = [IO.Path]::GetFileName($notSignedFile.Path)
 
-                if ($SkipSignatureCheckForBinaries.ContainsKey($notSignedFileName) -and $notSignedFile.Status -eq "NotSigned") {
+                if (
+                    $SkipSignatureCheckForBinaries.ContainsKey($dir) -and
+                    $SkipSignatureCheckForBinaries[$dir] -contains $notSignedFileName -and
+                    $notSignedFile.Status -eq "NotSigned"
+                ) {
                     Write-OutputWithTimestamp "$notSignedFileName (from $dest) is in the ignore list. Ignoring signature validation failure"
                     continue
                 }
