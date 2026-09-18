@@ -105,6 +105,54 @@ Describe 'cse_main.sh PIS-safe configuration'
         End
     End
 
+    Describe 'GPU registration activation'
+        It 'only runs GPU setup in nodePrep, not during PIS basePrep'
+            gpu_phase_counts() {
+                phase_count "basePrep" "ensureGPUDrivers"
+                phase_count "nodePrep" "ensureGPUDrivers"
+            }
+            When call gpu_phase_counts
+            The line 1 of output should equal "0"
+            The line 2 of output should equal "1"
+        End
+
+        gpu_dispatch() {
+            # Evaluate the actual managed-GPU gate through its first setup call, without running
+            # the rest of nodePrep (network configuration, kubelet, fabric manager, and so on).
+            eval "$(phase_body nodePrep | awk '
+                /if \[ "\$\{GPU_NODE\}" = "true" \]/ { inside = 1 }
+                inside { print }
+                inside && /logs_to_events "AKS.CSE.ensureGPUDrivers"/ { print "fi"; exit }
+            ')"
+        }
+        logs_to_events() { shift; "$@"; }
+        ensureGPUDrivers() { echo 'managed GPU setup'; }
+
+        It 'does not activate the registration on non-GPU nodes'
+            GPU_NODE=false
+            skip_nvidia_driver_install=false
+            When call gpu_dispatch
+            The status should be success
+            The output should equal ''
+        End
+
+        It 'does not activate the registration on opted-out GPU nodes'
+            GPU_NODE=true
+            skip_nvidia_driver_install=true
+            When call gpu_dispatch
+            The status should be success
+            The output should equal ''
+        End
+
+        It 'activates the registration on managed GPU nodes'
+            GPU_NODE=true
+            skip_nvidia_driver_install=false
+            When call gpu_dispatch
+            The status should be success
+            The output should include 'managed GPU setup'
+        End
+    End
+
     Describe 'stage gate'
         It 'skips basePrep for cached images and nodePrep for image creation'
             When call dispatch_calls

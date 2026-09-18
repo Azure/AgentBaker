@@ -307,6 +307,336 @@ removeNvidiaRepos() {
     fi
 }
 
+# prebakedGPUDriverFiles lists the host files owned by a completed CUDA prebake, excluding /usr/src.
+# Requires the nvidia-installer inventory. Fails on unknown records or replacement of host files
+# outside the installer's library overlay; parking must not remove another package's original file.
+prebakedGPUDriverFiles() {
+    local records record path arch
+    arch=$(uname -m) || return 1
+    # NVIDIA nvidia-installer backup.h: 0=installed symlink, 1=installed file, 2=backed-up
+    # symlink, >=100=backed-up file. Consume metadata lines, never interpret them as paths.
+    records=$(awk '
+        NR <= 2 { next }
+        /^[0-9]+: \/.*$/ {
+            code = $0 + 0
+            if (code != 0 && code != 1 && code != 2 && code < 100) exit 1
+            print
+            if (getline <= 0) exit 1
+            if (code == 2 && getline <= 0) exit 1
+            next
+        }
+        { exit 1 }
+    ' /var/lib/nvidia/log) || { echo "Cannot read NVIDIA installer inventory" >&2; return 1; }
+    [ -n "${records}" ] || { echo "Empty NVIDIA installer inventory" >&2; return 1; }
+    while IFS= read -r record; do
+        path=${record#*: }
+        case "${path}" in
+            *[[:space:]]*|*/../*|*/./*|*//*) return 1 ;;
+            /usr/src/*) continue ;;
+            # aks-gpu's overlay upperdir is moved here after nvidia-installer exits. The
+            # logged /usr/lib paths now refer to the base OS, NOT to the installed NVIDIA libs.
+            /usr/lib/"${arch}"-linux-gnu/*) continue ;;
+        esac
+        case "${record%%:*}" in
+            0|1) ;;
+            *) echo "Cannot park NVIDIA replacement of host file: ${path}" >&2; return 1 ;;
+        esac
+        case "${path}" in
+            /usr/bin/lib64/*) continue ;;
+            /usr/*|/lib/*|/etc/*) ;;
+            *) echo "Unexpected NVIDIA installed path: ${path}" >&2; return 1 ;;
+        esac
+        if [ ! -f "${path}" ] && [ ! -L "${path}" ]; then
+            echo "Missing NVIDIA installed file: ${path}" >&2
+            return 1
+        fi
+        printf '%s\n' "${path}"
+    done <<< "${records}"
+    # These are created by aks-gpu or DKMS rather than recorded as installer files.
+    printf '%s\n' /usr/bin/lib64 /etc/ld.so.conf.d/nvidia.conf /var/lib/nvidia
+    if [ -f /etc/modprobe.d/blacklist-nouveau.conf ]; then
+        printf '%s\n' /etc/modprobe.d/blacklist-nouveau.conf
+    fi
+    local module
+    for module in /lib/modules/*/updates/dkms/nvidia*.ko*; do
+        [ -e "${module}" ] || [ -L "${module}" ] || continue
+        printf '%s\n' "${module}"
+    done
+}
+
+# setPrebakedGPUDriverState parks or restores the complete CUDA prebake. The private payload owns
+# its inventory, compatibility metadata and retry state. Restore returns 2 for an incompatible
+# cache (caller must run the normal driver installer), 1 for corruption/conflicts, and 0 otherwise.
+# No driver is built here. Legacy images retain registration-only restore behavior.
+setPrebakedGPUDriverState() {
+    local action="${1}"
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    local payload="${marker%/*}/prebake"
+    local inventory="${payload}/files.list"
+    local paths path identity actual source destination parent kernel arch version reason=""
+    local source_device destination_device kernels dkms_status initrd initrd_files
+
+    case "${action}" in
+        park)
+            if [ ! -f "${marker}" ] || [ -e "${payload}" ] || [ -L "${payload}" ] ||
+                [ ! -d /var/lib/dkms/nvidia ] || [ -L /var/lib/dkms/nvidia ]; then
+                echo "Cannot park NVIDIA prebake: missing marker/registration or existing payload" >&2
+                return 1
+            fi
+            grep -Fxq 'driver_kind=cuda' "${marker}" || return 1
+            paths=$(prebakedGPUDriverFiles) || return 1
+            # Registration goes last: restore never exposes it before the rest of the driver.
+            paths=$(printf '%s\n' "${paths}" | sort -u) || return 1
+            mkdir -m 0700 "${payload}" || return 1
+            cp -p "${marker}" "${payload}/marker" || return 1
+            : > "${inventory}" || return 1
+            while IFS= read -r path; do
+                identity=$(stat -c '%i:%f' "${path}") || return 1
+                printf '%s\t%s\n' "${identity}" "${path}" >> "${inventory}" || return 1
+            done <<< "${paths}"
+            identity=$(stat -c '%i:%f' /var/lib/dkms/nvidia) || return 1
+            printf '%s\t%s\n' "${identity}" /var/lib/dkms/nvidia >> "${inventory}" || return 1
+            ;;
+        restore)
+            if [ ! -e "${payload}" ] && [ ! -L "${payload}" ]; then
+                if grep -Fxq 'prebake_layout=whole-v1' "${marker}" 2>/dev/null; then
+                    echo "Missing whole NVIDIA prebake payload" >&2
+                    return 1
+                fi
+                setPrebakedGPUDriverRegistration restore
+                return $?
+            fi
+            ;;
+        *) echo "Invalid NVIDIA prebake action: ${action}" >&2; return 1 ;;
+    esac
+
+    if [ ! -d "${payload}" ] || [ -L "${payload}" ] ||
+        [ "$(stat -c '%u:%a' "${payload}")" != '0:700' ] ||
+        [ ! -s "${inventory}" ] || [ -L "${inventory}" ] ||
+        [ ! -f "${payload}/marker" ] || [ -L "${payload}/marker" ]; then
+        echo "Invalid NVIDIA prebake payload or permissions" >&2
+        return 1
+    fi
+    kernel=$(sed -n 's/^kernel=//p' "${payload}/marker")
+    arch=$(sed -n 's/^arch=//p' "${payload}/marker")
+    version=$(sed -n 's/^driver_version=//p' "${payload}/marker")
+    case "${kernel}" in ''|*[!a-zA-Z0-9._+-]*) echo "Invalid prebake kernel metadata" >&2; return 1 ;; esac
+    case "${arch}" in ''|*[!a-zA-Z0-9_-]*) echo "Invalid prebake architecture metadata" >&2; return 1 ;; esac
+    case "${version}" in ''|*[!0-9.]*) echo "Invalid prebake driver metadata" >&2; return 1 ;; esac
+    grep -Fxq 'driver_kind=cuda' "${payload}/marker" || { echo "Non-CUDA prebake payload" >&2; return 1; }
+
+    if [ "${action}" = restore ]; then
+        if [ ! -f "${payload}/park.complete" ]; then
+            echo "NVIDIA prebake parking did not complete" >&2
+            return 1
+        fi
+        if [ -f "${payload}/restore.complete" ]; then
+            rm -rf "${payload}" || return 1
+            return 0
+        fi
+        [ "${kernel}" = "$(uname -r)" ] || reason=kernel
+        [ "${arch}" = "$(uname -m)" ] || reason=architecture
+        if [ -n "${NVIDIA_DRIVER_IMAGE_TAG:-}" ] && [ "${version}" != "${NVIDIA_DRIVER_IMAGE_TAG%%-*}" ]; then
+            reason=driver_version
+        fi
+        if [ -n "${reason}" ]; then
+            if [ -e "${payload}/restore.started" ]; then
+                echo "Cannot change NVIDIA driver/kernel during a partial restore" >&2
+                return 1
+            fi
+            # An incompatible cache is not corruption. Leave installation to the existing image
+            # installer, including on nodes that otherwise only validate a prebaked driver.
+            rm -rf "${payload}" || return 1
+            rm -f "${marker}" || return 1
+            echo "AKS_GPU_PREBAKE event=cache_miss reason=${reason} cached_kernel=${kernel} action=install"
+            return 2
+        fi
+    fi
+
+    # Validate every move before changing any active file. An absent source is accepted only
+    # during a retry and only if the destination still has our original inode and file mode.
+    while IFS=$'\t' read -r identity path; do
+        case "${identity}" in ''|*[!0-9a-f:]*) return 1 ;; esac
+        case "${path}" in *[[:space:]]*|*/../*|*/./*|*//*) return 1 ;; esac
+        case "${path}" in
+            /usr/src|/usr/src/*) return 1 ;;
+            /usr/bin/lib64|/var/lib/nvidia|/var/lib/dkms/nvidia) ;;
+            /usr/*|/lib/*|/etc/*)
+                # Only the three owned directories above may be moved as a unit.
+                if [ -d "${path}" ] && [ ! -L "${path}" ]; then return 1; fi
+                ;;
+            *) return 1 ;;
+        esac
+        source="${path}"
+        destination="${payload}/files${path}"
+        if [ "${action}" = restore ]; then
+            source="${payload}/files${path}"
+            destination="${path}"
+        fi
+        if [ ! -e "${source}" ] && [ ! -L "${source}" ]; then
+            if [ "${action}" = restore ] && [ -f "${payload}/restore.started" ] &&
+                [ "$(stat -c '%i:%f' "${destination}" 2>/dev/null)" = "${identity}" ]; then
+                continue
+            fi
+            echo "Missing NVIDIA prebake file: ${source}" >&2
+            return 1
+        fi
+        actual=$(stat -c '%i:%f' "${source}") || return 1
+        if [ "${actual}" != "${identity}" ] || [ -e "${destination}" ] || [ -L "${destination}" ]; then
+            echo "NVIDIA prebake file changed or destination already exists: ${path}" >&2
+            return 1
+        fi
+        parent=${destination%/*}
+        mkdir -p "${parent}" || return 1
+        source_device=$(stat -c '%d' "${source}") || return 1
+        destination_device=$(stat -c '%d' "${parent}") || return 1
+        if [ "${source_device}" != "${destination_device}" ]; then
+            echo "Cannot ${action} NVIDIA prebake across filesystems" >&2
+            return 1
+        fi
+    done < "${inventory}"
+
+    if [ "${action}" = restore ]; then touch "${payload}/restore.started" || return 1; fi
+    while IFS=$'\t' read -r identity path; do
+        source="${path}"
+        destination="${payload}/files${path}"
+        if [ "${action}" = restore ]; then
+            source="${payload}/files${path}"
+            destination="${path}"
+            [ -e "${source}" ] || [ -L "${source}" ] || continue
+        fi
+        mv -Tn -- "${source}" "${destination}" || return 1
+        if [ -e "${source}" ] || [ -L "${source}" ] ||
+            [ "$(stat -c '%i:%f' "${destination}")" != "${identity}" ]; then
+            echo "Failed to ${action} NVIDIA prebake file: ${path}" >&2
+            return 1
+        fi
+    done < "${inventory}"
+
+    # Target the kernels in the inventory, not the builder's running (often older) kernel.
+    kernels=$(sed -n 's|.*/lib/modules/\([^/]*\)/updates/dkms/.*|\1|p' "${inventory}" | sort -u)
+    [ -n "${kernels}" ] || { echo "No NVIDIA modules recorded in prebake inventory" >&2; return 1; }
+    while IFS= read -r kernel; do
+        depmod -a "${kernel}" || return 1
+    done <<< "${kernels}"
+    if [ "${action}" = park ]; then
+        # Audit all bootable initramfs images, including an older kernel whose on-disk NVIDIA
+        # files might already have been removed. In-tree nvidiafb is not part of this prebake.
+        for initrd in /boot/initrd.img-*; do
+            if [ -f "${initrd}" ]; then
+                kernel=${initrd##*/initrd.img-}
+                initrd_files=$(lsinitramfs "${initrd}") || return 1
+                if grep -Eq '(^|/)nvidia([_-](drm|modeset|uvm|peermem))?\.ko(\.[^/]*)?$' <<< "${initrd_files}"; then
+                    update-initramfs -u -k "${kernel}" || return 1
+                    initrd_files=$(lsinitramfs "${initrd}") || return 1
+                    if grep -Eq '(^|/)nvidia([_-](drm|modeset|uvm|peermem))?\.ko(\.[^/]*)?$' <<< "${initrd_files}"; then
+                        echo "NVIDIA module remains in ${initrd}" >&2
+                        return 1
+                    fi
+                fi
+            fi
+        done
+    fi
+    ldconfig || return 1
+
+    if [ "${action}" = park ]; then
+        dkms_status=$(dkms status) || return 1
+        if grep -Eq '^nvidia[/,]' <<< "${dkms_status}"; then
+            echo "NVIDIA remains registered with DKMS after parking" >&2
+            return 1
+        fi
+        printf 'prebake_layout=whole-v1\n' >> "${marker}" || return 1
+        touch "${payload}/park.complete" || return 1
+    else
+        # Drop the parked-layout marker before removing the receipt. The driver installer may
+        # replace this marker and the restored files; later retries must not undo that install.
+        cp -p "${payload}/marker" "${payload}/restored-marker" || return 1
+        mv -Tf "${payload}/restored-marker" "${marker}" || return 1
+        touch "${payload}/restore.complete" || return 1
+        rm -rf "${payload}" || return 1
+    fi
+    echo "AKS_GPU_PREBAKE event=payload action=${action} status=completed"
+}
+
+# setPrebakedGPUDriverRegistration supports the older registration-only layout. It parks
+# the NVIDIA DKMS registration for VHD capture, or restores
+# it before managed GPU setup. Module files and userspace stay in place; no module is compiled.
+# "park" requires a completed prebake. "restore" is a no-op on legacy VHDs or after a prior restore.
+# Conflicting paths, a missing prebake, and cross-filesystem moves return failure without replacement.
+setPrebakedGPUDriverRegistration() {
+    local action="${1}"
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    local live=/var/lib/dkms/nvidia
+    local parked="${marker%/*}/dkms/nvidia"
+    local source destination
+
+    case "${action}" in
+        park)
+            source="${live}"
+            destination="${parked}"
+            ;;
+        restore)
+            source="${parked}"
+            destination="${live}"
+            if [ ! -e "${parked}" ] && [ ! -L "${parked}" ]; then
+                # A new-layout marker with neither tree must not pass driver validation merely
+                # because the .ko is loadable: later kernel updates would have no registration.
+                if grep -q '^dkms_parked_path=' "${marker}" 2>/dev/null && { [ ! -d "${live}" ] || [ -L "${live}" ]; }; then
+                    echo "Missing NVIDIA DKMS registration for parked prebake" >&2
+                    return 1
+                fi
+                return 0
+            fi
+            ;;
+        *)
+            echo "Invalid NVIDIA DKMS registration action: ${action}" >&2
+            return 1
+            ;;
+    esac
+
+    if [ ! -f "${marker}" ] || [ ! -d "${source}" ] || [ -L "${source}" ]; then
+        echo "Cannot ${action} NVIDIA DKMS registration: prebake marker or source tree is missing or invalid" >&2
+        return 1
+    fi
+    if [ -e "${destination}" ] || [ -L "${destination}" ]; then
+        echo "Cannot ${action} NVIDIA DKMS registration: destination already exists: ${destination}" >&2
+        return 1
+    fi
+
+    local destination_parent="${destination%/*}"
+    local source_device destination_device
+    mkdir -p "${destination_parent}" || return 1
+    source_device=$(stat -c '%d' "${source}") || return 1
+    destination_device=$(stat -c '%d' "${destination_parent}") || return 1
+    if [ "${source_device}" != "${destination_device}" ]; then
+        echo "Cannot ${action} NVIDIA DKMS registration across filesystems" >&2
+        return 1
+    fi
+
+    # GNU mv must rename, not merge into an existing tree or copy across mounts. -n also protects
+    # a destination created after the check above; verify the move because -n can succeed without it.
+    mv -Tn -- "${source}" "${destination}" || return 1
+    if [ -e "${source}" ] || [ -L "${source}" ] || [ ! -d "${destination}" ]; then
+        echo "Failed to ${action} NVIDIA DKMS registration" >&2
+        return 1
+    fi
+
+    if [ "${action}" = park ]; then
+        if ! grep -Fxq "dkms_parked_path=${parked}" "${marker}"; then
+            printf 'dkms_parked_path=%s\n' "${parked}" >> "${marker}" || return 1
+        fi
+        # Check the effective DKMS configuration too. A framework.conf redirect to the parked
+        # tree would keep autoinstall armed even though /var/lib/dkms/nvidia is absent.
+        local dkms_status
+        dkms_status=$(dkms status) || return 1
+        if grep -Eq '^nvidia[/,]' <<< "${dkms_status}"; then
+            echo "NVIDIA remains registered with DKMS after parking" >&2
+            return 1
+        fi
+    fi
+    echo "NVIDIA DKMS registration: ${action} completed"
+}
+
 # cleanUpPrebakedGPUDriver removes a CUDA driver pre-baked into the shared VHD on any node that does
 # NOT install the AKS-managed driver -- the cleanUpGPUDrivers path (GPU_NODE != true OR
 # skip_nvidia_driver_install=true): non-GPU VMs, and GPU VMs opted out via --gpu-driver None or the
@@ -318,10 +648,31 @@ removeNvidiaRepos() {
 # is resident even though ensureGPUDrivers never ran. (grid prebakes do not auto-load, so grid nodes
 # arrive here with no module.) Deleting the on-disk .ko then leaves a stale loaded module -- unused
 # (refcnt 0, no /dev/nvidia*) but resident until reboot, and a landmine for a subsequent GPU Operator
-# install. So we rmmod it first, when idle, before removing the files. No-op unless the marker exists.
+# install. So we rmmod it first, when idle, before removing the files. The parked tree also proves
+# prebake ownership if the marker was lost; do not use an arbitrary live registration as that proof.
 cleanUpPrebakedGPUDriver() {
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
-    if [ ! -f "${marker}" ]; then
+    local parked="${marker%/*}/dkms/nvidia"
+    local payload="${marker%/*}/prebake"
+    if [ -e "${payload}" ] || [ -L "${payload}" ]; then
+        # A completed whole-payload park has no active driver to tear down. Do not touch live
+        # paths here: a customer/GRID installer might already have installed a different driver.
+        # An interrupted restore is not an inert cache and must not silently take this shortcut.
+        if [ ! -L "${payload}" ] && [ -f "${payload}/park.complete" ] &&
+            [ ! -e "${payload}/restore.started" ]; then
+            rm -rf "${payload}" || true
+            if [ ! -e "${payload}" ] && [ ! -L "${payload}" ]; then
+                if grep -Fxq 'prebake_layout=whole-v1' "${marker}" 2>/dev/null; then
+                    rm -f "${marker}" || true
+                fi
+                echo "AKS_GPU_PREBAKE event=teardown layout=whole-v1 status=cleaned parked_after=false"
+                return 0
+            fi
+        fi
+        echo "AKS_GPU_PREBAKE event=teardown layout=whole-v1 status=incomplete parked_after=true"
+        return 1
+    fi
+    if [ ! -f "${marker}" ] && [ ! -e "${parked}" ] && [ ! -L "${parked}" ]; then
         return 0
     fi
     echo "Removing pre-baked NVIDIA driver inherited from shared VHD (node does not install the managed driver)"
@@ -343,9 +694,10 @@ cleanUpPrebakedGPUDriver() {
     fi
     lsmod | grep -q '^nvidia' && module_after=true
 
-    # Deregister the nvidia DKMS module by removing its source tree (avoids the slow `dkms remove
-    # --all`, ~35s). Any loaded module was unloaded above, so no depmod/initramfs refresh is needed.
+    # Remove either VHD layout without first restoring a parked registration. Do not remove
+    # /usr/src: this is the registration tree, not the driver source. Avoid slow dkms remove --all.
     rm -rf /var/lib/dkms/nvidia || true
+    rm -rf "${parked}" || true
     rm -f /lib/modules/*/updates/dkms/nvidia*.ko* 2>/dev/null || true
     # The prebake stages libs under the aks-gpu *container's* GPU_DEST=/usr/bin (aks-gpu config.sh),
     # NOT this script's GPU_DEST=/usr/local/nvidia -- so clear /usr/bin.
@@ -360,22 +712,20 @@ cleanUpPrebakedGPUDriver() {
     rm -f /etc/ld.so.conf.d/nvidia.conf || true
     ldconfig || true
 
-    # Stage-1 observability + retry: assess completeness BEFORE dropping the marker. status=incomplete
-    # means the DKMS registration, the setuid nvidia-modprobe binary, or a still-resident nvidia
-    # module lingered (a security-coverage alert). On an incomplete teardown we KEEP the marker so the
-    # next provision re-runs this cleanup (the marker is the "still needs cleanup" flag); on a clean
-    # teardown we drop it. status=cleaned counts toward fleet-wide coverage. Greppable AKS_GPU_PREBAKE.
-    local dkms_after=false modprobe_after=false marker_after=true status=cleaned
+    # Keep the marker while registration, parked files, nvidia-modprobe, or a loaded module remain,
+    # so a later cleanup can retry. This node-local verdict neither schedules a retry nor fails CSE.
+    local dkms_after=false parked_after=false modprobe_after=false marker_after=true status=cleaned
     [ -d /var/lib/dkms/nvidia ] && dkms_after=true
+    { [ -e "${parked}" ] || [ -L "${parked}" ]; } && parked_after=true
     [ -e /usr/bin/nvidia-modprobe ] && modprobe_after=true
-    if [ "${dkms_after}" = false ] && [ "${modprobe_after}" = false ] && [ "${module_after}" = false ]; then
+    if [ "${dkms_after}" = false ] && [ "${parked_after}" = false ] && [ "${modprobe_after}" = false ] && [ "${module_after}" = false ]; then
         rm -f "${marker}" || true
-        [ -f "${marker}" ] || marker_after=false
     fi
-    if [ "${marker_after}" = true ] || [ "${dkms_after}" = true ] || [ "${modprobe_after}" = true ] || [ "${module_after}" = true ]; then
+    [ -f "${marker}" ] || marker_after=false
+    if [ "${marker_after}" = true ] || [ "${dkms_after}" = true ] || [ "${parked_after}" = true ] || [ "${modprobe_after}" = true ] || [ "${module_after}" = true ]; then
         status=incomplete
     fi
-    echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=${status} dkms_before=${dkms_before} module_before=${module_before} module_after=${module_after} marker_after=${marker_after} dkms_after=${dkms_after} modprobe_after=${modprobe_after}"
+    echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=${status} dkms_before=${dkms_before} module_before=${module_before} module_after=${module_after} marker_after=${marker_after} dkms_after=${dkms_after} parked_after=${parked_after} modprobe_after=${modprobe_after}"
 }
 
 cleanUpGPUDrivers() {
@@ -388,8 +738,10 @@ cleanUpGPUDrivers() {
     # A CUDA driver pre-baked into a shared Ubuntu VHD is dead weight on a node that doesn't install
     # the managed driver (non-GPU, or GPU opted out via --gpu-driver None / skip), and while
     # DKMS-registered it forces an nvidia.ko rebuild on every kernel patch. Tear it down here.
-    # No-op on VHDs without the aks-gpu prebake marker.
-    cleanUpPrebakedGPUDriver
+    # No-op on VHDs without the aks-gpu prebake marker or parked tree.
+    # CPU and opt-out cleanup remains best effort. GRID setup calls the helper directly and
+    # must stop on an interrupted full-payload restoration rather than install over mixed state.
+    cleanUpPrebakedGPUDriver || true
 }
 
 installCriCtlPackage() {
