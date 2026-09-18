@@ -12,6 +12,31 @@ SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr 
 GALLERY_SUBSCRIPTION_ID="${GALLERY_SUBSCRIPTION_ID:-${SUBSCRIPTION_ID}}"
 CREATE_TIME="$(date +%s)"
 
+if [ "$MODE" = "linuxVhdMode" ] && { [ "$OS_SKU" = "CBLMariner" ] || [ "$OS_SKU" = "AzureLinux" ]; }; then
+  kata_artifacts=(
+    kata-containers.img
+    kata-containers-cc.img
+    kata-containers-igvm.img
+    kata-containers-igvm-debug.img
+    kata-containers-initrd-base.img
+    reference-info-base64
+  )
+  for artifact in "${kata_artifacts[@]}"; do
+    if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+      if [ ! -s "$artifact" ]; then
+        echo "Required Kata artifact $artifact is missing"
+        exit 1
+      fi
+    else
+      # The shared Mariner Packer template declares these provisioners for all SKUs.
+      # Non-Kata builds do not install the files, but Packer still requires each source to exist.
+      if [ ! -e "$artifact" ]; then
+        : > "$artifact"
+      fi
+    fi
+  done
+fi
+
 # This variable will only be set if a VHD build is triggered from an official branch
 VHD_BUILD_TIMESTAMP=""
 

@@ -8,6 +8,12 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
+  - name: skuNameOverride
+    type: string
+    default: ''
+  - name: publishingOfferName
+    type: string
+    default: ''
 
 steps:
   - template: ./.template-override-components-json.yaml
@@ -25,7 +31,7 @@ steps:
       downloadDirectory: vhdbuilder/
 
   - task: DownloadPipelineArtifact@2
-    condition: and(or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'cbl-mariner'))
+    condition: and(contains(variables.FEATURE_FLAGS, 'kata'), or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'cbl-mariner'))
     displayName: 'Download Kata CC UVM artifact'
     inputs:
       source: specific
@@ -43,24 +49,52 @@ steps:
         **/kata-containers-cc.img**
         **/kata-containers.img**
         **/kata-containers-initrd-base.img**
+        **/reference-info-base64**
       downloadPath: $(Build.SourcesDirectory)
 
   - task: DownloadPipelineArtifact@2
-    condition: and(or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'azure-linux-3'))
-    displayName: 'Download Kata and Kata CC AzureLinux3_0 UVM artifact'
+    condition: and(contains(variables.FEATURE_FLAGS, 'kata'), or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'azure-linux-3'))
+    displayName: 'Download signed Kata and Kata CC AzureLinux3_0 UVM artifact'
     inputs:
       source: specific
       project: CloudNativeCompute
-      pipeline: 417429
+      pipeline: 318279
       specificBuildWithTriggering: true
       allowPartiallySucceededBuilds: false
       buildVersionToDownload: 'latestFromBranch'
       branchName: 'refs/heads/master'
       downloadType: 'single'
-      artifactName: 'mariner-kata-3-0-uvm'
+      artifactName: 'drop_container_job_sign_uvm_azl3'
       itemPattern: |
+        **/kata-containers-igvm-debug.img**
+        **/kata-containers-igvm.img**
+        **/kata-containers-cc.img**
         **/kata-containers.img**
+        **/kata-containers-initrd-base.img**
+        **/reference-info-base64**
       downloadPath: $(Build.SourcesDirectory)
+
+  - bash: |
+      set -o errexit
+      set -o nounset
+      set -o pipefail
+
+      required_files=(
+        kata-containers.img
+        kata-containers-cc.img
+        kata-containers-igvm.img
+        kata-containers-igvm-debug.img
+        kata-containers-initrd-base.img
+        reference-info-base64
+      )
+      for file in "${required_files[@]}"; do
+        if [ ! -s "$(Build.SourcesDirectory)/$file" ]; then
+          echo "Missing required signed Azure Linux 3 UVM artifact: $file" >&2
+          exit 1
+        fi
+      done
+    displayName: Validate signed Azure Linux 3 UVM artifacts
+    condition: and(contains(variables.FEATURE_FLAGS, 'kata'), or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'azure-linux-3'))
 
   - bash: |
       set -x
@@ -84,8 +118,13 @@ steps:
       if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
       if [[ ${OS_SKU} != "CBLMariner" && ${OS_SKU} != "AzureLinux" && ${OS_SKU} != "AzureLinuxOSGuard" && ${OS_SKU} != "Flatcar" && ${OS_SKU} != "AzureContainerLinux" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
       SKU_NAME=$(echo ${SKU_NAME} | tr -d '.') && \
+      if [ -n '${{ parameters.skuNameOverride }}' ]; then SKU_NAME='${{ parameters.skuNameOverride }}'; fi && \
+      PUBLISHING_OFFER_NAME="${OS_SKU}" && \
+      if [ -n '${{ parameters.publishingOfferName }}' ]; then PUBLISHING_OFFER_NAME='${{ parameters.publishingOfferName }}'; fi && \
       echo "##vso[task.setvariable variable=SKU_NAME]$SKU_NAME"
+      echo "##vso[task.setvariable variable=PUBLISHING_OFFER_NAME]$PUBLISHING_OFFER_NAME"
       echo "Set SKU_NAME to $SKU_NAME"
+      echo "Set PUBLISHING_OFFER_NAME to $PUBLISHING_OFFER_NAME"
     displayName: Set SKU Name
 
   - task: AzureCLI@2
@@ -518,7 +557,7 @@ steps:
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
-      OFFER_NAME: $(OS_SKU)
+      OFFER_NAME: $(PUBLISHING_OFFER_NAME)
 
   - task: PublishPipelineArtifact@1
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))

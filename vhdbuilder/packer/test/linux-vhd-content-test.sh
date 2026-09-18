@@ -1208,6 +1208,32 @@ testCriticalTools() {
   echo "$test:Finish"
 }
 
+testKataCCArtifacts() {
+  test="testKataCCArtifacts"
+  host_os_version="$(. /etc/os-release; printf '%s' "$VERSION_ID")"
+  if ! echo "$FEATURE_FLAGS" | grep -q "kata" || [ "$host_os_version" != "3.0" ]; then
+    echo "$test:Skip"
+    return
+  fi
+
+  echo "$test:Start"
+  required_files=(
+    /usr/local/bin/containerd-shim-kata-cc-v2
+    /usr/bin/tardev-snapshotter
+    /opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml
+    /opt/confidential-containers/share/kata-containers/kata-containers.img
+    /opt/confidential-containers/share/kata-containers/kata-containers-igvm.img
+    /opt/confidential-containers/share/kata-containers/kata-containers-igvm-debug.img
+    /opt/confidential-containers/share/kata-containers/reference-info-base64
+  )
+  for file in "${required_files[@]}"; do
+    if [ ! -s "$file" ]; then
+      err $test "Required Kata CC artifact $file does not exist"
+    fi
+  done
+  echo "$test:Finish"
+}
+
 testCustomCAScriptExecutable() {
   local test="testCustomCAScriptExecutable"
   permissions=$(stat -c "%a" /opt/scripts/update_certs.sh)
@@ -2745,6 +2771,7 @@ testBccTools $OS_SKU $OS_VERSION
 testVHDBuildLogsExist
 testAzureLinuxNvidiaGPUDriverReleaseNotes
 testCriticalTools
+testKataCCArtifacts
 testPackagesInstalled
 testFuseInstalled
 if [ "$OS_SKU" = "Ubuntu" ]; then
