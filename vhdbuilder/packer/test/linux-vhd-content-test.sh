@@ -2440,15 +2440,19 @@ testCorednsBinaryExtractedAndCached() {
     return 1
   fi
 
-  # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
-  local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
+  # The extracted binary is pinned to an exact tag by extractAndCacheCoreDnsBinary in
+  # vhdbuilder/packer/install-dependencies.sh. Assert against that same pin rather than
+  # re-deriving the highest cached tag, so the two cannot drift apart silently.
+  local LOCALDNS_COREDNS_TAG="v1.14.3-18"
 
-  # Determine latest version (eg. v1.12.0-1).
-  local latest_coredns_tag="${sorted_coredns_tags[0]}"
+  if ! printf '%s\n' "${coredns_image_list[@]}" | grep -q ":${LOCALDNS_COREDNS_TAG}\$"; then
+    echo "$test: No cached coredns image found for pinned tag ${LOCALDNS_COREDNS_TAG}"
+    return 1
+  fi
 
-  local expectedVersion="$latest_coredns_tag"
+  local expectedVersion="$LOCALDNS_COREDNS_TAG"
   local expectedVersionWithoutV="${expectedVersion#v}"
-  echo "$test: Expected coredns version (latest): ${expectedVersionWithoutV}"
+  echo "$test: Expected coredns version (pinned): ${expectedVersionWithoutV}"
 
   local builtInPlugins
   builtInPlugins=$("$binaryPath" --plugins)

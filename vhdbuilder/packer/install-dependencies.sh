@@ -971,8 +971,8 @@ EOF
   fi
 }
 
-# This function extracts CoreDNS binary from cached coredns images (latest version)
-# and copies it to - /opt/azure/containers/localdns/binary/coredns.
+# This function extracts CoreDNS binary from the cached coredns image matching the
+# pinned tag below and copies it to - /opt/azure/containers/localdns/binary/coredns.
 # The binary is later used by localdns systemd unit.
 # The function also handles the cleanup of temporary directories and unmounting of images.
 extractAndCacheCoreDnsBinary() {
@@ -994,49 +994,61 @@ extractAndCacheCoreDnsBinary() {
   }
   trap cleanup_coredns_imports EXIT ABRT ERR INT PIPE QUIT TERM
 
-  # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
-  local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
+  # Select the coredns image to extract from by its exact pinned tag. This is
+  # deliberately not derived from the cached tags: picking the highest tag made the
+  # localdns binary silently follow whichever entry in components.json happened to
+  # sort highest, so bumping an unrelated coredns branch could change the binary
+  # with no signal in the diff. Keep this in sync with LOCALDNS_COREDNS_TAG in
+  # vhdbuilder/packer/test/linux-vhd-content-test.sh.
+  local pinned_coredns_tag="v1.14.3-18"
 
-  # Determine latest version.
-  local latest_coredns_tag="${sorted_coredns_tags[0]}"
-
-  # Extract the CoreDNS binary for the latest version.
-  for coredns_image_url in "${coredns_image_list[@]}"; do
-    if [ "${coredns_image_url##*:}" != "${latest_coredns_tag}" ]; then
-      continue
+  local coredns_image_url=""
+  local image
+  for image in "${coredns_image_list[@]}"; do
+    if [ "${image##*:}" = "${pinned_coredns_tag}" ]; then
+      coredns_image_url="${image}"
+      break
     fi
-
-    ctr_temp="$(mktemp -d)"
-    local max_retries=3
-    local retry_count=0
-    while [ $retry_count -lt $max_retries ]; do
-      if ctr -n k8s.io images mount "${coredns_image_url}" "${ctr_temp}" >/dev/null; then
-        break
-      fi
-      echo "Warning: Failed to mount ${coredns_image_url}, retrying..." >> "${VHD_LOGS_FILEPATH}"
-      sleep 2
-      ((retry_count++))
-    done
-
-    if [ "$retry_count" -eq "$max_retries" ]; then
-      echo "Error: Failed to mount ${coredns_image_url} after ${max_retries} attempts." >> "${VHD_LOGS_FILEPATH}"
-      exit 1
-    fi
-
-    local coredns_binary="${ctr_temp}/usr/bin/coredns"
-    if [ -f "${coredns_binary}" ]; then
-      cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
-        echo "Error: Failed to copy coredns binary of ${latest_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
-        exit 1
-      }
-      echo "Successfully copied coredns binary of ${latest_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
-    else
-      echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
-    fi
-
-    ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
-    rm -rf "${ctr_temp}"
   done
+
+  if [ -z "${coredns_image_url}" ]; then
+    echo "Error: No cached coredns image found for pinned tag ${pinned_coredns_tag}." >> "${VHD_LOGS_FILEPATH}"
+    exit 1
+  fi
+
+  ctr_temp="$(mktemp -d)"
+  local max_retries=3
+  local retry_count=0
+  while [ $retry_count -lt $max_retries ]; do
+    if ctr -n k8s.io images mount "${coredns_image_url}" "${ctr_temp}" >/dev/null; then
+      break
+    fi
+    echo "Warning: Failed to mount ${coredns_image_url}, retrying..." >> "${VHD_LOGS_FILEPATH}"
+    sleep 2
+    ((retry_count++))
+  done
+
+  if [ "$retry_count" -eq "$max_retries" ]; then
+    echo "Error: Failed to mount ${coredns_image_url} after ${max_retries} attempts." >> "${VHD_LOGS_FILEPATH}"
+    exit 1
+  fi
+
+  # With a single pinned image there is no other candidate to fall back to, so a
+  # missing binary is fatal rather than logged and skipped.
+  local coredns_binary="${ctr_temp}/usr/bin/coredns"
+  if [ ! -f "${coredns_binary}" ]; then
+    echo "Error: Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
+    exit 1
+  fi
+
+  cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
+    echo "Error: Failed to copy coredns binary of ${pinned_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+    exit 1
+  }
+  echo "Successfully copied coredns binary of ${pinned_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+
+  ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
+  rm -rf "${ctr_temp}"
 
   # Clear the trap.
   trap - EXIT ABRT ERR INT PIPE QUIT TERM
