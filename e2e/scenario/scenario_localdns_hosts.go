@@ -60,10 +60,12 @@ func init() {
 					//
 					// The full failure-mode matrix runs on Ubuntu2404 only: it is
 					// systemd 255, where daemon-reload does not clear the start
-					// limiter and where the provisioning regression was found. It
-					// costs ~23min, so the other distros run the single
-					// discriminating mode instead (~40s) -- enough to catch the
-					// directives being dropped on those images.
+					// limiter and where the provisioning regression was found. On
+					// shortened clocks a healthy run of all seven modes costs ~7min,
+					// and the sizing against TestTimeoutVMSS is asserted at build
+					// time by TestLocalDNSFaultMatrixFitsVMSSBudget. The other
+					// distros run the single discriminating mode instead (~40s) --
+					// enough to catch the directives being dropped on those images.
 					faults := localdnsDiscriminatingFault()
 					if tt.name == "Ubuntu2404" {
 						faults = localdnsFaultMatrix
@@ -76,8 +78,20 @@ func init() {
 }
 
 func validateLocalDNSLifecycle(ctx context.Context, s *Scenario) error {
+	// Gate the ExecStopPost block on the lane, not on the unit under test. Probing
+	// 'systemctl show -p ExecStopPost' to decide whether to test ExecStopPost means the
+	// assertion only ever runs where it is already guaranteed to pass, and removing the hook
+	// would turn the block off everywhere instead of failing it. laneResolvedMainBuiltImage
+	// (scenario_localdns_restart_budget.go) reads the lane's own image selection instead.
+	expectExecStopPost := "true"
+	if laneResolvedMainBuiltImage() {
+		expectExecStopPost = "false"
+	}
 	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, `
 set -eu
+
+# Set from the lane's image selection, not probed from the node.
+EXPECT_EXECSTOPPOST=`+expectExecStopPost+`
 
 NORESTART=/run/systemd/system/localdns.service.d/99-e2e-no-restart.conf
 
@@ -214,7 +228,14 @@ if sudo journalctl -u localdns.service --since "@$test_start" --no-pager | grep 
 fi
 dig +short +time=5 +tries=1 mcr.microsoft.com @169.254.10.10 | grep -q .
 
-if sudo systemctl show localdns.service -p ExecStopPost --value | grep -q 'localdns.sh cleanup'; then
+if [ "$EXPECT_EXECSTOPPOST" = true ]; then
+# The lane asked for this branch's VHD, so the hook must be there. Assert it rather than
+# using its presence to decide whether to look -- a missing hook is the regression.
+if ! sudo systemctl show localdns.service -p ExecStopPost --value | grep -q 'localdns.sh cleanup'; then
+    echo "FAIL: ExecStopPost=localdns.sh cleanup is missing from localdns.service"
+    sudo systemctl show localdns.service -p ExecStopPost || true
+    exit 1
+fi
 # Terminal dead-service case: this is the incident scenario the PR fixes.
 # When localdns ends up dead (systemd exhausts restart attempts), ExecStopPost
 # must still revert node DNS so the node does not keep pointing at the dead
@@ -308,7 +329,7 @@ if ! getent hosts mcr.microsoft.com >/dev/null 2>&1; then
     exit 1
 fi
 else
-    echo "SKIP: VHD predates the ExecStopPost cleanup hook"
+    echo "SKIP: this lane resolved a main-built image, which predates the ExecStopPost cleanup hook"
 fi
 
 # The EXIT trap removes the temporary override and restores LocalDNS even if

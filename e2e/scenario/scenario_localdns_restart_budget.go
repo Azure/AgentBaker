@@ -3,9 +3,9 @@ package scenario
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
 )
 
@@ -42,6 +42,11 @@ type localdnsFault struct {
 	label string
 	// seconds to wait for the unit to reach 'failed', from the measured time plus margin
 	deadlineSeconds int
+	// what this mode actually took when last measured on the gate, in seconds. Data rather
+	// than a comment so TestLocalDNSFaultMatrixFitsVMSSBudget can size the matrix against
+	// TestTimeoutVMSS: the healthy run costs the sum of these, and only a regressing mode
+	// costs its deadline.
+	measuredSeconds int
 }
 
 // localdnsFaultMatrix is the full set of modes.
@@ -63,13 +68,13 @@ type localdnsFault struct {
 //	watchdog         370s    WatchdogSec 60 -> 10
 //	hungstart        625s    TimeoutStartSec 90 -> 15, TimeoutStopSec 30 -> 5
 var localdnsFaultMatrix = []localdnsFault{
-	{name: "preflight", label: "pre-flight abort", deadlineSeconds: 45},           // ~11s
-	{name: "resolvdrain", label: "resolv.conf never drains", deadlineSeconds: 80}, // ~37s
-	{name: "postready", label: "dies right after READY", deadlineSeconds: 120},    // ~64s
-	{name: "nopidfile", label: "PID file never appears", deadlineSeconds: 90},     // ~30s shortened
-	{name: "readytimeout", label: "ready-check timeout", deadlineSeconds: 120},    // ~75s shortened
-	{name: "watchdog", label: "watchdog pings cease", deadlineSeconds: 120},       // ~90s shortened
-	{name: "hungstart", label: "hung start", deadlineSeconds: 180},                // ~110s shortened
+	{name: "preflight", label: "pre-flight abort", deadlineSeconds: 45, measuredSeconds: 11},
+	{name: "resolvdrain", label: "resolv.conf never drains", deadlineSeconds: 80, measuredSeconds: 37},
+	{name: "postready", label: "dies right after READY", deadlineSeconds: 120, measuredSeconds: 64},
+	{name: "nopidfile", label: "PID file never appears", deadlineSeconds: 90, measuredSeconds: 30},
+	{name: "readytimeout", label: "ready-check timeout", deadlineSeconds: 120, measuredSeconds: 75},
+	{name: "watchdog", label: "watchdog pings cease", deadlineSeconds: 120, measuredSeconds: 90},
+	{name: "hungstart", label: "hung start", deadlineSeconds: 180, measuredSeconds: 110},
 }
 
 // localdnsDiscriminatingFault is the single mode used on distros that do not carry the
@@ -102,10 +107,36 @@ const (
 	// Kept separate from localdnsFaultDropIn so the real-clock measurement can run with the
 	// shipped timeouts before the matrix speeds them up.
 	localdnsFastClockDropIn = "/run/systemd/system/localdns.service.d/99-e2e-fastclock.conf"
-	// StartLimitIntervalSec=720 as systemd formats it. Shared by the provenance probe and
-	// the directive assertion so the two cannot drift apart.
-	localdnsExpectedStartLimitInterval = "12min"
 )
+
+// localdnsWorstCycleCeilingSeconds bounds measureLocalDNSWorstCycle's poll. Exported as a
+// constant so TestLocalDNSFaultMatrixFitsVMSSBudget can size the whole validation against
+// TestTimeoutVMSS at build time.
+const localdnsWorstCycleCeilingSeconds = 180
+
+// laneResolvedMainBuiltImage reports whether this lane asked for an image built from main,
+// rather than one built from the branch under test.
+//
+// This is the gate for the restart-budget validation, and it deliberately reads the lane's
+// own image selection rather than probing the node for the directives. Probing the node
+// would key the skip on a value the validation itself asserts, so the assertion could only
+// run on images where it was already guaranteed to pass -- and a later retune of the budget
+// would silently turn the whole scenario off on every lane instead of failing it.
+//
+// The gate lane sets SIG_VERSION_TAG_NAME=buildId / SIG_VERSION_TAG_VALUE=<vhd build id>
+// from VHD_BUILD_ID (.pipelines/scripts/e2e_run.sh:83-88) and therefore tests this PR's own
+// VHDs. Everything else falls back to the default branch=refs/heads/main selector, which
+// resolves a main-built image that legitimately still ships the systemd default 10s/5
+// budget: localdns.service is baked into the VHD (vhdbuilder/packer/packer_source.sh), not
+// delivered through CustomData. .pipelines/e2e.yaml triggers on any PR touching e2e/** and
+// runs in exactly that configuration.
+//
+// A lane pointed at some other branch's image asserts rather than skips: if you asked for a
+// specific branch's VHD, a missing budget there is a real failure worth hearing about.
+func laneResolvedMainBuiltImage() bool {
+	return config.Config.SIGVersionTagName == "branch" &&
+		config.Config.SIGVersionTagValue == "refs/heads/main"
+}
 
 // validateLocalDNSRestartBudget asserts that the unit's restart budget terminates each
 // supplied failure mode in 'failed', and leaves LocalDNS healthy afterwards.
@@ -114,11 +145,10 @@ func validateLocalDNSRestartBudget(ctx context.Context, s *Scenario, faults []lo
 		return fmt.Errorf("no LocalDNS faults selected: the fault matrix is misconfigured")
 	}
 
-	carries, err := vhdCarriesLocalDNSRestartBudget(ctx, s)
-	if err != nil {
-		return err
-	}
-	if !carries {
+	if laneResolvedMainBuiltImage() {
+		logging.Logf(ctx, "SKIP: this lane resolved a main-built image (%s=%s), which predates the "+
+			"LocalDNS restart budget baked into the VHD; run against the PR's VHD build to exercise it",
+			config.Config.SIGVersionTagName, config.Config.SIGVersionTagValue)
 		return nil
 	}
 
@@ -208,7 +238,7 @@ func measureLocalDNSWorstCycle(ctx context.Context, s *Scenario) error {
 	return err
 }
 
-const localdnsWorstCycleScript = `
+var localdnsWorstCycleScript = `
 set -eu
 
 usec() { systemd-analyze timespan "$1" 2>/dev/null | sed -n '2s/.*: *//p'; }
@@ -226,9 +256,13 @@ sudo rm -f ` + localdnsFaultCounter + `
 sudo systemctl start --no-block localdns.service || true
 
 # Two ExecStarts is all that is needed. Worst case here is TimeoutStartSec 90 +
-# TimeoutStopSec 30 + RestartSec 2 = ~122s, so 240s leaves generous headroom.
+# TimeoutStopSec 30 + RestartSec 2 = ~122s. The ceiling is deliberately close to that
+# rather than generous: this poll shares TestTimeoutVMSS with VM creation and the whole
+# fault matrix, and if the scenario runs out of budget the VMSS timeout pre-empts the
+# per-fault deadlines and you lose the specific diagnostic they exist to produce. On the
+# success path it breaks early anyway. Keep it in step with localdnsWorstCycleCeilingSeconds.
 observed=0
-for i in $(seq 1 240); do
+for i in $(seq 1 ` + fmt.Sprint(localdnsWorstCycleCeilingSeconds) + `); do
     observed=$(sudo grep -c EXECSTART ` + localdnsFaultCounter + ` 2>/dev/null || echo 0)
     [ "$observed" -ge 2 ] && break
     sleep 1
@@ -269,42 +303,6 @@ sudo systemctl is-active --quiet localdns.service || {
 }
 `
 
-// vhdCarriesLocalDNSRestartBudget reports whether the image under test actually ships the
-// restart budget, so an image that predates it is skipped rather than failed.
-//
-// localdns.service is baked into the VHD (vhdbuilder/packer/packer_source.sh), not delivered
-// through CustomData, so these directives only exist on an image built from a branch that
-// carries them. Two e2e lanes run against this repo and they do not agree on which image
-// that is: the VHD check-in gate builds this PR's own images and tests them, but
-// .pipelines/e2e.yaml also triggers on any PR touching e2e/**, and it resolves images by
-// branch=refs/heads/main -- which legitimately still ship the systemd default 10s/5 budget.
-// Asserting unconditionally makes that second lane permanently red for any PR that changes
-// this file, and the failure says "the directives were removed" about an image that was
-// never meant to have them.
-//
-// StartLimitIntervalUSec is the probe rather than any other directive because it is
-// unambiguous provenance: 12min exists only on an image carrying this change, and the 10s
-// default identifies an older one. TimeoutStartUSec cannot be used -- it now reads 1min 30s
-// on new images but also on any older Ubuntu image, so it does not separate them.
-//
-// This mirrors validateLocalDNSLifecycle, which already skips its terminal dead-service
-// block on images predating the ExecStopPost cleanup hook.
-func vhdCarriesLocalDNSRestartBudget(ctx context.Context, s *Scenario) (bool, error) {
-	result, err := execScriptOnVMForScenario(ctx, s,
-		`systemctl show localdns.service -p StartLimitIntervalUSec --value`)
-	if err != nil {
-		return false, fmt.Errorf("read the LocalDNS start-limit interval: %w", err)
-	}
-	interval := strings.TrimSpace(result.stdout)
-	if interval != localdnsExpectedStartLimitInterval {
-		logging.Logf(ctx, "SKIP: VHD predates the LocalDNS restart budget (StartLimitIntervalUSec=%q, want %q); "+
-			"this image is not built from a branch carrying localdns.service's budget",
-			interval, localdnsExpectedStartLimitInterval)
-		return false, nil
-	}
-	return true, nil
-}
-
 // assertLocalDNSBudgetDirectives checks the effective directives rather than the file, so
 // a drop-in that quietly overrides them is caught too.
 func assertLocalDNSBudgetDirectives(ctx context.Context, s *Scenario) error {
@@ -326,7 +324,7 @@ check() {
 }
 
 # The budget under test.
-check StartLimitIntervalUSec "` + localdnsExpectedStartLimitInterval + `"
+check StartLimitIntervalUSec "12min"
 check StartLimitBurst "5"
 check RestartUSec "2s"
 
@@ -343,6 +341,15 @@ check Restart "on-failure"
 # image -- Ubuntu builds it at 90s, Azure Linux at 45s -- so an inherited value made the
 # margin, and this assertion, distro-dependent. Assert the pin so dropping it fails here.
 check TimeoutStartUSec "1min 30s"
+
+# The other half of the same problem, and the one that actually bit. Azure Linux ships a
+# global service.d drop-in setting TimeoutStopFailureMode=abort, which makes a stop timeout
+# send SIGABRT and then wait a SECOND TimeoutStopSec before SIGKILL. The stop side of the
+# cycle is doubled, and the arithmetic below -- which models it as one TimeoutStopSec -- has
+# no way to see that. Measured on AzureLinuxV3: 153s against a 144s threshold. The unit pins
+# 'terminate' to take the distro's drop-in out of the cycle; assert the pin, because if it is
+# dropped the margin check below still reports a comfortable 122s while the machine is at 153s.
+check TimeoutStopFailureMode "terminate"
 
 # The design rule itself, as arithmetic on the live values rather than on the numbers this
 # comment happens to quote.
@@ -386,13 +393,16 @@ if [ "$fail" -ne 0 ]; then
     echo "delivered through CustomData, so these directives only exist on an image built"
     echo "from a branch that carries them."
     echo
-    echo "Reaching this message means the image DOES carry the budget -- vhdCarriesLocalDNSRestartBudget"
-    echo "already matched StartLimitIntervalUSec and would have skipped an older image before"
-    echo "getting here. So one of the other directives was removed, overridden by a drop-in,"
-    echo "or is inherited on this distro when it should be pinned."
+    echo "This validation is gated on the lane, not on the node: laneResolvedMainBuiltImage()"
+    echo "skips it when the lane asked for a main-built image. Reaching this message therefore"
+    echo "means the lane asked for THIS branch's VHD and the image it got does not have the"
+    echo "budget -- either it was removed, a drop-in overrode it, or it is inherited on this"
+    echo "distro when the unit should be pinning it."
     echo
-    echo "Note TimeoutStartUSec is pinned by the unit precisely because the manager default is"
-    echo "a systemd build-time constant: Ubuntu builds it at 90s, Azure Linux at 45s."
+    echo "TimeoutStartUSec and TimeoutStopFailureMode are both pinned by the unit precisely"
+    echo "because their defaults are systemd build-time constants that differ by image:"
+    echo "Ubuntu builds the start timeout at 90s and Azure Linux at 45s, and Azure Linux also"
+    echo "ships a global TimeoutStopFailureMode=abort drop-in that doubles the stop side."
 fi
 
 exit "$fail"
