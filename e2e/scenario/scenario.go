@@ -276,6 +276,20 @@ func init() {
 	}
 }
 
+// skipIfACLBaseImageUnsigned skips ACL GPU scenarios when running against an
+// unsigned/dev ACL base image (ACL_BASE_IMAGE_SIGNED=false, e.g. acldevel-sourced).
+// Unsigned dev builds are pinned to a specific VERSION_ID that is not guaranteed to
+// have a matching NVIDIA GPU sysext (nvidia-container-toolkit, nvidia-driver-*, etc.)
+// published to MCR yet, since GPU sysext publishing lags the dev image build. That
+// causes GPU provisioning to fail with an unrelated-looking VMExtensionProvisioningError
+// rather than a real product regression, so skip GPU scenarios for unsigned builds.
+func skipIfACLBaseImageUnsigned(context.Context) string {
+	if !config.Config.ACLBaseImageSigned {
+		return "ACL_BASE_IMAGE_SIGNED=false (unsigned/dev ACL base image); matching NVIDIA GPU sysexts are not guaranteed to be published for this build"
+	}
+	return ""
+}
+
 func aclGPUScenario(name, vmSize, location string) *Scenario {
 	return &Scenario{
 		Name:        name,
@@ -284,6 +298,7 @@ func aclGPUScenario(name, vmSize, location string) *Scenario {
 		Tags: Tags{
 			GPU: true,
 		},
+		SkipIf: skipIfACLBaseImageUnsigned,
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLGen2TL,
@@ -315,6 +330,7 @@ func aclGRIDScenario(name, vmSize string) *Scenario {
 		Tags: Tags{
 			GPU: true,
 		},
+		SkipIf: skipIfACLBaseImageUnsigned,
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLGen2TL,
