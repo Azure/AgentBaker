@@ -35,6 +35,15 @@ write_files:
 {{end}}
 
 {{- else }}
+{{if and IsMariner (not IsACL) (not IsAzlOSGuard) (not IsFlatcar)}}
+- path: /opt/azure/containers/mariner-package-update.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "packageUpdateScriptMariner"}}
+{{end}}
+
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"
   encoding: gzip

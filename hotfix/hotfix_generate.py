@@ -81,6 +81,7 @@ SOURCE_TO_VARKEY = {
     # Other scripts present in traditional nodecustomdata
     "configure-azure-network.sh": "configureAzureNetworkScript",
     "init-aks-cloud.sh": "initAKSCloud",
+    "mariner/mariner-package-update.sh": "packageUpdateScriptMariner",
     # Systemd files present in traditional nodecustomdata
     "kubelet.service": "kubeletSystemdService",
     "reconcile-private-hosts.service": "reconcilePrivateHostsService",

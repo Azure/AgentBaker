@@ -2726,6 +2726,33 @@ testContainerNetworkingPluginsInstalled() {
   return 0
 }
 
+testMarinerLivePatchingArtifacts() {
+  local test="testMarinerLivePatchingArtifacts"
+  local update_script="/opt/azure/containers/mariner-package-update.sh"
+  local service="/etc/systemd/system/snapshot-update.service"
+  local timer="/etc/systemd/system/snapshot-update.timer"
+
+  echo "$test: Start"
+  if [ "$OS_SKU" != "CBLMariner" ] && [ "$OS_SKU" != "AzureLinux" ]; then
+    echo "$test: Skipping for non-Mariner/AzureLinux image"
+    return 0
+  fi
+
+  if [ "$(stat -c '%a' "$update_script" 2>/dev/null)" != "544" ]; then
+    err $test "$update_script must exist with mode 0544"
+  fi
+  if [ "$(stat -c '%a' "$service" 2>/dev/null)" != "644" ]; then
+    err $test "$service must exist with mode 0644"
+  fi
+  if [ "$(stat -c '%a' "$timer" 2>/dev/null)" != "644" ]; then
+    err $test "$timer must exist with mode 0644"
+  fi
+  if [ "$(grep -E '^ExecStart=' "$service" 2>/dev/null)" != "ExecStart=/opt/azure/containers/mariner-package-update.sh" ]; then
+    err $test "$service must execute the Mariner package update script"
+  fi
+  echo "$test: Finish"
+}
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -2782,6 +2809,7 @@ testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
+testMarinerLivePatchingArtifacts
 testNodeExporter $OS_SKU
 testAKSNodeControllerBinary
 testAKSNodeControllerVersion
