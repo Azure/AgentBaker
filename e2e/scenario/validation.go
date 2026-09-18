@@ -145,6 +145,7 @@ func ValidateCommonLocalDNS(ctx context.Context, s *Scenario) error {
 	errs := []error{
 		ValidateLocalDNSService(ctx, s, "enabled"),
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10"),
+		ValidateLocalDNSServiceDiscovery(ctx, s),
 		ValidateLocalDNSExporterMetrics(ctx, s),
 	}
 	if !s.IsHostsPluginEnabled() {
