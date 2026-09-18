@@ -584,15 +584,21 @@ EOF
 function configure_chrony {
     local time_sources="${1:-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0}"
     local chrony_conf="${CHRONY_CONF:-/etc/chrony/chrony.conf}"
+    local timesyncd_status
 
     if [ "$IS_UBUNTU" -eq 1 ]; then
-        if ! systemctl stop systemd-timesyncd; then
-            echo "ERROR: failed to stop systemd-timesyncd" >&2
-            return 1
-        fi
-        if ! systemctl disable systemd-timesyncd; then
-            echo "ERROR: failed to disable systemd-timesyncd" >&2
-            return 1
+        timesyncd_status="$(systemctl show -p SubState --value systemd-timesyncd 2>/dev/null || true)"
+        if [ "$timesyncd_status" = "dead" ]; then
+            echo "systemd-timesyncd is removed, no need to disable"
+        else
+            if ! systemctl stop systemd-timesyncd; then
+                echo "ERROR: failed to stop systemd-timesyncd" >&2
+                return 1
+            fi
+            if ! systemctl disable systemd-timesyncd; then
+                echo "ERROR: failed to disable systemd-timesyncd" >&2
+                return 1
+            fi
         fi
 
         if [ ! -e "$chrony_conf" ]; then

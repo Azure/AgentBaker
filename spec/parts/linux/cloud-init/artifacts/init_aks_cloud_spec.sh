@@ -422,6 +422,41 @@ EOF
             The status should equal 1
         End
 
+        It 'skips stopping and disabling systemd-timesyncd when the unit is removed'
+            setup_chrony_test
+            Mock systemctl
+                if [ "$1" = "show" ]; then
+                    echo "dead"
+                    return 1
+                fi
+                if [ "$1" = "stop" ] || [ "$1" = "disable" ]; then
+                    echo "unexpected systemd-timesyncd operation"
+                    return 1
+                fi
+            End
+
+            When call configure_chrony
+            The output should include "systemd-timesyncd is removed, no need to disable"
+            The output should not include "unexpected systemd-timesyncd operation"
+            The contents of file "$CHRONY_CONF" should include "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
+            The status should be success
+        End
+
+        It 'returns failure when an existing systemd-timesyncd unit cannot be stopped'
+            setup_chrony_test
+            Mock systemctl
+                if [ "$1" = "show" ]; then
+                    echo "running"
+                elif [ "$1" = "stop" ]; then
+                    return 1
+                fi
+            End
+
+            When call configure_chrony
+            The error should include "failed to stop systemd-timesyncd"
+            The status should equal 1
+        End
+
         It 'returns the Chrony configuration failure code without checking NTP when TDX setup fails'
             Mock detect_confidential_vm_platform
                 echo "tdx"
