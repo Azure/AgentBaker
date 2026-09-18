@@ -18,6 +18,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+const DEFAULT_VMSKU = "Standard_D2ds_v5"
+
 var (
 	// Config is populated before scenario goroutines start and is immutable after Initialize.
 	Config                                                             = DefaultConfiguration()
@@ -96,8 +98,8 @@ func DefaultConfiguration() *Configuration {
 		DefaultLocation:                        "westus3",
 		DefaultPollInterval:                    15 * time.Second,
 		DefaultSubnetName:                      "aks-subnet",
-		DefaultVMSKU:                           "Standard_D2ds_v5",
-		Gen1SCSIVMSKU:                          "Standard_D2ds_v5",
+		DefaultVMSKU:                           DEFAULT_VMSKU,
+		Gen1SCSIVMSKU:                          DEFAULT_VMSKU,
 		MANAVMSKU:                              "Standard_D2ds_v6",
 		E2ELoggingDir:                          "scenario-logs",
 		EnableSecureTLSBootstrapping:           false,
@@ -124,6 +126,13 @@ func DefaultConfiguration() *Configuration {
 		TestTimeoutCluster:     30 * time.Minute,
 		TestTimeoutVMSS:        17 * time.Minute,
 	}
+}
+
+func (c *Configuration) VMSKU() string {
+	if c.DefaultVMSKU == "" {
+		return DEFAULT_VMSKU
+	}
+	return c.DefaultVMSKU
 }
 
 func (c *Configuration) BlobStorageAccount() string {

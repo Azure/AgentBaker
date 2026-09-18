@@ -213,9 +213,7 @@ updateAptWithNvidiaPkg() {
     elif [ "${UBUNTU_RELEASE}" = "24.04" ]; then
         nvidia_ubuntu_release="ubuntu2404"
     elif [ "${UBUNTU_RELEASE}" = "26.04" ]; then
-        # TODO: Restore ubuntu2604 after NVIDIA republishes a valid Packages index.
-        nvidia_ubuntu_release="ubuntu2404"
-        echo "Using the Ubuntu 24.04 NVIDIA repository while the Ubuntu 26.04 index is malformed"
+        nvidia_ubuntu_release="ubuntu2604"
     else
         echo "NVIDIA repo setup is not supported on Ubuntu ${UBUNTU_RELEASE}"
         return

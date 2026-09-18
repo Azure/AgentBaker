@@ -135,6 +135,10 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		return nil, fmt.Errorf("getting cluster kube client: %w", err)
 	}
 
+	if err := kube.EnsureKonnectivityAgentAutoscaler(ctx); err != nil {
+		return nil, err
+	}
+
 	kubeletIdentity, err := getClusterKubeletIdentity(cluster)
 	if err != nil {
 		return nil, fmt.Errorf("getting cluster kubelet identity: %w", err)
@@ -382,11 +386,15 @@ func getOrCreateCluster(ctx context.Context, cluster *armcontainerservice.Manage
 	}
 
 	if existingCluster != nil {
-		// create new cluster;
 		return existingCluster, nil
 	}
 
-	return createNewAKSClusterWithRetry(ctx, cluster)
+	createdCluster, err := createNewAKSClusterWithRetry(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	renewNodeResourceGroupDeadline(ctx, config.Azure, config.Config, createdCluster)
+	return createdCluster, nil
 }
 
 // isExistingCluster checks if an AKS cluster exists. return the cluster only if its provisioning state is Succeeded and can be used. non-nil error if not retriable
@@ -405,13 +413,14 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 
 	switch *existingCluster.Properties.ProvisioningState {
 	case "Succeeded":
-		nodeRGExists, err := isUsableNodeResourceGroup(ctx, location, clusterName, *existingCluster.Properties.NodeResourceGroup)
+		nodeRG, err := getUsableNodeResourceGroup(ctx, location, clusterName, *existingCluster.Properties.NodeResourceGroup)
 
 		if err != nil {
 			return nil, err
 		}
 		// ensure MC_rg as well --> functioning. during cluster provisioning, the node resource group may not exist yet and we can wait
-		if nodeRGExists {
+		if nodeRG != nil {
+			renewResourceGroupDeadline(ctx, config.Azure, config.Config, *nodeRG)
 			return &existingCluster.ManagedCluster, nil
 		}
 		logging.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s has deleting or missing node resource group %s, deleting cluster", clusterName, *existingCluster.Properties.NodeResourceGroup)
@@ -451,18 +460,22 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 	case "Creating":
 		// For Creating state, wait for the cluster to become ready.
 		logging.Logf(ctx, "Cluster is currently being created. Will wait for creation to finish: %s", clusterName)
-		return waitUntilClusterReady(ctx, clusterName, location)
 
 	case "Starting":
 		// For Starting state, wait for the cluster to become ready.
 		logging.Logf(ctx, "Cluster is currently being started. Will wait for start to finish: %s", clusterName)
-		return waitUntilClusterReady(ctx, clusterName, location)
 
 	default:
 		// For other non-terminal provisioning states (e.g., Updating, Scaling, Migrating, Upgrading, Restoring), wait for the cluster to become ready.
 		logging.Logf(ctx, "##vso[task.logissue type=warning;]Unexpected cluster provisioning state for cluster %s: %s", clusterName, *existingCluster.Properties.ProvisioningState)
-		return waitUntilClusterReady(ctx, clusterName, location)
 	}
+	// Renew before the wait; retry afterward only if the node RG was not protected.
+	renewed := renewNodeResourceGroupDeadline(ctx, config.Azure, config.Config, &existingCluster.ManagedCluster)
+	ready, err := waitUntilClusterReady(ctx, clusterName, location)
+	if err == nil && ready != nil && !renewed {
+		renewNodeResourceGroupDeadline(ctx, config.Azure, config.Config, ready)
+	}
+	return ready, err
 }
 
 func deleteCluster(ctx context.Context, clusterName, resourceGroupName string) error {
@@ -535,11 +548,11 @@ func waitUntilClusterReady(ctx context.Context, name, location string) (*armcont
 		return nil, nil
 	}
 	if cluster.ManagedCluster.Properties != nil && cluster.ManagedCluster.Properties.NodeResourceGroup != nil {
-		nodeRGExists, err := isUsableNodeResourceGroup(ctx, location, name, *cluster.ManagedCluster.Properties.NodeResourceGroup)
+		nodeRG, err := getUsableNodeResourceGroup(ctx, location, name, *cluster.ManagedCluster.Properties.NodeResourceGroup)
 		if err != nil {
 			return nil, err
 		}
-		if !nodeRGExists {
+		if nodeRG == nil {
 			nodeResourceGroup := *cluster.ManagedCluster.Properties.NodeResourceGroup
 			if cleanupErr := detachNodeResourceGroupReferencesFromClusterSubnet(ctx, *cluster.Location, *cluster.Name, nodeResourceGroup); cleanupErr != nil {
 				logging.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
@@ -558,14 +571,14 @@ func waitUntilClusterReady(ctx context.Context, name, location string) (*armcont
 	return &cluster.ManagedCluster, nil
 }
 
-func isUsableNodeResourceGroup(ctx context.Context, location, clusterName, resourceGroupName string) (bool, error) {
+func getUsableNodeResourceGroup(ctx context.Context, location, clusterName, resourceGroupName string) (*armresources.ResourceGroup, error) {
 	rg, err := config.Azure.ResourceGroup.Get(ctx, resourceGroupName, nil)
 	if err != nil {
 		var azErr *azcore.ResponseError
 		if errors.As(err, &azErr) && azErr.StatusCode == http.StatusNotFound {
-			return false, nil
+			return nil, nil
 		}
-		return false, fmt.Errorf("failed to get RG %q: %w", resourceGroupName, err)
+		return nil, fmt.Errorf("failed to get RG %q: %w", resourceGroupName, err)
 	}
 
 	if rg.Properties != nil && rg.Properties.ProvisioningState != nil && strings.EqualFold(*rg.Properties.ProvisioningState, "Deleting") {
@@ -573,19 +586,19 @@ func isUsableNodeResourceGroup(ctx context.Context, location, clusterName, resou
 			logging.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", resourceGroupName, err)
 		}
 		logging.Logf(ctx, "node resource group %q is deleting; recreating cluster %q", resourceGroupName, clusterName)
-		return false, nil
+		return nil, nil
 	}
 
 	hasVMSS, err := hasVMSSInResourceGroup(ctx, resourceGroupName)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	if !hasVMSS {
 		logging.Logf(ctx, "node resource group %q has no VMSS; recreating cluster %q", resourceGroupName, clusterName)
-		return false, nil
+		return nil, nil
 	}
 
-	return true, nil
+	return &rg.ResourceGroup, nil
 }
 
 func hasVMSSInResourceGroup(ctx context.Context, resourceGroupName string) (bool, error) {
@@ -928,23 +941,6 @@ func isManagedPoolVMSS(vmssName string, managedPoolPrefixes []string) bool {
 		}
 	}
 	return false
-}
-
-func ensureResourceGroup(ctx context.Context, location string) (armresources.ResourceGroup, error) {
-	resourceGroupName := config.ResourceGroupName(location)
-	rg, err := config.Azure.ResourceGroup.CreateOrUpdate(
-		ctx,
-		resourceGroupName,
-		armresources.ResourceGroup{
-			Location: to.Ptr(location),
-			Name:     to.Ptr(resourceGroupName),
-		},
-		nil)
-
-	if err != nil {
-		return armresources.ResourceGroup{}, fmt.Errorf("creating or updating RG %q: %w", resourceGroupName, err)
-	}
-	return rg.ResourceGroup, nil
 }
 
 // setupPrivateDNSForAPIServer adds an A record for the cluster's API server FQDN
