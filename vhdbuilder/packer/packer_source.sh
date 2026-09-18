@@ -131,9 +131,18 @@ configureServiceExecutionTelemetryForSystemdVersion() {
     cgroup-pressure-telemetry.service \
     aks-log-collector.service; do
     case "$service" in
-      cgroup-memory-telemetry.service) service_path="$CGROUP_MEMORY_TELEMETRY_SERVICE_DEST" ;;
-      cgroup-pressure-telemetry.service) service_path="$CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST" ;;
-      aks-log-collector.service) service_path="$AKS_LOG_COLLECTOR_SERVICE_DEST" ;;
+      cgroup-memory-telemetry.service)
+        service_path="$CGROUP_MEMORY_TELEMETRY_SERVICE_DEST"
+        collector_unit='service-execution-telemetry@cgroup\x2dmemory\x2dtelemetry.service.service'
+        ;;
+      cgroup-pressure-telemetry.service)
+        service_path="$CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST"
+        collector_unit='service-execution-telemetry@cgroup\x2dpressure\x2dtelemetry.service.service'
+        ;;
+      aks-log-collector.service)
+        service_path="$AKS_LOG_COLLECTOR_SERVICE_DEST"
+        collector_unit='service-execution-telemetry@aks\x2dlog\x2dcollector.service.service'
+        ;;
     esac
 
     if [ "$systemd_version" -ge 258 ]; then
@@ -152,7 +161,6 @@ configureServiceExecutionTelemetryForSystemdVersion() {
       -e '/^OnSuccess=service-execution-telemetry@/d' \
       -e '/^OnFailure=service-execution-telemetry@/d' \
       "$service_path" || return 1
-    collector_unit=$(systemd-escape --template=service-execution-telemetry@.service "$service") || return 1
     printf 'ExecStopPost=-/bin/systemctl --no-block start %s\n' \
       "$collector_unit" >> "$service_path" || return 1
   done
