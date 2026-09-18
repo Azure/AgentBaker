@@ -24,15 +24,8 @@ $SkipMapForSignature = @{
     "oras_1.3.3_windows_amd64.zip"             = @();
 }
 
-$SkipSignatureCheckForBinaries = @{
-    # win-bridge.exe is not signed in these k8s packages, and it will be removed from k8s package in the future
-    "win-bridge.exe"                      = $True;
-    # aks-secure-tls-bootstrap-client.exe should be signed once it has been onboarded to Dalec and published via Upstream,
-    # though for now we allow-list it as to not block secure TLS bootstrapping development
-    # NOTE: this is okay since the binary is cleaned up during node provisioning when secure TLS bootstrapping is disabled (which is currently the default in production)
-    # TODO(cameissner): remove this once the binary is properly signed
-    "aks-secure-tls-bootstrap-client.exe" = $True;
-}
+# $SkipSignatureCheckForBinaries is defined in windows-vhd-configuration.ps1 (dot-sourced above)
+# so it is shared with windows-vhd-content-test.ps1's Test-PrivatePackageSignature.
 
 # MisMatchFiles is used to record files whose file sizes are different on Global and MoonCake
 $MisMatchFiles = @{}
@@ -108,6 +101,34 @@ function DownloadFile {
     }
 }
 
+function Get-UnsignedBinariesInDirectory {
+    # Extracted so tests can Mock this instead of Get-ChildItem directly: -File/-Directory/-Hidden
+    # are FileSystem-provider dynamic parameters, not part of Get-ChildItem's static parameter set,
+    # and Pester's Mock proxy doesn't reliably replicate those - mocking Get-ChildItem -File
+    # directly throws "A parameter cannot be found that matches parameter name 'File'".
+    param (
+        $Directory,
+        $IncludeList
+    )
+
+    return (Get-ChildItem -Path $Directory -Recurse -File -Include $IncludeList |
+            ForEach-Object { Get-AuthenticodeSignature $_.FullName } |
+            Where-Object { $_.Status -ne "Valid" })
+}
+
+function Get-UnsignedFilesExcludingKnownTypes {
+    # Same rationale as Get-UnsignedBinariesInDirectory above, for the broader (all-file-types
+    # except some known-safe extensions) signature check.
+    param (
+        $Directory,
+        $ExcludeList
+    )
+
+    return (Get-ChildItem -Path $Directory -Recurse -File -Exclude $ExcludeList |
+            ForEach-Object { Get-AuthenticodeSignature $_.FullName } |
+            Where-Object { $_.Status -ne "Valid" })
+}
+
 function Test-ValidateAllSignature {
     foreach ($dir in $map.Keys) {
         Test-ValidateSinglePackageSignature $dir
@@ -170,12 +191,16 @@ function Test-ValidateSinglePackageSignature {
 
         # Check signature for 4 types of files and record unsigned files
         $includeList = @("*.exe", "*.ps1", "*.psm1", "*.dll")
-        $NotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Include $includeList | ForEach-object { Get-AuthenticodeSignature $_.FullName } | Where-Object { $_.status -ne "Valid" })
+        $NotSignedList = Get-UnsignedBinariesInDirectory -Directory $installDir -IncludeList $includeList
         if ($NotSignedList.Count -ne 0) {
             foreach ($NotSignedFile in $NotSignedList) {
                 $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
 
-                if ($SkipSignatureCheckForBinaries.ContainsKey($NotSignedFileName)) {
+                if (
+                    $SkipSignatureCheckForBinaries.ContainsKey($dir) -and
+                    $SkipSignatureCheckForBinaries[$dir] -contains $NotSignedFileName -and
+                    $NotSignedFile.Status -eq "NotSigned"
+                ) {
                     Write-Output "$NotSignedFileName is in the ignore list. Ignoring signature validation failure"
                     continue
                 }
@@ -200,7 +225,9 @@ function Test-ValidateSinglePackageSignature {
                 }
                 $NotSignedResult[$dir][$fileName] += @($NotSignedFileName)
 
-                Get-AuthenticodeSignature $NotSignedFile.Path | ConvertTo-Json -Depth 1 | Write-Host
+                # $NotSignedFile is already the Get-AuthenticodeSignature result from
+                # Get-UnsignedBinariesInDirectory - no need to re-fetch it.
+                $NotSignedFile | ConvertTo-Json -Depth 1 | Write-Host
 
                 Write-Host "$filename in $dir from URL $URL has unsigned file $NotSignedFileName"
             }
@@ -208,7 +235,7 @@ function Test-ValidateSinglePackageSignature {
 
         # Check signature for all types of files except some known types and record unsigned files
         $excludeList = @("*.man", "*.reg", "*.md", "*.toml", "*.cmd", "*.template", "*.txt", "*.wprp", "*.yaml", "*.json", "NOTICE", "*.config", "*.conflist")
-        $AllNotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Exclude $excludeList | ForEach-object { Get-AuthenticodeSignature $_.FullName } | Where-Object { $_.status -ne "Valid" })
+        $AllNotSignedList = Get-UnsignedFilesExcludingKnownTypes -Directory $installDir -ExcludeList $excludeList
         foreach ($NotSignedFile in $AllNotSignedList) {
             $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
             if (($SkipMapForSignature.ContainsKey($fileName) -and ($SkipMapForSignature[$fileName].Length -ne 0) -and !$SkipMapForSignature[$fileName].Contains($NotSignedFileName)) -or !$SkipMapForSignature.ContainsKey($fileName)) {

@@ -33,6 +33,9 @@ function Write-OutputWithTimestamp($Message) {
     Write-Output $msg
 }
 
+# $SkipSignatureCheckForBinaries is defined in windows-vhd-configuration.ps1 (dot-sourced above)
+# so it is shared with windows-files-check.ps1's Test-ValidateSinglePackageSignature.
+
 # We do not create static public IP for test VM but we need the public IP
 # when we want to check some issues in infra. Let me use this solution to
 # get it. We can create a static public IP when creating test VM if this
@@ -330,10 +333,24 @@ function Test-PrivatePackageSignature {
             $includeList = @("*.exe", "*.ps1", "*.psm1", "*.dll")
             $notSignedList = Get-UnsignedBinariesInDirectory -Directory $installDir -IncludeList $includeList
 
-            if ($notSignedList.Count -ne 0) {
-                foreach ($notSignedFile in $notSignedList) {
-                    Write-ErrorWithTimestamp "Private package binary $($notSignedFile.Path) (from $dest) is not signed (status: $($notSignedFile.Status))"
+            $hasUnskippedUnsignedFile = $false
+            foreach ($notSignedFile in $notSignedList) {
+                $notSignedFileName = [IO.Path]::GetFileName($notSignedFile.Path)
+
+                if (
+                    $SkipSignatureCheckForBinaries.ContainsKey($dir) -and
+                    $SkipSignatureCheckForBinaries[$dir] -contains $notSignedFileName -and
+                    $notSignedFile.Status -eq "NotSigned"
+                ) {
+                    Write-OutputWithTimestamp "$notSignedFileName (from $dest) is in the ignore list. Ignoring signature validation failure"
+                    continue
                 }
+
+                Write-ErrorWithTimestamp "Private package binary $($notSignedFile.Path) (from $dest) is not signed (status: $($notSignedFile.Status))"
+                $hasUnskippedUnsignedFile = $true
+            }
+
+            if ($hasUnskippedUnsignedFile) {
                 $invalidFiles += $dest
             }
         }
