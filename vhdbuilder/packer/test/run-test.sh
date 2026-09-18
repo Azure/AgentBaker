@@ -71,6 +71,7 @@ VM_SIZE="Standard_D2ds_v5"
 TARGET_COMMAND_STRING=""
 if [ "${ARCHITECTURE,,}" = "arm64" ]; then
   # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
+  # TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests
   if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
     VM_SIZE="Standard_D2pds_v6"
   else
@@ -79,6 +80,7 @@ if [ "${ARCHITECTURE,,}" = "arm64" ]; then
 fi
 TARGET_COMMAND_STRING="--size $VM_SIZE"
 
+# TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests
 if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
   if [ -n "$TARGET_COMMAND_STRING" ]; then
     # To take care of Mariner Kata TL images
