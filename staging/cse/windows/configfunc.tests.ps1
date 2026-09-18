@@ -652,7 +652,8 @@ Describe 'New-CsiProxyService' {
         Mock Logs-To-Event
         Mock DownloadFileOverHttp
         Mock tar { $global:LASTEXITCODE = 0 }
-        Mock cp
+        Mock Copy-Item
+        Mock Move-Item
         Mock del
         Mock New-TemporaryDirectory -MockWith { return 'c:\temp\csiproxy' }
         Mock Invoke-Nssm
@@ -661,6 +662,22 @@ Describe 'New-CsiProxyService' {
             $script:scExeCallCount++
             $global:LASTEXITCODE = if ($args[0] -eq 'query') { 1060 } else { 0 }
         }
+    }
+
+    It 'does not remove the existing service when staging the replacement binary fails' {
+        Mock Copy-Item -MockWith { throw 'The destination disk is full.' }
+        Mock Remove-ServiceIfExists
+
+        { New-CsiProxyService -CsiProxyPackageUrl 'https://example.com/csiproxy.tar.gz' -KubeDir 'c:\k' } | Should -Throw '*destination disk is full*'
+
+        Assert-MockCalled -CommandName 'Copy-Item' -Exactly -Times 1 -ParameterFilter {
+            $Path -eq 'c:\temp\csiproxy\bin\csi-proxy.exe' `
+                -and $Destination -eq 'c:\k\csi-proxy.exe.new' `
+                -and $ErrorAction -eq 'Stop'
+        }
+        Assert-MockCalled -CommandName 'Remove-ServiceIfExists' -Exactly -Times 0
+        Assert-MockCalled -CommandName 'Move-Item' -Exactly -Times 0
+        Assert-MockCalled -CommandName 'Invoke-Nssm' -Exactly -Times 0
     }
 
     Context 'when csi-proxy service does not exist' {

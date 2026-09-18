@@ -659,12 +659,16 @@ function New-CsiProxyService {
         throw "Failed to extract the '$binaryPackage' archive."
     }
 
+    $stagedCsiProxyPath = "$KubeDir\csi-proxy.exe.new"
+    $csiProxyPath = "$KubeDir\csi-proxy.exe"
+    Copy-Item -Force -ErrorAction Stop -Path "$tempdir\bin\csi-proxy.exe" -Destination $stagedCsiProxyPath
+
     Remove-ServiceIfExists -ServiceName "csi-proxy"
 
-    cp "$tempdir\bin\csi-proxy.exe" "$KubeDir\csi-proxy.exe"
+    Move-Item -Force -ErrorAction Stop -Path $stagedCsiProxyPath -Destination $csiProxyPath
     del $tempdir -Recurse
 
-    Invoke-Nssm -KubeDir $KubeDir install csi-proxy "$KubeDir\csi-proxy.exe"
+    Invoke-Nssm -KubeDir $KubeDir install csi-proxy $csiProxyPath
     Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppDirectory "$KubeDir"
     Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppRestartDelay 5000
     Invoke-Nssm -KubeDir $KubeDir set csi-proxy Description csi-proxy
