@@ -351,11 +351,42 @@ Describe 'Import-GmsaPluginRegistry' {
         }
     }
 
-    It 'does not validate registry state when reg.exe succeeds' {
+    It 'continues when reg.exe succeeds and the required registry state is valid' {
+        Mock Test-GmsaPluginRegistry -MockWith { return $true }
+
         Import-GmsaPluginRegistry -RegistryFilePath 'c:\temp\registerplugin.reg'
 
-        Assert-MockCalled -CommandName 'Test-GmsaPluginRegistry' -Exactly -Times 0
+        Assert-MockCalled -CommandName 'Test-GmsaPluginRegistry' -Exactly -Times 1
+        Assert-MockCalled -CommandName 'Repair-GmsaPluginRegistryPermissions' -Exactly -Times 0
         Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 0
+    }
+
+    It 'repairs and retries when reg.exe succeeds but the registry state is invalid' {
+        $script:validationCallCount = 0
+        Mock Test-GmsaPluginRegistry -MockWith {
+            $script:validationCallCount++
+            return $script:validationCallCount -eq 2
+        }
+
+        Import-GmsaPluginRegistry -RegistryFilePath 'c:\temp\registerplugin.reg'
+
+        Assert-MockCalled -CommandName 'Test-GmsaPluginRegistry' -Exactly -Times 2
+        Assert-MockCalled -CommandName 'Repair-GmsaPluginRegistryPermissions' -Exactly -Times 1
+        Assert-MockCalled -CommandName 'reg.exe' -Exactly -Times 2
+        Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 0
+    }
+
+    It 'fails when reg.exe succeeds but the registry state remains invalid after retry' {
+        Import-GmsaPluginRegistry -RegistryFilePath 'c:\temp\registerplugin.reg'
+
+        Assert-MockCalled -CommandName 'Test-GmsaPluginRegistry' -Exactly -Times 2
+        Assert-MockCalled -CommandName 'Repair-GmsaPluginRegistryPermissions' -Exactly -Times 1
+        Assert-MockCalled -CommandName 'reg.exe' -Exactly -Times 2
+        Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter {
+            $ExitCode -eq $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES `
+                -and $ErrorMessage -match 'returned exit code 0' `
+                -and $ErrorMessage -match 'retry returned exit code 0'
+        }
     }
 
     It 'continues when reg.exe fails but the required registry state is valid' {
@@ -373,6 +404,7 @@ Describe 'Import-GmsaPluginRegistry' {
 
     It 'repairs registry permissions and retries when the registry state is invalid' {
         $script:regExeCallCount = 0
+        $script:validationCallCount = 0
         Mock reg.exe -MockWith {
             $script:regExeCallCount++
             if ($script:regExeCallCount -eq 1) {
@@ -383,11 +415,16 @@ Describe 'Import-GmsaPluginRegistry' {
             $global:LASTEXITCODE = 0
             return ""
         }
+        Mock Test-GmsaPluginRegistry -MockWith {
+            $script:validationCallCount++
+            return $script:validationCallCount -eq 2
+        }
 
         Import-GmsaPluginRegistry -RegistryFilePath 'c:\temp\registerplugin.reg'
 
         Assert-MockCalled -CommandName 'Repair-GmsaPluginRegistryPermissions' -Exactly -Times 1
         Assert-MockCalled -CommandName 'reg.exe' -Exactly -Times 2
+        Assert-MockCalled -CommandName 'Test-GmsaPluginRegistry' -Exactly -Times 2
         Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 0
     }
 
@@ -422,7 +459,7 @@ Describe 'Import-GmsaPluginRegistry' {
         Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter {
             $ExitCode -eq $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES `
                 -and $ErrorMessage -match 'exit code 1' `
-                -and $ErrorMessage -match 'retry failed with exit code 1' `
+                -and $ErrorMessage -match 'retry returned exit code 1' `
                 -and $ErrorMessage -match 'Access is denied'
         }
     }
@@ -619,7 +656,11 @@ Describe 'New-CsiProxyService' {
         Mock del
         Mock New-TemporaryDirectory -MockWith { return 'c:\temp\csiproxy' }
         Mock Invoke-Nssm
-        Mock sc.exe -MockWith { $script:scExeCallCount++; $global:LASTEXITCODE = 0 }
+        Mock Start-Sleep
+        Mock sc.exe -MockWith {
+            $script:scExeCallCount++
+            $global:LASTEXITCODE = if ($args[0] -eq 'query') { 1060 } else { 0 }
+        }
     }
 
     Context 'when csi-proxy service does not exist' {
@@ -627,10 +668,11 @@ Describe 'New-CsiProxyService' {
             Mock Get-Service -MockWith { return $null }
         }
 
-        It 'does not call sc.exe and still installs the service' {
+        It 'confirms the service is absent and still installs it' {
             New-CsiProxyService -CsiProxyPackageUrl 'https://example.com/csiproxy.tar.gz' -KubeDir 'c:\k'
 
-            $script:scExeCallCount | Should -Be 0
+            Assert-MockCalled -CommandName 'sc.exe' -Exactly -Times 1 -ParameterFilter { $args[0] -eq 'query' }
+            Assert-MockCalled -CommandName 'sc.exe' -Exactly -Times 0 -ParameterFilter { $args[0] -eq 'delete' }
             Assert-MockCalled -CommandName 'Invoke-Nssm' -Exactly -Times 1 -ParameterFilter { $KubeDir -eq 'c:\k' -and $NssmArguments[0] -eq 'install' -and $NssmArguments[1] -eq 'csi-proxy' }
         }
     }
@@ -651,7 +693,8 @@ Describe 'New-CsiProxyService' {
         It 'calls sc.exe delete to remove the existing service before install' {
             New-CsiProxyService -CsiProxyPackageUrl 'https://example.com/csiproxy.tar.gz' -KubeDir 'c:\k'
 
-            $script:scExeCallCount | Should -Be 1
+            Assert-MockCalled -CommandName 'sc.exe' -Exactly -Times 1 -ParameterFilter { $args[0] -eq 'delete' }
+            Assert-MockCalled -CommandName 'sc.exe' -Exactly -Times 1 -ParameterFilter { $args[0] -eq 'query' }
         }
 
         It 'throws when sc.exe delete fails' {
@@ -669,7 +712,11 @@ Describe 'New-HostsConfigService' {
 
         Mock Logs-To-Event
         Mock Invoke-Nssm
-        Mock sc.exe -MockWith { $script:scExeCallCount++; $global:LASTEXITCODE = 0 }
+        Mock Start-Sleep
+        Mock sc.exe -MockWith {
+            $script:scExeCallCount++
+            $global:LASTEXITCODE = if ($args[0] -eq 'query') { 1060 } else { 0 }
+        }
     }
 
     Context 'when hosts-config-agent service does not exist' {
@@ -677,10 +724,11 @@ Describe 'New-HostsConfigService' {
             Mock Get-Service -MockWith { return $null }
         }
 
-        It 'does not call sc.exe and still installs the service' {
+        It 'confirms the service is absent and still installs it' {
             New-HostsConfigService
 
-            $script:scExeCallCount | Should -Be 0
+            Assert-MockCalled -CommandName 'sc.exe' -Exactly -Times 1 -ParameterFilter { $args[0] -eq 'query' }
+            Assert-MockCalled -CommandName 'sc.exe' -Exactly -Times 0 -ParameterFilter { $args[0] -eq 'delete' }
         }
     }
 
@@ -700,7 +748,8 @@ Describe 'New-HostsConfigService' {
         It 'calls sc.exe delete to remove the existing service before install' {
             New-HostsConfigService
 
-            $script:scExeCallCount | Should -Be 1
+            Assert-MockCalled -CommandName 'sc.exe' -Exactly -Times 1 -ParameterFilter { $args[0] -eq 'delete' }
+            Assert-MockCalled -CommandName 'sc.exe' -Exactly -Times 1 -ParameterFilter { $args[0] -eq 'query' }
         }
 
         It 'throws when sc.exe delete fails' {

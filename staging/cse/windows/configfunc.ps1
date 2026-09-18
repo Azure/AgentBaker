@@ -312,16 +312,14 @@ function Import-GmsaPluginRegistry {
     $registryImportOutput = & reg.exe import $RegistryFilePath 2>&1
     $registryImportExitCode = $LASTEXITCODE
 
-    if ($registryImportExitCode -eq 0) {
-        return
-    }
-
     if (Test-GmsaPluginRegistry) {
-        Write-Log "reg.exe import returned exit code $registryImportExitCode, but the GMSA plugin registry values are valid. Output: $registryImportOutput"
+        if ($registryImportExitCode -ne 0) {
+            Write-Log "reg.exe import returned exit code $registryImportExitCode, but the GMSA plugin registry values are valid. Output: $registryImportOutput"
+        }
         return
     }
 
-    Write-Log "reg.exe import failed and the GMSA plugin registry is invalid; repairing plugin registry permissions before retry"
+    Write-Log "reg.exe import did not produce a valid GMSA plugin registration; repairing plugin registry permissions before retry"
     try {
         $repairFailures = @(Repair-GmsaPluginRegistryPermissions)
     } catch {
@@ -331,12 +329,10 @@ function Import-GmsaPluginRegistry {
 
     $retryImportOutput = & reg.exe import $RegistryFilePath 2>&1
     $retryImportExitCode = $LASTEXITCODE
-    if ($retryImportExitCode -eq 0) {
-        return
-    }
-
     if (Test-GmsaPluginRegistry) {
-        Write-Log "reg.exe import retry returned exit code $retryImportExitCode, but the GMSA plugin registry values are valid. Output: $retryImportOutput"
+        if ($retryImportExitCode -ne 0) {
+            Write-Log "reg.exe import retry returned exit code $retryImportExitCode, but the GMSA plugin registry values are valid. Output: $retryImportOutput"
+        }
         return
     }
 
@@ -347,7 +343,7 @@ function Import-GmsaPluginRegistry {
     }
     Set-ExitCode `
         -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES `
-        -ErrorMessage "Failed to set GMSA plugin registry values. reg.exe import '$RegistryFilePath' failed with exit code $registryImportExitCode and retry failed with exit code $retryImportExitCode. Initial output: $registryImportOutput. Retry output: $retryImportOutput.$repairFailureMessage"
+        -ErrorMessage "Failed to validate GMSA plugin registration after reg.exe import '$RegistryFilePath' returned exit code $registryImportExitCode and retry returned exit code $retryImportExitCode. Initial output: $registryImportOutput. Retry output: $retryImportOutput.$repairFailureMessage"
 }
 
 function Install-GmsaPlugin {
