@@ -15,6 +15,38 @@ EOF
     systemctlEnableAndStart mig-partition 300
 }
 
+# Apply Ubuntu's GRID policy in the shared AgentBaker/node-controller installer.
+# Keep the SKU classification unchanged for Azure Linux RPMs and ACL sysexts.
+selectGPUDriverImage() {
+    if [ "${OS:-}" != "$UBUNTU_OS_NAME" ] || [ "${NVIDIA_GPU_DRIVER_TYPE:-}" != "grid" ]; then
+        return 0
+    fi
+
+    local grid_v20_tag
+    if ! grid_v20_tag=$(jq -er '
+        [.GPUContainerImages[] |
+            select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-grid-v20:*") |
+            .gpuVersion.latestVersion] |
+        select(length == 1) | .[0] |
+        select(test("^595\\.[0-9]+\\.[0-9]+-[0-9]+$"))
+    ' "$COMPONENTS_FILEPATH") || [ -z "$grid_v20_tag" ]; then
+        echo "Ubuntu GRID requires a valid aks-gpu-grid-v20 pin in $COMPONENTS_FILEPATH" >&2
+        return 1
+    fi
+
+    export GPU_DRIVER_TYPE="grid-v20"
+    export GPU_DRIVER_VERSION="${grid_v20_tag%-*}"
+    export GPU_IMAGE_SHA="${grid_v20_tag##*-}"
+    export GPU_DV="$GPU_DRIVER_VERSION"
+    export NVIDIA_GPU_DRIVER_TYPE="$GPU_DRIVER_TYPE"
+    export NVIDIA_DRIVER_IMAGE_SHA="$GPU_IMAGE_SHA"
+    export NVIDIA_DRIVER_IMAGE_TAG="$grid_v20_tag"
+    export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
+    local mcr_base="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
+    export NVIDIA_DRIVER_IMAGE_PULL_REF="${mcr_base%/}/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
+    echo "Ubuntu GRID driver image: ${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}"
+}
+
 pullGPUDriverImage() {
     # Cache-miss path only. Retry to ride out a transient blip, but stay tight: a truly missing image
     # should fail fast rather than eat the shared CSE window the driver install needs next. retrycmd
@@ -51,6 +83,7 @@ configureNvidiaCDIRefresh() {
 }
 
 configGPUDrivers() {
+    selectGPUDriverImage || exit $ERR_GPU_DRIVERS_START_FAIL
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
         mkdir -p /opt/{actions,gpu}

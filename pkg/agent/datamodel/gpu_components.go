@@ -126,7 +126,9 @@ var ConvergedGPUDriverSizes = map[string]bool{
 
 /* RTXPro6000GPUDriverSizes : NC_RTXPRO6000BSE_v6 (RTX PRO 6000 Blackwell Server
 Edition) SKUs require the GRID v20 (595.x) driver, published as the
-aks-gpu-grid-v20 image. All other GRID SKUs continue to use aks-gpu-grid.
+aks-gpu-grid-v20 image. The shared Ubuntu installer also selects this image for
+ConvergedGPUDriverSizes; their "grid" classification is retained for Azure Linux
+RPMs and ACL sysexts.
 The family ships General Purpose (ds) and Compute Optimized (lds) sizes across
 fractional and whole GPU allocations (1/4, 1/2, 1, 2 GPUs); all use the same
 RTX PRO 6000 Blackwell GPU and therefore the same driver, so every size is
