@@ -39,6 +39,13 @@ SYSTEMD_ARCH=$(getSystemdArch)  # x86-64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
+# Exact coredns image tag that localdns runs. Pinned rather than derived from "highest cached
+# tag" so that adding or removing an unrelated coredns entry in components.json cannot silently
+# change which binary localdns ships with.
+# This must match a coredns multiArchVersionsV2 entry in parts/common/components.json, and the
+# same pin in vhdbuilder/packer/test/linux-vhd-content-test.sh. Both are enforced by
+# spec/vhdbuilder/packer/coredns_version_spec.sh.
+COREDNS_VERSION="v1.14.7-2"
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 GRID_COMPATIBILITY_DATA_FILE=/opt/azure/vhd-grid-compatibility-data.json
 
@@ -971,9 +978,11 @@ EOF
   fi
 }
 
-# This function extracts CoreDNS binary from cached coredns images (latest version)
-# and copies it to - /opt/azure/containers/localdns/binary/coredns.
+# This function extracts the CoreDNS binary from the cached coredns image pinned by
+# COREDNS_VERSION and copies it to - /opt/azure/containers/localdns/binary/coredns.
 # The binary is later used by localdns systemd unit.
+# Extraction fails the build if the pinned tag is not cached, so a drift between COREDNS_VERSION
+# and components.json surfaces here rather than as a silently different localdns binary.
 # The function also handles the cleanup of temporary directories and unmounting of images.
 extractAndCacheCoreDnsBinary() {
   local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
@@ -994,15 +1003,10 @@ extractAndCacheCoreDnsBinary() {
   }
   trap cleanup_coredns_imports EXIT ABRT ERR INT PIPE QUIT TERM
 
-  # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
-  local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
-
-  # Determine latest version.
-  local latest_coredns_tag="${sorted_coredns_tags[0]}"
-
-  # Extract the CoreDNS binary for the latest version.
+  # Extract the CoreDNS binary from the image tagged with the pinned version.
+  local extracted_coredns_binary="false"
   for coredns_image_url in "${coredns_image_list[@]}"; do
-    if [ "${coredns_image_url##*:}" != "${latest_coredns_tag}" ]; then
+    if [ "${coredns_image_url##*:}" != "${COREDNS_VERSION}" ]; then
       continue
     fi
 
@@ -1026,10 +1030,11 @@ extractAndCacheCoreDnsBinary() {
     local coredns_binary="${ctr_temp}/usr/bin/coredns"
     if [ -f "${coredns_binary}" ]; then
       cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
-        echo "Error: Failed to copy coredns binary of ${latest_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+        echo "Error: Failed to copy coredns binary of ${COREDNS_VERSION}" >> "${VHD_LOGS_FILEPATH}"
         exit 1
       }
-      echo "Successfully copied coredns binary of ${latest_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+      extracted_coredns_binary="true"
+      echo "Successfully copied coredns binary of ${COREDNS_VERSION}" >> "${VHD_LOGS_FILEPATH}"
     else
       echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
     fi
@@ -1040,6 +1045,13 @@ extractAndCacheCoreDnsBinary() {
 
   # Clear the trap.
   trap - EXIT ABRT ERR INT PIPE QUIT TERM
+
+  # localdns is unusable without the pinned binary, so fail the build rather than ship a VHD
+  # carrying a coredns version nobody asked for.
+  if [ "${extracted_coredns_binary}" != "true" ]; then
+    echo "Error: Failed to extract coredns binary of pinned version ${COREDNS_VERSION}. Cached coredns images: ${coredns_image_list[*]}" >> "${VHD_LOGS_FILEPATH}"
+    exit 1
+  fi
 }
 
 # Collect grid compatibility data (placeholder for now - will be extended later)
