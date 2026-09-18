@@ -90,3 +90,29 @@ func TestDNSFixtureSurvivesANCSerialization(t *testing.T) {
 	}
 	require.Equal(t, 3, found, "all ANC corefile variants must preserve the requested upstream")
 }
+
+func TestDNSNativeANCRejectsDelegation(t *testing.T) {
+	for _, tc := range []struct {
+		name, log string
+		nbc, pass bool
+	}{
+		{"native", "aks-node-controller finished successfully", false, true},
+		{"delegated-file", "aks-node-controller finished successfully", true, false},
+		{"delegated-log-only", "Using NBC command for scriptless phase 2\naks-node-controller finished successfully", false, false},
+		{"missing-success", "", false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			log := filepath.Join(dir, "anc.log")
+			nbc := filepath.Join(dir, "nbc.sh")
+			require.NoError(t, os.WriteFile(log, []byte(tc.log), 0600))
+			if tc.nbc {
+				require.NoError(t, os.WriteFile(nbc, []byte("NBC command"), 0600))
+			}
+			script := strings.ReplaceAll(nativeANCProvisioningScript, "/var/log/azure/aks-node-controller.output", log)
+			script = strings.ReplaceAll(script, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh", nbc)
+			out, err := exec.Command("sh", "-c", script).CombinedOutput()
+			require.Equal(t, tc.pass, err == nil, "%s", out)
+		})
+	}
+}

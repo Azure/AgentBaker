@@ -48,11 +48,7 @@ func init() {
 					},
 					Validator: func(ctx context.Context, s *Scenario) error {
 						// Flags alone do not establish which provisioner actually ran.
-						_, modeErr := execScriptOnVMForScenarioValidateExitCode(ctx, s, `set -eu
-test ! -e /opt/azure/containers/aks-node-controller-nbc-cmd.sh
-! grep -q 'Using NBC command for scriptless phase 2' /var/log/azure/aks-node-controller.output
-grep -q 'aks-node-controller finished successfully' /var/log/azure/aks-node-controller.output
-`, 0, "expected native ANC provisioning")
+						_, modeErr := execScriptOnVMForScenarioValidateExitCode(ctx, s, nativeANCProvisioningScript, 0, "expected native ANC provisioning")
 						var listenerErr error
 						if localDNS {
 							listenerErr = ValidateLocalDNSServiceDiscovery(ctx, s)
@@ -73,3 +69,12 @@ func podDNSForServiceDiscovery(localDNS bool) string {
 	}
 	return serviceDiscoveryDNSIP
 }
+
+const nativeANCProvisioningScript = `set -eu
+test ! -e /opt/azure/containers/aks-node-controller-nbc-cmd.sh
+if grep -q 'Using NBC command for scriptless phase 2' /var/log/azure/aks-node-controller.output; then
+  echo 'FAIL: native ANC scenario delegated to NBC'
+  exit 1
+fi
+grep -q 'aks-node-controller finished successfully' /var/log/azure/aks-node-controller.output
+`
