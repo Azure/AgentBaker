@@ -139,16 +139,16 @@ EOF
 
     It 'configures all monitored units for accounting and completion-triggered collection'
         When run bash -c '
-            for unit in \
-                cgroup-memory-telemetry.service \
-                cgroup-pressure-telemetry.service \
-                aks-log-collector.service; do
+            while read -r unit escaped_unit; do
                 grep -q "^CPUAccounting=true$" "./parts/linux/cloud-init/artifacts/${unit}" || exit 1
                 grep -q "^MemoryAccounting=true$" "./parts/linux/cloud-init/artifacts/${unit}" || exit 1
-                escaped_unit=$(systemd-escape --template=service-execution-telemetry@.service "${unit}")
                 grep -Fqx "OnSuccess=${escaped_unit}" "./parts/linux/cloud-init/artifacts/${unit}" || exit 1
                 grep -Fqx "OnFailure=${escaped_unit}" "./parts/linux/cloud-init/artifacts/${unit}" || exit 1
-            done
+            done <<EOF
+cgroup-memory-telemetry.service service-execution-telemetry@cgroup\\x2dmemory\\x2dtelemetry.service.service
+cgroup-pressure-telemetry.service service-execution-telemetry@cgroup\\x2dpressure\\x2dtelemetry.service.service
+aks-log-collector.service service-execution-telemetry@aks\\x2dlog\\x2dcollector.service.service
+EOF
             grep -q "^ExecStart=/opt/scripts/service-execution-telemetry.sh %I$" \
                 ./parts/linux/cloud-init/artifacts/service-execution-telemetry@.service
         '
