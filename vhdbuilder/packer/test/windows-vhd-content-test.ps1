@@ -33,12 +33,8 @@ function Write-OutputWithTimestamp($Message) {
     Write-Output $msg
 }
 
-# We skip the signature validation of the following binaries for known issues.
-# Mirrors the allowlist in windows-files-check.ps1's Test-ValidateSinglePackageSignature.
-$SkipSignatureCheckForBinaries = @{
-    # win-bridge.exe is not signed in these k8s packages, and it will be removed from the k8s package in the future
-    "win-bridge.exe" = $True;
-}
+# $SkipSignatureCheckForBinaries is defined in windows-vhd-configuration.ps1 (dot-sourced above)
+# so it is shared with windows-files-check.ps1's Test-ValidateSinglePackageSignature.
 
 # We do not create static public IP for test VM but we need the public IP
 # when we want to check some issues in infra. Let me use this solution to

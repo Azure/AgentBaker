@@ -19,6 +19,8 @@ Describe 'Test-PrivatePackageSignature' {
         Mock Write-ErrorWithTimestamp {}
         Mock Write-OutputWithTimestamp {}
         $script:realTempDir = $null
+        # Normally set by windows-vhd-configuration.ps1 (dot-source stripped above for tests).
+        $global:SkipSignatureCheckForBinaries = @{ "win-bridge.exe" = $True }
     }
 
     AfterEach {
@@ -140,6 +142,7 @@ function Remove-Item { param(`$Path, [switch]`$Recurse, [switch]`$Force) }
 function Expand-Archive { param(`$Path, `$DestinationPath, [switch]`$Force, `$ErrorAction) }
 function Get-UnsignedBinariesInDirectory { param(`$Directory, `$IncludeList) @( [PSCustomObject]@{ Path = 'tool.exe'; Status = 'NotSigned' } ) }
 `$global:azCopyUrls = @{ 'https://privatestorageaccount.blob.core.windows.net/c/private-package.zip' = `$true }
+`$global:SkipSignatureCheckForBinaries = @{ 'win-bridge.exe' = `$True }
 `$map = @{ '$($script:realTempDir)' = @('https://privatestorageaccount.blob.core.windows.net/c/private-package.zip') }
 Test-PrivatePackageSignature
 "@
