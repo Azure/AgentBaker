@@ -315,6 +315,24 @@ EOF
             The status should be success
         End
 
+        It 'returns the Chrony configuration failure code when SEV-SNP PHC setup fails'
+            Mock detect_confidential_vm_platform
+                echo "sev-snp"
+            End
+            Mock configure_chrony
+                return 1
+            End
+            Mock emit_event
+                echo "event: $*" >&2
+            End
+
+            When call configure_ubuntu_2604_cvm_time_sync
+            The output should include "AMD SEV-SNP detected"
+            The error should include "failed to configure Chrony with the Hyper-V PHC source"
+            The error should include "AKS.CSE.chrony.configurationFailed"
+            The status should equal 246
+        End
+
         It 'defines exactly the four approved Ubuntu NTP pools'
             When call ubuntu_ntp_pools
             The lines of output should eq 4
@@ -346,6 +364,43 @@ EOF
             The contents of file "$CHRONY_CONF" should include "pool 2.ubuntu.pool.ntp.org iburst maxsources 2"
             The contents of file "$CHRONY_CONF" should not include "refclock PHC"
             The status should be success
+        End
+
+        It 'returns failure when the Chrony service cannot restart'
+            setup_chrony_test
+            Mock systemctl
+                if [ "$1" = "restart" ]; then
+                    return 1
+                fi
+            End
+
+            When call configure_chrony
+            The error should include "failed to restart Chrony"
+            The status should equal 1
+        End
+
+        It 'returns the Chrony configuration failure code without checking NTP when TDX setup fails'
+            Mock detect_confidential_vm_platform
+                echo "tdx"
+            End
+            Mock ubuntu_ntp_pools
+                echo "fixed pools"
+            End
+            Mock configure_chrony
+                return 1
+            End
+            Mock verify_chrony_ntp_sync
+                echo "unexpected NTP verification"
+            End
+            Mock emit_event
+                echo "event: $*" >&2
+            End
+
+            When call configure_ubuntu_2604_cvm_time_sync
+            The output should not include "unexpected NTP verification"
+            The error should include "failed to configure Chrony with the Ubuntu NTP pools"
+            The error should include "AKS.CSE.chrony.configurationFailed"
+            The status should equal 246
         End
 
         It 'waits for Chrony to synchronize successfully'

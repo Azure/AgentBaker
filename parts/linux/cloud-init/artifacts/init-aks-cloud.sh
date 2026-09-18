@@ -83,6 +83,7 @@ IS_AZURELINUX=0
 
 ERR_CVM_PLATFORM_DETECTION_FAIL=244 # Unable to distinguish SEV-SNP from TDX
 ERR_NTP_UNREACHABLE=245 # Chrony could not synchronize with the configured NTP pools
+ERR_CHRONY_CONFIG_FAIL=246 # Chrony could not be configured for the detected CVM platform
 
 # http://168.63.129.16 is a constant for the host's wireserver endpoint.
 WIRESERVER_ENDPOINT="http://168.63.129.16"
@@ -585,18 +586,33 @@ function configure_chrony {
     local chrony_conf="${CHRONY_CONF:-/etc/chrony/chrony.conf}"
 
     if [ "$IS_UBUNTU" -eq 1 ]; then
-        systemctl stop systemd-timesyncd
-        systemctl disable systemd-timesyncd
+        if ! systemctl stop systemd-timesyncd; then
+            echo "ERROR: failed to stop systemd-timesyncd" >&2
+            return 1
+        fi
+        if ! systemctl disable systemd-timesyncd; then
+            echo "ERROR: failed to disable systemd-timesyncd" >&2
+            return 1
+        fi
 
         if [ ! -e "$chrony_conf" ]; then
-            apt-get update
-            apt-get install chrony -y
+            if ! apt-get update; then
+                echo "ERROR: failed to update package metadata before installing Chrony" >&2
+                return 1
+            fi
+            if ! apt-get install chrony -y; then
+                echo "ERROR: failed to install Chrony" >&2
+                return 1
+            fi
         fi
     elif [ "$IS_FLATCAR" -eq 1 ]; then
-        rm -f "$chrony_conf"
+        if ! rm -f "$chrony_conf"; then
+            echo "ERROR: failed to remove the existing Flatcar Chrony configuration" >&2
+            return 1
+        fi
     fi
 
-    cat > "$chrony_conf" <<EOF
+    if ! cat > "$chrony_conf" <<EOF
 # Welcome to the chrony configuration file. See chrony.conf(5) for more
 # information about usuable directives.
 
@@ -643,11 +659,21 @@ rtcsync
 ${time_sources}
 makestep 1.0 -1
 EOF
+    then
+        echo "ERROR: failed to write Chrony configuration to ${chrony_conf}" >&2
+        return 1
+    fi
 
     if [ "$IS_UBUNTU" -eq 1 ]; then
-        systemctl restart chrony
+        if ! systemctl restart chrony; then
+            echo "ERROR: failed to restart Chrony" >&2
+            return 1
+        fi
     elif [ "$IS_FLATCAR" -eq 1 ]; then
-        systemctl restart chronyd
+        if ! systemctl restart chronyd; then
+            echo "ERROR: failed to restart chronyd" >&2
+            return 1
+        fi
     fi
 }
 
@@ -684,13 +710,21 @@ function configure_ubuntu_2604_cvm_time_sync {
         sev-snp)
             echo "AMD SEV-SNP detected; preserving the existing Hyper-V PHC Chrony configuration"
             emit_event "AKS.CSE.chrony.usingPHC" "AMD SEV-SNP detected; preserving the existing /dev/ptp0 PHC configuration"
-            configure_chrony
+            if ! configure_chrony; then
+                echo "ERROR: failed to configure Chrony with the Hyper-V PHC source for AMD SEV-SNP" >&2
+                emit_event "AKS.CSE.chrony.configurationFailed" "Failed to configure Chrony with the Hyper-V PHC source for AMD SEV-SNP" "Error"
+                return "$ERR_CHRONY_CONFIG_FAIL"
+            fi
             ;;
         tdx)
             echo "Intel TDX detected; configuring Chrony to use the Ubuntu NTP pools"
             emit_event "AKS.CSE.chrony.usingNTP" "Intel TDX detected; using only the approved Ubuntu NTP pools"
             ntp_pools="$(ubuntu_ntp_pools)"
-            configure_chrony "$ntp_pools" || return 1
+            if ! configure_chrony "$ntp_pools"; then
+                echo "ERROR: failed to configure Chrony with the Ubuntu NTP pools for Intel TDX" >&2
+                emit_event "AKS.CSE.chrony.configurationFailed" "Failed to configure Chrony with the Ubuntu NTP pools for Intel TDX" "Error"
+                return "$ERR_CHRONY_CONFIG_FAIL"
+            fi
             verify_chrony_ntp_sync
             ;;
     esac

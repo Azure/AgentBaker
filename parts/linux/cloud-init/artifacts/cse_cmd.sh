@@ -20,7 +20,10 @@ INIT_AKS_CLOUD_FILEPATH="{{GetInitAKSCloudFilepath}}";
 if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]; then
 	REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}" LOCATION={{GetVariable "location"}} "${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1;
 	initAKSCloudExitCode=$?;
-	if [ "$initAKSCloudExitCode" -eq 245 ]; then
+	if [ "$initAKSCloudExitCode" -eq 246 ]; then
+		echo "Chrony configuration failed; init-aks-cloud failed with exit code ${initAKSCloudExitCode}" >> ${PROVISION_OUTPUT};
+		exit ${initAKSCloudExitCode};
+	elif [ "$initAKSCloudExitCode" -eq 245 ]; then
 		echo "NTP not reachable; init-aks-cloud failed with NTP synchronization error code ${initAKSCloudExitCode}" >> ${PROVISION_OUTPUT};
 		exit ${initAKSCloudExitCode};
 	elif [ "$initAKSCloudExitCode" -eq 244 ]; then
