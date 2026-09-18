@@ -830,6 +830,8 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
@@ -855,6 +857,8 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
@@ -880,6 +884,8 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
@@ -905,11 +911,75 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: acl-arm64-fips-tl-gen2
+      # Native-arm64 COSI conversion jobs. The arm64 ACL build jobs above stage the
+      # VHD in blob storage and skip COSI (ImageCustomizer's btrfs subvolume ioctls
+      # don't work under qemu emulation on the x86_64 build pool). These jobs run on
+      # the native arm64 pool to convert the staged VHD and publish the COSI.
+      - job: convertaclarm64tlgen2
+        condition: and(succeeded(), eq('${{ parameters.buildaclarm64tlgen2 }}', true))
+        dependsOn: buildaclarm64tlgen2
+        timeoutInMinutes: 120
+        pool:
+          name: $(NODE_SIG_TME_POOL_ARM64_NAME)
+        variables:
+          CAPTURED_SIG_VERSION: $[ dependencies.buildaclarm64tlgen2.outputs['exportCapturedSigVersion.CAPTURED_SIG_VERSION'] ]
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]acl'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64-gen2-acl'
+              echo '##vso[task.setvariable variable=IMG_VERSION]3.20260616.01'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-cosi-convert-template.yaml
+            parameters:
+              artifactName: acl-arm64-tl-gen2
+      - job: convertaclarm64fipstlgen2
+        condition: and(succeeded(), eq('${{ parameters.buildaclarm64fipstlgen2 }}', true))
+        dependsOn: buildaclarm64fipstlgen2
+        timeoutInMinutes: 120
+        pool:
+          name: $(NODE_SIG_TME_POOL_ARM64_NAME)
+        variables:
+          CAPTURED_SIG_VERSION: $[ dependencies.buildaclarm64fipstlgen2.outputs['exportCapturedSigVersion.CAPTURED_SIG_VERSION'] ]
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]acl'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64-gen2-acl'
+              echo '##vso[task.setvariable variable=IMG_VERSION]3.20260616.01'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-cosi-convert-template.yaml
+            parameters:
               artifactName: acl-arm64-fips-tl-gen2
       - job: build2404arm64gbgen2containerd
         condition: eq('${{ parameters.build2404arm64gbgen2containerd }}', true)
