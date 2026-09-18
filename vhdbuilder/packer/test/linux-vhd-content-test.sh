@@ -74,7 +74,10 @@ LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
 SKIP_GIT_CLONE=false
 # Git is not present in the base image, so we need to install or bypass it.
 if [ "$OS_SKU" = "Ubuntu" ]; then
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
+  if ! sudo DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y git; then
+    err 'git-install' "Failed to install git"
+    exit 1
+  fi
 elif [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
   : # Flatcar/ACL comes with git pre-installed
 elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
