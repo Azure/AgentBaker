@@ -79,8 +79,8 @@ VM_OPTIONS="--size $VM_SIZE"
 # shellcheck disable=SC3010
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
-    # TODO: only check TRUSTED_LAUNCH_SUPPORTED once all relevant images have been updated to TrustedLaunchSupported
-    if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ] || [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ] ; then
+    # TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests
+    if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
         VM_SIZE="Standard_D8pds_v6"
     else
         VM_SIZE="Standard_D8pds_v5"
@@ -88,8 +88,8 @@ if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     VM_OPTIONS="--size $VM_SIZE"
 fi
 
-# TODO: only check TRUSTED_LAUNCH_SUPPORTED once all relevant images have been updated to TrustedLaunchSupported
-if [ "${OS_TYPE}" = "Linux" ] && { [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ] || [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; }; then
+# TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests
+if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
