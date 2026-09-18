@@ -24,5 +24,4 @@ logrotate
 nullboot
 rsyslog
 sudo
-tcpdump
 xfsprogs
