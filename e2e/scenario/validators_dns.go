@@ -11,6 +11,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/logging"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // External DNS and service health can both pass with a broken CoreDNS upstream.
@@ -72,15 +73,16 @@ func validateDNSWorkload(ctx context.Context, s *Scenario, expectedNameserver st
 	if _, err = s.Runtime.Kube.WaitUntilPodRunning(ctx, pod.Namespace, "", "metadata.name="+pod.Name); err != nil {
 		return err
 	}
-	result, err := execOnPod(ctx, s.Runtime.Kube, pod.Namespace, pod.Name, []string{"sh", "-c", script})
-	if err != nil {
-		return err
-	}
-	logging.Logf(ctx, "DNS workload: %s\n%s", result.stdout, result.stderr)
-	if result.exitCode != "0" {
-		return fmt.Errorf("pod DNS verification exited %s", result.exitCode)
-	}
-	return nil
+	// Node/Pod Ready can precede service routing convergence on a fresh node.
+	// Keep checking the actual resolver; persistent misconfiguration must time out.
+	return wait.PollUntilContextTimeout(ctx, 5*time.Second, time.Minute, true, func(ctx context.Context) (bool, error) {
+		result, err := execOnPod(ctx, s.Runtime.Kube, pod.Namespace, pod.Name, []string{"sh", "-c", script})
+		if err != nil {
+			return false, err
+		}
+		logging.Logf(ctx, "DNS workload (exit %s): %s\n%s", result.exitCode, result.stdout, result.stderr)
+		return result.exitCode == "0", nil
+	})
 }
 
 func dnsWorkloadScript(nameserver, serviceIP string) (string, error) {
@@ -93,7 +95,10 @@ func dnsWorkloadScript(nameserver, serviceIP string) (string, error) {
 cat /etc/resolv.conf
 actual=$(awk '$1 == "nameserver" {print $2}' /etc/resolv.conf)
 test "$actual" = '%s'
-answer=$(nslookup kubernetes.default.svc.cluster.local 2>&1)
+if ! answer=$(nslookup kubernetes.default.svc.cluster.local 2>&1); then
+  echo "$answer"
+  exit 1
+fi
 echo "$answer"
 echo "$answer" | awk -v expected='%s' '$1 == "Name:" {answer=1} answer && (($1 == "Address:" && $2 == expected) || ($1 == "Address" && $3 == expected)) {found=1} END {exit !found}'
 `, nameserver, serviceIP), nil
