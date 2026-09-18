@@ -168,7 +168,7 @@ function Test-ValidateSinglePackageSignature {
             foreach ($NotSignedFile in $NotSignedList) {
                 $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
 
-                if ($SkipSignatureCheckForBinaries.ContainsKey($NotSignedFileName)) {
+                if ($SkipSignatureCheckForBinaries.ContainsKey($NotSignedFileName) -and $NotSignedFile.Status -eq "NotSigned") {
                     Write-Output "$NotSignedFileName is in the ignore list. Ignoring signature validation failure"
                     continue
                 }

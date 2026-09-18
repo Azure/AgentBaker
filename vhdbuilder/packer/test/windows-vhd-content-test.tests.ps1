@@ -115,6 +115,40 @@ Describe 'Test-PrivatePackageSignature' {
         Should -Invoke Write-OutputWithTimestamp -Times 1 -ParameterFilter { $Message -like "win-bridge.exe*ignore list*" }
     }
 
+    It 'still fails an allowlisted filename when its unsigned status is not NotSigned (e.g. HashMismatch/tampered)' {
+        $script:realTempDir = Join-Path ([System.IO.Path]::GetTempPath()) "pester-vhd-content-test-$(New-Guid)"
+        New-Item -ItemType Directory -Path $script:realTempDir -Force | Out-Null
+        Set-Content -Path (Join-Path $script:realTempDir "private-package.zip") -Value "placeholder"
+
+        $map = @{
+            $script:realTempDir = @("https://privatestorageaccount.blob.core.windows.net/c/private-package.zip")
+        }
+        $global:azCopyUrls = @{ "https://privatestorageaccount.blob.core.windows.net/c/private-package.zip" = $true }
+
+        # Test-PrivatePackageSignature calls `exit 1` once it detects an invalid file - run in a
+        # child pwsh process, same as the other exit-triggering test below.
+        $childScript = @"
+`$content = Get-Content '$PSScriptRoot\windows-vhd-content-test.ps1' -Raw
+`$content = `$content -replace [regex]::Escape('. c:\k\windows-vhd-configuration.ps1'), ''
+`$content = `$content -replace '(?s)Write-OutputWithTimestamp "Starting Tests".*', ''
+Invoke-Expression `$content
+function Write-ErrorWithTimestamp(`$m) { Write-Host `$m }
+function Write-OutputWithTimestamp(`$m) { Write-Host `$m }
+function Test-Path { param(`$Path) `$true }
+function New-Item { param(`$ItemType, `$Path, [switch]`$Force) }
+function Remove-Item { param(`$Path, [switch]`$Recurse, [switch]`$Force) }
+function Expand-Archive { param(`$Path, `$DestinationPath, [switch]`$Force, `$ErrorAction) }
+function Get-UnsignedBinariesInDirectory { param(`$Directory, `$IncludeList) @( [PSCustomObject]@{ Path = 'win-bridge.exe'; Status = 'HashMismatch' } ) }
+`$global:azCopyUrls = @{ 'https://privatestorageaccount.blob.core.windows.net/c/private-package.zip' = `$true }
+`$global:SkipSignatureCheckForBinaries = @{ 'win-bridge.exe' = `$True }
+`$map = @{ '$($script:realTempDir)' = @('https://privatestorageaccount.blob.core.windows.net/c/private-package.zip') }
+Test-PrivatePackageSignature
+"@
+        $result = & pwsh -NoProfile -Command $childScript 2>&1
+        $LASTEXITCODE | Should -Be 1
+        ($result -join "`n") | Should -Match "not signed"
+    }
+
     It 'reports the package as invalid (via Write-ErrorWithTimestamp) when an extracted binary is not signed' {
         $script:realTempDir = Join-Path ([System.IO.Path]::GetTempPath()) "pester-vhd-content-test-$(New-Guid)"
         New-Item -ItemType Directory -Path $script:realTempDir -Force | Out-Null
