@@ -91,6 +91,28 @@ Describe 'Test-PrivatePackageSignature' {
         Should -Invoke Write-ErrorWithTimestamp -Times 0
     }
 
+    It 'does not report the package as invalid when the only unsigned binary is an allowlisted one (e.g. win-bridge.exe)' {
+        $script:realTempDir = Join-Path ([System.IO.Path]::GetTempPath()) "pester-vhd-content-test-$(New-Guid)"
+        New-Item -ItemType Directory -Path $script:realTempDir -Force | Out-Null
+        Set-Content -Path (Join-Path $script:realTempDir "private-package.zip") -Value "placeholder"
+
+        $map = @{
+            $script:realTempDir = @("https://privatestorageaccount.blob.core.windows.net/c/private-package.zip")
+        }
+        $global:azCopyUrls = @{ "https://privatestorageaccount.blob.core.windows.net/c/private-package.zip" = $true }
+
+        Mock Test-Path {}
+        Mock Remove-Item {}
+        Mock New-Item {}
+        Mock Expand-Archive {}
+        Mock Get-UnsignedBinariesInDirectory { @( [PSCustomObject]@{ Path = "win-bridge.exe"; Status = "NotSigned" } ) }
+
+        { Test-PrivatePackageSignature } | Should -Not -Throw
+
+        Should -Invoke Write-ErrorWithTimestamp -Times 0
+        Should -Invoke Write-OutputWithTimestamp -Times 1 -ParameterFilter { $Message -like "win-bridge.exe*ignore list*" }
+    }
+
     It 'reports the package as invalid (via Write-ErrorWithTimestamp) when an extracted binary is not signed' {
         $script:realTempDir = Join-Path ([System.IO.Path]::GetTempPath()) "pester-vhd-content-test-$(New-Guid)"
         New-Item -ItemType Directory -Path $script:realTempDir -Force | Out-Null
