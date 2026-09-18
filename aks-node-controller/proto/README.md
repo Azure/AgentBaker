@@ -56,6 +56,41 @@ Removed old environment variables from cse_cmd.sh:
 
 Many variables are changed to optional and we have a builder function as a helper to provide default values. For example, the builder function defaults `LinuxAdminUsername` to value `azureuser`, `OutboundCommand` to a default outbound command `curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/`.
 
+## Additional kubelet configuration fields
+
+`KubeletConfigFileConfig` can carry the following fields through the node configuration
+payload into the existing kubelet JSON serializer:
+
+| Proto field | Kubelet JSON field | Type |
+| --- | --- | --- |
+| `enable_server` | `enableServer` | Optional boolean |
+| `volume_plugin_dir` | `volumePluginDir` | String |
+| `cgroup_driver` | `cgroupDriver` | String |
+| `runtime_request_timeout` | `runtimeRequestTimeout` | Duration string, such as `2m` |
+| `container_runtime_endpoint` | `containerRuntimeEndpoint` | String |
+| `register_with_taints` | `registerWithTaints` | List of `KubeletTaint` objects |
+| `hairpin_mode` | `hairpinMode` | String |
+
+The JSON names and types match the upstream
+[KubeletConfiguration API](https://github.com/kubernetes/kubelet/blob/v0.37.0/config/v1beta1/types.go).
+`KubeletTaint` preserves `key`, `value`, `effect`, and optional `timeAdded`
+(an RFC3339 timestamp string), matching the upstream
+[Taint type](https://github.com/kubernetes/api/blob/v0.37.0/core/v1/types.go).
+
+Leaving the new fields unset does not change existing serialized output.
+`enable_server` has explicit presence: unset is omitted, while `false` is emitted
+as `"enableServer": false`. Duration values remain strings, including `"0s"`;
+serialization does not apply kubelet defaults or validate runtime settings.
+Empty strings and empty taint lists are omitted, consistent with the existing
+proto3 contract. Taint list order and duplicate keys with different effects are preserved.
+
+This is schema support only: it does not populate these fields from flags, remove
+any flags, or enable config-file delivery. Older node-controller consumers ignore
+unknown fields; successfully decoding a payload does not mean they can apply the
+new settings. Producers must retain existing behavior until compatible consumers
+are available. Any subsequent flag migration must be separately gated to stable
+Kubernetes agent-pool versions >=1.38; versions below 1.38 remain unchanged.
+
 # Guideline to add a new variable to AKSNodeConfig
 ## Why Protobuf? (Feel free to skip)
 We use `Protobuf`.`proto3` to define the data contract and make use of its benefits as follows:
