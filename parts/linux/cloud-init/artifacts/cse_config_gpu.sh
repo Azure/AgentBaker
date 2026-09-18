@@ -132,10 +132,8 @@ validateGPUDrivers() {
     fi
 }
 
-# logGPUDriverPrebakeReadiness emits a stage-1 observability signal on a managed GPU node: whether
-# the aks-gpu prebake marker is present and matches this node's driver kind -- i.e. whether stage-2
-# (skip-build) would take the fast path. Lets the rollout confirm managed CUDA GPU nodes are ready
-# before enabling consume. Observability only; no behavior change.
+# logGPUDriverPrebakeReadiness reports the marker and driver kind on a managed GPU node.
+# This is an observability signal, not permission to skip the normal installer.
 logGPUDriverPrebakeReadiness() {
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
     local marker_present=false driver_kind_match=false m_kind node_kind
@@ -188,6 +186,23 @@ cleanUpGridNodeCudaPrebake() {
     cleanUpPrebakedGPUDriver
 }
 
+# Return success only if DKMS records the on-disk NVIDIA driver as installed for
+# the running kernel. This does not register, build, install, or load a module.
+isNvidiaDKMSInstalledForCurrentKernel() {
+    local version kernel arch status
+    kernel="$(uname -r)" || return 1
+    arch="$(uname -m)" || return 1
+    version="$(modinfo -k "${kernel}" -F version nvidia)" || return 1
+    [ -n "${version}" ] || return 1
+    status="$(dkms status -m nvidia -v "${version}" -k "${kernel}" -a "${arch}")" || return 1
+    # DKMS may retain a backup of the non-DKMS prebake. That is not an error.
+    # Do not accept added/built records, other kernels, or module mismatch warnings.
+    case "${status% (original_module exists)}" in
+        "nvidia/${version}, ${kernel}, ${arch}: installed"|"nvidia, ${version}, ${kernel}, ${arch}: installed") return 0 ;;
+    esac
+    return 1
+}
+
 ensureGPUDrivers() {
     if [ "$(isARM64)" -eq 1 ]; then
         return
@@ -200,10 +215,24 @@ ensureGPUDrivers() {
         logs_to_events "AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake" cleanUpGridNodeCudaPrebake || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 
-    if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]; then
-        logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
+    local cuda_prebake=false
+    case "${OS}/${NVIDIA_GPU_DRIVER_TYPE:-}" in
+        "${UBUNTU_OS_NAME}"/cuda*)
+            if [ -f "${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}" ]; then
+                cuda_prebake=true
+            fi
+            ;;
+    esac
+    # A loadable prebake is not enough: managed CUDA nodes need a full DKMS
+    # installation for kernel updates. Keep this in nodePrep to cover PIS too.
+    if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ] || { [ "${cuda_prebake}" = true ] && ! isNvidiaDKMSInstalledForCurrentKernel; }; then
+        logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
     else
-        logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
+        logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
+    if [ "${cuda_prebake}" = true ] && ! isNvidiaDKMSInstalledForCurrentKernel; then
+        echo "NVIDIA DKMS installation is incomplete for the running kernel"
+        exit $ERR_GPU_DRIVERS_START_FAIL
     fi
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe 30" || exit $ERR_GPU_DRIVERS_START_FAIL

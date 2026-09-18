@@ -2726,6 +2726,28 @@ testContainerNetworkingPluginsInstalled() {
   return 0
 }
 
+# Reject an active registration at final image validation too, after all build steps.
+# CPU/opt-out cleanup must not be needed to make kernel security updates safe.
+testNvidiaPrebakeUnregistered() {
+  local test="testNvidiaPrebakeUnregistered"
+  if [ "$OS_SKU" != "Ubuntu" ] || ! grep -q NVIDIA_CUDA_PREBAKE <<< "$FEATURE_FLAGS"; then
+    return 0
+  fi
+  local status
+  if ! status="$(dkms status -m nvidia)"; then
+    err "$test" "Could not verify NVIDIA DKMS state"
+    return 1
+  fi
+  if [ -n "$status" ] || [ -e /var/lib/dkms/nvidia ] || [ -L /var/lib/dkms/nvidia ]; then
+    err "$test" "Shared CUDA prebake contains an active NVIDIA DKMS registration"
+    return 1
+  fi
+  if [ ! -f /opt/azure/aks-gpu/dkms-marker ] || ! modinfo nvidia >/dev/null 2>&1; then
+    err "$test" "CUDA prebake marker or compiled module is missing"
+    return 1
+  fi
+}
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -2740,6 +2762,7 @@ testContainerNetworkingPluginsInstalled() {
 checkPerformanceData
 testBccTools $OS_SKU $OS_VERSION
 testVHDBuildLogsExist
+testNvidiaPrebakeUnregistered
 testAzureLinuxNvidiaGPUDriverReleaseNotes
 testCriticalTools
 testPackagesInstalled
