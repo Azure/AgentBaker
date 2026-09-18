@@ -68,7 +68,10 @@ jobs:
         run: |
 
           $config = New-PesterConfiguration
-          $config.Run.Path = "vhdbuilder/packer/windows/"
+          # Also runs windows-files-check.tests.ps1, which lives under vhdbuilder/packer/test/
+          # (colocated with the windows-files-check.ps1 script it tests) rather than under
+          # vhdbuilder/packer/windows/ - include it explicitly so it's not silently skipped by CI.
+          $config.Run.Path = @("vhdbuilder/packer/windows/", "vhdbuilder/packer/test/windows-files-check.tests.ps1", "vhdbuilder/packer/test/windows-vhd-content-test.tests.ps1")
           $config.Run.PassThru = $true
           #$config.CodeCoverage.CoveragePercentTarget = 80
           $config.CodeCoverage.OutputPath = "coverage/vhdbuilder_packer_windows.xml"

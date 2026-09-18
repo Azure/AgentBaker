@@ -57,6 +57,7 @@ type AzureClient struct {
 	RegistriesClient          *armcontainerregistry.RegistriesClient
 	Resource                  *armresources.Client
 	ResourceGroup             *armresources.ResourceGroupsClient
+	Tags                      *armresources.TagsClient
 	RoleAssignments           *armauthorization.RoleAssignmentsClient
 	SecurityGroup             *armnetwork.SecurityGroupsClient
 	StorageAccounts           *armstorage.AccountsClient
@@ -280,6 +281,11 @@ func NewAzureClientForSubscription(subscriptionID string) (*AzureClient, error) 
 	cloud.ResourceGroup, err = armresources.NewResourceGroupsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create resource group client: %w", err)
+	}
+
+	cloud.Tags, err = armresources.NewTagsClient(subscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create tags client: %w", err)
 	}
 
 	cloud.VNet, err = armnetwork.NewVirtualNetworksClient(subscriptionID, credential, opts)
