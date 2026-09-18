@@ -10,7 +10,8 @@ ConditionKernelVersion=>=5.15
 # Bound the restart budget so every unrecoverable failure mode terminates in
 # 'failed' rather than restarting forever. The threshold is
 # StartLimitIntervalSec/StartLimitBurst = 720/5 = 144s, just above the slowest
-# restart cycle (~125s = TimeoutStartSec 90 + TimeoutStopSec 30 + RestartSec 2),
+# restart cycle (~125s = TimeoutStartSec 90 + TimeoutStopSec 30 + RestartSec 2,
+# all three pinned below so the margin does not depend on manager defaults),
 # so slow failures (PID file never appears, watchdog kill, ready-check timeout,
 # hung start) still reach 'failed'. That terminal state is what lets an
 # OnFailure= handoff fire and gives NPD a stable state to observe.
@@ -44,6 +45,13 @@ RestartSec=2
 KillMode=mixed
 # Revert node DNS configuration even when the supervisor exits unexpectedly.
 ExecStopPost=/opt/azure/containers/localdns/localdns.sh cleanup
+# Pinned, not inherited, so the StartLimit margin above is self-contained. The
+# manager default is a systemd build-time constant (-Ddefault-timeout-sec) and it
+# is not the same on every image we ship: Ubuntu builds it at 90s, Azure Linux at
+# 45s. Leaving it inherited makes the slowest restart cycle -- and therefore the
+# margin under the 144s threshold -- differ per distro, and a change to
+# DefaultTimeoutStartSec would move it silently.
+TimeoutStartSec=90
 TimeoutStopSec=30
 Slice=localdns.slice
 EnvironmentFile=-/etc/localdns/environment
