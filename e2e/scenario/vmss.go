@@ -260,7 +260,9 @@ func createVMSSRecreatingOnOutboundCSEFlake(ctx context.Context, s *Scenario) (*
 		// detached "az network bastion tunnel" process and SSH client would leak until test exit
 		// and could interfere with subsequent retries.
 		cleanupBastionTunnel(vm.SSHClient)
-		deleteVMSSAndWait(ctx, s)
+		if deleteErr := deleteVMSSAndWait(ctx, s); deleteErr != nil {
+			return vm, errors.Join(err, deleteErr)
+		}
 	}
 }
 
@@ -309,19 +311,19 @@ func getLinuxCSEExitCode(ctx context.Context, s *Scenario) (string, bool) {
 // deleteVMSSAndWait synchronously deletes the scenario's VMSS so the same name can be
 // safely reused on the next provisioning attempt. Unlike deleteVMSS (fire-and-forget at
 // test cleanup), this waits for the delete to complete to avoid a create/delete conflict.
-func deleteVMSSAndWait(ctx context.Context, s *Scenario) {
+func deleteVMSSAndWait(ctx context.Context, s *Scenario) error {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
 	defer cancel()
 	poller, err := config.Azure.VMSS.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
 		ForceDeletion: to.Ptr(true),
 	})
 	if err != nil {
-		logging.Logf(ctx, "failed to begin delete of vmss %q for retry: %s", s.Runtime.VMSSName, err)
-		return
+		return fmt.Errorf("begin delete of vmss %q for retry: %w", s.Runtime.VMSSName, err)
 	}
 	if _, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
-		logging.Logf(ctx, "failed to wait for delete of vmss %q for retry: %s", s.Runtime.VMSSName, err)
+		return fmt.Errorf("wait for delete of vmss %q for retry: %w", s.Runtime.VMSSName, err)
 	}
+	return nil
 }
 
 // CustomDataWithNBCCmdHack is similar to baker.boothooktemplate, but it uses a hack to run new aks-node-controller binary.
@@ -532,14 +534,24 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 		return nil, fmt.Errorf("scenario runtime is missing the cluster node resource group")
 	}
 	resourceGroupName := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
+	return retryVMSSCreation(ctx, func() (*ScenarioVM, error) {
+		return CreateVMSS(ctx, s, resourceGroupName)
+	}, func(vm *ScenarioVM) error {
+		if vm != nil {
+			cleanupBastionTunnel(vm.SSHClient)
+		}
+		return deleteVMSSAndWait(ctx, s)
+	})
+}
 
+func retryVMSSCreation(ctx context.Context, create func() (*ScenarioVM, error), remove func(*ScenarioVM) error) (*ScenarioVM, error) {
 	delay := 5 * time.Second
 	maxAttempts := 10
 	attempt := 0
 
 	for {
 		attempt++
-		vm, err := CreateVMSS(ctx, s, resourceGroupName)
+		vm, err := create()
 		if err == nil {
 			return vm, nil
 		}
@@ -553,6 +565,17 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 			return vm, fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
 		}
 
+		var responseErr *azcore.ResponseError
+		if errors.As(err, &responseErr) && responseErr.ErrorCode == "AllocationFailed" {
+			// A PUT on an already failed VMSS can succeed without allocating its failed
+			// instance. Recreate it so the retry actually requests a new VM allocation.
+			if config.Config.KeepVMSS || ctx.Err() != nil {
+				return vm, err
+			}
+			if deleteErr := remove(vm); deleteErr != nil {
+				return vm, errors.Join(err, deleteErr)
+			}
+		}
 		logging.Logf(ctx, "failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
 		select {
 		case <-ctx.Done():
