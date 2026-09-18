@@ -431,7 +431,36 @@ def main() -> int:
             continue
 
         if kind == "collision":
-            rec = find_prior_release_highest_build(available, latest.release)
+            # Renovate's autoReplaceStringTemplate always copies the OLD
+            # latestVersion string into previousLatestVersion on every bump
+            # (see .github/renovate.json). When the bump is revision-only
+            # (same release, higher build), that copy clobbers whatever
+            # genuinely prior release the base branch had retained, creating
+            # the collision. Prefer restoring/refreshing THAT retained
+            # release (a revision refresh) over re-selecting the highest
+            # upstream release below latestVersion (a release-selection
+            # change) -- otherwise we can silently swap the tracked prior
+            # release to one that was never actually shipped.
+            rec = None
+            base_latest = (
+                parse_version(base_entry.latest_version)
+                if base_entry and base_entry.latest_version
+                else None
+            )
+            base_previous = (
+                parse_version(base_entry.previous_latest_version)
+                if base_entry and base_entry.previous_latest_version
+                else None
+            )
+            if (
+                base_latest is not None
+                and base_previous is not None
+                and base_latest.release == latest.release  # revision-only update
+                and base_previous.release < latest.release  # base retained a genuinely prior release
+            ):
+                rec = find_highest_build(available, base_previous.release) or base_previous
+            if rec is None:
+                rec = find_prior_release_highest_build(available, latest.release)
             if rec:
                 recommendation = format_recommendation(rec, previous)
                 print(
