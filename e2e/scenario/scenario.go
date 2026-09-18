@@ -768,7 +768,7 @@ var _ = Register(&Scenario{
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0]),
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0]),
+				ValidateRuncVersion(ctx, s, "r2204"),
 				ValidateSSHServiceEnabled(ctx, s),
 				ValidateFIPSProvider(ctx, s),
 			)
@@ -790,7 +790,7 @@ var _ = Register(&Scenario{
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2004")[0]),
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2004")[0]),
+				ValidateRuncVersion(ctx, s, "r2004"),
 				ValidateSSHServiceEnabled(ctx, s),
 				ValidateFIPSProvider(ctx, s),
 			)
@@ -815,7 +815,7 @@ var _ = Register(&Scenario{
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0]),
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0]),
+				ValidateRuncVersion(ctx, s, "r2204"),
 				ValidateSSHServiceEnabled(ctx, s),
 				ValidateFIPSProvider(ctx, s),
 			)
@@ -841,7 +841,7 @@ var _ = Register(&Scenario{
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0]),
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0]),
+				ValidateRuncVersion(ctx, s, "r2204"),
 				ValidateSSHServiceEnabled(ctx, s),
 				ValidateFIPSProvider(ctx, s),
 			)
@@ -2016,10 +2016,9 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			return errors.Join(
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateRuncVersion(ctx, s, "r2404"),
 				ValidateContainerRuntimePlugins(ctx, s),
 				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2404")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
@@ -2040,10 +2039,9 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 		Validator: func(ctx context.Context, s *Scenario) error {
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
 			return errors.Join(
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateRuncVersion(ctx, s, "r2604"),
 				ValidateContainerRuntimePlugins(ctx, s),
 				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
@@ -2062,10 +2060,9 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 		Validator: func(ctx context.Context, s *Scenario) error {
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
 			return errors.Join(
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateRuncVersion(ctx, s, "r2604"),
 				ValidateContainerRuntimePlugins(ctx, s),
 				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
@@ -2088,10 +2085,9 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
 			return errors.Join(
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateRuncVersion(ctx, s, "r2604"),
 				ValidateContainerRuntimePlugins(ctx, s),
 				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
@@ -2120,10 +2116,9 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
 			return errors.Join(
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateRuncVersion(ctx, s, "r2604"),
 				ValidateContainerRuntimePlugins(ctx, s),
 				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
@@ -2400,10 +2395,9 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
 			return errors.Join(
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateRuncVersion(ctx, s, "r2604"),
 				ValidateContainerRuntimePlugins(ctx, s),
 				ValidateSSHServiceEnabled(ctx, s),
 				ValidateDirectoryContent(ctx, s, "/etc/containerd/certs.d/mcr.azk8s.cn", []string{"hosts.toml"}),
@@ -2744,10 +2738,9 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
 			return errors.Join(
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateRuncVersion(ctx, s, "r2604"),
 				ValidateContainerRuntimePlugins(ctx, s),
 				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
@@ -2770,10 +2763,9 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
 			return errors.Join(
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateRuncVersion(ctx, s, "r2604"),
 				ValidateContainerRuntimePlugins(ctx, s),
 				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
@@ -2848,10 +2840,9 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			return errors.Join(
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateRuncVersion(ctx, s, "r2404"),
 				ValidateContainerRuntimePlugins(ctx, s),
 				ValidateSSHServiceEnabled(ctx, s),
 				ValidateDirectoryContent(ctx, s, "/etc/containerd/certs.d/mcr.azk8s.cn", []string{"hosts.toml"}),
@@ -2923,11 +2914,10 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			return errors.Join(
 				ValidateNvidiaSMINotInstalled(ctx, s),
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateRuncVersion(ctx, s, "r2404"),
 			)
 		},
 	},
@@ -2941,10 +2931,9 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDUbuntu2404Gen1Containerd,
 		Validator: func(ctx context.Context, s *Scenario) error {
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			return errors.Join(
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateRuncVersion(ctx, s, "r2404"),
 			)
 		},
 	},
@@ -2961,10 +2950,9 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			return errors.Join(
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateRuncVersion(ctx, s, "r2404"),
 			)
 		},
 	},
@@ -3120,7 +3108,7 @@ var _ = Register(&Scenario{
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0]),
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0]),
+				ValidateRuncVersion(ctx, s, "r2204"),
 				ValidateSSHServiceEnabled(ctx, s),
 			)
 		},

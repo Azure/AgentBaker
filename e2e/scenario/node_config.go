@@ -137,6 +137,15 @@ func getBaseNBC(ctx context.Context, cluster *Cluster, vhd *config.Image) (*data
 		return nil, err
 	}
 
+	// The shared cluster may use a non-default DNS address. Keep the test
+	// fixture's upstream separate from any LocalDNS kubelet listener override.
+	if network := cluster.Model.Properties.NetworkProfile; network != nil && network.DNSServiceIP != nil {
+		dnsIP := *network.DNSServiceIP
+		nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.DNSServiceIP = dnsIP
+		nbc.AgentPoolProfile.KubernetesConfig.DNSServiceIP = dnsIP
+		nbc.KubeletConfig["--cluster-dns"] = dnsIP
+	}
+
 	// use the cluster's kubelet identity to simulate how AKS works in production
 	// we assume that all E2E clusters are created with a user-assigned managed identity for the kubelet (not a service principal)
 	nbc.UserAssignedIdentityClientID = *cluster.KubeletIdentity.ClientID
@@ -247,6 +256,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksno
 				VnetResourceGroup: cs.Properties.GetVNetResourceGroupName(),
 				Subnet:            cs.Properties.GetSubnetName(),
 				RouteTable:        cs.Properties.GetRouteTableName(),
+				CoreDnsServiceIp:  nbc.AgentPoolProfile.GetCoreDNSServiceIP(),
 			},
 			CloudProviderConfig: &aksnodeconfigv1.CloudProviderConfig{
 				Backoff:              k8sConfig.CloudProviderBackoff,
