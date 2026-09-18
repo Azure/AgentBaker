@@ -110,7 +110,23 @@ jobs:
           python3 .github/scripts/validate_previous_version.py \
             --base "origin/${BASE_REF}" \
             --file parts/common/components.json \
-            --report previous_version_report.md
+            --report previous_version_report.md \
+            --suggestions previous_version_suggestions.json
+
+      - name: Post previousLatestVersion suggestions as review comments
+        # Always run (even when this push has no findings): a prior push's
+        # suggestions may since have been fixed and need to be cleaned up.
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -ex
+          python3 .github/scripts/post_suggestions.py \
+            --repo "${{ github.repository }}" \
+            --pr "${{ github.event.pull_request.number }}" \
+            --commit-sha "${{ github.event.pull_request.head.sha }}" \
+            --file parts/common/components.json \
+            --suggestions previous_version_suggestions.json
 
       - name: remove previousLatestVersion comment from PR
         # Removing and then re-adding keeps the comment at the bottom of the
