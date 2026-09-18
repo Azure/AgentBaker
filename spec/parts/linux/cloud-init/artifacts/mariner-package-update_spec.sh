@@ -56,6 +56,7 @@ EOF
             TEST_GOAL=""
             TEST_STATUS=""
             TEST_LEGACY_GOLDEN=""
+            LIVE_PATCHING_GOAL_ANNOTATION="test.azure.com/live-patching-goal"
             : > "${TEST_CALLS_FILE}"
             printf '%s' '{"components":[]}' > "${TEST_CONFIG_FILE}"
             export TEST_CONFIG_FILE TEST_CALLS_FILE LIVE_PATCHING_STATE_FILE
@@ -76,11 +77,10 @@ EOF
 
         Mock kubectl
             case "$*" in
-                *"live-patching-config-goal-hash"*) printf '%s' "${TEST_GOAL}" ;;
                 *"live-patching-golden-timestamp"*) printf '%s' "${TEST_LEGACY_GOLDEN}" ;;
                 *"get node"*"-o json")
                     jq -nc --arg goal "${TEST_GOAL}" --arg status "${TEST_STATUS}" \
-                        '{metadata:{name:"aks-node-1",labels:{"kubernetes.azure.com/agentpool":"ap1"},annotations:{"kubernetes.azure.com/live-patching-config-goal-hash":$goal,"kubernetes.azure.com/live-patching-status":$status}}}'
+                        '{metadata:{name:"aks-node-1",labels:{"kubernetes.azure.com/agentpool":"ap1"},annotations:{"test.azure.com/live-patching-goal":$goal,"kubernetes.azure.com/live-patching-status":$status}}}'
                     ;;
                 *"get cm"*) cat "${TEST_CONFIG_FILE}" ;;
                 *"annotate --overwrite node"*) echo "annotate $*" >> "${TEST_CALLS_FILE}" ;;
@@ -436,7 +436,9 @@ EOF
 
         It 'should do nothing if golden timestamp equals current timestamp'
             Mock kubectl
-                if [[ "$@" != *"live-patching-config-goal-hash"* ]]; then
+                if [[ "$*" == *" -o json" ]]; then
+                    echo '{"metadata":{"annotations":{}}}'
+                else
                     echo "20250820T000000Z"
                 fi
             End
@@ -638,7 +640,9 @@ EOF
 
         It 'should do nothing if golden timestamp equals current timestamp'
             Mock kubectl
-                if [[ "$@" != *"live-patching-config-goal-hash"* ]]; then
+                if [[ "$*" == *" -o json" ]]; then
+                    echo '{"metadata":{"annotations":{}}}'
+                else
                     echo "20250820T000000Z"
                 fi
             End

@@ -577,15 +577,13 @@ main() {
         return 1
     fi
     node_name=$(printf '%s' "${node_name}" | tr '[:upper:]' '[:lower:]')
-    # Read the goal first so legacy clusters retain the exact annotation-driven path.
     # shellcheck disable=SC2086
-    goal=$($KUBECTL get node "${node_name}" -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-config-goal-hash']}") || return 1
+    node_json=$($KUBECTL get node "${node_name}" -o json) || return 1
+    goal=$(get_node_annotation "${node_json}" "${LIVE_PATCHING_GOAL_ANNOTATION}") || return 1
     if [ -z "${goal}" ]; then
         legacy_main
         return
     fi
-    # shellcheck disable=SC2086
-    node_json=$($KUBECTL get node "${node_name}" -o json) || return 1
     echo "live-patching goal is: ${goal}"
     generic_main "${node_json}" "${goal}"
 }
