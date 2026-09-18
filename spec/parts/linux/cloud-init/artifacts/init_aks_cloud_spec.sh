@@ -68,6 +68,28 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
     End
 End
 
+Describe 'init-aks-cloud.sh Chrony distro routing'
+    script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
+
+    chrony_routing_block() {
+        sed -n '/^if \[ "\$IS_ACL" -eq 1 \]; then$/,/^#EOF$/p' "$script_path"
+    }
+
+    It 'keeps Azure Linux and Mariner on their native chronyd configuration path'
+        When call chrony_routing_block
+        The output should include 'elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then'
+        The output should include 'cat > /etc/chrony.conf <<EOF'
+        The output should include 'refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0'
+        The output should include 'systemctl restart chronyd'
+    End
+
+    It 'keeps Ubuntu and Flatcar on configure_chrony unless the CVM path already configured it'
+        When call chrony_routing_block
+        The output should include 'if [ "$ubuntu_2604_cvm_chrony_configured" -eq 0 ]; then'
+        The output should include 'configure_chrony'
+    End
+End
+
 Describe 'init-aks-cloud.sh functional tests'
     setup() {
         TEST_DIR="$(mktemp -d)"
@@ -252,6 +274,27 @@ EOF
 
             When call is_ubuntu_2604_cvm
             The status should be failure
+        End
+
+        It 'does not select another Ubuntu release even when it has an FDE kernel'
+            IS_UBUNTU=1
+            VERSION_ID="24.04"
+            Mock uname
+                echo "6.8.0-1065-azure-fde"
+            End
+
+            When call is_ubuntu_2604_cvm
+            The status should be failure
+        End
+
+        It 'preserves the PHC default for another Ubuntu release'
+            setup_chrony_test
+            VERSION_ID="24.04"
+
+            When call configure_chrony
+            The output should include "systemctl restart chrony"
+            The contents of file "$CHRONY_CONF" should include "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
+            The status should be success
         End
 
         It 'detects AMD SEV-SNP with the systemd confidential VM signal'
