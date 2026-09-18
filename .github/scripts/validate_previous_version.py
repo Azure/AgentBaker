@@ -35,16 +35,12 @@ For both, this script:
      the highest build found upstream for `previousLatestVersion`'s own
      release.
 
-Version comparison currently only understands one narrow, unambiguous shape:
-a prefix of `v?MAJOR.MINOR.PATCH-BUILD` where BUILD is purely numeric
-(e.g. "v0.1.16-16" or "0.1.16-16", optionally followed by an arbitrary
-suffix like ".azl3" or "-azlinux3"). That's the one case where both "same
-release" and "build number" can be identified with certainty. Entries whose
-latestVersion/previousLatestVersion don't match this shape -- e.g.
-"1.35.7-ubuntu24.04u2" (the character after the dash isn't a digit),
-"10.0.20348.5622" (no dash at all), or a bare "1.35.7" (no build suffix) --
-are skipped rather than guessed at; broadening to those formats is left for
-a follow-up once we're confident how to compare them unambiguously.
+Version comparison understands numeric revisions such as
+`v0.1.16-16.azl3` and Ubuntu package revisions such as
+`1.35.7-ubuntu24.04u2`. For Ubuntu packages, the release is the semver plus
+Ubuntu release (`1.35.7-ubuntu24.04`) and the numeric `u2` value is the
+revision. Other ambiguous formats -- such as `10.0.20348.5622` (no dash) or a
+bare `1.35.7` (no revision suffix) -- are skipped rather than guessed at.
 
 This script only reports; it never rewrites components.json. Recommendations
 are best-effort and not independently re-verified here -- if a suggested
@@ -88,7 +84,11 @@ class ComponentEntry:
     previous_latest_version: Optional[str]
 
 
-RELEASE_RE = re.compile(r"^(?P<prefix>v?\d+\.\d+\.\d+)-(?P<build>\d+)(?P<suffix>.*)$")
+NUMERIC_RELEASE_RE = re.compile(r"^(?P<prefix>v?\d+\.\d+\.\d+)-(?P<build>\d+)(?P<suffix>.*)$")
+UBUNTU_RELEASE_RE = re.compile(
+    r"^(?P<prefix>v?\d+\.\d+\.\d+)-ubuntu"
+    r"(?P<ubuntu_release>\d+\.\d+)u(?P<build>\d+)(?P<suffix>.*)$"
+)
 
 
 @dataclass
@@ -97,25 +97,31 @@ class ParsedVersion:
     build: int
     prefix: str  # e.g. "v0.1.16" -- everything before "-BUILD", kept verbatim (with leading "v" if present)
     suffix: str  # e.g. "" or ".azl3" or "-azlinux3" -- everything after BUILD, kept verbatim
+    ubuntu_release: Optional[tuple] = None  # (major, minor), for Ubuntu package versions
+    ubuntu_release_text: Optional[str] = None
+
+    @property
+    def release_key(self) -> tuple:
+        if self.ubuntu_release is None:
+            return ("numeric", self.release)
+        return ("ubuntu", self.release, self.ubuntu_release)
 
 
 def parse_version(version: str) -> Optional[ParsedVersion]:
-    """Parse a version string, but only for the narrow, unambiguous shape
-    this check targets: a prefix of `v?MAJOR.MINOR.PATCH-BUILD` where BUILD
-    is a purely numeric run immediately after the dash (an arbitrary
-    string, such as ".azl3" or "-azlinux3", may follow). This is the one
-    shape where "same release" and "build number" can both be identified
-    with certainty -- the dash cleanly separates the semver release from a
-    package/image build/revision counter, and the digits right after it
-    are unambiguously the build number.
+    """Parse supported numeric and Ubuntu package revision formats."""
+    m = UBUNTU_RELEASE_RE.match(version)
+    if m:
+        prefix = m.group("prefix")
+        return ParsedVersion(
+            release=tuple(int(part) for part in prefix.lstrip("v").split(".")),
+            build=int(m.group("build")),
+            prefix=prefix,
+            suffix=m.group("suffix"),
+            ubuntu_release=tuple(int(part) for part in m.group("ubuntu_release").split(".")),
+            ubuntu_release_text=m.group("ubuntu_release"),
+        )
 
-    Anything else (e.g. "1.35.7-ubuntu24.04u2", where the character right
-    after the dash is not a digit, "10.0.20348.5622", which has no dash at
-    all, or a bare "1.35.7" with no build suffix) returns None and is
-    skipped rather than guessed at: those formats mix in OS/distro
-    identifiers or extra version segments that make "same release"/"build
-    number" ambiguous to determine (see module docstring)."""
-    m = RELEASE_RE.match(version)
+    m = NUMERIC_RELEASE_RE.match(version)
     if not m:
         return None
     release = tuple(int(part) for part in m.group("prefix").lstrip("v").split("."))
@@ -304,9 +310,14 @@ def find_highest_build(available_versions: list, target_release: tuple) -> Optio
     with the highest build number for exactly `target_release`, or None if
     no upstream version matches that release at all."""
     best: Optional[ParsedVersion] = None
+    compare_release_key = not all(isinstance(part, int) for part in target_release)
     for v in available_versions:
         parsed = parse_version(v)
-        if parsed is None or parsed.release != target_release:
+        if parsed is None or (
+            parsed.release_key != target_release
+            if compare_release_key
+            else parsed.release != target_release
+        ):
             continue
         if best is None or parsed.build > best.build:
             best = parsed
@@ -318,11 +329,17 @@ def find_prior_release_highest_build(available_versions: list, latest_release: t
     that is still strictly lower than `latest_release`, then return the
     ParsedVersion with the highest build number within that release."""
     candidates: dict = {}
+    compare_release_key = not all(isinstance(part, int) for part in latest_release)
     for v in available_versions:
         parsed = parse_version(v)
-        if parsed is None or parsed.release >= latest_release:
+        if parsed is None or (
+            parsed.release_key >= latest_release
+            if compare_release_key
+            else parsed.release >= latest_release
+        ):
             continue
-        candidates.setdefault(parsed.release, []).append(parsed)
+        candidate_key = parsed.release_key if compare_release_key else parsed.release
+        candidates.setdefault(candidate_key, []).append(parsed)
     if not candidates:
         return None
     prior_release = max(candidates.keys())
@@ -337,6 +354,9 @@ def format_recommendation(parsed: ParsedVersion, like: ParsedVersion) -> str:
     components.json doesn't use, so we don't just echo the upstream string
     verbatim."""
     prefix = ("v" if like.prefix.startswith("v") else "") + ".".join(map(str, parsed.release))
+    if parsed.ubuntu_release is not None:
+        ubuntu_release = parsed.ubuntu_release_text or ".".join(map(str, parsed.ubuntu_release))
+        return f"{prefix}-ubuntu{ubuntu_release}u{parsed.build}{like.suffix}"
     return f"{prefix}-{parsed.build}{like.suffix}"
 
 
@@ -404,7 +424,7 @@ def main() -> int:
             continue  # unrecognized version shape -- skip rather than guess (see module docstring)
         latest = parse_version(entry.latest_version)
 
-        if latest is not None and latest.release == previous.release:
+        if latest is not None and latest.release_key == previous.release_key:
             kind = "collision"
             print(
                 f"::error::{entry.path}: latestVersion ({entry.latest_version}) and "
@@ -455,12 +475,12 @@ def main() -> int:
             if (
                 base_latest is not None
                 and base_previous is not None
-                and base_latest.release == latest.release  # revision-only update
-                and base_previous.release < latest.release  # base retained a genuinely prior release
+                and base_latest.release_key == latest.release_key  # revision-only update
+                and base_previous.release_key < latest.release_key  # base retained a genuinely prior release
             ):
-                rec = find_highest_build(available, base_previous.release) or base_previous
+                rec = find_highest_build(available, base_previous.release_key) or base_previous
             if rec is None:
-                rec = find_prior_release_highest_build(available, latest.release)
+                rec = find_prior_release_highest_build(available, latest.release_key)
             if rec:
                 recommendation = format_recommendation(rec, previous)
                 print(
@@ -474,7 +494,7 @@ def main() -> int:
                 print(f"::error::{entry.path}: {note}")
                 findings.append((entry, kind, None, note))
         else:
-            rec = find_highest_build(available, previous.release)
+            rec = find_highest_build(available, previous.release_key)
             if rec is not None and rec.build > previous.build:
                 recommendation = format_recommendation(rec, previous)
                 print(
