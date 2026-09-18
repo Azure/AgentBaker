@@ -26,7 +26,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"gopkg.in/yaml.v3"
@@ -596,33 +595,33 @@ func createVMSS(
 	if err != nil {
 		return vm, err
 	}
-	// We want to generate SSH instructions as soon as possible, so we can debug CSE issues
-	// Wait for VMSS VM to appear before extracting the private IP
-	vm.VM, err = waitForVMSSVM(ctx, s, operation)
-	if err != nil {
-		return vm, fmt.Errorf("failed to wait for VMSS VM: %w", err)
-	}
-
-	vm.PrivateIP, err = getPrivateIPFromVMSSVM(ctx, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID)
-	if err != nil {
-		return vm, errors.Join(pollVMSSCreation(ctx, operation), fmt.Errorf("failed to get VM private IP address: %w", err))
-	}
-
-	// NOTE: teardown (log extraction + VMSS deletion) is registered once by the caller
-	// ConfigureAndCreateVMSS after the outbound-flake retry loop settles, not here per attempt,
-	// to avoid stale cleanup handlers from retried/recreated VMSS instances.
-
-	result := "SSH Instructions: (may take a few minutes for the VM to be ready for SSH)\n========================\n"
+	// Teardown is registered by ConfigureAndCreateVMSS after retries settle,
+	// not here per attempt, to avoid stale cleanup handlers.
+	result := "SSH Instructions: (run in Bash; retry if the VM is not yet available or ready for SSH)\n========================\n"
 	if config.Config.KeepVMSS {
 		logging.Logf(ctx, "VM will be preserved after the test finishes, PLEASE MANUALLY DELETE THE VMSS. Set KEEP_VMSS=false to delete it automatically after the test finishes\n")
 	} else {
 		logging.Logf(ctx, "VM will be automatically deleted after the test finishes, to preserve it for debugging purposes set KEEP_VMSS=true or pause the test with a breakpoint before the test finishes or failed\n")
 	}
-	// We combine the az aks get credentials in the same line so we don't overwrite the user's kubeconfig.
-	result += fmt.Sprintf(`az network bastion ssh --target-resource-id "%s" --name "%s" --resource-group %s --auth-type ssh-key --username azureuser --ssh-key %s`, *vm.VM.ID, SharedBastionName, config.ResourceGroupName(*s.Runtime.Cluster.Model.Location), config.VMSSHPrivateKeyFileName) + "\n"
+	result += fmt.Sprintf(`vm_id=$(az vmss list-instances --subscription "%s" --resource-group "%s" --name "%s" --query '[0].id' --output tsv) &&
+az network bastion ssh --subscription "%s" --target-resource-id "$vm_id" --name "%s" --resource-group "%s" --auth-type ssh-key --username azureuser --ssh-key "%s"
+`, config.Config.SubscriptionID, resourceGroupName, s.Runtime.VMSSName,
+		config.Config.SubscriptionID, SharedBastionName, config.ResourceGroupName(*s.Runtime.Cluster.Model.Location), config.VMSSHPrivateKeyFileName)
 	logging.Log(ctx, result)
 
 	vmssResp, provisionErr := operation.PollUntilDone(ctx, config.PollUntilDoneOptions())
+	if provisionErr != nil {
+		vm.VM, err = getVMSSVM(ctx, s)
+	} else {
+		vm.VM, err = waitForVMSSVM(ctx, s)
+	}
+	if err != nil {
+		return vm, errors.Join(provisionErr, fmt.Errorf("failed to get VMSS VM: %w", err))
+	}
+	vm.PrivateIP, err = getPrivateIPFromVMSSVM(ctx, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID)
+	if err != nil {
+		return vm, errors.Join(provisionErr, fmt.Errorf("failed to get VM private IP address: %w", err))
+	}
 
 	// In the single-subscription model, if the scenario tags RCV1PCertMode we set the opt-in tag ourselves.
 	weSetRCV1PTag := s.Tags.RCV1PCertMode
@@ -776,54 +775,43 @@ func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.
 }
 
 // waitForVMSSVM polls until a VMSS VM instance appears with network profile or the timeout elapses.
-func waitForVMSSVM(ctx context.Context, s *Scenario, operation *runtime.Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse]) (*armcompute.VirtualMachineScaleSetVM, error) {
+func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachineScaleSetVM, error) {
 	ticker := time.NewTicker(config.Config.DefaultPollInterval)
 	defer ticker.Stop()
 
-	var lastErr error
 	for {
-		pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetVMsClientListOptions{
-			Expand: to.Ptr("instanceView"),
-		})
-
-		if pager.More() {
-			page, err := pager.NextPage(ctx)
-			if err == nil && len(page.Value) > 0 {
-				vmssVM := page.Value[0]
-				// Verify it has network profile
-				if vmssVM.Properties != nil && vmssVM.Properties.NetworkProfile != nil {
-					return vmssVM, nil
-				}
-			}
-			if err != nil {
-				lastErr = err
-			}
-		}
-
-		if err := pollVMSSCreation(ctx, operation); err != nil {
-			return nil, err
+		vm, err := getVMSSVM(ctx, s)
+		if err == nil {
+			return vm, nil
 		}
 
 		select {
 		case <-ctx.Done():
-			if lastErr != nil {
-				return nil, fmt.Errorf("timeout waiting for VMSS VM: %w", lastErr)
-			}
-			return nil, fmt.Errorf("timeout waiting for VMSS VM")
+			return nil, fmt.Errorf("timeout waiting for VMSS VM: %w", errors.Join(ctx.Err(), err))
 		case <-ticker.C:
 		}
 	}
 }
 
-func pollVMSSCreation(ctx context.Context, operation *runtime.Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse]) error {
-	if _, err := operation.Poll(ctx); err != nil {
-		return fmt.Errorf("polling VMSS creation: %w", err)
+func getVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachineScaleSetVM, error) {
+	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetVMsClientListOptions{
+		Expand: to.Ptr("instanceView"),
+	})
+	if !pager.More() {
+		return nil, errors.New("no VMSS VM found")
 	}
-	if operation.Done() {
-		_, err := operation.Result(ctx)
-		return err
+	page, err := pager.NextPage(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	if len(page.Value) == 0 {
+		return nil, errors.New("no VMSS VM found")
+	}
+	vm := page.Value[0]
+	if vm == nil || vm.Properties == nil || vm.Properties.NetworkProfile == nil {
+		return nil, errors.New("VMSS VM has no network profile")
+	}
+	return vm, nil
 }
 
 // getPrivateIPFromVMSSVM extracts the private IP address from a VMSS VM by querying its network interfaces.

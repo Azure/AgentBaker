@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -33,6 +34,16 @@ type vmssCreationTestPolicy func(*http.Request) *http.Response
 type vmssCreationTestLogger struct {
 	*testing.T
 	messages []string
+	sshAt    time.Time
+}
+
+func (l *vmssCreationTestLogger) Log(args ...any) {
+	message := fmt.Sprint(args...)
+	l.messages = append(l.messages, message)
+	if strings.Contains(message, "SSH Instructions:") {
+		l.sshAt = time.Now()
+	}
+	l.T.Log(args...)
 }
 
 func (l *vmssCreationTestLogger) Logf(format string, args ...any) {
@@ -58,9 +69,116 @@ type vmssCreationTestCase struct {
 	vmAfterPoll   bool
 	pendingPolls  int
 	pollCount     int
+	vmLookups     int
 	wantErr       string
 	wantSSH       bool
 	polled        bool
+	started       time.Time
+	pollTimes     []time.Duration
+	retryAfter    string
+	readyAfter    time.Duration
+	vmReadyAfter  time.Duration
+	networkAt     time.Duration
+}
+
+func TestCreateVMSSPollingKeepsEarlySSHInstructions(t *testing.T) {
+	previousInterval := config.Config.DefaultPollInterval
+	previousSubscription := config.Config.SubscriptionID
+	previousKeyFile := config.VMSSHPrivateKeyFileName
+	config.Config.DefaultPollInterval = 15 * time.Second
+	config.Config.SubscriptionID = "00000000-0000-0000-0000-000000000001"
+	config.VMSSHPrivateKeyFileName = "/tmp/e2e keys/id_rsa"
+	t.Cleanup(func() {
+		config.Config.DefaultPollInterval = previousInterval
+		config.Config.SubscriptionID = previousSubscription
+		config.VMSSHPrivateKeyFileName = previousKeyFile
+	})
+	var sshCommand string
+	for _, tc := range []struct {
+		name         string
+		retryAfter   string
+		readyAfter   time.Duration
+		vmReadyAfter time.Duration
+		wantPolls    []time.Duration
+		wantDuration time.Duration
+	}{
+		{"initial Retry-After", "30", 25 * time.Second, 15 * time.Second, []time.Duration{30 * time.Second}, 30 * time.Second},
+		{"subsequent Retry-After", "30", 65 * time.Second, 15 * time.Second, []time.Duration{30 * time.Second, 60 * time.Second, 90 * time.Second}, 90 * time.Second},
+		{"configured fallback", "", 25 * time.Second, 15 * time.Second, []time.Duration{0, 15 * time.Second, 30 * time.Second}, 30 * time.Second},
+		{"VM appears after completion", "30", 25 * time.Second, 45 * time.Second, []time.Duration{30 * time.Second}, 45 * time.Second},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				tt := vmssCreationTestCase{
+					running: true, started: time.Now(), retryAfter: tc.retryAfter,
+					readyAfter: tc.readyAfter, vmReadyAfter: tc.vmReadyAfter,
+				}
+				oldAzure := config.Azure
+				config.Azure = tt.client(t)
+				t.Cleanup(func() { config.Azure = oldAzure })
+				s := &Scenario{
+					Config: Config{SkipSSHConnectivityValidation: true},
+					Runtime: &ScenarioRuntime{
+						VMSSName: "vmss",
+						Cluster: &Cluster{Model: &armcontainerservice.ManagedCluster{
+							Location: to.Ptr("southeastasia"),
+							Properties: &armcontainerservice.ManagedClusterProperties{
+								NodeResourceGroup: to.Ptr("rg"),
+							},
+						}},
+					},
+				}
+				logger := &vmssCreationTestLogger{T: t}
+				ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+				defer cancel()
+				_, err := createVMSS(logging.WithLogger(ctx, logger), s, "rg", armcompute.VirtualMachineScaleSet{}, nil)
+				require.NoError(t, err)
+				assert.Equal(t, tc.wantPolls, tt.pollTimes)
+				assert.Equal(t, tc.wantDuration, time.Since(tt.started))
+				assert.Equal(t, tc.wantDuration, tt.networkAt)
+				assert.Equal(t, time.Duration(0), logger.sshAt.Sub(tt.started))
+				for _, message := range logger.messages {
+					if strings.HasPrefix(message, "SSH Instructions:") {
+						_, sshCommand, _ = strings.Cut(message, "========================\n")
+					}
+				}
+			})
+		})
+	}
+	require.NotEmpty(t, sshCommand)
+	for _, lookupFails := range []bool{false, true} {
+		t.Run(fmt.Sprintf("SSH command/lookupFails=%t", lookupFails), func(t *testing.T) {
+			script := fmt.Sprintf(`
+az() {
+    printf '%%s\n' "$@" >&2
+    if [ "$1 $2" = "vmss list-instances" ]; then
+        if [ %t = true ]; then
+            return 7
+        fi
+        printf '%%s\n' '/subscriptions/test/resourceGroups/rg/providers/Microsoft.Compute/virtualMachineScaleSets/vmss/virtualMachines/7'
+    fi
+}
+`, lookupFails) + sshCommand
+			output, err := exec.CommandContext(t.Context(), "bash", "-c", script).CombinedOutput()
+			want := []string{
+				"vmss", "list-instances", "--subscription", config.Config.SubscriptionID,
+				"--resource-group", "rg", "--name", "vmss", "--query", "[0].id", "--output", "tsv",
+			}
+			if lookupFails {
+				var exitErr *exec.ExitError
+				require.ErrorAs(t, err, &exitErr)
+				assert.Equal(t, 7, exitErr.ExitCode())
+			} else {
+				require.NoError(t, err, "%s", output)
+				want = append(want,
+					"network", "bastion", "ssh", "--subscription", config.Config.SubscriptionID,
+					"--target-resource-id", "/subscriptions/test/resourceGroups/rg/providers/Microsoft.Compute/virtualMachineScaleSets/vmss/virtualMachines/7",
+					"--name", SharedBastionName, "--resource-group", config.ResourceGroupName("southeastasia"),
+					"--auth-type", "ssh-key", "--username", "azureuser", "--ssh-key", config.VMSSHPrivateKeyFileName)
+			}
+			assert.Equal(t, want, strings.Split(strings.TrimSuffix(string(output), "\n"), "\n"))
+		})
+	}
 }
 
 func TestCreateVMSSProvisioningErrorPrecedence(t *testing.T) {
@@ -74,7 +192,8 @@ func TestCreateVMSSProvisioningErrorPrecedence(t *testing.T) {
 		{name: "allocation fails after pending without VM", provisionCode: "AllocationFailed", noVM: true, pendingPolls: 2},
 		{name: "VM appears while creation is pending", running: true, vmAfterPoll: true, pendingPolls: 2, wantSSH: true},
 		{name: "creation completes before VM appears", running: true, vmAfterPoll: true, wantSSH: true},
-		{name: "deadline while creation is pending without VM", noVM: true, pendingPolls: 100, wantErr: "timeout waiting for VMSS VM"},
+		{name: "deadline while creation is pending without VM", noVM: true, pendingPolls: 100, wantErr: "context deadline exceeded"},
+		{name: "creation succeeded without VM", noVM: true, wantErr: "timeout waiting for VMSS VM"},
 		{name: "successful creation without NIC", noNIC: true, wantErr: "no network interfaces found"},
 		{name: "wrapped allocation failed", provisionCode: "ResourceOperationFailure", sshFails: true},
 		{name: "OS provisioning failed without running guest", provisionCode: "OSProvisioningTimedOut", sshFails: true},
@@ -121,6 +240,7 @@ func TestCreateVMSSProvisioningErrorPrecedence(t *testing.T) {
 				}
 				ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 				defer cancel()
+				started := time.Now()
 				vm, err := createVMSS(logging.WithLogger(ctx, logger), s, "rg", armcompute.VirtualMachineScaleSet{}, dialSSH)
 				require.NotNil(t, vm)
 				assert.Equal(t, tt.wantSSH, sshCalled)
@@ -130,8 +250,13 @@ func TestCreateVMSSProvisioningErrorPrecedence(t *testing.T) {
 					assert.Equal(t, tt.provisionCode, responseErr.ErrorCode)
 					assert.Equal(t, tt.provisionCode == "AllocationFailed", isRetryableVMSSCreationError(fmt.Errorf("create VMSS: %w", err)))
 					assert.NotContains(t, strings.Join(logger.messages, "\n"), "after creation")
+					assert.Less(t, time.Since(started), time.Minute, "failed provisioning must not wait for the discovery deadline")
+					assert.Equal(t, 1, tt.vmLookups, "failed provisioning gets one lookup for diagnostics")
 				} else if tt.wantErr != "" {
 					require.ErrorContains(t, err, tt.wantErr)
+					if tt.wantErr == context.DeadlineExceeded.Error() {
+						assert.ErrorIs(t, err, context.DeadlineExceeded)
+					}
 				} else if !tt.sshFails {
 					require.NoError(t, err)
 					require.NotNil(t, vm.VMSS)
@@ -251,10 +376,19 @@ func (tt *vmssCreationTestCase) respond(t *testing.T, req *http.Request) *http.R
 	case req.Method == http.MethodPut && req.URL.Path == vmssPath:
 		status = http.StatusCreated
 		header.Set("Azure-AsyncOperation", "https://management.azure.com/operations/create")
+		if tt.retryAfter != "" {
+			header.Set("Retry-After", tt.retryAfter)
+		}
 		body = `{"properties":{"provisioningState":"Creating"}}`
 	case req.Method == http.MethodGet && req.URL.Path == "/operations/create":
 		tt.polled = true
 		tt.pollCount++
+		if !tt.started.IsZero() {
+			tt.pollTimes = append(tt.pollTimes, time.Since(tt.started))
+		}
+		if tt.retryAfter != "" {
+			header.Set("Retry-After", tt.retryAfter)
+		}
 		body = `{"status":"Succeeded"}`
 		if tt.provisionCode != "" {
 			details := ""
@@ -264,14 +398,15 @@ func (tt *vmssCreationTestCase) respond(t *testing.T, req *http.Request) *http.R
 			body = fmt.Sprintf(`{"status":"Failed","error":{"code":%q,"message":"provisioning failed",
 				"target":"vmss"%s}}`, tt.provisionCode, details)
 		}
-		if tt.pollCount <= tt.pendingPolls {
+		if tt.pollCount <= tt.pendingPolls || (tt.readyAfter > 0 && time.Since(tt.started) < tt.readyAfter) {
 			body = `{"status":"InProgress"}`
 		}
 	case req.Method == http.MethodGet && req.URL.Path == vmssPath:
 		body = fmt.Sprintf(`{"id":%q,"properties":{"provisioningState":"Succeeded"}}`, vmssPath)
 	case req.Method == http.MethodGet && req.URL.Path == vmssPath+"/virtualMachines":
+		tt.vmLookups++
 		body = `{"value":[` + vmBody(true) + `]}`
-		if tt.noVM || (tt.vmAfterPoll && !tt.polled) {
+		if tt.noVM || (tt.vmAfterPoll && !tt.polled) || (tt.vmReadyAfter > 0 && time.Since(tt.started) < tt.vmReadyAfter) {
 			body = `{"value":[]}`
 		}
 		if tt.noNetwork {
@@ -282,8 +417,8 @@ func (tt *vmssCreationTestCase) respond(t *testing.T, req *http.Request) *http.R
 			body = `{"error":{"code":"ResourceNotFound","message":"VMSS not found"}}`
 		}
 	case req.Method == http.MethodGet && strings.EqualFold(req.URL.Path, vmPath+"/networkInterfaces"):
-		if !tt.vmAfterPoll {
-			require.False(t, tt.polled, "discover available networking before waiting for creation")
+		if !tt.started.IsZero() {
+			tt.networkAt = time.Since(tt.started)
 		}
 		body = `{"value":[{"properties":{"ipConfigurations":[{"properties":{"privateIPAddress":"10.0.0.4"}}]}}]}`
 		if tt.noNIC {

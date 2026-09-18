@@ -72,6 +72,19 @@ which defaults to `Standard_D2ds_v6`. Set it with `--mana-vm-sku` or `MANA_VM_SK
 Choose a size that supports MANA and NVMe. This setting controls both the bootstrap
 configuration and the VMSS SKU. Command-line arguments take precedence over environment variables.
 
+## Azure operation polling
+
+Use the SDK's `operation.PollUntilDone(ctx, config.PollUntilDoneOptions())`
+for Azure long-running operations. It honors the service's `Retry-After` header and uses `--poll-interval`
+(`DEFAULT_POLL_INTERVAL`, default `15s`) only when that header is absent.
+Do not mix manual `Poll` calls with `PollUntilDone`.
+
+VMSS creation prints SSH instructions before waiting for provisioning. The Bash
+command looks up the VM ID when run, so you can connect during provisioning
+without the runner polling separately for the VM. Retry the command if the VM
+is not yet available or ready for SSH. Automated VM/IP discovery runs afterward;
+failed provisioning gets one discovery attempt for guest diagnostics.
+
 ## Gallery replication
 
 When selecting a gallery image by version or tag, the runner adds the test region
