@@ -25,7 +25,7 @@ steps:
       downloadDirectory: vhdbuilder/
 
   - task: DownloadPipelineArtifact@2
-    condition: and(or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'cbl-mariner'))
+    condition: and(contains(variables.FEATURE_FLAGS, 'kata'), or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'cbl-mariner'))
     displayName: 'Download Kata CC UVM artifact'
     inputs:
       source: specific
@@ -43,24 +43,52 @@ steps:
         **/kata-containers-cc.img**
         **/kata-containers.img**
         **/kata-containers-initrd-base.img**
+        **/reference-info-base64**
       downloadPath: $(Build.SourcesDirectory)
 
   - task: DownloadPipelineArtifact@2
-    condition: and(or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'azure-linux-3'))
-    displayName: 'Download Kata and Kata CC AzureLinux3_0 UVM artifact'
+    condition: and(contains(variables.FEATURE_FLAGS, 'kata'), or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'azure-linux-3'))
+    displayName: 'Download signed Kata and Kata CC AzureLinux3_0 UVM artifact'
     inputs:
       source: specific
       project: CloudNativeCompute
-      pipeline: 417429
+      pipeline: 318279
       specificBuildWithTriggering: true
       allowPartiallySucceededBuilds: false
       buildVersionToDownload: 'latestFromBranch'
       branchName: 'refs/heads/master'
       downloadType: 'single'
-      artifactName: 'mariner-kata-3-0-uvm'
+      artifactName: 'drop_container_job_sign_uvm_azl3'
       itemPattern: |
+        **/kata-containers-igvm-debug.img**
+        **/kata-containers-igvm.img**
+        **/kata-containers-cc.img**
         **/kata-containers.img**
+        **/kata-containers-initrd-base.img**
+        **/reference-info-base64**
       downloadPath: $(Build.SourcesDirectory)
+
+  - bash: |
+      set -o errexit
+      set -o nounset
+      set -o pipefail
+
+      required_files=(
+        kata-containers.img
+        kata-containers-cc.img
+        kata-containers-igvm.img
+        kata-containers-igvm-debug.img
+        kata-containers-initrd-base.img
+        reference-info-base64
+      )
+      for file in "${required_files[@]}"; do
+        if [ ! -s "$(Build.SourcesDirectory)/$file" ]; then
+          echo "Missing required signed Azure Linux 3 UVM artifact: $file" >&2
+          exit 1
+        fi
+      done
+    displayName: Validate signed Azure Linux 3 UVM artifacts
+    condition: and(contains(variables.FEATURE_FLAGS, 'kata'), or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'azure-linux-3'))
 
   - bash: |
       set -x

@@ -73,6 +73,11 @@ installKataDeps() {
       if ! dnf_install 30 1 600 kata-packages-host; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
+      if [ "$OS_VERSION" = "3.0" ]; then
+        if ! dnf_install 30 1 600 kata-containers-cc; then
+          exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+      fi
     fi
 }
 

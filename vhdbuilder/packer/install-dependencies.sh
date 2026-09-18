@@ -1201,7 +1201,7 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
     overrideNetworkConfig || exit 1
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
       installKataDeps
-      if [ "${OS}" != "3.0" ]; then
+      if [ "${OS_VERSION}" != "3.0" ]; then
         enableMarinerKata
       fi
     fi
