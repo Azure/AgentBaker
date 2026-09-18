@@ -42,6 +42,10 @@ def delete_stale_suggestions(repo: str, pr: int, token: str) -> None:
     """Delete this script's own previously-posted suggestion comments (identified
     by MARKER) so repeated pushes to the same PR don't pile up stale suggestions
     for values that have since changed or been fixed."""
+    # Collect every marked comment ID across all pages before deleting any of
+    # them. Deleting while paginating would shift later pages' contents into
+    # earlier page numbers, causing some marked comments to be skipped.
+    stale_ids = []
     page = 1
     while True:
         comments = api_request(
@@ -49,10 +53,11 @@ def delete_stale_suggestions(repo: str, pr: int, token: str) -> None:
         )
         if not comments:
             break
-        for comment in comments:
-            if MARKER in comment.get("body", ""):
-                api_request("DELETE", f"{API}/repos/{repo}/pulls/comments/{comment['id']}", token)
+        stale_ids.extend(c["id"] for c in comments if MARKER in c.get("body", ""))
         page += 1
+
+    for comment_id in stale_ids:
+        api_request("DELETE", f"{API}/repos/{repo}/pulls/comments/{comment_id}", token)
 
 
 def post_suggestions(repo: str, pr: int, commit_sha: str, file_path: str, suggestions: list, token: str) -> None:
@@ -66,7 +71,10 @@ def post_suggestions(repo: str, pr: int, commit_sha: str, file_path: str, sugges
             f"```suggestion\n{row['new_line']}\n```\n\n"
             f"{MARKER}"
         )
-        comments.append({"path": file_path, "line": row["line"], "body": body})
+        # "side" must be explicit: without it GitHub rejects the whole review
+        # payload for a line-anchored comment. These suggestions always target
+        # the new (proposed) file content, so it's always RIGHT.
+        comments.append({"path": file_path, "line": row["line"], "side": "RIGHT", "body": body})
 
     review_body = api_request(
         "POST",

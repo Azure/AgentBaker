@@ -89,6 +89,13 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+    # Serialize (and cancel superseded) runs per-PR: post_suggestions.py's
+    # delete-then-post isn't safe to run concurrently for the same PR --
+    # an older, in-flight run could otherwise delete a newer run's freshly
+    # posted suggestions after that newer run already finished.
+    concurrency:
+      group: previous-version-consistency-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     # Any entry in components.json tracking both latestVersion and
     # previousLatestVersion can go stale: the two fields must reference two
     # genuinely different releases. Renovate can bump latestVersion but has
@@ -100,6 +107,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Check out the PR head commit itself (not the default synthetic
+          # pull_request merge ref) so the line numbers validate_previous_version.py
+          # computes match the exact commit post_suggestions.py posts the
+          # review against -- otherwise a base-branch change since the PR
+          # was opened could make the merge-ref line numbers diverge from
+          # the head commit's real content and GitHub would reject or
+          # misplace the suggestions.
+          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
           fetch-depth: 0
       - name: Validate previousLatestVersion targets a genuinely prior release
