@@ -1280,12 +1280,12 @@ if ! isMarinerOrAzureLinux "$OS"; then
   systemctl restart cgroup-memory-telemetry.service
 fi
 
-systemctlEnableAndStart cgroup-cpu-telemetry.timer 30 || exit 1
-systemctl enable cgroup-cpu-telemetry.service || exit 1
-systemctl restart cgroup-cpu-telemetry.service
-
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
+  systemctlEnableAndStart cgroup-cpu-telemetry.timer 30 || exit 1
+  systemctl enable cgroup-cpu-telemetry.service || exit 1
+  systemctl restart cgroup-cpu-telemetry.service
+
   systemctlEnableAndStart cgroup-pressure-telemetry.timer 30 || exit 1
   systemctl enable cgroup-pressure-telemetry.service || exit 1
   systemctl restart cgroup-pressure-telemetry.service
