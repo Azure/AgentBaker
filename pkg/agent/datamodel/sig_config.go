@@ -428,8 +428,7 @@ const (
 	// DO NOT MODIFY: used for freezing MarinerV2KataGen2TL.
 	FrozenCBLMarinerV2KataGen2TLSIGImageVersion = "2022.12.15"
 
-	// DO NOT MODIFY: Used for freezing Kata VHD for kata-cc runtime, until the image is deprecated.
-	FrozenCBLMarinerV2KataGen2SIGImageVersion string = "202509.05.0"
+	// DO NOT MODIFY: Used for freezing the Azure Linux V2 Kata VHD.
 	FrozenAzureLinuxV2KataGen2SIGImageVersion string = "202509.05.0"
 
 	// Check with Keith and Alex before changing the frozen NVIDIA GB image version.
@@ -714,7 +713,7 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2katagen2",
-		Version:       FrozenCBLMarinerV2KataGen2SIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGAzureLinuxV2KataImageConfigTemplate = SigImageConfigTemplate{
