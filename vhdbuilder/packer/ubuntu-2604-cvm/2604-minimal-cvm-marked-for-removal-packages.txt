@@ -107,7 +107,6 @@ libgpm2
 libgprofng0
 libgstreamer1.0-0
 libgudev-1.0-0
-libibverbs1
 libintl-perl
 libintl-xs-perl
 libip4tc2
@@ -139,7 +138,6 @@ libncurses6
 libnetfilter-conntrack3
 libnewt0.52
 libnfnetlink0
-libnl-route-3-200
 libnspr4
 libnss-systemd
 libnss3
