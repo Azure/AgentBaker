@@ -113,6 +113,59 @@ removeVulnerableKernelModuleDenyRulesFromModprobeDirectory() {
   done
 }
 
+configureServiceExecutionTelemetryForSystemdVersion() {
+  local systemd_version="$1"
+  local collector_unit
+  local service
+  local service_path
+
+  case "$systemd_version" in
+    ''|*[!0-9]*)
+      echo "invalid systemd version for service execution telemetry: ${systemd_version}" >&2
+      return 1
+      ;;
+  esac
+
+  for service in \
+    cgroup-memory-telemetry.service \
+    cgroup-pressure-telemetry.service \
+    aks-log-collector.service; do
+    case "$service" in
+      cgroup-memory-telemetry.service)
+        service_path="$CGROUP_MEMORY_TELEMETRY_SERVICE_DEST"
+        collector_unit='service-execution-telemetry@cgroup\x2dmemory\x2dtelemetry.service.service'
+        ;;
+      cgroup-pressure-telemetry.service)
+        service_path="$CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST"
+        collector_unit='service-execution-telemetry@cgroup\x2dpressure\x2dtelemetry.service.service'
+        ;;
+      aks-log-collector.service)
+        service_path="$AKS_LOG_COLLECTOR_SERVICE_DEST"
+        collector_unit='service-execution-telemetry@aks\x2dlog\x2dcollector.service.service'
+        ;;
+    esac
+
+    if [ "$systemd_version" -ge 258 ]; then
+      sed -i \
+        -e '/^CPUAccounting=true$/d' \
+        -e '/^MemoryAccounting=true$/d' \
+        "$service_path" || return 1
+      continue
+    fi
+
+    if [ "$systemd_version" -ge 249 ]; then
+      continue
+    fi
+
+    sed -i \
+      -e '/^OnSuccess=service-execution-telemetry@/d' \
+      -e '/^OnFailure=service-execution-telemetry@/d' \
+      "$service_path" || return 1
+    printf 'ExecStopPost=-/bin/systemctl --no-block start %s\n' \
+      "$collector_unit" >> "$service_path" || return 1
+  done
+}
+
 copyPackerFiles() {
   SYSCTL_CONFIG_SRC=/home/packer/sysctl-d-60-CIS.conf
   SYSCTL_CONFIG_DEST=/etc/sysctl.d/60-CIS.conf
@@ -188,6 +241,10 @@ copyPackerFiles() {
   CGROUP_CPU_TELEMETRY_SCRIPT_DEST=/opt/scripts/cgroup-cpu-telemetry.sh
   CGROUP_CPU_TELEMETRY_TIMER_SRC=/home/packer/cgroup-cpu-telemetry.timer
   CGROUP_CPU_TELEMETRY_TIMER_DEST=/etc/systemd/system/cgroup-cpu-telemetry.timer
+  SERVICE_EXECUTION_TELEMETRY_SCRIPT_SRC=/home/packer/service-execution-telemetry.sh
+  SERVICE_EXECUTION_TELEMETRY_SCRIPT_DEST=/opt/scripts/service-execution-telemetry.sh
+  SERVICE_EXECUTION_TELEMETRY_SERVICE_SRC=/home/packer/service-execution-telemetry@.service
+  SERVICE_EXECUTION_TELEMETRY_SERVICE_DEST=/etc/systemd/system/service-execution-telemetry@.service
   CGROUP_PRESSURE_TELEMETRY_SERVICE_SRC=/home/packer/cgroup-pressure-telemetry.service
   CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST=/etc/systemd/system/cgroup-pressure-telemetry.service
   CGROUP_PRESSURE_TELEMETRY_SCRIPT_SRC=/home/packer/cgroup-pressure-telemetry.sh
@@ -606,9 +663,14 @@ copyPackerFiles() {
   cpAndMode $CGROUP_CPU_TELEMETRY_SERVICE_SRC $CGROUP_CPU_TELEMETRY_SERVICE_DEST 644
   cpAndMode $CGROUP_CPU_TELEMETRY_SCRIPT_SRC $CGROUP_CPU_TELEMETRY_SCRIPT_DEST 755
   cpAndMode $CGROUP_CPU_TELEMETRY_TIMER_SRC $CGROUP_CPU_TELEMETRY_TIMER_DEST 644
+  cpAndMode $SERVICE_EXECUTION_TELEMETRY_SCRIPT_SRC $SERVICE_EXECUTION_TELEMETRY_SCRIPT_DEST 755
+  cpAndMode $SERVICE_EXECUTION_TELEMETRY_SERVICE_SRC $SERVICE_EXECUTION_TELEMETRY_SERVICE_DEST 644
   cpAndMode $CGROUP_PRESSURE_TELEMETRY_SERVICE_SRC $CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST 644
   cpAndMode $CGROUP_PRESSURE_TELEMETRY_SCRIPT_SRC $CGROUP_PRESSURE_TELEMETRY_SCRIPT_DEST 755
   cpAndMode $CGROUP_PRESSURE_TELEMETRY_TIMER_SRC $CGROUP_PRESSURE_TELEMETRY_TIMER_DEST 644
+  local systemd_version
+  systemd_version=$(systemd --version | awk 'NR == 1 { print $2 }')
+  configureServiceExecutionTelemetryForSystemdVersion "$systemd_version" || exit "$ERR_PACKER_COPY_FILE"
   cpAndMode $UPDATE_CERTS_SERVICE_SRC $UPDATE_CERTS_SERVICE_DEST 644
   cpAndMode $UPDATE_CERTS_PATH_SRC $UPDATE_CERTS_PATH_DEST 644
   cpAndMode $UPDATE_CERTS_SCRIPT_SRC $UPDATE_CERTS_SCRIPT_DEST 755
