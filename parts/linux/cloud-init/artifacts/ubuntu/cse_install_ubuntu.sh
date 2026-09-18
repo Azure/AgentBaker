@@ -518,6 +518,62 @@ extractDebBinaryFromFile() {
     rm -rf "${extractDir}"
 }
 
+debPackageVersionMatches() {
+    local desiredVersion="${1}"
+    local packageVersion="${2#*:}"
+
+    if [ "${packageVersion}" = "${desiredVersion}" ]; then
+        return 0
+    fi
+
+    if [[ "${packageVersion}" != "${desiredVersion}"* ]]; then
+        return 1
+    fi
+
+    local nextChar="${packageVersion:${#desiredVersion}:1}"
+    if [[ "${nextChar}" =~ [0-9] ]]; then
+        return 1
+    fi
+
+    return 0
+}
+
+findDebPackageForVersion() {
+    local packageName="${1}"
+    local desiredVersion="${2}"
+    local downloadDir="${3}"
+    local prefix="${packageName}_"
+    local debPath debFile packageVersion
+
+    while IFS= read -r debPath; do
+        debFile="${debPath##*/}"
+        packageVersion="${debFile#${prefix}}"
+        packageVersion="${packageVersion%_*}"
+        if debPackageVersionMatches "${desiredVersion}" "${packageVersion}"; then
+            printf '%s\n' "${debFile}"
+        fi
+    done < <(find "${downloadDir}" -maxdepth 1 -type f -name "${packageName}_*.deb" 2>/dev/null) | sort -V | tail -n 1
+}
+
+getLatestAptPackageVersion() {
+    local packageName="${1}"
+    local desiredVersion="${2}"
+    local cpuArch
+    cpuArch="$(getCPUArch)"
+
+    apt list "${packageName}" --all-versions 2>/dev/null \
+        | while read -r packageRef fullPackageVersion packageArch _; do
+            if [ "${packageRef%%/*}" != "${packageName}" ] || [ "${packageArch}" != "${cpuArch}" ]; then
+                continue
+            fi
+            if debPackageVersionMatches "${desiredVersion}" "${fullPackageVersion}"; then
+                printf '%s\n' "${fullPackageVersion}"
+            fi
+        done \
+        | sort -V \
+        | tail -n 1
+}
+
 installPkgWithAptGet() {
     local packageName="${1:-}"
     local packageVersion="${2}"
@@ -532,13 +588,13 @@ installPkgWithAptGet() {
         return 0
     fi
 
-    debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1) || debFile=""
+    debFile=$(findDebPackageForVersion "${packageName}" "${packageVersion}" "${downloadDir}") || debFile=""
     if [ -z "${debFile}" ]; then
 
         # update pmc repo to get latest versions
         updatePMCRepository "${packageVersion}"
         # query all package versions and get the latest version for matching k8s version and cpu architecture
-        fullPackageVersion=$(apt list "${packageName}" --all-versions | grep -E "${packageVersion}([^0-9]|$)" | grep "$(getCPUArch)" | awk '{print $2}' | sort -V | tail -n 1)
+        fullPackageVersion=$(getLatestAptPackageVersion "${packageName}" "${packageVersion}")
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${packageVersion}"
             return 1
@@ -546,7 +602,7 @@ installPkgWithAptGet() {
         echo "Did not find cached deb file, downloading ${packageName} version ${fullPackageVersion}"
         logs_to_events "AKS.CSE.install${packageName}FromPkg.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
 
-        debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1) || debFile=""
+        debFile=$(findDebPackageForVersion "${packageName}" "${packageVersion}" "${downloadDir}") || debFile=""
     fi
     if [ -z "${debFile}" ]; then
         echo "Failed to locate ${packageName} deb"
@@ -574,7 +630,7 @@ installPackageFromCache() {
         return 0
     fi
 
-    debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1) || debFile=""
+    debFile=$(findDebPackageForVersion "${packageName}" "${packageVersion}" "${downloadDir}") || debFile=""
     if [ -z "${debFile}" ]; then
         echo "Failed to find cached deb file for ${packageName} version ${packageVersion}"
         return 1

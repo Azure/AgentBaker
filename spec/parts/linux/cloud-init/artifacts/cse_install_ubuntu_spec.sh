@@ -115,9 +115,7 @@ Describe 'cse_install_ubuntu.sh'
             touch "$downloadDir/kubelet_1.34.11-1ubuntu22.04u1_amd64.deb"
             touch "$downloadDir/kubelet_1.34.12-1ubuntu22.04u1_amd64.deb"
 
-            result() {
-                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1
-            }
+            result() { findDebPackageForVersion "${packageName}" "${packageVersion}" "${downloadDir}"; }
             When call result
             The output should equal "kubelet_1.34.1-1ubuntu22.04u1_amd64.deb"
         End
@@ -129,9 +127,7 @@ Describe 'cse_install_ubuntu.sh'
             touch "$downloadDir/kubelet_1.34.1-1ubuntu22.04u1_amd64.deb"
             touch "$downloadDir/kubelet_1.34.1-2ubuntu22.04u1_amd64.deb"
 
-            result() {
-                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1
-            }
+            result() { findDebPackageForVersion "${packageName}" "${packageVersion}" "${downloadDir}"; }
             When call result
             The output should equal "kubelet_1.34.1-2ubuntu22.04u1_amd64.deb"
         End
@@ -143,9 +139,7 @@ Describe 'cse_install_ubuntu.sh'
             touch "$downloadDir/kubelet_1.34.10-1ubuntu22.04u1_amd64.deb"
             touch "$downloadDir/kubelet_1.34.2-1ubuntu22.04u1_amd64.deb"
 
-            result() {
-                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1
-            }
+            result() { findDebPackageForVersion "${packageName}" "${packageVersion}" "${downloadDir}"; }
             When call result
             The output should equal ""
         End
@@ -157,9 +151,31 @@ Describe 'cse_install_ubuntu.sh'
             touch "$downloadDir/kubelet_1.34.1+azure-1_amd64.deb"
             touch "$downloadDir/kubelet_1.34.10+azure-1_amd64.deb"
 
-            result() {
-                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1
-            }
+            result() { findDebPackageForVersion "${packageName}" "${packageVersion}" "${downloadDir}"; }
+            When call result
+            The output should equal "kubelet_1.34.1+azure-1_amd64.deb"
+        End
+
+        It 'matches a full Ubuntu package version from components.json exactly'
+            downloadDir="$deb_cache_root"
+            packageName="kubelet"
+            packageVersion="1.34.1-ubuntu22.04u1"
+            touch "$downloadDir/kubelet_1.34.1-ubuntu22.04u1_amd64.deb"
+            touch "$downloadDir/kubelet_1.34.1-ubuntu22.04u10_amd64.deb"
+
+            result() { findDebPackageForVersion "${packageName}" "${packageVersion}" "${downloadDir}"; }
+            When call result
+            The output should equal "kubelet_1.34.1-ubuntu22.04u1_amd64.deb"
+        End
+
+        It 'treats plus signs in requested versions literally'
+            downloadDir="$deb_cache_root"
+            packageName="kubelet"
+            packageVersion="1.34.1+azure"
+            touch "$downloadDir/kubelet_1.34.1+azure-1_amd64.deb"
+            touch "$downloadDir/kubelet_1.34.11azure-1_amd64.deb"
+
+            result() { findDebPackageForVersion "${packageName}" "${packageVersion}" "${downloadDir}"; }
             When call result
             The output should equal "kubelet_1.34.1+azure-1_amd64.deb"
         End
