@@ -24,17 +24,6 @@
 #   kompli        the kompli binary (chmod +x)             #
 #   definitions/<key>.benchmark.json  one definition per benchmark key in the manifest  #
 #                                                                               #
-# Download mechanism: DotNetCoreCLI@2's own `restore` command, selecting the    #
-# feed by NAME (`vstsFeed`) rather than a hand-built pkgs.dev.azure.com URL —   #
-# no org/project/flat2 URL is ever constructed in this template. The package    #
-# set to restore (kompli + every unique benchmark id@version) is manifest-      #
-# driven, so a throwaway project listing them as PackageReferences is          #
-# generated first; the restore task then resolves and downloads everything in  #
-# one call. `includeNuGetOrg: false` keeps resolution scoped to the named feed  #
-# only (no public nuget.org fallback — avoids dependency confusion on short     #
-# package ids like `kompli`). UseDotNet@2 guarantees an SDK is present          #
-# regardless of pool image.                                                     #
-#                                                                               #
 # Dependencies (agent tools): jq, bash. dotnet SDK is provisioned by this       #
 # template (UseDotNet@2) — not assumed to pre-exist on the pool.                #
 #                                                                               #
