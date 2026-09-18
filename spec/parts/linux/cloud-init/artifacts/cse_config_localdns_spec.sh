@@ -107,24 +107,50 @@ Describe 'cse_config_localdns.sh'
             The output should not include "localdns should be enabled."
         End
 
-        It 'should clear the StartLimit budget before each start attempt'
+        # Record an ordered trace of the calls that matter: R for reset-failed, S for a
+        # start attempt. Asserting on the trace is what pins "before *each* attempt" -- a
+        # test that only checks both strings appear somewhere would still pass if
+        # reset-failed were hoisted out of the loop.
+        tracing_systemctl() {
+            systemctl() {
+                case "$1" in
+                    reset-failed) printf 'R' >> "$TMP_DIR/trace" ;;
+                    restart)      printf 'S' >> "$TMP_DIR/trace" ;;
+                esac
+                echo "systemctl $*"
+                if [ "$1" = "restart" ]; then
+                    restart_calls=$((restart_calls + 1))
+                    if [ "$restart_calls" -lt "$restart_failures_before_success" ]; then
+                        return 1
+                    fi
+                fi
+                return 0
+            }
+            restart_calls=0
+        }
+
+        It 'should reset the StartLimit budget before every attempt, not only the first'
+            # Two failed restarts then a success, so the loop runs three times.
+            restart_failures_before_success=3
+            tracing_systemctl
             When run enableLocalDNS
             The status should be success
-            The output should include "systemctl reset-failed localdns"
-            The output should include "systemctl restart localdns"
             The output should include "Enable localdns succeeded."
+            # R before every S, three times over -- not RSSS.
+            The contents of file "$TMP_DIR/trace" should equal "RSRSRS"
         End
 
         It 'should return error when systemctl fails to start localdns'
-            systemctl() {
-                echo "systemctl $*"
-                [ "$1" = "restart" ] && return 1
-                return 0
-            }
+            # Never succeeds, so the loop exhausts and takes the give-up path.
+            restart_failures_before_success=99999
+            tracing_systemctl
             When run enableLocalDNS
             The status should equal 216
             The output should include "localdns should be enabled."
             The output should include "systemctl reset-failed localdns"
+            # The give-up path deliberately does not reset, so the unit is left in 'failed'
+            # for NPD: the trace must end on a start attempt, never on a reset.
+            The contents of file "$TMP_DIR/trace" should end with "S"
         End
     End
     Describe 'enableLocalDNSForScriptless'
