@@ -820,13 +820,13 @@ cacheGPUContainerImageComponents() {
   NVIDIA_DRIVER_IMAGE_TAG=""
   NVIDIA_GRID_DRIVER_VERSION=""
 
-  # Extract GRID driver version for release notes (applicable to all Linux distributions)
+  # Ubuntu installs GRID v20 at provisioning time; Azure Linux uses kernel-matched RPMs.
   while IFS= read -r imageToBePulled; do
     downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
     # shellcheck disable=SC2001
     imageName=$(echo "$downloadURL" | sed 's/:.*$//')
 
-    if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-grid" ]; then
+    if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-grid-v20" ]; then
       NVIDIA_GRID_DRIVER_VERSION=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
       # Continue to extract CUDA driver info as well
     fi

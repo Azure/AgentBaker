@@ -448,6 +448,136 @@ Describe 'cse_config_gpu.sh'
             End
         End
     End
+    Describe 'selectGPUDriverImage'
+        setup_gpu_image() {
+            OS="UBUNTU"
+            GPU_DRIVER_TYPE="grid"
+            GPU_DRIVER_VERSION="570.237"
+            GPU_IMAGE_SHA="20260817204535"
+            GPU_DV="$GPU_DRIVER_VERSION"
+            NVIDIA_GPU_DRIVER_TYPE="$GPU_DRIVER_TYPE"
+            NVIDIA_DRIVER_IMAGE_SHA="$GPU_IMAGE_SHA"
+            NVIDIA_DRIVER_IMAGE_TAG="${GPU_DRIVER_VERSION}-${GPU_IMAGE_SHA}"
+            NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-grid"
+            NVIDIA_DRIVER_IMAGE_PULL_REF="$NVIDIA_DRIVER_IMAGE"
+            unset MCR_REPOSITORY_BASE
+            COMPONENTS_FILEPATH="parts/common/components.json"
+            expected_grid_v20_tag=$(jq -r '.GPUContainerImages[] | select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-grid-v20:*") | .gpuVersion.latestVersion' "$COMPONENTS_FILEPATH")
+        }
+        BeforeEach 'setup_gpu_image'
+
+        Describe 'Ubuntu GRID selection'
+            Parameters
+                "18.04"
+                "20.04"
+                "22.04"
+                "24.04"
+                "26.04"
+            End
+
+            It 'selects the complete GRID v20 pin on every Ubuntu release'
+                OS_VERSION="$1"
+                When call selectGPUDriverImage
+
+                The status should be success
+                The output should include "Ubuntu GRID driver image: mcr.microsoft.com/aks/aks-gpu-grid-v20:$expected_grid_v20_tag"
+                The variable GPU_DRIVER_TYPE should equal "grid-v20"
+                The variable NVIDIA_GPU_DRIVER_TYPE should equal "grid-v20"
+                The variable GPU_DRIVER_VERSION should equal "${expected_grid_v20_tag%-*}"
+                The variable GPU_DV should equal "${expected_grid_v20_tag%-*}"
+                The variable GPU_IMAGE_SHA should equal "${expected_grid_v20_tag##*-}"
+                The variable NVIDIA_DRIVER_IMAGE_SHA should equal "${expected_grid_v20_tag##*-}"
+                The variable NVIDIA_DRIVER_IMAGE_TAG should equal "$expected_grid_v20_tag"
+                The variable NVIDIA_DRIVER_IMAGE should equal "mcr.microsoft.com/aks/aks-gpu-grid-v20"
+                The variable NVIDIA_DRIVER_IMAGE_PULL_REF should equal "mcr.microsoft.com/aks/aks-gpu-grid-v20"
+            End
+        End
+
+        It 'preserves the cloud-specific pull registry and canonical image name'
+            MCR_REPOSITORY_BASE="mcr.example/"
+            When call selectGPUDriverImage
+
+            The status should be success
+            The output should include "Ubuntu GRID driver image:"
+            The variable NVIDIA_DRIVER_IMAGE should equal "mcr.microsoft.com/aks/aks-gpu-grid-v20"
+            The variable NVIDIA_DRIVER_IMAGE_PULL_REF should equal "mcr.example/aks/aks-gpu-grid-v20"
+            The variable NVIDIA_DRIVER_IMAGE_TAG should equal "$expected_grid_v20_tag"
+        End
+
+        Describe 'unchanged selections'
+            Parameters
+                "AZURELINUX" "" "grid"
+                "MARINER" "" "grid"
+                "AZURELINUX" "AZURECONTAINERLINUX" "grid"
+                "AZURECONTAINERLINUX" "AZURECONTAINERLINUX" "grid"
+                "UBUNTU" "" "cuda-lts"
+                "UBUNTU" "" "cuda"
+                "UBUNTU" "" "grid-v20"
+                "UBUNTU" "" ""
+            End
+
+            It 'does not change image inputs or read components.json'
+                OS="$1"
+                OS_VARIANT="$2"
+                NVIDIA_GPU_DRIVER_TYPE="$3"
+                COMPONENTS_FILEPATH="not-needed.json"
+                When call selectGPUDriverImage
+
+                The status should be success
+                The output should be blank
+                The variable NVIDIA_GPU_DRIVER_TYPE should equal "$3"
+                The variable GPU_DV should equal "570.237"
+                The variable NVIDIA_DRIVER_IMAGE_TAG should equal "570.237-20260817204535"
+                The variable NVIDIA_DRIVER_IMAGE should equal "mcr.microsoft.com/aks/aks-gpu-grid"
+                The variable NVIDIA_DRIVER_IMAGE_PULL_REF should equal "mcr.microsoft.com/aks/aks-gpu-grid"
+            End
+        End
+
+        Describe 'unreadable components'
+            Parameters
+                "missing-grid-v20-components.json"
+                "/dev/null"
+            End
+
+            It 'fails without changing the image'
+                COMPONENTS_FILEPATH="$1"
+                When call selectGPUDriverImage
+
+                The status should be failure
+                The stderr should include "Ubuntu GRID requires a valid aks-gpu-grid-v20 pin"
+                The variable NVIDIA_GPU_DRIVER_TYPE should equal "grid"
+                The variable NVIDIA_DRIVER_IMAGE_TAG should equal "570.237-20260817204535"
+            End
+        End
+
+        Describe 'invalid GRID v20 pins'
+            setup_invalid_pin() {
+                COMPONENTS_FILEPATH=$(mktemp)
+                jq "$1" parts/common/components.json > "$COMPONENTS_FILEPATH"
+            }
+            cleanup_invalid_pin() { rm -f "$COMPONENTS_FILEPATH"; }
+            AfterEach 'cleanup_invalid_pin'
+
+            Parameters
+                '"invalid components document"'
+                'del(.GPUContainerImages[] | select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-grid-v20:*"))'
+                '(.GPUContainerImages[] | select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-grid-v20:*") | .gpuVersion.latestVersion) = "595.91.07"'
+                '(.GPUContainerImages[] | select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-grid-v20:*") | .gpuVersion.latestVersion) = "570.237-20260817204535"'
+                '(.GPUContainerImages[] | select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-grid-v20:*") | .gpuVersion.latestVersion) = null'
+                '.GPUContainerImages += [.GPUContainerImages[] | select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-grid-v20:*")]'
+            End
+
+            It 'rejects invalid documents and missing, malformed, wrong-branch, or duplicate pins'
+                setup_invalid_pin "$1"
+                When call selectGPUDriverImage
+
+                The status should be failure
+                The stderr should include "Ubuntu GRID requires a valid aks-gpu-grid-v20 pin"
+                The variable NVIDIA_GPU_DRIVER_TYPE should equal "grid"
+                The variable NVIDIA_DRIVER_IMAGE_TAG should equal "570.237-20260817204535"
+            End
+        End
+    End
     Describe 'configGPUDrivers'
         # Assert the per-step CSE timing event names emitted via logs_to_events,
         # without running the real (hardware/daemon) driver steps. logs_to_events
@@ -471,6 +601,58 @@ Describe 'cse_config_gpu.sh'
         NVIDIA_GPU_DRIVER_TYPE="cuda"
         OS_VARIANT=""
         ERR_GPU_DRIVERS_START_FAIL=88
+
+        It 'selects GRID v20 before checking the cache, pulling, installing, and removing the image'
+            OS="UBUNTU"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            COMPONENTS_FILEPATH="parts/common/components.json"
+            MCR_REPOSITORY_BASE="mcr.example/"
+            expected_grid_v20_tag=$(jq -r '.GPUContainerImages[] | select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-grid-v20:*") | .gpuVersion.latestVersion' "$COMPONENTS_FILEPATH")
+            logs_to_events() { shift; eval "$@"; }
+            ctr() { echo "ctr $*" >&2; }
+            pullGPUDriverImage() { echo "pull $NVIDIA_DRIVER_IMAGE_PULL_REF:$NVIDIA_DRIVER_IMAGE_TAG"; }
+            installGPUDriverImage() { echo "install $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            The stderr should include "images ls -q name==mcr.microsoft.com/aks/aks-gpu-grid-v20:$expected_grid_v20_tag"
+            The output should include "pull mcr.example/aks/aks-gpu-grid-v20:$expected_grid_v20_tag"
+            The output should include "install mcr.microsoft.com/aks/aks-gpu-grid-v20:$expected_grid_v20_tag"
+            The stderr should include "images rm mcr.microsoft.com/aks/aks-gpu-grid-v20:$expected_grid_v20_tag"
+        End
+
+        It 'does not pull or install an old GRID driver when the v20 pin is missing'
+            OS="UBUNTU"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            COMPONENTS_FILEPATH="missing-grid-v20-components.json"
+            When run configGPUDrivers
+
+            The status should equal 88
+            The stderr should include "Ubuntu GRID requires a valid aks-gpu-grid-v20 pin"
+            The output should be blank
+        End
+
+        It 'uses the cached v20 image without pulling the legacy GRID image'
+            OS="UBUNTU"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            COMPONENTS_FILEPATH="parts/common/components.json"
+            expected_grid_v20_tag=$(jq -r '.GPUContainerImages[] | select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-grid-v20:*") | .gpuVersion.latestVersion' "$COMPONENTS_FILEPATH")
+            logs_to_events() { shift; eval "$@"; }
+            ctr() {
+                if [ "$3 $4 $5" = "images ls -q" ]; then
+                    echo "mcr.microsoft.com/aks/aks-gpu-grid-v20:$expected_grid_v20_tag"
+                fi
+            }
+            pullGPUDriverImage() { echo "PULL_RAN"; return 1; }
+            installGPUDriverImage() { echo "install $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            The output should include "install mcr.microsoft.com/aks/aks-gpu-grid-v20:$expected_grid_v20_tag"
+            The output should not include "PULL_RAN"
+        End
 
         It 'times the image pull and install steps on Ubuntu'
             OS="UBUNTU"

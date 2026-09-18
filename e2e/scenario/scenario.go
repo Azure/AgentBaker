@@ -1472,7 +1472,7 @@ var _ = Register(ubuntu2204GPUScenario("Ubuntu2204_GPUA100", "Standard_NC24ads_A
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_GPUA10",
-	Description: "Tests that a GPU-enabled node with VM size Standard_NV6ads_A10_v5 using an Ubuntu 2204 VHD can be properly bootstrapped, and that the GRID license is valid",
+	Description: "Tests that an A10 node using an Ubuntu 2204 VHD bootstraps with GRID v20 and a valid GRID license",
 	Tags: Tags{
 		GPU: true,
 	},
@@ -1497,6 +1497,7 @@ var _ = Register(&Scenario{
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateNvidiaModProbeInstalled(ctx, s),
+				ValidateNvidiaGridV20DriverInstalled(ctx, s),
 				ValidateNvidiaGRIDLicenseValid(ctx, s),
 				ValidateKubeletHasNotStopped(ctx, s),
 				ValidateServicesDoNotRestartKubelet(ctx, s),
@@ -2982,7 +2983,7 @@ var _ = Register(&Scenario{
 func ubuntu2404GRIDScenario(name, vmSize string) *Scenario {
 	return &Scenario{
 		Name:        name,
-		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2404 VHD can be properly bootstrapped, and that the GRID license is valid", vmSize),
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2404 VHD bootstraps with GRID v20 and a valid GRID license", vmSize),
 		Tags: Tags{
 			GPU: true,
 		},
@@ -3002,6 +3003,7 @@ func ubuntu2404GRIDScenario(name, vmSize string) *Scenario {
 				return errors.Join(
 					// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
 					ValidateNvidiaModProbeInstalled(ctx, s),
+					ValidateNvidiaGridV20DriverInstalled(ctx, s),
 					ValidateNvidiaGRIDLicenseValid(ctx, s),
 					ValidateKubeletHasNotStopped(ctx, s),
 					ValidateServicesDoNotRestartKubelet(ctx, s),

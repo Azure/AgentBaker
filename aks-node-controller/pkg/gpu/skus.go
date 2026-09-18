@@ -17,6 +17,8 @@ var ConvergedGPUDriverSizes = map[string]bool{
 }
 
 // RTXPro6000GPUDriverSizes : SKUs requiring the GRID v20 (595.x) driver.
+// The shared Ubuntu installer also selects GRID v20 for ConvergedGPUDriverSizes,
+// whose "grid" classification is retained for Azure Linux RPMs and ACL sysexts.
 //
 //nolint:gochecknoglobals
 var RTXPro6000GPUDriverSizes = map[string]bool{
