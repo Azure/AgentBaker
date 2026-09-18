@@ -1,9 +1,0 @@
-name: "CodeQL config"
-
-# hack/tools/tools.go is a Go tool-dependency pinning stub (guarded by a
-# `//go:build tools` constraint) with no real logic to analyze. Autobuild
-# does not pass the `tools` build tag, so CodeQL finds zero packages in
-# that module and reports "Go files were found but not processed". Exclude
-# it rather than adding a manual build step for a single boilerplate file.
-paths-ignore:
-  - hack/tools/**
