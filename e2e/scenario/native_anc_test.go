@@ -11,8 +11,23 @@ import (
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
+	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/require"
 )
+
+func TestNativeANCDoesNotSelectNBCValidation(t *testing.T) {
+	s := &Scenario{
+		Config: Config{NativeANC: true, VHD: config.VHDUbuntu2204Gen2Containerd},
+		Runtime: &ScenarioRuntime{NBC: &datamodel.NodeBootstrappingConfiguration{
+			EnableScriptlessNBCCSECmd: true, EnableScriptlessCSECmd: true,
+		}},
+	}
+	require.False(t, usesScriptlessNBCCSECmd(s))
+	// No SSH runtime is provided: delegated-mode validators must not execute.
+	require.NoError(t, ValidateScriptlessCSECmd(t.Context(), s))
+	require.NoError(t, ValidateScriptlessNBCCSECmd(t.Context(), s))
+}
 
 func TestNativeANCCustomData(t *testing.T) {
 	config := &aksnodeconfigv1.Configuration{

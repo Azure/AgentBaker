@@ -513,7 +513,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 }
 
 func usesScriptlessNBCCSECmd(s *Scenario) bool {
-	if s == nil || s.Runtime == nil || s.Runtime.NBC == nil || s.VHD == nil {
+	if s == nil || s.NativeANC || s.Runtime == nil || s.Runtime.NBC == nil || s.VHD == nil {
 		return false
 	}
 	nbc := s.Runtime.NBC

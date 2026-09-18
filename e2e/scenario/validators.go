@@ -3674,7 +3674,7 @@ sudo "$anc_path" check-hotfix`,
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
 func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) error {
 	nbc := s.Runtime.NBC
-	if nbc != nil && s.VHD.SupportsScriptless() && nbc.EnableScriptlessCSECmd && !usesScriptlessNBCCSECmd(s) {
+	if !s.NativeANC && nbc != nil && s.VHD.SupportsScriptless() && nbc.EnableScriptlessCSECmd && !usesScriptlessNBCCSECmd(s) {
 		return ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
 	}
 	return nil
