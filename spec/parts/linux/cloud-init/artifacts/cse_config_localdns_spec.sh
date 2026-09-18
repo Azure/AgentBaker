@@ -57,6 +57,17 @@ Describe 'cse_config_localdns.sh'
                 echo "retrycmd_if_failure $*"
                 return 0
             }
+            # enableLocalDNS captures the journal alongside 'systemctl status' on the failure
+            # paths. Mock it so the assertions are deterministic and no real journal is read.
+            journalctl() {
+                echo "journalctl $*"
+                return 0
+            }
+            # The give-up and enable-failure paths redirect into this directory. Without it the
+            # redirect fails before the command runs and the '|| true' hides it, so the tests
+            # would pass without ever exercising the capture.
+            mkdir -p /var/log/azure
+            rm -f /var/log/azure/localdns-status.log
             sleep() {
                 :
             }
@@ -151,6 +162,57 @@ Describe 'cse_config_localdns.sh'
             # The give-up path deliberately does not reset, so the unit is left in 'failed'
             # for NPD: the trace must end on a start attempt, never on a reset.
             The contents of file "$TMP_DIR/trace" should end with "S"
+        End
+
+        It 'should say why it gave up and capture the journal, not just the unit state'
+            # systemctlEnableAndStart logged 'systemctl status' plus 'journalctl -u' on every
+            # failed attempt; inlining the loop dropped all of it. The snapshot alone shows a
+            # unit mid-restart-cycle and does not explain any of the failures, so the journal
+            # has to come with it.
+            restart_failures_before_success=99999
+            tracing_systemctl
+            When run enableLocalDNS
+            The status should equal 216
+            The output should include "localdns could not be started: exhausted 100 restart attempts."
+            The contents of file /var/log/azure/localdns-status.log should include "journalctl -u localdns"
+        End
+
+        It 'should report a CSE budget give-up differently from exhausting the attempts'
+            # The two give-up reasons need different messages: one means localdns is broken,
+            # the other means provisioning ran out of time and never finished trying.
+            restart_failures_before_success=99999
+            tracing_systemctl
+            check_cse_timeout() { return 1; }
+            When run enableLocalDNS
+            The status should equal 216
+            The output should include "CSE provisioning budget exhausted at attempt 1"
+            The output should not include "exhausted 100 restart attempts"
+        End
+
+        It 'should sample diagnostics during the retries without dumping on every attempt'
+            # Bounded and periodic on purpose: the old helper dumped status plus an unbounded
+            # journal on all 99 failed attempts, measured at 6-8s per iteration, which ate the
+            # provisioning window it was retrying inside.
+            restart_failures_before_success=11
+            tracing_systemctl
+            When run enableLocalDNS
+            The status should be success
+            The output should include "localdns restart attempt 10/100 failed"
+            The output should include "journalctl -u localdns --no-pager -n 50"
+            The output should not include "localdns restart attempt 9/100 failed"
+            The output should include "Enable localdns succeeded."
+        End
+
+        It 'should log and capture status when systemctl enable fails'
+            # systemctlEnableAndStart wrote a status log on the enable-failure path as well as
+            # the start-failure path. Inlining the loop kept the first and dropped the second,
+            # so an enable failure exited with nothing but the code.
+            retrycmd_if_failure() { return 1; }
+            When run enableLocalDNS
+            The status should equal 216
+            The output should include "localdns could not be enabled by systemctl."
+            The output should not include "Enable localdns succeeded."
+            The contents of file /var/log/azure/localdns-status.log should include "journalctl -u localdns"
         End
     End
     Describe 'enableLocalDNSForScriptless'

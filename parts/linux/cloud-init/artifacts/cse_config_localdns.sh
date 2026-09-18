@@ -127,23 +127,54 @@ enableLocalDNS() {
     # These all talk to PID 1 over D-Bus; an unbounded one that wedges would never return to
     # the top of the loop, so check_cse_timeout above would never be re-evaluated and CSE
     # would be SIGKILLed before it could report.
+    local localdns_giveup_reason="exhausted 100 restart attempts"
     for i in $(seq 1 100); do
-        check_cse_timeout || break
+        if ! check_cse_timeout; then
+            localdns_giveup_reason="CSE provisioning budget exhausted at attempt ${i}"
+            break
+        fi
         timeout 30 systemctl reset-failed localdns 2>/dev/null || true
         timeout 30 systemctl daemon-reload
         if timeout 30 systemctl restart localdns; then
             localdns_started=true
             break
         fi
+        # Periodic, bounded diagnostics. systemctlEnableAndStart used to dump 'systemctl status'
+        # plus an unbounded 'journalctl -u' on every failed attempt (shouldLogRetryInfo=true in
+        # _systemctl_retry_svc_operation), which is ~99 dumps and a measured 6-8s per iteration --
+        # enough to eat most of the provisioning window on its own. Dropping it entirely lost the
+        # only record of what was going wrong across the retries, so sample it instead: every
+        # tenth attempt, with the journal bounded by -n.
+        if [ $((i % 10)) -eq 0 ]; then
+            echo "localdns restart attempt ${i}/100 failed; unit state and recent journal follow."
+            timeout 30 systemctl status localdns --no-pager -l || true
+            timeout 30 journalctl -u localdns --no-pager -n 50 || true
+        fi
         sleep 5
     done
     if [ "${localdns_started}" != "true" ]; then
+        echo "localdns could not be started: ${localdns_giveup_reason}."
         # No reset here -- the last failure's auto-restarts land the unit in 'failed', which is the
         # terminal state NPD needs.
+        #
+        # This snapshot is taken ~5s after the last failed restart, so the unit is normally
+        # 'activating (auto-restart)' rather than 'failed': the loop cleared the start-limit
+        # counter on every iteration, so it cannot have accumulated toward the terminal state yet.
+        # That is why the journal is captured alongside it -- the status line alone describes a
+        # unit mid-cycle and does not explain why any of the attempts failed.
         timeout 30 systemctl status localdns --no-pager -l > /var/log/azure/localdns-status.log || true
+        timeout 30 journalctl -u localdns --no-pager -n 200 >> /var/log/azure/localdns-status.log || true
         exit $ERR_LOCALDNS_FAIL
     fi
-    retrycmd_if_failure 120 5 25 systemctl enable localdns || exit $ERR_LOCALDNS_FAIL
+    # Log on this path too. systemctlEnableAndStart wrote a status log when 'systemctl enable'
+    # failed as well as when the start failed; inlining the loop kept the start path and dropped
+    # this one, so an enable failure exited with nothing but the code.
+    if ! retrycmd_if_failure 120 5 25 systemctl enable localdns; then
+        echo "localdns could not be enabled by systemctl."
+        timeout 30 systemctl status localdns --no-pager -l > /var/log/azure/localdns-status.log || true
+        timeout 30 journalctl -u localdns --no-pager -n 200 >> /var/log/azure/localdns-status.log || true
+        exit $ERR_LOCALDNS_FAIL
+    fi
     echo "Enable localdns succeeded."
     # Exporter socket setup is deferred to configureLocalDNSExporterSocket() (after ensureKubelet)
     # to avoid delaying kubelet start. The kubelet node label is added separately in cse_main.sh.
