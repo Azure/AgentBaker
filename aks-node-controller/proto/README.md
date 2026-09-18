@@ -71,6 +71,14 @@ payload into the existing kubelet JSON serializer:
 | `register_with_taints` | `registerWithTaints` | List of `KubeletTaint` objects |
 | `hairpin_mode` | `hairpinMode` | String |
 
+The Go `datamodel.AKSKubeletConfiguration` in
+[`pkg/agent/datamodel/types.go`](../../pkg/agent/datamodel/types.go) exposes the
+same seven JSON fields for the AgentBaker service. It uses `*bool` for
+`EnableServer`, the existing string-backed `Duration` for `RuntimeRequestTimeout`,
+and `[]KubeletTaint` for `RegisterWithTaints`. Both schemas preserve the same
+presence and serialization behavior for these fields; keep them aligned when
+extending kubelet configuration support.
+
 The JSON names and types match the upstream
 [KubeletConfiguration API](https://github.com/kubernetes/kubelet/blob/v0.37.0/config/v1beta1/types.go).
 `KubeletTaint` preserves `key`, `value`, `effect`, and optional `timeAdded`

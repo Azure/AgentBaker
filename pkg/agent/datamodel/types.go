@@ -2376,7 +2376,21 @@ type AKSKubeletConfiguration struct {
 	// SeccompDefault enables the use of `RuntimeDefault` as the default seccomp profile for all workloads.
 	// Default: false
 	// +optional
-	SeccompDefault *bool `json:"seccompDefault,omitempty"`
+	SeccompDefault           *bool          `json:"seccompDefault,omitempty"`
+	EnableServer             *bool          `json:"enableServer,omitempty"`
+	VolumePluginDir          string         `json:"volumePluginDir,omitempty"`
+	CgroupDriver             string         `json:"cgroupDriver,omitempty"`
+	RuntimeRequestTimeout    Duration       `json:"runtimeRequestTimeout,omitempty"`
+	ContainerRuntimeEndpoint string         `json:"containerRuntimeEndpoint,omitempty"`
+	RegisterWithTaints       []KubeletTaint `json:"registerWithTaints,omitempty"`
+	HairpinMode              string         `json:"hairpinMode,omitempty"`
+}
+
+type KubeletTaint struct {
+	Key       string `json:"key,omitempty"`
+	Value     string `json:"value,omitempty"`
+	Effect    string `json:"effect,omitempty"`
+	TimeAdded string `json:"timeAdded,omitempty"`
 }
 
 type Duration string
