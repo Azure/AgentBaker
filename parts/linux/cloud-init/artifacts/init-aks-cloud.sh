@@ -81,6 +81,10 @@ IS_ACL=0
 IS_MARINER=0
 IS_AZURELINUX=0
 
+ERR_CVM_PLATFORM_DETECTION_FAIL=244 # Unable to distinguish SEV-SNP from TDX
+ERR_NTP_UNREACHABLE=245 # Chrony could not synchronize with the configured NTP pools
+ERR_CHRONY_CONFIG_FAIL=246 # Chrony could not be configured for the detected CVM platform
+
 # http://168.63.129.16 is a constant for the host's wireserver endpoint.
 WIRESERVER_ENDPOINT="http://168.63.129.16"
 
@@ -541,9 +545,202 @@ function determine_cert_endpoint_mode {
     echo "$mode"
 }
 
+function is_ubuntu_2604_cvm {
+    [ "$IS_UBUNTU" -eq 1 ] || return 1
+    [ "${VERSION_ID:-}" = "26.04" ] || return 1
+
+    case "$(uname -r)" in
+        *-azure-fde*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+function detect_confidential_vm_platform {
+    local platform
+
+    if ! platform="$(systemd-detect-virt --cvm 2>/dev/null)"; then
+        return 1
+    fi
+
+    case "$platform" in
+        sev-snp|tdx)
+            echo "$platform"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+function ubuntu_ntp_pools {
+    cat <<'EOF'
+pool ntp.ubuntu.com        iburst maxsources 4
+pool 0.ubuntu.pool.ntp.org iburst maxsources 1
+pool 1.ubuntu.pool.ntp.org iburst maxsources 1
+pool 2.ubuntu.pool.ntp.org iburst maxsources 2
+EOF
+}
+
+function configure_chrony {
+    local time_sources="${1:-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0}"
+    local chrony_conf="${CHRONY_CONF:-/etc/chrony/chrony.conf}"
+    local timesyncd_status
+
+    if [ "$IS_UBUNTU" -eq 1 ]; then
+        timesyncd_status="$(systemctl show -p SubState --value systemd-timesyncd 2>/dev/null || true)"
+        if [ "$timesyncd_status" = "dead" ]; then
+            echo "systemd-timesyncd is removed, no need to disable"
+        else
+            if ! systemctl stop systemd-timesyncd; then
+                echo "ERROR: failed to stop systemd-timesyncd" >&2
+                return 1
+            fi
+            if ! systemctl disable systemd-timesyncd; then
+                echo "ERROR: failed to disable systemd-timesyncd" >&2
+                return 1
+            fi
+        fi
+
+        if [ ! -e "$chrony_conf" ]; then
+            if ! apt-get update; then
+                echo "ERROR: failed to update package metadata before installing Chrony" >&2
+                return 1
+            fi
+            if ! apt-get install chrony -y; then
+                echo "ERROR: failed to install Chrony" >&2
+                return 1
+            fi
+        fi
+    elif [ "$IS_FLATCAR" -eq 1 ]; then
+        if ! rm -f "$chrony_conf"; then
+            echo "ERROR: failed to remove the existing Flatcar Chrony configuration" >&2
+            return 1
+        fi
+    fi
+
+    if ! cat > "$chrony_conf" <<EOF
+# Welcome to the chrony configuration file. See chrony.conf(5) for more
+# information about usuable directives.
+
+# This will use (up to):
+# - 4 sources from ntp.ubuntu.com which some are ipv6 enabled
+# - 2 sources from 2.ubuntu.pool.ntp.org which is ipv6 enabled as well
+# - 1 source from [01].ubuntu.pool.ntp.org each (ipv4 only atm)
+# This means by default, up to 6 dual-stack and up to 2 additional IPv4-only
+# sources will be used.
+# At the same time it retains some protection against one of the entries being
+# down (compare to just using one of the lines). See (LP: #1754358) for the
+# discussion.
+#
+# About using servers from the NTP Pool Project in general see (LP: #104525).
+# Approved by Ubuntu Technical Board on 2011-02-08.
+# See http://www.pool.ntp.org/join.html for more information.
+#pool ntp.ubuntu.com        iburst maxsources 4
+#pool 0.ubuntu.pool.ntp.org iburst maxsources 1
+#pool 1.ubuntu.pool.ntp.org iburst maxsources 1
+#pool 2.ubuntu.pool.ntp.org iburst maxsources 2
+
+# This directive specify the location of the file containing ID/key pairs for
+# NTP authentication.
+keyfile /etc/chrony/chrony.keys
+
+# This directive specify the file into which chronyd will store the rate
+# information.
+driftfile /var/lib/chrony/chrony.drift
+
+# Uncomment the following line to turn logging on.
+#log tracking measurements statistics
+
+# Log files location.
+logdir /var/log/chrony
+
+# Stop bad estimates upsetting machine clock.
+maxupdateskew 100.0
+
+# This directive enables kernel synchronisation (every 11 minutes) of the
+# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
+rtcsync
+
+# Settings come from: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
+${time_sources}
+makestep 1.0 -1
+EOF
+    then
+        echo "ERROR: failed to write Chrony configuration to ${chrony_conf}" >&2
+        return 1
+    fi
+
+    if [ "$IS_UBUNTU" -eq 1 ]; then
+        if ! systemctl restart chrony; then
+            echo "ERROR: failed to restart Chrony" >&2
+            return 1
+        fi
+    elif [ "$IS_FLATCAR" -eq 1 ]; then
+        if ! systemctl restart chronyd; then
+            echo "ERROR: failed to restart chronyd" >&2
+            return 1
+        fi
+    fi
+}
+
+function verify_chrony_ntp_sync {
+    local max_attempts=12
+    local retry_interval_seconds=5
+
+    if chronyc waitsync "$max_attempts" 0 0 "$retry_interval_seconds"; then
+        echo "NTP synchronization confirmed through the Ubuntu NTP pools"
+        emit_event "AKS.CSE.chrony.ntpSynchronized" "NTP synchronization confirmed through the Ubuntu NTP pools"
+        return 0
+    fi
+
+    echo "ERROR: NTP not reachable; Chrony did not synchronize" >&2
+    emit_event "AKS.CSE.chrony.ntpUnavailable" "NTP not reachable after ${max_attempts} synchronization checks; failing provisioning" "Error"
+    echo "Chrony source diagnostics:" >&2
+    chronyc sources -v >&2 || echo "ERROR: unable to retrieve Chrony source diagnostics" >&2
+    echo "Chrony tracking diagnostics:" >&2
+    chronyc tracking >&2 || echo "ERROR: unable to retrieve Chrony tracking diagnostics" >&2
+    return "$ERR_NTP_UNREACHABLE"
+}
+
+function configure_ubuntu_2604_cvm_time_sync {
+    local platform
+    local ntp_pools
+
+    if ! platform="$(detect_confidential_vm_platform)"; then
+        echo "ERROR: unable to determine Ubuntu 26.04 CVM platform with systemd-detect-virt --cvm" >&2
+        emit_event "AKS.CSE.chrony.platformDetectionFailed" "Unable to distinguish SEV-SNP from TDX using systemd-detect-virt --cvm" "Error"
+        return "$ERR_CVM_PLATFORM_DETECTION_FAIL"
+    fi
+
+    case "$platform" in
+        sev-snp)
+            echo "AMD SEV-SNP detected; preserving the existing Hyper-V PHC Chrony configuration"
+            emit_event "AKS.CSE.chrony.usingPHC" "AMD SEV-SNP detected; preserving the existing /dev/ptp0 PHC configuration"
+            if ! configure_chrony; then
+                echo "ERROR: failed to configure Chrony with the Hyper-V PHC source for AMD SEV-SNP" >&2
+                emit_event "AKS.CSE.chrony.configurationFailed" "Failed to configure Chrony with the Hyper-V PHC source for AMD SEV-SNP" "Error"
+                return "$ERR_CHRONY_CONFIG_FAIL"
+            fi
+            ;;
+        tdx)
+            echo "Intel TDX detected; configuring Chrony to use the Ubuntu NTP pools"
+            emit_event "AKS.CSE.chrony.usingNTP" "Intel TDX detected; using only the approved Ubuntu NTP pools"
+            ntp_pools="$(ubuntu_ntp_pools)"
+            if ! configure_chrony "$ntp_pools"; then
+                echo "ERROR: failed to configure Chrony with the Ubuntu NTP pools for Intel TDX" >&2
+                emit_event "AKS.CSE.chrony.configurationFailed" "Failed to configure Chrony with the Ubuntu NTP pools for Intel TDX" "Error"
+                return "$ERR_CHRONY_CONFIG_FAIL"
+            fi
+            verify_chrony_ntp_sync
+            ;;
+    esac
+}
+
 # shellcheck disable=SC2317
 ${__SOURCED__:+return}
 set -x
+
+action=${1:-init}
 
 # shellcheck disable=SC3010
 if [[ -f /etc/os-release ]]; then
@@ -569,6 +766,16 @@ else
 fi
 
 echo "Running on $NAME"
+
+ubuntu_2604_cvm_chrony_configured=0
+if [ "$action" = "init" ] && is_ubuntu_2604_cvm; then
+    configure_ubuntu_2604_cvm_time_sync
+    chrony_result=$?
+    if [ "$chrony_result" -ne 0 ]; then
+        exit "$chrony_result"
+    fi
+    ubuntu_2604_cvm_chrony_configured=1
+fi
 
 
 # Certificate refresh behavior summary:
@@ -636,7 +843,6 @@ fi
 # Action values:
 # - init (default): full provisioning path
 # - ca-refresh <location>: periodic refresh path; location is passed as arg to avoid env dependency
-action=${1:-init}
 if [ "$action" = "ca-refresh" ] || [ "$install_ca_refresh_schedule" -eq 0 ]; then
     exit 0
 fi
@@ -759,71 +965,8 @@ EOF
 
     systemctl restart chronyd
 else
-    chrony_conf="/etc/chrony/chrony.conf"
-    if [ "$IS_UBUNTU" -eq 1 ]; then
-        systemctl stop systemd-timesyncd
-        systemctl disable systemd-timesyncd
-
-        if [ ! -e "$chrony_conf" ]; then
-            apt-get update
-            apt-get install chrony -y
-        fi
-    elif [ "$IS_FLATCAR" -eq 1 ]; then
-        rm -f ${chrony_conf}
-    fi
-
-    cat > $chrony_conf <<EOF
-# Welcome to the chrony configuration file. See chrony.conf(5) for more
-# information about usuable directives.
-
-# This will use (up to):
-# - 4 sources from ntp.ubuntu.com which some are ipv6 enabled
-# - 2 sources from 2.ubuntu.pool.ntp.org which is ipv6 enabled as well
-# - 1 source from [01].ubuntu.pool.ntp.org each (ipv4 only atm)
-# This means by default, up to 6 dual-stack and up to 2 additional IPv4-only
-# sources will be used.
-# At the same time it retains some protection against one of the entries being
-# down (compare to just using one of the lines). See (LP: #1754358) for the
-# discussion.
-#
-# About using servers from the NTP Pool Project in general see (LP: #104525).
-# Approved by Ubuntu Technical Board on 2011-02-08.
-# See http://www.pool.ntp.org/join.html for more information.
-#pool ntp.ubuntu.com        iburst maxsources 4
-#pool 0.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 1.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 2.ubuntu.pool.ntp.org iburst maxsources 2
-
-# This directive specify the location of the file containing ID/key pairs for
-# NTP authentication.
-keyfile /etc/chrony/chrony.keys
-
-# This directive specify the file into which chronyd will store the rate
-# information.
-driftfile /var/lib/chrony/chrony.drift
-
-# Uncomment the following line to turn logging on.
-#log tracking measurements statistics
-
-# Log files location.
-logdir /var/log/chrony
-
-# Stop bad estimates upsetting machine clock.
-maxupdateskew 100.0
-
-# This directive enables kernel synchronisation (every 11 minutes) of the
-# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
-rtcsync
-
-# Settings come from: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
-makestep 1.0 -1
-EOF
-
-    if [ "$IS_UBUNTU" -eq 1 ]; then
-        systemctl restart chrony
-    elif [ "$IS_FLATCAR" -eq 1 ]; then
-        systemctl restart chronyd
+    if [ "$ubuntu_2604_cvm_chrony_configured" -eq 0 ]; then
+        configure_chrony
     fi
 fi
 

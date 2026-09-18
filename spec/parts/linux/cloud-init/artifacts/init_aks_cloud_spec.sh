@@ -68,6 +68,28 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
     End
 End
 
+Describe 'init-aks-cloud.sh Chrony distro routing'
+    script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
+
+    chrony_routing_block() {
+        sed -n '/^if \[ "\$IS_ACL" -eq 1 \]; then$/,/^#EOF$/p' "$script_path"
+    }
+
+    It 'keeps Azure Linux and Mariner on their native chronyd configuration path'
+        When call chrony_routing_block
+        The output should include 'elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then'
+        The output should include 'cat > /etc/chrony.conf <<EOF'
+        The output should include 'refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0'
+        The output should include 'systemctl restart chronyd'
+    End
+
+    It 'keeps Ubuntu and Flatcar on configure_chrony unless the CVM path already configured it'
+        When call chrony_routing_block
+        The output should include 'if [ "$ubuntu_2604_cvm_chrony_configured" -eq 0 ]; then'
+        The output should include 'configure_chrony'
+    End
+End
+
 Describe 'init-aks-cloud.sh functional tests'
     setup() {
         TEST_DIR="$(mktemp -d)"
@@ -217,6 +239,309 @@ EOF
         It 'returns rcv1p for empty location'
             When call determine_cert_endpoint_mode ""
             The output should eq "rcv1p"
+        End
+    End
+
+    Describe 'Ubuntu 26.04 CVM Chrony configuration'
+        setup_chrony_test() {
+            export CHRONY_CONF="${TEST_DIR}/chrony.conf"
+            IS_UBUNTU=1
+            VERSION_ID="26.04"
+            touch "$CHRONY_CONF"
+        }
+
+        Mock systemctl
+            echo "systemctl $*"
+        End
+
+        It 'scopes the platform-specific behavior to Ubuntu 26.04 FDE images'
+            IS_UBUNTU=1
+            VERSION_ID="26.04"
+            Mock uname
+                echo "7.0.0-1011-azure-fde"
+            End
+
+            When call is_ubuntu_2604_cvm
+            The status should be success
+        End
+
+        It 'does not select an Ubuntu 26.04 non-FDE image'
+            IS_UBUNTU=1
+            VERSION_ID="26.04"
+            Mock uname
+                echo "7.0.0-1011-azure"
+            End
+
+            When call is_ubuntu_2604_cvm
+            The status should be failure
+        End
+
+        It 'does not select another Ubuntu release even when it has an FDE kernel'
+            IS_UBUNTU=1
+            VERSION_ID="24.04"
+            Mock uname
+                echo "6.8.0-1065-azure-fde"
+            End
+
+            When call is_ubuntu_2604_cvm
+            The status should be failure
+        End
+
+        It 'preserves the PHC default for another Ubuntu release'
+            setup_chrony_test
+            VERSION_ID="24.04"
+
+            When call configure_chrony
+            The output should include "systemctl restart chrony"
+            The contents of file "$CHRONY_CONF" should include "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
+            The status should be success
+        End
+
+        It 'detects AMD SEV-SNP with the systemd confidential VM signal'
+            Mock systemd-detect-virt
+                [ "$1" = "--cvm" ] || return 1
+                echo "sev-snp"
+            End
+
+            When call detect_confidential_vm_platform
+            The output should eq "sev-snp"
+            The status should be success
+        End
+
+        It 'detects Intel TDX with the systemd confidential VM signal'
+            Mock systemd-detect-virt
+                [ "$1" = "--cvm" ] || return 1
+                echo "tdx"
+            End
+
+            When call detect_confidential_vm_platform
+            The output should eq "tdx"
+            The status should be success
+        End
+
+        It 'rejects an unknown confidential VM platform'
+            Mock systemd-detect-virt
+                echo "none"
+            End
+
+            When call detect_confidential_vm_platform
+            The status should be failure
+        End
+
+        It 'fails provisioning when the confidential VM platform cannot be determined'
+            Mock detect_confidential_vm_platform
+                return 1
+            End
+            Mock emit_event
+                echo "event: $*" >&2
+            End
+
+            When call configure_ubuntu_2604_cvm_time_sync
+            The error should include "unable to determine Ubuntu 26.04 CVM platform"
+            The error should include "AKS.CSE.chrony.platformDetectionFailed"
+            The status should equal 244
+        End
+
+        It 'preserves the existing PHC configuration for SEV-SNP'
+            setup_chrony_test
+            Mock detect_confidential_vm_platform
+                echo "sev-snp"
+            End
+            Mock emit_event
+                echo "event: $*"
+            End
+
+            When call configure_ubuntu_2604_cvm_time_sync
+            The output should include "preserving the existing Hyper-V PHC Chrony configuration"
+            The output should include "AKS.CSE.chrony.usingPHC"
+            The contents of file "$CHRONY_CONF" should include "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
+            The status should be success
+        End
+
+        It 'returns the Chrony configuration failure code when SEV-SNP PHC setup fails'
+            Mock detect_confidential_vm_platform
+                echo "sev-snp"
+            End
+            Mock configure_chrony
+                return 1
+            End
+            Mock emit_event
+                echo "event: $*" >&2
+            End
+
+            When call configure_ubuntu_2604_cvm_time_sync
+            The output should include "AMD SEV-SNP detected"
+            The error should include "failed to configure Chrony with the Hyper-V PHC source"
+            The error should include "AKS.CSE.chrony.configurationFailed"
+            The status should equal 246
+        End
+
+        It 'defines exactly the four approved Ubuntu NTP pools'
+            When call ubuntu_ntp_pools
+            The lines of output should eq 4
+            The line 1 of output should eq "pool ntp.ubuntu.com        iburst maxsources 4"
+            The line 2 of output should eq "pool 0.ubuntu.pool.ntp.org iburst maxsources 1"
+            The line 3 of output should eq "pool 1.ubuntu.pool.ntp.org iburst maxsources 1"
+            The line 4 of output should eq "pool 2.ubuntu.pool.ntp.org iburst maxsources 2"
+            The status should be success
+        End
+
+        It 'configures TDX with only the fixed Ubuntu NTP pools'
+            setup_chrony_test
+            Mock detect_confidential_vm_platform
+                echo "tdx"
+            End
+            Mock verify_chrony_ntp_sync
+                echo "verified NTP synchronization"
+            End
+            Mock emit_event
+                echo "event: $*"
+            End
+
+            When call configure_ubuntu_2604_cvm_time_sync
+            The output should include "Intel TDX detected"
+            The output should include "verified NTP synchronization"
+            The contents of file "$CHRONY_CONF" should include "pool ntp.ubuntu.com        iburst maxsources 4"
+            The contents of file "$CHRONY_CONF" should include "pool 0.ubuntu.pool.ntp.org iburst maxsources 1"
+            The contents of file "$CHRONY_CONF" should include "pool 1.ubuntu.pool.ntp.org iburst maxsources 1"
+            The contents of file "$CHRONY_CONF" should include "pool 2.ubuntu.pool.ntp.org iburst maxsources 2"
+            The contents of file "$CHRONY_CONF" should not include "refclock PHC"
+            The status should be success
+        End
+
+        It 'returns failure when the Chrony service cannot restart'
+            setup_chrony_test
+            Mock systemctl
+                if [ "$1" = "restart" ]; then
+                    return 1
+                fi
+            End
+
+            When call configure_chrony
+            The error should include "failed to restart Chrony"
+            The status should equal 1
+        End
+
+        It 'skips stopping and disabling systemd-timesyncd when the unit is removed'
+            setup_chrony_test
+            Mock systemctl
+                if [ "$1" = "show" ]; then
+                    echo "dead"
+                    return 1
+                fi
+                if [ "$1" = "stop" ] || [ "$1" = "disable" ]; then
+                    echo "unexpected systemd-timesyncd operation"
+                    return 1
+                fi
+            End
+
+            When call configure_chrony
+            The output should include "systemd-timesyncd is removed, no need to disable"
+            The output should not include "unexpected systemd-timesyncd operation"
+            The contents of file "$CHRONY_CONF" should include "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
+            The status should be success
+        End
+
+        It 'returns failure when an existing systemd-timesyncd unit cannot be stopped'
+            setup_chrony_test
+            Mock systemctl
+                if [ "$1" = "show" ]; then
+                    echo "running"
+                elif [ "$1" = "stop" ]; then
+                    return 1
+                fi
+            End
+
+            When call configure_chrony
+            The error should include "failed to stop systemd-timesyncd"
+            The status should equal 1
+        End
+
+        It 'returns the Chrony configuration failure code without checking NTP when TDX setup fails'
+            Mock detect_confidential_vm_platform
+                echo "tdx"
+            End
+            Mock ubuntu_ntp_pools
+                echo "fixed pools"
+            End
+            Mock configure_chrony
+                return 1
+            End
+            Mock verify_chrony_ntp_sync
+                echo "unexpected NTP verification"
+            End
+            Mock emit_event
+                echo "event: $*" >&2
+            End
+
+            When call configure_ubuntu_2604_cvm_time_sync
+            The output should not include "unexpected NTP verification"
+            The error should include "failed to configure Chrony with the Ubuntu NTP pools"
+            The error should include "AKS.CSE.chrony.configurationFailed"
+            The status should equal 246
+        End
+
+        It 'waits for Chrony to synchronize successfully'
+            Mock chronyc
+                echo "$*"
+            End
+            Mock emit_event
+                echo "event: $*"
+            End
+
+            When call verify_chrony_ntp_sync
+            The output should include "waitsync 12 0 0 5"
+            The output should include "NTP synchronization confirmed through the Ubuntu NTP pools"
+            The output should include "AKS.CSE.chrony.ntpSynchronized"
+            The status should be success
+        End
+
+        It 'returns the NTP-unreachable code with Chrony diagnostics when NTP is not reachable'
+            Mock chronyc
+                case "$1" in
+                    waitsync)
+                        return 1
+                        ;;
+                    sources)
+                        echo "mock Chrony sources"
+                        ;;
+                    tracking)
+                        echo "mock Chrony tracking"
+                        ;;
+                esac
+            End
+            Mock emit_event
+                echo "event: $*" >&2
+            End
+
+            When call verify_chrony_ntp_sync
+            The error should include "NTP not reachable"
+            The error should include "AKS.CSE.chrony.ntpUnavailable"
+            The error should include "mock Chrony sources"
+            The error should include "mock Chrony tracking"
+            The status should equal 245
+        End
+
+        It 'propagates failed TDX NTP synchronization'
+            Mock detect_confidential_vm_platform
+                echo "tdx"
+            End
+            Mock ubuntu_ntp_pools
+                echo "fixed pools"
+            End
+            Mock configure_chrony
+                :
+            End
+            Mock verify_chrony_ntp_sync
+                exit 245
+            End
+            Mock emit_event
+                :
+            End
+
+            When call configure_ubuntu_2604_cvm_time_sync
+            The output should include "Intel TDX detected"
+            The status should equal 245
         End
     End
 
