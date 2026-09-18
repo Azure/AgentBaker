@@ -1,6 +1,7 @@
 package scenario
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -48,6 +49,7 @@ func TestResourceGroupDeadline(t *testing.T) {
 		{name: "null", value: "null", failure: "null deletion_due_time"},
 		{name: "invalid", value: `"bad"`, failure: "parsing deletion_due_time"},
 		{name: "read failure", failure: "reading GC deadline"},
+		{name: "node RG not created yet", failure: "reading GC deadline"},
 		{name: "write failure", failure: "renewing GC deadline", write: true},
 		{name: "poll failure", failure: "waiting for GC deadline renewal", write: true},
 		{name: "deleting", failure: "deleting RG"},
@@ -66,6 +68,9 @@ func TestResourceGroupDeadline(t *testing.T) {
 						if tt.name == "read failure" {
 							return gcResponse(req, 403, `{}`)
 						}
+						if tt.name == "node RG not created yet" {
+							return gcResponse(req, 404, `{}`)
+						}
 						value := tt.value
 						if tt.name == "equal" || tt.name == "later" {
 							if tt.name == "later" {
@@ -81,7 +86,7 @@ func TestResourceGroupDeadline(t *testing.T) {
 						if tt.name == "deleting" {
 							state = "Deleting"
 						}
-						return gcResponse(req, 200, `{"id":"/subscriptions/test/resourceGroups/rg","properties":{"provisioningState":"`+state+`"},"tags":{"owner":"keep"`+tag+`}}`)
+						return gcResponse(req, 200, `{"name":"rg","id":"/subscriptions/test/resourceGroups/rg","properties":{"provisioningState":"`+state+`"},"tags":{"owner":"keep"`+tag+`}}`)
 					}
 					require.Equal(t, http.MethodPatch, req.Method)
 					var patch armresources.TagsPatchResource
@@ -100,8 +105,15 @@ func TestResourceGroupDeadline(t *testing.T) {
 					return response
 				})
 				logger := &executionLogger{}
-				renewResourceGroupDeadline(logging.WithLogger(t.Context(), logger), azure, cfg, "rg")
-				require.Equal(t, tt.write, writes == 1)
+				renewed := renewNodeResourceGroupDeadline(logging.WithLogger(t.Context(), logger), azure, cfg, &armcontainerservice.ManagedCluster{
+					Properties: &armcontainerservice.ManagedClusterProperties{NodeResourceGroup: to.Ptr("rg")},
+				})
+				require.Equal(t, tt.failure == "", renewed)
+				if tt.write {
+					require.Equal(t, 1, writes)
+				} else {
+					require.Zero(t, writes)
+				}
 				if tt.failure != "" {
 					require.Contains(t, strings.Join(logger.logs, "\n"), "warning:")
 					require.Contains(t, strings.Join(logger.logs, "\n"), tt.failure)
@@ -109,7 +121,7 @@ func TestResourceGroupDeadline(t *testing.T) {
 					require.NotContains(t, strings.Join(logger.logs, "\n"), "warning:")
 				}
 				if tt.name == "deleting" {
-					err := ensureResourceGroup(t.Context(), azure, "westus3")
+					_, err := ensureResourceGroup(t.Context(), azure, cfg, "westus3")
 					require.ErrorContains(t, err, "is deleting")
 				}
 			})
@@ -117,12 +129,13 @@ func TestResourceGroupDeadline(t *testing.T) {
 	}
 }
 
-func TestResourceGroupsPreparedOncePerLocation(t *testing.T) {
+func TestCachedParentAndNodeResourceGroupRenewal(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		cfg := &config.Configuration{SuiteTimeout: 47 * time.Minute, DefaultLocation: "eastus"}
+		cfg := &config.Configuration{SuiteTimeout: 47 * time.Minute}
 		tags := map[string]string{}
 		reads := map[string]int{}
+		writes := map[string]int{}
 		azure := gcTestAzure(t, func(req *http.Request) *http.Response {
 			rg := strings.Split(req.URL.Path, "/")[4]
 			if req.Method == http.MethodGet {
@@ -131,28 +144,71 @@ func TestResourceGroupsPreparedOncePerLocation(t *testing.T) {
 				if tags[rg] != "" {
 					tag = `"deletion_due_time":"` + tags[rg] + `"`
 				}
-				return gcResponse(req, 200, `{"id":"/subscriptions/test/resourceGroups/`+rg+`","tags":{`+tag+`}}`)
+				return gcResponse(req, 200, `{"name":"`+rg+`","id":"/subscriptions/test/resourceGroups/`+rg+`","tags":{`+tag+`}}`)
 			}
 			require.Equal(t, http.MethodPatch, req.Method, "existing parent RG must not be PUT")
+			writes[rg]++
 			var patch armresources.TagsPatchResource
 			require.NoError(t, json.NewDecoder(req.Body).Decode(&patch))
 			tags[rg] = *patch.Properties.Tags[deletionDueTimeTag]
 			return gcResponse(req, 200, `{"properties":{"tags":{}}}`)
 		})
 		ctx := logging.WithLogger(t.Context(), t)
-		for range 2 {
-			clear(reads)
-			err := EnsureResourceGroups(ctx, azure, cfg, []*Scenario{
-				{Location: "westus3"}, {Location: "WESTUS3"}, {},
-			})
-			require.NoError(t, err)
-			require.Equal(t, map[string]int{"abe2e-westus3": 2, "abe2e-eastus": 2}, reads)
+		ensure := cachedFunc(func(ctx context.Context, location string) (armresources.ResourceGroup, error) {
+			return ensureResourceGroup(ctx, azure, cfg, location)
+		})
+		prepareCluster := cachedFunc(func(ctx context.Context, name string) (bool, error) {
 			renewNodeResourceGroupDeadline(ctx, azure, cfg, &armcontainerservice.ManagedCluster{
-				Properties: &armcontainerservice.ManagedClusterProperties{NodeResourceGroup: to.Ptr("actual-node-rg")},
+				Properties: &armcontainerservice.ManagedClusterProperties{NodeResourceGroup: to.Ptr(name)},
 			})
-			due := time.Now().Add(cfg.SuiteTimeout + CleanupTimeout).UTC().Format(time.RFC3339Nano)
-			require.Equal(t, map[string]string{"abe2e-westus3": due, "abe2e-eastus": due, "actual-node-rg": due}, tags)
+			return true, nil
+		})
+		due := time.Now().Add(cfg.SuiteTimeout + CleanupTimeout).UTC().Format(time.RFC3339Nano)
+		for range 2 {
+			_, err := ensure(ctx, "westus3")
+			require.NoError(t, err)
+			_, err = prepareCluster(ctx, "actual-node-rg")
+			require.NoError(t, err)
+			require.Equal(t, map[string]int{"abe2e-westus3": 1, "actual-node-rg": 1}, reads)
+			require.Equal(t, map[string]int{"abe2e-westus3": 1, "actual-node-rg": 1}, writes)
+			require.Equal(t, map[string]string{"abe2e-westus3": due, "actual-node-rg": due}, tags)
 			time.Sleep(time.Hour)
 		}
 	})
+}
+
+func TestEnsureResourceGroup(t *testing.T) {
+	for _, tt := range []struct {
+		name            string
+		get, put, patch int
+		wantMethods     []string
+		failure         string
+	}{
+		{"create", 404, 200, 200, []string{"GET", "PUT", "PATCH"}, ""},
+		{"read failure", 403, 0, 0, []string{"GET"}, "getting RG"},
+		{"create failure", 404, 403, 0, []string{"GET", "PUT"}, "creating RG"},
+		{"renewal failure", 200, 0, 403, []string{"GET", "PATCH"}, ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var methods []string
+			azure := gcTestAzure(t, func(req *http.Request) *http.Response {
+				methods = append(methods, req.Method)
+				status := map[string]int{"GET": tt.get, "PUT": tt.put, "PATCH": tt.patch}[req.Method]
+				require.NotZero(t, status, "unexpected request: %s", req.Method)
+				return gcResponse(req, status, `{"name":"abe2e-westus3","id":"/subscriptions/test/resourceGroups/abe2e-westus3"}`)
+			})
+			logger := &executionLogger{}
+			_, err := ensureResourceGroup(logging.WithLogger(t.Context(), logger), azure, &config.Configuration{SuiteTimeout: time.Hour}, "westus3")
+			if tt.failure != "" {
+				require.ErrorContains(t, err, tt.failure)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.wantMethods, methods)
+			if tt.name == "renewal failure" {
+				require.Contains(t, strings.Join(logger.logs, "\n"), "warning:")
+			}
+		})
+	}
 }

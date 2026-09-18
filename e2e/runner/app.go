@@ -147,10 +147,6 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	}
 	log.Printf("using E2E environment configuration:\n%s\n", config.Config)
 
-	if err := scenario.EnsureResourceGroups(ctx, config.Azure, config.Config, runnable); err != nil {
-		return fmt.Errorf("prepare shared resource groups: %w", err)
-	}
-
 	exec := newExecutor(ctx, a.stdout, opts, len(runnable))
 	for _, scenario := range runnable {
 		exec.schedule(scenario.Name, scenario)

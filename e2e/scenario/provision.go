@@ -204,6 +204,9 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 		return err
 	}
 
+	if _, err := CachedEnsureResourceGroup(ctx, s.Location); err != nil {
+		return fmt.Errorf("ensure resource group: %w", err)
+	}
 	if _, err := CachedCreateVMManagedIdentity(ctx, s.Location); err != nil {
 		return fmt.Errorf("create VM managed identity: %w", err)
 	}
@@ -222,7 +225,6 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 	if cluster == nil || cluster.Model == nil || cluster.Model.Name == nil || cluster.Model.Location == nil || cluster.Model.Properties == nil {
 		return fmt.Errorf("cluster cache returned an incomplete cluster")
 	}
-	renewNodeResourceGroupDeadline(ctx, config.Azure, config.Config, cluster.Model)
 
 	// Log cluster identity for debugging
 	clusterName := *cluster.Model.Name

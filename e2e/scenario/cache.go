@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 )
 
 // cachedFunc creates a thread-safe memoized version of a function.
@@ -297,7 +298,14 @@ func prepareVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceI
 	return config.GetVHDResourceID(ctx, request.Image, request.Location)
 }
 
+var CachedEnsureResourceGroup = cachedFunc(func(ctx context.Context, location string) (armresources.ResourceGroup, error) {
+	return ensureResourceGroup(ctx, config.Azure, config.Config, location)
+})
 var CachedCreateVMManagedIdentity = cachedFunc(func(ctx context.Context, location string) (string, error) {
+	// Shared storage uses DefaultLocation even when the scenario runs elsewhere.
+	if _, err := CachedEnsureResourceGroup(ctx, config.Config.DefaultLocation); err != nil {
+		return "", fmt.Errorf("ensure storage resource group: %w", err)
+	}
 	return config.Azure.CreateVMManagedIdentity(ctx, location)
 })
 var CachedCompileAndUploadAKSNodeController = cachedFunc(compileAndUploadAKSNodeController)
