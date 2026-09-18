@@ -805,6 +805,138 @@ getCPUArch() {
     fi
 }
 
+getCPUInfoFieldValues() {
+    local field_name="$1"
+    local cpuinfo_file="${2:-/proc/cpuinfo}"
+
+    awk -F ':' -v field_name="${field_name}" '
+        function trim(value) {
+            sub(/^[[:space:]]+/, "", value)
+            sub(/[[:space:]]+$/, "", value)
+            return value
+        }
+        trim($1) == field_name {
+            value = substr($0, index($0, ":") + 1)
+            print trim(value)
+        }
+    ' "${cpuinfo_file}"
+}
+
+getCommonCPUInfoField() {
+    local field_name="$1"
+    local cpuinfo_file="${2:-/proc/cpuinfo}"
+    local processor_count
+    local field_count
+    local values
+
+    processor_count=$(getCPUInfoFieldValues "processor" "${cpuinfo_file}" | awk 'END { print NR }')
+    field_count=$(getCPUInfoFieldValues "${field_name}" "${cpuinfo_file}" | awk 'END { print NR }')
+    values=$(getCPUInfoFieldValues "${field_name}" "${cpuinfo_file}" | LC_ALL=C sort -u)
+    if [ "${processor_count}" -eq 0 ] || [ "${field_count}" -ne "${processor_count}" ] || \
+        [ -z "${values}" ] || [ "$(wc -l <<< "${values}")" -ne 1 ]; then
+        return 1
+    fi
+    echo "${values}"
+}
+
+getCommonCPUInfoFlags() {
+    local cpuinfo_file="${1:-/proc/cpuinfo}"
+    local processor_count
+    local flags_count
+    local flags
+
+    processor_count=$(getCPUInfoFieldValues "processor" "${cpuinfo_file}" | awk 'END { print NR }')
+    flags_count=$(getCPUInfoFieldValues "flags" "${cpuinfo_file}" | awk 'END { print NR }')
+    flags=$(getCPUInfoFieldValues "flags" "${cpuinfo_file}" | while IFS= read -r cpu_flags; do
+        tr '[:space:]' '\n' <<< "${cpu_flags}" | awk 'NF' | LC_ALL=C sort -u | paste -sd, -
+    done | LC_ALL=C sort -u)
+
+    if [ "${processor_count}" -eq 0 ] || [ "${flags_count}" -ne "${processor_count}" ] || \
+        [ -z "${flags}" ] || [ "$(wc -l <<< "${flags}")" -ne 1 ]; then
+        return 1
+    fi
+    echo "${flags}"
+}
+
+getKataCPUProfileHashFromFile() {
+    local cpuinfo_file="$1"
+    local architecture
+    local vendor_id
+    local cpu_family
+    local model
+    local stepping
+    local address_sizes
+    local physical_address_bits
+    local virtual_address_bits
+    local flags
+    local canonical_profile
+    local digest
+
+    if [ ! -r "${cpuinfo_file}" ]; then
+        echo "unable to read CPU information from ${cpuinfo_file}" >&2
+        return 1
+    fi
+
+    architecture=$(uname -m)
+    # The v1 profile is defined only for the x86 CPU state used by Kata snapshot restore.
+    case "${architecture,,}" in
+        x86_64|amd64) architecture="x86_64" ;;
+        *)
+            echo "Kata CPU profile v1 does not support architecture ${architecture}" >&2
+            return 1
+            ;;
+    esac
+
+    vendor_id=$(getCommonCPUInfoField "vendor_id" "${cpuinfo_file}")
+    cpu_family=$(getCommonCPUInfoField "cpu family" "${cpuinfo_file}")
+    model=$(getCommonCPUInfoField "model" "${cpuinfo_file}")
+    stepping=$(getCommonCPUInfoField "stepping" "${cpuinfo_file}")
+    address_sizes=$(getCommonCPUInfoField "address sizes" "${cpuinfo_file}")
+    flags=$(getCommonCPUInfoFlags "${cpuinfo_file}")
+
+    physical_address_bits="${address_sizes%% bits physical*}"
+    virtual_address_bits="${address_sizes##*, }"
+    virtual_address_bits="${virtual_address_bits%% bits virtual*}"
+
+    # shellcheck disable=SC3010
+    if [ -z "${vendor_id}" ] || ! [[ "${cpu_family}" =~ ^[0-9]+$ ]] || ! [[ "${model}" =~ ^[0-9]+$ ]] || \
+        ! [[ "${stepping}" =~ ^[0-9]+$ ]] || ! [[ "${physical_address_bits}" =~ ^[0-9]+$ ]] || \
+        ! [[ "${virtual_address_bits}" =~ ^[0-9]+$ ]] || [ -z "${flags}" ]; then
+        echo "CPU information is incomplete or differs across processors for Kata CPU profile v1" >&2
+        return 1
+    fi
+
+    # Keep this schema versioned and deterministic. It is a conservative scheduling fingerprint;
+    # Cloud Hypervisor remains responsible for validating CPU compatibility during restore.
+    canonical_profile=$(printf '%s\n' \
+        "schema=aks-kata-cpu-v1" \
+        "architecture=${architecture}" \
+        "vendor_id=${vendor_id,,}" \
+        "cpu_family=${cpu_family}" \
+        "model=${model}" \
+        "stepping=${stepping}" \
+        "physical_address_bits=${physical_address_bits}" \
+        "virtual_address_bits=${virtual_address_bits}" \
+        "flags=${flags}")
+    digest=$(printf '%s\n' "${canonical_profile}" | sha256sum) || return 1
+    printf '%.40s\n' "${digest%% *}"
+}
+
+getKataCPUProfileHash() {
+    getKataCPUProfileHashFromFile "/proc/cpuinfo"
+}
+
+addKataCPUProfileNodeLabel() {
+    local cpu_profile_hash
+
+    if ! cpu_profile_hash=$(getKataCPUProfileHash); then
+        echo "unable to calculate Kata CPU profile; skipping node label" >&2
+        return 1
+    fi
+
+    upsertKubeletNodeLabel "kubernetes.azure.com/kata-cpu-profile-v1=${cpu_profile_hash}"
+}
+
 getSystemdArch() {
     local seArch=$(getCPUArch)
     case ${seArch} in
@@ -1232,6 +1364,26 @@ addKubeletNodeLabel() {
         # node labels shouldn't ever be empty, but we guard against it to be safe
         KUBELET_NODE_LABELS=$LABEL_STRING
     fi
+}
+
+upsertKubeletNodeLabel() {
+    local label_string="$1"
+    local label_key="${label_string%%=*}"
+    local existing_label
+    local filtered_labels=""
+
+    IFS=',' read -ra existing_labels <<< "${KUBELET_NODE_LABELS}"
+    for existing_label in "${existing_labels[@]}"; do
+        if [ "${existing_label%%=*}" = "${label_key}" ]; then
+            continue
+        fi
+        if [ -n "${existing_label}" ]; then
+            filtered_labels="${filtered_labels:+${filtered_labels},}${existing_label}"
+        fi
+    done
+
+    KUBELET_NODE_LABELS="${filtered_labels}"
+    addKubeletNodeLabel "${label_string}"
 }
 
 # removes the specified LABEL_STRING (which should be in the form of 'label=value') from KUBELET_NODE_LABELS
