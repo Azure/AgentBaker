@@ -124,14 +124,20 @@ tar --no-same-owner --no-same-permissions -xf "$DEFS_TAR" -C "$KOMPLI_DEFS_DIR"
 chown -R root:root "$KOMPLI_DEFS_DIR"
 find "$KOMPLI_DEFS_DIR" -type f -exec chmod 0644 {} +
 
-# Execute the committed plan. `kompli run` re-resolves each block's definition in
-# /etc/kompli/definitions/, re-validates applicability against this host, and
-# emits the canonical result JSON on stdout. kompli logs to stderr (there is no
-# --log-file), captured to the log. --continue-on-error keeps `run` going past a
-# single rule's procedure error so a partial JSON is still emitted. A
-# NonCompliant result is expected and must never fail the (shadow, non-blocking)
-# scan. Plan GENERATION is out of scope here — the plan is a committed artifact
-# (ADR-0001).
+# Execute the committed plan. Verified against kompli source
+# (robertwoj/unified-definitions, 2026-09-18): `kompli run` opens each plan
+# block's `file` string exactly as given (InputSecurity.cpp's OpenVerifiedInput
+# -> raw open(), no search path) — there is no implicit resolution against
+# /etc/kompli/definitions/ (that fixed-directory lookup is `komplid`-only,
+# RequestHandler.cpp). The committed plan's `file` must therefore be the
+# absolute installed path (`/etc/kompli/definitions/<key>.benchmark.json`,
+# matching kompli's own PlanTest.cpp fixtures), which is what the plan files
+# under vhdbuilder/packer/kompli-plans/ now contain — no cwd dependency. kompli
+# logs to stderr (there is no --log-file), captured to the log.
+# --continue-on-error keeps `run` going past a single rule's procedure error so
+# a partial JSON is still emitted. A NonCompliant result is expected and must
+# never fail the (shadow, non-blocking) scan. Plan GENERATION is out of scope
+# here — the plan is a committed artifact (ADR-0001).
 run_rc=0
 if [ -s "$PLAN_PATH" ]; then
     set +e
