@@ -1,5 +1,25 @@
 #!/bin/bash
 
+function compute_msi_resource_strings() {
+	# Populates the caller-declared array named by $1 (an explicit output parameter, via
+	# nameref) with the UAMI resource string to attach to the VHD build VM, or leaves it
+	# empty. All other variables here are scratch and kept local to this function.
+	local -n _msi_resource_strings_out="${1:?compute_msi_resource_strings requires the name of the array variable to populate}"
+	local COMPONENTS_JSON="${COMPONENTS_JSON:-./parts/common/components.json}"
+	local windows_azcopy_private_package_present="false"
+	if [ -f "${COMPONENTS_JSON}" ] && jq -e '[.. | objects | select(has("windowsDownloadRequiresAzCopy")) | select(.windowsDownloadRequiresAzCopy == true)] | length > 0' "${COMPONENTS_JSON}" >/dev/null 2>&1; then
+		windows_azcopy_private_package_present="true"
+	fi
+
+	_msi_resource_strings_out=()
+	if [ -n "${AZURE_MSI_RESOURCE_STRING}" ] && { [ -n "${PRIVATE_PACKAGES_URL}" ] || [ -n "${WINDOWS_PRIVATE_PACKAGES_URL}" ] || [ -n "${WINDOWS_BASE_IMAGE_URL}" ] || [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ] || [ "${windows_azcopy_private_package_present}" = "true" ]; }; then
+		echo "AZURE_MSI_RESOURCE_STRING is set and at least one of PRIVATE_PACKAGES_URL, WINDOWS_PRIVATE_PACKAGES_URL, WINDOWS_BASE_IMAGE_URL, WINDOWS_CONTAINERIMAGE_JSON_URL is set, or ${COMPONENTS_JSON} has a package with windowsDownloadRequiresAzCopy=true. Assigning UAMI to Packer VM for VHD Build."
+		_msi_resource_strings_out+=(${AZURE_MSI_RESOURCE_STRING})
+	else
+		echo "AZURE_MSI_RESOURCE_STRING is not set, none of PRIVATE_PACKAGES_URL/WINDOWS_PRIVATE_PACKAGES_URL/WINDOWS_BASE_IMAGE_URL is set, and no package in ${COMPONENTS_JSON} sets windowsDownloadRequiresAzCopy=true. Skipping UAMI assignment to Packer VM for VHD Build."
+	fi
+}
+
 function produce_ua_token() {
 	set +x
 	UA_TOKEN="${UA_TOKEN:-}" # used to attach UA when building ESM-enabled Ubuntu SKUs

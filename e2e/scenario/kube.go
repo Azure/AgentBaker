@@ -27,7 +27,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type Kubeclient struct {
@@ -35,6 +37,37 @@ type Kubeclient struct {
 	Typed      kubernetes.Interface
 	RESTConfig *rest.Config
 	KubeConfig []byte
+}
+
+// EnsureKonnectivityAgentAutoscaler prevents node-count-driven scale-down as test
+// nodes join and leave. Scale-down can interrupt active pod exec streams, while
+// client-go can return nil without receiving the command's exit status, bypassing
+// our connection-error retries: https://github.com/kubernetes/kubernetes/issues/130885.
+// Fixed replicas avoid this trigger, but not interruptions from restarts or upgrades.
+func (k *Kubeclient) EnsureKonnectivityAgentAutoscaler(ctx context.Context) error {
+	defer logging.LogStepf(ctx, "configuring three fixed konnectivity agent replicas")()
+	err := retry.OnError(retry.DefaultRetry, func(err error) bool {
+		return errorsk8s.IsConflict(err) || errorsk8s.IsAlreadyExists(err)
+	}, func() error {
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "konnectivity-agent-autoscaler",
+				Namespace: metav1.NamespaceSystem,
+			},
+		}
+		_, err := controllerutil.CreateOrUpdate(ctx, k.Dynamic, cm, func() error {
+			if cm.Data == nil {
+				cm.Data = make(map[string]string)
+			}
+			cm.Data["ladder"] = `{"nodesToReplicas":[[1,3]],"coresToReplicas":[]}`
+			return nil
+		})
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("ensuring konnectivity agent autoscaler configmap: %w", err)
+	}
+	return nil
 }
 
 const (
