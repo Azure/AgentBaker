@@ -36,17 +36,24 @@ func init() {
 				Config: Config{
 					Cluster:               clusterServiceDiscovery,
 					VHD:                   tt.image,
+					NativeANC:             true,
 					SkipDefaultValidation: true,
 					BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 						nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = localDNS
 						nbc.KubeletConfig["--cluster-dns"] = podDNSForServiceDiscovery(localDNS)
 					},
 					AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+						config.DisableCustomData = false
 						config.LocalDnsProfile.EnableLocalDns = localDNS
 						config.KubeletConfig.KubeletFlags["--cluster-dns"] = podDNSForServiceDiscovery(localDNS)
 						config.KubeletConfig.KubeletConfigFileConfig.ClusterDns = []string{podDNSForServiceDiscovery(localDNS)}
 					},
 					Validator: func(ctx context.Context, s *Scenario) error {
+						nodeName, err := s.Runtime.Kube.WaitUntilNodeReady(ctx, s.Runtime.VMSSName)
+						if err != nil {
+							return err
+						}
+						s.Runtime.VM.KubeName = nodeName
 						// Flags alone do not establish which provisioner actually ran.
 						_, modeErr := execScriptOnVMForScenarioValidateExitCode(ctx, s, nativeANCProvisioningScript, 0, "expected native ANC provisioning")
 						var listenerErr error

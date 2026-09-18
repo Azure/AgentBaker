@@ -380,7 +380,20 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 
 	cse = nodeBootstrapping.CSE
 	customData = nodeBootstrapping.CustomData
-	if s.Config.ScriptHotfixFixture != nil {
+	if s.Config.NativeANC {
+		if s.Runtime.AKSNodeConfig == nil || scriptlessUnsupported(s) || s.VHD.Flatcar || s.Runtime.NBC.IsACL() {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("native ANC requires an ANC configuration and a supported cloud-init Linux image")
+		}
+		binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("compile native ANC: %w", err)
+		}
+		customData, err = nativeANCCustomData(s.Runtime.AKSNodeConfig, binaryURL)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, err
+		}
+		cse = nodeconfigutils.CSE
+	} else if s.Config.ScriptHotfixFixture != nil {
 		if !enableScriptlessCompilation(s) {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
 				"script-hotfix fixture requires scriptless ANC compilation",
@@ -420,7 +433,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("inject customData write_files entries: %w", err)
 		}
 	}
-	if !config.Config.DisableScriptless && !scriptlessNBCCSECmdEnabled && s.VHD.SupportsScriptless() {
+	if !s.Config.NativeANC && !config.Config.DisableScriptless && !scriptlessNBCCSECmdEnabled && s.VHD.SupportsScriptless() {
 		// Validate that the custom data doesn't contain any script content,
 		// which indicates that the scriptless CSE is working as intended
 		decodedCustomData, err := base64.StdEncoding.DecodeString(customData)
