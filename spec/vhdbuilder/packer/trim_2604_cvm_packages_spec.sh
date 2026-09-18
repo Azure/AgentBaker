@@ -46,7 +46,33 @@ Describe 'trim-2604-cvm-packages'
     The output should include "Purging 1 installed server-cvm packages marked for removal"
     The output should include "apt-get -o DPkg::Lock::Timeout=300 purge -y --no-auto-remove --allow-remove-essential remove-me"
     The output should not include "allow-remove-essential absent-package"
-    The output should include "apt-mark manual cron curl gpg jq logrotate rsyslog sudo tcpdump xfsprogs"
+    The output should include "apt-mark manual cron curl gpg jq logrotate rsyslog sudo xfsprogs"
+    The output should not include "apt-mark manual cron curl gpg jq logrotate rsyslog sudo xfsprogs tcpdump"
+  End
+
+  It 'marks installed tcpdump runtime packages as manual'
+    printf '%s\n' remove-me > "${MARKED_FOR_REMOVAL_PACKAGES_FILE}"
+    printf '%s\n' required-package > "${REQUIRED_PACKAGES_FILE}"
+
+    dpkg-query() {
+      for argument in "$@"; do
+        package="${argument}"
+      done
+      case "${package}" in
+        remove-me|required-package|libc6|libpcap0.8t64|libssl3t64|systemd|tcpdump)
+          echo installed
+          ;;
+        *)
+          return 1
+          ;;
+      esac
+    }
+    apt-get() { return 0; }
+    apt-mark() { echo "apt-mark $*"; }
+
+    When call main
+    The status should be success
+    The output should include "apt-mark manual cron curl gpg jq logrotate rsyslog sudo xfsprogs libc6 libpcap0.8t64 libssl3t64 systemd tcpdump"
   End
 
   It 'fails when the removal list is empty'
