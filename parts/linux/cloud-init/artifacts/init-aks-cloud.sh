@@ -81,8 +81,8 @@ IS_ACL=0
 IS_MARINER=0
 IS_AZURELINUX=0
 
-ERR_OUTBOUND_CONN_FAIL=50 # Unable to establish outbound connection
 ERR_CVM_PLATFORM_DETECTION_FAIL=244 # Unable to distinguish SEV-SNP from TDX
+ERR_NTP_UNREACHABLE=245 # Chrony could not synchronize with the configured NTP pools
 
 # http://168.63.129.16 is a constant for the host's wireserver endpoint.
 WIRESERVER_ENDPOINT="http://168.63.129.16"
@@ -667,7 +667,7 @@ function verify_chrony_ntp_sync {
     chronyc sources -v >&2 || echo "ERROR: unable to retrieve Chrony source diagnostics" >&2
     echo "Chrony tracking diagnostics:" >&2
     chronyc tracking >&2 || echo "ERROR: unable to retrieve Chrony tracking diagnostics" >&2
-    return "$ERR_OUTBOUND_CONN_FAIL"
+    return "$ERR_NTP_UNREACHABLE"
 }
 
 function configure_ubuntu_2604_cvm_time_sync {

@@ -363,7 +363,7 @@ EOF
             The status should be success
         End
 
-        It 'returns the outbound connectivity code with Chrony diagnostics when NTP is not reachable'
+        It 'returns the NTP-unreachable code with Chrony diagnostics when NTP is not reachable'
             Mock chronyc
                 case "$1" in
                     waitsync)
@@ -386,7 +386,7 @@ EOF
             The error should include "AKS.CSE.chrony.ntpUnavailable"
             The error should include "mock Chrony sources"
             The error should include "mock Chrony tracking"
-            The status should equal 50
+            The status should equal 245
         End
 
         It 'propagates failed TDX NTP synchronization'
@@ -400,7 +400,7 @@ EOF
                 :
             End
             Mock verify_chrony_ntp_sync
-                exit 50
+                exit 245
             End
             Mock emit_event
                 :
@@ -408,7 +408,7 @@ EOF
 
             When call configure_ubuntu_2604_cvm_time_sync
             The output should include "Intel TDX detected"
-            The status should equal 50
+            The status should equal 245
         End
     End
 
