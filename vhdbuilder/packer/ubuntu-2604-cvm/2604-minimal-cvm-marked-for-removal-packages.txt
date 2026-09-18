@@ -148,7 +148,6 @@ libnuma1
 libopeniscsiusr
 libpackagekit-glib2-18
 libpam-cap
-libpcap0.8t64
 libperl5.40
 libpipeline1
 libplymouth5

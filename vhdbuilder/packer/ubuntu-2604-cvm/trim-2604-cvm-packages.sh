@@ -50,6 +50,8 @@ verifyForbiddenPackagesAbsent() {
 
 main() {
     local package
+    local -a manual_packages=(cron curl gpg jq logrotate rsyslog sudo xfsprogs)
+    local -a optional_manual_packages=(libc6 libpcap0.8t64 libssl3t64 systemd tcpdump)
     local -a purge_packages=()
 
     case "${1:-}" in
@@ -81,7 +83,13 @@ main() {
         echo "No installed server-cvm packages marked for removal were found"
     fi
 
-    apt-mark manual cron curl gpg jq logrotate rsyslog sudo xfsprogs
+    for package in "${optional_manual_packages[@]}"; do
+        if [ "$(dpkg-query -W -f='${db:Status-Status}' "${package}" 2>/dev/null || true)" = "installed" ]; then
+            manual_packages+=("${package}")
+        fi
+    done
+
+    apt-mark manual "${manual_packages[@]}"
     verifyRequiredPackagesInstalled "${REQUIRED_PACKAGES_FILE}"
 }
 
