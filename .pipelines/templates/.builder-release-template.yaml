@@ -8,6 +8,12 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
+  - name: skuNameOverride
+    type: string
+    default: ''
+  - name: publishingOfferName
+    type: string
+    default: ''
 
 steps:
   - template: ./.template-override-components-json.yaml
@@ -84,8 +90,13 @@ steps:
       if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
       if [[ ${OS_SKU} != "CBLMariner" && ${OS_SKU} != "AzureLinux" && ${OS_SKU} != "AzureLinuxOSGuard" && ${OS_SKU} != "Flatcar" && ${OS_SKU} != "AzureContainerLinux" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
       SKU_NAME=$(echo ${SKU_NAME} | tr -d '.') && \
+      if [ -n '${{ parameters.skuNameOverride }}' ]; then SKU_NAME='${{ parameters.skuNameOverride }}'; fi && \
+      PUBLISHING_OFFER_NAME="${OS_SKU}" && \
+      if [ -n '${{ parameters.publishingOfferName }}' ]; then PUBLISHING_OFFER_NAME='${{ parameters.publishingOfferName }}'; fi && \
       echo "##vso[task.setvariable variable=SKU_NAME]$SKU_NAME"
+      echo "##vso[task.setvariable variable=PUBLISHING_OFFER_NAME]$PUBLISHING_OFFER_NAME"
       echo "Set SKU_NAME to $SKU_NAME"
+      echo "Set PUBLISHING_OFFER_NAME to $PUBLISHING_OFFER_NAME"
     displayName: Set SKU Name
 
   - task: AzureCLI@2
@@ -518,7 +529,7 @@ steps:
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
-      OFFER_NAME: $(OS_SKU)
+      OFFER_NAME: $(PUBLISHING_OFFER_NAME)
 
   - task: PublishPipelineArtifact@1
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
