@@ -8,6 +8,10 @@ MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 FLATCAR_OS_NAME="FLATCAR"
 ACL_OS_VARIANT="AZURECONTAINERLINUX"
+# Exact coredns image tag that localdns runs. Kept in lockstep with the pin in
+# vhdbuilder/packer/install-dependencies.sh and with parts/common/components.json; both are
+# enforced by spec/vhdbuilder/packer/coredns_version_spec.sh.
+COREDNS_VERSION="v1.14.7-2"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
@@ -2440,15 +2444,25 @@ testCorednsBinaryExtractedAndCached() {
     return 1
   fi
 
-  # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
-  local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
+  # Assert the pinned image itself is cached. This is the only check that can see the MCR
+  # revision suffix - the coredns binary reports the upstream version (1.14.7) and knows
+  # nothing about the -2 build revision, so the binary check below cannot catch a wrong revision.
+  local pinned_coredns_image_cached="false"
+  for coredns_image_url in "${coredns_image_list[@]}"; do
+    if [ "${coredns_image_url##*:}" = "${COREDNS_VERSION}" ]; then
+      pinned_coredns_image_cached="true"
+      break
+    fi
+  done
+  if [ "${pinned_coredns_image_cached}" != "true" ]; then
+    echo "$test: Pinned coredns image ${COREDNS_VERSION} is not cached. Cached coredns images: ${coredns_image_list[*]}"
+    return 1
+  fi
 
-  # Determine latest version (eg. v1.12.0-1).
-  local latest_coredns_tag="${sorted_coredns_tags[0]}"
-
-  local expectedVersion="$latest_coredns_tag"
-  local expectedVersionWithoutV="${expectedVersion#v}"
-  echo "$test: Expected coredns version (latest): ${expectedVersionWithoutV}"
+  # The pinned tag carries an MCR build revision (eg. v1.14.7-2) that the binary does not
+  # report, so compare on the upstream version only.
+  local expectedVersionWithoutV="${COREDNS_VERSION#v}"
+  echo "$test: Expected coredns version (pinned): ${expectedVersionWithoutV}"
 
   local builtInPlugins
   builtInPlugins=$("$binaryPath" --plugins)
@@ -2471,12 +2485,12 @@ testCorednsBinaryExtractedAndCached() {
 
   echo "$test: Verify extracted coredns version: ${actualVersionWithoutV}"
 
-  if [ "${actualVersion%-*}" != "${expectedVersionWithoutV%-*}" ]; then
-    echo "$test: Extracted coredns version: ${actualVersion} does not match expected version: ${expectedVersionWithoutV}"
+  if [ "${actualVersionWithoutV%-*}" != "${expectedVersionWithoutV%-*}" ]; then
+    echo "$test: Extracted coredns version: ${actualVersion} does not match pinned version: ${expectedVersionWithoutV}"
     return 1
   fi
 
-  echo "$test: Expected version: ${expectedVersionWithoutV} of coredns binary is extracted and cached at ${binaryPath}"
+  echo "$test: Pinned version: ${expectedVersionWithoutV} of coredns binary is extracted and cached at ${binaryPath}"
   return 0
 }
 
