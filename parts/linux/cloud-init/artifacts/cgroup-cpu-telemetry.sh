@@ -8,13 +8,6 @@ isNonNegativeInteger() {
     esac
 }
 
-isPositiveInteger() {
-    case "$1" in
-        ''|*[!0-9]*|0) return 1 ;;
-        *) return 0 ;;
-    esac
-}
-
 readCounter() {
     local file="$1"
     local key="$2"
@@ -33,72 +26,22 @@ readCounter() {
     fi
 }
 
-convertCounterToUsec() {
-    local value="$1"
-    local divisor="$2"
-
-    if isNonNegativeInteger "${value}" && isPositiveInteger "${divisor}"; then
-        echo $((value / divisor))
-    else
-        echo "Not Found"
-    fi
-}
-
-convertTicksToUsec() {
-    local value="$1"
-    local ticks_per_second="$2"
-
-    if isNonNegativeInteger "${value}" && isPositiveInteger "${ticks_per_second}"; then
-        echo $(((value / ticks_per_second) * 1000000 + (value % ticks_per_second) * 1000000 / ticks_per_second))
-    else
-        echo "Not Found"
-    fi
-}
-
 getServiceCPUUsage() {
     local service_cgroup="$1"
-    local cpu_stat
-    local cpuacct_usage
-    local user_ticks
-    local system_ticks
-    local throttled_time
+    local cpu_stat="${CPU_CGROUP}/${service_cgroup}/cpu.stat"
 
-    if [ "${VERSION}" = "cgroupv2" ]; then
-        cpu_stat="${CPU_CGROUP}/${service_cgroup}/cpu.stat"
-        if [ ! -d "${CPU_CGROUP}/${service_cgroup}" ]; then
-            echo '"Not Found"'
-            return
-        fi
-
-        jq -c -n \
-            --arg USAGE_USEC "$(readCounter "${cpu_stat}" usage_usec)" \
-            --arg USER_USEC "$(readCounter "${cpu_stat}" user_usec)" \
-            --arg SYSTEM_USEC "$(readCounter "${cpu_stat}" system_usec)" \
-            --arg NR_PERIODS "$(readCounter "${cpu_stat}" nr_periods)" \
-            --arg NR_THROTTLED "$(readCounter "${cpu_stat}" nr_throttled)" \
-            --arg THROTTLED_USEC "$(readCounter "${cpu_stat}" throttled_usec)" \
-            '{ usage_usec: $USAGE_USEC, user_usec: $USER_USEC, system_usec: $SYSTEM_USEC, nr_periods: $NR_PERIODS, nr_throttled: $NR_THROTTLED, throttled_usec: $THROTTLED_USEC }'
-        return
-    fi
-
-    if [ ! -d "${CPU_CGROUP}/${service_cgroup}" ] && [ ! -d "${CPUACCT_CGROUP}/${service_cgroup}" ]; then
+    if [ ! -d "${CPU_CGROUP}/${service_cgroup}" ]; then
         echo '"Not Found"'
         return
     fi
 
-    cpu_stat="${CPU_CGROUP}/${service_cgroup}/cpu.stat"
-    cpuacct_usage=$(cat "${CPUACCT_CGROUP}/${service_cgroup}/cpuacct.usage" 2>/dev/null || echo "Not Found")
-    user_ticks=$(readCounter "${CPUACCT_CGROUP}/${service_cgroup}/cpuacct.stat" user)
-    system_ticks=$(readCounter "${CPUACCT_CGROUP}/${service_cgroup}/cpuacct.stat" system)
-    throttled_time=$(readCounter "${cpu_stat}" throttled_time)
-
     jq -c -n \
-        --arg USAGE_USEC "$(convertCounterToUsec "${cpuacct_usage}" 1000)" \
-        --arg USER_USEC "$(convertTicksToUsec "${user_ticks}" "${CPU_TICKS_PER_SECOND}")" \
-        --arg SYSTEM_USEC "$(convertTicksToUsec "${system_ticks}" "${CPU_TICKS_PER_SECOND}")" \
+        --arg USAGE_USEC "$(readCounter "${cpu_stat}" usage_usec)" \
+        --arg USER_USEC "$(readCounter "${cpu_stat}" user_usec)" \
+        --arg SYSTEM_USEC "$(readCounter "${cpu_stat}" system_usec)" \
         --arg NR_PERIODS "$(readCounter "${cpu_stat}" nr_periods)" \
         --arg NR_THROTTLED "$(readCounter "${cpu_stat}" nr_throttled)" \
-        --arg THROTTLED_USEC "$(convertCounterToUsec "${throttled_time}" 1000)" \
+        --arg THROTTLED_USEC "$(readCounter "${cpu_stat}" throttled_usec)" \
         '{ usage_usec: $USAGE_USEC, user_usec: $USER_USEC, system_usec: $SYSTEM_USEC, nr_periods: $NR_PERIODS, nr_throttled: $NR_THROTTLED, throttled_usec: $THROTTLED_USEC }'
 }
 
@@ -112,30 +55,14 @@ eventlevel="Microsoft.Azure.Extensions.CustomScript-1.23"
 CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)
 KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)
 
-if [ "${CGROUP_VERSION}" = "cgroup2fs" ]; then
-    VERSION="cgroupv2"
-    TASK_NAME="AKS.Runtime.cpu_usage_telemetry_cgroupv2"
-    CPU_CGROUP="/sys/fs/cgroup"
-    CPUACCT_CGROUP="${CPU_CGROUP}"
-    CPU_TICKS_PER_SECOND=""
-elif [ "${CGROUP_VERSION}" = "tmpfs" ]; then
-    VERSION="cgroupv1"
-    TASK_NAME="AKS.Runtime.cpu_usage_telemetry_cgroupv1"
-    if [ -d "/sys/fs/cgroup/cpu,cpuacct" ]; then
-        CPU_CGROUP="/sys/fs/cgroup/cpu,cpuacct"
-        CPUACCT_CGROUP="${CPU_CGROUP}"
-    elif [ -d "/sys/fs/cgroup/cpuacct,cpu" ]; then
-        CPU_CGROUP="/sys/fs/cgroup/cpuacct,cpu"
-        CPUACCT_CGROUP="${CPU_CGROUP}"
-    else
-        CPU_CGROUP="/sys/fs/cgroup/cpu"
-        CPUACCT_CGROUP="/sys/fs/cgroup/cpuacct"
-    fi
-    CPU_TICKS_PER_SECOND=$(getconf CLK_TCK)
-else
-    echo "Unexpected cgroup type. Exiting"
+if [ "${CGROUP_VERSION}" != "cgroup2fs" ]; then
+    echo "cgroup v2 is required. Exiting"
     exit 1
 fi
+
+VERSION="cgroupv2"
+TASK_NAME="AKS.Runtime.cpu_usage_telemetry_cgroupv2"
+CPU_CGROUP="/sys/fs/cgroup"
 
 cpu_usage=$(jq -c -n '{
     counter_units: {
