@@ -1,6 +1,6 @@
 module github.com/Azure/agentbaker/aks-node-controller
 
-go 1.25.11
+go 1.26.0
 
 require (
 	github.com/Azure/agentbaker/aks-live-patching v0.20260831.0

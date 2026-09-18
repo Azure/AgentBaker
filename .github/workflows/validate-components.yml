@@ -12,7 +12,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.25'
+          go-version: '1.26'
       - name: Install cue
         run: |
           go version
@@ -78,3 +78,56 @@ jobs:
       run: |
         set -ex
         go test -v -tags=dcgmcompat ./components/
+
+  previous-version-consistency:
+    runs-on: ubuntu-latest
+    # This check only targets Renovate-authored version bumps: Renovate is
+    # the actor that copies latestVersion -> previousLatestVersion without
+    # noticing a same-release collision, so that's where this failure mode
+    # actually originates.
+    if: github.event.pull_request.user.login == 'renovate[bot]'
+    permissions:
+      contents: read
+      pull-requests: write
+    # Any entry in components.json tracking both latestVersion and
+    # previousLatestVersion can go stale: the two fields must reference two
+    # genuinely different releases. Renovate can bump latestVersion but has
+    # no logic to detect that a package/image rebuild left both fields
+    # pointing at the same release (only differing by package/image
+    # revision), so this check catches that case and posts a best-effort
+    # recommendation. It never edits components.json; a human must apply
+    # the fix.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Validate previousLatestVersion targets a genuinely prior release
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -ex
+          python3 .github/scripts/validate_previous_version.py \
+            --base "origin/${BASE_REF}" \
+            --file parts/common/components.json \
+            --report previous_version_report.md
+
+      - name: remove previousLatestVersion comment from PR
+        # Removing and then re-adding keeps the comment at the bottom of the
+        # PR and avoids piling up duplicate comments on repeated pushes.
+        if: always()
+        uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
+        with:
+          mode: delete
+          comment-tag: PREVIOUS_LATEST_VERSION_CHECK
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: comment previousLatestVersion findings on PR
+        if: always() && hashFiles('previous_version_report.md') != ''
+        uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
+        with:
+          file-path: previous_version_report.md
+          comment-tag: PREVIOUS_LATEST_VERSION_CHECK
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

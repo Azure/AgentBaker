@@ -53,6 +53,9 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 			validationErr = errors.Join(
 				ValidateFileExists(ctx, scenario, "C:\\AzureData\\base_prep.complete"),
 				ValidateFileDoesNotExist(ctx, scenario, "C:\\AzureData\\provision.complete"),
+				ValidateFileDoesNotExist(ctx, scenario, "C:\\k\\bootstrap-config"),
+				ValidateWindowsFileExcludesBootstrapToken(ctx, scenario, "C:\\AzureData\\CustomData.bin"),
+				ValidateWindowsFileExcludesBootstrapToken(ctx, scenario, "C:\\AzureData\\CustomDataSetupScript.ps1"),
 				ValidateWindowsServiceIsNotRunning(ctx, scenario, "kubelet"),
 				ValidateWindowsServiceIsRunning(ctx, scenario, "containerd"),
 			)
@@ -191,7 +194,7 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 	s.Location = strings.ToLower(s.Location)
 
 	if s.K8sSystemPoolSKU == "" {
-		s.K8sSystemPoolSKU = config.Config.DefaultVMSKU
+		s.K8sSystemPoolSKU = config.Config.VMSKU()
 	}
 
 	defer func() {
@@ -236,7 +239,7 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 		s.Runtime = &ScenarioRuntime{}
 	}
 	s.Runtime.Cluster = cluster
-	s.Runtime.VMSize = config.Config.DefaultVMSKU
+	s.Runtime.VMSize = config.Config.VMSKU()
 	s.Runtime.VMSSName = generateVMSSName(s)
 
 	testKube, err := cluster.NewKubeclientForTest()

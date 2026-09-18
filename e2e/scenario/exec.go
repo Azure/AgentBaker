@@ -202,7 +202,11 @@ func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario,
 // isRetryableConnectionError checks if the error is a transient connection issue that should be retried
 func isRetryableConnectionError(err error) bool {
 	errorMsg := err.Error()
-	return strings.Contains(errorMsg, "error dialing backend") ||
+	// client-go flattens proxy failures received after HTTP 101 into plain text.
+	proxy502 := strings.Contains(errorMsg, "proxy error from ") &&
+		strings.Contains(errorMsg, "while dialing ") &&
+		strings.Contains(errorMsg, ", code 502:")
+	return proxy502 || strings.Contains(errorMsg, "error dialing backend") ||
 		strings.Contains(errorMsg, "connection refused") ||
 		strings.Contains(errorMsg, "dial tcp") ||
 		strings.Contains(errorMsg, "i/o timeout") ||
