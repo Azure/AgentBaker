@@ -142,6 +142,24 @@ def load_json_file(path: str) -> dict:
         return json.load(f)
 
 
+def find_previous_version_lines(path: str) -> list:
+    """Return the 1-indexed line number and raw text of every literal
+    `"previousLatestVersion":` line in the file, in top-to-bottom document
+    order. Every ComponentEntry from collect_entries() has exactly one such
+    line (an entry requires both latestVersion and previousLatestVersion to
+    be present), and dict/list traversal order in collect_entries() mirrors
+    the file's physical order (json.load preserves key/list order). So
+    zipping this list against collect_entries()'s output gives each entry
+    its exact line number in the file without needing a line-tracking JSON
+    parser -- used to post GitHub suggested-change review comments."""
+    lines = []
+    with open(path, "r", encoding="utf-8") as f:
+        for i, line in enumerate(f, start=1):
+            if '"previousLatestVersion"' in line:
+                lines.append((i, line.rstrip("\n")))
+    return lines
+
+
 def collect_entries(node, path="root") -> list:
     """Recursively find every dict in components.json that tracks both
     `latestVersion` and `previousLatestVersion`, regardless of component
@@ -330,6 +348,12 @@ def main() -> int:
         "--report",
         help="optional path to write a Markdown report for PR-commenting when issues are found",
     )
+    parser.add_argument(
+        "--suggestions",
+        help="optional path to write a JSON list of GitHub suggested-change review "
+        "comments (path/line/body) for each finding that has a recommendation, so a "
+        "developer can apply the fix with GitHub's native 'Commit suggestion' button",
+    )
     args = parser.parse_args()
 
     try:
@@ -342,11 +366,26 @@ def main() -> int:
     base_entries = {entry_key(e): e for e in collect_entries(base_json)}
     head_entries = collect_entries(head_json)
 
+    prev_version_lines = find_previous_version_lines(args.file)
+    if len(prev_version_lines) == len(head_entries):
+        entry_lines = dict(zip((e.path for e in head_entries), prev_version_lines))
+    else:
+        # Should not happen (every ComponentEntry has exactly one
+        # "previousLatestVersion" line), but degrade gracefully: skip
+        # suggestion generation rather than risk mis-attributing a line.
+        print(
+            "::warning::previousLatestVersion line count does not match entry count; "
+            "skipping suggested-change generation for this run."
+        )
+        entry_lines = {}
+
     # Each row: (entry, kind, recommendation_or_None, note)
     # kind is "collision" (previousLatestVersion == latestVersion's release)
     # or "stale" (previousLatestVersion is a real prior release, but not the
     # highest build known upstream for that release).
     findings = []
+    # Each row: (path, line_number, raw_line, previous_latest_version, recommendation)
+    suggestions = []
 
     for entry in head_entries:
         base_entry = base_entries.get(entry_key(entry))
@@ -392,7 +431,36 @@ def main() -> int:
             continue
 
         if kind == "collision":
-            rec = find_prior_release_highest_build(available, latest.release)
+            # Renovate's autoReplaceStringTemplate always copies the OLD
+            # latestVersion string into previousLatestVersion on every bump
+            # (see .github/renovate.json). When the bump is revision-only
+            # (same release, higher build), that copy clobbers whatever
+            # genuinely prior release the base branch had retained, creating
+            # the collision. Prefer restoring/refreshing THAT retained
+            # release (a revision refresh) over re-selecting the highest
+            # upstream release below latestVersion (a release-selection
+            # change) -- otherwise we can silently swap the tracked prior
+            # release to one that was never actually shipped.
+            rec = None
+            base_latest = (
+                parse_version(base_entry.latest_version)
+                if base_entry and base_entry.latest_version
+                else None
+            )
+            base_previous = (
+                parse_version(base_entry.previous_latest_version)
+                if base_entry and base_entry.previous_latest_version
+                else None
+            )
+            if (
+                base_latest is not None
+                and base_previous is not None
+                and base_latest.release == latest.release  # revision-only update
+                and base_previous.release < latest.release  # base retained a genuinely prior release
+            ):
+                rec = find_highest_build(available, base_previous.release) or base_previous
+            if rec is None:
+                rec = find_prior_release_highest_build(available, latest.release)
             if rec:
                 recommendation = format_recommendation(rec, previous)
                 print(
@@ -400,6 +468,7 @@ def main() -> int:
                     f"(highest build found upstream for the prior release)"
                 )
                 findings.append((entry, kind, recommendation, None))
+                record_suggestion(suggestions, entry_lines, entry, recommendation)
             else:
                 note = "no build found upstream for a prior release; set this manually."
                 print(f"::error::{entry.path}: {note}")
@@ -414,11 +483,14 @@ def main() -> int:
                     f"upstream has build {rec.build}. best-effort recommendation: {recommendation}"
                 )
                 findings.append((entry, kind, recommendation, None))
+                record_suggestion(suggestions, entry_lines, entry, recommendation)
             # else: previousLatestVersion is already the highest known build (or upstream has
             # nothing newer that we could find) -- no finding.
 
     if args.report:
         write_report(args.report, findings)
+    if args.suggestions:
+        write_suggestions(args.suggestions, suggestions)
 
     if findings:
         print(
@@ -434,6 +506,30 @@ def main() -> int:
     return 0
 
 
+def record_suggestion(suggestions: list, entry_lines: dict, entry: ComponentEntry, recommendation: str) -> None:
+    """Record a GitHub suggested-change candidate for `entry`, if we know
+    which line its previousLatestVersion lives on. The suggestion body is
+    built by replacing the current value in-place within the *original raw
+    line* (so indentation, quoting, and any trailing comma are preserved
+    exactly), rather than re-rendering the JSON ourselves."""
+    line_info = entry_lines.get(entry.path)
+    if line_info is None:
+        return
+    line_no, raw_line = line_info
+    if f'"{entry.previous_latest_version}"' not in raw_line:
+        # Shouldn't happen given find_previous_version_lines()'s 1:1 zip with
+        # collect_entries(), but don't guess at a line we can't confirm.
+        return
+    new_line = raw_line.replace(f'"{entry.previous_latest_version}"', f'"{recommendation}"', 1)
+    suggestions.append((line_no, new_line))
+
+
+def write_suggestions(path: str, suggestions: list) -> None:
+    payload = [{"line": line_no, "new_line": new_line} for line_no, new_line in suggestions]
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+
+
 def write_report(path: str, findings: list) -> None:
     if not findings:
         return
@@ -444,8 +540,10 @@ def write_report(path: str, findings: list) -> None:
         "`previousLatestVersion` problem: either it points at the same release as "
         "`latestVersion` (must reference a genuinely prior release), or it's a real "
         "prior release but not the newest build known upstream for that release. "
-        "This check does not edit the file for you — please apply a value below "
-        "(or replace it with a better one if you know it).",
+        "Where a recommendation was found, this check also posted it as an inline "
+        "GitHub suggested-change review comment on the affected line below -- use its "
+        "\"Add suggestion to batch\" / \"Commit suggestion\" button to apply the fix "
+        "directly to this PR (or set a different value if you know a better one).",
         "",
         "| Entry | Issue | latestVersion | previousLatestVersion (current) | Suggested previousLatestVersion |",
         "|---|---|---|---|---|",
