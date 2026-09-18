@@ -8,11 +8,19 @@ isAllowedService() {
     esac
 }
 
-numericOrNull() {
+isNonNegativeInteger() {
     case "$1" in
-        ''|*[!0-9]*) echo "null" ;;
-        *) echo "$1" ;;
+        ''|*[!0-9]*) return 1 ;;
+        *) return 0 ;;
     esac
+}
+
+numericOrNull() {
+    if isNonNegativeInteger "$1"; then
+        echo "$1"
+    else
+        echo "null"
+    fi
 }
 
 main() {
@@ -76,9 +84,9 @@ main() {
 
     memory_peak=$("${systemctl_bin}" show "${service_name}" --property=MemoryPeak --value 2>/dev/null || true)
 
-    if [[ "${start_timestamp_monotonic}" =~ ^[0-9]+$ ]] &&
-        [[ "${exit_timestamp_monotonic}" =~ ^[0-9]+$ ]] &&
-        (( exit_timestamp_monotonic >= start_timestamp_monotonic )); then
+    if isNonNegativeInteger "${start_timestamp_monotonic}" &&
+        isNonNegativeInteger "${exit_timestamp_monotonic}" &&
+        [ "${exit_timestamp_monotonic}" -ge "${start_timestamp_monotonic}" ]; then
         duration_usec=$((exit_timestamp_monotonic - start_timestamp_monotonic))
     else
         echo "service execution telemetry: invalid execution timestamps for '${service_name}'" >&2
@@ -96,7 +104,7 @@ main() {
         collection_complete="false"
     fi
 
-    if [[ "${memory_peak}" =~ ^[0-9]+$ ]]; then
+    if isNonNegativeInteger "${memory_peak}"; then
         memory_peak_json="${memory_peak}"
         memory_peak_available="true"
     fi
