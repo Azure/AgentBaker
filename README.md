@@ -31,6 +31,20 @@ The E2E suite creates VM scale sets, provisions Kubernetes nodes with AgentBaker
 
 See the [E2E directory](e2e/).
 
+### Linux customData size
+
+The legacy Linux cloud-init payload must fit ARM's 87,380-character Base64 limit
+(65,535 decoded bytes). AgentBaker expands the template's individually gzipped
+`write_files` contents before compressing the complete cloud-config, preserving
+file contents, metadata, and boot commands while allowing cross-file compression.
+The embedded templates, scriptless NBC boothooks, Windows payloads, and Ignition
+payloads retain their existing formats.
+
+Run `go test ./pkg/agent -run 'TestLinuxCustomDataSize|TestCompressedCloudConfig'`
+to check size and content preservation. The E2E module also checks its full legacy
+bootstrap configuration with
+`cd e2e && go test ./scenario -run TestLegacyLinuxCustomDataFitsARM`.
+
 ## Contributor License Agreement (CLA)
 
 This project welcomes contributions and suggestions. Most contributions require you to agree to a

@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 	"github.com/vincent-petithory/dataurl"
+	"gopkg.in/yaml.v3"
 )
 
 // this regex looks for groups of the following forms, returning KEY and VALUE as submatches.
@@ -2099,10 +2100,16 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		expectedCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(config))
+		expectedPayload, err := getCompressedCloudConfig(expectedCustomData)
+		Expect(err).NotTo(HaveOccurred())
 
-		Expect(string(decompressedPayload)).To(Equal(expectedCustomData))
-		Expect(string(decompressedPayload)).NotTo(ContainSubstring(aksNodeCustomDataFilepath))
-		Expect(string(decompressedPayload)).NotTo(ContainSubstring(aksNbcCmdFilepath))
+		Expect(payload).To(Equal(expectedPayload))
+		var cloudConfig cloudInit
+		Expect(yaml.Unmarshal(decompressedPayload, &cloudConfig)).To(Succeed())
+		for _, file := range cloudConfig.WriteFiles {
+			Expect(file.Path).NotTo(Equal(aksNodeCustomDataFilepath))
+			Expect(file.Path).NotTo(Equal(aksNbcCmdFilepath))
+		}
 	})
 })
 

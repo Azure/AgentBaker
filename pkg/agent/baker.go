@@ -156,9 +156,67 @@ func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.N
 		encoded = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
 		customData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
-		encoded = getBase64EncodedGzippedCustomScriptFromStr(customData)
+		var err error
+		encoded, err = getCompressedCloudConfig(customData)
+		if err != nil {
+			panic(fmt.Errorf("failed to compress cloud-config: %w", err))
+		}
 	}
 	return encoded
+}
+
+// Compress scripts together rather than nesting independently gzipped files inside
+// another gzip stream, which loses cross-file compression and can exceed ARM's limit.
+func getCompressedCloudConfig(customData string) (string, error) {
+	var cloudConfig map[string]yaml.Node
+	if err := yaml.Unmarshal([]byte(customData), &cloudConfig); err != nil {
+		return "", fmt.Errorf("unmarshal cloud-config: %w", err)
+	}
+	files, hasFiles := cloudConfig["write_files"]
+	if hasFiles && files.Kind != yaml.SequenceNode {
+		return "", fmt.Errorf("cloud-config write_files must be a sequence")
+	}
+	expanded := false
+	for _, entry := range files.Content {
+		fileExpanded, err := expandCloudConfigFile(entry)
+		if err != nil {
+			return "", err
+		}
+		expanded = expanded || fileExpanded
+	}
+	if !expanded {
+		return getBase64EncodedGzippedCustomScriptFromStr(customData), nil
+	}
+	rendered, err := yaml.Marshal(cloudConfig)
+	if err != nil {
+		return "", fmt.Errorf("marshal cloud-config: %w", err)
+	}
+	return getBase64EncodedGzippedCustomScriptFromStr("#cloud-config\n" + string(rendered)), nil
+}
+
+func expandCloudConfigFile(entry *yaml.Node) (bool, error) {
+	var file cloudInitWriteFile
+	if err := entry.Decode(&file); err != nil {
+		return false, fmt.Errorf("decode write_files entry: %w", err)
+	}
+	if file.Encoding != encodingGZIP {
+		return false, nil
+	}
+	content, err := getGzipDecodedValue([]byte(file.Content))
+	if err != nil {
+		return false, fmt.Errorf("decode gzip content for %s: %w", file.Path, err)
+	}
+	for i := 0; i < len(entry.Content); i += 2 {
+		switch entry.Content[i].Value {
+		case "content":
+			if err := entry.Content[i+1].Encode(string(content)); err != nil {
+				return false, fmt.Errorf("encode content for %s: %w", file.Path, err)
+			}
+		case "encoding":
+			entry.Content[i+1].Value = ""
+		}
+	}
+	return true, nil
 }
 
 type encodedFile struct {
