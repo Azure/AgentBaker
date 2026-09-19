@@ -4,6 +4,7 @@
 Describe 'Linux content-test Run Command retries'
   az() {
     if [ "$1 $2" = 'group delete' ]; then echo cleanup; return; fi
+    printf '%s\n' "${@: -1}" > "$REPOSITORY_ARGUMENT"
     local calls
     calls=$(( $(cat "$CALLS") + 1 ))
     printf '%s' "$calls" > "$CALLS"
@@ -15,6 +16,7 @@ Describe 'Linux content-test Run Command retries'
     VM_NAME=test-vm TEST_VM_RESOURCE_GROUP_NAME=test-rg SCRIPT_PATH=test.sh VHD_DEBUG=False
     OS_VERSION=22.04 ENABLE_FIPS=false OS_SKU=Ubuntu GIT_BRANCH=refs/heads/main
     IMG_SKU='' FEATURE_FLAGS='' GIT_COMMIT_HASH=commit
+    AGENTBAKER_REPOSITORY_URL=https://github.com/example/AgentBaker.git
     eval "$(sed -n '/^function cleanup()/,/^trap cleanup EXIT/p' vhdbuilder/packer/test/run-test.sh)"
     eval "$(sed -n '/^  for i in $(seq 1 3); do$/,/^  done$/p' vhdbuilder/packer/test/run-test.sh)"
   )
@@ -28,10 +30,12 @@ Describe 'Linux content-test Run Command retries'
   End
   It "fails only if all attempts fail: success on attempt $1"
     SUCCESS_ON=$1 RESPONSE=$4 CALLS="${SHELLSPEC_WORKDIR}/calls"
+    REPOSITORY_ARGUMENT="${SHELLSPEC_WORKDIR}/repository-argument"
     printf 0 > "$CALLS"
     When run run_retry_loop
     The status should equal "$2"
     The contents of file "$CALLS" should equal "$3"
+    The contents of file "$REPOSITORY_ARGUMENT" should equal "https://github.com/example/AgentBaker.git"
     The output should include cleanup
     The output should not include '3: retrying'
     if [ "$2" -eq 1 ]; then

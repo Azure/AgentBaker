@@ -17,10 +17,43 @@ CLUSTER_CA_CERT="/etc/kubernetes/certs/ca.crt"
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
 # spec/parts/linux/cloud-init/artifacts/mariner-package-update_spec.sh.
 # -------------------------------------------------------------------------------------------------
+reconcileDualKernelBoot() {
+    local boot_dir="${BOOT_DIR:-/boot}"
+    local module_source="${GRUB_MODULE_SOURCE:-/usr/lib/grub/arm64-efi}"
+    local grub_config="${boot_dir}/grub2/grub.cfg"
+    local kernel_package kernel_version grub_versions
+    local kernel_versions=()
+
+    for kernel_package in kernel kernel-hwe; do
+        kernel_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}\n' "$kernel_package" 2>/dev/null | sort -V | tail -n1)
+        if [ -z "$kernel_version" ] || [ ! -s "${boot_dir}/vmlinuz-${kernel_version}" ] || [ ! -s "${boot_dir}/initramfs-${kernel_version}.img" ]; then
+            echo "Dual-kernel image is missing boot files for ${kernel_package}" >&2
+            return 1
+        fi
+        kernel_versions+=("$kernel_version")
+    done
+
+    if ! grub_versions=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}\n' grub2 grub2-efi-binary grub2-efi 2>/dev/null) || [ "$(printf '%s\n' "$grub_versions" | sort -u | wc -l)" -ne 1 ]; then
+        echo "Dual-kernel image has mismatched GRUB packages" >&2
+        return 1
+    fi
+    if [ ! -s "${module_source}/smbios.mod" ]; then
+        echo "Missing GRUB module file: ${module_source}/smbios.mod" >&2
+        return 1
+    fi
+
+    grub2-mkconfig -o "$grub_config" || return 1
+    grub2-script-check "$grub_config" || return 1
+    for kernel_version in "${kernel_versions[@]}"; do
+        grep -Fq "vmlinuz-${kernel_version}" "$grub_config" || { echo "GRUB config is missing kernel ${kernel_version}" >&2; return 1; }
+    done
+}
+
 dnf_update() {
     retries=10
     dnf_update_output=/tmp/dnf-update.out
     versionID=$(grep '^VERSION_ID=' ${OS_RELEASE_FILE} | cut -d'=' -f2 | tr -d '"')
+    local should_reconcile_dual_kernel=false
     if [ "${versionID}" = "3.0" ]; then
         # Convert the golden timestamp (format: YYYYMMDDTHHMMSSZ) to a timestamp in seconds
         # e.g. 20250623T000000Z -> 2025-06-23 00:00:00 -> 1750636800
@@ -28,6 +61,9 @@ dnf_update() {
         echo "using snapshottime ${snapshottime} for azurelinux 3.0 snapshot-based update"
         update_cmd="tdnf --snapshottime ${snapshottime}"
         repo_list=(--repo azurelinux-official-base --repo azurelinux-official-ms-non-oss --repo azurelinux-official-ms-oss --repo azurelinux-official-nvidia)
+        if [ "$(uname -m)" = "aarch64" ] && rpm -q kernel kernel-hwe &>/dev/null; then
+            should_reconcile_dual_kernel=true
+        fi
     else
         update_cmd="dnf"
         repo_list=(--repo mariner-official-base --repo mariner-official-microsoft --repo mariner-official-extras --repo mariner-official-nvidia)
@@ -46,6 +82,9 @@ dnf_update() {
         else sleep 5
         fi
     done
+    if $should_reconcile_dual_kernel; then
+        reconcileDualKernelBoot || return 1
+    fi
     echo Executed dnf update -y --refresh $i times
 }
 

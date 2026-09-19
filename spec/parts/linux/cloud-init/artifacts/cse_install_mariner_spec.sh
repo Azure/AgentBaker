@@ -27,6 +27,7 @@ Describe 'cse_install_mariner.sh'
     BeforeAll 'setup'
     Include "./parts/linux/cloud-init/artifacts/cse_install.sh"
     Include "./parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
+
     Describe 'installDeps'
         It 'installs the required packages with installDeps for Mariner 2.0'
             OS_VERSION="2.0"
@@ -289,10 +290,109 @@ Describe 'cse_install_mariner.sh'
 
         # Mock uname to return a kernel version matching our fake package
         uname() { echo "6.6.121.1-1.azl3"; }
+        getCPUArch() { echo "arm64"; }
+
+        MOCK_KERNEL_PACKAGE="kernel"
+        rpm() { echo "$MOCK_KERNEL_PACKAGE"; }
+
+        imex_config_path="$PWD/spec/tmp/nvidia-imex.conf"
+        NVIDIA_IMEX_MODPROBE_CONFIG_PATH="$imex_config_path"
+        updateDnfWithNvidiaPkg() { echo "updateDnfWithNvidiaPkg"; }
+        removeNvidiaRepos() { echo "removeNvidiaRepos"; }
+        systemctl_disable() { echo "systemctl_disable $*"; }
+
+        cleanup_imex_config() { rm -f "$imex_config_path"; }
+        BeforeEach 'cleanup_imex_config'
+        AfterEach 'cleanup_imex_config'
+
+        Describe 'legacy ARM64 NVIDIA repository migration'
+            setup_repo() {
+                REPO_TEST_DIR=$(mktemp -d)
+                AZURELINUX_NVIDIA_REPO_FILEPATH="$REPO_TEST_DIR/azurelinux-nvidia.repo"
+                REPO_EVENTS="$REPO_TEST_DIR/events"
+                LEGACY_BASEURL="baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/nvidia/x86_64/"
+                NATIVE_BASEURL="baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/nvidia/\$basearch/"
+                printf '[azurelinux-official-nvidia]\n%s\ngpgcheck=1\nrepo_gpgcheck=1\nsslverify=1\n' "$LEGACY_BASEURL" > "$AZURELINUX_NVIDIA_REPO_FILEPATH"
+                OS_VERSION="3.0"
+                NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+                MOCK_OPEN_RET=0
+                MOCK_VM_SKU="Standard_NC40ads_H100_v5"
+                MOCK_REPO_ARCH="arm64"
+                MOCK_REFRESH_STATUS=0
+            }
+            cleanup_repo() { rm -rf "$REPO_TEST_DIR"; }
+            BeforeEach 'setup_repo'
+            AfterEach 'cleanup_repo'
+            getCPUArch() { echo "$MOCK_REPO_ARCH"; }
+            dnf_makecache() {
+                echo refresh >> "$REPO_EVENTS"
+                return "$MOCK_REFRESH_STATUS"
+            }
+            dnf() {
+                echo query >> "$REPO_EVENTS"
+                local package_arch=x86_64
+                if [ -f "$AZURELINUX_NVIDIA_REPO_FILEPATH" ] && grep -Fxq "$NATIVE_BASEURL" "$AZURELINUX_NVIDIA_REPO_FILEPATH"; then
+                    package_arch=aarch64
+                fi
+                echo "cuda-open-580.159.04-1_6.6.121.1.1.azl3.$package_arch"
+            }
+
+            It 'migrates before querying, preserves security settings and only refreshes once'
+                run_twice() { downloadGPUDrivers; downloadGPUDrivers; }
+                When call run_twice
+                The status should be success
+                The output should include 'dnf install 30 1 600 cuda-open-580.159.04-1_6.6.121.1.1.azl3.aarch64'
+                The output should not include '.x86_64'
+                The contents of file "$REPO_EVENTS" should equal "$(printf 'refresh\nquery\nquery')"
+                The contents of file "$AZURELINUX_NVIDIA_REPO_FILEPATH" should equal "$(printf '[azurelinux-official-nvidia]\n%s\ngpgcheck=1\nrepo_gpgcheck=1\nsslverify=1' "$NATIVE_BASEURL")"
+            End
+
+            Describe 'unaffected repositories'
+                Parameters
+                    "native" "arm64" "3.0"
+                    "custom" "arm64" "3.0"
+                    "legacy" "amd64" "3.0"
+                    "legacy" "arm64" "2.0"
+                End
+                It "leaves $1 repo unchanged for $2 on $3"
+                    MOCK_REPO_ARCH=$2
+                    OS_VERSION=$3
+                    case "$1" in
+                        native) printf '%s\n' "$NATIVE_BASEURL" > "$AZURELINUX_NVIDIA_REPO_FILEPATH" ;;
+                        custom) printf 'baseurl=https://mirror.example/nvidia/x86_64/\n' > "$AZURELINUX_NVIDIA_REPO_FILEPATH" ;;
+                    esac
+                    original_repo=$(cat "$AZURELINUX_NVIDIA_REPO_FILEPATH")
+                    When call downloadGPUDrivers
+                    The status should be success
+                    The contents of file "$AZURELINUX_NVIDIA_REPO_FILEPATH" should equal "$original_repo"
+                    The contents of file "$REPO_EVENTS" should equal query
+                    The output should include 'Installing:'
+                End
+            End
+
+            It 'does not create a missing repository or refresh metadata'
+                rm "$AZURELINUX_NVIDIA_REPO_FILEPATH"
+                When call downloadGPUDrivers
+                The status should be success
+                The path "$AZURELINUX_NVIDIA_REPO_FILEPATH" should not be exist
+                The contents of file "$REPO_EVENTS" should equal query
+                The output should include 'Installing:'
+            End
+
+            It 'does not query or install when metadata refresh fails'
+                MOCK_REFRESH_STATUS=1
+                ERR_APT_UPDATE_TIMEOUT=30
+                When run downloadGPUDrivers
+                The status should equal 30
+                The contents of file "$REPO_EVENTS" should equal refresh
+                The output should eq ''
+            End
+        End
 
         # Mock dnf repoquery to return fake packages matching both cuda and cuda-open patterns
         dnf() {
             echo "cuda-open-570.195.03-1_6.6.121.1.1.azl3.x86_64"
+            echo "cuda-open-hwe-570.195.03-1_6.6.121.1.1.azl3.x86_64"
             echo "cuda-570.195.03-1_6.6.121.1.1.azl3.x86_64"
         }
 
@@ -337,7 +437,37 @@ Describe 'cse_install_mariner.sh'
             GRID_CALLED=""
             When call downloadGPUDrivers
             The output should include "NVIDIA OpenRM driver (cuda-open)"
+            The output should include "dnf install 30 1 600 cuda-open-570.195.03-1_6.6.121.1.1.azl3.x86_64"
+            The output should not include "cuda-open-hwe"
+            The output should not include "nvidia-imex"
             The variable GRID_CALLED should not equal "true"
+        End
+
+        It 'selects the newest HWE OpenRM package for GB200'
+            OS_VERSION="3.0"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            MOCK_VM_SKU="Standard_ND128isr_NDR_GB200_v6"
+            MOCK_OPEN_RET=0
+            MOCK_KERNEL_PACKAGE="kernel-hwe"
+            uname() { echo "9.9.2-1.azl3"; }
+            dnf() {
+                echo "cuda-open-999.1.2-2_9.9.2.1.azl3.aarch64"
+                echo "cuda-open-hwe-999.1.2-1_9.9.2.1.azl3.aarch64"
+                echo "cuda-open-hwe-999.1.2-2_9.9.2.1.azl3.aarch64"
+                echo "cuda-open-hwe-999.1.2-2_9.8.1.1.azl3.aarch64"
+            }
+
+            When call downloadGPUDrivers
+
+            The status should be success
+            The output should include "updateDnfWithNvidiaPkg"
+            The output should include "dnf install 30 1 600 cuda-open-hwe-999.1.2-2_9.9.2.1.azl3.aarch64 nvidia-imex-999.1.2"
+            The output should include "removeNvidiaRepos"
+            The output should include "systemctl_disable 20 5 25 nvidia-imex"
+            The output should not include "dnf install 30 1 600 cuda-open-999.1.2-2_9.9.2.1.azl3.aarch64"
+            The output should not include "dracut"
+            The output should not include "shutdown"
+            The contents of file "$imex_config_path" should equal "options nvidia NVreg_CreateImexChannel0=1"
         End
 
         It 'selects proprietary cuda path for T4 when NVIDIA_GPU_DRIVER_TYPE is cuda'
@@ -389,7 +519,7 @@ Describe 'cse_install_mariner.sh'
             dnf() {
                 case "$4" in
                     "cuda-open*")
-                        echo "cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
+                        echo "cuda-open-hwe-999.1.2-2_6.6.121.1.1.azl3.x86_64"
                         ;;
                     "cuda")
                         echo "cuda-570.195.03-1_6.6.121.1.1.azl3.x86_64"
@@ -404,7 +534,7 @@ Describe 'cse_install_mariner.sh'
 
             The status should be success
             The output should include "NVIDIA GPU driver versions available at VHD build time for supported Azure Linux GPU VM sizes:"
-            The output should include "  - nvidia-cuda-open-driver version 580.126.09"
+            The output should include "  - nvidia-cuda-open-driver version 999.1.2"
             The output should include "  - nvidia-cuda-driver version 570.195.03"
             The output should include "  - nvidia-grid-driver version 570.211.01"
             The output should include "build-time snapshot only"

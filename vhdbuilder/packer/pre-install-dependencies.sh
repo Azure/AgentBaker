@@ -179,6 +179,46 @@ if isMarinerOrAzureLinux "$OS" && [ "$OS_VERSION" = "3.0" ]; then
 fi
 capture_benchmark "${SCRIPT_NAME}_disable_kernel_lockdown_cmdline"
 
+installAzureLinuxArm64DualKernel() {
+  local boot_dir="$1"
+  local grub_module_source="$2"
+  local grub_version grub_efi_binary_version grub_efi_modules_version
+  local kernel_package
+
+  if ! rpm -q kernel-hwe &>/dev/null; then
+    dnf_install 30 1 600 kernel-hwe || return 1
+  fi
+
+  for kernel_package in kernel kernel-hwe; do
+    if ! rpm -q "$kernel_package" &>/dev/null || ! rpm -ql "$kernel_package" | grep -q '^/boot/vmlinuz-'; then
+      echo "ARM64 Azure Linux: $kernel_package does not provide a bootable kernel" >&2
+      return 1
+    fi
+  done
+
+  dnf_install 30 1 600 grub2-efi || return 1
+  grub_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2) || return 1
+  grub_efi_binary_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2-efi-binary) || return 1
+  grub_efi_modules_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2-efi) || return 1
+  if [ "$grub_version" != "$grub_efi_binary_version" ] || [ "$grub_version" != "$grub_efi_modules_version" ]; then
+    echo "ARM64 Azure Linux: GRUB package versions do not match: grub2=$grub_version, binary=$grub_efi_binary_version, modules=$grub_efi_modules_version" >&2
+    return 1
+  fi
+
+  if [ ! -s "$grub_module_source/smbios.mod" ]; then
+    echo "ARM64 Azure Linux: required GRUB file $grub_module_source/smbios.mod is missing" >&2
+    return 1
+  fi
+
+  grub2-mkconfig -o "${boot_dir}/grub2/grub.cfg"
+}
+
+# Co-install the HWE track used by NVIDIA Grace alongside the standard kernel.
+if [ "$OS_VERSION" = "3.0" ] && [ "${ENABLE_FIPS,,}" != "true" ] && isAzureLinuxArm64BaseImage "$OS" "$CPU_ARCH" "$OS_VARIANT"; then
+  installAzureLinuxArm64DualKernel /boot /usr/lib/grub/arm64-efi || exit "$ERR_APT_INSTALL_TIMEOUT"
+fi
+capture_benchmark "${SCRIPT_NAME}_install_kernel_hwe_arm64"
+
 # shellcheck disable=SC3010
 if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
 
