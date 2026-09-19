@@ -144,29 +144,6 @@ stages:
           parameters:
             artifactName: 2404-gen2-containerd
 
-    - job: build2404amdgpugen2containerd
-      timeoutInMinutes: 360
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
-            echo '##vso[task.setvariable variable=OS_VERSION]24.04'
-            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-            echo '##vso[task.setvariable variable=IMG_OFFER]ubuntu-24_04-lts'
-            echo '##vso[task.setvariable variable=IMG_SKU]server'
-            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            # Build the kernel module on a CPU VM; MI300X validation uses the captured image.
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
-            echo '##vso[task.setvariable variable=FEATURE_FLAGS]AMD_GPU'
-            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
-            echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
-            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-            echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]False'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-release-template.yaml
-          parameters:
-            artifactName: 2404-amdgpu-gen2-containerd
-
     - job: build2604minimalgen2containerd
       timeoutInMinutes: 360
       steps:

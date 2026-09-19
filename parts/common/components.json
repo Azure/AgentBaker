@@ -1,27 +1,4 @@
 {
-  "AMDGPUDriver": {
-    "repositoryURL": "https://repo.radeon.com/amdgpu/31.50/ubuntu",
-    "signingKeyURL": "https://repo.radeon.com/rocm/rocm.gpg.key",
-    "signingKeyFingerprint": "CA8BB4727A47B4D09B4EE8969386B48A1A693C5C",
-    "distribution": "noble",
-    "component": "main",
-    "packageVersion": "1:7.1.3.31500000-2390945.24.04",
-    "firmwarePackageVersion": "1:31.50.0.0.31500000-2390945.24.04",
-    "moduleVersion": "7.1.3.31500000",
-    "dkmsVersion": "7.1.3-2390945.24.04"
-  },
-  "AMDGPUDiagnostics": {
-    "repositoryURL": "https://stable.repo.amd.com/rocm/core/packages/ubuntu2404/",
-    "signingKeyURL": "https://stable.repo.amd.com/rocm/gpg/packages.gpg",
-    "signingKeyFingerprint": "D0F004A0025A1145C7807FCD0701EAC4D5E02107",
-    "distribution": "stable",
-    "component": "main",
-    "amdsmiPackage": "amdrocm-amdsmi10.0",
-    "amdsmiVersion": "10.0.0-4",
-    "sysdepsPackage": "amdrocm-sysdeps10.0",
-    "sysdepsVersion": "10.0.0-4",
-    "cliPath": "/opt/rocm/core-10.0/bin/amd-smi"
-  },
   "ContainerImages": [
     {
       "downloadURL": "mcr.microsoft.com/windows/servercore:*",

@@ -43,10 +43,11 @@ var _ = Register(newUbuntu2404MI300XAMDGPUScenario())
 
 func newUbuntu2404MI300XAMDGPUScenario() *Scenario {
 	return &Scenario{
-		Name:        "Ubuntu2404_MI300X_AMDGPU",
-		Description: "Opt-in Ubuntu 24.04 MI300X image with AMDGPU and AMD SMI: eight AMD GPUs, upstream device plugin, and containerized FP32 training checked against a CPU reference",
-		Tags:        Tags{GPU: true},
-		Location:    "francecentral",
+		Name:             "Ubuntu2404_MI300X_AMDGPU",
+		Description:      "Opt-in Ubuntu 24.04 MI300X image with AMDGPU and AMD SMI: eight AMD GPUs, upstream device plugin, and containerized FP32 training checked against a CPU reference",
+		Tags:             Tags{GPU: true},
+		Location:         "francecentral",
+		K8sSystemPoolSKU: config.DEFAULT_VMSKU,
 		SkipIf: func(context.Context) string {
 			if os.Getenv(amdMI300XOptIn) != "true" {
 				return "set " + amdMI300XOptIn + "=true after publishing the dedicated VHD and confirming MI300X quota"
@@ -54,9 +55,9 @@ func newUbuntu2404MI300XAMDGPUScenario() *Scenario {
 			return ""
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404Gen2AMDGPUContainerd,
-			VMSize:  amdMI300XVMSize,
+			Cluster:                 ClusterKubenet,
+			VHD:                     config.VHDUbuntu2404Gen2AMDGPUContainerd,
+			SkipNVMeOSDiskPlacement: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = amdMI300XVMSize
 				nbc.EnableAMDGPU = true
@@ -64,8 +65,15 @@ func newUbuntu2404MI300XAMDGPUScenario() *Scenario {
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 			},
+			BootstrapConfigMutatorWithError: func(context.Context, *Cluster, *datamodel.NodeBootstrappingConfiguration) error {
+				if config.Config.VMSKU() != amdMI300XVMSize {
+					return fmt.Errorf("AMD scenario requires --vm-sku %s", amdMI300XVMSize)
+				}
+				return nil
+			},
 			AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
 				cfg.VmSize = amdMI300XVMSize
+				cfg.GpuConfig.EnableAmdGpu = to.Ptr(true)
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(amdMI300XVMSize)
@@ -101,7 +109,7 @@ func validateAMDMI300X(ctx context.Context, s *Scenario) error {
 }
 
 func validateAMDGPUHost(ctx context.Context, s *Scenario) error {
-	contents, err := os.ReadFile(repoPath("parts/common/components.json"))
+	contents, err := os.ReadFile(repoPath("vhdbuilder/packer/amd-gpu-components.json"))
 	if err != nil {
 		return err
 	}
@@ -126,12 +134,12 @@ func amdGPUHostCheckCommand(contents []byte) (string, error) {
 	}
 	for _, key := range []string{"packageVersion", "firmwarePackageVersion", "moduleVersion", "dkmsVersion"} {
 		if manifest.AMDGPUDriver[key] == "" {
-			return "", fmt.Errorf("AMDGPUDriver.%s missing from components.json", key)
+			return "", fmt.Errorf("AMDGPUDriver.%s missing from amd-gpu-components.json", key)
 		}
 	}
 	for _, key := range []string{"amdsmiPackage", "amdsmiVersion", "sysdepsPackage", "sysdepsVersion", "cliPath"} {
 		if manifest.AMDGPUDiagnostics[key] == "" {
-			return "", fmt.Errorf("AMDGPUDiagnostics.%s missing from components.json", key)
+			return "", fmt.Errorf("AMDGPUDiagnostics.%s missing from amd-gpu-components.json", key)
 		}
 	}
 	encoded, err := json.Marshal(manifest)

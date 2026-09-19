@@ -1,0 +1,17 @@
+[
+  {
+    "type": "file",
+    "source": "vhdbuilder/scripts/linux/ubuntu/amd_gpu.sh",
+    "destination": "/home/packer/amd_gpu.sh"
+  },
+  {
+    "type": "file",
+    "source": "vhdbuilder/packer/amd-gpu-components.json",
+    "destination": "/home/packer/amd-gpu-components.json"
+  },
+  {
+    "type": "file",
+    "source": "parts/linux/cloud-init/artifacts/cse_amd_gpu.sh",
+    "destination": "/home/packer/amd-gpu-validate.sh"
+  }
+]

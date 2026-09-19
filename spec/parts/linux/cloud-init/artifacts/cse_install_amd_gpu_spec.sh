@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'dedicated AMD GPU image provisioning'
-    Include ./parts/linux/cloud-init/artifacts/cse_install.sh
+    Include ./parts/linux/cloud-init/artifacts/cse_amd_gpu.sh
     ERR_AMD_GPU_UNSUPPORTED=244
     ERR_AMD_GPU_VALIDATE_FAIL=245
     OS=UBUNTU
@@ -27,21 +27,31 @@ Describe 'dedicated AMD GPU image provisioning'
                 block && /^[[:space:]]*fi$/ { exit }
             ' parts/linux/cloud-init/artifacts/cse_main.sh)"
         }
+        source() { test "$1" = /opt/azure/containers/amd-gpu-validate.sh; }
         logs_to_events() { shift; "$@"; }
         ensureAmdGpuDrivers() { echo amd-driver-validated; }
 
         It 'runs hardware checks in nodePrep with both explicit flags'
             AMD_GPU_NODE=true
             CONFIG_GPU_DRIVER_IF_NEEDED=true
-            When call run_amd_node_prep
+            When run run_amd_node_prep
             The status should be success
             The output should equal amd-driver-validated
+        End
+
+        It 'fails the AMD node if its dedicated image validator is missing'
+            AMD_GPU_NODE=true
+            CONFIG_GPU_DRIVER_IF_NEEDED=true
+            source() { return 1; }
+            When run run_amd_node_prep
+            The status should equal 245
+            The output should equal ''
         End
 
         It 'honors driver configuration opt-out'
             AMD_GPU_NODE=true
             CONFIG_GPU_DRIVER_IF_NEEDED=false
-            When call run_amd_node_prep
+            When run run_amd_node_prep
             The status should be success
             The output should equal ''
         End
@@ -49,7 +59,7 @@ Describe 'dedicated AMD GPU image provisioning'
         It 'does nothing on existing nodes without AMD enablement'
             unset AMD_GPU_NODE
             CONFIG_GPU_DRIVER_IF_NEEDED=true
-            When call run_amd_node_prep
+            When run run_amd_node_prep
             The status should be success
             The output should equal ''
         End
@@ -105,7 +115,7 @@ Describe 'dedicated AMD GPU image provisioning'
                 mkdir -p "${AMD_TEST_ROOT}/nodes/${i}"
                 echo "${i}" > "${AMD_TEST_ROOT}/nodes/${i}/gpu_id"
             done
-            eval "$(sed -n '/^validateAmdGpuDriver()/,/^}/p; /^validateAmdGpuDevices()/,/^}/p' parts/linux/cloud-init/artifacts/cse_install.sh |
+            eval "$(sed -n '/^validateAmdGpuDriver()/,/^}/p; /^validateAmdGpuDevices()/,/^}/p' parts/linux/cloud-init/artifacts/cse_amd_gpu.sh |
                 sed "s|/opt/azure/amd-gpu|${AMD_TEST_ROOT}|g; s|/sys/module/amdgpu|${AMD_TEST_ROOT}/module|g; s|/sys/class/kfd/kfd/topology/nodes|${AMD_TEST_ROOT}/nodes|g")"
         }
         cleanup() { rm -rf "${AMD_TEST_ROOT}"; }

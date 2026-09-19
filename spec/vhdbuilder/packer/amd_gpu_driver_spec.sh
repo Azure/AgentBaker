@@ -7,22 +7,22 @@ Describe 'CPU-only AMDGPU driver bake'
     TRACE="${TEST_DIR}/trace"
     : > "${TRACE}"
     OS=UBUNTU OS_VERSION=24.04 CPU_ARCH=amd64 HYPERV_GENERATION=v2 ENABLE_FIPS=false
-    COMPONENTS_FILEPATH="${PWD}/parts/common/components.json"
+    AMD_COMPONENTS_FILEPATH="${PWD}/vhdbuilder/packer/amd-gpu-components.json"
     VHD_LOGS_FILEPATH="${TEST_DIR}/vhd.log"
     FAIL_STAGE=""
     PACKAGE_ARCH=all
     KERNEL=6.8.0-test-azure
-    PACKAGE_VERSION=$(jq -r '.AMDGPUDriver.packageVersion' "${COMPONENTS_FILEPATH}")
-    FIRMWARE_VERSION=$(jq -r '.AMDGPUDriver.firmwarePackageVersion' "${COMPONENTS_FILEPATH}")
-    MODULE_VERSION=$(jq -r '.AMDGPUDriver.moduleVersion' "${COMPONENTS_FILEPATH}")
-    DKMS_VERSION=$(jq -r '.AMDGPUDriver.dkmsVersion' "${COMPONENTS_FILEPATH}")
+    PACKAGE_VERSION=$(jq -r '.AMDGPUDriver.packageVersion' "${AMD_COMPONENTS_FILEPATH}")
+    FIRMWARE_VERSION=$(jq -r '.AMDGPUDriver.firmwarePackageVersion' "${AMD_COMPONENTS_FILEPATH}")
+    MODULE_VERSION=$(jq -r '.AMDGPUDriver.moduleVersion' "${AMD_COMPONENTS_FILEPATH}")
+    DKMS_VERSION=$(jq -r '.AMDGPUDriver.dkmsVersion' "${AMD_COMPONENTS_FILEPATH}")
     mkdir -p "${TEST_DIR}/work" "${TEST_DIR}/marker" "${TEST_DIR}/modprobe" "${TEST_DIR}/vendor-modprobe" \
       "${TEST_DIR}/modules/${KERNEL}/build"
     touch "${TEST_DIR}/modules/${KERNEL}/build/Makefile"
     printf 'blacklist amdgpu\nblacklist nouveau\n# retain this comment\n' > "${TEST_DIR}/modprobe/cloud.conf"
     # Remap owned filesystem locations only. Real sed exercises the cloud image
     # blacklist edit; apt, GPG, module commands and network are all mocked below.
-    eval "$(sed -n '/^installAMDGPUDriver()/,/^}$/p' vhdbuilder/scripts/linux/ubuntu/tool_installs_ubuntu.sh |
+    eval "$(sed -n '/^installAMDGPUDriver()/,/^}$/p' vhdbuilder/scripts/linux/ubuntu/amd_gpu.sh |
       sed -e "s|/opt/azure/amd-gpu|${TEST_DIR}/marker|g" -e "s|/tmp/amd-gpu|${TEST_DIR}/work/amd-gpu|g" \
           -e "s|/etc/modprobe.d|${TEST_DIR}/modprobe|g" -e "s|/usr/lib/modprobe.d|${TEST_DIR}/vendor-modprobe|g" \
           -e "s|/lib/modules|${TEST_DIR}/modules|g")"
@@ -241,7 +241,7 @@ Describe 'AMD-specific build dispatch'
     COMPONENTS_FILEPATH="${TEST_DIR}/components.json"
     jq '{Packages: ([.Packages[] | select(.name | test("nvidia|datacenter-gpu-manager|dcgm-exporter"))] + [{name: "retained-package"}])}' \
       parts/common/components.json > "${COMPONENTS_FILEPATH}"
-    eval "$(sed -n '/^isAMDGPUBuild()/,/^}$/p' vhdbuilder/packer/install-dependencies.sh)"
+    eval "$(sed -n '/^isAMDGPUSkippedPackage()/,/^}$/p' vhdbuilder/scripts/linux/ubuntu/amd_gpu.sh)"
     eval "$(sed -n '/^cachePackageAndBinaryComponents()/,/^}$/p' vhdbuilder/packer/install-dependencies.sh)"
   }
   cleanup_amd_dispatch() { rm -rf "${TEST_DIR}"; }
@@ -262,6 +262,7 @@ Describe 'AMD-specific build dispatch'
 
   It 'continues processing NVIDIA packages on existing image SKUs'
     FEATURE_FLAGS=NVIDIA_CUDA_PREBAKE
+    unset -f isAMDGPUSkippedPackage
     When run cachePackageAndBinaryComponents
     The status should be success
     The output should include 'processing components.packages'
@@ -269,5 +270,124 @@ Describe 'AMD-specific build dispatch'
     The contents of file "${TRACE}" should include 'nvidia-device-plugin'
     The contents of file "${TRACE}" should include 'datacenter-gpu-manager-4-core'
     The contents of file "${TRACE}" should include 'retained-package'
+  End
+End
+
+Describe 'Dedicated AMD image installation hook'
+  setup_amd_image() {
+    TEST_DIR=$(mktemp -d)
+    TRACE="${TEST_DIR}/trace"
+    : > "${TRACE}"
+    FEATURE_FLAGS=AMD_GPU OS=UBUNTU OS_VERSION=24.04 CPU_ARCH=amd64 HYPERV_GENERATION=v2 ENABLE_FIPS=false
+    SCRIPT_NAME=test-build FAIL_STAGE=''
+    AMD_COMPONENTS_FILEPATH="${TEST_DIR}/amd-gpu/components.json"
+    eval "$(sed -n '/^validateAMDGPUImageConfiguration()/,/^}$/p' vhdbuilder/scripts/linux/ubuntu/amd_gpu.sh)"
+    eval "$(sed -n '/^installAMDGPUImage()/,/^}$/p' vhdbuilder/scripts/linux/ubuntu/amd_gpu.sh |
+      sed 's/^  install /  amd_test_install /')"
+  }
+  cleanup_amd_image() { rm -rf "${TEST_DIR}"; }
+  BeforeEach setup_amd_image
+  AfterEach cleanup_amd_image
+  amd_test_install() {
+    case "$2" in
+      /home/packer/amd-gpu-components.json)
+        echo "metadata $*" >> "${TRACE}"
+        [ "${FAIL_STAGE}" != metadata ]
+        ;;
+      /home/packer/amd-gpu-validate.sh)
+        echo "validator $*" >> "${TRACE}"
+        [ "${FAIL_STAGE}" != validator ]
+        ;;
+      *) return 99 ;;
+    esac
+  }
+  installAMDGPUDriver() { echo driver >> "${TRACE}"; [ "${FAIL_STAGE}" != driver ]; }
+  installAMDGPUDiagnostics() { echo diagnostics >> "${TRACE}"; [ "${FAIL_STAGE}" != diagnostics ]; }
+  capture_benchmark() { echo "benchmark $1" >> "${TRACE}"; [ "${FAIL_STAGE}" != benchmark ]; }
+
+  It 'copies only dedicated metadata and the baked validator around the AMD installation'
+    When run installAMDGPUImage
+    The status should be success
+    The output should eq ''
+    The stderr should eq ''
+    The contents of file "${TRACE}" should eq "metadata -Dm0644 /home/packer/amd-gpu-components.json ${AMD_COMPONENTS_FILEPATH}
+driver
+benchmark test-build_build_amd_gpu_kernel_module
+diagnostics
+benchmark test-build_install_amd_gpu_diagnostics
+validator -Dm0755 /home/packer/amd-gpu-validate.sh /opt/azure/containers/amd-gpu-validate.sh"
+  End
+
+  Describe 'incomplete image installation'
+    Parameters
+      metadata
+      driver
+      diagnostics
+      benchmark
+      validator
+    End
+    It 'propagates each installation failure'
+      FAIL_STAGE="$1"
+      When run installAMDGPUImage
+      The status should be failure
+      The output should eq ''
+      The stderr should eq ''
+    End
+  End
+
+  Describe 'unsupported image configuration'
+    Parameters
+      NVIDIA_CUDA_PREBAKE UBUNTU 24.04 amd64 v2 false
+      AMD_GPU,NVIDIA_CUDA_PREBAKE UBUNTU 24.04 amd64 v2 false
+      AMD_GPU UBUNTU 22.04 amd64 v2 false
+      AMD_GPU MARINER 24.04 amd64 v2 false
+      AMD_GPU UBUNTU 24.04 arm64 v2 false
+      AMD_GPU UBUNTU 24.04 amd64 v1 false
+      AMD_GPU UBUNTU 24.04 amd64 v2 True
+    End
+    It 'fails before changing image content'
+      FEATURE_FLAGS="$1" OS="$2" OS_VERSION="$3" CPU_ARCH="$4" HYPERV_GENERATION="$5" ENABLE_FIPS="$6"
+      When run installAMDGPUImage
+      The status should be failure
+      The output should eq ''
+      The stderr should include 'requires the dedicated Ubuntu 24.04 amd64 Gen2 non-FIPS image'
+      The contents of file "${TRACE}" should eq ''
+    End
+  End
+End
+
+Describe 'AMD installer loading does not affect existing images'
+  setup_shared_bake_hook() {
+    TEST_DIR=$(mktemp -d)
+    TRACE="${TEST_DIR}/trace"
+    : > "${TRACE}"
+    AMD_SUPPORT_FILE="${TEST_DIR}/amd_gpu.sh"
+    # Match the literal feature flag expression in the shared source hook.
+    # shellcheck disable=SC2016
+    SHARED_HOOK=$(sed -n '/^case "${FEATURE_FLAGS:-}" in$/,/^esac$/p' vhdbuilder/packer/install-dependencies.sh |
+      sed "s|/home/packer/amd_gpu.sh|${AMD_SUPPORT_FILE}|g")
+    [ -n "${SHARED_HOOK}" ]
+  }
+  cleanup_shared_bake_hook() { rm -rf "${TEST_DIR}"; }
+  BeforeEach setup_shared_bake_hook
+  AfterEach cleanup_shared_bake_hook
+  run_shared_bake_hook() { eval "${SHARED_HOOK}"; }
+
+  Parameters
+    None missing
+    None broken
+    NVIDIA_CUDA_PREBAKE missing
+    NVIDIA_CUDA_PREBAKE broken
+  End
+  It 'does not load a missing or broken AMD support file on non-AMD images'
+    FEATURE_FLAGS="$1"
+    if [ "$2" = broken ]; then
+      printf 'echo AMD-file-was-sourced >> "%s"\nreturn 99\n' "${TRACE}" > "${AMD_SUPPORT_FILE}"
+    fi
+    When run run_shared_bake_hook
+    The status should be success
+    The output should eq ''
+    The stderr should eq ''
+    The contents of file "${TRACE}" should eq ''
   End
 End

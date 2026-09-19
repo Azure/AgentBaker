@@ -395,53 +395,10 @@ func TestWriteScriptHotfixFixtureRejectsInvalidData(t *testing.T) {
 // ERR_OUTBOUND_CONN_FAIL in parts/linux/cloud-init/artifacts/cse_helpers.sh. If the
 // product error code changes, this test forces the harness mitigation to be updated.
 func TestGetBaseVMSSModelUsesScenarioVMSize(t *testing.T) {
-	for _, test := range []struct {
-		name string
-		s    *Scenario
-		want string
-	}{
-		{name: "default", s: &Scenario{}, want: config.Config.VMSKU()},
-		{name: "configured before runtime initialization", s: &Scenario{Config: Config{VMSize: "Standard_ND96isr_MI300X_v5"}}, want: "Standard_ND96isr_MI300X_v5"},
-		{name: "runtime compatibility fallback wins", s: &Scenario{Config: Config{VMSize: "Standard_ND96isr_MI300X_v5"}, Runtime: &ScenarioRuntime{VMSize: config.DEFAULT_VMSKU}}, want: config.DEFAULT_VMSKU},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.want, scenarioVMSize(test.s))
-		})
+	s := &Scenario{
+		Runtime: &ScenarioRuntime{VMSize: config.DEFAULT_VMSKU},
 	}
-}
-
-func TestConfigureNVMeOSDiskPlacement(t *testing.T) {
-	for _, managed := range []bool{false, true} {
-		t.Run(fmt.Sprintf("managed=%t", managed), func(t *testing.T) {
-			osDisk := &armcompute.VirtualMachineScaleSetOSDisk{DiskSizeGB: to.Ptr[int32](256)}
-			if managed {
-				osDisk.ManagedDisk = &armcompute.VirtualMachineScaleSetManagedDiskParameters{
-					StorageAccountType: to.Ptr(armcompute.StorageAccountTypesPremiumLRS),
-				}
-			} else {
-				osDisk.DiffDiskSettings = &armcompute.DiffDiskSettings{
-					Option:    to.Ptr(armcompute.DiffDiskOptionsLocal),
-					Placement: to.Ptr(armcompute.DiffDiskPlacementResourceDisk),
-				}
-			}
-			vmss := &armcompute.VirtualMachineScaleSet{Properties: &armcompute.VirtualMachineScaleSetProperties{
-				VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
-					StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{OSDisk: osDisk},
-				},
-			}}
-			require.NoError(t, configureNVMeOSDiskPlacement(vmss))
-			require.Equal(t, int32(256), *osDisk.DiskSizeGB)
-			if managed {
-				require.Nil(t, osDisk.DiffDiskSettings)
-				require.Equal(t, armcompute.StorageAccountTypesPremiumLRS, *osDisk.ManagedDisk.StorageAccountType)
-			} else {
-				require.Equal(t, armcompute.DiffDiskPlacementNvmeDisk, *osDisk.DiffDiskSettings.Placement)
-				require.Equal(t, armcompute.DiffDiskOptionsLocal, *osDisk.DiffDiskSettings.Option)
-			}
-		})
-	}
-	require.Error(t, configureNVMeOSDiskPlacement(nil))
-	require.Error(t, configureNVMeOSDiskPlacement(&armcompute.VirtualMachineScaleSet{}))
+	assert.Equal(t, s.Runtime.VMSize, scenarioVMSize(s))
 }
 
 func TestCSEExitCodeOutboundConnFail(t *testing.T) {

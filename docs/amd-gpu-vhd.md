@@ -11,7 +11,8 @@ VMs, ARM64, and combinations with NVIDIA image flags are rejected.
 The host contains the official AMDGPU DKMS driver, firmware, AMD SMI diagnostics,
 matching kernel headers, and build prerequisites. Exact AMD package versions,
 module version, repository, and signing-key fingerprint live in
-`parts/common/components.json`.
+`vhdbuilder/packer/amd-gpu-components.json`, validated separately by
+`schemas/amd-gpu-components.cue`. The ordinary component manifest is unchanged.
 The build authenticates AMD repository metadata, installs only the selected
 driver, firmware, SMI and SMI sysdeps packages, builds the module for the image
 kernel, and removes its temporary repository and package-download state. It writes
@@ -94,10 +95,19 @@ the loaded module version, `/dev/kfd`, and eight active KFD GPUs. Preallocated
 DRM render nodes are not counted as GPUs. Missing or incompatible drivers fail
 provisioning; there is no vendor download or compile fallback on node startup.
 
-Build this flavor through the AMD job in `.pipelines/.vsts-vhd-builder.yaml`,
-or enable `build2404amdgpugen2containerd` in the release pipeline. The release
-parameter defaults to false. Existing CPU/NVIDIA image identities and
-production image-selection defaults remain unchanged.
+Build this flavor with the separate manual pipeline
+`.pipelines/.vsts-vhd-builder-amd.yaml` (`trigger: none`, `pr: none`). Register it
+with the existing nonproduction VHD builder pool, service connection, and
+build-environment variables. It captures only `2404gen2amdgpucontainerd` and
+replicates to France Central by default; it does not publish a production image.
+The normal PR and release build matrices are unchanged and have no dependency
+on the AMD pipeline. A failed AMD bake fails only that separate run.
+
+AMD installers, package metadata, content checks, and bootstrap validation live
+in AMD-specific files. Shared scripts load them only behind `AMD_GPU` or
+`AMD_GPU_NODE` guards. Node provisioning sources the validator baked into this
+image, so normal VHDs do not execute or depend on AMD package installation.
+Existing CPU/NVIDIA SKU naming and image-selection defaults remain unchanged.
 
 Use the captured AMD gallery image explicitly for testing. Its existing Ubuntu
 24.04 Gen2 `Distro` describes OS behavior; its distinct gallery image name
@@ -149,14 +159,19 @@ repository's normal E2E Azure configuration and its captured build metadata:
 cd e2e
 AGENTBAKER_E2E_ENABLE_MI300X=true ./e2e-local.sh \
   --subscription-id "$SUBSCRIPTION_ID" \
+  --vm-sku Standard_ND96isr_MI300X_v5 \
   --vhd-metadata-file /absolute/path/to/vhd-build-metadata.json \
   --parallel 1 --disable-scriptless \
+  --ignore-missing-vhd=false --skip-capacity-errors=false \
+  --tags '' --skip-tags '' \
   Ubuntu2404_MI300X_AMDGPU
 ```
 
 The metadata must contain `2404gen2amdgpucontainerd`, its real image-version
 resource ID, and the replication region. This scenario allocates MI300X
-capacity and is skipped unless explicitly enabled. It validates the driver,
+capacity and is skipped unless explicitly enabled. The existing `--vm-sku`
+option sets the tested node size before capability queries; the scenario keeps
+the shared AKS system pool on the ordinary CPU SKU. It validates the driver,
 deploys the digest-pinned AMD device plugin, requires eight advertised GPUs,
 and requires completed reference-checked training. A managed 256 GiB OS disk
 provides room to unpack the development workload image. The scenario does not

@@ -20,7 +20,7 @@ import (
 )
 
 func TestAMDGPUHostValidationRequiresPinnedDiagnostics(t *testing.T) {
-	contents, err := os.ReadFile(repoPath("parts/common/components.json"))
+	contents, err := os.ReadFile(repoPath("vhdbuilder/packer/amd-gpu-components.json"))
 	require.NoError(t, err)
 	script, err := amdGPUHostCheckCommand(contents)
 	require.NoError(t, err)
@@ -68,8 +68,8 @@ func TestAMDMI300XScenarioIsOptInAndUsesDedicatedImage(t *testing.T) {
 	t.Setenv(amdMI300XOptIn, "true")
 	require.Empty(t, s.SkipIf(t.Context()))
 	require.True(t, s.Tags.GPU)
-	require.Equal(t, amdMI300XVMSize, s.Config.VMSize)
-	require.Equal(t, amdMI300XVMSize, scenarioVMSize(s), "capability queries must use MI300X before bootstrap or VMSS mutation")
+	require.Equal(t, config.DEFAULT_VMSKU, s.K8sSystemPoolSKU, "the shared AKS system pool must stay on a CPU SKU")
+	require.True(t, s.SkipNVMeOSDiskPlacement, "managed OS disks have no ephemeral NVMe placement")
 	require.Equal(t, "2404gen2amdgpucontainerd", s.VHD.Name)
 	require.Equal(t, datamodel.AKSUbuntuContainerd2404Gen2, s.VHD.Distro)
 	require.Equal(t, "2404gen2containerd", config.VHDUbuntu2404Gen2Containerd.Name, "generic image selection must stay unchanged")
@@ -96,9 +96,10 @@ func TestAMDMI300XScenarioIsOptInAndUsesDedicatedImage(t *testing.T) {
 	}
 	s.VMConfigMutator(vmss)
 	require.Equal(t, amdMI300XVMSize, *vmss.SKU.Name)
-	anc := &aksnodeconfigv1.Configuration{}
+	anc := &aksnodeconfigv1.Configuration{GpuConfig: &aksnodeconfigv1.GpuConfig{}}
 	s.AKSNodeConfigMutator(nil, anc)
 	require.Equal(t, amdMI300XVMSize, anc.VmSize)
+	require.True(t, anc.GpuConfig.GetEnableAmdGpu())
 }
 
 func TestAMDMI300XScenarioUsesManagedOSDisk(t *testing.T) {
@@ -138,7 +139,7 @@ func TestAMDMI300XScenarioUsesManagedOSDisk(t *testing.T) {
 				},
 			}
 			s.VMConfigMutator(vmss)
-			require.NoError(t, configureNVMeOSDiskPlacement(vmss), "a managed OS disk remains valid if the SKU reports NVMe support")
+			require.True(t, s.SkipNVMeOSDiskPlacement, "only this scenario opts out of ephemeral NVMe placement")
 			require.Nil(t, osDisk.DiffDiskSettings, "the 256 GiB image must not depend on ephemeral ResourceDisk capacity")
 			require.NotNil(t, osDisk.ManagedDisk)
 			require.Equal(t, armcompute.StorageAccountTypesPremiumLRS, *osDisk.ManagedDisk.StorageAccountType)
@@ -153,17 +154,15 @@ func TestAMDMI300XScenarioUsesManagedOSDisk(t *testing.T) {
 	}
 }
 
-func TestAMDGPUBootstrapFlagReachesANC(t *testing.T) {
-	for _, enabled := range []bool{false, true} {
-		nbc, err := baseTemplateLinux("francecentral", "1.34.0", "amd64")
-		require.NoError(t, err)
-		nbc.EnableAMDGPU = enabled
-		anc, err := nbcToAKSNodeConfigV1(nbc)
-		require.NoError(t, err)
-		require.NotNil(t, anc.GpuConfig.EnableAmdGpu)
-		require.Equal(t, enabled, anc.GpuConfig.GetEnableAmdGpu())
-		require.True(t, anc.GpuConfig.ConfigGpuDriver)
-	}
+func TestAMDScenarioEnablesANCFlag(t *testing.T) {
+	nbc, err := baseTemplateLinux("francecentral", "1.34.0", "amd64")
+	require.NoError(t, err)
+	anc, err := nbcToAKSNodeConfigV1(nbc)
+	require.NoError(t, err)
+	require.Nil(t, anc.GpuConfig.EnableAmdGpu, "default conversion stays unchanged")
+	newUbuntu2404MI300XAMDGPUScenario().AKSNodeConfigMutator(nil, anc)
+	require.True(t, anc.GpuConfig.GetEnableAmdGpu())
+	require.True(t, anc.GpuConfig.ConfigGpuDriver)
 }
 
 func TestAMDGPUManifestsUseAssignedDevicesAndPinnedUserspace(t *testing.T) {
@@ -261,4 +260,15 @@ func TestAMDGPUTrainingRequiresSuccessfulCompletion(t *testing.T) {
 	done, err := amdGPUTrainingPodCompleted(failedContainer)
 	require.False(t, done)
 	require.ErrorContains(t, err, "reference mismatch")
+}
+
+func TestAMDMI300XRequiresExplicitRunnerSKU(t *testing.T) {
+	original := config.Config.DefaultVMSKU
+	t.Cleanup(func() { config.Config.DefaultVMSKU = original })
+	s := newUbuntu2404MI300XAMDGPUScenario()
+	config.Config.DefaultVMSKU = config.DEFAULT_VMSKU
+	require.ErrorContains(t, s.BootstrapConfigMutatorWithError(t.Context(), nil, nil), "--vm-sku")
+	config.Config.DefaultVMSKU = amdMI300XVMSize
+	require.NoError(t, s.BootstrapConfigMutatorWithError(t.Context(), nil, nil))
+	require.Equal(t, amdMI300XVMSize, scenarioVMSize(s), "existing runner SKU selection handles AMD before capability queries")
 }

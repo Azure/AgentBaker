@@ -141,9 +141,6 @@ type Config struct {
 	// VHD is the node image used by the scenario.
 	VHD *config.Image
 
-	// VMSize overrides the default VM size before capability queries and VMSS model creation.
-	VMSize string
-
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
 
@@ -201,6 +198,9 @@ type Config struct {
 
 	// UseNVMe indicates whether to use NVMe-based disk placement/controller. This is required for certain VM sizes (e.g., v6 and v7 series) which only support NVMe disk controllers.
 	UseNVMe bool
+
+	// SkipNVMeOSDiskPlacement leaves placement to scenarios using a managed OS disk.
+	SkipNVMeOSDiskPlacement bool
 
 	// EagerCSETimingExtraction when true causes CSE timing events to be extracted
 	// immediately after SSH is established, before other validators run.

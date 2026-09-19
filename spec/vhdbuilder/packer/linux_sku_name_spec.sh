@@ -1,6 +1,7 @@
 #!/bin/bash
 
 Describe 'Linux VHD flavor naming and AMD GPU build constraints'
+  Include './vhdbuilder/packer/amd-gpu-build-settings.sh'
   Include './vhdbuilder/packer/produce-packer-settings-functions.sh'
 
   setup_environment() {
@@ -20,13 +21,13 @@ Describe 'Linux VHD flavor naming and AMD GPU build constraints'
   BeforeEach 'setup_environment'
 
   It 'uses a dedicated AMD GPU SKU instead of the shared Ubuntu image'
-    When call get_linux_sku_name
+    When call get_amd_gpu_sku_name
     The status should be success
     The output should equal '2404gen2amdgpucontainerd'
   End
 
   derive_sig_name() {
-    SKU_NAME=$(get_linux_sku_name) || return 1
+    SKU_NAME=$(get_amd_gpu_sku_name) || return 1
     ensure_sig_image_name_linux
   }
 
@@ -53,11 +54,12 @@ Describe 'Linux VHD flavor naming and AMD GPU build constraints'
       FEATURE_FLAGS 'AMD_GPU,cvm'
       FEATURE_FLAGS 'AMD_GPU,minimal'
       FEATURE_FLAGS 'NOT_AMD_GPU'
+      FEATURE_FLAGS None
     End
 
     It 'rejects the unsupported AMD image configuration'
       printf -v "$1" '%s' "$2"
-      When call get_linux_sku_name
+      When call get_amd_gpu_sku_name
       The status should be failure
       The stderr should include 'AMD_GPU requires Ubuntu 24.04 x86_64 Gen2'
       The output should be blank
@@ -94,7 +96,19 @@ Describe 'Linux VHD flavor naming and AMD GPU build constraints'
     The output should be blank
   End
 
-  # Preserve the existing public naming contract when extracting the pipeline logic.
+  # Run the actual pipeline step to verify that ordinary image names still use
+  # their existing algorithm without loading or invoking the AMD helper/schema.
+  derive_pipeline_sku_name() {
+    local script
+    script=$(awk '
+      /^  - bash: \|$/ { script = ""; in_script = 1; next }
+      /^    displayName: Set SKU Name$/ { printf "%s", script; exit }
+      in_script && /^      / { sub(/^      /, ""); script = script $0 "\n" }
+    ' .pipelines/templates/.builder-release-template.yaml)
+    eval "${script}" >/dev/null || return 1
+    printf '%s\n' "${SKU_NAME}"
+  }
+
   Describe 'existing image flavors'
     Parameters
       Ubuntu 22.04 X86_64 V1 None False False 2204containerd
@@ -119,7 +133,7 @@ Describe 'Linux VHD flavor naming and AMD GPU build constraints'
       FEATURE_FLAGS="$5"
       ENABLE_FIPS="$6"
       ENABLE_TRUSTED_LAUNCH="$7"
-      When call get_linux_sku_name
+      When call derive_pipeline_sku_name
       The status should be success
       The output should equal "$8"
     End

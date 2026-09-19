@@ -7,20 +7,20 @@ Describe 'Minimal AMDGPU host diagnostics bake'
     TRACE="${TEST_DIR}/trace"
     : > "${TRACE}"
     OS=UBUNTU OS_VERSION=24.04 CPU_ARCH=amd64 HYPERV_GENERATION=v2 ENABLE_FIPS=false
-    COMPONENTS_FILEPATH="${TEST_DIR}/components.json"
+    AMD_COMPONENTS_FILEPATH="${TEST_DIR}/components.json"
     VHD_LOGS_FILEPATH="${TEST_DIR}/vhd.log"
     FAIL_STAGE=""
     PACKAGE_ARCH=amd64
     mkdir -p "${TEST_DIR}/work" "${TEST_DIR}/bin" "${TEST_DIR}/rocm/core-10.0/bin" "${TEST_DIR}/rocm/core-10.0/share/amd_smi"
     jq --arg cli_path "${TEST_DIR}/rocm/core-10.0/bin/amd-smi" '.AMDGPUDiagnostics.cliPath = $cli_path' \
-      parts/common/components.json > "${COMPONENTS_FILEPATH}"
-    AMDSMI_PACKAGE=$(jq -r '.AMDGPUDiagnostics.amdsmiPackage' "${COMPONENTS_FILEPATH}")
-    AMDSMI_VERSION=$(jq -r '.AMDGPUDiagnostics.amdsmiVersion' "${COMPONENTS_FILEPATH}")
-    SYSDEPS_PACKAGE=$(jq -r '.AMDGPUDiagnostics.sysdepsPackage' "${COMPONENTS_FILEPATH}")
-    SYSDEPS_VERSION=$(jq -r '.AMDGPUDiagnostics.sysdepsVersion' "${COMPONENTS_FILEPATH}")
+      vhdbuilder/packer/amd-gpu-components.json > "${AMD_COMPONENTS_FILEPATH}"
+    AMDSMI_PACKAGE=$(jq -r '.AMDGPUDiagnostics.amdsmiPackage' "${AMD_COMPONENTS_FILEPATH}")
+    AMDSMI_VERSION=$(jq -r '.AMDGPUDiagnostics.amdsmiVersion' "${AMD_COMPONENTS_FILEPATH}")
+    SYSDEPS_PACKAGE=$(jq -r '.AMDGPUDiagnostics.sysdepsPackage' "${AMD_COMPONENTS_FILEPATH}")
+    SYSDEPS_VERSION=$(jq -r '.AMDGPUDiagnostics.sysdepsVersion' "${AMD_COMPONENTS_FILEPATH}")
     # Run the production function, remapping only owned filesystem locations.
     # Network, package metadata and package installation are mocked below.
-    eval "$(sed -n '/^installAMDGPUDiagnostics()/,/^}$/p' vhdbuilder/scripts/linux/ubuntu/tool_installs_ubuntu.sh |
+    eval "$(sed -n '/^installAMDGPUDiagnostics()/,/^}$/p' vhdbuilder/scripts/linux/ubuntu/amd_gpu.sh |
       sed -e "s|/opt/rocm|${TEST_DIR}/rocm|g" -e "s|/usr/local/bin|${TEST_DIR}/bin|g" \
           -e "s|/tmp/amd-gpu-diagnostics|${TEST_DIR}/work/amd-gpu-diagnostics|g")"
   }

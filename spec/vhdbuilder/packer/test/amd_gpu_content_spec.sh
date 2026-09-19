@@ -5,21 +5,21 @@ Describe 'AMD VHD content validation'
   setup_amd_content() {
     TEST_DIR=$(mktemp -d)
     FEATURE_FLAGS=AMD_GPU OS_SKU=Ubuntu OS_VERSION=24.04 ENABLE_FIPS=false
-    COMPONENTS_FILEPATH="${PWD}/parts/common/components.json"
+    AMD_COMPONENTS_FILEPATH="${PWD}/vhdbuilder/packer/amd-gpu-components.json"
     KERNEL=6.8.0-test-azure
     FAIL_STAGE=""
-    PACKAGE_VERSION=$(jq -r '.AMDGPUDriver.packageVersion' "${COMPONENTS_FILEPATH}")
-    FIRMWARE_VERSION=$(jq -r '.AMDGPUDriver.firmwarePackageVersion' "${COMPONENTS_FILEPATH}")
-    MODULE_VERSION=$(jq -r '.AMDGPUDriver.moduleVersion' "${COMPONENTS_FILEPATH}")
-    DKMS_VERSION=$(jq -r '.AMDGPUDriver.dkmsVersion' "${COMPONENTS_FILEPATH}")
-    AMDSMI_PACKAGE=$(jq -r '.AMDGPUDiagnostics.amdsmiPackage' "${COMPONENTS_FILEPATH}")
-    SYSDEPS_PACKAGE=$(jq -r '.AMDGPUDiagnostics.sysdepsPackage' "${COMPONENTS_FILEPATH}")
+    PACKAGE_VERSION=$(jq -r '.AMDGPUDriver.packageVersion' "${AMD_COMPONENTS_FILEPATH}")
+    FIRMWARE_VERSION=$(jq -r '.AMDGPUDriver.firmwarePackageVersion' "${AMD_COMPONENTS_FILEPATH}")
+    MODULE_VERSION=$(jq -r '.AMDGPUDriver.moduleVersion' "${AMD_COMPONENTS_FILEPATH}")
+    DKMS_VERSION=$(jq -r '.AMDGPUDriver.dkmsVersion' "${AMD_COMPONENTS_FILEPATH}")
+    AMDSMI_PACKAGE=$(jq -r '.AMDGPUDiagnostics.amdsmiPackage' "${AMD_COMPONENTS_FILEPATH}")
+    SYSDEPS_PACKAGE=$(jq -r '.AMDGPUDiagnostics.sysdepsPackage' "${AMD_COMPONENTS_FILEPATH}")
     mkdir -p "${TEST_DIR}/marker" "${TEST_DIR}/modules/${KERNEL}/build" "${TEST_DIR}/sources/amdgpu-${DKMS_VERSION}"
     touch "${TEST_DIR}/modules/${KERNEL}/build/Makefile" "${TEST_DIR}/sources/amdgpu-${DKMS_VERSION}/dkms.conf"
     jq -n --arg driver "${PACKAGE_VERSION}" --arg firmware "${FIRMWARE_VERSION}" --arg module_version "${MODULE_VERSION}" \
       '{schema_version: 1, package_version: $driver, firmware_package_version: $firmware, module_version: $module_version,
         kernel_version: "earlier-bake-kernel"}' > "${TEST_DIR}/marker/driver.json"
-    eval "$(sed -n '/^testAMDGPUDriver()/,/^}$/p' vhdbuilder/packer/test/linux-vhd-content-test.sh |
+    eval "$(sed -n '/^testAMDGPUDriver()/,/^}$/p' vhdbuilder/packer/test/amd-gpu-vhd-content-test.sh |
       sed -e "s|/opt/azure/amd-gpu|${TEST_DIR}/marker|g" -e "s|/lib/modules|${TEST_DIR}/modules|g" \
           -e "s|/usr/src|${TEST_DIR}/sources|g")"
   }
@@ -128,7 +128,7 @@ Describe 'AMD SMI VHD content validation'
     TEST_DIR=$(mktemp -d)
     FEATURE_FLAGS=AMD_GPU
     FAIL_STAGE=""
-    COMPONENTS_FILEPATH="${TEST_DIR}/components.json"
+    AMD_COMPONENTS_FILEPATH="${TEST_DIR}/components.json"
     CLI_PATH="${TEST_DIR}/rocm/core-10.0/bin/amd-smi"
     CLI_TARGET="${TEST_DIR}/rocm/core-10.0/libexec/amdsmi_cli/amdsmi_cli.py"
     MODULE_PATH="${TEST_DIR}/rocm/core-10.0/share/amd_smi/amdsmi/__init__.py"
@@ -148,12 +148,12 @@ def amdsmi_init():
     raise RuntimeError("GPU initialization must not run on the CPU bake machine")
 PY
     printf 'raise ImportError("unrelated PYTHONPATH must not affect the bake check")\n' > "${TEST_DIR}/environment/amdsmi.py"
-    jq --arg cli "${CLI_PATH}" '.AMDGPUDiagnostics.cliPath = $cli' parts/common/components.json > "${COMPONENTS_FILEPATH}"
-    AMDSMI_PACKAGE=$(jq -r '.AMDGPUDiagnostics.amdsmiPackage' "${COMPONENTS_FILEPATH}")
-    AMDSMI_VERSION=$(jq -r '.AMDGPUDiagnostics.amdsmiVersion' "${COMPONENTS_FILEPATH}")
-    SYSDEPS_PACKAGE=$(jq -r '.AMDGPUDiagnostics.sysdepsPackage' "${COMPONENTS_FILEPATH}")
-    SYSDEPS_VERSION=$(jq -r '.AMDGPUDiagnostics.sysdepsVersion' "${COMPONENTS_FILEPATH}")
-    eval "$(sed -n '/^testAMDGPUDiagnostics()/,/^}$/p' vhdbuilder/packer/test/linux-vhd-content-test.sh |
+    jq --arg cli "${CLI_PATH}" '.AMDGPUDiagnostics.cliPath = $cli' vhdbuilder/packer/amd-gpu-components.json > "${AMD_COMPONENTS_FILEPATH}"
+    AMDSMI_PACKAGE=$(jq -r '.AMDGPUDiagnostics.amdsmiPackage' "${AMD_COMPONENTS_FILEPATH}")
+    AMDSMI_VERSION=$(jq -r '.AMDGPUDiagnostics.amdsmiVersion' "${AMD_COMPONENTS_FILEPATH}")
+    SYSDEPS_PACKAGE=$(jq -r '.AMDGPUDiagnostics.sysdepsPackage' "${AMD_COMPONENTS_FILEPATH}")
+    SYSDEPS_VERSION=$(jq -r '.AMDGPUDiagnostics.sysdepsVersion' "${AMD_COMPONENTS_FILEPATH}")
+    eval "$(sed -n '/^testAMDGPUDiagnostics()/,/^}$/p' vhdbuilder/packer/test/amd-gpu-vhd-content-test.sh |
       sed -e "s|/usr/local/bin/amd-smi|${TEST_DIR}/bin/amd-smi|g" \
           -e "s|/opt/rocm/|${TEST_DIR}/rocm/|g")"
   }
@@ -241,10 +241,100 @@ PY
   End
 
   It 'reports missing diagnostics metadata'
-    printf '{}\n' > "${COMPONENTS_FILEPATH}"
+    printf '{}\n' > "${AMD_COMPONENTS_FILEPATH}"
     When run testAMDGPUDiagnostics
     The status should be failure
     The output should eq ''
     The stderr should include 'Missing AMDGPU diagnostics component metadata'
+  End
+End
+
+Describe 'Dedicated AMD image content hook'
+  setup_amd_content_hook() {
+    TEST_DIR=$(mktemp -d)
+    TRACE="${TEST_DIR}/trace"
+    : > "${TRACE}"
+    touch "${TEST_DIR}/amd-gpu-validate.sh"
+    chmod +x "${TEST_DIR}/amd-gpu-validate.sh"
+    FAIL_STAGE=''
+    eval "$(sed -n '/^testAMDGPUImage()/,/^}$/p' vhdbuilder/packer/test/amd-gpu-vhd-content-test.sh |
+      sed "s|/opt/azure/containers/amd-gpu-validate.sh|${TEST_DIR}/amd-gpu-validate.sh|g")"
+  }
+  cleanup_amd_content_hook() { rm -rf "${TEST_DIR}"; }
+  BeforeEach setup_amd_content_hook
+  AfterEach cleanup_amd_content_hook
+  err() { printf '%s: %s\n' "$1" "$2" >&2; }
+  testAMDGPUDriver() { echo driver >> "${TRACE}"; [ "${FAIL_STAGE}" != driver ]; }
+  testAMDGPUDiagnostics() { echo diagnostics >> "${TRACE}"; [ "${FAIL_STAGE}" != diagnostics ]; }
+
+  It 'checks the driver, diagnostics and executable bootstrap validator'
+    When run testAMDGPUImage
+    The status should be success
+    The output should eq ''
+    The stderr should eq ''
+    The contents of file "${TRACE}" should eq "driver
+diagnostics"
+  End
+
+  It 'fails a missing bootstrap validator while still checking installed content'
+    rm "${TEST_DIR}/amd-gpu-validate.sh"
+    When run testAMDGPUImage
+    The status should be failure
+    The output should eq ''
+    The stderr should include 'bootstrap validator is missing or not executable'
+    The contents of file "${TRACE}" should eq "driver
+diagnostics"
+  End
+
+  Describe 'failed component checks'
+    Parameters
+      driver
+      diagnostics
+    End
+    It 'preserves failure even if the other component succeeds'
+      FAIL_STAGE="$1"
+      When run testAMDGPUImage
+      The status should be failure
+      The output should eq ''
+      The stderr should eq ''
+      The contents of file "${TRACE}" should eq "driver
+diagnostics"
+    End
+  End
+End
+
+Describe 'AMD content checks do not affect existing images'
+  setup_shared_content_hook() {
+    TEST_DIR=$(mktemp -d)
+    TRACE="${TEST_DIR}/trace"
+    : > "${TRACE}"
+    AMD_SUPPORT_FILE="${TEST_DIR}/amd-gpu-vhd-content-test.sh"
+    # Match the literal feature flag expression in the shared source hook.
+    # shellcheck disable=SC2016
+    SHARED_HOOK=$(sed -n '/^if \[ "${FEATURE_FLAGS:-}" = "AMD_GPU" \]; then$/,/^fi$/p' vhdbuilder/packer/test/linux-vhd-content-test.sh |
+      sed "s|./AgentBaker/vhdbuilder/packer/test/amd-gpu-vhd-content-test.sh|${AMD_SUPPORT_FILE}|g")
+    [ -n "${SHARED_HOOK}" ]
+  }
+  cleanup_shared_content_hook() { rm -rf "${TEST_DIR}"; }
+  BeforeEach setup_shared_content_hook
+  AfterEach cleanup_shared_content_hook
+  run_shared_content_hook() { eval "${SHARED_HOOK}"; }
+
+  Parameters
+    None missing
+    None broken
+    NVIDIA_CUDA_PREBAKE missing
+    NVIDIA_CUDA_PREBAKE broken
+  End
+  It 'does not load missing or broken AMD tests on non-AMD images'
+    FEATURE_FLAGS="$1"
+    if [ "$2" = broken ]; then
+      printf 'echo AMD-file-was-sourced >> "%s"\nreturn 99\n' "${TRACE}" > "${AMD_SUPPORT_FILE}"
+    fi
+    When run run_shared_content_hook
+    The status should be success
+    The output should eq ''
+    The stderr should eq ''
+    The contents of file "${TRACE}" should eq ''
   End
 End

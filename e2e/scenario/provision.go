@@ -239,7 +239,7 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 		s.Runtime = &ScenarioRuntime{}
 	}
 	s.Runtime.Cluster = cluster
-	s.Runtime.VMSize = scenarioVMSize(s)
+	s.Runtime.VMSize = config.Config.VMSKU()
 	s.Runtime.VMSSName = generateVMSSName(s)
 
 	testKube, err := cluster.NewKubeclientForTest()
