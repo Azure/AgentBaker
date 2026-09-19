@@ -487,6 +487,13 @@ function nodePrep {
     REBOOTREQUIRED=false
 
     # Install and configure GPU drivers if this is a GPU node
+    # Hardware validation belongs in nodePrep so it also runs on PIS nodes.
+    # The dedicated AMD image contains the driver; provisioning never downloads it.
+    if [ "${AMD_GPU_NODE:-false}" = "true" ] && [ "${CONFIG_GPU_DRIVER_IF_NEEDED:-false}" = "true" ]; then
+        source /opt/azure/containers/amd-gpu-validate.sh || exit $ERR_AMD_GPU_VALIDATE_FAIL
+        logs_to_events "AKS.CSE.ensureAmdGpuDrivers" ensureAmdGpuDrivers || exit $?
+    fi
+
     if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
         echo $(date),$(hostname), "Start configuring GPU drivers"
 
