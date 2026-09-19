@@ -130,7 +130,7 @@ the AKS resource provider's existing AMD driver-policy validation.
 
 ## Qualification
 
-On 2026-09-19, [dedicated AMD build 181874913](https://dev.azure.com/msazure/CloudNativeCompute/_build/results?buildId=181874913)
+On 2026-09-19, dedicated AMD build `181874913`
 successfully captured and tested `2404gen2amdgpucontainerd/1.1789808022.4162`
 and completed France Central replication. Its image inputs match PR commit
 `3ce6d173`; validation commit `72e925a9` changes only the pipeline entrypoint.
