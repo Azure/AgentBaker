@@ -146,7 +146,8 @@ func amdGPUHostCheckCommand(contents []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return "python3 - '" + base64.StdEncoding.EncodeToString(encoded) + "' <<'AMDGPU_CHECK'\n" + amdGPUHostCheckScript + "\nAMDGPU_CHECK\n", nil
+	// AMD SMI needs KFD/render device access; the SSH user is not in the GPU groups.
+	return "sudo -n python3 - '" + base64.StdEncoding.EncodeToString(encoded) + "' <<'AMDGPU_CHECK'\n" + amdGPUHostCheckScript + "\nAMDGPU_CHECK\n", nil
 }
 
 func amdGPUTolerations() []corev1.Toleration {

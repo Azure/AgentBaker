@@ -24,6 +24,7 @@ func TestAMDGPUHostValidationRequiresPinnedDiagnostics(t *testing.T) {
 	require.NoError(t, err)
 	script, err := amdGPUHostCheckCommand(contents)
 	require.NoError(t, err)
+	require.True(t, strings.HasPrefix(script, "sudo -n python3 - '"), "host diagnostics require noninteractive access to GPU devices")
 	encoded := strings.SplitN(script, "'", 3)[1]
 	decoded, err := base64.StdEncoding.DecodeString(encoded)
 	require.NoError(t, err)

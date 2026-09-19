@@ -161,7 +161,8 @@ AGENTBAKER_E2E_ENABLE_MI300X=true ./e2e-local.sh \
   --subscription-id "$SUBSCRIPTION_ID" \
   --vm-sku Standard_ND96isr_MI300X_v5 \
   --vhd-metadata-file /absolute/path/to/vhd-build-metadata.json \
-  --parallel 1 --disable-scriptless \
+  --parallel 1 --disable-scriptless=false \
+  --disable-scriptless-compilation=true \
   --ignore-missing-vhd=false --skip-capacity-errors=false \
   --tags '' --skip-tags '' \
   Ubuntu2404_MI300X_AMDGPU
@@ -177,10 +178,12 @@ and requires completed reference-checked training. A managed 256 GiB OS disk
 provides room to unpack the development workload image. The scenario does not
 yet automate reboot, serviced-kernel, or large all-to-all qualification.
 
-The command above exercises legacy NBC provisioning. The current E2E runner's
-scriptless path still executes an NBC command; it does not independently
-qualify native ANC JSON provisioning. AMD ANC environment generation is
-covered by parser tests, but native ANC boot requires separate qualification.
+The command above uses scriptless NBC provisioning with the scripts and ANC
+binary baked into the image. It avoids embedding the full legacy script payload
+in Azure custom data, which can exceed Azure's size limit. This path still
+executes an NBC command; it does not independently qualify native ANC JSON
+provisioning. AMD ANC environment generation is covered by parser tests, but
+native ANC boot requires separate qualification.
 
 AgentBaker's Ubuntu 24.04 build currently uses the 6.8 Azure LTS kernel policy.
 Require a successful build and boot of the captured image on MI300X, including
