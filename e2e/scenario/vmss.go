@@ -488,15 +488,24 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 	}
 
 	if s.Config.UseNVMe {
-		if model.Properties == nil || model.Properties.VirtualMachineProfile == nil ||
-			model.Properties.VirtualMachineProfile.StorageProfile == nil ||
-			model.Properties.VirtualMachineProfile.StorageProfile.OSDisk == nil ||
-			model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings == nil {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("VMSS model is missing diff disk settings required for NVMe placement")
+		if err := configureNVMeOSDiskPlacement(&model); err != nil {
+			return armcompute.VirtualMachineScaleSet{}, err
 		}
-		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementNvmeDisk)
 	}
 	return model, nil
+}
+
+func configureNVMeOSDiskPlacement(model *armcompute.VirtualMachineScaleSet) error {
+	if model == nil || model.Properties == nil || model.Properties.VirtualMachineProfile == nil ||
+		model.Properties.VirtualMachineProfile.StorageProfile == nil ||
+		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk == nil {
+		return fmt.Errorf("VMSS model is missing OS disk settings required for NVMe placement")
+	}
+	// Managed OS disks have no ephemeral placement, even on a SKU supporting NVMe.
+	if diffDisk := model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings; diffDisk != nil {
+		diffDisk.Placement = to.Ptr(armcompute.DiffDiskPlacementNvmeDisk)
+	}
+	return nil
 }
 
 func usesScriptlessNBCCSECmd(s *Scenario) bool {
@@ -1669,6 +1678,9 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 func scenarioVMSize(s *Scenario) string {
 	if s.Runtime != nil && s.Runtime.VMSize != "" {
 		return s.Runtime.VMSize
+	}
+	if s.Config.VMSize != "" {
+		return s.Config.VMSize
 	}
 	return config.Config.VMSKU()
 }

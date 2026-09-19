@@ -141,6 +141,9 @@ type Config struct {
 	// VHD is the node image used by the scenario.
 	VHD *config.Image
 
+	// VMSize overrides the default VM size before capability queries and VMSS model creation.
+	VMSize string
+
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
 

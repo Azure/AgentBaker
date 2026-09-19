@@ -42,6 +42,19 @@ LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 GRID_COMPATIBILITY_DATA_FILE=/opt/azure/vhd-grid-compatibility-data.json
 
+isAMDGPUBuild() {
+  case "${FEATURE_FLAGS:-}" in *AMD_GPU*) return 0 ;; *) return 1 ;; esac
+}
+
+if isAMDGPUBuild; then
+  if [ "${FEATURE_FLAGS}" != "AMD_GPU" ] || [ "${OS}" != "${UBUNTU_OS_NAME}" ] ||
+     [ "${OS_VERSION}" != "24.04" ] || [ "${CPU_ARCH}" != "amd64" ] ||
+     [ "${HYPERV_GENERATION,,}" != "v2" ] || [ "${ENABLE_FIPS,,}" = "true" ]; then
+    echo "AMD_GPU requires the dedicated Ubuntu 24.04 amd64 Gen2 non-FIPS image" >&2
+    exit 1
+  fi
+fi
+
 string_replace() {
   echo ${1//\*/$2}
 }
@@ -505,6 +518,14 @@ cachePackageAndBinaryComponents() {
   while IFS= read -r p; do
     #getting metadata for each package
     name=$(echo "${p}" | jq .name -r)
+    if isAMDGPUBuild; then
+      case "${name}" in
+        nvidia-*|dra-driver-nvidia-*|datacenter-gpu-manager-*|dcgm-exporter)
+          echo "Skipping NVIDIA package ${name} on the AMD GPU image"
+          continue
+          ;;
+      esac
+    fi
     os=${OS}
     # TODO(mheberling): Remove this once kata uses standard containerd. This OS is referenced
     # in file `parts/common/component.json` with the same ${MARINER_KATA_OS_NAME}.
@@ -1211,7 +1232,9 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
     activateNfConntrack
 elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
   updateAptWithMicrosoftPkg
-  updateAptWithNvidiaPkg
+  if ! isAMDGPUBuild; then
+    updateAptWithNvidiaPkg
+  fi
 fi
 capture_benchmark "${SCRIPT_NAME}_handle_os_specific_configurations"
 
@@ -1228,9 +1251,16 @@ ctr namespace create k8s.io
 # running them here (near-empty disk, BCC not yet started) avoids exhausting the 30GB packer build disk.
 # Running them after the container-image cache and/or concurrently with the BCC build fills the disk
 # (worse on 24.04), failing at the nvidia.ko link or the driver lib copy with "No space left on device".
-cacheGPUContainerImageComponents
-buildNVIDIAKernelModule
-capture_benchmark "${SCRIPT_NAME}_caching_gpu_container_images_and_build_nvidia_kernel_module"
+if isAMDGPUBuild; then
+  installAMDGPUDriver || exit 1
+  capture_benchmark "${SCRIPT_NAME}_build_amd_gpu_kernel_module"
+  installAMDGPUDiagnostics || exit 1
+  capture_benchmark "${SCRIPT_NAME}_install_amd_gpu_diagnostics"
+else
+  cacheGPUContainerImageComponents
+  buildNVIDIAKernelModule
+  capture_benchmark "${SCRIPT_NAME}_caching_gpu_container_images_and_build_nvidia_kernel_module"
+fi
 
 # Start eBPF tool installation in the background while we pull container images in the foreground
 startEBPFToolsInstallation

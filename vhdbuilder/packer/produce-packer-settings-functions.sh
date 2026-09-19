@@ -1,5 +1,47 @@
 #!/bin/bash
 
+function validate_amd_gpu_build() {
+	case "${FEATURE_FLAGS:-}" in
+	*AMD_GPU*) ;;
+	*) return 0 ;;
+	esac
+
+	# This is a separate driver-only image, not an addition to a shared NVIDIA VHD.
+	if [ "${FEATURE_FLAGS}" != "AMD_GPU" ] || [ "${OS_SKU}" != "Ubuntu" ] ||
+		[ "${OS_VERSION}" != "24.04" ] || [ "${ARCHITECTURE,,}" != "x86_64" ] ||
+		[ "${HYPERV_GENERATION,,}" != "v2" ] || [ "${ENABLE_FIPS,,}" = "true" ] ||
+		[ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ] || [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+		echo "AMD_GPU requires Ubuntu 24.04 x86_64 Gen2, without other feature flags, FIPS or Trusted Launch" >&2
+		return 1
+	fi
+	if [ -n "${SKU_NAME:-}" ] && [ "${SKU_NAME}" != "2404gen2amdgpucontainerd" ]; then
+		echo "AMD_GPU requires the dedicated SKU_NAME 2404gen2amdgpucontainerd" >&2
+		return 1
+	fi
+	if [ -n "${SIG_IMAGE_NAME:-}" ] && [ "${SIG_IMAGE_NAME}" != "2404gen2amdgpucontainerd" ]; then
+		echo "AMD_GPU requires the dedicated SIG_IMAGE_NAME 2404gen2amdgpucontainerd" >&2
+		return 1
+	fi
+}
+
+function get_linux_sku_name() {
+	validate_amd_gpu_build || return 1
+	local sku_name="${OS_VERSION}"
+	if grep -q "minimal" <<<"$FEATURE_FLAGS"; then sku_name+="minimal"; fi
+	if [ "${HYPERV_GENERATION,,}" = "v2" ]; then sku_name+="gen2"; fi
+	if [ "${ARCHITECTURE,,}" = "arm64" ]; then sku_name+="arm64"; fi
+	if grep -q "NVIDIA_GB" <<<"$FEATURE_FLAGS"; then sku_name+="gb"; fi
+	if [ "${FEATURE_FLAGS}" = "AMD_GPU" ]; then sku_name+="amdgpu"; fi
+	if [ "${ENABLE_FIPS,,}" = "true" ]; then sku_name+="fips"; fi
+	if grep -q "cvm" <<<"$FEATURE_FLAGS"; then sku_name+="CVM"; fi
+	if [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then sku_name+="TL"; fi
+	case "${OS_SKU}" in
+	CBLMariner | AzureLinux | AzureLinuxOSGuard | Flatcar | AzureContainerLinux) ;;
+	*) sku_name+="containerd" ;;
+	esac
+	printf '%s\n' "${sku_name//./}"
+}
+
 function compute_msi_resource_strings() {
 	# Populates the caller-declared array named by $1 (an explicit output parameter, via
 	# nameref) with the UAMI resource string to attach to the VHD build VM, or leaves it

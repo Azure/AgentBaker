@@ -282,6 +282,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksno
 			VnetCniPluginsUrl: vnetCNIPluginURL,
 		},
 		GpuConfig: &aksnodeconfigv1.GpuConfig{
+			EnableAmdGpu:       to.Ptr(nbc.EnableAMDGPU),
 			ConfigGpuDriver:    true,
 			GpuDevicePlugin:    false,
 			GpuInstanceProfile: nbc.GPUInstanceProfile,
