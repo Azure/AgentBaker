@@ -1464,7 +1464,7 @@
                 "k8sVersion": "1.36",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=26.04",
                 "latestVersion": "1.36.4-ubuntu26.04u4",
-                "previousLatestVersion": "1.36.3-ubuntu26.04u1"
+                "previousLatestVersion": "1.36.3-ubuntu26.04u5"
               }
             ]
           },
@@ -1474,19 +1474,19 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=24.04",
                 "latestVersion": "1.34.11-ubuntu24.04u4",
-                "previousLatestVersion": "1.34.10-ubuntu24.04u1"
+                "previousLatestVersion": "1.34.10-ubuntu24.04u9"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=24.04",
                 "latestVersion": "1.35.8-ubuntu24.04u4",
-                "previousLatestVersion": "1.35.7-ubuntu24.04u2"
+                "previousLatestVersion": "1.35.7-ubuntu24.04u9"
               },
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=24.04",
                 "latestVersion": "1.36.4-ubuntu24.04u4",
-                "previousLatestVersion": "1.36.3-ubuntu24.04u1"
+                "previousLatestVersion": "1.36.3-ubuntu24.04u5"
               }
             ]
           },
@@ -1496,19 +1496,19 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=22.04",
                 "latestVersion": "1.34.11-ubuntu22.04u4",
-                "previousLatestVersion": "1.34.10-ubuntu22.04u1"
+                "previousLatestVersion": "1.34.10-ubuntu22.04u9"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=22.04",
                 "latestVersion": "1.35.8-ubuntu22.04u4",
-                "previousLatestVersion": "1.35.7-ubuntu22.04u2"
+                "previousLatestVersion": "1.35.7-ubuntu22.04u9"
               },
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=22.04",
                 "latestVersion": "1.36.4-ubuntu22.04u4",
-                "previousLatestVersion": "1.36.3-ubuntu22.04u1"
+                "previousLatestVersion": "1.36.3-ubuntu22.04u5"
               }
             ]
           },
@@ -1518,7 +1518,7 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubelet, repository=production, os=ubuntu, release=20.04",
                 "latestVersion": "1.34.11-ubuntu20.04u4",
-                "previousLatestVersion": "1.34.10-ubuntu20.04u1"
+                "previousLatestVersion": "1.34.10-ubuntu20.04u9"
               }
             ]
           }
@@ -1530,19 +1530,19 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubelet, os=azurelinux, release=3.0",
                 "latestVersion": "1.34.11-4.azl3",
-                "previousLatestVersion": "1.34.10-1.azl3"
+                "previousLatestVersion": "1.34.10-9.azl3"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubelet, os=azurelinux, release=3.0",
                 "latestVersion": "1.35.8-4.azl3",
-                "previousLatestVersion": "1.35.7-2.azl3"
+                "previousLatestVersion": "1.35.7-9.azl3"
               },
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubelet, os=azurelinux, release=3.0",
                 "latestVersion": "1.36.4-4.azl3",
-                "previousLatestVersion": "1.36.3-1.azl3"
+                "previousLatestVersion": "1.36.3-5.azl3"
               }
             ]
           }
@@ -1554,19 +1554,19 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
                 "latestVersion": "v1.34.11-4-azlinux3",
-                "previousLatestVersion": "v1.34.10-1-azlinux3"
+                "previousLatestVersion": "v1.34.10-9-azlinux3"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
                 "latestVersion": "v1.35.8-4-azlinux3",
-                "previousLatestVersion": "v1.35.7-2-azlinux3"
+                "previousLatestVersion": "v1.35.7-9-azlinux3"
               },
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
                 "latestVersion": "v1.36.4-4-azlinux3",
-                "previousLatestVersion": "v1.36.3-1-azlinux3"
+                "previousLatestVersion": "v1.36.3-5-azlinux3"
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext:${version}-${SYSTEMD_ARCH}"
@@ -1586,7 +1586,7 @@
                 "k8sVersion": "1.36",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=26.04",
                 "latestVersion": "1.36.4-ubuntu26.04u1",
-                "previousLatestVersion": "1.36.3-ubuntu26.04u1"
+                "previousLatestVersion": "1.36.3-ubuntu26.04u5"
               }
             ]
           },
@@ -1596,19 +1596,19 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=24.04",
                 "latestVersion": "1.34.11-ubuntu24.04u1",
-                "previousLatestVersion": "1.34.10-ubuntu24.04u1"
+                "previousLatestVersion": "1.34.10-ubuntu24.04u7"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=24.04",
                 "latestVersion": "1.35.8-ubuntu24.04u1",
-                "previousLatestVersion": "1.35.7-ubuntu24.04u1"
+                "previousLatestVersion": "1.35.7-ubuntu24.04u5"
               },
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=24.04",
                 "latestVersion": "1.36.4-ubuntu24.04u1",
-                "previousLatestVersion": "1.36.3-ubuntu24.04u1"
+                "previousLatestVersion": "1.36.3-ubuntu24.04u5"
               }
             ]
           },
@@ -1618,19 +1618,19 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=22.04",
                 "latestVersion": "1.34.11-ubuntu22.04u1",
-                "previousLatestVersion": "1.34.10-ubuntu22.04u1"
+                "previousLatestVersion": "1.34.10-ubuntu22.04u7"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=22.04",
                 "latestVersion": "1.35.8-ubuntu22.04u1",
-                "previousLatestVersion": "1.35.7-ubuntu22.04u1"
+                "previousLatestVersion": "1.35.7-ubuntu22.04u5"
               },
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=22.04",
                 "latestVersion": "1.36.4-ubuntu22.04u1",
-                "previousLatestVersion": "1.36.3-ubuntu22.04u1"
+                "previousLatestVersion": "1.36.3-ubuntu22.04u5"
               }
             ]
           },
@@ -1640,7 +1640,7 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "name=kubectl, repository=production, os=ubuntu, release=20.04",
                 "latestVersion": "1.34.11-ubuntu20.04u1",
-                "previousLatestVersion": "1.34.10-ubuntu20.04u1"
+                "previousLatestVersion": "1.34.10-ubuntu20.04u7"
               }
             ]
           }
@@ -1652,19 +1652,19 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubectl, os=azurelinux, release=3.0",
                 "latestVersion": "1.34.11-1.azl3",
-                "previousLatestVersion": "1.34.10-1.azl3"
+                "previousLatestVersion": "1.34.10-7.azl3"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubectl, os=azurelinux, release=3.0",
                 "latestVersion": "1.35.8-1.azl3",
-                "previousLatestVersion": "1.35.7-1.azl3"
+                "previousLatestVersion": "1.35.7-5.azl3"
               },
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubectl, os=azurelinux, release=3.0",
                 "latestVersion": "1.36.4-1.azl3",
-                "previousLatestVersion": "1.36.3-1.azl3"
+                "previousLatestVersion": "1.36.3-5.azl3"
               }
             ]
           }
@@ -1676,19 +1676,19 @@
                 "k8sVersion": "1.34",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
                 "latestVersion": "v1.34.11-1-azlinux3",
-                "previousLatestVersion": "v1.34.10-1-azlinux3"
+                "previousLatestVersion": "v1.34.10-7-azlinux3"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
                 "latestVersion": "v1.35.8-1-azlinux3",
-                "previousLatestVersion": "v1.35.7-1-azlinux3"
+                "previousLatestVersion": "v1.35.7-5-azlinux3"
               },
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
                 "latestVersion": "v1.36.4-1-azlinux3",
-                "previousLatestVersion": "v1.36.3-1-azlinux3"
+                "previousLatestVersion": "v1.36.3-5-azlinux3"
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/kubectl-sysext:${version}-${SYSTEMD_ARCH}"
