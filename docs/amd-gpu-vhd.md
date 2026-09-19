@@ -32,13 +32,14 @@ and C++ runtime dependencies. It does not install the ROCm compute runtime,
 SDK, or Python packages from pip. `pciutils` (`lspci`) and `numactl` are retained
 for PCI and NUMA diagnosis.
 
-Read-only examples on a GPU node:
+Read-only examples on a GPU node (the default SSH user needs `sudo` for AMD
+SMI hardware access):
 
 ```bash
-amd-smi version
-amd-smi list --json
-amd-smi static --json
-amd-smi metric --json
+sudo amd-smi version
+sudo amd-smi list --json
+sudo amd-smi static --json
+sudo amd-smi metric --json
 lspci -nn
 numactl --hardware
 ```
@@ -129,31 +130,62 @@ the AKS resource provider's existing AMD driver-policy validation.
 
 ## Qualification
 
-Local repository generation, Go tests, lint, and focused ShellSpec checks
-passed. The actual installer also compiled the pinned module for
-`6.8.0-1067-azure` in an isolated Ubuntu 24.04 CPU container. An idempotent
-reinstall, APT autoremove, and the actual VHD driver content check passed;
-the installed module and DKMS rebuild dependencies survived cleanup. The
-container test supplied the target kernel to the installer; it did not boot
-that kernel or build/capture a complete VHD.
+On 2026-09-19, [dedicated AMD build 181874913](https://dev.azure.com/msazure/CloudNativeCompute/_build/results?buildId=181874913)
+successfully captured and tested `2404gen2amdgpucontainerd/1.1789808022.4162`
+and completed France Central replication. Its image inputs match PR commit
+`3ce6d173`; validation commit `72e925a9` changes only the pipeline entrypoint.
+The E2E runner includes the AMD test invocation fix in `4de7f56d`; that change
+does not alter the captured VHD payload.
 
-The AMD SMI addition also passed an actual minimal Ubuntu 24.04 installation,
-repeat installation, APT autoremove, and the diagnostics content test with
-`lspci`/`numactl`. Only the two selected AMD diagnostics packages were installed;
-its Python binding and library loaded without GPU hardware or the compute SDK.
-On the existing MI300X lab, `amd-smi` version, discovery, static information and
-metrics succeeded. The new `/usr/local/bin/amd-smi` symlink was also tested with
-a clean environment and detected eight GPUs.
+A fresh MI300X node booted this exact image, joined AKS, and passed
+`Ubuntu2404_MI300X_AMDGPU` with kernel `6.8.0-1067-azure` and AMDGPU module
+`7.1.3.31500000`. AMD SMI and the device plugin discovered eight GPUs. Using
+the [scenario's digest-pinned images](../e2e/scenario/scenario_gpu_amd.go),
+PyTorch 2.13.0 / ROCm 10.0 completed 40 FP32 training steps per GPU, checking
+outputs, loss, gradients, and updated parameters against a CPU reference.
 
-The existing MI300X lab used AMDGPU 31.50 with ROCm 10 containers on kernel
-6.17.0-1022-azure. Its eight-GPU training and exact all-to-all integrity tests
-passed. Those results establish this host/container combination; they do not
-establish that a newly baked AgentBaker image has booted successfully.
-The new training fixture also passed 40 steps on each of eight GPUs, comparing
-outputs, losses, gradients, and updated parameters with a CPU reference.
+Additional checks passed before and after restarting that same instance. A
+changed boot ID and node readiness were required before the second round:
+
+- Eight-rank all-to-all transfers checked every received element at
+  64/80/128/256 MiB per peer: 42,631 measured calls across both rounds, 291.16 TB
+  received including 254.77 TB between GPUs, and zero mismatched elements.
+  Independent calculation verified complete timing samples and byte totals.
+- A 49,016,832-parameter Transformer completed 100 BF16 DDP/AdamW steps across
+  eight GPUs in each round, processing 1,638,400 synthetic tokens per round.
+  Mean loss decreased from 6.519 to 0.000249; losses, gradients, and weights
+  remained finite, and all eight ranks produced the same full-model SHA-256.
+- The 40-step CPU-reference training check passed again on all eight GPUs
+  after reboot.
+- Host driver, AMD SMI, and runtime health checks passed before and after these
+  workloads; the host had no ROCm compute SDK installed.
+
+Remote-send bandwidth per GPU (decimal GB/s):
+
+| MiB per peer | Median before reboot | Median after reboot | Effective before | Effective after |
+| --- | ---: | ---: | ---: | ---: |
+| 64 | 278.7 | 278.8 | 269.9 | 272.6 |
+| 80 | 281.9 | 282.0 | 281.2 | 277.7 |
+| 128 | 286.5 | 286.5 | 286.3 | 286.3 |
+| 256 | 291.1 | 291.4 | 289.6 | 290.5 |
+
+Rates use decimal GB/s and seven remote sends per GPU divided by the slowest
+rank's call time, without send/receive double-counting. Effective rates include
+all timed calls, including outliers; setup and data comparison are outside the
+timed calls. These bounded tests do not establish peak throughput, model
+quality, or integrity of untested transfers and network/storage paths.
 
 After capturing the image and replicating it to `francecentral`, use the
 repository's normal E2E Azure configuration and its captured build metadata:
+
+The test nodes need outbound HTTPS access to the pinned images on Docker Hub.
+The standard E2E firewall does not include this access. For an isolated AMD lab,
+scope an additional rule to its GPU nodes for `registry-1.docker.io`,
+`auth.docker.io`, and the image-layer CDN. The current image digests were served
+by `production.cloudfront.docker.com`; recheck CDN destinations when updating
+them. Remove temporary rules with the lab resources. A recurring AMD pipeline
+can instead mirror the exact digests into an approved reachable registry and
+verify the copied manifests and layers before use.
 
 ```bash
 cd e2e
@@ -186,11 +218,10 @@ provisioning. AMD ANC environment generation is covered by parser tests, but
 native ANC boot requires separate qualification.
 
 AgentBaker's Ubuntu 24.04 build currently uses the 6.8 Azure LTS kernel policy.
-Require a successful build and boot of the captured image on MI300X, including
-node readiness, eight advertised GPUs, AI/reference checks, large all-to-all
-integrity/bandwidth checks, reboot, and kernel-update/rebuild validation. Run
-both legacy and ANC provisioning, and PIS validation before supporting PIS.
-Record the image ID, kernel, driver, workload image digests, and results.
+Native ANC JSON and legacy provisioning, PIS, and a serviced-kernel update with
+DKMS rebuild and subsequent GPU workloads require separate qualification.
+Record the image version, kernel, driver,
+workload image digests, and results for each path.
 
 Production release additionally requires vendor driver security qualification.
 A successful workload run is not evidence that all driver security issues are
