@@ -89,6 +89,13 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+    # Serialize (and cancel superseded) runs per-PR: post_suggestions.py's
+    # delete-then-post isn't safe to run concurrently for the same PR --
+    # an older, in-flight run could otherwise delete a newer run's freshly
+    # posted suggestions after that newer run already finished.
+    concurrency:
+      group: previous-version-consistency-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     # Any entry in components.json tracking both latestVersion and
     # previousLatestVersion can go stale: the two fields must reference two
     # genuinely different releases. Renovate can bump latestVersion but has
@@ -100,6 +107,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Check out the PR head commit itself (not the default synthetic
+          # pull_request merge ref) so the line numbers validate_previous_version.py
+          # computes match the exact commit post_suggestions.py posts the
+          # review against -- otherwise a base-branch change since the PR
+          # was opened could make the merge-ref line numbers diverge from
+          # the head commit's real content and GitHub would reject or
+          # misplace the suggestions.
+          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
           fetch-depth: 0
       - name: Validate previousLatestVersion targets a genuinely prior release
@@ -107,10 +122,33 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           set -ex
+          # Diff against the merge base (fork point) of head and the base
+          # branch, not the base branch's current tip: if the base branch has
+          # advanced since this PR was opened, comparing against its live tip
+          # would misattribute base-only components.json changes to this PR
+          # (and could point suggestions at lines outside the PR's own diff,
+          # which GitHub rejects).
+          MERGE_BASE="$(git merge-base HEAD "origin/${BASE_REF}")"
           python3 .github/scripts/validate_previous_version.py \
-            --base "origin/${BASE_REF}" \
+            --base "$MERGE_BASE" \
             --file parts/common/components.json \
-            --report previous_version_report.md
+            --report previous_version_report.md \
+            --suggestions previous_version_suggestions.json
+
+      - name: Post previousLatestVersion suggestions as review comments
+        # Always run (even when this push has no findings): a prior push's
+        # suggestions may since have been fixed and need to be cleaned up.
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -ex
+          python3 .github/scripts/post_suggestions.py \
+            --repo "${{ github.repository }}" \
+            --pr "${{ github.event.pull_request.number }}" \
+            --commit-sha "${{ github.event.pull_request.head.sha }}" \
+            --file parts/common/components.json \
+            --suggestions previous_version_suggestions.json
 
       - name: remove previousLatestVersion comment from PR
         # Removing and then re-adding keeps the comment at the bottom of the

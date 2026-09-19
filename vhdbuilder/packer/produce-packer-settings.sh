@@ -203,6 +203,8 @@ if [ "$MODE" = "windowsVhdMode" ] || [ "${ENVIRONMENT,,}" = "prod" ]; then
 	PACKER_BUILD_LOCATION=$AZURE_LOCATION
 fi
 
+resolve_security_type_feature
+
 produce_ua_token
 
 # windows_image_version refers to the version from azure gallery
@@ -225,6 +227,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "windows_image_version": "${WINDOWS_IMAGE_VERSION}",
   "windows_image_url": "${WINDOWS_IMAGE_URL}",
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
+  "security_type_feature": "${SECURITY_TYPE_FEATURE}",
   "sig_image_name":  "${SIG_IMAGE_NAME}",
   "sig_gallery_name": "${SIG_GALLERY_NAME}",
   "captured_sig_version": "${CAPTURED_SIG_VERSION}",
