@@ -2753,9 +2753,9 @@ testAMDGPUDriver() {
     err "${test}" "Missing AMDGPU component metadata"
     return 1
   fi
-  if ! jq -e --arg package "${package_version}" --arg firmware "${firmware_version}" --arg module "${module_version}" \
+  if ! jq -e --arg package "${package_version}" --arg firmware "${firmware_version}" --arg module_version "${module_version}" \
     '.schema_version == 1 and .package_version == $package and .firmware_package_version == $firmware and
-      .module_version == $module and (.kernel_version | type == "string" and length > 0)' "${marker}" >/dev/null; then
+      .module_version == $module_version and (.kernel_version | type == "string" and length > 0)' "${marker}" >/dev/null; then
     err "${test}" "Missing or inconsistent AMDGPU driver marker"
     return 1
   fi

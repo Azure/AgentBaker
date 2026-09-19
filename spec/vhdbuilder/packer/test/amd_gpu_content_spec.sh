@@ -16,8 +16,8 @@ Describe 'AMD VHD content validation'
     SYSDEPS_PACKAGE=$(jq -r '.AMDGPUDiagnostics.sysdepsPackage' "${COMPONENTS_FILEPATH}")
     mkdir -p "${TEST_DIR}/marker" "${TEST_DIR}/modules/${KERNEL}/build" "${TEST_DIR}/sources/amdgpu-${DKMS_VERSION}"
     touch "${TEST_DIR}/modules/${KERNEL}/build/Makefile" "${TEST_DIR}/sources/amdgpu-${DKMS_VERSION}/dkms.conf"
-    jq -n --arg driver "${PACKAGE_VERSION}" --arg firmware "${FIRMWARE_VERSION}" --arg module "${MODULE_VERSION}" \
-      '{schema_version: 1, package_version: $driver, firmware_package_version: $firmware, module_version: $module,
+    jq -n --arg driver "${PACKAGE_VERSION}" --arg firmware "${FIRMWARE_VERSION}" --arg module_version "${MODULE_VERSION}" \
+      '{schema_version: 1, package_version: $driver, firmware_package_version: $firmware, module_version: $module_version,
         kernel_version: "earlier-bake-kernel"}' > "${TEST_DIR}/marker/driver.json"
     eval "$(sed -n '/^testAMDGPUDriver()/,/^}$/p' vhdbuilder/packer/test/linux-vhd-content-test.sh |
       sed -e "s|/opt/azure/amd-gpu|${TEST_DIR}/marker|g" -e "s|/lib/modules|${TEST_DIR}/modules|g" \
