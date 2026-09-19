@@ -11,12 +11,11 @@ parameters:
 
 steps:
   # Computed once per job, before the VHD is built, so every later step in this
-  # job (Build VHD, Convert ACL VHD to COSI, Generate Publishing Info) and the
-  # downstream arm64 COSI convert job (via output variable, see
-  # exportImageVersion below) all agree on the same value. Recomputing
-  # date +%Y%m.%d.0 independently in each consumer risks drift when a job run
-  # straddles a UTC day boundary. Runs for every SKU, not just ACL, since this
-  # template is shared by every VHD build job.
+  # job (Build VHD, Generate Publishing Info) and the downstream COSI convert
+  # job (via output variable, see exportImageVersion below) all agree on the
+  # same value. Recomputing date +%Y%m.%d.0 independently in each consumer
+  # risks drift when a job run straddles a UTC day boundary. Runs for every
+  # SKU, not just ACL, since this template is shared by every VHD build job.
   - bash: |
       set -euo pipefail
       IMAGE_VERSION="$(date +%Y%m.%d.0)"
@@ -29,9 +28,9 @@ steps:
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
 
-  # For arm64 ACL: publish a source bundle for the separate native-arm64 COSI
-  # convert job (the arm64 pool has no git, so its `checkout: self` is disabled
-  # and it downloads this bundle instead). Must run AFTER the checkout above but
+  # ACL (both architectures): publish a source bundle for the separate COSI
+  # convert job (its pool has no git, so its `checkout: self` is disabled and
+  # it downloads this bundle instead). Must run AFTER the checkout above but
   # BEFORE Download CIS scanner (which drops binaries into vhdbuilder/ that
   # would otherwise bloat the tarball).
   - bash: |
@@ -40,12 +39,12 @@ steps:
       tar --exclude='./.git' \
           -czf "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz" .
       ls -lh "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz"
-    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
-    displayName: Bundle source for arm64 COSI convert
+    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+    displayName: Bundle source for COSI convert
 
   - task: PublishPipelineArtifact@1
-    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
-    displayName: Publish source bundle for arm64 COSI convert
+    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+    displayName: Publish source bundle for COSI convert
     inputs:
       # artifactName is the per-job param (e.g. "acl-arm64-tl-gen2"); using it
       # here guarantees a unique artifact name per build job at compile time.
@@ -482,8 +481,8 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk convert-sig-to-classic-storage-account-blob
-    # ACL always needs its VHD staged as a blob for the COSI convert steps
-    # (inline here for x64, or the native-arm64 convert job) to download, so it
+    # ACL always needs its VHD staged as a blob for the separate COSI convert
+    # job (see .builder-cosi-convert-job-template.yaml) to download, so it
     # bypasses the legacy GENERATE_PUBLISHING_INFO/prefetch gating below.
     condition: |
       and(
@@ -510,61 +509,6 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
-        make -f packer.mk convert-vhd-to-cosi
-    # arm64 ACL runs this on the native arm64 pool as a separate job (see
-    # convertaclarm64* jobs); it can't run under emulation here.
-    condition: |
-      and(
-        succeeded(),
-        eq(variables['OS_SKU'], 'AzureContainerLinux'),
-        ne(variables['ARCHITECTURE'], 'ARM64')
-      )
-    displayName: Convert ACL VHD to COSI
-    env:
-      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
-      OFFER_NAME: $(OS_SKU)
-      IMG_CUSTOMIZER_ALLOW_FALLBACK: "true"
-      AFD_DOWNLOAD_HOSTNAME: $(AFD_DOWNLOAD_HOSTNAME)
-      COSI_CONTAINER: $(COSI_CONTAINER)
-      IMAGE_VERSION: $(IMAGE_VERSION)
-
-  - task: AzureCLI@2
-    inputs:
-      azureSubscription: $(COSI_PMC_SERVICE_CONNECTION)
-      scriptType: bash
-      scriptLocation: inlineScript
-      inlineScript: |
-        make -f packer.mk upload-cosi-to-pmc
-    condition: |
-      and(
-        succeeded(),
-        eq(variables['OS_SKU'], 'AzureContainerLinux'),
-        ne(variables['ARCHITECTURE'], 'ARM64')
-      )
-    displayName: Upload COSI to PMC
-    env:
-      AFD_UPLOAD_ENDPOINT: $(AFD_UPLOAD_ENDPOINT)
-      COSI_CONTAINER: $(COSI_CONTAINER)
-
-  - task: PublishPipelineArtifact@1
-    condition: |
-      and(
-        succeeded(),
-        eq(variables['OS_SKU'], 'AzureContainerLinux'),
-        ne(variables['ARCHITECTURE'], 'ARM64')
-      )
-    displayName: Publish COSI Publishing Info
-    inputs:
-      artifactName: 'cosi-publishing-info-${{ parameters.artifactName }}'
-      targetPath: 'cosi-publishing-info.json'
-
-
-  - task: AzureCLI@2
-    inputs:
-      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
-      scriptType: bash
-      scriptLocation: inlineScript
-      inlineScript: |
         echo "Copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
         export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
         export AZCOPY_CONCURRENCY_VALUE="AUTO"
@@ -572,14 +516,15 @@ steps:
         echo "Successfully copied to immutable container"
         # Remove old VHD from staging container after copy to immutable container is complete
         azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
-    # arm64 ACL keeps its staged VHD for the separate native-arm64 COSI convert
-    # job to download; that job performs the immutable copy after conversion.
+    # ACL (either architecture) keeps its staged VHD for the separate COSI
+    # convert job to download; that job performs the immutable copy itself
+    # after conversion.
     condition: |
       and(
         succeeded(),
         eq(variables.ENVIRONMENT, 'tme'),
         eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
-        not(and(eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))),
+        ne(variables['OS_SKU'], 'AzureContainerLinux'),
         or(
           eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
           eq(variables.PREFETCH_COMPATIBLE, 'False')
