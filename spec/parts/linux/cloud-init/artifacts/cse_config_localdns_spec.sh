@@ -37,9 +37,28 @@ Describe 'cse_config_localdns.sh'
             touch /etc/systemd/system/localdns.service
             touch /opt/azure/containers/localdns/localdns.sh
 
-            systemctlEnableAndStart() {
-                echo "systemctlEnableAndStart $@"
+            # enableLocalDNS's retry loop calls check_cse_timeout, which warns on stderr
+            # when this is unset. Set it so the real guard is exercised (elapsed ~0s, well
+            # under CSE_MAX_DURATION_SECONDS) instead of taking its unset short-circuit.
+            CSE_STARTTIME_SECONDS=$(date +%s)
+
+            # enableLocalDNS drives systemd directly rather than going through
+            # systemctlEnableAndStart, so it can clear the StartLimit budget
+            # between attempts. Mock the primitives it actually calls.
+            systemctl() {
+                echo "systemctl $*"
                 return 0
+            }
+            timeout() {
+                shift
+                "$@"
+            }
+            retrycmd_if_failure() {
+                echo "retrycmd_if_failure $*"
+                return 0
+            }
+            sleep() {
+                :
             }
             systemctlEnableAndStartNoBlock() {
                 echo "systemctlEnableAndStartNoBlock $@"
@@ -88,14 +107,50 @@ Describe 'cse_config_localdns.sh'
             The output should not include "localdns should be enabled."
         End
 
-        It 'should return error when systemctl fails to start localdns'
-            systemctlEnableAndStart() {
-                echo "systemctlEnableAndStart $@"
-                return 1
+        # Record an ordered trace of the calls that matter: R for reset-failed, S for a
+        # start attempt. Asserting on the trace is what pins "before *each* attempt" -- a
+        # test that only checks both strings appear somewhere would still pass if
+        # reset-failed were hoisted out of the loop.
+        tracing_systemctl() {
+            systemctl() {
+                case "$1" in
+                    reset-failed) printf 'R' >> "$TMP_DIR/trace" ;;
+                    restart)      printf 'S' >> "$TMP_DIR/trace" ;;
+                esac
+                echo "systemctl $*"
+                if [ "$1" = "restart" ]; then
+                    restart_calls=$((restart_calls + 1))
+                    if [ "$restart_calls" -lt "$restart_failures_before_success" ]; then
+                        return 1
+                    fi
+                fi
+                return 0
             }
+            restart_calls=0
+        }
+
+        It 'should reset the StartLimit budget before every attempt, not only the first'
+            # Two failed restarts then a success, so the loop runs three times.
+            restart_failures_before_success=3
+            tracing_systemctl
+            When run enableLocalDNS
+            The status should be success
+            The output should include "Enable localdns succeeded."
+            # R before every S, three times over -- not RSSS.
+            The contents of file "$TMP_DIR/trace" should equal "RSRSRS"
+        End
+
+        It 'should return error when systemctl fails to start localdns'
+            # Never succeeds, so the loop exhausts and takes the give-up path.
+            restart_failures_before_success=99999
+            tracing_systemctl
             When run enableLocalDNS
             The status should equal 216
             The output should include "localdns should be enabled."
+            The output should include "systemctl reset-failed localdns"
+            # The give-up path deliberately does not reset, so the unit is left in 'failed'
+            # for NPD: the trace must end on a start attempt, never on a reset.
+            The contents of file "$TMP_DIR/trace" should end with "S"
         End
     End
     Describe 'enableLocalDNSForScriptless'
@@ -113,9 +168,28 @@ Describe 'cse_config_localdns.sh'
             touch /etc/systemd/system/localdns.service
             touch /opt/azure/containers/localdns/localdns.sh
 
-            systemctlEnableAndStart() {
-                echo "systemctlEnableAndStart $@"
+            # enableLocalDNS's retry loop calls check_cse_timeout, which warns on stderr
+            # when this is unset. Set it so the real guard is exercised (elapsed ~0s, well
+            # under CSE_MAX_DURATION_SECONDS) instead of taking its unset short-circuit.
+            CSE_STARTTIME_SECONDS=$(date +%s)
+
+            # enableLocalDNS drives systemd directly rather than going through
+            # systemctlEnableAndStart, so it can clear the StartLimit budget
+            # between attempts. Mock the primitives it actually calls.
+            systemctl() {
+                echo "systemctl $*"
                 return 0
+            }
+            timeout() {
+                shift
+                "$@"
+            }
+            retrycmd_if_failure() {
+                echo "retrycmd_if_failure $*"
+                return 0
+            }
+            sleep() {
+                :
             }
             systemctlEnableAndStartNoBlock() {
                 echo "systemctlEnableAndStartNoBlock $@"

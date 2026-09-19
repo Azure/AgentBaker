@@ -1348,6 +1348,73 @@ EOF
         End
     End
 
+# This section tests - stop_watchdog_sleep
+# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#
+# The watchdog waits by backgrounding 'sleep' so a signal can interrupt the wait. With
+# KillMode=mixed systemd signals only the main process, so the child has to be reaped
+# explicitly or it holds the unit's cgroup open and delays the stop. These use real
+# processes and real signals rather than mocks -- a mocked kill would prove nothing about
+# whether the child actually goes away.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'stop_watchdog_sleep'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+        }
+        BeforeEach 'setup'
+
+        It 'should kill an in-flight watchdog sleep'
+            start_and_stop_sleep() {
+                sleep 300 &
+                WATCHDOG_SLEEP_PID=$!
+                # Keep our own copy: stop_watchdog_sleep clears WATCHDOG_SLEEP_PID, so
+                # checking that variable afterwards would test 'kill -0 ""' and pass even
+                # if the child were still alive.
+                child_pid=$WATCHDOG_SLEEP_PID
+                # the child must genuinely be running before we try to stop it
+                kill -0 "$child_pid" 2>/dev/null || { echo "child never started"; return 1; }
+                stop_watchdog_sleep
+                # and genuinely gone afterwards
+                if kill -0 "$child_pid" 2>/dev/null; then
+                    echo "child $child_pid survived stop_watchdog_sleep"
+                    kill -9 "$child_pid" 2>/dev/null
+                    return 1
+                fi
+                echo "child reaped"
+                return 0
+            }
+            When call start_and_stop_sleep
+            The status should be success
+            The output should include "child reaped"
+        End
+
+        It 'should clear the recorded pid so a second call is a no-op'
+            stop_twice() {
+                sleep 300 &
+                WATCHDOG_SLEEP_PID=$!
+                stop_watchdog_sleep
+                [ -z "${WATCHDOG_SLEEP_PID}" ] || { echo "pid not cleared"; return 1; }
+                # calling again with nothing in flight must not error
+                stop_watchdog_sleep
+                echo "second call was a no-op"
+            }
+            When call stop_twice
+            The status should be success
+            The output should include "second call was a no-op"
+        End
+
+        It 'should do nothing when no sleep is in flight'
+            no_sleep() {
+                WATCHDOG_SLEEP_PID=""
+                stop_watchdog_sleep
+                echo "no-op ok"
+            }
+            When call no_sleep
+            The status should be success
+            The output should include "no-op ok"
+        End
+    End
+
 
 # This section tests - wait_for_localdns_removed_from_resolv_conf
 # This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
