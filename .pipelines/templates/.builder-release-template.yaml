@@ -200,25 +200,25 @@ steps:
     condition: always()
     displayName: Set Post-Build Variables
 
-  # Expose the captured SIG version to the separate native-arm64 COSI convert job
-  # (arm64 ACL COSI conversion can't run under emulation, so it runs on the arm64
-  # pool as its own job that consumes this output variable).
+  # Expose the captured SIG version to the separate COSI convert job (both
+  # architectures now convert in their own job; see
+  # .builder-cosi-convert-job-template.yaml).
   - bash: |
       echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION;isOutput=true]${CAPTURED_SIG_VERSION}"
     name: exportCapturedSigVersion
-    displayName: Export Captured SIG Version for arm64 COSI convert
-    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
+    displayName: Export Captured SIG Version for COSI convert
+    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'))
 
   # Expose the same IMAGE_VERSION computed for this job (see the Set IMAGE_VERSION
-  # step at the top of this template) to the separate native-arm64 COSI convert
-  # job, so the OS-baked image-version file and the COSI's image_version
-  # metadata agree, even though the convert job runs later (potentially
-  # crossing a UTC day boundary from the build job).
+  # step at the top of this template) to the separate COSI convert job, so the
+  # OS-baked image-version file and the COSI's image_version metadata agree,
+  # even though the convert job runs later (potentially crossing a UTC day
+  # boundary from the build job).
   - bash: |
       echo "##vso[task.setvariable variable=IMAGE_VERSION;isOutput=true]${IMAGE_VERSION}"
     name: exportImageVersion
-    displayName: Export Image Version for arm64 COSI convert
-    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
+    displayName: Export Image Version for COSI convert
+    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'))
 
   - bash: |
       set -euo pipefail
@@ -277,6 +277,12 @@ steps:
         )
       )
     displayName: Set Destination Storage Container to Staging
+
+  - bash: |
+      echo "##vso[task.setvariable variable=DESTINATION_STORAGE_CONTAINER;isOutput=true]${DESTINATION_STORAGE_CONTAINER}"
+    name: exportDestinationStorageContainer
+    displayName: Export Destination Storage Container for COSI convert
+    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'))
 
   - task: AzureCLI@2
     inputs:
