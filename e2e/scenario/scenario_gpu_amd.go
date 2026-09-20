@@ -172,7 +172,10 @@ func amdDevicePluginDaemonset(nodeName string, owner metav1.OwnerReference) *app
 					Tolerations:                  amdGPUTolerations(),
 					Containers: []corev1.Container{{
 						Name: "device-plugin", Image: amdDevicePluginImage,
-						SecurityContext: &corev1.SecurityContext{Privileged: to.Ptr(true)},
+						SecurityContext: &corev1.SecurityContext{
+							Privileged:   to.Ptr(true),
+							Capabilities: &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+						},
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m"), corev1.ResourceMemory: resource.MustParse("128Mi")},
 							Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("512Mi")},

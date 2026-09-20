@@ -63,6 +63,8 @@ stages:
           - template: ./templates/.builder-release-template.yaml
             parameters:
               artifactName: 2404-amdgpu-gen2-containerd
+              # Retries overwrite the Packer output used for scoped cleanup.
+              packerBuildRetryCount: 0
           - task: AzureCLI@2
             displayName: Clean up this AMD build's Packer resource group
             condition: always()

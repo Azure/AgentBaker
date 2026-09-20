@@ -8,6 +8,9 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
+  - name: packerBuildRetryCount
+    type: number
+    default: 3
 
 steps:
   - template: ./.template-override-components-json.yaml
@@ -109,7 +112,7 @@ steps:
         make -f packer.mk run-packer
     condition: ne(variables['BUILDER'], 'imagecustomizer')
     displayName: Build VHD
-    retryCountOnTaskFailure: 3
+    retryCountOnTaskFailure: ${{ parameters.packerBuildRetryCount }}
     env:
       OS_TYPE: Linux
       GIT_VERSION: $(Build.SourceVersion)

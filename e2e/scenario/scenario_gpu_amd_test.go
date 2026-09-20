@@ -177,6 +177,8 @@ func TestAMDGPUManifestsUseAssignedDevicesAndPinnedUserspace(t *testing.T) {
 	plugin := ds.Spec.Template.Spec.Containers[0]
 	require.Equal(t, "rocm/k8s-device-plugin@sha256:e4df5dc9a7fa34e2344852256dcc5762171a6d68f1f9a34026ce26786ae335e2", plugin.Image)
 	require.True(t, *plugin.SecurityContext.Privileged)
+	require.NotNil(t, plugin.SecurityContext.Capabilities)
+	require.Equal(t, []corev1.Capability{"ALL"}, plugin.SecurityContext.Capabilities.Drop)
 	require.Len(t, ds.Spec.Template.Spec.Volumes, 2)
 	paths := map[string]bool{}
 	for _, volume := range ds.Spec.Template.Spec.Volumes {
