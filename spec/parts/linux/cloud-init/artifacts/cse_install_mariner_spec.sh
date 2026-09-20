@@ -161,6 +161,33 @@ Describe 'cse_install_mariner.sh'
         End
     End
 
+    Describe 'getLatestRPMPackageVersion'
+        It 'selects the latest revision for the requested upstream version'
+            dnf() {
+                cat <<'EOF'
+kubelet.x86_64 1.34.10-1.azl3 azurelinux-official-cloud-native
+kubelet.x86_64 1.34.10-9.azl3 azurelinux-official-cloud-native
+kubelet.x86_64 1.34.11-1.azl3 azurelinux-official-cloud-native
+EOF
+            }
+
+            When call getLatestRPMPackageVersion kubelet 1.34.10
+            The output should equal "1.34.10-9.azl3"
+        End
+
+        It 'accepts an exact revision without matching a longer value'
+            dnf() {
+                cat <<'EOF'
+kubelet.x86_64 1.34.10-1.azl3 azurelinux-official-cloud-native
+kubelet.x86_64 1.34.10-10.azl3 azurelinux-official-cloud-native
+EOF
+            }
+
+            When call getLatestRPMPackageVersion kubelet 1.34.10-1.azl3
+            The output should equal "1.34.10-1.azl3"
+        End
+    End
+
     Describe 'should_use_nvidia_open_drivers'
         # Tests for the GPU driver selection logic
         # Returns 0 (true) for open driver (A100+, H100, H200, etc.)

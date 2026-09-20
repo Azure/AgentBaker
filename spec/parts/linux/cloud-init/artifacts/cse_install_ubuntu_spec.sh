@@ -164,4 +164,48 @@ Describe 'cse_install_ubuntu.sh'
             The output should equal "kubelet_1.34.1+azure-1_amd64.deb"
         End
     End
+
+    Describe 'getLatestDebPackageVersion'
+        getCPUArch() { echo "amd64"; }
+
+        It 'selects the latest revision for the requested upstream version'
+            apt() {
+                cat <<'EOF'
+Listing...
+kubelet/repo 1.34.10-ubuntu22.04u1 amd64
+kubelet/repo 1.34.10-ubuntu22.04u9 amd64
+kubelet/repo 1.34.11-ubuntu22.04u1 amd64
+EOF
+            }
+
+            When call getLatestDebPackageVersion kubelet 1.34.10
+            The output should equal "1.34.10-ubuntu22.04u9"
+        End
+
+        It 'ignores revisions for other architectures'
+            apt() {
+                cat <<'EOF'
+Listing...
+kubelet/repo 1.34.10-ubuntu22.04u9 arm64
+kubelet/repo 1.34.10-ubuntu22.04u8 amd64
+EOF
+            }
+
+            When call getLatestDebPackageVersion kubelet 1.34.10
+            The output should equal "1.34.10-ubuntu22.04u8"
+        End
+
+        It 'does not match a longer patch version'
+            apt() {
+                cat <<'EOF'
+Listing...
+kubelet/repo 1.34.1-ubuntu22.04u3 amd64
+kubelet/repo 1.34.10-ubuntu22.04u9 amd64
+EOF
+            }
+
+            When call getLatestDebPackageVersion kubelet 1.34.1
+            The output should equal "1.34.1-ubuntu22.04u3"
+        End
+    End
 End
