@@ -1328,6 +1328,77 @@ EOF
     End
 
 
+# This section tests the signal traps installed at the bottom of localdns.sh.
+#---------------------------------------------------------------------------------------------------
+# These cannot be reached with Include: they sit below "${__SOURCED__:+return}", which is what
+# stops sourcing from running the main block. The trap wiring is nonetheless the thing that
+# decides what a systemd stop does -- a stop sends SIGTERM, and whether that reaps the watchdog
+# sleep, runs cleanup in-process, and exits 0 is entirely determined by those three lines.
+#
+# So extract the real trap lines out of the shipped script and execute them, rather than
+# restating them here. A spec that restated them would pass even if the traps were deleted,
+# which is the failure mode worth avoiding: it would report healthy while a stop reverted to
+# bash dying on the default action, leaving the watchdog sleep orphaned in the cgroup and
+# cleanup to ExecStopPost alone.
+    Describe 'signal traps'
+        LOCALDNS_SRC="./parts/linux/cloud-init/artifacts/localdns.sh"
+
+        # Build a harness containing the real trap lines plus stubs for what they call, so the
+        # assertions below are about the shipped text and not about a copy of it.
+        build_trap_harness() {
+            harness=$(mktemp)
+            {
+                echo '#!/bin/bash'
+                echo 'cleanup_localdns_configs() { echo "CLEANUP_RAN"; return 0; }'
+                echo 'stop_watchdog_sleep() { echo "WATCHDOG_REAPED"; }'
+                echo 'ERR_LOCALDNS_FAIL=99'
+                grep -E "^trap .*TERM$" "$LOCALDNS_SRC"
+                grep -E "^trap .*EXIT$" "$LOCALDNS_SRC"
+                echo 'kill -TERM $$'
+                # Long enough that the process is unambiguously still here if the signal is
+                # ignored, so a missing trap shows up as a timeout rather than a pass.
+                echo 'sleep 10'
+                echo 'echo "REACHED_AFTER_SIGNAL"'
+            } > "$harness"
+        }
+        cleanup_harness() {
+            rm -f "$harness"
+        }
+        BeforeEach 'build_trap_harness'
+        AfterEach 'cleanup_harness'
+
+        It 'reaps the watchdog sleep and runs cleanup in-process on SIGTERM'
+            # This is what changed a systemd stop: before SIGTERM was trapped, bash died on the
+            # default action and neither of these ran. Both now do, which is what makes a stop
+            # cost the LOCALDNS_SHUTDOWN_DELAY drain and tear the dummy interface down.
+            When run command bash "$harness"
+            The output should include "Received SIGTERM, shutting down."
+            The output should include "WATCHDOG_REAPED"
+            The output should include "Executing cleanup function."
+            The output should include "CLEANUP_RAN"
+            The status should be success
+        End
+
+        It 'exits 0 on SIGTERM so Restart=on-failure does not fire for a requested stop'
+            # A non-zero exit here would make systemd treat every 'systemctl stop' as a failure
+            # and restart the unit, and would also spend a slot of the StartLimitBurst budget.
+            When run command bash "$harness"
+            The status should equal 0
+            The output should not include "REACHED_AFTER_SIGNAL"
+        End
+
+        It 'reports cleanup failure rather than exiting non-zero'
+            # The EXIT trap deliberately swallows a cleanup failure: a best-effort cleanup error
+            # must not turn a requested stop into a systemd failure.
+            sed -i 's/cleanup_localdns_configs() { echo "CLEANUP_RAN"; return 0; }/cleanup_localdns_configs() { echo "CLEANUP_RAN"; return 1; }/' "$harness"
+            When run command bash "$harness"
+            The output should include "CLEANUP_RAN"
+            The output should include "Cleanup failed with error code: 99."
+            The status should equal 0
+        End
+    End
+
+
 # This section tests - start_localdns_watchdog
 # These functions is also defined in parts/linux/cloud-init/artifacts/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
