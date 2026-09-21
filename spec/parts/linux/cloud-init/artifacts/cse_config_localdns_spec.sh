@@ -173,7 +173,7 @@ Describe 'cse_config_localdns.sh'
             tracing_systemctl
             When run enableLocalDNS
             The status should equal 216
-            The output should include "localdns could not be started: exhausted 100 restart attempts."
+            The output should include "localdns could not be started: exhausted the restart attempts."
             The contents of file /var/log/azure/localdns-status.log should include "journalctl -u localdns"
         End
 
@@ -186,7 +186,7 @@ Describe 'cse_config_localdns.sh'
             When run enableLocalDNS
             The status should equal 216
             The output should include "CSE provisioning budget exhausted at attempt 1"
-            The output should not include "exhausted 100 restart attempts"
+            The output should not include "exhausted the restart attempts"
         End
 
         It 'should sample diagnostics during the retries without dumping on every attempt'
@@ -197,9 +197,9 @@ Describe 'cse_config_localdns.sh'
             tracing_systemctl
             When run enableLocalDNS
             The status should be success
-            The output should include "localdns restart attempt 10/100 failed"
+            The output should include "localdns restart attempt 10 failed"
             The output should include "journalctl -u localdns --no-pager -n 50"
-            The output should not include "localdns restart attempt 9/100 failed"
+            The output should not include "localdns restart attempt 9 failed"
             The output should include "Enable localdns succeeded."
         End
 
@@ -213,6 +213,18 @@ Describe 'cse_config_localdns.sh'
             The output should include "localdns could not be enabled by systemctl."
             The output should not include "Enable localdns succeeded."
             The contents of file /var/log/azure/localdns-status.log should include "journalctl -u localdns"
+        End
+
+        It 'should distinguish a CSE budget timeout from a genuine enable failure'
+            # retrycmd_if_failure returns 2 when check_cse_timeout trips and 1 when it burns
+            # all its attempts. 'if ! retrycmd ...' would throw that away -- '!' inverts before
+            # $? is read -- and report a budget timeout as a systemd failure, sending the
+            # on-call after the wrong thing.
+            retrycmd_if_failure() { return 2; }
+            When run enableLocalDNS
+            The status should equal 216
+            The output should include "localdns could not be enabled: CSE provisioning budget exhausted."
+            The output should not include "could not be enabled by systemctl"
         End
     End
     Describe 'enableLocalDNSForScriptless'

@@ -115,9 +115,10 @@ enableLocalDNS() {
     # clears start_ratelimit on systemd 249 but not on 255 (Ubuntu 24.04).
     local localdns_started=false
     local i
-    # 100 attempts at 5s matches what systemctlEnableAndStart did before (systemctl_restart
-    # 100 5 30, cse_helpers.sh), so the provisioning recovery window is unchanged -- a fast
-    # transient still gets ~10 minutes to clear. check_cse_timeout bounds the slow case: if
+    # 100 matches what systemctlEnableAndStart did before (systemctl_restart 100 5 30,
+    # cse_helpers.sh), but it is a backstop rather than a budget: check_cse_timeout below
+    # reaches its limit first in any realistic run, so the loop ends on the CSE deadline,
+    # not on the count. Do not reason about the loop's duration from 100. check_cse_timeout bounds the slow case: if
     # every restart hangs for its full 30s timeout, this loop would outlive CSE's 15m kill in
     # cse_start.sh and be SIGKILLed mid-iteration, losing the status log and the exit code
     # below. Breaking out early lets the give-up path run and report properly, matching the
@@ -127,14 +128,18 @@ enableLocalDNS() {
     # These all talk to PID 1 over D-Bus; an unbounded one that wedges would never return to
     # the top of the loop, so check_cse_timeout above would never be re-evaluated and CSE
     # would be SIGKILLed before it could report.
-    local localdns_giveup_reason="exhausted 100 restart attempts"
+    local localdns_giveup_reason="exhausted the restart attempts"
+    # Hoisted out of the loop: nothing here rewrites a unit between iterations, and
+    # daemon-reload re-parses every unit on the box. _systemctl_retry_svc_operation did it
+    # per attempt, but the point of inlining this loop was to stop paying for what that
+    # helper did blindly.
+    timeout 30 systemctl daemon-reload
     for i in $(seq 1 100); do
         if ! check_cse_timeout; then
             localdns_giveup_reason="CSE provisioning budget exhausted at attempt ${i}"
             break
         fi
         timeout 30 systemctl reset-failed localdns 2>/dev/null || true
-        timeout 30 systemctl daemon-reload
         if timeout 30 systemctl restart localdns; then
             localdns_started=true
             break
@@ -146,7 +151,7 @@ enableLocalDNS() {
         # only record of what was going wrong across the retries, so sample it instead: every
         # tenth attempt, with the journal bounded by -n.
         if [ $((i % 10)) -eq 0 ]; then
-            echo "localdns restart attempt ${i}/100 failed; unit state and recent journal follow."
+            echo "localdns restart attempt ${i} failed; unit state and recent journal follow."
             timeout 30 systemctl status localdns --no-pager -l || true
             timeout 30 journalctl -u localdns --no-pager -n 50 || true
         fi
@@ -169,8 +174,19 @@ enableLocalDNS() {
     # Log on this path too. systemctlEnableAndStart wrote a status log when 'systemctl enable'
     # failed as well as when the start failed; inlining the loop kept the start path and dropped
     # this one, so an enable failure exited with nothing but the code.
-    if ! retrycmd_if_failure 120 5 25 systemctl enable localdns; then
-        echo "localdns could not be enabled by systemctl."
+    # Capture the code rather than using 'if ! ...': '!' inverts before $? is read, so the
+    # distinction is gone inside the then-block. retrycmd_if_failure returns 2 when
+    # check_cse_timeout trips (cse_helpers.sh:270, :298) and 1 when it genuinely exhausts
+    # its attempts. Reporting the first as a systemd failure sends the on-call after the
+    # wrong thing -- same reason localdns_giveup_reason exists for the start loop above.
+    retrycmd_if_failure 120 5 25 systemctl enable localdns
+    local enable_rc=$?
+    if [ "$enable_rc" -ne 0 ]; then
+        if [ "$enable_rc" -eq 2 ]; then
+            echo "localdns could not be enabled: CSE provisioning budget exhausted."
+        else
+            echo "localdns could not be enabled by systemctl."
+        fi
         timeout 30 systemctl status localdns --no-pager -l > /var/log/azure/localdns-status.log || true
         timeout 30 journalctl -u localdns --no-pager -n 200 >> /var/log/azure/localdns-status.log || true
         exit $ERR_LOCALDNS_FAIL
