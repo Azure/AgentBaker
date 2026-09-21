@@ -47,7 +47,7 @@ Describe 'bind-mount.sh'
         The path "${KUBELET_DIR}" should be directory
         The output should include "mount --bind ${KUBELET_MOUNT_POINT} ${KUBELET_DIR}"
         The output should include "chown root:root ${KUBELET_DIR}"
-        The output should include "chmod 0755 ${KUBELET_DIR}"
+        The output should include "chmod go-w ${KUBELET_DIR}"
         The output should not include "chmod a+w"
     End
 
@@ -79,7 +79,7 @@ Describe 'bind-mount.sh'
         The path "${KUBELET_MOUNT_POINT}/current-state" should be file
         The output should include "mount --bind ${KUBELET_MOUNT_POINT} ${KUBELET_DIR}"
         The output should include "chown root:root ${KUBELET_DIR}"
-        The output should include "chmod 0755 ${KUBELET_DIR}"
+        The output should include "chmod go-w ${KUBELET_DIR}"
         The output should not include "chmod a+w"
     End
 End
