@@ -615,3 +615,81 @@ var _ = Register(&Scenario{
 		},
 	},
 })
+
+// The gate-specific Kubernetes version and branch CSE require a separate node
+// from the default Windows scenarios.
+var _ = Register(&Scenario{
+	Name:        "Windows2022_Dalec_CredentialProvider",
+	Description: "Tests Windows 2022 selects the Dalec credential provider at Kubernetes 1.33 with a stock RP legacy URL, without falling back",
+	Config: Config{
+		Cluster:                         ClusterAzureNetwork,
+		VHD:                             config.VHDWindows2022ContainerdGen2,
+		VMConfigMutator:                 EmptyVMConfigMutator,
+		BootstrapConfigMutatorWithError: windowsDalecCredentialProviderMutator(cachedWindowsDalecCSEPackageURL),
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateFileExists(ctx, s, `C:\var\lib\kubelet\credential-provider\acr-credential-provider.exe`),
+				ValidateFileExists(ctx, s, `C:\k\credential-provider-config.yaml`),
+				ValidateFileHasContent(ctx, s, `C:\AzureData\CustomDataSetupScript.log`, "Using dalec credential provider"),
+				ValidateFileExcludesContent(ctx, s, `C:\AzureData\CustomDataSetupScript.log`, "Failed to install dalec credential provider, falling back to RP URL."),
+			)
+		},
+	},
+})
+
+func windowsDalecCredentialProviderMutator(csePackageURL func(context.Context, windowsDalecCSEZipRequest) (string, error)) func(context.Context, *Cluster, *datamodel.NodeBootstrappingConfiguration) error {
+	return func(ctx context.Context, _ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := configureWindowsDalecCredentialProvider(nbc,
+			components.GetExpectedPackageVersions("kubernetes-binaries", "windows", "default"),
+			components.GetExpectedPackageVersions("windows credential provider", "windows", "default")); err != nil {
+			return err
+		}
+		// Remove the branch override once these CSE scripts are published. Preparing
+		// it here keeps registration and CLI listing free of Azure side effects.
+		url, err := csePackageURL(ctx, windowsDalecCSEZipRequest{Location: config.Config.DefaultLocation})
+		if err != nil {
+			return fmt.Errorf("prepare Windows Dalec credential-provider branch CSE: %w", err)
+		}
+		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = url
+		return nil
+	}
+}
+
+func configureWindowsDalecCredentialProvider(nbc *datamodel.NodeBootstrappingConfiguration, kubeletVersions, legacyProviderVersions []string) error {
+	version, err := credentialProvider133Version(kubeletVersions, "kubernetes-binaries/windows/default")
+	if err != nil {
+		return err
+	}
+	// Legacy provider releases differ from Kubernetes patches; use their own
+	// cached metadata to keep the populated RP fallback URL valid.
+	legacyVersion, err := credentialProvider133Version(legacyProviderVersions, "windows credential provider/windows/default")
+	if err != nil {
+		return err
+	}
+	nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = version
+	nbc.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", version, version)
+	nbc.K8sComponents.WindowsCredentialProviderURL = fmt.Sprintf("https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-windows-amd64-v%s.tar.gz", legacyVersion, legacyVersion)
+	nbc.KubeletConfig["--image-credential-provider-config"] = `C:\k\credential-provider-config.yaml`
+	nbc.KubeletConfig["--image-credential-provider-bin-dir"] = `C:\var\lib\kubelet\credential-provider`
+	return nil
+}
+
+func credentialProvider133Version(versions []string, metadataPath string) (string, error) {
+	var latest *semver.Version
+	for _, raw := range versions {
+		version, err := semver.StrictNewVersion(components.RemoveLeadingV(raw))
+		if err != nil || version.Major() != 1 || version.Minor() != 33 || version.Prerelease() != "" {
+			continue
+		}
+		if latest == nil || version.GreaterThan(latest) {
+			latest = version
+		}
+	}
+	if latest == nil {
+		return "", fmt.Errorf("credential-provider scenario requires a cached Kubernetes 1.33 patch in components.json %s", metadataPath)
+	}
+	return latest.String(), nil
+}
