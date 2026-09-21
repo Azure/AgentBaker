@@ -7,7 +7,6 @@ CISASSESSOR_BLOB_NAME=${CISASSESSOR_BLOB_NAME:-""}
 STORAGE_ACCOUNT_NAME=${STORAGE_ACCOUNT_NAME:-""}
 SIG_CONTAINER_NAME=${SIG_CONTAINER_NAME:-""}
 AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING:-""}
-ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH:-""}
 CIS_REPORT_L1_TXT_NAME=${CIS_REPORT_L1_TXT_NAME:-"cis-report-l1.txt"}
 CIS_REPORT_L2_TXT_NAME=${CIS_REPORT_L2_TXT_NAME:-"cis-report-l2.txt"}
 CIS_REPORT_HTML_NAME=${CIS_REPORT_HTML_NAME:-"cis-report.html"}
@@ -25,9 +24,6 @@ login_with_user_assigned_managed_identity() {
     local TYPE_FLAG="$1"
     local ID=$2
     LOGIN_FLAGS="--identity $TYPE_FLAG $ID"
-    if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
-        LOGIN_FLAGS="$LOGIN_FLAGS --allow-no-subscriptions"
-    fi
     echo "logging into azure with flags: $LOGIN_FLAGS"
     az login $LOGIN_FLAGS
 }
