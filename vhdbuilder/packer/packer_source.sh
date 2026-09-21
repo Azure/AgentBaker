@@ -435,6 +435,13 @@ copyPackerFiles() {
   LOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/localdns.service.d/delegate.conf
   cpAndMode $LOCALDNS_SERVICE_DELEGATE_SRC $LOCALDNS_SERVICE_DELEGATE_DEST 0644
 
+  # Separate drop-in from delegate.conf on purpose: this one pins
+  # TimeoutStopFailureMode, which cannot be set in localdns.service because Azure Linux's
+  # type-wide service.d drop-in overrides unit files. See the comment in the artifact.
+  LOCALDNS_SERVICE_TIMEOUT_SRC=/home/packer/localdns-timeout-terminate.conf
+  LOCALDNS_SERVICE_TIMEOUT_DEST=/etc/systemd/system/localdns.service.d/99-timeout-terminate.conf
+  cpAndMode $LOCALDNS_SERVICE_TIMEOUT_SRC $LOCALDNS_SERVICE_TIMEOUT_DEST 0644
+
   # Skip localdns exporter for Flatcar (EOL June 2026, no new features)
   if ! isFlatcar "$OS"; then
     LOCALDNS_EXPORTER_SCRIPT_SRC=/home/packer/localdns_exporter.sh

@@ -55,9 +55,9 @@ ExecStopPost=/opt/azure/containers/localdns/localdns.sh cleanup
 TimeoutStartSec=90
 TimeoutStopSec=30
 # TimeoutStopFailureMode is pinned too, but it cannot be set here: Azure Linux ships a
-# type-wide drop-in that overrides unit files. It lives in localdns-delegate.conf,
-# installed as /etc/systemd/system/localdns.service.d/delegate.conf -- see the comment
-# there for why, and for the 153s cycle it prevents.
+# type-wide drop-in that overrides unit files. It lives in localdns-timeout-terminate.conf,
+# installed as /etc/systemd/system/localdns.service.d/99-timeout-terminate.conf -- see the
+# comment there for why, and for the 153s cycle it prevents.
 Slice=localdns.slice
 EnvironmentFile=-/etc/localdns/environment
 ExecStart=/opt/azure/containers/localdns/localdns.sh
