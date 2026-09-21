@@ -426,7 +426,7 @@ EOF
             setup_chrony_test
             Mock systemctl
                 if [ "$1" = "show" ]; then
-                    echo "dead"
+                    echo "not-found"
                     return 1
                 fi
                 if [ "$1" = "stop" ] || [ "$1" = "disable" ]; then
@@ -442,11 +442,28 @@ EOF
             The status should be success
         End
 
+        It 'stops and disables systemd-timesyncd when the unit is loaded but inactive'
+            setup_chrony_test
+            Mock systemctl
+                if [ "$1" = "show" ]; then
+                    echo "loaded"
+                elif [ "$1" = "stop" ] || [ "$1" = "disable" ]; then
+                    echo "systemctl $*"
+                fi
+            End
+
+            When call configure_chrony
+            The output should include "systemctl stop systemd-timesyncd"
+            The output should include "systemctl disable systemd-timesyncd"
+            The contents of file "$CHRONY_CONF" should include "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
+            The status should be success
+        End
+
         It 'returns failure when an existing systemd-timesyncd unit cannot be stopped'
             setup_chrony_test
             Mock systemctl
                 if [ "$1" = "show" ]; then
-                    echo "running"
+                    echo "loaded"
                 elif [ "$1" = "stop" ]; then
                     return 1
                 fi
