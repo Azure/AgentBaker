@@ -621,6 +621,14 @@ getLatestDebPackageVersion() {
         tail -n 1
 }
 
+getInstalledDebPackageVersion() {
+    local packageName="${1}"
+
+    if dpkg -l "${packageName}" 2>/dev/null | grep -q "^ii"; then
+        dpkg-query -W -f='${Version}' "${packageName}" 2>/dev/null
+    fi
+}
+
 logResolvedPackageVersion() {
     local packageName="${1}"
     local requestedVersion="${2}"
@@ -685,21 +693,27 @@ installContainerdFromOverride() {
 }
 
 installContainerdWithAptGet() {
-    # packageVersion is the full version string from components.json, e.g. "2.3.2-ubuntu24.04u2" or "1.7.33-ubuntu22.04u1".
-    # The major.minor.patch is extracted for version comparison against the currently installed package.
     local packageVersion="${1}"
     CONTAINERD_DOWNLOADS_DIR="${2:-$CONTAINERD_DOWNLOADS_DIR}"
     local containerdMajorMinorPatchVersion
-    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
+    local currentPackageVersion=""
+    local latestPackageVersion=""
+    local installRequired=true
+    local revisionlessVersion=false
 
-    # Query installed version via dpkg metadata instead of running the containerd
-    # binary. `containerd -version` takes ~5.7s to load the full runtime just to
-    # print a version string; dpkg-query is instant.
-    # dpkg version format: "1.7.31+azure-ubuntu22.04u1" or "1:1.7.31+azure-..."
-    # Normalize to pure "major.minor.patch" by stripping epoch, +suffix, -suffix.
+    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
+    # shellcheck disable=SC3010
+    if [[ "${packageVersion}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        revisionlessVersion=true
+    fi
+
+    # Query installed version via dpkg metadata instead of running the containerd binary.
+    # Normalize it to major.minor.patch for upstream comparison, but retain the full
+    # package version so equal upstream versions can still detect stale distro revisions.
     local currentVersion=""
-    if dpkg -l moby-containerd 2>/dev/null | grep -q "^ii"; then
-        currentVersion=$(dpkg-query -W -f='${Version}' moby-containerd 2>/dev/null | sed 's/^[0-9]*://' | cut -d '+' -f1 | cut -d '-' -f1)
+    currentPackageVersion=$(getInstalledDebPackageVersion "moby-containerd")
+    if [ -n "${currentPackageVersion}" ]; then
+        currentVersion=$(printf '%s\n' "${currentPackageVersion}" | sed 's/^[0-9]*://' | cut -d '+' -f1 | cut -d '-' -f1)
     fi
 
     if [ -z "$currentVersion" ]; then
@@ -713,8 +727,21 @@ installContainerdWithAptGet() {
     local hasGreaterVersion="$?"
 
     if [ "$hasGreaterVersion" = "0" ] && [ "$currentMajorMinor" = "$desiredMajorMinor" ]; then
-        echo "currently installed containerd version ${currentVersion} matches major.minor with higher patch ${containerdMajorMinorPatchVersion}. skipping installStandaloneContainerd."
-    else
+        installRequired=false
+        if [ "${revisionlessVersion}" = "true" ] && [ "${currentVersion}" = "${containerdMajorMinorPatchVersion}" ]; then
+            latestPackageVersion=$(getLatestDebPackageVersion "moby-containerd" "${packageVersion}")
+            if [ -z "${latestPackageVersion}" ]; then
+                echo "Failed to find valid moby-containerd version for ${packageVersion}"
+                exit "$ERR_CONTAINERD_INSTALL_TIMEOUT"
+            fi
+            if [ "${currentPackageVersion}" != "${latestPackageVersion}" ]; then
+                echo "installed moby-containerd package version ${currentPackageVersion} does not match latest revision ${latestPackageVersion}"
+                installRequired=true
+            fi
+        fi
+    fi
+
+    if [ "${installRequired}" = "true" ]; then
         echo "installing containerd version ${packageVersion}"
         logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
 
@@ -727,6 +754,8 @@ installContainerdWithAptGet() {
         fi
         logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${containerdDebFile}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
+    else
+        echo "currently installed containerd version ${currentPackageVersion} satisfies target version ${packageVersion}. skipping installStandaloneContainerd."
     fi
 }
 
@@ -784,6 +813,8 @@ downloadContainerdFromURL() {
 
 ensureRunc() {
     local fullPackageVersion
+    local installedPackageVersion=""
+    local revisionlessVersion=false
 
     RUNC_PACKAGE_URL=${2:-""}
     RUNC_DOWNLOADS_DIR=${3:-$RUNC_DOWNLOADS_DIR}
@@ -816,6 +847,10 @@ ensureRunc() {
         CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     fi
     CLEANED_TARGET_VERSION=${TARGET_VERSION}
+    # shellcheck disable=SC3010
+    if [[ "${TARGET_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        revisionlessVersion=true
+    fi
 
     # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off
     # since we only care about the major and minor versions when determining if we need to install it
@@ -823,8 +858,22 @@ ensureRunc() {
     CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar)
 
     if [ "${CURRENT_VERSION}" = "${CLEANED_TARGET_VERSION}" ]; then
-        echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
-        return
+        if [ "${revisionlessVersion}" = "true" ]; then
+            fullPackageVersion=$(getLatestDebPackageVersion "moby-runc" "${TARGET_VERSION}")
+            if [ -z "${fullPackageVersion}" ]; then
+                echo "Failed to find valid moby-runc version for ${TARGET_VERSION}"
+                exit "$ERR_RUNC_INSTALL_TIMEOUT"
+            fi
+            installedPackageVersion=$(getInstalledDebPackageVersion "moby-runc")
+            if [ "${installedPackageVersion}" = "${fullPackageVersion}" ]; then
+                echo "target moby-runc package version ${fullPackageVersion} is already installed. skipping installRunc."
+                return
+            fi
+            echo "installed moby-runc package version ${installedPackageVersion} does not match latest revision ${fullPackageVersion}"
+        else
+            echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
+            return
+        fi
     fi
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f "$VHD_LOGS_FILEPATH" ]; then
@@ -844,9 +893,10 @@ ensureRunc() {
         fi
     fi
     echo "No cached runc deb file is found. Using apt-get to install runc."
-    fullPackageVersion="${TARGET_VERSION}"
-    # shellcheck disable=SC3010
-    if [[ "${TARGET_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    if [ -z "${fullPackageVersion:-}" ]; then
+        fullPackageVersion="${TARGET_VERSION}"
+    fi
+    if [ "${revisionlessVersion}" = "true" ] && [ "${fullPackageVersion}" = "${TARGET_VERSION}" ]; then
         fullPackageVersion=$(getLatestDebPackageVersion "moby-runc" "${TARGET_VERSION}")
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid moby-runc version for ${TARGET_VERSION}"

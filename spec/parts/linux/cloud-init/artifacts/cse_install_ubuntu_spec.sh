@@ -209,6 +209,57 @@ EOF
         End
     End
 
+    Describe 'installContainerdWithAptGet revision comparison'
+        containerd_download_root="/tmp/cse-install-ubuntu-containerd-$$"
+
+        setup_containerd_revision() {
+            mkdir -p "${containerd_download_root}"
+            CONTAINERD_DOWNLOADS_DIR="${containerd_download_root}"
+        }
+
+        cleanup_containerd_revision() {
+            rm -rf "${containerd_download_root}"
+        }
+
+        BeforeEach 'setup_containerd_revision'
+        AfterEach 'cleanup_containerd_revision'
+
+        semverCompare() {
+            [ "$1" = "$2" ] && return 0
+            [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n 1)" = "$1" ]
+        }
+        dpkg() { echo "ii  moby-containerd"; }
+        getLatestDebPackageVersion() { echo "1:1.7.35+azure-ubuntu22.04u2"; }
+        removeContainerd() { echo "removeContainerd"; }
+        downloadContainerdFromVersion() {
+            touch "${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_1.7.35+azure-ubuntu22.04u2_amd64.deb"
+        }
+        installDebPackageFromFile() { echo "installDebPackageFromFile $1"; }
+        logs_to_events() {
+            shift
+            eval "$*"
+        }
+
+        It 'installs the latest revision when the installed upstream version is equal but stale'
+            dpkg-query() { echo "1:1.7.35+azure-ubuntu22.04u1"; }
+
+            When call installContainerdWithAptGet 1.7.35 "${CONTAINERD_DOWNLOADS_DIR}"
+
+            The output should include "installed moby-containerd package version 1:1.7.35+azure-ubuntu22.04u1 does not match latest revision 1:1.7.35+azure-ubuntu22.04u2"
+            The output should include "installDebPackageFromFile ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_1.7.35+azure-ubuntu22.04u2_amd64.deb"
+        End
+
+        It 'skips installation when the latest revision is already installed'
+            dpkg-query() { echo "1:1.7.35+azure-ubuntu22.04u2"; }
+
+            When call installContainerdWithAptGet 1.7.35 "${CONTAINERD_DOWNLOADS_DIR}"
+
+            The output should include "currently installed containerd version 1:1.7.35+azure-ubuntu22.04u2 satisfies target version 1.7.35"
+            The output should not include "removeContainerd"
+            The output should not include "installDebPackageFromFile"
+        End
+    End
+
     Describe 'logResolvedPackageVersion'
         resolved_version_log="/tmp/cse-install-ubuntu-resolved-version-$$"
 
@@ -267,6 +318,28 @@ EOF
             The output should include "Resolved moby-runc package version 1.4.3 -> 1.4.3-10ubuntu22.04u1"
             The output should include "apt_get_install 20 30 120 moby-runc=1.4.3-10ubuntu22.04u1 --allow-downgrades"
             The output should not include "moby-runc=1.4.3*"
+        End
+
+        It 'installs the latest revision when the installed upstream version is equal but stale'
+            runc() { echo "runc version 1.4.3"; }
+            dpkg() { echo "ii  moby-runc"; }
+            dpkg-query() { echo "1.4.3-1ubuntu22.04u1"; }
+
+            When call ensureRunc 1.4.3 "" "${RUNC_DOWNLOADS_DIR}"
+
+            The output should include "installed moby-runc package version 1.4.3-1ubuntu22.04u1 does not match latest revision 1.4.3-10ubuntu22.04u1"
+            The output should include "apt_get_install 20 30 120 moby-runc=1.4.3-10ubuntu22.04u1 --allow-downgrades"
+        End
+
+        It 'skips installation when the latest revision is already installed'
+            runc() { echo "runc version 1.4.3"; }
+            dpkg() { echo "ii  moby-runc"; }
+            dpkg-query() { echo "1.4.3-10ubuntu22.04u1"; }
+
+            When call ensureRunc 1.4.3 "" "${RUNC_DOWNLOADS_DIR}"
+
+            The output should include "target moby-runc package version 1.4.3-10ubuntu22.04u1 is already installed"
+            The output should not include "apt_get_install"
         End
     End
 End
