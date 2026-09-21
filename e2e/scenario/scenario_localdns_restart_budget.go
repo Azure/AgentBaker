@@ -640,6 +640,37 @@ func runLocalDNSFault(ctx context.Context, s *Scenario, fault localdnsFault) err
 }
 
 // localdnsFaultRunScript renders the per-fault script.
+//
+// # The ExecStart count is bounded on both sides, with deliberate slack
+//
+// Fewer starts than the burst means the unit gave up for some reason other than the
+// limiter. Many more means the budget is not being enforced at all — which the journal
+// refusal check cannot catch on its own, since a unit that restarted twenty times and then
+// tripped the limiter still prints "Start request repeated too quickly".
+//
+// The upper bound is burst+1 rather than exactly burst. Copilot has twice recommended
+// tightening it to equality; before doing so, note that the two measurements disagree:
+//
+//	by hand, live node (PR #9439, 2026-09-17):  postready = 6 ExecStarts, others 5
+//	CI, gate build 181777373 (Ubuntu2404):      postready = 5, every mode 5
+//
+// The 6 has not been reproduced and nothing explains it. It is one observation from a real
+// node, so tolerate it rather than ship a lane that flakes only when it recurs. The slack
+// costs little — a limiter allowing exactly one extra start would pass — against a gate
+// cycle lost to a flake. If you can explain or reproduce the 6, tighten this and record why
+// here. Do not tighten it on the CI numbers alone; that is precisely what is in dispute.
+//
+// The hungstart count in that CI run is 6, but it is not evidence either way:
+// measureLocalDNSWorstCycle runs the hungstart fault before the matrix, so journal lines for
+// that mode conflate both phases. Only $COUNTER, cleared per fault, distinguishes them —
+// anyone counting "E2EFAULT hungstart" in a journal will get a wrong answer.
+//
+// # Self-reference
+//
+// $burst is read from the live unit, so this compares the SUT against itself. That is only
+// sound because assertLocalDNSBudgetDirectives has already pinned StartLimitBurst to 5
+// earlier in the same validation. If that assertion is removed, or reordered to after this
+// point, this check silently stops meaning anything.
 func localdnsFaultRunScript(fault localdnsFault) string {
 	return `
 set -eu
@@ -706,10 +737,15 @@ if ! sudo journalctl -u localdns.service --since "$since" --no-pager | grep -q '
     exit 1
 fi
 
-# Exactly the burst should have run: more means the budget is not being enforced, fewer
-# means the unit gave up for an unrelated reason.
+# Bounded on both sides: [burst, burst+1]. See localdnsFaultRunScript's doc comment for
+# why the upper bound has slack and why tightening it to equality needs new evidence.
 if [ "$starts" -lt "$burst" ]; then
     echo "FAIL: $LABEL ran $starts ExecStarts, expected at least the burst of $burst"
+    exit 1
+fi
+if [ "$starts" -gt $((burst + 1)) ]; then
+    echo "FAIL: $LABEL ran $starts ExecStarts, expected at most the burst of $burst (+1 slack)."
+    echo "      The limiter let the unit restart past its budget; it is not being enforced."
     exit 1
 fi
 
