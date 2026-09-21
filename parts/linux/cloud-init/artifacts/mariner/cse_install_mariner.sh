@@ -1,11 +1,8 @@
 #!/bin/bash
 
 removeContainerd() {
-    containerdPackageName="containerd"
-    if [ "$OS_VERSION" = "2.0" ]; then
-        containerdPackageName="moby-containerd"
-    fi
-    retrycmd_if_failure 10 5 60 dnf remove -y $containerdPackageName
+    local packageName="${1:-containerd}"
+    retrycmd_if_failure 10 5 60 dnf remove -y "$packageName"
 }
 
 installDeps() {
@@ -751,7 +748,7 @@ installStandaloneContainerd() {
             fi
         fi
         echo "installing containerd version ${fullPackageVersion}"
-        removeContainerd
+        removeContainerd "${containerdPackageName}"
         logResolvedPackageVersion "${containerdPackageName}" "${desiredVersion}" "${fullPackageVersion}"
         # TODO: tie runc to r92 once that's possible on Mariner's pkg repo and if we're still using v1.linux shim
         if ! dnf_install 30 1 600 "${containerdPackageName}-${fullPackageVersion}"; then

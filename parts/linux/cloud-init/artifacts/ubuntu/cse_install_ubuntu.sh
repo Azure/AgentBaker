@@ -1,7 +1,8 @@
 #!/bin/bash
 
 removeContainerd() {
-    apt_get_purge 10 5 300 moby-containerd
+    local packageName="${1:-moby-containerd}"
+    apt_get_purge 10 5 300 "$packageName"
 }
 
 # Batch install all packages in a single apt_get_install call instead of looping one-by-one.
