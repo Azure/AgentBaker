@@ -213,6 +213,7 @@ EOF
 
             When call logResolvedPackageVersion containerd2 2.2.4 2.2.4-8.azl3
 
+            The output should equal "Resolved containerd2 package version 2.2.4 -> 2.2.4-8.azl3"
             The contents of file "${resolved_version_log}" should include "containerd2 package version 2.2.4-8.azl3 (requested 2.2.4)"
         End
     End

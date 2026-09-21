@@ -234,6 +234,7 @@ EOF
 
             When call logResolvedPackageVersion moby-runc 1.4.3 1.4.3-1ubuntu22.04u1
 
+            The output should equal "Resolved moby-runc package version 1.4.3 -> 1.4.3-1ubuntu22.04u1"
             The contents of file "${resolved_version_log}" should include "moby-runc package version 1.4.3-1ubuntu22.04u1 (requested 1.4.3)"
         End
     End
