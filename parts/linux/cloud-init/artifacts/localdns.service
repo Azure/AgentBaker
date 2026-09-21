@@ -10,9 +10,9 @@ ConditionKernelVersion=>=5.15
 # Bound the restart budget so every unrecoverable failure mode terminates in
 # 'failed' rather than restarting forever. The threshold is
 # StartLimitIntervalSec/StartLimitBurst = 720/5 = 144s, just above the slowest
-# restart cycle (~122s = TimeoutStartSec 90 + TimeoutStopSec 30 + RestartSec 2, all
-# pinned below -- including TimeoutStopFailureMode, without which Azure Linux spends two
-# stop timeouts and the cycle is 153s, above the threshold),
+# restart cycle (~122s = TimeoutStartSec 90 + TimeoutStopSec 30 + RestartSec 2, pinned
+# below, plus TimeoutStopFailureMode=terminate pinned in the drop-in -- without which
+# Azure Linux spends two stop timeouts and the cycle is 153s, above the threshold),
 # so slow failures (PID file never appears, watchdog kill, ready-check timeout,
 # hung start) still reach 'failed'. That terminal state is what lets an
 # OnFailure= handoff fire and gives NPD a stable state to observe.
@@ -54,27 +54,10 @@ ExecStopPost=/opt/azure/containers/localdns/localdns.sh cleanup
 # DefaultTimeoutStartSec would move it silently.
 TimeoutStartSec=90
 TimeoutStopSec=30
-# Pinned for the same reason, and measured rather than assumed. Azure Linux ships a global
-# drop-in at /usr/lib/systemd/system/service.d/10-timeout-abort.conf setting
-# TimeoutStopFailureMode=abort (Fedora's "Shorter Shutdown Timer"): on a stop timeout systemd
-# sends SIGABRT to capture a core dump, then waits a SECOND TimeoutStopSec in 'stop-watchdog'
-# before SIGKILL. That doubles the stop side of the restart cycle. Measured on AzureLinuxV3:
-# 90 + 30 + 30 + 2 = 153s, above the 144s threshold -- so the slow modes would restart forever
-# there, which is exactly what this budget exists to prevent. 'terminate' is the systemd
-# default; pinning it makes the cycle 90 + 30 + 2 = 122s on every image we ship.
-#
-# The core dump that step exists to produce is already discarded on AKS nodes:
-# configureCoreDump() in parts/linux/cloud-init/artifacts/cis.sh sets Storage=none and
-# ProcessSizeMax=0, applied to every distro (it runs before the Mariner/AzureLinux early
-# return in applyCIS), and asserted by testCoreDumpSettings in
-# vhdbuilder/packer/test/linux-vhd-content-test.sh. So today the abort step costs 30s of
-# restart cycle and produces nothing.
-#
-# If that hardening is ever relaxed -- Storage= set to anything but none, or ProcessSizeMax
-# raised -- revisit this directive. The abort step would start producing a usable dump, and
-# the 30s it costs would have to be bought back elsewhere in the cycle or the threshold
-# widened, or Azure Linux goes back over 144s.
-TimeoutStopFailureMode=terminate
+# TimeoutStopFailureMode is pinned too, but it cannot be set here: Azure Linux ships a
+# type-wide drop-in that overrides unit files. It lives in localdns-delegate.conf,
+# installed as /etc/systemd/system/localdns.service.d/delegate.conf -- see the comment
+# there for why, and for the 153s cycle it prevents.
 Slice=localdns.slice
 EnvironmentFile=-/etc/localdns/environment
 ExecStart=/opt/azure/containers/localdns/localdns.sh
