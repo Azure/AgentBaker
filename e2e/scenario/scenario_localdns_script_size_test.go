@@ -3,6 +3,7 @@ package scenario
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"testing"
 )
@@ -15,17 +16,17 @@ import (
 // the tunnel with StatusMessageTooBig when one exceeds it — taking the whole scenario down
 // mid-run, with no indication that script length was the cause.
 //
-// go-scp emits the file body as a 4,096-byte first chunk then the remainder in one write,
-// so the largest wire write is:
+// The constant below is the last safe script size, measured by sweeping sizes one byte at a
+// time against a real x/crypto/ssh client and server. SSH pads each binary packet up to a
+// multiple of the cipher block size, so the wire write plateaus and then steps -- there is
+// no script size that lands exactly on the 8,192 cap:
 //
-//	max_write = script_size - 4096 + 45     (45 = SSH framing + MAC)
+//	12236..12242 -> 8180
+//	12243..12248 -> 8196   <- first over 8,192
 //
-// The constant below is the last safe size, and it comes from measurement, not from that
-// formula: sweeping script sizes one byte at a time against a real x/crypto/ssh client and
-// server, 12,242 is safe and 12,243 produced an 8,196-byte write. The formula predicts
-// 8,192 at that size, which would not exceed the cap -- it is an approximation that ignores
-// SSH block padding, so writes step rather than increment and arithmetic on it lands a byte
-// off. Trust the sweep. Do not "correct" the constant upward from the formula.
+// Do not derive this constant arithmetically from the script size. An earlier version of
+// this comment did exactly that and was wrong twice: off by 11 bytes at the plateau, and
+// implying a 1-byte granularity the transport does not have.
 //
 // Gate build 181818040 lost three LocalDNS lanes to exactly this: the lifecycle script had
 // been sitting 380 bytes under the cliff and grew 512 bytes, producing an 8,324-byte write.
@@ -45,18 +46,38 @@ const bastionMaxScriptBytes = 12242
 // If a script does outgrow the limit, prefer moving its comments into Go — they cost the
 // same on the wire as code and buy nothing at runtime. validateLocalDNSLifecycle's doc
 // comment is the worked example.
-func TestLocalDNSScriptsFitBastionLimit(t *testing.T) {
-	scripts := map[string]string{
-		"lifecycle(true)":                   localdnsLifecycleScript("true"),
-		"lifecycle(false)":                  localdnsLifecycleScript("false"),
-		"localdnsDirectiveAssertScript":     localdnsDirectiveAssertScript,
-		"localdnsWorstCycleScript":          localdnsWorstCycleScript,
-		"localdnsProvisioningRestartScript": localdnsProvisioningRestartScript,
-		"localdnsFaultHarnessInstallScript": localdnsFaultHarnessInstallScript,
-		"localdnsFaultTeardownScript":       localdnsFaultTeardownScript,
-	}
+// localdnsScriptsUnderTest is the single inventory of scripts this package sends to a node,
+// keyed by declaration name. Both tests below read it, so registering a script and
+// size-checking it are the same edit -- there is no way to do one without the other.
+//
+// Two lists would not be equivalent: a script added to one and missed in the other passes
+// both tests while going unchecked, which is the exact failure this is here to prevent.
+func localdnsScriptsUnderTest() map[string][]string {
+	faultRunScripts := make([]string, 0, len(localdnsFaultMatrix))
 	for _, fault := range localdnsFaultMatrix {
-		scripts["localdnsFaultRunScript/"+fault.name] = localdnsFaultRunScript(fault)
+		faultRunScripts = append(faultRunScripts, localdnsFaultRunScript(fault))
+	}
+	return map[string][]string{
+		"localdnsLifecycleScript":           {localdnsLifecycleScript("true"), localdnsLifecycleScript("false")},
+		"localdnsDirectiveAssertScript":     {localdnsDirectiveAssertScript},
+		"localdnsWorstCycleScript":          {localdnsWorstCycleScript},
+		"localdnsProvisioningRestartScript": {localdnsProvisioningRestartScript},
+		"localdnsFaultHarnessInstallScript": {localdnsFaultHarnessInstallScript},
+		"localdnsFaultTeardownScript":       {localdnsFaultTeardownScript},
+		"localdnsFaultRunScript":            faultRunScripts,
+	}
+}
+
+func TestLocalDNSScriptsFitBastionLimit(t *testing.T) {
+	scripts := map[string]string{}
+	for declaration, rendered := range localdnsScriptsUnderTest() {
+		for i, script := range rendered {
+			name := declaration
+			if len(rendered) > 1 {
+				name = fmt.Sprintf("%s[%d]", declaration, i)
+			}
+			scripts[name] = script
+		}
 	}
 
 	for name, script := range scripts {
@@ -88,28 +109,27 @@ func TestLocalDNSScriptsFitBastionLimit(t *testing.T) {
 // hits is the one with no diagnostic attached — a dead tunnel and no node logs. So derive
 // the inventory from the source rather than restating it.
 func TestLocalDNSScriptInventoryIsRegistered(t *testing.T) {
-	// Keyed by declaration name, not by the map keys in the size test — those are free to be
-	// whatever reads best there ("lifecycle(true)", "localdnsFaultRunScript/preflight").
-	registered := map[string]bool{
-		"localdnsLifecycleScript":           true,
-		"localdnsDirectiveAssertScript":     true,
-		"localdnsWorstCycleScript":          true,
-		"localdnsProvisioningRestartScript": true,
-		"localdnsFaultHarnessInstallScript": true,
-		"localdnsFaultTeardownScript":       true,
-		"localdnsFaultRunScript":            true,
-	}
+	registered := localdnsScriptsUnderTest()
 	declaration := regexp.MustCompile(`(?m)^(?:var|const|func) (localdns\w*Script)\b`)
-	for _, file := range []string{"scenario_localdns_hosts.go", "scenario_localdns_restart_budget.go"} {
+	// Glob rather than a literal file list: go test runs in the package directory, so this
+	// covers new scenario files on arrival instead of only when someone remembers to add
+	// them here. Known gap it cannot close -- the regex keys on the localdns*Script naming
+	// convention, so a script sent through execScriptOnVMForScenario* under another name is
+	// still unguarded (validate_localdns_exporter_metrics.go does this today).
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
 		src, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatalf("read %s: %v", file, err)
 		}
 		for _, match := range declaration.FindAllStringSubmatch(string(src), -1) {
-			if !registered[match[1]] {
-				t.Errorf("%s is declared in %s but is not size-checked by "+
-					"TestLocalDNSScriptsFitBastionLimit. Add it to that test's map and to the "+
-					"registered set here, or it can outgrow the Bastion limit unnoticed.",
+			if _, ok := registered[match[1]]; !ok {
+				t.Errorf("%s is declared in %s but is not in localdnsScriptsUnderTest, so it is "+
+					"never size-checked and can outgrow the Bastion limit unnoticed. Add it "+
+					"there -- that one edit both registers and size-checks it.",
 					match[1], file)
 			}
 		}

@@ -116,13 +116,15 @@ enableLocalDNS() {
     local localdns_started=false
     local i
     # 100 matches what systemctlEnableAndStart did before (systemctl_restart 100 5 30,
-    # cse_helpers.sh), but it is a backstop rather than a budget: check_cse_timeout below
-    # reaches its limit first in any realistic run, so the loop ends on the CSE deadline,
-    # not on the count. Do not reason about the loop's duration from 100. check_cse_timeout bounds the slow case: if
-    # every restart hangs for its full 30s timeout, this loop would outlive CSE's 15m kill in
-    # cse_start.sh and be SIGKILLed mid-iteration, losing the status log and the exit code
-    # below. Breaking out early lets the give-up path run and report properly, matching the
-    # other retry loops in cse_helpers.sh.
+    # cse_helpers.sh), but it is a backstop, not a budget. check_cse_timeout below reaches
+    # its limit first in any realistic run, so the loop ends on the CSE deadline rather than
+    # on the count -- do not reason about the loop's duration from 100.
+    #
+    # That guard is what keeps the slow case safe: if every restart hangs for its full 30s
+    # timeout, the loop would outlive CSE's 15m kill in cse_start.sh and be SIGKILLed
+    # mid-iteration, losing the status log and the exit code below. Breaking out early lets
+    # the give-up path run and report properly, matching the other retry loops in
+    # cse_helpers.sh.
     #
     # Every systemd call here is wrapped in timeout, as _systemctl_retry_svc_operation did.
     # These all talk to PID 1 over D-Bus; an unbounded one that wedges would never return to
