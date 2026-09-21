@@ -116,9 +116,21 @@ enableLocalDNS() {
     local localdns_started=false
     local i
     # 100 matches what systemctlEnableAndStart did before (systemctl_restart 100 5 30,
-    # cse_helpers.sh), but it is a backstop, not a budget. check_cse_timeout below reaches
-    # its limit first in any realistic run, so the loop ends on the CSE deadline rather than
-    # on the count -- do not reason about the loop's duration from 100.
+    # cse_helpers.sh), but it is a backstop, not a budget: check_cse_timeout below decides,
+    # and only the fastest failure shape ever reaches 100. Do not reason about the loop's
+    # duration from the count.
+    #
+    # Measured against a Type=notify unit with this loop's exact shape (reset-failed,
+    # timeout 30 systemctl restart, sleep 5). Cost per iteration is dominated by how long
+    # the start takes to fail, because restart blocks until ready-or-failed:
+    #
+    #   failure shape                         per iteration   iterations in 780s
+    #   fails at once (pre-flight)                       5s          ~156
+    #   fails after ~8s (resolv.conf drain)             13s           ~60
+    #   hangs, capped by 'timeout 30'                   35s           ~22
+    #
+    # And that is with localdns as the only consumer of the budget, which it never is, so
+    # the real counts are lower.
     #
     # That guard is what keeps the slow case safe: if every restart hangs for its full 30s
     # timeout, the loop would outlive CSE's 15m kill in cse_start.sh and be SIGKILLed
