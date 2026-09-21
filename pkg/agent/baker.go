@@ -11,6 +11,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -22,6 +25,10 @@ import (
 	butanecommon "github.com/coreos/butane/config/common"
 	flatcar1_1 "github.com/coreos/butane/config/flatcar/v1_1"
 	"gopkg.in/yaml.v3"
+)
+
+const (
+	MaxCustomDataLength = 87380
 )
 
 // TemplateGenerator represents the object that performs the template generation.
@@ -44,19 +51,47 @@ func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBo
 }
 
 const (
+	cseScriptlessPhase2Template = `echo '%s' | base64 -d | gzip -d > /opt/azure/containers/boothook.sh` +
+		` && chmod 0600 /opt/azure/containers/boothook.sh` +
+		` && { [ -e /opt/bin/boothook.sh ] || /bin/bash /opt/azure/containers/boothook.sh; }` +
+		` && /opt/azure/containers/aks-node-controller provision-wait`
 	boothookTemplate = `#cloud-boothook
 #!/bin/bash
 set -euo pipefail
 
+[ -e /opt/azure/containers/provision.complete ] && exit 0
+
 logger -t aks-boothook "boothook start $(date -Ins)"
 
-mkdir -p /opt/azure/containers
+mkdir -p /opt/bin /opt/azure/containers /var/log/azure
 
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
+#hotfix-marker
 %s
-logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
-systemctl start --no-block aks-node-controller.service
+`
+	cseDownloaderTemplate = `
+if [ -f /opt/azure/containers/fetch_provision_config.py ]; then
+	python3 /opt/azure/containers/fetch_provision_config.py --output /opt/bin/boothook.sh --timeout 60 >>/var/log/azure/aks-early-boothook.log 2>&1 || exit 0
+fi
+
+if [ -f /opt/bin/boothook.sh ]; then
+	logger -t aks-boothook "starting /opt/bin/boothook.sh $(date -Ins)"
+	nohup /bin/bash /opt/bin/boothook.sh >/dev/null 2>&1 &
+fi
+`
+
+	serviceStartTemplate = `
+logger -t aks-boothook "launching aks-node-controller $(date -Ins)"
+if [ -f /opt/azure/containers/aks-node-controller-launcher.sh ]; then
+	nohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh > /var/log/azure/aks-node-controller.output 2>&1 &
+else
+	systemctl start --no-block aks-node-controller.service
+fi
+`
+	cseBootHookTemplate = `#!/bin/bash
+set -euo pipefail
+%s
 `
 	// boothookFileEntry is appended to the boothook for each additional file.
 	// It writes gzipped+base64-encoded content to disk before starting aks-node-controller.
@@ -71,7 +106,25 @@ chmod 0600 %[1]s
      "storage": {
        "files": [%s]
       }
-     }`
+    }`
+
+	flatcarAutoTemplate = `{
+     "ignition": { "version": "3.4.0" },
+     "systemd": {
+       "units": [{
+         "name": "aks-node-controller.service",
+         "enabled": true
+       }]
+     },
+     "storage": {
+       "files": [%s],
+       "links": [{
+         "path": "/etc/systemd/system/basic.target.wants/aks-node-controller.service",
+         "target": "/etc/systemd/system/aks-node-controller.service",
+         "overwrite": true
+       }]
+      }
+	}`
 	// flatcarFileEntry is an Ignition file entry appended to the files array
 	// when additional files are provided. Entries are joined with "," by
 	// buildScriptlessCustomData to form a valid JSON array.
@@ -91,8 +144,8 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 }
 
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
-	if config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly {
-		return t.getScriptlessNBCCustomData(config)
+	if supportsScriptlessPhase2(config) {
+		return t.getScriptlessBoothook(config)
 	}
 
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
@@ -108,20 +161,19 @@ func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.N
 	return encoded
 }
 
-// getScriptlessNBCCustomData builds custom data for the scriptless NBC CSE path.
-// It encodes the nbc-cmd script, node custom data, and optionally AKSNodeConfig
+type encodedFile struct {
+	path    string
+	content string
+}
+
+// getScriptlessBoothook builds custom data for the scriptless NBC CSE path.
+// It encodes the node custom data, cse downloader script
 // into the appropriate format (boothook or flatcar ignition).
-func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBootstrappingConfiguration) string {
+func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstrappingConfiguration) string {
 	config.DisableCustomData = true
 	config.EnableScriptlessCSECmd = true
-	nbcCMD := t.getLinuxNodeCSECommand(config)
-	encodedNBCCMD := getBase64EncodedGzippedCustomScriptFromStr(nbcCMD)
 	nodeCustomData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
 	encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
-	var encodedAKSNodeConfig string
-	if config.AKSNodeConfigJSON != "" {
-		encodedAKSNodeConfig = getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
-	}
 
 	// hotfixJSONFile is optional: only VHDs that bake a static default hotfix
 	// pointer ship this file. Skip silently when it's absent from the embedded parts FS.
@@ -130,32 +182,118 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 		encodedHotfixJSON = getBase64EncodedGzippedCustomScriptFromStr(string(b))
 	}
 
+	// enabledFeaturesFile is dropped only when at least one feature toggle is set. Its KEY=VALUE
+	// contents are read by the aks-node-controller wrapper (FEATURES_PATH). Empty content =>
+	// skipped by buildScriptlessCustomData, keeping custom data byte-identical when no toggle is set.
+	var encodedEnabledFeatures string
+	if content := renderEnabledFeatures(config.EnabledFeatures); content != "" {
+		encodedEnabledFeatures = getBase64EncodedGzippedCustomScriptFromStr(content)
+	}
+
 	// Use an ordered slice (not a map) so the rendered customData is deterministic
 	// across runs/tests instead of depending on Go's randomized map iteration order.
-	encodedFiles := []struct {
-		path    string
-		content string
-	}{
-		{aksNbcCmdFilepath, encodedNBCCMD},
+	encodedFiles := []encodedFile{
 		{aksNodeCustomDataFilepath, encodedNodeCustomData},
-		{aksNodeConfigFilepath, encodedAKSNodeConfig},
 		{aksHotfixJSONFilepath, encodedHotfixJSON},
+		{enabledFeaturesFilepath, encodedEnabledFeatures},
 	}
 
-	var customData string
+	var customData, encodedCustomData string
 	if config.IsFlatcar() || config.IsACL() {
 		customData = buildScriptlessCustomData(flatcarTemplate, flatcarFileEntry, ",", encodedFiles)
+		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
 		customData = buildScriptlessCustomData(boothookTemplate, boothookFileEntry, "\n", encodedFiles)
+		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData + cseDownloaderTemplate))
 	}
 
-	return base64.StdEncoding.EncodeToString([]byte(customData))
+	if config.ScriptlessCSEProvisionMode {
+		return encodedCustomData
+	}
+
+	var finalCustomData string
+	config.ScriptlessCSEProvisionMode = false
+	if config.IsFlatcar() || config.IsACL() {
+		encodedFiles = append(encodedFiles, t.getScriptlessConfiguration(config)...)
+		finalCustomData = buildScriptlessCustomData(flatcarAutoTemplate, flatcarFileEntry, ",", encodedFiles)
+	} else {
+		finalCustomData = customData + t.getScriptlessNBCCmd(config)
+	}
+	encodedFinalCustomData := base64.StdEncoding.EncodeToString([]byte(finalCustomData))
+	if len(encodedFinalCustomData) < MaxCustomDataLength {
+		return encodedFinalCustomData
+	}
+	config.ScriptlessCSEProvisionMode = true
+	return encodedCustomData
 }
 
-func buildScriptlessCustomData(cloudInitTemplate, fileListTemplate, separator string, encodedFiles []struct {
-	path    string
-	content string
-}) string {
+// getScriptlessNBCCmd builds cse for the scriptless NBC CSE path.
+// It encodes the nbc-cmd script, and optionally AKSNodeConfig JSON,
+// into a single base64-encoded string for the cse scriptless phase2 template.
+func (t *TemplateGenerator) getScriptlessNBCCmd(config *datamodel.NodeBootstrappingConfiguration) string {
+	encodedFiles := t.getScriptlessConfiguration(config)
+	customData := buildScriptlessCustomData(cseBootHookTemplate, boothookFileEntry, "\n", encodedFiles)
+	customData += serviceStartTemplate
+	return customData
+}
+
+func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBootstrappingConfiguration) []encodedFile {
+	config.DisableCustomData = true
+	config.EnableScriptlessCSECmd = true
+	nbcCMD := t.getLinuxNodeCSECommand(config)
+	encodedNBCCMD := getBase64EncodedGzippedCustomScriptFromStr(nbcCMD)
+	var encodedAKSNodeConfig string
+	if config.AKSNodeConfigJSON != "" {
+		encodedAKSNodeConfig = getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
+	}
+
+	// Use an ordered slice (not a map) so the rendered customData is deterministic
+	// across runs/tests instead of depending on Go's randomized map iteration order.
+	encodedFiles := []encodedFile{
+		{aksNbcCmdFilepath, encodedNBCCMD},
+		{aksNodeConfigFilepath, encodedAKSNodeConfig},
+	}
+	return encodedFiles
+}
+
+func supportsScriptlessPhase2(config *datamodel.NodeBootstrappingConfiguration) bool {
+	return config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly
+}
+
+// renderEnabledFeatures serializes the feature toggle map into sorted KEY=VALUE lines for
+// enabled_features.sh. Keys are sorted so the output is deterministic (Go map iteration is
+// randomized) and filtered to valid shell identifiers - the same set the aks-node-controller
+// wrapper accepts. Entries whose value contains a newline or carriage return are dropped so a
+// single map entry can never expand into multiple lines (preserving the one-KEY=VALUE-per-line
+// contract). Returns "" when no valid entry remains so custom data stays byte-identical to today.
+func renderEnabledFeatures(features map[string]string) string {
+	keys := make([]string, 0, len(features))
+	for k, v := range features {
+		if isValidFeatureKey(k) && !strings.ContainsAny(v, "\n\r") {
+			keys = append(keys, k)
+		}
+	}
+	if len(keys) == 0 {
+		return ""
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for _, k := range keys {
+		fmt.Fprintf(&b, "%s=%s\n", k, features[k])
+	}
+	return b.String()
+}
+
+// featureKeyRe matches a valid shell identifier ([a-zA-Z_][a-zA-Z0-9_]*) - the same set the
+// aks-node-controller wrapper parses out of enabled_features.sh.
+var featureKeyRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+// isValidFeatureKey reports whether k is a valid shell identifier the wrapper would accept.
+func isValidFeatureKey(k string) bool {
+	return featureKeyRe.MatchString(k)
+}
+
+func buildScriptlessCustomData(cloudInitTemplate, fileListTemplate, separator string, encodedFiles []encodedFile) string {
 	var fileList []string
 	for _, f := range encodedFiles {
 		if f.content == "" {
@@ -396,8 +534,13 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 	if config.AgentPoolProfile.IsWindows() {
 		return t.getWindowsNodeCSECommand(config)
 	}
-	if config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly {
-		return "/opt/azure/containers/aks-node-controller provision-wait"
+	if supportsScriptlessPhase2(config) {
+		if config.ScriptlessCSEProvisionMode {
+			cseCmd := getBase64EncodedGzippedCustomScriptFromStr(t.getScriptlessNBCCmd(config))
+			return fmt.Sprintf(cseScriptlessPhase2Template, cseCmd)
+		} else {
+			return "/opt/azure/containers/aks-node-controller provision-wait"
+		}
 	}
 	return t.getLinuxNodeCSECommand(config)
 }
@@ -487,6 +630,27 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 	expandedTemplate := buffer.String()
 
 	return expandedTemplate, nil
+}
+
+// RenderLinuxNodeCustomDataTemplate renders a nodecustomdata template with the
+// same variables and functions used by the production AgentBaker path.
+// Callers must supply a complete configuration, as required by the production
+// rendering helpers.
+func RenderLinuxNodeCustomDataTemplate(templateContent []byte, config *datamodel.NodeBootstrappingConfiguration) (string, error) {
+	parameters := getParameters(config)
+	variables := getCustomDataVariables(config)
+	templ := template.New("nodecustomdata template").
+		Option("missingkey=zero").
+		Funcs(getBakerFuncMap(config, parameters, variables))
+	if _, err := templ.Parse(string(removeComments(templateContent))); err != nil {
+		return "", fmt.Errorf("error parsing nodecustomdata template: %w", err)
+	}
+
+	var buffer bytes.Buffer
+	if err := templ.Execute(&buffer, config.AgentPoolProfile); err != nil {
+		return "", fmt.Errorf("error executing nodecustomdata template: %w", err)
+	}
+	return buffer.String(), nil
 }
 
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
@@ -581,8 +745,17 @@ func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 
 // ValidateAndSetLinuxNodeBootstrappingConfiguration is exported only for temporary usage in e2e testing of new config.
 func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
+	_ = ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)
+}
+
+// ValidateAndSetLinuxNodeBootstrappingConfigurationWithError validates and updates Linux node bootstrapping configuration.
+func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamodel.NodeBootstrappingConfiguration) error {
+	if err := validateCustomLinuxOSConfig(config.AgentPoolProfile.GetCustomLinuxOSConfig()); err != nil {
+		return err
+	}
+
 	if config.KubeletConfig == nil {
-		return
+		return nil
 	}
 	kubeletFlags := config.KubeletConfig
 
@@ -617,6 +790,15 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
 	}
 
+	// Node Hardening: AgentBaker, not the RP, owns the cgroup slice
+	// names that --kube-reserved-cgroup/--system-reserved-cgroup resolve to, since
+	// AgentBaker is what actually creates (or doesn't create) the systemd slice unit
+	// on the node (see cse_helpers.sh::ensureKubeletCgroupHierarchy). The RP only
+	// signals intent via --enforce-node-allocatable=pods,kube-reserved,system-reserved;
+	// any value it may still send for the two cgroup flags themselves is ignored and
+	// overwritten here so there is a single source of truth for the slice names.
+	setNodeHardeningCgroupFlags(kubeletFlags)
+
 	/* ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but
 	deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s
 		version 1.20 or higher */
@@ -628,6 +810,45 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 		!IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
 		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
 	}
+
+	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
+	// It must not appear on the command line or in the config file for those versions.
+	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
+		delete(kubeletFlags, "--streaming-connection-idle-timeout")
+	}
+	return nil
+}
+
+func validateCustomLinuxOSConfig(config *datamodel.CustomLinuxOSConfig) error {
+	if config == nil {
+		return nil
+	}
+
+	if err := validateTransparentHugePageConfigValue(
+		"transparentHugePageEnabled",
+		config.TransparentHugePageEnabled,
+		[]string{"always", "madvise", "never"},
+	); err != nil {
+		return err
+	}
+
+	return validateTransparentHugePageConfigValue(
+		"transparentHugePageDefrag",
+		config.TransparentHugePageDefrag,
+		[]string{"always", "defer", "defer+madvise", "madvise", "never"},
+	)
+}
+
+func validateTransparentHugePageConfigValue(fieldName, value string, allowedValues []string) error {
+	if value == "" {
+		return nil
+	}
+
+	if slices.Contains(allowedValues, value) {
+		return nil
+	}
+
+	return fmt.Errorf("customLinuxOSConfig.%s value %q is invalid; allowed values are: %s", fieldName, value, strings.Join(allowedValues, ", "))
 }
 
 func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
@@ -652,6 +873,11 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 
 		if IsKubeletServingCertificateRotationEnabled(config) {
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
+		}
+
+		// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
+		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
+			delete(kubeletFlags, "--streaming-connection-idle-timeout")
 		}
 	}
 }
@@ -685,8 +911,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetGPUInstanceProfile": func() string {
 			return config.GPUInstanceProfile
 		},
+		"GetMIGProfileLayout": func() string {
+			return strings.Join(config.MIGProfileLayout, ",")
+		},
 		"IsMIGEnabledNode": func() bool {
-			return config.GPUInstanceProfile != ""
+			return datamodel.IsMIGNode(config.GPUInstanceProfile, config.MIGProfileLayout)
 		},
 		"GetMigStrategy": func() string {
 			return config.MigStrategy
@@ -731,6 +960,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.SecureTLSBootstrappingConfig.GetGetCredentialTimeout()
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
+			if config.PreProvisionOnly {
+				return ""
+			}
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
 		},
 		"EnableKubeletServingCertificateRotation": func() bool {
@@ -742,11 +974,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetKubeletConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeletConfigStringForPowershell(profile.CustomKubeletConfig)
 		},
+		"GetKubeletHealthzEndpoint": func() string {
+			return config.GetKubeletHealthzEndpoint(profile.CustomKubeletConfig)
+		},
 		"GetKubeproxyConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
 		},
 		"IsCgroupV2": func() bool {
-			return profile.Is2204VHDDistro() || profile.Is2404VHDDistro() ||
+			return profile.Is2204VHDDistro() || profile.Is2404VHDDistro() || profile.Is2604VHDDistro() ||
 				config.IsAzureLinux() || config.IsFlatcar() || config.IsACL()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
@@ -800,13 +1035,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			var sb strings.Builder
 			sb.WriteString("[Service]\n")
 			if ulimitConfig.MaxLockedMemory != "" {
-				sb.WriteString(fmt.Sprintf("LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory))
+				fmt.Fprintf(&sb, "LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory)
 			}
 			if ulimitConfig.NoFile != "" {
-				// ulimit is removed in containerd 2.0+, which is available only in ubuntu2404 distro
+				// ulimit is removed in containerd 2.0+, which is available only in ubuntu2404/ubuntu2604 distros
 				// https://github.com/containerd/containerd/blob/main/docs/containerd-2.0.md#limitnofile-configuration-has-been-removed
-				if !profile.Is2404VHDDistro() {
-					sb.WriteString(fmt.Sprintf("LimitNOFILE=%s\n", ulimitConfig.NoFile))
+				if !profile.Is2404VHDDistro() && !profile.Is2604VHDDistro() {
+					fmt.Fprintf(&sb, "LimitNOFILE=%s\n", ulimitConfig.NoFile)
 				}
 			}
 			return sb.String()
@@ -1014,7 +1249,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetContainerdConfigContent": func() string {
 			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
-				if profile.Is2404VHDDistro() {
+				if profile.IsContainerdV2Distro() {
 					return containerdV2ConfigTemplate
 				}
 				return containerdV1ConfigTemplate
@@ -1026,7 +1261,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetContainerdConfigNoGPUContent": func() string {
 			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
-				if profile.Is2404VHDDistro() {
+				if profile.IsContainerdV2Distro() {
 					return containerdV2NoGPUConfigTemplate
 				}
 				return containerdV1NoGPUConfigTemplate
@@ -1075,11 +1310,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsAKSCustomCloud": func() bool {
 			return cs.IsAKSCustomCloud()
 		},
-		"GetInitAKSCustomCloudFilepath": func() string {
-			return initAKSCustomCloudFilepath
+		"GetInitAKSCloudFilepath": func() string {
+			return initAKSCloudFilepath
 		},
 		"AKSCustomCloudRepoDepotEndpoint": func() string {
-			return cs.Properties.CustomCloudEnv.RepoDepotEndpoint
+			if cs.IsAKSCustomCloud() {
+				return cs.Properties.CustomCloudEnv.RepoDepotEndpoint
+			}
+			return ""
 		},
 		"AKSCustomCloudManagementPortalURL": func() string {
 			return cs.Properties.CustomCloudEnv.ManagementPortalURL
@@ -1173,6 +1411,21 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetCSEConfigScriptFilepath": func() string {
 			return cseConfigScriptFilepath
+		},
+		"GetCSEConfigGPUScriptFilepath": func() string {
+			return cseConfigGPUScriptFilepath
+		},
+		"GetCSEConfigLocalDNSScriptFilepath": func() string {
+			return cseConfigLocalDNSScriptFilepath
+		},
+		"GetCSEConfigKubeletScriptFilepath": func() string {
+			return cseConfigKubeletScriptFilepath
+		},
+		"GetCSEConfigNetworkScriptFilepath": func() string {
+			return cseConfigNetworkScriptFilepath
+		},
+		"GetCSEConfigAddonsScriptFilepath": func() string {
+			return cseConfigAddonsScriptFilepath
 		},
 		"GetCustomSearchDomainsCSEScriptFilepath": func() string {
 			return customSearchDomainsCSEScriptFilepath
@@ -1415,9 +1668,19 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return strings.Join(criticalFQDNs, ",")
 		},
+		"GetLocalDNSHostsPluginRefreshIntervalInSeconds": func() string {
+			if profile.LocalDNSProfile == nil || profile.LocalDNSProfile.HostsPluginRefreshIntervalInSeconds == nil {
+				return ""
+			}
+			refreshIntervalInSeconds := *profile.LocalDNSProfile.HostsPluginRefreshIntervalInSeconds
+			if refreshIntervalInSeconds <= 0 {
+				return ""
+			}
+			return strconv.FormatInt(int64(refreshIntervalInSeconds), 10)
+		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
-		"GetSkipWaAgentHold":  func() bool { return config.EnableScriptlessNBCCSECmd },
+		"GetSkipWaAgentHold":  func() bool { return supportsScriptlessPhase2(config) },
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},
@@ -1712,12 +1975,26 @@ const (
 	containerdV1ConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "10G"
+  enable_fsverity = false
+  ovl_mount_options = []
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs", "walking"]
+
+[plugins."io.containerd.differ.v1.erofs"]
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+  enable_tar_index = false
+{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if IsKata }}
     disable_snapshot_annotations = false
+    snapshotter = "overlayfs"
     {{- end}}
     {{- if IsArtifactStreamingEnabled }}
     snapshotter = "overlaybd"
@@ -1774,8 +2051,15 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+  snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+  runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
+  snapshotter = "erofs"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -1792,49 +2076,62 @@ root = "{{GetDataDir}}"{{- end}}
 	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "10G"
+  enable_fsverity = false
+  ovl_mount_options = []
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs", "walking"]
+
+[plugins."io.containerd.differ.v1.erofs"]
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+  enable_tar_index = false
+{{- end}}
 [plugins."io.containerd.cri.v1.images"]
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
 {{- end}}
-[plugins."io.containerd.cri.v1.images".pinned_images]
-  sandbox = "{{GetPodInfraContainerSpec}}"
-{{- if IsKubernetesVersionGe "1.22.0"}}
-[plugins."io.containerd.cri.v1.images".registry]
-  config_path = "/etc/containerd/certs.d"
-{{- end}}
-[plugins."io.containerd.cri.v1.images".registry.headers]
-  X-Meta-Source-Client = ["azure/aks"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = "{{GetPodInfraContainerSpec}}"
+  {{- if IsKubernetesVersionGe "1.22.0"}}
+  [plugins."io.containerd.cri.v1.images".registry]
+    config_path = "/etc/containerd/certs.d"
+  {{- end}}
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
 [plugins."io.containerd.cri.v1.runtime".containerd]
-  {{- if IsNSeriesSKU }}
-  default_runtime_name = "nvidia-container-runtime"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
-    BinaryName = "/usr/bin/nvidia-container-runtime"
-    SystemdCgroup = true
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
-    BinaryName = "/usr/bin/nvidia-container-runtime"
-{{- else}}
-  default_runtime_name = "runc"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
-    BinaryName = "/usr/bin/runc"
-    SystemdCgroup = true
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
-    BinaryName = "/usr/bin/runc"
-{{- end}}
-{{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
-[plugins."io.containerd.cri.v1.runtime".cni]
-  bin_dir = "/opt/cni/bin"
-  conf_dir = "/etc/cni/net.d"
-  conf_template = "/etc/containerd/kubenet_template.conf"
-{{- end}}
+    {{- if IsNSeriesSKU }}
+    default_runtime_name = "nvidia-container-runtime"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+    {{- else}}
+    default_runtime_name = "runc"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+    {{- end}}
+  {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
+  [plugins."io.containerd.cri.v1.runtime".cni]
+    bin_dir = "/opt/cni/bin"
+    conf_dir = "/etc/cni/net.d"
+    conf_template = "/etc/containerd/kubenet_template.conf"
+  {{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 {{- if IsArtifactStreamingEnabled }}
@@ -1847,8 +2144,15 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+  snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+  runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
+  snapshotter = "erofs"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -1865,36 +2169,49 @@ root = "{{GetDataDir}}"{{- end}}
 	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "10G"
+  enable_fsverity = false
+  ovl_mount_options = []
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs", "walking"]
+
+[plugins."io.containerd.differ.v1.erofs"]
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+  enable_tar_index = false
+{{- end}}
 [plugins."io.containerd.cri.v1.images"]
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
 {{- end}}
-[plugins."io.containerd.cri.v1.images".pinned_images]
-  sandbox = "{{GetPodInfraContainerSpec}}"
-{{- if IsKubernetesVersionGe "1.22.0"}}
-[plugins."io.containerd.cri.v1.images".registry]
-  config_path = "/etc/containerd/certs.d"
-{{- end}}
-[plugins."io.containerd.cri.v1.images".registry.headers]
-  X-Meta-Source-Client = ["azure/aks"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = "{{GetPodInfraContainerSpec}}"
+  {{- if IsKubernetesVersionGe "1.22.0"}}
+  [plugins."io.containerd.cri.v1.images".registry]
+    config_path = "/etc/containerd/certs.d"
+  {{- end}}
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
 [plugins."io.containerd.cri.v1.runtime".containerd]
-  default_runtime_name = "runc"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
-    BinaryName = "/usr/bin/runc"
-    SystemdCgroup = true
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
-    BinaryName = "/usr/bin/runc"
-{{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
-[plugins."io.containerd.cri.v1.runtime".cni]
-  bin_dir = "/opt/cni/bin"
-  conf_dir = "/etc/cni/net.d"
-  conf_template = "/etc/containerd/kubenet_template.conf"
-{{- end}}
+    default_runtime_name = "runc"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+  {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
+  [plugins."io.containerd.cri.v1.runtime".cni]
+    bin_dir = "/opt/cni/bin"
+    conf_dir = "/etc/cni/net.d"
+    conf_template = "/etc/containerd/kubenet_template.conf"
+  {{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 {{- if IsArtifactStreamingEnabled }}
@@ -1907,8 +2224,15 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+  snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+  runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
+  snapshotter = "erofs"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -1918,11 +2242,25 @@ root = "{{GetDataDir}}"{{- end}}
 	containerdV1NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
+{{- if IsKata }}
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "10G"
+  enable_fsverity = false
+  ovl_mount_options = []
+
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs", "walking"]
+
+[plugins."io.containerd.differ.v1.erofs"]
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+  enable_tar_index = false
+{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if IsKata }}
     disable_snapshot_annotations = false
+    snapshotter = "overlayfs"
     {{- end}}
     {{- if IsArtifactStreamingEnabled }}
     snapshotter = "overlaybd"
@@ -1964,8 +2302,15 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+  snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+  runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
+  snapshotter = "erofs"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2085,8 +2430,20 @@ health-check.localdns.local:53 {
         {{- if eq $override.Protocol "ForceTCP"}}
         force_tcp
         {{- end}}
+        {{- if eq $override.Protocol "PreferUDP"}}
+        prefer_udp
+        {{- end}}
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
+        {{- if and $override.HealthCheck $override.HealthCheck.GetDuration}}
+        {{- $duration := $override.HealthCheck.GetDuration}}
+        {{- $noRec := $override.HealthCheck.GetNoRec}}
+        {{- $domain := $override.HealthCheck.GetDomain}}
+        health_check {{$duration}}{{if $noRec}} no_rec{{end}}{{if $domain}} domain {{$domain}}{{end}}
+        {{- end}}
+        {{- if $override.GetFailfastAllUnhealthyUpstreams}}
+        failfast_all_unhealthy_upstreams
+        {{- end}}
     }
     ready {{$.NodeListenerIP}}:8181
     cache {{$override.CacheDurationInSeconds}} {
@@ -2150,8 +2507,20 @@ health-check.localdns.local:53 {
         {{- if eq $override.Protocol "ForceTCP"}}
         force_tcp
         {{- end}}
+        {{- if eq $override.Protocol "PreferUDP"}}
+        prefer_udp
+        {{- end}}
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
+        {{- if and $override.HealthCheck $override.HealthCheck.GetDuration}}
+        {{- $duration := $override.HealthCheck.GetDuration}}
+        {{- $noRec := $override.HealthCheck.GetNoRec}}
+        {{- $domain := $override.HealthCheck.GetDomain}}
+        health_check {{$duration}}{{if $noRec}} no_rec{{end}}{{if $domain}} domain {{$domain}}{{end}}
+        {{- end}}
+        {{- if $override.GetFailfastAllUnhealthyUpstreams}}
+        failfast_all_unhealthy_upstreams
+        {{- end}}
     }
     ready {{$.ClusterListenerIP}}:8181
     cache {{$override.CacheDurationInSeconds}} {

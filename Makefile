@@ -100,7 +100,7 @@ shellspec-ci: shellspec-base-ci
 	docker run --rm \
 		-v $(CURDIR):/workspace \
 		-w /workspace \
-		shellspec-docker --shell bash --format d
+		shellspec-docker --shell bash --format d --kcov --covdir coverage
 
 .PHONY: shellspec-focus
 shellspec-focus: shellspec-base-local
@@ -125,7 +125,7 @@ generate-manifest:
 .PHONY: generate-testdata
 generate-testdata:
 	@echo $(GOFLAGS)
-	GENERATE_TEST_DATA="true" go test ./pkg/agent...
+	cd aks-node-controller && GENERATE_TEST_DATA="true" go test ./parser/...
 
 .PHONY: generate # TODO: ONLY generate go testdata
 generate: bootstrap
@@ -204,15 +204,19 @@ endif
 ginkgoBuild: generate
 	make -C ./test/e2e ginkgo-build
 
-test: test-aks-node-controller
+test: test-aks-node-controller test-aks-live-patching
 	go build -mod=readonly ./... && go test ./...
 
 test-aks-node-controller:
 	pushd aks-node-controller && go build -mod=readonly ./... && go test ./... && popd
 
+test-aks-live-patching:
+	pushd aks-live-patching && go build -mod=readonly ./... && go test ./... && popd
+
 lint:
 	$(TOOLSBIN)/golangci-lint run ./...
 	pushd aks-node-controller && $(TOOLSBIN)/golangci-lint run ./... && popd
+	pushd aks-live-patching && $(TOOLSBIN)/golangci-lint run ./... && popd
 
 .PHONY: test-style
 test-style: validate-go validate-shell validate-copyright-headers

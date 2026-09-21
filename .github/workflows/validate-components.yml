@@ -4,11 +4,15 @@ on: pull_request
 jobs:
   cue:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          go-version: '1.25'
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.26'
       - name: Install cue
         run: |
           go version
@@ -41,9 +45,13 @@ jobs:
 
   version-consistency:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v7
-    - uses: actions/setup-go@v6
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version-file: e2e/go.mod
         cache-dependency-path: e2e/go.sum
@@ -51,13 +59,17 @@ jobs:
       working-directory: ./e2e
       run: |
         set -ex
-        go test -v -run ^Test_Version_Consistency_GPU_Managed_Components$ .
+        go test -v -run ^TestVersionConsistencyGPUManagedComponents$ ./scenario
 
   dcgm-compatibility:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v7
-    - uses: actions/setup-go@v6
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version-file: e2e/go.mod
         cache-dependency-path: e2e/go.sum
@@ -65,5 +77,95 @@ jobs:
       working-directory: ./e2e
       run: |
         set -ex
-        go test -v -run ^TestDCGMExporterCompatibility$ ./components/
+        go test -v -tags=dcgmcompat ./components/
 
+  previous-version-consistency:
+    runs-on: ubuntu-latest
+    # This check only targets Renovate-authored version bumps: Renovate is
+    # the actor that copies latestVersion -> previousLatestVersion without
+    # noticing a same-release collision, so that's where this failure mode
+    # actually originates.
+    if: github.event.pull_request.user.login == 'renovate[bot]'
+    permissions:
+      contents: read
+      pull-requests: write
+    # Serialize (and cancel superseded) runs per-PR: post_suggestions.py's
+    # delete-then-post isn't safe to run concurrently for the same PR --
+    # an older, in-flight run could otherwise delete a newer run's freshly
+    # posted suggestions after that newer run already finished.
+    concurrency:
+      group: previous-version-consistency-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    # Any entry in components.json tracking both latestVersion and
+    # previousLatestVersion can go stale: the two fields must reference two
+    # genuinely different releases. Renovate can bump latestVersion but has
+    # no logic to detect that a package/image rebuild left both fields
+    # pointing at the same release (only differing by package/image
+    # revision), so this check catches that case and posts a best-effort
+    # recommendation. It never edits components.json; a human must apply
+    # the fix.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Check out the PR head commit itself (not the default synthetic
+          # pull_request merge ref) so the line numbers validate_previous_version.py
+          # computes match the exact commit post_suggestions.py posts the
+          # review against -- otherwise a base-branch change since the PR
+          # was opened could make the merge-ref line numbers diverge from
+          # the head commit's real content and GitHub would reject or
+          # misplace the suggestions.
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Validate previousLatestVersion targets a genuinely prior release
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -ex
+          # Diff against the merge base (fork point) of head and the base
+          # branch, not the base branch's current tip: if the base branch has
+          # advanced since this PR was opened, comparing against its live tip
+          # would misattribute base-only components.json changes to this PR
+          # (and could point suggestions at lines outside the PR's own diff,
+          # which GitHub rejects).
+          MERGE_BASE="$(git merge-base HEAD "origin/${BASE_REF}")"
+          python3 .github/scripts/validate_previous_version.py \
+            --base "$MERGE_BASE" \
+            --file parts/common/components.json \
+            --report previous_version_report.md \
+            --suggestions previous_version_suggestions.json
+
+      - name: Post previousLatestVersion suggestions as review comments
+        # Always run (even when this push has no findings): a prior push's
+        # suggestions may since have been fixed and need to be cleaned up.
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -ex
+          python3 .github/scripts/post_suggestions.py \
+            --repo "${{ github.repository }}" \
+            --pr "${{ github.event.pull_request.number }}" \
+            --commit-sha "${{ github.event.pull_request.head.sha }}" \
+            --file parts/common/components.json \
+            --suggestions previous_version_suggestions.json
+
+      - name: remove previousLatestVersion comment from PR
+        # Removing and then re-adding keeps the comment at the bottom of the
+        # PR and avoids piling up duplicate comments on repeated pushes.
+        if: always()
+        uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
+        with:
+          mode: delete
+          comment-tag: PREVIOUS_LATEST_VERSION_CHECK
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: comment previousLatestVersion findings on PR
+        if: always() && hashFiles('previous_version_report.md') != ''
+        uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
+        with:
+          file-path: previous_version_report.md
+          comment-tag: PREVIOUS_LATEST_VERSION_CHECK
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

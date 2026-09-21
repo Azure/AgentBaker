@@ -110,11 +110,39 @@ function Download-File
     Get-ChildItem "$Dest"
 }
 
+function Invoke-AzCopyLogin
+{
+    # Thin wrapper around the native azcopy.exe invocation so tests can Mock this function instead
+    # of needing a real azcopy.exe binary. Sets $LASTEXITCODE as a side effect, same as the direct
+    # call would.
+    .\azcopy.exe login --login-type=MSI
+}
+
+function Invoke-AzCopyCopy
+{
+    # Thin wrapper around the native azcopy.exe invocation so tests can Mock this function instead
+    # of needing a real azcopy.exe binary. Sets $LASTEXITCODE as a side effect, same as the direct
+    # call would.
+    param (
+        $URL,
+        $Dest
+    )
+    .\azcopy.exe copy "$URL" "$Dest"
+}
+
 function Download-FileWithAzCopy
 {
     param (
         $URL,
-        $Dest
+        $Dest,
+        # RequireMSILogin: only the new windowsDownloadRequiresAzCopy component path (via
+        # Invoke-PackageDownload) sets this - that path is explicitly MSI-only, so a failed login
+        # must stop the download outright. Pre-existing callers (Get-PrivatePackagesToCacheOnVHD,
+        # the servercore/nanoserver base image override in Get-ContainerImages) may pass a
+        # SAS-bearing URL that `azcopy copy` can still authenticate with directly even if
+        # `azcopy login` fails (e.g. no managed identity attached at all) - don't break that
+        # existing fallback behavior for them.
+        [Switch]$RequireMSILogin = $false
     )
 
 
@@ -133,28 +161,68 @@ function Download-FileWithAzCopy
     }
 
     pushd "$global:aksTempDir"
-    $env:AZCOPY_JOB_PLAN_LOCATION = "$global:aksTempDir\azcopy"
-    $env:AZCOPY_LOG_LOCATION = "$global:aksTempDir\azcopy"
-
-    mkdir -Force $env:AZCOPY_LOG_LOCATION
-    if (Test-Path -Path "$env:AZCOPY_LOG_LOCATION\*.log")
+    try
     {
-        rm -Force "$env:AZCOPY_LOG_LOCATION\*.log"
+        $env:AZCOPY_JOB_PLAN_LOCATION = "$global:aksTempDir\azcopy"
+        $env:AZCOPY_LOG_LOCATION = "$global:aksTempDir\azcopy"
+
+        mkdir -Force $env:AZCOPY_LOG_LOCATION
+        if (Test-Path -Path "$env:AZCOPY_LOG_LOCATION\*.log")
+        {
+            rm -Force "$env:AZCOPY_LOG_LOCATION\*.log"
+        }
+
+        Write-Log "Logging in to AzCopy"
+        # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows/windows-vhd-builder-sig.json
+        Invoke-AzCopyLogin
+        if ($LASTEXITCODE)
+        {
+            if ($RequireMSILogin)
+            {
+                throw "azcopy login --login-type=MSI failed with exit code $LASTEXITCODE. This download path is MSI-only: ensure the build VM has the managed identity attached and it has read access to the source storage account."
+            }
+            Write-Log "azcopy login --login-type=MSI failed with exit code $LASTEXITCODE - continuing, since $URL may carry its own credential (e.g. a SAS token) that 'azcopy copy' can use directly without a successful login."
+        }
+
+        Write-Log "Copying $URL to $Dest"
+        Invoke-AzCopyCopy -URL $URL -Dest $Dest
+        if ($LASTEXITCODE)
+        {
+            throw "azcopy copy '$URL' '$Dest' failed with exit code $LASTEXITCODE"
+        }
+
+        dir "$Dest"
     }
+    finally
+    {
+        Write-Log "--- START AzCopy Log"
+        Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" -ErrorAction SilentlyContinue | Write-Log
+        Write-Log "--- END AzCopy Log"
+        popd
+    }
+}
 
-    Write-Log "Logging in to AzCopy"
-    # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows/windows-vhd-builder-sig.json
-    .\azcopy.exe login --login-type=MSI
+function Invoke-PackageDownload
+{
+    # Shared dispatcher: routes a resolved package URL to AzCopy (MSI-authenticated) if it was
+    # flagged with windowsDownloadRequiresAzCopy in components.json, otherwise the default
+    # unauthenticated curl-based download. Every call site that downloads a components.json
+    # package URL (cached packages, containerd, ...) must go through this so the AzCopy set
+    # (populated once in windows-vhd-configuration.ps1) is consistently honored.
+    param (
+        $URL,
+        $Dest
+    )
 
-    Write-Log "Copying $URL to $Dest"
-    .\azcopy.exe copy "$URL" "$Dest"
-
-    dir "$Dest"
-
-    Write-Log "--- START AzCopy Log"
-    Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" | Write-Log
-    Write-Log "--- END AzCopy Log"
-    popd
+    if ($global:azCopyUrls -and $global:azCopyUrls.ContainsKey($URL))
+    {
+        # This is the new, explicitly MSI-only component path - require azcopy login to succeed.
+        Download-FileWithAzCopy -URL $URL -Dest $Dest -RequireMSILogin
+    }
+    else
+    {
+        Download-File -URL $URL -Dest $Dest
+    }
 }
 
 function Pull-OCIArtifact
@@ -172,7 +240,11 @@ function Pull-OCIArtifact
             New-Item -ItemType Directory $global:aksTempDir -Force
         }
 
-        $orasVersion = '1.2.3'
+        $orasVersion = $global:orasVersion
+        if ([string]::IsNullOrEmpty($orasVersion)) {
+            throw "Unable to resolve ORAS version from components.json"
+        }
+
         $orasZip = "oras_${orasVersion}_windows_amd64.zip"
         $orasUrl = "https://github.com/oras-project/oras/releases/download/v${orasVersion}/${orasZip}"
 
@@ -442,7 +514,7 @@ function Get-PackagesToCacheOnVHD
             $dest = [IO.Path]::Combine($dir, $fileName)
 
             Write-Log "Downloading $URL to $dest"
-            Download-File -URL $URL -Dest $dest
+            Invoke-PackageDownload -URL $URL -Dest $dest
         }
     }
 
@@ -602,7 +674,7 @@ function Install-ContainerD
 
     $containerdFilename = [IO.Path]::GetFileName($global:defaultContainerdPackageUrl)
     $containerdTmpDest = [IO.Path]::Combine($installDir, $containerdFilename)
-    Download-File -URL $global:defaultContainerdPackageUrl -Dest $containerdTmpDest
+    Invoke-PackageDownload -URL $global:defaultContainerdPackageUrl -Dest $containerdTmpDest
     # The released containerd package format is either zip or tar.gz
     if ( $containerdFilename.endswith(".zip"))
     {

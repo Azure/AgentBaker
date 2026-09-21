@@ -16,11 +16,13 @@ else
 	exit ${cloudInitExitCode};
 fi;
 {{end}}
-{{if IsAKSCustomCloud}}
-REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
-{{end}}
-LOCATION={{GetVariable "location"}}
-{{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1 || exit $?;
+INIT_AKS_CLOUD_FILEPATH="{{GetInitAKSCloudFilepath}}";
+if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]; then
+	REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}" LOCATION={{GetVariable "location"}} "${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1;
+fi;
+{{/* Keep the environment assignments below contiguous through the nohup invocation at the end of this file. */ -}}
+{{/* The CSE command is flattened into one shell command, so all assignments below are passed to nohup. */ -}}
+{{/* Be careful not to add runtime control flow or command separators that break the flattening logic. */ -}}
 ADMINUSER={{GetParameter "linuxAdminUsername"}}
 MOBY_VERSION={{GetParameter "mobyVersion"}}
 TENANT_ID={{GetVariable "tenantID"}}
@@ -33,6 +35,7 @@ KUBEPROXY_URL={{GetParameter "kubeProxySpec"}}
 APISERVER_PUBLIC_KEY={{GetParameter "apiServerCertificate"}}
 SUBSCRIPTION_ID={{GetVariable "subscriptionId"}}
 RESOURCE_GROUP={{GetVariable "resourceGroup"}}
+LOCATION={{GetVariable "location"}}
 VM_TYPE={{GetVariable "vmType"}}
 SUBNET={{GetVariable "subnetName"}}
 NETWORK_SECURITY_GROUP={{GetVariable "nsgName"}}
@@ -82,6 +85,7 @@ MANAGED_GPU_EXPERIENCE_AFEC_ENABLED="{{IsManagedGPUExperienceAFECEnabled}}"
 ENABLE_MANAGED_GPU="{{IsEnableManagedGPU}}"
 ENABLE_MANAGED_GPU_DRA="{{IsEnableManagedGPUDRA}}"
 NVIDIA_MIG_STRATEGY="{{GetMigStrategy}}"
+NVIDIA_MIG_PROFILE_LAYOUT="{{GetMIGProfileLayout}}"
 CREDENTIAL_PROVIDER_DOWNLOAD_URL={{GetParameter "linuxCredentialProviderURL"}}
 CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
 CONTAINERD_PACKAGE_URL={{GetParameter "containerdPackageURL"}}
@@ -124,13 +128,18 @@ CSE_DISTRO_HELPERS_FILEPATH="{{GetCSEHelpersScriptDistroFilepath}}"
 CSE_INSTALL_FILEPATH="{{GetCSEInstallScriptFilepath}}"
 CSE_DISTRO_INSTALL_FILEPATH="{{GetCSEInstallScriptDistroFilepath}}"
 CSE_CONFIG_FILEPATH="{{GetCSEConfigScriptFilepath}}"
+CSE_CONFIG_GPU_FILEPATH="{{GetCSEConfigGPUScriptFilepath}}"
+CSE_CONFIG_LOCALDNS_FILEPATH="{{GetCSEConfigLocalDNSScriptFilepath}}"
+CSE_CONFIG_KUBELET_FILEPATH="{{GetCSEConfigKubeletScriptFilepath}}"
+CSE_CONFIG_NETWORK_FILEPATH="{{GetCSEConfigNetworkScriptFilepath}}"
+CSE_CONFIG_ADDONS_FILEPATH="{{GetCSEConfigAddonsScriptFilepath}}"
 AZURE_PRIVATE_REGISTRY_SERVER="{{GetPrivateAzureRegistryServer}}"
 HAS_CUSTOM_SEARCH_DOMAIN="{{HasCustomSearchDomain}}"
 CUSTOM_SEARCH_DOMAIN_FILEPATH="{{GetCustomSearchDomainsCSEScriptFilepath}}"
-HTTP_PROXY_URLS="{{GetHTTPProxy}}"
-HTTPS_PROXY_URLS="{{GetHTTPSProxy}}"
-NO_PROXY_URLS="{{GetNoProxy}}"
-PROXY_VARS="{{GetProxyVariables}}"
+HTTP_PROXY_URLS={{GetVariable "httpProxyShellQuoted"}}
+HTTPS_PROXY_URLS={{GetVariable "httpsProxyShellQuoted"}}
+NO_PROXY_URLS={{GetVariable "noProxyShellQuoted"}}
+PROXY_VARS='{{GetProxyVariables}}'
 ENABLE_SECURE_TLS_BOOTSTRAPPING="{{EnableSecureTLSBootstrapping}}"
 SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE="{{GetSecureTLSBootstrappingAADResource}}"
 SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID="{{GetSecureTLSBootstrappingUserAssignedIdentityID}}"
@@ -196,6 +205,7 @@ LOCALDNS_GENERATED_COREFILE="{{GetGeneratedLocalDNSCoreFile}}"
 LOCALDNS_COREFILE_BASE="{{GetGeneratedLocalDNSCoreFileBase}}"
 LOCALDNS_COREFILE_WITH_HOSTS="{{GetGeneratedLocalDNSCoreFileWithHosts}}"
 LOCALDNS_CRITICAL_FQDNS="{{GetLocalDNSCriticalFQDNs}}"
+LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS="{{GetLocalDNSHostsPluginRefreshIntervalInSeconds}}"
 PRE_PROVISION_ONLY="{{GetPreProvisionOnly}}"
 CSE_TIMEOUT="{{GetCSETimeout}}"
 SKIP_WAAGENT_HOLD="{{GetSkipWaAgentHold}}"

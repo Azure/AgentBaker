@@ -47,6 +47,24 @@ package components
 	versionsV2:   [...#VersionV2]
 	downloadURL?:  string
 	windowsDownloadURL?: string
+	// windowsDownloadRequiresAzCopy indicates windowsDownloadURL points at a private/authenticated
+	// blob store location that must be fetched with AzCopy using the VHD builder's managed identity,
+	// rather than the default unauthenticated curl-based download. Defaults to false (rather than
+	// being a plain optional bool) so the conditional constraint below can reference it directly -
+	// components.json entries that don't set this field at all are unaffected.
+	windowsDownloadRequiresAzCopy: *false | bool
+
+	// This path is MSI-only: no SAS tokens or other query-string credentials are supported. Reject
+	// them here, at schema-validation time (make validate-components / the validate-components CI
+	// check), rather than relying solely on the matching runtime check in
+	// GetAzCopyDownloadUrlsFromComponentsJson - that runtime check only guards the actual VHD build,
+	// not e.g. the check-windows-packages-change.yml workflow, which posts a public PR comment
+	// showing resolved URLs for every PR and would otherwise disclose a committed secret before a
+	// VHD is ever built.
+	if windowsDownloadRequiresAzCopy == true {
+		windowsDownloadURL?: =~"^[^?]*$"
+		downloadURL?:        =~"^[^?]*$"
+	}
 }
 
 #UbuntuOSDistro: {
@@ -54,6 +72,7 @@ package components
 	r2004?:   #ReleaseDownloadURI
 	r2204?:   #ReleaseDownloadURI
 	r2404?:   #ReleaseDownloadURI
+	r2604?:   #ReleaseDownloadURI
 }
 
 #DefaultOSDistro: {
@@ -74,7 +93,6 @@ package components
 #WindowsOsDistro: {
 	default?: #ReleaseDownloadURI
 	ws2022?: #ReleaseDownloadURI
-	ws23h2?: #ReleaseDownloadURI
 	ws2025?: #ReleaseDownloadURI
 }
 

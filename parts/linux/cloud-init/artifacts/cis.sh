@@ -8,8 +8,18 @@ assignRootPW() {
         VERSION=$(grep DISTRIB_RELEASE /etc/*-release | cut -f 2 -d "=")
         SALT=$(openssl rand -base64 5)
         SECRET=$(openssl rand -base64 37)
+
         CMD="import crypt, getpass, pwd; print(crypt.crypt('$SECRET', '\$6\$$SALT\$'))"
-        if [ "${VERSION}" = "22.04" ] || [ "${VERSION}" = "24.04" ]; then
+        if [ "${VERSION}" = "26.04" ]; then
+            # Ubuntu 26.04 ships Python 3.14, which removed the 'crypt' module (removed in 3.13).
+            # passlib's sha512_crypt has a pure-Python backend that produces the same SHA-512 ($6$)
+            # hash without needing the crypt module. rounds=5000 matches the crypt(3) default cost.
+            # SALT is base64 and may contain chars (e.g. '+', '=') outside passlib's salt alphabet,
+            # so filter it to sha512_crypt.salt_chars before use.
+            CMD="import getpass, pwd; from passlib.hash import sha512_crypt; salt=''.join(c for c in '$SALT' if c in sha512_crypt.salt_chars); print(sha512_crypt.using(salt=salt, rounds=5000).hash('$SECRET'))"
+        fi
+
+        if [ "${VERSION}" = "22.04" ] || [ "${VERSION}" = "24.04" ] || [ "${VERSION}" = "26.04" ]; then
             HASH=$(python3 -c "$CMD")
         else
             HASH=$(python -c "$CMD")
@@ -269,7 +279,34 @@ EOF
     systemctl restart ssh
 }
 
+# Ensures that the classic (Todd Miller) sudo is the selected sudo implementation
+# rather than sudo-rs. On Ubuntu 26.04 sudo-rs is installed and enabled
+# by default, but sudo-rs does NOT support the `Defaults logfile` sudoers setting that
+# configureSudo relies on -- per the sudo-rs docs, "logfile is not supported; logging
+# is always done via syslog". Leaving sudo-rs as the default would therefore be a CIS
+# regression: we would lose the dedicated /var/log/sudo.log audit trail, and sudo-rs
+# would also print "unknown setting: 'logfile'" on every sudo invocation. Both classic
+# sudo and sudo-rs ship on the base image and are switchable via update-alternatives,
+# so select classic sudo here so the logfile setting below is actually honored.
+# This is a no-op on releases where sudo is not an update-alternatives group (e.g.
+# 22.04/24.04, which only have classic sudo).
+# TODO: revisit if/when sudo-rs gains support for file-based logging.
+preferClassicSudo() {
+    # Classic sudo registers itself as the "/usr/bin/sudo.ws" alternative candidate
+    # (sudo.ws = Todd Miller's sudo). Only relevant where sudo is update-alternatives
+    # managed (i.e. sudo-rs is present); a no-op on releases that ship only classic sudo.
+    local classic_sudo="/usr/bin/sudo.ws"
+    if [ -x "${classic_sudo}" ] && update-alternatives --list sudo >/dev/null 2>&1; then
+        update-alternatives --set sudo "${classic_sudo}" >/dev/null 2>&1 || echo "warning: failed to set ${classic_sudo} as the default sudo implementation"
+    fi
+}
+
 configureSudo() {
+    # sudo-rs (the default on Ubuntu 26.04) can only log to syslog and rejects the
+    # `Defaults logfile` setting below. Select classic sudo first so CIS file-based
+    # sudo logging works; see preferClassicSudo for details.
+    preferClassicSudo
+
     cat <<EOF >/etc/sudoers.d/99-cis
 Defaults logfile="/var/log/sudo.log"
 EOF

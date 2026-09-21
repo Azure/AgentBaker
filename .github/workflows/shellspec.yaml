@@ -1,14 +1,25 @@
 name: Shell/Bash Script Unit Tests
 on: pull_request
 
+# Cancel a superseded run when a new commit is pushed to the same PR, so its (now stale)
+# results never race the newer push's publisher for the coverage comment - see
+# shellspec-publish.yml for the belt-and-braces check on the publishing side too.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   shellspec:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v7
-    - uses: actions/setup-go@v6
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        go-version: '1.25'
+        persist-credentials: false
+    - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version: '1.26'
     - run: |
         make shellspec-ci
       name: Run shell/bash script unit tests with shellspec
@@ -17,3 +28,24 @@ jobs:
       name: Print failure message
     - run: echo "Shell/Bash script unit tests completed successfully!"
       name: Print completion message
+    - name: Fix up kcov's Cobertura output for CodeCoverageSummary
+      # kcov's Cobertura report omits the `branches-valid` attribute (it doesn't track
+      # branch coverage, only lines), which crashes irongut/CodeCoverageSummary v1.3.0 with
+      # "Sequence contains no elements" (https://github.com/irongut/CodeCoverageSummary/pull/162,
+      # never merged/released upstream). Add the missing attribute so parsing doesn't blow up.
+      # Written to a new file rather than edited in place: coverage/ is root-owned (created by
+      # the shellspec container), so this (non-root) step can't write into it directly.
+      run: |
+        set -ex
+        sed -E 's/(<coverage [^>]*branches-rate="[^"]*")/\1 branches-valid="0"/' coverage/cobertura.xml > shellspec-cobertura.xml
+      if: (!cancelled())
+    - name: Upload coverage report
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      if: (!cancelled())
+      with:
+        name: shellspec-coverage
+        path: shellspec-cobertura.xml
+        retention-days: 5
+
+# Coverage is published by shellspec-publish.yml, a separate workflow_run-triggered workflow -
+# see that file for why this can't just be a second job here.

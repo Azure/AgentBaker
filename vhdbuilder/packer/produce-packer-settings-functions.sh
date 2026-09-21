@@ -1,17 +1,22 @@
 #!/bin/bash
 
-function enforce_azcli_version() {
-	AZ_VER_REQUIRED=$1
-	AZ_DIST=$(lsb_release -cs)
-	echo "Enforcing az cli version to ${AZ_VER_REQUIRED} for ${AZ_DIST}"
-	sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a
-	sudo DEBIAN_FRONTEND=noninteractive apt-get install azure-cli=${AZ_VER_REQUIRED}-1~${AZ_DIST} -y --no-install-recommends --allow-downgrades
-	AZ_VER_INSTALLED=$(az version --query "[\"azure-cli\"]" -o tsv)
-	if [ "${AZ_VER_INSTALLED}" != "${AZ_VER_REQUIRED}" ]; then
-		echo "Failed to install required az cli version ${AZ_VER_REQUIRED}, installed version is ${AZ_VER_INSTALLED}"
-		exit 1
+function compute_msi_resource_strings() {
+	# Populates the caller-declared array named by $1 (an explicit output parameter, via
+	# nameref) with the UAMI resource string to attach to the VHD build VM, or leaves it
+	# empty. All other variables here are scratch and kept local to this function.
+	local -n _msi_resource_strings_out="${1:?compute_msi_resource_strings requires the name of the array variable to populate}"
+	local COMPONENTS_JSON="${COMPONENTS_JSON:-./parts/common/components.json}"
+	local windows_azcopy_private_package_present="false"
+	if [ -f "${COMPONENTS_JSON}" ] && jq -e '[.. | objects | select(has("windowsDownloadRequiresAzCopy")) | select(.windowsDownloadRequiresAzCopy == true)] | length > 0' "${COMPONENTS_JSON}" >/dev/null 2>&1; then
+		windows_azcopy_private_package_present="true"
+	fi
+
+	_msi_resource_strings_out=()
+	if [ -n "${AZURE_MSI_RESOURCE_STRING}" ] && { [ -n "${PRIVATE_PACKAGES_URL}" ] || [ -n "${WINDOWS_PRIVATE_PACKAGES_URL}" ] || [ -n "${WINDOWS_BASE_IMAGE_URL}" ] || [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ] || [ "${windows_azcopy_private_package_present}" = "true" ]; }; then
+		echo "AZURE_MSI_RESOURCE_STRING is set and at least one of PRIVATE_PACKAGES_URL, WINDOWS_PRIVATE_PACKAGES_URL, WINDOWS_BASE_IMAGE_URL, WINDOWS_CONTAINERIMAGE_JSON_URL is set, or ${COMPONENTS_JSON} has a package with windowsDownloadRequiresAzCopy=true. Assigning UAMI to Packer VM for VHD Build."
+		_msi_resource_strings_out+=(${AZURE_MSI_RESOURCE_STRING})
 	else
-		echo "Successfully installed az cli version ${AZ_VER_INSTALLED}"
+		echo "AZURE_MSI_RESOURCE_STRING is not set, none of PRIVATE_PACKAGES_URL/WINDOWS_PRIVATE_PACKAGES_URL/WINDOWS_BASE_IMAGE_URL is set, and no package in ${COMPONENTS_JSON} sets windowsDownloadRequiresAzCopy=true. Skipping UAMI assignment to Packer VM for VHD Build."
 	fi
 }
 
@@ -32,6 +37,20 @@ function produce_ua_token() {
 	else
 		echo "UA_TOKEN only used for Ubuntu"
 		UA_TOKEN="notused"
+	fi
+}
+
+function resolve_security_type_feature() {
+	if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+		# TODO: remove once all relevant images have been updated to TrustedLaunchSupported
+		# Note that ordering matters here - ENABLE_TRUSTED_LAUNCH -> TrustedLaunch takes precedence over TRUSTED_LAUNCH_SUPPORTED -> TrustedLaunchSupported
+		SECURITY_TYPE_FEATURE="TrustedLaunch"
+	elif [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+		SECURITY_TYPE_FEATURE="TrustedLaunchSupported"
+	elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
+		SECURITY_TYPE_FEATURE="ConfidentialVMSupported"
+	else
+		SECURITY_TYPE_FEATURE="Standard"
 	fi
 }
 
@@ -134,7 +153,7 @@ function extract_windows_image_urls() {
 		windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
 		windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
 		;;
-	"2025-gen2")
+	"2025-gen2" | "2025-gen2-tl")
 		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
 		windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
 		windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
@@ -156,6 +175,7 @@ function extract_windows_image_urls() {
 }
 
 function create_windows_storage_account() {
+	local mirs_classification_tag="ms-resiliency-classification=Non-Recovery Critical"
 
 	avail=$(az storage account check-name -n "${STORAGE_ACCOUNT_NAME}" -o json | jq -r .nameAvailable)
 	if $avail; then
@@ -164,7 +184,7 @@ function create_windows_storage_account() {
 			-n "$STORAGE_ACCOUNT_NAME" \
 			-g "$AZURE_RESOURCE_GROUP_NAME" \
 			--sku "Standard_RAGRS" \
-			--tags "now=${CREATE_TIME}" \
+			--tags "now=${CREATE_TIME}" "${mirs_classification_tag}" \
 			--allow-shared-key-access false \
 			--min-tls-version TLS1_2 \
 			--location "${AZURE_LOCATION}"
@@ -508,7 +528,10 @@ function ensure_sig_vhd_exists() {
 		# shellcheck disable=SC3010
 		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<<"$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
 			if [ "${ARCHITECTURE,,}" = "arm64" ]; then
-				if [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
+				# This path must be used for images that are built on VMs with TrustedLaunch enabled (e.g. images that ONLY are designed to run on VMs with TrustedLaunch enabled).
+				# At the time of writing, all "TL" images are built using the "Standard" security type, and thus can be snapshotted into image definitions with the "TrustedLaunchSupported" security type.
+				# TODO: revisit whether we can remove this image definition creation path if we plan on continuing to always build trusted launch capable images on standard VMs.
+				if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
 					az sig image-definition create \
 						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
 						--gallery-name ${SIG_GALLERY_NAME} \
@@ -521,6 +544,19 @@ function ensure_sig_vhd_exists() {
 						--location ${AZURE_LOCATION} \
 						--architecture Arm64 \
 						--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
+				elif [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+					az sig image-definition create \
+						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+						--gallery-name ${SIG_GALLERY_NAME} \
+						--gallery-image-definition ${SIG_IMAGE_NAME} \
+						--publisher microsoft-aks \
+						--offer ${SIG_GALLERY_NAME} \
+						--sku ${SIG_IMAGE_NAME} \
+						--os-type ${OS_TYPE} \
+						--hyper-v-generation ${HYPERV_GENERATION} \
+						--location ${AZURE_LOCATION} \
+						--architecture Arm64 \
+						--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchSupported"
 				else
 					az sig image-definition create \
 						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
@@ -562,7 +598,10 @@ function ensure_sig_vhd_exists() {
 			fi
 		else
 			# TL can only be enabled on Gen2 VMs, therefore if TL enabled = true, mark features for both TL and NVMe
-			if [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
+			# This path must be used for images that are built on VMs with TrustedLaunch enabled (e.g. images that ONLY are designed to run on VMs with TrustedLaunch enabled).
+			# At the time of writing, all "TL" images are built using the "Standard" security type, and thus can be snapshotted into image definitions with the "TrustedLaunchSupported" security type.
+			# TODO: revisit whether we can remove this image definition creation path if we plan on continuing to always build trusted launch capable images on standard VMs.
+			if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
 				az sig image-definition create \
 					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
 					--gallery-name ${SIG_GALLERY_NAME} \
@@ -574,6 +613,18 @@ function ensure_sig_vhd_exists() {
 					--hyper-v-generation ${HYPERV_GENERATION} \
 					--location ${AZURE_LOCATION} \
 					--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
+			elif [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+				az sig image-definition create \
+					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+					--gallery-name ${SIG_GALLERY_NAME} \
+					--gallery-image-definition ${SIG_IMAGE_NAME} \
+					--publisher microsoft-aks \
+					--offer ${SIG_GALLERY_NAME} \
+					--sku ${SIG_IMAGE_NAME} \
+					--os-type ${OS_TYPE} \
+					--hyper-v-generation ${HYPERV_GENERATION} \
+					--location ${AZURE_LOCATION} \
+					--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchSupported"
 			else
 				# For vanilla Gen2, mark only NVMe
 				az sig image-definition create \

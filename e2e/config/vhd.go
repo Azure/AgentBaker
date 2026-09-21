@@ -2,30 +2,19 @@ package config
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
+	"os"
 	"strings"
 	"sync"
 
-	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
 const (
 	noSelectionTagName = "abe2e-ignore"
-)
-
-var (
-	imageGalleryLinux = &Gallery{
-		SubscriptionID:    Config.GallerySubscriptionIDLinux,
-		ResourceGroupName: Config.GalleryResourceGroupNameLinux,
-		Name:              Config.GalleryNameLinux,
-	}
-	imageGalleryWindows = &Gallery{
-		SubscriptionID:    Config.GallerySubscriptionIDWindows,
-		ResourceGroupName: Config.GalleryResourceGroupNameWindows,
-		Name:              Config.GalleryNameWindows,
-	}
 )
 
 type Gallery struct {
@@ -51,7 +40,7 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSUbuntuArm64Containerd2204Gen2,
-		Gallery: imageGalleryLinux,
+		Gallery: &Config.GalleryLinux,
 	}
 
 	VHDUbuntu2204Gen2Containerd = &Image{
@@ -59,7 +48,7 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
-		Gallery: imageGalleryLinux,
+		Gallery: &Config.GalleryLinux,
 	}
 
 	VHDUbuntu2204Gen2TLContainerd = &Image{
@@ -67,7 +56,7 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd2204TLGen2,
-		Gallery: imageGalleryLinux,
+		Gallery: &Config.GalleryLinux,
 	}
 
 	VHDUbuntu2004FIPSGen2Containerd = &Image{
@@ -75,7 +64,7 @@ var (
 		OS:                    OSUbuntu,
 		Arch:                  "amd64",
 		Distro:                datamodel.AKSUbuntuFipsContainerd2004Gen2,
-		Gallery:               imageGalleryLinux,
+		Gallery:               &Config.GalleryLinux,
 		UnsupportedLocalDns:   true,
 		SkipOldVHDValidations: true,
 	}
@@ -85,7 +74,7 @@ var (
 		OS:                  OSUbuntu,
 		Arch:                "amd64",
 		Distro:              datamodel.AKSUbuntuFipsContainerd2204,
-		Gallery:             imageGalleryLinux,
+		Gallery:             &Config.GalleryLinux,
 		UnsupportedLocalDns: true,
 		UnsupportedGen2:     true,
 	}
@@ -95,7 +84,7 @@ var (
 		OS:                  OSUbuntu,
 		Arch:                "amd64",
 		Distro:              datamodel.AKSUbuntuFipsContainerd2204Gen2,
-		Gallery:             imageGalleryLinux,
+		Gallery:             &Config.GalleryLinux,
 		UnsupportedLocalDns: true,
 	}
 
@@ -104,7 +93,7 @@ var (
 		OS:                  OSUbuntu,
 		Arch:                "amd64",
 		Distro:              datamodel.AKSUbuntuFipsContainerd2204TLGen2,
-		Gallery:             imageGalleryLinux,
+		Gallery:             &Config.GalleryLinux,
 		UnsupportedLocalDns: true,
 	}
 
@@ -114,7 +103,7 @@ var (
 		Arch:                  "amd64",
 		Distro:                datamodel.AKSAzureLinuxV2Gen2,
 		Version:               datamodel.FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion,
-		Gallery:               imageGalleryLinux,
+		Gallery:               &Config.GalleryLinux,
 		SkipOldVHDValidations: true,
 	}
 
@@ -123,16 +112,20 @@ var (
 		OS:      OSAzureLinux,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSAzureLinuxV3Gen2,
-		Gallery: imageGalleryLinux,
+		Gallery: &Config.GalleryLinux,
 	}
 
-	VHDAzureLinux3OSGuard = &Image{
-		Name:                "AzureLinuxOSGuardOSGuardV3gen2fipsTL",
-		OS:                  OSAzureLinux,
-		Arch:                "amd64",
-		Distro:              datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL,
-		Gallery:             imageGalleryLinux,
-		UnsupportedLocalDns: true,
+	// VHDAzureLinuxV3Gen2Kata is the AzureLinux V3 Gen2 VHD built with FEATURE_FLAGS=kata.
+	// The image definition name mirrors the SIG_IMAGE_NAME produced by the VHD builder for
+	// OS_VERSION=V3kata + HYPERV_GENERATION=V2 (SKU_NAME=V3katagen2, prefixed with "AzureLinux").
+	// See .pipelines/.vsts-vhd-builder-release.yaml (buildAzureLinuxV3gen2kata) and
+	// vhdbuilder/packer/produce-packer-settings-functions.sh (ensure_sig_image_name_linux).
+	VHDAzureLinuxV3Gen2Kata = &Image{
+		Name:    "AzureLinuxV3katagen2",
+		OS:      OSAzureLinux,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSAzureLinuxV3Gen2Kata,
+		Gallery: &Config.GalleryLinux,
 	}
 
 	VHDAzureLinuxV3Gen2FIPS = &Image{
@@ -140,7 +133,7 @@ var (
 		OS:                  OSAzureLinux,
 		Arch:                "amd64",
 		Distro:              datamodel.AKSAzureLinuxV3Gen2FIPS,
-		Gallery:             imageGalleryLinux,
+		Gallery:             &Config.GalleryLinux,
 		UnsupportedLocalDns: true,
 	}
 
@@ -149,7 +142,7 @@ var (
 		OS:              OSUbuntu,
 		Arch:            "amd64",
 		Distro:          datamodel.AKSUbuntuContainerd2404,
-		Gallery:         imageGalleryLinux,
+		Gallery:         &Config.GalleryLinux,
 		UnsupportedGen2: true,
 	}
 
@@ -158,7 +151,7 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
-		Gallery: imageGalleryLinux,
+		Gallery: &Config.GalleryLinux,
 	}
 
 	VHDUbuntu2404ArmContainerd = &Image{
@@ -166,7 +159,23 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSUbuntuArm64Containerd2404Gen2,
-		Gallery: imageGalleryLinux,
+		Gallery: &Config.GalleryLinux,
+	}
+
+	VHDUbuntu2604MinimalGen2Containerd = &Image{
+		Name:    "2604minimalgen2containerd",
+		OS:      OSUbuntu,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSUbuntuMinimalContainerd2604Gen2,
+		Gallery: &Config.GalleryLinux,
+	}
+
+	VHDUbuntu2604MinimalArm64Gen2Containerd = &Image{
+		Name:    "2604minimalgen2arm64containerd",
+		OS:      OSUbuntu,
+		Arch:    "arm64",
+		Distro:  datamodel.AKSUbuntuMinimalArm64Containerd2604Gen2,
+		Gallery: &Config.GalleryLinux,
 	}
 
 	VHDAzureLinuxV3Gen2Arm64 = &Image{
@@ -174,7 +183,7 @@ var (
 		OS:           OSAzureLinux,
 		Arch:         "arm64",
 		Distro:       datamodel.AKSAzureLinuxV3Arm64Gen2,
-		Gallery:      imageGalleryLinux,
+		Gallery:      &Config.GalleryLinux,
 		OSDiskSizeGB: 60,
 	}
 
@@ -183,7 +192,7 @@ var (
 		OS:           OSACL,
 		Arch:         "amd64",
 		Distro:       datamodel.AKSACLGen2TL,
-		Gallery:      imageGalleryLinux,
+		Gallery:      &Config.GalleryLinux,
 		Flatcar:      true,
 		OSDiskSizeGB: 60,
 	}
@@ -193,7 +202,7 @@ var (
 		OS:           OSACL,
 		Arch:         "arm64",
 		Distro:       datamodel.AKSACLArm64Gen2TL,
-		Gallery:      imageGalleryLinux,
+		Gallery:      &Config.GalleryLinux,
 		Flatcar:      true,
 		OSDiskSizeGB: 60,
 	}
@@ -203,7 +212,7 @@ var (
 		OS:                  OSACL,
 		Arch:                "amd64",
 		Distro:              datamodel.AKSACLGen2FIPSTL,
-		Gallery:             imageGalleryLinux,
+		Gallery:             &Config.GalleryLinux,
 		Flatcar:             true,
 		OSDiskSizeGB:        60,
 		UnsupportedLocalDns: true,
@@ -214,7 +223,7 @@ var (
 		OS:                  OSACL,
 		Arch:                "arm64",
 		Distro:              datamodel.AKSACLArm64Gen2FIPSTL,
-		Gallery:             imageGalleryLinux,
+		Gallery:             &Config.GalleryLinux,
 		Flatcar:             true,
 		OSDiskSizeGB:        60,
 		UnsupportedLocalDns: true,
@@ -225,7 +234,7 @@ var (
 		OS:              "windows",
 		Arch:            "amd64",
 		Distro:          datamodel.AKSWindows2022Containerd,
-		Gallery:         imageGalleryWindows,
+		Gallery:         &Config.GalleryWindows,
 		UnsupportedGen2: true,
 	}
 
@@ -234,7 +243,7 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2022ContainerdGen2,
-		Gallery: imageGalleryWindows,
+		Gallery: &Config.GalleryWindows,
 	}
 
 	VHDWindows2025 = &Image{
@@ -242,7 +251,7 @@ var (
 		OS:              OSWindows,
 		Arch:            "amd64",
 		Distro:          datamodel.AKSWindows2025,
-		Gallery:         imageGalleryWindows,
+		Gallery:         &Config.GalleryWindows,
 		UnsupportedGen2: true,
 	}
 
@@ -251,7 +260,7 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2025Gen2,
-		Gallery: imageGalleryWindows,
+		Gallery: &Config.GalleryWindows,
 	}
 
 	VHDWindows2025Gen2TL = &Image{
@@ -259,11 +268,17 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2025Gen2TL,
-		Gallery: imageGalleryWindows,
+		Gallery: &Config.GalleryWindows,
 	}
 )
 
 var ErrNotFound = fmt.Errorf("not found")
+
+type vhdMetadataEntry struct {
+	ResourceID VHDResourceID `json:"resourceId"`
+	Version    string        `json:"version"`
+	Regions    []string      `json:"regions"`
+}
 
 type perLocationVHDCache struct {
 	vhd  VHDResourceID
@@ -295,17 +310,26 @@ func (i *Image) String() string {
 }
 
 func (i *Image) SupportsScriptless() bool {
-	return !i.Flatcar && !i.Distro.IsWindowsDistro()
+	return !i.Flatcar && !i.Distro.IsWindowsDistro() && i.Distro != datamodel.AKSAzureLinuxV2Gen2
 }
 
 func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourceID, error) {
+	if i.Version == "" && Config.vhdMetadata != nil {
+		vhd, err := getVHDResourceIDFromMetadata(Config.vhdMetadata, i, location)
+		if err != nil {
+			return "", err
+		}
+		logging.Logf(ctx, "Got image from E2E VHD metadata: %s", vhd)
+		return vhd, nil
+	}
+
 	switch {
 	case i.Version != "":
 		vhd, err := Azure.EnsureSIGImageVersion(ctx, &i, location)
 		if err != nil {
 			return "", fmt.Errorf("failed to ensure image version %s: %w", i.Version, err)
 		}
-		toolkit.Logf(ctx, "Got image by version: %s", i.azurePortalImageVersionUrl())
+		logging.Logf(ctx, "Got image by version: %s", i.azurePortalImageVersionUrl())
 		return vhd, nil
 	default:
 		vhd, err := Azure.LatestSIGImageVersionByTag(ctx, &i, Config.SIGVersionTagName, Config.SIGVersionTagValue, location)
@@ -313,12 +337,54 @@ func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourc
 			return "", fmt.Errorf("failed to get latest image by tag %s=%s: %w", Config.SIGVersionTagName, Config.SIGVersionTagValue, err)
 		}
 		if vhd != "" {
-			toolkit.Logf(ctx, "got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageVersionUrl())
+			logging.Logf(ctx, "got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageVersionUrl())
 		} else {
-			toolkit.Logf(ctx, "Could not find version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageUrl())
+			logging.Logf(ctx, "Could not find version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageUrl())
 		}
 		return vhd, nil
 	}
+}
+
+func loadVHDMetadata(path string) (map[string]vhdMetadataEntry, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+
+	metadata := make(map[string]vhdMetadataEntry)
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	if len(metadata) == 0 {
+		return nil, fmt.Errorf("%s contains no VHD metadata", path)
+	}
+	for imageName, entry := range metadata {
+		if imageName == "" || entry.ResourceID == "" || len(entry.Regions) == 0 {
+			return nil, fmt.Errorf("%s contains incomplete metadata for image %q", path, imageName)
+		}
+	}
+	return metadata, nil
+}
+
+func getVHDResourceIDFromMetadata(metadata map[string]vhdMetadataEntry, image Image, location string) (VHDResourceID, error) {
+	var entry vhdMetadataEntry
+	var found bool
+	for imageName, candidate := range metadata {
+		if strings.EqualFold(imageName, image.Name) {
+			entry = candidate
+			found = true
+			break
+		}
+	}
+	if !found {
+		return "", fmt.Errorf("%w: image %s is not present in E2E VHD metadata", ErrNotFound, image.Name)
+	}
+	for _, region := range entry.Regions {
+		if strings.EqualFold(region, location) {
+			return entry.ResourceID, nil
+		}
+	}
+	return "", fmt.Errorf("%w: image %s is not replicated to %s according to E2E VHD metadata", ErrNotFound, image.Name, location)
 }
 
 func (i *Image) azurePortalImageUrl() string {

@@ -88,11 +88,17 @@ installDeps() {
     stub
 }
 
+installMinimalBuildDeps() {
+    stub
+}
+
 installCriCtlPackage() {
     stub
 }
 
 installKubeletKubectlFromPkg() {
+    maskKubeletSysextUpholds || exit $ERR_K8S_INSTALL_ERR
+
     if mergeSysexts kubelet "${2:-mcr.microsoft.com}"/oss/v2/kubernetes/kubelet-sysext "$1" \
                     kubectl "${2:-mcr.microsoft.com}"/oss/v2/kubernetes/kubectl-sysext "$1"; then
         ln -snf /usr/bin/{kubelet,kubectl} /opt/bin/

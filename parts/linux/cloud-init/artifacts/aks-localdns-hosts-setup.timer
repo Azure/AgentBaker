@@ -4,12 +4,12 @@ Description=Run AKS LocalDNS hosts setup periodically
 [Timer]
 # Run immediately on boot
 OnBootSec=0
-# Refresh every 15 minutes. AKS critical FQDN IPs can change due to load balancer
-# rotation, Traffic Manager failover, or regional DNS updates. 15 minutes balances
-# freshness against unnecessary DNS traffic — stale IPs would cause the hosts plugin
-# to serve unreachable addresses until the next refresh.
+# Default refresh cadence. Provisioning may override this with a systemd drop-in
+# when LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS is set. 15 minutes
+# balances freshness against unnecessary DNS traffic — stale IPs would cause the
+# hosts plugin to serve unreachable addresses until the next refresh.
 OnUnitActiveSec=15min
-# Timer accuracy (how much systemd can delay)
+# Default timer accuracy. Provisioning may lower this for shorter cadences.
 AccuracySec=1min
 
 [Install]

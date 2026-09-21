@@ -93,6 +93,27 @@ type TestApp struct {
 	eventLogger *helpers.EventLogger
 }
 
+// testGPUComponentsJSON is minimal valid components.json content. GPU config loading
+// is fatal (see loadGPUConfig), so any test that builds a CSE command via
+// buildCmdFromProvisionConfig needs a valid file to read.
+const testGPUComponentsJSON = `{
+	"GPUContainerImages": [
+		{
+			"downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda-lts:580.11.07-20240101120000",
+			"gpuVersion": {"renovateTag": "name=aks-gpu-cuda-lts", "latestVersion": "580.11.07-20240101120000"}
+		}
+	]
+}`
+
+// writeTestGPUComponentsFile writes a minimal valid components.json to a temp file
+// and returns its path.
+func writeTestGPUComponentsFile(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "components.json")
+	require.NoError(t, os.WriteFile(path, []byte(testGPUComponentsJSON), 0o600))
+	return path
+}
+
 func NewTestApp(t *testing.T, cfg TestAppConfig) *TestApp {
 	eventsDir := t.TempDir()
 	runFunc := cfg.RunFunc
@@ -103,8 +124,9 @@ func NewTestApp(t *testing.T, cfg TestAppConfig) *TestApp {
 	return &TestApp{
 		eventLogger: eventLogger,
 		App: &App{
-			cmdRun:      runFunc,
-			eventLogger: eventLogger,
+			cmdRun:                runFunc,
+			eventLogger:           eventLogger,
+			gpuComponentsFilePath: writeTestGPUComponentsFile(t),
 		},
 	}
 }
@@ -208,7 +230,65 @@ func TestApp_Run(t *testing.T) {
 	})
 }
 
+func TestApp_ApplyHotfix(t *testing.T) {
+	t.Run("apply embedded hotfix payload", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		applied := false
+		tt.App.applyEmbeddedHotfix = func(string) error {
+			applied = true
+			return nil
+		}
+
+		err := tt.App.runApplyHotfixCommand(context.Background())
+
+		require.NoError(t, err)
+		assert.True(t, applied)
+	})
+
+	t.Run("embedded hotfix failure is logged ", func(t *testing.T) {
+		logs := installLogCapturer(t)
+		executed := false
+		tt := NewTestApp(t, TestAppConfig{
+			RunFunc: func(*exec.Cmd) error {
+				executed = true
+				return nil
+			},
+		})
+		tt.App.applyEmbeddedHotfix = func(string) error {
+			return errors.New("rendered nodecustomdata application failed")
+		}
+
+		err := tt.App.runApplyHotfixCommand(context.Background())
+
+		require.Error(t, err)
+		assert.False(t, executed)
+		assert.Contains(t, logs.getRecords(), logRecord{
+			Level:   slog.LevelError,
+			Message: "aks-node-controller failed to apply embedded hotfix payload",
+			Attrs:   map[string]string{"error": "rendered nodecustomdata application failed"},
+		})
+	})
+}
+
 func TestApp_Provision(t *testing.T) {
+	t.Run("dry-run does not apply embedded hotfix payload", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		applied := false
+		tt.App.applyEmbeddedHotfix = func(string) error {
+			applied = true
+			return nil
+		}
+
+		_, err := tt.App.runProvision(
+			context.Background(),
+			ProvisionFlags{NBCCmd: "parser/testdata/test_nbccmd.sh"},
+			true,
+		)
+
+		require.NoError(t, err)
+		assert.False(t, applied)
+	})
+
 	t.Run("valid provision config", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		_, err := tt.App.Provision(context.Background(), ProvisionFlags{ProvisionConfig: "parser/testdata/test_aksnodeconfig.json"})
@@ -310,8 +390,9 @@ func TestApp_Provision(t *testing.T) {
 		require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/bash\necho provisioned after panic\n"), 0o600))
 
 		app := &App{
-			cmdRun:      cmdRunner,
-			eventLogger: nil, // nil to trigger panic inside compareEnvs
+			cmdRun:                cmdRunner,
+			eventLogger:           nil, // nil to trigger panic inside compareEnvs
+			gpuComponentsFilePath: writeTestGPUComponentsFile(t),
 		}
 		result, err := app.Provision(context.Background(), ProvisionFlags{
 			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
@@ -441,10 +522,11 @@ func Test_readAndEvaluateProvision(t *testing.T) {
 	})
 
 	t.Run("non-zero ExitCode returns error", func(t *testing.T) {
-		p := writeTemp(t, `{"ExitCode":"7","Output":"boom","Error":"bad"}`)
+		p := writeTemp(t, `{"ExitCode":"50","Output":"boom","Error":"bad"}`)
 		_, err := readAndEvaluateProvision(p)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "provision failed")
+		assert.Equal(t, 50, errToExitCode(err))
 	})
 
 	t.Run("invalid ExitCode returns error", func(t *testing.T) {
@@ -538,7 +620,7 @@ func TestParseEnvVarsFromNBCCmdContent(t *testing.T) {
 // filtering out OS env vars (same as compareEnvs does).
 func compareEnvsConfigEnv(t *testing.T) map[string]string {
 	t.Helper()
-	cmd, err := buildCmdFromProvisionConfig(context.Background(), "parser/testdata/test_aksnodeconfig.json")
+	cmd, err := buildCmdFromProvisionConfig(context.Background(), "parser/testdata/test_aksnodeconfig.json", writeTestGPUComponentsFile(t))
 	require.NoError(t, err)
 	osEnv := envSliceToMap(os.Environ())
 	allEnv := envSliceToMap(cmd.Env)
@@ -591,7 +673,7 @@ func TestCompareEnvs_MatchingEnvs(t *testing.T) {
 	compareEnvs(context.Background(), ProvisionFlags{
 		ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 		NBCCmd:          nbcPath,
-	}, tt.eventLogger)
+	}, tt.eventLogger, tt.App.gpuComponentsFilePath)
 
 	records := logCap.getRecords()
 	var foundNoOp bool
@@ -626,7 +708,7 @@ func TestCompareEnvs_OnlyInProvisionConfig(t *testing.T) {
 	compareEnvs(context.Background(), ProvisionFlags{
 		ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 		NBCCmd:          nbcPath,
-	}, tt.eventLogger)
+	}, tt.eventLogger, tt.App.gpuComponentsFilePath)
 
 	records := logCap.getRecords()
 	var foundDiff bool
@@ -659,7 +741,7 @@ func TestCompareEnvs_OnlyInNBCCmd(t *testing.T) {
 	compareEnvs(context.Background(), ProvisionFlags{
 		ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 		NBCCmd:          nbcPath,
-	}, tt.eventLogger)
+	}, tt.eventLogger, tt.App.gpuComponentsFilePath)
 
 	records := logCap.getRecords()
 	var foundDiff bool
@@ -692,7 +774,7 @@ func TestCompareEnvs_DifferingValues(t *testing.T) {
 	compareEnvs(context.Background(), ProvisionFlags{
 		ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 		NBCCmd:          nbcPath,
-	}, tt.eventLogger)
+	}, tt.eventLogger, tt.App.gpuComponentsFilePath)
 
 	records := logCap.getRecords()
 	var foundDiff bool
@@ -730,7 +812,7 @@ func TestCompareEnvs_MultipleDifferences(t *testing.T) {
 	compareEnvs(context.Background(), ProvisionFlags{
 		ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 		NBCCmd:          nbcPath,
-	}, tt.eventLogger)
+	}, tt.eventLogger, tt.App.gpuComponentsFilePath)
 
 	records := logCap.getRecords()
 	var foundSummary bool
@@ -756,4 +838,17 @@ func TestCompareEnvs_MultipleDifferences(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "expected CompareEnvs guest agent event")
+}
+
+func TestDiffEnvMaps_IgnoresProxyVarsCompatibilityDifference(t *testing.T) {
+	pcEnv := map[string]string{
+		"PROXY_VARS": `if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}"; fi`,
+		"VM_TYPE":    "vmss",
+	}
+	nbcEnv := map[string]string{
+		"PROXY_VARS": `export http_proxy="http://proxy.example:8080";`,
+		"VM_TYPE":    "standard",
+	}
+
+	assert.Equal(t, []string{"differs: VM_TYPE"}, diffEnvMaps(pcEnv, nbcEnv))
 }

@@ -1,33 +1,15 @@
-# Agentbaker
+# AgentBaker
 
-[![Coverage Status](https://coveralls.io/repos/github/Azure/AgentBaker/badge.svg?branch=master)](https://coveralls.io/github/Azure/AgentBaker?branch=master)
+AgentBaker provides components that build VM images and provision Kubernetes nodes in Azure.
 
-Agentbaker is a collection of components used to provision Kubernetes nodes in Azure.
+AgentBaker includes:
 
-Agentbaker has a few pieces:
+- A VHD builder that creates Linux and Windows node images.
+- Tools and scripts that provision VMs as Kubernetes nodes.
 
-- Packer templates and scripts to build VM images.
-- A set of templates and a public API to render those templates given input config.
-- An API to retrieve the latest VM image version for new clusters.
+The primary consumer of AgentBaker is Azure Kubernetes Service (AKS).
 
-The primary consumer of Agentbaker is Azure Kubernetes Service (AKS).
-
-AKS uses Agentbaker to provision Linux and Windows Kubernetes nodes.
-
-## Contributing
-
-Developing agentbaker requires a few basic requisites:
-
-- Go (at least version 1.19)
-- Make
-
-Run `make -C hack/tools install` to install all development tools.
-
-If you change code or artifacts used to generate custom data or custom script extension payloads, you should run `make`.
-
-This re-runs code to embed static files in Go code, which is what will actually be used at runtime.
-
-This additionally runs unit tests (equivalent of `go test ./...`) and regenerates snapshot testdata.
+AKS uses AgentBaker to provision Linux and Windows Kubernetes nodes.
 
 ## Style
 
@@ -35,47 +17,19 @@ We use [golangci-lint](https://golangci-lint.run/) to enforce style.
 
 Run `make -C hack/tools install` to install the linter.
 
-Run `./hack/tools/bin/golangci-lint run` to run the linter.
+Pull request titles must follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) because pull requests are squashed during merge.
 
-We currently have many failures we hope to eliminate.
+## Tests
 
-We have [job to run golangci-lint on pull requests]().
+### Shell scripts
 
-This job uses the linters "no-new-issues" feature.
-
-As long as PRs don't introduce net new issues, they should pass.
-
-We also have a linting job to enforce commit message style.
-
-We adhere to [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/).
-
-Prefer pull requests with single commits.
-
-To clean up in-progress commits, you can use `git rebase -i` to fixup commits.
-
-See the [git documentation](https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History#_squashing) for more details.
-
-## Testing
-
-Most code may be tested with vanilla Go unit tests.
-
-## shell scripts unit tests
-
-For ShellSpec unit testing readme, please visit [readme](./spec/README.md)
-
-## Snapshot
-
-We also have snapshot data tests, which store the output of key APIs as files on disk.
-
-We can manually verify the snapshot content looks correct.
-
-We now have unit tests which can directly validate the content without leaving generated files on disk.
-
-See `./pkg/agent/baker_test.go` for examples (search for `dynamic-config-dir` to see a validation sample.).
+For ShellSpec unit test instructions, see the [ShellSpec README](./spec/README.md).
 
 ### E2E
 
-Checkout the [e2e directory](e2e/).
+The E2E suite creates VM scale sets, provisions Kubernetes nodes with AgentBaker output, and validates them against AKS clusters.
+
+See the [E2E directory](e2e/).
 
 ## Contributor License Agreement (CLA)
 

@@ -16,6 +16,7 @@ Describe 'cse_install_ubuntu.sh'
             GPU_DKMS_MARKER_FILE="${marker}"
             rm() { echo "mock rm $*"; }
             ldconfig() { echo "mock ldconfig"; }
+            lsmod() { echo ""; }  # no nvidia module loaded
             When call cleanUpPrebakedGPUDriver
             The status should be success
             The output should include "Removing pre-baked NVIDIA driver"
@@ -39,6 +40,7 @@ Describe 'cse_install_ubuntu.sh'
             marker="$(mktemp)"
             GPU_DKMS_MARKER_FILE="${marker}"
             ldconfig() { echo "mock ldconfig"; }
+            lsmod() { echo ""; }  # no nvidia module loaded (grid-style prebake)
             When call cleanUpPrebakedGPUDriver
             The status should be success
             The output should include "AKS_GPU_PREBAKE event=teardown"
@@ -46,6 +48,120 @@ Describe 'cse_install_ubuntu.sh'
             The output should include "marker_after=false"
             # the setuid nvidia-modprobe is part of the security-coverage check
             The output should include "modprobe_after=false"
+            The output should include "module_before=false"
+            The output should include "module_after=false"
+        End
+
+        It 'unloads an idle prebaked nvidia module that auto-loaded at boot (cuda/cuda-lts SKUs)'
+            marker="$(mktemp)"
+            GPU_DKMS_MARKER_FILE="${marker}"
+            ldconfig() { echo "mock ldconfig"; }
+            # simulate a loaded-but-idle module: lsmod shows nvidia until rmmod is "run"
+            _nvidia_loaded=true
+            lsmod() { if [ "${_nvidia_loaded}" = true ]; then echo "nvidia 104165376 0"; else echo ""; fi; }
+            cat() { echo "0"; }        # /sys/module/nvidia/refcnt = 0 (idle)
+            ls() { return 1; }          # no /dev/nvidia* device nodes
+            rmmod() { _nvidia_loaded=false; echo "mock rmmod $*"; }
+            When call cleanUpPrebakedGPUDriver
+            The status should be success
+            The output should include "mock rmmod nvidia"
+            The output should include "module_before=true"
+            The output should include "module_after=false"
+            The output should include "status=cleaned"
+        End
+
+        It 'keeps the marker (incomplete) when a busy nvidia module cannot be unloaded'
+            marker="$(mktemp)"
+            GPU_DKMS_MARKER_FILE="${marker}"
+            ldconfig() { echo "mock ldconfig"; }
+            lsmod() { echo "nvidia 104165376 2"; }  # stays loaded (refcnt shows in-use)
+            cat() { echo "2"; }                       # refcnt != 0 -> do not rmmod
+            ls() { return 1; }
+            rmmod() { echo "mock rmmod $*"; }         # should NOT be called
+            When call cleanUpPrebakedGPUDriver
+            The status should be success
+            The output should not include "mock rmmod"
+            The output should include "module_before=true"
+            The output should include "module_after=true"
+            The output should include "status=incomplete"
+        End
+    End
+
+    Describe 'installPackageFromCache version matching'
+        deb_cache_root="/tmp/shellspec-deb-cache-$$"
+
+        setup_deb_cache() {
+            mkdir -p "$deb_cache_root"
+        }
+
+        cleanup_deb_cache() {
+            rm -rf "$deb_cache_root"
+        }
+
+        BeforeEach 'setup_deb_cache'
+        AfterEach 'cleanup_deb_cache'
+
+        # Mock functions used by installPackageFromCache
+        fallbackToKubeBinaryInstall() { return 1; }
+        logs_to_events() { shift; eval "$@"; }
+        extractDebBinaryFromFile() { echo "extractDebBinaryFromFile $1 $2 $3"; }
+
+        It 'does not match version 1.34.10 when requesting 1.34.1'
+            downloadDir="$deb_cache_root"
+            packageName="kubelet"
+            packageVersion="1.34.1"
+            touch "$downloadDir/kubelet_1.34.1-1ubuntu22.04u1_amd64.deb"
+            touch "$downloadDir/kubelet_1.34.10-1ubuntu22.04u1_amd64.deb"
+            touch "$downloadDir/kubelet_1.34.11-1ubuntu22.04u1_amd64.deb"
+            touch "$downloadDir/kubelet_1.34.12-1ubuntu22.04u1_amd64.deb"
+
+            result() {
+                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1
+            }
+            When call result
+            The output should equal "kubelet_1.34.1-1ubuntu22.04u1_amd64.deb"
+        End
+
+        It 'matches the latest release of the exact version requested'
+            downloadDir="$deb_cache_root"
+            packageName="kubelet"
+            packageVersion="1.34.1"
+            touch "$downloadDir/kubelet_1.34.1-1ubuntu22.04u1_amd64.deb"
+            touch "$downloadDir/kubelet_1.34.1-2ubuntu22.04u1_amd64.deb"
+
+            result() {
+                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1
+            }
+            When call result
+            The output should equal "kubelet_1.34.1-2ubuntu22.04u1_amd64.deb"
+        End
+
+        It 'returns empty when no matching version exists'
+            downloadDir="$deb_cache_root"
+            packageName="kubelet"
+            packageVersion="1.34.1"
+            touch "$downloadDir/kubelet_1.34.10-1ubuntu22.04u1_amd64.deb"
+            touch "$downloadDir/kubelet_1.34.2-1ubuntu22.04u1_amd64.deb"
+
+            result() {
+                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1
+            }
+            When call result
+            The output should equal ""
+        End
+
+        It 'matches version with plus suffix (azure convention)'
+            downloadDir="$deb_cache_root"
+            packageName="kubelet"
+            packageVersion="1.34.1"
+            touch "$downloadDir/kubelet_1.34.1+azure-1_amd64.deb"
+            touch "$downloadDir/kubelet_1.34.10+azure-1_amd64.deb"
+
+            result() {
+                ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1
+            }
+            When call result
+            The output should equal "kubelet_1.34.1+azure-1_amd64.deb"
         End
     End
 End

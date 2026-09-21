@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/fsnotify/fsnotify"
 	"github.com/urfave/cli/v3"
@@ -30,7 +32,9 @@ func isExpectedDiffCSEVar(key string) bool {
 		"HYPERKUBE_URL",
 		"MCR_REPOSITORY_BASE",
 		"BLOCK_OUTBOUND_NETWORK",
-		"SKIP_WAAGENT_HOLD":
+		"REPO_DEPOT_ENDPOINT",
+		"SKIP_WAAGENT_HOLD",
+		"PROXY_VARS":
 		return true
 	}
 	return false
@@ -47,14 +51,38 @@ type App struct {
 	hotfixVersionPath string
 	// aptSourcesDir overrides the default APT sources directory for testing.
 	aptSourcesDir string
+	// aptTrustedKeyringsDir overrides the default APT trusted keyrings directory for testing.
+	aptTrustedKeyringsDir string
+	// yumReposDir overrides the default RPM repositories directory for testing.
+	yumReposDir string
 	// osReleasePath overrides the default /etc/os-release path for testing.
 	osReleasePath string
+	// goArch overrides runtime.GOARCH for repository-path tests.
+	goArch string
+	// repositoryTempDir overrides where repository downloads and extraction are staged.
+	repositoryTempDir string
+	// vhdBinaryPath, hotfixBinaryPath, and pkgBinaryPath override ANC binary paths for testing.
+	vhdBinaryPath    string
+	hotfixBinaryPath string
+	pkgBinaryPath    string
+	// verifyRepositorySignature overrides gpgv-backed repository signature verification.
+	verifyRepositorySignature func(ctx context.Context, signedPath, signaturePath string, keyrings []string) error
+	// verifyRPMPackageSignature overrides rpmkeys-backed package signature verification.
+	verifyRPMPackageSignature func(ctx context.Context, packagePath string) error
+	// extractRepositoryPackage overrides package extraction for deterministic unit tests.
+	extractRepositoryPackage func(ctx context.Context, format, packagePath, destination string) error
 	// nodeCustomDataPath overrides the default nodecustomdata path for testing.
 	nodeCustomDataPath string
 	// nodeConfigPath overrides the default AKSNodeConfig path for testing. It is the
 	// source for check-hotfix's LPS endpoint (apiserver FQDN + cluster CA) and the
 	// cold-start fallback pointer.
 	nodeConfigPath string
+	// nbcCmdPath overrides the default nbc-cmd.sh path for testing. When the main
+	// node config (nodeConfigPath) is absent, check-hotfix parses this existing command
+	// file to obtain API_SERVER_NAME and KUBE_CA_CRT for the LPS connection.
+	nbcCmdPath string
+	// gpuComponentsFilePath overrides the default GPU components.json location for testing.
+	gpuComponentsFilePath string
 	// checkHotfixFetcher overrides the real LPS hotfix-pointer GET for testing, letting
 	// unit tests inject a canned pointer body or errors without real networking.
 	checkHotfixFetcher func(ctx context.Context) ([]byte, error)
@@ -62,6 +90,11 @@ type App struct {
 	// Authorization header for the check-hotfix LPS fetch. When nil, the real IMDS endpoint
 	// is queried.
 	fetchAttestedToken func(ctx context.Context) (string, error)
+	// applyEmbeddedHotfix overrides embedded script application for tests.
+	applyEmbeddedHotfix func(string) error
+	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
+	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
+	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
@@ -152,6 +185,16 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				},
 			},
 			{
+				Name:  "apply-embedded-hotfix",
+				Usage: "Apply embedded hotfix scripts",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if len(cmd.Args().Slice()) > 0 {
+						return fmt.Errorf("unexpected apply-embedded-hotfix arguments: %s", strings.Join(cmd.Args().Slice(), " "))
+					}
+					return a.runApplyHotfixCommand(ctx)
+				},
+			},
+			{
 				Name:  "check-hotfix",
 				Usage: "Read the hotfix pointer from the live-patching-service and stage it (fail-open)",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
@@ -205,7 +248,7 @@ func (a *App) runProvisionWaitCommand(ctx context.Context, provisionStatusFiles 
 		a.eventLogger.LogEvent("ProvisionWait", "Completed", helpers.EventLevelInformational, startTime, endTime)
 		slog.Info("aks-node-controller finished successfully.")
 	}
-	slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
+	slog.Info("provision-wait finished")
 	return provisionOutput, err
 }
 
@@ -220,7 +263,45 @@ func (a *App) runDownloadHotfixCommand(ctx context.Context) error {
 	return nil
 }
 
-func buildCmdFromProvisionConfig(ctx context.Context, path string) (*exec.Cmd, error) {
+func (a *App) runApplyHotfixCommand(context.Context) error {
+	slog.Info("aks-node-controller hotfix apply started")
+	applyHotfix := a.applyEmbeddedHotfix
+	if applyHotfix == nil {
+		applyHotfix = func(osReleasePath string) error {
+			return applyEmbeddedNodeCustomData(embeddedGeneratedNodeCustomData, osReleasePath, embeddedNodeCustomDataPath)
+		}
+	}
+	if err := applyHotfix(a.osReleasePath); err != nil {
+		slog.Error("aks-node-controller failed to apply embedded hotfix payload", "error", err)
+		return err
+	}
+
+	slog.Info("aks-node-controller apply embedded hotfix payload finished")
+	return nil
+}
+
+// defaultGPUComponentsFilePath is where the VHD build places components.json (see
+// vhdbuilder/packer/install-dependencies.sh). All scriptless VHDs are expected to have
+// this file baked in, so a missing or malformed file indicates a real build/provisioning
+// bug rather than an expected legacy-VHD gap.
+const defaultGPUComponentsFilePath = "/opt/azure/components.json"
+
+// loadGPUConfig reads and parses the GPU driver-version metadata baked into the VHD.
+// Errors are returned explicitly rather than hidden behind a package-level side effect,
+// so callers can decide how to handle a missing or malformed file.
+func loadGPUConfig(path string) (*gpu.GPUConfiguration, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	gpuConfig, err := gpu.LoadConfig(data)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	return gpuConfig, nil
+}
+
+func buildCmdFromProvisionConfig(ctx context.Context, path string, gpuComponentsFilePath string) (*exec.Cmd, error) {
 	inputJSON, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("open provision file %s: %w", path, err)
@@ -250,7 +331,12 @@ func buildCmdFromProvisionConfig(ctx context.Context, path string) (*exec.Cmd, e
 		slog.Error("v0 version is deprecated, please use v1 instead")
 	}
 
-	return parser.BuildCSECmd(ctx, config)
+	gpuConfig, err := loadGPUConfig(gpuComponentsFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load GPU config: %w", err)
+	}
+
+	return parser.BuildCSECmd(ctx, config, gpuConfig)
 }
 
 func buildCmdFromNBCCmd(ctx context.Context, path string) (*exec.Cmd, error) {
@@ -278,19 +364,26 @@ func (a *App) getNodeCustomDataPath() string {
 	return defaultNodeCustomDataPath
 }
 
+func (a *App) getGPUComponentsFilePath() string {
+	if a.gpuComponentsFilePath != "" {
+		return a.gpuComponentsFilePath
+	}
+	return defaultGPUComponentsFilePath
+}
+
 // compareEnvs compares the environment variables between the ProvisionConfig and NBCCmd command paths.
 // It logs variables that are only in one environment or that have different values between the two.
 // A summary of all differences is also emitted as a guest agent event for Kusto querying.
 // This function is best-effort: any error is logged and returned from,
 // so it never blocks provisioning.
-func compareEnvs(ctx context.Context, flags ProvisionFlags, eventLogger *helpers.EventLogger) {
+func compareEnvs(ctx context.Context, flags ProvisionFlags, eventLogger *helpers.EventLogger, gpuComponentsFilePath string) {
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("compareEnvs panicked", "panic", r)
 		}
 	}()
 
-	provisionConfigCmd, err := buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig)
+	provisionConfigCmd, err := buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig, gpuComponentsFilePath)
 	if err != nil {
 		slog.Error("compareEnvs: failed to build cmd from provision config", "error", err)
 		return
@@ -601,7 +694,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	// If NBC command is provided, we prioritize it over the aks node config for provisioning.
 	if flags.ProvisionConfig != "" && flags.NBCCmd == "" {
 		var err error
-		cmd, err = buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig)
+		cmd, err = buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig, a.getGPUComponentsFilePath())
 		if err != nil {
 			provisionResult.ExitCode = strconv.Itoa(240)
 			provisionResult.Error = err.Error()
@@ -622,7 +715,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	// This is best-effort and should not block provisioning.
 	if flags.ProvisionConfig != "" && flags.NBCCmd != "" {
 		slog.Info("ProvisionConfig and NBCCmd both provided, comparing envs")
-		compareEnvs(ctx, flags, a.eventLogger)
+		compareEnvs(ctx, flags, a.eventLogger, a.getGPUComponentsFilePath())
 	}
 
 	slog.Info("CSE finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)
@@ -746,7 +839,10 @@ func evaluateProvisionStatus(data []byte) error {
 	}
 	if code != 0 {
 		outSnippet := result.Output
-		return fmt.Errorf("provision failed: exitCode=%d error=%s output=%q", code, result.Error, outSnippet)
+		return cli.Exit(
+			fmt.Sprintf("provision failed: exitCode=%d error=%s output=%q", code, result.Error, outSnippet),
+			code,
+		)
 	}
 	return nil
 }

@@ -15,8 +15,8 @@ K8S_PRIVATE_PACKAGES_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
 K8S_REGISTRY_REPO="oss/binaries/kubernetes"
 UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
 # For Mariner 2.0, this returns "MARINER" and for AzureLinux 3.0, this returns "AZURELINUX"
-OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"'; fi)
-OS_VARIANT=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"'; fi)
+OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | sed -n 's/^ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]'; fi)
+OS_VARIANT=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | sed -n 's/^VARIANT_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]'; fi)
 SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR="/opt/aks-secure-tls-bootstrap-client/downloads"
 SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR="/opt/bin"
 CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
@@ -86,15 +86,7 @@ installContainerdWithComponentsJson() {
         last_index=$((array_size - 1))
     fi
     packageVersion=${sortedPackageVersions[${last_index}]}
-    # containerd version is expected to be in the format major.minor.patch-hotfix
-    # e.g., 1.4.3-1. Then containerdMajorMinorPatchVersion=1.4.3 and containerdHotFixVersion=1
-    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
-    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
-    if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" = "null" ] || [ "$containerdHotFixVersion" = "null" ]; then
-        echo "invalid containerd version: $packageVersion"
-        exit $ERR_CONTAINERD_VERSION_INVALID
-    fi
-    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${packageVersion}"
     echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
 
 }
@@ -109,14 +101,8 @@ installContainerdWithManifestJson() {
     else
         echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
     fi
-    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
-    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
-    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" = "null" ] || [ "$containerd_revision" = "null" ]; then
-        echo "invalid container version: $containerd_version"
-        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    fi
-    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
-    echo "in installContainerRuntime - CONTAINERD_VERSION = ${containerd_patch_version}"
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_version}"
+    echo "in installContainerRuntime - CONTAINERD_VERSION = ${containerd_version}"
 }
 
 installContainerRuntime() {
