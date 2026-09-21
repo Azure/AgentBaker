@@ -103,6 +103,7 @@
         "custom.deb2604",
         "custom.nvidia-deb2204",
         "custom.nvidia-deb2404",
+        "custom.nvidia-deb2604",
         "custom.nvidia-rpm-azl3",
         "rpm"
       ],
@@ -870,6 +871,20 @@
     },
     {
       "customType": "regex",
+      "description": "auto update Nvidia DCGM packages for OS ubuntu 26.04 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>datacenter-gpu-manager-4-core|datacenter-gpu-manager-4-proprietary), repository=nvidia, os=ubuntu, release=26\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "custom.nvidia-deb2604",
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=nvidia, os=ubuntu, release=26.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
       "description": "auto update packages for OS ubuntu 24.04 (test registry) in components.json",
       "managerFilePatterns": [
         "/parts/common/components.json/"
@@ -1030,6 +1045,13 @@
     },
     "nvidia-deb2404": {
       "defaultRegistryUrlTemplate": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/Packages",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+      ]
+    },
+    "nvidia-deb2604": {
+      "defaultRegistryUrlTemplate": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2604/x86_64/Packages",
       "format": "plain",
       "transformTemplates": [
         "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"

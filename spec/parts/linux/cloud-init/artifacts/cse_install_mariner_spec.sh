@@ -188,6 +188,102 @@ EOF
         End
     End
 
+    Describe 'logResolvedPackageVersion'
+        resolved_version_log="$PWD/spec/tmp/cse-install-mariner-resolved-version"
+
+        cleanup_resolved_version_log() {
+            rm -f "${resolved_version_log}"
+        }
+
+        BeforeEach 'cleanup_resolved_version_log'
+        AfterEach 'cleanup_resolved_version_log'
+
+        It 'does not create the VHD completion marker during node provisioning'
+            VHD_LOGS_FILEPATH="${resolved_version_log}"
+
+            When call logResolvedPackageVersion containerd2 2.2.4 2.2.4-8.azl3
+
+            The output should equal "Resolved containerd2 package version 2.2.4 -> 2.2.4-8.azl3"
+            The path "${resolved_version_log}" should not be exist
+        End
+
+        It 'appends the resolved version when the VHD completion marker exists'
+            VHD_LOGS_FILEPATH="${resolved_version_log}"
+            touch "${VHD_LOGS_FILEPATH}"
+
+            When call logResolvedPackageVersion containerd2 2.2.4 2.2.4-8.azl3
+
+            The contents of file "${resolved_version_log}" should include "containerd2 package version 2.2.4-8.azl3 (requested 2.2.4)"
+        End
+    End
+
+    Describe 'installStandaloneContainerd revision resolution'
+        semverCompare() {
+            [ "$1" = "$2" ] && return 0
+            [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n 1)" = "$1" ]
+        }
+
+        containerd() {
+            echo "containerd github.com/containerd/containerd/v2 v2.2.4 abcdef"
+        }
+
+        removeContainerd() {
+            echo "removeContainerd"
+        }
+
+        dnf() {
+            cat <<'EOF'
+containerd2.x86_64 2.2.4-1.azl3 azurelinux-official-cloud-native
+containerd2.x86_64 2.2.4-8.azl3 azurelinux-official-cloud-native
+containerd2.x86_64 2.2.5-1.azl3 azurelinux-official-cloud-native
+EOF
+        }
+
+        It 'updates an installed package when a newer revision has the same upstream version'
+            OS_VERSION="3.0"
+            VHD_LOGS_FILEPATH="$PWD/spec/tmp/missing-vhd-marker"
+            rpm() {
+                echo "2.2.4-1.azl3"
+            }
+
+            When call installStandaloneContainerd 2.2.4
+
+            The output should include "installed containerd2 package version 2.2.4-1.azl3 does not match latest revision 2.2.4-8.azl3"
+            The output should include "dnf install 30 1 600 containerd2-2.2.4-8.azl3"
+            The output should not include "containerd2-2.2.5-1.azl3"
+        End
+
+        It 'skips installation when the latest package revision is installed'
+            OS_VERSION="3.0"
+            VHD_LOGS_FILEPATH="$PWD/spec/tmp/missing-vhd-marker"
+            rpm() {
+                echo "2.2.4-8.azl3"
+            }
+
+            When call installStandaloneContainerd 2.2.4
+
+            The output should include "satisfies target package version 2.2.4-8.azl3"
+            The output should not include "dnf install"
+        End
+
+        It 'does not query or downgrade when a newer upstream version is installed'
+            OS_VERSION="3.0"
+            containerd() {
+                echo "containerd github.com/containerd/containerd/v2 v2.3.0 abcdef"
+            }
+            dnf() {
+                echo "unexpected dnf query"
+                return 1
+            }
+
+            When call installStandaloneContainerd 2.2.4
+
+            The output should include "currently installed containerd version 2.3.0 satisfies target package version 2.2.4"
+            The output should not include "unexpected dnf query"
+            The output should not include "dnf install"
+        End
+    End
+
     Describe 'should_use_nvidia_open_drivers'
         # Tests for the GPU driver selection logic
         # Returns 0 (true) for open driver (A100+, H100, H200, etc.)

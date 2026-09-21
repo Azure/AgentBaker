@@ -628,7 +628,7 @@ logResolvedPackageVersion() {
     local message="Resolved ${packageName} package version ${requestedVersion} -> ${fullPackageVersion}"
 
     echo "${message}"
-    if [ -n "${VHD_LOGS_FILEPATH:-}" ]; then
+    if [ -f "${VHD_LOGS_FILEPATH:-}" ]; then
         echo "  - ${packageName} package version ${fullPackageVersion} (requested ${requestedVersion})" >> "${VHD_LOGS_FILEPATH}"
     fi
 }
@@ -783,6 +783,8 @@ downloadContainerdFromURL() {
 }
 
 ensureRunc() {
+    local fullPackageVersion
+
     RUNC_PACKAGE_URL=${2:-""}
     RUNC_DOWNLOADS_DIR=${3:-$RUNC_DOWNLOADS_DIR}
     # the user-defined runc package URL is always picked first, and the other options won't be tried when this one fails
@@ -842,7 +844,17 @@ ensureRunc() {
         fi
     fi
     echo "No cached runc deb file is found. Using apt-get to install runc."
-    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+    fullPackageVersion="${TARGET_VERSION}"
+    # shellcheck disable=SC3010
+    if [[ "${TARGET_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        fullPackageVersion=$(getLatestDebPackageVersion "moby-runc" "${TARGET_VERSION}")
+        if [ -z "${fullPackageVersion}" ]; then
+            echo "Failed to find valid moby-runc version for ${TARGET_VERSION}"
+            exit "$ERR_RUNC_INSTALL_TIMEOUT"
+        fi
+    fi
+    logResolvedPackageVersion "moby-runc" "${TARGET_VERSION}" "${fullPackageVersion}"
+    apt_get_install 20 30 120 "moby-runc=${fullPackageVersion}" --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
 #EOF

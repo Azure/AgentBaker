@@ -208,4 +208,64 @@ EOF
             The output should equal "1.34.1-ubuntu22.04u3"
         End
     End
+
+    Describe 'logResolvedPackageVersion'
+        resolved_version_log="/tmp/cse-install-ubuntu-resolved-version-$$"
+
+        cleanup_resolved_version_log() {
+            rm -f "${resolved_version_log}"
+        }
+
+        BeforeEach 'cleanup_resolved_version_log'
+        AfterEach 'cleanup_resolved_version_log'
+
+        It 'does not create the VHD completion marker during node provisioning'
+            VHD_LOGS_FILEPATH="${resolved_version_log}"
+
+            When call logResolvedPackageVersion moby-runc 1.4.3 1.4.3-1ubuntu22.04u1
+
+            The output should equal "Resolved moby-runc package version 1.4.3 -> 1.4.3-1ubuntu22.04u1"
+            The path "${resolved_version_log}" should not be exist
+        End
+
+        It 'appends the resolved version when the VHD completion marker exists'
+            VHD_LOGS_FILEPATH="${resolved_version_log}"
+            touch "${VHD_LOGS_FILEPATH}"
+
+            When call logResolvedPackageVersion moby-runc 1.4.3 1.4.3-1ubuntu22.04u1
+
+            The contents of file "${resolved_version_log}" should include "moby-runc package version 1.4.3-1ubuntu22.04u1 (requested 1.4.3)"
+        End
+    End
+
+    Describe 'ensureRunc repository fallback'
+        runc_download_root="/tmp/cse-install-ubuntu-runc-$$"
+
+        setup_runc_fallback() {
+            mkdir -p "${runc_download_root}"
+            RUNC_DOWNLOADS_DIR="${runc_download_root}"
+            VHD_LOGS_FILEPATH="${runc_download_root}/missing-vhd-marker"
+        }
+
+        cleanup_runc_fallback() {
+            rm -rf "${runc_download_root}"
+        }
+
+        BeforeEach 'setup_runc_fallback'
+        AfterEach 'cleanup_runc_fallback'
+
+        isARM64() { echo 0; }
+        getCPUArch() { echo "amd64"; }
+        runc() { echo "runc version 1.4.2"; }
+        getLatestDebPackageVersion() { echo "1.4.3-10ubuntu22.04u1"; }
+        apt_get_install() { echo "apt_get_install $*"; }
+
+        It 'installs the exact latest revision for a revisionless version'
+            When call ensureRunc 1.4.3 "" "${RUNC_DOWNLOADS_DIR}"
+
+            The output should include "Resolved moby-runc package version 1.4.3 -> 1.4.3-10ubuntu22.04u1"
+            The output should include "apt_get_install 20 30 120 moby-runc=1.4.3-10ubuntu22.04u1 --allow-downgrades"
+            The output should not include "moby-runc=1.4.3*"
+        End
+    End
 End

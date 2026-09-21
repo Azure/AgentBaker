@@ -671,7 +671,7 @@ logResolvedPackageVersion() {
     local message="Resolved ${packageName} package version ${requestedVersion} -> ${fullPackageVersion}"
 
     echo "${message}"
-    if [ -n "${VHD_LOGS_FILEPATH:-}" ]; then
+    if [ -f "${VHD_LOGS_FILEPATH:-}" ]; then
         echo "  - ${packageName} package version ${fullPackageVersion} (requested ${requestedVersion})" >> "${VHD_LOGS_FILEPATH}"
     fi
 }
@@ -703,39 +703,62 @@ installStandaloneContainerd() {
     local desiredVersion="${1:-}"
     local containerdPackageName="containerd"
     local fullPackageVersion="${desiredVersion}"
+    local currentVersion=""
+    local installedPackageVersion=""
+    local installRequired=true
+    local revisionlessVersion=false
+
+    if [ "$OS_VERSION" = "2.0" ]; then
+        containerdPackageName="moby-containerd"
+    fi
+    if [ "$OS_VERSION" = "3.0" ]; then
+        containerdPackageName="containerd2"
+    fi
+
+    # shellcheck disable=SC3010
+    if [[ "${desiredVersion}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        revisionlessVersion=true
+    fi
 
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
-    # check if containerd command is available before running it
     if command -v containerd &> /dev/null; then
-        CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+        currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     fi
-    # v1.4.1 is our lowest supported version of containerd
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${desiredVersion}; then
-        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredVersion}. skipping installStandaloneContainerd."
-    else
-        echo "installing containerd version ${desiredVersion}"
-        removeContainerd
-        if [ "$OS_VERSION" = "2.0" ]; then
-            containerdPackageName="moby-containerd"
-        fi
-        if [ "$OS_VERSION" = "3.0" ]; then
-            containerdPackageName="containerd2"
-        fi
 
-        # shellcheck disable=SC3010
-        if [[ "${desiredVersion}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    # v1.4.1 is our lowest supported version of containerd
+    if semverCompare "${currentVersion:-"0.0.0"}" "${desiredVersion}"; then
+        installRequired=false
+        if [ "${revisionlessVersion}" = "true" ] && [ "${currentVersion}" = "${desiredVersion}" ]; then
+            fullPackageVersion=$(getLatestRPMPackageVersion "${containerdPackageName}" "${desiredVersion}")
+            if [ -z "${fullPackageVersion}" ]; then
+                echo "Failed to find valid ${containerdPackageName} version for ${desiredVersion}"
+                exit "$ERR_CONTAINERD_INSTALL_TIMEOUT"
+            fi
+            installedPackageVersion=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}\n' "${containerdPackageName}" 2>/dev/null || true)
+            if [ -n "${installedPackageVersion}" ] && [ "${installedPackageVersion}" != "${fullPackageVersion}" ]; then
+                echo "installed ${containerdPackageName} package version ${installedPackageVersion} does not match latest revision ${fullPackageVersion}"
+                installRequired=true
+            fi
+        fi
+    fi
+
+    if [ "${installRequired}" = "true" ]; then
+        if [ "${revisionlessVersion}" = "true" ] && [ "${fullPackageVersion}" = "${desiredVersion}" ]; then
             fullPackageVersion=$(getLatestRPMPackageVersion "${containerdPackageName}" "${desiredVersion}")
             if [ -z "${fullPackageVersion}" ]; then
                 echo "Failed to find valid ${containerdPackageName} version for ${desiredVersion}"
                 exit "$ERR_CONTAINERD_INSTALL_TIMEOUT"
             fi
         fi
-
+        echo "installing containerd version ${fullPackageVersion}"
+        removeContainerd
         logResolvedPackageVersion "${containerdPackageName}" "${desiredVersion}" "${fullPackageVersion}"
         # TODO: tie runc to r92 once that's possible on Mariner's pkg repo and if we're still using v1.linux shim
         if ! dnf_install 30 1 600 "${containerdPackageName}-${fullPackageVersion}"; then
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
+    else
+        echo "currently installed containerd version ${currentVersion} satisfies target package version ${fullPackageVersion}. skipping installStandaloneContainerd."
     fi
 
     # Workaround to restore the CSE configuration after containerd has been installed from the package server.
