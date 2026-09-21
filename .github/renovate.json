@@ -232,7 +232,8 @@
     {
       "matchPackageNames": [
         "azure-cni",
-        "containernetworking/azure-cni"
+        "containernetworking/azure-cni",
+        "containernetworking/v2/azure-cni"
       ],
       "groupName": "azure-cni",
       "reviewers": [
@@ -317,7 +318,8 @@
     {
       "matchPackageNames": [
         "azure-cns",
-        "containernetworking/azure-cns"
+        "containernetworking/azure-cns",
+        "containernetworking/v2/azure-cns"
       ],
       "groupName": "azure-cns",
       "reviewers": [
