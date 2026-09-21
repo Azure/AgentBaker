@@ -19,9 +19,13 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Masterminds/semver/v3"
+	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 const (
@@ -30,12 +34,50 @@ const (
 	cosiARM64PublishingArtifact     = "cosi-publishing-info-acl-arm64-tl-gen2"
 	cosiAMD64FIPSPublishingArtifact = "cosi-publishing-info-acl-fips-tl-gen2"
 	cosiARM64FIPSPublishingArtifact = "cosi-publishing-info-acl-arm64-fips-tl-gen2"
+
+	aclCOSIAMD64BaselineVHDVersion   = "1.1790005343.11420"
+	aclCOSIAMD64BaselineImageVersion = "202609.21.0"
+
+	aclUpdateRequestAnnotationKey      = "acl.azure.com/update-request"
+	aclUpdateStatusAnnotationKey       = "acl.azure.com/update-status"
+	aclUpdateCommitStatusAnnotationKey = "acl.azure.com/update-commit-status"
+	aclUpdateSchemaVersion             = "1.0"
+	aclUpdateOperationStage            = "stage"
+	aclUpdateOperationFinalize         = "finalize"
+	aclUpdateOperationCommit           = "commit"
+	aclUpdateCodeInProgress            = "InProgress"
+	aclUpdateCodeSuccess               = "Success"
+	aclUpdateStatusPollInterval        = 10 * time.Second
+	aclCOSIStageTimeout                = 20 * time.Minute
+	aclCOSIFinalizeTimeout             = 10 * time.Minute
+	aclCOSICommitTimeout               = 15 * time.Minute
 )
 
 // cosiPublishingInfo mirrors the JSON written by convert-vhd-to-cosi.sh.
 type cosiPublishingInfo struct {
 	CosiURL        string `json:"cosi_url"`
+	ImageVersion   string `json:"image_version"`
 	MetadataSHA384 string `json:"metadata_sha384"`
+}
+
+type aclUpdateRequest struct {
+	SchemaVersion string `json:"schemaVersion"`
+	NodeUpdateID  string `json:"nodeUpdateId"`
+	OperationID   string `json:"operationId"`
+	Operation     string `json:"operation"`
+	TargetVersion string `json:"targetVersion"`
+	Server        string `json:"server"`
+	AppID         string `json:"appId"`
+	Track         string `json:"track"`
+}
+
+type aclUpdateStatus struct {
+	SchemaVersion string `json:"schemaVersion"`
+	NodeUpdateID  string `json:"nodeUpdateId"`
+	OperationID   string `json:"operationId"`
+	Operation     string `json:"operation"`
+	Code          string `json:"code"`
+	Message       string `json:"message"`
 }
 
 // loadCOSIPublishingInfo reads cosi-publishing-info.json from a downloaded
@@ -66,6 +108,9 @@ func loadCOSIPublishingInfo(artifactName string) (cosiPublishingInfo, bool) {
 	if info.CosiURL == "" {
 		panic(fmt.Sprintf("cosi_url is empty in %s", infoPath))
 	}
+	if info.ImageVersion == "" {
+		panic(fmt.Sprintf("image_version is empty in %s", infoPath))
+	}
 	if info.MetadataSHA384 == "" {
 		panic(fmt.Sprintf("metadata_sha384 is empty in %s", infoPath))
 	}
@@ -93,13 +138,17 @@ func cosiUpdateAMD64Scenario() *Scenario {
 			SkipReason:  "COSI artifact not available for acl-tl-gen2, skipping COSI update test",
 		}
 	}
-	if err := validateCOSIUpdateInput(info.CosiURL, info.MetadataSHA384); err != nil {
+	nebraskaServer := strings.TrimSpace(os.Getenv("COSI_NEBRASKA_SERVER"))
+	nebraskaAppID := strings.TrimSpace(os.Getenv("COSI_NEBRASKA_APP_ID"))
+	if err := validateACLAnnotationUpdateInput(info.ImageVersion, nebraskaServer, nebraskaAppID); err != nil {
 		return &Scenario{
 			Name:        name,
 			Description: description,
 			SkipReason:  fmt.Sprintf("invalid COSI update input: %v", err),
 		}
 	}
+	baselineVHD := *config.VHDACLGen2TL
+	baselineVHD.Version = aclCOSIAMD64BaselineVHDVersion
 
 	return &Scenario{
 		Name:        name,
@@ -110,17 +159,256 @@ func cosiUpdateAMD64Scenario() *Scenario {
 		},
 		Config: Config{
 			Cluster:                 ClusterKubenet,
-			VHD:                     config.VHDACLGen2TL,
+			VHD:                     &baselineVHD,
 			SkipScriptlessNBCCSECmd: true,
-			WaitForSSHAfterReboot:   5 * time.Minute,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
-				return validateACLCOSIUpdate(ctx, s, info.CosiURL, info.MetadataSHA384)
+				return validateACLAnnotationCOSIUpdate(ctx, s, info.ImageVersion, nebraskaServer, nebraskaAppID)
 			},
 		},
 	}
+}
+
+func validateACLAnnotationCOSIUpdate(ctx context.Context, s *Scenario, rawTargetVersion, rawNebraskaServer, rawNebraskaAppID string) error {
+	targetVersion := strings.TrimSpace(rawTargetVersion)
+	nebraskaServer := strings.TrimSpace(rawNebraskaServer)
+	nebraskaAppID := strings.TrimSpace(rawNebraskaAppID)
+
+	currentVersion, err := requireACLUpdateAgent(ctx, s)
+	if err != nil {
+		return err
+	}
+	if currentVersion != aclCOSIAMD64BaselineImageVersion {
+		return fmt.Errorf("frozen ACL COSI baseline reports image version %q, want %q", currentVersion, aclCOSIAMD64BaselineImageVersion)
+	}
+	if err := validateACLTargetVersion(currentVersion, targetVersion); err != nil {
+		return err
+	}
+
+	beforeBootID, err := runCOSICommand(ctx, s, "cat /proc/sys/kernel/random/boot_id")
+	if err != nil {
+		return fmt.Errorf("get boot ID before COSI update: %w", err)
+	}
+	beforeBootID = strings.TrimSpace(beforeBootID)
+	if beforeBootID == "" {
+		return fmt.Errorf("boot ID before COSI update is empty")
+	}
+
+	beforeNode, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("get node before COSI update: %w", err)
+	}
+	if !strings.EqualFold(beforeBootID, beforeNode.Status.NodeInfo.BootID) {
+		return fmt.Errorf("host and Kubernetes boot IDs must match before the update: host=%s, k8s=%s", beforeBootID, beforeNode.Status.NodeInfo.BootID)
+	}
+
+	nodes := s.Runtime.Kube.Typed.CoreV1().Nodes()
+	request := aclUpdateRequest{
+		SchemaVersion: aclUpdateSchemaVersion,
+		NodeUpdateID:  uuid.NewString(),
+		OperationID:   uuid.NewString(),
+		Operation:     aclUpdateOperationStage,
+		TargetVersion: targetVersion,
+		Server:        nebraskaServer,
+		AppID:         nebraskaAppID,
+		Track:         "pin-" + targetVersion,
+	}
+
+	logging.Logf(ctx, "Requesting ACL COSI stage on node %s (operationId=%s targetVersion=%s server=%s track=%s)", beforeNode.Name, request.OperationID, targetVersion, nebraskaServer, request.Track)
+	if err := patchACLUpdateRequest(ctx, nodes, beforeNode.Name, request); err != nil {
+		return err
+	}
+	stageStatus, err := waitForACLUpdateStatus(ctx, nodes, beforeNode.Name, aclUpdateStatusAnnotationKey, request, aclCOSIStageTimeout)
+	if err != nil {
+		return err
+	}
+	if stageStatus.Code != aclUpdateCodeSuccess {
+		return fmt.Errorf("ACL COSI stage reported %s: %s", stageStatus.Code, stageStatus.Message)
+	}
+
+	request.OperationID = uuid.NewString()
+	request.Operation = aclUpdateOperationFinalize
+	logging.Logf(ctx, "Requesting ACL COSI finalize on node %s (operationId=%s)", beforeNode.Name, request.OperationID)
+	if err := patchACLUpdateRequest(ctx, nodes, beforeNode.Name, request); err != nil {
+		return err
+	}
+	finalizeStatus, err := waitForACLUpdateStatus(ctx, nodes, beforeNode.Name, aclUpdateStatusAnnotationKey, request, aclCOSIFinalizeTimeout)
+	if err != nil {
+		return err
+	}
+	if finalizeStatus.Code != aclUpdateCodeSuccess {
+		return fmt.Errorf("ACL COSI finalize reported %s: %s", finalizeStatus.Code, finalizeStatus.Message)
+	}
+
+	commitRequest := request
+	commitRequest.Operation = aclUpdateOperationCommit
+	commitStatus, err := waitForACLUpdateStatus(ctx, nodes, beforeNode.Name, aclUpdateCommitStatusAnnotationKey, commitRequest, aclCOSICommitTimeout)
+	if err != nil {
+		return err
+	}
+	if commitStatus.Code != aclUpdateCodeSuccess {
+		return fmt.Errorf("ACL COSI commit reported %s: %s", commitStatus.Code, commitStatus.Message)
+	}
+
+	if err := waitForSameNodeReadyAfterACLAnnotationUpdate(ctx, s, beforeNode, beforeBootID); err != nil {
+		return err
+	}
+	postUpdatePod := podHTTPServerLinux(s)
+	postUpdatePod.Name += "-cosi-post-update"
+	return ValidatePodRunning(ctx, s, postUpdatePod)
+}
+
+func validateACLAnnotationUpdateInput(targetVersion, nebraskaServer, nebraskaAppID string) error {
+	if strings.TrimSpace(targetVersion) == "" {
+		return fmt.Errorf("COSI publishing info image_version is empty")
+	}
+	if strings.TrimSpace(nebraskaAppID) == "" {
+		return fmt.Errorf("COSI Nebraska app ID is empty")
+	}
+	parsedURL, err := url.Parse(strings.TrimSpace(nebraskaServer))
+	if err != nil {
+		return fmt.Errorf("parse COSI Nebraska server: %w", err)
+	}
+	if !strings.EqualFold(parsedURL.Scheme, "https") || parsedURL.Host == "" {
+		return fmt.Errorf("COSI Nebraska server must be an absolute HTTPS URL")
+	}
+	if parsedURL.Path == "" || parsedURL.Path == "/" {
+		return fmt.Errorf("COSI Nebraska server must include the Omaha path")
+	}
+	return nil
+}
+
+func validateACLTargetVersion(currentVersion, targetVersion string) error {
+	currentSemver, err := semver.StrictNewVersion(currentVersion)
+	if err != nil {
+		return fmt.Errorf("parse ACL baseline image version %q: %w", currentVersion, err)
+	}
+	targetSemver, err := semver.StrictNewVersion(targetVersion)
+	if err != nil {
+		return fmt.Errorf("parse COSI target image version %q: %w", targetVersion, err)
+	}
+	if !targetSemver.GreaterThan(currentSemver) {
+		return fmt.Errorf("COSI annotation target %q must be newer than baseline %q", targetVersion, currentVersion)
+	}
+	return nil
+}
+
+func requireACLUpdateAgent(ctx context.Context, s *Scenario) (string, error) {
+	preflight := "sudo systemctl is-active --quiet trident-acl-agent.path && sudo systemctl is-active --quiet trident-acl-agent.service && sudo test -S /run/trident/trident.sock && sudo test -f /opt/azure/containers/image-version"
+	if _, err := runCOSICommand(ctx, s, preflight); err != nil {
+		return "", fmt.Errorf("Trident ACL Agent precondition failed: %w", err)
+	}
+	rawVersion, err := runCOSICommand(ctx, s, "sudo cat /opt/azure/containers/image-version")
+	if err != nil {
+		return "", fmt.Errorf("read ACL node image version: %w", err)
+	}
+	for _, line := range strings.Split(rawVersion, "\n") {
+		key, value, ok := strings.Cut(strings.TrimSpace(line), "=")
+		if ok && key == "IMAGE_VERSION" && strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value), nil
+		}
+	}
+	return "", fmt.Errorf("ACL node image version file has no IMAGE_VERSION")
+}
+
+func patchACLUpdateRequest(ctx context.Context, nodes corev1client.NodeInterface, nodeName string, request aclUpdateRequest) error {
+	payload, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Errorf("marshal ACL update request: %w", err)
+	}
+	patch, err := json.Marshal(map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"annotations": map[string]string{
+				aclUpdateRequestAnnotationKey: string(payload),
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("marshal ACL update request patch: %w", err)
+	}
+	if _, err := nodes.Patch(ctx, nodeName, k8stypes.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+		return fmt.Errorf("patch ACL update request on node %s: %w", nodeName, err)
+	}
+	return nil
+}
+
+func waitForACLUpdateStatus(ctx context.Context, nodes corev1client.NodeInterface, nodeName, annotationKey string, expected aclUpdateRequest, timeout time.Duration) (*aclUpdateStatus, error) {
+	var terminalStatus *aclUpdateStatus
+	lastLoggedCode := ""
+	err := wait.PollUntilContextTimeout(ctx, aclUpdateStatusPollInterval, timeout, true, func(pollCtx context.Context) (bool, error) {
+		node, err := nodes.Get(pollCtx, nodeName, metav1.GetOptions{})
+		if err != nil {
+			logging.Logf(pollCtx, "Waiting for ACL update %s status on node %s: %v", expected.OperationID, nodeName, err)
+			return false, nil
+		}
+		status, terminal, err := matchACLUpdateStatus(node.Annotations[annotationKey], expected)
+		if err != nil {
+			return false, err
+		}
+		if status != nil && status.Code != lastLoggedCode {
+			logging.Logf(pollCtx, "ACL update %s %s on node %s reported %s: %s", status.OperationID, status.Operation, nodeName, status.Code, status.Message)
+			lastLoggedCode = status.Code
+		}
+		if terminal {
+			terminalStatus = status
+		}
+		return terminal, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("wait for ACL update %s %s status on node %s: %w", expected.OperationID, expected.Operation, nodeName, err)
+	}
+	return terminalStatus, nil
+}
+
+func matchACLUpdateStatus(raw string, expected aclUpdateRequest) (*aclUpdateStatus, bool, error) {
+	if raw == "" {
+		return nil, false, nil
+	}
+	status := &aclUpdateStatus{}
+	if err := json.Unmarshal([]byte(raw), status); err != nil {
+		return nil, false, fmt.Errorf("parse ACL update %s status: %w", expected.OperationID, err)
+	}
+	if status.SchemaVersion != aclUpdateSchemaVersion {
+		return nil, false, fmt.Errorf("ACL update %s status schemaVersion is %q, want %q", expected.OperationID, status.SchemaVersion, aclUpdateSchemaVersion)
+	}
+	if status.OperationID != expected.OperationID {
+		return nil, false, nil
+	}
+	if status.NodeUpdateID != expected.NodeUpdateID {
+		return nil, false, fmt.Errorf("ACL update %s status nodeUpdateId is %q, want %q", expected.OperationID, status.NodeUpdateID, expected.NodeUpdateID)
+	}
+	if status.Operation != expected.Operation {
+		return nil, false, fmt.Errorf("ACL update %s status operation is %q, want %q", expected.OperationID, status.Operation, expected.Operation)
+	}
+	return status, status.Code != "" && status.Code != aclUpdateCodeInProgress, nil
+}
+
+func waitForSameNodeReadyAfterACLAnnotationUpdate(ctx context.Context, s *Scenario, beforeNode *corev1.Node, beforeBootID string) error {
+	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 10*time.Minute, true, func(pollCtx context.Context) (bool, error) {
+		node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(pollCtx, beforeNode.Name, metav1.GetOptions{})
+		if err != nil {
+			logging.Logf(pollCtx, "waiting for node %s after COSI update: %v", beforeNode.Name, err)
+			return false, nil
+		}
+		if node.UID != beforeNode.UID {
+			return false, fmt.Errorf("node %s was replaced during the COSI update", beforeNode.Name)
+		}
+		if node.Status.NodeInfo.BootID == "" || strings.EqualFold(node.Status.NodeInfo.BootID, beforeBootID) {
+			return false, nil
+		}
+		for _, condition := range node.Status.Conditions {
+			if condition.Type == corev1.NodeReady && condition.Status == corev1.ConditionTrue {
+				return true, nil
+			}
+		}
+		return false, nil
+	})
+	if err != nil {
+		return fmt.Errorf("same Kubernetes node did not return Ready after the COSI update: %w", err)
+	}
+	return nil
 }
 
 // cosiUpdateARM64Scenario builds the ACL_COSIUpdate_ARM64 scenario. Same

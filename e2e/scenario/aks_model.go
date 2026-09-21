@@ -207,10 +207,10 @@ func getLatestGAKubernetesVersion(ctx context.Context, location string) (string,
 }
 
 func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID string) *armnetwork.AzureFirewall {
-	// nebraskaPocFqdn is the POC Nebraska download endpoint used by the ACL
-	// COSI update tests; see firewallAppRulesUpToDate for the cache-busting
-	// rule that keeps existing shared firewalls in sync with this FQDN.
-	const nebraskaPocFqdn = "nebraska-poc-download-ep-hjf7e5fseafnejha.b01.azurefd.net"
+	const (
+		nebraskaPocDownloadFqdn = "nebraska-poc-download-ep-hjf7e5fseafnejha.b01.azurefd.net"
+		nebraskaPocServerFqdn   = "nebraska-poc-ep-cda8e2czfnhahxfk.b01.azurefd.net"
+	)
 
 	var (
 		natRuleCollections []*armnetwork.AzureFirewallNatRuleCollection
@@ -280,7 +280,7 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 
 	// Needed for the ACL COSI update tests, which stage/verify COSI images
 	// against the Nebraska POC download endpoint from the test cluster nodes.
-	nebraskaPocRule := armnetwork.AzureFirewallApplicationRule{
+	nebraskaPocDownloadRule := armnetwork.AzureFirewallApplicationRule{
 		Name:            to.Ptr("nebraska-poc-fqdn"),
 		SourceAddresses: []*string{to.Ptr("*")},
 		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{
@@ -289,7 +289,20 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 				Port:         to.Ptr[int32](443),
 			},
 		},
-		TargetFqdns: []*string{to.Ptr(nebraskaPocFqdn)},
+		TargetFqdns: []*string{to.Ptr(nebraskaPocDownloadFqdn)},
+	}
+
+	// The annotation-driven update first queries Nebraska's Omaha endpoint.
+	nebraskaPocServerRule := armnetwork.AzureFirewallApplicationRule{
+		Name:            to.Ptr("nebraska-poc-server-fqdn"),
+		SourceAddresses: []*string{to.Ptr("*")},
+		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{
+			{
+				ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
+				Port:         to.Ptr[int32](443),
+			},
+		},
+		TargetFqdns: []*string{to.Ptr(nebraskaPocServerFqdn)},
 	}
 
 	appRuleCollection := armnetwork.AzureFirewallApplicationRuleCollection{
@@ -299,7 +312,7 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 			Action: &armnetwork.AzureFirewallRCAction{
 				Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeAllow),
 			},
-			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule, &mooncakeMARRule, &dmcRule, &nebraskaPocRule},
+			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule, &mooncakeMARRule, &dmcRule, &nebraskaPocDownloadRule, &nebraskaPocServerRule},
 		},
 	}
 

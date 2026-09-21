@@ -39,6 +39,18 @@ parameters:
     type: object
     displayName: List of COSI publishing info pipeline artifact names to download. Leave empty to skip COSI validation.
     default: []
+  - name: cosiArtifactsBuildID
+    type: string
+    displayName: Optional VHD build ID to download COSI publishing info from
+    default: ""
+  - name: cosiNebraskaServer
+    type: string
+    displayName: Nebraska Omaha server used by COSI annotation tests
+    default: ""
+  - name: cosiNebraskaAppID
+    type: string
+    displayName: Nebraska application ID used by COSI annotation tests
+    default: ""
 
 jobs:
   - job: e2e
@@ -61,6 +73,12 @@ jobs:
         - task: DownloadPipelineArtifact@2
           displayName: "Download COSI info: ${{ artifactName }}"
           inputs:
+            ${{ if ne(parameters.cosiArtifactsBuildID, '') }}:
+              source: specific
+              project: CloudNativeCompute
+              pipeline: 398422
+              runVersion: specific
+              runId: ${{ parameters.cosiArtifactsBuildID }}
             artifact: "${{ artifactName }}"
             path: "$(Pipeline.Workspace)/cosi-info/${{ artifactName }}"
 
@@ -127,6 +145,8 @@ jobs:
           ${{ if eq(parameters.useVhdMetadataArtifacts, true) }}:
             E2E_VHD_METADATA_FILE: $(E2E_VHD_METADATA_FILE)
           COSI_ARTIFACTS_DIR: $(Pipeline.Workspace)/cosi-info
+          COSI_NEBRASKA_SERVER: ${{ parameters.cosiNebraskaServer }}
+          COSI_NEBRASKA_APP_ID: ${{ parameters.cosiNebraskaAppID }}
           # Set (to "false") by the .acl-base-image-signed-vars.yaml template invocation above
           # (in this same job) when the ACL VHD under test is unsigned and
           # cannot pass UEFI Secure Boot signature verification. Consumed by

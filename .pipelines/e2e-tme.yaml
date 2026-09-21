@@ -1,7 +1,20 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
+parameters:
+  - name: cosiArtifactsBuildID
+    displayName: Registered VHD build ID supplying the COSI target
+    type: string
+    default: ""
+  - name: e2eVariableGroup
+    displayName: E2E variable group
+    type: string
+    default: ab-e2e-tme
+
 variables:
-  SKIP_E2E_TESTS: false
-  E2E_FAILED_TESTS_RETRY_COUNT: 2
+  - name: SKIP_E2E_TESTS
+    value: false
+  - name: E2E_FAILED_TESTS_RETRY_COUNT
+    value: 2
+  - group: "AKS Node SIG - PMC COSI TME"
 
 jobs:
   - template: ./templates/e2e-template.yaml
@@ -10,5 +23,11 @@ jobs:
       IgnoreScenariosWithMissingVhd: false
       jobTimeoutInMinutes: 120
       failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}
-      variableGroup: ab-e2e-tme
-      subscriptionId: $(SUBSCRIPTION_ID_OVERRIDE)
+      variableGroup: ${{ parameters.e2eVariableGroup }}
+      subscriptionId: ""
+      cosiArtifactsBuildID: ${{ parameters.cosiArtifactsBuildID }}
+      cosiNebraskaServer: "$(NEBRASKA_PUBLISHER_ENDPOINT)v1/update"
+      cosiNebraskaAppID: $(NEBRASKA_APP_ID)
+      cosiArtifactNames:
+        - ${{ if ne(parameters.cosiArtifactsBuildID, '') }}:
+          - "cosi-publishing-info-acl-tl-gen2"

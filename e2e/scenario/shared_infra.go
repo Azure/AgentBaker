@@ -484,10 +484,8 @@ func getFirewallPrivateIP(fw armnetwork.AzureFirewall) (string, error) {
 	return "", fmt.Errorf("firewall has no private IP address")
 }
 
-// firewallAppRulesUpToDate returns true when the existing firewall already allows the current
-// per-sub blob storage FQDN. We only check the blob-storage-fqdn rule because that's the only
-// rule whose target depends on dynamic config — the rest (aks-fqdn, mooncake-mar, dmc) use
-// static values. If the storage FQDN changed (e.g. sub-suffix added), the rule is stale.
+// firewallAppRulesUpToDate returns true when the existing firewall has the current dynamic
+// blob-storage rule and all required static application rules.
 func firewallAppRulesUpToDate(fw armnetwork.AzureFirewall) bool {
 	if fw.Properties == nil {
 		return false
@@ -499,8 +497,9 @@ func firewallAppRulesUpToDate(fw armnetwork.AzureFirewall) bool {
 	// shared firewalls (persisted across runs in the RG) get recreated with
 	// the new rule instead of being treated as already up to date.
 	expectedStaticRuleFqdns := map[string]string{
-		"blob-storage-fqdn": config.Config.BlobStorageAccount() + ".blob.core.windows.net",
-		"nebraska-poc-fqdn": "nebraska-poc-download-ep-hjf7e5fseafnejha.b01.azurefd.net",
+		"blob-storage-fqdn":        config.Config.BlobStorageAccount() + ".blob.core.windows.net",
+		"nebraska-poc-fqdn":        "nebraska-poc-download-ep-hjf7e5fseafnejha.b01.azurefd.net",
+		"nebraska-poc-server-fqdn": "nebraska-poc-ep-cda8e2czfnhahxfk.b01.azurefd.net",
 	}
 	foundRuleFqdns := make(map[string]string, len(expectedStaticRuleFqdns))
 
