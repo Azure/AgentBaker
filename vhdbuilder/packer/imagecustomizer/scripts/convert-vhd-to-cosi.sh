@@ -83,16 +83,23 @@ LOCAL_COSI="$WORK_DIR/out/${CAPTURED_SIG_VERSION}.cosi"
 COSI_NAME="${CAPTURED_SIG_VERSION}.cosi"
 COSI_DOWNLOAD_URL="https://${AFD_DOWNLOAD_HOSTNAME}/${COSI_CONTAINER}/${COSI_NAME}"
 
+# VHD_SAS_URL is set by the build job for the arm64 convert, whose pool has no
+# storage-token path; downloading via the SAS URL needs no Azure AD login. The
+# x64 convert leaves it unset and authenticates azcopy via the Azure CLI login.
+DOWNLOAD_SRC="${VHD_SAS_URL:-$VHD_BLOB_URL}"
+
 echo "Setting azcopy environment variables"
-export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
 export AZCOPY_CONCURRENCY_VALUE="AUTO"
 export AZCOPY_LOG_LOCATION="$WORK_DIR/azcopy-log-files/"
 export AZCOPY_JOB_PLAN_LOCATION="$WORK_DIR/azcopy-job-plan-files/"
+if [ -z "${VHD_SAS_URL:-}" ]; then
+    export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
+fi
 mkdir -p "${AZCOPY_LOG_LOCATION}"
 mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
-echo "Downloading VHD from ${VHD_BLOB_URL}"
-if azcopy copy "$VHD_BLOB_URL" "$LOCAL_VHD" --recursive=true; then
+echo "Downloading VHD ${CAPTURED_SIG_VERSION}.vhd"
+if azcopy copy "$DOWNLOAD_SRC" "$LOCAL_VHD" --recursive=true; then
     echo "Downloaded VHD to ${LOCAL_VHD}"
 else
     azExitCode=$?
