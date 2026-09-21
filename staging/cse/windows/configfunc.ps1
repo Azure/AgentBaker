@@ -598,7 +598,11 @@ function Install-CredentialProvider {
                         $credentialproviderbinaryPackage = $dalecPackage.CachedFile
                     } else {
                         $credentialproviderbinaryPackage = "$tempDir\credentialprovider.zip"
-                        Get-DalecCredentialProviderPackage -Url $dalecPackage.Url -DestinationPath $credentialproviderbinaryPackage
+                        $dalecUri = [UriBuilder]::new($dalecPackage.Url)
+                        if ($isCredentialProviderUri) {
+                            $dalecUri.Host = $credentialProviderUri.Host
+                        }
+                        Get-DalecCredentialProviderPackage -Url $dalecUri.Uri.AbsoluteUri -DestinationPath $credentialproviderbinaryPackage
                     }
                     Expand-DalecCredentialProviderPackage -Path $credentialproviderbinaryPackage -DestinationPath $tempDir
                 } catch {

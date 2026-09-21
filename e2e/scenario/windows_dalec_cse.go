@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
@@ -100,7 +99,6 @@ func buildAndUploadBranchCSEZip(ctx context.Context, cseDir, buildID string,
 	if err != nil {
 		return "", fmt.Errorf("upload CSE zip: %w", err)
 	}
-	logging.Logf(ctx, "Uploaded Windows Dalec CSE ZIP (read-only SAS valid for 6 hours; treat as sensitive): CseScriptsPackageURL=%s", url)
 	return url, nil
 }
 
@@ -177,8 +175,9 @@ func uploadWindowsCSEZipNoOverwrite(ctx context.Context, client *azblob.Client, 
 		return "", fmt.Errorf("upload blob %q without overwrite: %w", blobName, err)
 	}
 
-	start := time.Now().UTC()
-	expiry := start.Add(6 * time.Hour)
+	now := time.Now().UTC()
+	start := now.Add(-15 * time.Minute)
+	expiry := now.Add(6 * time.Hour)
 	udc, err := client.ServiceClient().GetUserDelegationCredential(ctx, service.KeyInfo{
 		Expiry: to.Ptr(expiry.Format(sas.TimeFormat)),
 		Start:  to.Ptr(start.Format(sas.TimeFormat)),

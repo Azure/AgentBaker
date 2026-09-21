@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -15,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
@@ -110,8 +110,7 @@ func TestBranchCSEBuildAndUploadCleanup(t *testing.T) {
 			branchCSETestFile(t, dir, "cse.ps1", "branch contents")
 			uploadErr := errors.New("upload failed")
 			var uploaded *os.File
-			logger := &executionLogger{}
-			ctx := logging.WithLogger(t.Context(), logger)
+			ctx := t.Context()
 			got, err := buildAndUploadBranchCSEZip(ctx, dir, "test-build",
 				func(uploadCtx context.Context, name string, file *os.File) (string, error) {
 					assert.Equal(t, ctx, uploadCtx)
@@ -136,13 +135,9 @@ func TestBranchCSEBuildAndUploadCleanup(t *testing.T) {
 			if failUpload {
 				require.ErrorIs(t, err, uploadErr)
 				assert.Empty(t, got)
-				assert.Empty(t, logger.logs, "failed uploads must not log a reusable URL")
 			} else {
 				require.NoError(t, err)
 				assert.Equal(t, "https://example.invalid/package.zip?sas", got)
-				require.Len(t, logger.logs, 1)
-				assert.Contains(t, logger.logs[0], "CseScriptsPackageURL="+got)
-				assert.Contains(t, logger.logs[0], "read-only SAS valid for 6 hours; treat as sensitive")
 			}
 		})
 	}
@@ -241,6 +236,7 @@ func TestBranchCSEUploadCreateOnlyAndSAS(t *testing.T) {
 			require.NoError(t, err)
 			defer file.Close()
 			requests := 0
+			before := time.Now().UTC()
 			client := branchCSETestClient(t, func(req *http.Request) (*http.Response, error) {
 				requests++
 				if requests == 1 {
@@ -259,6 +255,13 @@ func TestBranchCSEUploadCreateOnlyAndSAS(t *testing.T) {
 				require.Equal(t, 2, requests, "unexpected network call")
 				assert.Equal(t, http.MethodPost, req.Method)
 				assert.Equal(t, "userdelegationkey", req.URL.Query().Get("comp"))
+				var keyInfo struct {
+					Start  time.Time `xml:"Start"`
+					Expiry time.Time `xml:"Expiry"`
+				}
+				require.NoError(t, xml.NewDecoder(req.Body).Decode(&keyInfo))
+				assert.WithinDuration(t, before.Add(-15*time.Minute), keyInfo.Start, 5*time.Second)
+				assert.WithinDuration(t, before.Add(6*time.Hour), keyInfo.Expiry, 5*time.Second)
 				if failure == "delegation" {
 					return branchCSEResponse(req, http.StatusForbidden, "<Error><Code>AuthorizationFailure</Code></Error>"), nil
 				}
@@ -269,7 +272,6 @@ func TestBranchCSEUploadCreateOnlyAndSAS(t *testing.T) {
 					<Value>YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXphYmNkZWY=</Value>
 				</UserDelegationKey>`), nil
 			})
-			before := time.Now().UTC()
 			link, err := uploadWindowsCSEZipNoOverwrite(context.Background(), client, "packages", "cse-packages/build name.zip", file)
 			if failure != "" {
 				require.Error(t, err)
