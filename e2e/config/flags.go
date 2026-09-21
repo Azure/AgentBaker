@@ -14,8 +14,6 @@ func Flags() []cli.Flag {
 		&cli.DurationFlag{Name: "poll-interval", Value: defaults.DefaultPollInterval, Destination: &Config.DefaultPollInterval, Sources: cli.EnvVars("DEFAULT_POLL_INTERVAL")},
 		&cli.StringFlag{Name: "subnet-name", Value: defaults.DefaultSubnetName, Destination: &Config.DefaultSubnetName, Sources: cli.EnvVars("DEFAULT_SUBNET_NAME")},
 		&cli.StringFlag{Name: "vm-sku", Value: defaults.DefaultVMSKU, Destination: &Config.DefaultVMSKU, Sources: cli.EnvVars("DEFAULT_VM_SKU")},
-		&cli.StringFlag{Name: "anc-hotfix-e2e-base-version", Value: defaults.ANCHotfixE2EBaseVersion, Destination: &Config.ANCHotfixE2EBaseVersion, Sources: cli.EnvVars("ANC_HOTFIX_E2E_BASE_VERSION"), Usage: "Base ANC version key for the hotfix E2E pointer, e.g. 202607.20; defaults to the target version without its patch suffix"},
-		&cli.StringFlag{Name: "anc-hotfix-e2e-version", Value: defaults.ANCHotfixE2EVersion, Destination: &Config.ANCHotfixE2EVersion, Sources: cli.EnvVars("ANC_HOTFIX_E2E_VERSION"), Usage: "Published ANC hotfix version for post-PMC-publish E2E validation, e.g. 202607.20.2"},
 		&cli.StringFlag{Name: "gen1-scsi-vm-sku", Value: defaults.Gen1SCSIVMSKU, Destination: &Config.Gen1SCSIVMSKU, Sources: cli.EnvVars("GEN1_SCSI_VM_SKU"), Usage: "Fallback VM size for images without Gen2 or NVMe support; must support Gen1 and Gen2 boot with SCSI disks"},
 		&cli.StringFlag{Name: "mana-vm-sku", Value: defaults.MANAVMSKU, Destination: &Config.MANAVMSKU, Sources: cli.EnvVars("MANA_VM_SKU"), Usage: "VM size for MANA scenarios; must support MANA and NVMe"},
 		&cli.BoolFlag{Name: "disable-scriptless", Value: defaults.DisableScriptless, Destination: &Config.DisableScriptless, Sources: cli.EnvVars("DISABLE_SCRIPTLESS")},

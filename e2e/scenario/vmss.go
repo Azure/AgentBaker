@@ -339,6 +339,64 @@ func CustomDataWithNBCCmdHack(customData, binaryURL string) (string, error) {
 	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
 }
 
+func CustomDataWithANCHotfixFlowFixture(customData, binaryURL string) (string, error) {
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	if err != nil {
+		return "", fmt.Errorf("decode custom data: %w", err)
+	}
+
+	fixtureCmd := fmt.Sprintf(`cat >/opt/azure/containers/enabled_features.sh <<'EOF'
+ENABLE_PROVISIONING_HOTFIX=true
+EOF
+chmod 0644 /opt/azure/containers/enabled_features.sh
+
+curl -fSL --retry 10 --retry-delay 2 --retry-connrefused %[1]q -o /opt/azure/containers/aks-node-controller-hotfix
+chmod +x /opt/azure/containers/aks-node-controller-hotfix
+
+cat >/opt/azure/containers/aks-node-controller <<'EOF'
+#!/bin/bash
+set -euo pipefail
+
+log_path=/var/log/azure/anc-hotfix-e2e-flow.log
+pointer_path=/opt/azure/containers/aks-node-controller-hotfix.json
+hotfix_path=/opt/azure/containers/aks-node-controller-hotfix
+
+mkdir -p "$(dirname "$log_path")"
+
+case "${1:-}" in
+  version)
+    echo "202608.14.0"
+    ;;
+  check-hotfix)
+    echo "base check-hotfix" >>"$log_path"
+    cat >"$pointer_path" <<'JSON'
+{"hotfixes":{"202608.14":"202608.14.1"}}
+JSON
+    ;;
+  download-hotfix)
+    echo "base download-hotfix" >>"$log_path"
+    test -x "$hotfix_path"
+    echo "mock staged ANC hotfix 202608.14.1" >>"$log_path"
+    ;;
+  provision)
+    echo "unexpected base provision" >>"$log_path"
+    exit 42
+    ;;
+  apply-embedded-hotfix)
+    echo "unexpected base apply-embedded-hotfix" >>"$log_path"
+    exit 43
+    ;;
+  *)
+    echo "base ${*:-}" >>"$log_path"
+    ;;
+esac
+EOF
+chmod +x /opt/azure/containers/aks-node-controller`, binaryURL)
+
+	customData = strings.Replace(string(decoded), "#hotfix-marker", fixtureCmd, 1)
+	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
+}
+
 func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachineScaleSet, error) {
 	if s == nil || s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
 		s.Runtime.Cluster.Model.Name == nil || s.Runtime.Cluster.Model.Properties == nil ||
@@ -380,7 +438,21 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 
 	cse = nodeBootstrapping.CSE
 	customData = nodeBootstrapping.CustomData
-	if s.Config.ScriptHotfixFixture != nil {
+	if s.Config.ANCHotfixFlowFixture {
+		if !enableScriptlessCompilation(s) {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
+				"ANC hotfix flow fixture requires scriptless ANC compilation",
+			)
+		}
+		binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("compile and upload aks-node-controller binary: %w", err)
+		}
+		customData, err = CustomDataWithANCHotfixFlowFixture(customData, binaryURL)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("generate custom data with ANC hotfix flow fixture: %w", err)
+		}
+	} else if s.Config.ScriptHotfixFixture != nil {
 		if !enableScriptlessCompilation(s) {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
 				"script-hotfix fixture requires scriptless ANC compilation",

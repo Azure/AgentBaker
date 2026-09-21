@@ -176,6 +176,12 @@ type Config struct {
 	// generated script-hotfix payload. It bypasses the shared ANC binary cache.
 	ScriptHotfixFixture *ScriptHotfixFixture
 
+	// ANCHotfixFlowFixture validates the launcher/check/download/select flow with controlled
+	// node-local inputs. It stages a PR-built ANC as the hotfix binary and wraps the baked ANC
+	// with a test double for check-hotfix/download-hotfix, so the scenario does not depend on
+	// real LPS or PMC state.
+	ANCHotfixFlowFixture bool
+
 	// Validator is a function where the scenario can perform any extra validation checks
 	Validator func(ctx context.Context, s *Scenario) error
 
