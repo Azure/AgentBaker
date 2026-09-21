@@ -86,7 +86,7 @@ steps:
       downloadPath: $(Build.SourcesDirectory)
 
   - bash: |
-      set -x
+      set -ex
       GOPATH="$(go env GOPATH)"
       echo "GOPATH is currently set to $GOPATH"
       export PATH="$PATH:$GOPATH/bin"
@@ -95,6 +95,7 @@ steps:
       popd
       cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
     displayName: Setup Cue
+    retryCountOnTaskFailure: 3
 
   - bash: |
       SKU_NAME=${OS_VERSION} && \

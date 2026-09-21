@@ -60,10 +60,8 @@ steps:
       # Baseline utilities used by scripts and downloads below.
       pkg_install ca-certificates curl tar gnupg make jq
 
-      # cosi-upload is built with `GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0`
-      # (see packer.mk build-cosi-upload), matching every other Go binary in this
-      # repo. That keeps FIPS/OpenSSL crypto compliance while avoiding a build-time
-      # C toolchain, so no gcc/binutils/libc/OpenSSL-dev packages are needed here.
+            # cosi-upload uses Microsoft's cgo-less OpenSSL backend (see packer.mk),
+            # so no build-time C toolchain or OpenSSL development packages are needed.
 
       # git isn't used by the convert scripts, but install it so any implicit
       # agent-side cleanup checkouts don't tank the job.
