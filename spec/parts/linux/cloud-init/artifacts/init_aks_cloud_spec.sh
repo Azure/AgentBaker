@@ -86,7 +86,7 @@ Describe 'init-aks-cloud.sh Chrony distro routing'
     It 'keeps Ubuntu and Flatcar on configure_chrony unless the CVM path already configured it'
         When call chrony_routing_block
         The output should include 'if [ "$ubuntu_2604_cvm_chrony_configured" -eq 0 ]; then'
-        The output should include 'configure_chrony'
+        The output should include 'configure_chrony || true'
     End
 End
 
@@ -459,18 +459,23 @@ EOF
             The status should be success
         End
 
-        It 'returns failure when an existing systemd-timesyncd unit cannot be stopped'
+        It 'continues Chrony setup and returns failure when systemd-timesyncd cannot be stopped'
             setup_chrony_test
             Mock systemctl
                 if [ "$1" = "show" ]; then
                     echo "loaded"
                 elif [ "$1" = "stop" ]; then
                     return 1
+                elif [ "$1" = "disable" ] || [ "$1" = "restart" ]; then
+                    echo "systemctl $*"
                 fi
             End
 
             When call configure_chrony
             The error should include "failed to stop systemd-timesyncd"
+            The output should include "systemctl disable systemd-timesyncd"
+            The output should include "systemctl restart chrony"
+            The contents of file "$CHRONY_CONF" should include "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
             The status should equal 1
         End
 

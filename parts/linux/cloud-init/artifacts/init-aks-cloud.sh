@@ -582,6 +582,7 @@ function configure_chrony {
     local time_sources="${1:-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0}"
     local chrony_conf="${CHRONY_CONF:-/etc/chrony/chrony.conf}"
     local timesyncd_load_state
+    local chrony_failed=0
 
     if [ "$IS_UBUNTU" -eq 1 ]; then
         timesyncd_load_state="$(systemctl show -p LoadState --value systemd-timesyncd 2>/dev/null || true)"
@@ -590,28 +591,28 @@ function configure_chrony {
         else
             if ! systemctl stop systemd-timesyncd; then
                 echo "ERROR: failed to stop systemd-timesyncd" >&2
-                return 1
+                chrony_failed=1
             fi
             if ! systemctl disable systemd-timesyncd; then
                 echo "ERROR: failed to disable systemd-timesyncd" >&2
-                return 1
+                chrony_failed=1
             fi
         fi
 
         if [ ! -e "$chrony_conf" ]; then
             if ! apt-get update; then
                 echo "ERROR: failed to update package metadata before installing Chrony" >&2
-                return 1
+                chrony_failed=1
             fi
             if ! apt-get install chrony -y; then
                 echo "ERROR: failed to install Chrony" >&2
-                return 1
+                chrony_failed=1
             fi
         fi
     elif [ "$IS_FLATCAR" -eq 1 ]; then
         if ! rm -f "$chrony_conf"; then
             echo "ERROR: failed to remove the existing Flatcar Chrony configuration" >&2
-            return 1
+            chrony_failed=1
         fi
     fi
 
@@ -664,20 +665,22 @@ makestep 1.0 -1
 EOF
     then
         echo "ERROR: failed to write Chrony configuration to ${chrony_conf}" >&2
-        return 1
+        chrony_failed=1
     fi
 
     if [ "$IS_UBUNTU" -eq 1 ]; then
         if ! systemctl restart chrony; then
             echo "ERROR: failed to restart Chrony" >&2
-            return 1
+            chrony_failed=1
         fi
     elif [ "$IS_FLATCAR" -eq 1 ]; then
         if ! systemctl restart chronyd; then
             echo "ERROR: failed to restart chronyd" >&2
-            return 1
+            chrony_failed=1
         fi
     fi
+
+    return "$chrony_failed"
 }
 
 function verify_chrony_ntp_sync {
@@ -962,7 +965,7 @@ EOF
     systemctl restart chronyd
 else
     if [ "$ubuntu_2604_cvm_chrony_configured" -eq 0 ]; then
-        configure_chrony
+        configure_chrony || true
     fi
 fi
 
