@@ -11,7 +11,7 @@ ACL_OS_VARIANT="AZURECONTAINERLINUX"
 # Exact coredns image tag that localdns runs. Kept in lockstep with the pin in
 # vhdbuilder/packer/install-dependencies.sh and with parts/common/components.json; both are
 # enforced by spec/vhdbuilder/packer/coredns_version_spec.sh.
-COREDNS_VERSION="v1.14.7-2"
+COREDNS_VERSION="v1.14.3-18"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
@@ -2445,8 +2445,8 @@ testCorednsBinaryExtractedAndCached() {
   fi
 
   # Assert the pinned image itself is cached. This is the only check that can see the MCR
-  # revision suffix - the coredns binary reports the upstream version (1.14.7) and knows
-  # nothing about the -2 build revision, so the binary check below cannot catch a wrong revision.
+  # revision suffix - the coredns binary reports the upstream version (1.14.3) and knows
+  # nothing about the -18 build revision, so the binary check below cannot catch a wrong revision.
   local pinned_coredns_image_cached="false"
   for coredns_image_url in "${coredns_image_list[@]}"; do
     if [ "${coredns_image_url##*:}" = "${COREDNS_VERSION}" ]; then
@@ -2459,7 +2459,7 @@ testCorednsBinaryExtractedAndCached() {
     return 1
   fi
 
-  # The pinned tag carries an MCR build revision (eg. v1.14.7-2) that the binary does not
+  # The pinned tag carries an MCR build revision (eg. v1.14.3-18) that the binary does not
   # report, so compare on the upstream version only.
   local expectedVersionWithoutV="${COREDNS_VERSION#v}"
   echo "$test: Expected coredns version (pinned): ${expectedVersionWithoutV}"

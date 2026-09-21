@@ -45,7 +45,7 @@ LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
 # This must match a coredns multiArchVersionsV2 entry in parts/common/components.json, and the
 # same pin in vhdbuilder/packer/test/linux-vhd-content-test.sh. Both are enforced by
 # spec/vhdbuilder/packer/coredns_version_spec.sh.
-COREDNS_VERSION="v1.14.7-2"
+COREDNS_VERSION="v1.14.3-18"
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 GRID_COMPATIBILITY_DATA_FILE=/opt/azure/vhd-grid-compatibility-data.json
 
