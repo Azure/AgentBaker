@@ -128,6 +128,7 @@ EOF
         When run main
         The status should be failure
         The output should include 'golden timestamp has invalid format'
+        The output should not include 'evil.example'
         The path "${SECURITY_PATCH_CONFIG_DIR}/sources.list" should not be exist
     End
 
