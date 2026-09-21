@@ -9,12 +9,6 @@ SECURITY_PATCH_CONFIG_DIR=/var/lib/security-patch
 KUBECONFIG="/var/lib/kubelet/kubeconfig"
 KUBECTL="/opt/bin/kubectl --kubeconfig ${KUBECONFIG}"
 DEFAULT_ENDPOINT="snapshot.ubuntu.com"
-# Canonical UTC timestamp format used by the live-patching golden timestamp
-# node annotation, e.g. 20250815T000000Z. This value is attacker-influenceable
-# (a node annotation) and is interpolated into apt's sources.list, so it must
-# be strictly validated before use to reject malformed or newline-bearing
-# input that could otherwise inject additional apt source lines.
-GOLDEN_TIMESTAMP_REGEX="^[0-9]{8}T[0-9]{6}Z$"
 
 # Function definitions used in this file.
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
@@ -31,6 +25,11 @@ unattended_upgrade() {
     fi
   done
   echo Executed unattended upgrade $i times
+}
+
+is_valid_golden_timestamp() {
+    local timestamp="$1"
+    [ "${#timestamp}" -eq 16 ] && printf '%s\n' "${timestamp}" | grep -Eq '^[0-9]{8}T[0-9]{6}Z$'
 }
 
 generate_sources_list() {
@@ -97,9 +96,8 @@ main() {
         echo "golden timestamp is not set, skip live patching"
         exit 0
     fi
-    # shellcheck disable=SC3010
-    if [[ ! "${golden_timestamp}" =~ ${GOLDEN_TIMESTAMP_REGEX} ]]; then
-        echo "golden timestamp has invalid format, expected YYYYMMDDTHHMMSSZ, got: ${golden_timestamp}"
+    if ! is_valid_golden_timestamp "${golden_timestamp}"; then
+        echo "golden timestamp has invalid format; expected YYYYMMDDTHHMMSSZ"
         exit 1
     fi
     echo "golden timestamp is: ${golden_timestamp}"
