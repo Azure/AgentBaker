@@ -76,6 +76,21 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 	}
 }
 
+func TestGetKubeletConfigFileContentDoesNotActivateFlagMigration(t *testing.T) {
+	flags := map[string]string{
+		"--max-pods":                   "110",
+		"--enable-server":              "false",
+		"--volume-plugin-dir":          "/etc/kubernetes/volumeplugins",
+		"--cgroup-driver":              "systemd",
+		"--runtime-request-timeout":    "0s",
+		"--container-runtime-endpoint": "unix:///run/containerd/containerd.sock",
+		"--register-with-taints":       "workload=batch:NoSchedule",
+		"--hairpin-mode":               "promiscuous-bridge",
+	}
+	want := GetKubeletConfigFileContent(map[string]string{"--max-pods": "110"}, nil)
+	assert.Equal(t, want, GetKubeletConfigFileContent(flags, nil))
+}
+
 func TestGetKubeletConfigFileContent_MergesFlagsWithoutOverwritingContent(t *testing.T) {
 	kc := map[string]string{
 		"--image-gc-high-threshold": "85",

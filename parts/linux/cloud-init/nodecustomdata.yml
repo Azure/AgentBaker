@@ -182,12 +182,14 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionConfigsAddons"}}
 
+{{if IsAKSCustomCloud}}
 - path: {{GetInitAKSCloudFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "initAKSCloud"}}
+{{end}}
 
 - path: /etc/systemd/system/reconcile-private-hosts.service
   permissions: "0644"

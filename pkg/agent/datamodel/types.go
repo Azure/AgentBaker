@@ -194,6 +194,7 @@ const (
 	AKSUbuntuContainerd2404Gen2             Distro = "aks-ubuntu-containerd-24.04-gen2"
 	AKSUbuntuMinimalContainerd2604Gen2      Distro = "aks-ubuntu-minimal-containerd-26.04-gen2"
 	AKSUbuntuMinimalArm64Containerd2604Gen2 Distro = "aks-ubuntu-minimal-arm64-containerd-26.04-gen2"
+	AKSUbuntuMinimalContainerd2604CVMGen2   Distro = "aks-ubuntu-minimal-containerd-26.04-cvm-gen2"
 	AKSAzureLinuxV3CVMGen2                  Distro = "aks-azurelinux-v3-cvm-gen2"
 	AKSUbuntuContainerd2404TLGen2           Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
 	AKSFlatcarGen2                          Distro = "aks-flatcar-gen2"
@@ -287,6 +288,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2404TLGen2,
 	AKSUbuntuMinimalContainerd2604Gen2,
 	AKSUbuntuMinimalArm64Containerd2604Gen2,
+	AKSUbuntuMinimalContainerd2604CVMGen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
@@ -2376,7 +2378,21 @@ type AKSKubeletConfiguration struct {
 	// SeccompDefault enables the use of `RuntimeDefault` as the default seccomp profile for all workloads.
 	// Default: false
 	// +optional
-	SeccompDefault *bool `json:"seccompDefault,omitempty"`
+	SeccompDefault           *bool          `json:"seccompDefault,omitempty"`
+	EnableServer             *bool          `json:"enableServer,omitempty"`
+	VolumePluginDir          string         `json:"volumePluginDir,omitempty"`
+	CgroupDriver             string         `json:"cgroupDriver,omitempty"`
+	RuntimeRequestTimeout    Duration       `json:"runtimeRequestTimeout,omitempty"`
+	ContainerRuntimeEndpoint string         `json:"containerRuntimeEndpoint,omitempty"`
+	RegisterWithTaints       []KubeletTaint `json:"registerWithTaints,omitempty"`
+	HairpinMode              string         `json:"hairpinMode,omitempty"`
+}
+
+type KubeletTaint struct {
+	Key       string `json:"key,omitempty"`
+	Value     string `json:"value,omitempty"`
+	Effect    string `json:"effect,omitempty"`
+	TimeAdded string `json:"timeAdded,omitempty"`
 }
 
 type Duration string
