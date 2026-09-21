@@ -105,6 +105,7 @@ Describe 'cgroup telemetry'
         printf 'max\n' > "${CGROUP_ROOT}/kubepods.slice/memory.max"
         create_memory_stat system.slice/node-problem-detector.service 10 20
         create_memory_stat system.slice/node-exporter.service 30 40
+        create_memory_stat system.slice/walinuxagent.service 20 30
         create_memory_stat localdns.slice/localdns.service 50 60
         prepare_memory_script
 
@@ -112,6 +113,7 @@ Describe 'cgroup telemetry'
         The status should be success
         The contents of file "${EVENTS_ROOT}"/* should include '\"containerd_service_memory\":\"3\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"kubelet_service_memory\":\"3\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"walinuxagent_service_memory\":\"50\"'
         The contents of file "${EVENTS_ROOT}"/* should include 'node_problem_detector_service_memory'
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_problem_detector_service_memory\":\"30\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_memory\":\"70\"'
@@ -132,12 +134,14 @@ Describe 'cgroup telemetry'
         done
         printf 'max\n' > "${CGROUP_ROOT}/kubepods/memory.limit_in_bytes"
         create_memory_stat_v1 system.slice/node-exporter.service 30 40
+        create_memory_stat_v1 system.slice/walinuxagent.service 20 30
         prepare_memory_script tmpfs
 
         When run bash "${TEST_ROOT}/cgroup-memory-telemetry.sh"
         The status should be success
         The contents of file "${EVENTS_ROOT}"/* should include '\"CgroupVersion\":\"cgroupv1\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"containerd_service_memory\":\"3\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"walinuxagent_service_memory\":\"50\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_memory\":\"70\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"sync_container_logs_service_memory\":\"Not Found\"'
     End
@@ -172,6 +176,7 @@ Describe 'cgroup telemetry'
     It 'emits cgroup v2 CPU usage and throttling counters with explicit units'
         create_cpu_stat_v2 system.slice/containerd.service
         create_cpu_stat_v2 system.slice/kubelet.service
+        create_cpu_stat_v2 system.slice/walinuxagent.service
         prepare_cpu_script
 
         When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
@@ -179,6 +184,7 @@ Describe 'cgroup telemetry'
         The contents of file "${EVENTS_ROOT}"/* should include '\"CgroupVersion\":\"cgroupv2\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"counter_units\":{\"usage_usec\":\"microseconds\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"containerd_service_cpu_usage\":{\"usage_usec\":\"100\",\"user_usec\":\"60\",\"system_usec\":\"40\",\"nr_periods\":\"20\",\"nr_throttled\":\"3\",\"throttled_usec\":\"7\"}'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"walinuxagent_service_cpu_usage\":{\"usage_usec\":\"100\",\"user_usec\":\"60\",\"system_usec\":\"40\",\"nr_periods\":\"20\",\"nr_throttled\":\"3\",\"throttled_usec\":\"7\"}'
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_cpu_usage\":\"Not Found\"'
         The contents of file "${EVENTS_ROOT}"/* should include 'downstream rates must discard negative deltas'
     End
