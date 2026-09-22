@@ -1,6 +1,7 @@
 package scenario
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -8,7 +9,11 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestConfigureOSSKarpenterClusterModel(t *testing.T) {
@@ -61,12 +66,42 @@ func TestNewOSSKarpenterNodePoolTargetsRunAndVMSize(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, found)
 	assert.Equal(t, "run", runLabel)
+	consolidateAfter, found, err := unstructuredString(nodePool.Object, "spec", "disruption", "consolidateAfter")
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, "Never", consolidateAfter)
 
 	requirements, found, err := unstructuredSlice(nodePool.Object, "spec", "template", "spec", "requirements")
 	require.NoError(t, err)
 	require.True(t, found)
 	assert.True(t, requirementHasValue(requirements, "node.kubernetes.io/instance-type", "Standard_D2ds_v5"))
 	assert.True(t, requirementHasValue(requirements, "karpenter.sh/capacity-type", "on-demand"))
+}
+
+func TestDeleteOSSKarpenterNodeClaimsTargetsOnlyNodePool(t *testing.T) {
+	gvk := schema.GroupVersionKind{Group: "karpenter.sh", Version: "v1", Kind: "NodeClaim"}
+	scheme := runtime.NewScheme()
+	scheme.AddKnownTypeWithName(gvk, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(gvk.GroupVersion().WithKind("NodeClaimList"), &unstructured.UnstructuredList{})
+	claim := func(name, nodePool string) *unstructured.Unstructured {
+		object := &unstructured.Unstructured{}
+		object.SetGroupVersionKind(gvk)
+		object.SetName(name)
+		object.SetLabels(map[string]string{"karpenter.sh/nodepool": nodePool})
+		return object
+	}
+	dynamic := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		claim("target", "target-pool"),
+		claim("other", "other-pool"),
+	).Build()
+
+	require.NoError(t, deleteOSSKarpenterNodeClaims(context.Background(), &Kubeclient{Dynamic: dynamic}, "target-pool"))
+
+	claims := &unstructured.UnstructuredList{}
+	claims.SetGroupVersionKind(gvk.GroupVersion().WithKind("NodeClaimList"))
+	require.NoError(t, dynamic.List(context.Background(), claims))
+	require.Len(t, claims.Items, 1)
+	assert.Equal(t, "other", claims.Items[0].GetName())
 }
 
 func TestNewOSSKarpenterWorkloadCannotUseSystemPool(t *testing.T) {

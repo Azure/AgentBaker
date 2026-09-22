@@ -369,25 +369,6 @@ allows the scenario to detect compatibility failures when scripts baked into
 the AgentBaker VHD change but Karpenter's independently maintained CSE template
 has not been updated.
 
-Prerequisites:
-
-- `git`, Azure CLI, and Go must be installed on the E2E runner.
-- `az` must be logged in to the E2E subscription. The same identity must be able
-  to read the selected AgentBaker build gallery and create VMs, NICs, and disks
-  in the AKS node resource group.
-- The runner needs outbound access to GitHub and the Go module proxies used by
-  the pinned provider source.
-- The installed Go toolchain must allow automatic toolchain download when the
-  pinned provider requires a newer patch version.
-
-Run only this scenario against a VHD build with:
-
-```bash
-SIG_VERSION_TAG_NAME=buildId \
-SIG_VERSION_TAG_VALUE=123456789 \
-./e2e-local.sh Ubuntu2204_OSS_Karpenter_CSE_Compatibility
-```
-
 Controller logs and Kubernetes diagnostics are written into the scenario log
 directory. The pinned source checkout and built controller are cached for the
 lifetime of the E2E process, so scenario retries do not rebuild it.

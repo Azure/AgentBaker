@@ -199,6 +199,7 @@ func newOSSKarpenterNodePool(run ossKarpenterRun, vmSize string) *unstructured.U
 			// discovered image set, so Karpenter can report image drift. Prevent
 			// disruption from replacing the compatibility node during validation.
 			"disruption": map[string]any{
+				"consolidateAfter": "Never",
 				"budgets": []any{
 					map[string]any{"nodes": "0"},
 				},
@@ -438,6 +439,9 @@ func cleanupOSSKarpenterRun(
 	if err := kube.Dynamic.Delete(ctx, nodePool); err != nil && !apierrors.IsNotFound(err) {
 		errs = append(errs, fmt.Errorf("delete NodePool: %w", err))
 	}
+	if err := deleteOSSKarpenterNodeClaims(ctx, kube, run.NodePoolName); err != nil {
+		errs = append(errs, err)
+	}
 	if err := waitForOSSKarpenterCapacityDeleted(ctx, kube, run); err != nil {
 		errs = append(errs, err)
 	}
@@ -450,6 +454,15 @@ func cleanupOSSKarpenterRun(
 	}
 	errs = append(errs, cleanupController.Stop(ctx))
 	return errors.Join(errs...)
+}
+
+func deleteOSSKarpenterNodeClaims(ctx context.Context, kube *Kubeclient, nodePoolName string) error {
+	nodeClaim := &unstructured.Unstructured{}
+	nodeClaim.SetGroupVersionKind(schema.GroupVersionKind{Group: "karpenter.sh", Version: "v1", Kind: "NodeClaim"})
+	if err := kube.Dynamic.DeleteAllOf(ctx, nodeClaim, client.MatchingLabels{"karpenter.sh/nodepool": nodePoolName}); err != nil {
+		return fmt.Errorf("delete NodeClaims for NodePool %s: %w", nodePoolName, err)
+	}
+	return nil
 }
 
 func waitForOSSKarpenterCapacityDeleted(ctx context.Context, kube *Kubeclient, run ossKarpenterRun) error {
