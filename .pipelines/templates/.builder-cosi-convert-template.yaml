@@ -134,8 +134,7 @@ steps:
       fi
       azcopy --version
 
-      # Go is needed to build cosi-upload.
-      # On apt-based agents, install the repo-pinned Go toolchain after sources are extracted.
+      # Azure Linux packages Microsoft Go; the preflight build rejects incompatible toolchains.
       if ! command -v go >/dev/null 2>&1; then
           if [ "$PKG" = apt ]; then
               echo "Go not found yet; will install pinned version after source extraction"
@@ -164,6 +163,10 @@ steps:
           ./hack/setup_golang.sh
       fi
       go version
+
+  - bash: make -f packer.mk build-cosi-upload
+    displayName: Build COSI uploader with Microsoft system crypto
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
 
   - bash: |
       SKU_NAME=${OS_VERSION} && \
@@ -212,7 +215,7 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
-        make -f packer.mk upload-cosi-to-pmc
+        bash ./vhdbuilder/packer/imagecustomizer/scripts/upload-cosi-to-pmc.sh
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
     displayName: Upload COSI to PMC
     env:
