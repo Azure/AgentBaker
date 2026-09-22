@@ -327,8 +327,8 @@ cleanUpPrebakedGPUDriver() {
         rm -f "${manifest}" || true
         return 0
     fi
-    # Never leave a trusted-looking AgentBaker manifest behind once teardown begins. If cleanup is
-    # incomplete, the aks-gpu marker remains as the retry signal but NodePrep cannot take the fast path.
+    # Invalidate the prebake before removing any files. If cleanup stops partway, NodePrep will not
+    # reuse the partial installation; the aks-gpu marker remains so cleanup is retried.
     rm -f "${manifest}" || true
     echo "Removing pre-baked NVIDIA driver inherited from shared VHD (node does not install the managed driver)"
     local dkms_before=false module_before=false module_after=false
