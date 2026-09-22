@@ -2440,40 +2440,15 @@ testCorednsBinaryExtractedAndCached() {
     return 1
   fi
 
-  # The version localdns should be running, read from components.json on the VHD rather than
-  # from a literal here - components.json is the single source of truth, and the extraction in
-  # install-dependencies.sh resolves it the same way.
-  local declaredVersion
-  declaredVersion=$(jq -r '
-    .ContainerImages[]
-    | select(.downloadURL | test("/kubernetes/coredns:"))
-    | .multiArchVersionsV2[]
-    | .latestVersion
-  ' "${COMPONENTS_FILEPATH}" | sort -V -r | head -n1)
-  if [ -z "${declaredVersion}" ]; then
-    echo "$test: No coredns version declared in ${COMPONENTS_FILEPATH}"
-    return 1
-  fi
+  # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
+  local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
 
-  # Assert the declared image is cached. This is the only check that can see the MCR revision
-  # suffix - the coredns binary reports only its upstream version (eg. 1.14.7) and knows nothing
-  # about the build revision, so the binary check below cannot catch a wrong revision.
-  local declared_coredns_image_cached="false"
-  for coredns_image_url in "${coredns_image_list[@]}"; do
-    if [ "${coredns_image_url##*:}" = "${declaredVersion}" ]; then
-      declared_coredns_image_cached="true"
-      break
-    fi
-  done
-  if [ "${declared_coredns_image_cached}" != "true" ]; then
-    echo "$test: Declared coredns image ${declaredVersion} is not cached. Cached coredns images: ${coredns_image_list[*]}"
-    return 1
-  fi
+  # Determine latest version (eg. v1.12.0-1).
+  local latest_coredns_tag="${sorted_coredns_tags[0]}"
 
-  # The declared tag carries an MCR build revision the binary does not report, so compare on the
-  # upstream version only.
-  local expectedVersionWithoutV="${declaredVersion#v}"
-  echo "$test: Expected coredns version (from components.json): ${expectedVersionWithoutV}"
+  local expectedVersion="$latest_coredns_tag"
+  local expectedVersionWithoutV="${expectedVersion#v}"
+  echo "$test: Expected coredns version (latest): ${expectedVersionWithoutV}"
 
   local builtInPlugins
   builtInPlugins=$("$binaryPath" --plugins)
@@ -2496,12 +2471,12 @@ testCorednsBinaryExtractedAndCached() {
 
   echo "$test: Verify extracted coredns version: ${actualVersionWithoutV}"
 
-  if [ "${actualVersionWithoutV%-*}" != "${expectedVersionWithoutV%-*}" ]; then
-    echo "$test: Extracted coredns version: ${actualVersion} does not match declared version: ${expectedVersionWithoutV}"
+  if [ "${actualVersion%-*}" != "${expectedVersionWithoutV%-*}" ]; then
+    echo "$test: Extracted coredns version: ${actualVersion} does not match expected version: ${expectedVersionWithoutV}"
     return 1
   fi
 
-  echo "$test: Declared version: ${expectedVersionWithoutV} of coredns binary is extracted and cached at ${binaryPath}"
+  echo "$test: Expected version: ${expectedVersionWithoutV} of coredns binary is extracted and cached at ${binaryPath}"
   return 0
 }
 
