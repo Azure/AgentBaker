@@ -9,6 +9,7 @@ set -euo pipefail
 
 required_env_vars=(
     "CAPTURED_SIG_VERSION"
+    "SKU_NAME"
     "AFD_UPLOAD_ENDPOINT"
     "COSI_CONTAINER"
 )
@@ -22,7 +23,7 @@ do
 done
 
 COSI_WORK_DIR="$(pwd)"
-COSI_NAME="${CAPTURED_SIG_VERSION}.cosi"
+COSI_NAME="${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
 STAGED_COSI="${COSI_WORK_DIR}/${COSI_NAME}"
 
 if [ ! -f "$STAGED_COSI" ]; then

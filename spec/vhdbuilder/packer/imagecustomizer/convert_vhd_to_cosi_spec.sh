@@ -188,3 +188,68 @@ Describe 'VHD SAS handoff'
     The output should not include SOURCE_REMOVED
   End
 End
+
+Describe 'COSI artifact names'
+  setup_artifacts() {
+    convert_script="$(pwd)/vhdbuilder/packer/imagecustomizer/scripts/convert-vhd-to-cosi.sh"
+    upload_script="$(pwd)/vhdbuilder/packer/imagecustomizer/scripts/upload-cosi-to-pmc.sh"
+    test_dir="$(mktemp -d)"
+    mkdir -p "$test_dir/bin"
+    ln -s /bin/echo "$test_dir/bin/cosi-upload"
+    export CAPTURED_SIG_VERSION=202609.21.0
+    export IMAGE_VERSION=202609.21.0
+    export DESTINATION_STORAGE_CONTAINER=https://storage.invalid/vhds
+    export IMG_CUSTOMIZER_CONTAINER=mock
+    export AFD_DOWNLOAD_HOSTNAME=download.invalid
+    export AFD_UPLOAD_ENDPOINT=https://upload.invalid
+    export COSI_CONTAINER=cosi
+
+    azcopy() { return 0; }
+    docker() {
+      if [ "$1" = run ]; then
+        printf 'mock COSI\n' > "$PWD/cosi-convert/out/${CAPTURED_SIG_VERSION}.cosi"
+      fi
+    }
+    export -f azcopy docker
+  }
+  cleanup_artifacts() { rm -rf "$test_dir"; }
+  BeforeEach 'setup_artifacts'
+  AfterEach 'cleanup_artifacts'
+
+  check_artifact_name() {
+    cd "$test_dir" || return 1
+    bash "$convert_script" >/dev/null || return $?
+    jq -r .cosi_url cosi-publishing-info.json
+    bash "$upload_script"
+  }
+
+  Describe 'variants with a shared capture version'
+    Parameters
+      aclgen2TL X86_64 false
+      aclgen2fipsTL X86_64 true
+      aclgen2arm64TL ARM64 false
+      aclgen2arm64fipsTL ARM64 true
+    End
+    It 'uses the SKU in both the metadata URL and upload destination'
+      export SKU_NAME="$1" ARCHITECTURE="$2" ENABLE_FIPS="$3"
+      When call check_artifact_name
+      The status should be success
+      The line 1 of output should equal "https://download.invalid/cosi/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
+      The line 2 of output should include "--blob ${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi --file ${test_dir}/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
+    End
+  End
+
+  It 'rejects conversion without a SKU'
+    unset SKU_NAME
+    When run bash "$convert_script"
+    The status should be failure
+    The output should equal 'SKU_NAME was not set!'
+  End
+
+  It 'rejects upload without a SKU'
+    unset SKU_NAME
+    When run bash "$upload_script"
+    The status should be failure
+    The output should equal 'SKU_NAME was not set!'
+  End
+End
