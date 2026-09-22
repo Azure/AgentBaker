@@ -192,6 +192,14 @@ steps:
     condition: always()
     displayName: Set Post-Build Variables
 
+  - bash: |
+      image_version="${IMAGE_VERSION:-$(date -u +%Y%m.%d.0)}"
+      echo "##vso[task.setvariable variable=IMAGE_VERSION]${image_version}"
+      echo "##vso[task.setvariable variable=IMAGE_VERSION;isOutput=true]${image_version}"
+    name: resolveCosiImageVersion
+    displayName: Resolve COSI Image Version
+    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+
   # Expose the captured SIG version to the separate native-arm64 COSI convert job
   # (arm64 ACL COSI conversion can't run under emulation, so it runs on the arm64
   # pool as its own job that consumes this output variable).

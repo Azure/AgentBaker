@@ -267,14 +267,20 @@ Describe 'COSI artifact names'
     export CAPTURED_SIG_VERSION=202609.21.0
     export IMAGE_VERSION=202609.21.0
     export DESTINATION_STORAGE_CONTAINER=https://storage.invalid/vhds
-    export IMG_CUSTOMIZER_CONTAINER=mock
+    export IMG_CUSTOMIZER_CONTAINER=registry.invalid/imagecustomizer@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    export IMG_CUSTOMIZER_CONTAINER_FALLBACK=registry.invalid/fallback@sha256:1111111111111111111111111111111111111111111111111111111111111111
+    export EXPECTED_IMG_CUSTOMIZER_REF="$IMG_CUSTOMIZER_CONTAINER"
+    export MOCK_PRIMARY_PULL_FAIL=0
     export AFD_DOWNLOAD_HOSTNAME=download.invalid
     export AFD_UPLOAD_ENDPOINT=https://upload.invalid
     export COSI_CONTAINER=cosi
 
     azcopy() { return 0; }
     docker() {
-      if [ "$1" = run ]; then
+      if [ "$1" = pull ] && [ "$4" = "$IMG_CUSTOMIZER_CONTAINER" ] && [ "$MOCK_PRIMARY_PULL_FAIL" = 1 ]; then
+        return 1
+      elif [ "$1" = run ]; then
+        [ "$9" = "$EXPECTED_IMG_CUSTOMIZER_REF" ] || return 1
         printf 'mock COSI\n' > "$PWD/cosi-convert/out/${CAPTURED_SIG_VERSION}.cosi"
       fi
     }
@@ -286,10 +292,76 @@ Describe 'COSI artifact names'
 
   check_artifact_name() {
     cd "$test_dir" || return 1
-    bash "$convert_script" >/dev/null || return $?
+    bash "$convert_script" "${1:-false}" >/dev/null || return $?
     jq -r .cosi_url cosi-publishing-info.json
     bash "$upload_script"
   }
+
+  check_build_version() {
+    cd "$test_dir" || return 1
+    date() { printf '%s\n' 202610.01.0; }
+    export -f date
+    bash "$convert_script" >/dev/null || return $?
+    jq -r .image_version cosi-publishing-info.json
+  }
+
+  It 'keeps the build version when conversion starts on a later UTC date'
+    export SKU_NAME=aclgen2arm64fipsTL ARCHITECTURE=ARM64 ENABLE_FIPS=true
+    When call check_build_version
+    The status should be success
+    The output should equal '202609.21.0-fips'
+  End
+
+  It 'rejects conversion without the build-resolved version'
+    export SKU_NAME=aclgen2arm64TL
+    unset IMAGE_VERSION
+    When run bash "$convert_script"
+    The status should be failure
+    The output should equal 'IMAGE_VERSION was not set!'
+  End
+
+  It 'rejects a mutable primary image before downloading or converting'
+    export SKU_NAME=aclgen2arm64TL IMG_CUSTOMIZER_CONTAINER=mcr.microsoft.com/azurelinux/imagecustomizer:1.5
+    When run bash "$convert_script"
+    The status should be failure
+    The output should be blank
+    The error should include 'ImageCustomizer reference must be pinned with a sha256 digest'
+  End
+
+  It 'rejects an enabled mutable fallback before downloading or converting'
+    export SKU_NAME=aclgen2arm64TL IMG_CUSTOMIZER_CONTAINER_FALLBACK=ghcr.io/microsoft/imagecustomizer:1.5.0
+    When run bash "$convert_script" true
+    The status should be failure
+    The output should be blank
+    The error should include 'ImageCustomizer reference must be pinned with a sha256 digest'
+  End
+
+  It 'rejects an enabled fallback without an approved digest'
+    export SKU_NAME=aclgen2arm64TL
+    unset IMG_CUSTOMIZER_CONTAINER_FALLBACK
+    When run bash "$convert_script" true
+    The status should be failure
+    The output should be blank
+    The error should include 'ImageCustomizer reference must be pinned with a sha256 digest'
+  End
+
+  It 'runs the pinned fallback when the primary pull fails'
+    export SKU_NAME=aclgen2arm64TL ARCHITECTURE=ARM64 ENABLE_FIPS=false
+    MOCK_PRIMARY_PULL_FAIL=1
+    EXPECTED_IMG_CUSTOMIZER_REF="$IMG_CUSTOMIZER_CONTAINER_FALLBACK"
+    When call check_artifact_name true
+    The status should be success
+    The line 1 of output should equal "https://download.invalid/cosi/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
+    The line 2 of output should include "--blob ${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
+  End
+
+  It 'stops when the primary pull fails and fallback is disabled'
+    export SKU_NAME=aclgen2arm64TL
+    MOCK_PRIMARY_PULL_FAIL=1
+    When call check_artifact_name false
+    The status should be failure
+    The output should be blank
+  End
 
   Describe 'variants with a shared capture version'
     Parameters

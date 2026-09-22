@@ -41,6 +41,13 @@ generate_cosi_package_version() {
     printf '%s\n' "$version"
 }
 
+validate_imagecustomizer_reference() {
+    if ! printf '%s\n' "$1" | grep -Eq '^[^[:space:]@]+@sha256:[0-9a-f]{64}$'; then
+        echo "##vso[task.logissue type=error]ImageCustomizer reference must be pinned with a sha256 digest" >&2
+        return 1
+    fi
+}
+
 # Source-guard: functions above are unit-tested; the flow below skips when sourced.
 ${__SOURCED__:+return}
 
@@ -48,6 +55,7 @@ required_env_vars=(
     "DESTINATION_STORAGE_CONTAINER"
     "CAPTURED_SIG_VERSION"
     "SKU_NAME"
+    "IMAGE_VERSION"
     "IMG_CUSTOMIZER_CONTAINER"
     "AFD_DOWNLOAD_HOSTNAME"
     "COSI_CONTAINER"
@@ -61,12 +69,12 @@ do
     fi
 done
 
-# Optional GHCR fallback: when the MCR ImageCustomizer image
-# (IMG_CUSTOMIZER_CONTAINER, including its tag) is unavailable, optionally fall
-# back to pulling the published GitHub Container Registry image
-# (IMG_CUSTOMIZER_CONTAINER_FALLBACK, also including its tag). Gated by the
-# first script argument and defaults to "false" so the fallback is opt-in.
+# Both primary and opt-in fallback images must be pinned before privileged execution.
 ALLOW_GHCR_FALLBACK="${1:-false}"
+validate_imagecustomizer_reference "$IMG_CUSTOMIZER_CONTAINER"
+if [ "${ALLOW_GHCR_FALLBACK,,}" = "true" ]; then
+    validate_imagecustomizer_reference "${IMG_CUSTOMIZER_CONTAINER_FALLBACK:-}"
+fi
 
 WORK_DIR="$(pwd)/cosi-convert"
 mkdir -p "$WORK_DIR/build" "$WORK_DIR/out"
@@ -184,11 +192,6 @@ echo "Staged COSI for upload at ${STAGED_COSI}"
 COSI_SHA256=$(sha256sum "$STAGED_COSI" | awk '{print $1}')
 COSI_SHA1=$(sha1sum "$STAGED_COSI" | awk '{print $1}')
 COSI_SIZE=$(stat -c%s "$STAGED_COSI")
-
-if [ -z "${IMAGE_VERSION:-}" ]; then
-    IMAGE_VERSION=$(date +%Y%m.%d.0)
-    echo "IMAGE_VERSION was not set, defaulting to ${IMAGE_VERSION}"
-fi
 
 # Normalize only the Nebraska-facing version; IMAGE_VERSION itself is unchanged.
 if ! COSI_IMAGE_VERSION="$(generate_cosi_package_version "${IMAGE_VERSION}" "${ENABLE_FIPS:-false}")"; then
