@@ -224,7 +224,7 @@ ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file
 getGPUDriverImageDigest() {
     local image_ref="${1}"
     ctr -n k8s.io images ls "name==${image_ref}" 2>/dev/null |
-        awk -v image_ref="${image_ref}" 'NR > 1 && $1 == image_ref { print $3; exit }'
+        awk -v image_ref="${image_ref}" 'NR > 1 && $1 == image_ref { print $3 }'
 }
 
 writeGPUDriverArtifactManifest() {

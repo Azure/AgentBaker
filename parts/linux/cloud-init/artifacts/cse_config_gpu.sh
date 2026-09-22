@@ -82,7 +82,7 @@ EOF
         grep -Fqx "driver_version=${GPU_DV}" "${GPU_DKMS_MARKER_FILE}" &&
         grep -Fqx "driver_kind=cuda" "${GPU_DKMS_MARKER_FILE}" &&
         grep -Fqx "arch=${architecture}" "${GPU_DKMS_MARKER_FILE}" &&
-        dkms status >/dev/null 2>&1 &&
+        dkms status -m nvidia -k "${kernel}" 2>/dev/null | grep -q ': installed$' &&
         modinfo -k "${kernel}" nvidia >/dev/null 2>&1
 }
 

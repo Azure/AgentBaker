@@ -80,7 +80,7 @@ Describe 'cse_config_gpu.sh'
         }
         cleanup_gpu_artifact_reconcile() {
             rm -rf "${GPU_ARTIFACT_TEST_DIR}"
-            unset MOCK_KERNEL MOCK_GPU_FILES_STATUS
+            unset MOCK_KERNEL MOCK_DKMS_STATUS MOCK_MODINFO_STATUS
         }
 
         BeforeEach 'setup_gpu_artifact_reconcile'
@@ -88,8 +88,11 @@ Describe 'cse_config_gpu.sh'
 
         uname() { [ "$1" = "-m" ] && echo "x86_64" || echo "${MOCK_KERNEL:-test-kernel}"; }
         getGPUDriverImageDigest() { echo "${MOCK_GPU_IMAGE_DIGEST}"; }
-        dkms() { return "${MOCK_GPU_FILES_STATUS:-0}"; }
-        modinfo() { return "${MOCK_GPU_FILES_STATUS:-0}"; }
+        dkms() {
+            [ "${MOCK_DKMS_STATUS:-0}" -eq 0 ] && echo "nvidia/580.159.04, test-kernel, x86_64: installed"
+            return "${MOCK_DKMS_STATUS:-0}"
+        }
+        modinfo() { return "${MOCK_MODINFO_STATUS:-0}"; }
         write_reconcile_manifest() {
             writeGPUDriverArtifactManifest "${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}" "sha256:abc123"
         }
@@ -123,6 +126,7 @@ install:5:10:600"
             "corrupt" "install"
             "kernel" "install"
             "digest" "install"
+            "dkms" "install"
             "module" "install"
             "grid" "install"
         End
@@ -134,7 +138,8 @@ install:5:10:600"
                 corrupt) printf 'corrupt=true\n' >> "${GPU_ARTIFACT_MANIFEST_FILE}" ;;
                 kernel) MOCK_KERNEL="custom-kernel" ;;
                 digest) MOCK_GPU_IMAGE_DIGEST="sha256:different" ;;
-                module) MOCK_GPU_FILES_STATUS=1 ;;
+                dkms) MOCK_DKMS_STATUS=1 ;;
+                module) MOCK_MODINFO_STATUS=1 ;;
                 grid) NVIDIA_GPU_DRIVER_TYPE="grid" ;;
             esac
             selectGPUDriverInstallAction >/dev/null
