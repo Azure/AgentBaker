@@ -87,8 +87,9 @@ EOF
         grep -Fqx "driver_version=${GPU_DV}" "${GPU_DKMS_MARKER_FILE}" &&
         grep -Fqx "driver_kind=cuda" "${GPU_DKMS_MARKER_FILE}" &&
         grep -Fqx "arch=${architecture}" "${GPU_DKMS_MARKER_FILE}" &&
-        dkms status -m nvidia -k "${kernel}" 2>/dev/null | grep -q ': installed$' &&
-        modinfo -k "${kernel}" nvidia >/dev/null 2>&1
+            dkms status -m nvidia -v "${GPU_DV}" -k "${kernel}" 2>/dev/null |
+                grep -F "nvidia/${GPU_DV}," | grep -q ': installed$' &&
+            [ "$(modinfo -F version -k "${kernel}" nvidia 2>/dev/null)" = "${GPU_DV}" ]
 }
 
 selectGPUDriverInstallAction() {

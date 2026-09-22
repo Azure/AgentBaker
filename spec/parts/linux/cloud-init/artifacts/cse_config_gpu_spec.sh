@@ -80,7 +80,7 @@ Describe 'cse_config_gpu.sh'
         }
         cleanup_gpu_artifact_reconcile() {
             rm -rf "${GPU_ARTIFACT_TEST_DIR}"
-            unset MOCK_KERNEL MOCK_DKMS_STATUS MOCK_MODINFO_STATUS
+            unset MOCK_KERNEL MOCK_DKMS_STATUS MOCK_DKMS_VERSION MOCK_MODINFO_STATUS MOCK_MODULE_VERSION
         }
 
         BeforeEach 'setup_gpu_artifact_reconcile'
@@ -89,10 +89,14 @@ Describe 'cse_config_gpu.sh'
         uname() { [ "$1" = "-m" ] && echo "x86_64" || echo "${MOCK_KERNEL:-test-kernel}"; }
         getGPUDriverImageDigest() { echo "${MOCK_GPU_IMAGE_DIGEST}"; }
         dkms() {
-            [ "${MOCK_DKMS_STATUS:-0}" -eq 0 ] && echo "nvidia/580.159.04, test-kernel, x86_64: installed"
+            [ "${MOCK_DKMS_STATUS:-0}" -eq 0 ] &&
+                echo "nvidia/${MOCK_DKMS_VERSION:-580.159.04}, test-kernel, x86_64: installed"
             return "${MOCK_DKMS_STATUS:-0}"
         }
-        modinfo() { return "${MOCK_MODINFO_STATUS:-0}"; }
+        modinfo() {
+            [ "${MOCK_MODINFO_STATUS:-0}" -eq 0 ] && echo "${MOCK_MODULE_VERSION:-580.159.04}"
+            return "${MOCK_MODINFO_STATUS:-0}"
+        }
         write_reconcile_manifest() {
             writeGPUDriverArtifactManifest "${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}" "sha256:abc123"
         }
@@ -127,7 +131,9 @@ install:5:10:600"
             "kernel" "install"
             "digest" "install"
             "dkms" "install"
+            "dkms-version" "install"
             "module" "install"
+            "module-version" "install"
             "grid" "install"
         End
 
@@ -139,7 +145,9 @@ install:5:10:600"
                 kernel) MOCK_KERNEL="custom-kernel" ;;
                 digest) MOCK_GPU_IMAGE_DIGEST="sha256:different" ;;
                 dkms) MOCK_DKMS_STATUS=1 ;;
+                dkms-version) MOCK_DKMS_VERSION="570.237" ;;
                 module) MOCK_MODINFO_STATUS=1 ;;
+                module-version) MOCK_MODULE_VERSION="570.237" ;;
                 grid) NVIDIA_GPU_DRIVER_TYPE="grid" ;;
             esac
             selectGPUDriverInstallAction >/dev/null
