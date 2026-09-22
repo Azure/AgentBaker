@@ -9,11 +9,15 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	clienttesting "k8s.io/client-go/testing"
+	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestConfigureOSSKarpenterClusterModel(t *testing.T) {
@@ -90,7 +94,7 @@ func TestDeleteOSSKarpenterNodeClaimsTargetsOnlyNodePool(t *testing.T) {
 		object.SetLabels(map[string]string{"karpenter.sh/nodepool": nodePool})
 		return object
 	}
-	dynamic := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+	dynamic := clientfake.NewClientBuilder().WithScheme(scheme).WithObjects(
 		claim("target", "target-pool"),
 		claim("other", "other-pool"),
 	).Build()
@@ -102,6 +106,21 @@ func TestDeleteOSSKarpenterNodeClaimsTargetsOnlyNodePool(t *testing.T) {
 	require.NoError(t, dynamic.List(context.Background(), claims))
 	require.Len(t, claims.Items, 1)
 	assert.Equal(t, "other", claims.Items[0].GetName())
+}
+
+func TestDeleteOSSKarpenterNodesTargetsOnlyRun(t *testing.T) {
+	typed := fake.NewSimpleClientset(
+		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "target", Labels: map[string]string{ossKarpenterRunLabel: "target-run"}}},
+		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "other", Labels: map[string]string{ossKarpenterRunLabel: "other-run"}}},
+	)
+
+	require.NoError(t, deleteOSSKarpenterNodes(context.Background(), &Kubeclient{Typed: typed}, "target-run"))
+
+	require.Len(t, typed.Actions(), 1)
+	action, ok := typed.Actions()[0].(clienttesting.DeleteCollectionAction)
+	require.True(t, ok)
+	assert.Equal(t, "nodes", action.GetResource().Resource)
+	assert.Equal(t, ossKarpenterRunLabel+"=target-run", action.GetListRestrictions().Labels.String())
 }
 
 func TestNewOSSKarpenterWorkloadCannotUseSystemPool(t *testing.T) {

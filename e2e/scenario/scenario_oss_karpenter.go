@@ -429,8 +429,18 @@ func cleanupOSSKarpenterRun(
 			cleanupController = restarted
 		}
 	}
-	if err := kube.Typed.CoreV1().Namespaces().Delete(ctx, run.Namespace, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		errs = append(errs, fmt.Errorf("delete workload namespace: %w", err))
+	if err := kube.Typed.CoreV1().Pods(run.Namespace).Delete(ctx, run.PodName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		errs = append(errs, fmt.Errorf("delete workload pod: %w", err))
+	}
+
+	if err := deleteOSSKarpenterNodeClaims(ctx, kube, run.NodePoolName); err != nil {
+		errs = append(errs, err)
+	}
+	if err := deleteOSSKarpenterNodes(ctx, kube, run.RunLabelValue); err != nil {
+		errs = append(errs, err)
+	}
+	if err := waitForOSSKarpenterCapacityDeleted(ctx, kube, run); err != nil {
+		errs = append(errs, err)
 	}
 
 	nodePool := &unstructured.Unstructured{}
@@ -439,18 +449,15 @@ func cleanupOSSKarpenterRun(
 	if err := kube.Dynamic.Delete(ctx, nodePool); err != nil && !apierrors.IsNotFound(err) {
 		errs = append(errs, fmt.Errorf("delete NodePool: %w", err))
 	}
-	if err := deleteOSSKarpenterNodeClaims(ctx, kube, run.NodePoolName); err != nil {
-		errs = append(errs, err)
-	}
-	if err := waitForOSSKarpenterCapacityDeleted(ctx, kube, run); err != nil {
-		errs = append(errs, err)
-	}
 
 	nodeClass := &unstructured.Unstructured{}
 	nodeClass.SetGroupVersionKind(schema.GroupVersionKind{Group: "karpenter.azure.com", Version: "v1beta1", Kind: "AKSNodeClass"})
 	nodeClass.SetName(run.NodeClassName)
 	if err := kube.Dynamic.Delete(ctx, nodeClass); err != nil && !apierrors.IsNotFound(err) {
 		errs = append(errs, fmt.Errorf("delete AKSNodeClass: %w", err))
+	}
+	if err := kube.Typed.CoreV1().Namespaces().Delete(ctx, run.Namespace, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		errs = append(errs, fmt.Errorf("delete workload namespace: %w", err))
 	}
 	errs = append(errs, cleanupController.Stop(ctx))
 	return errors.Join(errs...)
@@ -461,6 +468,15 @@ func deleteOSSKarpenterNodeClaims(ctx context.Context, kube *Kubeclient, nodePoo
 	nodeClaim.SetGroupVersionKind(schema.GroupVersionKind{Group: "karpenter.sh", Version: "v1", Kind: "NodeClaim"})
 	if err := kube.Dynamic.DeleteAllOf(ctx, nodeClaim, client.MatchingLabels{"karpenter.sh/nodepool": nodePoolName}); err != nil {
 		return fmt.Errorf("delete NodeClaims for NodePool %s: %w", nodePoolName, err)
+	}
+	return nil
+}
+
+func deleteOSSKarpenterNodes(ctx context.Context, kube *Kubeclient, runLabelValue string) error {
+	if err := kube.Typed.CoreV1().Nodes().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", ossKarpenterRunLabel, runLabelValue),
+	}); err != nil {
+		return fmt.Errorf("delete OSS Karpenter nodes for run %s: %w", runLabelValue, err)
 	}
 	return nil
 }
