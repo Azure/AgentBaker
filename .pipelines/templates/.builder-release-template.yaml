@@ -8,6 +8,9 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
+  - name: enableCosiPublishing
+    type: boolean
+    default: false
 
 steps:
   - template: ./.template-override-components-json.yaml
@@ -467,61 +470,61 @@ steps:
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
 
-  - task: AzureCLI@2
-    inputs:
-      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
-      scriptType: bash
-      scriptLocation: inlineScript
-      inlineScript: |
-        make -f packer.mk convert-vhd-to-cosi
-    # arm64 ACL runs this on the native arm64 pool as a separate job (see
-    # convertaclarm64* jobs); it can't run under emulation here.
-    condition: |
-      and(
-        succeeded(),
-        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
-        eq(variables['OS_SKU'], 'AzureContainerLinux'),
-        ne(variables['ARCHITECTURE'], 'ARM64')
-      )
-    displayName: Convert ACL VHD to COSI
-    env:
-      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
-      OFFER_NAME: $(OS_SKU)
-      IMG_CUSTOMIZER_ALLOW_FALLBACK: "true"
-      AFD_DOWNLOAD_HOSTNAME: $(AFD_DOWNLOAD_HOSTNAME)
-      COSI_CONTAINER: $(COSI_CONTAINER)
+  - ${{ if parameters.enableCosiPublishing }}:
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          make -f packer.mk convert-vhd-to-cosi
+      # ARM64 conversion runs in the separate native-arm64 jobs.
+      condition: |
+        and(
+          succeeded(),
+          eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+          eq(variables['OS_SKU'], 'AzureContainerLinux'),
+          ne(variables['ARCHITECTURE'], 'ARM64')
+        )
+      displayName: Convert ACL VHD to COSI
+      env:
+        RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+        OFFER_NAME: $(OS_SKU)
+        IMG_CUSTOMIZER_ALLOW_FALLBACK: "true"
+        AFD_DOWNLOAD_HOSTNAME: $(AFD_DOWNLOAD_HOSTNAME)
+        COSI_CONTAINER: $(COSI_CONTAINER)
 
-  - task: AzureCLI@2
-    inputs:
-      azureSubscription: $(COSI_PMC_SERVICE_CONNECTION)
-      scriptType: bash
-      scriptLocation: inlineScript
-      inlineScript: |
-        make -f packer.mk upload-cosi-to-pmc
-    condition: |
-      and(
-        succeeded(),
-        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
-        eq(variables['OS_SKU'], 'AzureContainerLinux'),
-        ne(variables['ARCHITECTURE'], 'ARM64')
-      )
-    displayName: Upload COSI to PMC
-    env:
-      AFD_UPLOAD_ENDPOINT: $(AFD_UPLOAD_ENDPOINT)
-      COSI_CONTAINER: $(COSI_CONTAINER)
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: $(COSI_PMC_SERVICE_CONNECTION)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          make -f packer.mk upload-cosi-to-pmc
+      condition: |
+        and(
+          succeeded(),
+          eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+          eq(variables['OS_SKU'], 'AzureContainerLinux'),
+          ne(variables['ARCHITECTURE'], 'ARM64')
+        )
+      displayName: Upload COSI to PMC
+      env:
+        AFD_UPLOAD_ENDPOINT: $(AFD_UPLOAD_ENDPOINT)
+        COSI_CONTAINER: $(COSI_CONTAINER)
 
-  - task: PublishPipelineArtifact@1
-    condition: |
-      and(
-        succeeded(),
-        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
-        eq(variables['OS_SKU'], 'AzureContainerLinux'),
-        ne(variables['ARCHITECTURE'], 'ARM64')
-      )
-    displayName: Publish COSI Publishing Info
-    inputs:
-      artifactName: 'cosi-publishing-info-${{ parameters.artifactName }}'
-      targetPath: 'cosi-publishing-info.json'
+    - task: PublishPipelineArtifact@1
+      condition: |
+        and(
+          succeeded(),
+          eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+          eq(variables['OS_SKU'], 'AzureContainerLinux'),
+          ne(variables['ARCHITECTURE'], 'ARM64')
+        )
+      displayName: Publish COSI Publishing Info
+      inputs:
+        artifactName: 'cosi-publishing-info-${{ parameters.artifactName }}'
+        targetPath: 'cosi-publishing-info.json'
 
 
   - task: AzureCLI@2
