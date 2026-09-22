@@ -23,23 +23,22 @@ steps:
   # and it downloads this bundle instead). Must run AFTER the checkout above but
   # BEFORE Download CIS scanner (which drops binaries into vhdbuilder/ that
   # would otherwise bloat the tarball).
-  - bash: |
-      set -euo pipefail
-      cd "$(Build.SourcesDirectory)"
-      tar --exclude='./.git' \
-          -czf "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz" .
-      ls -lh "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz"
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
-    displayName: Bundle source for arm64 COSI convert
+  - ${{ if parameters.enableCosiPublishing }}:
+    - bash: |
+        set -euo pipefail
+        cd "$(Build.SourcesDirectory)"
+        tar --exclude='./.git' \
+            -czf "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz" .
+        ls -lh "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz"
+      condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
+      displayName: Bundle source for arm64 COSI convert
 
-  - task: PublishPipelineArtifact@1
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
-    displayName: Publish source bundle for arm64 COSI convert
-    inputs:
-      # artifactName is the per-job param (e.g. "acl-arm64-tl-gen2"); using it
-      # here guarantees a unique artifact name per build job at compile time.
-      artifactName: agentbaker-sources-${{ parameters.artifactName }}
-      targetPath: $(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz
+    - task: PublishPipelineArtifact@1
+      condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
+      displayName: Publish source bundle for arm64 COSI convert
+      inputs:
+        artifactName: agentbaker-sources-${{ parameters.artifactName }}
+        targetPath: $(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz
 
   - task: UniversalPackages@0
     displayName: Download CIS scanner
@@ -192,22 +191,20 @@ steps:
     condition: always()
     displayName: Set Post-Build Variables
 
-  - bash: |
-      image_version="${IMAGE_VERSION:-$(date -u +%Y%m.%d.0)}"
-      echo "##vso[task.setvariable variable=IMAGE_VERSION]${image_version}"
-      echo "##vso[task.setvariable variable=IMAGE_VERSION;isOutput=true]${image_version}"
-    name: resolveCosiImageVersion
-    displayName: Resolve COSI Image Version
-    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+  - ${{ if parameters.enableCosiPublishing }}:
+    - bash: |
+        image_version="${IMAGE_VERSION:-$(date -u +%Y%m.%d.0)}"
+        echo "##vso[task.setvariable variable=IMAGE_VERSION]${image_version}"
+        echo "##vso[task.setvariable variable=IMAGE_VERSION;isOutput=true]${image_version}"
+      name: resolveCosiImageVersion
+      displayName: Resolve COSI Image Version
+      condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
 
-  # Expose the captured SIG version to the separate native-arm64 COSI convert job
-  # (arm64 ACL COSI conversion can't run under emulation, so it runs on the arm64
-  # pool as its own job that consumes this output variable).
-  - bash: |
-      echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION;isOutput=true]${CAPTURED_SIG_VERSION}"
-    name: exportCapturedSigVersion
-    displayName: Export Captured SIG Version for arm64 COSI convert
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
+    - bash: |
+        echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION;isOutput=true]${CAPTURED_SIG_VERSION}"
+      name: exportCapturedSigVersion
+      displayName: Export Captured SIG Version for arm64 COSI convert
+      condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
 
   - bash: |
       set -euo pipefail
@@ -556,7 +553,7 @@ steps:
         succeeded(),
         eq(variables.ENVIRONMENT, 'tme'),
         eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
-        not(and(eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))),
+        not(and(eq('${{ parameters.enableCosiPublishing }}', true), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))),
         or(
           eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
           eq(variables.PREFETCH_COMPATIBLE, 'False')
@@ -568,23 +565,24 @@ steps:
   # acquiring storage tokens, so copy the VHD to the immutable container and drop
   # the staging copy here (this x64 pool has storage auth), then hand the convert
   # job a short read-only SAS so it downloads the VHD with no storage login.
-  - task: AzureCLI@2
-    inputs:
-      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
-      scriptType: bash
-      scriptLocation: inlineScript
-      inlineScript: |
-        bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
-    name: exportVhdSas
-    condition: |
-      and(
-        succeeded(),
-        eq(variables.ENVIRONMENT, 'tme'),
-        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
-        eq(variables['OS_SKU'], 'AzureContainerLinux'),
-        eq(variables['ARCHITECTURE'], 'ARM64')
-      )
-    displayName: Copy arm64 ACL VHD to Immutable + mint convert SAS
+  - ${{ if parameters.enableCosiPublishing }}:
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+      name: exportVhdSas
+      condition: |
+        and(
+          succeeded(),
+          eq(variables.ENVIRONMENT, 'tme'),
+          eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+          eq(variables['OS_SKU'], 'AzureContainerLinux'),
+          eq(variables['ARCHITECTURE'], 'ARM64')
+        )
+      displayName: Copy arm64 ACL VHD to Immutable + mint convert SAS
 
   - task: DownloadPipelineArtifact@2
     displayName: Download Build Performance Program
