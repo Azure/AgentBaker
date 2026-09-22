@@ -40,9 +40,9 @@ func newANCHotfixFlowScenario(name, description string, vhd *config.Image) *Scen
 			if config.Config.TestPreProvision {
 				return "ANC hotfix flow E2E does not run during two-stage VHD caching"
 			}
-if config.Config.DisableScriptless || config.Config.DisableScriptLessCompilation {
-	return "ANC hotfix flow E2E requires scriptless ANC compilation"
-}
+			if config.Config.DisableScriptless || config.Config.DisableScriptLessCompilation {
+				return "ANC hotfix flow E2E requires scriptless ANC compilation"
+			}
 			return ""
 		},
 		Config: Config{
