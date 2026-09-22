@@ -34,14 +34,14 @@ err() {
 }
 
 # assertPackageVersion verifies that the installed deb/rpm package version matches
-# the expected full version string from components.json (including hotfix suffix).
-# This catches drift between what the package manager installs and what components.json
-# specifies at VHD build time rather than in e2e.
+# either the exact expected version or, when allowed, that upstream version plus
+# a distro package revision.
 # shellcheck disable=SC2016
 assertPackageVersion() {
   local test="$1"
   local packageName="$2"
   local expectedVersion="$3"
+  local allowRevision="${4:-false}"
 
   local installedVersion=""
   if command -v dpkg-query >/dev/null 2>&1 && dpkg-query -W -f='${Status}' "$packageName" 2>/dev/null | grep -q "install ok installed"; then
@@ -55,7 +55,16 @@ assertPackageVersion() {
   fi
 
   echo "$test: checking if installed $packageName version '$installedVersion' matches expected '$expectedVersion'"
-  if [ "$installedVersion" != "$expectedVersion" ]; then
+  local versionMatches=false
+  if [ "$installedVersion" = "$expectedVersion" ]; then
+    versionMatches=true
+  elif [ "$allowRevision" = "true" ]; then
+    case "$installedVersion" in
+      "${expectedVersion}-"*|"${expectedVersion}+"*) versionMatches=true ;;
+    esac
+  fi
+
+  if [ "$versionMatches" != "true" ]; then
     err "$test" "installed $packageName version '$installedVersion' does not match expected '$expectedVersion' from components.json"
     return 1
   fi
@@ -74,7 +83,10 @@ LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
 SKIP_GIT_CLONE=false
 # Git is not present in the base image, so we need to install or bypass it.
 if [ "$OS_SKU" = "Ubuntu" ]; then
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
+  if ! sudo DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y git; then
+    err 'git-install' "Failed to install git"
+    exit 1
+  fi
 elif [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
   : # Flatcar/ACL comes with git pre-installed
 elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
@@ -265,6 +277,7 @@ testPackagesInstalled() {
         ;;
       "azure-acr-credential-provider-pmc"|\
       "nvidia-device-plugin"|\
+      "dra-driver-nvidia-gpu"|\
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
@@ -727,7 +740,7 @@ testFips() {
   # OpenSSL must have an active FIPS or SymCrypt provider on 3.x (ICM 51000001009688
   # was caused by kernel FIPS on with no provider, causing portmap to panic). Ubuntu
   # 20.04 ships 1.1.x and uses the legacy FIPS module — skip there. Keep in sync with
-  # the Go validator in e2e/validators.go.
+  # the Go validator in e2e/scenario/validators.go.
   if ! command -v openssl >/dev/null 2>&1; then
     err $test "openssl binary not found on a FIPS-enabled VHD."
     echo "$test:Finish"
@@ -1158,19 +1171,26 @@ testPkgDownloaded() {
   echo "$test:Start"
   local packageName=$1 downloadLocation=$2; shift 2
   local packageVersions=("$@")
-  local seArch seFile
+  local seArch seFile versionRegex
   seArch=$(getSystemdArch)
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
     # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
     packageVersion="${packageVersion#*:}"
+    versionRegex="${packageVersion//./\\.}"
     if [ $OS = $UBUNTU_OS_NAME ]; then
-      debFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}_${packageVersion}*" -print -quit 2>/dev/null) || debFile=""
+      debFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}_*" -print 2>/dev/null |
+        grep -E "/${packageName}_${versionRegex}([^0-9]|$)" |
+        sort -V |
+        tail -n 1) || debFile=""
       if [ -z "${debFile}" ]; then
         err $test "Package ${packageName}_${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
       fi
     elif [ $OS = $AZURELINUX_OS_NAME ] && [ $OS_VERSION = "3.0" ]; then
-      rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*" -print -quit 2>/dev/null) || rpmFile=""
+      rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-*" -print 2>/dev/null |
+        grep -E "/${packageName}-${versionRegex}([^0-9]|$)" |
+        sort -V |
+        tail -n 1) || rpmFile=""
       if [ -z "${rpmFile}" ]; then
         err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
       fi
@@ -1486,7 +1506,8 @@ testNfsServerService() {
 # is still baked in and asserted below. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu
 # 24.04 linux-azure 6.8.0-1058-azure include the fixes, so newly-built Ubuntu
 # 22.04/24.04 VHDs with a fixed running kernel also stop baking the vulnerable-module
-# blacklist while keeping the baseline CIS module deny list. Ubuntu 20.04 and vulnerable
+# blacklist while keeping the baseline CIS module deny list. Ubuntu 20.04 Azure FIPS
+# 5.4 kernels at ABI 1164 or newer also assert ABSENCE. Other Ubuntu 20.04 and vulnerable
 # 22.04/24.04 kernels assert presence + load-refusal; fixed 22.04/24.04 kernels and
 # future Ubuntu releases assert ABSENCE so future releases do not inherit the mitigation.
 # Mariner/AzureLinux 2.0 and AzureLinux OSGuard still assert presence + load-refusal.
@@ -1507,12 +1528,15 @@ ubuntuKernelIncludesVulnerableModuleFixes() {
   local fixed_kernel
 
   kernel_release="$(uname -r 2>/dev/null || true)"
-  if [ -z "$kernel_release" ]; then
+  if [ -z "$os_version" ] || [ -z "$kernel_release" ]; then
     return 1
   fi
 
   case "$os_version" in
-    20.04) return 1 ;;
+    20.04)
+      printf '%s\n' "$kernel_release" | grep -Eq '^5\.4\.0-[0-9]+-azure-fips$' || return 1
+      fixed_kernel="5.4.0-1164-azure-fips"
+      ;;
     22.04)
       case "$kernel_release" in
         # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
@@ -1993,6 +2017,22 @@ testNodeExporter () {
   fi
   echo "$test: skip sentinel file exists at $skip_file"
 
+  local expectedVersion
+  expectedVersion=$(getPackageExpectedVersion "node-exporter" "" "" "")
+  if [ "$expectedVersion" = "<SKIP>" ]; then
+    err "$test" "node-exporter expected version is <SKIP> on supported OS $os_sku"
+    return 1
+  fi
+  assertPackageVersion "$test" "node-exporter-kubernetes" "$expectedVersion" true || return 1
+
+  local expectedBinaryVersion="v${expectedVersion%%-*}"
+  local binaryVersion
+  binaryVersion=$(/usr/bin/node-exporter --version 2>&1 | awk 'NR == 1 { print $3 }')
+  if [ "$binaryVersion" != "$expectedBinaryVersion" ]; then
+    err "$test" "node-exporter binary version '$binaryVersion' does not match expected '$expectedBinaryVersion'"
+    return 1
+  fi
+
   # The Dalec-built deb/rpm installs the binary to /usr/bin/node-exporter.
   # We then create a symlink at /opt/bin/node-exporter for consistency with
   # other binaries (kubelet, kubectl) that live in /opt/bin.
@@ -2022,6 +2062,11 @@ testNodeExporter () {
     return 1
   fi
   echo "$test: node-exporter startup script exists"
+
+  if [ ! -s /etc/udev/rules.d/99-node-exporter-mana.rules ]; then
+    err "$test" "node-exporter MANA PCI-add rule is missing"
+    return 1
+  fi
 
   # Check that the service file exists
   if [ ! -f "/etc/systemd/system/node-exporter.service" ]; then
@@ -2147,12 +2192,12 @@ testCriCtl() {
     return 0
   fi
 
-  # Strict match: verify the full deb/rpm package version matches components.json
+  # components.json stores the upstream cri-tools version; the installed package adds a distro revision.
   if [ -z "$installedPackageName" ]; then
     err "$test" "installed package name was not provided"
     return 1
   fi
-  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
+  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" true || return 1
 
   # Verify the binary reports the expected major.minor.patch version.
   local expectedMajorMinorPatch
@@ -2182,12 +2227,12 @@ testContainerd() {
     return 0
   fi
 
-  # Strict match: verify the full deb/rpm package version matches components.json
+  # components.json stores the upstream containerd version; the installed package adds a distro revision.
   if [ -z "$installedPackageName" ]; then
     err "$test" "installed package name was not provided"
     return 1
   fi
-  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
+  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" true || return 1
 
   # Verify the containerd binary reports the expected major.minor.patch version.
   local expectedMajorMinorPatch

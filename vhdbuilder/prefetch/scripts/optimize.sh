@@ -173,6 +173,7 @@ need_new_template() {
 }
 
 prepare_source() {
+    # TODO: remove ENABLE_TRUSTED_LAUNCH check once replaced by TRUSTED_LAUNCH_SUPPORTED
     if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ] || grep -q "cvm" <<< "$FEATURE_FLAGS"; then
         echo "image ${SKU_NAME} is a TL/CVM flavor, will create managed image source"
         convert_specialized_sig_version_to_managed_image || return $?
@@ -228,6 +229,7 @@ convert_specialized_sig_version_to_managed_image() {
     disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${IMAGE_BUILDER_RG_NAME}/providers/Microsoft.Compute/disks/${CAPTURED_SIG_VERSION}"
     if [ -z "$(az disk show --ids "${disk_resource_id}" | jq -r '.id')" ]; then
         security_type="ConfidentialVM_VMGuestStateOnlyEncryptedWithPlatformKey"
+        # TODO: remove ENABLE_TRUSTED_LAUNCH check once replaced by TRUSTED_LAUNCH_SUPPORTED
         if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
             security_type="TrustedLaunch"
         fi
@@ -282,10 +284,11 @@ convert_specialized_sig_version_to_managed_image() {
 }
 
 create_temp_storage() {
+    local mirs_classification_tag="ms-resiliency-classification=Non-Recovery Critical"
     storage_account_name="${VHD_NAME//./}"
     if ! az storage account show --account-name "${storage_account_name}" >/dev/null 2>&1; then
         echo "creating temporary storage account ${storage_account_name} in resource group ${IMAGE_BUILDER_RG_NAME} in location ${LOCATION}"
-        az storage account create -n "${storage_account_name}" -g "${IMAGE_BUILDER_RG_NAME}" --sku "Standard_RAGRS" --allow-shared-key-access false --min-tls-version TLS1_2 --location "${LOCATION}" || return $?
+        az storage account create -n "${storage_account_name}" -g "${IMAGE_BUILDER_RG_NAME}" --sku "Standard_RAGRS" --tags "${mirs_classification_tag}" --allow-shared-key-access false --min-tls-version TLS1_2 --location "${LOCATION}" || return $?
     fi
     storage_container_name="vhd"
     if [ "$(az storage container exists -n "${storage_container_name}" --account-name "${storage_account_name}" --auth-mode login | jq -r '.exists')" = "false" ]; then

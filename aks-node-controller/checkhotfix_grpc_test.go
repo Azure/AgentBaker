@@ -232,24 +232,27 @@ func TestCheckHotfix_GRPCFailOpenAlwaysExitsZero(t *testing.T) {
 func TestMapGRPCError(t *testing.T) {
 	t.Run("benign codes map to lpsUnavailable", func(t *testing.T) {
 		for _, code := range []codes.Code{codes.Unauthenticated, codes.PermissionDenied, codes.NotFound} {
-			mapped := mapGRPCError(status.Error(code, "x"))
+			mapped := mapGRPCError(status.Error(code, "diagnostic detail"))
 			assert.True(t, isLPSUnavailable(mapped), "code %s should be benign", code)
+			assert.ErrorContains(t, mapped, "diagnostic detail")
 		}
 	})
 
 	t.Run("server-side codes allow cold-start fallback", func(t *testing.T) {
 		for _, code := range []codes.Code{codes.Unavailable, codes.DeadlineExceeded, codes.Internal, codes.Unknown} {
-			mapped := mapGRPCError(status.Error(code, "x"))
+			mapped := mapGRPCError(status.Error(code, "diagnostic detail"))
 			assert.False(t, isLPSUnavailable(mapped))
 			assert.True(t, shouldColdStartFallback(mapped), "code %s should allow fallback", code)
+			assert.ErrorContains(t, mapped, "diagnostic detail")
 		}
 	})
 
 	t.Run("authoritative client codes do not fall back", func(t *testing.T) {
 		for _, code := range []codes.Code{codes.InvalidArgument, codes.ResourceExhausted} {
-			mapped := mapGRPCError(status.Error(code, "x"))
+			mapped := mapGRPCError(status.Error(code, "diagnostic detail"))
 			assert.False(t, isLPSUnavailable(mapped))
 			assert.False(t, shouldColdStartFallback(mapped), "code %s must not fall back", code)
+			assert.ErrorContains(t, mapped, "diagnostic detail")
 		}
 	})
 

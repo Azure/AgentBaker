@@ -37,7 +37,10 @@ ubuntuKernelIncludesVulnerableModuleFixes() {
   fi
 
   case "$os_version" in
-    20.04) return 1 ;;
+    20.04)
+      printf '%s\n' "$kernel_release" | grep -Eq '^5\.4\.0-[0-9]+-azure-fips$' || return 1
+      fixed_kernel="5.4.0-1164-azure-fips"
+      ;;
     22.04)
       case "$kernel_release" in
         # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
@@ -225,6 +228,8 @@ copyPackerFiles() {
   AKS_CHECK_NETWORK_SERVICE_DEST=/etc/systemd/system/aks-check-network.service
   AKS_NODE_CONTROLLER_LAUNCHER_SRC=/home/packer/aks-node-controller-launcher.sh
   AKS_NODE_CONTROLLER_LAUNCHER_DEST=/opt/azure/containers/aks-node-controller-launcher.sh
+  AKS_NODE_CONTROLLER_HOTFIX_SRC=/home/packer/aks-node-controller-hotfix.sh
+  AKS_NODE_CONTROLLER_HOTFIX_DEST=/opt/azure/containers/aks-node-controller-hotfix.sh
   BLOCK_WIRESERVER_SRC=/home/packer/block_wireserver.sh
   BLOCK_WIRESERVER_DEST=/opt/azure/containers/kubelet.sh
   ENSURE_IMDS_RESTRICTION_SRC=/home/packer/ensure_imds_restriction.sh
@@ -371,6 +376,11 @@ copyPackerFiles() {
   CSE_CONFIG_DEST=/opt/azure/containers/provision_configs.sh
   cpAndMode $CSE_CONFIG_SRC $CSE_CONFIG_DEST 0744
 
+  local config_module
+  for config_module in provision_configs_gpu.sh provision_configs_localdns.sh provision_configs_kubelet.sh provision_configs_network.sh provision_configs_addons.sh; do
+    cpAndMode "/home/packer/${config_module}" "/opt/azure/containers/${config_module}" 0744
+  done
+
   CSE_INSTALL_SRC=/home/packer/provision_installs.sh
   CSE_INSTALL_DEST=/opt/azure/containers/provision_installs.sh
   cpAndMode $CSE_INSTALL_SRC $CSE_INSTALL_DEST 0744
@@ -395,6 +405,7 @@ copyPackerFiles() {
   AKS_NODE_CONTROLLER_DEST=/opt/azure/containers/aks-node-controller
   cpAndMode $AKS_NODE_CONTROLLER_SRC $AKS_NODE_CONTROLLER_DEST 755
   cpAndMode $AKS_NODE_CONTROLLER_LAUNCHER_SRC $AKS_NODE_CONTROLLER_LAUNCHER_DEST 0755
+  cpAndMode $AKS_NODE_CONTROLLER_HOTFIX_SRC $AKS_NODE_CONTROLLER_HOTFIX_DEST 0755
 
   AKS_NODE_CONTROLLER_SERVICE_SRC=/home/packer/aks-node-controller.service
   AKS_NODE_CONTROLLER_SERVICE_DEST=/etc/systemd/system/aks-node-controller.service
@@ -567,7 +578,7 @@ copyPackerFiles() {
   # is still baked in, so AzureLinux 3.0 keeps the same CIS module hardening as every other
   # OS stream instead of silently losing the whole file. See
   # https://github.com/Azure/AKS/issues/5753.
-  # Ubuntu 20.04, Mariner / AzureLinux 2.0, and AzureLinux OSGuard still get the unmodified bake-in.
+  # Other Ubuntu 20.04 kernels, Mariner / AzureLinux 2.0, and AzureLinux OSGuard still get the unmodified bake-in.
   if isUbuntu "$OS" && ubuntuKernelIncludesVulnerableModuleFixes; then
     bakeModprobeCISWithoutVulnerableModules "on Ubuntu ${OS_VERSION} (fixed or future Ubuntu kernels are not in mitigation scope)"
   elif isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then

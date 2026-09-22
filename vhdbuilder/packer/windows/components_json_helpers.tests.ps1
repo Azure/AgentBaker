@@ -29,9 +29,87 @@ Describe 'SafeReplaceString' {
         SafeReplaceString $str | Should -Be "this is an  string"
     }
 
+    It 'given versionNoBuild var is present, it replaces versionNoBuild' {
+        $str = "this is a `${versionNoBuild}` string"
+        $versionNoBuild = "1.2.3"
+        SafeReplaceString $str | Should -Be "this is a 1.2.3 string"
+    }
+
+    It 'given buildNumber var is present, it replaces buildNumber' {
+        $str = "this is a `${buildNumber}` string"
+        $buildNumber = "45"
+        SafeReplaceString $str | Should -Be "this is a 45 string"
+    }
+
 }
 
+Describe 'SetupVersionVariablesForSubstitution' {
+    It 'sets version, versionNoBuild, and buildNumber, splitting on the final separator' {
+        . SetupVersionVariablesForSubstitution "1.2.3-45"
+        $version | Should -Be "1.2.3-45"
+        $versionNoBuild | Should -Be "1.2.3"
+        $buildNumber | Should -Be "45"
+    }
 
+    It 'given multiple hyphens, splits on the final hyphen only, keeping earlier ones in versionNoBuild' {
+        . SetupVersionVariablesForSubstitution "1.2.3-rc1-45"
+        $version | Should -Be "1.2.3-rc1-45"
+        $versionNoBuild | Should -Be "1.2.3-rc1"
+        $buildNumber | Should -Be "45"
+    }
+
+    It 'given no build separator, buildNumber is empty and versionNoBuild is unchanged' {
+        . SetupVersionVariablesForSubstitution "1.2.3"
+        $version | Should -Be "1.2.3"
+        $versionNoBuild | Should -Be "1.2.3"
+        $buildNumber | Should -Be ""
+    }
+
+    It 'strips a leading v from versionNoBuild but keeps it in version (DALEC-style tags)' {
+        . SetupVersionVariablesForSubstitution "v1.37.0-45"
+        $version | Should -Be "v1.37.0-45"
+        $versionNoBuild | Should -Be "1.37.0"
+        $buildNumber | Should -Be "45"
+    }
+
+    It 'given a leading v with no build separator, still strips the v from versionNoBuild' {
+        . SetupVersionVariablesForSubstitution "v1.37.0"
+        $version | Should -Be "v1.37.0"
+        $versionNoBuild | Should -Be "1.37.0"
+        $buildNumber | Should -Be ""
+    }
+
+    It 'given the same variable names already set from a previous version, overwrites them (loop reuse regression)' {
+        . SetupVersionVariablesForSubstitution "v1.36.0-9"
+        . SetupVersionVariablesForSubstitution "v1.37.0-45"
+        $version | Should -Be "v1.37.0-45"
+        $versionNoBuild | Should -Be "1.37.0"
+        $buildNumber | Should -Be "45"
+    }
+}
+
+Describe 'ReplaceVarsInUrl' {
+    It 'substitutes version, versionNoBuild, and buildNumber in the same URL template' {
+        $url = ReplaceVarsInUrl -versionString "1.2.3-45" -stringToReplace 'https://example/${versionNoBuild}/pkg-${version}-b${buildNumber}.zip'
+        $url | Should -Be "https://example/1.2.3/pkg-1.2.3-45-b45.zip"
+    }
+
+    It 'strips the leading v for a DALEC-style path while keeping the full tag in the filename' {
+        $url = ReplaceVarsInUrl -versionString "v1.37.0-45" -stringToReplace 'https://packages.aks.azure.com/dalec-packages/pkg/${versionNoBuild}/windows/amd64/pkg_${version}_amd64.zip'
+        $url | Should -Be "https://packages.aks.azure.com/dalec-packages/pkg/1.37.0/windows/amd64/pkg_v1.37.0-45_amd64.zip"
+    }
+
+    It 'resolves previousLatestVersion the same way as latestVersion' {
+        $url = ReplaceVarsInUrl -versionString "v1.36.0-9" -stringToReplace 'https://packages.aks.azure.com/dalec-packages/pkg/${versionNoBuild}/windows/amd64/pkg_${version}_amd64.zip'
+        $url | Should -Be "https://packages.aks.azure.com/dalec-packages/pkg/1.36.0/windows/amd64/pkg_v1.36.0-9_amd64.zip"
+    }
+
+    It 'given consecutive calls for different versions, does not leak variables from the prior call' {
+        ReplaceVarsInUrl -versionString "v1.36.0-9" -stringToReplace 'unused' | Out-Null
+        $url = ReplaceVarsInUrl -versionString "v1.37.0-45" -stringToReplace '${versionNoBuild}-${buildNumber}'
+        $url | Should -Be "1.37.0-45"
+    }
+}
 
 Describe 'Tests of GetAllCachedThings ' {
     BeforeEach {
@@ -212,6 +290,14 @@ Describe 'Tests of GetAllCachedThings ' {
         $allpackages = GetAllCachedThings $componentsJson $windowsSettings
 
         ($allpackages | Where-Object { $_ -like "Windows 23H2-gen2 base image offer:*" }) | Should -BeNullOrEmpty
+    }
+
+    it 'throws if a windowsDownloadRequiresAzCopy package has a query-string URL, so the public PR-comment diff workflow fails loudly instead of disclosing it' {
+        $windowsSku = "2019-containerd"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://privatestorageaccount.blob.core.windows.net/c/f-v`${version}.zip?sv=2021-01-01&sig=leaked"
+        $componentsJson.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $true
+
+        { GetAllCachedThings $componentsJson $windowsSettings } | Should -Throw -ExpectedMessage "*MSI-only*"
     }
 }
 
@@ -733,6 +819,85 @@ Describe 'Gets the Binaries' {
 
         $packages["location"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.49.zip"
         $packages["location"] | Should -Not -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.48.zip"
+    }
+}
+
+Describe 'GetAzCopyDownloadUrlsFromComponentsJson' {
+    BeforeEach {
+        $testString = '{
+  "Packages": [
+    {
+      "windowsDownloadLocation": "c:\\akse-cache\\private\\",
+      "downloadLocation": null,
+      "downloadUris": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.0.0",
+                "previousLatestVersion": "0.9.0"
+              }
+            ],
+            "downloadURL": "https://privatestorageaccount.blob.core.windows.net/private-container/private-package-v${version}.zip"
+          }
+        }
+      }
+    }
+  ]
+}'
+        $componentsJson = echo $testString | ConvertFrom-Json
+    }
+
+    It 'given no package sets windowsDownloadRequiresAzCopy, it returns an empty set' {
+        $azCopyUrls = GetAzCopyDownloadUrlsFromComponentsJson $componentsJson
+
+        $azCopyUrls.Count | Should -Be 0
+    }
+
+    It 'given windowsDownloadRequiresAzCopy is false, it returns an empty set' {
+        $componentsJson.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $false
+
+        $azCopyUrls = GetAzCopyDownloadUrlsFromComponentsJson $componentsJson
+
+        $azCopyUrls.Count | Should -Be 0
+    }
+
+    It 'given windowsDownloadRequiresAzCopy is true, it collects the latest and previous version URLs' {
+        $componentsJson.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $true
+
+        $azCopyUrls = GetAzCopyDownloadUrlsFromComponentsJson $componentsJson
+
+        $azCopyUrls.ContainsKey("https://privatestorageaccount.blob.core.windows.net/private-container/private-package-v1.0.0.zip") | Should -Be $true
+        $azCopyUrls.ContainsKey("https://privatestorageaccount.blob.core.windows.net/private-container/private-package-v0.9.0.zip") | Should -Be $true
+    }
+
+    It 'given windowsDownloadLocation is not set, it is skipped even if windowsDownloadRequiresAzCopy is true' {
+        $componentsJson.Packages[0].windowsDownloadLocation = $null
+        $componentsJson.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $true
+
+        $azCopyUrls = GetAzCopyDownloadUrlsFromComponentsJson $componentsJson
+
+        $azCopyUrls.Count | Should -Be 0
+    }
+
+    It 'given windowsDownloadRequiresAzCopy is true and the URL contains a query string, it throws (MSI-only, no SAS support)' {
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://privatestorageaccount.blob.core.windows.net/private-container/private-package-v`${version}.zip?sv=2021-01-01&sig=abc123"
+        $componentsJson.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $true
+
+        { GetAzCopyDownloadUrlsFromComponentsJson $componentsJson } | Should -Throw -ExpectedMessage "*MSI-only*"
+    }
+
+    It 'given a DALEC-style version with a leading v and build number, resolves versionNoBuild and buildNumber for latest and previous versions' {
+        $componentsJson.Packages[0].downloadUris.windows.default.versionsV2[0].latestVersion = "v1.37.0-45"
+        $componentsJson.Packages[0].downloadUris.windows.default.versionsV2[0].previousLatestVersion = "v1.36.0-9"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = 'https://packages.aks.azure.com/dalec-packages/pkg/${versionNoBuild}/windows/amd64/pkg_${version}_amd64.zip'
+        $componentsJson.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $true
+
+        $azCopyUrls = GetAzCopyDownloadUrlsFromComponentsJson $componentsJson
+
+        $azCopyUrls.ContainsKey("https://packages.aks.azure.com/dalec-packages/pkg/1.37.0/windows/amd64/pkg_v1.37.0-45_amd64.zip") | Should -Be $true
+        $azCopyUrls.ContainsKey("https://packages.aks.azure.com/dalec-packages/pkg/1.36.0/windows/amd64/pkg_v1.36.0-9_amd64.zip") | Should -Be $true
     }
 }
 

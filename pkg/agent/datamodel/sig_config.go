@@ -10,6 +10,8 @@ import (
 const (
 	AzurePublicCloudSigTenantID     string = "33e01921-4d64-4f8c-a055-5bdaffd5e33d" // AME Tenant
 	AzurePublicCloudSigSubscription string = "109a5e88-712a-48ae-9078-9ca8b3c81345" // AKS VHD
+
+	ubuntu2204Gen2ContainerdImageDefinition = "2204gen2containerd"
 )
 
 // SIGAzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
@@ -113,6 +115,7 @@ var AvailableUbuntu2404Distros = []Distro{
 var AvailableUbuntu2604Distros = []Distro{
 	AKSUbuntuMinimalContainerd2604Gen2,
 	AKSUbuntuMinimalArm64Containerd2604Gen2,
+	AKSUbuntuMinimalContainerd2604CVMGen2,
 }
 
 //nolint:gochecknoglobals
@@ -173,6 +176,7 @@ var AvailableContainerdDistros = []Distro{
 	AKSAzureLinuxV3OSGuardGen2FIPSTL,
 	AKSUbuntuMinimalContainerd2604Gen2,
 	AKSUbuntuMinimalArm64Containerd2604Gen2,
+	AKSUbuntuMinimalContainerd2604CVMGen2,
 }
 
 //nolint:gochecknoglobals
@@ -194,6 +198,7 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuContainerd2404TLGen2,
 	AKSUbuntuMinimalContainerd2604Gen2,
 	AKSUbuntuMinimalArm64Containerd2604Gen2,
+	AKSUbuntuMinimalContainerd2604CVMGen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
@@ -550,7 +555,7 @@ var (
 	SIGUbuntuContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "2204gen2containerd",
+		Definition:    ubuntu2204Gen2ContainerdImageDefinition,
 		Version:       LinuxSIGImageVersion,
 	}
 
@@ -571,7 +576,7 @@ var (
 	SIGUbuntuEgressContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "2204gen2containerd",
+		Definition:    ubuntu2204Gen2ContainerdImageDefinition,
 		Version:       FrozenLinuxSIGImageVersionForEgressTest,
 	}
 
@@ -607,6 +612,13 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2604minimalgen2arm64containerd",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGUbuntuMinimalContainerd2604CVMGen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2604minimalgen2CVMcontainerd",
 		Version:       LinuxSIGImageVersion,
 	}
 
@@ -950,6 +962,7 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuContainerd2404TLGen2:           SIGUbuntuContainerd2404TLGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuMinimalContainerd2604Gen2:      SIGUbuntuMinimalContainerd2604Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuMinimalArm64Containerd2604Gen2: SIGUbuntuMinimalArm64Containerd2604Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuMinimalContainerd2604CVMGen2:   SIGUbuntuMinimalContainerd2604CVMGen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
@@ -1027,7 +1040,7 @@ func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[D
 	sigUbuntuEdgeZoneContainerd2204Gen2ImageConfigTemplate := SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
 		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    "2204gen2containerd",
+		Definition:    ubuntu2204Gen2ContainerdImageDefinition,
 		Version:       LinuxSIGImageVersion,
 	}
 

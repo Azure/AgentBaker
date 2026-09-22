@@ -1,6 +1,6 @@
 module github.com/Azure/agentbaker
 
-go 1.25.11
+go 1.26.0
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.10.1
