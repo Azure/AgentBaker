@@ -106,7 +106,14 @@ const (
 	localdnsFaultDropIn  = "/run/systemd/system/localdns.service.d/99-e2e-fault.conf"
 	// Kept separate from localdnsFaultDropIn so the real-clock measurement can run with the
 	// shipped timeouts before the matrix speeds them up.
-	localdnsFastClockDropIn = "/run/systemd/system/localdns.service.d/99-e2e-fastclock.conf"
+	// zz- rather than 99-: systemd applies drop-ins in lexicographic filename order across
+	// every drop-in directory, and CSE now writes the budget to
+	// /etc/systemd/system/localdns.service.d/99-localdns-budget.conf, which pins
+	// TimeoutStartSec=90. A 99-e2e-fastclock.conf sorts BEFORE that ("e" < "l"), so the
+	// budget's 90s won and the shortened clocks silently did nothing -- hung start ran a
+	// ~97s cycle instead of ~22s and blew its deadline. Measured: 99- gives
+	// TimeoutStartUSec=1min 30s, zz- gives 15s. Keep this name sorting last.
+	localdnsFastClockDropIn = "/run/systemd/system/localdns.service.d/zz-e2e-fastclock.conf"
 )
 
 // localdnsWorstCycleCeilingSeconds bounds measureLocalDNSWorstCycle's poll. Exported as a
