@@ -361,19 +361,31 @@ func CustomDataWithNBCCmdHack(customData, binaryURL string) (string, error) {
 	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
 }
 
+// CustomDataWithANCHotfixFlowFixture seeds the hotfix pointer that download-hotfix reads and
+// replaces the VHD-baked ANC with a PR-built binary stamped to the hotfix base version.
+//
+// It deliberately does not write enabled_features.sh: the launcher runs download-hotfix purely
+// on the presence of the pointer file, so leaving ENABLE_PROVISIONING_HOTFIX unset keeps
+// check-hotfix (and its live-patching-service round trip) out of the scenario entirely.
 func CustomDataWithANCHotfixFlowFixture(customData, binaryURL string) (string, error) {
 	decoded, err := base64.StdEncoding.DecodeString(customData)
 	if err != nil {
 		return "", fmt.Errorf("decode custom data: %w", err)
 	}
 
-	fixtureCmd := fmt.Sprintf(`cat >/opt/azure/containers/enabled_features.sh <<'EOF'
-ENABLE_PROVISIONING_HOTFIX=true
+	fixtureCmd := fmt.Sprintf(`cat >%[1]s <<'EOF'
+{"hotfixes":{%[2]q:%[3]q}}
 EOF
-chmod 0644 /opt/azure/containers/enabled_features.sh
+chmod 0644 %[1]s
 
-curl -fSL --retry 10 --retry-delay 2 --retry-connrefused %[1]q -o /opt/azure/containers/aks-node-controller
-chmod +x /opt/azure/containers/aks-node-controller`, binaryURL)
+curl -fSL --retry 10 --retry-delay 2 --retry-connrefused %[4]q -o %[5]s
+chmod +x %[5]s`,
+		ancHotfixPointerPath,
+		hotfixBaseVersion(ancHotfixFlowBaseVersion),
+		ancHotfixFlowTargetVersion,
+		binaryURL,
+		ancBakedBinaryPath,
+	)
 
 	customData = strings.Replace(string(decoded), "#hotfix-marker", fixtureCmd, 1)
 	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
