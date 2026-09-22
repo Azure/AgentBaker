@@ -78,6 +78,37 @@ var _ = Register(&Scenario{
 	},
 })
 
+// Artifact streaming changes both the node bootstrap input and the services activated on the
+// node, so this requires a separate node from the baseline ACL scenario.
+var _ = Register(&Scenario{
+	Name:        "ACL_ArtifactStreaming",
+	Description: "Tests that an ACL node with artifact streaming enabled activates OverlayBD and acr-mirror",
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDACLGen2TL,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableArtifactStreaming = true
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.EnableArtifactStreaming = true
+		},
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd"),
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service"),
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service"),
+			)
+		},
+	},
+})
+
 var _ = Register(&Scenario{
 	Name:        "ACL_CustomCA",
 	Description: "Tests that a node using an ACL VHD can be properly bootstrapped and custom CA was correctly added",
