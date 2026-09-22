@@ -672,7 +672,7 @@ copyPackerFiles() {
   cpAndMode $CGROUP_PRESSURE_TELEMETRY_SCRIPT_SRC $CGROUP_PRESSURE_TELEMETRY_SCRIPT_DEST 755
   cpAndMode $CGROUP_PRESSURE_TELEMETRY_TIMER_SRC $CGROUP_PRESSURE_TELEMETRY_TIMER_DEST 644
   local systemd_version
-  systemd_version=$(systemd --version | awk 'NR == 1 { print $2 }')
+  systemd_version=$(systemctl --version | awk 'NR == 1 { print $2 }')
   configureServiceExecutionTelemetryForSystemdVersion "$systemd_version" || exit "$ERR_PACKER_COPY_FILE"
   cpAndMode $UPDATE_CERTS_SERVICE_SRC $UPDATE_CERTS_SERVICE_DEST 644
   cpAndMode $UPDATE_CERTS_PATH_SRC $UPDATE_CERTS_PATH_DEST 644
