@@ -985,6 +985,59 @@ testdomain567.com:53 {
 				Expect(localDNSCoreFile).ToNot(ContainSubstring("domain \n"))
 			})
 
+			// serve_stale_policy requires CoreDNS >= 1.14.7 and is only valid alongside an
+			// emitted serve_stale line, so the template must never render it on its own.
+			It("renders serve_stale_policy only alongside serve_stale", func() {
+				newOverride := func(serveStale, policy string) *datamodel.LocalDNSOverrides {
+					return &datamodel.LocalDNSOverrides{
+						QueryLogging: "Log", Protocol: "PreferUDP", ForwardDestination: "VnetDNS", ForwardPolicy: "Sequential",
+						MaxConcurrent: to.Int32Ptr(1000), CacheDurationInSeconds: to.Int32Ptr(3600),
+						ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+						ServeStale:                  serveStale,
+						ServeStalePolicy:            policy,
+					}
+				}
+
+				By("rendering the directive under the serve_stale line when the policy is set")
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:   true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": newOverride("Immediate", "PreferPositive")},
+					KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": newOverride("Verify", "PreferPositive")},
+				}
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).To(ContainSubstring("serve_stale 3600s immediate\n        serve_stale_policy prefer_positive"))
+				Expect(localDNSCoreFile).To(ContainSubstring("serve_stale 3600s verify\n        serve_stale_policy prefer_positive"))
+
+				By("omitting the directive when no policy is set")
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:   true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": newOverride("Immediate", "")},
+				}
+				localDNSCoreFile, err = GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).To(ContainSubstring("serve_stale 3600s immediate"))
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("serve_stale_policy"))
+
+				By("omitting the directive when serve_stale itself is disabled")
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:   true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": newOverride("Disable", "PreferPositive")},
+				}
+				localDNSCoreFile, err = GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("serve_stale"))
+
+				By("omitting the directive when serve_stale carries an unrecognized value")
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:   true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": newOverride("Bogus", "PreferPositive")},
+				}
+				localDNSCoreFile, err = GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("serve_stale"))
+			})
+
 			// Expect a valid corefile WITHOUT hosts plugin blocks when includeHostsPlugin=false.
 			// This is the fallback corefile used when enableAKSLocalDNSHostsSetup fails at provisioning time.
 			It("generates a valid localdnsCorefile without hosts plugin when includeHostsPlugin is false", func() {
