@@ -90,6 +90,9 @@ Describe 'VHD SAS handoff'
     export CAPTURED_SIG_VERSION=test
     export STORAGE_ACCOUNT_NAME=mock
     export VHD_CONTAINER_NAME=immutable
+    export MOCK_DESTINATION_EXISTS=false
+    export MOCK_SOURCE_EXISTS=true
+    export MOCK_EXISTS_STATUS=0
     export MOCK_COPY_STATUS=success
     export MOCK_COMPLETE_AFTER_WAIT=0
     export MOCK_START_STATUS=0
@@ -98,6 +101,13 @@ Describe 'VHD SAS handoff'
 
     az() {
       case "$*" in
+        'storage blob exists --account-name '*)
+          printf '%s\n' "$MOCK_DESTINATION_EXISTS"
+          return "$MOCK_EXISTS_STATUS"
+          ;;
+        'storage blob exists --blob-url '*)
+          printf '%s\n' "$MOCK_SOURCE_EXISTS"
+          ;;
         'storage blob copy start '*)
           echo COPY_STARTED
           return "$MOCK_START_STATUS"
@@ -133,6 +143,64 @@ Describe 'VHD SAS handoff'
     The line 3 of output should equal COPY_WAITED
     The line 4 of output should equal '##vso[task.setvariable variable=VHD_SAS_URL;isOutput=true;issecret=true]MOCK_SAS'
     The line 6 of output should equal SOURCE_REMOVED
+  End
+
+  It 'reuses a successful immutable copy on retry'
+    MOCK_DESTINATION_EXISTS=true
+    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+    The status should be success
+    The output should include MOCK_SAS
+    The output should include SOURCE_REMOVED
+    The output should not include COPY_STARTED
+    The output should not include COPY_WAITED
+  End
+
+  It 'waits for an existing pending copy instead of overwriting it'
+    MOCK_DESTINATION_EXISTS=true
+    MOCK_COPY_STATUS=pending
+    MOCK_COMPLETE_AFTER_WAIT=1
+    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+    The status should be success
+    The line 2 of output should equal COPY_WAITED
+    The line 3 of output should equal '##vso[task.setvariable variable=VHD_SAS_URL;isOutput=true;issecret=true]MOCK_SAS'
+    The output should include SOURCE_REMOVED
+    The output should not include COPY_STARTED
+  End
+
+  It 'refreshes the SAS when the staging source is already removed'
+    MOCK_DESTINATION_EXISTS=true
+    MOCK_SOURCE_EXISTS=false
+    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+    The status should be success
+    The output should include MOCK_SAS
+    The output should include 'is already removed'
+    The output should not include COPY_STARTED
+    The output should not include SOURCE_REMOVED
+  End
+
+  It 'stops when checking the destination fails'
+    MOCK_EXISTS_STATUS=1
+    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+    The status should be failure
+    The output should be blank
+  End
+
+  It 'rejects an unknown destination existence result'
+    MOCK_DESTINATION_EXISTS=unknown
+    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+    The status should be failure
+    The output should include 'Unable to determine whether the immutable VHD exists'
+    The output should not include COPY_STARTED
+    The output should not include MOCK_SAS
+    The output should not include SOURCE_REMOVED
+  End
+
+  It 'does not delete a source with an unknown existence result'
+    MOCK_SOURCE_EXISTS=unknown
+    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+    The status should be failure
+    The output should include 'Unable to determine whether the staging VHD exists'
+    The output should not include SOURCE_REMOVED
   End
 
   Describe 'unsuccessful copy states'
