@@ -4,6 +4,14 @@ parameters:
     displayName: Registered VHD build ID supplying the COSI target
     type: string
     default: ""
+  - name: cosiNebraskaServer
+    displayName: COSI Nebraska Omaha endpoint
+    type: string
+    default: "https://nebraska-poc-ep-cda8e2czfnhahxfk.b01.azurefd.net/v1/update"
+  - name: cosiNebraskaAppID
+    displayName: COSI Nebraska application ID
+    type: string
+    default: "59bbad61-257d-47f4-9730-6848d88e1a6e"
 variables:
   - name: TAGS_TO_SKIP
     value: "os=windows,gpu=true"
@@ -11,8 +19,6 @@ variables:
     value: false
   - name: E2E_FAILED_TESTS_RETRY_COUNT
     value: 0
-  - ${{ if ne(parameters.cosiArtifactsBuildID, '') }}:
-      - group: "AKS Node SIG - PMC COSI TME"
 schedules:
   - cron: "0 8 * * *"
     displayName: Daily midnight PST
@@ -49,7 +55,7 @@ jobs:
       ${{ if ne(parameters.cosiArtifactsBuildID, '') }}:
         jobTimeoutInMinutes: 120
         cosiArtifactsBuildID: ${{ parameters.cosiArtifactsBuildID }}
-        cosiNebraskaServer: "$(NEBRASKA_PUBLISHER_ENDPOINT)v1/update"
-        cosiNebraskaAppID: $(NEBRASKA_APP_ID)
+        cosiNebraskaServer: ${{ parameters.cosiNebraskaServer }}
+        cosiNebraskaAppID: ${{ parameters.cosiNebraskaAppID }}
         cosiArtifactNames:
           - "cosi-publishing-info-acl-tl-gen2"
