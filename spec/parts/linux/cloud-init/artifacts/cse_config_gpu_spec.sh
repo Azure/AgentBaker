@@ -140,6 +140,8 @@ Describe 'cse_config_gpu.sh'
             TEST_ACR_DIR="$(mktemp -d)"
             ACR_MIRROR_SETUP_SCRIPT="${TEST_ACR_DIR}/setup.sh"
             ACR_CONFIG_BIN="${TEST_ACR_DIR}/acr-config"
+            OS="$UBUNTU_OS_NAME"
+            OS_VARIANT=""
         }
         cleanup_streaming() {
             rm -rf "${TEST_ACR_DIR}"
@@ -182,6 +184,25 @@ Describe 'cse_config_gpu.sh'
             The output should include "Older acr-mirror package is detected"
             The line 2 of output should equal "acr-config --enable-containerd azurecr.io"
             The line 3 of output should equal "retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter"
+            The status should be success
+        End
+
+        It 'unmasks the OverlayBD services on Azure Container Linux'
+            OS="$ACL_OS_NAME"
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should include "systemctl unmask overlaybd-tcmu.service overlaybd-snapshotter.service"
+            The output should include "setup.sh aks"
+            The status should be success
+        End
+
+        It 'unmasks the OverlayBD services for the Azure Linux ACL variant'
+            OS="$AZURELINUX_OS_NAME"
+            OS_VARIANT="$ACL_OS_VARIANT"
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should include "systemctl unmask overlaybd-tcmu.service overlaybd-snapshotter.service"
+            The output should include "setup.sh aks"
             The status should be success
         End
 
