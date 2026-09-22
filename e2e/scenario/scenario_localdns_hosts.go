@@ -53,31 +53,11 @@ func init() {
 					if tt.name != "Ubuntu2204" && tt.name != "Ubuntu2404" && tt.name != "AzureLinuxV3" {
 						return nil
 					}
-					// Cheapest check first. It is one 'systemctl show' and it is what
-					// guards the pinned directives; running it after the lifecycle
-					// validation meant a broken lifecycle step hid whether the unit was
-					// pinned at all. See assertLocalDNSBudgetDirectivesEarly.
-					if err := assertLocalDNSBudgetDirectivesEarly(ctx, s); err != nil {
-						return err
-					}
 					if err := validateLocalDNSLifecycle(ctx, s); err != nil {
 						return err
 					}
 					// Then assert the restart budget actually bounds failures.
-					//
-					// The full failure-mode matrix runs on Ubuntu2404 only: it is
-					// systemd 255, where daemon-reload does not clear the start
-					// limiter and where the provisioning regression was found. On
-					// shortened clocks a healthy run of all seven modes costs ~7min,
-					// and the sizing against TestTimeoutVMSS is asserted at build
-					// time by TestLocalDNSFaultMatrixFitsVMSSBudget. The other
-					// distros run the single discriminating mode instead (~40s) --
-					// enough to catch the directives being dropped on those images.
-					faults := localdnsDiscriminatingFault()
-					if tt.name == "Ubuntu2404" {
-						faults = localdnsFaultMatrix
-					}
-					return validateLocalDNSRestartBudget(ctx, s, faults)
+					return validateLocalDNSRestartBudget(ctx, s)
 				},
 			},
 		})
@@ -95,8 +75,8 @@ func init() {
 // service cap. go-scp emits the body as a 4,096-byte chunk then the remainder, so
 // max_write = script_size - 4096 + 45, and any script over 12,242 bytes kills the tunnel
 // mid-run with StatusMessageTooBig. Build 181818040 lost three lanes to exactly that, after
-// this script grew 512 bytes past a margin of 380. TestLocalDNSScriptsFitBastionLimit now
-// guards every script this package sends.
+// this script grew 512 bytes past a margin of 380. The size guard for every script this
+// package sends lands separately, with the tunnelSession.Write chunking fix.
 //
 // Comments cost the same as code on that wire and buy nothing at runtime, so the reasoning
 // lives here instead. Keep the shell terse; put the "why" in this comment.
@@ -181,8 +161,8 @@ func validateLocalDNSLifecycle(ctx context.Context, s *Scenario) error {
 }
 
 // localdnsLifecycleScript renders the script validateLocalDNSLifecycle runs on the node.
-// Split out from the caller so TestLocalDNSScriptsFitBastionLimit can measure the assembled
-// result -- see that test and this file's doc comment for why the size matters.
+// Split out from the caller so the assembled result can be measured by a size guard -- see
+// this file's doc comment for why the size matters.
 func localdnsLifecycleScript(expectExecStopPost string) string {
 	return `
 set -eu

@@ -7,30 +7,15 @@ Before=kubelet.service
 Before=containerd.service
 # don't run on old images; we're not compatible
 ConditionKernelVersion=>=5.15
-# The restart budget (StartLimitIntervalSec/StartLimitBurst) is deliberately NOT here.
-# It is written by enableLocalDNS() into
-# /etc/systemd/system/localdns.service.d/99-localdns-budget.conf at provisioning time,
-# together with TimeoutStartSec and TimeoutStopFailureMode -- the two values the 144s
-# threshold has to clear, and the two that differ by distro if left alone.
-#
-# Baking it into the VHD makes a new image incompatible with an older CSE, which this
-# repo explicitly supports (see cse_config_localdns.sh's LOCALDNS_COREFILE_BASE
-# fallback). An older CSE starts localdns through systemctlEnableAndStart, whose retry
-# loop has no 'systemctl reset-failed' -- so one failed burst wedges the unit for the
-# whole 720s window while that loop runs only ~500-600s, and every remaining attempt is
-# refused with "Start request repeated too quickly". A recoverable startup transient
-# becomes a node-provisioning failure.
-#
-# Measured on Ubuntu 24.04.4 / systemd 255.4, 16 provisioning attempts against a service
-# that always fails, R = refused:
-#
-#   budget in this unit + old CSE   ..RRRRRRRRRRRRRR   wedged, never recovers
-#   budget in this unit + new CSE   ................   reset-failed clears it
-#   budget from the drop-in + old CSE   ....R.R.......R.   systemd's 10s default, recovers
-#
-# Delivering it with CSE means the budget and the reset-failed that makes it survivable
-# ship together and cannot skew. RestartSec, TimeoutStartSec and TimeoutStopFailureMode
-# stay here: none of them can wedge provisioning on its own.
+# Bound the restart budget so unrecoverable failures terminate in 'failed' rather than
+# restarting forever. Threshold = StartLimitIntervalSec/StartLimitBurst = 144s, above the
+# slowest restart cycle (TimeoutStartSec + TimeoutStopSec + RestartSec: 122s on Ubuntu,
+# 107s on Azure Linux). A failure repeating more slowly than the threshold never
+# accumulates StartLimitBurst starts inside the window, so it never reaches 'failed' --
+# which is the state NPD observes and a future OnFailure= handoff fires on.
+StartLimitIntervalSec=720
+StartLimitBurst=5
+
 [Service]
 Type=notify
 NotifyAccess=all

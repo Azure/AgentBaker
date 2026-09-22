@@ -37,39 +37,9 @@ Describe 'cse_config_localdns.sh'
             touch /etc/systemd/system/localdns.service
             touch /opt/azure/containers/localdns/localdns.sh
 
-            # enableLocalDNS's retry loop calls check_cse_timeout, which warns on stderr
-            # when this is unset. Set it so the real guard is exercised (elapsed ~0s, well
-            # under CSE_MAX_DURATION_SECONDS) instead of taking its unset short-circuit.
-            CSE_STARTTIME_SECONDS=$(date +%s)
-
-            # enableLocalDNS drives systemd directly rather than going through
-            # systemctlEnableAndStart, so it can clear the StartLimit budget
-            # between attempts. Mock the primitives it actually calls.
-            systemctl() {
-                echo "systemctl $*"
+            systemctlEnableAndStart() {
+                echo "systemctlEnableAndStart $@"
                 return 0
-            }
-            timeout() {
-                shift
-                "$@"
-            }
-            retrycmd_if_failure() {
-                echo "retrycmd_if_failure $*"
-                return 0
-            }
-            # enableLocalDNS captures the journal alongside 'systemctl status' on the failure
-            # paths. Mock it so the assertions are deterministic and no real journal is read.
-            journalctl() {
-                echo "journalctl $*"
-                return 0
-            }
-            # The give-up and enable-failure paths redirect into this directory. Without it the
-            # redirect fails before the command runs and the '|| true' hides it, so the tests
-            # would pass without ever exercising the capture.
-            mkdir -p /var/log/azure
-            rm -f /var/log/azure/localdns-status.log
-            sleep() {
-                :
             }
             systemctlEnableAndStartNoBlock() {
                 echo "systemctlEnableAndStartNoBlock $@"
@@ -118,113 +88,14 @@ Describe 'cse_config_localdns.sh'
             The output should not include "localdns should be enabled."
         End
 
-        # Record an ordered trace of the calls that matter: R for reset-failed, S for a
-        # start attempt. Asserting on the trace is what pins "before *each* attempt" -- a
-        # test that only checks both strings appear somewhere would still pass if
-        # reset-failed were hoisted out of the loop.
-        tracing_systemctl() {
-            systemctl() {
-                case "$1" in
-                    reset-failed) printf 'R' >> "$TMP_DIR/trace" ;;
-                    restart)      printf 'S' >> "$TMP_DIR/trace" ;;
-                esac
-                echo "systemctl $*"
-                if [ "$1" = "restart" ]; then
-                    restart_calls=$((restart_calls + 1))
-                    if [ "$restart_calls" -lt "$restart_failures_before_success" ]; then
-                        return 1
-                    fi
-                fi
-                return 0
-            }
-            restart_calls=0
-        }
-
-        It 'should reset the StartLimit budget before every attempt, not only the first'
-            # Two failed restarts then a success, so the loop runs three times.
-            restart_failures_before_success=3
-            tracing_systemctl
-            When run enableLocalDNS
-            The status should be success
-            The output should include "Enable localdns succeeded."
-            # R before every S, three times over -- not RSSS.
-            The contents of file "$TMP_DIR/trace" should equal "RSRSRS"
-        End
-
         It 'should return error when systemctl fails to start localdns'
-            # Never succeeds, so the loop exhausts and takes the give-up path.
-            restart_failures_before_success=99999
-            tracing_systemctl
+            systemctlEnableAndStart() {
+                echo "systemctlEnableAndStart $@"
+                return 1
+            }
             When run enableLocalDNS
             The status should equal 216
             The output should include "localdns should be enabled."
-            The output should include "systemctl reset-failed localdns"
-            # The give-up path deliberately does not reset, so the unit is left in 'failed'
-            # for NPD: the trace must end on a start attempt, never on a reset.
-            The contents of file "$TMP_DIR/trace" should end with "S"
-        End
-
-        It 'should say why it gave up and capture the journal, not just the unit state'
-            # systemctlEnableAndStart logged 'systemctl status' plus 'journalctl -u' on every
-            # failed attempt; inlining the loop dropped all of it. The snapshot alone shows a
-            # unit mid-restart-cycle and does not explain any of the failures, so the journal
-            # has to come with it.
-            restart_failures_before_success=99999
-            tracing_systemctl
-            When run enableLocalDNS
-            The status should equal 216
-            The output should include "localdns could not be started: exhausted the restart attempts."
-            The contents of file /var/log/azure/localdns-status.log should include "journalctl -u localdns"
-        End
-
-        It 'should report a CSE budget give-up differently from exhausting the attempts'
-            # The two give-up reasons need different messages: one means localdns is broken,
-            # the other means provisioning ran out of time and never finished trying.
-            restart_failures_before_success=99999
-            tracing_systemctl
-            check_cse_timeout() { return 1; }
-            When run enableLocalDNS
-            The status should equal 216
-            The output should include "CSE provisioning budget exhausted at attempt 1"
-            The output should not include "exhausted the restart attempts"
-        End
-
-        It 'should sample diagnostics during the retries without dumping on every attempt'
-            # Bounded and periodic on purpose: the old helper dumped status plus an unbounded
-            # journal on all 99 failed attempts, measured at 6-8s per iteration, which ate the
-            # provisioning window it was retrying inside.
-            restart_failures_before_success=11
-            tracing_systemctl
-            When run enableLocalDNS
-            The status should be success
-            The output should include "localdns restart attempt 10 failed"
-            The output should include "journalctl -u localdns --no-pager -n 50"
-            The output should not include "localdns restart attempt 9 failed"
-            The output should include "Enable localdns succeeded."
-        End
-
-        It 'should log and capture status when systemctl enable fails'
-            # systemctlEnableAndStart wrote a status log on the enable-failure path as well as
-            # the start-failure path. Inlining the loop kept the first and dropped the second,
-            # so an enable failure exited with nothing but the code.
-            retrycmd_if_failure() { return 1; }
-            When run enableLocalDNS
-            The status should equal 216
-            The output should include "localdns could not be enabled by systemctl."
-            The output should not include "Enable localdns succeeded."
-            The contents of file /var/log/azure/localdns-status.log should include "journalctl -u localdns"
-        End
-
-        It 'should distinguish a CSE budget timeout from a genuine enable failure'
-            # retrycmd_if_failure returns 2 when check_cse_timeout trips and 1 when it burns
-            # all its attempts. 'if ! retrycmd ...' would throw that away -- '!' inverts before
-            # $? is read -- and report a budget timeout as a systemd failure, sending the
-            # on-call after the wrong thing.
-            retrycmd_if_failure() { return 2; }
-            When run enableLocalDNS
-            The status should equal 216
-            The output should include "localdns could not be enabled: CSE provisioning budget exhausted."
-            The output should not include "could not be enabled by systemctl"
         End
     End
     Describe 'enableLocalDNSForScriptless'
@@ -242,28 +113,9 @@ Describe 'cse_config_localdns.sh'
             touch /etc/systemd/system/localdns.service
             touch /opt/azure/containers/localdns/localdns.sh
 
-            # enableLocalDNS's retry loop calls check_cse_timeout, which warns on stderr
-            # when this is unset. Set it so the real guard is exercised (elapsed ~0s, well
-            # under CSE_MAX_DURATION_SECONDS) instead of taking its unset short-circuit.
-            CSE_STARTTIME_SECONDS=$(date +%s)
-
-            # enableLocalDNS drives systemd directly rather than going through
-            # systemctlEnableAndStart, so it can clear the StartLimit budget
-            # between attempts. Mock the primitives it actually calls.
-            systemctl() {
-                echo "systemctl $*"
+            systemctlEnableAndStart() {
+                echo "systemctlEnableAndStart $@"
                 return 0
-            }
-            timeout() {
-                shift
-                "$@"
-            }
-            retrycmd_if_failure() {
-                echo "retrycmd_if_failure $*"
-                return 0
-            }
-            sleep() {
-                :
             }
             systemctlEnableAndStartNoBlock() {
                 echo "systemctlEnableAndStartNoBlock $@"

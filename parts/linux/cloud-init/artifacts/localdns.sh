@@ -1221,29 +1221,20 @@ trap 'echo "Error occurred. Cleaning up..."; cleanup_localdns_configs; exit $ERR
 # left orphaned in the cgroup. Handle it so the child is reaped and cleanup runs. Exit 0
 # because a requested stop is not a failure -- Restart=on-failure must not fire for it.
 #
-# Trapping SIGTERM changes what a systemd stop does, and the change is deliberate. 'exit 0'
-# fires the EXIT trap below, so cleanup_localdns_configs now runs IN-PROCESS on every stop,
-# where previously bash died first and only ExecStopPost ran. Two consequences, both
-# measured on a node rather than reasoned about (journal from gate build 181777373,
-# AzureLinuxV3, n=11 stops):
+# Deliberate consequence: 'exit 0' fires the EXIT trap below, so cleanup_localdns_configs now
+# runs IN-PROCESS on every stop, where previously bash died first and only ExecStopPost ran.
+# A stop takes 5-6s instead of being immediate -- essentially all of it LOCALDNS_SHUTDOWN_DELAY
+# draining connections before CoreDNS is SIGINTed -- against the 'timeout 30' bound that
+# _systemctl_retry_svc_operation (cse_helpers.sh) puts on a restart, leaving ~22-24s of headroom.
+# It does not affect the restart-budget cycle math: the worst cycle is a hung start, where this
+# trap cannot run at all because bash defers a trapped signal until the foreground command
+# returns, so systemd spends the full TimeoutStopSec regardless.
 #
-#   1. A stop takes 5-6s instead of being immediate. Essentially all of it is
-#      LOCALDNS_SHUTDOWN_DELAY (:44) draining connections before CoreDNS is SIGINTed.
-#      Measured stop 5-6s, start 1-2s, so a full restart is 6-8s. The tightest bound on
-#      that path is 'timeout 30 systemctl restart localdns' in enableLocalDNS()
-#      (cse_config_localdns.sh) and its e2e mirror, leaving ~22-24s of headroom. It does
-#      not affect the restart-budget cycle math either: the worst cycle is a hung start,
-#      where this trap cannot run at all because bash defers a trapped signal until the
-#      foreground command returns, so systemd spends the full TimeoutStopSec regardless.
-#
-#   2. cleanup_localdns_configs runs to completion, so the dummy interface carrying
-#      169.254.10.10/.11 is now torn down on a stop. It was not before: localdns_cleanup_mode
-#      (the ExecStopPost path) deliberately leaves the link alone in case an orphaned CoreDNS
-#      is still answering on .11. Both paths are now consistent for a clean stop, and the
-#      teardown/recreate cycle was clean in the same run (12 teardowns, 18 setups, zero
-#      address-in-use or RTNETLINK errors). Note this for the pod-DNS fallback (#9486): its
-#      idempotent-interface-creation requirement is now the common case on a clean stop, not
-#      the exception.
+# It also means the dummy interface carrying 169.254.10.10/.11 is now torn down on a stop.
+# It was not before: localdns_cleanup_mode (the ExecStopPost path) deliberately leaves the link
+# alone in case an orphaned CoreDNS is still answering on .11. Note this for the pod-DNS
+# fallback (#9486): its idempotent-interface-creation requirement is now the common case on a
+# clean stop, not the exception.
 #
 # The graceful path is kept rather than trimmed because the cost is affordable at the only
 # bound that matters and the behaviour is better than the alternative -- without it CoreDNS
