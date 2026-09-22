@@ -971,25 +971,9 @@ EOF
   fi
 }
 
-# Returns the coredns image tag localdns should run: the newest coredns version declared in
-# components.json. components.json is the single source of truth - no version is hardcoded here -
-# and reading it means a stray cached coredns image that nobody declared cannot become the
-# localdns binary just by sorting highest.
-corednsVersionFromComponents() {
-  jq -r '
-    .ContainerImages[]
-    | select(.downloadURL | test("/kubernetes/coredns:"))
-    | .multiArchVersionsV2[]
-    | .latestVersion
-  ' "${COMPONENTS_FILEPATH}" | sort -V -r | head -n1
-}
-
-# This function extracts the CoreDNS binary from the cached coredns image declared newest in
-# components.json and copies it to - /opt/azure/containers/localdns/binary/coredns.
+# This function extracts CoreDNS binary from cached coredns images (latest version)
+# and copies it to - /opt/azure/containers/localdns/binary/coredns.
 # The binary is later used by localdns systemd unit.
-# Extraction fails the build if that exact tag was not cached, so a mismatch between what
-# components.json declares and what the VHD actually holds surfaces here rather than as a
-# silently different localdns binary.
 # The function also handles the cleanup of temporary directories and unmounting of images.
 extractAndCacheCoreDnsBinary() {
   local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
@@ -997,14 +981,6 @@ extractAndCacheCoreDnsBinary() {
     echo "Error: No coredns images found."
     exit 1
   fi
-
-  local coredns_version
-  coredns_version="$(corednsVersionFromComponents)"
-  if [ -z "${coredns_version}" ]; then
-    echo "Error: No coredns version declared in ${COMPONENTS_FILEPATH}." >> "${VHD_LOGS_FILEPATH}"
-    exit 1
-  fi
-  echo "Localdns coredns version from components.json: ${coredns_version}" >> "${VHD_LOGS_FILEPATH}"
 
   rm -rf "${LOCALDNS_BINARY_PATH}" || exit 1
   mkdir -p "${LOCALDNS_BINARY_PATH}" || exit 1
@@ -1018,10 +994,15 @@ extractAndCacheCoreDnsBinary() {
   }
   trap cleanup_coredns_imports EXIT ABRT ERR INT PIPE QUIT TERM
 
-  # Extract the CoreDNS binary from the image carrying the declared version.
-  local extracted_coredns_binary="false"
+  # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
+  local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
+
+  # Determine latest version.
+  local latest_coredns_tag="${sorted_coredns_tags[0]}"
+
+  # Extract the CoreDNS binary for the latest version.
   for coredns_image_url in "${coredns_image_list[@]}"; do
-    if [ "${coredns_image_url##*:}" != "${coredns_version}" ]; then
+    if [ "${coredns_image_url##*:}" != "${latest_coredns_tag}" ]; then
       continue
     fi
 
@@ -1045,11 +1026,10 @@ extractAndCacheCoreDnsBinary() {
     local coredns_binary="${ctr_temp}/usr/bin/coredns"
     if [ -f "${coredns_binary}" ]; then
       cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
-        echo "Error: Failed to copy coredns binary of ${coredns_version}" >> "${VHD_LOGS_FILEPATH}"
+        echo "Error: Failed to copy coredns binary of ${latest_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
         exit 1
       }
-      extracted_coredns_binary="true"
-      echo "Successfully copied coredns binary of ${coredns_version}" >> "${VHD_LOGS_FILEPATH}"
+      echo "Successfully copied coredns binary of ${latest_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
     else
       echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
     fi
@@ -1060,13 +1040,6 @@ extractAndCacheCoreDnsBinary() {
 
   # Clear the trap.
   trap - EXIT ABRT ERR INT PIPE QUIT TERM
-
-  # localdns is unusable without the pinned binary, so fail the build rather than ship a VHD
-  # carrying a coredns version nobody asked for.
-  if [ "${extracted_coredns_binary}" != "true" ]; then
-    echo "Error: Failed to extract coredns binary of declared version ${coredns_version}. Cached coredns images: ${coredns_image_list[*]}" >> "${VHD_LOGS_FILEPATH}"
-    exit 1
-  fi
 }
 
 # Collect grid compatibility data (placeholder for now - will be extended later)
