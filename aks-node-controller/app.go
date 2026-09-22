@@ -92,6 +92,10 @@ type App struct {
 	fetchAttestedToken func(ctx context.Context) (string, error)
 	// applyEmbeddedHotfix overrides embedded script application for tests.
 	applyEmbeddedHotfix func(string) error
+	// livePatchingFetcher overrides the generic per-component live-patching config fetch used
+	// by the livepatching command, letting unit tests inject a canned config or error without
+	// real networking.
+	livePatchingFetcher func(ctx context.Context, component string) ([]byte, error)
 	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
 	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
 	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
@@ -205,6 +209,19 @@ func (a *App) Run(ctx context.Context, args []string) int {
 						slog.Warn("ignoring unexpected check-hotfix arguments", "args", strings.Join(extra, " "))
 					}
 					return a.runCheckHotfixCommand(ctx)
+				},
+			},
+			{
+				Name:      "livepatching",
+				Usage:     "Fetch a component's config from the live-patching service and print it to stdout",
+				ArgsUsage: "<component>",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					args := cmd.Args().Slice()
+					if len(args) != 1 {
+						return fmt.Errorf("livepatching requires exactly one component argument, got %d: %s",
+							len(args), strings.Join(args, " "))
+					}
+					return a.runLivePatchingCommand(ctx, cmd.Root().Writer, args[0])
 				},
 			},
 		},
