@@ -10,7 +10,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,9 +25,9 @@ func ValidatePodRunningWithRetry(ctx context.Context, s *Scenario, pod *corev1.P
 
 	for i <= maxRetries && err != nil {
 		retryBackoff := time.Duration(1 << uint(i))
-		s.Logger.Logf("sleeping %d seconds before retrying pod %q", retryBackoff, pod.Name)
+		logging.Logf(ctx, "sleeping %d seconds before retrying pod %q", retryBackoff, pod.Name)
 		time.Sleep(retryBackoff * time.Second)
-		s.Logger.Logf("retrying pod %q validation (%d/%d)", pod.Name, i+1, maxRetries)
+		logging.Logf(ctx, "retrying pod %q validation (%d/%d)", pod.Name, i+1, maxRetries)
 
 		i++
 		err = startPodAndCheckItRuns(ctx, s, pod)
@@ -46,7 +46,7 @@ func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) error
 }
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) error {
-	defer toolkit.LogStep(s.Logger, "running common Linux validation")()
+	defer logging.LogStep(ctx, "running common Linux validation")()
 
 	parallelErr := runValidators(ctx, s,
 		ValidateTLSBootstrapping,
@@ -85,7 +85,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) error {
 }
 
 func ValidateCommonWindows(ctx context.Context, s *Scenario) error {
-	defer toolkit.LogStep(s.Logger, "running common Windows validation")()
+	defer logging.LogStep(ctx, "running common Windows validation")()
 
 	return runValidators(ctx, s,
 		ValidateTLSBootstrapping,
@@ -94,6 +94,11 @@ func ValidateCommonWindows(ctx context.Context, s *Scenario) error {
 }
 
 func ValidateMANAIfPresent(ctx context.Context, s *Scenario) error {
+	if s.VHD != nil && (s.VHD.SkipOldVHDValidations || s.VHD.Distro.IsAzureLinuxOSGuardDistro()) {
+		logging.Logf(ctx, "Skipping MANA validation: not supported for %s", s.VHD.Distro)
+		return nil
+	}
+
 	hasMANA, err := hasMANAHardware(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to detect MANA hardware: %w", err)
@@ -150,7 +155,7 @@ func ValidateCommonLocalDNS(ctx context.Context, s *Scenario) error {
 		return errors.Join(append(errs, fmt.Errorf("failed to detect hosts plugin artifacts on the VHD: %w", err))...)
 	}
 	if !hasArtifacts {
-		s.Logger.Logf("WARNING: VHD does not have aks-localdns-hosts-setup.service — skipping hosts plugin validation")
+		logging.Logf(ctx, "WARNING: VHD does not have aks-localdns-hosts-setup.service — skipping hosts plugin validation")
 		return errors.Join(errs...)
 	}
 	errs = append(errs,
@@ -197,7 +202,7 @@ func startPodAndCheckItRuns(ctx context.Context, s *Scenario, pod *corev1.Pod) e
 	}
 	start := time.Now()
 
-	s.Logger.Logf("creating pod %q", pod.Name)
+	logging.Logf(ctx, "creating pod %q", pod.Name)
 	created, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create pod %q: %v", pod.Name, err)
@@ -208,7 +213,7 @@ func startPodAndCheckItRuns(ctx context.Context, s *Scenario, pod *corev1.Pod) e
 		deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))}
 		err := kube.Typed.CoreV1().Pods(created.Namespace).Delete(ctx, created.Name, deleteOptions)
 		if err != nil && !apierrors.IsNotFound(err) {
-			s.Logger.Logf("could not delete pod %s: %v", created.Name, err)
+			logging.Logf(ctx, "could not delete pod %s: %v", created.Name, err)
 		}
 	}()
 
@@ -222,8 +227,12 @@ func startPodAndCheckItRuns(ctx context.Context, s *Scenario, pod *corev1.Pod) e
 	}
 
 	timeForReady := time.Since(start)
-	toolkit.LogDuration(ctx, timeForReady, time.Minute, fmt.Sprintf("Time for pod %q to get ready was %s", pod.Name, timeForReady))
-	s.Logger.Logf("node health validation: test pod %q is running on node %q", pod.Name, s.Runtime.VM.KubeName)
+	const readinessWarningThreshold = time.Minute
+	logging.LogDuration(ctx, timeForReady, readinessWarningThreshold,
+		fmt.Sprintf("Pod %q in namespace %q on node %q observed ready after %s (warning threshold: %s)",
+			pod.Name, pod.Namespace, s.Runtime.VM.KubeName, timeForReady.Round(time.Millisecond), readinessWarningThreshold))
+	logging.Logf(ctx, "node health validation: test pod %q in namespace %q is running on node %q",
+		pod.Name, pod.Namespace, s.Runtime.VM.KubeName)
 	return nil
 }
 
@@ -245,7 +254,7 @@ func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName s
 			}
 
 			if isResourceAvailable(node, resourceName) {
-				s.Logger.Logf("resource %q is available", resourceName)
+				logging.Logf(ctx, "resource %q is available", resourceName)
 				return nil
 			}
 		}
@@ -273,7 +282,7 @@ func dllLoadedWindows(ctx context.Context, s *Scenario, dllName string) (bool, e
 	}
 	dllLoaded := strings.Contains(execResult.stdout, dllName)
 
-	s.Logger.Logf("stdout: %s\nstderr: %s", execResult.stdout, execResult.stderr)
+	logging.Logf(ctx, "stdout: %s\nstderr: %s", execResult.stdout, execResult.stderr)
 	return dllLoaded, nil
 }
 
@@ -347,7 +356,7 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 // result itself — a single observation of an unexpected exit code is enough
 // to fail loudly.
 func ValidateWireServerBlocked(ctx context.Context, s *Scenario) error {
-	defer toolkit.LogStep(s.Logger, "validating wireserver is blocked from unprivileged pods")()
+	defer logging.LogStep(ctx, "validating wireserver is blocked from unprivileged pods")()
 
 	nonHostPod, err := s.Runtime.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
 	if err != nil {
@@ -384,9 +393,9 @@ func ValidateWireServerBlocked(ctx context.Context, s *Scenario) error {
 			r, execErr := execOnUnprivilegedPod(attemptCtx, s.Runtime.Kube, nonHostPod.Namespace, nonHostPod.Name, check.cmd)
 			if execErr != nil {
 				if errors.Is(execErr, context.DeadlineExceeded) {
-					s.Logger.Logf("wireserver check %q: exec attempt timed out after 15s (retrying): %v", check.desc, execErr)
+					logging.Logf(ctx, "wireserver check %q: exec attempt timed out after 15s (retrying): %v", check.desc, execErr)
 				} else {
-					s.Logger.Logf("wireserver check %q: exec error (retrying): %v", check.desc, execErr)
+					logging.Logf(ctx, "wireserver check %q: exec error (retrying): %v", check.desc, execErr)
 				}
 				return false, nil
 			}

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -31,16 +31,29 @@ func newSSHClient(client *ssh.Client) *SSHClient {
 func retrySSHSessionOpen(ctx context.Context, open func() error) error {
 	delay := 100 * time.Millisecond
 	var lastErr error
+	start := time.Now()
+	attempts := 0
 	for {
 		if err := ctx.Err(); err != nil {
+			if lastErr != nil {
+				logging.Logf(ctx, "SSH session open stopped after %d attempts in %s: %v; last rejection: %v", attempts, time.Since(start).Round(time.Millisecond), err, lastErr)
+			}
 			return fmt.Errorf("opening SSH session: %w (last rejection: %v)", err, lastErr)
 		}
+		attempts++
 		err := open()
 		if !isSSHSessionCapacityError(err) {
+			if lastErr != nil {
+				if err == nil {
+					logging.Logf(ctx, "SSH session open succeeded after %d attempts in %s", attempts, time.Since(start).Round(time.Millisecond))
+				} else {
+					logging.Logf(ctx, "SSH session open failed after %d attempts in %s: %v", attempts, time.Since(start).Round(time.Millisecond), err)
+				}
+			}
 			return err
 		}
 		if lastErr == nil {
-			toolkit.Logf(ctx, "SSH session open rejected; retrying: %v", err)
+			logging.Logf(ctx, "SSH session open rejected; retrying with backoff: %v", err)
 		}
 		lastErr = err
 		timer := time.NewTimer(delay + time.Duration(rand.IntN(100))*time.Millisecond)

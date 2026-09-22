@@ -2,6 +2,7 @@
 
 Describe 'aks-node-controller-launcher.sh'
     SCRIPT="./parts/linux/cloud-init/artifacts/aks-node-controller-launcher.sh"
+    HOTFIX_SCRIPT="./parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.sh"
 
     setup_wrapper_test() {
         TEST_DIR="${SHELLSPEC_WORKDIR}/aks-node-controller-launcher"
@@ -45,7 +46,7 @@ EOF
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
-        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH
+        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN
     }
 
     create_fake_aks_node_controller() {
@@ -83,6 +84,20 @@ EOF
         chmod +x "${BIN_PATH}-hotfix"
     }
 
+    # Stands in for a VHD-baked binary whose download-hotfix fails, leaving whatever was
+    # already staged untouched.
+    create_failing_download_aks_node_controller() {
+        cat >"$BIN_PATH" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$1" >>"${TEST_DIR}/calls"
+if [ "$1" = "download-hotfix" ]; then
+    exit 1
+fi
+exit 0
+EOF
+        chmod +x "$BIN_PATH"
+    }
+
     # Mirrors the real chain: the VHD-baked binary itself stages the hotfix binary while handling
     # download-hotfix, so binary selection observes a file that did not exist when the wrapper started.
     create_staging_aks_node_controller() {
@@ -102,6 +117,28 @@ fi
 exit 0
 EOF
         chmod +x "$BIN_PATH"
+    }
+
+    # Stands in for a staged hotfix binary whose embedded payload fails to apply. The flow is
+    # fail-open there, so selection must still stand.
+    create_failing_apply_hotfix_binary() {
+        cat >"${BIN_PATH}-hotfix" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$1" >>"${TEST_DIR}/hotfix_calls"
+if [ "$1" = "apply-embedded-hotfix" ]; then
+    exit 1
+fi
+exit 0
+EOF
+        chmod +x "${BIN_PATH}-hotfix"
+    }
+
+    # Runs the extracted flow directly, without the provision wrapper around it, and prints the
+    # binary it selected. This is the seam the extraction bought: these cases assert what the
+    # flow itself does, so they do not need a config/nbc-cmd file or a provision invocation.
+    run_hotfix_flow() {
+        bash -c 'source "$1"; anc_run_hotfix_flow "$2" "$3" "$4" "$5"; printf "%s\n" "$ANC_HOTFIX_SELECTED_BIN"' \
+            _ "$HOTFIX_SCRIPT" "$BIN_PATH" "${BIN_PATH}-hotfix" "$HOTFIX_JSON" "$FEATURES_PATH"
     }
 
     BeforeEach setup_wrapper_test
@@ -288,6 +325,22 @@ EOF
         The variable calls should eq "provision"
     End
 
+    It 'does not let feature keys overwrite hotfix flow arguments'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        create_recording_aks_node_controller
+        {
+            printf 'bin_path=/tmp/changed-bin\n'
+            printf 'hotfix_bin=/tmp/changed-hotfix-bin\n'
+            printf 'hotfix_json=/tmp/changed-hotfix-json\n'
+        } >"$FEATURES_PATH"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Using VHD-baked binary: ${BIN_PATH}"
+        calls=$(cat "${TEST_DIR}/calls")
+        The variable calls should eq "$(printf 'download-hotfix\nprovision')"
+    End
+
     # Security/fail-open: the file is PARSED, never executed. A hostile or malformed file
     # (arbitrary commands, exit, etc.) must not run or abort the wrapper; only KEY=VALUE lines
     # with valid identifier keys are honored. If the file were sourced, 'exit 7' would abort the
@@ -359,5 +412,119 @@ EOF
         # The baked binary only downloads; it must never be the one that provisions.
         The variable bakedCalls should eq "download-hotfix"
         The variable hotfixCall should eq "provision"
+    End
+
+    # download-hotfix disarms a stale binary on integrity failure by unlinking it and, failing
+    # that, clearing its executable bits. Selection deliberately rests on the executable bit
+    # alone: a failed download never writes a new hotfix pointer, so there is nothing for this
+    # wrapper to re-arm. This covers the resulting contract -- a hotfix binary that survives a
+    # failed download-hotfix is still selected -- so a future change to that policy is a
+    # deliberate one.
+    It 'selects a staged hotfix binary that survived a failed download-hotfix'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        create_failing_download_aks_node_controller
+        create_staged_hotfix_binary
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "ANC download-hotfix failed; binary selection follows"
+        The output should include "Using hotfix binary: ${BIN_PATH}-hotfix"
+        hotfixCall=$(tail -n 1 "${TEST_DIR}/hotfix_calls")
+        The variable hotfixCall should eq "provision"
+    End
+
+    It 'can run the extracted hotfix flow without invoking provision'
+        touch "$HOTFIX_JSON"
+        create_recording_aks_node_controller
+        create_staged_hotfix_binary
+        printf 'ENABLE_PROVISIONING_HOTFIX=true\n' >"$FEATURES_PATH"
+
+        When run run_hotfix_flow
+        The status should be success
+        The output should include "${BIN_PATH}-hotfix"
+        calls=$(cat "${TEST_DIR}/calls")
+        hotfixCalls=$(cat "${TEST_DIR}/hotfix_calls")
+        The variable calls should eq "$(printf 'check-hotfix\ndownload-hotfix')"
+        The variable hotfixCalls should eq "apply-embedded-hotfix"
+    End
+
+    # check-hotfix and download-hotfix are gated independently: the flag drives the former, the
+    # pointer file's existence drives the latter. With the flag on but no pointer on disk (an LPS
+    # that has nothing published, the steady state), only check-hotfix may run.
+    It 'runs check-hotfix but not download-hotfix when the flag is on and no pointer exists'
+        create_recording_aks_node_controller
+        printf 'ENABLE_PROVISIONING_HOTFIX=true\n' >"$FEATURES_PATH"
+
+        When run run_hotfix_flow
+        The status should be success
+        The output should include "running check-hotfix"
+        The output should not include "running download-hotfix"
+        The output should include "Using VHD-baked binary: ${BIN_PATH}"
+        calls=$(cat "${TEST_DIR}/calls")
+        The variable calls should eq "check-hotfix"
+        The path "${TEST_DIR}/hotfix_calls" should not be exist
+    End
+
+    # The mirror of the case above: no flag, but a pointer left on disk (e.g. staged by a previous
+    # boot). download-hotfix is reachable without the feature gate, which is what keeps the
+    # cold-start/customdata pointer path working while the gate is still off by default.
+    It 'runs download-hotfix without the feature flag when a pointer exists'
+        touch "$HOTFIX_JSON"
+        create_recording_aks_node_controller
+
+        When run run_hotfix_flow
+        The status should be success
+        The output should not include "running check-hotfix"
+        The output should include "Found ANC hotfix config"
+        calls=$(cat "${TEST_DIR}/calls")
+        The variable calls should eq "download-hotfix"
+    End
+
+    # apply-embedded-hotfix is fail-open: a payload that cannot be applied must not unselect the
+    # hotfix binary, because it is still the newer ANC and provisioning has to proceed on it.
+    It 'keeps the hotfix binary selected when apply-embedded-hotfix fails'
+        create_recording_aks_node_controller
+        create_failing_apply_hotfix_binary
+
+        When run run_hotfix_flow
+        The status should be success
+        The output should include "ANC apply-embedded-hotfix failed"
+        The output should include "Using hotfix binary: ${BIN_PATH}-hotfix"
+        # The selection is the flow's only output contract, and it must survive the failure.
+        The output should include "${BIN_PATH}-hotfix"
+        hotfixCalls=$(cat "${TEST_DIR}/hotfix_calls")
+        The variable hotfixCalls should eq "apply-embedded-hotfix"
+    End
+
+    # Only the literal "true" arms the gate, and the feature file is the delivery channel for it.
+    # This pins the parse+gate pair at the flow level, where no provision run can mask it.
+    It 'treats a non-true flag in the feature file as disabled'
+        create_recording_aks_node_controller
+        printf 'ENABLE_PROVISIONING_HOTFIX=TRUE\n' >"$FEATURES_PATH"
+
+        When run run_hotfix_flow
+        The status should be success
+        The output should include "Reading feature flags from ${FEATURES_PATH}"
+        The output should not include "running check-hotfix"
+        The output should include "Using VHD-baked binary: ${BIN_PATH}"
+        The path "${TEST_DIR}/calls" should not be exist
+    End
+
+    # Multiple flags in one file: the loop must keep parsing past an unrelated key, and values
+    # containing "=" must survive intact rather than being truncated at the first separator.
+    It 'parses every KEY=VALUE line in the feature file'
+        create_recording_aks_node_controller
+        {
+            printf 'SOME_OTHER_FLAG=a=b\n'
+            printf '# a comment\n'
+            printf '\n'
+            printf 'ENABLE_PROVISIONING_HOTFIX=true\n'
+        } >"$FEATURES_PATH"
+
+        When run run_hotfix_flow
+        The status should be success
+        The output should include "running check-hotfix"
+        calls=$(cat "${TEST_DIR}/calls")
+        The variable calls should eq "check-hotfix"
     End
 End

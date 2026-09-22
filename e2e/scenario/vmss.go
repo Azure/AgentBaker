@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -21,10 +22,11 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"gopkg.in/yaml.v3"
@@ -89,7 +91,7 @@ func compileAndUploadAKSNodeControllerWithScriptHotfix(
 func uploadAKSNodeController(ctx context.Context, binary *os.File) (string, error) {
 	uniqueSuffix := randomLowercaseString(6)
 	blobPath := fmt.Sprintf("%s/aks-node-controller-%s", time.Now().UTC().Format("2006-01-02-15-04-05"), uniqueSuffix)
-	toolkit.Logf(ctx, "uploading aks-node-controller binary to blob path %s", blobPath)
+	logging.Logf(ctx, "uploading aks-node-controller binary to blob path %s", blobPath)
 	url, err := config.Azure.UploadAndGetSignedLink(ctx, blobPath, binary)
 	if err != nil {
 		return "", fmt.Errorf("failed to upload aks-node-controller binary: %w", err)
@@ -122,7 +124,7 @@ func compileAKSNodeControllerInDir(ctx context.Context, arch, buildDir string) (
 		"GOOS=linux",
 		"GOARCH="+arch,
 	)
-	toolkit.Logf(ctx, "compiling aks-node-controller: %q", cmd.String())
+	logging.Logf(ctx, "compiling aks-node-controller: %q", cmd.String())
 	log, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile aks-node-controller: %s", string(log))
@@ -135,15 +137,6 @@ func compileAKSNodeControllerInDir(ctx context.Context, arch, buildDir string) (
 }
 
 func writeScriptHotfixFixture(buildDir string, fixture ScriptHotfixFixture) error {
-	if !path.IsAbs(fixture.Destination) ||
-		path.Clean(fixture.Destination) != fixture.Destination ||
-		strings.Contains(fixture.Destination, `\`) {
-		return fmt.Errorf("invalid script-hotfix fixture destination %q", fixture.Destination)
-	}
-	mode, err := strconv.ParseUint(fixture.Mode, 8, 32)
-	if err != nil || mode == 0 || mode > 0o777 {
-		return fmt.Errorf("invalid script-hotfix fixture mode %q", fixture.Mode)
-	}
 	validPlatforms := map[string]bool{
 		"ubuntu":  true,
 		"mariner": true,
@@ -151,19 +144,37 @@ func writeScriptHotfixFixture(buildDir string, fixture ScriptHotfixFixture) erro
 	if !validPlatforms[fixture.Platform] {
 		return fmt.Errorf("invalid script-hotfix fixture platform %q", fixture.Platform)
 	}
-	if len(fixture.Payload) == 0 {
-		return fmt.Errorf("script-hotfix fixture payload is empty")
+	if len(fixture.Files) == 0 {
+		return fmt.Errorf("script-hotfix fixture has no files")
 	}
 
 	generatedDir := filepath.Join(buildDir, "generated")
-	rendered := scriptHotfixFixtureNodeCustomData{
-		WriteFiles: []scriptHotfixFixtureWriteFile{{
-			Path:        fixture.Destination,
-			Permissions: fixture.Mode,
+	rendered := scriptHotfixFixtureNodeCustomData{}
+	destinations := make(map[string]bool, len(fixture.Files))
+	for _, file := range fixture.Files {
+		if !path.IsAbs(file.Destination) ||
+			path.Clean(file.Destination) != file.Destination ||
+			strings.Contains(file.Destination, `\`) {
+			return fmt.Errorf("invalid script-hotfix fixture destination %q", file.Destination)
+		}
+		if destinations[file.Destination] {
+			return fmt.Errorf("duplicate script-hotfix fixture destination %q", file.Destination)
+		}
+		destinations[file.Destination] = true
+		mode, err := strconv.ParseUint(file.Mode, 8, 32)
+		if err != nil || mode == 0 || mode > 0o777 {
+			return fmt.Errorf("invalid script-hotfix fixture mode %q", file.Mode)
+		}
+		if len(file.Payload) == 0 {
+			return fmt.Errorf("script-hotfix fixture payload for %q is empty", file.Destination)
+		}
+		rendered.WriteFiles = append(rendered.WriteFiles, scriptHotfixFixtureWriteFile{
+			Path:        file.Destination,
+			Permissions: file.Mode,
 			Encoding:    "base64",
 			Owner:       "root",
-			Content:     base64.StdEncoding.EncodeToString(fixture.Payload),
-		}},
+			Content:     base64.StdEncoding.EncodeToString(file.Payload),
+		})
 	}
 	data, err := yaml.Marshal(rendered)
 	if err != nil {
@@ -198,11 +209,11 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 		if vm != nil {
 			defer cleanupBastionTunnel(vm.SSHClient)
 		}
-		return deleteVMSS(ctx, s)
-	})
-	s.Cleanup(func(ctx context.Context) error {
-		extractLogsFromVM(ctx, s, vm)
-		return nil
+		logErr := runWithPanicRecovery(ctx, func(ctx context.Context) error {
+			extractLogsFromVM(ctx, s, vm)
+			return nil
+		})
+		return errors.Join(logErr, deleteVMSS(ctx, s))
 	})
 
 	if skipErr := skipIfSKUNotAvailableErr(err); skipErr != nil {
@@ -242,7 +253,7 @@ func createVMSSRecreatingOnOutboundCSEFlake(ctx context.Context, s *Scenario) (*
 		if !ok || exitCode != cseExitCodeOutboundConnFail {
 			return vm, err
 		}
-		toolkit.Logf(ctx, "CSE failed with ERR_OUTBOUND_CONN_FAIL (exit %s) on VMSS %q: known transient e2e outbound flake, recreating node (attempt %d/%d)", exitCode, s.Runtime.VMSSName, attempt+1, maxOutboundCSERetries)
+		logging.Logf(ctx, "CSE failed with ERR_OUTBOUND_CONN_FAIL (exit %s) on VMSS %q: known transient e2e outbound flake, recreating node (attempt %d/%d)", exitCode, s.Runtime.VMSSName, attempt+1, maxOutboundCSERetries)
 		// Close this attempt's bastion tunnel before recreating: the SSH client is established
 		// even on an exit-50 failure (the node booted, only the CSE preflight failed). The single
 		// cleanup registered by the caller covers only the terminal VM, so without this the
@@ -305,11 +316,11 @@ func deleteVMSSAndWait(ctx context.Context, s *Scenario) {
 		ForceDeletion: to.Ptr(true),
 	})
 	if err != nil {
-		s.Logger.Logf("failed to begin delete of vmss %q for retry: %s", s.Runtime.VMSSName, err)
+		logging.Logf(ctx, "failed to begin delete of vmss %q for retry: %s", s.Runtime.VMSSName, err)
 		return
 	}
 	if _, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
-		s.Logger.Logf("failed to wait for delete of vmss %q for retry: %s", s.Runtime.VMSSName, err)
+		logging.Logf(ctx, "failed to wait for delete of vmss %q for retry: %s", s.Runtime.VMSSName, err)
 	}
 }
 
@@ -435,13 +446,13 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 
 	// These two links are really for local development
 	if config.Config.IsLocalBuild() {
-		s.Logger.Logf(
+		logging.Logf(ctx,
 			"VMSS portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/overview",
 			config.Config.SubscriptionID,
 			*cluster.Model.Properties.NodeResourceGroup,
 			s.Runtime.VMSSName,
 		)
-		s.Logger.Logf(
+		logging.Logf(ctx,
 			"Managed cluster portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters/%s/overview",
 			config.Config.SubscriptionID,
 			*cluster.Model.Properties.NodeResourceGroup,
@@ -510,26 +521,6 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 	resourceGroupName := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
 
 	delay := 5 * time.Second
-	retryOn := func(err error) bool {
-		var respErr *azcore.ResponseError
-		// only retry on Azure API errors with specific error codes
-		if !errors.As(err, &respErr) {
-			return false
-		}
-		// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
-		// It's not a quota issue
-		if respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed" {
-			return true
-		}
-		// GalleryImageNotFound can happen transiently after image replication completes
-		// due to Azure eventual consistency - the gallery API reports success but the
-		// compute fabric in the target region hasn't fully propagated the image yet
-		if respErr.StatusCode == 404 && respErr.ErrorCode == "GalleryImageNotFound" {
-			return true
-		}
-		return false
-	}
-
 	maxAttempts := 10
 	attempt := 0
 
@@ -541,7 +532,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 		}
 
 		// not a retryable error
-		if !retryOn(err) {
+		if !isRetryableVMSSCreationError(err) {
 			return vm, err
 		}
 
@@ -549,7 +540,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 			return vm, fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
 		}
 
-		toolkit.Logf(ctx, "failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
+		logging.Logf(ctx, "failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
 		select {
 		case <-ctx.Done():
 			return vm, err
@@ -558,13 +549,43 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 	}
 }
 
+func isRetryableVMSSCreationError(err error) bool {
+	var respErr *azcore.ResponseError
+	// only retry on Azure API errors with specific error codes
+	if !errors.As(err, &respErr) {
+		return false
+	}
+	// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
+	// It's not a quota issue
+	if respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed" {
+		return true
+	}
+	// GalleryImageNotFound can happen transiently after image replication completes
+	// due to Azure eventual consistency - the gallery API reports success but the
+	// compute fabric in the target region hasn't fully propagated the image yet
+	if respErr.StatusCode == 404 && respErr.ErrorCode == "GalleryImageNotFound" {
+		return true
+	}
+	return false
+}
+
 func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*ScenarioVM, error) {
-	defer toolkit.LogStepCtxf(ctx, "creating VMSS %s", s.Runtime.VMSSName)()
-	vm := &ScenarioVM{}
+	defer logging.LogStepf(ctx, "creating VMSS %s", s.Runtime.VMSSName)()
 	model, err := createVMSSModel(ctx, s)
 	if err != nil {
-		return vm, err
+		return &ScenarioVM{}, err
 	}
+	return createVMSS(ctx, s, resourceGroupName, model, DialSSHOverBastion)
+}
+
+func createVMSS(
+	ctx context.Context,
+	s *Scenario,
+	resourceGroupName string,
+	model armcompute.VirtualMachineScaleSet,
+	dialSSH func(context.Context, *Bastion, string, []byte) (*SSHClient, error),
+) (*ScenarioVM, error) {
+	vm := &ScenarioVM{}
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
@@ -577,14 +598,14 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	}
 	// We want to generate SSH instructions as soon as possible, so we can debug CSE issues
 	// Wait for VMSS VM to appear before extracting the private IP
-	vm.VM, err = waitForVMSSVM(ctx, s)
+	vm.VM, err = waitForVMSSVM(ctx, s, operation)
 	if err != nil {
 		return vm, fmt.Errorf("failed to wait for VMSS VM: %w", err)
 	}
 
 	vm.PrivateIP, err = getPrivateIPFromVMSSVM(ctx, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID)
 	if err != nil {
-		return vm, fmt.Errorf("failed to get VM private IP address: %w", err)
+		return vm, errors.Join(pollVMSSCreation(ctx, operation), fmt.Errorf("failed to get VM private IP address: %w", err))
 	}
 
 	// NOTE: teardown (log extraction + VMSS deletion) is registered once by the caller
@@ -593,34 +614,38 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 
 	result := "SSH Instructions: (may take a few minutes for the VM to be ready for SSH)\n========================\n"
 	if config.Config.KeepVMSS {
-		s.Logger.Logf("VM will be preserved after the test finishes, PLEASE MANUALLY DELETE THE VMSS. Set KEEP_VMSS=false to delete it automatically after the test finishes\n")
+		logging.Logf(ctx, "VM will be preserved after the test finishes, PLEASE MANUALLY DELETE THE VMSS. Set KEEP_VMSS=false to delete it automatically after the test finishes\n")
 	} else {
-		s.Logger.Logf("VM will be automatically deleted after the test finishes, to preserve it for debugging purposes set KEEP_VMSS=true or pause the test with a breakpoint before the test finishes or failed\n")
+		logging.Logf(ctx, "VM will be automatically deleted after the test finishes, to preserve it for debugging purposes set KEEP_VMSS=true or pause the test with a breakpoint before the test finishes or failed\n")
 	}
 	// We combine the az aks get credentials in the same line so we don't overwrite the user's kubeconfig.
 	result += fmt.Sprintf(`az network bastion ssh --target-resource-id "%s" --name "%s" --resource-group %s --auth-type ssh-key --username azureuser --ssh-key %s`, *vm.VM.ID, SharedBastionName, config.ResourceGroupName(*s.Runtime.Cluster.Model.Location), config.VMSSHPrivateKeyFileName) + "\n"
-	s.Logger.Log(result)
+	logging.Log(ctx, result)
 
-	vmssResp, err := operation.PollUntilDone(ctx, config.PollUntilDoneOptions())
+	vmssResp, provisionErr := operation.PollUntilDone(ctx, config.PollUntilDoneOptions())
 
-	// Log VMSS tags for diagnostics in the scenario log.
-	// For RCV1P tests, annotates the opt-in tag to help distinguish our tags from platform-injected ones.
-	vmssID := "<unknown>"
-	if vmssResp.ID != nil {
-		vmssID = *vmssResp.ID
-	}
 	// In the single-subscription model, if the scenario tags RCV1PCertMode we set the opt-in tag ourselves.
 	weSetRCV1PTag := s.Tags.RCV1PCertMode
-	logRCV1PAwareTags(s, "VMSS", "creation", s.Runtime.VMSSName, vmssID, vmssResp.Tags, weSetRCV1PTag, false)
-	if !s.Config.SkipSSHConnectivityValidation {
+	if provisionErr != nil {
+		logging.Logf(ctx, "VMSS %s provisioning failed: %v", s.Runtime.VMSSName, provisionErr)
+	} else {
+		// Log VMSS tags for diagnostics in the scenario log.
+		// For RCV1P tests, annotates the opt-in tag to help distinguish our tags from platform-injected ones.
+		vmssID := "<unknown>"
+		if vmssResp.ID != nil {
+			vmssID = *vmssResp.ID
+		}
+		logRCV1PAwareTags(ctx, s, "VMSS", "creation", s.Runtime.VMSSName, vmssID, vmssResp.Tags, weSetRCV1PTag, false)
+	}
+	if !s.Config.SkipSSHConnectivityValidation && (provisionErr == nil || vmssVMRunningAfterFailure(ctx, s, vm.VM)) {
 		var bastErr error
-		vm.SSHClient, bastErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
+		vm.SSHClient, bastErr = dialSSH(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
 		if bastErr != nil {
-			return vm, fmt.Errorf("failed to start bastion tunnel: %w", bastErr)
+			return vm, errors.Join(provisionErr, fmt.Errorf("failed to start bastion tunnel: %w", bastErr))
 		}
 	}
-	if err != nil {
-		return vm, err
+	if provisionErr != nil {
+		return vm, provisionErr
 	}
 
 	// Wait for VM to be in "Running" power state before proceeding
@@ -634,7 +659,7 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	if vm.VM.ID != nil {
 		vmInstanceID = *vm.VM.ID
 	}
-	logRCV1PAwareTags(s, "VM instance", "running", *vm.VM.InstanceID, vmInstanceID, vm.VM.Tags, weSetRCV1PTag, true)
+	logRCV1PAwareTags(ctx, s, "VM instance", "running", *vm.VM.InstanceID, vmInstanceID, vm.VM.Tags, weSetRCV1PTag, true)
 
 	return &ScenarioVM{
 		VMSS:      &vmssResp.VirtualMachineScaleSet,
@@ -642,6 +667,27 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		VM:        vm.VM,
 		SSHClient: vm.SSHClient,
 	}, nil
+}
+
+func vmssVMRunningAfterFailure(ctx context.Context, s *Scenario, vm *armcompute.VirtualMachineScaleSetVM) bool {
+	current, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
+		s.Runtime.VMSSName, *vm.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+			Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
+		})
+	if err != nil {
+		logging.Logf(ctx, "Skipping SSH diagnostics after provisioning failure: cannot read VM instance view: %v", err)
+		return false
+	}
+	*vm = current.VirtualMachineScaleSetVM
+	if vm.Properties != nil && vm.Properties.InstanceView != nil {
+		for _, status := range vm.Properties.InstanceView.Statuses {
+			if status != nil && status.Code != nil && *status.Code == "PowerState/running" {
+				return true
+			}
+		}
+	}
+	logging.Log(ctx, "Skipping SSH diagnostics after provisioning failure: VM is not confirmed running")
+	return false
 }
 
 // rcv1pTagKey is the VMSS/VM tag that opts a resource into hardened root-cert bootstrap.
@@ -652,12 +698,12 @@ const rcv1pTagKey = "platformsettings.host_environment.service.platform_optedin_
 // resourceKind is a human-readable kind ("VMSS" or "VM instance"); timingVerb describes
 // when the snapshot was taken ("creation" or "running"). inherited indicates the tags
 // were copied from a parent resource (true for VM instance tags inherited from VMSS).
-func logRCV1PAwareTags(s *Scenario, resourceKind, timingVerb, name, id string, tags map[string]*string, weSetTag, inherited bool) {
+func logRCV1PAwareTags(ctx context.Context, s *Scenario, resourceKind, timingVerb, name, id string, tags map[string]*string, weSetTag, inherited bool) {
 	if tags == nil {
-		s.Logger.Logf("%s %s (id: %s) has no tags after %s", resourceKind, name, id, timingVerb)
+		logging.Logf(ctx, "%s %s (id: %s) has no tags after %s", resourceKind, name, id, timingVerb)
 		return
 	}
-	s.Logger.Logf("%s %s (id: %s) tags after %s (%d):", resourceKind, name, id, timingVerb, len(tags))
+	logging.Logf(ctx, "%s %s (id: %s) tags after %s (%d):", resourceKind, name, id, timingVerb, len(tags))
 	inheritedNote := ""
 	if inherited {
 		inheritedNote = "inherited from VMSS, "
@@ -669,16 +715,16 @@ func logRCV1PAwareTags(s *Scenario, resourceKind, timingVerb, name, id string, t
 		}
 		if k == rcv1pTagKey {
 			if weSetTag {
-				s.Logger.Logf("  tag: %s = %s [RCV1P opt-in tag — %sset by us]", k, val, inheritedNote)
+				logging.Logf(ctx, "  tag: %s = %s [RCV1P opt-in tag — %sset by us]", k, val, inheritedNote)
 			} else {
-				s.Logger.Logf("  tag: %s = %s [RCV1P opt-in tag — %splatform-injected]", k, val, inheritedNote)
+				logging.Logf(ctx, "  tag: %s = %s [RCV1P opt-in tag — %splatform-injected]", k, val, inheritedNote)
 			}
 		} else {
-			s.Logger.Logf("  tag: %s = %s", k, val)
+			logging.Logf(ctx, "  tag: %s = %s", k, val)
 		}
 	}
 	if _, hasTag := tags[rcv1pTagKey]; !hasTag && s.Tags.RCV1PCertMode {
-		s.Logger.Logf("  [RCV1P opt-in tag %q NOT present on %s — this is expected for negative tests]", rcv1pTagKey, resourceKind)
+		logging.Logf(ctx, "  [RCV1P opt-in tag %q NOT present on %s — this is expected for negative tests]", rcv1pTagKey, resourceKind)
 	}
 }
 
@@ -704,11 +750,11 @@ func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.
 					if status.Code != nil && strings.HasPrefix(*status.Code, "PowerState/") {
 						powerState := strings.TrimPrefix(*status.Code, "PowerState/")
 						if powerState == "running" {
-							toolkit.Logf(ctxTimeout, "VM reached running state")
+							logging.Logf(ctxTimeout, "VM reached running state")
 							*vmssVM = vm.VirtualMachineScaleSetVM
 							return nil
 						}
-						toolkit.Logf(ctxTimeout, "VM is in power state: %s, waiting for running state...", powerState)
+						logging.Logf(ctxTimeout, "VM is in power state: %s, waiting for running state...", powerState)
 					}
 				}
 			}
@@ -730,7 +776,7 @@ func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.
 }
 
 // waitForVMSSVM polls until a VMSS VM instance appears with network profile or the timeout elapses.
-func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachineScaleSetVM, error) {
+func waitForVMSSVM(ctx context.Context, s *Scenario, operation *runtime.Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse]) (*armcompute.VirtualMachineScaleSetVM, error) {
 	ticker := time.NewTicker(config.Config.DefaultPollInterval)
 	defer ticker.Stop()
 
@@ -754,6 +800,10 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 			}
 		}
 
+		if err := pollVMSSCreation(ctx, operation); err != nil {
+			return nil, err
+		}
+
 		select {
 		case <-ctx.Done():
 			if lastErr != nil {
@@ -763,6 +813,17 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 		case <-ticker.C:
 		}
 	}
+}
+
+func pollVMSSCreation(ctx context.Context, operation *runtime.Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse]) error {
+	if _, err := operation.Poll(ctx); err != nil {
+		return fmt.Errorf("polling VMSS creation: %w", err)
+	}
+	if operation.Done() {
+		_, err := operation.Result(ctx)
+		return err
+	}
+	return nil
 }
 
 // getPrivateIPFromVMSSVM extracts the private IP address from a VMSS VM by querying its network interfaces.
@@ -833,14 +894,18 @@ func extractLogsFromVM(ctx context.Context, s *Scenario, vm *ScenarioVM) {
 	// errors that would otherwise obscure the real provisioning failure. Boot diagnostics are
 	// still collected best-effort below, and VMSS deletion is handled by the caller.
 	if vm == nil || vm.SSHClient == nil {
-		s.Logger.Logf("skipping SSH log extraction for VMSS %q: no SSH connection (provisioning likely failed before SSH was established)", s.Runtime.VMSSName)
+		if s.Config.SkipSSHConnectivityValidation {
+			logging.Logf(ctx, "skipping SSH log extraction for VMSS %q: scenario skips SSH connectivity", s.Runtime.VMSSName)
+		} else {
+			logging.Logf(ctx, "skipping SSH log extraction for VMSS %q: no SSH connection; SSH logs unavailable", s.Runtime.VMSSName)
+		}
 	} else if err := extractLogsFromVMLinux(ctx, s, vm); err != nil {
-		s.Logger.Logf("failed to extract logs from VM: %s", err)
+		logging.Logf(ctx, "failed to extract logs from VM: %s", err)
 	} else {
-		s.Logger.Logf("extracted VM logs to %s", artifactDir(s.artifactName))
+		logging.Logf(ctx, "extracted VM logs to %s", artifactDir(s.artifactName))
 	}
 	if err := extractBootDiagnostics(ctx, s); err != nil {
-		s.Logger.Logf("failed to extract boot diagnostics from VM: %s", err)
+		logging.Logf(ctx, "failed to extract boot diagnostics from VM: %s", err)
 	}
 }
 
@@ -850,6 +915,8 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 		return nil
 	}
 
+	httpClient := config.NewHttpClient()
+	defer httpClient.CloseIdleConnections()
 	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -873,29 +940,25 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 			// Save serial console log if available
 			logFile := fmt.Sprintf("serial-console-vm-%s.log", *vmInstance.InstanceID)
 			attempts := 0
+			var lastErr error
 			for {
+				if err := ctx.Err(); err != nil {
+					return fmt.Errorf("collect serial console log for VM %s: %w", *vmInstance.InstanceID, err)
+				}
 				if attempts >= 3 {
-					s.Logger.Logf("failed to download serial console log for VM %s after 3 attempts", *vmInstance.InstanceID)
-					break
+					return fmt.Errorf("failed to collect serial console log for VM %s after 3 attempts: %w", *vmInstance.InstanceID, lastErr)
 				}
 				attempts++
 
-				httpClient := config.NewHttpClient()
-				resp, err := httpClient.Get(*bootDiagResp.SerialConsoleLogBlobURI)
+				contents, err := downloadSerialConsoleLog(ctx, httpClient, *bootDiagResp.SerialConsoleLogBlobURI)
 				if err != nil {
-					s.Logger.Logf("failed to download serial console log for VM %s: %v", *vmInstance.InstanceID, err)
-					continue
-				}
-				body := resp.Body
-				defer body.Close()
-
-				contents, err := io.ReadAll(body)
-				if err != nil {
-					s.Logger.Logf("failed to read serial console log for VM %s: %v", *vmInstance.InstanceID, err)
+					lastErr = err
+					logging.Logf(ctx, "failed to download serial console log for VM %s: %v", *vmInstance.InstanceID, err)
 					continue
 				}
 				if err := writeToFile(s.artifactName, logFile, string(contents)); err != nil {
-					s.Logger.Logf("failed to write serial console log for VM %s: %v", *vmInstance.InstanceID, err)
+					lastErr = err
+					logging.Logf(ctx, "failed to write serial console log for VM %s: %v", *vmInstance.InstanceID, err)
 					continue
 				}
 				break
@@ -904,6 +967,27 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 	}
 	return nil
 }
+
+func downloadSerialConsoleLog(ctx context.Context, client *http.Client, blobURI string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, blobURI, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create serial console log request: %w", err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("download serial console log: HTTP %s", resp.Status)
+	}
+	return io.ReadAll(resp.Body)
+}
+
+const cloudInitAnalyzeCommand = "printf '%s\\n' '=== cloud-init analyze show ==='; sudo cloud-init analyze show; " +
+	"printf '\\n%s\\n' '=== cloud-init analyze dump ==='; sudo cloud-init analyze dump; " +
+	"printf '\\n%s\\n' '=== cloud-init analyze blame ==='; sudo cloud-init analyze blame; " +
+	"printf '\\n%s\\n' '=== cloud-init analyze boot ==='; sudo cloud-init analyze boot"
 
 func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) error {
 	syslogHandle := "syslog"
@@ -929,12 +1013,9 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"provision.json":                   "sudo cat /var/log/azure/aks/provision.json",
 		"cloud-init.log":                   "sudo cat /var/log/cloud-init.log",
 		"cloud-init-output.log":            "sudo cat /var/log/cloud-init-output.log",
-		"cloud-init-analyze.log": "printf '%s\n' '=== cloud-init analyze show ==='; sudo cloud-init analyze show; " +
-			"printf '\\n%s\\n' '=== cloud-init analyze dump ==='; sudo cloud-init analyze dump; " +
-			"printf '\\n%s\\n' '=== cloud-init analyze blame ==='; sudo cloud-init analyze blame; " +
-			"printf '\\n%s\\n' '=== cloud-init analyze boot ==='; sudo cloud-init analyze boot",
-		"systemd-analyze.log":       "sudo systemd-analyze critical-chain cloud-init-local.service",
-		"systemd-analyze-blame.log": "sudo systemd-analyze blame",
+		"cloud-init-analyze.log":           cloudInitAnalyzeCommand,
+		"systemd-analyze.log":              "sudo systemd-analyze critical-chain cloud-init-local.service",
+		"systemd-analyze-blame.log":        "sudo systemd-analyze blame",
 	}
 	if s.SecureTLSBootstrappingEnabled() {
 		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
@@ -946,20 +1027,9 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		commandList["azure-vnet-ipam.log"] = "sudo cat /var/log/azure-vnet-ipam.log"
 	}
 
-	var logFiles = map[string]string{}
-	for file, sourceCmd := range commandList {
-		execResult, err := execScriptOnVm(ctx, s, vm, sourceCmd)
-		if err != nil {
-			s.Logger.Logf("error executing %s: %s", sourceCmd, err)
-			continue
-		}
-		logFiles[file] = execResult.String()
-	}
-	err = dumpFileMapToDir(s.artifactName, logFiles)
-	if err != nil {
-		return fmt.Errorf("failed to dump log files: %w", err)
-	}
-	return nil
+	return collectCommandLogs(ctx, s.artifactName, commandList, func(ctx context.Context, command string) (*podExecResult, error) {
+		return execScriptOnVm(ctx, s, vm, command)
+	})
 }
 
 const uploadLogsPowershellScript = `
@@ -1035,11 +1105,11 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
 	page, err := pager.NextPage(ctx)
 	if err != nil {
-		s.Logger.Logf("failed to list VMSS instances: %s", err)
+		logging.Logf(ctx, "failed to list VMSS instances: %s", err)
 		return
 	}
 	if len(page.Value) == 0 {
-		s.Logger.Logf("no VMSS instances found")
+		logging.Logf(ctx, "no VMSS instances found")
 		return
 	}
 
@@ -1050,7 +1120,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	client := config.Azure.VMSSVMRunCommands
 
 	// Invoke the RunCommand on the VMSS instance
-	s.Logger.Logf("uploading windows logs to blob storage at %s, may take a few minutes", blobUrl)
+	logging.Logf(ctx, "uploading windows logs to blob storage at %s, may take a few minutes", blobUrl)
 
 	azurePortalURL := fmt.Sprintf(
 		"https://portal.azure.com/?feature.customportal=false#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s/containersList",
@@ -1059,7 +1129,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		config.Config.BlobStorageAccount(),
 	)
 
-	s.Logger.Logf("##vso[task.logissue type=warning;]Storage account %s (%s) in Azure portal: %s", config.Config.BlobStorageAccount(), blobPrefix, azurePortalURL)
+	logging.Logf(ctx, "##vso[task.logissue type=warning;]Storage account %s (%s) in Azure portal: %s", config.Config.BlobStorageAccount(), blobPrefix, azurePortalURL)
 
 	runCommandTimeout := int32((20 * time.Minute).Seconds())
 
@@ -1095,20 +1165,20 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		nil,
 	)
 	if err != nil {
-		s.Logger.Logf("failed to initiate run command on VMSS instance %s: %s", instanceID, err)
+		logging.Logf(ctx, "failed to initiate run command on VMSS instance %s: %s", instanceID, err)
 		return
 	}
 
 	// Poll the result until the operation is completed
 	runCommandResp, err := pollerResp.PollUntilDone(ctx, config.PollUntilDoneOptions())
 	if err != nil {
-		s.Logger.Logf("failed to poll run command on VMSS instance %s: %s", instanceID, err)
+		logging.Logf(ctx, "failed to poll run command on VMSS instance %s: %s", instanceID, err)
 	} else {
 		respJSON, _ := json.MarshalIndent(runCommandResp, "", "  ")
-		s.Logger.Logf("run command executed successfully:\n%s", respJSON)
+		logging.Logf(ctx, "run command executed successfully:\n%s", respJSON)
 	}
 
-	s.Logger.Logf("downloading any logs uploaded to %s", blobUrl)
+	logging.Logf(ctx, "downloading any logs uploaded to %s", blobUrl)
 	downloadCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
 	defer cancel()
 
@@ -1116,21 +1186,21 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		fileName := filepath.Join(artifactDir(s.artifactName), blobSuffix)
 		err := os.MkdirAll(artifactDir(s.artifactName), 0755)
 		if err != nil {
-			s.Logger.Logf("failed to create directory %q: %s", artifactDir(s.artifactName), err)
+			logging.Logf(ctx, "failed to create directory %q: %s", artifactDir(s.artifactName), err)
 			return
 		}
 		file, err := os.Create(fileName)
 		if err != nil {
-			s.Logger.Logf("failed to create file %q: %s", fileName, err)
+			logging.Logf(ctx, "failed to create file %q: %s", fileName, err)
 			return
 		}
 		// NOTE, read after write is possible, list blobs is eventually consistent and may fail
 		_, err = config.Azure.Blob.DownloadFile(downloadCtx, config.Config.BlobContainer, blobPrefix+"/"+blobSuffix, file, nil)
 		if err != nil {
-			s.Logger.Logf("failed to download collected logs: %s", err)
+			logging.Logf(ctx, "failed to download collected logs: %s", err)
 			err = os.Remove(file.Name())
 			if err != nil {
-				s.Logger.Logf("failed to remove file: %s", err)
+				logging.Logf(ctx, "failed to remove file: %s", err)
 			}
 			return
 		}
@@ -1141,14 +1211,14 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	downloadBlob("containerd.err.log")
 	downloadBlob("network_config.txt")
 	downloadBlob("collected-node-logs.zip")
-	s.Logger.Logf("logs collected to %s", artifactDir(s.artifactName))
+	logging.Logf(ctx, "logs collected to %s", artifactDir(s.artifactName))
 }
 
 func deleteVMSS(ctx context.Context, s *Scenario) error {
 	if config.Config.KeepVMSS {
-		s.Logger.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", s.Runtime.VMSSName)
+		logging.Logf(ctx, "vmss %q will be retained for debugging purposes, please make sure to manually delete it later", s.Runtime.VMSSName)
 		if err := writeToFile(s.artifactName, "sshkey", string(config.VMSSHPrivateKey)); err != nil {
-			s.Logger.Logf("failed to write retained vmss %s private ssh key to disk: %s", s.Runtime.VMSSName, err)
+			logging.Logf(ctx, "failed to write retained vmss %s private ssh key to disk: %s", s.Runtime.VMSSName, err)
 		}
 		return nil
 	}
@@ -1162,7 +1232,6 @@ func deleteVMSS(ctx context.Context, s *Scenario) error {
 		}
 		return fmt.Errorf("begin deleting vmss %q: %w", s.Runtime.VMSSName, err)
 	}
-	s.Logger.Logf("vmss %q deletion started", s.Runtime.VMSSName)
 	return nil
 }
 
@@ -1296,7 +1365,7 @@ func addDualStackSecondaryNIC(vmss *armcompute.VirtualMachineScaleSet) {
 }
 
 func generateVMSSNameLinux(artifactName string) string {
-	name := fmt.Sprintf("%s-%s-%s", randomLowercaseString(4), time.Now().Format(time.DateOnly), artifactName)
+	name := fmt.Sprintf("%s-%s-%s", time.Now().Format(time.DateOnly), randomLowercaseString(4), artifactName)
 	name = strings.ReplaceAll(name, "_", "")
 	name = strings.ReplaceAll(name, "/", "")
 	name = strings.ReplaceAll(name, "Test", "")
@@ -1304,7 +1373,7 @@ func generateVMSSNameLinux(artifactName string) string {
 	if len(name) > 57 { // a limit for VMSS name
 		name = name[:57]
 	}
-	return name
+	return strings.TrimRight(name, "-.")
 }
 
 func generateVMSSNameWindows() string {
@@ -1601,7 +1670,7 @@ func scenarioVMSize(s *Scenario) string {
 	if s.Runtime != nil && s.Runtime.VMSize != "" {
 		return s.Runtime.VMSize
 	}
-	return config.Config.DefaultVMSKU
+	return config.Config.VMSKU()
 }
 
 func generateWindowsPassword() string {

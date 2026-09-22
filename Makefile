@@ -100,7 +100,7 @@ shellspec-ci: shellspec-base-ci
 	docker run --rm \
 		-v $(CURDIR):/workspace \
 		-w /workspace \
-		shellspec-docker --shell bash --format d
+		shellspec-docker --shell bash --format d --kcov --covdir coverage
 
 .PHONY: shellspec-focus
 shellspec-focus: shellspec-base-local

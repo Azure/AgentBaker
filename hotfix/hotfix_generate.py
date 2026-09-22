@@ -6,7 +6,8 @@ Auto-detects what needs a hotfix and generates the version numbers for it:
 
 1. If aks-node-controller/ (the Go module) has changes other than *_test.go or
    testdata files vs the base branch, bumps the patch of the current
-   pkg/agent/datamodel/linux_sig_version.json version and uses it as `version`.
+   pkg/agent/datamodel/linux_sig_version.json version and writes it in the
+   `hotfixes` map.
 
 2. Detects which CSE provisioning scripts differ from the immutable VHD baseline
    (the release tag the VHD was built from, derived from linux_sig_version.json),
@@ -17,8 +18,8 @@ Auto-detects what needs a hotfix and generates the version numbers for it:
    delivery paths cumulative.
 
 3. Writes `scripts_version` for script hotfixes. With --use-anc-for-scripts, also
-   writes `version` to activate the embedded ANC payload. Independent ANC code
-   changes always write `version`.
+   writes the `hotfixes` map to activate the embedded ANC payload. Independent ANC
+   code changes always write `hotfixes`.
 
 Usage: python3 hotfix/hotfix_generate.py <base_ref> [options]
   base_ref: git ref for the PR base branch, used only to detect ANC Go-module
@@ -28,7 +29,7 @@ Usage: python3 hotfix/hotfix_generate.py <base_ref> [options]
   --baseline-ref: optional testing override for changed-script detection. Payloads
                   generated with this option are not necessarily cumulative.
   --use-anc-for-scripts: additionally activate generated script payloads through
-                         the ANC version.
+                         the ANC hotfixes map.
 
 This script is called by the hotfix-generate GH Action.
 """
@@ -70,6 +71,11 @@ SOURCE_TO_VARKEY = {
     "mariner/cse_install_mariner.sh": "provisionInstallsMariner",
     # CSE config
     "cse_config.sh": "provisionConfigs",
+    "cse_config_gpu.sh": "provisionConfigsGPU",
+    "cse_config_localdns.sh": "provisionConfigsLocalDNS",
+    "cse_config_kubelet.sh": "provisionConfigsKubelet",
+    "cse_config_network.sh": "provisionConfigsNetwork",
+    "cse_config_addons.sh": "provisionConfigsAddons",
     # CSE main
     "cse_main.sh": "provisionScript",
     # Other scripts present in traditional nodecustomdata
@@ -215,7 +221,8 @@ def write_hotfix_file(version, scripts_version):
     """Write resolved hotfix pointers while retaining inherited pointers if idle."""
     payload = {}
     if version:
-        payload["version"] = version
+        base = ".".join(version.split(".")[:2])
+        payload["hotfixes"] = {base: version}
     if scripts_version:
         payload["scripts_version"] = scripts_version
 
@@ -543,7 +550,7 @@ def main():
         "--use-anc-for-scripts",
         action="store_true",
         help=(
-            "also set version for script hotfixes to activate the embedded ANC "
+            "also set hotfixes for script hotfixes to activate the embedded ANC "
             "payload"
         ),
     )
@@ -604,10 +611,10 @@ def main():
         reason = "ANC production files changed"
         if script_hotfix_changed and args.use_anc_for_scripts:
             reason = "ANC production files or generated script payloads changed"
-        print(f"{reason} vs {base_ref}; version={version}", file=sys.stderr)
+        print(f"{reason} vs {base_ref}; hotfixes={version}", file=sys.stderr)
     else:
         print(f"aks-node-controller/ has no production changes vs {base_ref}; "
-              "version not set", file=sys.stderr)
+              "hotfixes not set", file=sys.stderr)
 
     if scripts_version:
         print(

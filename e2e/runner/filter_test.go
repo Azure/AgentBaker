@@ -46,6 +46,28 @@ func TestPartitionScenariosAcceptsLegacyTestNameFilter(t *testing.T) {
 	assert.Equal(t, "Ubuntu2204", filtered[0].Name)
 }
 
+func TestFilterReasonIsConcise(t *testing.T) {
+	s := &scenario.Scenario{
+		Name: "Windows2025Gen2_McrChinaCloud_Windows",
+		Tags: scenario.Tags{OS: "windows", MockAzureChinaCloud: true},
+	}
+	for _, test := range []struct {
+		name   string
+		filter tagFilter
+		want   string
+	}{
+		{"run", tagFilter{run: "os=linux"}, `filtered: does not match run filter "os=linux"`},
+		{"skip", tagFilter{skip: "os=windows,gpu=true"}, `filtered: matches skip filter "os=windows,gpu=true"`},
+		{"included", tagFilter{run: "os=windows"}, ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			reason, err := filterReason(s.Name, s, test.filter)
+			require.NoError(t, err)
+			assert.Equal(t, test.want, reason)
+		})
+	}
+}
+
 func TestPartitionScenariosRejectsInvalidFilters(t *testing.T) {
 	scenarios := []*scenario.Scenario{{Name: "Only"}}
 	for _, filter := range []tagFilter{{run: "not-a-pair"}, {skip: "unknownKey=true"}} {
@@ -67,7 +89,7 @@ func TestAppFailsBeforeInitializationWhenFiltersMatchNothing(t *testing.T) {
 	var stderr bytes.Buffer
 	app := NewApp(&bytes.Buffer{}, &stderr)
 	code := app.Run(context.Background(), []string{
-		"e2e", "run", "--log-dir", t.TempDir(), "--junit-file", junitFile, "--tags", "Name=DoesNotExist", "Ubuntu2204",
+		"e2e", "run", "--log-dir", t.TempDir(), "--junit-file", junitFile, "--tags", "Name=DoesNotExist", "Ubuntu2204_CustomLinuxOSConfig_Taints_ANC",
 	})
 
 	assert.Equal(t, exitUsage, code, "stderr: %s", stderr.String())
@@ -85,7 +107,7 @@ func TestAppFailsFastOnInvalidTagFilter(t *testing.T) {
 	var stderr bytes.Buffer
 	app := NewApp(&bytes.Buffer{}, &stderr)
 	code := app.Run(context.Background(), []string{
-		"e2e", "run", "--log-dir", t.TempDir(), "--tags", "not-a-pair", "Ubuntu2204",
+		"e2e", "run", "--log-dir", t.TempDir(), "--tags", "not-a-pair", "Ubuntu2204_CustomLinuxOSConfig_Taints_ANC",
 	})
 
 	assert.Equal(t, exitFailure, code, "stderr: %s", stderr.String())

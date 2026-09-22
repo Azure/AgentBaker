@@ -209,6 +209,12 @@ Please note that each minor version can only have 2 patch versions at most, whic
 
 For a `package`, you will need to add these under `versionsV2`.
 
+Package-backed component entries use revisionless upstream versions whenever the distro revision is not part of the component's compatibility contract. This includes kubelet, kubectl, runc, containerd, CNI plugins, CRI tools, Inspektor Gadget, the ACR credential provider, the secure TLS bootstrap client, managed NVIDIA components, and node exporter. During VHD build and node provisioning, AgentBaker resolves each version to the newest matching DEB or RPM revision available in the configured repository.
+
+The `ig-gadgets` versions remain in `install-ig.sh` because their publication differs from the `ig` package. Renovate tracks their upstream version from the PMC feeds, and the VHD build resolves the latest matching DEB or RPM revision.
+
+Each resolution is logged as `requested -> full package version` and written to the VHD release notes. The release notes also include the distro's complete installed-package inventory; explicit resolution entries cover packages that are cached or unpacked without being registered as installed packages.
+
 ## Can I keep only 1 patch version?
 Yes. Just place the latest version of the component in `latestVersion`. `previousLatestVersion` is optional.
 

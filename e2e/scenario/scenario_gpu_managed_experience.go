@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strings"
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
@@ -122,38 +122,6 @@ func extractMajorMinorPatchVersion(version string) string {
 	return ""
 }
 
-// extractPackageRevision returns the distro rebuild-revision counter from a
-// version string. This is the integer that MUST stay in lockstep across OS
-// variants of the same package: a Renovate bump is expected to move Ubuntu and
-// Azure Linux together, so a divergence here means only one OS was updated.
-//
-// Examples:
-//
-//	"4.8.2-ubuntu24.04u2" -> "2"  (Ubuntu PMC rebuild counter)
-//	"4.8.2-1.azl3"        -> "1"  (Azure Linux rebuild counter)
-//	"1:4.5.3-1"           -> "1"  (handles epoch prefix)
-func extractPackageRevision(version string) string {
-	// Remove epoch prefix (e.g., "1:" in "1:4.4.1-1")
-	version = regexp.MustCompile(`^\d+:`).ReplaceAllString(version, "")
-
-	// The rebuild revision lives in the trailing token after the last "-".
-	idx := strings.LastIndex(version, "-")
-	if idx == -1 {
-		return ""
-	}
-	rev := version[idx+1:] // e.g. "ubuntu24.04u2", "1.azl3", "1"
-
-	// Ubuntu scheme: "...uN" at the end of the token.
-	if m := regexp.MustCompile(`u(\d+)$`).FindStringSubmatch(rev); m != nil {
-		return m[1]
-	}
-	// Azure Linux / plain scheme: leading integer (e.g. "1.azl3", "1").
-	if m := regexp.MustCompile(`^(\d+)`).FindStringSubmatch(rev); m != nil {
-		return m[1]
-	}
-	return ""
-}
-
 type packageOSVariant struct {
 	pkgName   string
 	osName    string
@@ -167,7 +135,9 @@ func init() {
 		os             string
 		osVersion      string
 		description    string
-		downloadCmd    string
+		packageDir     string
+		packagePattern string
+		packagePath    string
 		extractDepsCmd string
 		coreRegex      string
 		propRegex      string
@@ -180,7 +150,9 @@ func init() {
 			os:             "ubuntu",
 			osVersion:      "r2404",
 			description:    "Tests that DCGM Exporter is compatible with its dependencies on Ubuntu 24.04 GPU nodes",
-			downloadCmd:    "curl -fL --retry 3 --retry-all-errors -o /tmp/dcgm-exporter.deb 'https://packages.microsoft.com/repos/microsoft-ubuntu-noble-prod/pool/main/d/dcgm-exporter/dcgm-exporter_%s_amd64.deb'",
+			packageDir:     "https://packages.microsoft.com/repos/microsoft-ubuntu-noble-prod/pool/main/d/dcgm-exporter",
+			packagePattern: `dcgm-exporter_%s-ubuntu24\.04u[0-9]+_amd64\.deb`,
+			packagePath:    "/tmp/dcgm-exporter.deb",
 			extractDepsCmd: "dpkg-deb -f /tmp/dcgm-exporter.deb Depends",
 
 			// Parse output like: "..., datacenter-gpu-manager-4-core (= 1:4.4.2-1), datacenter-gpu-manager-4-proprietary (= 1:4.4.2-1), ..."
@@ -193,7 +165,9 @@ func init() {
 			os:             "azurelinux",
 			osVersion:      "v3.0",
 			description:    "Tests that DCGM Exporter is compatible with its dependencies on Azure Linux 3.0 GPU nodes",
-			downloadCmd:    "curl -fL --retry 3 --retry-all-errors -o /tmp/dcgm-exporter.rpm 'https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/Packages/d/dcgm-exporter-%s.x86_64.rpm'",
+			packageDir:     "https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/Packages/d",
+			packagePattern: `dcgm-exporter-%s-[0-9]+\.azl3\.x86_64\.rpm`,
+			packagePath:    "/tmp/dcgm-exporter.rpm",
 			extractDepsCmd: "rpm -qpR /tmp/dcgm-exporter.rpm | grep datacenter-gpu-manager",
 
 			// Parse output like: "...\ndatacenter-gpu-manager-4-core = 1:4.5.1-1\ndatacenter-gpu-manager-4-proprietary = 1:4.5.1-1\n..."
@@ -202,7 +176,7 @@ func init() {
 		},
 	}
 
-	getVersions := func(s *Scenario, tc testCase) (string, string, string, error) {
+	getVersions := func(tc testCase) (string, string, string, error) {
 		dcgmExporterVersion, err := expectedPackageVersion("dcgm-exporter", tc.os, tc.osVersion)
 		if err != nil {
 			return "", "", "", err
@@ -216,15 +190,10 @@ func init() {
 			return "", "", "", err
 		}
 
-		s.Logger.Logf("Expected versions from components.json:")
-		s.Logger.Logf("  dcgm-exporter: %s", dcgmExporterVersion)
-		s.Logger.Logf("  datacenter-gpu-manager-4-core: %s", expectedCoreVersion)
-		s.Logger.Logf("  datacenter-gpu-manager-4-proprietary: %s", expectedPropVersion)
-
 		return dcgmExporterVersion, expectedCoreVersion, expectedPropVersion, nil
 	}
 
-	parseVersions := func(s *Scenario, tc testCase, cmdLineOutput string) (string, string, error) {
+	parseVersions := func(tc testCase, cmdLineOutput string) (string, string, error) {
 		coreRegex := regexp.MustCompile(tc.coreRegex)
 		coreMatches := coreRegex.FindStringSubmatch(cmdLineOutput)
 
@@ -239,10 +208,6 @@ func init() {
 		}
 		actualCoreVersion := coreMatches[1]
 		actualPropVersion := propMatches[1]
-
-		s.Logger.Logf("Actual versions from dcgm-exporter package:")
-		s.Logger.Logf("  datacenter-gpu-manager-4-core: %s", actualCoreVersion)
-		s.Logger.Logf("  datacenter-gpu-manager-4-proprietary: %s", actualPropVersion)
 
 		return actualCoreVersion, actualPropVersion, nil
 	}
@@ -260,47 +225,62 @@ func init() {
 				SkipDefaultValidation: true,
 				Validator: func(ctx context.Context, s *Scenario) error {
 					// Step 1: Get expected versions from components.json
-					dcgmExporterVersion, expectedCoreVersion, expectedPropVersion, err := getVersions(s, tc)
+					dcgmExporterVersion, expectedCoreVersion, expectedPropVersion, err := getVersions(tc)
 					if err != nil {
 						return err
 					}
 
+					logging.Logf(ctx, "Expected versions from components.json:")
+					logging.Logf(ctx, "  dcgm-exporter: %s", dcgmExporterVersion)
+					logging.Logf(ctx, "  datacenter-gpu-manager-4-core: %s", expectedCoreVersion)
+					logging.Logf(ctx, "  datacenter-gpu-manager-4-proprietary: %s", expectedPropVersion)
+
 					// Step 2: Download dcgm-exporter package from PMC
-					s.Logger.Logf("Downloading dcgm-exporter package from PMC...")
-					downloadCmd := fmt.Sprintf(tc.downloadCmd, dcgmExporterVersion)
+					logging.Logf(ctx, "Downloading dcgm-exporter package from PMC...")
+					packagePattern := fmt.Sprintf(tc.packagePattern, regexp.QuoteMeta(dcgmExporterVersion))
+					downloadCmd := fmt.Sprintf(`set -o pipefail
+package=$(curl -fsSL --retry 3 --retry-all-errors '%s/' | grep -oE '%s' | sort -V | tail -n1)
+test -n "$package"
+echo "Resolved dcgm-exporter package version %s -> $package"
+curl -fL --retry 3 --retry-all-errors -o '%s' "%s/$package"`,
+						tc.packageDir, packagePattern, dcgmExporterVersion, tc.packagePath, tc.packageDir)
 					if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, downloadCmd, 0, "Failed to download dcgm-exporter package"); err != nil {
 						return err
 					}
 
 					// Step 3: Extract dependency versions from the package
-					s.Logger.Logf("Extracting dependency versions from package...")
+					logging.Logf(ctx, "Extracting dependency versions from package...")
 					result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, tc.extractDepsCmd, 0, "Failed to extract dependencies from package")
 					if err != nil {
 						return err
 					}
 
 					dependsOutput := result.stdout
-					s.Logger.Logf("Package dependencies: %s", dependsOutput)
+					logging.Logf(ctx, "Package dependencies: %s", dependsOutput)
 
 					// Step 4: Parse and verify versions match components.json
-					actualCoreVersion, actualPropVersion, err := parseVersions(s, tc, dependsOutput)
+					actualCoreVersion, actualPropVersion, err := parseVersions(tc, dependsOutput)
 					if err != nil {
 						return err
 					}
 
+					logging.Logf(ctx, "Actual versions from dcgm-exporter package:")
+					logging.Logf(ctx, "  datacenter-gpu-manager-4-core: %s", actualCoreVersion)
+					logging.Logf(ctx, "  datacenter-gpu-manager-4-proprietary: %s", actualPropVersion)
+
 					// Verify versions match
 					if err := errors.Join(
-						assert.Equal(actualCoreVersion, expectedCoreVersion,
+						assert.Equal(extractMajorMinorPatchVersion(actualCoreVersion), extractMajorMinorPatchVersion(expectedCoreVersion),
 							"datacenter-gpu-manager-4-core version mismatch: components.json has %s but dcgm-exporter requires %s",
 							expectedCoreVersion, actualCoreVersion),
-						assert.Equal(actualPropVersion, expectedPropVersion,
+						assert.Equal(extractMajorMinorPatchVersion(actualPropVersion), extractMajorMinorPatchVersion(expectedPropVersion),
 							"datacenter-gpu-manager-4-proprietary version mismatch: components.json has %s but dcgm-exporter requires %s",
 							expectedPropVersion, actualPropVersion),
 					); err != nil {
 						return err
 					}
 
-					s.Logger.Logf("✅ Version compatibility verified: dcgm-exporter %s is compatible with DCGM packages %s",
+					logging.Logf(ctx, "✅ Version compatibility verified: dcgm-exporter %s is compatible with DCGM packages %s",
 						dcgmExporterVersion, expectedCoreVersion)
 					return nil
 				},

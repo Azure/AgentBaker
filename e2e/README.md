@@ -16,27 +16,45 @@ From a high-level, for each scenario,
 3. Liveness and health checks and then run to make sure the new VM's kubelet is posting NodeReady, and that workload
    pods can successfully be scheduled and run on the new node.
 
-To write an E2E scenario,
+## Writing and extending scenarios
 
-- Choose a test cluster. The cluster definitions are in [cache.go](scenario/cache.go).
-    - ClusterKubenet
-    - ClusterAzureNetwork
-    - ClusterAzureOverlayNetwork
-    - ClusterAzureOverlayNetworkDualStack
-    - ClusterCiliumNetwork
-    - ClusterLatestKubernetesVersion
-    - ClusterAzureBootstrapProfileCache (private ACR)
-    - ClusterAzureNetworkIsolated (no internet access)
-- use `NodeBootstrappingConfiugration` (`nbc`) to setup your scenario. it is used to invoke the primary
-  node-bootstrapping
-  API [GetLatestNodeBootstrapping](https://github.com/Azure/AgentBaker/blob/2e730b5a498c5be9b082d912fd08ac9346582db9/pkg/agent/bakerapi.go#L14).
-  to modify agentpool properties, usually you need to set both`nbc.containerService.properties.AgentPoolProfiles[0].xxx`
-  as well as `nbc.agentPoolProfile`. It is because when RP invokes AgentBaker, it will set the properties in this way
-  and in e2e we follow the pattern.
-- use `VMConfigMutator` to set VMSS properties such as SKU when needed.
-  Read [vmss.go](scenario/vmss.go) for other configuration values.
-  it is necessary to set `nbc.agentPoolProfile.VMSize` to match the VMSS SKU if you choose to change.
-- use `Validator` to include your own verification of the VM's live state, such as file existsnce, sysctl settings, etc.
+Extend an existing scenario's `Validator` when its node has the required settings.
+Each separate scenario creates test VM resources; the runner does not combine them.
+
+1. Compare actual inputs: image, architecture, VM size, network, NBC/ANC settings,
+   VMSS tags, and direct provisioning or VHD caching. Preserve required default
+   and custom input cases.
+2. Keep configuration and checks together. Identify each check's errors, validate
+   provisioning state before changing it, and capture timing before disruptive work.
+   Keep reboot/corruption steps ordered; restore state and clean up test resources.
+3. Add a scenario only for different required inputs or a separate-node lifecycle.
+   Explain the reason in the PR.
+
+### Scenario names
+
+Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
+`Ubuntu2204_CustomLinuxOSConfig_Taints_ANC` or
+`AzureLinuxV3_CustomLinuxOSConfig_ANC_Reboot`.
+
+- Name the configuration or lifecycle; put assertions and disruptive steps in
+  `Description`. Adding a check alone does not require a rename.
+- Include hardware, network, architecture, or provisioning mode when relevant.
+  Reserve OS-only names for nodes without distinguishing custom settings.
+- `PreinstalledBinaries` means source-VHD binaries, not `VHDCaching`'s bake/real-node
+  lifecycle. Preserve performance-test timing extraction and isolation.
+- Renames affect selectors, logs, and report history; there are no aliases.
+  Update repository references, list old/new names in the PR, and flag external
+  exact-name selectors for update.
+
+### Configuring a separate scenario
+
+- Choose a cluster from [cache.go](scenario/cache.go).
+- Set bootstrap inputs through `NodeBootstrappingConfiguration`. Mirror RP's
+  agent-pool settings in both `nbc.ContainerService.Properties.AgentPoolProfiles[0]`
+  and `nbc.AgentPoolProfile` where required.
+- Set VMSS properties through `VMConfigMutator`; keep its SKU and
+  `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
+- Use `Validator` to check the resulting node state.
 
 ## VM size configuration
 
@@ -54,6 +72,18 @@ which defaults to `Standard_D2ds_v6`. Set it with `--mana-vm-sku` or `MANA_VM_SK
 Choose a size that supports MANA and NVMe. This setting controls both the bootstrap
 configuration and the VMSS SKU. Command-line arguments take precedence over environment variables.
 
+## Gallery replication
+
+When selecting a gallery image by version or tag, the runner adds the test region
+if needed and waits for that region's replication status to reach `Completed`.
+The region does not need to be known at VHD build time.
+
+Each update preserves the live target list and disables region deletion. After a
+rejected update, the runner logs the error, waits, and re-reads the image before
+trying again. Polling uses `--poll-interval` and the caller's deadline. A persistent
+write failure returns at the deadline with the last update error. Authentication
+and authorization failures (HTTP 401/403) return immediately.
+
 ## Infrastructure Architecture
 
 All E2E clusters share a single VNet and Azure Bastion in the `abe2e-{location}` resource group. This
@@ -67,8 +97,8 @@ graph TB
             BASTION_SUBNET["AzureBastionSubnet<br/>10.0.0.0/26"]
             FW_SUBNET["AzureFirewallSubnet<br/>10.0.1.0/24"]
             PE_SUBNET["abe2e-pe-subnet<br/>10.0.2.0/24<br/>(shared private endpoints)"]
-            KUBENET_SUBNET["aks-subnet-abe2e-kubenet-v5<br/>10.x.x.0/20"]
-            AZNET_SUBNET["aks-subnet-abe2e-azure-network-v4<br/>10.x.x.0/20"]
+            KUBENET_SUBNET["aks-subnet-abe2e-kubenet-*<br/>10.x.x.0/20"]
+            AZNET_SUBNET["aks-subnet-abe2e-azure-networkisolated-*<br/>10.x.x.0/20"]
             MORE_SUBNETS["... more cluster subnets"]
         end
         BASTION["abe2e-shared-bastion<br/>(Standard SKU, Tunneling)"]
@@ -80,13 +110,13 @@ graph TB
         ACR_NONANON["abe2eprivatenonanon{location}<br/>(Non-anonymous Private ACR)"]
     end
 
-    subgraph MC_KUBENET["MC_abe2e-kubenet-v5 Resource Group"]
+    subgraph MC_KUBENET["MC_*_abe2e-kubenet-* Resource Group"]
         VMSS_K["VMSS (system pool)"]
         VMSS_K_TEST["VMSS (test VMs)"]
         RT_K["Route Table<br/>(pod routes + firewall)"]
     end
 
-    subgraph MC_NI["MC_abe2e-azure-networkisolated-v2 Resource Group"]
+    subgraph MC_NI["MC_*_abe2e-azure-networkisolated-* Resource Group"]
         VMSS_NI["VMSS (system pool)"]
         NSG_NI["NSG<br/>(blocks internet)"]
     end
@@ -110,6 +140,9 @@ graph TB
 The shared infrastructure is created **automatically** on first test run via cached idempotent
 functions — no separate setup script is needed.
 
+Cluster setup keeps three Konnectivity agents to avoid scale-down interruptions during pod exec.
+See [Azure's autoscaler configuration](https://learn.microsoft.com/en-us/troubleshoot/azure/azure-kubernetes/connectivity/tunnel-connectivity-issues#solution-6-cluster-proportional-autoscaler-for-konnectivity-agent).
+
 | Resource | Name | Details |
 |----------|------|---------|
 | VNet | `abe2e-shared-vnet` | `10.0.0.0/8` — supports ~4096 `/20` cluster subnets |
@@ -127,18 +160,19 @@ avoid collisions.
 ### Cluster Types
 
 All clusters use BYOV (Bring Your Own VNet) with the shared VNet. They differ in networking
-plugin, isolation level, and whether private ACR is needed.
+plugin, isolation level, and whether private ACR is needed. Current cluster names and versions
+are defined in [`scenario/cache.go`](scenario/cache.go).
 
-| Cluster | Network Plugin | Special Features | Private ACR |
+| Cluster Name Pattern | Network Plugin | Special Features | Private ACR |
 |---------|---------------|-----------------|:-----------:|
-| `abe2e-kubenet-v5` | Kubenet | Basic pod routing via route table | ❌ |
-| `abe2e-azure-network-v4` | Azure CNI | Pods get IPs from subnet (MaxPods=30) | ❌ |
-| `abe2e-azure-overlay-network-v4` | Azure CNI Overlay | Pods in virtual overlay, not subnet | ❌ |
-| `abe2e-azure-overlay-dualstack-v4` | Azure CNI Overlay | IPv4+IPv6 dual-stack | ❌ |
-| `abe2e-cilium-network-v4` | Azure CNI + Cilium | eBPF dataplane, replaces kube-proxy | ❌ |
-| `abe2e-latest-kubernetes-version-v2` | Kubenet | Auto-discovers latest GA K8s version | ❌ |
-| `abe2e-azure-bootstrapprofile-cache-v2` | Azure CNI | Bootstrap artifact caching from private ACR | ✅ |
-| `abe2e-azure-networkisolated-v2` | Azure CNI | NSG blocks all internet except allowlist | ✅ |
+| `abe2e-kubenet-v*` | Kubenet | Basic pod routing via route table | ❌ |
+| `abe2e-azure-network-v*` | Azure CNI | Pods get IPs from subnet (MaxPods=30) | ❌ |
+| `abe2e-azure-overlay-network-v*` | Azure CNI Overlay | Pods in virtual overlay, not subnet | ❌ |
+| `abe2e-azure-overlay-dualstack-v*` | Azure CNI Overlay | IPv4+IPv6 dual-stack | ❌ |
+| `abe2e-cilium-network-v*` | Azure CNI + Cilium | eBPF dataplane, replaces kube-proxy | ❌ |
+| `abe2e-latest-k8s-v*` | Kubenet | Auto-discovers latest GA K8s version | ❌ |
+| `abe2e-azure-bootstrapprofile-cache-v*` | Azure CNI | Bootstrap artifact caching from private ACR | ✅ |
+| `abe2e-azure-networkisolated-v*` | Azure CNI | NSG blocks all internet except allowlist | ✅ |
 
 **Network-isolated cluster** adds an NSG to its subnet that blocks all outbound traffic except
 `management.azure.com`, the cluster FQDN, and `packages.aks.azure.com`. Private endpoints for
@@ -231,7 +265,7 @@ To run one scenario, give its name to the script:
 Give more than one name to run multiple scenarios:
 
 ```bash
-./e2e-local.sh AzureLinuxV2 Ubuntu2204
+./e2e-local.sh AzureLinuxV2 Ubuntu2204_CustomLinuxOSConfig_Taints_ANC
 ```
 
 ### Debugging
@@ -259,6 +293,23 @@ The runner writes plain-text scenario logs. It does not write a JUnit file by de
 
 ADO uses `--output grouped`. Local runs stream prefixed logs when three or fewer scenario entry points are selected.
 
+### Logging
+
+Use `logging.Log(ctx, ...)` or `logging.Logf(ctx, ...)` from `e2e/logging`.
+The runner attaches a logger to each attempt's context before it calls the scenario.
+Pass that context through skip checks, provisioning, validation, and cleanup. Do not
+store a logger on a scenario or pass a separate logger argument.
+
+For timed steps, use `defer logging.LogStep(ctx, "creating VMSS")()` or
+`defer logging.LogStepf(ctx, "creating VMSS %s", name)()`.
+Use `logging.LogDuration` to emit a warning when a duration exceeds its threshold.
+
+The runner owns log files and console output. The logging package falls back to the
+standard logger when a context has no logger. In unit tests, use
+`logging.WithLogger(t.Context(), t)` to send messages to the test log.
+For cleanup that must continue after cancellation, derive its context with
+`context.WithoutCancel(ctx)` and set a timeout. This preserves the attempt logger.
+
 ### Cleanup
 
 Azure resources are deleted periodically by an external garbage collector. Locally stopped tests attempt a graceful
@@ -272,10 +323,18 @@ The executable entry point is [main.go](main.go). It handles signals and starts 
 |---------|----------------|
 | [runner](runner/) | CLI, selection, concurrency, retries, logs, and JUnit reports |
 | [scenario](scenario/) | Scenario definitions, registration, provisioning, validation, and cleanup |
+| [logging](logging/) | Logging interface, context helpers, and timed steps |
 
 The runner calls the scenario package to execute a scenario once. The scenario package
 cleans up that execution and returns its outcome. The runner decides whether to retry.
 The scenario package does not depend on the runner.
+
+Cleanup callbacks run concurrently. Register only independent work with `Scenario.Cleanup`;
+keep dependent operations in one callback, such as collecting VM logs before deleting that VM.
+Linux log collection runs commands concurrently in one remote Bash script and returns one
+compressed archive through the shared SSH execution layer. Each log retains its stdout,
+stderr, and exit code. Commands have a timeout that reserves time to return partial output.
+Collection errors are saved in the affected log files; the console reports failed file names.
 
 The other directories contain helper packages and embedded resources.
 

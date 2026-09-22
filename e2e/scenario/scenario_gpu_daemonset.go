@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
@@ -25,11 +27,9 @@ const (
 	nvidiaDevicePluginImage = "mcr.microsoft.com/oss/v2/nvidia/k8s-device-plugin:v0.18.2"
 )
 
-// Ubuntu2204_NvidiaDevicePlugin_Daemonset tests the upstream, customer-managed
-// NVIDIA device plugin DaemonSet deployment model instead of the systemd service.
 var _ = Register(&Scenario{
-	Name:        "Ubuntu2204_NvidiaDevicePlugin_Daemonset",
-	Description: "Tests that the NVIDIA device plugin works as a DaemonSet instead of a systemd service",
+	Name:        "Ubuntu2204_A10_UpstreamDevicePlugin",
+	Description: "Tests Ubuntu 22.04 A10 driver readiness, kubelet continuity, and GPU workloads with the upstream NVIDIA device plugin DaemonSet and the managed plugin inactive",
 	Tags: Tags{
 		GPU: true,
 	},
@@ -48,43 +48,59 @@ var _ = Register(&Scenario{
 			vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			// The device plugin is only meaningful once the driver is present and the
-			// systemd-based plugin is confirmed inactive, so gate the deployment on both.
+			// Deployment requires a ready driver and an inactive managed plugin.
 			if err := errors.Join(
-				// First, validate that GPU drivers are installed
-				ValidateNvidiaModProbeInstalled(ctx, s),
-				// Verify that the systemd-based device plugin is NOT running
-				// (managed GPU experience is not enabled, so the service should not be active)
-				validateNvidiaDevicePluginServiceNotRunning(ctx, s),
+				validateNvidiaDriverInstalled(ctx, s),
+				runGPUCheck(ctx, s, "bootstrap/kubelet-continuity", ValidateKubeletHasNotStopped),
+				runGPUCheck(ctx, s, "plugin/managed-service-inactive", validateNvidiaDevicePluginServiceNotRunning),
 			); err != nil {
 				return err
 			}
 
-			if err := deployNvidiaDevicePluginDaemonset(ctx, s); err != nil {
+			if err := runGPUCheck(ctx, s, "plugin/deploy", deployNvidiaDevicePluginDaemonset); err != nil {
 				return err
 			}
 
-			// Validate that GPU resources are advertised by the device plugin
-			if err := ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+			if err := runGPUCheck(ctx, s, "plugin/gpu-resources", func(ctx context.Context, s *Scenario) error {
+				return ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
+			}); err != nil {
 				return err
 			}
 
-			// Validate that GPU workloads can be scheduled. Only meaningful once the
-			// resources above are advertised, otherwise the pod just waits to be scheduled.
-			if err := ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+			// Without advertised resources, the workload would only wait for scheduling.
+			if err := runGPUCheck(ctx, s, "plugin/workload", func(ctx context.Context, s *Scenario) error {
+				return ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
+			}); err != nil {
 				return err
 			}
 
-			s.Logger.Logf("NVIDIA device plugin DaemonSet is functioning correctly")
+			logging.Logf(ctx, "NVIDIA device plugin DaemonSet is functioning correctly")
 			return nil
 		},
 	},
 })
 
+func validateNvidiaDriverInstalled(ctx context.Context, s *Scenario) error {
+	return errors.Join(
+		runGPUCheck(ctx, s, "driver/nvidia-modprobe", ValidateNvidiaModProbeInstalled),
+		runGPUCheck(ctx, s, "driver/nvidia-smi", ValidateNvidiaSMIInstalled),
+	)
+}
+
+func runGPUCheck(ctx context.Context, s *Scenario, name string, check func(context.Context, *Scenario) error) error {
+	start := time.Now()
+	err := check(ctx, s)
+	s.recordADOTestCase(name, "e2e.gpu", time.Since(start), err)
+	if err != nil {
+		return fmt.Errorf("%s: %w", name, err)
+	}
+	return nil
+}
+
 // validateNvidiaDevicePluginServiceNotRunning verifies that the systemd-based
 // NVIDIA device plugin service is not running because the test uses the DaemonSet model.
 func validateNvidiaDevicePluginServiceNotRunning(ctx context.Context, s *Scenario) error {
-	s.Logger.Logf("Verifying that nvidia-device-plugin.service is not running...")
+	logging.Logf(ctx, "Verifying that nvidia-device-plugin.service is not running...")
 
 	// Check if the service exists and is inactive
 	// Using "is-active" which returns non-zero if not active
@@ -99,7 +115,7 @@ func validateNvidiaDevicePluginServiceNotRunning(ctx context.Context, s *Scenari
 		"nvidia-device-plugin.service is unexpectedly running - this test requires the systemd service to be disabled"); err != nil {
 		return err
 	}
-	s.Logger.Logf("Confirmed nvidia-device-plugin.service is not active (status: %s)", output)
+	logging.Logf(ctx, "Confirmed nvidia-device-plugin.service is not active (status: %s)", output)
 	return nil
 }
 
@@ -173,7 +189,7 @@ func nvidiaDevicePluginDaemonset(nodeName string, ownerReference metav1.OwnerRef
 }
 
 func deployNvidiaDevicePluginDaemonset(ctx context.Context, s *Scenario) error {
-	s.Logger.Logf("Deploying NVIDIA device plugin as DaemonSet...")
+	logging.Logf(ctx, "Deploying NVIDIA device plugin as DaemonSet...")
 	ownerReference, err := scenarioNodeOwnerReference(ctx, s)
 	if err != nil {
 		return err
@@ -185,7 +201,7 @@ func deployNvidiaDevicePluginDaemonset(ctx context.Context, s *Scenario) error {
 		return fmt.Errorf("create NVIDIA device plugin DaemonSet %s/%s: %w", ds.Namespace, ds.Name, err)
 	}
 
-	s.Logger.Logf("NVIDIA device plugin DaemonSet %s/%s created successfully", created.Namespace, created.Name)
+	logging.Logf(ctx, "NVIDIA device plugin DaemonSet %s/%s created successfully", created.Namespace, created.Name)
 	s.Cleanup(func(ctx context.Context) error {
 		if err := s.Runtime.Kube.Typed.AppsV1().DaemonSets(created.Namespace).Delete(
 			ctx,
@@ -196,7 +212,7 @@ func deployNvidiaDevicePluginDaemonset(ctx context.Context, s *Scenario) error {
 		}
 		return nil
 	})
-	s.Logger.Logf("Waiting for NVIDIA device plugin DaemonSet pod to be ready on node %s...", s.Runtime.VM.KubeName)
+	logging.Logf(ctx, "Waiting for NVIDIA device plugin DaemonSet pod to be ready on node %s...", s.Runtime.VM.KubeName)
 
 	if _, err := s.Runtime.Kube.WaitUntilPodRunning(
 		ctx,
@@ -207,6 +223,6 @@ func deployNvidiaDevicePluginDaemonset(ctx context.Context, s *Scenario) error {
 		return fmt.Errorf("wait for NVIDIA device plugin DaemonSet %s/%s: %w", created.Namespace, created.Name, err)
 	}
 
-	s.Logger.Logf("NVIDIA device plugin DaemonSet pod is ready")
+	logging.Logf(ctx, "NVIDIA device plugin DaemonSet pod is ready")
 	return nil
 }
