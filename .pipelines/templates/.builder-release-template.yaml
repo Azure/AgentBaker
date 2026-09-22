@@ -567,18 +567,7 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
-        set -euo pipefail
-        export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
-        export AZCOPY_CONCURRENCY_VALUE="AUTO"
-        vhd_name="${CAPTURED_SIG_VERSION}.vhd"
-        echo "Copying ${DESTINATION_STORAGE_CONTAINER}/${vhd_name} to immutable container ${VHD_CONTAINER_NAME}"
-        az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "$vhd_name" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${DESTINATION_STORAGE_CONTAINER}/${vhd_name}" --auth-mode login
-        # Short read-only user-delegation SAS on the immutable copy for the arm64 convert job.
-        expiry="$(date -u -d '+8 hours' '+%Y-%m-%dT%H:%MZ')"
-        sas_url="$(az storage blob generate-sas --account-name "$STORAGE_ACCOUNT_NAME" --container-name "$VHD_CONTAINER_NAME" --name "$vhd_name" --permissions r --expiry "$expiry" --https-only --as-user --auth-mode login --full-uri -o tsv)"
-        echo "##vso[task.setvariable variable=VHD_SAS_URL;isOutput=true;issecret=true]$sas_url"
-        echo "Removing staging copy of ${vhd_name}"
-        azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${vhd_name}" --recursive=true
+        bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
     name: exportVhdSas
     condition: |
       and(
