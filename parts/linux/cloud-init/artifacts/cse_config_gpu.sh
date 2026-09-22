@@ -42,7 +42,8 @@ installGPUDriverImageWithFallback() {
     local ret
 
     if [ "${gpu_install_action}" = "install-skip-build" ]; then
-        # Reserve enough of the global CSE budget for the full-install fallback.
+        # Bound the fast path so a stalled skip-build does not consume the full CSE window.
+        # The fallback still uses the remaining global budget; no separate budget is reserved.
         local attempts=1
         local retry_delay_seconds=0
         local timeout_seconds=240

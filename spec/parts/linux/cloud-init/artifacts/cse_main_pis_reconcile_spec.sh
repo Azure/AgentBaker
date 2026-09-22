@@ -117,15 +117,17 @@ Describe 'cse_main.sh PIS-safe configuration'
 
         It 'keeps mutable and live GPU work out of BasePrep'
             gpu_phase_summary() {
-                printf 'live=%s/%s/%s policy=%s/%s\n' \
+                printf 'live=%s/%s/%s cleanup=%s/%s policy=%s/%s\n' \
                     "$(phase_count basePrep ensureGPUDrivers)" \
                     "$(phase_count basePrep nvidia-smi)" \
                     "$(phase_count basePrep enableNvidiaPersistenceMode)" \
+                    "$(phase_count basePrep cleanUpGPUDrivers)" \
+                    "$(phase_count nodePrep cleanUpGPUDrivers)" \
                     "$(phase_count basePrep should_skip_nvidia_drivers)" \
                     "$(phase_count nodePrep should_skip_nvidia_drivers)"
             }
             When call gpu_phase_summary
-            The output should equal "live=0/0/0 policy=0/2"
+            The output should equal "live=0/0/0 cleanup=0/1 policy=0/2"
         End
     End
 End

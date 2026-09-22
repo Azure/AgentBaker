@@ -980,6 +980,22 @@ source_digest=sha256:abc123"
         The status should be failure
         The path "${GPU_ARTIFACT_MANIFEST_FILE}" should not be exist
     End
+
+    It 'removes the temporary manifest when the atomic rename fails'
+        mv() { return 1; }
+        write_manifest_with_failed_move() {
+            writeGPUDriverArtifactManifest "image:tag" "sha256:abc123"
+            ret=$?
+            find "${GPU_ARTIFACT_TEST_DIR}" -name 'artifact-manifest-v1.tmp.*' -print
+            return "${ret}"
+        }
+
+        When call write_manifest_with_failed_move
+
+        The status should be failure
+        The output should equal ""
+        The path "${GPU_ARTIFACT_MANIFEST_FILE}" should not be exist
+    End
 End
 
 Describe 'GPU driver image reference resolution'

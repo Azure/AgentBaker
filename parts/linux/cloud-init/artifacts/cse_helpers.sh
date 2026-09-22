@@ -250,7 +250,10 @@ EOF
         rm -f "${tmp_manifest}"
         return 1
     }
-    mv -f "${tmp_manifest}" "${GPU_ARTIFACT_MANIFEST_FILE}"
+    mv -f "${tmp_manifest}" "${GPU_ARTIFACT_MANIFEST_FILE}" || {
+        rm -f "${tmp_manifest}"
+        return 1
+    }
 }
 
 # used by secure TLS bootstrapping to request AAD tokens - uniquely identifies AKS's Entra ID application.

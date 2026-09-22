@@ -593,6 +593,52 @@ install:5:10:600"
             The output should include "INSTALL_RAN"
         End
 
+        It 'passes the selected prebake action to the installer'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            logs_to_events() { shift; eval "$@"; }
+            ctr() {
+                if [ "$3" = "images" ] && [ "$4" = "ls" ]; then
+                    echo "${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}"
+                fi
+                return 0
+            }
+            selectGPUDriverInstallAction() { GPU_INSTALL_ACTION="install-skip-build"; }
+            installGPUDriverImageWithFallback() { echo "INSTALL_ACTION=$1"; return 0; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            The output should include "INSTALL_ACTION=install-skip-build"
+        End
+
+        It 'returns the GPU driver error when the selected action and fallback fail'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            logs_to_events() { shift; eval "$@"; }
+            ctr() {
+                if [ "$3" = "images" ] && [ "$4" = "ls" ]; then
+                    echo "${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}"
+                fi
+                return 0
+            }
+            selectGPUDriverInstallAction() { GPU_INSTALL_ACTION="install-skip-build"; }
+            installGPUDriverImageWithFallback() {
+                echo "INSTALL_ACTION=$1"
+                return 1
+            }
+
+            When run configGPUDrivers
+
+            The status should equal 88
+            The output should include "INSTALL_ACTION=install-skip-build"
+            The output should include "Failed to install GPU driver, exiting..."
+        End
+
         It 'exits without installing the driver when the CDI drop-in cannot be installed'
             OS="UBUNTU"
             isMarinerOrAzureLinux() { return 1; }
