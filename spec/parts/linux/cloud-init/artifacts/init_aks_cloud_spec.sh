@@ -287,6 +287,30 @@ EOF
             The status should be failure
         End
 
+        It 'skips platform-specific time sync during pre-provision image preparation'
+            IS_UBUNTU=1
+            VERSION_ID="26.04"
+            PRE_PROVISION_ONLY="true"
+            Mock uname
+                echo "7.0.0-1011-azure-fde"
+            End
+
+            When call should_configure_ubuntu_2604_cvm_time_sync
+            The status should be failure
+        End
+
+        It 'selects platform-specific time sync when provisioning the real node'
+            IS_UBUNTU=1
+            VERSION_ID="26.04"
+            PRE_PROVISION_ONLY="false"
+            Mock uname
+                echo "7.0.0-1011-azure-fde"
+            End
+
+            When call should_configure_ubuntu_2604_cvm_time_sync
+            The status should be success
+        End
+
         It 'preserves the PHC default for another Ubuntu release'
             setup_chrony_test
             VERSION_ID="24.04"

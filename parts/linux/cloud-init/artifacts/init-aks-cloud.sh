@@ -552,6 +552,11 @@ function is_ubuntu_2604_cvm {
     esac
 }
 
+function should_configure_ubuntu_2604_cvm_time_sync {
+    [ "${PRE_PROVISION_ONLY:-false}" != "true" ] || return 1
+    is_ubuntu_2604_cvm
+}
+
 function detect_confidential_vm_platform {
     local platform
 
@@ -767,7 +772,7 @@ fi
 echo "Running on $NAME"
 
 ubuntu_2604_cvm_chrony_configured=0
-if [ "$action" = "init" ] && is_ubuntu_2604_cvm; then
+if [ "$action" = "init" ] && should_configure_ubuntu_2604_cvm_time_sync; then
     configure_ubuntu_2604_cvm_time_sync
     chrony_result=$?
     if [ "$chrony_result" -ne 0 ]; then

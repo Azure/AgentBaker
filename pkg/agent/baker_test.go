@@ -1368,6 +1368,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(cseCmd).To(ContainSubstring("handleCloudInitStatus"))
 		Expect(cseCmd).To(ContainSubstring("cloud-init status --wait"))
 		Expect(cseCmd).To(ContainSubstring("cloudInitExitCode=$?"))
+		Expect(cseCmd).To(ContainSubstring("PRE_PROVISION_ONLY=\"false\" REPO_DEPOT_ENDPOINT="))
 		Expect(cseCmd).To(ContainSubstring("initAKSCloudExitCode=$?"))
 		Expect(cseCmd).To(ContainSubstring("if [ \"$initAKSCloudExitCode\" -eq 246 ]"))
 		Expect(cseCmd).To(ContainSubstring("Chrony configuration failed"))
@@ -1376,6 +1377,14 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(cseCmd).To(ContainSubstring("elif [ \"$initAKSCloudExitCode\" -eq 244 ]"))
 		Expect(cseCmd).To(ContainSubstring("Unable to determine confidential VM platform"))
 		Expect(cseCmd).To(ContainSubstring("exit ${initAKSCloudExitCode}"))
+	})
+
+	It("should pass pre-provision mode to init-aks-cloud", func() {
+		baseConfig.PreProvisionOnly = true
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).To(ContainSubstring("PRE_PROVISION_ONLY=\"true\" REPO_DEPOT_ENDPOINT="))
 	})
 
 	It("should handle configuration with custom kubelet config", func() {

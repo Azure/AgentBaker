@@ -18,7 +18,7 @@ fi;
 {{end}}
 INIT_AKS_CLOUD_FILEPATH="{{GetInitAKSCloudFilepath}}";
 if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]; then
-	REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}" LOCATION={{GetVariable "location"}} "${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1;
+	PRE_PROVISION_ONLY="{{GetPreProvisionOnly}}" REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}" LOCATION={{GetVariable "location"}} "${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1;
 	initAKSCloudExitCode=$?;
 	if [ "$initAKSCloudExitCode" -eq 246 ]; then
 		echo "Chrony configuration failed; init-aks-cloud failed with exit code ${initAKSCloudExitCode}" >> ${PROVISION_OUTPUT};
