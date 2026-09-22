@@ -53,6 +53,13 @@ func init() {
 					if tt.name != "Ubuntu2204" && tt.name != "Ubuntu2404" && tt.name != "AzureLinuxV3" {
 						return nil
 					}
+					// Cheapest check first. It is one 'systemctl show' and it is what
+					// guards the pinned directives; running it after the lifecycle
+					// validation meant a broken lifecycle step hid whether the unit was
+					// pinned at all. See assertLocalDNSBudgetDirectivesEarly.
+					if err := assertLocalDNSBudgetDirectivesEarly(ctx, s); err != nil {
+						return err
+					}
 					if err := validateLocalDNSLifecycle(ctx, s); err != nil {
 						return err
 					}

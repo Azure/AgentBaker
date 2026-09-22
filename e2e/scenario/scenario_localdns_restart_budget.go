@@ -152,9 +152,6 @@ func validateLocalDNSRestartBudget(ctx context.Context, s *Scenario, faults []lo
 		return nil
 	}
 
-	if err := assertLocalDNSBudgetDirectives(ctx, s); err != nil {
-		return err
-	}
 	if err := assertLocalDNSSurvivesProvisioningRestarts(ctx, s); err != nil {
 		return err
 	}
@@ -302,6 +299,30 @@ sudo systemctl is-active --quiet localdns.service || {
     exit 1
 }
 `
+
+// assertLocalDNSBudgetDirectivesEarly is the directive check, lane-gated, for callers that
+// want it before anything heavier runs.
+//
+// It is hoisted out of validateLocalDNSRestartBudget on purpose. This is the cheapest check
+// in the package -- one 'systemctl show', no fault injection, no harness -- and it was
+// previously gated behind validateLocalDNSLifecycle, which SCPs a ~7KB script and drives
+// kill/recovery cycles. When that step broke (gate build 181818040 hit the Bastion tunnel
+// limit), the scenario returned before the directives were ever checked, so the assertion
+// standing between a dropped pin and a 153s cycle on AzureLinux never ran on the one distro
+// where it mattered. Running it first costs nothing on a green run; on a red one it tells
+// you whether the unit is pinned before it tells you the tunnel is full.
+//
+// The lane gate travels with it: on a main-built image the directives legitimately are not
+// there, and asserting would fail an image that was never meant to carry them.
+func assertLocalDNSBudgetDirectivesEarly(ctx context.Context, s *Scenario) error {
+	if laneResolvedMainBuiltImage() {
+		logging.Logf(ctx, "SKIP: this lane resolved a main-built image (%s=%s), which predates the "+
+			"LocalDNS restart budget; run against the PR's VHD build to exercise it",
+			config.Config.SIGVersionTagName, config.Config.SIGVersionTagValue)
+		return nil
+	}
+	return assertLocalDNSBudgetDirectives(ctx, s)
+}
 
 // assertLocalDNSBudgetDirectives checks the effective directives rather than the file, so
 // a drop-in that quietly overrides them is caught too.
