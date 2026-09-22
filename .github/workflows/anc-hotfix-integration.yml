@@ -1,0 +1,254 @@
+name: ANC Hotfix Integration
+
+# Container-level regression gate for the aks-node-controller hotfix chain:
+#   check pointer -> download from PMC -> verify signature -> extract -> stage -> select binary
+#
+# This runs the real aks-node-controller.service unit under systemd in a privileged container,
+# against the real Microsoft package repository. It covers the ANC binary's hotfix behaviour --
+# not the VHD -- so it needs no Azure subscription, no cluster, and no secrets, and finishes in
+# seconds rather than the minutes a node-level E2E scenario costs.
+#
+# What it deliberately does NOT cover: the VHD's package set, cloud-init ordering, and anything
+# requiring a real node. Those belong in the AgentBaker E2E suite.
+
+on:
+  pull_request:
+    paths:
+      - 'aks-node-controller/**'
+      - 'parts/linux/cloud-init/artifacts/aks-node-controller-launcher.sh'
+      - 'parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.sh'
+      - 'parts/linux/cloud-init/artifacts/aks-node-controller.service'
+      - '.github/workflows/anc-hotfix-integration.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+env:
+  # A published base/target pair from packages.microsoft.com. The hotfix pointer maps the base
+  # version's "major.minor" prefix to the target, so download-hotfix upgrades base -> target.
+  # Any published pair works; these were chosen to match the pair the E2E hotfix scenarios pin.
+  ANC_BASE_VERSION: '202608.21.0'
+  ANC_TARGET_VERSION: '202608.21.1'
+  ANC_POINTER_KEY: '202608.21'
+  CONTAINER_NAME: anc-hotfix
+
+jobs:
+  anc-hotfix-integration:
+    name: ${{ matrix.distro }} (${{ matrix.format }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: azurelinux3
+            image: mcr.microsoft.com/azurelinux/base/core:3.0
+            format: rpm
+            systemd: /usr/lib/systemd/systemd
+          - distro: ubuntu2204
+            image: ubuntu:22.04
+            format: deb
+            systemd: /lib/systemd/systemd
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.26'
+
+      - name: Build aks-node-controller stamped at the base version
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/anc"
+          (
+            cd aks-node-controller
+            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+              -ldflags "-X main.Version=${ANC_BASE_VERSION}" \
+              -o "${RUNNER_TEMP}/anc/aks-node-controller" .
+          )
+          cp parts/linux/cloud-init/artifacts/aks-node-controller-launcher.sh "${RUNNER_TEMP}/anc/"
+          cp parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.sh "${RUNNER_TEMP}/anc/"
+          cp parts/linux/cloud-init/artifacts/aks-node-controller.service "${RUNNER_TEMP}/anc/"
+
+      # Dependencies are baked into the image rather than installed at run time: the launcher's
+      # first statement is `until [ "$(hostname)" = "$(cat /etc/hostname)" ]`, an unbounded wait
+      # that spins forever if the hostname binary is missing, and extractRPM shells out to
+      # `rpm2cpio | cpio`. The Ubuntu image installs packages-microsoft-prod.deb, which is the
+      # same package the VHD uses to configure the Microsoft APT repository and keyring.
+      - name: Build the systemd test image
+        env:
+          DISTRO: ${{ matrix.distro }}
+          BASE_IMAGE: ${{ matrix.image }}
+          SYSTEMD_PATH: ${{ matrix.systemd }}
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/anc"
+          if [ "${DISTRO}" = "azurelinux3" ]; then
+            cat > Dockerfile <<EOF
+          FROM ${BASE_IMAGE}
+          RUN tdnf install -y systemd cpio hostname util-linux && tdnf clean all
+          STOPSIGNAL SIGRTMIN+3
+          CMD ["${SYSTEMD_PATH}"]
+          EOF
+          else
+            cat > Dockerfile <<EOF
+          FROM ${BASE_IMAGE}
+          ENV DEBIAN_FRONTEND=noninteractive
+          RUN apt-get update \\
+           && apt-get install -y --no-install-recommends systemd curl ca-certificates gpgv \\
+           && curl -fsSL -o /tmp/pmp.deb https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb \\
+           && dpkg -i /tmp/pmp.deb \\
+           && rm -f /tmp/pmp.deb \\
+           && rm -rf /var/lib/apt/lists/*
+          STOPSIGNAL SIGRTMIN+3
+          CMD ["${SYSTEMD_PATH}"]
+          EOF
+          fi
+          cat Dockerfile
+          docker build -t anc-hotfix-probe .
+
+      - name: Start systemd and stage the node artifacts
+        run: |
+          set -euo pipefail
+          docker run -d --name "${CONTAINER_NAME}" --privileged --cgroupns=host \
+            -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
+            -v "${RUNNER_TEMP}/anc:/probe:ro" \
+            anc-hotfix-probe
+
+          for _ in $(seq 1 30); do
+            state=$(docker exec "${CONTAINER_NAME}" systemctl is-system-running 2>/dev/null || true)
+            case "${state}" in running|degraded) break ;; esac
+            sleep 1
+          done
+          echo "systemd state: $(docker exec "${CONTAINER_NAME}" systemctl is-system-running 2>&1 || true)"
+
+          # aks-node-controller-nbc-cmd.sh is required: without it (or a provision config) the
+          # launcher takes its "Gracefully exit" branch and returns 0 before reaching the hotfix
+          # logic, which would make this job pass while testing nothing.
+          #
+          # aks-node-controller-hotfix.sh must land next to the launcher: the launcher sources it
+          # by BASH_SOURCE-relative path and calls anc_run_hotfix_flow, so a missing file aborts
+          # the unit under set -u before any hotfix work happens.
+          docker exec "${CONTAINER_NAME}" bash -eu -c '
+            mkdir -p /opt/azure/containers
+            install -m 0755 /probe/aks-node-controller /opt/azure/containers/aks-node-controller
+            install -m 0755 /probe/aks-node-controller-launcher.sh /opt/azure/containers/
+            install -m 0755 /probe/aks-node-controller-hotfix.sh /opt/azure/containers/
+            printf "#!/bin/bash\necho ANC_NBC_CMD_STUB_RAN\n" > /opt/azure/containers/aks-node-controller-nbc-cmd.sh
+            chmod 0755 /opt/azure/containers/aks-node-controller-nbc-cmd.sh
+            install -m 0644 /probe/aks-node-controller.service /etc/systemd/system/
+            systemctl daemon-reload
+          '
+          docker exec "${CONTAINER_NAME}" bash -eu -c \
+            "printf '{\"hotfixes\":{\"%s\":\"%s\"}}' '${ANC_POINTER_KEY}' '${ANC_TARGET_VERSION}' \
+               > /opt/azure/containers/aks-node-controller-hotfix.json"
+
+      # systemctl start blocks for Type=oneshot units, so --no-block plus polling keeps a hung
+      # launcher from being reported as a step timeout with no diagnostics.
+      - name: Run aks-node-controller.service
+        run: |
+          set -euo pipefail
+          docker exec "${CONTAINER_NAME}" systemctl start --no-block aks-node-controller.service
+          settled=0
+          for _ in $(seq 1 90); do
+            state=$(docker exec "${CONTAINER_NAME}" systemctl show -p ActiveState --value aks-node-controller.service)
+            case "${state}" in active|failed) settled=1; break ;; esac
+            sleep 2
+          done
+          docker exec "${CONTAINER_NAME}" systemctl show \
+            -p ActiveState,SubState,Result,ExecMainStatus aks-node-controller.service
+          if [ "${settled}" -ne 1 ]; then
+            echo "::error::aks-node-controller.service never settled; last ActiveState=${state}"
+            exit 1
+          fi
+
+      - name: Assert the hotfix chain
+        env:
+          PKG_FORMAT: ${{ matrix.format }}
+        run: |
+          # -e is deliberately cleared: every assertion below must run so the log reports all
+          # failures at once, and the step's exit status comes from the accumulator instead.
+          # Actions' default shell is `bash -e {0}`, so `set -uo pipefail` alone would not do it.
+          set +e
+          set -uo pipefail
+          journal="${RUNNER_TEMP}/journal.log"
+          if ! docker exec "${CONTAINER_NAME}" journalctl -u aks-node-controller.service --no-pager -o cat > "${journal}"; then
+            echo "::error::could not read the unit journal"
+            exit 1
+          fi
+          if [ ! -s "${journal}" ]; then
+            echo "::error::the unit journal is empty; the launcher produced no output"
+            exit 1
+          fi
+
+          failed=0
+          expect() {
+            if grep -qF -- "$1" "${journal}"; then
+              echo "  ok       $1"
+            else
+              echo "::error::expected log line not found: $1"
+              failed=1
+            fi
+          }
+          refute() {
+            if grep -qF -- "$1" "${journal}"; then
+              echo "::error::unexpected log line present: $1"
+              failed=1
+            else
+              echo "  ok  not  $1"
+            fi
+          }
+
+          # The launcher must not have short-circuited before the hotfix logic.
+          refute 'Gracefully exit aks-node-controller without provision config or nbc cmd'
+          # check-hotfix is gated behind ENABLE_PROVISIONING_HOTFIX; this exercises the baked
+          # pointer path, matching what the E2E scenarios assert.
+          refute 'running check-hotfix to refresh hotfix pointer'
+
+          expect 'Found ANC hotfix config'
+          expect 'downloading ANC hotfix'
+          expect 'downloaded ANC hotfix'
+          expect 'ANC download-hotfix completed'
+          expect 'Using hotfix binary'
+          expect 'aks-node-controller completed successfully'
+          # Assert the authenticated-repository fast path specifically: the generic "downloaded
+          # ANC hotfix" line is also emitted by the package-manager fallback, so on its own it
+          # cannot tell the two apart.
+          expect 'downloaded ANC hotfix through authenticated repository fast path'
+          expect "\"format\":\"${PKG_FORMAT}\""
+
+          echo "--- staged binary versions ---"
+          baked=$(docker exec "${CONTAINER_NAME}" /opt/azure/containers/aks-node-controller --version)
+          hotfix=$(docker exec "${CONTAINER_NAME}" /opt/azure/containers/aks-node-controller-hotfix --version)
+          echo "  baked : ${baked}"
+          echo "  hotfix: ${hotfix}"
+          case "${baked}" in *"${ANC_BASE_VERSION}") ;; *)
+            echo "::error::baked binary is not ${ANC_BASE_VERSION}: ${baked}"; failed=1 ;;
+          esac
+          case "${hotfix}" in *"${ANC_TARGET_VERSION}") ;; *)
+            echo "::error::staged hotfix binary is not ${ANC_TARGET_VERSION}: ${hotfix}"; failed=1 ;;
+          esac
+
+          state=$(docker exec "${CONTAINER_NAME}" systemctl show -p ExecMainStatus --value aks-node-controller.service)
+          if [ "${state}" != "0" ]; then
+            echo "::error::aks-node-controller.service exited with status ${state}"
+            failed=1
+          fi
+
+          exit "${failed}"
+
+      - name: Dump journal on failure
+        if: failure()
+        run: |
+          docker exec "${CONTAINER_NAME}" journalctl -u aks-node-controller.service --no-pager -o cat || true
+          docker logs "${CONTAINER_NAME}" || true
+
+      - name: Tear down
+        if: always()
+        run: docker rm -f "${CONTAINER_NAME}" || true
