@@ -33,6 +33,21 @@ Describe 'cse_helpers.sh'
             When call updatePackageVersions "$package" "MARINER" "current"
             The variable PACKAGE_VERSIONS[@] should equal "dummyVersion5 dummyVersion6.1 dummyVersion6.0"
         End
+        It 'returns the ACL-specific version for Azure Container Linux'
+            package=$(readPackage "pkgVersionsV2")
+            When call updatePackageVersions "$package" "AZURECONTAINERLINUX" "3.0"
+            The variable PACKAGE_VERSIONS[@] should equal "dummyVersionACL"
+        End
+        It 'returns the ACL-specific version for the Azure Linux ACL variant'
+            package=$(readPackage "pkgVersionsV2")
+            When call updatePackageVersions "$package" "AZURELINUX" "3.0" "AZURECONTAINERLINUX"
+            The variable PACKAGE_VERSIONS[@] should equal "dummyVersionACL"
+        End
+        It 'falls back to the Flatcar version when no ACL-specific version exists'
+            package=$(readPackage "pkgVersionsV2" | jq 'del(.downloadURIs.azurecontainerlinux)')
+            When call updatePackageVersions "$package" "AZURECONTAINERLINUX" "3.0"
+            The variable PACKAGE_VERSIONS[@] should equal "dummyVersionFlatcar"
+        End
         It 'returns <SKIP> if there is a <SKIP> in latestVersion'
             package=$(readPackage "pkgVersionsV2")
             When call updatePackageVersions "$package" "MARINERKATA" "current"
@@ -70,6 +85,11 @@ Describe 'cse_helpers.sh'
             package=$(readPackage "pkgVersionsV2")
             When call updatePackageDownloadURL "$package" "UBUNTU" "dummy_release"
             The variable PACKAGE_DOWNLOAD_URL should equal "https://dummydefaultcurrentpath/v\${version}/dummy_\${version}_linux_\${CPU_ARCH}.tar.gz"
+        End
+        It 'returns the ACL-specific download URL for Azure Container Linux'
+            package=$(readPackage "pkgVersionsV2")
+            When call updatePackageDownloadURL "$package" "AZURECONTAINERLINUX" "3.0"
+            The variable PACKAGE_DOWNLOAD_URL should equal "https://dummypath/dummy-acl.rpm"
         End
     End
 

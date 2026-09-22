@@ -634,8 +634,11 @@ EOF
 }
 
 ensureArtifactStreaming() {
-  waitForContainerdReady || exit $ERR_ARTIFACT_STREAMING_INSTALL
-  retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter || exit $ERR_ARTIFACT_STREAMING_INSTALL
+  waitForContainerdReady || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+  if isACL "$OS" "$OS_VARIANT"; then
+    systemctl unmask overlaybd-tcmu.service overlaybd-snapshotter.service || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+  fi
+  retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
 
   local acr_mirror_setup="${ACR_MIRROR_SETUP_SCRIPT:-/opt/acr/tools/mirror/setup.sh}"
   if [ -x "$acr_mirror_setup" ]; then

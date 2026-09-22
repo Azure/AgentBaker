@@ -100,6 +100,10 @@ package components
 	current?: #ReleaseDownloadURI
 }
 
+#AzureContainerLinuxOSDistro: {
+	current?: #ReleaseDownloadURI
+}
+
 #DownloadURIs: {
 	default?:          #DefaultOSDistro
 	ubuntu?:           #UbuntuOSDistro
@@ -109,6 +113,7 @@ package components
 	azurelinuxkata?:   #AzureLinuxOSDistro
 	windows?:          #WindowsOsDistro
 	flatcar?:          #FlatcarOSDistro
+	azurecontainerlinux?: #AzureContainerLinuxOSDistro
 }
 
 #Package: {
