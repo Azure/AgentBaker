@@ -57,6 +57,20 @@ func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string
 	return uploadAKSNodeController(ctx, binary)
 }
 
+type CompileAKSNodeControllerRequest struct {
+	Arch    string
+	Version string
+}
+
+func compileAndUploadAKSNodeControllerWithVersion(ctx context.Context, request CompileAKSNodeControllerRequest) (string, error) {
+	binary, err := compileAKSNodeControllerWithVersion(ctx, request.Arch, request.Version)
+	if err != nil {
+		return "", err
+	}
+	defer binary.Close()
+	return uploadAKSNodeController(ctx, binary)
+}
+
 func compileAndUploadAKSNodeControllerWithScriptHotfix(
 	ctx context.Context,
 	arch string,
@@ -100,24 +114,32 @@ func uploadAKSNodeController(ctx context.Context, binary *os.File) (string, erro
 }
 
 func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error) {
+	return compileAKSNodeControllerWithVersion(ctx, arch, "")
+}
+
+func compileAKSNodeControllerWithVersion(ctx context.Context, arch, version string) (*os.File, error) {
 	repoRoot, err := findRepoRoot()
 	if err != nil {
 		return nil, err
 	}
-	return compileAKSNodeControllerInDir(
-		ctx,
-		arch,
-		filepath.Join(repoRoot, "aks-node-controller"),
-	)
+	return compileAKSNodeControllerInDirWithVersion(ctx, arch, filepath.Join(repoRoot, "aks-node-controller"), version)
 }
 
 func compileAKSNodeControllerInDir(ctx context.Context, arch, buildDir string) (*os.File, error) {
+	return compileAKSNodeControllerInDirWithVersion(ctx, arch, buildDir, "")
+}
+
+func compileAKSNodeControllerInDirWithVersion(ctx context.Context, arch, buildDir, version string) (*os.File, error) {
 	goBin, err := exec.LookPath("go")
 	if err != nil {
 		return nil, fmt.Errorf("failed to find go binary in PATH: %w", err)
 	}
 	binName := "aks-node-controller-" + arch
-	cmd := exec.CommandContext(ctx, goBin, "build", "-o", binName, "-v")
+	args := []string{"build", "-o", binName, "-v"}
+	if version != "" {
+		args = append(args, "-ldflags", "-X main.Version="+version)
+	}
+	cmd := exec.CommandContext(ctx, goBin, args...)
 	cmd.Dir = buildDir
 	cmd.Env = append(os.Environ(),
 		"CGO_ENABLED=0",
@@ -350,47 +372,7 @@ ENABLE_PROVISIONING_HOTFIX=true
 EOF
 chmod 0644 /opt/azure/containers/enabled_features.sh
 
-curl -fSL --retry 10 --retry-delay 2 --retry-connrefused %[1]q -o /opt/azure/containers/aks-node-controller-hotfix
-chmod +x /opt/azure/containers/aks-node-controller-hotfix
-
-cat >/opt/azure/containers/aks-node-controller <<'EOF'
-#!/bin/bash
-set -euo pipefail
-
-log_path=/var/log/azure/anc-hotfix-e2e-flow.log
-pointer_path=/opt/azure/containers/aks-node-controller-hotfix.json
-hotfix_path=/opt/azure/containers/aks-node-controller-hotfix
-
-mkdir -p "$(dirname "$log_path")"
-
-case "${1:-}" in
-  version)
-    echo "202608.14.0"
-    ;;
-  check-hotfix)
-    echo "base check-hotfix" >>"$log_path"
-    cat >"$pointer_path" <<'JSON'
-{"hotfixes":{"202608.14":"202608.14.1"}}
-JSON
-    ;;
-  download-hotfix)
-    echo "base download-hotfix" >>"$log_path"
-    test -x "$hotfix_path"
-    echo "mock staged ANC hotfix 202608.14.1" >>"$log_path"
-    ;;
-  provision)
-    echo "unexpected base provision" >>"$log_path"
-    exit 42
-    ;;
-  apply-embedded-hotfix)
-    echo "unexpected base apply-embedded-hotfix" >>"$log_path"
-    exit 43
-    ;;
-  *)
-    echo "base ${*:-}" >>"$log_path"
-    ;;
-esac
-EOF
+curl -fSL --retry 10 --retry-delay 2 --retry-connrefused %[1]q -o /opt/azure/containers/aks-node-controller
 chmod +x /opt/azure/containers/aks-node-controller`, binaryURL)
 
 	customData = strings.Replace(string(decoded), "#hotfix-marker", fixtureCmd, 1)
@@ -444,9 +426,12 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 				"ANC hotfix flow fixture requires scriptless ANC compilation",
 			)
 		}
-		binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
+		binaryURL, err := CachedCompileAndUploadAKSNodeControllerWithVersion(ctx, CompileAKSNodeControllerRequest{
+			Arch:    s.VHD.Arch,
+			Version: ancHotfixFlowBaseVersion,
+		})
 		if err != nil {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("compile and upload aks-node-controller binary: %w", err)
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("compile and upload version-stamped aks-node-controller binary: %w", err)
 		}
 		customData, err = CustomDataWithANCHotfixFlowFixture(customData, binaryURL)
 		if err != nil {
@@ -486,16 +471,8 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("generate custom data with NBC cmd hack: %w", err)
 		}
 	}
-	customDataWriteFiles := s.Config.CustomDataWriteFiles
-	if s.Config.CustomDataWriteFilesWithError != nil {
-		generatedWriteFiles, err := s.Config.CustomDataWriteFilesWithError()
-		if err != nil {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("generate customData write_files entries: %w", err)
-		}
-		customDataWriteFiles = append(customDataWriteFiles, generatedWriteFiles...)
-	}
-	if len(customDataWriteFiles) > 0 {
-		customData, err = injectWriteFilesEntriesToCustomData(customData, customDataWriteFiles)
+	if len(s.Config.CustomDataWriteFiles) > 0 {
+		customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
 		if err != nil {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("inject customData write_files entries: %w", err)
 		}
@@ -590,7 +567,7 @@ func usesScriptlessNBCCSECmd(s *Scenario) bool {
 }
 
 func enableScriptlessCompilation(s *Scenario) bool {
-	return usesScriptlessNBCCSECmd(s) && len(s.Config.CustomDataWriteFiles) <= 0 && s.Config.CustomDataWriteFilesWithError == nil && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.VHD.Flatcar
+	return usesScriptlessNBCCSECmd(s) && len(s.Config.CustomDataWriteFiles) <= 0 && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.VHD.Flatcar
 }
 
 func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) {

@@ -302,6 +302,7 @@ var CachedCreateVMManagedIdentity = cachedFunc(func(ctx context.Context, locatio
 	return config.Azure.CreateVMManagedIdentity(ctx, location)
 })
 var CachedCompileAndUploadAKSNodeController = cachedFunc(compileAndUploadAKSNodeController)
+var CachedCompileAndUploadAKSNodeControllerWithVersion = cachedFunc(compileAndUploadAKSNodeControllerWithVersion)
 
 // VMSizeSKURequest is the cache key for Resource SKU lookups by VM size and location.
 type VMSizeSKURequest struct {

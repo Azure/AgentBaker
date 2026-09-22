@@ -168,18 +168,12 @@ type Config struct {
 	// This is for e2e-only validation scenarios.
 	CustomDataWriteFiles []CustomDataWriteFile
 
-	// CustomDataWriteFilesWithError injects additional cloud-init write_files entries that depend
-	// on runtime e2e configuration.
-	CustomDataWriteFilesWithError func() ([]CustomDataWriteFile, error)
-
 	// ScriptHotfixFixture builds ANC in an isolated temporary module with this
 	// generated script-hotfix payload. It bypasses the shared ANC binary cache.
 	ScriptHotfixFixture *ScriptHotfixFixture
 
-	// ANCHotfixFlowFixture validates the launcher/check/download/select flow with controlled
-	// node-local inputs. It stages a PR-built ANC as the hotfix binary and wraps the baked ANC
-	// with a test double for check-hotfix/download-hotfix, so the scenario does not depend on
-	// real LPS or PMC state.
+	// ANCHotfixFlowFixture validates the launcher/check/download/select flow by replacing the
+	// baked ANC with a PR-built ANC whose Version is stamped to a known hotfix base version.
 	ANCHotfixFlowFixture bool
 
 	// Validator is a function where the scenario can perform any extra validation checks
