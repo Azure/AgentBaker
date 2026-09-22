@@ -57,6 +57,22 @@ func (e *lpsGRPCStatusError) Error() string {
 // shared parse/stage path.
 // The gRPC status is mapped onto the benign-vs-fatal taxonomy so handleFetchError is unchanged.
 func (a *App) fetchHotfixOverGRPC(ctx context.Context) ([]byte, error) {
+	return a.fetchComponentConfigOverGRPC(ctx, ancComponentName, "check-hotfix")
+}
+
+// fetchComponentConfigOverGRPC performs the GetComponentConfig call for an arbitrary component: it
+// resolves the apiserver FQDN + cluster CA from the available node bootstrap input, carries the
+// IMDS attested-data document in gRPC metadata, and returns the opaque config bytes.
+//
+// The component name is a parameter because the RPC itself is component-agnostic: check-hotfix
+// pins it to ancComponentName and layers its own parse/stage/fail-open policy on top, while the
+// live-patching command passes whatever component the caller named and just prints the result.
+// caller is used only for log attribution.
+//
+// The gRPC status is mapped onto the benign-vs-fatal taxonomy via mapGRPCError so check-hotfix's
+// handleFetchError is unchanged; callers that do not want that taxonomy can inspect the returned
+// error themselves.
+func (a *App) fetchComponentConfigOverGRPC(ctx context.Context, component, caller string) ([]byte, error) {
 	fqdn, caPEM, err := a.lpsTargetFromNodeConfig()
 	if err != nil {
 		return nil, fmt.Errorf("resolving LPS endpoint: %w", err)
@@ -72,10 +88,10 @@ func (a *App) fetchHotfixOverGRPC(ctx context.Context) ([]byte, error) {
 		return nil, fmt.Errorf("dialing LPS gRPC: %w", err)
 	}
 	defer conn.Close()
-	slog.Info("check-hotfix LPS gRPC dial", "dialHost", fqdn, "alpn", lpsALPNProto, "component", ancComponentName)
+	slog.Info("LPS gRPC dial", "caller", caller, "dialHost", fqdn, "alpn", lpsALPNProto, "component", component)
 
-	// Bound the whole round-trip (cold connect + RPC); on expiry we fail open to the cold-start
-	// pointer. See the lpsFetchTimeout const doc for the deadline tradeoff.
+	// Bound the whole round-trip (cold connect + RPC); on expiry check-hotfix fails open to the
+	// cold-start pointer. See the lpsFetchTimeout const doc for the deadline tradeoff.
 	ctx, cancel := context.WithTimeout(ctx, lpsFetchTimeout)
 	defer cancel()
 
@@ -83,12 +99,12 @@ func (a *App) fetchHotfixOverGRPC(ctx context.Context) ([]byte, error) {
 	ctx = metadata.AppendToOutgoingContext(ctx, lpsAttestedMetadataKey, token)
 
 	client := lpsv1.NewLivePatchingServiceClient(conn)
-	resp, err := client.GetComponentConfig(ctx, &lpsv1.GetComponentConfigRequest{ComponentName: ancComponentName})
+	resp, err := client.GetComponentConfig(ctx, &lpsv1.GetComponentConfigRequest{ComponentName: component})
 	if err != nil {
 		return nil, mapGRPCError(err)
 	}
 	// The shared live-patching contract carries the component config as a JSON-encoded UTF-8
-	// string; the parse/stage path operates on bytes, so convert without interpreting.
+	// string; callers operate on bytes, so convert without interpreting.
 	return []byte(resp.GetConfig()), nil
 }
 
