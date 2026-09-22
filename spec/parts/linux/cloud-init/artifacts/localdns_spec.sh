@@ -470,6 +470,109 @@ EOF
         End
     End
 
+# This section tests - remove_unsupported_serve_stale_policy, coredns_supports_serve_stale_policy.
+# serve_stale_policy needs CoreDNS >= 1.14.7. The corefile comes from the RP, which cannot
+# see which CoreDNS the VHD baked in, so an unsupported directive has to be stripped here --
+# CoreDNS refuses to start on an unknown directive, which would take DNS down on the node.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'remove_unsupported_serve_stale_policy'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            TEST_DIR="/tmp/localdns-serve-stale-policy"
+            mkdir -p "${TEST_DIR}"
+            COREDNS_BINARY_PATH="${TEST_DIR}/coredns"
+            TEST_COREFILE="${TEST_DIR}/Corefile"
+        }
+
+        cleanup() {
+            rm -rf "${TEST_DIR}"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        mock_coredns_version() {
+            printf '#!/bin/sh\necho "CoreDNS-%s"\n' "$1" > "${COREDNS_BINARY_PATH}"
+            chmod +x "${COREDNS_BINARY_PATH}"
+        }
+
+        write_corefile_with_policy() {
+cat <<EOF > "${TEST_COREFILE}"
+    cache 3600 {
+        serve_stale 3600s immediate
+        serve_stale_policy prefer_positive
+        servfail 0
+    }
+EOF
+        }
+
+        It 'should keep serve_stale_policy when CoreDNS is exactly 1.14.7'
+            mock_coredns_version "1.14.7"
+            write_corefile_with_policy
+            When run remove_unsupported_serve_stale_policy "${TEST_COREFILE}"
+            The status should be success
+            The contents of file "${TEST_COREFILE}" should include "serve_stale_policy prefer_positive"
+        End
+
+        It 'should keep serve_stale_policy when CoreDNS is newer than 1.14.7'
+            mock_coredns_version "1.15.0"
+            write_corefile_with_policy
+            When run remove_unsupported_serve_stale_policy "${TEST_COREFILE}"
+            The status should be success
+            The contents of file "${TEST_COREFILE}" should include "serve_stale_policy prefer_positive"
+        End
+
+        It 'should keep serve_stale_policy when the CoreDNS patch version has two digits'
+            mock_coredns_version "1.14.10"
+            write_corefile_with_policy
+            When run remove_unsupported_serve_stale_policy "${TEST_COREFILE}"
+            The status should be success
+            The contents of file "${TEST_COREFILE}" should include "serve_stale_policy prefer_positive"
+        End
+
+        It 'should strip serve_stale_policy when CoreDNS is older than 1.14.7'
+            mock_coredns_version "1.14.3"
+            write_corefile_with_policy
+            When run remove_unsupported_serve_stale_policy "${TEST_COREFILE}"
+            The status should be success
+            The stdout should include "does not support serve_stale_policy"
+            The contents of file "${TEST_COREFILE}" should not include "serve_stale_policy"
+            The contents of file "${TEST_COREFILE}" should include "serve_stale 3600s immediate"
+        End
+
+        It 'should strip serve_stale_policy when the CoreDNS version cannot be parsed'
+            printf '#!/bin/sh\necho "unexpected output"\n' > "${COREDNS_BINARY_PATH}"
+            chmod +x "${COREDNS_BINARY_PATH}"
+            write_corefile_with_policy
+            When run remove_unsupported_serve_stale_policy "${TEST_COREFILE}"
+            The status should be success
+            The stdout should include "Could not determine CoreDNS version"
+            The contents of file "${TEST_COREFILE}" should not include "serve_stale_policy"
+        End
+
+        It 'should strip serve_stale_policy when the CoreDNS binary is missing'
+            write_corefile_with_policy
+            When run remove_unsupported_serve_stale_policy "${TEST_COREFILE}"
+            The status should be success
+            The stdout should include "Could not determine CoreDNS version"
+            The contents of file "${TEST_COREFILE}" should not include "serve_stale_policy"
+        End
+
+        It 'should leave a corefile without serve_stale_policy untouched'
+            mock_coredns_version "1.14.3"
+cat <<EOF > "${TEST_COREFILE}"
+    cache 3600 {
+        serve_stale 3600s immediate
+        servfail 0
+    }
+EOF
+            When run remove_unsupported_serve_stale_policy "${TEST_COREFILE}"
+            The status should be success
+            The contents of file "${TEST_COREFILE}" should include "serve_stale 3600s immediate"
+            The stdout should equal ""
+        End
+    End
+
 
 # This section tests - build_localdns_iptable_rules, verify_default_route_interface, verify_network_file, verify_network_dropin_dir.
 # These functions are defined in parts/linux/cloud-init/artifacts/localdns.sh file.
