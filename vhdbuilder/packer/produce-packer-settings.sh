@@ -176,15 +176,12 @@ windows_servercore_image_url=""
 windows_nanoserver_image_url=""
 windows_private_packages_url=""
 
-# msi_resource_strings is an array that will be used to build VHD build vm
-# test pipelines may not set it
+# msi_resource_strings is an array that will be used to build VHD build vm; test pipelines
+# may not set it. See compute_msi_resource_strings in produce-packer-settings-functions.sh for
+# the UAMI-attachment logic and its ShellSpec coverage in
+# spec/vhdbuilder/packer/compute_msi_resource_strings_spec.sh.
 msi_resource_strings=()
-if [ -n "${AZURE_MSI_RESOURCE_STRING}" ] && { [ -n "${PRIVATE_PACKAGES_URL}" ] || [ -n "${WINDOWS_PRIVATE_PACKAGES_URL}" ] || [ -n "${WINDOWS_BASE_IMAGE_URL}" ] || [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ]; }; then
-	echo "AZURE_MSI_RESOURCE_STRING is set and at least one of PRIVATE_PACKAGES_URL, WINDOWS_PRIVATE_PACKAGES_URL, WINDOWS_BASE_IMAGE_URL, or WINDOWS_CONTAINERIMAGE_JSON_URL is set. Assigning UAMI to Packer VM for VHD Build."
-	msi_resource_strings+=(${AZURE_MSI_RESOURCE_STRING})
-else
-	echo "AZURE_MSI_RESOURCE_STRING or PRIVATE_PACKAGES_URL/WINDOWS_PRIVATE_PACKAGES_URL/WINDOWS_BASE_IMAGE_URL is not set. Skipping UAMI assignment to Packer VM for VHD Build."
-fi
+compute_msi_resource_strings msi_resource_strings
 
 # shellcheck disable=SC2236
 if [ "$OS_TYPE" = "Windows" ]; then
@@ -205,6 +202,8 @@ fi
 if [ "$MODE" = "windowsVhdMode" ] || [ "${ENVIRONMENT,,}" = "prod" ]; then
 	PACKER_BUILD_LOCATION=$AZURE_LOCATION
 fi
+
+resolve_security_type_feature
 
 produce_ua_token
 
@@ -228,6 +227,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "windows_image_version": "${WINDOWS_IMAGE_VERSION}",
   "windows_image_url": "${WINDOWS_IMAGE_URL}",
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
+  "security_type_feature": "${SECURITY_TYPE_FEATURE}",
   "sig_image_name":  "${SIG_IMAGE_NAME}",
   "sig_gallery_name": "${SIG_GALLERY_NAME}",
   "captured_sig_version": "${CAPTURED_SIG_VERSION}",

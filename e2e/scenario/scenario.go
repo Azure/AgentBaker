@@ -1599,7 +1599,7 @@ var _ = Register(&Scenario{
 			}
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateInstalledPackageVersion(ctx, s, "containerd", "1.6.9")
+			return ValidateInstalledPackageVersion(ctx, s, "moby-containerd", "1.6.9")
 		},
 	},
 })

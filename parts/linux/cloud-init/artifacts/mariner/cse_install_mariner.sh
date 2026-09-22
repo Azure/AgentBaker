@@ -1,11 +1,8 @@
 #!/bin/bash
 
 removeContainerd() {
-    containerdPackageName="containerd"
-    if [ "$OS_VERSION" = "2.0" ]; then
-        containerdPackageName="moby-containerd"
-    fi
-    retrycmd_if_failure 10 5 60 dnf remove -y $containerdPackageName
+    local packageName="${1:-containerd}"
+    retrycmd_if_failure 10 5 60 dnf remove -y "$packageName"
 }
 
 installDeps() {
@@ -77,13 +74,22 @@ installKataDeps() {
 }
 
 installCriCtlPackage() {
-  version="${1:-}"
-  packageName="kubernetes-cri-tools-${version}"
+  local version="${1:-}"
+  local fullPackageVersion
+  local packageName
   if [ -z "$version" ]; then
     echo "Error: No version specified for kubernetes-cri-tools package but it is required. Exiting with error."
+    exit 1
   fi
+  fullPackageVersion=$(getLatestRPMPackageVersion "kubernetes-cri-tools" "${version}") || fullPackageVersion=""
+  if [ -z "${fullPackageVersion}" ]; then
+    echo "Failed to find valid kubernetes-cri-tools version for ${version}"
+    exit 1
+  fi
+  logResolvedPackageVersion "kubernetes-cri-tools" "${version}" "${fullPackageVersion}"
+  packageName="kubernetes-cri-tools-${fullPackageVersion}"
   echo "Installing ${packageName} with dnf"
-  dnf_install 30 1 600 ${packageName} || exit 1
+  dnf_install 30 1 600 "${packageName}" || exit 1
 }
 
 downloadGridDrivers() {
@@ -548,7 +554,7 @@ installNvidiaManagedExpPkgFromCache() {
       continue
     fi
 
-    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print -quit 2>/dev/null) || rpmFile=""
+    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print 2>/dev/null | sort -V | tail -n 1) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
       echo "Failed to locate ${packageName} rpm"
       exit $ERR_MANAGED_NVIDIA_EXP_INSTALL_FAIL
@@ -676,7 +682,7 @@ getLatestRPMPackageVersion() {
     local i
     for i in $(seq 1 "${retries}"); do
         dnfListOutput=$(dnf list "${packageName}" --showduplicates 2>&1)
-        fullPackageVersion=$(printf '%s\n' "${dnfListOutput}" | awk -v dv="${desiredVersion}" '{ver=$2; sub(/^[0-9]+:/,"",ver); if (index(ver, dv "-")==1) print ver}' | sort -V | tail -n 1)
+        fullPackageVersion=$(printf '%s\n' "${dnfListOutput}" | awk -v dv="${desiredVersion}" '{ver=$2; sub(/^[0-9]+:/,"",ver); if (ver == dv || index(ver, dv "-")==1 || index(ver, dv "+")==1) print ver}' | sort -V | tail -n 1)
         if [ -n "${fullPackageVersion}" ]; then
             echo "${fullPackageVersion}"
             return 0
@@ -702,42 +708,101 @@ getLatestRPMPackageVersion() {
     return 1
 }
 
+logResolvedPackageVersion() {
+    local packageName="${1}"
+    local requestedVersion="${2}"
+    local fullPackageVersion="${3}"
+    local message="Resolved ${packageName} package version ${requestedVersion} -> ${fullPackageVersion}"
+
+    echo "${message}"
+    if [ -f "${VHD_LOGS_FILEPATH:-}" ]; then
+        echo "  - ${packageName} package version ${fullPackageVersion} (requested ${requestedVersion})" >> "${VHD_LOGS_FILEPATH}"
+    fi
+}
+
 downloadPkgFromVersion() {
-    packageName="${1:-}"
-    packageVersion="${2:-}"
-    downloadDir="${3:-$(getPackageDownloadDir "${packageName}")}"
+    local packageName="${1:-}"
+    local packageVersion="${2:-}"
+    local downloadDir="${3:-$(getPackageDownloadDir "${packageName}")}"
+    local fullPackageVersion
+
+    fullPackageVersion="${packageVersion}"
+    # shellcheck disable=SC3010
+    if [[ "${packageVersion}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        fullPackageVersion=$(getLatestRPMPackageVersion "${packageName}" "${packageVersion}")
+        if [ -z "${fullPackageVersion}" ]; then
+            echo "Failed to find valid ${packageName} version for ${packageVersion}"
+            return 1
+        fi
+    fi
+
+    logResolvedPackageVersion "${packageName}" "${packageVersion}" "${fullPackageVersion}"
     mkdir -p "${downloadDir}"
-    dnf_download 30 1 600 "${downloadDir}" ${packageName}-${packageVersion} || exit $ERR_APT_INSTALL_TIMEOUT
-    echo "Succeeded to download ${packageName} version ${packageVersion}"
+    dnf_download 30 1 600 "${downloadDir}" "${packageName}-${fullPackageVersion}" || exit "$ERR_APT_INSTALL_TIMEOUT"
+    echo "Succeeded to download ${packageName} version ${fullPackageVersion} for requested version ${packageVersion}"
 }
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     local desiredVersion="${1:-}"
-    #e.g., desiredVersion will look like this 1.6.26-5.cm2
-    # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
-    # check if containerd command is available before running it
-    if command -v containerd &> /dev/null; then
-        CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
-    fi
-    # v1.4.1 is our lowest supported version of containerd
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${desiredVersion}; then
-        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredVersion}. skipping installStandaloneContainerd."
-    else
-        echo "installing containerd version ${desiredVersion}"
-        removeContainerd
-        containerdPackageName="containerd-${desiredVersion}"
-        if [ "$OS_VERSION" = "2.0" ]; then
-            containerdPackageName="moby-containerd-${desiredVersion}"
-        fi
-        if [ "$OS_VERSION" = "3.0" ]; then
-            containerdPackageName="containerd2-${desiredVersion}"
-        fi
+    local containerdPackageName="containerd"
+    local fullPackageVersion="${desiredVersion}"
+    local currentVersion=""
+    local installedPackageVersion=""
+    local installRequired=true
+    local revisionlessVersion=false
 
+    if [ "$OS_VERSION" = "2.0" ]; then
+        containerdPackageName="moby-containerd"
+    fi
+    if [ "$OS_VERSION" = "3.0" ]; then
+        containerdPackageName="containerd2"
+    fi
+
+    # shellcheck disable=SC3010
+    if [[ "${desiredVersion}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        revisionlessVersion=true
+    fi
+
+    # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
+    if command -v containerd &> /dev/null; then
+        currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    fi
+
+    # v1.4.1 is our lowest supported version of containerd
+    if semverCompare "${currentVersion:-"0.0.0"}" "${desiredVersion}"; then
+        installRequired=false
+        if [ "${revisionlessVersion}" = "true" ] && [ "${currentVersion}" = "${desiredVersion}" ]; then
+            fullPackageVersion=$(getLatestRPMPackageVersion "${containerdPackageName}" "${desiredVersion}")
+            if [ -z "${fullPackageVersion}" ]; then
+                echo "Failed to find valid ${containerdPackageName} version for ${desiredVersion}"
+                exit "$ERR_CONTAINERD_INSTALL_TIMEOUT"
+            fi
+            installedPackageVersion=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}\n' "${containerdPackageName}" 2>/dev/null || true)
+            if [ -n "${installedPackageVersion}" ] && [ "${installedPackageVersion}" != "${fullPackageVersion}" ]; then
+                echo "installed ${containerdPackageName} package version ${installedPackageVersion} does not match latest revision ${fullPackageVersion}"
+                installRequired=true
+            fi
+        fi
+    fi
+
+    if [ "${installRequired}" = "true" ]; then
+        if [ "${revisionlessVersion}" = "true" ] && [ "${fullPackageVersion}" = "${desiredVersion}" ]; then
+            fullPackageVersion=$(getLatestRPMPackageVersion "${containerdPackageName}" "${desiredVersion}")
+            if [ -z "${fullPackageVersion}" ]; then
+                echo "Failed to find valid ${containerdPackageName} version for ${desiredVersion}"
+                exit "$ERR_CONTAINERD_INSTALL_TIMEOUT"
+            fi
+        fi
+        echo "installing containerd version ${fullPackageVersion}"
+        removeContainerd "${containerdPackageName}"
+        logResolvedPackageVersion "${containerdPackageName}" "${desiredVersion}" "${fullPackageVersion}"
         # TODO: tie runc to r92 once that's possible on Mariner's pkg repo and if we're still using v1.linux shim
-        if ! dnf_install 30 1 600 $containerdPackageName; then
+        if ! dnf_install 30 1 600 "${containerdPackageName}-${fullPackageVersion}"; then
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
+    else
+        echo "currently installed containerd version ${currentVersion} satisfies target package version ${fullPackageVersion}. skipping installStandaloneContainerd."
     fi
 
     # Workaround to restore the CSE configuration after containerd has been installed from the package server.

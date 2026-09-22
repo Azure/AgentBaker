@@ -129,6 +129,13 @@ else
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
+  if isUbuntu "$OS" &&
+    [ "$OS_VERSION" = "26.04" ] &&
+    isMinimalImage &&
+    grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+    /bin/bash /home/packer/trim-2604-cvm-packages.sh
+  fi
+
   # shellcheck disable=SC3010
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # This is FIPS Install for Ubuntu, it purges non FIPS Kernel and attaches UA FIPS Updates
@@ -217,13 +224,11 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
 
   # Choose kernel packages based on Ubuntu version and architecture
   if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-    KERNEL_IMAGE="linux-image-azure-fde-lts-${UBUNTU_RELEASE}"
+    KERNEL_IMAGE="linux-azure-fde-lts-${UBUNTU_RELEASE}"
     KERNEL_PACKAGES=(
-      "linux-image-azure-fde-lts-${UBUNTU_RELEASE}"
-      "linux-tools-azure-lts-${UBUNTU_RELEASE}"
-      "linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
-      "linux-headers-azure-lts-${UBUNTU_RELEASE}"
+      "${KERNEL_IMAGE}"
     )
+    MODULES_EXTRA_PKG="linux-modules-extra-azure-fde-lts-${UBUNTU_RELEASE}"
     echo "Installing fde LTS kernel for CVM Ubuntu ${UBUNTU_RELEASE}"
   else
     # Use LTS kernel for other versions
@@ -234,11 +239,11 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       "linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
       "linux-headers-azure-lts-${UBUNTU_RELEASE}"
     )
+    MODULES_EXTRA_PKG="linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
     echo "Installing LTS kernel for Ubuntu ${UBUNTU_RELEASE}"
   fi
 
   # Add modules-extra only when the package exists in the current apt repo
-  MODULES_EXTRA_PKG="linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
   if apt-cache show "${MODULES_EXTRA_PKG}" &>/dev/null; then
     KERNEL_PACKAGES+=("${MODULES_EXTRA_PKG}")
   else

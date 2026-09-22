@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -23,41 +24,46 @@ import (
 
 func TestDCGMExporterCompatibility(t *testing.T) {
 	type testCase struct {
-		name        string
-		os          string
-		osVersion   string
-		downloadURL string
-		parseDeps   func(t *testing.T, path string) (coreVersion, propVersion string)
+		name       string
+		os         string
+		osVersion  string
+		packageDir string
+		packageRE  string
+		parseDeps  func(t *testing.T, path string) (coreVersion, propVersion string)
 	}
 
 	testCases := []testCase{
 		{
-			name:        "Ubuntu2204",
-			os:          "ubuntu",
-			osVersion:   "r2204",
-			downloadURL: "https://packages.microsoft.com/repos/microsoft-ubuntu-jammy-prod/pool/main/d/dcgm-exporter/dcgm-exporter_%s_amd64.deb",
-			parseDeps:   parseDebDeps,
+			name:       "Ubuntu2204",
+			os:         "ubuntu",
+			osVersion:  "r2204",
+			packageDir: "https://packages.microsoft.com/repos/microsoft-ubuntu-jammy-prod/pool/main/d/dcgm-exporter",
+			packageRE:  `dcgm-exporter_%s-ubuntu22\.04u([0-9]+)_amd64\.deb`,
+			parseDeps:  parseDebDeps,
 		},
 		{
-			name:        "Ubuntu2404",
-			os:          "ubuntu",
-			osVersion:   "r2404",
-			downloadURL: "https://packages.microsoft.com/repos/microsoft-ubuntu-noble-prod/pool/main/d/dcgm-exporter/dcgm-exporter_%s_amd64.deb",
-			parseDeps:   parseDebDeps,
+			name:       "Ubuntu2404",
+			os:         "ubuntu",
+			osVersion:  "r2404",
+			packageDir: "https://packages.microsoft.com/repos/microsoft-ubuntu-noble-prod/pool/main/d/dcgm-exporter",
+			packageRE:  `dcgm-exporter_%s-ubuntu24\.04u([0-9]+)_amd64\.deb`,
+			parseDeps:  parseDebDeps,
 		},
 		{
-			name:        "Ubuntu2604",
-			os:          "ubuntu",
-			osVersion:   "r2604",
-			downloadURL: "https://packages.microsoft.com/ubuntu/26.04/prod/pool/main/d/dcgm-exporter/dcgm-exporter_%s_amd64.deb",
-			parseDeps:   parseDebDeps,
+			name:       "Ubuntu2604",
+			os:         "ubuntu",
+			osVersion:  "r2604",
+			packageDir: "https://packages.microsoft.com/ubuntu/26.04/prod/pool/main/d/dcgm-exporter",
+			packageRE:  `dcgm-exporter_%s-ubuntu26\.04u([0-9]+)_amd64\.deb`,
+			parseDeps:  parseDebDeps,
 		},
 		{
-			name:        "AzureLinux3",
-			os:          "azurelinux",
-			osVersion:   "v3.0",
-			downloadURL: "https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/Packages/d/dcgm-exporter-%s.x86_64.rpm",
-			parseDeps:   parseRPMDeps,
+			name:       "AzureLinux3",
+			os:         "azurelinux",
+			osVersion:  "v3.0",
+			packageDir: "https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/Packages/d",
+			packageRE:  `dcgm-exporter-%s-([0-9]+)\.azl3\.x86_64\.rpm`,
+			parseDeps:  parseRPMDeps,
 		},
 	}
 
@@ -80,7 +86,7 @@ func TestDCGMExporterCompatibility(t *testing.T) {
 			t.Logf("  datacenter-gpu-manager-4-core: %s", expectedCoreVersion)
 			t.Logf("  datacenter-gpu-manager-4-proprietary: %s", expectedPropVersion)
 
-			url := fmt.Sprintf(tc.downloadURL, dcgmExporterVersion)
+			url := resolveLatestPackageURL(t, tc.packageDir, tc.packageRE, dcgmExporterVersion)
 			t.Logf("Downloading dcgm-exporter package from %s", url)
 
 			tmpFile, err := os.CreateTemp("", "dcgm-exporter-*")
@@ -101,10 +107,10 @@ func TestDCGMExporterCompatibility(t *testing.T) {
 			t.Logf("  datacenter-gpu-manager-4-core: %s", actualCoreVersion)
 			t.Logf("  datacenter-gpu-manager-4-proprietary: %s", actualPropVersion)
 
-			require.Equalf(t, expectedCoreVersion, actualCoreVersion,
+			require.Equalf(t, extractUpstreamPackageVersion(expectedCoreVersion), extractUpstreamPackageVersion(actualCoreVersion),
 				"datacenter-gpu-manager-4-core version mismatch: components.json has %s but dcgm-exporter requires %s",
 				expectedCoreVersion, actualCoreVersion)
-			require.Equalf(t, expectedPropVersion, actualPropVersion,
+			require.Equalf(t, extractUpstreamPackageVersion(expectedPropVersion), extractUpstreamPackageVersion(actualPropVersion),
 				"datacenter-gpu-manager-4-proprietary version mismatch: components.json has %s but dcgm-exporter requires %s",
 				expectedPropVersion, actualPropVersion)
 
@@ -112,6 +118,41 @@ func TestDCGMExporterCompatibility(t *testing.T) {
 				dcgmExporterVersion, expectedCoreVersion)
 		})
 	}
+}
+
+func resolveLatestPackageURL(t *testing.T, packageDir, packagePattern, upstreamVersion string) string {
+	t.Helper()
+
+	resp := downloadWithRetry(t, packageDir+"/", 3)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode, "Failed to list packages from %s", packageDir)
+
+	index, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	pattern := regexp.MustCompile(fmt.Sprintf(packagePattern, regexp.QuoteMeta(upstreamVersion)))
+	matches := pattern.FindAllStringSubmatch(string(index), -1)
+	require.NotEmptyf(t, matches, "No package revision found for %s in %s", upstreamVersion, packageDir)
+
+	latestRevision := -1
+	latestFilename := ""
+	for _, match := range matches {
+		require.Len(t, match, 2, "Package pattern must capture the numeric rebuild revision")
+		revision, err := strconv.Atoi(match[1])
+		require.NoError(t, err)
+		if revision > latestRevision {
+			latestRevision = revision
+			latestFilename = match[0]
+		}
+	}
+
+	t.Logf("Resolved dcgm-exporter package version %s -> %s", upstreamVersion, latestFilename)
+	return packageDir + "/" + latestFilename
+}
+
+func extractUpstreamPackageVersion(version string) string {
+	version = regexp.MustCompile(`^\d+:`).ReplaceAllString(version, "")
+	return regexp.MustCompile(`^\d+\.\d+\.\d+`).FindString(version)
 }
 
 func downloadWithRetry(t *testing.T, url string, maxRetries int) *http.Response {
