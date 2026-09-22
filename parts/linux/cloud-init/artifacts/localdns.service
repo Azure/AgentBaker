@@ -7,30 +7,28 @@ Before=kubelet.service
 Before=containerd.service
 # don't run on old images; we're not compatible
 ConditionKernelVersion=>=5.15
-# Bound the restart budget so every unrecoverable failure mode terminates in
-# 'failed' rather than restarting forever. The threshold is
-# StartLimitIntervalSec/StartLimitBurst = 720/5 = 144s, just above the slowest
-# restart cycle (~122s = TimeoutStartSec 90 + TimeoutStopSec 30 + RestartSec 2, pinned
-# below, plus TimeoutStopFailureMode=terminate pinned in the drop-in -- without which
-# Azure Linux spends two stop timeouts and the cycle is 153s, above the threshold),
-# so slow failures (PID file never appears, watchdog kill, ready-check timeout,
-# hung start) still reach 'failed'. That terminal state is what lets an
-# OnFailure= handoff fire and gives NPD a stable state to observe.
+# The restart budget (StartLimitIntervalSec/StartLimitBurst) is deliberately NOT here.
+# It is written by enableLocalDNS() into
+# /etc/systemd/system/localdns.service.d/10-restart-budget.conf at provisioning time.
 #
-# This budget is shared with CSE's provisioning restarts, not just systemd's own
-# auto-restart cycles: a manual 'systemctl start/restart' counts against
-# StartLimitBurst exactly like an automatic restart. A single CSE start therefore
-# costs one slot and lets Restart=on-failure spend the remaining four within
-# ~11s, after which every further CSE attempt is refused with "Start request
-# repeated too quickly" for the rest of the 720s window. enableLocalDNS() runs
-# 'systemctl reset-failed localdns' before each provisioning attempt to keep that
-# from wedging node provisioning, and deliberately skips it on the give-up path
-# so the unit is left in 'failed'. Don't rely on 'systemctl daemon-reload' to
-# clear this instead: it resets start_ratelimit on systemd 249 but not on 255
-# (Ubuntu 24.04), which is what AKS ships.
-StartLimitIntervalSec=720
-StartLimitBurst=5
-
+# Baking it into the VHD makes a new image incompatible with an older CSE, which this
+# repo explicitly supports (see cse_config_localdns.sh's LOCALDNS_COREFILE_BASE
+# fallback). An older CSE starts localdns through systemctlEnableAndStart, whose retry
+# loop has no 'systemctl reset-failed' -- so one failed burst wedges the unit for the
+# whole 720s window while that loop runs only ~500-600s, and every remaining attempt is
+# refused with "Start request repeated too quickly". A recoverable startup transient
+# becomes a node-provisioning failure.
+#
+# Measured on Ubuntu 24.04.4 / systemd 255.4, 16 provisioning attempts against a service
+# that always fails, R = refused:
+#
+#   budget in this unit + old CSE   ..RRRRRRRRRRRRRR   wedged, never recovers
+#   budget in this unit + new CSE   ................   reset-failed clears it
+#   budget from the drop-in + old CSE   ....R.R.......R.   systemd's 10s default, recovers
+#
+# Delivering it with CSE means the budget and the reset-failed that makes it survivable
+# ship together and cannot skew. RestartSec, TimeoutStartSec and TimeoutStopFailureMode
+# stay here: none of them can wedge provisioning on its own.
 [Service]
 Type=notify
 NotifyAccess=all

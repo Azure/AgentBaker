@@ -107,11 +107,35 @@ enableLocalDNS() {
     fi
 
     echo "localdns should be enabled."
-    # localdns.service budgets StartLimitBurst=5 / StartLimitIntervalSec=720 so steady-state
-    # failures terminate in 'failed' for NPD to observe. Provisioning restarts draw on that same
-    # budget -- a manual restart costs a slot just like an automatic one -- so clear it before each
-    # attempt. Otherwise the first burst wedges the unit for 12 minutes and every retry below is
-    # refused with "Start request repeated too quickly". daemon-reload is not a substitute: it
+    # Write the restart budget here rather than baking it into localdns.service in the VHD.
+    #
+    # The budget makes unrecoverable failures terminate in 'failed' instead of restarting
+    # forever, which is what NPD and a future OnFailure= handoff need. But provisioning
+    # restarts draw on the same budget -- a manual restart costs a slot exactly like an
+    # automatic one -- so it is only survivable alongside the 'reset-failed' in the loop
+    # below. An older CSE has no such reset (systemctlEnableAndStart ->
+    # _systemctl_retry_svc_operation, cse_helpers.sh), and this repo supports an older CSE
+    # running on a newer VHD. Shipping the budget in the image would hand that combination
+    # a unit wedged for 720s while its retry loop runs only ~500-600s: every attempt
+    # refused, node provisioning failed.
+    #
+    # Measured on Ubuntu 24.04.4 / systemd 255.4, 16 provisioning attempts, R = refused:
+    #
+    #   budget in the VHD unit + old CSE      ..RRRRRRRRRRRRRR   wedged, never recovers
+    #   budget in the VHD unit + new CSE      ................   reset-failed clears it
+    #   budget written here    + old CSE      ....R.R.......R.   systemd 10s default, recovers
+    #
+    # Written here, the budget and the reset-failed that makes it survivable ship together
+    # and cannot skew.
+    mkdir -p /etc/systemd/system/localdns.service.d
+    cat > /etc/systemd/system/localdns.service.d/10-restart-budget.conf <<'EOF'
+[Unit]
+StartLimitIntervalSec=720
+StartLimitBurst=5
+EOF
+    chmod 0644 /etc/systemd/system/localdns.service.d/10-restart-budget.conf
+
+    # Clear the budget before each attempt below: daemon-reload is not a substitute, it
     # clears start_ratelimit on systemd 249 but not on 255 (Ubuntu 24.04).
     local localdns_started=false
     local i
