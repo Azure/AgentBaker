@@ -108,10 +108,14 @@ func TestMatchACLUpdateStatusMatchesImplicitCommit(t *testing.T) {
 		"nodeUpdateId":"node-update-1",
 		"operationId":"finalize-operation-1",
 		"operation":"commit",
-		"code":"Success"
+		"code":"Success",
+		"fromVersion":"202609.21.0",
+		"toVersion":"202609.21.1"
 	}`, expected)
 
 	require.NoError(t, err)
 	require.True(t, terminal)
 	require.Equal(t, aclUpdateCodeSuccess, status.Code)
+	require.Equal(t, "202609.21.0", status.FromVersion)
+	require.Equal(t, "202609.21.1", status.ToVersion)
 }

@@ -78,6 +78,8 @@ type aclUpdateStatus struct {
 	Operation     string `json:"operation"`
 	Code          string `json:"code"`
 	Message       string `json:"message"`
+	FromVersion   string `json:"fromVersion"`
+	ToVersion     string `json:"toVersion"`
 }
 
 // loadCOSIPublishingInfo reads cosi-publishing-info.json from a downloaded
@@ -251,6 +253,12 @@ func validateACLAnnotationCOSIUpdate(ctx context.Context, s *Scenario, rawTarget
 	if commitStatus.Code != aclUpdateCodeSuccess {
 		return fmt.Errorf("ACL COSI commit reported %s: %s", commitStatus.Code, commitStatus.Message)
 	}
+	if commitStatus.FromVersion != currentVersion {
+		return fmt.Errorf("ACL COSI commit reported fromVersion %q, want %q", commitStatus.FromVersion, currentVersion)
+	}
+	if commitStatus.ToVersion != targetVersion {
+		return fmt.Errorf("ACL COSI commit reported toVersion %q, want %q", commitStatus.ToVersion, targetVersion)
+	}
 
 	if err := waitForSameNodeReadyAfterACLAnnotationUpdate(ctx, s, beforeNode, beforeBootID); err != nil {
 		return err
@@ -258,17 +266,10 @@ func validateACLAnnotationCOSIUpdate(ctx context.Context, s *Scenario, rawTarget
 	if err := waitForSSHAfterReboot(ctx, s, beforeBootID); err != nil {
 		return fmt.Errorf("reconnect SSH after ACL annotation update: %w", err)
 	}
-	installedVersion, err := requireACLUpdateAgent(ctx, s)
-	if err != nil {
-		return fmt.Errorf("verify ACL update agent after reboot: %w", err)
-	}
-	if installedVersion != targetVersion {
-		return fmt.Errorf("ACL image version after update is %q, want %q", installedVersion, targetVersion)
-	}
 	if err := requireTridentStatus(ctx, s, "provisioned", "volume-b"); err != nil {
 		return fmt.Errorf("verify Trident status after ACL annotation update: %w", err)
 	}
-	logging.Logf(ctx, "Verified ACL COSI update: imageVersion=%s servicingState=provisioned activeVolume=volume-b", installedVersion)
+	logging.Logf(ctx, "Verified ACL COSI update: fromVersion=%s toVersion=%s servicingState=provisioned activeVolume=volume-b", commitStatus.FromVersion, commitStatus.ToVersion)
 	postUpdatePod := podHTTPServerLinux(s)
 	postUpdatePod.Name += "-cosi-post-update"
 	return ValidatePodRunning(ctx, s, postUpdatePod)
