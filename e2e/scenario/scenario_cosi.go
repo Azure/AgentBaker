@@ -258,6 +258,17 @@ func validateACLAnnotationCOSIUpdate(ctx context.Context, s *Scenario, rawTarget
 	if err := waitForSSHAfterReboot(ctx, s, beforeBootID); err != nil {
 		return fmt.Errorf("reconnect SSH after ACL annotation update: %w", err)
 	}
+	installedVersion, err := requireACLUpdateAgent(ctx, s)
+	if err != nil {
+		return fmt.Errorf("verify ACL update agent after reboot: %w", err)
+	}
+	if installedVersion != targetVersion {
+		return fmt.Errorf("ACL image version after update is %q, want %q", installedVersion, targetVersion)
+	}
+	if err := requireTridentStatus(ctx, s, "provisioned", "volume-b"); err != nil {
+		return fmt.Errorf("verify Trident status after ACL annotation update: %w", err)
+	}
+	logging.Logf(ctx, "Verified ACL COSI update: imageVersion=%s servicingState=provisioned activeVolume=volume-b", installedVersion)
 	postUpdatePod := podHTTPServerLinux(s)
 	postUpdatePod.Name += "-cosi-post-update"
 	return ValidatePodRunning(ctx, s, postUpdatePod)
