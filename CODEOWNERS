@@ -31,7 +31,6 @@ spec/parts/linux/cloud-init/artifacts/mariner-package-update_spec.sh @Azure/agen
 parts/linux/cloud-init/artifacts/localdns.sh @Azure/agentbakeradmin @saewoni @yewmsft
 parts/linux/cloud-init/artifacts/localdns.service @Azure/agentbakeradmin @saewoni @yewmsft
 parts/linux/cloud-init/artifacts/localdns-delegate.conf @Azure/agentbakeradmin @saewoni @yewmsft
-parts/linux/cloud-init/artifacts/localdns-timeout-terminate.conf @Azure/agentbakeradmin @saewoni @yewmsft
 spec/parts/linux/cloud-init/artifacts/localdns_spec.sh @Azure/agentbakeradmin @saewoni @yewmsft
 
 # Set components.json & windows_settings.json to no code-owner so that it can be approved and merged by component owner

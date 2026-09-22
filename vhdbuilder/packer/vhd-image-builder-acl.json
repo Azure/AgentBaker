@@ -681,11 +681,7 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/localdns-delegate.conf",
       "destination": "/home/packer/localdns-delegate.conf"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/localdns-timeout-terminate.conf",
-      "destination": "/home/packer/localdns-timeout-terminate.conf"
+
     },
     {
       "type": "file",

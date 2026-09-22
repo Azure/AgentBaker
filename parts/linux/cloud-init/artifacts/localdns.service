@@ -9,7 +9,9 @@ Before=containerd.service
 ConditionKernelVersion=>=5.15
 # The restart budget (StartLimitIntervalSec/StartLimitBurst) is deliberately NOT here.
 # It is written by enableLocalDNS() into
-# /etc/systemd/system/localdns.service.d/10-restart-budget.conf at provisioning time.
+# /etc/systemd/system/localdns.service.d/99-localdns-budget.conf at provisioning time,
+# together with TimeoutStartSec and TimeoutStopFailureMode -- the two values the 144s
+# threshold has to clear, and the two that differ by distro if left alone.
 #
 # Baking it into the VHD makes a new image incompatible with an older CSE, which this
 # repo explicitly supports (see cse_config_localdns.sh's LOCALDNS_COREFILE_BASE
@@ -44,18 +46,7 @@ RestartSec=2
 KillMode=mixed
 # Revert node DNS configuration even when the supervisor exits unexpectedly.
 ExecStopPost=/opt/azure/containers/localdns/localdns.sh cleanup
-# Pinned, not inherited, so the StartLimit margin above is self-contained. The
-# manager default is a systemd build-time constant (-Ddefault-timeout-sec) and it
-# is not the same on every image we ship: Ubuntu builds it at 90s, Azure Linux at
-# 45s. Leaving it inherited makes the slowest restart cycle -- and therefore the
-# margin under the 144s threshold -- differ per distro, and a change to
-# DefaultTimeoutStartSec would move it silently.
-TimeoutStartSec=90
 TimeoutStopSec=30
-# TimeoutStopFailureMode is pinned too, but it cannot be set here: Azure Linux ships a
-# type-wide drop-in that overrides unit files. It lives in localdns-timeout-terminate.conf,
-# installed as /etc/systemd/system/localdns.service.d/99-timeout-terminate.conf -- see the
-# comment there for why, and for the 153s cycle it prevents.
 Slice=localdns.slice
 EnvironmentFile=-/etc/localdns/environment
 ExecStart=/opt/azure/containers/localdns/localdns.sh

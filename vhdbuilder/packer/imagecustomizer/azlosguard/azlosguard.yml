@@ -341,9 +341,6 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-delegate.conf
       destination: /etc/systemd/system/localdns.service.d/delegate.conf
       permissions: 644
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-timeout-terminate.conf
-      destination: /etc/systemd/system/localdns.service.d/99-timeout-terminate.conf
-      permissions: 644
     # localdns exporter
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns_exporter.sh
       destination: /opt/azure/containers/localdns/localdns_exporter.sh

@@ -127,13 +127,44 @@ enableLocalDNS() {
     #
     # Written here, the budget and the reset-failed that makes it survivable ship together
     # and cannot skew.
+    # TimeoutStartSec and TimeoutStopFailureMode travel with the budget because they only
+    # exist to serve it: the threshold is StartLimitIntervalSec/StartLimitBurst = 144s and it
+    # has to clear the worst restart cycle, TimeoutStartSec + TimeoutStopSec + RestartSec.
+    # Both are distro-dependent if left alone -- Ubuntu builds systemd with
+    # -Ddefault-timeout-sec=90 and Azure Linux 3.0 with 45, and Azure Linux additionally
+    # ships /usr/lib/systemd/system/service.d/10-timeout-abort.conf setting
+    # TimeoutStopFailureMode=abort, which makes a stop timeout send SIGABRT and then wait a
+    # SECOND TimeoutStopSec before SIGKILL. Measured on AzureLinuxV3 with the start timeout
+    # pinned and the stop mode left alone: 90 + 30 + 30 + 2 = 153s, above the threshold, so
+    # the slow modes would restart forever there.
+    #
+    # TimeoutStopFailureMode cannot be set in localdns.service at all: systemd.unit(5) says
+    # drop-ins take precedence over unit files wherever located, so the type-wide file wins.
+    # It has to be a drop-in of ours -- and the 99- prefix is load-bearing, not cosmetic.
+    # systemd applies drop-ins in lexicographic order by FILENAME across both the
+    # unit-specific (localdns.service.d/) and type-wide (service.d/) directories; being
+    # unit-specific does not by itself win. Measured on Ubuntu 24.04.4 / systemd 255.4
+    # against a type-wide 10-timeout-abort.conf:
+    #
+    #   10-localdns-budget.conf -> abort      (sorts before 10-timeout-abort, loses)
+    #   99-localdns-budget.conf -> terminate  (sorts after, wins)
+    #
+    # Do not renumber this file below the distro's 10- prefix.
+    #
+    # RestartSec and TimeoutStopSec stay in the unit. RestartSec is useful without the
+    # budget (it lets each restart sample real system state instead of re-entering the
+    # transient it is retrying), and TimeoutStopSec predates this change.
     mkdir -p /etc/systemd/system/localdns.service.d
-    cat > /etc/systemd/system/localdns.service.d/10-restart-budget.conf <<'EOF'
+    cat > /etc/systemd/system/localdns.service.d/99-localdns-budget.conf <<'EOF'
 [Unit]
 StartLimitIntervalSec=720
 StartLimitBurst=5
+
+[Service]
+TimeoutStartSec=90
+TimeoutStopFailureMode=terminate
 EOF
-    chmod 0644 /etc/systemd/system/localdns.service.d/10-restart-budget.conf
+    chmod 0644 /etc/systemd/system/localdns.service.d/99-localdns-budget.conf
 
     # Clear the budget before each attempt below: daemon-reload is not a substitute, it
     # clears start_ratelimit on systemd 249 but not on 255 (Ubuntu 24.04).
