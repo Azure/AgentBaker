@@ -725,15 +725,25 @@ users:
     set -x
 }
 
-# Wrapped as functions so logs_to_events can time each step; the install's
-# bash -c command can't be passed to logs_to_events inline (it word-splits args).
 disableSSH() {
-    # On ubuntu, the ssh service is named "ssh.service"
-    systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
-    # On AzureLinux, the ssh service is named "sshd.service"
-    systemctlDisableAndStop sshd || exit $ERR_DISABLE_SSH
-    # On ACL, port 22 is owned by sshd.socket (socket activation)
-    systemctlDisableAndStop sshd.socket || exit $ERR_DISABLE_SSH
+    local start_time attempt_id unit result=0 start_seconds=$SECONDS
+    start_time=$(date -u +"%F %T.%3N")
+    attempt_id="$(date +%s%N)-${BASHPID:-$$}-${RANDOM}"
+    emitSSHDisableEvent "$attempt_id" Started "" "$start_time" 0 null '{}' ||
+        echo "WARNING: could not emit SSH disable start event" >&2
+    # Ubuntu uses ssh, Azure Linux uses sshd, and ACL also uses sshd.socket.
+    for unit in ssh sshd sshd.socket; do
+        if ! systemctlDisableAndStop "$unit" "$attempt_id"; then
+            result=$ERR_DISABLE_SSH
+            break
+        fi
+    done
+    emitSSHDisableEvent "$attempt_id" Completed "" "$start_time" "$((SECONDS - start_seconds))" "$result" '{}' ||
+        echo "WARNING: could not emit SSH disable result event" >&2
+    if [ "$result" -ne 0 ]; then
+        exit "$result"
+    fi
+    return 0
 }
 
 disableSSHPubkeyAuth() {

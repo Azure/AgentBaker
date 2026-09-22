@@ -684,13 +684,80 @@ waitForContainerdReady() {
 }
 
 # A unit that isn't installed is not an error, a unit that resists stop/disable is.
+# The optional second argument enables SSH telemetry without changing other callers.
 systemctlDisableAndStop() {
-    local result=0
-    if systemctl cat "$1" &>/dev/null; then
-        systemctl_stop 20 5 25 $1 || { echo "$1 could not be stopped"; result=1; }
-        systemctl_disable 20 5 25 $1 || { echo "$1 could not be disabled"; result=1; }
+    local unit=$1 attempt_id=${2:-} result=0
+    local cat_result=0 stop_result=null disable_result=null
+    local start_time start_seconds=$SECONDS
+    if [ -n "$attempt_id" ]; then
+        start_time=$(date -u +"%F %T.%3N")
+        emitSSHDisableEvent "$attempt_id" Started "$unit" "$start_time" 0 null '{}' ||
+            echo "WARNING: could not emit SSH disable start event for $unit" >&2
     fi
-    return $result
+    if systemctl cat "$unit" &>/dev/null; then
+        stop_result=0
+        systemctl_stop 20 5 25 "$unit" || { stop_result=$?; echo "$unit could not be stopped"; result=1; }
+        disable_result=0
+        systemctl_disable 20 5 25 "$unit" || { disable_result=$?; echo "$unit could not be disabled"; result=1; }
+    else
+        cat_result=$?
+    fi
+    if [ -n "$attempt_id" ]; then
+        local state_output state_result=0 load_state="" active_state="" unit_file_state="" key value details
+        # Bound diagnostics independently of the existing stop/disable retry budget.
+        state_output=$(timeout 2 systemctl show "$unit" --property=LoadState --property=ActiveState --property=UnitFileState 2>/dev/null) || state_result=$?
+        while IFS='=' read -r key value; do
+            case "$key" in
+                LoadState) load_state=$value ;;
+                ActiveState) active_state=$value ;;
+                UnitFileState) unit_file_state=$value ;;
+            esac
+        done <<< "$state_output"
+        if details=$(jq -cn \
+            --argjson CatExitCode "$cat_result" \
+            --argjson StopExitCode "$stop_result" \
+            --argjson DisableExitCode "$disable_result" \
+            --argjson StateQueryExitCode "$state_result" \
+            --arg LoadState "$load_state" --arg ActiveState "$active_state" --arg UnitFileState "$unit_file_state" \
+            '{CatExitCode: $CatExitCode, Skipped: ($CatExitCode != 0), StopExitCode: $StopExitCode,
+              DisableExitCode: $DisableExitCode, StateQueryExitCode: $StateQueryExitCode,
+              LoadState: $LoadState, ActiveState: $ActiveState, UnitFileState: $UnitFileState}'); then
+            emitSSHDisableEvent "$attempt_id" Completed "$unit" "$start_time" "$((SECONDS - start_seconds))" "$result" "$details" ||
+                echo "WARNING: could not emit SSH disable result event for $unit" >&2
+        else
+            echo "WARNING: could not serialize SSH disable result for $unit" >&2
+        fi
+    fi
+    return "$result"
+}
+
+emitSSHDisableEvent() {
+    local attempt_id=$1 phase=$2 unit=$3 start_time=$4 duration=$5 exit_code=$6 details=$7
+    local task="AKS.CSE.disableSSH" end_time event_json event_file
+    [ -z "$unit" ] || task="${task}.unit"
+    end_time=$(date -u +"%F %T.%3N")
+    if ! event_json=$(jq -cn \
+        --arg Timestamp "$start_time" --arg OperationId "$end_time" --arg TaskName "$task" \
+        --arg AttemptId "$attempt_id" --arg Phase "$phase" --arg Unit "$unit" \
+        --argjson DurationSeconds "$duration" --argjson ExitCode "$exit_code" --argjson Details "$details" \
+        --arg OS "${OS:-}" --arg OSVersion "${OS_VERSION:-}" --arg OSVariant "${OS_VARIANT:-}" \
+        --arg PreProvisionOnly "${PRE_PROVISION_ONLY:-false}" \
+        '{Timestamp: $Timestamp, OperationId: $OperationId, Version: "1.23", TaskName: $TaskName,
+          EventLevel: (if $ExitCode != null and $ExitCode != 0 then "Error" else "Informational" end),
+          EventPid: 0, EventTid: 0,
+          Message: ({SchemaVersion: 1, AttemptId: $AttemptId, Phase: $Phase, Unit: $Unit,
+                     DurationSeconds: $DurationSeconds, ExitCode: $ExitCode,
+                     OS: $OS, OSVersion: $OSVersion, OSVariant: $OSVariant,
+                     PreProvisionOnly: ($PreProvisionOnly == "true")} + $Details | tojson)}'); then
+        return 1
+    fi
+    mkdir -p "$EVENTS_LOGGING_DIR" || return 1
+    event_file=$(mktemp "${EVENTS_LOGGING_DIR%/}/ssh-disable.XXXXXX") || return 1
+    # Publish complete JSON atomically, with unique filenames even within a millisecond.
+    if ! printf '%s\n' "$event_json" > "$event_file" || ! mv "$event_file" "${event_file}.json"; then
+        rm -f "$event_file"
+        return 1
+    fi
 }
 
 # return true if a >= b
