@@ -48,20 +48,24 @@ func run(ctx context.Context, endpoint, container, blob, filePath string) error 
 		return fmt.Errorf("create blob client for %s: %w", endpoint, err)
 	}
 
-	f, err := os.Open(filePath)
+	log.Printf("Uploading %s to %s/%s/%s", filePath, endpoint, container, blob)
+	if err := uploadFile(ctx, client, container, blob, filePath); err != nil {
+		return fmt.Errorf("upload %s -> %s/%s/%s: %w", filePath, endpoint, container, blob, err)
+	}
+	log.Printf("Successfully uploaded %s/%s/%s", endpoint, container, blob)
+	return nil
+}
+
+func uploadFile(ctx context.Context, client *azblob.Client, container, blob, filePath string) error {
+	file, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("open %s: %w", filePath, err)
 	}
-	defer func() { _ = f.Close() }()
+	defer func() { _ = file.Close() }()
 
-	log.Printf("Uploading %s to %s/%s/%s", filePath, endpoint, container, blob)
-	if _, err := client.UploadFile(ctx, container, blob, f, &azblob.UploadFileOptions{
+	_, err = client.UploadFile(ctx, container, blob, file, &azblob.UploadFileOptions{
 		BlockSize:   16 * 1024 * 1024, // 16 MiB blocks
 		Concurrency: 8,
-	}); err != nil {
-		return fmt.Errorf("upload %s -> %s/%s/%s: %w", filePath, endpoint, container, blob, err)
-	}
-
-	log.Printf("Successfully uploaded %s/%s/%s", endpoint, container, blob)
-	return nil
+	})
+	return err
 }
