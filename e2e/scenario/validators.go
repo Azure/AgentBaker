@@ -403,6 +403,10 @@ func RebootVMAndWaitForSSH(ctx context.Context, s *Scenario) error {
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo nohup sh -c 'sleep 1; systemctl reboot' >/dev/null 2>&1 &", 0, "failed to trigger VM reboot"); err != nil {
 		return fmt.Errorf("trigger VM reboot: %w", err)
 	}
+	return waitForSSHAfterReboot(ctx, s, beforeRebootBootID)
+}
+
+func waitForSSHAfterReboot(ctx context.Context, s *Scenario, beforeRebootBootID string) error {
 	cleanupBastionTunnel(s.Runtime.VM.SSHClient)
 	s.Runtime.VM.SSHClient = nil
 
@@ -411,7 +415,7 @@ func RebootVMAndWaitForSSH(ctx context.Context, s *Scenario) error {
 		waitTimeout = 10 * time.Minute
 	}
 
-	err = wait.PollUntilContextTimeout(ctx, 15*time.Second, waitTimeout, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 15*time.Second, waitTimeout, true, func(ctx context.Context) (bool, error) {
 		sshClient, err := DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, s.Runtime.VM.PrivateIP, config.VMSSHPrivateKey)
 		if err != nil {
 			logging.Logf(ctx, "waiting for SSH after reboot: %v", err)

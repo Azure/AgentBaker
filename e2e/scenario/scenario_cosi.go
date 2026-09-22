@@ -255,6 +255,9 @@ func validateACLAnnotationCOSIUpdate(ctx context.Context, s *Scenario, rawTarget
 	if err := waitForSameNodeReadyAfterACLAnnotationUpdate(ctx, s, beforeNode, beforeBootID); err != nil {
 		return err
 	}
+	if err := waitForSSHAfterReboot(ctx, s, beforeBootID); err != nil {
+		return fmt.Errorf("reconnect SSH after ACL annotation update: %w", err)
+	}
 	postUpdatePod := podHTTPServerLinux(s)
 	postUpdatePod.Name += "-cosi-post-update"
 	return ValidatePodRunning(ctx, s, postUpdatePod)

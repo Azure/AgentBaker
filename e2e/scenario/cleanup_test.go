@@ -123,6 +123,28 @@ func TestScenarioCleanupRunsConcurrentlyAndWaits(t *testing.T) {
 	}
 }
 
+func TestScenarioCleanupStopsWaitingWhenCallbackIgnoresCancellation(t *testing.T) {
+	cleanup := &scenarioCleanup{}
+	blocked := make(chan struct{})
+	cleanup.add(func(context.Context) error {
+		<-blocked
+		return nil
+	})
+
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
+	defer cancel()
+	started := time.Now()
+	err := cleanup.runCleanups(ctx)
+	close(blocked)
+
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("runCleanups() error = %v, want context deadline exceeded", err)
+	}
+	if elapsed := time.Since(started); elapsed >= time.Second {
+		t.Fatalf("runCleanups() took %s, want less than 1s", elapsed)
+	}
+}
+
 func TestScenarioCleanupSupportsConcurrentRegistration(t *testing.T) {
 	cleanup := &scenarioCleanup{}
 	s := &Scenario{cleanup: cleanup}

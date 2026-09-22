@@ -54,9 +54,26 @@ func (c *scenarioCleanup) runCleanups(ctx context.Context) error {
 				batchErrs[i] = runWithPanicRecovery(ctx, fn)
 			})
 		}
-		wg.Wait()
-		errs = append(errs, batchErrs...)
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+			errs = append(errs, batchErrs...)
+		case <-ctx.Done():
+			c.close()
+			return errors.Join(append(errs, fmt.Errorf("scenario cleanup callbacks did not stop: %w", ctx.Err()))...)
+		}
 	}
+}
+
+func (c *scenarioCleanup) close() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.cleanups = nil
+	c.closed = true
 }
 
 func (c *scenarioCleanup) takeCleanups() []func(context.Context) error {
