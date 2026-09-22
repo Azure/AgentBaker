@@ -125,10 +125,15 @@ EOF
         Mock kubectl
             printf '20250815T000000Z\ndeb http://evil.example/ubuntu ./\n'
         End
-        When run main
+        run_main_with_xtrace() {
+            set -x
+            main
+        }
+        When run run_main_with_xtrace
         The status should be failure
         The output should include 'golden timestamp has invalid format'
         The output should not include 'evil.example'
+        The stderr should not include 'evil.example'
         The path "${SECURITY_PATCH_CONFIG_DIR}/sources.list" should not be exist
     End
 
