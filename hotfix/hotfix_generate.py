@@ -86,6 +86,7 @@ SOURCE_TO_VARKEY = {
     # either file hotfix-delivers both atomically.
     "ubuntu/ubuntu-snapshot-update.sh": "snapshotUpdateScript",
     "ubuntu/security-update.sh": "securityUpdateScript",
+    "mariner/mariner-package-update.sh": "packageUpdateScriptMariner",
     # Systemd files present in traditional nodecustomdata
     "kubelet.service": "kubeletSystemdService",
     "reconcile-private-hosts.service": "reconcilePrivateHostsService",
