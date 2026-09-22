@@ -2,6 +2,7 @@ package nodeconfigutils
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -15,6 +16,18 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
+
+func decodeFlatcarCustomData(t *testing.T, cfg *aksnodeconfigv1.Configuration) map[string]any {
+	t.Helper()
+	customData, err := CustomDataFlatcar(cfg)
+	require.NoError(t, err)
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	require.NoError(t, err)
+
+	var ignition map[string]any
+	require.NoError(t, json.Unmarshal(decoded, &ignition))
+	return ignition
+}
 
 func TestUnmarshalConfigurationV1(t *testing.T) {
 	tests := []struct {
@@ -270,6 +283,53 @@ func TestCustomDataUsesMultipartBoothookAndCloudConfig(t *testing.T) {
 
 	_, err = reader.NextPart()
 	require.ErrorIs(t, err, io.EOF)
+}
+
+func TestCustomDataFlatcarOmitsArtifactStreamingWhenDisabled(t *testing.T) {
+	ignition := decodeFlatcarCustomData(t, &aksnodeconfigv1.Configuration{})
+
+	_, found := ignition["systemd"]
+	require.False(t, found)
+}
+
+func TestCustomDataFlatcarEnablesArtifactStreaming(t *testing.T) {
+	ignition := decodeFlatcarCustomData(t, &aksnodeconfigv1.Configuration{EnableArtifactStreaming: true})
+
+	systemd, ok := ignition["systemd"].(map[string]any)
+	require.True(t, ok)
+	units, ok := systemd["units"].([]any)
+	require.True(t, ok)
+
+	unitsByName := make(map[string]map[string]any, len(units))
+	for _, item := range units {
+		unit, ok := item.(map[string]any)
+		require.True(t, ok)
+		name, ok := unit["name"].(string)
+		require.True(t, ok)
+		unitsByName[name] = unit
+	}
+
+	for _, name := range []string{
+		"acr-mirror.service",
+		"overlaybd-tcmu.service",
+		"overlaybd-snapshotter.service",
+	} {
+		unit, found := unitsByName[name]
+		require.True(t, found, "expected %s in Ignition systemd units", name)
+		require.Equal(t, true, unit["enabled"])
+		require.Equal(t, false, unit["mask"])
+	}
+
+	setupUnit, found := unitsByName["aks-artifact-streaming.service"]
+	require.True(t, found)
+	require.Equal(t, true, setupUnit["enabled"])
+	contents, ok := setupUnit["contents"].(string)
+	require.True(t, ok)
+	require.Contains(t, contents, "Requires=containerd.service acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service")
+	require.Contains(t, contents, "After=containerd.service acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service")
+	require.Contains(t, contents, "Before=aks-node-controller.service")
+	require.Contains(t, contents, "ExecStart=/opt/acr/bin/acr-config --enable-containerd azurecr.io")
+	require.Contains(t, contents, "WantedBy=multi-user.target")
 }
 
 // decodeBoothook extracts the decoded cloud-boothook part from the base64-encoded custom data.

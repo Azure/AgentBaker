@@ -51,15 +51,41 @@ runcmd:
 `
 
 	flatcarTemplate = `{
-     "ignition": { "version": "3.4.0" },
+     "ignition": { "version": "3.4.0" }%[2]s,
      "storage": {
        "files": [{
          "path": "/opt/azure/containers/aks-node-controller-config.json",
          "mode": 384,
-         "contents": { "source": "data:;base64,%s" }
+         "contents": { "source": "data:;base64,%[1]s" }
        }]
      }
     }`
+
+	artifactStreamingSystemd = `,
+     "systemd": {
+       "units": [
+         {
+           "name": "acr-mirror.service",
+           "enabled": true,
+           "mask": false
+         },
+         {
+           "name": "overlaybd-tcmu.service",
+           "enabled": true,
+           "mask": false
+         },
+         {
+           "name": "overlaybd-snapshotter.service",
+           "enabled": true,
+           "mask": false
+         },
+         {
+           "name": "aks-artifact-streaming.service",
+           "enabled": true,
+           "contents": "[Unit]\nDescription=Configure AKS artifact streaming\nRequires=containerd.service acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service\nAfter=containerd.service acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service\nBefore=aks-node-controller.service\n\n[Service]\nType=oneshot\nExecStart=/opt/acr/bin/acr-config --enable-containerd azurecr.io\nRemainAfterExit=yes\n\n[Install]\nWantedBy=multi-user.target\n"
+         }
+       ]
+     }`
 )
 
 // CustomData builds a base64-encoded MIME multipart document to be used as VM custom data for cloud-init.
@@ -107,7 +133,11 @@ func CustomDataFlatcar(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	}
 
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	customDataYAML := fmt.Sprintf(flatcarTemplate, encodedAksNodeConfigJSON)
+	var artifactStreamingConfig string
+	if cfg.GetEnableArtifactStreaming() {
+		artifactStreamingConfig = artifactStreamingSystemd
+	}
+	customDataYAML := fmt.Sprintf(flatcarTemplate, encodedAksNodeConfigJSON, artifactStreamingConfig)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
