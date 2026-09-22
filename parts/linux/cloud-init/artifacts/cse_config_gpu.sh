@@ -43,7 +43,11 @@ installGPUDriverImageWithFallback() {
 
     if [ "${gpu_install_action}" = "install-skip-build" ]; then
         # Reserve enough of the global CSE budget for the full-install fallback.
-        logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImage" installGPUDriverImage "${gpu_install_action}" 1 0 240
+        local attempts=1
+        local retry_delay_seconds=0
+        local timeout_seconds=240
+        logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImage" installGPUDriverImage \
+            "${gpu_install_action}" "${attempts}" "${retry_delay_seconds}" "${timeout_seconds}"
     else
         logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImage" installGPUDriverImage "${gpu_install_action}"
     fi
