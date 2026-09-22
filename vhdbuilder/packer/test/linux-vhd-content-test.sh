@@ -8,10 +8,6 @@ MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 FLATCAR_OS_NAME="FLATCAR"
 ACL_OS_VARIANT="AZURECONTAINERLINUX"
-# Exact coredns image tag that localdns runs. Kept in lockstep with the pin in
-# vhdbuilder/packer/install-dependencies.sh and with parts/common/components.json; both are
-# enforced by spec/vhdbuilder/packer/coredns_version_spec.sh.
-COREDNS_VERSION="v1.14.3-18"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
@@ -2444,25 +2440,40 @@ testCorednsBinaryExtractedAndCached() {
     return 1
   fi
 
-  # Assert the pinned image itself is cached. This is the only check that can see the MCR
-  # revision suffix - the coredns binary reports the upstream version (1.14.3) and knows
-  # nothing about the -18 build revision, so the binary check below cannot catch a wrong revision.
-  local pinned_coredns_image_cached="false"
-  for coredns_image_url in "${coredns_image_list[@]}"; do
-    if [ "${coredns_image_url##*:}" = "${COREDNS_VERSION}" ]; then
-      pinned_coredns_image_cached="true"
-      break
-    fi
-  done
-  if [ "${pinned_coredns_image_cached}" != "true" ]; then
-    echo "$test: Pinned coredns image ${COREDNS_VERSION} is not cached. Cached coredns images: ${coredns_image_list[*]}"
+  # The version localdns should be running, read from components.json on the VHD rather than
+  # from a literal here - components.json is the single source of truth, and the extraction in
+  # install-dependencies.sh resolves it the same way.
+  local declaredVersion
+  declaredVersion=$(jq -r '
+    .ContainerImages[]
+    | select(.downloadURL | test("/kubernetes/coredns:"))
+    | .multiArchVersionsV2[]
+    | .latestVersion
+  ' "${COMPONENTS_FILEPATH}" | sort -V -r | head -n1)
+  if [ -z "${declaredVersion}" ]; then
+    echo "$test: No coredns version declared in ${COMPONENTS_FILEPATH}"
     return 1
   fi
 
-  # The pinned tag carries an MCR build revision (eg. v1.14.3-18) that the binary does not
-  # report, so compare on the upstream version only.
-  local expectedVersionWithoutV="${COREDNS_VERSION#v}"
-  echo "$test: Expected coredns version (pinned): ${expectedVersionWithoutV}"
+  # Assert the declared image is cached. This is the only check that can see the MCR revision
+  # suffix - the coredns binary reports only its upstream version (eg. 1.14.7) and knows nothing
+  # about the build revision, so the binary check below cannot catch a wrong revision.
+  local declared_coredns_image_cached="false"
+  for coredns_image_url in "${coredns_image_list[@]}"; do
+    if [ "${coredns_image_url##*:}" = "${declaredVersion}" ]; then
+      declared_coredns_image_cached="true"
+      break
+    fi
+  done
+  if [ "${declared_coredns_image_cached}" != "true" ]; then
+    echo "$test: Declared coredns image ${declaredVersion} is not cached. Cached coredns images: ${coredns_image_list[*]}"
+    return 1
+  fi
+
+  # The declared tag carries an MCR build revision the binary does not report, so compare on the
+  # upstream version only.
+  local expectedVersionWithoutV="${declaredVersion#v}"
+  echo "$test: Expected coredns version (from components.json): ${expectedVersionWithoutV}"
 
   local builtInPlugins
   builtInPlugins=$("$binaryPath" --plugins)
@@ -2486,11 +2497,11 @@ testCorednsBinaryExtractedAndCached() {
   echo "$test: Verify extracted coredns version: ${actualVersionWithoutV}"
 
   if [ "${actualVersionWithoutV%-*}" != "${expectedVersionWithoutV%-*}" ]; then
-    echo "$test: Extracted coredns version: ${actualVersion} does not match pinned version: ${expectedVersionWithoutV}"
+    echo "$test: Extracted coredns version: ${actualVersion} does not match declared version: ${expectedVersionWithoutV}"
     return 1
   fi
 
-  echo "$test: Pinned version: ${expectedVersionWithoutV} of coredns binary is extracted and cached at ${binaryPath}"
+  echo "$test: Declared version: ${expectedVersionWithoutV} of coredns binary is extracted and cached at ${binaryPath}"
   return 0
 }
 
