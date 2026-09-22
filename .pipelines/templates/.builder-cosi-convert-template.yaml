@@ -180,9 +180,14 @@ steps:
     displayName: Set SKU Name
 
   - bash: |
-      echo "##vso[task.setvariable variable=DESTINATION_STORAGE_CONTAINER]${CLASSIC_BLOB_STAGING}"
-      echo "DESTINATION_STORAGE_CONTAINER is set to ${CLASSIC_BLOB_STAGING}"
-    displayName: Set Destination Storage Container to Staging
+      set -euo pipefail
+      if [ "${ENVIRONMENT,,}" = "tme" ]; then
+        container="${CLASSIC_BLOB_STAGING}"
+      else
+        container="${CLASSIC_BLOB}"
+      fi
+      echo "##vso[task.setvariable variable=DESTINATION_STORAGE_CONTAINER]${container}"
+    displayName: Set Destination Storage Container
 
   - task: AzureCLI@2
     inputs:
