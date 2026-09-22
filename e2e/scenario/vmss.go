@@ -134,8 +134,17 @@ func compileAKSNodeControllerInDirWithVersion(ctx context.Context, arch, buildDi
 	if err != nil {
 		return nil, fmt.Errorf("failed to find go binary in PATH: %w", err)
 	}
-	binName := "aks-node-controller-" + arch
-	args := []string{"build", "-o", binName, "-v"}
+	// Each build gets its own output directory. Scenarios compile concurrently (see
+	// --parallel, default 60) and the caches in cache.go are per-function, so a shared
+	// output path lets an unversioned build and a version-stamped build overwrite each
+	// other between `go build` and the upload's read - handing a scenario the wrong
+	// binary. A unique directory removes the shared path entirely.
+	outDir, err := os.MkdirTemp("", "aks-node-controller-out-*")
+	if err != nil {
+		return nil, fmt.Errorf("create aks-node-controller output directory: %w", err)
+	}
+	outPath := filepath.Join(outDir, "aks-node-controller-"+arch)
+	args := []string{"build", "-o", outPath, "-v"}
 	if version != "" {
 		args = append(args, "-ldflags", "-X main.Version="+version)
 	}
@@ -149,9 +158,14 @@ func compileAKSNodeControllerInDirWithVersion(ctx context.Context, arch, buildDi
 	logging.Logf(ctx, "compiling aks-node-controller: %q", cmd.String())
 	log, err := cmd.CombinedOutput()
 	if err != nil {
+		os.RemoveAll(outDir)
 		return nil, fmt.Errorf("failed to compile aks-node-controller: %s", string(log))
 	}
-	f, err := os.Open(filepath.Join(cmd.Dir, binName))
+	f, err := os.Open(outPath)
+	// The caller only needs the open handle, so drop the directory now rather than
+	// relying on every caller to clean up. On unix the unlinked file stays readable
+	// through the descriptor; elsewhere this is best-effort and at worst leaks a temp dir.
+	defer os.RemoveAll(outDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open compiled aks-node-controller binary: %w", err)
 	}
