@@ -29,11 +29,11 @@ steps:
       tar --exclude='./.git' \
           -czf "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz" .
       ls -lh "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz"
-    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
     displayName: Bundle source for arm64 COSI convert
 
   - task: PublishPipelineArtifact@1
-    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
     displayName: Publish source bundle for arm64 COSI convert
     inputs:
       # artifactName is the per-job param (e.g. "acl-arm64-tl-gen2"); using it
@@ -207,7 +207,7 @@ steps:
       echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION;isOutput=true]${CAPTURED_SIG_VERSION}"
     name: exportCapturedSigVersion
     displayName: Export Captured SIG Version for arm64 COSI convert
-    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
 
   - bash: |
       set -euo pipefail
