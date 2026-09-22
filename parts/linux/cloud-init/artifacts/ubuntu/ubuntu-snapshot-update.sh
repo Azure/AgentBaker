@@ -91,6 +91,13 @@ main() {
     node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
 
     # retrieve golden timestamp from node annotation
+    local xtrace_enabled=false
+    case "$-" in
+        *x*)
+            set +x
+            xtrace_enabled=true
+            ;;
+    esac
     golden_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-golden-timestamp']}")
     if [ -z "${golden_timestamp}" ]; then
         echo "golden timestamp is not set, skip live patching"
@@ -99,6 +106,9 @@ main() {
     if ! is_valid_golden_timestamp "${golden_timestamp}"; then
         echo "golden timestamp has invalid format; expected YYYYMMDDTHHMMSSZ"
         exit 1
+    fi
+    if [ "${xtrace_enabled}" = true ]; then
+        set -x
     fi
     echo "golden timestamp is: ${golden_timestamp}"
 
