@@ -100,7 +100,13 @@ echo "OK: restart budget ships in localdns.service and resolves as expected"
 `
 
 // localdnsTerminalFailedScript spends the burst against a start that always fails and
-// asserts the unit lands in terminal 'failed' with Result=start-limit-hit.
+// asserts the unit lands in terminal 'failed' because the limiter refused a further start.
+//
+// Measured, and it shapes the assertion: systemd does NOT report Result=start-limit-hit
+// here. It reports the underlying cause -- exit-code for this fault -- and the journal
+// carries "Start request repeated too quickly." So the terminal state is asserted via
+// ActiveState plus the journal refusal line plus the start count, and Result is printed
+// as diagnostic only.
 //
 // ExecStart=/bin/false keeps the cycle at RestartSec (2s), so five starts and the refused
 // sixth complete in ~12s -- well inside the 720s window, and cheap enough to run on every
@@ -146,8 +152,18 @@ done
 [ "$state" = "failed" ] ||
     fail "localdns is '$state' after 120s of failing starts, expected 'failed'. The budget is not bounding this failure, so an unrecoverable fault would restart forever and never reach the state NPD and OnFailure= depend on."
 
-[ "$result" = "start-limit-hit" ] ||
-    fail "localdns reached 'failed' with Result='$result', expected 'start-limit-hit'. It failed for some other reason, so this run did not exercise the budget."
+nrestarts=$(systemctl show localdns.service -p NRestarts --value)
+echo "diagnostic: Result=$result NRestarts=$nrestarts"
 
-echo "OK: localdns reached terminal failed/start-limit-hit"
+# The limiter, not some other failure, is what stopped it. systemd reports the underlying
+# cause in Result, so the refusal only shows up in the journal.
+sudo journalctl -u localdns.service --since "-5 min" --no-pager |
+    grep -q "Start request repeated too quickly" ||
+    fail "localdns reached 'failed' but the journal has no 'Start request repeated too quickly'. It failed for some other reason, so this run did not exercise the budget."
+
+burst=$(systemctl show localdns.service -p StartLimitBurst --value)
+[ "$nrestarts" -ge "$burst" ] ||
+    fail "localdns restarted $nrestarts times against a burst of $burst; the limiter did not bound this failure."
+
+echo "OK: localdns reached terminal 'failed' via the start limiter"
 `
