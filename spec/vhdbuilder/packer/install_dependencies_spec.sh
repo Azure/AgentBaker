@@ -35,39 +35,19 @@ Describe 'installAndConfigureArtifactStreaming'
   dnf_install() {
     echo "dnf_install $*" >> "$ARTIFACT_STREAMING_CALLS"
   }
-  rpm2cpio() {
-    echo "rpm2cpio $*" >> "$ARTIFACT_STREAMING_CALLS"
-    return "${RPM2CPIO_RC:-0}"
-  }
-  cpio() {
-    echo "cpio $*" >> "$ARTIFACT_STREAMING_CALLS"
-    [ "${CPIO_RC:-0}" -eq 0 ] || return "$CPIO_RC"
-    mkdir -p opt/acr/bin usr/lib/systemd/system
-    : > opt/acr/bin/acr
-    : > usr/lib/systemd/system/acr-mirror.service
-  }
-  cp() {
-    echo "cp $*" >> "$ARTIFACT_STREAMING_CALLS"
-    return "${CP_RC:-0}"
-  }
-  install() {
-    echo "install $*" >> "$ARTIFACT_STREAMING_CALLS"
-    return "${INSTALL_RC:-0}"
+  retrycmd_if_failure() {
+    echo "retrycmd_if_failure $*" >> "$ARTIFACT_STREAMING_CALLS"
+    return "${DNF_RC:-0}"
   }
   rm() {
     echo "rm $*" >> "$ARTIFACT_STREAMING_CALLS"
     command rm "$@"
   }
 
-  It 'extracts the rpm payload on Azure Container Linux'
+  It 'installs the rpm with dnf on Azure Container Linux'
     OS="AZURECONTAINERLINUX"
     When call installAndConfigureArtifactStreaming "https://example/acr-mirror.rpm" "1.0.0"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "rpm2cpio"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "cpio -idm"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "cp -a"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "/opt/. /opt/"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "install -m 0644"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "/usr/lib/systemd/system/acr-mirror.service /etc/systemd/system/acr-mirror.service"
+    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "retrycmd_if_failure 10 2 120 dnf install -y ./acr-mirror.rpm"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should not include "dnf_install"
     The status should be success
   End
@@ -77,35 +57,24 @@ Describe 'installAndConfigureArtifactStreaming'
     TEST_ARM64=1
     When call installAndConfigureArtifactStreaming "https://example/acr-mirror.rpm" "1.0.0"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should include "retrycmd_curl_file 10 5 60 ./acr-mirror-arm64.rpm https://example/acr-mirror-arm64.rpm"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "rpm2cpio"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "/acr-mirror-arm64.rpm"
+    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "retrycmd_if_failure 10 2 120 dnf install -y ./acr-mirror-arm64.rpm"
     The status should be success
   End
 
-  It 'extracts the rpm payload for the Azure Linux ACL variant'
+  It 'installs the rpm with dnf for the Azure Linux ACL variant'
     OS="AZURELINUX"
     OS_VARIANT="AZURECONTAINERLINUX"
     When call installAndConfigureArtifactStreaming "https://example/acr-mirror.rpm" "1.0.0"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "rpm2cpio"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "cpio -idm"
+    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "retrycmd_if_failure 10 2 120 dnf install -y ./acr-mirror.rpm"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should not include "dnf_install"
     The status should be success
   End
 
-  It 'fails when the ACL rpm payload cannot be extracted'
+  It 'fails when dnf cannot install the ACL rpm'
     OS="AZURECONTAINERLINUX"
-    RPM2CPIO_RC=1
+    DNF_RC=1
     When run installAndConfigureArtifactStreaming "https://example/acr-mirror.rpm" "1.0.0"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "rpm2cpio"
-    The status should equal "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
-  End
-
-  It 'fails when the acr-mirror service cannot be installed on ACL'
-    OS="AZURECONTAINERLINUX"
-    INSTALL_RC=1
-    When run installAndConfigureArtifactStreaming "https://example/acr-mirror.rpm" "1.0.0"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "install -m 0644"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "/usr/lib/systemd/system/acr-mirror.service /etc/systemd/system/acr-mirror.service"
+    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "retrycmd_if_failure 10 2 120 dnf install -y ./acr-mirror.rpm"
     The status should equal "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
   End
 End
