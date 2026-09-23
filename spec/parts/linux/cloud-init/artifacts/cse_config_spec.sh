@@ -357,12 +357,13 @@ disable sshd"
             When run disableSSH
             The output should include "sshd could not be stopped"
             The output should include "disable sshd"
+            The output should include "disable sshd.socket"
             The status should equal 172
             SSH_EVENT_FILTER='
                 [.[].Message | fromjson] |
                 any(.[]; .Unit == "sshd" and .StopExitCode == 1 and .DisableExitCode == 0) and
                 any(.[]; .Unit == "" and .ExitCode == 172 and .Phase == "Completed") and
-                all(.[]; .Unit != "sshd.socket")
+                any(.[]; .Unit == "sshd.socket" and .StopExitCode == 0 and .DisableExitCode == 0)
             '
             The result of function ssh_events_match should equal true
         End

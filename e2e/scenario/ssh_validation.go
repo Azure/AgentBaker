@@ -6,6 +6,11 @@ set -euo pipefail
 
 if [[ "$ID" == "ubuntu" ]]; then
     units=(ssh.service)
+    # Ubuntu 22.10+ can serve port 22 from ssh.socket, and an enabled-but-inactive
+    # socket reopens it on the next boot, so check it whenever the image ships it.
+    if systemctl cat ssh.socket &>/dev/null; then
+        units+=(ssh.socket)
+    fi
 elif [[ "$ID" == "azurecontainerlinux" || ( "$ID" == "azurelinux" && "${VARIANT_ID:-}" == "azurecontainerlinux" ) ]]; then
     units=(sshd.socket sshd.service)
 else
