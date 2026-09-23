@@ -375,8 +375,73 @@ func CustomDataWithNBCCmdHack(customData, binaryURL string) (string, error) {
 	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
 }
 
-// CustomDataWithANCHotfixFlowFixture seeds the hotfix pointer that download-hotfix reads and
-// replaces the VHD-baked ANC with a PR-built binary stamped to the hotfix base version.
+// ancFixtureFileEntry mirrors baker's boothookFileEntry so fixture-delivered files land on
+// disk through the same gzip+base64 heredoc idiom production custom data uses.
+const ancFixtureFileEntry = `cat <<'EOF' | base64 -d | gzip -d >%[1]s
+%[2]s
+EOF
+chmod %[3]s %[1]s
+`
+
+func gzipBase64(content []byte) (string, error) {
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	if _, err := gw.Write(content); err != nil {
+		return "", fmt.Errorf("gzip fixture file: %w", err)
+	}
+	if err := gw.Close(); err != nil {
+		return "", fmt.Errorf("close gzip writer: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+}
+
+// ancLauncherOverrideCmd renders shell that replaces the VHD-baked launcher, and the hotfix
+// helper it sources on branches that ship one, with the working-tree copies.
+//
+// Without this the scenario exercises whichever launcher the E2E VHD was built from, so a PR
+// that changes the launcher or its hotfix helper is validated against the old code rather than
+// the code under review. The helper is optional because branches that predate it carry the same
+// flow inline in the launcher.
+func ancLauncherOverrideCmd() (string, error) {
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		return "", fmt.Errorf("locate repo root for launcher override: %w", err)
+	}
+
+	files := []struct {
+		repoPath string
+		destPath string
+		required bool
+	}{
+		{ancLauncherRepoPath, ancLauncherPath, true},
+		{ancHotfixHelperRepoPath, ancHotfixHelperPath, false},
+	}
+
+	var b strings.Builder
+	for _, f := range files {
+		content, err := os.ReadFile(filepath.Join(repoRoot, f.repoPath))
+		if err != nil {
+			if !f.required && errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return "", fmt.Errorf("read %s: %w", f.repoPath, err)
+		}
+		encoded, err := gzipBase64(content)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString(fmt.Sprintf(ancFixtureFileEntry, f.destPath, encoded, "0755"))
+	}
+	return b.String(), nil
+}
+
+// CustomDataWithANCHotfixFlowFixture seeds the hotfix pointer that download-hotfix reads,
+// replaces the VHD-baked ANC with a PR-built binary stamped to the hotfix base version, and
+// overwrites the VHD-baked launcher with the working-tree copy.
+//
+// Stamping the binary is what keeps the scenario honest: download-hotfix only upgrades when the
+// running binary shares the pointer's YYYYMM.DD base and sits at a strictly lower patch, so an
+// unstamped node would silently log "ANC version not targeted by hotfix" and still pass.
 //
 // It deliberately does not write enabled_features.sh: the launcher runs download-hotfix purely
 // on the presence of the pointer file, so leaving ENABLE_PROVISIONING_HOTFIX unset keeps
@@ -387,7 +452,12 @@ func CustomDataWithANCHotfixFlowFixture(customData, binaryURL string) (string, e
 		return "", fmt.Errorf("decode custom data: %w", err)
 	}
 
-	fixtureCmd := fmt.Sprintf(`cat >%[1]s <<'EOF'
+	launcherOverride, err := ancLauncherOverrideCmd()
+	if err != nil {
+		return "", err
+	}
+
+	fixtureCmd := fmt.Sprintf(`%[6]scat >%[1]s <<'EOF'
 {"hotfixes":{%[2]q:%[3]q}}
 EOF
 chmod 0644 %[1]s
@@ -399,6 +469,7 @@ chmod +x %[5]s`,
 		ancHotfixFlowTargetVersion,
 		binaryURL,
 		ancBakedBinaryPath,
+		launcherOverride,
 	)
 
 	customData = strings.Replace(string(decoded), "#hotfix-marker", fixtureCmd, 1)
