@@ -362,13 +362,8 @@ EOF
             Mock detect_confidential_vm_platform
                 return 1
             End
-            Mock chrony_emit_event
-                echo "event: $*" >&2
-            End
-
             When call configure_ubuntu_2604_cvm_time_sync
             The error should include "unable to determine Ubuntu 26.04 CVM platform"
-            The error should include "AKS.CSE.chrony.platformDetectionFailed"
             The status should equal 244
         End
 
@@ -377,13 +372,8 @@ EOF
             Mock detect_confidential_vm_platform
                 echo "sev-snp"
             End
-            Mock chrony_emit_event
-                echo "event: $*"
-            End
-
             When call configure_ubuntu_2604_cvm_time_sync
             The output should include "preserving the existing Hyper-V PHC Chrony configuration"
-            The output should include "AKS.CSE.chrony.usingPHC"
             The contents of file "$CHRONY_CONF" should include "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
             The status should be success
         End
@@ -395,14 +385,9 @@ EOF
             Mock configure_chrony
                 return 1
             End
-            Mock chrony_emit_event
-                echo "event: $*" >&2
-            End
-
             When call configure_ubuntu_2604_cvm_time_sync
             The output should include "AMD SEV-SNP detected"
             The error should include "failed to configure Chrony with the Hyper-V PHC source"
-            The error should include "AKS.CSE.chrony.configurationFailed"
             The status should equal 246
         End
 
@@ -424,10 +409,6 @@ EOF
             Mock verify_chrony_ntp_sync
                 echo "verified NTP synchronization"
             End
-            Mock chrony_emit_event
-                echo "event: $*"
-            End
-
             When call configure_ubuntu_2604_cvm_time_sync
             The output should include "Intel TDX detected"
             The output should include "verified NTP synchronization"
@@ -522,14 +503,9 @@ EOF
             Mock verify_chrony_ntp_sync
                 echo "unexpected NTP verification"
             End
-            Mock chrony_emit_event
-                echo "event: $*" >&2
-            End
-
             When call configure_ubuntu_2604_cvm_time_sync
             The output should not include "unexpected NTP verification"
             The error should include "failed to configure Chrony with the Ubuntu NTP pools"
-            The error should include "AKS.CSE.chrony.configurationFailed"
             The status should equal 246
         End
 
@@ -537,14 +513,9 @@ EOF
             Mock chronyc
                 echo "$*"
             End
-            Mock chrony_emit_event
-                echo "event: $*"
-            End
-
             When call verify_chrony_ntp_sync
             The output should include "waitsync 12 0 0 5"
             The output should include "NTP synchronization confirmed through the Ubuntu NTP pools"
-            The output should include "AKS.CSE.chrony.ntpSynchronized"
             The status should be success
         End
 
@@ -562,13 +533,8 @@ EOF
                         ;;
                 esac
             End
-            Mock chrony_emit_event
-                echo "event: $*" >&2
-            End
-
             When call verify_chrony_ntp_sync
             The error should include "NTP not reachable"
-            The error should include "AKS.CSE.chrony.ntpUnavailable"
             The error should include "mock Chrony sources"
             The error should include "mock Chrony tracking"
             The status should equal 245
@@ -587,10 +553,6 @@ EOF
             Mock verify_chrony_ntp_sync
                 exit 245
             End
-            Mock chrony_emit_event
-                :
-            End
-
             When call configure_ubuntu_2604_cvm_time_sync
             The output should include "Intel TDX detected"
             The status should equal 245

@@ -1,31 +1,5 @@
 #!/bin/bash
 
-chrony_emit_event() {
-    local task=$1
-    local message=$2
-    local level=${3:-Informational}
-    local events_file_name
-    local timestamp
-    local json_string
-
-    events_file_name=$(date +%s%3N)
-    timestamp=$(date +"%F %T.%3N")
-    json_string=$(jq -n \
-        --arg Timestamp "${timestamp}" \
-        --arg OperationId "${timestamp}" \
-        --arg Version "1.23" \
-        --arg TaskName "${task}" \
-        --arg EventLevel "${level}" \
-        --arg Message "${message}" \
-        --arg EventPid "0" \
-        --arg EventTid "0" \
-        '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
-    )
-
-    mkdir -p "${EVENTS_LOGGING_DIR}"
-    echo "${json_string}" > "${EVENTS_LOGGING_DIR}${events_file_name}.json"
-}
-
 is_ubuntu_2604_cvm() {
     [ "$OS" = "$UBUNTU_OS_NAME" ] || return 1
     [ "${OS_VERSION:-}" = "26.04" ] || return 1
@@ -211,12 +185,10 @@ verify_chrony_ntp_sync() {
 
     if chronyc waitsync "$max_attempts" 0 0 "$retry_interval_seconds"; then
         echo "NTP synchronization confirmed through the Ubuntu NTP pools"
-        chrony_emit_event "AKS.CSE.chrony.ntpSynchronized" "NTP synchronization confirmed through the Ubuntu NTP pools"
         return 0
     fi
 
     echo "ERROR: NTP not reachable; Chrony did not synchronize" >&2
-    chrony_emit_event "AKS.CSE.chrony.ntpUnavailable" "NTP not reachable after ${max_attempts} synchronization checks; failing provisioning" "Error"
     echo "Chrony source diagnostics:" >&2
     chronyc sources -v >&2 || echo "ERROR: unable to retrieve Chrony source diagnostics" >&2
     echo "Chrony tracking diagnostics:" >&2
@@ -230,27 +202,22 @@ configure_ubuntu_2604_cvm_time_sync() {
 
     if ! platform="$(detect_confidential_vm_platform)"; then
         echo "ERROR: unable to determine Ubuntu 26.04 CVM platform with systemd-detect-virt --cvm" >&2
-        chrony_emit_event "AKS.CSE.chrony.platformDetectionFailed" "Unable to distinguish SEV-SNP from TDX using systemd-detect-virt --cvm" "Error"
         return "$ERR_CVM_PLATFORM_DETECTION_FAIL"
     fi
 
     case "$platform" in
         sev-snp)
             echo "AMD SEV-SNP detected; preserving the existing Hyper-V PHC Chrony configuration"
-            chrony_emit_event "AKS.CSE.chrony.usingPHC" "AMD SEV-SNP detected; preserving the existing /dev/ptp0 PHC configuration"
             if ! configure_chrony; then
                 echo "ERROR: failed to configure Chrony with the Hyper-V PHC source for AMD SEV-SNP" >&2
-                chrony_emit_event "AKS.CSE.chrony.configurationFailed" "Failed to configure Chrony with the Hyper-V PHC source for AMD SEV-SNP" "Error"
                 return "$ERR_CHRONY_CONFIG_FAIL"
             fi
             ;;
         tdx)
             echo "Intel TDX detected; configuring Chrony to use the Ubuntu NTP pools"
-            chrony_emit_event "AKS.CSE.chrony.usingNTP" "Intel TDX detected; using only the approved Ubuntu NTP pools"
             ntp_pools="$(ubuntu_ntp_pools)"
             if ! configure_chrony "$ntp_pools"; then
                 echo "ERROR: failed to configure Chrony with the Ubuntu NTP pools for Intel TDX" >&2
-                chrony_emit_event "AKS.CSE.chrony.configurationFailed" "Failed to configure Chrony with the Ubuntu NTP pools for Intel TDX" "Error"
                 return "$ERR_CHRONY_CONFIG_FAIL"
             fi
             verify_chrony_ntp_sync
