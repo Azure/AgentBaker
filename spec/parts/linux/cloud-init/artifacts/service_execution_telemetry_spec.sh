@@ -38,8 +38,30 @@ CPUUsageNSec=250000000
 EOF
     }
 
+    emitted_event_file_name_class() {
+        local name
+        name="$(basename "$(ls "${EVENTS_ROOT}"/*)")"
+        if printf '%s' "${name}" | grep -Eq '^[0-9]+\.json$'; then
+            echo collectable
+        else
+            echo "not-collectable:${name}"
+        fi
+    }
+
     BeforeEach 'setup_service_execution_telemetry_test'
     AfterEach 'cleanup_service_execution_telemetry_test'
+
+    It 'names the event file so WALinuxAgent collects it'
+        write_systemctl_output
+
+        When run env \
+            SYSTEMCTL_BIN="${SYSTEMCTL_MOCK}" \
+            SYSTEMCTL_OUTPUT="${SYSTEMCTL_OUTPUT}" \
+            EVENTS_LOGGING_DIR="${EVENTS_ROOT}" \
+            bash ./parts/linux/cloud-init/artifacts/service-execution-telemetry.sh cgroup-memory-telemetry.service
+        The status should be success
+        The result of function emitted_event_file_name_class should equal collectable
+    End
 
     It 'emits execution metrics including a supported memory peak'
         write_systemctl_output

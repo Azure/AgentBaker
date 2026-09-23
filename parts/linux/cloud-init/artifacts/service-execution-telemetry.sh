@@ -139,7 +139,9 @@ main() {
         } + if $MEMORY_PEAK_AVAILABLE then {MemoryPeakBytes: $MEMORY_PEAK_BYTES} else {} end')
 
     event_timestamp=$(date +"%F %T.%3N")
-    event_file_name="$(date +%s%3N)-service-execution-${service_name}.json"
+    # WALinuxAgent only collects extension event files matching ^[0-9]+\.json$ and
+    # silently drops anything else, so the name must stay digits-only.
+    event_file_name="$(date +%s%3N).json"
     event_json=$(jq -n \
         --arg Timestamp "${event_timestamp}" \
         --arg OperationId "${event_timestamp}" \
