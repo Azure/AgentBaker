@@ -1,7 +1,6 @@
 #!/bin/bash
 set -o pipefail
 
-eval "$(sed -n '/^extractZstdRPMPayload() {/,/^}/p' vhdbuilder/packer/install-dependencies.sh)"
 eval "$(sed -n '/^installAndConfigureArtifactStreaming() {/,/^}/p' vhdbuilder/packer/install-dependencies.sh)"
 
 Describe 'installAndConfigureArtifactStreaming'
@@ -36,10 +35,9 @@ Describe 'installAndConfigureArtifactStreaming'
   dnf_install() {
     echo "dnf_install $*" >> "$ARTIFACT_STREAMING_CALLS"
   }
-  python3() {
-    cat > /dev/null
-    echo "python3 $*" >> "$ARTIFACT_STREAMING_CALLS"
-    return "${PYTHON3_RC:-0}"
+  rpm2cpio() {
+    echo "rpm2cpio $*" >> "$ARTIFACT_STREAMING_CALLS"
+    return "${RPM2CPIO_RC:-0}"
   }
   cpio() {
     echo "cpio $*" >> "$ARTIFACT_STREAMING_CALLS"
@@ -64,7 +62,7 @@ Describe 'installAndConfigureArtifactStreaming'
   It 'extracts the rpm payload on Azure Container Linux'
     OS="AZURECONTAINERLINUX"
     When call installAndConfigureArtifactStreaming "https://example/acr-mirror.rpm" "1.0.0"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "python3 -"
+    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "rpm2cpio"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should include "cpio -idm"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should include "cp -a"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should include "/opt/. /opt/"
@@ -79,7 +77,7 @@ Describe 'installAndConfigureArtifactStreaming'
     TEST_ARM64=1
     When call installAndConfigureArtifactStreaming "https://example/acr-mirror.rpm" "1.0.0"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should include "retrycmd_curl_file 10 5 60 ./acr-mirror-arm64.rpm https://example/acr-mirror-arm64.rpm"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "python3 -"
+    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "rpm2cpio"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should include "/acr-mirror-arm64.rpm"
     The status should be success
   End
@@ -88,7 +86,7 @@ Describe 'installAndConfigureArtifactStreaming'
     OS="AZURELINUX"
     OS_VARIANT="AZURECONTAINERLINUX"
     When call installAndConfigureArtifactStreaming "https://example/acr-mirror.rpm" "1.0.0"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "python3 -"
+    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "rpm2cpio"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should include "cpio -idm"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should not include "dnf_install"
     The status should be success
@@ -96,9 +94,9 @@ Describe 'installAndConfigureArtifactStreaming'
 
   It 'fails when the ACL rpm payload cannot be extracted'
     OS="AZURECONTAINERLINUX"
-    PYTHON3_RC=1
+    RPM2CPIO_RC=1
     When run installAndConfigureArtifactStreaming "https://example/acr-mirror.rpm" "1.0.0"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "python3 -"
+    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "rpm2cpio"
     The status should equal "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
   End
 

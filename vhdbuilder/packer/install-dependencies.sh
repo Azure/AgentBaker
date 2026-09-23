@@ -200,58 +200,6 @@ downloadAndInstallCriTools() {
   installCriCtlPackage "${version}"
 }
 
-extractZstdRPMPayload() {
-  local rpm_path="$1"
-  python3 - "$rpm_path" <<'PY'
-import ctypes
-import struct
-import sys
-
-MAX_DECOMPRESSED_SIZE = 512 * 1024 * 1024
-RPM_HEADER_MAGIC = b"\x8e\xad\xe8\x01"
-RPM_LEAD_MAGIC = b"\xed\xab\xee\xdb"
-
-with open(sys.argv[1], "rb") as rpm:
-    if rpm.read(4) != RPM_LEAD_MAGIC:
-        raise SystemExit("invalid RPM lead")
-    rpm.seek(96)
-    for padded in (True, False):
-        header = rpm.read(16)
-        if len(header) != 16 or header[:4] != RPM_HEADER_MAGIC:
-            raise SystemExit("invalid RPM header")
-        index_count, data_length = struct.unpack(">II", header[8:16])
-        rpm.seek(index_count * 16 + data_length, 1)
-        if padded:
-            rpm.seek((-rpm.tell()) % 8, 1)
-    payload = rpm.read()
-
-libzstd = ctypes.CDLL("libzstd.so.1")
-libzstd.ZSTD_decompressBound.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
-libzstd.ZSTD_decompressBound.restype = ctypes.c_ulonglong
-libzstd.ZSTD_decompress.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t]
-libzstd.ZSTD_decompress.restype = ctypes.c_size_t
-libzstd.ZSTD_isError.argtypes = [ctypes.c_size_t]
-libzstd.ZSTD_isError.restype = ctypes.c_uint
-libzstd.ZSTD_getErrorName.argtypes = [ctypes.c_size_t]
-libzstd.ZSTD_getErrorName.restype = ctypes.c_char_p
-
-source = ctypes.create_string_buffer(payload)
-bound = libzstd.ZSTD_decompressBound(source, len(payload))
-if libzstd.ZSTD_isError(bound):
-    error = libzstd.ZSTD_getErrorName(bound).decode()
-    raise SystemExit(f"failed to inspect RPM payload: {error}")
-if bound == 0 or bound > MAX_DECOMPRESSED_SIZE:
-    raise SystemExit(f"invalid RPM payload decompression bound: {bound}")
-
-destination = ctypes.create_string_buffer(bound)
-size = libzstd.ZSTD_decompress(destination, bound, source, len(payload))
-if libzstd.ZSTD_isError(size):
-    error = libzstd.ZSTD_getErrorName(size).decode()
-    raise SystemExit(f"failed to decompress RPM payload: {error}")
-sys.stdout.buffer.write(destination.raw[:size])
-PY
-}
-
 installAndConfigureArtifactStreaming() {
   local downloadURL="$1"
   local version="$2"
@@ -268,7 +216,7 @@ installAndConfigureArtifactStreaming() {
     local mirror_download_path_absolute
     extract_dir="$(mktemp -d)" || exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
     mirror_download_path_absolute="$(readlink -f "$MIRROR_DOWNLOAD_PATH")"
-    if ! (cd "$extract_dir" && extractZstdRPMPayload "$mirror_download_path_absolute" | cpio -idm); then
+    if ! (cd "$extract_dir" && rpm2cpio "$mirror_download_path_absolute" | cpio -idm); then
       rm -rf "$extract_dir"
       exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
     fi
